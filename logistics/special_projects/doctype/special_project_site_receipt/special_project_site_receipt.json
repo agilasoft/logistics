@@ -5,13 +5,14 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "site_material_row",
+  "package_row",
   "commodity",
   "warehouse_item",
   "description",
   "qty_received",
   "uom",
   "receipt_date",
+  "lifecycle_stage",
   "status",
   "column_break_src",
   "source_job_type",
@@ -24,10 +25,10 @@
  ],
  "fields": [
   {
-   "fieldname": "site_material_row",
+   "fieldname": "package_row",
    "fieldtype": "Int",
    "in_list_view": 1,
-   "label": "Material Row"
+   "label": "Package Row"
   },
   {
    "fieldname": "commodity",
@@ -71,6 +72,14 @@
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "Receipt Date"
+  },
+  {
+   "fieldname": "lifecycle_stage",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Lifecycle Stage",
+   "link_filters": "[[\"Lifecycle Stage\", \"for_special_project\", \"=\", 1]]",
+   "options": "Lifecycle Stage"
   },
   {
    "default": "Posted",

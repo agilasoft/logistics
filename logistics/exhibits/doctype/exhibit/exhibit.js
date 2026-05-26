@@ -165,6 +165,19 @@ frappe.ui.form.on("Exhibit", {
 				});
 			}, __("Lifecycle"));
 
+			frm.add_custom_button(__("Apply Lifecycle Template"), function () {
+				if (window.logistics_open_apply_lifecycle_template_dialog) {
+					window.logistics_open_apply_lifecycle_template_dialog(frm, "Exhibit");
+				} else {
+					frappe.require(
+						"/assets/logistics/js/apply_lifecycle_template_dialog.js",
+						function () {
+							window.logistics_open_apply_lifecycle_template_dialog(frm, "Exhibit");
+						}
+					);
+				}
+			}, __("Lifecycle"));
+
 			frm.add_custom_button(__("New Docket"), function () {
 				frappe.new_doc("Docket", { exhibit: frm.doc.name });
 			}, __("Create"));

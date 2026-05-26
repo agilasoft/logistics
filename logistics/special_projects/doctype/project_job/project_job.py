@@ -23,7 +23,7 @@ class ProjectJob(Document):
 
 	def on_submit(self):
 		try:
-			from logistics.special_projects.special_project_site_materials import (
+			from logistics.special_projects.special_project_packages import (
 				post_site_receipts_from_project_doc,
 			)
 
@@ -31,12 +31,12 @@ class ProjectJob(Document):
 		except Exception:
 			frappe.log_error(
 				frappe.get_traceback(),
-				f"Project Job {self.name}: site materials receipt post",
+				f"Project Job {self.name}: package delivery post",
 			)
 
 	def on_cancel(self):
 		try:
-			from logistics.special_projects.special_project_site_materials import (
+			from logistics.special_projects.special_project_packages import (
 				cancel_receipts_for_project_doc,
 			)
 
@@ -44,5 +44,5 @@ class ProjectJob(Document):
 		except Exception:
 			frappe.log_error(
 				frappe.get_traceback(),
-				f"Project Job {self.name}: site materials receipt cancel",
+				f"Project Job {self.name}: package delivery cancel",
 			)

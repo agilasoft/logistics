@@ -244,10 +244,17 @@ doctype_js = {
 	],
 	"Special Project": [
 		"logistics/public/js/logistics_lifecycle_stepper.js?v=3",
+		"logistics/public/js/apply_lifecycle_template_dialog.js?v=1",
 		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/public/js/sales_invoice_dialog.js",
+		"logistics/public/js/purchase_invoice_dialog.js",
+		"logistics/public/js/profitability_form.js",
+		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
 	],
 	"Exhibit": [
 		"logistics/public/js/logistics_lifecycle_stepper.js?v=3",
+		"logistics/public/js/apply_lifecycle_template_dialog.js?v=1",
 	],
 	"Account": "logistics/public/js/account_job_profit.js",
 	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
@@ -404,6 +411,7 @@ for _dt in (
 	"Declaration",
 	"General Job",
 	"Project Job",
+	"Special Project",
 ):
 	if _dt not in doc_events:
 		doc_events[_dt] = {}

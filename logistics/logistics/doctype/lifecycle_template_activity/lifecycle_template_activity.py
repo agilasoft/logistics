@@ -4,5 +4,5 @@
 from frappe.model.document import Document
 
 
-class SpecialProjectSiteMaterial(Document):
+class LifecycleTemplateActivity(Document):
 	pass

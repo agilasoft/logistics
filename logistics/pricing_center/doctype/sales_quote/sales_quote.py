@@ -490,13 +490,6 @@ class SalesQuote(Document):
 			return
 
 		main_service = getattr(self, "main_service", None)
-		quotation_type = getattr(self, "quotation_type", None)
-
-		if quotation_type == "Project" and not _sq_strip_or_none(getattr(self, "project_name", None)):
-			frappe.throw(
-				_("Project Name is required for Project quotations."),
-				title=_("Project Name Required"),
-			)
 
 		if main_service == "Exhibits":
 			missing_fields = []
@@ -1005,11 +998,11 @@ def _create_special_project_from_sales_quote(sales_quote):
 	populate_programme_charges_from_sales_quote(
 		sp, sales_quote.name, clear_existing=True, service_types="__all__"
 	)
-	from logistics.special_projects.special_project_site_materials import (
-		seed_site_materials_from_sales_quote,
+	from logistics.special_projects.special_project_packages import (
+		seed_packages_from_sales_quote,
 	)
 
-	seed_site_materials_from_sales_quote(sp, sales_quote, clear_existing=False)
+	seed_packages_from_sales_quote(sp, sales_quote, clear_existing=False)
 	sp.save(ignore_permissions=True)
 	frappe.db.commit()
 

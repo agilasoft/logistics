@@ -19,6 +19,7 @@ CHARGES_FIELD_BY_JOB = {
 	"Declaration": "charges",
 	"General Job": "charges",
 	"Project Job": "charges",
+	"Special Project": "charges",
 }
 
 

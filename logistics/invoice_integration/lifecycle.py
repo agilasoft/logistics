@@ -12,7 +12,14 @@ from frappe import _
 from frappe.utils import getdate, today, flt
 
 # Job doctypes that have invoice monitoring fields
-JOB_DOCTYPES = ("Transport Job", "Air Shipment", "Sea Shipment", "Warehouse Job", "Declaration")
+JOB_DOCTYPES = (
+    "Transport Job",
+    "Air Shipment",
+    "Sea Shipment",
+    "Warehouse Job",
+    "Declaration",
+    "Special Project",
+)
 
 # Child table doctypes for charges (have purchase_invoice_status, purchase_invoice, sales_invoice_status, sales_invoice)
 CHARGE_CHILD_DOCTYPES = (
@@ -23,6 +30,7 @@ CHARGE_CHILD_DOCTYPES = (
     "Declaration Charges",
     "Air Consolidation Charges",
     "Sea Consolidation Charges",
+    "Special Project Charges",
 )
 
 # Fields to update on jobs
@@ -99,7 +107,8 @@ def get_jobs_linked_to_purchase_invoice(pi_name: str) -> list:
     if ref_dt and ref_name and ref_dt in JOB_DOCTYPES:
         jobs.append((ref_dt, ref_name))
 
-    # 3. Via PI Item reference to Air Shipment / Sea Shipment (e.g. consolidation PI allocated per job)
+    # 3. Via PI Item reference to a logistics job (e.g. consolidation PI allocated per shipment,
+    #    or Special Project PI created from its charges).
     items = frappe.get_all(
         "Purchase Invoice Item",
         filters={"parent": pi_name, "parenttype": "Purchase Invoice"},
@@ -108,7 +117,7 @@ def get_jobs_linked_to_purchase_invoice(pi_name: str) -> list:
     for row in items:
         rdt = row.get("reference_doctype")
         rnm = row.get("reference_name")
-        if rdt and rnm and rdt in ("Air Shipment", "Sea Shipment") and frappe.db.exists(rdt, rnm):
+        if rdt and rnm and rdt in JOB_DOCTYPES and frappe.db.exists(rdt, rnm):
             jobs.append((rdt, rnm))
 
     return list(set(jobs))
@@ -405,5 +414,6 @@ def _get_charges_field(doctype: str) -> str:
         "Sea Shipment": "charges",
         "Warehouse Job": "charges",
         "Declaration": "charges",
+        "Special Project": "charges",
     }
     return mapping.get(doctype, "charges")

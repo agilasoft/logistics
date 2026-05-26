@@ -3,12 +3,12 @@
 
 // Global helper used by the "Submission Blocked" msgprint primary_action to
 // jump to the relevant tab on the current Special Project form, then close
-// the dialog. The Python side passes `{ fieldname: "site_materials_tab" }`
+// the dialog. The Python side passes `{ fieldname: "fulfillment_tab" }`
 // (or "lifecycle_tab") as args.
 window.logistics = window.logistics || {};
 window.logistics.special_project_modals = window.logistics.special_project_modals || {};
 window.logistics.special_project_modals.go_to_tab = function (args) {
-	const fieldname = (args && args.fieldname) || "site_materials_tab";
+	const fieldname = (args && args.fieldname) || "fulfillment_tab";
 	const frm = cur_frm;
 	if (frm && frm.fields_dict && frm.fields_dict[fieldname] && frm.fields_dict[fieldname].tab) {
 		try {
@@ -75,10 +75,14 @@ function _setup_lifecycle_jobs_duplicate_fix(frm) {
 	grid._logistics_lifecycle_duplicate_patched = true;
 }
 
-function logistics_clear_stale_site_material_grid_settings(frm) {
+function logistics_clear_stale_package_grid_settings(frm) {
 	const grid_view = frappe.get_user_settings(frm.doctype, "GridView") || {};
 	let changed = false;
-	["Special Project Site Material", "Special Project Site Receipt"].forEach((child_dt) => {
+	[
+		"Special Project Package",
+		"Special Project Site Material",
+		"Special Project Site Receipt",
+	].forEach((child_dt) => {
 		const cols = grid_view[child_dt];
 		if (!Array.isArray(cols)) {
 			return;
@@ -94,8 +98,8 @@ function logistics_clear_stale_site_material_grid_settings(frm) {
 	}
 }
 
-function logistics_set_site_materials_site_query(frm) {
-	frm.set_query("site", "site_materials", function () {
+function logistics_set_packages_site_query(frm) {
+	frm.set_query("site", "packages", function () {
 		const cust = frm.doc.customer;
 		if (!cust) {
 			return { filters: [["name", "=", ""]] };
@@ -108,21 +112,21 @@ function logistics_set_site_materials_site_query(frm) {
 			},
 		};
 	});
-	frm.set_query("warehouse_item", "site_materials", function (doc) {
+	frm.set_query("warehouse_item", "packages", function (doc) {
 		const filters = {};
 		if (doc.customer) {
 			filters.customer = doc.customer;
 		}
 		return { filters: filters };
 	});
-	frm.set_query("commodity", "site_materials", function () {
+	frm.set_query("commodity", "packages", function () {
 		return { filters: { active: 1 } };
 	});
 }
 
-const SP_SITE_MATERIALS_SUMMARY_COLLAPSED_KEY = "sp_site_materials_summary_collapsed";
+const SP_PACKAGES_SUMMARY_COLLAPSED_KEY = "sp_packages_summary_collapsed";
 
-function _sync_site_materials_summary_full_width($root) {
+function _sync_packages_summary_full_width($root) {
 	if (!$root || !$root.length) {
 		return;
 	}
@@ -137,35 +141,35 @@ function _sync_site_materials_summary_full_width($root) {
 	$root.toggleClass("is-page-full-width", !!full_width);
 }
 
-function _bind_site_materials_summary_layout(frm) {
-	const $wrapper = frm.fields_dict.site_materials_summary?.$wrapper;
+function _bind_packages_summary_layout(frm) {
+	const $wrapper = frm.fields_dict.packages_summary?.$wrapper;
 	if (!$wrapper) {
 		return;
 	}
-	$wrapper.addClass("sp-site-materials-summary-field");
-	const $root = $wrapper.find(".sp-site-materials-summary");
-	_sync_site_materials_summary_full_width($root);
+	$wrapper.addClass("sp-packages-summary-field");
+	const $root = $wrapper.find(".sp-packages-summary");
+	_sync_packages_summary_full_width($root);
 
-	if (!window._logistics_sp_sms_fullwidth_bound) {
-		window._logistics_sp_sms_fullwidth_bound = true;
-		$(document.body).on("toggleFullWidth.sp-sms", function () {
-			$(".sp-site-materials-summary").each(function () {
-				_sync_site_materials_summary_full_width($(this));
+	if (!window._logistics_sp_pks_fullwidth_bound) {
+		window._logistics_sp_pks_fullwidth_bound = true;
+		$(document.body).on("toggleFullWidth.sp-pks", function () {
+			$(".sp-packages-summary").each(function () {
+				_sync_packages_summary_full_width($(this));
 			});
 		});
 	}
 }
 
-function _bind_site_materials_summary_collapse(frm) {
-	const $wrapper = frm.fields_dict.site_materials_summary?.$wrapper;
+function _bind_packages_summary_collapse(frm) {
+	const $wrapper = frm.fields_dict.packages_summary?.$wrapper;
 	if (!$wrapper) {
 		return;
 	}
-	const $root = $wrapper.find(".sp-site-materials-summary");
+	const $root = $wrapper.find(".sp-packages-summary");
 	if (!$root.length) {
 		return;
 	}
-	const $toggle = $root.find(".sp-sms-toggle");
+	const $toggle = $root.find(".sp-pks-toggle");
 	if (!$toggle.length) {
 		return;
 	}
@@ -178,7 +182,7 @@ function _bind_site_materials_summary_collapse(frm) {
 			collapsed ? __("Expand summary") : __("Collapse summary")
 		);
 		try {
-			localStorage.setItem(SP_SITE_MATERIALS_SUMMARY_COLLAPSED_KEY, collapsed ? "1" : "0");
+			localStorage.setItem(SP_PACKAGES_SUMMARY_COLLAPSED_KEY, collapsed ? "1" : "0");
 		} catch (e) {
 			/* ignore quota / private mode */
 		}
@@ -186,29 +190,29 @@ function _bind_site_materials_summary_collapse(frm) {
 
 	let collapsed = false;
 	try {
-		collapsed = localStorage.getItem(SP_SITE_MATERIALS_SUMMARY_COLLAPSED_KEY) === "1";
+		collapsed = localStorage.getItem(SP_PACKAGES_SUMMARY_COLLAPSED_KEY) === "1";
 	} catch (e) {
 		collapsed = false;
 	}
 	set_collapsed(collapsed);
 
-	$toggle.off("click.sp-sms").on("click.sp-sms", function () {
+	$toggle.off("click.sp-pks").on("click.sp-pks", function () {
 		set_collapsed(!$root.hasClass("is-collapsed"));
 	});
 }
 
-function _refresh_site_materials_summary(frm) {
-	if (!frm.fields_dict.site_materials_summary || !frm.doc.name || frm.doc.__islocal) {
+function _refresh_packages_summary(frm) {
+	if (!frm.fields_dict.packages_summary || !frm.doc.name || frm.doc.__islocal) {
 		return;
 	}
 	frappe.call({
-		method: "logistics.special_projects.doctype.special_project.special_project.get_site_materials_summary_html",
+		method: "logistics.special_projects.doctype.special_project.special_project.get_packages_summary_html",
 		args: { special_project: frm.doc.name },
 		callback: function (r) {
-			if (r.message && frm.fields_dict.site_materials_summary) {
-				frm.fields_dict.site_materials_summary.$wrapper.html(r.message);
-				_bind_site_materials_summary_layout(frm);
-				_bind_site_materials_summary_collapse(frm);
+			if (r.message && frm.fields_dict.packages_summary) {
+				frm.fields_dict.packages_summary.$wrapper.html(r.message);
+				_bind_packages_summary_layout(frm);
+				_bind_packages_summary_collapse(frm);
 			}
 		},
 	});
@@ -279,10 +283,10 @@ frappe.ui.form.on("Special Project", {
 	},
 	refresh: function (frm) {
 		logistics_set_internal_job_site_query(frm);
-		logistics_clear_stale_site_material_grid_settings(frm);
-		logistics_set_site_materials_site_query(frm);
+		logistics_clear_stale_package_grid_settings(frm);
+		logistics_set_packages_site_query(frm);
 		_setup_lifecycle_jobs_duplicate_fix(frm);
-		_refresh_site_materials_summary(frm);
+		_refresh_packages_summary(frm);
 		if (!frm.fields_dict.lifecycle_jobs?.grid?._logistics_lifecycle_duplicate_patched) {
 			setTimeout(() => _setup_lifecycle_jobs_duplicate_fix(frm), 300);
 		}
@@ -446,28 +450,41 @@ frappe.ui.form.on("Special Project", {
 				});
 			}, __("Create"));
 
-			frm.add_custom_button(__("Refresh Balances"), function () {
+			frm.add_custom_button(__("Refresh Delivery Funnel"), function () {
 				frappe.call({
-					method: "logistics.special_projects.special_project_site_materials.recalculate_site_material_balances",
+					method: "logistics.special_projects.special_project_packages.recalculate_package_delivery_balances",
 					args: { special_project: frm.doc.name },
 					callback: function () {
 						frm.reload_doc();
 					},
 				});
-			}, __("Site Materials"));
+			}, __("Packages"));
+
+			frm.add_custom_button(__("Apply Lifecycle Template"), function () {
+				if (window.logistics_open_apply_lifecycle_template_dialog) {
+					window.logistics_open_apply_lifecycle_template_dialog(frm, "Special Project");
+				} else {
+					frappe.require(
+						"/assets/logistics/js/apply_lifecycle_template_dialog.js",
+						function () {
+							window.logistics_open_apply_lifecycle_template_dialog(frm, "Special Project");
+						}
+					);
+				}
+			}, __("Lifecycle"));
 		}
 	},
-	site_materials_add: function (frm) {
-		_refresh_site_materials_summary(frm);
+	packages_add: function (frm) {
+		_refresh_packages_summary(frm);
 	},
-	site_materials_remove: function (frm) {
-		_refresh_site_materials_summary(frm);
+	packages_remove: function (frm) {
+		_refresh_packages_summary(frm);
 	},
-	site_receipts_add: function (frm) {
-		_refresh_site_materials_summary(frm);
+	deliveries_add: function (frm) {
+		_refresh_packages_summary(frm);
 	},
-	site_receipts_remove: function (frm) {
-		_refresh_site_materials_summary(frm);
+	deliveries_remove: function (frm) {
+		_refresh_packages_summary(frm);
 	},
 	milestones_add: function (frm) {
 		_refresh_milestone_html(frm);

@@ -45,6 +45,7 @@ LINE_REFERENCE_JOB_TYPES = (
 	"Declaration",
 	"Declaration Order",
 	"General Job",
+	"Special Project",
 )
 
 

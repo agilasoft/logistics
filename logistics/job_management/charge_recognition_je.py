@@ -14,6 +14,7 @@ JOB_TYPE_TO_CHARGES_CHILD = {
 	"Transport Job": ("charges", "Transport Job Charges"),
 	"Warehouse Job": ("charges", "Warehouse Job Charges"),
 	"Declaration": ("charges", "Declaration Charges"),
+	"Special Project": ("charges", "Special Project Charges"),
 }
 
 

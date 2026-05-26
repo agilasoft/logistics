@@ -1,16 +1,13 @@
 # Copyright (c) 2026, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
-"""Create Air/Sea Booking, Transport/Declaration/Inbound Order from Special Project Lifecycle Job rows.
+"""Create Air / Sea Booking and Transport / Declaration / Inbound Order from Docket Internal Job rows.
 
-Unlike the operational-job → internal-job flow in ``logistics.utils.internal_job_from_source``, bookings
-and orders created from a Special Project are **standalone** (not internal jobs). They link back to the
-project via the ``project`` field and reuse the Sales Quote / customer / accounting context from the
-Special Project header.
-
-The Lifecycle Job table (``special_project.lifecycle_jobs``) drives this flow: each row represents an
-intended main-service job for the project; this module turns those rows into real booking/order
-documents and stores the new doc name back on the source row's ``job_no``.
+Mirrors ``logistics.special_projects.special_project_booking_creation`` but for the Docket DocType:
+each row of ``docket.internal_jobs`` (Internal Job Detail) represents one intended main-service job
+for the docket, and this module turns those rows into standalone booking/order documents. The new
+documents are not internal jobs — they link back to the Docket only through the row's ``job_no``
+(and through accounting context / linked Sales Quote).
 """
 
 from __future__ import annotations
@@ -20,18 +17,11 @@ from typing import Any
 
 import frappe
 from frappe import _
-from frappe.utils import cint, today
+from frappe.utils import today
 
-from logistics.special_projects.project_order_copy import (
-	build_project_order_from_special_project,
-	suggested_order_title_from_lifecycle_row,
-)
 from logistics.utils.charge_service_type import (
 	effective_internal_job_detail_job_type,
 	sales_quote_charge_service_types_equal,
-)
-from logistics.special_projects.special_project_charge_copy import (
-	prepare_operational_charges_from_special_project,
 )
 from logistics.utils.internal_job_from_source import (
 	apply_internal_job_detail_row_to_operational_doc,
@@ -40,42 +30,41 @@ from logistics.utils.internal_job_from_source import (
 )
 
 
-SPECIAL_PROJECT_CREATABLE_JOB_TYPES: frozenset[str] = frozenset(
+DOCKET_CREATABLE_JOB_TYPES: frozenset[str] = frozenset(
 	{
 		"Air Booking",
 		"Sea Booking",
 		"Transport Order",
 		"Declaration Order",
 		"Inbound Order",
-		"Project Order",
 	}
 )
 
-# Friendly target labels used for the Create dialog header.
 _TARGET_DOC_LABELS: dict[str, str] = {
 	"Air Booking": "Air Booking",
 	"Sea Booking": "Sea Booking",
 	"Transport Order": "Transport Order",
 	"Declaration Order": "Declaration Order",
 	"Inbound Order": "Inbound Order",
-	"Project Order": "Project Order",
 }
 
 
 def _dialog_creatable_job_type(row: Any) -> str:
-	"""Job type used in Create > Booking/Order (Special Project service → Project Order, not Project Job)."""
+	"""Job type used in Create > Booking/Order. Special Project / Exhibits service rows are not creatable from a Docket."""
 	if not row:
 		return ""
 	st = (getattr(row, "service_type", None) or "").strip()
 	if sales_quote_charge_service_types_equal(st, "Special Project"):
-		return "Project Order"
+		return ""
+	if sales_quote_charge_service_types_equal(st, "Exhibits"):
+		return ""
 	return effective_internal_job_detail_job_type(row)
 
-_LOGISTICS_SP_CLIENT_ROWS = "_logistics_sp_ij_client_rows"
+
+_LOGISTICS_DK_CLIENT_ROWS = "_logistics_dk_ij_client_rows"
 
 
 def _coerce_client_rows(client_value: Any) -> list | None:
-	"""List of Internal Job Detail row dicts from the desk form, or None to use the saved document."""
 	if client_value is None or client_value == "":
 		return None
 	if isinstance(client_value, str):
@@ -90,7 +79,7 @@ def _coerce_client_rows(client_value: Any) -> list | None:
 
 @contextmanager
 def _client_rows_context(client_value: Any):
-	key = _LOGISTICS_SP_CLIENT_ROWS
+	key = _LOGISTICS_DK_CLIENT_ROWS
 	parsed = _coerce_client_rows(client_value)
 	had_before = hasattr(frappe.local, key)
 	old_val = getattr(frappe.local, key, None) if had_before else None
@@ -113,25 +102,24 @@ def _client_rows_context(client_value: Any):
 					pass
 
 
-def _lifecycle_rows_list(parent_doc: Any) -> list[Any]:
-	ov = getattr(frappe.local, _LOGISTICS_SP_CLIENT_ROWS, None)
+def _internal_jobs_list(parent_doc: Any) -> list[Any]:
+	ov = getattr(frappe.local, _LOGISTICS_DK_CLIENT_ROWS, None)
 	if ov is not None:
 		return list(ov)
-	return list(getattr(parent_doc, "lifecycle_jobs", None) or [])
+	return list(getattr(parent_doc, "internal_jobs", None) or [])
 
 
-def _all_rows_for_form(parent_doc: Any, client_lifecycle_jobs: Any) -> list[tuple[int, Any]]:
-	"""All Lifecycle Job rows for the dialog (including those already linked to a Job No)."""
-	parsed = _coerce_client_rows(client_lifecycle_jobs)
+def _all_rows_for_form(parent_doc: Any, client_rows: Any) -> list[tuple[int, Any]]:
+	parsed = _coerce_client_rows(client_rows)
 	if parsed is None:
-		rows = getattr(parent_doc, "lifecycle_jobs", None) or []
+		rows = getattr(parent_doc, "internal_jobs", None) or []
 		return [(i, r) for i, r in enumerate(rows, start=1)]
 	if (
 		not parsed
 		and getattr(parent_doc, "name", None)
 		and not getattr(parent_doc, "__islocal", False)
 	):
-		rows = getattr(parent_doc, "lifecycle_jobs", None) or []
+		rows = getattr(parent_doc, "internal_jobs", None) or []
 		return [(i, r) for i, r in enumerate(rows, start=1)]
 	out: list[tuple[int, Any]] = []
 	for i, rowd in enumerate(parsed, start=1):
@@ -143,12 +131,11 @@ def _all_rows_for_form(parent_doc: Any, client_lifecycle_jobs: Any) -> list[tupl
 def _resolve_row_for_create(
 	parent_doc: Any, job_type: str, idx: int | None
 ) -> tuple[Any | None, int | None]:
-	"""Resolve the Lifecycle Job row used for create: explicit idx, else first open row for this job_type."""
 	jt = (job_type or "").strip()
 	if idx is not None:
-		rows = _lifecycle_rows_list(parent_doc)
+		rows = _internal_jobs_list(parent_doc)
 		if idx < 1 or idx > len(rows):
-			frappe.throw(_("Invalid Lifecycle Job row."))
+			frappe.throw(_("Invalid Internal Job row."))
 		row = rows[idx - 1]
 		row_jt = _dialog_creatable_job_type(row)
 		if row_jt != jt:
@@ -156,11 +143,11 @@ def _resolve_row_for_create(
 		jn = (getattr(row, "job_no", None) or "").strip()
 		if jn:
 			frappe.throw(
-				_("This Lifecycle Job line already references {0} {1}.").format(row_jt, jn),
+				_("This Internal Job line already references {0} {1}.").format(row_jt, jn),
 				title=_("Already linked"),
 			)
 		return row, idx
-	rows = _lifecycle_rows_list(parent_doc)
+	rows = _internal_jobs_list(parent_doc)
 	for i, r in enumerate(rows, start=1):
 		if _dialog_creatable_job_type(r) != jt:
 			continue
@@ -185,77 +172,71 @@ def _choice_header(job_type: str, row: Any | None, idx: int | None, jn: str) -> 
 	elif not st:
 		subtitle = _("Select a service type on this line to set the target document type.")
 	elif not jt_label:
-		subtitle = _("Could not resolve target document type for this service.")
+		# Special Project / Exhibits service rows cannot spawn a booking/order from a Docket.
+		subtitle = _("This service type cannot be created from a Docket.")
 	else:
-		subtitle = _("Creates {0} linked to this Special Project.").format(_(_TARGET_DOC_LABELS.get(jt_label, jt_label)))
+		subtitle = _("Creates {0} linked to this Docket.").format(
+			_(_TARGET_DOC_LABELS.get(jt_label, jt_label))
+		)
 	return {"header_title": title, "header_badge": badge, "header_subtitle": subtitle}
 
 
 @frappe.whitelist()
-def get_special_project_booking_choices(
-	special_project: str, lifecycle_jobs: Any = None
-):
-	"""Return Create > Booking/Order options for each Lifecycle Job row on a Special Project."""
-	if not special_project or not frappe.db.exists("Special Project", special_project):
-		frappe.throw(_("Invalid Special Project."))
-	doc = frappe.get_doc("Special Project", special_project)
+def get_docket_booking_choices(docket: str, internal_jobs: Any = None):
+	"""Return Create > Booking/Order options for each Internal Job row on a Docket."""
+	if not docket or not frappe.db.exists("Docket", docket):
+		frappe.throw(_("Invalid Docket."))
+	doc = frappe.get_doc("Docket", docket)
 	doc.check_permission("read")
 
 	choices: list[dict[str, Any]] = []
-	for idx, row in _all_rows_for_form(doc, lifecycle_jobs):
+	for idx, row in _all_rows_for_form(doc, internal_jobs):
 		st = (getattr(row, "service_type", None) or "").strip()
 		jt = _dialog_creatable_job_type(row)
 		jn = (getattr(row, "job_no", None) or "").strip()
-		creatable = bool(jt) and jt in SPECIAL_PROJECT_CREATABLE_JOB_TYPES and not jn
+		creatable = bool(jt) and jt in DOCKET_CREATABLE_JOB_TYPES and not jn
 		header = _choice_header(jt, row, idx, jn)
-		cancelled = bool(
-			jn
-			and (
-				linked_internal_job_target_is_cancelled(jt, jn)
-				or (jt == "Project Order" and frappe.db.exists("Project Order", jn) and (frappe.db.get_value("Project Order", jn, "docstatus") or 0) == 2)
-			)
-		)
+		cancelled = bool(jn and linked_internal_job_target_is_cancelled(jt, jn))
 		if cancelled:
 			header = {
 				**header,
 				"header_subtitle": _("Linked to {0} (cancelled).").format(jn),
 				"linked_job_cancelled": True,
 			}
-		choice = {
-			"mode": "detail",
-			"detail_idx": idx,
-			"job_type": jt,
-			"service_type": st or None,
-			"job_no": jn or None,
-			"creatable": creatable,
-			**header,
-		}
-		if creatable and jt == "Project Order":
-			choice["suggested_order_title"] = suggested_order_title_from_lifecycle_row(doc, row)
-		choices.append(choice)
+		choices.append(
+			{
+				"mode": "detail",
+				"detail_idx": idx,
+				"job_type": jt,
+				"service_type": st or None,
+				"job_no": jn or None,
+				"creatable": creatable,
+				**header,
+			}
+		)
 	return {"choices": choices}
 
 
 @frappe.whitelist()
-def get_special_project_booking_preview(
-	special_project: str,
+def get_docket_booking_preview(
+	docket: str,
 	job_type: str,
-	lifecycle_job_idx: int | None = None,
-	lifecycle_jobs: Any = None,
+	internal_job_idx: int | None = None,
+	internal_jobs: Any = None,
 ):
-	"""Lifecycle Job parameters and matching charge rows that will inform the new operational document."""
-	if not special_project or not frappe.db.exists("Special Project", special_project):
-		frappe.throw(_("Invalid Special Project."))
-	doc = frappe.get_doc("Special Project", special_project)
+	"""Internal Job row parameters and matching charge rows that will inform the new operational document."""
+	if not docket or not frappe.db.exists("Docket", docket):
+		frappe.throw(_("Invalid Docket."))
+	doc = frappe.get_doc("Docket", docket)
 	doc.check_permission("read")
 
 	jt = (job_type or "").strip()
-	idx = coerce_internal_job_detail_idx(lifecycle_job_idx)
+	idx = coerce_internal_job_detail_idx(internal_job_idx)
 
 	source_context = {
-		"source_doctype": "Special Project",
+		"source_doctype": "Docket",
 		"source_name": doc.name,
-		"customer": getattr(doc, "customer", None),
+		"customer": getattr(doc, "exhibitor", None) or getattr(doc, "customer", None),
 		"company": getattr(doc, "company", None),
 		"sales_quote": getattr(doc, "sales_quote", None),
 		"source_is_internal_job": False,
@@ -264,22 +245,19 @@ def get_special_project_booking_preview(
 		"from_main_service_shipment": False,
 	}
 
-	with _client_rows_context(lifecycle_jobs):
-		rows = _lifecycle_rows_list(doc)
+	with _client_rows_context(internal_jobs):
+		rows = _internal_jobs_list(doc)
 
-		# Linked-row preview (read-only — already created)
 		if idx is not None and 1 <= idx <= len(rows):
 			row_linked = rows[idx - 1]
 			jn_linked = (getattr(row_linked, "job_no", None) or "").strip()
 			if jn_linked:
 				row_jt = _dialog_creatable_job_type(row_linked)
 				cancelled = linked_internal_job_target_is_cancelled(row_jt, jn_linked)
-				if not cancelled and row_jt == "Project Order" and frappe.db.exists("Project Order", jn_linked):
-					cancelled = (frappe.db.get_value("Project Order", jn_linked, "docstatus") or 0) == 2
 				msg = _("This line is already linked to {0}.").format(jn_linked)
 				if cancelled:
 					msg = _(
-						"This line still references {0}, which is cancelled. Reload the project if the link should have been removed."
+						"This line still references {0}, which is cancelled. Reload the docket if the link should have been removed."
 					).format(jn_linked)
 				return {
 					"job_type": jt or row_jt,
@@ -310,14 +288,14 @@ def get_special_project_booking_preview(
 				"charges": [],
 			}
 
-		if jt not in SPECIAL_PROJECT_CREATABLE_JOB_TYPES:
+		if jt not in DOCKET_CREATABLE_JOB_TYPES:
 			return {
 				"job_type": jt,
 				"detail_idx": idx,
 				"uses_job_detail_row": True,
 				"creatable": False,
 				"not_creatable_message": _(
-					"This job type cannot be created from this screen. Choose a supported booking/order."
+					"This job type cannot be created from a Docket. Choose a supported booking/order."
 				),
 				"source_context": source_context,
 				"target_internal_job": None,
@@ -334,21 +312,14 @@ def get_special_project_booking_preview(
 		routing_params = extract_sales_quote_charge_parameters(row) if row else {}
 		preview_params = {k: v for k, v in (routing_params or {}).items() if k != "charge_group"}
 
-		# Project-level charge preview filtered by service_type when possible.
-		charges_preview: list[dict[str, Any]] = []
 		from frappe.utils import flt as _flt
 
+		charges_preview: list[dict[str, Any]] = []
+		row_st_lower = (getattr(row, "service_type", None) or "").strip().lower() if row else ""
 		for ch in getattr(doc, "charges", None) or []:
-			if jt == "Project Order":
-				if not sales_quote_charge_service_types_equal(
-					getattr(ch, "service_type", None), "Special Project"
-				):
-					continue
-			else:
-				svc_lower = (getattr(row, "service_type", None) or "").strip().lower() if row else ""
-				st_ch = (getattr(ch, "service_type", None) or "").strip().lower()
-				if svc_lower and st_ch and st_ch != svc_lower:
-					continue
+			ch_st_lower = (getattr(ch, "service_type", None) or "").strip().lower()
+			if row_st_lower and ch_st_lower and ch_st_lower != row_st_lower:
+				continue
 			charges_preview.append(
 				{
 					"service_type": getattr(ch, "service_type", None),
@@ -364,7 +335,7 @@ def get_special_project_booking_preview(
 				}
 			)
 
-		out = {
+		return {
 			"job_type": jt,
 			"detail_idx": res_idx,
 			"uses_job_detail_row": row is not None,
@@ -374,14 +345,13 @@ def get_special_project_booking_preview(
 			"job_detail_parameters": preview_params,
 			"charges": charges_preview,
 		}
-		if jt == "Project Order" and row is not None:
-			out["suggested_order_title"] = suggested_order_title_from_lifecycle_row(doc, row)
-		return out
 
 
-def _apply_sales_quote_parties_to_target(target_doc: Any, sp_doc: Any) -> None:
+def _apply_sales_quote_parties_to_target(target_doc: Any, dk_doc: Any) -> None:
 	"""Copy shipper/consignee from the linked Sales Quote (same as quote → booking creation)."""
-	sq_name = (getattr(sp_doc, "sales_quote", None) or getattr(target_doc, "sales_quote", None) or "").strip()
+	sq_name = (
+		getattr(dk_doc, "sales_quote", None) or getattr(target_doc, "sales_quote", None) or ""
+	).strip()
 	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
 		return
 	sq = frappe.get_cached_doc("Sales Quote", sq_name)
@@ -401,21 +371,20 @@ def _apply_sales_quote_parties_to_target(target_doc: Any, sp_doc: Any) -> None:
 		apply_shipper_consignee_defaults(target_doc)
 
 
-def _set_main_service_for_one_off_quote_target(target_doc: Any, sp_doc: Any) -> None:
-	"""Primary legs from One-off Sales Quotes are main service (Project quotes leave flags unset)."""
-	if not hasattr(target_doc, "is_main_service"):
-		return
-	if cint(getattr(target_doc, "is_internal_job", 0)):
-		return
-	sq_name = (getattr(sp_doc, "sales_quote", None) or getattr(target_doc, "sales_quote", None) or "").strip()
-	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
-		return
-	if frappe.db.get_value("Sales Quote", sq_name, "quotation_type") == "One-off":
-		target_doc.is_main_service = 1
+def _resolve_project_for_target(dk_doc: Any) -> str | None:
+	"""Pull a Project link from the Docket's parent Exhibit (Docket itself has no project field)."""
+	exhibit_name = (getattr(dk_doc, "exhibit", None) or "").strip()
+	if not exhibit_name:
+		return None
+	try:
+		project = frappe.db.get_value("Exhibit", exhibit_name, "project")
+	except Exception:
+		return None
+	return (project or "").strip() or None
 
 
-def _apply_special_project_context(target_doc: Any, sp_doc: Any) -> None:
-	"""Populate accounting and reference fields from the Special Project onto the new booking/order."""
+def _apply_docket_context(target_doc: Any, dk_doc: Any) -> None:
+	"""Populate accounting and reference fields from the Docket onto the new booking/order."""
 	meta = frappe.get_meta(target_doc.doctype)
 
 	def _set_if_field(fieldname: str, value: Any) -> None:
@@ -425,27 +394,26 @@ def _apply_special_project_context(target_doc: Any, sp_doc: Any) -> None:
 			return
 		target_doc.set(fieldname, value)
 
-	_set_if_field("company", getattr(sp_doc, "company", None))
-	_set_if_field("branch", getattr(sp_doc, "branch", None))
-	_set_if_field("cost_center", getattr(sp_doc, "cost_center", None))
-	_set_if_field("profit_center", getattr(sp_doc, "profit_center", None))
-	_set_if_field("project", getattr(sp_doc, "project", None) or sp_doc.name)
-	_set_if_field("sales_quote", getattr(sp_doc, "sales_quote", None))
-	_set_main_service_for_one_off_quote_target(target_doc, sp_doc)
-	# Customer fields differ by doctype.
-	cust = getattr(sp_doc, "customer", None)
+	_set_if_field("company", getattr(dk_doc, "company", None))
+	_set_if_field("branch", getattr(dk_doc, "branch", None))
+	_set_if_field("cost_center", getattr(dk_doc, "cost_center", None))
+	_set_if_field("profit_center", getattr(dk_doc, "profit_center", None))
+	_set_if_field("project", _resolve_project_for_target(dk_doc))
+	_set_if_field("sales_quote", getattr(dk_doc, "sales_quote", None))
+
+	cust = getattr(dk_doc, "exhibitor", None) or getattr(dk_doc, "customer", None)
 	if cust:
 		if meta.get_field("local_customer"):
 			target_doc.local_customer = cust
 		if meta.get_field("customer"):
 			target_doc.customer = cust
-	_apply_sales_quote_parties_to_target(target_doc, sp_doc)
+	_apply_sales_quote_parties_to_target(target_doc, dk_doc)
 
 
 def _apply_air_sea_corridor_ports_from_context(
-	target_doc: Any, sp_doc: Any, row: Any | None
+	target_doc: Any, dk_doc: Any, row: Any | None
 ) -> None:
-	"""Fill mandatory origin/destination ports from the lifecycle row or linked Sales Quote."""
+	"""Fill mandatory origin/destination ports from the internal-job row or linked Sales Quote."""
 	if target_doc.doctype not in ("Air Booking", "Sea Booking"):
 		return
 	meta = frappe.get_meta(target_doc.doctype)
@@ -472,7 +440,7 @@ def _apply_air_sea_corridor_ports_from_context(
 		return
 
 	sq_name = (
-		getattr(sp_doc, "sales_quote", None) or getattr(target_doc, "sales_quote", None) or ""
+		getattr(dk_doc, "sales_quote", None) or getattr(target_doc, "sales_quote", None) or ""
 	).strip()
 	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
 		return
@@ -551,9 +519,83 @@ def _apply_air_sea_corridor_ports_from_context(
 		)
 
 
-def _prepare_charges_before_insert(sp_doc: Any, target_doc: Any, row: Any | None) -> None:
-	"""Copy matching programme charges (or Sales Quote lines) before the first save."""
-	prepare_operational_charges_from_special_project(sp_doc, target_doc, row)
+def _prepare_charges_before_insert(dk_doc: Any, target_doc: Any, row: Any | None) -> None:
+	"""Copy Docket charges (filtered by service_type) onto the new operational doc before insert."""
+	from logistics.utils.charge_service_type import (
+		canonical_charge_service_type_for_storage,
+		implied_service_type_for_doctype,
+		operational_booking_charge_service_type_label,
+	)
+	from logistics.utils.internal_job_charge_copy import _scrub_main_row_to_child_dict
+
+	target_meta = frappe.get_meta(target_doc.doctype)
+	charges_df = target_meta.get_field("charges")
+	if not charges_df or charges_df.fieldtype != "Table":
+		return
+	target_child_dt = (charges_df.options or "").strip()
+	if not target_child_dt:
+		return
+
+	row_st = (getattr(row, "service_type", None) or "").strip() if row else ""
+	implied = implied_service_type_for_doctype(target_doc.doctype)
+	forced_label = operational_booking_charge_service_type_label(
+		row_st or implied, default=row_st or "Transport"
+	)
+	parent_implied_canonical = canonical_charge_service_type_for_storage(implied)
+	if (
+		canonical_charge_service_type_for_storage(forced_label) in ("special project", "exhibits")
+		and parent_implied_canonical not in ("special project", "exhibits")
+	):
+		forced_label = operational_booking_charge_service_type_label(implied, default="Transport")
+
+	row_st_lower = row_st.lower()
+	new_rows: list[dict[str, Any]] = []
+	for ch in getattr(dk_doc, "charges", None) or []:
+		ch_st_lower = (getattr(ch, "service_type", None) or "").strip().lower()
+		if row_st_lower and ch_st_lower and ch_st_lower != row_st_lower:
+			continue
+		scrubbed = _scrub_main_row_to_child_dict(ch, target_child_dt, forced_label)
+		if scrubbed:
+			new_rows.append(scrubbed)
+
+	if not new_rows:
+		_populate_charges_from_linked_sales_quote(target_doc)
+		return
+
+	target_doc.set("charges", [])
+	for r in new_rows:
+		target_doc.append("charges", r)
+
+
+def _populate_charges_from_linked_sales_quote(target_doc: Any) -> None:
+	"""Fallback charge population from Sales Quote when the Docket has no matching rows."""
+	sq_name = getattr(target_doc, "sales_quote", None)
+	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
+		return
+
+	dt = target_doc.doctype
+	try:
+		if dt == "Air Booking":
+			from logistics.utils.internal_job_from_source import (
+				_populate_air_booking_charges_from_linked_quote_on_internal_create,
+			)
+
+			_populate_air_booking_charges_from_linked_quote_on_internal_create(target_doc)
+		elif dt == "Sea Booking":
+			from logistics.utils.internal_job_from_source import (
+				_populate_sea_booking_charges_from_linked_quote_on_internal_create,
+			)
+
+			_populate_sea_booking_charges_from_linked_quote_on_internal_create(target_doc)
+		elif dt == "Transport Order" and hasattr(target_doc, "_populate_charges_from_sales_quote"):
+			target_doc._populate_charges_from_sales_quote()
+		elif dt == "Declaration Order" and hasattr(target_doc, "_populate_charges_from_sales_quote"):
+			target_doc._populate_charges_from_sales_quote()
+	except Exception:
+		frappe.log_error(
+			frappe.get_traceback(),
+			f"Docket — Sales Quote charge population on {dt} create",
+		)
 
 
 def _booking_date_field(target_doc: Any) -> str | None:
@@ -564,14 +606,14 @@ def _booking_date_field(target_doc: Any) -> str | None:
 	return None
 
 
-def _persist_row_link(sp_name: str, job_type: str, job_no: str, detail_idx: int) -> None:
-	"""Write job_type and job_no back onto the Special Project's Lifecycle Job row."""
+def _persist_row_link(dk_name: str, job_type: str, job_no: str, detail_idx: int) -> None:
+	"""Write job_type and job_no back onto the Docket's Internal Job row."""
 	if not (job_type and job_no and detail_idx):
 		return
-	parent = frappe.get_doc("Special Project", sp_name)
-	rows = parent.get("lifecycle_jobs") or []
+	parent = frappe.get_doc("Docket", dk_name)
+	rows = parent.get("internal_jobs") or []
 	if detail_idx < 1 or detail_idx > len(rows):
-		frappe.throw(_("Invalid Lifecycle Job row index for persist."))
+		frappe.throw(_("Invalid Internal Job row index for persist."))
 	row = rows[detail_idx - 1]
 	row.job_type = job_type
 	row.job_no = job_no
@@ -580,52 +622,44 @@ def _persist_row_link(sp_name: str, job_type: str, job_no: str, detail_idx: int)
 	parent.save(ignore_permissions=True)
 
 
-def _create_air_booking(
-	sp_doc: Any, row: Any, detail_idx: int, shipment_lines: Any = None
-) -> dict[str, Any]:
+def _create_air_booking(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
 	doc = frappe.new_doc("Air Booking")
-	_apply_special_project_context(doc, sp_doc)
+	_apply_docket_context(doc, dk_doc)
 	bd = _booking_date_field(doc)
 	if bd:
 		doc.set(bd, today())
 	apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
-	_apply_air_sea_corridor_ports_from_context(doc, sp_doc, row)
-	_apply_cargo_and_shipment_lines(sp_doc, doc, shipment_lines)
-	_prepare_charges_before_insert(sp_doc, doc, row)
+	_apply_air_sea_corridor_ports_from_context(doc, dk_doc, row)
+	_prepare_charges_before_insert(dk_doc, doc, row)
 	doc.insert(ignore_permissions=True)
-	_persist_row_link(sp_doc.name, "Air Booking", doc.name, detail_idx)
+	_persist_row_link(dk_doc.name, "Air Booking", doc.name, detail_idx)
 	frappe.db.commit()
 	return {"air_booking": doc.name, "message": _("Air Booking {0} created.").format(doc.name)}
 
 
-def _create_sea_booking(
-	sp_doc: Any, row: Any, detail_idx: int, shipment_lines: Any = None
-) -> dict[str, Any]:
+def _create_sea_booking(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
 	doc = frappe.new_doc("Sea Booking")
-	_apply_special_project_context(doc, sp_doc)
+	_apply_docket_context(doc, dk_doc)
 	bd = _booking_date_field(doc)
 	if bd:
 		doc.set(bd, today())
 	apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
-	_apply_air_sea_corridor_ports_from_context(doc, sp_doc, row)
-	_apply_cargo_and_shipment_lines(sp_doc, doc, shipment_lines)
-	_prepare_charges_before_insert(sp_doc, doc, row)
+	_apply_air_sea_corridor_ports_from_context(doc, dk_doc, row)
+	_prepare_charges_before_insert(dk_doc, doc, row)
 	doc.insert(ignore_permissions=True)
-	_persist_row_link(sp_doc.name, "Sea Booking", doc.name, detail_idx)
+	_persist_row_link(dk_doc.name, "Sea Booking", doc.name, detail_idx)
 	frappe.db.commit()
 	return {"sea_booking": doc.name, "message": _("Sea Booking {0} created.").format(doc.name)}
 
 
-def _create_transport_order(
-	sp_doc: Any, row: Any, detail_idx: int, shipment_lines: Any = None
-) -> dict[str, Any]:
+def _create_transport_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
 	from logistics.utils.transport_job_type import (
 		apply_container_transport_context_to_order,
 		set_internal_transport_order_draft_insert_flags,
 	)
 
 	order = frappe.new_doc("Transport Order")
-	_apply_special_project_context(order, sp_doc)
+	_apply_docket_context(order, dk_doc)
 	order.booking_date = today()
 	if frappe.get_meta("Transport Order").get_field("transport_job_type"):
 		order.transport_job_type = "Non-Container"
@@ -634,32 +668,34 @@ def _create_transport_order(
 	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
 	apply_container_transport_context_to_order(order, row)
 	set_internal_transport_order_draft_insert_flags(order)
-	# Special Project orders are standalone, not internal jobs.
+	# Docket-created orders are standalone, not internal jobs.
 	if frappe.get_meta("Transport Order").get_field("is_internal_job"):
 		order.is_internal_job = 0
-	_apply_cargo_and_shipment_lines(sp_doc, order, shipment_lines)
-	_prepare_charges_before_insert(sp_doc, order, row)
+	_prepare_charges_before_insert(dk_doc, order, row)
 	order.insert(ignore_permissions=True)
-	_persist_row_link(sp_doc.name, "Transport Order", order.name, detail_idx)
+	_persist_row_link(dk_doc.name, "Transport Order", order.name, detail_idx)
 	frappe.db.commit()
-	return {"transport_order": order.name, "message": _("Transport Order {0} created.").format(order.name)}
+	return {
+		"transport_order": order.name,
+		"message": _("Transport Order {0} created.").format(order.name),
+	}
 
 
-def _create_declaration_order(
-	sp_doc: Any, row: Any, detail_idx: int, shipment_lines: Any = None
-) -> dict[str, Any]:
+def _create_declaration_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
 	order = frappe.new_doc("Declaration Order")
-	_apply_special_project_context(order, sp_doc)
+	_apply_docket_context(order, dk_doc)
 	if frappe.get_meta("Declaration Order").get_field("order_date"):
 		order.order_date = today()
-	if frappe.get_meta("Declaration Order").get_field("transport_mode") and not order.get("transport_mode"):
+	if frappe.get_meta("Declaration Order").get_field("transport_mode") and not order.get(
+		"transport_mode"
+	):
 		order.transport_mode = getattr(row, "transport_mode", None) or order.get("transport_mode")
 	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
 	if frappe.get_meta("Declaration Order").get_field("is_internal_job"):
 		order.is_internal_job = 0
-	_prepare_charges_before_insert(sp_doc, order, row)
+	_prepare_charges_before_insert(dk_doc, order, row)
 	order.insert(ignore_permissions=True)
-	_persist_row_link(sp_doc.name, "Declaration Order", order.name, detail_idx)
+	_persist_row_link(dk_doc.name, "Declaration Order", order.name, detail_idx)
 	frappe.db.commit()
 	return {
 		"declaration_order": order.name,
@@ -667,35 +703,19 @@ def _create_declaration_order(
 	}
 
 
-def _create_inbound_order(
-	sp_doc: Any, row: Any, detail_idx: int, shipment_lines: Any = None
-) -> dict[str, Any]:
+def _create_inbound_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
 	order = frappe.new_doc("Inbound Order")
-	_apply_special_project_context(order, sp_doc)
+	_apply_docket_context(order, dk_doc)
 	if frappe.get_meta("Inbound Order").get_field("order_date"):
 		order.order_date = today()
 	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
-	_apply_cargo_and_shipment_lines(sp_doc, order, shipment_lines)
-	_prepare_charges_before_insert(sp_doc, order, row)
+	_prepare_charges_before_insert(dk_doc, order, row)
 	order.insert(ignore_permissions=True)
-	_persist_row_link(sp_doc.name, "Inbound Order", order.name, detail_idx)
-	frappe.db.commit()
-	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
-
-
-def _create_project_order(
-	sp_doc: Any, row: Any, detail_idx: int, order_title: str | None = None
-) -> dict[str, Any]:
-	title = (order_title or "").strip()
-	if not title:
-		frappe.throw(_("Order Title is required to create a Project Order."))
-	order = build_project_order_from_special_project(sp_doc, title, lifecycle_row=row)
-	order.insert(ignore_permissions=True)
-	_persist_row_link(sp_doc.name, "Project Order", order.name, detail_idx)
+	_persist_row_link(dk_doc.name, "Inbound Order", order.name, detail_idx)
 	frappe.db.commit()
 	return {
-		"project_order": order.name,
-		"message": _("Project Order {0} created.").format(order.name),
+		"inbound_order": order.name,
+		"message": _("Inbound Order {0} created.").format(order.name),
 	}
 
 
@@ -705,56 +725,37 @@ _CREATE_DISPATCH = {
 	"Transport Order": _create_transport_order,
 	"Declaration Order": _create_declaration_order,
 	"Inbound Order": _create_inbound_order,
-	"Project Order": _create_project_order,
 }
 
 
-def _apply_cargo_and_shipment_lines(
-	sp_doc: Any, target_doc: Any, shipment_lines: Any = None
-) -> None:
-	from logistics.special_projects.special_project_packages import (
-		apply_shipment_lines_to_target,
-		copy_always_along_packages_to_target,
-	)
-
-	if shipment_lines:
-		apply_shipment_lines_to_target(sp_doc, target_doc, shipment_lines)
-	if target_doc.doctype in ("Air Booking", "Sea Booking", "Transport Order", "Inbound Order"):
-		copy_always_along_packages_to_target(sp_doc, target_doc)
-
-
 @frappe.whitelist()
-def create_booking_or_order_from_special_project(
-	special_project: str,
+def create_booking_or_order_from_docket(
+	docket: str,
 	job_type: str,
-	lifecycle_job_idx: int | None = None,
-	lifecycle_jobs: Any = None,
-	order_title: str | None = None,
-	shipment_lines: Any = None,
+	internal_job_idx: int | None = None,
+	internal_jobs: Any = None,
 ):
-	"""Create the chosen booking/order from the matching Lifecycle Job row on the Special Project."""
-	if not special_project or not frappe.db.exists("Special Project", special_project):
-		frappe.throw(_("Invalid Special Project."))
+	"""Create the chosen booking/order from the matching Internal Job row on the Docket."""
+	if not docket or not frappe.db.exists("Docket", docket):
+		frappe.throw(_("Invalid Docket."))
 	jt = (job_type or "").strip()
-	if jt not in SPECIAL_PROJECT_CREATABLE_JOB_TYPES:
+	if jt not in DOCKET_CREATABLE_JOB_TYPES:
 		frappe.throw(_("Invalid job type."))
 
-	sp_doc = frappe.get_doc("Special Project", special_project)
-	sp_doc.check_permission("write")
+	dk_doc = frappe.get_doc("Docket", docket)
+	dk_doc.check_permission("write")
 
-	idx = coerce_internal_job_detail_idx(lifecycle_job_idx)
+	idx = coerce_internal_job_detail_idx(internal_job_idx)
 
-	with _client_rows_context(lifecycle_jobs):
-		row, resolved_idx = _resolve_row_for_create(sp_doc, jt, idx)
+	with _client_rows_context(internal_jobs):
+		row, resolved_idx = _resolve_row_for_create(dk_doc, jt, idx)
 		if row is None:
 			frappe.throw(
 				_(
-					"Add a Lifecycle Job line with service type matching {0}, or select an existing open line."
+					"Add an Internal Job line with service type matching {0}, or select an existing open line."
 				).format(jt)
 			)
 		if resolved_idx is None:
-			frappe.throw(_("Could not resolve the Lifecycle Job row to update after creation."))
+			frappe.throw(_("Could not resolve the Internal Job row to update after creation."))
 		handler = _CREATE_DISPATCH[jt]
-		if jt == "Project Order":
-			return handler(sp_doc, row, resolved_idx, order_title=order_title)
-		return handler(sp_doc, row, resolved_idx, shipment_lines=shipment_lines)
+		return handler(dk_doc, row, resolved_idx)

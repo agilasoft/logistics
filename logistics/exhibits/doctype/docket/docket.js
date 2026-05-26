@@ -99,6 +99,36 @@ frappe.ui.form.on("Docket", {
 				__("Action")
 			);
 		}
+
+		if (!frm.doc.__islocal) {
+			frm.add_custom_button(
+				__("Booking / Order"),
+				function () {
+					function _openDlg() {
+						if (window.logistics_show_docket_booking_dialog) {
+							window.logistics_show_docket_booking_dialog(frm);
+						} else {
+							frappe.msgprint({
+								title: __("Not available"),
+								message: __(
+									"The Booking / Order dialog could not load. Refresh the page or contact your administrator."
+								),
+								indicator: "red",
+							});
+						}
+					}
+					if (window.logistics_show_docket_booking_dialog) {
+						_openDlg();
+					} else {
+						frappe.require(
+							"/assets/logistics/js/docket_booking_dialog.js",
+							_openDlg
+						);
+					}
+				},
+				__("Create")
+			);
+		}
 	},
 	exhibit(frm) {
 		if (frm.doc.exhibit) {

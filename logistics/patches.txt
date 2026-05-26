@@ -32,6 +32,9 @@ logistics.patches.v1_0_special_project_legacy_tables_to_staging
 logistics.patches.v1_0_merge_air_consolidation_plan_into_consolidation
 # Tariff: copy legacy per-module child rows to SQL stash before unified ``Tariff Charge`` replaces them.
 logistics.patches.v1_0_stash_tariff_legacy_child_rates_for_unified_tariff_charge
+# Special Projects: rename Special Project Site Material -> Special Project Package and
+# associated field/column renames (site_materials -> packages, site_material_row -> package_row).
+logistics.patches.v1_1_rename_special_project_site_material_to_package
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
@@ -77,6 +80,7 @@ logistics.patches.v1_0_drop_sales_quote_service_table
 logistics.patches.v1_0_migrate_cost_sheet_to_unified_charges
 logistics.patches.v1_0_remove_recognition_custom_fields
 logistics.patches.v1_0_cleanup_air_shipment_recognition_custom_fields
+logistics.patches.v1_0_cleanup_special_project_recognition_custom_fields
 logistics.patches.v1_0_remove_package_chargeable_weight_columns
 logistics.patches.v1_0_backfill_charge_recognition_journal_links
 logistics.patches.v1_0_migrate_customs_authority_to_issuing_authority
@@ -161,3 +165,6 @@ logistics.patches.v1_0_backfill_main_service_internal_job_rollup
 logistics.patches.v1_0_gotransport_provider_timeout_default
 # Telematics: ship gotransport_device Custom Field + Driver permlevel write + Settings defaults.
 logistics.patches.v1_0_gotransport_finalize_setup
+# Special Projects: backfill lifecycle_stage on existing Site Receipt rows for the new
+# per-stage delivery funnel summary.
+logistics.patches.v1_1_special_project_receipt_lifecycle_stage

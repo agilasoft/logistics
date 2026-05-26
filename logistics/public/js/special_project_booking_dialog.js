@@ -100,8 +100,9 @@
 			".sp-ship-quick button{font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid var(--border-color,#e2e8f0);background:var(--control-bg,#fff);color:var(--text-color,#0f172a);cursor:pointer;font-weight:500;transition:background .15s,border-color .15s;}" +
 			".sp-ship-quick button:hover{background:var(--fg-color,#f1f5f9);border-color:var(--text-muted,#94a3b8);}" +
 			".sp-ship-list{display:flex;flex-direction:column;gap:6px;max-height:min(55vh,440px);overflow-y:auto;overflow-x:hidden;padding:2px 4px 2px 2px;}" +
-			".sp-ship-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border-color,#e2e8f0);border-radius:8px;background:var(--control-bg,#fff);transition:border-color .15s,box-shadow .15s,background .15s;}" +
+			".sp-ship-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border-color,#e2e8f0);border-radius:8px;background:var(--control-bg,#fff);transition:border-color .15s,box-shadow .15s,background .15s;}" +
 			".sp-ship-row.has-qty{border-color:var(--primary,#5c6ac4);background:rgba(92,106,196,0.04);box-shadow:0 0 0 1px rgba(92,106,196,0.12);}" +
+			".sp-ship-row.over-cap{border-color:#dc2626;background:#fef2f2;box-shadow:0 0 0 1px rgba(220,38,38,0.18);}" +
 			".sp-ship-row.hidden{display:none;}" +
 			".sp-ship-mono{flex-shrink:0;width:28px;height:28px;border-radius:6px;background:#1a1a1a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;line-height:1;}" +
 			".sp-ship-mono.compact{font-size:9px;letter-spacing:-0.02em;}" +
@@ -117,7 +118,10 @@
 			".sp-ship-input input{width:100px;padding:5px 8px;font-size:12px;text-align:right;border:1px solid var(--border-color,#e2e8f0);border-radius:6px;background:var(--control-bg,#fff);color:var(--text-color,#0f172a);outline:none;font-variant-numeric:tabular-nums;transition:border-color .15s,box-shadow .15s;}" +
 			".sp-ship-input input:focus{border-color:var(--primary,#5c6ac4);box-shadow:0 0 0 3px rgba(92,106,196,0.15);}" +
 			".sp-ship-input input.has-value{border-color:var(--primary,#5c6ac4);font-weight:600;}" +
+			".sp-ship-input input.is-invalid{border-color:#dc2626;color:#b91c1c;background:#fff;box-shadow:0 0 0 3px rgba(220,38,38,0.15);}" +
 			".sp-ship-input .sp-ship-uom{font-size:11px;color:var(--text-muted,#64748b);min-width:24px;text-transform:lowercase;}" +
+			".sp-ship-hint{flex-basis:100%;font-size:11px;color:#b91c1c;margin:2px 0 0 38px;display:none;line-height:1.4;}" +
+			".sp-ship-row.over-cap .sp-ship-hint{display:block;}" +
 			".sp-ship-empty{padding:24px 12px;text-align:center;color:var(--text-muted,#64748b);font-size:12px;border:1px dashed var(--border-color,#e2e8f0);border-radius:8px;}" +
 			".sp-ship-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 2px 0;border-top:1px solid var(--border-color,#e2e8f0);margin-top:10px;font-size:12px;color:var(--text-muted,#64748b);}" +
 			".sp-ship-summary .sp-ship-summary-count{font-weight:600;color:var(--text-color,#0f172a);}" +
@@ -379,7 +383,7 @@
 			row.warehouse_item ||
 			row.commodity ||
 			row.description ||
-			__("Line") + " " + row.site_material_row
+			__("Line") + " " + row.package_row
 		);
 	}
 
@@ -399,7 +403,7 @@
 	function _buildShipmentRows(rows) {
 		const $list = $("<div class='sp-ship-list'>");
 		rows.forEach(function (row) {
-			const $row = $("<div class='sp-ship-row'>").attr("data-row", row.site_material_row);
+			const $row = $("<div class='sp-ship-row'>").attr("data-row", row.package_row);
 			const title = _shipRowTitle(row);
 			$row.attr("data-search", title.toString().toLowerCase());
 
@@ -413,7 +417,7 @@
 			const $chips = $("<div class='sp-ship-chips'>");
 			$chips.append(
 				$("<span class='sp-ship-chip short'>")
-					.append($("<span class='sp-ship-chip-k'>").text(__("Short")))
+					.append($("<span class='sp-ship-chip-k'>").text(__("Remaining")))
 					.append($("<span class='sp-ship-chip-v'>").text(_fmtQty(row.qty_short || 0)))
 			);
 			$chips.append(
@@ -423,7 +427,7 @@
 			);
 			$chips.append(
 				$("<span class='sp-ship-chip'>")
-					.append($("<span class='sp-ship-chip-k'>").text(__("On site")))
+					.append($("<span class='sp-ship-chip-k'>").text(__("Delivered")))
 					.append($("<span class='sp-ship-chip-v'>").text(_fmtQty(row.qty_on_site || 0)))
 			);
 			if (row.uom) {
@@ -436,29 +440,38 @@
 			$main.append($chips);
 			$row.append($main);
 
+			const onSite = parseFloat(row.qty_on_site) || 0;
 			const $inputWrap = $("<div class='sp-ship-input'>");
 			const $input = $("<input type='number' min='0' step='any' inputmode='decimal' placeholder='0'>")
 				.attr("aria-label", __("Qty for {0}", [title]))
-				.attr("data-short", row.qty_short || 0);
+				.attr("data-short", row.qty_short || 0)
+				.attr("data-on-site", onSite)
+				.attr("max", onSite);
 			$inputWrap.append($input);
 			if (row.uom) {
 				$inputWrap.append($("<span class='sp-ship-uom'>").text(String(row.uom)));
 			}
 			$row.append($inputWrap);
+			$row.append($("<div class='sp-ship-hint'>"));
 			$list.append($row);
 		});
 		return $list;
 	}
 
-	function _updateShipSummary($wrap) {
+	function _updateShipSummary($wrap, dialog) {
 		const $rows = $wrap.find(".sp-ship-row");
 		let withQty = 0;
 		let total = 0;
+		let overCap = 0;
 		$rows.each(function () {
-			const v = parseFloat($(this).find("input").val()) || 0;
+			const $r = $(this);
+			const v = parseFloat($r.find("input").val()) || 0;
 			if (v > 0) {
 				withQty += 1;
 				total += v;
+			}
+			if ($r.hasClass("over-cap")) {
+				overCap += 1;
 			}
 		});
 		const $count = $wrap.find(".sp-ship-summary-count");
@@ -469,16 +482,39 @@
 				" " +
 				_fmtQty(total)
 		);
+		if (dialog) {
+			if (withQty > 0 && overCap === 0) {
+				dialog.enable_primary_action();
+			} else {
+				dialog.disable_primary_action();
+			}
+		}
 	}
 
-	function _bindShipmentDialog($wrap, rows, onContinue) {
+	function _bindShipmentDialog($wrap, rows, dialog) {
 		$wrap.on("input", ".sp-ship-row input", function () {
 			const $input = $(this);
 			const v = parseFloat($input.val()) || 0;
+			const cap = parseFloat($input.attr("data-on-site")) || 0;
+			const overCap = v > cap;
 			const $row = $input.closest(".sp-ship-row");
-			$row.toggleClass("has-qty", v > 0);
-			$input.toggleClass("has-value", v > 0);
-			_updateShipSummary($wrap);
+			$row.toggleClass("has-qty", v > 0 && !overCap);
+			$row.toggleClass("over-cap", overCap);
+			$input.toggleClass("has-value", v > 0 && !overCap);
+			$input.toggleClass("is-invalid", overCap);
+			const $hint = $row.find(".sp-ship-hint");
+			if (overCap) {
+				const uom = ($input.next(".sp-ship-uom").text() || "").trim();
+				$hint.text(
+					__("Only {0}{1} on site — reduce the quantity to continue.", [
+						_fmtQty(cap),
+						uom ? " " + uom : "",
+					])
+				);
+			} else {
+				$hint.empty();
+			}
+			_updateShipSummary($wrap, dialog);
 		});
 
 		$wrap.on("input", ".sp-ship-search input", function () {
@@ -496,9 +532,10 @@
 		});
 
 		$wrap.on("click", ".sp-ship-quick-clear", function () {
-			$wrap.find(".sp-ship-row input").val("").removeClass("has-value");
-			$wrap.find(".sp-ship-row").removeClass("has-qty");
-			_updateShipSummary($wrap);
+			$wrap.find(".sp-ship-row input").val("").removeClass("has-value is-invalid");
+			$wrap.find(".sp-ship-row").removeClass("has-qty over-cap");
+			$wrap.find(".sp-ship-hint").empty();
+			_updateShipSummary($wrap, dialog);
 		});
 
 		$wrap.on("click", ".sp-ship-quick-fill", function () {
@@ -507,29 +544,37 @@
 				if ($r.hasClass("hidden")) return;
 				const $input = $r.find("input");
 				const short = parseFloat($input.attr("data-short")) || 0;
-				if (short > 0) {
-					$input.val(short).addClass("has-value");
-					$r.addClass("has-qty");
+				const cap = parseFloat($input.attr("data-on-site")) || 0;
+				const fill = Math.min(short, cap);
+				if (fill > 0) {
+					$input.val(fill).trigger("input");
 				}
 			});
-			_updateShipSummary($wrap);
+			_updateShipSummary($wrap, dialog);
 		});
 
-		_updateShipSummary($wrap);
+		_updateShipSummary($wrap, dialog);
 	}
 
 	function _collectShipmentLines($wrap, rows) {
 		const byIdx = {};
-		rows.forEach(function (r) { byIdx[r.site_material_row] = r; });
+		rows.forEach(function (r) { byIdx[r.package_row] = r; });
 		const lines = [];
+		let overCap = 0;
 		$wrap.find(".sp-ship-row").each(function () {
 			const $r = $(this);
 			const idx = $r.attr("data-row");
-			const qty = parseFloat($r.find("input").val()) || 0;
+			const $input = $r.find("input");
+			const qty = parseFloat($input.val()) || 0;
+			const cap = parseFloat($input.attr("data-on-site")) || 0;
+			if (qty > cap) {
+				overCap += 1;
+				return;
+			}
 			if (qty > 0 && byIdx[idx]) {
 				const row = byIdx[idx];
 				lines.push({
-					site_material_row: row.site_material_row,
+					package_row: row.package_row,
 					warehouse_item: row.warehouse_item,
 					commodity: row.commodity,
 					description: row.description,
@@ -538,12 +583,12 @@
 				});
 			}
 		});
-		return lines;
+		return { lines: lines, overCap: overCap };
 	}
 
 	function _promptShipmentLines(frm, dec, callback) {
 		frappe.call({
-			method: "logistics.special_projects.special_project_site_materials.get_site_materials_for_shipment_picker",
+			method: "logistics.special_projects.special_project_packages.get_packages_for_shipment_picker",
 			args: { special_project: frm.doc.name },
 			callback: function (r) {
 				const rows = r.message || [];
@@ -556,17 +601,34 @@
 					size: "large",
 					fields: [{ fieldname: "ship_html", fieldtype: "HTML" }],
 					primary_action_label: __("Continue"),
-					primary_action: function () {
-						const $wrap = d.fields_dict.ship_html.$wrapper.find(".sp-ship-wrap");
-						const lines = _collectShipmentLines($wrap, rows);
-						d.hide();
-						callback(lines.length ? JSON.stringify(lines) : null);
-					},
-					secondary_action_label: __("Skip"),
-					secondary_action: function () {
-						d.hide();
-						callback(null);
-					},
+				primary_action: function () {
+					const $wrap = d.fields_dict.ship_html.$wrapper.find(".sp-ship-wrap");
+					const result = _collectShipmentLines($wrap, rows);
+					if (result.overCap > 0) {
+						frappe.show_alert(
+							{
+								message: __(
+									"Some quantities exceed what is on site. Reduce them before continuing."
+								),
+								indicator: "orange",
+							},
+							5
+						);
+						return;
+					}
+					if (!result.lines.length) {
+						frappe.show_alert(
+							{
+								message: __("Set a quantity on at least one row, or close the dialog to cancel."),
+								indicator: "orange",
+							},
+							5
+						);
+						return;
+					}
+					d.hide();
+					callback(JSON.stringify(result.lines));
+				},
 				});
 
 				const $host = d.fields_dict.ship_html.$wrapper;
@@ -580,7 +642,7 @@
 						.css({ fontSize: "12px", marginBottom: "10px", lineHeight: 1.45 })
 						.text(
 							__(
-								"Pick the quantities to include in this shipment. Filter by name, fill all to short qty, or set quantities individually. Rows left at 0 are skipped."
+								"Pick the quantities to include in this shipment. Set a quantity on at least one row to continue, or close this dialog to cancel."
 							)
 						)
 				);
@@ -593,7 +655,7 @@
 				);
 				$toolbar.append($search);
 				const $quick = $("<div class='sp-ship-quick'>");
-				$quick.append($("<button type='button' class='sp-ship-quick-fill'>").text(__("Fill all to short")));
+				$quick.append($("<button type='button' class='sp-ship-quick-fill'>").text(__("Fill all to remaining")));
 				$quick.append($("<button type='button' class='sp-ship-quick-clear'>").text(__("Clear all")));
 				$toolbar.append($quick);
 				$wrap.append($toolbar);
@@ -608,12 +670,12 @@
 				const $summary = $("<div class='sp-ship-summary'>");
 				$summary.append($("<span class='sp-ship-summary-count'>").text(""));
 				$summary.append(
-					$("<span>").text(__("Leave at 0 to skip a line."))
+					$("<span>").text(__("Leave a row at 0 to omit it from this shipment."))
 				);
 				$wrap.append($summary);
 
 				$host.append($wrap);
-				_bindShipmentDialog($wrap, rows, null);
+				_bindShipmentDialog($wrap, rows, d);
 				d.show();
 				setTimeout(function () {
 					$host.find(".sp-ship-search input").trigger("focus");

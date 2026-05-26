@@ -356,7 +356,8 @@ logistics.recognition = {
 // Transport Job adds the same actions in transport_job.js (deferred with Create/Post menu); skip here to avoid duplicates.
 frappe.ui.form.on([
     'Air Shipment', 'Sea Shipment',
-    'Warehouse Job', 'Declaration', 'General Job'
+    'Warehouse Job', 'Declaration', 'General Job',
+    'Special Project'
 ], {
     refresh: function(frm) {
         if (typeof logistics !== 'undefined' && logistics.recognition) {

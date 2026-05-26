@@ -6,21 +6,24 @@ import json
 import frappe
 from frappe.tests import UnitTestCase
 
-from logistics.special_projects.special_project_site_materials import (
+from logistics.special_projects.special_project_packages import (
 	apply_shipment_lines_to_target,
 	build_receipts_from_project_doc,
 	build_receipts_from_transport_order,
-	copy_always_along_site_materials_to_target,
+	copy_always_along_packages_to_target,
 	resolve_special_project_from_project,
-	seed_site_materials_from_sales_quote,
-	sync_site_material_balances,
+	seed_packages_from_sales_quote,
+	sync_package_delivery_balances,
+)
+from logistics.special_projects.doctype.special_project.special_project import (
+	_packages_summary_per_stage_delivered,
 )
 
 
-class TestSiteMaterialBalances(UnitTestCase):
-	def test_balance_two_receipts_two_jobs(self):
+class TestPackageDeliveryBalances(UnitTestCase):
+	def test_balance_two_deliveries_two_jobs(self):
 		sp = frappe._dict(
-			site_materials=[
+			packages=[
 				frappe._dict(
 					idx=1,
 					warehouse_item="WI-A",
@@ -28,10 +31,10 @@ class TestSiteMaterialBalances(UnitTestCase):
 					description="",
 				),
 			],
-			site_receipts=[
+			deliveries=[
 				frappe._dict(
 					idx=1,
-					site_material_row=1,
+					package_row=1,
 					warehouse_item="WI-A",
 					qty_received=300,
 					status="Posted",
@@ -40,7 +43,7 @@ class TestSiteMaterialBalances(UnitTestCase):
 				),
 				frappe._dict(
 					idx=2,
-					site_material_row=1,
+					package_row=1,
 					warehouse_item="WI-A",
 					qty_received=200,
 					status="Posted",
@@ -49,38 +52,38 @@ class TestSiteMaterialBalances(UnitTestCase):
 				),
 			],
 		)
-		sync_site_material_balances(sp)
-		mat = sp.site_materials[0]
-		self.assertEqual(mat.qty_on_site, 500)
-		self.assertEqual(mat.qty_short, 500)
+		sync_package_delivery_balances(sp)
+		pkg = sp.packages[0]
+		self.assertEqual(pkg.qty_on_site, 500)
+		self.assertEqual(pkg.qty_short, 500)
 
-	def test_cancelled_receipt_excluded(self):
+	def test_cancelled_delivery_excluded(self):
 		sp = frappe._dict(
-			site_materials=[frappe._dict(idx=1, warehouse_item="WI-B", qty_required=100)],
-			site_receipts=[
+			packages=[frappe._dict(idx=1, warehouse_item="WI-B", qty_required=100)],
+			deliveries=[
 				frappe._dict(
 					idx=1,
-					site_material_row=1,
+					package_row=1,
 					warehouse_item="WI-B",
 					qty_received=40,
 					status="Posted",
 				),
 				frappe._dict(
 					idx=2,
-					site_material_row=1,
+					package_row=1,
 					warehouse_item="WI-B",
 					qty_received=60,
 					status="Cancelled",
 				),
 			],
 		)
-		sync_site_material_balances(sp)
-		self.assertEqual(sp.site_materials[0].qty_on_site, 40)
-		self.assertEqual(sp.site_materials[0].qty_short, 60)
+		sync_package_delivery_balances(sp)
+		self.assertEqual(sp.packages[0].qty_on_site, 40)
+		self.assertEqual(sp.packages[0].qty_short, 60)
 
 	def test_balance_skips_always_along(self):
 		sp = frappe._dict(
-			site_materials=[
+			packages=[
 				frappe._dict(
 					idx=1,
 					warehouse_item="WI-TOOLKIT",
@@ -88,7 +91,7 @@ class TestSiteMaterialBalances(UnitTestCase):
 					include_on_create=1,
 				),
 			],
-			site_receipts=[
+			deliveries=[
 				frappe._dict(
 					idx=1,
 					warehouse_item="WI-TOOLKIT",
@@ -97,30 +100,123 @@ class TestSiteMaterialBalances(UnitTestCase):
 				),
 			],
 		)
-		sync_site_material_balances(sp)
-		self.assertEqual(sp.site_materials[0].qty_on_site, 0)
-		self.assertEqual(sp.site_materials[0].qty_short, 0)
+		sync_package_delivery_balances(sp)
+		self.assertEqual(sp.packages[0].qty_on_site, 0)
+		self.assertEqual(sp.packages[0].qty_short, 0)
+
+
+class TestPackagesFunnelPerStage(UnitTestCase):
+	"""Per-Lifecycle-Stage funnel aggregation used by the Fulfillment summary HTML."""
+
+	def _stages(self):
+		return [
+			{"name": "Pre-Show", "sort_order": 1, "is_closed": 0, "description": ""},
+			{"name": "Logistics", "sort_order": 2, "is_closed": 0, "description": ""},
+			{"name": "On-Site", "sort_order": 3, "is_closed": 0, "description": ""},
+			{"name": "Post-Show", "sort_order": 4, "is_closed": 0, "description": ""},
+			{"name": "Closed", "sort_order": 5, "is_closed": 1, "description": ""},
+		]
+
+	def test_groups_qty_by_stage_per_package(self):
+		sp = frappe._dict(
+			packages=[
+				frappe._dict(idx=1, warehouse_item="WI-A", qty_required=10),
+				frappe._dict(idx=2, warehouse_item="WI-B", qty_required=20),
+			],
+			deliveries=[
+				frappe._dict(
+					package_row=1, warehouse_item="WI-A",
+					qty_received=10, status="Posted", lifecycle_stage="Logistics",
+				),
+				frappe._dict(
+					package_row=1, warehouse_item="WI-A",
+					qty_received=8, status="Posted", lifecycle_stage="On-Site",
+				),
+				frappe._dict(
+					package_row=2, warehouse_item="WI-B",
+					qty_received=15, status="Posted", lifecycle_stage="Logistics",
+				),
+			],
+		)
+		stages = self._stages()
+		out = _packages_summary_per_stage_delivered(sp, sp.packages, stages)
+		# Package A: Pre-Show=0, Logistics=10, On-Site=8, Post-Show=0, Closed=0
+		self.assertEqual(out[0], [0.0, 10.0, 8.0, 0.0, 0.0])
+		# Package B: Pre-Show=0, Logistics=15, rest 0
+		self.assertEqual(out[1], [0.0, 15.0, 0.0, 0.0, 0.0])
+
+	def test_cancelled_deliveries_excluded_from_stage_funnel(self):
+		sp = frappe._dict(
+			packages=[frappe._dict(idx=1, warehouse_item="WI-A", qty_required=10)],
+			deliveries=[
+				frappe._dict(
+					package_row=1, warehouse_item="WI-A",
+					qty_received=10, status="Posted", lifecycle_stage="Logistics",
+				),
+				frappe._dict(
+					package_row=1, warehouse_item="WI-A",
+					qty_received=4, status="Cancelled", lifecycle_stage="Logistics",
+				),
+			],
+		)
+		out = _packages_summary_per_stage_delivered(sp, sp.packages, self._stages())
+		self.assertEqual(out[0][1], 10.0)
+
+	def test_always_along_rows_are_skipped_in_funnel(self):
+		sp = frappe._dict(
+			packages=[
+				frappe._dict(idx=1, warehouse_item="WI-AA", qty_required=1, include_on_create=1),
+				frappe._dict(idx=2, warehouse_item="WI-A", qty_required=10),
+			],
+			deliveries=[
+				frappe._dict(
+					package_row=1, warehouse_item="WI-AA",
+					qty_received=99, status="Posted", lifecycle_stage="Logistics",
+				),
+				frappe._dict(
+					package_row=2, warehouse_item="WI-A",
+					qty_received=4, status="Posted", lifecycle_stage="On-Site",
+				),
+			],
+		)
+		out = _packages_summary_per_stage_delivered(sp, sp.packages, self._stages())
+		# AA row stays zero across all stages.
+		self.assertEqual(out[0], [0.0, 0.0, 0.0, 0.0, 0.0])
+		self.assertEqual(out[1][2], 4.0)
+
+	def test_unknown_stage_is_ignored(self):
+		sp = frappe._dict(
+			packages=[frappe._dict(idx=1, warehouse_item="WI-A", qty_required=10)],
+			deliveries=[
+				frappe._dict(
+					package_row=1, warehouse_item="WI-A",
+					qty_received=10, status="Posted", lifecycle_stage="Not A Real Stage",
+				),
+			],
+		)
+		out = _packages_summary_per_stage_delivered(sp, sp.packages, self._stages())
+		self.assertEqual(out[0], [0.0, 0.0, 0.0, 0.0, 0.0])
 
 
 class TestSeedFromSalesQuote(UnitTestCase):
 	def test_seed_project_products(self):
-		sp = frappe._dict(site_materials=[], customer="CUST-TEST")
+		sp = frappe._dict(packages=[], customer="CUST-TEST")
 		sq = frappe._dict(
 			project_products=[
 				frappe._dict(item="ITEM-X", quantity=10, uom="Nos", description="Widget"),
 				frappe._dict(item="ITEM-Y", quantity=5, description="Gadget"),
 			]
 		)
-		n = seed_site_materials_from_sales_quote(sp, sq)
+		n = seed_packages_from_sales_quote(sp, sq)
 		self.assertEqual(n, 2)
-		self.assertEqual(len(sp.site_materials), 2)
-		self.assertEqual(sp.site_materials[0].qty_required, 10)
+		self.assertEqual(len(sp.packages), 2)
+		self.assertEqual(sp.packages[0].qty_required, 10)
 
 
 class TestShipmentLinesAndCargo(UnitTestCase):
 	def test_apply_shipment_lines_to_transport_order(self):
 		sp = frappe._dict(
-			site_materials=[
+			packages=[
 				frappe._dict(
 					idx=1,
 					warehouse_item="WI-A",
@@ -134,7 +230,7 @@ class TestShipmentLinesAndCargo(UnitTestCase):
 		lines = json.dumps(
 			[
 				{
-					"site_material_row": 1,
+					"package_row": 1,
 					"warehouse_item": "WI-A",
 					"commodity": "COMM-A",
 					"qty": 50,
@@ -151,7 +247,7 @@ class TestShipmentLinesAndCargo(UnitTestCase):
 
 	def test_apply_shipment_lines_carries_dimensions(self):
 		sp = frappe._dict(
-			site_materials=[
+			packages=[
 				frappe._dict(
 					idx=1,
 					warehouse_item="WI-A",
@@ -172,7 +268,7 @@ class TestShipmentLinesAndCargo(UnitTestCase):
 		lines = json.dumps(
 			[
 				{
-					"site_material_row": 1,
+					"package_row": 1,
 					"warehouse_item": "WI-A",
 					"qty": 50,
 					"uom": "Nos",
@@ -192,7 +288,7 @@ class TestShipmentLinesAndCargo(UnitTestCase):
 
 	def test_copy_always_along_appends_packages(self):
 		sp = frappe._dict(
-			site_materials=[
+			packages=[
 				frappe._dict(
 					idx=1,
 					warehouse_item="WI-REQ",
@@ -213,7 +309,7 @@ class TestShipmentLinesAndCargo(UnitTestCase):
 			],
 		)
 		tro = frappe.new_doc("Transport Order")
-		n = copy_always_along_site_materials_to_target(sp, tro)
+		n = copy_always_along_packages_to_target(sp, tro)
 		self.assertEqual(n, 1)
 		self.assertEqual(len(tro.packages), 1)
 		self.assertEqual(tro.packages[0].description, "Tool kit")

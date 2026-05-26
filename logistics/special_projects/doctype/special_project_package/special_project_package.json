@@ -111,14 +111,14 @@
    "fieldname": "qty_on_site",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "On Site",
+   "label": "Delivered",
    "read_only": 1
   },
   {
    "fieldname": "qty_short",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Short",
+   "label": "Remaining",
    "read_only": 1
   },
   {
@@ -190,10 +190,10 @@
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-05-25 00:00:00.000000",
+ "modified": "2026-05-26 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Special Projects",
- "name": "Special Project Site Material",
+ "name": "Special Project Package",
  "owner": "Administrator",
  "permissions": [],
  "sort_field": "modified",
