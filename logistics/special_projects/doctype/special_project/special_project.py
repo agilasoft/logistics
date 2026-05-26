@@ -9,7 +9,11 @@ from frappe.utils import escape_html, flt
 from logistics.special_projects.special_project_lifecycle import (
 	validate_special_project_lifecycle_stage_advance,
 )
-from logistics.utils.lifecycle_stage import FOR_SPECIAL_PROJECT, validate_internal_job_activity_codes
+from logistics.utils.lifecycle_stage import (
+	FOR_SPECIAL_PROJECT,
+	resolve_default_lifecycle_stage,
+	validate_internal_job_activity_codes,
+)
 from logistics.utils.special_project_internal_jobs import (
 	job_refs_from_lifecycle_jobs,
 	resolve_internal_job_detail_row_to_operational_ref,
@@ -495,8 +499,23 @@ class SpecialProject(Document):
 		"""Create ERPNext Project first, then use its ID as this document's ID."""
 		self._create_erpnext_project_before_insert()
 		self._ensure_charges_tab_defaults()
-		if not self.lifecycle_stage:
-			self.lifecycle_stage = "Pre-Show"
+		self._normalize_default_lifecycle_stage()
+
+	def _normalize_default_lifecycle_stage(self):
+		"""Ensure ``lifecycle_stage`` references an existing master row.
+
+		The DocType default is ``Pre-Show``, but new sites or sites that pre-date the
+		shared Lifecycle Stage master may not have that record. Validating links during
+		``insert`` would then raise ``LinkValidationError``, blocking creation from
+		Sales Quote and similar flows. We resolve a safe fallback instead.
+		"""
+		stage = (self.lifecycle_stage or "").strip()
+		if stage and frappe.db.exists("Lifecycle Stage", stage):
+			self.lifecycle_stage = stage
+			return
+		self.lifecycle_stage = resolve_default_lifecycle_stage(
+			module_filter=FOR_SPECIAL_PROJECT, preferred="Pre-Show"
+		)
 
 	def _ensure_charges_tab_defaults(self):
 		"""Default company / cost center from Project or session (Charges tab matches Sea Shipment)."""

@@ -41,6 +41,40 @@ def get_open_lifecycle_stages(module_filter: str = FOR_EXHIBITS) -> list[str]:
 	return [r.name for r in rows] if rows else LIFECYCLE_STAGES_FALLBACK[:-1]
 
 
+def resolve_default_lifecycle_stage(
+	module_filter: str = FOR_EXHIBITS,
+	preferred: str = "Pre-Show",
+) -> str | None:
+	"""Return a Lifecycle Stage name that is guaranteed to exist for ``module_filter``.
+
+	Tries ``preferred`` first (when it exists and is enabled for the module),
+	then falls back to the first stage flagged for the module by ``sort_order``.
+	Returns ``None`` when the ``Lifecycle Stage`` master is empty so callers can
+	safely insert without tripping LinkValidationError on the default value.
+	"""
+	if not frappe.db.exists("DocType", "Lifecycle Stage"):
+		return preferred or None
+
+	if preferred:
+		preferred_row = frappe.db.get_value(
+			"Lifecycle Stage",
+			preferred,
+			["name", module_filter],
+			as_dict=True,
+		)
+		if preferred_row and preferred_row.get(module_filter):
+			return preferred_row["name"]
+		if preferred_row:
+			return preferred_row["name"]
+
+	return frappe.db.get_value(
+		"Lifecycle Stage",
+		{module_filter: 1},
+		"name",
+		order_by="sort_order asc, name asc",
+	)
+
+
 def _stage_index(stage: str, stages: list[str]) -> int | None:
 	stage = (stage or "").strip()
 	if not stage:

@@ -8,7 +8,11 @@ from frappe.utils import flt
 
 from logistics.exhibits import exhibit_lifecycle
 from logistics.exhibits.exhibit_lifecycle import validate_lifecycle_stage_advance
-from logistics.utils.lifecycle_stage import FOR_EXHIBITS, validate_internal_job_activity_codes
+from logistics.utils.lifecycle_stage import (
+	FOR_EXHIBITS,
+	resolve_default_lifecycle_stage,
+	validate_internal_job_activity_codes,
+)
 
 
 class Exhibit(Document):
@@ -136,9 +140,22 @@ class Exhibit(Document):
 		"""Create ERPNext Project first, then use its ID as this document's ID."""
 		self._create_erpnext_project_before_insert()
 		self._ensure_charges_tab_defaults()
-		if not self.lifecycle_stage:
-			self.lifecycle_stage = "Pre-Show"
+		self._normalize_default_lifecycle_stage()
 		exhibit_lifecycle.load_standard_service_activities(self)
+
+	def _normalize_default_lifecycle_stage(self):
+		"""Ensure ``lifecycle_stage`` references an existing master row.
+
+		Mirror of the guard on ``Special Project``: avoid ``LinkValidationError`` on
+		insert when the shared Lifecycle Stage master has not been seeded yet.
+		"""
+		stage = (self.lifecycle_stage or "").strip()
+		if stage and frappe.db.exists("Lifecycle Stage", stage):
+			self.lifecycle_stage = stage
+			return
+		self.lifecycle_stage = resolve_default_lifecycle_stage(
+			module_filter=FOR_EXHIBITS, preferred="Pre-Show"
+		)
 
 	def _ensure_charges_tab_defaults(self):
 		"""Default company / cost center from Project or session (Charges tab matches Sea Shipment)."""

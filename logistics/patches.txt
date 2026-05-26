@@ -165,6 +165,12 @@ logistics.patches.v1_0_backfill_main_service_internal_job_rollup
 logistics.patches.v1_0_gotransport_provider_timeout_default
 # Telematics: ship gotransport_device Custom Field + Driver permlevel write + Settings defaults.
 logistics.patches.v1_0_gotransport_finalize_setup
+# Special Projects + Exhibits: seed the shared Lifecycle Stage master
+# (Pre-Show / Logistics / On-Site / Post-Show / Closed). Required so the default
+# value ``Pre-Show`` on Special Project / Exhibit resolves to a real master row
+# during link validation on insert.
+logistics.patches.v1_0_rename_exhibit_lifecycle_stage_to_lifecycle_stage
+logistics.patches.v1_0_seed_exhibit_lifecycle_stage
 # Special Projects: backfill lifecycle_stage on existing Site Receipt rows for the new
 # per-stage delivery funnel summary.
 logistics.patches.v1_1_special_project_receipt_lifecycle_stage
