@@ -371,7 +371,7 @@ def _route_google(start: Tuple[float, float], end: Tuple[float, float]) -> Tuple
 
 # ==================== main API ====================
 def _msg_fallback(provider: str, reason: str):
-    """Show a concise warning and optionally log details."""
+    """Event a concise warning and optionally log details."""
     try:
         frappe.msgprint(
             msg=f"Routing provider {provider} failed: {frappe.utils.escape_html(reason)}. Falling back to Haversine.",

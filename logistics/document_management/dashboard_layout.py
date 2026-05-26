@@ -652,6 +652,12 @@ def render_special_project_interactive_route_tab_html(map_id_prefix, map_payload
 	background: #e9ecef;
 	color: #495057;
 }}
+.sp-dash-lifecycle-group.collapsed .sp-dash-lifecycle-group-body {{
+	display: none;
+}}
+.sp-dash-lifecycle-group .sp-dash-card:last-child {{
+	margin-bottom: 0;
+}}
 </style>
 <div class="sp-dash-split">
 	<div class="sp-dash-cards-col">{cards_sidebar_html}</div>
@@ -850,16 +856,42 @@ def render_special_project_interactive_route_tab_html(map_id_prefix, map_payload
 	}}
 
 	function selectCard(idx) {{
-		document.querySelectorAll('.sp-dash-card').forEach(function(el, j) {{
-			el.classList.toggle('is-selected', j === idx);
+		document.querySelectorAll('.sp-dash-card').forEach(function(el) {{
+			var i = parseInt(el.getAttribute('data-sp-map-idx'), 10);
+			if (isNaN(i)) return;
+			el.classList.toggle('is-selected', i === idx);
 		}});
 		drawItem(idx);
 	}}
 	function bindCards() {{
-		document.querySelectorAll('.sp-dash-card').forEach(function(card, i) {{
-			card.addEventListener('click', function() {{ selectCard(i); }});
+		document.querySelectorAll('.sp-dash-card').forEach(function(card) {{
+			card.addEventListener('click', function(ev) {{
+				ev.stopPropagation();
+				var idx = parseInt(card.getAttribute('data-sp-map-idx'), 10);
+				if (!isNaN(idx)) selectCard(idx);
+			}});
 		}});
+		initSpDashLifecycleGroups();
 		selectCard(firstSelectableIndex());
+	}}
+	function initSpDashLifecycleGroups() {{
+		document.querySelectorAll('.sp-dash-lifecycle-group-header').forEach(function(header) {{
+			if (header.getAttribute('data-sp-lifecycle-bound')) return;
+			header.setAttribute('data-sp-lifecycle-bound', '1');
+			header.addEventListener('click', function(ev) {{
+				ev.preventDefault();
+				var group = header.closest('.sp-dash-lifecycle-group');
+				if (!group) return;
+				var body = group.querySelector('.sp-dash-lifecycle-group-body');
+				var chevron = header.querySelector('.sp-dash-lifecycle-chevron');
+				var collapsed = group.classList.toggle('collapsed');
+				if (body) body.style.display = collapsed ? 'none' : '';
+				if (chevron) {{
+					chevron.classList.toggle('fa-chevron-right', collapsed);
+					chevron.classList.toggle('fa-chevron-down', !collapsed);
+				}}
+			}});
+		}});
 	}}
 
 	function initLeaflet() {{

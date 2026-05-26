@@ -24,6 +24,16 @@ CREATABLE_INTERNAL_JOB_TYPES: frozenset[str] = frozenset(
 )
 
 
+def _apply_internal_job_satellite_flags(doc: Any, main_job_type: str, main_job: str) -> None:
+	"""Converted internal job: IJ on, MS off, link to main."""
+	doc.is_internal_job = 1
+	doc.is_main_service = 0
+	if hasattr(doc, "main_job_type"):
+		doc.main_job_type = main_job_type
+	if hasattr(doc, "main_job"):
+		doc.main_job = main_job
+
+
 def linked_internal_job_target_is_cancelled(job_type: str, job_no: str) -> bool:
 	"""True when Job No points at an operational document with docstatus 2 (cancelled)."""
 	jt = (job_type or "").strip()
@@ -229,6 +239,107 @@ def apply_internal_job_detail_row_to_operational_doc(
 
 	for fn, val in params.items():
 		set_field(fn, val)
+
+
+_CONTACTS_ADDRESSES_FIELD_NAMES: tuple[str, ...] = (
+	"shipper_address",
+	"shipper_address_display",
+	"consignee_address",
+	"consignee_address_display",
+	"shipper_contact",
+	"shipper_contact_display",
+	"consignee_contact",
+	"consignee_contact_display",
+	"notify_party",
+	"notify_party_address",
+)
+
+
+def _copy_contacts_addresses_between_operational_docs(source_doc: Any, target_doc: Any) -> None:
+	"""Copy Contacts & Addresses tab scalars when the target DocType defines the field."""
+	if not source_doc or not target_doc:
+		return
+	meta = frappe.get_meta(target_doc.doctype)
+	for fn in _CONTACTS_ADDRESSES_FIELD_NAMES:
+		if not meta.get_field(fn):
+			continue
+		if not hasattr(source_doc, fn):
+			continue
+		setattr(target_doc, fn, getattr(source_doc, fn, None))
+
+
+_SKIP_PACKAGE_TABLE_LAYOUT_TYPES: frozenset[str] = frozenset(
+	("Section Break", "Column Break", "Tab Break", "HTML", "Button")
+)
+_SKIP_PACKAGE_ROW_SYSTEM_FIELDS: frozenset[str] = frozenset(
+	(
+		"name",
+		"owner",
+		"creation",
+		"modified",
+		"modified_by",
+		"parent",
+		"parenttype",
+		"parentfield",
+		"idx",
+		"docstatus",
+	)
+)
+
+
+def _child_doctype_for_table_field(parent_doctype: str, table_fieldname: str) -> str | None:
+	df = frappe.get_meta(parent_doctype).get_field(table_fieldname)
+	if df and df.fieldtype == "Table" and df.options:
+		return (df.options or "").strip() or None
+	return None
+
+
+def _copy_table_rows_matching_target_child_fields(
+	source_rows: list[Any] | tuple[Any, ...] | None,
+	target_doc: Any,
+	*,
+	table_fieldname: str,
+	target_child_doctype: str,
+) -> None:
+	"""Append child rows using field names that exist on ``target_child_doctype`` (values from each source row)."""
+	if not source_rows or not target_doc or not table_fieldname or not target_child_doctype:
+		return
+	if not hasattr(target_doc, table_fieldname):
+		return
+	tgt_child_meta = frappe.get_meta(target_child_doctype)
+	allowed = {
+		f.fieldname
+		for f in tgt_child_meta.fields
+		if f.fieldtype not in _SKIP_PACKAGE_TABLE_LAYOUT_TYPES
+	} - _SKIP_PACKAGE_ROW_SYSTEM_FIELDS
+
+	for src_row in source_rows:
+		row_dict: dict[str, Any] = {}
+		for fn in allowed:
+			if not hasattr(src_row, fn):
+				continue
+			row_dict[fn] = getattr(src_row, fn, None)
+		if not row_dict:
+			continue
+		if all(v is None or v == "" for v in row_dict.values()):
+			continue
+		target_doc.append(table_fieldname, row_dict)
+
+
+def _copy_packages_from_shipment_to_internal_freight_booking(shipment_doc: Any, booking_doc: Any) -> None:
+	"""Copy ``packages`` from Sea/Air Shipment onto a new internal Air/Sea Booking.
+
+	Uses the booking's package child DocType (e.g. Sea Freight Packages → Air Booking Packages).
+	"""
+	packages = getattr(shipment_doc, "packages", None) or []
+	if not packages:
+		return
+	child_dt = _child_doctype_for_table_field(booking_doc.doctype, "packages")
+	if not child_dt:
+		return
+	_copy_table_rows_matching_target_child_fields(
+		packages, booking_doc, table_fieldname="packages", target_child_doctype=child_dt
+	)
 
 
 def _shipment_charge_matches_service(shipment: Any, *service_lower: str) -> bool:
@@ -843,18 +954,42 @@ def _populate_sea_booking_charges_from_linked_quote_on_internal_create(doc) -> N
 
 	Mirrors the ``sales_quote`` ``on_change`` / fetch-quotations path so charges are not left empty
 	just because the link was set before the first save (no ``has_value_changed``).
+	Prefers Sea ``service_type`` charge rows copied from the Main Job when present, otherwise Sales Quote.
+	Routing is always applied from the linked quote when legs exist (independent of charge overlay).
 	"""
+	from frappe.utils import cint
+
+	from logistics.utils.internal_job_charge_copy import (
+		populate_internal_job_charges_from_main_service,
+		should_apply_internal_job_main_charge_overlay,
+	)
+	from logistics.utils.sales_quote_routing import (
+		apply_linked_sales_quote_routing_to_booking,
+		apply_main_job_routing_operational_overlay,
+	)
+
+	apply_linked_sales_quote_routing_to_booking(doc)
+	apply_main_job_routing_operational_overlay(doc)
+
+	overlay_populated = False
+	if cint(getattr(doc, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(doc):
+		try:
+			n, _st = populate_internal_job_charges_from_main_service(doc)
+			if n:
+				overlay_populated = True
+		except Exception:
+			frappe.log_error(
+				frappe.get_traceback(),
+				"Sea Booking internal job — charges from Main Job on create",
+			)
+
+	if overlay_populated:
+		return
+
 	sq_name = getattr(doc, "sales_quote", None)
 	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
 		return
 	try:
-		sq = frappe.get_doc("Sales Quote", sq_name)
-	except Exception:
-		return
-	try:
-		from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
-
-		apply_sales_quote_routing_to_booking(doc, sq)
 		doc._populate_charges_from_sales_quote_doc()
 	except Exception:
 		frappe.log_error(
@@ -869,6 +1004,7 @@ def _populate_air_booking_charges_from_linked_quote_on_internal_create(doc) -> N
 	Mirrors the internal Sea Booking create path so charges are not left empty because ``sales_quote``
 	was set before the first save (``on_change`` does not run without ``has_value_changed``).
 	Prefers Air ``service_type`` charge rows copied from the Main Job when present, otherwise Sales Quote.
+	Routing is always applied from the linked quote when legs exist (independent of charge overlay).
 	"""
 	from frappe.utils import cint
 
@@ -876,6 +1012,13 @@ def _populate_air_booking_charges_from_linked_quote_on_internal_create(doc) -> N
 		populate_internal_job_charges_from_main_service,
 		should_apply_internal_job_main_charge_overlay,
 	)
+	from logistics.utils.sales_quote_routing import (
+		apply_linked_sales_quote_routing_to_booking,
+		apply_main_job_routing_operational_overlay,
+	)
+
+	apply_linked_sales_quote_routing_to_booking(doc)
+	apply_main_job_routing_operational_overlay(doc)
 
 	overlay_populated = False
 	if cint(getattr(doc, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(doc):
@@ -896,13 +1039,6 @@ def _populate_air_booking_charges_from_linked_quote_on_internal_create(doc) -> N
 	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
 		return
 	try:
-		sq = frappe.get_doc("Sales Quote", sq_name)
-	except Exception:
-		return
-	try:
-		from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
-
-		apply_sales_quote_routing_to_booking(doc, sq)
 		doc._populate_charges_from_sales_quote(doc.sales_quote)
 	except Exception:
 		frappe.log_error(
@@ -935,11 +1071,11 @@ def _create_air_booking_from_sea_shipment(sea_shipment_name: str, internal_job_d
 	from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 
 	copy_sales_quote_fields_to_target(shipment, doc)
-	doc.is_internal_job = 1
-	doc.main_job_type = "Sea Shipment"
-	doc.main_job = sea_shipment_name
+	_apply_internal_job_satellite_flags(doc, "Sea Shipment", sea_shipment_name)
 	if row:
 		apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
+	_copy_contacts_addresses_between_operational_docs(shipment, doc)
+	_copy_packages_from_shipment_to_internal_freight_booking(shipment, doc)
 	_populate_air_booking_charges_from_linked_quote_on_internal_create(doc)
 	doc.insert(ignore_permissions=True)
 	persist_internal_job_detail_job_link(
@@ -969,11 +1105,11 @@ def _create_sea_booking_from_air_shipment(air_shipment_name: str, internal_job_d
 	from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 
 	copy_sales_quote_fields_to_target(shipment, doc)
-	doc.is_internal_job = 1
-	doc.main_job_type = "Air Shipment"
-	doc.main_job = air_shipment_name
+	_apply_internal_job_satellite_flags(doc, "Air Shipment", air_shipment_name)
 	if row:
 		apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
+	_copy_contacts_addresses_between_operational_docs(shipment, doc)
+	_copy_packages_from_shipment_to_internal_freight_booking(shipment, doc)
 	_populate_sea_booking_charges_from_linked_quote_on_internal_create(doc)
 	doc.insert(ignore_permissions=True)
 	persist_internal_job_detail_job_link(
@@ -1000,11 +1136,16 @@ def _create_air_booking_from_transport_job(transport_job_name: str, internal_job
 	from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 
 	copy_sales_quote_fields_to_target(job, doc)
-	doc.is_internal_job = 1
-	doc.main_job_type = "Transport Job"
-	doc.main_job = job.name
+	_apply_internal_job_satellite_flags(doc, "Transport Job", job.name)
 	if row:
 		apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
+	if doc.sales_quote and not getattr(doc, "origin_port", None):
+		try:
+			sq = frappe.get_doc("Sales Quote", doc.sales_quote)
+			doc.origin_port = getattr(sq, "origin_port", None) or doc.origin_port
+			doc.destination_port = getattr(sq, "destination_port", None) or doc.destination_port
+		except Exception:
+			pass
 	_populate_air_booking_charges_from_linked_quote_on_internal_create(doc)
 	doc.insert(ignore_permissions=True)
 	persist_internal_job_detail_job_link(
@@ -1031,9 +1172,7 @@ def _create_sea_booking_from_transport_job(transport_job_name: str, internal_job
 	from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 
 	copy_sales_quote_fields_to_target(job, doc)
-	doc.is_internal_job = 1
-	doc.main_job_type = "Transport Job"
-	doc.main_job = job.name
+	_apply_internal_job_satellite_flags(doc, "Transport Job", job.name)
 	if row:
 		apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
 	_populate_sea_booking_charges_from_linked_quote_on_internal_create(doc)
@@ -1052,9 +1191,7 @@ def _create_declaration_order_from_transport_job(transport_job_name: str, intern
 	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
 	row, resolved_idx = resolve_internal_job_detail_row_for_create(job, "Declaration Order", idx)
 	order = frappe.new_doc("Declaration Order")
-	order.is_internal_job = 1
-	order.main_job_type = "Transport Job"
-	order.main_job = job.name
+	_apply_internal_job_satellite_flags(order, "Transport Job", job.name)
 	order.transport_mode = "Road"
 	order.order_date = today()
 	order.customer = job.customer
@@ -1103,18 +1240,22 @@ def _create_transport_order_from_transport_job(transport_job_name: str, internal
 	order.profit_center = job.profit_center
 	order.scheduled_date = getattr(job, "scheduled_date", None) or frappe.utils.today()
 	order.booking_date = frappe.utils.today()
-	order.transport_job_type = getattr(job, "transport_job_type", None) or "Non-Container"
+	order.transport_job_type = "Non-Container"
 	if getattr(job, "transport_mode", None):
 		order.transport_mode = job.transport_mode
 	if getattr(job, "load_type", None):
 		order.load_type = job.load_type
-	order.is_internal_job = 1
-	order.main_job_type = "Transport Job"
-	order.main_job = job.name
+	_apply_internal_job_satellite_flags(order, "Transport Job", job.name)
 	from logistics.utils.module_integration import copy_sales_quote_fields_to_target
+	from logistics.utils.transport_job_type import (
+		apply_container_transport_context_to_order,
+		set_internal_transport_order_draft_insert_flags,
+	)
 
 	copy_sales_quote_fields_to_target(job, order)
 	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
+	apply_container_transport_context_to_order(order, row)
+	set_internal_transport_order_draft_insert_flags(order)
 	order.insert(ignore_permissions=True)
 	persist_internal_job_detail_job_link(
 		"Transport Job", transport_job_name, "Transport Order", order.name, detail_idx=resolved_idx

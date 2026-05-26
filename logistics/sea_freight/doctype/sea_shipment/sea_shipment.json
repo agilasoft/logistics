@@ -27,6 +27,10 @@
   "release_type",
   "entry_type",
   "contains_dangerous_goods",
+  "section_break_consolidation",
+  "consolidation_reference",
+  "column_break_consolidation",
+  "consolidation_status",
   "section_break_parties",
   "column_break_origin",
   "shipper",
@@ -128,8 +132,8 @@
   "column_break_logistics_reps",
   "company",
   "branch",
-  "cost_center",
   "profit_center",
+  "cost_center",
   "column_break_accounts",
   "project",
   "job_number",
@@ -163,6 +167,7 @@
   "accrual_closed",
   "quote_reference_section",
   "is_main_service",
+  "is_high_value",
   "sales_quote",
   "column_break_quote_ref",
   "is_internal_job",
@@ -336,6 +341,14 @@
   },
   {
    "default": "0",
+   "description": "Inherited from the linked Sales Quote (if any).",
+   "fieldname": "is_high_value",
+   "fieldtype": "Check",
+   "label": "High Value",
+   "read_only": 1
+  },
+  {
+   "default": "0",
    "description": "Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff.",
    "fieldname": "is_internal_job",
    "fieldtype": "Check",
@@ -370,7 +383,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "collapsible": 1,
    "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details_section",
    "fieldtype": "Section Break",
@@ -484,6 +496,29 @@
    "label": "Contains Dangerous Goods"
   },
   {
+   "fieldname": "section_break_consolidation",
+   "fieldtype": "Section Break",
+   "label": "Consolidation"
+  },
+  {
+   "fieldname": "consolidation_reference",
+   "fieldtype": "Link",
+   "label": "Consolidation Reference",
+   "options": "Sea Consolidation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_consolidation",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consolidation_status",
+   "fieldtype": "Select",
+   "label": "Consolidation Status",
+   "options": "\nPending\nAccepted\nIn Transit\nDelivered\nException",
+   "read_only": 1
+  },
+  {
    "collapsible": 1,
    "fieldname": "dangerous_goods_section",
    "fieldtype": "Section Break",
@@ -561,7 +596,7 @@
    "fieldname": "density_factor_html",
    "fieldtype": "HTML",
    "label": "Density Factor",
-   "options": "<div class=\"density-factor-container\" style=\"margin: 12px 0;\"><div style=\"font-size: 11px; color: #6c7680; margin-bottom: 6px;\">Density Factor</div><div class=\"density-factor-track\" style=\"height: 28px; background: #e8eef4; border-radius: 4px; position: relative; overflow: hidden; max-width: 100%;\"><div class=\"density-factor-fill\" style=\"position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #2490ef, #6ba3e8); border-radius: 4px; transition: width 0.2s ease;\"></div><span class=\"density-factor-indicator\" data-doc-value=\"\" style=\"position: absolute; left: 0; top: 50%; transform: translateY(-50%); background: #2490ef; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 4px; z-index: 2;\">0.0</span></div><div style=\"display: flex; justify-content: space-between; font-size: 10px; color: #6c7680; margin-top: 4px;\"><span>(1:1) Dense</span><span>1:6</span><span>Volumetric (1:6000)</span></div></div>"
+   "options": "<div class=\"density-factor-container\"><div class=\"density-factor-header\"><span class=\"density-factor-title\">Density Factor</span><span class=\"density-factor-classification\" data-zone=\"\"></span></div><div class=\"density-factor-meta\"><span class=\"density-factor-value is-empty\" data-doc-value=\"\"></span><span class=\"density-factor-unit\">cm\u00b3/kg</span></div><div class=\"density-factor-track\" role=\"progressbar\" aria-valuemin=\"0\" aria-valuemax=\"6000\" aria-valuenow=\"\"><div class=\"density-factor-fill\"></div><div class=\"density-factor-indicator\"></div></div><div class=\"density-factor-scale\"><span class=\"dfs-pos\" data-tier=\"dense\" style=\"left: 0%\"><span class=\"dfs-num\">0</span><span class=\"dfs-lbl\">Dense</span></span><span class=\"dfs-pos\" style=\"left: 25%\"><span class=\"dfs-num\">1500</span></span><span class=\"dfs-pos\" style=\"left: 50%\"><span class=\"dfs-num\">3000</span></span><span class=\"dfs-pos\" style=\"left: 75%\"><span class=\"dfs-num\">4500</span></span><span class=\"dfs-pos\" data-tier=\"volumetric\" style=\"left: 100%\"><span class=\"dfs-num\">6000</span><span class=\"dfs-lbl\">Volumetric</span></span></div><div class=\"density-factor-error\"></div></div>"
   },
   {
    "fieldname": "excess_weight_volume",
@@ -602,7 +637,6 @@
    "options": "Customer Controlled\nAgent Controlled"
   },
   {
-   "collapsible": 1,
    "fieldname": "section_break_parties",
    "fieldtype": "Section Break",
    "label": "Entities and Parties"
@@ -742,7 +776,6 @@
    "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
   },
   {
-   "collapsible": 1,
    "fieldname": "routing_section",
    "fieldtype": "Section Break",
    "label": "Routing Legs"
@@ -754,7 +787,6 @@
    "options": "Sea Shipment Routing Leg"
   },
   {
-   "collapsible": 1,
    "fieldname": "master_details_section",
    "fieldtype": "Section Break",
    "label": "Master Details"
@@ -763,7 +795,8 @@
    "fieldname": "master_bill",
    "fieldtype": "Link",
    "label": "Master BL",
-   "options": "Master Bill"
+   "options": "Master Bill",
+   "search_index": 1
   },
   {
    "fieldname": "column_break_mbl_r",
@@ -939,6 +972,7 @@
    "fieldtype": "Link",
    "label": "Project",
    "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "no_copy": 1,
    "options": "Project"
   },
   {
@@ -975,7 +1009,6 @@
    "options": "Employee"
   },
   {
-   "collapsible": 1,
    "fieldname": "containers_section",
    "fieldtype": "Section Break",
    "label": "Containers"
@@ -986,7 +1019,6 @@
    "options": "Sea Freight Containers"
   },
   {
-   "collapsible": 1,
    "fieldname": "packages_section",
    "fieldtype": "Section Break",
    "label": "Packages"
@@ -1607,7 +1639,7 @@
    "link_fieldname": "main_job"
   }
  ],
- "modified": "2026-04-23 16:29:42.281084",
+ "modified": "2026-05-15 09:55:30.846427",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Shipment",

@@ -164,24 +164,24 @@ function update_toolbar_buttons(frm) {
 
 	// Determine which button to show based on document state
 	if (frm.is_new() || frm.doc.__islocal) {
-		// New/unsaved document: Show Save button only
+		// New/unsaved document: Event Save button only
 		if (frm.page && frm.page.set_primary_action) {
 			frm.page.set_primary_action(__("Save"), function() {
 				frm.save();
 			});
 		}
 	} else if (frm.doc.docstatus === 0) {
-		// Saved draft document: Show Submit button only if no unsaved changes
+		// Saved draft document: Event Submit button only if no unsaved changes
 		// If there are unsaved changes, show Save button instead
 		if (frm.doc.__unsaved) {
-			// Has unsaved changes: Show Save button
+			// Has unsaved changes: Event Save button
 			if (frm.page && frm.page.set_primary_action) {
 				frm.page.set_primary_action(__("Save"), function() {
 					frm.save();
 				});
 			}
 		} else {
-			// No unsaved changes: Show Submit button (if user has permission)
+			// No unsaved changes: Event Submit button (if user has permission)
 			if (frm.perm && frm.perm[0] && frm.perm[0].submit) {
 				if (frm.page && frm.page.set_primary_action) {
 					frm.page.set_primary_action(__("Submit"), function() {
@@ -191,7 +191,7 @@ function update_toolbar_buttons(frm) {
 			}
 		}
 	} else if (frm.doc.docstatus === 1 && frm.doc.__unsaved) {
-		// Submitted document with unsaved changes: Show Update button
+		// Submitted document with unsaved changes: Event Update button
 		if (frm.perm && frm.perm[0] && frm.perm[0].submit) {
 			if (frm.page && frm.page.set_primary_action) {
 				frm.page.set_primary_action(__("Update"), function() {
@@ -704,7 +704,7 @@ frappe.ui.form.on('Transport Job', {
 							if (window.logistics_show_create_internal_job_dialog) {
 								_openInternalJobDlg();
 							} else {
-								frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=19', _openInternalJobDlg);
+								frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=20', _openInternalJobDlg);
 							}
 						}, __('Create'));
 					}
@@ -957,7 +957,7 @@ frappe.ui.form.on('Transport Job', {
 		// This is called when the status field changes to "In Progress"
 		// This typically happens when a transport leg card is started from Run Sheet
 		
-		// Show notification that job is now in progress
+		// Event notification that job is now in progress
 		if (previous_status && previous_status !== 'In Progress') {
 			frappe.show_alert({
 				message: __('Transport Job is now In Progress - A transport leg card has been started from Run Sheet'),
@@ -1100,7 +1100,7 @@ frappe.ui.form.on('Transport Job', {
 		// This is called when the status field changes to "Completed"
 		// This typically happens when all transport legs are completed
 		
-		// Show notification that job is now completed
+		// Event notification that job is now completed
 		if (previous_status && previous_status !== 'Completed') {
 			frappe.show_alert({
 				message: __('Transport Job is now Completed'),
@@ -1231,8 +1231,13 @@ frappe.ui.form.on('Transport Job', {
 		const retry_delay = 400;
 		
 		const fetch_and_update_status = function() {
-			// Fetch the latest status directly from database (bypassing form cache)
-			frappe.db.get_value('Transport Job', frm.doc.name, ['status', 'docstatus', 'sales_invoice'], (r) => {
+			// Fetch the latest status directly from database (bypassing form cache).
+			// Only request sales_invoice if the field exists on the DocType (custom installs may add it).
+			var status_fields = ['status', 'docstatus'];
+			if (frappe.meta.get_docfield('Transport Job', 'sales_invoice')) {
+				status_fields.push('sales_invoice');
+			}
+			frappe.db.get_value('Transport Job', frm.doc.name, status_fields, (r) => {
 				if (r && r.docstatus === 1) {
 					const db_status = r.status || 'Draft';
 					const previous_status = frm.doc.status;

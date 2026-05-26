@@ -12,7 +12,8 @@
   "destination_port",
   "column_break_2",
   "weight_est",
-  "volume_est"
+  "volume_est",
+  "cost_allocation_percentage"
  ],
  "fields": [
   {
@@ -64,6 +65,14 @@
    "precision": "3",
    "read_only": 1,
    "fetch_from": "sea_shipment.total_volume"
+  },
+  {
+   "description": "Per-shipment share when a consolidation charge uses Allocation Method = Custom (should sum to 100% across planned shipments).",
+   "fieldname": "cost_allocation_percentage",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Cost Allocation %",
+   "precision": "2"
   }
  ],
  "index_web_pages_for_search": 1,

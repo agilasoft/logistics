@@ -138,6 +138,7 @@
   "charges",
   "quote_reference",
   "is_main_service",
+  "is_high_value",
   "sales_quote",
   "column_break_quote_ref",
   "is_internal_job",
@@ -213,6 +214,14 @@
    "label": "Main Service",
    "no_copy": 1,
    "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+  },
+  {
+   "default": "0",
+   "description": "Inherited from the linked Sales Quote (if any).",
+   "fieldname": "is_high_value",
+   "fieldtype": "Check",
+   "label": "High Value",
+   "read_only": 1
   },
   {
    "default": "0",
@@ -862,6 +871,7 @@
    "fieldtype": "Link",
    "label": "Project",
    "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "no_copy": 1,
    "options": "Project"
   },
   {

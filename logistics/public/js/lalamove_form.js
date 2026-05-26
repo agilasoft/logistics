@@ -30,7 +30,7 @@ logistics.lalamove.form = {
 	},
 	
 	/**
-	 * Show Lalamove integration dialog
+	 * Event Lalamove integration dialog
 	 */
 	showLalamoveDialog: function(frm) {
 		const doctype = frm.doctype;
@@ -43,16 +43,16 @@ logistics.lalamove.form = {
 		
 		// Check if order already exists
 		if (frm.doc.lalamove_order) {
-			// Show order management options
+			// Event order management options
 			logistics.lalamove.form.showOrderManagementDialog(frm);
 		} else {
-			// Show quotation/order creation options
+			// Event quotation/order creation options
 			logistics.lalamove.form.showQuotationDialog(frm);
 		}
 	},
 	
 	/**
-	 * Show quotation dialog
+	 * Event quotation dialog
 	 */
 	showQuotationDialog: function(frm) {
 		const doctype = frm.doctype;
@@ -194,7 +194,7 @@ logistics.lalamove.form = {
 	},
 	
 	/**
-	 * Show order management dialog
+	 * Event order management dialog
 	 */
 	showOrderManagementDialog: function(frm) {
 		if (!frm.doc.lalamove_order) {

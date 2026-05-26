@@ -65,7 +65,7 @@ frappe.query_reports["Labor Productivity Report"] = {
       fieldname: "min_efficiency",
       label: "Minimum Efficiency (%)",
       fieldtype: "Float",
-      description: "Show only rows at or above this efficiency"
+      description: "Event only rows at or above this efficiency"
     },
     {
       fieldname: "only_variances",

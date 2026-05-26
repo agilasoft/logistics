@@ -8,5 +8,6 @@ from frappe.model.document import Document
 
 class TransportDocumentType(Document):
 	def validate(self):
-		if not self.transport_modes:
+		rows = self.get("transport_modes") or []
+		if not any(getattr(r, "transport_mode", None) for r in rows):
 			frappe.throw(_("Select at least one Transport Mode."))

@@ -1,0 +1,205 @@
+{
+ "app": "logistics",
+ "charts": [],
+ "content": "[{\"id\": \"ev-hdr\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Quick Access</span>\", \"col\": 12}}, {\"id\": \"ev-ev\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Exhibit\", \"col\": 3}}, {\"id\": \"ev-ep\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Docket\", \"col\": 3}}, {\"id\": \"ev-eo\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Exhibit Order\", \"col\": 3}}, {\"id\": \"ev-ej\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Exhibit Job\", \"col\": 3}}, {\"id\": \"ev-sp\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"ev-mh\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\", \"col\": 12}}, {\"id\": \"ev-mc\", \"type\": \"card\", \"data\": {\"card_name\": \"Masters\", \"col\": 4}}, {\"id\": \"ev-sc\", \"type\": \"card\", \"data\": {\"card_name\": \"Settings\", \"col\": 4}}, {\"id\": \"ev-sp2\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"ev-rh\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports and Analytics</b></span>\", \"col\": 12}}, {\"id\": \"ev-rc\", \"type\": \"card\", \"data\": {\"card_name\": \"Operational\", \"col\": 4}}]",
+ "creation": "2026-05-18 00:00:00",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "ticket",
+ "idx": 0,
+ "indicator_color": "blue",
+ "is_hidden": 0,
+ "label": "Exhibits",
+ "link_type": "DocType",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Masters",
+   "link_count": 7,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Exhibit",
+   "link_count": 0,
+   "link_to": "Exhibit",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Docket",
+   "link_count": 0,
+   "link_to": "Docket",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Exhibit Order",
+   "link_count": 0,
+   "link_to": "Exhibit Order",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Exhibit Job",
+   "link_count": 0,
+   "link_to": "Exhibit Job",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Exhibit Type",
+   "link_count": 0,
+   "link_to": "Exhibit Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Lifecycle Stage",
+   "link_count": 0,
+   "link_to": "Lifecycle Stage",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Activity Code",
+   "link_count": 0,
+   "link_to": "Activity Code",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Settings",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Exhibit Settings",
+   "link_count": 0,
+   "link_to": "Exhibit Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Operational",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Exhibit Pipeline Report",
+   "link_count": 0,
+   "link_to": "Exhibit Pipeline Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Exhibit",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Exhibit Activity Status Report",
+   "link_count": 0,
+   "link_to": "Exhibit Activity Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Exhibit",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Exhibit Billing Status Report",
+   "link_count": 0,
+   "link_to": "Exhibit Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Exhibit",
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-05-21 03:05:00.000000",
+ "modified_by": "Administrator",
+ "module": "Exhibits",
+ "name": "Exhibits",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Exhibit",
+   "link_to": "Exhibit",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Docket",
+   "link_to": "Docket",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Exhibit Order",
+   "link_to": "Exhibit Order",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Exhibit Job",
+   "link_to": "Exhibit Job",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "Exhibits",
+ "type": "Workspace"
+}

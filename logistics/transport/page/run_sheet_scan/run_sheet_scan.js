@@ -713,12 +713,19 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
       }
 
       try {
-        await frappe.db.set_value("Transport Leg", legName, updates);
+        const result = await frappe.call({
+          method: "logistics.transport.api.apply_leg_driver_updates",
+          args: { leg_name: legName, updates },
+        });
+        const msg = result?.message || {};
+        if (msg.ok === false) {
+          throw new Error(msg.message || __("Update failed"));
+        }
         this.mark_row_unsynced_ui(legName, false);
         await this.update_status();
         frappe.show_alert({ message: __("Saved"), indicator: "green" });
         const r = this.state.legs.find(x => x.name === legName);
-        if (r) Object.assign(r, updates);
+        if (r) Object.assign(r, updates, msg);
         return true;
       } catch (e) {
         console.warn("Online save failed; queuing offline op.", e);
@@ -756,7 +763,7 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
       $("#rss-signed-by").val("");
       this.clear_signature();
       
-      // Show modal
+      // Event modal
       $("#rss-signature-modal").modal("show");
     }
 
@@ -953,7 +960,10 @@ frappe.pages["run-sheet-scan"].on_page_load = function (wrapper) {
             if (willOverwrite) { conflicts.push(item); continue; }
 
             await sleep(120); // gentle backoff
-            await frappe.db.set_value("Transport Leg", item.name, item.updates);
+            await frappe.call({
+              method: "logistics.transport.api.apply_leg_driver_updates",
+              args: { leg_name: item.name, updates: item.updates },
+            });
 
             await dequeueById(item.id);
             await cacheUpdateLegFields(item.rs, item.name, item.updates);

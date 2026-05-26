@@ -80,11 +80,11 @@ frappe.query_reports["Waste Management Report"] = {
 			"label": __("Min Waste Amount (kg)"),
 			"fieldtype": "Float",
 			"default": 0,
-			"description": __("Show only records with waste amount above this value")
+			"description": __("Event only records with waste amount above this value")
 		},
 		{
 			"fieldname": "show_trends",
-			"label": __("Show Trends"),
+			"label": __("Event Trends"),
 			"fieldtype": "Check",
 			"default": 1,
 			"description": __("Include trend analysis in the report")
@@ -105,14 +105,14 @@ frappe.query_reports["Waste Management Report"] = {
 		},
 		{
 			"fieldname": "show_recycling_rate",
-			"label": __("Show Recycling Rate"),
+			"label": __("Event Recycling Rate"),
 			"fieldtype": "Check",
 			"default": 1,
 			"description": __("Include recycling rate calculations")
 		},
 		{
 			"fieldname": "show_circular_economy",
-			"label": __("Show Circular Economy Metrics"),
+			"label": __("Event Circular Economy Metrics"),
 			"fieldtype": "Check",
 			"default": 1,
 			"description": __("Include circular economy and sustainability metrics")

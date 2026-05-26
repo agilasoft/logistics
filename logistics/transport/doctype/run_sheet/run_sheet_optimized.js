@@ -117,7 +117,7 @@ async function initializeRunSheetRouteMap(mapId, legs, mapRenderer, frm) {
       }
     }
     
-    // Show warnings if any
+    // Event warnings if any
     if (missingAddresses.length > 0) {
       console.warn('Missing addresses:', missingAddresses);
       frappe.msgprint({

@@ -298,7 +298,7 @@ class TransportVehicle(Document):
 						debug_info["api_responses"]["version_info"] = {
 							"success": True,
 							"data": version_info,
-							"raw_response": version_info  # Show the actual API response
+							"raw_response": version_info  # Event the actual API response
 						}
 				except Exception as e:
 					debug_info["api_responses"]["version_info"] = {
@@ -334,7 +334,7 @@ class TransportVehicle(Document):
 							"success": True,
 							"count": len(devices),
 							"data": devices[:5] if len(devices) > 5 else devices,  # Limit to first 5 for display
-							"raw_response": [d.get("raw", d) for d in devices]  # Show the actual API response
+							"raw_response": [d.get("raw", d) for d in devices]  # Event the actual API response
 						}
 					elif hasattr(provider, 'GetDevices'):
 						# Fallback with namespace handling
@@ -353,7 +353,7 @@ class TransportVehicle(Document):
 							"success": True,
 							"count": len(devices),
 							"data": devices[:5] if len(devices) > 5 else devices,  # Limit to first 5 for display
-							"raw_response": devices  # Show the actual API response
+							"raw_response": devices  # Event the actual API response
 						}
 				except Exception as e:
 					debug_info["api_responses"]["devices_response"] = {
@@ -382,7 +382,7 @@ class TransportVehicle(Document):
 						"success": True,
 						"count": len(positions),
 						"data": positions[:5] if len(positions) > 5 else positions,  # Limit to first 5 for display
-						"raw_response": positions  # Show the actual API response
+						"raw_response": positions  # Event the actual API response
 					}
 				except Exception as e:
 					debug_info["api_responses"]["positions_response"] = {
@@ -417,7 +417,7 @@ class TransportVehicle(Document):
 							"success": True,
 							"count": len(can_data),
 							"data": can_data[:5] if len(can_data) > 5 else can_data,  # Limit to first 5 for display
-							"raw_response": can_data  # Show the actual API response
+							"raw_response": can_data  # Event the actual API response
 						}
 						frappe.logger().info(f"Successfully processed {len(debug_info['available_can_data'])} CAN data records")
 					else:
@@ -458,7 +458,7 @@ class TransportVehicle(Document):
 								"vehicle_id": self.telematics_external_id,
 								"time_range": f"{start_time} to {end_time}",
 								"data": vehicle_positions[:5] if len(vehicle_positions) > 5 else vehicle_positions,
-								"raw_response": vehicle_positions  # Show the actual API response
+								"raw_response": vehicle_positions  # Event the actual API response
 							}
 					except Exception as e:
 						debug_info["api_responses"]["vehicle_positions_response"] = {

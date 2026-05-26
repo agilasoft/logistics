@@ -106,6 +106,131 @@ def _sales_quote_has_warehousing_for_contract(sales_quote):
 	return False
 
 
+def _is_special_project_programme_quote(doc) -> bool:
+	quotation_type = getattr(doc, "quotation_type", None)
+	main_service = getattr(doc, "main_service", None)
+	return quotation_type == "Project" or main_service == "Special Project"
+
+
+def get_special_project_for_sales_quote(sales_quote_name):
+	"""Special Project linked to this quote via ``Special Project.sales_quote``."""
+	if not _sq_strip_or_none(sales_quote_name):
+		return None
+	return frappe.db.get_value(
+		"Special Project",
+		{"sales_quote": sales_quote_name},
+		"name",
+	)
+
+
+# Sales Quote Special Project tab → Special Project Details tab (same fieldnames).
+_SALES_QUOTE_TO_SPECIAL_PROJECT_DETAIL_FIELDS = (
+	"project_name",
+	"project_type",
+	"priority",
+	"planned_start",
+	"planned_end",
+	"description",
+	"special_handling_instructions",
+)
+
+
+def _copy_sales_quote_special_project_details(sales_quote, special_project):
+	"""Copy programme header fields from Sales Quote onto Special Project."""
+	for fn in _SALES_QUOTE_TO_SPECIAL_PROJECT_DETAIL_FIELDS:
+		if not hasattr(special_project, fn):
+			continue
+		val = getattr(sales_quote, fn, None)
+		if val is not None and val != "":
+			special_project.set(fn, val)
+
+
+def _sync_special_project_fields_from_sales_quote(sales_quote):
+	"""Push programme detail fields from Sales Quote to its Special Project (``sales_quote`` link)."""
+	if not _is_special_project_programme_quote(sales_quote):
+		return
+	sp_name = get_special_project_for_sales_quote(sales_quote.name)
+	if not sp_name:
+		return
+	sp = frappe.get_doc("Special Project", sp_name)
+	_copy_sales_quote_special_project_details(sales_quote, sp)
+	sp.flags.ignore_permissions = True
+	try:
+		sp.save(ignore_permissions=True)
+	except frappe.ValidationError:
+		frappe.log_error(
+			title=_("Sales Quote Special Project sync"),
+			message=frappe.get_traceback(),
+		)
+
+
+def _sales_quote_has_special_project_content(sales_quote):
+	"""Project quotes: Special Project charge lines or project resource rows."""
+	if sales_quote.get("project_resources"):
+		return True
+	for row in sales_quote.get("charges") or []:
+		if _sq_charge_row_matches_service(row, "Special Project"):
+			return True
+	return False
+
+
+def _sync_show_from_sales_quote(doc):
+	"""When a Sales Quote references an Show, back-fill programme fields that are still empty."""
+	ep_name = _sq_strip_or_none(getattr(doc, "exhibit", None))
+	if not ep_name or not frappe.db.exists("Exhibit", ep_name):
+		return
+	row = frappe.db.get_value(
+		"Exhibit",
+		ep_name,
+		["customer", "sales_quote", "show_name", "show_open_date", "show_close_date"],
+		as_dict=True,
+	)
+	if not row:
+		return
+	updates = {}
+	cust = _sq_strip_or_none(getattr(doc, "customer", None))
+	if cust and not _sq_strip_or_none(row.get("customer")):
+		updates["customer"] = cust
+	if not _sq_strip_or_none(row.get("sales_quote")):
+		updates["sales_quote"] = doc.name
+	show_name = _sq_strip_or_none(getattr(doc, "exhibit_show_name", None))
+	if show_name and not _sq_strip_or_none(row.get("show_name")):
+		updates["show_name"] = show_name
+	open_d = getattr(doc, "exhibit_show_open_date", None)
+	if open_d and not row.get("show_open_date"):
+		updates["show_open_date"] = open_d
+	close_d = getattr(doc, "exhibit_show_close_date", None)
+	if close_d and not row.get("show_close_date"):
+		updates["show_close_date"] = close_d
+	if not updates:
+		return
+	frappe.db.set_value("Exhibit", ep_name, updates)
+
+
+def _sync_special_project_from_sales_quote(doc):
+	"""Back-fill empty customer / sales_quote on the Special Project owned by this quote."""
+	sp_name = get_special_project_for_sales_quote(doc.name)
+	if not sp_name:
+		return
+	row = frappe.db.get_value(
+		"Special Project",
+		sp_name,
+		["customer", "sales_quote"],
+		as_dict=True,
+	)
+	if not row:
+		return
+	updates = {}
+	cust = _sq_strip_or_none(getattr(doc, "customer", None))
+	if cust and not _sq_strip_or_none(row.get("customer")):
+		updates["customer"] = cust
+	if not _sq_strip_or_none(row.get("sales_quote")):
+		updates["sales_quote"] = doc.name
+	if not updates:
+		return
+	frappe.db.set_value("Special Project", sp_name, updates)
+
+
 def throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote):
 	"""Additional-charge quotes (from Change Request) bill an existing job — do not spawn new bookings or orders."""
 	if not cint(getattr(sales_quote, "additional_charge", 0)):
@@ -130,7 +255,10 @@ class SalesQuote(Document):
 			_sync_sales_quote_charge_load_type_filter_flags_for_row(ch)
 		self.validate_naming_series_quotation_type()
 		self.clear_hidden_one_off_fields_for_non_one_off()
+		self.ensure_one_off_status()
 		self.validate_one_off_required_parameters()
+		self.validate_programme_required_parameters()
+		self.validate_charge_row_programme_parameters()
 		self.validate_additional_charge_job()
 		self.validate_load_type_matches_service()
 		self.validate_vehicle_type_load_type()
@@ -138,12 +266,41 @@ class SalesQuote(Document):
 		self.validate_multimodal_main_job()
 		self.validate_customs_unit_types()
 
+	def after_insert(self):
+		_sync_special_project_from_sales_quote(self)
+		_sync_show_from_sales_quote(self)
+
+	def on_update(self):
+		_sync_special_project_from_sales_quote(self)
+		_sync_show_from_sales_quote(self)
+		_sync_special_project_fields_from_sales_quote(self)
+		from logistics.utils.module_integration import propagate_high_value_from_sales_quote
+		propagate_high_value_from_sales_quote(self.name)
+
 	def clear_hidden_one_off_fields_for_non_one_off(self):
 		"""Prevent link validation errors from hidden One-off fields on Regular/Project quotes."""
 		if getattr(self, "quotation_type", None) == "One-off":
 			return
 		if getattr(self, "transport_mode", None):
 			self.transport_mode = None
+
+	def ensure_one_off_status(self):
+		"""``status`` is read-only in the desk; keep it aligned with ``converted_to_doc``."""
+		if getattr(self, "quotation_type", None) != "One-off":
+			return
+		ref = _sq_strip_or_none(getattr(self, "converted_to_doc", None))
+		if ref:
+			normalized = normalize_one_off_converted_to_ref(
+				ref,
+				getattr(self, "converted_to_doctype", None) if hasattr(self, "converted_to_doctype") else None,
+				getattr(self, "converted_to_name", None) if hasattr(self, "converted_to_name") else None,
+			)
+			if normalized and normalized != ref:
+				self.converted_to_doc = normalized
+				ref = normalized
+		expected = "Converted" if ref else "Draft"
+		if (getattr(self, "status", None) or "").strip() != expected:
+			self.status = expected
 
 	def before_submit(self):
 		"""Validate before submitting the document"""
@@ -198,6 +355,16 @@ class SalesQuote(Document):
 			if not _sales_quote_has_warehousing_for_contract(self):
 				frappe.throw(
 					_("Add warehousing details or at least one charge line with Service Type \"Warehousing\"."),
+					title=_("Main Service Has No Charges"),
+				)
+			return
+		if main == "Special Project":
+			if not _sales_quote_has_special_project_content(self):
+				frappe.throw(
+					_(
+						"Add at least one charge line with Service Type \"Special Project\" "
+						"or at least one row on the Special Project tab Resources table."
+					),
 					title=_("Main Service Has No Charges"),
 				)
 			return
@@ -300,6 +467,64 @@ class SalesQuote(Document):
 					_("For One-off Transport quotes, these fields are required: {0}.").format(
 						", ".join(missing_fields),
 					)
+				)
+
+		if main_service == "Exhibits":
+			missing_fields = []
+			if not _sq_strip_or_none(getattr(self, "exhibit_show_name", None)):
+				missing_fields.append(_("Exhibit Name"))
+			if not getattr(self, "exhibit_show_open_date", None):
+				missing_fields.append(_("Exhibit Open Date"))
+			if not getattr(self, "exhibit_show_close_date", None):
+				missing_fields.append(_("Exhibit Close Date"))
+			if missing_fields:
+				frappe.throw(
+					_("For One-off Exhibits quotes, these fields are required: {0}.").format(
+						", ".join(missing_fields),
+					)
+				)
+
+	def validate_programme_required_parameters(self):
+		"""Require programme header links and exhibit show fields based on main_service / quotation_type."""
+		if getattr(self, "additional_charge", 0):
+			return
+
+		main_service = getattr(self, "main_service", None)
+		quotation_type = getattr(self, "quotation_type", None)
+
+		if quotation_type == "Project" and not _sq_strip_or_none(getattr(self, "project_name", None)):
+			frappe.throw(
+				_("Project Name is required for Project quotations."),
+				title=_("Project Name Required"),
+			)
+
+		if main_service == "Exhibits":
+			missing_fields = []
+			if not _sq_strip_or_none(getattr(self, "exhibit_show_name", None)):
+				missing_fields.append(_("Exhibit Name"))
+			if not getattr(self, "exhibit_show_open_date", None):
+				missing_fields.append(_("Exhibit Open Date"))
+			if not getattr(self, "exhibit_show_close_date", None):
+				missing_fields.append(_("Exhibit Close Date"))
+			if missing_fields:
+				frappe.throw(
+					_("For Exhibits quotes, these fields are required: {0}.").format(", ".join(missing_fields)),
+					title=_("Exhibit Details Required"),
+				)
+
+	def validate_charge_row_programme_parameters(self):
+		"""Programme charge rows require a site address."""
+		for row in getattr(self, "charges", None) or []:
+			st = canonical_charge_service_type_for_storage(getattr(row, "service_type", None))
+			if st not in ("special project", "exhibits"):
+				continue
+			if not _sq_strip_or_none(getattr(row, "sp_site", None)):
+				frappe.throw(
+					_("Charges row {0}: Site is required for Service Type \"{1}\".").format(
+						getattr(row, "idx", "") or "?",
+						getattr(row, "service_type", "") or "",
+					),
+					title=_("Programme Parameters Required"),
 				)
 
 	def validate_multimodal_main_job(self):
@@ -475,97 +700,9 @@ class SalesQuote(Document):
 			frappe.log_error(f"Error validating vehicle type capacity in Sales Quote: {str(e)}", "Capacity Validation Error")
 	
 	def _determine_transport_job_type(self, current_job_type, load_type, container_type):
-		"""
-		Determine the appropriate transport_job_type based on load_type compatibility.
-		
-		Args:
-			current_job_type: The currently set transport_job_type (may be None)
-			load_type: The load_type name
-			container_type: The container_type (may be None)
-		
-		Returns:
-			str: The appropriate transport_job_type
-		"""
-		if not load_type:
-			# If no load_type, default to Non-Container
-			return current_job_type or "Non-Container"
-		
-		# Get load type's allowed job type flags
-		load_type_doc = frappe.db.get_value(
-			"Load Type",
-			load_type,
-			["container", "non_container", "special", "oversized", "multimodal", "heavy_haul"],
-			as_dict=True
-		)
-		
-		if not load_type_doc:
-			# If load_type doesn't exist, default to Non-Container
-			return current_job_type or "Non-Container"
-		
-		# Map transport_job_type to boolean field name
-		field_map = {
-			"Container": "container",
-			"Non-Container": "non_container",
-			"Special": "special",
-			"Oversized": "oversized",
-			"Multimodal": "multimodal",
-			"Heavy Haul": "heavy_haul"
-		}
-		
-		# Helper function to find the best default job type based on load_type flags
-		def find_best_job_type():
-			"""Find the best default job type based on load_type's allowed flags."""
-			# Priority: Container > Non-Container > Special > Oversized > Multimodal > Heavy Haul
-			if load_type_doc.get("container"):
-				# If Container is allowed and container_type is provided, prefer Container
-				if container_type:
-					return "Container"
-				# If Container is allowed but container_type is missing, check if Non-Container is also allowed
-				if load_type_doc.get("non_container"):
-					return "Non-Container"
-				# If only Container is allowed but container_type is missing, throw error
-				frappe.throw(
-					_("Load Type '{0}' requires Container job type, but Container Type is missing. Please set Container Type in Sales Quote.").format(
-						load_type
-					),
-					title=_("Missing Container Type")
-				)
-			elif load_type_doc.get("non_container"):
-				return "Non-Container"
-			elif load_type_doc.get("special"):
-				return "Special"
-			elif load_type_doc.get("oversized"):
-				return "Oversized"
-			elif load_type_doc.get("multimodal"):
-				return "Multimodal"
-			elif load_type_doc.get("heavy_haul"):
-				return "Heavy Haul"
-			else:
-				# No job types are allowed for this load_type, default to Non-Container
-				# (validation will catch this later)
-				return "Non-Container"
-		
-		# If transport_job_type is already set, validate it's compatible with load_type
-		if current_job_type:
-			allowed_field = field_map.get(current_job_type)
-			if allowed_field and load_type_doc.get(allowed_field):
-				# Current job type is allowed, but check if Container requires container_type
-				if current_job_type == "Container" and not container_type:
-					# Container job type requires container_type, check if Non-Container is also allowed
-					if load_type_doc.get("non_container"):
-						return "Non-Container"
-					# If only Container is allowed but container_type is missing, throw error
-					frappe.throw(
-						_("Container job type requires Container Type, but it is missing. Please set Container Type in Sales Quote."),
-						title=_("Missing Container Type")
-					)
-				return current_job_type
-			else:
-				# Current job type is not allowed for this load_type, find an alternative
-				return find_best_job_type()
-		
-		# No job type set, determine default based on load_type's allowed job types
-		return find_best_job_type()
+		from logistics.utils.transport_job_type import determine_transport_job_type
+
+		return determine_transport_job_type(current_job_type, load_type, container_type)
 	
 	@frappe.whitelist()
 	def create_air_shipment_from_sales_quote(self):
@@ -670,6 +807,7 @@ class SalesQuote(Document):
 			air_shipment.cost_center = self.cost_center
 			air_shipment.profit_center = self.profit_center
 			air_shipment.is_main_service = 1
+			air_shipment.is_high_value = cint(getattr(self, "is_high_value", 0))
 			copy_sales_quote_fields_to_target(self, air_shipment)
 
 			# Insert the Air Shipment
@@ -763,9 +901,12 @@ class SalesQuote(Document):
 			warehouse_contract.branch = self.branch
 			warehouse_contract.profit_center = self.profit_center
 			warehouse_contract.cost_center = self.cost_center
-			
+			warehouse_contract.is_high_value = cint(getattr(self, "is_high_value", 0))
+
 			# Insert the Warehouse Contract
 			warehouse_contract.insert(ignore_permissions=True)
+
+			record_one_off_quote_conversion(self.name, "Warehouse Contract", warehouse_contract.name)
 			
 			# Import rates from Sales Quote using the existing function
 			from logistics.warehousing.doctype.warehouse_contract.warehouse_contract import get_rates_from_sales_quote
@@ -796,10 +937,159 @@ class SalesQuote(Document):
 			)
 			frappe.throw(f"Error creating Warehouse Contract: {str(e)}")
 
+	@frappe.whitelist()
+	def create_special_project_from_sales_quote(self):
+		"""Create or update a Special Project from this Sales Quote and copy programme charges."""
+		return _create_special_project_from_sales_quote(self)
+
+	@frappe.whitelist()
+	def create_exhibit_from_sales_quote(self):
+		"""Create or update an Exhibit from this Sales Quote and copy programme charges."""
+		return _create_exhibit_from_sales_quote(self)
+
 	def _map_sales_quote_entry_type_to_air_booking(self, sales_quote_entry_type):
 		"""Wrapper method that calls the module-level mapping function"""
 		return map_sales_quote_entry_type_to_air_booking(sales_quote_entry_type)
-	
+
+
+def _create_special_project_from_sales_quote(sales_quote):
+	if sales_quote.docstatus != 1:
+		frappe.throw(_("This Sales Quote must be submitted before creating a Special Project."))
+	throw_if_sales_quote_expired_for_creation(sales_quote)
+	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
+
+	is_project_quote = getattr(sales_quote, "quotation_type", None) == "Project"
+	if not is_project_quote and not _sales_quote_has_special_project_content(sales_quote):
+		frappe.throw(
+			_(
+				"Add at least one charge line with Service Type \"Special Project\" "
+				"or at least one row on the Special Project tab Resources table."
+			)
+		)
+
+	sp_name = get_special_project_for_sales_quote(sales_quote.name)
+	if sp_name:
+		sp = frappe.get_doc("Special Project", sp_name)
+	else:
+		sp = frappe.new_doc("Special Project")
+		sp.customer = sales_quote.customer
+		sp.sales_quote = sales_quote.name
+		_copy_sales_quote_special_project_details(sales_quote, sp)
+		if not _sq_strip_or_none(getattr(sp, "project_name", None)):
+			sp.project_name = (
+				frappe.db.get_value("Customer", sales_quote.customer, "customer_name")
+				or sales_quote.customer
+			)
+		sp.insert(ignore_permissions=True)
+
+	if not sp.sales_quote:
+		sp.sales_quote = sales_quote.name
+	if not sp.customer:
+		sp.customer = sales_quote.customer
+	sp.company = sales_quote.company or sp.company
+	sp.branch = sales_quote.branch or sp.branch
+	sp.cost_center = sales_quote.cost_center or sp.cost_center
+	sp.profit_center = sales_quote.profit_center or sp.profit_center
+	sp.sales_rep = sales_quote.sales_rep or sp.sales_rep
+	sp.operations_rep = sales_quote.operations_rep or sp.operations_rep
+	sp.customer_service_rep = sales_quote.customer_service_rep or sp.customer_service_rep
+	copy_sales_quote_fields_to_target(sales_quote, sp)
+	_copy_sales_quote_special_project_details(sales_quote, sp)
+	if not _sq_strip_or_none(getattr(sp, "project_name", None)):
+		sp.project_name = (
+			frappe.db.get_value("Customer", sales_quote.customer, "customer_name")
+			or sales_quote.customer
+		)
+	from logistics.utils.sales_quote_programme_charges import populate_programme_charges_from_sales_quote
+
+	populate_programme_charges_from_sales_quote(
+		sp, sales_quote.name, clear_existing=True, service_types="__all__"
+	)
+	from logistics.special_projects.special_project_site_materials import (
+		seed_site_materials_from_sales_quote,
+	)
+
+	seed_site_materials_from_sales_quote(sp, sales_quote, clear_existing=False)
+	sp.save(ignore_permissions=True)
+	frappe.db.commit()
+
+	frappe.msgprint(
+		_("Special Project {0} updated from Sales Quote {1}.").format(sp.name, sales_quote.name),
+		title=_("Special Project"),
+		indicator="green",
+	)
+	return {"success": True, "special_project": sp.name, "message": sp.name}
+
+
+def _create_exhibit_from_sales_quote(sales_quote):
+	if sales_quote.docstatus != 1:
+		frappe.throw(_("This Sales Quote must be submitted before creating an Exhibit."))
+	throw_if_sales_quote_expired_for_creation(sales_quote)
+	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
+
+	if sales_quote.main_service != "Exhibits":
+		frappe.throw(_("Main Service must be Exhibits to create an Exhibit programme."))
+
+	show_name = _sq_strip_or_none(getattr(sales_quote, "exhibit_show_name", None))
+	if not show_name:
+		frappe.throw(_("Exhibit Name is required on the Sales Quote."))
+
+	ep_name = _sq_strip_or_none(getattr(sales_quote, "exhibit", None))
+	if ep_name and frappe.db.exists("Exhibit", ep_name):
+		ep = frappe.get_doc("Exhibit", ep_name)
+	else:
+		ep = frappe.new_doc("Exhibit")
+		ep.project_name = show_name
+		ep.show_name = show_name
+		ep.customer = sales_quote.customer
+		ep.show_open_date = getattr(sales_quote, "exhibit_show_open_date", None)
+		ep.show_close_date = getattr(sales_quote, "exhibit_show_close_date", None)
+		ep.insert(ignore_permissions=True)
+		sales_quote.db_set("exhibit", ep.name, update_modified=False)
+
+	ep.sales_quote = sales_quote.name
+	ep.show_name = show_name
+	ep.show_open_date = getattr(sales_quote, "exhibit_show_open_date", None) or ep.show_open_date
+	ep.show_close_date = getattr(sales_quote, "exhibit_show_close_date", None) or ep.show_close_date
+	if not ep.customer:
+		ep.customer = sales_quote.customer
+	ep.company = sales_quote.company or ep.company
+	ep.branch = sales_quote.branch or ep.branch
+	ep.cost_center = sales_quote.cost_center or ep.cost_center
+	ep.profit_center = sales_quote.profit_center or ep.profit_center
+	ep.sales_rep = sales_quote.sales_rep or ep.sales_rep
+	ep.operations_rep = sales_quote.operations_rep or ep.operations_rep
+	ep.customer_service_rep = sales_quote.customer_service_rep or ep.customer_service_rep
+	copy_sales_quote_fields_to_target(sales_quote, ep)
+
+	from logistics.utils.sales_quote_programme_charges import populate_programme_charges_from_sales_quote
+
+	populate_programme_charges_from_sales_quote(
+		ep, sales_quote.name, clear_existing=True, service_types="__all__"
+	)
+	ep.save(ignore_permissions=True)
+	frappe.db.commit()
+
+	frappe.msgprint(
+		_("Exhibit {0} updated from Sales Quote {1}.").format(ep.name, sales_quote.name),
+		title=_("Exhibit"),
+		indicator="green",
+	)
+	return {"success": True, "exhibit": ep.name, "message": ep.name}
+
+
+@frappe.whitelist()
+def create_special_project_from_sales_quote(sales_quote_name):
+	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	return _create_special_project_from_sales_quote(sales_quote)
+
+
+@frappe.whitelist()
+def create_exhibit_from_sales_quote(sales_quote_name):
+	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	return _create_exhibit_from_sales_quote(sales_quote)
+
+
 @frappe.whitelist()
 def create_transport_order_from_sales_quote(sales_quote_name):
 	"""
@@ -1167,6 +1457,7 @@ def _create_transport_order_from_sales_quote(sales_quote):
 		container_type=transport_order.container_type,
 	)
 	transport_order.is_main_service = 1
+	transport_order.is_high_value = cint(getattr(sales_quote, "is_high_value", 0))
 	copy_sales_quote_fields_to_target(sales_quote, transport_order)
 	append_transport_order_door_leg_from_party_masters(transport_order)
 	apply_shipper_consignee_defaults(transport_order)
@@ -1192,6 +1483,8 @@ def _create_transport_order_from_sales_quote(sales_quote):
 		job_type="Transport Order",
 		job_no=transport_order.name,
 	)
+	record_one_off_quote_conversion(sales_quote.name, "Transport Order", transport_order.name)
+
 	frappe.db.commit()
 	return {"success": True, "transport_order": transport_order.name, "message": _("Transport Order {0} created.").format(transport_order.name)}
 
@@ -1284,6 +1577,7 @@ def _create_air_booking_from_sales_quote(sales_quote):
 	air_booking.cost_center = sales_quote.cost_center
 	air_booking.profit_center = sales_quote.profit_center
 	air_booking.is_main_service = 1
+	air_booking.is_high_value = cint(getattr(sales_quote, "is_high_value", 0))
 	copy_sales_quote_fields_to_target(sales_quote, air_booking)
 
 	# Set weight/volume from Sales Quote so charge quantities can be calculated when populating
@@ -1306,6 +1600,8 @@ def _create_air_booking_from_sales_quote(sales_quote):
 
 	air_booking.insert(ignore_permissions=True)
 
+	record_one_off_quote_conversion(sales_quote.name, "Air Booking", air_booking.name)
+
 	_update_routing_leg_job(
 		sales_quote.name,
 		mode="Air",
@@ -1320,6 +1616,23 @@ def _create_sea_booking_from_sales_quote(sales_quote):
 	"""Create Sea Booking from Sales Quote and update routing leg job_no if multimodal."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
 	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
+
+	if getattr(sales_quote, "quotation_type", None) == "One-off":
+		existing_sb = resolve_single_main_sea_booking_for_sales_quote(sales_quote.name)
+		if existing_sb:
+			record_one_off_quote_conversion(sales_quote.name, "Sea Booking", existing_sb)
+			return {
+				"success": True,
+				"sea_booking": existing_sb,
+				"already_exists": True,
+				"message": _("Sea Booking {0} already exists for this One-off Sales Quote.").format(existing_sb),
+			}
+		validate_one_off_quote_not_converted(
+			sales_quote.name,
+			current_doctype="Sea Booking",
+			allow_main_transport_if_converted_to_declaration_order=True,
+		)
+
 	sea_charges = [c for c in (getattr(sales_quote, "charges") or []) if _sq_charge_row_matches_service(c, "Sea")]
 	legacy_sea = getattr(sales_quote, "sea_freight", None) or []
 	main_ok = getattr(sales_quote, "main_service", None) == "Sea"
@@ -1343,7 +1656,31 @@ def _create_sea_booking_from_sales_quote(sales_quote):
 		or getattr(sales_quote, "location_to", None)
 	)
 	if not origin or not dest:
-		frappe.throw(_("Origin Port and Destination Port are required for Sea mode."))
+		for ch in sea_charges:
+			if not origin and getattr(ch, "origin_port", None):
+				origin = ch.origin_port
+			if not dest and getattr(ch, "destination_port", None):
+				dest = ch.destination_port
+			if origin and dest:
+				break
+	if (not origin or not dest) and getattr(sales_quote, "routing_legs", None):
+		for leg in sales_quote.routing_legs:
+			if getattr(leg, "mode", None) == "Sea" and (
+				getattr(leg, "origin", None) or getattr(leg, "destination", None)
+			):
+				if not origin and getattr(leg, "origin", None):
+					origin = leg.origin
+				if not dest and getattr(leg, "destination", None):
+					dest = leg.destination
+				if origin and dest:
+					break
+	if not origin or not dest:
+		frappe.throw(
+			_(
+				"Origin Port and Destination Port are required for Sea mode. Set them in Sea charge parameters, "
+				"One-off Parameters (Origin Port, Destination Port), or in the Routing leg with mode Sea."
+			)
+		)
 	if not sales_quote.shipper or not sales_quote.consignee:
 		frappe.throw(_("Shipper and Consignee are required for Sea mode."))
 
@@ -1369,22 +1706,22 @@ def _create_sea_booking_from_sales_quote(sales_quote):
 	sea_booking.cost_center = sales_quote.cost_center
 	sea_booking.profit_center = sales_quote.profit_center
 	sea_booking.is_main_service = 1
+	sea_booking.is_high_value = cint(getattr(sales_quote, "is_high_value", 0))
 	copy_sales_quote_fields_to_target(sales_quote, sea_booking)
 
 	apply_sales_quote_routing_to_booking(sea_booking, sales_quote)
 	populate_air_sea_booking_party_fields_from_masters(sea_booking)
 	apply_shipper_consignee_defaults(sea_booking)
 
-	sea_booking.insert(ignore_permissions=True)
-	sea_booking.reload()
-	sea_booking.quote_type = "Sales Quote"
-	sea_booking.quote = sales_quote.name
-	sea_booking.sales_quote = sales_quote.name
+	# Populate charges before insert (same as Air Booking) so One-off validation and desk load are consistent.
 	from logistics.sea_freight.doctype.sea_booking.sea_booking import _sync_quote_and_sales_quote
+
 	_sync_quote_and_sales_quote(sea_booking)
-	# Populate charges from Sales Quote (same as Fetch Quotations)
 	sea_booking._populate_charges_from_sales_quote(sales_quote)
-	sea_booking.save(ignore_permissions=True)
+
+	sea_booking.insert(ignore_permissions=True)
+
+	record_one_off_quote_conversion(sales_quote.name, "Sea Booking", sea_booking.name)
 
 	_update_routing_leg_job(
 		sales_quote.name,
@@ -1987,14 +2324,65 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 		return None
 
 
+def format_one_off_converted_to_ref(doctype: str | None, document_name: str | None) -> str | None:
+	"""Human-readable target for One-off *Converted To* (e.g. ``Sea Booking SBK000000312``)."""
+	dn = (document_name or "").strip()
+	if not dn:
+		return None
+	dt = (doctype or "").strip()
+	ref = f"{dt} {dn}" if dt else dn
+	return ref[:140] if len(ref) > 140 else ref
+
+
+_ONE_OFF_CONVERTED_REF_PREFIX_DOCTYPE = (
+	("SBK", "Sea Booking"),
+	("DCO", "Declaration Order"),
+	("TRO", "Transport Order"),
+	("ABK", "Air Booking"),
+	("SF", "Sea Shipment"),
+	("AF", "Air Shipment"),
+	("WHC", "Warehouse Contract"),
+)
+
+
+def normalize_one_off_converted_to_ref(
+	converted_ref: str | None,
+	doctype: str | None = None,
+	document_name: str | None = None,
+) -> str | None:
+	"""Normalize legacy ``Doctype: Name`` or bare document id to ``Doctype Name`` when possible."""
+	cr = (converted_ref or "").strip()
+	if not cr:
+		if doctype and document_name:
+			return format_one_off_converted_to_ref(doctype, document_name)
+		return None
+	if ": " in cr:
+		parts = cr.split(": ", 1)
+		if len(parts) == 2 and parts[0].strip() and parts[1].strip():
+			return format_one_off_converted_to_ref(parts[0].strip(), parts[1].strip())
+	for _, dt in _ONE_OFF_CONVERTED_REF_PREFIX_DOCTYPE:
+		if cr.startswith(f"{dt} "):
+			return cr
+	if doctype:
+		dn = (document_name or cr).strip()
+		if dn:
+			formatted = format_one_off_converted_to_ref(doctype, dn)
+			if formatted:
+				return formatted
+	for prefix, dt in _ONE_OFF_CONVERTED_REF_PREFIX_DOCTYPE:
+		if cr.startswith(prefix):
+			return format_one_off_converted_to_ref(dt, cr)
+	return cr
+
+
 def one_off_stored_conversion_matches(
 	converted_ref: str, doctype: str | None, document_name: str | None
 ) -> bool:
 	"""True if ``converted_ref`` (DB) refers to the same document as ``doctype`` + ``document_name``.
 
-	Supports **compact** storage (``ABK-000000426``), **legacy** ``\"Air Booking ABK-...\"``,
-	and exact match to ``\"{doctype} {name}\"``."""
-	cr = (converted_ref or "").strip()
+	Supports **compact** storage (``ABK-000000426``), **standard** ``Air Booking ABK-...``,
+	legacy ``Air Booking: ABK-...``, and exact match to ``{doctype} {name}``."""
+	cr = normalize_one_off_converted_to_ref(converted_ref) or (converted_ref or "").strip()
 	if not cr or not (document_name or "").strip():
 		return False
 	dn = document_name.strip()
@@ -2005,18 +2393,92 @@ def one_off_stored_conversion_matches(
 		return True
 	if dt and cr.startswith(f"{dt} "):
 		return cr[len(dt) + 1 :].strip() == dn
+	if dt:
+		legacy_colon = f"{dt}: {dn}"
+		if cr == legacy_colon:
+			return True
 	return False
 
 
+def record_one_off_quote_conversion(
+	sales_quote_name: str, doctype: str, document_name: str
+) -> None:
+	"""Record which booking/order a One-off Sales Quote was converted to (on create or submit)."""
+	if not sales_quote_name or not (document_name or "").strip():
+		return
+	if not frappe.db.exists("Sales Quote", sales_quote_name):
+		return
+	if (frappe.db.get_value("Sales Quote", sales_quote_name, "quotation_type") or "").strip() != "One-off":
+		return
+	_one_off_persist_converted(sales_quote_name, doctype, document_name)
+
+
+@frappe.whitelist()
+def sync_one_off_quote_status_from_links(sales_quote_name: str) -> dict:
+	"""Desk: back-fill *Converted To* / *Status* from linked main jobs when missing."""
+	if not sales_quote_name or not frappe.db.exists("Sales Quote", sales_quote_name):
+		return {"updated": False}
+	qt = (frappe.db.get_value("Sales Quote", sales_quote_name, "quotation_type") or "").strip()
+	if qt != "One-off":
+		return {"updated": False}
+	link_cols = ["converted_to_doc"]
+	if frappe.db.has_column("Sales Quote", "converted_to_doctype"):
+		link_cols.extend(["converted_to_doctype", "converted_to_name"])
+	row = frappe.db.get_value("Sales Quote", sales_quote_name, link_cols, as_dict=True) or {}
+	current = _sq_strip_or_none(row.get("converted_to_doc"))
+	if current:
+		normalized = normalize_one_off_converted_to_ref(
+			current,
+			row.get("converted_to_doctype"),
+			row.get("converted_to_name"),
+		)
+		if normalized and normalized != current:
+			_one_off_persist_converted_from_ref(sales_quote_name, normalized)
+			return {"updated": True, "converted_to_doc": normalized, "status": "Converted"}
+		return {"updated": False}
+	inferred = _infer_one_off_converted_ref_from_links(sales_quote_name)
+	if not inferred:
+		return {"updated": False}
+	_one_off_persist_converted_from_ref(sales_quote_name, inferred)
+	return {"updated": True, "converted_to_doc": inferred, "status": "Converted"}
+
+
+def _infer_one_off_converted_ref_from_links(sales_quote_name: str) -> str | None:
+	"""First linked main operational document for this quote (priority: customs order, then main freight/transport)."""
+	linked_checks = (
+		("Declaration Order", {"sales_quote": sales_quote_name}),
+		("Sea Booking", {"sales_quote": sales_quote_name, "is_main_service": 1}),
+		("Air Booking", {"sales_quote": sales_quote_name, "is_main_service": 1}),
+		("Transport Order", {"sales_quote": sales_quote_name, "is_main_service": 1}),
+		("Warehouse Contract", {"sales_quote": sales_quote_name}),
+		("Declaration", {"sales_quote": sales_quote_name, "is_main_service": 1}),
+	)
+	for doctype, filters in linked_checks:
+		filters = {**filters, "docstatus": ["!=", 2]}
+		names = frappe.get_all(doctype, filters=filters, pluck="name", limit=1)
+		if names:
+			return format_one_off_converted_to_ref(doctype, names[0])
+	return None
+
+
+def _one_off_persist_converted_from_ref(sales_quote_name: str, ref: str) -> None:
+	frappe.db.sql(
+		"""
+		UPDATE `tabSales Quote`
+		SET `status`=%(st)s,
+		    `converted_to_doc`=%(ref)s
+		WHERE `name`=%(nm)s
+		""",
+		{"st": "Converted", "ref": ref, "nm": sales_quote_name},
+	)
+	frappe.clear_document_cache("Sales Quote", sales_quote_name)
+
+
 def _one_off_persist_converted(sales_quote_name: str, doctype: str, document_name: str) -> None:
-	"""Set status + Converted To. Many sites have ERPNext-style ``converted_to_doctype`` / ``converted_to_name``
-	used for the *Converted To* link in Customize; ``converted_to_doc`` holds the visible document id (e.g. ABK-…)."""
+	"""Set status + Converted To. ``converted_to_doc`` stores ``{Doctype} {name}`` for desk display."""
 	doc_name = (document_name or "").strip()
-	if len(doc_name) > 140:
-		doc_name = doc_name[:140]
 	dt = (doctype or "").strip()
-	if len(dt) > 140:
-		dt = dt[:140]
+	ref = format_one_off_converted_to_ref(dt, doc_name)
 
 	frappe.db.sql(
 		"""
@@ -2025,7 +2487,7 @@ def _one_off_persist_converted(sales_quote_name: str, doctype: str, document_nam
 		    `converted_to_doc`=%(ref)s
 		WHERE `name`=%(nm)s
 		""",
-		{"st": "Converted", "ref": doc_name or None, "nm": sales_quote_name},
+		{"st": "Converted", "ref": ref, "nm": sales_quote_name},
 	)
 
 	if frappe.db.has_column("Sales Quote", "converted_to_doctype"):
@@ -2052,7 +2514,9 @@ def _one_off_persist_converted(sales_quote_name: str, doctype: str, document_nam
 
 def update_one_off_quote_on_submit(sales_quote_name: str, document_name: str, doctype: str):
 	"""
-	Update One-off Sales Quote status to Converted when referenced document is submitted.
+	Update One-off Sales Quote *Converted To* / *Status* when a linked document is submitted.
+
+	Same persistence as :func:`record_one_off_quote_conversion` (also used on create-from-quote).
 
 	Lifecycle contract: Any submittable doctype that calls this on submit (and thus sets
 	converted_to_doc on the Sales Quote) MUST call reset_one_off_quote_on_cancel(sales_quote)
@@ -2079,7 +2543,7 @@ def update_one_off_quote_on_submit(sales_quote_name: str, document_name: str, do
 		if qt != "One-off":
 			return
 		
-		_one_off_persist_converted(sales_quote_name, doctype, document_name)
+		record_one_off_quote_conversion(sales_quote_name, doctype, document_name)
 	except Exception as e:
 		frappe.log_error(
 			f"Error updating One-off Sales Quote {sales_quote_name} on submit: {str(e)}",
@@ -2203,36 +2667,112 @@ def _resolved_transport_order_name_from_one_off_conversion(converted_ref: str | 
 	return None
 
 
-def resolve_allow_linked_transport_order_for_freight_shipment(doc):
-	"""If the quote is converted to a Transport Order that references this Air/Sea Shipment (or the main-job hub), return that TRO name.
-
-	Same job chain as ``allow_linked_air_booking`` / ``allow_linked_sea_booking``: port pickup/delivery TRO shares the
-	one-off quote with the linked freight shipment.
-	"""
+def _shipment_hub_for_linked_transport_order(doc):
+	"""Return (hub_doctype, hub_name) when *doc* shares a one-off quote with a Transport Order on that hub."""
 	from frappe.utils import cint
 
 	dt = getattr(doc, "doctype", None) or ""
-	if dt not in ("Air Shipment", "Sea Shipment"):
-		return None
-	sq = getattr(doc, "sales_quote", None)
-	if not sq:
+	if dt in ("Air Shipment", "Sea Shipment"):
+		hub_dt = dt
+		hub_name = (doc.name or "").strip()
+		if cint(getattr(doc, "is_internal_job", 0)):
+			mjt = (getattr(doc, "main_job_type", None) or "").strip()
+			mj = (getattr(doc, "main_job", None) or "").strip()
+			if mjt == dt and mj:
+				hub_name = mj
+		return hub_dt, hub_name
+	if dt == "Declaration Order" and cint(getattr(doc, "is_internal_job", 0)):
+		mjt = (getattr(doc, "main_job_type", None) or "").strip()
+		mj = (getattr(doc, "main_job", None) or "").strip()
+		if mjt in ("Air Shipment", "Sea Shipment") and mj:
+			return mjt, mj
+	return None, None
+
+
+def _allow_linked_transport_order_for_shipment_hub(sales_quote_name, hub_doctype, hub_name):
+	"""Return TRO name when the quote converted to a Transport Order linked to this Air/Sea Shipment hub."""
+	sq = (sales_quote_name or "").strip()
+	hub_dt = (hub_doctype or "").strip()
+	hub_name = (hub_name or "").strip()
+	if not sq or not hub_dt or not hub_name:
 		return None
 	cr = frappe.db.get_value("Sales Quote", sq, "converted_to_doc")
 	tro_name = _resolved_transport_order_name_from_one_off_conversion(cr)
 	if not tro_name:
 		return None
-	link_field = "air_shipment" if dt == "Air Shipment" else "sea_shipment"
-	tro_ship = frappe.db.get_value("Transport Order", tro_name, link_field)
-	if not tro_ship:
-		return None
-	my_name = (doc.name or "").strip()
-	if tro_ship == my_name:
+	link_field = "air_shipment" if hub_dt == "Air Shipment" else "sea_shipment"
+	tro_ship = (frappe.db.get_value("Transport Order", tro_name, link_field) or "").strip()
+	if tro_ship == hub_name:
 		return tro_name
-	if cint(getattr(doc, "is_internal_job", 0)):
-		mjt = (getattr(doc, "main_job_type", None) or "").strip()
-		mj = (getattr(doc, "main_job", None) or "").strip()
-		if mjt == dt and mj and tro_ship == mj:
+	return None
+
+
+def resolve_allow_linked_transport_order_for_freight_shipment(doc):
+	"""If the quote is converted to a Transport Order that references this Air/Sea Shipment (or the main-job hub), return that TRO name.
+
+	Same job chain as ``allow_linked_air_booking`` / ``allow_linked_sea_booking``: port pickup/delivery TRO shares the
+	one-off quote with the linked freight shipment. Prefer :func:`resolve_allow_linked_transport_order_for_internal_job_satellite`
+	for internal-job Declaration Orders and other satellites.
+	"""
+	hub_dt, hub_name = _shipment_hub_for_linked_transport_order(doc)
+	if not hub_dt or not hub_name:
+		return None
+	return _allow_linked_transport_order_for_shipment_hub(
+		getattr(doc, "sales_quote", None), hub_dt, hub_name
+	)
+
+
+def resolve_allow_linked_transport_order_for_internal_job_satellite(doc):
+	"""Return Transport Order name when a one-off quote already converted to TRO is still part of this internal-job chain.
+
+	Covers Air/Sea Shipment hubs, Declaration Order under Transport Job (TRO.main_job), and Declaration Order under
+	Declaration (TRO linked via declaration's air/sea shipment).
+	"""
+	tro = resolve_allow_linked_transport_order_for_freight_shipment(doc)
+	if tro:
+		return tro
+
+	from frappe.utils import cint
+
+	if not cint(getattr(doc, "is_internal_job", 0)):
+		return None
+	sq = getattr(doc, "sales_quote", None)
+	if not sq:
+		return None
+	mjt = (getattr(doc, "main_job_type", None) or "").strip()
+	mj = (getattr(doc, "main_job", None) or "").strip()
+	if not mjt or not mj:
+		return None
+
+	cr = frappe.db.get_value("Sales Quote", sq, "converted_to_doc")
+	tro_name = _resolved_transport_order_name_from_one_off_conversion(cr)
+	if not tro_name:
+		return None
+
+	if mjt == "Transport Job":
+		tro_row = frappe.db.get_value(
+			"Transport Order", tro_name, ["main_job_type", "main_job"], as_dict=True
+		)
+		if (
+			tro_row
+			and (tro_row.get("main_job_type") or "").strip() == "Transport Job"
+			and (tro_row.get("main_job") or "").strip() == mj
+		):
 			return tro_name
+
+	if mjt == "Declaration" and frappe.db.exists("Declaration", mj):
+		dec = frappe.db.get_value(
+			"Declaration", mj, ["sea_shipment", "air_shipment"], as_dict=True
+		) or {}
+		for hub_dt, hub_name in (
+			("Air Shipment", (dec.get("air_shipment") or "").strip()),
+			("Sea Shipment", (dec.get("sea_shipment") or "").strip()),
+		):
+			if hub_name:
+				linked = _allow_linked_transport_order_for_shipment_hub(sq, hub_dt, hub_name)
+				if linked:
+					return linked
+
 	return None
 
 
@@ -2330,6 +2870,60 @@ def resolve_allow_linked_freight_booking_from_one_off_converted_doc(sales_quote_
 	allow_sea = _booking_if_same_quote("Sea Booking", "Sea Booking")
 	allow_air = _booking_if_same_quote("Air Booking", "Air Booking")
 	return allow_sea, allow_air
+
+
+def resolve_one_off_declaration_order_chain_allowance(doc, allow_sea=None, allow_air=None):
+	"""Return flags for :func:`validate_one_off_quote_not_converted` on freight bookings.
+
+	Internal-job Air/Sea Bookings linked to a Sea/Air Shipment (or Declaration / Declaration Order) may
+	share a one-off quote already converted to a Declaration Order on the customs leg — same multimodal
+	chain as Transport Order satellites.
+	"""
+	from frappe.utils import cint
+
+	if cint(getattr(doc, "is_main_service", 0)) == 1:
+		return True, None
+
+	is_internal = cint(getattr(doc, "is_internal_job", 0)) == 1
+	if not is_internal:
+		return False, None
+
+	main_job_type = (getattr(doc, "main_job_type", None) or "").strip()
+	main_job = (getattr(doc, "main_job", None) or "").strip()
+	linked_declaration_order = None
+	if main_job_type == "Declaration Order" and main_job and frappe.db.exists("Declaration Order", main_job):
+		linked_declaration_order = main_job
+	elif main_job_type == "Declaration" and main_job:
+		try:
+			linked_declaration_order = (
+				frappe.db.get_value("Declaration", main_job, "declaration_order") or None
+			)
+		except Exception:
+			linked_declaration_order = None
+
+	allow = bool(allow_sea) or bool(allow_air) or bool(linked_declaration_order)
+	if not allow and main_job_type in ("Sea Shipment", "Air Shipment") and main_job:
+		sq = (getattr(doc, "sales_quote", None) or "").strip()
+		if sq:
+			try:
+				hub_sq = (frappe.db.get_value(main_job_type, main_job, "sales_quote") or "").strip()
+				if hub_sq == sq:
+					cr = (frappe.db.get_value("Sales Quote", sq, "converted_to_doc") or "").strip()
+					if cr and (
+						cr.startswith("Declaration Order ")
+						or frappe.db.exists("Declaration Order", cr)
+					):
+						allow = True
+						if not linked_declaration_order:
+							linked_declaration_order = (
+								cr[len("Declaration Order ") :].strip()
+								if cr.startswith("Declaration Order ")
+								else cr
+							)
+			except Exception:
+				pass
+
+	return allow, linked_declaration_order
 
 
 # Main-service ops docs allowed to share a one-off quote already converted to a Declaration Order (same job chain).

@@ -111,8 +111,7 @@
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
-   "options": "Vehicle Type",
-   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
+   "options": "Vehicle Type"
   },
   {
    "fieldname": "transport_job_type",

@@ -1,0 +1,145 @@
+{
+ "actions": [],
+ "creation": "2026-05-22 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "site_material_row",
+  "commodity",
+  "warehouse_item",
+  "description",
+  "qty_received",
+  "uom",
+  "receipt_date",
+  "status",
+  "column_break_src",
+  "source_job_type",
+  "source_job_no",
+  "container_no",
+  "column_break_idem",
+  "source_doctype",
+  "source_name",
+  "source_package_idx"
+ ],
+ "fields": [
+  {
+   "fieldname": "site_material_row",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Material Row"
+  },
+  {
+   "fieldname": "commodity",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Commodity",
+   "options": "Commodity",
+   "read_only": 1
+  },
+  {
+   "fieldname": "warehouse_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Warehouse Item",
+   "options": "Warehouse Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Description",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qty_received",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Qty Received",
+   "reqd": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "default": "Today",
+   "fieldname": "receipt_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Receipt Date"
+  },
+  {
+   "default": "Posted",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Draft\nPosted\nCancelled"
+  },
+  {
+   "fieldname": "column_break_src",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "source_job_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Source Job Type",
+   "options": "\nTransport Order\nAir Booking\nSea Booking\nInbound Order\nDeclaration Order\nProject Job\nProject Order"
+  },
+  {
+   "fieldname": "source_job_no",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Source Job No",
+   "options": "source_job_type"
+  },
+  {
+   "fieldname": "container_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Container No"
+  },
+  {
+   "fieldname": "column_break_idem",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "source_doctype",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Source DocType",
+   "options": "DocType",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_name",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Source Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_package_idx",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Source Package Idx",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-05-22 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Special Projects",
+ "name": "Special Project Site Receipt",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

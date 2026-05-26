@@ -157,3 +157,7 @@ logistics.patches.v1_0_remove_air_consolidation_shipments_doctype
 logistics.patches.v1_0_fix_canonical_transport_mode_air_sea_flags
 # Backfill planned / actual cost & revenue on Main Service Internal Job Detail rows from already-submitted internal jobs.
 logistics.patches.v1_0_backfill_main_service_internal_job_rollup
+# Telematics: normalize Go Transport provider request_timeout_sec (0 -> 15).
+logistics.patches.v1_0_gotransport_provider_timeout_default
+# Telematics: ship gotransport_device Custom Field + Driver permlevel write + Settings defaults.
+logistics.patches.v1_0_gotransport_finalize_setup

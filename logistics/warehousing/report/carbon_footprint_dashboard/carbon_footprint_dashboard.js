@@ -75,11 +75,11 @@ frappe.query_reports["Carbon Footprint Dashboard"] = {
 			"label": __("Min Carbon Footprint (kg CO2e)"),
 			"fieldtype": "Float",
 			"default": 0,
-			"description": __("Show only records with carbon footprint above this value")
+			"description": __("Event only records with carbon footprint above this value")
 		},
 		{
 			"fieldname": "show_trends",
-			"label": __("Show Trends"),
+			"label": __("Event Trends"),
 			"fieldtype": "Check",
 			"default": 1,
 			"description": __("Include trend analysis in the report")
@@ -100,14 +100,14 @@ frappe.query_reports["Carbon Footprint Dashboard"] = {
 		},
 		{
 			"fieldname": "show_intensity",
-			"label": __("Show Carbon Intensity"),
+			"label": __("Event Carbon Intensity"),
 			"fieldtype": "Check",
 			"default": 1,
 			"description": __("Include carbon intensity metrics")
 		},
 		{
 			"fieldname": "show_targets",
-			"label": __("Show Reduction Targets"),
+			"label": __("Event Reduction Targets"),
 			"fieldtype": "Check",
 			"default": 1,
 			"description": __("Compare against reduction targets")
@@ -341,7 +341,7 @@ frappe.query_reports["Carbon Footprint Dashboard"] = {
 		}, __("Action"));
 		
 		// Add Dashboard Integration button
-		report.page.add_inner_button(__("Show Dashboard"), function() {
+		report.page.add_inner_button(__("Event Dashboard"), function() {
 			toggleDashboard(report);
 		});
 		
@@ -469,7 +469,7 @@ frappe.query_reports["Carbon Footprint Dashboard"] = {
 				// Toggle visibility
 				if (dashboardContainer.is(':visible')) {
 					dashboardContainer.hide();
-					$(this).text(__("Show Dashboard"));
+					$(this).text(__("Event Dashboard"));
 				} else {
 					dashboardContainer.show();
 					$(this).text(__("Hide Dashboard"));

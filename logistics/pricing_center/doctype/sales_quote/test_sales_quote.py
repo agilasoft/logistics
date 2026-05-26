@@ -628,3 +628,149 @@ class TestSalesQuote(FrappeTestCase):
 		sq.submit()
 		sq.reload()
 		self.assertEqual(sq.docstatus, 1)
+
+	def test_one_off_sea_create_booking_idempotent(self):
+		"""One-off Sea: second create returns existing main Sea Booking instead of failing."""
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+			create_sea_booking_from_sales_quote,
+		)
+
+		sq = self._minimal_sales_quote_doc("Sea")
+		sq.quotation_type = "One-off"
+		sq.naming_series = "OOQ.#####"
+		sq.origin_port = "USLAX"
+		sq.destination_port = "USJFK"
+		sq.append(
+			"charges",
+			{
+				"service_type": "sea",
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+			},
+		)
+		sq.insert()
+		sq.submit()
+
+		first = create_sea_booking_from_sales_quote(sq.name)
+		self.assertTrue(first.get("success"))
+		self.assertTrue(first.get("sea_booking"))
+		self.assertFalse(first.get("already_exists"))
+
+		second = create_sea_booking_from_sales_quote(sq.name)
+		self.assertTrue(second.get("already_exists"))
+		self.assertEqual(second.get("sea_booking"), first.get("sea_booking"))
+
+	def test_internal_air_booking_allows_do_converted_one_off_via_hub_shipment(self):
+		"""Internal-job Air Booking under Sea Shipment may share quote converted to Declaration Order."""
+		from types import SimpleNamespace
+
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+			resolve_one_off_declaration_order_chain_allowance,
+		)
+
+		doc = SimpleNamespace(
+			is_main_service=0,
+			is_internal_job=1,
+			main_job_type="Sea Shipment",
+			main_job="SS-TEST-001",
+			sales_quote="OOQ-TEST-001",
+		)
+		allow, linked_do = resolve_one_off_declaration_order_chain_allowance(
+			doc, allow_sea="SB-TEST-001", allow_air=None
+		)
+		self.assertTrue(allow)
+		self.assertIsNone(linked_do)
+
+	def test_exhibits_canonical_service_type_matches_main_service(self):
+		from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
+
+		self.assertTrue(sales_quote_charge_service_types_equal("Exhibits", "Exhibits"))
+		self.assertTrue(sales_quote_charge_service_types_equal("Events", "Exhibits"))
+		self.assertFalse(sales_quote_charge_service_types_equal("Exhibits", "Air"))
+
+	def test_exhibits_quote_requires_show_fields(self):
+		sq = self._minimal_sales_quote_doc("Exhibits")
+		sq.append(
+			"charges",
+			{
+				"service_type": "Exhibits",
+				"sp_site": self._test_site_address(),
+			},
+		)
+		with self.assertRaises(frappe.ValidationError):
+			sq.insert()
+
+	def test_exhibits_quote_submit_with_show_fields_and_charge(self):
+		sq = self._minimal_sales_quote_doc("Exhibits")
+		sq.exhibit_show_name = "Test Expo 2026"
+		sq.exhibit_show_open_date = today()
+		sq.exhibit_show_close_date = add_days(today(), 3)
+		sq.append(
+			"charges",
+			{
+				"service_type": "Exhibits",
+				"sp_site": self._test_site_address(),
+			},
+		)
+		sq.insert()
+		sq.submit()
+		sq.reload()
+		self.assertEqual(sq.docstatus, 1)
+
+	def test_special_project_submit_with_project_resources_only(self):
+		sq = self._minimal_sales_quote_doc("Special Project")
+		sq.quotation_type = "Project"
+		sq.naming_series = "PQ.#####"
+		sq.project_name = "SQ Test Project"
+		sq.append(
+			"project_resources",
+			{
+				"resource_type": "Personnel",
+				"resource_role": "PM",
+				"quantity": 1,
+			},
+		)
+		sq.insert()
+		sq.submit()
+		sq.reload()
+		self.assertEqual(sq.docstatus, 1)
+
+	def test_programme_charge_row_requires_sp_site(self):
+		sq = self._minimal_sales_quote_doc("Exhibits")
+		sq.exhibit_show_name = "Test Expo"
+		sq.exhibit_show_open_date = today()
+		sq.exhibit_show_close_date = add_days(today(), 1)
+		sq.append("charges", {"service_type": "Exhibits"})
+		sq.insert()
+		with self.assertRaises(frappe.ValidationError):
+			sq.save()
+
+	def _test_site_address(self):
+		existing = frappe.db.get_value("Address", {}, "name")
+		if existing:
+			return existing
+		addr = frappe.get_doc(
+			{
+				"doctype": "Address",
+				"address_title": "SQ Test Site",
+				"address_type": "Office",
+				"address_line1": "1 Test St",
+				"city": "Testville",
+			}
+		)
+		addr.flags.ignore_mandatory = True
+		addr.insert(ignore_permissions=True)
+		return addr.name
+
+	def _test_special_project_name(self):
+		sp = frappe.get_doc(
+			{
+				"doctype": "Special Project",
+				"project_name": "SQ Test Programme",
+				"customer": self.customer,
+			}
+		)
+		sp.flags.ignore_mandatory = True
+		sp.insert(ignore_permissions=True)
+		return sp.name

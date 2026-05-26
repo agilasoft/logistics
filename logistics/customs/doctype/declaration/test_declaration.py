@@ -4,6 +4,10 @@
 import frappe
 from frappe.tests import IntegrationTestCase, UnitTestCase
 
+from logistics.customs.doctype.declaration.declaration import (
+	apply_currency_and_exchange_rates_from_declaration_order,
+)
+
 
 # On IntegrationTestCase, the doctype test records and all
 # link-field test record dependencies are recursively loaded
@@ -51,3 +55,39 @@ class UnitTestDeclarationValue(UnitTestCase):
 		)
 		d.calculate_declaration_value()
 		self.assertEqual(d.declaration_value, 2000)
+
+	def test_apply_currency_and_exchange_rates_from_order_overwrite(self):
+		declaration = frappe.get_doc({"doctype": "Declaration", "currency": "EUR", "exchange_rate": 1})
+		order = {
+			"currency": "PHP",
+			"exchange_rate": 59,
+			"inv_currency": "USD",
+			"inv_exchange_rate": 58.5,
+		}
+		apply_currency_and_exchange_rates_from_declaration_order(declaration, order, overwrite=True)
+		self.assertEqual(declaration.currency, "PHP")
+		self.assertEqual(declaration.exchange_rate, 59)
+		self.assertEqual(declaration.inv_currency, "USD")
+		self.assertEqual(declaration.inv_exchange_rate, 58.5)
+
+	def test_apply_currency_and_exchange_rates_from_order_fills_blanks_only(self):
+		declaration = frappe.get_doc(
+			{
+				"doctype": "Declaration",
+				"currency": "EUR",
+				"exchange_rate": 1.2,
+				"inv_currency": "",
+				"inv_exchange_rate": 0,
+			}
+		)
+		order = {
+			"currency": "PHP",
+			"exchange_rate": 59,
+			"inv_currency": "USD",
+			"inv_exchange_rate": 58.5,
+		}
+		apply_currency_and_exchange_rates_from_declaration_order(declaration, order, overwrite=False)
+		self.assertEqual(declaration.currency, "EUR")
+		self.assertEqual(declaration.exchange_rate, 1.2)
+		self.assertEqual(declaration.inv_currency, "USD")
+		self.assertEqual(declaration.inv_exchange_rate, 58.5)

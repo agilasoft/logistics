@@ -1,7 +1,30 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+function _schedule_customs_line_charge_recalc_from_grid(frm) {
+	if (
+		window.logistics &&
+		logistics.schedule_customs_line_charge_recalc &&
+		frm &&
+		(frm.doctype === "Declaration" || frm.doctype === "Declaration Order")
+	) {
+		logistics.schedule_customs_line_charge_recalc(frm);
+	}
+}
+
 frappe.ui.form.on("Commercial Invoice Line Item", {
+	chargeable_weight(frm) {
+		_schedule_customs_line_charge_recalc_from_grid(frm);
+	},
+	chargeable_weight_uom(frm) {
+		_schedule_customs_line_charge_recalc_from_grid(frm);
+	},
+	gross_weight(frm) {
+		_schedule_customs_line_charge_recalc_from_grid(frm);
+	},
+	gross_weight_uom(frm) {
+		_schedule_customs_line_charge_recalc_from_grid(frm);
+	},
 	declaration_product_code(frm, cdt, cdn) {
 		const row = locals[cdt][cdn];
 		if (!row.declaration_product_code) {

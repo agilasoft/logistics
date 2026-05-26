@@ -587,16 +587,8 @@ frappe.ui.form.on('Sea Booking', {
 					});
 				}, __('Action'));
 			}
-			if (window.logistics && typeof logistics.should_show_get_charges_from_quotation === "function" ? logistics.should_show_get_charges_from_quotation(frm) : (cint(frm.doc.docstatus) === 0 && !cint(frm.doc.is_internal_job))) {
-				frm.add_custom_button(__('Get Charges from Quotation'), function() {
-					if (window.logistics && logistics.open_get_charges_from_quotation_dialog) {
-						logistics.open_get_charges_from_quotation_dialog(frm);
-					} else {
-						frappe.msgprint(
-							__("Charges dialog is not ready. Please refresh the page and try again.")
-						);
-					}
-				}, __('Action'));
+			if (window.logistics && logistics.add_get_charges_from_quotation_button_if_allowed) {
+				logistics.add_get_charges_from_quotation_button_if_allowed(frm);
 			}
 		}
 
@@ -945,6 +937,7 @@ function _debounced_aggregate_packages(frm) {
 					if (r.message.total_weight !== undefined) frm.set_value('total_weight', r.message.total_weight);
 					if (r.message.chargeable !== undefined) frm.set_value('chargeable', r.message.chargeable);
 					_set_packing_summary_from_response(frm, r.message);
+					if (r.message.container_cargo) _apply_container_cargo_to_form(frm, r.message.container_cargo);
 				}
 			}
 		});
@@ -956,6 +949,7 @@ window._sea_booking_debounced_aggregate_packages = _debounced_aggregate_packages
 frappe.ui.form.on('Sea Booking Packages', {
 	form_render: function(frm, cdt, cdn) {
 		if (!cdt || !cdn) return;
+		_refresh_container_cargo_debounced(frm);
 		frm.trigger('packages_on_form_rendered');
 		setTimeout(function() {
 			var fn_immediate = window.logistics_calculate_volume_from_dimensions_immediate;
@@ -965,11 +959,20 @@ frappe.ui.form.on('Sea Booking Packages', {
 			else _sea_booking_volume_fallback(frm, cdt, cdn, frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form());
 		}, 50);
 	},
+	container: function(frm) {
+		_sea_booking_package_or_container_changed(frm);
+	},
 	volume: function(frm) {
-		_debounced_aggregate_packages(frm);
+		_sea_booking_package_or_container_changed(frm);
+	},
+	no_of_packs: function(frm) {
+		_sea_booking_package_or_container_changed(frm);
 	},
 	weight: function(frm) {
-		_debounced_aggregate_packages(frm);
+		_sea_booking_package_or_container_changed(frm);
+	},
+	weight_uom: function(frm) {
+		_sea_booking_package_or_container_changed(frm);
 	},
 	length: function(frm, cdt, cdn) {
 		var fn = window.logistics_calculate_volume_from_dimensions;
@@ -995,8 +998,66 @@ frappe.ui.form.on('Sea Booking Packages', {
 		var fn = window.logistics_calculate_volume_from_dimensions;
 		if (typeof fn === 'function') fn(frm, cdt, cdn);
 		else _sea_booking_volume_fallback(frm, cdt, cdn, frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form());
+		_sea_booking_package_or_container_changed(frm);
 	}
 });
+
+// Container cargo rollup from package lines (Issue #919)
+function _apply_container_cargo_to_form(frm, container_cargo) {
+	if (!container_cargo || !container_cargo.length || !frm.doc.containers) return;
+	container_cargo.forEach(function(item) {
+		var row = (frm.doc.containers || []).find(function(c) {
+			return (item.idx && c.idx === item.idx) || (item.name && c.name === item.name);
+		});
+		if (!row) return;
+		row.packages_in_container = item.packages_in_container;
+		row.weight_in_container = item.weight_in_container;
+		row.volume_in_container = item.volume_in_container;
+		row.max_weight = item.max_weight;
+		row.max_volume = item.max_volume;
+		row.utilization_percentage = item.utilization_percentage;
+	});
+	frm.refresh_field('containers');
+	var grid = frm.fields_dict.containers && frm.fields_dict.containers.grid;
+	if (grid && grid.grid_form && grid.grid_form.doc) {
+		var gd = grid.grid_form.doc;
+		var match = container_cargo.find(function(item) { return item.idx === gd.idx; });
+		if (match) {
+			['packages_in_container', 'weight_in_container', 'volume_in_container',
+				'max_weight', 'max_volume', 'utilization_percentage'].forEach(function(f) {
+				if (match[f] !== undefined) grid.grid_form.set_value(f, match[f]);
+			});
+		}
+	}
+}
+
+function _refresh_container_cargo_metrics(frm) {
+	frappe.call({
+		method: 'logistics.sea_freight.container_row_metrics.compute_container_cargo_metrics',
+		args: { doc: frm.doc },
+		freeze: false,
+		callback: function(r) {
+			if (r && !r.exc && r.message && r.message.container_cargo) {
+				_apply_container_cargo_to_form(frm, r.message.container_cargo);
+			}
+		}
+	});
+}
+
+function _refresh_container_cargo_debounced(frm) {
+	if (frm._container_cargo_timer) clearTimeout(frm._container_cargo_timer);
+	frm._container_cargo_timer = setTimeout(function() {
+		frm._container_cargo_timer = null;
+		_refresh_container_cargo_metrics(frm);
+	}, 300);
+}
+
+function _sea_booking_package_or_container_changed(frm) {
+	_refresh_container_cargo_debounced(frm);
+	if (!_is_grid_dialog_open()) {
+		_debounced_aggregate_packages(frm);
+	}
+}
 
 // Helper to check if grid form dialog/row editor is open
 function _is_grid_dialog_open() {
@@ -1045,6 +1106,7 @@ function _refresh_packing_summary_api(frm) {
 					if (r.message.total_weight !== undefined) frm.set_value('total_weight', r.message.total_weight);
 					if (r.message.chargeable !== undefined) frm.set_value('chargeable', r.message.chargeable);
 					_set_packing_summary_from_response(frm, r.message);
+					if (r.message.container_cargo) _apply_container_cargo_to_form(frm, r.message.container_cargo);
 				}
 			}
 		}
@@ -1052,40 +1114,23 @@ function _refresh_packing_summary_api(frm) {
 }
 
 frappe.ui.form.on('Sea Booking Containers', {
-	type: function(frm) {
-		// Only refresh if row editor is not open
-		if (!_is_grid_dialog_open()) {
-			_refresh_packing_summary_api(frm);
-		}
-	},
-	packages_in_container: function(frm) {
-		if (!_is_grid_dialog_open()) {
-			_refresh_packing_summary_api(frm);
-		}
-	},
-	weight_in_container: function(frm) {
-		if (!_is_grid_dialog_open()) {
-			_refresh_packing_summary_api(frm);
-		}
-	},
-	volume_in_container: function(frm) {
-		if (!_is_grid_dialog_open()) {
-			_refresh_packing_summary_api(frm);
-		}
-	},
 	form_render: function(frm) {
-		// Skip if a grid dialog/row editor is open (prevents freeze and row editor closing)
-		if (_is_grid_dialog_open()) return;
-		
-		// Debounce so add/remove row doesn't trigger multiple calls
-		if (frm._packing_summary_refresh_timer) clearTimeout(frm._packing_summary_refresh_timer);
-		frm._packing_summary_refresh_timer = setTimeout(function() {
-			frm._packing_summary_refresh_timer = null;
-			// Double-check dialog is still not open before making API call
-			if (!_is_grid_dialog_open()) {
-				_refresh_packing_summary_api(frm);
-			}
-		}, 300);
+		_refresh_container_cargo_debounced(frm);
+		if (!_is_grid_dialog_open()) {
+			if (frm._packing_summary_refresh_timer) clearTimeout(frm._packing_summary_refresh_timer);
+			frm._packing_summary_refresh_timer = setTimeout(function() {
+				frm._packing_summary_refresh_timer = null;
+				if (!_is_grid_dialog_open()) {
+					_refresh_packing_summary_api(frm);
+				}
+			}, 300);
+		}
+	},
+	type: function(frm) {
+		_refresh_container_cargo_debounced(frm);
+		if (!_is_grid_dialog_open()) {
+			_refresh_packing_summary_api(frm);
+		}
 	}
 });
 

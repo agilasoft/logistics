@@ -9,7 +9,8 @@ var CHARGE_DOCTYPES_WITH_BREAKS =
 		["Sea Booking Charges", "Sea Shipment Charges", "Sea Consolidation Charges"],
 		["Air Booking Charges", "Air Shipment Charges"],
 		["Declaration Charges", "Declaration Order Charges"],
-		["Transport Order Charges", "Transport Job Charges"]
+		["Transport Order Charges", "Transport Job Charges"],
+		["Special Project Charges"]
 	);
 
 var CHARGE_PARENT_DOCTYPES = [
@@ -23,6 +24,7 @@ var CHARGE_PARENT_DOCTYPES = [
 	"Transport Job",
 	"Declaration",
 	"Declaration Order",
+	"Special Project",
 	"Sales Quote",
 	"Tariff",
 ];

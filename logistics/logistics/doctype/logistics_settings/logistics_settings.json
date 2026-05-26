@@ -147,7 +147,7 @@
    "default": "1",
    "fieldname": "routing_show_map",
    "fieldtype": "Check",
-   "label": "Routing Show Map"
+   "label": "Routing Event Map"
   },
   {
    "default": "OpenStreetMap",

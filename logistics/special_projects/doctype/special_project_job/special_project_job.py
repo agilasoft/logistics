@@ -3,8 +3,8 @@
 
 """Shim: DB may still reference Special Project Job until logistics rename patch runs."""
 
-from logistics.special_projects.doctype.project_task_job.project_task_job import ProjectTaskJob
+from logistics.special_projects.doctype.project_job.project_job import ProjectJob
 
 
-class SpecialProjectJob(ProjectTaskJob):
+class SpecialProjectJob(ProjectJob):
 	pass

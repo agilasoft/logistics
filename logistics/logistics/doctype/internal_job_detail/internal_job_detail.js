@@ -10,7 +10,7 @@
 		Transport: "Transport Order",
 		Customs: "Declaration Order",
 		Warehousing: "Inbound Order",
-		"Special Project": "Project Task Job",
+		"Special Project": "Project Order",
 	};
 
 	/** Fields that should refresh the auto-generated Job Description when edited */

@@ -61,6 +61,14 @@
   "declaration_type",
   "customs_broker",
   "customs_charge_category",
+  "section_break_programme_params",
+  "sp_site",
+  "sp_manpower",
+  "sp_skilled",
+  "sp_equipment_type",
+  "column_break_sp_res",
+  "sp_handling",
+  "sp_resource_notes",
   "section_break_revenue_cost",
   "revenue_column",
   "revenue_calculation_method",
@@ -102,7 +110,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nExhibits",
    "reqd": 1
   },
   {
@@ -117,7 +125,6 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
-   "link_filters": "[[\"Item\",\"disabled\",\"=\",0]]",
    "options": "Item"
   },
   {
@@ -464,6 +471,59 @@
    "fieldtype": "Select",
    "label": "Charge Category",
    "options": "Customs Clearance\nDocumentation\nStorage\nOther"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "fieldname": "section_break_programme_params",
+   "fieldtype": "Section Break",
+   "label": "Programme Parameters"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "description": "Customer address where this programme charge line will be executed.",
+   "fieldname": "sp_site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "mandatory_depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "options": "Address"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "fieldname": "sp_manpower",
+   "fieldtype": "Float",
+   "label": "Manpower"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "fieldname": "sp_skilled",
+   "fieldtype": "Float",
+   "label": "Skilled Labor"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "fieldname": "sp_equipment_type",
+   "fieldtype": "Link",
+   "label": "Equipment",
+   "options": "Special Handling Equipment Type"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "fieldname": "column_break_sp_res",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "fieldname": "sp_handling",
+   "fieldtype": "Link",
+   "label": "Handling",
+   "options": "Special Handling Type"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "fieldname": "sp_resource_notes",
+   "fieldtype": "Small Text",
+   "label": "Resource Notes"
   },
   {
    "fieldname": "section_break_revenue_cost",

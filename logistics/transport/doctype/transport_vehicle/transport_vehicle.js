@@ -3,7 +3,7 @@
 
 frappe.ui.form.on("Transport Vehicle", {
 	company_owned(frm) {
-		// Show company field only when company_owned is checked (1)
+		// Event company field only when company_owned is checked (1)
 		frm.toggle_display("company", frm.doc.company_owned == 1);
 	},
 	refresh(frm) {
@@ -17,7 +17,7 @@ frappe.ui.form.on("Transport Vehicle", {
 					doc: frm.doc,
 					callback: function(r) {
 						if (r.message) {
-							// Show position details in a dialog
+							// Event position details in a dialog
 							show_position_details(r.message);
 						}
 						frm.reload_doc();
@@ -43,7 +43,7 @@ frappe.ui.form.on("Transport Vehicle", {
 					doc: frm.doc,
 					callback: function(r) {
 						if (r.message) {
-							// Show CAN data details in a dialog
+							// Event CAN data details in a dialog
 							show_can_data_details(r.message);
 						}
 						frm.reload_doc();

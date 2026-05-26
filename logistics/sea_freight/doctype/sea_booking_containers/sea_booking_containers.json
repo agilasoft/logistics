@@ -87,19 +87,22 @@
   {
    "fieldname": "packages_in_container",
    "fieldtype": "Int",
-   "label": "Packages in Container"
+   "label": "Packages in Container",
+   "read_only": 1
   },
   {
    "fieldname": "weight_in_container",
    "fieldtype": "Float",
    "label": "Weight in Container (kg)",
-   "precision": "2"
+   "precision": "2",
+   "read_only": 1
   },
   {
    "fieldname": "volume_in_container",
    "fieldtype": "Float",
    "label": "Volume in Container (m\u00b3)",
-   "precision": "3"
+   "precision": "3",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_2",

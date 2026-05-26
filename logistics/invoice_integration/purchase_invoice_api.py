@@ -21,7 +21,14 @@ from logistics.invoice_integration.consolidation_pi_allocation import (
     count_attached_jobs,
 )
 
-JOB_DOCTYPES = ("Transport Job", "Air Shipment", "Sea Shipment", "Warehouse Job", "Declaration")
+JOB_DOCTYPES = (
+    "Transport Job",
+    "Air Shipment",
+    "Sea Shipment",
+    "Warehouse Job",
+    "Declaration",
+    "Special Project",
+)
 
 CONSOLIDATION_DOCTYPES = ("Air Consolidation", "Sea Consolidation")
 
@@ -30,6 +37,15 @@ CONSOLIDATION_CHARGES_CHILD_DOCTYPE = {
     "Sea Consolidation": "Sea Consolidation Charges",
 }
 
+CONSOLIDATION_PLANNING_STATUS_FIELD = {
+    "Air Consolidation": "air_planning_status",
+    "Sea Consolidation": "sea_planning_status",
+}
+
+_PLANNING_SUBMITTED_FOR_PI_MSG = _(
+    "Submit the planned shipment list (Planning status) before creating a Purchase Invoice."
+)
+
 # Child table doctype for charges (used to tag rows as Requested)
 CHARGES_CHILD_DOCTYPE = {
     "Transport Job": "Transport Job Charges",
@@ -37,6 +53,7 @@ CHARGES_CHILD_DOCTYPE = {
     "Sea Shipment": "Sea Shipment Charges",
     "Warehouse Job": "Warehouse Job Charges",
     "Declaration": "Declaration Charges",
+    "Special Project": "Special Project Charges",
 }
 
 # Charge table and cost field mapping: (charges_field, cost_field, rate_field, qty_field, item_field, supplier_field)
@@ -47,6 +64,8 @@ CHARGE_CONFIG = {
     "Sea Shipment": ("charges", "estimated_cost", "unit_cost", "cost_quantity", "item_code", "pay_to"),
     "Warehouse Job": ("charges", "total", "rate", "quantity", "item_code", None),
     "Declaration": ("charges", "estimated_cost", "unit_cost", "quantity", "item_code", "pay_to"),
+    # Special Project Charges share the cost layout with Sea Shipment (unit_cost / cost_quantity).
+    "Special Project": ("charges", "estimated_cost", "unit_cost", "cost_quantity", "item_code", "pay_to"),
 }
 
 # Statuses that mean the charge is already in a PI or further along - exclude from eligibility (avoid duplicate posting)
@@ -103,7 +122,7 @@ def _get_eligible_cost_rows(job, config):
         status = getattr(ch, "purchase_invoice_status", None)
         if status in PI_EXCLUDED_STATUSES or getattr(ch, "purchase_invoice", None):
             continue
-        if job.doctype == "Sea Shipment":
+        if job.doctype in ("Sea Shipment", "Special Project"):
             cost = _sea_shipment_row_cost(ch)
         else:
             # Use actual_cost for PI when present and > 0, else estimated/cost_field
@@ -177,8 +196,8 @@ def _get_eligible_consolidation_cost_rows(c_doc) -> List[Tuple[int, Any, float, 
 def _consolidation_attached_rows(c_doc):
     """Per-shipment rows for PI splitting.
 
-    Air Consolidation derives rows from ``consolidation_packages`` (one per distinct
-    ``air_freight_job``); Sea Consolidation continues to read ``attached_sea_shipments``.
+    Rows are derived from ``consolidation_packages`` (Air: ``air_freight_job``, Sea: ``sea_shipment``);
+    Sea falls back to ``attached_sea_shipments`` when packages have no shipment links.
     """
     return _attached_shipment_rows(c_doc)
 
@@ -196,6 +215,15 @@ def _apply_job_number_on_pi_item(row, job_number: Optional[str]):
         setattr(row, k, v)
 
 
+def _require_consolidation_planning_submitted(c_doc) -> None:
+    """Block consolidation PI until the planned shipment list is submitted."""
+    field = CONSOLIDATION_PLANNING_STATUS_FIELD.get(c_doc.doctype)
+    if not field:
+        return
+    if (c_doc.get(field) or "Draft") != "Submitted":
+        frappe.throw(_PLANNING_SUBMITTED_FOR_PI_MSG)
+
+
 @frappe.whitelist()
 def get_eligible_charges_for_consolidation_purchase_invoice(consolidation_doctype: str, consolidation_name: str) -> Dict[str, Any]:
     if consolidation_doctype not in CONSOLIDATION_DOCTYPES:
@@ -204,6 +232,7 @@ def get_eligible_charges_for_consolidation_purchase_invoice(consolidation_doctyp
         frappe.throw(_("{0} {1} does not exist.").format(consolidation_doctype, consolidation_name))
 
     c_doc = frappe.get_doc(consolidation_doctype, consolidation_name)
+    _require_consolidation_planning_submitted(c_doc)
     cost_rows = _get_eligible_consolidation_cost_rows(c_doc)
     if not cost_rows:
         return {
@@ -265,6 +294,7 @@ def create_consolidation_purchase_invoice(
         frappe.throw(_("{0} {1} does not exist.").format(consolidation_doctype, consolidation_name))
 
     c_doc = frappe.get_doc(consolidation_doctype, consolidation_name)
+    _require_consolidation_planning_submitted(c_doc)
     cost_rows_raw = _get_eligible_consolidation_cost_rows(c_doc)
     if not cost_rows_raw:
         frappe.throw(_("No eligible consolidation charges with items and allocation."))

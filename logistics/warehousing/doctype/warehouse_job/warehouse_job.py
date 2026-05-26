@@ -2532,7 +2532,7 @@ class WarehouseJob(Document):
 			if hu.get("items") and len(hu.get("items", [])) > 0:
 				items_list = ""
 				for item in hu.get("items", []):
-					# Show item details with location info
+					# Event item details with location info
 					location_info = f" → {item.get('location', 'N/A')}" if item.get('location') else ""
 					serial_info = f" (SN: {item.get('serial_no')})" if item.get('serial_no') else ""
 					batch_info = f" (Batch: {item.get('batch_no')})" if item.get('batch_no') else ""

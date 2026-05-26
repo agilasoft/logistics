@@ -1,7 +1,9 @@
 # logistics/transport/doctype/transport_leg/transport_leg.py
 
 import frappe
+from frappe import _
 from frappe.model.document import Document
+from frappe.utils import now_datetime
 
 
 class TransportLeg(Document):
@@ -10,6 +12,7 @@ class TransportLeg(Document):
         self.validate_required_fields()
         self.validate_time_windows()
         self.validate_route_compatibility()
+        self.validate_gps_coordinates()
         self.update_status()
     
     def update_status(self):
@@ -32,9 +35,41 @@ class TransportLeg(Document):
     
     def before_save(self):
         """Ensure status is updated before saving"""
+        self.update_signed_at_timestamps()
         self.update_status()
         self.track_run_sheet_change()
         self.auto_fill_addresses()
+
+    def validate_gps_coordinates(self):
+        """Validate pick/drop GPS coordinates when provided by mobile app."""
+        for lat_field, lon_field, label in (
+            ("pick_latitude", "pick_longitude", "Pick"),
+            ("drop_latitude", "drop_longitude", "Drop"),
+        ):
+            lat = getattr(self, lat_field, None)
+            lon = getattr(self, lon_field, None)
+            if lat in (None, "") and lon in (None, ""):
+                continue
+            # Ignore unset DB defaults (0, 0)
+            if frappe.utils.flt(lat) == 0 and frappe.utils.flt(lon) == 0:
+                continue
+            if lat is None or lon is None:
+                frappe.throw(_("{0} latitude and longitude must both be set.").format(label))
+            if not (-90 <= float(lat) <= 90):
+                frappe.throw(_("{0} latitude must be between -90 and 90.").format(label))
+            if not (-180 <= float(lon) <= 180):
+                frappe.throw(_("{0} longitude must be between -180 and 180.").format(label))
+
+    def update_signed_at_timestamps(self):
+        """Set pick/drop signed timestamps when signatures are captured (driver app)."""
+        ts = now_datetime()
+        if self.pick_signature and not self.pick_signed_at:
+            self.pick_signed_at = ts
+        if self.drop_signature and not self.drop_signed_at:
+            self.drop_signed_at = ts
+        if self.drop_signature or self.drop_signed_at:
+            if not self.date_signed:
+                self.date_signed = self.drop_signed_at or ts
     
     def after_save(self):
         """Sync changes back to Run Sheet and trigger auto-vehicle assignment after Transport Leg is saved"""

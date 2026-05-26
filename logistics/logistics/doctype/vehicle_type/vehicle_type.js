@@ -3,7 +3,7 @@
 
 frappe.ui.form.on('Vehicle Type', {
 	refresh: function(frm) {
-		// Show compatibility information based on current field values
+		// Event compatibility information based on current field values
 		frm.events.show_compatibility_info(frm);
 	},
 
@@ -18,12 +18,12 @@ frappe.ui.form.on('Vehicle Type', {
 				});
 			}
 		}
-		// Show updated compatibility info
+		// Event updated compatibility info
 		frm.events.show_compatibility_info(frm);
 	},
 
 	containerized: function(frm) {
-		// Show updated compatibility info when containerized changes
+		// Event updated compatibility info when containerized changes
 		frm.events.show_compatibility_info(frm);
 	},
 
@@ -36,12 +36,12 @@ frappe.ui.form.on('Vehicle Type', {
 				indicator: 'orange'
 			});
 		}
-		// Show updated compatibility info
+		// Event updated compatibility info
 		frm.events.show_compatibility_info(frm);
 	},
 
 	show_compatibility_info: function(frm) {
-		// Show which transport job types this vehicle type is compatible with
+		// Event which transport job types this vehicle type is compatible with
 		// This is informational and helps users understand the implications of their choices
 		var compatible_job_types = [];
 		var warnings = [];

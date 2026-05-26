@@ -15,6 +15,7 @@
   "valid_until",
   "site",
   "sales_quote",
+  "is_high_value",
   "shipper",
   "consignee",
   "section_break_cvch",
@@ -23,8 +24,8 @@
   "accounts_tab",
   "company",
   "branch",
-  "profit_center",
   "cost_center",
+  "profit_center",
   "column_break_accounts",
   "job_number"
  ],
@@ -48,8 +49,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customer",
-   "options": "Customer",
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
+   "options": "Customer"
   },
   {
    "fieldname": "column_break_djlp",
@@ -99,18 +100,26 @@
    "search_index": 1
   },
   {
+   "default": "0",
+   "description": "Inherited from the linked Sales Quote (if any).",
+   "fieldname": "is_high_value",
+   "fieldtype": "Check",
+   "label": "High Value",
+   "read_only": 1
+  },
+  {
    "fieldname": "shipper",
    "fieldtype": "Link",
    "label": "Shipper",
-   "options": "Shipper",
-   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
+   "options": "Shipper"
   },
   {
    "fieldname": "consignee",
    "fieldtype": "Link",
    "label": "Consignee",
-   "options": "Consignee",
-   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
+   "options": "Consignee"
   },
   {
    "fieldname": "accounts_tab",
@@ -148,12 +157,12 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "For revenue/cost recognition",
    "fieldname": "job_number",
    "fieldtype": "Link",
    "label": "Job Number",
    "no_copy": 1,
-   "options": "Job Number",
-   "description": "For revenue/cost recognition"
+   "options": "Job Number"
   }
  ],
  "grid_page_length": 50,
@@ -191,11 +200,11 @@
    "link_fieldname": "contract"
   }
  ],
- "modified": "2025-10-30 14:47:32.790766",
+ "modified": "2026-05-15 09:42:16.505087",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Contract",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
@@ -213,6 +222,8 @@
    "write": 1
   },
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -222,10 +233,8 @@
    "report": 1,
    "role": "Warehouse Manager",
    "share": 1,
-   "write": 1,
    "submit": 1,
-   "cancel": 1,
-   "amend": 1
+   "write": 1
   }
  ],
  "row_format": "Dynamic",

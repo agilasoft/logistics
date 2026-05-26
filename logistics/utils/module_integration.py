@@ -91,6 +91,8 @@ def propagate_from_air_shipment(doc, fieldname="air_shipment"):
 	if doctype in ("Transport Order", "Transport Job", "Declaration", "Declaration Order", "Inbound Order", "Release Order"):
 		propagate_sales_quote_from_source_if_empty(shipment, doc)
 
+	_set_is_high_value_if_empty(doc, getattr(shipment, "is_high_value", None))
+
 
 def propagate_from_sea_shipment(doc, fieldname="sea_shipment"):
 	"""Populate doc fields from linked Sea Shipment."""
@@ -155,6 +157,8 @@ def propagate_from_sea_shipment(doc, fieldname="sea_shipment"):
 	if doctype in ("Transport Order", "Transport Job", "Declaration", "Declaration Order", "Inbound Order", "Release Order"):
 		propagate_sales_quote_from_source_if_empty(shipment, doc)
 
+	_set_is_high_value_if_empty(doc, getattr(shipment, "is_high_value", None))
+
 
 def propagate_from_transport_job(doc, fieldname="transport_job"):
 	"""Populate doc fields from linked Transport Job."""
@@ -185,6 +189,8 @@ def propagate_from_transport_job(doc, fieldname="transport_job"):
 	if doctype == "Declaration":
 		propagate_sales_quote_from_source_if_empty(job, doc)
 
+	_set_is_high_value_if_empty(doc, getattr(job, "is_high_value", None))
+
 
 def propagate_from_transport_order(doc, fieldname="transport_order"):
 	"""Populate doc fields from linked Transport Order (for Declaration, Release Order)."""
@@ -211,6 +217,8 @@ def propagate_from_transport_order(doc, fieldname="transport_order"):
 			pass
 	if doctype == "Declaration Order":
 		propagate_sales_quote_from_source_if_empty(order, doc)
+
+	_set_is_high_value_if_empty(doc, getattr(order, "is_high_value", None))
 
 
 def run_propagate_on_link(doc):
@@ -281,26 +289,189 @@ def _resolve_sales_quote_from_doc(source_doc):
 	return None
 
 
+def _copy_is_high_value_from_sales_quote(target_doc, sales_quote_name):
+	"""Set ``is_high_value`` on the target from the linked Sales Quote (overwrite)."""
+	if not sales_quote_name or not hasattr(target_doc, "is_high_value"):
+		return
+	try:
+		val = frappe.db.get_value("Sales Quote", sales_quote_name, "is_high_value")
+	except Exception:
+		return
+	target_doc.is_high_value = cint(val)
+
+
+def _set_is_high_value_if_empty(target_doc, value):
+	"""Force-set ``is_high_value=1`` on the in-memory target whenever the source value is truthy.
+
+	A ``1`` on any upstream link overrides any prior manual uncheck on the target so the
+	high-value flag stays in sync across all connected jobs. A falsy ``value`` is a no-op
+	(unchecking the source does not ripple downward).
+	"""
+	if not hasattr(target_doc, "is_high_value"):
+		return
+	if not cint(value or 0):
+		return
+	if cint(getattr(target_doc, "is_high_value", 0)):
+		return
+	target_doc.is_high_value = 1
+
+
+# -------------------------------------------------------------------
+# Sales Quote -> all connected downstream docs: force is_high_value=1
+# -------------------------------------------------------------------
+
+HIGH_VALUE_DOWNSTREAM_DOCTYPES = (
+	"Air Booking",
+	"Sea Booking",
+	"Air Shipment",
+	"Sea Shipment",
+	"Transport Order",
+	"Transport Job",
+	"Declaration Order",
+	"Declaration",
+	"Inbound Order",
+	"Release Order",
+	"Warehouse Job",
+	"Warehouse Contract",
+)
+
+
+def _doctype_has_high_value_link(doctype: str) -> bool:
+	"""True when ``doctype`` carries both ``is_high_value`` and a ``sales_quote`` link field."""
+	try:
+		meta = frappe.get_meta(doctype)
+	except Exception:
+		return False
+	return bool(meta.get_field("is_high_value") and meta.get_field("sales_quote"))
+
+
+def _rollup_high_value_consolidations_for_shipments(
+	*, consolidation_doctype: str, planning_line_doctype: str, shipment_field: str, shipments: list[str]
+) -> None:
+	"""Set is_high_value=1 on Air/Sea Consolidation rows that reference any of the given shipments."""
+	if not shipments:
+		return
+	rows = frappe.get_all(
+		planning_line_doctype,
+		filters={shipment_field: ["in", shipments]},
+		fields=["parent"],
+	)
+	parents = sorted({r.parent for r in rows if r.parent})
+	for name in parents:
+		try:
+			if not cint(frappe.db.get_value(consolidation_doctype, name, "is_high_value")):
+				frappe.db.set_value(
+					consolidation_doctype, name, "is_high_value", 1, update_modified=False
+				)
+		except Exception:
+			frappe.log_error(
+				title="propagate_high_value_from_sales_quote: consolidation rollup",
+				message=f"{consolidation_doctype} {name}",
+			)
+
+
+def propagate_high_value_from_sales_quote(sales_quote_name: str | None) -> None:
+	"""Force ``is_high_value=1`` on every downstream doc linked to the given Sales Quote.
+
+	No-op unless the Sales Quote itself is currently high value. Writes via
+	``frappe.db.set_value`` with ``update_modified=False`` so it does not touch validate hooks
+	or modified timestamps on connected docs (submitted docs included).
+	"""
+	if not sales_quote_name:
+		return
+	try:
+		sq_high = frappe.db.get_value("Sales Quote", sales_quote_name, "is_high_value")
+	except Exception:
+		return
+	if not cint(sq_high):
+		return
+
+	touched_air_shipments: list[str] = []
+	touched_sea_shipments: list[str] = []
+
+	for dt in HIGH_VALUE_DOWNSTREAM_DOCTYPES:
+		if not _doctype_has_high_value_link(dt):
+			continue
+		try:
+			names = frappe.get_all(
+				dt,
+				filters={"sales_quote": sales_quote_name, "is_high_value": 0},
+				pluck="name",
+			)
+		except Exception:
+			frappe.log_error(
+				title="propagate_high_value_from_sales_quote: query",
+				message=f"{dt} sales_quote={sales_quote_name}",
+			)
+			continue
+		for name in names:
+			try:
+				frappe.db.set_value(dt, name, "is_high_value", 1, update_modified=False)
+			except Exception:
+				frappe.log_error(
+					title="propagate_high_value_from_sales_quote: update",
+					message=f"{dt} {name}",
+				)
+				continue
+			if dt == "Air Shipment":
+				touched_air_shipments.append(name)
+			elif dt == "Sea Shipment":
+				touched_sea_shipments.append(name)
+
+	if touched_air_shipments:
+		all_air = frappe.get_all(
+			"Air Shipment",
+			filters={"sales_quote": sales_quote_name, "is_high_value": 1},
+			pluck="name",
+		)
+		_rollup_high_value_consolidations_for_shipments(
+			consolidation_doctype="Air Consolidation",
+			planning_line_doctype="Air Consolidation Planning Line",
+			shipment_field="air_shipment",
+			shipments=all_air or touched_air_shipments,
+		)
+	if touched_sea_shipments:
+		all_sea = frappe.get_all(
+			"Sea Shipment",
+			filters={"sales_quote": sales_quote_name, "is_high_value": 1},
+			pluck="name",
+		)
+		_rollup_high_value_consolidations_for_shipments(
+			consolidation_doctype="Sea Consolidation",
+			planning_line_doctype="Sea Consolidation Planning Line",
+			shipment_field="sea_shipment",
+			shipments=all_sea or touched_sea_shipments,
+		)
+
+
 def copy_sales_quote_fields_to_target(source_doc, target_doc):
 	"""Propagate ``sales_quote`` link (or legacy ``quote`` when it points at a Sales Quote) and rep fields.
 
 	Does **not** copy commercial header fields (ports, parties, charges, etc.) — only the link and
 	``sales_rep`` / ``operations_rep`` / ``customer_service_rep`` via ``copy_operational_rep_fields_from_chain``.
+	Also propagates the ``is_high_value`` flag from the resolved Sales Quote when the target supports it.
 	"""
 	sq = _resolve_sales_quote_from_doc(source_doc)
 	if sq and hasattr(target_doc, "sales_quote"):
 		target_doc.sales_quote = sq
 	copy_operational_rep_fields_from_chain(target_doc, source_doc=source_doc)
+	_copy_is_high_value_from_sales_quote(target_doc, sq)
 
 
 def propagate_sales_quote_from_source_if_empty(source_doc, target_doc):
 	"""When user links air/sea shipment or similar, fill sales_quote and rep fields if still empty."""
+	if getattr(getattr(target_doc, "flags", None), "logistics_duplicate_pricing_cleared", False):
+		# Desk duplicate: Transport Order ``validate`` cleared quote/charges; do not refill from
+		# linked Air/Sea Shipment before_save (would undo the duplicate behaviour on save).
+		return
 	sq = _resolve_sales_quote_from_doc(source_doc)
 	if sq and hasattr(target_doc, "sales_quote"):
 		_set_if_empty(target_doc, "sales_quote", sq)
 	for fn in REP_FIELD_NAMES:
 		if hasattr(target_doc, fn):
 			_set_if_empty(target_doc, fn, getattr(source_doc, fn, None))
+	# High Value: inherit from the source doc (e.g. linked shipment) first, then fall back to the Sales Quote.
+	_set_is_high_value_if_empty(target_doc, getattr(source_doc, "is_high_value", None))
 	if sq:
 		try:
 			sqdoc = frappe.get_cached_doc("Sales Quote", sq)
@@ -310,6 +481,7 @@ def propagate_sales_quote_from_source_if_empty(source_doc, target_doc):
 			for fn in REP_FIELD_NAMES:
 				if hasattr(target_doc, fn):
 					_set_if_empty(target_doc, fn, getattr(sqdoc, fn, None))
+			_set_is_high_value_if_empty(target_doc, getattr(sqdoc, "is_high_value", None))
 
 
 # -------------------------------------------------------------------
@@ -545,6 +717,12 @@ def create_transport_order_from_air_shipment(
 		order.main_job = None
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
+	from logistics.utils.transport_job_type import (
+		apply_container_transport_context_to_order,
+		set_internal_transport_order_draft_insert_flags,
+	)
+
+	apply_container_transport_context_to_order(order, ij_row)
 	# Add door-to-door leg (restriction already enforced above)
 	if shipment.shipper and shipment.consignee:
 		leg = {
@@ -553,7 +731,7 @@ def create_transport_order_from_air_shipment(
 			"facility_type_to": "Consignee",
 			"facility_to": shipment.consignee,
 			"scheduled_date": shipment.eta or shipment.etd,
-			"transport_job_type": "Non-Container",
+			"transport_job_type": order.transport_job_type,
 		}
 		if getattr(shipment, "shipper_address", None):
 			leg["pick_address"] = shipment.shipper_address
@@ -565,6 +743,7 @@ def create_transport_order_from_air_shipment(
 	_copy_shipment_packages_to_transport_order(shipment, order)
 	_copy_transport_charges_from_shipment_to_transport_order(order, shipment)
 	append_transport_order_charges_from_sales_quote_if_empty(order)
+	set_internal_transport_order_draft_insert_flags(order)
 	order.insert(ignore_permissions=True)
 	persist_internal_job_detail_job_link(
 		"Air Shipment", air_shipment_name, "Transport Order", order.name, detail_idx=resolved_detail_idx
@@ -644,6 +823,12 @@ def create_transport_order_from_sea_shipment(
 	_resolve_sea_shipment_container_for_transport_order(
 		shipment, order, container_no=effective_cn or None
 	)
+	from logistics.utils.transport_job_type import (
+		apply_container_transport_context_to_order,
+		set_internal_transport_order_draft_insert_flags,
+	)
+
+	apply_container_transport_context_to_order(order, ij_row)
 	# Add door-to-door leg (restriction already enforced above)
 	if shipment.shipper and shipment.consignee:
 		leg = {
@@ -652,7 +837,7 @@ def create_transport_order_from_sea_shipment(
 			"facility_type_to": "Consignee",
 			"facility_to": shipment.consignee,
 			"scheduled_date": shipment.eta or shipment.etd,
-			"transport_job_type": "Container" if _use_container else "Non-Container",
+			"transport_job_type": order.transport_job_type,
 		}
 		if getattr(shipment, "shipper_address", None):
 			leg["pick_address"] = shipment.shipper_address
@@ -663,6 +848,7 @@ def create_transport_order_from_sea_shipment(
 	_copy_sea_packages_to_transport_order(shipment, order)
 	_copy_transport_charges_from_shipment_to_transport_order(order, shipment)
 	append_transport_order_charges_from_sales_quote_if_empty(order)
+	set_internal_transport_order_draft_insert_flags(order)
 	order.insert(ignore_permissions=True)
 	persist_internal_job_detail_job_link(
 		"Sea Shipment", sea_shipment_name, "Transport Order", order.name, detail_idx=resolved_detail_idx
@@ -940,6 +1126,7 @@ def apply_warehousing_job_context_from_internal_job_source(doc, source):
 		return
 	if cint(getattr(source, "is_internal_job", 0)):
 		doc.is_internal_job = 1
+		doc.is_main_service = 0
 		doc.main_job_type = getattr(source, "main_job_type", None)
 		doc.main_job = getattr(source, "main_job", None)
 	else:
@@ -961,10 +1148,12 @@ def apply_inbound_order_job_context_from_transport_job(doc, job):
 		return
 	if cint(getattr(job, "is_internal_job", 0)):
 		doc.is_internal_job = 1
+		doc.is_main_service = 0
 		doc.main_job_type = getattr(job, "main_job_type", None)
 		doc.main_job = getattr(job, "main_job", None)
 	else:
 		doc.is_internal_job = 1
+		doc.is_main_service = 0
 		doc.main_job_type = "Transport Job"
 		doc.main_job = job.name
 
@@ -1289,7 +1478,6 @@ def _create_declaration_order_from_freight_shipment(
 	shipment_name: str,
 	link_field: str,
 	transport_mode: str,
-	vessel_field: str | None,
 	internal_job_detail_idx: int | None = None,
 ):
 	"""Shared: new Declaration Order from Air or Sea Shipment.
@@ -1337,8 +1525,6 @@ def _create_declaration_order_from_freight_shipment(
 	order.importer_consignee = shipment.consignee
 	order.port_of_loading = getattr(shipment, "origin_port", None)
 	order.port_of_discharge = getattr(shipment, "destination_port", None)
-	if vessel_field:
-		order.vessel_flight_number = getattr(shipment, vessel_field, None)
 	order.etd = getattr(shipment, "etd", None)
 	order.eta = getattr(shipment, "eta", None)
 	copy_sales_quote_fields_to_target(shipment, order)
@@ -1359,6 +1545,12 @@ def _create_declaration_order_from_freight_shipment(
 	else:
 		order.main_job_type = None
 		order.main_job = None
+
+	from logistics.utils.customs_country_defaults import (
+		apply_internal_job_customs_country_defaults,
+	)
+
+	apply_internal_job_customs_country_defaults(order)
 
 	_copy_customs_charges_from_shipment_to_declaration_order(order, shipment)
 
@@ -1392,7 +1584,6 @@ def create_declaration_order_from_air_shipment(
 		shipment_name=air_shipment_name,
 		link_field="air_shipment",
 		transport_mode="Air",
-		vessel_field="flight_number",
 		internal_job_detail_idx=internal_job_detail_idx,
 	)
 
@@ -1413,7 +1604,6 @@ def create_declaration_order_from_sea_shipment(
 		shipment_name=sea_shipment_name,
 		link_field="sea_shipment",
 		transport_mode="Sea",
-		vessel_field="vessel",
 		internal_job_detail_idx=internal_job_detail_idx,
 	)
 
@@ -1873,6 +2063,12 @@ def create_transport_order_from_declaration(
 		order.main_job = dec.name
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
+	from logistics.utils.transport_job_type import (
+		apply_container_transport_context_to_order,
+		set_internal_transport_order_draft_insert_flags,
+	)
+
+	apply_container_transport_context_to_order(order, ij_row)
 	if getattr(header_src, "exporter_shipper", None) and getattr(header_src, "importer_consignee", None):
 		order.append(
 			"legs",
@@ -1882,7 +2078,7 @@ def create_transport_order_from_declaration(
 				"facility_type_to": "Consignee",
 				"facility_to": header_src.importer_consignee,
 				"scheduled_date": order.scheduled_date,
-				"transport_job_type": "Non-Container",
+				"transport_job_type": order.transport_job_type,
 			},
 		)
 	copy_parent_dg_header(dec, order)
@@ -1893,6 +2089,7 @@ def create_transport_order_from_declaration(
 	# Primary transport doc for this quote leg: required so validate_one_off_quote_not_converted allows the
 	# same one-off quote already converted to the linked Declaration Order (customs + transport one chain).
 	order.is_main_service = 1
+	set_internal_transport_order_draft_insert_flags(order)
 	order.insert(ignore_permissions=True)
 	persist_internal_job_detail_job_link(
 		persist_doctype, persist_name, "Transport Order", order.name, detail_idx=resolved_idx

@@ -447,6 +447,62 @@
    "translatable": 0,
    "unique": 0,
    "width": null
+  },
+  {
+   "fieldname": "custom_last_known_latitude",
+   "fieldtype": "Float",
+   "label": "Last Known Latitude",
+   "insert_after": "custom_medical_clearance_expiry",
+   "precision": "7",
+   "read_only": 1,
+   "dt": "Driver",
+   "name": "Driver-custom_last_known_latitude"
+  },
+  {
+   "fieldname": "custom_last_known_longitude",
+   "fieldtype": "Float",
+   "label": "Last Known Longitude",
+   "insert_after": "custom_last_known_latitude",
+   "precision": "7",
+   "read_only": 1,
+   "dt": "Driver",
+   "name": "Driver-custom_last_known_longitude"
+  },
+  {
+   "fieldname": "custom_last_location_time",
+   "fieldtype": "Datetime",
+   "label": "Last Location Time",
+   "insert_after": "custom_last_known_longitude",
+   "read_only": 1,
+   "dt": "Driver",
+   "name": "Driver-custom_last_location_time"
+  },
+  {
+   "fieldname": "custom_last_location_accuracy",
+   "fieldtype": "Float",
+   "label": "Last Location Accuracy (m)",
+   "insert_after": "custom_last_location_time",
+   "read_only": 1,
+   "dt": "Driver",
+   "name": "Driver-custom_last_location_accuracy"
+  },
+  {
+   "fieldname": "custom_last_speed",
+   "fieldtype": "Float",
+   "label": "Last Speed",
+   "insert_after": "custom_last_location_accuracy",
+   "read_only": 1,
+   "dt": "Driver",
+   "name": "Driver-custom_last_speed"
+  },
+  {
+   "fieldname": "custom_last_heading",
+   "fieldtype": "Float",
+   "label": "Last Heading",
+   "insert_after": "custom_last_speed",
+   "read_only": 1,
+   "dt": "Driver",
+   "name": "Driver-custom_last_heading"
   }
  ],
  "custom_perms": [],

@@ -32,42 +32,59 @@ def _render_icon_html(icon):
 
 def _compute_milestone_status(m):
 	"""Return (display_status, is_delayed, severity) for a milestone.
-	severity: critical (red), impending (orange), informational (blue), or None.
+
+	Timeline delay (red) is evaluated only after Actual End is set (Actual End vs Planned End).
+	In-progress milestones (Actual Start, no Actual End) are never marked delayed on the timeline,
+	even when Actual Start is after Planned Start.
+
+	severity: impending (orange), informational (blue), or None — for not-yet-started milestones only.
 	"""
 	status = (_get_milestone_attr(m, "status") or "Planned").strip()
 	planned_end = _get_milestone_attr(m, "planned_end")
 	actual_end = _get_milestone_attr(m, "actual_end")
 	actual_start = _get_milestone_attr(m, "actual_start")
-	now = frappe.utils.now_datetime()
 
 	is_delayed = False
 	severity = None
-	if planned_end:
-		planned_dt = frappe.utils.get_datetime(planned_end)
-		if not actual_end:
-			if planned_dt < now:
-				is_delayed = True
-				status = "Delayed"
-				severity = "critical"
-			else:
-				from logistics.utils.alert_utils import get_severity_for_milestone
-				_, severity = get_severity_for_milestone(planned_end, None)
-		else:
+
+	# In progress: use progress state; do not evaluate delay until finished
+	if actual_start and not actual_end:
+		return "started", False, None
+
+	# Completed: delay only when actual end exceeds planned end
+	if actual_end:
+		if planned_end:
+			planned_dt = frappe.utils.get_datetime(planned_end)
 			actual_dt = frappe.utils.get_datetime(actual_end)
 			if actual_dt > planned_dt:
 				is_delayed = True
-				severity = "critical"
-				if status.lower() not in ("completed", "finished", "done"):
-					status = "Delayed"
+		return "completed", is_delayed, None
 
-	# Normalize status for counting
+	# Not started: severity hints only (no red delayed state on timeline)
+	if planned_end:
+		from logistics.utils.alert_utils import get_severity_for_milestone
+
+		_, severity = get_severity_for_milestone(planned_end, None)
+
 	if status.lower() in ("completed", "finished", "done"):
 		return "completed", is_delayed, None
-	if status.lower() in ("delayed", "overdue"):
-		return "delayed", True, "critical"
-	if status.lower() in ("started", "in progress", "in_progress") or (actual_start and not actual_end):
-		return "started", is_delayed, None
-	return "planned", is_delayed, severity
+	if status.lower() in ("started", "in progress", "in_progress"):
+		return "started", False, None
+	return "planned", False, severity
+
+
+def _timeline_dot_and_line_colors(display_status, is_delayed, severity):
+	"""Return (dot_color, line_color) for the segment ending at this milestone dot."""
+	if display_status == "started":
+		return "#6c757d", "#007bff"
+	if display_status == "completed":
+		color = "#dc3545" if is_delayed else "#28a745"
+		return color, color
+	if severity == "impending":
+		return "#fd7e14", "#fd7e14"
+	if severity == "informational":
+		return "#17a2b8", "#17a2b8"
+	return "#6c757d", "#6c757d"
 
 
 def build_milestone_table_html(doctype, docname, job_type, format_datetime_fn):
@@ -114,29 +131,25 @@ def build_milestone_table_html(doctype, docname, job_type, format_datetime_fn):
 			count_planned += 1
 		if is_delayed:
 			count_exceptions += 1
-		timeline_dots.append({"status": display_status, "is_delayed": is_delayed, "severity": severity})
+		dot_bg, line_bg = _timeline_dot_and_line_colors(display_status, is_delayed, severity)
+		timeline_dots.append({
+			"status": display_status,
+			"is_delayed": is_delayed,
+			"severity": severity,
+			"dot_bg": dot_bg,
+			"line_bg": line_bg,
+		})
 
 	# Build timeline HTML (horizontal line from first to last, smaller colored dots)
-	# Colors: green=completed, blue=started, red=critical/delayed, orange=impending, blue=informational, gray=planned
-	def _timeline_color(dot):
-		if dot["status"] == "completed":
-			return "#28a745"
-		if dot["status"] == "started":
-			return "#007bff"
-		if dot["is_delayed"]:
-			return "#dc3545"
-		if dot.get("severity") == "impending":
-			return "#fd7e14"
-		if dot.get("severity") == "informational":
-			return "#17a2b8"
-		return "#6c757d"
+	# Dot: green=on-time complete, red=delayed complete, grey=in progress or planned
+	# Line: blue=in progress, green/red=complete, grey/orange/blue=planned severity
 
 	timeline_html = ""
 	if milestones:
 		n = len(milestones)
 		dots_html = []
 		for i, dot in enumerate(timeline_dots):
-			bg = _timeline_color(dot)
+			bg = dot["dot_bg"]
 			title = milestone_details.get(milestones[i].milestone, milestones[i].milestone or "—")
 			pct = 100.0 * (i + 0.5) / n if n > 1 else 50
 			dots_html.append(
@@ -148,7 +161,7 @@ def build_milestone_table_html(doctype, docname, job_type, format_datetime_fn):
 		for i in range(n - 1):
 			left_pct = 100.0 * (i + 0.5) / n
 			right_pct = 100.0 * (i + 1.5) / n
-			seg_bg = _timeline_color(timeline_dots[i + 1])
+			seg_bg = timeline_dots[i + 1]["line_bg"]
 			line_segments.append(
 				'<div style="position:absolute;top:50%%;left:%s%%;width:%s%%;height:3px;margin-top:-2px;background:%s;border-radius:2px;"></div>'
 				% (left_pct, right_pct - left_pct, seg_bg)
@@ -185,8 +198,21 @@ def build_milestone_table_html(doctype, docname, job_type, format_datetime_fn):
 	for m in milestones:
 		desc = milestone_details.get(m.milestone, m.milestone or "—")
 		display_status, is_delayed, severity = _compute_milestone_status(m)
-		status_label = "Delayed" if (display_status == "delayed" or is_delayed) else (m.status or "Planned").strip()
-		status_class = "label-success" if display_status == "completed" else "label-info" if display_status == "started" else "label-danger" if display_status == "delayed" or is_delayed else "label-default"
+		if display_status == "completed" and is_delayed:
+			status_label = "Delayed"
+		elif display_status == "started":
+			status_label = (m.status or "Started").strip()
+		else:
+			status_label = (m.status or "Planned").strip()
+		status_class = (
+			"label-success"
+			if display_status == "completed" and not is_delayed
+			else "label-danger"
+			if display_status == "completed" and is_delayed
+			else "label-info"
+			if display_status == "started"
+			else "label-default"
+		)
 		planned_start = format_datetime_fn(m.planned_start) if m.planned_start else "—"
 		planned_end = format_datetime_fn(m.planned_end) if m.planned_end else "—"
 		actual_start = format_datetime_fn(m.actual_start) if m.actual_start else "—"
@@ -276,7 +302,7 @@ def build_milestone_html(
 	# Get milestone details (including icon from master)
 	milestone_details = {}
 	if milestones:
-		milestone_names = [m.get("milestone") for m in milestones if m.get("milestone")]
+		milestone_names = [_get_milestone_attr(m, "milestone") for m in milestones if _get_milestone_attr(m, "milestone")]
 		if milestone_names:
 			milestone_data = frappe.get_all(
 				"Logistics Milestone",
@@ -329,32 +355,25 @@ def build_milestone_html(
 		timeline_dots = []
 		for i, m in enumerate(milestones):
 			display_status, is_delayed, severity = _compute_milestone_status(m)
-			info = milestone_details.get(m.get("milestone"), {})
-			desc = info.get("description") or m.get("milestone") or "—"
+			info = milestone_details.get(_get_milestone_attr(m, "milestone"), {})
+			desc = info.get("description") or _get_milestone_attr(m, "milestone") or "—"
 			icon = info.get("icon") or "circle"
 			if not icon or str(icon).strip() == "":
 				icon = "circle"
 			icon_html = _render_icon_html(icon)
-			# Colors: green=completed, blue=started, red=critical/delayed, orange=impending, blue=informational, gray=planned
-			if display_status == "completed":
-				bg = "#28a745"
-			elif display_status == "started":
-				bg = "#007bff"
-			elif is_delayed:
-				bg = "#dc3545"
-			elif severity == "impending":
-				bg = "#fd7e14"
-			elif severity == "informational":
-				bg = "#17a2b8"
-			else:
-				bg = "#6c757d"
+			dot_bg, line_bg = _timeline_dot_and_line_colors(display_status, is_delayed, severity)
 			pct = 100.0 * (i + 0.5) / len(milestones) if len(milestones) > 1 else 50
 			timeline_dots.append({
-				"pct": pct, "bg": bg, "icon_html": icon_html, "desc": desc, "title": frappe.utils.escape_html(desc),
+				"pct": pct,
+				"dot_bg": dot_bg,
+				"line_bg": line_bg,
+				"icon_html": icon_html,
+				"desc": desc,
+				"title": frappe.utils.escape_html(desc),
 			})
 		# Dots: colored circles only (no icon inside)
 		dots_html = "".join(
-			'<div class="milestone-timeline-dot" title="%(title)s" style="left:%(pct)s%%;background:%(bg)s"></div>' % d
+			'<div class="milestone-timeline-dot" title="%(title)s" style="left:%(pct)s%%;background:%(dot_bg)s"></div>' % d
 			for d in timeline_dots
 		)
 		# Line segments: each segment from dot i to dot i+1, colored by next dot
@@ -363,7 +382,7 @@ def build_milestone_html(
 		for i in range(n - 1):
 			left_pct = timeline_dots[i]["pct"]
 			right_pct = timeline_dots[i + 1]["pct"]
-			seg_color = timeline_dots[i + 1]["bg"]
+			seg_color = timeline_dots[i + 1]["line_bg"]
 			line_segments.append(
 				'<div class="milestone-timeline-line" style="left:%s%%;width:%s%%;background:%s"></div>'
 				% (left_pct, right_pct - left_pct, seg_color)

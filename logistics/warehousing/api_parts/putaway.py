@@ -240,7 +240,7 @@ def _validate_storage_type_restrictions(item: str, company: Optional[str], branc
             
             if invalid_locations:
                 error_details.append(f"Found {len(invalid_locations)} locations with incompatible storage types:")
-                for inv_loc in invalid_locations[:5]:  # Show first 5 examples
+                for inv_loc in invalid_locations[:5]:  # Event first 5 examples
                     error_details.append(f"  - {inv_loc['location']}: {inv_loc['reason']}")
                 if len(invalid_locations) > 5:
                     error_details.append(f"  ... and {len(invalid_locations) - 5} more locations")

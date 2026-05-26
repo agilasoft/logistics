@@ -230,14 +230,17 @@
    "label": "Cost Allocation"
   },
   {
+   "description": "How this charge splits across planned shipments for Purchase Invoice. For Custom, set Cost Allocation % on each row in Shipments → Planned shipments.",
    "fieldname": "allocation_method",
    "fieldtype": "Select",
    "label": "Allocation Method",
    "options": "Equal\nWeight-based\nVolume-based\nValue-based\nCustom"
   },
   {
+   "description": "Not used for shipment splits (see Allocation Method and Planned shipments). Legacy field for row-level allocated amount only.",
    "fieldname": "allocation_percentage",
    "fieldtype": "Percent",
+   "hidden": 1,
    "label": "Allocation %",
    "precision": "2"
   },

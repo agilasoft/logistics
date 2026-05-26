@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 import frappe
+from frappe.utils import flt
 
 from logistics.invoice_integration.consolidation_pi_allocation import (
     allocation_factor_for_attached_job,
@@ -43,6 +44,33 @@ class TestConsolidationPiAllocation(unittest.TestCase):
     def test_count_attached_jobs_sea(self):
         doc = _sea_doc(rows=[{"sea_shipment": "SS-A"}])
         self.assertEqual(count_attached_jobs(doc), 1)
+
+    def test_count_attached_jobs_sea_from_packages_when_attached_empty(self):
+        doc = frappe._dict(
+            doctype="Sea Consolidation",
+            attached_sea_shipments=[],
+            consolidation_packages=[
+                frappe._dict(sea_shipment="SS-A", package_weight=10),
+                frappe._dict(sea_shipment="SS-B", package_weight=20),
+            ],
+        )
+        self.assertEqual(count_attached_jobs(doc), 2)
+
+    def test_weight_based_sea_aggregates_packages_per_shipment(self):
+        doc = frappe._dict(
+            doctype="Sea Consolidation",
+            total_weight=0,
+            attached_sea_shipments=[],
+            consolidation_packages=[
+                frappe._dict(sea_shipment="SS-A", package_weight=10),
+                frappe._dict(sea_shipment="SS-A", package_weight=15),
+                frappe._dict(sea_shipment="SS-B", package_weight=75),
+            ],
+        )
+        charge = frappe._dict(allocation_method="Weight-based")
+        att_a = frappe._dict(sea_shipment="SS-A", weight=25)
+        f = allocation_factor_for_attached_job(doc, charge, att_a)
+        self.assertAlmostEqual(f, 0.25, places=6)
 
     def test_equal_allocation_air(self):
         doc = _air_doc(packages=[
@@ -117,6 +145,147 @@ class TestConsolidationPiAllocation(unittest.TestCase):
         f = allocation_factor_for_attached_job(doc, charge, rows[0])
         self.assertAlmostEqual(f, 0.3, places=6)
 
+    @patch("logistics.invoice_integration.consolidation_pi_allocation.frappe.get_all")
+    def test_weight_based_air_prefers_package_weight_when_packages_differ_even_if_chargeable_equal(
+        self, mock_get_all
+    ):
+        """Consolidation package weights (750 vs 550) must win over equal shipment chargeable."""
+
+        def _get_all(doctype, filters=None, fields=None, **kwargs):
+            if doctype != "Air Shipment" or not filters:
+                return []
+            inn = filters.get("name")
+            if not isinstance(inn, tuple) or inn[0] != "in":
+                return []
+            return [
+                {"name": n, "chargeable": 84543.75, "total_weight": flt(750 if "A" in n else 550)}
+                for n in inn[1]
+            ]
+
+        mock_get_all.side_effect = _get_all
+        doc = _air_doc(
+            packages=[
+                {"air_freight_job": "AS-A", "package_weight": 750},
+                {"air_freight_job": "AS-B", "package_weight": 550},
+            ],
+        )
+        charge = frappe._dict(allocation_method="Weight-based")
+        f_a = allocation_factor_for_attached_job(
+            doc, charge, frappe._dict(air_freight_job="AS-A", weight=750)
+        )
+        f_b = allocation_factor_for_attached_job(
+            doc, charge, frappe._dict(air_freight_job="AS-B", weight=550)
+        )
+        self.assertAlmostEqual(f_a, 750 / 1300, places=6)
+        self.assertAlmostEqual(f_b, 550 / 1300, places=6)
+
+    @patch("logistics.invoice_integration.consolidation_pi_allocation.frappe.get_all")
+    def test_weight_based_air_prefers_shipment_chargeable_over_equal_package_gross(self, mock_get_all):
+        """Issue #875: equal gross package weights must not force equal split when chargeable differs."""
+
+        def _get_all(doctype, filters=None, fields=None, **kwargs):
+            if doctype != "Air Shipment" or not filters:
+                return []
+            inn = filters.get("name")
+            if not isinstance(inn, tuple) or inn[0] != "in":
+                return []
+            out = []
+            for n in inn[1]:
+                if n == "AS-A":
+                    out.append({"name": n, "chargeable": 800.0, "total_weight": 400.0})
+                elif n == "AS-B":
+                    out.append({"name": n, "chargeable": 200.0, "total_weight": 400.0})
+            return out
+
+        mock_get_all.side_effect = _get_all
+        doc = _air_doc(
+            total_weight=800,
+            packages=[
+                {"air_freight_job": "AS-A", "package_weight": 400},
+                {"air_freight_job": "AS-B", "package_weight": 400},
+            ],
+        )
+        charge = frappe._dict(allocation_method="Weight-based")
+        f_a = allocation_factor_for_attached_job(
+            doc, charge, frappe._dict(air_freight_job="AS-A", weight=400)
+        )
+        f_b = allocation_factor_for_attached_job(
+            doc, charge, frappe._dict(air_freight_job="AS-B", weight=400)
+        )
+        self.assertAlmostEqual(f_a, 0.8, places=6)
+        self.assertAlmostEqual(f_b, 0.2, places=6)
+        self.assertAlmostEqual(f_a + f_b, 1.0, places=6)
+
+    @patch("logistics.invoice_integration.consolidation_pi_allocation.frappe.get_all")
+    def test_weight_based_sea_prefers_shipment_chargeable_over_equal_package_gross(self, mock_get_all):
+        def _get_all(doctype, filters=None, fields=None, **kwargs):
+            if doctype != "Sea Shipment" or not filters:
+                return []
+            inn = filters.get("name")
+            if not isinstance(inn, tuple) or inn[0] != "in":
+                return []
+            out = []
+            for n in inn[1]:
+                if n == "SS-A":
+                    out.append({"name": n, "chargeable": 300.0, "total_weight": 100.0})
+                elif n == "SS-B":
+                    out.append({"name": n, "chargeable": 100.0, "total_weight": 100.0})
+            return out
+
+        mock_get_all.side_effect = _get_all
+        doc = frappe._dict(
+            doctype="Sea Consolidation",
+            total_weight=200,
+            attached_sea_shipments=[],
+            consolidation_packages=[
+                frappe._dict(sea_shipment="SS-A", package_weight=100),
+                frappe._dict(sea_shipment="SS-B", package_weight=100),
+            ],
+        )
+        charge = frappe._dict(allocation_method="Weight-based")
+        f_a = allocation_factor_for_attached_job(
+            doc, charge, frappe._dict(sea_shipment="SS-A", weight=100)
+        )
+        f_b = allocation_factor_for_attached_job(
+            doc, charge, frappe._dict(sea_shipment="SS-B", weight=100)
+        )
+        self.assertAlmostEqual(f_a, 0.75, places=6)
+        self.assertAlmostEqual(f_b, 0.25, places=6)
+
+    @patch("logistics.invoice_integration.consolidation_pi_allocation.frappe.get_all")
+    def test_volume_based_air_prefers_shipment_total_volume_when_package_volumes_equal(self, mock_get_all):
+        def _get_all(doctype, filters=None, fields=None, **kwargs):
+            if doctype != "Air Shipment" or not filters:
+                return []
+            inn = filters.get("name")
+            if not isinstance(inn, tuple) or inn[0] != "in":
+                return []
+            out = []
+            for n in inn[1]:
+                if n == "AS-A":
+                    out.append({"name": n, "total_volume": 40.0})
+                elif n == "AS-B":
+                    out.append({"name": n, "total_volume": 10.0})
+            return out
+
+        mock_get_all.side_effect = _get_all
+        doc = _air_doc(
+            total_volume=20,
+            packages=[
+                {"air_freight_job": "AS-A", "package_volume": 10},
+                {"air_freight_job": "AS-B", "package_volume": 10},
+            ],
+        )
+        charge = frappe._dict(allocation_method="Volume-based")
+        f_a = allocation_factor_for_attached_job(
+            doc, charge, frappe._dict(air_freight_job="AS-A", volume=10)
+        )
+        f_b = allocation_factor_for_attached_job(
+            doc, charge, frappe._dict(air_freight_job="AS-B", volume=10)
+        )
+        self.assertAlmostEqual(f_a, 0.8, places=6)
+        self.assertAlmostEqual(f_b, 0.2, places=6)
+
     def test_custom_uses_cost_allocation_percentage_from_packages(self):
         doc = _air_doc(packages=[
             {"air_freight_job": "AS-A", "cost_allocation": 40},
@@ -179,6 +348,44 @@ class TestConsolidationPiAllocation(unittest.TestCase):
         charge = frappe._dict(allocation_method="")
         f = allocation_factor_for_attached_job(doc, charge, frappe._dict())
         self.assertAlmostEqual(f, 1.0 / 3.0, places=6)
+
+
+    def test_custom_sea_uses_cost_allocation_percentage_from_planning_when_packages_exist(self):
+        doc = frappe._dict(
+            doctype="Sea Consolidation",
+            consolidation_planning_lines=[
+                frappe._dict(sea_shipment="SS-A", cost_allocation_percentage=40),
+                frappe._dict(sea_shipment="SS-B", cost_allocation_percentage=60),
+            ],
+            consolidation_packages=[
+                frappe._dict(sea_shipment="SS-A", package_weight=10),
+                frappe._dict(sea_shipment="SS-B", package_weight=20),
+            ],
+        )
+        charge = frappe._dict(allocation_method="Custom")
+        att_a = frappe._dict(sea_shipment="SS-A", cost_allocation_percentage=40)
+        f_a = allocation_factor_for_attached_job(doc, charge, att_a)
+        att_b = frappe._dict(sea_shipment="SS-B", cost_allocation_percentage=60)
+        f_b = allocation_factor_for_attached_job(doc, charge, att_b)
+        self.assertAlmostEqual(f_a, 0.4, places=6)
+        self.assertAlmostEqual(f_b, 0.6, places=6)
+
+    def test_custom_sea_equal_split_when_all_percentages_zero_with_packages(self):
+        doc = frappe._dict(
+            doctype="Sea Consolidation",
+            consolidation_planning_lines=[
+                frappe._dict(sea_shipment="SS-A", cost_allocation_percentage=0),
+                frappe._dict(sea_shipment="SS-B", cost_allocation_percentage=0),
+            ],
+            consolidation_packages=[
+                frappe._dict(sea_shipment="SS-A", package_weight=10),
+                frappe._dict(sea_shipment="SS-B", package_weight=20),
+            ],
+        )
+        charge = frappe._dict(allocation_method="Custom")
+        att = frappe._dict(sea_shipment="SS-A", cost_allocation_percentage=0)
+        f = allocation_factor_for_attached_job(doc, charge, att)
+        self.assertAlmostEqual(f, 0.5, places=6)
 
     def test_distribute_amounts_rounding(self):
         raw = [33.333333, 33.333333, 33.333333]

@@ -32,11 +32,15 @@ function logistics_canonical_charge_service_type(st) {
 		custom: "custom",
 		customs: "custom",
 		Warehousing: "warehousing",
+		"Special Project": "special project",
+		Exhibits: "exhibits",
+		Events: "exhibits",
 	};
 	if (byTitle[raw] !== undefined) return byTitle[raw];
 	const low = raw.toLowerCase();
 	if (low === "customs") return "custom";
-	if (["air", "sea", "transport", "warehousing"].includes(low)) return low;
+	if (low === "events") return "exhibits";
+	if (["air", "sea", "transport", "warehousing", "special project", "exhibits"].includes(low)) return low;
 	return low;
 }
 
@@ -79,6 +83,57 @@ function logistics_strip_sq_charge_load_type_link_filters_from_meta(frm) {
 		const gdf = frm.fields_dict.charges.grid.get_docfield("load_type");
 		if (gdf && gdf.link_filters) {
 			gdf.link_filters = null;
+		}
+	}
+}
+
+/**
+ * Static link_filters on item_code (disabled=0 only) override get_query on every Link search.
+ * Strip so Service Type → Item logistics checkbox filters apply.
+ */
+function logistics_strip_sq_charge_item_code_link_filters_from_meta(frm) {
+	const df = frappe.meta.get_docfield("Sales Quote Charge", "item_code");
+	if (df && df.link_filters) {
+		df.link_filters = null;
+	}
+	if (frm && frm.fields_dict && frm.fields_dict.charges && frm.fields_dict.charges.grid) {
+		const gdf = frm.fields_dict.charges.grid.get_docfield("item_code");
+		if (gdf && gdf.link_filters) {
+			gdf.link_filters = null;
+		}
+	}
+}
+
+/** Item link filters for a charge row from service_type (Item Logistics tab checkboxes). */
+function logistics_item_code_filters_for_charge_row(row) {
+	const filters = { disabled: 0 };
+	if (!row) return filters;
+	const field = logistics_item_charge_field_for_service_type(row.service_type);
+	if (field) {
+		filters[field] = 1;
+	}
+	return filters;
+}
+
+/** Re-apply item_code Link query after service_type changes (grid row or expanded child form). */
+function logistics_refresh_sq_charge_item_code_link(frm, cdt, cdn) {
+	const grid = frm.fields_dict.charges && frm.fields_dict.charges.grid;
+	if (grid && cdn && grid.grid_rows_by_docname && grid.grid_rows_by_docname[cdn]) {
+		const grid_row = grid.grid_rows_by_docname[cdn];
+		if (grid_row.refresh_field) {
+			grid_row.refresh_field("item_code");
+		}
+	}
+	if (frappe.ui.form.get_open_grid_form) {
+		const grid_form = frappe.ui.form.get_open_grid_form();
+		if (
+			grid_form &&
+			grid_form.doc &&
+			grid_form.doc.doctype === cdt &&
+			grid_form.doc.name === cdn &&
+			grid_form.fields_dict.item_code
+		) {
+			grid_form.fields_dict.item_code.refresh();
 		}
 	}
 }
@@ -204,6 +259,9 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	setup(frm) {
+		if (logistics.lifecycle && logistics.lifecycle.setup_queries) {
+			logistics.lifecycle.setup_queries(frm);
+		}
 		// Initialize cache for allowed vehicle types
 		frm.allowed_vehicle_types_cache = {};
 		// If grid pagination is missing but the grid DOM exists, init pagination only (see documents_tab_utils.js).
@@ -243,6 +301,7 @@ frappe.ui.form.on("Sales Quote", {
 		}
 		frm.events.setup_load_type_query(frm);
 		frm.events.setup_vehicle_type_query(frm);
+		frm.events.setup_item_code_query(frm);
 		if (!frm.is_new()) {
 			setTimeout(() => logistics_sanitize_sales_quote_load_types(frm), 100);
 		}
@@ -288,6 +347,16 @@ frappe.ui.form.on("Sales Quote", {
 		});
 		// Sync quotation_type to child table rows so Charge Parameters show when Regular
 		frm.events._sync_quotation_type_to_children(frm);
+
+		// One-off: back-fill Converted To / Status from linked bookings when missing
+		if (
+			frm.doc.quotation_type === "One-off" &&
+			frm.doc.docstatus === 1 &&
+			!frm.is_new() &&
+			frm.doc.name
+		) {
+			frm.events._sync_one_off_status_from_links(frm);
+		}
 	},
 
 	_clear_default_empty_charge_row(frm) {
@@ -323,6 +392,9 @@ frappe.ui.form.on("Sales Quote", {
 			correct_series = "OOQ.#####";
 		} else if (frm.doc.quotation_type === "Project") {
 			correct_series = "PQ.#####";
+			if (frm.is_new() || !frm.doc.main_service) {
+				frm.set_value("main_service", "Special Project");
+			}
 		} else if (frm.doc.quotation_type === "Regular") {
 			correct_series = "SQU.#########";
 		}
@@ -411,17 +483,13 @@ frappe.ui.form.on("Sales Quote", {
 		// Legacy child tables (sea_freight, air_freight, transport) removed in Phase 3; params now on Sales Quote Charge
 	},
 
-	/** One-off quotes: Main Job on routing legs is fixed; lock is_main_job on the grid (same idea as is_main_service on orders). */
+	/** Lock Main Job on routing legs after submit; while drafting (including One-off) the user must be able to choose the main leg. */
 	_apply_one_off_routing_leg_main_job_readonly(frm) {
 		const grid = frm.fields_dict.routing_legs && frm.fields_dict.routing_legs.grid;
 		if (!grid || typeof grid.update_docfield_property !== "function") {
 			return;
 		}
-		if (frm.doc.quotation_type === "One-off") {
-			grid.update_docfield_property("is_main_job", "read_only", 1);
-		} else if (!frm.doc.docstatus) {
-			grid.update_docfield_property("is_main_job", "read_only", 0);
-		}
+		grid.update_docfield_property("is_main_job", "read_only", frm.doc.docstatus ? 1 : 0);
 	},
 
 	_sync_quotation_type_to_children(frm) {
@@ -452,6 +520,7 @@ frappe.ui.form.on("Sales Quote", {
 				});
 			}
 		}
+		frm.refresh_field("projects_tab");
 	},
 
 	routing_legs_add(frm, cdt, cdn) {
@@ -468,6 +537,7 @@ frappe.ui.form.on("Sales Quote", {
 
 	refresh(frm) {
 		logistics_strip_sq_charge_load_type_link_filters_from_meta(frm);
+		logistics_strip_sq_charge_item_code_link_filters_from_meta(frm);
 		frm.events._show_sales_quote_charges_row_checkboxes(frm);
 		logistics_sync_all_sales_quote_charge_load_type_filter_flags(frm);
 		// Keep naming_series locked in all states.
@@ -537,6 +607,7 @@ frappe.ui.form.on("Sales Quote", {
 		}
 		frm.events.setup_load_type_query(frm);
 		frm.events.setup_vehicle_type_query(frm);
+		frm.events.setup_item_code_query(frm);
 
 		// Add custom button to create Transport Order if main_service = Transport
 		add_create_button(frm, {
@@ -616,6 +687,8 @@ frappe.ui.form.on("Sales Quote", {
 			view_label: "View Sea Bookings",
 			create_function: create_sea_booking_from_sales_quote
 		});
+
+		logistics_sq_add_programme_create_buttons(frm);
 
 		// Extend Validity — update Valid Until (draft via save; submitted via server db update)
 		if (!frm.is_new() && !frm.doc.__islocal && frm.doc.name && frm.doc.docstatus !== 2 && frm.has_perm("write")) {
@@ -840,6 +913,17 @@ frappe.ui.form.on("Sales Quote", {
 		}
 	},
 
+	setup_item_code_query(frm) {
+		// item_code must not use DocType link_filters: Frappe replaces get_query with link_filters only.
+		logistics_strip_sq_charge_item_code_link_filters_from_meta(frm);
+		if (!frm.fields_dict.charges) return;
+		frm.set_query("item_code", "charges", function (doc, cdt, cdn) {
+			logistics_strip_sq_charge_item_code_link_filters_from_meta(frm);
+			const row = logistics_resolved_sales_quote_charge_row(frm, doc, cdt, cdn);
+			return { filters: logistics_item_code_filters_for_charge_row(row) };
+		});
+	},
+
 	apply_default_uoms_per_tab(frm) {
 		// Set default weight/volume/chargeable UOM from respective Settings for main_service when fields are empty
 		const main = frm.doc.main_service || "";
@@ -881,6 +965,26 @@ frappe.ui.form.on("Sales Quote", {
 		});
 	},
 	
+	_sync_one_off_status_from_links(frm) {
+		if (frm._one_off_status_sync_pending) {
+			return;
+		}
+		frm._one_off_status_sync_pending = true;
+		frappe.call({
+			method: "logistics.pricing_center.doctype.sales_quote.sales_quote.sync_one_off_quote_status_from_links",
+			args: { sales_quote_name: frm.doc.name },
+			callback: function(r) {
+				frm._one_off_status_sync_pending = false;
+				if (r.message && r.message.updated) {
+					frm.reload_doc();
+				}
+			},
+			error: function() {
+				frm._one_off_status_sync_pending = false;
+			},
+		});
+	},
+
 	update_primary_button(frm) {
 		// Update primary button based on document state
 		if (!frm.page || !frm.page.set_primary_action) {
@@ -905,13 +1009,13 @@ frappe.ui.form.on("Sales Quote", {
 			return false;
 		};
 		
-		// New/unsaved document: Show Save button
+		// New/unsaved document: Event Save button
 		if (frm.is_new() || frm.doc.__islocal) {
 			frm.page.set_primary_action(__("Save"), function() {
 				frm.save();
 			});
 		} else if (frm.doc.docstatus === 0) {
-			// Saved draft document: Show Submit button if no unsaved changes, otherwise Show Save
+			// Saved draft document: Event Submit button if no unsaved changes, otherwise Event Save
 			// Check if document is actually saved (not local) and not dirty
 			const is_saved = !frm.doc.__islocal && frm.doc.name;
 			
@@ -927,7 +1031,7 @@ frappe.ui.form.on("Sales Quote", {
 			
 			// For saved documents that are not dirty, show Submit button
 			if (is_saved && !is_dirty) {
-				// Document is saved and has no unsaved changes: Show Submit button
+				// Document is saved and has no unsaved changes: Event Submit button
 				if (has_submit_permission()) {
 					frm.page.set_primary_action(__("Submit"), function() {
 						frm.savesubmit();
@@ -936,33 +1040,12 @@ frappe.ui.form.on("Sales Quote", {
 				}
 			}
 			
-			// Has unsaved changes or not yet saved: Show Save button
+			// Has unsaved changes or not yet saved: Event Save button
 			frm.page.set_primary_action(__("Save"), function() {
 				frm.save();
 			});
 		} else if (frm.doc.docstatus === 1) {
-			// Submitted document: Handle Update button if there are unsaved changes
-			// For cancel, let Frappe handle it with default behavior (no primary cancel button)
-			let is_dirty = false;
-			if (frm.is_dirty && typeof frm.is_dirty === 'function') {
-				is_dirty = frm.is_dirty();
-			}
-			if (frm.doc.__unsaved === 1) {
-				is_dirty = true;
-			}
-			
-			// If document has unsaved changes, show Update button
-			if (is_dirty) {
-				if (has_submit_permission()) {
-					frm.page.set_primary_action(__("Update"), function() {
-						frm.save("Update");
-					});
-					return;
-				}
-			}
-			
-			// No unsaved changes: Clear primary action to let Frappe handle cancel via default behavior
-			// This removes the black primary cancel button
+			// Submitted: no primary Save/Update (use Action menu e.g. Extend Validity; cancel stays in toolbar)
 			if (frm.page.clear_primary_action && typeof frm.page.clear_primary_action === 'function') {
 				frm.page.clear_primary_action();
 			} else if (frm.page.btn_primary) {
@@ -1230,6 +1313,56 @@ function show_cost_sheet_charge_selection_dialog(frm, charges) {
 	});
 }
 
+function logistics_sq_add_programme_create_buttons(frm) {
+	if (frm.doc.additional_charge || frm.doc.__islocal || frm.doc.docstatus !== 1) {
+		return;
+	}
+
+	const isProjectQuote = frm.doc.quotation_type === "Project";
+	const hasSpecialProject =
+		(frm.doc.charges || []).some(
+			(c) => logistics_canonical_charge_service_type(c.service_type) === "special project"
+		) || (frm.doc.project_resources || []).length > 0;
+	const spEligible =
+		frm.doc.main_service === "Special Project" || isProjectQuote;
+
+	if (spEligible && (isProjectQuote || hasSpecialProject)) {
+		frm.add_custom_button(__("Create Special Project"), function () {
+			frappe.call({
+				method:
+					"logistics.pricing_center.doctype.sales_quote.sales_quote.create_special_project_from_sales_quote",
+				args: { sales_quote_name: frm.doc.name },
+				freeze: true,
+				freeze_message: __("Creating Special Project..."),
+				callback(r) {
+					if (r.message && r.message.special_project) {
+						frappe.set_route("Form", "Special Project", r.message.special_project);
+					}
+				},
+			});
+		}, __("Create"));
+	}
+
+	const hasExhibits = (frm.doc.charges || []).some(
+		(c) => logistics_canonical_charge_service_type(c.service_type) === "exhibits"
+	);
+	if (frm.doc.main_service === "Exhibits" && hasExhibits) {
+		frm.add_custom_button(__("Create Exhibit"), function () {
+			frappe.call({
+				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_exhibit_from_sales_quote",
+				args: { sales_quote_name: frm.doc.name },
+				freeze: true,
+				freeze_message: __("Creating Exhibit..."),
+				callback(r) {
+					if (r.message && r.message.exhibit) {
+						frappe.set_route("Form", "Exhibit", r.message.exhibit);
+					}
+				},
+			});
+		}, __("Create"));
+	}
+}
+
 // Helper function to add create/view buttons for related documents
 function add_create_button(frm, config) {
 	const {
@@ -1257,20 +1390,45 @@ function add_create_button(frm, config) {
 	// One-off: only the Main Service job type is offered from Create (not every service that has charge lines)
 	if (frm.doc.main_service !== main_service) return;
 
-	// Check if document exists
-	frappe.db.get_value(doctype, {"sales_quote": frm.doc.name}, "name", function(r) {
-		if (!r || !r.name) {
-			// Show create button
-			frm.add_custom_button(__(create_label), function() {
-				create_function(frm);
-			}, __("Create"));
-		} else {
-			// Show view button
-			frm.add_custom_button(__(view_label), function() {
-				frappe.route_options = {"sales_quote": frm.doc.name};
-				frappe.set_route("List", doctype);
-			}, __("Action"));
-		}
+	// Check if a main job already exists (One-off: single main booking/order per quote)
+	const booking_filters = [
+		["sales_quote", "=", frm.doc.name],
+		["docstatus", "!=", 2],
+	];
+	if (doctype === "Sea Booking" || doctype === "Air Booking" || doctype === "Transport Order") {
+		booking_filters.push(["is_main_service", "=", 1]);
+	}
+	frappe.call({
+		method: "frappe.client.get_list",
+		args: {
+			doctype: doctype,
+			filters: booking_filters,
+			fields: ["name"],
+			limit_page_length: 1,
+		},
+		callback: function(r) {
+			const existing = r.message && r.message[0] && r.message[0].name;
+			if (!existing) {
+				frm.add_custom_button(__(create_label), function() {
+					create_function(frm);
+				}, __("Create"));
+			} else if (isOneOff) {
+				frm.add_custom_button(__(view_label), function() {
+					if (doctype === "Sea Booking" || doctype === "Air Booking" || doctype === "Transport Order") {
+						logistics_set_one_off_order_route_nav();
+						frappe.set_route("Form", doctype, existing);
+					} else {
+						frappe.route_options = {"sales_quote": frm.doc.name};
+						frappe.set_route("List", doctype);
+					}
+				}, __("Action"));
+			} else {
+				frm.add_custom_button(__(view_label), function() {
+					frappe.route_options = {"sales_quote": frm.doc.name};
+					frappe.set_route("List", doctype);
+				}, __("Action"));
+			}
+		},
 	});
 }
 
@@ -1295,55 +1453,13 @@ frappe.ui.form.on('Sales Quote Charge', {
 			frappe.model.set_value(cdt, cdn, 'item_code', '');
 			frappe.model.set_value(cdt, cdn, 'item_name', '');
 		}
-		// Set up query filter for item_code based on new service_type (module checkboxes on Item)
-		if (row.service_type) {
-			const item_field = logistics_item_charge_field_for_service_type(row.service_type);
-			if (item_field) {
-				frm.set_query('item_code', 'charges', function(doc, cdt, cdn) {
-					const row = locals[cdt][cdn];
-					if (row && row.service_type) {
-						const field = logistics_item_charge_field_for_service_type(row.service_type);
-						if (field) {
-							return {
-								filters: {
-									disabled: 0,
-									[field]: 1
-								}
-							};
-						}
-					}
-				});
-			}
-		}
-		// Refresh the field to apply new filter
-		frm.refresh_field('charges');
+		frm.events.setup_item_code_query(frm);
+		logistics_refresh_sq_charge_item_code_link(frm, cdt, cdn);
 		// refresh_field redraws the grid; re-attach load_type get_query so Link search still filters by module flag
 		frm.events.setup_load_type_query(frm);
 	},
-	
+
 	item_code: function(frm, cdt, cdn) {
-		// Set query filter when item_code field is focused/clicked
-		const row = frappe.get_doc(cdt, cdn);
-		if (row.service_type) {
-			const item_field = logistics_item_charge_field_for_service_type(row.service_type);
-			if (item_field) {
-				frm.set_query('item_code', 'charges', function(doc, cdt, cdn) {
-					const row = locals[cdt][cdn];
-					if (row && row.service_type) {
-						const field = logistics_item_charge_field_for_service_type(row.service_type);
-						if (field) {
-							return {
-								filters: {
-									disabled: 0,
-									[field]: 1
-								}
-							};
-						}
-					}
-				});
-			}
-		}
-		// Recalc revenue/cost when item changes (tariff + engine depend on item_code)
 		_calculate_sales_quote_charge_row(frm, cdt, cdn);
 	},
 	tariff: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
@@ -1450,7 +1566,7 @@ function create_transport_order_from_sales_quote(frm) {
 					message: __("This is a One-Off Sales Quote and a Transport Order already exists. Only one order can be created from a One-Off quote."),
 					indicator: "orange"
 				});
-				// Show existing order
+				// Event existing order
 				logistics_set_one_off_order_route_nav();
 				logistics_set_route_to_transport_order(r.name);
 				return;
@@ -1520,7 +1636,7 @@ function show_transport_order_confirmation(frm) {
 			frm.set_value("location_to", values.location_to || "");
 		},
 		on_continue: function() {
-			// Show loading indicator
+			// Event loading indicator
 			const run_create = function() {
 				frm.dashboard.set_headline_alert(__("Creating Transport Order..."));
 				frappe.call({
@@ -1767,7 +1883,7 @@ function create_air_booking_from_sales_quote(frm) {
 					message: __("This is a One-Off Sales Quote and an Air Booking already exists. Only one booking can be created from a One-Off quote."),
 					indicator: "orange"
 				});
-				// Show existing booking
+				// Event existing booking
 				logistics_set_one_off_order_route_nav();
 				frappe.set_route("Form", "Air Booking", r.name);
 				return;
@@ -1781,26 +1897,43 @@ function create_air_booking_from_sales_quote(frm) {
 	}
 }
 
+function _get_main_sea_booking_for_sales_quote(sales_quote_name, callback) {
+	frappe.call({
+		method: "frappe.client.get_list",
+		args: {
+			doctype: "Sea Booking",
+			filters: [
+				["sales_quote", "=", sales_quote_name],
+				["is_main_service", "=", 1],
+				["docstatus", "!=", 2],
+			],
+			fields: ["name"],
+			limit_page_length: 1,
+		},
+		callback: function(r) {
+			const row = r.message && r.message[0];
+			callback(row && row.name ? row.name : null);
+		},
+	});
+}
+
 function create_sea_booking_from_sales_quote(frm) {
-	// Check if one-off and booking already exists
+	// One-off: at most one main Sea Booking (draft or submitted, not cancelled)
 	if (frm.doc.quotation_type === "One-off") {
-		frappe.db.get_value("Sea Booking", {"sales_quote": frm.doc.name}, "name", function(r) {
-			if (r && r.name) {
+		_get_main_sea_booking_for_sales_quote(frm.doc.name, function(existing_name) {
+			if (existing_name) {
 				frappe.msgprint({
-					title: __("Cannot Create Multiple Orders"),
-					message: __("This is a One-Off Sales Quote and a Sea Booking already exists. Only one booking can be created from a One-Off quote."),
-					indicator: "orange"
+					title: __("Sea Booking Already Exists"),
+					message: __("This One-off Sales Quote is already linked to Sea Booking {0}. Opening it.", [existing_name]),
+					indicator: "orange",
 				});
-				// Show existing booking
 				logistics_set_one_off_order_route_nav();
-				frappe.set_route("Form", "Sea Booking", r.name);
+				frappe.set_route("Form", "Sea Booking", existing_name);
 				return;
 			}
-			// No existing booking - proceed with creation
 			show_sea_booking_confirmation(frm);
 		});
 	} else {
-		// Not one-off - allow multiple bookings
 		show_sea_booking_confirmation(frm);
 	}
 }
@@ -1839,7 +1972,14 @@ function show_sea_booking_confirmation(frm) {
 						frm.dashboard.clear_headline();
 						if (r.exc) return;
 						if (r.message && r.message.success && r.message.sea_booking) {
-							frappe.msgprint({ title: __("Sea Booking Created"), message: __("Sea Booking {0} has been created successfully.", [r.message.sea_booking]), indicator: "green" });
+							const opened_existing = r.message.already_exists;
+							frappe.msgprint({
+								title: opened_existing ? __("Sea Booking Opened") : __("Sea Booking Created"),
+								message: r.message.message || (opened_existing
+									? __("Sea Booking {0} already exists for this quote.", [r.message.sea_booking])
+									: __("Sea Booking {0} has been created successfully.", [r.message.sea_booking])),
+								indicator: opened_existing ? "blue" : "green",
+							});
 							setTimeout(function() {
 								if (frm.doc.quotation_type === "One-off") {
 									logistics_set_one_off_order_route_nav();
@@ -2005,11 +2145,11 @@ function show_declaration_order_confirmation(frm) {
 }
 
 function create_warehouse_contract_from_sales_quote(frm) {
-	// Show confirmation dialog
+	// Event confirmation dialog
 	frappe.confirm(
 		__("Are you sure you want to create a Warehouse Contract from this Sales Quote?"),
 		function() {
-			// Show loading indicator
+			// Event loading indicator
 			frm.dashboard.set_headline_alert(__("Creating Warehouse Contract..."));
 			
 			// Call the server method

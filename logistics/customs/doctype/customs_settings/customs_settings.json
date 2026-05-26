@@ -200,7 +200,7 @@
   },
   {
    "default": "7",
-   "description": "Show a non-blocking warning when an obtained permit expires within this many days (unless Block if Permit Expires Within Days applies).",
+   "description": "Event a non-blocking warning when an obtained permit expires within this many days (unless Block if Permit Expires Within Days applies).",
    "fieldname": "permit_expiring_warn_days",
    "fieldtype": "Int",
    "label": "Permit Expiring Warning (Days)"

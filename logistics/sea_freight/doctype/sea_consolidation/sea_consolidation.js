@@ -20,6 +20,92 @@ function _load_milestone_html(frm) {
 	});
 }
 
+
+function _sea_consolidation_has_custom_charge(frm) {
+	return (frm.doc.consolidation_charges || []).some(
+		(row) => (row.allocation_method || "").trim() === "Custom"
+	);
+}
+
+function _sea_consolidation_update_custom_allocation_intro(frm) {
+	if (_sea_consolidation_has_custom_charge(frm)) {
+		frm.set_intro(
+			__(
+				"One or more charges use Custom allocation. Set Cost Allocation % on each row in " +
+					"Shipments → Planned shipments (should sum to 100%)."
+			),
+			"blue"
+		);
+	} else {
+		frm.set_intro("");
+	}
+}
+
+function _sea_consolidation_cargo_shipment_names(frm) {
+	const names = new Set();
+	(frm.doc.consolidation_packages || []).forEach((row) => {
+		if (row.sea_shipment) {
+			names.add(row.sea_shipment);
+		}
+	});
+	(frm.doc.consolidation_containers || []).forEach((row) => {
+		if (row.sea_shipment) {
+			names.add(row.sea_shipment);
+		}
+	});
+	return names;
+}
+
+function _sea_consolidation_validate_custom_allocation_sum(frm) {
+	if (!_sea_consolidation_has_custom_charge(frm)) {
+		return true;
+	}
+	const rows = (frm.doc.consolidation_planning_lines || []).filter((r) => r.sea_shipment);
+	const total = rows.reduce(
+		(sum, r) => sum + flt(r.cost_allocation_percentage || 0),
+		0
+	);
+	if (!rows.length) {
+		const cargoNames = _sea_consolidation_cargo_shipment_names(frm);
+		if (cargoNames.size > 0) {
+			frappe.msgprint({
+				title: __("Cost allocation"),
+				message: __(
+					"Custom allocation requires each cargo Sea Shipment on the planned shipment list " +
+						"(Shipments → Planned shipments) with Cost Allocation % that sums to 100%."
+				),
+				indicator: "red",
+			});
+			return false;
+		}
+		if ((frm.doc.sea_planning_status || "Draft") === "Submitted") {
+			frappe.msgprint({
+				title: __("Cost allocation"),
+				message: __(
+					"Custom allocation requires planned shipments with Cost Allocation % " +
+						"(Shipments tab → Planned shipments), or change the charge Allocation Method " +
+						"to Weight-based, Volume-based, or Equal."
+				),
+				indicator: "red",
+			});
+			return false;
+		}
+		return true;
+	}
+	if (total > 0 && Math.abs(total - 100) > 0.01) {
+		frappe.msgprint({
+			title: __("Cost allocation"),
+			message: __(
+				"Cost Allocation % on planned shipments must sum to 100% when using Custom allocation (current total: {0}%).",
+				[flt(total, 2)]
+			),
+			indicator: "red",
+		});
+		return false;
+	}
+	return true;
+}
+
 function _load_documents_html(frm) {
 	if (!frm.fields_dict.documents_html || !frm.doc.name || frm.doc.__islocal) return;
 	if (frm._documents_html_called) return;
@@ -55,6 +141,16 @@ function _sync_total_containers(frm) {
 	frm.set_value("total_containers", (frm.doc.consolidation_containers || []).length);
 }
 
+
+frappe.ui.form.on("Sea Consolidation Charges", {
+	allocation_method: function (frm) {
+		_sea_consolidation_update_custom_allocation_intro(frm);
+	},
+	consolidation_charges_remove: function (frm) {
+		_sea_consolidation_update_custom_allocation_intro(frm);
+	},
+});
+
 frappe.ui.form.on("Sea Consolidation Containers", {
 	consolidation_containers_add: function (frm) {
 		_sync_total_containers(frm);
@@ -66,6 +162,10 @@ frappe.ui.form.on("Sea Consolidation Containers", {
 
 frappe.ui.form.on("Sea Consolidation", {
 	validate: async function (frm) {
+		if (!_sea_consolidation_validate_custom_allocation_sum(frm)) {
+			frappe.validated = false;
+			return;
+		}
 		const rows = frm.doc.consolidation_containers || [];
 		for (let i = 0; i < rows.length; i++) {
 			const raw = rows[i].container_number;
@@ -126,6 +226,16 @@ frappe.ui.form.on("Sea Consolidation", {
 		});
 	},
 	setup: function (frm) {
+		var consolidatableSeaShipmentQuery = {
+			query: "logistics.utils.consolidation_plan.consolidatable_sea_shipment_query",
+		};
+		["consolidation_planning_lines", "consolidation_packages", "consolidation_containers"].forEach(
+			function (table) {
+				frm.set_query("sea_shipment", table, function () {
+					return consolidatableSeaShipmentQuery;
+				});
+			}
+		);
 
 		frm.set_query('milestone_template', function() {
 			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
@@ -133,6 +243,7 @@ frappe.ui.form.on("Sea Consolidation", {
 		});
 	},
 	refresh: function (frm) {
+		_sea_consolidation_update_custom_allocation_intro(frm);
 		// Dashboard tab
 		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
 			if (!frm._dashboard_html_called) {
@@ -167,24 +278,25 @@ frappe.ui.form.on("Sea Consolidation", {
 				_load_milestone_html(frm);
 			});
 		}
-		(function lock_planned_shipments_grid() {
+		(function lock_planning_and_cargo_grids() {
 			const planningLocked =
 				(frm.doc.sea_planning_status || "Draft") === "Submitted" && frm.doc.docstatus === 0;
-			if (!frm.fields_dict.consolidation_planning_lines) {
-				return;
-			}
-			frm.set_df_property("consolidation_planning_lines", "read_only", planningLocked ? 1 : 0);
-			frm.set_df_property(
-				"consolidation_planning_lines",
-				"cannot_add_rows",
-				planningLocked ? 1 : 0
+			["consolidation_planning_lines", "consolidation_packages", "consolidation_containers"].forEach(
+				function (fieldname) {
+					if (!frm.fields_dict[fieldname]) {
+						return;
+					}
+					frm.set_df_property(fieldname, "read_only", planningLocked ? 1 : 0);
+					frm.set_df_property(fieldname, "cannot_add_rows", planningLocked ? 1 : 0);
+					frm.set_df_property(fieldname, "cannot_delete_rows", planningLocked ? 1 : 0);
+					frm.refresh_field(fieldname);
+					if (planningLocked && window.logistics_hide_cannot_add_rows_buttons) {
+						setTimeout(function () {
+							window.logistics_hide_cannot_add_rows_buttons(frm, fieldname);
+						}, 0);
+					}
+				}
 			);
-			frm.set_df_property(
-				"consolidation_planning_lines",
-				"cannot_delete_rows",
-				planningLocked ? 1 : 0
-			);
-			frm.refresh_field("consolidation_planning_lines");
 		})();
 		if (!frm.doc.__islocal && frm.doc.docstatus === 0) {
 			if ((frm.doc.sea_planning_status || "Draft") === "Draft") {
@@ -196,9 +308,14 @@ frappe.ui.form.on("Sea Consolidation", {
 					}
 				}, __("Action"));
 			}
+			const distinctPlannedSeaShipments = new Set(
+				(frm.doc.consolidation_planning_lines || [])
+					.map((row) => row.sea_shipment)
+					.filter(Boolean)
+			).size;
 			if (
 				(frm.doc.sea_planning_status || "Draft") === "Draft" &&
-				(frm.doc.consolidation_planning_lines || []).length
+				distinctPlannedSeaShipments >= 2
 			) {
 				frm.add_custom_button(
 					__("Submit planned shipments"),
@@ -222,7 +339,7 @@ frappe.ui.form.on("Sea Consolidation", {
 					function () {
 						frappe.confirm(
 							__(
-								"This is only allowed after removing cargo that references sea shipments. Planning will return to draft: planned shipments stay listed, the table becomes editable again, and you can add more from Aligned Sea Shipments. Continue?"
+								"Planning will return to draft. Planned shipments, packages, and containers stay as they are; the tables become editable again, and you can add more from Aligned Sea Shipments. Continue?"
 							),
 							function () {
 								frm.call("cancel_sea_planning_submit").then(function () {

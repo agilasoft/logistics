@@ -211,6 +211,42 @@ function _declaration_recalculate_total_payable(frm) {
 }
 
 /** Table flags for charges: `cannot_add_rows` / `allow_bulk_edit` may not match client meta; set on the docfield so the grid hides Add / Upload / Download as intended. */
+const _DECLARATION_ORDER_CURRENCY_EXCHANGE_FIELDS = [
+	"currency",
+	"exchange_rate",
+	"inv_currency",
+	"inv_exchange_rate",
+];
+
+/** Pull currency / exchange rates from linked Declaration Order when local values are blank. */
+function _declaration_apply_currency_exchange_from_order(frm) {
+	if (!frm.doc.declaration_order) {
+		return;
+	}
+	frappe.db.get_value(
+		"Declaration Order",
+		frm.doc.declaration_order,
+		_DECLARATION_ORDER_CURRENCY_EXCHANGE_FIELDS,
+		function (r) {
+			const order = (r && r.message) || {};
+			_DECLARATION_ORDER_CURRENCY_EXCHANGE_FIELDS.forEach(function (fieldname) {
+				const order_val = order[fieldname];
+				if (order_val == null || order_val === "") {
+					return;
+				}
+				if (fieldname.indexOf("exchange_rate") >= 0 && !flt(order_val)) {
+					return;
+				}
+				const current = frm.doc[fieldname];
+				const is_empty_rate = fieldname.indexOf("exchange_rate") >= 0 ? !flt(current) : !current;
+				if (is_empty_rate) {
+					frm.set_value(fieldname, order_val);
+				}
+			});
+		}
+	);
+}
+
 function _logistics_set_charges_cannot_add_rows(frm) {
 	if (!frm.get_docfield || !frm.get_docfield("charges")) {
 		return;
@@ -234,6 +270,11 @@ frappe.ui.form.on("Declaration", {
 	},
 	exemptions_remove(frm) {
 		_declaration_recalculate_total_payable(frm);
+	},
+	commercial_invoice_line_items_remove(frm) {
+		if (window.logistics && logistics.schedule_customs_line_charge_recalc) {
+			logistics.schedule_customs_line_charge_recalc(frm);
+		}
 	},
 	inv_total_amount(frm) {
 		_auto_set_payment_status(frm);
@@ -276,6 +317,10 @@ frappe.ui.form.on("Declaration", {
 	},
 	onload(frm) {
 		_logistics_set_charges_cannot_add_rows(frm);
+		_declaration_apply_currency_exchange_from_order(frm);
+	},
+	declaration_order(frm) {
+		_declaration_apply_currency_exchange_from_order(frm);
 	},
 	setup(frm) {
 		frm.set_query('milestone_template', function() {
@@ -561,7 +606,7 @@ frappe.ui.form.on("Declaration", {
 						if (window.logistics_show_create_internal_job_dialog) {
 							_openInternalJobDlg();
 						} else {
-							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=19', _openInternalJobDlg);
+							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=20', _openInternalJobDlg);
 						}
 					}, __('Create'));
 				}
@@ -619,11 +664,11 @@ frappe.ui.form.on("Declaration Exemption", {
 });
 
 function create_sales_invoice_from_declaration(frm) {
-	// Show confirmation dialog
+	// Event confirmation dialog
 	frappe.confirm(
 		__("Are you sure you want to create a Sales Invoice from this Declaration?"),
 		function() {
-			// Show loading indicator
+			// Event loading indicator
 			frm.dashboard.set_headline_alert(__("Creating Sales Invoice..."));
 			
 			// Call the server method
@@ -636,7 +681,7 @@ function create_sales_invoice_from_declaration(frm) {
 					frm.dashboard.clear_headline();
 					
 					if (r.message && r.message.success) {
-						// Show success message
+						// Event success message
 						frappe.msgprint({
 							title: __("Sales Invoice Created"),
 							message: __("Sales Invoice {0} has been created successfully.", [r.message.sales_invoice]),
@@ -646,7 +691,7 @@ function create_sales_invoice_from_declaration(frm) {
 						// Open the created Sales Invoice
 						frappe.set_route("Form", "Sales Invoice", r.message.sales_invoice);
 					} else if (r.message && r.message.message) {
-						// Show error message
+						// Event error message
 						frappe.msgprint({
 							title: __("Error"),
 							message: r.message.message,

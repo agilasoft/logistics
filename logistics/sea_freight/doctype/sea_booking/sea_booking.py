@@ -25,6 +25,7 @@ from logistics.utils.internal_job_charge_copy import (
 )
 from logistics.utils.sales_quote_charge_parameters import filter_fields_existing_in_doctype
 from logistics.utils.sales_quote_routing import (
+	apply_linked_sales_quote_routing_to_booking,
 	apply_sales_quote_routing_to_booking,
 	routing_legs_for_api_response,
 )
@@ -137,19 +138,42 @@ class SeaBooking(Document):
 				from frappe.utils import cint
 
 				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+					resolve_allow_linked_freight_booking_from_one_off_converted_doc,
 					resolve_allow_linked_freight_bookings_for_internal_job,
 					resolve_allow_linked_transport_order_for_internal_job_freight_booking,
+					resolve_one_off_declaration_order_chain_allowance,
+					resolve_single_main_air_booking_for_sales_quote,
+					resolve_single_main_sea_booking_for_sales_quote,
 					validate_one_off_quote_not_converted,
 				)
 
 				allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+				# Same multimodal one-off chain as Air/Sea Shipment: internal job may be under Air Shipment while the
+				# quote converted to the sibling Sea Booking (resolve_allow_linked... only fills the main job's booking).
+				sq_for_chain = (getattr(self, "sales_quote", None) or "").strip() or (
+					(getattr(self, "quote", None) or "").strip() if _quote_is_sales_quote else ""
+				)
+				sq_for_chain = sq_for_chain or None
+				if sq_for_chain:
+					if not allow_sea:
+						allow_sea = resolve_single_main_sea_booking_for_sales_quote(sq_for_chain)
+					if not allow_air:
+						allow_air = resolve_single_main_air_booking_for_sales_quote(sq_for_chain)
+					conv_sea, conv_air = resolve_allow_linked_freight_booking_from_one_off_converted_doc(sq_for_chain)
+					if not allow_sea:
+						allow_sea = conv_sea
+					if not allow_air:
+						allow_air = conv_air
 				allow_tro = resolve_allow_linked_transport_order_for_internal_job_freight_booking(self)
-				_allow_main_with_do = cint(getattr(self, "is_main_service", 0)) == 1
+				_allow_main_with_do, _allow_if_converted = resolve_one_off_declaration_order_chain_allowance(
+					self, allow_sea=allow_sea, allow_air=allow_air
+				)
 				if self.sales_quote:
 					validate_one_off_quote_not_converted(
 						self.sales_quote,
 						self.doctype,
 						self.name,
+						allow_if_quote_converted_to=_allow_if_converted,
 						allow_linked_sea_booking=allow_sea,
 						allow_linked_air_booking=allow_air,
 						allow_linked_transport_order=allow_tro,
@@ -160,6 +184,7 @@ class SeaBooking(Document):
 						self.quote,
 						self.doctype,
 						self.name,
+						allow_if_quote_converted_to=_allow_if_converted,
 						allow_linked_sea_booking=allow_sea,
 						allow_linked_air_booking=allow_air,
 						allow_linked_transport_order=allow_tro,
@@ -442,6 +467,8 @@ class SeaBooking(Document):
 			self.aggregate_weight_from_packages()
 		self.calculate_chargeable_weight()
 		self._update_packing_summary()
+		from logistics.sea_freight.container_row_metrics import container_cargo_payload_from_doc
+
 		return {
 			"total_volume": getattr(self, "total_volume", 0),
 			"total_weight": getattr(self, "total_weight", 0),
@@ -449,6 +476,7 @@ class SeaBooking(Document):
 			"total_containers": getattr(self, "total_containers", 0),
 			"total_teus": getattr(self, "total_teus", 0),
 			"total_packages": getattr(self, "total_packages", 0),
+			"container_cargo": container_cargo_payload_from_doc(self),
 		}
 	
 	def validate_container_numbers(self):
@@ -685,6 +713,11 @@ class SeaBooking(Document):
 		self.validate_required_fields_for_submit()
 		# Ensure quote field values are preserved - sync quote and sales_quote before submission
 		_sync_quote_and_sales_quote(self)
+		from logistics.utils.get_charges_from_quotation import (
+			assert_sales_quote_customer_matches_job_before_submit,
+		)
+
+		assert_sales_quote_customer_matches_job_before_submit(self)
 		
 		# Validate quote reference: either sales_quote (for Sales Quote) or quote (for One-Off Quote) must be set
 		quote_type = getattr(self, "quote_type", None)
@@ -1019,6 +1052,7 @@ class SeaBooking(Document):
 	
 	def _populate_charges_from_sales_quote_doc(self):
 		"""Populate charges based on sales_quote_transport of the filled sales_quote."""
+		apply_linked_sales_quote_routing_to_booking(self)
 		overlay_populated = False
 		if cint(getattr(self, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(self):
 			try:
@@ -1143,6 +1177,10 @@ class SeaBooking(Document):
 	
 	def _populate_charges_from_sales_quote(self, sales_quote):
 		"""Populate charges from Sales Quote Sea Freight records (legacy method for fetch_quotations)"""
+		sq_name = sales_quote if isinstance(sales_quote, str) else getattr(sales_quote, "name", None)
+		if sq_name and not self.sales_quote:
+			self.sales_quote = sq_name
+		apply_linked_sales_quote_routing_to_booking(self)
 		overlay_populated = False
 		if cint(getattr(self, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(self):
 			try:

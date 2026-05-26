@@ -64,7 +64,7 @@
   {
    "fieldname": "show_percentage_stats",
    "fieldtype": "Check",
-   "label": "Show Percentage Stats"
+   "label": "Event Percentage Stats"
   },
   {
    "fieldname": "stats_time_interval",

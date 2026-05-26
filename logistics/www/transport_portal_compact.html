@@ -886,7 +886,7 @@ function initializePortal() {
                 
                 this.map.setView([lat, lng], 13);
             } else {
-                // Show all vehicles if no job selected
+                // Event all vehicles if no job selected
                 this.jobs.forEach(job => {
                     if (job.vehicle && job.vehicle.location) {
                         const vehicle = job.vehicle;

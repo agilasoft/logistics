@@ -471,7 +471,7 @@ class RecognitionEngine:
             "Warehouse Job": "charges",
             "Declaration": "charges",
             "General Job": "charges",
-            "Project Task Job": "charges",
+            "Project Job": "charges",
         }
         return charges_tables.get(self.job_type)
 
@@ -1566,7 +1566,7 @@ def process_period_closing_adjustments(company, period_end_date):
     
     job_types = [
         "Air Shipment", "Sea Shipment", "Transport Job",
-        "Warehouse Job", "Declaration", "General Job", "Project Task Job"
+        "Warehouse Job", "Declaration", "General Job", "Project Job"
     ]
     
     results = {
