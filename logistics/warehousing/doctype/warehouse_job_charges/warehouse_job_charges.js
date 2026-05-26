@@ -179,7 +179,7 @@ function validate_all_charges(frm) {
 					}
 				});
 				
-				// Show validation results
+				// Event validation results
 				if (invalid_charges.length > 0) {
 					let allowed_items_str = allowed_items.slice(0, 5).join(', ');
 					if (allowed_items.length > 5) {

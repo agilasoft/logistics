@@ -14,6 +14,7 @@
   "naming_series",
   "consolidation_date",
   "consolidation_type",
+  "is_high_value",
   "column_break_1",
   "status",
   "priority",
@@ -132,6 +133,14 @@
    "label": "Consolidation Type",
    "options": "Direct Consolidation\nTransit Consolidation\nBreak-Bulk Consolidation\nMulti-Port Consolidation",
    "reqd": 1
+  },
+  {
+   "default": "0",
+   "description": "Auto-set to 1 if any linked Sea Shipment is high value.",
+   "fieldname": "is_high_value",
+   "fieldtype": "Check",
+   "label": "High Value",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_1",
@@ -558,7 +567,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-29 10:38:23.519547",
+ "modified": "2026-05-15 10:04:56.191388",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Consolidation",

@@ -31,20 +31,23 @@ app_include_css = [
 	"/assets/logistics/css/print_footer_fix.css",
 	"/assets/logistics/css/get_charges_from_quotation.css?v=7",
 	"/assets/logistics/css/charges_grid_no_row_check.css?v=2",
+	"/assets/logistics/css/density_factor.css?v=1",
 ]
 app_include_js = [
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=3",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
 	"/assets/logistics/js/internal_job_create_from_source.js?v=19",
-	"/assets/logistics/js/one_off_sales_quote_order_standard.js",
+	"/assets/logistics/js/one_off_sales_quote_order_standard.js?v=2",
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
+	"/assets/logistics/js/internal_job_detail_grid_delete_fix.js",
 	"/assets/logistics/js/get_charges_from_quotation.js?v=17",
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=3",
 	"/assets/logistics/js/air_consolidation_matching_shipments.js?v=5",
 	"/assets/logistics/js/charges_disbursement_sync.js",
 	"/assets/logistics/js/charge_break_dialogs.js",
 	"/assets/logistics/js/volume_from_dimensions.js",
+	"/assets/logistics/js/density_factor.js?v=2",
 	"/assets/logistics/js/document_alerts_dialog.js?v=2",
 	"/assets/logistics/js/documents_tab_utils.js",
 	"/assets/logistics/js/profitability_form.js?v=4",
@@ -227,7 +230,7 @@ doctype_js = {
 		"logistics/pricing_center/doctype/transport_job_charges/transport_job_charges.js",
 		"logistics/public/js/charge_break_buttons.js",
 	],
-	"Project Task Job": [
+	"Project Job": [
 		"logistics/special_projects/doctype/project_task_job_resource/project_task_job_resource.js",
 		"logistics/public/js/document_alerts_dialog.js",
 		"logistics/public/js/charge_break_dialogs.js",
@@ -240,7 +243,11 @@ doctype_js = {
 		"logistics/job_management/recognition_policy_fields.js",
 	],
 	"Special Project": [
+		"logistics/public/js/logistics_lifecycle_stepper.js?v=3",
 		"logistics/public/js/document_alerts_dialog.js",
+	],
+	"Exhibit": [
+		"logistics/public/js/logistics_lifecycle_stepper.js?v=3",
 	],
 	"Account": "logistics/public/js/account_job_profit.js",
 	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
@@ -304,7 +311,8 @@ _doc_milestone_doctypes = [
 	"Transport Order", "Transport Job",
 	"Declaration", "Declaration Order",
 	"Inbound Order", "Release Order", "Transfer Order",
-	"Warehouse Job", "General Job", "Special Project", "Project Task Job",
+	"Warehouse Job", "General Job", "Special Project",
+	"Project Order", "Project Job",
 ]
 
 doc_events = {
@@ -373,7 +381,7 @@ for _dt in (
 	"Warehouse Job",
 	"Inbound Order",
 	"Release Order",
-	"Project Task Job",
+	"Project Job",
 ):
 	if _dt not in doc_events:
 		doc_events[_dt] = {}
@@ -395,7 +403,7 @@ for _dt in (
 	"Warehouse Job",
 	"Declaration",
 	"General Job",
-	"Project Task Job",
+	"Project Job",
 ):
 	if _dt not in doc_events:
 		doc_events[_dt] = {}
@@ -436,7 +444,7 @@ append_hook(
 
 # Operational exchange rates: resolve from Source Exchange Rate (date-based) and push to charge lines
 _OER_BEFORE_SAVE = "logistics.utils.operational_exchange_rates.on_before_save_operational_exchange_rates"
-for _dt in ("Air Booking", "Sea Booking", "Air Shipment", "Sea Shipment", "Project Task Job"):
+for _dt in ("Air Booking", "Sea Booking", "Air Shipment", "Sea Shipment", "Project Job"):
 	if _dt not in doc_events:
 		doc_events[_dt] = {}
 	_bs = doc_events[_dt].get("before_save")
@@ -470,7 +478,7 @@ for _dt in (
 	"Warehouse Job",
 	"Inbound Order",
 	"Release Order",
-	"Project Task Job",
+	"Project Job",
 ):
 	if _dt not in doc_events:
 		doc_events[_dt] = {}
@@ -483,6 +491,38 @@ for _dt in (
 				doc_events[_dt][_event] = list(_existing) + [_handler]
 		elif _existing != _handler:
 			doc_events[_dt][_event] = [_existing, _handler]
+
+# Special Project lifecycle financials: refresh when operational job charges change.
+_LIFECYCLE_FINANCIAL_REFRESH = (
+	"logistics.special_projects.lifecycle_job_financial_rollup"
+	".on_operational_job_update_refresh_special_project_lifecycle"
+)
+_LIFECYCLE_FINANCIAL_REFRESH_EVENTS = ("on_update", "on_submit", "on_update_after_submit")
+for _dt in (
+	"Air Booking",
+	"Sea Booking",
+	"Air Shipment",
+	"Sea Shipment",
+	"Transport Order",
+	"Transport Job",
+	"Declaration",
+	"Declaration Order",
+	"Warehouse Job",
+	"Inbound Order",
+	"Release Order",
+	"Project Job",
+):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	for _event in _LIFECYCLE_FINANCIAL_REFRESH_EVENTS:
+		_existing = doc_events[_dt].get(_event)
+		if not _existing:
+			doc_events[_dt][_event] = _LIFECYCLE_FINANCIAL_REFRESH
+		elif isinstance(_existing, list):
+			if _LIFECYCLE_FINANCIAL_REFRESH not in _existing:
+				doc_events[_dt][_event] = list(_existing) + [_LIFECYCLE_FINANCIAL_REFRESH]
+		elif _existing != _LIFECYCLE_FINANCIAL_REFRESH:
+			doc_events[_dt][_event] = [_existing, _LIFECYCLE_FINANCIAL_REFRESH]
 
 merge_credit_hooks(doc_events)
 

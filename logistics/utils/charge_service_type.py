@@ -13,9 +13,10 @@ or internal-job detail), so multimodal quotes still populate charges on either l
 
 Internal jobs do not take line items from the Sales Quote; they take charge rows from the Main Job
 document whose **service_type** matches the internal job (e.g. Transport / Customs).
-Main service documents can receive all quote charges when separate_billings_per_service_type is off
-and the document is the main job (routing leg, or quote main_service fallback with no legs) or
-is_main_service is set.
+When separate_billings_per_service_type is off on the Sales Quote, Declaration Order / Declaration
+receive **all** quote charge rows (combined billing). Sea/Air/Transport bookings use main-job routing
+rules in their own populate paths. When separate billings is on, declaration documents receive only
+Customs-scoped lines (plus legacy ``Sales Quote Customs``), filtered by the order's customs fields.
 """
 
 from __future__ import unicode_literals
@@ -25,7 +26,7 @@ from frappe import _
 from frappe.utils import cint
 
 # Same options as Sales Quote Charge.service_type / Change Request Charge.service_type (stored as UI labels).
-SERVICE_TYPE_SELECT_OPTIONS = "Air\nSea\nTransport\nCustoms\nWarehousing"
+SERVICE_TYPE_SELECT_OPTIONS = "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nExhibits"
 
 IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 	"Air Booking": "Air",
@@ -38,7 +39,12 @@ IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 	"Declaration Order": "Customs",
 	"Warehouse Job": "Warehousing",
 	"Inbound Order": "Warehousing",
-	"Project Task Job": "Special Project",
+	"Special Project": "Special Project",
+	"Project Order": "Special Project",
+	"Project Job": "Special Project",
+	"Exhibit": "Exhibits",
+	"Exhibit Job": "Exhibits",
+	"Exhibit Order": "Exhibits",
 }
 
 
@@ -55,8 +61,10 @@ def canonical_charge_service_type_for_storage(value):
 	low = s.lower()
 	if low in ("custom", "customs"):
 		return "custom"
-	if low in ("air", "sea", "transport", "warehousing", "special project"):
+	if low in ("air", "sea", "transport", "warehousing", "special project", "exhibits"):
 		return low
+	if low == "events":
+		return "exhibits"
 	legacy_title = {
 		"Air": "air",
 		"Sea": "sea",
@@ -65,6 +73,8 @@ def canonical_charge_service_type_for_storage(value):
 		"Customs": "custom",
 		"Warehousing": "warehousing",
 		"Special Project": "special project",
+		"Exhibits": "exhibits",
+		"Events": "exhibits",
 	}
 	return legacy_title.get(s)
 
@@ -76,6 +86,8 @@ _OPERATIONAL_BOOKING_CHARGE_SERVICE_TYPE_LABELS = {
 	"transport": "Transport",
 	"custom": "Customs",
 	"warehousing": "Warehousing",
+	"exhibits": "Exhibits",
+	"special project": "Special Project",
 }
 
 
@@ -90,7 +102,7 @@ def operational_booking_charge_service_type_label(value, default="Sea"):
 	s = (value or "").strip()
 	if s == "Custom":
 		return "Customs"
-	if s in ("Air", "Sea", "Transport", "Customs", "Warehousing"):
+	if s in ("Air", "Sea", "Transport", "Customs", "Warehousing", "Special Project", "Exhibits"):
 		return s
 	return default
 
@@ -128,11 +140,15 @@ def iter_sales_quote_charge_service_type_db_values_for_canonical(canonical_or_la
 		"transport": "Transport",
 		"custom": "Customs",
 		"warehousing": "Warehousing",
+		"special project": "Special Project",
+		"exhibits": "Exhibits",
 	}
 	title = legacy_title.get(c)
 	out = [c]
 	if title:
 		out.append(title)
+	if c == "exhibits":
+		out.append("Events")
 	# Legacy/older data sometimes stored expanded labels in service_type.
 	# Keep these here so link queries and eligibility checks still find the right quotations.
 	if c == "air":
@@ -229,7 +245,10 @@ INTERNAL_JOB_DETAIL_JOB_TYPE_BY_SERVICE_TYPE = {
 	"customs": "Declaration Order",
 	"Warehousing": "Inbound Order",
 	"warehousing": "Inbound Order",
-	"Special Project": "Project Task Job",
+	"Special Project": "Project Order",
+	"special project": "Project Order",
+	"Exhibits": "Exhibit Job",
+	"exhibits": "Exhibit Job",
 }
 
 # Routing leg job_type values that identify the same operational leg as the parent document
@@ -273,16 +292,10 @@ def effective_internal_job_detail_job_type(row):
 
 
 def on_validate_main_service_internal_job(doc, method=None):
-	"""Doc event: Main Service and Internal Job are mutually exclusive.
+	"""Doc event: delegate to sales_quote_ms_ij_rules (mutual exclusivity + quote-type rules)."""
+	from logistics.utils.sales_quote_ms_ij_rules import apply_sales_quote_ms_ij_rules
 
-	If Internal Job is set, Main Service is cleared (including when both are 1 after client/race/dialog).
-	Does not throw. One-off–linked docs are not forced to main-only here — creation flows set flags;
-	internal jobs on One-off quotes must keep ``is_internal_job`` through validate.
-	"""
-	if not hasattr(doc, "is_internal_job") or not hasattr(doc, "is_main_service"):
-		return
-	if cint(getattr(doc, "is_internal_job", 0)):
-		doc.is_main_service = 0
+	apply_sales_quote_ms_ij_rules(doc, method)
 
 
 def is_parent_main_job_for_quote_charges(parent_doc, sales_quote_doc):
@@ -333,9 +346,18 @@ def sales_quote_charge_row_matches_operational_routing(parent_doc, row):
 
 	Air quote rows are not matched to Sea Booking/Shipment ports (and Sea rows not to Air Booking/Shipment):
 	charge lines often use different locode semantics per mode, which would wrongly drop multimodal lines.
+
+	Programme service types (``Special Project`` / ``Exhibits``) only fit on programme parents whose
+	implied service type is also programme; operational bookings/shipments/orders use child tables
+	whose ``service_type`` Select rejects these labels, so the rows must not be copied across.
 	"""
 	row_st = canonical_charge_service_type_for_storage(_sq_charge_row_field(row, "service_type"))
 	parent_dt = getattr(parent_doc, "doctype", None) or ""
+	if row_st in ("special project", "exhibits"):
+		parent_implied = canonical_charge_service_type_for_storage(
+			implied_service_type_for_doctype(parent_dt)
+		)
+		return parent_implied in ("special project", "exhibits")
 	if row_st == "air" and parent_dt in ("Sea Booking", "Sea Shipment"):
 		return True
 	if row_st == "sea" and parent_dt in ("Air Booking", "Air Shipment"):
@@ -366,9 +388,16 @@ def sales_quote_charge_row_matches_operational_routing(parent_doc, row):
 	return True
 
 
+_PROGRAMME_CHARGE_PARENT_DOCTYPES = frozenset(
+	("Special Project", "Exhibit", "Project Job", "Exhibit Job", "Exhibit Order")
+)
+
+
 def filter_sales_quote_charge_rows_for_operational_doc(parent_doc, rows):
 	"""Narrow Sales Quote Charge fetch results to rows that match the job's routing parameters."""
 	if not rows or not parent_doc:
+		return rows
+	if getattr(parent_doc, "doctype", None) in _PROGRAMME_CHARGE_PARENT_DOCTYPES:
 		return rows
 	return [r for r in rows if sales_quote_charge_row_matches_operational_routing(parent_doc, r)]
 
@@ -415,25 +444,84 @@ def _is_customs_sq_charge_row(row) -> bool:
 	return canonical_charge_service_type_for_storage(_sq_charge_service_type(row)) == "custom"
 
 
+def _is_customs_related_sq_charge_row(row) -> bool:
+	"""Customs service_type or customs parameters filled on a unified Sales Quote Charge row."""
+	if _is_customs_sq_charge_row(row):
+		return True
+	ca = (_sq_charge_row_field(row, "customs_authority") or "").strip()
+	dt = (_sq_charge_row_field(row, "declaration_type") or "").strip()
+	cb = (_sq_charge_row_field(row, "customs_broker") or "").strip()
+	return bool(ca or dt or cb)
+
+
+def _legacy_customs_rows_for_quote(sales_quote_name: str) -> list:
+	if not frappe.db.table_exists("Sales Quote Customs"):
+		return []
+	return frappe.get_all(
+		"Sales Quote Customs",
+		filters={"parent": sales_quote_name, "parenttype": "Sales Quote"},
+		order_by="idx",
+	)
+
+
+def _merge_unified_and_legacy_customs_rows(unified_customs: list, legacy_rows: list) -> list:
+	"""Combine unified ``Sales Quote Charge`` customs lines with legacy ``Sales Quote Customs`` rows."""
+	if not legacy_rows:
+		return list(unified_customs)
+	if not unified_customs:
+		return list(legacy_rows)
+	seen = {
+		(
+			(_sq_charge_row_field(r, "item_code") or "").strip(),
+			(_sq_charge_row_field(r, "customs_authority") or "").strip(),
+			(_sq_charge_row_field(r, "declaration_type") or "").strip(),
+		)
+		for r in unified_customs
+	}
+	out = list(unified_customs)
+	for leg in legacy_rows:
+		key = (
+			(_sq_charge_row_field(leg, "item_code") or "").strip(),
+			(_sq_charge_row_field(leg, "customs_authority") or "").strip(),
+			(_sq_charge_row_field(leg, "declaration_type") or "").strip(),
+		)
+		if key not in seen:
+			out.append(leg)
+			seen.add(key)
+	return out
+
+
 def customs_charges_rows_from_sales_quote_doc(parent_doc, sales_quote_doc):
 	"""
 	List of Sales Quote Charge child rows for Declaration / Declaration Order charge population.
 
-	- Internal jobs: Customs lines only (from the quote).
-	- Separate billings on, or not the quote main job: Customs lines only.
-	- Separate billings off and main job: all quote charge rows (same rule as Sea/Air main jobs).
+	- Internal jobs: Customs lines only (from the quote), filtered by order customs fields.
+	- Separate billings **off**: **all** unified quote charge rows (+ legacy customs not already present).
+	- Separate billings **on**: Customs-scoped lines only, filtered by order customs fields.
 	"""
+	from logistics.utils.sales_quote_link_query import filter_customs_charge_rows_for_declaration_order
+
 	rows = list(getattr(sales_quote_doc, "charges", None) or [])
-	customs_only = [c for c in rows if _is_customs_sq_charge_row(c)]
+	legacy_rows = _legacy_customs_rows_for_quote(sales_quote_doc.name)
+	if hasattr(sales_quote_doc, "customs") and sales_quote_doc.customs:
+		legacy_rows = _merge_unified_and_legacy_customs_rows(legacy_rows, list(sales_quote_doc.customs))
+
 	if cint(getattr(parent_doc, "is_internal_job", 0)):
-		return customs_only
+		customs_rows = _merge_unified_and_legacy_customs_rows(
+			[c for c in rows if _is_customs_related_sq_charge_row(c)],
+			legacy_rows,
+		)
+		return filter_customs_charge_rows_for_declaration_order(parent_doc, customs_rows)
+
 	separate = cint(getattr(sales_quote_doc, "separate_billings_per_service_type", 0))
-	main_like = is_parent_main_job_for_quote_charges(parent_doc, sales_quote_doc) or cint(
-		getattr(parent_doc, "is_main_service", 0)
+	if not separate:
+		return _merge_unified_and_legacy_customs_rows(rows, legacy_rows)
+
+	customs_rows = _merge_unified_and_legacy_customs_rows(
+		[c for c in rows if _is_customs_related_sq_charge_row(c)],
+		legacy_rows,
 	)
-	if not separate and main_like:
-		return rows
-	return customs_only
+	return filter_customs_charge_rows_for_declaration_order(parent_doc, customs_rows)
 
 
 def _row_service_type(row):
@@ -473,3 +561,10 @@ def throw_if_missing_destination_service_charge(doc, required_service_type=None)
 	payload = destination_service_charge_validation(doc, required_service_type=required_service_type)
 	if not payload.get("is_valid"):
 		frappe.throw(payload.get("block_message"))
+
+
+def assert_destination_service_charges_on_submit_unless_internal_job(doc, required_service_type=None):
+	"""Block submit when main-service jobs have no matching charge lines; internal jobs exempt."""
+	if cint(getattr(doc, "is_internal_job", 0)):
+		return
+	throw_if_missing_destination_service_charge(doc, required_service_type=required_service_type)

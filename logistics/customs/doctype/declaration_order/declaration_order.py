@@ -9,6 +9,7 @@ from frappe.utils import cint, flt, today, getdate
 from logistics.utils.charge_service_type import (
 	customs_charges_rows_from_sales_quote_doc,
 	iter_sales_quote_charge_service_type_db_values_for_canonical,
+	operational_booking_charge_service_type_label,
 	sales_quote_charge_service_types_equal,
 	throw_if_missing_destination_service_charge,
 )
@@ -143,6 +144,7 @@ class DeclarationOrder(Document):
 				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
 					resolve_allow_linked_freight_booking_from_one_off_converted_doc,
 					resolve_allow_linked_freight_bookings_for_internal_job,
+					resolve_allow_linked_transport_order_for_internal_job_satellite,
 					resolve_single_main_air_booking_for_sales_quote,
 					resolve_single_main_sea_booking_for_sales_quote,
 					validate_one_off_quote_not_converted,
@@ -160,12 +162,14 @@ class DeclarationOrder(Document):
 					allow_sea = conv_sea
 				if not allow_air:
 					allow_air = conv_air
+				allow_tro = resolve_allow_linked_transport_order_for_internal_job_satellite(self)
 				validate_one_off_quote_not_converted(
 					self.sales_quote,
 					self.doctype,
 					self.name,
 					allow_linked_sea_booking=allow_sea,
 					allow_linked_air_booking=allow_air,
+					allow_linked_transport_order=allow_tro,
 				)
 
 			# Handle sales_quote field clearing - reset One-off quote if cleared
@@ -285,11 +289,15 @@ class DeclarationOrder(Document):
 			apply_internal_job_declaration_order_from_shipment,
 			run_propagate_on_link,
 		)
+		from logistics.utils.customs_country_defaults import (
+			apply_internal_job_customs_country_defaults,
+		)
 		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 		from logistics.utils.transport_mode_defaults import apply_default_transport_document_type
 
 		run_propagate_on_link(self)
 		apply_internal_job_declaration_order_from_shipment(self)
+		apply_internal_job_customs_country_defaults(self)
 		apply_shipper_consignee_defaults(self)
 		self.calculate_exemptions()
 		# First save only: pull charges from Sales Quote (or internal-job main service) when the grid is still empty.
@@ -312,6 +320,11 @@ class DeclarationOrder(Document):
 		"""
 		if not self.sales_quote:
 			frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Declaration Order."))
+		from logistics.utils.get_charges_from_quotation import (
+			assert_sales_quote_customer_matches_job_before_submit,
+		)
+
+		assert_sales_quote_customer_matches_job_before_submit(self)
 		throw_if_missing_destination_service_charge(self)
 		self._apply_declaration_conversion_defaults_from_sales_quote()
 		self._validate_declaration_conversion_prerequisites()
@@ -489,8 +502,6 @@ class DeclarationOrder(Document):
 				return
 			sq = frappe.get_doc("Sales Quote", self.sales_quote)
 			sq_charges = customs_charges_rows_from_sales_quote_doc(self, sq)
-			if not sq_charges and hasattr(sq, "customs") and sq.customs:
-				sq_charges = list(sq.customs)
 			if not sq_charges:
 				return
 			meta = frappe.get_meta("Declaration Order Charges")
@@ -545,6 +556,13 @@ class DeclarationOrder(Document):
 						row.set("cost_tariff", legacy_tariff)
 				if "sales_quote_link" in charge_fields and sq_name:
 					row.set("sales_quote_link", sq_name)
+				if "service_type" in charge_fields and not row.get("service_type"):
+					row.set(
+						"service_type",
+						operational_booking_charge_service_type_label(
+							_ch_get(sq_charge, "service_type"), default="Customs"
+						),
+					)
 				if "charge_type" in charge_fields and not row.get("charge_type"):
 					row.set("charge_type", "Revenue")
 		except Exception as e:
@@ -662,8 +680,6 @@ def populate_charges_from_sales_quote(
 			return {"charges": [], "error": _("Sales Quote {0} does not exist.").format(sales_quote)}
 		sq = frappe.get_doc("Sales Quote", sales_quote)
 		sq_charges = customs_charges_rows_from_sales_quote_doc(parent, sq)
-		if not sq_charges and hasattr(sq, "customs") and sq.customs:
-			sq_charges = list(sq.customs)
 		if not sq_charges:
 			return {"charges": [], "message": _("No customs charges found in Sales Quote: {0}").format(sales_quote)}
 		meta = frappe.get_meta("Declaration Order Charges")
@@ -719,6 +735,10 @@ def populate_charges_from_sales_quote(
 			# Set sales_quote_link to link back to the Sales Quote
 			if "sales_quote_link" in charge_fields:
 				row["sales_quote_link"] = sales_quote
+			if "service_type" in charge_fields and not row.get("service_type"):
+				row["service_type"] = operational_booking_charge_service_type_label(
+					_ch_get(sq_charge, "service_type"), default="Customs"
+				)
 			if "charge_type" not in row or not row.get("charge_type"):
 				row["charge_type"] = "Revenue"
 			if row:
@@ -809,8 +829,14 @@ def create_declaration_order_from_sales_quote(
 	order.is_internal_job = 0
 	order.main_job_type = None
 	order.main_job = None
-	if getattr(sq, "special_project", None):
-		order.project = sq.special_project
+	order.is_high_value = cint(getattr(sq, "is_high_value", 0))
+	from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+		get_special_project_for_sales_quote,
+	)
+
+	sp_name = get_special_project_for_sales_quote(sales_quote_name)
+	if sp_name:
+		order.project = sp_name
 	for key in ("customer", "company", "customs_authority", "branch", "cost_center", "profit_center", "declaration_type", "incoterm"):
 		if details.get(key) is not None:
 			order.set(key, details[key])

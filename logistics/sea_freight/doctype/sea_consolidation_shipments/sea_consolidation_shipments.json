@@ -316,7 +316,8 @@
    "fieldtype": "Percent",
    "label": "Cost Allocation %",
    "precision": "2",
-   "read_only": 1
+   "in_list_view": 1,
+   "description": "Per-shipment share of consolidation costs when a charge uses Allocation Method = Custom. Should sum to 100% across shipments."
   }
  ],
  "hide_toolbar": 1,

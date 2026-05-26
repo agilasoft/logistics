@@ -7,15 +7,37 @@ def _provider_conf(provider_docname: str) -> Optional[Dict[str, Any]]:
     doc = frappe.get_doc("Telematics Provider", provider_docname)
     if not doc.enabled:
         return None
-    return {
+
+    conf: Dict[str, Any] = {
         "name": doc.name,
+        "provider_docname": doc.name,
         "provider_type": doc.provider_type,
         "base_url": doc.base_url,
         "api_key": get_decrypted_password("Telematics Provider", provider_docname, "api_key", raise_exception=False),
         "username": getattr(doc, "username", None),
         "password": get_decrypted_password("Telematics Provider", provider_docname, "password", raise_exception=False),
-        "timeout": 20,
+        "timeout": getattr(doc, "request_timeout_sec", None) or 20,
     }
+
+    # Go Transport tab fields (passed through unconditionally; the provider
+    # class will only use them when provider_type == "GOTRANSPORT").
+    position_method = getattr(doc, "gotransport_position_method", None)
+    if position_method:
+        conf["position_method"] = position_method
+        conf["gotransport_position_method"] = position_method
+    if getattr(doc, "gotransport_api_secret", None):
+        try:
+            api_secret = get_decrypted_password(
+                "Telematics Provider", provider_docname,
+                "gotransport_api_secret", raise_exception=False,
+            )
+        except Exception:
+            api_secret = None
+        if api_secret:
+            conf["api_secret"] = api_secret
+            conf["gotransport_api_secret"] = api_secret
+
+    return conf
 
 def resolve_vehicle_provider(vehicle_name: str) -> Optional[Dict[str, Any]]:
     v = frappe.get_doc("Transport Vehicle", vehicle_name)

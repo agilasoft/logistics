@@ -176,7 +176,7 @@ function validate_tracking_exclusivity(frm, current_field, other_field) {
         const current_label = current_field === 'batch_tracking' ? 'Batch Tracking' : 'Serial Tracking';
         const other_label = other_field === 'batch_tracking' ? 'Batch Tracking' : 'Serial Tracking';
         
-        // Show message
+        // Event message
         frappe.show_alert({
             message: __("{0} and {1} cannot both be enabled. {2} has been unchecked.", [current_label, other_label, other_label]),
             indicator: 'orange'

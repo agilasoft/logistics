@@ -14,7 +14,7 @@ Coverage (all current internal-job-capable doctypes):
 * ``Transport Order`` / ``Declaration Order``
 * ``Transport Job`` / ``Declaration``
 * ``Warehouse Job`` / ``Inbound Order`` / ``Release Order``
-* ``Project Task Job``
+* ``Project Job``
 
 The Main Service may be submitted; child writes use ``frappe.db.set_value`` with
 ``update_modified=False`` so the parent's submission state and modified timestamp are unaffected.
@@ -72,6 +72,26 @@ def _charge_actual_cost(row: Any) -> float:
 	if hasattr(row, "actual_cost"):
 		return flt(getattr(row, "actual_cost", 0) or 0)
 	return 0
+
+
+def charge_child_doctype_for_parent(parent_doctype: str) -> str:
+	"""Child DocType behind the parent's ``charges`` table, if any."""
+	if not parent_doctype:
+		return ""
+	meta = frappe.get_meta(parent_doctype)
+	df = meta.get_field("charges")
+	if not df or df.fieldtype != "Table" or not df.options:
+		return ""
+	return (df.options or "").strip()
+
+
+def charge_child_tracks_actual_amounts(parent_doctype: str) -> bool:
+	"""Whether charge rows for this parent expose ``actual_cost`` / ``actual_revenue`` fields."""
+	child = charge_child_doctype_for_parent(parent_doctype)
+	if not child:
+		return False
+	child_meta = frappe.get_meta(child)
+	return bool(child_meta.has_field("actual_cost") or child_meta.has_field("actual_revenue"))
 
 
 def calculate_internal_job_rollup_totals(doc: Any) -> Tuple[float, float, float, float]:

@@ -199,7 +199,7 @@ function fetch_legs_for_jobs(job_names, callback, company, fetch_all) {
 				if (r.message && r.message.status === "success") {
 					callback(r.message.legs || []);
 				} else {
-					// Show error message if there's an issue
+					// Event error message if there's an issue
 					if (r.message && r.message.message) {
 						frappe.show_alert({
 							message: __("Error fetching legs: {0}", [r.message.message]),
@@ -245,7 +245,7 @@ function fetch_legs_for_jobs(job_names, callback, company, fetch_all) {
 			if (r.message && r.message.status === "success") {
 				callback(r.message.legs || []);
 			} else {
-				// Show error message if there's an issue
+				// Event error message if there's an issue
 				if (r.message && r.message.message) {
 					frappe.show_alert({
 						message: __("Error fetching legs: {0}", [r.message.message]),
@@ -266,7 +266,7 @@ function fetch_legs_for_jobs(job_names, callback, company, fetch_all) {
 }
 
 function reload_jobs_with_filter(frm, dialog, consolidation_type) {
-	// Show loading indicator
+	// Event loading indicator
 	if (dialog.fields_dict.summary_info) {
 		dialog.fields_dict.summary_info.$wrapper.html('<div style="padding: 20px; text-align: center;"><i class="fa fa-spinner fa-spin"></i> ' + __("Loading jobs...") + '</div>');
 	}
@@ -922,7 +922,7 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 			// Fetch ALL consolidatable legs (without run_sheet, with valid Load Type)
 			// First, ensure we have fetched all consolidatable legs
 			if (!dialog._all_legs || dialog._all_legs.length === 0) {
-				// Show loading indicator
+				// Event loading indicator
 				if (dialog.fields_dict.jobs_table) {
 					dialog.fields_dict.jobs_table.$wrapper.html('<div style="padding: 20px; text-align: center;"><i class="fa fa-spinner fa-spin"></i> ' + __("Loading transport legs...") + '</div>');
 				}
@@ -1242,7 +1242,7 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 			} else {
 				// Fallback: fetch all consolidatable legs
 				if (!dialog._all_legs || dialog._all_legs.length === 0) {
-					// Show loading indicator
+					// Event loading indicator
 					if (dialog.fields_dict.jobs_table) {
 						dialog.fields_dict.jobs_table.$wrapper.html('<div style="padding: 20px; text-align: center;"><i class="fa fa-spinner fa-spin"></i> ' + __("Loading transport legs...") + '</div>');
 					}
@@ -1251,7 +1251,7 @@ function show_jobs_dialog(frm, jobs, consolidation_groups, debug_info) {
 					fetch_legs_for_jobs(null, function(legs) {
 						dialog._all_legs = legs || [];
 						dialog._legs_job_names = []; // Not tracking specific jobs when fetching all
-						// Show all legs
+						// Event all legs
 						dialog._filtered_legs = legs || [];
 						// Update filters with leg data
 						update_filters_for_view("legs");
@@ -1802,7 +1802,7 @@ function build_jobs_table_html(jobs, consolidation_groups) {
 			consolidation_badge = '<span class="badge badge-secondary" style="background-color: #6c757d;">Route</span>';
 		}
 		
-		// Show consolidation status if some legs are already consolidated
+		// Event consolidation status if some legs are already consolidated
 		let consolidation_status = '';
 		if (job.has_partial_consolidation) {
 			consolidation_status = `<span class="badge badge-warning" style="background-color: #ff9800;" title="${__('Some legs are already consolidated')}">
@@ -1816,7 +1816,7 @@ function build_jobs_table_html(jobs, consolidation_groups) {
 		let pick_address_tooltip_html = '';
 		let drop_address_tooltip_html = '';
 		
-		// Show tooltip with all addresses when consolidation_type is Route or blank/empty and there are multiple addresses
+		// Event tooltip with all addresses when consolidation_type is Route or blank/empty and there are multiple addresses
 		const is_route_or_blank = job.consolidation_type === 'Route' || !job.consolidation_type || job.consolidation_type === '';
 		if (is_route_or_blank) {
 			// Check if there are multiple pick addresses (indicated by "X different" text or multiple titles)

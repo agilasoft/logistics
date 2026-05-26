@@ -118,6 +118,23 @@ _All fields from DocType **Transport Leg** and nested child tables, in form orde
 
 <!-- wiki-field-reference:end -->
 
+## Driver mobile app (agilasoft/driver)
+
+The native driver app reads and updates Transport Leg via `logistics.transport.api.get_run_sheet_bundle` and `apply_leg_driver_updates` (or REST `PUT`). Field mapping:
+
+| App usage | Transport Leg field |
+| --- | --- |
+| Pick timestamp | `start_date` |
+| Drop timestamp | `end_date` |
+| Pick / drop signatures | `pick_signature`, `drop_signature` |
+| Signer names | `pick_signed_by`, `drop_signed_by` |
+| GPS at pick / drop | `pick_latitude`, `pick_longitude`, `drop_latitude`, `drop_longitude` |
+| Delivery notes | `pick_notes`, `drop_notes` |
+| Photos (upload_file) | `pick_photo`, `drop_photo` |
+| Signature times | `pick_signed_at`, `drop_signed_at`, `date_signed` |
+
+Drivers need the **Driver** role (or **Transport User**), API access, and a **Driver** record linked to their user (`Driver.user` = login email). Live GPS uses `logistics.transport.api.update_driver_location`.
+
 ## 3. Related Topics
 
 - [Transport Job](welcome/transport-job)

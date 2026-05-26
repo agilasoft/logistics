@@ -89,7 +89,7 @@ Current implementation auto-creates Internal Jobs for no-charge non-main legs, b
 
 ### 5.2 Trigger points
 
-Show the dialog when all conditions are true:
+Event the dialog when all conditions are true:
 
 - User initiates **Create Bookings/Orders** from a Sales Quote.
 - Leg is **non-main**.
@@ -178,7 +178,7 @@ Validation messages should be field-level and actionable (for example: `Select T
 
 After each successful creation:
 
-- Show toast with created document name and service type.
+- Event toast with created document name and service type.
 - Append to a final summary table:
   - Created
   - Skipped

@@ -1,0 +1,116 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:activity_code",
+ "creation": "2026-05-18 12:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "activity_code",
+  "activity_name",
+  "lifecycle_stage",
+  "sort_order",
+  "column_break_1",
+  "for_exhibits",
+  "for_special_project",
+  "section_break_details",
+  "description",
+  "photo_required"
+ ],
+ "fields": [
+  {
+   "fieldname": "activity_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Activity Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "activity_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Activity Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "lifecycle_stage",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Lifecycle Stage",
+   "options": "Lifecycle Stage",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sort Order",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "for_exhibits",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Exhibits"
+  },
+  {
+   "default": "0",
+   "fieldname": "for_special_project",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Special Project"
+  },
+  {
+   "fieldname": "section_break_details",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Description"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, photo documentation is expected for this activity.",
+   "fieldname": "photo_required",
+   "fieldtype": "Check",
+   "label": "Photo Required"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-18 12:00:00",
+ "modified_by": "Administrator",
+ "module": "Exhibits",
+ "name": "Activity Code",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "sort_field": "sort_order",
+ "sort_order": "ASC",
+ "states": [],
+ "track_changes": 1
+}

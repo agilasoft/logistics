@@ -87,7 +87,7 @@ function _calculate_charge_row(frm, cdt, cdn) {
 		method: "logistics.utils.charges_calculation.calculate_charge_row",
 		args: {
 			doctype: "Sea Shipment Charges",
-			parenttype: "Sea Shipment",
+			parenttype: frm.doctype,
 			parent: frm.doc.name || "new",
 			row_data: JSON.stringify(row),
 			parent_overrides:

@@ -25,6 +25,15 @@ frappe.ui.form.on("Sales Quote", {
 					])
 				);
 			}
+			const st = (row.service_type || "").trim();
+			if (["Special Project", "Exhibits"].includes(st) && !(row.sp_site || "").trim()) {
+				frappe.throw(
+					__("Charges row {0}: Site is required for Service Type \"{1}\".", [
+						row.idx || "?",
+						st,
+					])
+				);
+			}
 		}
 	},
 });

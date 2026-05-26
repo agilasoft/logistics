@@ -1179,7 +1179,7 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
 
             details.append({"order_row": rr.get("name"), "item": item, "qty": qty, "dest_location": dest, "dest_handling_unit": hu})
 
-    # Show only essential final results
+    # Event only essential final results
     if warnings:
         failed_hus = [w for w in warnings if "HU" in w and "no destination" in w]
         frappe.msgprint(f"✅ Completed: {created_rows} rows, {created_qty} units")

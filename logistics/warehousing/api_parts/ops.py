@@ -59,7 +59,7 @@ def populate_job_operations(warehouse_job: str, clear_existing: int = 1) -> Dict
     has_totalh= "total_std_hours" in child_fields
     has_actual= "actual_hours" in child_fields
     
-    # Debug: Show available fields (removed for production)
+    # Debug: Event available fields (removed for production)
 
     created = 0
     for op in ops:

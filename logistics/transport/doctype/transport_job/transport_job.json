@@ -54,8 +54,8 @@
   "column_break_logistics_reps",
   "company",
   "branch",
-  "cost_center",
   "profit_center",
+  "cost_center",
   "column_break_xphe",
   "project",
   "job_number",
@@ -86,6 +86,7 @@
   "accrual_closed",
   "quote_reference_section",
   "is_main_service",
+  "is_high_value",
   "sales_quote",
   "column_break_quote_ref",
   "is_internal_job",
@@ -306,6 +307,7 @@
    "fieldtype": "Link",
    "label": "Project",
    "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "no_copy": 1,
    "options": "Project"
   },
   {
@@ -455,7 +457,7 @@
    "fieldname": "density_factor_html",
    "fieldtype": "HTML",
    "label": "Density Factor",
-   "options": "<div class=\"density-factor-container\" style=\"margin: 12px 0;\"><div style=\"font-size: 11px; color: #6c7680; margin-bottom: 6px;\">Density Factor</div><div class=\"density-factor-track\" style=\"height: 28px; background: #e8eef4; border-radius: 4px; position: relative; overflow: hidden; max-width: 100%;\"><div class=\"density-factor-fill\" style=\"position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #2490ef, #6ba3e8); border-radius: 4px; transition: width 0.2s ease;\"></div><span class=\"density-factor-indicator\" data-doc-value=\"\" style=\"position: absolute; left: 0; top: 50%; transform: translateY(-50%); background: #2490ef; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 4px; z-index: 2;\">0.0</span></div><div style=\"display: flex; justify-content: space-between; font-size: 10px; color: #6c7680; margin-top: 4px;\"><span>(1:1) Dense</span><span>1:6</span><span>Volumetric (1:6000)</span></div></div>"
+   "options": "<div class=\"density-factor-container\"><div class=\"density-factor-header\"><span class=\"density-factor-title\">Density Factor</span><span class=\"density-factor-classification\" data-zone=\"\"></span></div><div class=\"density-factor-meta\"><span class=\"density-factor-value is-empty\" data-doc-value=\"\"></span><span class=\"density-factor-unit\">cm\u00b3/kg</span></div><div class=\"density-factor-track\" role=\"progressbar\" aria-valuemin=\"0\" aria-valuemax=\"6000\" aria-valuenow=\"\"><div class=\"density-factor-fill\"></div><div class=\"density-factor-indicator\"></div></div><div class=\"density-factor-scale\"><span class=\"dfs-pos\" data-tier=\"dense\" style=\"left: 0%\"><span class=\"dfs-num\">0</span><span class=\"dfs-lbl\">Dense</span></span><span class=\"dfs-pos\" style=\"left: 25%\"><span class=\"dfs-num\">1500</span></span><span class=\"dfs-pos\" style=\"left: 50%\"><span class=\"dfs-num\">3000</span></span><span class=\"dfs-pos\" style=\"left: 75%\"><span class=\"dfs-num\">4500</span></span><span class=\"dfs-pos\" data-tier=\"volumetric\" style=\"left: 100%\"><span class=\"dfs-num\">6000</span><span class=\"dfs-lbl\">Volumetric</span></span></div><div class=\"density-factor-error\"></div></div>"
   },
   {
    "fieldname": "section_break_jozr",
@@ -714,6 +716,14 @@
    "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
   },
   {
+   "default": "0",
+   "description": "Inherited from the linked Sales Quote (if any).",
+   "fieldname": "is_high_value",
+   "fieldtype": "Check",
+   "label": "High Value",
+   "read_only": 1
+  },
+  {
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
@@ -900,7 +910,7 @@
    "link_fieldname": "transport_job"
   }
  ],
- "modified": "2026-04-16 15:39:23.774854",
+ "modified": "2026-05-15 09:41:45.310431",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Job",
@@ -949,6 +959,15 @@
    "share": 1,
    "submit": 1,
    "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Driver",
+   "share": 1
   }
  ],
  "quick_entry": 1,

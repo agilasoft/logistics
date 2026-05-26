@@ -20,6 +20,7 @@ function _declaration_order_name_from_internal_job_details(frm) {
 
 function _load_milestone_html(frm) {
 	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._logistics_template_populate_busy || frappe.ui.form.is_saving) return;
 	if (frm._milestone_html_called) return;
 	frm._milestone_html_called = true;
 	frappe.call({
@@ -37,6 +38,7 @@ function _load_milestone_html(frm) {
 
 function _load_documents_html(frm) {
 	if (!frm.fields_dict.documents_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._logistics_template_populate_busy || frappe.ui.form.is_saving) return;
 	if (frm._documents_html_called) return;
 	frm._documents_html_called = true;
 	frappe.call({
@@ -174,6 +176,41 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 	frm.set_df_property("charges", "allow_bulk_edit", 0);
 }
 
+/**
+ * Save, then populate documents/milestones from template on the server.
+ * Sets _logistics_template_populate_busy so refresh() does not run async HTML loaders
+ * while modified is changing (avoids TimestampMismatchError on save / run_doc_method).
+ */
+function _air_shipment_save_then_populate_template(frm, method, freeze_message) {
+	if (!frm.doc.name || frm.doc.__islocal) return;
+	frm._logistics_template_populate_busy = true;
+	frm.save()
+		.then(function () {
+			frappe.call({
+				method: method,
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				freeze: true,
+				freeze_message: freeze_message,
+				callback: function (r) {
+					frm._logistics_template_populate_busy = false;
+					if (r.exc) return;
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) {
+							frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+						}
+					}
+				},
+				error: function () {
+					frm._logistics_template_populate_busy = false;
+				},
+			});
+		})
+		.catch(function () {
+			frm._logistics_template_populate_busy = false;
+		});
+}
+
 frappe.ui.form.on('Air Shipment', {
 	onload: function(frm) {
 		if (window.logistics && logistics.apply_one_off_route_options_onload) {
@@ -187,34 +224,18 @@ frappe.ui.form.on('Air Shipment', {
 		}
 	},
 	document_list_template: function (frm) {
-		if (!frm.doc.name || frm.doc.__islocal) return;
-		frm.save().then(function () {
-			frappe.call({
-				method: "logistics.document_management.api.populate_documents_from_template",
-				args: { doctype: frm.doctype, docname: frm.doc.name },
-				callback: function (r) {
-					if (r.message) {
-						frm.reload_doc();
-						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
-					}
-				}
-			});
-		});
+		_air_shipment_save_then_populate_template(
+			frm,
+			"logistics.document_management.api.populate_documents_from_template",
+			__("Applying document template...")
+		);
 	},
 	milestone_template: function (frm) {
-		if (!frm.doc.name || frm.doc.__islocal) return;
-		frm.save().then(function () {
-			frappe.call({
-				method: "logistics.document_management.api.populate_milestones_from_template",
-				args: { doctype: frm.doctype, docname: frm.doc.name },
-				callback: function (r) {
-					if (r.message) {
-						frm.reload_doc();
-						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
-					}
-				}
-			});
-		});
+		_air_shipment_save_then_populate_template(
+			frm,
+			"logistics.document_management.api.populate_milestones_from_template",
+			__("Applying milestone template...")
+		);
 	},
 	setup: function(frm) {
 		frm.set_query('milestone_template', function() {
@@ -321,36 +342,57 @@ frappe.ui.form.on('Air Shipment', {
 		}, 0);
 		_update_measurement_fields_readonly(frm);
 		_refresh_mawb_virtuals(frm);
-		// Load dashboard HTML in Dashboard tab (only when doc is saved)
-		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
+		// Load dashboard HTML via module API (not frm.call) to avoid run_doc_method / check_if_latest races.
+		if (
+			frm.fields_dict.dashboard_html &&
+			frm.doc.name &&
+			!frm.doc.__islocal &&
+			!frm._logistics_template_populate_busy &&
+			!frappe.ui.form.is_saving
+		) {
 			if (!frm._dashboard_html_called) {
 				frm._dashboard_html_called = true;
-				frm.call('get_dashboard_html').then(r => {
-					if (r.message && frm.fields_dict.dashboard_html) {
-						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
-						if (window.logistics_group_and_collapse_dash_alerts) {
-							setTimeout(function() {
-								window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
-							}, 100);
+				var _dash_docname = frm.doc.name;
+				frappe.call({
+					method: "logistics.air_freight.doctype.air_shipment.air_shipment.fetch_air_shipment_dashboard_html",
+					args: { docname: _dash_docname },
+					callback: function (r) {
+						if (
+							frm.doc.name === _dash_docname &&
+							r.message &&
+							frm.fields_dict.dashboard_html
+						) {
+							frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+							if (window.logistics_group_and_collapse_dash_alerts) {
+								setTimeout(function () {
+									window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
+								}, 100);
+							}
+							if (window.logistics_bind_document_alert_cards) {
+								window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+							}
 						}
-						if (window.logistics_bind_document_alert_cards) {
-							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
-						}
-					}
+					},
 				});
-				setTimeout(() => { frm._dashboard_html_called = false; }, 2000);
+				setTimeout(function () {
+					if (frm) frm._dashboard_html_called = false;
+				}, 2000);
 			}
 		}
 
 		// Load documents summary HTML in Documents tab
-		_load_documents_html(frm);
+		if (!frm._logistics_template_populate_busy && !frappe.ui.form.is_saving) {
+			_load_documents_html(frm);
+		}
 		if (frm.layout && frm.layout.wrapper) {
 			frm.layout.wrapper.off('click.documents_html').on('click.documents_html', '[data-fieldname="documents_tab"]', function() {
 				_load_documents_html(frm);
 			});
 		}
 
-		_load_milestone_html(frm);
+		if (!frm._logistics_template_populate_busy && !frappe.ui.form.is_saving) {
+			_load_milestone_html(frm);
+		}
 		if (frm.layout && frm.layout.wrapper) {
 			frm.layout.wrapper.off('click.milestone_html').on('click.milestone_html', '[data-fieldname="milestones_tab"]', function() {
 				_load_milestone_html(frm);
@@ -474,7 +516,7 @@ frappe.ui.form.on('Air Shipment', {
 						if (window.logistics_show_create_internal_job_dialog) {
 							_openInternalJobDlg();
 						} else {
-							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=19', _openInternalJobDlg);
+							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=20', _openInternalJobDlg);
 						}
 					}, __('Create'));
 				}

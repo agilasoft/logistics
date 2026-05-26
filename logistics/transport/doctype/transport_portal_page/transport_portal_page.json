@@ -87,13 +87,13 @@
    "default": "1",
    "fieldname": "show_vehicle_tracking",
    "fieldtype": "Check",
-   "label": "Show Vehicle Tracking"
+   "label": "Event Vehicle Tracking"
   },
   {
    "default": "1",
    "fieldname": "show_route_map",
    "fieldtype": "Check",
-   "label": "Show Route Map"
+   "label": "Event Route Map"
   },
   {
    "fieldname": "column_break_3",
@@ -103,13 +103,13 @@
    "default": "1",
    "fieldname": "show_job_details",
    "fieldtype": "Check",
-   "label": "Show Job Details"
+   "label": "Event Job Details"
   },
   {
    "default": "1",
    "fieldname": "show_leg_details",
    "fieldtype": "Check",
-   "label": "Show Leg Details"
+   "label": "Event Leg Details"
   }
  ],
  "index_web_pages_for_search": 1,

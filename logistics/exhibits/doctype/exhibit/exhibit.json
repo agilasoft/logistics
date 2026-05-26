@@ -1,0 +1,625 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2025-02-11 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "dashboard_tab",
+  "dashboard_html",
+  "details_tab",
+  "section_break_basic",
+  "naming_series",
+  "project",
+  "project_name",
+  "project_type",
+  "exhibit_type",
+  "hall",
+  "column_break_1",
+  "customer",
+  "sales_quote",
+  "status",
+  "lifecycle_stage",
+  "priority",
+  "column_break_show",
+  "show_open_date",
+  "show_close_date",
+  "move_in_date",
+  "move_out_date",
+  "section_warehouse",
+  "storage_warehouse",
+  "climate_controlled",
+  "on_site_manager",
+  "exhibit_venue_tab",
+  "section_dockets",
+  "dockets",
+  "lifecycle_tab",
+  "lifecycle_jobs",
+  "cost_revenue_section",
+  "cost_revenue_html",
+  "billings_tab",
+  "billings",
+  "start_date",
+  "end_date",
+  "planned_start",
+  "planned_end",
+  "section_break_details",
+  "description",
+  "special_handling_instructions",
+  "charges_tab",
+  "column_break_sp_chg_1",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_sp_chg_2",
+  "job_number",
+  "column_break_sp_chg_3",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "section_break_sp_chg",
+  "billing_status",
+  "charges",
+  "section_break_operational_exchange_rates",
+  "operational_exchange_rates",
+  "milestones_tab",
+  "section_break_milestones",
+  "milestone_html",
+  "milestone_template",
+  "milestones",
+  "documents_tab",
+  "documents_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
+  "more_info_tab",
+  "notes_section",
+  "internal_notes",
+  "column_break_notes",
+  "client_notes",
+  "terms_and_conditions_section",
+  "tc_name",
+  "terms",
+  "service_level_agreement_section",
+  "logistics_service_level",
+  "service_level_details",
+  "connections_tab"
+ ],
+ "fields": [
+  {
+   "fieldname": "dashboard_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "dashboard_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "section_break_milestones",
+   "fieldtype": "Section Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
+   "description": "Optional. Leave blank to use default template for this product type (Exhibits / Shipment or Job).",
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "Exhibit Milestone"
+  },
+  {
+   "fieldname": "section_break_basic",
+   "fieldtype": "Section Break",
+   "label": "Basic Information"
+  },
+  {
+   "default": "EP-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "PROJ-.####\nEP-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Exhibit Code",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "options": "Project",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Exhibit Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project_type",
+   "fieldtype": "Link",
+   "label": "Project Type",
+   "options": "Project Type"
+  },
+  {
+   "fieldname": "exhibit_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Exhibit Type",
+   "options": "Exhibit Type"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Program-level customer (e.g. show organizer). Individual exhibitors are recorded in Participants.",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "label": "Sales Quote",
+   "options": "Sales Quote"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nBooked\nPlanning\nApproved\nIn Progress\nOn Hold\nCompleted\nCancelled"
+  },
+  {
+   "default": "Pre-Show",
+   "fieldname": "lifecycle_stage",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Lifecycle Stage",
+   "link_filters": "[[\"Lifecycle Stage\", \"for_exhibits\", \"=\", 1]]",
+   "options": "Lifecycle Stage"
+  },
+  {
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh\nUrgent"
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date"
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "label": "End Date"
+  },
+  {
+   "fieldname": "planned_start",
+   "fieldtype": "Date",
+   "label": "Planned Start"
+  },
+  {
+   "fieldname": "planned_end",
+   "fieldtype": "Date",
+   "label": "Planned End"
+  },
+  {
+   "fieldname": "section_break_details",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "special_handling_instructions",
+   "fieldtype": "Long Text",
+   "label": "Special Handling Instructions"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Long Text",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "exhibit_venue_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dockets"
+  },
+  {
+   "fieldname": "hall",
+   "fieldtype": "Data",
+   "label": "Hall"
+  },
+  {
+   "fieldname": "column_break_show",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "show_open_date",
+   "fieldtype": "Date",
+   "label": "Exhibit Open Date"
+  },
+  {
+   "fieldname": "show_close_date",
+   "fieldtype": "Date",
+   "label": "Exhibit Close Date"
+  },
+  {
+   "fieldname": "move_in_date",
+   "fieldtype": "Date",
+   "label": "Move-In Date"
+  },
+  {
+   "fieldname": "move_out_date",
+   "fieldtype": "Date",
+   "label": "Move-Out Date"
+  },
+  {
+   "description": "One row per exhibitor on this Exhibit. Each row carries the exhibitor's Docket (shipment/job). Use the row actions to create or open the linked Docket.",
+   "fieldname": "section_dockets",
+   "fieldtype": "Section Break",
+   "label": "Dockets"
+  },
+  {
+   "fieldname": "dockets",
+   "fieldtype": "Table",
+   "label": "Dockets",
+   "options": "Exhibit Docket"
+  },
+  {
+   "fieldname": "section_warehouse",
+   "fieldtype": "Section Break",
+   "label": "Storage"
+  },
+  {
+   "fieldname": "storage_warehouse",
+   "fieldtype": "Link",
+   "label": "Storage Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "default": "0",
+   "fieldname": "climate_controlled",
+   "fieldtype": "Check",
+   "label": "Climate Controlled Storage"
+  },
+  {
+   "fieldname": "on_site_manager",
+   "fieldtype": "Link",
+   "label": "On-Site Manager",
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]",
+   "options": "User"
+  },
+  {
+   "fieldname": "lifecycle_tab",
+   "fieldtype": "Tab Break",
+   "label": "Lifecycle"
+  },
+  {
+   "fieldname": "lifecycle_jobs",
+   "fieldtype": "Table",
+   "label": "Lifecycle Jobs",
+   "options": "Lifecycle Job"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "cost_revenue_section",
+   "fieldtype": "Section Break",
+   "label": "Cost & Revenue"
+  },
+  {
+   "fieldname": "cost_revenue_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Cost & Revenue"
+  },
+  {
+   "fieldname": "billings_tab",
+   "fieldtype": "Tab Break",
+   "label": "Billings"
+  },
+  {
+   "fieldname": "billings",
+   "fieldtype": "Table",
+   "label": "Billings",
+   "options": "Exhibit Billing"
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "column_break_sp_chg_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "column_break_sp_chg_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Financial posting job number (same pattern as Sea Shipment).",
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "no_copy": 1,
+   "options": "Job Number"
+  },
+  {
+   "fieldname": "column_break_sp_chg_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "section_break_sp_chg",
+   "fieldtype": "Section Break",
+   "label": "Charges"
+  },
+  {
+   "default": "Not Billed",
+   "fieldname": "billing_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Billing Status",
+   "options": "Not Billed\nPending\nPartially Billed\nBilled\nTo Bill\nPaid\nOverdue\nCancelled"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Exhibit Charges"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_operational_exchange_rates",
+   "fieldtype": "Section Break",
+   "label": "Exchange Rate Sources"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "operational_exchange_rates",
+   "fieldtype": "Table",
+   "label": "Exchange Rate Sources",
+   "no_copy": 1,
+   "options": "Operational Exchange Rate"
+  },
+  {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
+   "description": "Override default template. Leave empty to use product default.",
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template"
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
+  },
+  {
+   "fieldname": "more_info_tab",
+   "fieldtype": "Tab Break",
+   "label": "More Info"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "column_break_notes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_notes",
+   "fieldtype": "Text Editor",
+   "label": "Client Notes"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "terms_and_conditions_section",
+   "fieldtype": "Section Break",
+   "label": "Terms and Conditions"
+  },
+  {
+   "fieldname": "tc_name",
+   "fieldtype": "Link",
+   "label": "Terms",
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]",
+   "options": "Terms and Conditions"
+  },
+  {
+   "fetch_from": "tc_name.terms",
+   "fieldname": "terms",
+   "fieldtype": "Text Editor",
+   "label": "Terms and Conditions Details"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "service_level_agreement_section",
+   "fieldtype": "Section Break",
+   "label": "Service Level Agreement"
+  },
+  {
+   "description": "Reference SLA for project-level commitments. Linked jobs may inherit or override.",
+   "fieldname": "logistics_service_level",
+   "fieldtype": "Link",
+   "label": "Logistics Service Level",
+   "options": "Logistics Service Level"
+  },
+  {
+   "fetch_from": "logistics_service_level.text_uufb",
+   "fieldname": "service_level_details",
+   "fieldtype": "Text Editor",
+   "label": "Service Level Details"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [
+  {
+   "group": "Dockets",
+   "link_doctype": "Docket",
+   "link_fieldname": "exhibit"
+  },
+  {
+   "group": "Exhibit Orders",
+   "link_doctype": "Exhibit Order",
+   "link_fieldname": "exhibit"
+  },
+  {
+   "group": "Exhibit Jobs",
+   "link_doctype": "Exhibit Job",
+   "link_fieldname": "exhibit"
+  }
+ ],
+ "modified": "2026-05-21 14:58:23.062497",
+ "modified_by": "Administrator",
+ "module": "Exhibits",
+ "name": "Exhibit",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "project_name",
+ "track_changes": 1
+}

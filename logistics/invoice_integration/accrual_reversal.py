@@ -24,6 +24,10 @@ from logistics.job_management.recognition_engine import (
 	apply_journal_entry_posting_header_from_job,
 	get_recognition_policy_for_job,
 )
+from logistics.invoice_integration.charge_settled_reversal import (
+	compute_item_reversal_amount,
+	get_charge_items_settled_by_purchase_invoice,
+)
 from logistics.invoice_integration.recognition_voucher_reversal import (
 	append_logistics_reversal_marker,
 	reversal_journal_entry_exists_for_voucher,
@@ -214,6 +218,7 @@ def _reverse_cost_accrual_for_purchase_invoice_single(pi_doc, jcn):
 
 	company = pi_doc.company
 	item_fn_gl = get_item_dimension_fieldname_on_gl_entry()
+	settled_items = get_charge_items_settled_by_purchase_invoice(job, pi_doc.name)
 
 	je_pairs = []
 	for row in pi_doc.get("items") or []:
@@ -225,7 +230,9 @@ def _reverse_cost_accrual_for_purchase_invoice_single(pi_doc, jcn):
 		if item_fn_gl and item_code:
 			open_item = _paired_accrual_open_for_item(jcn, company, cost_acc, liab_acc, item_fn_gl, item_code)
 			if open_item > 0:
-				rev = min(amt, open_item, remaining)
+				rev = compute_item_reversal_amount(
+					amt, open_item, remaining, item_code, settled_items, company
+				)
 		if rev <= 0:
 			rev = min(amt, remaining)
 		if rev <= 0:
@@ -312,6 +319,7 @@ def reverse_cost_accrual_for_purchase_invoice(pi_doc):
 		if remaining <= 0:
 			continue
 
+		settled_items = get_charge_items_settled_by_purchase_invoice(job, pi_doc.name)
 		je_pairs = []
 		for row in rows:
 			amt = flt(row.get("base_net_amount")) or flt(row.get("amount")) or 0
@@ -322,7 +330,9 @@ def reverse_cost_accrual_for_purchase_invoice(pi_doc):
 			if item_fn_gl and item_code:
 				open_item = _paired_accrual_open_for_item(jcn_val, company, cost_acc, liab_acc, item_fn_gl, item_code)
 				if open_item > 0:
-					rev = min(amt, open_item, remaining)
+					rev = compute_item_reversal_amount(
+						amt, open_item, remaining, item_code, settled_items, company
+					)
 			if rev <= 0:
 				rev = min(amt, remaining)
 			if rev <= 0:

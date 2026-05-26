@@ -30,7 +30,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Job Type",
-   "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration",
+   "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration\nSpecial Project",
    "reqd": 1
   },
   {
@@ -97,7 +97,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-08 11:34:35.405392",
+ "modified": "2026-05-20 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Change Request",

@@ -397,7 +397,7 @@ def display_results(results):
     
     if results["errors"]:
         print(f"\n❌ Errors ({len(results['errors'])}):")
-        for error in results["errors"][:5]:  # Show first 5 errors
+        for error in results["errors"][:5]:  # Event first 5 errors
             print(f"  - {error}")
         if len(results["errors"]) > 5:
             print(f"  ... and {len(results['errors']) - 5} more errors")

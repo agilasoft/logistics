@@ -8,6 +8,7 @@
  "field_order": [
   "container_info_section",
   "container_number",
+  "sea_shipment",
   "container_type",
   "seal_number",
   "column_break_1",
@@ -37,6 +38,13 @@
    "label": "Container Number",
    "reqd": 1,
    "unique": 1
+  },
+  {
+   "fieldname": "sea_shipment",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Sea Shipment",
+   "options": "Sea Shipment"
   },
   {
    "fieldname": "container_type",

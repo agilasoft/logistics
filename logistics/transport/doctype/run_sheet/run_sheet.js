@@ -23,6 +23,11 @@ function fmt_num(value, precision = 2) {
   }
 }
 
+/** Capacity header metrics: keep thousands separators from wrapping mid-value. */
+function fmt_capacity_num(value, precision = 0) {
+  return fmt_num(value, precision).replace(/,/g, '\u00a0');
+}
+
 // Extract coordinates from Address
 async function getAddressLatLon(addrname) {
   if (!addrname) return null;
@@ -99,6 +104,390 @@ function getVehicleStateDisplay(state) {
   }
 }
 
+function rs_escape_html(value) {
+  const s = value == null ? '' : String(value);
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Resolve Run Date for dashboard header (frm.doc + DB fallback, same field as Details tab). */
+async function rs_resolve_run_date_display(frm) {
+  let raw = frm && frm.doc ? frm.doc.run_date : null;
+  if ((!raw || !String(raw).trim()) && frm && frm.doc && frm.doc.name && !frm.is_new()) {
+    try {
+      const res = await frappe.db.get_value('Run Sheet', frm.doc.name, 'run_date');
+      raw = (res && res.message && res.message.run_date) || raw;
+    } catch (e) {
+      console.warn('Could not load run_date from DB for dashboard header:', e);
+    }
+  }
+  if (!raw || !String(raw).trim()) return 'Not set';
+  const s = String(raw).trim();
+  if (typeof frappe !== 'undefined') {
+    try {
+      if (frappe.datetime && frappe.datetime.str_to_user) {
+        const user = frappe.datetime.str_to_user(s);
+        if (user != null && String(user).trim() !== '') return String(user).trim();
+      }
+    } catch (e) {
+      /* try next formatter */
+    }
+    try {
+      if (typeof frappe.format === 'function') {
+        const formatted = frappe.format(s, { fieldtype: 'Datetime' });
+        if (formatted != null && String(formatted).trim() !== '') return String(formatted).trim();
+      }
+    } catch (e) {
+      /* keep raw */
+    }
+  }
+  return s;
+}
+
+/** Normalize Attach/Image file URL for use in dashboard <img src>. */
+function rs_resolve_attach_image_url(fileUrl) {
+  if (!fileUrl || !String(fileUrl).trim()) return '';
+  let url = String(fileUrl).trim();
+  if (/^https?:\/\//i.test(url)) return url;
+  try {
+    if (typeof frappe !== 'undefined' && frappe.urllib && frappe.urllib.get_full_url) {
+      return frappe.urllib.get_full_url(url);
+    }
+  } catch (e) {
+    /* fallback below */
+  }
+  return url.startsWith('/') ? url : `/${url}`;
+}
+
+/** Vehicle avatar image from Vehicle Type (Run Sheet vehicle_type or vehicle's type). */
+async function rs_resolve_vehicle_type_image_url(frm) {
+  let vehicleType = frm && frm.doc ? frm.doc.vehicle_type : null;
+  if (!vehicleType && frm && frm.doc && frm.doc.vehicle) {
+    try {
+      const res = await frappe.db.get_value('Transport Vehicle', frm.doc.vehicle, 'vehicle_type');
+      vehicleType = (res && res.message && res.message.vehicle_type) || vehicleType;
+    } catch (e) {
+      console.warn('Could not load vehicle_type from Transport Vehicle for dashboard header:', e);
+    }
+  }
+  if (!vehicleType) return '';
+  try {
+    const res = await frappe.db.get_value('Vehicle Type', vehicleType, 'image');
+    const img = res && res.message && res.message.image;
+    return rs_resolve_attach_image_url(img);
+  } catch (e) {
+    console.warn('Could not load Vehicle Type image for dashboard header:', e);
+    return '';
+  }
+}
+
+function rs_status_dot_color(status) {
+  const s = (status || '').toLowerCase();
+  if (s === 'dispatched' || s === 'completed') return '#22c55e';
+  if (s === 'in-progress' || s === 'started') return '#2563eb';
+  if (s === 'hold' || s === 'cancelled') return '#ef4444';
+  if (s === 'draft') return '#9ca3af';
+  return '#22c55e';
+}
+
+const RS_METRIC_CAPACITY_UNIT_STYLE =
+  'display:flex;flex-direction:row;flex-wrap:nowrap;align-items:baseline;gap:0;white-space:nowrap;font-size:17px;line-height:1.3;width:max-content;max-width:none;flex-shrink:0;word-break:keep-all;overflow-wrap:normal;';
+
+const RS_METRIC_PART_USED_STYLE =
+  'flex:0 0 auto;font-weight:700;color:#111827;font-size:17px;line-height:1.3;white-space:nowrap;';
+
+const RS_METRIC_PART_MUTED_STYLE =
+  'flex:0 0 auto;color:#9ca3af;font-weight:400;font-size:17px;line-height:1.3;white-space:nowrap;';
+
+const RS_METRIC_VALUE_WRAP_STYLE =
+  'display:flex;width:max-content;max-width:none;flex-shrink:0;margin:0;padding:0;text-align:left;overflow:visible;';
+
+const RS_CAPACITY_PCT_WRAP_STYLE =
+  'white-space:nowrap;display:flex;align-items:center;flex-shrink:0;gap:0;line-height:1;';
+
+const RS_FOOTER_RUN_DATE_UNIT_STYLE =
+  'display:inline-flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:6px;flex:0 0 auto;white-space:nowrap;min-height:16px;';
+
+const RS_FOOTER_LEGS_UNIT_STYLE =
+  'display:inline-flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:6px;flex:0 0 auto;white-space:nowrap;margin-left:auto;min-height:16px;';
+
+const RS_FOOTER_ICON_INLINE_STYLE =
+  'flex:0 0 auto;display:inline-block;width:14px;text-align:center;color:#9ca3af;font-size:11px;line-height:1.4;margin:0;padding:0;';
+
+const RS_FOOTER_TEXT_INLINE_STYLE =
+  'font-size:11px;color:#6b7280;white-space:nowrap;line-height:1.4;margin:0;padding:0;';
+
+const RS_FOOTER_VALUE_INLINE_STYLE =
+  'color:#374151;font-weight:600;';
+
+const RS_FOOTER_ICON_STYLE =
+  'flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;font-size:11px;line-height:1;width:12px;height:12px;color:#9ca3af;margin:0;padding:0;';
+
+const RS_FOOTER_CAPTION_STYLE =
+  'flex:0 0 auto;display:inline-flex;align-items:center;color:#9ca3af;font-size:11px;line-height:1.2;white-space:nowrap;margin:0;padding:0;';
+
+const RS_FOOTER_DATE_VAL_STYLE =
+  'flex:0 0 auto;display:inline-flex;align-items:center;color:#374151;font-weight:600;font-size:11px;line-height:1.2;white-space:nowrap;margin:0;padding:0;visibility:visible;opacity:1;overflow:visible;min-width:1px;';
+
+const RS_FOOTER_COUNT_STYLE =
+  'flex:0 0 auto;display:inline-flex;align-items:center;color:#374151;font-weight:600;font-size:11px;line-height:1.2;white-space:nowrap;margin:0;padding:0;visibility:visible;opacity:1;';
+
+function rs_footer_part(className, text, style) {
+  return `<div class="${className}" style="${style}">${text}</div>`;
+}
+
+function rs_format_capacity_pct_html(pct) {
+  const n = fmt_num(Math.max(0, Math.min(100, toNumber(pct))), 0);
+  return (
+    `<span class="rs-capacity-pct-num">${n}</span>` +
+    `<span class="rs-capacity-pct-sym">%</span>`
+  );
+}
+
+function rs_metric_part(className, text, style) {
+  return `<div class="${className}" style="${style}">${text}</div>`;
+}
+
+function rs_format_capacity_pair(used, max, unit, usedPrecision = 0) {
+  const u = toNumber(used);
+  const m = toNumber(max);
+  const usedStr = fmt_capacity_num(u, usedPrecision);
+  const maxStr = m > 0 ? fmt_capacity_num(m, 0) : '—';
+  const unitText = unit && String(unit).trim() ? ` ${String(unit).trim()}` : '';
+  return (
+    `<div class="rs-metric-capacity-unit" style="${RS_METRIC_CAPACITY_UNIT_STYLE}">` +
+    rs_metric_part('rs-metric-used', usedStr, RS_METRIC_PART_USED_STYLE) +
+    rs_metric_part('rs-metric-sep', ' / ', RS_METRIC_PART_MUTED_STYLE) +
+    rs_metric_part('rs-metric-max', maxStr, RS_METRIC_PART_MUTED_STYLE) +
+    rs_metric_part('rs-metric-unit', unitText, RS_METRIC_PART_MUTED_STYLE) +
+    `</div>`
+  );
+}
+
+function build_run_sheet_dashboard_header_html(opts) {
+  const {
+    mapId,
+    vehicleTypeLabel,
+    primaryTitle,
+    transportCompany,
+    driverName,
+    runSheetId,
+    vehicleDisplayName,
+    status,
+    runDate,
+    legCount,
+    driverImageUrl,
+    vehicleImageUrl,
+    usedWeight,
+    maxWeight,
+    usedVolume,
+    maxVolume,
+    capacityPct,
+  } = opts;
+
+  const statusColor = rs_status_dot_color(status);
+  const pct = Math.max(0, Math.min(100, toNumber(capacityPct)));
+  const driverAvatar = driverImageUrl
+    ? `<img src="${rs_escape_html(driverImageUrl)}" alt="" class="rs-dash-avatar-img" />`
+    : '<i class="fa fa-user"></i>';
+  const vehicleAvatar = vehicleImageUrl
+    ? `<img src="${rs_escape_html(vehicleImageUrl)}" alt="" class="rs-dash-avatar-img" />`
+    : '<i class="fa fa-truck"></i>';
+
+  const mainRowStyle = 'display:grid;grid-template-columns:minmax(120px,188px) minmax(240px,1.7fr) minmax(260px,34%);align-items:center;column-gap:8px;width:100%;box-sizing:border-box;';
+  const leftColStyle = 'min-width:0;max-width:188px;align-self:flex-start;box-sizing:border-box;padding-right:0;';
+  const avatarsWrapStyle = 'display:flex;flex-direction:row;justify-content:flex-end;align-items:center;justify-self:end;width:auto;max-width:100%;margin-left:auto;margin-right:0;padding:0;box-sizing:border-box;';
+  const avatarsStyle = 'position:relative;flex:0 0 124px;width:124px;height:114px;flex-shrink:0;box-sizing:border-box;';
+  const rightColStyle = 'min-width:0;display:flex;flex-direction:column;align-self:flex-start;box-sizing:border-box;padding-left:28px;';
+  const vehicleRowStyle = 'display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:16px;width:100%;margin:0 0 18px;box-sizing:border-box;';
+  const metricsRowStyle = 'display:flex;flex-direction:row;align-items:flex-end;flex-wrap:nowrap;width:100%;margin:0 0 22px;box-sizing:border-box;overflow-x:auto;';
+  const metricColStyle = 'flex:0 0 auto;padding-right:20px;box-sizing:border-box;text-align:left;display:flex;flex-direction:column;align-items:flex-start;';
+  const metricColRightStyle = 'flex:0 0 auto;padding-left:20px;box-sizing:border-box;text-align:left;display:flex;flex-direction:column;align-items:flex-start;';
+  const capacityRowStyle = 'display:flex;flex-direction:row;align-items:center;gap:14px;width:100%;box-sizing:border-box;';
+  const footerStyle = 'display:flex;flex-direction:row;flex-wrap:nowrap;justify-content:flex-start;align-items:center;align-content:center;gap:24px;width:100%;min-height:20px;padding-top:10px;margin-top:4px;border-top:1px solid #f3f4f6;box-sizing:border-box;overflow-x:auto;';
+  const footerDateText = rs_escape_html((runDate && String(runDate).trim()) || 'Not set');
+
+  return `
+      <div class="run-sheet-header rs-dash-header" id="${mapId}-dash-header" style="display:flex;flex-direction:column;gap:12px;box-sizing:border-box;">
+        <div class="rs-dash-header__main" style="${mainRowStyle}">
+          <div class="rs-dash-header__left" style="${leftColStyle}">
+            <label class="section-label">${rs_escape_html(vehicleTypeLabel)}</label>
+            <div class="rs-dash-primary-title">${rs_escape_html(primaryTitle)}</div>
+            <div class="rs-dash-meta-list">
+              <div class="rs-dash-meta-row"><i class="fa fa-building"></i><span>${rs_escape_html(transportCompany)}</span></div>
+              <div class="rs-dash-meta-row"><i class="fa fa-user"></i><span>${rs_escape_html(driverName)}</span></div>
+              <div class="rs-dash-meta-row"><i class="fa fa-file-text-o"></i><span>${rs_escape_html(runSheetId)}</span></div>
+            </div>
+          </div>
+          <div class="rs-dash-header__avatars-wrap" style="${avatarsWrapStyle}">
+            <div class="rs-dash-header__avatars" style="${avatarsStyle}">
+              <div class="rs-dash-avatar rs-dash-avatar--driver" title="${rs_escape_html(driverName)}">${driverAvatar}</div>
+              <div class="rs-dash-avatar rs-dash-avatar--vehicle" title="${rs_escape_html(vehicleDisplayName)}">${vehicleAvatar}</div>
+            </div>
+          </div>
+          <div class="rs-dash-header__right" style="${rightColStyle}">
+            <div class="rs-dash-vehicle-row" style="${vehicleRowStyle}">
+              <span class="rs-dash-vehicle-name">${rs_escape_html(vehicleDisplayName)}</span>
+              <span class="rs-dash-status-badge">
+                <span class="rs-dash-status-dot" style="background:${statusColor}"></span>
+                ${rs_escape_html(status)}
+              </span>
+            </div>
+            <div class="rs-dash-metrics" id="${mapId}-dash-metrics" style="${metricsRowStyle}">
+              <div class="rs-dash-metric" style="${metricColStyle}">
+                <span class="rs-dash-metric-label">Payload</span>
+                <div class="rs-dash-metric-value" id="${mapId}-metric-burden" style="${RS_METRIC_VALUE_WRAP_STYLE}">${rs_format_capacity_pair(usedWeight, maxWeight, 'kg')}</div>
+              </div>
+              <span class="rs-dash-metric-divider" aria-hidden="true"></span>
+              <div class="rs-dash-metric" style="${metricColRightStyle}">
+                <span class="rs-dash-metric-label">Capacity</span>
+                <div class="rs-dash-metric-value" id="${mapId}-metric-volume" style="${RS_METRIC_VALUE_WRAP_STYLE}">${rs_format_capacity_pair(usedVolume, maxVolume, 'm\u00B3', 3)}</div>
+              </div>
+            </div>
+            <div class="rs-dash-capacity-row" style="${capacityRowStyle}">
+              <span class="rs-dash-capacity-label">Used capacity</span>
+              <div class="rs-dash-capacity-track-wrap">
+                <div class="rs-dash-capacity-track">
+                  <div class="rs-dash-capacity-fill" id="${mapId}-capacity-fill" style="width:${pct}%"></div>
+                </div>
+                <span class="rs-dash-capacity-pct" id="${mapId}-capacity-pct" style="${RS_CAPACITY_PCT_WRAP_STYLE}">${rs_format_capacity_pct_html(pct)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="rs-dash-header__footer" style="${footerStyle}">
+          <div class="rs-dash-footer-run-date-unit" style="${RS_FOOTER_RUN_DATE_UNIT_STYLE}">
+            <i class="fa fa-calendar" style="${RS_FOOTER_ICON_INLINE_STYLE}"></i>
+            <span id="${mapId}-dash-run-date" style="${RS_FOOTER_TEXT_INLINE_STYLE}">Run\u00a0Date: <span style="${RS_FOOTER_VALUE_INLINE_STYLE}">${footerDateText}</span></span>
+          </div>
+          <div class="rs-dash-footer-legs-unit" style="${RS_FOOTER_LEGS_UNIT_STYLE}">
+            <span style="${RS_FOOTER_TEXT_INLINE_STYLE}">Legs: <span style="${RS_FOOTER_VALUE_INLINE_STYLE}">${legCount}</span></span>
+          </div>
+        </div>
+      </div>`;
+}
+
+async function fetch_run_sheet_header_data(frm) {
+  const legs = frm.doc.legs || [];
+  const legNames = legs.map((l) => l.transport_leg).filter(Boolean);
+  const jobNames = [...new Set(legs.map((l) => l.transport_job).filter(Boolean))];
+
+  let vehicleDisplayName = frm.doc.vehicle || 'Not assigned';
+  let maxWeight = 0;
+  let maxVolume = 0;
+  let licensePlate = '';
+
+  if (frm.doc.vehicle) {
+    try {
+      const v = await frappe.db.get_doc('Transport Vehicle', frm.doc.vehicle);
+      vehicleDisplayName = v.vehicle_name || v.code || frm.doc.vehicle;
+      maxWeight = toNumber(v.capacity_weight || v.max_weight_kg);
+      maxVolume = toNumber(v.capacity_volume || v.max_volume_m3);
+      licensePlate = v.license_plate_number || v.code || '';
+    } catch (e) {
+      console.warn('Could not load Transport Vehicle for dashboard header:', e);
+    }
+  }
+
+  if ((!maxWeight || !maxVolume) && frm.doc.vehicle_type) {
+    try {
+      const vtVehicles = await frappe.db.get_list('Transport Vehicle', {
+        filters: { vehicle_type: frm.doc.vehicle_type, is_active: 1 },
+        fields: ['capacity_weight', 'capacity_volume'],
+        limit_page_length: 200,
+      });
+      (vtVehicles || []).forEach((row) => {
+        if (!maxWeight) {
+          maxWeight = Math.max(maxWeight, toNumber(row.capacity_weight));
+        }
+        if (!maxVolume) {
+          maxVolume = Math.max(maxVolume, toNumber(row.capacity_volume));
+        }
+      });
+    } catch (e) {
+      console.warn('Could not load vehicle type capacity for dashboard header:', e);
+    }
+  }
+
+  let usedWeight = 0;
+  let usedVolume = 0;
+  if (legNames.length) {
+    try {
+      const legRows = await frappe.db.get_list('Transport Leg', {
+        filters: { name: ['in', legNames] },
+        fields: ['name', 'cargo_weight_kg'],
+        limit: legNames.length,
+      });
+      (legRows || []).forEach((row) => {
+        usedWeight += toNumber(row.cargo_weight_kg);
+      });
+    } catch (e) {
+      console.warn('Could not load leg weights for dashboard header:', e);
+    }
+  }
+  if (jobNames.length) {
+    try {
+      const jobRows = await frappe.db.get_list('Transport Job', {
+        filters: { name: ['in', jobNames] },
+        fields: ['name', 'total_volume'],
+        limit: jobNames.length,
+      });
+      (jobRows || []).forEach((row) => {
+        usedVolume += toNumber(row.total_volume);
+      });
+    } catch (e) {
+      console.warn('Could not load job volumes for dashboard header:', e);
+    }
+  }
+
+  const weightPct = maxWeight > 0 ? (usedWeight / maxWeight) * 100 : 0;
+  const volumePct = maxVolume > 0 ? (usedVolume / maxVolume) * 100 : 0;
+  const capacityPct = Math.max(weightPct, volumePct);
+
+  let driverImageUrl = '';
+  if (frm.doc.driver) {
+    try {
+      const driverImage = await frappe.db.get_value('Driver', frm.doc.driver, 'image');
+      const raw = driverImage && driverImage.message && driverImage.message.image;
+      driverImageUrl = rs_resolve_attach_image_url(raw);
+    } catch (e) {
+      /* Driver image optional */
+    }
+  }
+
+  const vehicleImageUrl = await rs_resolve_vehicle_type_image_url(frm);
+
+  const primaryTitle =
+    (frm.doc.route_name && String(frm.doc.route_name).trim()) ||
+    licensePlate ||
+    frm.doc.vehicle ||
+    'New';
+
+  const runDate = await rs_resolve_run_date_display(frm);
+
+  return {
+    vehicleTypeLabel: frm.doc.vehicle_type || 'Vehicle type',
+    primaryTitle,
+    transportCompany: frm.doc.transport_company || 'Not assigned',
+    driverName: frm.doc.driver_name || frm.doc.driver || 'Not assigned',
+    runSheetId: frm.doc.name || 'New',
+    vehicleDisplayName,
+    status: frm.doc.status || 'Draft',
+    runDate,
+    legCount: legs.length,
+    driverImageUrl,
+    vehicleImageUrl,
+    usedWeight,
+    maxWeight,
+    usedVolume,
+    maxVolume,
+    capacityPct,
+  };
+}
+
 // ---------- Multi-leg Route Map ----------
 async function render_run_sheet_route_map(frm) {
   // Wait for field to be ready
@@ -157,77 +546,374 @@ async function render_run_sheet_route_map(frm) {
 
     // Create unique map container ID
     const mapId = `runsheet-route-map-${frm.doc.name || 'new'}-${Date.now()}`;
-    
-    // Vehicle info for header
-    const vehicleType = frm.doc.vehicle_type || 'Not assigned';
-    const vehicleName = frm.doc.vehicle || 'Not assigned';
-    const transportCompany = frm.doc.transport_company || 'Not assigned';
-    const driverName = frm.doc.driver_name || frm.doc.driver || 'Not assigned';
-    const runSheetId = frm.doc.name || 'New';
-    const runDate = frm.doc.run_date || 'Not set';
-    const status = frm.doc.status || 'Draft';
+    const headerData = await fetch_run_sheet_header_data(frm);
     
     const mapHtml = `
       <style>
-        .run-sheet-header {
+        #${mapId}-dash-header.run-sheet-header.rs-dash-header {
           background: #ffffff;
           border: 1px solid #e0e0e0;
-          border-radius: 6px;
+          border-radius: 8px;
           margin-bottom: 20px;
-          padding: 12px 16px;
+          padding: 16px 20px 12px;
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 12px;
+          box-sizing: border-box;
+          width: 100%;
         }
-        
-        .header-main {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 20px;
+        #${mapId}-dash-header .rs-dash-header__main {
+          display: grid !important;
+          grid-template-columns: minmax(120px, 188px) minmax(240px, 1.7fr) minmax(260px, 34%) !important;
+          align-items: center !important;
+          column-gap: 8px;
+          width: 100% !important;
+          box-sizing: border-box;
         }
-        
-        .header-vehicle-section {
-          display: flex;
-          flex-direction: column;
-          gap: 0px;
+        #${mapId}-dash-header .rs-dash-header__left {
+          grid-column: 1;
+          min-width: 0;
+          max-width: 188px;
+          align-self: flex-start !important;
+          width: auto !important;
+          padding-right: 0;
+          box-sizing: border-box;
         }
-        
-        .section-label {
+        #${mapId}-dash-header .rs-dash-header__avatars-wrap {
+          grid-column: 2;
+          display: flex !important;
+          flex-direction: row !important;
+          justify-content: flex-end !important;
+          align-items: center !important;
+          justify-self: end !important;
+          align-self: center !important;
+          width: auto !important;
+          max-width: 100% !important;
+          min-width: 0 !important;
+          padding: 0 !important;
+          margin: 0 0 0 auto !important;
+          box-sizing: border-box;
+          text-align: right !important;
+        }
+        #${mapId}-dash-header .section-label {
           font-size: 10px;
-          color: #6c757d;
+          color: #9ca3af;
           text-transform: uppercase;
           font-weight: 600;
           letter-spacing: 0.5px;
-          margin-bottom: -2px;
+          margin-bottom: 2px;
+          display: block;
         }
-        
-        .vehicle-name {
-          font-size: 18px;
+        .rs-dash-primary-title {
+          font-size: 22px;
           font-weight: 700;
           color: #007bff;
-          margin-top: -2px;
+          line-height: 1.2;
+          margin-bottom: 8px;
         }
-        
-        .header-details {
+        .rs-dash-meta-list {
           display: flex;
-          gap: 15px;
-          align-items: center;
+          flex-direction: column;
+          gap: 4px;
         }
-        
-        .header-item {
-          display: flex;
-          align-items: baseline;
-          gap: 5px;
-        }
-        
-        .header-item label {
-          font-size: 10px;
-          color: #6c757d;
-          font-weight: 600;
-        }
-        
-        .header-item span {
+        .rs-dash-meta-row {
           font-size: 11px;
-          color: #2c3e50;
+          color: #6b7280;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .rs-dash-meta-row i {
+          width: 14px;
+          text-align: center;
+          color: #9ca3af;
+        }
+        #${mapId}-dash-header .rs-dash-header__avatars-wrap > .rs-dash-header__avatars {
+          position: relative;
+          flex: 0 0 124px !important;
+          width: 124px !important;
+          height: 114px !important;
+          flex-shrink: 0 !important;
+          margin: 0 !important;
+          transform: none;
+        }
+        .rs-dash-avatar {
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          color: #fff;
+        }
+        .rs-dash-avatar--driver {
+          width: 104px;
+          height: 104px;
+          background: #1e3a8a;
+          font-size: 36px;
+        }
+        .rs-dash-avatar--vehicle {
+          position: absolute;
+          right: -5px;
+          bottom: -3px;
+          width: 50px;
+          height: 50px;
+          background: #6b7280;
+          border: 2px solid #fff;
+          font-size: 18px;
+        }
+        .rs-dash-avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        #${mapId}-dash-header .rs-dash-header__right {
+          grid-column: 3;
+          min-width: 0 !important;
+          width: auto !important;
+          display: flex !important;
+          flex-direction: column !important;
+          align-self: flex-start !important;
+          padding-left: 28px !important;
+          box-sizing: border-box;
+        }
+        #${mapId}-dash-header .rs-dash-vehicle-row {
+          display: flex !important;
+          flex-direction: row !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          gap: 16px;
+          width: 100% !important;
+          margin-bottom: 14px;
+          box-sizing: border-box;
+        }
+        #${mapId}-dash-header .rs-dash-vehicle-name {
+          font-size: 13px;
+          font-weight: 700;
+          color: #111827;
+          text-transform: uppercase;
+          letter-spacing: 0.35px;
+          text-align: left !important;
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+        #${mapId}-dash-header .rs-dash-status-badge {
+          display: inline-flex !important;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 14px;
+          border-radius: 999px;
+          background: #f3f4f6;
+          border: 1px solid #e5e7eb;
+          font-size: 12px;
+          color: #111827;
           font-weight: 500;
+          white-space: nowrap;
+          flex: 0 0 auto !important;
+          margin-left: 12px;
+        }
+        .rs-dash-status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+        #${mapId}-dash-header .rs-dash-metrics {
+          display: flex !important;
+          flex-direction: row !important;
+          align-items: flex-end !important;
+          flex-wrap: nowrap !important;
+          gap: 0 !important;
+          margin-bottom: 22px !important;
+          width: 100% !important;
+          overflow-x: auto !important;
+        }
+        #${mapId}-dash-header .rs-dash-metric {
+          flex: 0 0 auto !important;
+          min-width: max-content !important;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: flex-start !important;
+          text-align: left !important;
+        }
+        #${mapId}-dash-header .rs-dash-metric-divider {
+          width: 1px;
+          min-height: 40px;
+          background: #d1d5db;
+          align-self: stretch;
+          flex-shrink: 0;
+          margin: 0;
+        }
+        #${mapId}-dash-header .rs-dash-metric-label {
+          display: block;
+          font-size: 12px;
+          color: #111827;
+          font-weight: 400;
+          margin-bottom: 6px;
+        }
+        #${mapId}-dash-header .rs-dash-metric-value {
+          display: flex !important;
+          width: max-content !important;
+          max-width: none !important;
+          flex-shrink: 0 !important;
+          text-align: left !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: visible !important;
+        }
+        #${mapId}-dash-header .rs-metric-capacity-unit {
+          display: flex !important;
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          align-items: baseline !important;
+          gap: 0 !important;
+          white-space: nowrap !important;
+          width: max-content !important;
+          max-width: none !important;
+          flex-shrink: 0 !important;
+          font-size: 17px;
+          line-height: 1.3;
+          word-break: keep-all !important;
+          overflow-wrap: normal !important;
+        }
+        #${mapId}-dash-header .rs-metric-capacity-unit > div {
+          flex: 0 0 auto !important;
+          display: block !important;
+          float: none !important;
+          position: static !important;
+          white-space: nowrap !important;
+        }
+        #${mapId}-dash-header .rs-metric-capacity-unit .rs-metric-used {
+          font-weight: 700 !important;
+          color: #111827 !important;
+        }
+        #${mapId}-dash-header .rs-metric-capacity-unit .rs-metric-sep,
+        #${mapId}-dash-header .rs-metric-capacity-unit .rs-metric-max,
+        #${mapId}-dash-header .rs-metric-capacity-unit .rs-metric-unit {
+          color: #9ca3af !important;
+          font-weight: 400 !important;
+        }
+        #${mapId}-dash-header .rs-dash-capacity-row {
+          display: flex !important;
+          flex-direction: row !important;
+          align-items: center !important;
+          gap: 14px;
+          width: 100% !important;
+        }
+        #${mapId}-dash-header .rs-dash-capacity-label {
+          font-size: 12px;
+          color: #111827;
+          font-weight: 400;
+          white-space: nowrap;
+          flex: 0 0 auto;
+        }
+        #${mapId}-dash-header .rs-dash-capacity-track-wrap {
+          flex: 1 1 auto;
+          display: flex !important;
+          flex-direction: row !important;
+          align-items: center !important;
+          gap: 12px;
+          min-width: 0;
+        }
+        #${mapId}-dash-header .rs-dash-capacity-track {
+          flex: 1 1 auto;
+          height: 12px;
+          background: #9ca3af;
+          border: 1px solid #6366f1;
+          border-radius: 2px;
+          overflow: hidden;
+          box-sizing: border-box;
+        }
+        #${mapId}-dash-header .rs-dash-capacity-fill {
+          height: 100%;
+          background: #007bff;
+          border-radius: 0;
+          transition: width 0.3s ease;
+        }
+        #${mapId}-dash-header .rs-dash-capacity-pct {
+          font-size: 13px;
+          font-weight: 600;
+          color: #111827;
+          flex: 0 0 auto;
+          display: flex !important;
+          flex-direction: row !important;
+          align-items: center !important;
+          white-space: nowrap !important;
+          flex-shrink: 0 !important;
+          gap: 0 !important;
+          line-height: 1 !important;
+        }
+        #${mapId}-dash-header .rs-dash-capacity-pct .rs-capacity-pct-num,
+        #${mapId}-dash-header .rs-dash-capacity-pct .rs-capacity-pct-sym {
+          display: inline !important;
+          float: none !important;
+          white-space: nowrap !important;
+        }
+        #${mapId}-dash-header .rs-dash-header__footer {
+          display: flex !important;
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          justify-content: flex-start !important;
+          align-items: center !important;
+          align-content: center !important;
+          gap: 24px;
+          width: 100% !important;
+          min-height: 20px;
+          padding-top: 10px;
+          margin-top: 2px;
+          border-top: 1px solid #f3f4f6;
+          font-size: 11px;
+          color: #9ca3af;
+          box-sizing: border-box;
+          overflow-x: auto;
+          overflow-y: visible;
+        }
+        #${mapId}-dash-header .rs-dash-footer-run-date-unit {
+          display: inline-flex !important;
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          align-items: center !important;
+          flex: 0 0 auto !important;
+          flex-shrink: 0 !important;
+          white-space: nowrap !important;
+          gap: 6px;
+          margin: 0 !important;
+          padding: 0 !important;
+          min-width: max-content !important;
+          width: max-content !important;
+        }
+        #${mapId}-dash-header .rs-dash-footer-legs-unit {
+          display: inline-flex !important;
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          align-items: center !important;
+          flex: 0 0 auto !important;
+          flex-shrink: 0 !important;
+          margin-left: auto !important;
+          white-space: nowrap !important;
+          min-width: max-content !important;
+          width: max-content !important;
+        }
+        #${mapId}-dash-header .rs-dash-footer-run-date-unit i,
+        #${mapId}-dash-header .rs-dash-footer-run-date-unit span,
+        #${mapId}-dash-header .rs-dash-footer-legs-unit span {
+          display: inline !important;
+          flex: 0 0 auto !important;
+          float: none !important;
+          white-space: nowrap !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          vertical-align: middle !important;
+        }
+        #${mapId}-dash-header .rs-dash-footer-run-date-unit .fa-calendar {
+          flex: 0 0 auto !important;
+          width: 14px !important;
+          text-align: center !important;
+          color: #9ca3af !important;
+        }
+        #${mapId}-dash-header .rs-dash-header__footer #${mapId}-dash-run-date {
+          display: inline !important;
+          visibility: visible !important;
+          opacity: 1 !important;
         }
         
         .route-container {
@@ -591,93 +1277,77 @@ async function render_run_sheet_route_map(frm) {
           }
         }
         
-        /* Mobile styles for header */
         @media (max-width: 768px) {
-          .run-sheet-header {
-            padding: 10px 12px;
+          #${mapId}-dash-header.run-sheet-header.rs-dash-header {
+            padding: 12px 14px 10px;
             margin-bottom: 12px;
           }
-          
-          .header-main {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
+          #${mapId}-dash-header .rs-dash-header__main {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 16px;
           }
-          
-          .header-details {
-            gap: 12px;
-            flex-wrap: wrap;
-            width: 100%;
+          #${mapId}-dash-header .rs-dash-header__left,
+          #${mapId}-dash-header .rs-dash-header__avatars-wrap,
+          #${mapId}-dash-header .rs-dash-header__right {
+            grid-column: auto;
+            width: 100% !important;
           }
-          
-          .vehicle-name {
-            font-size: 16px;
+          #${mapId}-dash-header .rs-dash-header__avatars-wrap {
+            min-width: 0 !important;
+            padding: 10px 28px !important;
+            justify-content: center !important;
+            justify-self: stretch !important;
           }
-          
-          .header-item-value {
-            font-size: 12px;
+          #${mapId}-dash-header .rs-dash-header__main {
+            column-gap: 0;
           }
-        }
-        
-        @media (max-width: 480px) {
-          .run-sheet-header {
-            padding: 8px 10px;
-            margin-bottom: 10px;
+          #${mapId}-dash-header .rs-dash-header__avatars {
+            flex: 0 0 112px !important;
+            width: 112px !important;
+            height: 102px !important;
+            margin: 0 auto !important;
+            transform: none !important;
           }
-          
-          .header-details {
-            gap: 8px;
-            flex-direction: column;
-            align-items: flex-start;
+          #${mapId}-dash-header .rs-dash-avatar--driver {
+            width: 96px;
+            height: 96px;
+            font-size: 34px;
           }
-          
-          .header-item {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 2px;
+          #${mapId}-dash-header .rs-dash-avatar--vehicle {
+            right: -4px;
+            bottom: -2px;
+            width: 46px;
+            height: 46px;
+            font-size: 17px;
           }
-          
-          .vehicle-name {
-            font-size: 15px;
+          #${mapId}-dash-header .rs-dash-header__right {
+            padding-left: 0 !important;
           }
-          
-          .header-item-value {
-            font-size: 11px;
+          #${mapId}-dash-header .rs-dash-header__right {
+            width: 100% !important;
           }
-          
-          .section-label {
-            font-size: 9px;
+          #${mapId}-dash-header .rs-dash-primary-title {
+            font-size: 18px;
+          }
+          #${mapId}-dash-header .rs-dash-header__footer {
+            flex-wrap: nowrap !important;
+            justify-content: flex-start !important;
+            align-items: center !important;
+            align-content: center !important;
+            gap: 16px;
+            overflow-x: auto;
+          }
+          #${mapId}-dash-header .rs-dash-footer-run-date-unit,
+          #${mapId}-dash-header .rs-dash-footer-legs-unit {
+            align-items: center !important;
+            align-self: center !important;
           }
         }
       </style>
       
-      <div class="run-sheet-header">
-        <div class="header-main">
-          <div class="header-vehicle-section">
-            <label class="section-label">${vehicleType}</label>
-            <div class="vehicle-name">${vehicleName}</div>
-            <div style="font-size: 11px; color: #6c757d; margin-top: 4px;">
-              <div><i class="fa fa-building"></i> ${transportCompany}</div>
-              <div><i class="fa fa-user"></i> ${driverName}</div>
-              <div><i class="fa fa-file-text"></i> ${runSheetId}</div>
-            </div>
-          </div>
-          <div class="header-details">
-            <div class="header-item">
-              <label><i class="fa fa-calendar"></i> Run Date:</label>
-              <span>${runDate}</span>
-            </div>
-            <div class="header-item">
-              <label><i class="fa fa-info-circle"></i> Status:</label>
-              <span>${status}</span>
-            </div>
-            <div class="header-item">
-              <label><i class="fa fa-route"></i> Legs:</label>
-              <span>${legs.length}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      ${build_run_sheet_dashboard_header_html({ mapId, ...headerData })}
       
       <div class="route-container">
         <div class="leg-cards-sidebar">
@@ -819,7 +1489,7 @@ async function render_run_sheet_route_map(frm) {
         // Check if vehicle is assigned
         const hasVehicle = frm && frm.doc && frm.doc.vehicle && frm.doc.vehicle.trim() !== '';
         
-        // Show start button: only if vehicle is filled AND leg hasn't started
+        // Event start button: only if vehicle is filled AND leg hasn't started
         if (!startDate && hasVehicle) {
           actionIcons.push(`<i class="fa fa-play-circle action-icon" 
              title="Start Leg" 
@@ -827,7 +1497,7 @@ async function render_run_sheet_route_map(frm) {
              style="color: #28a745; cursor: pointer;"></i>`);
         }
         
-        // Show end button: only if start button was pressed (leg has started) AND leg hasn't ended
+        // Event end button: only if start button was pressed (leg has started) AND leg hasn't ended
         if (startDate && !endDate) {
           actionIcons.push(`<i class="fa fa-stop-circle action-icon" 
              title="End Leg" 
@@ -887,7 +1557,7 @@ async function render_run_sheet_route_map(frm) {
       setTimeout(updateLegCardsWithLabels, 1000);
     }
     
-    // Show fallback initially
+    // Event fallback initially
     showMapFallback(mapId);
     
     // Add refresh button handler
@@ -1171,7 +1841,7 @@ async function initializeRunSheetRouteMap(mapId, legs, mapRenderer, frm) {
           console.log('  Ignition:', vehiclePosition.ignition);
         } else {
           console.warn('Vehicle position API returned unsuccessful:', vehicleData.message);
-          // Show alert to user
+          // Event alert to user
           frappe.show_alert({
             message: __('Vehicle tracking data not available: {0}', [vehicleData.message?.error || 'No position data']),
             indicator: 'orange'
@@ -1270,7 +1940,7 @@ async function initializeRunSheetRouteMap(mapId, legs, mapRenderer, frm) {
     // Clear any existing warnings first
     clearExistingWarnings(mapId);
     
-    // Show missing addresses warning if any
+    // Event missing addresses warning if any
     if (missingAddresses.length > 0) {
       showMissingAddressesWarning(mapId, missingAddresses);
     }
@@ -1433,7 +2103,7 @@ function updateExternalLinks(mapId, legCoords) {
       osmLink.href = osmUrl;
     } else {
       // OpenStreetMap has limited multi-waypoint support
-      // Show route from first pickup to last drop with note
+      // Event route from first pickup to last drop with note
       const osmUrl = `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${firstPick.lat},${firstPick.lon}%3B${lastDrop.lat},${lastDrop.lon}`;
       osmLink.href = osmUrl;
       osmLink.title = 'OpenStreetMap: Shows route from first pickup to last drop (limited multi-waypoint support)';
@@ -1449,7 +2119,7 @@ function updateExternalLinks(mapId, legCoords) {
       appleLink.href = appleUrl;
     } else {
       // Apple Maps has limited multi-waypoint support
-      // Show route from first pickup to last drop with note
+      // Event route from first pickup to last drop with note
       const appleUrl = `https://maps.apple.com/directions?source=${firstPick.lat},${firstPick.lon}&destination=${lastDrop.lat},${lastDrop.lon}`;
       appleLink.href = appleUrl;
       appleLink.title = 'Apple Maps: Shows route from first pickup to last drop (limited multi-waypoint support)';
@@ -1457,7 +2127,7 @@ function updateExternalLinks(mapId, legCoords) {
   }
 }
 
-// Show map fallback display
+// Event map fallback display
 function showMapFallback(mapId) {
   const fallbackElement = document.getElementById(`${mapId}-fallback`);
   if (fallbackElement) {
@@ -1473,7 +2143,7 @@ function hideMapFallback(mapId) {
   }
 }
 
-// Show missing addresses warning
+// Event missing addresses warning
 function showMissingAddressesWarning(mapId, missingAddresses) {
   const mapElement = document.getElementById(mapId);
   if (!mapElement) return;
@@ -1505,7 +2175,7 @@ function showMissingAddressesWarning(mapId, missingAddresses) {
   mapElement.insertAdjacentHTML('afterbegin', warningHtml);
 }
 
-// Show missing addresses display
+// Event missing addresses display
 function showMissingAddressesDisplay(mapId) {
   const missingElement = document.getElementById(`${mapId}-missing-addresses`);
   if (missingElement) {
@@ -2541,7 +3211,7 @@ function renderAllRoutes(mapId, routes, activeRouteIndex, map, bounds) {
   if (routes[activeRouteIndex] && routeData.directionsRenderer) {
     // Suppress markers for alternative routes - we only want markers for the active route
     routeData.directionsRenderer.setOptions({
-      suppressMarkers: false, // Show markers for active route
+      suppressMarkers: false, // Event markers for active route
       preserveViewport: false
     });
     
@@ -4278,7 +4948,7 @@ function updateRunSheetStatusFromDB(frm) {
             
             console.log(`✓ Run Sheet status updated in UI: ${previous_status} → ${new_status}`);
             
-            // Show alert if status changed significantly
+            // Event alert if status changed significantly
             if (old_status !== new_status && 
                 (old_status === 'Dispatched' && new_status === 'In-Progress') ||
                 (old_status === 'In-Progress' && new_status === 'Completed')) {
@@ -4465,7 +5135,7 @@ frappe.ui.form.on('Run Sheet', {
     }, 300);
     
     if (frm.doc.name) {
-      // Show red form message when any leg has an Economic Zone address
+      // Event red form message when any leg has an Economic Zone address
       frappe.call({
         method: 'logistics.transport.doctype.run_sheet.run_sheet.has_economic_zone_address',
         args: { run_sheet_name: frm.doc.name },
@@ -4625,7 +5295,25 @@ frappe.ui.form.on('Run Sheet', {
       render_run_sheet_route_map(frm);
     }, 200);
   },
-  
+
+  run_date(frm) {
+    setTimeout(() => {
+      render_run_sheet_route_map(frm);
+    }, 200);
+  },
+
+  vehicle_type(frm) {
+    setTimeout(() => {
+      render_run_sheet_route_map(frm);
+    }, 200);
+  },
+
+  vehicle(frm) {
+    setTimeout(() => {
+      render_run_sheet_route_map(frm);
+    }, 200);
+  },
+
   status: function(frm) {
     // Handle status change events - update UI if status changed
     // Status is automatically updated by backend, this is just for UI feedback

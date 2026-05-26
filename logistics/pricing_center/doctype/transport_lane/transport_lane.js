@@ -60,7 +60,7 @@ function update_field_visibility(frm) {
     frm.set_df_property('pallets', 'hidden', 1);
     frm.set_df_property('distance_km', 'hidden', 1);
     
-    // Show relevant fields based on billing method
+    // Event relevant fields based on billing method
     if (billing_method === 'Per Volume') {
         frm.set_df_property('volume', 'hidden', 0);
         frm.set_df_property('volume_uom', 'hidden', 0);

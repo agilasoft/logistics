@@ -332,12 +332,15 @@ class SeaShipment(Document):
             self.aggregate_volume_from_packages()
             self.aggregate_weight_from_packages()
         self._update_packing_summary()
+        from logistics.sea_freight.container_row_metrics import container_cargo_payload_from_doc
+
         return {
             "total_volume": getattr(self, "total_volume", 0),
             "total_weight": getattr(self, "total_weight", 0),
             "total_containers": getattr(self, "total_containers", 0),
             "total_teus": getattr(self, "total_teus", 0),
             "total_packages": getattr(self, "total_packages", 0),
+            "container_cargo": container_cargo_payload_from_doc(self),
         }
     
     def after_insert(self):
@@ -888,7 +891,7 @@ class SeaShipment(Document):
             existing = frappe.db.get_value("Sea Shipment", filters, "name")
             
             if existing:
-                # Show warning but allow save (user can override if needed)
+                # Event warning but allow save (user can override if needed)
                 frappe.msgprint(
                     _("Warning: A similar Sea Shipment already exists ({0}) with the same Shipper, Consignee, Ports, and Booking Date. Please verify this is not a duplicate.").format(
                         existing
@@ -1402,6 +1405,17 @@ for _fname, _src in _MBL_VIRTUAL_FIELD_SOURCES:
 
 
 @frappe.whitelist()
+def fetch_sea_shipment_dashboard_html(docname):
+    """Return Dashboard tab HTML without run_doc_method / check_if_latest (avoids TimestampMismatchError)."""
+    if not docname or str(docname).startswith("new-"):
+        return ""
+    if not frappe.db.exists("Sea Shipment", docname):
+        return ""
+    doc = frappe.get_doc("Sea Shipment", docname)
+    return doc.get_dashboard_html()
+
+
+@frappe.whitelist()
 def get_master_bill_virtuals(master_bill=None):
     """Desk: values for virtual MBL fields when Master BL link changes (no DB columns)."""
     if not master_bill:
@@ -1508,9 +1522,11 @@ def create_sales_invoice(shipment_name, posting_date, customer, tax_category=Non
             return [shipment.local_customer]
         return [customer]
 
+    from logistics.job_management.recognition_engine import get_charge_row_selling_amount
     from logistics.utils.freight_95_5 import (
         apply_freight_95_post_missing_values,
         build_sales_invoice_item_payloads_for_charge,
+        resolve_sales_invoice_line_qty_rate,
     )
 
     si_item_meta = frappe.get_meta("Sales Invoice Item")
@@ -1520,17 +1536,23 @@ def create_sales_invoice(shipment_name, posting_date, customer, tax_category=Non
             continue
         if invoice_type and getattr(charge, "invoice_type", None) != invoice_type:
             continue
-        selling_rate = (
-            flt(getattr(charge, "selling_amount", None))
-            or flt(getattr(charge, "base_amount", None))
-            or flt(getattr(charge, "estimated_revenue", None))
-        )
+        selling_rate = flt(get_charge_row_selling_amount(charge))
+        if selling_rate <= 0:
+            selling_rate = (
+                flt(getattr(charge, "selling_amount", None))
+                or flt(getattr(charge, "base_amount", None))
+                or flt(getattr(charge, "estimated_revenue", None))
+            )
         item_code = getattr(charge, "item_code", None) or getattr(charge, "charge_item", None)
         if not item_code:
             continue
         item_name = getattr(charge, "item_name", None) or getattr(charge, "charge_name", None) or item_code
         description = getattr(charge, "charge_description", None) or getattr(charge, "description", None)
         job_ref = getattr(shipment, "job_number", None)
+        line_qty, line_rate, selling_rate = resolve_sales_invoice_line_qty_rate(
+            charge, selling_rate, shipment.company
+        )
+        uom = getattr(charge, "uom", None) if line_qty is not None else None
         payloads, clear_rel = build_sales_invoice_item_payloads_for_charge(
             charge,
             flt(selling_rate),
@@ -1546,6 +1568,9 @@ def create_sales_invoice(shipment_name, posting_date, customer, tax_category=Non
             si_item_meta=si_item_meta,
             reference_doctype="Sea Shipment",
             reference_name=shipment.name,
+            line_qty=line_qty,
+            line_rate=line_rate,
+            uom=uom,
         )
         start_idx = len(invoice.items)
         for p in payloads:

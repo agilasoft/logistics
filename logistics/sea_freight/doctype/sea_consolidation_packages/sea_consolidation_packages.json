@@ -333,7 +333,9 @@
    "fieldname": "cost_allocation",
    "fieldtype": "Percent",
    "label": "Cost Allocation %",
-   "precision": "2"
+   "precision": "2",
+   "read_only": 1,
+   "description": "Not used for Sea PI splits. Set Cost Allocation % on the consolidation Attached shipments table instead."
   }
  ],
  "hide_toolbar": 1,

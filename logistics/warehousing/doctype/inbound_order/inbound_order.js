@@ -83,12 +83,31 @@ frappe.ui.form.on('Inbound Order', {
       );
     }
     
+    if (frm.doc.contract && frm.doc.docstatus === 0) {
+      frm.add_custom_button(__("Get Charges from Contract"), function () {
+        const meaningful = (frm.doc.charges || []).some((r) =>
+          r.item_code || r.charge_item || r.item || r.item_charge
+        );
+        if (meaningful) {
+          frappe.confirm(
+            __("Replace all charge lines with inbound charges from this contract?"),
+            () => populate_inbound_order_charges_from_contract(frm, true)
+          );
+        } else {
+          populate_inbound_order_charges_from_contract(frm, true);
+        }
+      }, __("Action"));
+    }
+
     // Update UOM fields for child table items
     update_uom_fields_for_items(frm);
   },
 
   onload(frm) {
     maybe_set_planned_date(frm);
+    if (frm.doc.contract && !(frm.doc.charges || []).length) {
+      populate_inbound_order_charges_from_contract(frm, false);
+    }
   },
 
   before_save(frm) {
@@ -130,6 +149,7 @@ frappe.ui.form.on('Inbound Order', {
           }
         }
       });
+      populate_inbound_order_charges_from_contract(frm, false);
     } else {
       // Clear shipper and consignee if contract is cleared
       frm.set_value("shipper", "");
@@ -183,6 +203,57 @@ function _fetch(frm, cdt, cdn, context) {
     method: "logistics.warehousing.api.get_contract_charge",
     args: { contract, item_code, context },
   }).then(r => _apply_vals(cdt, cdn, r.message));
+}
+
+/** Inbound charge lines from Warehouse Contract (empty table only unless replace). */
+function populate_inbound_order_charges_from_contract(frm, replace) {
+  if (!frm.doc.contract) return;
+  if (!replace && (frm.doc.charges || []).length) return;
+
+  frappe.call({
+    method: "logistics.warehousing.doctype.warehouse_job.warehouse_job.get_contract_charge_items",
+    args: { warehouse_contract: frm.doc.contract, context: "inbound" },
+    callback: function (r) {
+      const msg = r.message || {};
+      if (!msg.ok) {
+        frappe.msgprint({
+          title: __("Contract charges"),
+          message: msg.message || __("Could not load charges from the contract."),
+          indicator: "red",
+        });
+        return;
+      }
+      const items = msg.items || [];
+      if (!items.length) {
+        frappe.show_alert({
+          message: __("No inbound charges are set on this Warehouse Contract."),
+          indicator: "orange",
+        });
+        return;
+      }
+      if (replace) {
+        frm.clear_table("charges");
+      }
+      const cdt = "Inbound Order Charges";
+      items.forEach(function (ci) {
+        if (!ci.item_charge) return;
+        const row = frappe.model.add_child(frm.doc, "charges");
+        const cdn = row.name;
+        frappe.model.set_value(cdt, cdn, "item_code", ci.item_charge);
+        if (ci.item_name) frappe.model.set_value(cdt, cdn, "item_name", ci.item_name);
+        if (typeof ci.rate === "number") frappe.model.set_value(cdt, cdn, "rate", ci.rate);
+        if (ci.currency) frappe.model.set_value(cdt, cdn, "currency", ci.currency);
+        if (ci.uom) frappe.model.set_value(cdt, cdn, "uom", ci.uom);
+        frappe.model.set_value(cdt, cdn, "quantity", 1);
+        recalc_charge_total(cdt, cdn);
+      });
+      frm.refresh_field("charges");
+      frappe.show_alert(
+        { message: __("Added {0} charge line(s) from contract.", [items.length]), indicator: "green" },
+        4
+      );
+    },
+  });
 }
 
 frappe.ui.form.on("Inbound Order Charges", {

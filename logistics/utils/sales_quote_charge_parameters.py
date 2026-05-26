@@ -27,6 +27,7 @@ SALES_QUOTE_CHARGE_PARAMETER_FIELDS: tuple[str, ...] = (
 	"transport_template",
 	"vehicle_type",
 	"container_type",
+	"container_no",
 	"location_type",
 	"location_from",
 	"location_to",
@@ -36,6 +37,12 @@ SALES_QUOTE_CHARGE_PARAMETER_FIELDS: tuple[str, ...] = (
 	"declaration_type",
 	"customs_broker",
 	"customs_charge_category",
+	"sp_site",
+	"sp_manpower",
+	"sp_skilled",
+	"sp_equipment_type",
+	"sp_handling",
+	"sp_resource_notes",
 )
 
 

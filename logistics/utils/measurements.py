@@ -807,6 +807,115 @@ def convert_measurements_to_uom_api(
 
 
 @frappe.whitelist()
+def get_density_factor_api(
+	volume=None,
+	weight=None,
+	volume_uom: Optional[str] = None,
+	weight_uom: Optional[str] = None,
+	company: Optional[str] = None,
+) -> Dict[str, Any]:
+	"""
+	Whitelisted API: compute density factor (cm³/kg) for given volume/weight pair.
+	Mirrors :func:`compute_density_factor` for client scripts that render the
+	``density_factor_html`` indicator on Air/Sea Booking, Air/Sea Shipment,
+	Transport Order and Transport Job.
+
+	Returns a dict ``{"density_factor": float|None, "percent": float, "reason": str|None}``:
+	- ``density_factor`` — cm³/kg or ``None`` when not computable.
+	- ``percent`` — clamped to ``[0, 100]`` against the IATA 1:6000 volumetric upper
+	  bound (used to position the bar fill / indicator).
+	- ``reason`` — human-readable failure reason for the UI to display, or
+	  ``None`` when the value was computed successfully (or when there is simply
+	  no data yet, in which case the indicator should remain blank).
+	"""
+	try:
+		v = flt(volume) if volume not in (None, "") else 0.0
+		w = flt(weight) if weight not in (None, "") else 0.0
+	except Exception:
+		v, w = 0.0, 0.0
+
+	# No data at all — let the UI render the empty state silently.
+	if v <= 0 and w <= 0:
+		return {"density_factor": None, "percent": 0.0, "reason": None}
+
+	if w <= 0:
+		return {
+			"density_factor": None,
+			"percent": 0.0,
+			"reason": _("Weight is required to compute density factor."),
+		}
+	if v <= 0:
+		return {
+			"density_factor": None,
+			"percent": 0.0,
+			"reason": _("Volume is required to compute density factor."),
+		}
+
+	# Resolve UOMs the same way compute_density_factor does so we can produce a
+	# precise failure reason instead of the generic ``None`` it returns.
+	resolved_vol_uom = volume_uom or None
+	resolved_wt_uom = weight_uom or None
+	try:
+		base = get_base_uoms()
+		resolved_vol_uom = resolved_vol_uom or base.get("volume")
+		resolved_wt_uom = resolved_wt_uom or base.get("weight")
+		if not resolved_vol_uom or not resolved_wt_uom:
+			try:
+				defaults = get_default_uoms(company=company or None)
+				resolved_vol_uom = resolved_vol_uom or defaults.get("volume")
+				resolved_wt_uom = resolved_wt_uom or defaults.get("weight")
+			except Exception:
+				# get_default_uoms throws when defaults are missing; we surface
+				# that as a UOM-configuration error below.
+				pass
+	except Exception as e:
+		return {
+			"density_factor": None,
+			"percent": 0.0,
+			"reason": _("Could not read UOM configuration: {0}").format(str(e)),
+		}
+
+	if not resolved_vol_uom:
+		return {
+			"density_factor": None,
+			"percent": 0.0,
+			"reason": _("Volume UOM is not set on the document or in Logistics Settings."),
+		}
+	if not resolved_wt_uom:
+		return {
+			"density_factor": None,
+			"percent": 0.0,
+			"reason": _("Weight UOM is not set on the document or in Logistics Settings."),
+		}
+
+	try:
+		df = compute_density_factor(
+			volume=v,
+			weight=w,
+			volume_uom=volume_uom or None,
+			weight_uom=weight_uom or None,
+			company=company or None,
+		)
+	except Exception as e:
+		return {
+			"density_factor": None,
+			"percent": 0.0,
+			"reason": _("Conversion failed: {0}").format(str(e)),
+		}
+
+	if df is None:
+		return {
+			"density_factor": None,
+			"percent": 0.0,
+			"reason": _("Density factor could not be computed."),
+		}
+
+	upper = float(IATA_VOLUMETRIC_DIVISOR_CM3_PER_KG)
+	pct = max(0.0, min(100.0, (float(df) / upper) * 100.0)) if upper else 0.0
+	return {"density_factor": float(df), "percent": pct, "reason": None}
+
+
+@frappe.whitelist()
 def calculate_volume_from_dimensions_api(
 	length, width, height, dimension_uom=None, volume_uom=None, company=None
 ) -> Dict[str, Any]:

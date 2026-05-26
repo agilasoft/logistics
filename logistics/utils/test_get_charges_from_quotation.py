@@ -24,8 +24,54 @@ from logistics.utils.get_charges_from_quotation import (
 	_corridor_mismatch_message_for_preview,
 	_effective_declaration_order_filter_fields,
 	_effective_sea_air_transport_corridor,
+	_gcfq_customer_matches_job,
+	assert_sales_quote_customer_matches_job_before_submit,
 )
-from logistics.utils.sales_quote_link_query import sales_quote_matches_job_org_dimensions
+from logistics.utils.charge_service_type import (
+	_is_customs_related_sq_charge_row,
+	_merge_unified_and_legacy_customs_rows,
+	customs_charges_rows_from_sales_quote_doc,
+)
+from logistics.utils.sales_quote_link_query import (
+	filter_customs_charge_rows_for_declaration_order,
+	sales_quote_customs_charge_row_matches_declaration_order_filters,
+	sales_quote_matches_job_org_dimensions,
+	sales_quote_matches_main_service,
+)
+
+
+class TestSalesQuoteCustomerSubmitValidation(FrappeTestCase):
+	def tearDown(self):
+		import frappe
+
+		frappe.db.rollback()
+
+	def test_customer_match_case_insensitive(self):
+		self.assertTrue(_gcfq_customer_matches_job("CUST-1", "cust-1"))
+
+	@patch("logistics.utils.get_charges_from_quotation.frappe.db.get_value", return_value="CUST-A")
+	@patch(
+		"logistics.utils.operational_rep_fields._resolve_sales_quote_name_from_doc",
+		return_value="SQ-001",
+	)
+	def test_before_submit_throws_on_customer_mismatch(self, _resolve, _get_value):
+		import frappe
+
+		doc = MagicMock()
+		doc.doctype = "Transport Order"
+		doc.customer = "CUST-B"
+		with self.assertRaises(frappe.ValidationError):
+			assert_sales_quote_customer_matches_job_before_submit(doc)
+
+	@patch(
+		"logistics.utils.operational_rep_fields._resolve_sales_quote_name_from_doc",
+		return_value=None,
+	)
+	def test_before_submit_skips_without_sales_quote(self, _resolve):
+		doc = MagicMock()
+		doc.doctype = "Air Booking"
+		doc.local_customer = "CUST-A"
+		assert_sales_quote_customer_matches_job_before_submit(doc)
 
 
 class TestGetChargesCorridorHelpers(FrappeTestCase):
@@ -107,11 +153,126 @@ class TestGetChargesCorridorHelpers(FrappeTestCase):
 		)
 
 	@patch("logistics.utils.sales_quote_link_query.frappe.db.get_value")
+	def test_main_service_match_customs(self, mock_gv):
+		mock_gv.return_value = "Customs"
+		self.assertTrue(sales_quote_matches_main_service("SQ-1", "Customs"))
+		self.assertFalse(sales_quote_matches_main_service("SQ-1", "Sea"))
+
+	@patch("logistics.utils.sales_quote_link_query.frappe.db.exists", return_value=True)
+	@patch("logistics.utils.sales_quote_link_query.frappe.db.get_value")
+	def test_main_service_sea_quote_not_customs(self, mock_gv, _mock_exists):
+		mock_gv.return_value = "Sea"
+		self.assertFalse(sales_quote_matches_main_service("SQ-SEA", "Customs"))
+
+	@patch("logistics.utils.sales_quote_link_query.frappe.db.get_value")
 	def test_org_dimensions_nonblank_mismatch_fails(self, mock_gv):
 		mock_gv.return_value = {"branch": "", "cost_center": "", "profit_center": "PC-OTHER"}
 		self.assertFalse(
 			sales_quote_matches_job_org_dimensions("SQ-X", job_profit_center="PC-FILTER")
 		)
+
+	def test_customs_related_row_by_params_without_service_type(self):
+		row = {"customs_authority": "CA-1", "declaration_type": "Import"}
+		self.assertTrue(_is_customs_related_sq_charge_row(row))
+		self.assertFalse(_is_customs_related_sq_charge_row({"service_type": "Air"}))
+
+	def test_merge_unified_and_legacy_customs_rows(self):
+		unified = [{"item_code": "ITEM-1", "customs_authority": "CA-1", "declaration_type": "Import"}]
+		legacy = [
+			{"item_code": "ITEM-1", "customs_authority": "CA-1", "declaration_type": "Import"},
+			{"item_code": "ITEM-2", "customs_authority": "CA-1", "declaration_type": "Import"},
+		]
+		merged = _merge_unified_and_legacy_customs_rows(unified, legacy)
+		self.assertEqual(len(merged), 2)
+
+	def test_declaration_order_row_filter_includes_all_matching_lines(self):
+		parent = MagicMock()
+		parent.doctype = "Declaration Order"
+		parent.customs_authority = "CA-1"
+		parent.declaration_type = "Import"
+		parent.customs_broker = ""
+		parent.transport_mode = ""
+		rows = [
+			{"service_type": "Customs", "customs_authority": "CA-1", "declaration_type": "Import"},
+			{"service_type": "Customs", "customs_authority": "CA-1", "declaration_type": "Export"},
+			{"service_type": "Customs", "customs_authority": "CA-2", "declaration_type": "Import"},
+		]
+		filtered = filter_customs_charge_rows_for_declaration_order(parent, rows)
+		self.assertEqual(len(filtered), 1)
+		self.assertEqual(filtered[0]["declaration_type"], "Import")
+
+	def test_declaration_order_row_filter_blank_broker_matches_any(self):
+		self.assertTrue(
+			sales_quote_customs_charge_row_matches_declaration_order_filters(
+				{"service_type": "Customs", "customs_broker": ""},
+				customs_broker="BR-1",
+			)
+		)
+
+	def test_declaration_order_row_filter_different_broker_excluded(self):
+		self.assertFalse(
+			sales_quote_customs_charge_row_matches_declaration_order_filters(
+				{"service_type": "Customs", "customs_broker": "ABC Brokerage"},
+				customs_broker="B-001",
+			)
+		)
+		self.assertTrue(
+			sales_quote_customs_charge_row_matches_declaration_order_filters(
+				{"service_type": "Customs", "customs_broker": "ABC Brokerage"},
+				customs_broker="ABC Brokerage",
+			)
+		)
+
+	@patch("logistics.utils.charge_service_type._legacy_customs_rows_for_quote", return_value=[])
+	def test_customs_charges_rows_returns_all_when_separate_billings_off(self, _mock_legacy):
+		parent = MagicMock()
+		parent.doctype = "Declaration Order"
+		parent.is_internal_job = 0
+		parent.is_main_service = 0
+		sq = MagicMock()
+		sq.name = "SQ-1"
+		sq.separate_billings_per_service_type = 0
+		sq.charges = [
+			MagicMock(service_type="Sea"),
+			MagicMock(service_type="Customs"),
+			MagicMock(service_type="Transport"),
+			MagicMock(service_type="Warehousing"),
+		]
+		sq.routing_legs = []
+		sq.customs = []
+		rows = customs_charges_rows_from_sales_quote_doc(parent, sq)
+		self.assertEqual(len(rows), 4)
+
+	@patch("logistics.utils.charge_service_type._legacy_customs_rows_for_quote", return_value=[])
+	def test_customs_charges_rows_merges_params_only_unified_lines(self, _mock_legacy):
+		parent = MagicMock()
+		parent.doctype = "Declaration Order"
+		parent.is_internal_job = 0
+		parent.is_main_service = 0
+		parent.customs_authority = ""
+		parent.declaration_type = ""
+		parent.customs_broker = ""
+		parent.transport_mode = ""
+		sq = MagicMock()
+		sq.name = "SQ-1"
+		sq.separate_billings_per_service_type = 1
+		sq.charges = [
+			MagicMock(
+				service_type="Air",
+				customs_authority="CA-1",
+				declaration_type="Import",
+				customs_broker="",
+			),
+			MagicMock(service_type="Customs", customs_authority="", declaration_type="", customs_broker=""),
+		]
+		sq.routing_legs = []
+		sq.customs = []
+		with patch(
+			"logistics.utils.charge_service_type.is_parent_main_job_for_quote_charges",
+			return_value=False,
+		):
+			rows = customs_charges_rows_from_sales_quote_doc(parent, sq)
+		self.assertEqual(len(rows), 2)
 
 
 def run():

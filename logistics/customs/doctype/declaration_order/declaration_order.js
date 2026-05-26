@@ -421,6 +421,11 @@ function _declaration_order_save_then_populate_template(frm, method, freeze_mess
 }
 
 frappe.ui.form.on("Declaration Order", {
+	commercial_invoice_line_items_remove(frm) {
+		if (window.logistics && logistics.schedule_customs_line_charge_recalc) {
+			logistics.schedule_customs_line_charge_recalc(frm);
+		}
+	},
 	document_list_template: function (frm) {
 		_declaration_order_save_then_populate_template(
 			frm,
@@ -567,16 +572,8 @@ frappe.ui.form.on("Declaration Order", {
 
 		// --- Actions menu ---
 		if (!frm.is_new() && !frm.doc.__islocal) {
-			if (window.logistics && typeof logistics.should_show_get_charges_from_quotation === "function" ? logistics.should_show_get_charges_from_quotation(frm) : (cint(frm.doc.docstatus) === 0 && !cint(frm.doc.is_internal_job))) {
-				frm.add_custom_button(__('Get Charges from Quotation'), function() {
-					if (window.logistics && logistics.open_get_charges_from_quotation_dialog) {
-						logistics.open_get_charges_from_quotation_dialog(frm);
-					} else {
-						frappe.msgprint(
-							__("Charges dialog is not ready. Please refresh the page and try again.")
-						);
-					}
-				}, __('Action'));
+			if (window.logistics && logistics.add_get_charges_from_quotation_button_if_allowed) {
+				logistics.add_get_charges_from_quotation_button_if_allowed(frm);
 			}
 			frm.add_custom_button(__('Get Milestones'), function() {
 				frm._logistics_template_populate_busy = true;

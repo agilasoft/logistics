@@ -10,7 +10,7 @@ from logistics.analytics_reports.bootstrap import tally_chart
 def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
-	chart = tally_chart(data, "status", _("Billing"))
+	chart = tally_chart(data, "sales_invoice_status", _("SI status"))
 	return columns, data, None, chart, []
 
 
@@ -19,24 +19,24 @@ def get_columns():
 		{"fieldname": "special_project", "label": _("Special Project"), "fieldtype": "Link", "options": "Special Project", "width": 130},
 		{"fieldname": "project_name", "label": _("Project Name"), "fieldtype": "Data", "width": 180},
 		{"fieldname": "customer", "label": _("Customer"), "fieldtype": "Link", "options": "Customer", "width": 150},
-		{"fieldname": "bill_type", "label": _("Bill Type"), "fieldtype": "Data", "width": 100},
-		{"fieldname": "status", "label": _("Status"), "fieldtype": "Data", "width": 90},
-		{"fieldname": "planned_amount", "label": _("Planned Amount"), "fieldtype": "Currency", "width": 120},
-		{"fieldname": "sales_invoice", "label": _("Sales Invoice"), "fieldtype": "Link", "options": "Sales Invoice", "width": 120},
-		{"fieldname": "invoice_date", "label": _("Invoice Date"), "fieldtype": "Date", "width": 100},
+		{"fieldname": "item_code", "label": _("Item"), "fieldtype": "Link", "options": "Item", "width": 140},
+		{"fieldname": "charge_type", "label": _("Charge Type"), "fieldtype": "Data", "width": 90},
+		{"fieldname": "charge_category", "label": _("Charge Category"), "fieldtype": "Data", "width": 120},
+		{"fieldname": "estimated_revenue", "label": _("Est. Revenue"), "fieldtype": "Currency", "width": 110},
+		{"fieldname": "sales_invoice_status", "label": _("SI Status"), "fieldtype": "Data", "width": 100},
 	]
 
 
 def get_data(filters):
-	conditions = ["b.parent = sp.name"]
+	conditions = ["c.parent = sp.name", "c.parenttype = 'Special Project'", "c.parentfield = 'charges'"]
 	values = {}
 
-	if filters.get("status"):
-		conditions.append("b.status = %(status)s")
-		values["status"] = filters["status"]
-	if filters.get("bill_type"):
-		conditions.append("b.bill_type = %(bill_type)s")
-		values["bill_type"] = filters["bill_type"]
+	if filters.get("sales_invoice_status"):
+		conditions.append("IFNULL(c.sales_invoice_status,'') = %(sales_invoice_status)s")
+		values["sales_invoice_status"] = filters["sales_invoice_status"]
+	if filters.get("charge_type"):
+		conditions.append("IFNULL(c.charge_type,'') = %(charge_type)s")
+		values["charge_type"] = filters["charge_type"]
 	if filters.get("special_project"):
 		conditions.append("sp.name = %(special_project)s")
 		values["special_project"] = filters["special_project"]
@@ -48,12 +48,13 @@ def get_data(filters):
 
 	return frappe.db.sql(
 		"""
-		SELECT sp.name as special_project, sp.project_name, sp.customer, b.bill_type, b.status,
-			b.planned_amount, b.sales_invoice, b.invoice_date
+		SELECT sp.name as special_project, sp.project_name, sp.customer,
+			c.item_code, c.charge_type, c.charge_category,
+			c.estimated_revenue, IFNULL(c.sales_invoice_status,'') as sales_invoice_status
 		FROM `tabSpecial Project` sp
-		INNER JOIN `tabSpecial Project Billing` b ON b.parent = sp.name AND b.parenttype = 'Special Project'
+		INNER JOIN `tabSpecial Project Charges` c ON c.parent = sp.name AND c.parenttype = 'Special Project' AND c.parentfield = 'charges'
 		WHERE {where}
-		ORDER BY sp.name, b.sequence
+		ORDER BY sp.name, c.idx
 		""".format(where=where),
 		values,
 		as_dict=1,

@@ -31,7 +31,7 @@ def _is_strict_milestone_schedule_validation_enabled():
 
 
 def _show_non_blocking_schedule_warning(message):
-	"""Show at most one identical warning per request to avoid repetitive popups."""
+	"""Event at most one identical warning per request to avoid repetitive popups."""
 	cache = getattr(frappe.flags, "_milestone_schedule_warnings_shown", None)
 	if cache is None:
 		cache = set()

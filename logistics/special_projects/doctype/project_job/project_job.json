@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "naming_series:",
- "creation": "2026-05-02 00:00:00.000000",
+ "creation": "2026-05-02 00:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
@@ -49,6 +49,8 @@
   "resources_tab",
   "section_resources",
   "job_resources",
+  "section_break_materials_received",
+  "materials_received",
   "charges_tab",
   "column_break_logistics_reps",
   "company",
@@ -214,8 +216,8 @@
   {
    "fieldname": "special_project_order",
    "fieldtype": "Link",
-   "label": "Project Task Order",
-   "options": "Project Task Order"
+   "label": "Project Order",
+   "options": "Project Order"
   },
   {
    "description": "Defaults from the linked Special Project when saved.",
@@ -236,6 +238,7 @@
    "fieldname": "project",
    "fieldtype": "Link",
    "label": "Project",
+   "no_copy": 1,
    "options": "Project",
    "read_only": 1
   },
@@ -309,6 +312,18 @@
    "fieldtype": "Table",
    "label": "Resources",
    "options": "Project Task Job Resource"
+  },
+  {
+   "description": "Materials received on site as part of this job. Posted to the parent Special Project's Site Receipts on submit.",
+   "fieldname": "section_break_materials_received",
+   "fieldtype": "Section Break",
+   "label": "Materials Received"
+  },
+  {
+   "fieldname": "materials_received",
+   "fieldtype": "Table",
+   "label": "Materials Received",
+   "options": "Project Job Material"
   },
   {
    "fieldname": "section_contacts",
@@ -652,7 +667,7 @@
    "fieldname": "main_job_type",
    "fieldtype": "Select",
    "label": "Main Job Type",
-   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration\nProject Task Job",
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration\nProject Job",
    "read_only": 1
   },
   {
@@ -841,6 +856,7 @@
    "label": "Dangerous Goods"
   },
   {
+   "default": "0",
    "fieldname": "dg_declaration_complete",
    "fieldtype": "Check",
    "label": "DG Declaration Complete"
@@ -875,7 +891,7 @@
    "fieldtype": "Link",
    "label": "Amended From",
    "no_copy": 1,
-   "options": "Project Task Job",
+   "options": "Project Job",
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
@@ -888,14 +904,18 @@
   }
  ],
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [],
- "modified": "2026-05-04 00:00:00",
+ "modified": "2026-05-20 16:44:02.223672",
+ "modified_by": "Administrator",
  "module": "Special Projects",
- "name": "Project Task Job",
+ "name": "Project Job",
  "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -905,9 +925,12 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   },
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -917,9 +940,11 @@
    "report": 1,
    "role": "Projects Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

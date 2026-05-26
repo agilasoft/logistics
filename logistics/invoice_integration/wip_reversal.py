@@ -27,6 +27,10 @@ from logistics.job_management.recognition_engine import (
 	resolve_policy_row_for_job,
 )
 from logistics.invoice_integration.lifecycle import get_jobs_linked_to_sales_invoice
+from logistics.invoice_integration.charge_settled_reversal import (
+	compute_item_reversal_amount,
+	get_charge_items_settled_by_sales_invoice,
+)
 from logistics.invoice_integration.recognition_voucher_reversal import (
 	append_logistics_reversal_marker,
 	reversal_journal_entry_exists_for_voucher,
@@ -304,13 +308,16 @@ def reverse_wip_for_sales_invoice(si_doc):
 		if remaining <= 0:
 			continue
 
+		settled_items = get_charge_items_settled_by_sales_invoice(job, si_doc.name)
 		je_pairs = []
 		for amt, item_code in line_amts:
 			rev = 0
 			if item_fn_gl and item_code:
 				open_item = _paired_wip_open_for_item(jcn, company, wip_acc, liab_acc, item_fn_gl, item_code)
 				if open_item > 0:
-					rev = min(amt, open_item, remaining)
+					rev = compute_item_reversal_amount(
+						amt, open_item, remaining, item_code, settled_items, company
+					)
 			if rev <= 0:
 				rev = min(amt, remaining)
 			if rev <= 0:

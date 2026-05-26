@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "bg_color": "blue",
- "creation": "2026-02-12 10:37:43.994953",
+ "creation": "2026-05-06 10:21:55.937620",
  "docstatus": 0,
  "doctype": "Desktop Icon",
  "hidden": 0,
@@ -9,11 +9,15 @@
  "idx": 0,
  "label": "Special Projects",
  "link_type": "Workspace Sidebar",
- "modified": "2026-02-12 10:39:27.520944",
+ "modified": "2026-05-21 13:44:59.538712",
  "modified_by": "Administrator",
  "name": "Special Projects",
  "owner": "Administrator",
  "restrict_removal": 0,
- "roles": [],
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
  "standard": 1
 }

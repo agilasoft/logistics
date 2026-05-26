@@ -1,12 +1,7 @@
 {
  "app": "logistics",
- "charts": [
-  {
-   "chart_name": "Special Projects by Status",
-   "label": "Special Projects by Status"
-  }
- ],
- "content": "[{\"id\":\"vg4I6XWVa3\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Active Projects\",\"col\":4}},{\"id\":\"_lSFiaPdLO\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total Projects\",\"col\":4}},{\"id\":\"PFWXl41aCi\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Requests\",\"col\":4}},{\"id\":\"4ECKtGdXw5\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Special Projects by Status\",\"col\":12}},{\"id\":\"Epcgo8syf-\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"3UR6TgyJ4n\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project\",\"col\":3}},{\"id\":\"V9-d61oTwq\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Task Order\",\"col\":3}},{\"id\":\"M8rSH3agYI\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Task Job\",\"col\":3}}]",
+ "charts": [],
+ "content": "[{\"id\":\"Epcgo8syf-\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"OJckNEOQxF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"3UR6TgyJ4n\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project\",\"col\":3}},{\"id\":\"V9-d61oTwq\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Order\",\"col\":3}},{\"id\":\"M8rSH3agYI\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Job\",\"col\":3}},{\"id\":\"Eq5yEe_zeF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"ymlKuKw_Ww\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"6OwmEj07WP\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\",\"col\":12}},{\"id\":\"yd6DR7WF-p\",\"type\":\"card\",\"data\":{\"card_name\":\"Master Files\",\"col\":4}},{\"id\":\"HHXyJg2Fhb\",\"type\":\"card\",\"data\":{\"card_name\":\"Reference Files\",\"col\":4}},{\"id\":\"wLq7sIACjj\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"p1S1n8Hdvu\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"pfateLk1FL\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Report and Analytics</b></span>\",\"col\":12}},{\"id\":\"b8VydJRTS-\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational\",\"col\":4}}]",
  "creation": "2026-02-12 07:47:18.360199",
  "custom_blocks": [],
  "docstatus": 0,
@@ -29,22 +24,231 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Master Files",
+   "link_count": 6,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Shipper",
+   "link_count": 0,
+   "link_to": "Shipper",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Consignee",
+   "link_count": 0,
+   "link_to": "Consignee",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport Company",
+   "link_count": 0,
+   "link_to": "Transport Company",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Shipping Line",
+   "link_count": 0,
+   "link_to": "Shipping Line",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Airline",
+   "link_count": 0,
+   "link_to": "Airline",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer",
+   "link_count": 0,
+   "link_to": "Customer",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reference Files",
+   "link_count": 6,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Project Resource",
+   "link_count": 0,
+   "link_to": "Project Resource",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Scoping Type",
+   "link_count": 0,
+   "link_to": "Scoping Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Project Task Type",
+   "link_count": 0,
+   "link_to": "Project Task Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Project Type",
+   "link_count": 0,
+   "link_to": "Project Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Milestone Template",
+   "link_count": 0,
+   "link_to": "Milestone Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Document List Template",
+   "link_count": 0,
+   "link_to": "Document List Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Operational",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Special Projects Report",
+   "link_count": 0,
+   "link_to": "Special Projects Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Cost Analysis Reports",
+   "link_count": 0,
+   "link_to": "Cost Analysis Reports",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Transport Job",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Billing Status Report",
+   "link_count": 0,
+   "link_to": "Special Project Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Special Project",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Settings",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Handling Type",
+   "link_count": 0,
+   "link_to": "Special Handling Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Handling Equipment Type",
+   "link_count": 0,
+   "link_to": "Special Handling Equipment Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Special Project Settings",
+   "link_count": 0,
+   "link_to": "Special Project Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-05-04 15:00:35.073255",
+ "modified": "2026-05-20 13:11:48.766064",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Special Projects",
- "number_cards": [
-  {
-   "label": "Active Projects",
-   "number_card_name": "Active Projects"
-  },
-  {
-   "label": "Total Projects",
-   "number_card_name": "Total Projects"
-  }
- ],
+ "number_cards": [],
  "owner": "Administrator",
  "parent_page": "",
  "public": 1,
@@ -55,8 +259,8 @@
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Project Task Order",
-   "link_to": "Project Task Order",
+   "label": "Project Order",
+   "link_to": "Project Order",
    "stats_filter": "[]",
    "type": "DocType"
   },
@@ -71,8 +275,24 @@
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Project Task Job",
-   "link_to": "Project Task Job",
+   "label": "Sales Quote",
+   "link_to": "Sales Quote",
+   "stats_filter": "[[\"Sales Quote\",\"quotation_type\",\"=\",\"Project\"]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sales Invoice",
+   "link_to": "Sales Invoice",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Project Job",
+   "link_to": "Project Job",
    "stats_filter": "[]",
    "type": "DocType"
   }

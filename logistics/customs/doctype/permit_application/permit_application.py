@@ -24,7 +24,6 @@ class PermitApplication(Document):
 			if renewal_doc.status not in ["Approved", "Expired"]:
 				frappe.throw(_("Can only renew an Approved or Expired permit."))
 
-		self._require_filing_data_after_draft()
 		# After other checks: derive status from dates (validate runs before before_save).
 		self.sync_status_from_permit_triggers()
 		self.apply_expired_status()
@@ -51,13 +50,12 @@ class PermitApplication(Document):
 				)
 
 	def _require_filing_data_after_draft(self):
-		"""Once filed (or beyond), require dates and attachments. Draft-only edits stay relaxed."""
+		"""Once filed (or beyond), require attachments. Draft-only edits stay relaxed.
+
+		Valid From / Valid To are optional: some permits and exemption certificates have no fixed validity.
+		"""
 		if not self.get("status") or self.status == "Draft" or self.status == "Rejected":
 			return
-		if not self.valid_from:
-			frappe.throw(_("Valid From is required."))
-		if not self.valid_to:
-			frappe.throw(_("Valid To is required."))
 		if not any(row.get("attachment") for row in (self.attachments or [])):
 			frappe.throw(_("At least one attachment is required to file a permit application."))
 

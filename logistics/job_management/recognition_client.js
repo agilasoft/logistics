@@ -78,7 +78,7 @@ logistics.recognition = {
      * @param {Object} frm - The form object
      */
     setup_form: function(frm) {
-        // Show recognition buttons for both draft and submitted documents
+        // Event recognition buttons for both draft and submitted documents
         // Post > WIP and Accrual: charge-line JE links + open balances vs job estimates (no header JE checks)
         var needs_wip = logistics.recognition.needs_wip_recognition(frm.doc);
         var needs_accrual = logistics.recognition.needs_accrual_recognition(frm.doc);

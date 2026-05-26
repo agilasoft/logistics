@@ -23,12 +23,9 @@
   "due_date",
   "section_break_qqij",
   "items",
-  "section_break_connections",
-  "air_shipment",
-  "sea_shipment",
-  "transport_order",
   "quote_reference_section",
   "is_main_service",
+  "is_high_value",
   "sales_quote",
   "column_break_quote_ref",
   "is_internal_job",
@@ -87,15 +84,15 @@
    "fieldname": "shipper",
    "fieldtype": "Link",
    "label": "Shipper",
-   "options": "Shipper",
-   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
+   "options": "Shipper"
   },
   {
    "fieldname": "consignee",
    "fieldtype": "Link",
    "label": "Consignee",
-   "options": "Consignee",
-   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
+   "options": "Consignee"
   },
   {
    "fieldname": "column_break_fwfm",
@@ -105,17 +102,18 @@
    "fieldname": "customer",
    "fieldtype": "Link",
    "label": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer",
-   "reqd": 1,
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+   "reqd": 1
   },
   {
+   "description": "ERPNext Project for Special Projects integration",
    "fieldname": "project",
    "fieldtype": "Link",
    "label": "Project",
-   "options": "Project",
-   "description": "ERPNext Project for Special Projects integration",
-   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "no_copy": 1,
+   "options": "Project"
   },
   {
    "fieldname": "cust_reference",
@@ -152,35 +150,6 @@
    "options": "Release Order Item"
   },
   {
-   "collapsible": 1,
-   "description": "Links to the operational source (air, sea, or transport). Used for traceability and to pull parties and schedules from the source job.",
-   "fieldname": "section_break_connections",
-   "fieldtype": "Section Break",
-   "label": "Connected Documents"
-  },
-  {
-   "fieldname": "air_shipment",
-   "fieldtype": "Link",
-   "label": "Air Shipment",
-   "options": "Air Shipment",
-   "description": "Ship out via air"
-  },
-  {
-   "fieldname": "sea_shipment",
-   "fieldtype": "Link",
-   "label": "Sea Shipment",
-   "options": "Sea Shipment",
-   "description": "Ship out via sea"
-  },
-  {
-   "fieldname": "transport_order",
-   "fieldtype": "Link",
-   "label": "Transport Order",
-   "options": "Transport Order",
-   "description": "Ship out via transport"
-  },
-  {
-   "collapsible": 1,
    "description": "Sales Quote and main/internal job hierarchy for billing. Filled from the linked source job when Connected Documents is set.",
    "fieldname": "quote_reference_section",
    "fieldtype": "Section Break",
@@ -194,6 +163,14 @@
    "label": "Main Service",
    "no_copy": 1,
    "read_only_depends_on": "eval: (doc.is_internal_job && doc.main_job_type && doc.main_job) || doc.air_shipment || doc.sea_shipment || doc.transport_order"
+  },
+  {
+   "default": "0",
+   "description": "Inherited from the linked Sales Quote (if any).",
+   "fieldname": "is_high_value",
+   "fieldtype": "Check",
+   "label": "High Value",
+   "read_only": 1
   },
   {
    "fieldname": "sales_quote",
@@ -235,7 +212,6 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
    "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details_section",
    "fieldtype": "Section Break",
@@ -265,7 +241,6 @@
    "label": "Documents"
   },
   {
-   "collapsible": 0,
    "fieldname": "documents_section",
    "fieldtype": "Section Break",
    "label": "Document Checklist"
@@ -277,11 +252,11 @@
    "label": "Document Summary"
   },
   {
+   "description": "Override default template. Leave empty to use product default.",
    "fieldname": "document_list_template",
    "fieldtype": "Link",
    "label": "Document Template",
-   "options": "Document List Template",
-   "description": "Override default template. Leave empty to use product default."
+   "options": "Document List Template"
   },
   {
    "fieldname": "documents",
@@ -358,19 +333,19 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "For revenue/cost recognition",
    "fieldname": "job_number",
    "fieldtype": "Link",
    "label": "Job Number",
    "no_copy": 1,
-   "options": "Job Number",
-   "description": "For revenue/cost recognition"
+   "options": "Job Number"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-19 14:40:20.672554",
+ "modified": "2026-05-14 23:14:48.469210",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Release Order",
@@ -378,6 +353,8 @@
  "owner": "Administrator",
  "permissions": [
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -388,11 +365,11 @@
    "role": "System Manager",
    "share": 1,
    "submit": 1,
-   "write": 1,
-   "cancel": 1,
-   "amend": 1
+   "write": 1
   },
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -402,10 +379,8 @@
    "report": 1,
    "role": "Warehouse Manager",
    "share": 1,
-   "write": 1,
    "submit": 1,
-   "cancel": 1,
-   "amend": 1
+   "write": 1
   },
   {
    "create": 1,
@@ -417,8 +392,8 @@
    "report": 1,
    "role": "Warehouse User",
    "share": 1,
-   "write": 1,
-   "submit": 1
+   "submit": 1,
+   "write": 1
   }
  ],
  "row_format": "Dynamic",

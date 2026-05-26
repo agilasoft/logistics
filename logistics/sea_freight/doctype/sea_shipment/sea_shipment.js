@@ -20,6 +20,7 @@ function _declaration_order_name_from_internal_job_details(frm) {
 
 function _load_milestone_html(frm) {
 	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._logistics_template_populate_busy || frappe.ui.form.is_saving) return;
 	if (frm._milestone_html_called) return;
 	frm._milestone_html_called = true;
 	frappe.call({
@@ -70,6 +71,7 @@ function _apply_milestone_tracking_visibility(frm, enabled) {
 
 function _load_documents_html(frm) {
 	if (!frm.fields_dict.documents_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._logistics_template_populate_busy || frappe.ui.form.is_saving) return;
 	if (frm._documents_html_called) return;
 	frm._documents_html_called = true;
 	frappe.call({
@@ -147,6 +149,36 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 	frm.set_df_property("charges", "allow_bulk_edit", 0);
 }
 
+function _sea_shipment_save_then_populate_template(frm, method, freeze_message) {
+	if (!frm.doc.name || frm.doc.__islocal) return;
+	frm._logistics_template_populate_busy = true;
+	frm.save()
+		.then(function () {
+			frappe.call({
+				method: method,
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				freeze: true,
+				freeze_message: freeze_message,
+				callback: function (r) {
+					frm._logistics_template_populate_busy = false;
+					if (r.exc) return;
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) {
+							frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
+						}
+					}
+				},
+				error: function () {
+					frm._logistics_template_populate_busy = false;
+				},
+			});
+		})
+		.catch(function () {
+			frm._logistics_template_populate_busy = false;
+		});
+}
+
 function _sea_shipment_set_query_shipping_line_cto(frm) {
 	frm.set_query("origin_cto", function() {
 		if (!frm.doc.shipping_line || !frm.doc.origin_port) {
@@ -186,34 +218,18 @@ frappe.ui.form.on('Sea Shipment', {
 		}
 	},
 	document_list_template: function (frm) {
-		if (!frm.doc.name || frm.doc.__islocal) return;
-		frm.save().then(function () {
-			frappe.call({
-				method: "logistics.document_management.api.populate_documents_from_template",
-				args: { doctype: frm.doctype, docname: frm.doc.name },
-				callback: function (r) {
-					if (r.message) {
-						frm.reload_doc();
-						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
-					}
-				}
-			});
-		});
+		_sea_shipment_save_then_populate_template(
+			frm,
+			"logistics.document_management.api.populate_documents_from_template",
+			__("Applying document template...")
+		);
 	},
 	milestone_template: function (frm) {
-		if (!frm.doc.name || frm.doc.__islocal) return;
-		frm.save().then(function () {
-			frappe.call({
-				method: "logistics.document_management.api.populate_milestones_from_template",
-				args: { doctype: frm.doctype, docname: frm.doc.name },
-				callback: function (r) {
-					if (r.message) {
-						frm.reload_doc();
-						if (r.message.added) frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 5);
-					}
-				}
-			});
-		});
+		_sea_shipment_save_then_populate_template(
+			frm,
+			"logistics.document_management.api.populate_milestones_from_template",
+			__("Applying milestone template...")
+		);
 	},
 	setup: function(frm) {
 		frm.set_query('milestone_template', function() {
@@ -422,29 +438,48 @@ frappe.ui.form.on('Sea Shipment', {
 		}
 		_update_measurement_fields_readonly(frm);
 		_populate_address_contact_displays_if_missing(frm);
-		// Load dashboard HTML in Dashboard tab (only when doc is saved)
-		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
+		// Load dashboard HTML via module API (not frm.call) to avoid run_doc_method / check_if_latest races.
+		if (
+			frm.fields_dict.dashboard_html &&
+			frm.doc.name &&
+			!frm.doc.__islocal &&
+			!frm._logistics_template_populate_busy &&
+			!frappe.ui.form.is_saving
+		) {
 			if (!frm._dashboard_html_called) {
 				frm._dashboard_html_called = true;
-				frm.call('get_dashboard_html').then(r => {
-					if (r.message && frm.fields_dict.dashboard_html) {
-						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
-						if (window.logistics_group_and_collapse_dash_alerts) {
-							setTimeout(function() {
-								window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
-							}, 100);
+				var _dash_docname = frm.doc.name;
+				frappe.call({
+					method: "logistics.sea_freight.doctype.sea_shipment.sea_shipment.fetch_sea_shipment_dashboard_html",
+					args: { docname: _dash_docname },
+					callback: function (r) {
+						if (
+							frm.doc.name === _dash_docname &&
+							r.message &&
+							frm.fields_dict.dashboard_html
+						) {
+							frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+							if (window.logistics_group_and_collapse_dash_alerts) {
+								setTimeout(function () {
+									window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
+								}, 100);
+							}
+							if (window.logistics_bind_document_alert_cards) {
+								window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+							}
 						}
-						if (window.logistics_bind_document_alert_cards) {
-							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
-						}
-					}
+					},
 				});
-				setTimeout(() => { frm._dashboard_html_called = false; }, 2000);
+				setTimeout(function () {
+					if (frm) frm._dashboard_html_called = false;
+				}, 2000);
 			}
 		}
 
 		// Load documents summary HTML in Documents tab
-		_load_documents_html(frm);
+		if (!frm._logistics_template_populate_busy && !frappe.ui.form.is_saving) {
+			_load_documents_html(frm);
+		}
 		if (frm.layout && frm.layout.wrapper) {
 			frm.layout.wrapper.off('click.documents_html').on('click.documents_html', '[data-fieldname="documents_tab"]', function() {
 				_load_documents_html(frm);
@@ -453,7 +488,7 @@ frappe.ui.form.on('Sea Shipment', {
 
 		_is_milestone_tracking_enabled(frm).then(function(enabled) {
 			_apply_milestone_tracking_visibility(frm, enabled);
-			if (enabled) {
+			if (enabled && !frm._logistics_template_populate_busy && !frappe.ui.form.is_saving) {
 				_load_milestone_html(frm);
 				if (frm.layout && frm.layout.wrapper) {
 					frm.layout.wrapper.off('click.milestone_html').on('click.milestone_html', '[data-fieldname="milestones_tab"]', function() {
@@ -551,7 +586,7 @@ frappe.ui.form.on('Sea Shipment', {
 						if (window.logistics_show_create_internal_job_dialog) {
 							_openInternalJobDlg();
 						} else {
-							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=19', _openInternalJobDlg);
+							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=20', _openInternalJobDlg);
 						}
 					}, __('Create'));
 				}
@@ -727,6 +762,56 @@ function _sea_shipment_add_recognition_buttons(frm) {
 	}
 }
 
+// Container cargo rollup from package lines (Issue #919)
+function _apply_container_cargo_to_form(frm, container_cargo) {
+	if (!container_cargo || !container_cargo.length || !frm.doc.containers) return;
+	container_cargo.forEach(function(item) {
+		var row = (frm.doc.containers || []).find(function(c) {
+			return (item.idx && c.idx === item.idx) || (item.name && c.name === item.name);
+		});
+		if (!row) return;
+		row.packages_in_container = item.packages_in_container;
+		row.weight_in_container = item.weight_in_container;
+		row.volume_in_container = item.volume_in_container;
+		row.max_weight = item.max_weight;
+		row.max_volume = item.max_volume;
+		row.utilization_percentage = item.utilization_percentage;
+	});
+	frm.refresh_field('containers');
+	var grid = frm.fields_dict.containers && frm.fields_dict.containers.grid;
+	if (grid && grid.grid_form && grid.grid_form.doc) {
+		var gd = grid.grid_form.doc;
+		var match = container_cargo.find(function(item) { return item.idx === gd.idx; });
+		if (match) {
+			['packages_in_container', 'weight_in_container', 'volume_in_container',
+				'max_weight', 'max_volume', 'utilization_percentage'].forEach(function(f) {
+				if (match[f] !== undefined) grid.grid_form.set_value(f, match[f]);
+			});
+		}
+	}
+}
+
+function _refresh_container_cargo_metrics(frm) {
+	frappe.call({
+		method: 'logistics.sea_freight.container_row_metrics.compute_container_cargo_metrics',
+		args: { doc: frm.doc },
+		freeze: false,
+		callback: function(r) {
+			if (r && !r.exc && r.message && r.message.container_cargo) {
+				_apply_container_cargo_to_form(frm, r.message.container_cargo);
+			}
+		}
+	});
+}
+
+function _refresh_container_cargo_debounced(frm) {
+	if (frm._container_cargo_timer) clearTimeout(frm._container_cargo_timer);
+	frm._container_cargo_timer = setTimeout(function() {
+		frm._container_cargo_timer = null;
+		_refresh_container_cargo_metrics(frm);
+	}, 300);
+}
+
 // Packing summary: total_containers, total_teus, total_packages from packages and containers tables
 function _is_grid_dialog_open() {
 	if (typeof cur_dialog !== 'undefined' && cur_dialog && cur_dialog.display) return true;
@@ -760,6 +845,7 @@ function _refresh_packing_summary_api(frm) {
 				if (msg.total_containers !== undefined) frm.set_value('total_containers', msg.total_containers);
 				if (msg.total_teus !== undefined) frm.set_value('total_teus', msg.total_teus);
 				if (msg.total_packages !== undefined) frm.set_value('total_packages', msg.total_packages);
+				if (msg.container_cargo) _apply_container_cargo_to_form(frm, msg.container_cargo);
 			}
 		}
 	});
@@ -837,31 +923,48 @@ function _create_sales_invoice_from_sea_shipment(frm) {
 	}, __('Create Sales Invoice'));
 }
 
-// Sea Freight Packages: refresh total_packages (and volume/weight) when packages change
+function _sea_shipment_package_or_container_changed(frm) {
+	_refresh_container_cargo_debounced(frm);
+	_refresh_packing_summary_debounced(frm);
+}
+
+// Sea Freight Packages: refresh totals and per-container cargo when packages change
 frappe.ui.form.on('Sea Freight Packages', {
 	form_render: function(frm) {
-		_refresh_packing_summary_debounced(frm);
+		_sea_shipment_package_or_container_changed(frm);
+	},
+	container: function(frm) {
+		_sea_shipment_package_or_container_changed(frm);
 	},
 	no_of_packs: function(frm) {
-		_refresh_packing_summary_debounced(frm);
+		_sea_shipment_package_or_container_changed(frm);
+	},
+	weight: function(frm) {
+		_sea_shipment_package_or_container_changed(frm);
+	},
+	weight_uom: function(frm) {
+		_sea_shipment_package_or_container_changed(frm);
+	},
+	volume: function(frm) {
+		_sea_shipment_package_or_container_changed(frm);
+	},
+	volume_uom: function(frm) {
+		_sea_shipment_package_or_container_changed(frm);
 	}
 });
 
-// Sea Freight Containers: refresh total_containers and total_teus when containers change
+// Sea Freight Containers: refresh capacity metrics when container type changes
 frappe.ui.form.on('Sea Freight Containers', {
 	form_render: function(frm) {
-		_refresh_packing_summary_debounced(frm);
+		_refresh_container_cargo_debounced(frm);
+		if (!_is_grid_dialog_open()) {
+			_refresh_packing_summary_debounced(frm);
+		}
 	},
 	type: function(frm) {
-		_refresh_packing_summary_debounced(frm);
-	},
-	packages_in_container: function(frm) {
-		_refresh_packing_summary_debounced(frm);
-	},
-	weight_in_container: function(frm) {
-		_refresh_packing_summary_debounced(frm);
-	},
-	volume_in_container: function(frm) {
-		_refresh_packing_summary_debounced(frm);
+		_refresh_container_cargo_debounced(frm);
+		if (!_is_grid_dialog_open()) {
+			_refresh_packing_summary_debounced(frm);
+		}
 	}
 });

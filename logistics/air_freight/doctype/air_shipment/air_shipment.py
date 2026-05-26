@@ -323,13 +323,13 @@ class AirShipment(Document):
 				
 				if (milestone.actual_end and milestone.actual_end > milestone.planned_end and 
 					original_status.lower() in ['completed', 'finished', 'done']):
-					# Show both completed and delayed badges
+					# Event both completed and delayed badges
 					status_badges = [
 						'<span class="status-badge completed">Completed</span>',
 						'<span class="status-badge delayed">Delayed</span>'
 					]
 				else:
-					# Show single status badge
+					# Event single status badge
 					status_badges = [f'<span class="status-badge {status_class}">{status}</span>']
 				
 				# Build action icons - show only if dates are not present
@@ -3032,6 +3032,17 @@ for _fname, _src in _MAWB_VIRTUAL_FIELD_SOURCES:
 		_fname,
 		property(lambda self, s=_src: (self._get_mawb_row() or {}).get(s)),
 	)
+
+
+@frappe.whitelist()
+def fetch_air_shipment_dashboard_html(docname):
+	"""Return Dashboard tab HTML without run_doc_method / check_if_latest (avoids TimestampMismatchError)."""
+	if not docname or str(docname).startswith("new-"):
+		return ""
+	if not frappe.db.exists("Air Shipment", docname):
+		return ""
+	doc = frappe.get_doc("Air Shipment", docname)
+	return doc.get_dashboard_html()
 
 
 @frappe.whitelist()

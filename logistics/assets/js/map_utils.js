@@ -338,7 +338,7 @@ window.MapUtils = {
     },
 
     /**
-     * Show map fallback when map fails to load
+     * Event map fallback when map fails to load
      */
     showMapFallback(mapContainerId, originLabel, destLabel) {
         const mapElement = document.getElementById(mapContainerId);

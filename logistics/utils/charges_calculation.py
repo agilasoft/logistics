@@ -87,11 +87,14 @@ PARENT_QUANTITY_FIELDS = {
     "Sea Booking": ("total_weight", "total_volume", "total_pieces", "total_teu", "total_containers"),
     "Sea Shipment": ("total_weight", "total_volume", "total_pieces", "total_teu", "total_containers"),
     "Sea Consolidation": ("total_weight", "chargeable_weight", "total_volume", "total_packages", "total_teu", "total_containers"),
+    "Air Consolidation": ("total_weight", "chargeable_weight", "total_volume", "total_packages", "total_teu", "total_containers"),
     "Declaration": ("total_weight", "total_volume", "total_pieces"),
     "Declaration Order": ("total_weight", "total_volume", "total_pieces"),
     "Transport Order": ("total_weight", "total_volume", "total_distance", "total_pieces"),
     "Transport Job": ("total_weight", "total_volume", "total_distance", "total_pieces"),
     "Warehouse Job": ("total_weight", "total_volume", "total_pieces"),
+    # Programme header has no cargo totals; charge math uses flat-rate / tariff context (quantities default to 0).
+    "Special Project": ("total_weight", "total_volume", "total_pieces", "total_teu", "total_containers"),
 }
 
 # Allowed keys for client-supplied parent snapshot (calculate_charge_row); blocks arbitrary setattr.
@@ -200,6 +203,67 @@ def get_charge_bill_to_customers(charge: Any) -> List[str]:
     return []
 
 
+_CUSTOMS_PARENT_DOCTYPES = frozenset({"Declaration", "Declaration Order"})
+
+
+def _customs_line_field(row: Any, fieldname: str) -> Any:
+    if isinstance(row, dict):
+        return row.get(fieldname)
+    return getattr(row, fieldname, None)
+
+
+def _sum_customs_line_chargeable_weight(parent_doc: Any) -> float:
+    """Sum commercial invoice line chargeable weights (UOM-aware) for customs charge quantity."""
+    lines = getattr(parent_doc, "commercial_invoice_line_items", None) or []
+    if not lines:
+        return 0.0
+
+    company = getattr(parent_doc, "company", None)
+    from logistics.utils.measurements import convert_weight, get_default_uoms
+
+    defaults = get_default_uoms(company)
+    target_uom = defaults.get("chargeable_weight") or defaults.get("weight")
+    total = 0.0
+
+    for row in lines:
+        cw = flt(_customs_line_field(row, "chargeable_weight") or 0)
+        from_uom = _customs_line_field(row, "chargeable_weight_uom")
+        if cw <= 0:
+            cw = flt(_customs_line_field(row, "gross_weight") or 0)
+            if cw <= 0:
+                continue
+            from_uom = _customs_line_field(row, "gross_weight_uom")
+
+        if target_uom and from_uom:
+            try:
+                total += convert_weight(cw, from_uom=from_uom, to_uom=target_uom, company=company)
+            except Exception:
+                total += cw
+        else:
+            total += cw
+
+    return flt(total)
+
+
+@frappe.whitelist()
+def sum_customs_line_chargeable_weight(commercial_invoice_line_items=None, company=None):
+    """Whitelisted sum of line chargeable weights for desk charge_row_parent_overrides."""
+    import json
+
+    if isinstance(commercial_invoice_line_items, str):
+        try:
+            commercial_invoice_line_items = json.loads(commercial_invoice_line_items)
+        except Exception:
+            commercial_invoice_line_items = []
+    lines = commercial_invoice_line_items or []
+    parent = frappe._dict(
+        doctype="Declaration",
+        company=company,
+        commercial_invoice_line_items=[frappe._dict(row) for row in lines],
+    )
+    return _sum_customs_line_chargeable_weight(parent)
+
+
 def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
     """Extract quantity data from parent document for charge calculation.
 
@@ -236,6 +300,13 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
     chargeable_weight = flt(
         _get_field(parent_doc, "chargeable", "chargeable_weight") or 0
     )
+    if parent_doctype in _CUSTOMS_PARENT_DOCTYPES:
+        line_cw = _sum_customs_line_chargeable_weight(parent_doc)
+        if line_cw > 0:
+            if chargeable_weight <= 0:
+                chargeable_weight = line_cw
+            if weight <= 0:
+                weight = line_cw
     volume = flt(
         _get_field(
             parent_doc,
@@ -243,6 +314,10 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
             "air_volume", "sea_volume", "transport_volume"
         ) or 0
     )
+    if parent_doctype in ("Air Consolidation", "Sea Consolidation") and chargeable_weight <= 0:
+        vol_w = volume * (1000.0 / 6.0) if volume else 0.0
+        if weight > 0 or vol_w > 0:
+            chargeable_weight = max(weight, vol_w)
     pieces = flt(
         _get_field(parent_doc, "total_pieces", "total_packages", "pieces") or 0
     )
@@ -1241,6 +1316,9 @@ CHARGE_DOCTYPES = (
     "Air Shipment Charges",
     "Sea Booking Charges",
     "Sea Shipment Charges",
+    "Sea Consolidation Charges",
+    "Air Consolidation Charges",
+    "Special Project Charges",
     "Declaration Charges",
     "Declaration Order Charges",
 )
@@ -1297,6 +1375,8 @@ DISBURSEMENT_FIELD_MAP = {
     "Declaration Order Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS,
     "Sea Shipment Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS
     + (("buying_currency", "selling_currency"),),
+    "Special Project Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS
+    + (("buying_currency", "selling_currency"),),
     "Declaration Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS
     + (("buying_currency", "selling_currency"),),
 }
@@ -1340,6 +1420,7 @@ def apply_disbursement_charge_calculation_if_applicable(doc: Any, parent_doc: Op
         "Transport Job Charges",
         "Air Shipment Charges",
         "Sea Shipment Charges",
+        "Special Project Charges",
         "Declaration Charges",
     ):
         if hasattr(doc, "actual_revenue"):

@@ -7,7 +7,9 @@
  "field_order": [
   "erpnext_project_section",
   "default_project_type",
-  "column_break_sp"
+  "column_break_sp",
+  "lifecycle_section",
+  "strict_lifecycle_mode"
  ],
  "fields": [
   {
@@ -25,6 +27,18 @@
   {
    "fieldname": "column_break_sp",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "lifecycle_section",
+   "fieldtype": "Section Break",
+   "label": "Lifecycle"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, lifecycle stage cannot advance until all checklist jobs in the current stage are Completed or N/A.",
+   "fieldname": "strict_lifecycle_mode",
+   "fieldtype": "Check",
+   "label": "Strict Lifecycle Mode"
   }
  ],
  "index_web_pages_for_search": 1,

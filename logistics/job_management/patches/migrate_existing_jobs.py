@@ -86,7 +86,7 @@ def execute():
     
     if errors:
         print("\nErrors:")
-        for err in errors[:10]:  # Show first 10 errors
+        for err in errors[:10]:  # Event first 10 errors
             print(f"  - {err['job']}: {err['error']}")
         if len(errors) > 10:
             print(f"  ... and {len(errors) - 10} more")

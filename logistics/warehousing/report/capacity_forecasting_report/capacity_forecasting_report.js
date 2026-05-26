@@ -93,7 +93,7 @@ frappe.query_reports["Capacity Forecasting Report"] = {
 		},
 		{
 			"fieldname": "show_trend_analysis",
-			"label": __("Show Trend Analysis"),
+			"label": __("Event Trend Analysis"),
 			"fieldtype": "Check",
 			"default": 1,
 			"description": __("Include trend analysis in the report")
@@ -103,7 +103,7 @@ frappe.query_reports["Capacity Forecasting Report"] = {
 			"label": __("Alert Threshold %"),
 			"fieldtype": "Float",
 			"default": 0,
-			"description": __("Show only locations with forecasted utilization >= this percentage (0 = show all)")
+			"description": __("Event only locations with forecasted utilization >= this percentage (0 = show all)")
 		},
 		{
 			"fieldname": "group_by",

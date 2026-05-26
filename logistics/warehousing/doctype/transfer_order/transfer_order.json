@@ -100,6 +100,7 @@
    "fieldname": "project",
    "fieldtype": "Link",
    "label": "Project",
+   "no_copy": 1,
    "options": "Project",
    "description": "ERPNext Project for Special Projects integration",
    "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]"

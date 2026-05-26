@@ -101,6 +101,7 @@ PAGE_MAP = {
     "internal_and_intercompany_billing": "Internal-And-Intercompany-Billing",
     # Special Projects
     "special_projects_module": "Special-Projects-Module",
+    "special_project_site_materials": "Special-Project-Site-Materials",
     "uld_type": "ULD-Type",
     "logistics_milestone": "Logistics-Milestone",
     # Pages
@@ -227,6 +228,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 ## Special Projects
 
 - [Special Projects Module](Special-Projects-Module) – Complex multi-mode projects, scoping, resources, and milestone billing
+- [Special Project — Site Materials](Special-Project-Site-Materials) – Programme site inventory, receipts, and partial shipment creation
 
 ## Pages (Mobile & Field)
 
@@ -352,6 +354,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 
 **Special Projects**
 - [Special Projects Module](Special-Projects-Module)
+- [Special Project — Site Materials](Special-Project-Site-Materials)
 
 **Pages**
 - [Pages Overview](Pages-Overview)

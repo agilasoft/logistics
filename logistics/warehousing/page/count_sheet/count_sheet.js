@@ -633,7 +633,7 @@ function create_counting_interface(page) {
 		let filter_type = $('#filter_type').val();
 		
 		if (filter_value.trim() === '') {
-			// Show all items when filter is empty
+			// Event all items when filter is empty
 			$('.item-row').show();
 		} else {
 			filter_items(filter_value, filter_type);

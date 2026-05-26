@@ -6,9 +6,25 @@
 
 frappe.ui.form.on("VAS Order", {
   refresh(frm) {
+    if (frm.doc.contract && frm.doc.docstatus === 0) {
+      frm.add_custom_button(__("Get Charges from Contract"), function () {
+        const meaningful = (frm.doc.charges || []).some((r) =>
+          r.item_code || r.charge_item || r.item || r.item_charge
+        );
+        if (meaningful) {
+          frappe.confirm(
+            __("Replace all charge lines with VAS charges from this contract?"),
+            () => populate_vas_order_charges_from_contract(frm, true)
+          );
+        } else {
+          populate_vas_order_charges_from_contract(frm, true);
+        }
+      }, __("Action"));
+    }
+
     if (frm.is_new()) return;
 
-    // Show while Draft/Submitted (hide when Cancelled)
+    // Event while Draft/Submitted (hide when Cancelled)
     if (frm.doc.docstatus < 2) {
       frm.add_custom_button(
         __("Warehouse Job"),
@@ -34,6 +50,7 @@ frappe.ui.form.on("VAS Order", {
           }
         }
       });
+      populate_vas_order_charges_from_contract(frm, false);
     } else {
       // Clear shipper and consignee if contract is cleared
       frm.set_value("shipper", "");
@@ -95,6 +112,64 @@ function _fetch(frm, cdt, cdn, context){
     args: { contract, item_code, context },
     callback: (r) => _apply_vals(cdt, cdn, r.message)
   });
+}
+
+/** VAS charge lines from Warehouse Contract (empty table only unless replace). */
+function populate_vas_order_charges_from_contract(frm, replace) {
+  if (!frm.doc.contract) return;
+  if (!replace && (frm.doc.charges || []).length) return;
+
+  frappe.call({
+    method: "logistics.warehousing.doctype.warehouse_job.warehouse_job.get_contract_charge_items",
+    args: { warehouse_contract: frm.doc.contract, context: "vas" },
+    callback: function (r) {
+      const msg = r.message || {};
+      if (!msg.ok) {
+        frappe.msgprint({
+          title: __("Contract charges"),
+          message: msg.message || __("Could not load charges from the contract."),
+          indicator: "red",
+        });
+        return;
+      }
+      const items = msg.items || [];
+      if (!items.length) {
+        frappe.show_alert({
+          message: __("No VAS charges are set on this Warehouse Contract."),
+          indicator: "orange",
+        });
+        return;
+      }
+      if (replace) {
+        frm.clear_table("charges");
+      }
+      const cdt = "VAS Order Charges";
+      items.forEach(function (ci) {
+        if (!ci.item_charge) return;
+        const row = frappe.model.add_child(frm.doc, "charges");
+        const cdn = row.name;
+        frappe.model.set_value(cdt, cdn, "item_code", ci.item_charge);
+        if (ci.item_name) frappe.model.set_value(cdt, cdn, "item_name", ci.item_name);
+        if (typeof ci.rate === "number") frappe.model.set_value(cdt, cdn, "rate", ci.rate);
+        if (ci.currency) frappe.model.set_value(cdt, cdn, "currency", ci.currency);
+        if (ci.uom) frappe.model.set_value(cdt, cdn, "uom", ci.uom);
+        frappe.model.set_value(cdt, cdn, "quantity", 1);
+        recalc_vas_charge_total(cdt, cdn);
+      });
+      frm.refresh_field("charges");
+      frappe.show_alert(
+        { message: __("Added {0} charge line(s) from contract.", [items.length]), indicator: "green" },
+        4
+      );
+    },
+  });
+}
+
+function recalc_vas_charge_total(cdt, cdn) {
+  const row = locals[cdt][cdn];
+  const qty = parseFloat(row.quantity) || 0;
+  const rate = parseFloat(row.rate) || 0;
+  frappe.model.set_value(cdt, cdn, "total", qty * rate);
 }
 
 frappe.ui.form.on("VAS Order Charges", {
@@ -182,7 +257,12 @@ frappe.ui.form.on("VAS Order Charges", {
 
 
 frappe.ui.form.on("VAS Order", {
-  onload(frm) { maybe_set_planned_date(frm); },
+  onload(frm) {
+    maybe_set_planned_date(frm);
+    if (frm.doc.contract && !(frm.doc.charges || []).length) {
+      populate_vas_order_charges_from_contract(frm, false);
+    }
+  },
   before_save(frm) { if (!frm.doc.planned_date) maybe_set_planned_date(frm, true); }
 });
 

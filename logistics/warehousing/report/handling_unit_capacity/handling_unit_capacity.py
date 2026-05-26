@@ -249,7 +249,7 @@ def get_data(filters):
 		where_clauses.append("hu.supplier = %(supplier)s")
 		params["supplier"] = filters.get("supplier")
 	
-	# Show inactive filter
+	# Event inactive filter
 	if not filters.get("show_inactive"):
 		where_clauses.append("hu.status != 'Inactive'")
 	

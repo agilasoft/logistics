@@ -95,7 +95,7 @@ refresh(frm) {
                 frm.save();
             });
         } else {
-            // Show Submit button if user has permission
+            // Event Submit button if user has permission
             if (frm.perm && frm.perm[0] && frm.perm[0].submit) {
                 frm.page.set_primary_action(__("Submit"), function() {
                     frm.savesubmit();

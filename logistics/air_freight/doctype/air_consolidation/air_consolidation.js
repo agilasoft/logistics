@@ -116,24 +116,23 @@ frappe.ui.form.on('Air Consolidation', {
 				_load_milestone_html(frm);
 			});
 		}
-		(function lock_planned_shipments_grid() {
+		(function lock_planning_and_cargo_grids() {
 			const planningLocked =
 				(frm.doc.air_planning_status || "Draft") === "Submitted" && frm.doc.docstatus === 0;
-			if (!frm.fields_dict.consolidation_planning_lines) {
-				return;
-			}
-			frm.set_df_property("consolidation_planning_lines", "read_only", planningLocked ? 1 : 0);
-			frm.set_df_property(
-				"consolidation_planning_lines",
-				"cannot_add_rows",
-				planningLocked ? 1 : 0
-			);
-			frm.set_df_property(
-				"consolidation_planning_lines",
-				"cannot_delete_rows",
-				planningLocked ? 1 : 0
-			);
-			frm.refresh_field("consolidation_planning_lines");
+			["consolidation_planning_lines", "consolidation_packages"].forEach(function (fieldname) {
+				if (!frm.fields_dict[fieldname]) {
+					return;
+				}
+				frm.set_df_property(fieldname, "read_only", planningLocked ? 1 : 0);
+				frm.set_df_property(fieldname, "cannot_add_rows", planningLocked ? 1 : 0);
+				frm.set_df_property(fieldname, "cannot_delete_rows", planningLocked ? 1 : 0);
+				frm.refresh_field(fieldname);
+				if (planningLocked && window.logistics_hide_cannot_add_rows_buttons) {
+					setTimeout(function () {
+						window.logistics_hide_cannot_add_rows_buttons(frm, fieldname);
+					}, 0);
+				}
+			});
 		})();
 		if (!frm.doc.__islocal && frm.doc.docstatus === 0) {
 			if ((frm.doc.air_planning_status || "Draft") === "Draft") {
@@ -145,9 +144,14 @@ frappe.ui.form.on('Air Consolidation', {
 					}
 				}, __("Action"));
 			}
+			const distinctPlannedAirShipments = new Set(
+				(frm.doc.consolidation_planning_lines || [])
+					.map((row) => row.air_shipment)
+					.filter(Boolean)
+			).size;
 			if (
 				(frm.doc.air_planning_status || "Draft") === "Draft" &&
-				(frm.doc.consolidation_planning_lines || []).length
+				distinctPlannedAirShipments >= 2
 			) {
 				frm.add_custom_button(
 					__("Submit planned shipments"),
@@ -171,7 +175,7 @@ frappe.ui.form.on('Air Consolidation', {
 					function () {
 						frappe.confirm(
 							__(
-								"This is only allowed after removing packages that reference air shipments. Planning will return to draft: planned shipments stay listed, the table becomes editable again, and you can add more from Aligned Air Shipments. Continue?"
+								"Planning will return to draft. Planned shipments and packages stay as they are; the tables become editable again, and you can add more from Aligned Air Shipments. Continue?"
 							),
 							function () {
 								frm.call("cancel_air_planning_submit").then(function () {
@@ -253,6 +257,34 @@ frappe.ui.form.on("Air Consolidation Packages", {
 	temperature_controlled: function (frm) {
 		frm.refresh_field("consolidation_packages");
 	},
+	air_freight_job: function (frm) {
+		refresh_consolidation_charges_quantities_from_parent(frm);
+	},
+});
+
+frappe.ui.form.on("Air Consolidation Planning Line", {
+	air_shipment: function (frm) {
+		refresh_consolidation_charges_quantities_from_parent(frm);
+	},
+});
+
+// Inline grid: unit_type / UOM / method → quantity + amounts without save.
+frappe.ui.form.on("Air Consolidation", "consolidation_charges", {
+	unit_type: function (frm, cdt, cdn) {
+		if (window.logistics && logistics.update_air_consolidation_charge_row_from_parent) {
+			logistics.update_air_consolidation_charge_row_from_parent(frm, cdt, cdn);
+		}
+	},
+	unit_of_measure: function (frm, cdt, cdn) {
+		if (window.logistics && logistics.update_air_consolidation_charge_row_from_parent) {
+			logistics.update_air_consolidation_charge_row_from_parent(frm, cdt, cdn);
+		}
+	},
+	revenue_calculation_method: function (frm, cdt, cdn) {
+		if (window.logistics && logistics.update_air_consolidation_charge_row_from_parent) {
+			logistics.update_air_consolidation_charge_row_from_parent(frm, cdt, cdn);
+		}
+	},
 });
 
 // Air Consolidation Routes child table events
@@ -271,28 +303,6 @@ frappe.ui.form.on('Air Consolidation Routes', {
     
     cargo_capacity_volume: function(frm, cdt, cdn) {
         calculate_capacity_utilization(frm, cdt, cdn);
-    }
-});
-
-// Air Consolidation Charges child table events
-frappe.ui.form.on('Air Consolidation Charges', {
-    revenue_calculation_method: function(frm, cdt, cdn) {
-        update_charge_calculation(frm, cdt, cdn);
-    },
-    unit_type: function(frm, cdt, cdn) {
-        update_charge_calculation(frm, cdt, cdn);
-    },
-    
-    rate: function(frm, cdt, cdn) {
-        calculate_charge_amount(frm, cdt, cdn);
-    },
-    
-    quantity: function(frm, cdt, cdn) {
-        calculate_charge_amount(frm, cdt, cdn);
-    },
-    
-    discount_percentage: function(frm, cdt, cdn) {
-        calculate_charge_amount(frm, cdt, cdn);
     }
 });
 
@@ -390,6 +400,30 @@ function add_consolidation_buttons(frm) {
         frm.add_custom_button(__('Check Capacity'), function() {
             check_capacity_availability(frm);
         }, __('Action'));
+
+        if (!frm.doc.__islocal && frm.doc.docstatus === 0) {
+            frm.add_custom_button(__('Copy routing from shipment'), function () {
+                copy_routing_from_shipment_dialog(frm);
+            }, __('Action'));
+            if (frm.doc.origin_airport && frm.doc.destination_airport) {
+                frm.add_custom_button(__('Populate routing from airports'), function () {
+                    frappe.call({
+                        method:
+                            'logistics.air_freight.doctype.air_consolidation.air_consolidation.populate_routing_from_airports',
+                        args: { docname: frm.doc.name },
+                        callback: function (r) {
+                            if (r.message && r.message.message) {
+                                frm.reload_doc();
+                                frappe.show_alert({
+                                    message: __(r.message.message),
+                                    indicator: 'green',
+                                }, 4);
+                            }
+                        },
+                    });
+                }, __('Action'));
+            }
+        }
     }
     
     if (frm.doc.status === 'Planning' || frm.doc.status === 'Ready for Departure') {
@@ -402,9 +436,63 @@ function add_consolidation_buttons(frm) {
         }, __('Action'));
     }
     
-    frm.add_custom_button(__('Consolidation Summary'), function() {
-        show_consolidation_summary(frm);
-    }, __('Action'));
+}
+
+function copy_routing_from_shipment_dialog(frm) {
+    var planned = (frm.doc.consolidation_planning_lines || [])
+        .map(function (row) { return row.air_shipment; })
+        .filter(Boolean);
+    var fields = [
+        {
+            fieldtype: 'Link',
+            fieldname: 'air_shipment',
+            label: __('Air Shipment'),
+            options: 'Air Shipment',
+            reqd: 1,
+            get_query: function () {
+                var filters = [];
+                if (frm.doc.origin_airport) {
+                    filters.push(['origin_port', '=', frm.doc.origin_airport]);
+                }
+                if (frm.doc.destination_airport) {
+                    filters.push(['destination_port', '=', frm.doc.destination_airport]);
+                }
+                if (planned.length) {
+                    filters.push(['name', 'in', planned]);
+                }
+                return { filters: filters };
+            },
+        },
+    ];
+    if (planned.length === 1) {
+        fields[0].default = planned[0];
+    }
+    var d = new frappe.ui.Dialog({
+        title: __('Copy routing from shipment'),
+        fields: fields,
+        primary_action_label: __('Copy'),
+        primary_action: function (values) {
+            frappe.call({
+                method:
+                    'logistics.air_freight.doctype.air_consolidation.air_consolidation.populate_routing_from_air_shipment',
+                args: {
+                    docname: frm.doc.name,
+                    air_shipment: values.air_shipment,
+                },
+                callback: function (r) {
+                    if (r.message && r.message.message) {
+                        frm.reload_doc();
+                        frappe.show_alert({
+                            message: __(r.message.message),
+                            indicator: 'green',
+                        }, 4);
+                    }
+                },
+            });
+            d.hide();
+        },
+    });
+    d.show();
 }
 
 function add_air_freight_job(frm) {
@@ -635,47 +723,6 @@ function show_cost_breakdown_dialog(cost_breakdown) {
     d.show();
 }
 
-function show_consolidation_summary(frm) {
-    frm.call('get_consolidation_summary').then(r => {
-        if (r.message) {
-            show_consolidation_summary_dialog(r.message);
-        }
-    });
-}
-
-function show_consolidation_summary_dialog(summary) {
-    let html = '<div class="consolidation-summary">';
-    html += '<h4>Consolidation Summary</h4>';
-    html += `<p><strong>Consolidation ID:</strong> ${summary.consolidation_id}</p>`;
-    html += `<p><strong>Status:</strong> ${summary.status}</p>`;
-    html += `<p><strong>Type:</strong> ${summary.consolidation_type}</p>`;
-    html += `<p><strong>Route:</strong> ${summary.route}</p>`;
-    html += `<p><strong>Departure:</strong> ${summary.departure}</p>`;
-    html += `<p><strong>Arrival:</strong> ${summary.arrival}</p>`;
-    html += `<p><strong>Airline:</strong> ${summary.airline} ${summary.flight_number}</p>`;
-    html += `<p><strong>Total Jobs:</strong> ${summary.total_jobs}</p>`;
-    html += `<p><strong>Total Packages:</strong> ${summary.total_packages}</p>`;
-    html += `<p><strong>Total Weight:</strong> ${summary.total_weight} kg</p>`;
-    html += `<p><strong>Total Volume:</strong> ${summary.total_volume} m³</p>`;
-    html += `<p><strong>Chargeable Weight:</strong> ${summary.chargeable_weight} kg</p>`;
-    html += `<p><strong>Consolidation Ratio:</strong> ${summary.consolidation_ratio}%</p>`;
-    html += `<p><strong>Cost per kg:</strong> ${summary.cost_per_kg}</p>`;
-    
-    html += '</div>';
-    
-    let d = new frappe.ui.Dialog({
-        title: __('Consolidation Summary'),
-        size: 'large',
-        fields: [
-            {
-                'fieldtype': 'HTML',
-                'fieldname': 'summary_html',
-                'options': html
-            }
-        ]
-    });
-    d.show();
-}
 
 function update_consolidation_metrics(frm) {
     if (frm.doc.consolidation_packages && frm.doc.consolidation_packages.length > 0) {
@@ -704,12 +751,13 @@ function update_consolidation_metrics(frm) {
             frm.set_value('consolidation_ratio', consolidation_ratio);
         }
     }
+    refresh_consolidation_charges_quantities_from_parent(frm);
 }
 
 function update_consolidation_type_fields(frm) {
     // Update form fields based on consolidation type
     if (frm.doc.consolidation_type === 'Transit Consolidation') {
-        // Show additional fields for transit consolidation
+        // Event additional fields for transit consolidation
         frm.set_df_property('transit_airport', 'reqd', 1);
     } else {
         frm.set_df_property('transit_airport', 'reqd', 0);
@@ -791,38 +839,33 @@ function calculate_capacity_utilization(frm, cdt, cdn) {
     }
 }
 
-function update_charge_calculation(frm, cdt, cdn) {
-    let row = locals[cdt][cdn];
-    if (row.revenue_calculation_method === 'Per Unit') {
-        if (row.unit_type === 'Weight' && frm.doc.chargeable_weight) {
-            row.quantity = frm.doc.chargeable_weight;
-        } else if (row.unit_type === 'Chargeable Weight') {
-            row.quantity = frm.doc.chargeable_weight || frm.doc.total_weight || 0;
-        } else if (row.unit_type === 'Volume' && frm.doc.total_volume) {
-            row.quantity = frm.doc.total_volume;
-        } else if ((row.unit_type === 'Package' || row.unit_type === 'Piece') && frm.doc.total_packages) {
-            row.quantity = frm.doc.total_packages;
-        }
+function refresh_consolidation_charges_quantities_from_parent(frm) {
+    if (!frm.doc.consolidation_charges || !frm.doc.consolidation_charges.length) {
+        return;
     }
-    calculate_charge_amount(frm, cdt, cdn);
-}
-
-function calculate_charge_amount(frm, cdt, cdn) {
-    let row = locals[cdt][cdn];
-    if (row.rate && row.quantity) {
-        row.base_amount = row.rate * row.quantity;
-        
-        // Calculate discount
-        if (row.discount_percentage) {
-            row.discount_amount = row.base_amount * (row.discount_percentage / 100);
-        } else {
-            row.discount_amount = 0;
-        }
-        
-        // Calculate total
-        row.total_amount = row.base_amount - row.discount_amount + (row.surcharge_amount || 0);
-        frm.refresh_field('consolidation_charges');
+    if (
+        !window.logistics ||
+        !logistics.sync_air_consolidation_charge_qty_to_grid
+    ) {
+        return;
     }
+    var cdt = "Air Consolidation Charges";
+    (frm.doc.consolidation_charges || []).forEach(function (row) {
+        if (!row.name) {
+            return;
+        }
+        if (row.revenue_calculation_method !== "Per Unit") {
+            return;
+        }
+        if (logistics.update_air_consolidation_charge_row_from_parent) {
+            logistics.update_air_consolidation_charge_row_from_parent(
+                frm,
+                cdt,
+                row.name,
+                { server: false }
+            );
+        }
+    });
 }
 
 function update_consolidation_totals(frm) {

@@ -18,6 +18,7 @@
   "column_break_1",
   "sales_quote",
   "status",
+  "lifecycle_stage",
   "priority",
   "start_date",
   "end_date",
@@ -28,17 +29,37 @@
   "special_handling_instructions",
   "scoping_tab",
   "scoping_activities",
-  "jobs_tab",
-  "section_internal_jobs",
-  "internal_job_details",
+  "lifecycle_tab",
+  "lifecycle_jobs",
   "cost_revenue_section",
   "cost_revenue_html",
-  "deliveries_tab",
-  "deliveries",
-  "billings_tab",
-  "billings",
+  "site_materials_tab",
+  "site_materials_summary",
+  "section_break_site_materials_req",
+  "site_materials",
+  "section_break_site_receipts",
+  "site_receipts",
+  "charges_tab",
+  "column_break_sp_chg_1",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_sp_chg_2",
+  "job_number",
+  "column_break_sp_chg_3",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "section_break_sp_chg",
+  "billing_status",
+  "charges",
+  "section_break_operational_exchange_rates",
+  "operational_exchange_rates",
   "milestones_tab",
+  "section_break_milestones",
   "milestone_html",
+  "milestone_template",
   "milestones",
   "documents_tab",
   "documents_section",
@@ -55,7 +76,9 @@
   "terms",
   "service_level_agreement_section",
   "logistics_service_level",
-  "service_level_details"
+  "service_level_details",
+  "connections_tab",
+  "amended_from"
  ],
  "fields": [
   {
@@ -75,18 +98,28 @@
    "label": "Milestones"
   },
   {
-   "fieldname": "milestone_html",
-   "fieldtype": "HTML",
-   "is_virtual": 1,
+   "fieldname": "section_break_milestones",
+   "fieldtype": "Section Break",
    "label": "Milestones"
   },
   {
-   "description": "Read-only list synced from Job Milestone on linked logistics jobs when you save.",
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
+   "description": "Optional. Leave blank to use default template for this product type (Special Projects / Shipment or Job).",
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
    "fieldname": "milestones",
    "fieldtype": "Table",
    "label": "Milestones",
-   "options": "Special Project Milestone",
-   "read_only": 1
+   "options": "Special Project Milestone"
   },
   {
    "fieldname": "section_break_basic",
@@ -150,6 +183,16 @@
    "options": "Draft\nScoping\nBooked\nPlanning\nApproved\nIn Progress\nOn Hold\nCompleted\nCancelled"
   },
   {
+   "default": "Pre-Show",
+   "fieldname": "lifecycle_stage",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Lifecycle Stage",
+   "link_filters": "[[\"Lifecycle Stage\", \"for_special_project\", \"=\", 1]]",
+   "options": "Lifecycle Stage"
+  },
+  {
    "fieldname": "priority",
    "fieldtype": "Select",
    "label": "Priority",
@@ -207,53 +250,167 @@
    "options": "Special Project Scoping Activity"
   },
   {
-   "fieldname": "jobs_tab",
+   "fieldname": "lifecycle_tab",
    "fieldtype": "Tab Break",
-   "label": "Jobs"
+   "label": "Lifecycle"
   },
   {
-   "fieldname": "section_internal_jobs",
-   "fieldtype": "Section Break",
-   "label": "Project Jobs"
-  },
-  {
-   "fieldname": "internal_job_details",
+   "fieldname": "lifecycle_jobs",
    "fieldtype": "Table",
-   "label": "Jobs",
-   "options": "Internal Job Detail"
+   "label": "Lifecycle Jobs",
+   "options": "Lifecycle Job"
   },
   {
    "collapsible": 1,
    "fieldname": "cost_revenue_section",
    "fieldtype": "Section Break",
-   "label": "Cost & Revenue Summary"
+   "label": "Cost & Revenue"
   },
   {
    "fieldname": "cost_revenue_html",
    "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Cost & Revenue"
+  },
+  {
+   "fieldname": "site_materials_tab",
+   "fieldtype": "Tab Break",
+   "label": "Fulfillment"
+  },
+  {
+   "fieldname": "site_materials_summary",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
    "label": "Summary"
   },
   {
-   "fieldname": "deliveries_tab",
-   "fieldtype": "Tab Break",
-   "label": "Deliveries"
+   "fieldname": "section_break_site_materials_req",
+   "fieldtype": "Section Break",
+   "label": "Requirements"
   },
   {
-   "fieldname": "deliveries",
+   "fieldname": "site_materials",
    "fieldtype": "Table",
-   "label": "Deliveries",
-   "options": "Special Project Delivery"
+   "label": "Site Materials",
+   "options": "Special Project Site Material"
   },
   {
-   "fieldname": "billings_tab",
-   "fieldtype": "Tab Break",
-   "label": "Billings"
+   "fieldname": "section_break_site_receipts",
+   "fieldtype": "Section Break",
+   "label": "Receipts"
   },
   {
-   "fieldname": "billings",
+   "fieldname": "site_receipts",
    "fieldtype": "Table",
-   "label": "Billings",
-   "options": "Special Project Billing"
+   "label": "Site Receipts",
+   "options": "Special Project Site Receipt"
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "column_break_sp_chg_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "column_break_sp_chg_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Financial posting job number (same pattern as Sea Shipment).",
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "no_copy": 1,
+   "options": "Job Number"
+  },
+  {
+   "fieldname": "column_break_sp_chg_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "section_break_sp_chg",
+   "fieldtype": "Section Break",
+   "label": "Charges"
+  },
+  {
+   "default": "Not Billed",
+   "fieldname": "billing_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Billing Status",
+   "options": "Not Billed\nPending\nPartially Billed\nBilled\nTo Bill\nPaid\nOverdue\nCancelled"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Special Project Charges"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_operational_exchange_rates",
+   "fieldtype": "Section Break",
+   "label": "Exchange Rate Sources"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "operational_exchange_rates",
+   "fieldtype": "Table",
+   "label": "Exchange Rate Sources",
+   "no_copy": 1,
+   "options": "Operational Exchange Rate"
   },
   {
    "fieldname": "documents_tab",
@@ -346,11 +503,39 @@
    "fieldname": "details_tab",
    "fieldtype": "Tab Break",
    "label": "Details"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Special Project",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-05-05 15:46:00.376487",
+ "is_submittable": 1,
+ "links": [
+  {
+   "group": "Project Orders",
+   "link_doctype": "Project Order",
+   "link_fieldname": "special_project"
+  },
+  {
+   "group": "Project Jobs",
+   "link_doctype": "Project Job",
+   "link_fieldname": "special_project"
+  }
+ ],
+ "modified": "2026-05-26 10:10:02.284240",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Special Project",

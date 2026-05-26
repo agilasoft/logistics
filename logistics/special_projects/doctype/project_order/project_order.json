@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "naming_series:",
- "creation": "2026-05-02 00:00:00",
+ "creation": "2026-05-18 00:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
@@ -11,17 +11,17 @@
   "section_basic",
   "naming_series",
   "special_project",
+  "order_title",
   "project_type",
   "customer",
-  "column_break_knaq",
+  "column_break_basic",
+  "sales_quote",
   "priority",
   "status",
   "order_date",
   "required_by",
+  "valid_until",
   "site",
-  "resources_tab",
-  "section_resources",
-  "order_resources",
   "charges_tab",
   "section_order_org",
   "company",
@@ -29,10 +29,12 @@
   "column_break_org",
   "cost_center",
   "profit_center",
-  "column_break_qssw",
+  "column_break_billing",
   "billing_status",
   "section_charges",
   "charges",
+  "section_break_materials_received",
+  "materials_received",
   "milestones_tab",
   "section_milestones",
   "milestone_template",
@@ -44,7 +46,8 @@
   "more_info_tab",
   "section_notes",
   "notes",
-  "connections_tab"
+  "connections_tab",
+  "amended_from"
  ],
  "fields": [
   {
@@ -61,16 +64,24 @@
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "label": "Series",
-   "options": "SPO-.#####",
+   "options": "SPOR-.#####",
    "reqd": 1
   },
   {
    "fieldname": "special_project",
    "fieldtype": "Link",
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Special Project",
    "options": "Special Project",
    "reqd": 1
+  },
+  {
+   "description": "Short label for this order (e.g. phase, site, or scope name).",
+   "fieldname": "order_title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Order Title"
   },
   {
    "fetch_from": "special_project.project_type",
@@ -84,9 +95,22 @@
    "fetch_from": "special_project.customer",
    "fieldname": "customer",
    "fieldtype": "Link",
+   "in_standard_filter": 1,
    "label": "Customer",
    "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_basic",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "special_project.sales_quote",
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "label": "Sales Quote",
+   "options": "Sales Quote",
    "read_only": 1
   },
   {
@@ -102,13 +126,15 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Status",
-   "options": "Draft\nSubmitted\nIn Progress\nCompleted\nCancelled"
+   "options": "Draft\nSubmitted\nConfirmed\nIn Progress\nCompleted\nCancelled"
   },
   {
    "default": "Today",
    "fieldname": "order_date",
    "fieldtype": "Date",
+   "in_list_view": 1,
    "label": "Order Date"
   },
   {
@@ -117,28 +143,18 @@
    "label": "Required By"
   },
   {
-   "description": "Customer address where project tasks under this order will be executed.",
+   "description": "Commercial validity of this order (booking window).",
+   "fieldname": "valid_until",
+   "fieldtype": "Date",
+   "label": "Valid Until"
+  },
+  {
+   "description": "Primary site or address for work under this order.",
    "fieldname": "site",
    "fieldtype": "Link",
    "label": "Site",
    "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
-  },
-  {
-   "fieldname": "resources_tab",
-   "fieldtype": "Tab Break",
-   "label": "Resources"
-  },
-  {
-   "fieldname": "section_resources",
-   "fieldtype": "Section Break",
-   "label": "Resources Required"
-  },
-  {
-   "fieldname": "order_resources",
-   "fieldtype": "Table",
-   "label": "Resources",
-   "options": "Project Task Job Resource"
   },
   {
    "fieldname": "charges_tab",
@@ -147,7 +163,8 @@
   },
   {
    "fieldname": "section_order_org",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Organization"
   },
   {
    "fieldname": "company",
@@ -160,6 +177,10 @@
    "fieldtype": "Link",
    "label": "Branch",
    "options": "Branch"
+  },
+  {
+   "fieldname": "column_break_org",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "cost_center",
@@ -175,7 +196,7 @@
    "options": "Profit Center"
   },
   {
-   "fieldname": "column_break_org",
+   "fieldname": "column_break_billing",
    "fieldtype": "Column Break"
   },
   {
@@ -194,7 +215,19 @@
    "fieldname": "charges",
    "fieldtype": "Table",
    "label": "Charges",
-   "options": "Transport Job Charges"
+   "options": "Special Project Charges"
+  },
+  {
+   "description": "Materials received on site as part of this order. Posted to the parent Special Project's Site Receipts on submit.",
+   "fieldname": "section_break_materials_received",
+   "fieldtype": "Section Break",
+   "label": "Materials Received"
+  },
+  {
+   "fieldname": "materials_received",
+   "fieldtype": "Table",
+   "label": "Materials Received",
+   "options": "Project Job Material"
   },
   {
    "fieldname": "milestones_tab",
@@ -216,7 +249,7 @@
    "fieldname": "milestones",
    "fieldtype": "Table",
    "label": "Milestones",
-   "options": "Transport Job Milestone"
+   "options": "Special Project Milestone"
   },
   {
    "fieldname": "documents_tab",
@@ -262,30 +295,40 @@
    "show_dashboard": 1
   },
   {
-   "fieldname": "column_break_qssw",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "column_break_knaq",
-   "fieldtype": "Column Break"
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Project Order",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [
   {
-   "group": "Project Task Jobs",
-   "link_doctype": "Project Task Job",
+   "group": "Project Orders",
+   "link_doctype": "Project Order",
+   "link_fieldname": "special_project"
+  },
+  {
+   "group": "Project Jobs",
+   "link_doctype": "Project Job",
    "link_fieldname": "special_project_order"
   }
  ],
- "modified": "2026-05-04 16:31:07.057425",
+ "modified": "2026-05-21 18:02:46.982349",
  "modified_by": "Administrator",
  "module": "Special Projects",
- "name": "Project Task Order",
+ "name": "Project Order",
  "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -295,9 +338,12 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   },
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -307,6 +353,7 @@
    "report": 1,
    "role": "Projects Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   }
  ],
@@ -314,5 +361,6 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
+ "title_field": "order_title",
  "track_changes": 1
 }

@@ -78,7 +78,7 @@ logistics.profitability.load_profitability_html = function(frm) {
 		return;
 	}
 
-	// Show loading state immediately so we know the section can display content
+	// Event loading state immediately so we know the section can display content
 	set_html("<p class=\"text-muted\"><i class=\"fa fa-spinner fa-spin\"></i> " + __("Loading profitability...") + "</p>");
 
 	frappe.call({

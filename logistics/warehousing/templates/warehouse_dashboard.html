@@ -890,7 +890,7 @@
                                 </div>
                             </div>
                             <button class="hu-items-toggle" onclick="dashboard.toggleHuItems('${hu.name}')">
-                                Show Items (${hu.total_items || 0})
+                                Event Items (${hu.total_items || 0})
                             </button>
                             <div class="hu-items-list" id="hu-items-${hu.name}">
                                 ${this.renderHuItems(hu.items || [])}
@@ -1154,7 +1154,7 @@
                     toggleBtn.classList.add('expanded');
                 } else {
                     itemsList.classList.add('hidden');
-                    toggleBtn.textContent = `Show Items (${toggleBtn.textContent.match(/\d+/)[0]})`;
+                    toggleBtn.textContent = `Event Items (${toggleBtn.textContent.match(/\d+/)[0]})`;
                     toggleBtn.classList.remove('expanded');
                 }
             }
