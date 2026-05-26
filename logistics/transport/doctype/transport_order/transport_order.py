@@ -64,6 +64,26 @@ SALES_QUOTE_CHARGE_FIELDS = [
 SALES_QUOTE_CHARGE_SOURCE_FIELDS = list(SALES_QUOTE_CHARGE_FIELDS) + ["unit_rate"]
 
 
+def _strip_legacy_quote_if_sales_quote_cleared_on_new_doc(doc):
+    """Desk Duplicate omits ``no_copy`` ``sales_quote`` but may still copy legacy ``quote`` / ``quote_type``.
+    :func:`_sync_quote_and_sales_quote` would then refill ``sales_quote`` from ``quote``. Strip the stale
+    legacy fields when that pattern matches (and skip during data import).
+    """
+    if frappe.flags.in_import or not doc.is_new():
+        return
+    sq_df = doc.meta.get_field("sales_quote")
+    if not (sq_df and getattr(sq_df, "no_copy", None)):
+        return
+    if getattr(doc, "sales_quote", None):
+        return
+    qt = getattr(doc, "quote_type", None)
+    q = getattr(doc, "quote", None)
+    if not q or qt not in ("Sales Quote", "One-Off Quote"):
+        return
+    doc.quote_type = None
+    doc.quote = None
+
+
 def _sync_quote_and_sales_quote(doc):
     """Sync quote_type/quote with sales_quote for backward compatibility."""
     if getattr(doc, "quote_type", None) == "Sales Quote" and getattr(doc, "quote", None):
@@ -79,8 +99,48 @@ def _sync_quote_and_sales_quote(doc):
         doc.quote = doc.sales_quote
 
 
+def _apply_duplicate_pricing_clear(doc):
+    """Strip charge child rows and quote links (used for desk Duplicate and after link propagation)."""
+    for row in list(doc.get("charges") or []):
+        try:
+            doc.remove(row)
+        except Exception:
+            pass
+    doc.set("charges", [])
+    doc.sales_quote = None
+    if doc.meta.get_field("quote"):
+        doc.quote = None
+    if doc.meta.get_field("quote_type"):
+        doc.quote_type = None
+
+
+def _clear_pricing_after_desk_duplicate(doc):
+    """New doc created via Duplicate: drop charges, Sales Quote, and legacy quote fields.
+    Desk sets ``logistics_duplicate_from`` to the source document name; we clear pricing and the marker
+    before the rest of ``validate`` (which can otherwise restore ``sales_quote`` from ``quote``).
+
+    Sets ``doc.flags.logistics_duplicate_pricing_cleared`` so ``before_save`` link propagation does not
+    refill ``sales_quote`` from linked Air/Sea Shipment (see ``propagate_sales_quote_from_source_if_empty``).
+    """
+    if frappe.flags.in_import or not doc.is_new():
+        return
+    try:
+        has_marker_col = frappe.db.has_column(doc.doctype, "logistics_duplicate_from")
+    except Exception:
+        has_marker_col = False
+    if not has_marker_col:
+        return
+    marker = (getattr(doc, "logistics_duplicate_from", None) or "").strip()
+    if not marker:
+        return
+    doc.flags.logistics_duplicate_pricing_cleared = True
+    _apply_duplicate_pricing_clear(doc)
+    doc.logistics_duplicate_from = None
+
+
 class TransportOrder(Document):
     def validate(self):
+        _clear_pricing_after_desk_duplicate(self)
         from logistics.utils.charges_calculation import (
             clear_charge_resolution_parent,
             register_charge_resolution_parent,
@@ -91,6 +151,7 @@ class TransportOrder(Document):
             from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 
             validate_internal_job_main_link_unchanged(self)
+            _strip_legacy_quote_if_sales_quote_cleared_on_new_doc(self)
             # Preserve quote field value before syncing (to prevent it from being cleared)
             # Get original values from database if document exists
             original_quote = None
@@ -251,6 +312,8 @@ class TransportOrder(Document):
 
         finally:
             clear_charge_resolution_parent(self)
+            if getattr(self.flags, "logistics_duplicate_pricing_cleared", False):
+                _apply_duplicate_pricing_clear(self)
 
     def _prepare_header_totals_for_charge_calculation(self):
         """Refresh header totals from packages before charge math."""
@@ -294,7 +357,10 @@ class TransportOrder(Document):
 
     def before_save(self):
         from logistics.utils.module_integration import run_propagate_on_link
+
         run_propagate_on_link(self)
+        if getattr(self.flags, "logistics_duplicate_pricing_cleared", False):
+            _apply_duplicate_pricing_clear(self)
         # Container Management: create/link container for Container orders
         if getattr(self, "transport_job_type", None) == "Container" and getattr(self, "container_no", None):
             try:
@@ -393,6 +459,19 @@ class TransportOrder(Document):
         """Validate transport legs before submitting the Transport Order."""
         # Ensure quote field values are preserved - sync quote and sales_quote before submission
         _sync_quote_and_sales_quote(self)
+        from logistics.utils.get_charges_from_quotation import (
+            assert_sales_quote_customer_matches_job_before_submit,
+        )
+
+        assert_sales_quote_customer_matches_job_before_submit(self)
+
+        if not getattr(self, "transport_template", None):
+            frappe.throw(
+                _(
+                    "Transport Template is required. Please select a Transport Template "
+                    "before submitting the Transport Order."
+                )
+            )
         
         # Validate quote reference: either sales_quote (for Sales Quote) or quote (for One-Off Quote) must be set
         quote_type = getattr(self, "quote_type", None)
@@ -417,6 +496,12 @@ class TransportOrder(Document):
         self._validate_vehicle_type_required()
         
         self._validate_transport_legs()
+
+        from logistics.utils.charge_service_type import (
+            assert_destination_service_charges_on_submit_unless_internal_job,
+        )
+
+        assert_destination_service_charges_on_submit_unless_internal_job(self)
     
     def on_submit(self):
         """Ensure quote field values remain after submission; update One-off Sales Quote when converted.
@@ -453,6 +538,18 @@ class TransportOrder(Document):
         if current_sales_quote:
             from logistics.pricing_center.doctype.sales_quote.sales_quote import update_one_off_quote_on_submit
             update_one_off_quote_on_submit(current_sales_quote, self.name, self.doctype)
+
+        try:
+            from logistics.special_projects.special_project_site_materials import (
+                post_site_receipts_from_transport_order,
+            )
+
+            post_site_receipts_from_transport_order(self)
+        except Exception:
+            frappe.log_error(
+                frappe.get_traceback(),
+                f"Transport Order {self.name}: site materials receipt post",
+            )
     
     def on_cancel(self):
         """Reset One-off Sales Quote status when Transport Order is cancelled."""
@@ -465,6 +562,18 @@ class TransportOrder(Document):
         if current_sales_quote:
             from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
             reset_one_off_quote_on_cancel(current_sales_quote)
+
+        try:
+            from logistics.special_projects.special_project_site_materials import (
+                cancel_receipts_for_transport_order,
+            )
+
+            cancel_receipts_for_transport_order(self)
+        except Exception:
+            frappe.log_error(
+                frappe.get_traceback(),
+                f"Transport Order {self.name}: site materials receipt cancel",
+            )
 
     def _validate_transport_legs(self):
         """Validate that transport legs have complete details and scheduled_date if filled."""
@@ -1122,34 +1231,55 @@ class TransportOrder(Document):
         # This prevents errors when the document is being saved for the first time
         if self.name and self.name.startswith("new-"):
             return
-            
-        if self.has_value_changed("sales_quote"):
+
+        # After first INSERT, Frappe often leaves ``_doc_before_save`` unset in this hook, so
+        # ``has_value_changed`` returns True for every field. Treating that as "Sales Quote changed"
+        # runs ``_populate_charges_from_sales_quote``, which clears charges then rebuilds from the
+        # quote filter — wiping Duplicate / copied lines when the filter yields fewer rows than the
+        # source doc (or none). Only ignore that false positive when we already persisted charge rows.
+        prev = self.get_doc_before_save()
+        charges_after_insert = bool(self.get("charges"))
+
+        sales_quote_effectively_changed = self.has_value_changed("sales_quote")
+        if sales_quote_effectively_changed and prev is None and charges_after_insert:
+            sales_quote_effectively_changed = False
+
+        if sales_quote_effectively_changed:
             if self.sales_quote:
                 self._populate_charges_from_sales_quote()
             else:
-                # Clear charges if sales_quote is removed
-                self.set("charges", [])
-                frappe.msgprint(
-                    "Charges cleared as Sales Quote was removed",
-                    title="Charges Updated",
-                    indicator="blue"
-                )
+                # Clear charges only when updating an existing row and the user removed the link —
+                # not on first insert / Duplicate (``has_value_changed`` is a false positive when
+                # ``_doc_before_save`` is unset and ``sales_quote`` was never copied due to ``no_copy``).
+                prev_doc = self.get_doc_before_save()
+                if prev_doc and prev_doc.get("sales_quote"):
+                    self.set("charges", [])
+                    frappe.msgprint(
+                        "Charges cleared as Sales Quote was removed",
+                        title="Charges Updated",
+                        indicator="blue"
+                    )
         
-        # Handle One-Off Quote changes
-        if self.has_value_changed("quote") or self.has_value_changed("quote_type"):
+        # Handle One-Off Quote changes (same insert false-positive as above)
+        quote_fields_effectively_changed = self.has_value_changed("quote") or self.has_value_changed("quote_type")
+        if quote_fields_effectively_changed and prev is None and charges_after_insert:
+            quote_fields_effectively_changed = False
+
+        if quote_fields_effectively_changed:
             if getattr(self, "quote_type", None) == "One-Off Quote" and self.quote:
                 self._populate_charges_from_one_off_quote()
             elif getattr(self, "quote_type", None) == "One-Off Quote" and not self.quote:
-                # Clear charges if One-Off Quote is removed
-                self.set("charges", [])
-                frappe.msgprint(
-                    "Charges cleared as One-Off Quote was removed",
-                    title="Charges Updated",
-                    indicator="blue"
-                )
+                prev_doc = self.get_doc_before_save()
+                if prev_doc and prev_doc.get("quote"):
+                    self.set("charges", [])
+                    frappe.msgprint(
+                        "Charges cleared as One-Off Quote was removed",
+                        title="Charges Updated",
+                        indicator="blue"
+                    )
 
     def _populate_charges_from_sales_quote(self):
-        """Populate charges based on sales_quote_transport of the filled sales_quote."""
+        """Populate charges from all Sales Quote Charge lines linked to ``sales_quote``."""
         if not self.sales_quote:
             return
 
@@ -1166,36 +1296,7 @@ class TransportOrder(Document):
             # Clear existing charges
             self.set("charges", [])
 
-            # Check separate_billings_per_service_type setting and if this is the main job
-            separate_billings = True  # Default to separate (current behavior)
-            is_main_job = False
-            
-            try:
-                sales_quote_doc = frappe.get_doc("Sales Quote", self.sales_quote)
-                separate_billings = getattr(sales_quote_doc, "separate_billings_per_service_type", 0) or False
-                
-                # Check if this Transport Order is the main job by checking routing legs
-                if hasattr(sales_quote_doc, "routing_legs") and sales_quote_doc.routing_legs:
-                    for leg in sales_quote_doc.routing_legs:
-                        leg_job_no = getattr(leg, "job_no", None)
-                        # job_no may be empty while creating the Transport Order from the quote (leg is linked after charges run)
-                        if (
-                            getattr(leg, "is_main_job", 0)
-                            and getattr(leg, "job_type", None) == "Transport Order"
-                            and (not leg_job_no or leg_job_no == self.name)
-                        ):
-                            is_main_job = True
-                            break
-                
-                # Fallback: check if main_service matches and no routing legs exist
-                if not is_main_job and (not hasattr(sales_quote_doc, "routing_legs") or not sales_quote_doc.routing_legs):
-                    if getattr(sales_quote_doc, "main_service", None) == "Transport":
-                        is_main_job = True
-            except Exception:
-                # If we can't get the sales quote, default to separate billings (current behavior)
-                pass
-
-            # Fetch from Sales Quote Charge (Transport) or Sales Quote Transport (legacy)
+            # All Sales Quote Charge lines for this quote (every service type).
             fields_to_fetch = (
                 ["name", "service_type", "location_from", "location_to"]
                 + SALES_QUOTE_CHARGE_SOURCE_FIELDS
@@ -1204,19 +1305,9 @@ class TransportOrder(Document):
             legacy_transport_fields = filter_fields_existing_in_doctype(
                 "Sales Quote Transport", fields_to_fetch
             )
-            
-            # Build filters based on separate_billings_per_service_type setting
+
             filters = {"parent": self.sales_quote, "parenttype": "Sales Quote"}
-            
-            # If separate_billings is unchecked AND this is the main job, get ALL charges
-            # Otherwise, filter by service_type="Transport"
-            if not separate_billings and is_main_job:
-                # Main job gets all charges regardless of service_type
-                pass  # No service_type filter
-            else:
-                # Each service gets only its own charges
-                filters["service_type"] = "Transport"
-            
+
             sales_quote_transport_records = frappe.get_all(
                 "Sales Quote Charge",
                 filters=filters,
@@ -1236,7 +1327,7 @@ class TransportOrder(Document):
 
             if not sales_quote_transport_records:
                 frappe.msgprint(
-                    f"No transport charges found in Sales Quote: {self.sales_quote}",
+                    _("No charges found in Sales Quote: {0}").format(self.sales_quote),
                     title="No Charges Found",
                     indicator="orange"
                 )
@@ -1451,6 +1542,14 @@ def get_dashboard_html_by_name(docname):
     return doc.get_dashboard_html()
 
 
+@frappe.whitelist()
+def transport_order_exists(docname):
+    """Return True if the Transport Order exists. Used by the client to poll before navigating so the desk does not show 'not found' right after create."""
+    if not docname or docname == "new":
+        return False
+    return bool(frappe.db.exists("Transport Order", docname))
+
+
 # -------------------------------------------------------------------
 # Internal helpers
 # -------------------------------------------------------------------
@@ -1653,35 +1752,7 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
                 "charges": []
             }
         
-        # Check separate_billings_per_service_type setting and if this is the main job
-        separate_billings = True  # Default to separate (current behavior)
-        is_main_job = False
-        
-        try:
-            sales_quote_doc = frappe.get_doc("Sales Quote", sales_quote)
-            separate_billings = getattr(sales_quote_doc, "separate_billings_per_service_type", 0) or False
-            
-            # Check if this Transport Order is the main job by checking routing legs
-            if docname and hasattr(sales_quote_doc, "routing_legs") and sales_quote_doc.routing_legs:
-                for leg in sales_quote_doc.routing_legs:
-                    leg_job_no = getattr(leg, "job_no", None)
-                    if (
-                        getattr(leg, "is_main_job", 0)
-                        and getattr(leg, "job_type", None) == "Transport Order"
-                        and (not leg_job_no or leg_job_no == docname)
-                    ):
-                        is_main_job = True
-                        break
-            
-            # Fallback: check if main_service matches and no routing legs exist
-            if not is_main_job and (not hasattr(sales_quote_doc, "routing_legs") or not sales_quote_doc.routing_legs):
-                if getattr(sales_quote_doc, "main_service", None) == "Transport":
-                    is_main_job = True
-        except Exception:
-            # If we can't get the sales quote, default to separate billings (current behavior)
-            pass
-        
-        # Fetch from Sales Quote Charge (Transport) or Sales Quote Transport (legacy)
+        # All Sales Quote Charge lines for this quote (every service type).
         fields_to_fetch = (
             ["name", "service_type", "location_from", "location_to"]
             + SALES_QUOTE_CHARGE_SOURCE_FIELDS
@@ -1690,19 +1761,9 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
         legacy_transport_fields = filter_fields_existing_in_doctype(
             "Sales Quote Transport", fields_to_fetch
         )
-        
-        # Build filters based on separate_billings_per_service_type setting
+
         filters = {"parent": sales_quote, "parenttype": "Sales Quote"}
-        
-        # If separate_billings is unchecked AND this is the main job, get ALL charges
-        # Otherwise, filter by service_type="Transport"
-        if not separate_billings and is_main_job:
-            # Main job gets all charges regardless of service_type
-            pass  # No service_type filter
-        else:
-            # Each service gets only its own charges
-            filters["service_type"] = "Transport"
-        
+
         sales_quote_transport_records = frappe.get_all(
             "Sales Quote Charge",
             filters=filters,
@@ -1726,7 +1787,7 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
         if not sales_quote_transport_records:
             return {
                 "charges": [],
-                "message": f"No transport charges found in Sales Quote: {sales_quote}"
+                "message": _("No charges found in Sales Quote: {0}").format(sales_quote),
             }
         
         # Map and populate charges
@@ -1761,10 +1822,9 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
 
 def append_transport_order_charges_from_sales_quote_if_empty(order):
     """
-    When the charge table is empty, load Transport lines from the linked Sales Quote
+    When the charge table is empty, load all Sales Quote Charge lines from the linked Sales Quote
     (same rules as populate_charges_from_sales_quote). Used after create Transport Order
-    from Air/Sea Shipment: shipment copy only brings Transport-tagged rows from the shipment,
-    which are often absent when Separate Billings per Service Type is on.
+    from Air/Sea Shipment: shipment copy may omit lines that only exist on the quote.
     """
     if not getattr(order, "sales_quote", None):
         return
@@ -2143,6 +2203,7 @@ def action_create_transport_job(docname: str):
             "air_shipment": getattr(doc, "air_shipment", None),
             "sea_shipment": getattr(doc, "sea_shipment", None),
             "is_main_service": getattr(doc, "is_main_service", None),
+            "is_high_value": getattr(doc, "is_high_value", None),
             "is_internal_job": getattr(doc, "is_internal_job", None),
             "main_job_type": getattr(doc, "main_job_type", None),
             "main_job": getattr(doc, "main_job", None),
@@ -2382,51 +2443,146 @@ def _get_vehicle_type_container_field():
     return None
 
 
-@frappe.whitelist()
-def get_allowed_vehicle_types(transport_job_type: str, refrigeration: bool = False) -> Dict[str, Any]:
-    """Get allowed vehicle types for a transport job type based on boolean columns and reefer.
-    Uses ignore_permissions so link-field filtering works for users who cannot read
-    restricted fields (e.g. container) on Vehicle Type."""
+def _bool_param(value) -> bool:
+    return value in (True, 1) or (isinstance(value, str) and value == "1")
+
+
+def _vehicle_type_names_for_job_type(
+    transport_job_type: str,
+    refrigeration: bool = False,
+) -> list[str]:
+    """Vehicle Type names allowed for a transport job type (containerized, special, etc.)."""
     if not transport_job_type:
-        return {"vehicle_types": []}
-    
+        return []
+
     meta = frappe.get_meta("Vehicle Type")
-    filters = {}
-    
-    # Filter by container flag (support both "container" and "containerized" field names)
+    filters: dict[str, Any] = {"is_active": 1}
+
     container_field = _get_vehicle_type_container_field()
     if container_field:
         if transport_job_type == "Container":
             filters[container_field] = 1
         elif transport_job_type == "Non-Container":
             filters[container_field] = 0
-    
-    # Filter by boolean columns for specific transport job types
+
     if transport_job_type == "Special":
-        filters["special"] = 1
         filters["reefer"] = 1
+        if meta.has_field("special"):
+            filters["special"] = 1
     elif transport_job_type == "Oversized":
-        filters["oversized"] = 1
+        if meta.has_field("oversized"):
+            filters["oversized"] = 1
     elif transport_job_type == "Heavy Haul":
-        filters["heavy_haul"] = 1
+        if meta.has_field("heavy_haul"):
+            filters["heavy_haul"] = 1
     elif transport_job_type == "Multimodal":
         if meta.has_field("multimodal"):
             filters["multimodal"] = 1
-    
-    if refrigeration and transport_job_type != "Special":
+
+    if _bool_param(refrigeration) and transport_job_type != "Special":
         filters["reefer"] = 1
-    
-    # ignore_permissions=True so link dropdown can show allowed types without requiring
-    # read permission on fields like container/containerized
-    vehicle_types = frappe.get_all(
+
+    return frappe.get_all(
         "Vehicle Type",
         filters=filters,
+        pluck="name",
+        order_by="code",
+        ignore_permissions=True,
+    )
+
+
+def _vehicle_type_names_for_load_type(
+    load_type: str,
+    hazardous: bool = False,
+    reefer: bool = False,
+) -> list[str]:
+    """Vehicle Type names that allow the given load type (+ optional hazardous/reefer)."""
+    if not load_type or not frappe.db.exists("Load Type", load_type):
+        return []
+
+    rows = frappe.db.sql(
+        """
+        SELECT DISTINCT parent
+        FROM `tabVehicle Type Load Types`
+        WHERE load_type = %s
+        AND parent IS NOT NULL
+        """,
+        (load_type,),
+        as_dict=True,
+    )
+    names = [row.parent for row in rows if row.parent]
+    if not names:
+        return []
+
+    filters: dict[str, Any] = {"name": ["in", names], "is_active": 1}
+    if _bool_param(hazardous):
+        filters["hazardous"] = 1
+    if _bool_param(reefer):
+        filters["reefer"] = 1
+
+    return frappe.get_all(
+        "Vehicle Type",
+        filters=filters,
+        pluck="name",
+        ignore_permissions=True,
+    )
+
+
+def _intersect_vehicle_type_names(*name_lists: list[str]) -> list[str]:
+    """Intersect vehicle type name lists; empty list means no constraint for that dimension."""
+    result: set[str] | None = None
+    for names in name_lists:
+        if not names:
+            continue
+        current = set(names)
+        result = current if result is None else result & current
+    return sorted(result or [])
+
+
+@frappe.whitelist()
+def get_allowed_vehicle_types(transport_job_type: str, refrigeration: bool = False) -> Dict[str, Any]:
+    """Get allowed vehicle types for a transport job type based on boolean columns and reefer.
+    Uses ignore_permissions so link-field filtering works for users who cannot read
+    restricted fields (e.g. container) on Vehicle Type."""
+    names = _vehicle_type_names_for_job_type(transport_job_type, refrigeration)
+    vehicle_types = frappe.get_all(
+        "Vehicle Type",
+        filters={"name": ["in", names]} if names else {"name": ["in", []]},
         fields=["name", "code", "description"],
         order_by="code",
         ignore_permissions=True,
     )
-    
     return {"vehicle_types": vehicle_types}
+
+
+@frappe.whitelist()
+def get_vehicle_types_for_transport_order(
+    transport_job_type: str | None = None,
+    load_type: str | None = None,
+    hazardous: bool = False,
+    reefer: bool = False,
+) -> Dict[str, Any]:
+    """Combined whitelist for Transport Order Vehicle Type link (job type ∩ load type ∩ flags)."""
+    if not transport_job_type and not load_type:
+        return {"vehicle_types": []}
+
+    lists_to_intersect: list[list[str]] = []
+    if transport_job_type:
+        lists_to_intersect.append(
+            _vehicle_type_names_for_job_type(transport_job_type, reefer)
+        )
+    if load_type:
+        lists_to_intersect.append(
+            _vehicle_type_names_for_load_type(load_type, hazardous, reefer)
+        )
+
+    if not lists_to_intersect:
+        return {"vehicle_types": []}
+
+    if len(lists_to_intersect) == 1:
+        return {"vehicle_types": sorted(lists_to_intersect[0])}
+
+    return {"vehicle_types": _intersect_vehicle_type_names(*lists_to_intersect)}
 
 
 @frappe.whitelist()
@@ -2519,41 +2675,9 @@ def get_vehicle_types_for_load_type(
 
     Uses ignore_permissions so link filtering works without field-level read on hazardous/reefer.
     """
-    if not load_type:
-        return {"vehicle_types": []}
-
-    if not frappe.db.exists("Load Type", load_type):
-        return {"vehicle_types": []}
-
-    # Vehicle Types that have this load_type in allowed_load_types (child table)
-    vehicle_types = frappe.db.sql("""
-        SELECT DISTINCT parent
-        FROM `tabVehicle Type Load Types`
-        WHERE load_type = %s
-        AND parent IS NOT NULL
-    """, (load_type,), as_dict=True)
-    vehicle_type_names = [vt.parent for vt in vehicle_types if vt.parent]
-    if not vehicle_type_names:
-        return {"vehicle_types": []}
-
-    # Optionally restrict by hazardous and/or reefer (ignore_permissions for link-filter use)
-    need_hazardous = hazardous in (True, 1) or (isinstance(hazardous, str) and hazardous == "1")
-    need_reefer = reefer in (True, 1) or (isinstance(reefer, str) and reefer == "1")
-    if need_hazardous or need_reefer:
-        filters = {"name": ["in", vehicle_type_names]}
-        if need_hazardous:
-            filters["hazardous"] = 1
-        if need_reefer:
-            filters["reefer"] = 1
-        filtered = frappe.get_all(
-            "Vehicle Type",
-            filters=filters,
-            pluck="name",
-            ignore_permissions=True,
-        )
-        vehicle_type_names = list(filtered)
-
-    return {"vehicle_types": vehicle_type_names}
+    return {
+        "vehicle_types": _vehicle_type_names_for_load_type(load_type, hazardous, reefer)
+    }
 
 
 @frappe.whitelist()

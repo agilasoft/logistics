@@ -1766,7 +1766,7 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 					job["consolidation_type"] = "Both"
 				
 			elif consolidation_type == "Route":
-				# Route: Show all consolidatable jobs (same as blank filter)
+				# Route: Event all consolidatable jobs (same as blank filter)
 				# Set consolidation_type to "Route" for all jobs for display purposes
 				for job in consolidatable_jobs:
 					job["consolidation_type"] = "Route"

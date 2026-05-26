@@ -157,7 +157,7 @@
    "default": "1",
    "fieldname": "routing_show_map",
    "fieldtype": "Check",
-   "label": "Routing Show Map"
+   "label": "Routing Event Map"
   },
   {
    "fieldname": "map_renderer",
@@ -499,14 +499,14 @@
    "fieldname": "warn_on_missing_vehicle_avg_speed",
    "fieldtype": "Check",
    "label": "Warn on Missing Vehicle Average Speed",
-   "description": "Show warning when vehicle doesn't have avg_speed set"
+   "description": "Event warning when vehicle doesn't have avg_speed set"
   },
   {
    "default": "1",
    "fieldname": "warn_on_missing_cargo_volume",
    "fieldtype": "Check",
    "label": "Warn on Missing Cargo Volume",
-   "description": "Show warning when cargo volume cannot be calculated for loading/unloading time"
+   "description": "Event warning when cargo volume cannot be calculated for loading/unloading time"
   },
   {
    "default": "1",

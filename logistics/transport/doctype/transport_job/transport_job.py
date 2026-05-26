@@ -183,6 +183,12 @@ class TransportJob(Document):
     
     def before_submit(self):
         """Mark document as submitting and set status to Submitted"""
+        from logistics.utils.charge_service_type import (
+            assert_destination_service_charges_on_submit_unless_internal_job,
+        )
+
+        assert_destination_service_charges_on_submit_unless_internal_job(self)
+
         # Set flag to prevent before_save from calling update_status during submission
         self._submitting = True
         

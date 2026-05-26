@@ -409,7 +409,7 @@ class RemoraProvider:
             if device['status']:
                 print(f"  Status:            {device['status']}")
             
-            # Show all available fields from raw data
+            # Event all available fields from raw data
             print(f"  All Fields:        {', '.join(str(k) for k in device['raw'].keys() if device['raw'].get(k))}")
             print()
 

@@ -34,6 +34,79 @@ function cr_item_charge_field_for_service_type(st) {
 	return m[c] || null;
 }
 
+/**
+ * Static link_filters on item_code (disabled=0 only) override get_query on every Link search.
+ * Strip so Service Type → Item logistics checkbox filters apply (same as Sales Quote Charge).
+ */
+function cr_strip_charge_item_code_link_filters_from_meta(frm) {
+	const df = frappe.meta.get_docfield("Change Request Charge", "item_code");
+	if (df && df.link_filters) {
+		df.link_filters = null;
+	}
+	if (frm && frm.fields_dict && frm.fields_dict.charges && frm.fields_dict.charges.grid) {
+		const gdf = frm.fields_dict.charges.grid.get_docfield("item_code");
+		if (gdf && gdf.link_filters) {
+			gdf.link_filters = null;
+		}
+	}
+}
+
+/** Item link filters for a charge row from service_type (Item Logistics tab checkboxes). */
+function cr_item_code_filters_for_charge_row(row) {
+	const filters = { disabled: 0 };
+	if (!row) return filters;
+	const field = cr_item_charge_field_for_service_type(row.service_type);
+	if (field) {
+		filters[field] = 1;
+	}
+	return filters;
+}
+
+/** Re-apply item_code Link query after service_type changes (grid row or expanded child form). */
+function cr_refresh_charge_item_code_link(frm, cdt, cdn) {
+	const grid = frm.fields_dict.charges && frm.fields_dict.charges.grid;
+	if (grid && cdn && grid.grid_rows_by_docname && grid.grid_rows_by_docname[cdn]) {
+		const grid_row = grid.grid_rows_by_docname[cdn];
+		if (grid_row.refresh_field) {
+			grid_row.refresh_field("item_code");
+		}
+	}
+	if (frappe.ui.form.get_open_grid_form) {
+		const grid_form = frappe.ui.form.get_open_grid_form();
+		if (
+			grid_form &&
+			grid_form.doc &&
+			grid_form.doc.doctype === cdt &&
+			grid_form.doc.name === cdn &&
+			grid_form.fields_dict.item_code
+		) {
+			grid_form.fields_dict.item_code.refresh();
+		}
+	}
+}
+
+/** Resolve charge row for item_code get_query (expanded grid form can pass stale cdn). */
+function cr_resolved_change_request_charge_row(frm, doc, cdt, cdn) {
+	if (cdt !== "Change Request Charge") return null;
+	let row = null;
+	if (cdn) {
+		row = frappe.get_doc(cdt, cdn) || (locals[cdt] && locals[cdt][cdn]) || null;
+	}
+	if ((!row || !row.name) && cdn && doc && doc.charges) {
+		row = doc.charges.find((r) => r.name === cdn) || row;
+	}
+	if ((!row || !row.service_type) && frm && frm.cur_grid && frm.cur_grid.doc) {
+		const d = frm.cur_grid.doc;
+		if (d && d.doctype === cdt) row = d;
+	}
+	if ((!row || !row.service_type) && frappe.ui.form.get_open_grid_form) {
+		const gr = frappe.ui.form.get_open_grid_form();
+		const d = gr && gr.doc;
+		if (d && d.doctype === cdt) row = d;
+	}
+	return row;
+}
+
 function _load_cr_allowed_vehicle_types(frm, load_type, callback) {
 	if (!load_type) {
 		if (callback) callback();
@@ -66,35 +139,8 @@ frappe.ui.form.on("Change Request Charge", {
 			frappe.model.set_value(cdt, cdn, "item_code", "");
 			frappe.model.set_value(cdt, cdn, "item_name", "");
 		}
-		if (row.service_type) {
-			const item_field = cr_item_charge_field_for_service_type(row.service_type);
-			if (item_field) {
-				frm.set_query("item_code", "charges", function (doc, cdt, cdn) {
-					const r = locals[cdt] && locals[cdt][cdn];
-					const field = r && cr_item_charge_field_for_service_type(r.service_type);
-					if (field) {
-						return { filters: { disabled: 0, [field]: 1 } };
-					}
-				});
-			}
-		}
-		frm.refresh_field("charges");
-	},
-
-	item_code: function (frm, cdt, cdn) {
-		const row = frappe.get_doc(cdt, cdn);
-		if (row.service_type) {
-			const item_field = cr_item_charge_field_for_service_type(row.service_type);
-			if (item_field) {
-				frm.set_query("item_code", "charges", function (doc, cdt, cdn) {
-					const r = locals[cdt] && locals[cdt][cdn];
-					const field = r && cr_item_charge_field_for_service_type(r.service_type);
-					if (field) {
-						return { filters: { disabled: 0, [field]: 1 } };
-					}
-				});
-			}
-		}
+		frm.events.setup_item_code_query(frm);
+		cr_refresh_charge_item_code_link(frm, cdt, cdn);
 	},
 
 	charge_type: function (frm, cdt, cdn) {
@@ -204,6 +250,10 @@ function _calculate_change_request_charge_row(frm, cdt, cdn) {
 }
 
 frappe.ui.form.on("Change Request", {
+	onload(frm) {
+		frm.events.setup_item_code_query(frm);
+	},
+
 	charges_add: function (frm, cdt, cdn) {
 		const job_to_service = {
 			"Transport Job": "transport",
@@ -218,7 +268,19 @@ frappe.ui.form.on("Change Request", {
 			frappe.model.set_value(cdt, cdn, "service_type", st);
 		}
 	},
+	setup_item_code_query(frm) {
+		cr_strip_charge_item_code_link_filters_from_meta(frm);
+		if (!frm.fields_dict.charges) return;
+		frm.set_query("item_code", "charges", function (doc, cdt, cdn) {
+			cr_strip_charge_item_code_link_filters_from_meta(frm);
+			const row = cr_resolved_change_request_charge_row(frm, doc, cdt, cdn);
+			return { filters: cr_item_code_filters_for_charge_row(row) };
+		});
+	},
+
 	refresh(frm) {
+		cr_strip_charge_item_code_link_filters_from_meta(frm);
+		frm.events.setup_item_code_query(frm);
 		// Cost lines are pushed to the job when the Change Request is submitted; revenue is updated when the linked Sales Quote is submitted.
 		if (
 			!frm.doc.__islocal &&

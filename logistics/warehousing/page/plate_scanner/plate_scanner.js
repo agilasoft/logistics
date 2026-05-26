@@ -442,7 +442,7 @@ class PlateScannerPage {
         const eta = data[0].eta || 'N/A';
         const savedPlateNumber = data[0].plate_no || plateNumber;
         
-        // Show granted access with dock door info
+        // Event granted access with dock door info
         resultsHTML = `
           <div class="ps-results-found">
             <div class="ps-plate-display">
@@ -468,7 +468,7 @@ class PlateScannerPage {
           </div>
         `;
       } else {
-        // Show not found
+        // Event not found
         resultsHTML = `
           <div class="ps-results-found">
             <div class="ps-plate-display">

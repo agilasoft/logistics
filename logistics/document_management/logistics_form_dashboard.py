@@ -518,6 +518,7 @@ def render_logistics_form_dashboard_html(doc, cfg):
 	- status_slug (optional str for ring), ring_status_from workflow|docstatus
 	- ring_status_field when workflow (default status)
 	- customs_dashboard_enhanced_layout (bool): Declaration / Declaration Order — divider + layout CSS
+	- hide_header_details_body (bool): omit footer KPI strip when meta cluster already shows the same fields
 	"""
 	from logistics.document_management.api import (
 		get_dashboard_alerts,
@@ -741,7 +742,8 @@ def render_logistics_form_dashboard_html(doc, cfg):
 		</style>
 		"""
 
-	header_details = _header_details_html(header_items)
+	hide_header_details_body = bool(cfg.get("hide_header_details_body"))
+	header_details = "" if hide_header_details_body else _header_details_html(header_items)
 	hero_logo = (hero_html or "").strip() or '<span class="log-ab-logo-ph">—</span>'
 	customs_enh = bool(cfg.get("customs_dashboard_enhanced_layout"))
 	dash_root_class = "log-ab-dash run-sheet-dash" + (" log-ab-dash--customs" if customs_enh else "")
@@ -758,10 +760,17 @@ def render_logistics_form_dashboard_html(doc, cfg):
 	border-top: 1px solid var(--ro-border-soft); margin-top: 0.55rem; padding-top: 0.7rem; width: 100%;
 }
 """
-	header_body = (
-		f'<div class="log-ab-customs-secondary-kpis"><div class="header-details">{header_details}</div></div>'
-		if customs_enh
-		else f'<div class="header-details">{header_details}</div>'
+	if hide_header_details_body:
+		header_body = ""
+	elif customs_enh:
+		header_body = (
+			f'<div class="log-ab-customs-secondary-kpis"><div class="header-details">{header_details}</div></div>'
+		)
+	else:
+		header_body = f'<div class="header-details">{header_details}</div>'
+
+	body_block_html = (
+		f'<div class="log-ab-body-block">{header_body}</div>' if header_body else ""
 	)
 
 	return f"""
@@ -779,9 +788,7 @@ def render_logistics_form_dashboard_html(doc, cfg):
 						<div class="ab-summary-aside">{progress_ring_html}</div>
 					</div>
 					{route_section}
-					<div class="log-ab-body-block">
-						{header_body}
-					</div>
+					{body_block_html}
 				</div>
 			</div>
 		</div>
@@ -880,6 +887,8 @@ def build_sea_consolidation_meta_cluster_html(doc):
 		return f'<div class="ab-meta-row"><i class="fa {escape_html(ic)}"></i><span>{span}</span></div>'
 
 	meta_primary_parts = []
+	status = doc.get("status") or "Draft"
+	meta_primary_parts.append(_ab_meta_row("fa-info-circle", status, "Status"))
 	if getattr(doc, "consolidation_type", None):
 		meta_primary_parts.append(_ab_meta_row("fa-sitemap", doc.consolidation_type, "Type"))
 	if getattr(doc, "consolidation_date", None):
@@ -917,6 +926,14 @@ def build_sea_consolidation_meta_cluster_html(doc):
 		if getattr(doc, "voyage_number", None):
 			vv = f"{vv} / {doc.voyage_number}"
 		sec_lines.append(("fa-ship", "Vessel", vv))
+	if getattr(doc, "shipping_line", None):
+		sl_logo = frappe.db.get_value("Shipping Line", doc.shipping_line, "logo")
+		if not sl_logo:
+			sl_name = (
+				frappe.db.get_value("Shipping Line", doc.shipping_line, "shipping_line_name")
+				or doc.shipping_line
+			)
+			sec_lines.append(("fa-ship", "Shipping Line", sl_name))
 	sec_inner = "".join(
 		f'<div class="ab-sec-line"><i class="fa {escape_html(ic)}"></i>'
 		f'<span class="ab-sec-val"><span class="ab-sec-k">{escape_html(lbl)}:</span>'
@@ -966,18 +983,7 @@ def _sea_consolidation_routes_as_map_legs(doc):
 def build_sea_consolidation_dashboard_config(doc):
 	from logistics.document_management.dashboard_layout import build_map_segments_from_routing_legs
 
-	status = doc.get("status") or "Draft"
-	pkgs = doc.total_packages
-	if pkgs is None:
-		pkgs = sum(getattr(p, "package_count", 0) or 0 for p in (doc.consolidation_packages or []))
-	header_items = [
-		("Status", status),
-		("ETD", str(doc.etd) if doc.etd else "—"),
-		("ETA", str(doc.eta) if doc.eta else "—"),
-		("Type", doc.consolidation_type or "—"),
-		("Packages", str(pkgs or 0)),
-		("Weight", frappe.format_value(doc.total_weight or 0, df=dict(fieldtype="Float"))),
-	]
+	header_items = []
 	hero_html = build_shipping_line_hero_html(doc, header_items)
 	map_segments = build_map_segments_from_routing_legs(_sea_consolidation_routes_as_map_legs(doc))
 	cfg = {
@@ -990,6 +996,7 @@ def build_sea_consolidation_dashboard_config(doc):
 		"ring_status_from": "workflow",
 		"ring_status_field": "status",
 		"include_default_dg": False,
+		"hide_header_details_body": True,
 	}
 	if map_segments:
 		cfg["map_points"] = []

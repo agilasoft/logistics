@@ -15,6 +15,9 @@ from logistics.pricing_center.additional_charge_to_job import (
 	_row_val,
 )
 
+# Declaration / Declaration Order charge tables can hold multiple service types (Customs, Sea, Air, …).
+_DECLARATION_JOB_TYPES = frozenset({"Declaration", "Declaration Order"})
+
 
 def _job_currency(job_doc):
 	return (
@@ -195,7 +198,7 @@ def _map_cr_charge_to_declaration_cost(row, cr_name, charge_row_name):
 	rev_method = _row_val(row, "calculation_method") or "Fixed Amount"
 	cost_method = _row_val(row, "cost_calculation_method") or "Fixed Amount"
 	return {
-		"service_type": "Customs",
+		"service_type": _row_val(row, "service_type") or "Customs",
 		"item_code": _row_val(row, "item_code"),
 		"charge_type": "Margin",
 		"charge_category": _row_val(row, "charge_category") or "Other",
@@ -274,7 +277,7 @@ def apply_change_request_charges_to_job(cr_doc):
 		if not _row_val(row, "item_code"):
 			continue
 		st = _row_val(row, "service_type")
-		if st and st != expected_service:
+		if cr_doc.job_type not in _DECLARATION_JOB_TYPES and st and st != expected_service:
 			continue
 		if cr_doc.job_type == "Warehouse Job":
 			charge_data = mapper_fn(row, cr_doc.name, row.name, job_doc)
@@ -437,7 +440,7 @@ def merge_sales_quote_revenue_into_change_request_job_rows(sq_doc):
 		if not _row_val(sq_row, "item_code"):
 			continue
 		st = _row_val(sq_row, "service_type")
-		if st and st != expected_service:
+		if job_type not in _DECLARATION_JOB_TYPES and st and st != expected_service:
 			continue
 		ct = _row_val(sq_row, "charge_type") or "Margin"
 		if ct in ("Cost",):

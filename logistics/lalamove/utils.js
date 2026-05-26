@@ -279,7 +279,7 @@ logistics.lalamove = {
 	},
 	
 	/**
-	 * Show order status dialog
+	 * Event order status dialog
 	 */
 	showOrderStatus: function(lalamoveOrderId) {
 		frappe.call({

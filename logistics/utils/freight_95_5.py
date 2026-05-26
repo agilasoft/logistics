@@ -89,6 +89,65 @@ def split_freight_amounts(total: float, company: Optional[str] = None) -> Tuple[
     return amt_95, amt_5
 
 
+PER_UNIT_CALC_METHODS = ("Per Unit", "Qty Break")
+
+
+def _revenue_calc_method(charge) -> str:
+    return (
+        getattr(charge, "revenue_calculation_method", None)
+        or getattr(charge, "calculation_method", None)
+        or ""
+    ).strip()
+
+
+def resolve_sales_invoice_line_qty_rate(charge, revenue=None, company=None):
+    """
+    Return (line_qty, line_rate, revenue) for Sales Invoice item rows.
+
+    Revenue aligns with WIP recognition (``get_charge_row_selling_amount``).
+    For Per Unit charges, ensure qty × rate matches that revenue at company precision.
+    """
+    from logistics.job_management.recognition_engine import get_charge_row_selling_amount
+
+    prec = _rate_precision(company)
+    selling = flt(get_charge_row_selling_amount(charge), prec)
+    revenue = flt(revenue if revenue is not None else selling, prec)
+    if selling > 0:
+        revenue = selling
+
+    method = _revenue_calc_method(charge)
+    if method not in PER_UNIT_CALC_METHODS:
+        return None, None, revenue
+
+    rate = flt(getattr(charge, "rate", None) or getattr(charge, "unit_rate", None) or 0, prec)
+    if rate <= 0:
+        return None, None, revenue
+
+    qty = flt(getattr(charge, "quantity", None) or 0, prec)
+    if qty <= 0:
+        return None, None, revenue
+
+    product = flt(qty * rate, prec)
+    tol = max(10 ** (-prec) if prec > 0 else 0.01, flt(revenue) * 0.001)
+    if abs(product - revenue) <= tol:
+        return qty, rate, revenue
+
+    # Quantity often needs more decimals than currency rate (e.g. 0.125 m³ × 2500 = 312.5)
+    qty_prec = prec
+    try:
+        q_field = frappe.get_meta(charge.doctype if hasattr(charge, "doctype") else "").get_field("quantity")
+        if q_field and q_field.precision is not None:
+            qty_prec = max(cint(q_field.precision), prec)
+    except Exception:
+        qty_prec = max(prec, 4)
+
+    aligned_qty = flt(revenue / rate, qty_prec) if rate else qty
+    if aligned_qty > 0 and abs(flt(aligned_qty * rate, prec) - revenue) <= tol:
+        return aligned_qty, rate, revenue
+
+    return None, None, revenue
+
+
 def _taxable_template(ch) -> Optional[str]:
     return getattr(ch, "taxable_freight_item_tax_template", None) or None
 

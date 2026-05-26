@@ -95,7 +95,7 @@
    "link_to": "Special Project Billing Status Report",
    "link_type": "Report",
    "onboard": 0,
-   "report_ref_doctype": "Special Project Billing",
+   "report_ref_doctype": "Sea Shipment Charges",
    "type": "Link"
   },
   {

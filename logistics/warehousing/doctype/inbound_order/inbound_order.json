@@ -25,6 +25,7 @@
   "items",
   "quote_reference_section",
   "is_main_service",
+  "is_high_value",
   "sales_quote",
   "column_break_quote_ref",
   "is_internal_job",
@@ -92,6 +93,7 @@
    "fieldtype": "Link",
    "label": "Project",
    "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "no_copy": 1,
    "options": "Project"
   },
   {
@@ -159,7 +161,6 @@
    "options": "Inbound Order Dock"
   },
   {
-   "collapsible": 1,
    "description": "Sales Quote and main/internal job hierarchy for billing and recognition. Filled when the order is created from a job or declaration.",
    "fieldname": "quote_reference_section",
    "fieldtype": "Section Break",
@@ -173,6 +174,14 @@
    "label": "Main Service",
    "no_copy": 1,
    "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+  },
+  {
+   "default": "0",
+   "description": "Inherited from the linked Sales Quote (if any).",
+   "fieldname": "is_high_value",
+   "fieldtype": "Check",
+   "label": "High Value",
+   "read_only": 1
   },
   {
    "fieldname": "sales_quote",
@@ -332,7 +341,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-04-16 15:22:29.698935",
+ "modified": "2026-05-18 14:50:15.500350",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Inbound Order",

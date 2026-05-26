@@ -40,6 +40,11 @@
   "pick_consolidated",
   "pick_signature",
   "pick_signed_by",
+  "pick_latitude",
+  "pick_longitude",
+  "pick_notes",
+  "pick_photo",
+  "pick_signed_at",
   "drop_tab",
   "column_break_xsyy",
   "facility_type_to",
@@ -53,6 +58,11 @@
   "drop_consolidated",
   "drop_signature",
   "drop_signed_by",
+  "drop_latitude",
+  "drop_longitude",
+  "drop_notes",
+  "drop_photo",
+  "drop_signed_at",
   "date_signed",
   "routing_tab",
   "distance_km",
@@ -242,6 +252,38 @@
    "label": "Signed By"
   },
   {
+   "allow_on_submit": 1,
+   "fieldname": "pick_latitude",
+   "fieldtype": "Float",
+   "label": "Pick Latitude",
+   "precision": "7"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "pick_longitude",
+   "fieldtype": "Float",
+   "label": "Pick Longitude",
+   "precision": "7"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "pick_notes",
+   "fieldtype": "Small Text",
+   "label": "Pick Notes"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "pick_photo",
+   "fieldtype": "Attach Image",
+   "label": "Pick Photo"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "pick_signed_at",
+   "fieldtype": "Datetime",
+   "label": "Pick Signed At"
+  },
+  {
    "fieldname": "drop_tab",
    "fieldtype": "Tab Break",
    "label": "Drop"
@@ -280,6 +322,38 @@
    "fieldname": "drop_signed_by",
    "fieldtype": "Data",
    "label": "Signed By"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "drop_latitude",
+   "fieldtype": "Float",
+   "label": "Drop Latitude",
+   "precision": "7"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "drop_longitude",
+   "fieldtype": "Float",
+   "label": "Drop Longitude",
+   "precision": "7"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "drop_notes",
+   "fieldtype": "Small Text",
+   "label": "Drop Notes"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "drop_photo",
+   "fieldtype": "Attach Image",
+   "label": "Drop Photo"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "drop_signed_at",
+   "fieldtype": "Datetime",
+   "label": "Drop Signed At"
   },
   {
    "fieldname": "column_break_jewt",
@@ -497,13 +571,13 @@
    "fieldtype": "Column Break"
   },
   {
-   "default": "0",
+   "default": "1",
    "fieldname": "auto_arrival_enabled",
    "fieldtype": "Check",
    "label": "Auto Arrival Enabled"
   },
   {
-   "default": "0",
+   "default": "1",
    "fieldname": "auto_departure_enabled",
    "fieldtype": "Check",
    "label": "Auto Departure Enabled"
@@ -515,6 +589,7 @@
    "label": "Arrival Radius (m)"
   },
   {
+   "default": "250",
    "fieldname": "departure_radius_m",
    "fieldtype": "Int",
    "label": "Departure Radius (m)",
@@ -658,6 +733,16 @@
    "role": "Transport User",
    "share": 1,
    "submit": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Driver",
+   "share": 1,
    "write": 1
   }
  ],

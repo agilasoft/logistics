@@ -14,6 +14,7 @@
   "naming_series",
   "consolidation_date",
   "consolidation_type",
+  "is_high_value",
   "column_break_1",
   "status",
   "priority",
@@ -26,18 +27,6 @@
   "arrival_date",
   "airline",
   "flight_number",
-  "section_break_cargo",
-  "total_packages",
-  "total_weight",
-  "total_volume",
-  "total_volume_uom",
-  "total_weight_uom",
-  "column_break_3",
-  "chargeable_weight",
-  "chargeable_weight_uom",
-  "consolidation_ratio",
-  "cost_per_kg",
-  "package_allocation_basis",
   "section_break_documents",
   "master_awb",
   "house_awb_prefix",
@@ -55,6 +44,18 @@
   "consolidation_routes",
   "packages_section",
   "consolidation_packages",
+  "section_break_summary",
+  "total_packages",
+  "total_weight",
+  "total_volume",
+  "total_volume_uom",
+  "total_weight_uom",
+  "column_break_3",
+  "chargeable_weight",
+  "chargeable_weight_uom",
+  "consolidation_ratio",
+  "cost_per_kg",
+  "package_allocation_basis",
   "documents_tab",
   "document_management_section",
   "documents_html",
@@ -187,6 +188,14 @@
    "reqd": 1
   },
   {
+   "default": "0",
+   "description": "Auto-set to 1 if any linked Air Shipment is high value.",
+   "fieldname": "is_high_value",
+   "fieldtype": "Check",
+   "label": "High Value",
+   "read_only": 1
+  },
+  {
    "fieldname": "column_break_1",
    "fieldtype": "Column Break"
   },
@@ -262,23 +271,26 @@
   {
    "fieldname": "flight_number",
    "fieldtype": "Data",
-   "label": "Flight Number"
+   "label": "Flight Number",
+   "reqd": 1
   },
   {
-   "fieldname": "section_break_cargo",
+   "fieldname": "section_break_summary",
    "fieldtype": "Section Break",
-   "label": "Cargo Summary"
+   "label": "Summary"
   },
   {
    "fieldname": "total_packages",
    "fieldtype": "Int",
    "label": "Total Packages",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "total_weight",
    "fieldtype": "Float",
    "label": "Total Weight",
+   "no_copy": 1,
    "precision": "2",
    "read_only": 1
   },
@@ -286,6 +298,7 @@
    "fieldname": "total_volume",
    "fieldtype": "Float",
    "label": "Total Volume",
+   "no_copy": 1,
    "precision": "3",
    "read_only": 1
   },
@@ -294,6 +307,7 @@
    "fieldtype": "Link",
    "label": "Total Volume UOM",
    "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "no_copy": 1,
    "options": "UOM"
   },
   {
@@ -301,6 +315,7 @@
    "fieldtype": "Link",
    "label": "Total Weight UOM",
    "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "no_copy": 1,
    "options": "UOM"
   },
   {
@@ -311,6 +326,7 @@
    "fieldname": "chargeable_weight",
    "fieldtype": "Float",
    "label": "Chargeable Weight",
+   "no_copy": 1,
    "precision": "2",
    "read_only": 1
   },
@@ -319,12 +335,14 @@
    "fieldtype": "Link",
    "label": "Chargeable Weight UOM",
    "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "no_copy": 1,
    "options": "UOM"
   },
   {
    "fieldname": "consolidation_ratio",
    "fieldtype": "Percent",
    "label": "Consolidation Ratio",
+   "no_copy": 1,
    "precision": "2",
    "read_only": 1
   },
@@ -332,6 +350,7 @@
    "fieldname": "cost_per_kg",
    "fieldtype": "Currency",
    "label": "Cost per kg",
+   "no_copy": 1,
    "precision": "2",
    "read_only": 1
   },
@@ -341,6 +360,7 @@
    "fieldname": "package_allocation_basis",
    "fieldtype": "Select",
    "label": "Package cost allocation basis",
+   "no_copy": 1,
    "options": "Weight\nVolume\nEqual"
   },
   {
@@ -524,7 +544,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-05-14 11:10:00.143364",
+ "modified": "2026-05-19 17:14:48.158884",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Consolidation",

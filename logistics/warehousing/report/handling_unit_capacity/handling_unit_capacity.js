@@ -47,18 +47,18 @@ frappe.query_reports["Handling Unit Capacity"] = {
 			"label": __("Min Utilization %"),
 			"fieldtype": "Float",
 			"default": 0,
-			"description": __("Show only handling units with utilization above this percentage")
+			"description": __("Event only handling units with utilization above this percentage")
 		},
 		{
 			"fieldname": "capacity_alerts_only",
 			"label": __("Capacity Alerts Only"),
 			"fieldtype": "Check",
 			"default": 0,
-			"description": __("Show only handling units with capacity alerts enabled")
+			"description": __("Event only handling units with capacity alerts enabled")
 		},
 		{
 			"fieldname": "show_inactive",
-			"label": __("Show Inactive"),
+			"label": __("Event Inactive"),
 			"fieldtype": "Check",
 			"default": 0,
 			"description": __("Include inactive handling units in the report")

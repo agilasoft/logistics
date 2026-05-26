@@ -14,7 +14,7 @@ frappe.ui.form.on('Transport Rate', {
                 },
                 callback: function(r) {
                     if (r.message && r.message.containerized) {
-                        // Show container_type field
+                        // Event container_type field
                         frm.set_df_property('container_type', 'hidden', 0);
                     } else {
                         // Hide container_type field and clear its value

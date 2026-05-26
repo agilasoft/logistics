@@ -68,11 +68,11 @@ frappe.query_reports["Energy Efficiency Report"] = {
 			"label": __("Min Efficiency Score"),
 			"fieldtype": "Float",
 			"default": 0,
-			"description": __("Show only records with efficiency score above this value")
+			"description": __("Event only records with efficiency score above this value")
 		},
 		{
 			"fieldname": "show_trends",
-			"label": __("Show Trends"),
+			"label": __("Event Trends"),
 			"fieldtype": "Check",
 			"default": 1,
 			"description": __("Include trend analysis in the report")
@@ -93,7 +93,7 @@ frappe.query_reports["Energy Efficiency Report"] = {
 		},
 		{
 			"fieldname": "show_benchmarks",
-			"label": __("Show Industry Benchmarks"),
+			"label": __("Event Industry Benchmarks"),
 			"fieldtype": "Check",
 			"default": 1,
 			"description": __("Compare against industry benchmarks")

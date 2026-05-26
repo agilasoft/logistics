@@ -193,6 +193,7 @@
   "accrual_closed",
   "section_break_puec",
   "is_main_service",
+  "is_high_value",
   "sales_quote",
   "column_break_quote_ref",
   "is_internal_job",
@@ -289,6 +290,14 @@
    "fieldtype": "Check",
    "label": "Main Service",
    "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+  },
+  {
+   "default": "0",
+   "description": "Inherited from the linked Sales Quote (if any).",
+   "fieldname": "is_high_value",
+   "fieldtype": "Check",
+   "label": "High Value",
+   "read_only": 1
   },
   {
    "default": "0",
@@ -396,6 +405,7 @@
    "read_only": 1
   },
   {
+   "fetch_from": "declaration_order.currency",
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
@@ -404,6 +414,7 @@
   },
   {
    "description": "Exchange rate if different from base currency",
+   "fetch_from": "declaration_order.exchange_rate",
    "fieldname": "exchange_rate",
    "fieldtype": "Float",
    "label": "Exchange Rate"
@@ -727,6 +738,7 @@
    "options": "inv_currency"
   },
   {
+   "fetch_from": "declaration_order.inv_currency",
    "fieldname": "inv_currency",
    "fieldtype": "Link",
    "label": "Currency",
@@ -734,6 +746,7 @@
    "options": "Currency"
   },
   {
+   "fetch_from": "declaration_order.inv_exchange_rate",
    "fieldname": "inv_exchange_rate",
    "fieldtype": "Float",
    "label": "Exchange Rate"

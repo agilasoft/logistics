@@ -424,7 +424,14 @@
 
 	function _routeAfterFormNavigate(doctype, routeArgs) {
 		return frappe.set_route.apply(null, routeArgs).then(function () {
-			_syncBreadcrumbsForFormDoctype(doctype);
+			// Defer until the target form exists — breadcrumbs.update reads cur_frm.doc and throws if null.
+			frappe.after_ajax(function () {
+				setTimeout(function () {
+					if (cur_frm && cur_frm.doctype === doctype) {
+						_syncBreadcrumbsForFormDoctype(doctype);
+					}
+				}, 0);
+			});
 			var docname = routeArgs.length >= 3 ? routeArgs[routeArgs.length - 1] : null;
 			if (docname) {
 				_reloadCreatedInternalJobTargetForm(doctype, docname);
@@ -432,7 +439,45 @@
 		});
 	}
 
+	/**
+	 * Poll until the new Transport Order is readable in the DB, then navigate.
+	 * Mirrors Sales Quote → Air Booking (air_booking_exists): immediate set_route after create can load the form before the desk sees the row.
+	 */
+	function _whenTransportOrderThenNavigate(docname, navigateFn) {
+		function attempt(n) {
+			if (n > 15) {
+				navigateFn();
+				return;
+			}
+			frappe.call({
+				method: "logistics.transport.doctype.transport_order.transport_order.transport_order_exists",
+				args: { docname: docname },
+				callback: function (res) {
+					if (res.message === true) {
+						navigateFn();
+					} else {
+						setTimeout(function () {
+							attempt(n + 1);
+						}, 300);
+					}
+				},
+				error: function () {
+					setTimeout(function () {
+						attempt(n + 1);
+					}, 300);
+				},
+			});
+		}
+		attempt(1);
+	}
+
 	/** Reload the document we just routed to so the grid/title match the server (avoids stale desk title). */
+	function _applyMsIjRulesOnForm(frm) {
+		if (frm && window.logistics && logistics.apply_sales_quote_ms_ij_rules) {
+			logistics.apply_sales_quote_ms_ij_rules(frm);
+		}
+	}
+
 	function _reloadCreatedInternalJobTargetForm(doctype, docname) {
 		frappe.after_ajax(function () {
 			setTimeout(function () {
@@ -443,7 +488,9 @@
 				) {
 					return;
 				}
-				cur_frm.reload_doc();
+				cur_frm.reload_doc().then(function () {
+					_applyMsIjRulesOnForm(cur_frm);
+				});
 			}, 200);
 		});
 	}
@@ -478,19 +525,24 @@
 				) {
 					return;
 				}
-				frm.reload_doc();
+				frm.reload_doc().then(function () {
+					_applyMsIjRulesOnForm(frm);
+				});
 			}, 400);
 		});
 	}
 
 	function _routeAfterInternalJobCreate(frm, jobType, r) {
+		_applyMsIjRulesOnForm(frm);
 		var msg = r.message || {};
 		if (msg.transport_order) {
-			_routeAfterFormNavigate("Transport Order", ["Form", "Transport Order", msg.transport_order]).then(
-				function () {
-					_maybeReloadSourceFreightShipmentIfStillActive(frm);
-				}
-			);
+			_whenTransportOrderThenNavigate(msg.transport_order, function () {
+				_routeAfterFormNavigate("Transport Order", ["Form", "Transport Order", msg.transport_order]).then(
+					function () {
+						_maybeReloadSourceFreightShipmentIfStillActive(frm);
+					}
+				);
+			});
 			return;
 		}
 		if (msg.declaration_order) {
@@ -798,6 +850,8 @@
 					return;
 				}
 				_routeAfterInternalJobCreate(frm, dec.job_type, r2);
+				_maybeReloadSourceFreightShipmentIfStillActive(frm);
+				_applyMsIjRulesOnForm(frm);
 			},
 		});
 	}

@@ -234,6 +234,8 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 	dlg.show();
 	dlg.$wrapper.addClass("logistics-gcfq-dialog logistics-scm-dialog");
 
+	dlg._scm_picked = {};
+
 	var $shell = dlg.$wrapper.find(".scm-root");
 	function loadMatches() {
 		$shell.empty();
@@ -247,6 +249,7 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 		$('<button type="button" class="btn btn-sm btn-default">' + __("Apply filters") + "</button>")
 			.appendTo($act)
 			.on("click", function () {
+				dlg._scm_picked = {};
 				runList();
 			});
 		scm_debounce_reload(dlg, runList);
@@ -316,18 +319,23 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 						}
 					}
 
+					var pickedMap = dlg._scm_picked || {};
 					var trs = "";
 					rows.forEach(function (rw) {
 						var elig = rw.row_type === "eligible";
 						var chk = "";
 						var nmEsc = frappe.utils.escape_html(String(rw.name || ""));
+						var pre = elig && rw.name && pickedMap[rw.name];
+						var checkedAttr = pre ? " checked" : "";
 						if (elig && rw.name) {
 							chk =
 								'<input type="checkbox" class="scm-sel" data-sn="' +
 								frappe.utils.escape_html(String(rw.name)) +
 								'" aria-label="' +
 								frappe.utils.escape_html(__("Select")) +
-								'"/>';
+								'"' +
+								checkedAttr +
+								"/>";
 						} else if (elig) {
 							chk = '<input type="checkbox" class="scm-sel" />';
 						} else {
@@ -381,18 +389,37 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 					var $tbl = $list.find(".scm-tbl");
 
 					function stat() {
-						var k = $list.find(".scm-sel:checked").length;
-						$list.find(".scm-m-stat").text(
-							__("{0} selected", [String(k)])
-						);
+						var k = Object.keys(dlg._scm_picked || {}).length;
+						$list.find(".scm-m-stat").text(__("{0} selected", [String(k)]));
 					}
 
 					$list.off(".scmscm");
-					$list.on("change.scmscm", ".scm-sel", stat);
+					$list.on("change.scmscm", ".scm-sel", function () {
+						var $cb = $(this);
+						var n = $cb.attr("data-sn");
+						if (!n) {
+							stat();
+							return;
+						}
+						if ($cb.prop("checked")) {
+							dlg._scm_picked[n] = true;
+						} else {
+							delete dlg._scm_picked[n];
+						}
+						stat();
+					});
 					stat();
 
 					$list.find(".scm-sel-all").on("click", function () {
-						$list.find(".scm-sel").prop("checked", true);
+						$list.find(".scm-sel[data-sn]").each(function () {
+							var $cb = $(this);
+							var n = $cb.attr("data-sn");
+							if (!n) {
+								return;
+							}
+							$cb.prop("checked", true);
+							dlg._scm_picked[n] = true;
+						});
 						stat();
 					});
 
@@ -407,15 +434,13 @@ logistics.open_sea_consolidation_matching_shipments_dialog = function (frm) {
 					});
 
 					$list.find(".scm-apply").on("click", function () {
-						var picked = [];
-						$list.find(".scm-sel:checked").each(function () {
-							var n = $(this).attr("data-sn");
-							if (n) {
-								picked.push(n);
-							}
-						});
+						var picked = Object.keys(dlg._scm_picked || {});
 						if (!picked.length) {
-							frappe.msgprint(__("Select at least one eligible shipment."));
+							frappe.msgprint(
+								__(
+									"Select at least one eligible shipment (checkbox). Rows marked blocked or already on the planned list cannot be added."
+								)
+							);
 							return;
 						}
 						frappe.call({

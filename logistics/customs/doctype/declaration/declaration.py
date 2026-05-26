@@ -14,6 +14,40 @@ from logistics.utils.charge_service_type import (
 )
 from logistics.utils.operational_rep_fields import copy_operational_rep_fields_from_declaration_order
 
+ORDER_CURRENCY_EXCHANGE_FIELDS = (
+	"currency",
+	"exchange_rate",
+	"inv_currency",
+	"inv_exchange_rate",
+)
+
+
+def apply_currency_and_exchange_rates_from_declaration_order(
+	target,
+	order,
+	*,
+	overwrite: bool = False,
+) -> None:
+	"""Copy currency and exchange-rate fields from Declaration Order onto Declaration."""
+	if not order:
+		return
+	for fieldname in ORDER_CURRENCY_EXCHANGE_FIELDS:
+		if not target.meta.has_field(fieldname):
+			continue
+		order_val = order.get(fieldname) if isinstance(order, dict) else getattr(order, fieldname, None)
+		if order_val is None or order_val == "":
+			continue
+		if fieldname.endswith("exchange_rate") and not flt(order_val):
+			continue
+		current = getattr(target, fieldname, None)
+		if overwrite:
+			target.set(fieldname, order_val)
+		elif fieldname.endswith("exchange_rate"):
+			if not flt(current):
+				target.set(fieldname, order_val)
+		elif not current:
+			target.set(fieldname, order_val)
+
 
 class Declaration(Document):
 	def validate(self):
@@ -77,6 +111,18 @@ class Declaration(Document):
 				title=declaration_etd_eta_title(),
 			)
 
+	def _sync_currency_and_exchange_rates_from_declaration_order(self):
+		"""Fill blank currency / exchange-rate fields from the linked Declaration Order."""
+		if not self.declaration_order or getattr(frappe.flags, "in_import", False):
+			return
+		if getattr(self.flags, "skip_sync_exchange_from_declaration_order", False):
+			return
+		try:
+			order = frappe.get_cached_doc("Declaration Order", self.declaration_order)
+		except Exception:
+			return
+		apply_currency_and_exchange_rates_from_declaration_order(self, order, overwrite=False)
+
 	def _validate_declaration_order_unique(self):
 		"""Ensure a Declaration Order can only be referenced by one Declaration."""
 		if not self.declaration_order:
@@ -100,11 +146,16 @@ class Declaration(Document):
 
 	def before_save(self):
 		"""Calculate values and metrics before saving"""
+		from logistics.utils.customs_country_defaults import (
+			apply_internal_job_customs_country_defaults,
+		)
 		from logistics.utils.module_integration import run_propagate_on_link
 		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 		from logistics.utils.transport_mode_defaults import apply_default_transport_document_type
 
 		run_propagate_on_link(self)
+		self._sync_currency_and_exchange_rates_from_declaration_order()
+		apply_internal_job_customs_country_defaults(self)
 		apply_shipper_consignee_defaults(self)
 		apply_default_transport_document_type(self)
 		# Exemptions first: total_payable uses get_total_exempted_amount() (row total_exempted).
@@ -1154,6 +1205,8 @@ def link_or_create_declaration_order_for_declaration(declaration_name: str) -> D
 				title=_("Declaration Order In Use"),
 			)
 		declaration.declaration_order = existing_do
+		order = frappe.get_doc("Declaration Order", existing_do)
+		apply_currency_and_exchange_rates_from_declaration_order(declaration, order, overwrite=True)
 		declaration.save()
 		return {
 			"success": True,
@@ -1173,6 +1226,8 @@ def link_or_create_declaration_order_for_declaration(declaration_name: str) -> D
 
 	declaration.reload()
 	declaration.declaration_order = do_name
+	order = frappe.get_doc("Declaration Order", do_name)
+	apply_currency_and_exchange_rates_from_declaration_order(declaration, order, overwrite=True)
 	declaration.save()
 	return {
 		"success": True,
@@ -1251,8 +1306,9 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.main_job = getattr(order, "main_job", None)
 
 	# Main section
-	declaration.currency = order.currency or (getattr(sales_quote, "currency", None) if sales_quote else None)
-	declaration.exchange_rate = order.exchange_rate
+	apply_currency_and_exchange_rates_from_declaration_order(declaration, order, overwrite=True)
+	if not declaration.currency and sales_quote:
+		declaration.currency = getattr(sales_quote, "currency", None)
 	declaration.customs_broker = order.customs_broker
 	declaration.notify_party = order.notify_party
 	declaration.freight_agent = getattr(order, "freight_agent", None)
@@ -1298,8 +1354,6 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.incoterm_place = order.incoterm_place
 	declaration.inv_incoterm = order.inv_incoterm
 	declaration.inv_total_amount = order.inv_total_amount
-	declaration.inv_currency = order.inv_currency
-	declaration.inv_exchange_rate = order.inv_exchange_rate
 	declaration.balance = getattr(order, "balance", None)
 	declaration.inv_volume = order.inv_volume
 	declaration.inv_volume_uom = order.inv_volume_uom
@@ -1594,8 +1648,6 @@ def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Docum
 	"""Populate charges from Sales Quote Charge (Customs) or Sales Quote Customs (legacy)."""
 	try:
 		customs_charges = customs_charges_rows_from_sales_quote_doc(declaration, sales_quote)
-		if not customs_charges and hasattr(sales_quote, "customs") and sales_quote.customs:
-			customs_charges = list(sales_quote.customs)
 		if not customs_charges:
 			return
 		

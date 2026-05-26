@@ -12,6 +12,7 @@
   "naming_series",
   "column_break_rpzo",
   "main_service",
+  "is_high_value",
   "separate_billings_per_service_type",
   "status_section",
   "column_break_ralf",
@@ -71,7 +72,21 @@
   "warehousing",
   "projects_tab",
   "projects_section",
-  "special_project",
+  "project_name",
+  "project_type",
+  "column_break_sp_programme",
+  "priority",
+  "planned_start",
+  "planned_end",
+  "sp_programme_details_section",
+  "description",
+  "special_handling_instructions",
+  "exhibit",
+  "exhibit_show_section",
+  "exhibit_show_name",
+  "column_break_exhibit_show",
+  "exhibit_show_open_date",
+  "exhibit_show_close_date",
   "project_resources",
   "project_products",
   "additional_information_tab",
@@ -82,7 +97,7 @@
   "service_code",
   "service_level_details",
   "connections_tab"
- ],
+],
  "fields": [
   {
    "fieldname": "section_break_aall",
@@ -121,6 +136,7 @@
   },
   {
    "depends_on": "eval:doc.quotation_type=='One-off'",
+   "description": "Booking, order, or contract created from this One-off quote (e.g. Sea Booking SBK000000312).",
    "fieldname": "converted_to_doc",
    "fieldtype": "Data",
    "label": "Converted To",
@@ -320,33 +336,121 @@
    "options": "Container Type"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"Project\"",
+   "depends_on": "eval:doc.quotation_type == \"Project\" || [\"Special Project\", \"Exhibits\"].includes(doc.main_service)",
    "fieldname": "projects_tab",
    "fieldtype": "Tab Break",
-   "label": "Projects"
+   "label": "Special Project"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"Project\"",
+   "depends_on": "eval:doc.quotation_type == \"Project\" || [\"Special Project\", \"Exhibits\"].includes(doc.main_service)",
    "fieldname": "projects_section",
    "fieldtype": "Section Break",
-   "label": "Project Details"
+   "label": "Basic Information"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"Project\"",
-   "fieldname": "special_project",
+   "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name",
+   "mandatory_depends_on": "eval:doc.quotation_type == \"Project\""
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
+   "fieldname": "project_type",
    "fieldtype": "Link",
-   "label": "Special Project",
-   "options": "Special Project"
+   "label": "Project Type",
+   "options": "Project Type"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"Project\"",
+   "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
+   "fieldname": "column_break_sp_programme",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh\nUrgent"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
+   "fieldname": "planned_start",
+   "fieldtype": "Date",
+   "label": "Planned Start"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
+   "fieldname": "planned_end",
+   "fieldtype": "Date",
+   "label": "Planned End"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
+   "fieldname": "sp_programme_details_section",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
+   "fieldname": "special_handling_instructions",
+   "fieldtype": "Long Text",
+   "label": "Special Handling Instructions"
+  },
+  {
+   "depends_on": "eval:doc.main_service == \"Exhibits\" || doc.quotation_type == \"Project\"",
+   "fieldname": "exhibit",
+   "fieldtype": "Link",
+   "label": "Exhibit",
+   "options": "Exhibit"
+  },
+  {
+   "depends_on": "eval:doc.main_service == \"Exhibits\"",
+   "fieldname": "exhibit_show_section",
+   "fieldtype": "Section Break",
+   "label": "Exhibit Details"
+  },
+  {
+   "depends_on": "eval:doc.main_service == \"Exhibits\"",
+   "fieldname": "exhibit_show_name",
+   "fieldtype": "Data",
+   "label": "Exhibit Name",
+   "mandatory_depends_on": "eval:doc.main_service == \"Exhibits\""
+  },
+  {
+   "depends_on": "eval:doc.main_service == \"Exhibits\"",
+   "fieldname": "column_break_exhibit_show",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.main_service == \"Exhibits\"",
+   "fieldname": "exhibit_show_open_date",
+   "fieldtype": "Date",
+   "label": "Exhibit Open Date",
+   "mandatory_depends_on": "eval:doc.main_service == \"Exhibits\""
+  },
+  {
+   "depends_on": "eval:doc.main_service == \"Exhibits\"",
+   "fieldname": "exhibit_show_close_date",
+   "fieldtype": "Date",
+   "label": "Exhibit Close Date",
+   "mandatory_depends_on": "eval:doc.main_service == \"Exhibits\""
+  },
+  {
+   "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
    "fieldname": "project_resources",
    "fieldtype": "Table",
    "label": "Resources",
    "options": "Sales Quote Resource"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"Project\"",
+   "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
    "fieldname": "project_products",
    "fieldtype": "Table",
    "label": "Products",
@@ -454,7 +558,7 @@
    "fieldname": "main_service",
    "fieldtype": "Select",
    "label": "Main Service",
-   "options": "\nAir\nSea\nTransport\nCustoms\nWarehousing",
+   "options": "\nAir\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nExhibits",
    "reqd": 1
   },
   {
@@ -481,6 +585,13 @@
    "fieldname": "separate_billings_per_service_type",
    "fieldtype": "Check",
    "label": "Separate Billings per Service Type"
+  },
+  {
+   "default": "0",
+   "description": "Tag this quote (and downstream bookings, shipments, jobs) as high value.",
+   "fieldname": "is_high_value",
+   "fieldtype": "Check",
+   "label": "High Value"
   },
   {
    "fieldname": "routing_legs",
@@ -641,9 +752,39 @@
    "group": "Contracts",
    "link_doctype": "Warehouse Contract",
    "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Programmes",
+   "link_doctype": "Special Project",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Programmes",
+   "link_doctype": "Exhibit",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Programmes",
+   "link_doctype": "Project Order",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Programmes",
+   "link_doctype": "Project Job",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Programmes",
+   "link_doctype": "Exhibit Order",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Programmes",
+   "link_doctype": "Exhibit Job",
+   "link_fieldname": "sales_quote"
   }
  ],
- "modified": "2026-04-17 15:07:32.046177",
+ "modified": "2026-05-15 17:17:55.060811",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote",

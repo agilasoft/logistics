@@ -1,0 +1,237 @@
+/* Copyright (c) 2026, www.agilasoft.com and contributors
+ * Modern density-factor indicator for Air/Sea Booking, Air/Sea Shipment,
+ * Transport Order/Job. Paired with logistics/public/js/density_factor.js.
+ *
+ * Layout (top → bottom):
+ *   [ Title ........ Classification badge ]
+ *   [ Big numeric value   cm³/kg ]
+ *   [ ============ progress bar ============ ]
+ *   [ 0    1500    3000    4500    6000     ]
+ *   [ Optional inline error caption          ]
+ */
+
+.density-factor-container {
+	margin: 6px 0 4px;
+	font-family: var(--font-stack, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+}
+
+.density-factor-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 6px;
+	min-height: 18px;
+}
+
+.density-factor-title {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--text-muted, #6c7680);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+
+.density-factor-classification {
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	padding: 3px 10px;
+	border-radius: 999px;
+	background: var(--bg-light-gray, #f3f5f7);
+	color: var(--text-muted, #6c7680);
+	display: none;
+	white-space: nowrap;
+}
+
+.density-factor-classification.is-visible {
+	display: inline-block;
+}
+
+.density-factor-classification[data-zone="dense"] {
+	background: rgba(45, 191, 103, 0.12);
+	color: #1f8b4c;
+}
+
+.density-factor-classification[data-zone="standard"] {
+	background: rgba(245, 166, 35, 0.16);
+	color: #a8620a;
+}
+
+.density-factor-classification[data-zone="volumetric"] {
+	background: rgba(231, 76, 60, 0.12);
+	color: #b1352d;
+}
+
+.density-factor-meta {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	margin-bottom: 8px;
+	min-height: 26px;
+}
+
+.density-factor-value {
+	font-size: 22px;
+	font-weight: 700;
+	color: var(--text-color, #1f272e);
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.01em;
+	line-height: 1;
+}
+
+.density-factor-value.is-empty::before {
+	content: "—";
+	color: var(--text-light, #b1bac4);
+	font-weight: 600;
+}
+
+.density-factor-unit {
+	font-size: 11px;
+	color: var(--text-muted, #6c7680);
+	font-weight: 500;
+}
+
+.density-factor-track {
+	--df-pct: 0;
+	position: relative;
+	height: 8px;
+	background: linear-gradient(
+		90deg,
+		rgba(45, 191, 103, 0.10) 0%,
+		rgba(245, 166, 35, 0.10) 50%,
+		rgba(231, 76, 60, 0.10) 100%
+	);
+	border-radius: 999px;
+	overflow: visible;
+	margin-bottom: 4px;
+}
+
+.density-factor-fill {
+	position: absolute;
+	top: 0;
+	left: 0;
+	height: 100%;
+	width: calc(var(--df-pct, 0) * 1%);
+	border-radius: 999px;
+	background-image: linear-gradient(90deg, #2dbf67 0%, #f5a623 55%, #e74c3c 100%);
+	background-size: calc(10000% / max(var(--df-pct, 1), 1)) 100%;
+	background-position: left center;
+	background-repeat: no-repeat;
+	transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+	box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.density-factor-indicator {
+	position: absolute;
+	top: 50%;
+	left: calc(var(--df-pct, 0) * 1%);
+	width: 14px;
+	height: 14px;
+	background: #ffffff;
+	border: 2px solid #2dbf67;
+	border-radius: 50%;
+	transform: translate(-50%, -50%);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.06);
+	transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s ease;
+	pointer-events: none;
+	z-index: 2;
+	display: none;
+}
+
+.density-factor-indicator.is-visible {
+	display: block;
+}
+
+.density-factor-indicator[data-zone="standard"] {
+	border-color: #f5a623;
+}
+
+.density-factor-indicator[data-zone="volumetric"] {
+	border-color: #e74c3c;
+}
+
+.density-factor-scale {
+	position: relative;
+	height: 30px;
+	margin-top: 8px;
+	font-size: 10px;
+}
+
+.density-factor-scale .dfs-pos {
+	position: absolute;
+	top: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	transform: translateX(-50%);
+}
+
+.density-factor-scale .dfs-pos:first-child {
+	transform: translateX(0);
+	align-items: flex-start;
+}
+
+.density-factor-scale .dfs-pos:last-child {
+	transform: translateX(-100%);
+	align-items: flex-end;
+}
+
+.density-factor-scale .dfs-num {
+	color: var(--text-color, #4d5560);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+
+.density-factor-scale .dfs-lbl {
+	color: var(--text-muted, #8b95a0);
+	font-weight: 500;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	font-size: 9px;
+}
+
+.density-factor-scale .dfs-pos[data-tier="dense"] .dfs-num { color: #1f8b4c; }
+.density-factor-scale .dfs-pos[data-tier="volumetric"] .dfs-num { color: #b1352d; }
+
+.density-factor-error {
+	display: none;
+	font-size: 11px;
+	color: #b1352d;
+	background: rgba(231, 76, 60, 0.08);
+	border-left: 2px solid #e74c3c;
+	border-radius: 3px;
+	padding: 6px 10px;
+	margin-top: 8px;
+	line-height: 1.4;
+}
+
+.density-factor-error.is-visible {
+	display: block;
+}
+
+/* Frappe dark theme */
+[data-theme="dark"] .density-factor-track {
+	background: linear-gradient(
+		90deg,
+		rgba(45, 191, 103, 0.18) 0%,
+		rgba(245, 166, 35, 0.18) 50%,
+		rgba(231, 76, 60, 0.18) 100%
+	);
+}
+
+[data-theme="dark"] .density-factor-classification {
+	background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .density-factor-indicator {
+	background: #2a2f36;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .density-factor-error {
+	background: rgba(231, 76, 60, 0.16);
+	color: #f3a298;
+}

@@ -16,6 +16,7 @@ from frappe.utils import cint
 from logistics.utils.charge_service_type import (
 	canonical_charge_service_type_for_storage,
 	iter_sales_quote_charge_service_type_db_values_for_canonical,
+	sales_quote_charge_service_types_equal,
 )
 from logistics.utils.sales_quote_service_eligibility import SERVICE_LEGACY_TABLE
 
@@ -297,10 +298,11 @@ def _corridor_match_sql_charges_header_legacy(
 def _customs_declaration_charge_match_sql() -> str:
 	"""SQL fragment (references ``sq``): Customs quotes matching Declaration Order filters.
 
-	Each of ``customs_authority``, ``declaration_type``, ``customs_broker`` may be empty (after trim) to
+	Each of ``customs_authority``, ``declaration_type``, and ``customs_broker`` may be empty (after trim) to
 	mean *no* filter on that attribute (any value on a charge line matches).
 
-	For broker, when a job broker is set, a blank broker on a line still matches any quote broker.
+	For broker, when a job broker is set, a blank broker on a line still matches any quote broker; a
+	non-blank line broker must equal the filter value exactly (Broker link name).
 
 	Legacy transport mode: when ``job_transport_mode`` is NULL/empty, do not filter by mode; otherwise
 	legacy lines must match (unified charge rows are not restricted by mode).
@@ -355,6 +357,106 @@ def _customs_declaration_charge_match_sql() -> str:
 			)
 		)
 	)"""
+
+
+def _declaration_order_charge_row_value(row, fieldname: str) -> str:
+	if isinstance(row, dict):
+		return (row.get(fieldname) or "").strip()
+	return (getattr(row, fieldname, None) or "").strip()
+
+
+def _legacy_customs_row_transport_mode_matches(row_transport_mode: str, job_transport_mode: str) -> bool:
+	"""Match legacy ``Sales Quote Customs``.transport_mode to a Transport Mode link (see SQL in ``_customs_declaration_charge_match_sql``)."""
+	if not (row_transport_mode or "").strip():
+		return True
+	tm = frappe.db.get_value(
+		"Transport Mode",
+		job_transport_mode,
+		["sea", "air", "transport"],
+		as_dict=True,
+	)
+	if not tm:
+		return True
+	rtm = row_transport_mode.strip()
+	if rtm == "Sea" and cint(tm.get("sea")):
+		return True
+	if rtm == "Air" and cint(tm.get("air")):
+		return True
+	if rtm in ("Road", "Rail") and cint(tm.get("transport")):
+		return True
+	return False
+
+
+def sales_quote_customs_charge_row_matches_declaration_order_filters(
+	row,
+	customs_authority: str = "",
+	declaration_type: str = "",
+	customs_broker: str = "",
+	job_transport_mode: str | None = None,
+	*,
+	is_legacy_customs_row: bool = False,
+) -> bool:
+	"""True when a single customs charge row matches Declaration Order filters (empty filter = wildcard)."""
+	ca = (customs_authority or "").strip()
+	dt = (declaration_type or "").strip()
+	cb = (customs_broker or "").strip()
+	row_ca = _declaration_order_charge_row_value(row, "customs_authority")
+	row_dt = _declaration_order_charge_row_value(row, "declaration_type")
+	row_cb = _declaration_order_charge_row_value(row, "customs_broker")
+
+	if ca and row_ca != ca:
+		return False
+	if dt and row_dt != dt:
+		return False
+	if cb and row_cb and row_cb != cb:
+		return False
+
+	jtm = (job_transport_mode or "").strip() or None
+	if jtm and is_legacy_customs_row:
+		row_tm = _declaration_order_charge_row_value(row, "transport_mode")
+		if row_tm and not _legacy_customs_row_transport_mode_matches(row_tm, jtm):
+			return False
+	return True
+
+
+def filter_customs_charge_rows_for_declaration_order(parent_doc, rows):
+	"""Keep customs charge rows that match the order's customs filters (all matching lines, not just the first)."""
+	if getattr(parent_doc, "doctype", None) not in ("Declaration Order", "Declaration"):
+		return list(rows or [])
+	ca = (getattr(parent_doc, "customs_authority", None) or "").strip()
+	dt = (getattr(parent_doc, "declaration_type", None) or "").strip()
+	cb = (getattr(parent_doc, "customs_broker", None) or "").strip()
+	jtm = (getattr(parent_doc, "transport_mode", None) or "").strip() or None
+	if not any((ca, dt, cb, jtm)):
+		return list(rows or [])
+	out = []
+	for row in rows or []:
+		is_legacy = not _declaration_order_charge_row_value(row, "service_type")
+		if sales_quote_customs_charge_row_matches_declaration_order_filters(
+			row,
+			ca,
+			dt,
+			cb,
+			jtm,
+			is_legacy_customs_row=is_legacy,
+		):
+			out.append(row)
+	return out
+
+
+def _main_service_header_match_sql() -> str:
+	"""SQL fragment (references ``sq``): quotation ``main_service`` must match the job's service."""
+	return "sq.main_service IN %(main_service_variants)s"
+
+
+def sales_quote_matches_main_service(sales_quote_name: str, service_type: str) -> bool:
+	"""True when the Sales Quote header ``main_service`` matches the operational job service (e.g. Customs)."""
+	if not sales_quote_name or not (service_type or "").strip():
+		return False
+	if not frappe.db.exists("Sales Quote", sales_quote_name):
+		return False
+	ms = frappe.db.get_value("Sales Quote", sales_quote_name, "main_service")
+	return sales_quote_charge_service_types_equal(ms, service_type)
 
 
 def sales_quote_matches_declaration_order_filters(
@@ -648,26 +750,22 @@ def fetch_eligible_regular_sales_quote_names(
 	job_cost_center: str | None = None,
 	job_profit_center: str | None = None,
 ) -> list[str]:
-	"""Sales Quote names that have unified or legacy charge rows for ``service_type``.
+	"""Sales Quote names eligible for Action → Get Charges from Quotation.
 
-	Returns **Regular** quotations only (Action → Get Charges from Quotation — excludes One-off and Project).
-	Only **submitted** quotes (``docstatus`` = 1) are returned.
+	Returns **Regular** quotations only (excludes One-off and Project). Only **submitted** quotes
+	(``docstatus`` = 1) are returned.
 
-	Corridor matching uses **Sales Quote Charge** (unified) rows, legacy service charge rows, or header
-	fields on the quotation (not routing legs).
+	**Main service**: the quotation header ``main_service`` must match the job (e.g. Declaration Order →
+	Customs, Air Booking → Air). Charge-line existence alone does not qualify a quote.
 
-	For **Customs**, ``customs_authority`` / ``declaration_type`` / ``customs_broker`` each narrow the
-	list when set; an empty value is a wildcard for that attribute. ``job_transport_mode`` still applies
-	only to legacy lines (see ``_customs_declaration_charge_match_sql``).
+	Optional narrowing (when dialog / job filters are set):
 
-	**Sea / Air / Transport**: empty ``corridor_origin`` and/or ``corridor_dest`` (after trim) is a
-	wildcard for that end. For **Air** with both ports empty and ``job_airline`` set, only airline
-	matching applies (equivalent to the former airline-only path). For **Sea**, ``job_shipping_line`` narrows
-	by line or header; blank on a quotation line matches any line.
+	- **Customs**: ``customs_authority`` / ``declaration_type`` / ``customs_broker`` / ``job_transport_mode``
+	  (legacy lines only for mode) via ``_customs_declaration_charge_match_sql``.
+	- **Sea / Air / Transport**: corridor / airline / shipping line via charge rows or header
+	  (see ``_corridor_match_sql``).
 
-	**Org dimensions**: When ``job_branch``, ``job_cost_center``, and/or ``job_profit_center`` are set,
-	the Sales Quote **header** must equal each non-empty job value or be blank on the quotation (wildcard).
-	Empty job value = no filter on that field.
+	**Org dimensions**: Branch / Cost Center / Profit Center on the quote header vs job (blank = wildcard).
 	"""
 	service_type = (service_type or "").strip()
 	if service_type not in SERVICE_LEGACY_TABLE:
@@ -685,14 +783,21 @@ def fetch_eligible_regular_sales_quote_names(
 	ja = (job_airline or "").strip() if service_type == "Air" else ""
 	jsl = (job_shipping_line or "").strip() if service_type == "Sea" else ""
 
-	params: dict[str, Any] = {"service_type": service_type, "service_types": service_types, "limit": limit}
+	params: dict[str, Any] = {
+		"service_type": service_type,
+		"service_types": service_types,
+		"main_service_variants": service_types,
+		"limit": limit,
+	}
+	eligibility = _main_service_header_match_sql()
 	if canonical_charge_service_type_for_storage(service_type) == "custom":
 		jtm = (job_transport_mode or "").strip() or None
 		params["customs_authority"] = ca
 		params["declaration_type"] = dt
 		params["customs_broker"] = cb
 		params["job_transport_mode"] = jtm
-		eligibility = _customs_declaration_charge_match_sql()
+		if ca or dt or cb or jtm:
+			eligibility = f"({eligibility}) AND {_customs_declaration_charge_match_sql()}"
 	else:
 		params["corridor_origin"] = co
 		params["corridor_dest"] = cd
@@ -700,9 +805,8 @@ def fetch_eligible_regular_sales_quote_names(
 			params["job_airline"] = ja
 		if jsl:
 			params["job_shipping_line"] = jsl
-		eligibility = _corridor_match_sql(
-			service_type, job_airline=ja or None, job_shipping_line=jsl or None
-		)
+		if co or cd or ja or jsl:
+			eligibility = f"({eligibility}) AND {_corridor_match_sql(service_type, job_airline=ja or None, job_shipping_line=jsl or None)}"
 	params["job_branch"] = (job_branch or "").strip()
 	params["job_cost_center"] = (job_cost_center or "").strip()
 	params["job_profit_center"] = (job_profit_center or "").strip()

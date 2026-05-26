@@ -122,7 +122,7 @@ frappe.ui.form.on('Warehouse Job', {
                             }
                         } catch (error) {
                             console.error('Error setting dashboard HTML:', error);
-                            // Show user-friendly error message
+                            // Event user-friendly error message
                             frappe.msgprint({
                                 title: __('Dashboard Error'),
                                 message: __('Failed to load warehouse dashboard. Please refresh the page.'),
@@ -130,7 +130,7 @@ frappe.ui.form.on('Warehouse Job', {
                             });
                         }
                     } else {
-                        // Show user-friendly error message
+                        // Event user-friendly error message
                         frappe.msgprint({
                             title: __('Dashboard Error'),
                             message: __('Failed to load warehouse dashboard data. Please refresh the page.'),
@@ -158,7 +158,7 @@ frappe.ui.form.on('Warehouse Job', {
                         errorMessage = __('You do not have permission to view this dashboard.');
                     }
                     
-                    // Show error message to user
+                    // Event error message to user
                     frappe.msgprint({
                         title: errorTitle,
                         message: `
@@ -809,7 +809,7 @@ function allocate_items(frm) {
                                 <p style="text-align: center; margin-bottom: 15px;">${error_message}</p>
                         `;
                         
-                        // Show warnings even on failure
+                        // Event warnings even on failure
                         if (r.message.warnings && r.message.warnings.length > 0) {
                             html_message += `
                                 <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
@@ -881,7 +881,7 @@ function allocate_handling_units(frm) {
                                 </div>
                         `;
                         
-                        // Show warnings if any
+                        // Event warnings if any
                         if (r.message.warnings && r.message.warnings.length > 0) {
                             html_message += `
                                 <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
@@ -912,7 +912,7 @@ function allocate_handling_units(frm) {
                                 <p style="text-align: center; margin-bottom: 15px;">${error_message}</p>
                         `;
                         
-                        // Show warnings even on failure
+                        // Event warnings even on failure
                         if (r.message.warnings && r.message.warnings.length > 0) {
                             html_message += `
                                 <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">

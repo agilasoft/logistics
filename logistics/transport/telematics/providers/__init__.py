@@ -5,14 +5,16 @@ from .traccar import TraccarProvider
 from .wialon import WialonProvider
 from .geotab import GeotabProvider
 from .samsara import SamsaraProvider
+from .gotransport import GoTransportProvider
 from .custom import CustomProvider
 
 def make_provider(provider_type: str, conf: Dict[str, Any]) -> TelematicsProvider:
-    t = (provider_type or "").upper()
-    if t == "REMORA":  return RemoraProvider(conf)
-    if t == "TRACCAR": return TraccarProvider(conf)
-    if t == "WIALON":  return WialonProvider(conf)
-    if t == "GEOTAB":  return GeotabProvider(conf)
-    if t == "SAMSARA": return SamsaraProvider(conf)
-    if t == "CUSTOM":  return CustomProvider(conf)
+    t = (provider_type or "").upper().replace(" ", "").replace("-", "").replace("_", "")
+    if t == "REMORA":      return RemoraProvider(conf)
+    if t == "TRACCAR":     return TraccarProvider(conf)
+    if t == "WIALON":      return WialonProvider(conf)
+    if t == "GEOTAB":      return GeotabProvider(conf)
+    if t == "SAMSARA":     return SamsaraProvider(conf)
+    if t == "GOTRANSPORT": return GoTransportProvider(conf)
+    if t == "CUSTOM":      return CustomProvider(conf)
     raise ValueError(f"Unknown telematics provider: {provider_type}")

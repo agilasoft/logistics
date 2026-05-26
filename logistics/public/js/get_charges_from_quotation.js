@@ -39,7 +39,7 @@ function _gcfq_filter_specs(frm) {
 			{
 				key: "_svc",
 				readonly: true,
-				label: __("Service type"),
+				label: __("Main Service"),
 				value: __("Sea"),
 			},
 			{
@@ -97,7 +97,7 @@ function _gcfq_filter_specs(frm) {
 			{
 				key: "_svc",
 				readonly: true,
-				label: __("Service type"),
+				label: __("Main Service"),
 				value: __("Air"),
 			},
 			{
@@ -155,7 +155,7 @@ function _gcfq_filter_specs(frm) {
 			{
 				key: "_svc",
 				readonly: true,
-				label: __("Service type"),
+				label: __("Main Service"),
 				value: __("Transport"),
 			},
 			{
@@ -234,7 +234,7 @@ function _gcfq_filter_specs(frm) {
 			{
 				key: "_svc",
 				readonly: true,
-				label: __("Service type"),
+				label: __("Main Service"),
 				value: __("Customs"),
 			},
 			{
@@ -383,7 +383,16 @@ function _gcfq_mount_filter_cell($grid, spec, frm, dialog, idx) {
 	});
 }
 
-function _gcfq_capture_initial_filter_snapshot(dialog) {
+/** Saved job field used for filter snapshot / change detection (not Link control state). */
+function _gcfq_filter_value_from_frm(frm, key) {
+	if (!frm || !frm.doc || !key) {
+		return "";
+	}
+	var v = frm.doc[key];
+	return v == null ? "" : String(v).trim();
+}
+
+function _gcfq_capture_initial_filter_snapshot(dialog, frm) {
 	dialog._gcfq_initial_filter_values = {};
 	(dialog._gcfq_filter_controls || []).forEach(function (c) {
 		if (!c.key || c.key.charAt(0) === "_") {
@@ -392,7 +401,10 @@ function _gcfq_capture_initial_filter_snapshot(dialog) {
 		if (c.read_only) {
 			return;
 		}
-		var v = c.get_value();
+		var v =
+			frm && c.key
+				? _gcfq_filter_value_from_frm(frm, c.key)
+				: c.get_value();
 		dialog._gcfq_initial_filter_values[c.key] = v == null ? "" : String(v).trim();
 	});
 }
@@ -429,6 +441,9 @@ function _gcfq_collect_filter_overrides(dialog) {
 function _gcfq_bind_filter_change_reload(dialog, reloadList) {
 	var timer;
 	function schedule() {
+		if (!dialog._gcfq_ready) {
+			return;
+		}
 		if (timer) {
 			clearTimeout(timer);
 		}
@@ -473,12 +488,73 @@ function _gcfq_mount_filter_panel($parent, frm, dialog, reloadList) {
  * Single source of truth for whether the Action → Get Charges from Quotation button is shown.
  *
  * Rule: visible on draft (`docstatus === 0`) jobs that are not flagged as Internal Job.
- * `is_main_service` is *not* a precondition — Get Charges from Quotation is allowed on
- * any draft non–internal-job booking/order regardless of the Main Service flag.
+ * Hidden when linked (or pending) Sales Quote is One-off or Project — charges come from
+ * create-from-quote / programme flows, not this action (backend lists Regular only).
  *
  * @param {frappe.ui.form.Form} frm
  * @returns {boolean}
  */
+logistics.is_one_off_sales_quote_type = function (quotationType) {
+	return (quotationType || "").trim().toLowerCase() === "one-off";
+};
+
+logistics.is_project_sales_quote_type = function (quotationType) {
+	return (quotationType || "").trim() === "Project";
+};
+
+/** True when Sales Quote name uses the One-off naming series (OOQ. / OOQ- / OOQ…). */
+logistics.sales_quote_name_looks_one_off = function (name) {
+	name = (name || "").trim();
+	return !!name && /^OOQ[.\-]?/i.test(name);
+};
+
+/** True when Sales Quote name uses the Project naming series (PQ. / PQ- / PQ…). */
+logistics.sales_quote_name_looks_project = function (name) {
+	name = (name || "").trim();
+	return !!name && /^PQ[.\-]?/i.test(name);
+};
+
+/**
+ * Hide Get Charges from Quotation when the job is tied to a One-off or Project Sales Quote.
+ * @param {frappe.ui.form.Form} frm
+ * @param {string} [quotationTypeFromDb] optional fresh ``quotation_type`` from Sales Quote
+ * @returns {boolean}
+ */
+logistics.job_should_hide_get_charges_from_quotation = function (frm, quotationTypeFromDb) {
+	if (!frm || !frm.doc) {
+		return false;
+	}
+	if ((frm.doc.quote_type || "").trim() === "One-Off Quote") {
+		return true;
+	}
+	if (frm._logistics_one_off_route_pending) {
+		return true;
+	}
+	if (logistics.is_one_off_sales_quote_type(quotationTypeFromDb)) {
+		return true;
+	}
+	if (logistics.is_project_sales_quote_type(quotationTypeFromDb)) {
+		return true;
+	}
+	if (logistics.is_one_off_sales_quote_type(frm._logistics_sales_quote_quotation_type)) {
+		return true;
+	}
+	if (logistics.is_project_sales_quote_type(frm._logistics_sales_quote_quotation_type)) {
+		return true;
+	}
+	var sq = (frm.doc.sales_quote || "").trim();
+	if (logistics.sales_quote_name_looks_one_off(sq)) {
+		return true;
+	}
+	if (logistics.sales_quote_name_looks_project(sq)) {
+		return true;
+	}
+	return false;
+};
+
+/** @deprecated Use ``job_should_hide_get_charges_from_quotation`` */
+logistics.air_booking_should_hide_get_charges_from_quotation = logistics.job_should_hide_get_charges_from_quotation;
+
 logistics.should_show_get_charges_from_quotation = function (frm) {
 	if (!frm || !frm.doc) {
 		return false;
@@ -498,7 +574,62 @@ logistics.should_show_get_charges_from_quotation = function (frm) {
 	if (as_int(frm.doc.is_internal_job)) {
 		return false;
 	}
+	if (logistics.job_should_hide_get_charges_from_quotation(frm)) {
+		return false;
+	}
 	return true;
+};
+
+logistics._add_get_charges_from_quotation_button = function (frm) {
+	frm.add_custom_button(__("Get Charges from Quotation"), function () {
+		if (window.logistics && logistics.open_get_charges_from_quotation_dialog) {
+			logistics.open_get_charges_from_quotation_dialog(frm);
+		} else {
+			frappe.msgprint(
+				__("Charges dialog is not ready. Please refresh the page and try again.")
+			);
+		}
+	}, __("Action"));
+};
+
+/**
+ * Add Action → Get Charges from Quotation when allowed (draft, not internal job, not One-off/Project link).
+ * @param {frappe.ui.form.Form} frm
+ */
+logistics.add_get_charges_from_quotation_button_if_allowed = function (frm) {
+	if (
+		!window.logistics ||
+		typeof logistics.should_show_get_charges_from_quotation !== "function" ||
+		!logistics.should_show_get_charges_from_quotation(frm)
+	) {
+		return;
+	}
+	var sq = (frm.doc.sales_quote || "").trim();
+	if (!sq) {
+		logistics._add_get_charges_from_quotation_button(frm);
+		return;
+	}
+	if (logistics.job_should_hide_get_charges_from_quotation(frm)) {
+		return;
+	}
+	var token = (frm._logistics_gcfq_button_token = (frm._logistics_gcfq_button_token || 0) + 1);
+	frappe.db.get_value("Sales Quote", sq, "quotation_type", function (r) {
+		if (!frm.doc || frm._logistics_gcfq_button_token !== token) {
+			return;
+		}
+		if ((frm.doc.sales_quote || "").trim() !== sq) {
+			return;
+		}
+		var qt = r && r.quotation_type != null ? String(r.quotation_type).trim() : "";
+		frm._logistics_sales_quote_quotation_type = qt;
+		if (logistics.job_should_hide_get_charges_from_quotation(frm, qt)) {
+			return;
+		}
+		if (!logistics.should_show_get_charges_from_quotation(frm)) {
+			return;
+		}
+		logistics._add_get_charges_from_quotation_button(frm);
+	});
 };
 
 /**
@@ -510,6 +641,17 @@ logistics.open_get_charges_from_quotation_dialog = function (frm) {
 		frappe.msgprint(__("Save the document first."));
 		return;
 	}
+	if (
+		typeof logistics.should_show_get_charges_from_quotation === "function" &&
+		!logistics.should_show_get_charges_from_quotation(frm)
+	) {
+		frappe.msgprint(
+			__(
+				"Get Charges from Quotation is not available for this document (e.g. One-off or Project quotation, internal job, or submitted document)."
+			)
+		);
+		return;
+	}
 	if (frm.doc.docstatus !== 0) {
 		frappe.msgprint(__("Only draft documents can load charges from a quotation."));
 		return;
@@ -518,11 +660,15 @@ logistics.open_get_charges_from_quotation_dialog = function (frm) {
 	var cust =
 		frm.doctype === "Transport Order" || frm.doctype === "Declaration Order"
 			? frm.doc.customer
-			: frm.doc.local_customer;
+			: frm.doctype === "Special Project" || frm.doctype === "Exhibit"
+				? frm.doc.customer
+				: frm.doc.local_customer;
 	if (!cust) {
 		frappe.msgprint(
 			__(
-				frm.doctype === "Transport Order" || frm.doctype === "Declaration Order"
+				frm.doctype === "Transport Order" ||
+					frm.doctype === "Declaration Order" ||
+					frm.doctype === "Special Project" || frm.doctype === "Exhibit"
 					? "Set Customer first."
 					: "Set Local Customer first."
 			)
@@ -586,10 +732,11 @@ logistics.open_get_charges_from_quotation_dialog = function (frm) {
 	$wrap.append($searchWrap);
 	$wrap.append($dynamic);
 
+	d._gcfq_ready = false;
 	d._gcfq_quotation_list_wrap = $wrap;
-	// Defer snapshot + first load so Link/Select controls finish populating (avoids sending "" overrides).
+	// Snapshot from frm.doc (not Link controls) so the first list call uses saved criteria, not wildcards.
 	setTimeout(function () {
-		_gcfq_capture_initial_filter_snapshot(d);
+		_gcfq_capture_initial_filter_snapshot(d, frm);
 		reloadList();
 	}, 0);
 };
@@ -776,12 +923,74 @@ function _gcfq_load_card_preview($pv, frm, sales_quote, dialog, onDone) {
 	});
 }
 
-function _gcfq_apply_quotation(frm, sales_quote, dialog) {
-	frappe.confirm(
+function _gcfq_norm_dim(v) {
+	return v == null ? "" : String(v).trim();
+}
+
+/**
+ * @param {frappe.ui.form.Form} frm
+ * @param {{branch?: string, cost_center?: string, profit_center?: string}} quoteDims
+ * @returns {string[]} Human-readable mismatch lines (empty if all align).
+ */
+function _gcfq_org_dimension_mismatch_lines(frm, quoteDims) {
+	if (!frm || !frm.doc) {
+		return [];
+	}
+	var q = quoteDims || {};
+	var pb = _gcfq_norm_dim(frm.doc.branch);
+	var pcc = _gcfq_norm_dim(frm.doc.cost_center);
+	var ppc = _gcfq_norm_dim(frm.doc.profit_center);
+	var qb = _gcfq_norm_dim(q.branch);
+	var qcc = _gcfq_norm_dim(q.cost_center);
+	var qpc = _gcfq_norm_dim(q.profit_center);
+	var dash = __("—");
+	var lines = [];
+	if (pb !== qb) {
+		lines.push(
+			__("Branch: this document {0} — Sales Quote {1}", [pb || dash, qb || dash])
+		);
+	}
+	if (pcc !== qcc) {
+		lines.push(
+			__("Cost Center: this document {0} — Sales Quote {1}", [pcc || dash, qcc || dash])
+		);
+	}
+	if (ppc !== qpc) {
+		lines.push(
+			__(
+				"Profit Center: this document {0} — Sales Quote {1}",
+				[ppc || dash, qpc || dash]
+			)
+		);
+	}
+	return lines;
+}
+
+/**
+ * @param {frappe.ui.form.Form} frm
+ * @param {string} sales_quote
+ * @param {frappe.ui.Dialog} dialog
+ * @param {{branch?: string, cost_center?: string, profit_center?: string}} quoteOrgDims
+ */
+function _gcfq_apply_quotation(frm, sales_quote, dialog, quoteOrgDims) {
+	var miss = _gcfq_org_dimension_mismatch_lines(frm, quoteOrgDims);
+	var body =
 		__(
 			"Apply charges and link Sales Quote {0}? Existing charge lines will be replaced.",
 			[sales_quote]
-		),
+		);
+	if (miss.length) {
+		body =
+			__(
+				"The Sales Quote header does not match this document on Branch, Cost Center, or Profit Center:"
+			) +
+			"\n\n" +
+			miss.join("\n") +
+			"\n\n" +
+			body;
+	}
+	frappe.confirm(
+		body,
 		function () {
 			var fo = _gcfq_collect_filter_overrides(dialog);
 			frappe.call({
@@ -872,6 +1081,11 @@ function _gcfq_bind_quote_cards($wrap, frm, dialog) {
 		e.stopPropagation();
 		var $card = $(this).closest(".gcfq-card");
 		var sq = $card.attr("data-sales-quote") || "";
+		var quoteOrgDims = {
+			branch: $card.attr("data-sq-branch") || "",
+			cost_center: $card.attr("data-sq-cost-center") || "",
+			profit_center: $card.attr("data-sq-profit-center") || "",
+		};
 		var $pv = $card.find(".gcfq-card-preview");
 		if (!$pv.data("gcfq-loaded")) {
 			$card.addClass("open");
@@ -880,7 +1094,7 @@ function _gcfq_bind_quote_cards($wrap, frm, dialog) {
 				$pv.data("gcfq-loaded", true);
 				$btn.prop("disabled", !cnt);
 				if (cnt) {
-					_gcfq_apply_quotation(frm, sq, dialog);
+					_gcfq_apply_quotation(frm, sq, dialog, quoteOrgDims);
 				}
 			});
 			return;
@@ -893,7 +1107,7 @@ function _gcfq_bind_quote_cards($wrap, frm, dialog) {
 			});
 			return;
 		}
-		_gcfq_apply_quotation(frm, sq, dialog);
+		_gcfq_apply_quotation(frm, sq, dialog, quoteOrgDims);
 	});
 }
 
@@ -911,6 +1125,9 @@ function _load_quote_list(frm, dialog, $dynamic) {
 			filter_overrides: filter_overrides,
 		},
 		callback: function (r) {
+			if (!dialog._gcfq_ready) {
+				dialog._gcfq_ready = true;
+			}
 			if (!r || r.exc) {
 				$dynamic.html(
 					'<div class="alert alert-danger">' + __("Failed to load quotations.") + "</div>"
@@ -961,7 +1178,10 @@ function _load_quote_list(frm, dialog, $dynamic) {
 					.toLowerCase();
 				var $card = $('<div class="gcfq-card">')
 					.attr("data-sales-quote", sq)
-					.attr("data-gcfq-search", searchBlob);
+					.attr("data-gcfq-search", searchBlob)
+					.attr("data-sq-branch", row.branch || "")
+					.attr("data-sq-cost-center", row.cost_center || "")
+					.attr("data-sq-profit-center", row.profit_center || "");
 				var $hd = $('<div class="gcfq-card-hd">');
 				var $toggle = $('<div class="gcfq-card-toggle" role="button" tabindex="0">');
 				$toggle.append($('<span class="gcfq-card-chevron">').text("\u25B8"));
@@ -1047,6 +1267,274 @@ function _gcfq_unit_rate_display(c) {
 }
 
 /**
+ * Naive desk sum of line chargeable/gross weights (no UOM conversion). Used until server cache is set.
+ * @param {frappe.ui.form.Form} frm
+ * @returns {number}
+ */
+logistics.sum_customs_line_chargeable_weight_naive = function (frm) {
+	if (!frm || !frm.doc) {
+		return 0;
+	}
+	var flt = frappe.utils.flt;
+	var lines = frm.doc.commercial_invoice_line_items || [];
+	var total = 0;
+	lines.forEach(function (row) {
+		var cw = flt(row.chargeable_weight);
+		if (!cw) {
+			cw = flt(row.gross_weight);
+		}
+		total += cw;
+	});
+	return total;
+};
+
+/**
+ * Cached UOM-aware sum from server; falls back to naive sum when cache is empty.
+ * @param {frappe.ui.form.Form} frm
+ * @returns {number}
+ */
+logistics.sum_customs_line_chargeable_weight = function (frm) {
+	if (!frm) {
+		return 0;
+	}
+	if (frm._customs_line_chargeable_weight_cache != null) {
+		return frappe.utils.flt(frm._customs_line_chargeable_weight_cache);
+	}
+	return logistics.sum_customs_line_chargeable_weight_naive(frm);
+};
+
+/**
+ * Refresh server-side UOM-aware line chargeable sum and optionally run callback.
+ * @param {frappe.ui.form.Form} frm
+ * @param {Function} [done]
+ */
+logistics._customs_line_charge_recalc_timers = logistics._customs_line_charge_recalc_timers || {};
+
+/**
+ * Debounced: refresh line chargeable sum and recalculate parent charge rows.
+ * @param {frappe.ui.form.Form} frm Declaration or Declaration Order form
+ */
+logistics.schedule_customs_line_charge_recalc = function (frm) {
+	if (!frm || !frm.doc) {
+		return;
+	}
+	if (frm.doctype !== "Declaration" && frm.doctype !== "Declaration Order") {
+		return;
+	}
+	var key = frm.doctype + ":" + (frm.doc.name || "new");
+	clearTimeout(logistics._customs_line_charge_recalc_timers[key]);
+	logistics._customs_line_charge_recalc_timers[key] = setTimeout(function () {
+		frm._customs_line_chargeable_weight_cache = null;
+		logistics.refresh_customs_line_chargeable_weight_cache(frm, function () {
+			if (frm.doctype === "Declaration Order") {
+				logistics._recalculate_declaration_order_charge_rows(frm);
+			} else if (frm.doctype === "Declaration") {
+				logistics._recalculate_declaration_charge_rows(frm);
+			}
+		});
+	}, 300);
+};
+
+/**
+ * Recalculate Declaration charge rows on the desk (unsaved line-item changes).
+ * @param {frappe.ui.form.Form} frm
+ * @param {Function} [done]
+ */
+logistics._recalculate_declaration_order_charge_rows = function (frm, done) {
+	var charges = (frm.doc && frm.doc.charges) || [];
+	if (!charges.length) {
+		if (done) {
+			done();
+		}
+		return;
+	}
+	var idx = 0;
+	function run_next() {
+		if (idx >= charges.length) {
+			frm.refresh_field("charges");
+			if (done) {
+				done();
+			}
+			return;
+		}
+		var row = charges[idx];
+		idx += 1;
+		frappe.call({
+			method: "logistics.utils.charges_calculation.calculate_charge_row",
+			args: {
+				doctype: "Declaration Order Charges",
+				parenttype: "Declaration Order",
+				parent: frm.doc.name || "new",
+				row_data: JSON.stringify(row),
+				parent_overrides: logistics.charge_row_parent_overrides
+					? logistics.charge_row_parent_overrides(frm)
+					: null,
+			},
+			callback: function (r) {
+				if (r.message && r.message.success && row.name) {
+					if (r.message.estimated_revenue != null) {
+						frappe.model.set_value(
+							"Declaration Order Charges",
+							row.name,
+							"estimated_revenue",
+							r.message.estimated_revenue
+						);
+					}
+					if (r.message.estimated_cost != null) {
+						frappe.model.set_value(
+							"Declaration Order Charges",
+							row.name,
+							"estimated_cost",
+							r.message.estimated_cost
+						);
+					}
+					if (r.message.quantity != null) {
+						frappe.model.set_value("Declaration Order Charges", row.name, "quantity", r.message.quantity);
+					}
+					if (r.message.cost_quantity != null) {
+						frappe.model.set_value(
+							"Declaration Order Charges",
+							row.name,
+							"cost_quantity",
+							r.message.cost_quantity
+						);
+					}
+					if ("revenue_calc_notes" in r.message) {
+						frappe.model.set_value(
+							"Declaration Order Charges",
+							row.name,
+							"revenue_calc_notes",
+							r.message.revenue_calc_notes || ""
+						);
+					}
+					if ("cost_calc_notes" in r.message) {
+						frappe.model.set_value(
+							"Declaration Order Charges",
+							row.name,
+							"cost_calc_notes",
+							r.message.cost_calc_notes || ""
+						);
+					}
+					if (logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
+						logistics.charges_disbursement.apply_charge_row_response("Declaration Order Charges", row.name, r);
+					}
+				}
+				run_next();
+			},
+			error: function () {
+				run_next();
+			},
+		});
+	}
+	run_next();
+};
+
+logistics._recalculate_declaration_charge_rows = function (frm, done) {
+	var charges = (frm.doc && frm.doc.charges) || [];
+	if (!charges.length) {
+		if (done) {
+			done();
+		}
+		return;
+	}
+	var idx = 0;
+	function run_next() {
+		if (idx >= charges.length) {
+			frm.refresh_field("charges");
+			if (done) {
+				done();
+			}
+			return;
+		}
+		var row = charges[idx];
+		idx += 1;
+		frappe.call({
+			method: "logistics.utils.charges_calculation.calculate_charge_row",
+			args: {
+				doctype: "Declaration Charges",
+				parenttype: "Declaration",
+				parent: frm.doc.name || "new",
+				row_data: JSON.stringify(row),
+				parent_overrides: logistics.charge_row_parent_overrides
+					? logistics.charge_row_parent_overrides(frm)
+					: null,
+			},
+			callback: function (r) {
+				if (r.message && r.message.success && row.name) {
+					if ("actual_revenue" in r.message) {
+						frappe.model.set_value("Declaration Charges", row.name, "actual_revenue", r.message.actual_revenue);
+					}
+					if ("actual_cost" in r.message) {
+						frappe.model.set_value("Declaration Charges", row.name, "actual_cost", r.message.actual_cost);
+					}
+					if (r.message.quantity != null) {
+						frappe.model.set_value("Declaration Charges", row.name, "quantity", r.message.quantity);
+					}
+					if (r.message.cost_quantity != null) {
+						frappe.model.set_value("Declaration Charges", row.name, "cost_quantity", r.message.cost_quantity);
+					}
+					if ("revenue_calc_notes" in r.message) {
+						frappe.model.set_value(
+							"Declaration Charges",
+							row.name,
+							"revenue_calc_notes",
+							r.message.revenue_calc_notes || ""
+						);
+					}
+					if ("cost_calc_notes" in r.message) {
+						frappe.model.set_value(
+							"Declaration Charges",
+							row.name,
+							"cost_calc_notes",
+							r.message.cost_calc_notes || ""
+						);
+					}
+					if (logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
+						logistics.charges_disbursement.apply_charge_row_response("Declaration Charges", row.name, r);
+					}
+				}
+				run_next();
+			},
+			error: function () {
+				run_next();
+			},
+		});
+	}
+	run_next();
+};
+
+logistics.refresh_customs_line_chargeable_weight_cache = function (frm, done) {
+	if (!frm || !frm.doc) {
+		if (done) {
+			done();
+		}
+		return;
+	}
+	var lines = frm.doc.commercial_invoice_line_items || [];
+	frappe.call({
+		method: "logistics.utils.charges_calculation.sum_customs_line_chargeable_weight",
+		args: {
+			commercial_invoice_line_items: JSON.stringify(lines),
+			company: frm.doc.company || null,
+		},
+		async: false,
+		callback: function (r) {
+			frm._customs_line_chargeable_weight_cache =
+				r.message != null ? frappe.utils.flt(r.message) : logistics.sum_customs_line_chargeable_weight_naive(frm);
+			if (done) {
+				done();
+			}
+		},
+		error: function () {
+			frm._customs_line_chargeable_weight_cache = logistics.sum_customs_line_chargeable_weight_naive(frm);
+			if (done) {
+				done();
+			}
+		},
+	});
+};
+
+/**
  * Header quantity snapshot for calculate_charge_row while the parent form has unsaved packing/routing changes.
  * Server loads parent via get_doc (DB); merging this keeps revenue/cost quantities aligned with the desk.
  * @param {frappe.ui.form.Form} frm
@@ -1084,7 +1572,7 @@ logistics.charge_row_parent_overrides = function (frm) {
 			"total_containers",
 			"pieces",
 		];
-	} else if (dt === "Sea Consolidation") {
+	} else if (dt === "Sea Consolidation" || dt === "Air Consolidation") {
 		keys = [
 			"total_weight",
 			"weight",
@@ -1115,6 +1603,8 @@ logistics.charge_row_parent_overrides = function (frm) {
 		keys = [
 			"total_weight",
 			"weight",
+			"chargeable_weight",
+			"chargeable",
 			"total_volume",
 			"volume",
 			"total_pieces",
@@ -1131,6 +1621,8 @@ logistics.charge_row_parent_overrides = function (frm) {
 			"total_packages",
 			"pieces",
 		];
+	} else if (dt === "Special Project") {
+		keys = [];
 	} else {
 		return null;
 	}
@@ -1141,6 +1633,21 @@ logistics.charge_row_parent_overrides = function (frm) {
 			o[k] = v;
 		}
 	});
+	if (dt === "Declaration" || dt === "Declaration Order") {
+		var line_cw = logistics.sum_customs_line_chargeable_weight(frm);
+		if (line_cw > 0) {
+			if (!o.chargeable_weight) {
+				o.chargeable_weight = line_cw;
+			}
+			if (!o.chargeable) {
+				o.chargeable = line_cw;
+			}
+			if (!o.total_weight && !o.weight) {
+				o.total_weight = line_cw;
+				o.weight = line_cw;
+			}
+		}
+	}
 	return Object.keys(o).length ? JSON.stringify(o) : null;
 };
 
@@ -1158,8 +1665,8 @@ logistics.resolve_air_parent_quantity_by_unit_type = function (d, unit_type) {
 	var ut = String(unit_type).trim().toLowerCase();
 	var flt = frappe.utils.flt;
 
-	function pick_weight() {
-		var order = ["total_weight", "chargeable_weight", "weight", "chargeable", "air_weight"];
+	function pick_gross_weight() {
+		var order = ["total_weight", "weight", "air_weight"];
 		for (var i = 0; i < order.length; i++) {
 			var k = order[i];
 			if (d[k] !== undefined && d[k] !== null && d[k] !== "") {
@@ -1177,6 +1684,16 @@ logistics.resolve_air_parent_quantity_by_unit_type = function (d, unit_type) {
 			}
 		}
 		return 0;
+	}
+	function pick_chargeable_or_volumetric() {
+		var cw = pick_chargeable();
+		if (cw > 0) {
+			return cw;
+		}
+		var tw = pick_gross_weight();
+		var vol = pick_volume();
+		var volume_weight = vol > 0 ? vol * (1000 / 6) : 0;
+		return Math.max(tw, volume_weight) || tw || volume_weight || 0;
 	}
 	function pick_volume() {
 		var order = ["total_volume", "volume", "air_volume"];
@@ -1201,6 +1718,15 @@ logistics.resolve_air_parent_quantity_by_unit_type = function (d, unit_type) {
 		if (p) {
 			return p;
 		}
+		if (d.consolidation_packages && d.consolidation_packages.length) {
+			var pkg_sum = 0;
+			d.consolidation_packages.forEach(function (pkg) {
+				pkg_sum += flt(pkg.package_count || 1);
+			});
+			if (pkg_sum) {
+				return pkg_sum;
+			}
+		}
 		if (d.packages && d.packages.length) {
 			return flt(d.packages.length);
 		}
@@ -1208,14 +1734,10 @@ logistics.resolve_air_parent_quantity_by_unit_type = function (d, unit_type) {
 	}
 
 	if (ut === "weight") {
-		return pick_weight();
+		return pick_gross_weight();
 	}
 	if (ut === "chargeable weight") {
-		var cw = pick_chargeable();
-		if (cw > 0) {
-			return cw;
-		}
-		return pick_weight();
+		return pick_chargeable_or_volumetric();
 	}
 	if (ut === "volume") {
 		return pick_volume();
@@ -1244,8 +1766,27 @@ logistics.resolve_air_parent_quantity_by_unit_type = function (d, unit_type) {
 		var t = legs.length ? flt(legs.length) : 0;
 		return t > 0 ? t : 1;
 	}
-	var fallback = pick_weight() || pick_volume() || pick_pieces();
+	var fallback = pick_gross_weight() || pick_volume() || pick_pieces();
 	return fallback > 0 ? fallback : 1;
+};
+
+/**
+ * Parent table fieldname for a charge child doctype (e.g. consolidation_charges).
+ * @param {frappe.ui.form.Form} frm
+ * @param {string} cdt Child doctype
+ * @returns {string|null}
+ */
+logistics.get_charge_table_fieldname = function (frm, cdt) {
+	if (!frm || !frm.doctype || !cdt) {
+		return null;
+	}
+	var parentfield = null;
+	(frappe.meta.get_docfields(frm.doctype) || []).forEach(function (df) {
+		if (df.fieldtype === "Table" && df.options === cdt) {
+			parentfield = df.fieldname;
+		}
+	});
+	return parentfield;
 };
 
 /**
@@ -1259,12 +1800,7 @@ logistics.refresh_charge_grid_cell = function (frm, cdt, cdn, fieldname) {
 	if (!frm || !frm.fields_dict || !cdt || !cdn || !fieldname) {
 		return;
 	}
-	var parentfield = null;
-	(frappe.meta.get_docfields(frm.doctype) || []).forEach(function (df) {
-		if (df.fieldtype === "Table" && df.options === cdt) {
-			parentfield = df.fieldname;
-		}
-	});
+	var parentfield = logistics.get_charge_table_fieldname(frm, cdt);
 	if (!parentfield) {
 		return;
 	}
@@ -1289,6 +1825,222 @@ logistics.refresh_charge_grid_cell = function (frm, cdt, cdn, fieldname) {
 	if (frm.refresh_field) {
 		frm.refresh_field(parentfield);
 	}
+};
+
+/**
+ * Refresh charge row fields in the inline grid and in the open "Editing Row" dialog.
+ * @param {frappe.ui.form.Form} frm
+ * @param {string} cdt
+ * @param {string} cdn
+ * @param {string[]} fieldnames
+ */
+logistics.refresh_charge_row_fields = function (frm, cdt, cdn, fieldnames) {
+	if (!frm || !frm.fields_dict || !cdt || !cdn || !fieldnames || !fieldnames.length) {
+		return;
+	}
+	var doc = locals[cdt] && locals[cdt][cdn];
+	if (!doc) {
+		return;
+	}
+	var parentfield = logistics.get_charge_table_fieldname(frm, cdt);
+	if (!parentfield) {
+		return;
+	}
+	var grid = frm.fields_dict[parentfield] && frm.fields_dict[parentfield].grid;
+	if (!grid) {
+		return;
+	}
+	fieldnames.forEach(function (fieldname) {
+		logistics.refresh_charge_grid_cell(frm, cdt, cdn, fieldname);
+	});
+	var grid_row =
+		(grid.grid_rows_by_docname && grid.grid_rows_by_docname[cdn]) ||
+		null;
+	if (grid.open_grid_row && grid.open_grid_row.row) {
+		var open_row = grid.open_grid_row.row;
+		if (open_row.doc && open_row.doc.doctype === cdt && open_row.doc.name === cdn) {
+			grid_row = open_row;
+		}
+	}
+	if (grid_row && grid_row.doc) {
+		fieldnames.forEach(function (fieldname) {
+			if (doc[fieldname] !== undefined) {
+				grid_row.doc[fieldname] = doc[fieldname];
+			}
+		});
+		fieldnames.forEach(function (fieldname) {
+			if (grid_row.refresh_field) {
+				grid_row.refresh_field(fieldname);
+			}
+		});
+	}
+	if (
+		grid.open_grid_row &&
+		grid.open_grid_row.layout &&
+		grid.open_grid_row.row &&
+		grid.open_grid_row.row.doc &&
+		grid.open_grid_row.row.doc.name === cdn
+	) {
+		fieldnames.forEach(function (fieldname) {
+			if (doc[fieldname] !== undefined) {
+				grid.open_grid_row.row.doc[fieldname] = doc[fieldname];
+			}
+		});
+		grid.open_grid_row.layout.refresh(grid.open_grid_row.row.doc);
+	}
+};
+
+/**
+ * Distinct Air Shipment count on an Air Consolidation (cargo + planning lines).
+ * @param {frappe.ui.form.Form} frm
+ * @returns {number}
+ */
+logistics.distinct_air_shipment_count_for_charges = function (frm) {
+	if (!frm || !frm.doc) {
+		return 0;
+	}
+	var names = {};
+	(frm.doc.consolidation_packages || []).forEach(function (p) {
+		if (p.air_freight_job) {
+			names[p.air_freight_job] = 1;
+		}
+	});
+	(frm.doc.consolidation_planning_lines || []).forEach(function (p) {
+		if (p.air_shipment) {
+			names[p.air_shipment] = 1;
+		}
+	});
+	return Object.keys(names).length;
+};
+
+/**
+ * Resolve Per Unit quantity for Air Consolidation Charges (unit_type or shipment UOM).
+ * @param {frappe.ui.form.Form} frm
+ * @param {object} row Charge child row
+ * @returns {number|null}
+ */
+logistics.resolve_air_consolidation_charge_quantity = function (frm, row) {
+	if (!frm || !frm.doc || !row || row.revenue_calculation_method !== "Per Unit") {
+		return null;
+	}
+	var uom = (row.unit_of_measure || "").trim().toLowerCase();
+	if (uom === "shipment") {
+		return logistics.distinct_air_shipment_count_for_charges(frm);
+	}
+	if (row.unit_type) {
+		return logistics.resolve_air_parent_quantity_by_unit_type(frm.doc, row.unit_type);
+	}
+	return null;
+};
+
+/**
+ * Sync quantity on Air Consolidation Charges when unit_type / unit_of_measure changes.
+ * @param {frappe.ui.form.Form} frm
+ * @param {string} cdt
+ * @param {string} cdn
+ */
+logistics.sync_air_consolidation_charge_qty_to_grid = function (frm, cdt, cdn) {
+	if (!frm || !frm.doc || !cdt || !cdn || !locals[cdt] || !locals[cdt][cdn]) {
+		return false;
+	}
+	var row = locals[cdt][cdn];
+	var q = logistics.resolve_air_consolidation_charge_quantity(frm, row);
+	if (q == null) {
+		return false;
+	}
+	row._logistics_skip_charge_recalc = "quantity";
+	row.quantity = q;
+	var refresh_qty = function () {
+		logistics.refresh_charge_row_fields(frm, cdt, cdn, ["quantity"]);
+		var parentfield = logistics.get_charge_table_fieldname(frm, cdt);
+		if (parentfield && frm.refresh_field) {
+			frm.refresh_field(parentfield);
+		}
+	};
+	frappe.model.set_value(cdt, cdn, "quantity", q, refresh_qty);
+	refresh_qty();
+	setTimeout(function () {
+		if (row._logistics_skip_charge_recalc === "quantity") {
+			row._logistics_skip_charge_recalc = null;
+		}
+	}, 250);
+	return true;
+};
+
+/**
+ * Immediate desk update for Air Consolidation charge row when unit_type / UOM / method changes.
+ * Updates quantity and amounts in the grid without saving the parent document.
+ * @param {frappe.ui.form.Form} frm
+ * @param {string} cdt
+ * @param {string} cdn
+ * @param {{server?: boolean}} [opts] Pass server: false to skip calculate_charge_row RPC.
+ */
+logistics.update_air_consolidation_charge_row_from_parent = function (frm, cdt, cdn, opts) {
+	opts = opts || {};
+	if (!frm || !cdt || !cdn || !locals[cdt] || !locals[cdt][cdn]) {
+		return;
+	}
+	var synced = logistics.sync_air_consolidation_charge_qty_to_grid(frm, cdt, cdn);
+	logistics.apply_air_consolidation_charge_amounts(frm, cdt, cdn, null);
+	logistics.refresh_charge_row_fields(frm, cdt, cdn, [
+		"quantity",
+		"base_amount",
+		"discount_amount",
+		"total_amount",
+	]);
+	var parentfield = logistics.get_charge_table_fieldname(frm, cdt);
+	if (parentfield && frm.refresh_field) {
+		frm.refresh_field(parentfield);
+	}
+	if (opts.server === false) {
+		return;
+	}
+	if (!synced) {
+		return;
+	}
+	if (typeof window._calculate_air_consolidation_charge_row === "function") {
+		window._calculate_air_consolidation_charge_row(frm, cdt, cdn, { skip_qty_sync: true });
+	}
+};
+
+/**
+ * Apply base / discount / total on Air Consolidation Charges (matches parent calculate_total_charges).
+ * @param {frappe.ui.form.Form} frm
+ * @param {string} cdt
+ * @param {string} cdn
+ * @param {object|null} calcMsg calculate_charge_row response
+ */
+logistics.apply_air_consolidation_charge_amounts = function (frm, cdt, cdn, calcMsg) {
+	var row = locals[cdt] && locals[cdt][cdn];
+	if (!row) {
+		return;
+	}
+	var flt = frappe.utils.flt;
+	var base = 0;
+	var method = row.revenue_calculation_method;
+	if (method === "Per Unit") {
+		base = flt(row.rate) * flt(row.quantity || 0);
+	} else if (method === "Flat Rate") {
+		base = flt(row.rate);
+	} else if (method === "Percentage") {
+		if (calcMsg && calcMsg.estimated_revenue != null) {
+			base = flt(calcMsg.estimated_revenue);
+		} else if (frm && frm.doc) {
+			var cw = flt(frm.doc.chargeable_weight) || 0;
+			if (cw <= 0) {
+				cw = flt(frm.doc.total_weight) || 0;
+			}
+			base = flt(row.rate) * (cw * 0.01);
+		}
+	}
+	var disc = row.discount_percentage ? base * (flt(row.discount_percentage) / 100) : 0;
+	var total = base - disc + flt(row.surcharge_amount || 0);
+	row.base_amount = base;
+	row.discount_amount = disc;
+	row.total_amount = total;
+	frappe.model.set_value(cdt, cdn, "base_amount", base);
+	frappe.model.set_value(cdt, cdn, "discount_amount", disc);
+	frappe.model.set_value(cdt, cdn, "total_amount", total);
 };
 
 /**

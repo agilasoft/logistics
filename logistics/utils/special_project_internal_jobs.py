@@ -1,7 +1,12 @@
 # Copyright (c) 2026, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
-"""Resolve Internal Job Detail rows on Special Project to operational logistics documents."""
+"""Resolve Lifecycle Job rows on Special Project to operational logistics documents.
+
+The helpers historically named ``*_internal_job_details`` now operate on the
+``lifecycle_jobs`` table backed by the ``Lifecycle Job`` child DocType. The old
+function names are preserved as aliases for backward compatibility.
+"""
 
 from __future__ import unicode_literals
 
@@ -10,7 +15,7 @@ import frappe
 from logistics.utils.charge_service_type import effective_internal_job_detail_job_type
 
 
-def resolve_internal_job_detail_row_to_operational_ref(row):
+def resolve_lifecycle_job_row_to_operational_ref(row):
 	"""
 	Return ``(logistics_doctype, job_name)`` for dashboards and milestones (operational job doc),
 	or ``None`` when the row is resource-only (Special Project) or cannot be resolved.
@@ -77,11 +82,15 @@ def resolve_internal_job_detail_row_to_operational_ref(row):
 	return None
 
 
-def job_refs_from_internal_job_details(doc):
-	"""Build list of ``frappe._dict(job_type=DocType, job=name)`` from Special Project job rows."""
+def job_refs_from_lifecycle_jobs(doc, field_name: str = "lifecycle_jobs"):
+	"""Build list of ``frappe._dict(job_type=DocType, job=name)`` from project lifecycle rows."""
 	refs = []
-	for row in doc.get("internal_job_details") or []:
-		pair = resolve_internal_job_detail_row_to_operational_ref(row)
+	for row in doc.get(field_name) or []:
+		pair = resolve_lifecycle_job_row_to_operational_ref(row)
 		if pair:
 			refs.append(frappe._dict(job_type=pair[0], job=pair[1]))
 	return refs
+
+
+resolve_internal_job_detail_row_to_operational_ref = resolve_lifecycle_job_row_to_operational_ref
+job_refs_from_internal_job_details = job_refs_from_lifecycle_jobs

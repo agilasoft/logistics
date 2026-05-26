@@ -11,6 +11,19 @@
 		return frappe.datetime.obj_to_str(d);
 	}
 
+	function consolidation_planning_submitted(frm) {
+		if (!frm || !frm.doc) {
+			return false;
+		}
+		if (frm.doctype === "Sea Consolidation") {
+			return (frm.doc.sea_planning_status || "Draft") === "Submitted";
+		}
+		if (frm.doctype === "Air Consolidation") {
+			return (frm.doc.air_planning_status || "Draft") === "Submitted";
+		}
+		return false;
+	}
+
 	window.show_create_purchase_invoice_dialog = function(frm) {
 		if (!frm || !frm.doc || !frm.doc.name) {
 			frappe.msgprint({ title: __("Error"), message: __("Please save the document first."), indicator: "red" });
@@ -231,6 +244,14 @@
 		}
 		if (frm.doc.__islocal) {
 			frappe.msgprint({ title: __("Save Required"), message: __("Please save the document before creating Purchase Invoice."), indicator: "orange" });
+			return;
+		}
+		if (!consolidation_planning_submitted(frm)) {
+			frappe.msgprint({
+				title: __("Planning status"),
+				message: __("Submit the planned shipment list (Planning status) before creating a Purchase Invoice."),
+				indicator: "orange",
+			});
 			return;
 		}
 		var consolidation_doctype = frm.doctype;
@@ -500,7 +521,9 @@
 							}
 						});
 					}
-					frm.add_custom_button(__("Purchase Invoice"), open_consolidation_purchase_invoice, __("Create"));
+					if (consolidation_planning_submitted(frm)) {
+						frm.add_custom_button(__("Purchase Invoice"), open_consolidation_purchase_invoice, __("Create"));
+					}
 				}, 0);
 			},
 		});

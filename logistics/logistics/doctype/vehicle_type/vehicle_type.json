@@ -8,6 +8,7 @@
  "field_order": [
   "code",
   "description",
+  "image",
   "is_active",
   "classifications",
   "containerized",
@@ -31,6 +32,12 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Description"
+  },
+  {
+   "fieldname": "image",
+   "fieldtype": "Attach Image",
+   "hidden": 1,
+   "label": "Vehicle Image"
   },
   {
    "default": "1",
@@ -93,8 +100,9 @@
    "label": "Hazardous"
   }
  ],
+ "image_field": "image",
  "links": [],
- "modified": "2026-02-03 08:50:09.607785",
+ "modified": "2026-05-19 16:59:15.923403",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Vehicle Type",

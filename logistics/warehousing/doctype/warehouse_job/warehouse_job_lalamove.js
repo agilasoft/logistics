@@ -22,7 +22,7 @@ frappe.ui.form.on('Warehouse Job', {
 				}
 			}, __('Action'));
 			
-			// Show order status indicator if order exists
+			// Event order status indicator if order exists
 			if (frm.doc.lalamove_order) {
 				frappe.db.get_value('Lalamove Order', frm.doc.lalamove_order, ['status', 'lalamove_order_id'], (r) => {
 					if (r && r.status) {

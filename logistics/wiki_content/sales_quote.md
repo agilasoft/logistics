@@ -30,7 +30,8 @@ Before creating a Sales Quote, it is advised to set up the following:
 
 - **Regular** – Reusable across multiple jobs, orders, and bookings. Child tables hold full charge parameters.
 - **One-off** – Single-use only; once converted, cannot be linked to another order. Header-level default parameters; child params disabled.
-- **Project** – Project-scoped; links to Special Project. Supports Projects Tab with resources and products.
+- **Project** – Project-scoped; links to Special Project (`main_service` defaults to **Special Project**). Supports Projects tab with resources and products.
+- **Exhibits** – Set **Main Service** to **Exhibits**; require exhibit name and open/close dates. Charge lines use Service Type **Exhibits** (or **Special Project** for programme resource lines) with **Site** on each programme charge row.
 
 ### 2.2 Statuses
 

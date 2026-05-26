@@ -30,7 +30,7 @@ def _map_activity_to_ij_row(ar):
 	bod = (ar.get("booking_order_doctype") or "").strip()
 	spj = (ar.get("special_project_job") or "").strip()
 
-	if job_type == "Project Task Job":
+	if job_type == "Project Job":
 		out["service_type"] = "Special Project"
 		out["job_no"] = spj
 		if ar.get("equipment_type"):

@@ -55,10 +55,34 @@ DOCTYPE_CONTEXT = {
 	"General Job": ("General", "Shipment/Job"),
 	"Declaration": ("Customs", "Shipment/Job"),
 	"Special Project": ("Special Projects", "Shipment/Job"),
+	"Project Order": ("Special Projects", "Booking"),
+	"Project Job": ("Special Projects", "Shipment/Job"),
+	"Exhibit": ("Exhibits", "Shipment/Job"),
+	"Docket": ("Exhibits", "Shipment/Job"),
+	"Exhibit Order": ("Exhibits", "Shipment/Job"),
+	"Exhibit Job": ("Exhibits", "Shipment/Job"),
 }
 
 # Doctypes that have milestone child table (field "milestones")
-MILESTONE_DOCTYPES = ("Air Booking", "Air Shipment", "Air Consolidation", "Sea Booking", "Sea Shipment", "Sea Consolidation", "Transport Order", "Transport Job", "Declaration", "Declaration Order")
+MILESTONE_DOCTYPES = (
+	"Air Booking",
+	"Air Shipment",
+	"Air Consolidation",
+	"Sea Booking",
+	"Sea Shipment",
+	"Sea Consolidation",
+	"Transport Order",
+	"Transport Job",
+	"Declaration",
+	"Declaration Order",
+	"Special Project",
+	"Project Order",
+	"Project Job",
+	"Exhibit",
+	"Docket",
+	"Exhibit Order",
+	"Exhibit Job",
+)
 
 # Child table doctype for each parent
 MILESTONE_CHILD_DOCTYPE = {
@@ -72,6 +96,13 @@ MILESTONE_CHILD_DOCTYPE = {
 	"Transport Job": "Transport Job Milestone",
 	"Declaration": "Declaration Milestone",
 	"Declaration Order": "Declaration Order Milestone",
+	"Special Project": "Special Project Milestone",
+	"Project Order": "Special Project Milestone",
+	"Project Job": "Transport Job Milestone",
+	"Exhibit": "Exhibit Milestone",
+	"Docket": "Exhibit Milestone",
+	"Exhibit Order": "Exhibit Milestone",
+	"Exhibit Job": "Exhibit Milestone",
 }
 
 

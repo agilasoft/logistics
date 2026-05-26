@@ -35,7 +35,7 @@ LEGACY_JOB_SELECT_TO_DOCTYPE = {
 }
 
 def _ensure_stub_special_project_job(special_project, title):
-	doc = frappe.new_doc("Project Task Job")
+	doc = frappe.new_doc("Project Job")
 	doc.naming_series = "SPJ-.#####"
 	doc.title = (title or _("Migrated activity"))[:140]
 	doc.special_project = special_project
@@ -143,7 +143,7 @@ def _migrate_existing_activity_rows_from_staging():
 				"Special Project Activity",
 				name,
 				{
-					"job_type": "Project Task Job",
+					"job_type": "Project Job",
 					"logistics_link_doctype": None,
 					"logistics_job": None,
 					"special_project_job": sp_job,

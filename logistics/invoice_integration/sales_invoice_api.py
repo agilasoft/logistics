@@ -14,9 +14,11 @@ from frappe.utils import flt, today
 from typing import Dict, Any, Optional, List
 import json
 
+from logistics.job_management.recognition_engine import get_charge_row_selling_amount
 from logistics.utils.freight_95_5 import (
     apply_freight_95_post_missing_values,
     build_sales_invoice_item_payloads_for_charge,
+    resolve_sales_invoice_line_qty_rate,
 )
 
 
@@ -50,7 +52,14 @@ def job_dimension_link_field_writable(field) -> bool:
     return bool(frappe.db.exists("DocType", opt))
 
 
-SALES_JOB_DOCTYPES = ("Transport Job", "Air Shipment", "Sea Shipment", "Warehouse Job", "Declaration")
+SALES_JOB_DOCTYPES = (
+    "Transport Job",
+    "Air Shipment",
+    "Sea Shipment",
+    "Warehouse Job",
+    "Declaration",
+    "Special Project",
+)
 
 # Child table doctype for charges (for tagging sales_invoice_status / sales_invoice)
 SALES_CHARGES_CHILD_DOCTYPE = {
@@ -59,6 +68,7 @@ SALES_CHARGES_CHILD_DOCTYPE = {
     "Sea Shipment": "Sea Shipment Charges",
     "Warehouse Job": "Warehouse Job Charges",
     "Declaration": "Declaration Charges",
+    "Special Project": "Special Project Charges",
 }
 
 # Statuses that mean the charge is already in an SI or further along - exclude from eligibility (avoid duplicate posting)
@@ -74,6 +84,8 @@ SALES_CHARGE_CONFIG = {
     "Sea Shipment": ("charges", "estimated_revenue", "rate", "quantity", "item_code", "item_name", "bill_to", "invoice_type"),
     "Warehouse Job": ("charges", "estimated_revenue", "rate", "quantity", "item_code", "item_name", None, None),
     "Declaration": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", None, None),
+    # Special Project Charges mirror the operational doc shape (item_code, estimated_revenue, rate, quantity, bill_to, invoice_type).
+    "Special Project": ("charges", "estimated_revenue", "rate", "quantity", "item_code", "item_name", "bill_to", "invoice_type"),
 }
 
 
@@ -88,8 +100,10 @@ def _get_eligible_revenue_rows(job, config, customer=None, invoice_type=None):
         status = getattr(ch, "sales_invoice_status", None)
         if status in SI_EXCLUDED_STATUSES or getattr(ch, "sales_invoice", None):
             continue
-        # Use actual_revenue for SI when present and > 0, else estimated/revenue_field
-        revenue = flt(getattr(ch, "actual_revenue", None) or 0)
+        # Same selling amount basis as WIP recognition
+        revenue = flt(get_charge_row_selling_amount(ch))
+        if revenue <= 0:
+            revenue = flt(getattr(ch, "actual_revenue", None) or 0)
         if revenue <= 0:
             revenue = flt(
                 getattr(ch, revenue_field, None)
@@ -278,8 +292,11 @@ def create_sales_invoice_from_job(
             desc_parts.append(calc_notes)
         description = "\n".join(desc_parts) if desc_parts else None
         currency = None
-        if job_type == "Sea Shipment":
+        if job_type in ("Sea Shipment", "Special Project"):
             currency = getattr(ch, "selling_currency", None) or getattr(ch, "currency", None)
+
+        line_qty, line_rate, revenue = resolve_sales_invoice_line_qty_rate(ch, revenue, job.company)
+        uom = getattr(ch, "uom", None) if line_qty is not None else None
 
         payloads, clear_rel = build_sales_invoice_item_payloads_for_charge(
             ch,
@@ -296,6 +313,9 @@ def create_sales_invoice_from_job(
             si_item_meta=si_item_meta,
             reference_doctype=job_type if has_ref else None,
             reference_name=job_name if has_ref else None,
+            line_qty=line_qty,
+            line_rate=line_rate,
+            uom=uom,
         )
         start_idx = len(si.items)
         for p in payloads:

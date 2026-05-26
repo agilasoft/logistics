@@ -1566,7 +1566,7 @@ def _finalize_and_msgprint(plan_name: str, result: Dict[str, Any]) -> Dict[str, 
     html_parts.append('<div class="frappe-card" style="padding:12px; line-height:1.4">')
     html_parts.append('<h3 style="margin:0 0 8px 0">Create ➜ Run Sheets</h3>')
     
-    # Show consolidation status
+    # Event consolidation status
     consolidation_info = ""
     load_type_consolidations = result.get("load_type_consolidations", 0)
     consolidated_trips = result.get("consolidated_trips", 0)
@@ -1593,7 +1593,7 @@ def _finalize_and_msgprint(plan_name: str, result: Dict[str, Any]) -> Dict[str, 
     
     html_parts.append(consolidation_info)
     
-    # Show consolidation details if any
+    # Event consolidation details if any
     consolidations_created = result.get("consolidations_created", [])
     if consolidations_created:
         consolidation_items = []
@@ -1686,7 +1686,7 @@ def _finalize_and_msgprint(plan_name: str, result: Dict[str, Any]) -> Dict[str, 
     html_parts.append("</div>")
     html = "".join(html_parts)
 
-    # Show ONLY HTML; no as_html/as_is flags (v15 renders HTML safely by default).
+    # Event ONLY HTML; no as_html/as_is flags (v15 renders HTML safely by default).
     frappe.msgprint(html, title=_("Run Sheet Allocation Result"), wide=True)
 
     # Return minimal payload so the client won't render extra plain text

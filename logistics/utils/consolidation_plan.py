@@ -15,6 +15,8 @@ AIR_PLANNING_LINE = "Air Consolidation Planning Line"
 SEA_CONSOLIDATION = "Sea Consolidation"
 SEA_PLANNING_LINE = "Sea Consolidation Planning Line"
 
+MIN_CONSOLIDATION_SHIPMENT_COUNT = 2
+
 _INELIGIBLE_AIR_HOUSE = frozenset({"Co-load Master", "Blind Co-load Master"})
 _INELIGIBLE_SEA_HOUSE = frozenset({"Co-load Master", "Blind Co-load Master"})
 # Draft consolidation planning aligns draft sea jobs only (submitted shipment doc → job_status Submitted).
@@ -260,6 +262,8 @@ def _sea_shipment_filter_parts(p: Dict[str, Any]) -> tuple[List[str], Dict[str, 
 		"s.docstatus != 2",
 		"IFNULL(s.job_status, '') NOT IN ({0})".format(_SEA_PLAN_ALIGNMENT_JOB_STATUS_SQL_NOT_IN),
 		"IFNULL(s.house_type, '') NOT IN ('Co-load Master', 'Blind Co-load Master')",
+		"IFNULL(TRIM(s.load_type), '') != ''",
+		"IFNULL(lt.can_be_consolidated, 0) = 1",
 	]
 	params: Dict[str, Any] = {}
 
@@ -318,6 +322,7 @@ def get_strict_matching_sea_shipment_names(plan: Union[Dict[str, Any], Any]) -> 
 	conditions, params = _sea_shipment_filter_parts(p)
 	sql = (
 		"SELECT DISTINCT s.name FROM `tabSea Shipment` s "
+		"INNER JOIN `tabLoad Type` lt ON lt.name = s.load_type "
 		"LEFT JOIN `tabMaster Bill` mb ON mb.name = s.master_bill "
 		"WHERE "
 		+ " AND ".join(conditions)
@@ -358,6 +363,161 @@ def get_sea_shipment_names_from_consolidation(doc) -> Set[str]:
 		if getattr(row, "sea_shipment", None):
 			names.add(row.sea_shipment)
 	return names
+
+
+def get_distinct_air_planning_shipments(doc) -> Set[str]:
+	return {
+		getattr(r, "air_shipment", None)
+		for r in (doc.get("consolidation_planning_lines") or [])
+		if getattr(r, "air_shipment", None)
+	}
+
+
+def get_distinct_sea_planning_shipments(doc) -> Set[str]:
+	return {
+		getattr(r, "sea_shipment", None)
+		for r in (doc.get("consolidation_planning_lines") or [])
+		if getattr(r, "sea_shipment", None)
+	}
+
+
+def get_distinct_air_consolidation_shipments(doc) -> Set[str]:
+	"""Distinct Air Shipments on cargo and planned shipment lines."""
+	names = get_air_shipment_names_from_consolidation(doc)
+	names.update(get_distinct_air_planning_shipments(doc))
+	return names
+
+
+def get_distinct_sea_consolidation_shipments(doc) -> Set[str]:
+	"""Distinct Sea Shipments on cargo and planned shipment lines."""
+	names = get_sea_shipment_names_from_consolidation_cargo(doc)
+	names.update(get_distinct_sea_planning_shipments(doc))
+	return names
+
+
+def get_linked_sea_shipment_names_for_consolidation_tagging(doc) -> Set[str]:
+	"""Sea Shipment names that should drive consolidation back-reference on save."""
+	return get_distinct_sea_consolidation_shipments(doc)
+
+
+def get_previous_linked_sea_shipment_names_for_consolidation(consolidation_name: str) -> Set[str]:
+	"""Distinct Sea Shipment names linked on a consolidation before the current save."""
+	if not consolidation_name:
+		return set()
+	names: Set[str] = set()
+	for row in frappe.get_all(
+		"Sea Consolidation Packages",
+		filters={"parent": consolidation_name},
+		pluck="sea_shipment",
+	):
+		if row:
+			names.add(row)
+	for row in frappe.get_all(
+		"Sea Consolidation Containers",
+		filters={"parent": consolidation_name},
+		pluck="sea_shipment",
+	):
+		if row:
+			names.add(row)
+	for row in frappe.get_all(
+		"Sea Consolidation Planning Line",
+		filters={"parent": consolidation_name},
+		pluck="sea_shipment",
+	):
+		if row:
+			names.add(row)
+	return names
+
+
+def sea_shipment_can_be_consolidated(shipment_name: str) -> bool:
+	"""True when the shipment's Load Type has Can be Consolidated enabled."""
+	load_type = frappe.db.get_value("Sea Shipment", shipment_name, "load_type")
+	if not load_type:
+		return False
+	return bool(frappe.db.get_value("Load Type", load_type, "can_be_consolidated"))
+
+
+def sea_shipment_consolidation_load_type_message(shipment_name: str) -> str:
+	"""User-facing reason when a Sea Shipment load type cannot join consolidation planning."""
+	load_type = frappe.db.get_value("Sea Shipment", shipment_name, "load_type")
+	if not load_type:
+		return _("Sea Shipment {0} has no Load Type; only consolidatable load types can be added.").format(
+			shipment_name
+		)
+	if not frappe.db.get_value("Load Type", load_type, "can_be_consolidated"):
+		return _("Load Type {0} cannot be added to a consolidation plan.").format(load_type)
+	return ""
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def consolidatable_sea_shipment_query(
+	doctype, txt, searchfield, start, page_len, filters, as_dict=False, **kwargs
+):
+	"""Link search: Sea Shipments whose Load Type has Can be Consolidated enabled."""
+	_ = (as_dict, kwargs, doctype, searchfield)
+	start = frappe.utils.cint(start)
+	page_len = frappe.utils.cint(page_len) or 20
+	txt = (txt or "").strip()
+	params: Dict[str, Any] = {"start": start, "page_len": page_len}
+	conditions = [
+		"s.docstatus != 2",
+		"IFNULL(s.house_type, '') NOT IN ('Co-load Master', 'Blind Co-load Master')",
+		"IFNULL(TRIM(s.load_type), '') != ''",
+		"IFNULL(lt.can_be_consolidated, 0) = 1",
+	]
+	if txt:
+		conditions.append("(s.name LIKE %(txt)s OR s.house_bl LIKE %(txt)s)")
+		params["txt"] = "%" + txt + "%"
+	sql = """
+		SELECT s.name
+		FROM `tabSea Shipment` s
+		INNER JOIN `tabLoad Type` lt ON lt.name = s.load_type
+		WHERE {where}
+		ORDER BY s.name ASC
+		LIMIT %(start)s, %(page_len)s
+	""".format(where=" AND ".join(conditions))
+	return frappe.db.sql(sql, params)
+
+
+def validate_minimum_air_planning_shipments(doc) -> None:
+	"""Require at least two planned air shipments before submitting planning."""
+	if len(get_distinct_air_planning_shipments(doc)) < MIN_CONSOLIDATION_SHIPMENT_COUNT:
+		frappe.throw(
+			_(
+				"Select at least {0} distinct Air Shipments in planned shipments before submitting planning."
+			).format(MIN_CONSOLIDATION_SHIPMENT_COUNT),
+			title=_("Insufficient shipments"),
+		)
+
+
+def validate_minimum_sea_planning_shipments(doc) -> None:
+	"""Require at least two planned sea shipments before submitting planning."""
+	if len(get_distinct_sea_planning_shipments(doc)) < MIN_CONSOLIDATION_SHIPMENT_COUNT:
+		frappe.throw(
+			_(
+				"Select at least {0} distinct Sea Shipments in planned shipments before submitting planning."
+			).format(MIN_CONSOLIDATION_SHIPMENT_COUNT),
+			title=_("Insufficient shipments"),
+		)
+
+
+def validate_minimum_air_consolidation_shipments(doc) -> None:
+	"""Require at least two distinct air shipments before submitting the consolidation."""
+	if len(get_distinct_air_consolidation_shipments(doc)) < MIN_CONSOLIDATION_SHIPMENT_COUNT:
+		frappe.throw(
+			_("An Air Consolidation must include at least two distinct Air Shipments."),
+			title=_("Insufficient shipments"),
+		)
+
+
+def validate_minimum_sea_consolidation_shipments(doc) -> None:
+	"""Require at least two distinct sea shipments before submitting the consolidation."""
+	if len(get_distinct_sea_consolidation_shipments(doc)) < MIN_CONSOLIDATION_SHIPMENT_COUNT:
+		frappe.throw(
+			_("A Sea Consolidation must include at least two distinct Sea Shipments."),
+			title=_("Insufficient shipments"),
+		)
 
 
 def sea_shipment_on_submitted_consolidation_planning(consolidation_name: str, shipment: str) -> bool:
@@ -487,7 +647,98 @@ def clear_sea_plan_links_for_consolidation(consolidation_name: str) -> None:
 	pass
 
 
-def air_shipment_allowed_on_plan(shipment_name: str) -> tuple[bool, str]:
+_CHILD_ROW_SNAPSHOT_IGNORE = frozenset(
+	{
+		"name",
+		"owner",
+		"creation",
+		"modified",
+		"modified_by",
+		"parent",
+		"parentfield",
+		"parenttype",
+		"idx",
+		"docstatus",
+		"__islocal",
+		"__unsaved",
+	}
+)
+
+
+def child_row_snapshot(row) -> tuple:
+	data = row.as_dict() if hasattr(row, "as_dict") else dict(row)
+	return tuple(sorted((k, data.get(k)) for k in data if k not in _CHILD_ROW_SNAPSHOT_IGNORE))
+
+
+def cargo_tables_snapshot(doc, package_field: str = "consolidation_packages", container_field: str | None = "consolidation_containers"):
+	packages = tuple(
+		sorted(child_row_snapshot(r) for r in (doc.get(package_field) or []))
+	)
+	if not container_field:
+		return (packages,)
+	containers = tuple(
+		sorted(child_row_snapshot(r) for r in (doc.get(container_field) or []))
+	)
+	return (packages, containers)
+
+
+def prevent_consolidation_cargo_edit_when_planning_submitted(
+	doc,
+	*,
+	planning_status_field: str,
+	package_field: str = "consolidation_packages",
+	container_field: str | None = "consolidation_containers",
+	submitted_value: str = "Submitted",
+) -> None:
+	"""Block package/container grid changes while consolidation planning is submitted."""
+	if getattr(doc.flags, "ignore_cargo_planning_lock", False):
+		return
+	if getattr(frappe.flags, "in_install", False) or getattr(frappe.flags, "in_migrate", False):
+		return
+	if getattr(frappe.flags, "in_import", False):
+		return
+	if doc.is_new():
+		return
+	if (doc.get(planning_status_field) or "Draft") != submitted_value:
+		return
+	prev = doc.get_doc_before_save()
+	if not prev:
+		return
+	if cargo_tables_snapshot(prev, package_field, container_field) != cargo_tables_snapshot(
+		doc, package_field, container_field
+	):
+		cargo_label = _("Packages and containers") if container_field else _("Packages")
+		frappe.throw(
+			_(
+				"{0} cannot be changed while planning status is Submitted. "
+				"Reset planned shipments to draft if you need to edit cargo."
+			).format(cargo_label),
+			title=_("Cargo locked"),
+		)
+
+
+def get_previous_planning_line_shipments(doc, shipment_field: str) -> Set[str]:
+	"""Shipment names already on planning lines before this save (unchanged rows)."""
+	prev = doc.get_doc_before_save()
+	if not prev:
+		return set()
+	return {
+		getattr(r, shipment_field, None)
+		for r in (prev.get("consolidation_planning_lines") or [])
+		if getattr(r, shipment_field, None)
+	}
+
+
+def _job_status_blocks_new_plan_line(job_status: str, *, retain_existing: bool) -> bool:
+	"""Block excluded statuses for new plan lines; keep Submitted jobs already on the list."""
+	if job_status not in _SEA_PLAN_ALIGNMENT_EXCLUDED_JOB_STATUSES:
+		return False
+	if retain_existing and job_status == "Submitted":
+		return False
+	return True
+
+
+def air_shipment_allowed_on_plan(shipment_name: str, *, retain_existing: bool = False) -> tuple[bool, str]:
 	if not frappe.db.exists("Air Shipment", shipment_name):
 		return False, _("Air Shipment {0} does not exist").format(shipment_name)
 	row = frappe.db.get_value(
@@ -499,7 +750,7 @@ def air_shipment_allowed_on_plan(shipment_name: str) -> tuple[bool, str]:
 	if not row:
 		return False, _("Air Shipment {0} does not exist").format(shipment_name)
 	js = row.get("job_status") or ""
-	if js in _SEA_PLAN_ALIGNMENT_EXCLUDED_JOB_STATUSES:
+	if _job_status_blocks_new_plan_line(js, retain_existing=retain_existing):
 		return False, _("Job status {0} cannot be added to consolidation planning.").format(js or "-")
 	ht = row.get("house_type") or ""
 	if ht in _INELIGIBLE_AIR_HOUSE:
@@ -507,7 +758,7 @@ def air_shipment_allowed_on_plan(shipment_name: str) -> tuple[bool, str]:
 	return True, ""
 
 
-def sea_shipment_allowed_on_plan(shipment_name: str) -> tuple[bool, str]:
+def sea_shipment_allowed_on_plan(shipment_name: str, *, retain_existing: bool = False) -> tuple[bool, str]:
 	row = frappe.db.get_value(
 		"Sea Shipment",
 		shipment_name,
@@ -517,10 +768,12 @@ def sea_shipment_allowed_on_plan(shipment_name: str) -> tuple[bool, str]:
 	if not row:
 		return False, _("Sea Shipment {0} does not exist").format(shipment_name)
 	js = row.get("job_status") or ""
-	if js in _SEA_PLAN_ALIGNMENT_EXCLUDED_JOB_STATUSES:
+	if _job_status_blocks_new_plan_line(js, retain_existing=retain_existing):
 		return False, _("Job status {0} cannot be added to consolidation planning.").format(js or "-")
 	ht = row.get("house_type") or ""
 	if ht in _INELIGIBLE_SEA_HOUSE:
 		return False, _("House type {0} cannot be added to a consolidation plan").format(ht or "-")
+	if not sea_shipment_can_be_consolidated(shipment_name):
+		return False, sea_shipment_consolidation_load_type_message(shipment_name)
 	return True, ""
 

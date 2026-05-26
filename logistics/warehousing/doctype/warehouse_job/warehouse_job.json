@@ -62,6 +62,7 @@
   "accounts_tab",
   "company",
   "is_main_service",
+  "is_high_value",
   "is_internal_job",
   "main_job_type",
   "main_job",
@@ -299,6 +300,14 @@
    "fieldtype": "Check",
    "label": "Main Service",
    "read_only_depends_on": "eval: doc.is_internal_job && doc.main_job_type && doc.main_job"
+  },
+  {
+   "default": "0",
+   "description": "Inherited from the linked Sales Quote (if any).",
+   "fieldname": "is_high_value",
+   "fieldtype": "Check",
+   "label": "High Value",
+   "read_only": 1
   },
   {
    "default": "0",
@@ -646,6 +655,7 @@
    "fieldname": "project",
    "fieldtype": "Link",
    "label": "Project",
+   "no_copy": 1,
    "options": "Project",
    "description": "ERPNext Project for Special Projects integration",
    "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]"

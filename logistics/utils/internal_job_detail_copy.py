@@ -135,7 +135,24 @@ def _save_parent_internal_job_details(parent: Any) -> None:
 	"""Persist internal_job_details (including after submit)."""
 	parent.flags.ignore_validate_update_after_submit = True
 	parent.flags.ignore_links = True
+	# Back-reference after Create Internal Job must not run documents/milestones on_update hooks
+	# while the user may still have the source shipment/booking form open.
+	parent.flags.ignore_documents_milestones_populate = True
 	parent.save(ignore_permissions=True)
+
+
+def _persist_internal_job_detail_row_db(row: Any, job_type: str, job_no: str) -> bool:
+	"""Update a saved Internal Job Detail child row without bumping parent ``modified``."""
+	jn = (job_no or "").strip()
+	jt = (job_type or "").strip()
+	if not getattr(row, "name", None) or not jn:
+		return False
+	updates: dict[str, Any] = {"job_type": jt, "job_no": jn}
+	st_default = _DEFAULT_SERVICE_TYPE_FOR_JOB_TYPE.get(jt)
+	if st_default and hasattr(row, "service_type") and not (getattr(row, "service_type", None) or "").strip():
+		updates["service_type"] = st_default
+	frappe.db.set_value(row.doctype, row.name, updates, update_modified=False)
+	return True
 
 
 def _save_shipment_internal_jobs(shipment: Any) -> None:
@@ -204,8 +221,10 @@ def persist_internal_job_detail_job_link(
 				).format(parent_name),
 				title=_("Save required"),
 			)
-		_apply_to_canonical_row(canonical[di - 1], di)
-		_save_parent_internal_job_details(parent)
+		target = canonical[di - 1]
+		_apply_to_canonical_row(target, di)
+		if not _persist_internal_job_detail_row_db(target, jt, jn):
+			_save_parent_internal_job_details(parent)
 		return
 
 	for i, src in enumerate(form_rows):
@@ -221,8 +240,10 @@ def persist_internal_job_detail_job_link(
 				).format(parent_name),
 				title=_("Save required"),
 			)
-		_apply_to_canonical_row(canonical[di_open - 1], di_open)
-		_save_parent_internal_job_details(parent)
+		target = canonical[di_open - 1]
+		_apply_to_canonical_row(target, di_open)
+		if not _persist_internal_job_detail_row_db(target, jt, jn):
+			_save_parent_internal_job_details(parent)
 		return
 
 	new_row: dict[str, Any] = {"job_type": jt, "job_no": jn}

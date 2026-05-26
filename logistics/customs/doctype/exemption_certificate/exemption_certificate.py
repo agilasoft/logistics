@@ -24,10 +24,7 @@ class ExemptionCertificate(Document):
 		self._validate_declaration_usage_totals()
 
 	def before_submit(self):
-		if not self.valid_from:
-			frappe.throw(_("Valid From is required to submit."))
-		if not self.valid_to:
-			frappe.throw(_("Valid To is required to submit."))
+		# Valid From / Valid To optional: some certificates have no fixed validity period.
 		if not any(row.get("attachment") for row in (self.attachments or [])):
 			frappe.throw(_("At least one attachment is required to submit."))
 

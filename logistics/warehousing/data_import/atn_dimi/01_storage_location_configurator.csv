@@ -1,0 +1,94 @@
+Level,Code,Description
+Site,ATN,All Transport Network
+Building,DIMI,DIMI Rack System Building
+Zone,MAIN,Main Storage Zone
+Aisle,A,"Rack A (LVL4, 272 PP)"
+Aisle,B,"Rack B (LVL5, 340 PP)"
+Aisle,C,"Rack C (LVL5, 340 PP)"
+Aisle,D,"Rack D (LVL5, 340 PP)"
+Aisle,E,"Rack E (LVL5, 340 PP)"
+Aisle,F,"Rack F (LVL4, 240 PP)"
+Aisle,G,"Rack G (LVL4, 128 PP)"
+Aisle,H,"Rack H (LVL4, 256 PP)"
+Aisle,I,"Rack I (LVL5, 320 PP)"
+Aisle,J,"Rack J (LVL5, 320 PP)"
+Aisle,K,"Rack K (LVL5, 320 PP)"
+Aisle,L,"Rack L (LVL5, 320 PP)"
+Aisle,M,"Rack M (LVL4, 288 PP)"
+Bay,01,Bay 01
+Bay,02,Bay 02
+Bay,03,Bay 03
+Bay,04,Bay 04
+Bay,05,Bay 05
+Bay,06,Bay 06
+Bay,07,Bay 07
+Bay,08,Bay 08
+Bay,09,Bay 09
+Bay,10,Bay 10
+Bay,11,Bay 11
+Bay,12,Bay 12
+Bay,13,Bay 13
+Bay,14,Bay 14
+Bay,15,Bay 15
+Bay,16,Bay 16
+Bay,17,Bay 17
+Bay,18,Bay 18
+Bay,19,Bay 19
+Bay,20,Bay 20
+Bay,21,Bay 21
+Bay,22,Bay 22
+Bay,23,Bay 23
+Bay,24,Bay 24
+Bay,25,Bay 25
+Bay,26,Bay 26
+Bay,27,Bay 27
+Bay,28,Bay 28
+Bay,29,Bay 29
+Bay,30,Bay 30
+Bay,31,Bay 31
+Bay,32,Bay 32
+Bay,33,Bay 33
+Bay,34,Bay 34
+Bay,35,Bay 35
+Bay,36,Bay 36
+Bay,37,Bay 37
+Bay,38,Bay 38
+Bay,39,Bay 39
+Bay,40,Bay 40
+Bay,41,Bay 41
+Bay,42,Bay 42
+Bay,43,Bay 43
+Bay,44,Bay 44
+Bay,45,Bay 45
+Bay,46,Bay 46
+Bay,47,Bay 47
+Bay,48,Bay 48
+Bay,49,Bay 49
+Bay,50,Bay 50
+Bay,51,Bay 51
+Bay,52,Bay 52
+Bay,53,Bay 53
+Bay,54,Bay 54
+Bay,55,Bay 55
+Bay,56,Bay 56
+Bay,57,Bay 57
+Bay,58,Bay 58
+Bay,59,Bay 59
+Bay,60,Bay 60
+Bay,61,Bay 61
+Bay,62,Bay 62
+Bay,63,Bay 63
+Bay,64,Bay 64
+Bay,65,Bay 65
+Bay,66,Bay 66
+Bay,67,Bay 67
+Bay,68,Bay 68
+Bay,69,Bay 69
+Bay,70,Bay 70
+Bay,71,Bay 71
+Bay,72,Bay 72
+Level,1,Level 1
+Level,2,Level 2
+Level,3,Level 3
+Level,4,Level 4
+Level,5,Level 5

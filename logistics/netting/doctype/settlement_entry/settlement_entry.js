@@ -28,7 +28,7 @@ frappe.ui.form.on('Settlement Entry', {
 				);
 			}, __('Action'));
 		} else {
-			// Show button even if fields not set, but disable it with a message
+			// Event button even if fields not set, but disable it with a message
 			frm.add_custom_button(__('Get Outstanding Transactions'), function() {
 				frappe.msgprint({
 					message: __('Please select Settlement Group and Company first.'),

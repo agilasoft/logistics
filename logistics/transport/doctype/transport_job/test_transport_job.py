@@ -7,6 +7,33 @@ from frappe.utils import today, add_days
 from logistics.transport.doctype.transport_job.transport_job import action_create_run_sheet
 
 
+class TestTransportJobChargeSubmitGate(FrappeTestCase):
+	"""Submit charge gate tests (no master-data setUp)."""
+
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def test_before_submit_blocked_without_charges(self):
+		"""Main-service Transport Job cannot submit without a Transport charge line."""
+		from logistics.utils.charge_service_type import (
+			assert_destination_service_charges_on_submit_unless_internal_job,
+		)
+
+		job = frappe.get_doc({"doctype": "Transport Job"})
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			assert_destination_service_charges_on_submit_unless_internal_job(job)
+		self.assertIn("Transport", str(ctx.exception))
+
+	def test_before_submit_allowed_internal_job_without_charges(self):
+		"""Internal jobs may submit without Transport charge rows."""
+		from logistics.utils.charge_service_type import (
+			assert_destination_service_charges_on_submit_unless_internal_job,
+		)
+
+		job = frappe.get_doc({"doctype": "Transport Job", "is_internal_job": 1})
+		assert_destination_service_charges_on_submit_unless_internal_job(job)
+
+
 class TestTransportJob(FrappeTestCase):
 	"""Test Transport Job status workflow"""
 	
@@ -99,6 +126,9 @@ class TestTransportJob(FrappeTestCase):
 		# Reload job to get updated status
 		job.reload()
 		self.assertEqual(job.status, "Draft", "Job should still be Draft before submission")
+
+		job.append("charges", {"service_type": "Transport"})
+		job.save(ignore_permissions=True)
 		
 		# Step 2: Submit Job → Status: "Submitted" (legs are "Open")
 		job.submit()
@@ -202,6 +232,7 @@ class TestTransportJob(FrappeTestCase):
 		# Add legs to job
 		job.append("legs", {"transport_leg": leg1.name})
 		job.append("legs", {"transport_leg": leg2.name})
+		job.append("charges", {"service_type": "Transport"})
 		job.save(ignore_permissions=True)
 		
 		# Submit job
@@ -254,3 +285,4 @@ class TestTransportJob(FrappeTestCase):
 		# Job should now be Completed (all legs are Completed)
 		job.reload()
 		self.assertEqual(job.status, "Completed", "Job should be Completed when all legs are Completed")
+

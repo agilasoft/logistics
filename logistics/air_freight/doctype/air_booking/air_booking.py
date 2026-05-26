@@ -147,19 +147,40 @@ class AirBooking(Document):
 				from frappe.utils import cint
 
 				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+					resolve_allow_linked_freight_booking_from_one_off_converted_doc,
 					resolve_allow_linked_freight_bookings_for_internal_job,
 					resolve_allow_linked_transport_order_for_internal_job_freight_booking,
+					resolve_one_off_declaration_order_chain_allowance,
+					resolve_single_main_air_booking_for_sales_quote,
+					resolve_single_main_sea_booking_for_sales_quote,
 					validate_one_off_quote_not_converted,
 				)
 
 				allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
+				sq_for_chain = (getattr(self, "sales_quote", None) or "").strip() or (
+					(getattr(self, "quote", None) or "").strip() if _quote_is_sales_quote else ""
+				)
+				sq_for_chain = sq_for_chain or None
+				if sq_for_chain:
+					if not allow_sea:
+						allow_sea = resolve_single_main_sea_booking_for_sales_quote(sq_for_chain)
+					if not allow_air:
+						allow_air = resolve_single_main_air_booking_for_sales_quote(sq_for_chain)
+					conv_sea, conv_air = resolve_allow_linked_freight_booking_from_one_off_converted_doc(sq_for_chain)
+					if not allow_sea:
+						allow_sea = conv_sea
+					if not allow_air:
+						allow_air = conv_air
 				allow_tro = resolve_allow_linked_transport_order_for_internal_job_freight_booking(self)
-				_allow_main_with_do = cint(getattr(self, "is_main_service", 0)) == 1
+				_allow_main_with_do, _allow_if_converted = resolve_one_off_declaration_order_chain_allowance(
+					self, allow_sea=allow_sea, allow_air=allow_air
+				)
 				if self.sales_quote:
 					validate_one_off_quote_not_converted(
 						self.sales_quote,
 						self.doctype,
 						self.name,
+						allow_if_quote_converted_to=_allow_if_converted,
 						allow_linked_sea_booking=allow_sea,
 						allow_linked_air_booking=allow_air,
 						allow_linked_transport_order=allow_tro,
@@ -170,6 +191,7 @@ class AirBooking(Document):
 						self.quote,
 						self.doctype,
 						self.name,
+						allow_if_quote_converted_to=_allow_if_converted,
 						allow_linked_sea_booking=allow_sea,
 						allow_linked_air_booking=allow_air,
 						allow_linked_transport_order=allow_tro,
@@ -430,6 +452,11 @@ class AirBooking(Document):
 		# Keep sales_quote in sync with quote when quote_type is One-Off Quote (unified Sales Quote).
 		# Without this, on_submit never updates the One-off Sales Quote status / converted_to_doc.
 		_sync_quote_and_sales_quote(self)
+		from logistics.utils.get_charges_from_quotation import (
+			assert_sales_quote_customer_matches_job_before_submit,
+		)
+
+		assert_sales_quote_customer_matches_job_before_submit(self)
 		self._require_positive_booking_volume(
 			_("Volume must be greater than 0 before submitting the Air Booking")
 		)

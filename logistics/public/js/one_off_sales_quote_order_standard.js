@@ -2,21 +2,39 @@
 // For license information, please see license.txt
 
 /**
- * One-off Sales Quote → Orders / Bookings: Main Job fields (is_main_service / is_main_job) and
- * Internal Job (is_internal_job) are read-only. Same behaviour for sea, air, transport,
- * warehousing, and customs target doctypes. Loaded desk-wide (see hooks app_include_js).
- * Safe no-op if fields are missing on the form.
+ * Main Service / Internal Job rules from Sales Quote quotation_type, conversion state,
+ * and main-service internal-job children. Loaded desk-wide (hooks app_include_js).
  */
 (function () {
 	"use strict";
 
 	frappe.provide("logistics");
 
-	/**
-	 * Re-register desk breadcrumbs for the given form doctype (module + doctype label).
-	 * Fixes a stale navbar segment when opening a form after another (e.g. Customs still shows
-	 * "Air Shipment" while the active form is Declaration Order).
-	 */
+	var MAIN_JOB_FIELDNAMES = ["is_main_service", "is_main_job"];
+
+	var MS_IJ_DOCTYPES = [
+		"Air Booking",
+		"Air Shipment",
+		"Sea Booking",
+		"Sea Shipment",
+		"Transport Order",
+		"Transport Job",
+		"Declaration Order",
+		"Declaration",
+		"Inbound Order",
+		"Release Order",
+		"Warehouse Job",
+		"Project Job",
+		"Exhibit Job",
+	];
+
+	function logistics_cint(v) {
+		if (frappe.utils && frappe.utils.cint) {
+			return frappe.utils.cint(v);
+		}
+		return parseInt(v, 10) || 0;
+	}
+
 	logistics.sync_form_breadcrumbs = function (frmOrDoctype) {
 		var dt =
 			typeof frmOrDoctype === "string"
@@ -33,184 +51,307 @@
 		});
 	};
 
-	/** Parent-form fields that identify the main leg/job (doctypes use is_main_service; none use is_main_job on parent today). */
-	var MAIN_JOB_FIELDNAMES = ["is_main_service", "is_main_job"];
+	function ms_ij_checkbox_fieldnames(main_fields, has_ij) {
+		var names = (main_fields || []).slice();
+		if (has_ij && names.indexOf("is_internal_job") === -1) {
+			names.push("is_internal_job");
+		}
+		return names;
+	}
+
+	function set_ms_ij_checkboxes_disabled(frm, fieldnames, disabled) {
+		if (!frm || !frm.get_docfield) {
+			return;
+		}
+		(fieldnames || []).forEach(function (fn) {
+			if (!frm.get_docfield(fn)) {
+				return;
+			}
+			frm.set_df_property(fn, "read_only", disabled ? 1 : 0);
+			var field = frm.fields_dict[fn];
+			if (!field) {
+				frm.refresh_field(fn);
+				return;
+			}
+			if (typeof field.toggle_enable === "function") {
+				field.toggle_enable(!disabled);
+			}
+			frm.refresh_field(fn);
+			setTimeout(function () {
+				if (!frm || !frm.fields_dict || !frm.fields_dict[fn]) {
+					return;
+				}
+				var fld = frm.fields_dict[fn];
+				var $inp = fld.$input;
+				if ($inp && $inp.length) {
+					$inp.prop("disabled", !!disabled);
+					$inp.closest(".checkbox, .form-check").toggleClass("disabled", !!disabled);
+				}
+			}, 0);
+		});
+	}
+
+	function is_internal_job_satellite_doc(doc) {
+		return (
+			logistics_cint(doc.is_internal_job) &&
+			String(doc.main_job_type || "").trim() &&
+			String(doc.main_job || "").trim()
+		);
+	}
+
+	function has_created_internal_job_children_client(doc) {
+		var rows = doc.internal_job_details || [];
+		for (var i = 0; i < rows.length; i++) {
+			if (String(rows[i].job_no || "").trim()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	function main_service_has_created_internal_jobs_client(doc) {
+		return logistics_cint(doc.is_main_service) && has_created_internal_job_children_client(doc);
+	}
+
+	function is_one_off_quotation_type(quotationType) {
+		if (window.logistics && logistics.is_one_off_sales_quote_type) {
+			return logistics.is_one_off_sales_quote_type(quotationType);
+		}
+		return (quotationType || "").trim() === "One-off";
+	}
+
+	function is_project_quotation_type(quotationType) {
+		if (window.logistics && logistics.is_project_sales_quote_type) {
+			return logistics.is_project_sales_quote_type(quotationType);
+		}
+		return (quotationType || "").trim() === "Project";
+	}
 
 	/**
-	 * When this document is an internal-job satellite fully linked to a main job, both checkboxes
-	 * must stay disabled (client `set_df_property` can otherwise override JSON `read_only_depends_on`).
+	 * Resolve UI state. mode: satellite | one_off | project | main_with_children | regular
 	 */
+	function resolve_ms_ij_state(doc, quotationType) {
+		if (is_internal_job_satellite_doc(doc)) {
+			return {
+				mode: "satellite",
+				is_main_service: 0,
+				is_internal_job: 1,
+				lock_main_service: true,
+				lock_internal_job: true,
+			};
+		}
+		if (is_one_off_quotation_type(quotationType)) {
+			return {
+				mode: "one_off",
+				is_main_service: 1,
+				is_internal_job: 0,
+				lock_main_service: true,
+				lock_internal_job: true,
+			};
+		}
+		if (is_project_quotation_type(quotationType)) {
+			return {
+				mode: "project",
+				is_main_service: 0,
+				is_internal_job: 0,
+				lock_main_service: true,
+				lock_internal_job: true,
+			};
+		}
+		if (has_created_internal_job_children_client(doc)) {
+			return {
+				mode: "main_with_children",
+				is_main_service: 1,
+				is_internal_job: 0,
+				lock_main_service: true,
+				lock_internal_job: false,
+			};
+		}
+		return {
+			mode: "regular",
+			is_main_service: logistics_cint(doc.is_main_service),
+			is_internal_job: logistics_cint(doc.is_internal_job),
+			lock_main_service: false,
+			lock_internal_job: false,
+		};
+	}
+
+	function apply_ms_ij_state_to_form(frm, state, main_fields, has_ij, is_draft) {
+		var ms_ij_fields = ms_ij_checkbox_fieldnames(main_fields, has_ij);
+		frm._logistics_ms_ij_locked =
+			state.lock_main_service || state.lock_internal_job;
+
+		function after_values() {
+			if (state.lock_main_service && main_fields.indexOf("is_main_service") !== -1) {
+				set_ms_ij_checkboxes_disabled(frm, ["is_main_service"], true);
+			} else if (main_fields.indexOf("is_main_service") !== -1) {
+				set_ms_ij_checkboxes_disabled(frm, ["is_main_service"], false);
+			}
+			if (state.lock_internal_job && has_ij) {
+				set_ms_ij_checkboxes_disabled(frm, ["is_internal_job"], true);
+			} else if (has_ij) {
+				set_ms_ij_checkboxes_disabled(frm, ["is_internal_job"], false);
+			}
+			if (state.lock_main_service && state.lock_internal_job) {
+				set_ms_ij_checkboxes_disabled(frm, ms_ij_fields, true);
+			}
+		}
+
+		if (!is_draft) {
+			after_values();
+			return;
+		}
+
+		var tasks = [];
+		if (
+			main_fields.indexOf("is_main_service") !== -1 &&
+			logistics_cint(frm.doc.is_main_service) !== state.is_main_service
+		) {
+			tasks.push(Promise.resolve(frm.set_value("is_main_service", state.is_main_service)));
+		}
+		if (
+			has_ij &&
+			logistics_cint(frm.doc.is_internal_job) !== state.is_internal_job
+		) {
+			tasks.push(Promise.resolve(frm.set_value("is_internal_job", state.is_internal_job)));
+		}
+		if (tasks.length) {
+			Promise.all(tasks).then(after_values).catch(after_values);
+		} else {
+			after_values();
+		}
+	}
+
 	logistics.apply_internal_job_satellite_checkbox_locks = function (frm) {
 		if (!frm || !frm.doc || !frm.get_docfield) {
 			return;
 		}
-		var cint = frappe.utils.cint || function (v) {
-			return parseInt(v, 10) || 0;
-		};
-		var linked =
-			cint(frm.doc.is_internal_job) &&
-			(String(frm.doc.main_job_type || "").trim()) &&
-			(String(frm.doc.main_job || "").trim());
-		if (!linked) {
+		if (!is_internal_job_satellite_doc(frm.doc)) {
 			return;
 		}
-		["is_internal_job", "is_main_service"].forEach(function (fn) {
-			if (!frm.get_docfield(fn)) {
-				return;
-			}
-			frm.set_df_property(fn, "read_only", 1);
-			frm.refresh_field(fn);
-		});
+		set_ms_ij_checkboxes_disabled(frm, ["is_internal_job", "is_main_service"], true);
+		frm._logistics_ms_ij_locked = true;
 	};
 
-	function apply_one_off_locks_and_defaults(frm, main_fields, has_ij, is_draft) {
-		function lock_one_off() {
-			main_fields.forEach(function (fn) {
-				frm.set_df_property(fn, "read_only", 1);
-			});
-			if (has_ij) frm.set_df_property("is_internal_job", "read_only", 1);
-		}
-		// Lock immediately. Deferring lock until after frm.set_value() promises meant a window where
-		// refresh could run with writable Main Service / Internal Job (set_value is async).
-		lock_one_off();
+	logistics.ms_ij_checkboxes_are_locked = function (frm) {
+		return !!(frm && frm._logistics_ms_ij_locked);
+	};
 
-		function refresh_ms_ij_if_present() {
-			main_fields.forEach(function (fn) {
-				if (frm.fields_dict[fn]) {
-					frm.refresh_field(fn);
-				}
-			});
-			if (frm.fields_dict.is_internal_job) {
-				frm.refresh_field("is_internal_job");
-			}
-		}
-		// Always re-render controls so read_only sticks (if we only lock and skip set_value tasks,
-		// refresh never ran — checkboxes stayed clickable).
-		refresh_ms_ij_if_present();
-		if (!is_draft) {
-			return;
-		}
-		var linkedIJ =
-			cint(frm.doc.is_internal_job) &&
-			(frm.doc.main_job_type || "").toString().trim() &&
-			(frm.doc.main_job || "").toString().trim();
-		var tasks = [];
-		// Main Service and Internal Job are mutually exclusive. Do not force Main Service when this doc is
-		// already an Internal Job (e.g. Declaration Order customs-only, or Transport Order / booking
-		// satellites created from Internal Job on a one-off freight leg).
-		if (
-			main_fields.indexOf("is_main_service") !== -1 &&
-			!cint(frm.doc.is_main_service) &&
-			!cint(frm.doc.is_internal_job)
-		) {
-			tasks.push(Promise.resolve(frm.set_value("is_main_service", 1)));
-		}
-		// One-off locks Main Service read-only; mutual-exclusive set_value may not clear it when Internal Job
-		// is turned on (e.g. internal-job dialog). Always drop Main Service if Internal Job is checked.
-		if (cint(frm.doc.is_internal_job) && main_fields.indexOf("is_main_service") !== -1) {
-			tasks.push(Promise.resolve(frm.set_value("is_main_service", 0)));
-		}
-		if (main_fields.indexOf("is_main_job") !== -1 && !cint(frm.doc.is_main_job)) {
-			tasks.push(Promise.resolve(frm.set_value("is_main_job", 1)));
-		}
-		// Do not clear Internal Job when it is a linked satellite (Main Job Type / Main Job set), or on
-		// Declaration Order (internal customs job without a freight main link is still valid).
-		var skip_ij_clear = frm.doctype === "Declaration Order" || linkedIJ;
-		if (has_ij && cint(frm.doc.is_internal_job) && !skip_ij_clear) {
-			tasks.push(Promise.resolve(frm.set_value("is_internal_job", 0)));
-		}
-		if (tasks.length) {
-			Promise.all(tasks).then(refresh_ms_ij_if_present).catch(refresh_ms_ij_if_present);
-		}
+	function apply_rules_with_quotation_type(frm, main_fields, has_ij, is_draft, quotationType) {
+		var state = resolve_ms_ij_state(frm.doc, quotationType);
+		frm._logistics_sales_quote_quotation_type = quotationType || "";
+		apply_ms_ij_state_to_form(frm, state, main_fields, has_ij, is_draft);
 	}
 
-	logistics.apply_one_off_sales_quote_order_standard = function (frm, opts) {
+	logistics.apply_sales_quote_ms_ij_rules = function (frm, opts) {
 		opts = opts || {};
 		if (!frm || !frm.doc || !frm.get_docfield) return;
-		logistics.apply_internal_job_satellite_checkbox_locks(frm);
+
 		var main_fields = MAIN_JOB_FIELDNAMES.filter(function (fn) {
 			return !!frm.get_docfield(fn);
 		});
 		var has_ij = !!frm.get_docfield("is_internal_job");
 		if (!main_fields.length && !has_ij) return;
 
-		var sq = frm.doc.sales_quote;
 		var is_draft = !frm.doc.docstatus;
+		var sq = (frm.doc.sales_quote || "").trim();
+		var from_recheck = !!opts._from_ms_ij_recheck;
 
-		function unlock_when_allowed() {
-			if (!is_draft) return;
-			var cint = frappe.utils.cint || function (v) {
-				return parseInt(v, 10) || 0;
-			};
-			var linkedIJ =
-				cint(frm.doc.is_internal_job) &&
-				(frm.doc.main_job_type || "").toString().trim() &&
-				(frm.doc.main_job || "").toString().trim();
-			main_fields.forEach(function (fn) {
-				if (fn === "is_main_service" && linkedIJ) {
-					return;
-				}
-				frm.set_df_property(fn, "read_only", 0);
-			});
-			if (has_ij) {
-				if (!linkedIJ) {
-					frm.set_df_property("is_internal_job", "read_only", 0);
-				}
+		// Satellite first (any quote type)
+		if (is_internal_job_satellite_doc(frm.doc)) {
+			apply_rules_with_quotation_type(frm, main_fields, has_ij, is_draft, null);
+			if (!from_recheck) {
+				schedule_ms_ij_recheck(frm, opts);
 			}
-			if (linkedIJ) {
-				if (frm.fields_dict.is_main_service) {
-					frm.refresh_field("is_main_service");
-				}
-				if (has_ij && frm.fields_dict.is_internal_job) {
-					frm.refresh_field("is_internal_job");
-				}
-			}
-			// Standard / non–One-off quotes: must re-apply after unlock so linked internal-job satellites
-			// stay read-only (same as read_only_depends_on in DocType JSON).
-			logistics.apply_internal_job_satellite_checkbox_locks(frm);
-		}
-
-		// Must run before the empty sales_quote check: onload can fire before frm.doc.sales_quote is set
-		// (e.g. One-off → order/booking with route_options), which would unlock and return early otherwise.
-		if (opts.assume_one_off) {
-			apply_one_off_locks_and_defaults(frm, main_fields, has_ij, is_draft);
 			return;
 		}
 
-		// One-off navigation from Sales Quote can refresh before sales_quote is on the client;
-		// unlock_when_allowed() would clear locks applied in onload — keep locks until we have sq + type.
+		if (opts.assume_one_off) {
+			apply_rules_with_quotation_type(frm, main_fields, has_ij, is_draft, "One-off");
+			if (!from_recheck) {
+				schedule_ms_ij_recheck(frm, opts);
+			}
+			return;
+		}
+
+		// Scenario 1 without sales_quote still applies
+		if (!sq || sq.indexOf("new-") === 0) {
+			if (main_service_has_created_internal_jobs_client(frm.doc)) {
+				apply_rules_with_quotation_type(frm, main_fields, has_ij, is_draft, null);
+			} else {
+				frm._logistics_ms_ij_locked = false;
+				if (is_draft) {
+					set_ms_ij_checkboxes_disabled(
+						frm,
+						ms_ij_checkbox_fieldnames(main_fields, has_ij),
+						false
+					);
+				}
+			}
+			if (!from_recheck) {
+				schedule_ms_ij_recheck(frm, opts);
+			}
+			return;
+		}
+
 		if (
-			(!sq || String(sq).indexOf("new-") === 0) &&
-			frm._logistics_one_off_route_pending
+			frm._logistics_one_off_route_pending &&
+			(!sq || sq.indexOf("new-") === 0)
 		) {
 			return;
 		}
 
-		if (!sq || String(sq).indexOf("new-") === 0) {
-			unlock_when_allowed();
-			return;
-		}
-
 		frappe.db.get_value("Sales Quote", sq, "quotation_type", function (r) {
-			if (!frm.doc || frm.doc.sales_quote !== sq) return;
-			frm._logistics_one_off_route_pending = false;
-			var qt = (r && r.quotation_type) != null ? String(r.quotation_type).trim() : "";
-			if (qt === "One-off") {
-				apply_one_off_locks_and_defaults(frm, main_fields, has_ij, is_draft);
-			} else {
-				unlock_when_allowed();
+			if (!frm.doc || (frm.doc.sales_quote || "").trim() !== sq) {
+				return;
 			}
+			frm._logistics_one_off_route_pending = false;
+			var qt =
+				r && r.quotation_type != null ? String(r.quotation_type).trim() : "";
+			apply_rules_with_quotation_type(frm, main_fields, has_ij, is_draft, qt);
 		});
+
+		if (!from_recheck) {
+			schedule_ms_ij_recheck(frm, opts);
+		}
 	};
 
-	/**
-	 * Call from Form onload when `frappe.route_options.logistics_one_off_order_route` or legacy
-	 * `logistics_declaration_order_one_off` is set (navigation from a One-off Sales Quote).
-	 */
+	logistics.apply_one_off_sales_quote_order_standard = logistics.apply_sales_quote_ms_ij_rules;
+
+	/** Bounded deferred re-apply after set_value / DOM render. Must not reschedule itself (was freezing forms). */
+	function schedule_ms_ij_recheck(frm, opts) {
+		opts = opts || {};
+		if (frm._logistics_ms_ij_recheck_scheduled) {
+			return;
+		}
+		frm._logistics_ms_ij_recheck_scheduled = true;
+		var recheck_opts = Object.assign({}, opts, { _from_ms_ij_recheck: true });
+		var passes_left = 2;
+
+		function run() {
+			if (!frm || !frm.doc || passes_left <= 0) {
+				if (frm) {
+					frm._logistics_ms_ij_recheck_scheduled = false;
+				}
+				return;
+			}
+			passes_left -= 1;
+			logistics.apply_sales_quote_ms_ij_rules(frm, recheck_opts);
+			if (passes_left <= 0 && frm) {
+				frm._logistics_ms_ij_recheck_scheduled = false;
+			}
+		}
+
+		setTimeout(run, 0);
+		setTimeout(run, 150);
+	}
+
 	logistics.apply_one_off_route_options_onload = function (frm) {
 		if (!frm || !frappe.route_options) return;
 		var ro = frappe.route_options;
-		if (!ro.logistics_one_off_order_route && !ro.logistics_declaration_order_one_off) return;
+		if (!ro.logistics_one_off_order_route && !ro.logistics_declaration_order_one_off) {
+			return;
+		}
 		if (ro.logistics_declaration_order_one_off) {
 			delete ro.logistics_declaration_order_one_off;
 		}
@@ -218,6 +359,56 @@
 			delete ro.logistics_one_off_order_route;
 		}
 		frm._logistics_one_off_route_pending = true;
-		logistics.apply_one_off_sales_quote_order_standard(frm, { assume_one_off: true });
+		logistics.apply_sales_quote_ms_ij_rules(frm, { assume_one_off: true });
 	};
+
+	if (typeof frappe !== "undefined" && frappe.ui && frappe.ui.form && frappe.ui.form.on) {
+		MS_IJ_DOCTYPES.forEach(function (dt) {
+			frappe.ui.form.on(dt, {
+				refresh: function (frm) {
+					if (logistics.apply_sales_quote_ms_ij_rules) {
+						logistics.apply_sales_quote_ms_ij_rules(frm);
+					}
+					if (!frm.layout || !frm.layout.wrapper || frm._logistics_ms_ij_tab_bound) {
+						return;
+					}
+					frm._logistics_ms_ij_tab_bound = true;
+					frm.layout.wrapper.on(
+						"shown.bs.tab.logistics_ms_ij",
+						'[data-fieldname], a[data-toggle="tab"]',
+						function () {
+							if (logistics.apply_sales_quote_ms_ij_rules) {
+								logistics.apply_sales_quote_ms_ij_rules(frm);
+							}
+						}
+					);
+				},
+				sales_quote: function (frm) {
+					if (logistics.apply_sales_quote_ms_ij_rules) {
+						logistics.apply_sales_quote_ms_ij_rules(frm);
+					}
+				},
+				project: function (frm) {
+					if (logistics.apply_sales_quote_ms_ij_rules) {
+						logistics.apply_sales_quote_ms_ij_rules(frm);
+					}
+				},
+				is_main_service: function (frm) {
+					if (logistics.apply_sales_quote_ms_ij_rules) {
+						logistics.apply_sales_quote_ms_ij_rules(frm);
+					}
+				},
+				is_internal_job: function (frm) {
+					if (logistics.apply_sales_quote_ms_ij_rules) {
+						logistics.apply_sales_quote_ms_ij_rules(frm);
+					}
+				},
+				internal_job_details: function (frm) {
+					if (logistics.apply_sales_quote_ms_ij_rules) {
+						logistics.apply_sales_quote_ms_ij_rules(frm);
+					}
+				},
+			});
+		});
+	}
 })();

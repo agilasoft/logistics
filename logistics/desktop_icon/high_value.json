@@ -1,0 +1,25 @@
+{
+ "app": "logistics",
+ "bg_color": "blue",
+ "creation": "2026-05-19 00:00:00",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "High Value",
+ "link_to": "High Value",
+ "link_type": "Workspace Sidebar",
+ "modified": "2026-05-22 13:22:00.422084",
+ "modified_by": "Administrator",
+ "name": "High Value",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
+ "sidebar": "High Value",
+ "standard": 1
+}

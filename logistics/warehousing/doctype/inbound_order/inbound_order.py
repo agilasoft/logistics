@@ -13,6 +13,9 @@ class InboundOrder(Document):
 		run_propagate_on_link(self)
 
 	def validate(self):
+		# Internal-job Inbound Orders copy sales_quote from the freight hub but do not run
+		# validate_one_off_quote_not_converted: warehousing legs are not quote-conversion consumers
+		# in the multimodal one-off chain (unlike Transport Order / bookings / Declaration Order).
 		try:
 			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
 			apply_measurement_uom_conversion_to_children(self, "items", company=getattr(self, "company", None))
