@@ -1664,7 +1664,11 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
             uom = getattr(charge, "uom", None)
             desc_for_item = None
             if "description" in si_item_fields:
-                desc_for_item = getattr(charge, "revenue_calc_notes", None) or item_name
+                desc_for_item = (
+                    getattr(charge, "description", None)
+                    or getattr(charge, "revenue_calc_notes", None)
+                    or item_name
+                )
 
             payloads, clear_rel = build_sales_invoice_item_payloads_for_charge(
                 charge,
@@ -1803,7 +1807,7 @@ def create_sales_invoice_from_transport_job(job_name, posting_date=None, custome
             rev,
             item_code=item_code,
             item_name=item_name,
-            description=None,
+            description=getattr(ch, "description", None),
             job_type="Transport Job",
             company=job.company,
             cost_center=getattr(job, "cost_center", None),

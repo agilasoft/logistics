@@ -393,8 +393,8 @@ def apply_shipment_lines_to_target(
 		row_idx = cint_safe(line.get("package_row") or line.get("site_material_row"))
 		pkg_info = _package_row_dict(sp_doc, row_idx) if row_idx else {}
 		pkg_info = pkg_info or {}
-		on_site = flt(pkg_info.get("qty_on_site", 0))
-		if row_idx and qty > on_site:
+		remaining = flt(pkg_info.get("qty_short", 0))
+		if row_idx and qty > remaining:
 			label = (
 				pkg_info.get("description")
 				or pkg_info.get("commodity")
@@ -402,8 +402,8 @@ def apply_shipment_lines_to_target(
 				or _("Line {0}").format(row_idx)
 			)
 			frappe.throw(
-				_("Cannot ship {0} of {1} — only {2} on site.").format(
-					qty, label, on_site
+				_("Cannot ship {0} of {1} — only {2} remaining to deliver.").format(
+					qty, label, remaining
 				)
 			)
 		wh = _norm(line.get("warehouse_item") or pkg_info.get("warehouse_item"))

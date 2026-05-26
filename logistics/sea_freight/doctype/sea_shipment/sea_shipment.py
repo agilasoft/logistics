@@ -1314,7 +1314,7 @@ class SeaShipment(Document):
             )
 
             charge_fields = [
-                "item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
+                "item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
                 "unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
                 "maximum_charge", "base_amount", "estimated_revenue", "service_type",
                 "charge_type", "charge_category", "bill_to", "pay_to",
@@ -1547,7 +1547,7 @@ def create_sales_invoice(shipment_name, posting_date, customer, tax_category=Non
         if not item_code:
             continue
         item_name = getattr(charge, "item_name", None) or getattr(charge, "charge_name", None) or item_code
-        description = getattr(charge, "charge_description", None) or getattr(charge, "description", None)
+        description = getattr(charge, "description", None) or getattr(charge, "charge_description", None)
         job_ref = getattr(shipment, "job_number", None)
         line_qty, line_rate, selling_rate = resolve_sales_invoice_line_qty_rate(
             charge, selling_rate, shipment.company

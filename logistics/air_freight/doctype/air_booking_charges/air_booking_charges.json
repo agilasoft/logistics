@@ -199,6 +199,7 @@
    "options": "Item Tax Template"
   },
   {
+   "fetch_from": "item_code.description",
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"

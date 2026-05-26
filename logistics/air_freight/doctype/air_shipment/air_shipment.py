@@ -3147,7 +3147,7 @@ def populate_charges_from_sales_quote(docname=None):
 		)
 
 		charge_fields = [
-			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
+			"item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue", "service_type",
 			"charge_type", "charge_category", "bill_to", "pay_to",
@@ -3276,7 +3276,7 @@ def create_sales_invoice_from_air_shipment(shipment_name, posting_date, customer
 			rev,
 			item_code=item_code,
 			item_name=item_name,
-			description=None,
+			description=getattr(ch, "description", None),
 			job_type="Air Shipment",
 			company=shipment.company,
 			cost_center=getattr(shipment, "cost_center", None),

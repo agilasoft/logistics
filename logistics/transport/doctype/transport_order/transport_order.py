@@ -21,6 +21,7 @@ JOB_LEGS_FIELDNAME_FALLBACKS = ["legs"]
 SALES_QUOTE_CHARGE_FIELDS = [
     "item_code",
     "item_name",
+    "description",
     "calculation_method",  # mapped to revenue_calculation_method on charge row
     "quantity",
     "uom",

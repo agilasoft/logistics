@@ -14,6 +14,7 @@
   "charge_group",
   "item_code",
   "item_name",
+  "description",
   "change_request_charge",
   "charge_type",
   "charge_category",
@@ -141,6 +142,12 @@
    "fieldtype": "Data",
    "label": "Item Name",
    "read_only": 1
+  },
+  {
+   "fetch_from": "item_code.description",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   },
   {
    "fieldname": "change_request_charge",

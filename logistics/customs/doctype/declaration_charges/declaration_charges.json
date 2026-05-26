@@ -9,6 +9,7 @@
   "service_type",
   "item_code",
   "item_name",
+  "description",
   "charge_type",
   "charge_category",
   "freight_taxes_section",
@@ -169,6 +170,12 @@
    "fieldname": "item_name",
    "fieldtype": "Data",
    "label": "Charge Name"
+  },
+  {
+   "fetch_from": "item_code.description",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   },
   {
    "fieldname": "charge_type",

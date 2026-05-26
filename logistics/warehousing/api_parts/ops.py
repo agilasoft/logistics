@@ -125,6 +125,7 @@ def create_sales_invoice_from_job(
     row_has_total    = "total" in cf
     row_has_uom      = "uom" in cf
     row_has_itemname = "item_name" in cf
+    row_has_desc     = "description" in cf
     row_has_qty      = "quantity" in cf
 
     currencies = set()
@@ -138,6 +139,7 @@ def create_sales_invoice_from_job(
         total = flt(getattr(ch, "total", 0.0))    if row_has_total else 0.0
         uom = (getattr(ch, "uom", None) or None) if row_has_uom else None
         item_name = (getattr(ch, "item_name", None) or None) if row_has_itemname else None
+        description = (getattr(ch, "description", None) or None) if row_has_desc else None
         curr = (getattr(ch, "currency", None) or "").strip() if row_has_currency else ""
 
         if row_has_currency and curr:
@@ -154,6 +156,7 @@ def create_sales_invoice_from_job(
             "charge": ch,
             "item_code": item_code,
             "item_name": item_name,
+            "description": description,
             "qty": flt(qty) if qty else (1.0 if (total or rate) else 0.0),
             "rate": flt(rate) if rate else (flt(total) if (not qty and total) else 0.0),
             "uom": uom,
@@ -215,7 +218,7 @@ def create_sales_invoice_from_job(
             total_rev,
             item_code=r["item_code"],
             item_name=r.get("item_name"),
-            description=None,
+            description=r.get("description"),
             job_type="Warehouse Job",
             company=company,
             currency=r.get("currency"),

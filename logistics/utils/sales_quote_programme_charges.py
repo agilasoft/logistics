@@ -35,6 +35,7 @@ _PROGRAMME_CHARGE_CHILD = {
 _SQC_TO_PROGRAMME_CHARGE_FIELDS = (
 	"item_code",
 	"item_name",
+	"description",
 	"charge_type",
 	"charge_category",
 	"revenue_calculation_method",

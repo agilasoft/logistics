@@ -1831,7 +1831,7 @@ def _populate_charges_from_sales_quote_air_freight(air_shipment, sales_quote):
 		)
 
 		charge_fields = [
-			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
+			"item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue",
 			"charge_type", "charge_category",
@@ -2045,10 +2045,19 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 			if isinstance(sqaf_record, dict)
 			else getattr(sqaf_record, "service_type", None)
 		) or "Air"
+		# Prefer description from quote charge row; fall back to item master
+		_af_description = _af_r("description")
+		if not _af_description:
+			if hasattr(item_doc, "description") and item_doc.description:
+				_af_description = item_doc.description
+			else:
+				_af_description = _af_r("item_name") or item_doc.item_name
+
 		charge_data = {
 			"service_type": _sq_st,
 			"item_code": _af_r("item_code"),
 			"item_name": _af_r("item_name") or item_doc.item_name,
+			"description": _af_description,
 			"charge_type": charge_type,
 			"charge_category": charge_category,
 			"revenue_calculation_method": _af_r("revenue_calculation_method") or _af_r("calculation_method") or calculation_method,
@@ -2114,7 +2123,7 @@ def _populate_charges_from_sales_quote_sea_freight(sea_shipment, sales_quote):
 		)
 
 		charge_fields = [
-			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
+			"item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue",
 			"charge_type", "charge_category",
@@ -2269,6 +2278,14 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 			if isinstance(sqsf_record, dict)
 			else getattr(sqsf_record, "service_type", None)
 		) or "Sea"
+		# Prefer description from quote charge row; fall back to item master
+		_sf_description = _sf_r("description")
+		if not _sf_description:
+			if hasattr(item_doc, "description") and item_doc.description:
+				_sf_description = item_doc.description
+			else:
+				_sf_description = _sf_r("item_name") or item_doc.item_name
+
 		# Map the fields from sales_quote_sea_freight to sea_shipment_charges
 		charge_data = {
 			"service_type": _sq_st,
@@ -2276,6 +2293,7 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 			"charge_name": _sf_r("item_name") or item_doc.item_name,
 			"charge_type": charge_type,
 			"charge_category": charge_category,
+			"description": _sf_description,
 			"charge_description": _sf_r("item_name") or item_doc.item_name,
 			"bill_to": getattr(sqsf_record, "bill_to", None) or (sea_shipment.local_customer if hasattr(sea_shipment, 'local_customer') else None),
 			"pay_to": getattr(sqsf_record, "pay_to", None),

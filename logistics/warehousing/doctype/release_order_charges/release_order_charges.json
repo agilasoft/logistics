@@ -10,6 +10,7 @@
   "charge_type",
   "charge_category",
   "item_name",
+  "description",
   "uom",
   "column_break_xccw",
   "quantity",
@@ -32,6 +33,12 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Item Name"
+  },
+  {
+   "fetch_from": "item_code.description",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   },
   {
    "default": "Margin",

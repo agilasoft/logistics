@@ -1111,7 +1111,7 @@ class AirBooking(Document):
 			# Get records from Sales Quote Charge (filtered by main service / internal job) or Sales Quote Air Freight (legacy)
 			# Full field list for legacy Sales Quote Air Freight (has cost_minimum_unit_rate, cost_base_quantity)
 			charge_fields_legacy = [
-				"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
+				"item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category", "bill_to",
 				"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
@@ -1683,12 +1683,13 @@ class AirBooking(Document):
 				item_doc.custom_charge_category if hasattr(item_doc, "custom_charge_category") and item_doc.custom_charge_category else None
 			) or "Other"
 			
-			# Get description from item or use item_name as fallback
-			description = None
-			if hasattr(item_doc, 'description') and item_doc.description:
-				description = item_doc.description
-			else:
-				description = _sq_row_get("item_name") or item_doc.item_name
+			# Prefer description from Sales Quote charge row; fall back to item master, then item name
+			description = _sq_row_get("description")
+			if not description:
+				if hasattr(item_doc, 'description') and item_doc.description:
+					description = item_doc.description
+				else:
+					description = _sq_row_get("item_name") or item_doc.item_name
 			
 			# Get item_tax_template and invoice_type from item if available
 			item_tax_template = None

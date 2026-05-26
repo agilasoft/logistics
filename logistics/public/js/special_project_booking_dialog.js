@@ -440,13 +440,13 @@
 			$main.append($chips);
 			$row.append($main);
 
-			const onSite = parseFloat(row.qty_on_site) || 0;
+			const remaining = parseFloat(row.qty_short) || 0;
 			const $inputWrap = $("<div class='sp-ship-input'>");
 			const $input = $("<input type='number' min='0' step='any' inputmode='decimal' placeholder='0'>")
 				.attr("aria-label", __("Qty for {0}", [title]))
 				.attr("data-short", row.qty_short || 0)
-				.attr("data-on-site", onSite)
-				.attr("max", onSite);
+				.attr("data-remaining", remaining)
+				.attr("max", remaining);
 			$inputWrap.append($input);
 			if (row.uom) {
 				$inputWrap.append($("<span class='sp-ship-uom'>").text(String(row.uom)));
@@ -495,7 +495,7 @@
 		$wrap.on("input", ".sp-ship-row input", function () {
 			const $input = $(this);
 			const v = parseFloat($input.val()) || 0;
-			const cap = parseFloat($input.attr("data-on-site")) || 0;
+			const cap = parseFloat($input.attr("data-remaining")) || 0;
 			const overCap = v > cap;
 			const $row = $input.closest(".sp-ship-row");
 			$row.toggleClass("has-qty", v > 0 && !overCap);
@@ -505,12 +505,13 @@
 			const $hint = $row.find(".sp-ship-hint");
 			if (overCap) {
 				const uom = ($input.next(".sp-ship-uom").text() || "").trim();
-				$hint.text(
-					__("Only {0}{1} on site — reduce the quantity to continue.", [
+				const msg = cap > 0
+					? __("Only {0}{1} remaining to deliver — reduce the quantity to continue.", [
 						_fmtQty(cap),
 						uom ? " " + uom : "",
 					])
-				);
+					: __("Nothing remaining to deliver on this line.");
+				$hint.text(msg);
 			} else {
 				$hint.empty();
 			}
@@ -543,11 +544,9 @@
 				const $r = $(this);
 				if ($r.hasClass("hidden")) return;
 				const $input = $r.find("input");
-				const short = parseFloat($input.attr("data-short")) || 0;
-				const cap = parseFloat($input.attr("data-on-site")) || 0;
-				const fill = Math.min(short, cap);
-				if (fill > 0) {
-					$input.val(fill).trigger("input");
+				const cap = parseFloat($input.attr("data-remaining")) || 0;
+				if (cap > 0) {
+					$input.val(cap).trigger("input");
 				}
 			});
 			_updateShipSummary($wrap, dialog);
@@ -566,7 +565,7 @@
 			const idx = $r.attr("data-row");
 			const $input = $r.find("input");
 			const qty = parseFloat($input.val()) || 0;
-			const cap = parseFloat($input.attr("data-on-site")) || 0;
+			const cap = parseFloat($input.attr("data-remaining")) || 0;
 			if (qty > cap) {
 				overCap += 1;
 				return;

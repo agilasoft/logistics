@@ -1100,7 +1100,7 @@ class SeaBooking(Document):
 
 			# Fetch from Sales Quote Charge (filtered) or Sales Quote Sea Freight (legacy)
 			charge_fields = [
-				"name", "item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
+				"name", "item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category",
 				"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
@@ -1211,7 +1211,7 @@ class SeaBooking(Document):
 
 			# Get from Sales Quote Charge (filtered) or Sales Quote Sea Freight (legacy)
 			charge_fields = [
-				"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
+				"item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category",
 				"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
@@ -1547,12 +1547,13 @@ class SeaBooking(Document):
 				item_doc.custom_charge_category if hasattr(item_doc, "custom_charge_category") and item_doc.custom_charge_category else None
 			) or "Other"
 			
-			# Get description from item or use item_name as fallback
-			description = None
-			if hasattr(item_doc, 'description') and item_doc.description:
-				description = item_doc.description
-			else:
-				description = _get("item_name") or item_doc.item_name
+			# Prefer description from Sales Quote charge row; fall back to item master, then item name
+			description = _get("description")
+			if not description:
+				if hasattr(item_doc, 'description') and item_doc.description:
+					description = item_doc.description
+				else:
+					description = _get("item_name") or item_doc.item_name
 			
 			# Get item_tax_template and invoice_type from item if available
 			item_tax_template = None
@@ -2140,6 +2141,8 @@ class SeaBooking(Document):
 						new_charge_row.invoice_type = charge.invoice_type
 					if hasattr(charge, 'charge_description'):
 						new_charge_row.charge_description = charge.charge_description
+					if hasattr(charge, 'description'):
+						new_charge_row.description = charge.description
 					new_charge_row.sales_quote_link = getattr(charge, 'sales_quote_link', None) or self.sales_quote
 					
 					# Copy revenue fields

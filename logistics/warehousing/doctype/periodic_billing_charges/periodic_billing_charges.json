@@ -8,6 +8,7 @@
  "field_order": [
   "item",
   "item_name",
+  "description",
   "charge_type",
   "charge_category",
   "uom",
@@ -40,6 +41,12 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Item Name"
+  },
+  {
+   "fetch_from": "item.description",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   },
   {
    "default": "Margin",
