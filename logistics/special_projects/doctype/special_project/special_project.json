@@ -215,7 +215,6 @@
    "options": "Draft\nScoping\nBooked\nPlanning\nApproved\nIn Progress\nOn Hold\nCompleted\nCancelled"
   },
   {
-   "default": "Pre-Show",
    "fieldname": "lifecycle_stage",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -777,7 +776,7 @@
    "link_fieldname": "special_project"
   }
  ],
- "modified": "2026-05-26 10:10:02.284240",
+ "modified": "2026-05-26 15:04:48.195241",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Special Project",
