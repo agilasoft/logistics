@@ -98,6 +98,9 @@
   "documents_html",
   "document_list_template",
   "documents",
+  "profitability_tab",
+  "profitability_section_break",
+  "profitability_section_html",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -427,6 +430,7 @@
    "fieldname": "charges",
    "fieldtype": "Table",
    "label": "Charges",
+   "no_copy": 1,
    "options": "Special Project Charges"
   },
   {
@@ -683,6 +687,24 @@
    "options": "Job Document"
   },
   {
+   "fieldname": "profitability_tab",
+   "fieldtype": "Tab Break",
+   "label": "Profitability"
+  },
+  {
+   "fieldname": "profitability_section_break",
+   "fieldtype": "Section Break",
+   "label": "Profitability"
+  },
+  {
+   "description": "Revenue, cost, profit, WIP, accrual and disbursements aggregated from General Ledger for every job linked to this project's Project accounting dimension.",
+   "fieldname": "profitability_section_html",
+   "fieldtype": "HTML",
+   "label": "Project Profitability (from GL)",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
    "fieldname": "more_info_tab",
    "fieldtype": "Tab Break",
    "label": "More Info"
@@ -776,7 +798,7 @@
    "link_fieldname": "special_project"
   }
  ],
- "modified": "2026-05-26 15:04:48.195241",
+ "modified": "2026-05-27 14:27:42.298414",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Special Project",

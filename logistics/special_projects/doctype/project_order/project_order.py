@@ -9,31 +9,7 @@ from frappe.model.document import Document
 
 
 class ProjectOrder(Document):
-	def on_submit(self):
-		try:
-			from logistics.special_projects.special_project_packages import (
-				post_site_receipts_from_project_doc,
-			)
-
-			post_site_receipts_from_project_doc(self)
-		except Exception:
-			frappe.log_error(
-				frappe.get_traceback(),
-				f"Project Order {self.name}: package delivery post",
-			)
-
-	def on_cancel(self):
-		try:
-			from logistics.special_projects.special_project_packages import (
-				cancel_receipts_for_project_doc,
-			)
-
-			cancel_receipts_for_project_doc(self)
-		except Exception:
-			frappe.log_error(
-				frappe.get_traceback(),
-				f"Project Order {self.name}: package delivery cancel",
-			)
+	pass
 
 
 def _copy_child_rows_by_common_fields(
@@ -196,6 +172,9 @@ def _build_project_job_from_order(order: Document, title: Optional[str] = None) 
 		job.job_date = order.order_date
 
 	_apply_org_defaults_to_job(job, order)
+
+	if getattr(order, "job_number", None) and job.meta.has_field("job_number"):
+		job.job_number = order.job_number
 
 	if getattr(order, "billing_status", None) and job.meta.has_field("billing_status"):
 		job.billing_status = order.billing_status

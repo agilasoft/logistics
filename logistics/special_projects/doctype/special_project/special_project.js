@@ -338,6 +338,9 @@ frappe.ui.form.on("Special Project", {
 				}
 			});
 		}
+		// Profitability tab loading + click handler is registered by
+		// logistics/public/js/profitability_project_form.js — keep it in one place
+		// to avoid double-firing the GL query.
 
 		// --- Action menu: Get Milestones, Get Documents, Calculate Charges ---
 		if (!frm.is_new() && !frm.doc.__islocal) {

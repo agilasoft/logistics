@@ -76,9 +76,9 @@ Two trucks (300 + 200) produce two delivery rows with different `source_job_no` 
 | `get_packages_for_shipment_picker` | Filters out `include_on_create = 1` rows so they cannot be picked. |
 | Transport Order `on_submit` | `post_site_receipts_from_transport_order`; packages whose matched site material is `include_on_create = 1` are skipped. Delivery rows are tagged with the lifecycle stage from the originating Lifecycle Job. |
 | Transport Order `on_cancel` | `cancel_receipts_for_transport_order`. |
-| Project Order `on_submit` | `post_site_receipts_from_project_doc`; reads `materials_received` (warehouse_item + qty_received), resolves parent SP via `special_project`. |
-| Project Order `on_cancel` | `cancel_receipts_for_project_doc`. |
-| Project Job `on_submit` | `post_site_receipts_from_project_doc`; same behaviour as Project Order. |
+| Air / Sea Shipment `on_submit` | `post_site_receipts_from_freight_shipment` (via the `on_freight_shipment_submit` doc-events bridge); resolves the parent SP from `project`, then folds the Shipment's `packages` rows into Deliveries. The Lifecycle Job row references the Booking, so lifecycle stage is looked up first against the Shipment and then falls back to the linked `air_booking` / `sea_booking`. Air Booking / Sea Booking submission is purely planning and does **not** post receipts — only the executing Shipment does. |
+| Air / Sea Shipment `on_cancel` | `cancel_receipts_for_freight_shipment` (via the `on_freight_shipment_cancel` doc-events bridge). |
+| Project Job `on_submit` | `post_site_receipts_from_project_doc`; reads `materials_received` (warehouse_item + qty_received), resolves parent SP via `special_project`. Project Order is a planning document and does **not** post receipts — only its derived Project Job does, to keep the SP's Deliveries table single-sourced. |
 | Project Job `on_cancel` | `cancel_receipts_for_project_doc`. |
 
 ---
@@ -100,7 +100,6 @@ Two trucks (300 + 200) produce two delivery rows with different `source_job_no` 
 
 ## 6. Out of scope (follow-ups)
 
-- Sea/Air Shipment auto-receipt on submit
 - Inbound Order receipt posting
 - ERPNext stock ledger sync
 - Exhibit programme parity

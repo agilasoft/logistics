@@ -487,7 +487,7 @@
 		}
 	}
 
-	var JOB_DOCTYPES_FOR_PI = ["Transport Job", "Air Shipment", "Sea Shipment", "Warehouse Job", "Declaration", "Special Project"];
+	var JOB_DOCTYPES_FOR_PI = ["Transport Job", "Air Shipment", "Sea Shipment", "Warehouse Job", "Declaration", "Special Project", "Docket"];
 	JOB_DOCTYPES_FOR_PI.forEach(function(doctype) {
 		frappe.ui.form.on(doctype, {
 			refresh: function(frm) {

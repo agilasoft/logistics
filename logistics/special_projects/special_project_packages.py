@@ -42,15 +42,26 @@ def _stage_from_lifecycle_job(sp_doc: Any, job_type: str, job_no: str) -> str | 
 	return None
 
 
-def _default_receipt_stage(sp_doc: Any, job_type: str | None = None, job_no: str | None = None) -> str | None:
+def _default_receipt_stage(
+	sp_doc: Any,
+	job_type: str | None = None,
+	job_no: str | None = None,
+	*,
+	fallback_refs: list[tuple[str, str]] | None = None,
+) -> str | None:
 	"""Pick a sensible lifecycle_stage for a new delivery receipt.
 
-	Priority: originating Lifecycle Job's stage -> Special Project's current stage ->
-	module default ("Logistics"). Returns None if Lifecycle Stage master is empty.
+	Priority: originating Lifecycle Job's stage -> any ``fallback_refs`` (e.g. the
+	Air/Sea Booking that spawned this Shipment) -> Special Project's current stage
+	-> module default ("Logistics"). Returns None if Lifecycle Stage master is empty.
 	"""
 	stage = _stage_from_lifecycle_job(sp_doc, job_type or "", job_no or "")
 	if stage and frappe.db.exists("Lifecycle Stage", stage):
 		return stage
+	for ref_type, ref_name in fallback_refs or []:
+		fallback = _stage_from_lifecycle_job(sp_doc, ref_type or "", ref_name or "")
+		if fallback and frappe.db.exists("Lifecycle Stage", fallback):
+			return fallback
 	current = _norm(getattr(sp_doc, "lifecycle_stage", None))
 	if current and frappe.db.exists("Lifecycle Stage", current):
 		return current
@@ -603,8 +614,185 @@ def cancel_receipts_for_transport_order(tro: Any) -> int:
 	return changed
 
 
+# Air / Sea Shipment auto-receipt on submit
+# ----------------------------------------
+# Mirrors the Transport Order pattern: when a freight Shipment is submitted, its
+# Packages table is folded into the parent Special Project's Deliveries table.
+# The Shipment is the execution document for the corresponding Booking, so we
+# attribute the delivery to the Shipment but fall back to the linked Booking
+# when resolving the originating Lifecycle Job (the Lifecycle Job row references
+# the Booking, never the Shipment).
+
+# Maps a freight Shipment doctype to the link field that points at the originating Booking.
+_FREIGHT_SHIPMENT_BOOKING_FIELDS: dict[str, tuple[str, str]] = {
+	"Air Shipment": ("air_booking", "Air Booking"),
+	"Sea Shipment": ("sea_booking", "Sea Booking"),
+}
+
+
+def _freight_shipment_booking_ref(doc: Any) -> tuple[str, str] | None:
+	"""Return ``(booking_doctype, booking_name)`` for a freight Shipment, if linked."""
+	mapping = _FREIGHT_SHIPMENT_BOOKING_FIELDS.get(getattr(doc, "doctype", "") or "")
+	if not mapping:
+		return None
+	field, booking_dt = mapping
+	booking_name = _norm(getattr(doc, field, None))
+	if not booking_name:
+		return None
+	return (booking_dt, booking_name)
+
+
+def _package_description(pkg: Any) -> str:
+	"""Return the goods description from a package row, tolerating either field name.
+
+	Site Material / Transport Order Packages use ``description``; Air / Sea Booking
+	and Shipment Packages use ``goods_description``. Callers want a single string
+	without caring which child doctype they were handed.
+	"""
+	value = _norm(getattr(pkg, "description", None))
+	if value:
+		return value
+	return _norm(getattr(pkg, "goods_description", None))
+
+
+def build_receipts_from_freight_shipment(doc: Any) -> list[dict[str, Any]]:
+	"""Build delivery receipt row dicts from a freight Shipment (Air or Sea).
+
+	The Shipment's ``project`` field resolves the parent Special Project. Lifecycle
+	stage is looked up against the Shipment first and then against the linked
+	Booking, since the SP's Lifecycle Job row references the Booking. Caller
+	persists the rows on the Special Project.
+	"""
+	project = _norm(getattr(doc, "project", None))
+	sp_name = resolve_special_project_from_project(project)
+	if not sp_name:
+		return []
+
+	sp_doc = frappe.get_doc("Special Project", sp_name)
+	booking_ref = _freight_shipment_booking_ref(doc)
+	stage = _default_receipt_stage(
+		sp_doc,
+		doc.doctype,
+		doc.name,
+		fallback_refs=[booking_ref] if booking_ref else None,
+	)
+	container_no = _norm(getattr(doc, "container_no", None)) or _norm(
+		getattr(doc, "container", None)
+	)
+	created: list[dict[str, Any]] = []
+
+	for pkg in getattr(doc, "packages", None) or []:
+		pkg_idx = cint_safe(getattr(pkg, "idx", None))
+		if _receipt_exists(sp_doc, doc.doctype, doc.name, pkg_idx):
+			continue
+		qty = (
+			flt(getattr(pkg, "quantity", 0))
+			or flt(getattr(pkg, "no_of_packs", 0))
+		)
+		if qty <= 0:
+			continue
+		wh = _norm(getattr(pkg, "warehouse_item", None))
+		commodity = _norm(getattr(pkg, "commodity", None))
+		desc = _package_description(pkg)
+		mat = _find_package_row(
+			sp_doc, warehouse_item=wh, commodity=commodity, description=desc
+		)
+		if mat is not None and cint_safe(getattr(mat, "include_on_create", 0)):
+			continue
+		mat_row = cint_safe(getattr(mat, "idx", None)) if mat else 0
+		created.append(
+			{
+				"package_row": mat_row,
+				"warehouse_item": wh or (getattr(mat, "warehouse_item", None) if mat else None),
+				"commodity": commodity or (getattr(mat, "commodity", None) if mat else None),
+				"description": desc or (getattr(mat, "description", None) if mat else None),
+				"qty_received": qty,
+				"uom": getattr(pkg, "uom", None) or (getattr(mat, "uom", None) if mat else None),
+				"receipt_date": getdate(today()),
+				"lifecycle_stage": stage,
+				"status": POSTED_RECEIPT_STATUS,
+				"source_job_type": doc.doctype,
+				"source_job_no": doc.name,
+				"container_no": container_no or None,
+				"source_doctype": doc.doctype,
+				"source_name": doc.name,
+				"source_package_idx": pkg_idx,
+			}
+		)
+	return created
+
+
+def post_site_receipts_from_freight_shipment(doc: Any) -> int:
+	"""Append delivery receipts on the parent Special Project for an Air/Sea Shipment."""
+	rows = build_receipts_from_freight_shipment(doc)
+	if not rows:
+		return 0
+	project = _norm(getattr(doc, "project", None))
+	sp_name = resolve_special_project_from_project(project)
+	if not sp_name:
+		return 0
+	n = persist_receipts_on_special_project(sp_name, rows)
+	if n:
+		frappe.msgprint(
+			_("Posted {0} delivery line(s) to Special Project {1}.").format(n, sp_name),
+			indicator="green",
+			title=_("Packages"),
+		)
+	return n
+
+
+def cancel_receipts_for_freight_shipment(doc: Any) -> int:
+	"""Flip matching posted delivery receipts to ``Cancelled`` when an Air/Sea Shipment is cancelled."""
+	project = _norm(getattr(doc, "project", None))
+	sp_name = resolve_special_project_from_project(project)
+	if not sp_name:
+		return 0
+	sp = frappe.get_doc("Special Project", sp_name)
+	changed = 0
+	for rc in getattr(sp, "deliveries", None) or []:
+		if (
+			_norm(getattr(rc, "source_doctype", None)) == doc.doctype
+			and _norm(getattr(rc, "source_name", None)) == doc.name
+			and (getattr(rc, "status", None) or "") == POSTED_RECEIPT_STATUS
+		):
+			rc.status = "Cancelled"
+			changed += 1
+	if not changed:
+		return 0
+	sp.flags.ignore_validate_update_after_submit = True
+	sp.flags.ignore_charges_sync = True
+	validate_packages(sp)
+	sp.save(ignore_permissions=True)
+	return changed
+
+
+def on_freight_shipment_submit(doc: Any, method: str | None = None) -> None:
+	"""Doc-events bridge: post SP deliveries when an Air/Sea Shipment is submitted.
+
+	Wrapped so a failure here cannot abort the Shipment submission; we log instead.
+	"""
+	try:
+		post_site_receipts_from_freight_shipment(doc)
+	except Exception:
+		frappe.log_error(
+			frappe.get_traceback(),
+			f"{doc.doctype} {doc.name}: package delivery post",
+		)
+
+
+def on_freight_shipment_cancel(doc: Any, method: str | None = None) -> None:
+	"""Doc-events bridge: cancel SP deliveries when an Air/Sea Shipment is cancelled."""
+	try:
+		cancel_receipts_for_freight_shipment(doc)
+	except Exception:
+		frappe.log_error(
+			frappe.get_traceback(),
+			f"{doc.doctype} {doc.name}: package delivery cancel",
+		)
+
+
 def _resolve_sp_from_project_doc(doc: Any) -> str | None:
-	"""Resolve parent Special Project for a Project Order / Project Job.
+	"""Resolve parent Special Project for a Project Job.
 
 	Prefers the document's ``special_project`` link; falls back to the freight-style
 	``project`` resolver to stay compatible with documents that only carry an ERPNext
@@ -618,7 +806,11 @@ def _resolve_sp_from_project_doc(doc: Any) -> str | None:
 
 
 def build_receipts_from_project_doc(doc: Any) -> list[dict[str, Any]]:
-	"""Build delivery receipt row dicts from a Project Order / Project Job ``materials_received``.
+	"""Build delivery receipt row dicts from a Project Job ``materials_received``.
+
+	Project Order is a planning document and no longer carries ``materials_received``
+	or posts receipts; only its derived Project Job does, to keep the parent Special
+	Project's Deliveries table single-sourced.
 
 	Caller persists the rows on the parent Special Project.
 	"""
@@ -678,7 +870,7 @@ def build_receipts_from_project_doc(doc: Any) -> list[dict[str, Any]]:
 
 
 def post_site_receipts_from_project_doc(doc: Any) -> int:
-	"""Append delivery receipts on the parent Special Project when a Project Order / Project Job is submitted."""
+	"""Append delivery receipts on the parent Special Project when a Project Job is submitted."""
 	rows = build_receipts_from_project_doc(doc)
 	if not rows:
 		return 0
@@ -696,7 +888,7 @@ def post_site_receipts_from_project_doc(doc: Any) -> int:
 
 
 def cancel_receipts_for_project_doc(doc: Any) -> int:
-	"""Flip matching posted delivery receipts to ``Cancelled`` when a Project Order / Project Job is cancelled."""
+	"""Flip matching posted delivery receipts to ``Cancelled`` when a Project Job is cancelled."""
 	sp_name = _resolve_sp_from_project_doc(doc)
 	if not sp_name:
 		return 0

@@ -19,6 +19,7 @@ JOB_DOCTYPES = (
     "Warehouse Job",
     "Declaration",
     "Special Project",
+    "Docket",
 )
 
 # Child table doctypes for charges (have purchase_invoice_status, purchase_invoice, sales_invoice_status, sales_invoice)
@@ -31,6 +32,7 @@ CHARGE_CHILD_DOCTYPES = (
     "Air Consolidation Charges",
     "Sea Consolidation Charges",
     "Special Project Charges",
+    "Exhibit Charges",
 )
 
 # Fields to update on jobs
@@ -415,5 +417,6 @@ def _get_charges_field(doctype: str) -> str:
         "Warehouse Job": "charges",
         "Declaration": "charges",
         "Special Project": "charges",
+        "Docket": "charges",
     }
     return mapping.get(doctype, "charges")

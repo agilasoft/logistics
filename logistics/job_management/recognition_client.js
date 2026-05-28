@@ -357,7 +357,7 @@ logistics.recognition = {
 frappe.ui.form.on([
     'Air Shipment', 'Sea Shipment',
     'Warehouse Job', 'Declaration', 'General Job',
-    'Special Project'
+    'Special Project', 'Docket'
 ], {
     refresh: function(frm) {
         if (typeof logistics !== 'undefined' && logistics.recognition) {

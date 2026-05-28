@@ -576,6 +576,7 @@ class SpecialProject(Document):
 		job_ref.cost_center = self.cost_center
 		job_ref.profit_center = self.profit_center
 		job_ref.job_open_date = self.start_date or self.planned_start
+		job_ref.project = self.project
 		job_ref.insert(ignore_permissions=True)
 		self.job_number = job_ref.name
 		frappe.msgprint(_("Job Number {0} created successfully").format(job_ref.name))
@@ -671,6 +672,7 @@ def create_job_number_for_special_project(
 		frappe.db.set_value("Special Project", special_project_name, "job_number", existing)
 		frappe.db.commit()
 		return
+	project = frappe.db.get_value("Special Project", special_project_name, "project")
 	job_ref = frappe.new_doc("Job Number")
 	job_ref.job_type = "Special Project"
 	job_ref.job_no = special_project_name
@@ -679,6 +681,7 @@ def create_job_number_for_special_project(
 	job_ref.cost_center = cost_center
 	job_ref.profit_center = profit_center
 	job_ref.job_open_date = open_date
+	job_ref.project = project
 	job_ref.insert(ignore_permissions=True)
 	frappe.db.set_value("Special Project", special_project_name, "job_number", job_ref.name)
 	frappe.db.commit()

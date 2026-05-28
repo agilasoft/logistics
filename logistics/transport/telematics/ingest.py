@@ -6,57 +6,18 @@ from .providers import make_provider
 from .resolve import _provider_conf
 
 def _vehicles_with_mapping() -> List[Dict[str, Any]]:
-    """
-    Build the per-vehicle telematics binding rows consumed by ``run_ingest``.
-
-    Each row carries every known identifier so the downstream ``vindex``
-    can match positions by whichever key the provider returns:
-
-      * ``external_id``       — primary key (``telematics_external_id`` if set,
-                                otherwise ``gotransport_device``, otherwise the
-                                Transport Vehicle ``name``).
-      * ``aliases``           — list of additional ids that should resolve to
-                                the same vehicle (e.g. the ``gotransport_device``
-                                when ``telematics_external_id`` is also set,
-                                and the vehicle's own ``name`` so providers that
-                                return an already-resolved name slot in cleanly).
-    """
-    try:
-        rows = frappe.db.get_all(
-            "Transport Vehicle",
-            fields=["name", "telematics_provider", "telematics_external_id", "gotransport_device"],
-        )
-    except Exception:
-        # gotransport_device may not exist yet on older sites mid-migration.
-        rows = frappe.db.get_all(
-            "Transport Vehicle",
-            fields=["name", "telematics_provider", "telematics_external_id"],
-        )
-        for r in rows:
-            r["gotransport_device"] = None
-
+    rows = frappe.db.get_all("Transport Vehicle",
+                             fields=["name","telematics_provider","telematics_external_id"])
     default_provider = frappe.db.get_single_value("Transport Settings", "default_telematics_provider")
-    out: List[Dict[str, Any]] = []
+    out = []
     for r in rows:
-        name = (r.get("name") or "").strip()
-        ext_id = (r.get("telematics_external_id") or "").strip()
-        gt_dev = (r.get("gotransport_device") or "").strip()
-        primary = ext_id or gt_dev or name
-        if not primary:
+        ext = (r.get("telematics_external_id") or "").strip()
+        if not ext:
             continue
         prov = r.get("telematics_provider") or default_provider
         if not prov:
             continue
-        aliases = []
-        for v in (gt_dev, name):
-            if v and v != primary and v not in aliases:
-                aliases.append(v)
-        out.append({
-            "vehicle": name,
-            "external_id": primary,
-            "aliases": aliases,
-            "provider_doc": prov,
-        })
+        out.append({"vehicle": r["name"], "external_id": ext, "provider_doc": prov})
     return out
 
 def _group_by_provider(items: List[Dict[str, Any]]):
@@ -77,16 +38,7 @@ def run_ingest():
         conf = _provider_conf(provider_doc)
         if not conf: continue
         prov = make_provider(conf["provider_type"], conf)
-        # Map by primary external id AND by every alias (Transport Vehicle
-        # name, gotransport_device, ...) so providers that already do
-        # server-side vehicle resolution (e.g. GoTransport returning
-        # ``vehicle: "TV-0007"``) match cleanly without losing the
-        # telematics_external_id path the other providers depend on.
-        vindex: Dict[str, str] = {}
-        for x in vehs:
-            vindex[str(x["external_id"])] = x["vehicle"]
-            for alias in x.get("aliases", []) or []:
-                vindex.setdefault(str(alias), x["vehicle"])
+        vindex = {x["external_id"]: x["vehicle"] for x in vehs}
 
         # Positions
         try:

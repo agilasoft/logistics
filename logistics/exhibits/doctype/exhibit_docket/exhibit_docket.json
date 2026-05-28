@@ -2,51 +2,67 @@
  "actions": [],
  "creation": "2026-05-18 00:00:00",
  "doctype": "DocType",
- "editable_grid": 1,
+ "editable_grid": 0,
  "engine": "InnoDB",
  "field_order": [
-  "customer",
-  "participant_name",
+  "docket",
+  "exhibitor",
+  "exhibitor_name",
   "booth_no",
-  "docket"
+  "status",
+  "docket_date"
  ],
  "fields": [
   {
-   "fieldname": "customer",
+   "fieldname": "docket",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Customer",
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
-   "options": "Customer"
+   "label": "Docket",
+   "options": "Docket",
+   "read_only": 1
   },
   {
-   "description": "Display name on badges and reports (defaults from Customer when set).",
-   "fieldname": "participant_name",
+   "fieldname": "exhibitor",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Exhibitor",
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "exhibitor_name",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Participant Name"
+   "label": "Exhibitor Name",
+   "read_only": 1
   },
   {
    "fieldname": "booth_no",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Booth No"
+   "label": "Booth No",
+   "read_only": 1
   },
   {
-   "description": "Docket for this exhibitor on the parent Exhibit. Auto-set when a Docket is created from this row.",
-   "fieldname": "docket",
-   "fieldtype": "Link",
+   "fieldname": "status",
+   "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Docket",
-   "no_copy": 1,
-   "options": "Docket",
+   "label": "Status",
+   "read_only": 1
+  },
+  {
+   "fieldname": "docket_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Docket Date",
    "read_only": 1
   }
  ],
  "index_web_pages_for_search": 0,
+ "is_virtual": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-05-21 00:00:00",
+ "modified": "2026-05-28 00:00:00",
  "modified_by": "Administrator",
  "module": "Exhibits",
  "name": "Exhibit Docket",
@@ -56,5 +72,5 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "track_changes": 1
+ "track_changes": 0
 }

@@ -736,6 +736,39 @@ class TestSalesQuote(FrappeTestCase):
 		sq.reload()
 		self.assertEqual(sq.docstatus, 1)
 
+	def test_special_project_submit_blocked_when_erpnext_project_name_exists(self):
+		"""Project programme quotes cannot submit when ERPNext Project.project_name is taken."""
+		import uuid
+
+		project_name = f"SQ Dup Proj {uuid.uuid4().hex[:8]}"
+		if frappe.db.exists("DocType", "Project"):
+			proj = frappe.get_doc(
+				{
+					"doctype": "Project",
+					"project_name": project_name,
+					"customer": self.customer,
+					"company": self.company,
+				}
+			)
+			proj.flags.ignore_mandatory = True
+			proj.insert(ignore_permissions=True)
+
+		sq = self._minimal_sales_quote_doc("Special Project")
+		sq.quotation_type = "Project"
+		sq.naming_series = "PQ.#####"
+		sq.project_name = project_name
+		sq.append(
+			"project_resources",
+			{
+				"resource_type": "Personnel",
+				"resource_role": "PM",
+				"quantity": 1,
+			},
+		)
+		sq.insert()
+		with self.assertRaises(frappe.ValidationError):
+			sq.submit()
+
 	def test_programme_charge_row_requires_sp_site(self):
 		sq = self._minimal_sales_quote_doc("Exhibits")
 		sq.exhibit_show_name = "Test Expo"

@@ -906,7 +906,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-05-20 16:44:02.223672",
+ "modified": "2026-05-27 14:40:12.126765",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Project Job",
@@ -948,6 +948,5 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "title_field": "title",
  "track_changes": 1
 }

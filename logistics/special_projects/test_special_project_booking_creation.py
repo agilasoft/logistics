@@ -1,10 +1,24 @@
 # Copyright (c) 2026, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import frappe
 from frappe.tests import IntegrationTestCase, UnitTestCase
+
+
+def _mock_charge(**fields):
+	"""Lightweight stand-in for a Special Project Charges child row.
+
+	Supports both attribute access (used by ``getattr`` in the matcher) and a callable
+	``as_dict`` (used by ``_scrub_main_row_to_child_dict``). Using ``frappe._dict`` here
+	doesn't work because its ``__getattr__`` returns ``None`` for missing keys, which
+	makes ``hasattr(main_ch, "as_dict")`` True with ``as_dict = None``.
+	"""
+	sn = SimpleNamespace(**fields)
+	sn.as_dict = lambda: dict(fields)
+	return sn
 
 from logistics.special_projects.special_project_booking_creation import (
 	_apply_air_sea_corridor_ports_from_context,
@@ -23,34 +37,104 @@ from logistics.special_projects.special_project_charge_copy import (
 )
 
 
+def _ensure_test_sp_charge_item() -> str:
+	"""Ensure a sales-item exists for use in SP charge copy unit tests, and return its code."""
+	item = "TEST-ITEM-SP-CHG"
+	if frappe.db.exists("Item", item):
+		return item
+	item_group = frappe.db.get_value("Item Group", {"is_group": 0}, "name")
+	if not item_group:
+		item_group = frappe.db.get_value("Item Group", {}, "name")
+	frappe.get_doc(
+		{
+			"doctype": "Item",
+			"item_code": item,
+			"item_name": item,
+			"item_group": item_group,
+			"is_sales_item": 1,
+		}
+	).insert(ignore_permissions=True)
+	return item
+
+
 class TestSpecialProjectChargeCopy(UnitTestCase):
 	def test_populate_air_booking_filters_by_lifecycle_service_type(self):
-		item = "TEST-ITEM-SP-CHG"
-		if not frappe.db.exists("Item", item):
-			frappe.get_doc(
-				{
-					"doctype": "Item",
-					"item_code": item,
-					"item_name": item,
-					"is_sales_item": 1,
-				}
-			).insert(ignore_permissions=True)
+		item = _ensure_test_sp_charge_item()
 
 		sp = frappe._dict(
 			charges=[
-				frappe._dict(
+				_mock_charge(
 					service_type="Air",
 					item_code=item,
 					estimated_revenue=100,
 					rate=100,
 					quantity=1,
 				),
-				frappe._dict(service_type="Transport", item_code=item, rate=50),
+				_mock_charge(service_type="Transport", item_code=item, rate=50),
 			]
 		)
 		row = frappe._dict(service_type="Air")
 		booking = frappe.new_doc("Air Booking")
 		n = populate_operational_charges_from_special_project(sp, booking, row)
+		self.assertEqual(n, 1)
+		self.assertEqual(len(booking.charges), 1)
+		self.assertEqual((booking.charges[0].service_type or "").strip(), "Air")
+
+	def test_strict_pin_excludes_charge_for_different_row(self):
+		item = _ensure_test_sp_charge_item()
+
+		# Air charge pinned to lifecycle row 1; creating from row 6 must NOT match strictly.
+		sp = frappe._dict(
+			charges=[
+				_mock_charge(
+					service_type="Air",
+					lifecycle_job_row=1,
+					item_code=item,
+					rate=100,
+					quantity=1,
+				),
+			]
+		)
+		row = frappe._dict(service_type="Air", idx=6)
+		booking = frappe.new_doc("Air Booking")
+		n = populate_operational_charges_from_special_project(sp, booking, row)
+		self.assertEqual(n, 0)
+
+	def test_ignore_pin_falls_back_to_service_type_match(self):
+		item = _ensure_test_sp_charge_item()
+
+		# Mirrors the user's screenshot: Air charges pinned to row 1, Air Booking created from
+		# row 6. The strict pass returns 0; ignore_pin=True must pick them up by service type.
+		sp = frappe._dict(
+			charges=[
+				_mock_charge(
+					service_type="Air",
+					lifecycle_job_row=1,
+					item_code=item,
+					rate=100,
+					quantity=1,
+				),
+				_mock_charge(
+					service_type="Sea",
+					lifecycle_job_row=2,
+					item_code=item,
+					rate=200,
+					quantity=1,
+				),
+				_mock_charge(
+					service_type="Transport",
+					lifecycle_job_row=3,
+					item_code=item,
+					rate=300,
+					quantity=1,
+				),
+			]
+		)
+		row = frappe._dict(service_type="Air", idx=6)
+		booking = frappe.new_doc("Air Booking")
+		n = populate_operational_charges_from_special_project(
+			sp, booking, row, ignore_pin=True
+		)
 		self.assertEqual(n, 1)
 		self.assertEqual(len(booking.charges), 1)
 		self.assertEqual((booking.charges[0].service_type or "").strip(), "Air")

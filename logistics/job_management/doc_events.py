@@ -128,6 +128,7 @@ def get_charges_table_name(doctype):
         "General Job": "charges",
         "Project Job": "charges",
         "Special Project": "charges",
+        "Docket": "charges",
     }
     return charges_tables.get(doctype)
 

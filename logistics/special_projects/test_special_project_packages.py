@@ -8,6 +8,7 @@ from frappe.tests import UnitTestCase
 
 from logistics.special_projects.special_project_packages import (
 	apply_shipment_lines_to_target,
+	build_receipts_from_freight_shipment,
 	build_receipts_from_project_doc,
 	build_receipts_from_transport_order,
 	copy_always_along_packages_to_target,
@@ -374,28 +375,6 @@ class TestProjectDocReceiptPosting(UnitTestCase):
 		self.assertEqual(rows[0]["source_name"], "SPJ-TEST-RECEIPT")
 		self.assertEqual(rows[0]["source_package_idx"], 1)
 
-	def test_project_order_build_receipts_basic(self):
-		sp_name = self._existing_sp_name()
-		if not sp_name:
-			return
-		doc = frappe._dict(
-			doctype="Project Order",
-			name="SPOR-TEST-RECEIPT",
-			special_project=sp_name,
-			materials_received=[
-				frappe._dict(
-					idx=1,
-					qty_received=12,
-					warehouse_item="WI-TEST",
-					container_no="CONT-77",
-				),
-			],
-		)
-		rows = build_receipts_from_project_doc(doc)
-		self.assertEqual(len(rows), 1)
-		self.assertEqual(rows[0]["source_job_type"], "Project Order")
-		self.assertEqual(rows[0]["container_no"], "CONT-77")
-
 	def test_project_doc_without_special_project_returns_empty(self):
 		doc = frappe._dict(
 			doctype="Project Job",
@@ -404,3 +383,75 @@ class TestProjectDocReceiptPosting(UnitTestCase):
 			materials_received=[frappe._dict(idx=1, qty_received=5)],
 		)
 		self.assertEqual(build_receipts_from_project_doc(doc), [])
+
+
+class TestFreightShipmentReceiptPosting(UnitTestCase):
+	"""Air/Sea Shipment submit -> SP delivery receipts."""
+
+	def _existing_sp_name(self) -> str | None:
+		return frappe.db.get_value("Special Project", {}, "name")
+
+	def test_air_shipment_build_receipts_reads_goods_description_and_packs(self):
+		sp_name = self._existing_sp_name()
+		if not sp_name:
+			return
+		doc = frappe._dict(
+			doctype="Air Shipment",
+			name="ASP-TEST-RECEIPT",
+			project=sp_name,
+			air_booking="ABK-TEST",
+			packages=[
+				frappe._dict(
+					idx=1,
+					no_of_packs=40,
+					warehouse_item="WI-AIR",
+					commodity="Construction Materials",
+					goods_description="Tarpaulin bundles",
+					uom="Piece",
+				),
+				frappe._dict(idx=2, no_of_packs=0, warehouse_item="WI-ZERO"),
+			],
+		)
+		rows = build_receipts_from_freight_shipment(doc)
+		self.assertEqual(len(rows), 1)
+		self.assertEqual(rows[0]["qty_received"], 40)
+		self.assertEqual(rows[0]["warehouse_item"], "WI-AIR")
+		self.assertEqual(rows[0]["description"], "Tarpaulin bundles")
+		self.assertEqual(rows[0]["source_doctype"], "Air Shipment")
+		self.assertEqual(rows[0]["source_name"], "ASP-TEST-RECEIPT")
+		self.assertEqual(rows[0]["source_package_idx"], 1)
+
+	def test_freight_shipment_without_project_returns_empty(self):
+		doc = frappe._dict(
+			doctype="Air Shipment",
+			name="ASP-NO-PROJECT",
+			project="",
+			air_booking="ABK-X",
+			packages=[
+				frappe._dict(idx=1, no_of_packs=10, warehouse_item="WI-X"),
+			],
+		)
+		self.assertEqual(build_receipts_from_freight_shipment(doc), [])
+
+	def test_sea_shipment_reuses_freight_builder(self):
+		sp_name = self._existing_sp_name()
+		if not sp_name:
+			return
+		doc = frappe._dict(
+			doctype="Sea Shipment",
+			name="SSP-TEST-RECEIPT",
+			project=sp_name,
+			sea_booking="SBK-TEST",
+			packages=[
+				frappe._dict(
+					idx=1,
+					no_of_packs=12,
+					warehouse_item="WI-SEA",
+					goods_description="Pallet of bricks",
+				),
+			],
+		)
+		rows = build_receipts_from_freight_shipment(doc)
+		self.assertEqual(len(rows), 1)
+		self.assertEqual(rows[0]["source_doctype"], "Sea Shipment")
+		self.assertEqual(rows[0]["description"], "Pallet of bricks")

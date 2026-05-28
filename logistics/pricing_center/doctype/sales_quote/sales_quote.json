@@ -765,6 +765,11 @@
   },
   {
    "group": "Programmes",
+   "link_doctype": "Docket",
+   "link_fieldname": "sales_quote"
+  },
+  {
+   "group": "Programmes",
    "link_doctype": "Project Order",
    "link_fieldname": "sales_quote"
   },

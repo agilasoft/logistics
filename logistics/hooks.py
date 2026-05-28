@@ -50,7 +50,7 @@ app_include_js = [
 	"/assets/logistics/js/density_factor.js?v=2",
 	"/assets/logistics/js/document_alerts_dialog.js?v=2",
 	"/assets/logistics/js/documents_tab_utils.js",
-	"/assets/logistics/js/profitability_form.js?v=4",
+	"/assets/logistics/js/profitability_form.js?v=5",
 	"/assets/logistics/js/purchase_invoice_dialog.js",
 	"/assets/logistics/js/sales_invoice_dialog.js",
 	"/assets/logistics/js/sales_invoice_job_dimension_cleanup.js",
@@ -242,19 +242,24 @@ doctype_js = {
 		"logistics/job_management/recognition_client.js",
 		"logistics/job_management/recognition_policy_fields.js",
 	],
+	# NOTE: doctype_js paths are MODULE-relative (resolved via frappe.get_app_path(app, *parts)).
+	# For this app, that means paths must start with "public/..." or "<sub_module>/...", NOT
+	# "logistics/...". A leading "logistics/" causes a doubled path segment and the file
+	# silently fails to load (no error). See get_code_files_via_hooks in
+	# apps/frappe/frappe/desk/form/meta.py.
 	"Special Project": [
-		"logistics/public/js/logistics_lifecycle_stepper.js?v=3",
-		"logistics/public/js/apply_lifecycle_template_dialog.js?v=1",
-		"logistics/public/js/document_alerts_dialog.js",
+		"public/js/profitability_project_form.js",
+	],
+	"Exhibit": [
+		"public/js/exhibit_link_docket_dialog.js",
+		"public/js/profitability_project_form.js",
+	],
+	"Docket": [
 		"logistics/public/js/sales_invoice_dialog.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
 		"logistics/job_management/recognition_policy_fields.js",
-	],
-	"Exhibit": [
-		"logistics/public/js/logistics_lifecycle_stepper.js?v=3",
-		"logistics/public/js/apply_lifecycle_template_dialog.js?v=1",
 	],
 	"Account": "logistics/public/js/account_job_profit.js",
 	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
@@ -320,6 +325,11 @@ _doc_milestone_doctypes = [
 	"Inbound Order", "Release Order", "Transfer Order",
 	"Warehouse Job", "General Job", "Special Project",
 	"Project Order", "Project Job",
+	# Exhibit family: parent doctypes with a ``milestones`` child table and
+	# ``milestone_template`` field. Without these hooks, Date Based sync
+	# (parent date field <-> milestone actual_end) and status auto-update
+	# (Planned / Started / Completed / Delayed) never run on save.
+	"Exhibit", "Docket", "Exhibit Order", "Exhibit Job",
 ]
 
 doc_events = {
@@ -341,11 +351,13 @@ doc_events = {
 		"validate": [
 			"logistics.invoice_integration.container_deposit_pi.apply_container_deposit_expense_account",
 			"logistics.invoice_integration.container_deposit_dimensions.sync_container_deposit_pi_accounting_dimensions",
+			"logistics.invoice_integration.job_number_dimension_sync.sync_job_number_dimension_on_purchase_invoice_items",
 			"logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
 		],
 		"before_submit": [
 			"logistics.invoice_integration.container_deposit_pi.apply_container_deposit_expense_account",
 			"logistics.invoice_integration.container_deposit_dimensions.sync_container_deposit_pi_accounting_dimensions",
+			"logistics.invoice_integration.job_number_dimension_sync.sync_job_number_dimension_on_purchase_invoice_items",
 			"logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
 			"logistics.invoice_integration.container_deposit_pi_ui.validate_container_deposit_lines_have_container_before_submit",
 		],
@@ -412,6 +424,7 @@ for _dt in (
 	"General Job",
 	"Project Job",
 	"Special Project",
+	"Docket",
 ):
 	if _dt not in doc_events:
 		doc_events[_dt] = {}
@@ -531,6 +544,33 @@ for _dt in (
 				doc_events[_dt][_event] = list(_existing) + [_LIFECYCLE_FINANCIAL_REFRESH]
 		elif _existing != _LIFECYCLE_FINANCIAL_REFRESH:
 			doc_events[_dt][_event] = [_existing, _LIFECYCLE_FINANCIAL_REFRESH]
+
+# Special Project: Air/Sea Shipment submit -> post deliveries to parent Special Project.
+# Mirrors the Transport Order on_submit pattern. The Shipment's ``project`` field
+# resolves the Special Project; rows in its Packages table are folded into the
+# Special Project's Deliveries with the originating Booking's lifecycle stage.
+_FREIGHT_SHIPMENT_RECEIPT_HANDLERS = (
+	(
+		"on_submit",
+		"logistics.special_projects.special_project_packages.on_freight_shipment_submit",
+	),
+	(
+		"on_cancel",
+		"logistics.special_projects.special_project_packages.on_freight_shipment_cancel",
+	),
+)
+for _dt in ("Air Shipment", "Sea Shipment"):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	for _event, _handler in _FREIGHT_SHIPMENT_RECEIPT_HANDLERS:
+		_existing = doc_events[_dt].get(_event)
+		if not _existing:
+			doc_events[_dt][_event] = _handler
+		elif isinstance(_existing, list):
+			if _handler not in _existing:
+				doc_events[_dt][_event] = list(_existing) + [_handler]
+		elif _existing != _handler:
+			doc_events[_dt][_event] = [_existing, _handler]
 
 merge_credit_hooks(doc_events)
 

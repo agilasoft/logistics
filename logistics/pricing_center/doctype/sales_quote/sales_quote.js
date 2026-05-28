@@ -1343,24 +1343,53 @@ function logistics_sq_add_programme_create_buttons(frm) {
 		}, __("Create"));
 	}
 
-	const hasExhibits = (frm.doc.charges || []).some(
-		(c) => logistics_canonical_charge_service_type(c.service_type) === "exhibits"
-	);
-	if (frm.doc.main_service === "Exhibits" && hasExhibits) {
-		frm.add_custom_button(__("Create Exhibit"), function () {
+	if (
+		frm.doc.main_service === "Exhibits" &&
+		frm.doc.docstatus === 1 &&
+		frm.doc.exhibit &&
+		frm.doc.customer
+	) {
+		frm.add_custom_button(__("Create Docket"), function () {
+			logistics_sq_open_create_docket_dialog(frm);
+		}, __("Create"));
+	}
+}
+
+function logistics_sq_open_create_docket_dialog(frm) {
+	const d = new frappe.ui.Dialog({
+		title: __("Create Docket"),
+		fields: [
+			{
+				fieldname: "exhibit",
+				fieldtype: "Link",
+				label: __("Exhibit"),
+				options: "Exhibit",
+				default: frm.doc.exhibit,
+				read_only: 1,
+				description: __(
+					"This will create a Docket on this Exhibit for exhibitor {0}.",
+					[frappe.utils.escape_html(frm.doc.customer || "")]
+				),
+			},
+		],
+		primary_action_label: __("Create"),
+		primary_action() {
+			d.hide();
 			frappe.call({
-				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_exhibit_from_sales_quote",
+				method:
+					"logistics.pricing_center.doctype.sales_quote.sales_quote.create_docket_from_sales_quote",
 				args: { sales_quote_name: frm.doc.name },
 				freeze: true,
-				freeze_message: __("Creating Exhibit..."),
+				freeze_message: __("Creating Docket..."),
 				callback(r) {
-					if (r.message && r.message.exhibit) {
-						frappe.set_route("Form", "Exhibit", r.message.exhibit);
+					if (r.message && r.message.docket) {
+						frappe.set_route("Form", "Docket", r.message.docket);
 					}
 				},
 			});
-		}, __("Create"));
-	}
+		},
+	});
+	d.show();
 }
 
 // Helper function to add create/view buttons for related documents

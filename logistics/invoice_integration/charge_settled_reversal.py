@@ -20,6 +20,7 @@ CHARGES_FIELD_BY_JOB = {
 	"General Job": "charges",
 	"Project Job": "charges",
 	"Special Project": "charges",
+	"Docket": "charges",
 }
 
 

@@ -18,6 +18,10 @@
   "branch",
   "cost_center",
   "profit_center",
+  "section_break_links",
+  "project",
+  "column_break_links",
+  "docket",
   "job_profit_tab"
  ],
  "fields": [
@@ -83,6 +87,30 @@
    "options": "Profit Center"
   },
   {
+   "fieldname": "section_break_links",
+   "fieldtype": "Section Break",
+   "label": "Operational Links"
+  },
+  {
+   "description": "ERPNext Project this Job Number is posted against. Auto-populated from the source job (e.g. Special Project, Docket, or any operational job that carries a Project).",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "options": "Project"
+  },
+  {
+   "fieldname": "column_break_links",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Docket this Job Number belongs to. Auto-populated when the source job is referenced by a Docket's Internal Jobs table (or when the Job Number itself is for a Docket).",
+   "fieldname": "docket",
+   "fieldtype": "Link",
+   "label": "Docket",
+   "options": "Docket"
+  },
+  {
    "fieldname": "job_profit_tab",
    "fieldtype": "Tab Break",
    "label": "Job Profit"
@@ -102,7 +130,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-15 14:24:18.356630",
+ "modified": "2026-05-27 18:30:00.000000",
  "modified_by": "Administrator",
  "module": "Job Management",
  "name": "Job Number",

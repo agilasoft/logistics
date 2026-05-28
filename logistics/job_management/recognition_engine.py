@@ -104,12 +104,21 @@ class RecognitionEngine:
         return item_row_dict("Journal Entry Account", item_code)
 
     def _je_dimension_fields_for_job(self):
-        """CC / PC / Branch for JE lines — same resolution as recognition policy matching (incl. Job Number)."""
+        """CC / PC / Branch / Project for JE lines.
+
+        Resolution mirrors recognition policy matching (cost_center / profit_center / branch
+        via Job Number fallback). ``project`` is included so the JE rows post the same
+        Project accounting dimension that Sales / Purchase Invoices created from this job
+        already carry — this is what lets Project / Exhibit profitability roll up every
+        WIP / accrual journal entry made for an internal job.
+        """
         cc, pc, br, _, _ = _job_dimensions_for_match(self.job)
+        project = (self.job.get("project") or "").strip() or None
         return {
             "cost_center": cc,
             "profit_center": pc,
             "branch": br,
+            "project": project,
         }
 
     # ==================== WIP Recognition ====================
@@ -473,6 +482,7 @@ class RecognitionEngine:
             "General Job": "charges",
             "Project Job": "charges",
             "Special Project": "charges",
+            "Docket": "charges",
         }
         return charges_tables.get(self.job_type)
 
@@ -1568,7 +1578,7 @@ def process_period_closing_adjustments(company, period_end_date):
     job_types = [
         "Air Shipment", "Sea Shipment", "Transport Job",
         "Warehouse Job", "Declaration", "General Job", "Project Job",
-        "Special Project",
+        "Special Project", "Docket",
     ]
     
     results = {

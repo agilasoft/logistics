@@ -70,7 +70,7 @@ function _logistics_project_order_add_create_or_open_job(frm) {
 										indicator: "blue",
 									});
 									frappe.set_route("Form", "Project Job", payload.name);
-									frm.refresh();
+									frm.reload_doc();
 								} else if (payload.created) {
 									frappe.msgprint({
 										title: __("Project Job Created"),
@@ -78,7 +78,7 @@ function _logistics_project_order_add_create_or_open_job(frm) {
 										indicator: "green",
 									});
 									frappe.set_route("Form", "Project Job", payload.name);
-									frm.refresh();
+									frm.reload_doc();
 								}
 							},
 						});
