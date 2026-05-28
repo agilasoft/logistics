@@ -256,6 +256,7 @@
    "read_only": 1
   },
   {
+   "fetch_from": "item_code.description",
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"

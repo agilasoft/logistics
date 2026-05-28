@@ -30,8 +30,12 @@ from frappe.utils import flt
 
 LEGACY_DOCTYPE = "Special Project Cargo Package"
 LEGACY_TABLE = f"tab{LEGACY_DOCTYPE}"
-TARGET_DOCTYPE = "Special Project Site Material"
-TARGET_TABLE = f"tab{TARGET_DOCTYPE}"
+# Site Material was renamed to Package in v1_1; this historical patch picks whichever
+# table exists at the time it runs (on fresh installs, only the new one exists; on
+# already-migrated installs neither will be missing the Site Material table because the
+# rename was completed by v1_1_rename_special_project_site_material_to_package).
+_TARGET_DOCTYPE_NEW = "Special Project Package"
+_TARGET_DOCTYPE_OLD = "Special Project Site Material"
 
 PACKAGE_FIELDS = (
 	"hs_code",
@@ -49,8 +53,19 @@ PACKAGE_FIELDS = (
 )
 
 
+def _resolve_target_doctype() -> tuple[str | None, str | None]:
+	for dt in (_TARGET_DOCTYPE_NEW, _TARGET_DOCTYPE_OLD):
+		tab = f"tab{dt}"
+		if frappe.db.table_exists(tab):
+			return dt, tab
+	return None, None
+
+
 def execute():
 	if not frappe.db.table_exists(LEGACY_TABLE):
+		return
+	target_doctype, target_table = _resolve_target_doctype()
+	if not target_doctype:
 		return
 
 	cargo_rows = frappe.db.sql(
@@ -76,12 +91,12 @@ def execute():
 		if not parent:
 			continue
 
-		mat_row = _existing_site_material_row(parent, cargo.get("site_material_row"))
+		mat_row = _existing_site_material_row(parent, cargo.get("site_material_row"), target_table)
 		if mat_row:
-			_merge_package_fields(mat_row, cargo)
+			_merge_package_fields(mat_row, cargo, target_doctype)
 			merged_into_existing += 1
 		else:
-			_append_always_along_row(parent, cargo)
+			_append_always_along_row(parent, cargo, target_doctype, target_table)
 			appended_as_new += 1
 
 	frappe.db.commit()
@@ -100,7 +115,7 @@ def execute():
 	)
 
 
-def _existing_site_material_row(parent: str, idx_value) -> dict | None:
+def _existing_site_material_row(parent: str, idx_value, target_table: str) -> dict | None:
 	try:
 		idx = int(idx_value or 0)
 	except (TypeError, ValueError):
@@ -113,7 +128,7 @@ def _existing_site_material_row(parent: str, idx_value) -> dict | None:
 			length, width, height, dimension_uom,
 			weight, weight_uom, volume, volume_uom,
 			contains_dangerous_goods
-		FROM `{TARGET_TABLE}`
+		FROM `{target_table}`
 		WHERE parent = %s AND idx = %s
 		LIMIT 1
 		""",
@@ -123,7 +138,7 @@ def _existing_site_material_row(parent: str, idx_value) -> dict | None:
 	return rows[0] if rows else None
 
 
-def _merge_package_fields(mat_row: dict, cargo: dict) -> None:
+def _merge_package_fields(mat_row: dict, cargo: dict, target_doctype: str) -> None:
 	updates: dict[str, object] = {"include_on_create": 0}
 	for fn in PACKAGE_FIELDS:
 		current = mat_row.get(fn)
@@ -133,13 +148,13 @@ def _merge_package_fields(mat_row: dict, cargo: dict) -> None:
 		if new_value in (None, "", 0, 0.0):
 			continue
 		updates[fn] = new_value
-	frappe.db.set_value(TARGET_DOCTYPE, mat_row["name"], updates, update_modified=False)
+	frappe.db.set_value(target_doctype, mat_row["name"], updates, update_modified=False)
 
 
-def _append_always_along_row(parent: str, cargo: dict) -> None:
+def _append_always_along_row(parent: str, cargo: dict, target_doctype: str, target_table: str) -> None:
 	parent_row = frappe.db.sql(
 		f"""
-		SELECT parenttype, parentfield FROM `{TARGET_TABLE}`
+		SELECT parenttype, parentfield FROM `{target_table}`
 		WHERE parent = %s LIMIT 1
 		""",
 		(parent,),
@@ -150,11 +165,12 @@ def _append_always_along_row(parent: str, cargo: dict) -> None:
 		parentfield = parent_row[0]["parentfield"]
 	else:
 		parenttype = "Special Project"
-		parentfield = "site_materials"
+		# Prefer the new field name when targeting the renamed doctype.
+		parentfield = "packages" if target_doctype == _TARGET_DOCTYPE_NEW else "site_materials"
 
 	max_idx = (
 		frappe.db.sql(
-			f"SELECT COALESCE(MAX(idx), 0) FROM `{TARGET_TABLE}` WHERE parent = %s",
+			f"SELECT COALESCE(MAX(idx), 0) FROM `{target_table}` WHERE parent = %s",
 			(parent,),
 		)[0][0]
 		or 0
@@ -167,7 +183,7 @@ def _append_always_along_row(parent: str, cargo: dict) -> None:
 
 	doc = frappe.get_doc(
 		{
-			"doctype": TARGET_DOCTYPE,
+			"doctype": target_doctype,
 			"parent": parent,
 			"parenttype": parenttype,
 			"parentfield": parentfield,

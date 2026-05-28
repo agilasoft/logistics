@@ -45,6 +45,7 @@ IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 	"Exhibit": "Exhibits",
 	"Exhibit Job": "Exhibits",
 	"Exhibit Order": "Exhibits",
+	"Docket": "Exhibits",
 }
 
 

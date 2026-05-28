@@ -21,18 +21,14 @@
   "remora_tab",
   "soap_endpoint_override",
   "soap_ns",
-  "soap_version",
-  "gotransport_tab",
-  "gotransport_intro",
-  "gotransport_position_method",
-  "gotransport_api_secret"
+  "soap_version"
  ],
  "fields": [
   {
    "fieldname": "provider_type",
    "fieldtype": "Select",
    "label": "Provider Type",
-   "options": "REMORA\nTRACCAR\nWIALON\nGEOTAB\nSAMSARA\nGOTRANSPORT\nCUSTOM"
+   "options": "REMORA\nTRACCAR\nWIALON\nGEOTAB\nSAMSARA\nCUSTOM"
   },
   {
    "fieldname": "base_url",
@@ -108,31 +104,6 @@
    "fieldname": "soap_version",
    "fieldtype": "Data",
    "label": "SOAP Version"
-  },
-  {
-   "depends_on": "eval:doc.provider_type==\"GOTRANSPORT\"",
-   "fieldname": "gotransport_tab",
-   "fieldtype": "Tab Break",
-   "label": "Go Transport"
-  },
-  {
-   "fieldname": "gotransport_intro",
-   "fieldtype": "HTML",
-   "label": "Go Transport Intro",
-   "options": "<div class=\"alert alert-info\" style=\"margin:0\"><b>Go Transport</b> is the Agilasoft Cloud Technologies driver mobile app. Each phone POSTs GPS fixes to <code>gotransport.api.ingest_event</code> on this site; the Transport module polls <code>gotransport.api.get_latest_positions</code> on the interval set in <i>Transport Settings &rarr; Telematics</i>. Leave <b>Base URL</b> empty for in-site calls; set it (with <b>API Key</b> + <b>API Secret</b>) only when the <code>gotransport</code> app lives on a different site.</div>"
-  },
-  {
-   "default": "gotransport.api.get_latest_positions",
-   "description": "Fully-qualified Frappe whitelisted method that returns the latest fix per vehicle. Default: <code>gotransport.api.get_latest_positions</code>.",
-   "fieldname": "gotransport_position_method",
-   "fieldtype": "Data",
-   "label": "Position Method"
-  },
-  {
-   "description": "Optional. Only needed when polling a remote site over HTTP. Combined with <b>API Key</b> as <code>Authorization: token KEY:SECRET</code>.",
-   "fieldname": "gotransport_api_secret",
-   "fieldtype": "Password",
-   "label": "API Secret"
   }
  ],
  "grid_page_length": 50,

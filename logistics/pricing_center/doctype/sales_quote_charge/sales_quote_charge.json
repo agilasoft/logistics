@@ -11,6 +11,7 @@
   "charge_group",
   "item_code",
   "item_name",
+  "description",
   "change_request_charge",
   "charge_type",
   "charge_category",
@@ -133,6 +134,12 @@
    "fieldtype": "Data",
    "label": "Item Name",
    "read_only": 1
+  },
+  {
+   "fetch_from": "item_code.description",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   },
   {
    "fieldname": "change_request_charge",
@@ -540,9 +547,9 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Unit Rate",
+   "mandatory_depends_on": "eval:!['Cost','Disbursement'].includes(doc.charge_type)",
    "options": "currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "reqd": 1
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "unit_type",
@@ -564,8 +571,8 @@
    "fieldname": "quantity",
    "fieldtype": "Float",
    "label": "Quantity",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "reqd": 1
+   "mandatory_depends_on": "eval:!['Cost','Disbursement'].includes(doc.charge_type)",
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "minimum_quantity",
@@ -631,9 +638,9 @@
    "fieldname": "unit_cost",
    "fieldtype": "Currency",
    "label": "Unit Cost",
+   "mandatory_depends_on": "eval:doc.charge_type != \"Revenue\"",
    "options": "cost_currency",
-   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\"",
-   "reqd": 1
+   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
   },
   {
    "fieldname": "cost_unit_type",
@@ -654,8 +661,8 @@
    "fieldname": "cost_quantity",
    "fieldtype": "Float",
    "label": "Quantity",
-   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\"",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.charge_type != \"Revenue\"",
+   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
   },
   {
    "fieldname": "cost_minimum_quantity",

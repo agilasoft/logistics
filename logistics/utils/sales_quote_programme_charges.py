@@ -20,7 +20,7 @@ from logistics.utils.sales_quote_charge_parameters import (
 )
 
 _PROGRAMME_PARENT_DOCTYPES = frozenset(
-	("Special Project", "Exhibit", "Project Job", "Exhibit Job", "Exhibit Order")
+	("Special Project", "Exhibit", "Project Job", "Exhibit Job", "Exhibit Order", "Docket")
 )
 
 _PROGRAMME_CHARGE_CHILD = {
@@ -29,12 +29,17 @@ _PROGRAMME_CHARGE_CHILD = {
 	"Project Job": "Special Project Charges",
 	"Exhibit Job": "Exhibit Charges",
 	"Exhibit Order": "Exhibit Charges",
+	"Docket": "Exhibit Charges",
 }
+
+# Docket is the main job for the exhibitor; child bookings/orders are internal legs.
+_DOCKET_COPY_ALL_SALES_QUOTE_CHARGES = "__all__"
 
 # Sales Quote Charge → programme charge row (programme tables use ``rate`` not ``unit_rate``).
 _SQC_TO_PROGRAMME_CHARGE_FIELDS = (
 	"item_code",
 	"item_name",
+	"description",
 	"charge_type",
 	"charge_category",
 	"revenue_calculation_method",
@@ -105,12 +110,23 @@ def map_sales_quote_charge_to_programme_charge_dict(sq_row, sales_quote_name: st
 	return out
 
 
+def programme_charge_service_types_for_parent(parent_doctype: str | None, service_types=None):
+	"""Docket programme docs copy every Sales Quote charge line (main job); others use implied service."""
+	if service_types is not None:
+		return service_types
+	if parent_doctype == "Docket":
+		return _DOCKET_COPY_ALL_SALES_QUOTE_CHARGES
+	return None
+
+
 def fetch_sales_quote_charges_for_programme(parent_doc, sales_quote_doc, service_types=None):
 	"""Return Sales Quote Charge rows for programme populate (no corridor routing filter)."""
 	if isinstance(sales_quote_doc, str):
 		sales_quote_doc = frappe.get_doc("Sales Quote", sales_quote_doc)
+	parent_dt = getattr(parent_doc, "doctype", None)
+	service_types = programme_charge_service_types_for_parent(parent_dt, service_types)
 	base = {"parent": sales_quote_doc.name, "parenttype": "Sales Quote"}
-	implied = implied_service_type_for_doctype(getattr(parent_doc, "doctype", None))
+	implied = implied_service_type_for_doctype(parent_dt)
 	copy_all = service_types == "__all__"
 	if copy_all:
 		service_types = None
@@ -163,6 +179,8 @@ def populate_programme_charges_from_sales_quote(
 	if not charge_dt or not parent_doc.meta.has_field("charges"):
 		return 0
 
+	service_types = programme_charge_service_types_for_parent(parent_dt, service_types)
+
 	if clear_existing:
 		parent_doc.set("charges", [])
 
@@ -182,7 +200,9 @@ def preview_programme_charges_from_sales_quote(docname: str, doctype: str, sales
 	doc = frappe.get_doc(doctype, docname)
 	sq = frappe.get_doc("Sales Quote", sales_quote)
 	charge_dt = _PROGRAMME_CHARGE_CHILD.get(doctype) or "Special Project Charges"
-	rows = fetch_sales_quote_charges_for_programme(doc, sq)
+	rows = fetch_sales_quote_charges_for_programme(
+		doc, sq, service_types=programme_charge_service_types_for_parent(doctype)
+	)
 	charges = []
 	for sq_row in rows:
 		mapped = map_sales_quote_charge_to_programme_charge_dict(sq_row, sq.name, charge_dt)

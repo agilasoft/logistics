@@ -571,13 +571,13 @@
    "fieldtype": "Column Break"
   },
   {
-   "default": "1",
+   "default": "0",
    "fieldname": "auto_arrival_enabled",
    "fieldtype": "Check",
    "label": "Auto Arrival Enabled"
   },
   {
-   "default": "1",
+   "default": "0",
    "fieldname": "auto_departure_enabled",
    "fieldtype": "Check",
    "label": "Auto Departure Enabled"
@@ -589,7 +589,6 @@
    "label": "Arrival Radius (m)"
   },
   {
-   "default": "250",
    "fieldname": "departure_radius_m",
    "fieldtype": "Int",
    "label": "Departure Radius (m)",

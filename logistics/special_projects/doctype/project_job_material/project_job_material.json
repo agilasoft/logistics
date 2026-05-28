@@ -13,7 +13,7 @@
   "uom",
   "container_no",
   "column_break_link",
-  "site_material_row",
+  "package_row",
   "notes"
  ],
  "fields": [
@@ -67,10 +67,10 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "Optional link to a Special Project Site Material row (1 = first requirement).",
-   "fieldname": "site_material_row",
+   "description": "Optional link to a Special Project Package row (1 = first package).",
+   "fieldname": "package_row",
    "fieldtype": "Int",
-   "label": "Site Material Row"
+   "label": "Package Row"
   },
   {
    "fieldname": "notes",

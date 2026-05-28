@@ -571,14 +571,35 @@ def render_route_map_html(
 	return map_section
 
 
-def render_special_project_interactive_route_tab_html(map_id_prefix, map_payloads, cards_sidebar_html):
+def render_special_project_interactive_route_tab_html(
+	map_id_prefix,
+	map_payloads,
+	cards_sidebar_html,
+	pin_viewport_offset=(0, 0),
+	fit_bounds_padding_top_left=(0, 0),
+	fit_bounds_padding_bottom_right=(0, 0),
+):
 	"""
 	Split Route tab: cards (left) + map (right). Uses the same map renderer as Transport Job
 	(Logistics Settings / Transport Settings: OpenStreetMap → Leaflet, Google Maps, Mapbox/MapLibre).
+
+	pin_viewport_offset: (px_right, px_down) — pin mode shifts the pin this many pixels to the
+	right and down from the geometric center of the map viewport. Use this when a floating UI
+	element (e.g. an overlay card) covers part of the map. Default ``(0, 0)`` keeps the existing
+	centered behavior.
+
+	fit_bounds_padding_top_left / fit_bounds_padding_bottom_right: (px, px) — padding applied
+	when ``fitBounds`` is used (route mode). Default ``(0, 0)`` keeps the existing behavior.
 	"""
 	map_renderer = get_dashboard_map_renderer()
 	map_renderer_js = json.dumps(map_renderer)
 	items_json = json.dumps(map_payloads or [])
+	pin_offset_x = int((pin_viewport_offset or (0, 0))[0] or 0)
+	pin_offset_y = int((pin_viewport_offset or (0, 0))[1] or 0)
+	fit_pad_tl_x = int((fit_bounds_padding_top_left or (0, 0))[0] or 0)
+	fit_pad_tl_y = int((fit_bounds_padding_top_left or (0, 0))[1] or 0)
+	fit_pad_br_x = int((fit_bounds_padding_bottom_right or (0, 0))[0] or 0)
+	fit_pad_br_y = int((fit_bounds_padding_bottom_right or (0, 0))[1] or 0)
 	map_el_id = f"{map_id_prefix}-view"
 	fallback_id = f"{map_el_id}-fallback"
 	map_links_id = f"{map_el_id}-maplinks"
@@ -686,6 +707,10 @@ def render_special_project_interactive_route_tab_html(map_id_prefix, map_payload
 	const mapId = {json.dumps(map_el_id)};
 	const fallbackId = {json.dumps(fallback_id)};
 	const mapLinksId = {json.dumps(map_links_id)};
+	const pinOffsetX = {pin_offset_x};
+	const pinOffsetY = {pin_offset_y};
+	const fitPadTL = [{fit_pad_tl_x}, {fit_pad_tl_y}];
+	const fitPadBR = [{fit_pad_br_x}, {fit_pad_br_y}];
 	let engine = null;
 	let mapInst = null;
 	let lGroup = null;
@@ -796,25 +821,38 @@ def render_special_project_interactive_route_tab_html(map_id_prefix, map_payload
 			if (engine === 'leaflet') {{
 				L.marker([p.lat, p.lon]).addTo(lGroup).bindPopup(pop(title));
 				mapInst.setView([p.lat, p.lon], 11);
+				if (pinOffsetX || pinOffsetY) {{
+					try {{ mapInst.panBy([-pinOffsetX, -pinOffsetY], {{ animate: false }}); }} catch (eo1) {{}}
+				}}
 			}} else if (engine === 'google') {{
 				const mk = new google.maps.Marker({{ position: {{ lat: p.lat, lng: p.lon }}, map: mapInst, title: title }});
 				gMarkers.push(mk);
 				mapInst.setCenter({{ lat: p.lat, lng: p.lon }});
 				mapInst.setZoom(11);
+				if (pinOffsetX || pinOffsetY) {{
+					try {{ mapInst.panBy(-pinOffsetX, -pinOffsetY); }} catch (eo2) {{}}
+				}}
 			}} else {{
 				const mk = new maplibregl.Marker({{ color: 'blue' }}).setLngLat([p.lon, p.lat]).setPopup(new maplibregl.Popup().setHTML(pop(title))).addTo(mapInst);
 				mMarkers.push(mk);
 				mapInst.jumpTo({{ center: [p.lon, p.lat], zoom: 11 }});
+				if (pinOffsetX || pinOffsetY) {{
+					try {{ mapInst.panBy([-pinOffsetX, -pinOffsetY], {{ animate: false }}); }} catch (eo3) {{}}
+				}}
 			}}
 			updateMapLinks(pts.length >= 2 ? pts : null);
 			return;
 		}}
 
+		const hasFitPad = (fitPadTL[0] || fitPadTL[1] || fitPadBR[0] || fitPadBR[1]);
 		getRouteCoords(pts, straight, function(latlngs) {{
 			if (engine === 'leaflet') {{
 				if (latlngs && latlngs.length >= 2) {{
 					L.polyline(latlngs, {{ color: '#2196f3', weight: 3 }}).addTo(lGroup);
-					try {{ mapInst.fitBounds(L.latLngBounds(latlngs).pad(0.12)); }} catch (e) {{}}
+					try {{
+						const lOpts = hasFitPad ? {{ paddingTopLeft: fitPadTL, paddingBottomRight: fitPadBR }} : undefined;
+						mapInst.fitBounds(L.latLngBounds(latlngs).pad(0.12), lOpts);
+					}} catch (e) {{}}
 				}}
 				pts.forEach(function(p, i) {{
 					L.marker([p.lat, p.lon]).addTo(lGroup).bindPopup(pop(p.label || ('Stop ' + (i + 1))));
@@ -830,7 +868,11 @@ def render_special_project_interactive_route_tab_html(map_id_prefix, map_payload
 				if (pts.length >= 2) {{
 					const bounds = new google.maps.LatLngBounds();
 					pts.forEach(function(p) {{ bounds.extend({{ lat: p.lat, lng: p.lon }}); }});
-					mapInst.fitBounds(bounds);
+					if (hasFitPad) {{
+						mapInst.fitBounds(bounds, {{ top: fitPadTL[1], left: fitPadTL[0], bottom: fitPadBR[1], right: fitPadBR[0] }});
+					}} else {{
+						mapInst.fitBounds(bounds);
+					}}
 				}}
 			}} else {{
 				if (latlngs && latlngs.length >= 2) {{
@@ -848,7 +890,13 @@ def render_special_project_interactive_route_tab_html(map_id_prefix, map_payload
 				if (latlngs && latlngs.length >= 2) {{
 					const lngs = latlngs.map(function(ll) {{ return ll[1]; }});
 					const lats = latlngs.map(function(ll) {{ return ll[0]; }});
-					mapInst.fitBounds([[Math.min.apply(null, lngs), Math.min.apply(null, lats)], [Math.max.apply(null, lngs), Math.max.apply(null, lats)]], {{ padding: 50 }});
+					const mPad = hasFitPad
+						? {{ top: fitPadTL[1] || 50, left: fitPadTL[0] || 50, bottom: fitPadBR[1] || 50, right: fitPadBR[0] || 50 }}
+						: 50;
+					mapInst.fitBounds(
+						[[Math.min.apply(null, lngs), Math.min.apply(null, lats)], [Math.max.apply(null, lngs), Math.max.apply(null, lats)]],
+						{{ padding: mPad }}
+					);
 				}}
 			}}
 			updateMapLinks(pts);

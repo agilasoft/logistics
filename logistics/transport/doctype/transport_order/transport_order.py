@@ -21,6 +21,7 @@ JOB_LEGS_FIELDNAME_FALLBACKS = ["legs"]
 SALES_QUOTE_CHARGE_FIELDS = [
     "item_code",
     "item_name",
+    "description",
     "calculation_method",  # mapped to revenue_calculation_method on charge row
     "quantity",
     "uom",
@@ -540,7 +541,7 @@ class TransportOrder(Document):
             update_one_off_quote_on_submit(current_sales_quote, self.name, self.doctype)
 
         try:
-            from logistics.special_projects.special_project_site_materials import (
+            from logistics.special_projects.special_project_packages import (
                 post_site_receipts_from_transport_order,
             )
 
@@ -548,7 +549,7 @@ class TransportOrder(Document):
         except Exception:
             frappe.log_error(
                 frappe.get_traceback(),
-                f"Transport Order {self.name}: site materials receipt post",
+                f"Transport Order {self.name}: package delivery post",
             )
     
     def on_cancel(self):
@@ -564,7 +565,7 @@ class TransportOrder(Document):
             reset_one_off_quote_on_cancel(current_sales_quote)
 
         try:
-            from logistics.special_projects.special_project_site_materials import (
+            from logistics.special_projects.special_project_packages import (
                 cancel_receipts_for_transport_order,
             )
 

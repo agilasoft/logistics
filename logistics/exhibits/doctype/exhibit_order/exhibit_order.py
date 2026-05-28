@@ -53,6 +53,20 @@ def _copy_child_rows_by_common_fields(
 		dst_doc.append(dst_table_field, new_row)
 
 
+def _company_fieldname(doctype: str) -> Optional[str]:
+	"""Return the fieldname on `doctype` that links to Company (if any).
+
+	Some doctypes (e.g. standard Branch, this app's Profit Center) have no company
+	field at all; some installations add `company` or `custom_company` via custom
+	fields. Returns None when no company link exists.
+	"""
+	dt_meta = frappe.get_meta(doctype)
+	for fn in ("company", "custom_company"):
+		if dt_meta.has_field(fn):
+			return fn
+	return None
+
+
 def _apply_org_defaults_to_job(job: Document, order: Document):
 	"""Fill company / branch / cost center / profit center on the job from the order or global defaults."""
 	meta = frappe.get_meta("Exhibit Job")
@@ -63,20 +77,26 @@ def _apply_org_defaults_to_job(job: Document, order: Document):
 
 	branch = getattr(order, "branch", None)
 	if not branch and company:
-		branch = frappe.db.get_value(
-			"Branch",
-			{"company": company},
-			"name",
-			order_by="modified desc",
-		)
+		branch_company_fn = _company_fieldname("Branch")
+		if branch_company_fn:
+			branch = frappe.db.get_value(
+				"Branch",
+				{branch_company_fn: company},
+				"name",
+				order_by="modified desc",
+			)
 	if branch and meta.has_field("branch"):
 		job.branch = branch
 
 	cc = getattr(order, "cost_center", None)
 	if not cc and company:
+		cc_filters = {"is_group": 0, "disabled": 0}
+		cc_company_fn = _company_fieldname("Cost Center")
+		if cc_company_fn:
+			cc_filters[cc_company_fn] = company
 		cc = frappe.db.get_value(
 			"Cost Center",
-			{"company": company, "is_group": 0, "disabled": 0},
+			cc_filters,
 			"name",
 			order_by="creation asc",
 		)
@@ -84,13 +104,22 @@ def _apply_org_defaults_to_job(job: Document, order: Document):
 		job.cost_center = cc
 
 	pc = getattr(order, "profit_center", None)
-	if not pc and company:
-		pc = frappe.db.get_value(
-			"Profit Center",
-			{"company": company},
-			"name",
-			order_by="creation asc",
-		)
+	if not pc:
+		pc_company_fn = _company_fieldname("Profit Center")
+		if pc_company_fn and company:
+			pc = frappe.db.get_value(
+				"Profit Center",
+				{pc_company_fn: company},
+				"name",
+				order_by="creation asc",
+			)
+		else:
+			pc = frappe.db.get_value(
+				"Profit Center",
+				{},
+				"name",
+				order_by="creation asc",
+			)
 	if pc and meta.has_field("profit_center"):
 		job.profit_center = pc
 
@@ -127,7 +156,7 @@ def create_task_job(docname: str, title: Optional[str] = None):
 		title = order.name
 
 	job = frappe.new_doc("Exhibit Job")
-	job.event = order.event
+	job.exhibit = order.exhibit
 	job.exhibit_order = order.name
 	job.title = title
 	if order.order_date and job.meta.has_field("job_date"):

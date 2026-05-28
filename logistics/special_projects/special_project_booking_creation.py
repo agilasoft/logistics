@@ -712,15 +712,15 @@ _CREATE_DISPATCH = {
 def _apply_cargo_and_shipment_lines(
 	sp_doc: Any, target_doc: Any, shipment_lines: Any = None
 ) -> None:
-	from logistics.special_projects.special_project_site_materials import (
+	from logistics.special_projects.special_project_packages import (
 		apply_shipment_lines_to_target,
-		copy_always_along_site_materials_to_target,
+		copy_always_along_packages_to_target,
 	)
 
 	if shipment_lines:
 		apply_shipment_lines_to_target(sp_doc, target_doc, shipment_lines)
 	if target_doc.doctype in ("Air Booking", "Sea Booking", "Transport Order", "Inbound Order"):
-		copy_always_along_site_materials_to_target(sp_doc, target_doc)
+		copy_always_along_packages_to_target(sp_doc, target_doc)
 
 
 @frappe.whitelist()

@@ -114,7 +114,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "fetch_from": "exhibit.sales_quote",
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",

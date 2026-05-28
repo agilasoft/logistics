@@ -106,6 +106,9 @@ def make_warehouse_job(source_name: str, target_doc=None):
         target_row.currency = getattr(source_row, "currency", None)
         target_row.rate = getattr(source_row, "rate", None)
         target_row.total = getattr(source_row, "total", None)
+        desc = getattr(source_row, "description", None)
+        if desc and hasattr(target_row, "description"):
+            target_row.description = desc
 
     # --- Mapping spec -------------------------------------------------------
     doc = get_mapped_doc(

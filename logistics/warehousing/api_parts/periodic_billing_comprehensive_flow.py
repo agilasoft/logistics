@@ -171,6 +171,7 @@ def _compute_storage_charges(contract: str, customer: str, date_from: str, date_
                         charge = {
                             "item": contract_item.item_charge,
                             "item_name": contract_item.description or contract_item.item_charge,
+                            "description": contract_item.description,
                             "uom": _get_billing_uom_for_method(billing_method),
                             "quantity": billing_quantity,
                             "rate": contract_item.rate,
@@ -259,6 +260,7 @@ def _fetch_warehouse_job_charges(customer: str, date_from: str, date_to: str,
                 job_charge = {
                     "item": charge.item_code,
                     "item_name": charge.item_name,
+                    "description": charge.get("description"),
                     "uom": charge.uom,
                     "quantity": charge.quantity,
                     "rate": charge.rate,

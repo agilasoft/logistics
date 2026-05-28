@@ -9,7 +9,11 @@ from frappe.utils import escape_html, flt
 from logistics.special_projects.special_project_lifecycle import (
 	validate_special_project_lifecycle_stage_advance,
 )
-from logistics.utils.lifecycle_stage import FOR_SPECIAL_PROJECT, validate_internal_job_activity_codes
+from logistics.utils.lifecycle_stage import (
+	FOR_SPECIAL_PROJECT,
+	resolve_default_lifecycle_stage,
+	validate_internal_job_activity_codes,
+)
 from logistics.utils.special_project_internal_jobs import (
 	job_refs_from_lifecycle_jobs,
 	resolve_internal_job_detail_row_to_operational_ref,
@@ -43,8 +47,8 @@ def _status_to_indicator(status: str) -> str:
 	return _LIFECYCLE_STATUS_INDICATORS.get(status, "orange")
 
 
-def _resolve_site_material_label(row) -> tuple[str, str]:
-	"""Return (display_name, secondary_code) for a site material row.
+def _resolve_package_label(row) -> tuple[str, str]:
+	"""Return (display_name, secondary_code) for a package row.
 
 	Prefers user-friendly names (Warehouse Item.item_name, Commodity.description) over
 	the system code, and only shows the code as small secondary text when it differs
@@ -99,11 +103,11 @@ class SpecialProject(Document):
 		register_charge_resolution_parent(self)
 		try:
 			self.validate_accounts()
-			from logistics.special_projects.special_project_site_materials import (
-				validate_site_materials,
+			from logistics.special_projects.special_project_packages import (
+				validate_packages,
 			)
 
-			validate_site_materials(self)
+			validate_packages(self)
 			self._sync_charges_with_parent_actuals()
 			from logistics.special_projects.lifecycle_job_financial_rollup import (
 				sync_lifecycle_job_financials,
@@ -158,30 +162,29 @@ class SpecialProject(Document):
 				charge.calculate_charge_amount(parent_doc=self)
 
 	def before_submit(self):
-		"""Block submission until site materials are fully on-site and lifecycle jobs are all complete."""
+		"""Block submission until packages are fully delivered and lifecycle jobs are complete."""
 		self._validate_submit_gates()
 
 	def _validate_submit_gates(self):
-		"""Enforce closure gates: every site material row delivered, every lifecycle activity completed."""
-		materials = self._collect_site_material_blockers()
+		"""Enforce closure gates: every package fully delivered, every lifecycle activity completed."""
+		packages = self._collect_package_blockers()
 		lifecycle = self._collect_lifecycle_blockers()
 
-		if not materials and not lifecycle:
+		if not packages and not lifecycle:
 			return
 
-		# Decide which tab the primary CTA should jump to (whichever blocker exists).
-		primary_target = "site_materials_tab" if materials else "lifecycle_tab"
+		primary_target = "fulfillment_tab" if packages else "lifecycle_tab"
 		primary_label = (
-			_("Go to Site Materials") if materials else _("Go to Lifecycle")
+			_("Go to Fulfillment") if packages else _("Go to Lifecycle")
 		)
 
 		summary_lines: list[str] = []
-		if materials:
-			n_materials = len(materials["groups"])
-			n_rows = materials["total_rows"]
+		if packages:
+			n_packages = len(packages["groups"])
+			n_rows = packages["total_rows"]
 			summary_lines.append(
-				_("{0} site material(s) are not fully on-site, affecting {1} row(s).").format(
-					f"<strong>{n_materials}</strong>", f"<strong>{n_rows}</strong>"
+				_("{0} package(s) are not fully delivered, affecting {1} row(s).").format(
+					f"<strong>{n_packages}</strong>", f"<strong>{n_rows}</strong>"
 				)
 			)
 		if lifecycle:
@@ -194,8 +197,8 @@ class SpecialProject(Document):
 
 		intro = _("Resolve the items below before submitting this Special Project.")
 		body_sections: list[str] = []
-		if materials:
-			body_sections.append(self._render_site_materials_card(materials))
+		if packages:
+			body_sections.append(self._render_packages_card(packages))
 		if lifecycle:
 			body_sections.append(self._render_lifecycle_card(lifecycle))
 
@@ -232,14 +235,14 @@ class SpecialProject(Document):
 			allow_dangerous_html=True,
 		)
 
-	def _collect_site_material_blockers(self) -> dict | None:
-		"""Group short rows by (material, uom). Returns dict with groups + totals or None."""
+	def _collect_package_blockers(self) -> dict | None:
+		"""Group undelivered rows by (package, uom). Returns dict with groups + totals or None."""
 		grouped: dict[tuple[str, str, str], dict] = {}
-		for row in self.get("site_materials") or []:
+		for row in self.get("packages") or []:
 			short = flt(getattr(row, "qty_short", 0))
 			if short <= 0:
 				continue
-			display, code = _resolve_site_material_label(row)
+			display, code = _resolve_package_label(row)
 			uom = (getattr(row, "uom", None) or "").strip()
 			key = (display, code, uom)
 			info = grouped.setdefault(
@@ -267,8 +270,8 @@ class SpecialProject(Document):
 		total_sites = len({s for g in groups for s in g["sites"]})
 		return {"groups": groups, "total_rows": total_rows, "total_sites": total_sites}
 
-	def _render_site_materials_card(self, materials: dict) -> str:
-		"""Render the grouped site-material shortages as a card with a compact table."""
+	def _render_packages_card(self, materials: dict) -> str:
+		"""Render the grouped package shortages as a card with a compact table."""
 		MAX_VISIBLE = 12
 		groups = materials["groups"]
 		visible = groups[:MAX_VISIBLE]
@@ -328,18 +331,18 @@ class SpecialProject(Document):
 			body_rows.append(
 				'<tr><td colspan="3" class="text-muted text-center" '
 				'style="padding: 8px 10px; font-style: italic;">'
-				+ escape_html(_("…and {0} more material(s)").format(hidden_count))
+				+ escape_html(_("…and {0} more package(s)").format(hidden_count))
 				+ "</td></tr>"
 			)
 
-		title = _("Site Materials Short on Site")
+		title = _("Packages Not Yet Delivered")
 		guidance = _(
-			"Review the affected materials in the Site Materials tab and receive the missing "
+			"Review the affected packages in the Fulfillment tab and receive the remaining "
 			"quantities, or reduce the required quantity on rows no longer needed."
 		)
-		col_material = _("Material")
+		col_material = _("Package")
 		col_rows = _("Rows Affected")
-		col_short = _("Total Shortage")
+		col_short = _("Remaining")
 
 		return (
 			'<div class="submission-blocker-card" '
@@ -353,7 +356,7 @@ class SpecialProject(Document):
 			'background: var(--red-500, #e74c3c);"></span>'
 			f'<strong style="font-size: 13px;">{escape_html(title)}</strong>'
 			'<span class="text-muted" style="font-size: 11px;">'
-			+ _("{0} materials · {1} rows").format(
+			+ _("{0} packages · {1} rows").format(
 				f"<strong>{len(materials['groups'])}</strong>",
 				f"<strong>{materials['total_rows']}</strong>",
 			)
@@ -496,8 +499,23 @@ class SpecialProject(Document):
 		"""Create ERPNext Project first, then use its ID as this document's ID."""
 		self._create_erpnext_project_before_insert()
 		self._ensure_charges_tab_defaults()
-		if not self.lifecycle_stage:
-			self.lifecycle_stage = "Pre-Show"
+		self._normalize_default_lifecycle_stage()
+
+	def _normalize_default_lifecycle_stage(self):
+		"""Ensure ``lifecycle_stage`` references an existing master row.
+
+		The DocType default is ``Pre-Show``, but new sites or sites that pre-date the
+		shared Lifecycle Stage master may not have that record. Validating links during
+		``insert`` would then raise ``LinkValidationError``, blocking creation from
+		Sales Quote and similar flows. We resolve a safe fallback instead.
+		"""
+		stage = (self.lifecycle_stage or "").strip()
+		if stage and frappe.db.exists("Lifecycle Stage", stage):
+			self.lifecycle_stage = stage
+			return
+		self.lifecycle_stage = resolve_default_lifecycle_stage(
+			module_filter=FOR_SPECIAL_PROJECT, preferred="Pre-Show"
+		)
 
 	def _ensure_charges_tab_defaults(self):
 		"""Default company / cost center from Project or session (Charges tab matches Sea Shipment)."""
@@ -520,6 +538,48 @@ class SpecialProject(Document):
 		"""Auto-charge scoping costs when status changes to Booked."""
 		if self.has_value_changed("status") and self.status in ("Booked", "Approved", "Planning", "In Progress"):
 			self._maybe_charge_scoping_costs()
+
+	def after_insert(self):
+		"""Create Job Number on first save (deferred so the row exists before lookup)."""
+		frappe.enqueue(
+			"logistics.special_projects.doctype.special_project.special_project.create_job_number_for_special_project",
+			queue="default",
+			special_project_name=self.name,
+			company=self.company,
+			branch=self.branch,
+			cost_center=self.cost_center,
+			profit_center=self.profit_center,
+			open_date=self.start_date or self.planned_start,
+		)
+
+	def before_save(self):
+		"""Create Job Number synchronously on subsequent saves if it is still missing."""
+		if self.name and not self.job_number and frappe.db.exists("Special Project", self.name):
+			self.create_job_number_if_needed()
+
+	def create_job_number_if_needed(self):
+		"""Create Job Number when document is first saved (matches Sea Shipment pattern)."""
+		if self.job_number:
+			return
+		existing_jcn = frappe.db.get_value(
+			"Job Number",
+			{"job_type": "Special Project", "job_no": self.name},
+		)
+		if existing_jcn:
+			self.job_number = existing_jcn
+			return
+		job_ref = frappe.new_doc("Job Number")
+		job_ref.job_type = "Special Project"
+		job_ref.job_no = self.name
+		job_ref.company = self.company
+		job_ref.branch = self.branch
+		job_ref.cost_center = self.cost_center
+		job_ref.profit_center = self.profit_center
+		job_ref.job_open_date = self.start_date or self.planned_start
+		job_ref.project = self.project
+		job_ref.insert(ignore_permissions=True)
+		self.job_number = job_ref.name
+		frappe.msgprint(_("Job Number {0} created successfully").format(job_ref.name))
 
 	def _maybe_charge_scoping_costs(self):
 		"""Charge completed scoping activities when project is booked."""
@@ -592,6 +652,39 @@ class SpecialProject(Document):
 		if not sq_name:
 			frappe.throw(_("No Sales Quote linked."))
 		populate_programme_charges_from_sales_quote(self, sq_name, clear_existing=True)
+
+
+def create_job_number_for_special_project(
+	special_project_name,
+	company,
+	branch=None,
+	cost_center=None,
+	profit_center=None,
+	open_date=None,
+):
+	"""Deferred: create Job Number for Special Project after commit (avoids 'not found' during insert)."""
+	if not frappe.db.exists("Special Project", special_project_name):
+		return
+	if frappe.db.get_value("Special Project", special_project_name, "job_number"):
+		return
+	existing = frappe.db.get_value("Job Number", {"job_type": "Special Project", "job_no": special_project_name})
+	if existing:
+		frappe.db.set_value("Special Project", special_project_name, "job_number", existing)
+		frappe.db.commit()
+		return
+	project = frappe.db.get_value("Special Project", special_project_name, "project")
+	job_ref = frappe.new_doc("Job Number")
+	job_ref.job_type = "Special Project"
+	job_ref.job_no = special_project_name
+	job_ref.company = company
+	job_ref.branch = branch
+	job_ref.cost_center = cost_center
+	job_ref.profit_center = profit_center
+	job_ref.job_open_date = open_date
+	job_ref.project = project
+	job_ref.insert(ignore_permissions=True)
+	frappe.db.set_value("Special Project", special_project_name, "job_number", job_ref.name)
+	frappe.db.commit()
 
 
 @frappe.whitelist()
@@ -1007,12 +1100,12 @@ def get_dashboard_html(special_project):
 		job_rows = doc.get("lifecycle_jobs") or []
 		job_refs = job_refs_from_lifecycle_jobs(doc)
 		charges = doc.get("charges") or []
-		from logistics.special_projects.special_project_site_materials import (
-			validate_site_materials,
+		from logistics.special_projects.special_project_packages import (
+			validate_packages,
 		)
 
-		validate_site_materials(doc)
-		materials = doc.get("site_materials") or []
+		validate_packages(doc)
+		materials = doc.get("packages") or []
 		mat_count = len(materials)
 		short_count = sum(1 for m in materials if flt(getattr(m, "qty_short", 0)) > 0)
 		on_site_pct = ""
@@ -1509,159 +1602,189 @@ def get_cost_revenue_summary(special_project):
 	return html
 
 
-def _site_materials_summary_bar_segments(required: float, on_site: float, short: float) -> tuple[float, float]:
-	"""Return on-site and short bar widths (0–100) as share of required qty."""
-	required = flt(required)
-	if required <= 0:
-		return 0.0, 0.0
-	on_pct = min(100.0, flt(on_site) / required * 100.0)
-	short_pct = min(100.0 - on_pct, flt(short) / required * 100.0)
-	return on_pct, short_pct
-
-
-def _site_materials_summary_qty_label(qty: float) -> str:
+def _packages_summary_qty_label(qty: float) -> str:
 	value = flt(qty)
 	if value == int(value):
 		return str(int(value))
 	return str(value)
 
 
-def _site_materials_summary_bar_label_html(qty: float) -> str:
-	if flt(qty) <= 0:
-		return ""
-	label = escape_html(_site_materials_summary_qty_label(qty))
-	return f'<span class="sp-sms-bar-label">{label}</span>'
-
-
-def _site_materials_summary_bar_html(required: float, on_site: float, short: float) -> str:
-	on_pct, short_pct = _site_materials_summary_bar_segments(required, on_site, short)
-	remainder = max(0.0, 100.0 - on_pct - short_pct)
-	segments: list[str] = []
-	if on_pct >= 0.5 and flt(on_site) > 0:
-		segments.append(
-			f'<div class="sp-sms-bar-on" style="flex-grow:{on_pct:.4f}">'
-			f"{_site_materials_summary_bar_label_html(on_site)}</div>"
+def _packages_summary_cell_html(qty: float, required: float, *, is_always_along: bool = False) -> str:
+	"""Render one stage cell: numeric qty + thin fill bar (width = qty/required)."""
+	if is_always_along:
+		return '<span class="sp-pfn-cell sp-pfn-cell-stage sp-pfn-cell-na" aria-label="N/A">&mdash;</span>'
+	qty_val = flt(qty)
+	req_val = flt(required)
+	if qty_val <= 0:
+		return (
+			'<span class="sp-pfn-cell sp-pfn-cell-stage sp-pfn-cell-empty">'
+			'<span class="sp-pfn-qty sp-pfn-qty-zero">0</span>'
+			'<span class="sp-pfn-bar"><span class="sp-pfn-bar-fill" style="width:0%"></span></span>'
+			"</span>"
 		)
-	if short_pct >= 0.5 and flt(short) > 0:
-		only_short = not segments
-		cls = "sp-sms-bar-short sp-sms-bar-short-only" if only_short else "sp-sms-bar-short"
-		segments.append(
-			f'<div class="{cls}" style="flex-grow:{short_pct:.4f}">'
-			f"{_site_materials_summary_bar_label_html(short)}</div>"
-		)
-	if remainder >= 0.5 and segments:
-		segments.append(f'<div class="sp-sms-bar-empty" style="flex-grow:{remainder:.4f}"></div>')
-	if not segments:
-		segments.append('<div class="sp-sms-bar-empty sp-sms-bar-empty-only"></div>')
-	return f'<div class="sp-sms-bar">{"".join(segments)}</div>'
-
-
-def _site_materials_summary_row_html(
-	row_no: int, label: str, required: float, on_site: float, short: float
-) -> str:
+	pct = 0.0 if req_val <= 0 else min(100.0, qty_val / req_val * 100.0)
+	complete_cls = " sp-pfn-cell-complete" if req_val > 0 and qty_val >= req_val else ""
+	label = escape_html(_packages_summary_qty_label(qty_val))
 	return (
-		f'<div class="sp-sms-row">'
-		f'<span class="sp-sms-cell sp-sms-cell-toggle" aria-hidden="true"></span>'
-		f'<span class="sp-sms-cell sp-sms-cell-rowno">'
-		f'<span class="sp-sms-rowno">{row_no}</span></span>'
-		f'<span class="sp-sms-cell sp-sms-cell-material sp-sms-material" title="{label}">{label}</span>'
-		f'<div class="sp-sms-cell sp-sms-cell-bar">'
-		f'<div class="sp-sms-bar-wrap">'
-		f"{_site_materials_summary_bar_html(required, on_site, short)}"
-		f"</div></div>"
-		f'<span class="sp-sms-cell sp-sms-cell-required">'
-		f'<span class="sp-sms-qty">{_site_materials_summary_qty_label(required)}</span>'
-		f"</span></div>"
+		f'<span class="sp-pfn-cell sp-pfn-cell-stage{complete_cls}">'
+		f'<span class="sp-pfn-qty">{label}</span>'
+		f'<span class="sp-pfn-bar"><span class="sp-pfn-bar-fill" style="width:{pct:.2f}%"></span></span>'
+		"</span>"
 	)
 
 
-_SITE_MATERIALS_SUMMARY_CSS = """
-.sp-site-materials-summary-field .control-value {
+def _packages_summary_row_html(
+	row_no: int,
+	label: str,
+	required: float,
+	stage_qtys: list[float],
+	*,
+	is_always_along: bool,
+) -> str:
+	required_cell: str
+	if is_always_along:
+		required_cell = (
+			'<span class="sp-pfn-cell sp-pfn-cell-required">'
+			'<span class="sp-pfn-badge" title="Always-along package">AA</span>'
+			"</span>"
+		)
+	else:
+		required_cell = (
+			'<span class="sp-pfn-cell sp-pfn-cell-required">'
+			f'<span class="sp-pfn-qty">{escape_html(_packages_summary_qty_label(required))}</span>'
+			"</span>"
+		)
+	stage_cells = "".join(
+		_packages_summary_cell_html(q, required, is_always_along=is_always_along)
+		for q in stage_qtys
+	)
+	return (
+		f'<div class="sp-pfn-row">'
+		f'<span class="sp-pfn-cell sp-pfn-cell-rowno">'
+		f'<span class="sp-pfn-rowno">{row_no}</span></span>'
+		f'<span class="sp-pfn-cell sp-pfn-cell-package sp-pfn-package" title="{label}">{label}</span>'
+		f"{required_cell}"
+		f"{stage_cells}"
+		f"</div>"
+	)
+
+
+def _packages_summary_per_stage_delivered(
+	sp_doc: Any, materials: list, stages: list[dict[str, Any]]
+) -> list[list[float]]:
+	"""Return, for each material row, a list of delivered qty per lifecycle stage (same order).
+
+	Per-stage qty = sum of posted, non-cancelled receipts matching the material row
+	(via package_row -> warehouse_item -> commodity -> description fallback) whose
+	lifecycle_stage equals that stage's name.
+	"""
+	from logistics.special_projects.special_project_packages import (
+		POSTED_RECEIPT_STATUS,
+		_norm,
+		_norm_desc,
+		cint_safe,
+	)
+
+	stage_names = [s["name"] for s in stages]
+	stage_idx = {name: i for i, name in enumerate(stage_names)}
+	n_mats = len(materials)
+	out = [[0.0 for _ in stage_names] for _ in range(n_mats)]
+
+	idx_to_row = {i + 1: m for i, m in enumerate(materials)}
+	wh_to_idx: dict[str, int] = {}
+	commodity_to_idx: dict[str, int] = {}
+	desc_to_idx: dict[str, int] = {}
+	for i, m in enumerate(materials):
+		if cint_safe(getattr(m, "include_on_create", 0)):
+			continue
+		wh = _norm(getattr(m, "warehouse_item", None))
+		if wh and wh not in wh_to_idx:
+			wh_to_idx[wh] = i
+		commodity = _norm(getattr(m, "commodity", None))
+		if commodity and commodity not in commodity_to_idx:
+			commodity_to_idx[commodity] = i
+		desc = _norm_desc(getattr(m, "description", None))
+		if desc and desc not in desc_to_idx:
+			desc_to_idx[desc] = i
+
+	for rc in getattr(sp_doc, "deliveries", None) or []:
+		status = getattr(rc, "status", None) or POSTED_RECEIPT_STATUS
+		if status != POSTED_RECEIPT_STATUS:
+			continue
+		qty = flt(getattr(rc, "qty_received", 0))
+		if qty <= 0:
+			continue
+		stage = _norm(getattr(rc, "lifecycle_stage", None))
+		s_idx = stage_idx.get(stage)
+		if s_idx is None:
+			continue
+		row_idx = cint_safe(getattr(rc, "package_row", None))
+		mat_pos: int | None = None
+		if row_idx and row_idx in idx_to_row:
+			candidate = idx_to_row[row_idx]
+			if not cint_safe(getattr(candidate, "include_on_create", 0)):
+				mat_pos = row_idx - 1
+		if mat_pos is None:
+			wh = _norm(getattr(rc, "warehouse_item", None))
+			if wh and wh in wh_to_idx:
+				mat_pos = wh_to_idx[wh]
+		if mat_pos is None:
+			commodity = _norm(getattr(rc, "commodity", None))
+			if commodity and commodity in commodity_to_idx:
+				mat_pos = commodity_to_idx[commodity]
+		if mat_pos is None:
+			desc = _norm_desc(getattr(rc, "description", None))
+			if desc and desc in desc_to_idx:
+				mat_pos = desc_to_idx[desc]
+		if mat_pos is None:
+			continue
+		out[mat_pos][s_idx] += qty
+	return out
+
+
+_PACKAGES_SUMMARY_CSS = """
+.sp-packages-summary-field .control-value {
 	max-width: 100%;
 	overflow: visible;
 }
-.sp-site-materials-summary {
-	--sp-sms-cols: 24px 40px minmax(150px, 17%) minmax(280px, 1fr) 88px;
-	--sp-sms-gap: 14px;
-	--sp-sms-row-h: 38px;
+.sp-packages-summary {
 	width: 100%;
 	margin-bottom: 14px;
 	box-sizing: border-box;
 }
-.sp-site-materials-summary.is-collapsed .sp-sms-panel,
-.sp-site-materials-summary.is-collapsed .sp-sms-footer { display: none; }
-.sp-site-materials-summary.is-collapsed .sp-sms-header { border-bottom: none; }
-.sp-sms-layout {
-	display: flex;
-	flex-direction: column;
-	align-items: stretch;
+.sp-packages-summary.is-collapsed .sp-pfn-panel,
+.sp-packages-summary.is-collapsed .sp-pfn-footer { display: none; }
+.sp-packages-summary.is-collapsed .sp-pfn-titlebar { border-bottom: none; }
+.sp-pfn-card {
 	width: 100%;
-	min-width: 0;
-	box-sizing: border-box;
-}
-.sp-sms-table {
-	width: 100%;
-	max-width: 100%;
-	min-width: 0;
 	border: 1px solid #E8E8E8;
-	border-radius: 8px;
+	border-radius: 10px;
 	overflow: hidden;
 	background: #fff;
 }
-.sp-sms-header,
-.sp-sms-row {
-	display: grid;
-	grid-template-columns: var(--sp-sms-cols);
-	column-gap: var(--sp-sms-gap);
-	align-items: center;
-	width: 100%;
-	min-height: var(--sp-sms-row-h);
-	box-sizing: border-box;
-}
-.sp-sms-header {
-	background: var(--gray-50, #fafafa);
-	border-bottom: 1px solid #E8E8E8;
-	padding-left: 12px;
-	padding-right: 16px;
-	box-sizing: border-box;
-}
-.sp-sms-header .sp-sms-cell,
-.sp-sms-row .sp-sms-cell {
-	min-width: 0;
-	min-height: var(--sp-sms-row-h);
-	height: 100%;
-	padding: 0;
+.sp-pfn-titlebar {
 	display: flex;
 	align-items: center;
-	box-sizing: border-box;
+	gap: 10px;
+	padding: 10px 14px;
+	background: var(--gray-50, #fafafa);
+	border-bottom: 1px solid #E8E8E8;
 }
-.sp-sms-rows {
-	max-height: 280px;
-	overflow-y: auto;
-	overflow-x: auto;
-	padding-left: 12px;
-	padding-right: 16px;
-	box-sizing: border-box;
-	scrollbar-gutter: stable;
+.sp-pfn-title {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--text-color, #1f2937);
+	letter-spacing: 0.02em;
 }
-.sp-sms-row {
-	border-bottom: 1px solid #F0F0F0;
-	transition: background-color 0.12s ease;
+.sp-pfn-title-sub {
+	font-size: 11px;
+	font-weight: 500;
+	color: var(--text-muted, #6b7280);
 }
-.sp-sms-row:hover { background: #fafbfc; }
-.sp-sms-row:last-child { border-bottom: none; }
-.sp-sms-cell-toggle {
-	width: 24px;
-	min-width: 24px;
-	max-width: 24px;
-	justify-content: center;
-	padding: 0 2px 0 0;
-	flex-shrink: 0;
-}
-.sp-sms-toggle {
-	width: 24px;
-	min-width: 24px;
-	height: 24px;
+.sp-pks-toggle {
+	width: 26px;
+	min-width: 26px;
+	height: 26px;
 	padding: 0;
 	border: none;
 	border-radius: 6px;
@@ -1672,75 +1795,75 @@ _SITE_MATERIALS_SUMMARY_CSS = """
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	flex-shrink: 0;
 }
-.sp-sms-toggle:hover { background: var(--gray-200, #e5e7eb); }
-.sp-sms-toggle:focus { outline: 2px solid var(--primary, #2490ef); outline-offset: 1px; }
-.sp-sms-toggle-icon {
+.sp-pks-toggle:hover { background: var(--gray-200, #e5e7eb); }
+.sp-pks-toggle:focus { outline: 2px solid var(--primary, #2490ef); outline-offset: 1px; }
+.sp-pks-toggle-icon {
 	display: block;
 	font-size: 9px;
 	transition: transform 0.15s ease;
 }
-.sp-site-materials-summary.is-collapsed .sp-sms-toggle-icon { transform: rotate(-90deg); }
-.sp-sms-cell-rowno {
-	justify-content: center;
-	flex-shrink: 0;
-}
-.sp-sms-header .sp-sms-cell-rowno.sp-sms-metric-label {
-	text-align: center;
-	padding-right: 0;
-	width: auto;
-}
-.sp-sms-rowno {
-	font-size: 11px;
-	font-weight: 500;
-	font-variant-numeric: tabular-nums;
-	color: var(--text-muted, #6b7280);
-	text-align: center;
-}
-.sp-sms-cell-material { justify-content: flex-start; padding-right: 2px; }
-.sp-sms-cell-bar {
-	justify-content: center;
-	align-items: center;
-	padding: 0 3px;
-}
-.sp-sms-cell-required {
-	justify-content: flex-end;
-	align-items: center;
-	padding-right: 8px;
-	padding-left: 0;
-}
-.sp-sms-col-head {
-	font-size: 11px;
-	font-weight: 600;
-	color: var(--text-muted, #6b7280);
-	line-height: 1.3;
-	white-space: nowrap;
-}
-.sp-sms-header .sp-sms-cell-material.sp-sms-col-head {
-	justify-content: flex-start;
-}
-.sp-sms-bar-head {
-	display: block;
+.sp-packages-summary.is-collapsed .sp-pks-toggle-icon { transform: rotate(-90deg); }
+.sp-pfn-panel {
 	width: 100%;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+.sp-pfn-table {
+	width: 100%;
+	min-width: 100%;
+	display: flex;
+	flex-direction: column;
+}
+.sp-pfn-header,
+.sp-pfn-row {
+	display: grid;
+	grid-template-columns: var(--sp-pfn-cols);
+	column-gap: 10px;
+	align-items: stretch;
+	width: 100%;
+	min-width: max-content;
+}
+.sp-pfn-header {
+	padding: 10px 14px;
+	background: #fff;
+	border-bottom: 1px solid #EDEDED;
+	position: sticky;
+	top: 0;
+	z-index: 1;
+}
+.sp-pfn-row {
+	padding: 10px 14px;
+	border-bottom: 1px solid #F2F2F2;
+	transition: background-color 0.12s ease;
+}
+.sp-pfn-row:hover { background: #fafbfc; }
+.sp-pfn-row:last-child { border-bottom: none; }
+.sp-pfn-cell {
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	box-sizing: border-box;
+}
+.sp-pfn-col-head {
 	font-size: 11px;
 	font-weight: 600;
 	color: var(--text-muted, #6b7280);
-	text-align: center;
+	line-height: 1.2;
+	white-space: nowrap;
 	letter-spacing: 0.02em;
 }
-.sp-sms-metric-label {
-	display: block;
-	width: 100%;
-	padding-right: 8px;
-	box-sizing: border-box;
-	font-size: 11px;
-	font-weight: 600;
+.sp-pfn-cell-rowno {
+	justify-content: center;
 	color: var(--text-muted, #6b7280);
-	text-align: right;
-	white-space: nowrap;
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
 }
-.sp-sms-material {
+.sp-pfn-cell-package {
+	justify-content: flex-start;
+	overflow: hidden;
+}
+.sp-pfn-package {
 	font-size: 12px;
 	font-weight: 600;
 	color: var(--text-color, #1f2937);
@@ -1749,248 +1872,189 @@ _SITE_MATERIALS_SUMMARY_CSS = """
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
-.sp-sms-qty {
-	display: inline-flex;
-	align-items: center;
+.sp-pfn-cell-required {
 	justify-content: flex-end;
-	min-width: 2.25rem;
-	padding-right: 2px;
+	padding-right: 4px;
+}
+.sp-pfn-cell-stage {
+	flex-direction: column;
+	align-items: stretch;
+	justify-content: center;
+	gap: 4px;
+}
+.sp-pfn-cell-stage.sp-pfn-cell-empty .sp-pfn-qty-zero { color: var(--text-muted, #9ca3af); }
+.sp-pfn-cell-na {
+	color: var(--text-muted, #9ca3af);
+	font-weight: 500;
+	justify-content: center;
+}
+.sp-pfn-qty {
 	font-size: 12px;
 	font-weight: 600;
-	line-height: 1;
 	font-variant-numeric: tabular-nums;
 	color: var(--text-color, #1f2937);
 	text-align: right;
+	line-height: 1;
 }
-.sp-sms-bar-wrap {
-	display: flex;
-	align-items: center;
+.sp-pfn-cell-stage .sp-pfn-qty {
+	text-align: center;
+}
+.sp-pfn-bar {
+	display: block;
 	width: 100%;
-	min-width: 0;
-	max-width: 100%;
-	height: 100%;
-}
-.sp-sms-bar {
-	display: flex;
-	align-items: stretch;
-	gap: 3px;
-	width: 100%;
-	min-height: 20px;
-	padding: 3px;
-	box-sizing: border-box;
-	border-radius: 10px;
-	background: #F3F3F3;
-	box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
-}
-.sp-sms-bar-on,
-.sp-sms-bar-short,
-.sp-sms-bar-empty {
-	display: flex;
-	align-items: center;
-	flex: 0 1 auto;
-	min-width: 0;
-	border-radius: 7px;
+	height: 4px;
+	border-radius: 3px;
+	background: #F0F0F0;
 	overflow: hidden;
 }
-.sp-sms-bar-on {
-	background: #0289F7;
+.sp-pfn-bar-fill {
+	display: block;
+	height: 100%;
+	background: #94A3B8;
+	border-radius: 3px;
+	transition: width 0.2s ease;
+}
+.sp-pfn-cell-stage.sp-pfn-cell-complete .sp-pfn-bar-fill { background: #16A34A; }
+.sp-pfn-cell-stage.sp-pfn-cell-complete .sp-pfn-qty { color: #166534; }
+.sp-pfn-badge {
+	display: inline-flex;
+	align-items: center;
 	justify-content: center;
-	padding: 0 8px;
-	min-width: 2.75rem;
-}
-.sp-sms-bar-short {
-	background: #E0E0E0;
-	justify-content: center;
-	padding: 0 8px;
-	min-width: 2.75rem;
-}
-.sp-sms-bar-short-only {
-	flex: 1 1 auto;
-	min-width: 3rem;
-}
-.sp-sms-bar-empty {
-	background: transparent;
-	flex: 1 1 auto;
-	min-width: 0;
-	padding: 0;
-}
-.sp-sms-bar-empty-only {
-	flex: 1 1 auto;
-	min-height: 14px;
-}
-.sp-sms-bar-label {
-	display: inline-block;
+	min-width: 24px;
+	height: 18px;
+	padding: 0 6px;
+	border-radius: 4px;
 	font-size: 10px;
 	font-weight: 700;
-	line-height: 1.2;
-	white-space: nowrap;
-	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.04em;
+	background: #FEF3C7;
+	color: #92400E;
 }
-.sp-sms-bar-on .sp-sms-bar-label { color: #fff; }
-.sp-sms-bar-short .sp-sms-bar-label { color: #374151; }
-.sp-sms-footer {
-	width: 100%;
-	margin-top: 12px;
-	padding-top: 0;
-	text-align: center;
-	flex-shrink: 0;
+.sp-pfn-footer {
+	padding: 10px 14px;
+	background: #fafafa;
+	border-top: 1px solid #EDEDED;
 }
-.sp-sms-more {
+.sp-pfn-footer-text {
 	margin: 0;
-	padding: 0;
 	font-size: 11px;
 	color: var(--text-muted, #6b7280);
 	line-height: 1.4;
 }
-@media (max-width: 860px) {
-	.sp-site-materials-summary {
-		--sp-sms-cols: 24px 36px minmax(120px, 22%) minmax(200px, 1fr) 76px;
-		--sp-sms-gap: 12px;
-	}
+.sp-pfn-empty {
+	padding: 14px;
+	color: var(--text-muted, #6b7280);
+	font-size: 12px;
 }
-/* Mobile: switch each row to a 2-line card (info on top, bar below) so the
-   progress bar always has full width and column headers do not clip. */
-@media (max-width: 640px) {
-	.sp-site-materials-summary {
-		--sp-sms-cols: 36px 24px minmax(0, 1fr) auto;
-		--sp-sms-gap: 8px;
-		--sp-sms-row-h: 32px;
-	}
-	.sp-sms-table { border-radius: 10px; }
-	.sp-sms-header {
-		grid-template-columns: var(--sp-sms-cols);
+@media (max-width: 860px) {
+	.sp-pfn-header,
+	.sp-pfn-row {
 		padding-left: 10px;
 		padding-right: 10px;
 	}
-	/* The bar gets its own line in each row, so the bar column header is redundant. */
-	.sp-sms-header .sp-sms-cell-bar { display: none; }
-	.sp-sms-header .sp-sms-cell-required { padding-right: 4px; }
-	.sp-sms-rows {
-		max-height: none;
-		overflow-x: hidden;
-		overflow-y: visible;
-		padding-left: 10px;
-		padding-right: 10px;
-		-webkit-overflow-scrolling: touch;
-	}
-	.sp-sms-row {
-		grid-template-columns: var(--sp-sms-cols);
-		grid-template-areas:
-			"toggle no material required"
-			"bar    bar bar      bar";
-		row-gap: 6px;
-		padding: 10px 0;
-		min-height: 0;
-	}
-	.sp-sms-row .sp-sms-cell { min-height: 28px; }
-	.sp-sms-row .sp-sms-cell-toggle { grid-area: toggle; }
-	.sp-sms-row .sp-sms-cell-rowno  { grid-area: no; }
-	.sp-sms-row .sp-sms-cell-material { grid-area: material; }
-	.sp-sms-row .sp-sms-cell-required { grid-area: required; padding-right: 4px; }
-	.sp-sms-row .sp-sms-cell-bar {
-		grid-area: bar;
-		padding: 0;
-		min-height: 28px;
-	}
-	.sp-sms-cell-toggle {
-		width: 36px;
-		min-width: 36px;
-		max-width: 36px;
-	}
-	.sp-sms-toggle {
-		width: 36px;
-		min-width: 36px;
-		height: 36px;
-		border-radius: 8px;
-	}
-	.sp-sms-material {
-		font-size: 13px;
-		line-height: 1.35;
-		white-space: normal;
-		overflow: visible;
-		text-overflow: clip;
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 2;
-		word-break: break-word;
-	}
-	.sp-sms-qty { font-size: 13px; }
-	.sp-sms-rowno { font-size: 11px; }
-	.sp-sms-bar {
-		min-height: 24px;
-		padding: 3px;
-		gap: 3px;
-	}
-	.sp-sms-bar-on,
-	.sp-sms-bar-short {
-		padding: 0 6px;
-		min-width: 2.5rem;
-	}
-	.sp-sms-bar-label { font-size: 11px; }
-	.sp-sms-footer { margin-top: 10px; }
-	.sp-sms-more { font-size: 12px; }
 }
 """
 
 
 @frappe.whitelist()
-def get_site_materials_summary_html(special_project: str) -> str:
-	"""HTML summary for Site Materials tab."""
+def get_packages_summary_html(special_project: str) -> str:
+	"""HTML summary for the Fulfillment tab: row per package x column per Lifecycle Stage."""
 	if not special_project:
 		return ""
 	doc = frappe.get_doc("Special Project", special_project)
-	from logistics.special_projects.special_project_site_materials import (
-		site_material_label,
-		validate_site_materials,
+	from logistics.special_projects.special_project_packages import (
+		cint_safe,
+		lifecycle_stages_for_special_project,
+		package_label,
+		validate_packages,
 	)
 
-	validate_site_materials(doc)
-	materials = doc.get("site_materials") or []
+	validate_packages(doc)
+	materials = doc.get("packages") or []
 	if not materials:
-		return f"<p class='text-muted'>{_('No site material requirements. Add rows or seed from Sales Quote project products.')}</p>"
+		return (
+			f'<div class="sp-packages-summary">'
+			f"<style>{_PACKAGES_SUMMARY_CSS}</style>"
+			f'<div class="sp-pfn-card"><div class="sp-pfn-empty">'
+			f"{_('No packages defined. Add rows below or seed from Sales Quote project products.')}"
+			f"</div></div></div>"
+		)
 
-	rows_html = []
-	for row_no, m in enumerate(materials, start=1):
-		label = escape_html(site_material_label(m) or "—")
+	stages = lifecycle_stages_for_special_project()
+	if not stages:
+		return (
+			f'<div class="sp-packages-summary">'
+			f"<style>{_PACKAGES_SUMMARY_CSS}</style>"
+			f'<div class="sp-pfn-card"><div class="sp-pfn-empty">'
+			f"{_('No Lifecycle Stages configured for Special Projects. Set ‘For Special Project’ on at least one Lifecycle Stage.')}"
+			f"</div></div></div>"
+		)
+
+	per_stage = _packages_summary_per_stage_delivered(doc, materials, stages)
+	rows_html: list[str] = []
+	for row_no, (m, qtys) in enumerate(zip(materials, per_stage), start=1):
+		label = escape_html(package_label(m) or "—")
 		rows_html.append(
-			_site_materials_summary_row_html(
+			_packages_summary_row_html(
 				row_no,
 				label,
 				flt(m.qty_required or 0),
-				flt(m.qty_on_site or 0),
-				flt(m.qty_short or 0),
+				qtys,
+				is_always_along=bool(cint_safe(getattr(m, "include_on_create", 0))),
 			)
 		)
 
-	footer = ""
-	if len(materials) > 1:
-		footer = (
-			f'<div class="sp-sms-footer">'
-			f'<p class="sp-sms-more">'
-			f"{_('{0} material lines').format(len(materials))}"
-			f"</p></div>"
-		)
+	stage_cols = " ".join("minmax(80px, 1fr)" for _ in stages)
+	col_template = f"36px minmax(160px, 1.6fr) 80px {stage_cols}"
 
-	return (
-		f'<div class="sp-site-materials-summary">'
-		f"<style>{_SITE_MATERIALS_SUMMARY_CSS}</style>"
-		f'<div class="sp-sms-layout">'
-		f'<div class="sp-sms-table">'
-		f'<div class="sp-sms-header sp-sms-thead">'
-		f'<span class="sp-sms-cell sp-sms-cell-toggle">'
-		f'<button type="button" class="sp-sms-toggle" aria-expanded="true" '
-		f'title="{_("Collapse summary")}" aria-label="{_("Toggle site materials summary")}">'
-		f'<span class="sp-sms-toggle-icon" aria-hidden="true">&#9660;</span>'
-		f"</button></span>"
-		f'<span class="sp-sms-cell sp-sms-cell-rowno sp-sms-metric-label">{_("No.")}</span>'
-		f'<span class="sp-sms-cell sp-sms-cell-material sp-sms-col-head">{_("Material")}</span>'
-		f'<span class="sp-sms-cell sp-sms-cell-bar"><span class="sp-sms-bar-head">'
-		f"{_('On Site')} · {_('Short')}</span></span>"
-		f'<span class="sp-sms-cell sp-sms-cell-required sp-sms-metric-label">{_("Required")}</span>'
+	stage_headers = "".join(
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-stage-head" '
+		f'title="{escape_html(stage.get("description") or stage["name"])}">'
+		f"{escape_html(stage['name'])}</span>"
+		for stage in stages
+	)
+
+	header_html = (
+		f'<div class="sp-pfn-header">'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-rowno">#</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-package">{_("Package")}</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-required">{_("Required")}</span>'
+		f"{stage_headers}"
 		f"</div>"
-		f'<div class="sp-sms-panel">'
-		f'<div class="sp-sms-rows sp-sms-tbody">{"".join(rows_html)}</div>'
+	)
+
+	always_along_count = sum(1 for m in materials if cint_safe(getattr(m, "include_on_create", 0)))
+	tracked_count = len(materials) - always_along_count
+	footer_bits = [_("{0} package row(s)").format(len(materials))]
+	if tracked_count:
+		footer_bits.append(_("{0} tracked").format(tracked_count))
+	if always_along_count:
+		footer_bits.append(_("{0} always-along (AA)").format(always_along_count))
+	footer_bits.append(_("{0} lifecycle stage(s)").format(len(stages)))
+	footer_separator = " \u00b7 "
+	footer_text = footer_separator.join(footer_bits)
+	footer_html = (
+		f'<div class="sp-pfn-footer">'
+		f'<p class="sp-pfn-footer-text">{footer_text}</p>'
+		f"</div>"
+	)
+
+	rows_block = "".join(rows_html)
+	return (
+		f'<div class="sp-packages-summary" style="--sp-pfn-cols: {col_template}">'
+		f"<style>{_PACKAGES_SUMMARY_CSS}</style>"
+		f'<div class="sp-pfn-card">'
+		f'<div class="sp-pfn-titlebar">'
+		f'<button type="button" class="sp-pks-toggle" aria-expanded="true" '
+		f'title="{_("Collapse summary")}" aria-label="{_("Toggle delivery funnel summary")}">'
+		f'<span class="sp-pks-toggle-icon" aria-hidden="true">&#9660;</span>'
+		f"</button>"
+		f'<span class="sp-pfn-title">{_("Delivery Funnel by Lifecycle Stage")}</span>'
+		f'<span class="sp-pfn-title-sub">{_("Each column shows delivered qty in that stage")}</span>'
+		f"</div>"
+		f'<div class="sp-pfn-panel">'
+		f'<div class="sp-pfn-table">{header_html}{rows_block}</div>'
+		f"</div>"
+		f"{footer_html}"
 		f"</div></div>"
-		f"{footer}"
-		f"</div></div></div>"
 	)

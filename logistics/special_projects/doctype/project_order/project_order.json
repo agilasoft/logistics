@@ -29,12 +29,11 @@
   "column_break_org",
   "cost_center",
   "profit_center",
+  "job_number",
   "column_break_billing",
   "billing_status",
   "section_charges",
   "charges",
-  "section_break_materials_received",
-  "materials_received",
   "milestones_tab",
   "section_milestones",
   "milestone_template",
@@ -196,6 +195,15 @@
    "options": "Profit Center"
   },
   {
+   "description": "For revenue/cost recognition",
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "no_copy": 1,
+   "options": "Job Number",
+   "read_only": 1
+  },
+  {
    "fieldname": "column_break_billing",
    "fieldtype": "Column Break"
   },
@@ -216,18 +224,6 @@
    "fieldtype": "Table",
    "label": "Charges",
    "options": "Special Project Charges"
-  },
-  {
-   "description": "Materials received on site as part of this order. Posted to the parent Special Project's Site Receipts on submit.",
-   "fieldname": "section_break_materials_received",
-   "fieldtype": "Section Break",
-   "label": "Materials Received"
-  },
-  {
-   "fieldname": "materials_received",
-   "fieldtype": "Table",
-   "label": "Materials Received",
-   "options": "Project Job Material"
   },
   {
    "fieldname": "milestones_tab",
@@ -319,7 +315,7 @@
    "link_fieldname": "special_project_order"
   }
  ],
- "modified": "2026-05-21 18:02:46.982349",
+ "modified": "2026-05-26 08:50:00.000000",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Project Order",

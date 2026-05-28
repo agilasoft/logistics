@@ -23,8 +23,33 @@ from logistics.utils.sales_quote_routing import (
 )
 
 
+def _has_legacy_quote_link_fields(doc):
+	"""True when DocType still has quote / quote_type (pre-migration schema)."""
+	return bool(doc.meta.has_field("quote") and doc.meta.has_field("quote_type"))
+
+
+def _resolve_sales_quote_link(doc, *, from_db=False):
+	"""Resolve linked Sales Quote for submit/cancel hooks."""
+	sales_quote = None
+	if from_db and doc.name and not doc.is_new():
+		sales_quote = frappe.db.get_value(doc.doctype, doc.name, "sales_quote")
+		if not sales_quote and _has_legacy_quote_link_fields(doc):
+			legacy = frappe.db.get_value(doc.doctype, doc.name, "quote")
+			if legacy and frappe.db.exists("Sales Quote", legacy):
+				sales_quote = legacy
+	if not sales_quote:
+		sales_quote = getattr(doc, "sales_quote", None)
+	if not sales_quote and _has_legacy_quote_link_fields(doc):
+		legacy = getattr(doc, "quote", None)
+		if legacy and frappe.db.exists("Sales Quote", legacy):
+			sales_quote = legacy
+	return sales_quote
+
+
 def _sync_quote_and_sales_quote(doc):
 	"""Sync quote_type/quote with sales_quote for backward compatibility."""
+	if not _has_legacy_quote_link_fields(doc):
+		return
 	if getattr(doc, "quote_type", None) == "Sales Quote" and getattr(doc, "quote", None):
 		doc.sales_quote = doc.quote
 	elif getattr(doc, "quote_type", None) == "One-Off Quote":
@@ -433,8 +458,10 @@ class AirBooking(Document):
 					indicator="blue"
 				)
 		
-		# Handle One-Off Quote changes
-		if self.has_value_changed("quote") or self.has_value_changed("quote_type"):
+		# Handle One-Off Quote changes (legacy quote / quote_type fields only)
+		if _has_legacy_quote_link_fields(self) and (
+			self.has_value_changed("quote") or self.has_value_changed("quote_type")
+		):
 			if getattr(self, "quote_type", None) == "One-Off Quote" and self.quote:
 				self._populate_charges_from_one_off_quote()
 			elif getattr(self, "quote_type", None) == "One-Off Quote" and not self.quote:
@@ -926,9 +953,8 @@ class AirBooking(Document):
 			sq_for_routing = frappe.get_doc("Sales Quote", self.sales_quote)
 			apply_sales_quote_routing_to_booking(self, sq_for_routing)
 			
-			# Sync quote_type and quote with sales_quote to prevent them from being cleared on reload
-			# This ensures the quotation fields stay in sync after fetch_quotations
-			if self.sales_quote:
+			# Sync legacy quote_type / quote when those columns still exist on the DocType
+			if self.sales_quote and _has_legacy_quote_link_fields(self):
 				self.quote_type = "Sales Quote"
 				self.quote = self.sales_quote
 			
@@ -1111,7 +1137,7 @@ class AirBooking(Document):
 			# Get records from Sales Quote Charge (filtered by main service / internal job) or Sales Quote Air Freight (legacy)
 			# Full field list for legacy Sales Quote Air Freight (has cost_minimum_unit_rate, cost_base_quantity)
 			charge_fields_legacy = [
-				"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
+				"item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category", "bill_to",
 				"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
@@ -1683,12 +1709,13 @@ class AirBooking(Document):
 				item_doc.custom_charge_category if hasattr(item_doc, "custom_charge_category") and item_doc.custom_charge_category else None
 			) or "Other"
 			
-			# Get description from item or use item_name as fallback
-			description = None
-			if hasattr(item_doc, 'description') and item_doc.description:
-				description = item_doc.description
-			else:
-				description = _sq_row_get("item_name") or item_doc.item_name
+			# Prefer description from Sales Quote charge row; fall back to item master, then item name
+			description = _sq_row_get("description")
+			if not description:
+				if hasattr(item_doc, 'description') and item_doc.description:
+					description = item_doc.description
+				else:
+					description = _sq_row_get("item_name") or item_doc.item_name
 			
 			# Get item_tax_template and invoice_type from item if available
 			item_tax_template = None
@@ -2456,29 +2483,7 @@ class AirBooking(Document):
 		Frappe invokes ``on_submit`` on submit; ``after_submit`` is not a standard Document hook and never runs.
 		"""
 		_sync_quote_and_sales_quote(self)
-		# Read persisted quote link from DB — same pattern as Sea Booking. Submit hooks can leave
-		# in-memory quote/sales_quote unset while DB still holds the One-off Sales Quote name on `quote`.
-		current_quote = frappe.db.get_value(self.doctype, self.name, "quote")
-		current_quote_type = frappe.db.get_value(self.doctype, self.name, "quote_type")
-		current_sales_quote = frappe.db.get_value(self.doctype, self.name, "sales_quote")
-		# Fallback when `sales_quote` column is empty but `quote` still holds the Sales Quote name
-		# (e.g. legacy rows or quote_type/quote not persisted on this DocType).
-		if (
-			not current_sales_quote
-			and current_quote
-			and frappe.db.exists("Sales Quote", current_quote)
-		):
-			current_sales_quote = current_quote
-		# Last resort: use synced in-memory link (same request as submit).
-		if not current_sales_quote:
-			for cand in (getattr(self, "sales_quote", None), getattr(self, "quote", None)):
-				if cand and frappe.db.exists("Sales Quote", cand):
-					current_sales_quote = cand
-					break
-		if current_quote and not getattr(self, "quote", None):
-			self.db_set("quote", current_quote, update_modified=False)
-		if current_quote_type and not getattr(self, "quote_type", None):
-			self.db_set("quote_type", current_quote_type, update_modified=False)
+		current_sales_quote = _resolve_sales_quote_link(self, from_db=True)
 		if current_sales_quote and not getattr(self, "sales_quote", None):
 			self.db_set("sales_quote", current_sales_quote, update_modified=False)
 		if current_sales_quote:
@@ -2502,11 +2507,7 @@ class AirBooking(Document):
 
 	def on_cancel(self):
 		"""Reset One-off Sales Quote status when Air Booking is cancelled."""
-		current_sales_quote = frappe.db.get_value(self.doctype, self.name, "sales_quote")
-		if not current_sales_quote:
-			q = frappe.db.get_value(self.doctype, self.name, "quote")
-			if q and frappe.db.exists("Sales Quote", q):
-				current_sales_quote = q
+		current_sales_quote = _resolve_sales_quote_link(self, from_db=True)
 		if current_sales_quote:
 			from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
 

@@ -101,7 +101,7 @@ PAGE_MAP = {
     "internal_and_intercompany_billing": "Internal-And-Intercompany-Billing",
     # Special Projects
     "special_projects_module": "Special-Projects-Module",
-    "special_project_site_materials": "Special-Project-Site-Materials",
+    "special_project_packages": "Special-Project-Packages-and-Deliveries",
     "uld_type": "ULD-Type",
     "logistics_milestone": "Logistics-Milestone",
     # Pages

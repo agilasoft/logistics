@@ -33,12 +33,12 @@
   "lifecycle_jobs",
   "cost_revenue_section",
   "cost_revenue_html",
-  "site_materials_tab",
-  "site_materials_summary",
-  "section_break_site_materials_req",
-  "site_materials",
-  "section_break_site_receipts",
-  "site_receipts",
+  "fulfillment_tab",
+  "packages_summary",
+  "section_break_packages",
+  "packages",
+  "section_break_deliveries",
+  "deliveries",
   "charges_tab",
   "column_break_sp_chg_1",
   "company",
@@ -56,6 +56,38 @@
   "charges",
   "section_break_operational_exchange_rates",
   "operational_exchange_rates",
+  "recognition_section",
+  "wip_recognition_enabled",
+  "accrual_recognition_enabled",
+  "recognition_policy_reference",
+  "recognition_date_basis",
+  "recognition_date",
+  "column_break_recognition",
+  "estimated_revenue",
+  "wip_amount",
+  "recognized_revenue",
+  "wip_journal_entry",
+  "wip_closed",
+  "column_break_accrual",
+  "estimated_costs",
+  "accrual_amount",
+  "recognized_costs",
+  "accrual_closed",
+  "invoice_section",
+  "sales_invoice",
+  "date_sales_invoice_requested",
+  "date_sales_invoice_submitted",
+  "column_break_invoice",
+  "purchase_invoice",
+  "date_purchase_invoice_requested",
+  "date_purchase_invoice_submitted",
+  "column_break_invoice_lifecycle",
+  "fully_invoiced",
+  "date_fully_invoiced",
+  "fully_paid",
+  "date_fully_paid",
+  "costs_fully_paid",
+  "date_costs_fully_paid",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
@@ -66,6 +98,9 @@
   "documents_html",
   "document_list_template",
   "documents",
+  "profitability_tab",
+  "profitability_section_break",
+  "profitability_section_html",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -183,7 +218,6 @@
    "options": "Draft\nScoping\nBooked\nPlanning\nApproved\nIn Progress\nOn Hold\nCompleted\nCancelled"
   },
   {
-   "default": "Pre-Show",
    "fieldname": "lifecycle_stage",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -273,36 +307,36 @@
    "label": "Cost & Revenue"
   },
   {
-   "fieldname": "site_materials_tab",
+   "fieldname": "fulfillment_tab",
    "fieldtype": "Tab Break",
    "label": "Fulfillment"
   },
   {
-   "fieldname": "site_materials_summary",
+   "fieldname": "packages_summary",
    "fieldtype": "HTML",
    "is_virtual": 1,
    "label": "Summary"
   },
   {
-   "fieldname": "section_break_site_materials_req",
+   "fieldname": "section_break_packages",
    "fieldtype": "Section Break",
-   "label": "Requirements"
+   "label": "Packages"
   },
   {
-   "fieldname": "site_materials",
+   "fieldname": "packages",
    "fieldtype": "Table",
-   "label": "Site Materials",
-   "options": "Special Project Site Material"
+   "label": "Packages",
+   "options": "Special Project Package"
   },
   {
-   "fieldname": "section_break_site_receipts",
+   "fieldname": "section_break_deliveries",
    "fieldtype": "Section Break",
-   "label": "Receipts"
+   "label": "Deliveries"
   },
   {
-   "fieldname": "site_receipts",
+   "fieldname": "deliveries",
    "fieldtype": "Table",
-   "label": "Site Receipts",
+   "label": "Deliveries",
    "options": "Special Project Site Receipt"
   },
   {
@@ -396,6 +430,7 @@
    "fieldname": "charges",
    "fieldtype": "Table",
    "label": "Charges",
+   "no_copy": 1,
    "options": "Special Project Charges"
   },
   {
@@ -411,6 +446,216 @@
    "label": "Exchange Rate Sources",
    "no_copy": 1,
    "options": "Operational Exchange Rate"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "recognition_section",
+   "fieldtype": "Section Break",
+   "label": "Revenue & Cost Recognition"
+  },
+  {
+   "default": "0",
+   "fieldname": "wip_recognition_enabled",
+   "fieldtype": "Check",
+   "label": "Enable WIP Recognition",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "accrual_recognition_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Accrual Recognition",
+   "read_only": 1
+  },
+  {
+   "description": "Matched policy + parameter row for this project.",
+   "fieldname": "recognition_policy_reference",
+   "fieldtype": "Small Text",
+   "label": "Applicable Recognition Policy",
+   "read_only": 1
+  },
+  {
+   "description": "From policy (single basis for WIP and accrual).",
+   "fieldname": "recognition_date_basis",
+   "fieldtype": "Select",
+   "label": "Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
+   "read_only": 1
+  },
+  {
+   "description": "Posting date for WIP and accrual. Editable when basis is User Specified.",
+   "fieldname": "recognition_date",
+   "fieldtype": "Date",
+   "label": "Recognition Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_recognition",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "label": "Estimated Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_amount",
+   "fieldtype": "Currency",
+   "label": "WIP Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_revenue",
+   "fieldtype": "Currency",
+   "label": "Recognized Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "wip_closed",
+   "fieldtype": "Check",
+   "label": "WIP Closed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_accrual",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_costs",
+   "fieldtype": "Currency",
+   "label": "Estimated Costs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_amount",
+   "fieldtype": "Currency",
+   "label": "Accrual Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_costs",
+   "fieldtype": "Currency",
+   "label": "Recognized Costs",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "accrual_closed",
+   "fieldtype": "Check",
+   "label": "Accrual Closed",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "invoice_section",
+   "fieldtype": "Section Break",
+   "label": "Invoices"
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "no_copy": 1,
+   "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_sales_invoice_requested",
+   "fieldtype": "Date",
+   "label": "Date Sales Invoice Requested",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_sales_invoice_submitted",
+   "fieldtype": "Date",
+   "label": "Date Sales Invoice Submitted",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_invoice",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "no_copy": 1,
+   "options": "Purchase Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_purchase_invoice_requested",
+   "fieldtype": "Date",
+   "label": "Date Purchase Invoice Requested",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_purchase_invoice_submitted",
+   "fieldtype": "Date",
+   "label": "Date Purchase Invoice Submitted",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_invoice_lifecycle",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "fully_invoiced",
+   "fieldtype": "Check",
+   "label": "Fully Invoiced",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_fully_invoiced",
+   "fieldtype": "Date",
+   "label": "Date Fully Invoiced",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "fully_paid",
+   "fieldtype": "Check",
+   "label": "Fully Paid",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_fully_paid",
+   "fieldtype": "Date",
+   "label": "Date Fully Paid",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "costs_fully_paid",
+   "fieldtype": "Check",
+   "label": "Costs Fully Paid",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_costs_fully_paid",
+   "fieldtype": "Date",
+   "label": "Date Costs Fully Paid",
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "fieldname": "documents_tab",
@@ -440,6 +685,24 @@
    "fieldtype": "Table",
    "label": "Documents",
    "options": "Job Document"
+  },
+  {
+   "fieldname": "profitability_tab",
+   "fieldtype": "Tab Break",
+   "label": "Profitability"
+  },
+  {
+   "fieldname": "profitability_section_break",
+   "fieldtype": "Section Break",
+   "label": "Profitability"
+  },
+  {
+   "description": "Revenue, cost, profit, WIP, accrual and disbursements aggregated from General Ledger for every job linked to this project's Project accounting dimension.",
+   "fieldname": "profitability_section_html",
+   "fieldtype": "HTML",
+   "label": "Project Profitability (from GL)",
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "fieldname": "more_info_tab",
@@ -535,7 +798,7 @@
    "link_fieldname": "special_project"
   }
  ],
- "modified": "2026-05-26 10:10:02.284240",
+ "modified": "2026-05-27 14:27:42.298414",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Special Project",

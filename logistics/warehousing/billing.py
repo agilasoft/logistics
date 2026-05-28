@@ -178,7 +178,7 @@ def get_existing_warehouse_job_charges(customer: str, date_from: str, date_to: s
             job_charges = frappe.get_all(
                 "Warehouse Job Charges",
                 filters={"parent": job.name, "parenttype": "Warehouse Job"},
-                fields=["item_code", "item_name", "uom", "quantity", "rate", "total", "currency", "calculation_notes"],
+                fields=["item_code", "item_name", "description", "uom", "quantity", "rate", "total", "currency", "calculation_notes"],
                 ignore_permissions=True,
             ) or []
             
@@ -199,6 +199,7 @@ def get_existing_warehouse_job_charges(customer: str, date_from: str, date_to: s
                 charges.append({
                     "item": charge.get("item_code"),
                     "item_name": charge.get("item_name"),
+                    "description": charge.get("description"),
                     "uom": charge.get("uom"),
                     "quantity": flt(charge.get("quantity", 0)),
                     "rate": flt(charge.get("rate", 0)),

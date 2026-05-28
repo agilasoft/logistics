@@ -123,6 +123,51 @@ def get_special_project_for_sales_quote(sales_quote_name):
 	)
 
 
+def resolve_erpnext_project_name_for_sales_quote(sales_quote):
+	"""ERPNext ``Project.project_name`` used when creating a Special Project from this quote."""
+	name = _sq_strip_or_none(getattr(sales_quote, "project_name", None))
+	if name:
+		return name
+	customer = _sq_strip_or_none(getattr(sales_quote, "customer", None))
+	if not customer:
+		return None
+	return _sq_strip_or_none(
+		frappe.db.get_value("Customer", customer, "customer_name")
+	) or customer
+
+
+def validate_erpnext_project_name_available_for_sales_quote(sales_quote):
+	"""Reject when a new Special Project would need an ERPNext Project name that already exists."""
+	if not _is_special_project_programme_quote(sales_quote):
+		return
+	if cint(getattr(sales_quote, "additional_charge", 0)):
+		return
+	if not frappe.db.exists("DocType", "Project"):
+		return
+
+	project_name = resolve_erpnext_project_name_for_sales_quote(sales_quote)
+	if not project_name:
+		return
+
+	existing_project = frappe.db.get_value("Project", {"project_name": project_name}, "name")
+	if not existing_project:
+		return
+
+	sp_name = get_special_project_for_sales_quote(sales_quote.name) if sales_quote.name else None
+	if sp_name:
+		linked = frappe.db.get_value("Special Project", sp_name, "project")
+		if linked and linked == existing_project:
+			return
+
+	frappe.throw(
+		_(
+			"ERPNext Project name {0} is already used by Project {1}. "
+			"Choose a different Project Name on this quote before submitting."
+		).format(frappe.bold(project_name), frappe.bold(existing_project)),
+		title=_("Duplicate Project Name"),
+	)
+
+
 # Sales Quote Special Project tab → Special Project Details tab (same fieldnames).
 _SALES_QUOTE_TO_SPECIAL_PROJECT_DETAIL_FIELDS = (
 	"project_name",
@@ -306,6 +351,11 @@ class SalesQuote(Document):
 		"""Validate before submitting the document"""
 		self.validate_main_service_has_charges()
 		self.validate_air_sea_charge_ports_before_submit()
+		self.validate_erpnext_project_name_before_submit()
+
+	def validate_erpnext_project_name_before_submit(self):
+		"""Block submit when the programme name would collide with an existing ERPNext Project."""
+		validate_erpnext_project_name_available_for_sales_quote(self)
 
 	def validate_air_sea_charge_ports_before_submit(self):
 		"""At least one Air/Sea charge line must have Origin Port and Destination Port (row or quote-level fallbacks)."""
@@ -490,13 +540,6 @@ class SalesQuote(Document):
 			return
 
 		main_service = getattr(self, "main_service", None)
-		quotation_type = getattr(self, "quotation_type", None)
-
-		if quotation_type == "Project" and not _sq_strip_or_none(getattr(self, "project_name", None)):
-			frappe.throw(
-				_("Project Name is required for Project quotations."),
-				title=_("Project Name Required"),
-			)
 
 		if main_service == "Exhibits":
 			missing_fields = []
@@ -942,11 +985,6 @@ class SalesQuote(Document):
 		"""Create or update a Special Project from this Sales Quote and copy programme charges."""
 		return _create_special_project_from_sales_quote(self)
 
-	@frappe.whitelist()
-	def create_exhibit_from_sales_quote(self):
-		"""Create or update an Exhibit from this Sales Quote and copy programme charges."""
-		return _create_exhibit_from_sales_quote(self)
-
 	def _map_sales_quote_entry_type_to_air_booking(self, sales_quote_entry_type):
 		"""Wrapper method that calls the module-level mapping function"""
 		return map_sales_quote_entry_type_to_air_booking(sales_quote_entry_type)
@@ -971,15 +1009,13 @@ def _create_special_project_from_sales_quote(sales_quote):
 	if sp_name:
 		sp = frappe.get_doc("Special Project", sp_name)
 	else:
+		validate_erpnext_project_name_available_for_sales_quote(sales_quote)
 		sp = frappe.new_doc("Special Project")
 		sp.customer = sales_quote.customer
 		sp.sales_quote = sales_quote.name
 		_copy_sales_quote_special_project_details(sales_quote, sp)
 		if not _sq_strip_or_none(getattr(sp, "project_name", None)):
-			sp.project_name = (
-				frappe.db.get_value("Customer", sales_quote.customer, "customer_name")
-				or sales_quote.customer
-			)
+			sp.project_name = resolve_erpnext_project_name_for_sales_quote(sales_quote)
 		sp.insert(ignore_permissions=True)
 
 	if not sp.sales_quote:
@@ -996,20 +1032,17 @@ def _create_special_project_from_sales_quote(sales_quote):
 	copy_sales_quote_fields_to_target(sales_quote, sp)
 	_copy_sales_quote_special_project_details(sales_quote, sp)
 	if not _sq_strip_or_none(getattr(sp, "project_name", None)):
-		sp.project_name = (
-			frappe.db.get_value("Customer", sales_quote.customer, "customer_name")
-			or sales_quote.customer
-		)
+		sp.project_name = resolve_erpnext_project_name_for_sales_quote(sales_quote)
 	from logistics.utils.sales_quote_programme_charges import populate_programme_charges_from_sales_quote
 
 	populate_programme_charges_from_sales_quote(
 		sp, sales_quote.name, clear_existing=True, service_types="__all__"
 	)
-	from logistics.special_projects.special_project_site_materials import (
-		seed_site_materials_from_sales_quote,
+	from logistics.special_projects.special_project_packages import (
+		seed_packages_from_sales_quote,
 	)
 
-	seed_site_materials_from_sales_quote(sp, sales_quote, clear_existing=False)
+	seed_packages_from_sales_quote(sp, sales_quote, clear_existing=False)
 	sp.save(ignore_permissions=True)
 	frappe.db.commit()
 
@@ -1021,61 +1054,12 @@ def _create_special_project_from_sales_quote(sales_quote):
 	return {"success": True, "special_project": sp.name, "message": sp.name}
 
 
-def _create_exhibit_from_sales_quote(sales_quote):
-	if sales_quote.docstatus != 1:
-		frappe.throw(_("This Sales Quote must be submitted before creating an Exhibit."))
-	throw_if_sales_quote_expired_for_creation(sales_quote)
-	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
-
-	if sales_quote.main_service != "Exhibits":
-		frappe.throw(_("Main Service must be Exhibits to create an Exhibit programme."))
-
-	show_name = _sq_strip_or_none(getattr(sales_quote, "exhibit_show_name", None))
-	if not show_name:
-		frappe.throw(_("Exhibit Name is required on the Sales Quote."))
-
-	ep_name = _sq_strip_or_none(getattr(sales_quote, "exhibit", None))
-	if ep_name and frappe.db.exists("Exhibit", ep_name):
-		ep = frappe.get_doc("Exhibit", ep_name)
-	else:
-		ep = frappe.new_doc("Exhibit")
-		ep.project_name = show_name
-		ep.show_name = show_name
-		ep.customer = sales_quote.customer
-		ep.show_open_date = getattr(sales_quote, "exhibit_show_open_date", None)
-		ep.show_close_date = getattr(sales_quote, "exhibit_show_close_date", None)
-		ep.insert(ignore_permissions=True)
-		sales_quote.db_set("exhibit", ep.name, update_modified=False)
-
-	ep.sales_quote = sales_quote.name
-	ep.show_name = show_name
-	ep.show_open_date = getattr(sales_quote, "exhibit_show_open_date", None) or ep.show_open_date
-	ep.show_close_date = getattr(sales_quote, "exhibit_show_close_date", None) or ep.show_close_date
-	if not ep.customer:
-		ep.customer = sales_quote.customer
-	ep.company = sales_quote.company or ep.company
-	ep.branch = sales_quote.branch or ep.branch
-	ep.cost_center = sales_quote.cost_center or ep.cost_center
-	ep.profit_center = sales_quote.profit_center or ep.profit_center
-	ep.sales_rep = sales_quote.sales_rep or ep.sales_rep
-	ep.operations_rep = sales_quote.operations_rep or ep.operations_rep
-	ep.customer_service_rep = sales_quote.customer_service_rep or ep.customer_service_rep
-	copy_sales_quote_fields_to_target(sales_quote, ep)
-
-	from logistics.utils.sales_quote_programme_charges import populate_programme_charges_from_sales_quote
-
-	populate_programme_charges_from_sales_quote(
-		ep, sales_quote.name, clear_existing=True, service_types="__all__"
+def _is_project_exhibits_programme_quote(sales_quote) -> bool:
+	"""Project (PQ) programme quotes get one Docket per Sales Quote, named after the quote."""
+	return (
+		getattr(sales_quote, "quotation_type", None) == "Project"
+		and getattr(sales_quote, "main_service", None) == "Exhibits"
 	)
-	ep.save(ignore_permissions=True)
-	frappe.db.commit()
-
-	frappe.msgprint(
-		_("Exhibit {0} updated from Sales Quote {1}.").format(ep.name, sales_quote.name),
-		title=_("Exhibit"),
-		indicator="green",
-	)
-	return {"success": True, "exhibit": ep.name, "message": ep.name}
 
 
 @frappe.whitelist()
@@ -1084,10 +1068,102 @@ def create_special_project_from_sales_quote(sales_quote_name):
 	return _create_special_project_from_sales_quote(sales_quote)
 
 
+def _create_docket_from_sales_quote(sales_quote):
+	"""Create (or return) the Docket for ``sales_quote.customer`` on the linked Exhibit.
+
+	The Sales Quote's customer is treated as the exhibitor (booth holder). The
+	Exhibit's Dockets table is now a virtual view of existing Dockets, so we no
+	longer seed a participant row up front — the Docket itself is the only
+	source of truth for which exhibitors belong to an Exhibit.
+	"""
+	if sales_quote.docstatus != 1:
+		frappe.throw(_("This Sales Quote must be submitted before creating a Docket."))
+	throw_if_sales_quote_expired_for_creation(sales_quote)
+	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
+
+	if sales_quote.main_service != "Exhibits":
+		frappe.throw(_("Main Service must be Exhibits to create a Docket."))
+
+	exhibit_name = _sq_strip_or_none(getattr(sales_quote, "exhibit", None))
+	if not exhibit_name:
+		frappe.throw(
+			_("Link an Exhibit on this Sales Quote before creating a Docket.")
+		)
+	if not frappe.db.exists("Exhibit", exhibit_name):
+		frappe.throw(_("Exhibit {0} does not exist.").format(frappe.bold(exhibit_name)))
+
+	exhibitor = _sq_strip_or_none(getattr(sales_quote, "customer", None))
+	if not exhibitor:
+		frappe.throw(_("Sales Quote must have a Customer to create a Docket."))
+
+	ep = frappe.get_doc("Exhibit", exhibit_name)
+
+	project_exhibits_quote = _is_project_exhibits_programme_quote(sales_quote)
+	docket_name = sales_quote.name if project_exhibits_quote else None
+
+	if docket_name and frappe.db.exists("Docket", docket_name):
+		from logistics.utils.sales_quote_programme_charges import (
+			populate_programme_charges_from_sales_quote,
+		)
+
+		doc = frappe.get_doc("Docket", docket_name)
+		if not _sq_strip_or_none(getattr(doc, "sales_quote", None)):
+			doc.sales_quote = sales_quote.name
+		populate_programme_charges_from_sales_quote(
+			doc, sales_quote.name, clear_existing=True, service_types="__all__"
+		)
+		doc.save(ignore_permissions=True)
+		frappe.db.commit()
+		return {"success": True, "docket": docket_name, "message": docket_name}
+
+	if not project_exhibits_quote:
+		existing_docket = frappe.db.get_value(
+			"Docket",
+			{"exhibit": ep.name, "exhibitor": exhibitor, "docstatus": ["<", 2]},
+			"name",
+		)
+		if existing_docket:
+			return {"success": True, "docket": existing_docket, "message": existing_docket}
+
+		predicted_name = f"{ep.name}-{exhibitor}"
+		if frappe.db.exists("Docket", predicted_name):
+			return {"success": True, "docket": predicted_name, "message": predicted_name}
+
+	doc = frappe.new_doc("Docket")
+	doc.exhibit = ep.name
+	doc.exhibitor = exhibitor
+	doc.sales_quote = sales_quote.name
+	doc.company = sales_quote.company or doc.company
+	doc.branch = sales_quote.branch or doc.branch
+	doc.cost_center = sales_quote.cost_center or doc.cost_center
+	doc.profit_center = sales_quote.profit_center or doc.profit_center
+	doc.sales_rep = sales_quote.sales_rep or doc.sales_rep
+	doc.operations_rep = sales_quote.operations_rep or doc.operations_rep
+	doc.customer_service_rep = sales_quote.customer_service_rep or doc.customer_service_rep
+	copy_sales_quote_fields_to_target(sales_quote, doc)
+	from logistics.utils.sales_quote_programme_charges import populate_programme_charges_from_sales_quote
+
+	populate_programme_charges_from_sales_quote(
+		doc, sales_quote.name, clear_existing=True, service_types="__all__"
+	)
+	insert_kwargs = {"ignore_permissions": True}
+	if docket_name:
+		insert_kwargs["set_name"] = docket_name
+	doc.insert(**insert_kwargs)
+	frappe.db.commit()
+
+	frappe.msgprint(
+		_("Docket {0} created from Sales Quote {1}.").format(doc.name, sales_quote.name),
+		title=_("Docket"),
+		indicator="green",
+	)
+	return {"success": True, "docket": doc.name, "message": doc.name}
+
+
 @frappe.whitelist()
-def create_exhibit_from_sales_quote(sales_quote_name):
+def create_docket_from_sales_quote(sales_quote_name):
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
-	return _create_exhibit_from_sales_quote(sales_quote)
+	return _create_docket_from_sales_quote(sales_quote)
 
 
 @frappe.whitelist()
@@ -1838,7 +1914,7 @@ def _populate_charges_from_sales_quote_air_freight(air_shipment, sales_quote):
 		)
 
 		charge_fields = [
-			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
+			"item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue",
 			"charge_type", "charge_category",
@@ -2052,10 +2128,19 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 			if isinstance(sqaf_record, dict)
 			else getattr(sqaf_record, "service_type", None)
 		) or "Air"
+		# Prefer description from quote charge row; fall back to item master
+		_af_description = _af_r("description")
+		if not _af_description:
+			if hasattr(item_doc, "description") and item_doc.description:
+				_af_description = item_doc.description
+			else:
+				_af_description = _af_r("item_name") or item_doc.item_name
+
 		charge_data = {
 			"service_type": _sq_st,
 			"item_code": _af_r("item_code"),
 			"item_name": _af_r("item_name") or item_doc.item_name,
+			"description": _af_description,
 			"charge_type": charge_type,
 			"charge_category": charge_category,
 			"revenue_calculation_method": _af_r("revenue_calculation_method") or _af_r("calculation_method") or calculation_method,
@@ -2121,7 +2206,7 @@ def _populate_charges_from_sales_quote_sea_freight(sea_shipment, sales_quote):
 		)
 
 		charge_fields = [
-			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
+			"item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue",
 			"charge_type", "charge_category",
@@ -2276,6 +2361,14 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 			if isinstance(sqsf_record, dict)
 			else getattr(sqsf_record, "service_type", None)
 		) or "Sea"
+		# Prefer description from quote charge row; fall back to item master
+		_sf_description = _sf_r("description")
+		if not _sf_description:
+			if hasattr(item_doc, "description") and item_doc.description:
+				_sf_description = item_doc.description
+			else:
+				_sf_description = _sf_r("item_name") or item_doc.item_name
+
 		# Map the fields from sales_quote_sea_freight to sea_shipment_charges
 		charge_data = {
 			"service_type": _sq_st,
@@ -2283,6 +2376,7 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 			"charge_name": _sf_r("item_name") or item_doc.item_name,
 			"charge_type": charge_type,
 			"charge_category": charge_category,
+			"description": _sf_description,
 			"charge_description": _sf_r("item_name") or item_doc.item_name,
 			"bill_to": getattr(sqsf_record, "bill_to", None) or (sea_shipment.local_customer if hasattr(sea_shipment, 'local_customer') else None),
 			"pay_to": getattr(sqsf_record, "pay_to", None),

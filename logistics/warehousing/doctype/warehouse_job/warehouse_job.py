@@ -3415,6 +3415,7 @@ def fetch_charges_from_contract(warehouse_job: str, clear_existing: int = 0) -> 
 		contract_items = frappe.db.sql("""
 			SELECT 
 				item_charge AS item_code, 
+				description,
 				rate, 
 				currency, 
 				uom, 
@@ -3522,6 +3523,7 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
 		contract_items = frappe.db.sql("""
 			SELECT 
 				item_charge AS item_code, 
+				description,
 				rate, 
 				currency, 
 				uom, 
@@ -4737,13 +4739,16 @@ def _create_charge_from_contract_item(job, contract_item: dict) -> dict:
 			display_qty = billing_qty
 			display_rate = rate
 		
-		# Get item name from item master if available
+		# Get item name and description from item master if available
 		item_name = None
+		item_description = contract_item.get("description")
 		item_code = contract_item.get("item_code")
 		if item_code:
 			try:
 				item_doc = frappe.get_doc("Item", item_code)
 				item_name = item_doc.item_name
+				if not item_description:
+					item_description = item_doc.description
 			except Exception:
 				pass
 		
@@ -4751,6 +4756,7 @@ def _create_charge_from_contract_item(job, contract_item: dict) -> dict:
 		charge = {
 			"item_code": item_code,
 			"item_name": item_name or f"Job Charge ({getattr(job, 'type', 'Generic')})",
+			"description": item_description,
 			"uom": contract_item.get("uom", "Day"),
 			"quantity": display_qty,
 			"rate": display_rate,

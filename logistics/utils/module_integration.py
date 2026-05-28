@@ -1393,6 +1393,7 @@ def _copy_customs_charges_from_shipment_to_declaration_order(order, shipment) ->
 		"service_type",
 		"item_code",
 		"item_name",
+		"description",
 		"charge_type",
 		"charge_category",
 		"quantity",
@@ -1667,6 +1668,8 @@ def _copy_warehousing_charges_from_shipment_to_inbound_order(order, shipment) ->
 			row.item_code = src.item_code
 		if "item_name" in tfields:
 			row.item_name = getattr(src, "item_name", None) or ""
+		if "description" in tfields and getattr(src, "description", None):
+			row.description = src.description
 		qty = getattr(src, "quantity", None)
 		if qty is None:
 			qty = 1

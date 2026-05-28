@@ -515,7 +515,7 @@ class DeclarationOrder(Document):
 
 			# Keep in sync with populate_charges_from_sales_quote (API / client): bill_to, pay_to, sales_quote_link, tariffs
 			common_fields = [
-				"service_type", "item_code", "item_name", "charge_type", "charge_category", "quantity", "uom",
+				"service_type", "item_code", "item_name", "description", "charge_type", "charge_category", "quantity", "uom",
 				"currency", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
 				"maximum_charge", "base_amount", "base_quantity", "estimated_revenue",
 				"revenue_calculation_method",
@@ -685,7 +685,7 @@ def populate_charges_from_sales_quote(
 		meta = frappe.get_meta("Declaration Order Charges")
 		charge_fields = [f.fieldname for f in meta.fields]
 		common_fields = [
-			"service_type", "item_code", "item_name", "charge_type", "charge_category", "quantity", "uom",
+			"service_type", "item_code", "item_name", "description", "charge_type", "charge_category", "quantity", "uom",
 			"currency", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
 			"maximum_charge", "base_amount", "base_quantity", "estimated_revenue",
 			"revenue_calculation_method",

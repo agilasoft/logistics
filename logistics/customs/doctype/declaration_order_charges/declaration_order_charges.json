@@ -550,7 +550,7 @@
    "label": "Item Name"
   },
   {
-   "fetch_from": "charge_item.description",
+   "fetch_from": "item_code.description",
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"

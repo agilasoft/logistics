@@ -2227,6 +2227,7 @@ def create_sales_invoice_from_periodic_billing(
     row_has_total    = "total" in cf
     row_has_uom      = "uom" in cf
     row_has_itemname = "item_name" in cf
+    row_has_desc     = "description" in cf
     row_has_qty      = "quantity" in cf
 
     currencies: Set[str] = set()
@@ -2243,6 +2244,7 @@ def create_sales_invoice_from_periodic_billing(
         total = flt(getattr(ch, "total", 0.0))    if row_has_total else 0.0
         uom   = (getattr(ch, "uom", None) or None) if row_has_uom else None
         item_name = (getattr(ch, "item_name", None) or None) if row_has_itemname else None
+        description = (getattr(ch, "description", None) or None) if row_has_desc else None
         curr  = (getattr(ch, "currency", None) or "").strip() if row_has_currency else ""
 
         if row_has_currency and curr:
@@ -2259,6 +2261,7 @@ def create_sales_invoice_from_periodic_billing(
         valid_rows.append({
             "item_code": item_code,
             "item_name": item_name,
+            "description": description,
             "qty": flt(qty) if qty else (1.0 if (total or rate) else 0.0),
             "rate": flt(rate) if rate else (flt(total) if (not qty and total) else 0.0),
             "uom": uom,
@@ -2306,6 +2309,7 @@ def create_sales_invoice_from_periodic_billing(
         row_payload = {"item_code": r["item_code"], "qty": r["qty"] or 0.0, "rate": r["rate"] or 0.0}
         if "uom" in sif_item_fields and r.get("uom"): row_payload["uom"] = r["uom"]
         if "item_name" in sif_item_fields and r.get("item_name"): row_payload["item_name"] = r["item_name"]
+        if "description" in sif_item_fields and r.get("description"): row_payload["description"] = r["description"]
         if cost_center and "cost_center" in sif_item_fields: row_payload["cost_center"] = cost_center
         if item_has_branch and branch: row_payload["branch"] = branch
         si.append("items", row_payload)
@@ -2641,6 +2645,7 @@ def create_sales_invoice_from_periodic_billing(
     cf = _safe_meta_fieldnames("Periodic Billing Charges")
     row_has_uom      = "uom" in cf
     row_has_itemname = "item_name" in cf
+    row_has_desc     = "description" in cf
     row_has_qty      = "quantity" in cf
     row_has_rate     = "rate" in cf
     row_has_total    = "total" in cf
@@ -2655,6 +2660,7 @@ def create_sales_invoice_from_periodic_billing(
         total = flt(getattr(ch, "total", 0.0))    if row_has_total else 0.0
         uom   = (getattr(ch, "uom", None) or None) if row_has_uom else None
         item_name = (getattr(ch, "item_name", None) or None) if row_has_itemname else None
+        description = (getattr(ch, "description", None) or None) if row_has_desc else None
 
         if qty and not rate and total: rate = total / qty
         if (not qty or qty == 0) and total and not rate: qty, rate = 1.0, total
@@ -2663,6 +2669,7 @@ def create_sales_invoice_from_periodic_billing(
         row_payload = {"item_code": item_code, "qty": qty or 0.0, "rate": rate or (total if (not qty and total) else 0.0)}
         if "uom" in sif_item_fields and uom: row_payload["uom"] = uom
         if "item_name" in sif_item_fields and item_name: row_payload["item_name"] = item_name
+        if "description" in sif_item_fields and description: row_payload["description"] = description
         if cost_center and "cost_center" in sif_item_fields: row_payload["cost_center"] = cost_center
         if pb_branch and "branch" in sif_item_fields: row_payload["branch"] = pb_branch
         if profit_center and "profit_center" in sif_item_fields: row_payload["profit_center"] = profit_center
@@ -2846,6 +2853,7 @@ def create_sales_invoice_from_periodic_billing(
     cf = _safe_meta_fieldnames("Periodic Billing Charges")
     row_has_uom      = "uom" in cf
     row_has_itemname = "item_name" in cf
+    row_has_desc     = "description" in cf
     row_has_qty      = "quantity" in cf
     row_has_rate     = "rate" in cf
     row_has_total    = "total" in cf
@@ -2860,6 +2868,7 @@ def create_sales_invoice_from_periodic_billing(
         total = flt(getattr(ch, "total", 0.0))    if row_has_total else 0.0
         uom   = (getattr(ch, "uom", None) or None) if row_has_uom else None
         item_name = (getattr(ch, "item_name", None) or None) if row_has_itemname else None
+        description = (getattr(ch, "description", None) or None) if row_has_desc else None
 
         if qty and not rate and total: rate = total / qty
         if (not qty or qty == 0) and total and not rate: qty, rate = 1.0, total
@@ -2868,6 +2877,7 @@ def create_sales_invoice_from_periodic_billing(
         row_payload = {"item_code": item_code, "qty": qty or 0.0, "rate": rate or (total if (not qty and total) else 0.0)}
         if "uom" in sif_item_fields and uom: row_payload["uom"] = uom
         if "item_name" in sif_item_fields and item_name: row_payload["item_name"] = item_name
+        if "description" in sif_item_fields and description: row_payload["description"] = description
         if cost_center and "cost_center" in sif_item_fields: row_payload["cost_center"] = cost_center
         si.append("items", row_payload)
         created_rows += 1

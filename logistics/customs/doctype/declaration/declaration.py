@@ -1571,6 +1571,7 @@ def _populate_charges_from_declaration_order(declaration: Document, order: Docum
 			"service_type",
 			"item_code",
 			"item_name",
+			"description",
 			"charge_type",
 			"charge_category",
 			"revenue_calculation_method",
@@ -1661,7 +1662,7 @@ def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Docum
 			
 			# Map common fields
 			common_fields = [
-				'service_type', 'item_code', 'item_name', 'calculation_method', 'quantity', 'uom',
+				'service_type', 'item_code', 'item_name', 'description', 'calculation_method', 'quantity', 'uom',
 				'currency', 'unit_rate', 'unit_type', 'minimum_quantity', 'minimum_charge',
 				'maximum_charge', 'base_amount', 'estimated_revenue', 'cost_calculation_method',
 				'cost_quantity', 'cost_uom', 'cost_currency', 'unit_cost', 'cost_unit_type',
@@ -1756,7 +1757,11 @@ def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 				total_rev,
 				item_code=charge.item_code,
 				item_name=item_name,
-				description=item_name if "description" in si_item_fields else None,
+				description=(
+					getattr(charge, "description", None)
+					or getattr(charge, "charge_description", None)
+					or (item_name if "description" in si_item_fields else None)
+				),
 				job_type="Declaration",
 				company=declaration.company,
 				cost_center=declaration.cost_center,

@@ -153,8 +153,8 @@ def _taxable_template(ch) -> Optional[str]:
 
 
 def _main_tax_template(ch, job_type: str) -> Optional[str]:
-    # Match legacy sales_invoice_api: only Sea Shipment passes charge row item_tax_template.
-    if job_type != "Sea Shipment":
+    # Match legacy sales_invoice_api: Sea Shipment / Docket charge rows expose item_tax_template.
+    if job_type not in ("Sea Shipment", "Docket"):
         return None
     return getattr(ch, "item_tax_template", None) or None
 
@@ -178,6 +178,7 @@ def build_sales_invoice_item_payloads_for_charge(
     line_qty: Optional[float] = None,
     line_rate: Optional[float] = None,
     uom: Optional[str] = None,
+    project: Optional[str] = None,
 ) -> Tuple[List[Dict[str, Any]], List[int]]:
     """
     Returns (payloads, indices_in_payloads_that_need_item_tax_template_cleared_after_set_missing_values).
@@ -192,6 +193,8 @@ def build_sales_invoice_item_payloads_for_charge(
             payload["cost_center"] = cost_center
         if profit_center and si_item_meta.get_field("profit_center"):
             payload["profit_center"] = profit_center
+        if project and si_item_meta.get_field("project"):
+            payload["project"] = project
         if job_ref:
             it_jn = si_item_meta.get_field("job_number")
             if it_jn and _link_field_writable(it_jn):
