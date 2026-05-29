@@ -57,18 +57,24 @@ class BaseFlightConnector(ABC):
 		pass
 	
 	def make_request(self, method: str, url: str, **kwargs) -> requests.Response:
-		"""Make HTTP request with error handling"""
+		"""Make HTTP request with error handling.
+
+		Supports ``timeout_override`` kwarg for callers (e.g. live position
+		lookups) that need a longer timeout than the 30s default.
+		"""
 		try:
 			self.api_calls_count += 1
 			
 			# Check rate limiting
 			self.check_rate_limit()
 			
+			timeout = kwargs.pop("timeout_override", 30) or 30
+
 			# Make request with timeout
 			response = self.session.request(
 				method=method,
 				url=url,
-				timeout=30,
+				timeout=timeout,
 				**kwargs
 			)
 			

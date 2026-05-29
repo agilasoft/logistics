@@ -82,11 +82,28 @@ def _ensure_document_template():
 			tpl.is_active = 1
 		if tpl.meta.get_field("documents"):
 			for label in ("Booth Photos", "QC Checklist", "Delivery Receipt", "Return Receipt"):
-				tpl.append("documents", {"document_type": label, "required": 0})
+				doc_type = _get_or_create_logistics_document_type(label)
+				tpl.append("documents", {"document_type": doc_type, "is_mandatory": 0})
 		tpl.insert(ignore_permissions=True)
 		frappe.db.set_single_value("Exhibit Settings", "default_document_template", tpl.name)
 	except Exception:
 		frappe.log_error(title="Exhibits: document template seed skipped")
+
+
+def _get_or_create_logistics_document_type(label):
+	if not label or not frappe.db.exists("DocType", "Logistics Document Type"):
+		return label
+	existing = frappe.db.get_value("Logistics Document Type", {"document_name": label})
+	if existing:
+		return existing
+	code = frappe.scrub(label).upper().replace("-", "_")[:140]
+	if frappe.db.exists("Logistics Document Type", code):
+		return code
+	row = frappe.new_doc("Logistics Document Type")
+	row.document_code = code
+	row.document_name = label
+	row.insert(ignore_permissions=True)
+	return row.name
 
 
 def _get_or_create_logistics_milestone(label):

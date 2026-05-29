@@ -510,6 +510,7 @@ def render_logistics_form_dashboard_html(doc, cfg):
 	- map_points, map_segments (override lists or None to compute)
 	- hide_map (bool), straight_line (bool)
 	- vessel_tracking_map (dict): optional async AIS overlay for Sea Shipment dashboard map
+	- aircraft_tracking_map (dict): optional async OpenSky overlay for Air Shipment dashboard map (live plane marker rotated by heading)
 	- empty_milestones_hint (HTML str)
 	- milestones_tab_inner_html (optional str; replaces child-table milestone panel)
 	- milestone_count_override, milestone_done_override: when milestones_tab_inner_html is set, use these for the progress ring (else Job Milestone display rows)
@@ -653,6 +654,7 @@ def render_logistics_form_dashboard_html(doc, cfg):
 			straight_line=straight_line,
 			hide_map=hide_map,
 			vessel_tracking_map=cfg.get("vessel_tracking_map"),
+			aircraft_tracking_map=cfg.get("aircraft_tracking_map"),
 		)
 
 	try:
@@ -847,6 +849,25 @@ def _declaration_importer_classification_html(doc):
 	)
 
 
+def _get_aircraft_tracking_map_options_for_air_shipment(doc):
+	"""Return aircraft_tracking_map dict iff this Air Shipment has a Master AWB linked to a Flight Schedule.
+
+	The live overlay only renders when ``enabled`` is True so we short-circuit
+	cleanly for non-air or unconfigured shipments.
+	"""
+	master_awb = getattr(doc, "master_awb", None)
+	if not master_awb:
+		return None
+	fs = frappe.db.get_value("Master Air Waybill", master_awb, "flight_schedule")
+	if not fs:
+		return None
+	return {
+		"enabled": True,
+		"air_shipment": doc.name,
+		"hint": "Live position from OpenSky Network (cached ~60s).",
+	}
+
+
 def build_air_shipment_dashboard_config(doc):
 	status = "Submitted" if doc.docstatus == 1 else "Cancelled" if doc.docstatus == 2 else "Draft"
 	header_items = [
@@ -872,6 +893,7 @@ def build_air_shipment_dashboard_config(doc):
 			d, get_compliance_fn=d.check_dg_compliance
 		),
 		"include_default_dg": False,
+		"aircraft_tracking_map": _get_aircraft_tracking_map_options_for_air_shipment(doc),
 	}
 
 

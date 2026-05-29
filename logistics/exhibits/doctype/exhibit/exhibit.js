@@ -74,24 +74,6 @@ function _refresh_exhibit_dashboard_html(frm) {
 	_load_exhibit_dashboard_html(frm);
 }
 
-function _open_docket_for_row(frm, row) {
-	if (!row || !row.docket) {
-		frappe.msgprint(__("Select a row with a Docket first."));
-		return;
-	}
-	frappe.set_route("Form", "Docket", row.docket);
-}
-
-function _open_exhibit_link_docket_dialog(frm) {
-	if (window.logistics_open_exhibit_link_docket_dialog) {
-		window.logistics_open_exhibit_link_docket_dialog(frm);
-		return;
-	}
-	frappe.require("/assets/logistics/js/exhibit_link_docket_dialog.js", function () {
-		window.logistics_open_exhibit_link_docket_dialog(frm);
-	});
-}
-
 function _setup_dockets_grid_buttons(frm) {
 	const grid = frm.fields_dict.dockets && frm.fields_dict.dockets.grid;
 	if (!grid) return;
@@ -105,7 +87,13 @@ function _setup_dockets_grid_buttons(frm) {
 	}
 
 	// Read-only child tables hide the grid footer, so custom buttons must go on top.
-	const stale_labels = [__("Open Docket"), __("Create Docket"), __("View Dockets"), __("Add Dockets")];
+	const stale_labels = [
+		__("Open Docket"),
+		__("Create Docket"),
+		__("View Dockets"),
+		__("Add Dockets"),
+		__("Add Docket"),
+	];
 	stale_labels.forEach(function (lbl) {
 		if (grid.custom_buttons && grid.custom_buttons[lbl]) {
 			try {
@@ -118,19 +106,24 @@ function _setup_dockets_grid_buttons(frm) {
 	});
 
 	grid.add_custom_button(
-		__("Open Docket"),
+		__("Add Docket"),
 		function () {
-			const selected = grid.get_selected_children();
-			const row = selected && selected.length ? selected[0] : null;
-			_open_docket_for_row(frm, row);
-		},
-		"top"
-	);
-
-	grid.add_custom_button(
-		__("Add Dockets"),
-		function () {
-			_open_exhibit_link_docket_dialog(frm);
+			if (!frm || !frm.doc || !frm.doc.name || frm.doc.__islocal) {
+				frappe.msgprint({
+					message: __("Save this Exhibit before creating a Sales Quote."),
+					indicator: "orange",
+				});
+				return;
+			}
+			frappe.call({
+				method: "logistics.exhibits.doctype.exhibit.exhibit.get_sales_quote_defaults_from_exhibit",
+				args: { exhibit_name: frm.doc.name },
+				callback: function (r) {
+					const defaults = r.message || {};
+					frappe.route_options = defaults;
+					frappe.new_doc("Sales Quote");
+				},
+			});
 		},
 		"top"
 	);
@@ -163,6 +156,13 @@ frappe.ui.form.on("Exhibit", {
 		frm.set_query("milestone_template", function () {
 			return frappe
 				.call("logistics.document_management.api.get_milestone_template_filters", { doctype: frm.doctype })
+				.then(function (r) {
+					return r.message || { filters: [] };
+				});
+		});
+		frm.set_query("document_list_template", function () {
+			return frappe
+				.call("logistics.document_management.api.get_document_template_filters", { doctype: frm.doctype })
 				.then(function (r) {
 					return r.message || { filters: [] };
 				});

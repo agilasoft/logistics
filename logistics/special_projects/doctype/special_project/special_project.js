@@ -342,7 +342,7 @@ frappe.ui.form.on("Special Project", {
 		// logistics/public/js/profitability_project_form.js — keep it in one place
 		// to avoid double-firing the GL query.
 
-		// --- Action menu: Get Milestones, Get Documents, Calculate Charges ---
+		// --- Action menu: Get Milestones, Get Documents, Calculate Charges, Apply Lifecycle Template ---
 		if (!frm.is_new() && !frm.doc.__islocal) {
 			frm.add_custom_button(__("Get Milestones"), function () {
 				frappe.call({
@@ -391,6 +391,19 @@ frappe.ui.form.on("Special Project", {
 					});
 				}, __("Action"));
 			}
+
+			frm.add_custom_button(__("Apply Lifecycle Template"), function () {
+				if (window.logistics_open_apply_lifecycle_template_dialog) {
+					window.logistics_open_apply_lifecycle_template_dialog(frm, "Special Project");
+				} else {
+					frappe.require(
+						"/assets/logistics/js/apply_lifecycle_template_dialog.js",
+						function () {
+							window.logistics_open_apply_lifecycle_template_dialog(frm, "Special Project");
+						}
+					);
+				}
+			}, __("Action"));
 		}
 
 		// --- Create menu: Sales Invoice, Purchase Invoice, Booking/Order, Change Request ---
@@ -462,19 +475,6 @@ frappe.ui.form.on("Special Project", {
 					},
 				});
 			}, __("Packages"));
-
-			frm.add_custom_button(__("Apply Lifecycle Template"), function () {
-				if (window.logistics_open_apply_lifecycle_template_dialog) {
-					window.logistics_open_apply_lifecycle_template_dialog(frm, "Special Project");
-				} else {
-					frappe.require(
-						"/assets/logistics/js/apply_lifecycle_template_dialog.js",
-						function () {
-							window.logistics_open_apply_lifecycle_template_dialog(frm, "Special Project");
-						}
-					);
-				}
-			}, __("Lifecycle"));
 		}
 	},
 	packages_add: function (frm) {

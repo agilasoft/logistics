@@ -1,12 +1,14 @@
 /* Air Freight operations custom block — tab + toolbar overrides (with Air Booking dashboard CSS) */
 #afw_ops_heat:checked ~ .ab-tab-bar label[for="afw_ops_heat"],
-#afw_ops_alert:checked ~ .ab-tab-bar label[for="afw_ops_alert"] {
+#afw_ops_alert:checked ~ .ab-tab-bar label[for="afw_ops_alert"],
+#afw_ops_live:checked ~ .ab-tab-bar label[for="afw_ops_live"] {
   font-weight: 600;
   color: #212529;
   border-bottom-color: #212529;
 }
 #afw_ops_heat:checked ~ .ab-ro-body .ab-tab-panel-route,
-#afw_ops_alert:checked ~ .ab-ro-body .ab-tab-panel-alerts {
+#afw_ops_alert:checked ~ .ab-ro-body .ab-tab-panel-alerts,
+#afw_ops_live:checked ~ .ab-ro-body .ab-tab-panel-live {
   display: block;
 }
 .afw-ops-dash .afw-ops-page-title {
@@ -203,3 +205,196 @@
 .afw-hub-popup-stat strong {
   font-weight: 600;
 }
+
+/* Live Flights tab */
+.afw-ops-dash .afw-ops-live-card {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.afw-ops-dash .afw-ops-live-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+  padding: 0.55rem 1rem;
+  background: var(--ro-fill-light);
+  border-bottom: 1px solid var(--ro-border-soft);
+  font-size: 0.78rem;
+}
+.afw-ops-dash .afw-ops-live-auto-lbl {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-weight: 500;
+  color: var(--ro-text, #333);
+}
+.afw-ops-dash .afw-ops-live-summary {
+  color: var(--ro-label, #6c757d);
+  font-weight: 500;
+}
+.afw-ops-dash .afw-ops-live-provider {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--ro-label, #6c757d);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.afw-ops-dash .afw-ops-live-provider--error { color: #b91c1c; }
+.afw-ops-dash .afw-ops-live-provider--stale { color: #b45309; }
+.afw-ops-dash .afw-ops-live-provider--disabled { color: #6b7280; }
+.afw-ops-dash .afw-ops-live-warn {
+  color: #b45309;
+  font-size: 0.74rem;
+  background: #fef3c7;
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+}
+.afw-ops-dash .afw-ops-live-map-host {
+  position: relative;
+  height: 520px;
+}
+.afw-ops-dash .afw-ops-live-map {
+  height: 100%;
+  width: 100%;
+  background: var(--ro-fill-light, #f4f5f7);
+  border: 0;
+}
+.afw-ops-dash .afw-ops-live-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ro-label, #6c757d);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+.afw-ops-live-plane-icon {
+  background: transparent;
+  border: 0;
+}
+.afw-ops-live-plane {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+  transform-origin: center;
+}
+.afw-ops-live-popup {
+  font-size: 0.78rem;
+  min-width: 240px;
+  max-width: 360px;
+}
+.afw-ops-live-popup-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.25rem;
+}
+.afw-ops-live-popup-fnum {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.afw-ops-live-popup-route {
+  font-weight: 500;
+  color: var(--ro-text, #212529);
+  margin-bottom: 0.35rem;
+  letter-spacing: 0.02em;
+}
+.afw-ops-live-popup-meta {
+  width: 100%;
+  margin-bottom: 0.45rem;
+  border-collapse: collapse;
+}
+.afw-ops-live-popup-meta td {
+  padding: 0.12rem 0.25rem 0.12rem 0;
+  vertical-align: top;
+}
+.afw-ops-live-popup-meta td:first-child {
+  color: var(--ro-label, #6c757d);
+  width: 38%;
+  font-weight: 500;
+}
+.afw-ops-live-popup-ships {
+  width: 100%;
+  border-collapse: collapse;
+  border-top: 1px solid var(--ro-border-soft, #e5e7eb);
+  margin-top: 0.25rem;
+}
+.afw-ops-live-popup-ships th,
+.afw-ops-live-popup-ships td {
+  padding: 0.18rem 0.3rem;
+  text-align: left;
+  font-size: 0.72rem;
+}
+.afw-ops-live-popup-ships th {
+  color: var(--ro-label, #6c757d);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.afw-ops-live-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.08rem 0.35rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+}
+.afw-ops-live-badge--live { color: #1d4ed8; background: rgba(29, 78, 216, 0.08); }
+.afw-ops-live-badge--stale { color: #b45309; background: rgba(245, 158, 11, 0.12); }
+.afw-ops-live-badge--none { color: #6b7280; background: rgba(107, 114, 128, 0.1); }
+.afw-ops-dash .afw-ops-live-list {
+  max-height: 280px;
+  overflow: auto;
+  border-top: 1px solid var(--ro-border-soft, #e5e7eb);
+  background: #fff;
+}
+.afw-ops-live-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+.afw-ops-live-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--ro-fill-light, #f4f5f7);
+  text-align: left;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.66rem;
+  color: var(--ro-label, #6c757d);
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid var(--ro-border-soft, #e5e7eb);
+}
+.afw-ops-live-table tbody td {
+  padding: 0.42rem 0.65rem;
+  border-bottom: 1px solid var(--ro-border-soft, #f1f1f3);
+  vertical-align: top;
+}
+.afw-ops-live-table tbody tr:hover {
+  background: var(--ro-fill-light, #f9fafb);
+}
+.afw-ops-live-pill {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.06rem 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  text-transform: uppercase;
+}
+.afw-ops-live-pill--live { color: #1d4ed8; background: rgba(29, 78, 216, 0.08); }
+.afw-ops-live-pill--stale { color: #b45309; background: rgba(245, 158, 11, 0.12); }
+.afw-ops-live-pill--none { color: #6b7280; background: rgba(107, 114, 128, 0.1); }

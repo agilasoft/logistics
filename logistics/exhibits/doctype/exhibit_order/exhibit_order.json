@@ -263,6 +263,7 @@
    "options": "Document List Template"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "documents",
    "fieldtype": "Table",
    "label": "Documents",

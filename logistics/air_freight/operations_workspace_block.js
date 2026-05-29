@@ -810,6 +810,318 @@ function refresh() {
       renderAlerts(root, d.alert_summary || {}, d.alert_items || []);
     },
   });
+  refreshLive(root, { silent: true });
+}
+function liveTabActive(root) {
+  var inp = root.querySelector("#afw_ops_live");
+  return !!(inp && inp.checked);
+}
+function escHtml(s) {
+  return frappe.utils.escape_html(s == null ? "" : String(s));
+}
+function fmtDt(iso) {
+  if (!iso) return "—";
+  try {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    var pad = function (n) { return n < 10 ? "0" + n : "" + n; };
+    return pad(d.getUTCDate()) + "/" + pad(d.getUTCMonth() + 1) + " " +
+      pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes()) + "Z";
+  } catch (e) { return iso; }
+}
+function fmtCoord(lat, lon) {
+  if (lat == null || lon == null) return "—";
+  var ns = lat >= 0 ? "N" : "S";
+  var ew = lon >= 0 ? "E" : "W";
+  return Math.abs(lat).toFixed(3) + "°" + ns + " " + Math.abs(lon).toFixed(3) + "°" + ew;
+}
+function planeSvgHtml(headingDeg, color) {
+  var h = isFinite(headingDeg) ? headingDeg : 0;
+  return (
+    '<div class="afw-ops-live-plane" style="transform:translate(-50%,-50%) rotate(' + h + 'deg);color:' + color + '">' +
+    '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" stroke="rgba(0,0,0,0.55)" stroke-width="0.5">' +
+    '<path d="M12 2 L13 9 L22 13 L22 15 L13 13 L13 18 L16 20 L16 21.5 L12 20.5 L8 21.5 L8 20 L11 18 L11 13 L2 15 L2 13 L11 9 Z"/>' +
+    '</svg></div>'
+  );
+}
+function popupHtml(f) {
+  var fnum = escHtml(f.flight_number || "—");
+  var fs = f.flight_schedule;
+  var fnumLink = fs
+    ? '<a href="' + frappe.utils.get_form_link("Flight Schedule", fs) + '">' + fnum + "</a>"
+    : fnum;
+  var route = escHtml((f.departure_iata || "—") + "  →  " + (f.arrival_iata || "—"));
+  var pos = f.position || {};
+  var srcBadge = "";
+  if (pos.source === "live") {
+    srcBadge = '<span class="afw-ops-live-badge afw-ops-live-badge--live">LIVE</span>';
+  } else if (pos.source === "stale") {
+    srcBadge = '<span class="afw-ops-live-badge afw-ops-live-badge--stale">STALE' +
+      (pos.stale_minutes != null ? " · " + pos.stale_minutes + "m" : "") + "</span>";
+  } else {
+    srcBadge = '<span class="afw-ops-live-badge afw-ops-live-badge--none">NO FIX</span>';
+  }
+  var shipRows = (f.shipments || []).map(function (s) {
+    var awbLink = s.master_awb
+      ? '<a href="' + frappe.utils.get_form_link("Master Air Waybill", s.master_awb) + '">' + escHtml(s.master_awb_no || s.master_awb) + "</a>"
+      : "—";
+    var shLink = s.name
+      ? '<a href="' + frappe.utils.get_form_link("Air Shipment", s.name) + '">' + escHtml(s.name) + "</a>"
+      : "—";
+    return '<tr><td>' + shLink + '</td><td>' + awbLink + '</td><td>' + escHtml(s.job_status || "") + '</td></tr>';
+  }).join("");
+  return (
+    '<div class="afw-ops-live-popup">' +
+    '<div class="afw-ops-live-popup-head"><span class="afw-ops-live-popup-fnum">' + fnumLink + "</span> " + srcBadge + '</div>' +
+    '<div class="afw-ops-live-popup-route">' + route + "</div>" +
+    '<table class="afw-ops-live-popup-meta"><tbody>' +
+      '<tr><td>' + __("Status") + '</td><td>' + escHtml(f.flight_status || "—") + '</td></tr>' +
+      '<tr><td>' + __("ETD / ETA") + '</td><td>' + fmtDt(f.etd) + " / " + fmtDt(f.eta) + "</td></tr>" +
+      '<tr><td>' + __("Position") + '</td><td>' + fmtCoord(pos.lat, pos.lon) + '</td></tr>' +
+      '<tr><td>' + __("Altitude / Speed") + '</td><td>' +
+        (pos.altitude_m != null ? Math.round(pos.altitude_m) + " m" : "—") + " · " +
+        (pos.speed_kmh != null ? Math.round(pos.speed_kmh) + " km/h" : "—") +
+      "</td></tr>" +
+      '<tr><td>' + __("Updated") + '</td><td>' + fmtDt(pos.position_at) + '</td></tr>' +
+    "</tbody></table>" +
+    (shipRows
+      ? '<table class="afw-ops-live-popup-ships"><thead><tr><th>' + __("Air Shipment") + "</th><th>" + __("MAWB") + "</th><th>" + __("Status") + "</th></tr></thead><tbody>" + shipRows + "</tbody></table>"
+      : "") +
+    "</div>"
+  );
+}
+function ensureLiveMap(root) {
+  var host = root.querySelector(".afw-ops-live-map");
+  if (!host) return null;
+  if (root._afwLiveMap) {
+    try { root._afwLiveMap.invalidateSize(); } catch (e) {}
+    return root._afwLiveMap;
+  }
+  loadLeafCss(root);
+  if (!window.L) return null;
+  var map = L.map(host, { zoomControl: true, attributionControl: true }).setView([20, 0], 2);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 12,
+    attribution: "© OpenStreetMap",
+  }).addTo(map);
+  root._afwLiveMap = map;
+  root._afwLiveMarkers = [];
+  root._afwLivePlaneLayer = L.layerGroup().addTo(map);
+  return map;
+}
+function renderLiveFlights(root, data) {
+  var host = root.querySelector(".afw-ops-live-map");
+  var empty = root.querySelector(".afw-ops-live-empty");
+  var listEl = root.querySelector(".afw-ops-live-list");
+  var tabCount = root.querySelector(".afw-ops-live-tab-count");
+  var provider = root.querySelector(".afw-ops-live-provider");
+  var warn = root.querySelector(".afw-ops-live-warn");
+  var summary = root.querySelector(".afw-ops-live-summary");
+
+  var flights = (data && data.flights) || [];
+  var withPos = flights.filter(function (f) {
+    return f.position && f.position.lat != null && f.position.lon != null;
+  });
+
+  if (tabCount) tabCount.textContent = "(" + flights.length + ")";
+  if (summary) {
+    summary.textContent = (data.live_count || 0) + " " + __("live") +
+      " · " + (data.stale_count || 0) + " " + __("stale") +
+      " · " + (data.no_position_count || 0) + " " + __("no fix");
+  }
+  if (provider) {
+    var status = data.provider_status || "live";
+    var statusLabel = status === "live" ? __("connected") : status;
+    provider.textContent = (data.provider || "OpenSky Network") + " · " + statusLabel;
+    provider.className = "afw-ops-live-provider afw-ops-live-provider--" + status;
+  }
+  if (warn) {
+    if (data.provider_status === "error" && data.provider_error) {
+      warn.style.display = "";
+      warn.textContent = __("Live provider error — showing last known positions.");
+      warn.title = data.provider_error;
+    } else if (data.provider_status === "disabled") {
+      warn.style.display = "";
+      warn.textContent = __("Real-time tracking is disabled in Flight Schedule Settings.");
+      warn.title = "";
+    } else {
+      warn.style.display = "none";
+      warn.textContent = "";
+      warn.title = "";
+    }
+  }
+
+  if (empty) {
+    empty.style.display = withPos.length ? "none" : "flex";
+  }
+
+  var map = ensureLiveMap(root);
+  if (!map) {
+    // Leaflet not loaded yet — defer one tick.
+    if (!root._afwLiveLeafPending) {
+      root._afwLiveLeafPending = true;
+      loadLeafJs(function () {
+        root._afwLiveLeafPending = false;
+        renderLiveFlights(root, data);
+      });
+    }
+    return;
+  }
+
+  if (root._afwLivePlaneLayer) {
+    try { root._afwLivePlaneLayer.clearLayers(); } catch (e) {}
+  }
+  root._afwLiveMarkers = [];
+
+  var bounds = [];
+  withPos.forEach(function (f) {
+    var p = f.position || {};
+    var color =
+      p.source === "live" ? (p.on_ground ? "#6b7280" : "#1d4ed8") :
+      p.source === "stale" ? "#f59e0b" : "#9ca3af";
+    var icon = L.divIcon({
+      className: "afw-ops-live-plane-icon",
+      html: planeSvgHtml(p.heading, color),
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+    });
+    var m = L.marker([p.lat, p.lon], { icon: icon, riseOnHover: true });
+    m.bindPopup(popupHtml(f), { maxWidth: 360, autoPan: true });
+    m.bindTooltip(
+      (f.flight_number || "") + (f.departure_iata && f.arrival_iata ? " · " + f.departure_iata + "→" + f.arrival_iata : ""),
+      { direction: "top", offset: [0, -10] }
+    );
+    if (root._afwLivePlaneLayer) m.addTo(root._afwLivePlaneLayer); else m.addTo(map);
+    root._afwLiveMarkers.push(m);
+    bounds.push([p.lat, p.lon]);
+  });
+
+  if (bounds.length && !root._afwLiveFitDone) {
+    try {
+      if (bounds.length === 1) {
+        map.setView(bounds[0], 5);
+      } else {
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 7 });
+      }
+      root._afwLiveFitDone = true;
+    } catch (e) {}
+  }
+
+  if (listEl) {
+    if (!flights.length) {
+      listEl.innerHTML = "";
+    } else {
+      var head =
+        "<thead><tr>" +
+        "<th>" + __("Flight") + "</th>" +
+        "<th>" + __("Route") + "</th>" +
+        "<th>" + __("Status") + "</th>" +
+        "<th>" + __("Position") + "</th>" +
+        "<th>" + __("Updated") + "</th>" +
+        "<th>" + __("Shipments") + "</th>" +
+        "</tr></thead>";
+      var body = flights.map(function (f) {
+        var p = f.position || {};
+        var src = p.source || "none";
+        var pill = '<span class="afw-ops-live-pill afw-ops-live-pill--' + src + '">' +
+          (src === "live" ? __("LIVE") : src === "stale"
+            ? __("STALE") + (p.stale_minutes != null ? " " + p.stale_minutes + "m" : "")
+            : __("NO FIX")) + "</span>";
+        var fnumLink = f.flight_schedule
+          ? '<a href="' + frappe.utils.get_form_link("Flight Schedule", f.flight_schedule) + '">' +
+            escHtml(f.flight_number || "—") + "</a>"
+          : escHtml(f.flight_number || "—");
+        var ships = (f.shipments || []).map(function (s) {
+          return s.name
+            ? '<a href="' + frappe.utils.get_form_link("Air Shipment", s.name) + '">' + escHtml(s.name) + "</a>"
+            : "";
+        }).filter(Boolean).join(", ");
+        return "<tr>" +
+          "<td>" + fnumLink + " " + pill + "</td>" +
+          "<td>" + escHtml((f.departure_iata || "—") + " → " + (f.arrival_iata || "—")) + "</td>" +
+          "<td>" + escHtml(f.flight_status || "—") + "</td>" +
+          "<td>" + fmtCoord(p.lat, p.lon) + "</td>" +
+          "<td>" + fmtDt(p.position_at) + "</td>" +
+          "<td>" + ships + "</td>" +
+          "</tr>";
+      }).join("");
+      listEl.innerHTML = '<table class="afw-ops-live-table">' + head + "<tbody>" + body + "</tbody></table>";
+    }
+  }
+}
+function refreshLive(root, opts) {
+  opts = opts || {};
+  var btn = root.querySelector(".afw-ops-live-refresh");
+  var job_status_filter = getJobStatusFilter(root);
+  var sel = root.querySelector(".afw-ops-filter-user");
+  var filter_user = sel && sel.value ? sel.value : "";
+  var prevAir = selectedAirlineCodes(root);
+  var tr = root.querySelector(".afw-ops-filter-traffic");
+  var traffic = tr && tr.value ? tr.value : "all";
+  if (btn && !opts.silent) btn.disabled = true;
+  frappe.call({
+    method: "logistics.air_freight.api.live_flight_tracking.get_live_operational_flights",
+    args: {
+      job_status_filter: job_status_filter,
+      filter_user: filter_user,
+      traffic: traffic,
+      airlines: prevAir.length ? JSON.stringify(prevAir) : "",
+    },
+    callback: function (r) {
+      if (btn) btn.disabled = false;
+      if (!r || !r.message) return;
+      renderLiveFlights(root, r.message);
+    },
+    error: function () {
+      if (btn) btn.disabled = false;
+    },
+  });
+}
+function bindLiveFlights(root) {
+  if (root._afwLiveBound) return;
+  root._afwLiveBound = true;
+  var liveInput = root.querySelector("#afw_ops_live");
+  if (liveInput) {
+    liveInput.addEventListener("change", function () {
+      if (!liveInput.checked) return;
+      root._afwLiveFitDone = false;
+      var map = ensureLiveMap(root);
+      if (map) setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 80);
+      refreshLive(root);
+    });
+  }
+  var rfb = root.querySelector(".afw-ops-live-refresh");
+  if (rfb) {
+    rfb.addEventListener("click", function () { refreshLive(root); });
+  }
+  var auto = root.querySelector(".afw-ops-live-auto");
+  function clearTimer() {
+    if (root._afwLiveTimer) {
+      clearInterval(root._afwLiveTimer);
+      root._afwLiveTimer = null;
+    }
+  }
+  function startTimer() {
+    clearTimer();
+    root._afwLiveTimer = setInterval(function () {
+      if (!liveTabActive(root)) return;
+      if (typeof document !== "undefined" && document.hidden) return;
+      refreshLive(root, { silent: true });
+    }, 60000);
+  }
+  if (auto) {
+    if (auto.checked) startTimer();
+    auto.addEventListener("change", function () {
+      if (auto.checked) startTimer(); else clearTimer();
+    });
+  }
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden && liveTabActive(root) && auto && auto.checked) {
+        refreshLive(root, { silent: true });
+      }
+    });
+  }
 }
 var r = root_element;
 r.querySelector(".afw-hub-refresh").addEventListener("click", refresh);
@@ -832,5 +1144,6 @@ if (trf) {
   trf.addEventListener("change", refresh);
 }
 bindAirlineDropdown(root_element);
+bindLiveFlights(root_element);
 populateUserFilter(root_element, getJobStatusFilter(root_element));
 refresh();

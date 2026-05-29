@@ -238,9 +238,6 @@ def _sync_show_from_sales_quote(doc):
 		updates["customer"] = cust
 	if not _sq_strip_or_none(row.get("sales_quote")):
 		updates["sales_quote"] = doc.name
-	show_name = _sq_strip_or_none(getattr(doc, "exhibit_show_name", None))
-	if show_name and not _sq_strip_or_none(row.get("show_name")):
-		updates["show_name"] = show_name
 	open_d = getattr(doc, "exhibit_show_open_date", None)
 	if open_d and not row.get("show_open_date"):
 		updates["show_open_date"] = open_d
@@ -351,7 +348,8 @@ class SalesQuote(Document):
 		"""Validate before submitting the document"""
 		self.validate_main_service_has_charges()
 		self.validate_air_sea_charge_ports_before_submit()
-		self.validate_erpnext_project_name_before_submit()
+		# Duplicate ERPNext Project name checks are enforced when creating a Special Project,
+		# not when submitting the quote.
 
 	def validate_erpnext_project_name_before_submit(self):
 		"""Block submit when the programme name would collide with an existing ERPNext Project."""
@@ -521,8 +519,8 @@ class SalesQuote(Document):
 
 		if main_service == "Exhibits":
 			missing_fields = []
-			if not _sq_strip_or_none(getattr(self, "exhibit_show_name", None)):
-				missing_fields.append(_("Exhibit Name"))
+			if not _sq_strip_or_none(getattr(self, "exhibit", None)):
+				missing_fields.append(_("Exhibit"))
 			if not getattr(self, "exhibit_show_open_date", None):
 				missing_fields.append(_("Exhibit Open Date"))
 			if not getattr(self, "exhibit_show_close_date", None):
@@ -543,8 +541,8 @@ class SalesQuote(Document):
 
 		if main_service == "Exhibits":
 			missing_fields = []
-			if not _sq_strip_or_none(getattr(self, "exhibit_show_name", None)):
-				missing_fields.append(_("Exhibit Name"))
+			if not _sq_strip_or_none(getattr(self, "exhibit", None)):
+				missing_fields.append(_("Exhibit"))
 			if not getattr(self, "exhibit_show_open_date", None):
 				missing_fields.append(_("Exhibit Open Date"))
 			if not getattr(self, "exhibit_show_close_date", None):
@@ -996,8 +994,7 @@ def _create_special_project_from_sales_quote(sales_quote):
 	throw_if_sales_quote_expired_for_creation(sales_quote)
 	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
 
-	is_project_quote = getattr(sales_quote, "quotation_type", None) == "Project"
-	if not is_project_quote and not _sales_quote_has_special_project_content(sales_quote):
+	if not _sales_quote_has_special_project_content(sales_quote):
 		frappe.throw(
 			_(
 				"Add at least one charge line with Service Type \"Special Project\" "
@@ -1068,7 +1065,7 @@ def create_special_project_from_sales_quote(sales_quote_name):
 	return _create_special_project_from_sales_quote(sales_quote)
 
 
-def _create_docket_from_sales_quote(sales_quote):
+def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 	"""Create (or return) the Docket for ``sales_quote.customer`` on the linked Exhibit.
 
 	The Sales Quote's customer is treated as the exhibitor (booth holder). The
@@ -1133,6 +1130,9 @@ def _create_docket_from_sales_quote(sales_quote):
 	doc.exhibit = ep.name
 	doc.exhibitor = exhibitor
 	doc.sales_quote = sales_quote.name
+	booth_no = _sq_strip_or_none(booth_no)
+	if booth_no:
+		doc.booth_no = booth_no
 	doc.company = sales_quote.company or doc.company
 	doc.branch = sales_quote.branch or doc.branch
 	doc.cost_center = sales_quote.cost_center or doc.cost_center
@@ -1161,9 +1161,9 @@ def _create_docket_from_sales_quote(sales_quote):
 
 
 @frappe.whitelist()
-def create_docket_from_sales_quote(sales_quote_name):
+def create_docket_from_sales_quote(sales_quote_name, booth_no=None):
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
-	return _create_docket_from_sales_quote(sales_quote)
+	return _create_docket_from_sales_quote(sales_quote, booth_no=booth_no)
 
 
 @frappe.whitelist()

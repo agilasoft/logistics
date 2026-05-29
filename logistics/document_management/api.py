@@ -234,13 +234,60 @@ def get_document_template_items(product_type, applies_to, direction=None, entry_
 	return items
 
 
+def _document_list_template_item_fields():
+	return [
+		"document_type",
+		"sequence",
+		"is_mandatory",
+		"date_required_basis",
+		"days_offset",
+		"allow_early_upload",
+		"description",
+	]
+
+
+def _get_document_template_items_for_doc(doc, product_type, applies_to, direction=None, entry_type=None):
+	"""Resolve document template rows for a parent doc (override, product default, Exhibit Settings)."""
+	direction = direction or ""
+	entry_type = entry_type or ""
+	template_name = getattr(doc, "document_list_template", None)
+	if template_name:
+		return frappe.get_all(
+			"Document List Template Item",
+			filters={"parent": template_name},
+			fields=_document_list_template_item_fields(),
+			order_by="sequence asc",
+		)
+
+	items = get_document_template_items(product_type, applies_to, direction, entry_type)
+	if items:
+		return items
+
+	if doc.doctype == "Exhibit":
+		default_tpl = frappe.db.get_single_value("Exhibit Settings", "default_document_template")
+		if default_tpl:
+			return frappe.get_all(
+				"Document List Template Item",
+				filters={"parent": default_tpl},
+				fields=_document_list_template_item_fields(),
+				order_by="sequence asc",
+			)
+	return []
+
+
 @frappe.whitelist()
-def populate_documents_from_template(doctype, docname):
+def get_document_template_filters(doctype):
+	"""Return filters for document_list_template Link field (same rules as milestone templates)."""
+	return get_milestone_template_filters(doctype)
+
+
+@frappe.whitelist()
+def populate_documents_from_template(doctype, docname, doc=None):
 	"""Populate documents child table from template. Only adds missing document types."""
 	if not doctype or not docname or docname == "new":
 		return {"message": "Save the document first."}
 
-	doc = frappe.get_doc(doctype, docname)
+	doc = doc or frappe.get_doc(doctype, docname)
 	context = DOCTYPE_CONTEXT.get(doctype)
 	if not context:
 		return {"message": "Documents not supported for this doctype."}
@@ -248,18 +295,7 @@ def populate_documents_from_template(doctype, docname):
 	product_type, applies_to = context
 	direction = getattr(doc, "direction", None) or ""
 	entry_type = getattr(doc, "entry_type", None) or ""
-
-	# Use override template if set
-	template_name = getattr(doc, "document_list_template", None)
-	if not template_name:
-		items = get_document_template_items(product_type, applies_to, direction, entry_type)
-	else:
-		items = frappe.get_all(
-			"Document List Template Item",
-			filters={"parent": template_name},
-			fields=["document_type", "sequence", "is_mandatory", "date_required_basis", "days_offset", "allow_early_upload", "description"],
-			order_by="sequence asc",
-		)
+	items = _get_document_template_items_for_doc(doc, product_type, applies_to, direction, entry_type)
 
 	existing_types = {d.document_type for d in (doc.get("documents") or [])}
 
@@ -282,7 +318,10 @@ def populate_documents_from_template(doctype, docname):
 
 	if added:
 		doc.flags.ignore_validate = True
-		doc.save()
+		# When called from ensure_documents_and_milestones_from_template during parent
+		# on_update, avoid a nested save (causes TimestampMismatchError on the client).
+		if not getattr(frappe.flags, "in_ensure_documents_milestones", False):
+			doc.save()
 
 	return {"message": f"Added {added} document(s) from template.", "added": added}
 
@@ -371,7 +410,7 @@ def ensure_documents_and_milestones_from_template(doc, method=None):
 		# Documents: populate if this doctype has documents and template resolution
 		if doctype in DOCTYPE_CONTEXT and hasattr(doc, "documents"):
 			try:
-				populate_documents_from_template(doctype, name)
+				populate_documents_from_template(doctype, name, doc=doc)
 			except Exception as e:
 				frappe.log_error(
 					f"Error auto-populating documents for {doctype} {name}: {e}",
@@ -380,7 +419,7 @@ def ensure_documents_and_milestones_from_template(doc, method=None):
 		# Milestones: populate if this doctype has milestones
 		if doctype in MILESTONE_DOCTYPES and hasattr(doc, "milestones"):
 			try:
-				populate_milestones_from_template(doctype, name)
+				populate_milestones_from_template(doctype, name, doc=doc)
 			except Exception as e:
 				frappe.log_error(
 					f"Error auto-populating milestones for {doctype} {name}: {e}",
@@ -396,10 +435,6 @@ def ensure_documents_and_milestones_from_template(doc, method=None):
 					f"Error applying milestone sync/triggers for {doctype} {name}: {e}",
 					"Milestone Sync/Trigger Error",
 				)
-		# populate_* and milestone_sync load a separate Document instance and may save again.
-		# Without reloading, this instance keeps an older `modified` than the DB and the client
-		# gets a stale timestamp → TimestampMismatchError on the next save (same as Declaration Order note in hooks).
-		doc.reload()
 	finally:
 		frappe.flags.in_ensure_documents_milestones = False
 
@@ -565,13 +600,13 @@ def _compute_milestone_planned_dates(doc, template_item):
 
 
 @frappe.whitelist()
-def populate_milestones_from_template(doctype, docname):
+def populate_milestones_from_template(doctype, docname, doc=None):
 	"""Populate parent's milestones child table from template. Only adds missing milestones."""
 	if not doctype or not docname or docname == "new":
 		return {"message": "Save the document first.", "added": 0}
 	if doctype not in MILESTONE_DOCTYPES:
 		return {"message": "Milestones not supported for this doctype.", "added": 0}
-	doc = frappe.get_doc(doctype, docname)
+	doc = doc or frappe.get_doc(doctype, docname)
 	context = DOCTYPE_CONTEXT.get(doctype)
 	if not context:
 		return {"message": "Context not found.", "added": 0}
@@ -632,7 +667,8 @@ def populate_milestones_from_template(doctype, docname):
 		added += 1
 	if added:
 		doc.flags.ignore_validate = True
-		doc.save()
+		if not getattr(frappe.flags, "in_ensure_documents_milestones", False):
+			doc.save()
 	return {"message": f"Added {added} milestone(s) from template.", "added": added}
 
 

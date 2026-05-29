@@ -626,6 +626,7 @@
    "label": "Document Summary"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "documents",
    "fieldtype": "Table",
    "label": "Documents",

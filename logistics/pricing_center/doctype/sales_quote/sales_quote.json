@@ -83,7 +83,6 @@
   "special_handling_instructions",
   "exhibit",
   "exhibit_show_section",
-  "exhibit_show_name",
   "column_break_exhibit_show",
   "exhibit_show_open_date",
   "exhibit_show_close_date",
@@ -351,8 +350,7 @@
    "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
    "fieldname": "project_name",
    "fieldtype": "Data",
-   "label": "Project Name",
-   "mandatory_depends_on": "eval:doc.quotation_type == \"Project\""
+   "label": "Project Name"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
@@ -408,6 +406,7 @@
    "fieldname": "exhibit",
    "fieldtype": "Link",
    "label": "Exhibit",
+   "mandatory_depends_on": "eval:doc.main_service == \"Exhibits\"",
    "options": "Exhibit"
   },
   {
@@ -415,13 +414,6 @@
    "fieldname": "exhibit_show_section",
    "fieldtype": "Section Break",
    "label": "Exhibit Details"
-  },
-  {
-   "depends_on": "eval:doc.main_service == \"Exhibits\"",
-   "fieldname": "exhibit_show_name",
-   "fieldtype": "Data",
-   "label": "Exhibit Name",
-   "mandatory_depends_on": "eval:doc.main_service == \"Exhibits\""
   },
   {
    "depends_on": "eval:doc.main_service == \"Exhibits\"",
