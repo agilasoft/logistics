@@ -287,7 +287,6 @@
    "description": "Auto-populated read-only view. Use <b>Add Docket</b> to create a new Sales Quote for this Exhibit.",
    "fieldname": "dockets",
    "fieldtype": "Table",
-   "is_virtual": 1,
    "label": "Dockets",
    "no_copy": 1,
    "options": "Exhibit Docket",
