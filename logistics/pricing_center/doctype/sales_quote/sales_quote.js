@@ -1318,15 +1318,12 @@ function logistics_sq_add_programme_create_buttons(frm) {
 		return;
 	}
 
-	const isProjectQuote = frm.doc.quotation_type === "Project";
 	const hasSpecialProject =
 		(frm.doc.charges || []).some(
 			(c) => logistics_canonical_charge_service_type(c.service_type) === "special project"
 		) || (frm.doc.project_resources || []).length > 0;
-	const spEligible =
-		frm.doc.main_service === "Special Project" || isProjectQuote;
 
-	if (spEligible && (isProjectQuote || hasSpecialProject)) {
+	if (hasSpecialProject) {
 		frm.add_custom_button(__("Create Special Project"), function () {
 			frappe.call({
 				method:
@@ -1371,14 +1368,29 @@ function logistics_sq_open_create_docket_dialog(frm) {
 					[frappe.utils.escape_html(frm.doc.customer || "")]
 				),
 			},
+			{
+				fieldname: "booth_no",
+				fieldtype: "Data",
+				label: __("Booth No"),
+				reqd: 1,
+			},
 		],
 		primary_action_label: __("Create"),
-		primary_action() {
+		primary_action(values) {
+			const booth_no = values && values.booth_no ? String(values.booth_no).trim() : "";
+			if (!booth_no) {
+				frappe.msgprint({
+					title: __("Required"),
+					message: __("Please enter Booth No to create a Docket."),
+					indicator: "orange",
+				});
+				return;
+			}
 			d.hide();
 			frappe.call({
 				method:
 					"logistics.pricing_center.doctype.sales_quote.sales_quote.create_docket_from_sales_quote",
-				args: { sales_quote_name: frm.doc.name },
+				args: { sales_quote_name: frm.doc.name, booth_no: booth_no },
 				freeze: true,
 				freeze_message: __("Creating Docket..."),
 				callback(r) {

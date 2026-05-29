@@ -112,6 +112,35 @@ RUN_SHEET_LAYOUT_CSS = """
 .map-links a { text-decoration: none; color: #6c757d; font-size: 12px; }
 .map-legend { position: absolute; top: 10px; left: 10px; z-index: 1000; background: rgba(255,255,255,0.95); padding: 8px 12px; border-radius: 4px; font-size: 11px; display: flex; gap: 12px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
 .map-legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.af-live-status { position: absolute; top: 10px; right: 10px; z-index: 1100; background: rgba(255,255,255,0.96); padding: 8px 10px; border-radius: 6px; font-size: 11px; min-width: 200px; max-width: 280px; display: flex; gap: 8px; align-items: flex-start; box-shadow: 0 2px 6px rgba(0,0,0,0.18); border-left: 4px solid #9ca3af; }
+.af-live-status__dot { width: 10px; height: 10px; border-radius: 50%; background: #9ca3af; margin-top: 4px; flex: 0 0 auto; box-shadow: 0 0 0 0 rgba(156,163,175,0.55); }
+.af-live-status__body { flex: 1 1 auto; min-width: 0; }
+.af-live-status__head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.af-live-status__flight { font-weight: 700; font-size: 12px; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.af-live-status__state { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 10px; background: #e5e7eb; color: #374151; white-space: nowrap; }
+.af-live-status__route { font-size: 11px; color: #4b5563; margin-top: 2px; }
+.af-live-status__meta { font-size: 10.5px; color: #6b7280; margin-top: 4px; line-height: 1.45; }
+.af-live-status__meta strong { color: #111827; font-weight: 600; }
+.af-live-status__metrics { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; font-size: 10.5px; color: #374151; }
+.af-live-status__metric { white-space: nowrap; }
+.af-live-status__metric b { font-weight: 600; color: #111827; }
+.af-live-status--live { border-left-color: #1d4ed8; }
+.af-live-status--live .af-live-status__dot { background: #1d4ed8; animation: af-live-pulse 1.6s ease-out infinite; }
+.af-live-status--live .af-live-status__state { background: #dbeafe; color: #1d4ed8; }
+.af-live-status--ground { border-left-color: #6b7280; }
+.af-live-status--ground .af-live-status__dot { background: #6b7280; }
+.af-live-status--ground .af-live-status__state { background: #e5e7eb; color: #374151; }
+.af-live-status--stale { border-left-color: #f59e0b; }
+.af-live-status--stale .af-live-status__dot { background: #f59e0b; }
+.af-live-status--stale .af-live-status__state { background: #fef3c7; color: #b45309; }
+.af-live-status--nofix { border-left-color: #9ca3af; }
+.af-live-status--nofix .af-live-status__dot { background: #9ca3af; }
+.af-live-status--nofix .af-live-status__state { background: #f3f4f6; color: #4b5563; }
+.af-live-status--error { border-left-color: #dc2626; }
+.af-live-status--error .af-live-status__dot { background: #dc2626; }
+.af-live-status--error .af-live-status__state { background: #fee2e2; color: #b91c1c; }
+.af-live-status--loading { border-left-color: #9ca3af; opacity: 0.85; }
+@keyframes af-live-pulse { 0% { box-shadow: 0 0 0 0 rgba(29,78,216,0.55); } 70% { box-shadow: 0 0 0 8px rgba(29,78,216,0); } 100% { box-shadow: 0 0 0 0 rgba(29,78,216,0); } }
 .card-list { display: flex; flex-direction: column; gap: 8px; }
 .dash-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid #667eea; }
 .dash-card.completed { border-left-color: #28a745; }
@@ -297,12 +326,14 @@ def render_route_map_html(
 	straight_line=True,
 	hide_map=False,
 	vessel_tracking_map=None,
+	aircraft_tracking_map=None,
 ):
 	"""
 	Build the map column HTML + init script (Leaflet / Google / MapLibre) for run-sheet and Air Booking dashboards.
 	Does not depend on header route labels.
 
 	vessel_tracking_map: optional dict with enabled (bool), sea_shipment (name), hint — enables async AIS vessel marker.
+	aircraft_tracking_map: optional dict with enabled (bool), air_shipment (name), hint — enables async OpenSky/ADS-B aircraft marker rotated by heading.
 	"""
 	segments, all_points, use_segments = _normalize_map_input(map_points, map_segments)
 	points_for_header = all_points if all_points else (map_points or [])
@@ -324,6 +355,7 @@ def render_route_map_html(
 	waypoints_str = "|".join(f"{p.get('lat')},{p.get('lon')}" for p in points_for_header) if points_for_header else ""
 	straight_line_js = "true" if straight_line else "false"
 	vessel_tracking_json = json.dumps(vessel_tracking_map or {})
+	aircraft_tracking_json = json.dumps(aircraft_tracking_map or {})
 
 	map_section = ""
 	legend_html = ""
@@ -339,11 +371,27 @@ def render_route_map_html(
 		if legend_items:
 			legend_html = f'<div class="map-legend">{chr(10).join(legend_items)}</div>'
 
+	aircraft_badge_html = ""
+	if aircraft_tracking_map and aircraft_tracking_map.get("enabled"):
+		aircraft_badge_html = (
+			f'<div id="{map_id_prefix}-aircraft-status" class="af-live-status af-live-status--loading" '
+			f'role="status" aria-live="polite">'
+			f'<div class="af-live-status__dot"></div>'
+			f'<div class="af-live-status__body">'
+			f'<div class="af-live-status__head">'
+			f'<span class="af-live-status__flight">Live Flight</span>'
+			f'<span class="af-live-status__state">LOADING…</span>'
+			f'</div>'
+			f'<div class="af-live-status__meta">Resolving aircraft position…</div>'
+			f'</div></div>'
+		)
+
 	if not hide_map and len(points_for_header) >= 2:
 		map_section = f"""
 		<div class="map-main">
 			<div class="map-box" style="position: relative;">
 				{legend_html}
+				{aircraft_badge_html}
 				<div id="{map_id_prefix}" class="map-view"></div>
 				<div id="{map_id_prefix}-fallback" style="display: flex; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); align-items: center; justify-content: center; flex-direction: column;">
 					<div style="text-align: center; color: #6c757d;">
@@ -370,6 +418,199 @@ def render_route_map_html(
 			const straightLine = {straight_line_js};
 			const useSegments = {json.dumps(use_segments)};
 			const vesselTrackingMap = {vessel_tracking_json};
+			const aircraftTrackingMap = {aircraft_tracking_json};
+			function runAircraftTrackingOverlay(engine, mapInstance) {{
+				if (!aircraftTrackingMap || !aircraftTrackingMap.enabled || !aircraftTrackingMap.air_shipment) return;
+				function buildPopup(m) {{
+					var lines = [];
+					lines.push('<b>' + frappe.utils.escape_html(String(m.flight_number || m.label || 'Aircraft')) + '</b>');
+					if (m.departure_iata && m.arrival_iata) {{
+						lines.push('<div style="color:#444;">' + frappe.utils.escape_html(m.departure_iata + ' → ' + m.arrival_iata) + '</div>');
+					}}
+					var badge = m.source === 'live'
+						? '<span style="color:#1d4ed8;font-weight:600;">LIVE</span>'
+						: (m.source === 'stale' ? '<span style="color:#b45309;font-weight:600;">STALE' + (m.stale_minutes != null ? ' · ' + m.stale_minutes + 'm' : '') + '</span>'
+						: '<span style="color:#6b7280;font-weight:600;">NO FIX</span>');
+					lines.push('<div>' + badge + (m.flight_status ? ' · ' + frappe.utils.escape_html(m.flight_status) : '') + '</div>');
+					if (m.altitude_m != null) lines.push('Altitude: ' + Math.round(m.altitude_m) + ' m');
+					if (m.speed_kmh != null) lines.push('Speed: ' + Math.round(m.speed_kmh) + ' km/h');
+					if (m.heading != null) lines.push('Heading: ' + Math.round(m.heading) + '°');
+					if (m.recorded_at) lines.push('<small>Updated: ' + frappe.utils.escape_html(String(m.recorded_at)) + '</small>');
+					if (m.flight_schedule) {{
+						lines.push('<a href="' + frappe.utils.get_form_link('Flight Schedule', m.flight_schedule) + '">Open Flight Schedule</a>');
+					}}
+					return lines.join('<br/>');
+				}}
+				function makeLeafletIcon(headingDeg, color) {{
+					var h = (typeof headingDeg === 'number' && isFinite(headingDeg)) ? headingDeg : 0;
+					var html = '<div style="transform:translate(-50%,-50%) rotate(' + h + 'deg);color:' + color + ';">' +
+						'<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" stroke="rgba(0,0,0,0.55)" stroke-width="0.6">' +
+						'<path d="M12 2 L13 9 L22 13 L22 15 L13 13 L13 18 L16 20 L16 21.5 L12 20.5 L8 21.5 L8 20 L11 18 L11 13 L2 15 L2 13 L11 9 Z"/></svg></div>';
+					return L.divIcon({{ html: html, className: 'af-form-live-plane', iconSize: [26, 26], iconAnchor: [13, 13] }});
+				}}
+				function planeColor(m) {{
+					if (m.source === 'live') return m.on_ground ? '#6b7280' : '#1d4ed8';
+					if (m.source === 'stale') return '#f59e0b';
+					return '#9ca3af';
+				}}
+				function placeMarker(m) {{
+					var lat = parseFloat(m.lat), lon = parseFloat(m.lon);
+					if (isNaN(lat) || isNaN(lon)) return;
+					var color = planeColor(m);
+					var pop = buildPopup(m);
+					if (engine === 'leaflet') {{
+						L.marker([lat, lon], {{ icon: makeLeafletIcon(m.heading, color), riseOnHover: true, zIndexOffset: 1000 }})
+							.addTo(mapInstance).bindPopup(pop);
+						try {{
+							var b = mapInstance.getBounds();
+							if (b && b.isValid()) {{ mapInstance.fitBounds(b.extend([lat, lon]).pad(0.12)); }}
+						}} catch (e1) {{}}
+					}} else if (engine === 'google') {{
+						var pos = {{ lat: lat, lng: lon }};
+						var heading = (typeof m.heading === 'number' && isFinite(m.heading)) ? m.heading : 0;
+						new google.maps.Marker({{
+							position: pos,
+							map: mapInstance,
+							title: m.flight_number || m.label || 'Aircraft',
+							icon: {{
+								path: 'M0 -10 L1 -3 L10 1 L10 3 L1 1 L1 6 L4 8 L4 9 L0 8 L-4 9 L-4 8 L-1 6 L-1 1 L-10 3 L-10 1 L-1 -3 Z',
+								scale: 1.4,
+								rotation: heading,
+								fillColor: color,
+								fillOpacity: 1,
+								strokeColor: 'rgba(0,0,0,0.55)',
+								strokeWeight: 0.6,
+							}},
+							zIndex: 1000,
+						}});
+						try {{
+							var bounds = mapInstance.getBounds();
+							if (bounds) {{ bounds.extend(pos); mapInstance.fitBounds(bounds); }}
+						}} catch (e2) {{}}
+					}} else if (engine === 'maplibre') {{
+						var el = document.createElement('div');
+						el.style.cssText = 'transform: rotate(' + ((typeof m.heading === 'number' && isFinite(m.heading)) ? m.heading : 0) + 'deg);color:' + color + ';';
+						el.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" stroke="rgba(0,0,0,0.55)" stroke-width="0.6"><path d="M12 2 L13 9 L22 13 L22 15 L13 13 L13 18 L16 20 L16 21.5 L12 20.5 L8 21.5 L8 20 L11 18 L11 13 L2 15 L2 13 L11 9 Z"/></svg>';
+						new maplibregl.Marker({{ element: el }}).setLngLat([lon, lat]).setPopup(new maplibregl.Popup().setHTML(pop)).addTo(mapInstance);
+						try {{
+							var bb = mapInstance.getBounds();
+							if (bb) {{ bb.extend([lon, lat]); mapInstance.fitBounds(bb, {{ padding: 50 }}); }}
+						}} catch (e3) {{}}
+					}}
+				}}
+				var leafletMarkerRef = null;
+				function clearLeafletMarker() {{
+					if (engine !== 'leaflet' || !leafletMarkerRef) return;
+					try {{ mapInstance.removeLayer(leafletMarkerRef); }} catch (eRem) {{}}
+					leafletMarkerRef = null;
+				}}
+				function placeMarkerTracked(m) {{
+					if (engine === 'leaflet') {{
+						clearLeafletMarker();
+						var lat = parseFloat(m.lat), lon = parseFloat(m.lon);
+						if (isNaN(lat) || isNaN(lon)) return;
+						var color = planeColor(m);
+						var pop = buildPopup(m);
+						leafletMarkerRef = L.marker([lat, lon], {{ icon: makeLeafletIcon(m.heading, color), riseOnHover: true, zIndexOffset: 1000 }})
+							.addTo(mapInstance).bindPopup(pop);
+					}} else {{
+						placeMarker(m);
+					}}
+				}}
+				function statusVariant(m) {{
+					if (!m) return {{ cls: 'af-live-status--error', label: 'ERROR' }};
+					if (!m.success) {{
+						if (m.provider_status === 'unreachable') return {{ cls: 'af-live-status--error', label: 'UNREACHABLE' }};
+						if (m.provider_status === 'no_match') return {{ cls: 'af-live-status--nofix', label: 'NO ADS-B' }};
+						if (m.provider_status === 'no_callsign') return {{ cls: 'af-live-status--nofix', label: 'NO CALLSIGN' }};
+						if (m.provider_status === 'disabled') return {{ cls: 'af-live-status--nofix', label: 'DISABLED' }};
+						if (m.provider_status === 'queued') return {{ cls: 'af-live-status--loading', label: 'FETCHING…' }};
+						if (m.provider_status === 'error') return {{ cls: 'af-live-status--error', label: 'ERROR' }};
+						return {{ cls: 'af-live-status--nofix', label: 'NO FIX' }};
+					}}
+					if (m.source === 'live') {{
+						return m.on_ground
+							? {{ cls: 'af-live-status--ground', label: 'ON GROUND' }}
+							: {{ cls: 'af-live-status--live', label: 'LIVE' }};
+					}}
+					if (m.source === 'stale') {{
+						return {{ cls: 'af-live-status--stale', label: 'STALE' + (m.stale_minutes != null ? ' · ' + m.stale_minutes + 'm' : '') }};
+					}}
+					return {{ cls: 'af-live-status--nofix', label: 'NO FIX' }};
+				}}
+				function fmtTimeAgo(iso) {{
+					if (!iso) return '';
+					var t = Date.parse(iso);
+					if (isNaN(t)) return frappe.utils.escape_html(String(iso));
+					var diffS = Math.max(0, Math.floor((Date.now() - t) / 1000));
+					if (diffS < 60) return diffS + 's ago';
+					var diffM = Math.floor(diffS / 60);
+					if (diffM < 60) return diffM + 'm ago';
+					var diffH = Math.floor(diffM / 60);
+					if (diffH < 24) return diffH + 'h ' + (diffM % 60) + 'm ago';
+					var diffD = Math.floor(diffH / 24);
+					return diffD + 'd ago';
+				}}
+				function updateBadge(m) {{
+					var badge = document.getElementById(mapId + '-aircraft-status');
+					if (!badge) return;
+					var variant = statusVariant(m);
+					badge.className = 'af-live-status ' + variant.cls;
+
+					var flightName = (m && (m.flight_number || m.label)) || 'Live Flight';
+					var route = (m && m.departure_iata && m.arrival_iata)
+						? (m.departure_iata + ' → ' + m.arrival_iata) : '';
+					var metricsBits = [];
+					if (m && m.altitude_m != null) metricsBits.push('<span class="af-live-status__metric"><b>Alt</b> ' + Math.round(m.altitude_m / 100) * 100 + ' m</span>');
+					if (m && m.speed_kmh != null) metricsBits.push('<span class="af-live-status__metric"><b>Spd</b> ' + Math.round(m.speed_kmh) + ' km/h</span>');
+					if (m && m.heading != null) metricsBits.push('<span class="af-live-status__metric"><b>Hdg</b> ' + Math.round(m.heading) + '°</span>');
+					var statusLine = (m && m.flight_status) ? m.flight_status : '';
+					var providerLine = '';
+					if (m && m.provider) providerLine = m.provider;
+					var updatedLine = '';
+					if (m && m.recorded_at) updatedLine = '<strong>Updated</strong> ' + fmtTimeAgo(m.recorded_at);
+					else if (m && !m.success && m.provider_error) updatedLine = frappe.utils.escape_html(String(m.provider_error));
+					else if (m && !m.success && m.message) updatedLine = frappe.utils.escape_html(String(m.message));
+
+					var fsLink = '';
+					if (m && m.flight_schedule) {{
+						fsLink = ' · <a href="' + frappe.utils.get_form_link('Flight Schedule', m.flight_schedule) + '" style="color:#1d4ed8;">FS</a>';
+					}}
+
+					badge.innerHTML =
+						'<div class="af-live-status__dot"></div>' +
+						'<div class="af-live-status__body">' +
+							'<div class="af-live-status__head">' +
+								'<span class="af-live-status__flight">' + frappe.utils.escape_html(String(flightName)) + '</span>' +
+								'<span class="af-live-status__state">' + frappe.utils.escape_html(variant.label) + '</span>' +
+							'</div>' +
+							(route ? '<div class="af-live-status__route">' + frappe.utils.escape_html(route) + (statusLine ? ' · ' + frappe.utils.escape_html(statusLine) : '') + '</div>' : (statusLine ? '<div class="af-live-status__route">' + frappe.utils.escape_html(statusLine) + '</div>' : '')) +
+							(metricsBits.length ? '<div class="af-live-status__metrics">' + metricsBits.join('') + '</div>' : '') +
+							'<div class="af-live-status__meta">' + (updatedLine || (providerLine ? ('<strong>' + frappe.utils.escape_html(providerLine) + '</strong>') : '')) + fsLink + '</div>' +
+						'</div>';
+				}}
+				function fetchAndRender() {{
+					frappe.call({{
+						method: 'logistics.air_freight.api.live_flight_tracking.get_aircraft_position_for_map',
+						args: {{ air_shipment: aircraftTrackingMap.air_shipment }}
+					}}).then(function(r) {{
+						var m = (r && r.message) || {{ success: false }};
+						updateBadge(m);
+						if (m.success && m.lat != null && m.lon != null) placeMarkerTracked(m);
+					}}).catch(function() {{
+						updateBadge({{ success: false, provider_status: 'error', message: 'Request failed' }});
+					}});
+				}}
+				setTimeout(fetchAndRender, 1500);
+				try {{
+					var refreshTimer = setInterval(function() {{
+						var badge = document.getElementById(mapId + '-aircraft-status');
+						if (!badge || !document.body.contains(badge)) {{ clearInterval(refreshTimer); return; }}
+						if (document.hidden) return;
+						fetchAndRender();
+					}}, 60000);
+				}} catch (eTimer) {{}}
+			}}
 			function runVesselTrackingOverlay(engine, mapInstance) {{
 				if (!vesselTrackingMap || !vesselTrackingMap.enabled || !vesselTrackingMap.sea_shipment) return;
 				setTimeout(function() {{
@@ -480,6 +721,7 @@ def render_route_map_html(
 					drawSegments(map, addMarker, addPolyline, fitBounds);
 					hideFallback();
 					runVesselTrackingOverlay('leaflet', map);
+					runAircraftTrackingOverlay('leaflet', map);
 				}} catch (e) {{ console.error('Map init error:', e); showFallback(); }}
 			}}
 			function initGoogleMap() {{
@@ -515,6 +757,7 @@ def render_route_map_html(
 					drawSegments(map, addMarker, addPolyline, fitBounds);
 					hideFallback();
 					runVesselTrackingOverlay('google', map);
+					runAircraftTrackingOverlay('google', map);
 				}} catch (e) {{ console.error('Google Map init error:', e); initLeaflet(); }}
 			}}
 			function initMapLibre() {{
@@ -549,6 +792,7 @@ def render_route_map_html(
 					drawSegments(map, addMarker, addPolyline, fitBounds);
 					hideFallback();
 					runVesselTrackingOverlay('maplibre', map);
+					runAircraftTrackingOverlay('maplibre', map);
 				}} catch (e) {{ initLeaflet(); }}
 			}}
 			function init() {{

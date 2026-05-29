@@ -41,6 +41,20 @@ class TestShow(IntegrationTestCase):
 		dk.flags.ignore_mandatory = True
 		dk.insert(ignore_permissions=True)
 		return dk
+	def test_save_with_virtual_dockets_does_not_fail_version(self):
+		"""Regression: virtual dockets grid must not break Version diff on save."""
+		if not frappe.db.exists("DocType", "Exhibit"):
+			self.skipTest("Exhibit DocType not installed")
+		doc = self._minimal_exhibit("Test Virtual Dockets Save")
+		try:
+			doc = frappe.get_doc("Exhibit", doc.name)
+			doc._load_dockets_view()
+			self.assertIsInstance(doc.get("dockets"), list)
+			doc.description = (doc.description or "") + " updated"
+			doc.save(ignore_permissions=True)
+		finally:
+			doc.delete(ignore_permissions=True)
+
 	def test_standard_activities_loaded_on_insert(self):
 		if not frappe.db.exists("DocType", "Exhibit"):
 			self.skipTest("Exhibit DocType not installed")
@@ -82,9 +96,6 @@ class TestShow(IntegrationTestCase):
 		customer = frappe.db.get_value("Customer", {}, "name")
 		if not customer:
 			self.skipTest("No Customer in system")
-		exhibitor = frappe.db.get_value(
-			"Customer", {"name": ["!=", customer]}, "name"
-		) or customer
 		doc = frappe.new_doc("Exhibit")
 		doc.project_name = "Test SQ Defaults Exhibit"
 		doc.customer = customer
@@ -94,26 +105,16 @@ class TestShow(IntegrationTestCase):
 		doc.description = "Test exhibit description"
 		doc.insert(ignore_permissions=True)
 		try:
-			defaults = get_sales_quote_defaults_from_exhibit(doc.name, exhibitor)
+			defaults = get_sales_quote_defaults_from_exhibit(doc.name, None)
 			self.assertEqual(defaults["exhibit"], doc.name)
-			self.assertEqual(defaults["customer"], exhibitor)
+			self.assertNotIn("customer", defaults)
 			self.assertEqual(defaults["main_service"], "Exhibits")
-			self.assertEqual(defaults["quotation_type"], "Regular")
-			self.assertEqual(defaults["exhibit_show_name"], doc.project_name)
+			self.assertEqual(defaults["quotation_type"], "Project")
+			self.assertEqual(defaults["naming_series"], "PQ.#####")
 			self.assertEqual(defaults["exhibit_show_open_date"], str(doc.show_open_date))
 			self.assertEqual(defaults["exhibit_show_close_date"], str(doc.show_close_date))
 			self.assertEqual(defaults["priority"], "High")
 			self.assertEqual(defaults["description"], doc.description)
-		finally:
-			doc.delete(ignore_permissions=True)
-
-	def test_get_sales_quote_defaults_requires_customer(self):
-		if not frappe.db.exists("DocType", "Exhibit"):
-			self.skipTest("Exhibit DocType not installed")
-		doc = self._minimal_exhibit("Test SQ Defaults Validation")
-		try:
-			with self.assertRaises(frappe.ValidationError):
-				get_sales_quote_defaults_from_exhibit(doc.name, None)
 		finally:
 			doc.delete(ignore_permissions=True)
 

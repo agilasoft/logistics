@@ -31,9 +31,11 @@
   <div class="ab-tab-shell">
     <input type="radio" name="afw_ops_tabs" id="afw_ops_heat" class="ab-dash-tab-input" checked>
     <input type="radio" name="afw_ops_tabs" id="afw_ops_alert" class="ab-dash-tab-input">
+    <input type="radio" name="afw_ops_tabs" id="afw_ops_live" class="ab-dash-tab-input">
     <div class="ab-tab-bar">
       <label for="afw_ops_heat" class="ab-tlabel">HeatMap</label>
       <label for="afw_ops_alert" class="ab-tlabel">Alerts and Notifications <span class="ab-tab-count afw-ops-alerts-tab-count">(0)</span></label>
+      <label for="afw_ops_live" class="ab-tlabel">Live Flights <span class="ab-tab-count afw-ops-live-tab-count">(0)</span></label>
     </div>
     <div class="ab-ro-body">
       <div class="ab-tab-panels ab-ro-shell">
@@ -85,6 +87,22 @@
                 <div class="doc-alerts-cards afw-ops-ops-alert-cards"></div>
               </div>
             </div>
+          </div>
+        </div>
+        <div class="ab-tab-panel ab-tab-panel-live">
+          <div class="log-ab-ro-card log-ab-ro-card--flush afw-ops-live-card">
+            <div class="afw-ops-live-toolbar">
+              <button type="button" class="btn btn-default btn-xs afw-ops-live-refresh" title="Refresh"><i class="fa fa-refresh"></i></button>
+              <label class="afw-ops-live-auto-lbl"><input type="checkbox" class="afw-ops-live-auto" checked> Auto-refresh (60s)</label>
+              <span class="afw-ops-live-summary"></span>
+              <span class="afw-ops-live-provider"></span>
+              <span class="afw-ops-live-warn" style="display:none;"></span>
+            </div>
+            <div class="afw-ops-live-map-host">
+              <div class="afw-ops-live-map"></div>
+              <div class="afw-ops-live-empty" style="display:none;">No operational flights with positions to show.</div>
+            </div>
+            <div class="afw-ops-live-list"></div>
           </div>
         </div>
       </div>

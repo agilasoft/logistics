@@ -170,6 +170,8 @@ logistics.patches.v1_0_backfill_main_service_internal_job_rollup
 # during link validation on insert.
 logistics.patches.v1_0_rename_exhibit_lifecycle_stage_to_lifecycle_stage
 logistics.patches.v1_0_seed_exhibit_lifecycle_stage
+# Exhibits: seed default milestone/document templates and Exhibit Settings single.
+logistics.patches.v1_0_create_exhibit_templates
 # Special Projects: backfill lifecycle_stage on existing Site Receipt rows for the new
 # per-stage delivery funnel summary.
 logistics.patches.v1_1_special_project_receipt_lifecycle_stage
@@ -181,3 +183,7 @@ logistics.patches.v1_0_driver_pair_transport_vehicle
 # Docket and linked operational job (Air/Sea Shipment, Transport Job, etc.) so
 # the new Project-level Profitability tab can roll up GL entries by project.
 logistics.patches.v1_1_project_dimension_on_exhibit_special_project_jobs
+# Air Freight: add the "Live Flights" tab to the Air Freight Operations
+# Dashboard Custom HTML Block (OpenSky-driven realtime aircraft positions for
+# operational flights linked via Air Shipment -> Master AWB -> Flight Schedule).
+logistics.patches.v1_1_add_live_flights_tab_to_air_freight_ops

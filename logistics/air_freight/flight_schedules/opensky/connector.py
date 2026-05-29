@@ -155,6 +155,71 @@ class OpenSkyConnector(BaseFlightConnector):
 			frappe.log_error(f"Error getting real-time flight: {str(e)}")
 			raise
 	
+	def get_states_for_callsigns(
+		self,
+		callsigns: List[str],
+		bbox: Optional[Dict[str, float]] = None,
+		timeout: Optional[int] = None,
+	) -> Dict[str, Dict[str, Any]]:
+		"""
+		Fetch ADS-B state vectors and return a {normalized_callsign: normalized_state}
+		mapping for the requested callsigns.
+
+		``bbox``: optional ``{lamin, lomin, lamax, lomax}`` to narrow the OpenSky
+		response.  Without a bbox the global snapshot is 15-30 MB and frequently
+		times out at the default 30s ceiling, even with credentials; with one it
+		drops to under 100 KB for a continental corridor and almost always
+		responds within a few seconds.
+
+		``timeout``: optional per-call timeout in seconds (default 30 from
+		``BaseFlightConnector.make_request``).
+
+		One HTTP call covers any number of callsigns, which is essential for the
+		Live Flights dashboard so we stay well under OpenSky's daily quota.
+		Callsign matching is case-insensitive and whitespace-stripped.
+		"""
+		out: Dict[str, Dict[str, Any]] = {}
+		if not callsigns:
+			return out
+
+		wanted = set()
+		for c in callsigns:
+			if not c:
+				continue
+			cs = str(c).strip().upper()
+			if cs:
+				wanted.add(cs)
+		if not wanted:
+			return out
+
+		params: Dict[str, Any] = {}
+		if bbox:
+			lamin = bbox.get("lamin")
+			lomin = bbox.get("lomin")
+			lamax = bbox.get("lamax")
+			lomax = bbox.get("lomax")
+			if None not in (lamin, lomin, lamax, lomax):
+				params = {"lamin": lamin, "lomin": lomin, "lamax": lamax, "lomax": lomax}
+
+		url = f"{self.base_url}/states/all"
+		kwargs: Dict[str, Any] = {"params": params} if params else {}
+		if timeout:
+			kwargs["timeout_override"] = timeout
+		response = self.make_request("GET", url, **kwargs)
+		data = response.json() or {}
+		states = data.get("states") or []
+		for state in states:
+			try:
+				cs = (state[1] or "").strip().upper()
+			except Exception:
+				continue
+			if not cs or cs not in wanted:
+				continue
+			out[cs] = self.normalize_state_vector(state)
+			if len(out) == len(wanted):
+				break
+		return out
+
 	def get_flights_in_area(self, lat_min: float, lon_min: float, 
 	                        lat_max: float, lon_max: float) -> List[Dict[str, Any]]:
 		"""

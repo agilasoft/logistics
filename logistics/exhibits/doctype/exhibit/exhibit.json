@@ -277,16 +277,17 @@
    "label": "Move-Out Date"
   },
   {
-   "description": "Live view of every Docket linked to this Exhibit. Rows are loaded automatically from existing Dockets and cannot be edited here. Use <b>Add Dockets</b> to add tagged dockets to the table.",
+   "description": "Live view of every Docket linked to this Exhibit. Rows are loaded automatically from existing Dockets and cannot be edited here. Use <b>Add Docket</b> to create a new Sales Quote for this Exhibit.",
    "fieldname": "section_dockets",
    "fieldtype": "Section Break",
    "label": "Dockets"
   },
   {
    "allow_on_submit": 1,
-   "description": "Auto-populated read-only view. Use <b>Add Dockets</b> to add tagged dockets to the table; use <b>Open Docket</b> to navigate to a row.",
+   "description": "Auto-populated read-only view. Use <b>Add Docket</b> to create a new Sales Quote for this Exhibit.",
    "fieldname": "dockets",
    "fieldtype": "Table",
+   "is_virtual": 1,
    "label": "Dockets",
    "no_copy": 1,
    "options": "Exhibit Docket",
@@ -409,6 +410,7 @@
    "label": "Document Summary"
   },
   {
+   "allow_on_submit": 1,
    "description": "Override default template. Leave empty to use product default.",
    "fieldname": "document_list_template",
    "fieldtype": "Link",
@@ -416,6 +418,7 @@
    "options": "Document List Template"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "documents",
    "fieldtype": "Table",
    "label": "Documents",
@@ -538,7 +541,7 @@
    "link_fieldname": "exhibit"
   }
  ],
- "modified": "2026-05-28 09:47:47.398763",
+ "modified": "2026-05-29 09:47:12.293981",
  "modified_by": "Administrator",
  "module": "Exhibits",
  "name": "Exhibit",

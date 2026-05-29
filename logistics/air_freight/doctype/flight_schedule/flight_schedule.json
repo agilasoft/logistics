@@ -1,7 +1,7 @@
 {
  "actions": [],
  "autoname": "format:FS-{flight_number}-{YYYY}-{MM}-{DD}-{####}",
- "creation": "2025-10-01 00:00:00.000000",
+ "creation": "2025-10-01 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -85,16 +85,18 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Airline",
-   "options": "Airline",
-   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]",
+   "options": "Airline"
   },
   {
+   "fetch_from": "airline.iata_code",
    "fieldname": "airline_iata",
    "fieldtype": "Data",
    "label": "Airline IATA Code",
    "length": 2
   },
   {
+   "fetch_from": "airline.icao_code",
    "fieldname": "airline_icao",
    "fieldtype": "Data",
    "label": "Airline ICAO Code",
@@ -134,8 +136,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Departure Airport",
-   "options": "UNLOCO",
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
    "fieldname": "departure_iata",
@@ -194,8 +196,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Arrival Airport",
-   "options": "UNLOCO",
-   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
    "fieldname": "arrival_iata",
@@ -396,11 +398,11 @@
   }
  ],
  "links": [],
- "modified": "2025-10-01 00:00:00.000000",
+ "modified": "2026-05-28 18:40:59.646022",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Flight Schedule",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
@@ -427,6 +429,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "search_fields": "flight_number,airline,departure_airport,arrival_airport,flight_status",
  "sort_field": "modified",
  "sort_order": "DESC",

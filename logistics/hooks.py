@@ -34,6 +34,7 @@ app_include_css = [
 	"/assets/logistics/css/density_factor.css?v=1",
 ]
 app_include_js = [
+	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=3",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
@@ -249,9 +250,11 @@ doctype_js = {
 	# apps/frappe/frappe/desk/form/meta.py.
 	"Special Project": [
 		"public/js/profitability_project_form.js",
+		# Module-relative paths only (no leading logistics/ — see comment above Docket entry).
+		"job_management/recognition_client.js",
+		"job_management/recognition_policy_fields.js",
 	],
 	"Exhibit": [
-		"public/js/exhibit_link_docket_dialog.js",
 		"public/js/profitability_project_form.js",
 	],
 	"Docket": [
@@ -578,14 +581,24 @@ merge_credit_hooks(doc_events)
 # ---------------
 
 scheduler_events = {
+	"cron": {
+		# Live flight position sync from OpenSky (1 bulk /states/all call per run,
+		# well under the free anonymous quota of ~400 req/day).
+		"*/10 * * * *": [
+			"logistics.air_freight.flight_schedules.tasks.sync_active_flights",
+		],
+	},
 	"hourly": [
 		"logistics.status_update.tasks.update_milestone_statuses",
+		"logistics.air_freight.flight_schedules.tasks.update_air_freight_jobs_with_flight_status",
 	],
 	"daily": [
 		"logistics.status_update.tasks.update_document_statuses",
 		"logistics.status_update.tasks.update_permit_statuses",
 		"logistics.status_update.tasks.update_exemption_statuses",
 		"logistics.container_management.api.reconcile_containers_from_terminal_sea_shipments",
+		"logistics.air_freight.flight_schedules.tasks.cleanup_old_schedules",
+		"logistics.air_freight.flight_schedules.tasks.cleanup_old_sync_logs",
 	],
 }
 

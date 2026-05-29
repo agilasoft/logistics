@@ -188,7 +188,10 @@ def _strip_or_none(value):
 
 @frappe.whitelist()
 def get_sales_quote_defaults_from_exhibit(exhibit_name, customer=None):
-	"""Return Sales Quote field defaults pre-filled from an Exhibit and exhibitor row."""
+	"""Return Sales Quote field defaults pre-filled from an Exhibit.
+
+	Customer (exhibitor) may be omitted; if not provided, it will not be set on the quote.
+	"""
 	exhibit_name = _strip_or_none(exhibit_name)
 	if not exhibit_name:
 		frappe.throw(_("Exhibit is required."))
@@ -196,20 +199,17 @@ def get_sales_quote_defaults_from_exhibit(exhibit_name, customer=None):
 		frappe.throw(_("Exhibit {0} does not exist.").format(frappe.bold(exhibit_name)))
 
 	customer = _strip_or_none(customer)
-	if not customer:
-		frappe.throw(_("Customer (exhibitor) is required."))
 
 	ep = frappe.get_doc("Exhibit", exhibit_name)
 
 	defaults = {
 		"main_service": "Exhibits",
-		"quotation_type": "Regular",
-		"naming_series": "SQU.#########",
+		"quotation_type": "Project",
+		"naming_series": "PQ.#####",
 		"exhibit": ep.name,
-		"customer": customer,
 	}
-	if _strip_or_none(ep.project_name):
-		defaults["exhibit_show_name"] = ep.project_name
+	if customer:
+		defaults["customer"] = customer
 	if ep.show_open_date:
 		defaults["exhibit_show_open_date"] = str(ep.show_open_date)
 	if ep.show_close_date:

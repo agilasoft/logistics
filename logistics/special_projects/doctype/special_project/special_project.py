@@ -1609,27 +1609,98 @@ def _packages_summary_qty_label(qty: float) -> str:
 	return str(value)
 
 
-def _packages_summary_cell_html(qty: float, required: float, *, is_always_along: bool = False) -> str:
-	"""Render one stage cell: numeric qty + thin fill bar (width = qty/required)."""
+_STAGE_PALETTE: list[tuple[str, str]] = [
+	("#6366F1", "#A5B4FC"),
+	("#06B6D4", "#67E8F9"),
+	("#10B981", "#6EE7B7"),
+	("#F59E0B", "#FCD34D"),
+	("#EF4444", "#FCA5A5"),
+	("#8B5CF6", "#C4B5FD"),
+	("#EC4899", "#F9A8D4"),
+	("#14B8A6", "#5EEAD4"),
+]
+
+
+def _stage_color_pair(idx: int) -> tuple[str, str]:
+	return _STAGE_PALETTE[idx % len(_STAGE_PALETTE)]
+
+
+def _packages_summary_row_status(
+	stage_qtys: list[float],
+	required: float,
+	final_idx: int | None,
+	*,
+	is_always_along: bool,
+) -> tuple[str, str]:
+	"""Return (status_key, status_label) for a package row."""
 	if is_always_along:
-		return '<span class="sp-pfn-cell sp-pfn-cell-stage sp-pfn-cell-na" aria-label="N/A">&mdash;</span>'
+		return ("aa", _("Always-Along"))
+	req = flt(required)
+	final_qty = flt(stage_qtys[final_idx]) if (final_idx is not None and final_idx < len(stage_qtys)) else 0.0
+	if req > 0 and final_qty >= req:
+		return ("complete", _("Complete"))
+	if any(flt(q) > 0 for q in stage_qtys):
+		return ("in_progress", _("In Progress"))
+	return ("pending", _("Pending"))
+
+
+def _packages_summary_cell_html(
+	qty: float,
+	required: float,
+	*,
+	stage_idx: int,
+	is_final_stage: bool = False,
+	is_always_along: bool = False,
+) -> str:
+	"""Render one stage cell: numeric qty + thin fill bar (width = qty/required)."""
+	stage_cls = f"sp-pfn-stage-{stage_idx % len(_STAGE_PALETTE)}"
+	if is_always_along:
+		return (
+			f'<span class="sp-pfn-cell sp-pfn-cell-stage sp-pfn-cell-na {stage_cls}" '
+			f'aria-label="N/A">'
+			f'<span class="sp-pfn-qty">'
+			f'<span class="sp-pfn-qty-num sp-pfn-qty-na">&mdash;</span>'
+			f'<span class="sp-pfn-cell-check sp-pfn-cell-check--empty" aria-hidden="true"></span>'
+			f"</span>"
+			f'<span class="sp-pfn-bar" aria-hidden="true">'
+			f'<span class="sp-pfn-bar-fill" style="width:0%"></span></span>'
+			f"</span>"
+		)
 	qty_val = flt(qty)
 	req_val = flt(required)
 	if qty_val <= 0:
 		return (
-			'<span class="sp-pfn-cell sp-pfn-cell-stage sp-pfn-cell-empty">'
-			'<span class="sp-pfn-qty sp-pfn-qty-zero">0</span>'
+			f'<span class="sp-pfn-cell sp-pfn-cell-stage sp-pfn-cell-empty {stage_cls}">'
+			'<span class="sp-pfn-qty">'
+			'<span class="sp-pfn-qty-num sp-pfn-qty-zero">0</span>'
+			'<span class="sp-pfn-cell-check sp-pfn-cell-check--empty" aria-hidden="true"></span>'
+			"</span>"
 			'<span class="sp-pfn-bar"><span class="sp-pfn-bar-fill" style="width:0%"></span></span>'
 			"</span>"
 		)
 	pct = 0.0 if req_val <= 0 else min(100.0, qty_val / req_val * 100.0)
-	complete_cls = " sp-pfn-cell-complete" if req_val > 0 and qty_val >= req_val else ""
+	complete = req_val > 0 and qty_val >= req_val
+	complete_cls = " sp-pfn-cell-complete" if complete else ""
+	final_cls = " sp-pfn-cell-final" if is_final_stage else ""
+	check_icon = (
+		'<span class="sp-pfn-cell-check" aria-hidden="true">&#10003;</span>'
+		if complete
+		else '<span class="sp-pfn-cell-check sp-pfn-cell-check--empty" aria-hidden="true"></span>'
+	)
 	label = escape_html(_packages_summary_qty_label(qty_val))
 	return (
-		f'<span class="sp-pfn-cell sp-pfn-cell-stage{complete_cls}">'
-		f'<span class="sp-pfn-qty">{label}</span>'
+		f'<span class="sp-pfn-cell sp-pfn-cell-stage {stage_cls}{complete_cls}{final_cls}">'
+		f'<span class="sp-pfn-qty"><span class="sp-pfn-qty-num">{label}</span>{check_icon}</span>'
 		f'<span class="sp-pfn-bar"><span class="sp-pfn-bar-fill" style="width:{pct:.2f}%"></span></span>'
 		"</span>"
+	)
+
+
+def _packages_summary_status_pill_html(status_key: str, status_label: str) -> str:
+	return (
+		f'<span class="sp-pfn-cell sp-pfn-cell-status">'
+		f'<span class="sp-pfn-pill sp-pfn-pill-{escape_html(status_key)}">{escape_html(status_label)}</span>'
+		f"</span>"
 	)
 
 
@@ -1640,6 +1711,7 @@ def _packages_summary_row_html(
 	stage_qtys: list[float],
 	*,
 	is_always_along: bool,
+	final_stage_idx: int | None,
 ) -> str:
 	required_cell: str
 	if is_always_along:
@@ -1655,17 +1727,146 @@ def _packages_summary_row_html(
 			"</span>"
 		)
 	stage_cells = "".join(
-		_packages_summary_cell_html(q, required, is_always_along=is_always_along)
-		for q in stage_qtys
+		_packages_summary_cell_html(
+			q,
+			required,
+			stage_idx=s_idx,
+			is_final_stage=(final_stage_idx is not None and s_idx == final_stage_idx),
+			is_always_along=is_always_along,
+		)
+		for s_idx, q in enumerate(stage_qtys)
 	)
+	status_key, status_label = _packages_summary_row_status(
+		stage_qtys, required, final_stage_idx, is_always_along=is_always_along
+	)
+	status_cell = _packages_summary_status_pill_html(status_key, status_label)
 	return (
-		f'<div class="sp-pfn-row">'
+		f'<div class="sp-pfn-row" data-status="{status_key}">'
 		f'<span class="sp-pfn-cell sp-pfn-cell-rowno">'
 		f'<span class="sp-pfn-rowno">{row_no}</span></span>'
 		f'<span class="sp-pfn-cell sp-pfn-cell-package sp-pfn-package" title="{label}">{label}</span>'
 		f"{required_cell}"
 		f"{stage_cells}"
+		f"{status_cell}"
 		f"</div>"
+	)
+
+
+def _packages_summary_kpi_card_html(
+	label: str,
+	value: str,
+	sub: str,
+	accent_color: str,
+	*,
+	progress_pct: float | None = None,
+	icon: str | None = None,
+) -> str:
+	icon_html = (
+		f'<span class="sp-pfn-kpi-icon" aria-hidden="true">{icon}</span>' if icon else ""
+	)
+	bar_html = ""
+	if progress_pct is not None:
+		pct = max(0.0, min(100.0, float(progress_pct)))
+		bar_html = (
+			'<div class="sp-pfn-kpi-bar">'
+			f'<div class="sp-pfn-kpi-bar-fill" style="width:{pct:.2f}%"></div>'
+			"</div>"
+		)
+	return (
+		f'<div class="sp-pfn-kpi" style="--sp-kpi-accent: {accent_color}">'
+		f'<div class="sp-pfn-kpi-top">'
+		f'<div class="sp-pfn-kpi-label">{escape_html(label)}</div>'
+		f"{icon_html}"
+		f"</div>"
+		f'<div class="sp-pfn-kpi-value">{escape_html(value)}</div>'
+		f"{bar_html}"
+		f'<div class="sp-pfn-kpi-sub">{escape_html(sub)}</div>'
+		"</div>"
+	)
+
+
+def _packages_summary_stage_card_html(
+	stage_idx: int,
+	stage: dict,
+	qty: float,
+	total_required: float,
+	*,
+	is_final: bool,
+) -> str:
+	dark, light = _stage_color_pair(stage_idx)
+	pct = 0.0 if total_required <= 0 else min(100.0, qty / total_required * 100.0)
+	pct_label = f"{pct:.0f}%" if total_required > 0 else "—"
+	name = escape_html(stage.get("name") or "")
+	desc = escape_html(stage.get("description") or stage.get("name") or "")
+	closed = bool(stage.get("is_closed"))
+	tags: list[str] = []
+	if closed:
+		tags.append(
+			'<span class="sp-pfn-stage-tag sp-pfn-stage-tag-closed" title="Closed/final stage">'
+			f'{escape_html(_("Closed"))}</span>'
+		)
+	if is_final:
+		tags.append(
+			'<span class="sp-pfn-stage-tag sp-pfn-stage-tag-final" title="Used for overall % complete">'
+			f'{escape_html(_("Final"))}</span>'
+		)
+	tags_html = (
+		'<span class="sp-pfn-stage-tags">' + "".join(tags) + "</span>" if tags else ""
+	)
+	qty_label = escape_html(_packages_summary_qty_label(qty))
+	req_label = escape_html(_packages_summary_qty_label(total_required))
+	return (
+		f'<div class="sp-pfn-stage-card" '
+		f'style="--sp-stage-color: {dark}; --sp-stage-color-light: {light};" '
+		f'title="{desc}">'
+		f'<div class="sp-pfn-stage-card-head">'
+		f'<span class="sp-pfn-stage-dot"></span>'
+		f'<span class="sp-pfn-stage-card-name">{name}</span>'
+		f"{tags_html}"
+		f"</div>"
+		f'<div class="sp-pfn-stage-card-body">'
+		f'<span class="sp-pfn-stage-card-qty">{qty_label}</span>'
+		f'<span class="sp-pfn-stage-card-pct">{pct_label}</span>'
+		f"</div>"
+		f'<div class="sp-pfn-stage-card-meter">'
+		f'<div class="sp-pfn-stage-card-fill" style="width:{pct:.2f}%"></div>'
+		f"</div>"
+		f'<div class="sp-pfn-stage-card-foot">'
+		f'{escape_html(_("of {0} required").format(req_label))}'
+		f"</div>"
+		f"</div>"
+	)
+
+
+def _packages_summary_stage_pipeline_html(
+	stages: list[dict],
+	per_stage_totals: list[float],
+	total_required: float,
+	final_idx: int | None,
+) -> str:
+	if not stages:
+		return ""
+	cards: list[str] = []
+	for i, stage in enumerate(stages):
+		qty = per_stage_totals[i] if i < len(per_stage_totals) else 0.0
+		cards.append(
+			_packages_summary_stage_card_html(
+				i,
+				stage,
+				qty,
+				total_required,
+				is_final=(final_idx is not None and i == final_idx),
+			)
+		)
+	return (
+		'<div class="sp-pfn-pipeline-wrap">'
+		'<div class="sp-pfn-pipeline-head">'
+		f'<span class="sp-pfn-pipeline-title">{escape_html(_("Stage Throughput"))}</span>'
+		f'<span class="sp-pfn-pipeline-sub">{escape_html(_("Delivered units per lifecycle stage vs total required"))}</span>'
+		"</div>"
+		'<div class="sp-pfn-pipeline">'
+		+ "".join(cards)
+		+ "</div></div>"
 	)
 
 
@@ -1752,29 +1953,44 @@ _PACKAGES_SUMMARY_CSS = """
 	margin-bottom: 14px;
 	box-sizing: border-box;
 }
+.sp-packages-summary.is-collapsed .sp-pfn-pipeline-wrap,
 .sp-packages-summary.is-collapsed .sp-pfn-panel,
 .sp-packages-summary.is-collapsed .sp-pfn-footer { display: none; }
 .sp-packages-summary.is-collapsed .sp-pfn-titlebar { border-bottom: none; }
+.sp-packages-summary.is-collapsed .sp-pfn-kpis { border-bottom: none; }
 .sp-pfn-card {
 	width: 100%;
-	border: 1px solid #E8E8E8;
-	border-radius: 10px;
+	border: 1px solid #E5E7EB;
+	border-radius: 12px;
 	overflow: hidden;
 	background: #fff;
+	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 .sp-pfn-titlebar {
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	padding: 10px 14px;
-	background: var(--gray-50, #fafafa);
-	border-bottom: 1px solid #E8E8E8;
+	padding: 12px 16px;
+	background: linear-gradient(180deg, #ffffff, #fafafa);
+	border-bottom: 1px solid #ECEEF1;
 }
 .sp-pfn-title {
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--text-color, #111827);
+	letter-spacing: 0.01em;
+}
+.sp-pfn-title-icon {
+	width: 22px;
+	height: 22px;
+	border-radius: 6px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(135deg, #6366F1, #06B6D4);
+	color: #fff;
 	font-size: 12px;
-	font-weight: 600;
-	color: var(--text-color, #1f2937);
-	letter-spacing: 0.02em;
+	line-height: 1;
 }
 .sp-pfn-title-sub {
 	font-size: 11px;
@@ -1782,63 +1998,284 @@ _PACKAGES_SUMMARY_CSS = """
 	color: var(--text-muted, #6b7280);
 }
 .sp-pks-toggle {
-	width: 26px;
-	min-width: 26px;
-	height: 26px;
+	margin-left: auto;
+	width: 28px;
+	min-width: 28px;
+	height: 28px;
 	padding: 0;
-	border: none;
-	border-radius: 6px;
-	background: var(--gray-100, #f3f4f6);
+	border: 1px solid #E5E7EB;
+	border-radius: 8px;
+	background: #fff;
 	color: var(--text-muted, #6b7280);
 	cursor: pointer;
 	line-height: 1;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	transition: background-color 0.12s ease, color 0.12s ease;
 }
-.sp-pks-toggle:hover { background: var(--gray-200, #e5e7eb); }
+.sp-pks-toggle:hover { background: var(--gray-50, #F9FAFB); color: #111827; }
 .sp-pks-toggle:focus { outline: 2px solid var(--primary, #2490ef); outline-offset: 1px; }
 .sp-pks-toggle-icon {
 	display: block;
-	font-size: 9px;
-	transition: transform 0.15s ease;
+	font-size: 10px;
+	transition: transform 0.18s ease;
 }
 .sp-packages-summary.is-collapsed .sp-pks-toggle-icon { transform: rotate(-90deg); }
+
+/* ----- KPI cards ----- */
+.sp-pfn-kpis {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	gap: 10px;
+	padding: 14px 16px;
+	background: linear-gradient(180deg, #FAFBFF, #FFFFFF);
+	border-bottom: 1px solid #ECEEF1;
+}
+.sp-pfn-kpi {
+	position: relative;
+	background: #fff;
+	border: 1px solid #ECEEF1;
+	border-radius: 10px;
+	padding: 12px 14px 12px 16px;
+	overflow: hidden;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.sp-pfn-kpi:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+.sp-pfn-kpi::before {
+	content: '';
+	position: absolute;
+	left: 0; top: 0; bottom: 0;
+	width: 4px;
+	background: var(--sp-kpi-accent, #6366F1);
+}
+.sp-pfn-kpi-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 4px;
+}
+.sp-pfn-kpi-label {
+	font-size: 10px;
+	font-weight: 600;
+	color: var(--text-muted, #6B7280);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+.sp-pfn-kpi-icon {
+	width: 22px;
+	height: 22px;
+	border-radius: 6px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: color-mix(in srgb, var(--sp-kpi-accent, #6366F1) 14%, transparent);
+	color: var(--sp-kpi-accent, #6366F1);
+	font-size: 12px;
+	line-height: 1;
+}
+.sp-pfn-kpi-value {
+	font-size: 22px;
+	font-weight: 700;
+	color: var(--text-color, #111827);
+	line-height: 1.1;
+	font-variant-numeric: tabular-nums;
+}
+.sp-pfn-kpi-sub {
+	font-size: 10px;
+	color: var(--text-muted, #9CA3AF);
+	margin-top: 6px;
+}
+.sp-pfn-kpi-bar {
+	margin-top: 8px;
+	height: 6px;
+	border-radius: 4px;
+	background: #F1F2F4;
+	overflow: hidden;
+}
+.sp-pfn-kpi-bar-fill {
+	height: 100%;
+	background: linear-gradient(90deg, var(--sp-kpi-accent, #6366F1), color-mix(in srgb, var(--sp-kpi-accent, #6366F1) 55%, white));
+	border-radius: 4px;
+	transition: width 0.45s ease;
+}
+
+/* ----- Stage pipeline ----- */
+.sp-pfn-pipeline-wrap {
+	padding: 12px 16px 16px;
+	background: #fff;
+	border-bottom: 1px solid #ECEEF1;
+}
+.sp-pfn-pipeline-head {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+	margin-bottom: 10px;
+}
+.sp-pfn-pipeline-title {
+	font-size: 11px;
+	font-weight: 700;
+	color: #111827;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+.sp-pfn-pipeline-sub {
+	font-size: 11px;
+	color: var(--text-muted, #6B7280);
+}
+.sp-pfn-pipeline {
+	display: flex;
+	align-items: stretch;
+	gap: 10px;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+	padding-bottom: 2px;
+}
+.sp-pfn-stage-card {
+	position: relative;
+	flex: 1 1 0;
+	min-width: 168px;
+	background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--sp-stage-color-light, #E5E7EB) 22%, #ffffff));
+	border: 1px solid color-mix(in srgb, var(--sp-stage-color, #6366F1) 18%, #E5E7EB);
+	border-left: 4px solid var(--sp-stage-color, #6366F1);
+	border-radius: 10px;
+	padding: 10px 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.sp-pfn-stage-card:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px color-mix(in srgb, var(--sp-stage-color, #6366F1) 18%, transparent);
+}
+.sp-pfn-stage-card-head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+.sp-pfn-stage-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--sp-stage-color, #6366F1);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--sp-stage-color, #6366F1) 18%, transparent);
+	flex: 0 0 auto;
+}
+.sp-pfn-stage-card-name {
+	font-size: 11px;
+	font-weight: 700;
+	color: #1F2937;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.sp-pfn-stage-tags {
+	margin-left: auto;
+	display: inline-flex;
+	gap: 4px;
+}
+.sp-pfn-stage-tag {
+	display: inline-flex;
+	align-items: center;
+	padding: 1px 6px;
+	border-radius: 999px;
+	font-size: 9px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	background: color-mix(in srgb, var(--sp-stage-color, #6366F1) 14%, transparent);
+	color: var(--sp-stage-color, #6366F1);
+}
+.sp-pfn-stage-tag-final {
+	background: #DCFCE7;
+	color: #166534;
+}
+.sp-pfn-stage-card-body {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 6px;
+}
+.sp-pfn-stage-card-qty {
+	font-size: 20px;
+	font-weight: 700;
+	color: #111827;
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+}
+.sp-pfn-stage-card-pct {
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--sp-stage-color, #6366F1);
+	font-variant-numeric: tabular-nums;
+}
+.sp-pfn-stage-card-meter {
+	height: 6px;
+	border-radius: 4px;
+	background: color-mix(in srgb, var(--sp-stage-color, #6366F1) 10%, #F1F2F4);
+	overflow: hidden;
+}
+.sp-pfn-stage-card-fill {
+	height: 100%;
+	background: linear-gradient(90deg, var(--sp-stage-color, #6366F1), var(--sp-stage-color-light, #A5B4FC));
+	border-radius: 4px;
+	transition: width 0.45s ease;
+}
+.sp-pfn-stage-card-foot {
+	font-size: 10px;
+	color: var(--text-muted, #6B7280);
+}
+
+/* ----- Detail table ----- */
 .sp-pfn-panel {
 	width: 100%;
 	overflow-x: auto;
 	-webkit-overflow-scrolling: touch;
 }
 .sp-pfn-table {
+	display: grid;
+	grid-template-columns: var(--sp-pfn-cols);
+	column-gap: 10px;
 	width: 100%;
-	min-width: 100%;
-	display: flex;
-	flex-direction: column;
+	min-width: max-content;
+	align-items: stretch;
 }
 .sp-pfn-header,
 .sp-pfn-row {
 	display: grid;
-	grid-template-columns: var(--sp-pfn-cols);
-	column-gap: 10px;
+	grid-column: 1 / -1;
+	grid-template-columns: subgrid;
 	align-items: stretch;
-	width: 100%;
-	min-width: max-content;
 }
 .sp-pfn-header {
-	padding: 10px 14px;
-	background: #fff;
-	border-bottom: 1px solid #EDEDED;
+	padding: 10px 16px;
+	background: #FAFBFC;
+	border-bottom: 1px solid #ECEEF1;
 	position: sticky;
 	top: 0;
 	z-index: 1;
 }
 .sp-pfn-row {
-	padding: 10px 14px;
-	border-bottom: 1px solid #F2F2F2;
+	padding: 10px 16px;
+	border-bottom: 1px solid #F2F3F5;
 	transition: background-color 0.12s ease;
 }
-.sp-pfn-row:hover { background: #fafbfc; }
+.sp-pfn-row:hover .sp-pfn-cell { background: #FAFBFC; }
 .sp-pfn-row:last-child { border-bottom: none; }
+.sp-pfn-row[data-status="complete"] .sp-pfn-cell {
+	background: linear-gradient(90deg, rgba(34,197,94,0.04), transparent 30%);
+}
+.sp-pfn-row[data-status="aa"] .sp-pfn-cell {
+	background: linear-gradient(90deg, rgba(245,158,11,0.05), transparent 30%);
+}
 .sp-pfn-cell {
 	min-width: 0;
 	display: flex;
@@ -1846,12 +2283,18 @@ _PACKAGES_SUMMARY_CSS = """
 	box-sizing: border-box;
 }
 .sp-pfn-col-head {
-	font-size: 11px;
-	font-weight: 600;
+	font-size: 10px;
+	font-weight: 700;
 	color: var(--text-muted, #6b7280);
 	line-height: 1.2;
 	white-space: nowrap;
-	letter-spacing: 0.02em;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+.sp-pfn-col-head.sp-pfn-cell-required,
+.sp-pfn-col-head.sp-pfn-cell-status {
+	justify-content: flex-end;
+	text-align: right;
 }
 .sp-pfn-cell-rowno {
 	justify-content: center;
@@ -1866,7 +2309,7 @@ _PACKAGES_SUMMARY_CSS = """
 .sp-pfn-package {
 	font-size: 12px;
 	font-weight: 600;
-	color: var(--text-color, #1f2937);
+	color: var(--text-color, #111827);
 	line-height: 1.3;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -1874,37 +2317,66 @@ _PACKAGES_SUMMARY_CSS = """
 }
 .sp-pfn-cell-required {
 	justify-content: flex-end;
-	padding-right: 4px;
+	text-align: right;
 }
 .sp-pfn-cell-stage {
 	flex-direction: column;
 	align-items: stretch;
 	justify-content: center;
-	gap: 4px;
+	gap: 5px;
+	padding: 2px 0;
 }
 .sp-pfn-cell-stage.sp-pfn-cell-empty .sp-pfn-qty-zero { color: var(--text-muted, #9ca3af); }
-.sp-pfn-cell-na {
+.sp-pfn-cell-na .sp-pfn-qty-na {
 	color: var(--text-muted, #9ca3af);
 	font-weight: 500;
+}
+.sp-pfn-cell-stage-head {
 	justify-content: center;
+	text-align: center;
+	border-bottom: 2px solid transparent;
+	padding-bottom: 4px;
 }
 .sp-pfn-qty {
 	font-size: 12px;
 	font-weight: 600;
 	font-variant-numeric: tabular-nums;
-	color: var(--text-color, #1f2937);
-	text-align: right;
+	color: var(--text-color, #111827);
 	line-height: 1;
 }
+.sp-pfn-cell-required > .sp-pfn-qty {
+	text-align: right;
+}
 .sp-pfn-cell-stage .sp-pfn-qty {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 3px;
+	min-height: 16px;
+	width: 100%;
+}
+.sp-pfn-cell-stage .sp-pfn-qty-num {
+	min-width: 1.5ch;
 	text-align: center;
+}
+.sp-pfn-cell-check {
+	flex: 0 0 11px;
+	width: 11px;
+	color: #16A34A;
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 1;
+	text-align: center;
+}
+.sp-pfn-cell-check--empty {
+	visibility: hidden;
 }
 .sp-pfn-bar {
 	display: block;
 	width: 100%;
-	height: 4px;
+	height: 5px;
 	border-radius: 3px;
-	background: #F0F0F0;
+	background: #F0F1F3;
 	overflow: hidden;
 }
 .sp-pfn-bar-fill {
@@ -1912,48 +2384,149 @@ _PACKAGES_SUMMARY_CSS = """
 	height: 100%;
 	background: #94A3B8;
 	border-radius: 3px;
-	transition: width 0.2s ease;
+	transition: width 0.35s ease;
 }
-.sp-pfn-cell-stage.sp-pfn-cell-complete .sp-pfn-bar-fill { background: #16A34A; }
+
+/* Stage palette: cell bars + header underline tint */
+.sp-pfn-stage-0 .sp-pfn-bar { background: rgba(99,102,241,0.10); }
+.sp-pfn-stage-0 .sp-pfn-bar-fill { background: linear-gradient(90deg, #6366F1, #A5B4FC); }
+.sp-pfn-stage-0.sp-pfn-cell-stage-head { color: #4338CA; border-bottom-color: #6366F1; }
+.sp-pfn-stage-1 .sp-pfn-bar { background: rgba(6,182,212,0.10); }
+.sp-pfn-stage-1 .sp-pfn-bar-fill { background: linear-gradient(90deg, #06B6D4, #67E8F9); }
+.sp-pfn-stage-1.sp-pfn-cell-stage-head { color: #0E7490; border-bottom-color: #06B6D4; }
+.sp-pfn-stage-2 .sp-pfn-bar { background: rgba(16,185,129,0.10); }
+.sp-pfn-stage-2 .sp-pfn-bar-fill { background: linear-gradient(90deg, #10B981, #6EE7B7); }
+.sp-pfn-stage-2.sp-pfn-cell-stage-head { color: #047857; border-bottom-color: #10B981; }
+.sp-pfn-stage-3 .sp-pfn-bar { background: rgba(245,158,11,0.10); }
+.sp-pfn-stage-3 .sp-pfn-bar-fill { background: linear-gradient(90deg, #F59E0B, #FCD34D); }
+.sp-pfn-stage-3.sp-pfn-cell-stage-head { color: #B45309; border-bottom-color: #F59E0B; }
+.sp-pfn-stage-4 .sp-pfn-bar { background: rgba(239,68,68,0.10); }
+.sp-pfn-stage-4 .sp-pfn-bar-fill { background: linear-gradient(90deg, #EF4444, #FCA5A5); }
+.sp-pfn-stage-4.sp-pfn-cell-stage-head { color: #B91C1C; border-bottom-color: #EF4444; }
+.sp-pfn-stage-5 .sp-pfn-bar { background: rgba(139,92,246,0.10); }
+.sp-pfn-stage-5 .sp-pfn-bar-fill { background: linear-gradient(90deg, #8B5CF6, #C4B5FD); }
+.sp-pfn-stage-5.sp-pfn-cell-stage-head { color: #6D28D9; border-bottom-color: #8B5CF6; }
+.sp-pfn-stage-6 .sp-pfn-bar { background: rgba(236,72,153,0.10); }
+.sp-pfn-stage-6 .sp-pfn-bar-fill { background: linear-gradient(90deg, #EC4899, #F9A8D4); }
+.sp-pfn-stage-6.sp-pfn-cell-stage-head { color: #BE185D; border-bottom-color: #EC4899; }
+.sp-pfn-stage-7 .sp-pfn-bar { background: rgba(20,184,166,0.10); }
+.sp-pfn-stage-7 .sp-pfn-bar-fill { background: linear-gradient(90deg, #14B8A6, #5EEAD4); }
+.sp-pfn-stage-7.sp-pfn-cell-stage-head { color: #0F766E; border-bottom-color: #14B8A6; }
+
+/* Complete state overrides stage tint */
+.sp-pfn-cell-stage.sp-pfn-cell-complete .sp-pfn-bar { background: rgba(22,163,74,0.12); }
+.sp-pfn-cell-stage.sp-pfn-cell-complete .sp-pfn-bar-fill {
+	background: linear-gradient(90deg, #16A34A, #4ADE80);
+}
 .sp-pfn-cell-stage.sp-pfn-cell-complete .sp-pfn-qty { color: #166534; }
+
+/* Final stage column gets a subtle background to draw the eye */
+.sp-pfn-cell-stage.sp-pfn-cell-final {
+	box-shadow: inset 0 0 0 999px rgba(16,185,129,0.04);
+	border-radius: 4px;
+}
+
 .sp-pfn-badge {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-width: 24px;
+	min-width: 26px;
 	height: 18px;
 	padding: 0 6px;
-	border-radius: 4px;
+	border-radius: 999px;
 	font-size: 10px;
 	font-weight: 700;
 	letter-spacing: 0.04em;
 	background: #FEF3C7;
 	color: #92400E;
 }
-.sp-pfn-footer {
-	padding: 10px 14px;
-	background: #fafafa;
-	border-top: 1px solid #EDEDED;
+
+/* Status pill column */
+.sp-pfn-cell-status {
+	justify-content: flex-end;
 }
-.sp-pfn-footer-text {
-	margin: 0;
+.sp-pfn-pill {
+	display: inline-flex;
+	align-items: center;
+	padding: 3px 10px;
+	border-radius: 999px;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	line-height: 1.2;
+	white-space: nowrap;
+}
+.sp-pfn-pill::before {
+	content: '';
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	margin-right: 6px;
+	background: currentColor;
+}
+.sp-pfn-pill-complete { background: #DCFCE7; color: #166534; }
+.sp-pfn-pill-in_progress { background: #DBEAFE; color: #1D4ED8; }
+.sp-pfn-pill-pending { background: #F3F4F6; color: #6B7280; }
+.sp-pfn-pill-aa { background: #FEF3C7; color: #92400E; }
+
+.sp-pfn-footer {
+	padding: 10px 16px;
+	background: linear-gradient(180deg, #FAFBFC, #FFFFFF);
+	border-top: 1px solid #ECEEF1;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px 12px;
+}
+.sp-pfn-footer-stat {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 	font-size: 11px;
-	color: var(--text-muted, #6b7280);
-	line-height: 1.4;
+	color: var(--text-muted, #6B7280);
+}
+.sp-pfn-footer-stat strong {
+	font-weight: 700;
+	color: #111827;
+	font-variant-numeric: tabular-nums;
+}
+.sp-pfn-footer-sep {
+	color: #D1D5DB;
 }
 .sp-pfn-empty {
-	padding: 14px;
+	padding: 24px;
 	color: var(--text-muted, #6b7280);
 	font-size: 12px;
+	text-align: center;
 }
 @media (max-width: 860px) {
 	.sp-pfn-header,
 	.sp-pfn-row {
-		padding-left: 10px;
-		padding-right: 10px;
+		padding-left: 12px;
+		padding-right: 12px;
+	}
+	.sp-pfn-kpis,
+	.sp-pfn-pipeline-wrap {
+		padding-left: 12px;
+		padding-right: 12px;
 	}
 }
 """
+
+
+def _packages_summary_titlebar_html(toggle_title: str, aria_label: str) -> str:
+	return (
+		f'<div class="sp-pfn-titlebar">'
+		f'<span class="sp-pfn-title-icon" aria-hidden="true">&#9783;</span>'
+		f'<span class="sp-pfn-title">{escape_html(_("Fulfillment Snapshot"))}</span>'
+		f'<span class="sp-pfn-title-sub">{escape_html(_("Delivery throughput across lifecycle stages"))}</span>'
+		f'<button type="button" class="sp-pks-toggle" aria-expanded="true" '
+		f'title="{escape_html(toggle_title)}" aria-label="{escape_html(aria_label)}">'
+		f'<span class="sp-pks-toggle-icon" aria-hidden="true">&#9660;</span>'
+		f"</button>"
+		f"</div>"
+	)
 
 
 @frappe.whitelist()
@@ -1976,7 +2549,7 @@ def get_packages_summary_html(special_project: str) -> str:
 			f'<div class="sp-packages-summary">'
 			f"<style>{_PACKAGES_SUMMARY_CSS}</style>"
 			f'<div class="sp-pfn-card"><div class="sp-pfn-empty">'
-			f"{_('No packages defined. Add rows below or seed from Sales Quote project products.')}"
+			f"{escape_html(_('No packages defined. Add rows below or seed from Sales Quote project products.'))}"
 			f"</div></div></div>"
 		)
 
@@ -1986,11 +2559,59 @@ def get_packages_summary_html(special_project: str) -> str:
 			f'<div class="sp-packages-summary">'
 			f"<style>{_PACKAGES_SUMMARY_CSS}</style>"
 			f'<div class="sp-pfn-card"><div class="sp-pfn-empty">'
-			f"{_('No Lifecycle Stages configured for Special Projects. Set ‘For Special Project’ on at least one Lifecycle Stage.')}"
+			f"{escape_html(_('No Lifecycle Stages configured for Special Projects. Set For Special Project on at least one Lifecycle Stage.'))}"
 			f"</div></div></div>"
 		)
 
 	per_stage = _packages_summary_per_stage_delivered(doc, materials, stages)
+
+	final_idx: int | None = None
+	for i, s in enumerate(stages):
+		if cint_safe(s.get("is_closed")):
+			final_idx = i
+	if final_idx is None and stages:
+		final_idx = len(stages) - 1
+
+	always_along_count = sum(1 for m in materials if cint_safe(getattr(m, "include_on_create", 0)))
+	tracked_count = len(materials) - always_along_count
+
+	total_required = 0.0
+	for m in materials:
+		if cint_safe(getattr(m, "include_on_create", 0)):
+			continue
+		total_required += flt(getattr(m, "qty_required", 0))
+
+	n_stages = len(stages)
+	per_stage_totals = [0.0] * n_stages
+	for i, m in enumerate(materials):
+		if cint_safe(getattr(m, "include_on_create", 0)):
+			continue
+		qtys = per_stage[i]
+		for s_idx in range(n_stages):
+			per_stage_totals[s_idx] += flt(qtys[s_idx])
+
+	total_delivered = (
+		per_stage_totals[final_idx] if (final_idx is not None and final_idx < len(per_stage_totals)) else 0.0
+	)
+	complete_pct = 0.0 if total_required <= 0 else min(100.0, total_delivered / total_required * 100.0)
+
+	complete_rows = 0
+	in_progress_rows = 0
+	pending_rows = 0
+	for i, m in enumerate(materials):
+		if cint_safe(getattr(m, "include_on_create", 0)):
+			continue
+		qtys = per_stage[i]
+		req = flt(getattr(m, "qty_required", 0))
+		final_qty = flt(qtys[final_idx]) if (final_idx is not None and final_idx < len(qtys)) else 0.0
+		if req > 0 and final_qty >= req:
+			complete_rows += 1
+		elif any(flt(q) > 0 for q in qtys):
+			in_progress_rows += 1
+		else:
+			pending_rows += 1
+
+	# ----- Build rows -----
 	rows_html: list[str] = []
 	for row_no, (m, qtys) in enumerate(zip(materials, per_stage), start=1):
 		label = escape_html(package_label(m) or "—")
@@ -2001,57 +2622,109 @@ def get_packages_summary_html(special_project: str) -> str:
 				flt(m.qty_required or 0),
 				qtys,
 				is_always_along=bool(cint_safe(getattr(m, "include_on_create", 0))),
+				final_stage_idx=final_idx,
 			)
 		)
 
-	stage_cols = " ".join("minmax(80px, 1fr)" for _ in stages)
-	col_template = f"36px minmax(160px, 1.6fr) 80px {stage_cols}"
+	stage_cols = " ".join("minmax(92px, 1fr)" for _ in stages)
+	col_template = f"40px minmax(140px, 1.5fr) 72px {stage_cols} 116px"
 
 	stage_headers = "".join(
-		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-stage-head" '
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-stage-head sp-pfn-stage-{i % len(_STAGE_PALETTE)}" '
 		f'title="{escape_html(stage.get("description") or stage["name"])}">'
 		f"{escape_html(stage['name'])}</span>"
-		for stage in stages
+		for i, stage in enumerate(stages)
 	)
 
 	header_html = (
 		f'<div class="sp-pfn-header">'
 		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-rowno">#</span>'
-		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-package">{_("Package")}</span>'
-		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-required">{_("Required")}</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-package">{escape_html(_("Package"))}</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-required">{escape_html(_("Required"))}</span>'
 		f"{stage_headers}"
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-status">{escape_html(_("Status"))}</span>'
 		f"</div>"
 	)
 
-	always_along_count = sum(1 for m in materials if cint_safe(getattr(m, "include_on_create", 0)))
-	tracked_count = len(materials) - always_along_count
-	footer_bits = [_("{0} package row(s)").format(len(materials))]
-	if tracked_count:
-		footer_bits.append(_("{0} tracked").format(tracked_count))
-	if always_along_count:
-		footer_bits.append(_("{0} always-along (AA)").format(always_along_count))
-	footer_bits.append(_("{0} lifecycle stage(s)").format(len(stages)))
-	footer_separator = " \u00b7 "
-	footer_text = footer_separator.join(footer_bits)
-	footer_html = (
-		f'<div class="sp-pfn-footer">'
-		f'<p class="sp-pfn-footer-text">{footer_text}</p>'
-		f"</div>"
+	# ----- KPI cards -----
+	total_req_label = _packages_summary_qty_label(total_required) if tracked_count else "—"
+	total_delivered_label = _packages_summary_qty_label(total_delivered) if tracked_count else "—"
+	final_stage_name = (
+		stages[final_idx]["name"] if (final_idx is not None and final_idx < len(stages)) else "—"
 	)
+	pct_value_label = f"{complete_pct:.0f}%" if total_required > 0 else "—"
+
+	kpi_cards = "".join(
+		[
+			_packages_summary_kpi_card_html(
+				_("Packages"),
+				str(len(materials)),
+				_("{0} tracked · {1} always-along").format(tracked_count, always_along_count),
+				"#6366F1",
+				icon="&#128230;",
+			),
+			_packages_summary_kpi_card_html(
+				_("Units Required"),
+				total_req_label,
+				_("Across {0} tracked package row(s)").format(tracked_count) if tracked_count else _("No tracked rows"),
+				"#06B6D4",
+				icon="&#931;",
+			),
+			_packages_summary_kpi_card_html(
+				_("Units Delivered"),
+				total_delivered_label,
+				_("Counted at final stage: {0}").format(final_stage_name),
+				"#10B981",
+				icon="&#10003;",
+			),
+			_packages_summary_kpi_card_html(
+				_("% Complete"),
+				pct_value_label,
+				_("{0} complete · {1} in progress · {2} pending").format(
+					complete_rows, in_progress_rows, pending_rows
+				),
+				"#F59E0B",
+				progress_pct=complete_pct if total_required > 0 else 0.0,
+				icon="&#9889;",
+			),
+		]
+	)
+	kpis_html = f'<div class="sp-pfn-kpis">{kpi_cards}</div>'
+
+	# ----- Stage pipeline -----
+	pipeline_html = _packages_summary_stage_pipeline_html(
+		stages, per_stage_totals, total_required, final_idx
+	)
+
+	# ----- Footer (chip-style) -----
+	def _stat(label: str, value: str) -> str:
+		return (
+			'<span class="sp-pfn-footer-stat">'
+			f'<strong>{escape_html(value)}</strong>{escape_html(label)}</span>'
+		)
+
+	sep = '<span class="sp-pfn-footer-sep" aria-hidden="true">|</span>'
+	stats: list[str] = [
+		_stat(" " + _("package row(s)"), str(len(materials))),
+		_stat(" " + _("tracked"), str(tracked_count)) if tracked_count else "",
+		_stat(" " + _("always-along (AA)"), str(always_along_count)) if always_along_count else "",
+		_stat(" " + _("lifecycle stage(s)"), str(len(stages))),
+	]
+	stats = [s for s in stats if s]
+	footer_inner = sep.join(stats)
+	footer_html = f'<div class="sp-pfn-footer">{footer_inner}</div>'
 
 	rows_block = "".join(rows_html)
+	titlebar_html = _packages_summary_titlebar_html(
+		_("Collapse summary"), _("Toggle fulfillment summary")
+	)
 	return (
 		f'<div class="sp-packages-summary" style="--sp-pfn-cols: {col_template}">'
 		f"<style>{_PACKAGES_SUMMARY_CSS}</style>"
 		f'<div class="sp-pfn-card">'
-		f'<div class="sp-pfn-titlebar">'
-		f'<button type="button" class="sp-pks-toggle" aria-expanded="true" '
-		f'title="{_("Collapse summary")}" aria-label="{_("Toggle delivery funnel summary")}">'
-		f'<span class="sp-pks-toggle-icon" aria-hidden="true">&#9660;</span>'
-		f"</button>"
-		f'<span class="sp-pfn-title">{_("Delivery Funnel by Lifecycle Stage")}</span>'
-		f'<span class="sp-pfn-title-sub">{_("Each column shows delivered qty in that stage")}</span>'
-		f"</div>"
+		f"{titlebar_html}"
+		f"{kpis_html}"
+		f"{pipeline_html}"
 		f'<div class="sp-pfn-panel">'
 		f'<div class="sp-pfn-table">{header_html}{rows_block}</div>'
 		f"</div>"

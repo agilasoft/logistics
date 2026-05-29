@@ -4,6 +4,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import cint
 
 
 # Maps an Internal Job Detail row's order/booking job_type to the operational
@@ -24,6 +25,7 @@ class Docket(Document):
 	def validate(self):
 		self._ensure_org_defaults()
 		self._sync_exhibitor_metadata()
+		self._validate_unique_booth_no_on_exhibit()
 		self.validate_accounts()
 		self._sync_charges()
 
@@ -151,6 +153,32 @@ class Docket(Document):
 						self.exhibitor_code = code
 			except Exception:
 				pass
+
+	def _validate_unique_booth_no_on_exhibit(self):
+		"""Ensure booth_no is unique within an Exhibit (including cancelled dockets)."""
+		exhibit = (getattr(self, "exhibit", None) or "").strip()
+		booth_no = (getattr(self, "booth_no", None) or "").strip()
+		if not exhibit or not booth_no:
+			return
+
+		exists = frappe.db.get_value(
+			"Docket",
+			{
+				"exhibit": exhibit,
+				"booth_no": booth_no,
+				"name": ["!=", self.name or ""],
+			},
+			"name",
+		)
+		if exists:
+			frappe.throw(
+				_("Booth No {0} is already used on Exhibit {1} (Docket {2}).").format(
+					frappe.bold(booth_no),
+					frappe.bold(exhibit),
+					frappe.bold(exists),
+				)
+			)
+
 
 	def validate_accounts(self):
 		if not self.company:
@@ -408,3 +436,82 @@ def get_exhibitor_options_query(doctype, txt, searchfield, start, page_len, filt
 		params,
 		as_list=True,
 	)
+
+
+@frappe.whitelist()
+def get_recommended_booth_numbers(exhibit, start=0, limit=10):
+	"""Return recommended booth numbers for an Exhibit.
+
+	Seed is the first (earliest-created) Docket on this Exhibit with a non-empty booth_no.
+	We derive the pattern by finding the last numeric group in that seed string and then
+	incrementing it, preserving its zero-padding width.
+	"""
+	exhibit = (exhibit or "").strip()
+	if not exhibit:
+		frappe.throw(_("Exhibit is required."))
+	if not frappe.db.exists("Exhibit", exhibit):
+		frappe.throw(_("Exhibit {0} does not exist.").format(frappe.bold(exhibit)))
+
+	start = max(0, cint(start or 0))
+	limit = max(1, min(50, cint(limit or 10)))
+
+	seed = frappe.db.get_value(
+		"Docket",
+		{"exhibit": exhibit, "booth_no": ["!=", ""]},
+		"booth_no",
+		order_by="creation asc",
+	)
+	seed = (seed or "").strip()
+	if not seed:
+		return {
+			"seed_booth_no": None,
+			"suggestions": [],
+			"next_start": start,
+			"has_more": False,
+			"message": _("No booth number seed found yet for this Exhibit."),
+		}
+
+	import re
+
+	m = re.match(r"^(.*?)(\d+)(\D*)$", seed)
+	if not m:
+		return {
+			"seed_booth_no": seed,
+			"suggestions": [],
+			"next_start": start,
+			"has_more": False,
+			"message": _("Seed booth number has no numeric part to increment."),
+		}
+
+	prefix, num_str, suffix = m.group(1), m.group(2), m.group(3)
+	width = len(num_str)
+	base_num = int(num_str)
+
+	used = set(
+		(b or "").strip()
+		for b in frappe.get_all("Docket", filters={"exhibit": exhibit}, pluck="booth_no")
+		if (b or "").strip()
+	)
+
+	suggestions = []
+	offset = start
+
+	# Generate until we have `limit` unused suggestions; hard cap avoids infinite loops.
+	hard_cap = 5000
+	tries = 0
+	while len(suggestions) < limit and tries < hard_cap:
+		n = base_num + 1 + offset
+		candidate = f"{prefix}{str(n).zfill(width)}{suffix}"
+		offset += 1
+		tries += 1
+		if candidate in used:
+			continue
+		used.add(candidate)
+		suggestions.append(candidate)
+
+	return {
+		"seed_booth_no": seed,
+		"suggestions": suggestions,
+		"next_start": start + offset,
+		"has_more": True if suggestions else False,
+	}
