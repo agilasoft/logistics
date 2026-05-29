@@ -170,6 +170,8 @@ logistics.patches.v1_0_backfill_main_service_internal_job_rollup
 # during link validation on insert.
 logistics.patches.v1_0_rename_exhibit_lifecycle_stage_to_lifecycle_stage
 logistics.patches.v1_0_seed_exhibit_lifecycle_stage
+# Exhibits: seed standard Activity Code master rows (asset_retrieval, staging_qc, etc.).
+logistics.patches.v1_0_seed_exhibit_activity_codes
 # Exhibits: seed default milestone/document templates and Exhibit Settings single.
 logistics.patches.v1_0_create_exhibit_templates
 # Special Projects: backfill lifecycle_stage on existing Site Receipt rows for the new
