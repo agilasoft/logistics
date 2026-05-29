@@ -49,6 +49,25 @@ DOCKET_EXCLUDED_STATUSES = {"Cancelled", "On Hold"}
 
 
 class Exhibit(Document):
+	def __setup__(self):
+		"""Re-initialize virtual child tables that Frappe pops during DB load.
+
+		``Exhibit.dockets`` uses the virtual child doctype ``Exhibit Docket``.
+		Frappe's ``Document.load_children_from_db`` removes such fields from
+		``__dict__`` (it expects the parent field itself to be ``is_virtual: 1``
+		with a callable ``options`` — we use ``onload`` instead). The side
+		effect is that ``doc.get("dockets")`` returns ``None`` on every fresh
+		load, which crashes ``frappe.core.doctype.version.version.get_diff``
+		when it iterates ``old_value`` during ``save_version`` (the
+		``_doc_before_save`` copy does not run ``onload``).
+
+		Initializing the field to ``[]`` here matches what ``init_child_tables``
+		does for non-virtual children and lets ``onload`` populate it
+		afterwards on the form-loaded copy.
+		"""
+		if self.__dict__.get("dockets") is None:
+			self.__dict__["dockets"] = []
+
 	def onload(self):
 		"""Populate the virtual ``dockets`` child table from live Docket records.
 
@@ -95,10 +114,22 @@ class Exhibit(Document):
 			)
 
 	def validate(self):
+		self._drop_virtual_dockets_rows()
 		validate_internal_job_activity_codes(self, module_filter=FOR_EXHIBITS)
 		validate_lifecycle_stage_advance(self)
 		self._recalculate_consolidation_charge_totals()
 		self._recalculate_cost_allocation_totals()
+
+	def _drop_virtual_dockets_rows(self):
+		"""Discard any ``dockets`` rows posted back from the form.
+
+		``Exhibit Docket`` is virtual, so DB persistence already ignores these
+		rows; clearing them here also keeps the Version diff quiet (otherwise
+		every save would record the onload-injected snapshot as "added").
+		``onload`` will rebuild the rows on the next form load from live
+		``Docket`` records.
+		"""
+		self.__dict__["dockets"] = []
 
 	def _recalculate_consolidation_charge_totals(self):
 		"""Sum ``total_amount`` across consolidation_charges rows into ``total_consolidation_charges``."""

@@ -307,6 +307,36 @@ frappe.ui.form.on("Exhibit", {
 
 		if (!frm.is_new() && !frm.doc.__islocal) {
 			frm.add_custom_button(
+				__("Booking / Order"),
+				function () {
+					function _openDlg() {
+						if (window.logistics_show_exhibit_booking_dialog) {
+							window.logistics_show_exhibit_booking_dialog(frm);
+						} else {
+							frappe.msgprint({
+								title: __("Not available"),
+								message: __(
+									"The Booking / Order dialog could not load. Refresh the page or contact your administrator."
+								),
+								indicator: "red",
+							});
+						}
+					}
+					if (window.logistics_show_exhibit_booking_dialog) {
+						_openDlg();
+					} else {
+						frappe.require(
+							"/assets/logistics/js/exhibit_booking_dialog.js",
+							_openDlg
+						);
+					}
+				},
+				__("Create")
+			);
+		}
+
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			frm.add_custom_button(
 				__("Refresh Allocation Targets"),
 				function () {
 					_exhibit_refresh_allocation_targets(frm);
