@@ -97,6 +97,18 @@ class Exhibit(Document):
 	def validate(self):
 		validate_internal_job_activity_codes(self, module_filter=FOR_EXHIBITS)
 		validate_lifecycle_stage_advance(self)
+		self._recalculate_consolidation_charge_totals()
+		self._recalculate_cost_allocation_totals()
+
+	def _recalculate_consolidation_charge_totals(self):
+		"""Sum ``total_amount`` across consolidation_charges rows into ``total_consolidation_charges``."""
+		rows = self.get("consolidation_charges") or []
+		self.total_consolidation_charges = sum(flt(r.total_amount) for r in rows)
+
+	def _recalculate_cost_allocation_totals(self):
+		"""Sum ``allocated_amount`` across cost_allocations rows into ``total_allocated_amount``."""
+		rows = self.get("cost_allocations") or []
+		self.total_allocated_amount = sum(flt(r.allocated_amount) for r in rows)
 
 	def autoname(self):
 		"""Use ERPNext Project ID as Exhibit ID (created in before_insert)."""
@@ -126,6 +138,279 @@ class Exhibit(Document):
 	def on_update(self):
 		"""Hook reserved for future status-change side effects."""
 		return
+
+	def _resolve_allocation_target_type(self):
+		"""Pick the allocation target type based on the parent setting and what data is available.
+
+		Auto: prefer Exhibit Jobs when at least one is linked, otherwise Dockets.
+		Explicit: Dockets / Exhibit Jobs as configured.
+		"""
+		setting = (self.cost_allocation_target or "Auto").strip()
+		if setting == "Dockets":
+			return "Docket"
+		if setting == "Exhibit Jobs":
+			return "Exhibit Job"
+
+		if not self.name or getattr(self, "__islocal", False):
+			return "Docket"
+		exhibit_jobs = frappe.db.count(
+			"Exhibit Job",
+			filters={"exhibit": self.name, "docstatus": ["<", 2]},
+		)
+		if exhibit_jobs:
+			return "Exhibit Job"
+		return "Docket"
+
+	def _fetch_dockets_for_allocation(self):
+		"""Live Dockets linked to this Exhibit (excluding cancelled), ordered by docket_date."""
+		if not self.name or getattr(self, "__islocal", False):
+			return []
+		return frappe.get_all(
+			"Docket",
+			filters={"exhibit": self.name, "docstatus": ["<", 2]},
+			fields=["name", "exhibitor_name", "exhibitor", "title", "booth_no"],
+			order_by="docket_date asc, creation asc",
+		)
+
+	def _fetch_exhibit_jobs_for_allocation(self):
+		"""Live Exhibit Jobs linked to this Exhibit (excluding cancelled), ordered by job_date."""
+		if not self.name or getattr(self, "__islocal", False):
+			return []
+		return frappe.get_all(
+			"Exhibit Job",
+			filters={"exhibit": self.name, "docstatus": ["<", 2]},
+			fields=["name", "title"],
+			order_by="job_date asc, creation asc",
+		)
+
+	def _refresh_cost_allocation_targets(self, target_type):
+		"""Replace ``cost_allocations`` rows with the live target list, preserving custom % entries."""
+		existing_pct = {}
+		existing_basis = {}
+		for row in self.get("cost_allocations") or []:
+			key = (row.target_type, row.target)
+			existing_pct[key] = flt(row.cost_allocation_percentage)
+			existing_basis[key] = (
+				flt(row.weight_basis),
+				flt(row.volume_basis),
+				flt(row.value_basis),
+			)
+
+		self.set("cost_allocations", [])
+
+		if target_type == "Docket":
+			rows = self._fetch_dockets_for_allocation()
+			for r in rows:
+				title = (
+					r.get("exhibitor_name")
+					or r.get("title")
+					or r.get("booth_no")
+					or r.get("exhibitor")
+					or r.get("name")
+				)
+				key = ("Docket", r.get("name"))
+				wb, vb, valb = existing_basis.get(key, (0, 0, 0))
+				self.append(
+					"cost_allocations",
+					{
+						"target_type": "Docket",
+						"target": r.get("name"),
+						"target_title": title,
+						"cost_allocation_percentage": existing_pct.get(key, 0),
+						"weight_basis": wb,
+						"volume_basis": vb,
+						"value_basis": valb,
+					},
+				)
+			return len(rows)
+
+		rows = self._fetch_exhibit_jobs_for_allocation()
+		for r in rows:
+			title = r.get("title") or r.get("name")
+			key = ("Exhibit Job", r.get("name"))
+			wb, vb, valb = existing_basis.get(key, (0, 0, 0))
+			self.append(
+				"cost_allocations",
+				{
+					"target_type": "Exhibit Job",
+					"target": r.get("name"),
+					"target_title": title,
+					"cost_allocation_percentage": existing_pct.get(key, 0),
+					"weight_basis": wb,
+					"volume_basis": vb,
+					"value_basis": valb,
+				},
+			)
+		return len(rows)
+
+	def _per_target_allocation_factor(self, charge, allocation_rows, total_targets):
+		"""Return list of factors (0..1) summing to ~1 across allocation_rows for one charge.
+
+		Mirrors Air / Sea Consolidation allocation behaviour:
+		Equal / Weight-based / Volume-based / Value-based / Custom.
+		Falls back to Equal when basis values are missing or sum to 0.
+		"""
+		if total_targets <= 0:
+			return []
+
+		method = (
+			(charge.allocation_method or "").strip()
+			or (self.cost_allocation_basis or "Equal").strip()
+		)
+
+		def _equal():
+			share = 1.0 / float(total_targets)
+			return [share for _ in allocation_rows]
+
+		if method == "Equal" or not method:
+			return _equal()
+
+		if method == "Weight-based":
+			weights = [flt(r.weight_basis) for r in allocation_rows]
+			total = sum(weights)
+			if total <= 0:
+				return _equal()
+			return [w / total for w in weights]
+
+		if method == "Volume-based":
+			volumes = [flt(r.volume_basis) for r in allocation_rows]
+			total = sum(volumes)
+			if total <= 0:
+				return _equal()
+			return [v / total for v in volumes]
+
+		if method == "Value-based":
+			values = [flt(r.value_basis) for r in allocation_rows]
+			total = sum(values)
+			if total <= 0:
+				return _equal()
+			return [v / total for v in values]
+
+		percentages = [flt(r.cost_allocation_percentage) for r in allocation_rows]
+		total_pct = sum(percentages)
+		if total_pct <= 0:
+			return _equal()
+		return [p / total_pct for p in percentages]
+
+	def _apply_allocation_to_targets(self):
+		"""Compute per-target ``allocated_amount`` and overall ``cost_allocation_percentage``.
+
+		For each charge row, distribute its ``total_amount`` across cost_allocations rows by
+		the row's allocation method (or the parent ``cost_allocation_basis`` fallback).
+		"""
+		allocations = self.get("cost_allocations") or []
+		if not allocations:
+			return
+
+		for row in allocations:
+			row.allocated_amount = 0
+
+		grand_total = 0.0
+		n = len(allocations)
+		for charge in self.get("consolidation_charges") or []:
+			amount = flt(charge.total_amount)
+			if amount <= 0:
+				continue
+			factors = self._per_target_allocation_factor(charge, allocations, n)
+			row_amounts = [amount * f for f in factors]
+			# Distribute rounding so per-charge sum equals charge.total_amount.
+			rounded = [round(x, 2) for x in row_amounts]
+			diff = round(amount - sum(rounded), 2)
+			for i in range(len(rounded) - 1, -1, -1):
+				if rounded[i] > 0 and diff != 0:
+					rounded[i] = round(rounded[i] + diff, 2)
+					break
+			for r, addend in zip(allocations, rounded):
+				r.allocated_amount = flt(r.allocated_amount) + flt(addend)
+			grand_total += amount
+
+		# Compute overall % from the totals so users can see the effective split.
+		if grand_total > 0:
+			for row in allocations:
+				row.cost_allocation_percentage = (
+					(flt(row.allocated_amount) / grand_total) * 100.0
+				)
+		else:
+			for row in allocations:
+				row.cost_allocation_percentage = 0
+
+	@frappe.whitelist()
+	def refresh_cost_allocation_targets(self, target_type=None):
+		"""Refresh the Cost Allocation table with live Dockets / Exhibit Jobs.
+
+		``target_type`` (optional): ``"Docket"`` or ``"Exhibit Job"``. Falls back to the parent's
+		``cost_allocation_target`` (Auto / Dockets / Exhibit Jobs).
+		"""
+		if target_type:
+			tt = target_type.strip()
+			if tt not in ("Docket", "Exhibit Job"):
+				frappe.throw(_("target_type must be 'Docket' or 'Exhibit Job'."))
+			resolved = tt
+		else:
+			resolved = self._resolve_allocation_target_type()
+		count = self._refresh_cost_allocation_targets(resolved)
+		self._recalculate_cost_allocation_totals()
+		self.save()
+		return {
+			"target_type": resolved,
+			"targets_loaded": count,
+			"message": _("Loaded {0} {1}(s) into Cost Allocation.").format(count, resolved),
+		}
+
+	@frappe.whitelist()
+	def allocate_costs(self, allocation_basis=None, target_type=None):
+		"""Allocate consolidation charge costs across Dockets or Exhibit Jobs.
+
+		``allocation_basis`` (optional): ``Equal`` / ``Weight-based`` / ``Volume-based`` /
+		``Value-based`` / ``Custom``. Stored as ``cost_allocation_basis`` (and used as the
+		fallback for any charge row that does not set its own ``allocation_method``).
+
+		``target_type`` (optional): ``Docket`` / ``Exhibit Job`` / ``Auto``. Stored as
+		``cost_allocation_target`` and used to refresh the target list.
+		"""
+		if allocation_basis:
+			basis = allocation_basis.strip()
+			allowed = {"Equal", "Weight-based", "Volume-based", "Value-based", "Custom"}
+			if basis not in allowed:
+				frappe.throw(_("Allocation basis must be one of: {0}.").format(", ".join(sorted(allowed))))
+			self.cost_allocation_basis = basis
+
+		if target_type:
+			tt = target_type.strip()
+			if tt not in ("Auto", "Docket", "Dockets", "Exhibit Job", "Exhibit Jobs"):
+				frappe.throw(_("Allocation target must be Auto, Dockets, or Exhibit Jobs."))
+			self.cost_allocation_target = (
+				"Dockets"
+				if tt in ("Docket", "Dockets")
+				else ("Exhibit Jobs" if tt in ("Exhibit Job", "Exhibit Jobs") else "Auto")
+			)
+
+		resolved = self._resolve_allocation_target_type()
+		self._refresh_cost_allocation_targets(resolved)
+
+		if not self.get("cost_allocations"):
+			self._recalculate_cost_allocation_totals()
+			self.save()
+			return {
+				"target_type": resolved,
+				"targets_loaded": 0,
+				"message": _("No {0} found for this Exhibit. Create one first.").format(resolved),
+			}
+
+		self._apply_allocation_to_targets()
+		self._recalculate_consolidation_charge_totals()
+		self._recalculate_cost_allocation_totals()
+		self.save()
+
+		return {
+			"target_type": resolved,
+			"targets_loaded": len(self.get("cost_allocations") or []),
+			"total_charges": flt(self.total_consolidation_charges),
+			"total_allocated": flt(self.total_allocated_amount),
+			"message": _("Costs allocated across {0} {1}(s).").format(
+				len(self.get("cost_allocations") or []), resolved
+			),
+		}
 
 	def _create_erpnext_project_before_insert(self):
 		"""Create ERPNext Project first; its ID will be used as Exhibit ID via autoname."""
