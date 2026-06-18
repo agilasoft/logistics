@@ -963,12 +963,13 @@ frappe.ui.form.on("Sales Quote", {
 		});
 	},
 
-	setup_internal_job_query(frm) {
-		// Per-charge Internal Job link must only list IJs owned by this quote (One-off).
-		// Also constrains the Internal Jobs tab grid to the same scope (defensive: prevents
-		// users from manually linking an IJ owned by another booking/quote).
+	setup_linked_service_query(frm) {
+		const lsField = frm.fields_dict.linked_services ? "linked_services" : "internal_job_details";
+		const linkField = frappe.meta.get_docfield("Sales Quote Charge", "linked_service")
+			? "linked_service"
+			: "internal_job";
 		if (frm.fields_dict.charges) {
-			frm.set_query("internal_job", "charges", function () {
+			frm.set_query(linkField, "charges", function () {
 				return {
 					filters: {
 						parent_booking_type: "Sales Quote",
@@ -977,8 +978,8 @@ frappe.ui.form.on("Sales Quote", {
 				};
 			});
 		}
-		if (frm.fields_dict.internal_job_details) {
-			frm.set_query("internal_job", "internal_job_details", function () {
+		if (frm.fields_dict[lsField]) {
+			frm.set_query(linkField, lsField, function () {
 				return {
 					filters: {
 						parent_booking_type: "Sales Quote",
@@ -987,6 +988,10 @@ frappe.ui.form.on("Sales Quote", {
 				};
 			});
 		}
+	},
+
+	setup_internal_job_query(frm) {
+		frm.events.setup_linked_service_query(frm);
 	},
 
 	apply_default_uoms_per_tab(frm) {
@@ -1612,8 +1617,10 @@ frappe.ui.form.on('Sales Quote Charge', {
 	charge_scope: function(frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);
 		if (!row) return;
-		if ((row.charge_scope || "Main") !== "Internal Job" && row.internal_job) {
-			frappe.model.set_value(cdt, cdn, "internal_job", "");
+		const scope = (row.charge_scope || "Main").trim();
+		const linkField = row.linked_service !== undefined ? "linked_service" : "internal_job";
+		if (scope !== "Linked" && scope !== "Internal Job" && row[linkField]) {
+			frappe.model.set_value(cdt, cdn, linkField, "");
 		}
 	},
 });

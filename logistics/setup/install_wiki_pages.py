@@ -97,7 +97,7 @@ WIKI_PAGES_CONFIG = {
     # Pricing Center
     "sales_quote": ("Sales Quote", "Pricing Center"),
     "sales_quote_separate_billings_and_internal_job": (
-        "Sales Quote — Separate Billings and Internal Job",
+        "Sales Quote — Service Scope, Linked Services, and Separate Billings",
         "Pricing Center",
     ),
     "change_request": ("Change Request", "Pricing Center"),

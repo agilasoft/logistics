@@ -307,7 +307,9 @@ class SalesQuote(Document):
 		self.validate_vehicle_type_capacity()
 		self.validate_multimodal_main_job()
 		self.validate_customs_unit_types()
-		self.validate_internal_job_charge_tagging()
+		self.validate_linked_service_charge_tagging()
+		self.stamp_service_scope_on_child_rows()
+		self.auto_scope_title()
 
 	def after_insert(self):
 		_sync_special_project_from_sales_quote(self)
@@ -589,54 +591,82 @@ class SalesQuote(Document):
 					title=_("Programme Parameters Required"),
 				)
 
-	def validate_internal_job_charge_tagging(self):
-		"""Validate per-charge Internal Job tagging on Sales Quote (any ``quotation_type``).
+	def stamp_service_scope_on_child_rows(self):
+		"""Tag every charge and Services row with this quote as service_scope (lane id)."""
+		if not self.name:
+			return
+		for row in getattr(self, "charges", None) or []:
+			if not (getattr(row, "service_scope", None) or "").strip():
+				row.service_scope = self.name
+		field = "linked_services" if hasattr(self, "linked_services") else "internal_job_details"
+		for row in getattr(self, field, None) or []:
+			if not (getattr(row, "service_scope", None) or "").strip():
+				row.service_scope = self.name
 
-		Internal Job creation does not validate ``quotation_type`` — a single Sales Quote can have
-		multiple Internal Jobs regardless of type. The constraints applied here are purely about
-		the per-row scope/link integrity:
+	def auto_scope_title(self):
+		"""Default scope_title from corridor + incoterm when blank."""
+		if (getattr(self, "scope_title", None) or "").strip():
+			return
+		parts = []
+		origin = _sq_strip_or_none(getattr(self, "origin_port", None))
+		dest = _sq_strip_or_none(getattr(self, "destination_port", None))
+		if origin and dest:
+			parts.append(f"{origin} → {dest}")
+		inc = _sq_strip_or_none(getattr(self, "incoterm", None))
+		if inc:
+			parts.append(f"({inc})")
+		if parts:
+			self.scope_title = " ".join(parts)
 
-		* ``charge_scope = "Internal Job"`` requires a non-empty ``internal_job`` link.
-		* That link must point at an Internal Job already defined on this quote's
-		  ``internal_job_details`` table (or be a fresh IJ that has not yet been materialised — in
-		  which case the field is empty and the previous rule catches it).
-		* ``charge_scope != "Internal Job"`` clears any stale ``internal_job`` link so the booking
-		  charge is never tagged with a stranded IJ name post-conversion.
-		"""
+	def validate_linked_service_charge_tagging(self):
+		"""Validate per-charge Linked Service tagging on Sales Quote."""
+		from logistics.utils.linked_service_compat import (
+			CHARGE_SCOPE_LINKED,
+			CHARGE_SCOPE_MAIN,
+			charge_row_linked_service_link,
+			linked_service_rows,
+			normalize_charge_scope,
+			set_charge_row_linked_service_link,
+		)
+
 		charges = getattr(self, "charges", None) or []
-
-		allowed_ijs: set[str] = set()
-		for ij_row in getattr(self, "internal_job_details", None) or []:
-			ij_name = (getattr(ij_row, "internal_job", None) or "").strip()
-			if ij_name:
-				allowed_ijs.add(ij_name)
+		allowed_ls: set[str] = set()
+		for ls_row in linked_service_rows(self):
+			ls_name = charge_row_linked_service_link(ls_row)
+			if ls_name:
+				allowed_ls.add(ls_name)
 
 		for row in charges:
-			scope = (getattr(row, "charge_scope", None) or "Main").strip() or "Main"
-			ij_link = (getattr(row, "internal_job", None) or "").strip()
-			if scope != "Internal Job":
-				if ij_link:
-					row.internal_job = None
-				row.charge_scope = "Main"
+			scope = normalize_charge_scope(getattr(row, "charge_scope", None))
+			ls_link = charge_row_linked_service_link(row)
+			if scope != CHARGE_SCOPE_LINKED:
+				if ls_link:
+					set_charge_row_linked_service_link(row, None)
+				row.charge_scope = CHARGE_SCOPE_MAIN
 				continue
-			if not ij_link:
+			row.charge_scope = CHARGE_SCOPE_LINKED
+			if not ls_link:
 				frappe.throw(
-					_("Charges row {0}: select an Internal Job when Scope is \"Internal Job\".").format(
+					_("Charges row {0}: select a Linked Service when Scope is \"Linked\".").format(
 						getattr(row, "idx", "") or "?",
 					),
-					title=_("Internal Job Required"),
+					title=_("Linked Service Required"),
 				)
-			if allowed_ijs and ij_link not in allowed_ijs:
+			if allowed_ls and ls_link not in allowed_ls:
 				frappe.throw(
 					_(
-						"Charges row {0}: Internal Job {1} is not defined on this quote. "
-						"Add it to the Internal Jobs tab first."
+						"Charges row {0}: Linked Service {1} is not defined on this quote. "
+						"Add it to the Services grid first."
 					).format(
 						getattr(row, "idx", "") or "?",
-						frappe.bold(ij_link),
+						frappe.bold(ls_link),
 					),
-					title=_("Internal Job Not Found"),
+					title=_("Linked Service Not Found"),
 				)
+
+	def validate_internal_job_charge_tagging(self):
+		"""Backward-compatible alias."""
+		self.validate_linked_service_charge_tagging()
 
 	def validate_multimodal_main_job(self):
 		"""When multimodal routing legs exist, require at least one Main Job."""

@@ -34,6 +34,14 @@ import frappe
 from frappe.utils import cint
 
 from logistics.utils.charge_service_type import default_job_type_for_internal_job_service_type
+from logistics.utils.linked_service_compat import (
+	linked_service_doctype,
+	linked_service_doctype_exists,
+	linked_service_detail_doctype,
+	linked_services_fieldname,
+	row_linked_service_link,
+	set_row_linked_service_link,
+)
 from logistics.utils.sales_quote_charge_parameters import SALES_QUOTE_CHARGE_PARAMETER_FIELDS
 
 
@@ -66,7 +74,7 @@ INTERNAL_JOB_DETAIL_PARENTS: dict[str, str] = {
 	"MICE Project": "internal_jobs",
 	"Docket": "internal_jobs",
 	"Exhibit": "internal_jobs",
-	"Sales Quote": "internal_job_details",
+	"Sales Quote": "linked_services",
 }
 
 
@@ -79,7 +87,10 @@ def _should_run_internal_job_sync_for_parent(parent_doc: Any) -> bool:
 
 
 def internal_job_detail_fieldname(parent_doctype: str) -> str | None:
-	"""Fieldname of the Internal Job Detail child table on *parent_doctype*, or ``None``."""
+	"""Fieldname of the Linked Service Detail child table on *parent_doctype*, or ``None``."""
+	fn = linked_services_fieldname(parent_doctype)
+	if fn:
+		return fn
 	return INTERNAL_JOB_DETAIL_PARENTS.get(parent_doctype)
 
 
@@ -102,10 +113,10 @@ def sync_internal_job_doc_job_link(row: Any, job_type: str, job_no: str) -> None
 	jt = _norm(job_type)
 	if not ij_name or not jn:
 		return
-	if not frappe.db.exists("Internal Job", ij_name):
+	if not frappe.db.exists(linked_service_doctype(), ij_name):
 		return
 	updates: dict[str, Any] = {"job_type": jt, "job_no": jn}
-	frappe.db.set_value("Internal Job", ij_name, updates, update_modified=False)
+	frappe.db.set_value(linked_service_doctype(), ij_name, updates, update_modified=False)
 
 
 # Parameter fields stored on `Internal Job` that mirror `Internal Job Detail` and `Sales Quote Charge`.
@@ -136,19 +147,20 @@ def _norm(val: Any) -> str:
 
 
 def _internal_job_doctype_exists() -> bool:
-	"""True when the `Internal Job` doctype is present in metadata; defensive for partial migrations."""
-	try:
-		return bool(frappe.get_meta("Internal Job"))
-	except Exception:
-		return False
+	"""True when Linked Service (or legacy Internal Job) doctype is present."""
+	return linked_service_doctype_exists()
+
+
+def _ls_meta():
+	return frappe.get_meta(linked_service_doctype())
 
 
 def _copy_row_params_to_internal_job(row: Any, ij_doc: Any) -> bool:
-	"""Copy parameter values from an `Internal Job Detail` row onto an `Internal Job` document.
+	"""Copy parameter values from a Linked Service Detail row onto a Linked Service document.
 
 	Returns True when any field changed.
 	"""
-	meta = frappe.get_meta("Internal Job")
+	meta = _ls_meta()
 	changed = False
 	for fn in _PARAM_FIELDS:
 		if not meta.has_field(fn):
@@ -183,14 +195,14 @@ def _create_internal_job_from_row(
 	parent_doc: Any, row: Any, *, preferred_name: str | None = None
 ) -> str:
 	"""Create a new `Internal Job` document seeded from an `Internal Job Detail` row's values."""
-	ij = frappe.new_doc("Internal Job")
+	ij = frappe.new_doc(linked_service_doctype())
 	ij.parent_booking_type = parent_doc.doctype
 	ij.parent_booking_name = parent_doc.name or ""
 	_copy_row_params_to_internal_job(row, ij)
 	_ensure_job_type_from_service(ij)
 	ij.flags.ignore_permissions = True
 	preferred = _norm(preferred_name)
-	if preferred and not frappe.db.exists("Internal Job", preferred):
+	if preferred and not frappe.db.exists(linked_service_doctype(), preferred):
 		ij.insert(ignore_permissions=True, set_name=preferred)
 	else:
 		ij.insert(ignore_permissions=True)
@@ -206,7 +218,7 @@ def create_internal_job_for_parent_from_source(
 	row, or any row-like with the same attribute names). Used by the Sales Quote (One-off) →
 	Booking conversion flow to materialise a new IJ on the booking that mirrors the SQ-owned IJ.
 	"""
-	ij = frappe.new_doc("Internal Job")
+	ij = frappe.new_doc(linked_service_doctype())
 	ij.parent_booking_type = parent_doctype
 	ij.parent_booking_name = parent_name or ""
 	_copy_row_params_to_internal_job(source, ij)
@@ -218,9 +230,9 @@ def create_internal_job_for_parent_from_source(
 
 def _update_internal_job_from_row(row: Any, ij_name: str) -> None:
 	"""Apply edits from an `Internal Job Detail` row onto the linked `Internal Job` document."""
-	if not ij_name or not frappe.db.exists("Internal Job", ij_name):
+	if not ij_name or not frappe.db.exists(linked_service_doctype(), ij_name):
 		return
-	ij = frappe.get_doc("Internal Job", ij_name)
+	ij = frappe.get_doc(linked_service_doctype(), ij_name)
 	changed = _copy_row_params_to_internal_job(row, ij)
 	_ensure_job_type_from_service(ij)
 	if not changed and (ij.job_type == _row_value(row, "job_type") or not _row_value(row, "job_type")):
@@ -293,10 +305,10 @@ def _ensure_internal_job_docs_for_detail_rows(parent_doc: Any) -> dict[str, str]
 
 	for row in getattr(parent_doc, fieldname, None) or []:
 		ij_name = (_row_value(row, "internal_job") or "").strip()
-		if ij_name and frappe.db.exists("Internal Job", ij_name):
+		if ij_name and frappe.db.exists(linked_service_doctype(), ij_name):
 			_update_internal_job_from_row(row, ij_name)
 			if _norm(getattr(parent_doc, "name", None)):
-				ij = frappe.get_doc("Internal Job", ij_name)
+				ij = frappe.get_doc(linked_service_doctype(), ij_name)
 				if _backfill_internal_job_parent_link(ij, parent_doc):
 					ij.flags.ignore_permissions = True
 					ij.flags.skip_internal_job_detail_sync = True
@@ -359,7 +371,9 @@ def reconcile_orphan_charge_internal_job_links(
 	if not parent_doc:
 		return
 	_, child_meta = _charges_child_meta(parent_doc)
-	if not child_meta or not child_meta.has_field("internal_job"):
+	if not child_meta or not (
+		child_meta.has_field("linked_service") or child_meta.has_field("internal_job")
+	):
 		return
 	has_scope_field = bool(child_meta.has_field("charge_scope"))
 	rows = getattr(parent_doc, "charges", None) or []
@@ -371,33 +385,28 @@ def reconcile_orphan_charge_internal_job_links(
 	remap = ij_remap or {}
 
 	for row in rows:
-		cur = (_row_value(row, "internal_job") or "").strip()
+		cur = row_linked_service_link(row)
 		if not cur:
 			continue
-		if frappe.db.exists("Internal Job", cur):
+		if frappe.db.exists(linked_service_doctype(), cur):
 			continue
 		replacement = remap.get(cur)
 		if not replacement:
 			st = _norm(_row_value(row, "service_type"))
 			replacement = ij_by_service.get(st) if st else None
-		if replacement and frappe.db.exists("Internal Job", replacement):
-			if isinstance(row, dict):
-				row["internal_job"] = replacement
-			else:
-				setattr(row, "internal_job", replacement)
+		if replacement and frappe.db.exists(linked_service_doctype(), replacement):
+			set_row_linked_service_link(row, replacement)
 			if has_scope_field:
 				if isinstance(row, dict):
-					row["charge_scope"] = "Internal Job"
+					row["charge_scope"] = "Linked"
 				else:
-					setattr(row, "charge_scope", "Internal Job")
+					setattr(row, "charge_scope", "Linked")
 			continue
-		if isinstance(row, dict):
-			row["internal_job"] = None
-			if has_scope_field:
+		set_row_linked_service_link(row, None)
+		if has_scope_field:
+			if isinstance(row, dict):
 				row["charge_scope"] = "Main"
-		else:
-			setattr(row, "internal_job", None)
-			if has_scope_field:
+			else:
 				setattr(row, "charge_scope", "Main")
 
 
@@ -422,10 +431,10 @@ def _delete_orphan_internal_jobs(parent_doc: Any, fieldname: str) -> None:
 	prev = _previously_linked_internal_jobs(parent_doc, fieldname)
 	cur = _currently_linked_internal_jobs(parent_doc, fieldname)
 	for ij_name in prev - cur:
-		if not ij_name or not frappe.db.exists("Internal Job", ij_name):
+		if not ij_name or not frappe.db.exists(linked_service_doctype(), ij_name):
 			continue
 		try:
-			frappe.delete_doc("Internal Job", ij_name, ignore_permissions=True, force=True)
+			frappe.delete_doc(linked_service_doctype(), ij_name, ignore_permissions=True, force=True)
 		except Exception:
 			frappe.log_error(
 				title="Internal Job orphan cleanup failed",
@@ -458,7 +467,7 @@ def delete_internal_jobs_for_booking(doc: Any, *_method) -> None:
 	if not _internal_job_doctype_exists():
 		return
 	names = frappe.get_all(
-		"Internal Job",
+		linked_service_doctype(),
 		filters={
 			"parent_booking_type": doc.doctype,
 			"parent_booking_name": doc.name or "",
@@ -467,7 +476,7 @@ def delete_internal_jobs_for_booking(doc: Any, *_method) -> None:
 	)
 	for n in names:
 		try:
-			frappe.delete_doc("Internal Job", n, ignore_permissions=True, force=True)
+			frappe.delete_doc(linked_service_doctype(), n, ignore_permissions=True, force=True)
 		except Exception:
 			frappe.log_error(
 				title="Internal Job parent-trash cleanup failed",
@@ -489,7 +498,7 @@ def get_internal_jobs_for_booking(parent_doc: Any) -> list[Any]:
 			names.append(n)
 	if not names:
 		names = frappe.get_all(
-			"Internal Job",
+			linked_service_doctype(),
 			filters={
 				"parent_booking_type": parent_doc.doctype,
 				"parent_booking_name": parent_doc.name or "",
@@ -499,8 +508,8 @@ def get_internal_jobs_for_booking(parent_doc: Any) -> list[Any]:
 		)
 	out: list[Any] = []
 	for n in names:
-		if frappe.db.exists("Internal Job", n):
-			out.append(frappe.get_doc("Internal Job", n))
+		if frappe.db.exists(linked_service_doctype(), n):
+			out.append(frappe.get_doc(linked_service_doctype(), n))
 	return out
 
 
@@ -533,7 +542,7 @@ def resolve_internal_job_for_internal_job_booking(doc: Any) -> str | None:
 		if fieldname:
 			try:
 				rows = frappe.get_all(
-					"Internal Job Detail",
+					linked_service_detail_doctype(),
 					filters={
 						"parent": main_job,
 						"parenttype": main_job_type,
@@ -554,7 +563,7 @@ def resolve_internal_job_for_internal_job_booking(doc: Any) -> str | None:
 		return None
 	try:
 		ij_names = frappe.get_all(
-			"Internal Job",
+			linked_service_doctype(),
 			filters={
 				"parent_booking_type": main_job_type or None,
 				"parent_booking_name": main_job or None,
@@ -572,7 +581,7 @@ def resolve_internal_job_for_internal_job_booking(doc: Any) -> str | None:
 def _internal_job_detail_table_columns() -> set[str]:
 	"""Columns present on `tabInternal Job Detail` (for safe DB writes)."""
 	try:
-		return set(frappe.db.get_table_columns("Internal Job Detail") or [])
+		return set(frappe.db.get_table_columns(linked_service_detail_doctype()) or [])
 	except Exception:
 		return set()
 
@@ -609,7 +618,7 @@ def sync_internal_job_to_detail_rows(ij_doc: Any, *_method) -> None:
 		return
 
 	rows = frappe.get_all(
-		"Internal Job Detail",
+		linked_service_detail_doctype(),
 		filters={"internal_job": ij_name},
 		fields=["name"] + writable,
 	)
@@ -626,7 +635,7 @@ def sync_internal_job_to_detail_rows(ij_doc: Any, *_method) -> None:
 			continue
 		try:
 			frappe.db.set_value(
-				"Internal Job Detail",
+				linked_service_detail_doctype(),
 				row["name"],
 				updates,
 				update_modified=False,
