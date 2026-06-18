@@ -78,8 +78,11 @@ def make_warehouse_job(source_name, target_doc=None):
         tgt.uom = _get(src, "uom")
         tgt.quantity = _get(src, "quantity")
         tgt.currency = _get(src, "currency")
-        tgt.rate = _get(src, "rate")
+        tgt.unit_rate = _get(src, "unit_rate")
         tgt.total = _get(src, "total")
+        desc = _get(src, "description")
+        if desc and hasattr(tgt, "description"):
+            tgt.description = desc
 
     def update_dock(src, tgt, src_parent):
         tgt.dock_door = _get(src, "dock_door")

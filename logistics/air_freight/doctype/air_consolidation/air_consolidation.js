@@ -698,7 +698,7 @@ function show_cost_breakdown_dialog(cost_breakdown) {
             <td>${charge.type}</td>
             <td>${charge.category}</td>
             <td>${charge.basis}</td>
-            <td>${charge.rate}</td>
+            <td>${charge.unit_rate}</td>
             <td>${charge.quantity}</td>
             <td>${charge.base_amount}</td>
             <td>${charge.discount}</td>

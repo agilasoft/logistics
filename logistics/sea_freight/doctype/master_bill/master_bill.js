@@ -43,19 +43,70 @@ frappe.ui.form.on("Master Bill", {
 	},
 
 	refresh(frm) {
-		if (!frm.doc.__islocal) {
-			frm.add_custom_button(__("Refresh Voyage Status"), function () {
-				frappe.call({
-					method: "logistics.sea_freight.doctype.master_bill.master_bill.refresh_voyage_status",
-					args: { master_bill_name: frm.doc.name },
-					callback: function (r) {
-						if (r.message && r.message.success) {
-							frm.reload_doc();
-							frappe.show_alert({ message: __("Voyage status refreshed"), indicator: "green" });
-						} else if (r.message && r.message.error) {
-							frappe.msgprint(r.message.error);
-						}
+		if (frm.doc.__islocal) return;
+
+		frm.add_custom_button(__("Refresh Voyage Status"), function () {
+			frappe.call({
+				method: "logistics.sea_freight.doctype.master_bill.master_bill.refresh_voyage_status",
+				args: { master_bill_name: frm.doc.name },
+				freeze: true,
+				freeze_message: __("Refreshing voyage status..."),
+				callback: function (r) {
+					const m = (r && r.message) || {};
+					if (m.success) {
+						frm.reload_doc();
+						frappe.show_alert({
+							message: __("Voyage status refreshed from {0}", [m.provider || __("provider")]),
+							indicator: "green",
+						});
+						return;
 					}
+					if (m.app_installed === false) {
+						frappe.msgprint({
+							title: __("GoConnect required"),
+							message: m.message || __("Install GoConnect to enable live vessel tracking."),
+							indicator: "orange",
+						});
+						return;
+					}
+					if (m.licensed === false) {
+						frappe.msgprint({
+							title: __("Subscription required"),
+							message: m.message || __("Your GoConnect license does not cover the vessel voyage tracker."),
+							indicator: "orange",
+						});
+						return;
+					}
+					frappe.msgprint(m.message || m.error || __("Unable to refresh voyage status."));
+				},
+			});
+		}, __("Action"));
+
+		if (!frm.doc.vessel_schedule) {
+			frm.add_custom_button(__("Auto-link Vessel Schedule"), function () {
+				frappe.call({
+					method: "logistics.sea_freight.doctype.master_bill.master_bill.fetch_and_link_vessel_schedule",
+					args: { master_bill_name: frm.doc.name },
+					freeze: true,
+					freeze_message: __("Looking up Vessel Schedule..."),
+					callback: function (r) {
+						const m = (r && r.message) || {};
+						if (m.success) {
+							frm.reload_doc();
+							frappe.show_alert({
+								message: __("Linked Vessel Schedule {0}", [m.vessel_schedule]),
+								indicator: "green",
+							});
+						} else if (m.app_installed === false) {
+							frappe.msgprint({
+								title: __("GoConnect required"),
+								message: m.message,
+								indicator: "orange",
+							});
+						} else if (m.message) {
+							frappe.msgprint(m.message);
+						}
+					},
 				});
 			}, __("Action"));
 		}

@@ -53,7 +53,8 @@
    "fieldname": "cost",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Cost"
+   "label": "Cost",
+   "options": "currency"
   },
   {
    "fieldname": "currency",

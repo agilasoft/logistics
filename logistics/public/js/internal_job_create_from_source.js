@@ -185,6 +185,7 @@
 			".lij-card-head-title{font-weight:600;font-size:14px;color:var(--text-color,#0f172a);line-height:1.3;margin:0 0 6px;}" +
 			".lij-card-head-row2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;line-height:1.45;}" +
 			".lij-card-pill{display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;background:rgba(92,106,196,0.14);color:var(--primary,#5c6ac4);font-size:11px;font-weight:600;white-space:nowrap;max-width:100%;}" +
+			".lij-card-pill--ij{background:rgba(217,119,6,0.14);color:#b45309;font-family:var(--font-mono,ui-monospace,monospace);}" +
 			".lij-card-sub{color:var(--text-muted,#64748b);font-weight:400;min-width:0;word-break:break-word;}" +
 			".lij-card-toggle:hover{background:var(--fg-color,#f8fafc);}" +
 			".lij-card-toggle:focus{outline:2px solid var(--primary);outline-offset:2px;}" +
@@ -258,7 +259,7 @@
 		var esc = frappe.utils.escape_html;
 		var rows = charges
 			.map(function (c) {
-				var rate = c.rate != null ? c.rate : c.unit_rate != null ? c.unit_rate : c.per_unit_rate;
+				var rate = c.unit_rate != null ? c.unit_rate : c.per_unit_rate;
 				var cur = c.currency || c.selling_currency || "";
 				var label = (c.item_code || "") + (c.item_name ? " — " + c.item_name : "");
 				return (
@@ -440,35 +441,83 @@
 	}
 
 	/**
-	 * Poll until the new Transport Order is readable in the DB, then navigate.
-	 * Mirrors Sales Quote → Air Booking (air_booking_exists): immediate set_route after create can load the form before the desk sees the row.
+	 * Doctype → dedicated `*_exists` whitelisted method. Lightweight check that returns True/False
+	 * without loading the document, used to avoid the brief "<Doctype> ... not found" race that
+	 * happens when desk loads the form before the just-inserted row is visible to the next request.
+	 *
+	 * Doctypes not in this map fall back to `frappe.db.exists` (frappe.client.get_value under the hood),
+	 * which works for any doctype the user can read.
 	 */
-	function _whenTransportOrderThenNavigate(docname, navigateFn) {
+	var _DOC_EXISTS_API = {
+		"Air Booking": "logistics.air_freight.doctype.air_booking.air_booking.air_booking_exists",
+		"Air Shipment": "logistics.air_freight.doctype.air_shipment.air_shipment.air_shipment_exists",
+		"Sea Shipment": "logistics.sea_freight.doctype.sea_shipment.sea_shipment.sea_shipment_exists",
+		"Transport Order": "logistics.transport.doctype.transport_order.transport_order.transport_order_exists",
+	};
+
+	/**
+	 * Poll until ``docname`` is readable in the DB, then run ``navigateFn``. Used by every
+	 * "Create <X> from <Y>" flow so ``frappe.set_route`` never loads a form before the freshly
+	 * inserted row is visible to the next request (DB commit / replica / route race).
+	 *
+	 * After ~15 attempts (≈4.5s) we navigate anyway so the user is never stuck on the source form;
+	 * the desk's own retry / refresh path then takes over.
+	 *
+	 * Exposed as ``window.logistics_navigate_when_doc_exists`` so dialogs loaded via ``frappe.require``
+	 * (special_project_booking_dialog, docket_booking_dialog, exhibit_booking_dialog,
+	 * create_from_sales_quote) can share the same guarded navigation.
+	 */
+	function _whenDocExistsThenNavigate(doctype, docname, navigateFn) {
+		if (!doctype || !docname) {
+			navigateFn();
+			return;
+		}
+		var api = _DOC_EXISTS_API[doctype];
 		function attempt(n) {
 			if (n > 15) {
 				navigateFn();
 				return;
 			}
-			frappe.call({
-				method: "logistics.transport.doctype.transport_order.transport_order.transport_order_exists",
-				args: { docname: docname },
-				callback: function (res) {
-					if (res.message === true) {
+			function _retry() {
+				setTimeout(function () {
+					attempt(n + 1);
+				}, 300);
+			}
+			if (api) {
+				frappe.call({
+					method: api,
+					args: { docname: docname },
+					callback: function (res) {
+						if (res && res.message === true) {
+							navigateFn();
+						} else {
+							_retry();
+						}
+					},
+					error: _retry,
+				});
+				return;
+			}
+			// Fallback for doctypes without a dedicated lightweight existence API.
+			frappe.db
+				.exists(doctype, docname)
+				.then(function (exists) {
+					if (exists) {
 						navigateFn();
 					} else {
-						setTimeout(function () {
-							attempt(n + 1);
-						}, 300);
+						_retry();
 					}
-				},
-				error: function () {
-					setTimeout(function () {
-						attempt(n + 1);
-					}, 300);
-				},
-			});
+				})
+				.catch(_retry);
 		}
 		attempt(1);
+	}
+
+	window.logistics_navigate_when_doc_exists = _whenDocExistsThenNavigate;
+
+	// Backwards-compatible alias for older call sites; new code should call _whenDocExistsThenNavigate.
+	function _whenTransportOrderThenNavigate(docname, navigateFn) {
+		_whenDocExistsThenNavigate("Transport Order", docname, navigateFn);
 	}
 
 	/** Reload the document we just routed to so the grid/title match the server (avoids stale desk title). */
@@ -536,7 +585,7 @@
 		_applyMsIjRulesOnForm(frm);
 		var msg = r.message || {};
 		if (msg.transport_order) {
-			_whenTransportOrderThenNavigate(msg.transport_order, function () {
+			_whenDocExistsThenNavigate("Transport Order", msg.transport_order, function () {
 				_routeAfterFormNavigate("Transport Order", ["Form", "Transport Order", msg.transport_order]).then(
 					function () {
 						_maybeReloadSourceFreightShipmentIfStillActive(frm);
@@ -546,21 +595,27 @@
 			return;
 		}
 		if (msg.declaration_order) {
-			_routeAfterFormNavigate("Declaration Order", [
-				"Form",
-				"Declaration Order",
-				msg.declaration_order,
-			]).then(function () {
-				_maybeReloadSourceFreightShipmentIfStillActive(frm);
+			_whenDocExistsThenNavigate("Declaration Order", msg.declaration_order, function () {
+				_routeAfterFormNavigate("Declaration Order", [
+					"Form",
+					"Declaration Order",
+					msg.declaration_order,
+				]).then(function () {
+					_maybeReloadSourceFreightShipmentIfStillActive(frm);
+				});
 			});
 			return;
 		}
 		if (msg.air_booking) {
-			_routeAfterFormNavigate("Air Booking", ["Form", "Air Booking", msg.air_booking]);
+			_whenDocExistsThenNavigate("Air Booking", msg.air_booking, function () {
+				_routeAfterFormNavigate("Air Booking", ["Form", "Air Booking", msg.air_booking]);
+			});
 			return;
 		}
 		if (msg.sea_booking) {
-			_routeAfterFormNavigate("Sea Booking", ["Form", "Sea Booking", msg.sea_booking]);
+			_whenDocExistsThenNavigate("Sea Booking", msg.sea_booking, function () {
+				_routeAfterFormNavigate("Sea Booking", ["Form", "Sea Booking", msg.sea_booking]);
+			});
 			return;
 		}
 		if (msg.inbound_order) {
@@ -571,7 +626,9 @@
 				},
 				5
 			);
-			_routeAfterFormNavigate("Inbound Order", ["Form", "Inbound Order", msg.inbound_order]);
+			_whenDocExistsThenNavigate("Inbound Order", msg.inbound_order, function () {
+				_routeAfterFormNavigate("Inbound Order", ["Form", "Inbound Order", msg.inbound_order]);
+			});
 			return;
 		}
 		frappe.msgprint({
@@ -700,6 +757,10 @@
 			c.header_subtitle != null && String(c.header_subtitle).trim()
 				? String(c.header_subtitle)
 				: "";
+		var ijLink =
+			c.internal_job != null && String(c.internal_job).trim() !== ""
+				? String(c.internal_job).trim()
+				: "";
 		var $block = $("<div>").addClass("lij-card-head-block");
 		var iconText = _choiceIconText(c);
 		var $icon = $("<span>").addClass("lij-card-mono-icon").text(iconText);
@@ -711,6 +772,14 @@
 		$text.append($("<div>").addClass("lij-card-head-title").text(title));
 		var $row2 = $("<div>").addClass("lij-card-head-row2");
 		$row2.append($("<span>").addClass("lij-card-pill").text(badge));
+		if (ijLink) {
+			$row2.append(
+				$("<span>")
+					.addClass("lij-card-pill lij-card-pill--ij")
+					.attr("title", __("Internal Job: {0}", [ijLink]))
+					.text(ijLink)
+			);
+		}
 		if (sub) {
 			$row2.append($("<span>").addClass("lij-card-sub").text(sub));
 		}
@@ -809,9 +878,11 @@
 			if (dec.creatable === false) {
 				frappe.msgprint({
 					title: __("Create Internal Job"),
-					message: __(
-						"This line cannot be created automatically from here. Pick a supported option or create the document separately."
-					),
+					message:
+						dec.not_creatable_message ||
+						__(
+							"This line cannot be created automatically from here. Pick a supported option or create the document separately."
+						),
 					indicator: "orange",
 				});
 				return;
@@ -838,17 +909,19 @@
 			freeze: true,
 			freeze_message: __("Creating..."),
 			callback: function (r2) {
-				if (r2.message && r2.message.already_exists && r2.message.declaration_order) {
-					frappe.show_alert({ message: r2.message.message || "", indicator: "blue" }, 5);
-					_routeAfterFormNavigate("Declaration Order", [
-						"Form",
-						"Declaration Order",
-						r2.message.declaration_order,
-					]).then(function () {
-						_maybeReloadSourceFreightShipmentIfStillActive(frm);
-					});
-					return;
-				}
+			if (r2.message && r2.message.already_exists && r2.message.declaration_order) {
+				frappe.show_alert({ message: r2.message.message || "", indicator: "blue" }, 5);
+				// already_exists: the Declaration Order is older than this request and is definitely visible,
+				// so polling is unnecessary — go straight to the form.
+				_routeAfterFormNavigate("Declaration Order", [
+					"Form",
+					"Declaration Order",
+					r2.message.declaration_order,
+				]).then(function () {
+					_maybeReloadSourceFreightShipmentIfStillActive(frm);
+				});
+				return;
+			}
 				_routeAfterInternalJobCreate(frm, dec.job_type, r2);
 				_maybeReloadSourceFreightShipmentIfStillActive(frm);
 				_applyMsIjRulesOnForm(frm);

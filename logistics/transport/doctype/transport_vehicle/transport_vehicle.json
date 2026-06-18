@@ -50,6 +50,7 @@
   "telematics_provider",
   "telematics_device_name",
   "telematics_external_id",
+  "gotransport_device",
   "column_break_bnct",
   "last_telematics_ts",
   "last_telematics_lat",
@@ -89,8 +90,8 @@
    "fieldname": "make",
    "fieldtype": "Link",
    "label": "Make",
-   "options": "Vehicle Make",
-   "link_filters": "[[\"Vehicle Make\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Vehicle Make\", \"is_active\", \"=\", 1]]",
+   "options": "Vehicle Make"
   },
   {
    "fieldname": "model",
@@ -102,9 +103,9 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Vehicle Type",
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]",
    "options": "Vehicle Type",
-   "reqd": 1,
-   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
+   "reqd": 1
   },
   {
    "default": "0",
@@ -117,9 +118,9 @@
    "fieldname": "transport_company",
    "fieldtype": "Link",
    "label": "Transport Company",
+   "link_filters": "[[\"Transport Company\", \"is_active\", \"=\", 1]]",
    "mandatory_depends_on": "eval:!doc.company_owned",
-   "options": "Transport Company",
-   "link_filters": "[[\"Transport Company\", \"is_active\", \"=\", 1]]"
+   "options": "Transport Company"
   },
   {
    "fieldname": "capacity_tab",
@@ -137,8 +138,8 @@
    "fieldname": "capacity_weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "capacity_volume",
@@ -151,8 +152,8 @@
    "fieldname": "capacity_volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "capacity_pallets",
@@ -218,15 +219,15 @@
    "fieldname": "base_facility",
    "fieldtype": "Link",
    "label": "Base Facility",
-   "options": "Transport Terminal",
-   "link_filters": "[[\"Transport Terminal\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Transport Terminal\", \"is_active\", \"=\", 1]]",
+   "options": "Transport Terminal"
   },
   {
    "fieldname": "address",
    "fieldtype": "Link",
    "label": "Address",
-   "options": "Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "options": "Address"
   },
   {
    "fieldname": "column_break_tvvj",
@@ -274,13 +275,22 @@
    "fieldname": "telematics_provider",
    "fieldtype": "Link",
    "label": "Telematics Provider",
-   "options": "Telematics Provider",
-   "link_filters": "[[\"Telematics Provider\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"Telematics Provider\", \"enabled\", \"=\", 1]]",
+   "options": "Telematics Provider"
   },
   {
    "fieldname": "telematics_external_id",
    "fieldtype": "Data",
    "label": "Telematics External ID"
+  },
+  {
+   "description": "Stable device identifier of the Go Transport phone associated with this vehicle (e.g. <code>GT-v1-&lt;uuid&gt;</code>). Set this when pairing a driver's phone to the vehicle.",
+   "fieldname": "gotransport_device",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Go Transport Device",
+   "length": 80
   },
   {
    "fieldname": "column_break_bnct",
@@ -331,8 +341,8 @@
    "fieldname": "last_provider",
    "fieldtype": "Link",
    "label": "Last Provider",
-   "options": "Telematics Provider",
-   "link_filters": "[[\"Telematics Provider\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"Telematics Provider\", \"enabled\", \"=\", 1]]",
+   "options": "Telematics Provider"
   },
   {
    "fieldname": "column_break_mrie",
@@ -366,7 +376,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-23 19:03:14.514674",
+ "modified": "2026-05-26 19:09:44.072651",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Vehicle",
@@ -382,6 +392,7 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "select": 1,
    "share": 1,
    "write": 1
   },
@@ -394,6 +405,20 @@
    "read": 1,
    "report": 1,
    "role": "Transport Manager",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "select": 1,
    "share": 1,
    "write": 1
   }

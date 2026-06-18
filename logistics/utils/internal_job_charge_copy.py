@@ -90,14 +90,48 @@ def _index_main_charges_by_item(main_doc, restrict_service_type=None):
 
 
 def _iter_main_charge_rows_for_internal_job(parent_doc):
-	"""Yield main job charge rows whose service_type matches this internal child's main-job filter."""
+	"""Yield main job charge rows that apply to this internal child.
+
+	When the IJ booking carries a canonical ``internal_job`` link (set by the create / GCFQ flows
+	after the per-scope tagging was introduced), only the Main rows tagged ``charge_scope='Internal
+	Job'`` with ``internal_job == parent_doc.internal_job`` are returned. This avoids pulling Main
+	rows or other IJs' rows into this specific Internal Job booking.
+
+	Legacy Main charges (no ``charge_scope`` column / value) continue to fall back to the previous
+	service-type filter so older bookings keep working.
+	"""
 	if not should_apply_internal_job_main_charge_overlay(parent_doc):
 		return
 	main = frappe.get_doc(parent_doc.main_job_type, parent_doc.main_job)
 	want = _main_job_charge_filter_service_type_for_internal_child(parent_doc)
 	if not want:
 		return
-	for ch in main.get("charges") or []:
+
+	ij_link = (getattr(parent_doc, "internal_job", None) or "").strip()
+	main_rows = list(main.get("charges") or [])
+
+	# Prefer rows explicitly tagged for this Internal Job, regardless of service type — the per-scope
+	# tagging is authoritative. Service type still matters as a sanity check so a mis-tagged row from
+	# another mode (e.g. an Air row accidentally tagged onto a Sea IJ) is excluded.
+	if ij_link:
+		tagged = [
+			ch
+			for ch in main_rows
+			if (cstr(getattr(ch, "internal_job", None) or "").strip() == ij_link)
+			and _main_charge_matches_internal_service(ch, want, main.doctype)
+		]
+		if tagged:
+			for ch in tagged:
+				yield ch
+			return
+		# No IJ-tagged rows yet; legacy fall-through to service-type filter below.
+
+	for ch in main_rows:
+		# Skip rows tagged for a *different* Internal Job — only Main-scope or matching-scope rows
+		# may overlay onto this IJ booking when there are no per-IJ tags for it.
+		row_ij = cstr(getattr(ch, "internal_job", None) or "").strip()
+		if row_ij and ij_link and row_ij != ij_link:
+			continue
 		if _main_charge_matches_internal_service(ch, want, main.doctype):
 			yield ch
 
@@ -142,16 +176,16 @@ def _scrub_main_row_to_child_dict(main_ch, child_doctype, forced_service_type):
 		if k in valid and k not in _SKIP_AS_DICT_KEYS:
 			d[k] = v
 	if "Transport Order Charges" == child_doctype:
-		ur = flt(raw.get("rate")) or flt(raw.get("unit_rate"))
-		if ur and "rate" in valid:
-			d["rate"] = ur
+		ur = flt(raw.get("unit_rate"))
+		if ur and "unit_rate" in valid:
+			d["unit_rate"] = ur
 		rm = raw.get("revenue_calculation_method") or raw.get("calculation_method")
 		if rm and "revenue_calculation_method" in valid:
 			d["revenue_calculation_method"] = rm
 	elif "Declaration Order Charges" == child_doctype:
-		rt = flt(raw.get("rate")) or flt(raw.get("unit_rate"))
-		if rt and "rate" in valid:
-			d["rate"] = rt
+		rt = flt(raw.get("unit_rate"))
+		if rt and "unit_rate" in valid:
+			d["unit_rate"] = rt
 		cb = raw.get("charge_basis") or raw.get("calculation_method") or raw.get("revenue_calculation_method")
 		if cb and "charge_basis" in valid:
 			d["charge_basis"] = cb
@@ -159,16 +193,16 @@ def _scrub_main_row_to_child_dict(main_ch, child_doctype, forced_service_type):
 		if rm and "revenue_calculation_method" in valid:
 			d["revenue_calculation_method"] = rm
 	elif "Sea Booking Charges" == child_doctype:
-		rt = flt(raw.get("rate")) or flt(raw.get("unit_rate"))
-		if rt and "rate" in valid:
-			d["rate"] = rt
+		rt = flt(raw.get("unit_rate"))
+		if rt and "unit_rate" in valid:
+			d["unit_rate"] = rt
 		rm = raw.get("revenue_calculation_method") or raw.get("calculation_method")
 		if rm and "revenue_calculation_method" in valid:
 			d["revenue_calculation_method"] = rm
 	elif "Air Booking Charges" == child_doctype:
-		rt = flt(raw.get("rate")) or flt(raw.get("unit_rate"))
-		if rt and "rate" in valid:
-			d["rate"] = rt
+		rt = flt(raw.get("unit_rate"))
+		if rt and "unit_rate" in valid:
+			d["unit_rate"] = rt
 		rm = raw.get("revenue_calculation_method") or raw.get("calculation_method")
 		if rm and "revenue_calculation_method" in valid:
 			d["revenue_calculation_method"] = rm
@@ -258,7 +292,7 @@ def _clear_transport_order_charge_amounts(row):
 	for fn in (
 		"estimated_revenue",
 		"estimated_cost",
-		"rate",
+		"unit_rate",
 		"unit_cost",
 		"base_amount",
 		"cost_base_amount",
@@ -279,7 +313,7 @@ def _clear_declaration_order_charge_amounts(row):
 	for fn in (
 		"estimated_revenue",
 		"estimated_cost",
-		"rate",
+		"unit_rate",
 		"unit_cost",
 		"base_amount",
 		"cost_base_amount",
@@ -294,7 +328,7 @@ def _clear_sea_booking_charge_amounts(row):
 	for fn in (
 		"estimated_revenue",
 		"estimated_cost",
-		"rate",
+		"unit_rate",
 		"unit_cost",
 		"base_amount",
 		"cost_base_amount",
@@ -315,7 +349,7 @@ def _clear_air_booking_charge_amounts(row):
 	for fn in (
 		"estimated_revenue",
 		"estimated_cost",
-		"rate",
+		"unit_rate",
 		"unit_cost",
 		"base_amount",
 		"cost_base_amount",
@@ -337,9 +371,9 @@ def _apply_main_to_transport_row(row, main_ch):
 	cst = _cost_from_main_charge(main_ch)
 	row.estimated_revenue = rev
 	row.estimated_cost = cst
-	ur = flt(getattr(main_ch, "rate", 0)) or flt(getattr(main_ch, "unit_rate", 0))
-	if ur and hasattr(row, "rate"):
-		row.rate = ur
+	ur = flt(getattr(main_ch, "unit_rate", 0))
+	if ur and hasattr(row, "unit_rate"):
+		row.unit_rate = ur
 	uc = flt(getattr(main_ch, "unit_cost", 0))
 	if uc and hasattr(row, "unit_cost"):
 		row.unit_cost = uc
@@ -367,9 +401,9 @@ def _apply_main_to_declaration_order_row(row, main_ch):
 	cst = _cost_from_main_charge(main_ch)
 	row.estimated_revenue = rev
 	row.estimated_cost = cst
-	rt = flt(getattr(main_ch, "rate", 0)) or flt(getattr(main_ch, "unit_rate", 0))
-	if rt and hasattr(row, "rate"):
-		row.rate = rt
+	rt = flt(getattr(main_ch, "unit_rate", 0))
+	if rt and hasattr(row, "unit_rate"):
+		row.unit_rate = rt
 	uc = flt(getattr(main_ch, "unit_cost", 0))
 	if uc and hasattr(row, "unit_cost"):
 		row.unit_cost = uc
@@ -397,9 +431,9 @@ def _apply_main_to_sea_booking_row(row, main_ch):
 	cst = _cost_from_main_charge(main_ch)
 	row.estimated_revenue = rev
 	row.estimated_cost = cst
-	rt = flt(getattr(main_ch, "rate", 0)) or flt(getattr(main_ch, "unit_rate", 0))
-	if rt and hasattr(row, "rate"):
-		row.rate = rt
+	rt = flt(getattr(main_ch, "unit_rate", 0))
+	if rt and hasattr(row, "unit_rate"):
+		row.unit_rate = rt
 	uc = flt(getattr(main_ch, "unit_cost", 0))
 	if uc and hasattr(row, "unit_cost"):
 		row.unit_cost = uc
@@ -427,9 +461,9 @@ def _apply_main_to_air_booking_row(row, main_ch):
 	cst = _cost_from_main_charge(main_ch)
 	row.estimated_revenue = rev
 	row.estimated_cost = cst
-	rt = flt(getattr(main_ch, "rate", 0)) or flt(getattr(main_ch, "unit_rate", 0))
-	if rt and hasattr(row, "rate"):
-		row.rate = rt
+	rt = flt(getattr(main_ch, "unit_rate", 0))
+	if rt and hasattr(row, "unit_rate"):
+		row.unit_rate = rt
 	uc = flt(getattr(main_ch, "unit_cost", 0))
 	if uc and hasattr(row, "unit_cost"):
 		row.unit_cost = uc

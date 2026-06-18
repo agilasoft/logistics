@@ -610,10 +610,18 @@
     </style>
 </head>
 <body>
-    <div class="receipt-container">
+
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set company_doc = None %}
+{% if doc.company and frappe.db.exists("Company", doc.company) %}
+{% set company_doc = frappe.get_doc("Company", doc.company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
+{% set company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
+<div class="receipt-container">
         <!-- Header -->
         <div class="header">
-            {% set company_doc = frappe.get_doc("Company", doc.company) %}
+            {% if company_doc %}
             {% if company_doc.company_logo %}
                 <img src="{{ company_doc.company_logo }}" alt="Company Logo" class="company-logo" />
             {% elif company_doc.logo %}
@@ -625,17 +633,17 @@
                     company_logo
                 </div>
             {% endif %}
-            <div class="company-info">
+<div class="company-info">
                 <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
                 <div class="company-address">
                     {% if company_doc.address %}
                         {% set company_address = frappe.get_doc("Address", company_doc.address) %}
                         {{ company_address.address_line1 if company_address.address_line1 else '' }}
                         {% if company_address.address_line2 %}{{ company_address.address_line2 }}{% endif %}
-                        {% if company_address.city %}{{ company_address.city }}{% endif %}
-                        {% if company_address.state %}, {{ company_address.state }}{% endif %}
-                        {% if company_address.country %}{{ company_address.country }}{% endif %}
-                        {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+{% if company_address.city %}{{ company_address.city }}{% endif %}
+{% if company_address.state %}, {{ company_address.state }}{% endif %}
+{% if company_address.country %}{{ company_address.country }}{% endif %}
+{% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
                     {% elif company_doc.address_line1 %}
                         {{ company_doc.address_line1 }}<br>
                         {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
@@ -660,6 +668,12 @@
                     {% endif %}
                 </div>
             </div>
+            {% else %}
+                <div class="logo-placeholder">company_logo</div>
+                <div class="company-info">
+                    <div class="company-name">{{ doc.company or default_company or '' }}</div>
+                </div>
+            {% endif %}
         </div>
         
         <!-- Top Section: Customer/Payment Details and Invoice Table -->
@@ -689,8 +703,7 @@
                                 {% set customer_address = frappe.get_doc("Address", primary_address_name) %}
                             {% endif %}
                         {% endif %}
-                        
-                        {% if not customer_address %}
+{% if not customer_address %}
                             {% set linked_addresses = frappe.get_all("Dynamic Link", 
                                 filters={"link_doctype": "Customer", "link_name": doc.customer, "parenttype": "Address"},
                                 fields=["parent"],
@@ -700,14 +713,13 @@
                                 {% set customer_address = frappe.get_doc("Address", linked_addresses[0].parent) %}
                             {% endif %}
                         {% endif %}
-                        
-                        {% if customer_address %}
+{% if customer_address %}
                             {{ customer_address.address_line1 if customer_address.address_line1 else '' }}
                             {% if customer_address.address_line2 %} {{ customer_address.address_line2 }}{% endif %}
-                            {% if customer_address.city %} {{ customer_address.city }}{% endif %}
-                            {% if customer_address.state %}, {{ customer_address.state }}{% endif %}
-                            {% if customer_address.country %} {{ customer_address.country }}{% endif %}
-                            {% if customer_address.pincode %} {{ customer_address.pincode }}{% endif %}
+{% if customer_address.city %} {{ customer_address.city }}{% endif %}
+{% if customer_address.state %}, {{ customer_address.state }}{% endif %}
+{% if customer_address.country %} {{ customer_address.country }}{% endif %}
+{% if customer_address.pincode %} {{ customer_address.pincode }}{% endif %}
                         {% endif %}
                     {% endif %}
                 </div>
@@ -817,7 +829,7 @@
                     <div class="totals-col-2">{{ frappe.utils.fmt_money(discount_amount, precision=2) }}</div>
                 </div>
                 {% endif %}
-                <div class="totals-row-container total-row">
+<div class="totals-row-container total-row">
                     <div class="totals-col-1">TOTAL AMOUNT DUE:/div>
                     <div class="totals-col-2">{{ frappe.utils.fmt_money(total_amount_due, precision=2) }}</div>
                 </div>
@@ -864,7 +876,7 @@
                 {% set series_start = name %}
                 {% set series_end = name %}
             {% endif %}
-            <div class="footer-row">
+<div class="footer-row">
                 BIR Acknowledgment Certificate No. 
                 {% if bir and bir.ptu_no %}
                     {{ bir.ptu_no }}

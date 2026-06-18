@@ -9,6 +9,8 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
+
 
 JOB_TYPE_TO_SERVICE = {
 	"Transport Job": "Transport",
@@ -16,8 +18,47 @@ JOB_TYPE_TO_SERVICE = {
 	"Air Shipment": "Air",
 	"Sea Shipment": "Sea",
 	"Declaration": "Customs",
+	"Special Project": "Special Project",
+	# Internal Job satellite bookings — Change Request now also accepts these as targets
+	# and mirrors cost rows to their parent main job (and vice versa).
+	"Transport Order": "Transport",
+	"Sea Booking": "Sea",
+	"Air Booking": "Air",
 	"Declaration Order": "Customs",
+	"Inbound Order": "Warehousing",
+	"Release Order": "Warehousing",
 }
+
+# Set of operational booking doctypes that can act as Internal Job satellites of a Main job.
+# A Change Request filed against any of these will mirror cost rows up to its parent main job
+# (resolved via the satellite's main_job_type / main_job back-links).
+INTERNAL_JOB_SATELLITE_JOB_TYPES = frozenset({
+	"Transport Order",
+	"Sea Booking",
+	"Air Booking",
+	"Declaration Order",
+	"Inbound Order",
+	"Release Order",
+})
+
+# Set of Main job doctypes the Change Request supports directly.
+MAIN_JOB_TYPES_FOR_CHANGE_REQUEST = frozenset({
+	"Transport Job",
+	"Warehouse Job",
+	"Air Shipment",
+	"Sea Shipment",
+	"Declaration",
+	"Special Project",
+})
+
+# Job charge tables that may carry multiple service types on one job.
+_MULTI_SERVICE_CHARGE_JOB_TYPES = frozenset({
+	"Air Shipment",
+	"Sea Shipment",
+	"Declaration",
+	"Declaration Order",
+	"Special Project",
+})
 
 
 def _amendment_family_names(sq_doc):
@@ -36,6 +77,18 @@ def _row_val(row, fieldname, default=None):
 	if isinstance(row, dict):
 		return row.get(fieldname, default)
 	return getattr(row, fieldname, default)
+
+
+def _charge_row_service_type_matches_job(job_type, service_type):
+	"""True when a charge row's service_type belongs on this job type (canonical compare)."""
+	if job_type in _MULTI_SERVICE_CHARGE_JOB_TYPES:
+		return True
+	if not service_type:
+		return True
+	expected = JOB_TYPE_TO_SERVICE.get(job_type)
+	if not expected:
+		return False
+	return sales_quote_charge_service_types_equal(service_type, expected)
 
 
 def _remove_job_charges_for_sales_quote_family(job_doc, sales_quote_names):
@@ -59,9 +112,31 @@ def _map_sq_charge_to_air(row, sales_quote_name):
 		"quantity": qty,
 		"uom": _row_val(row, "uom"),
 		"currency": _row_val(row, "currency"),
-		"rate": flt(_row_val(row, "unit_rate"), 2),
+		"unit_rate": flt(_row_val(row, "unit_rate"), 2),
 		"estimated_revenue": flt(_row_val(row, "estimated_revenue"), 2),
 		"description": _row_val(row, "item_name") or "",
+		"sales_quote_link": sales_quote_name,
+	}
+
+
+def _map_sq_charge_to_special_project(row, sales_quote_name):
+	qty = flt(_row_val(row, "quantity"), 2) or 1
+	ic = _row_val(row, "item_code")
+	item_name = _row_val(row, "item_name") or ""
+	if ic and not item_name:
+		item_name = frappe.db.get_value("Item", ic, "item_name") or ""
+	return {
+		"service_type": _row_val(row, "service_type") or "Special Project",
+		"item_code": ic,
+		"charge_type": "Revenue",
+		"charge_category": "Other",
+		"revenue_calculation_method": _row_val(row, "calculation_method") or "Flat Rate",
+		"quantity": qty,
+		"uom": _row_val(row, "uom"),
+		"currency": _row_val(row, "currency"),
+		"unit_rate": flt(_row_val(row, "unit_rate"), 2),
+		"estimated_revenue": flt(_row_val(row, "estimated_revenue"), 2),
+		"description": item_name,
 		"sales_quote_link": sales_quote_name,
 	}
 
@@ -77,7 +152,7 @@ def _map_sq_charge_to_transport(row, sales_quote_name):
 		"quantity": qty,
 		"uom": _row_val(row, "uom"),
 		"currency": _row_val(row, "currency"),
-		"rate": flt(_row_val(row, "unit_rate"), 2),
+		"unit_rate": flt(_row_val(row, "unit_rate"), 2),
 		"estimated_revenue": flt(_row_val(row, "estimated_revenue"), 2),
 		"description": "",
 		"sales_quote_link": sales_quote_name,
@@ -93,7 +168,7 @@ def _map_sq_charge_to_warehouse(row, sales_quote_name):
 		"quantity": qty,
 		"uom": _row_val(row, "uom"),
 		"currency": _row_val(row, "currency"),
-		"rate": flt(_row_val(row, "unit_rate"), 2),
+		"unit_rate": flt(_row_val(row, "unit_rate"), 2),
 		"estimated_revenue": flt(_row_val(row, "estimated_revenue"), 2),
 		"service_type": "Warehousing",
 		"sales_quote_link": sales_quote_name,
@@ -115,7 +190,7 @@ def _map_sq_charge_to_sea(row, sales_quote_name):
 		"quantity": qty,
 		"uom": _row_val(row, "uom"),
 		"currency": _row_val(row, "currency"),
-		"rate": flt(_row_val(row, "unit_rate"), 2),
+		"unit_rate": flt(_row_val(row, "unit_rate"), 2),
 		"estimated_revenue": flt(_row_val(row, "estimated_revenue"), 2),
 		"description": item_name,
 		"sales_quote_link": sales_quote_name,
@@ -134,7 +209,7 @@ def _map_sq_charge_to_declaration(row, sales_quote_name):
 		"quantity": qty,
 		"uom": _row_val(row, "uom"),
 		"currency": _row_val(row, "currency"),
-		"rate": flt(_row_val(row, "unit_rate"), 2),
+		"unit_rate": flt(_row_val(row, "unit_rate"), 2),
 		"estimated_revenue": flt(_row_val(row, "estimated_revenue"), 2),
 		"sales_quote_link": sales_quote_name,
 	}
@@ -148,6 +223,7 @@ def _mappers():
 		"Sea Shipment": _map_sq_charge_to_sea,
 		"Declaration": _map_sq_charge_to_declaration,
 		"Declaration Order": _map_sq_charge_to_declaration,
+		"Special Project": _map_sq_charge_to_special_project,
 	}
 
 
@@ -168,8 +244,13 @@ def apply_additional_charge_sales_quote_to_job(sq_doc):
 		return
 
 	if getattr(sq_doc, "change_request", None):
-		from logistics.pricing_center.change_request_to_job import merge_sales_quote_revenue_into_change_request_job_rows
+		from logistics.pricing_center.change_request_to_job import (
+			ensure_change_request_cost_rows_on_job,
+			merge_sales_quote_revenue_into_change_request_job_rows,
+		)
 
+		cr_doc = frappe.get_doc("Change Request", sq_doc.change_request)
+		ensure_change_request_cost_rows_on_job(cr_doc)
 		n_merged = merge_sales_quote_revenue_into_change_request_job_rows(sq_doc)
 		if n_merged > 0:
 			return
@@ -204,7 +285,7 @@ def apply_additional_charge_sales_quote_to_job(sq_doc):
 		if not _row_val(row, "item_code"):
 			continue
 		st = _row_val(row, "service_type")
-		if st and st != expected_service:
+		if not _charge_row_service_type_matches_job(sq_doc.job_type, st):
 			continue
 		ct = _row_val(row, "charge_type") or "Margin"
 		if ct in ("Cost",):

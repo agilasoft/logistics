@@ -1,0 +1,26 @@
+{
+ "cards": [
+  {"card": "Open Cash Advance Requests"},
+  {"card": "Total Unliquidated"},
+  {"card": "Overdue Unliquidated"},
+  {"card": "Cash Advances Released This Month"}
+ ],
+ "charts": [
+  {"chart": "Cash Advance Liquidation Aging Mix", "width": "Full"},
+  {"chart": "Cash Advance Requests Trend", "width": "Half"},
+  {"chart": "Cash Advance Releases Value Trend", "width": "Half"},
+  {"chart": "Top Payees by Unliquidated", "width": "Full"}
+ ],
+ "creation": "2026-06-05 00:00:00.000000",
+ "dashboard_name": "Cash Advance",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "idx": 0,
+ "is_default": 0,
+ "is_standard": 1,
+ "modified": "2026-06-05 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cash Advance",
+ "name": "Cash Advance",
+ "owner": "Administrator"
+}

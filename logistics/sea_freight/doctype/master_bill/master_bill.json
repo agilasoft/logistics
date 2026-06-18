@@ -25,6 +25,8 @@
   "receiving_agent",
   "voyage_section",
   "vessel_date",
+  "vessel_schedule",
+  "auto_update_voyage_status",
   "manifest_sent",
   "manifest_sent_date",
   "voyage_status_section",
@@ -205,6 +207,20 @@
    "fieldtype": "Datetime",
    "label": "Manifest Sent Date",
    "read_only": 1
+  },
+  {
+   "description": "Link to the GoConnect Vessel Schedule that tracks this voyage. Auto-populated when 'Auto-link Vessel Schedule' is clicked, or by the tracking app's bulk sync.",
+   "fieldname": "vessel_schedule",
+   "fieldtype": "Link",
+   "label": "Vessel Schedule",
+   "options": "Vessel Schedule"
+  },
+  {
+   "default": "1",
+   "description": "When checked, voyage status / ETA / ATD / ATA / position fields are kept in sync with the linked Vessel Schedule by GoConnect.",
+   "fieldname": "auto_update_voyage_status",
+   "fieldtype": "Check",
+   "label": "Auto-Update from Vessel Schedule"
   },
   {
    "collapsible": 1,
@@ -402,7 +418,6 @@
    "fieldname": "origin_cto",
    "fieldtype": "Link",
    "label": "Origin CTO",
-   "link_filters": "[[\"Cargo Terminal Operator\", \"sea\", \"=\", 1], [\"Cargo Terminal Operator\", \"is_active\", \"=\", 1]]",
    "options": "Cargo Terminal Operator"
   },
   {
@@ -446,7 +461,6 @@
    "fieldname": "destination_cto",
    "fieldtype": "Link",
    "label": "Destination CTO",
-   "link_filters": "[[\"Cargo Terminal Operator\", \"sea\", \"=\", 1], [\"Cargo Terminal Operator\", \"is_active\", \"=\", 1]]",
    "options": "Cargo Terminal Operator"
   },
   {

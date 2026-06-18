@@ -275,7 +275,6 @@
    "fieldname": "site",
    "fieldtype": "Link",
    "label": "Site",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -728,6 +727,7 @@
    "options": "Document List Template"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "documents",
    "fieldtype": "Table",
    "label": "Documents",

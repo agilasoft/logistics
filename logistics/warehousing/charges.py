@@ -246,7 +246,7 @@ def calculate_single_job_charge(job: Dict, job_doc, contract_item: Dict, date_fr
             "item_name": f"Job Charge ({job.get('type', 'Generic')})",
             "uom": contract_item.get("uom", "Day"),
             "quantity": display_qty,
-            "rate": display_rate,
+            "unit_rate": display_rate,
             "total": total,
             "currency": contract_item.get("currency", _get_default_currency(company)),
             "warehouse_job": job.get("name"),

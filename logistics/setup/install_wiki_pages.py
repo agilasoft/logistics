@@ -127,10 +127,11 @@ WIKI_PAGES_CONFIG = {
     ),
     # Special Projects
     "special_projects_module": ("Special Projects Module", "Special Projects"),
-    "special_project_site_materials": (
-        "Special Project — Site Materials",
+    "special_project_packages": (
+        "Special Project — Fulfillment (Packages & Deliveries)",
         "Special Projects",
     ),
+    "lifecycle_templates": ("Lifecycle Templates", "Special Projects"),
     # Pages
     "pages_overview": ("Pages Overview", "Pages"),
     # Reports

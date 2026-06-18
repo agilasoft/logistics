@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_bulk_edit": 1,
  "autoname": "field:code",
  "creation": "2020-12-16 11:17:42.332981",
  "doctype": "DocType",
@@ -102,8 +103,8 @@
  ],
  "image_field": "image",
  "links": [],
- "modified": "2026-05-19 16:59:15.923403",
- "modified_by": "Administrator",
+ "modified": "2026-06-15 10:17:19.480463",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "Logistics",
  "name": "Vehicle Type",
  "naming_rule": "By fieldname",

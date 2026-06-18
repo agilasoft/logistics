@@ -10,11 +10,12 @@
   "charge_type",
   "charge_category",
   "item_name",
+  "description",
   "uom",
   "column_break_rdwy",
   "quantity",
   "currency",
-  "rate",
+  "unit_rate",
   "total"
  ],
  "fields": [
@@ -33,6 +34,12 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Item Name"
+  },
+  {
+   "fetch_from": "item_code.description",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   },
   {
    "default": "Margin",
@@ -76,10 +83,10 @@
    "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
-   "fieldname": "rate",
+   "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Rate"
+   "label": "Unit Rate"
   },
   {
    "fieldname": "total",

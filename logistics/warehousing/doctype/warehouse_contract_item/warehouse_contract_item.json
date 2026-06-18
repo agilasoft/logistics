@@ -8,6 +8,7 @@
  "field_order": [
   "item_charge",
   "item_name",
+  "description",
   "storage_charge",
   "inbound_charge",
   "outbound_charge",
@@ -217,6 +218,12 @@
    "fieldtype": "Select",
    "label": "Unit Type",
    "options": "Handling Unit\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTEU\nOperation Time"
+  },
+  {
+   "fetch_from": "item_charge.description",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   },
   {
    "fetch_from": "item_charge.item_name",

@@ -1,0 +1,150 @@
+{
+ "actions": [],
+ "creation": "2026-05-26 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "lifecycle_stage",
+  "activity_code",
+  "activity_name",
+  "column_break_act",
+  "service_type",
+  "sort_order",
+  "section_break_details",
+  "job_description",
+  "section_break_defaults",
+  "transport_template",
+  "vehicle_type",
+  "column_break_defaults_1",
+  "load_type",
+  "direction",
+  "column_break_defaults_2",
+  "air_house_type",
+  "sea_house_type"
+ ],
+ "fields": [
+  {
+   "fieldname": "lifecycle_stage",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Lifecycle Stage",
+   "options": "Lifecycle Stage",
+   "reqd": 1
+  },
+  {
+   "fieldname": "activity_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Activity Code",
+   "link_filters": "[[\"Activity Code\", \"lifecycle_stage\", \"=\", \"eval:doc.lifecycle_stage\"]]",
+   "options": "Activity Code"
+  },
+  {
+   "fetch_from": "activity_code.activity_name",
+   "fieldname": "activity_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Activity Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_act",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "service_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Service Type",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "section_break_details",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "job_description",
+   "fieldtype": "Small Text",
+   "label": "Job Description"
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "eval:!(doc.transport_template || doc.vehicle_type || doc.load_type || doc.direction || doc.air_house_type || doc.sea_house_type)",
+   "fieldname": "section_break_defaults",
+   "fieldtype": "Section Break",
+   "label": "Service Defaults (optional)",
+   "description": "Optional defaults copied onto the seeded Lifecycle Job row. Per-deal values (ports, vehicle no., addresses) are left blank for the user to fill in."
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "transport_template",
+   "fieldtype": "Link",
+   "label": "Transport Template",
+   "options": "Transport Template"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "options": "Vehicle Type"
+  },
+  {
+   "fieldname": "column_break_defaults_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:[\"Air\", \"Sea\"].includes(doc.service_type)",
+   "fieldname": "load_type",
+   "fieldtype": "Select",
+   "label": "Load Type",
+   "options": "\nFCL\nLCL\nULD\nLoose"
+  },
+  {
+   "depends_on": "eval:[\"Air\", \"Sea\", \"Transport\"].includes(doc.service_type)",
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "\nExport\nImport\nDomestic\nCross-Trade"
+  },
+  {
+   "fieldname": "column_break_defaults_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Air\"",
+   "fieldname": "air_house_type",
+   "fieldtype": "Select",
+   "label": "Air House Type",
+   "options": "\nDirect\nHouse"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fieldname": "sea_house_type",
+   "fieldtype": "Select",
+   "label": "Sea House Type",
+   "options": "\nDirect\nHouse"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-05-26 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Lifecycle Template Activity",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -8,8 +8,10 @@
  "field_order": [
   "service_type",
   "charge_group",
+  "internal_job",
   "item_code",
   "item_name",
+  "description",
   "charge_type",
   "charge_category",
   "column_break_core",
@@ -87,7 +89,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nExhibits",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE",
    "reqd": 1
   },
   {
@@ -96,6 +98,13 @@
    "in_list_view": 1,
    "label": "Charge Group",
    "options": "Origin\nDestination\nFreight\nCustoms\nDocumentation\nStorage\nInsurance\nOther"
+  },
+  {
+   "description": "Tag this charge to an Internal Job to mirror it to the satellite booking (Transport Order / Sea Booking / Air Booking / Declaration Order / Inbound Order / Release Order) under the parent main job. Leave blank for Main-only charges.",
+   "fieldname": "internal_job",
+   "fieldtype": "Link",
+   "label": "Internal Job",
+   "options": "Internal Job"
   },
   {
    "fieldname": "item_code",
@@ -111,6 +120,12 @@
    "fieldtype": "Data",
    "label": "Item Name",
    "read_only": 1
+  },
+  {
+   "fetch_from": "item_code.description",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   },
   {
    "default": "Margin",

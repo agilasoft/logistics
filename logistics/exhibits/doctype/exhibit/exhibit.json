@@ -18,7 +18,6 @@
   "hall",
   "column_break_1",
   "customer",
-  "sales_quote",
   "status",
   "lifecycle_stage",
   "priority",
@@ -31,13 +30,37 @@
   "storage_warehouse",
   "climate_controlled",
   "on_site_manager",
+  "section_venue",
+  "venue_name",
+  "venue_address",
+  "column_break_venue",
+  "venue_latitude",
+  "venue_longitude",
   "exhibit_venue_tab",
   "section_dockets",
   "dockets",
+  "jobs_tab",
+  "section_jobs",
+  "internal_jobs",
+  "profitability_tab",
+  "profitability_section_break",
+  "profitability_section_html",
   "lifecycle_tab",
   "lifecycle_jobs",
   "cost_revenue_section",
   "cost_revenue_html",
+  "tab_charges",
+  "section_charges_setup",
+  "cost_allocation_target",
+  "cost_allocation_basis",
+  "column_break_charges_setup",
+  "total_consolidation_charges",
+  "total_allocated_amount",
+  "section_consolidation_charges",
+  "consolidation_charges",
+  "section_cost_allocation",
+  "cost_allocation_html",
+  "cost_allocations",
   "billings_tab",
   "billings",
   "start_date",
@@ -47,23 +70,6 @@
   "section_break_details",
   "description",
   "special_handling_instructions",
-  "charges_tab",
-  "column_break_sp_chg_1",
-  "company",
-  "branch",
-  "cost_center",
-  "profit_center",
-  "column_break_sp_chg_2",
-  "job_number",
-  "column_break_sp_chg_3",
-  "sales_rep",
-  "operations_rep",
-  "customer_service_rep",
-  "section_break_sp_chg",
-  "billing_status",
-  "charges",
-  "section_break_operational_exchange_rates",
-  "operational_exchange_rates",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
@@ -85,7 +91,8 @@
   "service_level_agreement_section",
   "logistics_service_level",
   "service_level_details",
-  "connections_tab"
+  "connections_tab",
+  "amended_from"
  ],
  "fields": [
   {
@@ -184,12 +191,6 @@
    "label": "Customer",
    "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer"
-  },
-  {
-   "fieldname": "sales_quote",
-   "fieldtype": "Link",
-   "label": "Sales Quote",
-   "options": "Sales Quote"
   },
   {
    "default": "Draft",
@@ -291,16 +292,37 @@
    "label": "Move-Out Date"
   },
   {
-   "description": "One row per exhibitor on this Exhibit. Each row carries the exhibitor's Docket (shipment/job). Use the row actions to create or open the linked Docket.",
+   "description": "Live view of every Docket linked to this Exhibit. Rows are loaded automatically from existing Dockets and cannot be edited here. Use <b>Add Docket</b> to create a new Sales Quote for this Exhibit.",
    "fieldname": "section_dockets",
    "fieldtype": "Section Break",
    "label": "Dockets"
   },
   {
+   "allow_on_submit": 1,
+   "description": "Auto-populated read-only view. Use <b>Add Docket</b> to create a new Sales Quote for this Exhibit.",
    "fieldname": "dockets",
    "fieldtype": "Table",
    "label": "Dockets",
-   "options": "Exhibit Docket"
+   "no_copy": 1,
+   "options": "Exhibit Docket",
+   "read_only": 1
+  },
+  {
+   "fieldname": "jobs_tab",
+   "fieldtype": "Tab Break",
+   "label": "Jobs"
+  },
+  {
+   "description": "Internal jobs (Air / Sea / Transport / Customs / Warehousing lines) to be spawned at the Exhibit level. Use <b>Create &gt; Booking / Order</b> to turn each row into a standalone booking or order linked back to this Exhibit.",
+   "fieldname": "section_jobs",
+   "fieldtype": "Section Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "fieldname": "internal_jobs",
+   "fieldtype": "Table",
+   "label": "Internal Jobs",
+   "options": "Internal Job Detail"
   },
   {
    "fieldname": "section_warehouse",
@@ -327,8 +349,49 @@
    "options": "User"
   },
   {
+   "description": "Address of the show venue. Coordinates pinned on the Exhibit Dashboard map come from this Address.",
+   "fieldname": "section_venue",
+   "fieldtype": "Section Break",
+   "label": "Venue"
+  },
+  {
+   "description": "Display name shown on the Dashboard route panel (defaults from the Address when blank).",
+   "fieldname": "venue_name",
+   "fieldtype": "Data",
+   "label": "Venue Name"
+  },
+  {
+   "description": "Venue Address. Must have Latitude / Longitude set to plot the show location on the Dashboard map.",
+   "fieldname": "venue_address",
+   "fieldtype": "Link",
+   "label": "Venue Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "options": "Address"
+  },
+  {
+   "fieldname": "column_break_venue",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "venue_address.custom_latitude",
+   "fieldname": "venue_latitude",
+   "fieldtype": "Float",
+   "label": "Venue Latitude",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "venue_address.custom_longitude",
+   "fieldname": "venue_longitude",
+   "fieldtype": "Float",
+   "label": "Venue Longitude",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
    "fieldname": "lifecycle_tab",
    "fieldtype": "Tab Break",
+   "hidden": 1,
    "label": "Lifecycle"
   },
   {
@@ -350,8 +413,87 @@
    "label": "Cost & Revenue"
   },
   {
+   "fieldname": "tab_charges",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "description": "Cost-only consolidation charges for the Exhibit. Aligned with Air / Sea Consolidation: enter cost lines once, then click <b>Allocate Costs</b> to split across the chosen target (Dockets or Exhibit Jobs).",
+   "fieldname": "section_charges_setup",
+   "fieldtype": "Section Break",
+   "label": "Cost Allocation Setup"
+  },
+  {
+   "default": "Auto",
+   "description": "Where allocated costs land. <b>Auto</b> picks Exhibit Jobs when present, otherwise Dockets.",
+   "fieldname": "cost_allocation_target",
+   "fieldtype": "Select",
+   "label": "Allocation Target",
+   "options": "Auto\nDockets\nExhibit Jobs"
+  },
+  {
+   "default": "Equal",
+   "description": "Default basis for splitting the cost across allocation targets when you click Allocate Costs. Per-charge override is available on each charge row's Allocation Method.",
+   "fieldname": "cost_allocation_basis",
+   "fieldtype": "Select",
+   "label": "Default Allocation Basis",
+   "options": "Equal\nWeight-based\nVolume-based\nValue-based\nCustom"
+  },
+  {
+   "fieldname": "column_break_charges_setup",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Sum of Total Amount across all Consolidation Charges. Recomputed on save.",
+   "fieldname": "total_consolidation_charges",
+   "fieldtype": "Currency",
+   "label": "Total Charges",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "description": "Sum of Allocated Amount across the Cost Allocation table. Recomputed by Allocate Costs.",
+   "fieldname": "total_allocated_amount",
+   "fieldtype": "Currency",
+   "label": "Total Allocated",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_consolidation_charges",
+   "fieldtype": "Section Break",
+   "label": "Consolidation Charges"
+  },
+  {
+   "fieldname": "consolidation_charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Exhibit Consolidation Charges"
+  },
+  {
+   "fieldname": "section_cost_allocation",
+   "fieldtype": "Section Break",
+   "label": "Cost Allocation"
+  },
+  {
+   "description": "Allocation across selected targets (Dockets or Exhibit Jobs). Click <b>Allocate Costs</b> to populate or refresh; for Custom split, enter Cost Allocation % per row before clicking.",
+   "fieldname": "cost_allocation_html",
+   "fieldtype": "HTML",
+   "label": "Allocation Help"
+  },
+  {
+   "fieldname": "cost_allocations",
+   "fieldtype": "Table",
+   "label": "Cost Allocations",
+   "no_copy": 1,
+   "options": "Exhibit Cost Allocation"
+  },
+  {
    "fieldname": "billings_tab",
    "fieldtype": "Tab Break",
+   "hidden": 1,
    "label": "Billings"
   },
   {
@@ -359,113 +501,6 @@
    "fieldtype": "Table",
    "label": "Billings",
    "options": "Exhibit Billing"
-  },
-  {
-   "fieldname": "charges_tab",
-   "fieldtype": "Tab Break",
-   "label": "Charges"
-  },
-  {
-   "fieldname": "column_break_sp_chg_1",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "label": "Company",
-   "options": "Company",
-   "reqd": 1
-  },
-  {
-   "fieldname": "branch",
-   "fieldtype": "Link",
-   "label": "Branch",
-   "options": "Branch"
-  },
-  {
-   "fieldname": "cost_center",
-   "fieldtype": "Link",
-   "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
-   "options": "Cost Center",
-   "reqd": 1
-  },
-  {
-   "fieldname": "profit_center",
-   "fieldtype": "Link",
-   "label": "Profit Center",
-   "options": "Profit Center"
-  },
-  {
-   "fieldname": "column_break_sp_chg_2",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Financial posting job number (same pattern as Sea Shipment).",
-   "fieldname": "job_number",
-   "fieldtype": "Link",
-   "label": "Job Number",
-   "no_copy": 1,
-   "options": "Job Number"
-  },
-  {
-   "fieldname": "column_break_sp_chg_3",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "sales_rep",
-   "fieldtype": "Link",
-   "label": "Sales Rep",
-   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
-   "options": "Employee"
-  },
-  {
-   "fieldname": "operations_rep",
-   "fieldtype": "Link",
-   "label": "Operations Rep",
-   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
-   "options": "Employee"
-  },
-  {
-   "fieldname": "customer_service_rep",
-   "fieldtype": "Link",
-   "label": "Customer Service Rep",
-   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
-   "options": "Employee"
-  },
-  {
-   "fieldname": "section_break_sp_chg",
-   "fieldtype": "Section Break",
-   "label": "Charges"
-  },
-  {
-   "default": "Not Billed",
-   "fieldname": "billing_status",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Billing Status",
-   "options": "Not Billed\nPending\nPartially Billed\nBilled\nTo Bill\nPaid\nOverdue\nCancelled"
-  },
-  {
-   "allow_on_submit": 1,
-   "fieldname": "charges",
-   "fieldtype": "Table",
-   "label": "Charges",
-   "options": "Exhibit Charges"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "section_break_operational_exchange_rates",
-   "fieldtype": "Section Break",
-   "label": "Exchange Rate Sources"
-  },
-  {
-   "allow_on_submit": 1,
-   "fieldname": "operational_exchange_rates",
-   "fieldtype": "Table",
-   "label": "Exchange Rate Sources",
-   "no_copy": 1,
-   "options": "Operational Exchange Rate"
   },
   {
    "fieldname": "documents_tab",
@@ -484,6 +519,7 @@
    "label": "Document Summary"
   },
   {
+   "allow_on_submit": 1,
    "description": "Override default template. Leave empty to use product default.",
    "fieldname": "document_list_template",
    "fieldtype": "Link",
@@ -491,10 +527,29 @@
    "options": "Document List Template"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "documents",
    "fieldtype": "Table",
    "label": "Documents",
    "options": "Job Document"
+  },
+  {
+   "fieldname": "profitability_tab",
+   "fieldtype": "Tab Break",
+   "label": "Profitability"
+  },
+  {
+   "fieldname": "profitability_section_break",
+   "fieldtype": "Section Break",
+   "label": "Profitability"
+  },
+  {
+   "description": "Revenue, cost, profit, WIP, accrual and disbursements aggregated from General Ledger for every job and docket linked to this exhibit's Project accounting dimension.",
+   "fieldname": "profitability_section_html",
+   "fieldtype": "HTML",
+   "label": "Exhibit Profitability (from GL)",
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "fieldname": "more_info_tab",
@@ -564,9 +619,20 @@
    "fieldtype": "Tab Break",
    "label": "Connections",
    "show_dashboard": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Exhibit",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [
   {
    "group": "Dockets",
@@ -584,7 +650,7 @@
    "link_fieldname": "exhibit"
   }
  ],
- "modified": "2026-05-21 14:58:23.062497",
+ "modified": "2026-05-29 09:47:12.293981",
  "modified_by": "Administrator",
  "module": "Exhibits",
  "name": "Exhibit",
@@ -617,6 +683,9 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "project_name",
+ "show_name_in_global_search": 1,
+ "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

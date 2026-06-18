@@ -40,7 +40,7 @@
   },
   {
    "fieldname": "description",
-   "fieldtype": "Data",
+   "fieldtype": "Text",
    "in_list_view": 1,
    "label": "Description"
   },
@@ -163,7 +163,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-25 16:37:12.843550",
+ "modified": "2026-06-02 11:27:03.130443",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Commodity",
@@ -185,7 +185,9 @@
  ],
  "row_format": "Dynamic",
  "search_fields": "description,universal_commodity_code,iata_commodity_code",
+ "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "code"
 }

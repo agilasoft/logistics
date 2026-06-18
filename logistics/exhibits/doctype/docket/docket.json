@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:{exhibit}-{exhibitor}",
+ "autoname": "naming_series:",
  "creation": "2026-05-20 00:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -9,6 +9,7 @@
  "field_order": [
   "details_tab",
   "section_basic",
+  "naming_series",
   "exhibit",
   "exhibitor",
   "exhibitor_code",
@@ -17,8 +18,8 @@
   "column_break_basic",
   "title",
   "customer",
+  "project",
   "project_type",
-  "sales_quote",
   "lifecycle_stage",
   "priority",
   "status",
@@ -42,20 +43,45 @@
   "section_org",
   "company",
   "branch",
-  "column_break_org",
-  "cost_center",
   "profit_center",
-  "column_break_org_2",
+  "cost_center",
+  "column_break_org",
   "job_number",
-  "column_break_org_3",
+  "column_break_org_2",
   "sales_rep",
   "operations_rep",
   "customer_service_rep",
   "section_charges_hdr",
   "billing_status",
   "charges",
+  "sales_quote",
   "section_break_operational_exchange_rates",
   "operational_exchange_rates",
+  "profitability_section_break",
+  "profitability_section_html",
+  "recognition_section",
+  "estimated_revenue",
+  "wip_amount",
+  "recognized_revenue",
+  "column_break_recognition",
+  "estimated_costs",
+  "accrual_amount",
+  "recognized_costs",
+  "invoice_section",
+  "sales_invoice",
+  "date_sales_invoice_requested",
+  "date_sales_invoice_submitted",
+  "column_break_invoice",
+  "purchase_invoice",
+  "date_purchase_invoice_requested",
+  "date_purchase_invoice_submitted",
+  "column_break_invoice_lifecycle",
+  "fully_invoiced",
+  "date_fully_invoiced",
+  "fully_paid",
+  "date_fully_paid",
+  "costs_fully_paid",
+  "date_costs_fully_paid",
   "milestones_tab",
   "section_milestones",
   "milestone_template",
@@ -151,6 +177,15 @@
    "read_only": 1
   },
   {
+   "description": "ERPNext Project for this docket (inherited from the parent Exhibit). Posted on Sales/Purchase Invoice and GL Entries as the Project accounting dimension.",
+   "fetch_from": "exhibit.project",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project",
+   "read_only": 1
+  },
+  {
    "fetch_from": "exhibit.project_type",
    "fieldname": "project_type",
    "fieldtype": "Link",
@@ -159,7 +194,6 @@
    "read_only": 1
   },
   {
-   "fetch_from": "exhibit.sales_quote",
    "fieldname": "sales_quote",
    "fieldtype": "Link",
    "label": "Sales Quote",
@@ -182,12 +216,13 @@
   },
   {
    "default": "Draft",
+   "description": "Lifecycle of this exhibitor's logistics on the show. Ingress = inbound to venue; Egress = outbound from venue.",
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Draft\nBooked\nIn Progress\nOn Hold\nCompleted\nCancelled"
+   "options": "Draft\nBooked\nIngress Pending\nIngress In Progress\nIngress Completed\nOn Site\nEgress Pending\nEgress In Progress\nEgress Completed\nIn Progress\nOn Hold\nCompleted\nCancelled"
   },
   {
    "fieldname": "column_break_dates",
@@ -225,7 +260,6 @@
    "fieldname": "site",
    "fieldtype": "Link",
    "label": "Site",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -327,10 +361,6 @@
    "options": "Job Number"
   },
   {
-   "fieldname": "column_break_org_3",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "sales_rep",
    "fieldtype": "Link",
    "label": "Sales Rep",
@@ -375,12 +405,174 @@
    "fieldtype": "Section Break",
    "label": "Exchange Rate Sources"
   },
+ {
+  "fieldname": "operational_exchange_rates",
+  "fieldtype": "Table",
+  "label": "Operational Exchange Rates",
+  "no_copy": 1,
+  "options": "Operational Exchange Rate"
+ },
+ {
+  "collapsible": 1,
+  "fieldname": "profitability_section_break",
+  "fieldtype": "Section Break",
+  "label": "Profitability"
+ },
+ {
+  "fieldname": "profitability_section_html",
+  "fieldtype": "HTML",
+  "label": "Revenue, Cost, Profit, WIP, Accrual",
+  "no_copy": 1,
+  "read_only": 1
+ },
+ {
+  "collapsible": 1,
+  "fieldname": "recognition_section",
+   "fieldtype": "Section Break",
+   "label": "Revenue & Cost Recognition"
+  },
   {
-   "fieldname": "operational_exchange_rates",
-   "fieldtype": "Table",
-   "label": "Operational Exchange Rates",
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "label": "Estimated Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_amount",
+   "fieldtype": "Currency",
+   "label": "WIP Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_revenue",
+   "fieldtype": "Currency",
+   "label": "Recognized Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_recognition",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_costs",
+   "fieldtype": "Currency",
+   "label": "Estimated Costs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_amount",
+   "fieldtype": "Currency",
+   "label": "Accrual Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_costs",
+   "fieldtype": "Currency",
+   "label": "Recognized Costs",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "invoice_section",
+   "fieldtype": "Section Break",
+   "label": "Invoices"
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
    "no_copy": 1,
-   "options": "Operational Exchange Rate"
+   "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_sales_invoice_requested",
+   "fieldtype": "Date",
+   "label": "Date Sales Invoice Requested",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_sales_invoice_submitted",
+   "fieldtype": "Date",
+   "label": "Date Sales Invoice Submitted",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_invoice",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "no_copy": 1,
+   "options": "Purchase Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_purchase_invoice_requested",
+   "fieldtype": "Date",
+   "label": "Date Purchase Invoice Requested",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_purchase_invoice_submitted",
+   "fieldtype": "Date",
+   "label": "Date Purchase Invoice Submitted",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_invoice_lifecycle",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "fully_invoiced",
+   "fieldtype": "Check",
+   "label": "Fully Invoiced",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_fully_invoiced",
+   "fieldtype": "Date",
+   "label": "Date Fully Invoiced",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "fully_paid",
+   "fieldtype": "Check",
+   "label": "Fully Paid",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_fully_paid",
+   "fieldtype": "Date",
+   "label": "Date Fully Paid",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "costs_fully_paid",
+   "fieldtype": "Check",
+   "label": "Costs Fully Paid",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_costs_fully_paid",
+   "fieldtype": "Date",
+   "label": "Date Costs Fully Paid",
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "fieldname": "milestones_tab",
@@ -433,6 +625,7 @@
    "label": "Document Summary"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "documents",
    "fieldtype": "Table",
    "label": "Documents",
@@ -496,15 +689,22 @@
    "fieldtype": "Tab Break",
    "label": "Connections",
    "show_dashboard": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "D-"
   }
  ],
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [],
- "modified": "2026-05-21 03:00:00.000000",
+ "modified": "2026-05-27 17:30:00.000000",
  "modified_by": "Administrator",
  "module": "Exhibits",
  "name": "Docket",
- "naming_rule": "Expression",
+ "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {

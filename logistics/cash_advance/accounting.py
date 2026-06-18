@@ -54,16 +54,14 @@ def _resolve_employee_advance_name(source_doc) -> Optional[str]:
 
 
 def _je_account_reference(source_doc) -> Dict[str, str]:
-	"""Journal Entry Account.reference_type must be an ERPNext option (e.g. Employee Advance)."""
+	"""Optional Employee Advance reference for liquidation lines. Returns {} when not configured."""
 	if not source_doc or not getattr(source_doc, "name", None):
 		return {}
 	if not _employee_advance_doctype_installed():
 		return {}
 	ea = _resolve_employee_advance_name(source_doc)
 	if not ea:
-		frappe.throw(
-			_("Set Employee Advance on the Cash Advance Request (required for journal entry reference).")
-		)
+		return {}
 	if not frappe.db.exists("Employee Advance", ea):
 		frappe.throw(_("Employee Advance {0} does not exist.").format(ea))
 	ea_company = frappe.db.get_value("Employee Advance", ea, "company")
@@ -154,7 +152,7 @@ def _backfill_party_on_receivable_payable_rows(je, source_doc) -> None:
 		d.party = payee
 
 
-def _append_je_line(je, account: str, debit: float, credit: float, source_doc):
+def _append_je_line(je, account: str, debit: float, credit: float, source_doc, is_advance: bool = False):
 	if not account:
 		return
 	debit = flt(debit, 2)
@@ -166,7 +164,9 @@ def _append_je_line(je, account: str, debit: float, credit: float, source_doc):
 		"debit_in_account_currency": debit,
 		"credit_in_account_currency": credit,
 	}
-	row.update(_je_account_reference(source_doc))
+	# Advance entries are anchored by party + is_advance; ERPNext rejects a reference_type alongside that.
+	if not is_advance:
+		row.update(_je_account_reference(source_doc))
 	child_meta = frappe.get_meta("Journal Entry Account")
 	for fieldname, value in _je_dimension_fields(source_doc).items():
 		if value and child_meta.has_field(fieldname):
@@ -174,11 +174,13 @@ def _append_je_line(je, account: str, debit: float, credit: float, source_doc):
 	# Do not gate party on child_meta.has_field — some customizations omit Link fields from meta
 	# while ERPNext still validates party on submit.
 	row.update(_party_fields_for_account(account, source_doc))
+	if is_advance:
+		row["is_advance"] = "Yes"
 	je.append("accounts", row)
 
 
 def create_advance_release_journal_entry(doc) -> str:
-	"""Dr A/R Employee, Cr Fund Source (cash/bank). Returns JE name."""
+	"""Post a Supplier Advance Entry: Dr Advance account (party = Payee, is_advance=Yes), Cr Cash/Bank."""
 	if doc.name and frappe.db.exists(doc.doctype, doc.name):
 		existing = frappe.db.get_value(doc.doctype, doc.name, "advance_journal_entry")
 		if existing:
@@ -187,17 +189,30 @@ def create_advance_release_journal_entry(doc) -> str:
 	_validate_cash_bank_account(doc.fund_source, doc.company)
 	ar = get_ar_employee_account()
 
+	payee = _resolve_payee_supplier(doc)
+	if not payee:
+		frappe.throw(_("Payee (Supplier) is required to release a cash advance under a Payee."))
+
+	ar_type = frappe.get_cached_value("Account", ar, "account_type")
+	if ar_type not in ("Receivable", "Payable"):
+		frappe.throw(
+			_("Advance account {0} must be of type Receivable or Payable to post an Advance Entry under the Payee.").format(ar)
+		)
+
 	amount = flt(doc.total_requested, 2)
 	if amount <= 0:
 		frappe.throw(_("Total Requested must be greater than zero to release cash."))
 
+	fund_acc_type = frappe.get_cached_value("Account", doc.fund_source, "account_type")
+	voucher_type = "Bank Entry" if fund_acc_type == "Bank" else "Cash Entry"
+
 	je = frappe.new_doc("Journal Entry")
-	je.voucher_type = "Journal Entry"
+	je.voucher_type = voucher_type
 	je.company = doc.company
 	je.posting_date = doc.release_date or doc.date
-	je.user_remark = _("Cash advance released {0}").format(doc.name)
+	je.user_remark = _("Cash advance released {0} to {1}").format(doc.name, payee)
 
-	_append_je_line(je, ar, amount, 0, doc)
+	_append_je_line(je, ar, amount, 0, doc, is_advance=True)
 	_append_je_line(je, doc.fund_source, 0, amount, doc)
 	_backfill_party_on_receivable_payable_rows(je, doc)
 
@@ -218,20 +233,52 @@ def cancel_journal_entry(je_name: Optional[str]) -> None:
 
 
 def get_expense_account_for_item(item_code: str, company: str) -> Optional[str]:
+	"""Resolve expense account: Item Default -> Item Group Default -> Company default."""
 	if not item_code:
 		return None
+
+	# 1) Item Default (per-company) on the Item itself.
 	row = frappe.db.sql(
 		"""
-		SELECT expense_account FROM `tabItem Default`
-		WHERE parent=%(item)s AND company=%(co)s
+		SELECT expense_account, purchase_expense_account
+		FROM `tabItem Default`
+		WHERE parent=%(item)s AND parenttype='Item' AND company=%(co)s
 		LIMIT 1
 		""",
 		{"item": item_code, "co": company},
 		as_dict=True,
 	)
-	if row and row[0].get("expense_account"):
-		return row[0].expense_account
-	return frappe.db.get_value("Item", item_code, "purchase_account")
+	if row:
+		acc = row[0].get("expense_account") or row[0].get("purchase_expense_account")
+		if acc:
+			return acc
+
+	# 2) Item Group Defaults (per-company) for the item's group.
+	item_group = frappe.db.get_value("Item", item_code, "item_group")
+	if item_group:
+		row = frappe.db.sql(
+			"""
+			SELECT expense_account, purchase_expense_account
+			FROM `tabItem Default`
+			WHERE parent=%(grp)s AND parenttype='Item Group' AND company=%(co)s
+			LIMIT 1
+			""",
+			{"grp": item_group, "co": company},
+			as_dict=True,
+		)
+		if row:
+			acc = row[0].get("expense_account") or row[0].get("purchase_expense_account")
+			if acc:
+				return acc
+
+	# 3) Company-level default (Cost of Goods Sold / Purchase Expense).
+	co_defaults = frappe.db.get_value(
+		"Company",
+		company,
+		["default_expense_account", "purchase_expense_account"],
+		as_dict=True,
+	) or {}
+	return co_defaults.get("default_expense_account") or co_defaults.get("purchase_expense_account") or None
 
 
 def create_liquidation_journal_entry(doc) -> str:

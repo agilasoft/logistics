@@ -189,7 +189,7 @@ def get_invoice_items_from_job(
                 "qty": qty,
                 "rate": rate,
                 "uom": getattr(ch, "uom", None),
-                "description": None,
+                "description": getattr(ch, "description", None),
             })
 
     elif job_type == "Transport Order":
@@ -208,7 +208,7 @@ def get_invoice_items_from_job(
                 "qty": qty,
                 "rate": rate,
                 "uom": getattr(ch, "uom", None),
-                "description": None,
+                "description": getattr(ch, "description", None),
             })
 
     elif job_type == "Sea Shipment":
@@ -219,12 +219,12 @@ def get_invoice_items_from_job(
                 continue
             rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "selling_amount", 0))
             items.append({
-                "item_code": getattr(ch, "charge_item", None),
-                "item_name": getattr(ch, "charge_name", None),
+                "item_code": getattr(ch, "charge_item", None) or getattr(ch, "item_code", None),
+                "item_name": getattr(ch, "charge_name", None) or getattr(ch, "item_name", None),
                 "qty": 1,
                 "rate": rev,
                 "uom": None,
-                "description": getattr(ch, "charge_description", None),
+                "description": getattr(ch, "description", None) or getattr(ch, "charge_description", None),
             })
 
     elif job_type == "Air Shipment":
@@ -234,7 +234,7 @@ def get_invoice_items_from_job(
             if not item_code:
                 continue
             qty = flt(getattr(ch, "quantity", 1))
-            rate = flt(getattr(ch, "rate", 0))
+            rate = flt(getattr(ch, "unit_rate", 0))
             rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "total_amount", 0))
             if rev > 0 and qty > 0:
                 rate = rev / qty
@@ -248,7 +248,7 @@ def get_invoice_items_from_job(
                 "qty": qty,
                 "rate": rate,
                 "uom": getattr(ch, "uom", None),
-                "description": None,
+                "description": getattr(ch, "description", None),
             })
 
     elif job_type == "Warehouse Job":
@@ -258,7 +258,7 @@ def get_invoice_items_from_job(
             if not item_code:
                 continue
             qty = flt(getattr(ch, "quantity", 1))
-            rate = flt(getattr(ch, "rate", 0))
+            rate = flt(getattr(ch, "unit_rate", 0))
             rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "estimated_revenue", 0))
             if rev > 0 and qty > 0:
                 rate = rev / qty
@@ -268,7 +268,7 @@ def get_invoice_items_from_job(
                 "qty": qty,
                 "rate": rate,
                 "uom": getattr(ch, "uom", None),
-                "description": None,
+                "description": getattr(ch, "description", None),
             })
 
     elif job_type in ("Declaration", "Declaration Order"):
@@ -278,7 +278,7 @@ def get_invoice_items_from_job(
             if not item_code:
                 continue
             qty = flt(getattr(ch, "quantity", 1)) or 1
-            rate = flt(getattr(ch, "unit_rate", 0)) or flt(getattr(ch, "rate", 0))
+            rate = flt(getattr(ch, "unit_rate", 0))
             rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "total_amount", 0)) or flt(getattr(ch, "estimated_revenue", 0))
             if rev > 0 and qty > 0:
                 rate = rev / qty
@@ -288,7 +288,7 @@ def get_invoice_items_from_job(
                 "qty": qty,
                 "rate": rate,
                 "uom": getattr(ch, "uom", None),
-                "description": None,
+                "description": getattr(ch, "description", None) or getattr(ch, "charge_description", None),
             })
 
     return items

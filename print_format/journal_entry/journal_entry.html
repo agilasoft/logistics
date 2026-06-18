@@ -1,0 +1,948 @@
+<!-- JOURNAL ENTRY - Journal Entry doctype only. Switches layout by voucher_type. -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 9pt;
+            line-height: 1.4;
+            color: #000;
+            background: white;
+        }
+
+        .receipt-container {
+            width: 100%;
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 0;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        .top-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .bottom-section {
+            margin-top: auto;
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3mm;
+        }
+
+        .logo-placeholder {
+            width: 60mm;
+            height: 30mm;
+            background: #e0e0e0;
+            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 7pt;
+            color: #666;
+        }
+
+        .company-logo {
+            width: 60mm;
+            height: 30mm;
+            object-fit: contain;
+        }
+
+        .company-info {
+            flex: 1;
+            text-align: left;
+            padding-left: 3mm;
+        }
+
+        .company-name {
+            font-size: 16pt;
+            font-weight: 900;
+            margin-bottom: 0;
+            text-transform: uppercase;
+        }
+
+        .company-address {
+            font-size: 7pt;
+            line-height: 1.3;
+            margin-bottom: 0;
+        }
+
+        .vat-reg {
+            font-size: 8.5pt;
+        }
+
+        /* Journal Entry Information block (default voucher) */
+        .info-block {
+            display: flex;
+            flex-wrap: wrap;
+            border:2px solid #000;
+        
+        }
+        
+        .info-block .info-title {
+            width: 100%;
+            font-weight:bold;
+            margin-bottom: 2mm;
+            border-bottom:1px solid #000;
+            padding:5px;
+        }
+        
+        .info-block .left-column {
+            flex: 1;
+            padding:5px;
+        }
+        
+        .info-block .right-column {
+            flex: 1;
+           padding:5px;
+        }
+        
+        .info-block .info-remarks {
+            margin-top: 0;
+        }
+        
+        .info-block .field-label {
+            width: 30mm;
+            text-align: right;
+            flex-shrink: 0;
+            padding-right: 2mm;
+        }
+        
+        .info-block .field-value {
+            text-align: left;
+        }
+        /* Main Body - default (Journal Voucher) */
+        .main-body {
+            display: block;
+          
+            gap: 3mm;
+            margin-bottom: 2mm;
+        }
+
+        /* Main Body - Credit / Debit Note */
+        .main-body-note {
+            display: flex;
+            justify-content: space-between;
+            gap: 5mm;
+            margin-top: 35mm;
+            border: 2px solid #000;
+            padding: 1.5mm;
+            position: relative;
+        }
+
+        .left-column {
+            flex: 1;
+            padding-right: 5mm;
+            min-width: 0;
+        }
+
+        .main-body-note .left-column {
+            padding-right: 5mm;
+        }
+
+        .main-body-note .left-column .field-row {
+            justify-content: flex-end;
+        }
+
+        .main-body-note .left-column .field-label {
+            width: 25mm;
+            text-align: right;
+        }
+
+        .right-column {
+            flex: 1;
+            padding-left: 5mm;
+            min-width: 0;
+        }
+
+        .main-body-note .right-column .field-label {
+            width: 25mm;
+            text-align: right;
+            font-size: 8pt;
+        }
+
+        .field-row {
+            display: flex;
+            align-items: center;
+            gap: 0.3mm;
+            font-size: 8pt;
+        }
+
+        .field-label {
+            font-weight: 900;
+            min-width: 20mm;
+            font-size: 8pt;
+            flex-shrink: 0;
+            text-align: right;
+        }
+
+        .field-value {
+            flex: 1;
+            font-size: 8pt;
+            min-height: 5mm;
+            padding: 0.3mm 0.5mm;
+            background: white;
+        }
+
+        /* Customer block (Credit / Debit Note) */
+        .customer-info-section {
+            flex: 1;
+            min-width: 0;
+            max-width: calc(100% - 45mm);
+        }
+
+        .main-body-note .customer-info-section {
+            position: absolute;
+            top: -35mm;
+            left: 1.5mm;
+            z-index: 10;
+            max-width: 80mm;
+        }
+
+        .customer-label {
+            font-weight: bold;
+            font-size: 8pt;
+            margin-top: 5mm;
+            margin-bottom: 2mm;
+            line-height: 1;
+        }
+
+        .customer-name-box {
+            font-size: 11pt;
+            font-weight: 900;
+            margin-bottom: 0.1mm;
+            margin-top: -1mm;
+            line-height: 1;
+            background: white;
+        }
+
+        .customer-address-box {
+            font-size: 8pt;
+            background: white;
+            width: 100mm;
+        }
+
+        /* QR Code */
+        .qr-section {
+            flex: 0 0 auto;
+            text-align: right;
+        }
+
+        .main-body-note .qr-section {
+            position: absolute;
+            top: -37mm;
+            right: 1.5mm;
+            text-align: right;
+            z-index: 10;
+        }
+
+        .qr-code {
+            width: 1in;
+            height: 1in;
+            border: none;
+        }
+
+        .receipt-title-qr {
+            font-size: 14pt;
+            font-weight: 900;
+            margin-top: 0.11mm;
+            margin-bottom: -1mm;
+            text-align: right;
+        }
+
+        .main-body-note .receipt-title-qr {
+            font-size: 16pt;
+        }
+
+        .reference-number {
+            font-size: 8pt;
+            margin-top: 0.1mm;
+            text-align: right;
+        }
+
+        /* Table */
+        .table-summary-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5mm;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            border: none;
+            line-height: 1.2;
+            table-layout: fixed;
+        }
+
+        .invoice-table.table-cols-4 th:nth-child(1),
+        .invoice-table.table-cols-4 td:nth-child(1) { width: 38%; }
+        .invoice-table.table-cols-4 th:nth-child(2),
+        .invoice-table.table-cols-4 td:nth-child(2) { width: 32%; }
+        .invoice-table.table-cols-4 th:nth-child(3),
+        .invoice-table.table-cols-4 td:nth-child(3) { width: 15%; }
+        .invoice-table.table-cols-4 th:nth-child(4),
+        .invoice-table.table-cols-4 td:nth-child(4) { width: 15%; }
+
+        .invoice-table.table-cols-3 th:nth-child(1),
+        .invoice-table.table-cols-3 td:nth-child(1) { width: 38%; }
+        .invoice-table.table-cols-3 th:nth-child(2),
+        .invoice-table.table-cols-3 td:nth-child(2) { width: 32%; }
+        .invoice-table.table-cols-3 th:nth-child(3),
+        .invoice-table.table-cols-3 td:nth-child(3) { width: 30%; }
+
+        .table-header {
+            background: transparent;
+        }
+
+        .table-header th {
+            padding: 0;
+            text-align: left;
+            font-size: 8pt;
+            font-weight: bold;
+            border: none;
+            line-height: 1.0;
+        }
+
+        .table-header tr:first-child th {
+            background: #e0e0e0;
+            color: #000;
+            text-transform: uppercase;
+            padding: 0.02mm 0.05mm;
+            line-height: 1.0;
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+            border-left: none;
+            border-right: none;
+            height: 12px;
+        }
+
+        .table-header tr:first-child th:first-child {
+            text-align: left;
+            border-left: 2px solid #000 !important;
+        }
+
+        .table-header tr:first-child th:last-child {
+            border-right: 2px solid #000 !important;
+        }
+
+        .table-header tr:first-child th.amount-col {
+            text-align: right;
+        }
+
+        .table-row td {
+            padding: 0.05mm 0.1mm;
+            font-size: 8pt;
+            background: white;
+            border: none;
+            text-align: left;
+            vertical-align: top;
+            line-height: 1.0;
+        }
+
+        .invoice-table.table-cols-3 .table-row td {
+            font-size: 7pt;
+        }
+
+        .invoice-table tbody tr:nth-child(odd) td {
+            background-color: #ffffff;
+        }
+
+        .invoice-table tbody tr:nth-child(even) td {
+            background-color: #f2f2f2;
+        }
+
+        .table-row td.amount-col {
+            text-align: right;
+        }
+
+        .account-sub-details {
+            font-size: 7pt;
+            color: #000;
+            line-height: 1.2;
+            margin-top: 0.3mm;
+        }
+
+        .account-sub-details div {
+            margin-bottom: 0.2mm;
+        }
+
+        .dimensions-detail {
+            font-size: 7pt;
+            color: #000;
+            line-height: 1.2;
+        }
+
+        .dimensions-detail div {
+            margin-bottom: 0.2mm;
+        }
+
+        .summary-received-container {
+            display: flex;
+            flex-direction: column;
+            margin-top: auto;
+        }
+
+        /* Totals - 4 columns (Journal Voucher) */
+        .totals-row-container.totals-cols-4 {
+            display: flex;
+            width: 100%;
+            background: #e0e0e0;
+            color: #000;
+            padding: 0.02mm 0;
+            margin-top: 0;
+            border: 2px solid #000;
+            font-size: 8pt;
+            font-weight: bold;
+            line-height: 1.0;
+            min-height: 12px;
+            align-items: center;
+        }
+
+        .totals-row-container.totals-cols-4 > div {
+            border: none;
+            padding: 5px 10px;
+        }
+
+        .totals-row-container.totals-cols-4 .totals-col-1 { width: 38%; text-align: left; }
+        .totals-row-container.totals-cols-4 .totals-col-2 { width: 32%; text-align: right; }
+        .totals-row-container.totals-cols-4 .totals-col-3 { width: 15%; text-align: right; }
+        .totals-row-container.totals-cols-4 .totals-col-4 { width: 15%; text-align: right; }
+
+        /* Totals - 3 columns (Credit / Debit Note) */
+        .totals-row-container.totals-cols-3 {
+            display: flex;
+            width: 100%;
+            background: #e0e0e0;
+            padding: 5px 10px;
+            margin-top: 0;
+            border: 1px solid #000;
+        }
+
+        .totals-row-container.totals-cols-3 .totals-col-1 { width: 38%; text-align: left; font-weight: bold; font-size: 7pt; }
+        .totals-row-container.totals-cols-3 .totals-col-2 { width: 32%; text-align: left; font-weight: bold; font-size: 7pt; }
+        .totals-row-container.totals-cols-3 .totals-col-3 { width: 30%; text-align: right; font-weight: bold; font-size: 7pt; }
+
+        /* Footer */
+        .footer-section {
+            margin-top: auto;
+            padding-top: 1mm;
+            border-top: 1px solid #000;
+            font-size: 7pt;
+        }
+
+        .footer-row {
+            margin-bottom: 0;
+        }
+
+        @page {
+            size: A4;
+            margin: 12mm 12mm 25mm 12mm;
+        }
+
+        @page {
+            @bottom-right {
+                content: "Page " counter(page) " of " counter(pages);
+                font-size: 8pt;
+                font-family: Arial, Helvetica, sans-serif;
+            }
+        }
+
+        @media print {
+            html,
+            body {
+                margin: 0;
+                padding: 0;
+                width: 210mm;
+            }
+
+            .receipt-container {
+                width: 210mm;
+                padding-bottom: 25mm;
+                box-sizing: border-box;
+            }
+
+            .page-break {
+                page-break-after: always;
+            }
+
+            .footer-section {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: #fff;
+                border-top: 1px solid #000;
+                padding: 1mm 12mm;
+                box-sizing: border-box;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% if doc.doctype != 'Journal Entry' %}
+    <div style="padding: 20px; font-family: Arial; color: red;">
+        <strong>Wrong print format.</strong> This format is for <strong>Journal Entry</strong> only.
+    </div>
+    {% else %}
+    {% set is_credit = doc.voucher_type == 'Credit Note' %}
+    {% set is_debit = doc.voucher_type == 'Debit Note' %}
+    {% set is_note = is_credit or is_debit %}
+    {% if is_credit %}
+        {% set document_title = 'CREDIT NOTE' %}
+    {% elif is_debit %}
+        {% set document_title = 'DEBIT NOTE' %}
+    {% elif doc.voucher_type == 'Journal Entry' %}
+        {% set document_title = 'JOURNAL VOUCHER' %}
+    {% elif doc.voucher_type %}
+        {% set document_title = doc.voucher_type|upper %}
+    {% else %}
+        {% set document_title = 'JOURNAL VOUCHER' %}
+    {% endif %}
+    {% set currency = doc.company_currency or doc.currency or 'PHP' %}
+    {% set je_branch = doc.custom_posting_branch or doc.get('posting_branch') or doc.get('branch') %}
+
+    <div class="receipt-container">
+        <!-- Header -->
+        <div class="header">
+            {% set company_doc = frappe.get_doc("Company", doc.company) %}
+            {% if company_doc.company_logo %}
+                <img src="{{ company_doc.company_logo }}" alt="Company Logo" class="company-logo" />
+            {% elif company_doc.logo %}
+                <img src="{{ company_doc.logo }}" alt="Company Logo" class="company-logo" />
+            {% elif company_doc.image %}
+                <img src="{{ company_doc.image }}" alt="Company Logo" class="company-logo" />
+            {% else %}
+                <div class="logo-placeholder">company_logo</div>
+            {% endif %}
+            <div class="company-info">
+                <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
+                <div class="company-address">
+                    {% if company_doc.address %}
+                        {% set company_address = frappe.get_doc("Address", company_doc.address) %}
+                        {{ company_address.address_line1 if company_address.address_line1 else '' }}
+                        {% if company_address.address_line2 %}{{ company_address.address_line2 }}{% endif %}
+                        {% if company_address.city %}{{ company_address.city }}{% endif %}
+                        {% if company_address.state %}, {{ company_address.state }}{% endif %}
+                        {% if company_address.country %}{{ company_address.country }}{% endif %}
+                        {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                    {% elif company_doc.address_line1 %}
+                        {{ company_doc.address_line1 }}<br>
+                        {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
+                        {{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}<br>
+                        {{ company_doc.country }}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
+                    {% endif %}
+                </div>
+                <div class="vat-reg">
+                    {% if je_branch %}
+                        {% set branch_doc = frappe.get_doc("Branch", je_branch) %}
+                        {% if branch_doc.custom_registration_details %}
+                            {{ branch_doc.custom_registration_details }}
+                        {% elif company_doc.tax_id %}
+                            VAT Reg. TIN: {{ company_doc.tax_id }}
+                        {% elif company_doc.tin %}
+                            VAT Reg. TIN: {{ company_doc.tin }}
+                        {% endif %}
+                    {% elif company_doc.tax_id %}
+                        VAT Reg. TIN: {{ company_doc.tax_id }}
+                    {% elif company_doc.tin %}
+                        VAT Reg. TIN: {{ company_doc.tin }}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="top-section">
+        <div class="main-body{% if is_note %} main-body-note{% endif %}">
+        <!-- QR Code -->
+            <div class="qr-section">
+                {% set qr_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + doc.name|urlencode %}
+                <img src="{{ qr_url }}" alt="QR Code" class="qr-code" />
+                <div class="receipt-title-qr">{{ document_title }}</div>
+                <div class="reference-number">{{ doc.name }}</div>
+            </div>
+            {% if is_note %}
+            <!-- Credit / Debit Note: Customer block -->
+            <div class="customer-info-section">
+                {% set has_customer = doc.customer_name or doc.customer %}
+                {% if has_customer %}
+                <div class="customer-label">CUSTOMER</div>
+                {% endif %}
+                <div class="customer-name-box">
+                    {% if doc.customer_name %}
+                        {{ doc.customer_name }}
+                    {% elif doc.customer %}
+                        {% set customer_doc = frappe.get_doc("Customer", doc.customer) %}
+                        {{ customer_doc.customer_name or doc.customer }}
+                    {% endif %}
+                </div>
+                <div class="customer-address-box">
+                    {% if doc.customer %}
+                        {% set customer_doc = frappe.get_doc("Customer", doc.customer) %}
+                        {% set primary_address_name = customer_doc.primary_address or customer_doc.customer_primary_address %}
+                        {% set customer_address = None %}
+                        {% if primary_address_name %}
+                            {% if frappe.db.exists("Address", primary_address_name) %}
+                                {% set customer_address = frappe.get_doc("Address", primary_address_name) %}
+                            {% endif %}
+                        {% endif %}
+                        {% if not customer_address %}
+                            {% set linked_addresses = frappe.get_all("Dynamic Link",
+                                filters={"link_doctype": "Customer", "link_name": doc.customer, "parenttype": "Address"},
+                                fields=["parent"],
+                                order_by="creation desc",
+                                limit=1) %}
+                            {% if linked_addresses %}
+                                {% set customer_address = frappe.get_doc("Address", linked_addresses[0].parent) %}
+                            {% endif %}
+                        {% endif %}
+                        {% if customer_address %}
+                            {{ customer_address.address_line1 if customer_address.address_line1 else '' }}
+                            {% if customer_address.address_line2 %} {{ customer_address.address_line2 }}{% endif %}
+                            {% if customer_address.city %} {{ customer_address.city }}{% endif %}
+                            {% if customer_address.state %}, {{ customer_address.state }}{% endif %}
+                            {% if customer_address.country %} {{ customer_address.country }}{% endif %}
+                            {% if customer_address.pincode %} {{ customer_address.pincode }}{% endif %}
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <!-- Journal Voucher: entry information block -->
+            <div class="info-block">
+                <div class="info-title">{{ document_title }}</div>
+                 <div class="left-column">
+                <div class="field-row">
+                    <div class="field-label">FINANCE BOOK:</div>
+                    <div class="field-value">{{ doc.finance_book or '-' }}</div>
+                </div>
+                <div class="field-row">
+                    <div class="field-label">POSTING BRANCH:</div>
+                    <div class="field-value">
+                        {% if je_branch %}
+                            {% if frappe.db.exists("Branch", je_branch) %}
+                                {% set posting_branch_doc = frappe.get_doc("Branch", je_branch) %}
+                                {{ posting_branch_doc.branch_name or posting_branch_doc.branch_code or je_branch }}
+                            {% else %}
+                                {{ je_branch }}
+                            {% endif %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field-label">POSTING DATE:</div>
+                    <div class="field-value">{{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') if doc.posting_date else '-' }}</div>
+                </div>
+                <div class="field-row">
+                    <div class="field-label">REFERENCE DATE:</div>
+                    <div class="field-value">
+                        {% if doc.cheque_date %}
+                            {{ frappe.utils.formatdate(doc.cheque_date, 'MM-dd-yyyy') }}
+                        {% elif doc.bill_date %}
+                            {{ frappe.utils.formatdate(doc.bill_date, 'MM-dd-yyyy') }}
+                        {% elif doc.reference_date %}
+                            {{ frappe.utils.formatdate(doc.reference_date, 'MM-dd-yyyy') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field-label">TYPE:</div>
+                    <div class="field-value">{{ doc.voucher_type or '-' }}</div>
+                </div>
+                </div>
+                 <div class="right-column">
+                <div class="info-remarks">
+                    <div class="info-remarks-label" style="font-weight:bold;" >REMARKS:</div>
+                    <div class="info-remarks-value" style="font-size:10px;">{{ doc.user_remark or doc.remark or '-' }}</div>
+                    
+                </div>
+            </div>
+            {% endif %}
+
+            
+
+            {% if is_note %}
+            <!-- Credit / Debit Note: party fields -->
+            <div class="left-column">
+                <div class="field-row">
+                    <div class="field-label">PARTY:</div>
+                    <div class="field-value">{{ doc.custom_party or '' }}</div>
+                </div>
+                <div class="field-row">
+                    <div class="field-label">PARTY TYPE:</div>
+                    <div class="field-value">{{ doc.custom_party_type or '' }}</div>
+                </div>
+                <div class="field-row">
+                    <div class="field-label">REF. NUMBER:</div>
+                    <div class="field-value">{{ doc.cheque_no or '' }}</div>
+                </div>
+            </div>
+            <div class="right-column">
+                <div class="field-row">
+                    <div class="field-label">POSTING DATE:</div>
+                    <div class="field-value">
+                        {% if doc.posting_date %}
+                            {{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field-label">TYPE:</div>
+                    <div class="field-value">{{ doc.voucher_type or '-' }}</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Accounts Table -->
+        <div class="table-summary-container">
+            <table class="invoice-table {% if is_note %}table-cols-3{% else %}table-cols-4{% endif %}">
+                <thead class="table-header">
+                    <tr>
+                        <th>Account</th>
+                        <th>Accounting Dimensions</th>
+                        {% if is_credit %}
+                        <th class="amount-col">Credit</th>
+                        {% elif is_debit %}
+                        <th class="amount-col">Debit</th>
+                        {% else %}
+                        <th class="amount-col">Debit</th>
+                        <th class="amount-col">Credit</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if doc.accounts %}
+                        {% for account in doc.accounts %}
+                        <tr class="table-row">
+                            <td>
+                                {% if account.account %}
+                                    {{ account.account }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                                {% if not is_note and (account.get('bank_account') or account.party_type or account.party) %}
+                                <div class="account-sub-details">
+                                    {% if account.get('bank_account') %}
+                                    <div>Bank Account: {{ account.bank_account }}</div>
+                                    {% endif %}
+                                    {% if account.party_type %}
+                                    <div>Party Type: {{ account.party_type }}</div>
+                                    {% endif %}
+                                    {% if account.party %}
+                                    <div>Party: {{ account.party }}</div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="dimensions-detail">
+                                    {% if account.get('branch') %}<div>Branch: {{ account.branch }}</div>{% endif %}
+                                    {% if account.get('cost_center') %}<div>Cost Center: {{ account.cost_center }}</div>{% endif %}
+                                    {% if account.get('profit_center') %}<div>Profit Center: {{ account.profit_center }}</div>{% endif %}
+                                    {% if account.get('item') %}<div>Item: {{ account.item }}</div>{% endif %}
+                                    {% if account.get('job_number') %}<div>Job Number: {{ account.job_number }}</div>{% endif %}
+                                    {% if account.get('project') %}<div>Project: {{ account.project }}</div>{% endif %}
+                                    {% if not (account.get('branch') or account.get('cost_center') or account.get('profit_center') or account.get('item') or account.get('job_number') or account.get('project')) %}
+                                    <div>-</div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            {% if is_credit %}
+                            <td class="amount-col">
+                                {% if account.credit_in_account_currency and account.credit_in_account_currency > 0 %}
+                                    {{ frappe.utils.fmt_money(account.credit_in_account_currency, precision=2) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            {% elif is_debit %}
+                            <td class="amount-col">
+                                {% if account.debit_in_account_currency and account.debit_in_account_currency > 0 %}
+                                    {{ frappe.utils.fmt_money(account.debit_in_account_currency, precision=2) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            {% else %}
+                            <td class="amount-col">
+                                {% if account.debit_in_account_currency and account.debit_in_account_currency > 0 %}
+                                    {{ frappe.utils.fmt_money(account.debit_in_account_currency, precision=2) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="amount-col">
+                                {% if account.credit_in_account_currency and account.credit_in_account_currency > 0 %}
+                                    {{ frappe.utils.fmt_money(account.credit_in_account_currency, precision=2) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    {% endif %}
+                </tbody>
+            </table>
+
+            <!-- Totals -->
+            <div class="summary-received-container">
+                {% if is_credit %}
+                    {% set ns = namespace(total_credit=0) %}
+                    {% for account in doc.accounts %}
+                        {% set ns.total_credit = ns.total_credit + (account.credit_in_account_currency or 0) %}
+                    {% endfor %}
+                    <div class="totals-row-container totals-cols-3">
+                        <div class="totals-col-1"></div>
+                        <div class="totals-col-2">TOTAL:</div>
+                        <div class="totals-col-3">{{ frappe.utils.fmt_money(ns.total_credit, precision=2) }}</div>
+                    </div>
+                {% elif is_debit %}
+                    {% set ns = namespace(total_debit=0) %}
+                    {% if doc.accounts %}
+                        {% for account in doc.accounts %}
+                            {% if account.debit_in_account_currency and account.debit_in_account_currency > 0 %}
+                                {% set ns.total_debit = ns.total_debit + account.debit_in_account_currency %}
+                            {% elif account.debit and account.debit > 0 %}
+                                {% set ns.total_debit = ns.total_debit + account.debit %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                    <div class="totals-row-container totals-cols-3">
+                        <div class="totals-col-1"></div>
+                        <div class="totals-col-2">TOTAL:</div>
+                        <div class="totals-col-3">
+                            {% if ns.total_debit > 0 %}
+                                {{ frappe.utils.fmt_money(ns.total_debit, precision=2) }}
+                            {% else %}
+                                0.00
+                            {% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    {% set ns = namespace(total_debit=0, total_credit=0) %}
+                    {% if doc.accounts %}
+                        {% for account in doc.accounts %}
+                            {% if account.debit_in_account_currency %}
+                                {% set ns.total_debit = ns.total_debit + (account.debit_in_account_currency or 0) %}
+                            {% endif %}
+                            {% if account.credit_in_account_currency %}
+                                {% set ns.total_credit = ns.total_credit + (account.credit_in_account_currency or 0) %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                    <div class="totals-row-container totals-cols-4">
+                        <div class="totals-col-1"></div>
+                        <div class="totals-col-2">TOTAL:</div>
+                        <div class="totals-col-3">
+                            {% if ns.total_debit > 0 %}
+                                {{ frappe.utils.fmt_money(ns.total_debit, precision=2) }}
+                            {% else %}
+                                0.00
+                            {% endif %}
+                        </div>
+                        <div class="totals-col-4">
+                            {% if ns.total_credit > 0 %}
+                                {{ frappe.utils.fmt_money(ns.total_credit, precision=2) }}
+                            {% else %}
+                                0.00
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        </div>
+
+        <!-- BIR Footer -->
+        <div class="bottom-section">
+        <div class="footer-section">
+            {% set bir_name = frappe.db.get_value("BIR CAS Settings", {"company": doc.company}, "name") %}
+            {% if bir_name %}
+                {% set bir = frappe.get_doc("BIR CAS Settings", bir_name) %}
+            {% else %}
+                {% set bir = None %}
+            {% endif %}
+            {% set name = (doc.name or "") %}
+            {% set series_ns = namespace(start=None, end=None) %}
+            {% for i in range(name|length) %}
+                {% set ch = name[i] %}
+                {% if ch.isdigit() %}
+                    {% if series_ns.start is none %}
+                        {% set series_ns.start = i %}
+                    {% endif %}
+                    {% set series_ns.end = i %}
+                {% endif %}
+            {% endfor %}
+            {% if series_ns.start is not none %}
+                {% set prefix = name[0:series_ns.start] %}
+                {% set digit_len = series_ns.end - series_ns.start + 1 %}
+                {% set seq = namespace(min_seq="", max_seq="") %}
+                {% for i in range(digit_len) %}
+                    {% if i == digit_len - 1 %}
+                        {% set seq.min_seq = seq.min_seq ~ "1" %}
+                    {% else %}
+                        {% set seq.min_seq = seq.min_seq ~ "0" %}
+                    {% endif %}
+                    {% set seq.max_seq = seq.max_seq ~ "9" %}
+                {% endfor %}
+                {% set series_start = prefix ~ seq.min_seq %}
+                {% set series_end = prefix ~ seq.max_seq %}
+            {% else %}
+                {% set series_start = name %}
+                {% set series_end = name %}
+            {% endif %}
+            <div class="footer-row">
+                BIR Acknowledgment Certificate No.
+                {% if bir and bir.ptu_no %}
+                    {{ bir.ptu_no }}
+                {% else %}
+                    -
+                {% endif %}
+            </div>
+            <div class="footer-row">Range: {{ series_start }} - {{ series_end }}</div>
+            <div class="footer-row">
+                Date Issued:
+                {% if bir and bir.ptu_date %}
+                    {{ frappe.utils.formatdate(bir.ptu_date, 'MMMM dd, yyyy') }}
+                {% else %}
+                    -
+                {% endif %}
+            </div>
+        </div>
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>

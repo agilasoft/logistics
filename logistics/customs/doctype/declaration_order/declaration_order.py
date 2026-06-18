@@ -142,26 +142,14 @@ class DeclarationOrder(Document):
 
 			if self.sales_quote:
 				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
-					resolve_allow_linked_freight_booking_from_one_off_converted_doc,
-					resolve_allow_linked_freight_bookings_for_internal_job,
 					resolve_allow_linked_transport_order_for_internal_job_satellite,
-					resolve_single_main_air_booking_for_sales_quote,
-					resolve_single_main_sea_booking_for_sales_quote,
+					resolve_one_off_chain_freight_booking_allowances,
 					validate_one_off_quote_not_converted,
 				)
 
-				allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
-				# Same multimodal one-off chain as Air/Sea Shipment validate: main_job may be only one leg,
-				# but the quote conversion can sit on the sibling Sea/Air main booking.
-				if not allow_sea:
-					allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
-				if not allow_air:
-					allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
-				conv_sea, conv_air = resolve_allow_linked_freight_booking_from_one_off_converted_doc(self.sales_quote)
-				if not allow_sea:
-					allow_sea = conv_sea
-				if not allow_air:
-					allow_air = conv_air
+				allow_sea, allow_air = resolve_one_off_chain_freight_booking_allowances(
+					self, self.sales_quote
+				)
 				allow_tro = resolve_allow_linked_transport_order_for_internal_job_satellite(self)
 				validate_one_off_quote_not_converted(
 					self.sales_quote,
@@ -192,6 +180,12 @@ class DeclarationOrder(Document):
 			apply_internal_job_main_charge_overlay(self)
 
 			self._sync_charges_with_parent_actuals()
+
+			from logistics.utils.sales_quote_charge_copy import (
+				stamp_main_or_internal_job_scope_on_booking_charges,
+			)
+
+			stamp_main_or_internal_job_scope_on_booking_charges(self)
 
 		finally:
 			clear_charge_resolution_parent(self)
@@ -515,7 +509,7 @@ class DeclarationOrder(Document):
 
 			# Keep in sync with populate_charges_from_sales_quote (API / client): bill_to, pay_to, sales_quote_link, tariffs
 			common_fields = [
-				"service_type", "item_code", "item_name", "charge_type", "charge_category", "quantity", "uom",
+				"service_type", "item_code", "item_name", "description", "charge_type", "charge_category", "quantity", "uom",
 				"currency", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
 				"maximum_charge", "base_amount", "base_quantity", "estimated_revenue",
 				"revenue_calculation_method",
@@ -556,11 +550,12 @@ class DeclarationOrder(Document):
 						row.set("cost_tariff", legacy_tariff)
 				if "sales_quote_link" in charge_fields and sq_name:
 					row.set("sales_quote_link", sq_name)
-				if "service_type" in charge_fields and not row.get("service_type"):
+				if "service_type" in charge_fields:
 					row.set(
 						"service_type",
 						operational_booking_charge_service_type_label(
-							_ch_get(sq_charge, "service_type"), default="Customs"
+							row.get("service_type") or _ch_get(sq_charge, "service_type"),
+							default="Customs",
 						),
 					)
 				if "charge_type" in charge_fields and not row.get("charge_type"):
@@ -641,8 +636,14 @@ def populate_charges_from_sales_quote(
 	is_internal_job=None,
 	main_job_type=None,
 	main_job=None,
+	gcfq_main_service_only=0,
 ):
-	"""Populate charges from Sales Quote Charge (Customs) or Sales Quote Customs (legacy)."""
+	"""Populate charges from Sales Quote Charge (Customs) or Sales Quote Customs (legacy).
+
+	``gcfq_main_service_only`` is set by Action → Get Charges from Quotation (preview / list flows in
+	``logistics.utils.get_charges_from_quotation``) so a Main Declaration Order only consumes Customs
+	charge rows. See ``customs_charges_rows_from_sales_quote_doc``.
+	"""
 	try:
 		parent = (
 			frappe.get_doc("Declaration Order", docname)
@@ -657,6 +658,11 @@ def populate_charges_from_sales_quote(
 			parent.main_job_type = main_job_type
 		if main_job is not None:
 			parent.main_job = main_job
+		if cint(gcfq_main_service_only):
+			if isinstance(parent, Document):
+				parent.flags.gcfq_main_service_only = 1
+			else:
+				parent.flags = frappe._dict({"gcfq_main_service_only": 1})
 
 		if should_apply_internal_job_main_charge_overlay(parent):
 			charges = build_internal_job_declaration_charge_dicts(parent)
@@ -685,7 +691,7 @@ def populate_charges_from_sales_quote(
 		meta = frappe.get_meta("Declaration Order Charges")
 		charge_fields = [f.fieldname for f in meta.fields]
 		common_fields = [
-			"service_type", "item_code", "item_name", "charge_type", "charge_category", "quantity", "uom",
+			"service_type", "item_code", "item_name", "description", "charge_type", "charge_category", "quantity", "uom",
 			"currency", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
 			"maximum_charge", "base_amount", "base_quantity", "estimated_revenue",
 			"revenue_calculation_method",
@@ -735,9 +741,10 @@ def populate_charges_from_sales_quote(
 			# Set sales_quote_link to link back to the Sales Quote
 			if "sales_quote_link" in charge_fields:
 				row["sales_quote_link"] = sales_quote
-			if "service_type" in charge_fields and not row.get("service_type"):
+			if "service_type" in charge_fields:
 				row["service_type"] = operational_booking_charge_service_type_label(
-					_ch_get(sq_charge, "service_type"), default="Customs"
+					row.get("service_type") or _ch_get(sq_charge, "service_type"),
+					default="Customs",
 				)
 			if "charge_type" not in row or not row.get("charge_type"):
 				row["charge_type"] = "Revenue"

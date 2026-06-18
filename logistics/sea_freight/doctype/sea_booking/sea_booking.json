@@ -127,6 +127,7 @@
   "is_internal_job",
   "main_job_type",
   "main_job",
+  "internal_job",
   "internal_job_details_section",
   "internal_job_details",
   "milestones_tab",
@@ -264,6 +265,17 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.is_internal_job",
+   "description": "Canonical Internal Job record this booking represents (populated on Create Internal Job from the Main's Internal Job Detail row).",
+   "fieldname": "internal_job",
+   "fieldtype": "Link",
+   "label": "Internal Job",
+   "no_copy": 1,
+   "options": "Internal Job",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
    "collapsible": 1,
    "depends_on": "eval:doc.is_main_service",
    "fieldname": "internal_job_details_section",
@@ -398,7 +410,6 @@
    "fieldname": "shipper_address",
    "fieldtype": "Link",
    "label": "Shipper Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -414,7 +425,6 @@
    "fieldname": "consignee_address",
    "fieldtype": "Link",
    "label": "Consignee Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -548,14 +558,13 @@
    "fieldname": "origin_cto",
    "fieldtype": "Link",
    "label": "Origin CTO",
-   "link_filters": "[[\"Cargo Terminal Operator\", \"is_active\", \"=\", 1]]",
+   "link_filters": "[[\"Cargo Terminal Operator\",\"is_active\",\"=\",1]]",
    "options": "Cargo Terminal Operator"
   },
   {
    "fieldname": "destination_cto",
    "fieldtype": "Link",
    "label": "Destination CTO",
-   "link_filters": "[[\"Cargo Terminal Operator\", \"is_active\", \"=\", 1]]",
    "options": "Cargo Terminal Operator"
   },
   {
@@ -1071,8 +1080,8 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-05-15 11:11:33.706293",
- "modified_by": "Administrator",
+ "modified": "2026-06-16 18:28:31.269619",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "Sea Freight",
  "name": "Sea Booking",
  "naming_rule": "By \"Naming Series\" field",

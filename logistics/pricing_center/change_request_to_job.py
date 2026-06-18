@@ -7,16 +7,32 @@ from __future__ import unicode_literals
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 from logistics.pricing_center.additional_charge_to_job import (
+	INTERNAL_JOB_SATELLITE_JOB_TYPES,
 	JOB_TYPE_TO_SERVICE,
+	MAIN_JOB_TYPES_FOR_CHANGE_REQUEST,
 	_amendment_family_names,
 	_row_val,
 )
 
-# Declaration / Declaration Order charge tables can hold multiple service types (Customs, Sea, Air, …).
+# Backward-compatible alias for declaration-only checks elsewhere in this module.
 _DECLARATION_JOB_TYPES = frozenset({"Declaration", "Declaration Order"})
+
+# When the Change Request targets an Internal Job satellite booking, we reuse the Main-side
+# mapper of the matching service to map a Change Request Charge row into the satellite's
+# charge child table (the schemas are intentionally parallel: Sea Booking Charges mirror
+# Sea Shipment Charges, etc.). ``_safe_append_charge_to_doc`` strips fields that the
+# specific destination child table doesn't expose.
+_SATELLITE_TO_MAIN_MAPPER_JOB_TYPE = {
+	"Transport Order": "Transport Job",
+	"Sea Booking": "Sea Shipment",
+	"Air Booking": "Air Shipment",
+	"Declaration Order": "Declaration",
+	"Inbound Order": "Warehouse Job",
+	"Release Order": "Warehouse Job",
+}
 
 
 def _job_currency(job_doc):
@@ -51,7 +67,7 @@ def _map_cr_charge_to_air_cost(row, cr_name, charge_row_name):
 		"quantity": rev_qty,
 		"uom": _row_val(row, "uom"),
 		"currency": ccy,
-		"rate": 0,
+		"unit_rate": 0,
 		"unit_type": _row_val(row, "unit_type"),
 		"minimum_quantity": flt(_row_val(row, "minimum_quantity"), 2),
 		"minimum_charge": flt(_row_val(row, "minimum_charge"), 2),
@@ -94,7 +110,7 @@ def _map_cr_charge_to_transport_cost(row, cr_name, charge_row_name):
 		"quantity": rev_qty,
 		"uom": _row_val(row, "uom"),
 		"currency": ccy,
-		"rate": 0,
+		"unit_rate": 0,
 		"unit_type": _row_val(row, "unit_type"),
 		"minimum_quantity": flt(_row_val(row, "minimum_quantity"), 2),
 		"minimum_charge": flt(_row_val(row, "minimum_charge"), 2),
@@ -132,7 +148,7 @@ def _map_cr_charge_to_warehouse_cost(row, cr_name, charge_row_name, job_doc):
 		"quantity": rev_qty,
 		"uom": _row_val(row, "uom") or _row_val(row, "cost_uom"),
 		"currency": ccy,
-		"rate": 0,
+		"unit_rate": 0,
 		"estimated_revenue": 0,
 		"estimated_cost": flt(_row_val(row, "estimated_cost"), 2),
 		"change_request": cr_name,
@@ -161,7 +177,7 @@ def _map_cr_charge_to_sea_cost(row, cr_name, charge_row_name):
 		"currency": ccy,
 		"selling_currency": ccy,
 		"buying_currency": _row_val(row, "cost_currency") or ccy,
-		"rate": 0,
+		"unit_rate": 0,
 		"unit_type": _row_val(row, "unit_type"),
 		"minimum_quantity": flt(_row_val(row, "minimum_quantity"), 2),
 		"minimum_charge": flt(_row_val(row, "minimum_charge"), 2),
@@ -208,7 +224,7 @@ def _map_cr_charge_to_declaration_cost(row, cr_name, charge_row_name):
 		"currency": ccy,
 		"selling_currency": ccy,
 		"buying_currency": _row_val(row, "cost_currency") or ccy,
-		"rate": 0,
+		"unit_rate": 0,
 		"unit_type": _row_val(row, "unit_type"),
 		"minimum_quantity": flt(_row_val(row, "minimum_quantity"), 2),
 		"minimum_charge": flt(_row_val(row, "minimum_charge"), 2),
@@ -236,6 +252,59 @@ def _map_cr_charge_to_declaration_cost(row, cr_name, charge_row_name):
 	}
 
 
+def _map_cr_charge_to_special_project_cost(row, cr_name, charge_row_name):
+	from logistics.utils.sales_quote_charge_parameters import merge_charge_row_parameters_onto_dict
+
+	qty = flt(_row_val(row, "cost_quantity"), 2)
+	if not qty:
+		qty = 1
+	rev_qty = flt(_row_val(row, "quantity"), 2) or 1
+	ccy = _row_val(row, "currency") or _row_val(row, "cost_currency")
+	ic = _row_val(row, "item_code")
+	item_name = _row_val(row, "item_name") or ""
+	if ic and not item_name:
+		item_name = frappe.db.get_value("Item", ic, "item_name") or ""
+	out = {
+		"service_type": _row_val(row, "service_type") or "Special Project",
+		"item_code": ic,
+		"charge_type": "Margin",
+		"charge_category": _row_val(row, "charge_category") or "Other",
+		"revenue_calculation_method": _row_val(row, "calculation_method") or "Flat Rate",
+		"quantity": rev_qty,
+		"uom": _row_val(row, "uom"),
+		"currency": ccy,
+		"selling_currency": ccy,
+		"buying_currency": _row_val(row, "cost_currency") or ccy,
+		"unit_rate": 0,
+		"unit_type": _row_val(row, "unit_type"),
+		"minimum_quantity": flt(_row_val(row, "minimum_quantity"), 2),
+		"minimum_charge": flt(_row_val(row, "minimum_charge"), 2),
+		"maximum_charge": flt(_row_val(row, "maximum_charge"), 2),
+		"base_amount": 0,
+		"estimated_revenue": 0,
+		"bill_to": _row_val(row, "bill_to"),
+		"description": item_name,
+		"cost_calculation_method": _row_val(row, "cost_calculation_method") or "Flat Rate",
+		"cost_quantity": qty,
+		"cost_uom": _row_val(row, "cost_uom"),
+		"cost_currency": _row_val(row, "cost_currency") or ccy,
+		"unit_cost": flt(_row_val(row, "unit_cost"), 2),
+		"cost_unit_type": _row_val(row, "cost_unit_type"),
+		"cost_minimum_quantity": flt(_row_val(row, "cost_minimum_quantity"), 2),
+		"cost_minimum_charge": flt(_row_val(row, "cost_minimum_charge"), 2),
+		"cost_maximum_charge": flt(_row_val(row, "cost_maximum_charge"), 2),
+		"cost_base_amount": flt(_row_val(row, "cost_base_amount"), 2),
+		"estimated_cost": flt(_row_val(row, "estimated_cost"), 2),
+		"pay_to": _row_val(row, "pay_to"),
+		"revenue_calc_notes": "",
+		"cost_calc_notes": _row_val(row, "cost_calc_notes") or "",
+		"change_request": cr_name,
+		"change_request_charge": charge_row_name,
+	}
+	merge_charge_row_parameters_onto_dict(row, out, "Special Project Charges")
+	return out
+
+
 def _cost_mappers():
 	return {
 		"Air Shipment": _map_cr_charge_to_air_cost,
@@ -244,11 +313,235 @@ def _cost_mappers():
 		"Sea Shipment": _map_cr_charge_to_sea_cost,
 		"Declaration": _map_cr_charge_to_declaration_cost,
 		"Declaration Order": _map_cr_charge_to_declaration_cost,
+		"Special Project": _map_cr_charge_to_special_project_cost,
 	}
 
 
+# ---------------------------------------------------------------------------
+# Main ↔ Internal Job satellite resolution helpers
+# ---------------------------------------------------------------------------
+
+
+def _resolve_main_and_default_internal_job(cr_doc):
+	"""Return ``(main_job_type, main_job_name, default_internal_job_or_None)`` for the CR target.
+
+	* CR target is a Main job → the Main is the target itself; default internal_job is ``None``.
+	* CR target is an IJ satellite booking → walks ``main_job_type`` / ``main_job`` back-links to the
+	  parent Main and exposes the satellite's ``internal_job`` link as the default IJ to tag all
+	  rows with (when an individual CR Charge row doesn't carry its own ``internal_job`` value).
+
+	Returns ``(None, None, None)`` when the target is misconfigured (missing back-links, satellite
+	with ``is_internal_job=0``, or the parent main job no longer exists).
+	"""
+	if not cr_doc.job_type or not cr_doc.job:
+		return None, None, None
+	if cr_doc.job_type in MAIN_JOB_TYPES_FOR_CHANGE_REQUEST:
+		return cr_doc.job_type, cr_doc.job, None
+	if cr_doc.job_type in INTERNAL_JOB_SATELLITE_JOB_TYPES:
+		if not frappe.db.exists(cr_doc.job_type, cr_doc.job):
+			return None, None, None
+		sat = (
+			frappe.db.get_value(
+				cr_doc.job_type,
+				cr_doc.job,
+				("main_job_type", "main_job", "internal_job", "is_internal_job"),
+				as_dict=True,
+			)
+			or {}
+		)
+		if not cint(sat.get("is_internal_job") or 0):
+			# Satellite booking that isn't flagged as IJ — treat as standalone, no Main mirroring.
+			return None, None, None
+		mt = (sat.get("main_job_type") or "").strip()
+		mn = (sat.get("main_job") or "").strip()
+		ij = (sat.get("internal_job") or "").strip()
+		if not mt or not mn or not frappe.db.exists(mt, mn):
+			return None, None, None
+		return mt, mn, ij or None
+	return None, None, None
+
+
+def _satellite_for_internal_job(main_job_type, main_job, internal_job_name):
+	"""Locate the operational satellite booking materialised from a given Internal Job under a Main job.
+
+	Returns ``(satellite_doctype, satellite_name)`` or ``(None, None)`` when no satellite exists
+	(the Internal Job Detail row may not have been materialised into an actual booking yet).
+	"""
+	ij = (internal_job_name or "").strip()
+	if not ij or not main_job_type or not main_job:
+		return None, None
+	rows = frappe.get_all(
+		"Internal Job Detail",
+		filters={
+			"parent": main_job,
+			"parenttype": main_job_type,
+			"internal_job": ij,
+		},
+		fields=["job_type", "job_no"],
+		limit=1,
+	)
+	for row in rows:
+		jt = (row.get("job_type") or "").strip()
+		jn = (row.get("job_no") or "").strip()
+		if jt and jn and frappe.db.exists(jt, jn):
+			return jt, jn
+	return None, None
+
+
+def _child_doctype_for_charges_table(parent_doctype):
+	try:
+		meta = frappe.get_meta(parent_doctype)
+	except Exception:
+		return None
+	df = meta.get_field("charges")
+	if not df or df.fieldtype != "Table":
+		return None
+	return (df.options or "").strip() or None
+
+
+def _safe_append_charge_to_doc(target_doc, raw_dict):
+	"""Append a charge dict to ``target_doc.charges``.
+
+	When the destination child table's metadata is available, fields it does not expose are
+	scrubbed first (Sea Booking Charges, Air Booking Charges, etc. share most fields with their
+	main-job siblings but not all). When meta is unavailable — e.g. unit tests passing a
+	``MagicMock`` document — the dict is appended as-is so the existing main-job code path stays
+	wire-compatible with the previous implementation.
+
+	After ``append``, the resulting row's ``charge_scope`` / ``internal_job`` are re-stamped from
+	the raw dict (when present) to guarantee they survive any default value the destination's
+	schema may apply (``Main`` is the default for ``charge_scope`` on every booking child table).
+
+	Returns ``True`` when a row was appended (the payload must have an ``item_code``).
+	"""
+	if not raw_dict or not raw_dict.get("item_code"):
+		return False
+	payload = raw_dict
+	child = _child_doctype_for_charges_table(target_doc.doctype)
+	if child:
+		try:
+			meta = frappe.get_meta(child)
+			valid = {f.fieldname for f in meta.fields}
+			payload = {k: v for k, v in raw_dict.items() if k in valid and v is not None and v != ""}
+		except Exception:
+			payload = raw_dict
+	appended = target_doc.append("charges", payload)
+	# Force ``charge_scope`` / ``internal_job`` onto the appended row in case Frappe applied a
+	# schema default (every booking child table defaults ``charge_scope`` to "Main") that
+	# silently shadowed the value we passed in via ``payload``.
+	scope_val = raw_dict.get("charge_scope")
+	ij_val = raw_dict.get("internal_job")
+	if appended is not None:
+		if scope_val and hasattr(appended, "charge_scope"):
+			appended.charge_scope = scope_val
+		if ij_val and hasattr(appended, "internal_job"):
+			appended.internal_job = ij_val
+	return True
+
+
+def _produce_cost_dict_for_target(cr_doc, row, target_job_type, target_job_doc):
+	"""Map a Change Request Charge row → a cost-row dict appropriate for ``target_job_type``.
+
+	IJ-satellite destinations reuse the mapper of their service-equivalent Main (Sea Booking →
+	Sea Shipment mapper, etc.); ``_safe_append_charge_to_doc`` later strips fields not present on
+	the destination child schema.
+	"""
+	mappers = _cost_mappers()
+	mapper_key = _SATELLITE_TO_MAIN_MAPPER_JOB_TYPE.get(target_job_type, target_job_type)
+	fn = mappers.get(mapper_key)
+	if not fn:
+		return None
+	if mapper_key == "Warehouse Job":
+		return fn(row, cr_doc.name, row.name, target_job_doc)
+	return fn(row, cr_doc.name, row.name)
+
+
+def _internal_job_for_row(row, default_internal_job):
+	"""Pick the Internal Job tag for a CR Charge row: row-level wins, else the CR's default."""
+	row_ij = (_row_val(row, "internal_job") or "").strip()
+	return row_ij or ((default_internal_job or "").strip() or None)
+
+
+def _decorate_charge_dict_with_internal_job_scope(charge_dict, target_doc, internal_job_name):
+	"""Mark a charge dict as Internal-Job-scoped when the destination supports those columns.
+
+	Sets ``charge_scope='Internal Job'`` and ``internal_job=<X>`` explicitly (not via setdefault).
+	Direct assignment guarantees that even if an upstream mapper accidentally produced a
+	``charge_scope`` value (e.g. ``Main`` inherited from a row copy), it gets overridden so the
+	IJ-scoped row is always tagged correctly. Silently skipped on tables that don't expose
+	``charge_scope`` (e.g. Special Project Charges).
+	"""
+	if not internal_job_name:
+		return charge_dict
+	child = _child_doctype_for_charges_table(target_doc.doctype)
+	if not child:
+		return charge_dict
+	try:
+		meta = frappe.get_meta(child)
+	except Exception:
+		return charge_dict
+	valid = {f.fieldname for f in meta.fields}
+	if "charge_scope" in valid:
+		charge_dict["charge_scope"] = "Internal Job"
+	if "internal_job" in valid:
+		charge_dict["internal_job"] = internal_job_name
+	return charge_dict
+
+
+# ---------------------------------------------------------------------------
+# Main entry points: apply / remove with bidirectional Main ↔ Satellite mirror
+# ---------------------------------------------------------------------------
+
+
+def _change_request_charge_row_names(cr_doc):
+	return {
+		(_row_val(r, "name") or "").strip()
+		for r in (cr_doc.get("charges") or [])
+		if _row_val(r, "item_code")
+	}
+
+
+def change_request_cost_rows_missing_on_main_job(cr_doc):
+	"""True when submitted CR charge rows are not all present on the Main job."""
+	crc_names = _change_request_charge_row_names(cr_doc)
+	if not crc_names:
+		return False
+	main_job_type, main_job_name, _ = _resolve_main_and_default_internal_job(cr_doc)
+	if not main_job_type or not main_job_name:
+		return False
+	if not frappe.db.exists(main_job_type, main_job_name):
+		return False
+	job_doc = frappe.get_doc(main_job_type, main_job_name)
+	found = {
+		(getattr(row, "change_request_charge", None) or "").strip()
+		for row in (job_doc.get("charges") or [])
+		if getattr(row, "change_request", None) == cr_doc.name
+	}
+	return not crc_names.issubset(found)
+
+
+def ensure_change_request_cost_rows_on_job(cr_doc):
+	"""Idempotently apply CR cost rows when any are missing from the Main job."""
+	if change_request_cost_rows_missing_on_main_job(cr_doc):
+		apply_change_request_charges_to_job(cr_doc)
+
+
 def apply_change_request_charges_to_job(cr_doc):
-	"""On Change Request submit: replace prior lines for this CR on the job, append cost-populated charge rows."""
+	"""On Change Request submit: append cost rows to the Main job AND mirror to Internal Job satellites.
+
+	Behaviour:
+	* Any prior rows tagged with this Change Request name (``charges.change_request == cr_doc.name``)
+	  are first removed from the Main and every related satellite (idempotent re-apply on amendments).
+	* For each Change Request Charge row:
+	  - A cost row is appended to the **Main** job's ``charges`` table, tagged with
+	    ``change_request`` + ``change_request_charge``. When the row carries an Internal Job tag
+	    (or the CR target is an IJ satellite and the row inherits the satellite's IJ), the Main
+	    row is additionally scoped with ``charge_scope='Internal Job'`` + ``internal_job=<X>``.
+	  - When the row has an Internal Job tag, a parallel cost row is appended to the **satellite
+	    booking** materialised from that Internal Job (Transport Order / Sea Booking / Air Booking /
+	    Declaration Order / Inbound Order / Release Order). The satellite row carries the same
+	    ``change_request`` + ``change_request_charge`` tags so cancel can remove them cleanly.
+	"""
 	if not getattr(cr_doc, "job_type", None) or not getattr(cr_doc, "job", None):
 		return
 	if not frappe.db.exists(cr_doc.job_type, cr_doc.job):
@@ -257,55 +550,144 @@ def apply_change_request_charges_to_job(cr_doc):
 		frappe.msgprint(_("No charge lines on this Change Request; nothing was applied to the job."), indicator="orange")
 		return
 
-	expected_service = JOB_TYPE_TO_SERVICE.get(cr_doc.job_type)
-	if not expected_service:
+	main_job_type, main_job_name, default_ij = _resolve_main_and_default_internal_job(cr_doc)
+	if not main_job_type or not main_job_name:
 		frappe.msgprint(
-			_("Change Request job type {0} is not configured for applying charges.").format(cr_doc.job_type),
+			_(
+				"Change Request job {0} is not linked to a Main job. "
+				"Internal Job satellites must carry main_job_type / main_job back-links."
+			).format(cr_doc.job),
 			indicator="orange",
 		)
 		return
 
-	mapper_fn = _cost_mappers().get(cr_doc.job_type)
-	if not mapper_fn:
+	expected_service = JOB_TYPE_TO_SERVICE.get(main_job_type)
+	if not expected_service:
+		frappe.msgprint(
+			_("Change Request job type {0} is not configured for applying charges.").format(main_job_type),
+			indicator="orange",
+		)
 		return
 
-	job_doc = frappe.get_doc(cr_doc.job_type, cr_doc.job)
-	_remove_job_charges_for_change_request(job_doc, cr_doc.name)
+	main_job_doc = frappe.get_doc(main_job_type, main_job_name)
 
-	added = 0
+	# Idempotent re-apply: drop any rows previously tagged with this CR from the Main first.
+	_remove_job_charges_for_change_request(main_job_doc, cr_doc.name)
+
+	# Track satellite docs we touch so we can save them once at the end (and so we drop prior
+	# rows once per satellite). Keyed by ``(doctype, name)``.
+	satellites_touched = {}
+	added_main = 0
+	added_satellites = 0
+
 	for row in cr_doc.charges:
 		if not _row_val(row, "item_code"):
 			continue
-		st = _row_val(row, "service_type")
-		if cr_doc.job_type not in _DECLARATION_JOB_TYPES and st and st != expected_service:
-			continue
-		if cr_doc.job_type == "Warehouse Job":
-			charge_data = mapper_fn(row, cr_doc.name, row.name, job_doc)
-		else:
-			charge_data = mapper_fn(row, cr_doc.name, row.name)
-		if charge_data:
-			job_doc.append("charges", charge_data)
-			added += 1
 
-	if added > 0:
-		job_doc.flags.ignore_validate_update_after_submit = True
-		job_doc.save(ignore_permissions=True)
+		ij_tag = _internal_job_for_row(row, default_ij)
+
+		# --- Main side ----------------------------------------------------------------
+		main_dict = _produce_cost_dict_for_target(cr_doc, row, main_job_type, main_job_doc)
+		if main_dict:
+			_decorate_charge_dict_with_internal_job_scope(main_dict, main_job_doc, ij_tag)
+			if _safe_append_charge_to_doc(main_job_doc, main_dict):
+				added_main += 1
+
+		# --- Satellite side -----------------------------------------------------------
+		if not ij_tag:
+			continue
+		sat_type, sat_name = _satellite_for_internal_job(main_job_type, main_job_name, ij_tag)
+		if not sat_type or not sat_name:
+			# IJ exists on the row but no satellite booking has been materialised yet — skip
+			# silently; the Main row already carries the IJ-scoped tag so it will surface on
+			# the satellite the next time charges are populated from Main.
+			continue
+		key = (sat_type, sat_name)
+		sat_doc = satellites_touched.get(key)
+		if sat_doc is None:
+			sat_doc = frappe.get_doc(sat_type, sat_name)
+			_remove_job_charges_for_change_request(sat_doc, cr_doc.name)
+			satellites_touched[key] = sat_doc
+		sat_dict = _produce_cost_dict_for_target(cr_doc, row, sat_type, sat_doc)
+		if sat_dict:
+			# Satellite row already implicitly scoped to its IJ (it lives on the satellite).
+			# Still set the tag explicitly when the child supports it for clarity / filtering.
+			_decorate_charge_dict_with_internal_job_scope(sat_dict, sat_doc, ij_tag)
+			if _safe_append_charge_to_doc(sat_doc, sat_dict):
+				added_satellites += 1
+
+	main_job_doc.flags.ignore_validate_update_after_submit = True
+	main_job_doc.save(ignore_permissions=True)
+	for sat_doc in satellites_touched.values():
+		sat_doc.flags.ignore_validate_update_after_submit = True
+		sat_doc.save(ignore_permissions=True)
+
+	if added_main > 0 and added_satellites > 0:
 		frappe.msgprint(
-			_("Added {0} cost charge line(s) from Change Request {1} to {2}.").format(added, cr_doc.name, cr_doc.job),
+			_(
+				"Added {0} cost charge line(s) from Change Request {1} to Main job {2} "
+				"and {3} mirrored line(s) across {4} Internal Job satellite booking(s)."
+			).format(
+				added_main,
+				cr_doc.name,
+				main_job_name,
+				added_satellites,
+				len(satellites_touched),
+			),
+			indicator="green",
+		)
+	elif added_main > 0:
+		frappe.msgprint(
+			_("Added {0} cost charge line(s) from Change Request {1} to {2}.").format(
+				added_main, cr_doc.name, main_job_name
+			),
 			indicator="green",
 		)
 
 
 def remove_change_request_charges_from_job(cr_doc):
-	"""On Change Request cancel: remove job lines created from this Change Request."""
+	"""On Change Request cancel: remove rows from the Main job AND every linked satellite booking."""
 	if not getattr(cr_doc, "job_type", None) or not getattr(cr_doc, "job", None):
 		return
 	if not frappe.db.exists(cr_doc.job_type, cr_doc.job):
 		return
-	job_doc = frappe.get_doc(cr_doc.job_type, cr_doc.job)
-	_remove_job_charges_for_change_request(job_doc, cr_doc.name)
-	job_doc.flags.ignore_validate_update_after_submit = True
-	job_doc.save(ignore_permissions=True)
+
+	main_job_type, main_job_name, default_ij = _resolve_main_and_default_internal_job(cr_doc)
+	if not main_job_type or not main_job_name:
+		# Last-resort: try removing on the CR target itself even if Main resolution failed.
+		try:
+			job_doc = frappe.get_doc(cr_doc.job_type, cr_doc.job)
+		except frappe.DoesNotExistError:
+			return
+		_remove_job_charges_for_change_request(job_doc, cr_doc.name)
+		job_doc.flags.ignore_validate_update_after_submit = True
+		job_doc.save(ignore_permissions=True)
+		return
+
+	main_doc = frappe.get_doc(main_job_type, main_job_name)
+	_remove_job_charges_for_change_request(main_doc, cr_doc.name)
+	main_doc.flags.ignore_validate_update_after_submit = True
+	main_doc.save(ignore_permissions=True)
+
+	# Walk every satellite that may have received a mirrored row. The set of IJs to clean up is
+	# the union of (a) IJs explicitly tagged on the CR's own charge rows and (b) the satellite's
+	# own IJ when the CR target was a satellite.
+	ij_names = set()
+	for row in cr_doc.get("charges") or []:
+		ij = (_row_val(row, "internal_job") or "").strip()
+		if ij:
+			ij_names.add(ij)
+	if default_ij:
+		ij_names.add(default_ij)
+
+	for ij in ij_names:
+		sat_type, sat_name = _satellite_for_internal_job(main_job_type, main_job_name, ij)
+		if not sat_type or not sat_name:
+			continue
+		sat_doc = frappe.get_doc(sat_type, sat_name)
+		_remove_job_charges_for_change_request(sat_doc, cr_doc.name)
+		sat_doc.flags.ignore_validate_update_after_submit = True
+		sat_doc.save(ignore_permissions=True)
 
 
 def _find_change_request_job_row(job_doc, cr_name, charge_row_name):
@@ -320,7 +702,7 @@ def _apply_sq_revenue_to_air_job_row(job_row, sq_row):
 	job_row.quantity = flt(_row_val(sq_row, "quantity"), 2) or 1
 	job_row.uom = _row_val(sq_row, "uom")
 	job_row.currency = _row_val(sq_row, "currency")
-	job_row.rate = flt(_row_val(sq_row, "unit_rate"), 2)
+	job_row.unit_rate = flt(_row_val(sq_row, "unit_rate"), 2)
 	job_row.unit_type = _row_val(sq_row, "unit_type")
 	job_row.minimum_quantity = flt(_row_val(sq_row, "minimum_quantity"), 2)
 	job_row.minimum_charge = flt(_row_val(sq_row, "minimum_charge"), 2)
@@ -339,7 +721,7 @@ def _apply_sq_revenue_to_transport_job_row(job_row, sq_row):
 	job_row.currency = _row_val(sq_row, "currency")
 	if hasattr(job_row, "selling_currency"):
 		job_row.selling_currency = _row_val(sq_row, "currency")
-	job_row.rate = flt(_row_val(sq_row, "unit_rate"), 2)
+	job_row.unit_rate = flt(_row_val(sq_row, "unit_rate"), 2)
 	job_row.unit_type = _row_val(sq_row, "unit_type")
 	job_row.minimum_quantity = flt(_row_val(sq_row, "minimum_quantity"), 2)
 	job_row.minimum_charge = flt(_row_val(sq_row, "minimum_charge"), 2)
@@ -357,7 +739,7 @@ def _apply_sq_revenue_to_warehouse_job_row(job_row, sq_row):
 	job_row.quantity = flt(_row_val(sq_row, "quantity"), 2) or 1
 	job_row.uom = _row_val(sq_row, "uom")
 	job_row.currency = _row_val(sq_row, "currency")
-	job_row.rate = flt(_row_val(sq_row, "unit_rate"), 2)
+	job_row.unit_rate = flt(_row_val(sq_row, "unit_rate"), 2)
 	job_row.estimated_revenue = flt(_row_val(sq_row, "estimated_revenue"), 2)
 	if hasattr(job_row, "bill_to"):
 		job_row.bill_to = _row_val(sq_row, "bill_to")
@@ -370,7 +752,7 @@ def _apply_sq_revenue_to_sea_job_row(job_row, sq_row):
 	job_row.currency = _row_val(sq_row, "currency")
 	if hasattr(job_row, "selling_currency"):
 		job_row.selling_currency = _row_val(sq_row, "currency")
-	job_row.rate = flt(_row_val(sq_row, "unit_rate"), 2)
+	job_row.unit_rate = flt(_row_val(sq_row, "unit_rate"), 2)
 	job_row.unit_type = _row_val(sq_row, "unit_type")
 	job_row.minimum_quantity = flt(_row_val(sq_row, "minimum_quantity"), 2)
 	job_row.minimum_charge = flt(_row_val(sq_row, "minimum_charge"), 2)
@@ -391,7 +773,7 @@ def _apply_sq_revenue_to_declaration_job_row(job_row, sq_row):
 	job_row.currency = _row_val(sq_row, "currency")
 	if hasattr(job_row, "selling_currency"):
 		job_row.selling_currency = _row_val(sq_row, "currency")
-	job_row.rate = flt(_row_val(sq_row, "unit_rate"), 2)
+	job_row.unit_rate = flt(_row_val(sq_row, "unit_rate"), 2)
 	job_row.unit_type = _row_val(sq_row, "unit_type")
 	job_row.minimum_quantity = flt(_row_val(sq_row, "minimum_quantity"), 2)
 	job_row.minimum_charge = flt(_row_val(sq_row, "minimum_charge"), 2)
@@ -403,6 +785,30 @@ def _apply_sq_revenue_to_declaration_job_row(job_row, sq_row):
 	job_row.charge_description = _row_val(sq_row, "item_name") or job_row.charge_description
 
 
+def _apply_sq_revenue_to_special_project_job_row(job_row, sq_row):
+	job_row.revenue_calculation_method = _row_val(sq_row, "calculation_method") or "Flat Rate"
+	job_row.quantity = flt(_row_val(sq_row, "quantity"), 2) or 1
+	job_row.uom = _row_val(sq_row, "uom")
+	job_row.currency = _row_val(sq_row, "currency")
+	if hasattr(job_row, "selling_currency"):
+		job_row.selling_currency = _row_val(sq_row, "currency")
+	job_row.unit_rate = flt(_row_val(sq_row, "unit_rate"), 2)
+	job_row.unit_type = _row_val(sq_row, "unit_type")
+	job_row.minimum_quantity = flt(_row_val(sq_row, "minimum_quantity"), 2)
+	job_row.minimum_charge = flt(_row_val(sq_row, "minimum_charge"), 2)
+	job_row.maximum_charge = flt(_row_val(sq_row, "maximum_charge"), 2)
+	job_row.base_amount = flt(_row_val(sq_row, "base_amount"), 2)
+	job_row.estimated_revenue = flt(_row_val(sq_row, "estimated_revenue"), 2)
+	job_row.bill_to = _row_val(sq_row, "bill_to")
+	job_row.revenue_calc_notes = _row_val(sq_row, "revenue_calc_notes") or ""
+	ic = _row_val(sq_row, "item_code")
+	item_name = _row_val(sq_row, "item_name") or ""
+	if ic and not item_name:
+		item_name = frappe.db.get_value("Item", ic, "item_name") or ""
+	if item_name:
+		job_row.description = item_name
+
+
 def _revenue_appliers():
 	return {
 		"Air Shipment": _apply_sq_revenue_to_air_job_row,
@@ -411,13 +817,111 @@ def _revenue_appliers():
 		"Sea Shipment": _apply_sq_revenue_to_sea_job_row,
 		"Declaration": _apply_sq_revenue_to_declaration_job_row,
 		"Declaration Order": _apply_sq_revenue_to_declaration_job_row,
+		"Special Project": _apply_sq_revenue_to_special_project_job_row,
 	}
 
 
-def merge_sales_quote_revenue_into_change_request_job_rows(sq_doc):
+def _docs_touched_by_change_request(cr_doc):
+	"""Yield every operational doc (Main + satellites) that may carry rows tagged with this CR.
+
+	Resolves the Main from the CR target (directly when target is Main, else via satellite back-link),
+	then yields every satellite materialised from an Internal Job that appears either:
+	  * on a Change Request Charge row's ``internal_job`` field, or
+	  * as the satellite's own ``internal_job`` when the CR was filed against an IJ booking.
+
+	Safe to call from cancel paths — silently skips IJs whose satellite has not been materialised
+	yet (the Main row is still cleaned by ``_remove_job_charges_for_change_request``).
 	"""
-	Update existing job charge rows (from Change Request) with revenue from Sales Quote lines.
-	Returns the number of job rows updated.
+	main_job_type, main_job_name, default_ij = _resolve_main_and_default_internal_job(cr_doc)
+	if not main_job_type or not main_job_name:
+		return
+	try:
+		yield frappe.get_doc(main_job_type, main_job_name)
+	except frappe.DoesNotExistError:
+		return
+
+	ij_names = set()
+	for row in cr_doc.get("charges") or []:
+		ij = (_row_val(row, "internal_job") or "").strip()
+		if ij:
+			ij_names.add(ij)
+	if default_ij:
+		ij_names.add(default_ij)
+
+	for ij in ij_names:
+		sat_type, sat_name = _satellite_for_internal_job(main_job_type, main_job_name, ij)
+		if not sat_type or not sat_name:
+			continue
+		try:
+			yield frappe.get_doc(sat_type, sat_name)
+		except frappe.DoesNotExistError:
+			continue
+
+
+def link_sales_quote_to_change_request_job_charges(cr_name: str, sales_quote_name: str) -> int:
+	"""Set ``sales_quote_link`` on every job/satellite row tagged with this Change Request.
+
+	Walks the Main job AND every Internal Job satellite booking that may have received a mirrored
+	cost row at CR submit time, so both sides reference the Sales Quote once it is created.
+	"""
+	cr_name = (cr_name or "").strip()
+	sales_quote_name = (sales_quote_name or "").strip()
+	if not cr_name or not sales_quote_name:
+		return 0
+	if not frappe.db.exists("Change Request", cr_name):
+		return 0
+	if not frappe.db.exists("Sales Quote", sales_quote_name):
+		return 0
+
+	cr_doc = frappe.get_doc("Change Request", cr_name)
+	if not getattr(cr_doc, "job_type", None) or not getattr(cr_doc, "job", None):
+		return 0
+
+	# CR Charge name -> internal_job tag, used to re-stamp scope on linked job rows so the
+	# scope set at CR submit time is reasserted on every save in this flow.
+	cr_charge_ij = {
+		(c.name or ""): (getattr(c, "internal_job", None) or "").strip()
+		for c in (cr_doc.get("charges") or [])
+	}
+
+	total_updated = 0
+	for job_doc in _docs_touched_by_change_request(cr_doc):
+		updated_here = 0
+		for row in job_doc.get("charges") or []:
+			if getattr(row, "change_request", None) != cr_name:
+				continue
+			crc = (getattr(row, "change_request_charge", None) or "").strip()
+			ij = cr_charge_ij.get(crc) or ""
+			# Re-assert IJ scope defensively (no-op when the schema lacks the columns).
+			if ij:
+				if hasattr(row, "charge_scope") and getattr(row, "charge_scope", None) != "Internal Job":
+					row.charge_scope = "Internal Job"
+					updated_here += 1
+				if hasattr(row, "internal_job") and (getattr(row, "internal_job", None) or "") != ij:
+					row.internal_job = ij
+					updated_here += 1
+			if (getattr(row, "sales_quote_link", None) or "").strip() == sales_quote_name:
+				continue
+			row.sales_quote_link = sales_quote_name
+			updated_here += 1
+		if updated_here > 0:
+			job_doc.flags.ignore_validate_update_after_submit = True
+			job_doc.save(ignore_permissions=True)
+			total_updated += updated_here
+	return total_updated
+
+
+def merge_sales_quote_revenue_into_change_request_job_rows(sq_doc):
+	"""Update job charge rows tagged with the Sales Quote's Change Request with quote revenue.
+
+	The Sales Quote always points at the Main job (see ``create_sales_quote_from_change_request``);
+	this function updates the Main rows in place using the Main-side revenue applier. After updating
+	the Main, ``_propagate_sales_quote_revenue_to_change_request_satellites`` mirrors the same
+	revenue onto every Internal Job satellite booking that holds a parallel CR-tagged row, so the
+	satellite billing reflects the quote outcome too.
+
+	Returns the number of Main rows updated (preserved for backwards compatibility with callers /
+	tests). Satellite updates are best-effort and logged via msgprint.
 	"""
 	cr_name = getattr(sq_doc, "change_request", None)
 	if not cr_name:
@@ -430,17 +934,15 @@ def merge_sales_quote_revenue_into_change_request_job_rows(sq_doc):
 	if not applier:
 		return 0
 
-	expected_service = JOB_TYPE_TO_SERVICE.get(job_type)
-	if not expected_service:
-		return 0
-
 	job_doc = frappe.get_doc(sq_doc.job_type, sq_doc.job)
+	# Cache the CR Charge -> internal_job lookup so we can re-stamp scope after revenue merge.
+	cr_charge_ij = {
+		(c.name or ""): (getattr(c, "internal_job", None) or "").strip()
+		for c in (frappe.get_doc("Change Request", cr_name).get("charges") or [])
+	}
 	updated = 0
 	for sq_row in sq_doc.get("charges") or []:
 		if not _row_val(sq_row, "item_code"):
-			continue
-		st = _row_val(sq_row, "service_type")
-		if job_type not in _DECLARATION_JOB_TYPES and st and st != expected_service:
 			continue
 		ct = _row_val(sq_row, "charge_type") or "Margin"
 		if ct in ("Cost",):
@@ -453,6 +955,15 @@ def merge_sales_quote_revenue_into_change_request_job_rows(sq_doc):
 			continue
 		applier(job_row, sq_row)
 		job_row.sales_quote_link = sq_doc.name
+		# Re-assert IJ scope on the Main row when the originating CR Charge was IJ-tagged. The
+		# applier never sets ``charge_scope`` / ``internal_job`` itself, so this guarantees the
+		# Main row still reflects the Change Request's scope after the revenue merge.
+		ij = cr_charge_ij.get(crc) or ""
+		if ij:
+			if hasattr(job_row, "charge_scope"):
+				job_row.charge_scope = "Internal Job"
+			if hasattr(job_row, "internal_job"):
+				job_row.internal_job = ij
 		updated += 1
 
 	if updated > 0:
@@ -462,11 +973,126 @@ def merge_sales_quote_revenue_into_change_request_job_rows(sq_doc):
 			_("Updated revenue on {0} charge line(s) on {1} from Sales Quote {2}.").format(updated, sq_doc.job, sq_doc.name),
 			indicator="green",
 		)
+
+	# Mirror the revenue onto satellite mirrored rows when the CR also tagged Internal Jobs.
+	# Errors here are non-fatal — the Main side is the source of truth for billing.
+	try:
+		_propagate_sales_quote_revenue_to_change_request_satellites(sq_doc, cr_name)
+	except Exception:
+		frappe.log_error(
+			title="Change Request satellite revenue propagation failed",
+			message=frappe.get_traceback(),
+		)
 	return updated
 
 
+def _propagate_sales_quote_revenue_to_change_request_satellites(sq_doc, cr_name):
+	"""Mirror quote revenue onto every Internal Job satellite booking row tagged with this CR.
+
+	No-ops gracefully when the Change Request has no IJ-tagged rows or no satellites have been
+	materialised. The applier used is the one matching the **satellite's** doctype (e.g. Sea Booking
+	uses the Sea applier, Transport Order uses the Transport applier), so revenue fields land in
+	the right shape on each child schema.
+	"""
+	if not cr_name or not frappe.db.exists("Change Request", cr_name):
+		return
+	cr_doc = frappe.get_doc("Change Request", cr_name)
+
+	# Collect the satellites the CR may have written to.
+	main_job_type, main_job_name, default_ij = _resolve_main_and_default_internal_job(cr_doc)
+	if not main_job_type or not main_job_name:
+		return
+
+	ij_names = set()
+	for row in cr_doc.get("charges") or []:
+		ij = (_row_val(row, "internal_job") or "").strip()
+		if ij:
+			ij_names.add(ij)
+	if default_ij:
+		ij_names.add(default_ij)
+	if not ij_names:
+		return
+
+	# Map satellite doctype -> applier (mirrors revenue appliers but keyed by satellite type).
+	satellite_appliers = {
+		"Transport Order": _apply_sq_revenue_to_transport_job_row,
+		"Sea Booking": _apply_sq_revenue_to_sea_job_row,
+		"Air Booking": _apply_sq_revenue_to_air_job_row,
+		"Declaration Order": _apply_sq_revenue_to_declaration_job_row,
+		"Inbound Order": _apply_sq_revenue_to_warehouse_job_row,
+		"Release Order": _apply_sq_revenue_to_warehouse_job_row,
+	}
+
+	for ij in ij_names:
+		sat_type, sat_name = _satellite_for_internal_job(main_job_type, main_job_name, ij)
+		if not sat_type or not sat_name:
+			continue
+		applier = satellite_appliers.get(sat_type)
+		if not applier:
+			continue
+		sat_doc = frappe.get_doc(sat_type, sat_name)
+		touched = 0
+		for sq_row in sq_doc.get("charges") or []:
+			if not _row_val(sq_row, "item_code"):
+				continue
+			ct = _row_val(sq_row, "charge_type") or "Margin"
+			if ct in ("Cost",):
+				continue
+			crc = _row_val(sq_row, "change_request_charge")
+			if not crc:
+				continue
+			sat_row = _find_change_request_job_row(sat_doc, cr_name, crc)
+			if not sat_row:
+				continue
+			applier(sat_row, sq_row)
+			sat_row.sales_quote_link = sq_doc.name
+			# Re-assert IJ scope on the satellite row — defensively, in case an intervening flow
+			# (e.g. ``_populate_charges_from_sales_quote_doc`` Path-2) rebuilt the row and left
+			# ``charge_scope`` at the schema default of ``Main``.
+			if hasattr(sat_row, "charge_scope"):
+				sat_row.charge_scope = "Internal Job"
+			if hasattr(sat_row, "internal_job"):
+				sat_row.internal_job = ij
+			touched += 1
+		if touched > 0:
+			sat_doc.flags.ignore_validate_update_after_submit = True
+			sat_doc.save(ignore_permissions=True)
+
+
+def _zero_revenue_on_job_row(job_row, job_type_for_layout):
+	"""Strip quote link + zero revenue fields per the destination job_type's layout."""
+	job_row.sales_quote_link = None
+	if job_type_for_layout in (
+		"Air Shipment",
+		"Air Booking",
+		"Sea Shipment",
+		"Sea Booking",
+		"Transport Job",
+		"Transport Order",
+		"Special Project",
+	):
+		job_row.estimated_revenue = 0
+		if hasattr(job_row, "unit_rate"):
+			job_row.unit_rate = 0
+		if hasattr(job_row, "revenue_calc_notes"):
+			job_row.revenue_calc_notes = ""
+	elif job_type_for_layout in ("Warehouse Job", "Inbound Order", "Release Order"):
+		if hasattr(job_row, "estimated_revenue"):
+			job_row.estimated_revenue = 0
+		if hasattr(job_row, "unit_rate"):
+			job_row.unit_rate = 0
+		if hasattr(job_row, "total"):
+			job_row.total = 0
+	elif job_type_for_layout in ("Declaration", "Declaration Order"):
+		job_row.estimated_revenue = 0
+		if hasattr(job_row, "unit_rate"):
+			job_row.unit_rate = 0
+		if hasattr(job_row, "revenue_calc_notes"):
+			job_row.revenue_calc_notes = ""
+
+
 def clear_sales_quote_revenue_from_change_request_job_rows(sq_doc):
-	"""On Sales Quote cancel: strip quote link and revenue from rows tied to this Change Request + quote family."""
+	"""On Sales Quote cancel: strip quote link / revenue from Main rows AND every Internal Job satellite row tagged with this CR + amendment family."""
 	cr_name = getattr(sq_doc, "change_request", None)
 	if not cr_name:
 		return
@@ -484,29 +1110,113 @@ def clear_sales_quote_revenue_from_change_request_job_rows(sq_doc):
 		link = getattr(job_row, "sales_quote_link", None)
 		if not link or link not in family:
 			continue
-		job_row.sales_quote_link = None
-		if job_type == "Air Shipment":
-			job_row.estimated_revenue = 0
-			job_row.rate = 0
-			job_row.revenue_calc_notes = ""
-		elif job_type == "Transport Job":
-			job_row.estimated_revenue = 0
-			if hasattr(job_row, "rate"):
-				job_row.rate = 0
-			job_row.revenue_calc_notes = ""
-		elif job_type == "Warehouse Job":
-			job_row.estimated_revenue = 0
-			job_row.rate = 0
-		elif job_type == "Sea Shipment":
-			job_row.estimated_revenue = 0
-			job_row.rate = 0
-			job_row.revenue_calc_notes = ""
-		elif job_type in ("Declaration", "Declaration Order"):
-			job_row.estimated_revenue = 0
-			job_row.rate = 0
-			job_row.revenue_calc_notes = ""
+		_zero_revenue_on_job_row(job_row, job_type)
 		changed = True
 
 	if changed:
 		job_doc.flags.ignore_validate_update_after_submit = True
 		job_doc.save(ignore_permissions=True)
+
+	# Best-effort: also walk Internal Job satellites that may have received mirrored revenue.
+	try:
+		_clear_sales_quote_revenue_from_satellites(sq_doc, cr_name, family)
+	except Exception:
+		frappe.log_error(
+			title="Change Request satellite revenue clear failed",
+			message=frappe.get_traceback(),
+		)
+
+
+def _clear_sales_quote_revenue_from_satellites(sq_doc, cr_name, family):
+	if not cr_name or not frappe.db.exists("Change Request", cr_name):
+		return
+	cr_doc = frappe.get_doc("Change Request", cr_name)
+	main_job_type, main_job_name, default_ij = _resolve_main_and_default_internal_job(cr_doc)
+	if not main_job_type or not main_job_name:
+		return
+	ij_names = set()
+	for row in cr_doc.get("charges") or []:
+		ij = (_row_val(row, "internal_job") or "").strip()
+		if ij:
+			ij_names.add(ij)
+	if default_ij:
+		ij_names.add(default_ij)
+	for ij in ij_names:
+		sat_type, sat_name = _satellite_for_internal_job(main_job_type, main_job_name, ij)
+		if not sat_type or not sat_name:
+			continue
+		sat_doc = frappe.get_doc(sat_type, sat_name)
+		changed = False
+		for sat_row in sat_doc.get("charges") or []:
+			if getattr(sat_row, "change_request", None) != cr_name:
+				continue
+			link = getattr(sat_row, "sales_quote_link", None)
+			if not link or link not in family:
+				continue
+			_zero_revenue_on_job_row(sat_row, sat_type)
+			changed = True
+		if changed:
+			sat_doc.flags.ignore_validate_update_after_submit = True
+			sat_doc.save(ignore_permissions=True)
+
+
+@frappe.whitelist()
+def backfill_internal_job_scope_on_change_request_rows(cr_name: str | None = None) -> dict:
+	"""Re-stamp ``charge_scope='Internal Job'`` and ``internal_job=<X>`` on Change-Request-tagged
+	rows that were created before the explicit scope assignment was added.
+
+	When ``cr_name`` is supplied only that Change Request is fixed; otherwise every submitted
+	Change Request is walked. For each CR Charge with a non-empty ``internal_job`` value, every
+	matching job/satellite row tagged with the CR is patched so its ``charge_scope`` is
+	``Internal Job`` and its ``internal_job`` matches the CR Charge tag. Returns a summary dict
+	with the count of documents updated.
+
+	Run via::
+
+		bench --site <site> execute logistics.pricing_center.change_request_to_job.backfill_internal_job_scope_on_change_request_rows
+	"""
+	summary = {"change_requests_processed": 0, "documents_updated": 0, "rows_updated": 0}
+	filters = {"docstatus": 1}
+	if cr_name:
+		filters["name"] = cr_name
+	cr_names = [r.name for r in frappe.get_all("Change Request", filters=filters, fields=["name"])]
+	for crn in cr_names:
+		summary["change_requests_processed"] += 1
+		try:
+			cr_doc = frappe.get_doc("Change Request", crn)
+		except frappe.DoesNotExistError:
+			continue
+		cr_charge_ij = {
+			(c.name or ""): (getattr(c, "internal_job", None) or "").strip()
+			for c in (cr_doc.get("charges") or [])
+		}
+		if not any(cr_charge_ij.values()):
+			continue
+		for job_doc in _docs_touched_by_change_request(cr_doc):
+			rows_changed = 0
+			for row in job_doc.get("charges") or []:
+				if getattr(row, "change_request", None) != crn:
+					continue
+				crc = (getattr(row, "change_request_charge", None) or "").strip()
+				ij = cr_charge_ij.get(crc) or ""
+				if not ij:
+					continue
+				if hasattr(row, "charge_scope") and getattr(row, "charge_scope", None) != "Internal Job":
+					row.charge_scope = "Internal Job"
+					rows_changed += 1
+				if hasattr(row, "internal_job") and (getattr(row, "internal_job", None) or "") != ij:
+					row.internal_job = ij
+					rows_changed += 1
+			if rows_changed > 0:
+				job_doc.flags.ignore_validate_update_after_submit = True
+				try:
+					job_doc.save(ignore_permissions=True)
+					summary["documents_updated"] += 1
+					summary["rows_updated"] += rows_changed
+				except Exception:
+					frappe.log_error(
+						title="Change Request scope backfill save failed",
+						message=frappe.get_traceback(),
+					)
+	frappe.db.commit()
+	return summary

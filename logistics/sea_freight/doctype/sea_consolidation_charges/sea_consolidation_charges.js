@@ -5,9 +5,6 @@ frappe.ui.form.on("Sea Consolidation Charges", {
 	charge_item: function (frm, cdt, cdn) {
 		_calculate_sea_consolidation_charge_row(frm, cdt, cdn);
 	},
-	charge_type: function (frm, cdt, cdn) {
-		_calculate_sea_consolidation_charge_row(frm, cdt, cdn);
-	},
 	cost_calculation_method: function (frm, cdt, cdn) {
 		_calculate_sea_consolidation_charge_row(frm, cdt, cdn);
 	},

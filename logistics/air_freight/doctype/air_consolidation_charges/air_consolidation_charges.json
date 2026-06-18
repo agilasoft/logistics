@@ -12,7 +12,7 @@
   "column_break_1",
   "revenue_calculation_method",
   "unit_type",
-  "rate",
+  "unit_rate",
   "currency",
   "section_break_calculation",
   "quantity",
@@ -66,6 +66,7 @@
    "reqd": 1
   },
   {
+   "fetch_from": "item_code.description",
    "fieldname": "description",
    "fieldtype": "Long Text",
    "label": "Description"
@@ -89,10 +90,10 @@
    "options": "Weight\nChargeable Weight\nVolume\nPackage\nPiece"
   },
   {
-   "fieldname": "rate",
+   "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Rate",
+   "label": "Unit Rate",
    "precision": "2",
    "reqd": 1
   },

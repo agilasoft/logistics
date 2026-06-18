@@ -56,19 +56,19 @@
                     <div class="info-value warning">⚠️ Yes</div>
                 </div>
                 {% endif %}
-                {% if job.refrigeration %}
+{% if job.refrigeration %}
                 <div class="info-row">
                     <div class="info-label">Refrigeration</div>
                     <div class="info-value info">❄️ Yes</div>
                 </div>
                 {% endif %}
-                {% if job.container_type %}
+{% if job.container_type %}
                 <div class="info-row">
                     <div class="info-label">Container Type</div>
                     <div class="info-value">{{ job.container_type }}</div>
                 </div>
                 {% endif %}
-                {% if job.container_no %}
+{% if job.container_no %}
                 <div class="info-row">
                     <div class="info-label">Container Number</div>
                     <div class="info-value">{{ job.container_no }}</div>
@@ -143,7 +143,7 @@
                                 {% if leg.facility_from_address %}
                                 <div class="facility-address">{{ leg.facility_from_address }}</div>
                                 {% endif %}
-                                {% if leg.pick_window_start and leg.pick_window_end %}
+{% if leg.pick_window_start and leg.pick_window_end %}
                                 <div class="time-window">
                                     Pickup: {{ leg.pick_window_start }} - {{ leg.pick_window_end }}
                                 </div>
@@ -155,7 +155,7 @@
                                 {% if leg.facility_to_address %}
                                 <div class="facility-address">{{ leg.facility_to_address }}</div>
                                 {% endif %}
-                                {% if leg.drop_window_start and leg.drop_window_end %}
+{% if leg.drop_window_start and leg.drop_window_end %}
                                 <div class="time-window">
                                     Delivery: {{ leg.drop_window_start }} - {{ leg.drop_window_end }}
                                 </div>

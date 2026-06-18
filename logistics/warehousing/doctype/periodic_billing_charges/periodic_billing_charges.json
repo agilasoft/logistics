@@ -8,11 +8,12 @@
  "field_order": [
   "item",
   "item_name",
+  "description",
   "charge_type",
   "charge_category",
   "uom",
   "quantity",
-  "rate",
+  "unit_rate",
   "total",
   "column_break_lthu",
   "handling_unit",
@@ -40,6 +41,12 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Item Name"
+  },
+  {
+   "fetch_from": "item.description",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   },
   {
    "default": "Margin",
@@ -70,10 +77,10 @@
    "label": "Quantity"
   },
   {
-   "fieldname": "rate",
+   "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Rate"
+   "label": "Unit Rate"
   },
   {
    "fieldname": "total",

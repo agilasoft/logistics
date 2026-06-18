@@ -6,6 +6,29 @@ frappe.provide("logistics.transport");
 frappe.provide("logistics.air_freight");
 frappe.provide("logistics.sea_freight");
 
+/**
+ * Navigate to the freshly created booking/order. Wraps
+ * ``window.logistics_navigate_when_doc_exists`` (defined in internal_job_create_from_source.js,
+ * which is loaded via app_include_js) so the new form is only loaded once the row is visible
+ * to the next request. Prevents the spurious "<Doctype> ... not found" the desk shows when
+ * ``frappe.set_route`` races the DB commit / replica visibility for the just-inserted row.
+ *
+ * Falls back to a direct ``frappe.set_route`` if the helper isn't loaded (e.g. older bundle).
+ */
+function _logistics_set_route_when_exists(doctype, docname, after) {
+	function navigate() {
+		frappe.set_route("Form", doctype, docname);
+		if (typeof after === "function") {
+			after();
+		}
+	}
+	if (window.logistics_navigate_when_doc_exists) {
+		window.logistics_navigate_when_doc_exists(doctype, docname, navigate);
+	} else {
+		navigate();
+	}
+}
+
 logistics.transport.create_transport_order_from_sales_quote = function() {
 	const d = new frappe.ui.Dialog({
 		title: __("Create Transport Order from Sales Quote"),
@@ -39,16 +62,15 @@ logistics.transport.create_transport_order_from_sales_quote = function() {
 					if (r.exc) return;
 					if (r.message && r.message.success && r.message.transport_order) {
 						frappe.msgprint({ title: __("Transport Order Created"), message: r.message.message, indicator: "green" });
-						setTimeout(function() {
-							frappe.set_route("Form", "Transport Order", r.message.transport_order).then(function () {
-								frappe.model.with_doctype("Transport Order", function () {
-									var meta = frappe.get_meta("Transport Order");
-									if (meta && meta.module) {
-										frappe.breadcrumbs.add(meta.module, "Transport Order");
-									}
-								});
+						// Existence-poll before set_route — see _logistics_set_route_when_exists.
+						_logistics_set_route_when_exists("Transport Order", r.message.transport_order, function () {
+							frappe.model.with_doctype("Transport Order", function () {
+								var meta = frappe.get_meta("Transport Order");
+								if (meta && meta.module) {
+									frappe.breadcrumbs.add(meta.module, "Transport Order");
+								}
 							});
-						}, 100);
+						});
 					}
 				},
 				error: function() {
@@ -93,9 +115,8 @@ logistics.air_freight.create_air_booking_from_sales_quote = function() {
 					if (r.exc) return;
 					if (r.message && r.message.success && r.message.air_booking) {
 						frappe.msgprint({ title: __("Air Booking Created"), message: r.message.message, indicator: "green" });
-						setTimeout(function() {
-							frappe.set_route("Form", "Air Booking", r.message.air_booking);
-						}, 100);
+						// Existence-poll before set_route — see _logistics_set_route_when_exists.
+						_logistics_set_route_when_exists("Air Booking", r.message.air_booking);
 					}
 				},
 				error: function() {
@@ -140,9 +161,8 @@ logistics.sea_freight.create_sea_booking_from_sales_quote = function() {
 					if (r.exc) return;
 					if (r.message && r.message.success && r.message.sea_booking) {
 						frappe.msgprint({ title: __("Sea Booking Created"), message: r.message.message, indicator: "green" });
-						setTimeout(function() {
-							frappe.set_route("Form", "Sea Booking", r.message.sea_booking);
-						}, 100);
+						// Existence-poll before set_route — see _logistics_set_route_when_exists.
+						_logistics_set_route_when_exists("Sea Booking", r.message.sea_booking);
 					}
 				},
 				error: function() {

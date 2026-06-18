@@ -1,0 +1,22 @@
+[
+ "cash_advance_liquidation_executive_control_snapshot",
+ "cash_advance_liquidation_monthly_volume_and_value_trend",
+ "cash_advance_liquidation_owner_workload_review",
+ "cash_advance_liquidation_weekly_volume_and_value_trend",
+ "cash_advance_request_branch_performance_view",
+ "cash_advance_request_cost_center_value_concentration",
+ "cash_advance_request_executive_control_snapshot",
+ "cash_advance_request_fund_source_concentration",
+ "cash_advance_request_job_number_portfolio_concentration",
+ "cash_advance_request_liquidation_due_date_overdue_pressure",
+ "cash_advance_request_monthly_throughput_index",
+ "cash_advance_request_monthly_volume_and_value_trend",
+ "cash_advance_request_open_draft_aging_backlog",
+ "cash_advance_request_owner_workload_review",
+ "cash_advance_request_payee_supplier_concentration",
+ "cash_advance_request_profit_center_value_concentration",
+ "cash_advance_request_submission_health_ratio",
+ "cash_advance_request_unliquidated_aging_by_liquidation_due_date",
+ "cash_advance_request_weekly_throughput_index",
+ "cash_advance_request_weekly_volume_and_value_trend"
+]

@@ -1,0 +1,741 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-05-20 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "details_tab",
+  "section_basic",
+  "naming_series",
+  "exhibit",
+  "exhibitor",
+  "exhibitor_code",
+  "exhibitor_name",
+  "booth_no",
+  "column_break_basic",
+  "title",
+  "customer",
+  "project",
+  "project_type",
+  "lifecycle_stage",
+  "priority",
+  "status",
+  "column_break_dates",
+  "docket_date",
+  "planned_start",
+  "planned_end",
+  "required_by",
+  "valid_until",
+  "site",
+  "section_scope",
+  "description",
+  "special_handling_instructions",
+  "column_break_scope",
+  "assumptions",
+  "deliverables",
+  "jobs_tab",
+  "section_jobs",
+  "internal_jobs",
+  "charges_tab",
+  "section_org",
+  "company",
+  "branch",
+  "profit_center",
+  "cost_center",
+  "column_break_org",
+  "job_number",
+  "column_break_org_2",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "section_charges_hdr",
+  "billing_status",
+  "charges",
+  "sales_quote",
+  "section_break_operational_exchange_rates",
+  "operational_exchange_rates",
+  "profitability_section_break",
+  "profitability_section_html",
+  "recognition_section",
+  "estimated_revenue",
+  "wip_amount",
+  "recognized_revenue",
+  "column_break_recognition",
+  "estimated_costs",
+  "accrual_amount",
+  "recognized_costs",
+  "invoice_section",
+  "sales_invoice",
+  "date_sales_invoice_requested",
+  "date_sales_invoice_submitted",
+  "column_break_invoice",
+  "purchase_invoice",
+  "date_purchase_invoice_requested",
+  "date_purchase_invoice_submitted",
+  "column_break_invoice_lifecycle",
+  "fully_invoiced",
+  "date_fully_invoiced",
+  "fully_paid",
+  "date_fully_paid",
+  "costs_fully_paid",
+  "date_costs_fully_paid",
+  "milestones_tab",
+  "section_milestones",
+  "milestone_template",
+  "milestone_html",
+  "milestones",
+  "documents_tab",
+  "section_documents",
+  "document_list_template",
+  "documents_html",
+  "documents",
+  "more_info_tab",
+  "section_notes",
+  "internal_notes",
+  "column_break_notes",
+  "client_notes",
+  "section_terms",
+  "tc_name",
+  "terms",
+  "amended_from",
+  "connections_tab"
+ ],
+ "fields": [
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "section_basic",
+   "fieldtype": "Section Break",
+   "label": "Docket"
+  },
+  {
+   "fieldname": "exhibit",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "MICE Project",
+   "options": "MICE Project",
+   "reqd": 1
+  },
+  {
+   "description": "Customer acting as exhibitor on this MICE Project. Must be listed as an Exhibitor participant on the parent MICE Project.",
+   "fieldname": "exhibitor",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Exhibitor",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "description": "Logistics Party Code of the exhibitor customer (used in docket name).",
+   "fetch_from": "exhibitor.logistics_party_code",
+   "fieldname": "exhibitor_code",
+   "fieldtype": "Data",
+   "label": "Exhibitor Code",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "exhibitor.customer_name",
+   "fieldname": "exhibitor_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Exhibitor Name",
+   "read_only": 1
+  },
+  {
+   "description": "Booth assigned to this exhibitor on the parent MICE Project (auto-filled from participant row).",
+   "fieldname": "booth_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Booth No"
+  },
+  {
+   "fieldname": "column_break_basic",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Short title for this docket (optional).",
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title"
+  },
+  {
+   "description": "Resolved from Exhibit -> MICE Organizer.customer at save time.",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Account Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "description": "ERPNext Project for this docket (inherited from the parent MICE Project). Posted on Sales/Purchase Invoice and GL Entries as the Project accounting dimension.",
+   "fetch_from": "exhibit.project",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "exhibit.project_type",
+   "fieldname": "project_type",
+   "fieldtype": "Link",
+   "label": "Project Type",
+   "options": "Project Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "label": "Sales Quote",
+   "options": "Sales Quote",
+   "read_only": 1
+  },
+  {
+   "fieldname": "lifecycle_stage",
+   "fieldtype": "Link",
+   "label": "Lifecycle Stage",
+   "link_filters": "[[\"Lifecycle Stage\", \"for_exhibits\", \"=\", 1]]",
+   "options": "Lifecycle Stage"
+  },
+  {
+   "default": "Normal",
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh\nUrgent"
+  },
+  {
+   "default": "Draft",
+   "description": "Lifecycle of this exhibitor's logistics on the show. Ingress = inbound to venue; Egress = outbound from venue.",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nBooked\nIngress Pending\nIngress In Progress\nIngress Completed\nOn Site\nEgress Pending\nEgress In Progress\nEgress Completed\nIn Progress\nOn Hold\nCompleted\nCancelled"
+  },
+  {
+   "fieldname": "column_break_dates",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Today",
+   "fieldname": "docket_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Docket Date"
+  },
+  {
+   "fieldname": "planned_start",
+   "fieldtype": "Datetime",
+   "label": "Planned Start"
+  },
+  {
+   "fieldname": "planned_end",
+   "fieldtype": "Datetime",
+   "label": "Planned End"
+  },
+  {
+   "fieldname": "required_by",
+   "fieldtype": "Date",
+   "label": "Required By"
+  },
+  {
+   "fieldname": "valid_until",
+   "fieldtype": "Date",
+   "label": "Valid Until"
+  },
+  {
+   "description": "Primary site or address for work under this docket.",
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Address"
+  },
+  {
+   "fieldname": "section_scope",
+   "fieldtype": "Section Break",
+   "label": "Scope"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Description"
+  },
+  {
+   "fetch_from": "exhibit.special_handling_instructions",
+   "fieldname": "special_handling_instructions",
+   "fieldtype": "Long Text",
+   "label": "Special Handling Instructions"
+  },
+  {
+   "fieldname": "column_break_scope",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "assumptions",
+   "fieldtype": "Small Text",
+   "label": "Assumptions"
+  },
+  {
+   "fieldname": "deliverables",
+   "fieldtype": "Small Text",
+   "label": "Deliverables"
+  },
+  {
+   "fieldname": "jobs_tab",
+   "fieldtype": "Tab Break",
+   "label": "Jobs"
+  },
+  {
+   "description": "Internal jobs (Air / Sea / Transport / Customs / Warehousing / MICE lines) that fulfil this docket.",
+   "fieldname": "section_jobs",
+   "fieldtype": "Section Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "fieldname": "internal_jobs",
+   "fieldtype": "Table",
+   "label": "Internal Jobs",
+   "options": "Internal Job Detail"
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "section_org",
+   "fieldtype": "Section Break",
+   "label": "Organization"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "column_break_org",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "column_break_org_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Financial posting job number (same pattern as Sea Shipment).",
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "no_copy": 1,
+   "options": "Job Number"
+  },
+  {
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "section_charges_hdr",
+   "fieldtype": "Section Break",
+   "label": "Charges"
+  },
+  {
+   "default": "Not Billed",
+   "fieldname": "billing_status",
+   "fieldtype": "Select",
+   "label": "Billing Status",
+   "options": "Not Billed\nPending\nPartially Billed\nBilled\nTo Bill\nPaid\nOverdue\nCancelled"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "MICE Project Charges"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_operational_exchange_rates",
+   "fieldtype": "Section Break",
+   "label": "Exchange Rate Sources"
+  },
+ {
+  "fieldname": "operational_exchange_rates",
+  "fieldtype": "Table",
+  "label": "Operational Exchange Rates",
+  "no_copy": 1,
+  "options": "Operational Exchange Rate"
+ },
+ {
+  "collapsible": 1,
+  "fieldname": "profitability_section_break",
+  "fieldtype": "Section Break",
+  "label": "Profitability"
+ },
+ {
+  "fieldname": "profitability_section_html",
+  "fieldtype": "HTML",
+  "label": "Revenue, Cost, Profit, WIP, Accrual",
+  "no_copy": 1,
+  "read_only": 1
+ },
+ {
+  "collapsible": 1,
+  "fieldname": "recognition_section",
+   "fieldtype": "Section Break",
+   "label": "Revenue & Cost Recognition"
+  },
+  {
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "label": "Estimated Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wip_amount",
+   "fieldtype": "Currency",
+   "label": "WIP Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_revenue",
+   "fieldtype": "Currency",
+   "label": "Recognized Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_recognition",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_costs",
+   "fieldtype": "Currency",
+   "label": "Estimated Costs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accrual_amount",
+   "fieldtype": "Currency",
+   "label": "Accrual Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recognized_costs",
+   "fieldtype": "Currency",
+   "label": "Recognized Costs",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "invoice_section",
+   "fieldtype": "Section Break",
+   "label": "Invoices"
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "no_copy": 1,
+   "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_sales_invoice_requested",
+   "fieldtype": "Date",
+   "label": "Date Sales Invoice Requested",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_sales_invoice_submitted",
+   "fieldtype": "Date",
+   "label": "Date Sales Invoice Submitted",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_invoice",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "no_copy": 1,
+   "options": "Purchase Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_purchase_invoice_requested",
+   "fieldtype": "Date",
+   "label": "Date Purchase Invoice Requested",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_purchase_invoice_submitted",
+   "fieldtype": "Date",
+   "label": "Date Purchase Invoice Submitted",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_invoice_lifecycle",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "fully_invoiced",
+   "fieldtype": "Check",
+   "label": "Fully Invoiced",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_fully_invoiced",
+   "fieldtype": "Date",
+   "label": "Date Fully Invoiced",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "fully_paid",
+   "fieldtype": "Check",
+   "label": "Fully Paid",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_fully_paid",
+   "fieldtype": "Date",
+   "label": "Date Fully Paid",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "costs_fully_paid",
+   "fieldtype": "Check",
+   "label": "Costs Fully Paid",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_costs_fully_paid",
+   "fieldtype": "Date",
+   "label": "Date Costs Fully Paid",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "section_milestones",
+   "fieldtype": "Section Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "MICE Project Milestone"
+  },
+  {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "section_documents",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
+  },
+  {
+   "fieldname": "more_info_tab",
+   "fieldtype": "Tab Break",
+   "label": "More Info"
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Text Editor",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "column_break_notes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_notes",
+   "fieldtype": "Text Editor",
+   "label": "Client Notes"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_terms",
+   "fieldtype": "Section Break",
+   "label": "Terms and Conditions"
+  },
+  {
+   "fieldname": "tc_name",
+   "fieldtype": "Link",
+   "label": "Terms",
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]",
+   "options": "Terms and Conditions"
+  },
+  {
+   "fetch_from": "tc_name.terms",
+   "fieldname": "terms",
+   "fieldtype": "Text Editor",
+   "label": "Terms and Conditions Details"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Docket",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "D-"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-05-27 17:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "MICE",
+ "name": "Docket",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "exhibitor_name",
+ "track_changes": 1
+}

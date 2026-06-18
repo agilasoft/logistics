@@ -4,7 +4,7 @@
 from frappe.model.document import Document
 from frappe.utils import flt
 
-from logistics.utils.charges_calculation import calculate_charge_cost
+from logistics.utils.charges_calculation import apply_charge_type_side_cleanup, calculate_charge_cost
 
 
 class SeaConsolidationCharges(Document):
@@ -16,6 +16,7 @@ class SeaConsolidationCharges(Document):
 
     def _calculate_charges(self, parent_doc=None):
         """Calculate estimated cost using centralized charges module."""
+        apply_charge_type_side_cleanup(self)
         cost = calculate_charge_cost(self, parent_doc)
         self.estimated_cost = cost.get("amount", 0)
         if hasattr(self, "cost_calc_notes"):

@@ -37,7 +37,7 @@
  "module": "Job Management",
  "name": "Recognition Status",
  "owner": "Administrator",
- "prepared_report": 0,
+ "prepared_report": 1,
  "ref_doctype": "Journal Entry",
  "report_name": "Recognition Status",
  "report_type": "Script Report",

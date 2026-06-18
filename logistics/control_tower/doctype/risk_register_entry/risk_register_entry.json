@@ -1,0 +1,174 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:RISK-{#####}",
+ "creation": "2026-06-11 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "organization",
+  "title",
+  "category",
+  "status",
+  "column_break_basic",
+  "likelihood",
+  "impact",
+  "score",
+  "target_close_date",
+  "section_detail",
+  "description",
+  "mitigation",
+  "section_owner",
+  "owner_employee"
+ ],
+ "fields": [
+  {
+   "fieldname": "organization",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Organization",
+   "options": "Control Tower Organization",
+   "reqd": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Risk Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Category",
+   "options": "Strategic\nOperational\nFinancial\nCompliance\nSafety\nIT / Cyber\nReputational\nOther"
+  },
+  {
+   "default": "Open",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Open\nMitigated\nAccepted\nClosed"
+  },
+  {
+   "fieldname": "column_break_basic",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "3",
+   "description": "Likelihood on a 1 (rare) - 5 (almost certain) scale.",
+   "fieldname": "likelihood",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Likelihood",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "default": "3",
+   "description": "Impact on a 1 (minor) - 5 (catastrophic) scale.",
+   "fieldname": "impact",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Impact",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "description": "Auto-computed: Likelihood * Impact (1-25).",
+   "fieldname": "score",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Score",
+   "read_only": 1
+  },
+  {
+   "fieldname": "target_close_date",
+   "fieldtype": "Date",
+   "label": "Target Close Date"
+  },
+  {
+   "fieldname": "section_detail",
+   "fieldtype": "Section Break",
+   "label": "Detail"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Description"
+  },
+  {
+   "fieldname": "mitigation",
+   "fieldtype": "Text Editor",
+   "label": "Mitigation Plan"
+  },
+  {
+   "fieldname": "section_owner",
+   "fieldtype": "Section Break",
+   "label": "Owner"
+  },
+  {
+   "fieldname": "owner_employee",
+   "fieldtype": "Link",
+   "label": "Owner",
+   "options": "Employee"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-11 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Control Tower",
+ "name": "Risk Register Entry",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Control Tower Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Control Tower Viewer",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "organization,title,category,status",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

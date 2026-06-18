@@ -12,7 +12,7 @@ CHARGE_DOCTYPES = [
     "Declaration Charges",
 ]
 
-INSERT_AFTER_FALLBACKS = ("quantity", "charge_item", "item_code", "rate", "buying_amount")
+INSERT_AFTER_FALLBACKS = ("quantity", "charge_item", "item_code", "unit_rate", "rate", "buying_amount")
 
 
 def _find_insert_after(meta, fallbacks):

@@ -25,7 +25,7 @@
 		"Inbound Order",
 		"Release Order",
 		"Project Job",
-		"Exhibit Job",
+		"MICE Job",
 	];
 
 	var CHANGE_NS = ".logistics_ms_ij_exclusive";

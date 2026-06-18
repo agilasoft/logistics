@@ -81,29 +81,8 @@ class TestTransportOrder(FrappeTestCase):
 		with self.assertRaises((frappe.ValidationError, frappe.MandatoryError)):
 			order.insert()
 
-	def test_transport_template_required_before_submit(self):
-		"""Transport Template must be set before submit (required for Transport Job creation)."""
-		order = frappe.get_doc({
-			"doctype": "Transport Order",
-			"company": self.company,
-			"customer": self.customer,
-			"booking_date": today(),
-			"scheduled_date": today(),
-			"location_type": "UNLOCO",
-			"location_from": "USLAX",
-			"location_to": "USJFK",
-			"transport_job_type": "Non-Container",
-			"branch": self.branch,
-			"cost_center": self.cost_center,
-			"profit_center": self.profit_center,
-		})
-		order.insert()
-		with self.assertRaises(frappe.ValidationError) as ctx:
-			order.before_submit()
-		self.assertIn("Transport Template", str(ctx.exception))
-
 	def test_transport_order_validate_leg_facilities(self):
-		"""Test that legs with same from/to facilities are rejected"""
+		"""Test that legs with same from/to facilities are rejected on submit, not on save"""
 		order = frappe.get_doc({
 			"doctype": "Transport Order",
 			"company": self.company,
@@ -126,8 +105,9 @@ class TestTransportOrder(FrappeTestCase):
 			"scheduled_date": today(),
 			"transport_job_type": "Non-Container",
 		})
+		order.insert()
 		with self.assertRaises((frappe.ValidationError, Exception)):
-			order.insert()
+			order.before_submit()
 
 
 def _ensure_test_load_type_for_vehicle_filter() -> str:

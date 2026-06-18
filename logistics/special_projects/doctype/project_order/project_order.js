@@ -3,17 +3,7 @@
 
 function logistics_set_site_query_project_order(frm) {
 	frm.set_query("site", function () {
-		const cust = frm.doc.customer;
-		if (!cust) {
-			return { filters: [["name", "=", ""]] };
-		}
-		return {
-			query: "frappe.contacts.doctype.address.address.address_query",
-			filters: {
-				link_doctype: "Customer",
-				link_name: cust,
-			},
-		};
+		return logistics.address.query_for_customer(frm.doc.customer);
 	});
 }
 
@@ -70,7 +60,7 @@ function _logistics_project_order_add_create_or_open_job(frm) {
 										indicator: "blue",
 									});
 									frappe.set_route("Form", "Project Job", payload.name);
-									frm.refresh();
+									frm.reload_doc();
 								} else if (payload.created) {
 									frappe.msgprint({
 										title: __("Project Job Created"),
@@ -78,7 +68,7 @@ function _logistics_project_order_add_create_or_open_job(frm) {
 										indicator: "green",
 									});
 									frappe.set_route("Form", "Project Job", payload.name);
-									frm.refresh();
+									frm.reload_doc();
 								}
 							},
 						});

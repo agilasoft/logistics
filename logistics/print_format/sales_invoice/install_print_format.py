@@ -5,46 +5,58 @@ Install BIR Sales Invoice Print Format
 import frappe
 import os
 
-def install_sales_invoice_print_format():
-    """Install or update the BIR Sales Invoice print format"""
-    
-    # Get the HTML content
-    html_path = os.path.join(os.path.dirname(__file__), 'sales_invoice.html')
-    
-    with open(html_path, 'r', encoding='utf-8') as f:
-        html_content = f.read()
-    
-    # Check if print format exists
-    if frappe.db.exists("Print Format", "BIR Sales Invoice"):
-        print_format = frappe.get_doc("Print Format", "BIR Sales Invoice")
+def _sales_invoice_html_path():
+    app_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    consolidated = os.path.join(app_root, "print_format", "sales_invoice", "sales_invoice.html")
+    if os.path.isfile(consolidated):
+        return consolidated
+    return os.path.join(os.path.dirname(__file__), "sales_invoice.html")
+
+
+def _upsert_print_format(name, html_content, create_if_missing=False):
+    if frappe.db.exists("Print Format", name):
+        print_format = frappe.get_doc("Print Format", name)
         print_format.html = html_content
         print_format.save()
-        print("✓ Updated existing BIR Sales Invoice print format")
-    else:
-        # Create new print format
-        print_format = frappe.get_doc({
-            "doctype": "Print Format",
-            "name": "BIR Sales Invoice",
-            "doc_type": "Sales Invoice",
-            "module": "Logistics",
-            "standard": "No",
-            "custom_format": 1,
-            "print_format_type": "Jinja",
-            "html": html_content,
-            "font_size": 8,
-            "disabled": 0,
-            "align_labels_right": 0,
-            "line_breaks": 0,
-            "print_format_builder": 0,
-            "raw_printing": 0,
-            "show_section_headings": 0
-        })
-        print_format.insert(ignore_permissions=True)
-        print("✓ Created new BIR Sales Invoice print format")
-    
+        print(f"✓ Updated existing {name} print format")
+        return
+
+    if not create_if_missing:
+        return
+
+    print_format = frappe.get_doc({
+        "doctype": "Print Format",
+        "name": name,
+        "doc_type": "Sales Invoice",
+        "module": "Logistics",
+        "standard": "No",
+        "custom_format": 1,
+        "print_format_type": "Jinja",
+        "html": html_content,
+        "font_size": 8,
+        "disabled": 0,
+        "align_labels_right": 0,
+        "line_breaks": 0,
+        "print_format_builder": 0,
+        "raw_printing": 0,
+        "show_section_headings": 0,
+    })
+    print_format.insert(ignore_permissions=True)
+    print(f"✓ Created new {name} print format")
+
+
+def install_sales_invoice_print_format():
+    """Install or update Sales Invoice print formats from consolidated HTML."""
+
+    with open(_sales_invoice_html_path(), "r", encoding="utf-8") as f:
+        html_content = f.read()
+
+    _upsert_print_format("Sales Invoice HTML", html_content)
+    _upsert_print_format("BIR Sales Invoice", html_content, create_if_missing=True)
+
     frappe.db.commit()
-    print("✓ BIR Sales Invoice print format installed successfully!")
-    print("  You can now use it from Sales Invoice > Print > BIR Sales Invoice")
+    print("✓ Sales Invoice print format installed successfully!")
+    print("  Use Sales Invoice > Print > Sales Invoice HTML")
 
 if __name__ == "__main__":
     import sys

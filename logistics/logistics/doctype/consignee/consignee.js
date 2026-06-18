@@ -13,14 +13,13 @@ frappe.ui.form.on('Consignee', {
       return contact_names.length ? { filters: { name: ['in', contact_names] } } : { filters: { name: '__none__' } };
     });
 
-    const q = 'frappe.contacts.doctype.address.address.address_query';
     frm.set_query('consignee_primary_address', function (doc) {
       if (doc.__islocal || !doc.name) return { filters: { name: '__none__' } };
-      return { query: q, filters: { link_doctype: 'Consignee', link_name: doc.name } };
+      return logistics.address.query_for_link('Consignee', doc.name);
     });
     frm.set_query('delivery_address', function (doc) {
       if (doc.__islocal || !doc.name) return { filters: { name: '__none__' } };
-      return { query: q, filters: { link_doctype: 'Consignee', link_name: doc.name } };
+      return logistics.address.query_for_link('Consignee', doc.name);
     });
   },
 

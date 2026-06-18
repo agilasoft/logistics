@@ -13,6 +13,39 @@ import json
 import os
 import sys
 
+# Link fields scoped via logistics.address.query_for_* in client JS — JSON link_filters break address_query.
+ADDRESS_CLIENT_QUERY_FIELDS = {
+    ("Docket", "site"),
+    ("MICE Order", "site"),
+    ("Exhibit Order", "site"),
+    ("MICE Job", "site"),
+    ("Exhibit Job", "site"),
+    ("Project Order", "site"),
+    ("Project Job", "site"),
+    ("Lifecycle Job", "sp_site"),
+    ("Sea Booking", "shipper_address"),
+    ("Sea Booking", "consignee_address"),
+    ("Sea Shipment", "shipper_address"),
+    ("Sea Shipment", "consignee_address"),
+    ("Air Booking", "shipper_address"),
+    ("Air Booking", "consignee_address"),
+    ("Air Shipment", "shipper_address"),
+    ("Air Shipment", "consignee_address"),
+    ("Warehouse Settings", "warehouse_contract_address"),
+}
+
+# CTO link fields with custom get_query — link_filters overwrite the query and merge parent filters
+# (e.g. shipping_line) onto Cargo Terminal Operator, causing PermissionError on search.
+CTO_CLIENT_QUERY_FIELDS = {
+    ("Master Bill", "origin_cto"),
+    ("Master Bill", "destination_cto"),
+    ("Sea Booking", "origin_cto"),
+    ("Sea Booking", "destination_cto"),
+    ("Sea Shipment", "origin_cto"),
+    ("Sea Shipment", "destination_cto"),
+    ("Shipping Line CTO", "sea_cto"),
+}
+
 
 def _logistics_app_root():
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -113,6 +146,10 @@ def main():
             if not opt or not isinstance(opt, str):
                 continue
             if opt not in registry:
+                continue
+            if opt == "Address" and (d.get("name"), fld.get("fieldname")) in ADDRESS_CLIENT_QUERY_FIELDS:
+                continue
+            if opt == "Cargo Terminal Operator" and (d.get("name"), fld.get("fieldname")) in CTO_CLIENT_QUERY_FIELDS:
                 continue
             field, op, value = registry[opt]
             new_lf = merge_link_filters(fld.get("link_filters"), opt, field, op, value)

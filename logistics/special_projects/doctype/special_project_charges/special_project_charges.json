@@ -8,7 +8,7 @@
  "field_order": [
   "column_break_other_svc",
   "service_type",
-  "lifecycle_job_row",
+  "lifecycle_job_line",
   "item_code",
   "item_name",
   "container_deposit_pending_refund_gl",
@@ -53,7 +53,7 @@
   "quantity",
   "uom",
   "currency",
-  "rate",
+  "unit_rate",
   "unit_type",
   "minimum_quantity",
   "minimum_unit_rate",
@@ -109,15 +109,15 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nExhibits"
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE"
   },
   {
-   "columns": 1,
-   "description": "Lifecycle Jobs table row number (idx). Required when multiple job lines share the same Service Type and those lines do not yet have a Job No.",
-   "fieldname": "lifecycle_job_row",
-   "fieldtype": "Int",
+   "description": "Lifecycle execution row that owns this charge. Empty = available for assignment.",
+   "fieldname": "lifecycle_job_line",
+   "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Lifecycle Job"
+   "label": "Lifecycle Job Line",
+   "options": "Lifecycle Job"
   },
   {
    "default": "0",
@@ -227,6 +227,7 @@
    "options": "Invoice Type"
   },
   {
+   "fetch_from": "change_request.sales_quote",
    "fieldname": "sales_quote_link",
    "fieldtype": "Link",
    "label": "Sales Quote Link",
@@ -475,7 +476,7 @@
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
-   "fieldname": "rate",
+   "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "label": "Unit Rate",
    "options": "currency",
@@ -486,7 +487,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time\nHandling Unit",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
@@ -581,7 +582,7 @@
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time\nHandling Unit",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
@@ -729,7 +730,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item Code",
-   "link_filters": "[[\"Item\", \"custom_sea_forwarding_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
+   "link_filters": "[[\"Item\", \"custom_special_project_charge\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
    "options": "Item"
   },
   {
@@ -739,13 +740,14 @@
    "label": "Item Name"
   },
   {
-   "description": "When the Item is a container-deposit charge, shows per-company Sea Freight Settings “Deposits Pending for Refund Request” for GL alignment. Set the same account on the Item Group / Item defaults as needed.",
+   "description": "When the Item is a container-deposit charge, shows per-company Sea Freight Settings \u201cDeposits Pending for Refund Request\u201d for GL alignment. Set the same account on the Item Group / Item defaults as needed.",
    "fieldname": "container_deposit_pending_refund_gl",
    "fieldtype": "Data",
    "label": "Deposit pending refund GL",
    "read_only": 1
   },
   {
+   "fetch_from": "item_code.description",
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"
@@ -755,7 +757,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-04-24 18:59:18.876150",
+ "modified": "2026-06-03 10:52:11.926686",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Special Project Charges",

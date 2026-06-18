@@ -54,7 +54,7 @@ def clear_charge_resolution_parent(doc: Any) -> None:
 
 # Field mapping: charge doctypes use revenue_calculation_method (revenue) and cost_calculation_method (cost)
 REVENUE_METHOD_FIELDS = ("revenue_calculation_method", "calculation_method")  # calculation_method for backward compat
-RATE_FIELDS = ("unit_rate", "rate")
+RATE_FIELDS = ("unit_rate",)
 
 # Map legacy/display values (e.g. "Per kg", "Per m³") to engine calculation_method + unit_type
 METHOD_TO_ENGINE = {
@@ -148,8 +148,25 @@ def _apply_charge_parent_overrides(parent_doc: Any, parent_overrides: Any) -> No
 
 
 def _get_field(doc: Any, *field_names: str, default=None):
-    """Get first non-empty value from doc for given field names."""
+    """Get first non-empty value from doc for given field names.
+
+    For Frappe Documents, names not declared in the doctype meta are skipped so
+    orphan DB columns left over from a rename (e.g. legacy ``unit_rate`` column
+    on ``Transport Job Charges`` after the field was renamed to ``rate``) cannot
+    poison the lookup by returning a default ``0`` / ``0.0`` ahead of the real
+    field. dicts and ``frappe._dict`` snapshots (no doctype/meta) keep the old
+    "first non-empty value" semantics.
+    """
+    meta = None
+    doctype = getattr(doc, "doctype", None) if doc is not None else None
+    if doctype:
+        try:
+            meta = frappe.get_meta(doctype)
+        except Exception:
+            meta = None
     for name in field_names:
+        if meta is not None and not meta.has_field(name):
+            continue
         val = getattr(doc, name, None)
         if val is not None and val != "":
             return val
@@ -444,7 +461,8 @@ def _get_quantity_for_calculation_method(
         hu = flt(actual_data.get("actual_handling_units") or 0)
         return hu if hu > 0 else 1.0
     if ut == "job":
-        return 1.0
+        j = flt(actual_data.get("actual_quantity") or 0)
+        return j if j > 0 else 1.0
     if ut == "trip":
         t = flt(actual_data.get("actual_trips") or 0)
         return t if t > 0 else 1.0
@@ -706,7 +724,6 @@ CHARGE_ROW_CLIENT_EXPORT_FIELDS = (
     "revenue_calculation_method",
     "calculation_method",
     "unit_rate",
-    "rate",
     "unit_type",
     "currency",
     "quantity",
@@ -769,8 +786,6 @@ def _apply_tariff_rate_data_revenue(charge_doc: Any, rate_data: Dict) -> None:
     if hasattr(charge_doc, "calculation_method"):
         charge_doc.calculation_method = method
     rate_val = rate_data.get("rate", 0)
-    if hasattr(charge_doc, "rate"):
-        charge_doc.rate = rate_val
     if hasattr(charge_doc, "unit_rate"):
         charge_doc.unit_rate = rate_val
     if hasattr(charge_doc, "unit_type"):
@@ -824,6 +839,10 @@ def _fetch_rates_from_tariff_if_needed(charge_doc: Any) -> None:
         return
 
     st = getattr(charge_doc, "service_type", None)
+    saved_currency = getattr(charge_doc, "currency", None) or None
+    saved_cost_currency = getattr(charge_doc, "cost_currency", None) or None
+    using_rev_tariff = cint(getattr(charge_doc, "use_tariff_in_revenue", 0))
+    using_cost_tariff = cint(getattr(charge_doc, "use_tariff_in_cost", 0))
 
     # Revenue: revenue_tariff (legacy: generic tariff) + item
     rev_tariff = getattr(charge_doc, "revenue_tariff", None) or getattr(charge_doc, "tariff", None)
@@ -835,6 +854,9 @@ def _fetch_rates_from_tariff_if_needed(charge_doc: Any) -> None:
             _copy_tariff_line_context_to_charge(charge_doc, rate_row)
             if hasattr(charge_doc, "use_tariff_in_revenue"):
                 charge_doc.use_tariff_in_revenue = 1
+            # Keep user-entered revenue currency unless they opted into tariff rates
+            if not using_rev_tariff and saved_currency:
+                charge_doc.currency = saved_currency
 
     # Cost: cost_tariff (legacy: generic tariff) + item
     cost_tariff = getattr(charge_doc, "cost_tariff", None) or getattr(charge_doc, "tariff", None)
@@ -846,6 +868,9 @@ def _fetch_rates_from_tariff_if_needed(charge_doc: Any) -> None:
             _copy_tariff_line_context_to_charge(charge_doc, rate_row)
             if hasattr(charge_doc, "use_tariff_in_cost"):
                 charge_doc.use_tariff_in_cost = 1
+            # Keep user-entered cost currency unless they opted into tariff rates
+            if not using_cost_tariff and saved_cost_currency:
+                charge_doc.cost_currency = saved_cost_currency
 
     _fill_item_name_on_charge_from_item(charge_doc)
     try:
@@ -881,6 +906,10 @@ def _prepare_rate_data(
         return None
 
     uom = getattr(charge_doc, "uom", None) or getattr(charge_doc, f"{prefix}uom", None)
+    if is_revenue:
+        currency = getattr(charge_doc, "currency", None) or "USD"
+    else:
+        currency = getattr(charge_doc, "cost_currency", None) or getattr(charge_doc, "currency", None) or "USD"
     rate_data = {
         "calculation_method": method,
         "rate": rate,
@@ -892,7 +921,7 @@ def _prepare_rate_data(
         "maximum_charge": flt(getattr(charge_doc, f"{prefix}maximum_charge", None) or 0),
         "base_amount": flt(getattr(charge_doc, f"{prefix}base_amount", None) or 0),
         "base_quantity": flt(getattr(charge_doc, f"{prefix}base_quantity", None) or 1),
-        "currency": getattr(charge_doc, "currency", None) or getattr(charge_doc, f"{prefix}currency", None) or "USD",
+        "currency": currency,
         "item_code": getattr(charge_doc, "item_code", None),
         "item_name": getattr(charge_doc, "item_name", None),
     }
@@ -1079,12 +1108,16 @@ def _calculate_charge_amount(
         actual_data, method, unit_type, is_revenue=is_revenue
     )
 
-    # Sales Quote only: use charge row quantity for any unit type when user has entered it
+    # Sales Quote / Special Project programme charges: keep row quantity for calculation.
     parent_is_sales_quote = (
         (parent_doc and getattr(parent_doc, "doctype", None) == "Sales Quote")
         or getattr(charge_doc, "parenttype", None) == "Sales Quote"
     )
-    if parent_is_sales_quote:
+    parent_is_special_project = (
+        (parent_doc and getattr(parent_doc, "doctype", None) == "Special Project")
+        or getattr(charge_doc, "parenttype", None) == "Special Project"
+    )
+    if parent_is_sales_quote or parent_is_special_project:
         row_qty = flt(
             _get_field(charge_doc, "quantity") if is_revenue else _get_field(charge_doc, "cost_quantity")
         )
@@ -1121,8 +1154,8 @@ def _calculate_charge_amount(
                 actual_data["actual_quantity"] = row_qty
 
     if is_revenue:
-        # Sales Quote: keep non-zero row quantity for estimating; operational: always follow parent actuals (same as cost).
-        if parent_is_sales_quote:
+        # Sales Quote / Special Project: keep non-zero row quantity; other operational parents follow actuals.
+        if parent_is_sales_quote or parent_is_special_project:
             if getattr(charge_doc, "quantity", None) is None or (
                 isinstance(getattr(charge_doc, "quantity", None), (int, float))
                 and flt(charge_doc.quantity) == 0
@@ -1132,9 +1165,8 @@ def _calculate_charge_amount(
             charge_doc.quantity = derived_qty
         result["quantity"] = flt(getattr(charge_doc, "quantity", None) or derived_qty)
     else:
-        # Sales Quote: keep user/quote line cost_quantity when already set (estimating).
-        # Operational docs: cost_quantity always follows parent actuals + cost_unit_type / method.
-        if parent_is_sales_quote:
+        # Sales Quote / Special Project: keep row cost_quantity when already set.
+        if parent_is_sales_quote or parent_is_special_project:
             if getattr(charge_doc, "cost_quantity", None) is None or (
                 isinstance(getattr(charge_doc, "cost_quantity", None), (int, float))
                 and flt(charge_doc.cost_quantity) == 0
@@ -1166,7 +1198,11 @@ def _calculate_charge_amount(
             amount = min_charge
         if max_charge > 0 and amount > max_charge:
             amount = max_charge
-        currency = applicable.get("currency") or getattr(charge_doc, "currency", None) or getattr(charge_doc, "cost_currency", None) or "USD"
+        if is_revenue:
+            row_currency = getattr(charge_doc, "currency", None) or "USD"
+        else:
+            row_currency = getattr(charge_doc, "cost_currency", None) or getattr(charge_doc, "currency", None) or "USD"
+        currency = applicable.get("currency") or row_currency
         weight_uom = getattr(charge_doc, "uom", None) or getattr(charge_doc, "cost_uom", None) or "Kg"
         weight_break = flt(applicable.get("weight_break", 0))
         detail = (
@@ -1200,7 +1236,11 @@ def _calculate_charge_amount(
             amount = min_charge
         if max_charge > 0 and amount > max_charge:
             amount = max_charge
-        currency = applicable.get("currency") or getattr(charge_doc, "currency", None) or getattr(charge_doc, "cost_currency", None) or "USD"
+        if is_revenue:
+            row_currency = getattr(charge_doc, "currency", None) or "USD"
+        else:
+            row_currency = getattr(charge_doc, "cost_currency", None) or getattr(charge_doc, "currency", None) or "USD"
+        currency = applicable.get("currency") or row_currency
         qty_uom = getattr(charge_doc, "uom", None) or getattr(charge_doc, "cost_uom", None) or "Nos"
         qty_break = flt(applicable.get("qty_break", 0))
         detail = (
@@ -1332,7 +1372,7 @@ _AIR_BOOKING_DISBURSEMENT_PAIRS = (
     ("cost_quantity", "quantity"),
     ("cost_uom", "uom"),
     ("cost_currency", "currency"),
-    ("unit_cost", "rate"),
+    ("unit_cost", "unit_rate"),
     ("cost_unit_type", "unit_type"),
     ("cost_minimum_quantity", "minimum_quantity"),
     ("cost_minimum_unit_rate", "minimum_unit_rate"),
@@ -1380,6 +1420,140 @@ DISBURSEMENT_FIELD_MAP = {
     "Declaration Charges": _AIR_BOOKING_DISBURSEMENT_PAIRS
     + (("buying_currency", "selling_currency"),),
 }
+
+
+# Fields cleared when charge_type locks the cost or revenue side (meta-driven per DocType).
+CHARGE_COST_SIDE_CLEAR_FIELDS = (
+    "cost_calculation_method",
+    "unit_cost",
+    "cost_unit_type",
+    "cost_currency",
+    "cost_quantity",
+    "cost_uom",
+    "cost_minimum_quantity",
+    "cost_minimum_unit_rate",
+    "cost_minimum_charge",
+    "cost_maximum_charge",
+    "cost_base_amount",
+    "cost_base_quantity",
+    "use_tariff_in_cost",
+    "cost_tariff",
+    "cost_sheet_source",
+    "buying_currency",
+    "estimated_cost",
+    "cost_calc_notes",
+    "actual_cost",
+)
+
+CHARGE_REVENUE_SIDE_CLEAR_FIELDS = (
+    "revenue_calculation_method",
+    "calculation_method",
+    "unit_rate",
+    "unit_type",
+    "currency",
+    "quantity",
+    "uom",
+    "minimum_quantity",
+    "minimum_unit_rate",
+    "minimum_charge",
+    "maximum_charge",
+    "base_amount",
+    "base_quantity",
+    "use_tariff_in_revenue",
+    "revenue_tariff",
+    "tariff",
+    "selling_currency",
+    "estimated_revenue",
+    "revenue_calc_notes",
+    "actual_revenue",
+)
+
+_CHARGE_BREAK_DOCTYPES = ("Sales Quote Weight Break", "Sales Quote Qty Break")
+
+
+def _reset_charge_field_for_cleanup(meta: Any, fieldname: str) -> Any:
+    df = meta.get_field(fieldname)
+    if not df:
+        return None
+    ft = df.fieldtype
+    if ft in ("Currency", "Float", "Int", "Percent"):
+        return 0
+    if ft == "Check":
+        return 0
+    if ft in ("Link", "Select", "Dynamic Link"):
+        return None
+    return ""
+
+
+def _clear_charge_side_fields(doc: Any, fieldnames: Tuple[str, ...]) -> None:
+    meta = frappe.get_meta(doc.doctype)
+    for fieldname in fieldnames:
+        if not meta.get_field(fieldname):
+            continue
+        setattr(doc, fieldname, _reset_charge_field_for_cleanup(meta, fieldname))
+
+
+def _clear_cost_side(doc: Any) -> None:
+    _clear_charge_side_fields(doc, CHARGE_COST_SIDE_CLEAR_FIELDS)
+
+
+def _clear_revenue_side(doc: Any) -> None:
+    _clear_charge_side_fields(doc, CHARGE_REVENUE_SIDE_CLEAR_FIELDS)
+
+
+def _clear_charge_break_rows(doctype: str, name: Optional[str], break_type: str) -> None:
+    if not doctype or not name or str(name).startswith("new"):
+        return
+    filters = {
+        "reference_doctype": doctype,
+        "reference_no": name,
+        "type": break_type,
+    }
+    for break_dt in _CHARGE_BREAK_DOCTYPES:
+        if frappe.db.exists("DocType", break_dt):
+            frappe.db.delete(break_dt, filters)
+
+
+def apply_charge_type_side_cleanup(doc: Any) -> bool:
+    """
+    When charge_type is Revenue or Cost, clear inputs on the locked side and linked breaks.
+    Mutates doc in place. Returns True if cleanup ran.
+    """
+    charge_type = (getattr(doc, "charge_type", None) or "").strip()
+    if charge_type == "Revenue":
+        _clear_cost_side(doc)
+        _clear_charge_break_rows(getattr(doc, "doctype", None), getattr(doc, "name", None), "Cost")
+        return True
+    if charge_type == "Cost":
+        _clear_revenue_side(doc)
+        _clear_charge_break_rows(getattr(doc, "doctype", None), getattr(doc, "name", None), "Selling")
+        return True
+    return False
+
+
+def compute_charge_row_estimates(doc: Any, parent_doc: Optional[Any] = None) -> None:
+    """
+    Apply charge_type side cleanup, then calculate estimated revenue/cost (and notes).
+    Standard pattern for quote/booking charge child validate.
+    """
+    apply_charge_type_side_cleanup(doc)
+    if apply_disbursement_charge_calculation_if_applicable(doc, parent_doc):
+        return
+    rev = calculate_charge_revenue(doc, parent_doc)
+    if hasattr(doc, "estimated_revenue"):
+        doc.estimated_revenue = rev.get("amount", 0)
+    if hasattr(doc, "revenue_calc_notes"):
+        doc.revenue_calc_notes = rev.get("calc_notes", "")
+    elif hasattr(doc, "calculation_notes") and rev.get("calc_notes"):
+        doc.calculation_notes = rev.get("calc_notes", "")
+
+    cost = calculate_charge_cost(doc, parent_doc)
+    if hasattr(doc, "estimated_cost"):
+        doc.estimated_cost = cost.get("amount", 0)
+    if hasattr(doc, "cost_calc_notes"):
+        doc.cost_calc_notes = cost.get("calc_notes", "")
+    elif hasattr(doc, "calculation_notes") and cost.get("calc_notes") and not rev.get("calc_notes"):
+        doc.calculation_notes = cost.get("calc_notes", "")
 
 
 def _mirror_disbursement_cost_to_revenue(doc: Any, doctype: str) -> Dict[str, Any]:
@@ -1499,6 +1673,8 @@ def calculate_charge_row(
                 pass
         if parent_doc and parent_overrides and parenttype != "Sales Quote":
             _apply_charge_parent_overrides(parent_doc, parent_overrides)
+
+        apply_charge_type_side_cleanup(doc)
 
         charge_type = getattr(doc, "charge_type", None) or row_dict.get("charge_type")
         if charge_type == "Disbursement":

@@ -10,7 +10,8 @@ logistics.profitability.PROFITABILITY_DOCTYPES = [
 	"Transport Job",
 	"Warehouse Job",
 	"Declaration",
-	"General Job"
+	"General Job",
+	"Docket"
 ];
 
 logistics.profitability.load_profitability_html = function(frm) {

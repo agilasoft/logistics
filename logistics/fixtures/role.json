@@ -4,5 +4,17 @@
   "doctype": "Role",
   "name": "Credit Manager",
   "role_name": "Credit Manager"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "name": "Control Tower Manager",
+  "role_name": "Control Tower Manager"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "name": "Control Tower Viewer",
+  "role_name": "Control Tower Viewer"
  }
 ]

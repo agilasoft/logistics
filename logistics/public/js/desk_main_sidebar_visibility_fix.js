@@ -31,7 +31,23 @@
 		Warehousing: "Warehousing",
 		Custom: "Customs",
 		Customs: "Customs",
+		"Special Project": "Special Projects",
+		Exhibits: "MICE",
 	};
+
+	/** Sales Quote doctype module → default workspace sidebar when list/form has no doc context. */
+	var MODULE_DEFAULT_WORKSPACE_SIDEBAR = {
+		"Pricing Center": "Pricing",
+	};
+
+	function route_view() {
+		var route = frappe.get_route && frappe.get_route();
+		return route && route[0] ? String(route[0]).toLowerCase() : "";
+	}
+
+	function is_sales_quote_route() {
+		return route_link_to() === "Sales Quote";
+	}
 
 	function get_sidebar() {
 		return frappe.app && frappe.app.sidebar;
@@ -83,16 +99,23 @@
 		return null;
 	}
 
-	function sales_quote_main_service_sidebar(sidebars, docname) {
+	function sales_quote_main_service_from_locals(docname) {
 		if (!docname || !locals["Sales Quote"] || !locals["Sales Quote"][docname]) {
 			return null;
 		}
-		var main_service = locals["Sales Quote"][docname].main_service;
+		return locals["Sales Quote"][docname].main_service || null;
+	}
+
+	function map_main_service_to_sidebar(sidebars, main_service) {
 		var mapped = MAIN_SERVICE_WORKSPACE[main_service];
 		if (mapped && sidebars.includes(mapped)) {
 			return mapped;
 		}
 		return null;
+	}
+
+	function sales_quote_main_service_sidebar(sidebars, docname) {
+		return map_main_service_to_sidebar(sidebars, sales_quote_main_service_from_locals(docname));
 	}
 
 	function resolve_workspace_sidebar(sb) {
@@ -114,14 +137,27 @@
 			return stored;
 		}
 
-		if (link_to === "Sales Quote" && route[0] === "Form" && route[2]) {
+		if (link_to === "Sales Quote" && route_view() === "form" && route[2]) {
 			var from_doc = sales_quote_main_service_sidebar(sidebars, route[2]);
 			if (from_doc) {
 				return from_doc;
 			}
 		}
 
+		if (link_to === "Sales Quote" && route_view() === "list") {
+			var module_default = MODULE_DEFAULT_WORKSPACE_SIDEBAR["Pricing Center"];
+			if (module_default && sidebars.includes(module_default)) {
+				return module_default;
+			}
+		}
+
 		var module = frappe.router && frappe.router.meta && frappe.router.meta.module;
+		if (module && MODULE_DEFAULT_WORKSPACE_SIDEBAR[module]) {
+			var mod_default = MODULE_DEFAULT_WORKSPACE_SIDEBAR[module];
+			if (sidebars.includes(mod_default)) {
+				return mod_default;
+			}
+		}
 		if (module && sb.get_workspace_for_module) {
 			var by_workspace = sb.get_workspace_for_module(module);
 			if (by_workspace && sidebars.includes(by_workspace)) {
@@ -136,6 +172,20 @@
 		return sidebars[0];
 	}
 
+	function apply_workspace_sidebar_title(sb, title) {
+		if (!title) {
+			if (typeof sb.set_workspace_sidebar === "function") {
+				sb.set_workspace_sidebar(frappe.router);
+			}
+			return;
+		}
+		var items = sb.workspace_sidebar_items;
+		if (sb.sidebar_title !== title || !items || !items.length) {
+			sb.setup(title);
+			remember_workspace_sidebar(title);
+		}
+	}
+
 	function ensure_workspace_sidebar_items(sb) {
 		if (!page_allows_main_sidebar()) {
 			return;
@@ -145,16 +195,31 @@
 			return;
 		}
 		var title = resolve_workspace_sidebar(sb);
-		if (!title) {
-			if (typeof sb.set_workspace_sidebar === "function") {
-				sb.set_workspace_sidebar(frappe.router);
-			}
+		if (title) {
+			apply_workspace_sidebar_title(sb, title);
 			return;
 		}
-		if (sb.sidebar_title !== title || !items || !items.length) {
-			sb.setup(title);
-			remember_workspace_sidebar(title);
+
+		var route = frappe.get_route();
+		var link_to = route_link_to();
+		if (link_to === "Sales Quote" && route && route_view() === "form" && route[2] && sb.get_workspace_sidebars) {
+			var sidebars = sb.get_workspace_sidebars("Sales Quote");
+			if (sidebars.length > 1 && !sales_quote_main_service_from_locals(route[2])) {
+				frappe.db.get_value("Sales Quote", route[2], "main_service", function (r) {
+					var from_doc = map_main_service_to_sidebar(
+						sidebars,
+						r.message && r.message.main_service
+					);
+					apply_workspace_sidebar_title(
+						sb,
+						from_doc || recalled_workspace_sidebar(sidebars) || sidebars[0]
+					);
+				});
+				return;
+			}
 		}
+
+		apply_workspace_sidebar_title(sb, title);
 	}
 
 	function sync_main_sidebar(retry) {
@@ -198,6 +263,22 @@
 		frappe.router.on("change", schedule_sync);
 		$(document).on("page-change", schedule_sync);
 		$(document).on("form-refresh", schedule_sync);
+		$(document).on("form-load", function (_e, frm) {
+			if (frm && frm.doctype === "Sales Quote") {
+				schedule_sync();
+			}
+		});
+		// List view: meta/page ready slightly later than form on hard reload.
+		if (frappe.views && frappe.views.ListView) {
+			var _list_show = frappe.views.ListView.prototype.show;
+			frappe.views.ListView.prototype.show = function () {
+				var ret = _list_show.apply(this, arguments);
+				if (this.doctype === "Sales Quote") {
+					schedule_sync();
+				}
+				return ret;
+			};
+		}
 		$(document).on("sidebar_setup", function (e, data) {
 			var title = data && data.sidebar && data.sidebar.sidebar_title;
 			remember_workspace_sidebar(title);

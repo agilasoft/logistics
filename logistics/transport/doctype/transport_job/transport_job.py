@@ -128,6 +128,9 @@ class TransportJob(Document):
         
         self.calculate_sustainability_metrics()
         self.create_job_number_if_needed()
+
+        if self.name and self.job_number and self.has_value_changed("job_number"):
+            self.sync_job_number_to_transport_order()
         
         # Derive SLA target date from Logistics Service Level when applicable
         self._derive_sla_target_from_service_level()
@@ -923,6 +926,7 @@ class TransportJob(Document):
     def create_job_number_if_needed(self):
         """Create Job Number if it doesn't exist"""
         if self.job_number:
+            self.sync_job_number_to_transport_order()
             return
         
         if not self.name:
@@ -934,6 +938,7 @@ class TransportJob(Document):
             existing_jcn = frappe.db.exists("Job Number", {"job_no": self.name})
             if existing_jcn:
                 self.job_number = existing_jcn
+                self.sync_job_number_to_transport_order()
                 return
             
             # Create new Job Number
@@ -946,8 +951,32 @@ class TransportJob(Document):
             jcn.insert(ignore_permissions=True)
             
             self.job_number = jcn.name
+            self.sync_job_number_to_transport_order()
         except Exception as e:
             frappe.log_error(f"Error creating Job Number for Transport Job {self.name}: {str(e)}", "Job Number Creation Error")
+
+    def sync_job_number_to_transport_order(self):
+        """Sync Job Number from Transport Job to related Transport Order"""
+        if not self.job_number:
+            return
+
+        if not getattr(self, "transport_order", None):
+            return
+
+        try:
+            order_jcn = frappe.db.get_value("Transport Order", self.transport_order, "job_number")
+            if order_jcn != self.job_number:
+                frappe.db.set_value(
+                    "Transport Order",
+                    self.transport_order,
+                    "job_number",
+                    self.job_number,
+                )
+        except Exception as e:
+            frappe.log_error(
+                f"Error syncing Job Number to Transport Order {self.transport_order}: {str(e)}",
+                "Job Number Sync Error",
+            )
     
     # ==================== Capacity Management ====================
     
@@ -1619,9 +1648,11 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
     # Use charges from Transport Job
     charges = job.get("charges") or []
     si_item_fields = _safe_meta_fieldnames("Sales Invoice Item")
+    from logistics.job_management.recognition_engine import resolve_charge_row_selling
     from logistics.utils.freight_95_5 import (
         apply_freight_95_post_missing_values,
         build_sales_invoice_item_payloads_for_charge,
+        resolve_sales_invoice_line_qty_rate,
     )
 
     si_item_meta = frappe.get_meta("Sales Invoice Item")
@@ -1645,30 +1676,25 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
                 continue
             
             item_name = getattr(charge, "item_name", None) or "Transport Service"
-            qty = flt(getattr(charge, "quantity", 1))
-            
-            # Transport Job Charges: rate (aligned with Air Shipment Charges); legacy unit_rate supported
-            unit_rate = flt(getattr(charge, "rate", 0) or getattr(charge, "unit_rate", 0))
-            estimated_revenue = flt(getattr(charge, "estimated_revenue", 0))
-            
-            # Calculate rate: prefer estimated_revenue, fallback to unit rate field
-            # If estimated_revenue exists, calculate rate from it
-            if estimated_revenue > 0:
-                rate = estimated_revenue / qty if qty > 0 else estimated_revenue
-            elif unit_rate > 0:
-                rate = unit_rate
-            else:
-                rate = 0
-            
-            total_rev = flt(qty) * flt(rate)
-            uom = getattr(charge, "uom", None)
+            revenue = flt(resolve_charge_row_selling(charge, prefer_actual=True))
+            if revenue <= 0:
+                continue
+
+            line_qty, line_rate, revenue = resolve_sales_invoice_line_qty_rate(
+                charge, revenue, job.company
+            )
+            uom = getattr(charge, "uom", None) if line_qty is not None else None
             desc_for_item = None
             if "description" in si_item_fields:
-                desc_for_item = getattr(charge, "revenue_calc_notes", None) or item_name
+                desc_for_item = (
+                    getattr(charge, "description", None)
+                    or getattr(charge, "revenue_calc_notes", None)
+                    or item_name
+                )
 
             payloads, clear_rel = build_sales_invoice_item_payloads_for_charge(
                 charge,
-                total_rev,
+                revenue,
                 item_code=item_code,
                 item_name=item_name,
                 description=desc_for_item,
@@ -1680,8 +1706,8 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
                 si_item_meta=si_item_meta,
                 reference_doctype=job.doctype if "reference_doctype" in si_item_fields else None,
                 reference_name=job.name if "reference_name" in si_item_fields else None,
-                line_qty=qty,
-                line_rate=rate,
+                line_qty=line_qty,
+                line_rate=line_rate,
                 uom=uom,
             )
             start_idx = len(si.items)
@@ -1778,32 +1804,32 @@ def create_sales_invoice_from_transport_job(job_name, posting_date=None, custome
     base_remarks = invoice.remarks or ""
     note = _("Auto-created from Transport Job {0}").format(job.name)
     invoice.remarks = f"{base_remarks}\n{note}" if base_remarks else note
+    from logistics.job_management.recognition_engine import resolve_charge_row_selling
     from logistics.utils.freight_95_5 import (
         apply_freight_95_post_missing_values,
         build_sales_invoice_item_payloads_for_charge,
+        resolve_sales_invoice_line_qty_rate,
     )
 
     si_item_meta = frappe.get_meta("Sales Invoice Item")
     freight_95_line_indices = []
     for ch in job.charges:
-        line_rate = flt(getattr(ch, "rate", 0) or getattr(ch, "unit_rate", 0))
-        rev = flt(
-            getattr(ch, "estimated_revenue", 0)
-            or line_rate * flt(getattr(ch, "quantity", 1) or 1)
-        )
-        if rev <= 0:
+        revenue = flt(resolve_charge_row_selling(ch, prefer_actual=True))
+        if revenue <= 0:
             continue
         item_code = getattr(ch, "item_code", None)
         if not item_code:
             continue
         item_name = getattr(ch, "item_name", None) or item_code
         has_ref = si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name")
+        line_qty, line_rate, revenue = resolve_sales_invoice_line_qty_rate(ch, revenue, job.company)
+        uom = getattr(ch, "uom", None) if line_qty is not None else None
         payloads, clear_rel = build_sales_invoice_item_payloads_for_charge(
             ch,
-            rev,
+            revenue,
             item_code=item_code,
             item_name=item_name,
-            description=None,
+            description=getattr(ch, "description", None),
             job_type="Transport Job",
             company=job.company,
             cost_center=getattr(job, "cost_center", None),
@@ -1812,6 +1838,9 @@ def create_sales_invoice_from_transport_job(job_name, posting_date=None, custome
             si_item_meta=si_item_meta,
             reference_doctype="Transport Job" if has_ref else None,
             reference_name=job.name if has_ref else None,
+            line_qty=line_qty,
+            line_rate=line_rate,
+            uom=uom,
         )
         start_idx = len(invoice.items)
         for p in payloads:

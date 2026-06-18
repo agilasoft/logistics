@@ -8,8 +8,10 @@ from __future__ import annotations
 from typing import Any
 
 import frappe
-from frappe.utils import cint
 
+from logistics.special_projects.special_project_charge_lifecycle import (
+	programme_charges_for_service_type,
+)
 from logistics.utils.charge_service_type import (
 	canonical_charge_service_type_for_storage,
 	implied_service_type_for_doctype,
@@ -17,6 +19,26 @@ from logistics.utils.charge_service_type import (
 	sales_quote_charge_service_types_equal,
 )
 from logistics.utils.internal_job_charge_copy import _scrub_main_row_to_child_dict
+from logistics.utils.sales_quote_charge_parameters import (
+	programme_charge_matches_creation_parameters,
+)
+
+_NUMERIC_SCALE_FIELDS = (
+	"estimated_cost",
+	"actual_cost",
+	"estimated_revenue",
+	"actual_revenue",
+	"quantity",
+	"cost_quantity",
+	"unit_rate",
+	"unit_cost",
+	"base_amount",
+	"cost_base_amount",
+	"minimum_charge",
+	"maximum_charge",
+	"cost_minimum_charge",
+	"cost_maximum_charge",
+)
 
 
 def _charges_child_doctype(parent_doctype: str) -> str | None:
@@ -27,23 +49,13 @@ def _charges_child_doctype(parent_doctype: str) -> str | None:
 
 
 def _special_project_charge_matches_row(
+	sp_doc: Any,
 	charge: Any,
 	lifecycle_row: Any | None,
 	target_doctype: str,
+	*,
+	ignore_pin: bool = False,
 ) -> bool:
-	"""True when a programme charge row should copy for this lifecycle line / target document."""
-	if lifecycle_row is not None:
-		ch_idx = cint(getattr(charge, "lifecycle_job_row", 0) or 0)
-		row_idx = cint(getattr(lifecycle_row, "idx", 0) or 0)
-		if ch_idx:
-			if row_idx and ch_idx != row_idx:
-				return False
-			row_st = getattr(lifecycle_row, "service_type", None)
-			ch_st = getattr(charge, "service_type", None)
-			if row_st and ch_st and not sales_quote_charge_service_types_equal(ch_st, row_st):
-				return False
-			return True
-
 	row_st = (getattr(lifecycle_row, "service_type", None) or "").strip() if lifecycle_row else ""
 	ch_st = getattr(charge, "service_type", None)
 	if row_st:
@@ -58,8 +70,10 @@ def populate_operational_charges_from_special_project(
 	sp_doc: Any,
 	target_doc: Any,
 	lifecycle_row: Any | None = None,
+	*,
+	ignore_pin: bool = False,
+	creation_parameters: dict | None = None,
 ) -> int:
-	"""Append charge lines from the Special Project onto *target_doc* (unsaved). Returns row count."""
 	child_dt = _charges_child_doctype(target_doc.doctype)
 	if not child_dt:
 		return 0
@@ -70,9 +84,6 @@ def populate_operational_charges_from_special_project(
 		row_st or implied,
 		default=row_st or "Transport",
 	)
-	# Operational booking charge child tables (Sea/Air Booking, Transport/Declaration/Inbound Order)
-	# only accept Air/Sea/Transport/Customs/Warehousing — never the programme labels. Fall back to
-	# the doctype's implied service type when the resolved label would fail Select validation.
 	parent_implied_canonical = canonical_charge_service_type_for_storage(implied)
 	if (
 		canonical_charge_service_type_for_storage(forced_label) in ("special project", "exhibits")
@@ -80,9 +91,21 @@ def populate_operational_charges_from_special_project(
 	):
 		forced_label = operational_booking_charge_service_type_label(implied, default="Transport")
 
+	source_charges = programme_charges_for_service_type(
+		sp_doc, getattr(lifecycle_row, "service_type", None) if lifecycle_row else None
+	)
+	if creation_parameters:
+		source_charges = [
+			ch
+			for ch in source_charges
+			if programme_charge_matches_creation_parameters(ch, creation_parameters)
+		]
+
 	dicts: list[dict[str, Any]] = []
-	for ch in getattr(sp_doc, "charges", None) or []:
-		if not _special_project_charge_matches_row(ch, lifecycle_row, target_doc.doctype):
+	for ch in source_charges:
+		if not _special_project_charge_matches_row(
+			sp_doc, ch, lifecycle_row, target_doc.doctype, ignore_pin=ignore_pin
+		):
 			continue
 		row = _scrub_main_row_to_child_dict(ch, child_dt, forced_label)
 		if row:
@@ -98,7 +121,6 @@ def populate_operational_charges_from_special_project(
 
 
 def _populate_charges_from_linked_sales_quote(target_doc: Any) -> None:
-	"""Fall back to Sales Quote charge population when the programme has no matching rows."""
 	sq_name = getattr(target_doc, "sales_quote", None)
 	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
 		return
@@ -128,12 +150,43 @@ def _populate_charges_from_linked_sales_quote(target_doc: Any) -> None:
 		)
 
 
+def _restrict_charges_to_target_service_type(
+	target_doc: Any, lifecycle_row: Any | None = None
+) -> None:
+	row_st = (getattr(lifecycle_row, "service_type", None) or "").strip() if lifecycle_row else ""
+	implied = implied_service_type_for_doctype(target_doc.doctype)
+	want = row_st or implied
+	if not want:
+		return
+	rows = list(getattr(target_doc, "charges", None) or [])
+	if not rows:
+		return
+	kept: list[Any] = []
+	for ch in rows:
+		ch_st = (getattr(ch, "service_type", None) or "").strip()
+		if not ch_st:
+			kept.append(ch)
+			continue
+		if sales_quote_charge_service_types_equal(ch_st, want):
+			kept.append(ch)
+	if len(kept) == len(rows):
+		return
+	target_doc.set("charges", kept)
+
+
 def prepare_operational_charges_from_special_project(
 	sp_doc: Any,
 	target_doc: Any,
 	lifecycle_row: Any | None = None,
+	creation_parameters: dict | None = None,
 ) -> None:
-	"""Copy programme charges when present; otherwise populate from the linked Sales Quote."""
-	if populate_operational_charges_from_special_project(sp_doc, target_doc, lifecycle_row):
+	if populate_operational_charges_from_special_project(
+		sp_doc, target_doc, lifecycle_row, creation_parameters=creation_parameters
+	):
+		return
+	if populate_operational_charges_from_special_project(
+		sp_doc, target_doc, lifecycle_row, ignore_pin=True, creation_parameters=creation_parameters
+	):
 		return
 	_populate_charges_from_linked_sales_quote(target_doc)
+	_restrict_charges_to_target_service_type(target_doc, lifecycle_row)

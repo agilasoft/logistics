@@ -14,6 +14,10 @@ from typing import Dict, Any, Optional, List, Tuple
 import json
 
 from logistics.job_management.gl_reference_dimension import reference_dimension_row_dict
+from logistics.job_management.recognition_engine import resolve_charge_row_cost
+from logistics.special_projects.special_project_si_job_number import (
+    resolve_job_number_for_special_project_charge,
+)
 from logistics.invoice_integration.consolidation_pi_allocation import (
     _attached_shipment_rows,
     allocation_factor_for_attached_job,
@@ -28,6 +32,7 @@ JOB_DOCTYPES = (
     "Warehouse Job",
     "Declaration",
     "Special Project",
+    "Docket",
 )
 
 CONSOLIDATION_DOCTYPES = ("Air Consolidation", "Sea Consolidation")
@@ -54,6 +59,7 @@ CHARGES_CHILD_DOCTYPE = {
     "Warehouse Job": "Warehouse Job Charges",
     "Declaration": "Declaration Charges",
     "Special Project": "Special Project Charges",
+    "Docket": "MICE Project Charges",
 }
 
 # Charge table and cost field mapping: (charges_field, cost_field, rate_field, qty_field, item_field, supplier_field)
@@ -62,10 +68,12 @@ CHARGE_CONFIG = {
     "Air Shipment": ("charges", "estimated_cost", "estimated_cost", "quantity", "item_code", "pay_to"),
     # Sea Shipment Charges primarily use item_code (legacy rows may still have charge_item).
     "Sea Shipment": ("charges", "estimated_cost", "unit_cost", "cost_quantity", "item_code", "pay_to"),
-    "Warehouse Job": ("charges", "total", "rate", "quantity", "item_code", None),
+    "Warehouse Job": ("charges", "total", "unit_rate", "quantity", "item_code", None),
     "Declaration": ("charges", "estimated_cost", "unit_cost", "quantity", "item_code", "pay_to"),
     # Special Project Charges share the cost layout with Sea Shipment (unit_cost / cost_quantity).
     "Special Project": ("charges", "estimated_cost", "unit_cost", "cost_quantity", "item_code", "pay_to"),
+    # Exhibit Charges share the cost layout with Sea Shipment / Special Project.
+    "Docket": ("charges", "estimated_cost", "unit_cost", "cost_quantity", "item_code", "pay_to"),
 }
 
 # Statuses that mean the charge is already in a PI or further along - exclude from eligibility (avoid duplicate posting)
@@ -87,17 +95,8 @@ def _purchase_invoice_naming_context() -> Dict[str, Any]:
 
 
 def _sea_shipment_row_cost(ch) -> float:
-    """Sea Shipment Charges: actual_cost when > 0, else estimated_cost, else unit_cost * cost_quantity, else cost_base_amount."""
-    c = flt(getattr(ch, "actual_cost", None) or 0)
-    if c <= 0:
-        c = flt(getattr(ch, "estimated_cost", None) or 0)
-    if c > 0:
-        return c
-    u = flt(getattr(ch, "unit_cost", 0))
-    q = flt(getattr(ch, "cost_quantity", None) or getattr(ch, "quantity", 1) or 1)
-    if u * q > 0:
-        return u * q
-    return flt(getattr(ch, "cost_base_amount", None) or 0)
+    """Sea Shipment / Docket / Special Project charge cost — aligned with accrual rollup."""
+    return resolve_charge_row_cost(ch, prefer_actual=True)
 
 
 def _sea_consolidation_charge_cost(ch) -> float:
@@ -122,7 +121,7 @@ def _get_eligible_cost_rows(job, config):
         status = getattr(ch, "purchase_invoice_status", None)
         if status in PI_EXCLUDED_STATUSES or getattr(ch, "purchase_invoice", None):
             continue
-        if job.doctype in ("Sea Shipment", "Special Project"):
+        if job.doctype in ("Sea Shipment", "Special Project", "Docket"):
             cost = _sea_shipment_row_cost(ch)
         else:
             # Use actual_cost for PI when present and > 0, else estimated/cost_field
@@ -213,6 +212,31 @@ def _apply_job_number_on_pi_item(row, job_number: Optional[str]):
         return
     for k, v in reference_dimension_row_dict("Purchase Invoice Item", "Job Number", job_number).items():
         setattr(row, k, v)
+
+
+def _line_job_number_for_purchase_invoice(job_type: str, job, charge) -> Optional[str]:
+    """Job Number for a PI item line: leg job JCN on Special Project, else job header."""
+    line_jcn = getattr(job, "job_number", None)
+    if job_type == "Special Project":
+        line_jcn = resolve_job_number_for_special_project_charge(job, charge) or line_jcn
+    return line_jcn
+
+
+def _apply_project_on_pi_item(row, project: Optional[str]):
+    """Set the Project accounting dimension on a PI Item row.
+
+    Required on consolidation PIs whose shipments belong to different ERPNext Projects:
+    the header-level project would only carry one value, so the per-line value is what lets
+    GL Entry tag each cost line with the correct Special Project / Exhibit project.
+    """
+    if not project:
+        return
+    try:
+        if not frappe.get_meta("Purchase Invoice Item").get_field("project"):
+            return
+    except Exception:
+        return
+    setattr(row, "project", project)
 
 
 def _require_consolidation_planning_submitted(c_doc) -> None:
@@ -361,15 +385,25 @@ def create_consolidation_purchase_invoice(
         pi.reference_name = consolidation_name
 
     job_numbers_for_header = []
+    projects_for_header = []
     for att in attached_list:
         sh_dt, sh_name = _shipment_doctype_and_name_from_attached(c_doc, att)
-        if sh_name:
-            jn = frappe.db.get_value(sh_dt, sh_name, "job_number")
-            if jn:
-                job_numbers_for_header.append(jn)
+        if not sh_name:
+            continue
+        sh_dims = frappe.db.get_value(
+            sh_dt, sh_name, ["job_number", "project"], as_dict=True
+        ) or {}
+        if sh_dims.get("job_number"):
+            job_numbers_for_header.append(sh_dims["job_number"])
+        if sh_dims.get("project"):
+            projects_for_header.append(sh_dims["project"])
 
     if pi_meta.get_field("job_number") and len(set(job_numbers_for_header)) == 1:
         pi.job_number = job_numbers_for_header[0]
+    # If every linked shipment shares the same Project (Special Project / Exhibit), pin it on
+    # the PI header too — the per-line value still wins inside GL Entry rows.
+    if not getattr(pi, "project", None) and pi_meta.get_field("project") and len(set(projects_for_header)) == 1:
+        pi.project = projects_for_header[0]
 
     base_remarks = pi.remarks or ""
     note = _("Auto-created from {0} {1} (allocated per shipment).").format(consolidation_doctype, consolidation_name)
@@ -404,8 +438,11 @@ def create_consolidation_purchase_invoice(
             item_payload["description"] = "\n".join(desc_parts)
 
             row = pi.append("items", item_payload)
-            jn = frappe.db.get_value(sh_dt, sh_name, "job_number")
-            _apply_job_number_on_pi_item(row, jn)
+            sh_dims = frappe.db.get_value(
+                sh_dt, sh_name, ["job_number", "project"], as_dict=True
+            ) or {}
+            _apply_job_number_on_pi_item(row, sh_dims.get("job_number"))
+            _apply_project_on_pi_item(row, sh_dims.get("project"))
             if has_ref:
                 row.reference_doctype = sh_dt
                 row.reference_name = sh_name
@@ -645,6 +682,11 @@ def create_purchase_invoice(
         if calc_notes:
             item_payload["description"] = calc_notes
         row = pi.append("items", item_payload)
+        _apply_job_number_on_pi_item(row, _line_job_number_for_purchase_invoice(job_type, job, ch))
+        # Project accounting dimension (Special Project / Exhibit profitability rolls up GL lines
+        # by this field). Already set on the PI header; copying it onto the item row is what
+        # makes the value visible on GL Entry for line-level reporting too.
+        _apply_project_on_pi_item(row, getattr(job, "project", None))
         if has_ref:
             row.reference_doctype = job_type
             row.reference_name = job_name

@@ -47,25 +47,29 @@ def _apply_pairs(doc, party_doc, pairs: list[tuple[str, str]]):
 		_set_if_empty(doc, target, party_doc.get(source))
 
 
-def _apply_shipper_air(doc, s):
-	_apply_pairs(
-		doc,
-		s,
-		[
-			("sending_agent", "air_default_sending_agent"),
-			("receiving_agent", "air_default_receiving_agent"),
-			("broker", "air_default_broker"),
-			("document_list_template", "air_default_document_template"),
-			("milestone_template", "air_default_milestone_template"),
-			("tc_name", "air_default_tc_name"),
-			("additional_terms", "air_default_additional_terms"),
-			("client_notes", "air_default_client_notes"),
-			("notify_party", "default_notify_party"),
-			("notify_party_address", "default_notify_party_address"),
-			("service_level", "default_service_level"),
-			("incoterm", "default_incoterm"),
-		],
-	)
+_AIR_SHIPPER_DEFAULT_PAIRS: list[tuple[str, str]] = [
+	("sending_agent", "air_default_sending_agent"),
+	("receiving_agent", "air_default_receiving_agent"),
+	("document_list_template", "air_default_document_template"),
+	("milestone_template", "air_default_milestone_template"),
+	("tc_name", "air_default_tc_name"),
+	("additional_terms", "air_default_additional_terms"),
+	("client_notes", "air_default_client_notes"),
+	("notify_party", "default_notify_party"),
+	("notify_party_address", "default_notify_party_address"),
+	("service_level", "default_service_level"),
+	("incoterm", "default_incoterm"),
+]
+
+
+def _apply_shipper_air_booking(doc, s):
+	# Air Booking.broker is Broker; master air_default_broker is Freight Agent — map to freight_agent.
+	_apply_pairs(doc, s, _AIR_SHIPPER_DEFAULT_PAIRS + [("freight_agent", "air_default_broker")])
+
+
+def _apply_shipper_air_shipment(doc, s):
+	# Air Shipment.broker is Broker; master air_default_broker is Freight Agent — map to freight_agent.
+	_apply_pairs(doc, s, _AIR_SHIPPER_DEFAULT_PAIRS + [("freight_agent", "air_default_broker")])
 
 
 def _apply_shipper_sea_booking(doc, s):
@@ -147,22 +151,31 @@ def _apply_shipper_transport(doc, s):
 		_set_if_empty(doc, "service_level", s.get("default_service_level"))
 
 
-def _apply_consignee_air_booking_shipment(doc, c, include_customs_broker: bool):
-	pairs = [
-		("receiving_agent", "air_default_receiving_agent"),
-		("broker", "air_default_broker"),
-		("document_list_template", "air_default_document_template"),
-		("milestone_template", "air_default_milestone_template"),
-		("tc_name", "air_default_tc_name"),
-		("client_notes", "air_default_client_notes"),
-		("notify_party", "default_notify_party"),
-		("notify_party_address", "default_notify_party_address"),
-		("service_level", "default_service_level"),
-		("incoterm", "default_incoterm"),
-	]
-	if include_customs_broker:
-		pairs = [("customs_broker", "air_default_customs_broker")] + pairs
-	_apply_pairs(doc, c, pairs)
+_AIR_CONSIGNEE_DEFAULT_PAIRS: list[tuple[str, str]] = [
+	("receiving_agent", "air_default_receiving_agent"),
+	("document_list_template", "air_default_document_template"),
+	("milestone_template", "air_default_milestone_template"),
+	("tc_name", "air_default_tc_name"),
+	("client_notes", "air_default_client_notes"),
+	("notify_party", "default_notify_party"),
+	("notify_party_address", "default_notify_party_address"),
+	("service_level", "default_service_level"),
+	("incoterm", "default_incoterm"),
+]
+
+
+def _apply_consignee_air_booking(doc, c):
+	_apply_pairs(doc, c, _AIR_CONSIGNEE_DEFAULT_PAIRS + [("freight_agent", "air_default_broker")])
+
+
+def _apply_consignee_air_shipment(doc, c):
+	_apply_pairs(
+		doc,
+		c,
+		[("customs_broker", "air_default_customs_broker")]
+		+ _AIR_CONSIGNEE_DEFAULT_PAIRS
+		+ [("freight_agent", "air_default_broker")],
+	)
 
 
 def _apply_consignee_sea_booking(doc, c):
@@ -256,9 +269,10 @@ def apply_shipper_consignee_defaults(doc, shipper: str | None = None, consignee:
 	if consignee:
 		cdoc = frappe.get_cached_doc("Consignee", consignee)
 		if service == "air":
-			_apply_consignee_air_booking_shipment(
-				doc, cdoc, include_customs_broker=(doc.doctype == "Air Shipment")
-			)
+			if doc.doctype == "Air Booking":
+				_apply_consignee_air_booking(doc, cdoc)
+			else:
+				_apply_consignee_air_shipment(doc, cdoc)
 		elif service == "sea":
 			if doc.doctype == "Sea Booking":
 				_apply_consignee_sea_booking(doc, cdoc)
@@ -272,7 +286,10 @@ def apply_shipper_consignee_defaults(doc, shipper: str | None = None, consignee:
 	if shipper:
 		sdoc = frappe.get_cached_doc("Shipper", shipper)
 		if service == "air":
-			_apply_shipper_air(doc, sdoc)
+			if doc.doctype == "Air Booking":
+				_apply_shipper_air_booking(doc, sdoc)
+			else:
+				_apply_shipper_air_shipment(doc, sdoc)
 		elif service == "sea":
 			if doc.doctype == "Sea Booking":
 				_apply_shipper_sea_booking(doc, sdoc)
@@ -297,9 +314,10 @@ def get_applicable_defaults(target_doctype: str | None = None, shipper: str | No
 	if consignee:
 		cdoc = frappe.get_cached_doc("Consignee", consignee)
 		if service == "air":
-			_apply_consignee_air_booking_shipment(
-				mock, cdoc, include_customs_broker=(target_doctype == "Air Shipment")
-			)
+			if target_doctype == "Air Booking":
+				_apply_consignee_air_booking(mock, cdoc)
+			else:
+				_apply_consignee_air_shipment(mock, cdoc)
 		elif service == "sea":
 			if target_doctype == "Sea Booking":
 				_apply_consignee_sea_booking(mock, cdoc)
@@ -313,7 +331,10 @@ def get_applicable_defaults(target_doctype: str | None = None, shipper: str | No
 	if shipper:
 		sdoc = frappe.get_cached_doc("Shipper", shipper)
 		if service == "air":
-			_apply_shipper_air(mock, sdoc)
+			if target_doctype == "Air Booking":
+				_apply_shipper_air_booking(mock, sdoc)
+			else:
+				_apply_shipper_air_shipment(mock, sdoc)
 		elif service == "sea":
 			if target_doctype == "Sea Booking":
 				_apply_shipper_sea_booking(mock, sdoc)

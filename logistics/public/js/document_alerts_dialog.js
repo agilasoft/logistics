@@ -51,8 +51,12 @@
 				data.forEach(function (row) {
 					const dateReq = row.date_required ? frappe.datetime.str_to_user(row.date_required) : "—";
 					const expiry = row.expiry_date ? frappe.datetime.str_to_user(row.expiry_date) : "—";
-					const att = row.has_attachment
-						? `<a href="${row.attachment}" target="_blank" class="btn btn-xs btn-default">${__("View")}</a>`
+					const attUrl =
+						row.has_attachment && row.attachment
+							? frappe.urllib.get_full_url(row.attachment)
+							: "";
+					const att = attUrl
+						? `<a href="${escape_html(attUrl)}" target="_blank" rel="noopener" class="btn btn-xs btn-default">${__("View")}</a>`
 						: "—";
 					table_html += `
 						<tr data-idx="${row.idx}">

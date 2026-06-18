@@ -266,7 +266,7 @@ def make_warehouse_job(source_name: str, target_doc=None):
     def update_charge(src_row, tgt_row, src_parent):
         if hasattr(tgt_row, "item_code"):
             tgt_row.item_code = getattr(src_row, "item_code", None) or getattr(src_row, "charge_item", None)
-        for fld in ("uom", "quantity", "currency", "rate", "total"):
+        for fld in ("uom", "quantity", "currency", "unit_rate", "total", "description"):
             if hasattr(tgt_row, fld) and hasattr(src_row, fld):
                 setattr(tgt_row, fld, getattr(src_row, fld))
 

@@ -31,6 +31,7 @@ MODULES = [
 	("Netting", "netting"),
 	("Special Projects", "special_projects"),
 	("Intercompany", "intercompany"),
+	("Cash Advance", "cash_advance"),
 ]
 
 LEGACY_NUMERIC_RE = re.compile(r"^.+_analytics_\d{2}$")

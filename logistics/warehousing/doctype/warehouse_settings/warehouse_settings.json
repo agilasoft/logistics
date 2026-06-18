@@ -341,7 +341,6 @@
    "fieldname": "warehouse_contract_address",
    "fieldtype": "Link",
    "label": "Warehouse Contract Address",
-   "link_filters": "[[\"Address\", \"link_doctype\", \"=\", \"Company\"], [\"Address\", \"link_name\", \"=\", \"eval:doc.company\"], [\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   }
  ],

@@ -14,17 +14,7 @@ function logistics_docket_set_exhibitor_query(frm) {
 
 function logistics_docket_set_site_query(frm) {
 	frm.set_query("site", function () {
-		const cust = frm.doc.customer || frm.doc.exhibitor;
-		if (!cust) {
-			return { filters: [["name", "=", ""]] };
-		}
-		return {
-			query: "frappe.contacts.doctype.address.address.address_query",
-			filters: {
-				link_doctype: "Customer",
-				link_name: cust,
-			},
-		};
+		return logistics.address.query_for_customer(frm.doc.customer || frm.doc.exhibitor);
 	});
 }
 
@@ -99,6 +89,192 @@ frappe.ui.form.on("Docket", {
 				__("Action")
 			);
 		}
+
+		if (!frm.doc.__islocal) {
+			frm.add_custom_button(
+				__("Booking / Order"),
+				function () {
+					function _openDlg() {
+						if (window.logistics_show_docket_booking_dialog) {
+							window.logistics_show_docket_booking_dialog(frm);
+						} else {
+							frappe.msgprint({
+								title: __("Not available"),
+								message: __(
+									"The Booking / Order dialog could not load. Refresh the page or contact your administrator."
+								),
+								indicator: "red",
+							});
+						}
+					}
+					if (window.logistics_show_docket_booking_dialog) {
+						_openDlg();
+					} else {
+						frappe.require(
+							"/assets/logistics/js/docket_booking_dialog.js",
+							_openDlg
+						);
+					}
+				},
+				__("Create")
+			);
+
+			frm.add_custom_button(
+				__("Sales Invoice"),
+				function () {
+					if (typeof window.show_create_sales_invoice_dialog === "function") {
+						window.show_create_sales_invoice_dialog(frm);
+					} else {
+						frappe.require(
+							"/assets/logistics/js/sales_invoice_dialog.js",
+							function () {
+								if (typeof window.show_create_sales_invoice_dialog === "function") {
+									window.show_create_sales_invoice_dialog(frm);
+								} else {
+									frappe.msgprint({
+										title: __("Not available"),
+										message: __(
+											"The Sales Invoice dialog could not load. Refresh the page or contact your administrator."
+										),
+										indicator: "red",
+									});
+								}
+							}
+						);
+					}
+				},
+				__("Create")
+			);
+
+			frm.add_custom_button(
+				__("Purchase Invoice"),
+				function () {
+					if (typeof window.show_create_purchase_invoice_dialog === "function") {
+						window.show_create_purchase_invoice_dialog(frm);
+					} else {
+						frappe.require(
+							"/assets/logistics/js/purchase_invoice_dialog.js",
+							function () {
+								if (typeof window.show_create_purchase_invoice_dialog === "function") {
+									window.show_create_purchase_invoice_dialog(frm);
+								} else {
+									frappe.msgprint({
+										title: __("Not available"),
+										message: __(
+											"The Purchase Invoice dialog could not load. Refresh the page or contact your administrator."
+										),
+										indicator: "red",
+									});
+								}
+							}
+						);
+					}
+				},
+				__("Create")
+			);
+
+			// Post menu — same set as Air / Sea Shipment. Dockets are main Services
+			// (the Internal Jobs they spawn carry their own Post buttons), so the
+			// posting surface lives on the Docket itself.
+			setTimeout(function () {
+				frm.add_custom_button(
+					__("Standard Costs"),
+					function () {
+						frappe.call({
+							method:
+								"logistics.exhibits.doctype.docket.docket.post_standard_costs",
+							args: { docname: frm.doc.name },
+							callback: function (r) {
+								if (r.message) {
+									frappe.show_alert({
+										message: r.message.message,
+										indicator: "blue",
+									});
+									frm.reload_doc();
+								}
+							},
+						});
+					},
+					__("Post")
+				);
+
+				if (frm.doc.sales_quote && frm.doc.company) {
+					frm.add_custom_button(
+						__("Intercompany Transactions"),
+						function () {
+							frappe.call({
+								method:
+									"logistics.intercompany.intercompany_invoice.create_intercompany_invoices_for_quote",
+								args: {
+									sales_quote_name: frm.doc.sales_quote,
+									posting_date: frappe.datetime.get_today(),
+								},
+								callback: function (r) {
+									if (r.message) {
+										var msg =
+											r.message.message ||
+											__("Intercompany invoices processed");
+										if (r.message.created !== undefined) {
+											msg = __("Created {0} intercompany invoice(s).", [
+												r.message.created,
+											]);
+										}
+										frappe.show_alert({ message: msg, indicator: "green" }, 5);
+										frm.reload_doc();
+									}
+								},
+							});
+						},
+						__("Post")
+					);
+
+					frm.add_custom_button(
+						__("Internal Billing"),
+						function () {
+							frappe.call({
+								method:
+									"logistics.billing.internal_billing.create_internal_billing_for_quote",
+								args: {
+									sales_quote_name: frm.doc.sales_quote,
+									posting_date: frappe.datetime.get_today(),
+								},
+								callback: function (r) {
+									if (r.message) {
+										var msg =
+											r.message.message || __("Internal billing processed");
+										if (
+											r.message.journal_entries &&
+											r.message.journal_entries.length
+										) {
+											msg = __("Created Journal Entries: {0}.", [
+												r.message.journal_entries.join(", "),
+											]);
+										} else if (r.message.journal_entry) {
+											msg = __("Created Journal Entry {0}.", [
+												r.message.journal_entry,
+											]);
+										}
+										frappe.show_alert({ message: msg, indicator: "blue" }, 5);
+										frm.reload_doc();
+									}
+								},
+							});
+						},
+						__("Post")
+					);
+				}
+
+				_docket_add_recognition_buttons(frm);
+
+				if (
+					window.logistics &&
+					logistics.job_charge_reopen &&
+					logistics.job_charge_reopen.setup
+				) {
+					logistics.job_charge_reopen.setup(frm);
+				}
+			}, 100);
+		}
 	},
 	exhibit(frm) {
 		if (frm.doc.exhibit) {
@@ -148,3 +324,256 @@ frappe.ui.form.on("Docket", {
 		});
 	},
 });
+
+/**
+ * Add WIP & Accrual recognition buttons to Docket
+ * (Post: WIP and Accrual; Recognition: Adjust WIP / Adjust Accruals / Close).
+ * Mirrors `_air_shipment_add_recognition_buttons` / `_sea_shipment_add_recognition_buttons`
+ * so the toolbar behaves the same on every main-service job type.
+ */
+function _docket_add_recognition_buttons(frm) {
+	var d = frm.doc;
+	var needs_wip =
+		typeof logistics !== "undefined" &&
+		logistics.recognition &&
+		logistics.recognition.needs_wip_recognition
+			? logistics.recognition.needs_wip_recognition(d)
+			: (function () {
+					var rows = d.charges || [];
+					for (var iw = 0; iw < rows.length; iw++) {
+						var rw = rows[iw];
+						if ((rw.charge_type || "").toLowerCase() === "disbursement") continue;
+						var erw =
+							flt(rw.estimated_revenue) ||
+							flt(rw.base_amount) ||
+							flt(rw.actual_revenue) ||
+							flt(rw.amount) ||
+							flt(rw.total) ||
+							0;
+						if (erw > 0 && !rw.wip_recognition_journal_entry) return true;
+					}
+					return flt(d.estimated_revenue) > flt(d.wip_amount);
+			  })();
+	var needs_accrual =
+		typeof logistics !== "undefined" &&
+		logistics.recognition &&
+		logistics.recognition.needs_accrual_recognition
+			? logistics.recognition.needs_accrual_recognition(d)
+			: (function () {
+					var rowsa = d.charges || [];
+					for (var ia = 0; ia < rowsa.length; ia++) {
+						var ra = rowsa[ia];
+						if ((ra.charge_type || "").toLowerCase() === "disbursement") continue;
+						var ca =
+							flt(ra.estimated_cost) ||
+							flt(ra.cost_base_amount) ||
+							flt(ra.actual_cost) ||
+							flt(ra.cost) ||
+							0;
+						if (ca > 0 && !ra.accrual_recognition_journal_entry) return true;
+					}
+					return flt(d.estimated_costs) > flt(d.accrual_amount);
+			  })();
+
+	if (needs_wip || needs_accrual) {
+		frm.add_custom_button(
+			__("WIP and Accrual"),
+			function () {
+				frappe.call({
+					method: "logistics.job_management.recognition_engine.recognize",
+					args: { doctype: d.doctype, docname: d.name },
+					freeze: true,
+					freeze_message: __("Recognizing WIP and Accruals..."),
+					callback: function (r) {
+						if (r.message) {
+							var msg = [];
+							if (r.message.wip_journal_entry)
+								msg.push(__("WIP: {0}", [r.message.wip_journal_entry]));
+							if (r.message.accrual_journal_entry)
+								msg.push(
+									__("Accruals: {0}", [r.message.accrual_journal_entry])
+								);
+							if (msg.length) {
+								frappe.show_alert({ message: msg.join(" | "), indicator: "green" });
+							} else {
+								var reason =
+									r.message.message ||
+									__("Nothing to recognize (already recognized or below minimum)");
+								frappe.msgprint({
+									title: __("Recognition"),
+									message: reason,
+									indicator: "blue",
+								});
+							}
+							frm.reload_doc();
+						}
+					},
+				});
+			},
+			__("Post")
+		);
+	}
+
+	if (flt(d.wip_amount) > 0) {
+		frm.add_custom_button(
+			__("Adjust WIP"),
+			function () {
+				frappe.prompt(
+					[
+						{
+							fieldname: "adjustment_amount",
+							fieldtype: "Currency",
+							label: __("Adjustment Amount"),
+							description: __("Current WIP: {0}", [d.wip_amount]),
+							reqd: 1,
+						},
+						{
+							fieldname: "adjustment_date",
+							fieldtype: "Date",
+							label: __("Adjustment Date"),
+							default: frappe.datetime.get_today(),
+							reqd: 1,
+						},
+					],
+					function (values) {
+						frappe.call({
+							method: "logistics.job_management.recognition_engine.adjust_wip",
+							args: {
+								doctype: d.doctype,
+								docname: d.name,
+								adjustment_amount: values.adjustment_amount,
+								adjustment_date: values.adjustment_date,
+							},
+							freeze: true,
+							freeze_message: __("Creating WIP Adjustment..."),
+							callback: function (r) {
+								if (r.message) {
+									frappe.show_alert({
+										message: __("WIP Adjustment created: {0}", [r.message]),
+										indicator: "green",
+									});
+									frm.reload_doc();
+								}
+							},
+						});
+					},
+					__("Adjust WIP"),
+					__("Create")
+				);
+			},
+			__("Recognition")
+		);
+	}
+
+	if (flt(d.accrual_amount) > 0) {
+		frm.add_custom_button(
+			__("Adjust Accruals"),
+			function () {
+				frappe.prompt(
+					[
+						{
+							fieldname: "adjustment_amount",
+							fieldtype: "Currency",
+							label: __("Adjustment Amount"),
+							description: __("Current Accrual: {0}", [d.accrual_amount]),
+							reqd: 1,
+						},
+						{
+							fieldname: "adjustment_date",
+							fieldtype: "Date",
+							label: __("Adjustment Date"),
+							default: frappe.datetime.get_today(),
+							reqd: 1,
+						},
+					],
+					function (values) {
+						frappe.call({
+							method: "logistics.job_management.recognition_engine.adjust_accruals",
+							args: {
+								doctype: d.doctype,
+								docname: d.name,
+								adjustment_amount: values.adjustment_amount,
+								adjustment_date: values.adjustment_date,
+							},
+							freeze: true,
+							freeze_message: __("Creating Accrual Adjustment..."),
+							callback: function (r) {
+								if (r.message) {
+									frappe.show_alert({
+										message: __("Accrual Adjustment created: {0}", [r.message]),
+										indicator: "green",
+									});
+									frm.reload_doc();
+								}
+							},
+						});
+					},
+					__("Adjust Accruals"),
+					__("Create")
+				);
+			},
+			__("Recognition")
+		);
+	}
+
+	if (flt(d.wip_amount) > 0 || flt(d.accrual_amount) > 0) {
+		frm.add_custom_button(
+			__("Close Recognition"),
+			function () {
+				frappe.confirm(
+					__("This will close all remaining WIP and Accruals. Continue?"),
+					function () {
+						frappe.prompt(
+							[
+								{
+									fieldname: "closure_date",
+									fieldtype: "Date",
+									label: __("Closure Date"),
+									default: frappe.datetime.get_today(),
+									reqd: 1,
+								},
+							],
+							function (values) {
+								frappe.call({
+									method:
+										"logistics.job_management.recognition_engine.close_job_recognition",
+									args: {
+										doctype: d.doctype,
+										docname: d.name,
+										closure_date: values.closure_date,
+									},
+									freeze: true,
+									freeze_message: __("Closing Recognition..."),
+									callback: function (r) {
+										if (r.message) {
+											var msg = [];
+											if (r.message.wip_journal_entry)
+												msg.push(
+													__("WIP closed: {0}", [r.message.wip_journal_entry])
+												);
+											if (r.message.accrual_journal_entry)
+												msg.push(
+													__("Accrual closed: {0}", [
+														r.message.accrual_journal_entry,
+													])
+												);
+											if (msg.length)
+												frappe.show_alert({
+													message: msg.join(" | "),
+													indicator: "green",
+												});
+											frm.reload_doc();
+										}
+									},
+								});
+							},
+							__("Close Recognition"),
+							__("Close")
+						);
+					}
+				);
+			},
+			__("Recognition")
+		);
+	}
+}

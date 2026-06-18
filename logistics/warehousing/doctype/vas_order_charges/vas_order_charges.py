@@ -50,7 +50,7 @@ class VASOrderCharges(Document):
 					self.hour_uom = self.hour_uom or "Hours"
 				
 				# Recalculate total
-				self.total = flt(self.quantity) * flt(self.rate or 0)
+				self.total = flt(self.quantity) * flt(self.unit_rate or 0)
 				
 		except Exception as e:
 			frappe.log_error(f"Error computing VAS billing quantities for {self.name}: {str(e)}")

@@ -32,8 +32,33 @@ from logistics.utils.sales_quote_routing import (
 from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
 
 
+def _has_legacy_quote_link_fields(doc):
+    """True when DocType still has quote / quote_type (pre-migration schema)."""
+    return bool(doc.meta.has_field("quote") and doc.meta.has_field("quote_type"))
+
+
+def _resolve_sales_quote_link(doc, *, from_db=False):
+    """Resolve linked Sales Quote for submit/cancel hooks."""
+    sales_quote = None
+    if from_db and doc.name and not doc.is_new():
+        sales_quote = frappe.db.get_value(doc.doctype, doc.name, "sales_quote")
+        if not sales_quote and _has_legacy_quote_link_fields(doc):
+            legacy = frappe.db.get_value(doc.doctype, doc.name, "quote")
+            if legacy and frappe.db.exists("Sales Quote", legacy):
+                sales_quote = legacy
+    if not sales_quote:
+        sales_quote = getattr(doc, "sales_quote", None)
+    if not sales_quote and _has_legacy_quote_link_fields(doc):
+        legacy = getattr(doc, "quote", None)
+        if legacy and frappe.db.exists("Sales Quote", legacy):
+            sales_quote = legacy
+    return sales_quote
+
+
 def _sync_quote_and_sales_quote(doc):
     """Sync quote_type/quote with sales_quote for backward compatibility."""
+    if not _has_legacy_quote_link_fields(doc):
+        return
     if getattr(doc, "quote_type", None) == "Sales Quote" and getattr(doc, "quote", None):
         doc.sales_quote = doc.quote
     elif getattr(doc, "quote_type", None) == "One-Off Quote":
@@ -138,32 +163,21 @@ class SeaBooking(Document):
 				from frappe.utils import cint
 
 				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
-					resolve_allow_linked_freight_booking_from_one_off_converted_doc,
-					resolve_allow_linked_freight_bookings_for_internal_job,
 					resolve_allow_linked_transport_order_for_internal_job_freight_booking,
+					resolve_one_off_chain_freight_booking_allowances,
 					resolve_one_off_declaration_order_chain_allowance,
-					resolve_single_main_air_booking_for_sales_quote,
-					resolve_single_main_sea_booking_for_sales_quote,
 					validate_one_off_quote_not_converted,
 				)
 
-				allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
-				# Same multimodal one-off chain as Air/Sea Shipment: internal job may be under Air Shipment while the
-				# quote converted to the sibling Sea Booking (resolve_allow_linked... only fills the main job's booking).
 				sq_for_chain = (getattr(self, "sales_quote", None) or "").strip() or (
 					(getattr(self, "quote", None) or "").strip() if _quote_is_sales_quote else ""
 				)
 				sq_for_chain = sq_for_chain or None
+				allow_sea, allow_air = (None, None)
 				if sq_for_chain:
-					if not allow_sea:
-						allow_sea = resolve_single_main_sea_booking_for_sales_quote(sq_for_chain)
-					if not allow_air:
-						allow_air = resolve_single_main_air_booking_for_sales_quote(sq_for_chain)
-					conv_sea, conv_air = resolve_allow_linked_freight_booking_from_one_off_converted_doc(sq_for_chain)
-					if not allow_sea:
-						allow_sea = conv_sea
-					if not allow_air:
-						allow_air = conv_air
+					allow_sea, allow_air = resolve_one_off_chain_freight_booking_allowances(
+						self, sq_for_chain
+					)
 				allow_tro = resolve_allow_linked_transport_order_for_internal_job_freight_booking(self)
 				_allow_main_with_do, _allow_if_converted = resolve_one_off_declaration_order_chain_allowance(
 					self, allow_sea=allow_sea, allow_air=allow_air
@@ -214,6 +228,12 @@ class SeaBooking(Document):
 			self._prepare_header_totals_for_charge_calculation()
 			self._sync_charges_with_parent_actuals()
 			self._update_packing_summary()
+
+			from logistics.utils.sales_quote_charge_copy import (
+				stamp_main_or_internal_job_scope_on_booking_charges,
+			)
+
+			stamp_main_or_internal_job_scope_on_booking_charges(self)
 		
 			# Warn if accounting fields are missing (needed for conversion to shipment)
 			if self.docstatus == 1:  # Only warn if submitted
@@ -740,52 +760,29 @@ class SeaBooking(Document):
 		self.validate_container_numbers()
 	
 	def on_submit(self):
-		"""Ensure quote field values remain after submission; update One-off Sales Quote when converted.
+		"""Update One-off Sales Quote status to Converted when Sea Booking is submitted.
 
 		Frappe invokes ``on_submit`` on submit; ``after_submit`` is not a standard Document hook and never runs.
 		"""
-		# Preserve quote field value after submission - ensure it's not cleared
-		# Get the quote value from the database to ensure it's preserved
-		current_quote = frappe.db.get_value(self.doctype, self.name, 'quote')
-		current_quote_type = frappe.db.get_value(self.doctype, self.name, 'quote_type')
-		current_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
-		if (
-			not current_sales_quote
-			and current_quote
-			and frappe.db.exists("Sales Quote", current_quote)
-		):
-			current_sales_quote = current_quote
-		if not current_sales_quote:
-			for cand in (getattr(self, "sales_quote", None), getattr(self, "quote", None)):
-				if cand and frappe.db.exists("Sales Quote", cand):
-					current_sales_quote = cand
-					break
-		
-		# If quote was set before submission, ensure it remains set
-		# This prevents any code from clearing the quote field after submission
-		if current_quote and not getattr(self, 'quote', None):
-			self.db_set('quote', current_quote, update_modified=False)
-		if current_quote_type and not getattr(self, 'quote_type', None):
-			self.db_set('quote_type', current_quote_type, update_modified=False)
-		if current_sales_quote and not getattr(self, 'sales_quote', None):
-			self.db_set('sales_quote', current_sales_quote, update_modified=False)
-		
-		# Update One-off Sales Quote status to Converted
+		_sync_quote_and_sales_quote(self)
+		current_sales_quote = _resolve_sales_quote_link(self, from_db=True)
+		if current_sales_quote and not getattr(self, "sales_quote", None):
+			self.db_set("sales_quote", current_sales_quote, update_modified=False)
 		if current_sales_quote:
 			from logistics.pricing_center.doctype.sales_quote.sales_quote import update_one_off_quote_on_submit
 			update_one_off_quote_on_submit(current_sales_quote, self.name, self.doctype)
 	
 	def on_cancel(self):
 		"""Reset One-off Sales Quote status when Sea Booking is cancelled."""
-		current_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
-		if not current_sales_quote:
-			qt = frappe.db.get_value(self.doctype, self.name, 'quote_type')
-			q = frappe.db.get_value(self.doctype, self.name, 'quote')
-			if qt == "One-Off Quote" and q and frappe.db.exists("Sales Quote", q):
-				current_sales_quote = q
+		current_sales_quote = _resolve_sales_quote_link(self, from_db=True)
 		if current_sales_quote:
-			from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
-			reset_one_off_quote_on_cancel(current_sales_quote)
+			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+				reset_one_off_quote_on_cancel_for_document,
+			)
+
+			reset_one_off_quote_on_cancel_for_document(
+				current_sales_quote, self.doctype, self.name
+			)
 	
 	def validate_required_fields_for_submit(self):
 		"""Enforce header party/routing fields when submitting (draft saves may omit them)."""
@@ -1100,7 +1097,7 @@ class SeaBooking(Document):
 
 			# Fetch from Sales Quote Charge (filtered) or Sales Quote Sea Freight (legacy)
 			charge_fields = [
-				"name", "item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
+				"name", "item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category",
 				"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
@@ -1116,6 +1113,11 @@ class SeaBooking(Document):
 				"bill_to_exchange_rate_source",
 				"pay_to_exchange_rate_source",
 			]
+			from logistics.utils.sales_quote_charge_copy import (
+				extend_charge_fields_with_scope_and_internal_job,
+			)
+
+			charge_fields = extend_charge_fields_with_scope_and_internal_job(charge_fields)
 			sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 			sales_quote_sea_freight_records = frappe.get_all(
 				"Sales Quote Charge",
@@ -1211,7 +1213,7 @@ class SeaBooking(Document):
 
 			# Get from Sales Quote Charge (filtered) or Sales Quote Sea Freight (legacy)
 			charge_fields = [
-				"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
+				"item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
 				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 				"maximum_charge", "base_amount", "estimated_revenue", "charge_type", "charge_category",
 				"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
@@ -1227,6 +1229,11 @@ class SeaBooking(Document):
 				"bill_to_exchange_rate_source",
 				"pay_to_exchange_rate_source",
 			]
+			from logistics.utils.sales_quote_charge_copy import (
+				extend_charge_fields_with_scope_and_internal_job,
+			)
+
+			charge_fields = extend_charge_fields_with_scope_and_internal_job(charge_fields)
 			sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 			sales_quote_sea_freight_records = frappe.get_all(
 				"Sales Quote Charge",
@@ -1547,12 +1554,13 @@ class SeaBooking(Document):
 				item_doc.custom_charge_category if hasattr(item_doc, "custom_charge_category") and item_doc.custom_charge_category else None
 			) or "Other"
 			
-			# Get description from item or use item_name as fallback
-			description = None
-			if hasattr(item_doc, 'description') and item_doc.description:
-				description = item_doc.description
-			else:
-				description = _get("item_name") or item_doc.item_name
+			# Prefer description from Sales Quote charge row; fall back to item master, then item name
+			description = _get("description")
+			if not description:
+				if hasattr(item_doc, 'description') and item_doc.description:
+					description = item_doc.description
+				else:
+					description = _get("item_name") or item_doc.item_name
 			
 			# Get item_tax_template and invoice_type from item if available
 			item_tax_template = None
@@ -1659,7 +1667,13 @@ class SeaBooking(Document):
 			p_src = _get("pay_to_exchange_rate_source")
 			if p_src:
 				charge_data["pay_to_exchange_rate_source"] = p_src
-			
+
+			from logistics.utils.sales_quote_charge_copy import (
+				apply_scope_tagging_to_mapped_charge,
+			)
+
+			apply_scope_tagging_to_mapped_charge(sqsf_record, charge_data)
+
 			return charge_data
 			
 		except Exception as e:
@@ -2076,6 +2090,7 @@ class SeaBooking(Document):
 			if hasattr(self, 'packages') and self.packages:
 				for package in self.packages:
 					sea_shipment.append("packages", {
+						"package_row": getattr(package, "package_row", None),
 						"commodity": package.commodity,
 						"warehouse_item": getattr(package, "warehouse_item", None),
 						"hs_code": package.hs_code,
@@ -2134,12 +2149,19 @@ class SeaBooking(Document):
 						new_charge_row.taxable_freight_item_tax_template = charge.taxable_freight_item_tax_template
 					if hasattr(charge, 'service_type') and charge.service_type:
 						new_charge_row.service_type = charge.service_type
+					# Per-scope tagging — keep Main / Internal Job classification across conversion.
+					if hasattr(charge, 'charge_scope'):
+						new_charge_row.charge_scope = charge.charge_scope
+					if hasattr(charge, 'internal_job'):
+						new_charge_row.internal_job = charge.internal_job
 					if hasattr(charge, 'item_tax_template'):
 						new_charge_row.item_tax_template = charge.item_tax_template
 					if hasattr(charge, 'invoice_type'):
 						new_charge_row.invoice_type = charge.invoice_type
 					if hasattr(charge, 'charge_description'):
 						new_charge_row.charge_description = charge.charge_description
+					if hasattr(charge, 'description'):
+						new_charge_row.description = charge.description
 					new_charge_row.sales_quote_link = getattr(charge, 'sales_quote_link', None) or self.sales_quote
 					
 					# Copy revenue fields
@@ -2623,10 +2645,15 @@ def populate_charges_from_sales_quote(
 	is_internal_job: int = None,
 	main_job_type: str = None,
 	main_job: str = None,
+	gcfq_main_service_only: int = 0,
 ):
 	"""Populate charges from sales_quote. Called from frontend when sales_quote field changes.
-	
+
 	Returns charge data that can be populated in the frontend.
+
+	``gcfq_main_service_only`` is set by Action → Get Charges from Quotation (preview / list flows in
+	``logistics.utils.get_charges_from_quotation``) so the Main booking only consumes charge rows of
+	its implied service type. See ``sales_quote_charge_filters``.
 	"""
 	try:
 		doc = None
@@ -2645,6 +2672,11 @@ def populate_charges_from_sales_quote(
 			parent.main_job_type = main_job_type
 		if main_job is not None:
 			parent.main_job = main_job
+		if cint(gcfq_main_service_only):
+			if doc is not None:
+				doc.flags.gcfq_main_service_only = 1
+			else:
+				parent.flags = frappe._dict({"gcfq_main_service_only": 1})
 
 		if should_apply_internal_job_main_charge_overlay(parent):
 			charges = build_internal_job_sea_booking_charge_dicts(parent)

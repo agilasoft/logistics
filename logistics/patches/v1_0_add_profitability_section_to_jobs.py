@@ -11,6 +11,7 @@ PROFITABILITY_DOCTYPES = [
 	"Warehouse Job",
 	"Declaration",
 	"General Job",
+	"Docket",
 ]
 
 SECTION_BREAK = {

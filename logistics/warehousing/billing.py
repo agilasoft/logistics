@@ -178,7 +178,7 @@ def get_existing_warehouse_job_charges(customer: str, date_from: str, date_to: s
             job_charges = frappe.get_all(
                 "Warehouse Job Charges",
                 filters={"parent": job.name, "parenttype": "Warehouse Job"},
-                fields=["item_code", "item_name", "uom", "quantity", "rate", "total", "currency", "calculation_notes"],
+                fields=["item_code", "item_name", "description", "uom", "quantity", "unit_rate", "total", "currency", "calculation_notes"],
                 ignore_permissions=True,
             ) or []
             
@@ -190,18 +190,19 @@ def get_existing_warehouse_job_charges(customer: str, date_from: str, date_to: s
   • Warehouse Job: {job.name}
   • Item: {charge.get('item_code', 'N/A')} - {charge.get('item_name', 'N/A')}
   • UOM: {charge.get('uom', 'N/A')}
-  • Rate per {charge.get('uom', 'N/A')}: {charge.get('rate', 0)}
+  • Rate per {charge.get('uom', 'N/A')}: {charge.get('unit_rate', 0)}
   • Quantity: {charge.get('quantity', 0)}
-  • Calculation: {charge.get('quantity', 0)} × {charge.get('rate', 0)} = {charge.get('total', 0)}
+  • Calculation: {charge.get('quantity', 0)} × {charge.get('unit_rate', 0)} = {charge.get('total', 0)}
   • Currency: {charge.get('currency', _get_default_currency(company))}
   • Source: Existing warehouse job charge"""
                 
                 charges.append({
                     "item": charge.get("item_code"),
                     "item_name": charge.get("item_name"),
+                    "description": charge.get("description"),
                     "uom": charge.get("uom"),
                     "quantity": flt(charge.get("quantity", 0)),
-                    "rate": flt(charge.get("rate", 0)),
+                    "unit_rate": flt(charge.get("unit_rate", 0)),
                     "total": flt(charge.get("total", 0)),
                     "currency": charge.get("currency", _get_default_currency(company)),
                     "warehouse_job": job.name,
@@ -264,7 +265,7 @@ def get_warehouse_job_charges(customer: str, date_from: str, date_to: str, compa
                 "item_name": "Warehouse Job Service",
                 "uom": "Day",
                 "quantity": float(days),
-                "rate": 100.0,  # Default rate - should come from contract
+                "unit_rate": 100.0,  # Default rate - should come from contract
                 "total": float(days) * 100.0,
                 "currency": _get_default_currency(company),
                 "warehouse_job": job.name,
@@ -492,7 +493,7 @@ def create_missing_rate_charge(hu: str, hu_details: Dict, date_from: str, date_t
             "item_name": _("Storage Charge - Rate Missing ({0})").format(hu_details.get("handling_unit_type") or "Generic"),
             "uom": "Day",
             "quantity": float(days),
-            "rate": 0.0,
+            "unit_rate": 0.0,
             "total": 0.0,
             "currency": _get_default_currency(company),
             "handling_unit": hu,
@@ -578,7 +579,7 @@ def calculate_handling_unit_storage_charges(hu: str, hu_details: Dict, contract_
             "item_name": _("Storage Charge ({0})").format(hu_details.get("handling_unit_type") or "Generic"),
             "uom": contract_item.get("uom", "Day"),
             "quantity": billing_quantity,
-            "rate": rate,
+            "unit_rate": rate,
             "total": total,
             "currency": contract_item.get("currency", _get_default_currency()),
             "handling_unit": hu,

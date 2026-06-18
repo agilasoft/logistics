@@ -1,0 +1,765 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-06-02 14:06:33.313091",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "dashboard_tab",
+  "dashboard_html",
+  "details_tab",
+  "section_break_basic",
+  "naming_series",
+  "project",
+  "project_name",
+  "project_type",
+  "exhibit_type",
+  "hall",
+  "column_break_1",
+  "organizer",
+  "status",
+  "lifecycle_stage",
+  "priority",
+  "column_break_show",
+  "show_open_date",
+  "show_close_date",
+  "move_in_date",
+  "move_out_date",
+  "section_warehouse",
+  "storage_warehouse",
+  "climate_controlled",
+  "on_site_manager",
+  "section_venue",
+  "venue_name",
+  "venue_address",
+  "venue_image",
+  "column_break_venue",
+  "venue_latitude",
+  "venue_longitude",
+  "exhibit_venue_tab",
+  "section_dockets",
+  "dockets",
+  "jobs_tab",
+  "section_jobs",
+  "internal_jobs",
+  "profitability_tab",
+  "profitability_section_break",
+  "profitability_section_html",
+  "lifecycle_tab",
+  "lifecycle_jobs",
+  "cost_revenue_section",
+  "cost_revenue_html",
+  "tab_charges",
+  "section_org",
+  "company",
+  "branch",
+  "profit_center",
+  "cost_center",
+  "column_break_org",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "section_charges_setup",
+  "cost_allocation_target",
+  "cost_allocation_basis",
+  "column_break_charges_setup",
+  "total_consolidation_charges",
+  "total_allocated_amount",
+  "section_consolidation_charges",
+  "consolidation_charges",
+  "section_cost_allocation",
+  "cost_allocation_html",
+  "cost_allocations",
+  "billings_tab",
+  "billings",
+  "start_date",
+  "end_date",
+  "planned_start",
+  "planned_end",
+  "section_break_details",
+  "description",
+  "special_handling_instructions",
+  "milestones_tab",
+  "section_break_milestones",
+  "milestone_html",
+  "milestone_template",
+  "milestones",
+  "documents_tab",
+  "documents_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
+  "more_info_tab",
+  "notes_section",
+  "internal_notes",
+  "column_break_notes",
+  "client_notes",
+  "terms_and_conditions_section",
+  "tc_name",
+  "terms",
+  "service_level_agreement_section",
+  "logistics_service_level",
+  "service_level_details",
+  "connections_tab",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "dashboard_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "dashboard_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "section_break_milestones",
+   "fieldtype": "Section Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
+   "description": "Optional. Leave blank to use default template for this product type (MICE / Shipment or Job).",
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "MICE Project Milestone"
+  },
+  {
+   "fieldname": "section_break_basic",
+   "fieldtype": "Section Break",
+   "label": "Basic Information"
+  },
+  {
+   "default": "EP-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "PROJ-.####\nEP-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "MICE Code",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "options": "Project",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "MICE Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project_type",
+   "fieldtype": "Link",
+   "label": "Project Type",
+   "options": "Project Type"
+  },
+  {
+   "fieldname": "exhibit_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Type",
+   "options": "MICE Type"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "organizer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Organizer",
+   "link_filters": "[[\"MICE Organizer\", \"disabled\", \"=\", 0]]",
+   "options": "MICE Organizer"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nBooked\nPlanning\nApproved\nIn Progress\nOn Hold\nCompleted\nCancelled"
+  },
+  {
+   "default": "Pre-Show",
+   "fieldname": "lifecycle_stage",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Lifecycle Stage",
+   "link_filters": "[[\"Lifecycle Stage\", \"for_exhibits\", \"=\", 1]]",
+   "options": "Lifecycle Stage"
+  },
+  {
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh\nUrgent"
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date"
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "label": "End Date"
+  },
+  {
+   "fieldname": "planned_start",
+   "fieldtype": "Date",
+   "label": "Planned Start"
+  },
+  {
+   "fieldname": "planned_end",
+   "fieldtype": "Date",
+   "label": "Planned End"
+  },
+  {
+   "fieldname": "section_break_details",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "special_handling_instructions",
+   "fieldtype": "Long Text",
+   "label": "Special Handling Instructions"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Long Text",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "exhibit_venue_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dockets"
+  },
+  {
+   "fieldname": "hall",
+   "fieldtype": "Data",
+   "label": "Hall"
+  },
+  {
+   "fieldname": "column_break_show",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "show_open_date",
+   "fieldtype": "Date",
+   "label": "Event Open Date"
+  },
+  {
+   "fieldname": "show_close_date",
+   "fieldtype": "Date",
+   "label": "Event Close Date"
+  },
+  {
+   "fieldname": "move_in_date",
+   "fieldtype": "Date",
+   "label": "Move-In Date"
+  },
+  {
+   "fieldname": "move_out_date",
+   "fieldtype": "Date",
+   "label": "Move-Out Date"
+  },
+  {
+   "description": "Live view of every Docket linked to this MICE Project. Rows are loaded automatically from existing Dockets and cannot be edited here. Use <b>Add Docket</b> to create a new Sales Quote for this MICE Project.",
+   "fieldname": "section_dockets",
+   "fieldtype": "Section Break",
+   "label": "Dockets"
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "Auto-populated read-only view. Use <b>Add Docket</b> to create a new Sales Quote for this MICE Project.",
+   "fieldname": "dockets",
+   "fieldtype": "Table",
+   "is_virtual": 1,
+   "label": "Dockets",
+   "no_copy": 1,
+   "options": "MICE Project Docket",
+   "read_only": 1
+  },
+  {
+   "fieldname": "jobs_tab",
+   "fieldtype": "Tab Break",
+   "label": "Jobs"
+  },
+  {
+   "description": "Internal jobs (Air / Sea / Transport / Customs / Warehousing / MICE lines) to be spawned at the MICE Project level. Use <b>Create &gt; Booking / Order</b> to turn each row into a booking, order, or MICE Order; open the MICE Order and use <b>Create &gt; Job</b> for the MICE Job.",
+   "fieldname": "section_jobs",
+   "fieldtype": "Section Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "fieldname": "internal_jobs",
+   "fieldtype": "Table",
+   "label": "Internal Jobs",
+   "options": "Internal Job Detail"
+  },
+  {
+   "fieldname": "section_warehouse",
+   "fieldtype": "Section Break",
+   "label": "Storage"
+  },
+  {
+   "fieldname": "storage_warehouse",
+   "fieldtype": "Link",
+   "label": "Storage Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "default": "0",
+   "fieldname": "climate_controlled",
+   "fieldtype": "Check",
+   "label": "Climate Controlled Storage"
+  },
+  {
+   "fieldname": "on_site_manager",
+   "fieldtype": "Link",
+   "label": "On-Site Manager",
+   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]",
+   "options": "User"
+  },
+  {
+   "description": "Address of the show venue. Upload a Venue Image to display on the MICE Project Dashboard.",
+   "fieldname": "section_venue",
+   "fieldtype": "Section Break",
+   "label": "Venue"
+  },
+  {
+   "description": "Display name shown on the Dashboard route panel (defaults from the Address when blank).",
+   "fieldname": "venue_name",
+   "fieldtype": "Data",
+   "label": "Venue Name"
+  },
+  {
+   "description": "Venue Address. The MICE Project Dashboard shows a static Venue Image instead of a map.",
+   "fieldname": "venue_address",
+   "fieldtype": "Link",
+   "label": "Venue Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "options": "Address"
+  },
+  {
+   "description": "Static image displayed in place of the map on the MICE Project Dashboard (e.g. show floorplan, venue photo).",
+   "fieldname": "venue_image",
+   "fieldtype": "Attach Image",
+   "label": "Venue Image"
+  },
+  {
+   "fieldname": "column_break_venue",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "venue_address.custom_latitude",
+   "fieldname": "venue_latitude",
+   "fieldtype": "Float",
+   "label": "Venue Latitude",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "venue_address.custom_longitude",
+   "fieldname": "venue_longitude",
+   "fieldtype": "Float",
+   "label": "Venue Longitude",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "lifecycle_tab",
+   "fieldtype": "Tab Break",
+   "hidden": 1,
+   "label": "Lifecycle"
+  },
+  {
+   "fieldname": "lifecycle_jobs",
+   "fieldtype": "Table",
+   "label": "Lifecycle Jobs",
+   "options": "Lifecycle Job"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "cost_revenue_section",
+   "fieldtype": "Section Break",
+   "label": "Cost & Revenue"
+  },
+  {
+   "fieldname": "cost_revenue_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Cost & Revenue"
+  },
+  {
+   "fieldname": "tab_charges",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "section_org",
+   "fieldtype": "Section Break",
+   "label": "Organization"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "column_break_org",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "options": "Employee"
+  },
+  {
+   "description": "Cost-only consolidation charges for the MICE Project. Aligned with Air / Sea Consolidation: enter cost lines once, then click <b>Allocate Costs</b> to split across the chosen target (Dockets or MICE Jobs).",
+   "fieldname": "section_charges_setup",
+   "fieldtype": "Section Break",
+   "label": "Cost Allocation Setup"
+  },
+  {
+   "default": "Auto",
+   "description": "Where allocated costs land. <b>Auto</b> picks MICE Jobs when present, otherwise Dockets.",
+   "fieldname": "cost_allocation_target",
+   "fieldtype": "Select",
+   "label": "Allocation Target",
+   "options": "Auto\nDockets\nMICE Jobs"
+  },
+  {
+   "default": "Equal",
+   "description": "Default basis for splitting the cost across allocation targets when you click Allocate Costs. Per-charge override is available on each charge row's Allocation Method.",
+   "fieldname": "cost_allocation_basis",
+   "fieldtype": "Select",
+   "label": "Default Allocation Basis",
+   "options": "Equal\nWeight-based\nVolume-based\nValue-based\nCustom"
+  },
+  {
+   "fieldname": "column_break_charges_setup",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Sum of Total Amount across all Consolidation Charges. Recomputed on save.",
+   "fieldname": "total_consolidation_charges",
+   "fieldtype": "Currency",
+   "label": "Total Charges",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "description": "Sum of Allocated Amount across the Cost Allocation table. Recomputed by Allocate Costs.",
+   "fieldname": "total_allocated_amount",
+   "fieldtype": "Currency",
+   "label": "Total Allocated",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_consolidation_charges",
+   "fieldtype": "Section Break",
+   "label": "Consolidation Charges"
+  },
+  {
+   "fieldname": "consolidation_charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "MICE Project Consolidation Charges"
+  },
+  {
+   "fieldname": "section_cost_allocation",
+   "fieldtype": "Section Break",
+   "label": "Cost Allocation"
+  },
+  {
+   "description": "Allocation across selected targets (Dockets or MICE Jobs). Click <b>Allocate Costs</b> to populate or refresh; for Custom split, enter Cost Allocation % per row before clicking.",
+   "fieldname": "cost_allocation_html",
+   "fieldtype": "HTML",
+   "label": "Allocation Help"
+  },
+  {
+   "fieldname": "cost_allocations",
+   "fieldtype": "Table",
+   "label": "Cost Allocations",
+   "no_copy": 1,
+   "options": "MICE Project Cost Allocation"
+  },
+  {
+   "fieldname": "billings_tab",
+   "fieldtype": "Tab Break",
+   "hidden": 1,
+   "label": "Billings"
+  },
+  {
+   "fieldname": "billings",
+   "fieldtype": "Table",
+   "label": "Billings",
+   "options": "MICE Project Billing"
+  },
+  {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "Override default template. Leave empty to use product default.",
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
+  },
+  {
+   "fieldname": "profitability_tab",
+   "fieldtype": "Tab Break",
+   "label": "Profitability"
+  },
+  {
+   "fieldname": "profitability_section_break",
+   "fieldtype": "Section Break",
+   "label": "Profitability"
+  },
+  {
+   "description": "Revenue, cost, profit, WIP, accrual and disbursements aggregated from General Ledger for every job and docket linked to this MICE Project's Project accounting dimension.",
+   "fieldname": "profitability_section_html",
+   "fieldtype": "HTML",
+   "label": "MICE Project Profitability (from GL)",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "more_info_tab",
+   "fieldtype": "Tab Break",
+   "label": "More Info"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "column_break_notes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_notes",
+   "fieldtype": "Text Editor",
+   "label": "Client Notes"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "terms_and_conditions_section",
+   "fieldtype": "Section Break",
+   "label": "Terms and Conditions"
+  },
+  {
+   "fieldname": "tc_name",
+   "fieldtype": "Link",
+   "label": "Terms",
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]",
+   "options": "Terms and Conditions"
+  },
+  {
+   "fetch_from": "tc_name.terms",
+   "fieldname": "terms",
+   "fieldtype": "Text Editor",
+   "label": "Terms and Conditions Details"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "service_level_agreement_section",
+   "fieldtype": "Section Break",
+   "label": "Service Level Agreement"
+  },
+  {
+   "description": "Reference SLA for project-level commitments. Linked jobs may inherit or override.",
+   "fieldname": "logistics_service_level",
+   "fieldtype": "Link",
+   "label": "Logistics Service Level",
+   "options": "Logistics Service Level"
+  },
+  {
+   "fetch_from": "logistics_service_level.text_uufb",
+   "fieldname": "service_level_details",
+   "fieldtype": "Text Editor",
+   "label": "Service Level Details"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "MICE Project",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [
+  {
+   "group": "Dockets",
+   "link_doctype": "Docket",
+   "link_fieldname": "exhibit"
+  },
+  {
+   "group": "MICE Orders",
+   "link_doctype": "MICE Order",
+   "link_fieldname": "exhibit"
+  },
+  {
+   "group": "MICE Jobs",
+   "link_doctype": "MICE Job",
+   "link_fieldname": "exhibit"
+  }
+ ],
+ "modified": "2026-06-03 10:50:55.252815",
+ "modified_by": "Administrator",
+ "module": "MICE",
+ "name": "MICE Project",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "project_name",
+ "show_name_in_global_search": 1,
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "project_name",
+ "track_changes": 1
+}

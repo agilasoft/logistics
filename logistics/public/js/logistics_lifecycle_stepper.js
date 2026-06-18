@@ -4,13 +4,17 @@
 frappe.provide("logistics.lifecycle");
 
 logistics.lifecycle._module_filter = function (frm) {
-	if (frm.doctype === "Exhibit") {
+	if (frm.doctype === "MICE Project") {
 		return "for_exhibits";
 	}
 	return "for_special_project";
 };
 
-logistics.lifecycle.LIFECYCLE_JOB_LINK_FIELDS = ["job_type", "job_no"];
+logistics.lifecycle.LIFECYCLE_JOB_LINK_FIELDS = [
+	"job_type",
+	"order_no",
+	"job_no",
+];
 
 logistics.lifecycle._strip_lifecycle_job_link_fields = function (row) {
 	if (!row) {
@@ -42,8 +46,12 @@ logistics.lifecycle.patch_grid_duplicate_respects_no_copy = function (frm, table
 	}
 	var grid = field.grid;
 	var child_doctype = field.df.options;
-	if (grid._logistics_lifecycle_duplicate_patched) {
-		return true;
+	if (
+		grid._logistics_lifecycle_duplicate_patched ||
+		typeof grid.add_new_row !== "function" ||
+		typeof grid.duplicate_row !== "function"
+	) {
+		return !!grid._logistics_lifecycle_duplicate_patched;
 	}
 	grid._logistics_lifecycle_duplicate_patched = true;
 
@@ -119,10 +127,63 @@ logistics.lifecycle.setup_queries = function (frm) {
 };
 
 /** Call from parent form refresh once the lifecycle_jobs grid exists. */
+logistics.lifecycle.setup_lifecycle_jobs_order_no_formatter = function (frm) {
+	var field = frm.fields_dict.lifecycle_jobs;
+	if (!field || !field.grid || field.grid._logistics_order_no_formatter_patched) {
+		return;
+	}
+	field.grid._logistics_order_no_formatter_patched = true;
+	field.grid.formatters = field.grid.formatters || {};
+	field.grid.formatters.order_no = function (value, df, doc) {
+		if (!value) {
+			return "";
+		}
+		var cancelled = (frm._lifecycle_cancelled_order_links || {})[doc.name];
+		var label = frappe.utils.escape_html(value);
+		if (cancelled) {
+			return (
+				'<span class="ellipsis" title="' + label + '">' +
+				label +
+				'</span> <span class="indicator-pill red filterable no-indicator-dot">' +
+				__("Cancelled") +
+				"</span>"
+			);
+		}
+		return frappe.form.formatters.Link(value, df, doc);
+	};
+};
+
+logistics.lifecycle.refresh_cancelled_order_links = function (frm) {
+	if (!frm.fields_dict.lifecycle_jobs) {
+		return;
+	}
+	var rows = frm.doc.lifecycle_jobs || [];
+	if (!rows.length) {
+		frm._lifecycle_cancelled_order_links = {};
+		return;
+	}
+	frappe.call({
+		method:
+			"logistics.special_projects.special_project_charge_lifecycle.get_cancelled_lifecycle_order_links",
+		args: { lifecycle_jobs: rows },
+		async: true,
+		callback: function (r) {
+			frm._lifecycle_cancelled_order_links = r.message || {};
+			var grid = frm.fields_dict.lifecycle_jobs && frm.fields_dict.lifecycle_jobs.grid;
+			if (grid) {
+				grid.refresh();
+			}
+		},
+	});
+};
+
+/** Call from parent form refresh once the lifecycle_jobs grid exists. */
 logistics.lifecycle.setup_lifecycle_jobs_grid = function (frm) {
 	if (!frm.fields_dict.lifecycle_jobs) {
 		return;
 	}
+	logistics.lifecycle.setup_lifecycle_jobs_order_no_formatter(frm);
+	logistics.lifecycle.refresh_cancelled_order_links(frm);
 	if (logistics.lifecycle.patch_grid_duplicate_respects_no_copy(frm, "lifecycle_jobs")) {
 		return;
 	}

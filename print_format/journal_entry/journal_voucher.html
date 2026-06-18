@@ -158,10 +158,10 @@
         /* Main Body */
         .main-body {
             display: flex;
-            flex-direction: column;
-            margin-bottom: 0;
-            margin-top: 35mm;
-            position: relative;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 3mm;
+            margin-bottom: 2mm;
         }
         
         .main-body .info-block {
@@ -209,17 +209,15 @@
         
         /* Customer Info Section - Aligned with QR */
         .customer-info-section {
-            position: absolute;
-            top: -35mm;
-            left: 1.5mm;
-            z-index: 10;
-            max-width: 80mm;
+            flex: 1;
+            min-width: 0;
+            max-width: calc(100% - 45mm);
         }
         
         .customer-label {
             font-weight: bold;
             font-size: 8pt;
-            margin-top: 5mm;
+            margin-top: 0;
             margin-bottom: 2mm;
             line-height: 1;
         }
@@ -232,6 +230,7 @@
             margin-top: -1mm;
             line-height: 1;
             background: white;
+            padding-left: calc(28mm + 1.5mm);
         }
         
         .customer-address-box {
@@ -244,22 +243,28 @@
             font-size: 8pt;
             margin-top: 0.5mm;
             line-height: 1.2;
+            display: flex;
+            align-items: flex-start;
+            gap: 1.5mm;
         }
         .customer-detail-label {
+            flex: 0 0 28mm;
+            width: 28mm;
             font-weight: bold;
+            text-align: right;
         }
         .customer-detail-value {
-            margin-left: 0.5mm;
+            flex: 1;
+            min-width: 0;
+            text-align: left;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
         
         /* QR Code Section */
         .qr-section {
-            position: absolute;
-            top: -35mm;
-            right: 1.5mm;
+            flex: 0 0 auto;
             text-align: right;
-            z-index: 10;
-            margin-bottom: 3mm;
         }
         
         .qr-placeholder {
@@ -398,6 +403,14 @@
             line-height: 1.0;
         }
         
+        .invoice-table tbody tr:nth-child(odd) td {
+            background-color: #ffffff;
+        }
+            
+        .invoice-table tbody tr:nth-child(even) td {
+            background-color: #f2f2f2;
+        }
+        
         .table-row td:nth-child(1),
         .table-row td:nth-child(2) {
             text-align: left;
@@ -494,7 +507,7 @@
         
         .totals-row-container > div {
             border: none;
-            padding: 0.02mm 0.05mm;
+            padding: 5px 10px;
         }
         
         .totals-row-container .totals-col-1 {
@@ -506,7 +519,7 @@
         
         .totals-row-container .totals-col-2 {
             width: 32%;
-            text-align: left;
+            text-align: right;
             font-weight: bold;
             font-size: 8pt;
         }
@@ -756,37 +769,29 @@
             body {
                 margin: 0;
                 padding: 0;
-                padding-bottom: 25mm;
             }
+        
             .receipt-container {
-                padding: 0;
                 max-width: 100%;
-                padding-bottom: 25mm;
+                padding: 0;
             }
+        
             .page-break {
                 page-break-after: always;
             }
+        
             .footer-section {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
+                position: static;   /* IMPORTANT FIX */
                 width: 100%;
                 background: white;
                 padding: 1mm 12mm;
                 border-top: 1px solid #000;
-                margin: 0;
-                page-break-before: always;
+                margin-top: 10mm;
+                page-break-before: auto; /* REMOVE always behavior */
             }
-            
-            .payment-info-section {
-                page-break-inside: avoid;
-            }
-            
-            .payment-info-row {
-                page-break-inside: avoid;
-            }
-            
+        
+            .payment-info-section,
+            .payment-info-row,
             .signature-section {
                 page-break-inside: avoid;
             }
@@ -853,14 +858,8 @@
         <div class="main-body">
             <!-- Journal Entry Information - in left box (same position/style as Sales Invoice Customer Information) -->
             <div class="customer-info-section">
-                <div class="customer-label">JOURNAL ENTRY INFORMATION</div>
-                <div class="customer-name-box">
-                    {% if doc.voucher_type %}
-                        {{ doc.voucher_type }}
-                    {% endif %}
-                </div>
-                <div class="customer-detail-row"><span class="customer-detail-label">FINANCE BOOK:</span> <span class="customer-detail-value">{{ doc.finance_book or '-' }}</span></div>
-                <div class="customer-detail-row"><span class="customer-detail-label">POSTING BRANCH:</span> <span class="customer-detail-value">
+                <div class="customer-detail-row"><span class="customer-detail-label">FINANCE BOOK:</span><span class="customer-detail-value">{{ doc.finance_book or '-' }}</span></div>
+                <div class="customer-detail-row"><span class="customer-detail-label">POSTING BRANCH:</span><span class="customer-detail-value">
                     {% set posting_branch = doc.custom_posting_branch or doc.get('posting_branch') %}
                     {% if posting_branch %}
                         {% if frappe.db.exists("Branch", posting_branch) %}
@@ -873,8 +872,8 @@
                         -
                     {% endif %}
                 </span></div>
-                <div class="customer-detail-row"><span class="customer-detail-label">POSTING DATE:</span> <span class="customer-detail-value">{{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') if doc.posting_date else '-' }}</span></div>
-                <div class="customer-detail-row"><span class="customer-detail-label">REFERENCE DATE:</span> <span class="customer-detail-value">
+                <div class="customer-detail-row"><span class="customer-detail-label">POSTING DATE:</span><span class="customer-detail-value">{{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') if doc.posting_date else '-' }}</span></div>
+                <div class="customer-detail-row"><span class="customer-detail-label">REFERENCE DATE:</span><span class="customer-detail-value">
                     {% if doc.cheque_date %}
                         {{ frappe.utils.formatdate(doc.cheque_date, 'MM-dd-yyyy') }}
                     {% elif doc.bill_date %}
@@ -885,7 +884,7 @@
                         -
                     {% endif %}
                 </span></div>
-                <div class="customer-detail-row"><span class="customer-detail-label">REMARKS:</span> <span class="customer-detail-value">{{ doc.user_remark or doc.remark or '-' }}</span></div>
+                <div class="customer-detail-row"><span class="customer-detail-label">REMARKS:</span><span class="customer-detail-value">{{ doc.user_remark or doc.remark or '-' }}</span></div>
             </div>
             
             <!-- QR Code Section - Positioned in top right of main body -->

@@ -20,13 +20,35 @@ from logistics.job_management.charge_recognition_je import (
 )
 
 
-def get_charge_row_selling_amount(charge):
+def resolve_charge_row_selling(charge, *, prefer_actual=False):
     """
-    First non-zero selling-side amount on a charge row; 0 for disbursements.
-    Must stay aligned with RecognitionEngine WIP / header revenue rollup.
+    Resolve selling-side amount on a charge row; 0 for disbursements.
+
+    ``prefer_actual=False`` (default): estimates first — used for WIP recognition
+    and header ``estimated_revenue`` rollup.
+
+    ``prefer_actual=True``: actuals first, then estimates — matches Sales Invoice
+    line amounts (mirrors ``resolve_charge_row_cost`` for Purchase Invoice).
     """
     if (getattr(charge, "charge_type", None) or "").strip().lower() == "disbursement":
         return 0
+
+    if prefer_actual:
+        r = flt(getattr(charge, "actual_revenue", None) or 0)
+        if r <= 0:
+            r = flt(getattr(charge, "estimated_revenue", None) or 0)
+        if r > 0:
+            return r
+        u = flt(getattr(charge, "unit_rate", 0))
+        q = flt(getattr(charge, "quantity", None) or getattr(charge, "cost_quantity", None) or 1)
+        if u * q > 0:
+            return u * q
+        for attr in ("base_amount", "selling_amount", "amount", "total"):
+            v = flt(getattr(charge, attr, None) or 0)
+            if v > 0:
+                return v
+        return 0
+
     for attr in ("estimated_revenue", "base_amount", "actual_revenue", "amount", "total"):
         if hasattr(charge, attr):
             v = flt(getattr(charge, attr, None) or 0)
@@ -35,19 +57,57 @@ def get_charge_row_selling_amount(charge):
     return 0
 
 
-def get_charge_row_cost_amount(charge):
+def get_charge_row_selling_amount(charge):
     """
-    First non-zero cost-side amount on a charge row; 0 for disbursements.
-    Must stay aligned with RecognitionEngine accrual / header cost rollup.
+    First non-zero selling-side amount on a charge row; 0 for disbursements.
+    Must stay aligned with RecognitionEngine WIP / header revenue rollup.
+    """
+    return resolve_charge_row_selling(charge, prefer_actual=False)
+
+
+def resolve_charge_row_cost(charge, *, prefer_actual=False):
+    """
+    Resolve cost-side amount on a charge row; 0 for disbursements.
+
+    ``prefer_actual=False`` (default): estimates first — used for WIP/accrual recognition
+    and header ``estimated_costs`` rollup.
+
+    ``prefer_actual=True``: actuals first, then estimates — matches Purchase Invoice
+    line rates for Sea Shipment, Special Project, and Docket charges.
     """
     if (getattr(charge, "charge_type", None) or "").strip().lower() == "disbursement":
         return 0
+
+    if prefer_actual:
+        c = flt(getattr(charge, "actual_cost", None) or 0)
+        if c <= 0:
+            c = flt(getattr(charge, "estimated_cost", None) or 0)
+        if c > 0:
+            return c
+        u = flt(getattr(charge, "unit_cost", 0))
+        q = flt(getattr(charge, "cost_quantity", None) or getattr(charge, "quantity", 1) or 1)
+        if u * q > 0:
+            return u * q
+        return flt(getattr(charge, "cost_base_amount", None) or 0)
+
     for attr in ("estimated_cost", "cost_base_amount", "actual_cost", "cost"):
         if hasattr(charge, attr):
             v = flt(getattr(charge, attr, None) or 0)
             if v:
                 return v
+    u = flt(getattr(charge, "unit_cost", 0))
+    q = flt(getattr(charge, "cost_quantity", None) or getattr(charge, "quantity", 1) or 1)
+    if u * q > 0:
+        return u * q
     return 0
+
+
+def get_charge_row_cost_amount(charge):
+    """
+    First non-zero cost-side amount on a charge row; 0 for disbursements.
+    Must stay aligned with RecognitionEngine accrual / header cost rollup.
+    """
+    return resolve_charge_row_cost(charge, prefer_actual=False)
 
 
 class RecognitionEngine:
@@ -104,12 +164,21 @@ class RecognitionEngine:
         return item_row_dict("Journal Entry Account", item_code)
 
     def _je_dimension_fields_for_job(self):
-        """CC / PC / Branch for JE lines — same resolution as recognition policy matching (incl. Job Number)."""
+        """CC / PC / Branch / Project for JE lines.
+
+        Resolution mirrors recognition policy matching (cost_center / profit_center / branch
+        via Job Number fallback). ``project`` is included so the JE rows post the same
+        Project accounting dimension that Sales / Purchase Invoices created from this job
+        already carry — this is what lets Project / Exhibit profitability roll up every
+        WIP / accrual journal entry made for an internal job.
+        """
         cc, pc, br, _, _ = _job_dimensions_for_match(self.job)
+        project = (self.job.get("project") or "").strip() or None
         return {
             "cost_center": cc,
             "profit_center": pc,
             "branch": br,
+            "project": project,
         }
 
     # ==================== WIP Recognition ====================
@@ -472,6 +541,8 @@ class RecognitionEngine:
             "Declaration": "charges",
             "General Job": "charges",
             "Project Job": "charges",
+            "Special Project": "charges",
+            "Docket": "charges",
         }
         return charges_tables.get(self.job_type)
 
@@ -1566,7 +1637,8 @@ def process_period_closing_adjustments(company, period_end_date):
     
     job_types = [
         "Air Shipment", "Sea Shipment", "Transport Job",
-        "Warehouse Job", "Declaration", "General Job", "Project Job"
+        "Warehouse Job", "Declaration", "General Job", "Project Job",
+        "Special Project", "Docket",
     ]
     
     results = {

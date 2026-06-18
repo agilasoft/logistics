@@ -33,13 +33,14 @@ function logistics_canonical_charge_service_type(st) {
 		customs: "custom",
 		Warehousing: "warehousing",
 		"Special Project": "special project",
+		MICE: "exhibits",
 		Exhibits: "exhibits",
 		Events: "exhibits",
 	};
 	if (byTitle[raw] !== undefined) return byTitle[raw];
 	const low = raw.toLowerCase();
 	if (low === "customs") return "custom";
-	if (low === "events") return "exhibits";
+	if (low === "events" || low === "mice") return "exhibits";
 	if (["air", "sea", "transport", "warehousing", "special project", "exhibits"].includes(low)) return low;
 	return low;
 }
@@ -202,6 +203,8 @@ function logistics_item_charge_field_for_service_type(st) {
 		transport: "custom_land_transport_charge",
 		custom: "custom_customs_charge",
 		warehousing: "custom_warehousing_charge",
+		"special project": "custom_special_project_charge",
+		exhibits: "custom_mice_charge",
 	};
 	return m[c] || null;
 }
@@ -302,6 +305,7 @@ frappe.ui.form.on("Sales Quote", {
 		frm.events.setup_load_type_query(frm);
 		frm.events.setup_vehicle_type_query(frm);
 		frm.events.setup_item_code_query(frm);
+		frm.events.setup_internal_job_query(frm);
 		if (!frm.is_new()) {
 			setTimeout(() => logistics_sanitize_sales_quote_load_types(frm), 100);
 		}
@@ -397,6 +401,9 @@ frappe.ui.form.on("Sales Quote", {
 			}
 		} else if (frm.doc.quotation_type === "Regular") {
 			correct_series = "SQU.#########";
+		}
+		if (frm.doc.quotation_type !== "Regular" && frm.doc.blanket_quotation) {
+			frm.set_value("blanket_quotation", 0);
 		}
 		
 		// For new documents, always set the correct naming_series
@@ -608,6 +615,38 @@ frappe.ui.form.on("Sales Quote", {
 		frm.events.setup_load_type_query(frm);
 		frm.events.setup_vehicle_type_query(frm);
 		frm.events.setup_item_code_query(frm);
+		frm.events.setup_internal_job_query(frm);
+
+		// Blanket Quotation: call-off from submitted Regular quotes
+		if (
+			frm.doc.docstatus === 1 &&
+			frm.doc.quotation_type === "Regular" &&
+			frm.doc.blanket_quotation &&
+			!frm.doc.additional_charge
+		) {
+			frm.add_custom_button(__("Create Call-Off / New Booking…"), function () {
+				if (window.logistics && logistics.open_blanket_call_off_flow) {
+					logistics.open_blanket_call_off_flow(frm);
+				} else {
+					frappe.msgprint({
+						title: __("Call-Off Unavailable"),
+						message: __("Blanket call-off dialog did not load. Please hard-refresh the page (Ctrl+Shift+R) and try again."),
+						indicator: "orange",
+					});
+				}
+			}, __("Create"));
+			frm.add_custom_button(__("View Call-Offs"), function () {
+				if (window.logistics && logistics.view_blanket_call_offs) {
+					logistics.view_blanket_call_offs(frm);
+				} else {
+					frappe.msgprint({
+						title: __("Call-Off Unavailable"),
+						message: __("Blanket call-off scripts did not load. Please hard-refresh the page (Ctrl+Shift+R) and try again."),
+						indicator: "orange",
+					});
+				}
+			}, __("Action"));
+		}
 
 		// Add custom button to create Transport Order if main_service = Transport
 		add_create_button(frm, {
@@ -922,6 +961,32 @@ frappe.ui.form.on("Sales Quote", {
 			const row = logistics_resolved_sales_quote_charge_row(frm, doc, cdt, cdn);
 			return { filters: logistics_item_code_filters_for_charge_row(row) };
 		});
+	},
+
+	setup_internal_job_query(frm) {
+		// Per-charge Internal Job link must only list IJs owned by this quote (One-off).
+		// Also constrains the Internal Jobs tab grid to the same scope (defensive: prevents
+		// users from manually linking an IJ owned by another booking/quote).
+		if (frm.fields_dict.charges) {
+			frm.set_query("internal_job", "charges", function () {
+				return {
+					filters: {
+						parent_booking_type: "Sales Quote",
+						parent_booking_name: frm.doc.name || "",
+					},
+				};
+			});
+		}
+		if (frm.fields_dict.internal_job_details) {
+			frm.set_query("internal_job", "internal_job_details", function () {
+				return {
+					filters: {
+						parent_booking_type: "Sales Quote",
+						parent_booking_name: frm.doc.name || "",
+					},
+				};
+			});
+		}
 	},
 
 	apply_default_uoms_per_tab(frm) {
@@ -1318,15 +1383,11 @@ function logistics_sq_add_programme_create_buttons(frm) {
 		return;
 	}
 
-	const isProjectQuote = frm.doc.quotation_type === "Project";
-	const hasSpecialProject =
-		(frm.doc.charges || []).some(
-			(c) => logistics_canonical_charge_service_type(c.service_type) === "special project"
-		) || (frm.doc.project_resources || []).length > 0;
-	const spEligible =
-		frm.doc.main_service === "Special Project" || isProjectQuote;
-
-	if (spEligible && (isProjectQuote || hasSpecialProject)) {
+	// Gate strictly on Main Service: the Create > Special Project action is the
+	// programme-creation flow for Special Project quotes and should not appear
+	// on quotes whose Main Service is something else, even if a charge row uses
+	// the "Special Project" service type or stray project_resources rows exist.
+	if (frm.doc.main_service === "Special Project") {
 		frm.add_custom_button(__("Create Special Project"), function () {
 			frappe.call({
 				method:
@@ -1343,24 +1404,68 @@ function logistics_sq_add_programme_create_buttons(frm) {
 		}, __("Create"));
 	}
 
-	const hasExhibits = (frm.doc.charges || []).some(
-		(c) => logistics_canonical_charge_service_type(c.service_type) === "exhibits"
-	);
-	if (frm.doc.main_service === "Exhibits" && hasExhibits) {
-		frm.add_custom_button(__("Create Exhibit"), function () {
+	if (
+		frm.doc.main_service === "MICE" &&
+		frm.doc.docstatus === 1 &&
+		frm.doc.exhibit &&
+		frm.doc.customer
+	) {
+		frm.add_custom_button(__("Create Docket"), function () {
+			logistics_sq_open_create_docket_dialog(frm);
+		}, __("Create"));
+	}
+}
+
+function logistics_sq_open_create_docket_dialog(frm) {
+	const d = new frappe.ui.Dialog({
+		title: __("Create Docket"),
+		fields: [
+			{
+				fieldname: "exhibit",
+				fieldtype: "Link",
+				label: __("MICE Project"),
+				options: "MICE Project",
+				default: frm.doc.exhibit,
+				read_only: 1,
+				description: __(
+					"This will create a Docket on this Exhibit for exhibitor {0}.",
+					[frappe.utils.escape_html(frm.doc.customer || "")]
+				),
+			},
+			{
+				fieldname: "booth_no",
+				fieldtype: "Data",
+				label: __("Booth No"),
+				reqd: 1,
+			},
+		],
+		primary_action_label: __("Create"),
+		primary_action(values) {
+			const booth_no = values && values.booth_no ? String(values.booth_no).trim() : "";
+			if (!booth_no) {
+				frappe.msgprint({
+					title: __("Required"),
+					message: __("Please enter Booth No to create a Docket."),
+					indicator: "orange",
+				});
+				return;
+			}
+			d.hide();
 			frappe.call({
-				method: "logistics.pricing_center.doctype.sales_quote.sales_quote.create_exhibit_from_sales_quote",
-				args: { sales_quote_name: frm.doc.name },
+				method:
+					"logistics.pricing_center.doctype.sales_quote.sales_quote.create_docket_from_sales_quote",
+				args: { sales_quote_name: frm.doc.name, booth_no: booth_no },
 				freeze: true,
-				freeze_message: __("Creating Exhibit..."),
+				freeze_message: __("Creating Docket..."),
 				callback(r) {
-					if (r.message && r.message.exhibit) {
-						frappe.set_route("Form", "Exhibit", r.message.exhibit);
+					if (r.message && r.message.docket) {
+						frappe.set_route("Form", "Docket", r.message.docket);
 					}
 				},
 			});
-		}, __("Create"));
-	}
+		},
+	});
+	d.show();
 }
 
 // Helper function to add create/view buttons for related documents
@@ -1468,14 +1573,6 @@ frappe.ui.form.on('Sales Quote Charge', {
 	use_tariff_in_revenue: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	use_tariff_in_cost: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	
-	charge_type: function(frm, cdt, cdn) {
-		// Refresh charges so Revenue/Cost fields show/hide based on charge_type
-		frm.refresh_field('charges');
-		const row = frappe.get_doc(cdt, cdn);
-		if (row && row.charge_type === 'Disbursement') {
-			_calculate_sales_quote_charge_row(frm, cdt, cdn);
-		}
-	},
 	load_type: function(frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);
 		if (logistics_canonical_charge_service_type(row.service_type) !== "transport" || !row.load_type) return;
@@ -1493,6 +1590,8 @@ frappe.ui.form.on('Sales Quote Charge', {
 	},
 	revenue_calculation_method: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	unit_rate: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	currency: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	uom: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	quantity: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	unit_type: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	minimum_quantity: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
@@ -1501,12 +1600,22 @@ frappe.ui.form.on('Sales Quote Charge', {
 	base_amount: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_calculation_method: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_quantity: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	cost_currency: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	cost_uom: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	unit_cost: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_unit_type: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_minimum_quantity: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_minimum_charge: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_maximum_charge: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_base_amount: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+
+	charge_scope: function(frm, cdt, cdn) {
+		const row = frappe.get_doc(cdt, cdn);
+		if (!row) return;
+		if ((row.charge_scope || "Main") !== "Internal Job" && row.internal_job) {
+			frappe.model.set_value(cdt, cdn, "internal_job", "");
+		}
+	},
 });
 
 function _calculate_sales_quote_charge_row(frm, cdt, cdn) {

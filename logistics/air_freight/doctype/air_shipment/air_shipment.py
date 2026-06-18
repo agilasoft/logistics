@@ -1491,42 +1491,31 @@ class AirShipment(Document):
 			msgprint_sales_quote_validity_warnings(self)
 
 			if getattr(self, "sales_quote", None):
-				from frappe.utils import cint
-
 				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
-					resolve_allow_linked_freight_booking_from_one_off_converted_doc,
-					resolve_allow_linked_freight_bookings_for_internal_job,
 					resolve_allow_linked_transport_order_for_freight_shipment,
-					resolve_single_main_air_booking_for_sales_quote,
-					resolve_single_main_sea_booking_for_sales_quote,
+					resolve_one_off_chain_freight_booking_allowances,
+					resolve_one_off_declaration_order_chain_allowance,
 					validate_one_off_quote_not_converted,
 				)
 
-				allow_air = (getattr(self, "air_booking", None) or "").strip() or None
-				allow_sea = None
-				r_sea, r_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
-				if r_sea:
-					allow_sea = (r_sea or "").strip() or None
-				if r_air:
-					allow_air = allow_air or (r_air or "").strip() or None
-				if not allow_sea:
-					allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
-				if not allow_air:
-					allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
-				conv_sea, conv_air = resolve_allow_linked_freight_booking_from_one_off_converted_doc(self.sales_quote)
-				if not allow_sea:
-					allow_sea = conv_sea
-				if not allow_air:
-					allow_air = conv_air
+				allow_sea, allow_air = resolve_one_off_chain_freight_booking_allowances(
+					self,
+					self.sales_quote,
+					prefer_air_booking=(getattr(self, "air_booking", None) or "").strip() or None,
+				)
 				allow_tro = resolve_allow_linked_transport_order_for_freight_shipment(self)
+				_allow_main_with_do, _allow_if_converted = resolve_one_off_declaration_order_chain_allowance(
+					self, allow_sea=allow_sea, allow_air=allow_air
+				)
 				validate_one_off_quote_not_converted(
 					self.sales_quote,
 					self.doctype,
 					self.name,
+					allow_if_quote_converted_to=_allow_if_converted,
 					allow_linked_sea_booking=allow_sea,
 					allow_linked_air_booking=allow_air,
 					allow_linked_transport_order=allow_tro,
-					allow_main_transport_if_converted_to_declaration_order=cint(getattr(self, "is_main_service", 0)) == 1,
+					allow_main_transport_if_converted_to_declaration_order=_allow_main_with_do,
 				)
 
 			from logistics.job_management.logistics_job_status import (
@@ -1664,6 +1653,9 @@ class AirShipment(Document):
 		# Update DG compliance status before saving
 		self.update_dg_compliance_status()
 		# Job Number will be created in after_insert method
+
+		if self.name and self.job_number and self.has_value_changed("job_number"):
+			self.sync_job_number_to_booking()
 	
 	def after_insert(self):
 		"""Create Job Number after document is inserted"""
@@ -1690,6 +1682,9 @@ class AirShipment(Document):
 		if hasattr(self, 'release_type') and self.release_type:
 			if not frappe.db.exists("Release Type", self.release_type):
 				self.release_type = None
+		if hasattr(self, 'broker') and self.broker:
+			if not frappe.db.exists("Broker", self.broker):
+				self.broker = None
 		
 		# Save the document to persist changes
 		if self.job_number or self.house_awb_no or self.master_awb:
@@ -1704,6 +1699,9 @@ class AirShipment(Document):
 					if hasattr(self, 'release_type') and self.release_type:
 						if not frappe.db.exists("Release Type", self.release_type):
 							self.release_type = None
+					if hasattr(self, 'broker') and self.broker:
+						if not frappe.db.exists("Broker", self.broker):
+							self.broker = None
 					# Try save again
 					self.save(ignore_permissions=True)
 				else:
@@ -2710,7 +2708,7 @@ class AirShipment(Document):
 				"charge_type": charge_type,
 				"charge_category": charge_category,
 				"revenue_calculation_method": _af_r("revenue_calculation_method") or _af_r("calculation_method") or "Per Unit",
-				"rate": _af_r("unit_rate") or 0,
+				"unit_rate": _af_r("unit_rate") or 0,
 				"currency": _af_r("currency") or default_currency,
 				"quantity": quantity,
 				"uom": _af_r("uom") or None,
@@ -2993,37 +2991,65 @@ class AirShipment(Document):
 
 	def create_job_number_if_needed(self):
 		"""Create Job Number when document is first saved"""
+		if self.job_number:
+			self.sync_job_number_to_booking()
+			return
+
 		# Check settings for auto-create job costing
 		settings = self.get_air_freight_settings()
 		if settings and not settings.auto_create_job_costing:
 			return
 		
-		# Only create if job_number is not set
+		if not self.name:
+			return
+
+		# Check if this is the first save (no existing Job Number)
+		existing_job_ref = frappe.db.get_value("Job Number", {
+			"job_type": "Air Shipment",
+			"job_no": self.name
+		})
+		
+		if existing_job_ref:
+			self.job_number = existing_job_ref
+			self.sync_job_number_to_booking()
+			return
+
+		# Create Job Number
+		job_ref = frappe.new_doc("Job Number")
+		job_ref.job_type = "Air Shipment"
+		job_ref.job_no = self.name
+		job_ref.company = self.company
+		job_ref.branch = self.branch
+		job_ref.cost_center = self.cost_center
+		job_ref.profit_center = self.profit_center
+		# Leave recognition_date blank - will be filled in separate function
+		# Use air shipment's booking_date instead
+		job_ref.job_open_date = self.booking_date
+		job_ref.insert(ignore_permissions=True)
+		
+		# Set the job_number field
+		self.job_number = job_ref.name
+		
+		frappe.msgprint(_("Job Number {0} created successfully").format(job_ref.name))
+		self.sync_job_number_to_booking()
+
+	def sync_job_number_to_booking(self):
+		"""Sync Job Number from Shipment to related Air Booking"""
 		if not self.job_number:
-			# Check if this is the first save (no existing Job Number)
-			existing_job_ref = frappe.db.get_value("Job Number", {
-				"job_type": "Air Shipment",
-				"job_no": self.name
-			})
-			
-			if not existing_job_ref:
-				# Create Job Number
-				job_ref = frappe.new_doc("Job Number")
-				job_ref.job_type = "Air Shipment"
-				job_ref.job_no = self.name
-				job_ref.company = self.company
-				job_ref.branch = self.branch
-				job_ref.cost_center = self.cost_center
-				job_ref.profit_center = self.profit_center
-				# Leave recognition_date blank - will be filled in separate function
-				# Use air shipment's booking_date instead
-				job_ref.job_open_date = self.booking_date
-				job_ref.insert(ignore_permissions=True)
-				
-				# Set the job_number field
-				self.job_number = job_ref.name
-				
-				frappe.msgprint(_("Job Number {0} created successfully").format(job_ref.name))
+			return
+
+		if not getattr(self, "air_booking", None):
+			return
+
+		try:
+			booking_jcn = frappe.db.get_value("Air Booking", self.air_booking, "job_number")
+			if booking_jcn != self.job_number:
+				frappe.db.set_value("Air Booking", self.air_booking, "job_number", self.job_number)
+		except Exception as e:
+			frappe.log_error(
+				f"Error syncing Job Number to Air Booking {self.air_booking}: {str(e)}",
+				"Job Number Sync Error",
+			)
 
 
 for _fname, _src in _MAWB_VIRTUAL_FIELD_SOURCES:
@@ -3147,7 +3173,7 @@ def populate_charges_from_sales_quote(docname=None):
 		)
 
 		charge_fields = [
-			"item_code", "item_name", "revenue_calculation_method", "calculation_method", "uom", "currency",
+			"item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
 			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
 			"maximum_charge", "base_amount", "estimated_revenue", "service_type",
 			"charge_type", "charge_category", "bill_to", "pay_to",
@@ -3264,7 +3290,7 @@ def create_sales_invoice_from_air_shipment(shipment_name, posting_date, customer
 	has_ref = si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name")
 	freight_95_line_indices = []
 	for ch in shipment.charges:
-		rev = flt(getattr(ch, "estimated_revenue", 0) or getattr(ch, "rate", 0) * flt(getattr(ch, "quantity", 1) or 1))
+		rev = flt(getattr(ch, "estimated_revenue", 0) or getattr(ch, "unit_rate", 0) * flt(getattr(ch, "quantity", 1) or 1))
 		if rev <= 0:
 			continue
 		item_code = getattr(ch, "item_code", None)
@@ -3276,7 +3302,7 @@ def create_sales_invoice_from_air_shipment(shipment_name, posting_date, customer
 			rev,
 			item_code=item_code,
 			item_name=item_name,
-			description=None,
+			description=getattr(ch, "description", None),
 			job_type="Air Shipment",
 			company=shipment.company,
 			cost_center=getattr(shipment, "cost_center", None),

@@ -14,6 +14,87 @@ import frappe
 
 from logistics.utils.charge_service_type import effective_internal_job_detail_job_type
 
+_EXECUTION_DOCTYPES = frozenset(
+	{
+		"Air Shipment",
+		"Sea Shipment",
+		"Transport Job",
+		"Declaration",
+		"Warehouse Job",
+		"Project Job",
+	}
+)
+
+
+def _resolve_order_ref_to_operational_ref(order_type: str, order_no: str):
+	"""Resolve a planning booking/order to its submitted shipment/job, if any."""
+	order_type = (order_type or "").strip()
+	order_no = (order_no or "").strip()
+	if not order_type or not order_no:
+		return None
+
+	if order_type == "Air Booking":
+		ship = frappe.db.get_value("Air Shipment", {"air_booking": order_no}, "name")
+		if ship:
+			return ("Air Shipment", ship)
+	elif order_type == "Sea Booking":
+		ship = frappe.db.get_value("Sea Shipment", {"sea_booking": order_no}, "name")
+		if ship:
+			return ("Sea Shipment", ship)
+	elif order_type == "Transport Order":
+		tj = frappe.db.get_value("Transport Job", {"transport_order": order_no}, "name")
+		if tj:
+			return ("Transport Job", tj)
+	elif order_type == "Declaration Order":
+		dec = frappe.db.get_value("Declaration", {"declaration_order": order_no}, "name")
+		if dec:
+			return ("Declaration", dec)
+	elif order_type == "Inbound Order":
+		wj = frappe.db.sql(
+			"""
+			SELECT name FROM `tabWarehouse Job`
+			WHERE reference_order = %s AND IFNULL(reference_order_type,'') = 'Inbound Order'
+			LIMIT 1
+			""",
+			(order_no,),
+		)
+		if wj:
+			return ("Warehouse Job", wj[0][0])
+	elif order_type == "Release Order":
+		wj = frappe.db.sql(
+			"""
+			SELECT name FROM `tabWarehouse Job`
+			WHERE reference_order = %s AND IFNULL(reference_order_type,'') = 'Release Order'
+			LIMIT 1
+			""",
+			(order_no,),
+		)
+		if wj:
+			return ("Warehouse Job", wj[0][0])
+	elif order_type == "Transfer Order":
+		wj = frappe.db.sql(
+			"""
+			SELECT name FROM `tabWarehouse Job`
+			WHERE reference_order = %s AND IFNULL(reference_order_type,'') = 'Transfer Order'
+			LIMIT 1
+			""",
+			(order_no,),
+		)
+		if wj:
+			return ("Warehouse Job", wj[0][0])
+	return None
+
+
+def _resolve_execution_name_to_operational_ref(job_name: str):
+	"""Resolve a stored shipment/job name to its operational doctype."""
+	job_name = (job_name or "").strip()
+	if not job_name:
+		return None
+	for doctype in _EXECUTION_DOCTYPES:
+		if frappe.db.exists(doctype, job_name):
+			return (doctype, job_name)
+	return None
+
 
 def resolve_lifecycle_job_row_to_operational_ref(row):
 	"""
@@ -25,60 +106,29 @@ def resolve_lifecycle_job_row_to_operational_ref(row):
 	st = (getattr(row, "service_type", None) or "").strip()
 	if st == "Special Project":
 		return None
-	jn = (getattr(row, "job_no", None) or "").strip()
-	if not jn:
-		return None
-	jt = (getattr(row, "job_type", None) or "").strip() or effective_internal_job_detail_job_type(row)
 
-	if jt == "Air Booking":
-		ship = frappe.db.get_value("Air Shipment", {"air_booking": jn}, "name")
-		if ship:
-			return ("Air Shipment", ship)
-	elif jt == "Sea Booking":
-		ship = frappe.db.get_value("Sea Shipment", {"sea_booking": jn}, "name")
-		if ship:
-			return ("Sea Shipment", ship)
-	elif jt == "Transport Order":
-		tj = frappe.db.get_value("Transport Job", {"transport_order": jn}, "name")
-		if tj:
-			return ("Transport Job", tj)
-	elif jt == "Declaration Order":
-		dec = frappe.db.get_value("Declaration", {"declaration_order": jn}, "name")
-		if dec:
-			return ("Declaration", dec)
-	elif jt == "Inbound Order":
-		wj = frappe.db.sql(
-			"""
-			SELECT name FROM `tabWarehouse Job`
-			WHERE reference_order = %s AND IFNULL(reference_order_type,'') = 'Inbound Order'
-			LIMIT 1
-			""",
-			(jn,),
-		)
-		if wj:
-			return ("Warehouse Job", wj[0][0])
-	elif jt == "Release Order":
-		wj = frappe.db.sql(
-			"""
-			SELECT name FROM `tabWarehouse Job`
-			WHERE reference_order = %s AND IFNULL(reference_order_type,'') = 'Release Order'
-			LIMIT 1
-			""",
-			(jn,),
-		)
-		if wj:
-			return ("Warehouse Job", wj[0][0])
-	elif jt == "Transfer Order":
-		wj = frappe.db.sql(
-			"""
-			SELECT name FROM `tabWarehouse Job`
-			WHERE reference_order = %s AND IFNULL(reference_order_type,'') = 'Transfer Order'
-			LIMIT 1
-			""",
-			(jn,),
-		)
-		if wj:
-			return ("Warehouse Job", wj[0][0])
+	jn = (getattr(row, "job_no", None) or "").strip()
+	if jn:
+		ref = _resolve_execution_name_to_operational_ref(jn)
+		if ref:
+			return ref
+
+	jt = (getattr(row, "job_type", None) or "").strip()
+	on = (getattr(row, "order_no", None) or "").strip()
+	if jt and on:
+		ref = _resolve_order_ref_to_operational_ref(jt, on)
+		if ref:
+			return ref
+
+	ot = (getattr(row, "order_type", None) or "").strip()
+	if ot and on:
+		ref = _resolve_order_ref_to_operational_ref(ot, on)
+		if ref:
+			return ref
+
+	mapped = effective_internal_job_detail_job_type(row)
+	if mapped and on:
+		return _resolve_order_ref_to_operational_ref(mapped, on)
 	return None
 
 

@@ -28,10 +28,14 @@ logistics.patches.v1_0_rename_sales_quote_charge_calculation_method_to_revenue
 logistics.patches.v1_0_rename_cash_advance_liquidation_child_to_request_item
 logistics.patches.v1_0_cash_advance_request_fund_source_column
 logistics.patches.v1_0_special_project_legacy_tables_to_staging
-# Merge Air Consolidation Plan into Air Consolidation before Plan DocTypes are dropped (same pattern as Sea).
-logistics.patches.v1_0_merge_air_consolidation_plan_into_consolidation
 # Tariff: copy legacy per-module child rows to SQL stash before unified ``Tariff Charge`` replaces them.
 logistics.patches.v1_0_stash_tariff_legacy_child_rates_for_unified_tariff_charge
+# Special Projects: rename Special Project Site Material -> Special Project Package and
+# associated field/column renames (site_materials -> packages, site_material_row -> package_row).
+logistics.patches.v1_1_rename_special_project_site_material_to_package
+# Exhibits: Exhibit Docket is now a virtual child doctype (live view of Dockets);
+# drop the legacy persisted table so schema sync stops tracking it.
+logistics.patches.v1_2_drop_legacy_exhibit_docket_table
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
@@ -41,6 +45,8 @@ logistics.patches.v1_0_restore_tariff_rates_from_stash_unified_tariff_charge
 # Orphan Plan DocTypes/tables are removed later in post_schema_updates, not before this runs.
 logistics.patches.v1_0_migrate_tmp_ersr_to_source_exchange_rate
 logistics.patches.v1_0_merge_sea_consolidation_plan_into_consolidation
+# Merge legacy Air Consolidation Plan data after schema sync (needs consolidation_planning_lines on Air Consolidation).
+logistics.patches.v1_0_merge_air_consolidation_plan_into_consolidation
 logistics.patches.v1_0_add_charge_break_buttons
 logistics.patches.v1_0_add_weight_qty_break_options
 logistics.patches.v1_0_add_charge_basis_break_options
@@ -77,6 +83,7 @@ logistics.patches.v1_0_drop_sales_quote_service_table
 logistics.patches.v1_0_migrate_cost_sheet_to_unified_charges
 logistics.patches.v1_0_remove_recognition_custom_fields
 logistics.patches.v1_0_cleanup_air_shipment_recognition_custom_fields
+logistics.patches.v1_0_cleanup_special_project_recognition_custom_fields
 logistics.patches.v1_0_remove_package_chargeable_weight_columns
 logistics.patches.v1_0_backfill_charge_recognition_journal_links
 logistics.patches.v1_0_migrate_customs_authority_to_issuing_authority
@@ -157,7 +164,43 @@ logistics.patches.v1_0_remove_air_consolidation_shipments_doctype
 logistics.patches.v1_0_fix_canonical_transport_mode_air_sea_flags
 # Backfill planned / actual cost & revenue on Main Service Internal Job Detail rows from already-submitted internal jobs.
 logistics.patches.v1_0_backfill_main_service_internal_job_rollup
-# Telematics: normalize Go Transport provider request_timeout_sec (0 -> 15).
-logistics.patches.v1_0_gotransport_provider_timeout_default
-# Telematics: ship gotransport_device Custom Field + Driver permlevel write + Settings defaults.
-logistics.patches.v1_0_gotransport_finalize_setup
+# Special Projects + Exhibits: seed the shared Lifecycle Stage master
+# (Pre-Show / Logistics / On-Site / Post-Show / Closed). Required so the default
+# value ``Pre-Show`` on Special Project / Exhibit resolves to a real master row
+# during link validation on insert.
+logistics.patches.v1_0_rename_exhibit_lifecycle_stage_to_lifecycle_stage
+logistics.patches.v1_0_seed_exhibit_lifecycle_stage
+# Exhibits: seed standard Activity Code master rows (asset_retrieval, staging_qc, etc.).
+logistics.patches.v1_0_seed_exhibit_activity_codes
+# Exhibits: seed default milestone/document templates and Exhibit Settings single.
+logistics.patches.v1_0_create_exhibit_templates
+# Special Projects: backfill lifecycle_stage on existing Site Receipt rows for the new
+# per-stage delivery funnel summary.
+logistics.patches.v1_1_special_project_receipt_lifecycle_stage
+# Transport Vehicle: allow Driver role to pair a phone via
+# frappe.client.set_value('gotransport_device') by ensuring read+write at
+# permlevel 0 and removing the obsolete permlevel=1 isolation.
+logistics.patches.v1_0_driver_pair_transport_vehicle
+# Special Project + Exhibit: backfill the Project accounting dimension on every
+# Docket and linked operational job (Air/Sea Shipment, Transport Job, etc.) so
+# the new Project-level Profitability tab can roll up GL entries by project.
+logistics.patches.v1_1_project_dimension_on_exhibit_special_project_jobs
+# Air Freight: add the "Live Flights" tab to the Air Freight Operations
+# Dashboard Custom HTML Block (OpenSky-driven realtime aircraft positions for
+# operational flights linked via Air Shipment -> Master AWB -> Flight Schedule).
+logistics.patches.v1_1_add_live_flights_tab_to_air_freight_ops
+# Operational charge child tables: allow MICE service_type after Exhibits rebrand.
+logistics.patches.v1_28_operational_charge_service_type_mice
+# Sales Quote (One-off): default ``charge_scope = "Main"`` on existing charge rows so the new
+# per-charge Internal Job tagging validation does not reject pre-migration data.
+logistics.patches.v1_0_register_sales_quote_internal_job_persistence
+# Warehouse Settings: drop invalid Address.link_doctype link_filters (use address_query in JS).
+logistics.patches.v1_0_fix_warehouse_settings_address_link_filters
+# Address Link fields: clear JSON link_filters that break logistics.address.query_for_* set_query.
+logistics.patches.v1_0_clear_address_client_query_link_filters
+# CTO Link fields: clear JSON link_filters that break shipping_line/unloco set_query on CTO search.
+logistics.patches.v1_0_clear_cto_client_query_link_filters
+# Docket: copy Sales Quote Weight/Qty Break tiers onto MICE Project Charges for existing dockets.
+logistics.patches.v1_29_backfill_docket_charge_breaks_from_sales_quote
+# Pricing desktop tile: workspace JSON was deleted; restore so sidebar Home link resolves.
+logistics.patches.v1_0_restore_pricing_workspace

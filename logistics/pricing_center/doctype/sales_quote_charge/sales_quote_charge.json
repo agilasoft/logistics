@@ -11,9 +11,14 @@
   "charge_group",
   "item_code",
   "item_name",
+  "description",
   "change_request_charge",
   "charge_type",
   "charge_category",
+  "section_break_scope",
+  "charge_scope",
+  "column_break_scope",
+  "internal_job",
   "freight_taxes_section",
   "apply_95_5_rule",
   "taxable_freight_item",
@@ -110,7 +115,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nExhibits",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE",
    "reqd": 1
   },
   {
@@ -133,6 +138,12 @@
    "fieldtype": "Data",
    "label": "Item Name",
    "read_only": 1
+  },
+  {
+   "fetch_from": "item_code.description",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   },
   {
    "fieldname": "change_request_charge",
@@ -473,54 +484,54 @@
    "options": "Customs Clearance\nDocumentation\nStorage\nOther"
   },
   {
-   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
    "fieldname": "section_break_programme_params",
    "fieldtype": "Section Break",
    "label": "Programme Parameters"
   },
   {
-   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
    "description": "Customer address where this programme charge line will be executed.",
    "fieldname": "sp_site",
    "fieldtype": "Link",
    "label": "Site",
    "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
-   "mandatory_depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "mandatory_depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
    "options": "Address"
   },
   {
-   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
    "fieldname": "sp_manpower",
    "fieldtype": "Float",
    "label": "Manpower"
   },
   {
-   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
    "fieldname": "sp_skilled",
    "fieldtype": "Float",
    "label": "Skilled Labor"
   },
   {
-   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
    "fieldname": "sp_equipment_type",
    "fieldtype": "Link",
    "label": "Equipment",
    "options": "Special Handling Equipment Type"
   },
   {
-   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
    "fieldname": "column_break_sp_res",
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
    "fieldname": "sp_handling",
    "fieldtype": "Link",
    "label": "Handling",
    "options": "Special Handling Type"
   },
   {
-   "depends_on": "eval:[\"Special Project\",\"Exhibits\"].includes(doc.service_type)",
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
    "fieldname": "sp_resource_notes",
    "fieldtype": "Small Text",
    "label": "Resource Notes"
@@ -540,9 +551,9 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Unit Rate",
+   "mandatory_depends_on": "eval:!['Cost','Disbursement'].includes(doc.charge_type)",
    "options": "currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "reqd": 1
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "unit_type",
@@ -564,8 +575,8 @@
    "fieldname": "quantity",
    "fieldtype": "Float",
    "label": "Quantity",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "reqd": 1
+   "mandatory_depends_on": "eval:!['Cost','Disbursement'].includes(doc.charge_type)",
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "minimum_quantity",
@@ -631,9 +642,9 @@
    "fieldname": "unit_cost",
    "fieldtype": "Currency",
    "label": "Unit Cost",
+   "mandatory_depends_on": "eval:doc.charge_type != \"Revenue\"",
    "options": "cost_currency",
-   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\"",
-   "reqd": 1
+   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
   },
   {
    "fieldname": "cost_unit_type",
@@ -654,8 +665,8 @@
    "fieldname": "cost_quantity",
    "fieldtype": "Float",
    "label": "Quantity",
-   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\"",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.charge_type != \"Revenue\"",
+   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
   },
   {
    "fieldname": "cost_minimum_quantity",
@@ -766,6 +777,35 @@
    "label": "Revenue Calculation Method",
    "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+  },
+  {
+   "fieldname": "section_break_scope",
+   "fieldtype": "Section Break",
+   "label": "Scope"
+  },
+  {
+   "default": "Main",
+   "description": "When tagged to an Internal Job, the booking charge created from this row is scoped to that Internal Job rather than the Main service.",
+   "fieldname": "charge_scope",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Scope",
+   "options": "Main\nInternal Job"
+  },
+  {
+   "fieldname": "column_break_scope",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.charge_scope==\"Internal Job\"",
+   "description": "Internal Job (defined on the Sales Quote Internal Jobs tab) that this charge belongs to. Available only on One-off quotes.",
+   "fieldname": "internal_job",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Internal Job",
+   "mandatory_depends_on": "eval:doc.charge_scope==\"Internal Job\"",
+   "options": "Internal Job"
   }
  ],
  "grid_page_length": 50,

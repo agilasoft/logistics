@@ -8,6 +8,8 @@
  "field_order": [
   "column_break_other_svc",
   "service_type",
+  "charge_scope",
+  "internal_job",
   "item_code",
   "item_name",
   "container_deposit_pending_refund_gl",
@@ -52,7 +54,7 @@
   "quantity",
   "uom",
   "currency",
-  "rate",
+  "unit_rate",
   "unit_type",
   "minimum_quantity",
   "minimum_unit_rate",
@@ -108,7 +110,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing"
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE"
   },
   {
    "default": "0",
@@ -466,7 +468,7 @@
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
-   "fieldname": "rate",
+   "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "label": "Unit Rate",
    "options": "currency",
@@ -730,16 +732,38 @@
    "label": "Item Name"
   },
   {
-   "description": "When the Item is a container-deposit charge, shows per-company Sea Freight Settings “Deposits Pending for Refund Request” for GL alignment. Set the same account on the Item Group / Item defaults as needed.",
+   "description": "When the Item is a container-deposit charge, shows per-company Sea Freight Settings \u201cDeposits Pending for Refund Request\u201d for GL alignment. Set the same account on the Item Group / Item defaults as needed.",
    "fieldname": "container_deposit_pending_refund_gl",
    "fieldtype": "Data",
    "label": "Deposit pending refund GL",
    "read_only": 1
   },
   {
+   "fetch_from": "item_code.description",
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"
+  },
+  {
+   "default": "Main",
+   "fieldname": "charge_scope",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Scope",
+   "options": "Main\nInternal Job"
+  },
+  {
+   "depends_on": "eval:doc.charge_scope==\"Internal Job\"",
+   "fieldname": "internal_job",
+   "fieldtype": "Link",
+   "in_list_view": 0,
+   "in_standard_filter": 1,
+   "label": "Internal Job",
+   "mandatory_depends_on": "eval:doc.charge_scope==\"Internal Job\"",
+   "options": "Internal Job",
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,

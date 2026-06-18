@@ -1,0 +1,16 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2026, Agilasoft and contributors
+# For license information, please see license.txt
+from __future__ import unicode_literals
+
+import json
+
+from logistics.analytics_reports.management_reports import run_management_report
+
+REF_DOCTYPE = 'Cash Advance Request'
+HANDLER_ID = 'liquidation_due_aging'
+OPTIONS = json.loads('{"amount_field":"unliquidated","due_field":"liquidation_due_date"}')
+
+
+def execute(filters=None):
+	return run_management_report(REF_DOCTYPE, HANDLER_ID, filters, OPTIONS)

@@ -26,6 +26,65 @@ from logistics.transport.doctype.transport_order.transport_order import (
 from logistics.utils.container_validation import normalize_container_number
 
 
+def _filter_charges_by_internal_job_detail_params(
+	rows, ij_row, service_label: str
+):
+	"""Per-scope alignment: keep only shipment charge rows that belong to one Internal Job Detail row.
+
+	When ``ij_row`` is ``None``, returns ``rows`` unchanged (Create flow with no IJ Detail line
+	preserves the pre-alignment behaviour). Otherwise:
+
+	1. **Internal Job ID tag (authoritative).** If ``ij_row.internal_job`` is set, restrict the rows
+	   to those whose ``internal_job`` tag matches it. Rows tagged for a *different* Internal Job
+	   are excluded outright; untagged rows pass through to the parameter step below so legacy data
+	   (without per-scope tags) still works.
+	2. **Parameter match (fallback / additional sanity).** Apply
+	   :func:`sales_quote_charge_row_matches_internal_job_detail_params` against the service-scoped
+	   parameters extracted from the IJ Detail row. A blank charge parameter is treated as a
+	   wildcard, matching the per-scope Sales Quote → booking extractor.
+
+	Step 1 fixes the case where a freight shipment carries Transport / Customs charges for two
+	different Internal Job legs that share the same service type — without it, both rows would
+	wildcard-match every IJ Detail line and end up duplicated on the new IJ Order/Booking.
+	"""
+	if not ij_row or not rows:
+		return rows
+	from logistics.utils.sales_quote_charge_parameters import (
+		extract_service_scoped_quote_parameters,
+		sales_quote_charge_row_matches_internal_job_detail_params,
+	)
+
+	ij_link = ""
+	if isinstance(ij_row, dict):
+		ij_link = (ij_row.get("internal_job") or "").strip()
+	else:
+		ij_link = (getattr(ij_row, "internal_job", None) or "").strip()
+
+	# Step 1: drop rows tagged for a different Internal Job.
+	if ij_link:
+		def _row_ij(r):
+			val = r.get("internal_job") if isinstance(r, dict) else getattr(r, "internal_job", None)
+			return (val or "").strip()
+
+		tagged = [r for r in rows if _row_ij(r) == ij_link]
+		untagged = [r for r in rows if not _row_ij(r)]
+		# Prefer rows explicitly tagged for this IJ; fall back to untagged-only rows so legacy data
+		# (no ``internal_job`` column / value) still flows through. Rows tagged for a *different* IJ
+		# are always excluded.
+		if tagged:
+			rows = tagged
+		else:
+			rows = untagged
+
+	ij_params = extract_service_scoped_quote_parameters(ij_row, service_label)
+	if not ij_params:
+		return rows
+	return [
+		r for r in rows
+		if sales_quote_charge_row_matches_internal_job_detail_params(r, ij_params)
+	]
+
+
 def propagate_from_air_shipment(doc, fieldname="air_shipment"):
 	"""Populate doc fields from linked Air Shipment. Call from before_save when air_shipment is set."""
 	if not getattr(doc, fieldname, None):
@@ -314,6 +373,22 @@ def _set_is_high_value_if_empty(target_doc, value):
 	if cint(getattr(target_doc, "is_high_value", 0)):
 		return
 	target_doc.is_high_value = 1
+
+
+def apply_high_value_from_linked_sales_quote(doc):
+	"""On save: set ``is_high_value=1`` when the doc's linked Sales Quote is tagged high value."""
+	if getattr(getattr(doc, "flags", None), "logistics_duplicate_pricing_cleared", False):
+		return
+	if not hasattr(doc, "is_high_value"):
+		return
+	sq = _resolve_sales_quote_from_doc(doc)
+	if not sq:
+		return
+	try:
+		val = frappe.db.get_value("Sales Quote", sq, "is_high_value")
+	except Exception:
+		return
+	_set_is_high_value_if_empty(doc, val)
 
 
 # -------------------------------------------------------------------
@@ -660,6 +735,30 @@ def get_sea_shipment_containers_for_transport_order(sea_shipment_name: str | Non
 # Create-From Actions
 # -------------------------------------------------------------------
 
+_SERVICE_LABEL_FOR_CREATE_JOB_TYPE = {
+	"Transport Order": "Transport",
+	"Declaration Order": "Customs",
+	"Air Booking": "Air",
+	"Sea Booking": "Sea",
+	"Inbound Order": "Warehousing",
+}
+
+
+def _require_internal_job_eligible_for_parent_row(parent_doc, ij_row, job_type: str) -> None:
+	if not ij_row:
+		return
+	from logistics.utils.internal_job_creation_eligibility import (
+		require_internal_job_creation_eligible,
+	)
+
+	require_internal_job_creation_eligible(
+		sales_quote=getattr(parent_doc, "sales_quote", None),
+		parent_doc=parent_doc,
+		ij_row=ij_row,
+		service_type_label=_SERVICE_LABEL_FOR_CREATE_JOB_TYPE.get((job_type or "").strip()),
+	)
+
+
 @frappe.whitelist()
 def create_transport_order_from_air_shipment(
 	air_shipment_name: str, routing_leg_idx: int = None, internal_job_detail_idx: int = None
@@ -675,6 +774,7 @@ def create_transport_order_from_air_shipment(
 	ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 		shipment, "Transport Order", detail_idx
 	)
+	_require_internal_job_eligible_for_parent_row(shipment, ij_row, "Transport Order")
 	can_create, matching_leg = _can_create_transport_order_from_shipment(shipment, direction_field="direction")
 	if not can_create:
 		allowed = _get_allowed_transport_order_legs()
@@ -741,7 +841,7 @@ def create_transport_order_from_air_shipment(
 	copy_parent_dg_header(shipment, order)
 	# Copy packages
 	_copy_shipment_packages_to_transport_order(shipment, order)
-	_copy_transport_charges_from_shipment_to_transport_order(order, shipment)
+	_copy_transport_charges_from_shipment_to_transport_order(order, shipment, ij_row=ij_row)
 	append_transport_order_charges_from_sales_quote_if_empty(order)
 	set_internal_transport_order_draft_insert_flags(order)
 	order.insert(ignore_permissions=True)
@@ -772,6 +872,7 @@ def create_transport_order_from_sea_shipment(
 	ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 		shipment, "Transport Order", detail_idx
 	)
+	_require_internal_job_eligible_for_parent_row(shipment, ij_row, "Transport Order")
 	can_create, matching_leg = _can_create_transport_order_from_shipment(shipment, direction_field="direction")
 	if not can_create:
 		allowed = _get_allowed_transport_order_legs()
@@ -846,7 +947,7 @@ def create_transport_order_from_sea_shipment(
 		order.append("legs", leg)
 	copy_parent_dg_header(shipment, order)
 	_copy_sea_packages_to_transport_order(shipment, order)
-	_copy_transport_charges_from_shipment_to_transport_order(order, shipment)
+	_copy_transport_charges_from_shipment_to_transport_order(order, shipment, ij_row=ij_row)
 	append_transport_order_charges_from_sales_quote_if_empty(order)
 	set_internal_transport_order_draft_insert_flags(order)
 	order.insert(ignore_permissions=True)
@@ -888,6 +989,16 @@ def _freight_shipment_has_transport_charge_rows(shipment) -> bool:
 	return False
 
 
+def _freight_shipment_has_internal_job_detail_for_transport_order(shipment) -> bool:
+	"""True if Internal Job Details include a Transport Order line (even before charge rows exist)."""
+	from logistics.utils.charge_service_type import effective_internal_job_detail_job_type
+
+	for row in getattr(shipment, "internal_job_details", None) or []:
+		if effective_internal_job_detail_job_type(row) == "Transport Order":
+			return True
+	return False
+
+
 def _preview_from_main_service_internal_for_target(shipment, target_service_type: str) -> bool:
 	"""True when preview message should explain main-service → internal job (not legacy internal job on shipment)."""
 	from frappe.utils import cint
@@ -899,12 +1010,15 @@ def _preview_from_main_service_internal_for_target(shipment, target_service_type
 	if target_service_type == "customs":
 		return _freight_shipment_has_customs_charge_rows(shipment)
 	if target_service_type == "transport":
-		return _freight_shipment_has_transport_charge_rows(shipment)
+		return (
+			_freight_shipment_has_transport_charge_rows(shipment)
+			or _freight_shipment_has_internal_job_detail_for_transport_order(shipment)
+		)
 	return False
 
 
 def _transport_order_job_context_from_freight_shipment(shipment, shipment_doctype: str, shipment_name: str):
-	"""Same pattern as Declaration Order: internal job on shipment, or main service + Transport charge rows."""
+	"""Internal job on shipment, or main service + Transport charges or Internal Job Detail line."""
 	from frappe.utils import cint
 
 	if cint(getattr(shipment, "is_internal_job", 0)):
@@ -913,7 +1027,10 @@ def _transport_order_job_context_from_freight_shipment(shipment, shipment_doctyp
 			getattr(shipment, "main_job_type", None),
 			getattr(shipment, "main_job", None),
 		)
-	if cint(getattr(shipment, "is_main_service", 0)) and _freight_shipment_has_transport_charge_rows(shipment):
+	if cint(getattr(shipment, "is_main_service", 0)) and (
+		_freight_shipment_has_transport_charge_rows(shipment)
+		or _freight_shipment_has_internal_job_detail_for_transport_order(shipment)
+	):
 		return (1, shipment_doctype, shipment_name)
 	return (0, None, None)
 
@@ -1194,13 +1311,19 @@ def ensure_main_service_on_freight_hub_for_transport_order_link(
 		_set_main_service_if_eligible(mjt, mj)
 
 
-def _copy_transport_charges_from_shipment_to_transport_order(order, shipment) -> None:
-	"""Append Transport Order Charges from freight shipment rows where service_type is Transport."""
+def _copy_transport_charges_from_shipment_to_transport_order(order, shipment, ij_row=None) -> None:
+	"""Append Transport Order Charges from freight shipment rows where service_type is Transport.
+
+	When ``ij_row`` is supplied (Create > Internal Job from a specific Internal Job Detail line),
+	the charge selection is further filtered to rows whose parameters match the IJ row, so the
+	created Transport Order only carries charges scoped to that leg.
+	"""
 	rows = [
 		r
 		for r in (getattr(shipment, "charges", None) or [])
 		if (getattr(r, "service_type", None) or "").strip().lower() == "transport"
 	]
+	rows = _filter_charges_by_internal_job_detail_params(rows, ij_row, "Transport")
 	if not rows:
 		return
 
@@ -1276,11 +1399,9 @@ def _copy_transport_charges_from_shipment_to_transport_order(order, shipment) ->
 				val = getattr(src, fn, None)
 				if val is not None:
 					row.set(fn, val)
-		rate_val = getattr(src, "rate", None)
-		if rate_val is None:
-			rate_val = getattr(src, "unit_rate", None)
-		if rate_val is not None and "rate" in tfields:
-			row.set("rate", rate_val)
+		rate_val = getattr(src, "unit_rate", None)
+		if rate_val is not None and "unit_rate" in tfields:
+			row.set("unit_rate", rate_val)
 		if "service_type" in tfields:
 			row.set("service_type", "Transport")
 
@@ -1335,7 +1456,6 @@ def get_freight_shipment_create_order_preview(
 				"service_type": getattr(ch, "service_type", None),
 				"item_code": getattr(ch, "item_code", None),
 				"item_name": getattr(ch, "item_name", None),
-				"rate": flt(getattr(ch, "rate", None)) or None,
 				"unit_rate": flt(getattr(ch, "unit_rate", None)) or None,
 				"per_unit_rate": flt(getattr(ch, "per_unit_rate", None)) or None,
 				"currency": getattr(ch, "currency", None),
@@ -1375,8 +1495,12 @@ def _declaration_order_job_context_from_freight_shipment(shipment, shipment_doct
 	return (1, shipment_doctype, shipment_name)
 
 
-def _copy_customs_charges_from_shipment_to_declaration_order(order, shipment) -> None:
-	"""Append Declaration Order Charges from Air/Sea Shipment rows where service_type is Customs."""
+def _copy_customs_charges_from_shipment_to_declaration_order(order, shipment, ij_row=None) -> None:
+	"""Append Declaration Order Charges from Air/Sea Shipment rows where service_type is Customs.
+
+	When ``ij_row`` is supplied (Create > Internal Job from a specific Internal Job Detail line),
+	the charge selection is further filtered to rows whose parameters match the IJ row.
+	"""
 	if not getattr(shipment, "charges", None):
 		return
 	customs_rows = [
@@ -1384,6 +1508,7 @@ def _copy_customs_charges_from_shipment_to_declaration_order(order, shipment) ->
 		for r in shipment.charges
 		if (getattr(r, "service_type", None) or "").strip().lower() == "customs"
 	]
+	customs_rows = _filter_charges_by_internal_job_detail_params(customs_rows, ij_row, "Customs")
 	if not customs_rows:
 		return
 
@@ -1393,6 +1518,7 @@ def _copy_customs_charges_from_shipment_to_declaration_order(order, shipment) ->
 		"service_type",
 		"item_code",
 		"item_name",
+		"description",
 		"charge_type",
 		"charge_category",
 		"quantity",
@@ -1422,7 +1548,7 @@ def _copy_customs_charges_from_shipment_to_declaration_order(order, shipment) ->
 		"revenue_calc_notes",
 		"cost_calc_notes",
 		"revenue_calculation_method",
-		"rate",
+		"unit_rate",
 		"bill_to",
 		"pay_to",
 		"sales_quote_link",
@@ -1532,6 +1658,7 @@ def _create_declaration_order_from_freight_shipment(
 	ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 		shipment, "Declaration Order", detail_idx
 	)
+	_require_internal_job_eligible_for_parent_row(shipment, ij_row, "Declaration Order")
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 
@@ -1552,7 +1679,7 @@ def _create_declaration_order_from_freight_shipment(
 
 	apply_internal_job_customs_country_defaults(order)
 
-	_copy_customs_charges_from_shipment_to_declaration_order(order, shipment)
+	_copy_customs_charges_from_shipment_to_declaration_order(order, shipment, ij_row=ij_row)
 
 	order.insert(ignore_permissions=True)
 	# Re-apply after insert: validate/before_save hooks must not drop Internal Job Detail header fields.
@@ -1647,8 +1774,12 @@ def _copy_sea_packages_to_transport_order(shipment, order):
 		)
 
 
-def _copy_warehousing_charges_from_shipment_to_inbound_order(order, shipment) -> None:
-	"""Append Inbound Order Charges from Air/Sea Shipment rows where service_type is Warehousing."""
+def _copy_warehousing_charges_from_shipment_to_inbound_order(order, shipment, ij_row=None) -> None:
+	"""Append Inbound Order Charges from Air/Sea Shipment rows where service_type is Warehousing.
+
+	When ``ij_row`` is supplied (Create > Internal Job from a specific Internal Job Detail line),
+	the charge selection is further filtered to rows whose parameters match the IJ row.
+	"""
 	from frappe.utils import flt
 
 	rows = [
@@ -1656,6 +1787,7 @@ def _copy_warehousing_charges_from_shipment_to_inbound_order(order, shipment) ->
 		for r in (getattr(shipment, "charges", None) or [])
 		if (getattr(r, "service_type", None) or "").strip().lower() == "warehousing"
 	]
+	rows = _filter_charges_by_internal_job_detail_params(rows, ij_row, "Warehousing")
 	if not rows:
 		return
 
@@ -1667,16 +1799,16 @@ def _copy_warehousing_charges_from_shipment_to_inbound_order(order, shipment) ->
 			row.item_code = src.item_code
 		if "item_name" in tfields:
 			row.item_name = getattr(src, "item_name", None) or ""
+		if "description" in tfields and getattr(src, "description", None):
+			row.description = src.description
 		qty = getattr(src, "quantity", None)
 		if qty is None:
 			qty = 1
 		if "quantity" in tfields:
 			row.quantity = qty
-		rate = getattr(src, "rate", None)
-		if rate is None:
-			rate = getattr(src, "unit_rate", None)
-		if "rate" in tfields and rate is not None:
-			row.rate = rate
+		rate = getattr(src, "unit_rate", None)
+		if "unit_rate" in tfields and rate is not None:
+			row.unit_rate = rate
 		if "currency" in tfields and getattr(src, "currency", None):
 			row.currency = src.currency
 		if "uom" in tfields and getattr(src, "uom", None):
@@ -1738,7 +1870,7 @@ def create_inbound_order_from_air_shipment(
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	_copy_shipment_packages_to_inbound_order(shipment, order)
-	_copy_warehousing_charges_from_shipment_to_inbound_order(order, shipment)
+	_copy_warehousing_charges_from_shipment_to_inbound_order(order, shipment, ij_row=ij_row)
 	order.insert(ignore_permissions=True)
 	if resolved_detail_idx:
 		persist_internal_job_detail_job_link(
@@ -1802,7 +1934,7 @@ def create_inbound_order_from_sea_shipment(
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	_copy_sea_packages_to_inbound_order(shipment, order)
-	_copy_warehousing_charges_from_shipment_to_inbound_order(order, shipment)
+	_copy_warehousing_charges_from_shipment_to_inbound_order(order, shipment, ij_row=ij_row)
 	order.insert(ignore_permissions=True)
 	if resolved_detail_idx:
 		persist_internal_job_detail_job_link(
@@ -1869,13 +2001,18 @@ def create_inbound_order_from_transport_job(
 	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
 
 
-def _copy_transport_charges_from_declaration_to_transport_order(order, declaration) -> None:
-	"""Append Transport Order Charges from Declaration charge rows where service_type is Transport."""
+def _copy_transport_charges_from_declaration_to_transport_order(order, declaration, ij_row=None) -> None:
+	"""Append Transport Order Charges from Declaration charge rows where service_type is Transport.
+
+	When ``ij_row`` is supplied (Create > Internal Job from a specific Internal Job Detail line),
+	the charge selection is further filtered to rows whose parameters match the IJ row.
+	"""
 	rows = [
 		r
 		for r in (getattr(declaration, "charges", None) or [])
 		if (getattr(r, "service_type", None) or "").strip().lower() == "transport"
 	]
+	rows = _filter_charges_by_internal_job_detail_params(rows, ij_row, "Transport")
 	if not rows:
 		return
 
@@ -1951,11 +2088,9 @@ def _copy_transport_charges_from_declaration_to_transport_order(order, declarati
 				val = getattr(src, fn, None)
 				if val is not None:
 					row.set(fn, val)
-		rate_val = getattr(src, "rate", None)
-		if rate_val is None:
-			rate_val = getattr(src, "unit_rate", None)
-		if rate_val is not None and "rate" in tfields:
-			row.set("rate", rate_val)
+		rate_val = getattr(src, "unit_rate", None)
+		if rate_val is not None and "unit_rate" in tfields:
+			row.set("unit_rate", rate_val)
 
 
 def _declaration_order_doc_for_linked_declaration(dec):
@@ -2082,7 +2217,7 @@ def create_transport_order_from_declaration(
 			},
 		)
 	copy_parent_dg_header(dec, order)
-	_copy_transport_charges_from_declaration_to_transport_order(order, dec)
+	_copy_transport_charges_from_declaration_to_transport_order(order, dec, ij_row=ij_row)
 	# Internal-job Declarations only hold Customs lines when separate billings per service type is on,
 	# so there are no Transport rows to copy; pull Transport lines from the Sales Quote like Air/Sea flows.
 	append_transport_order_charges_from_sales_quote_if_empty(order)

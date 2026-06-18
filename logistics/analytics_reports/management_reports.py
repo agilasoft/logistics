@@ -38,6 +38,7 @@ def _pick_amount_field(ref_doctype):
 		"total_payable",
 		"chargeable",
 		"estimated_penalty_amount",
+		"total_requested",
 	):
 		if frappe.db.has_column(ref_doctype, fname):
 			return fname
@@ -592,6 +593,112 @@ def kpi_penalty_deposit_exposure(ref, filters, options):
 	return columns, data, None, chart, summary
 
 
+def kpi_liquidation_due_aging(ref, filters, options):
+	"""Aging buckets for unliquidated balances against ``liquidation_due_date``.
+
+	Options:
+	  - ``due_field`` (default ``liquidation_due_date``)
+	  - ``amount_field`` (default ``unliquidated`` if present, else ``total_requested``)
+	  - ``status_field`` (default ``unliquidated``) — only include rows where this > 0
+
+	Buckets (Past Due first, then Not Yet Due last):
+	  Past due 90+, 61-90, 31-60, 1-30, Due today, Not yet due.
+	"""
+	due = options.get("due_field") or "liquidation_due_date"
+	if not _valid_field(due) or not frappe.db.has_column(ref, due):
+		return _empty(_("Due date field not available on {0}: {1}").format(ref, due))
+
+	amount = options.get("amount_field")
+	if not amount:
+		for cand in ("unliquidated", "total_requested"):
+			if frappe.db.has_column(ref, cand):
+				amount = cand
+				break
+	if amount and (not _valid_field(amount) or not frappe.db.has_column(ref, amount)):
+		amount = None
+
+	status_field = options.get("status_field") or "unliquidated"
+	has_status = _valid_field(status_field) and frappe.db.has_column(ref, status_field)
+
+	table = _table(ref)
+	where, values = _base_where(ref, filters, include_cancelled=False)
+	if frappe.db.has_column(ref, "docstatus"):
+		where = where + " AND docstatus = 1"
+	if has_status:
+		where = where + " AND IFNULL(`{0}`, 0) > 0".format(status_field)
+	where = where + " AND `{0}` IS NOT NULL".format(due)
+
+	amt_sql = "COALESCE(SUM(`{0}`), 0)".format(amount) if amount else "0"
+	amt_label = _("Unliquidated") if amount == "unliquidated" else _("Amount")
+
+	columns = [
+		{"fieldname": "age_bucket", "label": _("Aging bucket"), "fieldtype": "Data", "width": 180},
+		{"fieldname": "documents", "label": _("Documents"), "fieldtype": "Int", "width": 120},
+		{
+			"fieldname": "amount",
+			"label": amt_label,
+			"fieldtype": "Currency" if amount else "Float",
+			"width": 160,
+		},
+	]
+	try:
+		data = frappe.db.sql(
+			"""
+			SELECT CASE
+				WHEN DATEDIFF(CURDATE(), DATE(`{due}`)) > 90 THEN '90+ days overdue'
+				WHEN DATEDIFF(CURDATE(), DATE(`{due}`)) > 60 THEN '61-90 days overdue'
+				WHEN DATEDIFF(CURDATE(), DATE(`{due}`)) > 30 THEN '31-60 days overdue'
+				WHEN DATEDIFF(CURDATE(), DATE(`{due}`)) >= 1 THEN '1-30 days overdue'
+				WHEN DATEDIFF(CURDATE(), DATE(`{due}`)) = 0 THEN 'Due today'
+				ELSE 'Not yet due'
+			END AS age_bucket,
+			COUNT(*) AS documents,
+			{amt_sql} AS amount
+			FROM {tbl}
+			WHERE {where}
+			GROUP BY age_bucket
+			ORDER BY FIELD(age_bucket,
+				'90+ days overdue',
+				'61-90 days overdue',
+				'31-60 days overdue',
+				'1-30 days overdue',
+				'Due today',
+				'Not yet due')
+			""".format(
+				due=due,
+				tbl=table,
+				where=where,
+				amt_sql=amt_sql,
+			),
+			values,
+			as_dict=1,
+		)
+	except Exception:
+		frappe.log_error(frappe.get_traceback(), "kpi_liquidation_due_aging:{0}".format(ref))
+		return _empty(_("Could not load liquidation aging."))
+
+	if not data:
+		data = [{"age_bucket": _("No outstanding balances"), "documents": 0, "amount": 0}]
+
+	chart = bar_top_numeric(data, "age_bucket", "amount", limit=6, dataset_label=amt_label)
+
+	overdue_total = sum(
+		flt(r.get("amount"))
+		for r in data
+		if r.get("age_bucket") not in ("Not yet due", _("No outstanding balances"), "Due today")
+	)
+	overdue_count = sum(
+		cint(r.get("documents"))
+		for r in data
+		if r.get("age_bucket") not in ("Not yet due", _("No outstanding balances"), "Due today")
+	)
+	summary = [
+		{"label": _("Overdue documents"), "value": overdue_count, "indicator": "red" if overdue_count else "green"},
+		{"label": _("Overdue value"), "value": flt(overdue_total), "indicator": "red" if overdue_total else "green"},
+	]
+	return columns, data, None, chart, summary
+
+
 def kpi_simple_count_trend(ref, filters, options):
 	"""Lightweight activity trend (count only) when no value column — still a KPI index."""
 	grain = options.get("grain") or "week"
@@ -650,6 +757,7 @@ HANDLERS = {
 	"trend_monthly_count": lambda ref, f, o: kpi_simple_count_trend(ref, f, dict(o or {}, **{"grain": "month"})),
 	"overdue_pressure": kpi_overdue_pressure,
 	"penalty_deposit": kpi_penalty_deposit_exposure,
+	"liquidation_due_aging": kpi_liquidation_due_aging,
 }
 
 

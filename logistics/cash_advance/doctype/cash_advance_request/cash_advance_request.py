@@ -7,7 +7,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt
+from frappe.utils import cint, flt, fmt_money, formatdate, get_link_to_form, nowdate
 
 from logistics.cash_advance.accounting import (
 	_validate_cash_bank_account,
@@ -20,6 +20,7 @@ from logistics.cash_advance.job_charge_items import get_item_codes_for_job_numbe
 
 class CashAdvanceRequest(Document):
 	def validate(self):
+		self._validate_no_overdue_advance_for_payee()
 		self._validate_job_number_company_alignment()
 		self._validate_items_against_job()
 
@@ -28,14 +29,71 @@ class CashAdvanceRequest(Document):
 
 		self.calculate_total()
 
+	def _validate_no_overdue_advance_for_payee(self):
+		"""Block draft Cash Advance Requests when the payee has any submitted
+		advance whose liquidation due date has already passed and that is not
+		fully liquidated. Amendments are allowed so an overdue request can
+		still be corrected."""
+		if cint(self.docstatus) != 0:
+			return
+		if self.amended_from:
+			return
+		if not self.payee:
+			return
+
+		today = nowdate()
+		overdue = frappe.db.sql(
+			"""
+			SELECT
+				name,
+				liquidation_due_date,
+				unliquidated,
+				DATEDIFF(%(today)s, liquidation_due_date) AS days_overdue
+			FROM `tabCash Advance Request`
+			WHERE payee = %(payee)s
+			  AND docstatus = 1
+			  AND IFNULL(unliquidated, 0) > 0
+			  AND liquidation_due_date IS NOT NULL
+			  AND liquidation_due_date < %(today)s
+			  AND name != %(self_name)s
+			ORDER BY liquidation_due_date ASC
+			LIMIT 5
+			""",
+			{
+				"today": today,
+				"payee": self.payee,
+				"self_name": self.name or "",
+			},
+			as_dict=True,
+		)
+
+		if not overdue:
+			return
+
+		lines = "<br>".join(
+			_("{0} — due {1} ({2} day(s) overdue, unliquidated {3})").format(
+				get_link_to_form("Cash Advance Request", row.name),
+				formatdate(row.liquidation_due_date),
+				cint(row.days_overdue),
+				fmt_money(flt(row.unliquidated), currency=frappe.defaults.get_global_default("currency")),
+			)
+			for row in overdue
+		)
+
+		frappe.throw(
+			_(
+				"Payee {0} has overdue unliquidated Cash Advance Request(s)."
+				" Liquidate the following before creating a new request:<br>{1}"
+			).format(frappe.bold(self.payee_name or self.payee), lines),
+			title=_("Overdue Cash Advance"),
+		)
+
 	def before_submit(self):
 		self.calculate_total()
 		if not self.fund_source:
 			frappe.throw(_("Fund Source (Bank or Cash account) is required to submit."))
-		if frappe.db.get_value("DocType", "Employee Advance", "name") and not getattr(
-			self, "employee_advance", None
-		):
-			frappe.throw(_("Employee Advance is required to submit (journal entry reference)."))
+		if not self.payee:
+			frappe.throw(_("Payee (Supplier) is required to submit (used as the party on the advance entry)."))
 		_validate_cash_bank_account(self.fund_source, self.company)
 		ensure_payee_for_party_accounts(self)
 		if flt(self.total_requested, 2) <= 0:

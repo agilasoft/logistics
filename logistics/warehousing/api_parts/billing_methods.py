@@ -580,10 +580,11 @@ def create_charge_line(
     charge_line = {
         "item_code": contract_item.get("item_charge"),
         "item_name": contract_item.get("description", ""),
+        "description": contract_item.get("description"),
         "uom": _get_billing_uom(contract_item, context),
         "quantity": display_qty,
         "currency": currency,
-        "rate": display_rate,
+        "unit_rate": display_rate,
         "total": total,
         "billing_method": _get_billing_method_from_contract(contract_item, context),
     }

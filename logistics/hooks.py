@@ -21,6 +21,11 @@ app_license = "AGPL-3.0-or-later"
 fixtures = [
 	"role.json",
 	"custom_html_block.json",
+	{"dt": "Workspace", "filters": [["module", "=", "Control Tower"]]},
+	{"dt": "Dashboard", "filters": [["module", "=", "Control Tower"]]},
+	{"dt": "Dashboard Chart", "filters": [["module", "=", "Control Tower"]]},
+	{"dt": "Number Card", "filters": [["module", "=", "Control Tower"]]},
+	{"dt": "Custom Field", "filters": [["module", "=", "Control Tower"]]},
 ]
 
 # Includes in <head>
@@ -29,19 +34,21 @@ fixtures = [
 # include js, css files in header of desk.html
 app_include_css = [
 	"/assets/logistics/css/print_footer_fix.css",
-	"/assets/logistics/css/get_charges_from_quotation.css?v=7",
+	"/assets/logistics/css/get_charges_from_quotation.css?v=8",
 	"/assets/logistics/css/charges_grid_no_row_check.css?v=2",
 	"/assets/logistics/css/density_factor.css?v=1",
 ]
 app_include_js = [
+	"/assets/logistics/js/address_link_query.js?v=1",
+	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=3",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
-	"/assets/logistics/js/internal_job_create_from_source.js?v=19",
+	"/assets/logistics/js/internal_job_create_from_source.js?v=20",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js?v=2",
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
 	"/assets/logistics/js/internal_job_detail_grid_delete_fix.js",
-	"/assets/logistics/js/get_charges_from_quotation.js?v=17",
+	"/assets/logistics/js/get_charges_from_quotation.js?v=18",
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=3",
 	"/assets/logistics/js/air_consolidation_matching_shipments.js?v=5",
 	"/assets/logistics/js/charges_disbursement_sync.js",
@@ -50,7 +57,7 @@ app_include_js = [
 	"/assets/logistics/js/density_factor.js?v=2",
 	"/assets/logistics/js/document_alerts_dialog.js?v=2",
 	"/assets/logistics/js/documents_tab_utils.js",
-	"/assets/logistics/js/profitability_form.js?v=4",
+	"/assets/logistics/js/profitability_form.js?v=5",
 	"/assets/logistics/js/purchase_invoice_dialog.js",
 	"/assets/logistics/js/sales_invoice_dialog.js",
 	"/assets/logistics/js/sales_invoice_job_dimension_cleanup.js",
@@ -242,12 +249,29 @@ doctype_js = {
 		"logistics/job_management/recognition_client.js",
 		"logistics/job_management/recognition_policy_fields.js",
 	],
+	# NOTE: doctype_js paths are MODULE-relative (resolved via frappe.get_app_path(app, *parts)).
+	# For this app, that means paths must start with "public/..." or "<sub_module>/...", NOT
+	# "logistics/...". A leading "logistics/" causes a doubled path segment and the file
+	# silently fails to load (no error). See get_code_files_via_hooks in
+	# apps/frappe/frappe/desk/form/meta.py.
 	"Special Project": [
-		"logistics/public/js/logistics_lifecycle_stepper.js?v=3",
-		"logistics/public/js/document_alerts_dialog.js",
+		"public/js/profitability_project_form.js",
+		# Module-relative paths only (no leading logistics/ — see comment above Docket entry).
+		"job_management/recognition_client.js",
+		"job_management/recognition_policy_fields.js",
 	],
 	"Exhibit": [
-		"logistics/public/js/logistics_lifecycle_stepper.js?v=3",
+		"public/js/profitability_project_form.js",
+	],
+	"MICE Project": [
+		"public/js/profitability_project_form.js",
+	],
+	"Docket": [
+		"logistics/public/js/sales_invoice_dialog.js",
+		"logistics/public/js/purchase_invoice_dialog.js",
+		"logistics/public/js/profitability_form.js",
+		"logistics/job_management/recognition_client.js",
+		"logistics/job_management/recognition_policy_fields.js",
 	],
 	"Account": "logistics/public/js/account_job_profit.js",
 	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
@@ -293,9 +317,13 @@ doctype_js = {
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
+permission_query_conditions = {
+	"Control Tower Organization": "logistics.control_tower.permissions.organization",
+	"Control Tower GP Target": "logistics.control_tower.permissions.gp_target",
+	"Pipeline Entry": "logistics.control_tower.permissions.pipeline_entry",
+	"Risk Register Entry": "logistics.control_tower.permissions.risk_register_entry",
+	"Returned Billing": "logistics.control_tower.permissions.returned_billing",
+}
 #
 # has_permission = {
 # 	"Event": "frappe.desk.doctype.event.event.has_permission",
@@ -313,6 +341,11 @@ _doc_milestone_doctypes = [
 	"Inbound Order", "Release Order", "Transfer Order",
 	"Warehouse Job", "General Job", "Special Project",
 	"Project Order", "Project Job",
+	# Exhibit family: parent doctypes with a ``milestones`` child table and
+	# ``milestone_template`` field. Without these hooks, Date Based sync
+	# (parent date field <-> milestone actual_end) and status auto-update
+	# (Planned / Started / Completed / Delayed) never run on save.
+	"Exhibit", "Docket", "Exhibit Order", "Exhibit Job",
 ]
 
 doc_events = {
@@ -334,11 +367,13 @@ doc_events = {
 		"validate": [
 			"logistics.invoice_integration.container_deposit_pi.apply_container_deposit_expense_account",
 			"logistics.invoice_integration.container_deposit_dimensions.sync_container_deposit_pi_accounting_dimensions",
+			"logistics.invoice_integration.job_number_dimension_sync.sync_job_number_dimension_on_purchase_invoice_items",
 			"logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
 		],
 		"before_submit": [
 			"logistics.invoice_integration.container_deposit_pi.apply_container_deposit_expense_account",
 			"logistics.invoice_integration.container_deposit_dimensions.sync_container_deposit_pi_accounting_dimensions",
+			"logistics.invoice_integration.job_number_dimension_sync.sync_job_number_dimension_on_purchase_invoice_items",
 			"logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
 			"logistics.invoice_integration.container_deposit_pi_ui.validate_container_deposit_lines_have_container_before_submit",
 		],
@@ -404,6 +439,8 @@ for _dt in (
 	"Declaration",
 	"General Job",
 	"Project Job",
+	"Special Project",
+	"Docket",
 ):
 	if _dt not in doc_events:
 		doc_events[_dt] = {}
@@ -492,6 +529,65 @@ for _dt in (
 		elif _existing != _handler:
 			doc_events[_dt][_event] = [_existing, _handler]
 
+# Internal Job persistence: keep the booking's ``internal_job_details`` table in sync with backing
+# ``Internal Job`` documents. ``before_save`` ensures every detail row points at a saved Internal Job
+# (creating one when the row is new), pushes parameter edits back, and deletes Internal Jobs whose
+# detail row was removed. ``on_trash`` cleans up every Internal Job owned by the booking.
+_INTERNAL_JOB_PERSISTENCE_MODULE = "logistics.utils.internal_job_persistence"
+_INTERNAL_JOB_PERSISTENCE_EVENTS = (
+	("before_save", _INTERNAL_JOB_PERSISTENCE_MODULE + ".sync_internal_job_details_to_internal_jobs"),
+	("on_trash", _INTERNAL_JOB_PERSISTENCE_MODULE + ".delete_internal_jobs_for_booking"),
+)
+for _dt in (
+	"Sea Booking",
+	"Air Booking",
+	"Sea Shipment",
+	"Air Shipment",
+	"Transport Order",
+	"Transport Job",
+	"Declaration",
+	"Declaration Order",
+	"Warehouse Job",
+	"Inbound Order",
+	"Release Order",
+	"General Job",
+	"Project Job",
+	"MICE Job",
+	"MICE Project",
+	"Docket",
+	"Exhibit",
+	# Sales Quote (One-off) owns Internal Jobs that get re-parented to the Booking/Order
+	# created from the quote. The sync is gated on quotation_type inside the handler.
+	"Sales Quote",
+):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	for _event, _handler in _INTERNAL_JOB_PERSISTENCE_EVENTS:
+		_existing = doc_events[_dt].get(_event)
+		if not _existing:
+			doc_events[_dt][_event] = _handler
+		elif isinstance(_existing, list):
+			if _handler not in _existing:
+				doc_events[_dt][_event] = list(_existing) + [_handler]
+		elif _existing != _handler:
+			doc_events[_dt][_event] = [_existing, _handler]
+
+# Internal Job → ``Internal Job Detail`` snapshot sync: when an Internal Job document is edited
+# directly (form / scripted save), push the new parameter values into every detail row that links
+# to it so reports / API consumers reading ``tabInternal Job Detail`` see fresh values.
+_INTERNAL_JOB_DOC_EVENTS = doc_events.setdefault("Internal Job", {})
+_INTERNAL_JOB_ON_UPDATE = (
+	_INTERNAL_JOB_PERSISTENCE_MODULE + ".sync_internal_job_to_detail_rows"
+)
+_existing_ij_on_update = _INTERNAL_JOB_DOC_EVENTS.get("on_update")
+if not _existing_ij_on_update:
+	_INTERNAL_JOB_DOC_EVENTS["on_update"] = _INTERNAL_JOB_ON_UPDATE
+elif isinstance(_existing_ij_on_update, list):
+	if _INTERNAL_JOB_ON_UPDATE not in _existing_ij_on_update:
+		_INTERNAL_JOB_DOC_EVENTS["on_update"] = list(_existing_ij_on_update) + [_INTERNAL_JOB_ON_UPDATE]
+elif _existing_ij_on_update != _INTERNAL_JOB_ON_UPDATE:
+	_INTERNAL_JOB_DOC_EVENTS["on_update"] = [_existing_ij_on_update, _INTERNAL_JOB_ON_UPDATE]
+
 # Special Project lifecycle financials: refresh when operational job charges change.
 _LIFECYCLE_FINANCIAL_REFRESH = (
 	"logistics.special_projects.lifecycle_job_financial_rollup"
@@ -524,20 +620,80 @@ for _dt in (
 		elif _existing != _LIFECYCLE_FINANCIAL_REFRESH:
 			doc_events[_dt][_event] = [_existing, _LIFECYCLE_FINANCIAL_REFRESH]
 
+# Special Project: Air/Sea Shipment submit -> post deliveries to parent Special Project.
+# Mirrors the Transport Order on_submit pattern. The Shipment's ``project`` field
+# resolves the Special Project; rows in its Packages table are folded into the
+# Special Project's Deliveries with the originating Booking's lifecycle stage.
+_FREIGHT_SHIPMENT_RECEIPT_HANDLERS = (
+	(
+		"on_submit",
+		"logistics.special_projects.special_project_packages.on_freight_shipment_submit",
+	),
+	(
+		"on_cancel",
+		"logistics.special_projects.special_project_packages.on_freight_shipment_cancel",
+	),
+)
+for _dt in ("Air Shipment", "Sea Shipment"):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	for _event, _handler in _FREIGHT_SHIPMENT_RECEIPT_HANDLERS:
+		_existing = doc_events[_dt].get(_event)
+		if not _existing:
+			doc_events[_dt][_event] = _handler
+		elif isinstance(_existing, list):
+			if _handler not in _existing:
+				doc_events[_dt][_event] = list(_existing) + [_handler]
+		elif _existing != _handler:
+			doc_events[_dt][_event] = [_existing, _handler]
+
+# Special Project: Transport Job submit/cancel -> post deliveries (Transport Order is planning-only).
+_TRANSPORT_JOB_RECEIPT_HANDLERS = (
+	(
+		"on_submit",
+		"logistics.special_projects.special_project_packages.on_transport_job_submit",
+	),
+	(
+		"on_cancel",
+		"logistics.special_projects.special_project_packages.on_transport_job_cancel",
+	),
+)
+if "Transport Job" not in doc_events:
+	doc_events["Transport Job"] = {}
+for _event, _handler in _TRANSPORT_JOB_RECEIPT_HANDLERS:
+	_existing = doc_events["Transport Job"].get(_event)
+	if not _existing:
+		doc_events["Transport Job"][_event] = _handler
+	elif isinstance(_existing, list):
+		if _handler not in _existing:
+			doc_events["Transport Job"][_event] = list(_existing) + [_handler]
+	elif _existing != _handler:
+		doc_events["Transport Job"][_event] = [_existing, _handler]
+
 merge_credit_hooks(doc_events)
 
 # Scheduled Tasks
 # ---------------
 
 scheduler_events = {
+	"cron": {
+		# Live flight position sync from OpenSky (1 bulk /states/all call per run,
+		# well under the free anonymous quota of ~400 req/day).
+		"*/10 * * * *": [
+			"logistics.air_freight.flight_schedules.tasks.sync_active_flights",
+		],
+	},
 	"hourly": [
 		"logistics.status_update.tasks.update_milestone_statuses",
+		"logistics.air_freight.flight_schedules.tasks.update_air_freight_jobs_with_flight_status",
 	],
 	"daily": [
 		"logistics.status_update.tasks.update_document_statuses",
 		"logistics.status_update.tasks.update_permit_statuses",
 		"logistics.status_update.tasks.update_exemption_statuses",
 		"logistics.container_management.api.reconcile_containers_from_terminal_sea_shipments",
+		"logistics.air_freight.flight_schedules.tasks.cleanup_old_schedules",
+		"logistics.air_freight.flight_schedules.tasks.cleanup_old_sync_logs",
 	],
 }
 
@@ -595,7 +751,10 @@ after_migrate = [
 	"logistics.job_management.recognition_migrate.after_migrate",
 	"logistics.analytics_reports.sync_cnx_reports.after_migrate",
 	"logistics.cash_advance.install.after_migrate",
+	"logistics.control_tower.install.after_migrate",
 ]
+
+after_install = "logistics.control_tower.install.after_install"
 
 # Authentication and authorization
 # --------------------------------
@@ -611,3 +770,7 @@ after_migrate = [
 # Recommended only for DocTypes which have limited documents with untranslated names
 # For example: Role, Gender, etc.
 # translated_search_doctypes = []
+
+from logistics.utils.internal_job_link_validation import apply_internal_job_link_validation_patch
+
+apply_internal_job_link_validation_patch()

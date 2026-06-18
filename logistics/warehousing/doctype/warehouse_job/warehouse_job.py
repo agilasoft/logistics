@@ -197,18 +197,18 @@ class WarehouseJob(Document):
 					item_code = getattr(ch, 'item_code', None) or getattr(ch, 'item', None)
 
 					# Only auto-fill rates, currency, and uom, not quantities
-					if item_code and (getattr(ch, 'rate', None) in (None, '') or flt(ch.rate) == 0):
+					if item_code and (getattr(ch, 'unit_rate', None) in (None, '') or flt(ch.unit_rate) == 0):
 						rate, cur, uom = _get_charge_price_from_contract(contract, item_code)
 						if rate is not None:
-							ch.rate = rate
+							ch.unit_rate = rate
 						if cur and hasattr(ch, 'currency'):
 							ch.currency = cur
 						if uom and hasattr(ch, 'uom'):
 							ch.uom = uom
 
 					# (re)compute total if quantity and rate are available
-					if hasattr(ch, 'total') and getattr(ch, 'quantity', 0) and getattr(ch, 'rate', 0):
-						ch.total = flt(getattr(ch, 'quantity', 0)) * flt(getattr(ch, 'rate', 0))
+					if hasattr(ch, 'total') and getattr(ch, 'quantity', 0) and getattr(ch, 'unit_rate', 0):
+						ch.total = flt(getattr(ch, 'quantity', 0)) * flt(getattr(ch, 'unit_rate', 0))
 
 		except Exception as e:
 			frappe.logger().warning(f"[WarehouseJob.before_save] charges autofill warning: {e}")
@@ -3415,6 +3415,7 @@ def fetch_charges_from_contract(warehouse_job: str, clear_existing: int = 0) -> 
 		contract_items = frappe.db.sql("""
 			SELECT 
 				item_charge AS item_code, 
+				description,
 				rate, 
 				currency, 
 				uom, 
@@ -3522,6 +3523,7 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
 		contract_items = frappe.db.sql("""
 			SELECT 
 				item_charge AS item_code, 
+				description,
 				rate, 
 				currency, 
 				uom, 
@@ -3582,11 +3584,11 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
 				# Qty = 1, Rate = Total, Total = Total
 				if calculation_method in ["Base Plus Additional", "First Plus Additional"]:
 					charge.quantity = 1.0
-					charge.rate = total
+					charge.unit_rate = total
 					charge.total = total
 				else:
 					# For other methods, show actual quantity and rate
-					charge.rate = rate
+					charge.unit_rate = rate
 					charge.quantity = billing_qty
 					charge.total = total
 				
@@ -4737,13 +4739,16 @@ def _create_charge_from_contract_item(job, contract_item: dict) -> dict:
 			display_qty = billing_qty
 			display_rate = rate
 		
-		# Get item name from item master if available
+		# Get item name and description from item master if available
 		item_name = None
+		item_description = contract_item.get("description")
 		item_code = contract_item.get("item_code")
 		if item_code:
 			try:
 				item_doc = frappe.get_doc("Item", item_code)
 				item_name = item_doc.item_name
+				if not item_description:
+					item_description = item_doc.description
 			except Exception:
 				pass
 		
@@ -4751,9 +4756,10 @@ def _create_charge_from_contract_item(job, contract_item: dict) -> dict:
 		charge = {
 			"item_code": item_code,
 			"item_name": item_name or f"Job Charge ({getattr(job, 'type', 'Generic')})",
+			"description": item_description,
 			"uom": contract_item.get("uom", "Day"),
 			"quantity": display_qty,
-			"rate": display_rate,
+			"unit_rate": display_rate,
 			"total": total,
 			"currency": contract_item.get("currency", _get_default_currency(getattr(job, 'company', None))),
 			"calculation_notes": _generate_comprehensive_calculation_notes_for_contract_charge(

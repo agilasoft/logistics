@@ -1,0 +1,687 @@
+{
+ "app": "logistics",
+ "charts": [],
+ "content": "[{\"id\": \"h_0\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Control Tower</span>\", \"col\": 12}}, {\"id\": \"h_1\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Profit Centers</span>\", \"col\": 12}}, {\"id\": \"sc_2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ATN Sales - Luzon\", \"col\": 3}}, {\"id\": \"sc_3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ATN Sales - VisMin\", \"col\": 3}}, {\"id\": \"sc_4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ATN Overseas Business Development\", \"col\": 3}}, {\"id\": \"sc_5\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ALTA Fairs & Exhibits\", \"col\": 3}}, {\"id\": \"sc_6\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ATN Special Projects 1\", \"col\": 3}}, {\"id\": \"sc_7\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ATN Special Projects 2\", \"col\": 3}}, {\"id\": \"sc_8\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ASL Sales\", \"col\": 3}}, {\"id\": \"sc_9\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ASL Overseas Business Development\", \"col\": 3}}, {\"id\": \"sc_10\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - Luxury\", \"col\": 3}}, {\"id\": \"sp_11\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"h_12\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Cost Centers</span>\", \"col\": 12}}, {\"id\": \"sc_13\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ATN Head Office Seafreight\", \"col\": 3}}, {\"id\": \"sc_14\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ATN Airfreight\", \"col\": 3}}, {\"id\": \"sc_15\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ATN Brokerage\", \"col\": 3}}, {\"id\": \"sc_16\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ATN Haulage\", \"col\": 3}}, {\"id\": \"sc_17\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ATN Domestic Sea\", \"col\": 3}}, {\"id\": \"sc_18\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ATN Warehouse\", \"col\": 3}}, {\"id\": \"sc_19\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - Vis-Min Branches\", \"col\": 3}}, {\"id\": \"sc_20\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - North Luzon Branches\", \"col\": 3}}, {\"id\": \"sc_21\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ALTA Fairs & Exhibits (Cost Center)\", \"col\": 3}}, {\"id\": \"sc_22\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - ASL Operations\", \"col\": 3}}, {\"id\": \"sp_23\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"h_24\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Resource Centers</span>\", \"col\": 12}}, {\"id\": \"sc_25\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - Human Resources\", \"col\": 3}}, {\"id\": \"sc_26\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - Information Technology\", \"col\": 3}}, {\"id\": \"sc_27\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"CT - Accounting & Finance\", \"col\": 3}}, {\"id\": \"sp_28\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"h_29\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Registry & Planning</span>\", \"col\": 12}}, {\"id\": \"c_30\", \"type\": \"card\", \"data\": {\"card_name\": \"Registry\", \"col\": 4}}, {\"id\": \"c_31\", \"type\": \"card\", \"data\": {\"card_name\": \"Planning\", \"col\": 4}}, {\"id\": \"c_32\", \"type\": \"card\", \"data\": {\"card_name\": \"Operations Supplements\", \"col\": 4}}, {\"id\": \"sp_33\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"h_34\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Resource Center Trackers</span>\", \"col\": 12}}, {\"id\": \"c_35\", \"type\": \"card\", \"data\": {\"card_name\": \"Human Resources\", \"col\": 4}}, {\"id\": \"c_36\", \"type\": \"card\", \"data\": {\"card_name\": \"Information Technology\", \"col\": 4}}, {\"id\": \"c_37\", \"type\": \"card\", \"data\": {\"card_name\": \"Accounting & Finance\", \"col\": 4}}, {\"id\": \"sp_38\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"h_39\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Reports</span>\", \"col\": 12}}, {\"id\": \"c_40\", \"type\": \"card\", \"data\": {\"card_name\": \"Profit Center Reports\", \"col\": 4}}, {\"id\": \"c_41\", \"type\": \"card\", \"data\": {\"card_name\": \"Cost Center Reports\", \"col\": 4}}, {\"id\": \"c_42\", \"type\": \"card\", \"data\": {\"card_name\": \"Resource Center Reports\", \"col\": 4}}]",
+ "creation": "2026-06-11 00:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "dashboard",
+ "idx": 0,
+ "indicator_color": "blue",
+ "is_hidden": 0,
+ "label": "Control Tower",
+ "link_type": "DocType",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Registry",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Control Tower Organization",
+   "link_count": 0,
+   "link_to": "Control Tower Organization",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Planning",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Control Tower GP Target",
+   "link_count": 0,
+   "link_to": "Control Tower GP Target",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Pipeline Entry",
+   "link_count": 0,
+   "link_to": "Pipeline Entry",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Risk Register Entry",
+   "link_count": 0,
+   "link_to": "Risk Register Entry",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Operations Supplements",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Returned Billing",
+   "link_count": 0,
+   "link_to": "Returned Billing",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Vehicle Maintenance Log",
+   "link_count": 0,
+   "link_to": "Vehicle Maintenance Log",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Human Resources",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "HR Vacancy",
+   "link_count": 0,
+   "link_to": "HR Vacancy",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "HR Turnover Event",
+   "link_count": 0,
+   "link_to": "HR Turnover Event",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "HR Tardiness OT Entry",
+   "link_count": 0,
+   "link_to": "HR Tardiness OT Entry",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "HR Labor Cost Period",
+   "link_count": 0,
+   "link_to": "HR Labor Cost Period",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT HR Summary",
+   "link_count": 0,
+   "link_to": "CT HR Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "HR Vacancy"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Information Technology",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "IT Ticket",
+   "link_count": 0,
+   "link_to": "IT Ticket",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "IT Uptime Log",
+   "link_count": 0,
+   "link_to": "IT Uptime Log",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "IT Security Incident",
+   "link_count": 0,
+   "link_to": "IT Security Incident",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT IT Summary",
+   "link_count": 0,
+   "link_to": "CT IT Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "IT Ticket"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Accounting & Finance",
+   "link_count": 6,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Bad Account Entry",
+   "link_count": 0,
+   "link_to": "Bad Account Entry",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Client Credit Line",
+   "link_count": 0,
+   "link_to": "Client Credit Line",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Investment Holding",
+   "link_count": 0,
+   "link_to": "Investment Holding",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Bank Reconciliation Discrepancy",
+   "link_count": 0,
+   "link_to": "Bank Reconciliation Discrepancy",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Supplier Cash Bond",
+   "link_count": 0,
+   "link_to": "Supplier Cash Bond",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Accounting Finance Summary",
+   "link_count": 0,
+   "link_to": "CT Accounting Finance Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Bad Account Entry"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Profit Center Reports",
+   "link_count": 6,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT GP Summary",
+   "link_count": 0,
+   "link_to": "CT GP Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Control Tower Organization"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Top Clients by GP",
+   "link_count": 0,
+   "link_to": "CT Top Clients by GP",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Control Tower Organization"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Top Agents Volumes",
+   "link_count": 0,
+   "link_to": "CT Top Agents Volumes",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Control Tower Organization"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Top Carriers Volumes",
+   "link_count": 0,
+   "link_to": "CT Top Carriers Volumes",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Control Tower Organization"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Pipeline Listing",
+   "link_count": 0,
+   "link_to": "CT Pipeline Listing",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Control Tower Organization"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Risk Register Listing",
+   "link_count": 0,
+   "link_to": "CT Risk Register Listing",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Control Tower Organization"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Cost Center Reports",
+   "link_count": 8,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Jobs KPI",
+   "link_count": 0,
+   "link_to": "CT Jobs KPI",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Control Tower Organization"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Trips Per Month",
+   "link_count": 0,
+   "link_to": "CT Trips Per Month",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Control Tower Organization"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Handling In Out",
+   "link_count": 0,
+   "link_to": "CT Handling In Out",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Control Tower Organization"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Facility Occupancy",
+   "link_count": 0,
+   "link_to": "CT Facility Occupancy",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Control Tower Organization"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Top Outsourced Truckers",
+   "link_count": 0,
+   "link_to": "CT Top Outsourced Truckers",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Control Tower Organization"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Top Outsourced Brokers",
+   "link_count": 0,
+   "link_to": "CT Top Outsourced Brokers",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Control Tower Organization"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Returned Billings",
+   "link_count": 0,
+   "link_to": "CT Returned Billings",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Control Tower Organization"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Haulage Intercompany Charges",
+   "link_count": 0,
+   "link_to": "CT Haulage Intercompany Charges",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link",
+   "report_ref_doctype": "Control Tower Organization"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Resource Center Reports",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT HR Summary",
+   "link_count": 0,
+   "link_to": "CT HR Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT IT Summary",
+   "link_count": 0,
+   "link_to": "CT IT Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "CT Accounting Finance Summary",
+   "link_count": 0,
+   "link_to": "CT Accounting Finance Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-06-11 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Control Tower",
+ "name": "Control Tower",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "shortcuts": [
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "CT - ATN Sales - Luzon",
+   "link_to": "Control Tower - ATN Sales - Luzon",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "CT - ATN Sales - VisMin",
+   "link_to": "Control Tower - ATN Sales - VisMin",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "CT - ATN Overseas Business Development",
+   "link_to": "Control Tower - ATN Overseas Business Development",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "CT - ALTA Fairs & Exhibits",
+   "link_to": "Control Tower - ALTA Fairs & Exhibits",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "CT - ATN Special Projects 1",
+   "link_to": "Control Tower - ATN Special Projects 1",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "CT - ATN Special Projects 2",
+   "link_to": "Control Tower - ATN Special Projects 2",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "CT - ASL Sales",
+   "link_to": "Control Tower - ASL Sales",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "CT - ASL Overseas Business Development",
+   "link_to": "Control Tower - ASL Overseas Business Development",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "CT - Luxury",
+   "link_to": "Control Tower - Luxury",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "CT - ATN Head Office Seafreight",
+   "link_to": "Control Tower - ATN Head Office Seafreight",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "CT - ATN Airfreight",
+   "link_to": "Control Tower - ATN Airfreight",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "CT - ATN Brokerage",
+   "link_to": "Control Tower - ATN Brokerage",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "CT - ATN Haulage",
+   "link_to": "Control Tower - ATN Haulage",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "CT - ATN Domestic Sea",
+   "link_to": "Control Tower - ATN Domestic Sea",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "CT - ATN Warehouse",
+   "link_to": "Control Tower - ATN Warehouse",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "CT - Vis-Min Branches",
+   "link_to": "Control Tower - Vis-Min Branches",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "CT - North Luzon Branches",
+   "link_to": "Control Tower - North Luzon Branches",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "CT - ALTA Fairs & Exhibits (Cost Center)",
+   "link_to": "Control Tower - ALTA Fairs & Exhibits (Cost Center)",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "CT - ASL Operations",
+   "link_to": "Control Tower - ASL Operations",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "",
+   "label": "CT - Human Resources",
+   "link_to": "Control Tower - Human Resources",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "",
+   "label": "CT - Information Technology",
+   "link_to": "Control Tower - Information Technology",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "",
+   "label": "CT - Accounting & Finance",
+   "link_to": "Control Tower - Accounting & Finance",
+   "stats_filter": "[]",
+   "type": "Dashboard"
+  }
+ ],
+ "title": "Control Tower",
+ "type": "Workspace"
+}

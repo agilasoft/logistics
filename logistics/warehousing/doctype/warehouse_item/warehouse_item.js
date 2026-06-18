@@ -33,8 +33,21 @@ frappe.ui.form.on('Warehouse Item', {
     },
     serial_tracking: function(frm) {
         validate_tracking_exclusivity(frm, 'serial_tracking', 'batch_tracking');
+    },
+    customer: function(frm) {
+        set_customer_code(frm);
     }
 });
+
+function set_customer_code(frm) {
+    if (!frm.doc.customer) {
+        frm.set_value('customer_code', '');
+        return;
+    }
+    frappe.db.get_value('Customer', frm.doc.customer, 'custom_code', (r) => {
+        frm.set_value('customer_code', (r && r.custom_code) || '');
+    });
+}
 
 function _setup_dimension_listeners(frm) {
     // Setup direct event listeners on dimension fields for more reliable triggering

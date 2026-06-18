@@ -379,12 +379,12 @@ frappe.ui.form.on("Declaration", {
 		}, 0);
 		// Filter Declaration Product Code by importer/exporter for line items
 		frm.set_query("declaration_product_code", "commercial_invoice_line_items", function() {
-			const filters = [["Declaration Product Code", "active", "=", 1]];
+			const filters = { active: 1 };
 			if (frm.doc.importer_consignee) {
-				filters.push(["Declaration Product Code", "importer", "in", ["", frm.doc.importer_consignee]]);
+				filters.importer = ["in", ["", frm.doc.importer_consignee]];
 			}
 			if (frm.doc.exporter_shipper) {
-				filters.push(["Declaration Product Code", "exporter", "in", ["", frm.doc.exporter_shipper]]);
+				filters.exporter = ["in", ["", frm.doc.exporter_shipper]];
 			}
 			return { filters };
 		});

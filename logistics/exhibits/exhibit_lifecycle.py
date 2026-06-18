@@ -112,7 +112,7 @@ def create_orders_for_event(event_name):
 		if stage in existing:
 			continue
 		order = frappe.new_doc("Exhibit Order")
-		order.event = event_name
+		order.exhibit = event_name
 		order.lifecycle_stage = stage
 		order.order_title = stage
 		order.status = "Draft"

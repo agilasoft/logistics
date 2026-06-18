@@ -51,6 +51,8 @@
   "job_resources",
   "section_break_materials_received",
   "materials_received",
+  "section_break_packages",
+  "packages",
   "charges_tab",
   "column_break_logistics_reps",
   "company",
@@ -277,7 +279,6 @@
    "fieldname": "site",
    "fieldtype": "Link",
    "label": "Site",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -324,6 +325,17 @@
    "fieldtype": "Table",
    "label": "Materials Received",
    "options": "Project Job Material"
+  },
+  {
+   "fieldname": "section_break_packages",
+   "fieldtype": "Section Break",
+   "label": "Packages"
+  },
+  {
+   "fieldname": "packages",
+   "fieldtype": "Table",
+   "label": "Packages",
+   "options": "Project Job Package"
   },
   {
    "fieldname": "section_contacts",
@@ -432,6 +444,7 @@
    "fieldtype": "Link",
    "label": "Branch",
    "options": "Branch",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -440,6 +453,7 @@
    "label": "Cost Center",
    "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -447,6 +461,7 @@
    "fieldtype": "Link",
    "label": "Profit Center",
    "options": "Profit Center",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -906,7 +921,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-05-20 16:44:02.223672",
+ "modified": "2026-05-27 14:40:12.126765",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Project Job",
@@ -948,6 +963,5 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "title_field": "title",
  "track_changes": 1
 }

@@ -35,7 +35,6 @@ def tariff_charge_calculation_method(row: Any) -> str:
 def tariff_charge_unit_rate(row: Any) -> float:
 	return flt(
 		getattr(row, "unit_rate", None)
-		or getattr(row, "rate", None)
 		or getattr(row, "rate_value", None)
 		or 0
 	)

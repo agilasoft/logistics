@@ -7,7 +7,8 @@
 
 	var PACKAGE_DOCTYPES = [
 		'Air Booking Packages', 'Sea Booking Packages', 'Air Shipment Packages',
-		'Sea Freight Packages', 'Transport Order Package', 'Transport Job Package'
+		'Sea Freight Packages', 'Transport Order Package', 'Transport Job Package',
+		'Special Project Package'
 	];
 
 	function _is_package_doctype(doctype) {

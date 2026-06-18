@@ -44,7 +44,8 @@ def install_purchase_invoice_print_format():
     
     frappe.db.commit()
     print("✓ BIR Purchase Invoice print format installed successfully!")
-    print("  You can now use it from Purchase Invoice > Print > BIR Purchase Invoice")
+    print("  Supports Purchase Invoice, Debit Note, and Credit Note (Return) in one format.")
+    print("  Use from Purchase Invoice > Print > BIR Purchase Invoice")
 
 if __name__ == "__main__":
     import sys

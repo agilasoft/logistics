@@ -6,6 +6,7 @@ from frappe.model.document import Document
 from frappe.utils import flt
 
 from logistics.utils.charges_calculation import (
+    apply_charge_type_side_cleanup,
     apply_disbursement_charge_calculation_if_applicable,
     calculate_charge_revenue,
     calculate_charge_cost,
@@ -25,6 +26,7 @@ class TransportJobCharges(Document):
 
     def _calculate_charges(self, parent_doc=None):
         """Recalculate only actual revenue and cost (basis for SI/PI). Estimated revenue/cost come from Order and are not changed."""
+        apply_charge_type_side_cleanup(self)
         parent = parent_doc
         if parent is None and getattr(self, "parent", None) and getattr(self, "parenttype", None):
             try:
