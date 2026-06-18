@@ -292,7 +292,9 @@ def _ensure_master_data():
     }
 
 
-def _get_or_create_charge_item(code, name, item_group, air=0, sea=0, transport=0):
+def _get_or_create_charge_item(
+    code, name, item_group, air=0, sea=0, transport=0, special_project=0, mice=0
+):
     """Create Item with logistics charge flags."""
     if frappe.db.exists("Item", code):
         return code
@@ -314,6 +316,10 @@ def _get_or_create_charge_item(code, name, item_group, air=0, sea=0, transport=0
         doc.custom_sea_forwarding_charge = 1
     if meta.get_field("custom_land_transport_charge") and transport:
         doc.custom_land_transport_charge = 1
+    if meta.get_field("custom_special_project_charge") and special_project:
+        doc.custom_special_project_charge = 1
+    if meta.get_field("custom_mice_charge") and mice:
+        doc.custom_mice_charge = 1
     doc.insert(ignore_permissions=True)
     return code
 
@@ -400,7 +406,7 @@ def _add_air_charges(doc, item_code):
         "charge_type": "Freight",
         "charge_category": "Transportation",
         "revenue_calculation_method": "Flat Rate",
-        "rate": 1500,
+        "unit_rate": 1500,
         "currency": "USD",
         "quantity": 1,
         "estimated_revenue": 1500,
@@ -460,7 +466,7 @@ def _create_sales_invoice_from_air_shipment(shipment_name, customer):
     note = _("Auto-created from Air Shipment {0}").format(shipment.name)
     invoice.remarks = f"{base_remarks}\n{note}" if base_remarks else note
     for ch in shipment.charges:
-        rev = flt(getattr(ch, "estimated_revenue", 0) or getattr(ch, "rate", 0) * flt(getattr(ch, "quantity", 1) or 1))
+        rev = flt(getattr(ch, "estimated_revenue", 0) or getattr(ch, "unit_rate", 0) * flt(getattr(ch, "quantity", 1) or 1))
         if rev <= 0:
             continue
         item_code = getattr(ch, "item_code", None)

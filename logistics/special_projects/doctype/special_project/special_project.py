@@ -91,6 +91,18 @@ def _format_row_idx_list(row_idxs: list[int], max_inline: int = 12) -> str:
 
 
 class SpecialProject(Document):
+	def _validate_links(self):
+		from logistics.special_projects.special_project_charge_execution import (
+			normalize_charge_execution_log_link_fields,
+		)
+		from logistics.special_projects.special_project_charge_lifecycle import (
+			normalize_lifecycle_job_order_job_fields,
+		)
+
+		normalize_lifecycle_job_order_job_fields(self)
+		normalize_charge_execution_log_link_fields(self)
+		super()._validate_links()
+
 	def validate(self):
 		validate_internal_job_activity_codes(self, module_filter=FOR_SPECIAL_PROJECT)
 		validate_special_project_lifecycle_stage_advance(self)
@@ -103,11 +115,24 @@ class SpecialProject(Document):
 		register_charge_resolution_parent(self)
 		try:
 			self.validate_accounts()
+			from logistics.special_projects.special_project_charge_lifecycle import (
+				recompute_all_charge_tag_allocations,
+				validate_charge_lifecycle_tags,
+				validate_lifecycle_job_line_not_referenced,
+			)
+
+			recompute_all_charge_tag_allocations(self)
+			validate_charge_lifecycle_tags(self)
+			self._validate_removed_lifecycle_rows()
 			from logistics.special_projects.special_project_packages import (
+				autofill_delivery_lifecycle_stages,
+				validate_deliveries_read_only,
 				validate_packages,
 			)
 
 			validate_packages(self)
+			validate_deliveries_read_only(self)
+			autofill_delivery_lifecycle_stages(self)
 			self._sync_charges_with_parent_actuals()
 			from logistics.special_projects.lifecycle_job_financial_rollup import (
 				sync_lifecycle_job_financials,
@@ -116,6 +141,31 @@ class SpecialProject(Document):
 			sync_lifecycle_job_financials(self)
 		finally:
 			clear_charge_resolution_parent(self)
+
+	def _validate_removed_lifecycle_rows(self) -> None:
+		if self.is_new():
+			return
+		old_names = set(
+			frappe.get_all(
+				"Lifecycle Job",
+				filters={
+					"parent": self.name,
+					"parenttype": "Special Project",
+					"parentfield": "lifecycle_jobs",
+				},
+				pluck="name",
+			)
+		)
+		new_names = {
+			row.name for row in self.get("lifecycle_jobs") or [] if getattr(row, "name", None)
+		}
+		removed = old_names - new_names
+		if removed:
+			from logistics.special_projects.special_project_charge_lifecycle import (
+				validate_lifecycle_job_line_not_referenced,
+			)
+
+			validate_lifecycle_job_line_not_referenced(self, removed)
 
 	def validate_accounts(self):
 		"""Ensure cost center / profit center / branch belong to company (same checks as Sea Shipment)."""
@@ -538,9 +588,23 @@ class SpecialProject(Document):
 		"""Auto-charge scoping costs when status changes to Booked."""
 		if self.has_value_changed("status") and self.status in ("Booked", "Approved", "Planning", "In Progress"):
 			self._maybe_charge_scoping_costs()
+		if self.get("lifecycle_jobs"):
+			from logistics.special_projects.lifecycle_job_financial_rollup import (
+				sync_lifecycle_job_financials,
+			)
+
+			sync_lifecycle_job_financials(self)
 
 	def after_insert(self):
 		"""Create Job Number on first save (deferred so the row exists before lookup)."""
+		if self.get("lifecycle_jobs"):
+			from logistics.special_projects.lifecycle_job_financial_rollup import (
+				sync_lifecycle_job_financials,
+			)
+
+			sync_lifecycle_job_financials(self)
+		# Document-management on_update during insert may leave ignore_validate set on this instance.
+		self.flags.ignore_validate = False
 		frappe.enqueue(
 			"logistics.special_projects.doctype.special_project.special_project.create_job_number_for_special_project",
 			queue="default",
@@ -669,7 +733,13 @@ def create_job_number_for_special_project(
 		return
 	existing = frappe.db.get_value("Job Number", {"job_type": "Special Project", "job_no": special_project_name})
 	if existing:
-		frappe.db.set_value("Special Project", special_project_name, "job_number", existing)
+		frappe.db.set_value(
+			"Special Project",
+			special_project_name,
+			"job_number",
+			existing,
+			update_modified=False,
+		)
 		frappe.db.commit()
 		return
 	project = frappe.db.get_value("Special Project", special_project_name, "project")
@@ -683,7 +753,13 @@ def create_job_number_for_special_project(
 	job_ref.job_open_date = open_date
 	job_ref.project = project
 	job_ref.insert(ignore_permissions=True)
-	frappe.db.set_value("Special Project", special_project_name, "job_number", job_ref.name)
+	frappe.db.set_value(
+		"Special Project",
+		special_project_name,
+		"job_number",
+		job_ref.name,
+		update_modified=False,
+	)
 	frappe.db.commit()
 
 
@@ -704,6 +780,31 @@ def charge_scoping_costs(special_project):
 	if changed:
 		doc.save()
 	return "Scoping costs charged."
+
+
+@frappe.whitelist()
+def sync_programme_charge_sales_quote_links(docname):
+	"""Backfill sales_quote_link on programme charges from linked Change Request sales_quote."""
+	from logistics.pricing_center.change_request_to_job import link_sales_quote_to_change_request_job_charges
+
+	doc = frappe.get_doc("Special Project", docname)
+	seen_cr: set[str] = set()
+	updated = 0
+	for row in doc.get("charges") or []:
+		cr = (getattr(row, "change_request", None) or "").strip()
+		if not cr or cr in seen_cr:
+			continue
+		if (getattr(row, "sales_quote_link", None) or "").strip():
+			continue
+		sq = (frappe.db.get_value("Change Request", cr, "sales_quote") or "").strip()
+		if not sq:
+			continue
+		seen_cr.add(cr)
+		updated += link_sales_quote_to_change_request_job_charges(cr, sq)
+
+	if updated:
+		doc.reload()
+	return {"updated": updated}
 
 
 @frappe.whitelist()

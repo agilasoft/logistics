@@ -1,0 +1,21 @@
+{
+ "app": "logistics",
+ "bg_color": "blue",
+ "creation": "2026-05-18 17:40:10.065325",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon": "ticket",
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "MICE",
+ "link_to": "MICE",
+ "link_type": "Workspace Sidebar",
+ "modified": "2026-05-18 17:40:10.211982",
+ "modified_by": "Administrator",
+ "name": "MICE",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [],
+ "standard": 1
+}

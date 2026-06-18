@@ -30,12 +30,7 @@
   "auto_create_job_costing",
   "enable_milestone_tracking",
   "integration_settings_section",
-  "enable_vessel_tracking",
-  "vessel_tracking_provider",
-  "vessel_tracking_api_key",
-  "vessel_tracking_column_break",
-  "vessel_tracking_api_user",
-  "vessel_tracking_api_secret",
+  "integration_settings_html",
   "enable_customs_clearance_tracking",
   "column_break_integration",
   "enable_edi_integration",
@@ -335,42 +330,9 @@
    "label": "Integration Settings"
   },
   {
-   "default": "0",
-   "fieldname": "enable_vessel_tracking",
-   "fieldtype": "Check",
-   "label": "Enable Vessel Tracking"
-  },
-  {
-   "depends_on": "eval:doc.enable_vessel_tracking",
-   "fieldname": "vessel_tracking_provider",
-   "fieldtype": "Select",
-   "label": "Vessel tracking provider",
-   "options": "VesselAPI\nMarinesia\nVesselFinder"
-  },
-  {
-   "depends_on": "eval:doc.enable_vessel_tracking",
-   "fieldname": "vessel_tracking_api_key",
-   "fieldtype": "Password",
-   "label": "Vessel tracking API key"
-  },
-  {
-   "depends_on": "eval:doc.enable_vessel_tracking",
-   "fieldname": "vessel_tracking_column_break",
-   "fieldtype": "Column Break"
-  },
-  {
-   "depends_on": "eval:doc.enable_vessel_tracking",
-   "description": "Some providers (e.g. VesselFinder) require an API user id or username in addition to the key",
-   "fieldname": "vessel_tracking_api_user",
-   "fieldtype": "Data",
-   "label": "Vessel tracking API user"
-  },
-  {
-   "depends_on": "eval:doc.enable_vessel_tracking",
-   "description": "Secondary secret/password when required by the provider",
-   "fieldname": "vessel_tracking_api_secret",
-   "fieldtype": "Password",
-   "label": "Vessel tracking API secret"
+   "fieldname": "integration_settings_html",
+   "fieldtype": "HTML",
+   "options": "<div class='text-muted small'>Vessel tracking is configured site-wide in <b>GoConnect Settings &rsaquo; Vessel</b> (providers, API keys, cache TTL, default fallback). Per-company toggles are no longer required.</div>"
   },
   {
    "default": "0",

@@ -19,6 +19,23 @@
    "insert_after": "reference_doctype",
    "hidden": 1,
    "description": "Logistics job/shipment name"
+  },
+  {
+   "dt": "Purchase Invoice",
+   "fieldname": "custom_invoice_type",
+   "fieldtype": "Link",
+   "label": "Invoice Type",
+   "options": "Invoice Type",
+   "insert_after": "due_date",
+   "read_only": 1
+  },
+  {
+   "dt": "Purchase Invoice",
+   "fieldname": "is_debit_note",
+   "fieldtype": "Check",
+   "label": "Is Debit Note",
+   "insert_after": "is_return",
+   "default": "0"
   }
  ],
  "custom_perms": [],

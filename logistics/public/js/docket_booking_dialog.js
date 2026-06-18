@@ -126,7 +126,7 @@
 		const esc = frappe.utils.escape_html;
 		const rows = charges
 			.map(function (c) {
-				const rate = c.rate != null ? c.rate : c.unit_rate != null ? c.unit_rate : c.per_unit_rate;
+				const rate = c.unit_rate != null ? c.unit_rate : c.per_unit_rate;
 				const cur = c.currency || c.selling_currency || "";
 				const label = (c.item_code || "") + (c.item_name ? " — " + c.item_name : "");
 				return (
@@ -215,7 +215,7 @@
 		const dec = _decodeChoice(choiceEnc);
 		$pv.html(_renderPreviewHtml(null));
 		frappe.call({
-			method: "logistics.exhibits.doctype.docket.docket_booking_creation.get_docket_booking_preview",
+			method: "logistics.mice.doctype.docket.docket_booking_creation.get_docket_booking_preview",
 			args: {
 				docket: frm.doc.name,
 				job_type: dec.job_type != null ? dec.job_type : "",
@@ -321,23 +321,42 @@
 		return $wrap;
 	}
 
+	/**
+	 * Navigate to the freshly created booking/order. Uses the shared
+	 * ``logistics_navigate_when_doc_exists`` helper (from internal_job_create_from_source.js,
+	 * loaded via app_include_js) to poll the row's existence first; this prevents the
+	 * "<Doctype> ... not found" message that the desk shows when ``frappe.set_route``
+	 * loads the new form before the just-inserted row is visible to the next request.
+	 */
 	function _routeAfterCreate(msg) {
+		function _go(doctype, docname) {
+			function navigate() {
+				frappe.set_route("Form", doctype, docname);
+			}
+			if (window.logistics_navigate_when_doc_exists) {
+				window.logistics_navigate_when_doc_exists(doctype, docname, navigate);
+			} else {
+				navigate();
+			}
+		}
 		if (msg.air_booking) {
-			frappe.set_route("Form", "Air Booking", msg.air_booking);
+			_go("Air Booking", msg.air_booking);
 		} else if (msg.sea_booking) {
-			frappe.set_route("Form", "Sea Booking", msg.sea_booking);
+			_go("Sea Booking", msg.sea_booking);
 		} else if (msg.transport_order) {
-			frappe.set_route("Form", "Transport Order", msg.transport_order);
+			_go("Transport Order", msg.transport_order);
 		} else if (msg.declaration_order) {
-			frappe.set_route("Form", "Declaration Order", msg.declaration_order);
+			_go("Declaration Order", msg.declaration_order);
 		} else if (msg.inbound_order) {
-			frappe.set_route("Form", "Inbound Order", msg.inbound_order);
+			_go("Inbound Order", msg.inbound_order);
+		} else if (msg.mice_order) {
+			_go("MICE Order", msg.mice_order);
 		}
 	}
 
 	function _callCreate(frm, dec, onDialogHide) {
 		frappe.call({
-			method: "logistics.exhibits.doctype.docket.docket_booking_creation.create_booking_or_order_from_docket",
+			method: "logistics.mice.doctype.docket.docket_booking_creation.create_booking_or_order_from_docket",
 			args: {
 				docket: frm.doc.name,
 				job_type: dec.job_type,
@@ -352,7 +371,14 @@
 				if (r.message.message) {
 					frappe.show_alert({ message: r.message.message, indicator: "green" }, 5);
 				}
-				_routeAfterCreate(r.message);
+				function _afterReload() {
+					_routeAfterCreate(r.message);
+				}
+				if (frm && frm.doc && frm.doc.name && typeof frm.reload_doc === "function") {
+					frm.reload_doc().then(_afterReload).catch(_afterReload);
+				} else {
+					_afterReload();
+				}
 			},
 		});
 	}
@@ -425,7 +451,7 @@
 			return;
 		}
 		frappe.call({
-			method: "logistics.exhibits.doctype.docket.docket_booking_creation.get_docket_booking_choices",
+			method: "logistics.mice.doctype.docket.docket_booking_creation.get_docket_booking_choices",
 			args: {
 				docket: frm.doc.name,
 				internal_jobs: _internalJobsPayload(frm),

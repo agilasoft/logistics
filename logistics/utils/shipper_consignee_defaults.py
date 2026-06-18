@@ -68,7 +68,8 @@ def _apply_shipper_air_booking(doc, s):
 
 
 def _apply_shipper_air_shipment(doc, s):
-	_apply_pairs(doc, s, _AIR_SHIPPER_DEFAULT_PAIRS + [("broker", "air_default_broker")])
+	# Air Shipment.broker is Broker; master air_default_broker is Freight Agent — map to freight_agent.
+	_apply_pairs(doc, s, _AIR_SHIPPER_DEFAULT_PAIRS + [("freight_agent", "air_default_broker")])
 
 
 def _apply_shipper_sea_booking(doc, s):
@@ -173,7 +174,7 @@ def _apply_consignee_air_shipment(doc, c):
 		c,
 		[("customs_broker", "air_default_customs_broker")]
 		+ _AIR_CONSIGNEE_DEFAULT_PAIRS
-		+ [("broker", "air_default_broker")],
+		+ [("freight_agent", "air_default_broker")],
 	)
 
 

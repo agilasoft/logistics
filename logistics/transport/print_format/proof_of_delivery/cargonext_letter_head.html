@@ -1,0 +1,46 @@
+<div class="ql-editor read-mode">
+{% set resolved_company = doc.company or "" %}
+{% if not resolved_company and doc.transport_job %}
+{% set resolved_company = frappe.db.get_value("Transport Job", doc.transport_job, "company") or "" %}
+{% endif %}
+{% if not resolved_company and doc.sales_quote %}
+{% set resolved_company = frappe.db.get_value("Sales Quote", doc.sales_quote, "company") or "" %}
+{% endif %}
+{% if not resolved_company %}
+{% set resolved_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") or "" %}
+{% endif %}
+{% if resolved_company %}
+{% set company_doc = frappe.get_doc("Company", resolved_company) %}
+{% set company_name = (company_doc.company_name or company_doc.name).upper() %}
+{% set company_logo = company_doc.company_logo or company_doc.logo %}
+{# --- Resolve branch identifier from the document --- #}
+{% set branch_value = doc.custom_branch or doc.custom_branch_code or doc.branch %}
+{# --- Find registration_details from Company Branches child table --- #}
+{% set ns = namespace(registration_details=None, branch_tin=None) %}
+{% if branch_value and company_doc.custom_company_branches %}
+{% for cb in company_doc.custom_company_branches %}
+{% if cb.branch == branch_value %}
+{% set ns.registration_details = cb.registration_details %}
+{% set ns.branch_tin = cb.branch_tin %}
+{% endif %}
+{% endfor %}
+{% endif %}
+<table style="width: 100%; border-collapse: collapse;">
+<tbody><tr>
+<!-- LEFT SIDE: Company Name + Registration -->
+<td style="vertical-align: top; width: 70%;">
+<strong style="color:#111; font-size:16px;"> {{ company_name }} </strong><br>
+{% if ns.registration_details %}
+<div style="color:#111; font-size:12px; margin-top:4px;"> {{ ns.registration_details | safe }} </div>
+{% endif %}
+</td>
+<!-- RIGHT SIDE: Logo -->
+<td style="text-align: right; vertical-align: top; width: 30%;">
+{% if company_logo %}
+<img src="{{ company_logo }}" alt="{{ company_name }} Logo" style="height:60px; width:auto; object-fit:contain;">
+{% endif %}
+</td>
+</tr>
+</tbody></table>
+{% endif %}
+</div>

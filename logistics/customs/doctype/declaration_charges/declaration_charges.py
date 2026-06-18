@@ -7,6 +7,7 @@ from frappe.utils import flt
 from logistics.utils.other_services_charges_sync import validate_charge_item_not_manual_other_service
 from logistics.utils.freight_95_5 import validate_freight_95_5_row
 from logistics.utils.charges_calculation import (
+    apply_charge_type_side_cleanup,
     apply_disbursement_charge_calculation_if_applicable,
     calculate_charge_revenue,
     calculate_charge_cost,
@@ -23,6 +24,7 @@ class DeclarationCharges(Document):
 
     def _calculate_charges(self, parent_doc=None):
         """Recalculate only actual revenue and cost (basis for SI/PI). Estimated revenue/cost come from Declaration Order and are not changed."""
+        apply_charge_type_side_cleanup(self)
         if apply_disbursement_charge_calculation_if_applicable(self, parent_doc):
             if hasattr(self, "total_amount"):
                 self.total_amount = flt(self.estimated_revenue) or 0

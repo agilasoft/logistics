@@ -195,6 +195,21 @@ def get_docket_booking_choices(docket: str, internal_jobs: Any = None):
 		jt = _dialog_creatable_job_type(row)
 		jn = (getattr(row, "job_no", None) or "").strip()
 		creatable = bool(jt) and jt in DOCKET_CREATABLE_JOB_TYPES and not jn
+		not_creatable_message = None
+		if creatable:
+			from logistics.utils.internal_job_creation_eligibility import (
+				evaluate_internal_job_creation_eligibility,
+			)
+
+			elig = evaluate_internal_job_creation_eligibility(
+				sales_quote=getattr(doc, "sales_quote", None),
+				parent_doc=doc,
+				ij_row=row,
+				service_type_label=st,
+			)
+			if not elig.get("eligible"):
+				creatable = False
+				not_creatable_message = elig.get("message")
 		header = _choice_header(jt, row, idx, jn)
 		cancelled = bool(jn and linked_internal_job_target_is_cancelled(jt, jn))
 		if cancelled:
@@ -211,6 +226,7 @@ def get_docket_booking_choices(docket: str, internal_jobs: Any = None):
 				"service_type": st or None,
 				"job_no": jn or None,
 				"creatable": creatable,
+				"not_creatable_message": not_creatable_message,
 				**header,
 			}
 		)
@@ -335,16 +351,26 @@ def get_docket_booking_preview(
 				}
 			)
 
-		return {
-			"job_type": jt,
-			"detail_idx": res_idx,
-			"uses_job_detail_row": row is not None,
-			"creatable": True,
-			"source_context": source_context,
-			"target_internal_job": None,
-			"job_detail_parameters": preview_params,
-			"charges": charges_preview,
-		}
+		from logistics.utils.internal_job_creation_eligibility import (
+			apply_eligibility_to_preview_flags,
+		)
+
+		return apply_eligibility_to_preview_flags(
+			{
+				"job_type": jt,
+				"detail_idx": res_idx,
+				"uses_job_detail_row": row is not None,
+				"creatable": True,
+				"source_context": source_context,
+				"target_internal_job": None,
+				"job_detail_parameters": preview_params,
+				"charges": charges_preview,
+			},
+			sales_quote=getattr(doc, "sales_quote", None),
+			parent_doc=doc,
+			ij_row=row,
+			service_type_label=(getattr(row, "service_type", None) or "").strip() if row else None,
+		)
 
 
 def _apply_sales_quote_parties_to_target(target_doc: Any, dk_doc: Any) -> None:
@@ -560,6 +586,9 @@ def _prepare_charges_before_insert(dk_doc: Any, target_doc: Any, row: Any | None
 
 	if not new_rows:
 		_populate_charges_from_linked_sales_quote(target_doc)
+		from logistics.utils.charge_service_type import filter_operational_doc_charges_for_internal_job_row
+
+		filter_operational_doc_charges_for_internal_job_row(target_doc, row)
 		return
 
 	target_doc.set("charges", [])
@@ -608,18 +637,11 @@ def _booking_date_field(target_doc: Any) -> str | None:
 
 def _persist_row_link(dk_name: str, job_type: str, job_no: str, detail_idx: int) -> None:
 	"""Write job_type and job_no back onto the Docket's Internal Job row."""
-	if not (job_type and job_no and detail_idx):
-		return
-	parent = frappe.get_doc("Docket", dk_name)
-	rows = parent.get("internal_jobs") or []
-	if detail_idx < 1 or detail_idx > len(rows):
-		frappe.throw(_("Invalid Internal Job row index for persist."))
-	row = rows[detail_idx - 1]
-	row.job_type = job_type
-	row.job_no = job_no
-	parent.flags.ignore_validate_update_after_submit = True
-	parent.flags.ignore_charges_sync = True
-	parent.save(ignore_permissions=True)
+	from logistics.utils.internal_job_detail_copy import persist_internal_job_detail_job_link
+
+	persist_internal_job_detail_job_link(
+		"Docket", dk_name, job_type, job_no, detail_idx=detail_idx
+	)
 
 
 def _create_air_booking(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
@@ -757,5 +779,15 @@ def create_booking_or_order_from_docket(
 			)
 		if resolved_idx is None:
 			frappe.throw(_("Could not resolve the Internal Job row to update after creation."))
+		from logistics.utils.internal_job_creation_eligibility import (
+			require_internal_job_creation_eligible,
+		)
+
+		require_internal_job_creation_eligible(
+			sales_quote=getattr(dk_doc, "sales_quote", None),
+			parent_doc=dk_doc,
+			ij_row=row,
+			service_type_label=(getattr(row, "service_type", None) or "").strip(),
+		)
 		handler = _CREATE_DISPATCH[jt]
 		return handler(dk_doc, row, resolved_idx)

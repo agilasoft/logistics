@@ -51,9 +51,9 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Flight Schedule Settings",
+   "label": "GoConnect Settings (Flight)",
    "link_count": 0,
-   "link_to": "Flight Schedule Settings",
+   "link_to": "GoConnect Settings",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"

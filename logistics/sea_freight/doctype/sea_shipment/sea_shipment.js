@@ -243,10 +243,7 @@ frappe.ui.form.on('Sea Shipment', {
 			return { filters: { is_active: 1 } };
 		});
 		frm.set_query('shipper_address', function() {
-			if (frm.doc.shipper) {
-				return { filters: [['Dynamic Link', 'link_doctype', '=', 'Shipper'], ['Dynamic Link', 'link_name', '=', frm.doc.shipper]] };
-			}
-			return {};
+			return logistics.address.query_for_link('Shipper', frm.doc.shipper);
 		});
 		frm.set_query('shipper_contact', function() {
 			if (frm.doc.shipper) {
@@ -255,10 +252,7 @@ frappe.ui.form.on('Sea Shipment', {
 			return {};
 		});
 		frm.set_query('consignee_address', function() {
-			if (frm.doc.consignee) {
-				return { filters: [['Dynamic Link', 'link_doctype', '=', 'Consignee'], ['Dynamic Link', 'link_name', '=', frm.doc.consignee]] };
-			}
-			return {};
+			return logistics.address.query_for_link('Consignee', frm.doc.consignee);
 		});
 		frm.set_query('consignee_contact', function() {
 			if (frm.doc.consignee) {

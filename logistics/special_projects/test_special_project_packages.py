@@ -10,11 +10,15 @@ from logistics.special_projects.special_project_packages import (
 	apply_shipment_lines_to_target,
 	build_receipts_from_freight_shipment,
 	build_receipts_from_project_doc,
+	build_receipts_from_transport_job,
 	build_receipts_from_transport_order,
 	copy_always_along_packages_to_target,
+	post_site_receipts_from_freight_shipment,
+	post_site_receipts_from_project_doc,
 	resolve_special_project_from_project,
 	seed_packages_from_sales_quote,
 	sync_package_delivery_balances,
+	_resolve_sp_package_for_operational_line,
 )
 from logistics.special_projects.doctype.special_project.special_project import (
 	_packages_summary_per_stage_delivered,
@@ -224,6 +228,8 @@ class TestShipmentLinesAndCargo(UnitTestCase):
 					commodity="COMM-A",
 					description="Item A",
 					uom="Nos",
+					qty_required=100,
+					qty_short=100,
 				),
 			],
 		)
@@ -245,6 +251,8 @@ class TestShipmentLinesAndCargo(UnitTestCase):
 		self.assertEqual(tro.packages[0].quantity, 50)
 		self.assertEqual(tro.packages[0].warehouse_item, "WI-A")
 		self.assertEqual(tro.packages[0].commodity, "COMM-A")
+		if tro.packages[0].meta.get_field("package_row"):
+			self.assertEqual(tro.packages[0].package_row, 1)
 
 	def test_apply_shipment_lines_carries_dimensions(self):
 		sp = frappe._dict(
@@ -255,6 +263,8 @@ class TestShipmentLinesAndCargo(UnitTestCase):
 					commodity="COMM-A",
 					description="Item A",
 					uom="Nos",
+					qty_required=100,
+					qty_short=100,
 					length=1.2,
 					width=0.8,
 					height=0.6,
@@ -316,14 +326,72 @@ class TestShipmentLinesAndCargo(UnitTestCase):
 		self.assertEqual(tro.packages[0].description, "Tool kit")
 
 
-class TestTransportOrderReceiptPosting(UnitTestCase):
+class TestPackageRowIdentity(UnitTestCase):
+	def test_sync_balances_isolated_for_duplicate_warehouse_items(self):
+		sp = frappe._dict(
+			packages=[
+				frappe._dict(idx=1, warehouse_item="WI-A", qty_required=100),
+				frappe._dict(idx=2, warehouse_item="WI-A", qty_required=200),
+			],
+			deliveries=[
+				frappe._dict(
+					idx=1,
+					package_row=2,
+					warehouse_item="WI-A",
+					qty_received=50,
+					status="Posted",
+				),
+			],
+		)
+		sync_package_delivery_balances(sp)
+		self.assertEqual(sp.packages[0].qty_on_site, 0)
+		self.assertEqual(sp.packages[0].qty_short, 100)
+		self.assertEqual(sp.packages[1].qty_on_site, 50)
+		self.assertEqual(sp.packages[1].qty_short, 150)
+
+	def test_resolve_explicit_package_row(self):
+		sp = frappe._dict(
+			packages=[
+				frappe._dict(idx=1, warehouse_item="WI-A", qty_required=100),
+				frappe._dict(idx=2, warehouse_item="WI-A", qty_required=200),
+			],
+		)
+		op_line = frappe._dict(package_row=2, warehouse_item="WI-A", quantity=10)
+		mat, row = _resolve_sp_package_for_operational_line(sp, op_line)
+		self.assertEqual(row, 2)
+		self.assertEqual(getattr(mat, "idx", None), 2)
+
+	def test_resolve_ambiguous_without_package_row_throws(self):
+		sp = frappe._dict(
+			packages=[
+				frappe._dict(idx=1, warehouse_item="WI-A", qty_required=100),
+				frappe._dict(idx=2, warehouse_item="WI-A", qty_required=200),
+			],
+		)
+		op_line = frappe._dict(warehouse_item="WI-A", quantity=10)
+		with self.assertRaises(frappe.ValidationError):
+			_resolve_sp_package_for_operational_line(sp, op_line)
+
+	def test_resolve_single_legacy_match_without_package_row(self):
+		sp = frappe._dict(
+			packages=[
+				frappe._dict(idx=1, warehouse_item="WI-A", qty_required=100),
+			],
+		)
+		op_line = frappe._dict(warehouse_item="WI-A", quantity=10)
+		mat, row = _resolve_sp_package_for_operational_line(sp, op_line)
+		self.assertEqual(row, 1)
+		self.assertEqual(getattr(mat, "idx", None), 1)
+
+
+class TestTransportJobReceiptPosting(UnitTestCase):
 	def test_build_receipts_skips_zero_qty(self):
 		sp_name = "SP-TEST-RECEIPT"
 		if not frappe.db.exists("Special Project", sp_name):
 			return
-		tro = frappe._dict(
-			doctype="Transport Order",
-			name="TRO-TEST-RECEIPT",
+		tj = frappe._dict(
+			doctype="Transport Job",
+			name="TJ-TEST-RECEIPT",
 			project=sp_name,
 			container_no="CONT-99",
 			packages=[
@@ -331,10 +399,50 @@ class TestTransportOrderReceiptPosting(UnitTestCase):
 				frappe._dict(idx=2, quantity=0),
 			],
 		)
-		rows = build_receipts_from_transport_order(tro)
+		rows = build_receipts_from_transport_job(tj)
 		self.assertEqual(len(rows), 1)
 		self.assertEqual(rows[0]["qty_received"], 25)
 		self.assertEqual(rows[0]["warehouse_item"], "WI-TEST")
+		self.assertEqual(rows[0]["source_job_type"], "Transport Job")
+		options = frappe.get_meta("Special Project Site Receipt").get_options("source_job_type")
+		self.assertIn("Transport Job", options.split("\n"))
+
+	def test_stage_from_lifecycle_job_matches_execution_job_no(self):
+		from logistics.special_projects.special_project_packages import _stage_from_lifecycle_job
+
+		sp = frappe._dict(
+			lifecycle_jobs=[
+				frappe._dict(
+					job_type="Transport Order",
+					order_no="TRO-001",
+					job_no="TRJ-001",
+					lifecycle_stage="Delivery to site",
+				),
+			],
+		)
+		self.assertEqual(
+			_stage_from_lifecycle_job(sp, "Transport Job", "TRJ-001"),
+			"Delivery to site",
+		)
+		self.assertEqual(
+			_stage_from_lifecycle_job(sp, "Transport Order", "TRO-001"),
+			"Delivery to site",
+		)
+
+	def test_transport_job_submit_hook_registered(self):
+		from logistics.hooks import doc_events
+
+		submit = doc_events.get("Transport Job", {}).get("on_submit")
+		if isinstance(submit, list):
+			self.assertIn(
+				"logistics.special_projects.special_project_packages.on_transport_job_submit",
+				submit,
+			)
+		else:
+			self.assertEqual(
+				submit,
+				"logistics.special_projects.special_project_packages.on_transport_job_submit",
+			)
 
 
 class TestResolveSpecialProject(UnitTestCase):
@@ -345,15 +453,90 @@ class TestResolveSpecialProject(UnitTestCase):
 		self.assertEqual(resolve_special_project_from_project(sp_name), sp_name)
 
 
-class TestProjectDocReceiptPosting(UnitTestCase):
-	"""Coverage for build_receipts_from_project_doc (Project Order / Project Job)."""
+class TestPlanningDocsDoNotPostReceipts(UnitTestCase):
+	"""Delivered must not move on booking/order submit — only execution jobs/shipments."""
 
 	def _existing_sp_name(self) -> str | None:
 		return frappe.db.get_value("Special Project", {}, "name")
 
+	def test_project_order_build_receipts_returns_empty(self):
+		sp_name = self._existing_sp_name()
+		if not sp_name:
+			return
+		doc = frappe._dict(
+			doctype="Project Order",
+			name="SPOR-TEST-NO-POST",
+			special_project=sp_name,
+			materials_received=[
+				frappe._dict(idx=1, qty_received=99, warehouse_item="WI-TEST"),
+			],
+		)
+		self.assertEqual(build_receipts_from_project_doc(doc), [])
+		self.assertEqual(post_site_receipts_from_project_doc(doc), 0)
+
+	def test_air_booking_build_receipts_returns_empty(self):
+		sp_name = self._existing_sp_name()
+		if not sp_name:
+			return
+		doc = frappe._dict(
+			doctype="Air Booking",
+			name="ABK-TEST-NO-POST",
+			project=sp_name,
+			packages=[
+				frappe._dict(idx=1, no_of_packs=50, warehouse_item="WI-AIR"),
+			],
+		)
+		self.assertEqual(build_receipts_from_freight_shipment(doc), [])
+		self.assertEqual(post_site_receipts_from_freight_shipment(doc), 0)
+
+	def test_sea_booking_build_receipts_returns_empty(self):
+		sp_name = self._existing_sp_name()
+		if not sp_name:
+			return
+		doc = frappe._dict(
+			doctype="Sea Booking",
+			name="SBK-TEST-NO-POST",
+			project=sp_name,
+			packages=[
+				frappe._dict(idx=1, no_of_packs=30, warehouse_item="WI-SEA"),
+			],
+		)
+		self.assertEqual(build_receipts_from_freight_shipment(doc), [])
+
+	def test_transport_order_build_receipts_returns_empty(self):
+		sp_name = self._existing_sp_name()
+		if not sp_name:
+			return
+		doc = frappe._dict(
+			doctype="Transport Order",
+			name="TRO-TEST-NO-POST",
+			project=sp_name,
+			packages=[
+				frappe._dict(idx=1, quantity=50, warehouse_item="WI-ROAD"),
+			],
+		)
+		self.assertEqual(build_receipts_from_transport_order(doc), [])
+
+
+class TestProjectDocReceiptPosting(UnitTestCase):
+	"""Coverage for build_receipts_from_project_doc (Project Job only)."""
+
+	def _existing_sp_name(self) -> str | None:
+		return frappe.db.get_value("Special Project", {}, "name")
+
+	def _first_tracked_package(self, sp_name: str):
+		sp_doc = frappe.get_doc("Special Project", sp_name)
+		for pkg in sp_doc.packages or []:
+			if not getattr(pkg, "include_on_create", None):
+				return pkg
+		return None
+
 	def test_project_job_build_receipts_basic(self):
 		sp_name = self._existing_sp_name()
 		if not sp_name:
+			return
+		pkg = self._first_tracked_package(sp_name)
+		if not pkg:
 			return
 		doc = frappe._dict(
 			doctype="Project Job",
@@ -361,7 +544,11 @@ class TestProjectDocReceiptPosting(UnitTestCase):
 			special_project=sp_name,
 			materials_received=[
 				frappe._dict(
-					idx=1, qty_received=30, warehouse_item="WI-TEST", description="Mat"
+					idx=1,
+					qty_received=30,
+					package_row=pkg.idx,
+					warehouse_item=pkg.warehouse_item,
+					description=getattr(pkg, "description", None) or "Mat",
 				),
 				frappe._dict(idx=2, qty_received=0, warehouse_item="WI-ZERO"),
 			],
@@ -369,7 +556,8 @@ class TestProjectDocReceiptPosting(UnitTestCase):
 		rows = build_receipts_from_project_doc(doc)
 		self.assertEqual(len(rows), 1)
 		self.assertEqual(rows[0]["qty_received"], 30)
-		self.assertEqual(rows[0]["warehouse_item"], "WI-TEST")
+		self.assertEqual(rows[0]["package_row"], pkg.idx)
+		self.assertEqual(rows[0]["warehouse_item"], pkg.warehouse_item)
 		self.assertEqual(rows[0]["source_job_type"], "Project Job")
 		self.assertEqual(rows[0]["source_doctype"], "Project Job")
 		self.assertEqual(rows[0]["source_name"], "SPJ-TEST-RECEIPT")
@@ -391,10 +579,21 @@ class TestFreightShipmentReceiptPosting(UnitTestCase):
 	def _existing_sp_name(self) -> str | None:
 		return frappe.db.get_value("Special Project", {}, "name")
 
+	def _first_tracked_package(self, sp_name: str):
+		sp_doc = frappe.get_doc("Special Project", sp_name)
+		for pkg in sp_doc.packages or []:
+			if not getattr(pkg, "include_on_create", None):
+				return pkg
+		return None
+
 	def test_air_shipment_build_receipts_reads_goods_description_and_packs(self):
 		sp_name = self._existing_sp_name()
 		if not sp_name:
 			return
+		pkg = self._first_tracked_package(sp_name)
+		if not pkg:
+			return
+		goods_description = getattr(pkg, "description", None) or "Tarpaulin bundles"
 		doc = frappe._dict(
 			doctype="Air Shipment",
 			name="ASP-TEST-RECEIPT",
@@ -403,11 +602,12 @@ class TestFreightShipmentReceiptPosting(UnitTestCase):
 			packages=[
 				frappe._dict(
 					idx=1,
+					package_row=pkg.idx,
 					no_of_packs=40,
-					warehouse_item="WI-AIR",
-					commodity="Construction Materials",
-					goods_description="Tarpaulin bundles",
-					uom="Piece",
+					warehouse_item=pkg.warehouse_item,
+					commodity=getattr(pkg, "commodity", None),
+					goods_description=goods_description,
+					uom=getattr(pkg, "uom", None) or "Piece",
 				),
 				frappe._dict(idx=2, no_of_packs=0, warehouse_item="WI-ZERO"),
 			],
@@ -415,8 +615,9 @@ class TestFreightShipmentReceiptPosting(UnitTestCase):
 		rows = build_receipts_from_freight_shipment(doc)
 		self.assertEqual(len(rows), 1)
 		self.assertEqual(rows[0]["qty_received"], 40)
-		self.assertEqual(rows[0]["warehouse_item"], "WI-AIR")
-		self.assertEqual(rows[0]["description"], "Tarpaulin bundles")
+		self.assertEqual(rows[0]["warehouse_item"], pkg.warehouse_item)
+		self.assertEqual(rows[0]["package_row"], pkg.idx)
+		self.assertEqual(rows[0]["description"], goods_description)
 		self.assertEqual(rows[0]["source_doctype"], "Air Shipment")
 		self.assertEqual(rows[0]["source_name"], "ASP-TEST-RECEIPT")
 		self.assertEqual(rows[0]["source_package_idx"], 1)
@@ -437,6 +638,10 @@ class TestFreightShipmentReceiptPosting(UnitTestCase):
 		sp_name = self._existing_sp_name()
 		if not sp_name:
 			return
+		pkg = self._first_tracked_package(sp_name)
+		if not pkg:
+			return
+		goods_description = getattr(pkg, "description", None) or "Pallet of bricks"
 		doc = frappe._dict(
 			doctype="Sea Shipment",
 			name="SSP-TEST-RECEIPT",
@@ -445,13 +650,15 @@ class TestFreightShipmentReceiptPosting(UnitTestCase):
 			packages=[
 				frappe._dict(
 					idx=1,
+					package_row=pkg.idx,
 					no_of_packs=12,
-					warehouse_item="WI-SEA",
-					goods_description="Pallet of bricks",
+					warehouse_item=pkg.warehouse_item,
+					goods_description=goods_description,
 				),
 			],
 		)
 		rows = build_receipts_from_freight_shipment(doc)
 		self.assertEqual(len(rows), 1)
 		self.assertEqual(rows[0]["source_doctype"], "Sea Shipment")
-		self.assertEqual(rows[0]["description"], "Pallet of bricks")
+		self.assertEqual(rows[0]["package_row"], pkg.idx)
+		self.assertEqual(rows[0]["description"], goods_description)

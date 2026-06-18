@@ -1130,7 +1130,7 @@ def _validate_job_completeness(job: Any, *, on_submit: bool = False) -> None:
 
     ch_fields = _safe_meta_fieldnames("Warehouse Job Charges")
     has_qty   = "quantity" in ch_fields
-    has_rate  = "rate" in ch_fields
+    has_rate  = "unit_rate" in ch_fields
     has_total = "total" in ch_fields
 
     for r in ch_rows:
@@ -1141,7 +1141,7 @@ def _validate_job_completeness(job: Any, *, on_submit: bool = False) -> None:
             continue
 
         qty   = flt(getattr(r, "quantity", 0.0)) if has_qty   else 0.0
-        rate  = flt(getattr(r, "rate", 0.0))     if has_rate  else 0.0
+        rate  = flt(getattr(r, "unit_rate", 0.0)) if has_rate else 0.0
         total = flt(getattr(r, "total", 0.0))    if has_total else 0.0
 
         if not ((qty > 0 and rate > 0) or (total > 0) or (rate > 0)):
@@ -1228,7 +1228,7 @@ def create_sales_invoice_from_periodic_billing(
 
     cf = _safe_meta_fieldnames("Periodic Billing Charge")
     row_has_currency = "currency" in cf
-    row_has_rate     = "rate" in cf
+    row_has_rate     = "unit_rate" in cf
     row_has_total    = "total" in cf
     row_has_uom      = "uom" in cf
     row_has_itemname = "item_name" in cf
@@ -1244,7 +1244,7 @@ def create_sales_invoice_from_periodic_billing(
             continue
 
         qty   = flt(getattr(ch, "quantity", 0.0)) if row_has_qty   else 0.0
-        rate  = flt(getattr(ch, "rate", 0.0))     if row_has_rate  else 0.0
+        rate  = flt(getattr(ch, "unit_rate", 0.0)) if row_has_rate else 0.0
         total = flt(getattr(ch, "total", 0.0))    if row_has_total else 0.0
         uom   = (getattr(ch, "uom", None) or None) if row_has_uom else None
         item_name = (getattr(ch, "item_name", None) or None) if row_has_itemname else None

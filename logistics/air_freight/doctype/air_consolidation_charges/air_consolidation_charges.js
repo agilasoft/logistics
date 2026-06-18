@@ -2,18 +2,12 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Air Consolidation Charges", {
-	charge_type: function (frm, cdt, cdn) {
-		var row = locals[cdt] && locals[cdt][cdn];
-		if (row && row.charge_type === "Disbursement") {
-			_calculate_air_consolidation_charge_row(frm, cdt, cdn);
-		}
-	},
 	revenue_calculation_method: function (frm, cdt, cdn) {
 		_calculate_air_consolidation_charge_row(frm, cdt, cdn, {
 			sync_qty_for_unit_type: true,
 		});
 	},
-	rate: function (frm, cdt, cdn) {
+	unit_rate: function (frm, cdt, cdn) {
 		_calculate_air_consolidation_charge_row(frm, cdt, cdn);
 	},
 	quantity: function (frm, cdt, cdn) {

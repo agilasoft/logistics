@@ -13,13 +13,9 @@ frappe.ui.form.on('Container Depot', {
       return contact_names.length ? { filters: { name: ['in', contact_names] } } : { filters: { name: '__none__' } };
     });
 
-    // Primary Address query → only addresses linked to this Container Depot
     frm.set_query('containerdepot_primary_address', function (doc) {
       if (doc.__islocal || !doc.name) return { filters: { name: '__none__' } };
-      return {
-        query: 'frappe.contacts.doctype.address.address.address_query',
-        filters: { link_doctype: 'Container Depot', link_name: doc.name },
-      };
+      return logistics.address.query_for_link('Container Depot', doc.name);
     });
   },
 

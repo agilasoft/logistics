@@ -28,7 +28,8 @@
    "fieldname": "package_row",
    "fieldtype": "Int",
    "in_list_view": 1,
-   "label": "Package Row"
+   "label": "Package Row",
+   "read_only": 1
   },
   {
    "fieldname": "commodity",
@@ -58,20 +59,22 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Qty Received",
+   "read_only": 1,
    "reqd": 1
   },
   {
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
-   "options": "UOM"
+   "options": "UOM",
+   "read_only": 1
   },
   {
-   "default": "Today",
    "fieldname": "receipt_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Receipt Date"
+   "label": "Receipt Date",
+   "read_only": 1
   },
   {
    "fieldname": "lifecycle_stage",
@@ -79,7 +82,8 @@
    "in_list_view": 1,
    "label": "Lifecycle Stage",
    "link_filters": "[[\"Lifecycle Stage\", \"for_special_project\", \"=\", 1]]",
-   "options": "Lifecycle Stage"
+   "options": "Lifecycle Stage",
+   "read_only": 1
   },
   {
    "default": "Posted",
@@ -87,7 +91,8 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Draft\nPosted\nCancelled"
+   "options": "Draft\nPosted\nCancelled",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_src",
@@ -98,20 +103,23 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Source Job Type",
-   "options": "\nTransport Order\nAir Booking\nAir Shipment\nSea Booking\nSea Shipment\nInbound Order\nDeclaration Order\nProject Job\nProject Order"
+   "options": "\nTransport Order\nTransport Job\nAir Booking\nAir Shipment\nSea Booking\nSea Shipment\nInbound Order\nDeclaration Order\nProject Job\nProject Order",
+   "read_only": 1
   },
   {
    "fieldname": "source_job_no",
    "fieldtype": "Dynamic Link",
    "in_list_view": 1,
    "label": "Source Job No",
-   "options": "source_job_type"
+   "options": "source_job_type",
+   "read_only": 1
   },
   {
    "fieldname": "container_no",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Container No"
+   "label": "Container No",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_idem",

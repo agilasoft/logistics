@@ -83,7 +83,7 @@ def make_warehouse_job(source_name, target_doc=None):
         target_doc.uom = getattr(source_doc, "uom", None)
         target_doc.quantity = flt(getattr(source_doc, "quantity", 0)) or 0
         target_doc.currency = getattr(source_doc, "currency", None)
-        target_doc.rate = flt(getattr(source_doc, "rate", 0)) or 0
+        target_doc.unit_rate = flt(getattr(source_doc, "unit_rate", 0)) or 0
         target_doc.total = flt(getattr(source_doc, "total", 0)) or 0
         desc = getattr(source_doc, "description", None)
         if desc and hasattr(target_doc, "description"):

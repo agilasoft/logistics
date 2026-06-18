@@ -592,10 +592,18 @@
         </style>
     </head>
     <body>
-        <div class="receipt-container">
+
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set company_doc = None %}
+{% if doc.company and frappe.db.exists("Company", doc.company) %}
+{% set company_doc = frappe.get_doc("Company", doc.company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
+{% set company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
+<div class="receipt-container">
             <!-- Header -->
             <div class="header">
-                {% set company_doc = frappe.get_doc("Company", doc.company) %}
+                {% if company_doc %}
                 {% if company_doc.company_logo %}
                     <img src="{{ company_doc.company_logo }}" alt="Company Logo" class="company-logo" />
                 {% elif company_doc.logo %}
@@ -607,7 +615,7 @@
                         company_logo
                     </div>
                 {% endif %}
-                <div class="company-info">
+<div class="company-info">
                     <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
                     <div class="company-address">
                         {% if doc.branch %}
@@ -642,10 +650,10 @@
                                     {% set supplier_address = frappe.get_doc("Address", supplier_doc.supplier_primary_address) %}
                                     {{ supplier_address.address_line1 if supplier_address.address_line1 else '' }}
                                     {% if supplier_address.address_line2 %}{{ supplier_address.address_line2 }}{% endif %}
-                                    {% if supplier_address.city %}{{ supplier_address.city }}{% endif %}
-                                    {% if supplier_address.state %}, {{ supplier_address.state }}{% endif %}
-                                    {% if supplier_address.country %}{{ supplier_address.country }}{% endif %}
-                                    {% if supplier_address.pincode %} {{ supplier_address.pincode }}{% endif %}
+{% if supplier_address.city %}{{ supplier_address.city }}{% endif %}
+{% if supplier_address.state %}, {{ supplier_address.state }}{% endif %}
+{% if supplier_address.country %}{{ supplier_address.country }}{% endif %}
+{% if supplier_address.pincode %} {{ supplier_address.pincode }}{% endif %}
                                 {% endif %}
                             {% endif %}
                         {% endif %}
@@ -784,7 +792,7 @@
                     {% set series_start = name %}
                     {% set series_end = name %}
                 {% endif %}
-                <div class="footer-row">
+<div class="footer-row">
                     BIR Acknowledgment Certificate No. 
                     {% if bir and bir.ptu_no %}
                         {{ bir.ptu_no }}

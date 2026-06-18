@@ -10,6 +10,9 @@ from typing import Any, Optional
 import frappe
 from frappe.utils import cint
 
+from logistics.special_projects.special_project_charge_lifecycle import (
+	find_lifecycle_row_for_charge,
+)
 from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
 from logistics.utils.special_project_internal_jobs import resolve_lifecycle_job_row_to_operational_ref
 
@@ -18,32 +21,8 @@ def _lifecycle_rows(sp_doc: Any) -> list[Any]:
 	return list(sp_doc.get("lifecycle_jobs") or [])
 
 
-def _rows_for_service_type(lifecycle_rows: list[Any], service_type: str | None) -> list[Any]:
-	st = (service_type or "").strip()
-	if not st:
-		return []
-	return [
-		r
-		for r in lifecycle_rows
-		if sales_quote_charge_service_types_equal(getattr(r, "service_type", None), st)
-	]
-
-
 def _find_lifecycle_row_for_charge(sp_doc: Any, charge: Any) -> Optional[Any]:
-	lifecycle_rows = _lifecycle_rows(sp_doc)
-	if not lifecycle_rows:
-		return None
-
-	ch_idx = cint(getattr(charge, "lifecycle_job_row", 0) or 0)
-	if ch_idx:
-		matching = [r for r in lifecycle_rows if cint(r.idx or 0) == ch_idx]
-		return matching[0] if matching else None
-
-	st = getattr(charge, "service_type", None)
-	candidates = _rows_for_service_type(lifecycle_rows, st)
-	if len(candidates) == 1:
-		return candidates[0]
-	return None
+	return find_lifecycle_row_for_charge(sp_doc, charge)
 
 
 def _job_number_on_doctype(doctype: str, name: str) -> Optional[str]:

@@ -66,7 +66,7 @@ class WarehouseJobCharges(Document):
 					self.peak_uom = self.peak_uom or "CBM"
 				
 				# Recalculate total
-				self.total = flt(self.quantity) * flt(self.rate or 0)
+				self.total = flt(self.quantity) * flt(self.unit_rate or 0)
 				
 		except Exception as e:
 			frappe.log_error(f"Error computing billing quantities for {self.name}: {str(e)}")

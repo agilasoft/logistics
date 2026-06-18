@@ -9,7 +9,7 @@ function _resolve_item(row) {
 }
 function _apply_vals(cdt, cdn, m) {
   if (!m) return;
-  if (typeof m.rate === "number") frappe.model.set_value(cdt, cdn, "rate", m.rate);
+  if (typeof m.rate === "number") frappe.model.set_value(cdt, cdn, "unit_rate", m.rate);
   if (m.currency) frappe.model.set_value(cdt, cdn, "currency", m.currency);
 
   // strictly use UOM from Contract
@@ -74,7 +74,7 @@ function populate_stocktake_order_charges_from_contract(frm, replace) {
         const cdn = row.name;
         frappe.model.set_value(cdt, cdn, "item_code", ci.item_charge);
         if (ci.item_name) frappe.model.set_value(cdt, cdn, "item_name", ci.item_name);
-        if (typeof ci.rate === "number") frappe.model.set_value(cdt, cdn, "rate", ci.rate);
+        if (typeof ci.rate === "number") frappe.model.set_value(cdt, cdn, "unit_rate", ci.rate);
         if (ci.currency) frappe.model.set_value(cdt, cdn, "currency", ci.currency);
         if (ci.uom) frappe.model.set_value(cdt, cdn, "uom", ci.uom);
         frappe.model.set_value(cdt, cdn, "quantity", 1);
@@ -319,11 +319,11 @@ frappe.ui.form.on("Stocktake Order Item", {
   }
 });
 
-// Recalculate a row's total = quantity * rate
+// Recalculate a row's total = quantity * unit_rate
 function recalc_charge_total(cdt, cdn) {
   const row = locals[cdt][cdn];
   const qty  = parseFloat(row.quantity) || 0;
-  const rate = parseFloat(row.rate) || 0;
+  const rate = parseFloat(row.unit_rate) || 0;
   frappe.model.set_value(cdt, cdn, "total", qty * rate);
 }
 
@@ -331,7 +331,7 @@ frappe.ui.form.on("Stocktake Order Charges", {
   quantity(frm, cdt, cdn) {
     recalc_charge_total(cdt, cdn);
   },
-  rate(frm, cdt, cdn) {
+  unit_rate(frm, cdt, cdn) {
     recalc_charge_total(cdt, cdn);
   }
 });
@@ -346,7 +346,7 @@ frappe.ui.form.on("Stocktake Order", {
   validate(frm) {
     (frm.doc.charges || []).forEach(row => {
       const qty  = parseFloat(row.quantity) || 0;
-      const rate = parseFloat(row.rate) || 0;
+      const rate = parseFloat(row.unit_rate) || 0;
       row.total = qty * rate;
     });
     frm.refresh_field("charges");

@@ -793,6 +793,19 @@ function _gcfq_preview_charges_inner_html(m) {
 	}
 	var charges = Array.isArray(m.charges) ? m.charges : [];
 	var cnt = m.charges_count != null ? m.charges_count : charges.length;
+	var ijCount = m.internal_job_charge_count || 0;
+	var hasIjRows = charges.some(function (c) {
+		return c && (c.charge_scope === "Internal Job" || !!c.internal_job);
+	});
+	var toolbarSubtitle = "";
+	if (ijCount > 0) {
+		toolbarSubtitle =
+			'<span class="logistics-gcfq-preview-subcount">' +
+			frappe.utils.escape_html(String(ijCount)) +
+			" " +
+			__(ijCount === 1 ? "tagged as Internal Job" : "tagged as Internal Job") +
+			"</span>";
+	}
 	var lines =
 		'<div class="logistics-gcfq-preview logistics-gcfq-preview--in-card">' +
 		'<div class="logistics-gcfq-preview-toolbar">' +
@@ -803,7 +816,9 @@ function _gcfq_preview_charges_inner_html(m) {
 		frappe.utils.escape_html(String(cnt)) +
 		" " +
 		__(cnt === 1 ? "charge line" : "charge lines") +
-		"</span></div>";
+		"</span>" +
+		toolbarSubtitle +
+		"</div>";
 
 	if (!charges.length) {
 		lines +=
@@ -813,10 +828,14 @@ function _gcfq_preview_charges_inner_html(m) {
 		return lines;
 	}
 
+	var scopeHeader = hasIjRows
+		? "<th>" + __("Scope") + "</th>"
+		: "";
 	lines +=
 		'<div class="logistics-gcfq-table-wrap logistics-gcfq-preview-table-wrap">' +
 		'<table class="logistics-gcfq-table logistics-gcfq-preview-table">' +
 		"<thead><tr>" +
+		scopeHeader +
 		"<th>" +
 		__("Service type") +
 		"</th><th>" +
@@ -833,14 +852,40 @@ function _gcfq_preview_charges_inner_html(m) {
 		var ic = c.item_code || c.charge_item || "";
 		var nm = c.item_name || c.charge_name || "";
 		var st = (c.service_type && String(c.service_type).trim()) || "";
+		var scope = (c.charge_scope && String(c.charge_scope).trim()) || "Main";
+		var ijName = (c.internal_job && String(c.internal_job).trim()) || "";
+		var ijLabel = (c.internal_job_label && String(c.internal_job_label).trim()) || ijName;
 		var stCell =
 			st !== ""
 				? '<span class="gcfq-preview-service-pill">' +
 				  frappe.utils.escape_html(st) +
 				  "</span>"
 				: '<span class="gcfq-preview-empty-cell">—</span>';
+		var rowClass = scope === "Internal Job" ? "gcfq-preview-row-ij" : "gcfq-preview-row-main";
+		var scopeCell = "";
+		if (hasIjRows) {
+			if (scope === "Internal Job") {
+				var label = ijLabel || __("Internal Job");
+				scopeCell =
+					"<td class='gcfq-preview-col-scope'>" +
+					'<span class="gcfq-preview-scope-pill gcfq-preview-scope-pill--ij" title="' +
+					frappe.utils.escape_html(ijName) +
+					'">' +
+					frappe.utils.escape_html(label) +
+					"</span></td>";
+			} else {
+				scopeCell =
+					"<td class='gcfq-preview-col-scope'>" +
+					'<span class="gcfq-preview-scope-pill gcfq-preview-scope-pill--main">' +
+					__("Main") +
+					"</span></td>";
+			}
+		}
 		lines +=
-			"<tr>" +
+			'<tr class="' +
+			rowClass +
+			'">' +
+			scopeCell +
 			"<td class='gcfq-preview-col-service'>" +
 			stCell +
 			"</td><td class='gcfq-preview-col-code'>" +

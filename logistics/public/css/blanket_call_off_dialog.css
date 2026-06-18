@@ -1,0 +1,224 @@
+/* Blanket Call-Off dialog — matches Create Call-Off mockup */
+.logistics-bco-dialog .modal-dialog {
+	max-width: min(1120px, 96vw);
+}
+
+.logistics-bco-dialog .modal-body {
+	padding-top: 0.75rem;
+	max-height: calc(100vh - 220px);
+	overflow-y: auto;
+}
+
+.bco-quote-header {
+	margin-bottom: 14px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid #e8ecef;
+}
+
+.bco-quote-header-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+}
+
+.bco-quote-label {
+	color: #74808b;
+}
+
+.bco-quote-name {
+	color: #36414c;
+}
+
+.bco-quote-valid {
+	font-size: 12px;
+}
+
+.bco-quote-hint {
+	margin: 8px 0 0;
+	font-size: 12px;
+	line-height: 1.45;
+}
+
+.bco-section {
+	margin-bottom: 16px;
+}
+
+.bco-section-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	gap: 12px;
+	margin-bottom: 8px;
+}
+
+.bco-section-title {
+	font-weight: 600;
+	font-size: 12px;
+	color: #36414c;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+}
+
+.bco-section-subtitle {
+	font-size: 11px;
+	margin-top: 2px;
+}
+
+.bco-section-footnote {
+	font-size: 11px;
+	margin: 8px 0 0;
+	line-height: 1.45;
+}
+
+.bco-parent-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 8px;
+}
+
+.bco-narrow-toggle {
+	margin: 0;
+	font-size: 12px;
+	font-weight: 500;
+	color: #36414c;
+	cursor: pointer;
+	user-select: none;
+}
+
+.bco-narrow-toggle input {
+	margin-right: 4px;
+	vertical-align: -2px;
+}
+
+.bco-parent-grid {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 991px) {
+	.bco-parent-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+.bco-charges-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.bco-selection-count {
+	font-size: 12px;
+	font-weight: 600;
+	color: #36414c;
+	white-space: nowrap;
+}
+
+.bco-charges-table-wrap {
+	max-height: 42vh;
+	margin-top: 4px;
+}
+
+.bco-charges-table thead th {
+	font-size: 11px;
+	white-space: nowrap;
+}
+
+.bco-charges-table tbody td {
+	font-size: 12px;
+	vertical-align: middle;
+}
+
+.bco-col-check {
+	width: 36px;
+	text-align: center;
+}
+
+.bco-col-icon {
+	width: 36px;
+	text-align: center;
+}
+
+.bco-col-expand {
+	width: 40px;
+	text-align: center;
+}
+
+.bco-service-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 4px;
+	background: #eef2f6;
+	color: #5c6773;
+	font-size: 11px;
+}
+
+.bco-charge-row:hover td {
+	background: #f7f9fb;
+}
+
+.bco-charge-row--disabled td {
+	opacity: 0.72;
+}
+
+.bco-charge-row--wrong-target .bco-service-icon {
+	background: #f3f4f6;
+	color: #a0aab4;
+}
+
+.bco-charges-empty-hint {
+	font-size: 12px;
+	margin: 8px 0 0;
+}
+
+.bco-dialog-body {
+	min-height: 200px;
+}
+
+.bco-charge-detail-row td {
+	padding: 0 !important;
+	background: #fafbfc;
+	border-top: none !important;
+}
+
+.bco-detail-panel {
+	padding: 12px 16px 14px 52px;
+}
+
+.bco-detail-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 10px 16px;
+}
+
+@media (max-width: 767px) {
+	.bco-detail-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+.bco-detail-item {
+	font-size: 12px;
+	color: #36414c;
+}
+
+.bco-detail-label {
+	display: block;
+	font-size: 10px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	color: #74808b;
+	margin-bottom: 2px;
+}
+
+.logistics-bco-dialog .modal-footer .btn-modal-primary {
+	min-width: 140px;
+}

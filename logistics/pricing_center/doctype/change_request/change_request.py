@@ -160,6 +160,7 @@ def populate_sales_quote_from_job(sales_quote, job_doc, job_type):
 		getattr(job_doc, "booking_date", None)
 		or getattr(job_doc, "declaration_date", None)
 		or getattr(job_doc, "job_open_date", None)
+		or getattr(job_doc, "start_date", None)
 		or today()
 	)
 	if ref_date:
@@ -233,7 +234,15 @@ def populate_sales_quote_from_job(sales_quote, job_doc, job_type):
 
 
 def _charge_row_as_sales_quote_dict(charge_row, default_service_type):
-	"""Map Change Request Charge row to Sales Quote Charge child dict (same field names)."""
+	"""Map Change Request Charge row to Sales Quote Charge child dict (same field names).
+
+	When the CR Charge row is tagged with an ``internal_job``, force
+	``charge_scope='Internal Job'`` on the produced Sales Quote Charge so any downstream copy
+	(satellite ``_populate_charges_from_sales_quote_doc`` Path-2 fallback, ``Get Charges from
+	Quotation`` per-scope helpers, etc.) preserves the IJ scoping rather than defaulting to
+	``Main``. ``charge_scope`` is not a field on ``Change Request Charge`` itself, so without this
+	explicit decoration the SQ side would always default to ``Main``.
+	"""
 	out = {}
 	for k, v in charge_row.as_dict().items():
 		if k in _SKIP_CHARGE_COPY:
@@ -243,6 +252,64 @@ def _charge_row_as_sales_quote_dict(charge_row, default_service_type):
 		out[k] = v
 	if not out.get("service_type"):
 		out["service_type"] = default_service_type
+	ij = (out.get("internal_job") or "").strip() if isinstance(out.get("internal_job"), str) else out.get("internal_job")
+	if ij:
+		out["charge_scope"] = "Internal Job"
+		out["internal_job"] = ij
+	return out
+
+
+@frappe.whitelist()
+def get_eligible_internal_jobs_for_change_request_job(job_type, job_name):
+	"""Return Internal Job names eligible for tagging on Change Request Charge rows.
+
+	* When ``job_type`` is a Main job, returns every Internal Job whose
+	  ``parent_booking_type``/``parent_booking_name`` matches the Main, plus the satellite link
+	  identified via the Main's ``Internal Job Detail`` rows.
+	* When ``job_type`` is an Internal Job satellite booking, returns the satellite's own
+	  ``internal_job`` so the user is steered to tag only that IJ.
+
+	Used by the client-side filter on ``Change Request Charge.internal_job``.
+	"""
+	from logistics.pricing_center.additional_charge_to_job import (
+		INTERNAL_JOB_SATELLITE_JOB_TYPES,
+		MAIN_JOB_TYPES_FOR_CHANGE_REQUEST,
+	)
+
+	out: dict = {"internal_jobs": [], "default_internal_job": ""}
+	if not job_type or not job_name:
+		return out
+	if not frappe.db.exists(job_type, job_name):
+		return out
+
+	if job_type in MAIN_JOB_TYPES_FOR_CHANGE_REQUEST:
+		rows = frappe.get_all(
+			"Internal Job",
+			filters={"parent_booking_type": job_type, "parent_booking_name": job_name},
+			fields=["name", "service_type", "job_type", "job_no", "job_description"],
+			order_by="creation asc",
+		)
+		out["internal_jobs"] = rows
+		return out
+
+	if job_type in INTERNAL_JOB_SATELLITE_JOB_TYPES:
+		sat = frappe.db.get_value(
+			job_type,
+			job_name,
+			("main_job_type", "main_job", "internal_job"),
+			as_dict=True,
+		) or {}
+		ij_name = (sat.get("internal_job") or "").strip()
+		if ij_name and frappe.db.exists("Internal Job", ij_name):
+			row = frappe.db.get_value(
+				"Internal Job",
+				ij_name,
+				("name", "service_type", "job_type", "job_no", "job_description"),
+				as_dict=True,
+			)
+			if row:
+				out["internal_jobs"] = [row]
+				out["default_internal_job"] = ij_name
 	return out
 
 
@@ -262,21 +329,78 @@ def create_change_request(job_type, job_name):
 	return cr.name
 
 
+def _resolve_main_job_for_change_request(cr):
+	"""Resolve the Main job ``(doctype, name)`` for the CR, walking IJ satellite back-links when needed.
+
+	* CR target is a Main job → returns the CR target itself.
+	* CR target is an Internal Job satellite (Transport Order / Sea Booking / Air Booking /
+	  Declaration Order / Inbound Order / Release Order) → walks ``main_job_type`` / ``main_job``
+	  on the satellite to find its parent Main job. The Sales Quote is always created against the
+	  Main so that billing and the Change Request revenue merge stay on one canonical job.
+	"""
+	from logistics.pricing_center.additional_charge_to_job import (
+		INTERNAL_JOB_SATELLITE_JOB_TYPES,
+		MAIN_JOB_TYPES_FOR_CHANGE_REQUEST,
+	)
+
+	if cr.job_type in MAIN_JOB_TYPES_FOR_CHANGE_REQUEST:
+		return cr.job_type, cr.job
+	if cr.job_type in INTERNAL_JOB_SATELLITE_JOB_TYPES:
+		sat = (
+			frappe.db.get_value(
+				cr.job_type,
+				cr.job,
+				("main_job_type", "main_job", "is_internal_job"),
+				as_dict=True,
+			)
+			or {}
+		)
+		mt = (sat.get("main_job_type") or "").strip()
+		mn = (sat.get("main_job") or "").strip()
+		if mt and mn and frappe.db.exists(mt, mn):
+			return mt, mn
+		frappe.throw(
+			_(
+				"Cannot create Sales Quote: Change Request target {0} {1} is not linked to a Main job. "
+				"Set main_job_type / main_job on the Internal Job satellite first."
+			).format(cr.job_type, cr.job)
+		)
+	# Fallback: behave like the legacy path on unknown job types.
+	return cr.job_type, cr.job
+
+
 @frappe.whitelist()
 def create_sales_quote_from_change_request(change_request_name):
-	"""Create a Sales Quote from a Change Request (Additional Charge, job reference, items from charges)."""
+	"""Create a Sales Quote from a Change Request (Additional Charge, items from charges).
+
+	The Sales Quote always points at the parent Main job (Sea Shipment / Air Shipment / Transport
+	Job / Warehouse Job / Declaration / Special Project). When the Change Request was filed
+	against an Internal Job satellite booking, this function walks the satellite's back-links and
+	creates the quote against the Main — revenue is merged onto the Main's CR-tagged rows, and
+	from there propagated onto each satellite's mirrored rows (see
+	``logistics.pricing_center.change_request_to_job.merge_sales_quote_revenue_into_change_request_job_rows``).
+	"""
 	cr = frappe.get_doc("Change Request", change_request_name)
 	if cr.docstatus != 1:
 		frappe.throw(_("Submit the Change Request before creating a Sales Quote."))
 	if not cr.charges:
 		frappe.throw(_("Change Request has no charge items. Add at least one charge before creating Sales Quote."))
-	# Create Sales Quote
+
+	main_job_type, main_job_name = _resolve_main_job_for_change_request(cr)
+	job_doc = frappe.get_doc(main_job_type, main_job_name)
+
+	from logistics.pricing_center.change_request_to_job import (
+		ensure_change_request_cost_rows_on_job,
+		link_sales_quote_to_change_request_job_charges,
+	)
+
+	ensure_change_request_cost_rows_on_job(cr)
+
 	sq = frappe.new_doc("Sales Quote")
 	sq.additional_charge = 1
-	sq.job_type = cr.job_type
-	sq.job = cr.job
-	job_doc = frappe.get_doc(cr.job_type, cr.job)
-	# Populate main_service based on job_type
+	sq.job_type = main_job_type
+	sq.job = main_job_name
+	# Populate main_service based on the Main job_type (not the CR's possibly-satellite target).
 	job_to_service = {
 		"Transport Job": "Transport",
 		"Warehouse Job": "Warehousing",
@@ -284,13 +408,14 @@ def create_sales_quote_from_change_request(change_request_name):
 		"Sea Shipment": "Sea",
 		"Declaration": "Customs",
 		"Declaration Order": "Customs",
+		"Special Project": "Special Project",
 	}
-	sq.main_service = job_to_service.get(cr.job_type, "Transport")
+	sq.main_service = job_to_service.get(main_job_type, "Transport")
 	# Additional-charge quotes from Change Request are always one-off (and matching naming series).
 	sq.quotation_type = "One-off"
 	sq.naming_series = "OOQ.#####"
 	sq.change_request = cr.name
-	populate_sales_quote_from_job(sq, job_doc, cr.job_type)
+	populate_sales_quote_from_job(sq, job_doc, main_job_type)
 	for row in cr.charges:
 		row_dict = _charge_row_as_sales_quote_dict(row, sq.main_service)
 		row_dict["change_request_charge"] = row.name
@@ -304,4 +429,5 @@ def create_sales_quote_from_change_request(change_request_name):
 		{"sales_quote": sq.name, "status": "Sales Quote Created"},
 		update_modified=False,
 	)
+	link_sales_quote_to_change_request_job_charges(cr.name, sq.name)
 	return sq.name

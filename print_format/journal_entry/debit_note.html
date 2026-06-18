@@ -255,11 +255,16 @@
         
         .invoice-table th:nth-child(1),
         .invoice-table td:nth-child(1) {
-            width: 70%;
+            width: 38%;
         }
         
         .invoice-table th:nth-child(2),
         .invoice-table td:nth-child(2) {
+            width: 32%;
+        }
+        
+        .invoice-table th:nth-child(3),
+        .invoice-table td:nth-child(3) {
             width: 30%;
         }
         
@@ -297,6 +302,21 @@
             border-right: none !important;
         }
         
+        .table-header tr:first-child th:nth-child(2) {
+            border-top: 2px solid #000 !important;
+            border-bottom: 2px solid #000 !important;
+            border-left: none !important;
+            border-right: none !important;
+        }
+        
+        .table-header tr:first-child th:nth-child(3) {
+            text-align: right;
+            border-top: 2px solid #000 !important;
+            border-bottom: 2px solid #000 !important;
+            border-left: none !important;
+            border-right: none !important;
+        }
+        
         .table-header tr:first-child th:last-child {
             text-align: right;
             border-top: 2px solid #000 !important;
@@ -315,12 +335,32 @@
             line-height: 1.0;
         }
         
-        .table-row td:nth-child(1) {
+           .invoice-table tbody tr:nth-child(odd) td {
+            background-color: #ffffff;
+        }
+        
+        .invoice-table tbody tr:nth-child(even) td {
+            background-color: #f2f2f2;
+        }
+              
+        
+        .table-row td:nth-child(1),
+        .table-row td:nth-child(2) {
             text-align: left;
         }
         
-        .table-row td:nth-child(2) {
+        .table-row td:nth-child(3) {
             text-align: right;
+        }
+        
+        .dimensions-detail {
+            font-size: 7pt;
+            color: #000;
+            line-height: 1.2;
+        }
+        
+        .dimensions-detail div {
+            margin-bottom: 0.2mm;
         }
         
         .table-row.summary-row td {
@@ -371,20 +411,27 @@
             display: flex;
             width: 100%;
             background: #e0e0e0;
-            padding-top: 0.3mm;
-            padding-bottom: 0.3mm;
+            padding: 5px 10px;
             margin-top: 0;
+            border:1px solid #000;
         }
         
         .totals-row-container .totals-col-1 {
-            width: 70%;
-            text-align: right;
+            width: 38%;
+            text-align: left;
             font-weight: bold;
             padding-right: 1mm;
             font-size: 7pt;
         }
         
         .totals-row-container .totals-col-2 {
+            width: 32%;
+            text-align: left;
+            font-weight: bold;
+            font-size: 7pt;
+        }
+        
+        .totals-row-container .totals-col-3 {
             width: 30%;
             text-align: right;
             font-weight: bold;
@@ -577,13 +624,14 @@
         }
         
         /* Footer Section */
-        .footer-section {
-            margin-top: auto;
-            padding-top: 1mm;
-            border-top: 1px solid #000;
-            font-size: 7pt;
-            page-break-before: always;
-        }
+        ..footer-section {
+    position: static; /* or just remove position entirely */
+    width: 100%;
+    background: white;
+    padding: 1mm 12mm;
+    border-top: 1px solid #000;
+    margin-top: 10mm;
+}
         
         .bottom-section {
             margin-top: auto;
@@ -628,44 +676,48 @@
         }
         
         @media print {
-            body {
-                margin: 0;
-                padding: 0;
-                padding-bottom: 25mm;
-            }
-            .receipt-container {
-                padding: 0;
-                max-width: 100%;
-                padding-bottom: 25mm;
-            }
-            .page-break {
-                page-break-after: always;
-            }
-            .footer-section {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                width: 100%;
-                background: white;
-                padding: 1mm 12mm;
-                border-top: 1px solid #000;
-                margin: 0;
-                page-break-before: always;
-            }
-            
-            .payment-info-section {
-                page-break-inside: avoid;
-            }
-            
-            .payment-info-row {
-                page-break-inside: avoid;
-            }
-            
-            .signature-section {
-                page-break-inside: avoid;
-            }
-        }
+
+    /* RESET PAGE */
+    html, body {
+        margin: 0;
+        padding: 0;
+        height: auto;
+        overflow: visible;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    .receipt-container {
+        max-width: 100%;
+        padding: 0;
+    }
+
+    /* PAGE BREAK CONTROL */
+    .page-break {
+        page-break-after: always;
+    }
+
+    /* IMPORTANT: REMOVE FIXED FOOTER */
+    .footer-section {
+        position: static;   /* KEY FIX */
+        width: 100%;
+        background: white;
+        padding: 1mm 12mm;
+        border-top: 1px solid #000;
+        margin-top: 10mm;
+        font:9px;
+    }
+
+    /* PREVENT UNWANTED PAGE BREAKS */
+    .payment-info-section,
+    .payment-info-row,
+    .signature-section {
+        page-break-inside: avoid;
+    }
+}
     </style>
 </head>
 <body>
@@ -806,6 +858,7 @@
                 <thead class="table-header">
                     <tr>
                         <th>Account</th>
+                        <th>Accounting Dimensions</th>
                         <th>Debit</th>
                     </tr>
                 </thead>
@@ -825,6 +878,19 @@
                                     {% else %}
                                         -
                                     {% endif %}
+                                </td>
+                                <td>
+                                    <div class="dimensions-detail">
+                                        {% if account.get('branch') %}<div>Branch: {{ account.branch }}</div>{% endif %}
+                                        {% if account.get('cost_center') %}<div>Cost Center: {{ account.cost_center }}</div>{% endif %}
+                                        {% if account.get('profit_center') %}<div>Profit Center: {{ account.profit_center }}</div>{% endif %}
+                                        {% if account.get('item') %}<div>Item: {{ account.item }}</div>{% endif %}
+                                        {% if account.get('job_number') %}<div>Job Number: {{ account.job_number }}</div>{% endif %}
+                                        {% if account.get('project') %}<div>Project: {{ account.project }}</div>{% endif %}
+                                        {% if not (account.get('branch') or account.get('cost_center') or account.get('profit_center') or account.get('item') or account.get('job_number') or account.get('project')) %}
+                                        <div>-</div>
+                                        {% endif %}
+                                    </div>
                                 </td>
                                 <td>
                                     {% if account.debit_in_account_currency and account.debit_in_account_currency > 0 %}
@@ -855,8 +921,9 @@
                 {% endif %}
                 
                 <div class="totals-row-container">
-                    <div class="totals-col-1">TOTAL:</div>
-                    <div class="totals-col-2">
+                    <div class="totals-col-1"></div>
+                    <div class="totals-col-2">TOTAL:</div>
+                    <div class="totals-col-3">
                         {% if ns.total_debit > 0 %}
                             {{ frappe.utils.fmt_money(ns.total_debit, precision=2) }}
                         {% else %}

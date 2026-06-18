@@ -170,6 +170,8 @@ logistics.patches.v1_0_backfill_main_service_internal_job_rollup
 # during link validation on insert.
 logistics.patches.v1_0_rename_exhibit_lifecycle_stage_to_lifecycle_stage
 logistics.patches.v1_0_seed_exhibit_lifecycle_stage
+# Exhibits: seed standard Activity Code master rows (asset_retrieval, staging_qc, etc.).
+logistics.patches.v1_0_seed_exhibit_activity_codes
 # Exhibits: seed default milestone/document templates and Exhibit Settings single.
 logistics.patches.v1_0_create_exhibit_templates
 # Special Projects: backfill lifecycle_stage on existing Site Receipt rows for the new
@@ -187,3 +189,18 @@ logistics.patches.v1_1_project_dimension_on_exhibit_special_project_jobs
 # Dashboard Custom HTML Block (OpenSky-driven realtime aircraft positions for
 # operational flights linked via Air Shipment -> Master AWB -> Flight Schedule).
 logistics.patches.v1_1_add_live_flights_tab_to_air_freight_ops
+# Operational charge child tables: allow MICE service_type after Exhibits rebrand.
+logistics.patches.v1_28_operational_charge_service_type_mice
+# Sales Quote (One-off): default ``charge_scope = "Main"`` on existing charge rows so the new
+# per-charge Internal Job tagging validation does not reject pre-migration data.
+logistics.patches.v1_0_register_sales_quote_internal_job_persistence
+# Warehouse Settings: drop invalid Address.link_doctype link_filters (use address_query in JS).
+logistics.patches.v1_0_fix_warehouse_settings_address_link_filters
+# Address Link fields: clear JSON link_filters that break logistics.address.query_for_* set_query.
+logistics.patches.v1_0_clear_address_client_query_link_filters
+# CTO Link fields: clear JSON link_filters that break shipping_line/unloco set_query on CTO search.
+logistics.patches.v1_0_clear_cto_client_query_link_filters
+# Docket: copy Sales Quote Weight/Qty Break tiers onto MICE Project Charges for existing dockets.
+logistics.patches.v1_29_backfill_docket_charge_breaks_from_sales_quote
+# Pricing desktop tile: workspace JSON was deleted; restore so sidebar Home link resolves.
+logistics.patches.v1_0_restore_pricing_workspace

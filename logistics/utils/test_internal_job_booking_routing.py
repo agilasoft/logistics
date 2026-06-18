@@ -283,7 +283,7 @@ class TestInternalJobBookingRouting(FrappeTestCase):
 			{
 				"service_type": "Air",
 				"item_code": self.item_code,
-				"rate": 100,
+				"unit_rate": 100,
 			},
 		)
 		job.flags.ignore_validate = True
@@ -324,7 +324,7 @@ class TestInternalJobBookingRouting(FrappeTestCase):
 				"item_code": self.item_code,
 				"origin_port": "USLAX",
 				"destination_port": "USJFK",
-				"rate": 100,
+				"unit_rate": 100,
 			},
 		)
 		sh.flags.ignore_validate = True

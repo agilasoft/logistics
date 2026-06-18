@@ -15,7 +15,7 @@
   "column_break_ncfj",
   "quantity",
   "currency",
-  "rate",
+  "unit_rate",
   "total",
   "billing_method",
   "piece_quantity",
@@ -82,10 +82,10 @@
    "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
-   "fieldname": "rate",
+   "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Rate"
+   "label": "Unit Rate"
   },
   {
    "fieldname": "total",

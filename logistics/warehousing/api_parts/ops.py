@@ -121,7 +121,7 @@ def create_sales_invoice_from_job(
 
     cf = _safe_meta_fieldnames("Warehouse Job Charges")
     row_has_currency = "currency" in cf
-    row_has_rate     = "rate" in cf
+    row_has_rate     = "unit_rate" in cf
     row_has_total    = "total" in cf
     row_has_uom      = "uom" in cf
     row_has_itemname = "item_name" in cf
@@ -135,7 +135,7 @@ def create_sales_invoice_from_job(
         if not item_code:
             continue
         qty   = flt(getattr(ch, "quantity", 0.0)) if row_has_qty   else 0.0
-        rate  = flt(getattr(ch, "rate", 0.0))     if row_has_rate  else 0.0
+        rate  = flt(getattr(ch, "unit_rate", 0.0)) if row_has_rate else 0.0
         total = flt(getattr(ch, "total", 0.0))    if row_has_total else 0.0
         uom = (getattr(ch, "uom", None) or None) if row_has_uom else None
         item_name = (getattr(ch, "item_name", None) or None) if row_has_itemname else None

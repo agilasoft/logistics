@@ -12,7 +12,7 @@
         {% if warehouse_items_error %}
         <p><strong>Error:</strong> {{ warehouse_items_error }}</p>
         {% endif %}
-        {% if warehouse_items %}
+{% if warehouse_items %}
         <ul>
             {% for item in warehouse_items %}
             <li>{{ item.name }}</li>
@@ -27,7 +27,7 @@
         {% if stock_ledger_error %}
         <p><strong>Error:</strong> {{ stock_ledger_error }}</p>
         {% endif %}
-        {% if stock_ledger_entries %}
+{% if stock_ledger_entries %}
         <ul>
             {% for entry in stock_ledger_entries %}
             <li>{{ entry.name }} - {{ entry.item if entry.item else 'No item' }}</li>
@@ -42,7 +42,7 @@
         {% if customers_error %}
         <p><strong>Error:</strong> {{ customers_error }}</p>
         {% endif %}
-        {% if customers %}
+{% if customers %}
         <ul>
             {% for customer in customers %}
             <li>{{ customer.name }}</li>

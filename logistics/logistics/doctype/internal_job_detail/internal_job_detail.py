@@ -24,11 +24,15 @@ def suggest_job_description(row):
 
 
 class InternalJobDetail(Document):
-	"""Child row: internal job link + service parameters (aligned with Sales Quote Charge)."""
+	"""Thin child row: pointer to an Internal Job document.
+
+	Parameter fields are ``fetch_from`` views of the linked ``Internal Job``; the source of truth is
+	the Internal Job record. The parent booking's ``before_save`` (see
+	``logistics.utils.internal_job_persistence``) reconciles edits in either direction.
+	"""
 
 	def get_invalid_links(self, is_submittable=False):
 		invalid_links, cancelled_links = super().get_invalid_links(is_submittable=is_submittable)
-		# job_no is a historical pointer; linked operational docs may be cancelled while parent still saves.
 		cancelled_links = [c for c in cancelled_links if c[0] != "job_no"]
 		return invalid_links, cancelled_links
 

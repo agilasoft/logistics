@@ -678,14 +678,12 @@
    "fieldname": "origin_cto",
    "fieldtype": "Link",
    "label": "Origin CTO",
-   "link_filters": "[[\"Cargo Terminal Operator\",\"is_active\",\"=\",1],[\"Cargo Terminal Operator\",\"sea\",\"=\",1]]",
    "options": "Cargo Terminal Operator"
   },
   {
    "fieldname": "destination_cto",
    "fieldtype": "Link",
    "label": "Destination CTO",
-   "link_filters": "[[\"Cargo Terminal Operator\",\"is_active\",\"=\",1],[\"Cargo Terminal Operator\",\"sea\",\"=\",1]]",
    "options": "Cargo Terminal Operator"
   },
   {
@@ -945,6 +943,7 @@
    "fieldtype": "Link",
    "label": "Branch",
    "options": "Branch",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -953,6 +952,7 @@
    "label": "Cost Center",
    "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -960,6 +960,7 @@
    "fieldtype": "Link",
    "label": "Profit Center",
    "options": "Profit Center",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -1248,7 +1249,6 @@
    "fieldname": "shipper_address",
    "fieldtype": "Link",
    "label": "Shipper Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -1269,7 +1269,6 @@
    "fieldname": "consignee_address",
    "fieldtype": "Link",
    "label": "Consignee Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {

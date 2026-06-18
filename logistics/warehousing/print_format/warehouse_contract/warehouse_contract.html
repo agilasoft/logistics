@@ -64,13 +64,21 @@
         at <strong>{{ doc.venue_city or "[City]" }}</strong>, Philippines, by and between:
     </p>
     
-    {% set company_doc = frappe.get_doc("Company", doc.company) %}
-    
-
-    {% set warehouse_settings = frappe.get_doc("Warehouse Settings", doc.company) %}
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set company_doc = None %}
+{% set resolved_company = doc.company or default_company %}
+{% if doc.company and frappe.db.exists("Company", doc.company) %}
+{% set company_doc = frappe.get_doc("Company", doc.company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
+{% set company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
+{% set warehouse_settings = None %}
+{% if resolved_company and frappe.db.exists("Warehouse Settings", resolved_company) %}
+{% set warehouse_settings = frappe.get_doc("Warehouse Settings", resolved_company) %}
+{% endif %}
     
     {% set company_address = None %}
-    {% set company_address_id = warehouse_settings.warehouse_contract_address %}
+    {% set company_address_id = warehouse_settings.warehouse_contract_address if warehouse_settings else None %}
 
     {% if not company_address_id %}
         {% set company_address_link = frappe.get_all('Dynamic Link', 
@@ -105,7 +113,7 @@
         {% endif %}
         
         <br>
-        Contact: {{ company_doc.phone_no or "[Company Phone]" }} / {{ company_doc.email or "[Company Email]" }}
+        Contact: {{ (company_doc.phone_no if company_doc else '') or "[Company Phone]" }} / {{ (company_doc.email if company_doc else '') or "[Company Email]" }}
         
         ("Warehouse"),
     </p>

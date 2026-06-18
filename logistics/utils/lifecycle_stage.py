@@ -108,7 +108,7 @@ def validate_internal_job_activity_codes(
 		if not activity:
 			frappe.throw(_("Activity Code {0} does not exist.").format(code))
 		if not activity.get(module_filter):
-			module_label = _("Exhibits") if module_filter == FOR_EXHIBITS else _("Special Project")
+			module_label = _("MICE") if module_filter == FOR_EXHIBITS else _("Special Project")
 			frappe.throw(
 				_("Activity {0} is not enabled for {1}.").format(
 					activity.activity_name or code, module_label

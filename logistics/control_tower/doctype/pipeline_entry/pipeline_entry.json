@@ -1,0 +1,193 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:PIPE-{#####}",
+ "creation": "2026-06-11 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "organization",
+  "category",
+  "stage",
+  "column_break_basic",
+  "client_name",
+  "customer",
+  "expected_close_date",
+  "section_values",
+  "estimated_revenue",
+  "estimated_gp",
+  "currency",
+  "column_break_values",
+  "probability_pct",
+  "weighted_gp",
+  "section_owner",
+  "owner_employee",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "organization",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Organization",
+   "options": "Control Tower Organization",
+   "reqd": 1
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Category",
+   "options": "Sales\nOverseas BD\nExhibits\nSpecial Projects\nLuxury\nRisk",
+   "reqd": 1
+  },
+  {
+   "fieldname": "stage",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Stage",
+   "options": "Lead\nQualified\nProposal\nNegotiation\nWon\nLost\nDormant",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_basic",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Client Name",
+   "reqd": 1
+  },
+  {
+   "description": "Optional link to the formal Customer master (created later in the funnel).",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "expected_close_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Expected Close Date"
+  },
+  {
+   "fieldname": "section_values",
+   "fieldtype": "Section Break",
+   "label": "Values"
+  },
+  {
+   "fieldname": "estimated_revenue",
+   "fieldtype": "Currency",
+   "label": "Estimated Revenue",
+   "options": "currency"
+  },
+  {
+   "fieldname": "estimated_gp",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Estimated GP",
+   "options": "currency"
+  },
+  {
+   "default": "PHP",
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_values",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "20",
+   "description": "Probability of closing in %. Used to compute Weighted GP.",
+   "fieldname": "probability_pct",
+   "fieldtype": "Percent",
+   "label": "Probability %"
+  },
+  {
+   "description": "Auto-computed: Estimated GP * Probability %.",
+   "fieldname": "weighted_gp",
+   "fieldtype": "Currency",
+   "label": "Weighted GP",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_owner",
+   "fieldtype": "Section Break",
+   "label": "Owner & Notes"
+  },
+  {
+   "fieldname": "owner_employee",
+   "fieldtype": "Link",
+   "label": "Owner",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-11 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Control Tower",
+ "name": "Pipeline Entry",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Control Tower Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Control Tower Viewer",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "organization,client_name,customer,category,stage",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "client_name",
+ "track_changes": 1
+}

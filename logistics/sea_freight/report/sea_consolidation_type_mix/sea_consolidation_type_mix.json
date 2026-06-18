@@ -40,6 +40,5 @@
  "ref_doctype": "Sea Consolidation",
  "report_name": "Sea Consolidation Type Mix",
  "report_type": "Script Report",
- "timeout": 0,
- "json": "{}"
+ "timeout": 0
 }

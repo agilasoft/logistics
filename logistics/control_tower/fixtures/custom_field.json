@@ -1,0 +1,93 @@
+[
+ {
+  "doctype": "Custom Field",
+  "name": "Transport Job-ct_outsourced",
+  "module": "Control Tower",
+  "dt": "Transport Job",
+  "fieldname": "ct_outsourced",
+  "fieldtype": "Check",
+  "label": "Outsourced",
+  "description": "Set when this Transport Job is outsourced to an external trucker. Drives Control Tower outsourced-jobs KPIs.",
+  "insert_after": "transport_company",
+  "is_system_generated": 0
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Transport Job-ct_outsourced_to_supplier",
+  "module": "Control Tower",
+  "dt": "Transport Job",
+  "fieldname": "ct_outsourced_to_supplier",
+  "fieldtype": "Link",
+  "options": "Supplier",
+  "label": "Outsourced To Supplier",
+  "depends_on": "eval:doc.ct_outsourced",
+  "mandatory_depends_on": "eval:doc.ct_outsourced",
+  "insert_after": "ct_outsourced",
+  "is_system_generated": 0
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Declaration-ct_outsourced",
+  "module": "Control Tower",
+  "dt": "Declaration",
+  "fieldname": "ct_outsourced",
+  "fieldtype": "Check",
+  "label": "Outsourced",
+  "description": "Set when this Declaration is outsourced to an external broker.",
+  "insert_after": "customs_broker",
+  "is_system_generated": 0
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Declaration-ct_outsourced_to_broker",
+  "module": "Control Tower",
+  "dt": "Declaration",
+  "fieldname": "ct_outsourced_to_broker",
+  "fieldtype": "Link",
+  "options": "Broker",
+  "label": "Outsourced To Broker",
+  "depends_on": "eval:doc.ct_outsourced",
+  "mandatory_depends_on": "eval:doc.ct_outsourced",
+  "insert_after": "ct_outsourced",
+  "is_system_generated": 0
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Sea Shipment-ct_agent_network",
+  "module": "Control Tower",
+  "dt": "Sea Shipment",
+  "fieldname": "ct_agent_network",
+  "fieldtype": "Link",
+  "options": "Agent Network",
+  "label": "Agent Network",
+  "description": "Overseas agent network (WIN / NAP / etc.) used by Control Tower GP-per-Network rollups.",
+  "insert_after": "freight_agent",
+  "is_system_generated": 0
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Air Shipment-ct_agent_network",
+  "module": "Control Tower",
+  "dt": "Air Shipment",
+  "fieldname": "ct_agent_network",
+  "fieldtype": "Link",
+  "options": "Agent Network",
+  "label": "Agent Network",
+  "description": "Overseas agent network used by Control Tower GP-per-Network rollups.",
+  "insert_after": "freight_agent",
+  "is_system_generated": 0
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Warehouse Job-ct_agent_network",
+  "module": "Control Tower",
+  "dt": "Warehouse Job",
+  "fieldname": "ct_agent_network",
+  "fieldtype": "Link",
+  "options": "Agent Network",
+  "label": "Agent Network",
+  "description": "Overseas agent network used by Control Tower GP-per-Network rollups.",
+  "insert_after": "customer",
+  "is_system_generated": 0
+ }
+]

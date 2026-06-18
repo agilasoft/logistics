@@ -39,6 +39,9 @@
   "exhibit_venue_tab",
   "section_dockets",
   "dockets",
+  "jobs_tab",
+  "section_jobs",
+  "internal_jobs",
   "profitability_tab",
   "profitability_section_break",
   "profitability_section_html",
@@ -46,6 +49,18 @@
   "lifecycle_jobs",
   "cost_revenue_section",
   "cost_revenue_html",
+  "tab_charges",
+  "section_charges_setup",
+  "cost_allocation_target",
+  "cost_allocation_basis",
+  "column_break_charges_setup",
+  "total_consolidation_charges",
+  "total_allocated_amount",
+  "section_consolidation_charges",
+  "consolidation_charges",
+  "section_cost_allocation",
+  "cost_allocation_html",
+  "cost_allocations",
   "billings_tab",
   "billings",
   "start_date",
@@ -287,11 +302,27 @@
    "description": "Auto-populated read-only view. Use <b>Add Docket</b> to create a new Sales Quote for this Exhibit.",
    "fieldname": "dockets",
    "fieldtype": "Table",
-   "is_virtual": 1,
    "label": "Dockets",
    "no_copy": 1,
    "options": "Exhibit Docket",
    "read_only": 1
+  },
+  {
+   "fieldname": "jobs_tab",
+   "fieldtype": "Tab Break",
+   "label": "Jobs"
+  },
+  {
+   "description": "Internal jobs (Air / Sea / Transport / Customs / Warehousing lines) to be spawned at the Exhibit level. Use <b>Create &gt; Booking / Order</b> to turn each row into a standalone booking or order linked back to this Exhibit.",
+   "fieldname": "section_jobs",
+   "fieldtype": "Section Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "fieldname": "internal_jobs",
+   "fieldtype": "Table",
+   "label": "Internal Jobs",
+   "options": "Internal Job Detail"
   },
   {
    "fieldname": "section_warehouse",
@@ -380,6 +411,84 @@
    "fieldtype": "HTML",
    "is_virtual": 1,
    "label": "Cost & Revenue"
+  },
+  {
+   "fieldname": "tab_charges",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "description": "Cost-only consolidation charges for the Exhibit. Aligned with Air / Sea Consolidation: enter cost lines once, then click <b>Allocate Costs</b> to split across the chosen target (Dockets or Exhibit Jobs).",
+   "fieldname": "section_charges_setup",
+   "fieldtype": "Section Break",
+   "label": "Cost Allocation Setup"
+  },
+  {
+   "default": "Auto",
+   "description": "Where allocated costs land. <b>Auto</b> picks Exhibit Jobs when present, otherwise Dockets.",
+   "fieldname": "cost_allocation_target",
+   "fieldtype": "Select",
+   "label": "Allocation Target",
+   "options": "Auto\nDockets\nExhibit Jobs"
+  },
+  {
+   "default": "Equal",
+   "description": "Default basis for splitting the cost across allocation targets when you click Allocate Costs. Per-charge override is available on each charge row's Allocation Method.",
+   "fieldname": "cost_allocation_basis",
+   "fieldtype": "Select",
+   "label": "Default Allocation Basis",
+   "options": "Equal\nWeight-based\nVolume-based\nValue-based\nCustom"
+  },
+  {
+   "fieldname": "column_break_charges_setup",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Sum of Total Amount across all Consolidation Charges. Recomputed on save.",
+   "fieldname": "total_consolidation_charges",
+   "fieldtype": "Currency",
+   "label": "Total Charges",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "description": "Sum of Allocated Amount across the Cost Allocation table. Recomputed by Allocate Costs.",
+   "fieldname": "total_allocated_amount",
+   "fieldtype": "Currency",
+   "label": "Total Allocated",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_consolidation_charges",
+   "fieldtype": "Section Break",
+   "label": "Consolidation Charges"
+  },
+  {
+   "fieldname": "consolidation_charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Exhibit Consolidation Charges"
+  },
+  {
+   "fieldname": "section_cost_allocation",
+   "fieldtype": "Section Break",
+   "label": "Cost Allocation"
+  },
+  {
+   "description": "Allocation across selected targets (Dockets or Exhibit Jobs). Click <b>Allocate Costs</b> to populate or refresh; for Custom split, enter Cost Allocation % per row before clicking.",
+   "fieldname": "cost_allocation_html",
+   "fieldtype": "HTML",
+   "label": "Allocation Help"
+  },
+  {
+   "fieldname": "cost_allocations",
+   "fieldtype": "Table",
+   "label": "Cost Allocations",
+   "no_copy": 1,
+   "options": "Exhibit Cost Allocation"
   },
   {
    "fieldname": "billings_tab",

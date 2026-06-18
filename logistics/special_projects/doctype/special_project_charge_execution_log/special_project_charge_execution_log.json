@@ -1,0 +1,128 @@
+{
+ "actions": [],
+ "creation": "2026-06-05 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "charge_idx",
+  "item_code",
+  "item_name",
+  "service_type",
+  "qty",
+  "status",
+  "posted_on",
+  "column_break_plan",
+  "lifecycle_job_line",
+  "job_type",
+  "order_no",
+  "column_break_exec",
+  "job_no"
+ ],
+ "fields": [
+  {
+   "fieldname": "charge_idx",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Charge Row",
+   "read_only": 1
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item Code",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "item_code.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "service_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Service Type",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Qty",
+   "read_only": 1
+  },
+  {
+   "default": "Posted",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Posted\nCancelled",
+   "read_only": 1
+  },
+  {
+   "fieldname": "posted_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Posted On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_plan",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "lifecycle_job_line",
+   "fieldtype": "Link",
+   "label": "Lifecycle Job Line",
+   "options": "Lifecycle Job",
+   "read_only": 1
+  },
+  {
+   "fieldname": "job_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Job Type",
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nInbound Order\nProject Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "order_no",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Order No",
+   "options": "job_type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_exec",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "job_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Job No",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-05 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Special Projects",
+ "name": "Special Project Charge Execution Log",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

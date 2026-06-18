@@ -21,6 +21,8 @@ SERVICE_LEGACY_TABLE: dict[str, str] = {
 	"Customs": "Sales Quote Customs",
 	"Custom": "Sales Quote Customs",
 	"Warehousing": "Sales Quote Warehouse",
+	"MICE": "",
+	"Events": "",
 }
 
 # Reserved name pattern for Link filters when no one-off quote matches (no rows returned).

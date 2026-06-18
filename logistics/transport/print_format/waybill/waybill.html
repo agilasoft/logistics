@@ -296,10 +296,10 @@
             {% if doc.contains_dangerous_goods %}
                 <span class="badge badge-danger">⚠ HAZARDOUS</span>
             {% endif %}
-            {% if doc.refrigeration %}
+{% if doc.refrigeration %}
                 <span class="badge badge-warning">❄ REFRIGERATED</span>
             {% endif %}
-            {% if doc.priority %}
+{% if doc.priority %}
                 <span class="badge">⚡ PRIORITY: {{ doc.priority }}</span>
             {% endif %}
         </div>
@@ -313,21 +313,21 @@
                         {% if doc.facility_from %}
                             <div class="party-name">{{ doc.facility_from }}</div>
                         {% endif %}
-                        {% if doc.pick_address_format %}
+{% if doc.pick_address_format %}
                             <div class="party-address">{{ doc.pick_address_format|replace('\n', '<br>')|safe }}</div>
                         {% elif doc.pick_address %}
                             <div class="party-address">{{ doc.pick_address }}</div>
                         {% endif %}
-                        {% if doc.pick_mode %}
+{% if doc.pick_mode %}
                             <div style="margin-top: 2mm; font-size: 8pt; color: #666;">
                                 <strong>Mode:</strong> {{ doc.pick_mode }}
                             </div>
                         {% endif %}
-                        {% if doc.pick_window_start or doc.pick_window_end %}
+{% if doc.pick_window_start or doc.pick_window_end %}
                             <div style="margin-top: 1mm; font-size: 8pt; color: #666;">
                                 <strong>Window:</strong> 
                                 {% if doc.pick_window_start %}{{ frappe.utils.format_time(doc.pick_window_start) }}{% endif %}
-                                {% if doc.pick_window_end %} - {{ frappe.utils.format_time(doc.pick_window_end) }}{% endif %}
+{% if doc.pick_window_end %} - {{ frappe.utils.format_time(doc.pick_window_end) }}{% endif %}
                             </div>
                         {% endif %}
                     </div>
@@ -341,21 +341,21 @@
                         {% if doc.facility_to %}
                             <div class="party-name">{{ doc.facility_to }}</div>
                         {% endif %}
-                        {% if doc.drop_address_html %}
+{% if doc.drop_address_html %}
                             <div class="party-address">{{ doc.drop_address_html|replace('\n', '<br>')|safe }}</div>
                         {% elif doc.drop_address %}
                             <div class="party-address">{{ doc.drop_address }}</div>
                         {% endif %}
-                        {% if doc.drop_mode %}
+{% if doc.drop_mode %}
                             <div style="margin-top: 2mm; font-size: 8pt; color: #666;">
                                 <strong>Mode:</strong> {{ doc.drop_mode }}
                             </div>
                         {% endif %}
-                        {% if doc.drop_window_start or doc.drop_window_end %}
+{% if doc.drop_window_start or doc.drop_window_end %}
                             <div style="margin-top: 1mm; font-size: 8pt; color: #666;">
                                 <strong>Window:</strong> 
                                 {% if doc.drop_window_start %}{{ frappe.utils.format_time(doc.drop_window_start) }}{% endif %}
-                                {% if doc.drop_window_end %} - {{ frappe.utils.format_time(doc.drop_window_end) }}{% endif %}
+{% if doc.drop_window_end %} - {{ frappe.utils.format_time(doc.drop_window_end) }}{% endif %}
                             </div>
                         {% endif %}
                     </div>
@@ -453,8 +453,8 @@
                     </td>
                     <td>
                         {% if doc.contains_dangerous_goods %}HAZARDOUS | {% endif %}
-                        {% if doc.refrigeration %}REFRIGERATED | {% endif %}
-                        {% if doc.priority %}PRIORITY: {{ doc.priority }}{% endif %}
+{% if doc.refrigeration %}REFRIGERATED | {% endif %}
+{% if doc.priority %}PRIORITY: {{ doc.priority }}{% endif %}
                     </td>
                 </tr>
             </tbody>
@@ -504,7 +504,7 @@
                 {% else %}
                     <div class="sig-line">Signature</div>
                 {% endif %}
-                <div class="sig-field">
+<div class="sig-field">
                     <span class="sig-label">Name:</span> {{ doc.signed_by or '_______________________' }}
                 </div>
                 <div class="sig-field">

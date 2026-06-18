@@ -1,0 +1,224 @@
+{
+ "app": "logistics",
+ "charts": [],
+ "content": "[{\"id\":\"ev-hdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"RsApsOHeGm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"ev-ev\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Project\",\"col\":3}},{\"id\":\"ev-ep\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Docket\",\"col\":3}},{\"id\":\"ev-eo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Order\",\"col\":3}},{\"id\":\"ev-ej\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Job\",\"col\":3}},{\"id\":\"ev-sp\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ev-mh\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\",\"col\":12}},{\"id\":\"ev-mc\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}},{\"id\":\"ev-sc\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"ev-sp2\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ev-rh\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analytics</b></span>\",\"col\":12}},{\"id\":\"ev-rc\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational\",\"col\":4}}]",
+ "creation": "2026-05-18 00:00:00",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "ticket",
+ "idx": 0,
+ "indicator_color": "blue",
+ "is_hidden": 0,
+ "label": "MICE",
+ "link_type": "DocType",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Masters",
+   "link_count": 8,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "MICE Project",
+   "link_count": 0,
+   "link_to": "MICE Project",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Docket",
+   "link_count": 0,
+   "link_to": "Docket",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "MICE Order",
+   "link_count": 0,
+   "link_to": "MICE Order",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "MICE Job",
+   "link_count": 0,
+   "link_to": "MICE Job",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "MICE Organizer",
+   "link_count": 0,
+   "link_to": "MICE Organizer",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "MICE Type",
+   "link_count": 0,
+   "link_to": "MICE Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Lifecycle Stage",
+   "link_count": 0,
+   "link_to": "Lifecycle Stage",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Activity Code",
+   "link_count": 0,
+   "link_to": "Activity Code",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Settings",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "MICE Settings",
+   "link_count": 0,
+   "link_to": "MICE Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Operational",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "MICE Pipeline Report",
+   "link_count": 0,
+   "link_to": "MICE Pipeline Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "MICE Project",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "MICE Activity Status Report",
+   "link_count": 0,
+   "link_to": "MICE Activity Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "MICE Project",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "MICE Billing Status Report",
+   "link_count": 0,
+   "link_to": "MICE Billing Status Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "MICE Project",
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-05-27 21:43:17.532521",
+ "modified_by": "Administrator",
+ "module": "MICE",
+ "name": "MICE",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 0.0,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Sales Quote",
+   "link_to": "Sales Quote",
+   "stats_filter": "[[\"Sales Quote\",\"main_service\",\"=\",\"MICE\"]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "MICE Project",
+   "link_to": "MICE Project",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Docket",
+   "link_to": "Docket",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "MICE Order",
+   "link_to": "MICE Order",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "MICE Job",
+   "link_to": "MICE Job",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "MICE",
+ "type": "Workspace"
+}

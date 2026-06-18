@@ -24,12 +24,14 @@ from frappe.utils import escape_html, flt, get_url_to_form
 
 from logistics.job_management.api import (
 	_account_has_job_profit_type,
+	_cost_account_sql_predicate,
 	_jp_exclude_fragment,
 	_profitability_gl_tabs_markup,
 	_signed_accrual_by_job_profit,
 	_signed_disbursement_amount,
 	_signed_wip_by_job_profit,
 	aggregate_gl_entries_by_item,
+	is_stock_received_not_billed_cost_account,
 )
 from logistics.job_management.gl_item_dimension import (
 	get_item_accounting_dimension_label,
@@ -164,16 +166,15 @@ def get_project_profitability_from_gl(project, company=None, to_date=None, from_
 	)
 	revenue = flt(revenue_row[0].amount, 2) if revenue_row else 0
 
-	# Cost: Expense root_type, excluding lines flagged Disbursements / WIP / Accrual.
+	# Cost: Expense root_type plus Stock Received But Not Billed (stock PI lines).
 	cost_row = frappe.db.sql(
 		"""
 		SELECT COALESCE(SUM(gle.debit - gle.credit), 0) AS amount
 		FROM `tabGL Entry` gle
 		INNER JOIN `tabAccount` acc ON acc.name = gle.account
 		WHERE {where}
-		AND acc.root_type = 'Expense'
-		{jp_ex}
-		""".format(where=where, jp_ex=jp_ex),
+		AND {cost_predicate}
+		""".format(where=where, cost_predicate=_cost_account_sql_predicate(jp_ex=jp_ex)),
 		values,
 		as_dict=True,
 	)
@@ -379,6 +380,7 @@ def _get_project_gl_entries_classified(
 			gle.against_voucher_type,
 			gle.against_voucher,
 			acc.root_type AS account_root_type,
+			acc.account_type AS account_type,
 			{jp_col},
 			{dim_item}
 		FROM `tabGL Entry` gle
@@ -400,6 +402,7 @@ def _get_project_gl_entries_classified(
 		debit = flt(r.debit, 2)
 		credit = flt(r.credit, 2)
 		root_type = (r.get("account_root_type") or "").strip()
+		account_type = (r.get("account_type") or "").strip()
 		jp = ((r.get("job_profit_account_type") or "") if _account_has_job_profit_type() else "").strip()
 
 		revenue_amt = 0
@@ -419,6 +422,8 @@ def _get_project_gl_entries_classified(
 		elif root_type == "Income":
 			revenue_amt = credit - debit
 		elif root_type == "Expense":
+			cost_amt = debit - credit
+		elif is_stock_received_not_billed_cost_account(root_type, account_type):
 			cost_amt = debit - credit
 
 		party_display = ""

@@ -942,7 +942,7 @@ function renderLiveFlights(root, data) {
       warn.title = data.provider_error;
     } else if (data.provider_status === "disabled") {
       warn.style.display = "";
-      warn.textContent = __("Real-time tracking is disabled in Flight Schedule Settings.");
+      warn.textContent = __("Real-time tracking is disabled in GoConnect Settings (Flight tab).");
       warn.title = "";
     } else {
       warn.style.display = "none";

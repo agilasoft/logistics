@@ -510,6 +510,56 @@
 	font-size: 13px;
 }
 
+/* Scope column: Main / Internal Job pills + count chip in the toolbar */
+.logistics-gcfq-preview-subcount {
+	display: inline-block;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.3;
+	color: #5b4a06;
+	background: #fff7d6;
+	border: 1px solid #f0d97a;
+	border-radius: 4px;
+	padding: 3px 8px;
+	margin-left: 6px;
+}
+
+.logistics-gcfq-preview-table .gcfq-preview-col-scope {
+	width: 1%;
+	white-space: nowrap;
+	min-width: 8rem;
+}
+
+.logistics-gcfq-preview-table .gcfq-preview-scope-pill {
+	display: inline-block;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.2;
+	border-radius: 4px;
+	padding: 3px 8px;
+	text-transform: none;
+	max-width: 18rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	vertical-align: middle;
+}
+
+.logistics-gcfq-preview-table .gcfq-preview-scope-pill--main {
+	color: #2b5b3a;
+	background: #e2f3e6;
+	border: 1px solid #b7dbbf;
+}
+
+.logistics-gcfq-preview-table .gcfq-preview-scope-pill--ij {
+	color: #5b4a06;
+	background: #fff7d6;
+	border: 1px solid #f0d97a;
+}
+
+.logistics-gcfq-preview-table tr.gcfq-preview-row-ij td {
+	background: #fffdf3;
+}
+
 .logistics-gcfq-preview-empty {
 	border: 1px dashed #d1d8dd;
 	border-radius: 6px;

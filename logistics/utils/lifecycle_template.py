@@ -16,16 +16,16 @@ from frappe import _
 from frappe.utils import cint
 
 
-SUPPORTED_PARENT_DOCTYPES: tuple[str, ...] = ("Special Project", "Exhibit")
+SUPPORTED_PARENT_DOCTYPES: tuple[str, ...] = ("Special Project", "MICE Project")
 
 _APPLICABILITY_FLAG_BY_PARENT: dict[str, str] = {
 	"Special Project": "for_special_project",
-	"Exhibit": "for_exhibits",
+	"MICE Project": "for_exhibits",
 }
 
 _STAGE_FLAG_BY_PARENT: dict[str, str] = {
 	"Special Project": "for_special_project",
-	"Exhibit": "for_exhibits",
+	"MICE Project": "for_exhibits",
 }
 
 _SEEDED_LIFECYCLE_JOB_FIELDS: tuple[str, ...] = (

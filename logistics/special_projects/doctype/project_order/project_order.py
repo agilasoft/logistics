@@ -191,6 +191,7 @@ def _build_project_job_from_order(order: Document, title: Optional[str] = None) 
 
 	_copy_child_rows_by_common_fields(order, "order_resources", job, "job_resources")
 	_copy_child_rows_by_common_fields(order, "charges", job, "charges")
+	_copy_child_rows_by_common_fields(order, "packages", job, "packages")
 	_copy_child_rows_by_common_fields(order, "milestones", job, "milestones")
 	_copy_child_rows_by_common_fields(order, "documents", job, "documents")
 

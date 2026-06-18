@@ -1,0 +1,46 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:LCP-{period}-{department}",
+ "creation": "2026-06-11 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "period",
+  "department",
+  "column_break_basic",
+  "actual_amount",
+  "budget_amount",
+  "variance_amount",
+  "currency"
+ ],
+ "fields": [
+  {"fieldname": "period", "fieldtype": "Date", "in_list_view": 1, "in_standard_filter": 1, "label": "Period (Month Start)", "reqd": 1},
+  {"default": "All", "fieldname": "department", "fieldtype": "Data", "in_list_view": 1, "in_standard_filter": 1, "label": "Department"},
+  {"fieldname": "column_break_basic", "fieldtype": "Column Break"},
+  {"fieldname": "actual_amount", "fieldtype": "Currency", "in_list_view": 1, "label": "Actual", "options": "currency"},
+  {"fieldname": "budget_amount", "fieldtype": "Currency", "in_list_view": 1, "label": "Budget", "options": "currency"},
+  {"fieldname": "variance_amount", "fieldtype": "Currency", "label": "Variance (Actual - Budget)", "options": "currency", "read_only": 1},
+  {"default": "PHP", "fieldname": "currency", "fieldtype": "Link", "label": "Currency", "options": "Currency"}
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-11 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Control Tower",
+ "name": "HR Labor Cost Period",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {"create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "System Manager", "share": 1, "write": 1},
+  {"create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "Control Tower Manager", "share": 1, "write": 1},
+  {"email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "Control Tower Viewer", "share": 1}
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "period",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

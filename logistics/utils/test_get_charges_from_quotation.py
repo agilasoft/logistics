@@ -31,6 +31,7 @@ from logistics.utils.charge_service_type import (
 	_is_customs_related_sq_charge_row,
 	_merge_unified_and_legacy_customs_rows,
 	customs_charges_rows_from_sales_quote_doc,
+	sales_quote_charge_filters,
 )
 from logistics.utils.sales_quote_link_query import (
 	filter_customs_charge_rows_for_declaration_order,
@@ -242,6 +243,150 @@ class TestGetChargesCorridorHelpers(FrappeTestCase):
 		sq.customs = []
 		rows = customs_charges_rows_from_sales_quote_doc(parent, sq)
 		self.assertEqual(len(rows), 4)
+
+	@patch(
+		"logistics.utils.routing_quote_context.routing_leg_service_type_for_parent",
+		return_value=None,
+	)
+	def test_sales_quote_charge_filters_gcfq_main_only_restricts_when_separate_billings_on(self, _mock_rt):
+		"""GCFQ adds ``service_type`` filter when separate billings is on."""
+		import frappe
+
+		parent = MagicMock()
+		parent.doctype = "Sea Booking"
+		parent.is_internal_job = 0
+		parent.is_main_service = 1
+		parent.flags = frappe._dict({"gcfq_main_service_only": 1})
+		sq = MagicMock()
+		sq.name = "SQ-1"
+		sq.main_service = "Sea"
+		sq.separate_billings_per_service_type = 1
+		filters = sales_quote_charge_filters(parent, sq)
+		self.assertIn("service_type", filters)
+
+	@patch(
+		"logistics.utils.routing_quote_context.routing_leg_service_type_for_parent",
+		return_value=None,
+	)
+	def test_sales_quote_charge_filters_gcfq_combined_billing_returns_all(self, _mock_rt):
+		"""GCFQ on main service with separate billings off loads all quote charge rows."""
+		import frappe
+
+		parent = MagicMock()
+		parent.doctype = "Sea Booking"
+		parent.is_internal_job = 0
+		parent.is_main_service = 1
+		parent.flags = frappe._dict({"gcfq_main_service_only": 1})
+		sq = MagicMock()
+		sq.name = "SQ-1"
+		sq.main_service = "Sea"
+		sq.separate_billings_per_service_type = 0
+		filters = sales_quote_charge_filters(parent, sq)
+		self.assertNotIn("service_type", filters)
+
+	@patch(
+		"logistics.utils.routing_quote_context.routing_leg_service_type_for_parent",
+		return_value=None,
+	)
+	def test_sales_quote_charge_filters_no_flag_separate_off_returns_all(self, _mock_rt):
+		"""Without the flag, separate_billings off keeps the existing combined-billing behaviour."""
+		parent = MagicMock()
+		parent.doctype = "Sea Booking"
+		parent.is_internal_job = 0
+		parent.is_main_service = 0
+		parent.flags = None
+		sq = MagicMock()
+		sq.name = "SQ-1"
+		sq.separate_billings_per_service_type = 0
+		filters = sales_quote_charge_filters(parent, sq)
+		self.assertNotIn("service_type", filters)
+
+	@patch("logistics.utils.charge_service_type._legacy_customs_rows_for_quote", return_value=[])
+	def test_customs_charges_rows_gcfq_main_only_keeps_customs_only_when_separate_on(self, _mock_legacy):
+		"""GCFQ restricts Main Declaration Order to Customs rows when separate billings is on."""
+		import frappe
+
+		parent = MagicMock()
+		parent.doctype = "Declaration Order"
+		parent.is_internal_job = 0
+		parent.is_main_service = 1
+		parent.customs_authority = ""
+		parent.declaration_type = ""
+		parent.customs_broker = ""
+		parent.transport_mode = ""
+		parent.flags = frappe._dict({"gcfq_main_service_only": 1})
+		sq = MagicMock()
+		sq.name = "SQ-1"
+		sq.main_service = "Customs"
+		sq.separate_billings_per_service_type = 1
+		sq.charges = [
+			MagicMock(
+				service_type="Sea",
+				customs_authority="",
+				declaration_type="",
+				customs_broker="",
+			),
+			MagicMock(
+				service_type="Customs",
+				customs_authority="",
+				declaration_type="",
+				customs_broker="",
+			),
+			MagicMock(
+				service_type="Transport",
+				customs_authority="",
+				declaration_type="",
+				customs_broker="",
+			),
+		]
+		sq.routing_legs = []
+		sq.customs = []
+		rows = customs_charges_rows_from_sales_quote_doc(parent, sq)
+		self.assertEqual(len(rows), 1)
+		self.assertEqual(rows[0].service_type, "Customs")
+
+	@patch("logistics.utils.charge_service_type._legacy_customs_rows_for_quote", return_value=[])
+	def test_customs_charges_rows_gcfq_combined_billing_returns_all(self, _mock_legacy):
+		"""GCFQ on main Customs job with separate billings off returns all quote charge rows."""
+		import frappe
+
+		parent = MagicMock()
+		parent.doctype = "Declaration Order"
+		parent.is_internal_job = 0
+		parent.is_main_service = 1
+		parent.customs_authority = ""
+		parent.declaration_type = ""
+		parent.customs_broker = ""
+		parent.transport_mode = ""
+		parent.flags = frappe._dict({"gcfq_main_service_only": 1})
+		sq = MagicMock()
+		sq.name = "SQ-1"
+		sq.main_service = "Customs"
+		sq.separate_billings_per_service_type = 0
+		sq.charges = [
+			MagicMock(
+				service_type="Sea",
+				customs_authority="",
+				declaration_type="",
+				customs_broker="",
+			),
+			MagicMock(
+				service_type="Customs",
+				customs_authority="",
+				declaration_type="",
+				customs_broker="",
+			),
+			MagicMock(
+				service_type="Transport",
+				customs_authority="",
+				declaration_type="",
+				customs_broker="",
+			),
+		]
+		sq.routing_legs = []
+		sq.customs = []
+		rows = customs_charges_rows_from_sales_quote_doc(parent, sq)
+		self.assertEqual(len(rows), 3)
 
 	@patch("logistics.utils.charge_service_type._legacy_customs_rows_for_quote", return_value=[])
 	def test_customs_charges_rows_merges_params_only_unified_lines(self, _mock_legacy):

@@ -132,9 +132,11 @@ def get_declaration_order_job_no_from_shipment_doc(shipment_doc: Any) -> str | N
 
 
 def _save_parent_internal_job_details(parent: Any) -> None:
-	"""Persist internal_job_details (including after submit)."""
+	"""Persist internal job detail child rows (including after submit)."""
 	parent.flags.ignore_validate_update_after_submit = True
 	parent.flags.ignore_links = True
+	if getattr(parent, "doctype", None) == "Docket":
+		parent.flags.ignore_charges_sync = True
 	# Back-reference after Create Internal Job must not run documents/milestones on_update hooks
 	# while the user may still have the source shipment/booking form open.
 	parent.flags.ignore_documents_milestones_populate = True
@@ -153,6 +155,43 @@ def _persist_internal_job_detail_row_db(row: Any, job_type: str, job_no: str) ->
 		updates["service_type"] = st_default
 	frappe.db.set_value(row.doctype, row.name, updates, update_modified=False)
 	return True
+
+
+def _stamp_internal_job_link_on_target(job_type: str, job_no: str, ij_row: Any) -> None:
+	"""DB-level ``internal_job`` stamp on the just-created operational doc (no parent ``modified`` bump).
+
+	Idempotent: only writes when the target doctype carries an ``internal_job`` Link field, the row's
+	``internal_job`` link is set, and the target doc's current value differs.
+	"""
+	jt = (job_type or "").strip()
+	jn = (job_no or "").strip()
+	if not jt or not jn:
+		return
+	ij_link = (getattr(ij_row, "internal_job", None) or "") if not isinstance(ij_row, dict) else (
+		ij_row.get("internal_job") or ""
+	)
+	if isinstance(ij_link, str):
+		ij_link = ij_link.strip()
+	if not ij_link:
+		return
+	try:
+		meta = frappe.get_meta(jt)
+	except Exception:
+		return
+	if not meta.get_field("internal_job"):
+		return
+	if not frappe.db.exists(jt, jn):
+		return
+	current = (frappe.db.get_value(jt, jn, "internal_job") or "").strip()
+	if current == ij_link:
+		return
+	try:
+		frappe.db.set_value(jt, jn, "internal_job", ij_link, update_modified=False)
+	except Exception:
+		frappe.log_error(
+			title="Internal Job link stamp failed",
+			message=f"{jt} {jn} ← {ij_link}: {frappe.get_traceback()}",
+		)
 
 
 def _save_shipment_internal_jobs(shipment: Any) -> None:
@@ -179,24 +218,32 @@ def persist_internal_job_detail_job_link(
 ) -> None:
 	"""Set job_type + job_no on the matching Internal Job Detail row (by idx, first open line, or append).
 
-	When the desk passes ``internal_job_details`` JSON, resolution uses that list but we must write
-	``job_no`` onto the parent document's real child rows so ``save`` persists the back-reference.
+	When the desk passes child-table JSON, resolution uses that list but we must write ``job_no`` onto
+	the parent document's real child rows so ``save`` persists the back-reference. Also updates the
+	linked ``Internal Job`` document because detail-row ``job_no`` is a ``fetch_from`` view of it.
 	"""
 	jn = (job_no or "").strip()
 	if not jn or not frappe.db.exists(parent_doctype, parent_name):
 		return
-	meta = frappe.get_meta(parent_doctype)
-	if not meta.get_field("internal_job_details"):
-		return
+	from logistics.utils.internal_job_persistence import (
+		internal_job_detail_fieldname,
+		internal_job_detail_rows_for_parent,
+		sync_internal_job_doc_job_link,
+	)
 
-	from logistics.utils.internal_job_from_source import _ij_rows_list
+	fieldname = internal_job_detail_fieldname(parent_doctype)
+	if not fieldname:
+		return
+	meta = frappe.get_meta(parent_doctype)
+	if not meta.get_field(fieldname):
+		return
 
 	parent = frappe.get_doc(parent_doctype, parent_name)
 	jt = (job_type or "").strip()
 	st_default = _DEFAULT_SERVICE_TYPE_FOR_JOB_TYPE.get(jt)
 	# Rows as seen during create (grid JSON when provided, else DB child rows on parent).
-	form_rows = _ij_rows_list(parent)
-	canonical = list(getattr(parent, "internal_job_details", None) or [])
+	form_rows = internal_job_detail_rows_for_parent(parent)
+	canonical = list(getattr(parent, fieldname, None) or [])
 
 	def _apply_to_canonical_row(target: Any, di: int) -> None:
 		src = form_rows[di - 1] if 0 < di <= len(form_rows) else target
@@ -210,6 +257,25 @@ def persist_internal_job_detail_job_link(
 		if st_default and hasattr(target, "service_type") and not (getattr(target, "service_type", None) or "").strip():
 			target.service_type = st_default
 
+	def _commit_row_link(target: Any, di: int) -> None:
+		_apply_to_canonical_row(target, di)
+		if not (getattr(target, "internal_job", None) or "").strip():
+			_save_parent_internal_job_details(parent)
+			parent.reload()
+			rows_after = list(getattr(parent, fieldname, None) or [])
+			if di > len(rows_after):
+				return
+			target = rows_after[di - 1]
+			_apply_to_canonical_row(target, di)
+		sync_internal_job_doc_job_link(target, jt, jn)
+		if not _persist_internal_job_detail_row_db(target, jt, jn):
+			_save_parent_internal_job_details(parent)
+		# Stamp the canonical Internal Job link onto the newly-created operational doc so the
+		# Booking/Order form shows it immediately (matches the apply path via
+		# ``apply_internal_job_detail_row_to_operational_doc`` and covers create flows that
+		# bypass that helper).
+		_stamp_internal_job_link_on_target(jt, jn, target)
+
 	di = _coerce_positive_detail_idx(detail_idx)
 	if di is not None:
 		if di < 1 or di > len(form_rows):
@@ -221,10 +287,7 @@ def persist_internal_job_detail_job_link(
 				).format(parent_name),
 				title=_("Save required"),
 			)
-		target = canonical[di - 1]
-		_apply_to_canonical_row(target, di)
-		if not _persist_internal_job_detail_row_db(target, jt, jn):
-			_save_parent_internal_job_details(parent)
+		_commit_row_link(canonical[di - 1], di)
 		return
 
 	for i, src in enumerate(form_rows):
@@ -240,16 +303,13 @@ def persist_internal_job_detail_job_link(
 				).format(parent_name),
 				title=_("Save required"),
 			)
-		target = canonical[di_open - 1]
-		_apply_to_canonical_row(target, di_open)
-		if not _persist_internal_job_detail_row_db(target, jt, jn):
-			_save_parent_internal_job_details(parent)
+		_commit_row_link(canonical[di_open - 1], di_open)
 		return
 
 	new_row: dict[str, Any] = {"job_type": jt, "job_no": jn}
 	if st_default:
 		new_row["service_type"] = st_default
-	parent.append("internal_job_details", new_row)
+	parent.append(fieldname, new_row)
 	_save_parent_internal_job_details(parent)
 
 

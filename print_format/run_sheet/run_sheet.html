@@ -312,10 +312,18 @@
     </style>
 </head>
 <body>
-    <div class="runsheet-container">
+
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set company_doc = None %}
+{% if doc.company and frappe.db.exists("Company", doc.company) %}
+{% set company_doc = frappe.get_doc("Company", doc.company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
+{% set company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
+<div class="runsheet-container">
         <!-- Header -->
         <div class="header">
-            {% set company_doc = frappe.get_doc("Company", doc.company) %}
+            {% if company_doc %}
             {% if company_doc.company_logo %}
                 <img src="{{ company_doc.company_logo }}" alt="Company Logo" class="company-logo" />
             {% elif company_doc.logo %}
@@ -327,17 +335,17 @@
                     company_logo
                 </div>
             {% endif %}
-            <div class="company-info">
+<div class="company-info">
                 <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
                 <div class="company-address">
                     {% if company_doc.address %}
                         {% set company_address = frappe.get_doc("Address", company_doc.address) %}
                         {{ company_address.address_line1 if company_address.address_line1 else '' }}
                         {% if company_address.address_line2 %}{{ company_address.address_line2 }}{% endif %}
-                        {% if company_address.city %}{{ company_address.city }}{% endif %}
-                        {% if company_address.state %}, {{ company_address.state }}{% endif %}
-                        {% if company_address.country %}{{ company_address.country }}{% endif %}
-                        {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+{% if company_address.city %}{{ company_address.city }}{% endif %}
+{% if company_address.state %}, {{ company_address.state }}{% endif %}
+{% if company_address.country %}{{ company_address.country }}{% endif %}
+{% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
                     {% elif company_doc.address_line1 %}
                         {{ company_doc.address_line1 }}<br>
                         {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
@@ -353,6 +361,12 @@
                     {% endif %}
                 </div>
             </div>
+            {% else %}
+                <div class="logo-placeholder">company_logo</div>
+                <div class="company-info">
+                    <div class="company-name">{{ doc.company or default_company or '' }}</div>
+                </div>
+            {% endif %}
         </div>
         
         <div class="document-title">RUN SHEET</div>

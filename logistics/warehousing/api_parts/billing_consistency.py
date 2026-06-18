@@ -138,7 +138,7 @@ def auto_compute_charge_quantities(charge_doc: str, charge_type: str) -> Dict[st
             _update_method_specific_quantities(charge, billing_quantity)
             
             # Recalculate total
-            charge.total = flt(charge.quantity) * flt(charge.rate or 0)
+            charge.total = flt(charge.quantity) * flt(charge.unit_rate or 0)
             
             # Save the document
             charge.save()

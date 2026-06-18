@@ -132,19 +132,91 @@ function _setup_dockets_grid_buttons(frm) {
 	grid.wrapper.find(".grid-footer").removeClass("hidden");
 }
 
+function _render_exhibit_cost_allocation_help(frm) {
+	if (!frm.fields_dict.cost_allocation_html || !frm.fields_dict.cost_allocation_html.$wrapper) {
+		return;
+	}
+	const target_label = frm.doc.cost_allocation_target || "Auto";
+	const basis_label = frm.doc.cost_allocation_basis || "Equal";
+	const html = `
+		<div class="text-muted" style="font-size: 12px; margin-bottom: 6px;">
+			${__("Target")}: <b>${frappe.utils.escape_html(target_label)}</b>
+			· ${__("Default basis")}: <b>${frappe.utils.escape_html(basis_label)}</b>
+			· ${__("Use the Charges → Allocate Costs action to refresh.")}
+		</div>`;
+	frm.fields_dict.cost_allocation_html.$wrapper.html(html);
+}
+
+function _exhibit_refresh_allocation_targets(frm) {
+	frm.call({
+		method: "refresh_cost_allocation_targets",
+		doc: frm.doc,
+		callback: function (r) {
+			if (r.message) {
+				frm.reload_doc();
+				frappe.show_alert({ message: r.message.message, indicator: "blue" }, 4);
+			}
+		},
+	});
+}
+
+function _exhibit_allocate_costs_dialog(frm) {
+	const d = new frappe.ui.Dialog({
+		title: __("Allocate Costs"),
+		fields: [
+			{
+				fieldname: "target_type",
+				fieldtype: "Select",
+				label: __("Allocation Target"),
+				options: ["Auto", "Dockets", "Exhibit Jobs"].join("\n"),
+				default: frm.doc.cost_allocation_target || "Auto",
+				reqd: 1,
+				description: __(
+					"Where allocated costs land. Auto picks Exhibit Jobs when present, otherwise Dockets."
+				),
+			},
+			{
+				fieldname: "allocation_basis",
+				fieldtype: "Select",
+				label: __("Default Allocation Basis"),
+				options: ["Equal", "Weight-based", "Volume-based", "Value-based", "Custom"].join("\n"),
+				default: frm.doc.cost_allocation_basis || "Equal",
+				reqd: 1,
+				description: __(
+					"Used as the fallback for any charge row that does not set its own Allocation Method. Custom uses the per-row Cost Allocation % values; set those before allocating."
+				),
+			},
+		],
+		primary_action_label: __("Allocate"),
+		primary_action: function (values) {
+			d.hide();
+			frm.call({
+				method: "allocate_costs",
+				doc: frm.doc,
+				args: {
+					allocation_basis: values.allocation_basis,
+					target_type: values.target_type,
+				},
+				freeze: true,
+				freeze_message: __("Allocating costs…"),
+				callback: function (r) {
+					if (r.message) {
+						frm.reload_doc();
+						frappe.show_alert(
+							{ message: r.message.message, indicator: "green" },
+							5
+						);
+					}
+				},
+			});
+		},
+	});
+	d.show();
+}
+
 function logistics_set_internal_job_site_query(frm) {
 	frm.set_query("sp_site", "lifecycle_jobs", function () {
-		const cust = frm.doc.customer;
-		if (!cust) {
-			return { filters: [["name", "=", ""]] };
-		}
-		return {
-			query: "frappe.contacts.doctype.address.address.address_query",
-			filters: {
-				link_doctype: "Customer",
-				link_name: cust,
-			},
-		};
+		return logistics.address.query_for_customer(frm.doc.customer);
 	});
 }
 
@@ -223,6 +295,55 @@ frappe.ui.form.on("Exhibit", {
 			}, __("Action"));
 		}
 
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			frm.add_custom_button(
+				__("Booking / Order"),
+				function () {
+					function _openDlg() {
+						if (window.logistics_show_exhibit_booking_dialog) {
+							window.logistics_show_exhibit_booking_dialog(frm);
+						} else {
+							frappe.msgprint({
+								title: __("Not available"),
+								message: __(
+									"The Booking / Order dialog could not load. Refresh the page or contact your administrator."
+								),
+								indicator: "red",
+							});
+						}
+					}
+					if (window.logistics_show_exhibit_booking_dialog) {
+						_openDlg();
+					} else {
+						frappe.require(
+							"/assets/logistics/js/exhibit_booking_dialog.js",
+							_openDlg
+						);
+					}
+				},
+				__("Create")
+			);
+		}
+
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			frm.add_custom_button(
+				__("Refresh Allocation Targets"),
+				function () {
+					_exhibit_refresh_allocation_targets(frm);
+				},
+				__("Charges")
+			);
+			frm.add_custom_button(
+				__("Allocate Costs"),
+				function () {
+					_exhibit_allocate_costs_dialog(frm);
+				},
+				__("Charges")
+			);
+		}
+
+		_render_exhibit_cost_allocation_help(frm);
+
 		_refresh_cost_revenue_summary(frm);
 
 		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
@@ -257,6 +378,12 @@ frappe.ui.form.on("Exhibit", {
 	},
 	venue_name: function (frm) {
 		_refresh_exhibit_dashboard_html(frm);
+	},
+	cost_allocation_target: function (frm) {
+		_render_exhibit_cost_allocation_help(frm);
+	},
+	cost_allocation_basis: function (frm) {
+		_render_exhibit_cost_allocation_help(frm);
 	},
 	milestone_template: function (frm) {
 		if (!frm.doc.name || frm.doc.__islocal) return;

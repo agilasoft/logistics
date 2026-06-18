@@ -1012,6 +1012,7 @@
    "fieldtype": "Link",
    "label": "Branch",
    "options": "Branch",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -1020,6 +1021,7 @@
    "label": "Cost Center",
    "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -1027,6 +1029,7 @@
    "fieldtype": "Link",
    "label": "Profit Center",
    "options": "Profit Center",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -1370,7 +1373,7 @@
    "fieldname": "broker",
    "fieldtype": "Link",
    "label": "Broker",
-   "options": "Freight Agent"
+   "options": "Broker"
   },
   {
    "fieldname": "house_awb",
@@ -1428,7 +1431,7 @@
    "link_fieldname": "main_job"
   }
  ],
- "modified": "2026-05-21 13:31:49.366384",
+ "modified": "2026-06-08 09:44:36.152399",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Shipment",

@@ -1174,6 +1174,7 @@ def build_transport_job_dashboard_config(doc):
 		"ring_status_field": "status",
 		"map_points": map_points,
 		"map_segments": None,
+		"straight_line": False,
 	}
 
 

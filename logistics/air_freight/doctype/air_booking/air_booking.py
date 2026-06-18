@@ -94,9 +94,12 @@ def _service_type_matches(value, allowed_values):
 	return normalized_value in normalized_allowed
 
 
-# Fields to copy from Air Booking Charges to Air Shipment Charges (all copyable data fields)
+# Fields to copy from Air Booking Charges to Air Shipment Charges (all copyable data fields).
+# Includes ``charge_scope`` and ``internal_job`` so Internal Job tagging survives the conversion
+# (otherwise IJ-tagged rows would be silently re-classified as Main on the Shipment).
 _AIR_BOOKING_TO_SHIPMENT_CHARGE_FIELDS = (
 	"service_type",
+	"charge_scope", "internal_job",
 	"item_code", "item_name", "charge_type", "charge_category",
 	"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
 	"description",
@@ -106,7 +109,7 @@ _AIR_BOOKING_TO_SHIPMENT_CHARGE_FIELDS = (
 	"pay_to_exchange_rate",
 	"bill_to_exchange_rate_source",
 	"pay_to_exchange_rate_source",
-	"revenue_calculation_method", "quantity", "currency", "rate", "unit_type",
+	"revenue_calculation_method", "quantity", "currency", "unit_rate", "unit_type",
 	"minimum_quantity", "minimum_unit_rate", "minimum_charge", "maximum_charge",
 	"base_amount", "base_quantity",
 	"revenue_calc_notes",
@@ -128,6 +131,21 @@ def _normalize_packing_group_for_shipment(value):
 	if s in ("", "I", "II", "III"):
 		return s
 	return None
+
+
+def _normalize_booking_charge_row_for_shipment(charge_row: dict, company: str | None = None) -> dict:
+	"""Air Shipment charge lines require unit_rate/currency/method; booking lines may leave them empty."""
+	if not charge_row.get("revenue_calculation_method"):
+		charge_row["revenue_calculation_method"] = "Per Unit"
+	charge_row["unit_rate"] = flt(charge_row.get("unit_rate"))
+	if not charge_row.get("currency"):
+		charge_row["currency"] = (
+			charge_row.get("cost_currency")
+			or (company and frappe.get_cached_value("Company", company, "default_currency"))
+			or frappe.get_system_settings("currency")
+			or "USD"
+		)
+	return charge_row
 
 
 class AirBooking(Document):
@@ -172,30 +190,21 @@ class AirBooking(Document):
 				from frappe.utils import cint
 
 				from logistics.pricing_center.doctype.sales_quote.sales_quote import (
-					resolve_allow_linked_freight_booking_from_one_off_converted_doc,
-					resolve_allow_linked_freight_bookings_for_internal_job,
 					resolve_allow_linked_transport_order_for_internal_job_freight_booking,
+					resolve_one_off_chain_freight_booking_allowances,
 					resolve_one_off_declaration_order_chain_allowance,
-					resolve_single_main_air_booking_for_sales_quote,
-					resolve_single_main_sea_booking_for_sales_quote,
 					validate_one_off_quote_not_converted,
 				)
 
-				allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
 				sq_for_chain = (getattr(self, "sales_quote", None) or "").strip() or (
 					(getattr(self, "quote", None) or "").strip() if _quote_is_sales_quote else ""
 				)
 				sq_for_chain = sq_for_chain or None
+				allow_sea, allow_air = (None, None)
 				if sq_for_chain:
-					if not allow_sea:
-						allow_sea = resolve_single_main_sea_booking_for_sales_quote(sq_for_chain)
-					if not allow_air:
-						allow_air = resolve_single_main_air_booking_for_sales_quote(sq_for_chain)
-					conv_sea, conv_air = resolve_allow_linked_freight_booking_from_one_off_converted_doc(sq_for_chain)
-					if not allow_sea:
-						allow_sea = conv_sea
-					if not allow_air:
-						allow_air = conv_air
+					allow_sea, allow_air = resolve_one_off_chain_freight_booking_allowances(
+						self, sq_for_chain
+					)
 				allow_tro = resolve_allow_linked_transport_order_for_internal_job_freight_booking(self)
 				_allow_main_with_do, _allow_if_converted = resolve_one_off_declaration_order_chain_allowance(
 					self, allow_sea=allow_sea, allow_air=allow_air
@@ -252,6 +261,12 @@ class AirBooking(Document):
 			from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
 
 			msgprint_sales_quote_validity_warnings(self)
+
+			from logistics.utils.sales_quote_charge_copy import (
+				stamp_main_or_internal_job_scope_on_booking_charges,
+			)
+
+			stamp_main_or_internal_job_scope_on_booking_charges(self)
 
 		finally:
 			clear_charge_resolution_parent(self)
@@ -1112,8 +1127,8 @@ class AirBooking(Document):
 				row_dict["revenue_calc_notes"] = row.revenue_calc_notes
 			if hasattr(row, "cost_calc_notes"):
 				row_dict["cost_calc_notes"] = row.cost_calc_notes
-			if hasattr(row, "rate"):
-				row_dict["rate"] = row.rate
+			if hasattr(row, "unit_rate"):
+				row_dict["unit_rate"] = row.unit_rate
 
 	def _populate_charges_from_sales_quote(self, sales_quote_name):
 		"""Populate charges from Sales Quote Air Freight records
@@ -1157,6 +1172,13 @@ class AirBooking(Document):
 				f for f in charge_fields_legacy
 				if f not in ("cost_minimum_unit_rate", "cost_base_quantity")
 			]
+			from logistics.utils.sales_quote_charge_copy import (
+				extend_charge_fields_with_scope_and_internal_job,
+			)
+
+			charge_fields_sales_quote_charge = extend_charge_fields_with_scope_and_internal_job(
+				charge_fields_sales_quote_charge
+			)
 			sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields_sales_quote_charge)
 			legacy_air_fields = filter_fields_existing_in_doctype("Sales Quote Air Freight", charge_fields_legacy)
 
@@ -1902,7 +1924,7 @@ class AirBooking(Document):
 				"item_tax_template": item_tax_template,  # Added: item_tax_template from item
 				"invoice_type": invoice_type,  # Added: invoice_type from item
 				"revenue_calculation_method": calculation_method,
-				"rate": _sq_row_get("unit_rate") or 0,
+				"unit_rate": _sq_row_get("unit_rate") or 0,
 				"currency": _sq_row_get("currency") or default_currency,
 				"quantity": quantity,
 				"uom": uom_record_name,  # Use actual UOM record name, not normalized string
@@ -1971,7 +1993,13 @@ class AirBooking(Document):
 				charge_data["taxable_freight_item"] = _sq_row_get("taxable_freight_item")
 			if _sq_row_get("taxable_freight_item_tax_template"):
 				charge_data["taxable_freight_item_tax_template"] = _sq_row_get("taxable_freight_item_tax_template")
-			
+
+			from logistics.utils.sales_quote_charge_copy import (
+				apply_scope_tagging_to_mapped_charge,
+			)
+
+			apply_scope_tagging_to_mapped_charge(sqaf_record, charge_data)
+
 			# Log the final charge_data calculation_method
 			frappe.logger().info(
 				f"[Air Booking] _map_sales_quote_air_freight_to_charge: RETURNING charge_data with calculation_method: "
@@ -2332,6 +2360,7 @@ class AirBooking(Document):
 			if hasattr(self, 'packages') and self.packages:
 				for package in self.packages:
 					air_shipment.append("packages", {
+						"package_row": getattr(package, "package_row", None),
 						"commodity": getattr(package, "commodity", None),
 						"warehouse_item": getattr(package, "warehouse_item", None),
 						"hs_code": getattr(package, "hs_code", None),
@@ -2370,6 +2399,7 @@ class AirBooking(Document):
 					charge_row["uom"] = getattr(charge, 'unit_of_measure', None) or getattr(charge, 'uom', None)
 					# sales_quote_link: from parent or charge
 					charge_row["sales_quote_link"] = self.sales_quote or getattr(charge, 'sales_quote_link', None)
+					_normalize_booking_charge_row_for_shipment(charge_row, company=getattr(self, "company", None))
 					air_shipment.append("charges", charge_row)
 
 			if getattr(self, "operational_exchange_rates", None):
@@ -2509,9 +2539,13 @@ class AirBooking(Document):
 		"""Reset One-off Sales Quote status when Air Booking is cancelled."""
 		current_sales_quote = _resolve_sales_quote_link(self, from_db=True)
 		if current_sales_quote:
-			from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
+			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+				reset_one_off_quote_on_cancel_for_document,
+			)
 
-			reset_one_off_quote_on_cancel(current_sales_quote)
+			reset_one_off_quote_on_cancel_for_document(
+				current_sales_quote, self.doctype, self.name
+			)
 
 
 @frappe.whitelist()
@@ -2706,10 +2740,15 @@ def populate_charges_from_sales_quote(
 	is_internal_job: int = None,
 	main_job_type: str = None,
 	main_job: str = None,
+	gcfq_main_service_only: int = 0,
 ):
 	"""Populate charges from sales_quote. Called from frontend when sales_quote field changes.
-	
+
 	Returns charge data that can be populated in the frontend.
+
+	``gcfq_main_service_only`` is set by Action → Get Charges from Quotation (preview / list flows in
+	``logistics.utils.get_charges_from_quotation``) so the Main booking only consumes charge rows of
+	its implied service type. See ``sales_quote_charge_filters``.
 	"""
 	if not sales_quote:
 		return {"charges": []}
@@ -2753,6 +2792,11 @@ def populate_charges_from_sales_quote(
 			parent.main_job_type = main_job_type
 		if main_job is not None:
 			parent.main_job = main_job
+		if frappe.utils.cint(gcfq_main_service_only):
+			if doc is not None:
+				doc.flags.gcfq_main_service_only = 1
+			else:
+				parent.flags = frappe._dict({"gcfq_main_service_only": 1})
 		filters = sales_quote_charge_filters(parent, sales_quote_doc)
 
 		# Fetch charges from Sales Quote Charge (filtered) or Sales Quote Air Freight (legacy)

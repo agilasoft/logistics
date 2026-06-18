@@ -1,0 +1,298 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-29 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "charge_info_section",
+  "charge_type",
+  "charge_category",
+  "description",
+  "column_break_1",
+  "revenue_calculation_method",
+  "unit_type",
+  "rate",
+  "currency",
+  "section_break_calculation",
+  "quantity",
+  "unit_of_measure",
+  "column_break_2",
+  "discount_percentage",
+  "section_break_amounts",
+  "base_amount",
+  "discount_amount",
+  "tax_amount",
+  "column_break_3",
+  "surcharge_amount",
+  "total_amount",
+  "section_break_allocation",
+  "allocation_method",
+  "allocation_percentage",
+  "column_break_4",
+  "allocated_amount",
+  "section_break_purchase_pi",
+  "item_code",
+  "pay_to",
+  "purchase_invoice_status",
+  "purchase_invoice",
+  "section_break_status",
+  "charge_status",
+  "billing_status",
+  "column_break_5",
+  "invoice_reference",
+  "payment_status"
+ ],
+ "fields": [
+  {
+   "fieldname": "charge_info_section",
+   "fieldtype": "Section Break",
+   "label": "Charge Information"
+  },
+  {
+   "fieldname": "charge_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Charge Type",
+   "options": "Margin\nDisbursement\nRevenue\nCost",
+   "reqd": 1
+  },
+  {
+   "fieldname": "charge_category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Charge Category",
+   "options": "Booth Construction\nBooth Dismantling\nFreight\nHandling\nDocumentation\nInsurance\nStorage\nUtilities\nTransportation\nCustoms\nOther",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "item_code.description",
+   "fieldname": "description",
+   "fieldtype": "Long Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "revenue_calculation_method",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Revenue Calculation Method",
+   "options": "Per Unit\nFlat Rate\nPercentage",
+   "reqd": 1
+  },
+  {
+   "fieldname": "unit_type",
+   "fieldtype": "Select",
+   "label": "Unit Type",
+   "options": "Docket\nExhibit Job\nBooth\nSquare Meter\nDay\nPiece\nPackage"
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Rate",
+   "precision": "2",
+   "reqd": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
+   "options": "Currency",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_calculation",
+   "fieldtype": "Section Break",
+   "label": "Calculation Details"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity",
+   "precision": "2"
+  },
+  {
+   "fieldname": "unit_of_measure",
+   "fieldtype": "Select",
+   "label": "Unit of Measure",
+   "options": "docket\nexhibit\nbooth\nm\u00b2\nday\npackage\npiece\nhour"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "discount_percentage",
+   "fieldtype": "Percent",
+   "label": "Discount %",
+   "precision": "2"
+  },
+  {
+   "fieldname": "section_break_amounts",
+   "fieldtype": "Section Break",
+   "label": "Amount Details"
+  },
+  {
+   "fieldname": "base_amount",
+   "fieldtype": "Currency",
+   "label": "Base Amount",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "discount_amount",
+   "fieldtype": "Currency",
+   "label": "Discount Amount",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tax_amount",
+   "fieldtype": "Currency",
+   "label": "Tax Amount",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "surcharge_amount",
+   "fieldtype": "Currency",
+   "label": "Surcharge Amount",
+   "precision": "2"
+  },
+  {
+   "fieldname": "total_amount",
+   "fieldtype": "Currency",
+   "label": "Total Amount",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_allocation",
+   "fieldtype": "Section Break",
+   "label": "Cost Allocation"
+  },
+  {
+   "description": "How this charge splits across allocation targets (Dockets or Exhibit Jobs). For Custom, set Cost Allocation % manually on each row in the Cost Allocation table.",
+   "fieldname": "allocation_method",
+   "fieldtype": "Select",
+   "label": "Allocation Method",
+   "options": "Equal\nWeight-based\nVolume-based\nValue-based\nCustom"
+  },
+  {
+   "description": "Optional row-level percentage. Used with allocation totals when allocation method is Custom.",
+   "fieldname": "allocation_percentage",
+   "fieldtype": "Percent",
+   "label": "Allocation %",
+   "precision": "2"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "allocated_amount",
+   "fieldtype": "Currency",
+   "label": "Allocated Amount",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_purchase_pi",
+   "fieldtype": "Section Break",
+   "label": "Purchase Invoice"
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "link_filters": "[[\"Item\", \"custom_logistics_charge_item\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
+   "options": "Item"
+  },
+  {
+   "fieldname": "pay_to",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Pay To",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
+   "options": "Supplier"
+  },
+  {
+   "default": "Not Requested",
+   "description": "Set when included in a Purchase Invoice request; row becomes read-only.",
+   "fieldname": "purchase_invoice_status",
+   "fieldtype": "Select",
+   "label": "Cost Invoice Status",
+   "options": "Not Requested\nRequested\nPosted\nPaid",
+   "read_only": 1
+  },
+  {
+   "description": "Purchase Invoice this charge was requested in.",
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "options": "Purchase Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_status",
+   "fieldtype": "Section Break",
+   "label": "Status Information"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "charge_status",
+   "fieldtype": "Select",
+   "label": "Charge Status",
+   "options": "Draft\nCalculated\nApproved\nBilled\nPaid\nCancelled"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "billing_status",
+   "fieldtype": "Select",
+   "label": "Billing Status",
+   "options": "Pending\nBilled\nPaid\nOverdue\nCancelled"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "invoice_reference",
+   "fieldtype": "Data",
+   "label": "Invoice Reference"
+  },
+  {
+   "fieldname": "payment_status",
+   "fieldtype": "Select",
+   "label": "Payment Status",
+   "options": "Pending\nPaid\nOverdue\nCancelled"
+  }
+ ],
+ "grid_page_length": 50,
+ "in_create": 1,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-05-29 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Exhibits",
+ "name": "Exhibit Consolidation Charges",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

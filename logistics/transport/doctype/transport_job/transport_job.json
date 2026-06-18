@@ -280,6 +280,7 @@
    "fieldtype": "Link",
    "label": "Branch",
    "options": "Branch",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -288,6 +289,7 @@
    "label": "Cost Center",
    "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -295,6 +297,7 @@
    "fieldtype": "Link",
    "label": "Profit Center",
    "options": "Profit Center",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -523,8 +526,7 @@
    "fieldname": "transport_template",
    "fieldtype": "Link",
    "label": "Transport Template",
-   "options": "Transport Template",
-   "reqd": 1
+   "options": "Transport Template"
   },
   {
    "fieldname": "legs",

@@ -1,0 +1,32 @@
+{
+ "attach_print": 0,
+ "channel": "Email",
+ "condition": "",
+ "condition_type": "",
+ "creation": "2026-06-03 00:00:00.000000",
+ "days_in_advance": 0,
+ "docstatus": 0,
+ "doctype": "Notification",
+ "document_type": "Job Number",
+ "enabled": 1,
+ "event": "Method",
+ "idx": 0,
+ "is_standard": 1,
+ "message": "<p>{{ _(\"Job\") }} <b>{{ doc.name }}</b> {{ _(\"carries an open cost accrual older than the configured threshold.\") }}</p><p>{{ _(\"Verify supplier invoices have been booked or reverse the accrual.\") }}</p>",
+ "message_type": "HTML",
+ "method": "logistics.job_management.job_360.notify_stale_accrual",
+ "minutes_offset": 0,
+ "modified": "2026-06-03 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Job Management",
+ "name": "Job Accrual Stale",
+ "owner": "Administrator",
+ "recipients": [
+  {
+   "receiver_by_document_field": "owner"
+  }
+ ],
+ "send_system_notification": 1,
+ "send_to_all_assignees": 0,
+ "subject": "Stale accrual balance on job {{ doc.name }}"
+}

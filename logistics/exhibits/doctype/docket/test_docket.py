@@ -75,6 +75,48 @@ class IntegrationTestDocket(IntegrationTestCase):
 		finally:
 			exhibit.delete(ignore_permissions=True)
 
+	def test_booking_creation_persists_job_no_on_internal_jobs_row(self):
+		"""Create > Booking/Order must write job_no on the Internal Jobs child row and backing Internal Job."""
+		if not frappe.db.exists("DocType", "Exhibit"):
+			self.skipTest("Exhibit DocType not installed")
+		exhibit = self._minimal_exhibit("Test Docket IJ Persist Exhibit")
+		dk = None
+		booking_name = None
+		try:
+			dk = self._minimal_docket(exhibit.name)
+			dk.append("internal_jobs", {"service_type": "Air"})
+			dk.save(ignore_permissions=True)
+
+			from logistics.exhibits.doctype.docket.docket_booking_creation import (
+				create_booking_or_order_from_docket,
+			)
+
+			result = create_booking_or_order_from_docket(
+				docket=dk.name,
+				job_type="Air Booking",
+				internal_job_idx=1,
+			)
+			booking_name = result.get("air_booking")
+			self.assertTrue(booking_name)
+
+			row = frappe.db.get_value(
+				"Internal Job Detail",
+				{"parent": dk.name, "parenttype": "Docket", "parentfield": "internal_jobs"},
+				["job_type", "job_no", "internal_job"],
+				as_dict=True,
+			)
+			self.assertEqual(row.job_type, "Air Booking")
+			self.assertEqual(row.job_no, booking_name)
+			self.assertTrue(row.internal_job)
+			ij_job_no = frappe.db.get_value("Internal Job", row.internal_job, "job_no")
+			self.assertEqual(ij_job_no, booking_name)
+		finally:
+			if booking_name and frappe.db.exists("Air Booking", booking_name):
+				frappe.delete_doc("Air Booking", booking_name, force=True, ignore_permissions=True)
+			if dk and dk.name and frappe.db.exists("Docket", dk.name):
+				dk.delete(ignore_permissions=True)
+			exhibit.delete(ignore_permissions=True)
+
 	def test_get_recommended_booth_numbers_increments_last_number_and_pages(self):
 		if not frappe.db.exists("DocType", "Exhibit"):
 			self.skipTest("Exhibit DocType not installed")

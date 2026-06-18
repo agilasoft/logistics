@@ -3,17 +3,7 @@
 
 function logistics_set_site_query_project_order(frm) {
 	frm.set_query("site", function () {
-		const cust = frm.doc.customer;
-		if (!cust) {
-			return { filters: [["name", "=", ""]] };
-		}
-		return {
-			query: "frappe.contacts.doctype.address.address.address_query",
-			filters: {
-				link_doctype: "Customer",
-				link_name: cust,
-			},
-		};
+		return logistics.address.query_for_customer(frm.doc.customer);
 	});
 }
 

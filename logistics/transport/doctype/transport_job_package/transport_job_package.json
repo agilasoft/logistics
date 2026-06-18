@@ -5,6 +5,7 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "package_row",
   "commodity",
   "warehouse_item",
   "hs_code",
@@ -73,6 +74,12 @@
   "additional_handling_instructions"
  ],
  "fields": [
+  {
+   "description": "1-based index of the matching Special Project Package row.",
+   "fieldname": "package_row",
+   "fieldtype": "Int",
+   "label": "Package Row"
+  },
   {
    "fieldname": "commodity",
    "fieldtype": "Link",

@@ -1,0 +1,37 @@
+{
+ "based_on": "",
+ "chart_name": "AP Aging Mix",
+ "chart_type": "Report",
+ "creation": "2026-06-03 00:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Dashboard Chart",
+ "document_type": "",
+ "dynamic_filters_json": "[]",
+ "filters_json": "[]",
+ "group_by_based_on": "",
+ "group_by_type": "Count",
+ "idx": 0,
+ "is_public": 1,
+ "is_standard": 1,
+ "modified": "2026-06-03 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Job Management",
+ "name": "AP Aging Mix",
+ "number_of_groups": 0,
+ "owner": "Administrator",
+ "source": "",
+ "time_interval": "Monthly",
+ "timeseries": 0,
+ "timespan": "Last Year",
+ "type": "Bar",
+ "use_report_chart": 0,
+ "value_based_on": "",
+ "y_axis": [
+  {
+   "y_field": "total",
+   "color": ""
+  }
+ ],
+ "report_name": "Job Payables Aging",
+ "x_field": "job_number"
+}

@@ -89,7 +89,7 @@ def make_warehouse_job(source_name, target_doc=None):
             target_doc.uom = source_doc.uom
             target_doc.quantity = source_doc.quantity
             target_doc.currency = source_doc.currency
-            target_doc.rate = source_doc.rate
+            target_doc.unit_rate = source_doc.unit_rate
             target_doc.total = source_doc.total
             if hasattr(source_doc, "description") and source_doc.description:
                 target_doc.description = source_doc.description

@@ -9,5 +9,12 @@ internal jobs (those still use ``Internal Job Detail``)."""
 from frappe.model.document import Document
 
 
+_HISTORICAL_LINK_FIELDS = frozenset({"job_no", "order_no"})
+
+
 class LifecycleJob(Document):
-	pass
+	def get_invalid_links(self, is_submittable=False):
+		invalid_links, cancelled_links = super().get_invalid_links(is_submittable=is_submittable)
+		# job_no / order_no are historical pointers; linked operational docs may be cancelled while parent still saves.
+		cancelled_links = [c for c in cancelled_links if c[0] not in _HISTORICAL_LINK_FIELDS]
+		return invalid_links, cancelled_links

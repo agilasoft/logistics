@@ -143,7 +143,7 @@
 		);
 		frappe.call({
 			method:
-				"logistics.exhibits.doctype.exhibit.exhibit.get_linkable_dockets_for_exhibit",
+				"logistics.mice.doctype.mice_project.mice_project.get_linkable_dockets_for_exhibit",
 			args: {
 				exhibit_name: frm.doc.name,
 				search: search || "",

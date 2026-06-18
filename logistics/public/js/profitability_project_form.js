@@ -1,23 +1,20 @@
 /**
- * Project-level Profitability tab for Special Project & Exhibit.
+ * Shared GL profitability loader for project-level forms.
  *
- * Loads HTML from General Ledger by Project (and Job Number fallback for legacy
- * rows) and renders it inside the ``profitability_section_html`` field on the
- * Profitability tab.
- *
- * Mirrors the robust container-detection / retry pattern used by
- * ``profitability_form.js`` (job-level loader) so the Profitability tab also
- * paints reliably when the user opens it before form fields are fully wired up.
+ * Special Project and MICE Project bind the lazy tab loader in their own
+ * doctype scripts and call logistics.profitability.load_project_profitability_html.
  */
 frappe.provide("logistics.profitability");
 
-logistics.profitability.PROJECT_PROFITABILITY_DOCTYPES = [
-	"Special Project",
-	"Exhibit",
-];
+// MICE Project binds the lazy tab loader in mice_project.js (same pattern as Special Project).
+logistics.profitability.PROJECT_PROFITABILITY_DOCTYPES = [];
 
-logistics.profitability.load_project_profitability_html = function (frm) {
+logistics.profitability.load_project_profitability_html = function (frm, opts) {
+	opts = opts || {};
 	if (!frm || !frm.doc) {
+		if (opts.done) {
+			opts.done();
+		}
 		return;
 	}
 
@@ -81,8 +78,29 @@ logistics.profitability.load_project_profitability_html = function (frm) {
 		return null;
 	}
 
+	function finish() {
+		if (opts.done) {
+			opts.done();
+		}
+	}
+
+	function reveal_profitability_section() {
+		var control = frm.fields_dict && frm.fields_dict.profitability_section_html;
+		if (control && control.$wrapper) {
+			control.$wrapper.removeClass("hide-control");
+			control.$wrapper
+				.closest(".form-section")
+				.removeClass("empty-section")
+				.addClass("visible-section");
+		}
+		if (frm.layout && frm.layout.refresh_sections) {
+			frm.layout.refresh_sections();
+		}
+	}
+
 	function set_html(html) {
 		var s = html || "";
+		reveal_profitability_section();
 		var $container = get_profitability_container();
 		if ($container && $container.length) {
 			$container.html(s);
@@ -96,6 +114,7 @@ logistics.profitability.load_project_profitability_html = function (frm) {
 				frm.refresh_field("profitability_section_html");
 			}
 		}
+		reveal_profitability_section();
 	}
 
 	if (frm.doc.__islocal || !frm.doc.name) {
@@ -106,23 +125,11 @@ logistics.profitability.load_project_profitability_html = function (frm) {
 				]) +
 				"</p>"
 		);
+		finish();
 		return;
 	}
 
-	// Exhibit profitability sums every Docket connected to the Exhibit (mirrors
-	// the per-Docket Profitability section, aggregated). Other "project" parents
-	// (e.g. Special Project) still use the project-dimension aggregator.
-	var is_exhibit = frm.doctype === "Exhibit";
-	if (!is_exhibit && !frm.doc.project) {
-		set_html(
-			"<p class=\"text-muted\">" +
-				__("This {0} is not linked to an ERPNext Project yet — profitability will be available once a Project is created/linked.", [
-					__(frm.doctype),
-				]) +
-				"</p>"
-		);
-		return;
-	}
+	var is_exhibit = frm.doctype === "MICE Project";
 
 	var loading_msg = is_exhibit
 		? __("Loading exhibit profitability...")
@@ -134,7 +141,7 @@ logistics.profitability.load_project_profitability_html = function (frm) {
 	);
 
 	var call_method = is_exhibit
-		? "logistics.exhibits.doctype.exhibit.exhibit_profitability.get_exhibit_profitability_html"
+		? "logistics.mice.doctype.mice_project.mice_project_profitability.get_exhibit_profitability_html"
 		: "logistics.job_management.project_profitability.get_project_profitability_html";
 	var call_args = is_exhibit
 		? { exhibit: frm.doc.name }
@@ -168,7 +175,7 @@ logistics.profitability.load_project_profitability_html = function (frm) {
 			}
 			set_html(html);
 		},
-	});
+	}).always(finish);
 };
 
 var project_doctypes = logistics.profitability.PROJECT_PROFITABILITY_DOCTYPES;
@@ -177,75 +184,66 @@ function is_project_profitability_doctype(doctype) {
 	return project_doctypes && project_doctypes.indexOf(doctype) !== -1;
 }
 
-// Stagger reload attempts to survive the field/tab not being wired up yet.
-function queue_project_profitability_load(frm) {
-	if (!frm || !is_project_profitability_doctype(frm.doctype)) return;
-	setTimeout(function () {
-		logistics.profitability.load_project_profitability_html(frm);
-	}, 150);
-	setTimeout(function () {
-		logistics.profitability.load_project_profitability_html(frm);
-	}, 600);
-	setTimeout(function () {
-		logistics.profitability.load_project_profitability_html(frm);
-	}, 1500);
+function _bind_project_profitability_tab(frm) {
+	if (!frm || !is_project_profitability_doctype(frm.doctype)) {
+		return;
+	}
+	if (window.logistics && logistics.bind_lazy_tab_loader) {
+		logistics.bind_lazy_tab_loader(
+			frm,
+			"profitability_tab",
+			"profitability",
+			logistics.profitability.load_project_profitability_html
+		);
+		// Tab may already be active before refresh handlers run (hash / set_tab_as_active).
+		if (
+			logistics.is_form_tab_active &&
+			logistics.is_form_tab_active(frm, "profitability_tab")
+		) {
+			logistics.trigger_lazy_tab_loaders(frm, "profitability_tab");
+		}
+	}
+}
+
+function _reload_project_profitability_if_active(frm) {
+	if (!frm || !is_project_profitability_doctype(frm.doctype)) {
+		return;
+	}
+	if (window.logistics && logistics.invalidate_lazy_tab_loaders) {
+		logistics.invalidate_lazy_tab_loaders(frm, ["profitability"]);
+	}
+	if (
+		window.logistics &&
+		logistics.is_form_tab_active &&
+		logistics.is_form_tab_active(frm, "profitability_tab")
+	) {
+		logistics.profitability.load_project_profitability_html(frm, { force: true });
+	}
 }
 
 var project_form_handlers = {
-	onload: function (frm) {
-		queue_project_profitability_load(frm);
-	},
 	refresh: function (frm) {
-		queue_project_profitability_load(frm);
-		if (frm.layout && frm.layout.wrapper) {
-			frm.layout.wrapper
-				.off("click.project_profitability")
-				.on(
-					"click.project_profitability",
-					'[data-fieldname="profitability_tab"]',
-					function () {
-						setTimeout(function () {
-							logistics.profitability.load_project_profitability_html(frm);
-						}, 50);
-					}
-				);
+		_bind_project_profitability_tab(frm);
+	},
+	on_tab_change: function (frm) {
+		var tab = frm.get_active_tab && frm.get_active_tab();
+		var fieldname = tab && tab.df && tab.df.fieldname;
+		if (
+			fieldname === "profitability_tab" &&
+			window.logistics &&
+			logistics.trigger_lazy_tab_loaders
+		) {
+			logistics.trigger_lazy_tab_loaders(frm, fieldname);
 		}
 	},
 	project: function (frm) {
-		logistics.profitability.load_project_profitability_html(frm);
+		_reload_project_profitability_if_active(frm);
 	},
 	company: function (frm) {
-		logistics.profitability.load_project_profitability_html(frm);
+		_reload_project_profitability_if_active(frm);
 	},
 };
 
 for (var i = 0; i < project_doctypes.length; i++) {
 	frappe.ui.form.on(project_doctypes[i], project_form_handlers);
 }
-
-// Belt-and-braces: router change can leave us without form-level events firing.
-if (frappe.router && typeof frappe.router.on === "function") {
-	frappe.router.on("change", function () {
-		setTimeout(function () {
-			var frm = frappe.cur_frm;
-			if (frm && is_project_profitability_doctype(frm.doctype)) {
-				queue_project_profitability_load(frm);
-			}
-		}, 400);
-	});
-}
-
-$(document).on("form-refresh", function (e, frm) {
-	if (!frm || !is_project_profitability_doctype(frm.doctype)) return;
-	queue_project_profitability_load(frm);
-});
-
-$(document).on("render_complete", function (e) {
-	var frm = e.target && e.target.fieldobj && e.target.fieldobj.frm;
-	if (!frm) frm = frappe.cur_frm;
-	if (frm && is_project_profitability_doctype(frm.doctype)) {
-		setTimeout(function () {
-			logistics.profitability.load_project_profitability_html(frm);
-		}, 100);
-	}
-});

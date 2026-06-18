@@ -386,12 +386,41 @@ def render_route_map_html(
 			f'</div></div>'
 		)
 
+	# Vessel status badge — visible whenever vessel_tracking_map is provided so
+	# the user can tell at a glance whether AIS is wired up. Reuses the air
+	# `.af-live-status` styles (loaded site-wide) for consistency.
+	vessel_badge_html = ""
+	if vessel_tracking_map and (vessel_tracking_map.get("enabled") or vessel_tracking_map.get("hint")):
+		if vessel_tracking_map.get("enabled"):
+			initial_cls = "af-live-status--loading"
+			initial_state = "LOADING…"
+			initial_meta = "Fetching latest AIS position…"
+		else:
+			initial_cls = "af-live-status--nofix"
+			initial_state = "NOT READY"
+			# escape_html for the hint so a translation can't inject markup
+			hint_text = frappe.utils.escape_html(vessel_tracking_map.get("hint") or "")
+			initial_meta = hint_text or "Vessel tracking is not configured."
+		vessel_badge_html = (
+			f'<div id="{map_id_prefix}-vessel-status" class="af-live-status {initial_cls}" '
+			f'role="status" aria-live="polite">'
+			f'<div class="af-live-status__dot"></div>'
+			f'<div class="af-live-status__body">'
+			f'<div class="af-live-status__head">'
+			f'<span class="af-live-status__flight">Live Vessel</span>'
+			f'<span class="af-live-status__state">{initial_state}</span>'
+			f'</div>'
+			f'<div class="af-live-status__meta">{initial_meta}</div>'
+			f'</div></div>'
+		)
+
 	if not hide_map and len(points_for_header) >= 2:
 		map_section = f"""
 		<div class="map-main">
 			<div class="map-box" style="position: relative;">
 				{legend_html}
 				{aircraft_badge_html}
+				{vessel_badge_html}
 				<div id="{map_id_prefix}" class="map-view"></div>
 				<div id="{map_id_prefix}-fallback" style="display: flex; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); align-items: center; justify-content: center; flex-direction: column;">
 					<div style="text-align: center; color: #6c757d;">
@@ -612,48 +641,162 @@ def render_route_map_html(
 				}} catch (eTimer) {{}}
 			}}
 			function runVesselTrackingOverlay(engine, mapInstance) {{
-				if (!vesselTrackingMap || !vesselTrackingMap.enabled || !vesselTrackingMap.sea_shipment) return;
-				setTimeout(function() {{
+				if (!vesselTrackingMap || !vesselTrackingMap.sea_shipment || !vesselTrackingMap.enabled) {{
+					// If the server gave us a hint (e.g. provider not configured, no
+					// vessel master on the leg), the static badge from the server
+					// already shows it — nothing more for JS to do.
+					return;
+				}}
+				function vesselStatusVariant(m) {{
+					if (!m) return {{ cls: 'af-live-status--error', label: 'ERROR' }};
+					if (!m.success) {{
+						var msg = String((m.message || '')).toLowerCase();
+						if (msg.indexOf('not configured') !== -1 || msg.indexOf('no vessel') !== -1) return {{ cls: 'af-live-status--nofix', label: 'NOT READY' }};
+						if (msg.indexOf('no position') !== -1) return {{ cls: 'af-live-status--nofix', label: 'NO FIX' }};
+						return {{ cls: 'af-live-status--error', label: 'ERROR' }};
+					}}
+					// Server already classified this fix as stale (cached fallback).
+					if (m.stale === true || m.source === 'cached') {{
+						if (m.recorded_at) {{
+							var ts = Date.parse(String(m.recorded_at));
+							if (!isNaN(ts)) {{
+								var ageMinS = (Date.now() - ts) / 60000;
+								if (ageMinS > 1440) return {{ cls: 'af-live-status--stale', label: 'STALE · ' + Math.round(ageMinS / 1440) + 'd' }};
+								if (ageMinS > 60) return {{ cls: 'af-live-status--stale', label: 'STALE · ' + Math.round(ageMinS / 60) + 'h' }};
+								return {{ cls: 'af-live-status--stale', label: 'STALE · ' + Math.round(ageMinS) + 'm' }};
+							}}
+						}}
+						return {{ cls: 'af-live-status--stale', label: 'STALE' }};
+					}}
+					if (m.source === 'cache') return {{ cls: 'af-live-status--live', label: 'LIVE (CACHE)' }};
+					if (m.recorded_at) {{
+						var t = Date.parse(String(m.recorded_at));
+						if (!isNaN(t)) {{
+							var ageMin = (Date.now() - t) / 60000;
+							if (ageMin > 360) return {{ cls: 'af-live-status--stale', label: 'STALE · ' + Math.round(ageMin / 60) + 'h' }};
+							if (ageMin > 60) return {{ cls: 'af-live-status--stale', label: 'STALE · ' + Math.round(ageMin) + 'm' }};
+						}}
+					}}
+					return {{ cls: 'af-live-status--live', label: 'LIVE' }};
+				}}
+				function fmtVesselTimeAgo(iso) {{
+					if (!iso) return '';
+					var t = Date.parse(iso);
+					if (isNaN(t)) return frappe.utils.escape_html(String(iso));
+					var diffS = Math.max(0, Math.floor((Date.now() - t) / 1000));
+					if (diffS < 60) return diffS + 's ago';
+					var diffM = Math.floor(diffS / 60);
+					if (diffM < 60) return diffM + 'm ago';
+					var diffH = Math.floor(diffM / 60);
+					if (diffH < 24) return diffH + 'h ' + (diffM % 60) + 'm ago';
+					return Math.floor(diffH / 24) + 'd ago';
+				}}
+				function updateVesselBadge(m) {{
+					var badge = document.getElementById(mapId + '-vessel-status');
+					if (!badge) return;
+					var variant = vesselStatusVariant(m);
+					badge.className = 'af-live-status ' + variant.cls;
+					var label = (m && (m.label || m.vessel)) || 'Live Vessel';
+					var metricsBits = [];
+					if (m && m.sog != null && m.sog !== '') metricsBits.push('<span class="af-live-status__metric"><b>SOG</b> ' + frappe.utils.escape_html(String(m.sog)) + ' kn</span>');
+					if (m && m.cog != null && m.cog !== '') metricsBits.push('<span class="af-live-status__metric"><b>COG</b> ' + Math.round(Number(m.cog)) + '°</span>');
+					if (m && m.heading != null && m.heading !== '') metricsBits.push('<span class="af-live-status__metric"><b>Hdg</b> ' + Math.round(Number(m.heading)) + '°</span>');
+					var providerLine = (m && m.provider) ? ('<strong>' + frappe.utils.escape_html(String(m.provider)) + '</strong>') : '';
+					var updatedLine = '';
+					if (m && m.recorded_at) updatedLine = '<strong>Updated</strong> ' + fmtVesselTimeAgo(m.recorded_at);
+					else if (m && !m.success && m.message) updatedLine = frappe.utils.escape_html(String(m.message));
+					var vsLink = '';
+					if (m && m.vessel_schedule) {{
+						vsLink = ' · <a href="' + frappe.utils.get_form_link('Vessel Schedule', m.vessel_schedule) + '" style="color:#1d4ed8;">VS</a>';
+					}}
+					var meta = updatedLine || providerLine;
+					if (providerLine && updatedLine) meta = updatedLine + ' · ' + providerLine;
+					// On a "no fix" state, also surface which providers were tried so
+					// users can tell at a glance that the wiring is OK and the vessel
+					// just isn't currently broadcasting.
+					if (m && !m.success && Array.isArray(m.providers_tried) && m.providers_tried.length) {{
+						meta = meta + (meta ? ' · ' : '') + '<small>Tried: ' + frappe.utils.escape_html(m.providers_tried.join(', ')) + '</small>';
+					}}
+					// On a stale fallback, append a hint so users know it's the cached fix.
+					if (m && m.success && (m.stale === true || m.source === 'cached') && m.message) {{
+						meta = meta + (meta ? '<br/>' : '') + '<small>' + frappe.utils.escape_html(String(m.message)) + '</small>';
+					}}
+					badge.innerHTML =
+						'<div class="af-live-status__dot"></div>' +
+						'<div class="af-live-status__body">' +
+							'<div class="af-live-status__head">' +
+								'<span class="af-live-status__flight">' + frappe.utils.escape_html(String(label)) + '</span>' +
+								'<span class="af-live-status__state">' + frappe.utils.escape_html(variant.label) + '</span>' +
+							'</div>' +
+							(metricsBits.length ? '<div class="af-live-status__metrics">' + metricsBits.join('') + '</div>' : '') +
+							'<div class="af-live-status__meta">' + meta + vsLink + '</div>' +
+						'</div>';
+				}}
+				var vesselMarkerRef = null;
+				function clearVesselMarker() {{
+					if (!vesselMarkerRef) return;
+					try {{
+						if (engine === 'leaflet') mapInstance.removeLayer(vesselMarkerRef);
+						else if (engine === 'google') vesselMarkerRef.setMap(null);
+						else if (engine === 'maplibre') vesselMarkerRef.remove();
+					}} catch (eRm) {{}}
+					vesselMarkerRef = null;
+				}}
+				function placeVesselMarker(m) {{
+					var lat = parseFloat(m.lat), lon = parseFloat(m.lon);
+					if (isNaN(lat) || isNaN(lon)) return;
+					clearVesselMarker();
+					var label = (m.label || m.vessel || 'Vessel');
+					var pop = '<b>' + frappe.utils.escape_html(String(label)) + '</b>';
+					if (m.recorded_at) pop += '<br/><small>' + frappe.utils.escape_html(String(m.recorded_at)) + '</small>';
+					if (m.sog != null && m.sog !== '') pop += '<br/>SOG: ' + frappe.utils.escape_html(String(m.sog)) + ' kn';
+					if (m.cog != null && m.cog !== '') pop += '<br/>COG: ' + Math.round(Number(m.cog)) + '°';
+					if (m.provider) pop += '<br/><small>via ' + frappe.utils.escape_html(String(m.provider)) + '</small>';
+					if (engine === 'leaflet') {{
+						vesselMarkerRef = L.marker([lat, lon]).addTo(mapInstance).bindPopup(pop);
+						try {{
+							var b = mapInstance.getBounds();
+							if (b && b.isValid()) {{ mapInstance.fitBounds(b.extend([lat, lon]).pad(0.12)); }}
+						}} catch (e1) {{}}
+					}} else if (engine === 'google') {{
+						var pos = {{ lat: lat, lng: lon }};
+						vesselMarkerRef = new google.maps.Marker({{ position: pos, map: mapInstance, title: label }});
+						try {{
+							var bounds = mapInstance.getBounds();
+							if (bounds) {{ bounds.extend(pos); mapInstance.fitBounds(bounds); }}
+						}} catch (e2) {{}}
+					}} else if (engine === 'maplibre') {{
+						vesselMarkerRef = new maplibregl.Marker({{ color: '#c0392b' }})
+							.setLngLat([lon, lat])
+							.setPopup(new maplibregl.Popup().setHTML(pop))
+							.addTo(mapInstance);
+						try {{
+							var bb = mapInstance.getBounds();
+							if (bb) {{ bb.extend([lon, lat]); mapInstance.fitBounds(bb, {{ padding: 50 }}); }}
+						}} catch (e3) {{}}
+					}}
+				}}
+				function fetchVesselAndRender() {{
 					frappe.call({{
-						method: 'logistics.sea_freight.vessel_tracking.api.get_vessel_position_for_map',
+						method: 'goconnect.api.sea.get_vessel_position_for_map',
 						args: {{ sea_shipment: vesselTrackingMap.sea_shipment }}
 					}}).then(function(r) {{
-						var m = r.message;
-						if (!m || !m.success || m.lat == null || m.lon == null) return;
-						var lat = parseFloat(m.lat), lon = parseFloat(m.lon);
-						if (isNaN(lat) || isNaN(lon)) return;
-						var label = (m.label || 'Vessel');
-						var pop = '<b>' + frappe.utils.escape_html(String(label)) + '</b>';
-						if (m.recorded_at) pop += '<br/><small>' + frappe.utils.escape_html(String(m.recorded_at)) + '</small>';
-						if (m.sog != null && m.sog !== '') pop += '<br/>SOG: ' + frappe.utils.escape_html(String(m.sog)) + ' kn';
-						if (engine === 'leaflet') {{
-							L.marker([lat, lon]).addTo(mapInstance).bindPopup(pop);
-							try {{
-								var b = mapInstance.getBounds();
-								if (b && b.isValid()) {{ mapInstance.fitBounds(b.extend([lat, lon]).pad(0.12)); }}
-							}} catch (e1) {{}}
-						}} else if (engine === 'google') {{
-							var pos = {{ lat: lat, lng: lon }};
-							new google.maps.Marker({{ position: pos, map: mapInstance, title: label }});
-							try {{
-								var bounds = mapInstance.getBounds();
-								if (bounds) {{
-									bounds.extend(pos);
-									mapInstance.fitBounds(bounds);
-								}}
-							}} catch (e2) {{}}
-						}} else if (engine === 'maplibre') {{
-							new maplibregl.Marker({{ color: '#c0392b' }}).setLngLat([lon, lat]).setPopup(new maplibregl.Popup().setHTML(pop)).addTo(mapInstance);
-							try {{
-								var bb = mapInstance.getBounds();
-								if (bb) {{
-									bb.extend([lon, lat]);
-									mapInstance.fitBounds(bb, {{ padding: 50 }});
-								}}
-							}} catch (e3) {{}}
-						}}
+						var m = (r && r.message) || {{ success: false, message: 'Empty response' }};
+						updateVesselBadge(m);
+						if (m.success && m.lat != null && m.lon != null) placeVesselMarker(m);
+					}}).catch(function() {{
+						updateVesselBadge({{ success: false, message: 'Request failed' }});
 					}});
-				}}, 2000);
+				}}
+				setTimeout(fetchVesselAndRender, 1500);
+				try {{
+					var vesselRefreshTimer = setInterval(function() {{
+						var badge = document.getElementById(mapId + '-vessel-status');
+						if (!badge || !document.body.contains(badge)) {{ clearInterval(vesselRefreshTimer); return; }}
+						if (document.hidden) return;
+						fetchVesselAndRender();
+					}}, 60000);
+				}} catch (eTimer) {{}}
 			}}
 			function hideFallback() {{ const fb = document.getElementById(mapId + '-fallback'); if (fb) fb.style.display = 'none'; }}
 			function showFallback() {{ const fb = document.getElementById(mapId + '-fallback'); if (fb) fb.style.display = 'flex'; }}

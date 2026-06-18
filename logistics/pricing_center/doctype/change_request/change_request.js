@@ -14,11 +14,16 @@ function cr_canonical_charge_service_type(st) {
 		custom: "custom",
 		customs: "custom",
 		Warehousing: "warehousing",
+		"Special Project": "special project",
+		MICE: "exhibits",
+		Exhibits: "exhibits",
+		Events: "exhibits",
 	};
 	if (byTitle[raw] !== undefined) return byTitle[raw];
 	const low = raw.toLowerCase();
 	if (low === "customs") return "custom";
-	if (["air", "sea", "transport", "warehousing"].includes(low)) return low;
+	if (low === "events" || low === "mice") return "exhibits";
+	if (["air", "sea", "transport", "warehousing", "special project", "exhibits"].includes(low)) return low;
 	return low;
 }
 
@@ -30,6 +35,8 @@ function cr_item_charge_field_for_service_type(st) {
 		transport: "custom_land_transport_charge",
 		custom: "custom_customs_charge",
 		warehousing: "custom_warehousing_charge",
+		"special project": "custom_special_project_charge",
+		exhibits: "custom_mice_charge",
 	};
 	return m[c] || null;
 }
@@ -143,14 +150,6 @@ frappe.ui.form.on("Change Request Charge", {
 		cr_refresh_charge_item_code_link(frm, cdt, cdn);
 	},
 
-	charge_type: function (frm, cdt, cdn) {
-		frm.refresh_field("charges");
-		var row = locals[cdt] && locals[cdt][cdn];
-		if (row && row.charge_type === "Disbursement") {
-			_calculate_change_request_charge_row(frm, cdt, cdn);
-		}
-	},
-
 	load_type: function (frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);
 		if (cr_canonical_charge_service_type(row.service_type) !== "transport" || !row.load_type) return;
@@ -249,25 +248,106 @@ function _calculate_change_request_charge_row(frm, cdt, cdn) {
 	});
 }
 
+/**
+ * Job types that are Internal Job satellite bookings (when a CR targets one of these, all charge
+ * rows default to the satellite's own internal_job link, and the row-level internal_job is
+ * restricted to that single value).
+ */
+const CR_INTERNAL_JOB_SATELLITE_JOB_TYPES = new Set([
+	"Transport Order",
+	"Sea Booking",
+	"Air Booking",
+	"Declaration Order",
+	"Inbound Order",
+	"Release Order",
+]);
+
+const CR_JOB_TYPE_TO_SERVICE_TYPE = {
+	"Transport Job": "transport",
+	"Warehouse Job": "warehousing",
+	"Air Shipment": "air",
+	"Sea Shipment": "sea",
+	Declaration: "custom",
+	"Declaration Order": "custom",
+	"Special Project": "special project",
+	// IJ satellite bookings: derive service from their implied service.
+	"Transport Order": "transport",
+	"Sea Booking": "sea",
+	"Air Booking": "air",
+	"Inbound Order": "warehousing",
+	"Release Order": "warehousing",
+};
+
+/** Fetch eligible Internal Jobs for the CR's job_type/job; cache on the form. */
+function cr_fetch_eligible_internal_jobs(frm, callback) {
+	if (!frm.doc.job_type || !frm.doc.job) {
+		frm._eligible_internal_jobs = { internal_jobs: [], default_internal_job: "" };
+		if (callback) callback();
+		return;
+	}
+	const cache_key = `${frm.doc.job_type}::${frm.doc.job}`;
+	if (frm._eligible_internal_jobs_key === cache_key) {
+		if (callback) callback();
+		return;
+	}
+	frappe.call({
+		method: "logistics.pricing_center.doctype.change_request.change_request.get_eligible_internal_jobs_for_change_request_job",
+		args: { job_type: frm.doc.job_type, job_name: frm.doc.job },
+		callback: function (r) {
+			frm._eligible_internal_jobs_key = cache_key;
+			frm._eligible_internal_jobs = r.message || { internal_jobs: [], default_internal_job: "" };
+			if (callback) callback();
+		},
+	});
+}
+
 frappe.ui.form.on("Change Request", {
 	onload(frm) {
 		frm.events.setup_item_code_query(frm);
+		frm.events.setup_internal_job_query(frm);
+		cr_fetch_eligible_internal_jobs(frm);
+	},
+
+	job_type(frm) {
+		cr_fetch_eligible_internal_jobs(frm);
+	},
+
+	job(frm) {
+		cr_fetch_eligible_internal_jobs(frm);
 	},
 
 	charges_add: function (frm, cdt, cdn) {
-		const job_to_service = {
-			"Transport Job": "transport",
-			"Warehouse Job": "warehousing",
-			"Air Shipment": "air",
-			"Sea Shipment": "sea",
-			Declaration: "custom",
-			"Declaration Order": "custom",
-		};
-		const st = job_to_service[frm.doc.job_type];
+		const st = CR_JOB_TYPE_TO_SERVICE_TYPE[frm.doc.job_type];
 		if (st) {
 			frappe.model.set_value(cdt, cdn, "service_type", st);
 		}
+		// Default the new row's internal_job to the CR's resolved default (the satellite's IJ when
+		// the CR targets an Internal Job satellite). Users can clear or change it manually.
+		cr_fetch_eligible_internal_jobs(frm, function () {
+			const eligible = frm._eligible_internal_jobs || {};
+			const default_ij = eligible.default_internal_job;
+			if (default_ij) {
+				frappe.model.set_value(cdt, cdn, "internal_job", default_ij);
+			}
+		});
 	},
+
+	setup_internal_job_query(frm) {
+		if (!frm.fields_dict.charges) return;
+		frm.set_query("internal_job", "charges", function () {
+			const eligible = (frm._eligible_internal_jobs && frm._eligible_internal_jobs.internal_jobs) || [];
+			const names = eligible.map((r) => r.name).filter(Boolean);
+			if (names.length === 0) {
+				// No materialised IJs yet — fall back to listing all IJs under the CR's main job.
+				if (CR_INTERNAL_JOB_SATELLITE_JOB_TYPES.has(frm.doc.job_type)) {
+					return { filters: {} };
+				}
+				return { filters: { parent_booking_name: frm.doc.job || "" } };
+			}
+			return { filters: { name: ["in", names] } };
+		});
+	},
+
 	setup_item_code_query(frm) {
 		cr_strip_charge_item_code_link_filters_from_meta(frm);
 		if (!frm.fields_dict.charges) return;
@@ -281,6 +361,8 @@ frappe.ui.form.on("Change Request", {
 	refresh(frm) {
 		cr_strip_charge_item_code_link_filters_from_meta(frm);
 		frm.events.setup_item_code_query(frm);
+		frm.events.setup_internal_job_query(frm);
+		cr_fetch_eligible_internal_jobs(frm);
 		// Cost lines are pushed to the job when the Change Request is submitted; revenue is updated when the linked Sales Quote is submitted.
 		if (
 			!frm.doc.__islocal &&

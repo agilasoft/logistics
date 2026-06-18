@@ -10,7 +10,7 @@
 		if (parent_doctype === "Special Project") {
 			return { enabled: 1, for_special_project: 1 };
 		}
-		if (parent_doctype === "Exhibit") {
+		if (parent_doctype === "MICE Project") {
 			return { enabled: 1, for_exhibits: 1 };
 		}
 		return { enabled: 1 };
