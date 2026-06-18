@@ -32,7 +32,7 @@
 		Custom: "Customs",
 		Customs: "Customs",
 		"Special Project": "Special Projects",
-		Exhibits: "Exhibits",
+		Exhibits: "MICE",
 	};
 
 	/** Sales Quote doctype module → default workspace sidebar when list/form has no doc context. */

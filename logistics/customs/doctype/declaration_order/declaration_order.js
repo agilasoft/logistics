@@ -276,7 +276,15 @@ function _populate_charges_from_sales_quote(frm) {
 					frm.clear_table("charges");
 					frm.refresh_field("charges");
 					if (!_customs_internal_job_dialog_handled(frm, sales_quote)) {
-						_prompt_internal_customs_job_dialog(frm, sales_quote);
+						frm._internal_job_dialog_shown_for_quote = frm._internal_job_dialog_shown_for_quote || {};
+						frm._internal_job_dialog_shown_for_quote[sales_quote] = true;
+						frappe.msgprint({
+							title: __("Cannot create internal job"),
+							message: __(
+								"Add charge lines for this service on the Sales Quote and define a matching Internal Job on the Internal Jobs tab before creating."
+							),
+							indicator: "orange"
+						});
 					}
 					_warn_if_missing_service_charges(frm, "Customs");
 				}
@@ -490,12 +498,12 @@ frappe.ui.form.on("Declaration Order", {
 		}, 0);
 		// Filter Declaration Product Code by importer/exporter for line items
 		frm.set_query("declaration_product_code", "commercial_invoice_line_items", function() {
-			const filters = [["Declaration Product Code", "active", "=", 1]];
+			const filters = { active: 1 };
 			if (frm.doc.importer_consignee) {
-				filters.push(["Declaration Product Code", "importer", "in", ["", frm.doc.importer_consignee]]);
+				filters.importer = ["in", ["", frm.doc.importer_consignee]];
 			}
 			if (frm.doc.exporter_shipper) {
-				filters.push(["Declaration Product Code", "exporter", "in", ["", frm.doc.exporter_shipper]]);
+				filters.exporter = ["in", ["", frm.doc.exporter_shipper]];
 			}
 			return { filters };
 		});

@@ -323,7 +323,7 @@
    "label": "Jobs"
   },
   {
-   "description": "Internal jobs (Air / Sea / Transport / Customs / Warehousing lines) to be spawned at the MICE Project level. Use <b>Create &gt; Booking / Order</b> to turn each row into a standalone booking or order linked back to this MICE Project.",
+   "description": "Internal jobs (Air / Sea / Transport / Customs / Warehousing / MICE lines) to be spawned at the MICE Project level. Use <b>Create &gt; Booking / Order</b> to turn each row into a booking, order, or MICE Order; open the MICE Order and use <b>Create &gt; Job</b> for the MICE Job.",
    "fieldname": "section_jobs",
    "fieldtype": "Section Break",
    "label": "Internal Jobs"

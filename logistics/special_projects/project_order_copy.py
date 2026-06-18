@@ -15,8 +15,6 @@ from frappe.utils import today
 from logistics.special_projects.doctype.project_order.project_order import (
 	_copy_child_rows_by_common_fields,
 )
-from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
-
 
 def suggested_order_title_from_lifecycle_row(
 	sp_doc: Document, lifecycle_row: Any | None = None, fallback: str | None = None
@@ -58,19 +56,15 @@ def _ensure_order_company(order: Document, sp_doc: Document) -> None:
 			order.set(field, val)
 
 
-def _append_special_project_charges(sp_doc: Document, order: Document) -> None:
-	"""Copy programme charge rows where service_type is Special Project."""
-	filtered = [
-		ch
-		for ch in (getattr(sp_doc, "charges", None) or [])
-		if sales_quote_charge_service_types_equal(
-			getattr(ch, "service_type", None), "Special Project"
-		)
-	]
-	if not filtered:
-		return
-	wrapper = frappe._dict({"charges": filtered})
-	_copy_child_rows_by_common_fields(wrapper, "charges", order, "charges")
+def _append_special_project_charges(
+	sp_doc: Document, order: Document, lifecycle_row: Any | None = None
+) -> None:
+	"""Copy tagged programme charge rows for the creating lifecycle row."""
+	from logistics.special_projects.special_project_charge_copy import (
+		populate_operational_charges_from_special_project,
+	)
+
+	populate_operational_charges_from_special_project(sp_doc, order, lifecycle_row)
 
 
 def build_project_order_from_special_project(
@@ -103,5 +97,5 @@ def build_project_order_from_special_project(
 		if site:
 			order.site = site
 
-	_append_special_project_charges(sp_doc, order)
+	_append_special_project_charges(sp_doc, order, lifecycle_row)
 	return order

@@ -49,9 +49,17 @@
     </style>
 </head>
 <body>
-    <div class="order-container">
+
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set company_doc = None %}
+{% if doc.company and frappe.db.exists("Company", doc.company) %}
+{% set company_doc = frappe.get_doc("Company", doc.company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
+{% set company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
+<div class="order-container">
         <div class="header">
-            {% set company_doc = frappe.get_doc("Company", doc.company) %}
+            {% if company_doc %}
             {% if company_doc.company_logo %}
                 <img src="{{ company_doc.company_logo }}" alt="Company Logo" class="company-logo" />
             {% elif company_doc.logo %}
@@ -61,17 +69,17 @@
             {% else %}
                 <div class="logo-placeholder">company_logo</div>
             {% endif %}
-            <div class="company-info">
+<div class="company-info">
                 <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
                 <div class="company-address">
                     {% if company_doc.address %}
                         {% set company_address = frappe.get_doc("Address", company_doc.address) %}
                         {{ company_address.address_line1 or '' }}
                         {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
-                        {% if company_address.city %} {{ company_address.city }}{% endif %}
-                        {% if company_address.state %}, {{ company_address.state }}{% endif %}
-                        {% if company_address.country %} {{ company_address.country }}{% endif %}
-                        {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+{% if company_address.city %} {{ company_address.city }}{% endif %}
+{% if company_address.state %}, {{ company_address.state }}{% endif %}
+{% if company_address.country %} {{ company_address.country }}{% endif %}
+{% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
                     {% elif company_doc.address_line1 %}
                         {{ company_doc.address_line1 }}<br>
                         {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
@@ -96,6 +104,12 @@
                     {% endif %}
                 </div>
             </div>
+            {% else %}
+                <div class="logo-placeholder">company_logo</div>
+                <div class="company-info">
+                    <div class="company-name">{{ doc.company or default_company or '' }}</div>
+                </div>
+            {% endif %}
         </div>
         <div class="top-section">
         <div class="main-body">
@@ -114,10 +128,10 @@
                             {% set addr = frappe.get_doc("Address", cust.customer_primary_address) %}
                             {{ addr.address_line1 or '' }}
                             {% if addr.address_line2 %} {{ addr.address_line2 }}{% endif %}
-                            {% if addr.city %} {{ addr.city }}{% endif %}
-                            {% if addr.state %}, {{ addr.state }}{% endif %}
-                            {% if addr.country %} {{ addr.country }}{% endif %}
-                            {% if addr.pincode %} {{ addr.pincode }}{% endif %}
+{% if addr.city %} {{ addr.city }}{% endif %}
+{% if addr.state %}, {{ addr.state }}{% endif %}
+{% if addr.country %} {{ addr.country }}{% endif %}
+{% if addr.pincode %} {{ addr.pincode }}{% endif %}
                         {% endif %}
                     {% endif %}
                 </div>
@@ -145,7 +159,9 @@
                 <div class="field-row"><div class="field-label">CURRENCY / XR:</div><div class="field-value">{{ doc.currency or '' }}{% if doc.exchange_rate is not none %} @ {{ frappe.utils.fmt_money(doc.exchange_rate, precision=4) }}{% endif %}</div></div>
                 <div class="field-row"><div class="field-label">SUBMITTED:</div><div class="field-value">{{ doc.submission_date or '' }} {{ doc.submission_time or '' }}</div></div>
                 <div class="field-row"><div class="field-label">CLEARED:</div><div class="field-value">{% if doc.actual_clearance_date %}{{ frappe.utils.formatdate(doc.actual_clearance_date, 'MM-dd-yyyy') }}{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">DUTY / TAX / TOTAL:</div><div class="field-value">{% if doc.duty_amount is not none %}D {{ frappe.utils.fmt_money(doc.duty_amount, precision=2) }}{% endif %} {% if doc.tax_amount is not none %}T {{ frappe.utils.fmt_money(doc.tax_amount, precision=2) }}{% endif %} {% if doc.total_payable is not none %}| {{ frappe.utils.fmt_money(doc.total_payable, precision=2) }}{% endif %}</div></div>
+                <div class="field-row"><div class="field-label">DUTY / TAX / TOTAL:</div><div class="field-value">{% if doc.duty_amount is not none %}D {{ frappe.utils.fmt_money(doc.duty_amount, precision=2) }}{% endif %}
+{% if doc.tax_amount is not none %}T {{ frappe.utils.fmt_money(doc.tax_amount, precision=2) }}{% endif %}
+{% if doc.total_payable is not none %}| {{ frappe.utils.fmt_money(doc.total_payable, precision=2) }}{% endif %}</div></div>
                 <div class="field-row"><div class="field-label">PAYMENT STATUS:</div><div class="field-value">{{ doc.payment_status or '' }}</div></div>
                 <div class="field-row"><div class="field-label">JOB NUMBER:</div><div class="field-value">{{ doc.job_number or '' }}</div></div>
             </div>
@@ -182,8 +198,8 @@
         <div class="footer-section">
             <div>Company: {{ doc.company or '' }}</div>
             {% if doc.branch %}<div>Branch: {{ doc.branch }}</div>{% endif %}
-            {% if doc.cost_center %}<div>Cost Center: {{ doc.cost_center }}</div>{% endif %}
-            {% if doc.profit_center %}<div>Profit Center: {{ doc.profit_center }}</div>{% endif %}
+{% if doc.cost_center %}<div>Cost Center: {{ doc.cost_center }}</div>{% endif %}
+{% if doc.profit_center %}<div>Profit Center: {{ doc.profit_center }}</div>{% endif %}
         </div>
         </div>
     </div>

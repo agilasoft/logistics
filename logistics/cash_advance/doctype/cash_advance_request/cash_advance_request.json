@@ -2,9 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "format:CA.{#####}",
- "creation": "2026-04-22 00:00:00.000000",
- "default_sort_field": "modified",
- "default_sort_order": "DESC",
+ "creation": "2026-04-22 00:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
@@ -19,7 +17,6 @@
   "fund_source",
   "payee",
   "payee_name",
-  "employee_advance",
   "date",
   "releasing_and_liquidation",
   "released_to",
@@ -40,7 +37,8 @@
   "refund_return_date",
   "reference",
   "from_to",
-  "advance_journal_entry"
+  "advance_journal_entry",
+  "amended_from"
  ],
  "fields": [
   {
@@ -51,6 +49,7 @@
   {
    "fieldname": "company",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Company",
    "options": "Company",
    "reqd": 1
@@ -77,6 +76,7 @@
   {
    "fieldname": "job_number",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Job Number",
    "no_copy": 1,
    "options": "Job Number",
@@ -87,31 +87,25 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "Bank or Cash account paid out for this advance (required on submit).",
    "fieldname": "fund_source",
    "fieldtype": "Link",
    "label": "Fund Source",
-   "options": "Account",
-   "description": "Bank or Cash account paid out for this advance (required on submit)."
+   "options": "Account"
   },
   {
+   "description": "Supplier who receives the cash. Used as the party on the advance journal entry (required on submit).",
    "fieldname": "payee",
    "fieldtype": "Link",
    "label": "Payee",
    "options": "Supplier"
   },
   {
+   "fetch_from": "payee.supplier_name",
    "fieldname": "payee_name",
    "fieldtype": "Data",
-   "fetch_from": "payee.supplier_name",
    "label": "Payee Name",
    "read_only": 1
-  },
-  {
-   "description": "Used as Reference Type on release and liquidation journal entries (ERPNext Employee Advance).",
-   "fieldname": "employee_advance",
-   "fieldtype": "Link",
-   "label": "Employee Advance",
-   "options": "Employee Advance"
   },
   {
    "default": "Today",
@@ -224,6 +218,16 @@
    "no_copy": 1,
    "options": "Journal Entry",
    "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Cash Advance Request",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,
@@ -235,12 +239,11 @@
    "link_fieldname": "cash_advance_request"
   }
  ],
- "max_attachments": 0,
- "modified": "2026-04-22 20:00:00.000000",
+ "modified": "2026-06-10 09:48:18.706619",
  "modified_by": "Administrator",
  "module": "Cash Advance",
  "name": "Cash Advance Request",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
@@ -274,6 +277,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

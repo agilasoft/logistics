@@ -195,6 +195,21 @@ def get_exhibit_booking_choices(exhibit: str, internal_jobs: Any = None):
 		jt = _dialog_creatable_job_type(row)
 		jn = (getattr(row, "job_no", None) or "").strip()
 		creatable = bool(jt) and jt in EXHIBIT_CREATABLE_JOB_TYPES and not jn
+		not_creatable_message = None
+		if creatable:
+			from logistics.utils.internal_job_creation_eligibility import (
+				evaluate_internal_job_creation_eligibility,
+			)
+
+			elig = evaluate_internal_job_creation_eligibility(
+				sales_quote=getattr(doc, "sales_quote", None),
+				parent_doc=doc,
+				ij_row=row,
+				service_type_label=st,
+			)
+			if not elig.get("eligible"):
+				creatable = False
+				not_creatable_message = elig.get("message")
 		header = _choice_header(jt, row, idx, jn)
 		cancelled = bool(jn and linked_internal_job_target_is_cancelled(jt, jn))
 		if cancelled:
@@ -211,6 +226,7 @@ def get_exhibit_booking_choices(exhibit: str, internal_jobs: Any = None):
 				"service_type": st or None,
 				"job_no": jn or None,
 				"creatable": creatable,
+				"not_creatable_message": not_creatable_message,
 				**header,
 			}
 		)
@@ -354,16 +370,26 @@ def get_exhibit_booking_preview(
 		routing_params = extract_sales_quote_charge_parameters(row) if row else {}
 		preview_params = {k: v for k, v in (routing_params or {}).items() if k != "charge_group"}
 
-		return {
-			"job_type": jt,
-			"detail_idx": res_idx,
-			"uses_job_detail_row": row is not None,
-			"creatable": True,
-			"source_context": source_context,
-			"target_internal_job": None,
-			"job_detail_parameters": preview_params,
-			"charges": [],
-		}
+		from logistics.utils.internal_job_creation_eligibility import (
+			apply_eligibility_to_preview_flags,
+		)
+
+		return apply_eligibility_to_preview_flags(
+			{
+				"job_type": jt,
+				"detail_idx": res_idx,
+				"uses_job_detail_row": row is not None,
+				"creatable": True,
+				"source_context": source_context,
+				"target_internal_job": None,
+				"job_detail_parameters": preview_params,
+				"charges": [],
+			},
+			sales_quote=getattr(doc, "sales_quote", None),
+			parent_doc=doc,
+			ij_row=row,
+			service_type_label=(getattr(row, "service_type", None) or "").strip() if row else None,
+		)
 
 
 def _apply_exhibit_context(target_doc: Any, ep_doc: Any) -> None:
@@ -424,17 +450,11 @@ def _booking_date_field(target_doc: Any) -> str | None:
 
 def _persist_row_link(ep_name: str, job_type: str, job_no: str, detail_idx: int) -> None:
 	"""Write job_type and job_no back onto the Exhibit's Internal Job row."""
-	if not (job_type and job_no and detail_idx):
-		return
-	parent = frappe.get_doc("Exhibit", ep_name)
-	rows = parent.get("internal_jobs") or []
-	if detail_idx < 1 or detail_idx > len(rows):
-		frappe.throw(_("Invalid Internal Job row index for persist."))
-	row = rows[detail_idx - 1]
-	row.job_type = job_type
-	row.job_no = job_no
-	parent.flags.ignore_validate_update_after_submit = True
-	parent.save(ignore_permissions=True)
+	from logistics.utils.internal_job_detail_copy import persist_internal_job_detail_job_link
+
+	persist_internal_job_detail_job_link(
+		"Exhibit", ep_name, job_type, job_no, detail_idx=detail_idx
+	)
 
 
 def _create_air_booking(ep_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
@@ -567,5 +587,15 @@ def create_booking_or_order_from_exhibit(
 			)
 		if resolved_idx is None:
 			frappe.throw(_("Could not resolve the Internal Job row to update after creation."))
+		from logistics.utils.internal_job_creation_eligibility import (
+			require_internal_job_creation_eligible,
+		)
+
+		require_internal_job_creation_eligible(
+			sales_quote=getattr(ep_doc, "sales_quote", None),
+			parent_doc=ep_doc,
+			ij_row=row,
+			service_type_label=(getattr(row, "service_type", None) or "").strip(),
+		)
 		handler = _CREATE_DISPATCH[jt]
 		return handler(ep_doc, row, resolved_idx)

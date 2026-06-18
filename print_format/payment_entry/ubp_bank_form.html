@@ -258,7 +258,14 @@
     </style>
 </head>
 <body>
-    <div class="form-container">
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set company_doc = None %}
+{% if doc.company and frappe.db.exists("Company", doc.company) %}
+{% set company_doc = frappe.get_doc("Company", doc.company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
+{% set company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
+<div class="form-container">
         <!-- Header -->
         <div class="header-top">
             <div class="bank-name">UB UnionBank</div>
@@ -309,8 +316,7 @@
                 <td>FULL NAME / ENTITY NAME</td>
                 <td colspan="3">
                     <div class="field-value">
-                        {% set company_doc = frappe.get_doc("Company", doc.company) %}
-                        {{ company_doc.company_name or doc.company }}
+                        {{ company_doc.company_name if company_doc else doc.company }}
                     </div>
                 </td>
             </tr>
@@ -318,16 +324,15 @@
                 <td>ADDRESS (No./Building Name/Street/Barangay/City/Town/Province)</td>
                 <td colspan="3">
                     <div class="field-value">
-                        {% set company_doc = frappe.get_doc("Company", doc.company) %}
-                        {% if company_doc.address %}
+                        {% if company_doc and company_doc.address %}
                             {% set company_address = frappe.get_doc("Address", company_doc.address) %}
                             {{ company_address.address_line1 if company_address.address_line1 else '' }}
                             {% if company_address.address_line2 %}{{ company_address.address_line2 }}{% endif %}
-                            {% if company_address.city %}{{ company_address.city }}{% endif %}
-                            {% if company_address.state %}, {{ company_address.state }}{% endif %}
-                            {% if company_address.country %}{{ company_address.country }}{% endif %}
-                            {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
-                        {% elif company_doc.address_line1 %}
+{% if company_address.city %}{{ company_address.city }}{% endif %}
+{% if company_address.state %}, {{ company_address.state }}{% endif %}
+{% if company_address.country %}{{ company_address.country }}{% endif %}
+{% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                        {% elif company_doc and company_doc.address_line1 %}
                             {{ company_doc.address_line1 }}
                             {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}{% endif %}
                             {{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}
@@ -340,15 +345,13 @@
                 <td>E-MAIL ADDRESS</td>
                 <td>
                     <div class="field-value">
-                        {% set company_doc = frappe.get_doc("Company", doc.company) %}
-                        {{ company_doc.email or '' }}
+                        {{ company_doc.email if company_doc else '' }}
                     </div>
                 </td>
                 <td class="label-cell">CONTACT NO.</td>
                 <td>
                     <div class="field-value">
-                        {% set company_doc = frappe.get_doc("Company", doc.company) %}
-                        {{ company_doc.phone_no or company_doc.mobile_no or '' }}
+                        {{ (company_doc.phone_no or company_doc.mobile_no) if company_doc else '' }}
                     </div>
                 </td>
             </tr>
@@ -472,7 +475,7 @@
                             {% elif party_type == "Supplier" %}
                                 {% set party_doc = frappe.get_doc("Supplier", doc.party) %}
                             {% endif %}
-                            {% if party_doc and party_doc.custom_bank_account %}
+{% if party_doc and party_doc.custom_bank_account %}
                                 {{ party_doc.custom_bank_account }}
                             {% endif %}
                         {% endif %}
@@ -490,22 +493,22 @@
                             {% elif party_type == "Supplier" %}
                                 {% set party_doc = frappe.get_doc("Supplier", doc.party) %}
                             {% endif %}
-                            {% if party_doc and party_doc.customer_primary_address %}
+{% if party_doc and party_doc.customer_primary_address %}
                                 {% set party_address = frappe.get_doc("Address", party_doc.customer_primary_address) %}
                                 {{ party_address.address_line1 if party_address.address_line1 else '' }}
                                 {% if party_address.address_line2 %}{{ party_address.address_line2 }}{% endif %}
-                                {% if party_address.city %}{{ party_address.city }}{% endif %}
-                                {% if party_address.state %}, {{ party_address.state }}{% endif %}
-                                {% if party_address.country %}{{ party_address.country }}{% endif %}
-                                {% if party_address.pincode %} {{ party_address.pincode }}{% endif %}
+{% if party_address.city %}{{ party_address.city }}{% endif %}
+{% if party_address.state %}, {{ party_address.state }}{% endif %}
+{% if party_address.country %}{{ party_address.country }}{% endif %}
+{% if party_address.pincode %} {{ party_address.pincode }}{% endif %}
                             {% elif party_doc and party_doc.supplier_primary_address %}
                                 {% set party_address = frappe.get_doc("Address", party_doc.supplier_primary_address) %}
                                 {{ party_address.address_line1 if party_address.address_line1 else '' }}
                                 {% if party_address.address_line2 %}{{ party_address.address_line2 }}{% endif %}
-                                {% if party_address.city %}{{ party_address.city }}{% endif %}
-                                {% if party_address.state %}, {{ party_address.state }}{% endif %}
-                                {% if party_address.country %}{{ party_address.country }}{% endif %}
-                                {% if party_address.pincode %} {{ party_address.pincode }}{% endif %}
+{% if party_address.city %}{{ party_address.city }}{% endif %}
+{% if party_address.state %}, {{ party_address.state }}{% endif %}
+{% if party_address.country %}{{ party_address.country }}{% endif %}
+{% if party_address.pincode %} {{ party_address.pincode }}{% endif %}
                             {% endif %}
                         {% endif %}
                     </div>

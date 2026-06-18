@@ -219,7 +219,8 @@ class RateCalculationEngine:
             hu = flt(ah_units or 0)
             return hu if hu > 0 else 1.0
         elif unit_type == "Job":
-            return 1.0
+            j = flt(actual_quantity or 0)
+            return j if j > 0 else 1.0
         elif unit_type == "Trip":
             t = flt(trips or 0)
             return t if t > 0 else 1.0

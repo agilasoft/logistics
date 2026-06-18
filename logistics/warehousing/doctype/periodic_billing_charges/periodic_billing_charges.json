@@ -13,7 +13,7 @@
   "charge_category",
   "uom",
   "quantity",
-  "rate",
+  "unit_rate",
   "total",
   "column_break_lthu",
   "handling_unit",
@@ -77,10 +77,10 @@
    "label": "Quantity"
   },
   {
-   "fieldname": "rate",
+   "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Rate"
+   "label": "Unit Rate"
   },
   {
    "fieldname": "total",

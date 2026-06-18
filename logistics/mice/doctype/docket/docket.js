@@ -14,17 +14,7 @@ function logistics_docket_set_exhibitor_query(frm) {
 
 function logistics_docket_set_site_query(frm) {
 	frm.set_query("site", function () {
-		const cust = frm.doc.customer || frm.doc.exhibitor;
-		if (!cust) {
-			return { filters: [["name", "=", ""]] };
-		}
-		return {
-			query: "frappe.contacts.doctype.address.address.address_query",
-			filters: {
-				link_doctype: "Customer",
-				link_name: cust,
-			},
-		};
+		return logistics.address.query_for_customer(frm.doc.customer || frm.doc.exhibitor);
 	});
 }
 

@@ -46,14 +46,8 @@ frappe.ui.form.on("Sea Shipment Charges", {
 		}
 		_restore_sea_shipment_charges_grid_edit_buttons(frm);
 	},
-	charge_type: function(frm, cdt, cdn) {
-		var row = locals[cdt] && locals[cdt][cdn];
-		if (row && row.charge_type === "Disbursement") {
-			_calculate_charge_row(frm, cdt, cdn);
-		}
-	},
 	revenue_calculation_method: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
-	rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
+	unit_rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	uom: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	currency: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },

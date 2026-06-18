@@ -16,7 +16,7 @@ CHARGE_DOCTYPES = [
 COST_STATUS_OPTIONS = "Not Requested\nRequested\nPosted\nPaid"
 REVENUE_STATUS_OPTIONS = "Not Requested\nRequested\nPosted\nPaid"
 
-INSERT_AFTER_FALLBACKS = ("quantity", "charge_item", "item_code", "rate", "buying_amount", "purchase_invoice")
+INSERT_AFTER_FALLBACKS = ("quantity", "charge_item", "item_code", "unit_rate", "rate", "buying_amount", "purchase_invoice")
 
 
 def _find_insert_after(meta, fallbacks):

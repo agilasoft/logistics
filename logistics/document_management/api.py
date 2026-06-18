@@ -57,10 +57,10 @@ DOCTYPE_CONTEXT = {
 	"Special Project": ("Special Projects", "Shipment/Job"),
 	"Project Order": ("Special Projects", "Booking"),
 	"Project Job": ("Special Projects", "Shipment/Job"),
-	"Exhibit": ("Exhibits", "Shipment/Job"),
-	"Docket": ("Exhibits", "Shipment/Job"),
-	"Exhibit Order": ("Exhibits", "Shipment/Job"),
-	"Exhibit Job": ("Exhibits", "Shipment/Job"),
+	"MICE Project": ("MICE", "Shipment/Job"),
+	"Docket": ("MICE", "Shipment/Job"),
+	"MICE Order": ("MICE", "Shipment/Job"),
+	"MICE Job": ("MICE", "Shipment/Job"),
 }
 
 # Doctypes that have milestone child table (field "milestones")
@@ -78,10 +78,10 @@ MILESTONE_DOCTYPES = (
 	"Special Project",
 	"Project Order",
 	"Project Job",
-	"Exhibit",
+	"MICE Project",
 	"Docket",
-	"Exhibit Order",
-	"Exhibit Job",
+	"MICE Order",
+	"MICE Job",
 )
 
 # Child table doctype for each parent
@@ -99,10 +99,10 @@ MILESTONE_CHILD_DOCTYPE = {
 	"Special Project": "Special Project Milestone",
 	"Project Order": "Special Project Milestone",
 	"Project Job": "Transport Job Milestone",
-	"Exhibit": "Exhibit Milestone",
-	"Docket": "Exhibit Milestone",
-	"Exhibit Order": "Exhibit Milestone",
-	"Exhibit Job": "Exhibit Milestone",
+	"MICE Project": "MICE Project Milestone",
+	"Docket": "MICE Project Milestone",
+	"MICE Order": "MICE Project Milestone",
+	"MICE Job": "MICE Project Milestone",
 }
 
 
@@ -263,8 +263,8 @@ def _get_document_template_items_for_doc(doc, product_type, applies_to, directio
 	if items:
 		return items
 
-	if doc.doctype == "Exhibit":
-		default_tpl = frappe.db.get_single_value("Exhibit Settings", "default_document_template")
+	if doc.doctype == "MICE Project":
+		default_tpl = frappe.db.get_single_value("MICE Settings", "default_document_template")
 		if default_tpl:
 			return frappe.get_all(
 				"Document List Template Item",

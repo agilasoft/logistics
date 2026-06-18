@@ -25,7 +25,7 @@
 		"Release Order",
 		"Warehouse Job",
 		"Project Job",
-		"Exhibit Job",
+		"MICE Job",
 	];
 
 	function logistics_cint(v) {

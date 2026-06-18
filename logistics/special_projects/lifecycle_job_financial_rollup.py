@@ -57,6 +57,28 @@ def _lifecycle_row_job_type(lifecycle_row: Any) -> str:
 	return effective_internal_job_detail_job_type(lifecycle_row)
 
 
+def _lifecycle_row_financial_link(lifecycle_row: Any) -> tuple[str, str]:
+	"""Return ``(doctype, name)`` used to roll up lifecycle financials for one row."""
+	from logistics.utils.special_project_internal_jobs import (
+		_resolve_execution_name_to_operational_ref,
+	)
+
+	jn = (getattr(lifecycle_row, "job_no", None) or "").strip()
+	if jn:
+		ref = _resolve_execution_name_to_operational_ref(jn)
+		if ref:
+			return ref
+	jt = (getattr(lifecycle_row, "job_type", None) or "").strip()
+	on = (getattr(lifecycle_row, "order_no", None) or "").strip()
+	if jt and on:
+		return jt, on
+	ot = (getattr(lifecycle_row, "order_type", None) or "").strip()
+	if ot and on:
+		return ot, on
+	mapped = _lifecycle_row_job_type(lifecycle_row)
+	return mapped, on
+
+
 def _active_job_doc(job_type: str, job_no: str) -> Any | None:
 	jt = (job_type or "").strip()
 	jn = (job_no or "").strip()
@@ -87,11 +109,27 @@ def _primary_charge_doc_for_lifecycle_link(
 	``actual_cost`` on charge rows is used. Fall back to the lifecycle ``job_no`` document when
 	the child has no charge lines yet.
 	"""
-	link_doc = _active_job_doc(link_job_type, link_job_no)
 	row = lifecycle_row if lifecycle_row is not None else frappe._dict(
 		job_type=link_job_type,
 		job_no=link_job_no,
 	)
+	jt = (getattr(row, "job_type", None) or link_job_type or "").strip()
+	jn = (getattr(row, "job_no", None) or link_job_no or "").strip()
+	_EXECUTION = frozenset(
+		{
+			"Air Shipment",
+			"Sea Shipment",
+			"Transport Job",
+			"Declaration",
+			"Warehouse Job",
+			"Project Job",
+		}
+	)
+	if jt in _EXECUTION and jn:
+		exec_doc = _active_job_doc(jt, jn)
+		if exec_doc and _doc_has_charge_lines(exec_doc):
+			return exec_doc
+	link_doc = _active_job_doc(link_job_type, link_job_no)
 	execution_ref = resolve_lifecycle_job_row_to_operational_ref(row)
 	if execution_ref:
 		exec_doc = _active_job_doc(execution_ref[0], execution_ref[1])
@@ -190,6 +228,11 @@ def sync_lifecycle_job_financials(doc: Any) -> None:
 	if not doc.get("lifecycle_jobs"):
 		return
 
+	from logistics.special_projects.special_project_charge_lifecycle import (
+		sync_lifecycle_job_execution_refs,
+	)
+
+	sync_lifecycle_job_execution_refs(doc)
 	_auto_assign_charge_lifecycle_rows(doc)
 	_validate_charge_lifecycle_links(doc)
 
@@ -197,22 +240,65 @@ def sync_lifecycle_job_financials(doc: Any) -> None:
 	charges = _charges(doc)
 
 	for row in lifecycle_rows:
-		job_type = _lifecycle_row_job_type(row)
-		job_no = (getattr(row, "job_no", None) or "").strip()
+		planned_cost, planned_revenue = _planned_totals_for_lifecycle_row(
+			doc, row, lifecycle_rows, charges
+		)
+		row.planned_cost = flt(planned_cost)
+		row.planned_revenue = flt(planned_revenue)
+
+		job_type, job_no = _lifecycle_row_financial_link(row)
 		if job_type and job_no and _active_job_doc(job_type, job_no):
-			pc, pr, ac, ar = calculate_linked_job_stack_totals(job_type, job_no, lifecycle_row=row)
-			row.planned_cost = flt(pc)
-			row.planned_revenue = flt(pr)
+			_, _, ac, ar = calculate_linked_job_stack_totals(
+				job_type, job_no, lifecycle_row=row
+			)
 			row.actual_cost = flt(ac)
 			row.actual_revenue = flt(ar)
 		else:
-			planned_cost, planned_revenue = _planned_totals_for_lifecycle_row(
-				row, lifecycle_rows, charges
-			)
-			row.planned_cost = flt(planned_cost)
-			row.planned_revenue = flt(planned_revenue)
 			row.actual_cost = 0.0
 			row.actual_revenue = 0.0
+
+	_persist_lifecycle_job_financials(doc, lifecycle_rows)
+	_persist_lifecycle_job_execution_refs(doc, lifecycle_rows)
+
+
+def _persist_lifecycle_job_execution_refs(doc: Any, lifecycle_rows: list[Any]) -> None:
+	if not getattr(doc, "name", None):
+		return
+	for row in lifecycle_rows:
+		row_name = (getattr(row, "name", None) or "").strip()
+		if not row_name or not frappe.db.exists("Lifecycle Job", row_name):
+			continue
+		frappe.db.set_value(
+			"Lifecycle Job",
+			row_name,
+			{
+				"job_type": getattr(row, "job_type", None),
+				"order_no": getattr(row, "order_no", None),
+				"job_no": getattr(row, "job_no", None),
+			},
+			update_modified=False,
+		)
+
+
+def _persist_lifecycle_job_financials(doc: Any, lifecycle_rows: list[Any]) -> None:
+	"""Write computed financial columns; read-only child fields are not saved via normal ORM."""
+	if not getattr(doc, "name", None):
+		return
+	for row in lifecycle_rows:
+		row_name = (getattr(row, "name", None) or "").strip()
+		if not row_name or not frappe.db.exists("Lifecycle Job", row_name):
+			continue
+		frappe.db.set_value(
+			"Lifecycle Job",
+			row_name,
+			{
+				"planned_cost": row.planned_cost,
+				"planned_revenue": row.planned_revenue,
+				"actual_cost": row.actual_cost,
+				"actual_revenue": row.actual_revenue,
+			},
+			update_modified=False,
+		)
 
 
 def _lifecycle_link_keys_for_operational_doc(doc: Any) -> list[tuple[str, str]]:
@@ -247,6 +333,38 @@ def _lifecycle_link_keys_for_operational_doc(doc: Any) -> list[tuple[str, str]]:
 	return keys
 
 
+def _lifecycle_parent_names_for_operational_doc(doc: Any) -> list[str]:
+	"""Special Project parents whose lifecycle rows reference this operational document."""
+	parents: set[str] = set()
+	name = (getattr(doc, "name", None) or "").strip()
+	if name:
+		for parent in frappe.get_all(
+			"Lifecycle Job",
+			filters={
+				"parenttype": "Special Project",
+				"parentfield": "lifecycle_jobs",
+				"job_no": name,
+			},
+			pluck="parent",
+		):
+			if parent:
+				parents.add(parent)
+	for job_type, order_no in _lifecycle_link_keys_for_operational_doc(doc):
+		for parent in frappe.get_all(
+			"Lifecycle Job",
+			filters={
+				"parenttype": "Special Project",
+				"parentfield": "lifecycle_jobs",
+				"job_type": job_type,
+				"order_no": order_no,
+			},
+			pluck="parent",
+		):
+			if parent:
+				parents.add(parent)
+	return list(parents)
+
+
 def refresh_special_project_lifecycle_financials_for_job_doc(doc: Any) -> int:
 	"""Re-sync lifecycle planned/actual on Special Projects referencing this operational job.
 
@@ -254,40 +372,31 @@ def refresh_special_project_lifecycle_financials_for_job_doc(doc: Any) -> int:
 	"""
 	updated = 0
 	seen_parents: set[str] = set()
-	for job_type, job_no in _lifecycle_link_keys_for_operational_doc(doc):
-		for parent in frappe.get_all(
-			"Lifecycle Job",
-			filters={
-				"parenttype": "Special Project",
-				"parentfield": "lifecycle_jobs",
-				"job_type": job_type,
-				"job_no": job_no,
-			},
-			pluck="parent",
-		):
-			if not parent or parent in seen_parents:
+	for parent in _lifecycle_parent_names_for_operational_doc(doc):
+		if parent in seen_parents:
+			continue
+		seen_parents.add(parent)
+		try:
+			sp = frappe.get_doc("Special Project", parent)
+		except Exception:
+			continue
+		sync_lifecycle_job_financials(sp)
+		_persist_lifecycle_job_execution_refs(sp, list(sp.get("lifecycle_jobs") or []))
+		for row in sp.get("lifecycle_jobs") or []:
+			if not row.name:
 				continue
-			seen_parents.add(parent)
-			try:
-				sp = frappe.get_doc("Special Project", parent)
-			except Exception:
-				continue
-			sync_lifecycle_job_financials(sp)
-			for row in sp.get("lifecycle_jobs") or []:
-				if not row.name:
-					continue
-				frappe.db.set_value(
-					"Lifecycle Job",
-					row.name,
-					{
-						"planned_cost": row.planned_cost,
-						"planned_revenue": row.planned_revenue,
-						"actual_cost": row.actual_cost,
-						"actual_revenue": row.actual_revenue,
-					},
-					update_modified=False,
-				)
-			updated += 1
+			frappe.db.set_value(
+				"Lifecycle Job",
+				row.name,
+				{
+					"planned_cost": row.planned_cost,
+					"planned_revenue": row.planned_revenue,
+					"actual_cost": row.actual_cost,
+					"actual_revenue": row.actual_revenue,
+				},
+				update_modified=False,
+			)
+		updated += 1
 	return updated
 
 

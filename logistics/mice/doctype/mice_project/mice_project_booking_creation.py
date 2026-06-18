@@ -37,6 +37,7 @@ EXHIBIT_CREATABLE_JOB_TYPES: frozenset[str] = frozenset(
 		"Transport Order",
 		"Declaration Order",
 		"Inbound Order",
+		"MICE Order",
 	}
 )
 
@@ -46,6 +47,7 @@ _TARGET_DOC_LABELS: dict[str, str] = {
 	"Transport Order": "Transport Order",
 	"Declaration Order": "Declaration Order",
 	"Inbound Order": "Inbound Order",
+	"MICE Order": "MICE Order",
 }
 
 
@@ -73,14 +75,14 @@ def _resolve_organizer_customer(ep_doc: Any) -> str | None:
 
 
 def _dialog_creatable_job_type(row: Any) -> str:
-	"""Job type used in Create > Booking/Order. Special Project / Exhibits service rows are not creatable."""
+	"""Job type used in Create > Booking/Order. Special Project service → Project Order; MICE → MICE Order."""
 	if not row:
 		return ""
 	st = (getattr(row, "service_type", None) or "").strip()
 	if sales_quote_charge_service_types_equal(st, "Special Project"):
 		return ""
 	if sales_quote_charge_service_types_equal(st, "MICE"):
-		return ""
+		return "MICE Order"
 	return effective_internal_job_detail_job_type(row)
 
 
@@ -195,7 +197,6 @@ def _choice_header(job_type: str, row: Any | None, idx: int | None, jn: str) -> 
 	elif not st:
 		subtitle = _("Select a service type on this line to set the target document type.")
 	elif not jt_label:
-		# Special Project / Exhibits service rows cannot spawn a booking/order from an Exhibit.
 		subtitle = _("This service type cannot be created from an Exhibit.")
 	else:
 		subtitle = _("Creates {0} linked to this Exhibit.").format(
@@ -218,6 +219,21 @@ def get_exhibit_booking_choices(exhibit: str, internal_jobs: Any = None):
 		jt = _dialog_creatable_job_type(row)
 		jn = (getattr(row, "job_no", None) or "").strip()
 		creatable = bool(jt) and jt in EXHIBIT_CREATABLE_JOB_TYPES and not jn
+		not_creatable_message = None
+		if creatable:
+			from logistics.utils.internal_job_creation_eligibility import (
+				evaluate_internal_job_creation_eligibility,
+			)
+
+			elig = evaluate_internal_job_creation_eligibility(
+				sales_quote=getattr(doc, "sales_quote", None),
+				parent_doc=doc,
+				ij_row=row,
+				service_type_label=st,
+			)
+			if not elig.get("eligible"):
+				creatable = False
+				not_creatable_message = elig.get("message")
 		header = _choice_header(jt, row, idx, jn)
 		cancelled = bool(jn and linked_internal_job_target_is_cancelled(jt, jn))
 		if cancelled:
@@ -234,26 +250,40 @@ def get_exhibit_booking_choices(exhibit: str, internal_jobs: Any = None):
 				"service_type": st or None,
 				"job_no": jn or None,
 				"creatable": creatable,
+				"not_creatable_message": not_creatable_message,
 				**header,
 			}
 		)
 	return {"choices": choices}
 
 
+def _company_fieldname(doctype: str) -> str | None:
+	"""Return the fieldname on `doctype` that links to Company (if any)."""
+	dt_meta = frappe.get_meta(doctype)
+	for fn in ("company", "custom_company"):
+		if dt_meta.has_field(fn):
+			return fn
+	return None
+
+
+def _strip_link(value: Any) -> str | None:
+	return (value or "").strip() or None
+
+
 def _resolve_exhibit_org_context(ep_doc: Any) -> dict[str, Any]:
 	"""Best-effort accounting context for the new booking/order.
 
-	Exhibit does not store company / branch / cost center / profit center directly,
-	so we resolve them from the linked Project (company) and fall back to user/global
-	defaults. The rest of the org fields (branch / cost center / profit center) are
-	left blank and the user can adjust them on the created document.
+	Reads company / branch / cost center / profit center from the MICE Project when
+	set, then resolves company from the linked ERPNext Project and fills any remaining
+	gaps from Customs Settings and company-scoped master data so mandatory fields on
+	orders such as Declaration Order are populated on insert.
 	"""
 	ctx: dict[str, Any] = {
-		"company": None,
-		"branch": None,
-		"cost_center": None,
-		"profit_center": None,
-		"project": (getattr(ep_doc, "project", None) or "").strip() or None,
+		"company": _strip_link(getattr(ep_doc, "company", None)),
+		"branch": _strip_link(getattr(ep_doc, "branch", None)),
+		"cost_center": _strip_link(getattr(ep_doc, "cost_center", None)),
+		"profit_center": _strip_link(getattr(ep_doc, "profit_center", None)),
+		"project": _strip_link(getattr(ep_doc, "project", None)),
 	}
 
 	project = ctx["project"]
@@ -263,19 +293,82 @@ def _resolve_exhibit_org_context(ep_doc: Any) -> dict[str, Any]:
 		except Exception:
 			project_company = None
 		if project_company:
-			ctx["company"] = project_company
-			try:
-				company_cost_center = frappe.db.get_value("Company", project_company, "cost_center")
-				if company_cost_center:
-					ctx["cost_center"] = company_cost_center
-			except Exception:
-				pass
+			if not ctx["company"]:
+				ctx["company"] = project_company
+			if not ctx["cost_center"]:
+				try:
+					company_cost_center = frappe.db.get_value("Company", project_company, "cost_center")
+					if company_cost_center:
+						ctx["cost_center"] = company_cost_center
+				except Exception:
+					pass
 
 	if not ctx["company"]:
 		ctx["company"] = (
 			frappe.defaults.get_user_default("Company")
 			or frappe.db.get_single_value("Global Defaults", "default_company")
 		)
+
+	company = ctx["company"]
+	if not company:
+		return ctx
+
+	if not ctx["branch"] or not ctx["cost_center"] or not ctx["profit_center"]:
+		try:
+			cs = frappe.db.get_value(
+				"Customs Settings",
+				{"company": company},
+				["default_branch", "default_cost_center", "default_profit_center"],
+				as_dict=True,
+			)
+			if cs:
+				if not ctx["branch"]:
+					ctx["branch"] = cs.get("default_branch")
+				if not ctx["cost_center"]:
+					ctx["cost_center"] = cs.get("default_cost_center")
+				if not ctx["profit_center"]:
+					ctx["profit_center"] = cs.get("default_profit_center")
+		except Exception:
+			pass
+
+	if not ctx["branch"]:
+		branch_company_fn = _company_fieldname("Branch")
+		if branch_company_fn:
+			ctx["branch"] = frappe.db.get_value(
+				"Branch",
+				{branch_company_fn: company},
+				"name",
+				order_by="modified desc",
+			)
+
+	if not ctx["cost_center"]:
+		cc_filters = {"is_group": 0, "disabled": 0}
+		cc_company_fn = _company_fieldname("Cost Center")
+		if cc_company_fn:
+			cc_filters[cc_company_fn] = company
+		ctx["cost_center"] = frappe.db.get_value(
+			"Cost Center",
+			cc_filters,
+			"name",
+			order_by="creation asc",
+		)
+
+	if not ctx["profit_center"]:
+		pc_company_fn = _company_fieldname("Profit Center")
+		if pc_company_fn:
+			ctx["profit_center"] = frappe.db.get_value(
+				"Profit Center",
+				{pc_company_fn: company},
+				"name",
+				order_by="creation asc",
+			)
+		else:
+			ctx["profit_center"] = frappe.db.get_value(
+				"Profit Center",
+				{},
+				"name",
+				order_by="creation asc",
+			)
 
 	return ctx
 
@@ -378,16 +471,26 @@ def get_exhibit_booking_preview(
 		routing_params = extract_sales_quote_charge_parameters(row) if row else {}
 		preview_params = {k: v for k, v in (routing_params or {}).items() if k != "charge_group"}
 
-		return {
-			"job_type": jt,
-			"detail_idx": res_idx,
-			"uses_job_detail_row": row is not None,
-			"creatable": True,
-			"source_context": source_context,
-			"target_internal_job": None,
-			"job_detail_parameters": preview_params,
-			"charges": [],
-		}
+		from logistics.utils.internal_job_creation_eligibility import (
+			apply_eligibility_to_preview_flags,
+		)
+
+		return apply_eligibility_to_preview_flags(
+			{
+				"job_type": jt,
+				"detail_idx": res_idx,
+				"uses_job_detail_row": row is not None,
+				"creatable": True,
+				"source_context": source_context,
+				"target_internal_job": None,
+				"job_detail_parameters": preview_params,
+				"charges": [],
+			},
+			sales_quote=getattr(doc, "sales_quote", None),
+			parent_doc=doc,
+			ij_row=row,
+			service_type_label=(getattr(row, "service_type", None) or "").strip() if row else None,
+		)
 
 
 def _apply_exhibit_context(target_doc: Any, ep_doc: Any) -> None:
@@ -447,18 +550,12 @@ def _booking_date_field(target_doc: Any) -> str | None:
 
 
 def _persist_row_link(ep_name: str, job_type: str, job_no: str, detail_idx: int) -> None:
-	"""Write job_type and job_no back onto the Exhibit's Internal Job row."""
-	if not (job_type and job_no and detail_idx):
-		return
-	parent = frappe.get_doc("MICE Project", ep_name)
-	rows = parent.get("internal_jobs") or []
-	if detail_idx < 1 or detail_idx > len(rows):
-		frappe.throw(_("Invalid Internal Job row index for persist."))
-	row = rows[detail_idx - 1]
-	row.job_type = job_type
-	row.job_no = job_no
-	parent.flags.ignore_validate_update_after_submit = True
-	parent.save(ignore_permissions=True)
+	"""Write job_type and job_no back onto the MICE Project's Internal Job row."""
+	from logistics.utils.internal_job_detail_copy import persist_internal_job_detail_job_link
+
+	persist_internal_job_detail_job_link(
+		"MICE Project", ep_name, job_type, job_no, detail_idx=detail_idx
+	)
 
 
 def _create_air_booking(ep_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
@@ -553,12 +650,108 @@ def _create_inbound_order(ep_doc: Any, row: Any, detail_idx: int) -> dict[str, A
 	}
 
 
+def _resolve_sales_quote_for_exhibit(ep_doc: Any) -> str | None:
+	sq = (getattr(ep_doc, "sales_quote", None) or "").strip()
+	if sq and frappe.db.exists("Sales Quote", sq):
+		return sq
+	if not getattr(ep_doc, "name", None):
+		return None
+	return (
+		frappe.db.get_value(
+			"Sales Quote",
+			{"exhibit": ep_doc.name, "docstatus": 1},
+			"name",
+			order_by="modified desc",
+		)
+		or None
+	)
+
+
+def _suggested_mice_order_title(ep_doc: Any, row: Any | None) -> str:
+	if row:
+		for fn in ("job_description",):
+			val = (getattr(row, fn, None) or "").strip()
+			if val:
+				return val
+	pn = (getattr(ep_doc, "project_name", None) or ep_doc.name or "").strip()
+	return f"{pn} — {_('MICE')}" if pn else _("MICE Order")
+
+
+def _prepare_mice_order_charges(ep_doc: Any, order: Any, row: Any | None) -> None:
+	"""Copy matching Sales Quote MICE charge lines onto the new MICE Order."""
+	from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
+	from logistics.utils.sales_quote_charge_parameters import (
+		extract_service_scoped_quote_parameters,
+		sales_quote_charge_row_matches_internal_job_detail_params,
+	)
+	from logistics.utils.sales_quote_programme_charges import map_sales_quote_charge_to_programme_charge_dict
+
+	sq_name = _resolve_sales_quote_for_exhibit(ep_doc)
+	if not sq_name:
+		return
+	if order.meta.get_field("sales_quote"):
+		order.sales_quote = sq_name
+
+	st = (getattr(row, "service_type", None) or "MICE").strip() if row else "MICE"
+	ij_params = extract_service_scoped_quote_parameters(row, st) if row else {}
+	sq = frappe.get_doc("Sales Quote", sq_name)
+	charge_dt = "MICE Project Charges"
+	order.set("charges", [])
+	for ch in sq.get("charges") or []:
+		if not sales_quote_charge_service_types_equal(getattr(ch, "service_type", None), st):
+			continue
+		if ij_params and not sales_quote_charge_row_matches_internal_job_detail_params(ch, ij_params):
+			continue
+		mapped = map_sales_quote_charge_to_programme_charge_dict(ch, sq_name, charge_dt)
+		if mapped:
+			order.append("charges", mapped)
+
+
+def _create_mice_order(ep_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
+	order = frappe.new_doc("MICE Order")
+	order.exhibit = ep_doc.name
+	lifecycle_stage = (getattr(ep_doc, "lifecycle_stage", None) or "").strip()
+	if not lifecycle_stage:
+		from logistics.utils.lifecycle_stage import resolve_default_lifecycle_stage, FOR_EXHIBITS
+
+		lifecycle_stage = resolve_default_lifecycle_stage(
+			module_filter=FOR_EXHIBITS, preferred="Pre-Show"
+		)
+	order.lifecycle_stage = lifecycle_stage
+	order.order_title = _suggested_mice_order_title(ep_doc, row)
+	if order.meta.get_field("order_date"):
+		order.order_date = today()
+	if order.meta.get_field("status"):
+		order.status = "Draft"
+
+	_apply_exhibit_context(order, ep_doc)
+	sq_name = _resolve_sales_quote_for_exhibit(ep_doc)
+	if sq_name and order.meta.get_field("sales_quote"):
+		order.sales_quote = sq_name
+
+	if row and order.meta.get_field("site"):
+		site = (getattr(row, "sp_site", None) or "").strip()
+		if site:
+			order.site = site
+
+	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
+	_prepare_mice_order_charges(ep_doc, order, row)
+	order.insert(ignore_permissions=True)
+	_persist_row_link(ep_doc.name, "MICE Order", order.name, detail_idx)
+	frappe.db.commit()
+	return {
+		"mice_order": order.name,
+		"message": _("MICE Order {0} created.").format(order.name),
+	}
+
+
 _CREATE_DISPATCH = {
 	"Air Booking": _create_air_booking,
 	"Sea Booking": _create_sea_booking,
 	"Transport Order": _create_transport_order,
 	"Declaration Order": _create_declaration_order,
 	"Inbound Order": _create_inbound_order,
+	"MICE Order": _create_mice_order,
 }
 
 
@@ -591,5 +784,15 @@ def create_booking_or_order_from_exhibit(
 			)
 		if resolved_idx is None:
 			frappe.throw(_("Could not resolve the Internal Job row to update after creation."))
+		from logistics.utils.internal_job_creation_eligibility import (
+			require_internal_job_creation_eligible,
+		)
+
+		require_internal_job_creation_eligible(
+			sales_quote=getattr(ep_doc, "sales_quote", None),
+			parent_doc=ep_doc,
+			ij_row=row,
+			service_type_label=(getattr(row, "service_type", None) or "").strip(),
+		)
 		handler = _CREATE_DISPATCH[jt]
 		return handler(ep_doc, row, resolved_idx)

@@ -1,17 +1,4 @@
-from __future__ import annotations
-from typing import Any, Dict, Iterable
-from datetime import datetime
-from .base import TelematicsProvider, Position, Event, Temperature, CanSnapshot
+"""Compat shim. See ``goconnect.land.providers.samsara``."""
 
-class SamsaraProvider(TelematicsProvider):
-    def __init__(self, conf: Dict[str, Any]):
-        self.base = (conf.get("base_url") or "https://api.samsara.com").rstrip("/")
-        self.key = conf.get("api_key") or ""
-        self.timeout = int(conf.get("timeout") or 20)
-
-    def fetch_latest_positions(self, since):
-        # implement via /fleet/vehicles/stats
-        return []
-    def fetch_events(self, since, until): return []
-    def fetch_temperatures(self, since, until): return []
-    def fetch_can(self, since, until): return []
+from goconnect.land.providers.samsara import *  # noqa: F401,F403
+from goconnect.land.providers.samsara import SamsaraProvider  # noqa: F401

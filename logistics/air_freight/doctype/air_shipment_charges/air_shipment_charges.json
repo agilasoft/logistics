@@ -8,6 +8,8 @@
  "field_order": [
   "charge_info_section",
   "service_type",
+  "charge_scope",
+  "internal_job",
   "item_code",
   "item_name",
   "charge_type",
@@ -50,7 +52,7 @@
   "quantity",
   "uom",
   "currency",
-  "rate",
+  "unit_rate",
   "unit_type",
   "minimum_quantity",
   "minimum_unit_rate",
@@ -110,7 +112,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing"
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE"
   },
   {
    "default": "0",
@@ -306,7 +308,7 @@
    "reqd": 1
   },
   {
-   "fieldname": "rate",
+   "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Unit Rate",
@@ -731,6 +733,27 @@
   {
    "fieldname": "cl3",
    "fieldtype": "Column Break"
+  },
+  {
+   "default": "Main",
+   "fieldname": "charge_scope",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Scope",
+   "options": "Main\nInternal Job"
+  },
+  {
+   "depends_on": "eval:doc.charge_scope==\"Internal Job\"",
+   "fieldname": "internal_job",
+   "fieldtype": "Link",
+   "in_list_view": 0,
+   "in_standard_filter": 1,
+   "label": "Internal Job",
+   "mandatory_depends_on": "eval:doc.charge_scope==\"Internal Job\"",
+   "options": "Internal Job",
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "hide_toolbar": 1,

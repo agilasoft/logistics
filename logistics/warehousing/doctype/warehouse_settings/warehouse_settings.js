@@ -2,6 +2,12 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on('Warehouse Settings', {
+    setup(frm) {
+        frm.set_query('warehouse_contract_address', function (doc) {
+            return logistics.address.query_for_link('Company', doc.company);
+        });
+    },
+
     refresh: function(frm) {
         // Update field descriptions when form loads
         update_volume_weight_fields(frm);

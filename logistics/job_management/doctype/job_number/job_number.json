@@ -71,20 +71,23 @@
    "fieldname": "branch",
    "fieldtype": "Link",
    "label": "Branch",
-   "options": "Branch"
+   "options": "Branch",
+   "read_only": 1
   },
   {
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
    "options": "Cost Center",
-   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "read_only": 1
   },
   {
    "fieldname": "profit_center",
    "fieldtype": "Link",
    "label": "Profit Center",
-   "options": "Profit Center"
+   "options": "Profit Center",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_links",

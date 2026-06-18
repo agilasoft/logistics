@@ -45,7 +45,7 @@ def periodic_billing_get_volume_charges(periodic_billing: str, clear_existing: i
         job_names = [j["name"] for j in jobs]
         placeholders = ", ".join(["%s"] * len(job_names))
         rows = frappe.db.sql(
-            f"""SELECT c.parent AS warehouse_job, c.item_code, c.item_name, c.uom, c.quantity, c.rate, c.total, c.currency, c.billing_method, c.volume_quantity, c.volume_uom
+            f"""SELECT c.parent AS warehouse_job, c.item_code, c.item_name, c.uom, c.quantity, c.unit_rate, c.total, c.currency, c.billing_method, c.volume_quantity, c.volume_uom
                 FROM `tabWarehouse Job Charges` c
                 WHERE c.parent IN ({placeholders})
                 ORDER BY FIELD(c.parent, {placeholders})""",
@@ -54,7 +54,7 @@ def periodic_billing_get_volume_charges(periodic_billing: str, clear_existing: i
         
         for r in rows:
             qty = flt(r.get("quantity") or 0.0)
-            rate = flt(r.get("rate") or 0.0)
+            rate = flt(r.get("unit_rate") or 0.0)
             total = flt(r.get("total") or (qty * rate))
             
             charge_line = {
@@ -62,7 +62,7 @@ def periodic_billing_get_volume_charges(periodic_billing: str, clear_existing: i
                 "item_name": r.get("item_name"),
                 "uom": r.get("uom"),
                 "quantity": qty,
-                "rate": rate,
+                "unit_rate": rate,
                 "total": total,
                 "currency": r.get("currency"),
                 "warehouse_job": r.get("warehouse_job"),

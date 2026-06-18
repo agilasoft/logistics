@@ -15,7 +15,7 @@
   "column_break_rdwy",
   "quantity",
   "currency",
-  "rate",
+  "unit_rate",
   "total"
  ],
  "fields": [
@@ -83,10 +83,10 @@
    "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
-   "fieldname": "rate",
+   "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Rate"
+   "label": "Unit Rate"
   },
   {
    "fieldname": "total",

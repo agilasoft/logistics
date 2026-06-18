@@ -7,6 +7,8 @@
  "engine": "InnoDB",
  "field_order": [
   "service_type",
+  "charge_scope",
+  "internal_job",
   "column_break_pkuo",
   "item_code",
   "item_name",
@@ -19,6 +21,8 @@
   "column_break_amt",
   "description",
   "sales_quote_link",
+  "change_request",
+  "change_request_charge",
   "is_other_service",
   "section_break_kljg",
   "revenue_summary",
@@ -43,7 +47,7 @@
   "quantity",
   "uom",
   "currency",
-  "rate",
+  "unit_rate",
   "unit_type",
   "minimum_quantity",
   "minimum_unit_rate",
@@ -89,7 +93,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing"
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE"
   },
   {
    "default": "0",
@@ -211,6 +215,20 @@
    "options": "Sales Quote"
   },
   {
+   "fieldname": "change_request",
+   "fieldtype": "Link",
+   "label": "Change Request",
+   "options": "Change Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "change_request_charge",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Change Request Charge Row",
+   "read_only": 1
+  },
+  {
    "fieldname": "column_break_amt",
    "fieldtype": "Column Break"
   },
@@ -312,7 +330,7 @@
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
-   "fieldname": "rate",
+   "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Unit Rate",
@@ -586,6 +604,27 @@
   {
    "fieldname": "column_break_pkuo",
    "fieldtype": "Column Break"
+  },
+  {
+   "default": "Main",
+   "fieldname": "charge_scope",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Scope",
+   "options": "Main\nInternal Job"
+  },
+  {
+   "depends_on": "eval:doc.charge_scope==\"Internal Job\"",
+   "fieldname": "internal_job",
+   "fieldtype": "Link",
+   "in_list_view": 0,
+   "in_standard_filter": 1,
+   "label": "Internal Job",
+   "mandatory_depends_on": "eval:doc.charge_scope==\"Internal Job\"",
+   "options": "Internal Job",
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,

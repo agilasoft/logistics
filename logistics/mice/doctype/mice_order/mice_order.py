@@ -161,17 +161,28 @@ def _apply_org_defaults_to_job(job: Document, order: Document):
 
 @frappe.whitelist()
 def create_task_job(docname: str, title: Optional[str] = None):
-	"""Create a Exhibit Job from this order and copy resources, charges, milestones, and documents."""
+	"""Create a MICE Job from this order and copy resources, charges, milestones, and documents."""
+	return action_create_mice_job(docname=docname, title=title)
+
+
+@frappe.whitelist()
+def action_create_mice_job(docname: str, title: Optional[str] = None):
+	"""Create (or reuse) a MICE Job from a MICE Order; mirrors Transport Order → Transport Job."""
 	if not docname:
-		frappe.throw(_("Exhibit Order is required."))
+		frappe.throw(_("MICE Order is required."))
 	if str(docname).startswith("new-"):
-		frappe.throw(_("Save the Exhibit Order before creating a job."))
+		frappe.throw(_("Save the MICE Order before creating a job."))
 
 	order = frappe.get_doc("MICE Order", docname)
 	frappe.has_permission("MICE Order", "write", doc=order, throw=True)
+
+	existing = frappe.db.get_value("MICE Job", {"exhibit_order": order.name}, "name")
+	if existing:
+		return {"name": existing, "created": False, "already_exists": True}
+
 	title = (title or "").strip()
 	if not title:
-		title = order.name
+		title = (getattr(order, "order_title", None) or "").strip() or order.name
 
 	job = frappe.new_doc("MICE Job")
 	job.exhibit = order.exhibit
@@ -199,6 +210,14 @@ def create_task_job(docname: str, title: Optional[str] = None):
 	_copy_child_rows_by_common_fields(order, "documents", job, "documents")
 
 	job.flags.ignore_permissions = False
-	job.insert()
+	try:
+		job.insert()
+	except frappe.DuplicateEntryError:
+		frappe.db.rollback()
+		existing = frappe.db.get_value("MICE Job", {"exhibit_order": order.name}, "name")
+		if existing:
+			return {"name": existing, "created": False, "already_exists": True}
+		raise
 
-	return {"name": job.name, "created": True}
+	frappe.db.commit()
+	return {"name": job.name, "created": True, "already_exists": False}

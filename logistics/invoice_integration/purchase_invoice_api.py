@@ -14,6 +14,7 @@ from typing import Dict, Any, Optional, List, Tuple
 import json
 
 from logistics.job_management.gl_reference_dimension import reference_dimension_row_dict
+from logistics.job_management.recognition_engine import resolve_charge_row_cost
 from logistics.special_projects.special_project_si_job_number import (
     resolve_job_number_for_special_project_charge,
 )
@@ -58,7 +59,7 @@ CHARGES_CHILD_DOCTYPE = {
     "Warehouse Job": "Warehouse Job Charges",
     "Declaration": "Declaration Charges",
     "Special Project": "Special Project Charges",
-    "Docket": "Exhibit Charges",
+    "Docket": "MICE Project Charges",
 }
 
 # Charge table and cost field mapping: (charges_field, cost_field, rate_field, qty_field, item_field, supplier_field)
@@ -67,7 +68,7 @@ CHARGE_CONFIG = {
     "Air Shipment": ("charges", "estimated_cost", "estimated_cost", "quantity", "item_code", "pay_to"),
     # Sea Shipment Charges primarily use item_code (legacy rows may still have charge_item).
     "Sea Shipment": ("charges", "estimated_cost", "unit_cost", "cost_quantity", "item_code", "pay_to"),
-    "Warehouse Job": ("charges", "total", "rate", "quantity", "item_code", None),
+    "Warehouse Job": ("charges", "total", "unit_rate", "quantity", "item_code", None),
     "Declaration": ("charges", "estimated_cost", "unit_cost", "quantity", "item_code", "pay_to"),
     # Special Project Charges share the cost layout with Sea Shipment (unit_cost / cost_quantity).
     "Special Project": ("charges", "estimated_cost", "unit_cost", "cost_quantity", "item_code", "pay_to"),
@@ -94,17 +95,8 @@ def _purchase_invoice_naming_context() -> Dict[str, Any]:
 
 
 def _sea_shipment_row_cost(ch) -> float:
-    """Sea Shipment Charges: actual_cost when > 0, else estimated_cost, else unit_cost * cost_quantity, else cost_base_amount."""
-    c = flt(getattr(ch, "actual_cost", None) or 0)
-    if c <= 0:
-        c = flt(getattr(ch, "estimated_cost", None) or 0)
-    if c > 0:
-        return c
-    u = flt(getattr(ch, "unit_cost", 0))
-    q = flt(getattr(ch, "cost_quantity", None) or getattr(ch, "quantity", 1) or 1)
-    if u * q > 0:
-        return u * q
-    return flt(getattr(ch, "cost_base_amount", None) or 0)
+    """Sea Shipment / Docket / Special Project charge cost — aligned with accrual rollup."""
+    return resolve_charge_row_cost(ch, prefer_actual=True)
 
 
 def _sea_consolidation_charge_cost(ch) -> float:

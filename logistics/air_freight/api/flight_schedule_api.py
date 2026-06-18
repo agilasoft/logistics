@@ -194,7 +194,7 @@ def get_available_providers() -> Dict[str, Any]:
 		List of providers with their status
 	"""
 	try:
-		settings = frappe.get_single('Flight Schedule Settings')
+		settings = frappe.get_cached_doc('GoConnect Settings')
 		
 		providers = {
 			"OpenSky Network": {
@@ -224,7 +224,7 @@ def get_available_providers() -> Dict[str, Any]:
 		
 		return {
 			"success": True,
-			"default_provider": settings.default_provider,
+			"default_provider": settings.flight_default_provider,
 			"providers": providers
 		}
 		
@@ -378,20 +378,20 @@ def get_flight_schedule_settings() -> Dict[str, Any]:
 		Current settings (without sensitive information)
 	"""
 	try:
-		settings = frappe.get_single('Flight Schedule Settings')
+		settings = frappe.get_cached_doc('GoConnect Settings')
 		
 		return {
 			"success": True,
 			"settings": {
-				"default_provider": settings.default_provider,
-				"enable_auto_fallback": settings.enable_auto_fallback,
-				"cache_duration_hours": settings.cache_duration_hours,
-				"sync_frequency": settings.sync_frequency,
-				"enable_realtime_tracking": settings.enable_realtime_tracking,
-				"max_api_calls_per_hour": settings.max_api_calls_per_hour,
-				"data_retention_days": settings.data_retention_days,
-				"test_mode": settings.test_mode,
-				"debug_logging": settings.debug_logging,
+				"default_provider": settings.flight_default_provider,
+				"enable_auto_fallback": settings.flight_enable_auto_fallback,
+				"cache_duration_hours": settings.flight_cache_duration_hours,
+				"sync_frequency": settings.flight_sync_frequency,
+				"enable_realtime_tracking": settings.flight_enable_realtime_tracking,
+				"max_api_calls_per_hour": settings.flight_max_api_calls_per_hour,
+				"data_retention_days": settings.flight_data_retention_days,
+				"test_mode": settings.flight_test_mode,
+				"debug_logging": settings.flight_debug_logging,
 				"providers": {
 					"opensky_enabled": settings.opensky_enabled,
 					"aviationstack_enabled": settings.aviationstack_enabled,

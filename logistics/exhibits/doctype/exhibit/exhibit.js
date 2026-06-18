@@ -216,17 +216,7 @@ function _exhibit_allocate_costs_dialog(frm) {
 
 function logistics_set_internal_job_site_query(frm) {
 	frm.set_query("sp_site", "lifecycle_jobs", function () {
-		const cust = frm.doc.customer;
-		if (!cust) {
-			return { filters: [["name", "=", ""]] };
-		}
-		return {
-			query: "frappe.contacts.doctype.address.address.address_query",
-			filters: {
-				link_doctype: "Customer",
-				link_name: cust,
-			},
-		};
+		return logistics.address.query_for_customer(frm.doc.customer);
 	});
 }
 

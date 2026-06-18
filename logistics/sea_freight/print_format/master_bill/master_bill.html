@@ -4,243 +4,551 @@
     <meta charset="UTF-8">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; line-height: 1.4; color: #000; background: white; }
-        .order-container { width: 100%; max-width: 210mm; margin: 0 auto; padding: 0; background: white; display: flex; flex-direction: column; min-height: 100vh; position: relative; }
-        .top-section { flex: 0 0 auto; }
-        .bottom-section { margin-top: auto; flex: 0 0 auto; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3mm; }
-        .logo-placeholder { width: 60mm; height: 30mm; background: #e0e0e0; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 7pt; color: #666; }
-        .company-logo { width: 60mm; height: 30mm; object-fit: contain; }
-        .company-info { flex: 1; text-align: left; padding-left: 3mm; }
-        .company-name { font-size: 12pt; font-weight: bold; margin-bottom: 0; }
-        .company-address { font-size: 7pt; line-height: 1.3; margin-bottom: 0; }
-        .vat-reg { font-size: 7pt; }
-        .main-body { display: flex; justify-content: space-between; margin-bottom: 0; margin-top: 28mm; border: 2px solid #000; padding: 1.5mm; position: relative; }
-        .left-column { flex: 1; padding-right: 4mm; }
-        .right-column { flex: 1; padding-left: 4mm; }
-        .field-row { display: flex; margin-bottom: -0.5mm; align-items: flex-start; gap: 0.3mm; }
-        .field-label { font-weight: 900; min-width: 30mm; font-size: 7.5pt; flex-shrink: 0; text-align: right; }
-        .left-column .field-label { min-width: 26mm; }
-        .field-value { flex: 1; font-size: 8pt; min-height: 4.5mm; padding: 0.3mm 0.5mm; background: white; }
-        .bl-info-section { position: absolute; top: -28mm; left: 1.5mm; z-index: 10; max-width: 95mm; }
-        .bl-label { font-weight: bold; font-size: 8pt; margin-bottom: 0.5mm; }
-        .bl-number-box { padding: 0.3mm 0.5mm; font-size: 14pt; font-weight: 900; line-height: 1.1; background: white; }
-        .bl-sub { font-size: 8pt; margin-top: 1mm; }
-        .qr-section { position: absolute; top: -28mm; right: 1.5mm; text-align: right; z-index: 10; }
-        .qr-code { width: 20mm; height: 20mm; border: 0 solid #000; }
-        .order-title-qr { font-size: 14pt; font-weight: 900; margin-top: 0.5mm; margin-bottom: 0; text-align: right; letter-spacing: 0.02em; }
-        .reference-number { font-size: 8pt; font-weight: normal; margin-top: 0.5mm; }
-        .packages-table { width: 100%; border-collapse: collapse; margin-top: 0; margin-bottom: 2mm; }
-        .packages-table .table-header { background: #e0e0e0; border: 2px solid #000; }
-        .packages-table .table-header th { padding: 0.3mm 0.5mm; text-align: left; font-size: 7pt; font-weight: bold; color: #000; border-top: 2px solid #000; border-bottom: 2px solid #000; border-left: none; border-right: none; }
-        .packages-table .table-header th:first-child { border-left: 2px solid #000; }
-        .packages-table .table-header th:last-child { border-right: 2px solid #000; }
-        .packages-table .table-header th.num, .packages-table .table-row td.num { text-align: right; }
-        .packages-table .table-row td { padding: 0.3mm 0.5mm; font-size: 7pt; background: white; border: none; border-bottom: 1px solid #ddd; vertical-align: top; }
-        .section-title { font-size: 8pt; font-weight: bold; margin: 2mm 0 1mm 0; }
-        .agreement-box { font-size: 7pt; border: 1px solid #ccc; padding: 2mm; max-height: 45mm; overflow: hidden; }
-        .footer-section { margin-top: 8mm; padding-top: 2mm; padding-bottom: 1mm; border-top: 2px solid #000; font-size: 7pt; background: white; page-break-inside: avoid; }
-        @page { size: A4; margin: 12mm 12mm 18mm 12mm; }
+        html, body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 6.5pt;
+            line-height: 1.1;
+            color: #000;
+            background: white;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        /* One A4 page: 297mm tall printable area with minimal margins */
+        .order-container {
+            width: 100%;
+            max-width: 210mm;
+            height: 289mm;
+            min-height: 289mm;
+            max-height: 289mm;
+            margin: 0 auto;
+            padding: 0;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .main-body {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            border: 1.5px solid #000;
+            padding: 0.45mm;
+            overflow: hidden;
+        }
+        .mbl-section-top { flex: 0 0 auto; }
+        .mbl-section-cargo {
+            flex: 1 1 auto;
+            height: 0;
+            min-height: 105mm;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .mbl-section-bottom { flex: 0 0 auto; }
+        .logo-placeholder { width: 28mm; max-height: 11mm; background: #e8e8e8; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 6pt; color: #666; }
+        .company-logo { max-width: 32mm; max-height: 11mm; object-fit: contain; display: block; }
+        .company-name { font-size: 8pt; font-weight: bold; line-height: 1.05; }
+        .company-address { font-size: 5.5pt; line-height: 1.1; }
+        .company-contact { font-size: 5.5pt; margin-top: 0.1mm; }
+        .doc-title { font-size: 11pt; font-weight: 900; text-align: center; letter-spacing: 0.04em; line-height: 1.05; }
+        .doc-original { font-size: 8pt; font-weight: bold; text-align: right; line-height: 1.05; }
+        .doc-original-sub { font-size: 5.5pt; font-weight: normal; }
+        .bl-grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .bl-grid > tbody > tr > td,
+        .bl-grid > tbody > tr > th,
+        .bl-grid > thead > tr > th { border: 1px solid #000; vertical-align: top; padding: 0.3mm 0.45mm; }
+        .bl-inner { width: 100%; border-collapse: collapse; table-layout: fixed; height: 100%; }
+        .bl-inner td { border: 1px solid #000; vertical-align: top; padding: 0.3mm 0.45mm; }
+        .parties-left .bl-inner tr:nth-child(1) td { height: 38%; }
+        .parties-left .bl-inner tr:nth-child(2) td { height: 38%; }
+        .parties-left .bl-inner tr:nth-child(3) td { height: 24%; }
+        .parties-right .bl-inner tr:nth-child(1) td { height: 18%; }
+        .parties-right .bl-inner tr:nth-child(2) td { height: 50%; }
+        .parties-right .bl-inner tr:nth-child(3) td { height: 32%; }
+        .parties-grid > tbody > tr > td { height: 56mm; padding: 0; vertical-align: top; }
+        .bl-hdr { font-size: 5pt; font-weight: bold; display: block; margin-bottom: 0.15mm; line-height: 1.05; text-transform: uppercase; }
+        .bl-val { font-size: 6.5pt; line-height: 1.1; word-wrap: break-word; overflow: hidden; }
+        .bl-val strong { font-weight: bold; }
+        .legal-clause { font-size: 4.5pt; line-height: 1.08; text-align: justify; padding: 0.35mm 0.45mm !important; height: 100%; overflow: hidden; }
+        .cargo-table {
+            width: 100%;
+            height: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            flex: 1 1 auto;
+        }
+        .cargo-table th { border: 1px solid #000; padding: 0.22mm 0.35mm; font-size: 4.5pt; font-weight: bold; text-align: left; vertical-align: top; line-height: 1.05; }
+        .cargo-table td { border: 1px solid #000; padding: 0.3mm 0.4mm; font-size: 6.5pt; line-height: 1.1; vertical-align: top; overflow: hidden; }
+        .cargo-table td.num { text-align: right; }
+        .cargo-table td.ct { text-align: center; }
+        .cargo-table tbody.cargo-body { height: 100%; }
+        .cargo-table tbody.cargo-body tr { height: 100%; }
+        .cargo-table tbody.cargo-body td { height: 100%; position: relative; padding-bottom: 4mm; }
+        .cargo-total td { font-weight: bold; font-size: 6pt; vertical-align: middle; height: auto !important; }
+        .ref-grid { width: 100%; border-collapse: collapse; font-size: 5pt; margin-top: 0.3mm; }
+        .ref-grid td { border: 1px solid #000; padding: 0.2mm 0.3mm; vertical-align: top; }
+        .ref-lbl { font-weight: bold; font-size: 4.5pt; display: block; margin-bottom: 0.1mm; }
+        .sig-line { border-top: 1px solid #000; margin-top: 1.5mm; padding-top: 0.2mm; font-size: 5pt; text-align: center; }
+        .footer-banner { text-align: center; font-size: 5.5pt; font-weight: bold; padding: 0.35mm 0.5mm; border: 1px solid #000; margin-top: 0; line-height: 1.1; flex-shrink: 0; }
+        .footer-meta { margin-top: 0.2mm; padding: 0.15mm 0; font-size: 4.5pt; border-top: none; flex-shrink: 0; }
+        .end-desc { position: absolute; bottom: 0.5mm; left: 0; right: 0; text-align: center; font-size: 5.5pt; color: #333; }
+        .cell-scroll { max-height: 100%; overflow: hidden; }
+        @page { size: A4 portrait; margin: 4mm; }
         @media print {
-            body { margin: 0; padding: 0; }
-            .order-container { padding: 0; padding-bottom: 24mm; max-width: 100%; }
-            .footer-section { position: fixed; bottom: 0; left: 0; right: 0; width: 100%; background: white; padding: 2mm 12mm; border-top: 2px solid #000; box-sizing: border-box; z-index: 1000; }
+            html, body { margin: 0 !important; padding: 0 !important; height: 289mm; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .order-container {
+                width: 100% !important;
+                max-width: none !important;
+                height: 289mm !important;
+                min-height: 289mm !important;
+                max-height: 289mm !important;
+                page-break-inside: avoid;
+                page-break-after: avoid;
+            }
+            .main-body { page-break-inside: avoid; height: 100%; }
+            .footer-meta { display: none; }
+            .print-format, .print-format-gutter { padding: 0 !important; margin: 0 !important; background: white !important; }
+            .print-format { max-width: none !important; min-height: 0 !important; box-shadow: none !important; }
         }
     </style>
 </head>
 <body>
+{# Company from linked Sea Shipment, else Global Defaults #}
 {% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set _linked_shipment = frappe.get_all("Sea Shipment", filters={"master_bill": doc.name}, fields=["name", "company"], order_by="name asc", limit_page_length=100) %}
+{% set linked_company = _linked_shipment[0].company if _linked_shipment and _linked_shipment[0].company else None %}
 {% set company_doc = None %}
-{% if default_company and frappe.db.exists("Company", default_company) %}
+{% if linked_company and frappe.db.exists("Company", linked_company) %}
+{% set company_doc = frappe.get_doc("Company", linked_company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
 {% set company_doc = frappe.get_doc("Company", default_company) %}
 {% endif %}
-    <div class="order-container">
-        <div class="header">
-            {% if company_doc %}
-                {% if company_doc.company_logo %}
-                    <img src="{{ company_doc.company_logo }}" alt="Company Logo" class="company-logo" />
-                {% elif company_doc.logo %}
-                    <img src="{{ company_doc.logo }}" alt="Company Logo" class="company-logo" />
-                {% elif company_doc.image %}
-                    <img src="{{ company_doc.image }}" alt="Company Logo" class="company-logo" />
-                {% else %}
-                    <div class="logo-placeholder">company_logo</div>
-                {% endif %}
-                <div class="company-info">
-                    <div class="company-name">{{ company_doc.company_name or default_company }}</div>
+{% set resolved_company = linked_company or default_company %}
+{% set company_address = None %}
+{% if company_doc and company_doc.address and frappe.db.exists("Address", company_doc.address) %}
+{% set company_address = frappe.get_doc("Address", company_doc.address) %}
+{% endif %}
+
+{% set mbl_no = doc.master_bl or doc.name %}
+{% set slink = doc.shipping_line %}
+{% set sline_name = "" %}
+{% set scac = "" %}
+{% if slink %}
+{% set sline_name = frappe.db.get_value("Shipping Line", slink, "shipping_line_name") or slink %}
+{% set scac = frappe.db.get_value("Shipping Line", slink, "scac") or "" %}
+{% endif %}
+{% set carrier_name = sline_name or (company_doc.company_name if company_doc else resolved_company) or "—" %}
+
+{% macro unloco_label(code) -%}
+    {%- if code -%}
+        {%- set u = frappe.db.get_value("UNLOCO", code, ["unlocode", "location_name", "country"], as_dict=True) -%}
+        {%- if u -%}{{ u.location_name or u.unlocode or code }}{% if u.country and u.location_name %}, {{ u.country }}{% endif %}{%- else -%}{{ code }}{%- endif -%}
+    {%- else -%}—{%- endif -%}
+{%- endmacro %}
+{% macro fmt_wt(v) -%}{%- if v is not none and v != '' -%}{{ "{:,.2f}".format(v|flt) }}{%- else -%}—{%- endif -%}{%- endmacro %}
+{% macro fmt0(v) -%}{%- if v is not none and v != '' -%}{{ "%.0f"|format(v|flt) }}{%- else -%}—{%- endif -%}{%- endmacro %}
+
+{# Primary + aggregated data from linked sea shipments #}
+{% set primary_shipment = None %}
+{% if _linked_shipment %}
+{% set primary_shipment = frappe.get_doc("Sea Shipment", _linked_shipment[0].name) %}
+{% endif %}
+{% set agg = namespace(
+    total_packages=0,
+    total_weight=(doc.booked_weight_kg|flt if doc.booked_weight_kg is not none and doc.booked_weight_kg != '' else 0),
+    container_count=0,
+    container_lines=[],
+    marks_lines=[],
+    desc_lines=[],
+    freight_terms='FREIGHT AS PER AGREEMENT',
+    export_ref=(doc.agent_reference or ''),
+    declared_value='NVD'
+) %}
+{% for row in _linked_shipment %}
+{% set ss = frappe.get_doc("Sea Shipment", row.name) %}
+{% if loop.first %}
+    {% set inc = (ss.incoterm or "")|upper|trim %}
+    {% if inc in ['CIF','CIP','CFR','CPT','DAP','DPU','DDP','DDU'] %}
+        {% set agg.freight_terms = 'FREIGHT PREPAID' %}
+    {% elif inc in ['FOB','FAS','FCA','EXW'] %}
+        {% set agg.freight_terms = 'FREIGHT COLLECT' %}
+    {% endif %}
+    {% if ss.goods_value is not none and ss.goods_value != '' and (ss.goods_value|flt) > 0 %}
+        {% set agg.declared_value = frappe.utils.fmt_money(ss.goods_value) %}
+    {% endif %}
+{% endif %}
+{% if ss.marks_and_nos %}{% set _ = agg.marks_lines.append(ss.marks_and_nos) %}{% endif %}
+{% if ss.description %}{% set _ = agg.desc_lines.append(ss.description) %}{% endif %}
+{% if not agg.total_weight and ss.total_weight is not none and ss.total_weight != '' %}
+    {% set agg.total_weight = agg.total_weight + (ss.total_weight|flt) %}
+{% endif %}
+{% if ss.packages %}
+{% for p in ss.packages %}
+    {% if p.goods_description %}
+        {% set _pkg_desc = (p.commodity ~ ': ' if p.commodity else '') ~ (p.goods_description or '') %}
+        {% if p.hs_code %}{% set _pkg_desc = _pkg_desc ~ ' | HS: ' ~ p.hs_code %}{% endif %}
+        {% set _ = agg.desc_lines.append(_pkg_desc) %}
+    {% endif %}
+    {% if p.no_of_packs %}{% set agg.total_packages = agg.total_packages + (p.no_of_packs|flt) %}{% endif %}
+    {% if p.weight and not doc.booked_weight_kg %}{% set agg.total_weight = agg.total_weight + (p.weight|flt) %}{% endif %}
+{% endfor %}
+{% else %}
+    {% if ss.total_packages is not none and ss.total_packages != '' %}
+        {% set agg.total_packages = agg.total_packages + (ss.total_packages|flt) %}
+    {% elif ss.packs is not none and ss.packs != '' %}
+        {% set agg.total_packages = agg.total_packages + (ss.packs|flt) %}
+    {% endif %}
+{% endif %}
+{% for c in (ss.containers or []) %}
+    {% set agg.container_count = agg.container_count + 1 %}
+    {% set ctype = c.type or 'CONTAINER' %}
+    {% set _ = agg.container_lines.append('1 X ' ~ ctype) %}
+{% endfor %}
+{% if ss.reference_numbers and not agg.export_ref %}
+    {% for r in ss.reference_numbers[:2] %}
+        {% if r.reference_number %}{% set agg.export_ref = r.reference_number %}{% endif %}
+    {% endfor %}
+{% endif %}
+{% endfor %}
+
+{% set marks_text = (agg.marks_lines|join('\n') if agg.marks_lines else (primary_shipment.marks_and_nos if primary_shipment else ''))|truncate(600, True, '…') %}
+{% set desc_text = (agg.desc_lines|join('; ') if agg.desc_lines else (primary_shipment.description if primary_shipment else ''))|truncate(900, True, '…') %}
+{% if agg.freight_terms and desc_text and agg.freight_terms not in desc_text|upper %}
+    {% set desc_text = desc_text ~ ' | ' ~ agg.freight_terms %}
+{% endif %}
+
+{% set pkg_col_text = '—' %}
+{% if agg.container_lines %}
+    {% set pkg_col_text = (agg.container_lines|join(', '))|truncate(280, True, '…') %}
+    {% if agg.total_packages %}{% set pkg_col_text = pkg_col_text ~ ' — SAID TO CONTAIN ' ~ fmt0(agg.total_packages) ~ ' PACKAGES' %}{% endif %}
+{% elif agg.total_packages %}
+    {% set pkg_col_text = fmt0(agg.total_packages) ~ ' PACKAGES' %}
+{% endif %}
+
+{% set total_container_text = '—' %}
+{% if agg.container_count %}
+    {% set total_container_text = agg.container_count|string ~ ' CONTAINER' ~ ('S' if agg.container_count != 1 else '') %}
+    {% if agg.container_lines|length == 1 %}
+        {% set total_container_text = total_container_text ~ ' (' ~ (agg.container_lines[0]|replace('1 X ', '')) ~ ')' %}
+    {% endif %}
+{% endif %}
+
+{% set issue_date = doc.vessel_date or doc.departure or frappe.utils.today() %}
+{% set issue_place = unloco_label(doc.origin_port) %}
+{% set vessel_voyage = (doc.vessel or '—') ~ (' / ' ~ doc.voyage_no if doc.voyage_no else '') %}
+{% set originals_count = "THREE (3)" %}
+{% if primary_shipment and primary_shipment.release_type %}
+    {% set originals_count = primary_shipment.release_type %}
+{% endif %}
+
+{% set del = namespace(text='') %}
+{% if doc.receiving_agent and frappe.db.exists("Freight Agent", doc.receiving_agent) %}
+    {% set ra = frappe.get_doc("Freight Agent", doc.receiving_agent) %}
+    {% set del.text = ra.freight_agent_name or doc.receiving_agent %}
+    {% if ra.customer %}
+        {% set cust_addrs = frappe.get_all("Dynamic Link", filters={"link_doctype": "Customer", "link_name": ra.customer, "parenttype": "Address"}, fields=["parent"], limit_page_length=1) %}
+        {% if cust_addrs and frappe.db.exists("Address", cust_addrs[0].parent) %}
+            {% set da = frappe.get_doc("Address", cust_addrs[0].parent) %}
+            {% set del.text = del.text ~ '<br>' ~ (da.address_line1 or '') %}
+            {% if da.address_line2 %}{% set del.text = del.text ~ '<br>' ~ da.address_line2 %}{% endif %}
+            {% if da.city %}{% set del.text = del.text ~ '<br>' ~ da.city %}{% if da.state %}, {{ da.state }}{% endif %} {{ da.pincode or '' }} {{ da.country or '' }}{% endif %}
+            {% if da.phone %}{% set del.text = del.text ~ '<br>Tel: ' ~ da.phone %}{% endif %}
+            {% if da.fax %}{% set del.text = del.text ~ ' Fax: ' ~ da.fax %}{% endif %}
+        {% endif %}
+    {% endif %}
+{% elif doc.sending_agent %}
+    {% set del.text = frappe.db.get_value("Freight Agent", doc.sending_agent, "freight_agent_name") or doc.sending_agent %}
+{% endif %}
+
+{% set legal_clause = 'RECEIVED by the Carrier in apparent good order and condition, unless otherwise stated herein, the total number or quantity of Containers or other packages or units indicated in the box entitled "Total No. of Containers / Packages" for carriage subject to all the terms hereof from the Place of Receipt or Port of Loading to the Port of Discharge or Place of Delivery. IN ACCEPTING THIS BILL OF LADING the Merchant expressly accepts and agrees to all its terms, conditions and exceptions, whether printed, stamped or otherwise incorporated. One original Bill of Lading, duly endorsed, must be surrendered in exchange for the goods or delivery order; whereupon all other Bills of Lading issued shall stand void.' %}
+{% if doc.ground_works_agreement %}
+{% set legal_clause = doc.ground_works_agreement|striptags %}
+{% endif %}
+
+<div class="order-container">
+    <div class="main-body">
+        <div class="mbl-section-top">
+        {# —— Header —— #}
+        <table class="bl-grid" style="border-bottom: 2px solid #000;">
+            <colgroup>
+                <col style="width: 28%;">
+                <col style="width: 37%;">
+                <col style="width: 35%;">
+            </colgroup>
+            <tr>
+                <td style="vertical-align: top; padding: 0.4mm;">
+                    {% if company_doc %}
+                        {% if company_doc.company_logo %}
+                            <img src="{{ company_doc.company_logo }}" alt="" class="company-logo" />
+                        {% elif company_doc.logo %}
+                            <img src="{{ company_doc.logo }}" alt="" class="company-logo" />
+                        {% elif company_doc.image %}
+                            <img src="{{ company_doc.image }}" alt="" class="company-logo" />
+                        {% else %}
+                            <div class="logo-placeholder">logo</div>
+                        {% endif %}
+                    {% elif slink and frappe.db.get_value("Shipping Line", slink, "logo") %}
+                        <img src="{{ frappe.db.get_value('Shipping Line', slink, 'logo') }}" alt="" class="company-logo" />
+                    {% else %}
+                        <div class="logo-placeholder">logo</div>
+                    {% endif %}
+                </td>
+                <td style="vertical-align: top; padding: 0.4mm 0.5mm;">
+                    {% if company_doc %}
+                    <div class="company-name">{{ company_doc.company_name or resolved_company }}</div>
                     <div class="company-address">
-                        {% if company_doc.address %}
-                            {% set company_address = frappe.get_doc("Address", company_doc.address) %}
+                        {% if company_address %}
                             {{ company_address.address_line1 or '' }}
-                            {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
-                            {% if company_address.city %} {{ company_address.city }}{% endif %}
-                            {% if company_address.state %}, {{ company_address.state }}{% endif %}
-                            {% if company_address.country %} {{ company_address.country }}{% endif %}
+                            {% if company_address.address_line2 %}, {{ company_address.address_line2 }}{% endif %}
+                            {% if company_address.city %}, {{ company_address.city }}{% endif %}
+                            {% if company_address.state %} {{ company_address.state }}{% endif %}
                             {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                            {% if company_address.country %}, {{ company_address.country }}{% endif %}
                         {% elif company_doc.address_line1 %}
-                            {{ company_doc.address_line1 }}<br>
-                            {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
-                            {{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}<br>
-                            {{ company_doc.country }}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
+                            {{ company_doc.address_line1 }}{% if company_doc.city %}, {{ company_doc.city }}{% endif %}{% if company_doc.country %}, {{ company_doc.country }}{% endif %}
                         {% endif %}
                     </div>
-                    <div class="vat-reg">
-                        {% if company_doc.tax_id %}VAT / TIN: {{ company_doc.tax_id }}{% elif company_doc.tin %}VAT / TIN: {{ company_doc.tin }}{% endif %}
+                    <div class="company-contact">
+                        {% if company_address and company_address.phone %}Tel: {{ company_address.phone }}{% endif %}
+                        {% if company_address and company_address.fax %} &nbsp; Fax: {{ company_address.fax }}{% endif %}
                     </div>
-                </div>
-            {% else %}
-                <div class="logo-placeholder">—</div>
-                <div class="company-info"><div class="company-name">Master Bill of Lading</div></div>
-            {% endif %}
-        </div>
-        <div class="top-section">
-        <div class="main-body">
-            <div class="bl-info-section">
-                <div class="bl-label">MASTER B/L NUMBER</div>
-                <div class="bl-number-box">{{ doc.master_bl or doc.name }}</div>
-                <div class="bl-sub">
-                    {% if doc.master_type %}Type: {{ doc.master_type }}{% endif %}
-                    {% if doc.charted_vessel %} &nbsp;|&nbsp; Chartered vessel{% endif %}
-                </div>
-            </div>
-            <div class="qr-section">
-                {% set qr_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + (doc.name|urlencode) %}
-                <img src="{{ qr_url }}" alt="QR Code" class="qr-code" />
-                <div class="order-title-qr">MASTER BILL OF LADING</div>
-                <div class="reference-number">{{ doc.name }}</div>
-            </div>
-            <div class="left-column">
-                <div class="field-row"><div class="field-label">SHIPPING LINE:</div><div class="field-value">{% if doc.shipping_line %}{% set sl = frappe.get_doc("Shipping Line", doc.shipping_line) %}{{ sl.shipping_line_name or sl.code or doc.shipping_line }}{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">SCAC:</div><div class="field-value">{% if doc.shipping_line %}{{ frappe.db.get_value("Shipping Line", doc.shipping_line, "scac") or '' }}{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">VESSEL:</div><div class="field-value">{{ doc.vessel or '' }}</div></div>
-                <div class="field-row"><div class="field-label">VOYAGE:</div><div class="field-value">{{ doc.voyage_no or '' }}</div></div>
-                <div class="field-row"><div class="field-label">VESSEL IMO:</div><div class="field-value">{{ doc.vessel_imo or '' }}</div></div>
-                <div class="field-row"><div class="field-label">VESSEL TYPE:</div><div class="field-value">{{ doc.vessel_type or '' }}</div></div>
-                <div class="field-row"><div class="field-label">BOOKING REF.:</div><div class="field-value">{{ doc.booking_reference_no or '' }}</div></div>
-                <div class="field-row"><div class="field-label">AGENT REF.:</div><div class="field-value">{{ doc.agent_reference or '' }}</div></div>
-                <div class="field-row"><div class="field-label">CONSOLIDATOR:</div><div class="field-value">{{ doc.consolidator or '' }}</div></div>
-                <div class="field-row"><div class="field-label">SENDING AGENT:</div><div class="field-value">{{ doc.sending_agent or '' }}</div></div>
-                <div class="field-row"><div class="field-label">RECEIVING AGENT:</div><div class="field-value">{{ doc.receiving_agent or '' }}</div></div>
-                <div class="field-row"><div class="field-label">ORIGIN PORT:</div><div class="field-value">{% if doc.origin_port %}{% set op = frappe.db.get_value("UNLOCO", doc.origin_port, ["unlocode", "location_name"], as_dict=True) %}{% if op %}{{ op.unlocode or doc.origin_port }}{% if op.location_name %} — {{ op.location_name }}{% endif %}{% else %}{{ doc.origin_port }}{% endif %}{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">DEP. BERTH:</div><div class="field-value">{{ doc.departure_berth or '' }}</div></div>
-                <div class="field-row"><div class="field-label">DEST. PORT:</div><div class="field-value">{% if doc.destination_port %}{% set dp = frappe.db.get_value("UNLOCO", doc.destination_port, ["unlocode", "location_name"], as_dict=True) %}{% if dp %}{{ dp.unlocode or doc.destination_port }}{% if dp.location_name %} — {{ dp.location_name }}{% endif %}{% else %}{{ doc.destination_port }}{% endif %}{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">ARR. BERTH:</div><div class="field-value">{{ doc.arrival_berth or '' }}</div></div>
-            </div>
-            <div class="right-column">
-                <div class="field-row"><div class="field-label">VOYAGE STATUS:</div><div class="field-value">{{ doc.voyage_status or '' }}</div></div>
-                <div class="field-row"><div class="field-label">DELAY (HRS):</div><div class="field-value">{% if doc.delay_hours is not none %}{{ frappe.utils.fmt_money(doc.delay_hours, precision=2) }}{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">VESSEL DATE:</div><div class="field-value">{% if doc.vessel_date %}{{ frappe.utils.formatdate(doc.vessel_date, 'MM-dd-yyyy') }}{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">MANIFEST SENT:</div><div class="field-value">{% if doc.manifest_sent %}Yes{% if doc.manifest_sent_date %} — {{ frappe.utils.format_datetime(doc.manifest_sent_date) }}{% endif %}{% else %}No{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">SCHED. DEP. (UTC):</div><div class="field-value">{% if doc.scheduled_departure %}{{ frappe.utils.format_datetime(doc.scheduled_departure) }}{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">ACT. DEP. (UTC):</div><div class="field-value">{% if doc.actual_departure %}{{ frappe.utils.format_datetime(doc.actual_departure) }}{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">ETD (LOCAL):</div><div class="field-value">{{ doc.etd_local or '' }}</div></div>
-                <div class="field-row"><div class="field-label">SCHED. ARR. (UTC):</div><div class="field-value">{% if doc.scheduled_arrival %}{{ frappe.utils.format_datetime(doc.scheduled_arrival) }}{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">ACT. ARR. (UTC):</div><div class="field-value">{% if doc.actual_arrival %}{{ frappe.utils.format_datetime(doc.actual_arrival) }}{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">ETA (LOCAL):</div><div class="field-value">{{ doc.eta_local or '' }}</div></div>
-                <div class="field-row"><div class="field-label">VOYAGE (HRS):</div><div class="field-value">{% if doc.voyage_duration_hours is not none %}{{ frappe.utils.fmt_money(doc.voyage_duration_hours, precision=2) }}{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">DISTANCE (NM):</div><div class="field-value">{% if doc.distance_nautical_miles is not none %}{{ frappe.utils.fmt_money(doc.distance_nautical_miles, precision=2) }}{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">TEU CAP. / AVAIL.:</div><div class="field-value">{% if doc.teu_capacity is not none %}{{ frappe.utils.fmt_money(doc.teu_capacity, precision=2) }}{% endif %} / {% if doc.available_teu is not none %}{{ frappe.utils.fmt_money(doc.available_teu, precision=2) }}{% endif %}</div></div>
-                <div class="field-row"><div class="field-label">BOOKED WT (KG):</div><div class="field-value">{% if doc.booked_weight_kg is not none %}{{ frappe.utils.fmt_money(doc.booked_weight_kg, precision=2) }}{% endif %}</div></div>
-            </div>
-        </div>
-
-        <div class="section-title">Terminals &amp; local dates</div>
-        <table class="packages-table">
-            <thead class="table-header">
-                <tr>
-                    <th>LEG</th>
-                    <th>CTO</th>
-                    <th>CFS</th>
-                    <th>CONTAINER YARD</th>
-                    <th>RECEIPT REQ.</th>
-                    <th>DISPATCH REQ.</th>
-                    <th>MOVE DATE</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr class="table-row">
-                    <td>Origin</td>
-                    <td>{{ doc.origin_cto or '' }}</td>
-                    <td>{{ doc.origin_cfs or '' }}</td>
-                    <td>{{ doc.origin_cy or '' }}</td>
-                    <td>{% if doc.origin_receipt_requested %}{{ frappe.utils.formatdate(doc.origin_receipt_requested, 'MM-dd-yyyy') }}{% endif %}</td>
-                    <td>{% if doc.origin_dispatch_requested %}{{ frappe.utils.formatdate(doc.origin_dispatch_requested, 'MM-dd-yyyy') }}{% endif %}</td>
-                    <td>{% if doc.departure %}{{ frappe.utils.formatdate(doc.departure, 'MM-dd-yyyy') }}{% endif %}</td>
-                </tr>
-                <tr class="table-row">
-                    <td>Destination</td>
-                    <td>{{ doc.destination_cto or '' }}</td>
-                    <td>{{ doc.destination_cfs or '' }}</td>
-                    <td>{{ doc.destination_cy or '' }}</td>
-                    <td>{% if doc.destination_receipt_requested %}{{ frappe.utils.formatdate(doc.destination_receipt_requested, 'MM-dd-yyyy') }}{% endif %}</td>
-                    <td>{% if doc.destination_dispatch_requested %}{{ frappe.utils.formatdate(doc.destination_dispatch_requested, 'MM-dd-yyyy') }}{% endif %}</td>
-                    <td>{% if doc.arrival %}{{ frappe.utils.formatdate(doc.arrival, 'MM-dd-yyyy') }}{% endif %}</td>
-                </tr>
-            </tbody>
-        </table>
-
-        {% if doc.last_known_position or doc.current_latitude is not none or doc.current_speed_knots is not none %}
-        <div class="section-title">Vessel tracking (last known)</div>
-        <table class="packages-table">
-            <thead class="table-header">
-                <tr>
-                    <th>POSITION</th>
-                    <th class="num">LATITUDE</th>
-                    <th class="num">LONGITUDE</th>
-                    <th class="num">SPEED (KN)</th>
-                    <th>LAST UPDATE</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr class="table-row">
-                    <td>{{ doc.last_known_position or '' }}</td>
-                    <td class="num">{% if doc.current_latitude is not none %}{{ frappe.utils.fmt_money(doc.current_latitude, precision=6) }}{% endif %}</td>
-                    <td class="num">{% if doc.current_longitude is not none %}{{ frappe.utils.fmt_money(doc.current_longitude, precision=6) }}{% endif %}</td>
-                    <td class="num">{% if doc.current_speed_knots is not none %}{{ frappe.utils.fmt_money(doc.current_speed_knots, precision=2) }}{% endif %}</td>
-                    <td>{% if doc.last_position_update %}{{ frappe.utils.format_datetime(doc.last_position_update) }}{% endif %}</td>
-                </tr>
-            </tbody>
-        </table>
-        {% endif %}
-
-        <div class="section-title">Linked sea shipments</div>
-        <table class="packages-table">
-            <thead class="table-header">
-                <tr>
-                    <th>SEA SHIPMENT</th>
-                    <th>HOUSE B/L</th>
-                    <th>LOCAL CUSTOMER</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% set linked = frappe.get_all("Sea Shipment", filters={"master_bill": doc.name}, fields=["name", "house_bl", "local_customer"], order_by="name asc", limit_page_length=100) %}
-                {% if linked %}
-                    {% for row in linked %}
-                        <tr class="table-row">
-                            <td>{{ row.name }}</td>
-                            <td>{{ row.house_bl or '' }}</td>
-                            <td>{% if row.local_customer %}{% set lc = frappe.db.get_value("Customer", row.local_customer, "customer_name") %}{{ lc or row.local_customer }}{% endif %}</td>
+                    {% else %}
+                    <div class="company-name">{{ carrier_name }}</div>
+                    {% endif %}
+                </td>
+                <td style="vertical-align: top; padding: 0.35mm;">
+                    <div class="doc-title">MASTER BILL OF LADING</div>
+                    <div class="doc-original" style="margin-top: 0.3mm;">
+                        ORIGINAL<br>
+                        <span class="doc-original-sub">( NON-NEGOTIABLE )</span>
+                    </div>
+                    <table class="ref-grid">
+                        <tr>
+                            <td><span class="ref-lbl">B/L No.</span>{{ mbl_no }}</td>
+                            <td><span class="ref-lbl">Booking No.</span>{{ doc.booking_reference_no or '—' }}</td>
                         </tr>
-                    {% endfor %}
-                {% else %}
-                    <tr class="table-row"><td colspan="3" style="text-align:center;padding:3mm;">No sea shipments linked to this master B/L</td></tr>
-                {% endif %}
-            </tbody>
+                        <tr>
+                            <td><span class="ref-lbl">Export References</span>{{ agg.export_ref or '—' }}</td>
+                            <td><span class="ref-lbl">Date of Issue</span>{{ frappe.utils.formatdate(issue_date, 'dd MMM yyyy') }}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
         </table>
 
-        {% if doc.ground_works_agreement %}
-        <div class="section-title">Port handling / works agreement</div>
-        <div class="agreement-box">{{ doc.ground_works_agreement|safe }}</div>
-        {% endif %}
-
+        {# —— Upper body: parties + terms + routing —— #}
+        <table class="bl-grid parties-grid" style="margin-top: 0; border-top: none;">
+            <tr>
+                <td style="width: 50%; padding: 0; vertical-align: top;" class="parties-left">
+                    <table class="bl-inner">
+                        <tr>
+                            <td>
+                                <span class="bl-hdr">Shipper (Name and Address)</span>
+                                <div class="bl-val">
+                                    {% if primary_shipment %}
+                                        {% if primary_shipment.shipper %}<strong>{{ primary_shipment.shipper }}</strong><br>{% endif %}
+                                        {% if primary_shipment.shipper_address_display %}{{ primary_shipment.shipper_address_display|replace('\n', '<br>')|safe }}{% endif %}
+                                        {% if _linked_shipment|length > 1 %}<br><em style="font-size:5pt;">+ {{ _linked_shipment|length - 1 }} more shipment(s) on this MBL</em>{% endif %}
+                                    {% elif doc.consolidator %}
+                                        {{ doc.consolidator }}
+                                    {% else %}—{% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <span class="bl-hdr">Consignee (Name and Address)</span>
+                                <div class="bl-val">
+                                    {% if primary_shipment %}
+                                        {% if primary_shipment.consignee %}<strong>{{ primary_shipment.consignee }}</strong><br>{% endif %}
+                                        {% if primary_shipment.consignee_address_display %}{{ primary_shipment.consignee_address_display|replace('\n', '<br>')|safe }}{% endif %}
+                                    {% else %}—{% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <span class="bl-hdr">Notify Party (Name and Address)</span>
+                                <div class="bl-val">
+                                    {% if primary_shipment %}
+                                        {% if primary_shipment.notify_party or primary_shipment.notify_party_address %}
+                                            {{ primary_shipment.notify_party or '' }}
+                                            {% if primary_shipment.notify_party_address %}<br>{{ primary_shipment.notify_party_address|replace('\n', '<br>')|safe }}{% endif %}
+                                        {% elif primary_shipment.consignee %}
+                                            SAME AS CONSIGNEE
+                                        {% endif %}
+                                    {% else %}—{% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td style="width: 50%; padding: 0; vertical-align: top;" class="parties-right">
+                    <table class="bl-inner">
+                        <tr>
+                            <td>
+                                <span class="bl-hdr">Carrier (Name and Address)</span>
+                                <div class="bl-val">
+                                    <strong>{{ carrier_name }}</strong>
+                                    {% if scac %}<br>SCAC: {{ scac }}{% endif %}
+                                    {% if company_doc and company_address %}
+                                        <br>{{ company_address.address_line1 or '' }}
+                                        {% if company_address.city %}, {{ company_address.city }}{% endif %}
+                                        {% if company_address.country %} {{ company_address.country }}{% endif %}
+                                        {% if company_address.phone %}<br>Tel: {{ company_address.phone }}{% endif %}
+                                        {% if company_address.fax %} Fax: {{ company_address.fax }}{% endif %}
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="legal-clause">{{ legal_clause }}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0;">
+                                <table class="bl-inner">
+                                    <tr>
+                                        <td style="width: 50%;">
+                                            <span class="bl-hdr">Pre-Carriage By</span>
+                                            <div class="bl-val">—</div>
+                                        </td>
+                                        <td style="width: 50%;">
+                                            <span class="bl-hdr">Place of Receipt</span>
+                                            <div class="bl-val">{{ unloco_label(doc.origin_port) }}</div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <span class="bl-hdr">Ocean Vessel / Voyage No.</span>
+                                            <div class="bl-val"><strong>{{ vessel_voyage }}</strong></div>
+                                        </td>
+                                        <td>
+                                            <span class="bl-hdr">Port of Loading</span>
+                                            <div class="bl-val"><strong>{{ unloco_label(doc.origin_port) }}</strong></div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <span class="bl-hdr">Port of Discharge</span>
+                                            <div class="bl-val"><strong>{{ unloco_label(doc.destination_port) }}</strong></div>
+                                        </td>
+                                        <td>
+                                            <span class="bl-hdr">Place of Delivery</span>
+                                            <div class="bl-val">{{ unloco_label(doc.destination_port) }}</div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
         </div>
-        <div class="bottom-section">
-        <div class="footer-section">
-            {% if doc.amended_from %}<div>Amended from: {{ doc.amended_from }}</div>{% endif %}
-            <div>Document status: {% if doc.docstatus == 0 %}Draft{% elif doc.docstatus == 1 %}Submitted{% elif doc.docstatus == 2 %}Cancelled{% else %}{{ doc.docstatus }}{% endif %}</div>
-            {% if default_company %}<div>Company: {{ default_company }}</div>{% endif %}
+
+        <div class="mbl-section-cargo">
+        {# —— Cargo table —— #}
+        <table class="cargo-table" style="margin-top: 0;">
+            <thead>
+                <tr>
+                    <th style="width: 18%;">Marks &amp; Numbers</th>
+                    <th style="width: 42%;">Description of Goods</th>
+                    <th style="width: 25%;">Total No. of Containers / Packages Received by the Carrier</th>
+                    <th style="width: 15%;">Weight (KGS)</th>
+                </tr>
+            </thead>
+            <tbody class="cargo-body">
+                <tr>
+                    <td>
+                        <div class="cell-scroll">
+                        {% if marks_text %}
+                            SAID TO CONTAIN:<br>
+                            {{ marks_text|replace('\n', '<br>')|safe }}
+                        {% else %}—{% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="cell-scroll">
+                        {% if desc_text %}
+                            <strong>SAID TO CONTAIN:</strong> {{ desc_text }}
+                        {% else %}—{% endif %}
+                        {% if agg.total_packages %}<br>PACKED IN {{ fmt0(agg.total_packages) }} PACKAGE(S){% endif %}
+                        </div>
+                        <div class="end-desc">--- END OF DESCRIPTION ---</div>
+                    </td>
+                    <td><div class="cell-scroll">{{ pkg_col_text }}</div></td>
+                    <td class="num">{{ fmt_wt(agg.total_weight) }}</td>
+                </tr>
+            </tbody>
+            <tbody class="cargo-total">
+                <tr>
+                    <td colspan="2" style="text-align: right;">TOTAL</td>
+                    <td class="ct">{{ total_container_text }}</td>
+                    <td class="num">{{ fmt_wt(agg.total_weight) }} KGS</td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
+
+        <div class="mbl-section-bottom">
+        {# —— Footer —— #}
+        <table class="bl-grid" style="margin-top: 0;">
+            <tr>
+                <td style="width: 33%;">
+                    <span class="bl-hdr">Freight &amp; Charges</span>
+                    <div class="bl-val"><strong>{{ agg.freight_terms }}</strong></div>
+                </td>
+                <td style="width: 34%;">
+                    <span class="bl-hdr">Number of Original Bills of Lading</span>
+                    <div class="bl-val">{{ originals_count }}</div>
+                </td>
+                <td style="width: 33%;">
+                    <span class="bl-hdr">B/L No.</span>
+                    <div class="bl-val"><strong>{{ mbl_no }}</strong></div>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <span class="bl-hdr">Declared Value (If Any)</span>
+                    <div class="bl-val">{{ agg.declared_value }}</div>
+                </td>
+                <td>
+                    <span class="bl-hdr">Place and Date of Issue</span>
+                    <div class="bl-val" style="margin-bottom: 1.5mm;"><strong>{{ issue_place }}</strong>, {{ frappe.utils.formatdate(issue_date, 'dd MMM yyyy') }}</div>
+                    <span class="bl-hdr">Signed for the Carrier</span>
+                    <div class="bl-val"><strong>{{ carrier_name }}</strong></div>
+                    <div class="sig-line">AUTHORIZED SIGNATORY</div>
+                </td>
+                <td>
+                    <span class="bl-hdr">For Delivery of Goods Please Apply To</span>
+                    <div class="bl-val">
+                        {% if del.text %}
+                            {{ del.text|safe }}
+                        {% elif doc.receiving_agent %}
+                            {{ frappe.db.get_value("Freight Agent", doc.receiving_agent, "freight_agent_name") or doc.receiving_agent }}
+                        {% else %}
+                            {{ carrier_name }}
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <div class="footer-banner">
+            THIS BILL OF LADING IS NOT NEGOTIABLE UNLESS CONSIGNED 'TO ORDER' OR 'TO ORDER OF' A NAMED PERSON OR ORDER BEARING THE SIGNATURE OF THE SHIPPER.
+        </div>
+        <div class="footer-meta print-hide">
+            {% if doc.amended_from %}Amended from: {{ doc.amended_from }} · {% endif %}
+            Status: {% if doc.docstatus == 0 %}Draft{% elif doc.docstatus == 1 %}Submitted{% elif doc.docstatus == 2 %}Cancelled{% else %}{{ doc.docstatus }}{% endif %}
+            {% if resolved_company %} · {{ resolved_company }}{% endif %}
+            {% if doc.master_type %} · {{ doc.master_type }}{% endif %}
         </div>
         </div>
     </div>
+</div>
 </body>
 </html>

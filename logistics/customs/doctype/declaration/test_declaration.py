@@ -5,6 +5,7 @@ import frappe
 from frappe.tests import IntegrationTestCase, UnitTestCase
 
 from logistics.customs.doctype.declaration.declaration import (
+	_copy_order_to_declaration,
 	apply_currency_and_exchange_rates_from_declaration_order,
 )
 
@@ -91,3 +92,39 @@ class UnitTestDeclarationValue(UnitTestCase):
 		self.assertEqual(declaration.exchange_rate, 1.2)
 		self.assertEqual(declaration.inv_currency, "USD")
 		self.assertEqual(declaration.inv_exchange_rate, 58.5)
+
+	def test_copy_order_to_declaration_propagates_is_high_value_from_order(self):
+		declaration = frappe.get_doc({"doctype": "Declaration"})
+		order = frappe.get_doc(
+			{
+				"doctype": "Declaration Order",
+				"name": "DO-TEST-001",
+				"sales_quote": "SQ-TEST-001",
+				"order_date": "2026-06-10",
+				"customs_authority": "CA-TEST",
+				"is_high_value": 1,
+			}
+		)
+		sales_quote = frappe.get_doc(
+			{"doctype": "Sales Quote", "name": "SQ-TEST-001", "is_high_value": 0}
+		)
+		_copy_order_to_declaration(declaration, order, sales_quote)
+		self.assertEqual(declaration.is_high_value, 1)
+
+	def test_copy_order_to_declaration_falls_back_to_sales_quote_is_high_value(self):
+		declaration = frappe.get_doc({"doctype": "Declaration"})
+		order = frappe.get_doc(
+			{
+				"doctype": "Declaration Order",
+				"name": "DO-TEST-002",
+				"sales_quote": "SQ-TEST-002",
+				"order_date": "2026-06-10",
+				"customs_authority": "CA-TEST",
+				"is_high_value": 0,
+			}
+		)
+		sales_quote = frappe.get_doc(
+			{"doctype": "Sales Quote", "name": "SQ-TEST-002", "is_high_value": 1}
+		)
+		_copy_order_to_declaration(declaration, order, sales_quote)
+		self.assertEqual(declaration.is_high_value, 1)

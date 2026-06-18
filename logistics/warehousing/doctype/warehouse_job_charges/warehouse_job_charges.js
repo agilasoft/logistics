@@ -76,7 +76,7 @@ function validate_charge_against_contract(frm, row) {
 			if (r.message && Object.keys(r.message).length > 0) {
 				// Charge is valid in contract - auto-fill rate and currency if available
 				if (r.message.rate) {
-					frappe.model.set_value(row.doctype, row.name, 'rate', r.message.rate);
+					frappe.model.set_value(row.doctype, row.name, 'unit_rate', r.message.rate);
 				}
 				if (r.message.currency) {
 					frappe.model.set_value(row.doctype, row.name, 'currency', r.message.currency);

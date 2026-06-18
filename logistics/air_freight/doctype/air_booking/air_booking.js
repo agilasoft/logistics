@@ -420,10 +420,7 @@ frappe.ui.form.on('Air Booking', {
 		}
 
 		frm.set_query('shipper_address', function() {
-			if (frm.doc.shipper) {
-				return { filters: [['Dynamic Link', 'link_doctype', '=', 'Shipper'], ['Dynamic Link', 'link_name', '=', frm.doc.shipper]] };
-			}
-			return {};
+			return logistics.address.query_for_link('Shipper', frm.doc.shipper);
 		});
 		frm.set_query('shipper_contact', function() {
 			if (frm.doc.shipper) {
@@ -432,10 +429,7 @@ frappe.ui.form.on('Air Booking', {
 			return {};
 		});
 		frm.set_query('consignee_address', function() {
-			if (frm.doc.consignee) {
-				return { filters: [['Dynamic Link', 'link_doctype', '=', 'Consignee'], ['Dynamic Link', 'link_name', '=', frm.doc.consignee]] };
-			}
-			return {};
+			return logistics.address.query_for_link('Consignee', frm.doc.consignee);
 		});
 		frm.set_query('consignee_contact', function() {
 			if (frm.doc.consignee) {
@@ -1094,7 +1088,15 @@ function _populate_charges_from_quote(frm) {
 						method_name.includes('populate_charges_from_sales_quote') &&
 						!_air_internal_job_dialog_handled(frm, target_quote)
 					) {
-						_prompt_internal_air_job_dialog(frm, target_quote);
+						frm._internal_job_dialog_shown_for_quote = frm._internal_job_dialog_shown_for_quote || {};
+						frm._internal_job_dialog_shown_for_quote[target_quote] = true;
+						frappe.msgprint({
+							title: __("Cannot create internal job"),
+							message: __(
+								"Add charge lines for this service on the Sales Quote and define a matching Internal Job on the Internal Jobs tab before creating."
+							),
+							indicator: "orange"
+						});
 					}
 				}
 			}

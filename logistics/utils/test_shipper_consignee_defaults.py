@@ -29,8 +29,8 @@ class TestShipperConsigneeDefaults(FrappeTestCase):
 		self.assertEqual(booking.freight_agent, "ALLTRAMNL")
 		self.assertFalse(booking.broker)
 
-	def test_air_shipment_still_maps_air_default_broker_to_broker(self):
-		"""Air Shipment.broker links Freight Agent (same as master air_default_broker)."""
+	def test_air_shipment_maps_air_default_broker_to_freight_agent(self):
+		"""air_default_broker on Shipper is Freight Agent; Air Shipment.broker is Broker."""
 		shipment = frappe.new_doc("Air Shipment")
 		shipment.shipper = "TEST-SHIPPER-FA"
 		shipper = frappe._dict(
@@ -45,4 +45,5 @@ class TestShipperConsigneeDefaults(FrappeTestCase):
 		):
 			apply_shipper_consignee_defaults(shipment)
 
-		self.assertEqual(shipment.broker, "ALLTRAMNL")
+		self.assertEqual(shipment.freight_agent, "ALLTRAMNL")
+		self.assertFalse(shipment.broker)

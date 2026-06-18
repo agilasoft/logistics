@@ -87,42 +87,31 @@ class SeaShipment(Document):
             msgprint_sales_quote_validity_warnings(self)
 
             if getattr(self, "sales_quote", None):
-                from frappe.utils import cint
-
                 from logistics.pricing_center.doctype.sales_quote.sales_quote import (
-                    resolve_allow_linked_freight_booking_from_one_off_converted_doc,
-                    resolve_allow_linked_freight_bookings_for_internal_job,
                     resolve_allow_linked_transport_order_for_freight_shipment,
-                    resolve_single_main_air_booking_for_sales_quote,
-                    resolve_single_main_sea_booking_for_sales_quote,
+                    resolve_one_off_chain_freight_booking_allowances,
+                    resolve_one_off_declaration_order_chain_allowance,
                     validate_one_off_quote_not_converted,
                 )
 
-                allow_sea = (getattr(self, "sea_booking", None) or "").strip() or None
-                allow_air = None
-                r_sea, r_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
-                if r_sea:
-                    allow_sea = allow_sea or (r_sea or "").strip() or None
-                if r_air:
-                    allow_air = (r_air or "").strip() or None
-                if not allow_sea:
-                    allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
-                if not allow_air:
-                    allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
-                conv_sea, conv_air = resolve_allow_linked_freight_booking_from_one_off_converted_doc(self.sales_quote)
-                if not allow_sea:
-                    allow_sea = conv_sea
-                if not allow_air:
-                    allow_air = conv_air
+                allow_sea, allow_air = resolve_one_off_chain_freight_booking_allowances(
+                    self,
+                    self.sales_quote,
+                    prefer_sea_booking=(getattr(self, "sea_booking", None) or "").strip() or None,
+                )
                 allow_tro = resolve_allow_linked_transport_order_for_freight_shipment(self)
+                _allow_main_with_do, _allow_if_converted = resolve_one_off_declaration_order_chain_allowance(
+                    self, allow_sea=allow_sea, allow_air=allow_air
+                )
                 validate_one_off_quote_not_converted(
                     self.sales_quote,
                     self.doctype,
                     self.name,
+                    allow_if_quote_converted_to=_allow_if_converted,
                     allow_linked_sea_booking=allow_sea,
                     allow_linked_air_booking=allow_air,
                     allow_linked_transport_order=allow_tro,
-                    allow_main_transport_if_converted_to_declaration_order=cint(getattr(self, "is_main_service", 0)) == 1,
+                    allow_main_transport_if_converted_to_declaration_order=_allow_main_with_do,
                 )
 
             from logistics.job_management.logistics_job_status import sync_sea_shipment_job_status
@@ -1522,7 +1511,7 @@ def create_sales_invoice(shipment_name, posting_date, customer, tax_category=Non
             return [shipment.local_customer]
         return [customer]
 
-    from logistics.job_management.recognition_engine import get_charge_row_selling_amount
+    from logistics.job_management.recognition_engine import resolve_charge_row_selling
     from logistics.utils.freight_95_5 import (
         apply_freight_95_post_missing_values,
         build_sales_invoice_item_payloads_for_charge,
@@ -1536,7 +1525,7 @@ def create_sales_invoice(shipment_name, posting_date, customer, tax_category=Non
             continue
         if invoice_type and getattr(charge, "invoice_type", None) != invoice_type:
             continue
-        selling_rate = flt(get_charge_row_selling_amount(charge))
+        selling_rate = flt(resolve_charge_row_selling(charge, prefer_actual=True))
         if selling_rate <= 0:
             selling_rate = (
                 flt(getattr(charge, "selling_amount", None))

@@ -47,8 +47,13 @@ class WarehouseContract(Document):
 	def on_cancel(self):
 		"""Reset One-off Sales Quote status when Warehouse Contract is cancelled."""
 		if self.sales_quote:
-			from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
-			reset_one_off_quote_on_cancel(self.sales_quote)
+			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+				reset_one_off_quote_on_cancel_for_document,
+			)
+
+			reset_one_off_quote_on_cancel_for_document(
+				self.sales_quote, self.doctype, self.name
+			)
 
 
 @frappe.whitelist()

@@ -6,6 +6,8 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "charge_scope",
+  "internal_job",
   "item_code",
   "charge_type",
   "charge_category",
@@ -15,8 +17,10 @@
   "column_break_shos",
   "quantity",
   "currency",
-  "rate",
-  "total"
+  "unit_rate",
+  "total",
+  "change_request",
+  "change_request_charge"
  ],
  "fields": [
   {
@@ -47,10 +51,10 @@
    "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]"
   },
   {
-   "fieldname": "rate",
+   "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Rate"
+   "label": "Unit Rate"
   },
   {
    "fieldname": "total",
@@ -92,6 +96,41 @@
    "fieldtype": "Select",
    "label": "Charge Category",
    "options": "Freight\nFuel Surcharge\nTerminal Handling\nCustoms Clearance\nDocumentation\nInsurance\nStorage\nHandling\nOther"
+  },
+  {
+   "default": "Main",
+   "fieldname": "charge_scope",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Scope",
+   "options": "Main\nInternal Job"
+  },
+  {
+   "depends_on": "eval:doc.charge_scope==\"Internal Job\"",
+   "fieldname": "internal_job",
+   "fieldtype": "Link",
+   "in_list_view": 0,
+   "in_standard_filter": 1,
+   "label": "Internal Job",
+   "mandatory_depends_on": "eval:doc.charge_scope==\"Internal Job\"",
+   "options": "Internal Job",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "change_request",
+   "fieldtype": "Link",
+   "label": "Change Request",
+   "options": "Change Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "change_request_charge",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Change Request Charge Row",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

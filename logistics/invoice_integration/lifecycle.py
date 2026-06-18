@@ -32,7 +32,7 @@ CHARGE_CHILD_DOCTYPES = (
     "Air Consolidation Charges",
     "Sea Consolidation Charges",
     "Special Project Charges",
-    "Exhibit Charges",
+    "MICE Project Charges",
 )
 
 # Fields to update on jobs
@@ -395,7 +395,7 @@ def _get_estimated_revenue(job) -> float:
     if not charges_field:
         return 0
     for row in job.get(charges_field) or []:
-        line_rate = flt(getattr(row, "rate", None) or getattr(row, "unit_rate", None) or 0)
+        line_rate = flt(getattr(row, "unit_rate", None) or 0)
         qty = flt(getattr(row, "quantity", 1) or 1)
         amt = flt(
             getattr(row, "estimated_revenue", None)

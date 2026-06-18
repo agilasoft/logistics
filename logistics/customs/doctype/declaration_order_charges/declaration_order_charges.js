@@ -3,9 +3,7 @@
 
 frappe.ui.form.on("Declaration Order Charges", {
 	item_code: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
-	charge_type: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	revenue_calculation_method: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
-	rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	unit_rate: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	unit_type: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },

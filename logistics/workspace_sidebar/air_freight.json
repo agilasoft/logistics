@@ -335,8 +335,8 @@
    "collapsible": 1,
    "indent": 0,
    "keep_closed": 0,
-   "label": "Flight Schedule Settings",
-   "link_to": "Flight Schedule Settings",
+   "label": "GoConnect Settings (Flight)",
+   "link_to": "GoConnect Settings",
    "link_type": "DocType",
    "show_arrow": 0,
    "type": "Link"

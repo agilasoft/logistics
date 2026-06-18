@@ -16,26 +16,44 @@ from typing import Any
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate, today
+from frappe.utils import cint, flt, getdate, today
 
 from logistics.utils.internal_job_from_source import _child_doctype_for_table_field
 
 POSTED_RECEIPT_STATUS = "Posted"
+CANCELLED_RECEIPT_STATUS = "Cancelled"
+
+_DELIVERY_COMPARE_DATE_FIELDS = frozenset({"receipt_date"})
+_DELIVERY_COMPARE_FLOAT_FIELDS = frozenset({"qty_received", "package_row"})
 
 DEFAULT_RECEIPT_LIFECYCLE_STAGE = "Logistics"
+
+# Execution documents that may post delivery receipts (planning orders/bookings excluded).
+PACKAGE_RECEIPT_TRANSPORT_DOCTYPES = frozenset({"Transport Job"})
+PACKAGE_RECEIPT_FREIGHT_SHIPMENT_DOCTYPES = frozenset({"Air Shipment", "Sea Shipment"})
+PACKAGE_RECEIPT_PROJECT_JOB_DOCTYPES = frozenset({"Project Job"})
 
 
 def _stage_from_lifecycle_job(sp_doc: Any, job_type: str, job_no: str) -> str | None:
 	"""Find the originating Lifecycle Job row on the Special Project and return its stage."""
 	job_type = _norm(job_type)
 	job_no = _norm(job_no)
-	if not job_type or not job_no:
+	if not job_no:
 		return None
 	for row in getattr(sp_doc, "lifecycle_jobs", None) or []:
-		if (
-			_norm(getattr(row, "job_type", None)) == job_type
-			and _norm(getattr(row, "job_no", None)) == job_no
+		row_job_type = _norm(getattr(row, "job_type", None))
+		row_job_no = _norm(getattr(row, "job_no", None))
+		row_order_no = _norm(getattr(row, "order_no", None))
+		matched = False
+		if row_job_no and row_job_no == job_no:
+			# Execution ref (Transport Job, Shipment, Project Job, …).
+			matched = True
+		elif job_type and row_job_type == job_type and (
+			row_order_no == job_no or row_job_no == job_no
 		):
+			# Planning order ref (Transport Order, Air Booking, …).
+			matched = True
+		if matched:
 			stage = _norm(getattr(row, "lifecycle_stage", None))
 			if stage:
 				return stage
@@ -109,6 +127,37 @@ def _posted_deliveries(sp_doc: Any) -> list[Any]:
 	]
 
 
+def _tracked_package_rows(sp_doc: Any) -> list[Any]:
+	return [
+		pkg
+		for pkg in getattr(sp_doc, "packages", None) or []
+		if not cint_safe(getattr(pkg, "include_on_create", 0))
+	]
+
+
+def _package_row_index_maps(sp_doc: Any) -> tuple[
+	dict[str, list[int]], dict[str, list[int]], dict[str, list[int]]
+]:
+	"""Map warehouse_item / commodity / normalized description to tracked package idx lists."""
+	wh_map: dict[str, list[int]] = {}
+	commodity_map: dict[str, list[int]] = {}
+	desc_map: dict[str, list[int]] = {}
+	for pkg in _tracked_package_rows(sp_doc):
+		idx = cint_safe(getattr(pkg, "idx", None))
+		if not idx:
+			continue
+		wh = _norm(getattr(pkg, "warehouse_item", None))
+		if wh:
+			wh_map.setdefault(wh, []).append(idx)
+		commodity = _norm(getattr(pkg, "commodity", None))
+		if commodity:
+			commodity_map.setdefault(commodity, []).append(idx)
+		desc = _norm_desc(getattr(pkg, "description", None))
+		if desc:
+			desc_map.setdefault(desc, []).append(idx)
+	return wh_map, commodity_map, desc_map
+
+
 def sync_package_delivery_balances(sp_doc: Any) -> None:
 	"""Recompute qty_on_site and qty_short on each package row from posted deliveries.
 
@@ -119,6 +168,7 @@ def sync_package_delivery_balances(sp_doc: Any) -> None:
 	if not packages:
 		return
 
+	wh_map, commodity_map, desc_map = _package_row_index_maps(sp_doc)
 	totals_by_row: dict[int, float] = {}
 	totals_by_warehouse_item: dict[str, float] = {}
 	totals_by_commodity: dict[str, float] = {}
@@ -129,14 +179,19 @@ def sync_package_delivery_balances(sp_doc: Any) -> None:
 		row_idx = cint_safe(getattr(rc, "package_row", None))
 		if row_idx:
 			totals_by_row[row_idx] = totals_by_row.get(row_idx, 0) + qty
+			continue
 		wh = _norm(getattr(rc, "warehouse_item", None))
-		if wh:
+		if wh and len(wh_map.get(wh, [])) == 1:
 			totals_by_warehouse_item[wh] = totals_by_warehouse_item.get(wh, 0) + qty
+			continue
 		commodity = _norm(getattr(rc, "commodity", None))
-		if commodity:
-			totals_by_commodity[commodity] = totals_by_commodity.get(commodity, 0) + qty
+		if commodity and len(commodity_map.get(commodity, [])) == 1:
+			totals_by_commodity[commodity] = (
+				totals_by_commodity.get(commodity, 0) + qty
+			)
+			continue
 		desc = _norm_desc(getattr(rc, "description", None))
-		if desc:
+		if desc and len(desc_map.get(desc, [])) == 1:
 			totals_by_desc[desc] = totals_by_desc.get(desc, 0) + qty
 
 	for pkg in packages:
@@ -148,19 +203,227 @@ def sync_package_delivery_balances(sp_doc: Any) -> None:
 		on_site = flt(totals_by_row.get(idx, 0))
 		if not on_site:
 			wh = _norm(getattr(pkg, "warehouse_item", None))
-			if wh:
+			if wh and len(wh_map.get(wh, [])) == 1:
 				on_site = flt(totals_by_warehouse_item.get(wh, 0))
 			if not on_site:
 				commodity = _norm(getattr(pkg, "commodity", None))
-				if commodity:
+				if commodity and len(commodity_map.get(commodity, [])) == 1:
 					on_site = flt(totals_by_commodity.get(commodity, 0))
 			if not on_site:
 				desc = _norm_desc(getattr(pkg, "description", None))
-				if desc:
+				if desc and len(desc_map.get(desc, [])) == 1:
 					on_site = flt(totals_by_desc.get(desc, 0))
 		required = flt(getattr(pkg, "qty_required", 0))
 		pkg.qty_on_site = on_site
 		pkg.qty_short = max(required - on_site, 0)
+
+
+def autofill_delivery_lifecycle_stages(sp_doc: Any) -> None:
+	"""Set lifecycle_stage on posted deliveries when missing (system default, not user input)."""
+	fallback_stage = _default_receipt_stage(sp_doc)
+	for rc in getattr(sp_doc, "deliveries", None) or []:
+		if flt(getattr(rc, "qty_received", 0)) <= 0:
+			continue
+		if _norm(getattr(rc, "lifecycle_stage", None)):
+			continue
+		job_type = _norm(getattr(rc, "source_job_type", None))
+		job_no = _norm(getattr(rc, "source_job_no", None))
+		stage = _default_receipt_stage(sp_doc, job_type, job_no) or fallback_stage
+		if stage:
+			rc.lifecycle_stage = stage
+
+
+def _receipt_matches_source(rc: Any, source_doctype: str, source_name: str) -> bool:
+	"""True when a delivery row was posted from the given operational document."""
+	source_doctype = _norm(source_doctype)
+	source_name = _norm(source_name)
+	if not source_doctype or not source_name:
+		return False
+	if (
+		_norm(getattr(rc, "source_doctype", None)) == source_doctype
+		and _norm(getattr(rc, "source_name", None)) == source_name
+	):
+		return True
+	return (
+		_norm(getattr(rc, "source_job_type", None)) == source_doctype
+		and _norm(getattr(rc, "source_job_no", None)) == source_name
+	)
+
+
+def _source_job_is_cancelled(doctype: str, docname: str) -> bool:
+	if not doctype or not docname or not frappe.db.exists(doctype, docname):
+		return False
+	return cint(frappe.db.get_value(doctype, docname, "docstatus")) == 2
+
+
+def _delivery_fields_equal(old: Any, row: Any, fieldname: str) -> bool:
+	old_val = getattr(old, fieldname, None)
+	new_val = getattr(row, fieldname, None)
+	if fieldname in _DELIVERY_COMPARE_DATE_FIELDS:
+		if not old_val and not new_val:
+			return True
+		return getdate(old_val) == getdate(new_val)
+	if fieldname in _DELIVERY_COMPARE_FLOAT_FIELDS:
+		return flt(old_val) == flt(new_val)
+	return (old_val or "") == (new_val or "")
+
+
+def _resolve_delivery_source(row: Any | None) -> tuple[str, str] | None:
+	"""Return (doctype, name) for the operational job that posted a delivery row."""
+	if not row:
+		return None
+	job_type = _norm(getattr(row, "source_job_type", None))
+	job_no = _norm(getattr(row, "source_job_no", None))
+	if job_type and job_no:
+		return job_type, job_no
+	src_dt = _norm(getattr(row, "source_doctype", None))
+	src_name = _norm(getattr(row, "source_name", None))
+	if src_dt and src_name:
+		return src_dt, src_name
+	return None
+
+
+def _delivery_field_label(fieldname: str) -> str:
+	return frappe.get_meta("Special Project Site Receipt").get_label(fieldname) or fieldname
+
+
+def _open_source_job_primary_action(doctype: str, docname: str) -> dict[str, Any]:
+	return {
+		"label": _("Open {0}").format(doctype),
+		"client_action": "logistics.special_project_modals.open_source_job",
+		"args": {"doctype": doctype, "docname": docname},
+		"hide_on_success": True,
+	}
+
+
+def _view_fulfillment_primary_action() -> dict[str, Any]:
+	return {
+		"label": _("View Fulfillment"),
+		"client_action": "logistics.special_project_modals.go_to_tab",
+		"args": {"fieldname": "fulfillment_tab"},
+		"hide_on_success": True,
+	}
+
+
+def _throw_deliveries_read_only(
+	*,
+	row: Any | None = None,
+	changed_field: str | None = None,
+	rows_added_or_removed: bool = False,
+	manual_on_create: bool = False,
+) -> None:
+	"""Raise a validation error with an optional button to open the source job."""
+	kwargs: dict[str, Any] = {"title": _("Deliveries")}
+	source = _resolve_delivery_source(row)
+
+	if manual_on_create:
+		msg = _(
+			"Deliveries are posted automatically from operational jobs. "
+			"You cannot add delivery rows manually on Special Project."
+		)
+		kwargs["primary_action"] = _view_fulfillment_primary_action()
+	elif rows_added_or_removed:
+		if source:
+			doctype, docname = source
+			msg = _(
+				"Deliveries are read-only on Special Project. "
+				"Post or cancel deliveries from source document {0} {1}."
+			).format(doctype, docname)
+			kwargs["primary_action"] = _open_source_job_primary_action(doctype, docname)
+		else:
+			msg = _(
+				"Deliveries are read-only on Special Project. "
+				"Post or cancel deliveries from the source Transport Job, Shipment, or Project Job."
+			)
+			kwargs["primary_action"] = _view_fulfillment_primary_action()
+	elif source:
+		doctype, docname = source
+		if _source_job_is_cancelled(doctype, docname):
+			if changed_field:
+				field_label = _delivery_field_label(changed_field)
+				msg = _(
+					"Delivery for cancelled {0} {1} was not synced ({2}). "
+					"Reload this Special Project or contact support."
+				).format(doctype, docname, field_label)
+			else:
+				msg = _(
+					"Delivery for cancelled {0} {1} was not synced. "
+					"Reload this Special Project or contact support."
+				).format(doctype, docname)
+			kwargs["primary_action"] = _view_fulfillment_primary_action()
+		elif changed_field:
+			field_label = _delivery_field_label(changed_field)
+			msg = _(
+				"Delivery for {0} {1} was changed ({2}). "
+				"Open that document to amend or cancel the receipt."
+			).format(doctype, docname, field_label)
+			kwargs["primary_action"] = _open_source_job_primary_action(doctype, docname)
+		else:
+			msg = _(
+				"Delivery for {0} {1} was changed. "
+				"Open that document to amend or cancel the receipt."
+			).format(doctype, docname)
+			kwargs["primary_action"] = _open_source_job_primary_action(doctype, docname)
+	else:
+		msg = _(
+			"Deliveries are read-only on Special Project. "
+			"Amend the source job to change posted receipts."
+		)
+		kwargs["primary_action"] = _view_fulfillment_primary_action()
+
+	frappe.throw(msg, **kwargs)
+
+
+def validate_deliveries_read_only(sp_doc: Any) -> None:
+	"""Block manual add/edit/delete of delivery rows on the Special Project form."""
+	if sp_doc.flags.get("ignore_delivery_validation"):
+		return
+	if getattr(sp_doc, "__islocal", False):
+		if sp_doc.get("deliveries"):
+			_throw_deliveries_read_only(manual_on_create=True)
+		return
+
+	before = sp_doc.get_doc_before_save()
+	if before is None:
+		return
+
+	before_by_name = {r.name: r for r in before.get("deliveries") or [] if getattr(r, "name", None)}
+	after_rows = sp_doc.get("deliveries") or []
+	after_by_name = {r.name: r for r in after_rows if getattr(r, "name", None)}
+
+	if set(before_by_name.keys()) != set(after_by_name.keys()):
+		added = set(after_by_name.keys()) - set(before_by_name.keys())
+		removed = set(before_by_name.keys()) - set(after_by_name.keys())
+		row = None
+		if added:
+			row = after_by_name[next(iter(added))]
+		elif removed:
+			row = before_by_name[next(iter(removed))]
+		_throw_deliveries_read_only(row=row, rows_added_or_removed=True)
+
+	compare_fields = (
+		"package_row",
+		"commodity",
+		"warehouse_item",
+		"description",
+		"qty_received",
+		"uom",
+		"receipt_date",
+		"lifecycle_stage",
+		"status",
+		"source_job_type",
+		"source_job_no",
+		"container_no",
+	)
+	for name, row in after_by_name.items():
+		old = before_by_name.get(name)
+		if not old:
+			continue
+		if (getattr(old, "status", None) or "") == CANCELLED_RECEIPT_STATUS:
+			continue
+		for fn in compare_fields:
+			if not _delivery_fields_equal(old, row, fn):
+				_throw_deliveries_read_only(row=row, changed_field=fn)
 
 
 def validate_packages(sp_doc: Any) -> None:
@@ -182,16 +445,9 @@ def validate_packages(sp_doc: Any) -> None:
 			)
 
 	seen_idem: set[tuple[str, str, int]] = set()
-	fallback_stage = _default_receipt_stage(sp_doc)
 	for j, rc in enumerate(getattr(sp_doc, "deliveries", None) or [], start=1):
 		if flt(getattr(rc, "qty_received", 0)) <= 0:
 			continue
-		if not _norm(getattr(rc, "lifecycle_stage", None)):
-			job_type = _norm(getattr(rc, "source_job_type", None))
-			job_no = _norm(getattr(rc, "source_job_no", None))
-			stage = _default_receipt_stage(sp_doc, job_type, job_no) or fallback_stage
-			if stage:
-				rc.lifecycle_stage = stage
 		src_dt = _norm(getattr(rc, "source_doctype", None))
 		src_name = _norm(getattr(rc, "source_name", None))
 		src_idx = cint_safe(getattr(rc, "source_package_idx", None))
@@ -257,18 +513,90 @@ def _find_package_row(
 	commodity: str | None = None,
 	description: str | None = None,
 ) -> Any | None:
+	matches = _find_all_tracked_package_rows(
+		sp_doc,
+		warehouse_item=warehouse_item,
+		commodity=commodity,
+		description=description,
+	)
+	return matches[0] if len(matches) == 1 else None
+
+
+def _find_all_tracked_package_rows(
+	sp_doc: Any,
+	*,
+	warehouse_item: str | None = None,
+	commodity: str | None = None,
+	description: str | None = None,
+) -> list[Any]:
+	"""Return tracked package rows matching identification fields (may be multiple)."""
 	warehouse_item = _norm(warehouse_item)
 	commodity = _norm(commodity)
 	description = _norm(description)
-	for pkg in getattr(sp_doc, "packages", None) or []:
+	matches: list[Any] = []
+	for pkg in _tracked_package_rows(sp_doc):
 		if warehouse_item and _norm(getattr(pkg, "warehouse_item", None)) == warehouse_item:
-			return pkg
-		if commodity and _norm(getattr(pkg, "commodity", None)) == commodity:
-			return pkg
-		if description and not warehouse_item and not commodity:
+			matches.append(pkg)
+		elif commodity and _norm(getattr(pkg, "commodity", None)) == commodity:
+			matches.append(pkg)
+		elif description and not warehouse_item and not commodity:
 			if _norm(getattr(pkg, "description", None)).lower() == description.lower():
-				return pkg
-	return None
+				matches.append(pkg)
+	return matches
+
+
+def _operational_line_label(
+	*,
+	warehouse_item: str | None = None,
+	commodity: str | None = None,
+	description: str | None = None,
+) -> str:
+	return (
+		warehouse_item
+		or commodity
+		or description
+		or _("package line")
+	)
+
+
+def _resolve_sp_package_for_operational_line(
+	sp_doc: Any, pkg: Any
+) -> tuple[Any | None, int]:
+	"""Resolve a Special Project package row for an operational document package line.
+
+	Returns ``(package_row_doc, 1-based package_row index)``. Raises when multiple
+	tracked rows match and ``package_row`` is not set on the operational line.
+	"""
+	packages = getattr(sp_doc, "packages", None) or []
+	explicit_row = cint_safe(getattr(pkg, "package_row", None))
+	if explicit_row and 1 <= explicit_row <= len(packages):
+		mat = packages[explicit_row - 1]
+		if cint_safe(getattr(mat, "include_on_create", 0)):
+			return None, 0
+		return mat, explicit_row
+
+	wh = _norm(getattr(pkg, "warehouse_item", None))
+	commodity = _norm(getattr(pkg, "commodity", None))
+	desc = _package_description(pkg) or _norm(getattr(pkg, "description", None))
+	matches = _find_all_tracked_package_rows(
+		sp_doc, warehouse_item=wh, commodity=commodity, description=desc
+	)
+	if len(matches) == 1:
+		mat = matches[0]
+		return mat, cint_safe(getattr(mat, "idx", None))
+	if len(matches) > 1:
+		label = _operational_line_label(
+			warehouse_item=wh, commodity=commodity, description=desc
+		)
+		frappe.throw(
+			_(
+				"Multiple Packages lines match {0}. Set Package Row on the operational "
+				"document package line, or recreate the booking from Shipment lines on "
+				"the Special Project."
+			).format(label),
+			title=_("Ambiguous package line"),
+		)
+	return None, 0
 
 
 def _warehouse_item_for_sales_quote_product(sp_doc: Any, item: str) -> str | None:
@@ -438,6 +766,8 @@ def apply_shipment_lines_to_target(
 		uom = line.get("uom") or pkg_info.get("uom")
 		if uom and meta.get_field("uom"):
 			row_dict["uom"] = uom
+		if row_idx and meta.get_field("package_row"):
+			row_dict["package_row"] = row_idx
 		for fn in _PACKAGE_DETAIL_FIELDS:
 			value = line.get(fn) if isinstance(line, dict) else None
 			if value in (None, "", 0, 0.0):
@@ -509,49 +839,61 @@ def _receipt_exists(sp_doc: Any, source_doctype: str, source_name: str, package_
 
 
 def build_receipts_from_transport_order(tro: Any) -> list[dict[str, Any]]:
-	"""Build delivery receipt row dicts from a submitted Transport Order (caller persists on SP)."""
-	project = _norm(getattr(tro, "project", None))
+	"""Transport Order is planning-only; deliveries post from the derived Transport Job."""
+	return []
+
+
+def build_receipts_from_transport_job(tj: Any) -> list[dict[str, Any]]:
+	"""Build delivery receipt row dicts from a submitted Transport Job (caller persists on SP)."""
+	if (getattr(tj, "doctype", None) or "") not in PACKAGE_RECEIPT_TRANSPORT_DOCTYPES:
+		return []
+	project = _norm(getattr(tj, "project", None))
 	sp_name = resolve_special_project_from_project(project)
 	if not sp_name:
 		return []
 
 	sp_doc = frappe.get_doc("Special Project", sp_name)
-	container_no = _norm(getattr(tro, "container_no", None)) or _norm(getattr(tro, "container", None))
-	stage = _default_receipt_stage(sp_doc, tro.doctype, tro.name)
+	transport_order = _norm(getattr(tj, "transport_order", None))
+	fallback_refs = [("Transport Order", transport_order)] if transport_order else None
+	container_no = _norm(getattr(tj, "container_no", None)) or _norm(getattr(tj, "container", None))
+	if not container_no and transport_order:
+		container_no = _norm(
+			frappe.db.get_value("Transport Order", transport_order, "container_no")
+		) or _norm(frappe.db.get_value("Transport Order", transport_order, "container"))
+	stage = _default_receipt_stage(
+		sp_doc, tj.doctype, tj.name, fallback_refs=fallback_refs
+	)
 	created: list[dict[str, Any]] = []
 
-	for pkg in getattr(tro, "packages", None) or []:
+	for pkg in getattr(tj, "packages", None) or []:
 		pkg_idx = cint_safe(getattr(pkg, "idx", None))
-		if _receipt_exists(sp_doc, tro.doctype, tro.name, pkg_idx):
+		if _receipt_exists(sp_doc, tj.doctype, tj.name, pkg_idx):
 			continue
 		qty = flt(getattr(pkg, "quantity", 0)) or flt(getattr(pkg, "no_of_packs", 0))
 		if qty <= 0:
 			continue
 		wh = _norm(getattr(pkg, "warehouse_item", None))
 		commodity = _norm(getattr(pkg, "commodity", None))
-		desc = _norm(getattr(pkg, "description", None))
-		mat = _find_package_row(
-			sp_doc, warehouse_item=wh, commodity=commodity, description=desc
-		)
-		if mat is not None and cint_safe(getattr(mat, "include_on_create", 0)):
+		desc = _norm(getattr(pkg, "description", None)) or _package_description(pkg)
+		mat, mat_row = _resolve_sp_package_for_operational_line(sp_doc, pkg)
+		if mat is None:
 			continue
-		mat_row = cint_safe(getattr(mat, "idx", None)) if mat else 0
 		created.append(
 			{
 				"package_row": mat_row,
-				"warehouse_item": wh or (getattr(mat, "warehouse_item", None) if mat else None),
-				"commodity": commodity or (getattr(mat, "commodity", None) if mat else None),
-				"description": desc or (getattr(mat, "description", None) if mat else None),
+				"warehouse_item": wh or getattr(mat, "warehouse_item", None),
+				"commodity": commodity or getattr(mat, "commodity", None),
+				"description": desc or getattr(mat, "description", None),
 				"qty_received": qty,
-				"uom": getattr(pkg, "uom", None) or (getattr(mat, "uom", None) if mat else None),
+				"uom": getattr(pkg, "uom", None) or getattr(mat, "uom", None),
 				"receipt_date": getdate(today()),
 				"lifecycle_stage": stage,
 				"status": POSTED_RECEIPT_STATUS,
-				"source_job_type": tro.doctype,
-				"source_job_no": tro.name,
+				"source_job_type": tj.doctype,
+				"source_job_no": tj.name,
 				"container_no": container_no or None,
-				"source_doctype": tro.doctype,
-				"source_name": tro.name,
+				"source_doctype": tj.doctype,
+				"source_name": tj.name,
 				"source_package_idx": pkg_idx,
 			}
 		)
@@ -562,21 +904,28 @@ def persist_receipts_on_special_project(sp_name: str, receipt_rows: list[dict[st
 	if not receipt_rows or not sp_name:
 		return 0
 	sp = frappe.get_doc("Special Project", sp_name)
+	sp.flags.ignore_delivery_validation = True
 	for row in receipt_rows:
 		_append_child_row(sp, "deliveries", row)
 	sp.flags.ignore_validate_update_after_submit = True
 	sp.flags.ignore_charges_sync = True
+	sp.flags.ignore_delivery_validation = True
 	validate_packages(sp)
 	sp.save(ignore_permissions=True)
 	return len(receipt_rows)
 
 
 def post_site_receipts_from_transport_order(tro: Any) -> int:
-	"""Append delivery receipts on the linked Special Project when a Transport Order is submitted."""
-	rows = build_receipts_from_transport_order(tro)
+	"""Transport Order is planning-only; deliveries post from the derived Transport Job."""
+	return 0
+
+
+def post_site_receipts_from_transport_job(tj: Any) -> int:
+	"""Append delivery receipts on the linked Special Project when a Transport Job is submitted."""
+	rows = build_receipts_from_transport_job(tj)
 	if not rows:
 		return 0
-	project = _norm(getattr(tro, "project", None))
+	project = _norm(getattr(tj, "project", None))
 	sp_name = resolve_special_project_from_project(project)
 	if not sp_name:
 		return 0
@@ -590,28 +939,66 @@ def post_site_receipts_from_transport_order(tro: Any) -> int:
 	return n
 
 
-def cancel_receipts_for_transport_order(tro: Any) -> int:
-	project = _norm(getattr(tro, "project", None))
-	sp_name = resolve_special_project_from_project(project)
-	if not sp_name:
-		return 0
+def _cancel_receipts_on_special_project(
+	sp_name: str, source_doctype: str, source_name: str
+) -> int:
+	"""Flip posted delivery rows for one source job to Cancelled on a Special Project."""
 	sp = frappe.get_doc("Special Project", sp_name)
 	changed = 0
 	for rc in getattr(sp, "deliveries", None) or []:
 		if (
-			_norm(getattr(rc, "source_doctype", None)) == tro.doctype
-			and _norm(getattr(rc, "source_name", None)) == tro.name
+			_receipt_matches_source(rc, source_doctype, source_name)
 			and (getattr(rc, "status", None) or "") == POSTED_RECEIPT_STATUS
 		):
-			rc.status = "Cancelled"
+			rc.status = CANCELLED_RECEIPT_STATUS
 			changed += 1
 	if not changed:
 		return 0
 	sp.flags.ignore_validate_update_after_submit = True
 	sp.flags.ignore_charges_sync = True
+	sp.flags.ignore_delivery_validation = True
 	validate_packages(sp)
 	sp.save(ignore_permissions=True)
 	return changed
+
+
+def cancel_receipts_for_transport_order(tro: Any) -> int:
+	"""Legacy receipts may still reference Transport Order; cancel those if present."""
+	project = _norm(getattr(tro, "project", None))
+	sp_name = resolve_special_project_from_project(project)
+	if not sp_name:
+		return 0
+	return _cancel_receipts_on_special_project(sp_name, tro.doctype, tro.name)
+
+
+def cancel_receipts_for_transport_job(tj: Any) -> int:
+	project = _norm(getattr(tj, "project", None))
+	sp_name = resolve_special_project_from_project(project)
+	if not sp_name:
+		return 0
+	return _cancel_receipts_on_special_project(sp_name, tj.doctype, tj.name)
+
+
+def on_transport_job_submit(doc: Any, method: str | None = None) -> None:
+	"""Doc-events bridge: post SP deliveries when a Transport Job is submitted."""
+	try:
+		post_site_receipts_from_transport_job(doc)
+	except Exception:
+		frappe.log_error(
+			frappe.get_traceback(),
+			f"Transport Job {doc.name}: package delivery post",
+		)
+
+
+def on_transport_job_cancel(doc: Any, method: str | None = None) -> None:
+	"""Doc-events bridge: cancel SP deliveries when a Transport Job is cancelled."""
+	try:
+		cancel_receipts_for_transport_job(doc)
+	except Exception:
+		frappe.log_error(
+			frappe.get_traceback(),
+			f"Transport Job {doc.name}: package delivery cancel",
+		)
 
 
 # Air / Sea Shipment auto-receipt on submit
@@ -663,6 +1050,8 @@ def build_receipts_from_freight_shipment(doc: Any) -> list[dict[str, Any]]:
 	Booking, since the SP's Lifecycle Job row references the Booking. Caller
 	persists the rows on the Special Project.
 	"""
+	if (getattr(doc, "doctype", None) or "") not in PACKAGE_RECEIPT_FREIGHT_SHIPMENT_DOCTYPES:
+		return []
 	project = _norm(getattr(doc, "project", None))
 	sp_name = resolve_special_project_from_project(project)
 	if not sp_name:
@@ -694,20 +1083,17 @@ def build_receipts_from_freight_shipment(doc: Any) -> list[dict[str, Any]]:
 		wh = _norm(getattr(pkg, "warehouse_item", None))
 		commodity = _norm(getattr(pkg, "commodity", None))
 		desc = _package_description(pkg)
-		mat = _find_package_row(
-			sp_doc, warehouse_item=wh, commodity=commodity, description=desc
-		)
-		if mat is not None and cint_safe(getattr(mat, "include_on_create", 0)):
+		mat, mat_row = _resolve_sp_package_for_operational_line(sp_doc, pkg)
+		if mat is None:
 			continue
-		mat_row = cint_safe(getattr(mat, "idx", None)) if mat else 0
 		created.append(
 			{
 				"package_row": mat_row,
-				"warehouse_item": wh or (getattr(mat, "warehouse_item", None) if mat else None),
-				"commodity": commodity or (getattr(mat, "commodity", None) if mat else None),
-				"description": desc or (getattr(mat, "description", None) if mat else None),
+				"warehouse_item": wh or getattr(mat, "warehouse_item", None),
+				"commodity": commodity or getattr(mat, "commodity", None),
+				"description": desc or getattr(mat, "description", None),
 				"qty_received": qty,
-				"uom": getattr(pkg, "uom", None) or (getattr(mat, "uom", None) if mat else None),
+				"uom": getattr(pkg, "uom", None) or getattr(mat, "uom", None),
 				"receipt_date": getdate(today()),
 				"lifecycle_stage": stage,
 				"status": POSTED_RECEIPT_STATUS,
@@ -747,23 +1133,7 @@ def cancel_receipts_for_freight_shipment(doc: Any) -> int:
 	sp_name = resolve_special_project_from_project(project)
 	if not sp_name:
 		return 0
-	sp = frappe.get_doc("Special Project", sp_name)
-	changed = 0
-	for rc in getattr(sp, "deliveries", None) or []:
-		if (
-			_norm(getattr(rc, "source_doctype", None)) == doc.doctype
-			and _norm(getattr(rc, "source_name", None)) == doc.name
-			and (getattr(rc, "status", None) or "") == POSTED_RECEIPT_STATUS
-		):
-			rc.status = "Cancelled"
-			changed += 1
-	if not changed:
-		return 0
-	sp.flags.ignore_validate_update_after_submit = True
-	sp.flags.ignore_charges_sync = True
-	validate_packages(sp)
-	sp.save(ignore_permissions=True)
-	return changed
+	return _cancel_receipts_on_special_project(sp_name, doc.doctype, doc.name)
 
 
 def on_freight_shipment_submit(doc: Any, method: str | None = None) -> None:
@@ -805,15 +1175,67 @@ def _resolve_sp_from_project_doc(doc: Any) -> str | None:
 	return resolve_special_project_from_project(project)
 
 
+def build_receipts_from_project_job_packages(doc: Any) -> list[dict[str, Any]]:
+	"""Build delivery receipt rows from Project Job ``packages`` child table."""
+	if (getattr(doc, "doctype", None) or "") != "Project Job":
+		return []
+	if not getattr(doc, "packages", None):
+		return []
+	sp_name = _resolve_sp_from_project_doc(doc)
+	if not sp_name:
+		return []
+
+	sp_doc = frappe.get_doc("Special Project", sp_name)
+	stage = _default_receipt_stage(sp_doc, doc.doctype, doc.name)
+	created: list[dict[str, Any]] = []
+
+	for pkg in doc.packages or []:
+		pkg_idx = cint_safe(getattr(pkg, "idx", None))
+		if _receipt_exists(sp_doc, doc.doctype, doc.name, pkg_idx):
+			continue
+		qty = flt(getattr(pkg, "quantity", 0)) or flt(getattr(pkg, "no_of_packs", 0))
+		if qty <= 0:
+			continue
+		wh = _norm(getattr(pkg, "warehouse_item", None))
+		commodity = _norm(getattr(pkg, "commodity", None))
+		desc = _norm(getattr(pkg, "description", None))
+		mat, mat_row = _resolve_sp_package_for_operational_line(sp_doc, pkg)
+		if mat is None:
+			continue
+		created.append(
+			{
+				"package_row": mat_row,
+				"warehouse_item": wh or getattr(mat, "warehouse_item", None),
+				"commodity": commodity or getattr(mat, "commodity", None),
+				"description": desc or getattr(mat, "description", None),
+				"qty_received": qty,
+				"uom": getattr(pkg, "uom", None) or getattr(mat, "uom", None),
+				"receipt_date": getdate(today()),
+				"lifecycle_stage": stage,
+				"status": POSTED_RECEIPT_STATUS,
+				"source_job_type": doc.doctype,
+				"source_job_no": doc.name,
+				"container_no": _norm(getattr(pkg, "container_no", None)) or None,
+				"source_doctype": doc.doctype,
+				"source_name": doc.name,
+				"source_package_idx": pkg_idx,
+			}
+		)
+	return created
+
+
 def build_receipts_from_project_doc(doc: Any) -> list[dict[str, Any]]:
-	"""Build delivery receipt row dicts from a Project Job ``materials_received``.
+	"""Build delivery receipt row dicts from a Project Job.
 
-	Project Order is a planning document and no longer carries ``materials_received``
-	or posts receipts; only its derived Project Job does, to keep the parent Special
-	Project's Deliveries table single-sourced.
-
-	Caller persists the rows on the parent Special Project.
+	Prefer ``packages`` when present; fall back to legacy ``materials_received``.
 	"""
+	package_rows = build_receipts_from_project_job_packages(doc)
+	if package_rows:
+		return package_rows
+
+	# Legacy materials_received path
+	if (getattr(doc, "doctype", None) or "") not in PACKAGE_RECEIPT_PROJECT_JOB_DOCTYPES:
+		return []
 	sp_name = _resolve_sp_from_project_doc(doc)
 	if not sp_name:
 		return []
@@ -835,26 +1257,23 @@ def build_receipts_from_project_doc(doc: Any) -> list[dict[str, Any]]:
 		explicit_row_link = cint_safe(
 			getattr(row, "package_row", None) or getattr(row, "site_material_row", None)
 		)
-		mat = None
-		if explicit_row_link:
-			packages = getattr(sp_doc, "packages", None) or []
-			if 1 <= explicit_row_link <= len(packages):
-				mat = packages[explicit_row_link - 1]
+		line = frappe._dict(
+			package_row=explicit_row_link or None,
+			warehouse_item=wh,
+			commodity=commodity,
+			description=desc,
+		)
+		mat, mat_row = _resolve_sp_package_for_operational_line(sp_doc, line)
 		if mat is None:
-			mat = _find_package_row(
-				sp_doc, warehouse_item=wh, commodity=commodity, description=desc
-			)
-		if mat is not None and cint_safe(getattr(mat, "include_on_create", 0)):
 			continue
-		mat_row = cint_safe(getattr(mat, "idx", None)) if mat else 0
 		created.append(
 			{
 				"package_row": mat_row,
-				"warehouse_item": wh or (getattr(mat, "warehouse_item", None) if mat else None),
-				"commodity": commodity or (getattr(mat, "commodity", None) if mat else None),
-				"description": desc or (getattr(mat, "description", None) if mat else None),
+				"warehouse_item": wh or getattr(mat, "warehouse_item", None),
+				"commodity": commodity or getattr(mat, "commodity", None),
+				"description": desc or getattr(mat, "description", None),
 				"qty_received": qty,
-				"uom": getattr(row, "uom", None) or (getattr(mat, "uom", None) if mat else None),
+				"uom": getattr(row, "uom", None) or getattr(mat, "uom", None),
 				"receipt_date": getdate(today()),
 				"lifecycle_stage": stage,
 				"status": POSTED_RECEIPT_STATUS,
@@ -892,23 +1311,7 @@ def cancel_receipts_for_project_doc(doc: Any) -> int:
 	sp_name = _resolve_sp_from_project_doc(doc)
 	if not sp_name:
 		return 0
-	sp = frappe.get_doc("Special Project", sp_name)
-	changed = 0
-	for rc in getattr(sp, "deliveries", None) or []:
-		if (
-			_norm(getattr(rc, "source_doctype", None)) == doc.doctype
-			and _norm(getattr(rc, "source_name", None)) == doc.name
-			and (getattr(rc, "status", None) or "") == POSTED_RECEIPT_STATUS
-		):
-			rc.status = "Cancelled"
-			changed += 1
-	if not changed:
-		return 0
-	sp.flags.ignore_validate_update_after_submit = True
-	sp.flags.ignore_charges_sync = True
-	validate_packages(sp)
-	sp.save(ignore_permissions=True)
-	return changed
+	return _cancel_receipts_on_special_project(sp_name, doc.doctype, doc.name)
 
 
 @frappe.whitelist()
@@ -936,6 +1339,10 @@ def get_packages_for_shipment_picker(special_project: str) -> list[dict[str, Any
 		warehouse_item_name = None
 		if wh:
 			warehouse_item_name = frappe.db.get_value("Warehouse Item", wh, "item_name")
+		site = getattr(pkg, "site", None)
+		site_label = None
+		if site:
+			site_label = frappe.db.get_value("Address", site, "address_title") or site
 		out.append(
 			{
 				"package_row": cint_safe(getattr(pkg, "idx", None)),
@@ -943,6 +1350,9 @@ def get_packages_for_shipment_picker(special_project: str) -> list[dict[str, Any
 				"warehouse_item": wh or None,
 				"warehouse_item_name": warehouse_item_name,
 				"description": getattr(pkg, "description", None),
+				"site": site,
+				"site_label": site_label,
+				"reference_no": getattr(pkg, "reference_no", None),
 				"qty_required": flt(getattr(pkg, "qty_required", 0)),
 				"qty_on_site": flt(getattr(pkg, "qty_on_site", 0)),
 				"qty_short": flt(getattr(pkg, "qty_short", 0)),

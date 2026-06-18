@@ -262,14 +262,21 @@
     </style>
 </head>
 <body>
-    <div class="invoice-container">
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set company_doc = None %}
+{% set resolved_company = doc.company or default_company %}
+{% if doc.company and frappe.db.exists("Company", doc.company) %}
+{% set company_doc = frappe.get_doc("Company", doc.company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
+{% set company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
+<div class="invoice-container">
         <!-- Header -->
         <div class="header">
             <div class="company-info">
                 <div class="company-name">{{ doc.company }}</div>
                 <div class="company-details">
-                    {% set company_doc = frappe.get_doc("Company", doc.company) %}
-                    {% if company_doc.address %}
+                    {% if company_doc and company_doc.address %}
                         {% set company_address = frappe.get_doc("Address", company_doc.address) %}
                         {{ company_address.address_line1 if company_address.address_line1 else '' }}<br>
                         {% if company_address.address_line2 %}{{ company_address.address_line2 }}<br>{% endif %}
@@ -277,13 +284,13 @@
                     {% elif doc.company_address %}
                         {{ doc.company_address }}<br>
                     {% endif %}
-                    {% if company_doc.phone_no %}
+{% if company_doc and company_doc.phone_no %}
                         Tel: {{ company_doc.phone_no }}<br>
                     {% endif %}
-                    {% if company_doc.email %}
+{% if company_doc and company_doc.email %}
                         Email: {{ company_doc.email }}<br>
                     {% endif %}
-                    {% if company_doc.tin %}
+{% if company_doc and company_doc.tin %}
                         TIN: {{ company_doc.tin }}{% if company_doc.branch_code %}-{{ company_doc.branch_code }}{% endif %}
                     {% endif %}
                 </div>
@@ -418,7 +425,7 @@
                     <td class="value">{{ frappe.utils.fmt_money(doc.total_taxes_and_charges, precision=2, currency=doc.currency) }}</td>
                 </tr>
                 {% endif %}
-                {% if doc.discount_amount %}
+{% if doc.discount_amount %}
                 <tr>
                     <td class="label">Discount:</td>
                     <td class="value">({{ frappe.utils.fmt_money(doc.discount_amount, precision=2, currency=doc.currency) }})</td>
@@ -463,8 +470,7 @@
                 {{ doc.terms }}
             </div>
             {% endif %}
-            
-            <div class="signature-section">
+<div class="signature-section">
                 <div class="signature-box">
                     <div class="signature-line">Prepared by</div>
                 </div>
@@ -475,8 +481,7 @@
             
             <div class="bir-note">
                 This document serves as an official receipt for accounting and tax purposes.
-                {% set company_doc = frappe.get_doc("Company", doc.company) %}
-                {% if company_doc.tin %}
+                {% if company_doc and company_doc.tin %}
                     TIN: {{ company_doc.tin }}{% if company_doc.branch_code %}-{{ company_doc.branch_code }}{% endif %}
                 {% endif %}
             </div>

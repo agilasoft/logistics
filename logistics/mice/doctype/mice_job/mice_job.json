@@ -274,7 +274,6 @@
    "fieldname": "site",
    "fieldtype": "Link",
    "label": "Site",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {

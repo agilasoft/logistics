@@ -8,6 +8,8 @@
  "field_order": [
   "item_code",
   "service_type",
+  "charge_scope",
+  "internal_job",
   "charge_type",
   "charge_category",
   "freight_taxes_section",
@@ -23,7 +25,7 @@
   "quantity",
   "column_break_ghkh",
   "currency",
-  "rate",
+  "unit_rate",
   "total",
   "standard_unit_cost",
   "total_standard_cost",
@@ -77,10 +79,10 @@
   },
   {
    "columns": 1,
-   "fieldname": "rate",
+   "fieldname": "unit_rate",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Rate"
+   "label": "Unit Rate"
   },
   {
    "fieldname": "total",
@@ -103,7 +105,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing"
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE"
   },
   {
    "fetch_from": "item_code.item_name",
@@ -318,6 +320,27 @@
    "hidden": 1,
    "label": "Change Request Charge Row",
    "read_only": 1
+  },
+  {
+   "default": "Main",
+   "fieldname": "charge_scope",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Scope",
+   "options": "Main\nInternal Job"
+  },
+  {
+   "depends_on": "eval:doc.charge_scope==\"Internal Job\"",
+   "fieldname": "internal_job",
+   "fieldtype": "Link",
+   "in_list_view": 0,
+   "in_standard_filter": 1,
+   "label": "Internal Job",
+   "mandatory_depends_on": "eval:doc.charge_scope==\"Internal Job\"",
+   "options": "Internal Job",
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,

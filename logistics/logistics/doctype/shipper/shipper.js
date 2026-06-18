@@ -13,15 +13,13 @@ frappe.ui.form.on('Shipper', {
       return contact_names.length ? { filters: { name: ['in', contact_names] } } : { filters: { name: '__none__' } };
     });
 
-    // Primary / pick address → only addresses linked to this Shipper (frappe address_query; avoids JSON link_filters overriding set_query)
-    const q = 'frappe.contacts.doctype.address.address.address_query';
     frm.set_query('shipper_primary_address', function (doc) {
       if (doc.__islocal || !doc.name) return { filters: { name: '__none__' } };
-      return { query: q, filters: { link_doctype: 'Shipper', link_name: doc.name } };
+      return logistics.address.query_for_link('Shipper', doc.name);
     });
     frm.set_query('pick_address', function (doc) {
       if (doc.__islocal || !doc.name) return { filters: { name: '__none__' } };
-      return { query: q, filters: { link_doctype: 'Shipper', link_name: doc.name } };
+      return logistics.address.query_for_link('Shipper', doc.name);
     });
   },
 

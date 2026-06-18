@@ -867,28 +867,363 @@ def preview_quotation_charges_for_job(
 	if doctype == "Sea Booking":
 		from logistics.sea_freight.doctype.sea_booking.sea_booking import populate_charges_from_sales_quote
 
-		return populate_charges_from_sales_quote(docname, sales_quote)
-	if doctype == "Air Booking":
+		main_response = populate_charges_from_sales_quote(
+			docname, sales_quote, gcfq_main_service_only=1
+		)
+	elif doctype == "Air Booking":
 		from logistics.air_freight.doctype.air_booking.air_booking import populate_charges_from_sales_quote
 
-		return populate_charges_from_sales_quote(docname, sales_quote)
-	if doctype == "Transport Order":
+		main_response = populate_charges_from_sales_quote(
+			docname, sales_quote, gcfq_main_service_only=1
+		)
+	elif doctype == "Transport Order":
 		from logistics.transport.doctype.transport_order.transport_order import populate_charges_from_sales_quote
 
-		return populate_charges_from_sales_quote(docname, sales_quote)
-	if doctype == "Declaration Order":
+		main_response = populate_charges_from_sales_quote(
+			docname, sales_quote, gcfq_main_service_only=1
+		)
+	elif doctype == "Declaration Order":
 		from logistics.customs.doctype.declaration_order.declaration_order import populate_charges_from_sales_quote
 
-		return populate_charges_from_sales_quote(docname, sales_quote)
+		main_response = populate_charges_from_sales_quote(
+			docname, sales_quote, gcfq_main_service_only=1
+		)
+	else:
+		return {"error": _("Unsupported document type.")}
 
-	return {"error": _("Unsupported document type.")}
+	# Append Internal-Job-scoped Sales Quote Charge rows alongside Main rows so the dialog preview
+	# matches what apply_quotation_charges_to_job will tag onto the Main charges table.
+	return _gcfq_attach_internal_job_scoped_preview_rows(main_response, doc, sq)
+
+
+# Operational booking/order doctypes whose charges child table carries the per-scope columns
+# (``charge_scope`` / ``internal_job``). Only these accept the Internal-Job-scoped pass; programme
+# parents (Special Project / Exhibit) keep their existing single-pass population.
+_GCFQ_PER_SCOPE_PARENT_DOCTYPES = frozenset(
+	{"Sea Booking", "Air Booking", "Transport Order", "Declaration Order"}
+)
+
+
+def _gcfq_internal_job_label(ij_name: str) -> str:
+	"""Best-effort human label for an Internal Job (``<name> (Service · Job no/type)``) for previews."""
+	if not ij_name:
+		return ""
+	try:
+		info = (
+			frappe.db.get_value(
+				"Internal Job",
+				ij_name,
+				("service_type", "job_no", "job_type"),
+				as_dict=True,
+			)
+			or {}
+		)
+	except Exception:
+		info = {}
+	bits = [b for b in (info.get("service_type"), info.get("job_no") or info.get("job_type")) if b]
+	if not bits:
+		return ij_name
+	return f"{ij_name} ({' · '.join(bits)})"
+
+
+def _gcfq_quote_row_to_preview_dict(row, scope: str, internal_job: str | None) -> dict:
+	"""Lightweight preview row matching the JS dialog table shape (service_type, item_code, …).
+
+	The Main pass uses the booking's own response shape; this helper only builds rows for the
+	Internal-Job-scoped pass so the preview can show what will be tagged onto the Main charges
+	table when the user applies the quotation.
+	"""
+
+	def _g(fn):
+		if isinstance(row, dict):
+			return row.get(fn)
+		return getattr(row, fn, None)
+
+	preview = {
+		"name": _g("name"),
+		"item_code": _g("item_code"),
+		"item_name": _g("item_name"),
+		"service_type": _g("service_type"),
+		"charge_type": _g("charge_type"),
+		"charge_category": _g("charge_category"),
+		"unit_rate": _g("unit_rate"),
+		"rate": _g("unit_rate"),
+		"currency": _g("currency"),
+		"uom": _g("uom"),
+		"charge_scope": scope,
+		"internal_job": internal_job or "",
+	}
+	if internal_job:
+		preview["internal_job_label"] = _gcfq_internal_job_label(internal_job)
+	return preview
+
+
+def _gcfq_attach_internal_job_scoped_preview_rows(main_response, parent_doc, sq_doc):
+	"""Append Internal-Job-scoped preview rows to a Main preview response (no-op when not eligible).
+
+	Reuses ``populate_charges_from_quote_by_scope`` so the per-IJ matching logic is exactly the same
+	as ``_append_internal_job_scoped_charges_to_main`` (the apply path).
+	"""
+	if not isinstance(main_response, dict) or main_response.get("error"):
+		return main_response
+	if (
+		not parent_doc
+		or not sq_doc
+		or getattr(parent_doc, "doctype", None) not in _GCFQ_PER_SCOPE_PARENT_DOCTYPES
+	):
+		return main_response
+
+	from logistics.utils.charge_service_type import is_combined_billing_main_service_booking
+
+	if is_combined_billing_main_service_booking(parent_doc, sq_doc):
+		main_charges = list(main_response.get("charges") or [])
+		for ch in main_charges:
+			if isinstance(ch, dict) and not ch.get("charge_scope"):
+				ch["charge_scope"] = "Main"
+		main_response["charges"] = main_charges
+		main_response["charges_count"] = main_response.get("charges_count", len(main_charges))
+		main_response["internal_job_charge_count"] = 0
+		return main_response
+
+	from logistics.utils.sales_quote_charge_copy import (
+		SCOPE_INTERNAL_JOB,
+		populate_charges_from_quote_by_scope,
+	)
+
+	# Existing Main response charges first; preserve scope tags when a downstream caller already
+	# stamped them. Use a defensive copy so we never mutate the input list in place.
+	main_charges = list(main_response.get("charges") or [])
+	for ch in main_charges:
+		if isinstance(ch, dict) and not ch.get("charge_scope"):
+			ch["charge_scope"] = "Main"
+
+	ij_charges: list[dict] = []
+
+	def _on_scope_match(quote_row, scope, internal_job):
+		if scope != SCOPE_INTERNAL_JOB:
+			return
+		if not internal_job:
+			return
+		ij_charges.append(_gcfq_quote_row_to_preview_dict(quote_row, scope, internal_job))
+
+	try:
+		populate_charges_from_quote_by_scope(parent_doc, sq_doc, _on_scope_match)
+	except Exception:
+		frappe.log_error(
+			title=_("GCFQ → IJ-scope preview failed"),
+			message=frappe.get_traceback(),
+		)
+		ij_charges = []
+
+	if not ij_charges:
+		# Still tag the existing Main rows so the JS preview can render the Scope column.
+		main_response["charges"] = main_charges
+		main_response["charges_count"] = main_response.get("charges_count", len(main_charges))
+		main_response["internal_job_charge_count"] = 0
+		return main_response
+
+	combined = main_charges + ij_charges
+	main_response["charges"] = combined
+	main_response["charges_count"] = len(combined)
+	main_response["main_charge_count"] = len(main_charges)
+	main_response["internal_job_charge_count"] = len(ij_charges)
+	return main_response
+
+# Generic Sales Quote Charge → operational charge field copy list. Each field is only copied when
+# present on the target child doctype, so the same map is safe across Sea/Air/Transport/Customs
+# charge tables (and any future ones that follow the same conventions).
+_SQ_CHARGE_COPY_FIELDS: tuple[str, ...] = (
+	"item_code",
+	"item_name",
+	"description",
+	"service_type",
+	"charge_type",
+	"charge_category",
+	"revenue_calculation_method",
+	"calculation_method",
+	"uom",
+	"currency",
+	"unit_rate",
+	"unit_type",
+	"quantity",
+	"minimum_quantity",
+	"minimum_unit_rate",
+	"minimum_charge",
+	"maximum_charge",
+	"base_amount",
+	"base_quantity",
+	"estimated_revenue",
+	"cost_calculation_method",
+	"unit_cost",
+	"cost_unit_type",
+	"cost_currency",
+	"cost_quantity",
+	"cost_minimum_quantity",
+	"cost_minimum_unit_rate",
+	"cost_minimum_charge",
+	"cost_maximum_charge",
+	"cost_base_amount",
+	"cost_base_quantity",
+	"cost_uom",
+	"estimated_cost",
+	"use_tariff_in_revenue",
+	"use_tariff_in_cost",
+	"tariff",
+	"revenue_tariff",
+	"cost_tariff",
+	"bill_to",
+	"bill_to_exchange_rate",
+	"bill_to_exchange_rate_source",
+	"pay_to",
+	"pay_to_exchange_rate",
+	"pay_to_exchange_rate_source",
+	"apply_95_5_rule",
+	"taxable_freight_item",
+	"taxable_freight_item_tax_template",
+	"origin_port",
+	"destination_port",
+	"location_from",
+	"location_to",
+	"customs_authority",
+	"declaration_type",
+	"customs_broker",
+	"customs_charge_category",
+)
+
+
+def _operational_child_doctype_for_charges(parent_doc) -> str | None:
+	"""Return the child doctype configured on ``parent_doc.meta`` for the ``charges`` table."""
+	try:
+		meta = frappe.get_meta(getattr(parent_doc, "doctype", None))
+	except Exception:
+		return None
+	df = meta.get_field("charges") if meta else None
+	if not df:
+		return None
+	return (df.options or "").strip() or None
+
+
+def _sq_charge_row_to_operational_dict(
+	sq_row, child_doctype: str, sales_quote_name: str
+) -> dict | None:
+	"""Generic mapper: SQ Charge row (Document or dict) → operational charge child row dict.
+
+	Only fields declared on the target child doctype are written, so the same helper is safe across
+	Sea/Air/Transport/Customs charge tables. The per-doctype ``_map_…`` methods already exist on
+	the booking docs but they assume their own service type; here we keep the appended IJ-scoped
+	rows as ``service_type`` from the quote so reports / downstream conversion can distinguish them.
+	"""
+	try:
+		child_meta = frappe.get_meta(child_doctype)
+	except Exception:
+		return None
+	valid = {f.fieldname for f in child_meta.fields}
+
+	def _get(fn):
+		if isinstance(sq_row, dict):
+			return sq_row.get(fn)
+		return getattr(sq_row, fn, None)
+
+	out: dict = {}
+	for fn in _SQ_CHARGE_COPY_FIELDS:
+		if fn not in valid:
+			continue
+		val = _get(fn)
+		if val is None:
+			continue
+		out[fn] = val
+
+	# Declaration Order Charges uses ``rate`` + ``charge_basis`` instead of ``unit_rate`` + method.
+	rev_basis = _get("revenue_calculation_method") or _get("calculation_method")
+	if "charge_basis" in valid and rev_basis and not out.get("charge_basis"):
+		out["charge_basis"] = rev_basis
+	if "rate" in valid and out.get("unit_rate") is not None and not out.get("rate"):
+		out["rate"] = out["unit_rate"]
+	if "revenue_calculation_method" in valid and rev_basis and not out.get(
+		"revenue_calculation_method"
+	):
+		out["revenue_calculation_method"] = rev_basis
+
+	if "sales_quote_link" in valid and sales_quote_name:
+		out.setdefault("sales_quote_link", sales_quote_name)
+	if "charge_type" in valid and not out.get("charge_type"):
+		out["charge_type"] = "Revenue"
+	if not out.get("item_code"):
+		return None
+	return out
+
+
+def _append_internal_job_scoped_charges_to_main(parent_doc, sq_doc) -> dict[str, int]:
+	"""Append IJ-scoped Sales Quote Charge rows to ``parent_doc.charges`` (Main charges stay intact).
+
+	For every Internal Job linked from ``parent_doc.internal_job_details`` (via the canonical
+	``internal_job`` link to the ``Internal Job`` doctype), this iterates the quote's charge rows
+	whose service type matches the IJ and whose parameters match the IJ's snapshot, then appends a
+	new charge row tagged with ``charge_scope = "Internal Job"`` and ``internal_job = ij.name``.
+
+	The same Sales Quote Charge row may be appended multiple times — once per matching IJ —
+	matching the existing ``populate_charges_from_quote_by_scope`` semantics.
+	"""
+	from logistics.utils.sales_quote_charge_copy import (
+		SCOPE_INTERNAL_JOB,
+		populate_charges_from_quote_by_scope,
+		stamp_scope_fields_on_charge_row,
+	)
+
+	counts = {"main": 0, "internal_job": 0}
+	if not parent_doc or not sq_doc:
+		return counts
+	if getattr(parent_doc, "doctype", None) not in _GCFQ_PER_SCOPE_PARENT_DOCTYPES:
+		return counts
+
+	from logistics.utils.charge_service_type import is_combined_billing_main_service_booking
+
+	# Combined billing: main pass already loaded every quote row; skip IJ-scoped duplicates.
+	if is_combined_billing_main_service_booking(parent_doc, sq_doc):
+		return counts
+
+	child_doctype = _operational_child_doctype_for_charges(parent_doc)
+	if not child_doctype:
+		return counts
+	try:
+		child_meta = frappe.get_meta(child_doctype)
+	except Exception:
+		return counts
+	# Without the per-scope columns the IJ-scoped pass has nothing to write into — bail out.
+	if not (child_meta.has_field("charge_scope") and child_meta.has_field("internal_job")):
+		return counts
+
+	sales_quote_name = getattr(sq_doc, "name", None)
+
+	def _on_scope_match(quote_row, scope, internal_job):
+		# Main pass is intentionally a no-op — the booking's own ``_populate_charges_from_sales_quote``
+		# already filled Main-scope rows in this transaction (``gcfq_main_service_only = 1``).
+		if scope != SCOPE_INTERNAL_JOB:
+			counts["main"] += 1
+			return
+		if not internal_job:
+			return
+		row_dict = _sq_charge_row_to_operational_dict(quote_row, child_doctype, sales_quote_name)
+		if not row_dict:
+			return
+		child = parent_doc.append("charges", row_dict)
+		stamp_scope_fields_on_charge_row(child, scope, internal_job)
+		counts["internal_job"] += 1
+
+	populate_charges_from_quote_by_scope(parent_doc, sq_doc, _on_scope_match)
+	return counts
 
 
 @frappe.whitelist()
 def apply_quotation_charges_to_job(
 	doctype: str, docname: str, sales_quote: str, filter_overrides=None
 ):
-	"""Set ``sales_quote``, routing (Sea/Air), and charges; then save."""
+	"""Set ``sales_quote``, routing (Sea/Air), and charges; then save.
+
+	When ``separate_billings_per_service_type`` is off on the quote, the main-service booking
+	receives **all** quote charge rows. When separate billings is on, the main job keeps only its
+	implied service type; Internal Job–scoped rows may still be appended for linked IJs.
+	"""
 	if doctype not in JOB_DOCTYPES or not sales_quote:
 		frappe.throw(_("Invalid arguments."))
 
@@ -939,6 +1274,10 @@ def apply_quotation_charges_to_job(
 		frappe.throw(parent_err, title=_("Cannot apply quotation"))
 
 	doc.flags.skip_sales_quote_on_change = True
+	# Action → Get Charges from Quotation: per-service charge fetch on main jobs when separate
+	# billings is on; combined billing (separate off) loads all quote rows on the main job.
+	# See sales_quote_charge_filters / is_combined_billing_main_service_booking.
+	doc.flags.gcfq_main_service_only = 1
 	doc.sales_quote = sales_quote
 	_sync_quote_fields(doc)
 	copy_operational_rep_fields_from_sales_quote_doc(doc, sq)
@@ -962,13 +1301,32 @@ def apply_quotation_charges_to_job(
 		elif doctype == "Exhibit":
 			doc.populate_charges_from_sales_quote(sales_quote)
 
+	# Append Internal-Job-scoped Sales Quote Charge rows into the Main's charges table (no separate
+	# write to internal job documents — the Main now carries both scopes side by side).
+	with _suppress_msgprint():
+		scope_counts = _append_internal_job_scoped_charges_to_main(doc, sq)
+
 	try:
 		doc.save()
 	finally:
 		doc.flags.skip_sales_quote_on_change = False
+		doc.flags.gcfq_main_service_only = 0
+
+	ij_count = scope_counts.get("internal_job", 0)
+	if ij_count:
+		message = _(
+			"Charges applied from Sales Quote {0} ({1} internal-job line{2} tagged on this document)."
+		).format(
+			sales_quote,
+			ij_count,
+			"" if ij_count == 1 else "s",
+		)
+	else:
+		message = _("Charges applied from Sales Quote {0}.").format(sales_quote)
 
 	return {
 		"success": True,
-		"message": _("Charges applied from Sales Quote {0}.").format(sales_quote),
+		"message": message,
 		"name": doc.name,
+		"internal_job_charge_lines": ij_count,
 	}

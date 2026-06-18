@@ -144,6 +144,7 @@
   "is_internal_job",
   "main_job_type",
   "main_job",
+  "internal_job",
   "internal_job_details_section",
   "internal_job_details",
   "more_info_tab",
@@ -248,6 +249,17 @@
    "no_copy": 1,
    "options": "main_job_type",
    "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.is_internal_job",
+   "description": "Canonical Internal Job record this order represents (populated on Create Internal Job from the Main's Internal Job Detail row).",
+   "fieldname": "internal_job",
+   "fieldtype": "Link",
+   "label": "Internal Job",
+   "no_copy": 1,
+   "options": "Internal Job",
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "collapsible": 1,

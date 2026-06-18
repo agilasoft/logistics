@@ -138,15 +138,15 @@ Repeat for further legs; later stages (On-Site, Post-Show, Closed) light up as y
 
 After bulk edits or imports, use **Packages → Refresh Delivery Funnel** on the Special Project form to recalculate the per-stage delivered quantities and re-render the summary.
 
-### 5.4 Record deliveries from a Project Order / Project Job
+### 5.4 Record deliveries from a Project Job
 
 Use this when materials are delivered or consumed against non-freight execution work (e.g. site setup, installation, exhibits handling).
 
-1. Open the **Project Order** (`SPOR-`) or **Project Job** (`SPJ-`) and confirm **Special Project** is set.
+1. Open the **Project Job** (`SPJ-`) and confirm **Special Project** is set. **Project Order** (`SPOR-`) is planning only — it does not post deliveries.
 2. Fill the **Materials Received** grid: pick **Warehouse Item**, enter **Qty Received**, optionally set **UOM**, **Container No**, and a direct **Package Row** (1-based index of the row to credit).
-3. **Submit** the order/job.
+3. **Submit** the job.
 4. The system appends one **Posted** delivery to the parent Special Project per row, tagged with the Lifecycle Stage of the originating Lifecycle Job row (or the Special Project's current stage). On-site balances and the funnel refresh automatically.
-5. **Cancel** the order/job to flip the matching deliveries to **Cancelled** and back out the funnel.
+5. **Cancel** the job to flip the matching deliveries to **Cancelled** and back out the funnel.
 
 Rows with `Qty Received = 0` are skipped, and rows that match an always-along package (Include on Create) are also skipped to avoid double-counting consumables.
 
@@ -156,13 +156,15 @@ Rows with `Qty Received = 0` are skipped, and rows that match an always-along pa
 | --- | --- |
 | Save Special Project | Validates rows; recalculates delivered / remaining and per-stage funnel; auto-fills any missing **Lifecycle Stage** on Delivery rows from the originating Lifecycle Job or the project's current stage. Always-along rows stay at 0/0. |
 | Sales Quote → Special Project update | Appends new package rows from **Project Products** (does not clear existing rows). |
-| **Create → Booking / Order** (Transport / Air / Sea / Inbound) | **Shipment lines** dialog lists tracked packages with current **Remaining**; chosen quantities become target **Packages** with dimensions prefilled. Always-along package rows (Include on Create ticked) are appended to **Packages** automatically. |
+| **Create → Booking / Order** (Transport / Air / Sea / Inbound / Project Order) | **Shipment lines** dialog lists tracked packages with current **Remaining**; chosen quantities become target **Packages** with dimensions prefilled. Always-along package rows (Include on Create ticked) are appended to **Packages** automatically. |
 | **Transport Order** submit | If **Project** points to the programme, each package line posts one **Posted** delivery (once per package row; duplicates are skipped). Stage is taken from the originating Lifecycle Job. Packages sourced from always-along rows are skipped. |
 | **Transport Order** cancel | Deliveries sourced from that order are set to **Cancelled** and the funnel updates. |
-| **Project Order** / **Project Job** submit | If **Special Project** is set, each row of **Materials Received** posts one **Posted** delivery on the parent programme, tagged with the originating Lifecycle Job's stage. |
-| **Project Order** / **Project Job** cancel | Deliveries sourced from that order/job are set to **Cancelled** and the funnel updates. |
+| **Air Shipment** / **Sea Shipment** submit | If **Project** points to the programme, each package line on the shipment posts one **Posted** delivery (once per package row; duplicates are skipped). Lifecycle stage is resolved from the shipment, then the linked **Air Booking** / **Sea Booking**. **Booking** submit does not post deliveries. |
+| **Air Shipment** / **Sea Shipment** cancel | Deliveries sourced from that shipment are set to **Cancelled** and the funnel updates. |
+| **Project Job** submit | If **Special Project** is set, each row of **Materials Received** posts one **Posted** delivery on the parent programme, tagged with the originating Lifecycle Job's stage. **Project Order** submit does not post deliveries. |
+| **Project Job** cancel | Deliveries sourced from that job are set to **Cancelled** and the funnel updates. |
 
-**Note:** Auto-post on submit applies to **Transport Order** (freight) and **Project Order / Project Job** (non-freight execution work). Sea/Air shipment submit and inbound receipt posting are not wired yet — use manual **Deliveries** for those legs until extended.
+**Note:** Auto-post on submit applies only to **execution** documents: **Transport Order**, **Air Shipment**, **Sea Shipment**, and **Project Job**. **Air Booking**, **Sea Booking**, and **Project Order** are planning — they do not change **Delivered** on the programme. **Inbound Order** receipt posting is not wired yet — use manual **Deliveries** for inbound legs until extended.
 
 ## 7. Tips and troubleshooting
 

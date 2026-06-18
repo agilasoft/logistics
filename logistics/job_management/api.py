@@ -66,6 +66,25 @@ def _account_has_job_profit_type():
 	return frappe.db.has_column("Account", "job_profit_account_type")
 
 
+STOCK_RECEIVED_BUT_NOT_BILLED_ACCOUNT_TYPE = "Stock Received But Not Billed"
+
+
+def is_stock_received_not_billed_cost_account(root_type, account_type):
+	"""True when a PI line posts to ERPNext's Stock Received But Not Billed liability."""
+	return (root_type or "").strip() == "Liability" and (
+		(account_type or "").strip() == STOCK_RECEIVED_BUT_NOT_BILLED_ACCOUNT_TYPE
+	)
+
+
+def _cost_account_sql_predicate(acc_alias="acc", cost_exclude="", jp_ex=""):
+	"""SQL predicate for GL rows that count toward realized job Cost."""
+	return (
+		f"(({acc_alias}.root_type = 'Expense'{cost_exclude}{jp_ex}) "
+		f"OR ({acc_alias}.root_type = 'Liability' "
+		f"AND {acc_alias}.account_type = '{STOCK_RECEIVED_BUT_NOT_BILLED_ACCOUNT_TYPE}'))"
+	)
+
+
 def _jp_exclude_fragment():
 	"""Exclude Job Profit–tagged lines from generic Revenue/Cost GL totals."""
 	if not _account_has_job_profit_type():
@@ -163,8 +182,9 @@ def get_job_profitability_from_gl(job_number, company, to_date=None, from_date=N
 	:param company: Company
 	:param to_date: Optional; limit GL entries on or before this date
 	:param from_date: Optional; limit GL entries on or after this date
-	:return: dict with revenue, cost, gross_profit, profit_margin_pct, wip_amount,
-	         accrual_amount (open accrued cost liability from GL), currency
+	:return: dict with revenue, cost, realized_cost, gross_profit, profit_margin_pct, wip_amount,
+	         accrual_amount (open accrued cost liability from GL), currency.
+	         ``cost`` = ``realized_cost`` (Expense + Stock Received But Not Billed GL) + open accrual.
 	"""
 	if not job_number or not company:
 		return _empty_profitability(company)
@@ -219,14 +239,12 @@ def get_job_profitability_from_gl(job_number, company, to_date=None, from_date=N
 		FROM `tabGL Entry` gle
 		INNER JOIN `tabAccount` acc ON acc.name = gle.account
 		WHERE {where}
-		AND acc.root_type = 'Expense'
-		{cost_exclude}
-		{jp_ex}
-	""".format(where=where, cost_exclude=cost_exclude, jp_ex=jp_ex), cost_values, as_dict=True)
-	cost = flt(cost_row[0].amount, 2) if cost_row else 0
-
-	gross_profit = revenue - cost
-	profit_margin_pct = (gross_profit / revenue * 100) if revenue else 0
+		AND {cost_predicate}
+	""".format(
+		where=where,
+		cost_predicate=_cost_account_sql_predicate(cost_exclude=cost_exclude, jp_ex=jp_ex),
+	), cost_values, as_dict=True)
+	realized_cost = flt(cost_row[0].amount, 2) if cost_row else 0
 
 	# Disbursements: Job Profit Account Type = Disbursements
 	disbursements_amount = 0
@@ -306,11 +324,18 @@ def get_job_profitability_from_gl(job_number, company, to_date=None, from_date=N
 			}, as_dict=True)
 			accrual_amount = flt(accr_row[0].balance, 2) if accr_row else 0
 
+	# Total cost = posted expenses plus open cost accruals (excluded from realized_cost).
+	# Matches Purchase Invoice charge totals while accruals are still open on Docket / job forms.
+	cost = flt(realized_cost + accrual_amount, 2)
+	gross_profit = revenue - cost
+	profit_margin_pct = (gross_profit / revenue * 100) if revenue else 0
+
 	currency = frappe.get_cached_value("Company", company, "default_currency") or "USD"
 
 	return {
 		"revenue": revenue,
 		"cost": cost,
+		"realized_cost": realized_cost,
 		"gross_profit": gross_profit,
 		"profit_margin_pct": round(profit_margin_pct, 2),
 		"wip_amount": wip_amount,
@@ -387,6 +412,7 @@ def _get_job_gl_entries_classified(
 			gle.against_voucher_type,
 			gle.against_voucher,
 			acc.root_type AS account_root_type,
+			acc.account_type AS account_type,
 			{jp_col},
 			{dim_item}
 		FROM `tabGL Entry` gle
@@ -405,6 +431,7 @@ def _get_job_gl_entries_classified(
 		debit = flt(r.debit, 2)
 		credit = flt(r.credit, 2)
 		root_type = (r.get("account_root_type") or "").strip()
+		account_type = (r.get("account_type") or "").strip()
 		acc = (r.get("account") or "").strip()
 
 		revenue_amt = 0
@@ -428,6 +455,8 @@ def _get_job_gl_entries_classified(
 		elif root_type == "Income":
 			revenue_amt = credit - debit
 		elif root_type == "Expense":
+			cost_amt = debit - credit
+		elif is_stock_received_not_billed_cost_account(root_type, account_type):
 			cost_amt = debit - credit
 		else:
 			# Other root types: only show if tagged Disbursements/WIP/Accrual (handled above)
@@ -524,6 +553,7 @@ def _empty_profitability(company):
 	return {
 		"revenue": 0,
 		"cost": 0,
+		"realized_cost": 0,
 		"gross_profit": 0,
 		"profit_margin_pct": 0,
 		"wip_amount": 0,

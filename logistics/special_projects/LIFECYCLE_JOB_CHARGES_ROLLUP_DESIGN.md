@@ -1,8 +1,8 @@
 # Special Project: Lifecycle Jobs and Charge Roll-up
 
 **Status:** Phase 1–2 implemented  
-**Last updated:** 2026-05-22  
-**Context:** Validation errors when saving Special Project with multiple Transport lifecycle rows and unassigned programme charges (e.g. charge row 3 DELIVERY without `lifecycle_job_row`).
+**Last updated:** 2026-06-03  
+**Context:** Charge-to-lifecycle allocation uses inline **Lifecycle Jobs** (plural) child rows on the Charges tab; legacy `lifecycle_job_row`, Programme Lifecycle Job registry, and standalone SPCLT documents were removed.
 
 ---
 
@@ -19,9 +19,10 @@ It is the reference for implementation of execution-led financial roll-up from j
 | Term | Meaning |
 |------|---------|
 | **Special Project** | Programme document; ERPNext Project; multimodal portfolio. |
-| **Lifecycle Job** (`lifecycle_jobs`) | One **planned operational leg** on the programme (Air, Sea, Transport, Customs, etc.). Drives create booking/order and lifecycle stage gating. **Not** the same as Internal Job Detail on operational documents. |
-| **Programme charges** (`charges` on Special Project) | Budget / quote lines on the project tab. |
-| **`lifecycle_job_row`** (on a charge) | Grid `idx` of the Lifecycle Job row this programme charge belongs to. Required when multiple lifecycle rows share the same service type. |
+| **Lifecycle Job** (`lifecycle_jobs`, singular DocType) | One **planned operational leg** on the Lifecycle tab (Air, Sea, Transport, Customs, etc.). Drives create booking/order and lifecycle stage gating. |
+| **Programme charges** (`charges` on Special Project) | Budget / quote lines on the Charges tab. |
+| **`lifecycle_job_allocations`** (`Lifecycle Jobs`, plural DocType) | Child table on Special Project (Charges tab): links a **charge row** to a **lifecycle job line** with `cost_allocation_percentage`, `job_no`, and computed `allocated_cost` / `allocated_revenue`. % must sum to 100% per charge when multiple rows exist. |
+| **`allocation_method`** (on charge) | **Equal** (auto-split 100% across allocation rows) or **Custom** (user sets % per row; validated on save). |
 | **`job_no`** (on a lifecycle row) | Link to the created operational document (e.g. Transport Order). Used for create flow, milestones, maps — **not** automatic financial sync today. |
 | **Operational job** | Transport Order, Transport Job, Air/Sea Booking/Shipment, Declaration, etc. |
 | **Internal job** | Document with `is_internal_job=1` and `main_job` / `main_job_type`. Its charge totals roll up to the **main service’s Internal Job Detail** row (see `logistics.utils.internal_job_main_rollup`). |
@@ -34,17 +35,18 @@ It is the reference for implementation of execution-led financial roll-up from j
 ### 3.1 On Special Project save (`validate`)
 
 1. `_sync_charges_with_parent_actuals()` — recalculates **each programme charge** `actual_cost` / `actual_revenue` via charge calculation (SI/PI, recognition), not from linked Transport Order.
-2. `sync_lifecycle_job_planned_from_charges()` — sums programme charges into each lifecycle row’s **`planned_cost` / `planned_revenue`** (read-only on lifecycle), using `lifecycle_job_row` to attribute charges.
+2. `recompute_all_charge_tag_allocations()` / `validate_charge_lifecycle_allocations()` — proportional `allocated_cost` / `allocated_revenue` per allocation row; **Cost Allocation % must sum to 100%** when multiple rows exist for one charge.
+3. `sync_lifecycle_job_planned_from_charges()` — sums programme charges into each lifecycle row’s **`planned_cost` / `planned_revenue`**, using allocation rows (or implicit 100% when exactly one lifecycle row matches the charge service type).
 
-Relevant code: `logistics/special_projects/lifecycle_job_planned_rollup.py`, `special_project.py` validate.
+Relevant code: `logistics/special_projects/special_project_charge_lifecycle.py`, `lifecycle_job_planned_rollup.py`, `special_project.py` validate.
 
 ### 3.2 Validation that caused the error
 
-When **two or more** lifecycle rows share the same **Service Type** (e.g. Transport), any non-disbursement programme charge with that service type **must** have **`lifecycle_job_row`** set. Otherwise save throws:
+When a charge has **allocation rows**, each row must reference a valid **Lifecycle Job** line on the same Special Project; duplicate lines per charge are rejected; allocation % must sum to 100%.
 
-> Charge row N: select a Lifecycle Job because multiple lifecycle lines use Service Type Transport.
+Charges **without** allocation rows still attribute to a lifecycle row when **exactly one** row matches the charge service type (or exactly one planning row without `job_no` among duplicates).
 
-Auto-assign runs only when **exactly one** lifecycle row matches the charge’s service type.
+**Multi-leg charges:** one charge can have multiple **Lifecycle Jobs** allocation rows (e.g. “Handling In” on Air legs 1–3). Planned roll-up uses `allocated_cost` / `allocated_revenue` per leg. Operational charge copy scales by `cost_allocation_percentage / 100`.
 
 ### 3.3 Lifecycle `actual_cost` / `actual_revenue`
 
@@ -56,7 +58,7 @@ Auto-assign runs only when **exactly one** lifecycle row matches the charge’s 
 ### 3.4 `job_no` linking
 
 - Resolves to operational refs for dashboard/milestones (e.g. Transport Order → Transport Job): `logistics.utils.special_project_internal_jobs`.
-- **Create** from lifecycle copies matching programme charges onto the new order: `special_project_charge_copy.py` (filtered by `lifecycle_job_row` / service type).
+- **Create** from lifecycle copies matching programme charges onto the new order: `special_project_charge_copy.py` (filtered by allocation rows, scaled by allocation %).
 - Orders created from Special Project are **standalone** mains linked via `project`; not internal jobs of each other by default.
 
 ### 3.5 Separate roll-up path (operational)
@@ -72,7 +74,7 @@ Auto-assign runs only when **exactly one** lifecycle row matches the charge’s 
 | **Ambiguous programme charges** | Users expect Transport charges to “belong to the project.” With multiple Transport lifecycle rows, service type alone is insufficient; manual `lifecycle_job_row` feels redundant if `job_no` already links the leg. |
 | **Two sources of truth** | Programme charges drive lifecycle **planned**; operational orders drive execution and invoicing. Numbers can diverge after orders exist. |
 | **Lifecycle actuals unused** | Lifecycle `actual_*` are not filled from linked jobs; users may assume `job_no` drives financials. |
-| **“One charge, all legs”** | Not supported; would double-count if rolled to every Transport lifecycle row. |
+| **“One charge, all legs”** | Supported via **multi-tag charges** with allocation % summing to 100%; each leg receives its share in planned roll-up without double-counting. |
 | **Trip vs lifecycle row** | One lifecycle row ≈ one programme job line (often one Transport Order), not strictly one Trip record. Trips/legs live inside Transport Order. |
 
 ---

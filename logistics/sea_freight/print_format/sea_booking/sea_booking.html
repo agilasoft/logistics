@@ -292,9 +292,17 @@
     </style>
 </head>
 <body>
-    <div class="order-container">
+
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set company_doc = None %}
+{% if doc.company and frappe.db.exists("Company", doc.company) %}
+{% set company_doc = frappe.get_doc("Company", doc.company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
+{% set company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
+<div class="order-container">
         <div class="header">
-            {% set company_doc = frappe.get_doc("Company", doc.company) %}
+            {% if company_doc %}
             {% if company_doc.company_logo %}
                 <img src="{{ company_doc.company_logo }}" alt="Company Logo" class="company-logo" />
             {% elif company_doc.logo %}
@@ -304,17 +312,17 @@
             {% else %}
                 <div class="logo-placeholder">company_logo</div>
             {% endif %}
-            <div class="company-info">
+<div class="company-info">
                 <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
                 <div class="company-address">
                     {% if company_doc.address %}
                         {% set company_address = frappe.get_doc("Address", company_doc.address) %}
                         {{ company_address.address_line1 or '' }}
                         {% if company_address.address_line2 %}{{ company_address.address_line2 }}{% endif %}
-                        {% if company_address.city %}{{ company_address.city }}{% endif %}
-                        {% if company_address.state %}, {{ company_address.state }}{% endif %}
-                        {% if company_address.country %}{{ company_address.country }}{% endif %}
-                        {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+{% if company_address.city %}{{ company_address.city }}{% endif %}
+{% if company_address.state %}, {{ company_address.state }}{% endif %}
+{% if company_address.country %}{{ company_address.country }}{% endif %}
+{% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
                     {% elif company_doc.address_line1 %}
                         {{ company_doc.address_line1 }}<br>
                         {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
@@ -339,6 +347,12 @@
                     {% endif %}
                 </div>
             </div>
+            {% else %}
+                <div class="logo-placeholder">company_logo</div>
+                <div class="company-info">
+                    <div class="company-name">{{ doc.company or default_company or '' }}</div>
+                </div>
+            {% endif %}
         </div>
 
         <div class="top-section">
@@ -358,10 +372,10 @@
                             {% set addr = frappe.get_doc("Address", cust.customer_primary_address) %}
                             {{ addr.address_line1 or '' }}
                             {% if addr.address_line2 %} {{ addr.address_line2 }}{% endif %}
-                            {% if addr.city %} {{ addr.city }}{% endif %}
-                            {% if addr.state %}, {{ addr.state }}{% endif %}
-                            {% if addr.country %} {{ addr.country }}{% endif %}
-                            {% if addr.pincode %} {{ addr.pincode }}{% endif %}
+{% if addr.city %} {{ addr.city }}{% endif %}
+{% if addr.state %}, {{ addr.state }}{% endif %}
+{% if addr.country %} {{ addr.country }}{% endif %}
+{% if addr.pincode %} {{ addr.pincode }}{% endif %}
                         {% endif %}
                     {% endif %}
                 </div>
@@ -476,13 +490,13 @@
                     <div class="field-value">{{ frappe.utils.formatdate(doc.atd, 'MM-dd-yyyy') }}</div>
                 </div>
                 {% endif %}
-                {% if doc.ata %}
+{% if doc.ata %}
                 <div class="field-row">
                     <div class="field-label">ATA:</div>
                     <div class="field-value">{{ frappe.utils.formatdate(doc.ata, 'MM-dd-yyyy') }}</div>
                 </div>
                 {% endif %}
-                <div class="field-row">
+<div class="field-row">
                     <div class="field-label">SENDING AGENT:</div>
                     <div class="field-value">{{ doc.sending_agent or '' }}</div>
                 </div>
@@ -536,7 +550,7 @@
                                     {% if row.length is not none %}{{ frappe.utils.fmt_money(row.length, precision=2) }}{% endif %}×
                                     {% if row.width is not none %}{{ frappe.utils.fmt_money(row.width, precision=2) }}{% endif %}×
                                     {% if row.height is not none %}{{ frappe.utils.fmt_money(row.height, precision=2) }}{% endif %}
-                                    {% if row.dimension_uom %} {{ row.dimension_uom }}{% endif %}
+{% if row.dimension_uom %} {{ row.dimension_uom }}{% endif %}
                                 {% endif %}
                             </td>
                         </tr>
@@ -554,8 +568,8 @@
         <div class="footer-section">
             <div>Company: {{ doc.company or '' }}</div>
             {% if doc.branch %}<div>Branch: {{ doc.branch }}</div>{% endif %}
-            {% if doc.cost_center %}<div>Cost Center: {{ doc.cost_center }}</div>{% endif %}
-            {% if doc.profit_center %}<div>Profit Center: {{ doc.profit_center }}</div>{% endif %}
+{% if doc.cost_center %}<div>Cost Center: {{ doc.cost_center }}</div>{% endif %}
+{% if doc.profit_center %}<div>Profit Center: {{ doc.profit_center }}</div>{% endif %}
         </div>
         </div>
     </div>

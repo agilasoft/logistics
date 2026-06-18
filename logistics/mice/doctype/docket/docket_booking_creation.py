@@ -37,6 +37,7 @@ DOCKET_CREATABLE_JOB_TYPES: frozenset[str] = frozenset(
 		"Transport Order",
 		"Declaration Order",
 		"Inbound Order",
+		"MICE Order",
 	}
 )
 
@@ -46,18 +47,19 @@ _TARGET_DOC_LABELS: dict[str, str] = {
 	"Transport Order": "Transport Order",
 	"Declaration Order": "Declaration Order",
 	"Inbound Order": "Inbound Order",
+	"MICE Order": "MICE Order",
 }
 
 
 def _dialog_creatable_job_type(row: Any) -> str:
-	"""Job type used in Create > Booking/Order. Special Project / Exhibits service rows are not creatable from a Docket."""
+	"""Job type used in Create > Booking/Order. Special Project service → Project Order; MICE → MICE Order."""
 	if not row:
 		return ""
 	st = (getattr(row, "service_type", None) or "").strip()
 	if sales_quote_charge_service_types_equal(st, "Special Project"):
 		return ""
 	if sales_quote_charge_service_types_equal(st, "MICE"):
-		return ""
+		return "MICE Order"
 	return effective_internal_job_detail_job_type(row)
 
 
@@ -195,6 +197,21 @@ def get_docket_booking_choices(docket: str, internal_jobs: Any = None):
 		jt = _dialog_creatable_job_type(row)
 		jn = (getattr(row, "job_no", None) or "").strip()
 		creatable = bool(jt) and jt in DOCKET_CREATABLE_JOB_TYPES and not jn
+		not_creatable_message = None
+		if creatable:
+			from logistics.utils.internal_job_creation_eligibility import (
+				evaluate_internal_job_creation_eligibility,
+			)
+
+			elig = evaluate_internal_job_creation_eligibility(
+				sales_quote=getattr(doc, "sales_quote", None),
+				parent_doc=doc,
+				ij_row=row,
+				service_type_label=st,
+			)
+			if not elig.get("eligible"):
+				creatable = False
+				not_creatable_message = elig.get("message")
 		header = _choice_header(jt, row, idx, jn)
 		cancelled = bool(jn and linked_internal_job_target_is_cancelled(jt, jn))
 		if cancelled:
@@ -211,6 +228,7 @@ def get_docket_booking_choices(docket: str, internal_jobs: Any = None):
 				"service_type": st or None,
 				"job_no": jn or None,
 				"creatable": creatable,
+				"not_creatable_message": not_creatable_message,
 				**header,
 			}
 		)
@@ -334,16 +352,26 @@ def get_docket_booking_preview(
 				}
 			)
 
-		return {
-			"job_type": jt,
-			"detail_idx": res_idx,
-			"uses_job_detail_row": row is not None,
-			"creatable": True,
-			"source_context": source_context,
-			"target_internal_job": None,
-			"job_detail_parameters": preview_params,
-			"charges": charges_preview,
-		}
+		from logistics.utils.internal_job_creation_eligibility import (
+			apply_eligibility_to_preview_flags,
+		)
+
+		return apply_eligibility_to_preview_flags(
+			{
+				"job_type": jt,
+				"detail_idx": res_idx,
+				"uses_job_detail_row": row is not None,
+				"creatable": True,
+				"source_context": source_context,
+				"target_internal_job": None,
+				"job_detail_parameters": preview_params,
+				"charges": charges_preview,
+			},
+			sales_quote=getattr(doc, "sales_quote", None),
+			parent_doc=doc,
+			ij_row=row,
+			service_type_label=(getattr(row, "service_type", None) or "").strip() if row else None,
+		)
 
 
 def _apply_sales_quote_parties_to_target(target_doc: Any, dk_doc: Any) -> None:
@@ -573,6 +601,9 @@ def _prepare_charges_before_insert(dk_doc: Any, target_doc: Any, row: Any | None
 
 	if not new_rows:
 		_populate_charges_from_linked_sales_quote(target_doc)
+		from logistics.utils.charge_service_type import filter_operational_doc_charges_for_internal_job_row
+
+		filter_operational_doc_charges_for_internal_job_row(target_doc, row)
 		if row_ij:
 			for r in getattr(target_doc, "charges", None) or []:
 				stamp_scope_fields_on_charge_row(r, SCOPE_INTERNAL_JOB, row_ij)
@@ -624,18 +655,11 @@ def _booking_date_field(target_doc: Any) -> str | None:
 
 def _persist_row_link(dk_name: str, job_type: str, job_no: str, detail_idx: int) -> None:
 	"""Write job_type and job_no back onto the Docket's Internal Job row."""
-	if not (job_type and job_no and detail_idx):
-		return
-	parent = frappe.get_doc("Docket", dk_name)
-	rows = parent.get("internal_jobs") or []
-	if detail_idx < 1 or detail_idx > len(rows):
-		frappe.throw(_("Invalid Internal Job row index for persist."))
-	row = rows[detail_idx - 1]
-	row.job_type = job_type
-	row.job_no = job_no
-	parent.flags.ignore_validate_update_after_submit = True
-	parent.flags.ignore_charges_sync = True
-	parent.save(ignore_permissions=True)
+	from logistics.utils.internal_job_detail_copy import persist_internal_job_detail_job_link
+
+	persist_internal_job_detail_job_link(
+		"Docket", dk_name, job_type, job_no, detail_idx=detail_idx
+	)
 
 
 def _create_air_booking(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
@@ -735,12 +759,93 @@ def _create_inbound_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, A
 	}
 
 
+def _populate_mice_order_charges_from_sales_quote(target_doc: Any, row: Any | None) -> None:
+	"""Copy matching MICE Sales Quote charge lines onto a MICE Order."""
+	from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
+	from logistics.utils.sales_quote_charge_parameters import (
+		extract_service_scoped_quote_parameters,
+		sales_quote_charge_row_matches_internal_job_detail_params,
+	)
+	from logistics.utils.sales_quote_programme_charges import map_sales_quote_charge_to_programme_charge_dict
+
+	sq_name = (getattr(target_doc, "sales_quote", None) or "").strip()
+	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
+		return
+	st = (getattr(row, "service_type", None) or "MICE").strip() if row else "MICE"
+	ij_params = extract_service_scoped_quote_parameters(row, st) if row else {}
+	sq = frappe.get_doc("Sales Quote", sq_name)
+	charge_dt = "MICE Project Charges"
+	target_doc.set("charges", [])
+	for ch in sq.get("charges") or []:
+		if not sales_quote_charge_service_types_equal(getattr(ch, "service_type", None), st):
+			continue
+		if ij_params and not sales_quote_charge_row_matches_internal_job_detail_params(ch, ij_params):
+			continue
+		mapped = map_sales_quote_charge_to_programme_charge_dict(ch, sq_name, charge_dt)
+		if mapped:
+			target_doc.append("charges", mapped)
+
+
+def _resolve_exhibit_lifecycle_stage(exhibit_name: str | None) -> str:
+	exhibit_name = (exhibit_name or "").strip()
+	if exhibit_name and frappe.db.exists("MICE Project", exhibit_name):
+		stage = frappe.db.get_value("MICE Project", exhibit_name, "lifecycle_stage")
+		if stage:
+			return stage
+	from logistics.utils.lifecycle_stage import FOR_EXHIBITS, resolve_default_lifecycle_stage
+
+	return resolve_default_lifecycle_stage(module_filter=FOR_EXHIBITS, preferred="Pre-Show")
+
+
+def _suggested_mice_order_title_from_docket(dk_doc: Any, row: Any | None) -> str:
+	if row:
+		desc = (getattr(row, "job_description", None) or "").strip()
+		if desc:
+			return desc
+	label = (getattr(dk_doc, "exhibitor_name", None) or dk_doc.name or "").strip()
+	return f"{label} — {_('MICE')}" if label else _("MICE Order")
+
+
+def _create_mice_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
+	exhibit_name = (getattr(dk_doc, "exhibit", None) or "").strip()
+	if not exhibit_name:
+		frappe.throw(_("Link this Docket to a MICE Project before creating a MICE Order."))
+
+	order = frappe.new_doc("MICE Order")
+	order.exhibit = exhibit_name
+	order.lifecycle_stage = _resolve_exhibit_lifecycle_stage(exhibit_name)
+	order.order_title = _suggested_mice_order_title_from_docket(dk_doc, row)
+	if order.meta.get_field("order_date"):
+		order.order_date = today()
+	if order.meta.get_field("status"):
+		order.status = "Draft"
+
+	_apply_docket_context(order, dk_doc)
+	if row and order.meta.get_field("site"):
+		site = (getattr(row, "sp_site", None) or "").strip()
+		if site:
+			order.site = site
+
+	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
+	_prepare_charges_before_insert(dk_doc, order, row)
+	if not (order.get("charges") or []):
+		_populate_mice_order_charges_from_sales_quote(order, row)
+	order.insert(ignore_permissions=True)
+	_persist_row_link(dk_doc.name, "MICE Order", order.name, detail_idx)
+	frappe.db.commit()
+	return {
+		"mice_order": order.name,
+		"message": _("MICE Order {0} created.").format(order.name),
+	}
+
+
 _CREATE_DISPATCH = {
 	"Air Booking": _create_air_booking,
 	"Sea Booking": _create_sea_booking,
 	"Transport Order": _create_transport_order,
 	"Declaration Order": _create_declaration_order,
 	"Inbound Order": _create_inbound_order,
+	"MICE Order": _create_mice_order,
 }
 
 
@@ -773,5 +878,15 @@ def create_booking_or_order_from_docket(
 			)
 		if resolved_idx is None:
 			frappe.throw(_("Could not resolve the Internal Job row to update after creation."))
+		from logistics.utils.internal_job_creation_eligibility import (
+			require_internal_job_creation_eligible,
+		)
+
+		require_internal_job_creation_eligible(
+			sales_quote=getattr(dk_doc, "sales_quote", None),
+			parent_doc=dk_doc,
+			ij_row=row,
+			service_type_label=(getattr(row, "service_type", None) or "").strip(),
+		)
 		handler = _CREATE_DISPATCH[jt]
 		return handler(dk_doc, row, resolved_idx)

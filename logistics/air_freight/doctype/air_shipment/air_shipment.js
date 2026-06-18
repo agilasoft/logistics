@@ -243,16 +243,10 @@ frappe.ui.form.on('Air Shipment', {
 				.then(function(r) { return r.message || { filters: [] }; });
 		});
 		frm.set_query('shipper_address', function() {
-			if (frm.doc.shipper) {
-				return { filters: [['Dynamic Link', 'link_doctype', '=', 'Shipper'], ['Dynamic Link', 'link_name', '=', frm.doc.shipper]] };
-			}
-			return {};
+			return logistics.address.query_for_link('Shipper', frm.doc.shipper);
 		});
 		frm.set_query('consignee_address', function() {
-			if (frm.doc.consignee) {
-				return { filters: [['Dynamic Link', 'link_doctype', '=', 'Consignee'], ['Dynamic Link', 'link_name', '=', frm.doc.consignee]] };
-			}
-			return {};
+			return logistics.address.query_for_link('Consignee', frm.doc.consignee);
 		});
 		frm.set_query('sales_quote', function() {
 			return {

@@ -584,7 +584,7 @@ def create_charge_line(
         "uom": _get_billing_uom(contract_item, context),
         "quantity": display_qty,
         "currency": currency,
-        "rate": display_rate,
+        "unit_rate": display_rate,
         "total": total,
         "billing_method": _get_billing_method_from_contract(contract_item, context),
     }

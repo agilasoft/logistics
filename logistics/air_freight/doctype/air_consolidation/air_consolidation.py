@@ -942,12 +942,12 @@ class AirConsolidation(Document):
         for charge in self.consolidation_charges:
             if charge.revenue_calculation_method == "Per Unit":
                 self._sync_air_charge_quantity_from_parent(charge)
-                # Align with shared charge engine and child row validate: rate × quantity.
-                charge.base_amount = charge.rate * flt(charge.quantity or 0)
+                # Align with shared charge engine and child row validate: unit_rate × quantity.
+                charge.base_amount = charge.unit_rate * flt(charge.quantity or 0)
             elif charge.revenue_calculation_method == "Flat Rate":
-                charge.base_amount = charge.rate
+                charge.base_amount = charge.unit_rate
             elif charge.revenue_calculation_method == "Percentage":
-                charge.base_amount = charge.rate * (cw * 0.01)
+                charge.base_amount = charge.unit_rate * (cw * 0.01)
             
             # Calculate discount (must set discount_amount; unsaved rows can leave it None)
             if charge.discount_percentage and charge.base_amount is not None:
@@ -1397,7 +1397,7 @@ class AirConsolidation(Document):
                 "type": charge.charge_type,
                 "category": charge.charge_category,
                 "basis": charge.revenue_calculation_method,
-                "rate": charge.rate,
+                "unit_rate": charge.unit_rate,
                 "quantity": charge.quantity,
                 "base_amount": charge.base_amount,
                 "discount": charge.discount_amount,

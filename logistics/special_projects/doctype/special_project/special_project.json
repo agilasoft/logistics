@@ -34,6 +34,7 @@
   "cost_revenue_section",
   "cost_revenue_html",
   "fulfillment_tab",
+  "section_break_packages_summary",
   "packages_summary",
   "section_break_packages",
   "packages",
@@ -54,6 +55,8 @@
   "section_break_sp_chg",
   "billing_status",
   "charges",
+  "section_break_charge_execution_logs",
+  "charge_execution_logs",
   "section_break_operational_exchange_rates",
   "operational_exchange_rates",
   "recognition_section",
@@ -312,10 +315,16 @@
    "label": "Fulfillment"
   },
   {
+   "fieldname": "section_break_packages_summary",
+   "fieldtype": "Section Break",
+   "label": "Summary"
+  },
+  {
    "fieldname": "packages_summary",
    "fieldtype": "HTML",
    "is_virtual": 1,
-   "label": "Summary"
+   "label": "Summary",
+   "options": "<div class=\"text-muted\" style=\"padding:8px 0;\">Loading fulfillment summary\u2026</div>"
   },
   {
    "fieldname": "section_break_packages",
@@ -337,7 +346,8 @@
    "fieldname": "deliveries",
    "fieldtype": "Table",
    "label": "Deliveries",
-   "options": "Special Project Site Receipt"
+   "options": "Special Project Site Receipt",
+   "read_only": 1
   },
   {
    "fieldname": "charges_tab",
@@ -432,6 +442,20 @@
    "label": "Charges",
    "no_copy": 1,
    "options": "Special Project Charges"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_charge_execution_logs",
+   "fieldtype": "Section Break",
+   "label": "Charge Execution Log"
+  },
+  {
+   "fieldname": "charge_execution_logs",
+   "fieldtype": "Table",
+   "label": "Charge Execution Log",
+   "no_copy": 1,
+   "options": "Special Project Charge Execution Log",
+   "read_only": 1
   },
   {
    "collapsible": 1,
@@ -700,8 +724,10 @@
    "description": "Revenue, cost, profit, WIP, accrual and disbursements aggregated from General Ledger for every job linked to this project's Project accounting dimension.",
    "fieldname": "profitability_section_html",
    "fieldtype": "HTML",
+   "is_virtual": 1,
    "label": "Project Profitability (from GL)",
    "no_copy": 1,
+   "options": "<div class=\"text-muted\" style=\"padding:8px 0;\">Loading project profitability\u2026</div>",
    "read_only": 1
   },
   {
@@ -798,7 +824,7 @@
    "link_fieldname": "special_project"
   }
  ],
- "modified": "2026-05-27 14:27:42.298414",
+ "modified": "2026-06-04 09:08:23.401343",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Special Project",

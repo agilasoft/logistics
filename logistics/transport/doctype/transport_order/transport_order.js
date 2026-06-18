@@ -52,28 +52,13 @@ function reload_allowed_vehicle_types(frm, callback) {
 function fetch_allowed_vehicle_types_sync(frm, transport_job_type, load_type) {
 	var hazardous = frm.doc.contains_dangerous_goods ? 1 : 0;
 	var reefer = frm.doc.reefer ? 1 : 0;
-	var key = vehicle_type_cache_key(transport_job_type, load_type, hazardous, reefer);
 	var cached = get_cached_vehicle_type_names(frm, transport_job_type, load_type, hazardous, reefer);
 	if (cached) {
 		return cached;
 	}
-	var names = [];
-	frappe.call({
-		method: "logistics.transport.doctype.transport_order.transport_order.get_vehicle_types_for_transport_order",
-		args: {
-			transport_job_type: transport_job_type || null,
-			load_type: load_type || null,
-			hazardous: hazardous,
-			reefer: reefer
-		},
-		async: false,
-		callback: function(r) {
-			names = (r.message && r.message.vehicle_types) ? r.message.vehicle_types : [];
-			if (!frm._allowed_vehicle_types) frm._allowed_vehicle_types = {};
-			frm._allowed_vehicle_types[key] = names;
-		}
-	});
-	return names;
+	// Never block the UI thread; onload/refresh already preload via reload_allowed_vehicle_types.
+	load_allowed_vehicle_types(frm, transport_job_type, load_type);
+	return [];
 }
 
 function get_vehicle_type_link_filters(frm, transport_job_type, load_type) {
@@ -120,10 +105,12 @@ function _transport_order_async_still_for_doc(frm, docname_when_called) {
 	return String(frm.doc.name || "") === String(docname_when_called);
 }
 
-function _load_milestone_html(frm) {
-	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
-	if (frm._milestone_html_called) return;
-	frm._milestone_html_called = true;
+function _load_milestone_html(frm, opts) {
+	opts = opts || {};
+	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) {
+		if (opts.done) opts.done();
+		return;
+	}
 	var _milestone_docname = frm.doc.name;
 	frappe.call({
 		method: 'logistics.document_management.api.get_milestone_html',
@@ -137,8 +124,64 @@ function _load_milestone_html(frm) {
 			}
 		}
 	}).always(function() {
-		setTimeout(function() { frm._milestone_html_called = false; }, 2000);
+		if (opts.done) opts.done();
 	});
+}
+
+function _load_dashboard_html(frm, opts) {
+	opts = opts || {};
+	if (!frm.fields_dict.dashboard_html || !frm.doc.name || frm.doc.__islocal) {
+		if (opts.done) opts.done();
+		return;
+	}
+	var _dashboard_docname = frm.doc.name;
+	frappe.call({
+		method: 'logistics.transport.doctype.transport_order.transport_order.get_dashboard_html_by_name',
+		args: { docname: _dashboard_docname },
+		callback: function(r) {
+			if (!_transport_order_async_still_for_doc(frm, _dashboard_docname)) {
+				return;
+			}
+			if (r.message && frm.fields_dict.dashboard_html) {
+				frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+				if (window.logistics_group_and_collapse_dash_alerts) {
+					setTimeout(function() {
+						window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
+					}, 100);
+				}
+				if (window.logistics_bind_document_alert_cards) {
+					window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+				}
+			}
+		}
+	}).always(function() {
+		if (opts.done) opts.done();
+	});
+}
+
+function _bind_transport_order_lazy_tabs(frm) {
+	if (!frm.doc.name || frm.doc.__islocal || !window.logistics || !logistics.bind_lazy_tab_loader) {
+		return;
+	}
+	if (frm.doc.modified !== frm._logistics_lazy_modified) {
+		logistics.invalidate_lazy_tab_loaders(frm);
+		frm._logistics_lazy_modified = frm.doc.modified;
+	}
+	logistics.bind_lazy_tab_loader(frm, "dashboard_tab", "dashboard", _load_dashboard_html);
+	logistics.bind_lazy_tab_loader(frm, "milestones_tab", "milestones", _load_milestone_html, {
+		defer_if_active: false,
+	});
+	if (window.logistics_load_documents_html) {
+		logistics.bind_lazy_tab_loader(
+			frm,
+			"documents_tab",
+			"documents",
+			function (f, o) {
+				window.logistics_load_documents_html(f, "Transport Order", o);
+			},
+			{ defer_if_active: false }
+		);
+	}
 }
 
 /** Table flags for charges: `cannot_add_rows` / `allow_bulk_edit` may not match client meta; set on the docfield so the grid hides Add / Upload / Download as intended. */
@@ -385,25 +428,8 @@ frappe.ui.form.on("Transport Order", {
 				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");
 			}
 		}, 0);
-		// Load documents summary HTML in Documents tab
-		if (window.logistics_load_documents_html) {
-			window.logistics_load_documents_html(frm, "Transport Order");
-		}
-		if (frm.layout && frm.layout.wrapper) {
-			frm.layout.wrapper.off("click.documents_html").on("click.documents_html", '[data-fieldname="documents_tab"]', function () {
-				if (window.logistics_load_documents_html) {
-					window.logistics_load_documents_html(frm, "Transport Order");
-				}
-			});
-		}
-
-		// Load milestone HTML in Milestones tab
-		_load_milestone_html(frm);
-		if (frm.layout && frm.layout.wrapper) {
-			frm.layout.wrapper.off('click.milestone_html').on('click.milestone_html', '[data-fieldname="milestones_tab"]', function() {
-				_load_milestone_html(frm);
-			});
-		}
+		// Lazy-load tab HTML (dashboard deferred if active; others on tab click)
+		_bind_transport_order_lazy_tabs(frm);
 
 		// Populate Documents from Template
 		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
@@ -453,37 +479,7 @@ frappe.ui.form.on("Transport Order", {
 			}, __('Action'));
 		}
 
-		// Load dashboard HTML in Dashboard tab (only when doc is saved; same pattern as Transport Job)
-		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
-			if (!frm._dashboard_html_called) {
-				frm._dashboard_html_called = true;
-				var _dashboard_docname = frm.doc.name;
-				// Use frappe.call, not frm.call: run_doc_method always reloads from DB (check_if_latest)
-				// and can raise "Transport Order … not found" right after first save or when the client
-				// state is slightly ahead of the DB.
-				frappe.call({
-					method: 'logistics.transport.doctype.transport_order.transport_order.get_dashboard_html_by_name',
-					args: { docname: _dashboard_docname },
-					callback: function(r) {
-						if (!_transport_order_async_still_for_doc(frm, _dashboard_docname)) {
-							return;
-						}
-						if (r.message && frm.fields_dict.dashboard_html) {
-							frm.fields_dict.dashboard_html.$wrapper.html(r.message);
-							if (window.logistics_group_and_collapse_dash_alerts) {
-								setTimeout(function() {
-									window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
-								}, 100);
-							}
-							if (window.logistics_bind_document_alert_cards) {
-								window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
-							}
-						}
-					}
-				});
-				setTimeout(() => { frm._dashboard_html_called = false; }, 2000);
-			}
-		}
+		// Dashboard HTML is loaded lazily via _bind_transport_order_lazy_tabs
 
 		// Helper function to execute refresh operations
 		var do_refresh_ops = function() {
@@ -956,7 +952,15 @@ function _populate_charges_from_sales_quote(frm) {
 					frm.clear_table('charges');
 					frm.refresh_field('charges');
 					if (!_transport_internal_job_dialog_handled(frm, sales_quote)) {
-						_prompt_internal_transport_job_dialog(frm, sales_quote);
+						frm._internal_job_dialog_shown_for_quote = frm._internal_job_dialog_shown_for_quote || {};
+						frm._internal_job_dialog_shown_for_quote[sales_quote] = true;
+						frappe.msgprint({
+							title: __("Cannot create internal job"),
+							message: __(
+								"Add charge lines for this service on the Sales Quote and define a matching Internal Job on the Internal Jobs tab before creating."
+							),
+							indicator: "orange"
+						});
 					}
 					_warn_if_missing_service_charges(frm, "Transport");
 				}
@@ -1228,23 +1232,6 @@ frappe.ui.form.on("Transport Order", {
 		// Note: Server-side validation in Python will also check for required leg fields
 		console.log("before_submit: Starting validation for Transport Order", frm.doc.name);
 
-		if (!frm.doc.transport_template) {
-			frappe.msgprint({
-				title: __("Validation Error"),
-				message: __(
-					"Transport Template is required. Please select a Transport Template "
-					+ "before submitting the Transport Order."
-				),
-				indicator: "red",
-			});
-			return Promise.reject(
-				__(
-					"Transport Template is required. Please select a Transport Template "
-					+ "before submitting the Transport Order."
-				)
-			);
-		}
-		
 		// Validate packages is not empty
 		var packages = frm.doc.packages || [];
 		if (!packages || packages.length === 0) {
@@ -1254,6 +1241,33 @@ frappe.ui.form.on("Transport Order", {
 				indicator: 'red'
 			});
 			return Promise.reject(__("Packages are required. Please add at least one package before submitting the Transport Order."));
+		}
+
+		// Validate leg facilities/addresses (mirrors server before_submit _validate_leg_facilities)
+		if (frm.doc.legs && frm.doc.legs.length > 0) {
+			for (var i = 0; i < frm.doc.legs.length; i++) {
+				var leg = frm.doc.legs[i];
+				var row_num = leg.idx || (i + 1);
+				if (leg.facility_from && leg.facility_to && leg.facility_from === leg.facility_to) {
+					if (leg.pick_address === leg.drop_address) {
+						var facility_msg = __("Row {0}: Pick facility and drop facility cannot be the same.", [row_num]);
+						frappe.msgprint({
+							title: __("Validation Error"),
+							message: facility_msg,
+							indicator: 'red'
+						});
+						return Promise.reject(facility_msg);
+					}
+				} else if (leg.pick_address && leg.drop_address && leg.pick_address === leg.drop_address) {
+					var address_msg = __("Row {0}: Pick address and drop address cannot be the same.", [row_num]);
+					frappe.msgprint({
+						title: __("Validation Error"),
+						message: address_msg,
+						indicator: 'red'
+					});
+					return Promise.reject(address_msg);
+				}
+			}
 		}
 		
 		return new Promise(function(resolve, reject) {

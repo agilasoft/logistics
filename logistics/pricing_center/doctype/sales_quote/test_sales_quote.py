@@ -685,16 +685,16 @@ class TestSalesQuote(FrappeTestCase):
 	def test_exhibits_canonical_service_type_matches_main_service(self):
 		from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
 
-		self.assertTrue(sales_quote_charge_service_types_equal("Exhibits", "Exhibits"))
-		self.assertTrue(sales_quote_charge_service_types_equal("Events", "Exhibits"))
-		self.assertFalse(sales_quote_charge_service_types_equal("Exhibits", "Air"))
+		self.assertTrue(sales_quote_charge_service_types_equal("MICE", "MICE"))
+		self.assertTrue(sales_quote_charge_service_types_equal("Events", "MICE"))
+		self.assertFalse(sales_quote_charge_service_types_equal("MICE", "Air"))
 
 	def test_exhibits_quote_requires_show_fields(self):
-		sq = self._minimal_sales_quote_doc("Exhibits")
+		sq = self._minimal_sales_quote_doc("MICE")
 		sq.append(
 			"charges",
 			{
-				"service_type": "Exhibits",
+				"service_type": "MICE",
 				"sp_site": self._test_site_address(),
 			},
 		)
@@ -702,8 +702,8 @@ class TestSalesQuote(FrappeTestCase):
 			sq.insert()
 
 	def test_exhibits_quote_submit_with_show_fields_and_charge(self):
-		sq = self._minimal_sales_quote_doc("Exhibits")
-		ex = frappe.new_doc("Exhibit")
+		sq = self._minimal_sales_quote_doc("MICE")
+		ex = frappe.new_doc("MICE Project")
 		ex.project_name = "Test Expo 2026"
 		ex.customer = self.customer
 		ex.show_open_date = today()
@@ -715,7 +715,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq.append(
 			"charges",
 			{
-				"service_type": "Exhibits",
+				"service_type": "MICE",
 				"sp_site": self._test_site_address(),
 			},
 		)
@@ -730,11 +730,11 @@ class TestSalesQuote(FrappeTestCase):
 			create_special_project_from_sales_quote,
 		)
 
-		sq = self._minimal_sales_quote_doc("Exhibits")
+		sq = self._minimal_sales_quote_doc("MICE")
 		sq.quotation_type = "Project"
 		sq.naming_series = "PQ.#####"
 		sq.project_name = "SQ Exhibits Programme"
-		ex = frappe.new_doc("Exhibit")
+		ex = frappe.new_doc("MICE Project")
 		ex.project_name = "Test Expo Programme"
 		ex.customer = self.customer
 		ex.show_open_date = today()
@@ -746,7 +746,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq.append(
 			"charges",
 			{
-				"service_type": "Exhibits",
+				"service_type": "MICE",
 				"sp_site": self._test_site_address(),
 			},
 		)
@@ -806,9 +806,57 @@ class TestSalesQuote(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			sq.submit()
 
+	def test_mice_project_quote_submit_allowed_when_customer_project_name_exists(self):
+		"""MICE Project (PQ) quotes without SP content must not block on customer-name collision."""
+		import uuid
+
+		project_name = f"SQ MICE Cust Dup {uuid.uuid4().hex[:8]}"
+		if frappe.db.exists("DocType", "Project"):
+			proj = frappe.get_doc(
+				{
+					"doctype": "Project",
+					"project_name": project_name,
+					"customer": self.customer,
+					"company": self.company,
+				}
+			)
+			proj.flags.ignore_mandatory = True
+			proj.insert(ignore_permissions=True)
+
+		customer_name = frappe.db.get_value("Customer", self.customer, "customer_name") or self.customer
+		frappe.db.set_value("Customer", self.customer, "customer_name", project_name)
+
+		try:
+			ex = frappe.new_doc("MICE Project")
+			ex.project_name = f"SQ MICE Expo {uuid.uuid4().hex[:8]}"
+			ex.customer = self.customer
+			ex.show_open_date = today()
+			ex.show_close_date = add_days(today(), 3)
+			ex.insert(ignore_permissions=True)
+
+			sq = self._minimal_sales_quote_doc("MICE")
+			sq.quotation_type = "Project"
+			sq.naming_series = "PQ.#####"
+			sq.exhibit = ex.name
+			sq.exhibit_show_open_date = today()
+			sq.exhibit_show_close_date = add_days(today(), 3)
+			sq.append(
+				"charges",
+				{
+					"service_type": "MICE",
+					"sp_site": self._test_site_address(),
+				},
+			)
+			sq.insert()
+			sq.submit()
+			sq.reload()
+			self.assertEqual(sq.docstatus, 1)
+		finally:
+			frappe.db.set_value("Customer", self.customer, "customer_name", customer_name)
+
 	def test_programme_charge_row_requires_sp_site(self):
-		sq = self._minimal_sales_quote_doc("Exhibits")
-		ex = frappe.new_doc("Exhibit")
+		sq = self._minimal_sales_quote_doc("MICE")
+		ex = frappe.new_doc("MICE Project")
 		ex.project_name = "Test Expo"
 		ex.customer = self.customer
 		ex.show_open_date = today()
@@ -817,7 +865,7 @@ class TestSalesQuote(FrappeTestCase):
 		sq.exhibit = ex.name
 		sq.exhibit_show_open_date = today()
 		sq.exhibit_show_close_date = add_days(today(), 1)
-		sq.append("charges", {"service_type": "Exhibits"})
+		sq.append("charges", {"service_type": "MICE"})
 		sq.insert()
 		with self.assertRaises(frappe.ValidationError):
 			sq.save()

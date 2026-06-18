@@ -170,7 +170,7 @@
 		const dec = _decodeChoice(choiceEnc);
 		$pv.html(_renderPreviewHtml(null));
 		frappe.call({
-			method: "logistics.exhibits.doctype.exhibit.exhibit_booking_creation.get_exhibit_booking_preview",
+			method: "logistics.mice.doctype.mice_project.mice_project_booking_creation.get_exhibit_booking_preview",
 			args: {
 				exhibit: frm.doc.name,
 				job_type: dec.job_type != null ? dec.job_type : "",
@@ -276,23 +276,42 @@
 		return $wrap;
 	}
 
+	/**
+	 * Navigate to the freshly created booking/order. Uses the shared
+	 * ``logistics_navigate_when_doc_exists`` helper (from internal_job_create_from_source.js,
+	 * loaded via app_include_js) to poll the row's existence first; this prevents the
+	 * "<Doctype> ... not found" message that the desk shows when ``frappe.set_route``
+	 * loads the new form before the just-inserted row is visible to the next request.
+	 */
 	function _routeAfterCreate(msg) {
+		function _go(doctype, docname) {
+			function navigate() {
+				frappe.set_route("Form", doctype, docname);
+			}
+			if (window.logistics_navigate_when_doc_exists) {
+				window.logistics_navigate_when_doc_exists(doctype, docname, navigate);
+			} else {
+				navigate();
+			}
+		}
 		if (msg.air_booking) {
-			frappe.set_route("Form", "Air Booking", msg.air_booking);
+			_go("Air Booking", msg.air_booking);
 		} else if (msg.sea_booking) {
-			frappe.set_route("Form", "Sea Booking", msg.sea_booking);
+			_go("Sea Booking", msg.sea_booking);
 		} else if (msg.transport_order) {
-			frappe.set_route("Form", "Transport Order", msg.transport_order);
+			_go("Transport Order", msg.transport_order);
 		} else if (msg.declaration_order) {
-			frappe.set_route("Form", "Declaration Order", msg.declaration_order);
+			_go("Declaration Order", msg.declaration_order);
 		} else if (msg.inbound_order) {
-			frappe.set_route("Form", "Inbound Order", msg.inbound_order);
+			_go("Inbound Order", msg.inbound_order);
+		} else if (msg.mice_order) {
+			_go("MICE Order", msg.mice_order);
 		}
 	}
 
 	function _callCreate(frm, dec, onDialogHide) {
 		frappe.call({
-			method: "logistics.exhibits.doctype.exhibit.exhibit_booking_creation.create_booking_or_order_from_exhibit",
+			method: "logistics.mice.doctype.mice_project.mice_project_booking_creation.create_booking_or_order_from_exhibit",
 			args: {
 				exhibit: frm.doc.name,
 				job_type: dec.job_type,
@@ -360,7 +379,7 @@
 
 	function _introHtml(frm) {
 		const esc = frappe.utils.escape_html;
-		const ref = esc(__("Exhibit") + " · " + (frm.doc.name || ""));
+		const ref = esc(__("MICE Project") + " · " + (frm.doc.name || ""));
 		return (
 			"<div class='" + PREVIEW_CLASS + "' style='margin-bottom:4px'>" +
 			"<div style='font-size:12px;color:var(--text-muted,#64748b);line-height:1.5'>" +
@@ -380,7 +399,7 @@
 			return;
 		}
 		frappe.call({
-			method: "logistics.exhibits.doctype.exhibit.exhibit_booking_creation.get_exhibit_booking_choices",
+			method: "logistics.mice.doctype.mice_project.mice_project_booking_creation.get_exhibit_booking_choices",
 			args: {
 				exhibit: frm.doc.name,
 				internal_jobs: _internalJobsPayload(frm),

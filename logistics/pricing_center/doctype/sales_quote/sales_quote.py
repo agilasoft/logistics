@@ -144,6 +144,10 @@ def validate_erpnext_project_name_available_for_sales_quote(sales_quote):
 		return
 	if not frappe.db.exists("DocType", "Project"):
 		return
+	# MICE / multi-service Project quotes often leave project_name blank (customer-name fallback)
+	# but only create Dockets — not a new ERPNext Project — until Special Project content exists.
+	if not _sales_quote_has_special_project_content(sales_quote):
+		return
 
 	project_name = resolve_erpnext_project_name_for_sales_quote(sales_quote)
 	if not project_name:
@@ -220,24 +224,19 @@ def _sales_quote_has_special_project_content(sales_quote):
 
 
 def _sync_show_from_sales_quote(doc):
-	"""When a Sales Quote references an Show, back-fill programme fields that are still empty."""
+	"""When a Sales Quote references an Exhibit, back-fill empty show dates on the Exhibit."""
 	ep_name = _sq_strip_or_none(getattr(doc, "exhibit", None))
-	if not ep_name or not frappe.db.exists("Exhibit", ep_name):
+	if not ep_name or not frappe.db.exists("MICE Project", ep_name):
 		return
 	row = frappe.db.get_value(
-		"Exhibit",
+		"MICE Project",
 		ep_name,
-		["customer", "sales_quote", "show_name", "show_open_date", "show_close_date"],
+		["show_open_date", "show_close_date"],
 		as_dict=True,
 	)
 	if not row:
 		return
 	updates = {}
-	cust = _sq_strip_or_none(getattr(doc, "customer", None))
-	if cust and not _sq_strip_or_none(row.get("customer")):
-		updates["customer"] = cust
-	if not _sq_strip_or_none(row.get("sales_quote")):
-		updates["sales_quote"] = doc.name
 	open_d = getattr(doc, "exhibit_show_open_date", None)
 	if open_d and not row.get("show_open_date"):
 		updates["show_open_date"] = open_d
@@ -246,7 +245,7 @@ def _sync_show_from_sales_quote(doc):
 		updates["show_close_date"] = close_d
 	if not updates:
 		return
-	frappe.db.set_value("Exhibit", ep_name, updates)
+	frappe.db.set_value("MICE Project", ep_name, updates)
 
 
 def _sync_special_project_from_sales_quote(doc):
@@ -270,7 +269,7 @@ def _sync_special_project_from_sales_quote(doc):
 		updates["sales_quote"] = doc.name
 	if not updates:
 		return
-	frappe.db.set_value("Special Project", sp_name, updates)
+	frappe.db.set_value("Special Project", sp_name, updates, update_modified=False)
 
 
 def throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote):
@@ -296,6 +295,7 @@ class SalesQuote(Document):
 		for ch in getattr(self, "charges", None) or []:
 			_sync_sales_quote_charge_load_type_filter_flags_for_row(ch)
 		self.validate_naming_series_quotation_type()
+		self.validate_blanket_quotation()
 		self.clear_hidden_one_off_fields_for_non_one_off()
 		self.ensure_one_off_status()
 		self.validate_one_off_required_parameters()
@@ -307,6 +307,7 @@ class SalesQuote(Document):
 		self.validate_vehicle_type_capacity()
 		self.validate_multimodal_main_job()
 		self.validate_customs_unit_types()
+		self.validate_internal_job_charge_tagging()
 
 	def after_insert(self):
 		_sync_special_project_from_sales_quote(self)
@@ -348,8 +349,7 @@ class SalesQuote(Document):
 		"""Validate before submitting the document"""
 		self.validate_main_service_has_charges()
 		self.validate_air_sea_charge_ports_before_submit()
-		# Duplicate ERPNext Project name checks are enforced when creating a Special Project,
-		# not when submitting the quote.
+		self.validate_erpnext_project_name_before_submit()
 
 	def validate_erpnext_project_name_before_submit(self):
 		"""Block submit when the programme name would collide with an existing ERPNext Project."""
@@ -468,6 +468,27 @@ class SalesQuote(Document):
 				title=_("Naming Series Mismatch"),
 			)
 
+	def validate_blanket_quotation(self):
+		"""Blanket Quotation is allowed only on Regular quotes."""
+		if not cint(getattr(self, "blanket_quotation", 0)):
+			return
+		qt = (getattr(self, "quotation_type", None) or "").strip()
+		if qt != "Regular":
+			frappe.throw(
+				_("Blanket Quotation is only allowed when Quotation Type is Regular."),
+				title=_("Blanket Quotation"),
+			)
+		if cint(getattr(self, "additional_charge", 0)):
+			frappe.throw(
+				_("Additional-charge Sales Quotes cannot be marked as Blanket Quotation."),
+				title=_("Blanket Quotation"),
+			)
+		if self.docstatus == 1 and not (getattr(self, "charges", None) or []):
+			frappe.throw(
+				_("Submitted Blanket Quotation must have at least one charge line."),
+				title=_("Blanket Quotation"),
+			)
+
 	def validate_additional_charge_job(self):
 		"""When Additional Charge is checked, Job Type and Job are required."""
 		if getattr(self, "additional_charge", 0):
@@ -517,10 +538,10 @@ class SalesQuote(Document):
 					)
 				)
 
-		if main_service == "Exhibits":
+		if main_service == "MICE":
 			missing_fields = []
 			if not _sq_strip_or_none(getattr(self, "exhibit", None)):
-				missing_fields.append(_("Exhibit"))
+				missing_fields.append(_("MICE Project"))
 			if not getattr(self, "exhibit_show_open_date", None):
 				missing_fields.append(_("Exhibit Open Date"))
 			if not getattr(self, "exhibit_show_close_date", None):
@@ -539,10 +560,10 @@ class SalesQuote(Document):
 
 		main_service = getattr(self, "main_service", None)
 
-		if main_service == "Exhibits":
+		if main_service == "MICE":
 			missing_fields = []
 			if not _sq_strip_or_none(getattr(self, "exhibit", None)):
-				missing_fields.append(_("Exhibit"))
+				missing_fields.append(_("MICE Project"))
 			if not getattr(self, "exhibit_show_open_date", None):
 				missing_fields.append(_("Exhibit Open Date"))
 			if not getattr(self, "exhibit_show_close_date", None):
@@ -566,6 +587,55 @@ class SalesQuote(Document):
 						getattr(row, "service_type", "") or "",
 					),
 					title=_("Programme Parameters Required"),
+				)
+
+	def validate_internal_job_charge_tagging(self):
+		"""Validate per-charge Internal Job tagging on Sales Quote (any ``quotation_type``).
+
+		Internal Job creation does not validate ``quotation_type`` — a single Sales Quote can have
+		multiple Internal Jobs regardless of type. The constraints applied here are purely about
+		the per-row scope/link integrity:
+
+		* ``charge_scope = "Internal Job"`` requires a non-empty ``internal_job`` link.
+		* That link must point at an Internal Job already defined on this quote's
+		  ``internal_job_details`` table (or be a fresh IJ that has not yet been materialised — in
+		  which case the field is empty and the previous rule catches it).
+		* ``charge_scope != "Internal Job"`` clears any stale ``internal_job`` link so the booking
+		  charge is never tagged with a stranded IJ name post-conversion.
+		"""
+		charges = getattr(self, "charges", None) or []
+
+		allowed_ijs: set[str] = set()
+		for ij_row in getattr(self, "internal_job_details", None) or []:
+			ij_name = (getattr(ij_row, "internal_job", None) or "").strip()
+			if ij_name:
+				allowed_ijs.add(ij_name)
+
+		for row in charges:
+			scope = (getattr(row, "charge_scope", None) or "Main").strip() or "Main"
+			ij_link = (getattr(row, "internal_job", None) or "").strip()
+			if scope != "Internal Job":
+				if ij_link:
+					row.internal_job = None
+				row.charge_scope = "Main"
+				continue
+			if not ij_link:
+				frappe.throw(
+					_("Charges row {0}: select an Internal Job when Scope is \"Internal Job\".").format(
+						getattr(row, "idx", "") or "?",
+					),
+					title=_("Internal Job Required"),
+				)
+			if allowed_ijs and ij_link not in allowed_ijs:
+				frappe.throw(
+					_(
+						"Charges row {0}: Internal Job {1} is not defined on this quote. "
+						"Add it to the Internal Jobs tab first."
+					).format(
+						getattr(row, "idx", "") or "?",
+						frappe.bold(ij_link),
+					),
+					title=_("Internal Job Not Found"),
 				)
 
 	def validate_multimodal_main_job(self):
@@ -1030,7 +1100,10 @@ def _create_special_project_from_sales_quote(sales_quote):
 	_copy_sales_quote_special_project_details(sales_quote, sp)
 	if not _sq_strip_or_none(getattr(sp, "project_name", None)):
 		sp.project_name = resolve_erpnext_project_name_for_sales_quote(sales_quote)
-	from logistics.utils.sales_quote_programme_charges import populate_programme_charges_from_sales_quote
+	from logistics.utils.sales_quote_programme_charges import (
+		copy_sales_quote_charge_breaks_to_programme_parent,
+		populate_programme_charges_from_sales_quote,
+	)
 
 	populate_programme_charges_from_sales_quote(
 		sp, sales_quote.name, clear_existing=True, service_types="__all__"
@@ -1041,6 +1114,7 @@ def _create_special_project_from_sales_quote(sales_quote):
 
 	seed_packages_from_sales_quote(sp, sales_quote, clear_existing=False)
 	sp.save(ignore_permissions=True)
+	copy_sales_quote_charge_breaks_to_programme_parent(sp, sales_quote.name)
 	frappe.db.commit()
 
 	frappe.msgprint(
@@ -1055,7 +1129,7 @@ def _is_project_exhibits_programme_quote(sales_quote) -> bool:
 	"""Project (PQ) programme quotes get one Docket per Sales Quote, named after the quote."""
 	return (
 		getattr(sales_quote, "quotation_type", None) == "Project"
-		and getattr(sales_quote, "main_service", None) == "Exhibits"
+		and getattr(sales_quote, "main_service", None) == "MICE"
 	)
 
 
@@ -1078,7 +1152,7 @@ def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 	throw_if_sales_quote_expired_for_creation(sales_quote)
 	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
 
-	if sales_quote.main_service != "Exhibits":
+	if sales_quote.main_service != "MICE":
 		frappe.throw(_("Main Service must be Exhibits to create a Docket."))
 
 	exhibit_name = _sq_strip_or_none(getattr(sales_quote, "exhibit", None))
@@ -1086,20 +1160,21 @@ def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 		frappe.throw(
 			_("Link an Exhibit on this Sales Quote before creating a Docket.")
 		)
-	if not frappe.db.exists("Exhibit", exhibit_name):
+	if not frappe.db.exists("MICE Project", exhibit_name):
 		frappe.throw(_("Exhibit {0} does not exist.").format(frappe.bold(exhibit_name)))
 
 	exhibitor = _sq_strip_or_none(getattr(sales_quote, "customer", None))
 	if not exhibitor:
 		frappe.throw(_("Sales Quote must have a Customer to create a Docket."))
 
-	ep = frappe.get_doc("Exhibit", exhibit_name)
+	ep = frappe.get_doc("MICE Project", exhibit_name)
 
 	project_exhibits_quote = _is_project_exhibits_programme_quote(sales_quote)
 	docket_name = sales_quote.name if project_exhibits_quote else None
 
 	if docket_name and frappe.db.exists("Docket", docket_name):
 		from logistics.utils.sales_quote_programme_charges import (
+			copy_sales_quote_charge_breaks_to_programme_parent,
 			populate_programme_charges_from_sales_quote,
 		)
 
@@ -1110,6 +1185,7 @@ def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 			doc, sales_quote.name, clear_existing=True, service_types="__all__"
 		)
 		doc.save(ignore_permissions=True)
+		copy_sales_quote_charge_breaks_to_programme_parent(doc, sales_quote.name)
 		frappe.db.commit()
 		return {"success": True, "docket": docket_name, "message": docket_name}
 
@@ -1141,7 +1217,10 @@ def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 	doc.operations_rep = sales_quote.operations_rep or doc.operations_rep
 	doc.customer_service_rep = sales_quote.customer_service_rep or doc.customer_service_rep
 	copy_sales_quote_fields_to_target(sales_quote, doc)
-	from logistics.utils.sales_quote_programme_charges import populate_programme_charges_from_sales_quote
+	from logistics.utils.sales_quote_programme_charges import (
+		copy_sales_quote_charge_breaks_to_programme_parent,
+		populate_programme_charges_from_sales_quote,
+	)
 
 	populate_programme_charges_from_sales_quote(
 		doc, sales_quote.name, clear_existing=True, service_types="__all__"
@@ -1150,6 +1229,7 @@ def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 	if docket_name:
 		insert_kwargs["set_name"] = docket_name
 	doc.insert(**insert_kwargs)
+	copy_sales_quote_charge_breaks_to_programme_parent(doc, sales_quote.name)
 	frappe.db.commit()
 
 	frappe.msgprint(
@@ -1443,7 +1523,62 @@ def _get_service_params(sales_quote, service_type):
 	return charges[0] if charges else None
 
 
-def _create_transport_order_from_sales_quote(sales_quote):
+def _first_charge_for_call_off(sales_quote, service_label, selected_charge_row_names=None, legacy_fallback=None):
+	"""Prefer first selected charge row for blanket call-off param resolution."""
+	if selected_charge_row_names:
+		by_name = {c.name: c for c in (getattr(sales_quote, "charges") or [])}
+		for nm in selected_charge_row_names:
+			row = by_name.get(nm)
+			if row and _sq_charge_row_matches_service(row, service_label):
+				return row
+	return _get_service_params(sales_quote, service_label) or legacy_fallback
+
+
+def _apply_parent_overrides_to_doc(doc, parent_overrides: dict | None):
+	if not parent_overrides:
+		return
+	for key, val in parent_overrides.items():
+		if val is None:
+			continue
+		if isinstance(val, str) and not str(val).strip():
+			continue
+		if doc.meta.has_field(key):
+			doc.set(key, val)
+
+
+def _propagate_one_off_internal_jobs_to_created_booking(sales_quote, booking_doc):
+	"""Mirror SQ-owned Internal Jobs onto the new booking and remap per-charge ``internal_job`` links.
+
+	Called from ``_create_{sea,air,transport}_*_from_sales_quote`` after the booking is saved with
+	its charges. No-op for non-One-off quotes and when the quote owns no Internal Jobs. Logs
+	(without re-raising) on failure so the conversion still completes if propagation hits an edge
+	case — the user can re-run the IJ wiring from the booking form afterwards.
+	"""
+	try:
+		from logistics.utils.sales_quote_one_off_internal_jobs import (
+			propagate_one_off_internal_jobs_and_remap_charges,
+			stamp_scope_main_when_untagged,
+		)
+
+		propagate_one_off_internal_jobs_and_remap_charges(sales_quote, booking_doc)
+		stamp_scope_main_when_untagged(booking_doc)
+	except Exception:
+		frappe.log_error(
+			title="One-off Sales Quote Internal Job propagation failed",
+			message=(
+				f"Sales Quote: {getattr(sales_quote, 'name', None)}; "
+				f"Booking: {getattr(booking_doc, 'doctype', None)} "
+				f"{getattr(booking_doc, 'name', None)}\n{frappe.get_traceback()}"
+			),
+		)
+
+
+def _create_transport_order_from_sales_quote(
+	sales_quote,
+	parent_overrides=None,
+	selected_charge_row_names=None,
+	blanket_call_off=False,
+):
 	"""Create Transport Order from Sales Quote and update routing leg job_no if multimodal."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
 	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
@@ -1459,9 +1594,17 @@ def _create_transport_order_from_sales_quote(sales_quote):
 	from logistics.transport.doctype.transport_order.transport_order import _sync_quote_and_sales_quote
 
 	# Use service params (preferred) or first transport charge/row
-	first = _get_service_params(sales_quote, "Transport") or (legacy_transport[0] if legacy_transport else transport_charges[0])
+	first = _first_charge_for_call_off(
+		sales_quote,
+		"Transport",
+		selected_charge_row_names,
+		(legacy_transport[0] if legacy_transport else (transport_charges[0] if transport_charges else None)),
+	)
 	location_from = getattr(first, "location_from", None) or getattr(sales_quote, "location_from", None)
 	location_to = getattr(first, "location_to", None) or getattr(sales_quote, "location_to", None)
+	if parent_overrides:
+		location_from = parent_overrides.get("location_from") or location_from
+		location_to = parent_overrides.get("location_to") or location_to
 	# Fallback: scan all Transport charges for location_from/location_to
 	if not location_from or not location_to:
 		for ch in transport_charges:
@@ -1537,6 +1680,7 @@ def _create_transport_order_from_sales_quote(sales_quote):
 	copy_sales_quote_fields_to_target(sales_quote, transport_order)
 	append_transport_order_door_leg_from_party_masters(transport_order)
 	apply_shipper_consignee_defaults(transport_order)
+	_apply_parent_overrides_to_doc(transport_order, parent_overrides)
 
 	transport_order.flags.skip_container_no_validation = True
 	transport_order.flags.skip_container_type_validation = True
@@ -1549,9 +1693,14 @@ def _create_transport_order_from_sales_quote(sales_quote):
 	transport_order.quote = sales_quote.name
 	transport_order.sales_quote = sales_quote.name
 	_sync_quote_and_sales_quote(transport_order)
+	if selected_charge_row_names:
+		transport_order.flags.blanket_call_off_charge_row_names = list(selected_charge_row_names)
 	# Use Transport Order's implementation (separate_billings_per_service_type, main job, legacy tables).
 	transport_order._populate_charges_from_sales_quote()
 	transport_order.save(ignore_permissions=True)
+
+	if not blanket_call_off:
+		_propagate_one_off_internal_jobs_to_created_booking(sales_quote, transport_order)
 
 	_update_routing_leg_job(
 		sales_quote.name,
@@ -1559,7 +1708,8 @@ def _create_transport_order_from_sales_quote(sales_quote):
 		job_type="Transport Order",
 		job_no=transport_order.name,
 	)
-	record_one_off_quote_conversion(sales_quote.name, "Transport Order", transport_order.name)
+	if not blanket_call_off:
+		record_one_off_quote_conversion(sales_quote.name, "Transport Order", transport_order.name)
 
 	frappe.db.commit()
 	return {"success": True, "transport_order": transport_order.name, "message": _("Transport Order {0} created.").format(transport_order.name)}
@@ -1589,7 +1739,12 @@ def _get_air_weight_volume_from_sales_quote(sales_quote):
 	return total_weight, total_volume
 
 
-def _create_air_booking_from_sales_quote(sales_quote):
+def _create_air_booking_from_sales_quote(
+	sales_quote,
+	parent_overrides=None,
+	selected_charge_row_names=None,
+	blanket_call_off=False,
+):
 	"""Create Air Booking from Sales Quote and update routing leg job_no if multimodal."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
 	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
@@ -1602,9 +1757,17 @@ def _create_air_booking_from_sales_quote(sales_quote):
 	if not air_charges and not legacy_air:
 		frappe.throw(_("No air freight lines found in this Sales Quote."))
 
-	first = _get_service_params(sales_quote, "Air") or (legacy_air[0] if legacy_air else air_charges[0])
+	first = _first_charge_for_call_off(
+		sales_quote,
+		"Air",
+		selected_charge_row_names,
+		(legacy_air[0] if legacy_air else (air_charges[0] if air_charges else None)),
+	)
 	origin = getattr(first, "origin_port", None) or getattr(sales_quote, "origin_port", None)
 	dest = getattr(first, "destination_port", None) or getattr(sales_quote, "destination_port", None)
+	if parent_overrides:
+		origin = parent_overrides.get("origin_port") or origin
+		dest = parent_overrides.get("destination_port") or dest
 	# Fallback: scan all Air charges for origin/destination
 	if not origin or not dest:
 		for ch in air_charges:
@@ -1667,16 +1830,21 @@ def _create_air_booking_from_sales_quote(sales_quote):
 	apply_sales_quote_routing_to_booking(air_booking, sales_quote)
 	populate_air_sea_booking_party_fields_from_masters(air_booking)
 	apply_shipper_consignee_defaults(air_booking)
+	_apply_parent_overrides_to_doc(air_booking, parent_overrides)
 
 	# Populate charges before insert so they are saved with the document (avoids insert+reload clearing them)
 	from logistics.air_freight.doctype.air_booking.air_booking import _sync_quote_and_sales_quote
 	_sync_quote_and_sales_quote(air_booking)
+	if selected_charge_row_names:
+		air_booking.flags.blanket_call_off_charge_row_names = list(selected_charge_row_names)
 	air_booking._populate_charges_from_sales_quote(sales_quote.name)
 	air_booking._normalize_charges_before_save()
 
 	air_booking.insert(ignore_permissions=True)
 
-	record_one_off_quote_conversion(sales_quote.name, "Air Booking", air_booking.name)
+	if not blanket_call_off:
+		_propagate_one_off_internal_jobs_to_created_booking(sales_quote, air_booking)
+		record_one_off_quote_conversion(sales_quote.name, "Air Booking", air_booking.name)
 
 	_update_routing_leg_job(
 		sales_quote.name,
@@ -1688,12 +1856,17 @@ def _create_air_booking_from_sales_quote(sales_quote):
 	return {"success": True, "air_booking": air_booking.name, "message": _("Air Booking {0} created.").format(air_booking.name)}
 
 
-def _create_sea_booking_from_sales_quote(sales_quote):
+def _create_sea_booking_from_sales_quote(
+	sales_quote,
+	parent_overrides=None,
+	selected_charge_row_names=None,
+	blanket_call_off=False,
+):
 	"""Create Sea Booking from Sales Quote and update routing leg job_no if multimodal."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
 	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
 
-	if getattr(sales_quote, "quotation_type", None) == "One-off":
+	if getattr(sales_quote, "quotation_type", None) == "One-off" and not blanket_call_off:
 		existing_sb = resolve_single_main_sea_booking_for_sales_quote(sales_quote.name)
 		if existing_sb:
 			record_one_off_quote_conversion(sales_quote.name, "Sea Booking", existing_sb)
@@ -1718,7 +1891,12 @@ def _create_sea_booking_from_sales_quote(sales_quote):
 	if not sea_charges and not legacy_sea:
 		frappe.throw(_("No sea freight lines found in this Sales Quote."))
 
-	first = _get_service_params(sales_quote, "Sea") or (legacy_sea[0] if legacy_sea else sea_charges[0])
+	first = _first_charge_for_call_off(
+		sales_quote,
+		"Sea",
+		selected_charge_row_names,
+		(legacy_sea[0] if legacy_sea else (sea_charges[0] if sea_charges else None)),
+	)
 	origin = (
 		getattr(first, "origin_port", None)
 		or getattr(sales_quote, "origin_port_sea", None)
@@ -1731,6 +1909,9 @@ def _create_sea_booking_from_sales_quote(sales_quote):
 		or getattr(sales_quote, "destination_port", None)
 		or getattr(sales_quote, "location_to", None)
 	)
+	if parent_overrides:
+		origin = parent_overrides.get("origin_port") or origin
+		dest = parent_overrides.get("destination_port") or dest
 	if not origin or not dest:
 		for ch in sea_charges:
 			if not origin and getattr(ch, "origin_port", None):
@@ -1788,16 +1969,21 @@ def _create_sea_booking_from_sales_quote(sales_quote):
 	apply_sales_quote_routing_to_booking(sea_booking, sales_quote)
 	populate_air_sea_booking_party_fields_from_masters(sea_booking)
 	apply_shipper_consignee_defaults(sea_booking)
+	_apply_parent_overrides_to_doc(sea_booking, parent_overrides)
 
 	# Populate charges before insert (same as Air Booking) so One-off validation and desk load are consistent.
 	from logistics.sea_freight.doctype.sea_booking.sea_booking import _sync_quote_and_sales_quote
 
 	_sync_quote_and_sales_quote(sea_booking)
+	if selected_charge_row_names:
+		sea_booking.flags.blanket_call_off_charge_row_names = list(selected_charge_row_names)
 	sea_booking._populate_charges_from_sales_quote(sales_quote)
 
 	sea_booking.insert(ignore_permissions=True)
 
-	record_one_off_quote_conversion(sales_quote.name, "Sea Booking", sea_booking.name)
+	if not blanket_call_off:
+		_propagate_one_off_internal_jobs_to_created_booking(sales_quote, sea_booking)
+		record_one_off_quote_conversion(sales_quote.name, "Sea Booking", sea_booking.name)
 
 	_update_routing_leg_job(
 		sales_quote.name,
@@ -2144,7 +2330,7 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 			"charge_type": charge_type,
 			"charge_category": charge_category,
 			"revenue_calculation_method": _af_r("revenue_calculation_method") or _af_r("calculation_method") or calculation_method,
-			"rate": _af_r("unit_rate") or 0,
+			"unit_rate": _af_r("unit_rate") or 0,
 			"currency": _af_r("currency") or default_currency,
 			"quantity": quantity,
 			"unit_of_measure": normalized_uom,
@@ -2606,6 +2792,182 @@ def _one_off_persist_converted(sales_quote_name: str, doctype: str, document_nam
 	frappe.clear_document_cache("Sales Quote", sales_quote_name)
 
 
+_ONE_OFF_CONVERSION_PRIMARY_DOCTYPES = frozenset({"Declaration Order", "Warehouse Contract"})
+_ONE_OFF_FREIGHT_HUB_TYPES = frozenset({"Air Shipment", "Sea Shipment"})
+
+
+def should_persist_one_off_quote_conversion_on_submit(doctype: str, document_name: str) -> bool:
+	"""Only main-service primaries (or customs/warehouse primaries) own the quote conversion pointer.
+
+	Internal-job satellites (e.g. Air Booking under a main Air Shipment) share the one-off quote but
+	must not overwrite *Converted To* — otherwise later legs such as Transport Order cannot be created (#1037).
+	"""
+	dt = (doctype or "").strip()
+	dn = (document_name or "").strip()
+	if not dt or not dn:
+		return True
+	if dt in _ONE_OFF_CONVERSION_PRIMARY_DOCTYPES:
+		return True
+	if not frappe.db.exists(dt, dn):
+		return True
+	meta = frappe.get_meta(dt)
+	if not meta.has_field("is_main_service"):
+		return True
+	from frappe.utils import cint
+
+	return cint(frappe.db.get_value(dt, dn, "is_main_service") or 0) == 1
+
+
+def reset_one_off_quote_on_cancel_for_document(
+	sales_quote_name: str, doctype: str, document_name: str
+) -> None:
+	"""Reset quote conversion only when the cancelled document owns *converted_to_doc*."""
+	if not sales_quote_name:
+		return
+	cr = (frappe.db.get_value("Sales Quote", sales_quote_name, "converted_to_doc") or "").strip()
+	if not cr:
+		return
+	if one_off_stored_conversion_matches(cr, doctype, document_name):
+		reset_one_off_quote_on_cancel(sales_quote_name)
+
+
+def resolve_freight_shipment_hub_for_one_off_chain(doc):
+	"""Return ``(hub_doctype, hub_name)`` for multimodal chain checks on freight / transport satellites."""
+	mjt = (getattr(doc, "main_job_type", None) or "").strip()
+	mj = (getattr(doc, "main_job", None) or "").strip()
+	if mjt in _ONE_OFF_FREIGHT_HUB_TYPES and mj:
+		return mjt, mj
+	air = (getattr(doc, "air_shipment", None) or "").strip()
+	if air:
+		return "Air Shipment", air
+	sea = (getattr(doc, "sea_shipment", None) or "").strip()
+	if sea:
+		return "Sea Shipment", sea
+	return None, None
+
+
+def resolve_allow_linked_internal_job_freight_satellites_from_converted(
+	sales_quote_name: str,
+	hub_doctype: str | None = None,
+	hub_name: str | None = None,
+) -> tuple[str | None, str | None]:
+	"""Allow sibling legs when *converted_to_doc* is the hub shipment or an IJ booking/shipment on that hub (#1037)."""
+	from frappe.utils import cint
+
+	sq = (sales_quote_name or "").strip()
+	hub_dt = (hub_doctype or "").strip()
+	hub_nm = (hub_name or "").strip()
+	if not sq or hub_dt not in _ONE_OFF_FREIGHT_HUB_TYPES or not hub_nm:
+		return None, None
+
+	cr = (frappe.db.get_value("Sales Quote", sq, "converted_to_doc") or "").strip()
+	if not cr:
+		return None, None
+
+	booking_dt = "Air Booking" if hub_dt == "Air Shipment" else "Sea Booking"
+	link_field = "air_booking" if hub_dt == "Air Shipment" else "sea_booking"
+
+	def _row_ok(dt: str, name: str) -> bool:
+		if not name or not frappe.db.exists(dt, name):
+			return False
+		row = frappe.db.get_value(
+			dt,
+			name,
+			["is_internal_job", "main_job_type", "main_job", "sales_quote", "docstatus"],
+			as_dict=True,
+		)
+		if not row or row.docstatus == 2:
+			return False
+		if (row.sales_quote or "").strip() != sq:
+			return False
+		if dt == hub_dt and name == hub_nm:
+			return True
+		if cint(row.is_internal_job):
+			return (row.main_job_type or "").strip() == hub_dt and (row.main_job or "").strip() == hub_nm
+		return False
+
+	def _resolve_name(prefix: str, doctype: str) -> str | None:
+		tail = None
+		if cr.startswith(f"{prefix} "):
+			tail = cr[len(prefix) + 1 :].strip()
+		elif frappe.db.exists(doctype, cr):
+			tail = cr
+		if tail and _row_ok(doctype, tail):
+			return tail
+		return None
+
+	allow_sea = None
+	allow_air = None
+
+	if hub_dt == "Air Shipment":
+		shipment_name = _resolve_name("Air Shipment", "Air Shipment")
+		booking_name = _resolve_name("Air Booking", "Air Booking")
+		if shipment_name:
+			allow_air = (frappe.db.get_value("Air Shipment", shipment_name, link_field) or "").strip() or None
+		if booking_name:
+			allow_air = booking_name
+	else:
+		shipment_name = _resolve_name("Sea Shipment", "Sea Shipment")
+		booking_name = _resolve_name("Sea Booking", "Sea Booking")
+		if shipment_name:
+			allow_sea = (frappe.db.get_value("Sea Shipment", shipment_name, link_field) or "").strip() or None
+		if booking_name:
+			allow_sea = booking_name
+
+	return allow_sea, allow_air
+
+
+def resolve_one_off_chain_freight_booking_allowances(
+	doc,
+	sales_quote_name: str,
+	*,
+	prefer_sea_booking: str | None = None,
+	prefer_air_booking: str | None = None,
+) -> tuple[str | None, str | None]:
+	"""Return ``(allow_sea_booking, allow_air_booking)`` for multimodal one-off chain validation.
+
+	*converted_to_doc* and internal-job satellites on the same hub take priority over hub-parent
+	bookings — fixes #1037 when an IJ air booking owns conversion but the hub parent booking differs.
+	"""
+	sq = (sales_quote_name or "").strip()
+	if not sq:
+		return None, None
+
+	allow_sea = (prefer_sea_booking or "").strip() or None
+	allow_air = (prefer_air_booking or "").strip() or None
+
+	r_sea, r_air = resolve_allow_linked_freight_bookings_for_internal_job(doc)
+	if not allow_sea and r_sea:
+		allow_sea = (r_sea or "").strip() or None
+	if not allow_air and r_air:
+		allow_air = (r_air or "").strip() or None
+
+	if not allow_sea:
+		allow_sea = resolve_single_main_sea_booking_for_sales_quote(sq)
+	if not allow_air:
+		allow_air = resolve_single_main_air_booking_for_sales_quote(sq)
+
+	conv_sea, conv_air = resolve_allow_linked_freight_booking_from_one_off_converted_doc(sq)
+	hub_dt, hub_nm = resolve_freight_shipment_hub_for_one_off_chain(doc)
+	ij_sea, ij_air = (None, None)
+	if hub_dt and hub_nm:
+		ij_sea, ij_air = resolve_allow_linked_internal_job_freight_satellites_from_converted(
+			sq, hub_dt, hub_nm
+		)
+
+	# Converted-doc owner and IJ satellites on the hub win over hub-parent / main booking.
+	if conv_sea:
+		allow_sea = conv_sea
+	if conv_air:
+		allow_air = conv_air
+	if ij_sea:
+		allow_sea = ij_sea
+	if ij_air:
+		allow_air = ij_air
+
+	return allow_sea, allow_air
+
+
 def update_one_off_quote_on_submit(sales_quote_name: str, document_name: str, doctype: str):
 	"""
 	Update One-off Sales Quote *Converted To* / *Status* when a linked document is submitted.
@@ -2613,7 +2975,7 @@ def update_one_off_quote_on_submit(sales_quote_name: str, document_name: str, do
 	Same persistence as :func:`record_one_off_quote_conversion` (also used on create-from-quote).
 
 	Lifecycle contract: Any submittable doctype that calls this on submit (and thus sets
-	converted_to_doc on the Sales Quote) MUST call reset_one_off_quote_on_cancel(sales_quote)
+	converted_to_doc on the Sales Quote) MUST call reset_one_off_quote_on_cancel_for_document
 	in its on_cancel when the document is cancelled. If the doctype allows clearing the
 	sales_quote link on save, it should in validate() (when the link is cleared) call
 	reset_one_off_quote_on_cancel(original_sales_quote). Linked doctypes: Transport Order,
@@ -2635,6 +2997,9 @@ def update_one_off_quote_on_submit(sales_quote_name: str, document_name: str, do
 		
 		qt = (frappe.db.get_value("Sales Quote", sales_quote_name, "quotation_type") or "").strip()
 		if qt != "One-off":
+			return
+
+		if not should_persist_one_off_quote_conversion_on_submit(doctype, document_name):
 			return
 		
 		record_one_off_quote_conversion(sales_quote_name, doctype, document_name)
@@ -2967,11 +3332,11 @@ def resolve_allow_linked_freight_booking_from_one_off_converted_doc(sales_quote_
 
 
 def resolve_one_off_declaration_order_chain_allowance(doc, allow_sea=None, allow_air=None):
-	"""Return flags for :func:`validate_one_off_quote_not_converted` on freight bookings.
+	"""Return flags for :func:`validate_one_off_quote_not_converted` on freight bookings and shipments.
 
-	Internal-job Air/Sea Bookings linked to a Sea/Air Shipment (or Declaration / Declaration Order) may
-	share a one-off quote already converted to a Declaration Order on the customs leg — same multimodal
-	chain as Transport Order satellites.
+	Internal-job Air/Sea Bookings and Shipments linked to a Sea/Air Shipment (or Declaration /
+	Declaration Order) may share a one-off quote already converted to a Declaration Order on the customs
+	leg — same multimodal chain as Transport Order satellites.
 	"""
 	from frappe.utils import cint
 

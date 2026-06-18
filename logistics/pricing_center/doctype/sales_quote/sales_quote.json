@@ -9,6 +9,7 @@
  "field_order": [
   "section_break_aall",
   "quotation_type",
+  "blanket_quotation",
   "naming_series",
   "column_break_rpzo",
   "main_service",
@@ -49,6 +50,9 @@
   "routing_section",
   "billing_mode",
   "routing_legs",
+  "internal_jobs_tab",
+  "internal_jobs_section",
+  "internal_job_details",
   "charges_tab",
   "column_break_jabf",
   "company",
@@ -96,7 +100,7 @@
   "service_code",
   "service_level_details",
   "connections_tab"
-],
+ ],
  "fields": [
   {
    "fieldname": "section_break_aall",
@@ -117,6 +121,16 @@
    "label": "Quotation Type",
    "options": "\nRegular\nOne-off\nProject",
    "reqd": 1
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.quotation_type=='Regular'",
+   "description": "When checked, create bookings/orders via call-off dialog; quote remains reusable until Valid Until.",
+   "fieldname": "blanket_quotation",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Blanket Quotation"
   },
   {
    "fieldname": "status_section",
@@ -335,13 +349,13 @@
    "options": "Container Type"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"Project\" || [\"Special Project\", \"Exhibits\"].includes(doc.main_service)",
+   "depends_on": "eval:doc.quotation_type == \"Project\" || [\"Special Project\", \"MICE\"].includes(doc.main_service)",
    "fieldname": "projects_tab",
    "fieldtype": "Tab Break",
    "label": "Special Project"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"Project\" || [\"Special Project\", \"Exhibits\"].includes(doc.main_service)",
+   "depends_on": "eval:doc.quotation_type == \"Project\" || [\"Special Project\", \"MICE\"].includes(doc.main_service)",
    "fieldname": "projects_section",
    "fieldtype": "Section Break",
    "label": "Basic Information"
@@ -402,37 +416,37 @@
    "label": "Special Handling Instructions"
   },
   {
-   "depends_on": "eval:doc.main_service == \"Exhibits\" || doc.quotation_type == \"Project\"",
+   "depends_on": "eval:doc.main_service == \"MICE\" || doc.quotation_type == \"Project\"",
    "fieldname": "exhibit",
    "fieldtype": "Link",
-   "label": "Exhibit",
-   "mandatory_depends_on": "eval:doc.main_service == \"Exhibits\"",
-   "options": "Exhibit"
+   "label": "MICE Project",
+   "mandatory_depends_on": "eval:doc.main_service == \"MICE\"",
+   "options": "MICE Project"
   },
   {
-   "depends_on": "eval:doc.main_service == \"Exhibits\"",
+   "depends_on": "eval:doc.main_service == \"MICE\"",
    "fieldname": "exhibit_show_section",
    "fieldtype": "Section Break",
-   "label": "Exhibit Details"
+   "label": "MICE Project Details"
   },
   {
-   "depends_on": "eval:doc.main_service == \"Exhibits\"",
+   "depends_on": "eval:doc.main_service == \"MICE\"",
    "fieldname": "column_break_exhibit_show",
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:doc.main_service == \"Exhibits\"",
+   "depends_on": "eval:doc.main_service == \"MICE\"",
    "fieldname": "exhibit_show_open_date",
    "fieldtype": "Date",
-   "label": "Exhibit Open Date",
-   "mandatory_depends_on": "eval:doc.main_service == \"Exhibits\""
+   "label": "Event Open Date",
+   "mandatory_depends_on": "eval:doc.main_service == \"MICE\""
   },
   {
-   "depends_on": "eval:doc.main_service == \"Exhibits\"",
+   "depends_on": "eval:doc.main_service == \"MICE\"",
    "fieldname": "exhibit_show_close_date",
    "fieldtype": "Date",
-   "label": "Exhibit Close Date",
-   "mandatory_depends_on": "eval:doc.main_service == \"Exhibits\""
+   "label": "Event Close Date",
+   "mandatory_depends_on": "eval:doc.main_service == \"MICE\""
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
@@ -517,7 +531,7 @@
    "fieldtype": "Select",
    "label": "Job Type",
    "no_copy": 1,
-   "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration",
+   "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration\nSpecial Project",
    "read_only": 1
   },
   {
@@ -550,7 +564,7 @@
    "fieldname": "main_service",
    "fieldtype": "Select",
    "label": "Main Service",
-   "options": "\nAir\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nExhibits",
+   "options": "\nAir\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE",
    "reqd": 1
   },
   {
@@ -590,6 +604,26 @@
    "fieldtype": "Table",
    "label": "Routing Legs",
    "options": "Sales Quote Routing Leg"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type==\"One-off\"",
+   "fieldname": "internal_jobs_tab",
+   "fieldtype": "Tab Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type==\"One-off\"",
+   "description": "Define Internal Jobs that will be created on the booking/order when this One-off quote is converted. Tag charges in the Charges tab to one of these jobs to keep their billing/operational details intact post-conversion.",
+   "fieldname": "internal_jobs_section",
+   "fieldtype": "Section Break",
+   "label": "Internal Jobs"
+  },
+  {
+   "depends_on": "eval:doc.quotation_type==\"One-off\"",
+   "fieldname": "internal_job_details",
+   "fieldtype": "Table",
+   "label": "Internal Jobs",
+   "options": "Internal Job Detail"
   },
   {
    "fieldname": "charges_tab",
@@ -752,7 +786,7 @@
   },
   {
    "group": "Programmes",
-   "link_doctype": "Exhibit",
+   "link_doctype": "MICE Project",
    "link_fieldname": "sales_quote"
   },
   {
@@ -772,17 +806,17 @@
   },
   {
    "group": "Programmes",
-   "link_doctype": "Exhibit Order",
+   "link_doctype": "MICE Order",
    "link_fieldname": "sales_quote"
   },
   {
    "group": "Programmes",
-   "link_doctype": "Exhibit Job",
+   "link_doctype": "MICE Job",
    "link_fieldname": "sales_quote"
   }
  ],
- "modified": "2026-05-15 17:17:55.060811",
- "modified_by": "Administrator",
+ "modified": "2026-06-10 09:23:58.893178",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "Pricing Center",
  "name": "Sales Quote",
  "naming_rule": "By \"Naming Series\" field",

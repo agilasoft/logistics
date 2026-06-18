@@ -104,22 +104,22 @@ def resolve_sales_invoice_line_qty_rate(charge, revenue=None, company=None):
     """
     Return (line_qty, line_rate, revenue) for Sales Invoice item rows.
 
-    Revenue aligns with WIP recognition (``get_charge_row_selling_amount``).
+    Revenue aligns with Sales Invoice charge resolution (``resolve_charge_row_selling``).
     For Per Unit charges, ensure qty × rate matches that revenue at company precision.
     """
-    from logistics.job_management.recognition_engine import get_charge_row_selling_amount
+    from logistics.job_management.recognition_engine import resolve_charge_row_selling
 
     prec = _rate_precision(company)
-    selling = flt(get_charge_row_selling_amount(charge), prec)
-    revenue = flt(revenue if revenue is not None else selling, prec)
-    if selling > 0:
-        revenue = selling
+    if revenue is None:
+        revenue = flt(resolve_charge_row_selling(charge, prefer_actual=True), prec)
+    else:
+        revenue = flt(revenue, prec)
 
     method = _revenue_calc_method(charge)
     if method not in PER_UNIT_CALC_METHODS:
         return None, None, revenue
 
-    rate = flt(getattr(charge, "rate", None) or getattr(charge, "unit_rate", None) or 0, prec)
+    rate = flt(getattr(charge, "unit_rate", None) or 0, prec)
     if rate <= 0:
         return None, None, revenue
 

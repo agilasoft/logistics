@@ -22,6 +22,8 @@
   "required_by",
   "valid_until",
   "site",
+  "section_break_packages",
+  "packages",
   "charges_tab",
   "section_order_org",
   "company",
@@ -152,8 +154,18 @@
    "fieldname": "site",
    "fieldtype": "Link",
    "label": "Site",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
+  },
+  {
+   "fieldname": "section_break_packages",
+   "fieldtype": "Section Break",
+   "label": "Packages"
+  },
+  {
+   "fieldname": "packages",
+   "fieldtype": "Table",
+   "label": "Packages",
+   "options": "Project Order Package"
   },
   {
    "fieldname": "charges_tab",

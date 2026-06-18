@@ -12,6 +12,7 @@ from logistics.utils.charge_service_type import (
 	sales_quote_charge_service_types_equal,
 	throw_if_missing_destination_service_charge,
 )
+from logistics.utils.module_integration import _set_is_high_value_if_empty
 from logistics.utils.operational_rep_fields import copy_operational_rep_fields_from_declaration_order
 
 ORDER_CURRENCY_EXCHANGE_FIELDS = (
@@ -154,6 +155,9 @@ class Declaration(Document):
 		from logistics.utils.transport_mode_defaults import apply_default_transport_document_type
 
 		run_propagate_on_link(self)
+		from logistics.utils.module_integration import apply_high_value_from_linked_sales_quote
+
+		apply_high_value_from_linked_sales_quote(self)
 		self._sync_currency_and_exchange_rates_from_declaration_order()
 		apply_internal_job_customs_country_defaults(self)
 		apply_shipper_consignee_defaults(self)
@@ -1126,6 +1130,7 @@ def create_declaration_from_sales_quote(sales_quote_name: str) -> Dict[str, Any]
 		declaration.branch = getattr(sq, 'branch', None)
 		declaration.cost_center = getattr(sq, 'cost_center', None)
 		declaration.profit_center = getattr(sq, 'profit_center', None)
+		declaration.is_high_value = cint(getattr(sq, "is_high_value", 0))
 		
 		# Set customs authority from first Customs charge or legacy header
 		customs_charge = next((c for c in (getattr(sq, "charges") or []) if sales_quote_charge_service_types_equal(c.get("service_type"), "Customs")), None)
@@ -1304,6 +1309,8 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.is_internal_job = getattr(order, "is_internal_job", 0)
 	declaration.main_job_type = getattr(order, "main_job_type", None)
 	declaration.main_job = getattr(order, "main_job", None)
+	_set_is_high_value_if_empty(declaration, getattr(order, "is_high_value", None))
+	_set_is_high_value_if_empty(declaration, getattr(sales_quote, "is_high_value", None))
 
 	# Main section
 	apply_currency_and_exchange_rates_from_declaration_order(declaration, order, overwrite=True)
@@ -1494,6 +1501,9 @@ def _append_declaration_charges_from_do_style_dicts(declaration: Document, charg
 	field_name_map = {"description": "charge_description"}
 	direct_fields = [
 		"service_type",
+		# Per-scope tagging — keep Main / Internal Job classification across conversion.
+		"charge_scope",
+		"internal_job",
 		"item_code",
 		"item_name",
 		"charge_type",
@@ -1502,7 +1512,7 @@ def _append_declaration_charges_from_do_style_dicts(declaration: Document, charg
 		"quantity",
 		"uom",
 		"currency",
-		"rate",
+		"unit_rate",
 		"unit_type",
 		"minimum_quantity",
 		"minimum_unit_rate",
@@ -1569,6 +1579,9 @@ def _populate_charges_from_declaration_order(declaration: Document, order: Docum
 		# 1) Direct one-to-one fields present on both doctypes
 		direct_fields = [
 			"service_type",
+			# Per-scope tagging — keep Main / Internal Job classification across conversion.
+			"charge_scope",
+			"internal_job",
 			"item_code",
 			"item_name",
 			"description",
@@ -1578,7 +1591,7 @@ def _populate_charges_from_declaration_order(declaration: Document, order: Docum
 			"quantity",
 			"uom",
 			"currency",
-			"rate",
+			"unit_rate",
 			"unit_type",
 			"minimum_quantity",
 			"minimum_unit_rate",

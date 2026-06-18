@@ -20,13 +20,35 @@ from logistics.job_management.charge_recognition_je import (
 )
 
 
-def get_charge_row_selling_amount(charge):
+def resolve_charge_row_selling(charge, *, prefer_actual=False):
     """
-    First non-zero selling-side amount on a charge row; 0 for disbursements.
-    Must stay aligned with RecognitionEngine WIP / header revenue rollup.
+    Resolve selling-side amount on a charge row; 0 for disbursements.
+
+    ``prefer_actual=False`` (default): estimates first — used for WIP recognition
+    and header ``estimated_revenue`` rollup.
+
+    ``prefer_actual=True``: actuals first, then estimates — matches Sales Invoice
+    line amounts (mirrors ``resolve_charge_row_cost`` for Purchase Invoice).
     """
     if (getattr(charge, "charge_type", None) or "").strip().lower() == "disbursement":
         return 0
+
+    if prefer_actual:
+        r = flt(getattr(charge, "actual_revenue", None) or 0)
+        if r <= 0:
+            r = flt(getattr(charge, "estimated_revenue", None) or 0)
+        if r > 0:
+            return r
+        u = flt(getattr(charge, "unit_rate", 0))
+        q = flt(getattr(charge, "quantity", None) or getattr(charge, "cost_quantity", None) or 1)
+        if u * q > 0:
+            return u * q
+        for attr in ("base_amount", "selling_amount", "amount", "total"):
+            v = flt(getattr(charge, attr, None) or 0)
+            if v > 0:
+                return v
+        return 0
+
     for attr in ("estimated_revenue", "base_amount", "actual_revenue", "amount", "total"):
         if hasattr(charge, attr):
             v = flt(getattr(charge, attr, None) or 0)
@@ -35,19 +57,57 @@ def get_charge_row_selling_amount(charge):
     return 0
 
 
-def get_charge_row_cost_amount(charge):
+def get_charge_row_selling_amount(charge):
     """
-    First non-zero cost-side amount on a charge row; 0 for disbursements.
-    Must stay aligned with RecognitionEngine accrual / header cost rollup.
+    First non-zero selling-side amount on a charge row; 0 for disbursements.
+    Must stay aligned with RecognitionEngine WIP / header revenue rollup.
+    """
+    return resolve_charge_row_selling(charge, prefer_actual=False)
+
+
+def resolve_charge_row_cost(charge, *, prefer_actual=False):
+    """
+    Resolve cost-side amount on a charge row; 0 for disbursements.
+
+    ``prefer_actual=False`` (default): estimates first — used for WIP/accrual recognition
+    and header ``estimated_costs`` rollup.
+
+    ``prefer_actual=True``: actuals first, then estimates — matches Purchase Invoice
+    line rates for Sea Shipment, Special Project, and Docket charges.
     """
     if (getattr(charge, "charge_type", None) or "").strip().lower() == "disbursement":
         return 0
+
+    if prefer_actual:
+        c = flt(getattr(charge, "actual_cost", None) or 0)
+        if c <= 0:
+            c = flt(getattr(charge, "estimated_cost", None) or 0)
+        if c > 0:
+            return c
+        u = flt(getattr(charge, "unit_cost", 0))
+        q = flt(getattr(charge, "cost_quantity", None) or getattr(charge, "quantity", 1) or 1)
+        if u * q > 0:
+            return u * q
+        return flt(getattr(charge, "cost_base_amount", None) or 0)
+
     for attr in ("estimated_cost", "cost_base_amount", "actual_cost", "cost"):
         if hasattr(charge, attr):
             v = flt(getattr(charge, attr, None) or 0)
             if v:
                 return v
+    u = flt(getattr(charge, "unit_cost", 0))
+    q = flt(getattr(charge, "cost_quantity", None) or getattr(charge, "quantity", 1) or 1)
+    if u * q > 0:
+        return u * q
     return 0
+
+
+def get_charge_row_cost_amount(charge):
+    """
+    First non-zero cost-side amount on a charge row; 0 for disbursements.
+    Must stay aligned with RecognitionEngine accrual / header cost rollup.
+    """
+    return resolve_charge_row_cost(charge, prefer_actual=False)
 
 
 class RecognitionEngine:

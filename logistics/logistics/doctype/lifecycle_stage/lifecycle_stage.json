@@ -42,7 +42,7 @@
    "fieldname": "for_exhibits",
    "fieldtype": "Check",
    "in_list_view": 1,
-   "label": "Exhibits"
+   "label": "MICE"
   },
   {
    "default": "0",

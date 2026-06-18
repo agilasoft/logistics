@@ -441,10 +441,18 @@
     </style>
 </head>
 <body>
-    <div class="receipt-container">
+
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set company_doc = None %}
+{% if doc.company and frappe.db.exists("Company", doc.company) %}
+{% set company_doc = frappe.get_doc("Company", doc.company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
+{% set company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
+<div class="receipt-container">
         <!-- Header -->
         <div class="header">
-            {% set company_doc = frappe.get_doc("Company", doc.company) %}
+            {% if company_doc %}
             {% if company_doc.company_logo %}
                 <img src="{{ company_doc.company_logo }}" alt="Company Logo" class="company-logo" />
             {% elif company_doc.logo %}
@@ -456,7 +464,7 @@
                     company_logo
                 </div>
             {% endif %}
-            <div class="company-info">
+<div class="company-info">
                 <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
                 <div class="company-address">
                     {% if company_doc.registration_details %}
@@ -464,6 +472,12 @@
                     {% endif %}
                 </div>
             </div>
+            {% else %}
+                <div class="logo-placeholder">company_logo</div>
+                <div class="company-info">
+                    <div class="company-name">{{ doc.company or default_company or '' }}</div>
+                </div>
+            {% endif %}
         </div>
         
         <!-- Top Section: Customer/Receipt Details and Invoice Table -->
@@ -488,22 +502,22 @@
                         {% elif party_type == "Supplier" %}
                             {% set party_doc = frappe.get_doc("Supplier", doc.party) %}
                         {% endif %}
-                        {% if party_doc and party_doc.customer_primary_address %}
+{% if party_doc and party_doc.customer_primary_address %}
                             {% set party_address = frappe.get_doc("Address", party_doc.customer_primary_address) %}
                             {{ party_address.address_line1 if party_address.address_line1 else '' }}
                             {% if party_address.address_line2 %}{{ party_address.address_line2 }}{% endif %}
-                            {% if party_address.city %}{{ party_address.city }}{% endif %}
-                            {% if party_address.state %}, {{ party_address.state }}{% endif %}
-                            {% if party_address.country %}{{ party_address.country }}{% endif %}
-                            {% if party_address.pincode %} {{ party_address.pincode }}{% endif %}
+{% if party_address.city %}{{ party_address.city }}{% endif %}
+{% if party_address.state %}, {{ party_address.state }}{% endif %}
+{% if party_address.country %}{{ party_address.country }}{% endif %}
+{% if party_address.pincode %} {{ party_address.pincode }}{% endif %}
                         {% elif party_doc and party_doc.supplier_primary_address %}
                             {% set party_address = frappe.get_doc("Address", party_doc.supplier_primary_address) %}
                             {{ party_address.address_line1 if party_address.address_line1 else '' }}
                             {% if party_address.address_line2 %}{{ party_address.address_line2 }}{% endif %}
-                            {% if party_address.city %}{{ party_address.city }}{% endif %}
-                            {% if party_address.state %}, {{ party_address.state }}{% endif %}
-                            {% if party_address.country %}{{ party_address.country }}{% endif %}
-                            {% if party_address.pincode %} {{ party_address.pincode }}{% endif %}
+{% if party_address.city %}{{ party_address.city }}{% endif %}
+{% if party_address.state %}, {{ party_address.state }}{% endif %}
+{% if party_address.country %}{{ party_address.country }}{% endif %}
+{% if party_address.pincode %} {{ party_address.pincode }}{% endif %}
                         {% endif %}
                     {% endif %}
                 </div>
@@ -528,7 +542,7 @@
                             {% elif party_type == "Supplier" %}
                                 {% set party_doc = frappe.get_doc("Supplier", doc.party) %}
                             {% endif %}
-                            {% if party_doc and party_doc.tax_id %}
+{% if party_doc and party_doc.tax_id %}
                                 {{ party_doc.tax_id }}
                             {% elif party_doc and party_doc.tin %}
                                 {{ party_doc.tin }}
@@ -546,7 +560,7 @@
                             {% elif party_type == "Supplier" %}
                                 {% set party_doc = frappe.get_doc("Supplier", doc.party) %}
                             {% endif %}
-                            {% if party_doc and party_doc.customer_name %}
+{% if party_doc and party_doc.customer_name %}
                                 {{ party_doc.customer_name }}
                             {% elif party_doc and party_doc.supplier_name %}
                                 {{ party_doc.supplier_name }}
@@ -733,7 +747,7 @@
                 {% set series_start = name %}
                 {% set series_end = name %}
             {% endif %}
-            <div class="footer-row">
+<div class="footer-row">
                 BIR Acknowledgement Receipt No.: 
                 {% if bir and bir.ptu_no %}
                     {{ bir.ptu_no }}

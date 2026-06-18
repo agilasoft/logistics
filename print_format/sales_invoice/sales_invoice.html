@@ -1,7 +1,8 @@
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
+<!-- SALES INVOICE - Sales Invoice only (Service Invoice / Disbursement Bill / Credit Note). -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
         <style>
             * {
                 margin: 0;
@@ -29,27 +30,57 @@
                 position: relative;
             }
             
-            /* Screen/preview: same layout as PDF – footer sticks to bottom; allow scroll if content is tall */
+            /* Screen/preview: mirror print – footer block at bottom of bond paper */
             @media screen {
                 html, body {
                     overflow-x: hidden;
                     overflow-y: auto;
-                    min-height: 100vh;
+                    height: 100%;
+                    min-height: 100%;
                 }
                 .receipt-container {
                     min-height: 100vh;
+                    display: flex;
+                    flex-direction: column;
+                }
+                .last-page-block {
+                    display: flex;
+                    flex-direction: column;
+                    flex: 1 1 auto;
+                    min-height: 0;
+                }
+                .footer-spacer {
+                    flex: 1 1 auto;
+                    min-height: 0;
                 }
             }
             
             .top-section {
-                flex: 1;
+                flex: 0 1 auto;
                 display: flex;
                 flex-direction: column;
                 min-height: 0;
             }
             
+            .last-page-block {
+                flex: 1 1 auto;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+            
+            .footer-spacer {
+                flex: 1 1 auto;
+                min-height: 0;
+            }
+            
+            .page-bottom {
+                flex: 0 0 auto;
+                display: flex;
+                flex-direction: column;
+            }
+            
             .bottom-section {
-                margin-top: auto;
                 flex: 0 0 auto;
             }
             
@@ -141,7 +172,7 @@
             .info-block .field-label {
                 font-weight: bold;
                 font-size: 7.5pt;
-                min-width: 16mm;
+                min-width: 26mm;
                 flex-shrink: 0;
                 text-align: right;
             }
@@ -173,12 +204,12 @@
                 padding-right: 2mm;
             }
             .left-column .field-row { justify-content: flex-end; }
-            .left-column .field-label { width: 22mm; }
+            .left-column .field-label { width: 32mm; }
             .right-column {
                 flex: 1;
                 padding-left: 2mm;
             }
-            .right-column .field-label { width: 22mm; text-align: right; }
+            .right-column .field-label { width: 32mm; text-align: right; }
             
             .field-row {
                 display: flex;
@@ -303,7 +334,7 @@
                 display: flex;
                 flex-direction: column;
                 gap: 0.5mm;
-                flex: 1;
+                flex: 0 1 auto;
                 min-height: 0;
             }
             
@@ -478,93 +509,89 @@
                 margin-top: auto;
             }
             
-            /* VAT Summary Section - Two Columns */
+            /* VAT Summary Section - table layout for reliable PDF alignment */
             .vat-summary-container {
-                display: flex;
-                flex-direction: row;
-                justify-content: space-between;
-                gap: 3mm;
-                width: 100%;
+                width: 52%;
+                margin-left: auto;
                 margin-top: 2mm;
                 margin-bottom: 2mm;
             }
             
-            .vat-left-column {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
+            .vat-summary-table {
                 width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
             }
             
-            .vat-left-column .vat-summary-row {
-                display: flex !important;
-                justify-content: flex-start !important;
-                width: 100% !important;
-                margin-bottom: 0.5mm !important;
-                align-items: center !important;
-                gap: 2mm !important;
+            .vat-summary-table col.vat-left-label-col {
+                width: 34%;
             }
             
-            .vat-left-column .vat-summary-label {
-                text-align: right !important;
-                font-size: 8pt !important;
-                font-weight: bold !important;
-                flex: 0 0 auto !important;
-                margin-left: 30mm !important;
-                min-width: 35mm !important;
+            .vat-summary-table col.vat-left-value-col {
+                width: 16%;
             }
             
-            .vat-left-column .vat-summary-value {
-                text-align: right !important;
-                font-size: 8pt !important;
-                min-width: 25mm !important;
-                flex: 0 0 auto !important;
-                margin-left: auto !important;
+            .vat-summary-table col.vat-col-gap {
+                width: 4%;
             }
             
-            .vat-right-column {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
+            .vat-summary-table col.vat-right-label-col {
+                width: 30%;
             }
             
-            .vat-summary-row {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 0.5mm;
-                align-items: center;
-                gap: 1.5mm;
+            .vat-summary-table col.vat-right-value-col {
+                width: 16%;
             }
             
-            .vat-summary-label {
+            .vat-summary-table td {
                 font-size: 8pt;
+                padding: 0.2mm 0;
+                vertical-align: top;
+                border: none;
+            }
+            
+            .vat-summary-table .vat-left-label {
+                font-weight: bold;
+                text-align: right;
+                padding-right: 1.5mm;
+                white-space: nowrap;
+            }
+            
+            .vat-summary-table .vat-left-value,
+            .vat-summary-table .vat-right-value,
+            .vat-summary-table .vat-total-value {
+                text-align: right;
+                white-space: nowrap;
+            }
+            
+            .vat-summary-table .vat-right-label {
                 font-weight: bold;
                 text-align: left;
+                padding-left: 1mm;
+                padding-right: 1.5mm;
             }
             
-            .vat-summary-value {
-                font-size: 8pt;
-                text-align: right;
-                min-width: 25mm;
-            }
-            
-            .vat-total-row {
-                border-top: 1px solid #000;
-                margin-top: 0.5mm;
-                padding-top: 0.8mm;
-            }
-            
-            .vat-total-label {
-                font-size: 8pt;
+            .vat-summary-table .vat-total-label {
                 font-weight: 900;
                 text-align: left;
+                padding-left: 1mm;
+                padding-right: 1.5mm;
             }
             
-            .vat-total-value {
-                font-size: 8pt;
+            .vat-summary-table .vat-total-value {
                 font-weight: 900;
-                text-align: right;
-                min-width: 25mm;
+            }
+            
+            .vat-summary-table tr.vat-total-border td {
+                border-top: 1px solid #000;
+                padding: 0;
+                line-height: 0;
+                font-size: 0;
+                height: 0;
+            }
+            
+            .vat-summary-table tr.vat-total-row td {
+                padding-top: 0.6mm;
             }
             
             /* Disclaimer Section - Two Columns (Last Page Footer Only) */
@@ -719,24 +746,12 @@
                 padding: 1mm 0;
             }
             
-            /* Footer Section */
+            /* Footer Section (BIR) – last page only, anchored via .page-bottom */
             .footer-section {
-                margin-top: auto;
                 padding-top: 1mm;
                 border-top: 1px solid #000;
                 font-size: 7pt;
-            }
-            
-            /* Repeating footer for every page */
-            .footer-section.repeating-footer {
                 margin-top: 0;
-            }
-            
-            .bottom-section {
-                margin-top: auto;
-                display: flex;
-                flex-direction: column;
-                min-height: 0;
             }
             
             /* Last page footer: tax summary + BIR + disclaimer on final page only */
@@ -745,17 +760,11 @@
             }
             /* DSB: Total Amount Due only - right-aligned like tax summary right column */
             .vat-summary-container.dsb-total-only {
-                display: flex !important;
-                justify-content: flex-end;
-                margin-bottom: 2mm;
-                margin-top: 2mm;
-                width: 100%;
+                width: 26%;
             }
-            .vat-summary-container.dsb-total-only .vat-right-column {
-                min-width: 50%;
-            }
-            .vat-summary-container.dsb-total-only .vat-total-row {
-                display: flex !important;
+            .vat-summary-container.dsb-total-only .vat-total-label {
+                text-align: left;
+                padding-left: 1mm;
             }
             
             .footer-row {
@@ -786,7 +795,7 @@
             
             @page {
                 size: A4;
-                margin: 12mm 12mm 40mm 12mm;
+                margin: 12mm 12mm 15mm 12mm;
             }
             @page {
                 @bottom-right {
@@ -797,94 +806,110 @@
             }
             
             @media print {
-                /* Tax summary and footer flow after table (no margin-top: auto) to prevent PDF overlap */
-                body {
+                html, body {
+                    height: auto;
                     margin: 0;
                     padding: 0;
                     -webkit-print-color-adjust: exact;
                     print-color-adjust: exact;
                 }
+
+                /* A4 bond paper: 297mm − top/bottom @page margins (12mm + 15mm) */
                 .receipt-container {
-                    padding: 0;
+                    display: flex;
+                    flex-direction: column;
+                    min-height: calc(297mm - 12mm - 15mm);
                     max-width: 100%;
-                    min-height: 0;
-                    display: block;
+                    width: 100%;
+                    padding: 0;
+                    box-sizing: border-box;
                 }
-                .top-section {
-                    display: block;
-                    padding-bottom: 0;
+
+                .header {
+                    flex: 0 0 auto;
                 }
+
+                .top-section,
                 .table-summary-container {
-                    padding-bottom: 0;
-                    margin-bottom: 0;
+                    flex: 0 0 auto;
                 }
-                .page-break {
-                    page-break-after: always;
-                    break-after: page;
-                }
-                .last-page-footer {
-                    display: block;
-                    padding: 3mm 0 2mm 0;
-                    margin-top: 0;
-                    page-break-before: avoid;
-                }
-                .last-page-footer .vat-summary-container {
+
+                /*
+                 * Last-page-only footer cluster (tax summary + disclaimer + BIR).
+                 * Never position:fixed — that repeats on every printed page.
+                 * flex:1 + .footer-spacer grows to push .page-bottom to the bottom
+                 * of the receipt container (one printable A4 sheet when content fits).
+                 */
+                .last-page-block {
+                    display: flex;
+                    flex-direction: column;
+                    flex: 1 1 auto;
+                    min-height: 0;
                     page-break-inside: avoid;
                     break-inside: avoid;
                 }
-                /* Disclaimer container - last page footer only */
-                .disclaimer-container {
-                    position: static !important;
+
+                .footer-spacer {
+                    flex: 1 1 auto;
+                    min-height: 0;
+                }
+
+                .page-bottom {
+                    flex: 0 0 auto;
+                    display: flex;
+                    flex-direction: column;
                     width: 100%;
-                    padding: 1mm 0;
-                    margin: 0 0 15mm 0;
                     page-break-inside: avoid;
                     break-inside: avoid;
-                    page-break-after: avoid;
-                    page-break-before: avoid;
                 }
-                .payment-info-section {
+
+                .last-page-footer,
+                .disclaimer-container,
+                .footer-section {
                     page-break-inside: avoid;
+                    break-inside: avoid;
                 }
-                .payment-info-row {
-                    page-break-inside: avoid;
-                }
-                .signature-section {
-                    page-break-inside: avoid;
-                }
-                /* Repeating footer on every page */
+
+                /* BIR footer: document flow only, last page, bottom of .page-bottom */
+                .footer-section,
                 .footer-section.repeating-footer {
-                    position: fixed;
-                    bottom: 0;
-                    left: 0;
-                    right: 0;
-                    width: 100%;
-                    padding: 1mm 12mm 3mm 12mm;
-                    margin: 0;
-                    background: white;
+                    position: static !important;
+                    bottom: auto !important;
+                    left: auto !important;
+                    right: auto !important;
+                    width: auto !important;
+                    margin-top: 0;
+                    padding-top: 2mm;
                     border-top: 1px solid #000;
-                    z-index: 1000;
-                    page-break-before: avoid;
-                    break-before: avoid;
+                    background: transparent !important;
+                    z-index: auto !important;
                 }
-                /* Add padding to content to prevent overlap with fixed footer */
-                .receipt-container {
-                    padding-bottom: 25mm;
+
+                .invoice-table tbody tr {
+                    page-break-inside: avoid;
+                    break-inside: avoid;
                 }
             }
         </style>
     </head>
     <body>
-        <!-- SERVICE INVOICE - Sales Invoice only. Do not use for Payment Entry (Cash Receipt). -->
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set company_doc = None %}
+{% if doc.company and frappe.db.exists("Company", doc.company) %}
+{% set company_doc = frappe.get_doc("Company", doc.company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
+{% set company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
         {% if doc.doctype != 'Sales Invoice' %}
         <div style="padding: 20px; font-family: Arial; color: red;">
-            <strong>Wrong print format.</strong> This format is for <strong>Sales Invoice (Service Invoice)</strong> only. Use the Cash Receipt print format for Payment Entry.
+            <strong>Wrong print format.</strong> This format is for <strong>Sales Invoice</strong> only. Use the Payment Entry print format for Payment Entry.
         </div>
         {% else %}
         <div class="receipt-container">
             {% set invoice_type_val = (doc.custom_invoice_type or doc.invoice_type or '')|upper|trim %}
             {% set is_dsb = (invoice_type_val == 'DSB' or invoice_type_val == 'DISBURSEMENT BILL' or 'DSB' in invoice_type_val) %}
-            {% set is_crd = (invoice_type_val == 'CRD' or invoice_type_val == 'CREDIT NOTE' or 'CRD' in invoice_type_val) %}
+            {% set is_crd = (invoice_type_val == 'CRD' or invoice_type_val == 'CREDIT NOTE' or 'CRD' in invoice_type_val or doc.is_return) %}
+            {% set is_dbt = (doc.is_debit_note or invoice_type_val == 'DBT' or invoice_type_val == 'DEBIT NOTE' or 'DBT' in invoice_type_val) %}
             {# CRD: tax summary only when taxes include Vatable, Zero-rated or Exempt (by account name) #}
             {% set ns_crd_tax = namespace(has_vat_exempt_zero=False) %}
             {% if doc.taxes %}
@@ -899,7 +924,7 @@
             {% set show_tax_summary = (not is_dsb) and (not is_crd or ns_crd_tax.has_vat_exempt_zero) %}
             <!-- Header -->
             <div class="header">
-                {% set company_doc = frappe.get_doc("Company", doc.company) %}
+                {% if company_doc %}
                 {% if company_doc.company_logo %}
                     <img src="{{ company_doc.company_logo }}" alt="Company Logo" class="company-logo" />
                 {% elif company_doc.logo %}
@@ -911,17 +936,17 @@
                         company_logo
                     </div>
                 {% endif %}
-                <div class="company-info">
+<div class="company-info">
                     <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
                     <div class="company-address">
                         {% if company_doc.address %}
                             {% set company_address = frappe.get_doc("Address", company_doc.address) %}
                             {{ company_address.address_line1 if company_address.address_line1 else '' }}
                             {% if company_address.address_line2 %}{{ company_address.address_line2 }}{% endif %}
-                            {% if company_address.city %}{{ company_address.city }}{% endif %}
-                            {% if company_address.state %}, {{ company_address.state }}{% endif %}
-                            {% if company_address.country %}{{ company_address.country }}{% endif %}
-                            {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+{% if company_address.city %}{{ company_address.city }}{% endif %}
+{% if company_address.state %}, {{ company_address.state }}{% endif %}
+{% if company_address.country %}{{ company_address.country }}{% endif %}
+{% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
                         {% elif company_doc.address_line1 %}
                             {{ company_doc.address_line1 }}<br>
                             {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
@@ -946,6 +971,12 @@
                         {% endif %}
                     </div>
                 </div>
+                {% else %}
+                    <div class="logo-placeholder">company_logo</div>
+                    <div class="company-info">
+                        <div class="company-name">{{ doc.company or default_company or '' }}</div>
+                    </div>
+                {% endif %}
             </div>
             
             <!-- Top Section: Customer/Payment Details and Invoice Table -->
@@ -975,8 +1006,7 @@
                                     {% set customer_address = frappe.get_doc("Address", primary_address_name) %}
                                 {% endif %}
                             {% endif %}
-                            
-                            {% if not customer_address %}
+{% if not customer_address %}
                                 {% set linked_addresses = frappe.get_all("Dynamic Link", 
                                     filters={"link_doctype": "Customer", "link_name": doc.customer, "parenttype": "Address"},
                                     fields=["parent"],
@@ -986,14 +1016,13 @@
                                     {% set customer_address = frappe.get_doc("Address", linked_addresses[0].parent) %}
                                 {% endif %}
                             {% endif %}
-                            
-                            {% if customer_address %}
+{% if customer_address %}
                                 {{ customer_address.address_line1 if customer_address.address_line1 else '' }}
                                 {% if customer_address.address_line2 %} {{ customer_address.address_line2 }}{% endif %}
-                                {% if customer_address.city %} {{ customer_address.city }}{% endif %}
-                                {% if customer_address.state %}, {{ customer_address.state }}{% endif %}
-                                {% if customer_address.country %} {{ customer_address.country }}{% endif %}
-                                {% if customer_address.pincode %} {{ customer_address.pincode }}{% endif %}
+{% if customer_address.city %} {{ customer_address.city }}{% endif %}
+{% if customer_address.state %}, {{ customer_address.state }}{% endif %}
+{% if customer_address.country %} {{ customer_address.country }}{% endif %}
+{% if customer_address.pincode %} {{ customer_address.pincode }}{% endif %}
                             {% endif %}
                         {% endif %}
                     </div>
@@ -1007,16 +1036,18 @@
                 <div class="qr-section">
                     {% set qr_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + doc.name|urlencode %}
                     <img src="{{ qr_url }}" alt="QR Code" class="qr-code" />
-                    {% if invoice_type_val == 'INV' %}
-                        {% set document_title = 'SERVICE INVOICE' %}
-                    {% elif invoice_type_val == 'CRD' %}
-                        {% set document_title = 'CREDIT NOTE' %}
-                    {% elif is_dsb %}
+                    {% if is_dsb %}
                         {% set document_title = 'DISBURSEMENT BILL' %}
+                    {% elif is_crd %}
+                        {% set document_title = 'CREDIT NOTE' %}
+                    {% elif is_dbt %}
+                        {% set document_title = 'DEBIT NOTE' %}
+                    {% elif invoice_type_val == 'INV' %}
+                        {% set document_title = 'SERVICE INVOICE' %}
                     {% else %}
                         {% set document_title = 'SERVICE INVOICE' %}
                     {% endif %}
-                    <div class="receipt-title-qr">{{ document_title }}</div>
+<div class="receipt-title-qr">{{ document_title }}</div>
                     <div class="reference-number">{{ doc.name }}</div>
                 </div>
                 <!-- Invoice Information -->
@@ -1066,7 +1097,9 @@
                     <div class="field-row">
                         <div class="field-label">DUE DATE:</div>
                         <div class="field-value">
-                            {% if doc.posting_date %}
+                            {% if doc.due_date %}
+                                {{ frappe.utils.formatdate(doc.due_date, 'MM-dd-yyyy') }}
+                            {% elif doc.posting_date %}
                                 {{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') }}
                             {% endif %}
                         </div>
@@ -1145,6 +1178,28 @@
                             <div class="field-row"><div class="field-label">DATE:</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.posting_date, 'MM-dd-yyyy') if job_doc.get('posting_date') else "-" }}</div></div>
                             {% elif job_type == "Declaration" or job_type == "Customer Declaration" %}
                             <div class="field-row"><div class="field-label">TOTAL VALUE:</div><div class="field-value">{% if job_doc.get('total_declaration_value') is not none %}{{ frappe.utils.fmt_money(job_doc.total_declaration_value, precision=2) }}{% else %}-{% endif %}</div></div>
+                            <div class="field-row">
+                                <div class="field-label">BROKER:</div>
+                                <div class="field-value">
+                                    {% if job_type in ["Declaration", "Customer Declaration"] %}
+                                        {{ job_doc.customs_broker or "-" }}
+                                    {% elif job_doc.get('broker') %}
+                                        {{ job_doc.broker }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </div>
+                            </div> 
+                            <div class="field-row">
+                                <div class="field-label">CUSTOMS AUTHORITY:</div>
+                                <div class="field-value">
+                                    {% if job_type in ["Declaration", "Customer Declaration", "Declaration Order"] %}
+                                        {{ job_doc.customs_authority or "-" }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </div>
+                            </div>
                             {% endif %}
                         {% endif %}
                     </div>
@@ -1203,109 +1258,122 @@
             </div>
             </div>
             
+            <!-- Last page only: spacer pushes tax summary + disclaimer + BIR to bottom of bond paper -->
+            <div class="last-page-block">
+            <div class="footer-spacer" aria-hidden="true"></div>
+            
+            <!-- Page Bottom: VAT Summary + Disclaimer + BIR Footer -->
+            <div class="page-bottom">
             <!-- Bottom Section: Last Page Footer (Tax Summary + BIR + Disclaimer) -->
             <div class="bottom-section last-page-footer">
                 {% if show_tax_summary %}
                 <!-- Tax Summary - in last page footer (hidden for DSB; for CRD only when Vatable/Exempt/Zero-rated taxes used) -->
                 <div class="vat-summary-container">
-                    <!-- Left Column: Sales Types -->
-                    <div class="vat-left-column">
-                        {% set currency = doc.currency or 'PHP' %}
-                        {% set ns = namespace(vatable_sales=0, exempt_sales=0, zero_rated_sales=0) %}
-                        {# Vatable / Exempt / Zero-rated Sales = amounts NET OF VAT #}
-                        {% if doc.taxes %}
-                            {% for tax in doc.taxes %}
-                                {% set account_name = frappe.db.get_value("Account", tax.account_head, "account_name") or "" %}
-                                {% set account_lower = account_name|lower %}
-                                {# Vatable: derive net from tax_amount and rate (net = tax_amount / (rate/100)); Exempt/Zero-rated: total is already net #}
-                                {% set tax_rate = tax.rate or 0 %}
-                                {% if "vatable" in account_lower %}
-                                    {% if tax_rate and tax_rate > 0 %}
-                                        {% set row_net = (tax.tax_amount or tax.base_tax_amount or 0) / (tax_rate / 100) %}
-                                    {% else %}
-                                        {% set row_net = tax.total or tax.base_total or 0 %}
-                                    {% endif %}
-                                    {% set ns.vatable_sales = ns.vatable_sales + row_net %}
-                                {% elif "exempt" in account_lower %}
+                    {% set currency = doc.currency or 'PHP' %}
+                    {% set ns = namespace(vatable_sales=0, exempt_sales=0, zero_rated_sales=0) %}
+                    {# Vatable / Exempt / Zero-rated Sales = amounts NET OF VAT #}
+                    {% if doc.taxes %}
+                        {% for tax in doc.taxes %}
+                            {% set account_name = frappe.db.get_value("Account", tax.account_head, "account_name") or "" %}
+                            {% set account_lower = account_name|lower %}
+                            {% set tax_rate = tax.rate or 0 %}
+                            {% if "vatable" in account_lower %}
+                                {% if tax_rate and tax_rate > 0 %}
+                                    {% set row_net = (tax.tax_amount or tax.base_tax_amount or 0) / (tax_rate / 100) %}
+                                {% else %}
                                     {% set row_net = tax.total or tax.base_total or 0 %}
-                                    {% set ns.exempt_sales = ns.exempt_sales + row_net %}
-                                {% elif "zero-rated" in account_lower or "zero rated" in account_lower %}
-                                    {% set row_net = tax.total or tax.base_total or 0 %}
-                                    {% set ns.zero_rated_sales = ns.zero_rated_sales + row_net %}
                                 {% endif %}
-                            {% endfor %}
-                        {% endif %}
-                        
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Vatable Sales :</div>
-                            <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(ns.vatable_sales, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Exempt Sales :</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(ns.exempt_sales, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Zero Rated Sales :</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(ns.zero_rated_sales, precision=2) }}</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Right Column: VAT Calculations -->
-                    <div class="vat-right-column">
-                        {% set total_sales_vat_inclusive = (doc.get('grand_total') or 0) %}
-                        {% set vat_amount = (doc.get('total_taxes_and_charges') or 0) %}
-                        {% set net_of_vat = total_sales_vat_inclusive - vat_amount %}
-                        {% set sc_pwd_discount = (doc.get('discount_amount') or 0) %}
-                        {% set amount_due = net_of_vat - sc_pwd_discount %}
-                        {% set total_amount_due = (doc.get('grand_total') or 0) %}
-                        
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Total Sales (VAT Inclusive)</div>
-                            <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(total_sales_vat_inclusive, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Less: VAT</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(vat_amount, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Amount: Net of VAT</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(net_of_vat, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Less: SC/PWD Discount</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(sc_pwd_discount, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Amount Due</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(amount_due, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Add: VAT</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(vat_amount, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row vat-total-row">
-                            <div class="vat-total-label">Total Amount Due</div>
-                            <div class="vat-total-value">{{ currency }} {{ frappe.utils.fmt_money(total_amount_due, precision=2) }}</div>
-                        </div>
-                    </div>
+                                {% set ns.vatable_sales = ns.vatable_sales + row_net %}
+                            {% elif "exempt" in account_lower %}
+                                {% set row_net = tax.total or tax.base_total or 0 %}
+                                {% set ns.exempt_sales = ns.exempt_sales + row_net %}
+                            {% elif "zero-rated" in account_lower or "zero rated" in account_lower %}
+                                {% set row_net = tax.total or tax.base_total or 0 %}
+                                {% set ns.zero_rated_sales = ns.zero_rated_sales + row_net %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                    {% set total_sales_vat_inclusive = (doc.get('grand_total') or 0) %}
+                    {% set vat_amount = (doc.get('total_taxes_and_charges') or 0) %}
+                    {% set net_of_vat = total_sales_vat_inclusive - vat_amount %}
+                    {% set sc_pwd_discount = (doc.get('discount_amount') or 0) %}
+                    {% set amount_due = net_of_vat - sc_pwd_discount %}
+                    {% set total_amount_due = (doc.get('grand_total') or 0) %}
+                    <table class="vat-summary-table">
+                        <colgroup>
+                            <col class="vat-left-label-col">
+                            <col class="vat-left-value-col">
+                            <col class="vat-col-gap">
+                            <col class="vat-right-label-col">
+                            <col class="vat-right-value-col">
+                        </colgroup>
+                        <tr>
+                            <td class="vat-left-label">Vatable Sales :</td>
+                            <td class="vat-left-value">{{ currency }} {{ frappe.utils.fmt_money(ns.vatable_sales, precision=2) }}</td>
+                            <td></td>
+                            <td class="vat-right-label">Total Sales (VAT Inclusive)</td>
+                            <td class="vat-right-value">{{ currency }} {{ frappe.utils.fmt_money(total_sales_vat_inclusive, precision=2) }}</td>
+                        </tr>
+                        <tr>
+                            <td class="vat-left-label">Exempt Sales :</td>
+                            <td class="vat-left-value">{{ frappe.utils.fmt_money(ns.exempt_sales, precision=2) }}</td>
+                            <td></td>
+                            <td class="vat-right-label">Less: VAT</td>
+                            <td class="vat-right-value">{{ frappe.utils.fmt_money(vat_amount, precision=2) }}</td>
+                        </tr>
+                        <tr>
+                            <td class="vat-left-label">Zero Rated Sales :</td>
+                            <td class="vat-left-value">{{ frappe.utils.fmt_money(ns.zero_rated_sales, precision=2) }}</td>
+                            <td></td>
+                            <td class="vat-right-label">Amount: Net of VAT</td>
+                            <td class="vat-right-value">{{ frappe.utils.fmt_money(net_of_vat, precision=2) }}</td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td class="vat-right-label">Less: SC/PWD Discount</td>
+                            <td class="vat-right-value">{{ frappe.utils.fmt_money(sc_pwd_discount, precision=2) }}</td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td class="vat-right-label">Amount Due</td>
+                            <td class="vat-right-value">{{ frappe.utils.fmt_money(amount_due, precision=2) }}</td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td class="vat-right-label">Add: VAT</td>
+                            <td class="vat-right-value">{{ frappe.utils.fmt_money(vat_amount, precision=2) }}</td>
+                        </tr>
+                        <tr class="vat-total-border">
+                            <td colspan="5"></td>
+                        </tr>
+                        <tr class="vat-total-row">
+                            <td colspan="3"></td>
+                            <td class="vat-total-label">Total Amount Due</td>
+                            <td class="vat-total-value">{{ currency }} {{ frappe.utils.fmt_money(total_amount_due, precision=2) }}</td>
+                        </tr>
+                    </table>
                 </div>
                 {% endif %}
-                
-                {% if is_dsb %}
+{% if is_dsb %}
                 <!-- DSB: show Total Amount Due -->
                 <div class="vat-summary-container dsb-total-only">
-                    <div class="vat-right-column">
-                        {% set _currency = doc.currency or 'PHP' %}
-                        {% set _total_due = (doc.get('grand_total') or 0) %}
-                        <div class="vat-summary-row vat-total-row">
-                            <div class="vat-total-label">Total Amount Due</div>
-                            <div class="vat-total-value">{{ _currency }} {{ frappe.utils.fmt_money(_total_due, precision=2) }}</div>
-                        </div>
-                    </div>
+                    {% set _currency = doc.currency or 'PHP' %}
+                    {% set _total_due = (doc.get('grand_total') or 0) %}
+                    <table class="vat-summary-table">
+                        <tr class="vat-total-row">
+                            <td class="vat-total-label">Total Amount Due</td>
+                            <td class="vat-total-value">{{ _currency }} {{ frappe.utils.fmt_money(_total_due, precision=2) }}</td>
+                        </tr>
+                    </table>
                 </div>
                 {% endif %}
-            
-                {% if not show_tax_summary %}
+{% if not show_tax_summary %}
                 <div class="dsb-input-tax-notice">THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX</div>
                 {% endif %}
             </div>
@@ -1336,8 +1404,8 @@
                 {% endif %}
             </div>
             
-            <!-- Footer Section (BIR) - Repeats on every page -->
-            <div class="footer-section repeating-footer">
+            <!-- Footer Section (BIR) - Last page only -->
+            <div class="footer-section">
                 {% set bir_name = frappe.db.get_value("BIR CAS Settings", {"company": doc.company}, "name") %}
                 {% if bir_name %}
                     {% set bir = frappe.get_doc("BIR CAS Settings", bir_name) %}
@@ -1373,7 +1441,7 @@
                     {% set series_start = name %}
                     {% set series_end = name %}
                 {% endif %}
-                <div class="footer-row">
+<div class="footer-row">
                     BIR Acknowledgment Certificate No. 
                     {% if bir and bir.ptu_no %}
                         {{ bir.ptu_no }}
@@ -1392,6 +1460,8 @@
                         -
                     {% endif %}
                 </div>
+            </div>
+            </div>
             </div>
         </div>
         {% endif %}

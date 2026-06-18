@@ -762,6 +762,7 @@
    "label": "Internal Job",
    "mandatory_depends_on": "eval:doc.charge_scope==\"Internal Job\"",
    "options": "Internal Job",
+   "read_only": 1,
    "search_index": 1
   }
  ],

@@ -1,0 +1,46 @@
+{
+ "add_total_row": 1,
+ "add_translate_data": 0,
+ "columns": [],
+ "creation": "2026-06-05 00:00:00.000000",
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [
+  {"fieldname": "as_on_date", "label": "As On Date", "fieldtype": "Date", "default": "Today", "reqd": 1, "width": "100"},
+  {"fieldname": "company", "label": "Company", "fieldtype": "Link", "options": "Company", "width": "120"},
+  {"fieldname": "branch", "label": "Branch", "fieldtype": "Link", "options": "Branch", "width": "120"},
+  {"fieldname": "cost_center", "label": "Cost Center", "fieldtype": "Link", "options": "Cost Center", "width": "120"},
+  {"fieldname": "profit_center", "label": "Profit Center", "fieldtype": "Link", "options": "Profit Center", "width": "120"},
+  {"fieldname": "job_number", "label": "Job Number", "fieldtype": "Link", "options": "Job Number", "width": "120"},
+  {"fieldname": "payee", "label": "Payee", "fieldtype": "Link", "options": "Supplier", "width": "150"},
+  {"fieldname": "include_drafts", "label": "Include Drafts", "fieldtype": "Check", "default": 0, "width": "80"},
+  {"fieldname": "only_overdue", "label": "Only Overdue", "fieldtype": "Check", "default": 0, "width": "80"},
+  {
+   "fieldname": "aging_bucket",
+   "label": "Aging Bucket",
+   "fieldtype": "Select",
+   "options": "\n90+ days overdue\n61-90 days overdue\n31-60 days overdue\n1-30 days overdue\nDue today\nNot yet due\nNo due date",
+   "width": "120"
+  }
+ ],
+ "idx": 0,
+ "is_standard": "Yes",
+ "letter_head": "",
+ "letterhead": null,
+ "modified": "2026-06-05 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cash Advance",
+ "name": "Cash Advance Liquidation Aging",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "ref_doctype": "Cash Advance Request",
+ "report_name": "Cash Advance Liquidation Aging",
+ "report_type": "Script Report",
+ "roles": [
+  {"role": "System Manager"},
+  {"role": "Accounts User"},
+  {"role": "Accounts Manager"}
+ ],
+ "timeout": 0
+}

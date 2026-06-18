@@ -62,7 +62,13 @@ SALES_QUOTE_CHARGE_FIELDS = [
 ]
 
 # Include unit_rate from Sales Quote Transport / Sales Quote Charge rows (mapped to rate on charges)
-SALES_QUOTE_CHARGE_SOURCE_FIELDS = list(SALES_QUOTE_CHARGE_FIELDS) + ["unit_rate"]
+# plus charge_scope / internal_job (One-off Sales Quote per-charge tagging - propagated to
+# Transport Order Charges by ``apply_scope_tagging_to_mapped_charge`` in the mapper).
+SALES_QUOTE_CHARGE_SOURCE_FIELDS = list(SALES_QUOTE_CHARGE_FIELDS) + [
+    "unit_rate",
+    "charge_scope",
+    "internal_job",
+]
 
 
 def _strip_legacy_quote_if_sales_quote_cleared_on_new_doc(doc):
@@ -211,25 +217,13 @@ class TransportOrder(Document):
                 from frappe.utils import cint
 
                 from logistics.pricing_center.doctype.sales_quote.sales_quote import (
-                    resolve_allow_linked_freight_booking_from_one_off_converted_doc,
-                    resolve_allow_linked_freight_bookings_for_internal_job,
-                    resolve_single_main_air_booking_for_sales_quote,
-                    resolve_single_main_sea_booking_for_sales_quote,
+                    resolve_one_off_chain_freight_booking_allowances,
                     validate_one_off_quote_not_converted,
                 )
 
-                allow_sea, allow_air = resolve_allow_linked_freight_bookings_for_internal_job(self)
-                # Same multimodal one-off chain as Air/Sea Shipment: sibling main booking may hold conversion
-                # even when this TO is not flagged internal job (e.g. create from Air Shipment + sea leg consumed quote).
-                if not allow_sea:
-                    allow_sea = resolve_single_main_sea_booking_for_sales_quote(self.sales_quote)
-                if not allow_air:
-                    allow_air = resolve_single_main_air_booking_for_sales_quote(self.sales_quote)
-                conv_sea, conv_air = resolve_allow_linked_freight_booking_from_one_off_converted_doc(self.sales_quote)
-                if not allow_sea:
-                    allow_sea = conv_sea
-                if not allow_air:
-                    allow_air = conv_air
+                allow_sea, allow_air = resolve_one_off_chain_freight_booking_allowances(
+                    self, self.sales_quote
+                )
                 # Main leg and internal satellite TOs (linked to main via main_job / booking) may share the
                 # same one-off quote when customs was converted first (Declaration Order).
                 is_internal = cint(getattr(self, "is_internal_job", 0)) == 1
@@ -310,6 +304,12 @@ class TransportOrder(Document):
             from logistics.utils.sales_quote_validity import msgprint_sales_quote_validity_warnings
 
             msgprint_sales_quote_validity_warnings(self)
+
+            from logistics.utils.sales_quote_charge_copy import (
+                stamp_main_or_internal_job_scope_on_booking_charges,
+            )
+
+            stamp_main_or_internal_job_scope_on_booking_charges(self)
 
         finally:
             clear_charge_resolution_parent(self)
@@ -561,8 +561,13 @@ class TransportOrder(Document):
             if qt == "One-Off Quote" and q and frappe.db.exists("Sales Quote", q):
                 current_sales_quote = q
         if current_sales_quote:
-            from logistics.pricing_center.doctype.sales_quote.sales_quote import reset_one_off_quote_on_cancel
-            reset_one_off_quote_on_cancel(current_sales_quote)
+            from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+                reset_one_off_quote_on_cancel_for_document,
+            )
+
+            reset_one_off_quote_on_cancel_for_document(
+                current_sales_quote, self.doctype, self.name
+            )
 
         try:
             from logistics.special_projects.special_project_packages import (
@@ -1280,7 +1285,12 @@ class TransportOrder(Document):
                     )
 
     def _populate_charges_from_sales_quote(self):
-        """Populate charges from all Sales Quote Charge lines linked to ``sales_quote``."""
+        """Populate charges from all Sales Quote Charge lines linked to ``sales_quote``.
+
+        When ``self.flags.gcfq_main_service_only`` is set (Action → Get Charges from Quotation),
+        the fetch is restricted to Transport-scoped rows so the Main order matches the listing
+        filter and does not pull other-service charge rows.
+        """
         if not self.sales_quote:
             return
 
@@ -1297,7 +1307,8 @@ class TransportOrder(Document):
             # Clear existing charges
             self.set("charges", [])
 
-            # All Sales Quote Charge lines for this quote (every service type).
+            # All Sales Quote Charge lines for this quote (every service type) unless the Action
+            # button asked for Main-only.
             fields_to_fetch = (
                 ["name", "service_type", "location_from", "location_to"]
                 + SALES_QUOTE_CHARGE_SOURCE_FIELDS
@@ -1308,6 +1319,12 @@ class TransportOrder(Document):
             )
 
             filters = {"parent": self.sales_quote, "parenttype": "Sales Quote"}
+            if cint(getattr(self.flags, "gcfq_main_service_only", 0)):
+                from logistics.utils.charge_service_type import (
+                    apply_sales_quote_charge_service_type_to_filters,
+                )
+
+                apply_sales_quote_charge_service_type_to_filters(filters, "Transport", self)
 
             sales_quote_transport_records = frappe.get_all(
                 "Sales Quote Charge",
@@ -1497,6 +1514,12 @@ class TransportOrder(Document):
                 sq_link = self.quote
             if sq_link and _has_field("Transport Order Charges", "sales_quote_link"):
                 charge_data["sales_quote_link"] = sq_link
+
+            from logistics.utils.sales_quote_charge_copy import (
+                apply_scope_tagging_to_mapped_charge,
+            )
+
+            apply_scope_tagging_to_mapped_charge(sqt_record, charge_data)
 
             return charge_data
 
@@ -1731,14 +1754,23 @@ def aggregate_volume_from_packages_remote(doc=None):
 
 
 @frappe.whitelist()
-def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = None):
+def populate_charges_from_sales_quote(
+    docname: str = None,
+    sales_quote: str = None,
+    gcfq_main_service_only: int = 0,
+):
     """Populate charges from sales_quote. Called from frontend when sales_quote field changes.
-    
+
     Returns charge data that can be populated in the frontend.
+
+    ``gcfq_main_service_only`` is set by Action → Get Charges from Quotation so the Main
+    Transport Order only consumes Transport-scoped charge rows (same shape as the listing filter).
+    Without this flag the existing behaviour is preserved (all Sales Quote Charge rows fetched and
+    later narrowed by routing match in ``filter_sales_quote_charge_rows_for_operational_doc``).
     """
     if not sales_quote:
         return {"charges": []}
-    
+
     try:
         # Temporary names (unsaved documents) cannot be fetched
         if sales_quote.startswith("new-"):
@@ -1752,8 +1784,9 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
                 "error": f"Sales Quote {sales_quote} does not exist",
                 "charges": []
             }
-        
-        # All Sales Quote Charge lines for this quote (every service type).
+
+        # All Sales Quote Charge lines for this quote (every service type) unless the Action button
+        # asked for Main-only — see ``logistics.utils.get_charges_from_quotation``.
         fields_to_fetch = (
             ["name", "service_type", "location_from", "location_to"]
             + SALES_QUOTE_CHARGE_SOURCE_FIELDS
@@ -1764,6 +1797,12 @@ def populate_charges_from_sales_quote(docname: str = None, sales_quote: str = No
         )
 
         filters = {"parent": sales_quote, "parenttype": "Sales Quote"}
+        if cint(gcfq_main_service_only):
+            from logistics.utils.charge_service_type import (
+                apply_sales_quote_charge_service_type_to_filters,
+            )
+
+            apply_sales_quote_charge_service_type_to_filters(filters, "Transport")
 
         sales_quote_transport_records = frappe.get_all(
             "Sales Quote Charge",
@@ -1932,6 +1971,12 @@ def _map_sales_quote_transport_to_charge_dict(sqt_record):
 
         # Select options start with Air; unset service_type would otherwise present as Air.
         charge_data["service_type"] = (sqt_record.get("service_type") or "").strip() or "Transport"
+
+        from logistics.utils.sales_quote_charge_copy import (
+            apply_scope_tagging_to_mapped_charge,
+        )
+
+        apply_scope_tagging_to_mapped_charge(sqt_record, charge_data)
 
         return charge_data
         

@@ -125,8 +125,207 @@
 			".sp-ship-empty{padding:24px 12px;text-align:center;color:var(--text-muted,#64748b);font-size:12px;border:1px dashed var(--border-color,#e2e8f0);border-radius:8px;}" +
 			".sp-ship-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 2px 0;border-top:1px solid var(--border-color,#e2e8f0);margin-top:10px;font-size:12px;color:var(--text-muted,#64748b);}" +
 			".sp-ship-summary .sp-ship-summary-count{font-weight:600;color:var(--text-color,#0f172a);}" +
+			".sp-filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;}" +
+			".sp-filter-bar label{font-size:12px;font-weight:600;color:var(--text-muted,#64748b);margin:0;}" +
+			".sp-filter-bar select{min-width:160px;max-width:100%;font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border-color,#e2e8f0);background:var(--control-bg,#fff);}" +
+			".sp-card-filtered{display:none !important;}" +
+			".sp-param-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:12px;}" +
+			".sp-param-cell{min-width:0;}" +
+			".sp-param-cell .form-group{margin-bottom:0;}" +
+			".sp-card-create:disabled,.sp-card-create.sp-card-create-disabled{opacity:0.55;cursor:not-allowed;pointer-events:none;}" +
 			"</style>"
 		);
+	}
+
+	function _lifecycleRowForIdx(frm, idx) {
+		const rows = (frm && frm.doc && frm.doc.lifecycle_jobs) || [];
+		const n = idx != null ? Number(idx) : NaN;
+		if (isNaN(n)) return null;
+		for (let i = 0; i < rows.length; i++) {
+			if (Number(rows[i].idx) === n) return rows[i];
+		}
+		return null;
+	}
+
+	function _initialParamValues(frm, choice) {
+		const suggested = choice.suggested_parameters || {};
+		if (suggested && typeof suggested === "object" && Object.keys(suggested).length) {
+			return suggested;
+		}
+		const row = _lifecycleRowForIdx(frm, choice.detail_idx) || {};
+		const out = {};
+		(choice.parameter_field_specs || []).forEach(function (spec) {
+			if (spec && spec.fieldname && row[spec.fieldname] != null && String(row[spec.fieldname]).trim() !== "") {
+				out[spec.fieldname] = row[spec.fieldname];
+			}
+		});
+		return out;
+	}
+
+	function _collectCardParams($card) {
+		const out = {};
+		($card.data("sp-param-controls") || []).forEach(function (c) {
+			if (!c || !c.key || !c.get_value) return;
+			const v = c.get_value();
+			if (v != null && String(v).trim() !== "") {
+				out[c.key] = v;
+			}
+		});
+		return out;
+	}
+
+	function _mountParamControl($cell, spec, frm, value) {
+		if (!spec || !spec.fieldname) return null;
+		const df = {
+			fieldname: spec.fieldname,
+			label: spec.label || spec.fieldname,
+			fieldtype: spec.fieldtype || "Data",
+			options: spec.options || "",
+		};
+		if (spec.fieldtype === "Dynamic Link" && spec.options_fieldname) {
+			df.get_options = function () {
+				const row = { location_type: "UNLOCO" };
+				($cell.closest(".sp-card").data("sp-param-controls") || []).forEach(function (c) {
+					if (c && c.key === spec.options_fieldname && c.get_value) {
+						row[spec.options_fieldname] = c.get_value();
+					}
+				});
+				return row[spec.options_fieldname] || "UNLOCO";
+			};
+		}
+		const ctrl = frappe.ui.form.make_control({
+			df: df,
+			parent: $cell,
+			render_input: true,
+		});
+		ctrl.set_value(value || "");
+		return {
+			key: spec.fieldname,
+			control: ctrl,
+			get_value: function () {
+				return ctrl.get_value();
+			},
+		};
+	}
+
+	function _mountCardParameterControls($card, frm, choice) {
+		if ($card.data("sp-params-mounted")) return;
+		const specs = choice.parameter_field_specs || [];
+		const $grid = $("<div class='sp-param-grid'>");
+		const controls = [];
+		const initial = _initialParamValues(frm, choice);
+		specs.forEach(function (spec) {
+			const $cell = $("<div class='sp-param-cell'>");
+			$grid.append($cell);
+			const c = _mountParamControl($cell, spec, frm, initial[spec.fieldname]);
+			if (c) controls.push(c);
+		});
+		$card.find(".sp-card-bd").prepend($grid);
+		$card.data("sp-param-controls", controls);
+		$card.data("sp-params-mounted", true);
+	}
+
+	function _updateCardCreateState($card, preview) {
+		preview = preview || {};
+		$card.data("sp-preview", preview);
+		const $btn = $card.find(".sp-card-create");
+		if (!$btn.length) return;
+		const ready = preview.creatable === true;
+		$btn.prop("disabled", !ready);
+		$btn.toggleClass("sp-card-create-disabled", !ready);
+	}
+
+	function _wildcardConfirmMessage(preview, choice) {
+		const fields = preview.wildcard_fields || [];
+		if (!fields.length) return "";
+		const labels = {};
+		(choice.parameter_field_specs || []).forEach(function (s) {
+			if (s && s.fieldname) labels[s.fieldname] = s.label || s.fieldname;
+		});
+		const names = fields.map(function (fn) {
+			return labels[fn] || fn.replace(/_/g, " ");
+		});
+		return __(
+			"Matching project charge rows leave these parameters blank (wildcard): {0}. Create the booking/order anyway?",
+			[names.join(", ")]
+		);
+	}
+
+	function _loadCardPreview($pv, frm, choiceEnc, onLoaded, creationParameters) {
+		const dec = _decodeChoice(choiceEnc);
+		$pv.html(_renderPreviewHtml(null));
+		const args = {
+			special_project: frm.doc.name,
+			job_type: dec.job_type != null ? dec.job_type : "",
+			lifecycle_job_idx: dec.detail_idx,
+			lifecycle_jobs: _lifecycleJobsPayload(frm),
+		};
+		if (creationParameters && Object.keys(creationParameters).length) {
+			args.creation_parameters = JSON.stringify(creationParameters);
+		}
+		frappe.call({
+			method: "logistics.special_projects.special_project_booking_creation.get_special_project_booking_preview",
+			args: args,
+			callback: function (r) {
+				const $card = $pv.closest(".sp-card");
+				if (r.exc) {
+					$pv.html(
+						_styles() +
+							"<div class='" + PREVIEW_CLASS + "'><div class='sp-empty' style='border-style:solid;color:var(--red-500,#c62828)'>" +
+							__("Preview could not be loaded.") + "</div></div>"
+					);
+					_updateCardCreateState($card, { creatable: false });
+				} else {
+					const msg = r.message || {};
+					$pv.html(_renderPreviewHtml(msg));
+					_updateCardCreateState($card, msg);
+				}
+				if (onLoaded) onLoaded();
+			},
+			error: function () {
+				const $card = $pv.closest(".sp-card");
+				$pv.html(
+					_styles() +
+						"<div class='" + PREVIEW_CLASS + "'><div class='sp-empty' style='border-style:solid;color:var(--red-500,#c62828)'>" +
+						__("Preview could not be loaded.") + "</div></div>"
+				);
+				_updateCardCreateState($card, { creatable: false });
+				if (onLoaded) onLoaded();
+			},
+		});
+	}
+
+	function _scheduleCardPreviewReload($card, frm) {
+		let timer = $card.data("sp-preview-timer");
+		if (timer) clearTimeout(timer);
+		timer = setTimeout(function () {
+			$card.data("sp-preview-timer", null);
+			const enc = $card.attr("data-choice");
+			const $pv = $card.find(".sp-card-preview");
+			_loadCardPreview($pv, frm, enc, null, _collectCardParams($card));
+		}, 350);
+		$card.data("sp-preview-timer", timer);
+	}
+
+	function _buildServiceTypeFilter(filters) {
+		const $bar = $("<div class='sp-filter-bar'>");
+		$bar.append($("<label>").text(__("Service Type")));
+		const $sel = $("<select class='sp-service-filter'>");
+		$sel.append($("<option>").attr("value", "").text(__("All")));
+		(filters || []).forEach(function (st) {
+			$sel.append($("<option>").attr("value", st).text(st));
+		});
+		$bar.append($sel);
+		return $bar;
+	}
+
+	function _applyServiceTypeFilter($root, value) {
+		const v = (value || "").trim();
+		$root.find(".sp-card").each(function () {
+			const $c = $(this);
+			const st = ($c.attr("data-service-type") || "").trim();
+			$c.toggleClass("sp-card-filtered", !!(v && st !== v));
+		});
 	}
 
 	function _formatParamsHtml(params) {
@@ -161,14 +360,22 @@
 		const esc = frappe.utils.escape_html;
 		const rows = charges
 			.map(function (c) {
-				const rate = c.rate != null ? c.rate : c.unit_rate != null ? c.unit_rate : c.per_unit_rate;
+				const rate = c.unit_rate != null ? c.unit_rate : c.per_unit_rate;
 				const cur = c.currency || c.selling_currency || "";
 				const label = (c.item_code || "") + (c.item_name ? " — " + c.item_name : "");
+				let source = c.charge_source || "";
+				if (c.sales_quote_link) {
+					source = source ? source + " · " + c.sales_quote_link : String(c.sales_quote_link);
+				} else if (c.change_request) {
+					source = source ? source + " · " + c.change_request : String(c.change_request);
+				}
 				return (
 					"<tr><td>" +
 					esc(c.service_type || "") +
 					"</td><td>" +
 					esc(String(label)) +
+					"</td><td>" +
+					esc(String(source)) +
 					"</td><td style='white-space:nowrap'>" +
 					esc(rate != null ? String(rate) : "—") +
 					"</td><td>" +
@@ -181,6 +388,7 @@
 			"<div class='sp-scroll'><table class='sp-table'><thead><tr>" +
 			"<th>" + __("Service") + "</th>" +
 			"<th>" + __("Item") + "</th>" +
+			"<th>" + __("Source") + "</th>" +
 			"<th>" + __("Rate") + "</th>" +
 			"<th>" + __("Curr.") + "</th>" +
 			"</tr></thead><tbody>" + rows + "</tbody></table></div>"
@@ -211,7 +419,6 @@
 			[__("Source"), esc((sc.source_doctype || "") + " · " + (sc.source_name || ""))],
 			[__("Customer"), esc(sc.customer || "—")],
 			[__("Company"), esc(sc.company || "—")],
-			[__("Sales Quote"), esc(sc.sales_quote || "—")],
 		];
 		const targetDoctype = (p.job_type || "").toString().trim();
 		if (targetDoctype) {
@@ -244,40 +451,6 @@
 			_styles() +
 			"<div class='" + PREVIEW_CLASS + "'>" + uncreatable + secContext + secParams + secCharges + "</div>"
 		);
-	}
-
-	function _loadCardPreview($pv, frm, choiceEnc, onLoaded) {
-		const dec = _decodeChoice(choiceEnc);
-		$pv.html(_renderPreviewHtml(null));
-		frappe.call({
-			method: "logistics.special_projects.special_project_booking_creation.get_special_project_booking_preview",
-			args: {
-				special_project: frm.doc.name,
-				job_type: dec.job_type != null ? dec.job_type : "",
-				lifecycle_job_idx: dec.detail_idx,
-				lifecycle_jobs: _lifecycleJobsPayload(frm),
-			},
-			callback: function (r) {
-				if (r.exc) {
-					$pv.html(
-						_styles() +
-							"<div class='" + PREVIEW_CLASS + "'><div class='sp-empty' style='border-style:solid;color:var(--red-500,#c62828)'>" +
-							__("Preview could not be loaded.") + "</div></div>"
-					);
-				} else {
-					$pv.html(_renderPreviewHtml(r.message || {}));
-				}
-				if (onLoaded) onLoaded();
-			},
-			error: function () {
-				$pv.html(
-					_styles() +
-						"<div class='" + PREVIEW_CLASS + "'><div class='sp-empty' style='border-style:solid;color:var(--red-500,#c62828)'>" +
-						__("Preview could not be loaded.") + "</div></div>"
-				);
-				if (onLoaded) onLoaded();
-			},
-		});
 	}
 
 	function _iconText(c) {
@@ -323,7 +496,7 @@
 			$("<p>")
 				.addClass("text-muted")
 				.css({ fontSize: "12px", marginBottom: "10px", lineHeight: 1.45 })
-				.text(__("Scroll the list of Lifecycle Jobs lines below. Expand a card for details; use Create in the card header when ready."))
+				.text(__("Filter by service type, expand a card to set parameters, then use Create when enabled."))
 		);
 		const $scroll = $("<div class='sp-cards-scroll'>");
 		const $cards = $("<div class='sp-cards'>");
@@ -331,6 +504,10 @@
 			const enc = _encodeChoice(c);
 			const creatable = c.creatable !== false;
 			const $card = $("<div class='sp-card'>").attr("data-choice", enc);
+			if (c.service_type) {
+				$card.attr("data-service-type", c.service_type);
+			}
+			$card.data("sp-choice", c);
 			if (c.suggested_order_title) {
 				$card.attr("data-suggested-order-title", c.suggested_order_title);
 			}
@@ -340,7 +517,12 @@
 			$toggle.append(_buildHead(c));
 			$hd.append($toggle);
 			if (creatable) {
-				$hd.append($("<button type='button'>").addClass("btn btn-primary btn-sm sp-card-create").text(__("Create")));
+				$hd.append(
+					$("<button type='button'>")
+						.addClass("btn btn-primary btn-sm sp-card-create sp-card-create-disabled")
+						.prop("disabled", true)
+						.text(__("Create"))
+				);
 			} else {
 				const linked = c.job_no != null && String(c.job_no).trim() !== "";
 				const $badges = $("<span class='sp-card-badges'>");
@@ -359,38 +541,82 @@
 		return $wrap;
 	}
 
+	/**
+	 * Navigate to the freshly created booking/order. Uses the shared
+	 * ``logistics_navigate_when_doc_exists`` helper (from internal_job_create_from_source.js,
+	 * loaded via app_include_js) to poll the row's existence first; this prevents the
+	 * "<Doctype> ... not found" message that the desk shows when ``frappe.set_route``
+	 * loads the new form before the just-inserted row is visible to the next request.
+	 */
 	function _routeAfterCreate(msg) {
+		function _go(doctype, docname) {
+			function navigate() {
+				frappe.set_route("Form", doctype, docname);
+			}
+			if (window.logistics_navigate_when_doc_exists) {
+				window.logistics_navigate_when_doc_exists(doctype, docname, navigate);
+			} else {
+				navigate();
+			}
+		}
 		if (msg.air_booking) {
-			frappe.set_route("Form", "Air Booking", msg.air_booking);
+			_go("Air Booking", msg.air_booking);
 		} else if (msg.sea_booking) {
-			frappe.set_route("Form", "Sea Booking", msg.sea_booking);
+			_go("Sea Booking", msg.sea_booking);
 		} else if (msg.transport_order) {
-			frappe.set_route("Form", "Transport Order", msg.transport_order);
+			_go("Transport Order", msg.transport_order);
 		} else if (msg.declaration_order) {
-			frappe.set_route("Form", "Declaration Order", msg.declaration_order);
+			_go("Declaration Order", msg.declaration_order);
 		} else if (msg.inbound_order) {
-			frappe.set_route("Form", "Inbound Order", msg.inbound_order);
+			_go("Inbound Order", msg.inbound_order);
 		} else if (msg.project_order) {
-			frappe.set_route("Form", "Project Order", msg.project_order);
+			_go("Project Order", msg.project_order);
 		}
 	}
 
 	const _PACKAGE_JOB_TYPES = ["Transport Order", "Air Booking", "Sea Booking", "Inbound Order"];
 
 	function _shipRowTitle(row) {
-		return (
+		const item =
 			row.warehouse_item_name ||
 			row.warehouse_item ||
 			row.commodity ||
 			row.description ||
-			__("Line") + " " + row.package_row
-		);
+			__("Item");
+		const lineNo = row.package_row != null ? String(row.package_row) : "";
+		if (lineNo) {
+			return __("Line {0} · {1}", [lineNo, item]);
+		}
+		return item;
 	}
 
 	function _shipRowIconText(row) {
-		const t = _shipRowTitle(row).toString().trim();
+		if (row.package_row != null && row.package_row !== "") {
+			return String(row.package_row);
+		}
+		const t = (row.warehouse_item_name || row.warehouse_item || row.commodity || "").toString().trim();
 		const m = t.match(/[A-Za-z0-9]/);
 		return m ? m[0].toUpperCase() : "?";
+	}
+
+	function _shipRowSearchText(row) {
+		const parts = [
+			row.package_row != null ? String(row.package_row) : "",
+			_shipRowTitle(row),
+			row.warehouse_item,
+			row.warehouse_item_name,
+			row.commodity,
+			row.description,
+			row.site,
+			row.site_label,
+			row.reference_no,
+		];
+		return parts
+			.filter(function (p) {
+				return p != null && String(p).trim() !== "";
+			})
+			.join(" ")
+			.toLowerCase();
 	}
 
 	function _fmtQty(v) {
@@ -405,7 +631,7 @@
 		rows.forEach(function (row) {
 			const $row = $("<div class='sp-ship-row'>").attr("data-row", row.package_row);
 			const title = _shipRowTitle(row);
-			$row.attr("data-search", title.toString().toLowerCase());
+			$row.attr("data-search", _shipRowSearchText(row));
 
 			const iconText = _shipRowIconText(row);
 			const $mono = $("<span class='sp-ship-mono'>").text(iconText);
@@ -415,6 +641,34 @@
 			const $main = $("<div class='sp-ship-main'>");
 			$main.append($("<div class='sp-ship-title'>").text(title));
 			const $chips = $("<div class='sp-ship-chips'>");
+			if (row.package_row != null) {
+				$chips.append(
+					$("<span class='sp-ship-chip'>")
+						.append($("<span class='sp-ship-chip-k'>").text(__("Packages line")))
+						.append($("<span class='sp-ship-chip-v'>").text(String(row.package_row)))
+				);
+			}
+			if (row.site_label || row.site) {
+				$chips.append(
+					$("<span class='sp-ship-chip'>")
+						.append($("<span class='sp-ship-chip-k'>").text(__("Site")))
+						.append($("<span class='sp-ship-chip-v'>").text(String(row.site_label || row.site)))
+				);
+			}
+			if (row.reference_no) {
+				$chips.append(
+					$("<span class='sp-ship-chip'>")
+						.append($("<span class='sp-ship-chip-k'>").text(__("Ref")))
+						.append($("<span class='sp-ship-chip-v'>").text(String(row.reference_no)))
+				);
+			}
+			if (row.description && !row.warehouse_item && !row.commodity) {
+				$chips.append(
+					$("<span class='sp-ship-chip'>")
+						.append($("<span class='sp-ship-chip-k'>").text(__("Desc")))
+						.append($("<span class='sp-ship-chip-v'>").text(String(row.description)))
+				);
+			}
 			$chips.append(
 				$("<span class='sp-ship-chip short'>")
 					.append($("<span class='sp-ship-chip-k'>").text(__("Remaining")))
@@ -641,7 +895,7 @@
 						.css({ fontSize: "12px", marginBottom: "10px", lineHeight: 1.45 })
 						.text(
 							__(
-								"Pick the quantities to include in this shipment. Set a quantity on at least one row to continue, or close this dialog to cancel."
+								"Each row is one Packages line on this Special Project. Quantities apply only to that line. Set a quantity on at least one row to continue, or close this dialog to cancel."
 							)
 						)
 				);
@@ -683,7 +937,7 @@
 		});
 	}
 
-	function _callCreate(frm, dec, orderTitle, onDialogHide, shipmentLines) {
+	function _callCreate(frm, dec, orderTitle, onDialogHide, shipmentLines, creationParameters) {
 		const args = {
 			special_project: frm.doc.name,
 			job_type: dec.job_type,
@@ -696,6 +950,9 @@
 		if (shipmentLines) {
 			args.shipment_lines = shipmentLines;
 		}
+		if (creationParameters && Object.keys(creationParameters).length) {
+			args.creation_parameters = JSON.stringify(creationParameters);
+		}
 		frappe.call({
 			method: "logistics.special_projects.special_project_booking_creation.create_booking_or_order_from_special_project",
 			args: args,
@@ -707,12 +964,19 @@
 				if (r.message.message) {
 					frappe.show_alert({ message: r.message.message, indicator: "green" }, 5);
 				}
-				_routeAfterCreate(r.message);
+				function _afterReload() {
+					_routeAfterCreate(r.message);
+				}
+				if (frm && frm.doc && frm.doc.name && typeof frm.reload_doc === "function") {
+					frm.reload_doc().then(_afterReload).catch(_afterReload);
+				} else {
+					_afterReload();
+				}
 			},
 		});
 	}
 
-	function _runCreate(frm, dec, $card, onDialogHide) {
+	function _proceedCreate(frm, dec, $card, onDialogHide, creationParameters) {
 		if (dec.job_type === "Project Order") {
 			const defaultTitle =
 				($card && $card.attr("data-suggested-order-title")) ||
@@ -729,32 +993,87 @@
 					},
 				],
 				function (values) {
-					_callCreate(frm, dec, values.order_title, onDialogHide, null);
+					_promptShipmentLines(frm, dec, function (shipmentLines) {
+						_callCreate(
+							frm,
+							dec,
+							values.order_title,
+							onDialogHide,
+							shipmentLines,
+							creationParameters
+						);
+					});
 				},
 				__("Create Project Order"),
-				__("Create")
+				__("Continue")
 			);
 			return;
 		}
 		if (_PACKAGE_JOB_TYPES.indexOf(dec.job_type) >= 0) {
 			_promptShipmentLines(frm, dec, function (shipmentLines) {
-				_callCreate(frm, dec, null, onDialogHide, shipmentLines);
+				_callCreate(frm, dec, null, onDialogHide, shipmentLines, creationParameters);
 			});
 			return;
 		}
-		_callCreate(frm, dec, null, onDialogHide, null);
+		_callCreate(frm, dec, null, onDialogHide, null, creationParameters);
+	}
+
+	function _runCreate(frm, dec, $card, onDialogHide) {
+		const preview = ($card && $card.data("sp-preview")) || {};
+		const choice = ($card && $card.data("sp-choice")) || {};
+		const creationParameters = _collectCardParams($card);
+		if (preview.has_charge_match === false || preview.has_quote_match === false) {
+			frappe.msgprint({
+				title: __("Create Booking / Order"),
+				message:
+					preview.not_creatable_message ||
+					__("No parameters match on your input against project charge lines"),
+				indicator: "orange",
+			});
+			return;
+		}
+		if (preview.creatable !== true) {
+			frappe.msgprint({
+				title: __("Create Booking / Order"),
+				message:
+					preview.not_creatable_message ||
+					__("Set at least one parameter and ensure matching charges before creating."),
+				indicator: "orange",
+			});
+			return;
+		}
+		const confirmMsg = _wildcardConfirmMessage(preview, choice);
+		if (confirmMsg) {
+			frappe.confirm(confirmMsg, function () {
+				_proceedCreate(frm, dec, $card, onDialogHide, creationParameters);
+			});
+			return;
+		}
+		_proceedCreate(frm, dec, $card, onDialogHide, creationParameters);
 	}
 
 	function _bindCards($root, frm, d) {
+		$root.on("change", ".sp-param-cell input, .sp-param-cell select", function () {
+			const $card = $(this).closest(".sp-card");
+			_scheduleCardPreviewReload($card, frm);
+		});
 		$root.on("click", ".sp-card-toggle", function () {
 			const $card = $(this).closest(".sp-card");
 			$card.toggleClass("open");
 			if ($card.hasClass("open")) {
+				const choice = $card.data("sp-choice") || {};
+				_mountCardParameterControls($card, frm, choice);
 				const $pv = $card.find(".sp-card-preview");
-				if ($pv.data("sp-loaded")) return;
 				const enc = $card.attr("data-choice");
 				_loadCardPreview($pv, frm, enc, function () {
 					$pv.data("sp-loaded", true);
+				}, _collectCardParams($card));
+				($card.data("sp-param-controls") || []).forEach(function (c) {
+					if (c && c.control && c.control.$wrapper) {
+						c.control.$wrapper.off("change.spparams").on("change.spparams", function () {
+							_scheduleCardPreviewReload($card, frm);
+						});
+					}
 				});
 			}
 		});
@@ -767,6 +1086,7 @@
 		$root.on("click", ".sp-card-create", function (e) {
 			e.stopPropagation();
 			const $card = $(this).closest(".sp-card");
+			if ($(this).prop("disabled")) return;
 			const enc = $card.attr("data-choice");
 			const dec = _decodeChoice(enc);
 			if (!dec.job_type) {
@@ -780,7 +1100,9 @@
 			if (dec.creatable === false) {
 				frappe.msgprint({
 					title: __("Create Booking / Order"),
-					message: __("This line cannot be created automatically from here."),
+					message:
+						dec.not_creatable_message ||
+						__("This line cannot be created automatically from here."),
 					indicator: "orange",
 				});
 				return;
@@ -788,6 +1110,9 @@
 			_runCreate(frm, dec, $card, function () {
 				d.hide();
 			});
+		});
+		$root.on("change", ".sp-service-filter", function () {
+			_applyServiceTypeFilter($root, $(this).val());
 		});
 	}
 
@@ -798,7 +1123,7 @@
 			"<div class='" + PREVIEW_CLASS + "' style='margin-bottom:4px'>" +
 			"<div style='font-size:12px;color:var(--text-muted,#64748b);line-height:1.5'>" +
 			"<strong style='color:var(--text-color,#0f172a)'>" + __("From") + "</strong> " + ref + "<br>" +
-			__("Each card is one Lifecycle Jobs line. Expand to preview; use Create in the card header when ready.") +
+			__("Each card is one Lifecycle Jobs line. Set parameters in the card, then Create when enabled.") +
 			"</div></div>"
 		);
 	}
@@ -850,6 +1175,7 @@
 				if ($cardsRoot && $cardsRoot.length) {
 					$cardsRoot.empty();
 					$cardsRoot.append(_styles());
+					$cardsRoot.append(_buildServiceTypeFilter(msg.service_type_filters || []));
 					$cardsRoot.append(_buildCards(choices));
 					_bindCards($cardsRoot, frm, d);
 				}

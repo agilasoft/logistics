@@ -18,24 +18,63 @@ from logistics.special_projects.lifecycle_job_planned_rollup import (
 	_planning_lifecycle_rows,
 	sync_lifecycle_job_planned_from_charges,
 )
+from logistics.special_projects.special_project_charge_lifecycle import (
+	programme_charges_for_lifecycle_row,
+)
 from logistics.utils.internal_job_main_rollup import calculate_internal_job_rollup_totals
+
+
+class TestProgrammeChargesForLifecycleRow(UnitTestCase):
+	def test_matches_transport_row_by_parameters(self):
+		sp = frappe._dict(
+			charges=[
+				frappe._dict(
+					idx=1,
+					service_type="Transport",
+					transport_template="TPL-1",
+					vehicle_type="20FT",
+					estimated_cost=100,
+				),
+				frappe._dict(
+					idx=2,
+					service_type="Transport",
+					transport_template="TPL-2",
+					vehicle_type="40FT",
+					estimated_cost=200,
+				),
+			],
+			lifecycle_jobs=[],
+		)
+		row = frappe._dict(
+			name="LJ-1",
+			idx=1,
+			service_type="Transport",
+			transport_template="TPL-1",
+			vehicle_type="20FT",
+		)
+		matched = programme_charges_for_lifecycle_row(sp, row)
+		self.assertEqual(len(matched), 1)
+		self.assertEqual(matched[0].idx, 1)
 
 
 class TestLifecycleRowsNeedProgrammeAttribution(UnitTestCase):
 	def test_true_when_any_row_missing_job_no(self):
 		rows = [
-			frappe._dict(job_no="TO-1"),
+			frappe._dict(job_no="TO-1", lifecycle_job_line="P1"),
 			frappe._dict(job_no=""),
 		]
 		self.assertTrue(_lifecycle_rows_need_programme_charge_attribution(rows))
 
-	def test_false_when_all_rows_have_job_no(self):
-		rows = [frappe._dict(job_no="TO-1"), frappe._dict(job_no="TO-2")]
+	def test_false_when_all_rows_are_execution(self):
+		rows = [
+			frappe._dict(job_no="TO-1", lifecycle_job_line="P1"),
+			frappe._dict(job_no="TO-2", lifecycle_job_line="P2"),
+		]
 		self.assertFalse(_lifecycle_rows_need_programme_charge_attribution(rows))
 
-	def test_planning_rows_excludes_linked_jobs(self):
+	def test_planning_rows_excludes_execution_rows(self):
 		rows = [
-			frappe._dict(job_no="TO-1"),
+			frappe._dict(job_no="TO-1", lifecycle_job_line="P1"),
 			frappe._dict(job_no=""),
 			frappe._dict(job_no=None),
 		]
@@ -188,23 +227,26 @@ class TestLifecycleJobFinancialRollup(IntegrationTestCase):
 		cls._has_lifecycle_jobs = bool(
 			frappe.get_meta("Special Project").has_field("lifecycle_jobs")
 		)
-		cls._has_lifecycle_job_row = bool(
-			frappe.get_meta("Special Project Charges").has_field("lifecycle_job_row")
+		cls._has_charge_tag = bool(
+			frappe.get_meta("Special Project Charges").has_field("lifecycle_job_line")
 		)
 
 	def setUp(self):
-		if not self._has_lifecycle_jobs or not self._has_lifecycle_job_row:
-			self.skipTest("lifecycle_jobs / lifecycle_job_row not installed")
+		if not self._has_lifecycle_jobs:
+			self.skipTest("lifecycle_jobs not installed")
 
 	def _new_special_project(self):
 		company = frappe.db.get_value("Company", {}, "name")
 		customer = frappe.db.get_value("Customer", {"disabled": 0}, "name")
+		cost_center = frappe.db.get_value("Cost Center", {}, "name")
 		if not company or not customer:
 			self.skipTest("Company and Customer required")
 		sp = frappe.new_doc("Special Project")
 		sp.project_name = f"Test Lifecycle Financial Rollup {now_datetime()}"
 		sp.customer = customer
 		sp.company = company
+		if cost_center:
+			sp.cost_center = cost_center
 		return sp
 
 	def test_lifecycle_row_uses_job_financials_when_job_no_set(self):
@@ -215,14 +257,13 @@ class TestLifecycleJobFinancialRollup(IntegrationTestCase):
 				"service_type": "Transport",
 				"activity_name": "Leg 1",
 				"job_type": "Transport Order",
-				"job_no": "TO-LINKED-1",
+				"order_no": "TO-LINKED-1",
 			},
 		)
 		sp.append(
 			"charges",
 			{
 				"service_type": "Transport",
-				"lifecycle_job_row": 1,
 				"estimated_cost": 999,
 				"estimated_revenue": 1999,
 			},
@@ -234,17 +275,136 @@ class TestLifecycleJobFinancialRollup(IntegrationTestCase):
 			),
 			patch(
 				"logistics.special_projects.lifecycle_job_financial_rollup.calculate_linked_job_stack_totals",
-				return_value=(11, 22, 33, 44),
+				return_value=(0, 0, 33, 44),
 			),
 		):
 			sync_lifecycle_job_financials(sp)
 		row = sp.lifecycle_jobs[0]
-		self.assertEqual(row.planned_cost, 11)
-		self.assertEqual(row.planned_revenue, 22)
+		self.assertEqual(row.planned_cost, 999)
+		self.assertEqual(row.planned_revenue, 1999)
 		self.assertEqual(row.actual_cost, 33)
 		self.assertEqual(row.actual_revenue, 44)
 
-	def test_saves_without_lifecycle_job_row_when_all_transport_rows_have_job_no(self):
+	def test_transport_planned_from_matching_params_not_linked_job(self):
+		sp = self._new_special_project()
+		sp.append(
+			"lifecycle_jobs",
+			{
+				"service_type": "Transport",
+				"activity_name": "Leg A",
+				"transport_template": "TPL-A",
+				"vehicle_type": "20FT",
+			},
+		)
+		sp.append(
+			"charges",
+			{
+				"service_type": "Transport",
+				"description": "Match A",
+				"transport_template": "TPL-A",
+				"vehicle_type": "20FT",
+				"estimated_cost": 100,
+				"estimated_revenue": 200,
+			},
+		)
+		sp.append(
+			"charges",
+			{
+				"service_type": "Transport",
+				"description": "Other leg",
+				"transport_template": "TPL-B",
+				"vehicle_type": "40FT",
+				"estimated_cost": 500,
+				"estimated_revenue": 900,
+			},
+		)
+		sync_lifecycle_job_financials(sp)
+		row = sp.lifecycle_jobs[0]
+		self.assertEqual(row.planned_cost, 100)
+		self.assertEqual(row.planned_revenue, 200)
+
+	def test_linked_transport_order_planned_from_programme_actual_from_job(self):
+		sp = self._new_special_project()
+		sp.append(
+			"lifecycle_jobs",
+			{
+				"service_type": "Transport",
+				"activity_name": "Leg",
+				"job_type": "Transport Order",
+				"order_no": "TO-LINKED-1",
+				"transport_template": "TPL-A",
+				"vehicle_type": "20FT",
+			},
+		)
+		sp.append(
+			"charges",
+			{
+				"service_type": "Transport",
+				"description": "Match",
+				"transport_template": "TPL-A",
+				"vehicle_type": "20FT",
+				"estimated_cost": 100,
+				"estimated_revenue": 200,
+			},
+		)
+		with (
+			patch(
+				"logistics.special_projects.lifecycle_job_financial_rollup._active_job_doc",
+				return_value=frappe._dict(doctype="Transport Order", name="TO-LINKED-1"),
+			),
+			patch(
+				"logistics.special_projects.lifecycle_job_financial_rollup.calculate_linked_job_stack_totals",
+				return_value=(0, 0, 55, 66),
+			),
+		):
+			sync_lifecycle_job_financials(sp)
+		row = sp.lifecycle_jobs[0]
+		self.assertEqual(row.planned_cost, 100)
+		self.assertEqual(row.planned_revenue, 200)
+		self.assertEqual(row.actual_cost, 55)
+		self.assertEqual(row.actual_revenue, 66)
+
+	def test_saves_with_untagged_charge_when_single_linked_transport_row(self):
+		sp = self._new_special_project()
+		sp.append(
+			"lifecycle_jobs",
+			{
+				"service_type": "Transport",
+				"job_no": "TO-A",
+				"job_type": "Transport Order",
+			},
+		)
+		sp.append(
+			"charges",
+			{
+				"service_type": "Transport",
+				"description": "DELIVERY",
+				"estimated_cost": 10,
+				"estimated_revenue": 20,
+			},
+		)
+		with patch(
+			"logistics.special_projects.lifecycle_job_financial_rollup.calculate_linked_job_stack_totals",
+			return_value=(0, 0, 0, 0),
+		):
+			sp.insert(ignore_permissions=True, ignore_links=True)
+
+	def test_allows_untagged_charge_with_duplicate_transport_planning_rows(self):
+		sp = self._new_special_project()
+		sp.append("lifecycle_jobs", {"service_type": "Transport", "activity_name": "A"})
+		sp.append("lifecycle_jobs", {"service_type": "Transport", "activity_name": "B"})
+		sp.append(
+			"charges",
+			{
+				"service_type": "Transport",
+				"description": "DELIVERY",
+				"estimated_cost": 10,
+				"estimated_revenue": 20,
+			},
+		)
+		sp.insert(ignore_permissions=True, ignore_links=True)
+
+	def test_linked_transport_row_does_not_require_tag_when_only_execution_rows(self):
 		sp = self._new_special_project()
 		sp.append(
 			"lifecycle_jobs",
@@ -276,21 +436,6 @@ class TestLifecycleJobFinancialRollup(IntegrationTestCase):
 			return_value=(0, 0, 0, 0),
 		):
 			sp.insert(ignore_permissions=True, ignore_links=True)
-
-	def test_saves_without_lifecycle_job_row_when_no_job_no_on_lifecycle_rows(self):
-		sp = self._new_special_project()
-		sp.append("lifecycle_jobs", {"service_type": "Transport", "activity_name": "A"})
-		sp.append("lifecycle_jobs", {"service_type": "Transport", "activity_name": "B"})
-		sp.append(
-			"charges",
-			{
-				"service_type": "Transport",
-				"description": "Unassigned",
-				"estimated_cost": 10,
-				"estimated_revenue": 20,
-			},
-		)
-		sp.insert(ignore_permissions=True, ignore_links=True)
 
 	def test_cancelled_job_link_zeros_lifecycle_financials(self):
 		sp = self._new_special_project()

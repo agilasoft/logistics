@@ -32,11 +32,14 @@ _Fields mentioned here (**Separate Billings per Service Type**, **Internal Job**
 
 <!-- wiki-field-reference:end -->
 
-## 2. Internal Job: when there are no charges for a related service
+## 2. Internal Job: prerequisites before creation
 
-When creating a Booking/Order for a **non‑main** service type (e.g. Customs, Transport leg) from the same Sales Quote:
+When creating a Booking/Order as an **Internal Job** for a related service (e.g. Customs, Transport leg):
 
-- If the quote has **no charges** for that service type (no rows in Sales Quote Charges for that `service_type`), the created document must be treated as an **Internal Job**.
+- The Sales Quote (or programme parent such as Docket / Special Project) must have **at least one charge line** for that `service_type`.
+- A **matching Internal Job** must be defined on the **Internal Jobs** tab (Sales Quote `internal_job_details`, or the parent’s `internal_job_details` / `internal_jobs` table) with parameters that align to those charge lines.
+
+If **either** is missing, creation is **blocked** with a clear message. The system no longer auto-creates internal jobs for legs with no quote charges.
 
 ### 2.1 Tagging as Internal Job
 
@@ -66,7 +69,7 @@ This keeps internal jobs at cost-neutral or at transfer price relative to the ma
 |----------|--------------------------|--------------------------|
 | Main service Booking/Order | Only charges for that service type | **All** charges from the quote (all service types allowed in charges table) |
 | Other service Booking/Order (has charges in quote) | Only charges for that service type | Only charges for that service type |
-| Other service Booking/Order (no charges in quote) | Create as **Internal Job**, reference **Main Job**; charges = internal billing; Revenue = Cost of Main Job; Cost = as per tariff | Same: **Internal Job**, reference **Main Job**; internal billing; Revenue = Cost of Main Job; Cost = as per tariff |
+| Other service Booking/Order (no charges or no matching Internal Job on quote) | **Blocked** — add charge lines and a matching Internal Job on the Internal Jobs tab | Same |
 
 ---
 
@@ -76,8 +79,8 @@ This keeps internal jobs at cost-neutral or at transfer price relative to the ma
 - **Bookings/Orders** (e.g. Air Booking, Sea Booking, Transport Order, Declaration Order / Declaration): Support fields **Internal Job** (Check) and **Main Job** (reference: e.g. `main_job_type` + `main_job` Dynamic Link, or single link to the main job document).
 - **Charge population**:
   - If `separate_billings_per_service_type` is true: existing behaviour—filter Sales Quote Charges by `service_type` per document.
-  - If false: main service document gets all Sales Quote Charges (no `service_type` filter for main); other documents get only their service type; if a non‑main service has no charges, create as Internal Job and apply internal billing/revenue/cost rules above.
-- **Internal Job**: When creating a job/booking/order for a leg with no charges for that service, set Internal Job and Main Job reference, then create charges as internal billing with Revenue = Cost of Main Job and Cost as per tariff.
+  - If false: main service document gets all Sales Quote Charges (no `service_type` filter for main); other documents get only their service type; internal jobs require both charge lines for the service and a matching row on the Internal Jobs tab.
+- **Internal Job**: When creating a job/booking/order as an internal leg, ensure charge lines exist for that service and a matching Internal Job is configured on the quote before using **Create Internal Job** or **Create Booking/Order**.
 
 ---
 

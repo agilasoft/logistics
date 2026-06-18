@@ -373,17 +373,17 @@ def _try_fetch_live_states(flights: Dict[str, Dict[str, Any]]) -> Dict[str, Any]
 	}
 
 	try:
-		settings = frappe.get_single("Flight Schedule Settings")
+		settings = frappe.get_cached_doc("GoConnect Settings")
 	except Exception:
 		settings = None
 
-	if not settings or not getattr(settings, "enable_realtime_tracking", 0):
+	if not settings or not getattr(settings, "flight_enable_realtime_tracking", 0):
 		result["provider_status"] = "disabled"
 		return result
 
 	if not getattr(settings, "opensky_enabled", 0):
 		result["provider_status"] = "disabled"
-		result["error"] = "OpenSky Network is not enabled in Flight Schedule Settings"
+		result["error"] = "OpenSky Network is not enabled in GoConnect Settings"
 		return result
 
 	# Collect every callsign candidate we want to look up.
@@ -602,7 +602,7 @@ def _resolve_air_shipment_flight(doc) -> Optional[Dict[str, Any]]:
 def get_aircraft_position_for_map(air_shipment: str) -> Dict[str, Any]:
 	"""Return the latest position for the flight linked to ``air_shipment``.
 
-	Shape mirrors ``logistics.sea_freight.vessel_tracking.api.get_vessel_position_for_map``
+	Shape mirrors ``goconnect.api.sea.get_vessel_position_for_map``
 	so the dashboard route map can drop a marker the same way.  Server-side
 	cache is 60 seconds keyed by the resolved callsign so multiple users open
 	on the same shipment don't multiply OpenSky calls.
@@ -625,14 +625,14 @@ def get_aircraft_position_for_map(air_shipment: str) -> Dict[str, Any]:
 	mawb = resolved["mawb"]
 
 	try:
-		settings = frappe.get_single("Flight Schedule Settings")
+		settings = frappe.get_cached_doc("GoConnect Settings")
 	except Exception:
 		settings = None
 
 	provider_status = "live"
 	provider_error: Optional[str] = None
 
-	if not settings or not getattr(settings, "enable_realtime_tracking", 0):
+	if not settings or not getattr(settings, "flight_enable_realtime_tracking", 0):
 		provider_status = "disabled"
 	else:
 		# Non-blocking: enqueue a background refresh that hits OpenSky.  The
@@ -813,7 +813,7 @@ def _fetch_states_with_fallback(
 	"""Try every configured live-tracking provider in order and return the first hit.
 
 	Provider order:
-	  1. OpenSky Network (if enabled in Flight Schedule Settings)
+	  1. OpenSky Network (if enabled in GoConnect Settings ▸ Flight tab)
 	  2. adsb.lol  (no-auth public ADS-B aggregator)
 	  3. adsb.fi   (no-auth public ADS-B aggregator)
 
@@ -831,7 +831,7 @@ def _fetch_states_with_fallback(
 
 	# --- 1. OpenSky --------------------------------------------------------
 	try:
-		settings = frappe.get_single("Flight Schedule Settings")
+		settings = frappe.get_cached_doc("GoConnect Settings")
 	except Exception:
 		settings = None
 	opensky_enabled = bool(settings and getattr(settings, "opensky_enabled", 0))
@@ -901,10 +901,10 @@ def refresh_air_shipment_flight_position(air_shipment: str) -> Dict[str, Any]:
 			return result
 		fs = resolved["fs"]
 		try:
-			settings = frappe.get_single("Flight Schedule Settings")
+			settings = frappe.get_cached_doc("GoConnect Settings")
 		except Exception:
 			settings = None
-		if not settings or not getattr(settings, "enable_realtime_tracking", 0):
+		if not settings or not getattr(settings, "flight_enable_realtime_tracking", 0):
 			_set_refresh_status(air_shipment, "disabled", "Real-time tracking is disabled.")
 			return result
 		if not getattr(settings, "opensky_enabled", 0):

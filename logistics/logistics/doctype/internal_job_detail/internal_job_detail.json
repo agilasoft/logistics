@@ -6,6 +6,7 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "internal_job",
   "service_type",
   "column_break_ident",
   "job_type",
@@ -50,11 +51,23 @@
  ],
  "fields": [
   {
+   "fieldname": "internal_job",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Internal Job",
+   "no_copy": 1,
+   "options": "Internal Job",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fetch_from": "internal_job.service_type",
+   "fetch_if_empty": 1,
    "fieldname": "service_type",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nExhibits",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE",
    "reqd": 1
   },
   {
@@ -62,16 +75,20 @@
    "fieldtype": "Column Break"
   },
   {
+   "fetch_from": "internal_job.job_type",
    "fieldname": "job_type",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Job Type",
    "no_copy": 1,
-   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nInbound Order\nRelease Order\nTransfer Order\nProject Order\nProject Job",
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nInbound Order\nRelease Order\nTransfer Order\nProject Order\nProject Job\nMICE Order\nMICE Job",
    "read_only": 1
   },
   {
+   "fetch_from": "internal_job.job_no",
    "fieldname": "job_no",
    "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
    "label": "Job No",
    "no_copy": 1,
    "options": "job_type",
@@ -85,6 +102,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Air\"",
+   "fetch_from": "internal_job.air_house_type",
+   "fetch_if_empty": 1,
    "fieldname": "air_house_type",
    "fieldtype": "Select",
    "label": "Air House Type",
@@ -92,6 +111,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Air\"",
+   "fetch_from": "internal_job.airline",
+   "fetch_if_empty": 1,
    "fieldname": "airline",
    "fieldtype": "Link",
    "label": "Airline",
@@ -100,6 +121,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Air\"",
+   "fetch_from": "internal_job.freight_agent",
+   "fetch_if_empty": 1,
    "fieldname": "freight_agent",
    "fieldtype": "Link",
    "label": "Freight Agent",
@@ -114,6 +137,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fetch_from": "internal_job.sea_house_type",
+   "fetch_if_empty": 1,
    "fieldname": "sea_house_type",
    "fieldtype": "Select",
    "label": "Sea House Type",
@@ -121,6 +146,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fetch_from": "internal_job.freight_agent_sea",
+   "fetch_if_empty": 1,
    "fieldname": "freight_agent_sea",
    "fieldtype": "Link",
    "label": "Freight Agent",
@@ -129,6 +156,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fetch_from": "internal_job.shipping_line",
+   "fetch_if_empty": 1,
    "fieldname": "shipping_line",
    "fieldtype": "Link",
    "label": "Shipping Line",
@@ -137,6 +166,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fetch_from": "internal_job.transport_mode",
+   "fetch_if_empty": 1,
    "fieldname": "transport_mode",
    "fieldtype": "Link",
    "hidden": 1,
@@ -152,6 +183,8 @@
   },
   {
    "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fetch_from": "internal_job.load_type",
+   "fetch_if_empty": 1,
    "fieldname": "load_type",
    "fieldtype": "Link",
    "label": "Load Type",
@@ -160,6 +193,8 @@
   },
   {
    "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fetch_from": "internal_job.direction",
+   "fetch_if_empty": 1,
    "fieldname": "direction",
    "fieldtype": "Select",
    "label": "Direction",
@@ -167,6 +202,8 @@
   },
   {
    "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fetch_from": "internal_job.origin_port",
+   "fetch_if_empty": 1,
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
@@ -175,6 +212,8 @@
   },
   {
    "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fetch_from": "internal_job.destination_port",
+   "fetch_if_empty": 1,
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
@@ -189,6 +228,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fetch_from": "internal_job.transport_template",
+   "fetch_if_empty": 1,
    "fieldname": "transport_template",
    "fieldtype": "Link",
    "label": "Transport Template",
@@ -196,6 +237,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fetch_from": "internal_job.vehicle_type",
+   "fetch_if_empty": 1,
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
@@ -204,6 +247,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fetch_from": "internal_job.container_type",
+   "fetch_if_empty": 1,
    "fieldname": "container_type",
    "fieldtype": "Link",
    "label": "Container Type",
@@ -213,6 +258,8 @@
   {
    "depends_on": "eval:doc.service_type == \"Transport\"",
    "description": "Sea container number for Transport Order created from Sea Shipment (cargo scoped to this unit).",
+   "fetch_from": "internal_job.container_no",
+   "fetch_if_empty": 1,
    "fieldname": "container_no",
    "fieldtype": "Data",
    "label": "Container No."
@@ -224,6 +271,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fetch_from": "internal_job.location_type",
+   "fetch_if_empty": 1,
    "fieldname": "location_type",
    "fieldtype": "Link",
    "label": "Location Type",
@@ -232,6 +281,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fetch_from": "internal_job.location_from",
+   "fetch_if_empty": 1,
    "fieldname": "location_from",
    "fieldtype": "Dynamic Link",
    "label": "Location From",
@@ -239,6 +290,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fetch_from": "internal_job.location_to",
+   "fetch_if_empty": 1,
    "fieldname": "location_to",
    "fieldtype": "Dynamic Link",
    "label": "Location To",
@@ -246,6 +299,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fetch_from": "internal_job.pick_mode",
+   "fetch_if_empty": 1,
    "fieldname": "pick_mode",
    "fieldtype": "Link",
    "label": "Pick Mode",
@@ -253,6 +308,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fetch_from": "internal_job.drop_mode",
+   "fetch_if_empty": 1,
    "fieldname": "drop_mode",
    "fieldtype": "Link",
    "label": "Drop Mode",
@@ -266,6 +323,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fetch_from": "internal_job.customs_authority",
+   "fetch_if_empty": 1,
    "fieldname": "customs_authority",
    "fieldtype": "Link",
    "label": "Customs Authority",
@@ -274,6 +333,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fetch_from": "internal_job.declaration_type",
+   "fetch_if_empty": 1,
    "fieldname": "declaration_type",
    "fieldtype": "Select",
    "label": "Declaration Type",
@@ -281,6 +342,8 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fetch_from": "internal_job.customs_broker",
+   "fetch_if_empty": 1,
    "fieldname": "customs_broker",
    "fieldtype": "Link",
    "label": "Customs Broker",
@@ -289,14 +352,19 @@
   },
   {
    "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fetch_from": "internal_job.customs_charge_category",
+   "fetch_if_empty": 1,
    "fieldname": "customs_charge_category",
    "fieldtype": "Select",
    "label": "Charge Category",
    "options": "Customs Clearance\nDocumentation\nStorage\nOther"
   },
   {
+   "fetch_from": "internal_job.job_description",
+   "fetch_if_empty": 1,
    "fieldname": "job_description",
    "fieldtype": "Small Text",
+   "in_list_view": 1,
    "label": "Job Description"
   },
   {
@@ -308,6 +376,7 @@
   },
   {
    "description": "Populated by internal-job rollup; not shown on form.",
+   "fetch_from": "internal_job.planned_cost",
    "fieldname": "planned_cost",
    "fieldtype": "Currency",
    "hidden": 1,
@@ -316,6 +385,7 @@
   },
   {
    "description": "Populated by internal-job rollup; not shown on form.",
+   "fetch_from": "internal_job.actual_cost",
    "fieldname": "actual_cost",
    "fieldtype": "Currency",
    "hidden": 1,
@@ -329,6 +399,7 @@
   },
   {
    "description": "Populated by internal-job rollup; not shown on form.",
+   "fetch_from": "internal_job.planned_revenue",
    "fieldname": "planned_revenue",
    "fieldtype": "Currency",
    "hidden": 1,
@@ -337,6 +408,7 @@
   },
   {
    "description": "Populated by internal-job rollup; not shown on form.",
+   "fetch_from": "internal_job.actual_revenue",
    "fieldname": "actual_revenue",
    "fieldtype": "Currency",
    "hidden": 1,
@@ -347,7 +419,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-05-20 13:38:00.000000",
+ "modified": "2026-06-10 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Internal Job Detail",

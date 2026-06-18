@@ -26,6 +26,60 @@ function _setup_lifecycle_jobs_duplicate_fix(frm) {
 	}
 }
 
+function _load_profitability_html(frm, opts) {
+	opts = opts || {};
+	if (!frm.doc.name || frm.doc.__islocal || !frm.fields_dict.profitability_section_html) {
+		if (opts.done) {
+			opts.done();
+		}
+		return;
+	}
+	var loader =
+		window.logistics &&
+		logistics.profitability &&
+		logistics.profitability.load_project_profitability_html;
+	if (typeof loader === "function") {
+		loader(frm, opts);
+		return;
+	}
+	frappe.require("/assets/logistics/js/profitability_project_form.js", function () {
+		var retry =
+			window.logistics &&
+			logistics.profitability &&
+			logistics.profitability.load_project_profitability_html;
+		if (typeof retry === "function") {
+			retry(frm, opts);
+		} else if (opts.done) {
+			opts.done();
+		}
+	});
+}
+
+function _bind_mice_project_profitability_tab(frm) {
+	if (!frm.doc.name || frm.doc.__islocal || !frm.fields_dict.profitability_section_html) {
+		return;
+	}
+	if (!window.logistics || !logistics.bind_lazy_tab_loader) {
+		_load_profitability_html(frm);
+		return;
+	}
+	if (frm.doc.modified !== frm._logistics_lazy_modified) {
+		logistics.invalidate_lazy_tab_loaders(frm);
+		frm._logistics_lazy_modified = frm.doc.modified;
+	}
+	logistics.bind_lazy_tab_loader(
+		frm,
+		"profitability_tab",
+		"profitability",
+		_load_profitability_html
+	);
+	if (logistics.is_form_tab_active(frm, "profitability_tab")) {
+		setTimeout(function () {
+			logistics.trigger_lazy_tab_loaders(frm, "profitability_tab");
+		}, 150);
+	}
+}
+
 function _refresh_cost_revenue_summary(frm) {
 	if (!frm.doc.name || frm.doc.__islocal || !frm.fields_dict.cost_revenue_html) return;
 	frappe.call({
@@ -216,17 +270,7 @@ function _exhibit_allocate_costs_dialog(frm) {
 
 function logistics_set_internal_job_site_query(frm) {
 	frm.set_query("sp_site", "lifecycle_jobs", function () {
-		const cust = frm._mice_organizer_customer;
-		if (!cust) {
-			return { filters: [["name", "=", ""]] };
-		}
-		return {
-			query: "frappe.contacts.doctype.address.address.address_query",
-			filters: {
-				link_doctype: "Customer",
-				link_name: cust,
-			},
-		};
+		return logistics.address.query_for_customer(frm._mice_organizer_customer);
 	});
 }
 
@@ -244,6 +288,13 @@ function _cache_organizer_customer(frm) {
 }
 
 frappe.ui.form.on("MICE Project", {
+	on_tab_change: function (frm) {
+		var tab = frm.get_active_tab && frm.get_active_tab();
+		var fieldname = tab && tab.df && tab.df.fieldname;
+		if (fieldname && window.logistics && logistics.trigger_lazy_tab_loaders) {
+			logistics.trigger_lazy_tab_loaders(frm, fieldname);
+		}
+	},
 	setup: function (frm) {
 		if (window.logistics && logistics.lifecycle && logistics.lifecycle.setup_queries) {
 			logistics.lifecycle.setup_queries(frm);
@@ -393,9 +444,18 @@ frappe.ui.form.on("MICE Project", {
 					}
 				});
 		}
-		// Profitability tab loading + click handler is registered by
-		// logistics/public/js/profitability_project_form.js — keep it in one place
-		// to avoid double-firing the GL query.
+		_bind_mice_project_profitability_tab(frm);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper
+				.off("click.profitability_html")
+				.on("click.profitability_html", '[data-fieldname="profitability_tab"]', function () {
+					if (window.logistics && logistics.trigger_lazy_tab_loaders) {
+						logistics.trigger_lazy_tab_loaders(frm, "profitability_tab", true);
+					} else {
+						_load_profitability_html(frm, { force: true });
+					}
+				});
+		}
 	},
 	organizer: function (frm) {
 		_cache_organizer_customer(frm);
