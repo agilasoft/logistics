@@ -101,10 +101,10 @@
   },
   {
    "description": "Tag this charge to an Internal Job to mirror it to the satellite booking (Transport Order / Sea Booking / Air Booking / Declaration Order / Inbound Order / Release Order) under the parent main job. Leave blank for Main-only charges.",
-   "fieldname": "internal_job",
+   "fieldname": "linked_service",
    "fieldtype": "Link",
-   "label": "Internal Job",
-   "options": "Internal Job"
+   "label": "Linked Service",
+   "options": "Linked Service"
   },
   {
    "fieldname": "item_code",

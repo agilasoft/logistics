@@ -9,7 +9,7 @@
 {% if not resolved_company %}
 {% set resolved_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") or "" %}
 {% endif %}
-{% if resolved_company %}
+{% if resolved_company and frappe.db.exists("Company", resolved_company) %}
 {% set company_doc = frappe.get_doc("Company", resolved_company) %}
 {% set company_name = (company_doc.company_name or company_doc.name).upper() %}
 {% set company_logo = company_doc.company_logo or company_doc.logo %}

@@ -1,0 +1,59 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-18 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "line_sequence",
+  "sales_quote",
+  "line_title",
+  "include_in_total",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "line_sequence",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sequence",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Sales Quote",
+   "options": "Sales Quote",
+   "reqd": 1
+  },
+  {
+   "fieldname": "line_title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Line Title"
+  },
+  {
+   "default": "1",
+   "fieldname": "include_in_total",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Include in Total"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-18 00:00:00",
+ "module": "Pricing Center",
+ "name": "Sales Quote Pack Line",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

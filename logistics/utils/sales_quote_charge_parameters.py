@@ -502,3 +502,26 @@ def lookup_quote_parameters_for_operational_charge(sales_quote: str | None, ch_r
 			continue
 		return extract_sales_quote_charge_parameters(r)
 	return {}
+
+
+def resolve_parameters_from_sales_quote_scope(quote_doc: Any) -> dict[str, Any]:
+	"""Read lane/scope parameters from Sales Quote Service Scope tab header fields."""
+	if not quote_doc:
+		return {}
+	out: dict[str, Any] = {}
+	for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS:
+		val = getattr(quote_doc, fn, None)
+		if val is not None and str(val).strip() != "":
+			out[fn] = val
+	return out
+
+
+def effective_charge_row_parameters(charge_row: Any, quote_doc: Any | None = None) -> dict[str, Any]:
+	"""Merge quote-scope header parameters with any non-empty values on the charge row."""
+	scope_params = resolve_parameters_from_sales_quote_scope(quote_doc) if quote_doc else {}
+	row_params = extract_sales_quote_charge_parameters(charge_row)
+	merged = dict(scope_params)
+	for k, v in row_params.items():
+		if v is not None and str(v).strip() != "":
+			merged[k] = v
+	return merged

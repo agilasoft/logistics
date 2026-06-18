@@ -153,4 +153,6 @@ def apply_sales_quote_ms_ij_rules(doc: Any, method=None) -> None:
 
 def on_validate_main_service_internal_job(doc, method=None) -> None:
 	"""Doc event entry point (hooks)."""
-	apply_sales_quote_ms_ij_rules(doc, method)
+	from logistics.utils.service_role_rules import apply_service_role_rules
+
+	apply_service_role_rules(doc, method)

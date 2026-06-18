@@ -355,10 +355,10 @@ def effective_internal_job_detail_job_type(row):
 
 
 def on_validate_main_service_internal_job(doc, method=None):
-	"""Doc event: delegate to sales_quote_ms_ij_rules (mutual exclusivity + quote-type rules)."""
-	from logistics.utils.sales_quote_ms_ij_rules import apply_sales_quote_ms_ij_rules
+	"""Doc event: delegate to service_role_rules (Main / Linked / Standalone)."""
+	from logistics.utils.service_role_rules import apply_service_role_rules
 
-	apply_sales_quote_ms_ij_rules(doc, method)
+	apply_service_role_rules(doc, method)
 
 
 def is_parent_main_job_for_quote_charges(parent_doc, sales_quote_doc):

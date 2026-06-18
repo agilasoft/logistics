@@ -47,6 +47,7 @@ app_include_js = [
 	"/assets/logistics/js/internal_job_create_from_source.js?v=20",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js?v=2",
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
+	"/assets/logistics/js/service_role.js?v=1",
 	"/assets/logistics/js/internal_job_detail_grid_delete_fix.js",
 	"/assets/logistics/js/get_charges_from_quotation.js?v=18",
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=3",
@@ -73,6 +74,7 @@ app_include_js = [
 # include js in doctype views
 doctype_js = {
 	"Internal Job Detail": "logistics/logistics/doctype/internal_job_detail/internal_job_detail.js",
+	"Linked Service Detail": "logistics/logistics/doctype/linked_service_detail/linked_service_detail.js",
 	"Container": "logistics/logistics/doctype/container/container.js",
 	"UNLOCO": [
 		"logistics/logistics/doctype/unloco/unloco.js",
@@ -85,7 +87,9 @@ doctype_js = {
 		"logistics/pricing_center/doctype/sales_quote_charge/sales_quote_charge.js",
 		"logistics/pricing_center/doctype/sales_quote_air_freight/sales_quote_air_freight.js",
 		"logistics/pricing_center/doctype/sales_quote_sea_freight/sales_quote_sea_freight.js",
+		"logistics/pricing_center/doctype/sales_quote/sales_quote.js",
 	],
+	"Sales Quote Pack": "logistics/pricing_center/doctype/sales_quote_pack/sales_quote_pack.js",
 	"Tariff": [
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/charge_break_buttons.js",
@@ -417,6 +421,8 @@ for _dt in (
 	"Inbound Order",
 	"Release Order",
 	"Project Job",
+	"MICE Job",
+	"Exhibit Job",
 ):
 	if _dt not in doc_events:
 		doc_events[_dt] = {}
@@ -587,6 +593,16 @@ elif isinstance(_existing_ij_on_update, list):
 		_INTERNAL_JOB_DOC_EVENTS["on_update"] = list(_existing_ij_on_update) + [_INTERNAL_JOB_ON_UPDATE]
 elif _existing_ij_on_update != _INTERNAL_JOB_ON_UPDATE:
 	_INTERNAL_JOB_DOC_EVENTS["on_update"] = [_existing_ij_on_update, _INTERNAL_JOB_ON_UPDATE]
+
+_LINKED_SERVICE_DOC_EVENTS = doc_events.setdefault("Linked Service", {})
+_existing_ls_on_update = _LINKED_SERVICE_DOC_EVENTS.get("on_update")
+if not _existing_ls_on_update:
+	_LINKED_SERVICE_DOC_EVENTS["on_update"] = _INTERNAL_JOB_ON_UPDATE
+elif isinstance(_existing_ls_on_update, list):
+	if _INTERNAL_JOB_ON_UPDATE not in _existing_ls_on_update:
+		_LINKED_SERVICE_DOC_EVENTS["on_update"] = list(_existing_ls_on_update) + [_INTERNAL_JOB_ON_UPDATE]
+elif _existing_ls_on_update != _INTERNAL_JOB_ON_UPDATE:
+	_LINKED_SERVICE_DOC_EVENTS["on_update"] = [_existing_ls_on_update, _INTERNAL_JOB_ON_UPDATE]
 
 # Special Project lifecycle financials: refresh when operational job charges change.
 _LIFECYCLE_FINANCIAL_REFRESH = (

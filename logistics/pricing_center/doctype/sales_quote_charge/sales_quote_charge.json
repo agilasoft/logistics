@@ -18,7 +18,8 @@
   "section_break_scope",
   "charge_scope",
   "column_break_scope",
-  "internal_job",
+  "service_scope",
+  "linked_service",
   "freight_taxes_section",
   "apply_95_5_rule",
   "taxable_freight_item",
@@ -785,27 +786,35 @@
   },
   {
    "default": "Main",
-   "description": "When tagged to an Internal Job, the booking charge created from this row is scoped to that Internal Job rather than the Main service.",
+   "description": "When tagged to a Linked Service, the booking charge created from this row is scoped to that service rather than the Main service.",
    "fieldname": "charge_scope",
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Scope",
-   "options": "Main\nInternal Job"
+   "options": "Main\nLinked"
   },
   {
    "fieldname": "column_break_scope",
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:doc.charge_scope==\"Internal Job\"",
-   "description": "Internal Job (defined on the Sales Quote Internal Jobs tab) that this charge belongs to. Available only on One-off quotes.",
-   "fieldname": "internal_job",
+   "fieldname": "service_scope",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Service Scope",
+   "options": "Sales Quote",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.charge_scope==\"Linked\"",
+   "description": "Linked Service (defined on the Sales Quote Services grid) that this charge belongs to.",
+   "fieldname": "linked_service",
    "fieldtype": "Link",
    "in_standard_filter": 1,
-   "label": "Internal Job",
-   "mandatory_depends_on": "eval:doc.charge_scope==\"Internal Job\"",
-   "options": "Internal Job"
+   "label": "Linked Service",
+   "mandatory_depends_on": "eval:doc.charge_scope==\"Linked\"",
+   "options": "Linked Service"
   }
  ],
  "grid_page_length": 50,
