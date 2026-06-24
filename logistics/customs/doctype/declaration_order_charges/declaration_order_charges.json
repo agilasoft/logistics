@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "service_type",
+  "service_scope",
   "charge_scope",
   "internal_job",
   "item_code",
@@ -584,23 +585,29 @@
    "label": "Revenue & Cost"
   },
   {
+   "fieldname": "service_scope",
+   "fieldtype": "Link",
+   "label": "Service Scope",
+   "options": "Sales Quote"
+  },
+  {
    "default": "Main",
    "fieldname": "charge_scope",
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Scope",
-   "options": "Main\nInternal Job"
+   "options": "Main\nLinked"
   },
   {
-   "depends_on": "eval:doc.charge_scope==\"Internal Job\"",
-   "fieldname": "internal_job",
+   "depends_on": "eval:doc.charge_scope==\"Linked\"",
+   "fieldname": "linked_service",
    "fieldtype": "Link",
    "in_list_view": 0,
    "in_standard_filter": 1,
-   "label": "Internal Job",
-   "mandatory_depends_on": "eval:doc.charge_scope==\"Internal Job\"",
-   "options": "Internal Job",
+   "label": "Linked Service",
+   "mandatory_depends_on": "eval:doc.charge_scope==\"Linked\"",
+   "options": "Linked Service",
    "read_only": 1,
    "search_index": 1
   }

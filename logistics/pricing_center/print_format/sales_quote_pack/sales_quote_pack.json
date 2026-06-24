@@ -1,0 +1,15 @@
+{
+ "align_labels_right": 0,
+ "creation": "2026-06-18 00:00:00",
+ "custom_format": 1,
+ "disabled": 0,
+ "doc_type": "Sales Quote Pack",
+ "docstatus": 0,
+ "doctype": "Print Format",
+ "font_size": 10,
+ "html": "",
+ "module": "Pricing Center",
+ "name": "Sales Quote Pack",
+ "print_format_type": "Jinja",
+ "standard": "No"
+}

@@ -36,6 +36,8 @@ logistics.patches.v1_1_rename_special_project_site_material_to_package
 # Exhibits: Exhibit Docket is now a virtual child doctype (live view of Dockets);
 # drop the legacy persisted table so schema sync stops tracking it.
 logistics.patches.v1_2_drop_legacy_exhibit_docket_table
+# v3.0: rename Internal Job → Linked Service before new doctype JSON syncs
+logistics.patches.v3_0_rename_internal_job_to_linked_service
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
@@ -202,5 +204,18 @@ logistics.patches.v1_0_clear_address_client_query_link_filters
 logistics.patches.v1_0_clear_cto_client_query_link_filters
 # Docket: copy Sales Quote Weight/Qty Break tiers onto MICE Project Charges for existing dockets.
 logistics.patches.v1_29_backfill_docket_charge_breaks_from_sales_quote
+# Print formats / letter heads: guard Company lookup when doc.company is empty.
+logistics.patches.v1_30_fix_print_format_company_lookup
+# MAWB print formats: sync carrier + forwarder templates with safe Company resolution.
+logistics.patches.v1_31_sync_mawb_print_formats
+# Cloud benches: patch custom MAWB print formats that still use doc.company.
+logistics.patches.v1_32_fix_custom_mawb_print_formats
 # Pricing desktop tile: workspace JSON was deleted; restore so sidebar Home link resolves.
 logistics.patches.v1_0_restore_pricing_workspace
+# v3.0: Linked Service rename, service_role, Service Scope tab, Sales Quote Pack
+logistics.patches.v3_0_add_service_role_to_operational_docs
+logistics.patches.v3_0_reorganise_sales_quote_service_scope
+logistics.patches.v3_0_update_charge_scope_internal_to_linked
+logistics.patches.v3_0_migrate_charge_params_to_quote_scope
+logistics.patches.v3_0_create_sales_quote_pack_doctype
+logistics.patches.v3_0_ensure_mice_project_sales_quote_field

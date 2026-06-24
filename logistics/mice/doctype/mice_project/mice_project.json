@@ -18,6 +18,7 @@
   "hall",
   "column_break_1",
   "organizer",
+  "sales_quote",
   "status",
   "lifecycle_stage",
   "priority",
@@ -200,6 +201,13 @@
    "label": "Organizer",
    "link_filters": "[[\"MICE Organizer\", \"disabled\", \"=\", 0]]",
    "options": "MICE Organizer"
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "label": "Sales Quote",
+   "options": "Sales Quote",
+   "read_only": 1
   },
   {
    "default": "Draft",

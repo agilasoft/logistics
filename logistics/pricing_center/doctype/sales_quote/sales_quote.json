@@ -11,15 +11,6 @@
   "quotation_type",
   "blanket_quotation",
   "naming_series",
-  "column_break_rpzo",
-  "main_service",
-  "is_high_value",
-  "separate_billings_per_service_type",
-  "status_section",
-  "column_break_ralf",
-  "status",
-  "column_break_azte",
-  "converted_to_doc",
   "section_break_duom",
   "amended_from",
   "customer",
@@ -28,7 +19,30 @@
   "column_break_abll",
   "date",
   "valid_until",
+  "sales_quote_pack",
+  "column_break_rpzo",
+  "company",
+  "branch",
+  "profit_center",
+  "cost_center",
+  "column_break_jabf",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "service_scope_tab",
+  "scope_header_section",
+  "scope_title",
+  "main_service",
+  "is_high_value",
   "incoterm",
+  "incoterm_place",
+  "column_break_scope_hdr",
+  "separate_billings_per_service_type",
+  "status_section",
+  "column_break_ralf",
+  "status",
+  "column_break_azte",
+  "converted_to_doc",
   "one_off_params_section",
   "origin_port",
   "destination_port",
@@ -46,24 +60,11 @@
   "transport_template",
   "vehicle_type",
   "container_type",
-  "routing_tab",
   "routing_section",
   "billing_mode",
   "routing_legs",
-  "internal_jobs_tab",
-  "internal_jobs_section",
-  "internal_job_details",
-  "charges_tab",
-  "column_break_jabf",
-  "company",
-  "column_break_trty",
-  "branch",
-  "profit_center",
-  "cost_center",
-  "column_break_pfsj",
-  "sales_rep",
-  "operations_rep",
-  "customer_service_rep",
+  "linked_services_section",
+  "linked_services",
   "section_break_bpor",
   "additional_charge",
   "column_break_eoty",
@@ -210,9 +211,41 @@
    "reqd": 1
   },
   {
+   "fieldname": "sales_quote_pack",
+   "fieldtype": "Link",
+   "label": "Sales Quote Pack",
+   "no_copy": 1,
+   "options": "Sales Quote Pack",
+   "read_only": 1
+  },
+  {
+   "fieldname": "service_scope_tab",
+   "fieldtype": "Tab Break",
+   "label": "Service Scope"
+  },
+  {
+   "fieldname": "scope_header_section",
+   "fieldtype": "Section Break",
+   "label": "Scope / Lane"
+  },
+  {
+   "description": "Display title for this lane (e.g. PHMNL → HKHKG EXW).",
+   "fieldname": "scope_title",
+   "fieldtype": "Data",
+   "label": "Scope Title"
+  },
+  {
+   "fieldname": "column_break_scope_hdr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "incoterm_place",
+   "fieldtype": "Data",
+   "label": "Incoterm Place"
+  },
+  {
    "fieldname": "incoterm",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Incoterm",
    "options": "Incoterm"
   },
@@ -563,19 +596,14 @@
   {
    "fieldname": "main_service",
    "fieldtype": "Select",
-   "label": "Main Service",
+   "label": "Primary Service Type",
    "options": "\nAir\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE",
    "reqd": 1
   },
   {
-   "fieldname": "routing_tab",
-   "fieldtype": "Tab Break",
-   "label": "Routing"
-  },
-  {
    "fieldname": "routing_section",
    "fieldtype": "Section Break",
-   "label": "Multimodal Routing Details"
+   "label": "Routing"
   },
   {
    "default": "Consolidated",
@@ -587,7 +615,7 @@
   },
   {
    "default": "0",
-   "description": "When unchecked, all charges go to the main service Booking/Order. When checked, each Booking/Order gets only charges for its service type. Legs with no charges for their service become Internal Jobs linked to the Main Job.",
+   "description": "When unchecked, all charges go to the main service Booking/Order. When checked, each Booking/Order gets only charges for its service type. Legs with no charges for their service become Linked Services tied to the Main service.",
    "fieldname": "separate_billings_per_service_type",
    "fieldtype": "Check",
    "label": "Separate Billings per Service Type"
@@ -606,29 +634,16 @@
    "options": "Sales Quote Routing Leg"
   },
   {
-   "depends_on": "eval:doc.quotation_type==\"One-off\"",
-   "fieldname": "internal_jobs_tab",
-   "fieldtype": "Tab Break",
-   "label": "Internal Jobs"
-  },
-  {
-   "depends_on": "eval:doc.quotation_type==\"One-off\"",
-   "description": "Define Internal Jobs that will be created on the booking/order when this One-off quote is converted. Tag charges in the Charges tab to one of these jobs to keep their billing/operational details intact post-conversion.",
-   "fieldname": "internal_jobs_section",
+   "description": "Subsidiary services linked to the primary service on this quote. Tag charges with Scope = Linked to assign billing to a service row.",
+   "fieldname": "linked_services_section",
    "fieldtype": "Section Break",
-   "label": "Internal Jobs"
+   "label": "Services"
   },
   {
-   "depends_on": "eval:doc.quotation_type==\"One-off\"",
-   "fieldname": "internal_job_details",
+   "fieldname": "linked_services",
    "fieldtype": "Table",
-   "label": "Internal Jobs",
-   "options": "Internal Job Detail"
-  },
-  {
-   "fieldname": "charges_tab",
-   "fieldtype": "Tab Break",
-   "label": "Charges"
+   "label": "Services",
+   "options": "Linked Service Detail"
   },
   {
    "depends_on": "eval:doc.main_service != \"Warehousing\"",

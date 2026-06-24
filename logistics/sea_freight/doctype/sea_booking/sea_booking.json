@@ -120,6 +120,10 @@
   "section_break_operational_exchange_rates",
   "operational_exchange_rates",
   "quote_reference_section",
+  "service_scope",
+  "main_service",
+  "main_service_type",
+  "service_role",
   "is_main_service",
   "is_high_value",
   "sales_quote",
@@ -1075,6 +1079,36 @@
   {
    "fieldname": "column_break_yhuu",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "service_role",
+   "fieldtype": "Select",
+   "label": "Service Role",
+   "options": "Main\nLinked\nStandalone",
+   "default": "Standalone"
+  },
+  {
+   "depends_on": "eval:doc.service_role==\"Linked\"",
+   "fieldname": "main_service_type",
+   "fieldtype": "Select",
+   "label": "Main Service Type",
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.service_role==\"Linked\"",
+   "fieldname": "main_service",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Service",
+   "options": "main_service_type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "service_scope",
+   "fieldtype": "Link",
+   "label": "Service Scope",
+   "options": "Sales Quote",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,

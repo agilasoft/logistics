@@ -228,3 +228,12 @@ class TestShow(IntegrationTestCase):
 		finally:
 			dk.delete(ignore_permissions=True)
 			exhibit.delete(ignore_permissions=True)
+
+	def test_mice_project_has_sales_quote_field(self):
+		self.assertTrue(frappe.get_meta("MICE Project").has_field("sales_quote"))
+
+	def test_sales_quote_dashboard_links_mice_project_via_exhibit(self):
+		from logistics.pricing_center.doctype.sales_quote.sales_quote_dashboard import get_data
+
+		data = get_data()
+		self.assertEqual(data.get("internal_and_external_links", {}).get("MICE Project"), "exhibit")
