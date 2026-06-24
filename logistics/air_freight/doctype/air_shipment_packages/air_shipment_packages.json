@@ -77,7 +77,7 @@
    "description": "1-based index of the matching Special Project Package row.",
    "fieldname": "package_row",
    "fieldtype": "Int",
-   "in_list_view": 1,
+   "hidden": 1,
    "label": "Package Row"
   },
   {
