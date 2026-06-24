@@ -189,7 +189,11 @@ def _parent_ij_fieldname(parent_doctype: str) -> str | None:
 	dt = (parent_doctype or "").strip()
 	if not dt:
 		return None
-	return internal_job_detail_fieldname(dt) or _PROGRAMME_LIFECYCLE_JOB_PARENTS.get(dt)
+	# Programme parents migrated planned legs to lifecycle_jobs; do not fall back to
+	# internal_job_details (Special Project) or internal_jobs (Exhibit) for eligibility.
+	if dt in _PROGRAMME_LIFECYCLE_JOB_PARENTS:
+		return _PROGRAMME_LIFECYCLE_JOB_PARENTS[dt]
+	return internal_job_detail_fieldname(dt)
 
 
 def _parent_uses_lifecycle_jobs(parent_doc: Any | None) -> bool:

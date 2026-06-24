@@ -757,6 +757,7 @@
    "fieldname": "service_scope",
    "fieldtype": "Link",
    "label": "Service Scope",
+   "no_copy": 1,
    "options": "Sales Quote",
    "read_only": 1
   }

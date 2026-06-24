@@ -192,3 +192,9 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 		msg = (result.get("message") or "").lower()
 		self.assertIn("lifecycle", msg)
 		self.assertNotIn("internal jobs tab", msg)
+
+	def test_parent_ij_fieldname_uses_lifecycle_jobs_on_special_project(self):
+		from logistics.utils.internal_job_creation_eligibility import _parent_ij_fieldname
+
+		self.assertEqual(_parent_ij_fieldname("Special Project"), "lifecycle_jobs")
+		self.assertEqual(_parent_ij_fieldname("Exhibit"), "lifecycle_jobs")

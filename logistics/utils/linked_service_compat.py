@@ -72,6 +72,8 @@ def linked_services_fieldname(parent_doctype: str) -> str | None:
 		except Exception:
 			pass
 		return "internal_job_details"
+	if parent_doctype == "Special Project":
+		return "lifecycle_jobs"
 	if parent_doctype in ("MICE Project", "Docket", "Exhibit"):
 		return "internal_jobs"
 	return "internal_job_details"
