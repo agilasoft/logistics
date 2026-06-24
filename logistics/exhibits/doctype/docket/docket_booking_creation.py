@@ -546,13 +546,22 @@ def _apply_air_sea_corridor_ports_from_context(
 
 
 def _prepare_charges_before_insert(dk_doc: Any, target_doc: Any, row: Any | None) -> None:
-	"""Copy Docket charges (filtered by service_type) onto the new operational doc before insert."""
+	"""Copy Docket charges (filtered by service_type) onto the new operational doc before insert.
+
+	Charges copied from the Docket are tagged ``charge_scope = "Linked"`` with the linked-service
+	pointer from the matching ``internal_jobs`` row.
+	"""
 	from logistics.utils.charge_service_type import (
 		canonical_charge_service_type_for_storage,
 		implied_service_type_for_doctype,
 		operational_booking_charge_service_type_label,
 	)
 	from logistics.utils.internal_job_charge_copy import _scrub_main_row_to_child_dict
+	from logistics.utils.linked_service_compat import normalize_charge_scope
+	from logistics.utils.sales_quote_charge_copy import (
+		SCOPE_INTERNAL_JOB,
+		stamp_scope_fields_on_charge_row,
+	)
 
 	target_meta = frappe.get_meta(target_doc.doctype)
 	charges_df = target_meta.get_field("charges")
@@ -575,6 +584,7 @@ def _prepare_charges_before_insert(dk_doc: Any, target_doc: Any, row: Any | None
 		forced_label = operational_booking_charge_service_type_label(implied, default="Transport")
 
 	row_st_lower = row_st.lower()
+	row_ij = (getattr(row, "internal_job", None) or getattr(row, "linked_service", None) or "").strip() if row else ""
 	new_rows: list[dict[str, Any]] = []
 	for ch in getattr(dk_doc, "charges", None) or []:
 		ch_st_lower = (getattr(ch, "service_type", None) or "").strip().lower()
@@ -582,6 +592,9 @@ def _prepare_charges_before_insert(dk_doc: Any, target_doc: Any, row: Any | None
 			continue
 		scrubbed = _scrub_main_row_to_child_dict(ch, target_child_dt, forced_label)
 		if scrubbed:
+			if scrubbed.get("charge_scope"):
+				scrubbed["charge_scope"] = normalize_charge_scope(scrubbed["charge_scope"])
+			stamp_scope_fields_on_charge_row(scrubbed, SCOPE_INTERNAL_JOB, row_ij or None)
 			new_rows.append(scrubbed)
 
 	if not new_rows:
@@ -589,6 +602,9 @@ def _prepare_charges_before_insert(dk_doc: Any, target_doc: Any, row: Any | None
 		from logistics.utils.charge_service_type import filter_operational_doc_charges_for_internal_job_row
 
 		filter_operational_doc_charges_for_internal_job_row(target_doc, row)
+		if row_ij:
+			for r in getattr(target_doc, "charges", None) or []:
+				stamp_scope_fields_on_charge_row(r, SCOPE_INTERNAL_JOB, row_ij)
 		return
 
 	target_doc.set("charges", [])

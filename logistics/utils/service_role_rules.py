@@ -75,6 +75,10 @@ def apply_service_role_rules(doc: Any, method=None) -> None:
 	"""Validate hook: service_role + legacy MS/IJ flags."""
 	sync_service_role_from_legacy_flags(doc)
 	apply_sales_quote_ms_ij_rules(doc, method)
+	# MS/IJ rules may change is_main_service / is_internal_job; re-derive role from flags.
+	if hasattr(doc, "service_role"):
+		doc.service_role = ""
+		sync_service_role_from_legacy_flags(doc)
 	sync_legacy_flags_from_service_role(doc)
 
 	role = get_service_role(doc)
@@ -102,6 +106,11 @@ def apply_service_role_rules(doc: Any, method=None) -> None:
 	if quotation_type == "Regular" and role == SERVICE_ROLE_MAIN and has_created_internal_job_children(doc):
 		if hasattr(doc, "service_role"):
 			doc.service_role = SERVICE_ROLE_MAIN
+
+	# After MS/IJ flags are stamped (e.g. One-off → main service), enforce linkage rules.
+	from logistics.utils.get_charges_from_quotation import assert_one_off_sales_quote_job_rules
+
+	assert_one_off_sales_quote_job_rules(doc)
 
 
 def on_validate_service_role(doc, method=None) -> None:

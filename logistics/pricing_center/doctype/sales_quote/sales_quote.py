@@ -290,6 +290,85 @@ def throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_q
 
 
 class SalesQuote(Document):
+	def __setup__(self):
+		"""Keep virtual ``linked_services`` initialised; honour desk grid rows on save."""
+		if self.__dict__.get("linked_services") is None:
+			self.__dict__["linked_services"] = []
+		elif self.__dict__.get("linked_services"):
+			self.flags._linked_services_from_form = True
+
+	@property
+	def linked_services(self):
+		"""Live view of Linked Service documents owned by this Sales Quote."""
+		if self.flags.get("_linked_services_from_form"):
+			return self.__dict__.get("linked_services") or []
+		value = self._build_linked_services_view()
+		self.__dict__["linked_services"] = value
+		return value
+
+	def _build_linked_services_view(self):
+		"""Return Linked Service Detail row dicts sourced from ``Linked Service`` documents."""
+		if not getattr(self, "name", None) or getattr(self, "__islocal", False):
+			return []
+		from logistics.logistics.doctype.linked_service.linked_service import (
+			get_linked_services_for_sales_quote,
+		)
+
+		view_fields = {
+			"linked_service",
+			"service_type",
+			"job_type",
+			"job_no",
+			"job_description",
+		}
+		for fn in (
+			"air_house_type",
+			"airline",
+			"freight_agent",
+			"sea_house_type",
+			"freight_agent_sea",
+			"shipping_line",
+			"transport_mode",
+			"load_type",
+			"direction",
+			"origin_port",
+			"destination_port",
+			"transport_template",
+			"vehicle_type",
+			"container_type",
+			"container_no",
+			"location_type",
+			"location_from",
+			"location_to",
+			"pick_mode",
+			"drop_mode",
+			"customs_authority",
+			"declaration_type",
+			"customs_broker",
+			"customs_charge_category",
+			"planned_cost",
+			"actual_cost",
+			"planned_revenue",
+			"actual_revenue",
+		):
+			view_fields.add(fn)
+
+		rows = []
+		for ls in get_linked_services_for_sales_quote(self.name):
+			row = {"linked_service": ls.name}
+			for fn in view_fields:
+				if fn == "linked_service":
+					continue
+				if hasattr(ls, fn):
+					row[fn] = getattr(ls, fn, None)
+			rows.append(row)
+		return rows
+
+	def _drop_virtual_linked_services_rows(self):
+		"""Clear desk grid rows after sync; source of truth is ``Linked Service`` documents."""
+		self.flags._linked_services_from_form = False
+		self.__dict__["linked_services"] = []
+
 	def validate(self):
 		"""Validate Sales Quote data"""
 		for ch in getattr(self, "charges", None) or []:
@@ -308,8 +387,8 @@ class SalesQuote(Document):
 		self.validate_multimodal_main_job()
 		self.validate_customs_unit_types()
 		self.validate_linked_service_charge_tagging()
-		self.stamp_service_scope_on_child_rows()
 		self.auto_scope_title()
+		self._drop_virtual_linked_services_rows()
 
 	def after_insert(self):
 		_sync_special_project_from_sales_quote(self)
@@ -323,8 +402,8 @@ class SalesQuote(Document):
 		propagate_high_value_from_sales_quote(self.name)
 
 	def clear_hidden_one_off_fields_for_non_one_off(self):
-		"""Prevent link validation errors from hidden One-off fields on Regular/Project quotes."""
-		if getattr(self, "quotation_type", None) == "One-off":
+		"""Prevent link validation errors from hidden scope parameter fields on Project quotes."""
+		if getattr(self, "quotation_type", None) in ("One-off", "Regular"):
 			return
 		if getattr(self, "transport_mode", None):
 			self.transport_mode = None
@@ -498,8 +577,9 @@ class SalesQuote(Document):
 				frappe.throw(_("For Additional Charge quotes, Job Type and Job are required."))
 
 	def validate_one_off_required_parameters(self):
-		"""Require core parameters for One-off quotes based on service."""
-		if getattr(self, "quotation_type", None) != "One-off":
+		"""Require core scope parameters for Regular and One-off quotes based on service."""
+		quotation_type = getattr(self, "quotation_type", None)
+		if quotation_type not in ("One-off", "Regular"):
 			return
 
 		# Additional-charge quotes are linked to an existing job and should not
@@ -518,7 +598,8 @@ class SalesQuote(Document):
 				missing_fields.append(_("Destination Port"))
 			if missing_fields:
 				frappe.throw(
-					_("For One-off {0} quotes, these fields are required: {1}.").format(
+					_("For {0} {1} quotes, these fields are required: {2}.").format(
+						quotation_type,
 						main_service,
 						", ".join(missing_fields),
 					)
@@ -535,7 +616,8 @@ class SalesQuote(Document):
 				missing_fields.append(_("Location To"))
 			if missing_fields:
 				frappe.throw(
-					_("For One-off Transport quotes, these fields are required: {0}.").format(
+					_("For {0} Transport quotes, these fields are required: {1}.").format(
+						quotation_type,
 						", ".join(missing_fields),
 					)
 				)
@@ -550,7 +632,8 @@ class SalesQuote(Document):
 				missing_fields.append(_("Exhibit Close Date"))
 			if missing_fields:
 				frappe.throw(
-					_("For One-off Exhibits quotes, these fields are required: {0}.").format(
+					_("For {0} Exhibits quotes, these fields are required: {1}.").format(
+						quotation_type,
 						", ".join(missing_fields),
 					)
 				)
@@ -590,18 +673,6 @@ class SalesQuote(Document):
 					),
 					title=_("Programme Parameters Required"),
 				)
-
-	def stamp_service_scope_on_child_rows(self):
-		"""Tag every charge and Services row with this quote as service_scope (lane id)."""
-		if not self.name:
-			return
-		for row in getattr(self, "charges", None) or []:
-			if not (getattr(row, "service_scope", None) or "").strip():
-				row.service_scope = self.name
-		field = "linked_services" if hasattr(self, "linked_services") else "internal_job_details"
-		for row in getattr(self, field, None) or []:
-			if not (getattr(row, "service_scope", None) or "").strip():
-				row.service_scope = self.name
 
 	def auto_scope_title(self):
 		"""Default scope_title from corridor + incoterm when blank."""
@@ -706,7 +777,7 @@ class SalesQuote(Document):
 					title=_("Invalid Load Type"),
 				)
 
-		if getattr(self, "quotation_type", None) == "One-off" and not getattr(self, "additional_charge", 0):
+		if getattr(self, "quotation_type", None) in ("One-off", "Regular") and not getattr(self, "additional_charge", 0):
 			main = getattr(self, "main_service", None)
 			lt = getattr(self, "load_type", None)
 			main_c = canonical_charge_service_type_for_storage(main)
@@ -2327,9 +2398,12 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 		elif _af_r("unit_type") == "Shipment" or calculation_method == "Flat Rate":
 			quantity = 1
 		
-		charge_type = _af_r("charge_type") or (
+		from logistics.utils.charges_calculation import normalize_operational_charge_type
+
+		raw_charge_type = _af_r("charge_type") or (
 			item_doc.custom_charge_type if hasattr(item_doc, "custom_charge_type") and item_doc.custom_charge_type else None
-		) or "Other"
+		)
+		charge_type = normalize_operational_charge_type(raw_charge_type, default="Revenue")
 		charge_category = _af_r("charge_category") or (
 			item_doc.custom_charge_category if hasattr(item_doc, "custom_charge_category") and item_doc.custom_charge_category else None
 		) or "Other"
@@ -3881,7 +3955,7 @@ def get_rates_from_cost_sheet(sales_quote, selected_charge_names=None):
 		})
 		# Populate all parameters (from Cost Sheet charge, or from Sales Quote header for One-off)
 		header_params = {}
-		if sq_doc.quotation_type == "One-off":
+		if sq_doc.quotation_type in ("One-off", "Regular"):
 			header_params = {
 				"origin_port": getattr(sq_doc, "origin_port", None),
 				"destination_port": getattr(sq_doc, "destination_port", None),

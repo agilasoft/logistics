@@ -46,6 +46,13 @@ frappe.ui.form.on("Docket", {
 					return r.message || { filters: [] };
 				});
 		});
+		frm.set_query("warehouse_item", "packages", function (doc) {
+			var filters = {};
+			if (doc.customer) {
+				filters.customer = doc.customer;
+			}
+			return { filters: filters };
+		});
 	},
 	refresh(frm) {
 		logistics_docket_set_exhibitor_query(frm);
@@ -322,6 +329,177 @@ frappe.ui.form.on("Docket", {
 				},
 			});
 		});
+	},
+	aggregate_volume_from_packages(frm) {
+		if (frm.is_new() || frm.doc.__islocal) return;
+		if (!frm.doc.packages || frm.doc.packages.length === 0) {
+			return;
+		}
+		var _aggregate_docname = frm.doc.name;
+		frappe.call({
+			method:
+				"logistics.mice.doctype.docket.docket.aggregate_volume_from_packages_remote",
+			args: { doc: frm.doc },
+			callback: function (r) {
+				if (frm.doc.name !== _aggregate_docname) {
+					return;
+				}
+				if (r && !r.exc && r.message) {
+					if (r.message.total_volume !== undefined && frm.fields_dict.total_volume) {
+						frm.set_value("total_volume", r.message.total_volume);
+					}
+					if (r.message.total_weight !== undefined && frm.fields_dict.total_weight) {
+						frm.set_value("total_weight", r.message.total_weight);
+					}
+					if (r.message.total_packages !== undefined && frm.fields_dict.total_packages) {
+						frm.set_value("total_packages", r.message.total_packages);
+					}
+				}
+			},
+		});
+	},
+	packages_on_form_rendered(frm) {
+		if (window.logistics_attach_packages_change_listener) {
+			window.logistics_attach_packages_change_listener(
+				frm,
+				"Docket Package",
+				"packages",
+				"docket_volume"
+			);
+		}
+	},
+});
+
+function _docket_volume_fallback(frm, cdt, cdn, grid_row) {
+	var fn = window.logistics_volume_from_dimensions_fallback;
+	if (typeof fn === "function") fn(frm, cdt, cdn, grid_row, "packages");
+}
+
+frappe.ui.form.on("Docket Package", {
+	form_render(frm, cdt, cdn) {
+		if (!cdt || !cdn) return;
+		frm.trigger("packages_on_form_rendered");
+		setTimeout(function () {
+			var fn_immediate = window.logistics_calculate_volume_from_dimensions_immediate;
+			var fn_debounced = window.logistics_calculate_volume_from_dimensions;
+			if (typeof fn_immediate === "function") fn_immediate(frm, cdt, cdn);
+			else if (typeof fn_debounced === "function") fn_debounced(frm, cdt, cdn);
+			else
+				_docket_volume_fallback(
+					frm,
+					cdt,
+					cdn,
+					frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form()
+				);
+		}, 50);
+	},
+	commodity(frm, cdt, cdn) {
+		let row = locals[cdt][cdn];
+		if (row.commodity) {
+			frappe.db.get_value("Commodity", row.commodity, "default_hs_code", (r) => {
+				if (r && r.default_hs_code) {
+					frappe.model.set_value(cdt, cdn, "hs_code", r.default_hs_code);
+				} else {
+					frappe.model.set_value(cdt, cdn, "hs_code", "");
+				}
+			});
+		} else {
+			frappe.model.set_value(cdt, cdn, "hs_code", "");
+		}
+	},
+	volume(frm, cdt, cdn) {
+		if (frm.is_new() || frm.doc.__islocal) return;
+		frm.trigger("aggregate_volume_from_packages");
+	},
+	weight(frm, cdt, cdn) {
+		if (frm.is_new() || frm.doc.__islocal) return;
+		frm.trigger("aggregate_volume_from_packages");
+	},
+	weight_uom(frm, cdt, cdn) {
+		if (frm.is_new() || frm.doc.__islocal) return;
+		setTimeout(function () {
+			frm.trigger("aggregate_volume_from_packages");
+		}, 100);
+	},
+	length(frm, cdt, cdn) {
+		var fn = window.logistics_calculate_volume_from_dimensions;
+		if (typeof fn === "function") fn(frm, cdt, cdn);
+		else
+			_docket_volume_fallback(
+				frm,
+				cdt,
+				cdn,
+				frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form()
+			);
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			setTimeout(function () {
+				frm.trigger("aggregate_volume_from_packages");
+			}, 100);
+		}
+	},
+	width(frm, cdt, cdn) {
+		var fn = window.logistics_calculate_volume_from_dimensions;
+		if (typeof fn === "function") fn(frm, cdt, cdn);
+		else
+			_docket_volume_fallback(
+				frm,
+				cdt,
+				cdn,
+				frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form()
+			);
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			setTimeout(function () {
+				frm.trigger("aggregate_volume_from_packages");
+			}, 100);
+		}
+	},
+	height(frm, cdt, cdn) {
+		var fn = window.logistics_calculate_volume_from_dimensions;
+		if (typeof fn === "function") fn(frm, cdt, cdn);
+		else
+			_docket_volume_fallback(
+				frm,
+				cdt,
+				cdn,
+				frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form()
+			);
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			setTimeout(function () {
+				frm.trigger("aggregate_volume_from_packages");
+			}, 100);
+		}
+	},
+	dimension_uom(frm, cdt, cdn) {
+		var fn = window.logistics_calculate_volume_from_dimensions;
+		if (typeof fn === "function") fn(frm, cdt, cdn);
+		else
+			_docket_volume_fallback(
+				frm,
+				cdt,
+				cdn,
+				frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form()
+			);
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			setTimeout(function () {
+				frm.trigger("aggregate_volume_from_packages");
+			}, 100);
+		}
+	},
+	volume_uom(frm, cdt, cdn) {
+		var fn = window.logistics_calculate_volume_from_dimensions;
+		if (typeof fn === "function") fn(frm, cdt, cdn);
+		else
+			_docket_volume_fallback(
+				frm,
+				cdt,
+				cdn,
+				frappe.ui.form.get_open_grid_form && frappe.ui.form.get_open_grid_form()
+			);
+		if (!frm.is_new() && !frm.doc.__islocal) {
+			setTimeout(function () {
+				frm.trigger("aggregate_volume_from_packages");
+			}, 100);
+		}
 	},
 });
 

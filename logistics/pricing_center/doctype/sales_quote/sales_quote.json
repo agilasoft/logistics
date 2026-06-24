@@ -60,11 +60,14 @@
   "transport_template",
   "vehicle_type",
   "container_type",
+  "routing_tab",
   "routing_section",
   "billing_mode",
   "routing_legs",
+  "services_tab",
   "linked_services_section",
   "linked_services",
+  "charges_tab",
   "section_break_bpor",
   "additional_charge",
   "column_break_eoty",
@@ -221,7 +224,7 @@
   {
    "fieldname": "service_scope_tab",
    "fieldtype": "Tab Break",
-   "label": "Service Scope"
+   "label": "Scope"
   },
   {
    "fieldname": "scope_header_section",
@@ -250,38 +253,38 @@
    "options": "Incoterm"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type)",
    "fieldname": "one_off_params_section",
    "fieldtype": "Section Break",
-   "label": "Parameters"
+   "label": "Main Service Parameters"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type)",
    "fieldname": "origin_port",
    "fieldtype": "Link",
    "label": "Origin Port",
    "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
-   "mandatory_depends_on": "eval:doc.quotation_type == \"One-off\" && (doc.main_service == \"Air\" || doc.main_service == \"Sea\")",
+   "mandatory_depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && (doc.main_service == \"Air\" || doc.main_service == \"Sea\")",
    "options": "UNLOCO"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type)",
    "fieldname": "destination_port",
    "fieldtype": "Link",
    "label": "Destination Port",
    "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
-   "mandatory_depends_on": "eval:doc.quotation_type == \"One-off\" && (doc.main_service == \"Air\" || doc.main_service == \"Sea\")",
+   "mandatory_depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && (doc.main_service == \"Air\" || doc.main_service == \"Sea\")",
    "options": "UNLOCO"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type)",
    "fieldname": "load_type",
    "fieldtype": "Link",
    "label": "Load Type",
    "options": "Load Type"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type)",
    "fieldname": "transport_mode",
    "fieldtype": "Link",
    "label": "Transport Mode",
@@ -289,28 +292,28 @@
    "options": "Transport Mode"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type)",
    "fieldname": "direction",
    "fieldtype": "Select",
    "label": "Direction",
    "options": "\nImport\nExport\nDomestic"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type)",
    "fieldname": "column_break_params",
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Air\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Air\"",
    "fieldname": "airline",
    "fieldtype": "Link",
    "label": "Airline",
    "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]",
-   "mandatory_depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Air\"",
+   "mandatory_depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Air\"",
    "options": "Airline"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Air\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Air\"",
    "fieldname": "freight_agent",
    "fieldtype": "Link",
    "label": "Freight Agent",
@@ -318,7 +321,7 @@
    "options": "Freight Agent"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Sea\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
    "fieldname": "shipping_line",
    "fieldtype": "Link",
    "label": "Shipping Line",
@@ -326,7 +329,7 @@
    "options": "Shipping Line"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Sea\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
    "fieldname": "freight_agent_sea",
    "fieldtype": "Link",
    "label": "Freight Agent",
@@ -334,39 +337,39 @@
    "options": "Freight Agent"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
    "fieldname": "location_type",
    "fieldtype": "Link",
    "label": "Location Type",
    "link_filters": "[[\"DocType\",\"name\",\"in\",[\"UNLOCO\",\"Transport Zone\"]]]",
-   "mandatory_depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "mandatory_depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
    "options": "DocType"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
    "fieldname": "location_from",
    "fieldtype": "Dynamic Link",
    "label": "Location From",
-   "mandatory_depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "mandatory_depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
    "options": "location_type"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
    "fieldname": "location_to",
    "fieldtype": "Dynamic Link",
    "label": "Location To",
-   "mandatory_depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "mandatory_depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
    "options": "location_type"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
    "fieldname": "transport_template",
    "fieldtype": "Link",
    "label": "Transport Template",
    "options": "Transport Template"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
@@ -374,7 +377,7 @@
    "options": "Vehicle Type"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"One-off\" && doc.main_service == \"Transport\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
    "fieldname": "container_type",
    "fieldtype": "Link",
    "label": "Container Type",
@@ -601,6 +604,11 @@
    "reqd": 1
   },
   {
+   "fieldname": "routing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Routing"
+  },
+  {
    "fieldname": "routing_section",
    "fieldtype": "Section Break",
    "label": "Routing"
@@ -634,16 +642,28 @@
    "options": "Sales Quote Routing Leg"
   },
   {
+   "fieldname": "services_tab",
+   "fieldtype": "Tab Break",
+   "label": "Services"
+  },
+  {
    "description": "Subsidiary services linked to the primary service on this quote. Tag charges with Scope = Linked to assign billing to a service row.",
    "fieldname": "linked_services_section",
    "fieldtype": "Section Break",
    "label": "Services"
   },
   {
+   "description": "Subsidiary services for this quote. Each row is a Linked Service record (created on save).",
    "fieldname": "linked_services",
    "fieldtype": "Table",
+   "is_virtual": 1,
    "label": "Services",
    "options": "Linked Service Detail"
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
   },
   {
    "depends_on": "eval:doc.main_service != \"Warehousing\"",

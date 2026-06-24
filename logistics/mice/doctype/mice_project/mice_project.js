@@ -226,7 +226,7 @@ function _exhibit_allocate_costs_dialog(frm) {
 				default: frm.doc.cost_allocation_target || "Auto",
 				reqd: 1,
 				description: __(
-					"Where allocated costs land. Auto picks Exhibit Jobs when present, otherwise Dockets."
+					"Where allocated costs land. Auto picks MICE Jobs when present, otherwise Dockets."
 				),
 			},
 			{

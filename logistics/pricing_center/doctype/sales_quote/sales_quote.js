@@ -214,7 +214,7 @@ function logistics_sanitize_sales_quote_load_types(frm) {
 	if (!frm.doc) return;
 	const names = new Set();
 	const headerFlag = logistics_load_type_flag_for_charge_service_type(frm.doc.main_service);
-	if (frm.doc.quotation_type === "One-off" && frm.doc.load_type && headerFlag) {
+	if (["Regular", "One-off"].includes(frm.doc.quotation_type) && frm.doc.load_type && headerFlag) {
 		names.add(frm.doc.load_type);
 	}
 	(frm.doc.charges || []).forEach((row) => {
@@ -230,7 +230,7 @@ function logistics_sanitize_sales_quote_load_types(frm) {
 		callback: function (r) {
 			const flags = r.message || {};
 			let changed = false;
-			if (frm.doc.quotation_type === "One-off" && frm.doc.load_type && headerFlag) {
+			if (["Regular", "One-off"].includes(frm.doc.quotation_type) && frm.doc.load_type && headerFlag) {
 				const fl = flags[frm.doc.load_type];
 				if (!fl || !fl[headerFlag]) {
 					frm.set_value("load_type", "");
@@ -518,7 +518,7 @@ frappe.ui.form.on("Sales Quote", {
 		// Explicit refresh: warehousing / charges use depends_on vs main_service; ensures grids repaint when switching mode.
 		frm.refresh_field("charges");
 		frm.refresh_field("warehousing");
-		if (frm.doc.quotation_type === "One-off" && frm.doc.load_type) {
+		if (["Regular", "One-off"].includes(frm.doc.quotation_type) && frm.doc.load_type) {
 			const flag = logistics_load_type_flag_for_charge_service_type(frm.doc.main_service);
 			if (flag) {
 				frappe.db.get_value("Load Type", frm.doc.load_type, flag, (r) => {
@@ -1156,7 +1156,7 @@ function _set_valid_until_from_settings(frm) {
 // Get Rates from Cost Sheet: Step 1 = params prompt, Step 2 = charge selection dialog
 function show_get_rates_from_cost_sheet_dialog(frm) {
 	var defaults = {};
-	if (frm.doc.quotation_type === "One-off") {
+	if (["Regular", "One-off"].includes(frm.doc.quotation_type)) {
 		defaults = {
 			service_type: frm.doc.main_service || undefined,
 			origin_port: frm.doc.origin_port || undefined,

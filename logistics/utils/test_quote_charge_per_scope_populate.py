@@ -223,7 +223,7 @@ class TestStampScopeFieldsOnChargeRow(FrappeTestCase):
 	def test_dict_row_internal_job_stamping(self):
 		row = {}
 		stamp_scope_fields_on_charge_row(row, SCOPE_INTERNAL_JOB, "IJ-XYZ")
-		self.assertEqual(row.get("charge_scope"), SCOPE_INTERNAL_JOB)
+		self.assertEqual(row.get("charge_scope"), "Linked")
 		self.assertEqual(row.get("internal_job"), "IJ-XYZ")
 
 	def test_object_row_only_writes_existing_fields(self):
@@ -234,7 +234,7 @@ class TestStampScopeFieldsOnChargeRow(FrappeTestCase):
 			"logistics.utils.sales_quote_charge_copy.frappe.get_meta", return_value=meta
 		):
 			stamp_scope_fields_on_charge_row(row, SCOPE_INTERNAL_JOB, "IJ-Z")
-		self.assertEqual(row.charge_scope, SCOPE_INTERNAL_JOB)
+		self.assertEqual(row.charge_scope, "Linked")
 		self.assertEqual(row.internal_job, "IJ-Z")
 
 
@@ -307,11 +307,11 @@ class TestStampMainOrInternalJobScopeOnBookingCharges(FrappeTestCase):
 			stamp_main_or_internal_job_scope_on_booking_charges(parent)
 
 		self.assertEqual(main_row.charge_scope, SCOPE_MAIN)
-		self.assertEqual(ij_row.charge_scope, SCOPE_INTERNAL_JOB)
+		self.assertEqual(ij_row.charge_scope, "Linked")
 		self.assertEqual(ij_row.internal_job, "IJ-A")
 
 	def test_internal_job_booking_overwrites_inherited_main_scope(self):
-		"""IJ booking that inherits Main-scope rows from a copy gets re-tagged Internal Job."""
+		"""IJ booking that inherits Main-scope rows from a copy gets re-tagged Linked."""
 		parent = MagicMock()
 		parent.doctype = "Sea Booking"
 		parent.is_internal_job = 1
@@ -333,10 +333,10 @@ class TestStampMainOrInternalJobScopeOnBookingCharges(FrappeTestCase):
 		):
 			stamp_main_or_internal_job_scope_on_booking_charges(parent)
 
-		# Both rows now report Internal Job scope; both link to the booking's own resolved IJ.
-		self.assertEqual(clone_row.charge_scope, SCOPE_INTERNAL_JOB)
+		# Both rows now report Linked scope; both link to the booking's own resolved IJ.
+		self.assertEqual(clone_row.charge_scope, "Linked")
 		self.assertEqual(clone_row.internal_job, "IJ-RESOLVED")
-		self.assertEqual(stale_row.charge_scope, SCOPE_INTERNAL_JOB)
+		self.assertEqual(stale_row.charge_scope, "Linked")
 		self.assertEqual(stale_row.internal_job, "IJ-RESOLVED")
 
 	def test_no_op_when_child_table_lacks_scope_fields(self):

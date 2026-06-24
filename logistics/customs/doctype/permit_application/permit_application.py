@@ -88,6 +88,7 @@ class PermitApplication(Document):
 	def sync_status_from_permit_triggers(self):
 		"""
 		Drive status from business dates. Renewed is kept when already renewed or set via renewal chain.
+		Approved is set only via workflow (Approve action), not from approval_date alone.
 		"""
 		if self.status == "Renewed":
 			return
@@ -95,14 +96,6 @@ class PermitApplication(Document):
 		if self.rejection_date:
 			self.status = "Rejected"
 			return
-		# Approved: approval_date (no rejection_date) from draft or in-flight review states.
-		if self.approval_date and self.status in (
-			"Draft",
-			"Submitted",
-			"Under Review",
-			"Rejected",
-		):
-			self.status = "Approved"
 
 	def apply_expired_status(self):
 		"""Expired when Valid To is before today (Approved permits only).

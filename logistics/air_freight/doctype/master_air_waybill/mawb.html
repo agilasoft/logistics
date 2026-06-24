@@ -454,8 +454,8 @@
 
   </div>
 </td>
-                    <td class="cell-r" style="width: 13%; margin: 0px !important; padding: 2px 5px !important;"><span class="fnum"></span><span class="iata-lbl" style="font-size:5px;">Declared Value for Carriage</span><div class="iata-txt" style="font-size:8px;">{% if doc.insurance is not none and (doc.insurance|float(0) > 0) %}AS DECLARED{% else %}N.V.D.{% endif %}</div></td>
-                    <td class="cell-r" style="width: 13%; margin: 0px !important; padding: 2px 5px !important;"><span class="fnum"></span><span class="iata-lbl" style="font-size:5px;">Declared Value for Customs</span><div class="iata-txt" style="font-size:8px;">{% if doc.goods_value is not none and (doc.goods_value|float(0) > 0) %}{{ frappe.utils.fmt_money(doc.goods_value, currency=curr) if curr else frappe.utils.fmt_money(doc.goods_value) }}{% else %}N.C.V.{% endif %}</div></td>
+                    <td class="cell-r" style="width: 13%; margin: 0px !important; padding: 2px 5px !important;"><span class="fnum"></span><span class="iata-lbl" style="font-size:5px;">Declared Value for Carriage</span><div class="iata-txt" style="font-size:8px;">{% if ps and ps.insurance is not none and (ps.insurance|float(0) > 0) %}AS DECLARED{% else %}N.V.D.{% endif %}</div></td>
+                    <td class="cell-r" style="width: 13%; margin: 0px !important; padding: 2px 5px !important;"><span class="fnum"></span><span class="iata-lbl" style="font-size:5px;">Declared Value for Customs</span><div class="iata-txt" style="font-size:8px;">{% if ps and ps.goods_value is not none and (ps.goods_value|float(0) > 0) %}{{ frappe.utils.fmt_money(ps.goods_value, currency=curr) if curr else frappe.utils.fmt_money(ps.goods_value) }}{% else %}N.C.V.{% endif %}</div></td>
                 </tr>
             </table>
 
@@ -486,7 +486,7 @@
                     <td class="cell-r" style="width: 21.85%; margin: 0px !important; padding: 0 !important;">
                     
                         <span class="iata-lbl" style="margin: 0px !important; padding:3px !important; font-size:7px;">Amount of Insurance</span>
-                        <div class="iata-txt" style="margin: 0px !important; padding:5px !important;">{% if doc.insurance is not none and (doc.insurance|float(0) > 0) %}{{ frappe.utils.fmt_money(doc.insurance, currency=curr) if curr else frappe.utils.fmt_money(doc.insurance) }}{% else %}XXX{% endif %}</div>
+                        <div class="iata-txt" style="margin: 0px !important; padding:5px !important;">{% if ps and ps.insurance is not none and (ps.insurance|float(0) > 0) %}{{ frappe.utils.fmt_money(ps.insurance, currency=curr) if curr else frappe.utils.fmt_money(ps.insurance) }}{% else %}XXX{% endif %}</div>
                     </td>
                     <td class="cell-r" style="width: 33%; margin: 0px !important; padding: 2px 5px !important;">
                         <div class="insurance-note">INSURANCE — IF CARRIER OFFERS INSURANCE, AND SUCH INSURANCE IS REQUESTED IN ACCORDANCE WITH THE CONDITIONS THEREOF, INDICATE AMOUNT TO BE INSURED IN FIGURES IN BOX MARKED "AMOUNT OF INSURANCE".</div>
