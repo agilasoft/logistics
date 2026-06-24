@@ -36,6 +36,15 @@
   "column_break_scope",
   "assumptions",
   "deliverables",
+  "packing_tab",
+  "section_break_ofjt",
+  "packages",
+  "section_break_summary",
+  "total_packages",
+  "total_volume",
+  "total_weight",
+  "column_break_summary",
+  "density_factor_html",
   "jobs_tab",
   "section_jobs",
   "internal_jobs",
@@ -304,6 +313,7 @@
    "label": "Internal Jobs"
   },
   {
+   "description": "Internal jobs (Air / Sea / Transport / Customs / Warehousing / MICE lines) that fulfil this docket. Use <b>Create &gt; Booking / Order</b> to turn each row into a booking, order, or MICE Order.",
    "fieldname": "internal_jobs",
    "fieldtype": "Table",
    "label": "Internal Jobs",
@@ -683,6 +693,55 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "packing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Packing"
+  },
+  {
+   "fieldname": "section_break_ofjt",
+   "fieldtype": "Section Break",
+   "label": "Packages"
+  },
+  {
+   "fieldname": "packages",
+   "fieldtype": "Table",
+   "label": "Packages",
+   "options": "Docket Package"
+  },
+  {
+   "fieldname": "section_break_summary",
+   "fieldtype": "Section Break",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "total_packages",
+   "fieldtype": "Float",
+   "label": "Total Packages",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_volume",
+   "fieldtype": "Float",
+   "label": "Total Volume",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_weight",
+   "fieldtype": "Float",
+   "label": "Total Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_summary",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "density_factor_html",
+   "fieldtype": "HTML",
+   "label": "Density Factor",
+   "options": "<div class=\"density-factor-container\"><div class=\"density-factor-header\"><span class=\"density-factor-title\">Density Factor</span><span class=\"density-factor-classification\" data-zone=\"\"></span></div><div class=\"density-factor-meta\"><span class=\"density-factor-value is-empty\" data-doc-value=\"\"></span><span class=\"density-factor-unit\">cm\u00b3/kg</span></div><div class=\"density-factor-track\" role=\"progressbar\" aria-valuemin=\"0\" aria-valuemax=\"6000\" aria-valuenow=\"\"><div class=\"density-factor-fill\"></div><div class=\"density-factor-indicator\"></div></div><div class=\"density-factor-scale\"><span class=\"dfs-pos\" data-tier=\"dense\" style=\"left: 0%\"><span class=\"dfs-num\">0</span><span class=\"dfs-lbl\">Dense</span></span><span class=\"dfs-pos\" style=\"left: 25%\"><span class=\"dfs-num\">1500</span></span><span class=\"dfs-pos\" style=\"left: 50%\"><span class=\"dfs-num\">3000</span></span><span class=\"dfs-pos\" style=\"left: 75%\"><span class=\"dfs-num\">4500</span></span><span class=\"dfs-pos\" data-tier=\"volumetric\" style=\"left: 100%\"><span class=\"dfs-num\">6000</span><span class=\"dfs-lbl\">Volumetric</span></span></div><div class=\"density-factor-error\"></div></div>"
   },
   {
    "fieldname": "connections_tab",

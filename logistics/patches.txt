@@ -38,6 +38,10 @@ logistics.patches.v1_1_rename_special_project_site_material_to_package
 logistics.patches.v1_2_drop_legacy_exhibit_docket_table
 # v3.0: rename Internal Job → Linked Service before new doctype JSON syncs
 logistics.patches.v3_0_rename_internal_job_to_linked_service
+# Sales Quote Services grid: Linked Service Detail is virtual (source = Linked Service docs)
+logistics.patches.v3_0_drop_sales_quote_linked_service_detail_table
+# Docket Internal Jobs grid: Linked Service Detail is virtual (source = Linked Service docs)
+logistics.patches.v3_0_drop_docket_internal_job_detail_table
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
@@ -219,3 +223,6 @@ logistics.patches.v3_0_update_charge_scope_internal_to_linked
 logistics.patches.v3_0_migrate_charge_params_to_quote_scope
 logistics.patches.v3_0_create_sales_quote_pack_doctype
 logistics.patches.v3_0_ensure_mice_project_sales_quote_field
+logistics.patches.v3_0_drop_sales_quote_service_scope_fields
+# Docket Internal Jobs: restore persisted Internal Job Detail rows after virtual-grid rollback
+logistics.patches.v3_0_restore_docket_internal_job_detail_rows

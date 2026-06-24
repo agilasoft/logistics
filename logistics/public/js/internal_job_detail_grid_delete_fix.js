@@ -15,7 +15,7 @@
 (function patch_internal_job_detail_grid_delete() {
 	"use strict";
 
-	var IJ_CHILD_DOCTYPE = "Internal Job Detail";
+	var IJ_CHILD_DOCTYPES = ["Internal Job Detail", "Linked Service Detail"];
 	var IJ_JOB_LINK_FIELDS = ["job_type", "job_no"];
 	var JOB_TYPE_BY_SERVICE = {
 		Air: "Air Booking",
@@ -27,7 +27,7 @@
 	};
 
 	function is_internal_job_detail_grid(grid) {
-		return grid && grid.df && grid.df.options === IJ_CHILD_DOCTYPE;
+		return grid && grid.df && IJ_CHILD_DOCTYPES.indexOf(grid.df.options) !== -1;
 	}
 
 	function strip_ij_job_link_fields(row) {

@@ -17,8 +17,6 @@
   "charge_category",
   "section_break_scope",
   "charge_scope",
-  "column_break_scope",
-  "service_scope",
   "linked_service",
   "freight_taxes_section",
   "apply_95_5_rule",
@@ -793,18 +791,6 @@
    "in_standard_filter": 1,
    "label": "Scope",
    "options": "Main\nLinked"
-  },
-  {
-   "fieldname": "column_break_scope",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "service_scope",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Service Scope",
-   "options": "Sales Quote",
-   "reqd": 1
   },
   {
    "depends_on": "eval:doc.charge_scope==\"Linked\"",

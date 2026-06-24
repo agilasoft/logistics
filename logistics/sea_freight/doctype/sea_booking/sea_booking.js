@@ -56,6 +56,25 @@ function _sea_booking_volume_fallback(frm, cdt, cdn, grid_row) {
 	if (typeof fn === 'function') fn(frm, cdt, cdn, grid_row, 'packages');
 }
 
+var SEA_BOOKING_AGGREGATE_API =
+	'logistics.sea_freight.doctype.sea_booking.sea_booking.aggregate_volume_from_packages_api';
+
+/** Apply header totals from aggregate API without marking the form dirty (avoids save/submit races). */
+function _sea_booking_apply_aggregate_to_header(frm, message) {
+	if (!frm || !frm.doc || !message || frappe.ui.form.is_saving) {
+		return;
+	}
+	if (message.total_volume !== undefined) {
+		frm.set_value('total_volume', message.total_volume, false, true);
+	}
+	if (message.total_weight !== undefined) {
+		frm.set_value('total_weight', message.total_weight, false, true);
+	}
+	if (message.chargeable !== undefined) {
+		frm.set_value('chargeable', message.chargeable, false, true);
+	}
+}
+
 function _warn_if_missing_service_charges(frm, service_type) {
 	var charges = frm.doc.charges || [];
 	var has_match = charges.some(function(row) {
@@ -462,15 +481,13 @@ frappe.ui.form.on('Sea Booking', {
 		_update_measurement_fields_readonly(frm);
 		if (frm.is_new() || frm.doc.__islocal) return;
 		if (!frm.doc.override_volume_weight) {
-			frm.call({
-				method: 'aggregate_volume_from_packages_api',
-				doc: frm.doc,
+			frappe.call({
+				method: SEA_BOOKING_AGGREGATE_API,
+				args: { doc: frm.doc },
 				freeze: false,
 				callback: function(r) {
 					if (r && !r.exc && r.message) {
-						if (r.message.total_volume !== undefined) frm.set_value('total_volume', r.message.total_volume);
-						if (r.message.total_weight !== undefined) frm.set_value('total_weight', r.message.total_weight);
-						if (r.message.chargeable !== undefined) frm.set_value('chargeable', r.message.chargeable);
+						_sea_booking_apply_aggregate_to_header(frm, r.message);
 						_set_packing_summary_from_response(frm, r.message);
 					}
 				}
@@ -495,7 +512,10 @@ frappe.ui.form.on('Sea Booking', {
 		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
 			if (!frm._dashboard_html_called) {
 				frm._dashboard_html_called = true;
-				frm.call('get_dashboard_html').then(r => {
+				frappe.call({
+					method: 'logistics.sea_freight.doctype.sea_booking.sea_booking.fetch_sea_booking_dashboard_html',
+					args: { docname: frm.doc.name },
+				}).then(r => {
 					if (r.message && frm.fields_dict.dashboard_html) {
 						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
 						if (window.logistics_group_and_collapse_dash_alerts) {
@@ -594,9 +614,9 @@ frappe.ui.form.on('Sea Booking', {
 					frappe.confirm(
 						__('Are you sure you want to convert this Sea Booking to a Sea Shipment?'),
 						function() {
-							frm.call({
-								method: 'convert_to_shipment',
-								doc: frm.doc,
+							frappe.call({
+								method: 'logistics.sea_freight.doctype.sea_booking.sea_booking.convert_to_shipment_api',
+								args: { docname: frm.doc.name },
 								callback: function(r) {
 									if (r.exc) return;
 									if (r.message && r.message.success && r.message.sea_shipment) {
@@ -929,15 +949,13 @@ function _debounced_aggregate_packages(frm) {
 	frm._packages_aggregate_timer = setTimeout(function() {
 		frm._packages_aggregate_timer = null;
 		if (frm.is_new() || frm.doc.__islocal || _is_grid_dialog_open()) return;
-		frm.call({
-			method: 'aggregate_volume_from_packages_api',
-			doc: frm.doc,
+		frappe.call({
+			method: SEA_BOOKING_AGGREGATE_API,
+			args: { doc: frm.doc },
 			freeze: false,
 			callback: function(r) {
 				if (r && !r.exc && r.message && !_is_grid_dialog_open()) {
-					if (r.message.total_volume !== undefined) frm.set_value('total_volume', r.message.total_volume);
-					if (r.message.total_weight !== undefined) frm.set_value('total_weight', r.message.total_weight);
-					if (r.message.chargeable !== undefined) frm.set_value('chargeable', r.message.chargeable);
+					_sea_booking_apply_aggregate_to_header(frm, r.message);
 					_set_packing_summary_from_response(frm, r.message);
 					if (r.message.container_cargo) _apply_container_cargo_to_form(frm, r.message.container_cargo);
 				}
@@ -1096,17 +1114,15 @@ function _refresh_packing_summary_api(frm) {
 	// Don't call API if a grid dialog/row editor is open (prevents freeze and row editor closing)
 	if (_is_grid_dialog_open()) return;
 	
-	frm.call({
-		method: 'aggregate_volume_from_packages_api',
-		doc: frm.doc,
-		freeze: false, // Don't show freeze message
+	frappe.call({
+		method: SEA_BOOKING_AGGREGATE_API,
+		args: { doc: frm.doc },
+		freeze: false,
 		callback: function(r) {
 			if (r && !r.exc && r.message) {
 				// Only update fields if dialog is not open (prevents row editor from closing)
 				if (!_is_grid_dialog_open()) {
-					if (r.message.total_volume !== undefined) frm.set_value('total_volume', r.message.total_volume);
-					if (r.message.total_weight !== undefined) frm.set_value('total_weight', r.message.total_weight);
-					if (r.message.chargeable !== undefined) frm.set_value('chargeable', r.message.chargeable);
+					_sea_booking_apply_aggregate_to_header(frm, r.message);
 					_set_packing_summary_from_response(frm, r.message);
 					if (r.message.container_cargo) _apply_container_cargo_to_form(frm, r.message.container_cargo);
 				}
@@ -1142,10 +1158,10 @@ function _set_packing_summary_from_response(frm, message) {
 	// Only update if dialog is not open (prevents row editor from closing)
 	if (_is_grid_dialog_open()) return;
 	
-	var keys = ['total_containers', 'total_teus', 'total_packages', 'total_volume', 'total_weight'];
-	keys.forEach(function(key) {
+	var silent_keys = ['total_containers', 'total_teus', 'total_packages'];
+	silent_keys.forEach(function(key) {
 		if (message[key] !== undefined) {
-			frm.set_value(key, message[key]);
+			frm.set_value(key, message[key], false, true);
 		}
 	});
 }

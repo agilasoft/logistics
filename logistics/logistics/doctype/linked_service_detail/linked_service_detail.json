@@ -6,7 +6,6 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "service_scope",
   "linked_service",
   "service_type",
   "column_break_ident",
@@ -51,14 +50,6 @@
   "actual_revenue"
  ],
  "fields": [
-  {
-   "fieldname": "service_scope",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Service Scope",
-   "options": "Sales Quote",
-   "reqd": 1
-  },
   {
    "fieldname": "linked_service",
    "fieldtype": "Link",
@@ -426,6 +417,7 @@
   }
  ],
  "index_web_pages_for_search": 1,
+ "is_virtual": 1,
  "istable": 1,
  "links": [],
  "modified": "2026-06-10 00:00:00.000000",

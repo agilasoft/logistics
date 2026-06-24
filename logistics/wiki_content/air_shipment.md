@@ -17,7 +17,7 @@ To access: **Home > Air Freight > Air Shipment**
 - **Charges** – Selling and cost charges; supports weight and quantity breaks (unified calculation engine). Each charge row has **Estimated Revenue** and **Estimated Cost** (from the booking, used for WIP and accrual) and **Actual Revenue** and **Actual Cost** (calculated on the shipment; used for Sales Invoice and Purchase Invoice when present). Use **Recalculate All Charges** to refresh actual amounts from the calculation method; estimated amounts are not changed.
 - **Totals** – Header-level volume/weight totals may aggregate package lines (aligned with Air Booking after upgrade migrations).
 - **Documents** – Job Document child table; Populate from Template
-- **Create Change Request** – Add additional charges via [Change Request](welcome/change-request)
+- **Create Change Request** – Add additional charges via [Change Request](welcome/change-request). Submit the Change Request to add cost rows to Charges; create and submit an Additional Charge Sales Quote from the Change Request to fill in revenue. Multimodal fees (Customs, Transport, Warehousing, etc.) are supported alongside Air charges on the same shipment. See [Change Request](welcome/change-request) for the full workflow and verified example ASP-000000238.
 - **Profitability (from GL)** – Revenue, cost, gross profit, WIP, accrual from General Ledger when Job Number and Company are set (see [Job Management Module](welcome/job-management-module))
 
 ## 3. Workflow

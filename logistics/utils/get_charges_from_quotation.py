@@ -1146,8 +1146,10 @@ def _sq_charge_row_to_operational_dict(
 
 	if "sales_quote_link" in valid and sales_quote_name:
 		out.setdefault("sales_quote_link", sales_quote_name)
-	if "charge_type" in valid and not out.get("charge_type"):
-		out["charge_type"] = "Revenue"
+	if "charge_type" in valid:
+		from logistics.utils.charges_calculation import normalize_operational_charge_type
+
+		out["charge_type"] = normalize_operational_charge_type(out.get("charge_type"), default="Revenue")
 	if not out.get("item_code"):
 		return None
 	return out

@@ -4,7 +4,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cint
+from frappe.utils import cint, flt
 
 
 # Maps an Internal Job Detail row's order/booking job_type to the operational
@@ -303,6 +303,30 @@ class Docket(Document):
 		finally:
 			clear_charge_resolution_parent(self)
 
+	def get_total_weight(self):
+		"""Calculate total weight from packages."""
+		total_weight = 0
+		for package in self.get("packages") or []:
+			total_weight += flt(getattr(package, "weight", 0) or 0)
+		return total_weight
+
+	def get_total_volume(self):
+		"""Calculate total volume from packages."""
+		total_volume = 0
+		for package in self.get("packages") or []:
+			total_volume += flt(getattr(package, "volume", 0) or 0)
+		return total_volume
+
+	def _update_packing_summary(self):
+		"""Update total_packages, total_volume, total_weight from packages."""
+		packages = self.get("packages") or []
+		self.total_packages = sum(
+			flt(getattr(p, "no_of_packs", 0) or getattr(p, "quantity", 0) or 1)
+			for p in packages
+		)
+		self.total_volume = self.get_total_volume()
+		self.total_weight = self.get_total_weight()
+
 
 def _resolve_operational_jobs_for_internal_row(job_type: str, job_no: str) -> list[tuple[str, str]]:
 	"""Return a list of (operational_job_type, operational_job_name) candidates that the
@@ -369,6 +393,37 @@ def create_job_number_for_docket(
 	job_ref.insert(ignore_permissions=True)
 	frappe.db.set_value("Docket", docket_name, "job_number", job_ref.name)
 	frappe.db.commit()
+
+
+@frappe.whitelist()
+def aggregate_volume_from_packages_remote(doc=None):
+	"""
+	Recompute total_packages / total_volume / total_weight from the client's doc (including unsaved packages).
+	Uses frappe.get_doc(dict) instead of run_doc_method so saving and this call cannot race on modified timestamp.
+	"""
+	if doc is None:
+		frappe.throw(_("Document is required"))
+	if isinstance(doc, str):
+		parsed = frappe.parse_json(doc)
+		if isinstance(parsed, dict) and parsed.get("doctype"):
+			doc = parsed
+	try:
+		if isinstance(doc, dict):
+			if doc.get("doctype") != "Docket":
+				frappe.throw(_("Invalid document type"))
+			docket = frappe.get_doc(doc)
+		else:
+			docket = frappe.get_doc("Docket", doc)
+	except frappe.DoesNotExistError:
+		return {}
+	except Exception:
+		return {}
+	docket._update_packing_summary()
+	return {
+		"total_volume": flt(docket.total_volume),
+		"total_weight": flt(docket.total_weight),
+		"total_packages": flt(docket.total_packages),
+	}
 
 
 @frappe.whitelist()

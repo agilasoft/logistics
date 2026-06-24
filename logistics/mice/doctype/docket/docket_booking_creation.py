@@ -17,7 +17,7 @@ from typing import Any
 
 import frappe
 from frappe import _
-from frappe.utils import today
+from frappe.utils import flt, today
 
 from logistics.utils.charge_service_type import (
 	effective_internal_job_detail_job_type,
@@ -549,10 +549,10 @@ def _apply_air_sea_corridor_ports_from_context(
 def _prepare_charges_before_insert(dk_doc: Any, target_doc: Any, row: Any | None) -> None:
 	"""Copy Docket charges (filtered by service_type) onto the new operational doc before insert.
 
-	Charges copied from the Docket are tagged ``charge_scope = "Internal Job"`` with ``internal_job``
+	Charges copied from the Docket are tagged ``charge_scope = "Linked"`` with ``internal_job``
 	set to the IJ link stamped on the source ``internal_jobs`` row. The Docket's own ``charges`` table
-	can hold both Main- and IJ-scoped rows; the spawned booking represents one specific Internal Job
-	on the Docket, so every row landing on it carries that IJ scope/link.
+	can hold both Main- and linked-scoped rows; the spawned booking represents one specific Internal Job
+	on the Docket, so every row landing on it carries that linked scope/link.
 	"""
 	from logistics.utils.charge_service_type import (
 		canonical_charge_service_type_for_storage,
@@ -560,6 +560,7 @@ def _prepare_charges_before_insert(dk_doc: Any, target_doc: Any, row: Any | None
 		operational_booking_charge_service_type_label,
 	)
 	from logistics.utils.internal_job_charge_copy import _scrub_main_row_to_child_dict
+	from logistics.utils.linked_service_compat import normalize_charge_scope
 	from logistics.utils.sales_quote_charge_copy import (
 		SCOPE_INTERNAL_JOB,
 		stamp_scope_fields_on_charge_row,
@@ -574,7 +575,11 @@ def _prepare_charges_before_insert(dk_doc: Any, target_doc: Any, row: Any | None
 		return
 
 	row_st = (getattr(row, "service_type", None) or "").strip() if row else ""
-	row_ij = (getattr(row, "internal_job", None) or "").strip() if row else ""
+	row_ij = (
+		(getattr(row, "internal_job", None) or getattr(row, "linked_service", None) or "").strip()
+		if row
+		else ""
+	)
 	implied = implied_service_type_for_doctype(target_doc.doctype)
 	forced_label = operational_booking_charge_service_type_label(
 		row_st or implied, default=row_st or "Transport"
@@ -594,9 +599,9 @@ def _prepare_charges_before_insert(dk_doc: Any, target_doc: Any, row: Any | None
 			continue
 		scrubbed = _scrub_main_row_to_child_dict(ch, target_child_dt, forced_label)
 		if scrubbed:
-			scrubbed["charge_scope"] = SCOPE_INTERNAL_JOB
-			if row_ij:
-				scrubbed["internal_job"] = row_ij
+			if scrubbed.get("charge_scope"):
+				scrubbed["charge_scope"] = normalize_charge_scope(scrubbed["charge_scope"])
+			stamp_scope_fields_on_charge_row(scrubbed, SCOPE_INTERNAL_JOB, row_ij or None)
 			new_rows.append(scrubbed)
 
 	if not new_rows:
@@ -662,6 +667,75 @@ def _persist_row_link(dk_name: str, job_type: str, job_no: str, detail_idx: int)
 	)
 
 
+def _refresh_target_packing_totals(target_doc: Any) -> None:
+	if hasattr(target_doc, "_prepare_header_totals_for_charge_calculation"):
+		target_doc._prepare_header_totals_for_charge_calculation()
+	elif hasattr(target_doc, "_update_packing_summary"):
+		target_doc._update_packing_summary()
+
+
+def _copy_docket_packages_to_target(dk_doc: Any, target_doc: Any) -> None:
+	"""Copy Docket package lines onto a newly created booking/order where supported."""
+	packages = getattr(dk_doc, "packages", None) or []
+	if not packages:
+		return
+
+	from logistics.utils.internal_job_from_source import (
+		_SKIP_PACKAGE_ROW_SYSTEM_FIELDS,
+		_SKIP_PACKAGE_TABLE_LAYOUT_TYPES,
+		_child_doctype_for_table_field,
+		_copy_table_rows_matching_target_child_fields,
+	)
+
+	target_meta = frappe.get_meta(target_doc.doctype)
+	packages_df = target_meta.get_field("packages")
+	items_df = target_meta.get_field("items")
+
+	if packages_df and packages_df.fieldtype == "Float":
+		if hasattr(dk_doc, "_update_packing_summary"):
+			dk_doc._update_packing_summary()
+		target_doc.packages = flt(getattr(dk_doc, "total_packages", 0))
+		return
+
+	if packages_df and packages_df.fieldtype == "Table":
+		child_dt = _child_doctype_for_table_field(target_doc.doctype, "packages")
+		if child_dt:
+			_copy_table_rows_matching_target_child_fields(
+				packages,
+				target_doc,
+				table_fieldname="packages",
+				target_child_doctype=child_dt,
+			)
+			_refresh_target_packing_totals(target_doc)
+		return
+
+	if items_df and items_df.fieldtype == "Table":
+		child_dt = _child_doctype_for_table_field(target_doc.doctype, "items")
+		if not child_dt:
+			return
+		tgt_child_meta = frappe.get_meta(child_dt)
+		allowed = {
+			f.fieldname
+			for f in tgt_child_meta.fields
+			if f.fieldtype not in _SKIP_PACKAGE_TABLE_LAYOUT_TYPES
+		} - _SKIP_PACKAGE_ROW_SYSTEM_FIELDS
+		for src_row in packages:
+			row_dict: dict[str, Any] = {}
+			for fn in allowed:
+				if fn == "item":
+					wh = getattr(src_row, "warehouse_item", None)
+					if wh:
+						row_dict["item"] = wh
+					continue
+				if hasattr(src_row, fn):
+					row_dict[fn] = getattr(src_row, fn, None)
+			if not row_dict:
+				continue
+			if all(v is None or v == "" for v in row_dict.values()):
+				continue
+			target_doc.append("items", row_dict)
+
+
 def _create_air_booking(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
 	doc = frappe.new_doc("Air Booking")
 	_apply_docket_context(doc, dk_doc)
@@ -670,6 +744,7 @@ def _create_air_booking(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any
 		doc.set(bd, today())
 	apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
 	_apply_air_sea_corridor_ports_from_context(doc, dk_doc, row)
+	_copy_docket_packages_to_target(dk_doc, doc)
 	_prepare_charges_before_insert(dk_doc, doc, row)
 	doc.insert(ignore_permissions=True)
 	_persist_row_link(dk_doc.name, "Air Booking", doc.name, detail_idx)
@@ -685,6 +760,7 @@ def _create_sea_booking(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any
 		doc.set(bd, today())
 	apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
 	_apply_air_sea_corridor_ports_from_context(doc, dk_doc, row)
+	_copy_docket_packages_to_target(dk_doc, doc)
 	_prepare_charges_before_insert(dk_doc, doc, row)
 	doc.insert(ignore_permissions=True)
 	_persist_row_link(dk_doc.name, "Sea Booking", doc.name, detail_idx)
@@ -711,6 +787,7 @@ def _create_transport_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[str,
 	# Docket-created orders are standalone, not internal jobs.
 	if frappe.get_meta("Transport Order").get_field("is_internal_job"):
 		order.is_internal_job = 0
+	_copy_docket_packages_to_target(dk_doc, order)
 	_prepare_charges_before_insert(dk_doc, order, row)
 	order.insert(ignore_permissions=True)
 	_persist_row_link(dk_doc.name, "Transport Order", order.name, detail_idx)
@@ -733,6 +810,7 @@ def _create_declaration_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[st
 	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
 	if frappe.get_meta("Declaration Order").get_field("is_internal_job"):
 		order.is_internal_job = 0
+	_copy_docket_packages_to_target(dk_doc, order)
 	_prepare_charges_before_insert(dk_doc, order, row)
 	order.insert(ignore_permissions=True)
 	_persist_row_link(dk_doc.name, "Declaration Order", order.name, detail_idx)
@@ -749,6 +827,7 @@ def _create_inbound_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, A
 	if frappe.get_meta("Inbound Order").get_field("order_date"):
 		order.order_date = today()
 	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
+	_copy_docket_packages_to_target(dk_doc, order)
 	_prepare_charges_before_insert(dk_doc, order, row)
 	order.insert(ignore_permissions=True)
 	_persist_row_link(dk_doc.name, "Inbound Order", order.name, detail_idx)
@@ -827,6 +906,7 @@ def _create_mice_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]
 			order.site = site
 
 	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
+	_copy_docket_packages_to_target(dk_doc, order)
 	_prepare_charges_before_insert(dk_doc, order, row)
 	if not (order.get("charges") or []):
 		_populate_mice_order_charges_from_sales_quote(order, row)

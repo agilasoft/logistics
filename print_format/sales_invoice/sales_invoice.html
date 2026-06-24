@@ -24,58 +24,27 @@
                 margin: 0 auto;
                 padding: 0;
                 background: white;
-                display: flex;
-                flex-direction: column;
-                min-height: 100vh;
                 position: relative;
             }
             
-            /* Screen/preview: mirror print – footer block at bottom of bond paper */
             @media screen {
                 html, body {
                     overflow-x: hidden;
                     overflow-y: auto;
-                    height: 100%;
-                    min-height: 100%;
-                }
-                .receipt-container {
-                    min-height: 100vh;
-                    display: flex;
-                    flex-direction: column;
-                }
-                .last-page-block {
-                    display: flex;
-                    flex-direction: column;
-                    flex: 1 1 auto;
-                    min-height: 0;
-                }
-                .footer-spacer {
-                    flex: 1 1 auto;
-                    min-height: 0;
                 }
             }
             
             .top-section {
-                flex: 0 1 auto;
                 display: flex;
                 flex-direction: column;
-                min-height: 0;
             }
             
+            /* Last-page cluster: tax summary, disclaimer, BIR – document flow, never fixed/repeating */
             .last-page-block {
-                flex: 1 1 auto;
-                display: flex;
-                flex-direction: column;
-                min-height: 0;
-            }
-            
-            .footer-spacer {
-                flex: 1 1 auto;
-                min-height: 0;
+                display: block;
             }
             
             .page-bottom {
-                flex: 0 0 auto;
                 display: flex;
                 flex-direction: column;
             }
@@ -814,48 +783,20 @@
                     print-color-adjust: exact;
                 }
 
-                /* A4 bond paper: 297mm − top/bottom @page margins (12mm + 15mm) */
                 .receipt-container {
-                    display: flex;
-                    flex-direction: column;
-                    min-height: calc(297mm - 12mm - 15mm);
                     max-width: 100%;
                     width: 100%;
                     padding: 0;
                     box-sizing: border-box;
                 }
 
-                .header {
-                    flex: 0 0 auto;
-                }
-
-                .top-section,
-                .table-summary-container {
-                    flex: 0 0 auto;
-                }
-
                 /*
                  * Last-page-only footer cluster (tax summary + disclaimer + BIR).
-                 * Never position:fixed — that repeats on every printed page.
-                 * flex:1 + .footer-spacer grows to push .page-bottom to the bottom
-                 * of the receipt container (one printable A4 sheet when content fits).
+                 * Normal document flow — never position:fixed (repeats every page).
+                 * No min-height / flex spacer — footer sits directly after content so
+                 * short invoices do not get a blank page or a gap to the physical page bottom.
                  */
-                .last-page-block {
-                    display: flex;
-                    flex-direction: column;
-                    flex: 1 1 auto;
-                    min-height: 0;
-                    page-break-inside: avoid;
-                    break-inside: avoid;
-                }
-
-                .footer-spacer {
-                    flex: 1 1 auto;
-                    min-height: 0;
-                }
-
                 .page-bottom {
-                    flex: 0 0 auto;
                     display: flex;
                     flex-direction: column;
                     width: 100%;
@@ -870,19 +811,12 @@
                     break-inside: avoid;
                 }
 
-                /* BIR footer: document flow only, last page, bottom of .page-bottom */
-                .footer-section,
-                .footer-section.repeating-footer {
+                .footer-section {
                     position: static !important;
-                    bottom: auto !important;
-                    left: auto !important;
-                    right: auto !important;
-                    width: auto !important;
                     margin-top: 0;
                     padding-top: 2mm;
                     border-top: 1px solid #000;
                     background: transparent !important;
-                    z-index: auto !important;
                 }
 
                 .invoice-table tbody tr {
@@ -1258,11 +1192,8 @@
             </div>
             </div>
             
-            <!-- Last page only: spacer pushes tax summary + disclaimer + BIR to bottom of bond paper -->
+            <!-- Last page only: tax summary + disclaimer + BIR footer (document flow, no repeat) -->
             <div class="last-page-block">
-            <div class="footer-spacer" aria-hidden="true"></div>
-            
-            <!-- Page Bottom: VAT Summary + Disclaimer + BIR Footer -->
             <div class="page-bottom">
             <!-- Bottom Section: Last Page Footer (Tax Summary + BIR + Disclaimer) -->
             <div class="bottom-section last-page-footer">

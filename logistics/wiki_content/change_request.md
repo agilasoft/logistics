@@ -1,6 +1,6 @@
 # Change Request
 
-**Change Request** is a document used to add additional charges to an existing job (Air Shipment, Sea Shipment, Transport Job, Warehouse Job, Declaration). When approved, the charges are applied to the linked job.
+**Change Request** is a document used to add additional charges to an existing job (Air Shipment, Sea Shipment, Transport Job, Warehouse Job, Declaration). On **submit**, cost charge rows are applied to the linked job; revenue is filled in when the linked Additional Charge Sales Quote is submitted.
 
 To access Change Request, go to:
 
@@ -10,10 +10,59 @@ To access Change Request, go to:
 
 1. Open a job (e.g., Air Shipment, Transport Job).
 2. Click **Create Change Request** (from the Additional Charges or custom button).
-3. Add charge lines in the **Charges** child table.
-4. Submit the Change Request.
-5. Approve the Change Request – charges are applied to the job.
-6. Optionally, create a **Sales Quote** from the Change Request for billing.
+3. Add charge lines in the **Charges** child table (set **Service Type** to match the fee — Air, Sea, Transport, Customs, or Warehousing).
+4. **Submit** the Change Request — cost rows are pushed to the linked job's **Charges** table (tagged with `change_request` and `change_request_charge`). Revenue on those rows starts at zero until a Sales Quote is submitted.
+5. Create a **Sales Quote** from the Change Request (button on the submitted Change Request).
+6. **Submit** the Additional Charge Sales Quote — revenue is merged onto the existing Change Request charge rows on the job (matched by `change_request_charge`).
+
+Charges do **not** appear on the job until step 4 (Change Request submit). Revenue does **not** appear until step 6 (Sales Quote submit).
+
+### Multimodal jobs (Air Shipment / Sea Shipment)
+
+Air Shipment and Sea Shipment support multiple service types on one job (e.g. Air freight, Customs brokerage, Transport delivery, Warehousing storage). Change Request charge rows may use any supported **Service Type**; all rows are applied to the main job's Charges table regardless of whether the service type is Air/Sea or another mode.
+
+### Verified reference: ASP-000000238 (GitHub issue #997)
+
+[Issue #997](https://github.com/agilasoft/logistics/issues/997) reported that additional charges from a Change Request were not appearing on Air Shipment **ASP-000000238** (DEMO CARGO, high-value). Verified on **logistics.agilasoft.com**, 2026-06-23.
+
+#### Linked documents
+
+| Document | Value |
+| --- | --- |
+| Air Shipment | ASP-000000238 — high-value, customer **ElectroWorld PH**, original Sales Quote SQU000000997 |
+| Change Request | CR-000000182 — submitted 2026-06-02 15:56, status **Sales Quote Created** |
+| Additional Charge Sales Quote | OOQ00319 — submitted 2026-06-02 16:01 |
+| Charge added via Change Request | **AMBRACK** — Service Type **Warehousing**, qty 335, cost 78,390, revenue 197,650 |
+
+#### ASP-000000238 Charges table (as verified)
+
+| # | Item | Service Type | Source | Change Request | Sales Quote | Est. Revenue | Est. Cost |
+| --- | --- | --- | --- | --- | --- | ---: | ---: |
+| 1 | FREIGHT | Air | Original quote | — | SQU000000997 | 165,000 | 75,000 |
+| 2 | BROKERAGE FEE | Customs | Original quote | — | SQU000000997 | 10,000 | 5,000 |
+| 3 | DELIVERY | Transport | Original quote | — | SQU000000997 | 180,000 | 75,000 |
+| 4 | AMBRACK | Warehousing | Change Request | CR-000000182 | OOQ00319 | 197,650 | 78,390 |
+
+Row 4 is tagged with `change_request_charge = 2mipjiaefb`, matching the sole Change Request charge row. `change_request_cost_rows_missing_on_main_job` returns **false** (no missing rows).
+
+#### Verification result
+
+**Cannot reproduce — working as designed.** All Change Request charge rows are present on the job with cost and revenue populated. The reported behaviour is most consistent with the two-step workflow not yet completed when the issue was filed:
+
+| Step | When (site time) | What the user sees |
+| --- | --- | --- |
+| Issue #997 opened | 2026-06-02 ~15:56 | Charges not yet on job |
+| Change Request submitted | 2026-06-02 15:56 | Cost row appears; revenue still 0 |
+| Sales Quote OOQ00319 submitted | 2026-06-02 16:01 | Revenue merged onto existing row |
+
+Charges do **not** appear until the Change Request is **submitted** (step 4). Revenue stays at zero until the Additional Charge Sales Quote is **submitted** (step 6). Reload the Air Shipment form after each submit.
+
+#### If charges still appear missing
+
+1. Confirm the Change Request is **submitted** (docstatus = 1), not Draft.
+2. Confirm a Sales Quote was **created from** the Change Request and **submitted** if revenue is expected.
+3. Reload the Air Shipment form (or hard-refresh) after submit.
+4. For multimodal jobs, set **Service Type** on each Change Request charge row to match the fee (e.g. Warehousing for storage fees on an Air Shipment) — non-Air service types are supported on Air Shipment.
 
 ## 2. Supported Job Types
 

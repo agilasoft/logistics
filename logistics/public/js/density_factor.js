@@ -24,7 +24,8 @@
 		'Sea Booking':    { volume: ['total_volume'], weight: ['total_weight'], volume_uom: [], weight_uom: [] },
 		'Sea Shipment':   { volume: ['total_volume'], weight: ['total_weight'], volume_uom: ['total_volume_uom'], weight_uom: ['total_weight_uom'] },
 		'Transport Order':{ volume: ['total_volume'], weight: ['total_weight'], volume_uom: [], weight_uom: [] },
-		'Transport Job':  { volume: ['total_volume'], weight: ['total_weight'], volume_uom: [], weight_uom: [] }
+		'Transport Job':  { volume: ['total_volume'], weight: ['total_weight'], volume_uom: [], weight_uom: [] },
+		'Docket':         { volume: ['total_volume'], weight: ['total_weight'], volume_uom: [], weight_uom: [] }
 	};
 
 	function _first_value(doc, fields) {

@@ -1526,6 +1526,10 @@ class AirShipment(Document):
 			sync_air_shipment_job_status(self)
 			validate_job_status_field(self)
 
+			from logistics.utils.charges_calculation import normalize_operational_charge_rows_on_parent
+
+			normalize_operational_charge_rows_on_parent(self)
+
 		finally:
 			clear_charge_resolution_parent(self)
 
@@ -2701,6 +2705,9 @@ class AirShipment(Document):
 				charge_type = item_doc.custom_charge_type or "Other"
 				if hasattr(item_doc, 'custom_charge_category'):
 					charge_category = item_doc.custom_charge_category or "Other"
+			from logistics.utils.charges_calculation import normalize_operational_charge_type
+
+			charge_type = normalize_operational_charge_type(charge_type, default="Revenue")
 			
 			charge_data = {
 				"item_code": _af_r("item_code"),

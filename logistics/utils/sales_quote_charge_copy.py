@@ -378,23 +378,39 @@ def stamp_scope_fields_on_charge_row(child_row: Any, scope: str, internal_job: s
 
 	Defensive: child charge tables that do not have the new scope fields (e.g. unrelated charge
 	tables) are left untouched.
+
+	Operational charge child tables store linked scope as ``"Linked"`` (legacy callers may still pass
+	``SCOPE_INTERNAL_JOB`` / ``"Internal Job"``).
 	"""
+	from logistics.utils.linked_service_compat import (
+		CHARGE_SCOPE_LINKED,
+		CHARGE_SCOPE_MAIN,
+		is_linked_charge_scope,
+		normalize_charge_scope,
+		set_charge_row_linked_service_link,
+	)
+
 	if child_row is None:
 		return
+	stored_scope = normalize_charge_scope(scope)
+	is_linked = is_linked_charge_scope(scope)
 	if isinstance(child_row, dict):
 		if scope:
-			child_row.setdefault("charge_scope", scope)
-		if scope == SCOPE_INTERNAL_JOB and internal_job:
-			child_row["internal_job"] = internal_job
+			child_row["charge_scope"] = stored_scope
+		if is_linked and internal_job:
+			set_charge_row_linked_service_link(child_row, internal_job)
 		return
 	try:
 		meta = frappe.get_meta(getattr(child_row, "doctype", None))
 	except Exception:
 		meta = None
 	if meta and meta.has_field("charge_scope"):
-		setattr(child_row, "charge_scope", scope or SCOPE_MAIN)
-	if meta and meta.has_field("internal_job"):
-		setattr(child_row, "internal_job", internal_job if scope == SCOPE_INTERNAL_JOB else None)
+		setattr(child_row, "charge_scope", stored_scope or CHARGE_SCOPE_MAIN)
+	if is_linked and internal_job:
+		if meta and meta.has_field("linked_service"):
+			set_charge_row_linked_service_link(child_row, internal_job)
+		elif meta and meta.has_field("internal_job"):
+			setattr(child_row, "internal_job", internal_job)
 
 
 def stamp_main_or_internal_job_scope_on_booking_charges(parent_doc: Any) -> None:
@@ -455,17 +471,28 @@ def stamp_main_or_internal_job_scope_on_booking_charges(parent_doc: Any) -> None
 			except Exception:
 				resolved_ij = None
 
+	from logistics.utils.linked_service_compat import (
+		CHARGE_SCOPE_LINKED,
+		CHARGE_SCOPE_MAIN,
+		charge_row_linked_service_link,
+		is_linked_charge_scope,
+		set_charge_row_linked_service_link,
+	)
+
 	for row in rows:
 		current_scope = (getattr(row, "charge_scope", None) or "").strip()
-		current_ij = (getattr(row, "internal_job", None) or "").strip()
+		current_ij = charge_row_linked_service_link(row)
+		if is_linked_charge_scope(current_scope) and has_scope_field and current_scope != CHARGE_SCOPE_LINKED:
+			setattr(row, "charge_scope", CHARGE_SCOPE_LINKED)
+			current_scope = CHARGE_SCOPE_LINKED
 		if is_internal:
-			# An IJ booking only owns IJ-scoped rows; correct any "Main" stamps inherited from a copy.
-			if has_scope_field and current_scope != SCOPE_INTERNAL_JOB:
-				setattr(row, "charge_scope", SCOPE_INTERNAL_JOB)
+			# An IJ booking only owns linked-scoped rows; correct any "Main" stamps inherited from a copy.
+			if has_scope_field and not is_linked_charge_scope(current_scope):
+				setattr(row, "charge_scope", CHARGE_SCOPE_LINKED)
 			if has_ij_field and resolved_ij and current_ij != resolved_ij:
-				setattr(row, "internal_job", resolved_ij)
+				set_charge_row_linked_service_link(row, resolved_ij)
 			continue
-		if current_scope == SCOPE_INTERNAL_JOB and current_ij:
+		if is_linked_charge_scope(current_scope) and current_ij:
 			continue
 		if has_scope_field and not current_scope:
-			setattr(row, "charge_scope", SCOPE_MAIN)
+			setattr(row, "charge_scope", CHARGE_SCOPE_MAIN)

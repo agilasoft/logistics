@@ -99,17 +99,18 @@ class IntegrationTestDocket(IntegrationTestCase):
 			booking_name = result.get("air_booking")
 			self.assertTrue(booking_name)
 
-			row = frappe.db.get_value(
-				"Internal Job Detail",
-				{"parent": dk.name, "parenttype": "Docket", "parentfield": "internal_jobs"},
-				["job_type", "job_no", "internal_job"],
-				as_dict=True,
-			)
-			self.assertEqual(row.job_type, "Air Booking")
-			self.assertEqual(row.job_no, booking_name)
-			self.assertTrue(row.internal_job)
-			ij_job_no = frappe.db.get_value("Internal Job", row.internal_job, "job_no")
-			self.assertEqual(ij_job_no, booking_name)
+			reloaded = frappe.get_doc("Docket", dk.name)
+			rows = reloaded.internal_jobs or []
+			self.assertEqual(len(rows), 1)
+			row = rows[0]
+			self.assertEqual(row.get("job_type"), "Air Booking")
+			self.assertEqual(row.get("job_no"), booking_name)
+			ls_name = row.get("linked_service") or row.get("internal_job")
+			self.assertTrue(ls_name)
+			from logistics.utils.linked_service_compat import linked_service_doctype
+
+			ls_job_no = frappe.db.get_value(linked_service_doctype(), ls_name, "job_no")
+			self.assertEqual(ls_job_no, booking_name)
 		finally:
 			if booking_name and frappe.db.exists("Air Booking", booking_name):
 				frappe.delete_doc("Air Booking", booking_name, force=True, ignore_permissions=True)

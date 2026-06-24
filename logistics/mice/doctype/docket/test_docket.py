@@ -91,6 +91,25 @@ class IntegrationTestDocket(IntegrationTestCase):
 		finally:
 			exhibit.delete(ignore_permissions=True)
 
+	def test_docket_db_load_initializes_internal_jobs_for_version_diff(self):
+		"""Fresh DB loads must not leave ``internal_jobs`` as None (breaks submit/version diff)."""
+		if not frappe.db.exists("DocType", "Docket"):
+			self.skipTest("Docket DocType not installed")
+		exhibit = self._minimal_exhibit("Test Docket Version Diff Exhibit")
+		dk = None
+		try:
+			dk = self._minimal_docket(exhibit.name)
+			reloaded = frappe.get_doc("Docket", dk.name)
+			self.assertEqual(reloaded.get("internal_jobs"), [])
+
+			from frappe.core.doctype.version.version import get_diff
+
+			get_diff(reloaded, reloaded)
+		finally:
+			if dk and dk.name and frappe.db.exists("Docket", dk.name):
+				dk.delete(ignore_permissions=True)
+			exhibit.delete(ignore_permissions=True)
+
 	def test_get_recommended_booth_numbers_increments_last_number_and_pages(self):
 		if not frappe.db.exists("DocType", "MICE Project"):
 			self.skipTest("Exhibit DocType not installed")
