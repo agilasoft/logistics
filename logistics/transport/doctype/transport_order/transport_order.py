@@ -61,7 +61,7 @@ SALES_QUOTE_CHARGE_FIELDS = [
     "cost_calc_notes",
 ]
 
-# Include unit_rate from Sales Quote Transport / Sales Quote Charge rows (mapped to rate on charges)
+# Include unit_rate from Sales Quote Transport / Sales Quote Charge rows (mapped to unit_rate on charges)
 # plus charge_scope / internal_job (One-off Sales Quote per-charge tagging - propagated to
 # Transport Order Charges by ``apply_scope_tagging_to_mapped_charge`` in the mapper).
 SALES_QUOTE_CHARGE_SOURCE_FIELDS = list(SALES_QUOTE_CHARGE_FIELDS) + [
@@ -107,7 +107,7 @@ def _sync_quote_and_sales_quote(doc):
 
 
 def _apply_duplicate_pricing_clear(doc):
-    """Strip charge child rows and quote links (used for desk Duplicate and after link propagation)."""
+    """Strip charge child rows and quote / scope links (used for desk Duplicate and after link propagation)."""
     for row in list(doc.get("charges") or []):
         try:
             doc.remove(row)
@@ -119,10 +119,12 @@ def _apply_duplicate_pricing_clear(doc):
         doc.quote = None
     if doc.meta.get_field("quote_type"):
         doc.quote_type = None
+    if doc.meta.get_field("service_scope"):
+        doc.service_scope = None
 
 
 def _clear_pricing_after_desk_duplicate(doc):
-    """New doc created via Duplicate: drop charges, Sales Quote, and legacy quote fields.
+    """New doc created via Duplicate: drop charges, Sales Quote, Service Scope, and legacy quote fields.
     Desk sets ``logistics_duplicate_from`` to the source document name; we clear pricing and the marker
     before the rest of ``validate`` (which can otherwise restore ``sales_quote`` from ``quote``).
 
@@ -1497,7 +1499,7 @@ class TransportOrder(Document):
             if not charge_data.get("invoice_type") and item_doc and hasattr(item_doc, 'invoice_type'):
                 charge_data["invoice_type"] = item_doc.invoice_type
 
-            charge_data["rate"] = flt(sqt_record.get("unit_rate"), 2) or 0
+            charge_data["unit_rate"] = flt(sqt_record.get("unit_rate"), 2) or 0
 
             if not charge_data.get("quantity"):
                 charge_data["quantity"] = 1
@@ -1960,7 +1962,7 @@ def _map_sales_quote_transport_to_charge_dict(sqt_record):
         if not charge_data.get("invoice_type") and item_doc and hasattr(item_doc, 'invoice_type'):
             charge_data["invoice_type"] = item_doc.invoice_type
         
-        charge_data["rate"] = flt(sqt_record.get("unit_rate"), 2) or 0
+        charge_data["unit_rate"] = flt(sqt_record.get("unit_rate"), 2) or 0
         
         if not charge_data.get("quantity"):
             charge_data["quantity"] = 1

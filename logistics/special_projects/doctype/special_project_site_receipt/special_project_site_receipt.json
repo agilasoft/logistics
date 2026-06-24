@@ -27,7 +27,7 @@
   {
    "fieldname": "package_row",
    "fieldtype": "Int",
-   "in_list_view": 1,
+   "hidden": 1,
    "label": "Package Row",
    "read_only": 1
   },

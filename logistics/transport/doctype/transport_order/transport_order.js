@@ -1888,6 +1888,9 @@ frappe.ui.form.on('Transport Order Package', {
 		if (frappe.meta.has_field("Transport Order", "quote_type")) {
 			newdoc.quote_type = null;
 		}
+		if (frappe.meta.has_field("Transport Order", "service_scope")) {
+			newdoc.service_scope = null;
+		}
 		newdoc.logistics_duplicate_from = doc.name || "";
 		return newdoc;
 	};
