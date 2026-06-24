@@ -115,6 +115,7 @@ class MICEProject(Document):
 		self._validate_org_accounts()
 		validate_internal_job_activity_codes(self, module_filter=FOR_EXHIBITS)
 		validate_lifecycle_stage_advance(self)
+		self._recalculate_consolidation_charge_rows()
 		self._recalculate_consolidation_charge_totals()
 		self._recalculate_cost_allocation_totals()
 
@@ -222,6 +223,12 @@ class MICEProject(Document):
 		"""
 		self.__dict__["dockets"] = []
 
+	def _recalculate_consolidation_charge_rows(self):
+		"""Recompute each consolidation charge row before summing or allocating."""
+		for row in self.get("consolidation_charges") or []:
+			row.calculate_charge_amount()
+			row.calculate_allocated_amount()
+
 	def _recalculate_consolidation_charge_totals(self):
 		"""Sum ``total_amount`` across consolidation_charges rows into ``total_consolidation_charges``."""
 		rows = self.get("consolidation_charges") or []
@@ -264,8 +271,8 @@ class MICEProject(Document):
 	def _resolve_allocation_target_type(self):
 		"""Pick the allocation target type based on the parent setting and what data is available.
 
-		Auto: prefer Exhibit Jobs when at least one is linked, otherwise Dockets.
-		Explicit: Dockets / Exhibit Jobs as configured.
+		Auto: prefer MICE Jobs when at least one is linked, otherwise Dockets.
+		Explicit: Dockets / MICE Jobs as configured.
 		"""
 		setting = (self.cost_allocation_target or "Auto").strip()
 		if setting == "Dockets":
@@ -284,7 +291,7 @@ class MICEProject(Document):
 		return "Docket"
 
 	def _fetch_dockets_for_allocation(self):
-		"""Live Dockets linked to this Exhibit (excluding cancelled), ordered by docket_date."""
+		"""Live Dockets linked to this MICE Project (excluding cancelled), ordered by docket_date."""
 		if not self.name or getattr(self, "__islocal", False):
 			return []
 		return frappe.get_all(
@@ -295,7 +302,7 @@ class MICEProject(Document):
 		)
 
 	def _fetch_exhibit_jobs_for_allocation(self):
-		"""Live Exhibit Jobs linked to this Exhibit (excluding cancelled), ordered by job_date."""
+		"""Live MICE Jobs linked to this MICE Project (excluding cancelled), ordered by job_date."""
 		if not self.name or getattr(self, "__islocal", False):
 			return []
 		return frappe.get_all(
@@ -456,12 +463,67 @@ class MICEProject(Document):
 			for row in allocations:
 				row.cost_allocation_percentage = 0
 
+	def _effective_allocation_method(self, charge):
+		"""Return the allocation method for one charge row (row override or parent default)."""
+		return (
+			(charge.allocation_method or "").strip()
+			or (self.cost_allocation_basis or "Equal").strip()
+		)
+
+	def _validate_allocation_prerequisites(self):
+		"""Ensure targets and charge amounts exist before applying allocation."""
+		allocations = self.get("cost_allocations") or []
+		if not allocations:
+			target_type = self._resolve_allocation_target_type()
+			frappe.throw(
+				_("No {0} linked to this MICE Project. Create one first, then try again.").format(
+					target_type
+				),
+				title=_("No Allocation Targets"),
+			)
+
+		self._recalculate_consolidation_charge_rows()
+		self._recalculate_consolidation_charge_totals()
+
+		charges = self.get("consolidation_charges") or []
+		if not charges:
+			frappe.throw(
+				_("Add at least one Consolidation Charge before allocating costs."),
+				title=_("No Charges"),
+			)
+
+		if flt(self.total_consolidation_charges) <= 0:
+			frappe.throw(
+				_(
+					"Consolidation charges have no allocatable amount. "
+					"Enter charge lines with Rate greater than 0 before allocating."
+				),
+				title=_("No Charge Amount"),
+			)
+
+		uses_custom = (self.cost_allocation_basis or "").strip() == "Custom"
+		for charge in charges:
+			if self._effective_allocation_method(charge) == "Custom":
+				uses_custom = True
+				break
+
+		if uses_custom:
+			total_pct = sum(flt(r.cost_allocation_percentage) for r in allocations)
+			if total_pct <= 0:
+				frappe.throw(
+					_(
+						"Custom allocation requires Cost Allocation % on each target row. "
+						"Enter percentages in the Cost Allocation table, then try again."
+					),
+					title=_("Custom Percentages Required"),
+				)
+
 	@frappe.whitelist()
 	def refresh_cost_allocation_targets(self, target_type=None):
-		"""Refresh the Cost Allocation table with live Dockets / Exhibit Jobs.
+		"""Refresh the Cost Allocation table with live Dockets / MICE Jobs.
 
 		``target_type`` (optional): ``"Docket"`` or ``"MICE Job"``. Falls back to the parent's
-		``cost_allocation_target`` (Auto / Dockets / Exhibit Jobs).
+		``cost_allocation_target`` (Auto / Dockets / MICE Jobs).
 		"""
 		if target_type:
 			tt = target_type.strip()
@@ -481,13 +543,13 @@ class MICEProject(Document):
 
 	@frappe.whitelist()
 	def allocate_costs(self, allocation_basis=None, target_type=None):
-		"""Allocate consolidation charge costs across Dockets or Exhibit Jobs.
+		"""Allocate consolidation charge costs across Dockets or MICE Jobs.
 
 		``allocation_basis`` (optional): ``Equal`` / ``Weight-based`` / ``Volume-based`` /
 		``Value-based`` / ``Custom``. Stored as ``cost_allocation_basis`` (and used as the
 		fallback for any charge row that does not set its own ``allocation_method``).
 
-		``target_type`` (optional): ``Docket`` / ``Exhibit Job`` / ``Auto``. Stored as
+		``target_type`` (optional): ``Auto`` / ``Dockets`` / ``MICE Jobs``. Stored as
 		``cost_allocation_target`` and used to refresh the target list.
 		"""
 		if allocation_basis:
@@ -500,7 +562,7 @@ class MICEProject(Document):
 		if target_type:
 			tt = target_type.strip()
 			if tt not in ("Auto", "Docket", "Dockets", "MICE Job", "MICE Jobs"):
-				frappe.throw(_("Allocation target must be Auto, Dockets, or Exhibit Jobs."))
+				frappe.throw(_("Allocation target must be Auto, Dockets, or MICE Jobs."))
 			self.cost_allocation_target = (
 				"Dockets"
 				if tt in ("Docket", "Dockets")
@@ -509,15 +571,7 @@ class MICEProject(Document):
 
 		resolved = self._resolve_allocation_target_type()
 		self._refresh_cost_allocation_targets(resolved)
-
-		if not self.get("cost_allocations"):
-			self._recalculate_cost_allocation_totals()
-			self.save()
-			return {
-				"target_type": resolved,
-				"targets_loaded": 0,
-				"message": _("No {0} found for this Exhibit. Create one first.").format(resolved),
-			}
+		self._validate_allocation_prerequisites()
 
 		self._apply_allocation_to_targets()
 		self._recalculate_consolidation_charge_totals()

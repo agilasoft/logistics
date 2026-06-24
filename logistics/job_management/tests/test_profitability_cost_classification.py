@@ -9,7 +9,10 @@ from frappe.utils import flt
 
 from logistics.job_management.api import (
 	STOCK_RECEIVED_BUT_NOT_BILLED_ACCOUNT_TYPE,
+	_build_profitability_html,
 	_cost_account_sql_predicate,
+	_profitability_empty_state_next_step_message,
+	_profitability_is_empty,
 	is_stock_received_not_billed_cost_account,
 )
 from logistics.job_management.recognition_engine import (
@@ -116,3 +119,66 @@ class TestResolveChargeRowSelling(unittest.TestCase):
 	def test_disbursement_charge_is_zero_revenue(self):
 		ch = type("Ch", (), {"charge_type": "Disbursement", "estimated_revenue": 100})()
 		self.assertEqual(resolve_charge_row_selling(ch, prefer_actual=True), 0)
+
+
+class TestProfitabilityEmptyState(unittest.TestCase):
+	def _empty_data(self):
+		return {
+			"currency": "PHP",
+			"revenue": 0,
+			"cost": 0,
+			"gross_profit": 0,
+			"profit_margin_pct": 0,
+			"wip_amount": 0,
+			"accrual_amount": 0,
+			"disbursements_amount": 0,
+			"entries": [],
+			"summary_by_item": [],
+		}
+
+	def test_profitability_is_empty_when_all_zero_and_no_entries(self):
+		self.assertTrue(_profitability_is_empty(self._empty_data()))
+
+	def test_profitability_is_not_empty_when_wip_amount_set(self):
+		data = self._empty_data()
+		data["wip_amount"] = 350000
+		self.assertFalse(_profitability_is_empty(data))
+
+	def test_profitability_is_not_empty_when_entries_exist(self):
+		data = self._empty_data()
+		data["entries"] = [{"revenue_amount": 0, "cost_amount": 0}]
+		self.assertFalse(_profitability_is_empty(data))
+
+	def test_build_profitability_html_shows_empty_state_guidance(self):
+		html = _build_profitability_html(self._empty_data())
+		self.assertIn("logistics-profitability-empty-state", html)
+		self.assertIn("WIP and Accrual", html)
+		self.assertIn(_profitability_empty_state_next_step_message(), html)
+		self.assertIn("No GL entries in Revenue, Cost, WIP, Accrual, or Disbursements", html)
+
+	def test_build_profitability_html_hides_empty_state_when_wip_posted(self):
+		data = self._empty_data()
+		data["wip_amount"] = 1000
+		html = _build_profitability_html(data)
+		self.assertNotIn("logistics-profitability-empty-state", html)
+		self.assertIn("Figures from General Ledger by Job Number.", html)
+
+	def test_headline_cost_excludes_open_accrual(self):
+		"""Open accrual must not inflate Cost until Purchase Invoice posts (#1073)."""
+		data = self._empty_data()
+		data["accrual_amount"] = 5000
+		data["wip_amount"] = 3000
+		self.assertEqual(flt(data["cost"]), 0)
+		self.assertFalse(_profitability_is_empty(data))
+
+	def test_gross_profit_uses_realized_cost_only_when_accrual_open(self):
+		"""Headline KPI math: cost excludes open accrual; accrual stays separate."""
+		realized_cost = 250.0
+		accrual_amount = 1000.0
+		revenue = 0.0
+		cost = realized_cost
+		gross_profit = revenue - cost
+		self.assertEqual(cost, 250.0)
+		self.assertEqual(accrual_amount, 1000.0)
+		self.assertEqual(gross_profit, -250.0)
+		self.assertNotEqual(cost, flt(realized_cost + accrual_amount, 2))

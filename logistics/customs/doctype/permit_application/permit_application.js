@@ -84,7 +84,7 @@ frappe.ui.form.on("Permit Application", {
 		if (cint(frm.doc.docstatus) === 0) {
 			frm.set_intro(
 				__(
-					"Use Workflow: File, review, then Approve. Status updates from approval/rejection dates and Valid To. Frappe Submit runs on Approve."
+					"Use Workflow: File, review, then Approve. Rejection and expiry follow rejection date and Valid To. Frappe Submit runs on Approve."
 				)
 			);
 		} else {

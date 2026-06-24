@@ -14,6 +14,9 @@ from logistics.utils.internal_job_persistence import (
 	prepare_internal_jobs_before_link_validation,
 	reconcile_orphan_charge_internal_job_links,
 )
+from logistics.utils.linked_service_compat import (
+	filter_invalid_links_with_linked_service_compat,
+)
 
 
 def _row(**kw):
@@ -42,12 +45,12 @@ class TestReconcileOrphanChargeInternalJobLinks(unittest.TestCase):
 			],
 		)
 		with patch(
-			"logistics.utils.internal_job_persistence.frappe.db.exists",
-			side_effect=lambda dt, name: name == "IJ-NEW",
+			"logistics.utils.internal_job_persistence.linked_service_record_exists",
+			side_effect=lambda name: name == "IJ-NEW",
 		):
 			reconcile_orphan_charge_internal_job_links(parent, {"IJ-STALE": "IJ-NEW"})
 		self.assertEqual(parent.charges[0].internal_job, "IJ-NEW")
-		self.assertEqual(parent.charges[0].charge_scope, "Internal Job")
+		self.assertEqual(parent.charges[0].charge_scope, "Linked")
 
 	def test_matches_by_service_type_when_remap_missing(self):
 		parent = _stub_air_booking(
@@ -63,8 +66,8 @@ class TestReconcileOrphanChargeInternalJobLinks(unittest.TestCase):
 			],
 		)
 		with patch(
-			"logistics.utils.internal_job_persistence.frappe.db.exists",
-			side_effect=lambda dt, name: name == "IJ-TRANSPORT",
+			"logistics.utils.internal_job_persistence.linked_service_record_exists",
+			side_effect=lambda name: name == "IJ-TRANSPORT",
 		):
 			reconcile_orphan_charge_internal_job_links(parent, {})
 		self.assertEqual(parent.charges[0].internal_job, "IJ-TRANSPORT")
@@ -81,11 +84,12 @@ class TestReconcileOrphanChargeInternalJobLinks(unittest.TestCase):
 			],
 		)
 		with patch(
-			"logistics.utils.internal_job_persistence.frappe.db.exists",
+			"logistics.utils.internal_job_persistence.linked_service_record_exists",
 			return_value=False,
 		):
 			reconcile_orphan_charge_internal_job_links(parent, {})
 		self.assertIsNone(parent.charges[0].internal_job)
+		self.assertIsNone(parent.charges[0].linked_service)
 		self.assertEqual(parent.charges[0].charge_scope, "Main")
 
 	def test_leaves_valid_internal_job_links_unchanged(self):
@@ -99,7 +103,7 @@ class TestReconcileOrphanChargeInternalJobLinks(unittest.TestCase):
 			],
 		)
 		with patch(
-			"logistics.utils.internal_job_persistence.frappe.db.exists",
+			"logistics.utils.internal_job_persistence.linked_service_record_exists",
 			return_value=True,
 		):
 			reconcile_orphan_charge_internal_job_links(parent, {"IJ-OK": "IJ-OTHER"})
@@ -114,7 +118,7 @@ class TestCreateInternalJobPreferredName(unittest.TestCase):
 		ij_doc.name = "IJ-2026-001145"
 		ij_doc.flags = Mock()
 		with patch(
-			"logistics.utils.internal_job_persistence.frappe.db.exists",
+			"logistics.utils.internal_job_persistence.linked_service_record_exists",
 			return_value=False,
 		), patch(
 			"logistics.utils.internal_job_persistence._copy_row_params_to_internal_job"
@@ -161,3 +165,23 @@ class TestPrepareInternalJobsBeforeLinkValidation(unittest.TestCase):
 			prepare_internal_jobs_before_link_validation(doc)
 		ensure_mock.assert_called_once_with(doc)
 		reconcile_mock.assert_called_once_with(doc, {"IJ-STALE": "IJ-NEW"})
+
+
+class TestLinkedServiceLinkValidationCompat(unittest.TestCase):
+	def test_filter_accepts_linked_service_storage_for_internal_job_field(self):
+		invalid = [("internal_job", "IJ-LS-1", "Row #1: Internal Job: IJ-LS-1")]
+		with patch(
+			"logistics.utils.linked_service_compat.linked_service_record_exists",
+			return_value=True,
+		):
+			out = filter_invalid_links_with_linked_service_compat(invalid)
+		self.assertEqual(out, [])
+
+	def test_filter_keeps_unresolvable_internal_job_links(self):
+		invalid = [("internal_job", "IJ-GHOST", "Row #1: Internal Job: IJ-GHOST")]
+		with patch(
+			"logistics.utils.linked_service_compat.linked_service_record_exists",
+			return_value=False,
+		):
+			out = filter_invalid_links_with_linked_service_compat(invalid)
+		self.assertEqual(out, invalid)

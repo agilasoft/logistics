@@ -244,10 +244,6 @@ class AirBooking(Document):
 				except Exception:
 					pass
 
-			from logistics.utils.get_charges_from_quotation import assert_one_off_sales_quote_job_rules
-
-			assert_one_off_sales_quote_job_rules(self)
-		
 			self.validate_dates()
 			self.validate_accounts()
 			self._prepare_header_totals_for_charge_calculation()
@@ -267,6 +263,7 @@ class AirBooking(Document):
 			)
 
 			stamp_main_or_internal_job_scope_on_booking_charges(self)
+			self._normalize_charges_before_save()
 
 		finally:
 			clear_charge_resolution_parent(self)
@@ -1620,7 +1617,17 @@ class AirBooking(Document):
 			"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
 		]
 		
+		from logistics.utils.charges_calculation import normalize_operational_charge_type
+
 		normalized_count = 0
+		for charge in self.charges:
+			if hasattr(charge, "charge_type"):
+				current_ct = (getattr(charge, "charge_type", None) or "").strip()
+				normalized_ct = normalize_operational_charge_type(current_ct, default="Revenue")
+				if normalized_ct != current_ct:
+					charge.charge_type = normalized_ct
+					normalized_count += 1
+
 		for charge in self.charges:
 			original_calc_method = getattr(charge, 'revenue_calculation_method', None)
 			item_code = getattr(charge, 'item_code', 'Unknown')
@@ -1724,9 +1731,12 @@ class AirBooking(Document):
 			if unit_type in ("Package", "Piece") and flt(quantity) <= 0:
 				quantity = 1
 			
-			charge_type = _sq_row_get("charge_type") or (
+			from logistics.utils.charges_calculation import normalize_operational_charge_type
+
+			raw_charge_type = _sq_row_get("charge_type") or (
 				item_doc.custom_charge_type if hasattr(item_doc, "custom_charge_type") and item_doc.custom_charge_type else None
-			) or "Revenue"
+			)
+			charge_type = normalize_operational_charge_type(raw_charge_type, default="Revenue")
 			charge_category = _sq_row_get("charge_category") or (
 				item_doc.custom_charge_category if hasattr(item_doc, "custom_charge_category") and item_doc.custom_charge_category else None
 			) or "Other"

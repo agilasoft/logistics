@@ -270,10 +270,6 @@ class TransportOrder(Document):
                 except Exception:
                     pass
 
-            from logistics.utils.get_charges_from_quotation import assert_one_off_sales_quote_job_rules
-
-            assert_one_off_sales_quote_job_rules(self)
-        
             # On duplicate (new doc with same One-Off Quote), clear quote reference
             self._validate_sales_quote_duplication()
         

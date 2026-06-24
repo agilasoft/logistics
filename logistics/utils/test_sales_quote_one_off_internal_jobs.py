@@ -288,10 +288,7 @@ class TestPropagateInternalJobsHelpers(FrappeTestCase):
 
 
 class TestBookingIJDetailPayload(FrappeTestCase):
-	"""Booking-side IJ Detail rows must mirror SQ-side rows in full (every parameter column),
-	with only the link pointed at the fresh booking-owned Internal Job and operational/rollup
-	fields cleared. This is what the user sees as "internal job details match in booking".
-	"""
+	"""Booking-side IJ Detail rows mirror SQ-side rows with the same Linked Service link."""
 
 	def test_payload_copies_all_parameter_columns(self):
 		from logistics.utils.sales_quote_one_off_internal_jobs import (
@@ -325,13 +322,13 @@ class TestBookingIJDetailPayload(FrappeTestCase):
 				"planned_revenue": 150,
 			}
 		)
-		payload = _booking_ij_detail_payload(sq_row, "IJ-BK-NEW")
+		payload = _booking_ij_detail_payload(sq_row, "LS-BK-SAME")
 		# Identity/parent keys stripped.
 		self.assertNotIn("name", payload)
 		self.assertNotIn("parent", payload)
 		self.assertNotIn("idx", payload)
-		# Link overridden to the booking-side IJ.
-		self.assertEqual(payload["internal_job"], "IJ-BK-NEW")
+		# Same Linked Service document as on the quote.
+		self.assertEqual(payload["internal_job"], "LS-BK-SAME")
 		# Operational link + actuals cleared so rollup starts fresh on the booking.
 		self.assertIsNone(payload["job_no"])
 		self.assertIsNone(payload["actual_cost"])
@@ -356,23 +353,25 @@ class TestBookingIJDetailPayload(FrappeTestCase):
 			_booking_ij_detail_payload,
 		)
 
-		payload = _booking_ij_detail_payload(None, "IJ-BK-NEW")
-		self.assertEqual(payload, {"internal_job": "IJ-BK-NEW"})
+		payload = _booking_ij_detail_payload(None, "LS-BK-SAME")
+		self.assertEqual(payload["internal_job"], "LS-BK-SAME")
 
-	def test_sq_internal_job_detail_rows_by_ij_indexes_by_link(self):
+	def test_sq_linked_service_detail_rows_by_ls_indexes_by_link(self):
 		from logistics.utils.sales_quote_one_off_internal_jobs import (
-			_sq_internal_job_detail_rows_by_ij,
+			_sq_linked_service_detail_rows_by_ls,
 		)
 
-		row_a = MagicMock(internal_job="IJ-1")
-		row_b = MagicMock(internal_job="IJ-2")
-		row_blank = MagicMock(internal_job=None)
-		row_dup = MagicMock(internal_job="IJ-1")  # later duplicate ignored
-		sq = MagicMock(internal_job_details=[row_a, row_b, row_blank, row_dup])
-		idx = _sq_internal_job_detail_rows_by_ij(sq)
-		self.assertEqual(set(idx.keys()), {"IJ-1", "IJ-2"})
-		self.assertIs(idx["IJ-1"], row_a)
-		self.assertIs(idx["IJ-2"], row_b)
+		row_a = MagicMock(linked_service="LS-1", internal_job=None)
+		row_b = MagicMock(linked_service="LS-2", internal_job=None)
+		row_blank = MagicMock(linked_service=None, internal_job=None)
+		row_dup = MagicMock(linked_service="LS-1", internal_job=None)
+		sq = MagicMock(doctype="Sales Quote")
+		sq.flags = frappe._dict(_linked_services_from_form=True)
+		sq.__dict__["linked_services"] = [row_a, row_b, row_blank, row_dup]
+		idx = _sq_linked_service_detail_rows_by_ls(sq)
+		self.assertEqual(set(idx.keys()), {"LS-1", "LS-2"})
+		self.assertIs(idx["LS-1"], row_a)
+		self.assertIs(idx["LS-2"], row_b)
 
 
 class TestBookingMappersApplyScopeTagging(FrappeTestCase):

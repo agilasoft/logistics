@@ -217,10 +217,6 @@ class SeaBooking(Document):
 				except Exception:
 					pass
 
-			from logistics.utils.get_charges_from_quotation import assert_one_off_sales_quote_job_rules
-
-			assert_one_off_sales_quote_job_rules(self)
-		
 			self.validate_dates()
 			self.validate_accounts()
 			self.validate_main_routing_legs_by_entry_type()
@@ -234,6 +230,9 @@ class SeaBooking(Document):
 			)
 
 			stamp_main_or_internal_job_scope_on_booking_charges(self)
+			from logistics.utils.charges_calculation import normalize_operational_charge_rows_on_parent
+
+			normalize_operational_charge_rows_on_parent(self)
 		
 			# Warn if accounting fields are missing (needed for conversion to shipment)
 			if self.docstatus == 1:  # Only warn if submitted
@@ -1484,9 +1483,12 @@ class SeaBooking(Document):
 			else:
 				selling_amount = _sq_unit_rate
 			
-			charge_type = _get("charge_type") or (
+			from logistics.utils.charges_calculation import normalize_operational_charge_type
+
+			raw_charge_type = _get("charge_type") or (
 				item_doc.custom_charge_type if hasattr(item_doc, "custom_charge_type") and item_doc.custom_charge_type else None
-			) or "Revenue"
+			)
+			charge_type = normalize_operational_charge_type(raw_charge_type, default="Revenue")
 			
 			# Normalize calculation_method for Sea Booking Charges
 			sqsf_calc_method = _quote_rev_method()
@@ -2552,6 +2554,54 @@ class SeaBooking(Document):
 					)
 			else:
 				frappe.throw(_("Error converting to shipment: {0}").format(str(e)))
+
+
+@frappe.whitelist()
+def fetch_sea_booking_dashboard_html(docname):
+	"""Return Dashboard tab HTML without run_doc_method / check_if_latest (avoids TimestampMismatchError)."""
+	if not docname or str(docname).startswith("new-"):
+		return "<div class='alert alert-info'>Save the document to view the dashboard.</div>"
+	try:
+		doc = frappe.get_doc("Sea Booking", docname)
+	except frappe.DoesNotExistError:
+		return (
+			"<div class='alert alert-info'>Dashboard will load shortly. "
+			"Refresh the page if it does not appear.</div>"
+		)
+	return doc.get_dashboard_html()
+
+
+@frappe.whitelist()
+def aggregate_volume_from_packages_api(doc=None):
+	"""Module-level wrapper so full-path RPC can call without run_doc_method / check_if_latest."""
+	if doc is None:
+		frappe.throw(_("Document is required"))
+	if isinstance(doc, str):
+		parsed = frappe.parse_json(doc)
+		if isinstance(parsed, dict) and parsed.get("doctype"):
+			doc = parsed
+	try:
+		booking = frappe.get_doc(doc) if isinstance(doc, dict) else frappe.get_doc("Sea Booking", doc)
+		return booking.aggregate_volume_from_packages_api()
+	except frappe.DoesNotExistError:
+		return {
+			"total_volume": None,
+			"total_weight": None,
+			"chargeable": None,
+			"total_containers": None,
+			"total_teus": None,
+			"total_packages": None,
+			"container_cargo": [],
+		}
+
+
+@frappe.whitelist()
+def convert_to_shipment_api(docname=None):
+	"""Load Sea Booking from DB and convert; avoids run_doc_method / check_if_latest."""
+	if not docname:
+		frappe.throw(_("Document is required"))
+	booking = frappe.get_doc("Sea Booking", docname)
+	return booking.convert_to_shipment()
 
 
 @frappe.whitelist()

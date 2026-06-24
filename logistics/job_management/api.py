@@ -184,7 +184,8 @@ def get_job_profitability_from_gl(job_number, company, to_date=None, from_date=N
 	:param from_date: Optional; limit GL entries on or after this date
 	:return: dict with revenue, cost, realized_cost, gross_profit, profit_margin_pct, wip_amount,
 	         accrual_amount (open accrued cost liability from GL), currency.
-	         ``cost`` = ``realized_cost`` (Expense + Stock Received But Not Billed GL) + open accrual.
+	         ``cost`` = ``realized_cost`` only (Expense + Stock Received But Not Billed GL).
+	         Open accrual is reported separately in ``accrual_amount`` until Purchase Invoice posts.
 	"""
 	if not job_number or not company:
 		return _empty_profitability(company)
@@ -324,9 +325,8 @@ def get_job_profitability_from_gl(job_number, company, to_date=None, from_date=N
 			}, as_dict=True)
 			accrual_amount = flt(accr_row[0].balance, 2) if accr_row else 0
 
-	# Total cost = posted expenses plus open cost accruals (excluded from realized_cost).
-	# Matches Purchase Invoice charge totals while accruals are still open on Docket / job forms.
-	cost = flt(realized_cost + accrual_amount, 2)
+	# Headline cost = realized expenses only; open accrual stays in accrual_amount (#1073).
+	cost = realized_cost
 	gross_profit = revenue - cost
 	profit_margin_pct = (gross_profit / revenue * 100) if revenue else 0
 
@@ -598,6 +598,48 @@ def get_job_profitability_html(job_number, company, to_date=None, from_date=None
 		return "<p class=\"text-danger\">" + _("Error loading profitability: ") + str(e) + "</p>"
 
 
+def _profitability_is_empty(data):
+	"""True when all KPI amounts are zero and no classified GL rows were fetched."""
+	amounts = (
+		data.get("revenue"),
+		data.get("cost"),
+		data.get("gross_profit"),
+		data.get("wip_amount"),
+		data.get("accrual_amount"),
+		data.get("disbursements_amount"),
+	)
+	if any(flt(v) for v in amounts):
+		return False
+	return not (data.get("entries") or data.get("summary_by_item"))
+
+
+def _profitability_empty_state_next_step_message():
+	return _(
+		"No GL activity yet. Use Post → WIP and Accrual to book estimates; "
+		"Revenue and Cost appear when invoices are posted."
+	)
+
+
+def _profitability_empty_state_banner_html():
+	line1 = _("Figures start at zero until amounts are posted to the General Ledger.")
+	line2 = _("To book estimated revenue and cost, use Post → WIP and Accrual after charges are set.")
+	line3 = _("Revenue and Cost update when Sales Invoice and Purchase Invoice are posted.")
+	return (
+		'<div class="logistics-profitability-empty-state" style="background: #e7f3ff; border: 1px solid #b6d4fe; '
+		'border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: #084298; line-height: 1.5;">'
+		"<div style=\"font-weight: 600; margin-bottom: 6px;\">{title}</div>"
+		"<div>{line1}</div>"
+		"<div>{line2}</div>"
+		"<div>{line3}</div>"
+		"</div>"
+	).format(
+		title=_("No profitability posted yet"),
+		line1=escape_html(line1),
+		line2=escape_html(line2),
+		line3=escape_html(line3),
+	)
+
+
 def _build_profitability_html(data):
 	"""Build KPI cards, Revenue vs Cost chart, and GL tables (Details per line or Summary per item)."""
 	c = data.get("currency") or ""
@@ -610,6 +652,13 @@ def _build_profitability_html(data):
 	disb = flt(data.get("disbursements_amount"), 2)
 	entries = data.get("entries") or []
 	summary_rows = data.get("summary_by_item") or []
+	is_empty = _profitability_is_empty(data)
+	empty_banner_html = _profitability_empty_state_banner_html() if is_empty else ""
+	source_note = (
+		_profitability_empty_state_next_step_message()
+		if is_empty
+		else _("Figures from General Ledger by Job Number.")
+	)
 
 	def fmt(v):
 		return "{:,.2f}".format(v) if v is not None else "0.00"
@@ -631,6 +680,7 @@ def _build_profitability_html(data):
 			<h5 style="margin: 0; font-size: 15px; font-weight: 600;">{label}</h5>
 			<span style="background: #e9ecef; padding: 2px 8px; border-radius: 4px; font-size: 12px;">{currency}</span>
 		</div>
+		{empty_banner_html}
 		<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;">
 			<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; border-left: 4px solid #28a745;">
 				<div style="font-size: 11px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.3px;">{revenue_label}</div>
@@ -708,7 +758,8 @@ def _build_profitability_html(data):
 		chart_title=_("Revenue vs Cost"),
 		rev_pct=rev_pct,
 		cost_pct=cost_pct,
-		source_note=_("Figures from General Ledger by Job Number."),
+		empty_banner_html=empty_banner_html,
+		source_note=source_note,
 	)
 
 	# Column header = Accounting Dimension label (matches GL Entry form), else "Item"
@@ -854,6 +905,14 @@ def _build_profitability_html(data):
 			).format(_item_dim_html),
 		)
 	else:
+		no_entries_msg = _(
+			"No GL entries in Revenue, Cost, WIP, Accrual, or Disbursements for this Job Number."
+		)
+		if is_empty:
+			no_entries_msg = "{0} {1}".format(
+				no_entries_msg,
+				_profitability_empty_state_next_step_message(),
+			)
 		tables_html = """
 		<div class="logistics-profitability-wrapper" style="margin-top: 16px;">
 			<h6 style="margin-bottom: 8px;">{title}</h6>
@@ -861,7 +920,7 @@ def _build_profitability_html(data):
 		</div>
 		""".format(
 			title=_("Job GL (classified)"),
-			no_entries=_("No GL entries in Revenue, Cost, WIP, Accrual, or Disbursements for this Job Number."),
+			no_entries=no_entries_msg,
 		)
 
 	return (summary_html + tables_html).strip()

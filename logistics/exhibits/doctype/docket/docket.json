@@ -304,6 +304,7 @@
    "label": "Internal Jobs"
   },
   {
+   "description": "Internal jobs (Air / Sea / Transport / Customs / Warehousing / Exhibit lines) that fulfil this docket. Use <b>Create &gt; Booking / Order</b> to turn each row into a standalone booking or order linked back to this Docket.",
    "fieldname": "internal_jobs",
    "fieldtype": "Table",
    "label": "Internal Jobs",

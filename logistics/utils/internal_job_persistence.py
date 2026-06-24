@@ -35,9 +35,11 @@ from frappe.utils import cint
 
 from logistics.utils.charge_service_type import default_job_type_for_internal_job_service_type
 from logistics.utils.linked_service_compat import (
+	linked_service_detail_doctype,
 	linked_service_doctype,
 	linked_service_doctype_exists,
-	linked_service_detail_doctype,
+	linked_service_record_exists,
+	linked_service_rows,
 	linked_services_fieldname,
 	row_linked_service_link,
 	set_row_linked_service_link,
@@ -52,9 +54,8 @@ from logistics.utils.sales_quote_charge_parameters import SALES_QUOTE_CHARGE_PAR
 # can have multiple Internal Jobs regardless of ``quotation_type`` — the desk UI currently surfaces
 # the Internal Jobs tab for One-off quotes only (``depends_on`` on the doctype JSON), but the
 # server-side persistence runs uniformly so that any quote-type which exposes
-# ``internal_job_details`` rows materialises matching ``Internal Job`` docs. The IJs are mirrored
-# onto the Booking/Order created from the quote so the per-charge ``internal_job`` link on
-# ``Sales Quote Charge`` survives conversion (see
+# ``linked_services`` rows materialises matching ``Linked Service`` docs. The same records are
+# transferred onto the Booking/Order created from the quote (see
 # ``logistics.utils.sales_quote_one_off_internal_jobs.propagate_one_off_internal_jobs_to_booking``).
 INTERNAL_JOB_DETAIL_PARENTS: dict[str, str] = {
 	"Sea Booking": "internal_job_details",
@@ -103,17 +104,19 @@ def internal_job_detail_rows_for_parent(parent_doc: Any) -> list[Any]:
 		ov = getattr(frappe.local, key, None)
 		if ov is not None:
 			return list(ov)
+	if fieldname in ("linked_services", "internal_jobs"):
+		return linked_service_rows(parent_doc)
 	return list(getattr(parent_doc, fieldname, None) or [])
 
 
 def sync_internal_job_doc_job_link(row: Any, job_type: str, job_no: str) -> None:
 	"""Push ``job_type`` / ``job_no`` onto the linked ``Internal Job`` (source of truth for fetch_from)."""
-	ij_name = (_row_value(row, "internal_job") or "").strip()
+	ij_name = row_linked_service_link(row)
 	jn = _norm(job_no)
 	jt = _norm(job_type)
 	if not ij_name or not jn:
 		return
-	if not frappe.db.exists(linked_service_doctype(), ij_name):
+	if not linked_service_record_exists(ij_name):
 		return
 	updates: dict[str, Any] = {"job_type": jt, "job_no": jn}
 	frappe.db.set_value(linked_service_doctype(), ij_name, updates, update_modified=False)
@@ -198,11 +201,13 @@ def _create_internal_job_from_row(
 	ij = frappe.new_doc(linked_service_doctype())
 	ij.parent_booking_type = parent_doc.doctype
 	ij.parent_booking_name = parent_doc.name or ""
+	if parent_doc.doctype == "Sales Quote" and parent_doc.name and _ls_meta().has_field("service_scope"):
+		ij.service_scope = parent_doc.name
 	_copy_row_params_to_internal_job(row, ij)
 	_ensure_job_type_from_service(ij)
 	ij.flags.ignore_permissions = True
 	preferred = _norm(preferred_name)
-	if preferred and not frappe.db.exists(linked_service_doctype(), preferred):
+	if preferred and not linked_service_record_exists(preferred):
 		ij.insert(ignore_permissions=True, set_name=preferred)
 	else:
 		ij.insert(ignore_permissions=True)
@@ -230,7 +235,7 @@ def create_internal_job_for_parent_from_source(
 
 def _update_internal_job_from_row(row: Any, ij_name: str) -> None:
 	"""Apply edits from an `Internal Job Detail` row onto the linked `Internal Job` document."""
-	if not ij_name or not frappe.db.exists(linked_service_doctype(), ij_name):
+	if not ij_name or not linked_service_record_exists(ij_name):
 		return
 	ij = frappe.get_doc(linked_service_doctype(), ij_name)
 	changed = _copy_row_params_to_internal_job(row, ij)
@@ -245,24 +250,56 @@ def _update_internal_job_from_row(row: Any, ij_name: str) -> None:
 	ij.save(ignore_permissions=True)
 
 
-def _previously_linked_internal_jobs(parent_doc: Any, fieldname: str) -> set[str]:
-	"""Internal Job names that were linked to this booking on its last persisted state."""
-	prev = parent_doc.get_doc_before_save() if hasattr(parent_doc, "get_doc_before_save") else None
-	if prev is None:
+def _linked_service_names_from_db(parent_doctype: str, parent_name: str) -> set[str]:
+	"""Linked Service document names parented to a booking/quote."""
+	if not parent_name or not _internal_job_doctype_exists():
 		return set()
-	return {
-		(_row_value(r, "internal_job") or "").strip()
-		for r in (getattr(prev, fieldname, None) or [])
-		if _row_value(r, "internal_job")
-	}
+	return set(
+		frappe.get_all(
+			linked_service_doctype(),
+			filters={
+				"parent_booking_type": parent_doctype,
+				"parent_booking_name": parent_name,
+			},
+			pluck="name",
+		)
+		or []
+	)
 
 
 def _currently_linked_internal_jobs(parent_doc: Any, fieldname: str) -> set[str]:
 	return {
-		(_row_value(r, "internal_job") or "").strip()
-		for r in (getattr(parent_doc, fieldname, None) or [])
-		if _row_value(r, "internal_job")
+		row_linked_service_link(r)
+		for r in internal_job_detail_rows_for_parent(parent_doc)
+		if row_linked_service_link(r)
 	}
+
+
+def _previously_linked_internal_jobs(parent_doc: Any, fieldname: str) -> set[str]:
+	"""Internal Job names that were linked to this booking on its last persisted state."""
+	if parent_doc.doctype == "Sales Quote" and parent_doc.name:
+		return _linked_service_names_from_db(parent_doc.doctype, parent_doc.name)
+	prev = parent_doc.get_doc_before_save() if hasattr(parent_doc, "get_doc_before_save") else None
+	if prev is None:
+		return set()
+	return {
+		row_linked_service_link(r)
+		for r in (getattr(prev, fieldname, None) or [])
+		if row_linked_service_link(r)
+	}
+
+
+def _delete_orphan_internal_jobs_from_sets(prev: set[str], cur: set[str]) -> None:
+	for ij_name in prev - cur:
+		if not ij_name or not linked_service_record_exists(ij_name):
+			continue
+		try:
+			frappe.delete_doc(linked_service_doctype(), ij_name, ignore_permissions=True, force=True)
+		except Exception:
+			frappe.log_error(
+				title="Internal Job orphan cleanup failed",
+				message=frappe.get_traceback(),
+			)
 
 
 def _backfill_internal_job_parent_link(ij_doc: Any, parent_doc: Any) -> bool:
@@ -303,9 +340,9 @@ def _ensure_internal_job_docs_for_detail_rows(parent_doc: Any) -> dict[str, str]
 	if not meta.get_field(fieldname):
 		return remap
 
-	for row in getattr(parent_doc, fieldname, None) or []:
-		ij_name = (_row_value(row, "internal_job") or "").strip()
-		if ij_name and frappe.db.exists(linked_service_doctype(), ij_name):
+	for row in internal_job_detail_rows_for_parent(parent_doc):
+		ij_name = row_linked_service_link(row)
+		if ij_name and linked_service_record_exists(ij_name):
 			_update_internal_job_from_row(row, ij_name)
 			if _norm(getattr(parent_doc, "name", None)):
 				ij = frappe.get_doc(linked_service_doctype(), ij_name)
@@ -320,10 +357,7 @@ def _ensure_internal_job_docs_for_detail_rows(parent_doc: Any) -> dict[str, str]
 		)
 		if stale_name and stale_name != new_name:
 			remap[stale_name] = new_name
-		if isinstance(row, dict):
-			row["internal_job"] = new_name
-		else:
-			setattr(row, "internal_job", new_name)
+		set_row_linked_service_link(row, new_name)
 	return remap
 
 
@@ -350,9 +384,9 @@ def _charges_child_meta(parent_doc: Any) -> tuple[Any | None, Any | None]:
 def _internal_job_by_service_type(parent_doc: Any, fieldname: str) -> dict[str, str]:
 	"""Map normalised ``service_type`` on IJ-detail rows to their linked Internal Job name."""
 	out: dict[str, str] = {}
-	for row in getattr(parent_doc, fieldname, None) or []:
+	for row in internal_job_detail_rows_for_parent(parent_doc):
 		st = _norm(_row_value(row, "service_type"))
-		ij = (_row_value(row, "internal_job") or "").strip()
+		ij = row_linked_service_link(row)
 		if st and ij:
 			out[st] = ij
 	return out
@@ -388,13 +422,13 @@ def reconcile_orphan_charge_internal_job_links(
 		cur = row_linked_service_link(row)
 		if not cur:
 			continue
-		if frappe.db.exists(linked_service_doctype(), cur):
+		if linked_service_record_exists(cur):
 			continue
 		replacement = remap.get(cur)
 		if not replacement:
 			st = _norm(_row_value(row, "service_type"))
 			replacement = ij_by_service.get(st) if st else None
-		if replacement and frappe.db.exists(linked_service_doctype(), replacement):
+		if replacement and linked_service_record_exists(replacement):
 			set_row_linked_service_link(row, replacement)
 			if has_scope_field:
 				if isinstance(row, dict):
@@ -430,16 +464,7 @@ def _delete_orphan_internal_jobs(parent_doc: Any, fieldname: str) -> None:
 	"""Delete Internal Job docs that were previously linked but are no longer in the table."""
 	prev = _previously_linked_internal_jobs(parent_doc, fieldname)
 	cur = _currently_linked_internal_jobs(parent_doc, fieldname)
-	for ij_name in prev - cur:
-		if not ij_name or not frappe.db.exists(linked_service_doctype(), ij_name):
-			continue
-		try:
-			frappe.delete_doc(linked_service_doctype(), ij_name, ignore_permissions=True, force=True)
-		except Exception:
-			frappe.log_error(
-				title="Internal Job orphan cleanup failed",
-				message=frappe.get_traceback(),
-			)
+	_delete_orphan_internal_jobs_from_sets(prev, cur)
 
 
 def sync_internal_job_details_to_internal_jobs(doc: Any, *_method) -> None:
@@ -456,8 +481,15 @@ def sync_internal_job_details_to_internal_jobs(doc: Any, *_method) -> None:
 	fieldname = internal_job_detail_fieldname(doc.doctype)
 	if not fieldname:
 		return
+	prev_orphans: set[str] | None = None
+	if doc.doctype == "Sales Quote" and doc.name:
+		prev_orphans = _linked_service_names_from_db(doc.doctype, doc.name)
 	_ensure_internal_job_docs_for_detail_rows(doc)
-	_delete_orphan_internal_jobs(doc, fieldname)
+	if prev_orphans is not None:
+		cur = _currently_linked_internal_jobs(doc, fieldname)
+		_delete_orphan_internal_jobs_from_sets(prev_orphans, cur)
+	else:
+		_delete_orphan_internal_jobs(doc, fieldname)
 
 
 def delete_internal_jobs_for_booking(doc: Any, *_method) -> None:
@@ -489,11 +521,10 @@ def get_internal_jobs_for_booking(parent_doc: Any) -> list[Any]:
 	if not parent_doc or not _internal_job_doctype_exists():
 		return []
 	fieldname = internal_job_detail_fieldname(getattr(parent_doc, "doctype", None) or "")
-	rows = getattr(parent_doc, fieldname, None) if fieldname else None
-	rows = rows or []
+	rows = internal_job_detail_rows_for_parent(parent_doc) if fieldname else []
 	names: list[str] = []
 	for r in rows:
-		n = (_row_value(r, "internal_job") or "").strip()
+		n = row_linked_service_link(r)
 		if n and n not in names:
 			names.append(n)
 	if not names:
@@ -508,7 +539,7 @@ def get_internal_jobs_for_booking(parent_doc: Any) -> list[Any]:
 		)
 	out: list[Any] = []
 	for n in names:
-		if frappe.db.exists(linked_service_doctype(), n):
+		if linked_service_record_exists(n):
 			out.append(frappe.get_doc(linked_service_doctype(), n))
 	return out
 
@@ -610,7 +641,8 @@ def sync_internal_job_to_detail_rows(ij_doc: Any, *_method) -> None:
 		return
 
 	columns = _internal_job_detail_table_columns()
-	if "internal_job" not in columns:
+	link_col = "linked_service" if "linked_service" in columns else "internal_job"
+	if link_col not in columns:
 		return
 
 	writable = [fn for fn in _PARAM_FIELDS if fn in columns]
@@ -619,7 +651,7 @@ def sync_internal_job_to_detail_rows(ij_doc: Any, *_method) -> None:
 
 	rows = frappe.get_all(
 		linked_service_detail_doctype(),
-		filters={"internal_job": ij_name},
+		filters={link_col: ij_name, "parenttype": ["!=", "Sales Quote"]},
 		fields=["name"] + writable,
 	)
 	if not rows:

@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import add_days, today
+from frappe.utils import add_days, flt, today
 
 from logistics.mice.doctype.mice_project.mice_project import (
 	get_linkable_dockets_for_exhibit,
@@ -58,6 +58,108 @@ class TestShow(IntegrationTestCase):
 		dk.flags.ignore_mandatory = True
 		dk.insert(ignore_permissions=True)
 		return dk
+
+	def _default_currency(self):
+		company = frappe.defaults.get_defaults().get("company")
+		if company:
+			currency = frappe.db.get_value("Company", company, "default_currency")
+			if currency:
+				return currency
+		return frappe.db.get_value("Currency", {"enabled": 1}, "name")
+
+	def _append_consolidation_charge(self, doc, unit_rate=100, quantity=1, *, zero_total=False):
+		currency = self._default_currency()
+		if not currency:
+			self.skipTest("No currency in system")
+		row = doc.append(
+			"consolidation_charges",
+			{
+				"charge_type": "Cost",
+				"charge_category": "Other",
+				"revenue_calculation_method": "Per Unit",
+				"unit_rate": unit_rate,
+				"quantity": quantity,
+				"currency": currency,
+			},
+		)
+		if zero_total:
+			row.total_amount = 0
+		return row
+
+	def _second_customer(self):
+		first = self._test_customer()
+		other = frappe.db.get_value("Customer", {"name": ["!=", first]}, "name") if first else None
+		return other or first
+
+	def test_allocate_costs_equal_split_across_dockets(self):
+		if not frappe.db.exists("DocType", "MICE Project"):
+			self.skipTest("MICE Project DocType not installed")
+		project = self._minimal_exhibit("Test Allocate Equal")
+		dk1 = self._minimal_docket(project.name, self._test_customer())
+		dk2 = self._minimal_docket(project.name, self._second_customer())
+		try:
+			doc = frappe.get_doc("MICE Project", project.name)
+			doc.cost_allocation_target = "Dockets"
+			doc.cost_allocation_basis = "Equal"
+			self._append_consolidation_charge(doc, unit_rate=200, quantity=1)
+			doc.save(ignore_permissions=True)
+
+			result = doc.allocate_costs(allocation_basis="Equal", target_type="Dockets")
+			doc.reload()
+
+			self.assertEqual(result["targets_loaded"], 2)
+			self.assertEqual(flt(doc.total_consolidation_charges), 200.0)
+			self.assertEqual(flt(doc.total_allocated_amount), 200.0)
+			amounts = sorted(flt(r.allocated_amount) for r in doc.cost_allocations)
+			self.assertEqual(amounts, [100.0, 100.0])
+		finally:
+			dk2.delete(ignore_permissions=True)
+			dk1.delete(ignore_permissions=True)
+			project.delete(ignore_permissions=True)
+
+	def test_allocate_costs_recalculates_unsaved_charge_amounts(self):
+		"""Regression #987: charge total_amount must be recomputed before allocation."""
+		if not frappe.db.exists("DocType", "MICE Project"):
+			self.skipTest("MICE Project DocType not installed")
+		project = self._minimal_exhibit("Test Allocate Unsaved Charge")
+		dk1 = self._minimal_docket(project.name, self._test_customer())
+		dk2 = self._minimal_docket(project.name, self._second_customer())
+		try:
+			doc = frappe.get_doc("MICE Project", project.name)
+			doc.cost_allocation_target = "Dockets"
+			doc.cost_allocation_basis = "Equal"
+			self._append_consolidation_charge(doc, unit_rate=150, quantity=2, zero_total=True)
+			self.assertEqual(flt(doc.consolidation_charges[0].total_amount), 0)
+
+			result = doc.allocate_costs(allocation_basis="Equal", target_type="Dockets")
+			doc.reload()
+
+			self.assertEqual(result["targets_loaded"], 2)
+			self.assertEqual(flt(doc.total_consolidation_charges), 300.0)
+			self.assertEqual(flt(doc.total_allocated_amount), 300.0)
+			self.assertTrue(all(flt(r.allocated_amount) > 0 for r in doc.cost_allocations))
+		finally:
+			dk2.delete(ignore_permissions=True)
+			dk1.delete(ignore_permissions=True)
+			project.delete(ignore_permissions=True)
+
+	def test_allocate_costs_custom_requires_percentages(self):
+		if not frappe.db.exists("DocType", "MICE Project"):
+			self.skipTest("MICE Project DocType not installed")
+		project = self._minimal_exhibit("Test Allocate Custom")
+		dk = self._minimal_docket(project.name, self._test_customer())
+		try:
+			doc = frappe.get_doc("MICE Project", project.name)
+			doc.cost_allocation_target = "Dockets"
+			doc.cost_allocation_basis = "Custom"
+			self._append_consolidation_charge(doc, unit_rate=100, quantity=1)
+			doc.save(ignore_permissions=True)
+
+			with self.assertRaises(frappe.ValidationError):
+				doc.allocate_costs(allocation_basis="Custom", target_type="Dockets")
+		finally:
+			dk.delete(ignore_permissions=True)
+			project.delete(ignore_permissions=True)
 	def test_save_with_virtual_dockets_does_not_fail_version(self):
 		"""Regression: virtual dockets grid must not break Version diff on save."""
 		if not frappe.db.exists("DocType", "MICE Project"):

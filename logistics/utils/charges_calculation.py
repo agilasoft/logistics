@@ -1514,6 +1514,34 @@ def _clear_charge_break_rows(doctype: str, name: Optional[str], break_type: str)
             frappe.db.delete(break_dt, filters)
 
 
+OPERATIONAL_CHARGE_TYPES = frozenset({"Margin", "Disbursement", "Revenue", "Cost"})
+
+
+def normalize_operational_charge_type(charge_type: str | None, default: str = "Margin") -> str:
+	"""Map Sales Quote ``Other`` (and other non-operational values) to a valid job charge type."""
+	ct = (charge_type or "").strip()
+	if ct in OPERATIONAL_CHARGE_TYPES:
+		return ct
+	fallback = (default or "Margin").strip()
+	return fallback if fallback in OPERATIONAL_CHARGE_TYPES else "Margin"
+
+
+def normalize_operational_charge_rows_on_parent(parent_doc: Any, charges_field: str = "charges") -> int:
+	"""Normalize ``charge_type`` on operational charge child rows before parent save validation."""
+	if not parent_doc:
+		return 0
+	changed = 0
+	for row in parent_doc.get(charges_field) or []:
+		if not hasattr(row, "charge_type"):
+			continue
+		current = (getattr(row, "charge_type", None) or "").strip()
+		normalized = normalize_operational_charge_type(current)
+		if normalized != current:
+			row.charge_type = normalized
+			changed += 1
+	return changed
+
+
 def apply_charge_type_side_cleanup(doc: Any) -> bool:
     """
     When charge_type is Revenue or Cost, clear inputs on the locked side and linked breaks.
