@@ -1,21 +1,19 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
-function _declaration_order_name_from_internal_job_details(frm) {
-	var rows = frm.doc.internal_job_details || [];
-	for (var i = 0; i < rows.length; i++) {
-		var r = rows[i];
-		var st = String(r.service_type || "").trim();
-		var jt = String(r.job_type || "").trim();
-		var isDecl =
-			st === "Custom" ||
-			st === "Customs" ||
-			jt === "Declaration Order";
-		if (isDecl && String(r.job_no || "").trim()) {
-			return String(r.job_no).trim();
-		}
-	}
-	return "";
+function _add_view_linked_declaration_order_button(frm, method) {
+	if (!frm.doc.name || frm.doc.__islocal) return;
+	frappe.call({
+		method: method,
+		args: { docname: frm.doc.name },
+		callback: function(r) {
+			var do_name = String(r.message || "").trim();
+			if (!do_name) return;
+			frm.add_custom_button(__("View Declaration Order"), function() {
+				frappe.set_route("Form", "Declaration Order", do_name);
+			}, __("View"));
+		},
+	});
 }
 
 function _load_milestone_html(frm) {
@@ -493,7 +491,7 @@ frappe.ui.form.on('Air Shipment', {
 					}, __('Create'));
 				}
 				if (!(cint(frm.doc.is_internal_job) && frm.doc.main_job_type && frm.doc.main_job)) {
-					frm.add_custom_button(__('Internal Job'), function() {
+					frm.add_custom_button(__('Booking / Order'), function() {
 						function _openInternalJobDlg() {
 							if (window.logistics_show_create_internal_job_dialog) {
 								window.logistics_show_create_internal_job_dialog(frm);
@@ -514,12 +512,10 @@ frappe.ui.form.on('Air Shipment', {
 						}
 					}, __('Create'));
 				}
-				var _do_from_ij = _declaration_order_name_from_internal_job_details(frm);
-				if (_do_from_ij) {
-					frm.add_custom_button(__('View Declaration Order'), function() {
-						frappe.set_route('Form', 'Declaration Order', _do_from_ij);
-					}, __('View'));
-				}
+				_add_view_linked_declaration_order_button(
+					frm,
+					"logistics.air_freight.doctype.air_shipment.air_shipment.get_linked_declaration_order_name"
+				);
 				frm.add_custom_button(__('Create Change Request'), function() {
 					frappe.call({
 						method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
@@ -595,27 +591,22 @@ frappe.ui.form.on('Air Shipment', {
 });
 
 function _create_sales_invoice_from_air_shipment(frm) {
-	frappe.prompt([
-		{ fieldname: 'posting_date', fieldtype: 'Date', label: __('Posting Date'), default: frappe.datetime.get_today(), reqd: 1 },
-		{ fieldname: 'customer', fieldtype: 'Link', label: __('Customer'), options: 'Customer', default: frm.doc.local_customer, reqd: 1 }
-	], function(values) {
-		frappe.call({
-			method: 'logistics.air_freight.doctype.air_shipment.air_shipment.create_sales_invoice_from_air_shipment',
-			args: {
-				shipment_name: frm.doc.name,
-				posting_date: values.posting_date,
-				customer: values.customer
-			},
-			freeze: true,
-			freeze_message: __('Creating Sales Invoice...'),
-			callback: function(r) {
-				if (r.message && r.message.sales_invoice) {
-					frappe.set_route('Form', 'Sales Invoice', r.message.sales_invoice);
-					frm.reload_doc();
-				}
-			}
+	function openDialog() {
+		if (typeof show_create_sales_invoice_dialog === "function") {
+			show_create_sales_invoice_dialog(frm);
+			return;
+		}
+		frappe.msgprint({
+			title: __("Error"),
+			message: __("Sales Invoice dialog is not loaded. Please refresh the page."),
+			indicator: "red"
 		});
-	}, __('Create Sales Invoice'));
+	}
+	if (typeof show_create_sales_invoice_dialog === "function") {
+		openDialog();
+	} else {
+		frappe.require("/assets/logistics/js/sales_invoice_dialog.js", openDialog);
+	}
 }
 
 function _update_measurement_fields_readonly(frm) {

@@ -27,6 +27,22 @@ frappe.ui.form.on("Sea Booking Charges", {
 	cost_maximum_charge: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_base_amount: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_base_quantity: function(frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
+
+	charge_scope: function(frm, cdt, cdn) {
+		const row = frappe.get_doc(cdt, cdn);
+		if (!row) return;
+		const scope = (row.charge_scope || "Main").trim();
+		const linkField = row.linked_service !== undefined ? "linked_service" : "internal_job";
+		if (scope !== "Linked" && scope !== "Internal Job" && row[linkField]) {
+			frappe.model.set_value(cdt, cdn, linkField, "");
+		}
+	},
+
+	service_type: function(frm, cdt, cdn) {
+		if (logistics.linked_service_link_query) {
+			logistics.linked_service_link_query.clearLinkIfServiceTypeMismatch(frm, cdt, cdn);
+		}
+	},
 	// Weight Break / Qty Break handlers in charge_break_buttons.js
 });
 

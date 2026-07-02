@@ -115,6 +115,18 @@ def send_fma_message(master_awb_name):
 
 
 @frappe.whitelist()
+def submit_mawb_eawb(master_awb_name):
+    """Submit master e-AWB (XFWB) for a Master Air Waybill."""
+    try:
+        doc = frappe.get_doc("Master Air Waybill", master_awb_name)
+        doc.check_permission("write")
+        return doc.submit_eawb()
+    except Exception as e:
+        frappe.log_error(f"Submit MAWB eAWB API error: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
 def get_message_queue(status=None, message_type=None, direction=None):
     """Get IATA message queue entries with optional filters"""
     try:
@@ -195,30 +207,35 @@ def validate_xml_message(xml_content, message_type="FWB"):
 
 
 @frappe.whitelist()
-def get_iata_settings():
-    """Get current IATA settings"""
-    try:
-        settings = frappe.get_single("IATA Settings")
-        
-        # Don't expose sensitive information
-        return {
-            "success": True,
-            "settings": {
-                "cargo_xml_enabled": settings.cargo_xml_enabled,
-                "dg_autocheck_enabled": settings.dg_autocheck_enabled,
-                "cass_enabled": settings.cass_enabled,
-                "tact_subscription": settings.tact_subscription,
-                "net_rates_enabled": settings.net_rates_enabled,
-                "track_trace_enabled": settings.track_trace_enabled,
-                "epic_enabled": settings.epic_enabled,
-                "test_mode": settings.test_mode,
-                "debug_logging": settings.debug_logging
-            }
-        }
-        
-    except Exception as e:
-        frappe.log_error(f"Get IATA settings error: {str(e)}")
-        return {"success": False, "error": str(e)}
+def get_iata_settings(company=None, master_awb=None, air_shipment=None):
+    """Get current IATA settings (non-sensitive flags only)."""
+    from logistics.air_freight.utils.iata_settings_utils import get_public_settings, resolve_company
+
+    settings = get_public_settings(
+        company=company,
+        master_awb=master_awb,
+        air_shipment=air_shipment,
+    )
+    return {
+        "success": True,
+        "company": resolve_company(
+            company=company,
+            master_awb=master_awb,
+            air_shipment=air_shipment,
+        ),
+        "settings": {
+            "cargo_xml_enabled": settings.cargo_xml_enabled,
+            "dg_autocheck_enabled": settings.dg_autocheck_enabled,
+            "cass_enabled": settings.cass_enabled,
+            "tact_subscription": settings.tact_subscription,
+            "net_rates_enabled": settings.net_rates_enabled,
+            "track_trace_enabled": settings.track_trace_enabled,
+            "epic_enabled": settings.epic_enabled,
+            "test_mode": settings.test_mode,
+            "sandbox_mode": _get_sandbox_mode(settings),
+            "debug_logging": settings.debug_logging,
+        },
+    }
 
 
 @frappe.whitelist()
@@ -228,16 +245,36 @@ def test_iata_connection():
         from logistics.air_freight.iata_cargo_xml.base_connector import IATAConnector
         
         connector = IATAConnector()
-        auth_result = connector.authenticate()
+        mode = connector.get_sandbox_mode()
+        auth_result = connector.authenticate(sandbox_mode=mode)
         
         return {
             "success": auth_result,
-            "message": "Connection successful" if auth_result else "Connection failed"
+            "mode": mode,
+            "message": _connection_message(mode, auth_result),
         }
         
     except Exception as e:
         frappe.log_error(f"Test IATA connection error: {str(e)}")
         return {"success": False, "error": str(e)}
+
+
+def _get_sandbox_mode(settings):
+    if settings.test_mode:
+        if settings.test_endpoint:
+            return "sandbox_endpoint"
+        return "sandbox_mock"
+    return "production"
+
+
+def _connection_message(mode, auth_result):
+    if not auth_result:
+        return "Connection failed"
+    if mode == "sandbox_mock":
+        return "Sandbox mock mode — no external HTTP required"
+    if mode == "sandbox_endpoint":
+        return "Sandbox endpoint mode — messages POST to Test Endpoint URL"
+    return "Production mode — messages POST to Cargo-XML Endpoint URL"
 
 
 def _determine_message_type(xml_content):

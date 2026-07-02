@@ -16,6 +16,7 @@
   "column_break_dbep",
   "measurements_section",
   "no_of_packs",
+  "quantity",
   "uom",
   "dimension_uom",
   "length",
@@ -121,6 +122,13 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "No of Packs"
+  },
+  {
+   "columns": 1,
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Quantity"
   },
   {
    "fieldname": "uom",

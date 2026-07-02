@@ -14,9 +14,13 @@ from logistics.special_projects.lifecycle_job_financial_rollup import (
 	sync_lifecycle_job_financials,
 )
 from logistics.special_projects.special_project_charge_lifecycle import (
-	_lifecycle_job_row_by_name,
 	is_planning_lifecycle_row,
 	programme_charge_applies_to_planning_lifecycle,
+)
+from logistics.special_projects.special_project_service_rows import (
+	planning_service_rows,
+	service_row_by_name,
+	service_rows,
 )
 from logistics.special_projects.special_project_packages import (
 	_resolve_sp_from_project_doc,
@@ -312,7 +316,7 @@ def _append_execution_log(
 			"qty": flt(qty) or 1,
 			"status": POSTED_LOG_STATUS,
 			"posted_on": now_datetime(),
-			"lifecycle_job_line": getattr(lifecycle_row, "name", None),
+			"lifecycle_stage": getattr(lifecycle_row, "lifecycle_stage", None),
 			"job_type": order_type or None,
 			"order_no": order_no or None,
 			"job_no": exec_doc.name,
@@ -336,13 +340,15 @@ def _clear_lifecycle_execution_link_if_no_posted_logs(
 	if not line_name:
 		return
 	for log in sp_doc.get("charge_execution_logs") or []:
-		if _norm(getattr(log, "lifecycle_job_line", None)) != line_name:
+		if _norm(getattr(log, "lifecycle_stage", None)) != _norm(
+			getattr(lifecycle_row, "lifecycle_stage", None)
+		):
 			continue
 		if (getattr(log, "status", None) or "") == POSTED_LOG_STATUS:
 			return
 	to_remove: list[Any] = []
-	for row in sp_doc.get("lifecycle_jobs") or []:
-		if _norm(getattr(row, "lifecycle_job_line", None)) != line_name:
+	for row in service_rows(sp_doc):
+		if _norm(getattr(row, "special_project_service_line", None)) != line_name:
 			continue
 		to_remove.append(row)
 	for row in to_remove:
@@ -424,6 +430,18 @@ def cancel_charge_execution_for_doc(doc: Any) -> int:
 	return changed
 
 
+def _service_row_for_execution_log(sp_doc: Any, log: Any) -> Any | None:
+	stage = _norm(getattr(log, "lifecycle_stage", None))
+	if stage:
+		for row in planning_service_rows(sp_doc):
+			if _norm(getattr(row, "lifecycle_stage", None)) == stage:
+				return row
+	line_name = _norm(getattr(log, "special_project_service_line", None))
+	if line_name:
+		return service_row_by_name(sp_doc, line_name)
+	return None
+
+
 def resolve_programme_charge_for_execution_log(
 	sp_doc: Any, log: Any, lifecycle_row: Any | None = None
 ) -> Any | None:
@@ -432,9 +450,7 @@ def resolve_programme_charge_for_execution_log(
 	if not item_code:
 		return None
 
-	lifecycle_row = lifecycle_row or _lifecycle_job_row_by_name(
-		sp_doc, _norm(getattr(log, "lifecycle_job_line", None))
-	)
+	lifecycle_row = lifecycle_row or _service_row_for_execution_log(sp_doc, log)
 	if not lifecycle_row:
 		idx = frappe.utils.cint(getattr(log, "charge_idx", 0) or 0)
 		if idx:
@@ -474,9 +490,7 @@ def reconcile_programme_charge_qty_from_execution_logs(sp_doc: Any) -> int:
 	changed = 0
 
 	for log in sorted(logs, key=lambda row: frappe.utils.cint(getattr(row, "idx", 0) or 0)):
-		lifecycle_row = _lifecycle_job_row_by_name(
-			sp_doc, _norm(getattr(log, "lifecycle_job_line", None))
-		)
+		lifecycle_row = _service_row_for_execution_log(sp_doc, log)
 		charge = resolve_programme_charge_for_execution_log(sp_doc, log, lifecycle_row)
 		if not charge:
 			continue

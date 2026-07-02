@@ -11,6 +11,59 @@
 		return frappe.datetime.obj_to_str(d);
 	}
 
+	function build_pi_charges_table(charges, company) {
+		var header = [
+			'<table class="table table-bordered table-sm">',
+			'<thead><tr>',
+			'<th style="width:32px"><input type="checkbox" id="pi_dialog_select_all" checked /></th>',
+			'<th>' + __("Item") + '</th>',
+			'<th>' + __("Currency") + '</th>',
+			'<th class="text-right">' + __("Cost") + '</th>',
+			'<th class="text-right">' + __("Qty") + '</th>',
+			'<th>' + __("Pay To") + '</th>',
+			'</tr></thead>',
+			'<tbody id="pi_dialog_charges_tbody">'
+		].join("");
+		var rows = (charges || []).map(function(c, i) {
+			var payTo = c.pay_to || "—";
+			var cur = c.currency || "";
+			return [
+				'<tr data-index="' + i + '">',
+				'<td><input type="checkbox" class="pi-charge-cb" data-index="' + i + '" checked /></td>',
+				'<td>' + (c.item_name || c.item_code || "") + '</td>',
+				'<td>' + frappe.utils.escape_html(cur) + '</td>',
+				'<td class="text-right">' + (c.cost != null ? (typeof frappe.format === "function" ? frappe.format(c.cost, { fieldtype: "Currency", options: cur || company }) : c.cost.toFixed(2)) : "") + '</td>',
+				'<td class="text-right">' + (c.quantity != null ? c.quantity : "") + '</td>',
+				'<td>' + payTo + '</td>',
+				'</tr>'
+			].join("");
+		});
+		return header + rows.join("") + "</tbody></table>";
+	}
+
+	function pi_billing_fields(default_billing_currency) {
+		var billing = window.logistics_invoice_billing_currency;
+		if (billing && billing.billing_currency_header_fields) {
+			return billing.billing_currency_header_fields(default_billing_currency);
+		}
+		return [
+			{ fieldname: "billing_currency", fieldtype: "Link", label: __("Billing Currency"), options: "Currency", default: default_billing_currency, reqd: 1 },
+			{ fieldname: "exchange_rate", fieldtype: "Float", label: __("Exchange Rate"), precision: 9, default: 1, reqd: 1 }
+		];
+	}
+
+	function bind_pi_billing_currency(dialog, data) {
+		var billing = window.logistics_invoice_billing_currency;
+		if (!billing || !billing.bind_invoice_billing_currency) return null;
+		return billing.bind_invoice_billing_currency(dialog, {
+			company_currency: data.company_currency || data.company,
+			default_billing_currency: data.default_billing_currency || data.company_currency || data.company,
+			exchange_purpose: "for_buying",
+			party_type: "Supplier",
+			party_fieldname: "supplier"
+		});
+	}
+
 	function consolidation_planning_submitted(frm) {
 		if (!frm || !frm.doc) {
 			return false;
@@ -57,32 +110,8 @@
 
 				var default_posting = data.default_posting_date || frappe.datetime.get_today();
 				var default_due = default_due_date(default_posting);
-
-				// Build charges table HTML: checkbox, item, cost, qty, pay_to
-				var header = [
-					'<table class="table table-bordered table-sm">',
-					'<thead><tr>',
-					'<th style="width:32px"><input type="checkbox" id="pi_dialog_select_all" checked /></th>',
-					'<th>' + __("Item") + '</th>',
-					'<th class="text-right">' + __("Cost") + '</th>',
-					'<th class="text-right">' + __("Qty") + '</th>',
-					'<th>' + __("Pay To") + '</th>',
-					'</tr></thead>',
-					'<tbody id="pi_dialog_charges_tbody">'
-				].join("");
-				var rows = charges.map(function(c, i) {
-					var payTo = c.pay_to || "—";
-					return [
-						'<tr data-index="' + i + '">',
-						'<td><input type="checkbox" class="pi-charge-cb" data-index="' + i + '" checked /></td>',
-						'<td>' + (c.item_name || c.item_code || "") + '</td>',
-						'<td class="text-right">' + (c.cost != null ? (typeof frappe.format === "function" ? frappe.format(c.cost, { fieldtype: "Currency", options: data.company }) : c.cost.toFixed(2)) : "") + '</td>',
-						'<td class="text-right">' + (c.quantity != null ? c.quantity : "") + '</td>',
-						'<td>' + payTo + '</td>',
-						'</tr>'
-					].join("");
-				});
-				var table_html = header + rows.join("") + "</tbody></table>";
+				var default_billing_currency = data.default_billing_currency || data.company_currency || data.company;
+				var table_html = build_pi_charges_table(charges, data.company);
 
 				function normalize_supplier(value) {
 					return (value || "").toString().trim();
@@ -113,7 +142,10 @@
 				}
 				headerFields.push(
 					{ fieldname: "posting_date", fieldtype: "Date", label: __("Posting Date"), default: default_posting },
-					{ fieldname: "supplier", fieldtype: "Link", label: __("Supplier"), options: "Supplier", default: data.default_supplier || "" },
+					{ fieldname: "supplier", fieldtype: "Link", label: __("Supplier"), options: "Supplier", default: data.default_supplier || "" }
+				);
+				headerFields = headerFields.concat(pi_billing_fields(default_billing_currency));
+				headerFields.push(
 					{ fieldname: "due_date", fieldtype: "Date", label: __("Due Date"), default: default_due },
 					{ fieldname: "bill_no", fieldtype: "Data", label: __("Supplier Bill No"), description: __("Reference number from supplier invoice") },
 					{ fieldname: "bill_date", fieldtype: "Date", label: __("Supplier Bill Date") }
@@ -141,6 +173,10 @@
 							frappe.msgprint({ title: __("Supplier Required"), message: __("Please select a supplier."), indicator: "red" });
 							return;
 						}
+						if (!values.billing_currency) {
+							frappe.msgprint({ title: __("Billing Currency Required"), message: __("Please select a billing currency."), indicator: "red" });
+							return;
+						}
 						dialog.hide();
 						frappe.call({
 							method: "logistics.invoice_integration.purchase_invoice_api.create_purchase_invoice",
@@ -152,6 +188,8 @@
 								due_date: values.due_date || undefined,
 								bill_no: values.bill_no || undefined,
 								bill_date: values.bill_date || undefined,
+								billing_currency: values.billing_currency,
+								exchange_rate: values.exchange_rate,
 								selected_charge_indices: JSON.stringify(indices),
 								naming_series: values.naming_series || undefined,
 								purchase_invoice_name: values.purchase_invoice_name || undefined
@@ -208,12 +246,16 @@
 				noChargesMessage.text(__("No charges found for the selected supplier."));
 				dialog.fields_dict.charges_html.$wrapper.append(noChargesMessage);
 
+				var billingBinder = null;
 				var supplierField = dialog.get_field("supplier");
 				if (supplierField) {
 					supplierField.df.onchange = function() {
 						var selected = dialog.get_value("supplier");
 						var hasVisibleRows = apply_supplier_filter(selected);
 						noChargesMessage.toggle(!hasVisibleRows);
+						if (billingBinder && billingBinder.set_billing_currency_from_party) {
+							billingBinder.set_billing_currency_from_party(selected);
+						}
 					};
 				}
 
@@ -233,6 +275,7 @@
 				noChargesMessage.toggle(!initialHasRows);
 
 				dialog.show();
+				billingBinder = bind_pi_billing_currency(dialog, data);
 			}
 		});
 	};
@@ -278,31 +321,12 @@
 
 				var default_posting = data.default_posting_date || frappe.datetime.get_today();
 				var default_due = default_due_date(default_posting);
-
-				var header = [
-					'<table class="table table-bordered table-sm">',
-					'<thead><tr>',
-					'<th style="width:32px"><input type="checkbox" id="pi_dialog_select_all_c" checked /></th>',
-					'<th>' + __("Item") + '</th>',
-					'<th class="text-right">' + __("Charge total") + '</th>',
-					'<th class="text-right">' + __("Qty") + '</th>',
-					'<th>' + __("Pay To") + '</th>',
-					'</tr></thead>',
-					'<tbody id="pi_dialog_charges_tbody_c">'
-				].join("");
-				var rows = charges.map(function(c, i) {
-					var payTo = c.pay_to || "—";
-					return [
-						'<tr data-index="' + i + '">',
-						'<td><input type="checkbox" class="pi-charge-cb-c" data-index="' + i + '" checked /></td>',
-						'<td>' + (c.item_name || c.item_code || "") + '</td>',
-						'<td class="text-right">' + (c.cost != null ? (typeof frappe.format === "function" ? frappe.format(c.cost, { fieldtype: "Currency", options: data.company }) : c.cost.toFixed(2)) : "") + '</td>',
-						'<td class="text-right">' + (c.quantity != null ? c.quantity : "") + '</td>',
-						'<td>' + payTo + '</td>',
-						'</tr>'
-					].join("");
-				});
-				var table_html = header + rows.join("") + "</tbody></table>";
+				var default_billing_currency = data.default_billing_currency || data.company_currency || data.company;
+				var table_html = build_pi_charges_table(charges, data.company)
+					.replace(/pi_dialog_select_all/g, "pi_dialog_select_all_c")
+					.replace(/pi-charge-cb/g, "pi-charge-cb-c")
+					.replace(/pi_dialog_charges_tbody/g, "pi_dialog_charges_tbody_c")
+					.replace(__("Cost"), __("Charge total"));
 
 				function normalize_supplier(value) {
 					return (value || "").toString().trim();
@@ -333,7 +357,10 @@
 				}
 				headerFields.push(
 					{ fieldname: "posting_date", fieldtype: "Date", label: __("Posting Date"), default: default_posting },
-					{ fieldname: "supplier", fieldtype: "Link", label: __("Supplier"), options: "Supplier", default: data.default_supplier || "" },
+					{ fieldname: "supplier", fieldtype: "Link", label: __("Supplier"), options: "Supplier", default: data.default_supplier || "" }
+				);
+				headerFields = headerFields.concat(pi_billing_fields(default_billing_currency));
+				headerFields.push(
 					{ fieldname: "due_date", fieldtype: "Date", label: __("Due Date"), default: default_due },
 					{ fieldname: "bill_no", fieldtype: "Data", label: __("Supplier Bill No"), description: __("Reference number from supplier invoice") },
 					{ fieldname: "bill_date", fieldtype: "Date", label: __("Supplier Bill Date") }
@@ -366,6 +393,10 @@
 							frappe.msgprint({ title: __("Supplier Required"), message: __("Please select a supplier."), indicator: "red" });
 							return;
 						}
+						if (!values.billing_currency) {
+							frappe.msgprint({ title: __("Billing Currency Required"), message: __("Please select a billing currency."), indicator: "red" });
+							return;
+						}
 						dialog.hide();
 						frappe.call({
 							method: "logistics.invoice_integration.purchase_invoice_api.create_consolidation_purchase_invoice",
@@ -377,6 +408,8 @@
 								due_date: values.due_date || undefined,
 								bill_no: values.bill_no || undefined,
 								bill_date: values.bill_date || undefined,
+								billing_currency: values.billing_currency,
+								exchange_rate: values.exchange_rate,
 								selected_charge_indices: JSON.stringify(indices),
 								naming_series: values.naming_series || undefined,
 								purchase_invoice_name: values.purchase_invoice_name || undefined
@@ -425,12 +458,16 @@
 				noChargesMessage.text(__("No charges found for the selected supplier."));
 				dialog.fields_dict.charges_html.$wrapper.append(noChargesMessage);
 
+				var billingBinderC = null;
 				var supplierField = dialog.get_field("supplier");
 				if (supplierField) {
 					supplierField.df.onchange = function() {
 						var selected = dialog.get_value("supplier");
 						var hasVisibleRows = apply_supplier_filter(selected);
 						noChargesMessage.toggle(!hasVisibleRows);
+						if (billingBinderC && billingBinderC.set_billing_currency_from_party) {
+							billingBinderC.set_billing_currency_from_party(selected);
+						}
 					};
 				}
 
@@ -449,6 +486,7 @@
 				noChargesMessage.toggle(!initialHasRows);
 
 				dialog.show();
+				billingBinderC = bind_pi_billing_currency(dialog, data);
 			}
 		});
 	};

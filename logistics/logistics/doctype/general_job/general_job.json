@@ -36,9 +36,6 @@
   "accrual_amount",
   "recognized_costs",
   "accrual_closed",
-  "internal_job_details_tab",
-  "internal_job_details_section",
-  "internal_job_details",
   "sustainability_tab",
   "sustainability_section",
   "estimated_energy_consumption",
@@ -244,24 +241,6 @@
    "fieldtype": "Check",
    "label": "Accrual Closed",
    "read_only": 1
-  },
-  {
-   "fieldname": "internal_job_details_tab",
-   "fieldtype": "Tab Break",
-   "label": "Internal Jobs"
-  },
-  {
-   "fieldname": "internal_job_details_section",
-   "fieldtype": "Section Break",
-   "label": "Internal Jobs"
-  },
-  {
-   "description": "Linked operational jobs and service parameters (same fields as Sales Quote Charge parameter sections).",
-   "fieldname": "internal_job_details",
-   "fieldtype": "Table",
-   "label": "Internal Jobs",
-   "no_copy": 1,
-   "options": "Internal Job Detail"
   },
   {
    "fieldname": "sustainability_tab",

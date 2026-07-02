@@ -327,7 +327,9 @@ def create_job_number_for_docket(
 		return
 	existing = frappe.db.get_value("Job Number", {"job_type": "Docket", "job_no": docket_name})
 	if existing:
-		frappe.db.set_value("Docket", docket_name, "job_number", existing)
+		frappe.db.set_value(
+			"Docket", docket_name, "job_number", existing, update_modified=False
+		)
 		frappe.db.commit()
 		return
 	project = frappe.db.get_value("Docket", docket_name, "project")
@@ -342,7 +344,9 @@ def create_job_number_for_docket(
 	job_ref.project = project
 	job_ref.docket = docket_name
 	job_ref.insert(ignore_permissions=True)
-	frappe.db.set_value("Docket", docket_name, "job_number", job_ref.name)
+	frappe.db.set_value(
+		"Docket", docket_name, "job_number", job_ref.name, update_modified=False
+	)
 	frappe.db.commit()
 
 

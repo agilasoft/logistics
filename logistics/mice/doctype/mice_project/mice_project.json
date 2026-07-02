@@ -22,6 +22,7 @@
   "status",
   "lifecycle_stage",
   "priority",
+  "official_appointment_status",
   "column_break_show",
   "show_open_date",
   "show_close_date",
@@ -233,6 +234,13 @@
    "fieldtype": "Select",
    "label": "Priority",
    "options": "Low\nNormal\nHigh\nUrgent"
+  },
+  {
+   "fieldname": "official_appointment_status",
+   "fieldtype": "Link",
+   "label": "Official Appointment Status",
+   "link_filters": "[[\"Official Appointment Status\", \"is_active\", \"=\", 1]]",
+   "options": "Official Appointment Status"
   },
   {
    "fieldname": "start_date",

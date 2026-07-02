@@ -1222,9 +1222,10 @@ def apply_quotation_charges_to_job(
 ):
 	"""Set ``sales_quote``, routing (Sea/Air), and charges; then save.
 
-	When ``separate_billings_per_service_type`` is off on the quote, the main-service booking
-	receives **all** quote charge rows. When separate billings is on, the main job keeps only its
-	implied service type; Internal Job–scoped rows may still be appended for linked IJs.
+	When ``separate_billings_per_service_type`` is off on the quote, the booking whose doctype
+	matches quote ``main_service`` receives **all** quote charge rows (regardless of ``is_main_service``).
+	When separate billings is on, each job keeps only its implied service type; Internal Job–scoped
+	rows may still be appended for linked IJs.
 	"""
 	if doctype not in JOB_DOCTYPES or not sales_quote:
 		frappe.throw(_("Invalid arguments."))
@@ -1307,6 +1308,12 @@ def apply_quotation_charges_to_job(
 	# write to internal job documents — the Main now carries both scopes side by side).
 	with _suppress_msgprint():
 		scope_counts = _append_internal_job_scoped_charges_to_main(doc, sq)
+
+	from logistics.utils.sales_quote_one_off_internal_jobs import (
+		apply_linked_services_from_sales_quote_on_fetch,
+	)
+
+	apply_linked_services_from_sales_quote_on_fetch(sq, doc)
 
 	try:
 		doc.save()

@@ -15,6 +15,7 @@
   "project_name",
   "project_type",
   "customer",
+  "applicable_lifecycle_stages",
   "column_break_1",
   "sales_quote",
   "status",
@@ -29,8 +30,8 @@
   "special_handling_instructions",
   "scoping_tab",
   "scoping_activities",
-  "lifecycle_tab",
-  "lifecycle_jobs",
+  "services_tab",
+  "special_project_services",
   "cost_revenue_section",
   "cost_revenue_html",
   "fulfillment_tab",
@@ -59,6 +60,8 @@
   "charge_execution_logs",
   "section_break_operational_exchange_rates",
   "operational_exchange_rates",
+  "profitability_section_break",
+  "profitability_section_html",
   "recognition_section",
   "wip_recognition_enabled",
   "accrual_recognition_enabled",
@@ -101,9 +104,6 @@
   "documents_html",
   "document_list_template",
   "documents",
-  "profitability_tab",
-  "profitability_section_break",
-  "profitability_section_html",
   "more_info_tab",
   "notes_section",
   "internal_notes",
@@ -287,15 +287,24 @@
    "options": "Special Project Scoping Activity"
   },
   {
-   "fieldname": "lifecycle_tab",
+   "fieldname": "services_tab",
    "fieldtype": "Tab Break",
-   "label": "Lifecycle"
+   "label": "Services"
   },
   {
-   "fieldname": "lifecycle_jobs",
+   "description": "Lifecycle stages applicable to this project. Limits stage selection on Services rows.",
+   "fieldname": "applicable_lifecycle_stages",
+   "fieldtype": "Table MultiSelect",
+   "label": "Applicable Lifecycle Stages",
+   "options": "Special Project Lifecycle Stage"
+  },
+  {
+   "description": "Lifecycle services for this project. Each row is a Special Project Service record (created on save).",
+   "fieldname": "special_project_services",
    "fieldtype": "Table",
-   "label": "Lifecycle Jobs",
-   "options": "Lifecycle Job"
+   "is_virtual": 1,
+   "label": "Services",
+   "options": "Special Project Service Detail"
   },
   {
    "collapsible": 1,
@@ -316,14 +325,12 @@
   },
   {
    "fieldname": "section_break_packages_summary",
-   "fieldtype": "Section Break",
-   "label": "Summary"
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "packages_summary",
    "fieldtype": "HTML",
    "is_virtual": 1,
-   "label": "Summary",
    "options": "<div class=\"text-muted\" style=\"padding:8px 0;\">Loading fulfillment summary\u2026</div>"
   },
   {
@@ -711,11 +718,7 @@
    "options": "Job Document"
   },
   {
-   "fieldname": "profitability_tab",
-   "fieldtype": "Tab Break",
-   "label": "Profitability"
-  },
-  {
+   "collapsible": 1,
    "fieldname": "profitability_section_break",
    "fieldtype": "Section Break",
    "label": "Profitability"
@@ -824,7 +827,7 @@
    "link_fieldname": "special_project"
   }
  ],
- "modified": "2026-06-04 09:08:23.401343",
+ "modified": "2026-06-30 16:47:28.840512",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Special Project",

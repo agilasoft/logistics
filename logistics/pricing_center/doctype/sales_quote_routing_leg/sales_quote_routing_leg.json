@@ -15,9 +15,6 @@
   "destination",
   "etd",
   "eta",
-  "column_break_job",
-  "job_type",
-  "job_no",
   "notes"
  ],
  "fields": [
@@ -83,25 +80,6 @@
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "ETA"
-  },
-  {
-   "fieldname": "column_break_job",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "job_type",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Job Type",
-   "options": "\nTransport Job\nAir Shipment\nSea Shipment\nAir Booking\nSea Booking\nTransport Order"
-  },
-  {
-   "fieldname": "job_no",
-   "fieldtype": "Dynamic Link",
-   "in_list_view": 1,
-   "label": "Job No",
-   "options": "job_type",
-   "read_only": 1
   },
   {
    "fieldname": "notes",

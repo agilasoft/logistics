@@ -8,11 +8,17 @@ internal jobs (those still use ``Internal Job Detail``)."""
 
 from frappe.model.document import Document
 
+from logistics.special_projects.lifecycle_job_display import lifecycle_job_line_display_label
+
 
 _HISTORICAL_LINK_FIELDS = frozenset({"job_no", "order_no"})
 
 
 class LifecycleJob(Document):
+	def get_title(self):
+		label = lifecycle_job_line_display_label(self)
+		return label or self.name
+
 	def get_invalid_links(self, is_submittable=False):
 		invalid_links, cancelled_links = super().get_invalid_links(is_submittable=is_submittable)
 		# job_no / order_no are historical pointers; linked operational docs may be cancelled while parent still saves.

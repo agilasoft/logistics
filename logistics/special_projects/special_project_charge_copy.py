@@ -19,9 +19,49 @@ from logistics.utils.charge_service_type import (
 	sales_quote_charge_service_types_equal,
 )
 from logistics.utils.internal_job_charge_copy import _scrub_main_row_to_child_dict
+from logistics.utils.linked_service_compat import is_linked_charge_scope, normalize_charge_scope
 from logistics.utils.sales_quote_charge_parameters import (
 	programme_charge_matches_creation_parameters,
 )
+
+
+def _programme_charge_scope(charge: Any) -> str:
+	if isinstance(charge, dict):
+		return normalize_charge_scope(charge.get("charge_scope"))
+	return normalize_charge_scope(getattr(charge, "charge_scope", None))
+
+
+def linked_scope_programme_charges(charges: list[Any]) -> list[Any]:
+	"""Programme charge rows whose scope is Linked (or legacy Internal Job)."""
+	return [ch for ch in charges if is_linked_charge_scope(_programme_charge_scope(ch))]
+
+
+def booking_copy_uses_linked_scope_only(target_doctype: str) -> bool:
+	"""Operational freight/customs bookings copy Linked-scope programme charges only."""
+	return (target_doctype or "").strip() != "Project Order"
+
+
+def service_type_uses_linked_scope_copy(service_type_label: str | None) -> bool:
+	"""Whether programme charge copy / preview for this service type is Linked-scope only."""
+	if sales_quote_charge_service_types_equal(service_type_label, "Special Project"):
+		return False
+	stored = canonical_charge_service_type_for_storage(service_type_label)
+	return stored not in ("special project", "exhibits")
+
+
+def programme_charges_for_booking_copy(
+	sp_doc: Any,
+	service_type: str | None,
+	*,
+	job_type: str | None = None,
+) -> list[Any]:
+	"""Programme charges eligible to copy or preview for a booking/order create."""
+	pool = programme_charges_for_service_type(sp_doc, service_type)
+	if (job_type or "").strip() == "Project Order":
+		return pool
+	if service_type_uses_linked_scope_copy(service_type):
+		return linked_scope_programme_charges(pool)
+	return pool
 
 _NUMERIC_SCALE_FIELDS = (
 	"estimated_cost",
@@ -91,8 +131,10 @@ def populate_operational_charges_from_special_project(
 	):
 		forced_label = operational_booking_charge_service_type_label(implied, default="Transport")
 
-	source_charges = programme_charges_for_service_type(
-		sp_doc, getattr(lifecycle_row, "service_type", None) if lifecycle_row else None
+	source_charges = programme_charges_for_booking_copy(
+		sp_doc,
+		getattr(lifecycle_row, "service_type", None) if lifecycle_row else None,
+		job_type=target_doc.doctype,
 	)
 	if creation_parameters:
 		source_charges = [
@@ -150,6 +192,23 @@ def _populate_charges_from_linked_sales_quote(target_doc: Any) -> None:
 		)
 
 
+def _restrict_charges_to_linked_scope(target_doc: Any) -> None:
+	"""Keep only Linked-scope charge rows on an operational booking/order."""
+	rows = list(getattr(target_doc, "charges", None) or [])
+	if not rows:
+		return
+	kept = [
+		ch
+		for ch in rows
+		if is_linked_charge_scope(
+			normalize_charge_scope(getattr(ch, "charge_scope", None))
+		)
+	]
+	if len(kept) == len(rows):
+		return
+	target_doc.set("charges", kept)
+
+
 def _restrict_charges_to_target_service_type(
 	target_doc: Any, lifecycle_row: Any | None = None
 ) -> None:
@@ -180,13 +239,19 @@ def prepare_operational_charges_from_special_project(
 	lifecycle_row: Any | None = None,
 	creation_parameters: dict | None = None,
 ) -> None:
-	if populate_operational_charges_from_special_project(
+	populated = populate_operational_charges_from_special_project(
 		sp_doc, target_doc, lifecycle_row, creation_parameters=creation_parameters
-	):
-		return
-	if populate_operational_charges_from_special_project(
-		sp_doc, target_doc, lifecycle_row, ignore_pin=True, creation_parameters=creation_parameters
-	):
-		return
-	_populate_charges_from_linked_sales_quote(target_doc)
-	_restrict_charges_to_target_service_type(target_doc, lifecycle_row)
+	)
+	if not populated:
+		populated = populate_operational_charges_from_special_project(
+			sp_doc,
+			target_doc,
+			lifecycle_row,
+			ignore_pin=True,
+			creation_parameters=creation_parameters,
+		)
+	if not populated:
+		_populate_charges_from_linked_sales_quote(target_doc)
+		_restrict_charges_to_target_service_type(target_doc, lifecycle_row)
+	if booking_copy_uses_linked_scope_only(target_doc.doctype):
+		_restrict_charges_to_linked_scope(target_doc)

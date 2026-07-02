@@ -153,6 +153,7 @@ def transport_order_package_row_from_shipment_pkg(shipment, pkg):
 		"description",
 		"uom",
 		"no_of_packs",
+		"quantity",
 		"weight",
 		"weight_uom",
 		"volume",

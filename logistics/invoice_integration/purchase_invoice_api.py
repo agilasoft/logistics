@@ -24,6 +24,14 @@ from logistics.invoice_integration.consolidation_pi_allocation import (
     distribute_amounts_with_rounding,
     count_attached_jobs,
 )
+from logistics.invoice_integration.billing_currency import (
+    charge_to_company_rate_buying,
+    company_currency,
+    convert_amount_to_billing_currency,
+    invoice_billing_context,
+    resolve_cost_charge_currency,
+    supplier_default_billing_currency,
+)
 
 JOB_DOCTYPES = (
     "Transport Job",
@@ -264,6 +272,8 @@ def get_eligible_charges_for_consolidation_purchase_invoice(consolidation_doctyp
             "default_supplier": None,
             "default_posting_date": today(),
             "company": c_doc.company,
+            "company_currency": company_currency(c_doc.company),
+            "default_billing_currency": supplier_default_billing_currency(None, c_doc.company),
             "pi_naming": _purchase_invoice_naming_context(),
             "split_per_shipment": True,
         }
@@ -281,6 +291,7 @@ def get_eligible_charges_for_consolidation_purchase_invoice(consolidation_doctyp
             "cost": cost,
             "quantity": 1,
             "pay_to": sup,
+            "currency": resolve_cost_charge_currency(ch, c_doc.company, c_doc.doctype),
         })
     if not default_supplier:
         default_supplier = frappe.db.get_single_value("Logistics Settings", "default_cost_supplier")
@@ -289,6 +300,8 @@ def get_eligible_charges_for_consolidation_purchase_invoice(consolidation_doctyp
         "default_supplier": default_supplier,
         "default_posting_date": today(),
         "company": c_doc.company,
+        "company_currency": company_currency(c_doc.company),
+        "default_billing_currency": supplier_default_billing_currency(default_supplier, c_doc.company),
         "pi_naming": _purchase_invoice_naming_context(),
         "split_per_shipment": True,
     }
@@ -306,6 +319,8 @@ def create_consolidation_purchase_invoice(
     selected_charge_indices: Optional[str] = None,
     naming_series: Optional[str] = None,
     purchase_invoice_name: Optional[str] = None,
+    billing_currency: Optional[str] = None,
+    exchange_rate: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Create Purchase Invoice from Air or Sea Consolidation charges.
@@ -366,6 +381,18 @@ def create_consolidation_purchase_invoice(
     pi.supplier = resolved_supplier
     pi.company = c_doc.company
     pi.posting_date = posting_date or today()
+
+    billing_ctx = invoice_billing_context(
+        c_doc.company,
+        billing_currency,
+        exchange_rate,
+        pi.posting_date,
+        purpose="for_buying",
+    )
+    pi.currency = billing_ctx["billing_currency"]
+    pi.conversion_rate = billing_ctx["billing_exchange_rate"]
+    pi.ignore_pricing_rule = 1
+
     if due_date:
         pi.due_date = due_date
     if naming_series and (pi_naming["autoname"] or "").lower().startswith("naming_series:"):
@@ -412,12 +439,29 @@ def create_consolidation_purchase_invoice(
     pi_item_meta = frappe.get_meta("Purchase Invoice Item")
     has_ref = pi_item_meta.get_field("reference_doctype") and pi_item_meta.get_field("reference_name")
 
+    company_currency_code = billing_ctx["company_currency"]
+    billing_cur = billing_ctx["billing_currency"]
+    billing_xr = billing_ctx["billing_exchange_rate"]
+
     for _doc_idx, ch, charge_total, item_code, _sup in cost_rows:
+        charge_currency = resolve_cost_charge_currency(ch, c_doc.company, consolidation_doctype)
+        charge_to_company = charge_to_company_rate_buying(
+            ch, charge_currency, company_currency_code, pi.posting_date
+        )
+        charge_total_billing = convert_amount_to_billing_currency(
+            charge_total,
+            charge_currency,
+            billing_cur,
+            company_currency_code,
+            billing_xr,
+            charge_to_company,
+        )
+
         raw_rates = []
         for att in attached_list:
             f = allocation_factor_for_attached_job(c_doc, ch, att)
-            raw_rates.append(flt(charge_total) * f)
-        rates = distribute_amounts_with_rounding(raw_rates, charge_total)
+            raw_rates.append(flt(charge_total_billing) * f)
+        rates = distribute_amounts_with_rounding(raw_rates, charge_total_billing)
 
         for att, rate in zip(attached_list, rates):
             if flt(rate, 2) <= 0:
@@ -513,6 +557,8 @@ def get_eligible_charges_for_purchase_invoice(job_type: str, job_name: str) -> D
             "default_supplier": None,
             "default_posting_date": today(),
             "company": job.company,
+            "company_currency": company_currency(job.company),
+            "default_billing_currency": supplier_default_billing_currency(None, job.company),
             "pi_naming": _purchase_invoice_naming_context(),
         }
 
@@ -531,6 +577,7 @@ def get_eligible_charges_for_purchase_invoice(job_type: str, job_name: str) -> D
             "cost": cost,
             "quantity": 1,
             "pay_to": sup,
+            "currency": resolve_cost_charge_currency(ch, job.company),
         })
     if not default_supplier:
         default_supplier = frappe.db.get_single_value("Logistics Settings", "default_cost_supplier")
@@ -539,6 +586,8 @@ def get_eligible_charges_for_purchase_invoice(job_type: str, job_name: str) -> D
         "default_supplier": default_supplier,
         "default_posting_date": today(),
         "company": job.company,
+        "company_currency": company_currency(job.company),
+        "default_billing_currency": supplier_default_billing_currency(default_supplier, job.company),
         "pi_naming": _purchase_invoice_naming_context(),
     }
 
@@ -555,6 +604,8 @@ def create_purchase_invoice(
     selected_charge_indices: Optional[str] = None,
     naming_series: Optional[str] = None,
     purchase_invoice_name: Optional[str] = None,
+    billing_currency: Optional[str] = None,
+    exchange_rate: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Create Purchase Invoice from job/shipment costs.
@@ -640,6 +691,18 @@ def create_purchase_invoice(
     pi.supplier = resolved_supplier
     pi.company = job.company
     pi.posting_date = posting_date or today()
+
+    billing_ctx = invoice_billing_context(
+        job.company,
+        billing_currency,
+        exchange_rate,
+        pi.posting_date,
+        purpose="for_buying",
+    )
+    pi.currency = billing_ctx["billing_currency"]
+    pi.conversion_rate = billing_ctx["billing_exchange_rate"]
+    pi.ignore_pricing_rule = 1
+
     if due_date:
         pi.due_date = due_date
     if naming_series and (pi_naming["autoname"] or "").lower().startswith("naming_series:"):
@@ -670,7 +733,23 @@ def create_purchase_invoice(
     pi_item_meta = frappe.get_meta("Purchase Invoice Item")
     has_ref = pi_item_meta.get_field("reference_doctype") and pi_item_meta.get_field("reference_name")
 
+    company_currency_code = billing_ctx["company_currency"]
+    billing_cur = billing_ctx["billing_currency"]
+    billing_xr = billing_ctx["billing_exchange_rate"]
+
     for _doc_idx, ch, cost, item_code, _sup in cost_rows:
+        charge_currency = resolve_cost_charge_currency(ch, job.company)
+        charge_to_company = charge_to_company_rate_buying(
+            ch, charge_currency, company_currency_code, pi.posting_date
+        )
+        cost = convert_amount_to_billing_currency(
+            cost,
+            charge_currency,
+            billing_cur,
+            company_currency_code,
+            billing_xr,
+            charge_to_company,
+        )
         # Quantity = 1, estimated cost as unit rate
         item_payload = {
             "item_code": item_code,

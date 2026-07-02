@@ -4,7 +4,7 @@
 // Global helper used by the "Submission Blocked" msgprint primary_action to
 // jump to the relevant tab on the current Special Project form, then close
 // the dialog. The Python side passes `{ fieldname: "fulfillment_tab" }`
-// (or "lifecycle_tab") as args.
+// (or "services_tab") as args.
 window.logistics = window.logistics || {};
 window.logistics.special_project_modals = window.logistics.special_project_modals || {};
 window.logistics.special_project_modals.go_to_tab = function (args) {
@@ -56,6 +56,12 @@ function _load_milestone_html(frm, opts) {
 	});
 }
 
+function _applicable_lifecycle_stages_for_dashboard(frm) {
+	return (frm.doc.applicable_lifecycle_stages || [])
+		.map((row) => row.lifecycle_stage)
+		.filter(Boolean);
+}
+
 function _load_dashboard_html(frm, opts) {
 	opts = opts || {};
 	if (!frm.fields_dict.dashboard_html || !frm.doc.name || frm.doc.__islocal) {
@@ -64,10 +70,14 @@ function _load_dashboard_html(frm, opts) {
 	}
 	frappe.call({
 		method: "logistics.special_projects.doctype.special_project.special_project.get_dashboard_html",
-		args: { special_project: frm.doc.name },
+		args: {
+			special_project: frm.doc.name,
+			applicable_stages: _applicable_lifecycle_stages_for_dashboard(frm),
+		},
 		callback: function (r) {
 			if (r.message && frm.fields_dict.dashboard_html) {
 				frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+				_bind_fulfillment_panels_in_wrapper(frm, frm.fields_dict.dashboard_html.$wrapper);
 				if (window.logistics_group_and_collapse_dash_alerts) {
 					setTimeout(function () {
 						window.logistics_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
@@ -144,8 +154,7 @@ function _load_packages_summary(frm, opts) {
 			if (r.message && frm.fields_dict.packages_summary) {
 				frm.fields_dict.packages_summary.$wrapper.html(r.message);
 				_reveal_packages_summary_section(frm);
-				_bind_packages_summary_layout(frm);
-				_bind_packages_summary_collapse(frm);
+				_bind_fulfillment_panels_in_wrapper(frm, frm.fields_dict.packages_summary.$wrapper);
 			}
 		},
 	}).always(function () {
@@ -162,7 +171,7 @@ function _bind_special_project_lazy_tabs(frm) {
 		frm._logistics_lazy_modified = frm.doc.modified;
 	}
 	logistics.bind_lazy_tab_loader(frm, "dashboard_tab", "dashboard", _load_dashboard_html);
-	logistics.bind_lazy_tab_loader(frm, "lifecycle_tab", "cost_revenue", _load_cost_revenue_summary);
+	logistics.bind_lazy_tab_loader(frm, "services_tab", "cost_revenue", _load_cost_revenue_summary);
 	logistics.bind_lazy_tab_loader(frm, "fulfillment_tab", "packages_summary", _load_packages_summary);
 	logistics.bind_lazy_tab_loader(frm, "milestones_tab", "milestones", _load_milestone_html);
 	if (window.logistics_load_documents_html) {
@@ -176,25 +185,166 @@ function _bind_special_project_lazy_tabs(frm) {
 			{ defer_if_active: false }
 		);
 	}
+	// Profitability HTML lives on the Charges tab (no dedicated profitability_tab).
 	logistics.bind_lazy_tab_loader(
 		frm,
-		"profitability_tab",
+		"charges_tab",
 		"profitability",
 		_load_profitability_html
 	);
-	if (logistics.is_form_tab_active(frm, "profitability_tab")) {
+	if (logistics.is_form_tab_active(frm, "charges_tab")) {
 		setTimeout(function () {
-			logistics.trigger_lazy_tab_loaders(frm, "profitability_tab");
+			logistics.trigger_lazy_tab_loaders(frm, "charges_tab");
 		}, 150);
 	}
 }
 
-function _setup_lifecycle_jobs_duplicate_fix(frm) {
-	if (window.logistics && logistics.lifecycle && logistics.lifecycle.setup_lifecycle_jobs_grid) {
-		logistics.lifecycle.setup_lifecycle_jobs_grid(frm);
+function _applicableLifecycleStageFilters(frm) {
+	const stages = (frm.doc.applicable_lifecycle_stages || [])
+		.map((row) => row.lifecycle_stage)
+		.filter(Boolean);
+	// Must be a plain object — array filters break when merged with link_filters in link.js.
+	if (!stages.length) {
+		return { for_special_project: 1 };
+	}
+	return { name: ["in", stages] };
+}
+
+function _refresh_special_project_services_grid_rows(frm) {
+	if (!frm || !frm.doc || frm.doc.docstatus !== 0) return;
+	const field = frm.fields_dict.special_project_services;
+	if (!field || !field.grid) return;
+	const grid = field.grid;
+	if (!grid.grid_rows || typeof grid.is_editable !== "function" || !grid.is_editable()) {
 		return;
 	}
-	const field = frm.fields_dict.lifecycle_jobs;
+	grid.grid_rows.forEach((row) => {
+		if (row && typeof row.refresh === "function") {
+			row.refresh();
+		}
+	});
+}
+
+/** Virtual ``special_project_services`` defaults to Read display_status; show Add row on draft projects. */
+function _enable_special_project_services_grid_add_row(frm) {
+	if (!frm || !frm.doc || frm.doc.docstatus !== 0) return;
+	const field = frm.fields_dict.special_project_services;
+	if (!field || !field.grid || !field.grid.wrapper) return;
+	const grid = field.grid;
+	grid.display_status = "Write";
+	grid.wrapper.find(".grid-footer").removeClass("hidden");
+	grid.wrapper
+		.find(".grid-add-row, .grid-add-multiple-rows")
+		.removeClass("hidden d-none");
+	if (typeof grid.setup_toolbar === "function") {
+		grid.setup_toolbar();
+	}
+	_refresh_special_project_services_grid_rows(frm);
+}
+
+function _activate_special_project_services_grid_row(frm, cdn, attempt) {
+	if (!frm || !cdn) return;
+	const grid = frm.fields_dict.special_project_services?.grid;
+	if (!grid) return;
+	const row = (grid.grid_rows_by_docname && grid.grid_rows_by_docname[cdn]) || null;
+	if (!row) {
+		if ((attempt || 0) < 10) {
+			setTimeout(
+				() => _activate_special_project_services_grid_row(frm, cdn, (attempt || 0) + 1),
+				50
+			);
+		}
+		return;
+	}
+	_enable_special_project_services_grid_add_row(frm);
+	if (typeof grid.allow_on_grid_editing === "function" && grid.allow_on_grid_editing()) {
+		row.toggle_editable_row(true);
+		return;
+	}
+	row.toggle_view(true);
+}
+
+function _is_special_project_services_grid(grid) {
+	if (!grid || !grid.df || !grid.frm) return false;
+	return grid.frm.doctype === "Special Project" && grid.df.fieldname === "special_project_services";
+}
+
+function _patch_special_project_services_grid_activate(frm) {
+	const field = frm.fields_dict.special_project_services;
+	if (!field || !field.grid || typeof field.grid.add_new_row !== "function") return false;
+	const grid = field.grid;
+	if (grid._logistics_sp_svc_activate_patched) return true;
+
+	const orig_add_new_row = grid.add_new_row.bind(grid);
+	grid.add_new_row = function (idx, callback, show, copy_doc, go_to_last_page, go_to_first_page) {
+		const row_doc = orig_add_new_row(
+			idx,
+			callback,
+			show,
+			copy_doc,
+			go_to_last_page,
+			go_to_first_page
+		);
+		if (row_doc && row_doc.name) {
+			_activate_special_project_services_grid_row(frm, row_doc.name);
+		}
+		return row_doc;
+	};
+	grid._logistics_sp_svc_activate_patched = true;
+	return true;
+}
+
+function _setup_special_project_services_grid(frm) {
+	_setup_special_project_services_duplicate_fix(frm);
+	if (!_patch_special_project_services_grid_activate(frm) && !frm._logistics_sp_svc_grid_patch_retry) {
+		frm._logistics_sp_svc_grid_patch_retry = true;
+		setTimeout(() => _setup_special_project_services_grid(frm), 300);
+		return;
+	}
+	_enable_special_project_services_grid_add_row(frm);
+}
+
+(function patch_sp_services_grid_refresh() {
+	function patch_grid_refresh(grid) {
+		if (!_is_special_project_services_grid(grid) || grid._logistics_sp_svc_refresh_patched) {
+			return;
+		}
+		grid._logistics_sp_svc_refresh_patched = true;
+		const orig = grid.refresh.bind(grid);
+		grid.refresh = function () {
+			orig.apply(this, arguments);
+			if (this.frm) {
+				_enable_special_project_services_grid_add_row(this.frm);
+			}
+		};
+	}
+
+	function run() {
+		if (!frappe.ui.form || !frappe.ui.form.ControlTable) {
+			setTimeout(run, 50);
+			return;
+		}
+		if (frappe.ui.form.ControlTable.prototype.make.__logistics_sp_svc_hooked) {
+			return;
+		}
+		const orig_make = frappe.ui.form.ControlTable.prototype.make;
+		frappe.ui.form.ControlTable.prototype.make = function () {
+			orig_make.apply(this, arguments);
+			if (this.grid) {
+				patch_grid_refresh(this.grid);
+			}
+		};
+		frappe.ui.form.ControlTable.prototype.make.__logistics_sp_svc_hooked = true;
+	}
+	run();
+})();
+
+function _setup_special_project_services_duplicate_fix(frm) {
+	if (window.logistics && logistics.lifecycle && logistics.lifecycle.setup_special_project_services_grid) {
+		logistics.lifecycle.setup_special_project_services_grid(frm);
+		return;
+	}
+	const field = frm.fields_dict.special_project_services;
 	if (
 		!field ||
 		!field.grid ||
@@ -212,7 +362,7 @@ function _setup_lifecycle_jobs_duplicate_fix(frm) {
 			copy_doc.job_type = null;
 			copy_doc.order_no = null;
 			copy_doc.job_no = null;
-			copy_doc.lifecycle_job_line = null;
+			copy_doc.special_project_service_line = null;
 		}
 		return orig_add_new_row(idx, callback, show, copy_doc, go_to_last_page, go_to_first_page);
 	};
@@ -223,13 +373,13 @@ function _setup_lifecycle_jobs_duplicate_fix(frm) {
 			copy_doc.job_type = null;
 			copy_doc.order_no = null;
 			copy_doc.job_no = null;
-			copy_doc.lifecycle_job_line = null;
+			copy_doc.special_project_service_line = null;
 		}
 		orig_duplicate_row(d, copy_doc);
 		d.job_type = null;
 		d.order_no = null;
 		d.job_no = null;
-		d.lifecycle_job_line = null;
+		d.special_project_service_line = null;
 		return d;
 	};
 	grid._logistics_lifecycle_duplicate_patched = true;
@@ -322,9 +472,109 @@ function _reveal_packages_summary_section(frm) {
 		return;
 	}
 	field.$wrapper.removeClass("hide-control");
-	field.$wrapper.closest(".form-section").removeClass("empty-section").addClass("visible-section");
+	const $section = field.$wrapper.closest(".form-section");
+	$section.removeClass("empty-section").addClass("visible-section");
+	$section.find(".section-head").hide();
 	if (frm.layout && frm.layout.refresh_sections) {
 		frm.layout.refresh_sections();
+	}
+}
+
+function _bind_fulfillment_panels_in_wrapper(frm, $wrapper) {
+	if (!$wrapper || !$wrapper.length) {
+		return;
+	}
+	$wrapper.find("[data-sp-fulfillment-panel]").each(function () {
+		const $panel = $(this);
+		const $scope = $panel.parent();
+		_bind_packages_summary_layout($scope);
+		_bind_packages_summary_collapse($scope);
+		_bind_packages_summary_filters($scope);
+	});
+	$wrapper.find("[data-sp-fulfillment-dash]").each(function () {
+		_bind_special_project_main_dash_lifecycle($(this));
+	});
+}
+
+function _bind_special_project_main_dash_lifecycle($root) {
+	if (!$root || !$root.length || $root.attr("data-sp-fulfillment-dash-bound")) {
+		return;
+	}
+	$root.attr("data-sp-fulfillment-dash-bound", "1");
+
+	const currentStage = ($root.attr("data-sp-current-stage") || "").trim();
+
+	function setStageHighlight(stage) {
+		const normalized = (stage || "").trim();
+		$root.attr("data-stage-filter", normalized);
+		$root.find(".sp-dash-lifecycle-group").each(function () {
+			const gs = ($(this).attr("data-stage") || "").trim();
+			$(this).toggleClass("is-stage-filter", normalized && gs === normalized);
+		});
+		$root.find(".sp-dash-card").each(function () {
+			const cs = ($(this).attr("data-sp-lifecycle-stage") || "").trim();
+			$(this).toggleClass("is-selected", normalized && cs === normalized);
+		});
+	}
+
+	function syncGroupCollapsedState($group) {
+		const collapsed = $group.hasClass("collapsed");
+		const $body = $group.find(".sp-dash-lifecycle-group-body");
+		const $chevron = $group.find(".sp-dash-lifecycle-chevron");
+		$body.css("display", collapsed ? "none" : "");
+		$chevron.toggleClass("fa-chevron-right", collapsed);
+		$chevron.toggleClass("fa-chevron-down", !collapsed);
+	}
+
+	function toggleGroup($group) {
+		$group.toggleClass("collapsed");
+		syncGroupCollapsedState($group);
+	}
+
+	$root.find(".sp-dash-lifecycle-group").each(function () {
+		syncGroupCollapsedState($(this));
+	});
+
+	$root.find(".sp-dash-lifecycle-group-header").each(function () {
+		const $header = $(this);
+		if ($header.attr("data-sp-lifecycle-bound")) return;
+		$header.attr("data-sp-lifecycle-bound", "1");
+		const $chevron = $header.find(".sp-dash-lifecycle-chevron");
+		if ($chevron.length && !$chevron.attr("data-sp-lifecycle-bound")) {
+			$chevron.attr("data-sp-lifecycle-bound", "1");
+			$chevron.on("click.sp-lifecycle-dash", function (ev) {
+				ev.stopPropagation();
+				const $group = $header.closest(".sp-dash-lifecycle-group");
+				if ($group.length) toggleGroup($group);
+			});
+		}
+		$header.on("click.sp-lifecycle-dash", function (ev) {
+			if ($(ev.target).closest(".sp-dash-lifecycle-chevron").length) return;
+			const $group = $header.closest(".sp-dash-lifecycle-group");
+			if (!$group.length) return;
+			const stage = ($group.attr("data-stage") || "").trim();
+			const current = ($root.attr("data-stage-filter") || "").trim();
+			if (stage) setStageHighlight(stage === current ? "" : stage);
+			if ($group.hasClass("collapsed")) {
+				$group.removeClass("collapsed");
+				syncGroupCollapsedState($group);
+			}
+		});
+	});
+
+	$root.find(".sp-dash-card").each(function () {
+		const $card = $(this);
+		if ($card.attr("data-sp-lifecycle-bound")) return;
+		$card.attr("data-sp-lifecycle-bound", "1");
+		$card.on("click.sp-lifecycle-dash", function (ev) {
+			ev.stopPropagation();
+			const stage = ($card.attr("data-sp-lifecycle-stage") || "").trim();
+			if (stage) setStageHighlight(stage);
+		});
+	});
+
+	if (currentStage) {
+		setStageHighlight(currentStage);
 	}
 }
 
@@ -343,14 +593,17 @@ function _sync_packages_summary_full_width($root) {
 	$root.toggleClass("is-page-full-width", !!full_width);
 }
 
-function _bind_packages_summary_layout(frm) {
-	const $wrapper = frm.fields_dict.packages_summary?.$wrapper;
-	if (!$wrapper) {
+function _bind_packages_summary_layout($scope) {
+	if (!$scope || !$scope.length) {
 		return;
 	}
-	$wrapper.addClass("sp-packages-summary-field");
-	const $root = $wrapper.find(".sp-packages-summary");
-	_sync_packages_summary_full_width($root);
+	$scope.addClass("sp-packages-summary-field");
+	const $root = $scope.find(".sp-packages-summary").first();
+	if (!$root.length && $scope.hasClass("sp-packages-summary")) {
+		$scope.addClass("sp-packages-summary-field");
+	}
+	const $summary = $root.length ? $root : $scope.filter(".sp-packages-summary");
+	_sync_packages_summary_full_width($summary);
 
 	if (!window._logistics_sp_pks_fullwidth_bound) {
 		window._logistics_sp_pks_fullwidth_bound = true;
@@ -362,12 +615,11 @@ function _bind_packages_summary_layout(frm) {
 	}
 }
 
-function _bind_packages_summary_collapse(frm) {
-	const $wrapper = frm.fields_dict.packages_summary?.$wrapper;
-	if (!$wrapper) {
+function _bind_packages_summary_collapse($scope) {
+	if (!$scope || !$scope.length) {
 		return;
 	}
-	const $root = $wrapper.find(".sp-packages-summary");
+	const $root = $scope.find(".sp-packages-summary").first();
 	if (!$root.length) {
 		return;
 	}
@@ -403,6 +655,40 @@ function _bind_packages_summary_collapse(frm) {
 	});
 }
 
+function _bind_packages_summary_filters($scope) {
+	if (!$scope || !$scope.length) {
+		return;
+	}
+	const $root = $scope.find(".sp-packages-summary").first();
+	const $filters = $root.find(".sp-pfn-filters");
+	if (!$root.length || !$filters.length) {
+		return;
+	}
+
+	function apply_filter(filter) {
+		const $rows = $root.find(".sp-pfn-summary-row");
+		if (filter === "all") {
+			$rows.show();
+			return;
+		}
+		$rows.each(function () {
+			const status = ($(this).attr("data-status") || "").trim();
+			const show =
+				filter === "in_progress"
+					? status === "in_progress" || status === "stalled"
+					: status === filter;
+			$(this).toggle(show);
+		});
+	}
+
+	$filters.find(".sp-pfn-filter-chip").off("click.sp-pfn-filter").on("click.sp-pfn-filter", function () {
+		const filter = $(this).attr("data-filter") || "all";
+		$filters.find(".sp-pfn-filter-chip").removeClass("is-active");
+		$(this).addClass("is-active");
+		apply_filter(filter);
+	});
+}
+
 function _sync_programme_charge_sales_quote_links(frm) {
 	if (!frm.doc.name || frm.doc.__islocal || frm.is_dirty()) {
 		return;
@@ -432,18 +718,73 @@ function _sync_programme_charge_sales_quote_links(frm) {
 }
 
 function _refresh_packages_summary(frm) {
-	if (!frm.fields_dict.packages_summary || !frm.doc.name || frm.doc.__islocal) {
+	if (!frm.doc.name || frm.doc.__islocal) {
 		return;
 	}
-	if (window.logistics && logistics.invalidate_lazy_tab_loaders) {
-		logistics.invalidate_lazy_tab_loaders(frm, ["packages_summary"]);
+	if (frm.fields_dict.packages_summary) {
+		if (window.logistics && logistics.invalidate_lazy_tab_loaders) {
+			logistics.invalidate_lazy_tab_loaders(frm, ["packages_summary"]);
+		}
+		_load_packages_summary(frm, { force: true });
 	}
-	_load_packages_summary(frm, { force: true });
+	_refresh_dashboard_html(frm);
+}
+
+function _serviceRowLabel(frm, value) {
+	if (!value) {
+		return "";
+	}
+	const match = (frm.doc.special_project_services || []).find((row) => row.name === value);
+	if (match) {
+		return (
+			match.lifecycle_row_label ||
+			match.activity_name ||
+			match.lifecycle_stage ||
+			match.activity_code ||
+			value
+		);
+	}
+	return value;
+}
+
+function _setup_special_project_services_lifecycle_formatters(frm) {
+	const grid = frm.fields_dict.special_project_services && frm.fields_dict.special_project_services.grid;
+	if (!grid || grid._logistics_ps_lifecycle_label_patched) {
+		return;
+	}
+	grid._logistics_ps_lifecycle_label_patched = true;
+	grid.formatters = grid.formatters || {};
+	grid.formatters.lifecycle_stage = function (value) {
+		if (!value) {
+			return "";
+		}
+		return frappe.utils.escape_html(value);
+	};
 }
 
 function logistics_set_internal_job_site_query(frm) {
-	frm.set_query("sp_site", "lifecycle_jobs", function () {
+	frm.set_query("lifecycle_stage", function () {
+		return { filters: _applicableLifecycleStageFilters(frm) };
+	});
+	frm.set_query("sp_site", "special_project_services", function () {
 		return logistics.address.query_for_customer(frm.doc.customer);
+	});
+	frm.set_query("lifecycle_stage", "special_project_services", function () {
+		return { filters: _applicableLifecycleStageFilters(frm) };
+	});
+	frm.set_query("lifecycle_stage", "charges", function () {
+		return { filters: _applicableLifecycleStageFilters(frm) };
+	});
+	frm.set_query("special_project_service_line", "charges", function (doc, cdt, cdn) {
+		var row = cdn && locals[cdt] && locals[cdt][cdn];
+		var filters = [
+			["Special Project Service", "parent_booking_type", "=", "Special Project"],
+			["Special Project Service", "parent_booking_name", "=", frm.doc.name || ""],
+		];
+		if (row && row.lifecycle_stage) {
+			filters.push(["Special Project Service", "lifecycle_stage", "=", row.lifecycle_stage]);
+		}
+		return { filters: filters };
 	});
 }
 
@@ -468,11 +809,13 @@ frappe.ui.form.on("Special Project", {
 			frm.set_df_property("deliveries", "cannot_add_rows", 1);
 			frm.set_df_property("deliveries", "cannot_delete_rows", 1);
 		}
+		_setup_special_project_services_grid(frm);
 	},
 	setup: function (frm) {
 		if (window.logistics && logistics.lifecycle && logistics.lifecycle.setup_queries) {
 			logistics.lifecycle.setup_queries(frm);
 		}
+		logistics_set_internal_job_site_query(frm);
 		frm.set_query("milestone_template", function () {
 			return frappe.call("logistics.document_management.api.get_milestone_template_filters", { doctype: frm.doctype }).then(function (r) {
 				return r.message || { filters: [] };
@@ -535,13 +878,17 @@ frappe.ui.form.on("Special Project", {
 			frm.set_df_property("charge_execution_logs", "cannot_delete_rows", 1);
 		}
 		logistics_set_internal_job_site_query(frm);
+		_setup_special_project_services_grid(frm);
+		_setup_special_project_services_lifecycle_formatters(frm);
+		if (!frm.fields_dict.special_project_services?.grid?._logistics_ps_lifecycle_label_patched) {
+			setTimeout(() => _setup_special_project_services_lifecycle_formatters(frm), 300);
+		}
 		logistics_clear_stale_package_grid_settings(frm);
 		logistics_set_packages_site_query(frm);
 		_setup_packages_execution_only_balances(frm);
 		_bind_special_project_packages_realtime_refresh(frm);
-		_setup_lifecycle_jobs_duplicate_fix(frm);
-		if (!frm.fields_dict.lifecycle_jobs?.grid?._logistics_lifecycle_duplicate_patched) {
-			setTimeout(() => _setup_lifecycle_jobs_duplicate_fix(frm), 300);
+		if (!frm.fields_dict.special_project_services?.grid?._logistics_sp_svc_activate_patched) {
+			setTimeout(() => _setup_special_project_services_grid(frm), 300);
 		}
 		_bind_special_project_lazy_tabs(frm);
 		_refresh_packages_summary(frm);
@@ -713,29 +1060,51 @@ frappe.ui.form.on("Special Project", {
 		_refresh_dashboard_html(frm);
 	},
 
-	lifecycle_jobs_add: function (frm, cdt, cdn) {
-		if (logistics.lifecycle && logistics.lifecycle.clear_lifecycle_job_link_on_row_add) {
-			logistics.lifecycle.clear_lifecycle_job_link_on_row_add(frm, cdt, cdn);
-		} else if (cdt === "Lifecycle Job" && cdn && locals[cdt] && locals[cdt][cdn]) {
+	special_project_services_add: function (frm, cdt, cdn) {
+		if (logistics.lifecycle && logistics.lifecycle.clear_special_project_service_link_on_row_add) {
+			logistics.lifecycle.clear_special_project_service_link_on_row_add(frm, cdt, cdn);
+		} else if (
+			(cdt === "Special Project Service Detail" || cdt === "Special Project Service") &&
+			cdn &&
+			locals[cdt] &&
+			locals[cdt][cdn]
+		) {
 			const row = locals[cdt][cdn];
+			row.special_project_service = null;
 			row.job_type = null;
 			row.order_no = null;
 			row.job_no = null;
-			row.lifecycle_job_line = null;
-			const grid_row = frm.fields_dict.lifecycle_jobs?.grid?.grid_rows_by_docname?.[cdn];
+			row.special_project_service_line = null;
+			const grid_row = frm.fields_dict.special_project_services?.grid?.grid_rows_by_docname?.[cdn];
 			if (grid_row) {
 				grid_row.refresh_field("job_type");
 				grid_row.refresh_field("order_no");
 				grid_row.refresh_field("job_no");
-				grid_row.refresh_field("lifecycle_job_line");
+				grid_row.refresh_field("special_project_service_line");
 			}
 		}
+		_activate_special_project_services_grid_row(frm, cdn);
 		_refresh_cost_revenue_summary(frm);
 		_refresh_dashboard_html(frm);
 	},
-	lifecycle_jobs_remove: function (frm) {
+	special_project_services_remove: function (frm) {
 		_refresh_cost_revenue_summary(frm);
 		_refresh_dashboard_html(frm);
+	},
+	applicable_lifecycle_stages_add: function (frm) {
+		// Re-apply stage filters when applicable stages change.
+		logistics_set_internal_job_site_query(frm);
+		_refresh_dashboard_html(frm);
+		if (frm.fields_dict.lifecycle_stage) {
+			frm.refresh_field("lifecycle_stage");
+		}
+	},
+	applicable_lifecycle_stages_remove: function (frm) {
+		logistics_set_internal_job_site_query(frm);
+		_refresh_dashboard_html(frm);
+		if (frm.fields_dict.lifecycle_stage) {
+			frm.refresh_field("lifecycle_stage");
+		}
 	},
 });
 

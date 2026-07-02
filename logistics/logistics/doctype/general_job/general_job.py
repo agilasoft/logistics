@@ -6,6 +6,8 @@ from frappe.model.document import Document
 from frappe import _
 
 
+
+
 class GeneralJob(Document):
 	def before_save(self):
 		"""Calculate sustainability metrics and create job costing number before saving"""

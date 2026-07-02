@@ -1,0 +1,199 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:CACK.{#####}",
+ "creation": "2026-06-25 12:00:00.000000",
+ "default_sort_field": "modified",
+ "default_sort_order": "DESC",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "source_section",
+  "cash_advance_request",
+  "column_break_src",
+  "acknowledgment_type",
+  "amount",
+  "fund_source",
+  "posting_date",
+  "column_break_dim",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "job_number",
+  "payee",
+  "payee_name",
+  "remarks",
+  "journal_entry",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "source_section",
+   "fieldtype": "Section Break",
+   "label": "Cash advance"
+  },
+  {
+   "fieldname": "cash_advance_request",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Cash Advance Request",
+   "options": "Cash Advance Request",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_src",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "acknowledgment_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Acknowledgment Type",
+   "options": "Receipt\nPayment",
+   "reqd": 1,
+   "description": "Receipt: unused cash returned by payee. Payment: additional cash paid out when expenses exceed the advance."
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount",
+   "reqd": 1
+  },
+  {
+   "fieldname": "fund_source",
+   "fieldtype": "Link",
+   "label": "Fund Source",
+   "link_filters": "[[\"Account\", \"company\", \"=\", \"eval:doc.company\"], [\"Account\", \"is_group\", \"=\", 0], [\"Account\", \"disabled\", \"=\", 0], [\"Account\", \"account_type\", \"in\", [\"Bank\", \"Cash\"]]]",
+   "options": "Account",
+   "reqd": 1,
+   "description": "Bank or Cash account for the receipt or payment (required on submit)."
+  },
+  {
+   "default": "Today",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date"
+  },
+  {
+   "fieldname": "column_break_dim",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "no_copy": 1,
+   "options": "Job Number"
+  },
+  {
+   "fieldname": "payee",
+   "fieldtype": "Link",
+   "label": "Payee",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "payee_name",
+   "fieldtype": "Data",
+   "fetch_from": "payee.supplier_name",
+   "label": "Payee Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "journal_entry",
+   "fieldtype": "Link",
+   "label": "Journal Entry",
+   "no_copy": 1,
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Cash Acknowledgment",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "max_attachments": 0,
+ "modified": "2026-06-25 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cash Advance",
+ "name": "Cash Acknowledgment",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

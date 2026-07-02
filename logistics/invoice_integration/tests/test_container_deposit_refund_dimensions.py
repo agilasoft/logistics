@@ -5,7 +5,9 @@ from unittest.mock import MagicMock, patch
 
 from frappe.tests import UnitTestCase
 
-from logistics.logistics.deposit_processing.container_deposit_gl import _refund_je_dimension_extras
+from logistics.logistics.deposit_processing.container_deposit_gl import (
+	_refund_je_dimension_extras_from_pi,
+)
 
 
 class TestContainerDepositRefundDimensions(UnitTestCase):
@@ -18,16 +20,20 @@ class TestContainerDepositRefundDimensions(UnitTestCase):
 		row.get = _get
 		row.item_code = "CD-ITEM-1"
 		with patch(
-			"logistics.logistics.deposit_processing.container_deposit_gl.item_row_dict",
-			return_value={"dim_item": "CD-ITEM-1"},
+			"logistics.logistics.deposit_processing.container_deposit_gl._item_code_from_pi_for_container_deposit",
+			return_value="CD-ITEM-1",
 		) as mock_item:
 			with patch(
 				"logistics.logistics.deposit_processing.container_deposit_gl.reference_dimension_row_dict",
 				return_value={"dim_container": "CONT-A"},
 			) as mock_ref:
-				out = _refund_je_dimension_extras(row)
+				with patch(
+					"logistics.logistics.deposit_processing.container_deposit_gl.item_row_dict",
+					return_value={"dim_item": "CD-ITEM-1"},
+				):
+					out = _refund_je_dimension_extras_from_pi("CONT-A", None)
 		self.assertEqual(out, {"dim_item": "CD-ITEM-1", "dim_container": "CONT-A"})
-		mock_item.assert_called_once_with("Journal Entry Account", "CD-ITEM-1")
+		mock_item.assert_called_once_with(None, "CONT-A")
 		mock_ref.assert_called_once_with(
 			"Journal Entry Account",
 			"Container",

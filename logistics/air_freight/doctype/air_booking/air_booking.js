@@ -437,10 +437,10 @@ frappe.ui.form.on('Air Booking', {
 			}
 			return {};
 		});
-		frm.set_query('warehouse_item', 'packages', function(doc) {
+		frm.set_query('warehouse_item', 'packages', function() {
 			const filters = {};
-			if (doc.local_customer) {
-				filters.customer = doc.local_customer;
+			if (frm.doc.local_customer) {
+				filters.customer = frm.doc.local_customer;
 			}
 			return { filters: filters };
 		});
@@ -956,21 +956,6 @@ function _apply_routing_legs_from_sales_quote_response(frm, r) {
 	frm.refresh_field('routing_legs');
 }
 
-function _apply_internal_job_details_from_sales_quote_response(frm, r) {
-	if (!r.message || !r.message.internal_job_details || !r.message.internal_job_details.length) {
-		return;
-	}
-	frm.clear_table('internal_job_details');
-	r.message.internal_job_details.forEach(function(row) {
-		var d = frm.add_child('internal_job_details');
-		Object.keys(row).forEach(function(key) {
-			if (row[key] !== null && row[key] !== undefined) {
-				d[key] = row[key];
-			}
-		});
-	});
-	frm.refresh_field('internal_job_details');
-}
 
 // Populate charges from quote (handles both Sales Quote and One-Off Quote)
 function _populate_charges_from_quote(frm) {
@@ -1044,7 +1029,6 @@ function _populate_charges_from_quote(frm) {
 					return;
 				}
 				_apply_routing_legs_from_sales_quote_response(frm, r);
-				_apply_internal_job_details_from_sales_quote_response(frm, r);
 				if (r.message.message) {
 					frappe.msgprint({
 						title: __("No Charges Found"),
@@ -1078,6 +1062,13 @@ function _populate_charges_from_quote(frm) {
 								message: message,
 								indicator: 'green'
 							});
+						}
+						if (
+							quote_type === 'Sales Quote' &&
+							window.logistics &&
+							logistics.apply_sales_quote_linked_services_after_fetch
+						) {
+							logistics.apply_sales_quote_linked_services_after_fetch(frm, target_quote);
 						}
 					});
 				} else {

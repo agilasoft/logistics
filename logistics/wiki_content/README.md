@@ -128,6 +128,7 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | internal_and_intercompany_billing.md | Internal and Intercompany Billing | Intercompany |
 | special_projects_module.md | Special Projects Module | Special Projects |
 | special_project_packages.md | Special Project — Fulfillment (Packages & Deliveries) | Special Projects |
+| special_project_delivery_workflow.md | Special Project — Delivery Workflow | Special Projects |
 | pages_overview.md | Pages Overview | Pages |
 | reports_overview.md | Reports Overview | Reports |
 | glossary.md | Glossary | Glossary |

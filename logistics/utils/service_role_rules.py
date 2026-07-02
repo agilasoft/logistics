@@ -98,10 +98,6 @@ def apply_service_role_rules(doc: Any, method=None) -> None:
 		if hasattr(doc, "main_service") and not getattr(doc, "main_service", None):
 			doc.main_service = mn
 
-	sq = (getattr(doc, "sales_quote", None) or "").strip()
-	if sq and hasattr(doc, "service_scope") and not (getattr(doc, "service_scope", None) or "").strip():
-		doc.service_scope = sq
-
 	quotation_type = (get_sales_quote_quotation_type(doc) or "").strip()
 	if quotation_type == "Regular" and role == SERVICE_ROLE_MAIN and has_created_internal_job_children(doc):
 		if hasattr(doc, "service_role"):

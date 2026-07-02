@@ -347,6 +347,9 @@ class SeaShipment(Document):
             profit_center=self.profit_center,
             booking_date=self.booking_date,
         )
+
+    def on_update(self):
+        pass
     
     def before_save(self):
         """Calculate sustainability metrics before saving"""
@@ -1337,9 +1340,6 @@ class SeaShipment(Document):
                     title="No Charges Found",
                     indicator="orange"
                 )
-                from logistics.utils.sync_internal_job_details_from_sales_quote import sync_internal_job_details_from_sales_quote
-
-                sync_internal_job_details_from_sales_quote(self, sq_doc)
                 self.save(ignore_permissions=True)
                 return
             
@@ -1357,10 +1357,6 @@ class SeaShipment(Document):
             from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
 
             sync_operational_exchange_rates_from_charge_rows(self, self.charges)
-
-            from logistics.utils.sync_internal_job_details_from_sales_quote import sync_internal_job_details_from_sales_quote
-
-            sync_internal_job_details_from_sales_quote(self, sq_doc)
 
             self.save(ignore_permissions=True)
             
@@ -1391,6 +1387,30 @@ for _fname, _src in _MBL_VIRTUAL_FIELD_SOURCES:
         _fname,
         property(lambda self, s=_src: (self._get_mbl_row() or {}).get(s)),
     )
+
+
+@frappe.whitelist()
+def fetch_packing_summary(docname):
+	"""Return packing totals without run_doc_method / check_if_latest (avoids TimestampMismatchError)."""
+	if not docname or str(docname).startswith("new-"):
+		return {}
+	if not frappe.db.exists("Sea Shipment", docname):
+		return {}
+	doc = frappe.get_doc("Sea Shipment", docname)
+	if not getattr(doc, "override_volume_weight", False):
+		doc.aggregate_volume_from_packages()
+		doc.aggregate_weight_from_packages()
+	doc._update_packing_summary()
+	from logistics.sea_freight.container_row_metrics import container_cargo_payload_from_doc
+
+	return {
+		"total_volume": getattr(doc, "total_volume", 0),
+		"total_weight": getattr(doc, "total_weight", 0),
+		"total_containers": getattr(doc, "total_containers", 0),
+		"total_teus": getattr(doc, "total_teus", 0),
+		"total_packages": getattr(doc, "total_packages", 0),
+		"container_cargo": container_cargo_payload_from_doc(doc),
+	}
 
 
 @frappe.whitelist()
@@ -1679,14 +1699,14 @@ def create_job_number_for_shipment(
 	job_ref.profit_center = profit_center
 	job_ref.job_open_date = booking_date
 	job_ref.insert(ignore_permissions=True)
-	frappe.db.set_value("Sea Shipment", shipment_name, "job_number", job_ref.name)
+	frappe.db.set_value("Sea Shipment", shipment_name, "job_number", job_ref.name, update_modified=False)
 	
 	# Sync to related Sea Booking if it exists
 	sea_booking = frappe.db.get_value("Sea Shipment", shipment_name, "sea_booking")
 	if sea_booking:
 		booking_jcn = frappe.db.get_value("Sea Booking", sea_booking, "job_number")
 		if booking_jcn != job_ref.name:
-			frappe.db.set_value("Sea Booking", sea_booking, "job_number", job_ref.name)
+			frappe.db.set_value("Sea Booking", sea_booking, "job_number", job_ref.name, update_modified=False)
 	
 	frappe.db.commit()
 
@@ -1697,3 +1717,14 @@ def sea_shipment_exists(docname):
 	if not docname or docname == "new":
 		return False
 	return bool(frappe.db.exists("Sea Shipment", docname))
+
+
+@frappe.whitelist()
+def get_linked_declaration_order_name(docname: str) -> str:
+	"""Return linked Declaration Order from this shipment's Linked Service records."""
+	from logistics.utils.internal_job_detail_copy import get_declaration_order_job_no_from_shipment_doc
+
+	if not docname or not frappe.db.exists("Sea Shipment", docname):
+		return ""
+	doc = frappe.get_doc("Sea Shipment", docname)
+	return get_declaration_order_job_no_from_shipment_doc(doc) or ""

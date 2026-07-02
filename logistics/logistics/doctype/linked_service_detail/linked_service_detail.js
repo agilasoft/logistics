@@ -101,4 +101,5 @@
 	});
 
 	frappe.ui.form.on("Internal Job Detail", events);
+	frappe.ui.form.on("Linked Service Detail", events);
 })();

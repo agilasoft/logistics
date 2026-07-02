@@ -33,14 +33,17 @@ PACKAGE_RECEIPT_TRANSPORT_DOCTYPES = frozenset({"Transport Job"})
 PACKAGE_RECEIPT_FREIGHT_SHIPMENT_DOCTYPES = frozenset({"Air Shipment", "Sea Shipment"})
 PACKAGE_RECEIPT_PROJECT_JOB_DOCTYPES = frozenset({"Project Job"})
 
+# Parent doctypes whose package lines split material qty (quantity) from freight pack count.
+_FREIGHT_PACKAGE_PARENT_DOCTYPES = frozenset({"Air Booking", "Sea Booking"})
 
-def _stage_from_lifecycle_job(sp_doc: Any, job_type: str, job_no: str) -> str | None:
-	"""Find the originating Lifecycle Job row on the Special Project and return its stage."""
+
+def _stage_from_service_row(sp_doc: Any, job_type: str, job_no: str) -> str | None:
+	"""Find the originating Special Project Service row on the Special Project and return its stage."""
 	job_type = _norm(job_type)
 	job_no = _norm(job_no)
 	if not job_no:
 		return None
-	for row in getattr(sp_doc, "lifecycle_jobs", None) or []:
+	for row in getattr(sp_doc, "special_project_services", None) or []:
 		row_job_type = _norm(getattr(row, "job_type", None))
 		row_job_no = _norm(getattr(row, "job_no", None))
 		row_order_no = _norm(getattr(row, "order_no", None))
@@ -73,11 +76,11 @@ def _default_receipt_stage(
 	Air/Sea Booking that spawned this Shipment) -> Special Project's current stage
 	-> module default ("Logistics"). Returns None if Lifecycle Stage master is empty.
 	"""
-	stage = _stage_from_lifecycle_job(sp_doc, job_type or "", job_no or "")
+	stage = _stage_from_service_row(sp_doc, job_type or "", job_no or "")
 	if stage and frappe.db.exists("Lifecycle Stage", stage):
 		return stage
 	for ref_type, ref_name in fallback_refs or []:
-		fallback = _stage_from_lifecycle_job(sp_doc, ref_type or "", ref_name or "")
+		fallback = _stage_from_service_row(sp_doc, ref_type or "", ref_name or "")
 		if fallback and frappe.db.exists("Lifecycle Stage", fallback):
 			return fallback
 	current = _norm(getattr(sp_doc, "lifecycle_stage", None))
@@ -711,6 +714,12 @@ def _package_row_dict(sp_doc: Any, row_idx: int) -> dict[str, Any] | None:
 	return out
 
 
+def _pack_count_from_sp(pkg_info: dict[str, Any], *, default: float = 1) -> float:
+	"""Physical pack count from a Special Project package row; never qty_required."""
+	count = flt(pkg_info.get("no_of_packs", 0))
+	return count if count > 0 else default
+
+
 def apply_shipment_lines_to_target(
 	sp_doc: Any,
 	target_doc: Any,
@@ -776,6 +785,13 @@ def apply_shipment_lines_to_target(
 				continue
 			if meta.get_field(fn):
 				row_dict[fn] = value
+		parent_dt = getattr(target_doc, "doctype", None) or ""
+		if (
+			meta.get_field("no_of_packs")
+			and parent_dt in _FREIGHT_PACKAGE_PARENT_DOCTYPES
+			and not flt(row_dict.get("no_of_packs"))
+		):
+			row_dict["no_of_packs"] = _pack_count_from_sp(pkg_info)
 		if row_dict:
 			target_doc.append("packages", row_dict)
 			count += 1
@@ -797,14 +813,13 @@ def copy_always_along_packages_to_target(sp_doc: Any, target_doc: Any) -> int:
 	meta = frappe.get_meta(child_dt)
 	count = 0
 	for pkg in rows:
-		qty = flt(getattr(pkg, "no_of_packs", 0)) or flt(getattr(pkg, "qty_required", 0))
-		if qty <= 0:
-			qty = 1
+		material_qty = flt(getattr(pkg, "qty_required", 0)) or 1
+		pack_count = flt(getattr(pkg, "no_of_packs", 0)) or 1
 		row_dict: dict[str, Any] = {}
 		if meta.get_field("quantity"):
-			row_dict["quantity"] = qty
-		elif meta.get_field("no_of_packs"):
-			row_dict["no_of_packs"] = qty
+			row_dict["quantity"] = material_qty
+		if meta.get_field("no_of_packs"):
+			row_dict["no_of_packs"] = pack_count
 		for fn in ("warehouse_item", "commodity", "description", "uom"):
 			value = getattr(pkg, fn, None)
 			if value and meta.get_field(fn):
@@ -1136,6 +1151,27 @@ def cancel_receipts_for_freight_shipment(doc: Any) -> int:
 	return _cancel_receipts_on_special_project(sp_name, doc.doctype, doc.name)
 
 
+def repost_freight_shipment_deliveries(shipment_name: str) -> int:
+	"""Backfill Special Project deliveries for a submitted Air/Sea Shipment.
+
+	Safe to re-run: ``_receipt_exists`` skips package lines already posted.
+	"""
+	shipment_name = _norm(shipment_name)
+	if not shipment_name:
+		return 0
+	for doctype in PACKAGE_RECEIPT_FREIGHT_SHIPMENT_DOCTYPES:
+		if frappe.db.exists(doctype, shipment_name):
+			doc = frappe.get_doc(doctype, shipment_name)
+			if cint_safe(getattr(doc, "docstatus", 0)) != 1:
+				frappe.throw(
+					_("{0} {1} must be submitted before deliveries can be posted.").format(
+						doctype, shipment_name
+					)
+				)
+			return post_site_receipts_from_freight_shipment(doc)
+	frappe.throw(_("Shipment {0} not found.").format(shipment_name))
+
+
 def on_freight_shipment_submit(doc: Any, method: str | None = None) -> None:
 	"""Doc-events bridge: post SP deliveries when an Air/Sea Shipment is submitted.
 
@@ -1356,6 +1392,7 @@ def get_packages_for_shipment_picker(special_project: str) -> list[dict[str, Any
 				"qty_required": flt(getattr(pkg, "qty_required", 0)),
 				"qty_on_site": flt(getattr(pkg, "qty_on_site", 0)),
 				"qty_short": flt(getattr(pkg, "qty_short", 0)),
+				"no_of_packs": flt(getattr(pkg, "no_of_packs", 0)),
 				"uom": getattr(pkg, "uom", None),
 			}
 		)

@@ -8,7 +8,7 @@
  "field_order": [
   "service_type",
   "charge_group",
-  "internal_job",
+  "linked_service",
   "item_code",
   "item_name",
   "description",

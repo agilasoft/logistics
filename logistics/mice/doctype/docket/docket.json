@@ -93,13 +93,13 @@
   "date_costs_fully_paid",
   "milestones_tab",
   "section_milestones",
-  "milestone_template",
   "milestone_html",
+  "milestone_template",
   "milestones",
   "documents_tab",
   "section_documents",
-  "document_list_template",
   "documents_html",
+  "document_list_template",
   "documents",
   "more_info_tab",
   "section_notes",
@@ -415,29 +415,29 @@
    "fieldtype": "Section Break",
    "label": "Exchange Rate Sources"
   },
- {
-  "fieldname": "operational_exchange_rates",
-  "fieldtype": "Table",
-  "label": "Operational Exchange Rates",
-  "no_copy": 1,
-  "options": "Operational Exchange Rate"
- },
- {
-  "collapsible": 1,
-  "fieldname": "profitability_section_break",
-  "fieldtype": "Section Break",
-  "label": "Profitability"
- },
- {
-  "fieldname": "profitability_section_html",
-  "fieldtype": "HTML",
-  "label": "Revenue, Cost, Profit, WIP, Accrual",
-  "no_copy": 1,
-  "read_only": 1
- },
- {
-  "collapsible": 1,
-  "fieldname": "recognition_section",
+  {
+   "fieldname": "operational_exchange_rates",
+   "fieldtype": "Table",
+   "label": "Operational Exchange Rates",
+   "no_copy": 1,
+   "options": "Operational Exchange Rate"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "profitability_section_break",
+   "fieldtype": "Section Break",
+   "label": "Profitability"
+  },
+  {
+   "fieldname": "profitability_section_html",
+   "fieldtype": "HTML",
+   "label": "Revenue, Cost, Profit, WIP, Accrual",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "recognition_section",
    "fieldtype": "Section Break",
    "label": "Revenue & Cost Recognition"
   },
@@ -713,6 +713,7 @@
   {
    "fieldname": "section_break_summary",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Summary"
   },
   {
@@ -759,8 +760,8 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-05-27 17:30:00.000000",
- "modified_by": "Administrator",
+ "modified": "2026-07-02 07:55:15.774749",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "MICE",
  "name": "Docket",
  "naming_rule": "By \"Naming Series\" field",

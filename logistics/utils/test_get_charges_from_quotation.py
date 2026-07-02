@@ -288,8 +288,8 @@ class TestGetChargesCorridorHelpers(FrappeTestCase):
 		"logistics.utils.routing_quote_context.routing_leg_service_type_for_parent",
 		return_value=None,
 	)
-	def test_sales_quote_charge_filters_no_flag_separate_off_returns_all(self, _mock_rt):
-		"""Without the flag, separate_billings off keeps the existing combined-billing behaviour."""
+	def test_sales_quote_charge_filters_separate_off_matching_quote_main_service_returns_all(self, _mock_rt):
+		"""Separate billings off: Sea Booking gets all charges when quote Main Service is Sea."""
 		parent = MagicMock()
 		parent.doctype = "Sea Booking"
 		parent.is_internal_job = 0
@@ -297,9 +297,28 @@ class TestGetChargesCorridorHelpers(FrappeTestCase):
 		parent.flags = None
 		sq = MagicMock()
 		sq.name = "SQ-1"
+		sq.main_service = "Sea"
 		sq.separate_billings_per_service_type = 0
 		filters = sales_quote_charge_filters(parent, sq)
 		self.assertNotIn("service_type", filters)
+
+	@patch(
+		"logistics.utils.routing_quote_context.routing_leg_service_type_for_parent",
+		return_value=None,
+	)
+	def test_sales_quote_charge_filters_separate_off_other_service_type_restricts(self, _mock_rt):
+		"""Separate billings off: Air Booking still gets only Air when quote Main Service is Sea."""
+		parent = MagicMock()
+		parent.doctype = "Air Booking"
+		parent.is_internal_job = 0
+		parent.is_main_service = 0
+		parent.flags = None
+		sq = MagicMock()
+		sq.name = "SQ-1"
+		sq.main_service = "Sea"
+		sq.separate_billings_per_service_type = 0
+		filters = sales_quote_charge_filters(parent, sq)
+		self.assertIn("service_type", filters)
 
 	@patch("logistics.utils.charge_service_type._legacy_customs_rows_for_quote", return_value=[])
 	def test_customs_charges_rows_gcfq_main_only_keeps_customs_only_when_separate_on(self, _mock_legacy):

@@ -26,6 +26,78 @@ logistics.operational_exchange_rate.fetch_rate = function (frm, cdt, cdn) {
 	});
 };
 
+logistics.operational_exchange_rate.fetch_sales_quote_charge_side_rate = function (
+	frm,
+	cdt,
+	cdn,
+	{ source_field, currency_field, rate_field }
+) {
+	const row = frappe.get_doc(cdt, cdn);
+	if (!row || !frm || !frm.doc) {
+		return;
+	}
+	const source = row[source_field];
+	const currency = row[currency_field];
+	const as_of_date = frm.doc.date;
+	if (!currency || !as_of_date) {
+		return;
+	}
+	if (!source) {
+		return;
+	}
+	frappe.call({
+		method: 'logistics.utils.operational_exchange_rates.get_charge_side_exchange_rate',
+		args: {
+			company: frm.doc.company,
+			exchange_rate_source: source,
+			currency,
+			as_of_date,
+		},
+		callback: (r) => {
+			if (r.message != null && r.message !== '') {
+				frappe.model.set_value(cdt, cdn, rate_field, r.message);
+				frm.dirty();
+			}
+		},
+	});
+};
+
+logistics.operational_exchange_rate.refresh_sales_quote_charge_exchange_rates = function (frm) {
+	if (!frm || !frm.doc) {
+		return;
+	}
+	const charges = frm.doc.charges || [];
+	for (const row of charges) {
+		if (!row.name) {
+			continue;
+		}
+		if (row.bill_to_exchange_rate_source && row.currency) {
+			logistics.operational_exchange_rate.fetch_sales_quote_charge_side_rate(
+				frm,
+				'Sales Quote Charge',
+				row.name,
+				{
+					source_field: 'bill_to_exchange_rate_source',
+					currency_field: 'currency',
+					rate_field: 'bill_to_exchange_rate',
+				}
+			);
+		}
+		if (row.pay_to_exchange_rate_source && row.cost_currency) {
+			logistics.operational_exchange_rate.fetch_sales_quote_charge_side_rate(
+				frm,
+				'Sales Quote Charge',
+				row.name,
+				{
+					source_field: 'pay_to_exchange_rate_source',
+					currency_field: 'cost_currency',
+					rate_field: 'pay_to_exchange_rate',
+				}
+			);
+		}
+	}
+};
+
 frappe.ui.form.on('Operational Exchange Rate', {
 	entity_type(frm, cdt, cdn) {
 		frappe.model.set_value(cdt, cdn, 'entity', null);

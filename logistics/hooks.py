@@ -40,6 +40,7 @@ app_include_css = [
 ]
 app_include_js = [
 	"/assets/logistics/js/address_link_query.js?v=1",
+	"/assets/logistics/js/linked_service_link_query.js?v=1",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=3",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
@@ -58,8 +59,10 @@ app_include_js = [
 	"/assets/logistics/js/density_factor.js?v=2",
 	"/assets/logistics/js/document_alerts_dialog.js?v=2",
 	"/assets/logistics/js/documents_tab_utils.js",
+	"/assets/logistics/js/opportunity_dashboard_boot.js?v=3",
 	"/assets/logistics/js/profitability_form.js?v=5",
 	"/assets/logistics/js/purchase_invoice_dialog.js",
+	"/assets/logistics/js/invoice_billing_currency.js",
 	"/assets/logistics/js/sales_invoice_dialog.js",
 	"/assets/logistics/js/sales_invoice_job_dimension_cleanup.js",
 ]
@@ -82,6 +85,7 @@ doctype_js = {
 	],
 	# Sales Quote: dialogs first, break row/grid handlers, then air/sea freight scripts
 	"Sales Quote": [
+		"logistics/public/js/operational_exchange_rate_grid.js",
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/charge_break_buttons.js",
 		"logistics/pricing_center/doctype/sales_quote_charge/sales_quote_charge.js",
@@ -90,6 +94,10 @@ doctype_js = {
 		"logistics/pricing_center/doctype/sales_quote/sales_quote.js",
 	],
 	"Sales Quote Pack": "logistics/pricing_center/doctype/sales_quote_pack/sales_quote_pack.js",
+	"Opportunity": [
+		"pricing_center/doctype/opportunity_service_scope/opportunity_service_scope.js",
+		"public/js/opportunity_services.js",
+	],
 	"Tariff": [
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/charge_break_buttons.js",
@@ -121,6 +129,7 @@ doctype_js = {
 		"logistics/air_freight/doctype/air_shipment_charges/air_shipment_charges.js",
 		"logistics/public/js/charge_break_buttons.js",
 		"logistics/public/js/profitability_form.js",
+		"logistics/public/js/sales_invoice_dialog.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
 		"logistics/job_management/recognition_client.js",
 		"logistics/job_management/recognition_policy_fields.js",
@@ -129,7 +138,7 @@ doctype_js = {
 	"Air Consolidation": [
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
-		"logistics/public/js/air_consolidation_matching_shipments.js?v=5",
+		"logistics/public/js/air_consolidation_matching_shipments.js",
 		"logistics/public/js/charge_break_buttons.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
 	],
@@ -151,6 +160,7 @@ doctype_js = {
 		"logistics/public/js/sea_freight_accounting_defaults.js",
 		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
+		"logistics/public/js/sales_invoice_dialog.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
@@ -164,7 +174,7 @@ doctype_js = {
 	"Sea Consolidation": [
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
-		"logistics/public/js/sea_consolidation_matching_shipments.js?v=3",
+		"logistics/public/js/sea_consolidation_matching_shipments.js",
 		"logistics/public/js/charge_break_buttons.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
 	],
@@ -207,6 +217,7 @@ doctype_js = {
 		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
 		"logistics/public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
+		"logistics/public/js/sales_invoice_dialog.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
 		"logistics/pricing_center/doctype/transport_job_charges/transport_job_charges.js",
 		"logistics/public/js/charge_break_buttons.js",
@@ -219,6 +230,7 @@ doctype_js = {
 		"logistics/public/js/document_alerts_dialog.js",
 	],
 	"Warehouse Job": [
+		"logistics/public/js/sales_invoice_dialog.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
@@ -260,6 +272,8 @@ doctype_js = {
 	# apps/frappe/frappe/desk/form/meta.py.
 	"Special Project": [
 		"public/js/profitability_project_form.js",
+		"logistics/public/js/sales_invoice_dialog.js",
+		"logistics/public/js/purchase_invoice_dialog.js",
 		# Module-relative paths only (no leading logistics/ — see comment above Docket entry).
 		"job_management/recognition_client.js",
 		"job_management/recognition_policy_fields.js",
@@ -283,6 +297,7 @@ doctype_js = {
 	"Credit Hold Lift Request": "logistics/logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
 	"Cash Advance Request": "logistics/cash_advance/doctype/cash_advance_request/cash_advance_request.js",
 	"Cash Advance Liquidation": "logistics/cash_advance/doctype/cash_advance_liquidation/cash_advance_liquidation.js",
+	"Cash Acknowledgment": "logistics/cash_advance/doctype/cash_acknowledgment/cash_acknowledgment.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -353,6 +368,10 @@ _doc_milestone_doctypes = [
 ]
 
 doc_events = {
+	"Opportunity": {
+		"onload": "logistics.pricing_center.utils.opportunity_scopes.on_opportunity_onload",
+		"validate": "logistics.pricing_center.utils.opportunity_scopes.on_opportunity_validate",
+	},
 	"Customer": {
 		"validate": "logistics.utils.party_code.validate_customer_supplier_party_code",
 	},
@@ -394,17 +413,18 @@ doc_events = {
 	},
 }
 for _dt in _doc_milestone_doctypes:
+	_before_save = [
+		"logistics.document_management.api.update_milestone_status_on_parent_before_save",
+		"logistics.document_management.api.update_job_document_status_on_parent_before_save",
+	]
+	# Populate documents/milestones in before_save (same transaction) — not on_update, which
+	# nested-saved and bumped modified after the client received the save response (TimestampMismatchError).
+	if _dt != "Declaration Order":
+		_before_save.insert(0, "logistics.document_management.api.ensure_documents_and_milestones_from_template")
 	doc_events[_dt] = {
-		"before_save": [
-			"logistics.document_management.api.update_milestone_status_on_parent_before_save",
-			"logistics.document_management.api.update_job_document_status_on_parent_before_save",
-		],
+		"before_save": _before_save,
 		"before_submit": "logistics.document_management.api.enforce_required_job_documents_before_submit",
 	}
-	# Exclude Declaration Order from automatic on_update hook to prevent timestamp mismatches
-	# Declaration Order uses user-initiated template population (like Air Booking and Sea Booking)
-	if _dt != "Declaration Order":
-		doc_events[_dt]["on_update"] = "logistics.document_management.api.ensure_documents_and_milestones_from_template"
 
 # Main Service vs Internal Job: internal jobs cannot be flagged as main service
 _MAIN_SERVICE_VALIDATE = "logistics.utils.charge_service_type.on_validate_main_service_internal_job"
@@ -559,6 +579,7 @@ for _dt in (
 	"General Job",
 	"Project Job",
 	"MICE Job",
+	"Exhibit Job",
 	"MICE Project",
 	"Docket",
 	"Exhibit",
@@ -603,6 +624,22 @@ elif isinstance(_existing_ls_on_update, list):
 		_LINKED_SERVICE_DOC_EVENTS["on_update"] = list(_existing_ls_on_update) + [_INTERNAL_JOB_ON_UPDATE]
 elif _existing_ls_on_update != _INTERNAL_JOB_ON_UPDATE:
 	_LINKED_SERVICE_DOC_EVENTS["on_update"] = [_existing_ls_on_update, _INTERNAL_JOB_ON_UPDATE]
+
+# Special Project Services: virtual grid backed by Special Project Service documents.
+_SP_SERVICE_PERSISTENCE_MODULE = "logistics.special_projects.special_project_service_persistence"
+_SP_SERVICE_PERSISTENCE_EVENTS = (
+	("before_save", _SP_SERVICE_PERSISTENCE_MODULE + ".sync_special_project_services_to_documents"),
+	("on_trash", _SP_SERVICE_PERSISTENCE_MODULE + ".delete_special_project_services_for_project"),
+)
+for _event, _handler in _SP_SERVICE_PERSISTENCE_EVENTS:
+	_existing = doc_events.setdefault("Special Project", {}).get(_event)
+	if not _existing:
+		doc_events["Special Project"][_event] = _handler
+	elif isinstance(_existing, list):
+		if _handler not in _existing:
+			doc_events["Special Project"][_event] = list(_existing) + [_handler]
+	elif _existing != _handler:
+		doc_events["Special Project"][_event] = [_existing, _handler]
 
 # Special Project lifecycle financials: refresh when operational job charges change.
 _LIFECYCLE_FINANCIAL_REFRESH = (

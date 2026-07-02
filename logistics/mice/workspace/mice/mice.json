@@ -19,7 +19,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Masters",
-   "link_count": 8,
+   "link_count": 9,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -100,6 +100,16 @@
    "label": "Activity Code",
    "link_count": 0,
    "link_to": "Activity Code",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Official Appointment Status",
+   "link_count": 0,
+   "link_to": "Official Appointment Status",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"

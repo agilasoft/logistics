@@ -21,7 +21,9 @@ from logistics.utils.sales_quote_charge_parameters import extract_sales_quote_ch
 def _job_detail_rows(parent_doc: Any) -> list:
 	if not parent_doc:
 		return []
-	return list(getattr(parent_doc, "internal_job_details", None) or [])
+	from logistics.utils.internal_job_persistence import internal_job_detail_rows_for_parent
+
+	return list(internal_job_detail_rows_for_parent(parent_doc))
 
 
 def job_detail_parameters_dict(row: Any) -> dict[str, Any]:

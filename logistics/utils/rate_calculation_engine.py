@@ -269,8 +269,7 @@ class RateCalculationEngine:
     ) -> tuple:
         """Calculate rate using Fixed Amount method. Returns (amount, quantity_used)."""
         rate = flt(rate_data.get("rate", 0) or rate_data.get("unit_rate", 0))
-        quantity = flt(actual_quantity or 0) or 1
-        return rate * quantity, quantity
+        return rate, 0
 
     def _calculate_flat_rate(self, rate_data: Dict, **kwargs) -> tuple:
         """Calculate rate using Flat Rate method. Returns (amount, quantity_used)."""
@@ -402,9 +401,7 @@ class RateCalculationEngine:
             rate_str = f"{rate} {currency}/{unit_suffix}" if unit_suffix else f"{rate} {currency}/unit"
             detail = f"Per Unit ({unit_type}): {qty_str} × {rate_str} = {calc_base} {currency}"
         elif method == "Fixed Amount":
-            detail = f"Fixed Amount: {rate} {currency}"
-            if qty and qty != 1:
-                detail = f"Fixed Amount: {qty} × {rate} {currency} = {calc_base} {currency}"
+            detail = f"Fixed Amount: {calc_base} {currency}"
         elif method == "Flat Rate":
             detail = f"Flat Rate: {calc_base} {currency}"
         elif method == "Base Plus Additional":

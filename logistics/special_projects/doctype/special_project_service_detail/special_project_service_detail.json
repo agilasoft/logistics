@@ -1,0 +1,557 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-30 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "special_project_service",
+  "lifecycle_stage",
+  "activity_code",
+  "activity_name",
+  "lifecycle_row_label",
+  "lifecycle_activity_status",
+  "special_project_service_line",
+  "service_type",
+  "job_type",
+  "order_no",
+  "job_no",
+  "section_break_air_params",
+  "air_house_type",
+  "airline",
+  "freight_agent",
+  "section_break_sea_params",
+  "sea_house_type",
+  "freight_agent_sea",
+  "shipping_line",
+  "transport_mode",
+  "section_break_common_params",
+  "load_type",
+  "direction",
+  "origin_port",
+  "destination_port",
+  "section_break_transport_params",
+  "transport_template",
+  "vehicle_type",
+  "container_type",
+  "container_no",
+  "location_type",
+  "location_from",
+  "location_to",
+  "pick_mode",
+  "drop_mode",
+  "section_break_customs_params",
+  "customs_authority",
+  "declaration_type",
+  "customs_broker",
+  "customs_charge_category",
+  "section_break_special_project",
+  "sp_site",
+  "sp_manpower",
+  "sp_skilled",
+  "sp_equipment_type",
+  "sp_handling",
+  "sp_resource_notes",
+  "section_break_rollup",
+  "planned_cost",
+  "actual_cost",
+  "planned_revenue",
+  "actual_revenue",
+  "job_description"
+ ],
+ "fields": [
+  {
+   "fieldname": "special_project_service",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Special Project Service",
+   "no_copy": 1,
+   "options": "Special Project Service",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "description": "Lifecycle stage this service belongs to.",
+   "fieldname": "lifecycle_stage",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Lifecycle Stage",
+   "options": "Lifecycle Stage",
+   "reqd": 1,
+   "fetch_from": "special_project_service.lifecycle_stage",
+   "fetch_if_empty": 1
+  },
+  {
+   "fieldname": "activity_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Activity Code",
+   "link_filters": "[[\"Activity Code\", \"lifecycle_stage\", \"=\", \"eval:doc.lifecycle_stage\"]]",
+   "options": "Activity Code",
+   "fetch_from": "special_project_service.activity_code",
+   "fetch_if_empty": 1
+  },
+  {
+   "fetch_from": "special_project_service.activity_name",
+   "fieldname": "activity_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Activity Name",
+   "read_only": 1
+  },
+  {
+   "description": "Used for link display on Charges.",
+   "fieldname": "lifecycle_row_label",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Service Row Label",
+   "read_only": 1,
+   "fetch_from": "special_project_service.lifecycle_row_label"
+  },
+  {
+   "default": "Not Started",
+   "depends_on": "eval:doc.activity_code",
+   "fieldname": "lifecycle_activity_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Activity Status",
+   "options": "Not Started\nIn Progress\nCompleted\nN/A",
+   "fetch_from": "special_project_service.lifecycle_activity_status",
+   "fetch_if_empty": 1
+  },
+  {
+   "description": "Planning service row this execution row was created from.",
+   "fieldname": "special_project_service_line",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Source Service Line",
+   "options": "Special Project Service",
+   "read_only": 1,
+   "fetch_from": "special_project_service.special_project_service_line"
+  },
+  {
+   "fieldname": "service_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Service Type",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE",
+   "reqd": 1,
+   "fetch_from": "special_project_service.service_type",
+   "fetch_if_empty": 1
+  },
+  {
+   "description": "Booking or order type for this lifecycle leg.",
+   "fieldname": "job_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Job Type",
+   "no_copy": 1,
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nInbound Order\nRelease Order\nTransfer Order\nProject Order\nProject Job\nMICE Order\nMICE Job",
+   "read_only": 1,
+   "fetch_from": "special_project_service.job_type"
+  },
+  {
+   "fieldname": "order_no",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Order No",
+   "no_copy": 1,
+   "options": "job_type",
+   "read_only": 1,
+   "fetch_from": "special_project_service.order_no"
+  },
+  {
+   "description": "Submitted shipment or job document for this lifecycle leg.",
+   "fieldname": "job_no",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Job No",
+   "no_copy": 1,
+   "options": "job_type",
+   "read_only": 1,
+   "fetch_from": "special_project_service.job_no"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Air\"",
+   "fieldname": "section_break_air_params",
+   "fieldtype": "Section Break",
+   "label": "Air Parameters"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Air\"",
+   "fieldname": "air_house_type",
+   "fieldtype": "Select",
+   "label": "Air House Type",
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk",
+   "fetch_from": "special_project_service.air_house_type",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Air\"",
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "label": "Airline",
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]",
+   "options": "Airline",
+   "fetch_from": "special_project_service.airline",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Air\"",
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent",
+   "fetch_from": "special_project_service.freight_agent",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fieldname": "section_break_sea_params",
+   "fieldtype": "Section Break",
+   "label": "Sea Parameters"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fieldname": "sea_house_type",
+   "fieldtype": "Select",
+   "label": "Sea House Type",
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk",
+   "fetch_from": "special_project_service.sea_house_type",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fieldname": "freight_agent_sea",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent",
+   "fetch_from": "special_project_service.freight_agent_sea",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fieldname": "shipping_line",
+   "fieldtype": "Link",
+   "label": "Shipping Line",
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]",
+   "options": "Shipping Line",
+   "fetch_from": "special_project_service.shipping_line",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fieldname": "transport_mode",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Transport Mode",
+   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]",
+   "options": "Transport Mode",
+   "fetch_from": "special_project_service.transport_mode",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "section_break_common_params",
+   "fieldtype": "Section Break",
+   "label": "Common Parameters"
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1]]",
+   "options": "Load Type",
+   "fetch_from": "special_project_service.load_type",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "Import\nExport\nDomestic",
+   "fetch_from": "special_project_service.direction",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "origin_port",
+   "fieldtype": "Link",
+   "label": "Origin Port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO",
+   "fetch_from": "special_project_service.origin_port",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "label": "Destination Port",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO",
+   "fetch_from": "special_project_service.destination_port",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "section_break_transport_params",
+   "fieldtype": "Section Break",
+   "label": "Transport Parameters"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "transport_template",
+   "fieldtype": "Link",
+   "label": "Transport Template",
+   "options": "Transport Template",
+   "fetch_from": "special_project_service.transport_template",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]",
+   "options": "Vehicle Type",
+   "fetch_from": "special_project_service.vehicle_type",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "container_type",
+   "fieldtype": "Link",
+   "label": "Container Type",
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]",
+   "options": "Container Type",
+   "fetch_from": "special_project_service.container_type",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "description": "Sea container number for Transport Order created from Sea Shipment (cargo scoped to this unit).",
+   "fieldname": "container_no",
+   "fieldtype": "Data",
+   "label": "Container No.",
+   "fetch_from": "special_project_service.container_no",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "location_type",
+   "fieldtype": "Link",
+   "label": "Location Type",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"UNLOCO\",\"Transport Zone\"]]]",
+   "options": "DocType",
+   "fetch_from": "special_project_service.location_type",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "location_from",
+   "fieldtype": "Dynamic Link",
+   "label": "Location From",
+   "options": "location_type",
+   "fetch_from": "special_project_service.location_from",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "location_to",
+   "fieldtype": "Dynamic Link",
+   "label": "Location To",
+   "options": "location_type",
+   "fetch_from": "special_project_service.location_to",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "pick_mode",
+   "fieldtype": "Link",
+   "label": "Pick Mode",
+   "options": "Pick and Drop Mode",
+   "fetch_from": "special_project_service.pick_mode",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "drop_mode",
+   "fieldtype": "Link",
+   "label": "Drop Mode",
+   "options": "Pick and Drop Mode",
+   "fetch_from": "special_project_service.drop_mode",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fieldname": "section_break_customs_params",
+   "fieldtype": "Section Break",
+   "label": "Customs Parameters"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fieldname": "customs_authority",
+   "fieldtype": "Link",
+   "label": "Customs Authority",
+   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]",
+   "options": "Customs Authority",
+   "fetch_from": "special_project_service.customs_authority",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fieldname": "declaration_type",
+   "fieldtype": "Select",
+   "label": "Declaration Type",
+   "options": "Import\nExport\nTransit\nBonded",
+   "fetch_from": "special_project_service.declaration_type",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fieldname": "customs_broker",
+   "fieldtype": "Link",
+   "label": "Customs Broker",
+   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]",
+   "options": "Broker",
+   "fetch_from": "special_project_service.customs_broker",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fieldname": "customs_charge_category",
+   "fieldtype": "Select",
+   "label": "Charge Category",
+   "options": "Customs Clearance\nDocumentation\nStorage\nOther",
+   "fetch_from": "special_project_service.customs_charge_category",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
+   "fieldname": "section_break_special_project",
+   "fieldtype": "Section Break",
+   "label": "Resources"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
+   "description": "Customer address where this lifecycle line will be executed.",
+   "fieldname": "sp_site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Address",
+   "fetch_from": "special_project_service.sp_site",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
+   "description": "Headcount or person-days for general manpower.",
+   "fieldname": "sp_manpower",
+   "fieldtype": "Float",
+   "label": "Manpower",
+   "fetch_from": "special_project_service.sp_manpower",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
+   "description": "Skilled labor count or person-days.",
+   "fieldname": "sp_skilled",
+   "fieldtype": "Float",
+   "label": "Skilled Labor",
+   "fetch_from": "special_project_service.sp_skilled",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
+   "fieldname": "sp_equipment_type",
+   "fieldtype": "Link",
+   "label": "Equipment",
+   "options": "Special Handling Equipment Type",
+   "fetch_from": "special_project_service.sp_equipment_type",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
+   "fieldname": "sp_handling",
+   "fieldtype": "Link",
+   "label": "Handling",
+   "options": "Special Handling Type",
+   "fetch_from": "special_project_service.sp_handling",
+   "fetch_if_empty": 1
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
+   "fieldname": "sp_resource_notes",
+   "fieldtype": "Small Text",
+   "label": "Resource Notes",
+   "fetch_from": "special_project_service.sp_resource_notes",
+   "fetch_if_empty": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_rollup",
+   "fieldtype": "Section Break",
+   "label": "Rollup"
+  },
+  {
+   "description": "Populated by service rollup; not shown on form.",
+   "fieldname": "planned_cost",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Planned Cost",
+   "read_only": 1,
+   "fetch_from": "special_project_service.planned_cost"
+  },
+  {
+   "fieldname": "actual_cost",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Actual Cost",
+   "read_only": 1,
+   "fetch_from": "special_project_service.actual_cost"
+  },
+  {
+   "description": "Populated by service rollup; not shown on form.",
+   "fieldname": "planned_revenue",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Planned Revenue",
+   "read_only": 1,
+   "fetch_from": "special_project_service.planned_revenue"
+  },
+  {
+   "fieldname": "actual_revenue",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Actual Revenue",
+   "read_only": 1,
+   "fetch_from": "special_project_service.actual_revenue"
+  },
+  {
+   "fieldname": "job_description",
+   "fieldtype": "Small Text",
+   "label": "Job Description",
+   "fetch_from": "special_project_service.job_description",
+   "fetch_if_empty": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_virtual": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Special Projects",
+ "name": "Special Project Service Detail",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": []
+}

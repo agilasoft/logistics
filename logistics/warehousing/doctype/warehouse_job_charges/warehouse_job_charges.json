@@ -8,9 +8,8 @@
  "field_order": [
   "item_code",
   "service_type",
-  "service_scope",
   "charge_scope",
-  "internal_job",
+  "linked_service",
   "charge_type",
   "charge_category",
   "freight_taxes_section",
@@ -321,12 +320,6 @@
    "hidden": 1,
    "label": "Change Request Charge Row",
    "read_only": 1
-  },
-  {
-   "fieldname": "service_scope",
-   "fieldtype": "Link",
-   "label": "Service Scope",
-   "options": "Sales Quote"
   },
   {
    "default": "Main",

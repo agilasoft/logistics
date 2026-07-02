@@ -18,7 +18,9 @@ from logistics.utils.internal_job_main_rollup import (
 
 
 def _lifecycle_rows(doc: Any) -> list[Any]:
-	return list(doc.get("lifecycle_jobs") or [])
+	from logistics.special_projects.special_project_service_rows import service_rows
+
+	return service_rows(doc)
 
 
 def _charges(doc: Any) -> list[Any]:

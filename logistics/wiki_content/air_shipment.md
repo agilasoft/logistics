@@ -175,8 +175,8 @@ _All fields from DocType **Air Shipment** and nested child tables, in form order
 | Internal Job (`is_internal_job`) | Check | **From definition:** Set when created from Sales Quote for a leg with no charges for this service; revenue = cost of Main Job, cost as per tariff. **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. **Behaviour:** Read-only here — value comes from calculation, another field, or workflow. |
 | Main Job Type (`main_job_type`) | Select | **Purpose:** Constrains input to predefined values (compliance, mode, status, or internal classification). **What to enter:** Pick exactly one value from the list: Air Shipment, Sea Shipment, Transport Job, Declaration. **Behaviour:** Read-only here — value comes from calculation, another field, or workflow. |
 | Main Job (`main_job`) | Dynamic Link | **Purpose:** References another document whose **DocType** is chosen in field **main_job_type** (same pattern as ERPNext Dynamic Link). **What to enter:** First set the DocType field, then pick the document **name** for that type. **Behaviour:** Read-only here — value comes from calculation, another field, or workflow. |
-| Internal Jobs (`internal_job_details_section`) | Section Break | **Purpose:** Visual grouping and optional heading for the fields that follow (improves long freight forms). **What to enter:** No data — informational layout only. |
-| Internal Jobs (`internal_job_details`) | Table | **Purpose:** Stores repeating **Internal Job Detail** lines (child records) such as packages, charges, legs, or documents. **What to enter:** Use **Add row**, fill each line, and remove rows you do not need. Save the parent to persist child rows. |
+
+Linked legs are configured on the **Sales Quote → Linked Services** tab. After **Get Charges from Quotation**, charge lines with **Scope = Linked** reference those **Linked Service** records. Use **Create → Internal Job** to spawn operational documents from linked charge groups.
 | Milestones (`milestones_tab`) | Tab Break | **Purpose:** Organises the form into tabs so related fields are easier to scan and edit. **What to enter:** No data — click the tab to show or hide its fields. |
 | `section_break_milestones` | Section Break | **Purpose:** Visual grouping and optional heading for the fields that follow (improves long freight forms). **What to enter:** No data — informational layout only. |
 | Milestone View (`milestone_html`) | HTML | **Purpose:** Shows calculated or static HTML (KPIs, dashboards, embedded help, milestone views). **What to enter:** Nothing to type — content is rendered by the system. |
@@ -419,7 +419,8 @@ _All fields from DocType **Air Shipment** and nested child tables, in form order
 | Reference No (`other_service_reference_no`) | Data | **Purpose:** Carrier, customs, or commercial reference printed on transport or customs documents. **What to enter:** The exact identifier from the MAWB/HAWB, B/L, container interchange, or tax invoice. |
 | Notes (`other_service_notes`) | Small Text | **Purpose:** Short note or identifier where a full **Text** field is not needed. **What to enter:** One line of text; keep it brief for list views. |
 
-#### Child table: Internal Job Detail (field `internal_job_details` on parent)
+
+#### Linked Service documents (via Sales Quote and Scope = Linked charges)
 
 | Label (Field name) | Type | Description |
 | --- | --- | --- |

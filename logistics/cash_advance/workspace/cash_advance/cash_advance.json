@@ -1,13 +1,25 @@
 {
  "app": "logistics",
  "charts": [
-  {"chart_name": "Cash Advance Liquidation Aging Mix", "label": "Cash Advance Liquidation Aging Mix"},
-  {"chart_name": "Cash Advance Requests Trend", "label": "Cash Advance Requests Trend"},
-  {"chart_name": "Cash Advance Releases Value Trend", "label": "Cash Advance Releases Value Trend"},
-  {"chart_name": "Top Payees by Unliquidated", "label": "Top Payees by Unliquidated"}
+  {
+   "chart_name": "Cash Advance Liquidation Aging Mix",
+   "label": "Cash Advance Liquidation Aging Mix"
+  },
+  {
+   "chart_name": "Cash Advance Requests Trend",
+   "label": "Cash Advance Requests Trend"
+  },
+  {
+   "chart_name": "Cash Advance Releases Value Trend",
+   "label": "Cash Advance Releases Value Trend"
+  },
+  {
+   "chart_name": "Top Payees by Unliquidated",
+   "label": "Top Payees by Unliquidated"
+  }
  ],
- "content": "[{\"id\":\"ca_hdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Cash Advance</span>\",\"col\":12}},{\"id\":\"ca_nc1\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Cash Advance Requests\",\"col\":3}},{\"id\":\"ca_nc2\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total Unliquidated\",\"col\":3}},{\"id\":\"ca_nc3\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Overdue Unliquidated\",\"col\":3}},{\"id\":\"ca_nc4\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cash Advances Released This Month\",\"col\":3}},{\"id\":\"ca_sp1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ca_qhdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"ca_sc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cash Advance Request\",\"col\":3}},{\"id\":\"ca_sc2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cash Advance Liquidation\",\"col\":3}},{\"id\":\"ca_sc4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cash Advance Liquidation Aging\",\"col\":3}},{\"id\":\"ca_sc3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cash Advance Settings\",\"col\":3}},{\"id\":\"ca_sp2\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ca_chdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Aging & Trends</span>\",\"col\":12}},{\"id\":\"ca_ch1\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Cash Advance Liquidation Aging Mix\",\"col\":12}},{\"id\":\"ca_ch2\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Cash Advance Requests Trend\",\"col\":6}},{\"id\":\"ca_ch3\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Cash Advance Releases Value Trend\",\"col\":6}},{\"id\":\"ca_ch4\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Top Payees by Unliquidated\",\"col\":12}},{\"id\":\"ca_sp3\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ca_rhdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports & Analytics</b></span>\",\"col\":12}},{\"id\":\"ca_c1\",\"type\":\"card\",\"data\":{\"card_name\":\"Aging & Overdue\",\"col\":4}},{\"id\":\"ca_c2\",\"type\":\"card\",\"data\":{\"card_name\":\"Pipeline & Trends\",\"col\":4}},{\"id\":\"ca_c3\",\"type\":\"card\",\"data\":{\"card_name\":\"Concentration & Workload\",\"col\":4}}]",
- "creation": "2026-04-22 00:00:00.000000",
+ "content": "[{\"id\":\"ca_hdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Cash Advance</span>\",\"col\":12}},{\"id\":\"ca_nc1\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Cash Advance Requests\",\"col\":3}},{\"id\":\"ca_nc2\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Total Unliquidated\",\"col\":3}},{\"id\":\"ca_nc3\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Overdue Unliquidated\",\"col\":3}},{\"id\":\"ca_nc4\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cash Advances Released This Month\",\"col\":3}},{\"id\":\"ca_sp1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ca_qhdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"ca_sc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cash Advance Request\",\"col\":3}},{\"id\":\"ca_sc2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cash Advance Liquidation\",\"col\":3}},{\"id\":\"U9qLxXRjcQ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cash Acknowledgment\",\"col\":3}},{\"id\":\"ca_sc4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cash Advance Liquidation Aging\",\"col\":3}},{\"id\":\"ca_sc3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cash Advance Settings\",\"col\":3}},{\"id\":\"ca_sp2\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ca_chdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Aging &amp; Trends</span>\",\"col\":12}},{\"id\":\"ca_ch1\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Cash Advance Liquidation Aging Mix\",\"col\":12}},{\"id\":\"ca_ch2\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Cash Advance Requests Trend\",\"col\":6}},{\"id\":\"ca_ch3\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Cash Advance Releases Value Trend\",\"col\":6}},{\"id\":\"ca_ch4\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Top Payees by Unliquidated\",\"col\":12}},{\"id\":\"ca_sp3\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ca_rhdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Analytics</b></span>\",\"col\":12}},{\"id\":\"ca_c1\",\"type\":\"card\",\"data\":{\"card_name\":\"Aging & Overdue\",\"col\":4}},{\"id\":\"ca_c2\",\"type\":\"card\",\"data\":{\"card_name\":\"Pipeline & Trends\",\"col\":4}},{\"id\":\"ca_c3\",\"type\":\"card\",\"data\":{\"card_name\":\"Concentration & Workload\",\"col\":4}}]",
+ "creation": "2026-04-22 00:00:00",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -20,44 +32,6 @@
  "label": "Cash Advance",
  "link_type": "DocType",
  "links": [
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Requests",
-   "link_count": 3,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Cash Advance Request",
-   "link_count": 0,
-   "link_to": "Cash Advance Request",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Cash Advance Liquidation",
-   "link_count": 0,
-   "link_to": "Cash Advance Liquidation",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Setup",
-   "link_count": 1,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
   {
    "hidden": 0,
    "is_query_report": 0,
@@ -327,27 +301,48 @@
    "type": "Link"
   }
  ],
- "modified": "2026-06-05 00:00:00.000000",
+ "modified": "2026-06-25 13:54:10.355362",
  "modified_by": "Administrator",
  "module": "Cash Advance",
  "name": "Cash Advance",
  "number_cards": [
-  {"label": "Open Cash Advance Requests", "number_card_name": "Open Cash Advance Requests"},
-  {"label": "Total Unliquidated", "number_card_name": "Total Unliquidated"},
-  {"label": "Overdue Unliquidated", "number_card_name": "Overdue Unliquidated"},
-  {"label": "Cash Advances Released This Month", "number_card_name": "Cash Advances Released This Month"}
+  {
+   "label": "Open Cash Advance Requests",
+   "number_card_name": "Open Cash Advance Requests"
+  },
+  {
+   "label": "Total Unliquidated",
+   "number_card_name": "Total Unliquidated"
+  },
+  {
+   "label": "Overdue Unliquidated",
+   "number_card_name": "Overdue Unliquidated"
+  },
+  {
+   "label": "Cash Advances Released This Month",
+   "number_card_name": "Cash Advances Released This Month"
+  }
  ],
  "owner": "Administrator",
  "parent_page": "",
  "public": 1,
  "quick_lists": [],
  "roles": [],
+ "sequence_id": 0.0,
  "shortcuts": [
   {
    "color": "Blue",
    "doc_view": "List",
    "label": "Cash Advance Request",
    "link_to": "Cash Advance Request",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Cash Acknowledgment",
+   "link_to": "Cash Acknowledgment",
    "stats_filter": "[]",
    "type": "DocType"
   },
@@ -364,12 +359,13 @@
    "doc_view": "",
    "label": "Cash Advance Liquidation Aging",
    "link_to": "Cash Advance Liquidation Aging",
+   "report_ref_doctype": "Cash Advance Request",
    "stats_filter": "[]",
    "type": "Report"
   },
   {
    "color": "Grey",
-   "doc_view": "Form",
+   "doc_view": "",
    "label": "Cash Advance Settings",
    "link_to": "Cash Advance Settings",
    "stats_filter": "[]",

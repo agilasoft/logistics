@@ -1,0 +1,35 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-29 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "lifecycle_stage"
+ ],
+ "fields": [
+  {
+   "fieldname": "lifecycle_stage",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Lifecycle Stage",
+   "link_filters": "[[\"Lifecycle Stage\", \"for_special_project\", \"=\", 1]]",
+   "options": "Lifecycle Stage",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-29 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Special Projects",
+ "name": "Special Project Lifecycle Stage",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": []
+}

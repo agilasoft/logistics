@@ -9,6 +9,8 @@ from typing import Any
 
 import frappe
 
+from logistics.utils.virtual_internal_job_details import uses_virtual_internal_job_details
+
 LINKED_SERVICE_DOCTYPE = "Linked Service"
 LINKED_SERVICE_DETAIL_DOCTYPE = "Linked Service Detail"
 LEGACY_INTERNAL_JOB_DOCTYPE = "Internal Job"
@@ -73,7 +75,7 @@ def linked_services_fieldname(parent_doctype: str) -> str | None:
 			pass
 		return "internal_job_details"
 	if parent_doctype == "Special Project":
-		return "lifecycle_jobs"
+		return "special_project_services"
 	if parent_doctype in ("MICE Project", "Docket", "Exhibit"):
 		return "internal_jobs"
 	return "internal_job_details"
@@ -123,11 +125,22 @@ def set_charge_row_linked_service_link(row: Any, name: str | None) -> None:
 
 
 def linked_service_rows(parent_doc: Any) -> list[Any]:
-	"""Return linked-service child rows, honouring unsaved desk/API grid edits when present."""
+	"""Return linked-service child rows, honouring unsaved desk/API grid edits when present.
+
+	For **Sales Quote**, ``linked_services`` is a virtual grid backed by ``Linked Service``
+	documents. Do not use ``parent_doc.get("linked_services")`` — after save the underlying
+	``__dict__`` cache is cleared and ``get`` returns ``[]`` even when linked services exist.
+	Use this helper or the ``linked_services`` property instead.
+	"""
 	fieldname = linked_services_fieldname(getattr(parent_doc, "doctype", None) or "")
 	if not fieldname:
 		return []
 	doctype = getattr(parent_doc, "doctype", None) or ""
+	if doctype == "Special Project":
+		if getattr(getattr(parent_doc, "flags", None), "_special_project_services_from_form", False):
+			return list(parent_doc.__dict__.get(fieldname) or [])
+		if hasattr(parent_doc, "_build_special_project_services_view"):
+			return parent_doc._build_special_project_services_view()
 	if doctype == "Sales Quote":
 		if getattr(getattr(parent_doc, "flags", None), "_linked_services_from_form", False):
 			return list(parent_doc.__dict__.get(fieldname) or [])
@@ -138,4 +151,15 @@ def linked_service_rows(parent_doc: Any) -> list[Any]:
 			return list(parent_doc.__dict__.get(fieldname) or [])
 		if hasattr(parent_doc, "_build_internal_jobs_view"):
 			return parent_doc._build_internal_jobs_view()
+	from logistics.utils.virtual_internal_job_details import VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS
+
+	if doctype in VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS:
+		parent_name = (getattr(parent_doc, "name", None) or "").strip()
+		if parent_name and not getattr(parent_doc, "__islocal", False):
+			from logistics.logistics.doctype.linked_service.linked_service import (
+				get_linked_services_for_booking,
+			)
+
+			return list(get_linked_services_for_booking(doctype, parent_name))
+		return []
 	return list(getattr(parent_doc, fieldname, None) or [])

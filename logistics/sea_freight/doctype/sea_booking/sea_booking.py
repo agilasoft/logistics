@@ -298,8 +298,8 @@ class SeaBooking(Document):
 				row_dict["revenue_calc_notes"] = row.revenue_calc_notes
 			if hasattr(row, "cost_calc_notes"):
 				row_dict["cost_calc_notes"] = row.cost_calc_notes
-			if hasattr(row, "rate"):
-				row_dict["rate"] = row.rate
+			if hasattr(row, "unit_rate"):
+				row_dict["unit_rate"] = row.unit_rate
 
 	def validate_main_routing_legs_by_entry_type(self):
 		"""Allow additional Main leg for Transit/Transshipment while keeping Direct capped at one."""
@@ -757,6 +757,12 @@ class SeaBooking(Document):
 		
 		# Duplicate container checks when numbers are entered (FCL Container No enforced on Sea Shipment submit)
 		self.validate_container_numbers()
+
+	def after_insert(self):
+		pass
+
+	def on_update(self):
+		pass
 	
 	def on_submit(self):
 		"""Update One-off Sales Quote status to Converted when Sea Booking is submitted.
@@ -1015,6 +1021,12 @@ class SeaBooking(Document):
 				)
 			):
 				self._populate_charges_from_sales_quote(sales_quote)
+
+			from logistics.utils.sales_quote_one_off_internal_jobs import (
+				apply_linked_services_from_sales_quote_on_fetch,
+			)
+
+			apply_linked_services_from_sales_quote_on_fetch(sales_quote, self)
 			
 			# Save the document to persist the changes (charges and other fields)
 			# This ensures charges are saved before the form reloads
@@ -1590,7 +1602,7 @@ class SeaBooking(Document):
 				"pay_to": _get("pay_to"),
 				"selling_currency": _get("currency") or default_currency,
 				"selling_amount": selling_amount,
-				"rate": _get("unit_rate") or 0,
+				"unit_rate": flt(_get("unit_rate")) or 0,
 				"uom": _get("uom") or None,
 				"revenue_calculation_method": calc_method_final,
 				"quantity": quantity,
@@ -2100,6 +2112,7 @@ class SeaBooking(Document):
 						"container": package.container,
 						"goods_description": package.goods_description,
 						"no_of_packs": package.no_of_packs,
+						"quantity": getattr(package, "quantity", None),
 						"uom": package.uom,
 						"weight": package.weight,
 						"volume": package.volume,
@@ -2151,11 +2164,19 @@ class SeaBooking(Document):
 						new_charge_row.taxable_freight_item_tax_template = charge.taxable_freight_item_tax_template
 					if hasattr(charge, 'service_type') and charge.service_type:
 						new_charge_row.service_type = charge.service_type
-					# Per-scope tagging — keep Main / Internal Job classification across conversion.
+					# Per-scope tagging — keep Main / Linked classification across conversion.
 					if hasattr(charge, 'charge_scope'):
 						new_charge_row.charge_scope = charge.charge_scope
+					if hasattr(charge, 'linked_service'):
+						new_charge_row.linked_service = charge.linked_service
 					if hasattr(charge, 'internal_job'):
 						new_charge_row.internal_job = charge.internal_job
+					if hasattr(new_charge_row, 'linked_service') and not (
+						getattr(new_charge_row, 'linked_service', None) or ''
+					).strip():
+						fallback_ls = (getattr(charge, 'internal_job', None) or '').strip()
+						if fallback_ls:
+							new_charge_row.linked_service = fallback_ls
 					if hasattr(charge, 'item_tax_template'):
 						new_charge_row.item_tax_template = charge.item_tax_template
 					if hasattr(charge, 'invoice_type'):
@@ -2211,8 +2232,8 @@ class SeaBooking(Document):
 						new_charge_row.uom = charge.uom
 					if hasattr(charge, 'currency'):
 						new_charge_row.currency = charge.currency
-					if hasattr(charge, 'rate'):
-						new_charge_row.rate = charge.rate
+					if hasattr(charge, 'unit_rate'):
+						new_charge_row.unit_rate = charge.unit_rate
 					if hasattr(charge, 'unit_type'):
 						new_charge_row.unit_type = charge.unit_type
 					if hasattr(charge, 'minimum_quantity'):
@@ -2319,9 +2340,9 @@ class SeaBooking(Document):
 						"ata": leg.ata
 					})
 
-			from logistics.utils.internal_job_detail_copy import copy_internal_job_details_to_doc
+			from logistics.utils.internal_job_detail_copy import transfer_linked_services_to_parent
 
-			copy_internal_job_details_to_doc(self, sea_shipment)
+			transfer_linked_services_to_parent(self, sea_shipment)
 			
 			# Copy milestone_template if it exists
 			if hasattr(self, 'milestone_template') and self.milestone_template:
@@ -2730,16 +2751,6 @@ def populate_charges_from_sales_quote(
 
 		if should_apply_internal_job_main_charge_overlay(parent):
 			charges = build_internal_job_sea_booking_charge_dicts(parent)
-			ij_detail_payload = []
-			if sales_quote and frappe.db.exists("Sales Quote", sales_quote):
-				sq_doc = frappe.get_doc("Sales Quote", sales_quote)
-				from logistics.utils.sync_internal_job_details_from_sales_quote import (
-					build_internal_job_details_payload_for_quote_response,
-				)
-
-				ij_detail_payload = build_internal_job_details_payload_for_quote_response(
-					"Sea Booking", doc, sq_doc
-				)
 			if doc and charges:
 				doc._apply_actuals_to_charge_dicts(charges)
 			return {
@@ -2748,7 +2759,6 @@ def populate_charges_from_sales_quote(
 				"internal_job_charge_overlay_applied": True,
 				"source": "main_service",
 				"routing_legs": routing_legs_for_api_response(sales_quote, doc) if sales_quote else [],
-				"internal_job_details": ij_detail_payload,
 			}
 
 		if not sales_quote:
@@ -2768,13 +2778,6 @@ def populate_charges_from_sales_quote(
 			}
 
 		sales_quote_doc = frappe.get_doc("Sales Quote", sales_quote)
-		from logistics.utils.sync_internal_job_details_from_sales_quote import (
-			build_internal_job_details_payload_for_quote_response,
-		)
-
-		ij_detail_payload = build_internal_job_details_payload_for_quote_response(
-			"Sea Booking", doc, sales_quote_doc
-		)
 		filters = sales_quote_charge_filters(parent, sales_quote_doc)
 
 		# Fetch from Sales Quote Charge (filtered) or Sales Quote Sea Freight (legacy)
@@ -2851,7 +2854,6 @@ def populate_charges_from_sales_quote(
 				"message": f"No sea freight charges found in Sales Quote: {sales_quote}",
 				"customer": sales_quote_doc.customer,
 				"routing_legs": routing_legs_for_api_response(sales_quote, doc),
-				"internal_job_details": ij_detail_payload,
 			}
 		
 		# Map and populate charges
@@ -2884,7 +2886,6 @@ def populate_charges_from_sales_quote(
 			"charges_count": len(charges),
 			"customer": sales_quote_doc.customer,
 			"routing_legs": routing_legs_for_api_response(sales_quote, doc),
-			"internal_job_details": ij_detail_payload,
 		}
 		
 	except Exception as e:

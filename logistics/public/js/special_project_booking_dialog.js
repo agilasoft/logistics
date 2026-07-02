@@ -1,7 +1,7 @@
 // Copyright (c) 2026, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
-// Create Booking/Order dialog for Special Project: lists each Lifecycle Job row, lets
+// Create Booking/Order dialog for Special Project: lists each Services row, lets
 // the user create the matching Air/Sea Booking, Transport/Declaration/Inbound Order from it.
 
 (function () {
@@ -9,8 +9,12 @@
 
 	const PREVIEW_CLASS = "logistics-sp-ij-preview";
 
+	function _serviceRowsPayload(frm) {
+		return JSON.stringify((frm && frm.doc && frm.doc.special_project_services) || []);
+	}
+
 	function _lifecycleJobsPayload(frm) {
-		return JSON.stringify((frm && frm.doc && frm.doc.lifecycle_jobs) || []);
+		return _serviceRowsPayload(frm);
 	}
 
 	function _encodeChoice(c) {
@@ -137,14 +141,18 @@
 		);
 	}
 
-	function _lifecycleRowForIdx(frm, idx) {
-		const rows = (frm && frm.doc && frm.doc.lifecycle_jobs) || [];
+	function _serviceRowForIdx(frm, idx) {
+		const rows = (frm && frm.doc && frm.doc.special_project_services) || [];
 		const n = idx != null ? Number(idx) : NaN;
 		if (isNaN(n)) return null;
 		for (let i = 0; i < rows.length; i++) {
 			if (Number(rows[i].idx) === n) return rows[i];
 		}
 		return null;
+	}
+
+	function _lifecycleRowForIdx(frm, idx) {
+		return _serviceRowForIdx(frm, idx);
 	}
 
 	function _initialParamValues(frm, choice) {
@@ -160,6 +168,13 @@
 			}
 		});
 		return out;
+	}
+
+	function _creationParametersArg($card, creationParameters) {
+		if ($card && $card.data("sp-params-mounted")) {
+			return JSON.stringify(creationParameters || {});
+		}
+		return null;
 	}
 
 	function _collectCardParams($card) {
@@ -254,20 +269,22 @@
 	function _loadCardPreview($pv, frm, choiceEnc, onLoaded, creationParameters) {
 		const dec = _decodeChoice(choiceEnc);
 		$pv.html(_renderPreviewHtml(null));
+		const $card = $pv.closest(".sp-card");
 		const args = {
 			special_project: frm.doc.name,
 			job_type: dec.job_type != null ? dec.job_type : "",
 			lifecycle_job_idx: dec.detail_idx,
+			special_project_services: _serviceRowsPayload(frm),
 			lifecycle_jobs: _lifecycleJobsPayload(frm),
 		};
-		if (creationParameters && Object.keys(creationParameters).length) {
-			args.creation_parameters = JSON.stringify(creationParameters);
+		const explicitParams = _creationParametersArg($card, creationParameters);
+		if (explicitParams != null) {
+			args.creation_parameters = explicitParams;
 		}
 		frappe.call({
 			method: "logistics.special_projects.special_project_booking_creation.get_special_project_booking_preview",
 			args: args,
 			callback: function (r) {
-				const $card = $pv.closest(".sp-card");
 				if (r.exc) {
 					$pv.html(
 						_styles() +
@@ -937,11 +954,12 @@
 		});
 	}
 
-	function _callCreate(frm, dec, orderTitle, onDialogHide, shipmentLines, creationParameters) {
+	function _callCreate(frm, dec, orderTitle, onDialogHide, shipmentLines, creationParameters, $card) {
 		const args = {
 			special_project: frm.doc.name,
 			job_type: dec.job_type,
 			lifecycle_job_idx: dec.detail_idx,
+			special_project_services: _serviceRowsPayload(frm),
 			lifecycle_jobs: _lifecycleJobsPayload(frm),
 		};
 		if (dec.job_type === "Project Order" && orderTitle) {
@@ -950,8 +968,9 @@
 		if (shipmentLines) {
 			args.shipment_lines = shipmentLines;
 		}
-		if (creationParameters && Object.keys(creationParameters).length) {
-			args.creation_parameters = JSON.stringify(creationParameters);
+		const explicitParams = _creationParametersArg($card, creationParameters);
+		if (explicitParams != null) {
+			args.creation_parameters = explicitParams;
 		}
 		frappe.call({
 			method: "logistics.special_projects.special_project_booking_creation.create_booking_or_order_from_special_project",
@@ -1000,7 +1019,8 @@
 							values.order_title,
 							onDialogHide,
 							shipmentLines,
-							creationParameters
+							creationParameters,
+							$card
 						);
 					});
 				},
@@ -1011,11 +1031,11 @@
 		}
 		if (_PACKAGE_JOB_TYPES.indexOf(dec.job_type) >= 0) {
 			_promptShipmentLines(frm, dec, function (shipmentLines) {
-				_callCreate(frm, dec, null, onDialogHide, shipmentLines, creationParameters);
+				_callCreate(frm, dec, null, onDialogHide, shipmentLines, creationParameters, $card);
 			});
 			return;
 		}
-		_callCreate(frm, dec, null, onDialogHide, null, creationParameters);
+		_callCreate(frm, dec, null, onDialogHide, null, creationParameters, $card);
 	}
 
 	function _runCreate(frm, dec, $card, onDialogHide) {
@@ -1037,7 +1057,7 @@
 				title: __("Create Booking / Order"),
 				message:
 					preview.not_creatable_message ||
-					__("Set at least one parameter and ensure matching charges before creating."),
+					__("Ensure matching charges before creating."),
 				indicator: "orange",
 			});
 			return;
@@ -1092,7 +1112,7 @@
 			if (!dec.job_type) {
 				frappe.msgprint({
 					title: __("Create Booking / Order"),
-					message: __("Set Service Type on this Lifecycle Jobs line before creating."),
+					message: __("Set Service Type on this Services line before creating."),
 					indicator: "orange",
 				});
 				return;
@@ -1123,7 +1143,7 @@
 			"<div class='" + PREVIEW_CLASS + "' style='margin-bottom:4px'>" +
 			"<div style='font-size:12px;color:var(--text-muted,#64748b);line-height:1.5'>" +
 			"<strong style='color:var(--text-color,#0f172a)'>" + __("From") + "</strong> " + ref + "<br>" +
-			__("Each card is one Lifecycle Jobs line. Set parameters in the card, then Create when enabled.") +
+			__("Each card is one Services line. Set parameters in the card, then Create when enabled.") +
 			"</div></div>"
 		);
 	}
@@ -1141,7 +1161,8 @@
 			method: "logistics.special_projects.special_project_booking_creation.get_special_project_booking_choices",
 			args: {
 				special_project: frm.doc.name,
-				lifecycle_jobs: _lifecycleJobsPayload(frm),
+				special_project_services: _serviceRowsPayload(frm),
+			lifecycle_jobs: _lifecycleJobsPayload(frm),
 			},
 			freeze: true,
 			freeze_message: __("Loading options..."),
@@ -1151,7 +1172,7 @@
 				if (!choices.length) {
 					frappe.msgprint({
 						title: __("Create Booking / Order"),
-						message: __("No Lifecycle Jobs lines on this Special Project."),
+						message: __("No Services lines on this Special Project."),
 						indicator: "orange",
 					});
 					return;

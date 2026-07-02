@@ -11,6 +11,16 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt
 
+from logistics.special_projects.special_project_service_constants import (
+	LIFECYCLE_EXECUTION_JOB_TYPES,
+	LIFECYCLE_JOB_TYPE_OPTIONS,
+	PLANNING_ORDER_TYPES,
+)
+from logistics.special_projects.special_project_service_rows import (
+	execution_rows_for_planning,
+	service_row_by_name,
+	service_rows,
+)
 from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
 from logistics.utils.internal_job_main_rollup import (
 	_charge_planned_cost,
@@ -23,21 +33,25 @@ def _norm(value: Any) -> str:
 	return (value or "").strip()
 
 
-def _lifecycle_job_lines_by_name(doc: Any) -> dict[str, Any]:
+def _service_rows_by_name(doc: Any) -> dict[str, Any]:
 	out: dict[str, Any] = {}
-	for row in doc.get("lifecycle_jobs") or []:
+	for row in service_rows(doc):
 		name = _norm(getattr(row, "name", None))
 		if name:
 			out[name] = row
 	return out
 
 
-def _charge_lifecycle_line(charge: Any) -> str:
-	return _norm(getattr(charge, "lifecycle_job_line", None))
+def _charge_lifecycle_stage(charge: Any) -> str:
+	return _norm(getattr(charge, "lifecycle_stage", None))
+
+
+# Legacy alias used by older call sites during transition.
+_charge_lifecycle_line = _charge_lifecycle_stage
 
 
 def charge_has_lifecycle_tag(sp_doc: Any, charge: Any) -> bool:
-	return bool(_charge_lifecycle_line(charge))
+	return bool(_charge_lifecycle_stage(charge))
 
 
 charge_has_lifecycle_allocations = charge_has_lifecycle_tag
@@ -48,7 +62,7 @@ def available_charges(sp_doc: Any, service_type: str | None = None) -> list[Any]
 	out: list[Any] = []
 	st = _norm(service_type)
 	for charge in sp_doc.get("charges") or []:
-		if _charge_lifecycle_line(charge):
+		if _charge_lifecycle_stage(charge):
 			continue
 		if st and not sales_quote_charge_service_types_equal(
 			getattr(charge, "service_type", None), st
@@ -75,50 +89,12 @@ def programme_charges_for_service_type(
 	return out
 
 
-def _lifecycle_job_row_by_name(sp_doc: Any, row_name: str) -> Any | None:
-	row_name = _norm(row_name)
-	if not row_name:
-		return None
-	for row in sp_doc.get("lifecycle_jobs") or []:
-		if _norm(getattr(row, "name", None)) == row_name:
-			return row
-	return None
+def _service_row_by_name(sp_doc: Any, row_name: str) -> Any | None:
+	return service_row_by_name(sp_doc, row_name)
 
-
-def execution_rows_for_planning(sp_doc: Any, planning_name: str) -> list[Any]:
-	planning_name = _norm(planning_name)
-	if not planning_name:
-		return []
-	return [
-		row
-		for row in sp_doc.get("lifecycle_jobs") or []
-		if _norm(getattr(row, "lifecycle_job_line", None)) == planning_name
-	]
-
-
-_PLANNING_ORDER_TYPES = frozenset(
-	{
-		"Air Booking",
-		"Sea Booking",
-		"Transport Order",
-		"Declaration Order",
-		"Inbound Order",
-		"Project Order",
-	}
-)
-
-_LIFECYCLE_EXECUTION_JOB_TYPES = frozenset(
-	{
-		"Air Shipment",
-		"Sea Shipment",
-		"Transport Job",
-		"Declaration",
-		"Warehouse Job",
-		"Project Job",
-	}
-)
-
-LIFECYCLE_JOB_TYPE_OPTIONS = _PLANNING_ORDER_TYPES
+# Legacy aliases for existing imports.
+_PLANNING_ORDER_TYPES = PLANNING_ORDER_TYPES
+_LIFECYCLE_EXECUTION_JOB_TYPES = LIFECYCLE_EXECUTION_JOB_TYPES
 
 
 def sync_lifecycle_job_execution_no(row: Any) -> None:
@@ -127,7 +103,7 @@ def sync_lifecycle_job_execution_no(row: Any) -> None:
 		return
 	jt = _norm(getattr(row, "job_type", None))
 	on = _norm(getattr(row, "order_no", None))
-	if not jt or jt not in _PLANNING_ORDER_TYPES or not on:
+	if not jt or jt not in PLANNING_ORDER_TYPES or not on:
 		return
 	from logistics.utils.special_project_internal_jobs import (
 		_resolve_execution_name_to_operational_ref,
@@ -150,21 +126,16 @@ def sync_lifecycle_job_execution_no(row: Any) -> None:
 
 
 def sync_lifecycle_job_execution_refs(doc: Any) -> None:
-	for row in doc.get("lifecycle_jobs") or []:
+	for row in service_rows(doc):
 		sync_lifecycle_job_execution_no(row)
 
 
 def normalize_lifecycle_job_order_job_fields(doc: Any) -> None:
-	"""Normalize lifecycle job link fields before Select validation.
-
-	``job_type`` / ``order_no`` hold the booking or order. ``job_no`` holds the
-	submitted shipment or job name. Legacy rows may still use ``order_type`` or
-	store execution doctype labels on ``job_type``.
-	"""
-	for row in doc.get("lifecycle_jobs") or []:
+	"""Normalize service row link fields before Select validation."""
+	for row in service_rows(doc):
 		if is_execution_lifecycle_row(row):
 			jt = _norm(getattr(row, "job_type", None))
-			if jt in _LIFECYCLE_EXECUTION_JOB_TYPES:
+			if jt in LIFECYCLE_EXECUTION_JOB_TYPES:
 				row.job_type = None
 			row.job_no = None
 			continue
@@ -176,11 +147,11 @@ def normalize_lifecycle_job_order_job_fields(doc: Any) -> None:
 			row.job_type = ot
 		if hasattr(row, "order_type"):
 			row.order_type = None
-		if jt in _LIFECYCLE_EXECUTION_JOB_TYPES:
+		if jt in LIFECYCLE_EXECUTION_JOB_TYPES:
 			if jn:
 				row.job_no = jn
 			row.job_type = None
-		elif jt in _PLANNING_ORDER_TYPES and jn and not on:
+		elif jt in PLANNING_ORDER_TYPES and jn and not on:
 			row.order_no = jn
 			row.job_no = None
 		elif jt and jt not in LIFECYCLE_JOB_TYPE_OPTIONS:
@@ -189,7 +160,7 @@ def normalize_lifecycle_job_order_job_fields(doc: Any) -> None:
 
 
 def lifecycle_row_order_link_is_cancelled(row: Any) -> bool:
-	"""True when the lifecycle row's planning order_no points at a cancelled document."""
+	"""True when the service row's planning order_no points at a cancelled document."""
 	jt = _norm(getattr(row, "job_type", None))
 	on = _norm(getattr(row, "order_no", None))
 	if not jt or not on:
@@ -207,14 +178,13 @@ def planning_row_is_open(sp_doc: Any, row: Any) -> bool:
 	name = _norm(getattr(row, "name", None))
 	if not name:
 		return False
-	# Prefer saved row: desk payload may omit job_no after Create > Booking/Order.
-	check = _lifecycle_job_row_by_name(sp_doc, name) or row
-	if _norm(getattr(check, "lifecycle_job_line", None)):
+	check = _service_row_by_name(sp_doc, name) or row
+	if is_execution_lifecycle_row(check):
 		return False
 	order_cancelled = lifecycle_row_order_link_is_cancelled(check)
 	jt = _norm(getattr(check, "job_type", None))
 	on = _norm(getattr(check, "order_no", None))
-	if jt in _PLANNING_ORDER_TYPES and on and not order_cancelled:
+	if jt in PLANNING_ORDER_TYPES and on and not order_cancelled:
 		return False
 	if not order_cancelled:
 		jn = _norm(getattr(check, "job_no", None))
@@ -235,13 +205,10 @@ def planning_row_is_open(sp_doc: Any, row: Any) -> bool:
 
 
 @frappe.whitelist()
-def get_cancelled_lifecycle_order_links(lifecycle_jobs: Any = None) -> dict[str, str]:
-	"""Map lifecycle row name -> order_no for rows whose planning order link is cancelled."""
-	rows = (
-		frappe.parse_json(lifecycle_jobs)
-		if isinstance(lifecycle_jobs, str)
-		else (lifecycle_jobs or [])
-	)
+def get_cancelled_lifecycle_order_links(special_project_services: Any = None, lifecycle_jobs: Any = None) -> dict[str, str]:
+	"""Map service row name -> order_no for rows whose planning order link is cancelled."""
+	rows = special_project_services if special_project_services is not None else lifecycle_jobs
+	rows = frappe.parse_json(rows) if isinstance(rows, str) else (rows or [])
 	out: dict[str, str] = {}
 	for row in rows:
 		name = _norm(row.get("name") if isinstance(row, dict) else getattr(row, "name", None))
@@ -256,20 +223,20 @@ def get_cancelled_lifecycle_order_links(lifecycle_jobs: Any = None) -> dict[str,
 
 
 def is_planning_lifecycle_row(row: Any) -> bool:
-	return not _norm(getattr(row, "lifecycle_job_line", None))
+	return not _norm(getattr(row, "special_project_service_line", None))
 
 
 def is_execution_lifecycle_row(row: Any) -> bool:
-	return bool(_norm(getattr(row, "lifecycle_job_line", None)))
+	return bool(_norm(getattr(row, "special_project_service_line", None)))
 
 
 def append_charge_lifecycle_tag_for_test(
 	sp_doc: Any,
 	charge_row: int,
-	lifecycle_job_line: str,
+	lifecycle_stage: str,
 	**fields: Any,
 ) -> Any:
-	"""Set lifecycle_job_line on a charge row (tests and scripts)."""
+	"""Set lifecycle_stage on a charge row (tests and scripts)."""
 	if not sp_doc.name:
 		sp_doc.insert(ignore_permissions=True)
 	charge = None
@@ -279,7 +246,7 @@ def append_charge_lifecycle_tag_for_test(
 			break
 	if not charge:
 		frappe.throw(_("Charge row {0} not found.").format(charge_row))
-	charge.lifecycle_job_line = lifecycle_job_line
+	charge.lifecycle_stage = lifecycle_stage
 	for key, value in fields.items():
 		setattr(charge, key, value)
 	return charge
@@ -291,46 +258,119 @@ append_charge_lifecycle_allocation_for_test = append_charge_lifecycle_tag_for_te
 def charge_applies_to_lifecycle_row(sp_doc: Any, charge: Any, lifecycle_row: Any) -> bool:
 	if _is_disbursement_charge(charge):
 		return False
-	line_name = _norm(getattr(lifecycle_row, "name", None))
-	if not line_name:
+	service_name = _norm(getattr(lifecycle_row, "name", None))
+	if not service_name:
 		return False
-	return _charge_lifecycle_line(charge) == line_name
+	service_line = _norm(getattr(charge, "special_project_service_line", None))
+	if service_line:
+		return service_line == service_name
+	stage_tag = _charge_lifecycle_stage(charge)
+	if stage_tag:
+		return stage_tag == _norm(getattr(lifecycle_row, "lifecycle_stage", None))
+	return False
 
 
 def _charge_tagged_to_other_lifecycle_row(charge: Any, lifecycle_row: Any) -> bool:
-	line_name = _norm(getattr(lifecycle_row, "name", None))
-	tag = _charge_lifecycle_line(charge)
-	return bool(tag and tag != line_name)
+	service_name = _norm(getattr(lifecycle_row, "name", None))
+	service_line = _norm(getattr(charge, "special_project_service_line", None))
+	if service_line:
+		return bool(service_line and service_line != service_name)
+	stage_tag = _charge_lifecycle_stage(charge)
+	row_stage = _norm(getattr(lifecycle_row, "lifecycle_stage", None))
+	return bool(stage_tag and stage_tag != row_stage)
 
 
 def programme_charges_for_lifecycle_row(sp_doc: Any, lifecycle_row: Any) -> list[Any]:
-	"""Programme charges whose planned amounts roll up onto one lifecycle row.
-
-	Precedence:
-	1. Explicit ``lifecycle_job_line`` tag on the charge matching this row.
-	2. Parameter match between row and charge (same rules as Create booking/order).
-	3. Single planning row for the service type with no row parameters (implicit).
-	"""
-	st = _norm(getattr(lifecycle_row, "service_type", None))
-	if not st:
-		return []
-
+	"""Programme charges whose planned amounts roll up onto one service row."""
 	line_name = _norm(getattr(lifecycle_row, "name", None))
+
 	matched: list[Any] = []
 	seen_idxs: set[int] = set()
 
-	for charge in sp_doc.get("charges") or []:
-		if _is_disbursement_charge(charge):
-			continue
-		if not charge_applies_to_lifecycle_row(sp_doc, charge, lifecycle_row):
-			continue
-		idx = cint(getattr(charge, "idx", 0) or 0)
-		if idx and idx in seen_idxs:
-			continue
-		matched.append(charge)
-		if idx:
-			seen_idxs.add(idx)
+	if line_name:
+		for charge in sp_doc.get("charges") or []:
+			if _is_disbursement_charge(charge):
+				continue
+			if not charge_applies_to_lifecycle_row(sp_doc, charge, lifecycle_row):
+				continue
+			idx = cint(getattr(charge, "idx", 0) or 0)
+			if idx and idx in seen_idxs:
+				continue
+			matched.append(charge)
+			if idx:
+				seen_idxs.add(idx)
 
+	if not line_name:
+		return matched
+
+	from logistics.special_projects.special_project_service_helpers import (
+		_charge_service_line,
+		planning_services_for_lifecycle_stage,
+	)
+	from logistics.utils.sales_quote_charge_parameters import (
+		_effective_programme_charge_row,
+		extract_service_scoped_quote_parameters,
+		programme_charge_matches_creation_parameters,
+	)
+
+	stage = _norm(getattr(lifecycle_row, "lifecycle_stage", None))
+	for service in planning_services_for_lifecycle_stage(sp_doc, stage):
+		st = _norm(getattr(service, "service_type", None))
+		service_name = _norm(getattr(service, "name", None))
+		for charge in sp_doc.get("charges") or []:
+			if _is_disbursement_charge(charge):
+				continue
+			service_line = _charge_service_line(charge)
+			if service_line:
+				if service_line != service_name:
+					continue
+				idx = cint(getattr(charge, "idx", 0) or 0)
+				if idx and idx in seen_idxs:
+					continue
+				matched.append(charge)
+				if idx:
+					seen_idxs.add(idx)
+				continue
+			if _charge_lifecycle_stage(charge):
+				continue
+			idx = cint(getattr(charge, "idx", 0) or 0)
+			if idx and idx in seen_idxs:
+				continue
+			row_params = extract_service_scoped_quote_parameters(service, st)
+			if row_params and programme_charge_matches_creation_parameters(
+				_effective_programme_charge_row(charge, st), row_params
+			):
+				matched.append(charge)
+				if idx:
+					seen_idxs.add(idx)
+			elif not row_params and st:
+				planning = planning_services_for_lifecycle_stage(sp_doc, stage)
+				planning_same_st = [
+					r
+					for r in planning
+					if sales_quote_charge_service_types_equal(getattr(r, "service_type", None), st)
+				]
+				if len(planning_same_st) == 1 and _norm(getattr(planning_same_st[0], "name", None)) == service_name:
+					if sales_quote_charge_service_types_equal(getattr(charge, "service_type", None), st):
+						matched.append(charge)
+						if idx:
+							seen_idxs.add(idx)
+
+	return matched
+
+
+def _legacy_programme_charges_for_lifecycle_row(
+	sp_doc: Any,
+	lifecycle_row: Any,
+	matched: list[Any],
+	seen_idxs: set[int],
+) -> list[Any]:
+	"""Legacy parameter-based matching when no Services rows exist."""
+	st = _norm(getattr(lifecycle_row, "service_type", None))
+	if not st:
+		return matched
+
+	line_name = _norm(getattr(lifecycle_row, "name", None))
 	if is_execution_lifecycle_row(lifecycle_row):
 		return matched
 
@@ -341,7 +381,6 @@ def programme_charges_for_lifecycle_row(sp_doc: Any, lifecycle_row: Any) -> list
 	)
 
 	row_params = extract_service_scoped_quote_parameters(lifecycle_row, st)
-
 	if row_params:
 		for charge in programme_charges_for_service_type(sp_doc, st):
 			if _charge_tagged_to_other_lifecycle_row(charge, lifecycle_row):
@@ -359,12 +398,13 @@ def programme_charges_for_lifecycle_row(sp_doc: Any, lifecycle_row: Any) -> list
 
 	planning_rows = _planning_lifecycle_rows_for_service(sp_doc, st)
 	if (
-		is_planning_lifecycle_row(lifecycle_row)
+		line_name
+		and is_planning_lifecycle_row(lifecycle_row)
 		and len(planning_rows) == 1
 		and _norm(getattr(planning_rows[0], "name", None)) == line_name
 	):
 		for charge in programme_charges_for_service_type(sp_doc, st):
-			if _charge_lifecycle_line(charge):
+			if _charge_lifecycle_stage(charge):
 				continue
 			idx = cint(getattr(charge, "idx", 0) or 0)
 			if idx and idx in seen_idxs:
@@ -372,7 +412,6 @@ def programme_charges_for_lifecycle_row(sp_doc: Any, lifecycle_row: Any) -> list
 			matched.append(charge)
 			if idx:
 				seen_idxs.add(idx)
-
 	return matched
 
 
@@ -382,7 +421,7 @@ def _planning_lifecycle_rows_for_service(sp_doc: Any, service_type: str | None) 
 		return []
 	rows = [
 		row
-		for row in sp_doc.get("lifecycle_jobs") or []
+		for row in service_rows(sp_doc)
 		if is_planning_lifecycle_row(row)
 		and sales_quote_charge_service_types_equal(getattr(row, "service_type", None), st)
 	]
@@ -400,7 +439,7 @@ def _untagged_programme_charges_for_item(
 		ch
 		for ch in sp_doc.get("charges") or []
 		if not _is_disbursement_charge(ch)
-		and not _charge_lifecycle_line(ch)
+		and not _charge_lifecycle_stage(ch)
 		and sales_quote_charge_service_types_equal(getattr(ch, "service_type", None), st)
 		and _norm(getattr(ch, "item_code", None)) == item_code
 	]
@@ -410,12 +449,12 @@ def _untagged_programme_charges_for_item(
 def programme_charge_applies_to_planning_lifecycle(
 	sp_doc: Any, charge: Any, lifecycle_row: Any
 ) -> bool:
-	"""Whether a programme charge should post when this planning lifecycle leg executes."""
+	"""Whether a programme charge should post when this planning service leg executes."""
 	if _is_disbursement_charge(charge):
 		return False
 	if charge_applies_to_lifecycle_row(sp_doc, charge, lifecycle_row):
 		return True
-	if _charge_lifecycle_line(charge):
+	if _charge_lifecycle_stage(charge):
 		return False
 	if not is_planning_lifecycle_row(lifecycle_row):
 		return False
@@ -465,7 +504,7 @@ def charge_applies_to_lifecycle_idx(
 	charge: Any,
 	lifecycle_jobs_idx: int,
 ) -> tuple[bool, float]:
-	for row in sp_doc.get("lifecycle_jobs") or []:
+	for row in service_rows(sp_doc):
 		if cint(getattr(row, "idx", 0) or 0) != cint(lifecycle_jobs_idx):
 			continue
 		if charge_applies_to_lifecycle_row(sp_doc, charge, row):
@@ -478,7 +517,7 @@ def charge_planned_cost_for_lifecycle(
 	charge: Any,
 	lifecycle_jobs_idx: int,
 ) -> float:
-	for row in sp_doc.get("lifecycle_jobs") or []:
+	for row in service_rows(sp_doc):
 		if cint(getattr(row, "idx", 0) or 0) != cint(lifecycle_jobs_idx):
 			continue
 		if charge_applies_to_lifecycle_row(sp_doc, charge, row):
@@ -491,7 +530,7 @@ def charge_planned_revenue_for_lifecycle(
 	charge: Any,
 	lifecycle_jobs_idx: int,
 ) -> float:
-	for row in sp_doc.get("lifecycle_jobs") or []:
+	for row in service_rows(sp_doc):
 		if cint(getattr(row, "idx", 0) or 0) != cint(lifecycle_jobs_idx):
 			continue
 		if charge_applies_to_lifecycle_row(sp_doc, charge, row):
@@ -500,20 +539,31 @@ def charge_planned_revenue_for_lifecycle(
 
 
 def primary_lifecycle_idx_for_charge(sp_doc: Any, charge: Any) -> int | None:
-	line_name = _charge_lifecycle_line(charge)
-	if not line_name:
+	service_line = _norm(getattr(charge, "special_project_service_line", None))
+	if service_line:
+		for row in service_rows(sp_doc):
+			if _norm(getattr(row, "name", None)) == service_line:
+				return cint(getattr(row, "idx", 0) or 0) or None
+	stage_tag = _charge_lifecycle_stage(charge)
+	if not stage_tag:
 		return None
-	for row in sp_doc.get("lifecycle_jobs") or []:
-		if _norm(getattr(row, "name", None)) == line_name:
+	for row in service_rows(sp_doc):
+		if _norm(getattr(row, "lifecycle_stage", None)) == stage_tag:
 			return cint(getattr(row, "idx", 0) or 0) or None
 	return None
 
 
 def find_lifecycle_row_for_charge(sp_doc: Any, charge: Any) -> Any | None:
-	line_name = _charge_lifecycle_line(charge)
-	if not line_name:
+	service_line = _norm(getattr(charge, "special_project_service_line", None))
+	if service_line:
+		return _service_rows_by_name(sp_doc).get(service_line)
+	stage_tag = _charge_lifecycle_stage(charge)
+	if not stage_tag:
 		return None
-	return _lifecycle_job_lines_by_name(sp_doc).get(line_name)
+	for row in service_rows(sp_doc):
+		if _norm(getattr(row, "lifecycle_stage", None)) == stage_tag:
+			return row
+	return None
 
 
 def charge_allocation_factor_for_lifecycle_row(
@@ -534,65 +584,93 @@ def recompute_all_charge_tag_allocations(doc: Any) -> None:
 
 
 def validate_charge_lifecycle_tags(doc: Any) -> None:
-	lines_by_name = _lifecycle_job_lines_by_name(doc)
-	planning_rows = [
-		row
-		for row in doc.get("lifecycle_jobs") or []
-		if is_planning_lifecycle_row(row)
-	]
+	from logistics.special_projects.special_project_service_rows import applicable_lifecycle_stages
+
+	allowed_stages = set(applicable_lifecycle_stages(doc))
 
 	for charge in doc.get("charges") or []:
 		if _is_disbursement_charge(charge):
 			continue
-		line_name = _charge_lifecycle_line(charge)
-		if not line_name:
+		stage = _charge_lifecycle_stage(charge)
+		if not stage:
 			continue
 		ch_idx = cint(getattr(charge, "idx", 0) or 0) or "?"
-		if line_name not in lines_by_name:
+		if allowed_stages and stage not in allowed_stages:
 			frappe.throw(
-				_("Charge row {0}: Lifecycle Job line {1} is not on this document.").format(
-					ch_idx, line_name
+				_("Charge row {0}: Lifecycle Stage {1} is not applicable to this project.").format(
+					ch_idx, stage
 				),
 				title=_("Charge lifecycle tag"),
 			)
-		lj = lines_by_name[line_name]
-		ch_st = getattr(charge, "service_type", None)
-		lj_st = getattr(lj, "service_type", None)
-		if ch_st and lj_st and not sales_quote_charge_service_types_equal(ch_st, lj_st):
+		if not frappe.db.exists("Lifecycle Stage", stage):
 			frappe.throw(
-				_(
-					"Charge row {0}: Service Type {1} does not match Lifecycle Job line ({2})."
-				).format(ch_idx, _norm(ch_st), _norm(lj_st)),
-				title=_("Service Type mismatch"),
+				_("Charge row {0}: Lifecycle Stage {1} does not exist.").format(ch_idx, stage),
+				title=_("Charge lifecycle tag"),
+			)
+		ch_st = getattr(charge, "service_type", None)
+		service_line = _norm(getattr(charge, "special_project_service_line", None))
+		if service_line:
+			from logistics.special_projects.special_project_service_helpers import (
+				special_project_service_by_name,
 			)
 
-	# Programme charges are budget lines by service type; execution logs attribute usage.
+			service = special_project_service_by_name(doc, service_line)
+			svc_st = getattr(service, "service_type", None) if service else None
+			if ch_st and svc_st and not sales_quote_charge_service_types_equal(ch_st, svc_st):
+				frappe.throw(
+					_(
+						"Charge row {0}: Service Type {1} does not match Service line ({2})."
+					).format(ch_idx, _norm(ch_st), _norm(svc_st)),
+					title=_("Service Type mismatch"),
+				)
+			svc_stage = _norm(getattr(service, "lifecycle_stage", None)) if service else ""
+			if svc_stage and svc_stage != stage:
+				frappe.throw(
+					_(
+						"Charge row {0}: Lifecycle stage does not match the selected Service line."
+					).format(ch_idx),
+					title=_("Lifecycle / Service mismatch"),
+				)
 
 
 validate_charge_lifecycle_allocations = validate_charge_lifecycle_tags
 
 
 def validate_lifecycle_job_line_not_referenced(doc: Any, removed_line_names: set[str]) -> None:
-	if not removed_line_names:
+	"""Legacy hook — service row removal is validated via validate_special_project_service_line_not_referenced."""
+	return
+
+
+def validate_lifecycle_stage_not_referenced(doc: Any, removed_stages: set[str]) -> None:
+	if not removed_stages:
 		return
 	for charge in doc.get("charges") or []:
-		line_name = _charge_lifecycle_line(charge)
-		if line_name in removed_line_names:
+		stage = _charge_lifecycle_stage(charge)
+		if stage in removed_stages:
 			frappe.throw(
 				_(
-					"Cannot remove Lifecycle Job line {0}: charge row {1} still references it."
-				).format(line_name, cint(getattr(charge, "idx", 0) or 0) or "?"),
+					"Cannot remove Lifecycle Stage {0}: charge row {1} still references it."
+				).format(stage, cint(getattr(charge, "idx", 0) or 0) or "?"),
 				title=_("Charge lifecycle tag"),
 			)
-	for row in doc.get("lifecycle_jobs") or []:
-		source = _norm(getattr(row, "lifecycle_job_line", None))
-		if source in removed_line_names:
+	for row in service_rows(doc):
+		stage = _norm(getattr(row, "lifecycle_stage", None))
+		if stage in removed_stages:
 			frappe.throw(
 				_(
-					"Cannot remove Lifecycle Job line {0}: execution rows still reference it."
-				).format(source),
-				title=_("Charge lifecycle tag"),
+					"Cannot remove Lifecycle Stage {0}: Service row {1} still references it."
+				).format(
+					stage,
+					cint(getattr(row, "idx", 0) or 0) or "?",
+				),
+				title=_("Lifecycle stage"),
 			)
+	header_stage = _norm(getattr(doc, "lifecycle_stage", None))
+	if header_stage in removed_stages:
+		frappe.throw(
+			_("Cannot remove Lifecycle Stage {0}: it is set on this project.").format(header_stage),
+			title=_("Lifecycle stage"),
+		)
 
 
 def tag_available_charges_for_execution(
@@ -600,13 +678,13 @@ def tag_available_charges_for_execution(
 	execution_row: Any,
 	service_type: str | None = None,
 ) -> list[Any]:
-	"""Tag untagged charges matching service type to an execution lifecycle row."""
-	exec_name = _norm(getattr(execution_row, "name", None))
-	if not exec_name:
+	"""Tag untagged charges matching service type to an execution service row."""
+	stage = _norm(getattr(execution_row, "lifecycle_stage", None))
+	if not stage:
 		return []
 	st = _norm(service_type) or _norm(getattr(execution_row, "service_type", None))
 	tagged: list[Any] = []
 	for charge in available_charges(sp_doc, st):
-		charge.lifecycle_job_line = exec_name
+		charge.lifecycle_stage = stage
 		tagged.append(charge)
 	return tagged

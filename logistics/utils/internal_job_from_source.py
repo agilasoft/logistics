@@ -11,7 +11,10 @@ from typing import Any
 import frappe
 from frappe import _
 
-from logistics.utils.charge_service_type import effective_internal_job_detail_job_type
+from logistics.utils.charge_service_type import (
+	default_job_type_for_internal_job_service_type,
+	effective_internal_job_detail_job_type,
+)
 from logistics.utils.internal_job_detail_copy import (
 	get_declaration_order_job_no_from_shipment_doc,
 	persist_internal_job_detail_job_link,
@@ -32,6 +35,160 @@ CREATABLE_INTERNAL_JOB_TYPES: frozenset[str] = frozenset(
 		"MICE Order",
 	}
 )
+
+_LINKED_CHARGE_IJ_PARENT_DOCTYPES: frozenset[str] = frozenset(
+	{"Air Shipment", "Sea Shipment", "Transport Job", "Declaration"}
+)
+
+
+def _uses_linked_charge_internal_job_create(parent_doctype: str) -> bool:
+	return (parent_doctype or "").strip() in _LINKED_CHARGE_IJ_PARENT_DOCTYPES
+
+
+def _iter_linked_scoped_charges(parent_doc: Any):
+	from logistics.utils.linked_service_compat import is_linked_charge_scope, normalize_charge_scope
+
+	for ch in getattr(parent_doc, "charges", None) or []:
+		scope = normalize_charge_scope(getattr(ch, "charge_scope", None))
+		if is_linked_charge_scope(scope):
+			yield ch
+
+
+def _linked_charge_group_key(charge: Any) -> tuple:
+	from logistics.utils.linked_service_compat import charge_row_linked_service_link
+	from logistics.utils.sales_quote_charge_parameters import extract_service_scoped_quote_parameters
+
+	st = (getattr(charge, "service_type", None) or "").strip()
+	ls = charge_row_linked_service_link(charge)
+	if ls:
+		return ("ls", ls)
+	params = extract_service_scoped_quote_parameters(charge, st) if st else {}
+	fp = tuple(sorted((k, str(v)) for k, v in params.items() if v not in (None, "")))
+	return ("params", st, fp)
+
+
+def _virtual_ij_row_from_linked_charge(charge: Any) -> Any:
+	from logistics.utils.linked_service_compat import charge_row_linked_service_link
+	from logistics.utils.sales_quote_charge_parameters import extract_service_scoped_quote_parameters
+
+	st = (getattr(charge, "service_type", None) or "").strip()
+	jt = default_job_type_for_internal_job_service_type(st)
+	ls = charge_row_linked_service_link(charge)
+	row = frappe._dict(
+		{
+			"service_type": st,
+			"job_type": jt,
+			"internal_job": ls,
+			"linked_service": ls,
+		}
+	)
+	if st:
+		for k, v in extract_service_scoped_quote_parameters(charge, st).items():
+			row[k] = v
+	return row
+
+
+def _linked_charge_groups_for_create(parent_doc: Any) -> list[tuple[int, Any]]:
+	"""1-based virtual Internal Job Detail rows derived from Linked-scoped charge lines."""
+	seen: set[tuple] = set()
+	groups: list[Any] = []
+	for ch in _iter_linked_scoped_charges(parent_doc):
+		key = _linked_charge_group_key(ch)
+		if key in seen:
+			continue
+		seen.add(key)
+		groups.append(_virtual_ij_row_from_linked_charge(ch))
+	return [(i, row) for i, row in enumerate(groups, start=1)]
+
+
+def _linked_service_doc_for_row(row: Any) -> Any | None:
+	"""Load the Linked Service document referenced by a charge or planning row."""
+	from logistics.utils.linked_service_compat import linked_service_doctype, row_linked_service_link
+
+	ls = row_linked_service_link(row)
+	if not ls or not frappe.db.exists(linked_service_doctype(), ls):
+		return None
+	return frappe.get_cached_doc(linked_service_doctype(), ls)
+
+
+def _job_no_for_linked_charge_row(row: Any) -> str:
+	from logistics.utils.linked_service_compat import (
+		linked_service_doctype,
+		linked_service_record_exists,
+		row_linked_service_link,
+	)
+
+	ls = row_linked_service_link(row)
+	jt = effective_internal_job_detail_job_type(row)
+	if not ls or not linked_service_record_exists(ls):
+		return ""
+	info = frappe.db.get_value(
+		linked_service_doctype(),
+		ls,
+		("job_type", "job_no"),
+		as_dict=True,
+	)
+	if not info:
+		return ""
+	job_no = (info.get("job_no") or "").strip()
+	job_type = (info.get("job_type") or "").strip()
+	if not job_no:
+		return ""
+	if jt and job_type and job_type != jt:
+		return ""
+	return job_no
+
+
+def _resolve_linked_charge_row_for_create(
+	parent_doc: Any,
+	job_type: str,
+	internal_job_detail_idx: int | None,
+) -> tuple[Any | None, int | None]:
+	jt = (job_type or "").strip()
+	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	groups = _linked_charge_groups_for_create(parent_doc)
+	if idx is not None:
+		if idx < 1 or idx > len(groups):
+			frappe.throw(_("Invalid linked-service charge group."))
+		_row_idx, row = groups[idx - 1]
+		if effective_internal_job_detail_job_type(row) != jt:
+			frappe.throw(_("The selected line is not for {0}.").format(job_type))
+		jn = _job_no_for_linked_charge_row(row)
+		if jn:
+			frappe.throw(
+				_("This linked-service charge line already references {0} {1}.").format(jt, jn),
+				title=_("Already linked"),
+			)
+		return row, idx
+	for i, row in groups:
+		if effective_internal_job_detail_job_type(row) != jt:
+			continue
+		if _job_no_for_linked_charge_row(row):
+			continue
+		return row, i
+	return None, None
+
+
+def persist_internal_job_create_back_link(
+	parent_doctype: str,
+	parent_name: str,
+	job_type: str,
+	job_no: str,
+	*,
+	ij_row: Any | None = None,
+	detail_idx: int | None = None,
+) -> None:
+	"""Back-link after create; linked-charge parents skip the Internal Jobs child table."""
+	from logistics.utils.internal_job_persistence import sync_internal_job_doc_job_link
+	from logistics.utils.linked_service_compat import row_linked_service_link
+
+	if ij_row is not None and row_linked_service_link(ij_row):
+		sync_internal_job_doc_job_link(ij_row, job_type, job_no)
+	if _uses_linked_charge_internal_job_create(parent_doctype):
+		return
+	persist_internal_job_detail_job_link(
+		parent_doctype, parent_name, job_type, job_no, detail_idx=detail_idx
+	)
 
 
 def _apply_internal_job_satellite_flags(doc: Any, main_job_type: str, main_job: str) -> None:
@@ -126,8 +283,34 @@ def validate_internal_job_detail_params_match_quotation(
 	internal_job_detail_idx: int | None = None,
 ) -> None:
 	"""Reject create when charges or matching Internal Job setup are missing."""
+	if _uses_linked_charge_internal_job_create(getattr(parent_doc, "doctype", None) or ""):
+		row, _resolved_idx = resolve_internal_job_detail_row_for_create(
+			parent_doc, job_type, internal_job_detail_idx
+		)
+		if not row:
+			frappe.throw(
+				_("No linked-service charge line found for {0}.").format(job_type),
+				title=_("Cannot create internal job"),
+			)
+		from logistics.utils.internal_job_creation_eligibility import (
+			require_internal_job_eligibility_for_create,
+		)
+
+		jt = (job_type or "").strip()
+		service_label = _SERVICE_LABEL_FOR_JOB_TYPE.get(jt)
+		ls_doc = _linked_service_doc_for_row(row)
+		require_internal_job_eligibility_for_create(
+			sales_quote=getattr(parent_doc, "sales_quote", None),
+			parent_doc=parent_doc,
+			ij_row=row,
+			linked_service_doc=ls_doc,
+			service_type_label=service_label,
+			uses_linked_charge_create=True,
+		)
+		return
+
 	from logistics.utils.internal_job_creation_eligibility import (
-		require_internal_job_creation_eligible,
+		require_internal_job_eligibility_for_create,
 	)
 
 	jt = (job_type or "").strip()
@@ -135,11 +318,12 @@ def validate_internal_job_detail_params_match_quotation(
 		parent_doc, jt, internal_job_detail_idx
 	)
 	service_label = _SERVICE_LABEL_FOR_JOB_TYPE.get(jt)
-	require_internal_job_creation_eligible(
+	require_internal_job_eligibility_for_create(
 		sales_quote=getattr(parent_doc, "sales_quote", None),
 		parent_doc=parent_doc,
 		ij_row=ij_row,
 		service_type_label=service_label,
+		uses_linked_charge_create=False,
 	)
 
 
@@ -208,12 +392,10 @@ def resolve_internal_job_detail_row_for_create(
 	job_type: str,
 	internal_job_detail_idx: int | None,
 ) -> tuple[Any | None, int | None]:
-	"""Resolve the Internal Job Detail row used for create: explicit idx, else first open line for this job type.
+	"""Resolve the row used for create: Linked charges on freight shipments, else Internal Job Detail."""
+	if _uses_linked_charge_internal_job_create(getattr(parent_doc, "doctype", None) or ""):
+		return _resolve_linked_charge_row_for_create(parent_doc, job_type, internal_job_detail_idx)
 
-	Does not match rows using sales quote routing; only explicit index or open lines in ``internal_job_details``.
-
-	Returns (row, 1-based idx) for persisting job_no after create.
-	"""
 	jt = (job_type or "").strip()
 	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
 	if idx is not None:
@@ -273,19 +455,21 @@ def apply_internal_job_detail_row_to_operational_doc(
 		if overwrite or cur is None or cur == "":
 			doc.set(fieldname, val)
 
-	# Always carry the canonical Internal Job link onto the new operational doc (when the target
+	# Always carry the canonical Linked Service link onto the new operational doc (when the target
 	# doctype defines the field). This is set before the parameter early-return below so we still
 	# stamp the link even on rows that have no service-scoped parameters (rare, but possible for
 	# warehousing-only IJs and similar minimal rows).
-	ij_link_val = (getattr(row, "internal_job", None) or "") if not isinstance(row, dict) else (
-		row.get("internal_job") or ""
-	)
-	if isinstance(ij_link_val, str):
-		ij_link_val = ij_link_val.strip()
+	from logistics.utils.linked_service_compat import row_linked_service_link
+
+	ij_link_val = row_linked_service_link(row)
 	if ij_link_val and meta.get_field("internal_job"):
 		cur_ij = (getattr(doc, "internal_job", None) or "").strip()
 		if overwrite or not cur_ij:
 			doc.set("internal_job", ij_link_val)
+	if ij_link_val and meta.get_field("linked_service"):
+		cur_ls = (getattr(doc, "linked_service", None) or "").strip()
+		if overwrite or not cur_ls:
+			doc.set("linked_service", ij_link_val)
 
 	params = extract_sales_quote_charge_parameters(row)
 	if not params:
@@ -581,10 +765,9 @@ def _choice_header_fields(
 	jn = (getattr(row, "job_no", None) or "").strip() if row else ""
 	ij_link = ""
 	if row is not None:
-		if isinstance(row, dict):
-			ij_link = (row.get("internal_job") or "").strip()
-		else:
-			ij_link = (getattr(row, "internal_job", None) or "").strip()
+		from logistics.utils.linked_service_compat import row_linked_service_link
+
+		ij_link = row_linked_service_link(row)
 	title = _(st) if st else (_(jt_label) if jt_label else _("(no service type)"))
 	if jn:
 		badge = jn
@@ -610,13 +793,22 @@ def _choice_header_fields(
 	return out
 
 
+def _empty_internal_job_create_blocked_message(parent_doc: Any) -> str:
+	if _uses_linked_charge_internal_job_create(getattr(parent_doc, "doctype", None) or ""):
+		return _(
+			"No linked-service charges (Scope = Linked) were found on this document. "
+			"Pull charges from the Sales Quote or tag charge lines with Scope = Linked before creating internal jobs."
+		)
+	return _("No internal jobs can be created from this document.")
+
+
 @frappe.whitelist()
 def get_internal_job_creation_choices(
 	source_doctype: str,
 	source_name: str,
 	internal_job_details: Any = None,
 ):
-	"""Build Create > Internal Job options: all Internal Job Detail rows; lines with Job No stay visible (not creatable)."""
+	"""Build Create > Internal Job options from Linked charges or Internal Job Detail rows."""
 	if not source_name or not frappe.db.exists(source_doctype, source_name):
 		frappe.throw(_("Invalid source document."))
 	if source_doctype not in ("Air Shipment", "Sea Shipment", "Transport Job", "Declaration"):
@@ -640,10 +832,22 @@ def get_internal_job_creation_choices(
 	)
 
 	choices: list[dict[str, Any]] = []
-	for idx, row in _all_internal_job_detail_rows_for_form(doc, internal_job_details):
+	if _uses_linked_charge_internal_job_create(source_doctype):
+		row_iter = _linked_charge_groups_for_create(doc)
+	else:
+		row_iter = _all_internal_job_detail_rows_for_form(doc, internal_job_details)
+
+	for idx, row in row_iter:
 		st = (getattr(row, "service_type", None) or "").strip()
+		if isinstance(row, dict):
+			st = (row.get("service_type") or st or "").strip()
 		jt = effective_internal_job_detail_job_type(row)
-		jn = (getattr(row, "job_no", None) or "").strip()
+		if _uses_linked_charge_internal_job_create(source_doctype):
+			jn = _job_no_for_linked_charge_row(row)
+		else:
+			jn = (getattr(row, "job_no", None) or "").strip()
+			if isinstance(row, dict):
+				jn = (row.get("job_no") or jn or "").strip()
 		not_creatable_message: str | None = None
 		if jn:
 			creatable = False
@@ -651,15 +855,18 @@ def get_internal_job_creation_choices(
 			creatable = bool(st) and bool(jt) and _job_type_allowed_for_source(source_doctype, doc, jt, flags)
 			if creatable:
 				from logistics.utils.internal_job_creation_eligibility import (
-					evaluate_internal_job_creation_eligibility,
+					evaluate_internal_job_eligibility_for_create,
 				)
 
 				service_label = _SERVICE_LABEL_FOR_JOB_TYPE.get(jt)
-				elig = evaluate_internal_job_creation_eligibility(
+				ls_doc = _linked_service_doc_for_row(row) if _uses_linked_charge_internal_job_create(source_doctype) else None
+				elig = evaluate_internal_job_eligibility_for_create(
 					sales_quote=getattr(doc, "sales_quote", None),
 					parent_doc=doc,
 					ij_row=row,
+					linked_service_doc=ls_doc,
 					service_type_label=service_label or st,
+					uses_linked_charge_create=_uses_linked_charge_internal_job_create(source_doctype),
 				)
 				if not elig.get("eligible"):
 					creatable = False
@@ -681,10 +888,9 @@ def get_internal_job_creation_choices(
 			}
 		ij_link_for_row = ""
 		if row is not None:
-			if isinstance(row, dict):
-				ij_link_for_row = (row.get("internal_job") or "").strip()
-			else:
-				ij_link_for_row = (getattr(row, "internal_job", None) or "").strip()
+			from logistics.utils.linked_service_compat import row_linked_service_link
+
+			ij_link_for_row = row_linked_service_link(row)
 		choice: dict[str, Any] = {
 			"mode": "detail",
 			"detail_idx": idx,
@@ -700,7 +906,10 @@ def get_internal_job_creation_choices(
 			choice["not_creatable_message"] = not_creatable_message
 		choices.append(choice)
 
-	return {"choices": choices}
+	result: dict[str, Any] = {"choices": choices}
+	if not choices:
+		result["blocked_message"] = _empty_internal_job_create_blocked_message(doc)
+	return result
 
 
 def _job_preview_parameters_for_display(params: dict[str, Any] | None) -> dict[str, Any]:
@@ -754,10 +963,9 @@ def _charges_preview_list(
 
 	ij_link = ""
 	if ij_row is not None:
-		if isinstance(ij_row, dict):
-			ij_link = (ij_row.get("internal_job") or "").strip()
-		else:
-			ij_link = (getattr(ij_row, "internal_job", None) or "").strip()
+		from logistics.utils.linked_service_compat import row_linked_service_link
+
+		ij_link = row_linked_service_link(ij_row)
 
 	def _row_to_preview(ch: Any) -> dict[str, Any]:
 		return {
@@ -797,11 +1005,13 @@ def _charges_preview_list(
 			"parameters": params,
 		}
 
-	# Step 1 — IJ-tagged rows on the parent (canonical when GCFQ has already run on the Main).
+	# Step 1 — Linked Service–tagged rows on the parent (canonical when GCFQ has already run on the Main).
 	if ij_link:
+		from logistics.utils.linked_service_compat import charge_row_linked_service_link
+
 		tagged: list[dict[str, Any]] = []
 		for ch in getattr(parent_doc, "charges", None) or []:
-			row_ij = (getattr(ch, "internal_job", None) or "").strip()
+			row_ij = charge_row_linked_service_link(ch)
 			if row_ij != ij_link:
 				continue
 			st = (getattr(ch, "service_type", None) or "").strip().lower()
@@ -837,10 +1047,21 @@ def _charges_preview_list(
 			if sq_out:
 				return sq_out
 
-	# Step 3 — Legacy parameter match against the parent's charges (no per-scope tags, no IJ link).
+	# Step 3 — Parameter match against the parent's charges (Linked scope on freight shipments).
 	out: list[dict[str, Any]] = []
+	from logistics.utils.linked_service_compat import is_linked_charge_scope, normalize_charge_scope
+
+	linked_charge_parent = _uses_linked_charge_internal_job_create(
+		getattr(parent_doc, "doctype", None) or ""
+	)
 	for ch in getattr(parent_doc, "charges", None) or []:
-		row_ij = (getattr(ch, "internal_job", None) or "").strip()
+		if linked_charge_parent:
+			scope = normalize_charge_scope(getattr(ch, "charge_scope", None))
+			if not is_linked_charge_scope(scope):
+				continue
+		from logistics.utils.linked_service_compat import charge_row_linked_service_link
+
+		row_ij = charge_row_linked_service_link(ch)
 		if row_ij and ij_link and row_ij != ij_link:
 			# Tagged for a different IJ → skip in this preview.
 			continue
@@ -969,10 +1190,9 @@ def _get_internal_job_creation_preview_body(
 			jtl = effective_internal_job_detail_job_type(row)
 		ij_link_for_row = ""
 		if row is not None:
-			if isinstance(row, dict):
-				ij_link_for_row = (row.get("internal_job") or "").strip()
-			else:
-				ij_link_for_row = (getattr(row, "internal_job", None) or "").strip()
+			from logistics.utils.linked_service_compat import row_linked_service_link
+
+			ij_link_for_row = row_linked_service_link(row)
 		out: dict[str, Any] = {
 			"job_type": jtl,
 			"detail_idx": res_idx,
@@ -1172,6 +1392,7 @@ def _get_internal_job_creation_preview_body(
 		parent_doc=doc,
 		ij_row=ij_row,
 		service_type_label=service_label,
+		uses_linked_charge_create=_uses_linked_charge_internal_job_create(source_doctype),
 	)
 
 
@@ -1419,8 +1640,13 @@ def _create_freight_booking_from_freight_shipment(
 	else:
 		_populate_sea_booking_charges_from_linked_quote_on_internal_create(doc)
 	doc.insert(ignore_permissions=True)
-	persist_internal_job_detail_job_link(
-		source_doctype, source_name, target_doctype, doc.name, detail_idx=resolved_idx
+	persist_internal_job_create_back_link(
+		source_doctype,
+		source_name,
+		target_doctype,
+		doc.name,
+		ij_row=row,
+		detail_idx=resolved_idx,
 	)
 	frappe.db.commit()
 	key = "air_booking" if target_doctype == "Air Booking" else "sea_booking"
@@ -1482,8 +1708,13 @@ def _create_air_booking_from_transport_job(transport_job_name: str, internal_job
 			pass
 	_populate_air_booking_charges_from_linked_quote_on_internal_create(doc)
 	doc.insert(ignore_permissions=True)
-	persist_internal_job_detail_job_link(
-		"Transport Job", transport_job_name, "Air Booking", doc.name, detail_idx=resolved_idx
+	persist_internal_job_create_back_link(
+		"Transport Job",
+		transport_job_name,
+		"Air Booking",
+		doc.name,
+		ij_row=row,
+		detail_idx=resolved_idx,
 	)
 	frappe.db.commit()
 	return {"air_booking": doc.name, "message": _("Air Booking {0} created.").format(doc.name)}
@@ -1511,8 +1742,13 @@ def _create_sea_booking_from_transport_job(transport_job_name: str, internal_job
 		apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
 	_populate_sea_booking_charges_from_linked_quote_on_internal_create(doc)
 	doc.insert(ignore_permissions=True)
-	persist_internal_job_detail_job_link(
-		"Transport Job", transport_job_name, "Sea Booking", doc.name, detail_idx=resolved_idx
+	persist_internal_job_create_back_link(
+		"Transport Job",
+		transport_job_name,
+		"Sea Booking",
+		doc.name,
+		ij_row=row,
+		detail_idx=resolved_idx,
 	)
 	frappe.db.commit()
 	return {"sea_booking": doc.name, "message": _("Sea Booking {0} created.").format(doc.name)}
@@ -1546,8 +1782,13 @@ def _create_declaration_order_from_transport_job(transport_job_name: str, intern
 	if row:
 		apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
 	order.insert(ignore_permissions=True)
-	persist_internal_job_detail_job_link(
-		"Transport Job", transport_job_name, "Declaration Order", order.name, detail_idx=resolved_idx
+	persist_internal_job_create_back_link(
+		"Transport Job",
+		transport_job_name,
+		"Declaration Order",
+		order.name,
+		ij_row=row,
+		detail_idx=resolved_idx,
 	)
 	frappe.db.commit()
 	return {"declaration_order": order.name, "message": _("Declaration Order {0} created.").format(order.name)}
@@ -1559,9 +1800,7 @@ def _create_transport_order_from_transport_job(transport_job_name: str, internal
 	row, resolved_idx = resolve_internal_job_detail_row_for_create(job, "Transport Order", idx)
 	if row is None:
 		frappe.throw(
-			_("Add an Internal Job Detail line with Job Type {0} or pick that line when creating a Transport Order from a Transport Job.").format(
-				_("Transport Order")
-			)
+			_("No linked-service Transport charge line found for creating a Transport Order from this Transport Job.")
 		)
 	order = frappe.new_doc("Transport Order")
 	order.customer = job.customer
@@ -1591,8 +1830,13 @@ def _create_transport_order_from_transport_job(transport_job_name: str, internal
 	apply_container_transport_context_to_order(order, row)
 	set_internal_transport_order_draft_insert_flags(order)
 	order.insert(ignore_permissions=True)
-	persist_internal_job_detail_job_link(
-		"Transport Job", transport_job_name, "Transport Order", order.name, detail_idx=resolved_idx
+	persist_internal_job_create_back_link(
+		"Transport Job",
+		transport_job_name,
+		"Transport Order",
+		order.name,
+		ij_row=row,
+		detail_idx=resolved_idx,
 	)
 	frappe.db.commit()
 	return {"transport_order": order.name, "message": _("Transport Order {0} created.").format(order.name)}

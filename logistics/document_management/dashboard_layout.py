@@ -1405,6 +1405,61 @@ def render_special_project_interactive_route_tab_html(
 """
 
 
+def render_special_project_fulfillment_route_tab_html(
+	fulfillment_left_html,
+	lifecycle_right_html,
+	current_lifecycle_stage=None,
+):
+	"""
+	Split Route tab: fulfillment summary (left) + lifecycle/service cards (right).
+
+	Left: overall completion hero and current-stage throughput.
+	Right: collapsible lifecycle groups with per-stage throughput in headers and job cards.
+	"""
+	current_stage = (current_lifecycle_stage or "").strip()
+	return f"""
+<style>
+.sp-dash-split.sp-dash-split--fulfillment {{
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	align-items: stretch;
+	width: 100%;
+	min-height: 380px;
+}}
+.sp-dash-split--fulfillment .sp-dash-fulfillment-col {{
+	flex: 0 1 340px;
+	max-width: min(360px, 100%);
+	min-width: 260px;
+	max-height: 560px;
+	overflow-y: auto;
+	overflow-x: hidden;
+}}
+.sp-dash-split--fulfillment .sp-dash-cards-col {{
+	flex: 1 1 380px;
+	min-width: 280px;
+	max-height: 560px;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding-right: 4px;
+}}
+.sp-dash-lifecycle-group.collapsed .sp-dash-lifecycle-group-body {{
+	display: none;
+}}
+.sp-dash-lifecycle-group.is-stage-filter .sp-dash-lifecycle-group-header {{
+	background: #EEF2FF;
+}}
+.sp-dash-lifecycle-group.is-stage-filter {{
+	border-color: #C7D2FE !important;
+}}
+</style>
+<div class="sp-dash-split sp-dash-split--fulfillment" data-sp-fulfillment-dash="1" data-sp-current-stage="{escape_html(current_stage)}">
+	<div class="sp-dash-fulfillment-col">{fulfillment_left_html}</div>
+	<div class="sp-dash-cards-col">{lifecycle_right_html}</div>
+</div>
+"""
+
+
 def build_run_sheet_style_dashboard(
 	header_title,
 	header_subtitle,

@@ -4,10 +4,19 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import escape_html, flt
+from typing import Any
+
+from frappe.utils import date_diff, escape_html, flt, getdate, today
 
 from logistics.special_projects.special_project_lifecycle import (
 	validate_special_project_lifecycle_stage_advance,
+)
+from logistics.special_projects.special_project_service_compat import (
+	row_special_project_service_link,
+)
+from logistics.special_projects.special_project_service_rows import (
+	service_row_currency_total,
+	service_rows,
 )
 from logistics.utils.lifecycle_stage import (
 	FOR_SPECIAL_PROJECT,
@@ -15,7 +24,7 @@ from logistics.utils.lifecycle_stage import (
 	validate_internal_job_activity_codes,
 )
 from logistics.utils.special_project_internal_jobs import (
-	job_refs_from_lifecycle_jobs,
+	job_refs_for_special_project,
 	resolve_internal_job_detail_row_to_operational_ref,
 )
 
@@ -91,6 +100,117 @@ def _format_row_idx_list(row_idxs: list[int], max_inline: int = 12) -> str:
 
 
 class SpecialProject(Document):
+	def __setup__(self):
+		"""Keep virtual ``special_project_services`` initialised; honour desk grid rows on save."""
+		self._stage_special_project_services_from_form()
+
+	@property
+	def special_project_services(self):
+		"""Live view of Special Project Service documents owned by this project."""
+		if self.flags.get("_special_project_services_from_form"):
+			return self.__dict__.get("special_project_services") or []
+		rows = self.__dict__.get("special_project_services")
+		if rows and any(getattr(r, "__islocal", None) for r in rows):
+			self.flags._special_project_services_from_form = True
+			return rows
+		if self.flags.get("_special_project_services_view_cached"):
+			return self.__dict__.get("special_project_services") or []
+		value = self._build_special_project_services_view()
+		self.__dict__["special_project_services"] = value
+		self.flags._special_project_services_view_cached = True
+		return value
+
+	def _build_special_project_services_view(self):
+		"""Return Special Project Service Detail row dicts from ``Special Project Service`` documents."""
+		if not getattr(self, "name", None) or getattr(self, "__islocal", False):
+			return []
+		from logistics.special_projects.doctype.special_project_service.special_project_service import (
+			get_special_project_services_for_special_project,
+		)
+
+		view_fields = {
+			"special_project_service",
+			"lifecycle_stage",
+			"activity_code",
+			"activity_name",
+			"lifecycle_row_label",
+			"lifecycle_activity_status",
+			"special_project_service_line",
+			"service_type",
+			"job_type",
+			"job_no",
+			"order_no",
+			"job_description",
+		}
+		for fn in (
+			"air_house_type",
+			"airline",
+			"freight_agent",
+			"sea_house_type",
+			"freight_agent_sea",
+			"shipping_line",
+			"transport_mode",
+			"load_type",
+			"direction",
+			"origin_port",
+			"destination_port",
+			"transport_template",
+			"vehicle_type",
+			"container_type",
+			"container_no",
+			"location_type",
+			"location_from",
+			"location_to",
+			"pick_mode",
+			"drop_mode",
+			"customs_authority",
+			"declaration_type",
+			"customs_broker",
+			"customs_charge_category",
+			"sp_site",
+			"sp_manpower",
+			"sp_skilled",
+			"sp_equipment_type",
+			"sp_handling",
+			"sp_resource_notes",
+			"planned_cost",
+			"actual_cost",
+			"planned_revenue",
+			"actual_revenue",
+		):
+			view_fields.add(fn)
+
+		rows = []
+		for service_doc in get_special_project_services_for_special_project(self.name):
+			row = {"special_project_service": service_doc.name, "name": service_doc.name}
+			for fn in view_fields:
+				if fn in ("special_project_service",):
+					continue
+				if hasattr(service_doc, fn):
+					row[fn] = getattr(service_doc, fn, None)
+			rows.append(row)
+		return rows
+
+	def _drop_virtual_special_project_services_rows(self):
+		"""Clear desk grid rows after sync; source of truth is ``Special Project Service`` documents."""
+		self.flags._special_project_services_from_form = False
+		self.flags._special_project_services_view_cached = False
+		if "special_project_services" in self.__dict__:
+			del self.__dict__["special_project_services"]
+
+	def _stage_special_project_services_from_form(self):
+		"""Honour desk/API grid rows on save, including an intentional empty grid."""
+		if "special_project_services" not in self.__dict__:
+			return
+		if self.__dict__.get("special_project_services") is None:
+			self.__dict__["special_project_services"] = []
+		if not self.flags.get("_special_project_services_view_cached"):
+			self.flags._special_project_services_from_form = True
+
+	def _honour_special_project_services_form_rows(self):
+		"""Rows staged in ``__dict__`` (desk grid / API append) must sync before the virtual view reloads."""
+		self._stage_special_project_services_from_form()
+
 	def _validate_links(self):
 		from logistics.special_projects.special_project_charge_execution import (
 			normalize_charge_execution_log_link_fields,
@@ -98,12 +218,20 @@ class SpecialProject(Document):
 		from logistics.special_projects.special_project_charge_lifecycle import (
 			normalize_lifecycle_job_order_job_fields,
 		)
+		from logistics.special_projects.special_project_service_helpers import (
+			normalize_special_project_service_order_job_fields,
+		)
 
 		normalize_lifecycle_job_order_job_fields(self)
+		normalize_special_project_service_order_job_fields(self)
+		from logistics.special_projects.lifecycle_job_display import sync_lifecycle_row_labels
+
+		sync_lifecycle_row_labels(self)
 		normalize_charge_execution_log_link_fields(self)
 		super()._validate_links()
 
 	def validate(self):
+		self._honour_special_project_services_form_rows()
 		validate_internal_job_activity_codes(self, module_filter=FOR_SPECIAL_PROJECT)
 		validate_special_project_lifecycle_stage_advance(self)
 		self._ensure_charges_tab_defaults()
@@ -118,12 +246,22 @@ class SpecialProject(Document):
 			from logistics.special_projects.special_project_charge_lifecycle import (
 				recompute_all_charge_tag_allocations,
 				validate_charge_lifecycle_tags,
-				validate_lifecycle_job_line_not_referenced,
+			)
+			from logistics.special_projects.special_project_service_helpers import (
+				sync_charge_tags_from_service_line,
+				validate_charge_service_tags,
+				validate_special_project_service_lifecycle_stages,
+				validate_special_project_service_line_not_referenced,
 			)
 
+			for charge in self.get("charges") or []:
+				sync_charge_tags_from_service_line(charge, self)
 			recompute_all_charge_tag_allocations(self)
 			validate_charge_lifecycle_tags(self)
-			self._validate_removed_lifecycle_rows()
+			validate_charge_service_tags(self)
+			validate_special_project_service_lifecycle_stages(self)
+			self._validate_removed_applicable_stages()
+			self._validate_removed_service_rows()
 			from logistics.special_projects.special_project_packages import (
 				autofill_delivery_lifecycle_stages,
 				validate_deliveries_read_only,
@@ -134,38 +272,72 @@ class SpecialProject(Document):
 			validate_deliveries_read_only(self)
 			autofill_delivery_lifecycle_stages(self)
 			self._sync_charges_with_parent_actuals()
-			from logistics.special_projects.lifecycle_job_financial_rollup import (
-				sync_lifecycle_job_financials,
-			)
+			if not getattr(self.flags, "ignore_charges_sync", False):
+				from logistics.special_projects.lifecycle_job_financial_rollup import (
+					sync_lifecycle_job_financials,
+				)
 
-			sync_lifecycle_job_financials(self)
+				sync_lifecycle_job_financials(self)
 		finally:
 			clear_charge_resolution_parent(self)
 
-	def _validate_removed_lifecycle_rows(self) -> None:
+	def _validate_removed_applicable_stages(self) -> None:
+		if self.is_new():
+			return
+		from logistics.special_projects.special_project_charge_lifecycle import (
+			validate_lifecycle_stage_not_referenced,
+		)
+
+		old_stages = set(
+			frappe.get_all(
+				"Special Project Lifecycle Stage",
+				filters={
+					"parent": self.name,
+					"parenttype": "Special Project",
+					"parentfield": "applicable_lifecycle_stages",
+				},
+				pluck="lifecycle_stage",
+			)
+		)
+		new_stages = {
+			(row.lifecycle_stage or "").strip()
+			for row in self.get("applicable_lifecycle_stages") or []
+			if (row.lifecycle_stage or "").strip()
+		}
+		removed = old_stages - new_stages
+		if removed:
+			validate_lifecycle_stage_not_referenced(self, removed)
+
+	def _validate_removed_service_rows(self) -> None:
 		if self.is_new():
 			return
 		old_names = set(
 			frappe.get_all(
-				"Lifecycle Job",
+				"Special Project Service",
 				filters={
-					"parent": self.name,
-					"parenttype": "Special Project",
-					"parentfield": "lifecycle_jobs",
+					"parent_booking_type": "Special Project",
+					"parent_booking_name": self.name,
 				},
 				pluck="name",
 			)
 		)
 		new_names = {
-			row.name for row in self.get("lifecycle_jobs") or [] if getattr(row, "name", None)
+			row_special_project_service_link(row)
+			for row in self.special_project_services or []
+			if row_special_project_service_link(row)
+		}
+		new_names |= {
+			getattr(row, "name", None)
+			for row in self.special_project_services or []
+			if getattr(row, "name", None)
 		}
 		removed = old_names - new_names
 		if removed:
-			from logistics.special_projects.special_project_charge_lifecycle import (
-				validate_lifecycle_job_line_not_referenced,
+			from logistics.special_projects.special_project_service_helpers import (
+				validate_special_project_service_line_not_referenced,
 			)
 
-			validate_lifecycle_job_line_not_referenced(self, removed)
+			validate_special_project_service_line_not_referenced(self, removed)
 
 	def validate_accounts(self):
 		"""Ensure cost center / profit center / branch belong to company (same checks as Sea Shipment)."""
@@ -223,9 +395,9 @@ class SpecialProject(Document):
 		if not packages and not lifecycle:
 			return
 
-		primary_target = "fulfillment_tab" if packages else "lifecycle_tab"
+		primary_target = "fulfillment_tab" if packages else "services_tab"
 		primary_label = (
-			_("Go to Fulfillment") if packages else _("Go to Lifecycle")
+			_("Go to Fulfillment") if packages else _("Go to Services")
 		)
 
 		summary_lines: list[str] = []
@@ -440,7 +612,7 @@ class SpecialProject(Document):
 	def _collect_lifecycle_blockers(self) -> dict | None:
 		"""Collect pending lifecycle activities. Returns dict with items + status counts or None."""
 		pending: list[dict] = []
-		for row in self.get("lifecycle_jobs") or []:
+		for row in service_rows(self):
 			if not (getattr(row, "activity_code", None) or "").strip():
 				continue
 			status = (getattr(row, "lifecycle_activity_status", None) or "Not Started").strip()
@@ -588,21 +760,23 @@ class SpecialProject(Document):
 		"""Auto-charge scoping costs when status changes to Booked."""
 		if self.has_value_changed("status") and self.status in ("Booked", "Approved", "Planning", "In Progress"):
 			self._maybe_charge_scoping_costs()
-		if self.get("lifecycle_jobs"):
+		if self.special_project_services:
 			from logistics.special_projects.lifecycle_job_financial_rollup import (
 				sync_lifecycle_job_financials,
 			)
 
 			sync_lifecycle_job_financials(self)
+		self._drop_virtual_special_project_services_rows()
 
 	def after_insert(self):
 		"""Create Job Number on first save (deferred so the row exists before lookup)."""
-		if self.get("lifecycle_jobs"):
+		if self.special_project_services:
 			from logistics.special_projects.lifecycle_job_financial_rollup import (
 				sync_lifecycle_job_financials,
 			)
 
 			sync_lifecycle_job_financials(self)
+		self._drop_virtual_special_project_services_rows()
 		# Document-management on_update during insert may leave ignore_validate set on this instance.
 		self.flags.ignore_validate = False
 		frappe.enqueue(
@@ -1111,30 +1285,77 @@ _LIFECYCLE_STAGE_COLORS = {
 	"Closed": "#64748b",
 }
 
+_DASH_LIFECYCLE_SIDEBAR_CSS = """
+.sp-dash-lifecycle-group.collapsed .sp-dash-lifecycle-group-body {
+	display: none;
+}
+"""
 
-def _sp_dash_card_html(title, sub, badge, kind="task", map_index=None):
+
+def _sp_dash_card_html(title, sub, badge, kind="task", map_index=None, lifecycle_stage=None):
 	border = "#17a2b8" if kind == "job" else "#667eea"
 	idx_attr = f' data-sp-map-idx="{int(map_index)}"' if map_index is not None else ""
+	stage_attr = ""
+	if lifecycle_stage:
+		stage_attr = f' data-sp-lifecycle-stage="{escape_html(lifecycle_stage)}"'
 	return (
-		f'<div class="sp-dash-card" style="border-left-color: {border};" role="button" tabindex="0"{idx_attr}>'
+		f'<div class="sp-dash-card" style="border-left-color: {border};" role="button" tabindex="0"{idx_attr}{stage_attr}>'
 		f'<div class="sp-dash-card-title">{escape_html(title)}</div>'
 		f'<div class="sp-dash-card-sub">{escape_html(sub)}</div>'
 		f'<span class="sp-dash-card-badge">{escape_html(badge)}</span></div>'
 	)
 
 
-def _lifecycle_collapsible_group_html(stage, entries, current_stage):
+def _lifecycle_stage_throughput_header_html(
+	stage_qty: float, total_required: float, *, stage_color: str = "#6366F1"
+) -> str:
+	"""Compact throughput meter for lifecycle group header."""
+	pct = 0.0 if total_required <= 0 else min(100.0, flt(stage_qty) / total_required * 100.0)
+	qty_label = escape_html(_packages_summary_qty_label(stage_qty))
+	req_label = escape_html(_packages_summary_qty_label(total_required))
+	pct_label = f"{pct:.0f}%" if total_required > 0 else "—"
+	return (
+		f'<span class="sp-dash-lifecycle-throughput" style="--sp-stage-color:{stage_color};">'
+		f'<span class="sp-dash-lifecycle-throughput-metrics">'
+		f'<span class="sp-dash-lifecycle-throughput-qty">{qty_label}</span>'
+		f'<span class="sp-dash-lifecycle-throughput-sep">/</span>'
+		f'<span class="sp-dash-lifecycle-throughput-req">{req_label}</span>'
+		f'<span class="sp-dash-lifecycle-throughput-pct">{pct_label}</span>'
+		f"</span>"
+		f'<span class="sp-dash-lifecycle-throughput-meter">'
+		f'<span class="sp-dash-lifecycle-throughput-fill" style="width:{pct:.2f}%"></span>'
+		f"</span>"
+		f"</span>"
+	)
+
+
+def _lifecycle_collapsible_group_html(
+	stage,
+	entries,
+	current_stage,
+	*,
+	stage_throughput: dict[str, dict[str, float]] | None = None,
+):
 	"""Collapsible lifecycle section wrapping dashboard job cards."""
 	color = _LIFECYCLE_STAGE_COLORS.get(stage, "#94a3b8")
 	current = (current_stage or "Pre-Show").strip()
 	is_current = stage == current
-	collapsed = "" if is_current else " collapsed"
-	chevron = "fa-chevron-down" if is_current else "fa-chevron-right"
+	collapsed = " collapsed"
+	chevron = "fa-chevron-right"
 	current_badge = (
 		f' <span class="badge badge-primary" style="margin-left:6px;font-size:10px">{_("Current")}</span>'
 		if is_current
 		else ""
 	)
+	throughput_html = ""
+	if stage_throughput:
+		tp = stage_throughput.get(stage)
+		if tp is not None:
+			throughput_html = _lifecycle_stage_throughput_header_html(
+				tp.get("qty", 0.0),
+				tp.get("required", 0.0),
+				stage_color=color,
+			)
 	body = (
 		"".join(e["card_html"] for e in entries)
 		if entries
@@ -1146,19 +1367,29 @@ def _lifecycle_collapsible_group_html(stage, entries, current_stage):
 		f'<div class="sp-dash-lifecycle-group-header" role="button" tabindex="0" '
 		f'style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f8f9fa;cursor:pointer;user-select:none">'
 		f'<i class="fa {chevron} sp-dash-lifecycle-chevron" style="width:12px;font-size:11px;color:#6c757d"></i>'
-		f"<strong style=\"font-size:13px\">{escape_html(stage)}{current_badge}</strong>"
-		f'<span class="text-muted small" style="margin-left:auto">{len(entries)} {_("jobs")}</span>'
+		f"<strong style=\"font-size:13px;flex:0 0 auto\">{escape_html(stage)}{current_badge}</strong>"
+		f'{throughput_html}'
+		f'<span class="text-muted small sp-dash-lifecycle-job-count" style="margin-left:auto;flex:0 0 auto">'
+		f"{len(entries)} {escape_html(_('jobs'))}</span>"
 		f"</div>"
-		f'<div class="sp-dash-lifecycle-group-body" style="padding:8px 10px 6px">{body}</div>'
+		f'<div class="sp-dash-lifecycle-group-body" style="padding:8px 10px 6px;display:none">{body}</div>'
 		f"</div>"
 	)
 
 
-def _build_lifecycle_grouped_job_cards_sidebar(card_entries, current_stage):
+def _build_lifecycle_grouped_job_cards_sidebar(
+	card_entries,
+	current_stage,
+	stage_names=None,
+	*,
+	stage_throughput: dict[str, dict[str, float]] | None = None,
+):
 	"""Group Route-tab job cards by lifecycle stage (collapsible)."""
-	from logistics.utils.lifecycle_stage import FOR_SPECIAL_PROJECT, get_lifecycle_stages
+	if stage_names is None:
+		from logistics.utils.lifecycle_stage import FOR_SPECIAL_PROJECT, get_lifecycle_stages
 
-	stage_names = get_lifecycle_stages(FOR_SPECIAL_PROJECT)
+		stage_names = get_lifecycle_stages(FOR_SPECIAL_PROJECT)
+
 	by_stage = {name: [] for name in stage_names}
 	unassigned = []
 
@@ -1170,22 +1401,42 @@ def _build_lifecycle_grouped_job_cards_sidebar(card_entries, current_stage):
 			unassigned.append(entry)
 
 	parts = [
-		_lifecycle_collapsible_group_html(stage, by_stage.get(stage) or [], current_stage)
+		_lifecycle_collapsible_group_html(
+			stage,
+			by_stage.get(stage) or [],
+			current_stage,
+			stage_throughput=stage_throughput,
+		)
 		for stage in stage_names
 	]
 	if unassigned:
-		parts.append(_lifecycle_collapsible_group_html(_("Unassigned"), unassigned, current_stage))
-	return "".join(parts)
+		parts.append(
+			_lifecycle_collapsible_group_html(
+				_("Unassigned"), unassigned, current_stage, stage_throughput=None
+			)
+		)
+	return (
+		f'<div class="sp-dash-lifecycle-sidebar">'
+		f"<style>{_DASH_LIFECYCLE_SIDEBAR_CSS}</style>"
+		f'{"".join(parts)}'
+		f"</div>"
+	)
 
 
 @frappe.whitelist()
-def get_dashboard_html(special_project):
+def get_dashboard_html(special_project, applicable_stages=None):
 	"""Dashboard tab: Transport Job style header/tabs; Route = internal job lines + map (ports or shipment route)."""
 	if not special_project:
 		return "<div class='alert alert-info'>Save the project to view the dashboard.</div>"
 	try:
+		import json
+
+		if isinstance(applicable_stages, str):
+			try:
+				applicable_stages = json.loads(applicable_stages)
+			except Exception:
+				applicable_stages = None
 		from logistics.air_freight.doctype.air_booking.air_booking_dashboard import _milestones_ro_panel_html
-		from logistics.document_management.dashboard_layout import render_special_project_interactive_route_tab_html
 		from logistics.document_management.logistics_form_dashboard import (
 			build_customer_hero_html,
 			build_special_project_meta_cluster_html,
@@ -1198,8 +1449,8 @@ def get_dashboard_html(special_project):
 		quote_html = get_sales_quote_validity_dashboard_html(doc) or ""
 
 		status = doc.status or "Draft"
-		job_rows = doc.get("lifecycle_jobs") or []
-		job_refs = job_refs_from_lifecycle_jobs(doc)
+		job_rows = service_rows(doc)
+		job_refs = job_refs_for_special_project(doc)
 		charges = doc.get("charges") or []
 		from logistics.special_projects.special_project_packages import (
 			validate_packages,
@@ -1215,9 +1466,9 @@ def get_dashboard_html(special_project):
 			total_on = sum(flt(getattr(m, "qty_on_site", 0)) for m in materials)
 			if total_req > 0:
 				on_site_pct = f"{min(100, int(100 * total_on / total_req))}%"
-		planned_cost = sum(flt(a.planned_cost or 0) for a in job_rows)
-		actual_cost = sum(flt(a.actual_cost or 0) for a in job_rows)
-		actual_rev = sum(flt(a.actual_revenue or 0) for a in job_rows)
+		planned_cost = service_row_currency_total(job_rows, "planned_cost")
+		actual_cost = service_row_currency_total(job_rows, "actual_cost")
+		actual_rev = service_row_currency_total(job_rows, "actual_revenue")
 
 		def fmt(v):
 			return frappe.format_value(v, df={"fieldtype": "Currency"}) if v is not None else "—"
@@ -1282,12 +1533,9 @@ def get_dashboard_html(special_project):
 		done_ms = sum(1 for m in milestone_rows if str(m.status or "").strip() == "Completed")
 
 		card_entries = []
-		map_payloads = []
 
 		lines_ordered = sorted(job_rows, key=lambda r: int(getattr(r, "idx", None) or 0))
 		for map_index, row in enumerate(lines_ordered):
-			payload = _internal_job_row_map_payload(row)
-			map_payloads.append(payload)
 			title = _internal_job_card_title(row)[:200]
 			sub = _internal_job_card_sub(row)
 			pc = getattr(row, "planned_cost", None)
@@ -1309,35 +1557,61 @@ def get_dashboard_html(special_project):
 				if op
 				else (getattr(row, "service_type", None) or _("Job line"))
 			)
-			kind = "job" if op or (payload.get("map_points") or []) else "task"
+			kind = "job" if op else "task"
+			stage = (getattr(row, "lifecycle_stage", None) or "").strip()
 			card_entries.append(
 				{
-					"lifecycle_stage": (getattr(row, "lifecycle_stage", None) or "").strip(),
+					"lifecycle_stage": stage,
 					"card_html": _sp_dash_card_html(
 						title[:200],
 						sub,
 						badge,
 						kind=kind,
 						map_index=map_index,
+						lifecycle_stage=stage,
 					),
 				}
 			)
 
+		from logistics.special_projects.special_project_service_rows import (
+			dashboard_lifecycle_stage_names,
+			has_configured_applicable_lifecycle_stages,
+		)
+
+		stage_names = dashboard_lifecycle_stage_names(doc, applicable_stages)
+		fulfillment_ctx = _packages_fulfillment_context(doc, current_lifecycle_stage=doc.lifecycle_stage)
+		stage_throughput = fulfillment_ctx.get("stage_throughput") if fulfillment_ctx else None
+
 		if not card_entries:
-			cards_sidebar_html = (
-				f'<div class="text-muted" style="padding:8px;">'
-				f'{escape_html(_("Add lines under Lifecycle jobs to see them here."))}</div>'
-			)
-			map_payloads.append({"map_mode": "empty", "map_points": [], "label": _("Nothing to show on the map yet.")})
+			if has_configured_applicable_lifecycle_stages(doc, applicable_stages):
+				cards_sidebar_html = _build_lifecycle_grouped_job_cards_sidebar(
+					[],
+					doc.lifecycle_stage,
+					stage_names,
+					stage_throughput=stage_throughput,
+				)
+			else:
+				cards_sidebar_html = (
+					f'<div class="text-muted" style="padding:8px;">'
+					f'{escape_html(_("Add services under the Services tab to see them here."))}</div>'
+				)
 		else:
 			cards_sidebar_html = _build_lifecycle_grouped_job_cards_sidebar(
-				card_entries, doc.lifecycle_stage
+				card_entries,
+				doc.lifecycle_stage,
+				stage_names,
+				stage_throughput=stage_throughput,
 			)
 
-		route_tab_override_html = render_special_project_interactive_route_tab_html(
-			"sp-form-dash",
-			map_payloads,
+		fulfillment_left_html = _build_main_dash_fulfillment_left_html(doc, fulfillment_ctx)
+		from logistics.document_management.dashboard_layout import (
+			render_special_project_fulfillment_route_tab_html,
+		)
+
+		route_tab_override_html = render_special_project_fulfillment_route_tab_html(
+			fulfillment_left_html,
 			cards_sidebar_html,
+			current_lifecycle_stage=doc.lifecycle_stage,
 		)
 
 		cfg = {
@@ -1348,6 +1622,7 @@ def get_dashboard_html(special_project):
 			"route_panel_html": route_panel_html,
 			"meta_cluster_html": meta_cluster_html,
 			"route_tab_override_html": route_tab_override_html,
+			"route_tab_label": _("LifeCycle and Services"),
 			"milestones_tab_inner_html": ms_inner,
 			"milestone_count_override": n_ms,
 			"milestone_done_override": done_ms,
@@ -1500,7 +1775,7 @@ def _get_movement_map_html_fragment(special_project):
 		return "<div class='alert alert-info'>Save the project to view the map.</div>"
 	try:
 		doc = frappe.get_doc("Special Project", special_project)
-		movements = _collect_movements_from_jobs(job_refs_from_lifecycle_jobs(doc))
+		movements = _collect_movements_from_jobs(job_refs_for_special_project(doc))
 
 		# Filter to movements that have at least one valid coordinate
 		valid_movements = [
@@ -1679,12 +1954,12 @@ def get_cost_revenue_summary(special_project):
 	if not special_project:
 		return ""
 	doc = frappe.get_doc("Special Project", special_project)
-	rows = doc.get("lifecycle_jobs") or []
+	rows = service_rows(doc)
 
-	planned_cost = sum((a.planned_cost or 0) for a in rows)
-	actual_cost = sum((a.actual_cost or 0) for a in rows)
-	planned_revenue = sum((a.planned_revenue or 0) for a in rows)
-	actual_revenue = sum((a.actual_revenue or 0) for a in rows)
+	planned_cost = service_row_currency_total(rows, "planned_cost")
+	actual_cost = service_row_currency_total(rows, "actual_cost")
+	planned_revenue = service_row_currency_total(rows, "planned_revenue")
+	actual_revenue = service_row_currency_total(rows, "actual_revenue")
 	planned_margin = planned_revenue - planned_cost if planned_revenue or planned_cost else None
 	actual_margin = actual_revenue - actual_cost if actual_revenue or actual_cost else None
 
@@ -1710,6 +1985,87 @@ def _packages_summary_qty_label(qty: float) -> str:
 	return str(value)
 
 
+PACKAGES_SUMMARY_STALL_DAYS = 7
+
+
+def _packages_summary_last_receipt_by_material(
+	sp_doc: Any, materials: list
+) -> list[Any]:
+	"""Return, per package row, the latest posted receipt_date (or None)."""
+	from logistics.special_projects.special_project_packages import (
+		POSTED_RECEIPT_STATUS,
+		_norm,
+		_norm_desc,
+		cint_safe,
+	)
+
+	n_mats = len(materials)
+	out: list[Any] = [None] * n_mats
+
+	idx_to_row = {i + 1: m for i, m in enumerate(materials)}
+	wh_to_idx: dict[str, int] = {}
+	commodity_to_idx: dict[str, int] = {}
+	desc_to_idx: dict[str, int] = {}
+	for i, m in enumerate(materials):
+		if cint_safe(getattr(m, "include_on_create", 0)):
+			continue
+		wh = _norm(getattr(m, "warehouse_item", None))
+		if wh and wh not in wh_to_idx:
+			wh_to_idx[wh] = i
+		commodity = _norm(getattr(m, "commodity", None))
+		if commodity and commodity not in commodity_to_idx:
+			commodity_to_idx[commodity] = i
+		desc = _norm_desc(getattr(m, "description", None))
+		if desc and desc not in desc_to_idx:
+			desc_to_idx[desc] = i
+
+	for rc in getattr(sp_doc, "deliveries", None) or []:
+		status = getattr(rc, "status", None) or POSTED_RECEIPT_STATUS
+		if status != POSTED_RECEIPT_STATUS:
+			continue
+		receipt_date = getattr(rc, "receipt_date", None)
+		if not receipt_date:
+			continue
+		row_idx = cint_safe(getattr(rc, "package_row", None))
+		mat_pos: int | None = None
+		if row_idx and row_idx in idx_to_row:
+			candidate = idx_to_row[row_idx]
+			if not cint_safe(getattr(candidate, "include_on_create", 0)):
+				mat_pos = row_idx - 1
+		if mat_pos is None:
+			wh = _norm(getattr(rc, "warehouse_item", None))
+			if wh and wh in wh_to_idx:
+				mat_pos = wh_to_idx[wh]
+		if mat_pos is None:
+			commodity = _norm(getattr(rc, "commodity", None))
+			if commodity and commodity in commodity_to_idx:
+				mat_pos = commodity_to_idx[commodity]
+		if mat_pos is None:
+			desc = _norm_desc(getattr(rc, "description", None))
+			if desc and desc in desc_to_idx:
+				mat_pos = desc_to_idx[desc]
+		if mat_pos is None:
+			continue
+		candidate_date = getdate(receipt_date)
+		existing = out[mat_pos]
+		if existing is None or candidate_date > getdate(existing):
+			out[mat_pos] = receipt_date
+	return out
+
+
+def _packages_summary_current_stage(
+	stage_qtys: list[float], stages: list[dict[str, Any]]
+) -> tuple[int | None, str]:
+	"""Highest lifecycle stage index with delivered qty > 0, else not started."""
+	best_idx: int | None = None
+	for i, q in enumerate(stage_qtys):
+		if flt(q) > 0:
+			best_idx = i
+	if best_idx is None:
+		return None, _("Not started")
+	return best_idx, stages[best_idx]["name"]
+
+
 _STAGE_PALETTE: list[tuple[str, str]] = [
 	("#6366F1", "#A5B4FC"),
 	("#06B6D4", "#67E8F9"),
@@ -1732,6 +2088,7 @@ def _packages_summary_row_status(
 	final_idx: int | None,
 	*,
 	is_always_along: bool,
+	is_stalled: bool = False,
 ) -> tuple[str, str]:
 	"""Return (status_key, status_label) for a package row."""
 	if is_always_along:
@@ -1740,60 +2097,141 @@ def _packages_summary_row_status(
 	final_qty = flt(stage_qtys[final_idx]) if (final_idx is not None and final_idx < len(stage_qtys)) else 0.0
 	if req > 0 and final_qty >= req:
 		return ("complete", _("Complete"))
+	if is_stalled:
+		return ("stalled", _("Stalled"))
 	if any(flt(q) > 0 for q in stage_qtys):
 		return ("in_progress", _("In Progress"))
 	return ("pending", _("Pending"))
 
 
-def _packages_summary_cell_html(
-	qty: float,
-	required: float,
+def _packages_summary_row_metrics(
+	m: Any,
+	stage_qtys: list[float],
+	stages: list[dict[str, Any]],
+	final_idx: int | None,
+	last_receipt: Any,
 	*,
-	stage_idx: int,
-	is_final_stage: bool = False,
-	is_always_along: bool = False,
-) -> str:
-	"""Render one stage cell: numeric qty + thin fill bar (width = qty/required)."""
-	stage_cls = f"sp-pfn-stage-{stage_idx % len(_STAGE_PALETTE)}"
-	if is_always_along:
-		return (
-			f'<span class="sp-pfn-cell sp-pfn-cell-stage sp-pfn-cell-na {stage_cls}" '
-			f'aria-label="N/A">'
-			f'<span class="sp-pfn-qty">'
-			f'<span class="sp-pfn-qty-num sp-pfn-qty-na">&mdash;</span>'
-			f'<span class="sp-pfn-cell-check sp-pfn-cell-check--empty" aria-hidden="true"></span>'
-			f"</span>"
-			f'<span class="sp-pfn-bar" aria-hidden="true">'
-			f'<span class="sp-pfn-bar-fill" style="width:0%"></span></span>'
-			f"</span>"
-		)
-	qty_val = flt(qty)
-	req_val = flt(required)
-	if qty_val <= 0:
-		return (
-			f'<span class="sp-pfn-cell sp-pfn-cell-stage sp-pfn-cell-empty {stage_cls}">'
-			'<span class="sp-pfn-qty">'
-			'<span class="sp-pfn-qty-num sp-pfn-qty-zero">0</span>'
-			'<span class="sp-pfn-cell-check sp-pfn-cell-check--empty" aria-hidden="true"></span>'
-			"</span>"
-			'<span class="sp-pfn-bar"><span class="sp-pfn-bar-fill" style="width:0%"></span></span>'
-			"</span>"
-		)
-	pct = 0.0 if req_val <= 0 else min(100.0, qty_val / req_val * 100.0)
-	complete = req_val > 0 and qty_val >= req_val
-	complete_cls = " sp-pfn-cell-complete" if complete else ""
-	final_cls = " sp-pfn-cell-final" if is_final_stage else ""
-	check_icon = (
-		'<span class="sp-pfn-cell-check" aria-hidden="true">&#10003;</span>'
-		if complete
-		else '<span class="sp-pfn-cell-check sp-pfn-cell-check--empty" aria-hidden="true"></span>'
+	is_always_along: bool,
+	stall_days: int = PACKAGES_SUMMARY_STALL_DAYS,
+) -> dict[str, Any]:
+	"""Per-package fulfillment metrics for summary and attention views."""
+	required = flt(getattr(m, "qty_required", 0))
+	delivered = flt(getattr(m, "qty_on_site", 0))
+	remaining = flt(getattr(m, "qty_short", 0))
+	pct = 0.0 if required <= 0 else min(100.0, delivered / required * 100.0)
+
+	_stage_idx, current_stage = _packages_summary_current_stage(stage_qtys, stages)
+
+	days_idle: int | None = None
+	if last_receipt:
+		days_idle = date_diff(today(), getdate(last_receipt))
+
+	is_partial = delivered > 0 and remaining > 0
+	is_stalled = bool(
+		is_partial and days_idle is not None and days_idle >= stall_days
 	)
-	label = escape_html(_packages_summary_qty_label(qty_val))
+
+	status_key, status_label = _packages_summary_row_status(
+		stage_qtys,
+		required,
+		final_idx,
+		is_always_along=is_always_along,
+		is_stalled=is_stalled,
+	)
+
+	return {
+		"delivered": delivered,
+		"remaining": remaining,
+		"pct": pct,
+		"current_stage": current_stage,
+		"status_key": status_key,
+		"status_label": status_label,
+		"days_idle": days_idle,
+		"is_stalled": is_stalled,
+		"is_partial": is_partial,
+	}
+
+
+def _packages_summary_attention_items(
+	materials: list,
+	per_stage: list[list[float]],
+	stages: list[dict[str, Any]],
+	final_idx: int | None,
+	last_receipts: list[Any],
+	*,
+	stall_days: int = PACKAGES_SUMMARY_STALL_DAYS,
+) -> list[dict[str, Any]]:
+	"""Non-complete tracked packages, sorted stalled → pending → partial (by remaining desc)."""
+	from logistics.special_projects.special_project_packages import cint_safe, package_label
+
+	items: list[dict[str, Any]] = []
+	for i, m in enumerate(materials):
+		if cint_safe(getattr(m, "include_on_create", 0)):
+			continue
+		qtys = per_stage[i]
+		last_receipt = last_receipts[i] if i < len(last_receipts) else None
+		metrics = _packages_summary_row_metrics(
+			m,
+			qtys,
+			stages,
+			final_idx,
+			last_receipt,
+			is_always_along=False,
+			stall_days=stall_days,
+		)
+		if metrics["status_key"] == "complete":
+			continue
+		items.append(
+			{
+				"row_no": i + 1,
+				"label": package_label(m) or "—",
+				"required": flt(getattr(m, "qty_required", 0)),
+				**metrics,
+			}
+		)
+
+	def _sort_key(item: dict[str, Any]) -> tuple[int, float]:
+		order = {"stalled": 0, "pending": 1, "in_progress": 2}
+		return (order.get(item["status_key"], 3), -flt(item.get("remaining", 0)))
+
+	items.sort(key=_sort_key)
+	return items
+
+
+def _packages_summary_stages_for_display(
+	doc: Any, all_stages: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+	"""Lifecycle stages shown in throughput — project's applicable stages only."""
+	from logistics.special_projects.special_project_service_rows import (
+		applicable_lifecycle_stages_ordered,
+	)
+
+	if not all_stages:
+		return []
+	by_name = {s["name"]: s for s in all_stages}
+	ordered_names = applicable_lifecycle_stages_ordered(doc)
+	display = [by_name[n] for n in ordered_names if n in by_name]
+	return display if display else list(all_stages)
+
+
+def _packages_summary_warning_cell_html(
+	metrics: dict[str, Any], *, is_always_along: bool
+) -> str:
+	if is_always_along or metrics.get("status_key") == "complete":
+		return '<span class="sp-pfn-cell sp-pfn-cell-warn"></span>'
+	status = metrics.get("status_key", "")
+	if status == "stalled" and metrics.get("days_idle") is not None:
+		tip = _("Stalled — {0}d since last delivery").format(metrics["days_idle"])
+	elif status == "pending":
+		tip = _("Pending — no deliveries yet")
+	else:
+		tip = _("In progress — {0} remaining").format(
+			_packages_summary_qty_label(metrics.get("remaining", 0))
+		)
 	return (
-		f'<span class="sp-pfn-cell sp-pfn-cell-stage {stage_cls}{complete_cls}{final_cls}">'
-		f'<span class="sp-pfn-qty"><span class="sp-pfn-qty-num">{label}</span>{check_icon}</span>'
-		f'<span class="sp-pfn-bar"><span class="sp-pfn-bar-fill" style="width:{pct:.2f}%"></span></span>'
-		"</span>"
+		f'<span class="sp-pfn-cell sp-pfn-cell-warn" title="{escape_html(tip)}">'
+		f'<span class="sp-pfn-warn-icon" aria-label="{escape_html(tip)}">&#9888;</span>'
+		f"</span>"
 	)
 
 
@@ -1805,85 +2243,158 @@ def _packages_summary_status_pill_html(status_key: str, status_label: str) -> st
 	)
 
 
-def _packages_summary_row_html(
+def _packages_summary_summary_row_html(
 	row_no: int,
 	label: str,
-	required: float,
-	stage_qtys: list[float],
+	metrics: dict[str, Any],
 	*,
 	is_always_along: bool,
-	final_stage_idx: int | None,
+	required: float,
 ) -> str:
-	required_cell: str
+	"""Scannable summary table row (no per-stage columns)."""
 	if is_always_along:
 		required_cell = (
 			'<span class="sp-pfn-cell sp-pfn-cell-required">'
 			'<span class="sp-pfn-badge" title="Always-along package">AA</span>'
 			"</span>"
 		)
+		delivered_cell = '<span class="sp-pfn-cell sp-pfn-cell-delivered"><span class="sp-pfn-qty-na">&mdash;</span></span>'
+		remaining_cell = '<span class="sp-pfn-cell sp-pfn-cell-remaining"><span class="sp-pfn-qty-na">&mdash;</span></span>'
+		pct_cell = '<span class="sp-pfn-cell sp-pfn-cell-pct"><span class="sp-pfn-qty-na">&mdash;</span></span>'
+		stage_cell = (
+			f'<span class="sp-pfn-cell sp-pfn-cell-current-stage">'
+			f'{escape_html(_("Always-Along"))}</span>'
+		)
+		status_key, status_label = "aa", _("Always-Along")
 	else:
 		required_cell = (
 			'<span class="sp-pfn-cell sp-pfn-cell-required">'
 			f'<span class="sp-pfn-qty">{escape_html(_packages_summary_qty_label(required))}</span>'
 			"</span>"
 		)
-	stage_cells = "".join(
-		_packages_summary_cell_html(
-			q,
-			required,
-			stage_idx=s_idx,
-			is_final_stage=(final_stage_idx is not None and s_idx == final_stage_idx),
-			is_always_along=is_always_along,
+		delivered_cell = (
+			'<span class="sp-pfn-cell sp-pfn-cell-delivered">'
+			f'<span class="sp-pfn-qty">{escape_html(_packages_summary_qty_label(metrics["delivered"]))}</span>'
+			"</span>"
 		)
-		for s_idx, q in enumerate(stage_qtys)
-	)
-	status_key, status_label = _packages_summary_row_status(
-		stage_qtys, required, final_stage_idx, is_always_along=is_always_along
-	)
+		remaining_cell = (
+			'<span class="sp-pfn-cell sp-pfn-cell-remaining">'
+			f'<span class="sp-pfn-qty">{escape_html(_packages_summary_qty_label(metrics["remaining"]))}</span>'
+			"</span>"
+		)
+		pct_val = metrics["pct"]
+		pct_cell = (
+			'<span class="sp-pfn-cell sp-pfn-cell-pct">'
+			f'<span class="sp-pfn-pct-num">{pct_val:.0f}%</span>'
+			f'<span class="sp-pfn-bar sp-pfn-bar-inline">'
+			f'<span class="sp-pfn-bar-fill" style="width:{pct_val:.2f}%"></span></span>'
+			"</span>"
+		)
+		stage_cell = (
+			f'<span class="sp-pfn-cell sp-pfn-cell-current-stage" '
+			f'title="{escape_html(metrics["current_stage"])}">'
+			f'{escape_html(metrics["current_stage"])}</span>'
+		)
+		status_key = metrics["status_key"]
+		status_label = metrics["status_label"]
+
 	status_cell = _packages_summary_status_pill_html(status_key, status_label)
+	warn_cell = _packages_summary_warning_cell_html(
+		metrics if not is_always_along else {}, is_always_along=is_always_along
+	)
+	stage_data = ""
+	if not is_always_along and metrics.get("current_stage"):
+		stage_data = f' data-lifecycle-stage="{escape_html(metrics["current_stage"])}"'
 	return (
-		f'<div class="sp-pfn-row" data-status="{status_key}">'
+		f'<div class="sp-pfn-row sp-pfn-summary-row" data-status="{escape_html(status_key)}"{stage_data}>'
 		f'<span class="sp-pfn-cell sp-pfn-cell-rowno">'
 		f'<span class="sp-pfn-rowno">{row_no}</span></span>'
+		f"{warn_cell}"
 		f'<span class="sp-pfn-cell sp-pfn-cell-package sp-pfn-package" title="{label}">{label}</span>'
 		f"{required_cell}"
-		f"{stage_cells}"
+		f"{delivered_cell}"
+		f"{remaining_cell}"
+		f"{pct_cell}"
+		f"{stage_cell}"
 		f"{status_cell}"
 		f"</div>"
 	)
 
 
-def _packages_summary_kpi_card_html(
-	label: str,
-	value: str,
-	sub: str,
-	accent_color: str,
+def _packages_summary_hero_html(
+	complete_pct: float,
+	total_required: float,
+	total_delivered: float,
 	*,
-	progress_pct: float | None = None,
-	icon: str | None = None,
+	tracked_count: int,
+	complete_rows: int,
+	in_progress_rows: int,
+	pending_rows: int,
+	stalled_rows: int,
+	always_along_count: int,
+	total_packages: int,
 ) -> str:
-	icon_html = (
-		f'<span class="sp-pfn-kpi-icon" aria-hidden="true">{icon}</span>' if icon else ""
+	total_remaining = max(0.0, flt(total_required) - flt(total_delivered))
+	pct_label = f"{complete_pct:.0f}%" if total_required > 0 else "—"
+	delivered_label = _packages_summary_qty_label(total_delivered) if tracked_count else "—"
+	remaining_label = _packages_summary_qty_label(total_remaining) if tracked_count else "—"
+
+	stalled_chip = (
+		f' · <strong>{stalled_rows}</strong> {escape_html(_("stalled"))}'
+		if stalled_rows
+		else ""
 	)
-	bar_html = ""
-	if progress_pct is not None:
-		pct = max(0.0, min(100.0, float(progress_pct)))
-		bar_html = (
-			'<div class="sp-pfn-kpi-bar">'
-			f'<div class="sp-pfn-kpi-bar-fill" style="width:{pct:.2f}%"></div>'
-			"</div>"
+	chips = [
+		f'<span class="sp-pfn-hero-chip"><strong>{escape_html(delivered_label)}</strong> {escape_html(_("Delivered"))}</span>',
+		f'<span class="sp-pfn-hero-chip"><strong>{escape_html(remaining_label)}</strong> {escape_html(_("Remaining"))}</span>',
+		f'<span class="sp-pfn-hero-chip">'
+		f'<strong>{complete_rows}</strong> {escape_html(_("complete"))} · '
+		f'<strong>{in_progress_rows}</strong> {escape_html(_("in progress"))} · '
+		f'<strong>{pending_rows}</strong> {escape_html(_("pending"))}'
+		f"{stalled_chip}"
+		f"</span>",
+	]
+	if always_along_count:
+		chips.append(
+			f'<span class="sp-pfn-hero-chip sp-pfn-hero-chip-muted">'
+			f'<strong>{total_packages}</strong> {escape_html(_("packages"))} · '
+			f'<strong>{always_along_count}</strong> {escape_html(_("always-along"))}'
+			f"</span>"
 		)
+
+	bar_pct = complete_pct if total_required > 0 else 0.0
 	return (
-		f'<div class="sp-pfn-kpi" style="--sp-kpi-accent: {accent_color}">'
-		f'<div class="sp-pfn-kpi-top">'
-		f'<div class="sp-pfn-kpi-label">{escape_html(label)}</div>'
-		f"{icon_html}"
+		f'<div class="sp-pfn-hero">'
+		f'<div class="sp-pfn-hero-main">'
+		f'<div class="sp-pfn-hero-pct-wrap">'
+		f'<span class="sp-pfn-hero-pct">{escape_html(pct_label)}</span>'
+		f'<span class="sp-pfn-hero-pct-label">{escape_html(_("% Complete"))}</span>'
 		f"</div>"
-		f'<div class="sp-pfn-kpi-value">{escape_html(value)}</div>'
-		f"{bar_html}"
-		f'<div class="sp-pfn-kpi-sub">{escape_html(sub)}</div>'
-		"</div>"
+		f'<div class="sp-pfn-hero-bar-wrap">'
+		f'<div class="sp-pfn-hero-bar">'
+		f'<div class="sp-pfn-hero-bar-fill" style="width:{bar_pct:.2f}%"></div>'
+		f"</div>"
+		f'<div class="sp-pfn-hero-chips">{"".join(chips)}</div>'
+		f"</div>"
+		f"</div>"
+		f"</div>"
 	)
+
+
+def _packages_summary_filter_chips_html() -> str:
+	chips = [
+		("all", _("All")),
+		("pending", _("Pending")),
+		("stalled", _("Stalled")),
+		("in_progress", _("In Progress")),
+		("complete", _("Complete")),
+	]
+	buttons = "".join(
+		f'<button type="button" class="sp-pfn-filter-chip{" is-active" if key == "all" else ""}" '
+		f'data-filter="{escape_html(key)}">{escape_html(label)}</button>'
+		for key, label in chips
+	)
+	return f'<div class="sp-pfn-filters">{buttons}</div>'
 
 
 def _packages_summary_stage_card_html(
@@ -1893,6 +2404,7 @@ def _packages_summary_stage_card_html(
 	total_required: float,
 	*,
 	is_final: bool,
+	is_current: bool = False,
 ) -> str:
 	dark, light = _stage_color_pair(stage_idx)
 	pct = 0.0 if total_required <= 0 else min(100.0, qty / total_required * 100.0)
@@ -1911,13 +2423,22 @@ def _packages_summary_stage_card_html(
 			'<span class="sp-pfn-stage-tag sp-pfn-stage-tag-final" title="Used for overall % complete">'
 			f'{escape_html(_("Final"))}</span>'
 		)
+	if is_current:
+		tags.append(
+			'<span class="sp-pfn-stage-tag sp-pfn-stage-tag-current" title="Project lifecycle stage">'
+			f'{escape_html(_("Current"))}</span>'
+		)
 	tags_html = (
 		'<span class="sp-pfn-stage-tags">' + "".join(tags) + "</span>" if tags else ""
 	)
 	qty_label = escape_html(_packages_summary_qty_label(qty))
 	req_label = escape_html(_packages_summary_qty_label(total_required))
+	current_cls = " is-current" if is_current else ""
+	stage_name = stage.get("name") or ""
 	return (
-		f'<div class="sp-pfn-stage-card" '
+		f'<div class="sp-pfn-stage-card{current_cls}" '
+		f'data-lifecycle-stage="{escape_html(stage_name)}" '
+		f'role="button" tabindex="0" '
 		f'style="--sp-stage-color: {dark}; --sp-stage-color-light: {light};" '
 		f'title="{desc}">'
 		f'<div class="sp-pfn-stage-card-head">'
@@ -1939,17 +2460,55 @@ def _packages_summary_stage_card_html(
 	)
 
 
+def _packages_summary_current_stage_throughput_html(
+	current_stage: str,
+	qty: float,
+	total_required: float,
+) -> str:
+	"""Throughput callout for the project's current lifecycle stage."""
+	if not (current_stage or "").strip():
+		return ""
+	pct = 0.0 if total_required <= 0 else min(100.0, flt(qty) / total_required * 100.0)
+	qty_label = escape_html(_packages_summary_qty_label(qty))
+	req_label = escape_html(_packages_summary_qty_label(total_required))
+	pct_label = f"{pct:.0f}%" if total_required > 0 else "—"
+	return (
+		f'<div class="sp-pfn-current-stage-throughput" data-lifecycle-stage="{escape_html(current_stage)}">'
+		f'<div class="sp-pfn-current-stage-throughput-label">'
+		f'{escape_html(_("Current stage throughput"))}</div>'
+		f'<div class="sp-pfn-current-stage-throughput-stage">{escape_html(current_stage)}</div>'
+		f'<div class="sp-pfn-current-stage-throughput-metrics">'
+		f'<span class="sp-pfn-current-stage-throughput-qty">{qty_label}</span>'
+		f'<span class="sp-pfn-current-stage-throughput-sep">/</span>'
+		f'<span class="sp-pfn-current-stage-throughput-req">{req_label}</span>'
+		f'<span class="sp-pfn-current-stage-throughput-pct">{pct_label}</span>'
+		f"</div>"
+		f'<div class="sp-pfn-current-stage-throughput-bar">'
+		f'<div class="sp-pfn-current-stage-throughput-fill" style="width:{pct:.2f}%"></div>'
+		f"</div>"
+		f"</div>"
+	)
+
+
 def _packages_summary_stage_pipeline_html(
 	stages: list[dict],
 	per_stage_totals: list[float],
 	total_required: float,
 	final_idx: int | None,
+	*,
+	current_lifecycle_stage: str | None = None,
 ) -> str:
 	if not stages:
 		return ""
+	current = (current_lifecycle_stage or "").strip()
+	current_qty = 0.0
 	cards: list[str] = []
 	for i, stage in enumerate(stages):
 		qty = per_stage_totals[i] if i < len(per_stage_totals) else 0.0
+		stage_name = (stage.get("name") or "").strip()
+		is_current = bool(current and stage_name == current)
+		if is_current:
+			current_qty = qty
 		cards.append(
 			_packages_summary_stage_card_html(
 				i,
@@ -1957,15 +2516,16 @@ def _packages_summary_stage_pipeline_html(
 				qty,
 				total_required,
 				is_final=(final_idx is not None and i == final_idx),
+				is_current=is_current,
 			)
 		)
+	throughput_html = _packages_summary_current_stage_throughput_html(
+		current, current_qty, total_required
+	)
 	return (
-		'<div class="sp-pfn-pipeline-wrap">'
-		'<div class="sp-pfn-pipeline-head">'
-		f'<span class="sp-pfn-pipeline-title">{escape_html(_("Stage Throughput"))}</span>'
-		f'<span class="sp-pfn-pipeline-sub">{escape_html(_("Delivered units per lifecycle stage vs total required"))}</span>'
-		"</div>"
-		'<div class="sp-pfn-pipeline">'
+		f'{throughput_html}'
+		f'<div class="sp-pfn-pipeline-wrap">'
+		f'<div class="sp-pfn-pipeline">'
 		+ "".join(cards)
 		+ "</div></div>"
 	)
@@ -2055,10 +2615,10 @@ _PACKAGES_SUMMARY_CSS = """
 	box-sizing: border-box;
 }
 .sp-packages-summary.is-collapsed .sp-pfn-pipeline-wrap,
-.sp-packages-summary.is-collapsed .sp-pfn-panel,
-.sp-packages-summary.is-collapsed .sp-pfn-footer { display: none; }
-.sp-packages-summary.is-collapsed .sp-pfn-titlebar { border-bottom: none; }
-.sp-packages-summary.is-collapsed .sp-pfn-kpis { border-bottom: none; }
+.sp-packages-summary.is-collapsed .sp-pfn-filters,
+.sp-packages-summary.is-collapsed .sp-pfn-summary-panel { display: none; }
+.sp-packages-summary.is-collapsed .sp-pfn-toolbar { border-bottom: none; }
+.sp-packages-summary.is-collapsed .sp-pfn-hero { border-bottom: none; }
 .sp-pfn-card {
 	width: 100%;
 	border: 1px solid #E5E7EB;
@@ -2067,36 +2627,11 @@ _PACKAGES_SUMMARY_CSS = """
 	background: #fff;
 	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
-.sp-pfn-titlebar {
+.sp-pfn-toolbar {
 	display: flex;
-	align-items: center;
-	gap: 10px;
-	padding: 12px 16px;
+	justify-content: flex-end;
+	padding: 8px 12px 0;
 	background: linear-gradient(180deg, #ffffff, #fafafa);
-	border-bottom: 1px solid #ECEEF1;
-}
-.sp-pfn-title {
-	font-size: 13px;
-	font-weight: 700;
-	color: var(--text-color, #111827);
-	letter-spacing: 0.01em;
-}
-.sp-pfn-title-icon {
-	width: 22px;
-	height: 22px;
-	border-radius: 6px;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	background: linear-gradient(135deg, #6366F1, #06B6D4);
-	color: #fff;
-	font-size: 12px;
-	line-height: 1;
-}
-.sp-pfn-title-sub {
-	font-size: 11px;
-	font-weight: 500;
-	color: var(--text-muted, #6b7280);
 }
 .sp-pks-toggle {
 	margin-left: auto;
@@ -2124,7 +2659,169 @@ _PACKAGES_SUMMARY_CSS = """
 }
 .sp-packages-summary.is-collapsed .sp-pks-toggle-icon { transform: rotate(-90deg); }
 
-/* ----- KPI cards ----- */
+/* ----- Hero fulfillment strip ----- */
+.sp-pfn-hero {
+	padding: 16px 16px 14px;
+	background: linear-gradient(180deg, #FAFBFF, #FFFFFF);
+	border-bottom: 1px solid #ECEEF1;
+}
+.sp-pfn-hero-main {
+	display: flex;
+	align-items: flex-start;
+	gap: 20px;
+	flex-wrap: wrap;
+}
+.sp-pfn-hero-pct-wrap {
+	flex: 0 0 auto;
+	min-width: 88px;
+}
+.sp-pfn-hero-pct {
+	display: block;
+	font-size: 36px;
+	font-weight: 800;
+	color: #111827;
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.02em;
+}
+.sp-pfn-hero-pct-label {
+	display: block;
+	margin-top: 4px;
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--text-muted, #6B7280);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+.sp-pfn-hero-bar-wrap {
+	flex: 1 1 240px;
+	min-width: 0;
+	padding-top: 6px;
+}
+.sp-pfn-hero-bar {
+	height: 10px;
+	border-radius: 6px;
+	background: #F1F2F4;
+	overflow: hidden;
+	margin-bottom: 10px;
+}
+.sp-pfn-hero-bar-fill {
+	height: 100%;
+	background: linear-gradient(90deg, #6366F1, #10B981);
+	border-radius: 6px;
+	transition: width 0.45s ease;
+}
+.sp-pfn-hero-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 14px;
+}
+.sp-pfn-hero-chip {
+	font-size: 12px;
+	color: var(--text-muted, #6B7280);
+}
+.sp-pfn-hero-chip strong {
+	font-weight: 700;
+	color: #111827;
+	font-variant-numeric: tabular-nums;
+}
+.sp-pfn-hero-chip-muted { opacity: 0.85; }
+
+/* ----- Warning icon column ----- */
+.sp-pfn-cell-warn {
+	justify-content: center;
+	width: 28px;
+	flex: 0 0 28px;
+}
+.sp-pfn-warn-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	font-size: 12px;
+	line-height: 1;
+	color: #B45309;
+	background: #FEF3C8;
+	cursor: help;
+}
+
+/* ----- Status filter chips ----- */
+.sp-pfn-filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	padding: 0 16px 10px;
+}
+.sp-pfn-filter-chip {
+	padding: 4px 12px;
+	border: 1px solid #E5E7EB;
+	border-radius: 999px;
+	background: #fff;
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--text-muted, #6B7280);
+	cursor: pointer;
+	transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.sp-pfn-filter-chip:hover {
+	background: #F9FAFB;
+	color: #111827;
+}
+.sp-pfn-filter-chip.is-active {
+	background: #EEF2FF;
+	border-color: #6366F1;
+	color: #4338CA;
+}
+
+/* ----- Summary table ----- */
+.sp-pfn-summary-panel {
+	width: 100%;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+	border-bottom: 1px solid #ECEEF1;
+}
+.sp-pfn-summary-panel .sp-pfn-table {
+	min-width: 720px;
+}
+.sp-pfn-cell-delivered,
+.sp-pfn-cell-remaining,
+.sp-pfn-cell-pct {
+	justify-content: flex-end;
+}
+.sp-pfn-cell-pct {
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 4px;
+}
+.sp-pfn-pct-num {
+	font-size: 12px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	color: #111827;
+}
+.sp-pfn-bar-inline {
+	width: 100%;
+	max-width: 52px;
+	height: 4px;
+}
+.sp-pfn-cell-current-stage {
+	font-size: 11px;
+	font-weight: 600;
+	color: #374151;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.sp-pfn-row[data-status="stalled"] .sp-pfn-cell {
+	background: linear-gradient(90deg, rgba(245,158,11,0.08), transparent 35%);
+}
+.sp-pfn-row[data-status="pending"] .sp-pfn-cell {
+	background: linear-gradient(90deg, rgba(107,114,128,0.05), transparent 30%);
+}
+
+/* ----- Stage pipeline ----- */
 .sp-pfn-kpis {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -2210,23 +2907,6 @@ _PACKAGES_SUMMARY_CSS = """
 	padding: 12px 16px 16px;
 	background: #fff;
 	border-bottom: 1px solid #ECEEF1;
-}
-.sp-pfn-pipeline-head {
-	display: flex;
-	align-items: baseline;
-	gap: 10px;
-	margin-bottom: 10px;
-}
-.sp-pfn-pipeline-title {
-	font-size: 11px;
-	font-weight: 700;
-	color: #111827;
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-}
-.sp-pfn-pipeline-sub {
-	font-size: 11px;
-	color: var(--text-muted, #6B7280);
 }
 .sp-pfn-pipeline {
 	display: flex;
@@ -2333,6 +3013,131 @@ _PACKAGES_SUMMARY_CSS = """
 .sp-pfn-stage-card-foot {
 	font-size: 10px;
 	color: var(--text-muted, #6B7280);
+}
+.sp-pfn-stage-card.is-current {
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--sp-stage-color, #6366F1) 45%, transparent);
+}
+.sp-pfn-stage-card.is-stage-selected {
+	outline: 2px solid #4338CA;
+	outline-offset: 1px;
+}
+.sp-pfn-stage-tag-current {
+	background: #EEF2FF;
+	color: #4338CA;
+}
+.sp-pfn-current-stage-throughput {
+	margin: 0 16px 10px;
+	padding: 12px 14px;
+	border-radius: 10px;
+	border: 1px solid #C7D2FE;
+	background: linear-gradient(180deg, #EEF2FF, #FFFFFF);
+}
+.sp-pfn-current-stage-throughput-label {
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: #4338CA;
+	margin-bottom: 4px;
+}
+.sp-pfn-current-stage-throughput-stage {
+	font-size: 15px;
+	font-weight: 700;
+	color: #111827;
+	margin-bottom: 6px;
+}
+.sp-pfn-current-stage-throughput-metrics {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	font-variant-numeric: tabular-nums;
+	margin-bottom: 8px;
+}
+.sp-pfn-current-stage-throughput-qty {
+	font-size: 22px;
+	font-weight: 800;
+	color: #111827;
+}
+.sp-pfn-current-stage-throughput-sep,
+.sp-pfn-current-stage-throughput-req {
+	font-size: 13px;
+	color: var(--text-muted, #6B7280);
+}
+.sp-pfn-current-stage-throughput-pct {
+	margin-left: auto;
+	font-size: 13px;
+	font-weight: 700;
+	color: #4338CA;
+}
+.sp-pfn-current-stage-throughput-bar {
+	height: 8px;
+	border-radius: 6px;
+	background: #E0E7FF;
+	overflow: hidden;
+}
+.sp-pfn-current-stage-throughput-fill {
+	height: 100%;
+	background: linear-gradient(90deg, #6366F1, #10B981);
+	border-radius: 6px;
+	transition: width 0.45s ease;
+}
+.sp-packages-summary--dash .sp-pfn-card {
+	border: none;
+	box-shadow: none;
+	border-radius: 0;
+}
+.sp-packages-summary--dash-left .sp-pfn-hero-pct {
+	font-size: 28px;
+}
+.sp-packages-summary--dash-left .sp-pfn-hero {
+	padding: 12px 14px;
+}
+.sp-packages-summary--dash-left .sp-pfn-current-stage-throughput {
+	margin: 0 0 0;
+	border-radius: 0;
+	border-left: none;
+	border-right: none;
+	border-bottom: none;
+}
+.sp-dash-lifecycle-throughput {
+	flex: 1 1 120px;
+	min-width: 0;
+	margin: 0 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+.sp-dash-lifecycle-throughput-metrics {
+	display: flex;
+	align-items: baseline;
+	gap: 4px;
+	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+	color: var(--text-muted, #6B7280);
+}
+.sp-dash-lifecycle-throughput-qty {
+	font-weight: 700;
+	color: #111827;
+	font-size: 11px;
+}
+.sp-dash-lifecycle-throughput-pct {
+	margin-left: auto;
+	font-weight: 700;
+	color: var(--sp-stage-color, #6366F1);
+}
+.sp-dash-lifecycle-throughput-meter {
+	height: 4px;
+	border-radius: 3px;
+	background: color-mix(in srgb, var(--sp-stage-color, #6366F1) 12%, #F1F2F4);
+	overflow: hidden;
+}
+.sp-dash-lifecycle-throughput-fill {
+	height: 100%;
+	background: var(--sp-stage-color, #6366F1);
+	border-radius: 3px;
+}
+.sp-dash-lifecycle-group-header {
+	flex-wrap: wrap;
 }
 
 /* ----- Detail table ----- */
@@ -2569,32 +3374,9 @@ _PACKAGES_SUMMARY_CSS = """
 .sp-pfn-pill-complete { background: #DCFCE7; color: #166534; }
 .sp-pfn-pill-in_progress { background: #DBEAFE; color: #1D4ED8; }
 .sp-pfn-pill-pending { background: #F3F4F6; color: #6B7280; }
+.sp-pfn-pill-stalled { background: #FEF3C7; color: #B45309; }
 .sp-pfn-pill-aa { background: #FEF3C7; color: #92400E; }
 
-.sp-pfn-footer {
-	padding: 10px 16px;
-	background: linear-gradient(180deg, #FAFBFC, #FFFFFF);
-	border-top: 1px solid #ECEEF1;
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 6px 12px;
-}
-.sp-pfn-footer-stat {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	font-size: 11px;
-	color: var(--text-muted, #6B7280);
-}
-.sp-pfn-footer-stat strong {
-	font-weight: 700;
-	color: #111827;
-	font-variant-numeric: tabular-nums;
-}
-.sp-pfn-footer-sep {
-	color: #D1D5DB;
-}
 .sp-pfn-empty {
 	padding: 24px;
 	color: var(--text-muted, #6b7280);
@@ -2616,12 +3398,9 @@ _PACKAGES_SUMMARY_CSS = """
 """
 
 
-def _packages_summary_titlebar_html(toggle_title: str, aria_label: str) -> str:
+def _packages_summary_toolbar_html(toggle_title: str, aria_label: str) -> str:
 	return (
-		f'<div class="sp-pfn-titlebar">'
-		f'<span class="sp-pfn-title-icon" aria-hidden="true">&#9783;</span>'
-		f'<span class="sp-pfn-title">{escape_html(_("Fulfillment Snapshot"))}</span>'
-		f'<span class="sp-pfn-title-sub">{escape_html(_("Delivery throughput across lifecycle stages"))}</span>'
+		f'<div class="sp-pfn-toolbar">'
 		f'<button type="button" class="sp-pks-toggle" aria-expanded="true" '
 		f'title="{escape_html(toggle_title)}" aria-label="{escape_html(aria_label)}">'
 		f'<span class="sp-pks-toggle-icon" aria-hidden="true">&#9660;</span>'
@@ -2632,10 +3411,20 @@ def _packages_summary_titlebar_html(toggle_title: str, aria_label: str) -> str:
 
 @frappe.whitelist()
 def get_packages_summary_html(special_project: str) -> str:
-	"""HTML summary for the Fulfillment tab: row per package x column per Lifecycle Stage."""
+	"""HTML summary for the Fulfillment tab."""
 	if not special_project:
 		return ""
 	doc = frappe.get_doc("Special Project", special_project)
+	ctx = _packages_fulfillment_context(doc, current_lifecycle_stage=doc.lifecycle_stage)
+	return _build_fulfillment_tab_html(doc, ctx)
+
+
+def _packages_fulfillment_context(
+	doc: Any,
+	*,
+	current_lifecycle_stage: str | None = None,
+) -> dict[str, Any] | None:
+	"""Compute shared fulfillment metrics for dashboard and Fulfillment tab surfaces."""
 	from logistics.special_projects.special_project_packages import (
 		cint_safe,
 		lifecycle_stages_for_special_project,
@@ -2644,43 +3433,44 @@ def get_packages_summary_html(special_project: str) -> str:
 	)
 
 	validate_packages(doc)
-	materials = doc.get("packages") or []
-	if not materials:
-		return (
-			f'<div class="sp-packages-summary">'
-			f"<style>{_PACKAGES_SUMMARY_CSS}</style>"
-			f'<div class="sp-pfn-card"><div class="sp-pfn-empty">'
-			f"{escape_html(_('No packages defined. Add rows below or seed from Sales Quote project products.'))}"
-			f"</div></div></div>"
-		)
-
+	materials = list(doc.get("packages") or [])
 	stages = lifecycle_stages_for_special_project()
-	if not stages:
-		return (
-			f'<div class="sp-packages-summary">'
-			f"<style>{_PACKAGES_SUMMARY_CSS}</style>"
-			f'<div class="sp-pfn-card"><div class="sp-pfn-empty">'
-			f"{escape_html(_('No Lifecycle Stages configured for Special Projects. Set For Special Project on at least one Lifecycle Stage.'))}"
-			f"</div></div></div>"
-		)
+	current_stage = (current_lifecycle_stage or getattr(doc, "lifecycle_stage", None) or "").strip()
 
+	if not materials:
+		return {
+			"empty": "no_packages",
+			"materials": [],
+			"stages": stages,
+			"current_stage": current_stage,
+		}
+	if not stages:
+		return {
+			"empty": "no_stages",
+			"materials": materials,
+			"stages": [],
+			"current_stage": current_stage,
+		}
+
+	display_stages = _packages_summary_stages_for_display(doc, stages)
 	per_stage = _packages_summary_per_stage_delivered(doc, materials, stages)
+	last_receipts = _packages_summary_last_receipt_by_material(doc, materials)
 
 	final_idx: int | None = None
 	for i, s in enumerate(stages):
 		if cint_safe(s.get("is_closed")):
 			final_idx = i
-	if final_idx is None and stages:
+	if final_idx is None:
 		final_idx = len(stages) - 1
 
 	always_along_count = sum(1 for m in materials if cint_safe(getattr(m, "include_on_create", 0)))
 	tracked_count = len(materials) - always_along_count
 
-	total_required = 0.0
-	for m in materials:
-		if cint_safe(getattr(m, "include_on_create", 0)):
-			continue
-		total_required += flt(getattr(m, "qty_required", 0))
+	total_required = sum(
+		flt(getattr(m, "qty_required", 0))
+		for m in materials
+		if not cint_safe(getattr(m, "include_on_create", 0))
+	)
 
 	n_stages = len(stages)
 	per_stage_totals = [0.0] * n_stages
@@ -2692,143 +3482,180 @@ def get_packages_summary_html(special_project: str) -> str:
 			per_stage_totals[s_idx] += flt(qtys[s_idx])
 
 	total_delivered = (
-		per_stage_totals[final_idx] if (final_idx is not None and final_idx < len(per_stage_totals)) else 0.0
+		per_stage_totals[final_idx] if final_idx is not None and final_idx < len(per_stage_totals) else 0.0
 	)
 	complete_pct = 0.0 if total_required <= 0 else min(100.0, total_delivered / total_required * 100.0)
 
-	complete_rows = 0
-	in_progress_rows = 0
-	pending_rows = 0
-	for i, m in enumerate(materials):
-		if cint_safe(getattr(m, "include_on_create", 0)):
-			continue
-		qtys = per_stage[i]
-		req = flt(getattr(m, "qty_required", 0))
-		final_qty = flt(qtys[final_idx]) if (final_idx is not None and final_idx < len(qtys)) else 0.0
-		if req > 0 and final_qty >= req:
-			complete_rows += 1
-		elif any(flt(q) > 0 for q in qtys):
-			in_progress_rows += 1
-		else:
-			pending_rows += 1
+	complete_rows = in_progress_rows = pending_rows = stalled_rows = 0
+	row_metrics_list: list[dict[str, Any]] = []
+	summary_rows_html: list[str] = []
 
-	# ----- Build rows -----
-	rows_html: list[str] = []
-	for row_no, (m, qtys) in enumerate(zip(materials, per_stage), start=1):
+	for i, m in enumerate(materials):
+		is_aa = bool(cint_safe(getattr(m, "include_on_create", 0)))
+		qtys = per_stage[i]
+		last_receipt = last_receipts[i] if i < len(last_receipts) else None
+		if is_aa:
+			row_metrics_list.append({})
+		else:
+			metrics = _packages_summary_row_metrics(
+				m, qtys, stages, final_idx, last_receipt, is_always_along=False
+			)
+			row_metrics_list.append(metrics)
+			sk = metrics["status_key"]
+			if sk == "complete":
+				complete_rows += 1
+			elif sk == "stalled":
+				stalled_rows += 1
+				in_progress_rows += 1
+			elif sk == "in_progress":
+				in_progress_rows += 1
+			elif sk == "pending":
+				pending_rows += 1
+
+	for row_no, m in enumerate(materials, start=1):
 		label = escape_html(package_label(m) or "—")
-		rows_html.append(
-			_packages_summary_row_html(
+		is_aa = bool(cint_safe(getattr(m, "include_on_create", 0)))
+		metrics = row_metrics_list[row_no - 1] if row_no - 1 < len(row_metrics_list) else {}
+		summary_rows_html.append(
+			_packages_summary_summary_row_html(
 				row_no,
 				label,
-				flt(m.qty_required or 0),
-				qtys,
-				is_always_along=bool(cint_safe(getattr(m, "include_on_create", 0))),
-				final_stage_idx=final_idx,
+				metrics,
+				is_always_along=is_aa,
+				required=flt(m.qty_required or 0),
 			)
 		)
 
-	stage_cols = " ".join("minmax(92px, 1fr)" for _ in stages)
-	col_template = f"40px minmax(140px, 1.5fr) 72px {stage_cols} 116px"
+	stage_index = {s["name"]: i for i, s in enumerate(stages)}
+	stage_throughput: dict[str, dict[str, float]] = {}
+	current_stage_qty = 0.0
+	for ds in display_stages:
+		name = (ds.get("name") or "").strip()
+		all_idx = stage_index.get(name)
+		qty = per_stage_totals[all_idx] if all_idx is not None else 0.0
+		pct = 0.0 if total_required <= 0 else min(100.0, qty / total_required * 100.0)
+		stage_throughput[name] = {"qty": qty, "pct": pct, "required": total_required}
+		if name == current_stage:
+			current_stage_qty = qty
 
-	stage_headers = "".join(
-		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-stage-head sp-pfn-stage-{i % len(_STAGE_PALETTE)}" '
-		f'title="{escape_html(stage.get("description") or stage["name"])}">'
-		f"{escape_html(stage['name'])}</span>"
-		for i, stage in enumerate(stages)
+	return {
+		"empty": None,
+		"materials": materials,
+		"stages": stages,
+		"display_stages": display_stages,
+		"current_stage": current_stage,
+		"current_stage_qty": current_stage_qty,
+		"total_required": total_required,
+		"total_delivered": total_delivered,
+		"complete_pct": complete_pct,
+		"tracked_count": tracked_count,
+		"complete_rows": complete_rows,
+		"in_progress_rows": in_progress_rows,
+		"pending_rows": pending_rows,
+		"stalled_rows": stalled_rows,
+		"always_along_count": always_along_count,
+		"stage_throughput": stage_throughput,
+		"summary_rows_html": summary_rows_html,
+	}
+
+
+def _packages_fulfillment_wrap_html(inner_html: str, *, outer_class: str = "sp-packages-summary") -> str:
+	return (
+		f'<div class="{outer_class}">'
+		f"<style>{_PACKAGES_SUMMARY_CSS}</style>"
+		f"{inner_html}"
+		f"</div>"
 	)
 
-	header_html = (
+
+def _packages_fulfillment_empty_inner_html(empty_key: str) -> str:
+	if empty_key == "no_stages":
+		msg = _(
+			"No Lifecycle Stages configured for Special Projects. Set For Special Project on at least one Lifecycle Stage."
+		)
+	else:
+		msg = _("No packages defined. Add rows below or seed from Sales Quote project products.")
+	return f'<div class="sp-pfn-card"><div class="sp-pfn-empty">{escape_html(msg)}</div></div>'
+
+
+def _build_main_dash_fulfillment_left_html(doc: Any, ctx: dict[str, Any] | None) -> str:
+	"""Main Dashboard left column: overall completion + current stage throughput."""
+	if not ctx or ctx.get("empty"):
+		empty_key = (ctx or {}).get("empty") or "no_packages"
+		return _packages_fulfillment_wrap_html(
+			_packages_fulfillment_empty_inner_html(empty_key),
+			outer_class="sp-packages-summary sp-packages-summary--dash-left",
+		)
+
+	hero_html = _packages_summary_hero_html(
+		ctx["complete_pct"],
+		ctx["total_required"],
+		ctx["total_delivered"],
+		tracked_count=ctx["tracked_count"],
+		complete_rows=ctx["complete_rows"],
+		in_progress_rows=ctx["in_progress_rows"],
+		pending_rows=ctx["pending_rows"],
+		stalled_rows=ctx["stalled_rows"],
+		always_along_count=ctx["always_along_count"],
+		total_packages=len(ctx["materials"]),
+	)
+	current_tp_html = _packages_summary_current_stage_throughput_html(
+		ctx["current_stage"],
+		ctx["current_stage_qty"],
+		ctx["total_required"],
+	)
+	inner = (
+		f'<div class="sp-pfn-card sp-pfn-card--dash-left">'
+		f"{hero_html}"
+		f"{current_tp_html}"
+		f"</div>"
+	)
+	return _packages_fulfillment_wrap_html(
+		inner,
+		outer_class="sp-packages-summary sp-packages-summary--dash-left",
+	)
+
+
+def _build_fulfillment_tab_html(doc: Any, ctx: dict[str, Any] | None) -> str:
+	"""Fulfillment tab: current stage throughput, filters, and package table."""
+	if not ctx or ctx.get("empty"):
+		empty_key = (ctx or {}).get("empty") or "no_packages"
+		return _packages_fulfillment_wrap_html(_packages_fulfillment_empty_inner_html(empty_key))
+
+	current_tp_html = ""
+	if ctx.get("current_stage"):
+		current_tp_html = _packages_summary_current_stage_throughput_html(
+			ctx["current_stage"],
+			ctx["current_stage_qty"],
+			ctx["total_required"],
+		)
+
+	summary_col_template = (
+		"40px 28px minmax(140px, 1.5fr) 72px 72px 72px 64px minmax(100px, 1fr) 116px"
+	)
+	summary_header_html = (
 		f'<div class="sp-pfn-header">'
 		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-rowno">#</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-warn" aria-hidden="true"></span>'
 		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-package">{escape_html(_("Package"))}</span>'
 		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-required">{escape_html(_("Required"))}</span>'
-		f"{stage_headers}"
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-delivered">{escape_html(_("Delivered"))}</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-remaining">{escape_html(_("Remaining"))}</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-pct">{escape_html(_("%"))}</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-current-stage">{escape_html(_("Current Stage"))}</span>'
 		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-status">{escape_html(_("Status"))}</span>'
 		f"</div>"
 	)
-
-	# ----- KPI cards -----
-	total_req_label = _packages_summary_qty_label(total_required) if tracked_count else "—"
-	total_delivered_label = _packages_summary_qty_label(total_delivered) if tracked_count else "—"
-	final_stage_name = (
-		stages[final_idx]["name"] if (final_idx is not None and final_idx < len(stages)) else "—"
-	)
-	pct_value_label = f"{complete_pct:.0f}%" if total_required > 0 else "—"
-
-	kpi_cards = "".join(
-		[
-			_packages_summary_kpi_card_html(
-				_("Packages"),
-				str(len(materials)),
-				_("{0} tracked · {1} always-along").format(tracked_count, always_along_count),
-				"#6366F1",
-				icon="&#128230;",
-			),
-			_packages_summary_kpi_card_html(
-				_("Units Required"),
-				total_req_label,
-				_("Across {0} tracked package row(s)").format(tracked_count) if tracked_count else _("No tracked rows"),
-				"#06B6D4",
-				icon="&#931;",
-			),
-			_packages_summary_kpi_card_html(
-				_("Units Delivered"),
-				total_delivered_label,
-				_("Counted at final stage: {0}").format(final_stage_name),
-				"#10B981",
-				icon="&#10003;",
-			),
-			_packages_summary_kpi_card_html(
-				_("% Complete"),
-				pct_value_label,
-				_("{0} complete · {1} in progress · {2} pending").format(
-					complete_rows, in_progress_rows, pending_rows
-				),
-				"#F59E0B",
-				progress_pct=complete_pct if total_required > 0 else 0.0,
-				icon="&#9889;",
-			),
-		]
-	)
-	kpis_html = f'<div class="sp-pfn-kpis">{kpi_cards}</div>'
-
-	# ----- Stage pipeline -----
-	pipeline_html = _packages_summary_stage_pipeline_html(
-		stages, per_stage_totals, total_required, final_idx
-	)
-
-	# ----- Footer (chip-style) -----
-	def _stat(label: str, value: str) -> str:
-		return (
-			'<span class="sp-pfn-footer-stat">'
-			f'<strong>{escape_html(value)}</strong>{escape_html(label)}</span>'
-		)
-
-	sep = '<span class="sp-pfn-footer-sep" aria-hidden="true">|</span>'
-	stats: list[str] = [
-		_stat(" " + _("package row(s)"), str(len(materials))),
-		_stat(" " + _("tracked"), str(tracked_count)) if tracked_count else "",
-		_stat(" " + _("always-along (AA)"), str(always_along_count)) if always_along_count else "",
-		_stat(" " + _("lifecycle stage(s)"), str(len(stages))),
-	]
-	stats = [s for s in stats if s]
-	footer_inner = sep.join(stats)
-	footer_html = f'<div class="sp-pfn-footer">{footer_inner}</div>'
-
-	rows_block = "".join(rows_html)
-	titlebar_html = _packages_summary_titlebar_html(
-		_("Collapse summary"), _("Toggle fulfillment summary")
-	)
-	return (
-		f'<div class="sp-packages-summary" style="--sp-pfn-cols: {col_template}">'
-		f"<style>{_PACKAGES_SUMMARY_CSS}</style>"
-		f'<div class="sp-pfn-card">'
-		f"{titlebar_html}"
-		f"{kpis_html}"
-		f"{pipeline_html}"
-		f'<div class="sp-pfn-panel">'
-		f'<div class="sp-pfn-table">{header_html}{rows_block}</div>'
+	summary_table_html = (
+		f'<div class="sp-pfn-summary-panel" style="--sp-pfn-cols: {summary_col_template}">'
+		f'<div class="sp-pfn-table">{summary_header_html}{"".join(ctx.get("summary_rows_html") or [])}</div>'
 		f"</div>"
-		f"{footer_html}"
-		f"</div></div>"
 	)
+	inner = (
+		f'<div class="sp-pfn-card" data-sp-fulfillment-panel="1">'
+		f"{current_tp_html}"
+		f"{_packages_summary_filter_chips_html()}"
+		f"{summary_table_html}"
+		f"</div>"
+	)
+	return _packages_fulfillment_wrap_html(inner)

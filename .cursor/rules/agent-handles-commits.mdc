@@ -1,0 +1,16 @@
+---
+description: Agent writes commit messages and runs git commit; user does not use SCM dialog
+alwaysApply: true
+---
+
+# Git commits handled by the Agent
+
+When the user asks to commit (or clicks Commit expecting the Agent to handle it):
+
+1. **Do not ask the user for a commit message.** Analyze `git status`, `git diff`, and `git log`, then write the message yourself.
+2. **Run the commit via terminal** with `git commit -m "$(cat <<'EOF' ... EOF)"` — never bare `git commit` (that opens an editor dialog).
+3. **Stage only relevant files** for the requested scope. If the user did not specify scope, infer from chat context or ask which files — but never ask them to type the commit message.
+4. **Follow repo commit style** from recent `git log` (Conventional Commits when that pattern is used).
+5. **Do not push** unless the user explicitly asks.
+
+The user should not fill the Source Control commit message box. The Agent provides the message and completes the commit.
