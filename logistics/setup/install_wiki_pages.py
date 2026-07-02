@@ -131,6 +131,10 @@ WIKI_PAGES_CONFIG = {
         "Special Project — Fulfillment (Packages & Deliveries)",
         "Special Projects",
     ),
+    "special_project_delivery_workflow": (
+        "Special Project — Delivery Workflow",
+        "Special Projects",
+    ),
     "lifecycle_templates": ("Lifecycle Templates", "Special Projects"),
     # Pages
     "pages_overview": ("Pages Overview", "Pages"),

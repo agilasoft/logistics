@@ -6,7 +6,9 @@ import json
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import escape_html, flt
+from frappe.utils import escape_html, flt, get_url_to_form
+
+from logistics.job_management.logistics_job_status import JOB_STATUS_SELECT_OPTIONS
 
 from logistics.mice import mice_project_lifecycle
 from logistics.mice.mice_project_lifecycle import validate_lifecycle_stage_advance
@@ -954,6 +956,520 @@ def _exhibit_docket_status_map(exhibit_name):
 	return statuses
 
 
+_OPERATIONAL_JOB_TYPES = (
+	"Air Shipment",
+	"Sea Shipment",
+	"Transport Job",
+	"Declaration",
+	"Warehouse Job",
+)
+
+_SERVICE_LABEL_BY_JOB_TYPE = {
+	"Air Shipment": "Air",
+	"Sea Shipment": "Sea",
+	"Transport Job": "Transport",
+	"Declaration": "Customs",
+	"Warehouse Job": "Warehousing",
+}
+
+_SERVICE_LABEL_ORDER = ("Air", "Sea", "Transport", "Customs", "Warehousing")
+
+
+def _resolve_docket_operational_jobs(docket_name):
+	"""Return deduplicated operational job keys for a Docket."""
+	seen = set()
+	results = []
+
+	def _add(job_type, job_no):
+		jt = (job_type or "").strip()
+		jn = (job_no or "").strip()
+		if jt not in _OPERATIONAL_JOB_TYPES or not jn:
+			return
+		key = (jt, jn)
+		if key in seen:
+			return
+		seen.add(key)
+		results.append({"job_type": jt, "job_no": jn})
+
+	for row in frappe.get_all(
+		"Job Number",
+		filters={"docket": docket_name, "job_type": ["in", list(_OPERATIONAL_JOB_TYPES)]},
+		fields=["job_type", "job_no"],
+	):
+		_add(row.get("job_type"), row.get("job_no"))
+
+	from logistics.mice.doctype.docket.docket import _resolve_operational_jobs_for_internal_row
+
+	for row in frappe.get_all(
+		"Internal Job Detail",
+		filters={"parent": docket_name, "parenttype": "Docket"},
+		fields=["job_type", "job_no"],
+	):
+		jt = (row.get("job_type") or "").strip()
+		jn = (row.get("job_no") or "").strip()
+		if not jt or not jn:
+			continue
+		for op_jt, op_jn in _resolve_operational_jobs_for_internal_row(jt, jn):
+			_add(op_jt, op_jn)
+
+	return results
+
+
+def _fetch_transport_job_endpoints(transport_job_names):
+	"""Return ``{job_name: (pick_address, drop_address)}`` from first/last legs."""
+	if not transport_job_names:
+		return {}
+	endpoints = {}
+	for leg in frappe.get_all(
+		"Transport Leg",
+		filters={"transport_job": ["in", transport_job_names], "docstatus": ["<", 2]},
+		fields=["transport_job", "pick_address", "drop_address"],
+		order_by="transport_job asc, creation asc",
+	):
+		job_name = (leg.get("transport_job") or "").strip()
+		if not job_name:
+			continue
+		if job_name not in endpoints:
+			endpoints[job_name] = {
+				"first_pick": (leg.get("pick_address") or "").strip(),
+				"last_drop": (leg.get("drop_address") or "").strip(),
+			}
+		else:
+			drop = (leg.get("drop_address") or "").strip()
+			if drop:
+				endpoints[job_name]["last_drop"] = drop
+	return {
+		job_name: (vals["first_pick"], vals["last_drop"])
+		for job_name, vals in endpoints.items()
+	}
+
+
+def _fetch_operational_job_statuses(job_keys):
+	"""Batch-fetch operational job fields linked to a docket."""
+	by_type = {jt: [] for jt in _OPERATIONAL_JOB_TYPES}
+	for item in job_keys or []:
+		jt = (item.get("job_type") or "").strip()
+		jn = (item.get("job_no") or "").strip()
+		if jt in by_type and jn:
+			by_type[jt].append(jn)
+
+	status_map = {}
+	transport_endpoints = _fetch_transport_job_endpoints(by_type.get("Transport Job") or [])
+
+	for job_type, names in by_type.items():
+		if not names:
+			continue
+		if job_type in ("Air Shipment", "Sea Shipment"):
+			fields = ["name", "job_status", "origin_port", "destination_port", "modified"]
+			for row in frappe.get_all(job_type, filters={"name": ["in", names]}, fields=fields):
+				status = (row.get("job_status") or "").strip() or "Draft"
+				status_map[(job_type, row.name)] = {
+					"job_type": job_type,
+					"name": row.name,
+					"service_label": _SERVICE_LABEL_BY_JOB_TYPE[job_type],
+					"job_status": status,
+					"origin_code": (row.get("origin_port") or "").strip(),
+					"destination_code": (row.get("destination_port") or "").strip(),
+					"origin_kind": "unloco",
+					"destination_kind": "unloco",
+					"modified": row.get("modified"),
+				}
+		elif job_type == "Transport Job":
+			for row in frappe.get_all(
+				"Transport Job",
+				filters={"name": ["in", names]},
+				fields=["name", "status", "modified"],
+			):
+				status = (row.get("status") or "").strip() or "Draft"
+				first_pick, last_drop = transport_endpoints.get(row.name, ("", ""))
+				status_map[(job_type, row.name)] = {
+					"job_type": job_type,
+					"name": row.name,
+					"service_label": _SERVICE_LABEL_BY_JOB_TYPE[job_type],
+					"job_status": status,
+					"origin_code": first_pick,
+					"destination_code": last_drop,
+					"origin_kind": "address",
+					"destination_kind": "address",
+					"modified": row.get("modified"),
+				}
+		elif job_type == "Declaration":
+			for row in frappe.get_all(
+				"Declaration",
+				filters={"name": ["in", names]},
+				fields=["name", "job_status", "port_of_loading", "port_of_discharge", "modified"],
+			):
+				status = (row.get("job_status") or "").strip() or "Draft"
+				status_map[(job_type, row.name)] = {
+					"job_type": job_type,
+					"name": row.name,
+					"service_label": _SERVICE_LABEL_BY_JOB_TYPE[job_type],
+					"job_status": status,
+					"origin_code": (row.get("port_of_loading") or "").strip(),
+					"destination_code": (row.get("port_of_discharge") or "").strip(),
+					"origin_kind": "unloco",
+					"destination_kind": "unloco",
+					"modified": row.get("modified"),
+				}
+		elif job_type == "Warehouse Job":
+			for row in frappe.get_all(
+				"Warehouse Job",
+				filters={"name": ["in", names]},
+				fields=["name", "job_status", "reference_order_type", "reference_order", "modified"],
+			):
+				status = (row.get("job_status") or "").strip() or "Draft"
+				status_map[(job_type, row.name)] = {
+					"job_type": job_type,
+					"name": row.name,
+					"service_label": _SERVICE_LABEL_BY_JOB_TYPE[job_type],
+					"job_status": status,
+					"origin_code": (row.get("reference_order_type") or "").strip(),
+					"destination_code": (row.get("reference_order") or "").strip(),
+					"origin_kind": "text",
+					"destination_kind": "text",
+					"modified": row.get("modified"),
+				}
+	return status_map
+
+
+def _batch_unloco_table_labels(codes):
+	"""Return ``{code: "City, CC"}`` labels for UNLOCO codes (batch lookup)."""
+	unique = {str(c).strip() for c in (codes or []) if c and str(c).strip()}
+	if not unique:
+		return {}
+
+	labels = {}
+	for row in frappe.get_all(
+		"UNLOCO",
+		filters={"name": ["in", list(unique)]},
+		fields=["name", "city", "location_name", "country_code"],
+	):
+		code = row.name
+		city = (row.get("city") or "").strip() or (row.get("location_name") or "").strip()
+		cc = (row.get("country_code") or "").strip()
+		if city and cc:
+			labels[code] = f"{city}, {cc}"
+		elif city:
+			labels[code] = city
+		elif cc:
+			labels[code] = cc
+		else:
+			labels[code] = code
+
+	for code in unique:
+		if code not in labels:
+			labels[code] = code
+	return labels
+
+
+def _batch_address_table_labels(names):
+	"""Return ``{address_name: address_title}`` labels for Address links (batch lookup)."""
+	unique = {str(n).strip() for n in (names or []) if n and str(n).strip()}
+	if not unique:
+		return {}
+
+	labels = {}
+	for row in frappe.get_all(
+		"Address",
+		filters={"name": ["in", list(unique)]},
+		fields=["name", "address_title"],
+	):
+		title = (row.get("address_title") or "").strip()
+		labels[row.name] = title or row.name
+
+	for name in unique:
+		if name not in labels:
+			labels[name] = name
+	return labels
+
+
+def _operational_job_sort_key(job):
+	label = (job.get("service_label") or "").strip()
+	try:
+		order = _SERVICE_LABEL_ORDER.index(label)
+	except ValueError:
+		order = len(_SERVICE_LABEL_ORDER)
+	return (order, job.get("name") or "")
+
+
+def _resolve_endpoint_label(code, kind, unloco_labels, address_labels):
+	if not code:
+		return "—"
+	if kind == "unloco":
+		return unloco_labels.get(code) or code
+	if kind == "address":
+		return address_labels.get(code) or code
+	return code
+
+
+def _job_status_slug(status):
+	return (status or "draft").strip().lower().replace(" ", "_")
+
+
+def _job_status_badge_html(status):
+	label = (status or "Draft").strip() or "Draft"
+	slug = _job_status_slug(label)
+	return (
+		f'<span class="exhibit-shipment-status-badge {escape_html(slug)}">'
+		f"{escape_html(label)}</span>"
+	)
+
+
+def _shipment_row_icon_html(status):
+	if (status or "").strip().lower() == "draft":
+		return (
+			'<span class="exhibit-shipment-row-icon exhibit-shipment-row-icon--draft" aria-hidden="true">'
+			'<i class="fa fa-file-o"></i></span>'
+		)
+	return (
+		'<span class="exhibit-shipment-row-icon exhibit-shipment-row-icon--active" aria-hidden="true">'
+		'<i class="fa fa-check"></i></span>'
+	)
+
+
+def _format_shipment_modified(modified):
+	if not modified:
+		return "—"
+	return frappe.format_value(modified, {"fieldtype": "Datetime"})
+
+
+def _build_operational_jobs_card_html(jobs, status_counts, unloco_labels, address_labels):
+	"""Job Details card: header, status summary, and unified operational jobs table."""
+	n = len(jobs)
+	job_word = _("job") if n == 1 else _("jobs")
+	summary_html = " · ".join(
+		f"<strong>{escape_html(status)}:</strong> {count}"
+		for status, count in status_counts.items()
+	)
+
+	header = (
+		f'<div class="exhibit-shipment-details-card">'
+		f'<div class="exhibit-shipment-details-header">'
+		f'<span class="exhibit-shipment-details-title">{escape_html(_("Job Details"))}</span>'
+		f'<span class="exhibit-shipment-details-count">{n} {escape_html(str(job_word))}</span>'
+		f"</div>"
+		f'<div class="exhibit-shipment-details-summary">{summary_html}</div>'
+		f'<div class="exhibit-shipment-details-table-wrap">'
+		f'<table class="exhibit-shipment-details-table">'
+		f"<thead><tr>"
+		f'<th>{escape_html(_("Service"))}</th>'
+		f'<th>{escape_html(_("Job ID"))}</th>'
+		f'<th>{escape_html(_("Origin"))}</th>'
+		f'<th>{escape_html(_("Destination"))}</th>'
+		f'<th>{escape_html(_("Status"))}</th>'
+		f'<th>{escape_html(_("Last Updated"))}</th>'
+		f"</tr></thead><tbody>"
+	)
+
+	rows = []
+	for job in jobs:
+		origin_label = _resolve_endpoint_label(
+			job.get("origin_code"), job.get("origin_kind"), unloco_labels, address_labels
+		)
+		dest_label = _resolve_endpoint_label(
+			job.get("destination_code"), job.get("destination_kind"), unloco_labels, address_labels
+		)
+		link = f'<a href="{get_url_to_form(job["job_type"], job["name"])}">{escape_html(job["name"])}</a>'
+		id_cell = (
+			f'<div class="exhibit-shipment-id-cell">'
+			f'{_shipment_row_icon_html(job.get("job_status"))}'
+			f'<span class="exhibit-shipment-id-text">{link}</span>'
+			f"</div>"
+		)
+		rows.append(
+			f"<tr>"
+			f'<td class="exhibit-shipment-col-service">{escape_html(job.get("service_label") or "—")}</td>'
+			f'<td class="exhibit-shipment-col-id">{id_cell}</td>'
+			f"<td>{escape_html(origin_label)}</td>"
+			f"<td>{escape_html(dest_label)}</td>"
+			f"<td>{_job_status_badge_html(job.get('job_status'))}</td>"
+			f'<td class="exhibit-shipment-col-updated">{escape_html(_format_shipment_modified(job.get("modified")))}</td>'
+			f"</tr>"
+		)
+
+	return header + "".join(rows) + "</tbody></table></div></div>"
+
+
+def _aggregate_job_status_counts(statuses):
+	"""Return ordered ``{status: count}`` using standard job-status ordering."""
+	counts = {}
+	for status in statuses or []:
+		label = (status or "").strip() or "Draft"
+		counts[label] = counts.get(label, 0) + 1
+
+	order = [line.strip() for line in JOB_STATUS_SELECT_OPTIONS.split("\n") if line.strip()]
+	ordered = {}
+	for status in order:
+		if counts.get(status):
+			ordered[status] = counts[status]
+	for status, count in counts.items():
+		if status not in ordered:
+			ordered[status] = count
+	return ordered
+
+
+EXHIBIT_JOB_STATUS_TAB_CSS = """
+<style>
+.exhibit-job-status-list { display: flex; flex-direction: column; gap: 8px; }
+.exhibit-docket-status-item {
+	margin: 0; border: 1px solid #e0e0e0; border-radius: 6px; background: #fff; overflow: hidden;
+}
+.exhibit-docket-status-item-summary {
+	list-style: none; cursor: pointer; user-select: none;
+	padding: 10px 12px; font-size: 13px; display: flex; align-items: center; gap: 10px;
+	flex-wrap: wrap; background: #f8f9fa; border-bottom: 1px solid #e9ecef;
+}
+.exhibit-docket-status-item-summary::-webkit-details-marker { display: none; }
+.exhibit-docket-status-item-summary::before {
+	content: ""; display: inline-block; width: 0; height: 0;
+	border-left: 5px solid transparent; border-right: 5px solid transparent;
+	border-top: 6px solid #6c757d; transition: transform 0.2s ease; flex-shrink: 0;
+}
+.exhibit-docket-status-item[open] > .exhibit-docket-status-item-summary::before {
+	transform: rotate(180deg);
+}
+.exhibit-docket-status-item:not([open]) > .exhibit-docket-status-item-summary { border-bottom: none; }
+.exhibit-docket-status-item-main { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.exhibit-docket-status-item-meta { color: #6c757d; font-size: 12px; }
+.exhibit-docket-status-badge {
+	display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px;
+	font-weight: 600; background: #e9ecef; color: #495057; white-space: nowrap;
+}
+.exhibit-docket-shipment-count {
+	margin-left: auto; font-size: 12px; color: #6c757d; white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+.exhibit-docket-status-body { padding: 10px 12px 12px; font-size: 12px; }
+.exhibit-job-status-empty { color: #6c757d; font-style: italic; margin: 0; }
+.exhibit-shipment-details-card {
+	border: 1px solid #e9ecef; border-radius: 8px; background: #fff; overflow: hidden;
+}
+.exhibit-shipment-details-header {
+	display: flex; align-items: center; justify-content: space-between; gap: 12px;
+	padding: 12px 14px; border-bottom: 1px solid #e9ecef;
+}
+.exhibit-shipment-details-title { font-size: 14px; font-weight: 600; color: #212529; }
+.exhibit-shipment-details-count { font-size: 12px; color: #6c757d; white-space: nowrap; }
+.exhibit-shipment-details-summary {
+	padding: 10px 14px; font-size: 12px; color: #495057; border-bottom: 1px solid #f1f3f5;
+}
+.exhibit-shipment-details-summary strong { font-weight: 600; color: #212529; }
+.exhibit-shipment-details-table-wrap { overflow-x: auto; }
+.exhibit-shipment-details-table {
+	width: 100%; border-collapse: collapse; font-size: 12px;
+}
+.exhibit-shipment-details-table th {
+	text-align: left; padding: 10px 14px; font-weight: 600; color: #6c757d;
+	border-bottom: 1px solid #e9ecef; white-space: nowrap;
+}
+.exhibit-shipment-details-table td {
+	padding: 10px 14px; color: #212529; border-bottom: 1px solid #f1f3f5; vertical-align: middle;
+}
+.exhibit-shipment-details-table tbody tr:last-child td { border-bottom: none; }
+.exhibit-shipment-id-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.exhibit-shipment-id-text { font-weight: 600; min-width: 0; }
+.exhibit-shipment-id-text a { color: #212529; text-decoration: none; }
+.exhibit-shipment-id-text a:hover { color: #0d6efd; text-decoration: underline; }
+.exhibit-shipment-row-icon {
+	display: inline-flex; align-items: center; justify-content: center;
+	width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0; font-size: 13px;
+}
+.exhibit-shipment-row-icon--draft { background: #f1f3f5; color: #6c757d; }
+.exhibit-shipment-row-icon--active { background: #d1e7dd; color: #0f5132; }
+.exhibit-shipment-col-updated { color: #6c757d; white-space: nowrap; }
+.exhibit-shipment-col-service { font-weight: 600; white-space: nowrap; }
+.exhibit-shipment-status-badge {
+	display: inline-block; padding: 3px 10px; border-radius: 999px;
+	font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.exhibit-shipment-status-badge.draft { background: #e9ecef; color: #495057; }
+.exhibit-shipment-status-badge.submitted { background: #d1e7dd; color: #0f5132; }
+.exhibit-shipment-status-badge.in_progress { background: #cfe2ff; color: #084298; }
+.exhibit-shipment-status-badge.completed { background: #d1e7dd; color: #0f5132; }
+.exhibit-shipment-status-badge.closed { background: #e2e3e5; color: #383d41; }
+.exhibit-shipment-status-badge.reopened { background: #fff3cd; color: #856404; }
+.exhibit-shipment-status-badge.cancelled { background: #f8d7da; color: #721c24; }
+</style>
+"""
+
+
+def _build_exhibit_job_status_tab_html(exhibit_name, docket_rows=None):
+	"""Build expandable docket rows with operational job status counts."""
+	docket_rows = docket_rows if docket_rows is not None else _exhibit_docket_status_map(exhibit_name)
+	if not docket_rows:
+		msg = escape_html(_("No dockets linked to this exhibit yet."))
+		return EXHIBIT_JOB_STATUS_TAB_CSS + f'<div class="text-muted ab-tab-empty">{msg}</div>'
+
+	items = []
+	for row in docket_rows:
+		docket_name = row.get("docket") or ""
+		if not docket_name:
+			continue
+
+		job_keys = _resolve_docket_operational_jobs(docket_name)
+		status_map = _fetch_operational_job_statuses(job_keys)
+		jobs = sorted(status_map.values(), key=_operational_job_sort_key)
+		status_counts = _aggregate_job_status_counts(j.get("job_status") for j in jobs)
+
+		exhibitor = (row.get("exhibitor") or "").strip()
+		booth_no = (row.get("booth_no") or "").strip()
+		meta_parts = [p for p in (exhibitor, booth_no and f"{_('Booth')} {booth_no}") if p]
+		meta_html = (
+			f'<span class="exhibit-docket-status-item-meta">{" · ".join(escape_html(p) for p in meta_parts)}</span>'
+			if meta_parts
+			else ""
+		)
+
+		docket_status = (row.get("status") or "Draft").strip()
+		docket_link = (
+			f'<a href="{get_url_to_form("Docket", docket_name)}">{escape_html(docket_name)}</a>'
+		)
+		job_word = _("job") if len(jobs) == 1 else _("jobs")
+		summary = (
+			f'<details class="exhibit-docket-status-item">'
+			f'<summary class="exhibit-docket-status-item-summary">'
+			f'<div class="exhibit-docket-status-item-main">'
+			f"{docket_link}{meta_html}"
+			f'<span class="exhibit-docket-status-badge">{escape_html(docket_status)}</span>'
+			f"</div>"
+			f'<span class="exhibit-docket-shipment-count">'
+			f"{len(jobs)} {escape_html(str(job_word))}"
+			f"</span>"
+			f"</summary>"
+		)
+
+		if not jobs:
+			body = (
+				f'<div class="exhibit-docket-status-body">'
+				f'<p class="exhibit-job-status-empty">'
+				f'{escape_html(_("No operational jobs linked to this docket yet."))}'
+				f"</p>"
+				f"</div>"
+			)
+		else:
+			unloco_codes = []
+			address_names = []
+			for job in jobs:
+				if job.get("origin_kind") == "unloco" and job.get("origin_code"):
+					unloco_codes.append(job["origin_code"])
+				if job.get("destination_kind") == "unloco" and job.get("destination_code"):
+					unloco_codes.append(job["destination_code"])
+				if job.get("origin_kind") == "address" and job.get("origin_code"):
+					address_names.append(job["origin_code"])
+				if job.get("destination_kind") == "address" and job.get("destination_code"):
+					address_names.append(job["destination_code"])
+			unloco_labels = _batch_unloco_table_labels(unloco_codes)
+			address_labels = _batch_address_table_labels(address_names)
+			card_html = _build_operational_jobs_card_html(
+				jobs, status_counts, unloco_labels, address_labels
+			)
+			body = f'<div class="exhibit-docket-status-body">{card_html}</div>'
+
+		items.append(summary + body + "</details>")
+
+	return EXHIBIT_JOB_STATUS_TAB_CSS + f'<div class="exhibit-job-status-list">{"".join(items)}</div>'
+
+
 def _compute_ingress_egress_progress(docket_rows):
 	"""Compute ingress/egress % from a list of docket status dicts."""
 	considered = [r for r in docket_rows if (r.get("status") or "") not in DOCKET_EXCLUDED_STATUSES]
@@ -1325,14 +1841,7 @@ def get_dashboard_html(exhibit):
 
 		route_tab_override_html = _exhibit_dashboard_venue_image_tab_html(doc, cards_sidebar_html)
 
-		milestones_inner = (
-			'<div class="text-muted ab-tab-empty" style="margin:0;">'
-			+ escape_html(_("Open the Milestones tab to manage milestone status."))
-			+ "</div>"
-		)
-		ms_rows = doc.get("milestones") or []
-		n_ms = len(ms_rows)
-		done_ms = sum(1 for m in ms_rows if str(getattr(m, "status", "") or "").strip() == "Completed")
+		job_status_inner = _build_exhibit_job_status_tab_html(doc.name, docket_rows)
 
 		cfg = {
 			"doctype": "MICE Project",
@@ -1342,9 +1851,6 @@ def get_dashboard_html(exhibit):
 			"route_panel_html": route_panel_html,
 			"meta_cluster_html": meta_cluster_html,
 			"route_tab_override_html": route_tab_override_html,
-			"milestones_tab_inner_html": milestones_inner,
-			"milestone_count_override": n_ms,
-			"milestone_done_override": done_ms,
 			"scroll_doctype": "MICE Project",
 			"scroll_field": "milestone_html",
 			"ring_status_from": "workflow",
@@ -1352,6 +1858,14 @@ def get_dashboard_html(exhibit):
 			"include_default_dg": False,
 			"map_points": [],
 			"map_segments": None,
+			"extra_dashboard_tabs": [
+				{
+					"suffix": "job_status",
+					"label": _("Job Status"),
+					"count": len(docket_rows),
+					"inner_html": job_status_inner,
+				}
+			],
 		}
 		return render_logistics_form_dashboard_html(doc, cfg)
 	except Exception as e:

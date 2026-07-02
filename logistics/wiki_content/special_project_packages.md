@@ -4,11 +4,13 @@ The **Fulfillment** tab on a [Special Project](welcome/special-projects-module) 
 
 1. List every **Package** (item / part) the programme needs delivered.
 2. Record **Deliveries** as they arrive at each step of the project's life cycle.
-3. Watch the **Delivery Funnel by Lifecycle Stage** summary update in real time.
+3. Watch the fulfillment summary (stage throughput and package table) update in real time.
 
 It replaces the older "Site Materials + Receipts" model: the same data is still there, but the summary is now a per-stage funnel instead of a single on-site/short bar.
 
 To open the tab: **Special Project** form → **Fulfillment**.
+
+For a step-by-step walkthrough (Services → Booking/Order → execution submit → verify Fulfillment), see [Special Project — Delivery Workflow](welcome/special-project-delivery-workflow).
 
 ## 1. Prerequisites
 
@@ -22,7 +24,7 @@ To open the tab: **Special Project** form → **Fulfillment**.
 
 | Section | Purpose |
 | --- | --- |
-| **Summary — Delivery Funnel by Lifecycle Stage** | One row per package, one column per Lifecycle Stage (in stage order). Each cell shows the qty delivered in that stage with a small fill bar (width = qty / required). Updates when you save or change the grids. |
+| **Fulfillment summary** (HTML above **Packages**) | Stage throughput, filters, and a package table (**Required**, **Delivered**, **Remaining**, **Current Stage**, **Status**). Use **Packages → Refresh Delivery Funnel** to recalculate after bulk edits. |
 | **Packages** | One row per item / part to deliver. Tick **Include on Create** to mark a row as an always-along package (auto-rides every booking, off the delivery funnel). |
 | **Deliveries** | The receipt ledger. Each row records a quantity delivered at a specific **Lifecycle Stage**, optionally linked to the booking/order that produced it. |
 
@@ -79,7 +81,7 @@ Tick **Include on Create** when the row is a package that travels on every booki
 
 - **Hidden** from the **Shipment Lines** dialog.
 - **Auto-appended** to every new Transport Order, Air Booking, Sea Booking, and Inbound Order created from **Create → Booking / Order**, with all its dimensions, weight, HS code, DG flag, and `no_of_packs` carried over.
-- **Excluded** from delivery posting on Transport Order submit, so it never inflates the funnel.
+- **Excluded** from delivery posting on **Transport Job** / **Air Shipment** / **Sea Shipment** submit, so it never inflates the funnel.
 - Marked with an **AA** badge in the summary's Required column; its stage cells show `—`.
 
 ### Seed from Sales Quote
@@ -103,12 +105,12 @@ Each Delivery row credits a quantity to a package **in a specific lifecycle stag
 | **Qty Received** | Quantity for this delivery (must be greater than zero to count). |
 | **UOM** | Unit of measure. |
 | **Receipt Date** | Date of delivery (defaults to today). |
-| **Lifecycle Stage** | Which stage of the project this delivery happened in. Auto-filled from the originating Lifecycle Job (or the Special Project's current stage for manual rows). |
+| **Lifecycle Stage** | Which stage of the project this delivery happened in. Auto-filled from the originating **Services** row (or the Special Project's current **Lifecycle Stage**). |
 | **Status** | **Posted** counts toward the funnel; **Draft** does not; **Cancelled** is excluded. |
-| **Source Job Type** / **Source Job No** | Optional link to Transport Order, Air Booking, Sea Booking, Inbound Order, Project Order, Project Job, etc. |
+| **Source Job Type** / **Source Job No** | Link to the execution document that posted the delivery (e.g. **Transport Job**, **Air Shipment**, **Sea Shipment**, **Project Job**). |
 | **Container No** | Optional container reference for this movement. |
 
-Use **Deliveries** when stock is already on site before any system job exists, or to correct history manually. For transport legs, deliveries are usually created automatically on **Transport Order** submit (see below). Non-freight execution work uses **Project Order** / **Project Job** with a **Materials Received** grid.
+The **Deliveries** grid is **read-only** on the form — rows are posted by the system when execution documents submit. For transport legs, deliveries post on **Transport Job** submit; for air/sea, on **Air Shipment** / **Sea Shipment** submit; for programme tasks, on **Project Job** submit (**Materials Received**).
 
 ## 5. Typical workflows
 
@@ -116,23 +118,23 @@ Use **Deliveries** when stock is already on site before any system job exists, o
 
 1. Open **Special Project** and set **Customer**.
 2. On **Fulfillment → Packages**, add lines (or seed from Sales Quote). Tick **Include on Create** on rows that should auto-ride every booking (tool kits, dunnage).
-3. Optionally add **Deliveries** for stock already delivered outside the system.
-4. Add **Lifecycle** rows for Transport, Air, Sea, or Inbound as needed.
-5. **Save** — check the **Delivery Funnel by Lifecycle Stage** summary for any stalled stages.
+3. On **Services**, add rows for Transport, Air, Sea, Inbound, or programme tasks as needed (set **Lifecycle Stage** and **Service Type** on each row).
+4. **Save** — check the fulfillment summary on the **Fulfillment** tab for any stalled stages.
 
-### 5.2 Ship part of a package on one leg
+See [Special Project — Delivery Workflow](welcome/special-project-delivery-workflow) for the full step-by-step.
+
+### 5.2 Ship part of a package on one transport leg
 
 Example: Package A **900 required**, **200** already delivered in earlier Logistics moves; this truck carries **200** more under the **Logistics** stage.
 
-1. On **Lifecycle**, ensure a row exists at the **Logistics** stage (e.g. **Transport Order**).
+1. On **Services**, ensure a row exists at the **Logistics** stage with **Service Type = Transport**.
 2. Click **Create → Booking / Order**, open the card for that row, click **Create**.
 3. In **Shipment lines**, enter quantity per package (e.g. Package A = **200**; leave others **0** to skip). Always-along rows are not listed here — they ride along automatically.
-4. Continue — the system creates the job with **Packages** for the picked quantities (dimensions/weight/HS code prefilled from the matching package row) plus one **Packages** row per always-along site material.
-5. Set the job's **Project** to the programme (same name as the Special Project / ERPNext Project).
-6. **Submit** the Transport Order — posted **Deliveries** are added on the Special Project (+200 for that package, **tagged with the Logistics stage** because that's the source Lifecycle Job's stage). Always-along packages are skipped.
-7. Re-open the programme: the funnel column **Logistics** for Package A now shows **400** (200 prior + 200 this truck).
+4. The system creates a **Transport Order** with **Packages** for the picked quantities (dimensions/weight/HS code prefilled from the matching package row) plus one **Packages** row per always-along package.
+5. **Submit** the Transport Order, then **Create → Transport Job** and **Submit** the Transport Job — posted **Deliveries** are added on the Special Project (+200 for that package, tagged with the **Logistics** **Lifecycle Stage** from the **Services** row). Always-along packages are skipped.
+6. Re-open the programme: **Delivered** for Package A now shows **400** (200 prior + 200 this truck).
 
-Repeat for further legs; later stages (On-Site, Post-Show, Closed) light up as you create bookings from Lifecycle Jobs at those stages.
+Repeat for further legs; later stages (On-Site, Post-Show, Closed) update as you create bookings from **Services** rows at those stages.
 
 ### 5.3 Refresh the funnel
 
@@ -145,7 +147,7 @@ Use this when materials are delivered or consumed against non-freight execution 
 1. Open the **Project Job** (`SPJ-`) and confirm **Special Project** is set. **Project Order** (`SPOR-`) is planning only — it does not post deliveries.
 2. Fill the **Materials Received** grid: pick **Warehouse Item**, enter **Qty Received**, optionally set **UOM**, **Container No**, and a direct **Package Row** (1-based index of the row to credit).
 3. **Submit** the job.
-4. The system appends one **Posted** delivery to the parent Special Project per row, tagged with the Lifecycle Stage of the originating Lifecycle Job row (or the Special Project's current stage). On-site balances and the funnel refresh automatically.
+4. The system appends one **Posted** delivery to the parent Special Project per row, tagged with the **Lifecycle Stage** of the originating **Services** row (or the Special Project's current **Lifecycle Stage**). On-site balances and the fulfillment summary refresh automatically.
 5. **Cancel** the job to flip the matching deliveries to **Cancelled** and back out the funnel.
 
 Rows with `Qty Received = 0` are skipped, and rows that match an always-along package (Include on Create) are also skipped to avoid double-counting consumables.
@@ -154,24 +156,24 @@ Rows with `Qty Received = 0` are skipped, and rows that match an always-along pa
 
 | Action | Result |
 | --- | --- |
-| Save Special Project | Validates rows; recalculates delivered / remaining and per-stage funnel; auto-fills any missing **Lifecycle Stage** on Delivery rows from the originating Lifecycle Job or the project's current stage. Always-along rows stay at 0/0. |
+| Save Special Project | Validates rows; recalculates **Delivered** / **Remaining** and the fulfillment summary; auto-fills any missing **Lifecycle Stage** on delivery rows from the originating **Services** row or the project's current **Lifecycle Stage**. Always-along rows stay at 0/0. |
 | Sales Quote → Special Project update | Appends new package rows from **Project Products** (does not clear existing rows). |
-| **Create → Booking / Order** (Transport / Air / Sea / Inbound / Project Order) | **Shipment lines** dialog lists tracked packages with current **Remaining**; chosen quantities become target **Packages** with dimensions prefilled. Always-along package rows (Include on Create ticked) are appended to **Packages** automatically. |
-| **Transport Order** submit | If **Project** points to the programme, each package line posts one **Posted** delivery (once per package row; duplicates are skipped). Stage is taken from the originating Lifecycle Job. Packages sourced from always-along rows are skipped. |
-| **Transport Order** cancel | Deliveries sourced from that order are set to **Cancelled** and the funnel updates. |
+| **Create → Booking / Order** (Transport / Air / Sea / Inbound / Project Order) | **Shipment lines** dialog lists tracked packages with current **Remaining**; chosen quantities become target **Packages** with dimensions prefilled. Always-along package rows (**Include on Create** ticked) are appended to **Packages** automatically. **Project** is set on the new document. |
+| **Transport Job** submit | If **Project** points to the programme, each package line posts one **Posted** delivery (once per package row; duplicates are skipped). Stage is taken from the originating **Services** row. Always-along packages are skipped. **Transport Order** submit does not post deliveries. |
+| **Transport Job** cancel | Deliveries sourced from that job are set to **Cancelled** and the summary updates. |
 | **Air Shipment** / **Sea Shipment** submit | If **Project** points to the programme, each package line on the shipment posts one **Posted** delivery (once per package row; duplicates are skipped). Lifecycle stage is resolved from the shipment, then the linked **Air Booking** / **Sea Booking**. **Booking** submit does not post deliveries. |
-| **Air Shipment** / **Sea Shipment** cancel | Deliveries sourced from that shipment are set to **Cancelled** and the funnel updates. |
-| **Project Job** submit | If **Special Project** is set, each row of **Materials Received** posts one **Posted** delivery on the parent programme, tagged with the originating Lifecycle Job's stage. **Project Order** submit does not post deliveries. |
-| **Project Job** cancel | Deliveries sourced from that job are set to **Cancelled** and the funnel updates. |
+| **Air Shipment** / **Sea Shipment** cancel | Deliveries sourced from that shipment are set to **Cancelled** and the summary updates. |
+| **Project Job** submit | If **Special Project** is set, each row of **Materials Received** posts one **Posted** delivery on the parent programme, tagged with the originating **Services** row's stage. **Project Order** submit does not post deliveries. |
+| **Project Job** cancel | Deliveries sourced from that job are set to **Cancelled** and the summary updates. |
 
-**Note:** Auto-post on submit applies only to **execution** documents: **Transport Order**, **Air Shipment**, **Sea Shipment**, and **Project Job**. **Air Booking**, **Sea Booking**, and **Project Order** are planning — they do not change **Delivered** on the programme. **Inbound Order** receipt posting is not wired yet — use manual **Deliveries** for inbound legs until extended.
+**Note:** Auto-post on submit applies only to **execution** documents: **Transport Job**, **Air Shipment**, **Sea Shipment**, and **Project Job**. **Air Booking**, **Sea Booking**, **Transport Order**, and **Project Order** are planning — they do not change **Delivered** on the programme. **Inbound Order** receipt posting is not wired yet — use supported legs or coordinate with ops until extended.
 
 ## 7. Tips and troubleshooting
 
 - **Shipment lines dialog does not appear** — No package rows yet; add **Packages** or seed from the Sales Quote first.
 - **Site dropdown empty** — Set **Customer** on the Special Project; sites are customer addresses.
 - **Warehouse Item list empty** — Warehouse items are filtered by customer; create or link items for that customer.
-- **Funnel column "Logistics" is too high** — A delivery may be tagged with the wrong stage. Open the **Deliveries** grid, fix the **Lifecycle Stage** on the offending row, and save.
+- **Funnel / stage totals look wrong** — A delivery may be tagged with the wrong **Lifecycle Stage**. Review **Deliveries** (source job link) or use **Packages → Refresh Delivery Funnel**.
 - **"No Lifecycle Stages configured for Special Projects"** appears in the summary — Open **Lifecycle Stage** master and tick **For Special Project** on at least one stage (default seed handles this).
 - **Delivered too high** — Check duplicate **Posted** deliveries or manual deliveries plus auto-posted transport deliveries; cancel incorrect delivery rows or fix **Qty Required**.
 - **Duplicate delivery error on save** — Two delivery rows share the same hidden source document and package index; remove or cancel the duplicate.
@@ -180,6 +182,7 @@ Rows with `Qty Received = 0` are skipped, and rows that match an always-along pa
 
 ## 8. Related topics
 
+- [Special Project — Delivery Workflow](welcome/special-project-delivery-workflow)
 - [Special Projects Module](welcome/special-projects-module)
 - [Sales Quote](welcome/sales-quote)
 - [Transport Order](welcome/transport-order)

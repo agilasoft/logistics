@@ -1,21 +1,19 @@
 // Copyright (c) 2025, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
-function _declaration_order_name_from_internal_job_details(frm) {
-	var rows = frm.doc.internal_job_details || [];
-	for (var i = 0; i < rows.length; i++) {
-		var r = rows[i];
-		var st = String(r.service_type || "").trim();
-		var jt = String(r.job_type || "").trim();
-		var isDecl =
-			st === "Custom" ||
-			st === "Customs" ||
-			jt === "Declaration Order";
-		if (isDecl && String(r.job_no || "").trim()) {
-			return String(r.job_no).trim();
-		}
-	}
-	return "";
+function _add_view_linked_declaration_order_button(frm, method) {
+	if (!frm.doc.name || frm.doc.__islocal) return;
+	frappe.call({
+		method: method,
+		args: { docname: frm.doc.name },
+		callback: function(r) {
+			var do_name = String(r.message || "").trim();
+			if (!do_name) return;
+			frm.add_custom_button(__("View Declaration Order"), function() {
+				frappe.set_route("Form", "Declaration Order", do_name);
+			}, __("View"));
+		},
+	});
 }
 
 function _load_milestone_html(frm) {
@@ -417,6 +415,9 @@ frappe.ui.form.on('Sea Shipment', {
 		}
 	},
 
+	before_save: function(frm) {
+	},
+
 	refresh: function(frm) {
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
@@ -563,7 +564,7 @@ frappe.ui.form.on('Sea Shipment', {
 					}
 				}, __('Create'));
 				if (!(cint(frm.doc.is_internal_job) && frm.doc.main_job_type && frm.doc.main_job)) {
-					frm.add_custom_button(__('Internal Job'), function() {
+					frm.add_custom_button(__('Booking / Order'), function() {
 						function _openInternalJobDlg() {
 							if (window.logistics_show_create_internal_job_dialog) {
 								window.logistics_show_create_internal_job_dialog(frm);
@@ -584,12 +585,10 @@ frappe.ui.form.on('Sea Shipment', {
 						}
 					}, __('Create'));
 				}
-				var _do_from_ij = _declaration_order_name_from_internal_job_details(frm);
-				if (_do_from_ij) {
-					frm.add_custom_button(__('View Declaration Order'), function() {
-						frappe.set_route('Form', 'Declaration Order', _do_from_ij);
-					}, __('View'));
-				}
+				_add_view_linked_declaration_order_button(
+					frm,
+					"logistics.sea_freight.doctype.sea_shipment.sea_shipment.get_linked_declaration_order_name"
+				);
 				frm.add_custom_button(__('Create Change Request'), function() {
 					frappe.call({
 						method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
@@ -827,9 +826,9 @@ function _refresh_packing_summary_api(frm) {
 	if (frm.is_new() || frm.doc.__islocal) return;
 	if (_is_grid_dialog_open()) return;
 	if (frm.doc.override_volume_weight) return;
-	frm.call({
-		method: 'aggregate_volume_from_packages_api',
-		doc: frm.doc,
+	frappe.call({
+		method: 'logistics.sea_freight.doctype.sea_shipment.sea_shipment.fetch_packing_summary',
+		args: { docname: frm.doc.name },
 		freeze: false,
 		callback: function(r) {
 			if (r && !r.exc && r.message && !_is_grid_dialog_open()) {
@@ -885,36 +884,22 @@ function _populate_address_contact_displays_if_missing(frm) {
 }
 
 function _create_sales_invoice_from_sea_shipment(frm) {
-	var fields = [
-		{ fieldname: 'posting_date', fieldtype: 'Date', label: __('Posting Date'), default: frappe.datetime.get_today(), reqd: 1 },
-		{ fieldname: 'customer', fieldtype: 'Link', label: __('Customer'), options: 'Customer', default: frm.doc.local_customer, reqd: 1 }
-	];
-	// Add invoice_type if Sea Shipment Charges use it
-	if (frm.fields_dict.charges && frm.fields_dict.charges.grid) {
-		var meta = frappe.get_meta('Sea Shipment Charges');
-		if (meta && meta.get_field('invoice_type')) {
-			fields.push({ fieldname: 'invoice_type', fieldtype: 'Link', label: __('Invoice Type'), options: 'Invoice Type' });
+	function openDialog() {
+		if (typeof show_create_sales_invoice_dialog === "function") {
+			show_create_sales_invoice_dialog(frm);
+			return;
 		}
-	}
-	frappe.prompt(fields, function(values) {
-		frappe.call({
-			method: 'logistics.sea_freight.doctype.sea_shipment.sea_shipment.create_sales_invoice',
-			args: {
-				shipment_name: frm.doc.name,
-				posting_date: values.posting_date,
-				customer: values.customer,
-				invoice_type: values.invoice_type || null
-			},
-			freeze: true,
-			freeze_message: __('Creating Sales Invoice...'),
-			callback: function(r) {
-				if (r.message && r.message.name) {
-					frappe.set_route('Form', 'Sales Invoice', r.message.name);
-					frm.reload_doc();
-				}
-			}
+		frappe.msgprint({
+			title: __("Error"),
+			message: __("Sales Invoice dialog is not loaded. Please refresh the page."),
+			indicator: "red"
 		});
-	}, __('Create Sales Invoice'));
+	}
+	if (typeof show_create_sales_invoice_dialog === "function") {
+		openDialog();
+	} else {
+		frappe.require("/assets/logistics/js/sales_invoice_dialog.js", openDialog);
+	}
 }
 
 function _sea_shipment_package_or_container_changed(frm) {

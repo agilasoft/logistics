@@ -394,15 +394,18 @@ def enforce_required_job_documents_before_submit(doc, method=None):
 
 
 def ensure_documents_and_milestones_from_template(doc, method=None):
-	"""On parent save: auto-populate documents and milestones from applicable default template if empty or new.
-	Called from doc_events on_update for doctypes that have documents/milestones tabs.
+	"""Before parent save: auto-populate documents and milestones from applicable default template.
+
+	Runs in before_save so template rows and milestone sync persist in the same save transaction.
+	A follow-up save from on_update caused TimestampMismatchError on the desk (nested save bumped
+	modified after the client received the save response).
 	Frappe passes (doc, method) to doc_event handlers."""
 	if not doc or getattr(doc, "flags", None) and doc.flags.ignore_documents_milestones_populate:
 		return
 	if getattr(frappe.flags, "in_ensure_documents_milestones", False):
 		return
 	name = getattr(doc, "name", None)
-	if not name or name == "new" or getattr(doc, "__islocal", True):
+	if not name or name == "new":
 		return
 	doctype = doc.doctype
 	frappe.flags.in_ensure_documents_milestones = True
@@ -425,16 +428,7 @@ def ensure_documents_and_milestones_from_template(doc, method=None):
 					f"Error auto-populating milestones for {doctype} {name}: {e}",
 					"Documents/Milestones Auto-Populate",
 				)
-		# Sync parent date <-> milestone actual_end and field triggers
-		if doctype in MILESTONE_DOCTYPES and hasattr(doc, "milestones"):
-			try:
-				from logistics.document_management.milestone_sync import apply_milestone_sync_and_triggers
-				apply_milestone_sync_and_triggers(doc, method)
-			except Exception as e:
-				frappe.log_error(
-					f"Error applying milestone sync/triggers for {doctype} {name}: {e}",
-					"Milestone Sync/Trigger Error",
-				)
+		# Milestone sync/triggers run in update_milestone_status_on_parent_before_save (next hook).
 	finally:
 		frappe.flags.in_ensure_documents_milestones = False
 

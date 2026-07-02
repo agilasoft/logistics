@@ -92,8 +92,8 @@
   {
    "fieldname": "warehouse_item",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Warehouse Item",
-   "link_filters": "[[\"Warehouse Item\",\"customer\",\"=\",\"eval:parent.customer\"]]",
    "options": "Warehouse Item"
   },
   {

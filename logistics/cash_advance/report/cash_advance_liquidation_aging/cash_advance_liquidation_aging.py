@@ -59,17 +59,21 @@ def _columns():
 
 
 def _rows(filters, as_on):
-	conditions = ["IFNULL(unliquidated, 0) > 0"]
+	unliquidated_expr = (
+		"IFNULL(car.total_requested, 0) - IFNULL(liq.total_liquidated, 0) "
+		"- IFNULL(ack.returned, 0) + IFNULL(ack.refunded, 0)"
+	)
+	conditions = ["({0}) > 0".format(unliquidated_expr)]
 	values = {"as_on": as_on}
 
 	if cint(filters.get("include_drafts")):
-		conditions.append("docstatus < 2")
+		conditions.append("car.docstatus < 2")
 	else:
-		conditions.append("docstatus = 1")
+		conditions.append("car.docstatus = 1")
 
 	for field in ("company", "branch", "cost_center", "profit_center", "job_number", "payee"):
 		if filters.get(field):
-			conditions.append("`{0}` = %({0})s".format(field))
+			conditions.append("car.`{0}` = %({0})s".format(field))
 			values[field] = filters[field]
 
 	where = " AND ".join(conditions)
@@ -77,20 +81,40 @@ def _rows(filters, as_on):
 	data = frappe.db.sql(
 		"""
 		SELECT
-			name, date, release_date, liquidation_due_date,
-			payee, payee_name, job_number,
-			company, branch, cost_center, profit_center,
-			total_requested, total_liquidated, unliquidated,
-			refunded, returned,
-			docstatus,
+			car.name, car.date, car.release_date, car.liquidation_due_date,
+			car.payee, car.payee_name, car.job_number,
+			car.company, car.branch, car.cost_center, car.profit_center,
+			car.total_requested,
+			IFNULL(liq.total_liquidated, 0) AS total_liquidated,
+			{unliquidated_expr} AS unliquidated,
+			IFNULL(ack.refunded, 0) AS refunded,
+			IFNULL(ack.returned, 0) AS returned,
+			car.docstatus,
 			CASE
-				WHEN liquidation_due_date IS NULL THEN NULL
-				ELSE DATEDIFF(%(as_on)s, liquidation_due_date)
+				WHEN car.liquidation_due_date IS NULL THEN NULL
+				ELSE DATEDIFF(%(as_on)s, car.liquidation_due_date)
 			END AS days_overdue
-		FROM `tabCash Advance Request`
+		FROM `tabCash Advance Request` car
+		LEFT JOIN (
+			SELECT
+				cash_advance_request,
+				SUM(total_liquidated) AS total_liquidated
+			FROM `tabCash Advance Liquidation`
+			WHERE docstatus = 1
+			GROUP BY cash_advance_request
+		) liq ON liq.cash_advance_request = car.name
+		LEFT JOIN (
+			SELECT
+				cash_advance_request,
+				SUM(CASE WHEN acknowledgment_type = 'Receipt' THEN amount ELSE 0 END) AS returned,
+				SUM(CASE WHEN acknowledgment_type = 'Payment' THEN amount ELSE 0 END) AS refunded
+			FROM `tabCash Acknowledgment`
+			WHERE docstatus = 1
+			GROUP BY cash_advance_request
+		) ack ON ack.cash_advance_request = car.name
 		WHERE {where}
-		ORDER BY days_overdue DESC, liquidation_due_date ASC
-		""".format(where=where),
+		ORDER BY days_overdue DESC, car.liquidation_due_date ASC
+		""".format(where=where, unliquidated_expr=unliquidated_expr),
 		values,
 		as_dict=1,
 	)

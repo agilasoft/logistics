@@ -11,9 +11,29 @@ On the Sales Quote, in the **Routing** tab, the field **Separate Billings per Se
 | Checkbox | Behaviour |
 |----------|-----------|
 | **Checked** | Each Booking/Order gets **only the charges that match its service type**. Air Booking gets Air charges only; Sea Booking gets Sea charges only; Transport Order gets Transport charges only; Declaration gets Customs charges only. |
-| **Unchecked** | **All charges** from the Sales Quote are added to the **main service** Booking/Order. The main service is the one marked as Main Job in the routing legs (or the quote’s main service). Other service types still get their own Bookings/Orders where applicable, but charge handling follows the Internal Job rules below when they have no charges. |
+| **Unchecked** | **All charges** from the Sales Quote are added to the Booking/Order whose **document type matches the quote Main Service** (e.g. Sea Booking when quote Main Service is Sea). This applies **regardless of the Main Service checkbox** on that booking. Other service types still get their own Bookings/Orders with only their service-type charges; legs with no charges follow the Internal Job rules below. |
 
-### 1.1 Charge tables on Bookings/Orders
+### 1.1 Quote Main Service vs booking Main Service checkbox
+
+Two different fields control related but distinct behaviour:
+
+| Field | Where | Role |
+|-------|--------|------|
+| **Main Service** (`main_service`) | Sales Quote header (Routing) | Selects which service mode carries **combined billing** when Separate Billings is off (Air, Sea, Transport, Customs, …). |
+| **Main Service** (`is_main_service`) | Booking / Order / Job (Charges tab → Job Details) | Marks **service role** (primary operational job, internal-job hub, invoice routing). Does **not** gate charge rollup when Separate Billings is off. |
+
+**Charge rollup when Separate Billings per Service Type is off** (example: quote Main Service = **Sea**):
+
+| Document | Main Service checkbox | Charges loaded |
+|----------|----------------------|----------------|
+| Sea Booking | Checked or **unchecked** | **All** quote charges (Air + Sea + Customs + …) |
+| Air Booking | Either | **Air only** |
+| Declaration Order | Either | **Customs only** (plus customs-parameter filtering) |
+| Transport Order | Either | **Transport only** |
+
+**When Separate Billings per Service Type is on**, every document gets **only** charges matching its own service type (Sea Booking → Sea only), regardless of the quote Main Service field.
+
+### 1.2 Charge tables on Bookings/Orders
 
 - When **Separate Billings per Service Type** is **checked**: each document’s charges table is populated only with Sales Quote Charge rows where `service_type` matches that document (Air, Sea, Transport, Customs, etc.). Existing charge tables support this; ensure filters use `service_type` when this option is on.
 - When **Separate Billings per Service Type** is **unchecked**: the **main service** Booking/Order must accept **all** charge types. Charge tables (e.g. Air Booking Charges, Sea Booking Charges, Transport Order Charges, Declaration Charges) must **allow all charges** from the quote—i.e. allow rows that may have different `service_type` or an “other service” indicator (e.g. `other_service_type`) so that the main job can carry Air + Sea + Transport + Customs + Warehousing etc. as needed.
@@ -67,8 +87,8 @@ This keeps internal jobs at cost-neutral or at transfer price relative to the ma
 
 | Scenario | Separate Billings = Yes | Separate Billings = No |
 |----------|--------------------------|--------------------------|
-| Main service Booking/Order | Only charges for that service type | **All** charges from the quote (all service types allowed in charges table) |
-| Other service Booking/Order (has charges in quote) | Only charges for that service type | Only charges for that service type |
+| Booking/Order **matching quote Main Service** (e.g. Sea Booking when quote Main Service = Sea) | Only charges for that service type | **All** charges from the quote (all service types) — **Main Service checkbox does not matter** |
+| **Other** service Booking/Order (has charges in quote) | Only charges for that service type | Only charges for that service type |
 | Other service Booking/Order (no charges or no matching Internal Job on quote) | **Blocked** — add charge lines and a matching Internal Job on the Internal Jobs tab | Same |
 
 ---
@@ -78,8 +98,8 @@ This keeps internal jobs at cost-neutral or at transfer price relative to the ma
 - **Sales Quote**: Field `separate_billings_per_service_type` (Check) is in the Routing section.
 - **Bookings/Orders** (e.g. Air Booking, Sea Booking, Transport Order, Declaration Order / Declaration): Support fields **Internal Job** (Check) and **Main Job** (reference: e.g. `main_job_type` + `main_job` Dynamic Link, or single link to the main job document).
 - **Charge population**:
-  - If `separate_billings_per_service_type` is true: existing behaviour—filter Sales Quote Charges by `service_type` per document.
-  - If false: main service document gets all Sales Quote Charges (no `service_type` filter for main); other documents get only their service type; internal jobs require both charge lines for the service and a matching row on the Internal Jobs tab.
+  - If `separate_billings_per_service_type` is true: filter Sales Quote Charges by `service_type` per document.
+  - If false: the document whose doctype matches quote `main_service` gets all Sales Quote Charges (no `service_type` filter), **without requiring** `is_main_service` on that document; other documents get only their service type; internal jobs require both charge lines for the service and a matching row on the Internal Jobs tab.
 - **Internal Job**: When creating a job/booking/order as an internal leg, ensure charge lines exist for that service and a matching Internal Job is configured on the quote before using **Create Internal Job** or **Create Booking/Order**.
 
 ---

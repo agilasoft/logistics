@@ -450,9 +450,8 @@ async function fetch_run_sheet_header_data(frm) {
   let driverImageUrl = '';
   if (frm.doc.driver) {
     try {
-      const driverImage = await frappe.db.get_value('Driver', frm.doc.driver, 'image');
-      const raw = driverImage && driverImage.message && driverImage.message.image;
-      driverImageUrl = rs_resolve_attach_image_url(raw);
+      const driverDoc = await frappe.db.get_doc('Driver', frm.doc.driver);
+      driverImageUrl = rs_resolve_attach_image_url(driverDoc && driverDoc.image);
     } catch (e) {
       /* Driver image optional */
     }
@@ -1841,11 +1840,6 @@ async function initializeRunSheetRouteMap(mapId, legs, mapRenderer, frm) {
           console.log('  Ignition:', vehiclePosition.ignition);
         } else {
           console.warn('Vehicle position API returned unsuccessful:', vehicleData.message);
-          // Event alert to user
-          frappe.show_alert({
-            message: __('Vehicle tracking data not available: {0}', [vehicleData.message?.error || 'No position data']),
-            indicator: 'orange'
-          });
         }
       } catch (e) {
         console.error('Error fetching vehicle position:', e);
@@ -2745,7 +2739,7 @@ function initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm, consol
       } else {
         // Load Google Maps JavaScript API with directions library
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,directions`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry&loading=async`;
         script.async = true;
         script.defer = true;
         script.onload = () => {
@@ -2832,10 +2826,11 @@ function initializeInteractiveGoogleMapWithDirections(mapId, origin, destination
   
   const routeData = window.runSheetRouteData[mapId];
   
-  // Create directions renderer
+  // DirectionsRenderer is kept for map reference only; routes are drawn via custom polylines.
   routeData.directionsRenderer = new google.maps.DirectionsRenderer({
     map: map,
-    suppressMarkers: false,
+    suppressMarkers: true,
+    suppressPolylines: true,
     preserveViewport: false
   });
   
@@ -2999,6 +2994,7 @@ function initializeInteractiveGoogleMapWithDirections(mapId, origin, destination
       }
       
       routeData.activeRouteIndex = activeRouteIndex;
+      routeData.directionsResult = result;
       
       // Render all routes (primary in blue, alternatives in gray)
       renderAllRoutes(mapId, result.routes, activeRouteIndex, map, bounds);
@@ -3044,7 +3040,7 @@ function renderAllRoutes(mapId, routes, activeRouteIndex, map, bounds) {
   
   // Clear directions renderer before drawing new routes
   if (routeData.directionsRenderer) {
-    routeData.directionsRenderer.setDirections({ routes: [] });
+    routeData.directionsRenderer.setDirections(null);
   }
   
   // Draw new route polylines
@@ -3205,21 +3201,6 @@ function renderAllRoutes(mapId, routes, activeRouteIndex, map, bounds) {
       route: route
     });
   });
-  
-  // Set active route in directions renderer (this will also add route markers)
-  // Only set directions renderer for the active route to avoid interfering with alternative route polylines
-  if (routes[activeRouteIndex] && routeData.directionsRenderer) {
-    // Suppress markers for alternative routes - we only want markers for the active route
-    routeData.directionsRenderer.setOptions({
-      suppressMarkers: false, // Event markers for active route
-      preserveViewport: false
-    });
-    
-    routeData.directionsRenderer.setDirections({
-      routes: [routes[activeRouteIndex]],
-      request: null
-    });
-  }
   
   // Log route rendering summary
   const renderedCount = routeData.routePolylines.length;
@@ -3603,7 +3584,7 @@ function recalculateRouteFromCurrentPosition(mapId, currentPosition, frm) {
   
   // Clear directions renderer
   if (routeData.directionsRenderer) {
-    routeData.directionsRenderer.setDirections({ routes: [] });
+    routeData.directionsRenderer.setDirections(null);
   }
   
   // Get remaining waypoints (if any)
@@ -3639,6 +3620,7 @@ function recalculateRouteFromCurrentPosition(mapId, currentPosition, frm) {
         activeRouteIndex = 0;
       }
       routeData.activeRouteIndex = activeRouteIndex;
+      routeData.directionsResult = result;
       
       // Update origin to current position
       routeData.origin = origin;
@@ -3752,12 +3734,6 @@ window.selectRouteByIndex = function(mapId, routeIndex, runSheetName) {
   
   // Update route selector UI
   createRouteSelectorUI(mapId, routes, routeIndex, routeData.frm);
-  
-  // Update directions renderer
-  routeData.directionsRenderer.setDirections({
-    routes: [selectedRoute],
-    request: null
-  });
   
   // Save the selected route to Run Sheet if runSheetName is provided
   if (runSheetName) {

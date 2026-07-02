@@ -62,6 +62,58 @@ def get_exchange_rate_for_source_currency_date(
 	return None
 
 
+def resolve_charge_side_exchange_rate(
+	company: Optional[str],
+	exchange_rate_source: Optional[str],
+	currency: Optional[str],
+	as_of_date: Optional[str],
+) -> Optional[float]:
+	"""Company-base units per 1 *currency* from Source Exchange Rate, or 1.0 when *currency* is company currency."""
+	if not currency:
+		return None
+	if company:
+		company_ccy = frappe.get_cached_value("Company", company, "default_currency")
+		if company_ccy and currency == company_ccy:
+			return 1.0
+	if exchange_rate_source and as_of_date:
+		return get_exchange_rate_for_source_currency_date(exchange_rate_source, currency, as_of_date)
+	return None
+
+
+@frappe.whitelist()
+def get_charge_side_exchange_rate(
+	company: Optional[str] = None,
+	exchange_rate_source: Optional[str] = None,
+	currency: Optional[str] = None,
+	as_of_date: Optional[str] = None,
+) -> Optional[float]:
+	return resolve_charge_side_exchange_rate(company, exchange_rate_source, currency, as_of_date)
+
+
+def resolve_sales_quote_charge_exchange_rates(doc) -> None:
+	"""Set bill/pay exchange rates on Sales Quote charge rows from Source Exchange Rate using quote date."""
+	if doc.doctype != "Sales Quote":
+		return
+	as_of_date = doc.get("date") or doc.get("creation")
+	if not as_of_date:
+		return
+	company = doc.get("company")
+	for ch in doc.get("charges") or []:
+		cur = getattr(ch, "currency", None)
+		b_src = getattr(ch, "bill_to_exchange_rate_source", None)
+		if b_src and cur:
+			rate = resolve_charge_side_exchange_rate(company, b_src, cur, as_of_date)
+			if rate is not None:
+				ch.bill_to_exchange_rate = rate
+
+		cc = getattr(ch, "cost_currency", None)
+		p_src = getattr(ch, "pay_to_exchange_rate_source", None)
+		if p_src and cc:
+			rate = resolve_charge_side_exchange_rate(company, p_src, cc, as_of_date)
+			if rate is not None:
+				ch.pay_to_exchange_rate = rate
+
+
 def resolve_single_operational_exchange_rate_row(row: Row) -> None:
 	"""When Source, Currency, and Date are set, set ``rate`` from Source Exchange Rate master."""
 	src = _get(row, "exchange_rate_source")

@@ -8,9 +8,8 @@
  "field_order": [
   "column_break_other_svc",
   "service_type",
-  "service_scope",
   "charge_scope",
-  "internal_job",
+  "linked_service",
   "item_code",
   "item_name",
   "container_deposit_pending_refund_gl",
@@ -744,12 +743,6 @@
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"
-  },
-  {
-   "fieldname": "service_scope",
-   "fieldtype": "Link",
-   "label": "Service Scope",
-   "options": "Sales Quote"
   },
   {
    "default": "Main",

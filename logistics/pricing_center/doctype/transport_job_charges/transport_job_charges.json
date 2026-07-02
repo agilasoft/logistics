@@ -8,9 +8,8 @@
  "field_order": [
   "charge_info_section",
   "service_type",
-  "service_scope",
   "charge_scope",
-  "internal_job",
+  "linked_service",
   "item_code",
   "item_name",
   "charge_type",
@@ -749,12 +748,6 @@
    "fieldtype": "Datetime",
    "label": "Standard Cost Posted At",
    "read_only": 1
-  },
-  {
-   "fieldname": "service_scope",
-   "fieldtype": "Link",
-   "label": "Service Scope",
-   "options": "Sales Quote"
   },
   {
    "default": "Main",

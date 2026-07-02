@@ -95,11 +95,11 @@ def _service_type_matches(value, allowed_values):
 
 
 # Fields to copy from Air Booking Charges to Air Shipment Charges (all copyable data fields).
-# Includes ``charge_scope`` and ``internal_job`` so Internal Job tagging survives the conversion
-# (otherwise IJ-tagged rows would be silently re-classified as Main on the Shipment).
+# Includes ``charge_scope`` and ``linked_service`` so Linked-scope tagging survives the conversion
+# (otherwise rows would be silently re-classified as Main on the Shipment).
 _AIR_BOOKING_TO_SHIPMENT_CHARGE_FIELDS = (
 	"service_type",
-	"charge_scope", "internal_job",
+	"charge_scope", "linked_service", "internal_job",
 	"item_code", "item_name", "charge_type", "charge_category",
 	"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
 	"description",
@@ -1029,6 +1029,12 @@ class AirBooking(Document):
 							f"BEFORE save(). This will cause _validate_selects() error!",
 							"Air Booking - Invalid Calculation Method Before Save"
 						)
+
+			from logistics.utils.sales_quote_one_off_internal_jobs import (
+				apply_linked_services_from_sales_quote_on_fetch,
+			)
+
+			apply_linked_services_from_sales_quote_on_fetch(sq_for_routing, self)
 			
 			# Save the document to persist the changes (charges and other fields)
 			# This ensures charges are saved before the form reloads
@@ -2377,6 +2383,7 @@ class AirBooking(Document):
 						"reference_no": getattr(package, "reference_no", None),
 						"goods_description": getattr(package, "goods_description", None),
 						"no_of_packs": getattr(package, "no_of_packs", None),
+						"quantity": getattr(package, "quantity", None),
 						"uom": getattr(package, "uom", None),
 						"weight": getattr(package, "weight", None),
 						"volume": getattr(package, "volume", None),
@@ -2450,9 +2457,9 @@ class AirBooking(Document):
 						"ata": getattr(leg, 'ata', None)
 					})
 
-			from logistics.utils.internal_job_detail_copy import copy_internal_job_details_to_doc
+			from logistics.utils.internal_job_detail_copy import transfer_linked_services_to_parent
 
-			copy_internal_job_details_to_doc(self, air_shipment)
+			transfer_linked_services_to_parent(self, air_shipment)
 			
 			# Final validation check before insert - ensure all link fields are valid
 			# This prevents errors during insert/after_insert hooks
@@ -2786,13 +2793,6 @@ def populate_charges_from_sales_quote(
 				pass
 		
 		sales_quote_doc = frappe.get_doc("Sales Quote", sales_quote)
-		from logistics.utils.sync_internal_job_details_from_sales_quote import (
-			build_internal_job_details_payload_for_quote_response,
-		)
-
-		ij_detail_payload = build_internal_job_details_payload_for_quote_response(
-			"Air Booking", doc, sales_quote_doc
-		)
 		parent = doc if doc else frappe._dict(
 			doctype="Air Booking", name=docname, is_internal_job=0, is_main_service=0
 		)
@@ -2886,7 +2886,6 @@ def populate_charges_from_sales_quote(
 				"message": f"No air freight charges found in Sales Quote: {sales_quote}",
 				"customer": sales_quote_doc.customer,
 				"routing_legs": routing_legs_for_api_response(sales_quote, doc),
-				"internal_job_details": ij_detail_payload,
 			}
 		
 		# Create a temporary document instance for mapping
@@ -2917,7 +2916,6 @@ def populate_charges_from_sales_quote(
 			"charges_count": len(charges),
 			"customer": sales_quote_doc.customer,
 			"routing_legs": routing_legs_for_api_response(sales_quote, doc),
-			"internal_job_details": ij_detail_payload,
 		}
 		
 	except Exception as e:
@@ -2973,13 +2971,6 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 				pass
 		
 		sales_quote_doc = frappe.get_doc("Sales Quote", one_off_quote)
-		from logistics.utils.sync_internal_job_details_from_sales_quote import (
-			build_internal_job_details_payload_for_quote_response,
-		)
-
-		ij_detail_payload = build_internal_job_details_payload_for_quote_response(
-			"Air Booking", doc, sales_quote_doc
-		)
 
 		# Fetch charges from Sales Quote Charge (Air and/or Sea) or Sales Quote Air Freight (legacy)
 		# Include both revenue and cost fields
@@ -3030,7 +3021,6 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 			return {
 				"charges": [],
 				"message": f"No air or sea freight charges found in Sales Quote: {one_off_quote}",
-				"internal_job_details": ij_detail_payload,
 			}
 		
 		# Create a temporary document instance for mapping
@@ -3059,7 +3049,6 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 		return {
 			"charges": charges,
 			"charges_count": len(charges),
-			"internal_job_details": ij_detail_payload,
 		}
 		
 	except Exception as e:

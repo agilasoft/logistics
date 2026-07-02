@@ -116,18 +116,20 @@ def apply_lifecycle_template(
 	parent_doc = frappe.get_doc(parent_doctype, parent_name)
 	parent_doc.check_permission("write")
 
+	service_field = "special_project_services" if parent_doctype == "Special Project" else "lifecycle_jobs"
+
 	removed = 0
 	kept = 0
 	if replace_existing:
 		new_rows = []
-		for row in parent_doc.get("lifecycle_jobs") or []:
+		for row in parent_doc.get(service_field) or []:
 			if _norm(row.get("job_no")):
 				new_rows.append(row)
 				kept += 1
 			else:
 				removed += 1
 		if removed:
-			parent_doc.set("lifecycle_jobs", new_rows)
+			parent_doc.set(service_field, new_rows)
 
 	activities = sorted(
 		tpl_doc.get("activities") or [],
@@ -136,11 +138,20 @@ def apply_lifecycle_template(
 
 	skipped_stages: list[str] = []
 	added = 0
+	applicable_stages: set[str] = set()
+	if parent_doctype == "Special Project":
+		for row in parent_doc.get("applicable_lifecycle_stages") or []:
+			stage = _norm(getattr(row, "lifecycle_stage", None))
+			if stage:
+				applicable_stages.add(stage)
+
 	for act in activities:
 		stage = _norm(act.get("lifecycle_stage"))
 		if not _stage_is_applicable(stage, parent_doctype):
 			skipped_stages.append(stage or "(blank)")
 			continue
+		if parent_doctype == "Special Project" and stage:
+			applicable_stages.add(stage)
 		row_dict: dict[str, Any] = {
 			"lifecycle_activity_status": "Not Started",
 			"job_type": "",
@@ -150,8 +161,17 @@ def apply_lifecycle_template(
 			value = act.get(fn)
 			if value not in (None, ""):
 				row_dict[fn] = value
-		parent_doc.append("lifecycle_jobs", row_dict)
+		parent_doc.append(service_field, row_dict)
 		added += 1
+
+	if parent_doctype == "Special Project" and applicable_stages:
+		existing = {
+			_norm(getattr(row, "lifecycle_stage", None))
+			for row in parent_doc.get("applicable_lifecycle_stages") or []
+		}
+		for stage in sorted(applicable_stages):
+			if stage and stage not in existing:
+				parent_doc.append("applicable_lifecycle_stages", {"lifecycle_stage": stage})
 
 	if added == 0 and removed == 0:
 		return {

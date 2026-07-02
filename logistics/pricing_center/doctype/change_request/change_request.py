@@ -9,6 +9,13 @@ from frappe.model.document import Document
 from frappe.utils import today
 
 from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
+from logistics.utils.linked_service_compat import (
+	CHARGE_SCOPE_LINKED,
+	charge_row_linked_service_link,
+	linked_service_doctype,
+	linked_service_record_exists,
+	set_charge_row_linked_service_link,
+)
 
 
 _SKIP_CHARGE_COPY = frozenset(
@@ -118,8 +125,6 @@ def _append_routing_legs_from_air_sea_shipment(sales_quote, shipment_doc, job_ty
 				"destination": dest,
 				"etd": getattr(leg, "etd", None),
 				"eta": getattr(leg, "eta", None),
-				"job_type": job_type_label,
-				"job_no": shipment_doc.name,
 				"notes": getattr(leg, "notes", None),
 			},
 		)
@@ -236,12 +241,12 @@ def populate_sales_quote_from_job(sales_quote, job_doc, job_type):
 def _charge_row_as_sales_quote_dict(charge_row, default_service_type):
 	"""Map Change Request Charge row to Sales Quote Charge child dict (same field names).
 
-	When the CR Charge row is tagged with an ``internal_job``, force
-	``charge_scope='Internal Job'`` on the produced Sales Quote Charge so any downstream copy
-	(satellite ``_populate_charges_from_sales_quote_doc`` Path-2 fallback, ``Get Charges from
-	Quotation`` per-scope helpers, etc.) preserves the IJ scoping rather than defaulting to
-	``Main``. ``charge_scope`` is not a field on ``Change Request Charge`` itself, so without this
-	explicit decoration the SQ side would always default to ``Main``.
+	When the CR Charge row is tagged with a Linked Service, force ``charge_scope='Linked'`` on the
+	produced Sales Quote Charge so any downstream copy (satellite ``_populate_charges_from_sales_quote_doc``
+	Path-2 fallback, ``Get Charges from Quotation`` per-scope helpers, etc.) preserves linked-service
+	scoping rather than defaulting to ``Main``. ``charge_scope`` is not a field on
+	``Change Request Charge`` itself, so without this explicit decoration the SQ side would always
+	default to ``Main``.
 	"""
 	out = {}
 	for k, v in charge_row.as_dict().items():
@@ -252,31 +257,37 @@ def _charge_row_as_sales_quote_dict(charge_row, default_service_type):
 		out[k] = v
 	if not out.get("service_type"):
 		out["service_type"] = default_service_type
-	ij = (out.get("internal_job") or "").strip() if isinstance(out.get("internal_job"), str) else out.get("internal_job")
-	if ij:
-		out["charge_scope"] = "Internal Job"
-		out["internal_job"] = ij
+	ls = (charge_row_linked_service_link(out) or "").strip()
+	if ls:
+		out["charge_scope"] = CHARGE_SCOPE_LINKED
+		set_charge_row_linked_service_link(out, ls)
 	return out
 
 
 @frappe.whitelist()
 def get_eligible_internal_jobs_for_change_request_job(job_type, job_name):
-	"""Return Internal Job names eligible for tagging on Change Request Charge rows.
+	"""Return Linked Service names eligible for tagging on Change Request Charge rows.
 
-	* When ``job_type`` is a Main job, returns every Internal Job whose
-	  ``parent_booking_type``/``parent_booking_name`` matches the Main, plus the satellite link
-	  identified via the Main's ``Internal Job Detail`` rows.
-	* When ``job_type`` is an Internal Job satellite booking, returns the satellite's own
-	  ``internal_job`` so the user is steered to tag only that IJ.
+	* When ``job_type`` is a Main job, returns every Linked Service whose
+	  ``parent_booking_type``/``parent_booking_name`` matches the Main.
+	* When ``job_type`` is a linked-service satellite booking, returns the satellite's own
+	  ``internal_job`` link so the user is steered to tag only that service.
 
-	Used by the client-side filter on ``Change Request Charge.internal_job``.
+	Used by the client-side filter on ``Change Request Charge.linked_service``.
+	Response keys include legacy ``internal_jobs`` / ``default_internal_job`` aliases.
 	"""
 	from logistics.pricing_center.additional_charge_to_job import (
 		INTERNAL_JOB_SATELLITE_JOB_TYPES,
 		MAIN_JOB_TYPES_FOR_CHANGE_REQUEST,
 	)
 
-	out: dict = {"internal_jobs": [], "default_internal_job": ""}
+	ls_dt = linked_service_doctype()
+	out: dict = {
+		"linked_services": [],
+		"default_linked_service": "",
+		"internal_jobs": [],
+		"default_internal_job": "",
+	}
 	if not job_type or not job_name:
 		return out
 	if not frappe.db.exists(job_type, job_name):
@@ -284,11 +295,12 @@ def get_eligible_internal_jobs_for_change_request_job(job_type, job_name):
 
 	if job_type in MAIN_JOB_TYPES_FOR_CHANGE_REQUEST:
 		rows = frappe.get_all(
-			"Internal Job",
+			ls_dt,
 			filters={"parent_booking_type": job_type, "parent_booking_name": job_name},
 			fields=["name", "service_type", "job_type", "job_no", "job_description"],
 			order_by="creation asc",
 		)
+		out["linked_services"] = rows
 		out["internal_jobs"] = rows
 		return out
 
@@ -299,17 +311,19 @@ def get_eligible_internal_jobs_for_change_request_job(job_type, job_name):
 			("main_job_type", "main_job", "internal_job"),
 			as_dict=True,
 		) or {}
-		ij_name = (sat.get("internal_job") or "").strip()
-		if ij_name and frappe.db.exists("Internal Job", ij_name):
+		ls_name = (sat.get("internal_job") or "").strip()
+		if ls_name and linked_service_record_exists(ls_name):
 			row = frappe.db.get_value(
-				"Internal Job",
-				ij_name,
+				ls_dt,
+				ls_name,
 				("name", "service_type", "job_type", "job_no", "job_description"),
 				as_dict=True,
 			)
 			if row:
+				out["linked_services"] = [row]
+				out["default_linked_service"] = ls_name
 				out["internal_jobs"] = [row]
-				out["default_internal_job"] = ij_name
+				out["default_internal_job"] = ls_name
 	return out
 
 

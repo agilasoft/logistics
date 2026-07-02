@@ -26,6 +26,11 @@
   "flight_date",
   "manifest_sent",
   "manifest_sent_date",
+  "eawb_status",
+  "eawb_submitted_date",
+  "column_break_eawb",
+  "eawb_message_id",
+  "eawb_sandbox_mode",
   "flight_schedule_section",
   "flight_schedule",
   "auto_update_flight_status",
@@ -200,6 +205,37 @@
    "fieldname": "manifest_sent_date",
    "fieldtype": "Datetime",
    "label": "Manifest Sent Date",
+   "read_only": 1
+  },
+  {
+   "default": "Not Submitted",
+   "fieldname": "eawb_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "e-AWB Status",
+   "options": "Not Submitted\nSubmitted\nAccepted\nRejected",
+   "read_only": 1
+  },
+  {
+   "fieldname": "eawb_submitted_date",
+   "fieldtype": "Datetime",
+   "label": "e-AWB Submitted Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_eawb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "eawb_message_id",
+   "fieldtype": "Data",
+   "label": "e-AWB Message ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "eawb_sandbox_mode",
+   "fieldtype": "Data",
+   "label": "e-AWB Sandbox Mode",
    "read_only": 1
   },
   {

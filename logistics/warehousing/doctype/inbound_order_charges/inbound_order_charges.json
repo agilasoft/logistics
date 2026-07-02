@@ -6,9 +6,8 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "service_scope",
   "charge_scope",
-  "internal_job",
+  "linked_service",
   "item_code",
   "charge_type",
   "charge_category",
@@ -97,12 +96,6 @@
    "fieldtype": "Select",
    "label": "Charge Category",
    "options": "Freight\nFuel Surcharge\nTerminal Handling\nCustoms Clearance\nDocumentation\nInsurance\nStorage\nHandling\nOther"
-  },
-  {
-   "fieldname": "service_scope",
-   "fieldtype": "Link",
-   "label": "Service Scope",
-   "options": "Sales Quote"
   },
   {
    "default": "Main",

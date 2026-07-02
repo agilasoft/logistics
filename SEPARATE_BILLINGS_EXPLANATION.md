@@ -10,11 +10,11 @@ The **Separate Billings per Service Type** checkbox on the Sales Quote controls 
 
 **Use when:** You want a single document to bill the customer.
 
-- The **Main Job** (e.g. Air Booking) receives **all** charges from the quote — Air, Customs, Warehousing, and any others.
-- Other jobs (Customs, Warehousing, etc.) are still created for operations and tracking when **charge lines exist for that service** and a **matching Internal Job** is set up on the quote’s Internal Jobs tab.
+- The document that **matches the quote Main Service** (e.g. **Sea Booking** when quote Main Service = Sea) receives **all** charges from the quote — Air, Customs, Warehousing, and any others. This happens **whether or not** the **Main Service** checkbox is ticked on that booking.
+- Other jobs (Customs, Warehousing, etc.) still get **only their own** service-type charges for operations and tracking.
 
-**Example:** Quote has 5 Air + 3 Customs + 2 Warehousing charges, and the main job is the Air Booking.  
-→ The Air Booking gets all 10 charges. Customs and Warehousing exist for operations but do not carry the full billing.
+**Example:** Quote Main Service = Sea; charges are 5 Sea + 3 Customs + 2 Warehousing.  
+→ The **Sea Booking** gets all 10 charges. Customs and Transport legs get only their own lines.
 
 ---
 

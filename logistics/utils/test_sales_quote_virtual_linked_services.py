@@ -55,6 +55,26 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 		finally:
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
+	def test_save_persists_linked_service_via_before_save_hook(self):
+		"""Full save path: grid rows must sync in before_save before virtual rows are cleared."""
+		sq = self._minimal_sales_quote("SQ Virtual LS Full Save")
+		try:
+			doc = frappe.get_doc("Sales Quote", sq.name)
+			doc.append("linked_services", {"service_type": "Air"})
+			doc.flags.ignore_mandatory = True
+			doc.save(ignore_permissions=True)
+			names = _linked_service_names_from_db("Sales Quote", sq.name)
+			self.assertEqual(len(names), 1)
+			ls = frappe.get_doc(linked_service_doctype(), list(names)[0])
+			self.assertEqual(ls.parent_booking_type, "Sales Quote")
+			self.assertEqual(ls.parent_booking_name, sq.name)
+			self.assertEqual(ls.service_type, "Air")
+			reloaded = frappe.get_doc("Sales Quote", sq.name)
+			self.assertEqual(len(reloaded.linked_services), 1)
+			self.assertEqual(reloaded.linked_services[0].get("service_type"), "Air")
+		finally:
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+
 	def test_virtual_grid_reloads_from_linked_service(self):
 		sq = self._minimal_sales_quote("SQ Virtual LS Reload")
 		try:
@@ -80,10 +100,52 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			sq.flags._linked_services_from_form = True
 			sq.save(ignore_permissions=True)
 			reloaded = frappe.get_doc("Sales Quote", sq.name)
-			self.assertIsInstance(reloaded.get("linked_services"), list)
+			self.assertIsInstance(reloaded.linked_services, list)
 			reloaded.description = (reloaded.description or "") + " updated"
 			reloaded.flags.ignore_mandatory = True
 			reloaded.save(ignore_permissions=True)
+		finally:
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+
+	def test_delete_last_linked_service_row_on_full_save(self):
+		"""Deleting the only Services row and saving must remove the backing Linked Service."""
+		sq = self._minimal_sales_quote("SQ Virtual LS Delete Last")
+		try:
+			doc = frappe.get_doc("Sales Quote", sq.name)
+			doc.append("linked_services", {"service_type": "Sea"})
+			doc.flags.ignore_mandatory = True
+			doc.save(ignore_permissions=True)
+			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 1)
+
+			doc2 = frappe.get_doc("Sales Quote", sq.name)
+			doc2.__dict__["linked_services"] = []
+			doc2.flags.ignore_mandatory = True
+			doc2.save(ignore_permissions=True)
+
+			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 0)
+			reloaded = frappe.get_doc("Sales Quote", sq.name)
+			self.assertEqual(len(reloaded.linked_services), 0)
+		finally:
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+
+	def test_unrelated_save_keeps_linked_services(self):
+		"""Saving another field must not drop Services loaded from Linked Service documents."""
+		sq = self._minimal_sales_quote("SQ Virtual LS Unrelated Save")
+		try:
+			doc = frappe.get_doc("Sales Quote", sq.name)
+			doc.append("linked_services", {"service_type": "Air"})
+			doc.flags.ignore_mandatory = True
+			doc.save(ignore_permissions=True)
+			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 1)
+
+			doc2 = frappe.get_doc("Sales Quote", sq.name)
+			doc2.description = (doc2.description or "") + " updated"
+			doc2.flags.ignore_mandatory = True
+			doc2.save(ignore_permissions=True)
+
+			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 1)
+			reloaded = frappe.get_doc("Sales Quote", sq.name)
+			self.assertEqual(len(reloaded.linked_services), 1)
 		finally:
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
@@ -112,12 +174,10 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			ls = frappe.get_doc(linked_service_doctype(), ls_name)
 			self.assertEqual(ls.parent_booking_type, "Sea Booking")
 			self.assertEqual(ls.parent_booking_name, booking.name)
-			self.assertEqual(ls.service_scope, sq.name)
 			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 0)
 
 			reloaded_sq = frappe.get_doc("Sales Quote", sq.name)
-			self.assertEqual(len(reloaded_sq.linked_services), 1)
-			self.assertEqual(reloaded_sq.linked_services[0].get("linked_service"), ls_name)
+			self.assertEqual(len(reloaded_sq.linked_services), 0)
 		finally:
 			if booking and frappe.db.exists("Sea Booking", booking.name):
 				frappe.delete_doc("Sea Booking", booking.name, force=True, ignore_permissions=True)

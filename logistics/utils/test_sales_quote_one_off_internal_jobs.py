@@ -46,26 +46,39 @@ class TestApplyScopeTaggingToMappedCharge(FrappeTestCase):
 		)
 		self.assertEqual(target["charge_scope"], "Main")
 		self.assertNotIn("internal_job", target)
+		self.assertNotIn("linked_service", target)
 
 	def test_dict_source_internal_job_scope_copies_link(self):
 		target = {}
 		apply_scope_tagging_to_mapped_charge(
 			{"charge_scope": "Internal Job", "internal_job": "IJ-001"}, target
 		)
-		self.assertEqual(target["charge_scope"], "Internal Job")
+		self.assertEqual(target["charge_scope"], "Linked")
+		self.assertEqual(target["linked_service"], "IJ-001")
 		self.assertEqual(target["internal_job"], "IJ-001")
+
+	def test_dict_source_linked_scope_copies_linked_service(self):
+		target = {}
+		apply_scope_tagging_to_mapped_charge(
+			{"charge_scope": "Linked", "linked_service": "LS-001"}, target
+		)
+		self.assertEqual(target["charge_scope"], "Linked")
+		self.assertEqual(target["linked_service"], "LS-001")
+		self.assertEqual(target["internal_job"], "LS-001")
 
 	def test_dict_source_missing_scope_defaults_to_main(self):
 		target = {}
 		apply_scope_tagging_to_mapped_charge({}, target)
 		self.assertEqual(target["charge_scope"], "Main")
 		self.assertNotIn("internal_job", target)
+		self.assertNotIn("linked_service", target)
 
 	def test_object_source_attribute_access(self):
 		src = MagicMock(charge_scope="Internal Job", internal_job="IJ-XYZ")
 		target = {}
 		apply_scope_tagging_to_mapped_charge(src, target)
-		self.assertEqual(target["charge_scope"], "Internal Job")
+		self.assertEqual(target["charge_scope"], "Linked")
+		self.assertEqual(target["linked_service"], "IJ-XYZ")
 		self.assertEqual(target["internal_job"], "IJ-XYZ")
 
 	def test_internal_job_scope_without_link_does_not_set_blank_internal_job(self):
@@ -73,16 +86,17 @@ class TestApplyScopeTaggingToMappedCharge(FrappeTestCase):
 		apply_scope_tagging_to_mapped_charge(
 			{"charge_scope": "Internal Job", "internal_job": "   "}, target
 		)
-		self.assertEqual(target["charge_scope"], "Internal Job")
-		# We never write an empty string IJ link onto the booking child row.
+		self.assertEqual(target["charge_scope"], "Linked")
 		self.assertNotIn("internal_job", target)
+		self.assertNotIn("linked_service", target)
 
 	def test_whitespace_scope_trimmed(self):
 		target = {}
 		apply_scope_tagging_to_mapped_charge(
 			{"charge_scope": "  Internal Job  ", "internal_job": "IJ-1"}, target
 		)
-		self.assertEqual(target["charge_scope"], "Internal Job")
+		self.assertEqual(target["charge_scope"], "Linked")
+		self.assertEqual(target["linked_service"], "IJ-1")
 		self.assertEqual(target["internal_job"], "IJ-1")
 
 
@@ -92,15 +106,17 @@ class TestExtendChargeFieldsHelper(FrappeTestCase):
 		extended = extend_charge_fields_with_scope_and_internal_job(fields)
 		self.assertIn("charge_scope", extended)
 		self.assertIn("internal_job", extended)
+		self.assertIn("linked_service", extended)
 		# Original entries preserved.
 		self.assertIn("item_code", extended)
 		self.assertIn("service_type", extended)
 
 	def test_does_not_duplicate_existing_fields(self):
-		fields = ["item_code", "charge_scope", "internal_job"]
+		fields = ["item_code", "charge_scope", "internal_job", "linked_service"]
 		extended = extend_charge_fields_with_scope_and_internal_job(fields)
 		self.assertEqual(extended.count("charge_scope"), 1)
 		self.assertEqual(extended.count("internal_job"), 1)
+		self.assertEqual(extended.count("linked_service"), 1)
 
 	def test_returns_new_list_not_in_place_mutation(self):
 		fields = ["item_code"]
@@ -110,7 +126,7 @@ class TestExtendChargeFieldsHelper(FrappeTestCase):
 
 	def test_handles_none_input(self):
 		extended = extend_charge_fields_with_scope_and_internal_job(None)  # type: ignore[arg-type]
-		self.assertEqual(extended, ["charge_scope", "internal_job"])
+		self.assertEqual(extended, ["charge_scope", "internal_job", "linked_service"])
 
 
 class TestInternalJobSyncGate(FrappeTestCase):

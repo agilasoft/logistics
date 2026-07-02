@@ -570,6 +570,33 @@ class TestSalesQuote(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			sq.submit()
 
+	def test_project_quote_submit_allowed_without_air_sea_charge_ports(self):
+		"""Project quotes skip the Air/Sea charge port corridor check on submit."""
+		import uuid
+
+		sq = self._minimal_sales_quote_doc("Air")
+		sq.quotation_type = "Project"
+		sq.naming_series = "PQ.#####"
+		sq.project_name = f"SQ Test Project Air {uuid.uuid4().hex[:8]}"
+		rep = frappe.db.get_value("Employee", {}, "name")
+		sq.branch = frappe.db.get_value("Branch", {"custom_company": self.company}, "name")
+		sq.cost_center = frappe.db.get_value("Cost Center", {"company": self.company}, "name")
+		sq.profit_center = frappe.db.get_value("Profit Center", {}, "name")
+		sq.sales_rep = rep
+		sq.operations_rep = rep
+		sq.customer_service_rep = rep
+		sq.append(
+			"charges",
+			{
+				"service_type": "Air",
+				"direction": "Export",
+			},
+		)
+		sq.insert()
+		sq.submit()
+		sq.reload()
+		self.assertEqual(sq.docstatus, 1)
+
 	def test_submit_allowed_when_air_ports_only_on_quote(self):
 		"""Charge row may leave ports blank if quote-level ports supply both ends."""
 		sq = self._minimal_sales_quote_doc("Air")
@@ -854,21 +881,15 @@ class TestSalesQuote(FrappeTestCase):
 		finally:
 			frappe.db.set_value("Customer", self.customer, "customer_name", customer_name)
 
-	def test_programme_charge_row_requires_sp_site(self):
-		sq = self._minimal_sales_quote_doc("MICE")
-		ex = frappe.new_doc("MICE Project")
-		ex.project_name = "Test Expo"
-		ex.customer = self.customer
-		ex.show_open_date = today()
-		ex.show_close_date = add_days(today(), 1)
-		ex.insert(ignore_permissions=True)
-		sq.exhibit = ex.name
-		sq.exhibit_show_open_date = today()
-		sq.exhibit_show_close_date = add_days(today(), 1)
-		sq.append("charges", {"service_type": "MICE"})
+	def test_charge_row_parameters_display_from_main_scope(self):
+		sq = self._minimal_sales_quote_doc("Sea")
+		sq.origin_port = "MNL"
+		sq.destination_port = "SIN"
+		sq.append("charges", {"service_type": "Sea", "charge_scope": "Main"})
 		sq.insert()
-		with self.assertRaises(frappe.ValidationError):
-			sq.save()
+		row = sq.charges[0]
+		self.assertIn("MNL", row.parameters or "")
+		self.assertIn("SIN", row.parameters or "")
 
 	def _test_site_address(self):
 		existing = frappe.db.get_value("Address", {}, "name")

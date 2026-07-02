@@ -1,10 +1,13 @@
 {
  "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:company",
  "creation": "2025-01-01 00:00:00.000000",
- "default_view": "Form",
+ "default_view": "List",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "company",
   "cargo_xml_section",
   "cargo_xml_enabled",
   "cargo_xml_endpoint",
@@ -33,6 +36,16 @@
   "debug_logging"
  ],
  "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "unique": 1
+  },
   {
    "fieldname": "cargo_xml_section",
    "fieldtype": "Section Break",
@@ -156,12 +169,15 @@
    "default": "0",
    "fieldname": "test_mode",
    "fieldtype": "Check",
-   "label": "Test Mode"
+   "label": "Test Mode",
+   "description": "When enabled, outbound IATA messages use the Test Endpoint URL if set, otherwise an in-app sandbox mock (no external HTTP or credentials required)."
   },
   {
+   "depends_on": "test_mode",
    "fieldname": "test_endpoint",
    "fieldtype": "Data",
-   "label": "Test Endpoint URL"
+   "label": "Test Endpoint URL",
+   "description": "Optional sandbox Cargo-XML URL. Leave blank to use in-app mock acceptance for e-AWB testing."
   },
   {
    "default": "0",
@@ -171,7 +187,7 @@
   }
  ],
  "icon": "fa fa-plane",
- "is_single": 1,
+ "is_single": 0,
  "links": [],
  "modified": "2025-01-01 00:00:00.000000",
  "modified_by": "Administrator",
@@ -195,5 +211,7 @@
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "company",
+ "track_changes": 1
 }

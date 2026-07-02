@@ -292,18 +292,22 @@ def throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_q
 class SalesQuote(Document):
 	def __setup__(self):
 		"""Keep virtual ``linked_services`` initialised; honour desk grid rows on save."""
-		if self.__dict__.get("linked_services") is None:
-			self.__dict__["linked_services"] = []
-		elif self.__dict__.get("linked_services"):
-			self.flags._linked_services_from_form = True
+		self._stage_linked_services_from_form()
 
 	@property
 	def linked_services(self):
 		"""Live view of Linked Service documents owned by this Sales Quote."""
 		if self.flags.get("_linked_services_from_form"):
 			return self.__dict__.get("linked_services") or []
+		rows = self.__dict__.get("linked_services")
+		if rows and any(getattr(r, "__islocal", None) for r in rows):
+			self.flags._linked_services_from_form = True
+			return rows
+		if self.flags.get("_linked_services_view_cached"):
+			return self.__dict__.get("linked_services") or []
 		value = self._build_linked_services_view()
 		self.__dict__["linked_services"] = value
+		self.flags._linked_services_view_cached = True
 		return value
 
 	def _build_linked_services_view(self):
@@ -367,10 +371,26 @@ class SalesQuote(Document):
 	def _drop_virtual_linked_services_rows(self):
 		"""Clear desk grid rows after sync; source of truth is ``Linked Service`` documents."""
 		self.flags._linked_services_from_form = False
-		self.__dict__["linked_services"] = []
+		self.flags._linked_services_view_cached = False
+		if "linked_services" in self.__dict__:
+			del self.__dict__["linked_services"]
+
+	def _stage_linked_services_from_form(self):
+		"""Honour desk/API grid rows on save, including an intentional empty grid."""
+		if "linked_services" not in self.__dict__:
+			return
+		if self.__dict__.get("linked_services") is None:
+			self.__dict__["linked_services"] = []
+		if not self.flags.get("_linked_services_view_cached"):
+			self.flags._linked_services_from_form = True
+
+	def _honour_linked_services_form_rows(self):
+		"""Rows staged in ``__dict__`` (desk grid / API append) must sync before the virtual view reloads."""
+		self._stage_linked_services_from_form()
 
 	def validate(self):
 		"""Validate Sales Quote data"""
+		self._honour_linked_services_form_rows()
 		for ch in getattr(self, "charges", None) or []:
 			_sync_sales_quote_charge_load_type_filter_flags_for_row(ch)
 		self.validate_naming_series_quotation_type()
@@ -379,7 +399,6 @@ class SalesQuote(Document):
 		self.ensure_one_off_status()
 		self.validate_one_off_required_parameters()
 		self.validate_programme_required_parameters()
-		self.validate_charge_row_programme_parameters()
 		self.validate_additional_charge_job()
 		self.validate_load_type_matches_service()
 		self.validate_vehicle_type_load_type()
@@ -388,16 +407,30 @@ class SalesQuote(Document):
 		self.validate_customs_unit_types()
 		self.validate_linked_service_charge_tagging()
 		self.auto_scope_title()
-		self._drop_virtual_linked_services_rows()
+		self.refresh_charge_parameters_display()
+		from logistics.utils.operational_exchange_rates import resolve_sales_quote_charge_exchange_rates
+
+		resolve_sales_quote_charge_exchange_rates(self)
+
+	def refresh_charge_parameters_display(self):
+		"""Populate read-only parameters text on charge rows from tagged services."""
+		from logistics.utils.sales_quote_charge_parameters import (
+			refresh_sales_quote_charge_parameters_display,
+		)
+
+		for row in getattr(self, "charges", None) or []:
+			refresh_sales_quote_charge_parameters_display(row, self)
 
 	def after_insert(self):
 		_sync_special_project_from_sales_quote(self)
 		_sync_show_from_sales_quote(self)
+		self._drop_virtual_linked_services_rows()
 
 	def on_update(self):
 		_sync_special_project_from_sales_quote(self)
 		_sync_show_from_sales_quote(self)
 		_sync_special_project_fields_from_sales_quote(self)
+		self._drop_virtual_linked_services_rows()
 		from logistics.utils.module_integration import propagate_high_value_from_sales_quote
 		propagate_high_value_from_sales_quote(self.name)
 
@@ -438,6 +471,8 @@ class SalesQuote(Document):
 
 	def validate_air_sea_charge_ports_before_submit(self):
 		"""At least one Air/Sea charge line must have Origin Port and Destination Port (row or quote-level fallbacks)."""
+		if getattr(self, "quotation_type", None) == "Project":
+			return
 		doc_origin, doc_dest = self._document_level_origin_destination_for_charges()
 		has_air_or_sea = False
 		has_complete_corridor = False
@@ -659,21 +694,6 @@ class SalesQuote(Document):
 					title=_("Exhibit Details Required"),
 				)
 
-	def validate_charge_row_programme_parameters(self):
-		"""Programme charge rows require a site address."""
-		for row in getattr(self, "charges", None) or []:
-			st = canonical_charge_service_type_for_storage(getattr(row, "service_type", None))
-			if st not in ("special project", "exhibits"):
-				continue
-			if not _sq_strip_or_none(getattr(row, "sp_site", None)):
-				frappe.throw(
-					_("Charges row {0}: Site is required for Service Type \"{1}\".").format(
-						getattr(row, "idx", "") or "?",
-						getattr(row, "service_type", "") or "",
-					),
-					title=_("Programme Parameters Required"),
-				)
-
 	def auto_scope_title(self):
 		"""Default scope_title from corridor + incoterm when blank."""
 		if (getattr(self, "scope_title", None) or "").strip():
@@ -691,10 +711,12 @@ class SalesQuote(Document):
 
 	def validate_linked_service_charge_tagging(self):
 		"""Validate per-charge Linked Service tagging on Sales Quote."""
+		from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
 		from logistics.utils.linked_service_compat import (
 			CHARGE_SCOPE_LINKED,
 			CHARGE_SCOPE_MAIN,
 			charge_row_linked_service_link,
+			linked_service_doctype,
 			linked_service_rows,
 			normalize_charge_scope,
 			set_charge_row_linked_service_link,
@@ -733,6 +755,23 @@ class SalesQuote(Document):
 						frappe.bold(ls_link),
 					),
 					title=_("Linked Service Not Found"),
+				)
+			ls_service_type = frappe.db.get_value(
+				linked_service_doctype(), ls_link, "service_type"
+			)
+			if ls_service_type and not sales_quote_charge_service_types_equal(
+				getattr(row, "service_type", None), ls_service_type
+			):
+				frappe.throw(
+					_(
+						"Charges row {0}: Linked Service {1} is {2}, but this charge is {3}."
+					).format(
+						getattr(row, "idx", "") or "?",
+						frappe.bold(ls_link),
+						frappe.bold(ls_service_type),
+						frappe.bold(getattr(row, "service_type", None) or "?"),
+					),
+					title=_("Linked Service Type Mismatch"),
 				)
 
 	def validate_internal_job_charge_tagging(self):
@@ -1027,7 +1066,7 @@ class SalesQuote(Document):
 			
 			# Populate charges from Sales Quote Air Freight
 			_populate_charges_from_sales_quote_air_freight(air_shipment, self)
-			
+
 			# Save the Air Shipment
 			air_shipment.save(ignore_permissions=True)
 			
@@ -1422,9 +1461,9 @@ def _create_sales_invoice_from_multimodal_quote(sales_quote, posting_date=None):
 	if not legs:
 		frappe.throw(_("No routing legs found. Add routing legs and designate one as Main Job."))
 
-	main_leg = next((r for r in legs if getattr(r, "is_main_job", 0)), None)
-	if not main_leg or not getattr(main_leg, "job_no", None):
-		frappe.throw(_("Main Job must have a linked job (job_no). Create the jobs from this quote first."))
+	main_job_type, main_job_no = _resolve_main_job_for_sales_quote(sales_quote)
+	if not main_job_type or not main_job_no:
+		frappe.throw(_("Main Job not found. Create the main-service booking or order from this quote first."))
 
 	billing_mode = getattr(sales_quote, "billing_mode", None) or "Consolidated"
 	posting_date = posting_date or today()
@@ -1432,7 +1471,8 @@ def _create_sales_invoice_from_multimodal_quote(sales_quote, posting_date=None):
 	if billing_mode == "Per Product":
 		return _create_separate_invoices_per_leg(sales_quote, legs, posting_date)
 	else:
-		return _create_consolidated_invoice(sales_quote, legs, main_leg, posting_date)
+		main_leg = next((r for r in legs if getattr(r, "is_main_job", 0)), None) or legs[0]
+		return _create_consolidated_invoice(sales_quote, legs, main_leg, main_job_type, main_job_no, posting_date)
 
 
 def _get_contributors_for_leg(leg):
@@ -1459,14 +1499,114 @@ def _get_contributors_for_leg(leg):
 	return contributors
 
 
-def _create_consolidated_invoice(sales_quote, legs, main_leg, posting_date):
+_SALES_QUOTE_LINKED_OPERATIONAL_DOCTYPES = (
+	"Declaration Order",
+	"Air Booking",
+	"Sea Booking",
+	"Transport Order",
+	"Inbound Order",
+	"Warehouse Job",
+	"Declaration",
+)
+
+_MAIN_SERVICE_PRIMARY_DOCTYPE = {
+	"Air": "Air Booking",
+	"Sea": "Sea Booking",
+	"Transport": "Transport Order",
+	"Customs": "Declaration Order",
+	"Warehousing": "Inbound Order",
+}
+
+
+def _resolve_main_job_for_sales_quote(sales_quote):
+	"""Return (doctype, name) for the quote's main-service operational document."""
+	sq_name = sales_quote.name if hasattr(sales_quote, "name") else sales_quote
+	main_service = (getattr(sales_quote, "main_service", None) or "").strip()
+	primary = _MAIN_SERVICE_PRIMARY_DOCTYPE.get(main_service)
+	if primary and frappe.db.has_column(primary, "sales_quote"):
+		names = frappe.get_all(
+			primary,
+			filters={"sales_quote": sq_name, "is_main_service": 1, "docstatus": ["!=", 2]},
+			pluck="name",
+			limit=1,
+		)
+		if names:
+			return primary, names[0]
+	for dt in _SALES_QUOTE_LINKED_OPERATIONAL_DOCTYPES:
+		if not frappe.db.has_column(dt, "sales_quote"):
+			continue
+		if not frappe.get_meta(dt).has_field("is_main_service"):
+			continue
+		names = frappe.get_all(
+			dt,
+			filters={"sales_quote": sq_name, "is_main_service": 1, "docstatus": ["!=", 2]},
+			pluck="name",
+			limit=1,
+		)
+		if names:
+			return dt, names[0]
+	return None, None
+
+
+def _iter_linked_jobs_for_sales_quote(sales_quote):
+	"""Yield (doctype, name) for operational documents linked to this Sales Quote."""
+	sq_name = sales_quote.name if hasattr(sales_quote, "name") else sales_quote
+	seen = set()
+	for dt in _SALES_QUOTE_LINKED_OPERATIONAL_DOCTYPES:
+		if not frappe.db.has_column(dt, "sales_quote"):
+			continue
+		for name in frappe.get_all(
+			dt,
+			filters={"sales_quote": sq_name, "docstatus": ["!=", 2]},
+			pluck="name",
+			order_by="creation asc",
+		):
+			key = (dt, name)
+			if key not in seen:
+				seen.add(key)
+				yield dt, name
+
+
+def _resolve_job_for_routing_leg(sales_quote, leg):
+	"""Best-effort anchor job for a routing leg via ``sales_quote`` linkage."""
+	from logistics.utils.transport_mode_flags import get_air_sea_flags_for_transport_mode
+
+	sq_name = sales_quote.name
+	mode = (getattr(leg, "mode", None) or "").strip()
+	air_flag, sea_flag = get_air_sea_flags_for_transport_mode(mode)
+	candidates = []
+	if air_flag:
+		candidates.extend(["Air Booking", "Air Shipment"])
+	if sea_flag:
+		candidates.extend(["Sea Booking", "Sea Shipment"])
+	if not air_flag and not sea_flag:
+		candidates.extend(["Transport Order", "Transport Job"])
+	if not candidates:
+		candidates = list(_SALES_QUOTE_LINKED_OPERATIONAL_DOCTYPES)
+
+	for dt in candidates:
+		if not frappe.db.has_column(dt, "sales_quote"):
+			continue
+		filters = {"sales_quote": sq_name, "docstatus": ["!=", 2]}
+		meta = frappe.get_meta(dt)
+		if meta.has_field("is_main_service"):
+			main_names = frappe.get_all(
+				dt,
+				filters={**filters, "is_main_service": 1},
+				pluck="name",
+				limit=1,
+			)
+			if main_names:
+				return dt, main_names[0]
+		names = frappe.get_all(dt, filters=filters, pluck="name", limit=1)
+		if names:
+			return dt, names[0]
+	return None, None
+
+
+def _create_consolidated_invoice(sales_quote, legs, main_leg, main_job_type, main_job_no, posting_date):
 	"""Create one Sales Invoice aggregating charges from Main Job + all Sub-Jobs (anchor + contributors per leg)."""
 	from logistics.billing.cross_module_billing import get_billing_set_items
-
-	main_job_type = getattr(main_leg, "job_type", None)
-	main_job_no = getattr(main_leg, "job_no", None)
-	if not main_job_type or not main_job_no:
-		frappe.throw(_("Main Job leg must have job_type and job_no set."))
 
 	# Get header from Main Job
 	main_doc = frappe.get_doc(main_job_type, main_job_no)
@@ -1475,19 +1615,35 @@ def _create_consolidated_invoice(sales_quote, legs, main_leg, posting_date):
 	if not customer or not company:
 		frappe.throw(_("Customer and Company are required. Set them on the Main Job or Sales Quote."))
 
-	# Collect invoice items from all legs: each leg = anchor + contributors (billing set)
+	# Collect invoice items from all linked jobs: each leg anchor + contributors (billing set)
 	all_items = []
+	processed_jobs = set()
 	for leg in legs:
-		job_type = getattr(leg, "job_type", None)
-		job_no = getattr(leg, "job_no", None)
+		job_type, job_no = _resolve_job_for_routing_leg(sales_quote, leg)
 		if not job_type or not job_no:
 			continue
+		job_key = (job_type, job_no)
+		if job_key in processed_jobs:
+			continue
+		processed_jobs.add(job_key)
 		contributors = _get_contributors_for_leg(leg)
 		leg_prefix = _("Leg {0}").format(getattr(leg, "idx", ""))
 		items = get_billing_set_items(job_type, job_no, contributors, customer=customer, description_prefix=leg_prefix)
 		for item in items:
 			if not item.get("description"):
 				item["description"] = f"{job_type} {job_no} ({leg_prefix})"
+			all_items.append(item)
+
+	# Include any linked jobs not matched to a routing leg
+	for job_type, job_no in _iter_linked_jobs_for_sales_quote(sales_quote):
+		job_key = (job_type, job_no)
+		if job_key in processed_jobs:
+			continue
+		processed_jobs.add(job_key)
+		items = get_billing_set_items(job_type, job_no, [], customer=customer)
+		for item in items:
+			if not item.get("description"):
+				item["description"] = f"{job_type} {job_no}"
 			all_items.append(item)
 
 	if not all_items:
@@ -1538,11 +1694,15 @@ def _create_separate_invoices_per_leg(sales_quote, legs, posting_date):
 	from logistics.billing.cross_module_billing import get_billing_set_items
 
 	invoices_created = []
+	processed_jobs = set()
 	for leg in legs:
-		job_type = getattr(leg, "job_type", None)
-		job_no = getattr(leg, "job_no", None)
+		job_type, job_no = _resolve_job_for_routing_leg(sales_quote, leg)
 		if not job_type or not job_no:
 			continue
+		job_key = (job_type, job_no)
+		if job_key in processed_jobs:
+			continue
+		processed_jobs.add(job_key)
 		try:
 			contributors = _get_contributors_for_leg(leg)
 			anchor_doc = frappe.get_doc(job_type, job_no)
@@ -1647,25 +1807,56 @@ def _apply_parent_overrides_to_doc(doc, parent_overrides: dict | None):
 			doc.set(key, val)
 
 
-def _propagate_one_off_internal_jobs_to_created_booking(sales_quote, booking_doc):
-	"""Mirror SQ-owned Internal Jobs onto the new booking and remap per-charge ``internal_job`` links.
+def _propagate_linked_services_to_created_booking(
+	sales_quote,
+	booking_doc,
+	*,
+	blanket_call_off=False,
+	selected_charge_row_names=None,
+):
+	"""Mirror SQ-owned Linked Services onto the new booking and remap per-charge links.
 
-	Called from ``_create_{sea,air,transport}_*_from_sales_quote`` after the booking is saved with
-	its charges. No-op for non-One-off quotes and when the quote owns no Internal Jobs. Logs
-	(without re-raising) on failure so the conversion still completes if propagation hits an edge
-	case — the user can re-run the IJ wiring from the booking form afterwards.
+	* One-off / Regular full conversion: re-parent the same ``LS-…`` documents.
+	* Blanket call-off: clone Linked Services referenced by the selected charge rows so the
+	  quote retains its originals for later call-offs.
+
+	Logs (without re-raising) on failure so conversion still completes.
 	"""
 	try:
 		from logistics.utils.sales_quote_one_off_internal_jobs import (
-			propagate_one_off_internal_jobs_and_remap_charges,
+			linked_service_names_from_quote_charges,
+			propagate_linked_services_and_remap_charges,
 			stamp_scope_main_when_untagged,
 		)
 
-		propagate_one_off_internal_jobs_and_remap_charges(sales_quote, booking_doc)
+		if blanket_call_off:
+			sq_name = getattr(sales_quote, "name", None) or ""
+			sq_owned = frappe.get_all(
+				"Linked Service",
+				filters={
+					"parent_booking_type": "Sales Quote",
+					"parent_booking_name": sq_name,
+				},
+				pluck="name",
+				order_by="creation asc",
+			)
+			charge_ls = linked_service_names_from_quote_charges(
+				sales_quote, selected_charge_row_names
+			)
+			if charge_ls:
+				ls_names = [n for n in charge_ls if n in set(sq_owned or [])]
+			else:
+				ls_names = list(sq_owned or [])
+			if ls_names:
+				propagate_linked_services_and_remap_charges(
+					sales_quote, booking_doc, clone=True, ls_names=ls_names
+				)
+		else:
+			propagate_linked_services_and_remap_charges(sales_quote, booking_doc, clone=False)
 		stamp_scope_main_when_untagged(booking_doc)
 	except Exception:
 		frappe.log_error(
-			title="One-off Sales Quote Internal Job propagation failed",
+			title="Sales Quote Linked Service propagation failed",
 			message=(
 				f"Sales Quote: {getattr(sales_quote, 'name', None)}; "
 				f"Booking: {getattr(booking_doc, 'doctype', None)} "
@@ -1674,13 +1865,18 @@ def _propagate_one_off_internal_jobs_to_created_booking(sales_quote, booking_doc
 		)
 
 
+def _propagate_one_off_internal_jobs_to_created_booking(sales_quote, booking_doc):
+	"""Backward-compatible alias."""
+	_propagate_linked_services_to_created_booking(sales_quote, booking_doc)
+
+
 def _create_transport_order_from_sales_quote(
 	sales_quote,
 	parent_overrides=None,
 	selected_charge_row_names=None,
 	blanket_call_off=False,
 ):
-	"""Create Transport Order from Sales Quote and update routing leg job_no if multimodal."""
+	"""Create Transport Order from Sales Quote."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
 	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
 	transport_charges = [c for c in (getattr(sales_quote, "charges") or []) if _sq_charge_row_matches_service(c, "Transport")]
@@ -1800,14 +1996,11 @@ def _create_transport_order_from_sales_quote(
 	transport_order._populate_charges_from_sales_quote()
 	transport_order.save(ignore_permissions=True)
 
-	if not blanket_call_off:
-		_propagate_one_off_internal_jobs_to_created_booking(sales_quote, transport_order)
-
-	_update_routing_leg_job(
-		sales_quote.name,
-		mode="Road",
-		job_type="Transport Order",
-		job_no=transport_order.name,
+	_propagate_linked_services_to_created_booking(
+		sales_quote,
+		transport_order,
+		blanket_call_off=blanket_call_off,
+		selected_charge_row_names=selected_charge_row_names,
 	)
 	if not blanket_call_off:
 		record_one_off_quote_conversion(sales_quote.name, "Transport Order", transport_order.name)
@@ -1846,7 +2039,7 @@ def _create_air_booking_from_sales_quote(
 	selected_charge_row_names=None,
 	blanket_call_off=False,
 ):
-	"""Create Air Booking from Sales Quote and update routing leg job_no if multimodal."""
+	"""Create Air Booking from Sales Quote."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
 	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
 	air_charges = [c for c in (getattr(sales_quote, "charges") or []) if _sq_charge_row_matches_service(c, "Air")]
@@ -1943,16 +2136,15 @@ def _create_air_booking_from_sales_quote(
 
 	air_booking.insert(ignore_permissions=True)
 
+	_propagate_linked_services_to_created_booking(
+		sales_quote,
+		air_booking,
+		blanket_call_off=blanket_call_off,
+		selected_charge_row_names=selected_charge_row_names,
+	)
 	if not blanket_call_off:
-		_propagate_one_off_internal_jobs_to_created_booking(sales_quote, air_booking)
 		record_one_off_quote_conversion(sales_quote.name, "Air Booking", air_booking.name)
 
-	_update_routing_leg_job(
-		sales_quote.name,
-		mode="Air",
-		job_type="Air Booking",
-		job_no=air_booking.name,
-	)
 	frappe.db.commit()
 	return {"success": True, "air_booking": air_booking.name, "message": _("Air Booking {0} created.").format(air_booking.name)}
 
@@ -1963,7 +2155,7 @@ def _create_sea_booking_from_sales_quote(
 	selected_charge_row_names=None,
 	blanket_call_off=False,
 ):
-	"""Create Sea Booking from Sales Quote and update routing leg job_no if multimodal."""
+	"""Create Sea Booking from Sales Quote."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
 	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_quote)
 
@@ -2082,47 +2274,37 @@ def _create_sea_booking_from_sales_quote(
 
 	sea_booking.insert(ignore_permissions=True)
 
+	_propagate_linked_services_to_created_booking(
+		sales_quote,
+		sea_booking,
+		blanket_call_off=blanket_call_off,
+		selected_charge_row_names=selected_charge_row_names,
+	)
 	if not blanket_call_off:
-		_propagate_one_off_internal_jobs_to_created_booking(sales_quote, sea_booking)
 		record_one_off_quote_conversion(sales_quote.name, "Sea Booking", sea_booking.name)
 
-	_update_routing_leg_job(
-		sales_quote.name,
-		mode="Sea",
-		job_type="Sea Booking",
-		job_no=sea_booking.name,
-	)
 	frappe.db.commit()
 	return {"success": True, "sea_booking": sea_booking.name, "message": _("Sea Booking {0} created.").format(sea_booking.name)}
 
 
-def _update_routing_leg_job(sales_quote_name, mode, job_type, job_no):
-	"""
-	Update the first routing leg matching the given mode that has no job_no yet.
-	Used when creating Transport Order / Air Booking / Sea Booking from Sales Quote.
-	"""
-	legs = frappe.get_all(
-		"Sales Quote Routing Leg",
-		filters=[
-			["parent", "=", sales_quote_name],
-			["parenttype", "=", "Sales Quote"],
-			["mode", "=", mode],
-			["job_no", "is", "not set"],
-		],
-		fields=["name", "idx"],
-		order_by="idx asc",
-		limit=1,
+@frappe.whitelist()
+def suggest_contributors_for_routing_leg(sales_quote_name, leg_idx):
+	"""Suggest cross-module billing contributors for a Sales Quote routing leg."""
+	from logistics.billing.cross_module_billing import get_suggested_contributors_for_anchor
+
+	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	leg_idx = int(leg_idx)
+	leg = next((row for row in (sales_quote.routing_legs or []) if row.idx == leg_idx), None)
+	if not leg:
+		frappe.throw(_("Routing leg {0} not found.").format(leg_idx))
+	job_type, job_no = _resolve_job_for_routing_leg(sales_quote, leg)
+	if not job_type or not job_no:
+		return []
+	return get_suggested_contributors_for_anchor(
+		job_type,
+		job_no,
+		sales_quote=sales_quote_name,
 	)
-	if not legs:
-		return
-	leg = legs[0]
-	frappe.db.set_value(
-		"Sales Quote Routing Leg",
-		leg.name,
-		{"job_type": job_type, "job_no": job_no},
-		update_modified=True,
-	)
-	frappe.db.commit()
 
 
 @frappe.whitelist()
@@ -2199,17 +2381,21 @@ def _populate_charges_from_sales_quote_air_freight(air_shipment, sales_quote):
 			SALES_QUOTE_CHARGE_PARAMETER_FIELDS,
 			filter_fields_existing_in_doctype,
 		)
+		from logistics.utils.sales_quote_charge_copy import extend_charge_fields_with_scope_and_internal_job
 
-		charge_fields = [
-			"item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
-			"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
-			"maximum_charge", "base_amount", "estimated_revenue",
-			"charge_type", "charge_category",
-			"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
-			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
-			"revenue_tariff", "cost_tariff", "bill_to_exchange_rate", "pay_to_exchange_rate",
-			"bill_to_exchange_rate_source", "pay_to_exchange_rate_source", "service_type",
-		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
+		charge_fields = extend_charge_fields_with_scope_and_internal_job(
+			[
+				"item_code", "item_name", "description", "revenue_calculation_method", "calculation_method", "uom", "currency",
+				"unit_rate", "unit_type", "minimum_quantity", "minimum_charge",
+				"maximum_charge", "base_amount", "estimated_revenue",
+				"charge_type", "charge_category",
+				"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
+				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
+				"revenue_tariff", "cost_tariff", "bill_to_exchange_rate", "pay_to_exchange_rate",
+				"bill_to_exchange_rate_source", "pay_to_exchange_rate_source", "service_type",
+			]
+			+ list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
+		)
 		sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
 		legacy_air_fields = filter_fields_existing_in_doctype("Sales Quote Air Freight", charge_fields)
 		sales_quote_air_freight_records = frappe.get_all(
@@ -2464,6 +2650,10 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 			charge_data["taxable_freight_item"] = _af_r("taxable_freight_item")
 		if _af_r("taxable_freight_item_tax_template"):
 			charge_data["taxable_freight_item_tax_template"] = _af_r("taxable_freight_item_tax_template")
+
+		from logistics.utils.sales_quote_charge_copy import apply_scope_tagging_to_mapped_charge
+
+		apply_scope_tagging_to_mapped_charge(sqaf_record, charge_data)
 
 		return charge_data
 
@@ -3953,33 +4143,6 @@ def get_rates_from_cost_sheet(sales_quote, selected_charge_names=None):
 			"cost_uom": cs_row.get("cost_uom"),
 			"cost_sheet_source": cs_row.get("parent"),
 		})
-		# Populate all parameters (from Cost Sheet charge, or from Sales Quote header for One-off)
-		header_params = {}
-		if sq_doc.quotation_type in ("One-off", "Regular"):
-			header_params = {
-				"origin_port": getattr(sq_doc, "origin_port", None),
-				"destination_port": getattr(sq_doc, "destination_port", None),
-				"load_type": getattr(sq_doc, "load_type", None),
-				"transport_mode": getattr(sq_doc, "transport_mode", None),
-				"direction": getattr(sq_doc, "direction", None),
-				"airline": getattr(sq_doc, "airline", None),
-				"freight_agent": getattr(sq_doc, "freight_agent", None),
-				"shipping_line": getattr(sq_doc, "shipping_line", None),
-				"freight_agent_sea": getattr(sq_doc, "freight_agent_sea", None),
-				"location_type": getattr(sq_doc, "location_type", None),
-				"location_from": getattr(sq_doc, "location_from", None),
-				"location_to": getattr(sq_doc, "location_to", None),
-				"transport_template": getattr(sq_doc, "transport_template", None),
-				"vehicle_type": getattr(sq_doc, "vehicle_type", None),
-				"container_type": getattr(sq_doc, "container_type", None),
-			}
-		for f in ("origin_port", "destination_port", "load_type", "transport_mode", "direction",
-			"airline", "freight_agent", "shipping_line", "freight_agent_sea",
-			"vehicle_type", "container_type", "location_type", "location_from", "location_to",
-			"customs_authority", "declaration_type", "customs_broker", "pay_to"):
-			val = cs_row.get(f) or header_params.get(f)
-			if val:
-				new_row.set(f, val)
 		added += 1
 
 	sq_doc.save()

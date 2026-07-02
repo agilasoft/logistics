@@ -11,6 +11,8 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt
 
+from logistics.cash_advance.totals_sync import _sum_submitted_acknowledgments
+
 
 def get_ar_employee_account() -> str:
 	"""A/R employee (advance) control account from Cash Advance Settings."""
@@ -27,15 +29,19 @@ def get_ar_employee_account() -> str:
 def _validate_cash_bank_account(account: str, company: str) -> None:
 	if not account or not frappe.db.exists("Account", account):
 		frappe.throw(_("Invalid account {0}.").format(account))
-	acc_company, acc_type, disabled, is_group = frappe.db.get_value(
-		"Account", account, ["company", "account_type", "disabled", "is_group"]
+	acc_company, acc_type, disabled, is_group, fund_type = frappe.db.get_value(
+		"Account", account, ["company", "account_type", "disabled", "is_group", "fund_type"]
 	)
 	if acc_company != company:
-		frappe.throw(_("Account {0} does not belong to company {1}.").format(account, company))
+		frappe.throw(
+			_("Fund Source Account does not belong to selected Company. Filter Fund Source by the Company.")
+		)
 	if cint(disabled) or cint(is_group):
 		frappe.throw(_("Fund source must be a leaf Bank or Cash account."))
 	if acc_type not in ("Bank", "Cash"):
 		frappe.throw(_("Fund source must be a Bank or Cash account."))
+	if not fund_type:
+		frappe.throw(_("Fund Source {0} must have Fund Type set on the GL Account.").format(account))
 
 
 def _employee_advance_doctype_installed() -> bool:
@@ -46,7 +52,7 @@ def _resolve_employee_advance_name(source_doc) -> Optional[str]:
 	if not source_doc:
 		return None
 	ea = getattr(source_doc, "employee_advance", None)
-	if not ea and getattr(source_doc, "doctype", None) == "Cash Advance Liquidation":
+	if not ea and getattr(source_doc, "doctype", None) in ("Cash Advance Liquidation", "Cash Acknowledgment"):
 		req = getattr(source_doc, "cash_advance_request", None)
 		if req:
 			ea = frappe.db.get_value("Cash Advance Request", req, "employee_advance")
@@ -282,7 +288,7 @@ def get_expense_account_for_item(item_code: str, company: str) -> Optional[str]:
 
 
 def create_liquidation_journal_entry(doc) -> str:
-	"""Expense lines (Dr cost, Cr A/R) plus optional cash top-up or return (Dr/Cr cash, Cr/Dr A/R)."""
+	"""Post expense lines only (Dr cost, Cr A/R). Cash settlement is via Cash Acknowledgment."""
 	if doc.name and frappe.db.exists(doc.doctype, doc.name):
 		existing = frappe.db.get_value(doc.doctype, doc.name, "liquidation_journal_entry")
 		if existing:
@@ -293,7 +299,6 @@ def create_liquidation_journal_entry(doc) -> str:
 	if frappe.db.get_value("Cash Advance Request", doc.cash_advance_request, "docstatus") != 1:
 		frappe.throw(_("Cash Advance Request must be submitted before liquidation."))
 
-	_validate_cash_bank_account(doc.fund_source, doc.company)
 	ar = get_ar_employee_account()
 
 	posting_date = getattr(doc, "posting_date", None) or doc.liquidation_date or doc.request_date
@@ -326,21 +331,98 @@ def create_liquidation_journal_entry(doc) -> str:
 	if expense_total <= 0:
 		frappe.throw(_("Total liquidated amount must be greater than zero."))
 
-	if cint(getattr(doc, "book_cash_balance", 1)):
-		advance_amount = flt(
-			frappe.db.get_value("Cash Advance Request", doc.cash_advance_request, "total_requested"), 2
+	_backfill_party_on_receivable_payable_rows(je, doc)
+
+	je.flags.ignore_permissions = True
+	je.insert()
+	je.submit()
+
+	return je.name
+
+
+@frappe.whitelist()
+def get_cash_advance_settlement_summary(cash_advance_request: str, exclude_acknowledgment: Optional[str] = None) -> Dict[str, float]:
+	"""Outstanding cash to return (Receipt) or pay (Payment) after liquidations and prior acknowledgments."""
+	advance = flt(
+		frappe.db.get_value("Cash Advance Request", cash_advance_request, "total_requested"), 2
+	)
+	liquidated = flt(
+		frappe.db.sql(
+			"""
+			SELECT COALESCE(SUM(total_liquidated), 0)
+			FROM `tabCash Advance Liquidation`
+			WHERE cash_advance_request = %s AND docstatus = 1
+			""",
+			cash_advance_request,
+		)[0][0],
+		2,
+	)
+	receipts = _sum_submitted_acknowledgments(cash_advance_request, "Receipt", exclude_acknowledgment)
+	payments = _sum_submitted_acknowledgments(cash_advance_request, "Payment", exclude_acknowledgment)
+	cash_to_return = flt(max(advance - liquidated - receipts, 0), 2)
+	cash_to_pay = flt(max(liquidated - advance - payments, 0), 2)
+	return {
+		"advance": advance,
+		"liquidated": liquidated,
+		"receipts": receipts,
+		"payments": payments,
+		"cash_to_return": cash_to_return,
+		"cash_to_pay": cash_to_pay,
+	}
+
+
+def create_cash_acknowledgment_journal_entry(doc) -> str:
+	"""Receipt: Dr Cash/Bank, Cr A/R (unused cash returned). Payment: Dr A/R, Cr Cash/Bank (additional payout)."""
+	if doc.name and frappe.db.exists(doc.doctype, doc.name):
+		existing = frappe.db.get_value(doc.doctype, doc.name, "journal_entry")
+		if existing:
+			return existing
+
+	if not doc.cash_advance_request:
+		frappe.throw(_("Cash Advance Request is required."))
+	if frappe.db.get_value("Cash Advance Request", doc.cash_advance_request, "docstatus") != 1:
+		frappe.throw(_("Cash Advance Request must be submitted before cash acknowledgment."))
+
+	_validate_cash_bank_account(doc.fund_source, doc.company)
+	ar = get_ar_employee_account()
+	amount = flt(doc.amount, 2)
+	if amount <= 0:
+		frappe.throw(_("Amount must be greater than zero."))
+
+	ack_type = doc.acknowledgment_type
+	if ack_type not in ("Receipt", "Payment"):
+		frappe.throw(_("Acknowledgment Type must be Receipt or Payment."))
+
+	summary = get_cash_advance_settlement_summary(doc.cash_advance_request, exclude_acknowledgment=doc.name)
+	if ack_type == "Receipt" and amount > summary["cash_to_return"] + 0.01:
+		frappe.throw(
+			_("Receipt amount {0} exceeds unused cash still to return ({1}).").format(
+				amount, summary["cash_to_return"]
+			)
 		)
-		variance = flt(advance_amount - expense_total, 2)
-		if abs(variance) >= 0.01:
-			if variance > 0:
-				# Unused cash returned: Dr Cash, Cr A/R
-				_append_je_line(je, doc.fund_source, variance, 0, doc)
-				_append_je_line(je, ar, 0, variance, doc)
-			else:
-				# Additional cash to employee: Dr A/R, Cr Cash
-				v = abs(variance)
-				_append_je_line(je, ar, v, 0, doc)
-				_append_je_line(je, doc.fund_source, 0, v, doc)
+	if ack_type == "Payment" and amount > summary["cash_to_pay"] + 0.01:
+		frappe.throw(
+			_("Payment amount {0} exceeds additional cash still to pay ({1}).").format(
+				amount, summary["cash_to_pay"]
+			)
+		)
+
+	posting_date = getattr(doc, "posting_date", None) or frappe.utils.today()
+	fund_acc_type = frappe.get_cached_value("Account", doc.fund_source, "account_type")
+	voucher_type = "Bank Entry" if fund_acc_type == "Bank" else "Cash Entry"
+
+	je = frappe.new_doc("Journal Entry")
+	je.voucher_type = voucher_type
+	je.company = doc.company
+	je.posting_date = posting_date
+	je.user_remark = _("Cash acknowledgment {0} ({1})").format(doc.name, ack_type)
+
+	if ack_type == "Receipt":
+		_append_je_line(je, doc.fund_source, amount, 0, doc)
+		_append_je_line(je, ar, 0, amount, doc)
+	else:
+		_append_je_line(je, ar, amount, 0, doc)
+		_append_je_line(je, doc.fund_source, 0, amount, doc)
 
 	_backfill_party_on_receivable_payable_rows(je, doc)
 

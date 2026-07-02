@@ -36,12 +36,16 @@ logistics.patches.v1_1_rename_special_project_site_material_to_package
 # Exhibits: Exhibit Docket is now a virtual child doctype (live view of Dockets);
 # drop the legacy persisted table so schema sync stops tracking it.
 logistics.patches.v1_2_drop_legacy_exhibit_docket_table
-# v3.0: rename Internal Job → Linked Service before new doctype JSON syncs
-logistics.patches.v3_0_rename_internal_job_to_linked_service
+# v3.0: rename Programme Service → Special Project Service before new doctype JSON syncs
+logistics.patches.v3_0_rename_programme_service_to_special_project_service
 # Sales Quote Services grid: Linked Service Detail is virtual (source = Linked Service docs)
 logistics.patches.v3_0_drop_sales_quote_linked_service_detail_table
 # Docket Internal Jobs grid: Linked Service Detail is virtual (source = Linked Service docs)
 logistics.patches.v3_0_drop_docket_internal_job_detail_table
+# Special Project Services: child-table rows -> stash before top-level Special Project Service sync
+logistics.patches.v3_0_migrate_special_project_service_child_to_stash
+# Special Project Services grid: Special Project Service Detail is virtual
+logistics.patches.v3_0_drop_special_project_service_detail_table
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
@@ -220,9 +224,55 @@ logistics.patches.v1_0_restore_pricing_workspace
 logistics.patches.v3_0_add_service_role_to_operational_docs
 logistics.patches.v3_0_reorganise_sales_quote_service_scope
 logistics.patches.v3_0_update_charge_scope_internal_to_linked
+logistics.patches.v3_0_backfill_linked_service_on_sea_charge_rows
 logistics.patches.v3_0_migrate_charge_params_to_quote_scope
 logistics.patches.v3_0_create_sales_quote_pack_doctype
 logistics.patches.v3_0_ensure_mice_project_sales_quote_field
 logistics.patches.v3_0_drop_sales_quote_service_scope_fields
+logistics.patches.v3_0_drop_service_scope_field
+logistics.patches.v3_0_drop_sales_quote_routing_leg_job_fields
+logistics.patches.v3_0_drop_sales_quote_charge_parameter_columns
+logistics.patches.v3_0_ensure_sales_quote_charge_parameter_columns_dropped
+# IATA Settings: fix sites where issingle=0 left get_single("IATA Settings") failing
+logistics.patches.v3_0_fix_iata_settings_single
+# IATA Settings: one record per Company (migrate legacy singleton values)
+logistics.patches.v3_0_migrate_iata_settings_per_company
+logistics.patches.v3_0_ensure_iata_settings_company_records
 # Docket Internal Jobs: restore persisted Internal Job Detail rows after virtual-grid rollback
 logistics.patches.v3_0_restore_docket_internal_job_detail_rows
+# Cash Advance: backfill request total_liquidated / unliquidated from submitted liquidations
+logistics.patches.v1_0_backfill_cash_advance_request_liquidation_totals
+# v3.0: charge tables still listed internal_job in field_order after linked_service rename
+logistics.patches.v3_0_fix_linked_service_field_order_on_charge_tables
+# v3.0: Sea Booking / Sea Shipment internal_job_details virtual grid (Linked Service only)
+logistics.patches.v3_0_virtualize_sea_internal_job_details
+# v3.0: remaining operational parents (Air, Transport, Customs, Warehousing, etc.)
+logistics.patches.v3_0_virtualize_operational_internal_job_details
+# Opportunity: Services tab with quotation-style scopes and job profitability actuals
+logistics.patches.v3_0_opportunity_service_scopes
+logistics.patches.v3_0_opportunity_scope_virtual_actuals
+logistics.patches.v3_0_rename_opportunity_scope_main_service
+logistics.patches.v3_0_drop_opportunity_scope_main_service_column
+# Opportunity scopes: YTD customer actuals; drop Sales Quote / Job Number
+logistics.patches.v3_0_opportunity_scope_ytd_actuals
+logistics.patches.v3_0_opportunity_scope_drop_legacy_columns
+# Opportunity: Dashboard tab and CRM Settings default metric
+logistics.patches.v3_0_opportunity_dashboard
+logistics.patches.v3_0_fix_opportunity_dashboard_tab_order
+logistics.patches.v3_0_fix_opportunity_dashboard_mount
+logistics.patches.v3_0_hide_opportunity_dashboard_html_field
+logistics.patches.v3_0_unhide_opportunity_dashboard_html_field
+# Special Project: move service parameters from Lifecycle Job to Programme Service
+logistics.patches.v3_0_migrate_lifecycle_params_to_programme_services
+# Lifecycle Job: backfill link display labels (stage / activity names)
+logistics.patches.v3_0_backfill_lifecycle_row_label
+# Special Project: merge lifecycle_jobs into programme_services; add applicable lifecycle stages
+logistics.patches.v3_0_merge_lifecycle_jobs_into_services
+# Rename programme_services / programme_service_line after Special Project Service doctype sync
+logistics.patches.v3_0_rename_programme_service_fields
+# Special Project Services: restore stashed child rows as top-level documents
+logistics.patches.v3_0_restore_special_project_service_documents
+# MICE Project: seed Official Appointment Status master options
+logistics.patches.v3_0_seed_official_appointment_status
+# MICE Project: backfill is_active on Official Appointment Status
+logistics.patches.v3_0_official_appointment_status_is_active

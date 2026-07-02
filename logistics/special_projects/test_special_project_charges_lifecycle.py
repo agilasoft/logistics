@@ -32,7 +32,7 @@ class TestChargeLifecycleTag(IntegrationTestCase):
 			job_no="AB-LEGACY-1",
 			order_no=None,
 		)
-		normalize_lifecycle_job_order_job_fields(frappe._dict(lifecycle_jobs=[row]))
+		normalize_lifecycle_job_order_job_fields(frappe._dict(special_project_services=[row]))
 		self.assertEqual(row.job_type, "Air Booking")
 		self.assertEqual(row.order_no, "AB-LEGACY-1")
 		self.assertIsNone(row.job_no)
@@ -42,11 +42,22 @@ class TestChargeLifecycleTag(IntegrationTestCase):
 		if not sp:
 			self.skipTest("Company, Customer, and Cost Center required")
 
-		sp.append("lifecycle_jobs", {"service_type": "Air", "activity_name": "Air leg"})
+		sp.append(
+			"applicable_lifecycle_stages",
+			{"lifecycle_stage": sp.lifecycle_stage or "Pre-Show"},
+		)
+		sp.append(
+			"special_project_services",
+			{
+				"service_type": "Air",
+				"activity_name": "Air leg",
+				"lifecycle_stage": sp.lifecycle_stage or "Pre-Show",
+			},
+		)
 		sp.insert(ignore_permissions=True)
-		row_name = sp.lifecycle_jobs[0].name
+		row_name = sp.special_project_services[0].name
 		frappe.db.set_value(
-			"Lifecycle Job",
+			"Special Project Service",
 			row_name,
 			{"job_type": "Transport Job", "job_no": None},
 			update_modified=False,
@@ -54,7 +65,7 @@ class TestChargeLifecycleTag(IntegrationTestCase):
 		sp.reload()
 		sp.save(ignore_permissions=True)
 		sp.reload()
-		row = sp.lifecycle_jobs[0]
+		row = sp.special_project_services[0]
 		self.assertFalse((row.job_type or "").strip())
 		self.assertFalse((row.job_no or "").strip())
 
@@ -62,10 +73,19 @@ class TestChargeLifecycleTag(IntegrationTestCase):
 		sp = new_special_project_for_test("Test Charge Lifecycle Tag")
 		if not sp:
 			self.skipTest("Company, Customer, and Cost Center required")
-		if not frappe.get_meta("Special Project Charges").has_field("lifecycle_job_line"):
-			self.skipTest("lifecycle_job_line not installed on Special Project Charges")
+		if not frappe.get_meta("Special Project Charges").has_field("lifecycle_stage"):
+			self.skipTest("lifecycle_stage not installed on Special Project Charges")
 
-		sp.append("lifecycle_jobs", {"service_type": "Transport", "activity_name": "Leg 1"})
+		stage = sp.lifecycle_stage or "Pre-Show"
+		sp.append("applicable_lifecycle_stages", {"lifecycle_stage": stage})
+		sp.append(
+			"special_project_services",
+			{
+				"service_type": "Transport",
+				"activity_name": "Leg 1",
+				"lifecycle_stage": stage,
+			},
+		)
 		sp.append(
 			"charges",
 			{
@@ -76,8 +96,7 @@ class TestChargeLifecycleTag(IntegrationTestCase):
 		)
 		sp.insert(ignore_permissions=True)
 		sp.reload()
-		line = sp.lifecycle_jobs[0]
-		append_charge_lifecycle_tag_for_test(sp, sp.charges[0].idx, line.name)
+		append_charge_lifecycle_tag_for_test(sp, sp.charges[0].idx, stage)
 		sp.save(ignore_permissions=True)
 		sp.reload()
-		self.assertEqual(sp.charges[0].lifecycle_job_line, line.name)
+		self.assertEqual(sp.charges[0].lifecycle_stage, stage)

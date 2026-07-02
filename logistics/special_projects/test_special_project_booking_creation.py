@@ -22,17 +22,37 @@ def _mock_charge(**fields):
 	sn.as_dict = lambda: dict(fields)
 	return sn
 
+
+def _linked_mock_charge(**fields):
+	"""Programme charge row eligible for copy onto operational bookings (scope=Linked)."""
+	fields.setdefault("charge_scope", "Linked")
+	fields.setdefault("linked_service", "LS-TEST")
+	return _mock_charge(**fields)
+
+
+def _linked_charge_dict(**fields):
+	"""Dict programme charge row for booking-copy / preview tests (scope=Linked)."""
+	fields.setdefault("charge_scope", "Linked")
+	fields.setdefault("linked_service", "LS-TEST")
+	return frappe._dict(**fields)
+
 from logistics.special_projects.special_project_booking_creation import (
 	_apply_air_sea_corridor_ports_from_context,
 	_apply_sales_quote_parties_to_target,
 	_dialog_creatable_job_type,
+	_link_planning_service_row,
 	_set_main_service_for_one_off_quote_target,
 	LIFECYCLE_JOB_QUOTE_PARAMETER_MISMATCH_MESSAGE,
 	create_booking_or_order_from_special_project,
+	get_lifecycle_job_parameter_field_specs,
+	get_programme_charge_parameter_field_specs,
 	get_special_project_booking_choices,
 	get_special_project_booking_preview,
 	lifecycle_job_params_match_quotation,
 	validate_lifecycle_job_params_match_quotation,
+)
+from logistics.special_projects.test_special_project_helpers import (
+	new_special_project_for_test,
 )
 from logistics.special_projects.doctype.project_order.project_order import (
 	_build_project_job_from_order,
@@ -69,14 +89,14 @@ class TestSpecialProjectChargeCopy(UnitTestCase):
 
 		sp = frappe._dict(
 			charges=[
-				_mock_charge(
+				_linked_mock_charge(
 					service_type="Air",
 					item_code=item,
 					estimated_revenue=100,
 					rate=100,
 					quantity=1,
 				),
-				_mock_charge(service_type="Transport", item_code=item, rate=50),
+				_linked_mock_charge(service_type="Transport", item_code=item, rate=50),
 			]
 		)
 		row = frappe._dict(service_type="Air")
@@ -92,7 +112,7 @@ class TestSpecialProjectChargeCopy(UnitTestCase):
 		# Programme charges are budget lines by service type; lifecycle_job_line is legacy metadata.
 		sp = frappe._dict(
 			charges=[
-				_mock_charge(
+				_linked_mock_charge(
 					service_type="Air",
 					lifecycle_job_line="ROW-1",
 					item_code=item,
@@ -113,21 +133,21 @@ class TestSpecialProjectChargeCopy(UnitTestCase):
 		# row 6. The strict pass returns 0; ignore_pin=True must pick them up by service type.
 		sp = frappe._dict(
 			charges=[
-				_mock_charge(
+				_linked_mock_charge(
 					service_type="Air",
 					lifecycle_job_line="ROW-1",
 					item_code=item,
 					rate=100,
 					quantity=1,
 				),
-				_mock_charge(
+				_linked_mock_charge(
 					service_type="Sea",
 					lifecycle_job_line="ROW-2",
 					item_code=item,
 					rate=200,
 					quantity=1,
 				),
-				_mock_charge(
+				_linked_mock_charge(
 					service_type="Transport",
 					lifecycle_job_line="ROW-3",
 					item_code=item,
@@ -151,8 +171,8 @@ class TestSpecialProjectChargeCopy(UnitTestCase):
 		sp = frappe._dict(
 			sales_quote="SQ-1",
 			charges=[
-				_mock_charge(service_type="Transport", item_code=item + "-A", rate=100, quantity=1),
-				_mock_charge(service_type="Transport", item_code=item + "-B", rate=200, quantity=1),
+				_linked_mock_charge(service_type="Transport", item_code=item + "-A", rate=100, quantity=1),
+				_linked_mock_charge(service_type="Transport", item_code=item + "-B", rate=200, quantity=1),
 			],
 		)
 		row = frappe._dict(service_type="Transport")
@@ -168,6 +188,33 @@ class TestSpecialProjectChargeCopy(UnitTestCase):
 		)
 		self.assertEqual(n, 1)
 		self.assertEqual(order.charges[0].item_code, item + "-A")
+
+	def test_main_scope_charges_are_not_copied(self):
+		item = _ensure_test_sp_charge_item()
+		other = item + "-MAIN"
+		sp = frappe._dict(
+			charges=[
+				_linked_mock_charge(
+					service_type="Transport",
+					item_code=item,
+					rate=100,
+					quantity=1,
+				),
+				_mock_charge(
+					service_type="Transport",
+					item_code=other,
+					charge_scope="Main",
+					rate=50,
+					quantity=1,
+				),
+			]
+		)
+		row = frappe._dict(service_type="Transport")
+		order = frappe.new_doc("Transport Order")
+		n = populate_operational_charges_from_special_project(sp, order, row)
+		self.assertEqual(n, 1)
+		self.assertEqual(order.charges[0].item_code, item)
+		self.assertEqual((order.charges[0].charge_scope or "").strip(), "Linked")
 
 
 class TestAirSeaCorridorPortsFromContext(UnitTestCase):
@@ -352,7 +399,7 @@ class TestLifecycleJobQuoteParameterMatch(UnitTestCase):
 		parent = frappe._dict(
 			sales_quote="SQ-1",
 			charges=[
-				frappe._dict(
+				_linked_charge_dict(
 					service_type="Transport",
 					transport_template="TPL-1",
 					vehicle_type="20FT",
@@ -393,7 +440,7 @@ class TestLifecycleJobQuoteParameterMatch(UnitTestCase):
 		parent = frappe._dict(
 			sales_quote="SQ-1",
 			charges=[
-				frappe._dict(
+				_linked_charge_dict(
 					service_type="Transport",
 					transport_template="TPL-1",
 					vehicle_type="20FT",
@@ -417,14 +464,14 @@ class TestLifecycleJobQuoteParameterMatch(UnitTestCase):
 
 		parent = frappe._dict(
 			charges=[
-				frappe._dict(
+				_linked_charge_dict(
 					service_type="Transport",
 					transport_template="TPL-CR",
 					vehicle_type="40FT",
 					change_request="CR-1",
 					item_code="ITEM-CR",
 				),
-				frappe._dict(
+				_linked_charge_dict(
 					service_type="Transport",
 					transport_template="TPL-SQ",
 					vehicle_type="20FT",
@@ -489,7 +536,7 @@ class TestLifecycleJobQuoteParameterMatch(UnitTestCase):
 			company="CO-1",
 			sales_quote="PQ-MAIN",
 			charges=[
-				frappe._dict(
+				_linked_charge_dict(
 					service_type="Air",
 					sales_quote_link="PQ-AIR-ADDON",
 					airline="Cebu Pacific",
@@ -512,7 +559,7 @@ class TestLifecycleJobQuoteParameterMatch(UnitTestCase):
 			company="CO-1",
 			sales_quote="PQ-MAIN",
 			charges=[
-				frappe._dict(
+				_linked_charge_dict(
 					service_type="Transport",
 					change_request="CR-1",
 					transport_template="TPL-CR",
@@ -589,7 +636,7 @@ class TestLifecycleJobQuoteParameterMatch(UnitTestCase):
 	def test_validate_uses_charge_suggestions_not_lifecycle_row_defaults(self, _resolve):
 		parent = frappe._dict(
 			charges=[
-				frappe._dict(
+				_linked_charge_dict(
 					service_type="Transport",
 					transport_template="TPL-1",
 					vehicle_type="20FT",
@@ -631,7 +678,7 @@ class TestLifecycleJobQuoteParameterMatch(UnitTestCase):
 			name="SP-1",
 			sales_quote="SQ-1",
 			charges=[
-				frappe._dict(
+				_linked_charge_dict(
 					service_type="Transport",
 					transport_template="TPL-1",
 					vehicle_type="20FT",
@@ -675,7 +722,7 @@ class TestLifecycleJobQuoteParameterMatch(UnitTestCase):
 			name="SP-PROJ",
 			sales_quote=None,
 			charges=[
-				frappe._dict(
+				_linked_charge_dict(
 					service_type="Transport",
 					vehicle_type="10W-WV",
 					item_code="DELIVERY",
@@ -688,6 +735,35 @@ class TestLifecycleJobQuoteParameterMatch(UnitTestCase):
 		prev = get_special_project_booking_preview("SP-PROJ", "Transport Order", 3)
 		self.assertTrue(prev.get("creatable"), prev.get("not_creatable_message"))
 
+	def test_preview_creatable_with_empty_params_wildcard(self):
+		from logistics.special_projects.special_project_booking_creation import (
+			_preview_creatability_flags,
+			_resolve_scoped_creation_params,
+			_validate_scoped_creation_params,
+		)
+
+		parent = frappe._dict(
+			charges=[
+				_linked_charge_dict(
+					service_type="Transport",
+					item_code="DELIVERY",
+				),
+			],
+		)
+		row = frappe._dict(service_type="Transport", idx=4)
+		_, scoped, merged = _resolve_scoped_creation_params(
+			parent, "Transport Order", row, {}
+		)
+		self.assertEqual(scoped, {})
+		_validate_scoped_creation_params(parent, "Transport", scoped)
+		with patch(
+			"logistics.utils.internal_job_creation_eligibility.evaluate_internal_job_creation_eligibility",
+			return_value={"eligible": True},
+		):
+			flags = _preview_creatability_flags(
+				parent, "Transport Order", merged, scoped, base_creatable=True
+			)
+		self.assertTrue(flags.get("creatable"), flags.get("not_creatable_message"))
 
 class TestDialogCreatableJobType(UnitTestCase):
 	def test_special_project_service_maps_to_project_order(self):
@@ -697,6 +773,41 @@ class TestDialogCreatableJobType(UnitTestCase):
 	def test_air_service_maps_to_air_booking(self):
 		row = frappe._dict(service_type="Air", job_type="")
 		self.assertEqual(_dialog_creatable_job_type(row), "Air Booking")
+
+
+class TestServiceRowParameterFieldSpecs(UnitTestCase):
+	def test_programme_charge_specs_without_lifecycle_job_doctype(self):
+		sp_doc = frappe._dict(
+			charges=[
+				_linked_charge_dict(
+					service_type="Transport",
+					transport_template="TPL-1",
+					vehicle_type="20FT",
+				),
+			]
+		)
+		with patch(
+			"logistics.special_projects.special_project_booking_creation.frappe.db.exists",
+			side_effect=lambda dt, name=None: dt == "DocType" and name == "Special Project Service",
+		):
+			with patch(
+				"logistics.special_projects.special_project_booking_creation._service_row_meta",
+				return_value=frappe.get_meta("Special Project Service"),
+			):
+				specs = get_programme_charge_parameter_field_specs(sp_doc, "Transport")
+		names = {s["fieldname"] for s in specs}
+		self.assertIn("transport_template", names)
+		self.assertIn("vehicle_type", names)
+
+	def test_lifecycle_job_parameter_specs_use_special_project_service_meta(self):
+		with patch(
+			"logistics.special_projects.special_project_booking_creation._service_row_meta",
+			return_value=frappe.get_meta("Special Project Service"),
+		):
+			specs = get_lifecycle_job_parameter_field_specs("Air")
+		names = {s["fieldname"] for s in specs}
+		self.assertIn("origin_port", names)
+		self.assertIn("destination_port", names)
 
 
 class TestCreateProjectOrderFromSpecialProject(IntegrationTestCase):
@@ -849,3 +960,47 @@ class TestCreateProjectOrderFromSpecialProject(IntegrationTestCase):
 		order = build_project_order_from_special_project(sp, "Explicit title")
 		self.assertEqual(order.order_title, "Explicit title")
 		self.assertEqual(order.special_project, sp.name)
+
+	def test_link_planning_service_row_updates_special_project_service_document(self):
+		sp = new_special_project_for_test("SP Link Service Order")
+		if not sp:
+			self.skipTest("Company, Customer, and Cost Center required")
+		stage = frappe.db.get_value("Lifecycle Stage", {}, "name")
+		if not stage:
+			self.skipTest("no lifecycle stage")
+
+		sp.status = "Draft"
+		sp.flags.ignore_mandatory = True
+		sp.append(
+			"special_project_services",
+			{"service_type": "Transport", "lifecycle_stage": stage},
+		)
+		sp.insert(ignore_permissions=True)
+
+		try:
+			reloaded = frappe.get_doc("Special Project", sp.name)
+			grid_row = reloaded.special_project_services[0]
+			self.assertIsInstance(grid_row, dict)
+
+			_link_planning_service_row(
+				sp.name, grid_row, "Transport Order", "TO-LINK-TEST"
+			)
+
+			service_name = grid_row.get("special_project_service") or grid_row.get("name")
+			service = frappe.get_doc("Special Project Service", service_name)
+			self.assertEqual(service.job_type, "Transport Order")
+			self.assertEqual(service.order_no, "TO-LINK-TEST")
+			self.assertFalse(service.job_no)
+		finally:
+			if frappe.db.exists("Special Project", sp.name):
+				project = frappe.db.get_value("Special Project", sp.name, "project")
+				frappe.delete_doc(
+					"Special Project", sp.name, force=True, ignore_permissions=True
+				)
+				if project and frappe.db.exists("Project", project):
+					try:
+						frappe.delete_doc(
+							"Project", project, force=True, ignore_permissions=True
+						)
+					except Exception:
+						pass

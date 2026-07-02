@@ -25,6 +25,13 @@ def get_data():
 				},
 				{
 					"type": "doctype",
+					"name": "Cash Acknowledgment",
+					"label": _("Cash Acknowledgment"),
+					"description": _("Record cash receipt or payment as part of liquidation"),
+					"onboard": 0,
+				},
+				{
+					"type": "doctype",
 					"name": "Cash Advance Settings",
 					"label": _("Cash Advance Settings"),
 					"description": _("A/R Employee account for journal entries"),

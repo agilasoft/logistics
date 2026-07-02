@@ -12,7 +12,43 @@ function sales_quote_charge_needs_revenue_calculation_method(row) {
 	return ct && !["Cost", "Disbursement"].includes(ct);
 }
 
+frappe.provide("logistics.operational_exchange_rate");
+
+function sales_quote_charge_fetch_bill_to_exchange_rate(frm, cdt, cdn) {
+	logistics.operational_exchange_rate.fetch_sales_quote_charge_side_rate(frm, cdt, cdn, {
+		source_field: "bill_to_exchange_rate_source",
+		currency_field: "currency",
+		rate_field: "bill_to_exchange_rate",
+	});
+}
+
+function sales_quote_charge_fetch_pay_to_exchange_rate(frm, cdt, cdn) {
+	logistics.operational_exchange_rate.fetch_sales_quote_charge_side_rate(frm, cdt, cdn, {
+		source_field: "pay_to_exchange_rate_source",
+		currency_field: "cost_currency",
+		rate_field: "pay_to_exchange_rate",
+	});
+}
+
+frappe.ui.form.on("Sales Quote Charge", {
+	bill_to_exchange_rate_source(frm, cdt, cdn) {
+		sales_quote_charge_fetch_bill_to_exchange_rate(frm, cdt, cdn);
+	},
+	currency(frm, cdt, cdn) {
+		sales_quote_charge_fetch_bill_to_exchange_rate(frm, cdt, cdn);
+	},
+	pay_to_exchange_rate_source(frm, cdt, cdn) {
+		sales_quote_charge_fetch_pay_to_exchange_rate(frm, cdt, cdn);
+	},
+	cost_currency(frm, cdt, cdn) {
+		sales_quote_charge_fetch_pay_to_exchange_rate(frm, cdt, cdn);
+	},
+});
+
 frappe.ui.form.on("Sales Quote", {
+	date(frm) {
+		logistics.operational_exchange_rate.refresh_sales_quote_charge_exchange_rates(frm);
+	},
 	validate(frm) {
 		const charges = frm.doc.charges || [];
 		for (const row of charges) {
@@ -22,15 +58,6 @@ frappe.ui.form.on("Sales Quote", {
 					__("Charges row {0}: Calculation Method is required for charge type \"{1}\".", [
 						row.idx || "?",
 						row.charge_type || "",
-					])
-				);
-			}
-			const st = (row.service_type || "").trim();
-			if (["Special Project", "MICE"].includes(st) && !(row.sp_site || "").trim()) {
-				frappe.throw(
-					__("Charges row {0}: Site is required for Service Type \"{1}\".", [
-						row.idx || "?",
-						st,
 					])
 				);
 			}

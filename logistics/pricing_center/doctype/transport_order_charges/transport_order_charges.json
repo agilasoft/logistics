@@ -7,9 +7,8 @@
  "engine": "InnoDB",
  "field_order": [
   "service_type",
-  "service_scope",
   "charge_scope",
-  "internal_job",
+  "linked_service",
   "column_break_pkuo",
   "item_code",
   "item_name",
@@ -590,12 +589,6 @@
    "options": "Tariff",
    "description": "Fallback when revenue_tariff/cost_tariff not set (backward compat)",
    "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]"
-  },
-  {
-   "fieldname": "service_scope",
-   "fieldtype": "Link",
-   "label": "Service Scope",
-   "options": "Sales Quote"
   },
   {
    "default": "Main",

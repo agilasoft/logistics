@@ -84,11 +84,50 @@ def sync_internal_job_details_from_sales_quote(parent_doc: Any, sales_quote_doc:
 		parent_doc.append("internal_job_details", new_row)
 
 
+def _internal_job_details_row_count(parent_doc: Any) -> int:
+	return len(getattr(parent_doc, "internal_job_details", None) or [])
+
+
+def ensure_internal_job_details_from_sales_quote(parent_doc: Any, sales_quote_doc: Any) -> dict[str, Any]:
+	"""Propagate SQ Linked Services onto *parent_doc* and merge Transport/Customs charge parameters.
+
+	Returns ``{"rows_before": int, "rows_after": int, "rows_added": int, "propagated": bool}``.
+	"""
+	if not parent_doc or not sales_quote_doc:
+		return {"rows_before": 0, "rows_after": 0, "rows_added": 0, "propagated": False}
+
+	rows_before = _internal_job_details_row_count(parent_doc)
+	propagated = False
+
+	try:
+		from logistics.utils.sales_quote_one_off_internal_jobs import (
+			propagate_one_off_internal_jobs_and_remap_charges,
+		)
+
+		mapping = propagate_one_off_internal_jobs_and_remap_charges(sales_quote_doc, parent_doc)
+		propagated = bool(mapping)
+	except Exception:
+		frappe.log_error(
+			title="Internal Job propagation from Sales Quote failed",
+			message=frappe.get_traceback(),
+		)
+
+	sync_internal_job_details_from_sales_quote(parent_doc, sales_quote_doc)
+
+	rows_after = _internal_job_details_row_count(parent_doc)
+	return {
+		"rows_before": rows_before,
+		"rows_after": rows_after,
+		"rows_added": max(0, rows_after - rows_before),
+		"propagated": propagated,
+	}
+
+
 def build_internal_job_details_payload_for_quote_response(parent_doctype: str, doc: Any, sales_quote_doc: Any) -> list[dict]:
 	"""Merge existing internal_job_details on doc with quote charge parameters; return rows for the desk API."""
 	work = frappe.new_doc(parent_doctype)
 	if doc:
 		for r in getattr(doc, "internal_job_details", None) or []:
 			work.append("internal_job_details", internal_job_detail_row_as_dict(r))
-	sync_internal_job_details_from_sales_quote(work, sales_quote_doc)
+	ensure_internal_job_details_from_sales_quote(work, sales_quote_doc)
 	return [internal_job_detail_row_as_dict(r) for r in work.internal_job_details]

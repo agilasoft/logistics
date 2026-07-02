@@ -1,11 +1,6 @@
 frappe.ui.form.on('Cash Advance Liquidation', {
 	refresh: function(frm) {
-		logistics_cash_advance_liquidation_set_fund_source_query(frm);
 		logistics_cash_advance_liquidation_set_item_query(frm);
-
-		frm.add_custom_button(__('Calculate'), function() {
-			calculate_liquidation_totals(frm);
-		}, __('Actions'));
 
 		frm.add_custom_button(__('Reload from Cash Advance'), function() {
 			logistics_cash_advance_liquidation_pull_from_request(frm, false);
@@ -14,10 +9,6 @@ frappe.ui.form.on('Cash Advance Liquidation', {
 		if (frm.doc.items && frm.doc.items.length > 0) {
 			calculate_liquidation_totals(frm);
 		}
-	},
-
-	company: function(frm) {
-		logistics_cash_advance_liquidation_set_fund_source_query(frm);
 	},
 
 	cash_advance_request: function(frm) {
@@ -34,28 +25,8 @@ frappe.ui.form.on('Cash Advance Liquidation', {
 
 	items_remove: function(frm, cdt, cdn) {
 		calculate_liquidation_totals(frm);
-	},
-
-	calculate: function(frm) {
-		calculate_liquidation_totals(frm);
 	}
 });
-
-function logistics_cash_advance_liquidation_set_fund_source_query(frm) {
-	if (!frm.doc.company) {
-		return;
-	}
-	frm.set_query('fund_source', function() {
-		return {
-			filters: {
-				company: frm.doc.company,
-				is_group: 0,
-				disabled: 0,
-				account_type: ['in', ['Bank', 'Cash']]
-			}
-		};
-	});
-}
 
 function logistics_cash_advance_liquidation_set_item_query(frm) {
 	frm.set_query('item_code', 'items', function() {
@@ -84,7 +55,6 @@ function logistics_cash_advance_liquidation_pull_from_request(frm, silent) {
 		p = p.then(function() { return frm.set_value('cost_center', ca.cost_center); });
 		p = p.then(function() { return frm.set_value('profit_center', ca.profit_center); });
 		p = p.then(function() { return frm.set_value('job_number', ca.job_number); });
-		p = p.then(function() { return frm.set_value('fund_source', ca.fund_source); });
 		p = p.then(function() { return frm.set_value('payee', ca.payee); });
 		p = p.then(function() { return frm.set_value('payee_name', ca.payee_name); });
 		p = p.then(function() { return frm.set_value('request_date', ca.date); });
@@ -97,14 +67,8 @@ function logistics_cash_advance_liquidation_pull_from_request(frm, silent) {
 				row.item_code = r.item_code;
 				row.description = r.description;
 				row.amount_requested = r.amount_requested;
-				row.reference_no = r.reference_no;
-				row.date = r.date;
-				row.amount_liquidated = r.amount_liquidated;
-				row.attachment = r.attachment;
-				row.particulars = r.particulars;
 			});
 			frm.refresh_field('items');
-			logistics_cash_advance_liquidation_set_fund_source_query(frm);
 			logistics_cash_advance_liquidation_set_item_query(frm);
 			calculate_liquidation_totals(frm);
 		});

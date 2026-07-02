@@ -25,17 +25,6 @@ class TestServiceRoleRules(IntegrationTestCase):
 		doc = frappe._dict(is_main_service=0, is_internal_job=1, main_job_type="Transport Order", main_job="TO-00001")
 		self.assertEqual(get_service_role(doc), SERVICE_ROLE_LINKED)
 
-	def test_service_scope_backfilled_from_sales_quote(self):
-		doc = frappe._dict(
-			service_role=SERVICE_ROLE_MAIN,
-			sales_quote="OOQ-TEST",
-			service_scope=None,
-		)
-		if not hasattr(frappe.get_meta("Transport Order"), "service_scope"):
-			return
-		apply_service_role_rules(doc)
-		self.assertEqual(doc.service_scope, "OOQ-TEST")
-
 
 class TestOneOffQuoteValidateOrder(UnitTestCase):
 	"""One-off MS/IJ stamping must run before assert_one_off_sales_quote_job_rules."""

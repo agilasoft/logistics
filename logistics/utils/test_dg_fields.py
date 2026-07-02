@@ -9,6 +9,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from logistics.utils.dg_fields import (
 	DG_STATUS_PENDING_DOCUMENTATION,
+	transport_order_package_row_from_shipment_pkg,
 	update_parent_dg_compliance_status,
 )
 
@@ -96,3 +97,19 @@ class TestUpdateParentDgComplianceStatus(FrappeTestCase):
 		d = SimpleNamespace(contains_dangerous_goods=1, dg_declaration_complete=0)
 		update_parent_dg_compliance_status(d)
 		self.assertFalse(hasattr(d, "dg_compliance_status"))
+
+
+class TestTransportOrderPackageRowFromShipmentPkg(FrappeTestCase):
+	def test_copies_quantity_from_shipment_package(self):
+		shipment = SimpleNamespace(contains_dangerous_goods=0)
+		pkg = SimpleNamespace(
+			commodity="TEST-COMMODITY",
+			quantity=12.5,
+			no_of_packs=7,
+			uom="Box",
+		)
+		row = transport_order_package_row_from_shipment_pkg(shipment, pkg)
+		self.assertEqual(row.get("quantity"), 12.5)
+		self.assertEqual(row.get("no_of_packs"), 7)
+		self.assertEqual(row.get("commodity"), "TEST-COMMODITY")
+		self.assertEqual(row.get("uom"), "Box")

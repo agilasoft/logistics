@@ -23,6 +23,14 @@ from logistics.utils.freight_95_5 import (
 from logistics.special_projects.special_project_si_job_number import (
     resolve_job_number_for_special_project_charge,
 )
+from logistics.invoice_integration.billing_currency import (
+    charge_to_company_rate_selling,
+    company_currency as _company_currency,
+    convert_amount_to_billing_currency as _convert_charge_amount_to_billing_currency,
+    customer_default_billing_currency as _get_customer_default_billing_currency,
+    invoice_billing_context as _si_billing_context,
+    resolve_selling_charge_currency as _resolve_charge_currency,
+)
 
 
 def ensure_sales_invoice_name_for_server_insert(si) -> None:
@@ -173,6 +181,9 @@ def get_eligible_charges_for_sales_invoice(
     if not customer:
         customer = default_customer
 
+    company_currency = _company_currency(job.company)
+    default_billing_currency = _get_customer_default_billing_currency(customer, job.company)
+
     cost_rows = _get_eligible_revenue_rows(job, config, customer=customer, invoice_type=invoice_type)
     if not cost_rows:
         return {
@@ -180,6 +191,8 @@ def get_eligible_charges_for_sales_invoice(
             "default_customer": default_customer,
             "default_posting_date": today(),
             "company": job.company,
+            "company_currency": company_currency,
+            "default_billing_currency": default_billing_currency,
             "has_invoice_type": bool(config[7]),
         }
 
@@ -188,6 +201,7 @@ def get_eligible_charges_for_sales_invoice(
         line_qty, line_rate, display_revenue = resolve_sales_invoice_line_qty_rate(
             ch, revenue, job.company
         )
+        charge_currency = _resolve_charge_currency(ch, job_type, job.company)
         eligible.append({
             "index": row_idx,
             "item_code": item_code,
@@ -195,6 +209,7 @@ def get_eligible_charges_for_sales_invoice(
             "revenue": display_revenue,
             "quantity": line_qty if line_qty is not None else 1,
             "rate": line_rate if line_rate is not None else display_revenue,
+            "currency": charge_currency,
             "apply_95_5_rule": int(bool(getattr(ch, "apply_95_5_rule", 0))),
             "taxable_freight_item": getattr(ch, "taxable_freight_item", None),
         })
@@ -203,6 +218,8 @@ def get_eligible_charges_for_sales_invoice(
         "default_customer": default_customer or customer,
         "default_posting_date": today(),
         "company": job.company,
+        "company_currency": company_currency,
+        "default_billing_currency": default_billing_currency,
         "has_invoice_type": bool(config[7]),
     }
 
@@ -216,6 +233,8 @@ def create_sales_invoice_from_job(
     invoice_type: Optional[str] = None,
     tax_category: Optional[str] = None,
     selected_charge_indices: Optional[str] = None,
+    billing_currency: Optional[str] = None,
+    exchange_rate: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Create Sales Invoice from job/shipment with selected charges and header details.
@@ -260,6 +279,17 @@ def create_sales_invoice_from_job(
     si.customer = customer
     si.company = job.company
     si.posting_date = posting_date or today()
+
+    billing_ctx = _si_billing_context(
+        job.company,
+        billing_currency,
+        exchange_rate,
+        si.posting_date,
+    )
+    si.currency = billing_ctx["billing_currency"]
+    si.conversion_rate = billing_ctx["billing_exchange_rate"]
+    si.ignore_pricing_rule = 1
+
     if tax_category:
         si.tax_category = tax_category
     if naming_series:
@@ -293,6 +323,10 @@ def create_sales_invoice_from_job(
     has_ref = si_item_meta.get_field("reference_doctype") and si_item_meta.get_field("reference_name")
 
     freight_95_line_indices: List[int] = []
+    company_currency = billing_ctx["company_currency"]
+    billing_cur = billing_ctx["billing_currency"]
+    billing_xr = billing_ctx["billing_exchange_rate"]
+
     for doc_idx, ch, revenue, item_code, item_name in cost_rows:
         calc_notes = getattr(ch, "revenue_calc_notes", None) or getattr(ch, "calculation_notes", None)
         desc_parts = []
@@ -303,11 +337,28 @@ def create_sales_invoice_from_job(
         if calc_notes:
             desc_parts.append(calc_notes)
         description = "\n".join(desc_parts) if desc_parts else None
-        currency = None
-        if job_type in ("Sea Shipment", "Special Project", "Docket"):
-            currency = getattr(ch, "selling_currency", None) or getattr(ch, "currency", None)
+
+        charge_currency = _resolve_charge_currency(ch, job_type, job.company)
+        charge_to_company = charge_to_company_rate_selling(ch, charge_currency, company_currency, si.posting_date)
 
         line_qty, line_rate, revenue = resolve_sales_invoice_line_qty_rate(ch, revenue, job.company)
+        revenue = _convert_charge_amount_to_billing_currency(
+            revenue,
+            charge_currency,
+            billing_cur,
+            company_currency,
+            billing_xr,
+            charge_to_company,
+        )
+        if line_rate is not None:
+            line_rate = _convert_charge_amount_to_billing_currency(
+                line_rate,
+                charge_currency,
+                billing_cur,
+                company_currency,
+                billing_xr,
+                charge_to_company,
+            )
         uom = getattr(ch, "uom", None) if line_qty is not None else None
 
         line_job_ref = job_ref
@@ -322,7 +373,7 @@ def create_sales_invoice_from_job(
             description=description,
             job_type=job_type,
             company=job.company,
-            currency=currency,
+            currency=billing_cur,
             cost_center=getattr(job, "cost_center", None),
             profit_center=getattr(job, "profit_center", None),
             job_ref=line_job_ref,

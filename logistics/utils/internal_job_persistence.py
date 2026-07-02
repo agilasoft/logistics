@@ -35,16 +35,27 @@ from frappe.utils import cint
 
 from logistics.utils.charge_service_type import default_job_type_for_internal_job_service_type
 from logistics.utils.linked_service_compat import (
+	CHARGE_SCOPE_LINKED,
+	CHARGE_SCOPE_MAIN,
+	is_linked_charge_scope,
 	linked_service_detail_doctype,
 	linked_service_doctype,
 	linked_service_doctype_exists,
 	linked_service_record_exists,
 	linked_service_rows,
 	linked_services_fieldname,
+	normalize_charge_scope,
 	row_linked_service_link,
 	set_row_linked_service_link,
 )
 from logistics.utils.sales_quote_charge_parameters import SALES_QUOTE_CHARGE_PARAMETER_FIELDS
+from logistics.utils.virtual_internal_job_details import (
+	VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS,
+	uses_virtual_internal_job_details,
+)
+
+
+_VIRTUAL_LINKED_SERVICE_PARENTS = frozenset({"Sales Quote"}) | VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS
 
 
 # Operational booking doctypes that carry an Internal Job Detail child table, mapped to the
@@ -72,6 +83,7 @@ INTERNAL_JOB_DETAIL_PARENTS: dict[str, str] = {
 	"General Job": "internal_job_details",
 	"Project Job": "internal_job_details",
 	"MICE Job": "internal_job_details",
+	"Exhibit Job": "internal_job_details",
 	"MICE Project": "internal_jobs",
 	"Docket": "internal_jobs",
 	"Exhibit": "internal_jobs",
@@ -96,14 +108,24 @@ def internal_job_detail_fieldname(parent_doctype: str) -> str | None:
 
 
 def internal_job_detail_rows_for_parent(parent_doc: Any) -> list[Any]:
-	"""Child-table rows for *parent_doc*, honouring unsaved desk grid overrides when present."""
+	"""Linked Service rows for *parent_doc*, honouring unsaved desk grid overrides when present."""
 	fieldname = internal_job_detail_fieldname(getattr(parent_doc, "doctype", None) or "")
-	if not fieldname:
-		return []
+	parent_doctype = getattr(parent_doc, "doctype", None) or ""
 	for key in ("_logistics_dk_ij_client_rows", "_logistics_ij_client_rows"):
 		ov = getattr(frappe.local, key, None)
 		if ov is not None:
 			return list(ov)
+	if parent_doctype in VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS:
+		parent_name = (getattr(parent_doc, "name", None) or "").strip()
+		if parent_name and not getattr(parent_doc, "__islocal", False):
+			from logistics.logistics.doctype.linked_service.linked_service import (
+				get_linked_services_for_booking,
+			)
+
+			return list(get_linked_services_for_booking(parent_doctype, parent_name))
+		return []
+	if not fieldname:
+		return []
 	if fieldname in ("linked_services", "internal_jobs"):
 		return linked_service_rows(parent_doc)
 	return list(getattr(parent_doc, fieldname, None) or [])
@@ -201,8 +223,6 @@ def _create_internal_job_from_row(
 	ij = frappe.new_doc(linked_service_doctype())
 	ij.parent_booking_type = parent_doc.doctype
 	ij.parent_booking_name = parent_doc.name or ""
-	if parent_doc.doctype == "Sales Quote" and parent_doc.name and _ls_meta().has_field("service_scope"):
-		ij.service_scope = parent_doc.name
 	_copy_row_params_to_internal_job(row, ij)
 	_ensure_job_type_from_service(ij)
 	ij.flags.ignore_permissions = True
@@ -277,7 +297,7 @@ def _currently_linked_internal_jobs(parent_doc: Any, fieldname: str) -> set[str]
 
 def _previously_linked_internal_jobs(parent_doc: Any, fieldname: str) -> set[str]:
 	"""Internal Job names that were linked to this booking on its last persisted state."""
-	if parent_doc.doctype == "Sales Quote" and parent_doc.name:
+	if parent_doc.doctype in _VIRTUAL_LINKED_SERVICE_PARENTS and parent_doc.name:
 		return _linked_service_names_from_db(parent_doc.doctype, parent_doc.name)
 	prev = parent_doc.get_doc_before_save() if hasattr(parent_doc, "get_doc_before_save") else None
 	if prev is None:
@@ -337,7 +357,7 @@ def _ensure_internal_job_docs_for_detail_rows(parent_doc: Any) -> dict[str, str]
 	if not _should_run_internal_job_sync_for_parent(parent_doc):
 		return remap
 	meta = frappe.get_meta(parent_doc.doctype)
-	if not meta.get_field(fieldname):
+	if not meta.get_field(fieldname) and parent_doc.doctype not in VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS:
 		return remap
 
 	for row in internal_job_detail_rows_for_parent(parent_doc):
@@ -420,7 +440,27 @@ def reconcile_orphan_charge_internal_job_links(
 
 	for row in rows:
 		cur = row_linked_service_link(row)
+		scope = (
+			normalize_charge_scope(_row_value(row, "charge_scope"))
+			if has_scope_field
+			else CHARGE_SCOPE_MAIN
+		)
 		if not cur:
+			if has_scope_field and is_linked_charge_scope(scope):
+				st = _norm(_row_value(row, "service_type"))
+				replacement = ij_by_service.get(st) if st else None
+				if replacement and linked_service_record_exists(replacement):
+					set_row_linked_service_link(row, replacement)
+					if isinstance(row, dict):
+						row["charge_scope"] = CHARGE_SCOPE_LINKED
+					else:
+						setattr(row, "charge_scope", CHARGE_SCOPE_LINKED)
+				else:
+					set_row_linked_service_link(row, None)
+					if isinstance(row, dict):
+						row["charge_scope"] = CHARGE_SCOPE_MAIN
+					else:
+						setattr(row, "charge_scope", CHARGE_SCOPE_MAIN)
 			continue
 		if linked_service_record_exists(cur):
 			continue
@@ -482,7 +522,7 @@ def sync_internal_job_details_to_internal_jobs(doc: Any, *_method) -> None:
 	if not fieldname:
 		return
 	prev_orphans: set[str] | None = None
-	if doc.doctype == "Sales Quote" and doc.name:
+	if doc.doctype in _VIRTUAL_LINKED_SERVICE_PARENTS and doc.name:
 		prev_orphans = _linked_service_names_from_db(doc.doctype, doc.name)
 	_ensure_internal_job_docs_for_detail_rows(doc)
 	if prev_orphans is not None:
@@ -651,7 +691,10 @@ def sync_internal_job_to_detail_rows(ij_doc: Any, *_method) -> None:
 
 	rows = frappe.get_all(
 		linked_service_detail_doctype(),
-		filters={link_col: ij_name, "parenttype": ["!=", "Sales Quote"]},
+		filters={
+			link_col: ij_name,
+			"parenttype": ["not in", list(_VIRTUAL_LINKED_SERVICE_PARENTS)],
+		},
 		fields=["name"] + writable,
 	)
 	if not rows:

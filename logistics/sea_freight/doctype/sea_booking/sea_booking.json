@@ -120,7 +120,6 @@
   "section_break_operational_exchange_rates",
   "operational_exchange_rates",
   "quote_reference_section",
-  "service_scope",
   "main_service",
   "main_service_type",
   "service_role",
@@ -132,8 +131,6 @@
   "main_job_type",
   "main_job",
   "internal_job",
-  "internal_job_details_section",
-  "internal_job_details",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
@@ -280,22 +277,6 @@
    "search_index": 1
   },
   {
-   "collapsible": 1,
-   "depends_on": "eval:doc.is_main_service",
-   "fieldname": "internal_job_details_section",
-   "fieldtype": "Section Break",
-   "label": "Internal Jobs"
-  },
-  {
-   "depends_on": "eval:doc.is_main_service",
-   "description": "Service parameters for linked internal jobs (same fields as Sales Quote Charge parameter sections).",
-   "fieldname": "internal_job_details",
-   "fieldtype": "Table",
-   "label": "Internal Jobs",
-   "no_copy": 1,
-   "options": "Internal Job Detail"
-  },
-  {
    "description": "ERPNext Project for Special Projects integration",
    "fieldname": "project",
    "fieldtype": "Link",
@@ -326,6 +307,7 @@
    "options": "Import\nExport\nDomestic"
   },
   {
+   "fetch_from": "master_bill.shipping_line",
    "fieldname": "shipping_line",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -562,7 +544,6 @@
    "fieldname": "origin_cto",
    "fieldtype": "Link",
    "label": "Origin CTO",
-   "link_filters": "[[\"Cargo Terminal Operator\",\"is_active\",\"=\",1]]",
    "options": "Cargo Terminal Operator"
   },
   {
@@ -1081,11 +1062,11 @@
    "fieldtype": "Column Break"
   },
   {
+   "default": "Standalone",
    "fieldname": "service_role",
    "fieldtype": "Select",
    "label": "Service Role",
-   "options": "Main\nLinked\nStandalone",
-   "default": "Standalone"
+   "options": "Main\nLinked\nStandalone"
   },
   {
    "depends_on": "eval:doc.service_role==\"Linked\"",
@@ -1102,20 +1083,13 @@
    "label": "Main Service",
    "options": "main_service_type",
    "read_only": 1
-  },
-  {
-   "fieldname": "service_scope",
-   "fieldtype": "Link",
-   "label": "Service Scope",
-   "options": "Sales Quote",
-   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-06-16 18:28:31.269619",
- "modified_by": "dee.sambrano@agilasoft.com",
+ "modified": "2026-07-01 21:47:22.556334",
+ "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Booking",
  "naming_rule": "By \"Naming Series\" field",

@@ -299,10 +299,10 @@ frappe.ui.form.on('Transport Job', {
 		// Update consolidate checkbox visibility
 		frm.events.toggle_consolidate_visibility(frm);
 		// Set query filter for item field in packages child table to filter Warehouse Items by customer
-		frm.set_query('warehouse_item', 'packages', function(doc) {
+		frm.set_query('warehouse_item', 'packages', function() {
 			var filters = {};
-			if (doc.customer) {
-				filters.customer = doc.customer;
+			if (frm.doc.customer) {
+				filters.customer = frm.doc.customer;
 			}
 			return { filters: filters };
 		});
@@ -1624,29 +1624,24 @@ frappe.ui.form.on('Transport Job', {
 	}
 });
 
-/** Fallback Create > Sales Invoice when dialog script is not loaded (same idea as Air Shipment). */
+/** Fallback Create > Sales Invoice when dialog script is not loaded. */
 function _create_sales_invoice_from_transport_job(frm) {
-	frappe.prompt([
-		{ fieldname: 'posting_date', fieldtype: 'Date', label: __('Posting Date'), default: frappe.datetime.get_today(), reqd: 1 },
-		{ fieldname: 'customer', fieldtype: 'Link', label: __('Customer'), options: 'Customer', default: frm.doc.customer, reqd: 1 }
-	], function(values) {
-		frappe.call({
-			method: 'logistics.transport.doctype.transport_job.transport_job.create_sales_invoice_from_transport_job',
-			args: {
-				job_name: frm.doc.name,
-				posting_date: values.posting_date,
-				customer: values.customer
-			},
-			freeze: true,
-			freeze_message: __('Creating Sales Invoice...'),
-			callback: function(r) {
-				if (r.message && r.message.sales_invoice) {
-					frappe.set_route('Form', 'Sales Invoice', r.message.sales_invoice);
-					frm.reload_doc();
-				}
-			}
+	function openDialog() {
+		if (typeof show_create_sales_invoice_dialog === "function") {
+			show_create_sales_invoice_dialog(frm);
+			return;
+		}
+		frappe.msgprint({
+			title: __("Error"),
+			message: __("Sales Invoice dialog is not loaded. Please refresh the page."),
+			indicator: "red"
 		});
-	}, __('Create Sales Invoice'));
+	}
+	if (typeof show_create_sales_invoice_dialog === "function") {
+		openDialog();
+	} else {
+		frappe.require("/assets/logistics/js/sales_invoice_dialog.js", openDialog);
+	}
 }
 
 /**

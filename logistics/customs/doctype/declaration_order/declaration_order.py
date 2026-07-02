@@ -303,6 +303,14 @@ class DeclarationOrder(Document):
 				self
 			):
 				self._populate_charges_from_sales_quote()
+		if self.sales_quote and frappe.db.exists("Sales Quote", self.sales_quote):
+			if self.is_new() or self.has_value_changed("sales_quote"):
+				from logistics.utils.sales_quote_one_off_internal_jobs import (
+					apply_linked_services_from_sales_quote_on_fetch,
+				)
+
+				sq = frappe.get_doc("Sales Quote", self.sales_quote)
+				apply_linked_services_from_sales_quote_on_fetch(sq, self)
 		# After propagation / charge overlay so transport_mode is final; fills default doc type when still empty.
 		apply_default_transport_document_type(self)
 
@@ -564,6 +572,93 @@ class DeclarationOrder(Document):
 			frappe.log_error(f"Error populating Declaration Order charges from Sales Quote: {str(e)}")
 
 
+def _resolve_customs_params_from_sales_quote(sales_quote, sq_doc=None):
+	"""Resolve customs_authority / declaration_type from charge rows and linked services."""
+	from logistics.utils.sales_quote_charge_parameters import (
+		extract_sales_quote_charge_parameters,
+		filter_fields_existing_in_doctype,
+	)
+
+	out = {}
+	if sq_doc is None:
+		try:
+			sq_doc = frappe.get_cached_doc("Sales Quote", sales_quote)
+		except Exception:
+			sq_doc = None
+
+	if sq_doc:
+		customs_row = None
+		param_row = None
+		for row in sq_doc.get("charges") or []:
+			if sales_quote_charge_service_types_equal(getattr(row, "service_type", None), "Customs"):
+				customs_row = row
+				break
+			params = extract_sales_quote_charge_parameters(row, sq_doc)
+			if params.get("customs_authority") or params.get("declaration_type"):
+				param_row = row
+		target = customs_row or param_row
+		if target:
+			params = extract_sales_quote_charge_parameters(target, sq_doc)
+			if params.get("customs_authority"):
+				out["customs_authority"] = params["customs_authority"]
+			if params.get("declaration_type"):
+				out["declaration_type"] = params["declaration_type"]
+			if out:
+				return out
+
+	legacy_fields = filter_fields_existing_in_doctype(
+		"Sales Quote Charge", ["customs_authority", "declaration_type"]
+	)
+	if legacy_fields:
+		_st_variants = iter_sales_quote_charge_service_type_db_values_for_canonical("Customs")
+		customs_charge = frappe.db.get_value(
+			"Sales Quote Charge",
+			{
+				"parent": sales_quote,
+				"parenttype": "Sales Quote",
+				"service_type": ["in", _st_variants],
+			},
+			legacy_fields,
+			as_dict=True,
+		)
+		if customs_charge:
+			for fn in legacy_fields:
+				if customs_charge.get(fn):
+					out[fn] = customs_charge[fn]
+		if not out:
+			field_list = ", ".join(f"`{f}`" for f in legacy_fields)
+			conditions = " or ".join(f"ifnull(`{f}`, '') != ''" for f in legacy_fields)
+			fallback = frappe.db.sql(
+				f"""
+				select {field_list}
+				from `tabSales Quote Charge`
+				where parent=%(parent)s and parenttype='Sales Quote'
+					and ({conditions})
+				order by idx asc
+				limit 1
+				""",
+				{"parent": sales_quote},
+				as_dict=True,
+			)
+			if fallback:
+				for fn in legacy_fields:
+					if fallback[0].get(fn):
+						out[fn] = fallback[0][fn]
+
+	if not out.get("customs_authority") and not out.get("declaration_type"):
+		sq_meta = frappe.get_meta("Sales Quote")
+		header_legacy = [
+			f for f in ("customs_authority", "declaration_type") if sq_meta.has_field(f)
+		]
+		if header_legacy:
+			legacy = frappe.db.get_value("Sales Quote", sales_quote, header_legacy, as_dict=True)
+			if legacy:
+				for fn in header_legacy:
+					if legacy.get(fn):
+						out[fn] = legacy[fn]
+	return out
+
+
 @frappe.whitelist()
 def get_sales_quote_details(sales_quote):
 	"""Return customer, company, customs_authority, declaration_type, incoterm, currency, etc. from Sales Quote for use in form."""
@@ -574,54 +669,11 @@ def get_sales_quote_details(sales_quote):
 		"incoterm",
 	]
 	out = frappe.db.get_value("Sales Quote", sales_quote, fields, as_dict=True) or {}
-	# Get customs params from first Customs charge or legacy header on Sales Quote (if those fields still exist)
-	_st_variants = iter_sales_quote_charge_service_type_db_values_for_canonical("Customs")
-	customs_charge = frappe.db.get_value(
-		"Sales Quote Charge",
-		{
-			"parent": sales_quote,
-			"parenttype": "Sales Quote",
-			"service_type": ["in", _st_variants],
-		},
-		["customs_authority", "declaration_type"],
-		as_dict=True,
-	)
-	if customs_charge:
-		out["customs_authority"] = customs_charge.get("customs_authority")
-		out["declaration_type"] = customs_charge.get("declaration_type")
-	if out.get("customs_authority") is None and out.get("declaration_type") is None:
-		sq_meta = frappe.get_meta("Sales Quote")
-		legacy_fields = [f for f in ("customs_authority", "declaration_type") if sq_meta.has_field(f)]
-		if legacy_fields:
-			legacy = frappe.db.get_value("Sales Quote", sales_quote, legacy_fields, as_dict=True)
-			if legacy:
-				out["customs_authority"] = legacy.get("customs_authority")
-				out["declaration_type"] = legacy.get("declaration_type")
-	# Any charge row with customs parameters (e.g. service_type not "Customs" but params filled)
-	if out.get("customs_authority") is None and out.get("declaration_type") is None:
-		fallback = frappe.db.sql(
-			"""
-			select customs_authority, declaration_type
-			from `tabSales Quote Charge`
-			where parent=%(parent)s and parenttype='Sales Quote'
-				and (
-					ifnull(customs_authority, '') != ''
-					or ifnull(declaration_type, '') != ''
-				)
-			order by idx asc
-			limit 1
-			""",
-			{"parent": sales_quote},
-			as_dict=True,
-		)
-		if fallback:
-			out["customs_authority"] = fallback[0].get("customs_authority")
-			out["declaration_type"] = fallback[0].get("declaration_type")
-	# Header fields useful for One-off → Declaration Order prefill (charge row may mirror these)
 	try:
 		sq_doc = frappe.get_cached_doc("Sales Quote", sales_quote)
 	except Exception:
 		sq_doc = None
+	out.update(_resolve_customs_params_from_sales_quote(sales_quote, sq_doc))
 	if sq_doc:
 		for fn in ("origin_port", "destination_port", "transport_mode", "direction"):
 			if fn not in out:
@@ -784,10 +836,14 @@ def create_declaration_order_from_sales_quote(
 	sales_quote_name: str,
 	customs_authority: str | None = None,
 	declaration_type: str | None = None,
+	parent_overrides: dict | None = None,
+	selected_charge_row_names: list | None = None,
+	blanket_call_off: bool = False,
 ):
 	"""
-	Create a Declaration Order from a Sales Quote (One-off, with customs).
-	Updates the Sales Quote status and converted_to_doc to the new Declaration Order.
+	Create a Declaration Order from a Sales Quote (One-off or Regular blanket, with customs).
+	Updates the Sales Quote status and converted_to_doc to the new Declaration Order when not a
+	blanket call-off.
 
 	Optional ``customs_authority`` / ``declaration_type`` come from the pre-create review dialog;
 	they are not Sales Quote header fields (values normally live on Sales Quote Charge rows).
@@ -803,8 +859,14 @@ def create_declaration_order_from_sales_quote(
 	sq = frappe.get_doc("Sales Quote", sales_quote_name)
 	throw_if_sales_quote_expired_for_creation(sq)
 	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sq)
-	if sq.quotation_type != "One-off":
-		frappe.throw(_("Only One-off Sales Quotes can create a Declaration Order."))
+	quotation_type = (getattr(sq, "quotation_type", None) or "").strip()
+	if quotation_type not in ("One-off", "Regular"):
+		frappe.throw(_("Only One-off or Regular Sales Quotes can create a Declaration Order."))
+	if quotation_type == "Regular" and not blanket_call_off:
+		if not cint(getattr(sq, "blanket_quotation", 0)):
+			frappe.throw(
+				_("Regular Sales Quotes require Blanket Quotation to create a Declaration Order via call-off.")
+			)
 	sq_customs = []
 	if hasattr(sq, "charges") and sq.charges:
 		sq_customs = [c for c in sq.charges if sales_quote_charge_service_types_equal(c.get("service_type"), "Customs")]
@@ -812,12 +874,13 @@ def create_declaration_order_from_sales_quote(
 		sq_customs = list(sq.customs)
 	if not sq_customs:
 		frappe.throw(_("No customs details in this Sales Quote."))
-	existing = frappe.db.get_value("Declaration Order", {"sales_quote": sales_quote_name}, "name")
-	if existing:
-		frappe.throw(
-			_("Declaration Order {0} already exists for this Sales Quote.").format(existing),
-			title=_("Already Created"),
-		)
+	if not blanket_call_off:
+		existing = frappe.db.get_value("Declaration Order", {"sales_quote": sales_quote_name}, "name")
+		if existing:
+			frappe.throw(
+				_("Declaration Order {0} already exists for this Sales Quote.").format(existing),
+				title=_("Already Created"),
+			)
 	details = get_sales_quote_details(sales_quote_name) or {}
 	if customs_authority and str(customs_authority).strip():
 		details["customs_authority"] = customs_authority
@@ -901,11 +964,23 @@ def create_declaration_order_from_sales_quote(
 	if not (order.get("charges") or []):
 		order._populate_charges_from_sales_quote()
 	order.save(ignore_permissions=True)
-	try:
-		from logistics.pricing_center.doctype.sales_quote.sales_quote import update_one_off_quote_on_submit
-		update_one_off_quote_on_submit(sales_quote_name, order.name, "Declaration Order")
-	except Exception as e:
-		frappe.log_error(f"Update Sales Quote on Declaration Order create: {e}", "Declaration Order Create")
+	from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+		_propagate_linked_services_to_created_booking,
+	)
+
+	_propagate_linked_services_to_created_booking(
+		sq,
+		order,
+		blanket_call_off=blanket_call_off,
+		selected_charge_row_names=selected_charge_row_names,
+	)
+	if not blanket_call_off:
+		try:
+			from logistics.pricing_center.doctype.sales_quote.sales_quote import update_one_off_quote_on_submit
+
+			update_one_off_quote_on_submit(sales_quote_name, order.name, "Declaration Order")
+		except Exception as e:
+			frappe.log_error(f"Update Sales Quote on Declaration Order create: {e}", "Declaration Order Create")
 	frappe.db.commit()
 	return {
 		"success": True,

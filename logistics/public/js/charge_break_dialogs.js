@@ -30,6 +30,18 @@
 		window.LOGISTICS_SPECIAL_PROJECT_CHARGE_DOCTYPES,
 		window.LOGISTICS_PRICING_CHARGE_DOCTYPES
 	);
+	/** Warehousing / MICE charge child tables (linked_service scope, no break buttons). */
+	window.LOGISTICS_WAREHOUSING_CHARGE_DOCTYPES = [
+		"Warehouse Job Charges",
+		"Inbound Order Charges",
+		"Release Order Charges",
+	];
+	window.LOGISTICS_MICE_CHARGE_DOCTYPES = ["MICE Project Charges"];
+	window.LOGISTICS_CHARGE_DOCTYPES_WITH_LINKED_SCOPE = [].concat(
+		window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS,
+		window.LOGISTICS_WAREHOUSING_CHARGE_DOCTYPES,
+		window.LOGISTICS_MICE_CHARGE_DOCTYPES
+	);
 
 	/** Any child DocType that ships freight-style weight-break row buttons (reference → Sales Quote Weight Break). */
 	window.logistics_charge_child_doctype_has_weight_break_buttons = function(dt) {
@@ -567,6 +579,9 @@
 		}
 		_logistics_child_row_calc_visibility_hook_rows().forEach(function(row) {
 			attachCalcMethodHooks(row.doctype, row.fields);
+		});
+		(window.LOGISTICS_CHARGE_DOCTYPES_WITH_LINKED_SCOPE || []).forEach(function(dt) {
+			attachCalcMethodHooks(dt, ["charge_scope"]);
 		});
 	})();
 

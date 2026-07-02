@@ -7,6 +7,7 @@ from frappe.model.document import Document
 from frappe.model.mapper import get_mapped_doc
 
 
+
 class InboundOrder(Document):
 	def before_save(self):
 		from logistics.utils.module_integration import run_propagate_on_link

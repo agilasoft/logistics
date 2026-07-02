@@ -17,7 +17,6 @@
   "parent_booking_type",
   "column_break_parent",
   "parent_booking_name",
-  "service_scope",
   "section_break_air_params",
   "air_house_type",
   "airline",
@@ -124,13 +123,6 @@
    "options": "parent_booking_type",
    "read_only": 1,
    "search_index": 1
-  },
-  {
-   "fieldname": "service_scope",
-   "fieldtype": "Link",
-   "label": "Service Scope",
-   "options": "Sales Quote",
-   "read_only": 1
   },
   {
    "depends_on": "eval:doc.service_type == \"Air\"",

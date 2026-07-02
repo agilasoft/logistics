@@ -9,11 +9,11 @@ from frappe.model.document import Document
 from frappe.utils import flt
 
 from logistics.cash_advance.accounting import (
-	_validate_cash_bank_account,
 	cancel_journal_entry,
 	create_liquidation_journal_entry,
 	ensure_payee_for_party_accounts,
 )
+from logistics.cash_advance.totals_sync import sync_cash_advance_request_liquidation_totals
 from logistics.cash_advance.job_charge_items import get_item_codes_for_job_number
 
 
@@ -29,9 +29,6 @@ class CashAdvanceLiquidation(Document):
 
 	def before_submit(self):
 		self.calculate_total()
-		if not self.fund_source:
-			frappe.throw(_("Fund Source (Liquidation) is required to submit."))
-		_validate_cash_bank_account(self.fund_source, self.company)
 		ensure_payee_for_party_accounts(self)
 		if not self.cash_advance_request:
 			frappe.throw(_("Cash Advance Request is required."))
@@ -48,10 +45,12 @@ class CashAdvanceLiquidation(Document):
 			return
 		je_name = create_liquidation_journal_entry(self)
 		frappe.db.set_value(self.doctype, self.name, "liquidation_journal_entry", je_name, update_modified=False)
+		sync_cash_advance_request_liquidation_totals(self.cash_advance_request)
 
 	def on_cancel(self):
 		cancel_journal_entry(self.liquidation_journal_entry)
 		frappe.db.set_value(self.doctype, self.name, "liquidation_journal_entry", None, update_modified=False)
+		sync_cash_advance_request_liquidation_totals(self.cash_advance_request)
 
 	def _validate_linked_request(self):
 		if not self.cash_advance_request:

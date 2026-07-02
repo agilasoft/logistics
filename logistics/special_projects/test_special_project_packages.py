@@ -20,8 +20,21 @@ from logistics.special_projects.special_project_packages import (
 	sync_package_delivery_balances,
 	_resolve_sp_package_for_operational_line,
 )
+from logistics.document_management.dashboard_layout import (
+	render_special_project_fulfillment_route_tab_html,
+)
 from logistics.special_projects.doctype.special_project.special_project import (
+	_build_fulfillment_tab_html,
+	_build_lifecycle_grouped_job_cards_sidebar,
+	_build_main_dash_fulfillment_left_html,
+	_lifecycle_collapsible_group_html,
+	_packages_fulfillment_context,
+	_packages_summary_attention_items,
+	_packages_summary_current_stage,
+	_packages_summary_last_receipt_by_material,
 	_packages_summary_per_stage_delivered,
+	_packages_summary_row_metrics,
+	_packages_summary_stages_for_display,
 )
 
 
@@ -203,6 +216,274 @@ class TestPackagesFunnelPerStage(UnitTestCase):
 		self.assertEqual(out[0], [0.0, 0.0, 0.0, 0.0, 0.0])
 
 
+class TestPackagesSummaryMetrics(UnitTestCase):
+	def _stages(self):
+		return [
+			{"name": "Pre-Show", "sort_order": 1, "is_closed": 0, "description": ""},
+			{"name": "Logistics", "sort_order": 2, "is_closed": 0, "description": ""},
+			{"name": "On-Site", "sort_order": 3, "is_closed": 0, "description": ""},
+			{"name": "Post-Show", "sort_order": 4, "is_closed": 0, "description": ""},
+			{"name": "Closed", "sort_order": 5, "is_closed": 1, "description": ""},
+		]
+
+	def test_current_stage_highest_with_qty(self):
+		stages = self._stages()
+		idx, name = _packages_summary_current_stage([0.0, 10.0, 8.0, 0.0, 0.0], stages)
+		self.assertEqual(idx, 2)
+		self.assertEqual(name, "On-Site")
+
+	def test_current_stage_not_started(self):
+		stages = self._stages()
+		idx, name = _packages_summary_current_stage([0.0, 0.0, 0.0, 0.0, 0.0], stages)
+		self.assertIsNone(idx)
+		self.assertEqual(name, "Not started")
+
+	def test_row_metrics_pct_and_remaining(self):
+		stages = self._stages()
+		pkg = frappe._dict(qty_required=100, qty_on_site=40, qty_short=60)
+		qtys = [0.0, 40.0, 0.0, 0.0, 0.0]
+		metrics = _packages_summary_row_metrics(
+			pkg, qtys, stages, final_idx=4, last_receipt=None, is_always_along=False
+		)
+		self.assertEqual(metrics["delivered"], 40)
+		self.assertEqual(metrics["remaining"], 60)
+		self.assertEqual(metrics["pct"], 40.0)
+		self.assertEqual(metrics["status_key"], "in_progress")
+
+	def test_stalled_when_partial_and_idle(self):
+		from frappe.utils import add_days, today
+
+		stages = self._stages()
+		old_date = add_days(today(), -10)
+		pkg = frappe._dict(qty_required=100, qty_on_site=40, qty_short=60)
+		qtys = [0.0, 40.0, 0.0, 0.0, 0.0]
+		metrics = _packages_summary_row_metrics(
+			pkg, qtys, stages, final_idx=4, last_receipt=old_date, is_always_along=False
+		)
+		self.assertTrue(metrics["is_stalled"])
+		self.assertEqual(metrics["status_key"], "stalled")
+		self.assertEqual(metrics["days_idle"], 10)
+
+	def test_not_stalled_when_recent_activity(self):
+		from frappe.utils import add_days, today
+
+		stages = self._stages()
+		recent = add_days(today(), -1)
+		pkg = frappe._dict(qty_required=100, qty_on_site=40, qty_short=60)
+		qtys = [0.0, 40.0, 0.0, 0.0, 0.0]
+		metrics = _packages_summary_row_metrics(
+			pkg, qtys, stages, final_idx=4, last_receipt=recent, is_always_along=False
+		)
+		self.assertFalse(metrics["is_stalled"])
+		self.assertEqual(metrics["status_key"], "in_progress")
+
+	def test_attention_items_sorted_stalled_before_pending(self):
+		from frappe.utils import add_days, today
+
+		stages = self._stages()
+		old_date = add_days(today(), -10)
+		sp = frappe._dict(
+			packages=[
+				frappe._dict(
+					idx=1,
+					warehouse_item="WI-PENDING",
+					description="Pending Item",
+					qty_required=100,
+					qty_on_site=0,
+					qty_short=100,
+				),
+				frappe._dict(
+					idx=2,
+					warehouse_item="WI-STALLED",
+					description="Stalled Item",
+					qty_required=100,
+					qty_on_site=30,
+					qty_short=70,
+				),
+			],
+			deliveries=[
+				frappe._dict(
+					package_row=2,
+					warehouse_item="WI-STALLED",
+					qty_received=30,
+					status="Posted",
+					lifecycle_stage="Logistics",
+					receipt_date=old_date,
+				),
+			],
+		)
+		sync_package_delivery_balances(sp)
+		per_stage = _packages_summary_per_stage_delivered(sp, sp.packages, stages)
+		last_receipts = _packages_summary_last_receipt_by_material(sp, sp.packages)
+		items = _packages_summary_attention_items(
+			sp.packages, per_stage, stages, final_idx=4, last_receipts=last_receipts
+		)
+		self.assertEqual(len(items), 2)
+		self.assertEqual(items[0]["status_key"], "stalled")
+		self.assertEqual(items[1]["status_key"], "pending")
+
+	def test_attention_excludes_complete_and_always_along(self):
+		stages = self._stages()
+		sp = frappe._dict(
+			packages=[
+				frappe._dict(
+					idx=1,
+					warehouse_item="WI-AA",
+					qty_required=1,
+					include_on_create=1,
+					qty_on_site=0,
+					qty_short=0,
+				),
+				frappe._dict(
+					idx=2,
+					warehouse_item="WI-DONE",
+					qty_required=10,
+					qty_on_site=10,
+					qty_short=0,
+				),
+			],
+			deliveries=[
+				frappe._dict(
+					package_row=2,
+					warehouse_item="WI-DONE",
+					qty_received=10,
+					status="Posted",
+					lifecycle_stage="Closed",
+				),
+			],
+		)
+		sync_package_delivery_balances(sp)
+		per_stage = _packages_summary_per_stage_delivered(sp, sp.packages, stages)
+		last_receipts = _packages_summary_last_receipt_by_material(sp, sp.packages)
+		items = _packages_summary_attention_items(
+			sp.packages, per_stage, stages, final_idx=4, last_receipts=last_receipts
+		)
+		self.assertEqual(items, [])
+
+	def test_display_stages_filtered_to_applicable(self):
+		all_stages = [
+			{"name": "Logistics", "sort_order": 2, "is_closed": 0},
+			{"name": "On-Site", "sort_order": 3, "is_closed": 0},
+			{"name": "Sourcing and Procurement", "sort_order": 7, "is_closed": 0},
+		]
+		doc = frappe._dict(
+			applicable_lifecycle_stages=[
+				frappe._dict(lifecycle_stage="Logistics"),
+				frappe._dict(lifecycle_stage="On-Site"),
+			]
+		)
+		display = _packages_summary_stages_for_display(doc, all_stages)
+		self.assertEqual([s["name"] for s in display], ["Logistics", "On-Site"])
+
+
+class TestDashboardFulfillmentSurfaces(UnitTestCase):
+	def _stages(self):
+		return [
+			{"name": "Pre-Show", "sort_order": 1, "is_closed": 0},
+			{"name": "Logistics", "sort_order": 2, "is_closed": 0},
+			{"name": "On-Site", "sort_order": 3, "is_closed": 0},
+			{"name": "Post-Show", "sort_order": 4, "is_closed": 0},
+			{"name": "Closed", "sort_order": 5, "is_closed": 1},
+		]
+
+	def _sample_sp(self):
+		return frappe._dict(
+			lifecycle_stage="Logistics",
+			applicable_lifecycle_stages=[
+				frappe._dict(lifecycle_stage="Logistics"),
+				frappe._dict(lifecycle_stage="On-Site"),
+			],
+			packages=[
+				frappe._dict(
+					idx=1,
+					warehouse_item="WI-A",
+					description="Widget",
+					qty_required=100,
+					qty_on_site=30,
+					qty_short=70,
+				),
+			],
+			deliveries=[
+				frappe._dict(
+					package_row=1,
+					warehouse_item="WI-A",
+					qty_received=30,
+					status="Posted",
+					lifecycle_stage="Logistics",
+				),
+			],
+		)
+
+	def test_main_dash_left_has_hero_and_current_throughput_not_table(self):
+		sp = self._sample_sp()
+		ctx = _packages_fulfillment_context(sp, current_lifecycle_stage="Logistics")
+		html = _build_main_dash_fulfillment_left_html(sp, ctx)
+		self.assertIn('<div class="sp-pfn-hero">', html)
+		self.assertIn("sp-pfn-current-stage-throughput", html)
+		self.assertIn("% Complete", html)
+		self.assertNotIn('<div class="sp-pfn-summary-panel"', html)
+		self.assertNotIn('<div class="sp-pfn-pipeline"', html)
+		self.assertNotIn('<div class="sp-pfn-filters"', html)
+
+	def test_fulfillment_tab_has_current_throughput_and_table_not_hero(self):
+		sp = self._sample_sp()
+		ctx = _packages_fulfillment_context(sp, current_lifecycle_stage="Logistics")
+		html = _build_fulfillment_tab_html(sp, ctx)
+		self.assertIn("sp-pfn-current-stage-throughput", html)
+		self.assertIn('<div class="sp-pfn-summary-panel"', html)
+		self.assertIn("sp-pfn-filter-chip", html)
+		self.assertNotIn('<div class="sp-pfn-hero">', html)
+		self.assertNotIn('<div class="sp-pfn-pipeline"', html)
+		self.assertNotIn('<div class="sp-pfn-toolbar">', html)
+
+	def test_lifecycle_group_header_embeds_throughput(self):
+		tp = {"Logistics": {"qty": 30.0, "pct": 30.0, "required": 100.0}}
+		html = _lifecycle_collapsible_group_html(
+			"Logistics",
+			[],
+			"Logistics",
+			stage_throughput=tp,
+		)
+		self.assertIn("sp-dash-lifecycle-throughput", html)
+		self.assertIn("30", html)
+		self.assertIn("100", html)
+
+	def test_lifecycle_groups_default_collapsed_including_current_stage(self):
+		html = _lifecycle_collapsible_group_html("Logistics", [], "Logistics")
+		self.assertIn("sp-dash-lifecycle-group collapsed", html)
+		self.assertIn("fa-chevron-right", html)
+		self.assertNotIn("fa-chevron-down", html)
+		self.assertIn('sp-dash-lifecycle-group-body" style="padding:8px 10px 6px;display:none"', html)
+
+	def test_lifecycle_sidebar_passes_throughput_to_groups(self):
+		sp = self._sample_sp()
+		ctx = _packages_fulfillment_context(sp, current_lifecycle_stage="Logistics")
+		html = _build_lifecycle_grouped_job_cards_sidebar(
+			[],
+			"Logistics",
+			["Logistics", "On-Site"],
+			stage_throughput=ctx.get("stage_throughput"),
+		)
+		self.assertIn("sp-dash-lifecycle-throughput", html)
+		self.assertIn("data-stage=\"Logistics\"", html)
+
+	def test_dashboard_route_layout_has_no_fulfillment_hint_label(self):
+		sp = self._sample_sp()
+		ctx = _packages_fulfillment_context(sp, current_lifecycle_stage="Logistics")
+		left = _build_main_dash_fulfillment_left_html(sp, ctx)
+		right = _build_lifecycle_grouped_job_cards_sidebar(
+			[],
+			"Logistics",
+			["Logistics"],
+			stage_throughput=ctx.get("stage_throughput"),
+		)
+		html = render_special_project_fulfillment_route_tab_html(
+			left, right, current_lifecycle_stage="Logistics"
+		)
+		self.assertNotIn("Fulfillment by lifecycle stage", html)
+		self.assertNotIn("sp-dash-fulfillment-hint", html)
+
+
 class TestSeedFromSalesQuote(UnitTestCase):
 	def test_seed_project_products(self):
 		sp = frappe._dict(packages=[], customer="CUST-TEST")
@@ -296,6 +577,61 @@ class TestShipmentLinesAndCargo(UnitTestCase):
 			self.assertEqual(pkg.weight, 120)
 		if pkg.meta.get_field("contains_dangerous_goods"):
 			self.assertEqual(pkg.contains_dangerous_goods, 1)
+
+	def test_apply_shipment_lines_to_air_booking(self):
+		sp = frappe._dict(
+			packages=[
+				frappe._dict(
+					idx=1,
+					warehouse_item="WI-A",
+					commodity="COMM-A",
+					uom="Nos",
+					qty_required=1000,
+					qty_short=1000,
+					no_of_packs=5,
+				),
+			],
+		)
+		ab = frappe.new_doc("Air Booking")
+		lines = json.dumps(
+			[
+				{
+					"package_row": 1,
+					"warehouse_item": "WI-A",
+					"commodity": "COMM-A",
+					"qty": 200,
+					"uom": "Nos",
+				}
+			]
+		)
+		n = apply_shipment_lines_to_target(sp, ab, lines)
+		self.assertEqual(n, 1)
+		pkg = ab.packages[0]
+		if pkg.meta.get_field("quantity"):
+			self.assertEqual(pkg.quantity, 200)
+		if pkg.meta.get_field("no_of_packs"):
+			self.assertEqual(pkg.no_of_packs, 5)
+			self.assertNotEqual(pkg.no_of_packs, 1000)
+
+	def test_copy_always_along_to_air_booking(self):
+		sp = frappe._dict(
+			packages=[
+				frappe._dict(
+					idx=1,
+					description="Dunnage",
+					qty_required=1000,
+					no_of_packs=0,
+					include_on_create=1,
+				),
+			],
+		)
+		ab = frappe.new_doc("Air Booking")
+		n = copy_always_along_packages_to_target(sp, ab)
+		self.assertEqual(n, 1)
+		pkg = ab.packages[0]
+		if pkg.meta.get_field("no_of_packs"):
+			self.assertEqual(pkg.no_of_packs, 1)
+			self.assertNotEqual(pkg.no_of_packs, 1000)
 
 	def test_copy_always_along_appends_packages(self):
 		sp = frappe._dict(

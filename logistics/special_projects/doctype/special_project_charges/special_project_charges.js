@@ -35,8 +35,11 @@ function _set_programme_charge_qty_read_only(frm) {
 	if (grid.get_field("quantity")) {
 		grid.get_field("quantity").df.read_only = 1;
 	}
-	if (grid.get_field("lifecycle_job_line")) {
-		grid.get_field("lifecycle_job_line").df.hidden = 1;
+	if (grid.get_field("lifecycle_stage")) {
+		grid.get_field("lifecycle_stage").df.hidden = 0;
+	}
+	if (grid.get_field("special_project_service_line")) {
+		grid.get_field("special_project_service_line").df.hidden = 0;
 	}
 }
 
@@ -97,6 +100,23 @@ frappe.ui.form.on("Special Project Charges", {
 	cost_maximum_charge: function (frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_base_amount: function (frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
 	cost_base_quantity: function (frm, cdt, cdn) { _calculate_charge_row(frm, cdt, cdn); },
+	special_project_service_line: function (frm, cdt, cdn) {
+		var row = locals[cdt] && locals[cdt][cdn];
+		if (!row || !row.special_project_service_line) {
+			return;
+		}
+		var service = (frm.doc.special_project_services || []).find(function (s) {
+			return s.name === row.special_project_service_line;
+		});
+		if (service) {
+			if (service.lifecycle_stage && !row.lifecycle_stage) {
+				frappe.model.set_value(cdt, cdn, "lifecycle_stage", service.lifecycle_stage);
+			}
+			if (service.service_type && !row.service_type) {
+				frappe.model.set_value(cdt, cdn, "service_type", service.service_type);
+			}
+		}
+	},
 });
 
 function _calculate_charge_row(frm, cdt, cdn) {

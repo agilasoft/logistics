@@ -13,10 +13,12 @@ or internal-job detail), so multimodal quotes still populate charges on either l
 
 Internal jobs do not take line items from the Sales Quote; they take charge rows from the Main Job
 document whose **service_type** matches the internal job (e.g. Transport / Customs).
-When separate_billings_per_service_type is off on the Sales Quote, Declaration Order / Declaration
-receive **all** quote charge rows (combined billing). Sea/Air/Transport bookings use main-job routing
-rules in their own populate paths. When separate billings is on, declaration documents receive only
-Customs-scoped lines (plus legacy ``Sales Quote Customs``), filtered by the order's customs fields.
+When separate_billings_per_service_type is off on the Sales Quote, the operational document whose
+doctype matches the quote header ``main_service`` (e.g. Sea Booking when Main Service = Sea) receives
+**all** quote charge rows (combined billing), regardless of the booking ``is_main_service`` checkbox.
+Other service documents keep only their ``service_type``. Declaration Order / Declaration follow the
+same combined-billing rule when the quote Main Service is Customs. When separate billings is on, each
+document receives only its service-type lines (Customs orders also filter by customs parameters).
 """
 
 from __future__ import unicode_literals
@@ -362,34 +364,8 @@ def on_validate_main_service_internal_job(doc, method=None):
 
 
 def is_parent_main_job_for_quote_charges(parent_doc, sales_quote_doc):
-	"""
-	Whether parent_doc should be treated as the quote's main job for charge expansion
-	(all service types when separate billings is off).
-	"""
-	sq = sales_quote_doc
-	acceptable = ROUTING_LEG_JOB_TYPES.get(parent_doc.doctype)
-	legs = getattr(sq, "routing_legs", None) or []
-	if legs and acceptable:
-		my_name = getattr(parent_doc, "name", None)
-		for leg in legs:
-			if not cint(getattr(leg, "is_main_job", 0)):
-				continue
-			if getattr(leg, "job_type", None) not in acceptable:
-				continue
-			leg_job_no = getattr(leg, "job_no", None)
-			if my_name:
-				if leg_job_no == my_name:
-					return True
-			else:
-				if not leg_job_no or leg_job_no == my_name:
-					return True
-		return False
-	# No routing legs: same fallback as legacy (main_service on quote)
-	if not legs:
-		ms = getattr(sq, "main_service", None)
-		impl = implied_service_type_for_doctype(parent_doc.doctype)
-		return sales_quote_charge_service_types_equal(impl, ms)
-	return False
+	"""Whether *parent_doc* receives combined billing (all quote charges when separate billings is off)."""
+	return is_combined_billing_main_service_booking(parent_doc, sales_quote_doc)
 
 
 def _sq_charge_row_field(row, fieldname):
@@ -522,12 +498,12 @@ def filter_sales_quote_charge_rows_for_operational_doc(parent_doc, rows):
 
 
 def is_combined_billing_main_service_booking(parent_doc, sales_quote_doc) -> bool:
-	"""True when the quote uses combined billing and *parent_doc* is its main-service job.
+	"""True when the quote uses combined billing and *parent_doc* matches the quote main service type.
 
 	Used by Action → Get Charges from Quotation: with ``separate_billings_per_service_type`` off,
-	the main Sea/Air/Transport/Customs booking must receive **all** quote charge rows (not only
-	its implied ``service_type``). Matches ``is_main_service`` or the job doctype implied service
-	against the quote header ``main_service``.
+	the Sea/Air/Transport/Customs booking whose doctype matches the quote header ``main_service``
+	receives **all** quote charge rows (not only its implied ``service_type``), regardless of the
+	``is_main_service`` checkbox on the booking.
 	"""
 	if not parent_doc or not sales_quote_doc:
 		return False
@@ -537,12 +513,7 @@ def is_combined_billing_main_service_booking(parent_doc, sales_quote_doc) -> boo
 		return False
 	quote_main = getattr(sales_quote_doc, "main_service", None)
 	implied = implied_service_type_for_doctype(getattr(parent_doc, "doctype", None))
-	if not sales_quote_charge_service_types_equal(implied, quote_main):
-		return False
-	if cint(getattr(parent_doc, "is_main_service", 0)):
-		return True
-	# GCFQ on the main-service doctype for this quote (listing already requires main_service match).
-	return bool(implied and quote_main)
+	return sales_quote_charge_service_types_equal(implied, quote_main)
 
 
 def _gcfq_main_service_only_flag_set(parent_doc) -> bool:
@@ -606,8 +577,11 @@ def sales_quote_charge_filters(parent_doc, sales_quote_doc, implied_service_type
 		apply_sales_quote_charge_service_type_to_filters(base, rt_st, parent_doc)
 		return base
 	separate = cint(getattr(sales_quote_doc, "separate_billings_per_service_type", 0))
-	# When separate billing is OFF, always fetch all charges regardless of routing/main-job
 	if not separate:
+		if is_combined_billing_main_service_booking(parent_doc, sales_quote_doc):
+			return base
+		if implied_service_type:
+			apply_sales_quote_charge_service_type_to_filters(base, implied_service_type, parent_doc)
 		return base
 	if implied_service_type:
 		apply_sales_quote_charge_service_type_to_filters(base, implied_service_type, parent_doc)

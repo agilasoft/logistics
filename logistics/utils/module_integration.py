@@ -13,8 +13,8 @@ from logistics.utils.dg_fields import copy_parent_dg_header, transport_order_pac
 from logistics.utils.operational_rep_fields import REP_FIELD_NAMES, copy_operational_rep_fields_from_chain
 from logistics.utils.internal_job_detail_copy import (
 	get_declaration_order_job_no_from_shipment_doc,
-	persist_internal_job_detail_job_link,
 )
+from logistics.utils.internal_job_from_source import persist_internal_job_create_back_link
 from logistics.utils.internal_job_from_source import (
 	apply_internal_job_detail_row_to_operational_doc,
 	coerce_internal_job_detail_idx,
@@ -24,6 +24,38 @@ from logistics.transport.doctype.transport_order.transport_order import (
 	append_transport_order_charges_from_sales_quote_if_empty,
 )
 from logistics.utils.container_validation import normalize_container_number
+
+
+def _freight_shipment_has_linked_charge_group_for_job_type(shipment, job_type: str) -> bool:
+	"""True when Linked-scoped charge lines on a freight shipment imply a creatable job type."""
+	from logistics.utils.charge_service_type import effective_internal_job_detail_job_type
+	from logistics.utils.internal_job_from_source import _linked_charge_groups_for_create
+
+	jt = (job_type or "").strip()
+	if not jt:
+		return False
+	for _idx, row in _linked_charge_groups_for_create(shipment):
+		if effective_internal_job_detail_job_type(row) == jt:
+			return True
+	return False
+
+
+def _copy_linked_scope_fields_from_charge(src, dest, allowed_fields: set[str]) -> None:
+	"""Copy charge_scope / linked_service / internal_job and keep link columns aligned."""
+	from logistics.utils.linked_service_compat import charge_row_linked_service_link
+
+	for fn in ("charge_scope", "linked_service", "internal_job"):
+		if fn not in allowed_fields or not hasattr(src, fn):
+			continue
+		val = getattr(src, fn, None)
+		if val is not None and val != "":
+			dest.set(fn, val)
+	ls = charge_row_linked_service_link(src)
+	if ls:
+		if "linked_service" in allowed_fields:
+			dest.set("linked_service", ls)
+		if "internal_job" in allowed_fields:
+			dest.set("internal_job", ls)
 
 
 def _filter_charges_by_internal_job_detail_params(
@@ -54,17 +86,17 @@ def _filter_charges_by_internal_job_detail_params(
 		sales_quote_charge_row_matches_internal_job_detail_params,
 	)
 
-	ij_link = ""
-	if isinstance(ij_row, dict):
-		ij_link = (ij_row.get("internal_job") or "").strip()
-	else:
-		ij_link = (getattr(ij_row, "internal_job", None) or "").strip()
+	from logistics.utils.linked_service_compat import (
+		charge_row_linked_service_link,
+		row_linked_service_link,
+	)
 
-	# Step 1: drop rows tagged for a different Internal Job.
+	ij_link = row_linked_service_link(ij_row)
+
+	# Step 1: drop rows tagged for a different Linked Service.
 	if ij_link:
 		def _row_ij(r):
-			val = r.get("internal_job") if isinstance(r, dict) else getattr(r, "internal_job", None)
-			return (val or "").strip()
+			return charge_row_linked_service_link(r)
 
 		tagged = [r for r in rows if _row_ij(r) == ij_link]
 		untagged = [r for r in rows if not _row_ij(r)]
@@ -748,14 +780,22 @@ def _require_internal_job_eligible_for_parent_row(parent_doc, ij_row, job_type: 
 	if not ij_row:
 		return
 	from logistics.utils.internal_job_creation_eligibility import (
-		require_internal_job_creation_eligible,
+		require_internal_job_eligibility_for_create,
+	)
+	from logistics.utils.internal_job_from_source import (
+		_linked_service_doc_for_row,
+		_uses_linked_charge_internal_job_create,
 	)
 
-	require_internal_job_creation_eligible(
+	parent_doctype = getattr(parent_doc, "doctype", None) or ""
+	uses_linked = _uses_linked_charge_internal_job_create(parent_doctype)
+	require_internal_job_eligibility_for_create(
 		sales_quote=getattr(parent_doc, "sales_quote", None),
 		parent_doc=parent_doc,
 		ij_row=ij_row,
+		linked_service_doc=_linked_service_doc_for_row(ij_row) if uses_linked else None,
 		service_type_label=_SERVICE_LABEL_FOR_CREATE_JOB_TYPE.get((job_type or "").strip()),
+		uses_linked_charge_create=uses_linked,
 	)
 
 
@@ -845,8 +885,13 @@ def create_transport_order_from_air_shipment(
 	append_transport_order_charges_from_sales_quote_if_empty(order)
 	set_internal_transport_order_draft_insert_flags(order)
 	order.insert(ignore_permissions=True)
-	persist_internal_job_detail_job_link(
-		"Air Shipment", air_shipment_name, "Transport Order", order.name, detail_idx=resolved_detail_idx
+	persist_internal_job_create_back_link(
+		"Air Shipment",
+		air_shipment_name,
+		"Transport Order",
+		order.name,
+		ij_row=ij_row,
+		detail_idx=resolved_detail_idx,
 	)
 	ensure_main_service_on_freight_hub_for_transport_order_link("Air Shipment", air_shipment_name)
 	frappe.db.commit()
@@ -951,8 +996,13 @@ def create_transport_order_from_sea_shipment(
 	append_transport_order_charges_from_sales_quote_if_empty(order)
 	set_internal_transport_order_draft_insert_flags(order)
 	order.insert(ignore_permissions=True)
-	persist_internal_job_detail_job_link(
-		"Sea Shipment", sea_shipment_name, "Transport Order", order.name, detail_idx=resolved_detail_idx
+	persist_internal_job_create_back_link(
+		"Sea Shipment",
+		sea_shipment_name,
+		"Transport Order",
+		order.name,
+		ij_row=ij_row,
+		detail_idx=resolved_detail_idx,
 	)
 	ensure_main_service_on_freight_hub_for_transport_order_link("Sea Shipment", sea_shipment_name)
 	frappe.db.commit()
@@ -990,10 +1040,14 @@ def _freight_shipment_has_transport_charge_rows(shipment) -> bool:
 
 
 def _freight_shipment_has_internal_job_detail_for_transport_order(shipment) -> bool:
-	"""True if Internal Job Details include a Transport Order line (even before charge rows exist)."""
+	"""True if Linked Service charge groups or Internal Job Details include Transport Order."""
 	from logistics.utils.charge_service_type import effective_internal_job_detail_job_type
 
-	for row in getattr(shipment, "internal_job_details", None) or []:
+	from logistics.utils.internal_job_persistence import internal_job_detail_rows_for_parent
+
+	if _freight_shipment_has_linked_charge_group_for_job_type(shipment, "Transport Order"):
+		return True
+	for row in internal_job_detail_rows_for_parent(shipment):
 		if effective_internal_job_detail_job_type(row) == "Transport Order":
 			return True
 	return False
@@ -1119,7 +1173,9 @@ def _freight_shipment_has_internal_job_detail_for_inbound_order(shipment) -> boo
 	"""True if Internal Job Details include a warehousing / Inbound Order line (even before charge rows exist)."""
 	from logistics.utils.charge_service_type import effective_internal_job_detail_job_type
 
-	for row in getattr(shipment, "internal_job_details", None) or []:
+	from logistics.utils.internal_job_persistence import internal_job_detail_rows_for_parent
+
+	for row in internal_job_detail_rows_for_parent(shipment):
 		if effective_internal_job_detail_job_type(row) == "Inbound Order":
 			return True
 	return False
@@ -1404,6 +1460,7 @@ def _copy_transport_charges_from_shipment_to_transport_order(order, shipment, ij
 			row.set("unit_rate", rate_val)
 		if "service_type" in tfields:
 			row.set("service_type", "Transport")
+		_copy_linked_scope_fields_from_charge(src, row, tfields)
 
 
 @frappe.whitelist()
@@ -1583,6 +1640,7 @@ def _copy_customs_charges_from_shipment_to_declaration_order(order, shipment, ij
 			row.set("charge_basis", src.revenue_calculation_method)
 		if "charge_type" in charge_fields and not row.get("charge_type"):
 			row.set("charge_type", "Revenue")
+		_copy_linked_scope_fields_from_charge(src, row, set(charge_fields))
 
 
 def _existing_declaration_order_for_freight_shipment(shipment, shipment_name: str, link_field: str):
@@ -1687,8 +1745,13 @@ def _create_declaration_order_from_freight_shipment(
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	order.save(ignore_permissions=True)
 
-	persist_internal_job_detail_job_link(
-		shipment_doctype, shipment_name, "Declaration Order", order.name, detail_idx=resolved_detail_idx
+	persist_internal_job_create_back_link(
+		shipment_doctype,
+		shipment_name,
+		"Declaration Order",
+		order.name,
+		ij_row=ij_row,
+		detail_idx=resolved_detail_idx,
 	)
 
 	frappe.db.commit()
@@ -1872,14 +1935,14 @@ def create_inbound_order_from_air_shipment(
 	_copy_shipment_packages_to_inbound_order(shipment, order)
 	_copy_warehousing_charges_from_shipment_to_inbound_order(order, shipment, ij_row=ij_row)
 	order.insert(ignore_permissions=True)
-	if resolved_detail_idx:
-		persist_internal_job_detail_job_link(
-			"Air Shipment",
-			air_shipment_name,
-			"Inbound Order",
-			order.name,
-			detail_idx=resolved_detail_idx,
-		)
+	persist_internal_job_create_back_link(
+		"Air Shipment",
+		air_shipment_name,
+		"Inbound Order",
+		order.name,
+		ij_row=ij_row,
+		detail_idx=resolved_detail_idx,
+	)
 	ensure_main_service_on_freight_hub_for_transport_order_link("Air Shipment", air_shipment_name)
 	frappe.db.commit()
 	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
@@ -1936,14 +1999,14 @@ def create_inbound_order_from_sea_shipment(
 	_copy_sea_packages_to_inbound_order(shipment, order)
 	_copy_warehousing_charges_from_shipment_to_inbound_order(order, shipment, ij_row=ij_row)
 	order.insert(ignore_permissions=True)
-	if resolved_detail_idx:
-		persist_internal_job_detail_job_link(
-			"Sea Shipment",
-			sea_shipment_name,
-			"Inbound Order",
-			order.name,
-			detail_idx=resolved_detail_idx,
-		)
+	persist_internal_job_create_back_link(
+		"Sea Shipment",
+		sea_shipment_name,
+		"Inbound Order",
+		order.name,
+		ij_row=ij_row,
+		detail_idx=resolved_detail_idx,
+	)
 	ensure_main_service_on_freight_hub_for_transport_order_link("Sea Shipment", sea_shipment_name)
 	frappe.db.commit()
 	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
@@ -1989,12 +2052,13 @@ def create_inbound_order_from_transport_job(
 	if getattr(job, "job_number", None):
 		order.job_number = job.job_number
 	order.insert(ignore_permissions=True)
-	if resolved_detail_idx:
-		persist_internal_job_detail_job_link(
+	if ij_row or resolved_detail_idx:
+		persist_internal_job_create_back_link(
 			"Transport Job",
 			transport_job_name,
 			"Inbound Order",
 			order.name,
+			ij_row=ij_row,
 			detail_idx=resolved_detail_idx,
 		)
 	frappe.db.commit()
@@ -2091,6 +2155,7 @@ def _copy_transport_charges_from_declaration_to_transport_order(order, declarati
 		rate_val = getattr(src, "unit_rate", None)
 		if rate_val is not None and "unit_rate" in tfields:
 			row.set("unit_rate", rate_val)
+		_copy_linked_scope_fields_from_charge(src, row, tfields)
 
 
 def _declaration_order_doc_for_linked_declaration(dec):
@@ -2226,8 +2291,13 @@ def create_transport_order_from_declaration(
 	order.is_main_service = 1
 	set_internal_transport_order_draft_insert_flags(order)
 	order.insert(ignore_permissions=True)
-	persist_internal_job_detail_job_link(
-		persist_doctype, persist_name, "Transport Order", order.name, detail_idx=resolved_idx
+	persist_internal_job_create_back_link(
+		persist_doctype,
+		persist_name,
+		"Transport Order",
+		order.name,
+		ij_row=ij_row,
+		detail_idx=resolved_idx,
 	)
 	frappe.db.set_value("Declaration", declaration_name, "transport_order", order.name)
 	frappe.db.commit()
@@ -2298,12 +2368,13 @@ def create_inbound_order_from_declaration(
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	order.insert(ignore_permissions=True)
-	if resolved_detail_idx:
-		persist_internal_job_detail_job_link(
+	if ij_row or resolved_detail_idx:
+		persist_internal_job_create_back_link(
 			"Declaration",
 			declaration_name,
 			"Inbound Order",
 			order.name,
+			ij_row=ij_row,
 			detail_idx=resolved_detail_idx,
 		)
 	frappe.db.commit()

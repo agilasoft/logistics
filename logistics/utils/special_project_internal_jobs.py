@@ -142,5 +142,23 @@ def job_refs_from_lifecycle_jobs(doc, field_name: str = "lifecycle_jobs"):
 	return refs
 
 
+def job_refs_from_special_project_services(doc, field_name: str = "special_project_services"):
+	"""Build job refs from Special Project programme service rows."""
+	refs = []
+	for row in doc.get(field_name) or []:
+		pair = resolve_lifecycle_job_row_to_operational_ref(row)
+		if pair:
+			refs.append(frappe._dict(job_type=pair[0], job=pair[1]))
+	return refs
+
+
+def job_refs_for_special_project(doc):
+	"""Operational job refs from programme services, falling back to legacy lifecycle rows."""
+	refs = job_refs_from_special_project_services(doc)
+	if refs:
+		return refs
+	return job_refs_from_lifecycle_jobs(doc)
+
+
 resolve_internal_job_detail_row_to_operational_ref = resolve_lifecycle_job_row_to_operational_ref
 job_refs_from_internal_job_details = job_refs_from_lifecycle_jobs

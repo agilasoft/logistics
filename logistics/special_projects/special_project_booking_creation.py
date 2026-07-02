@@ -31,14 +31,25 @@ from logistics.utils.charge_service_type import (
 	sales_quote_charge_service_types_equal,
 )
 from logistics.special_projects.special_project_charge_copy import (
+	booking_copy_uses_linked_scope_only,
+	programme_charges_for_booking_copy,
 	prepare_operational_charges_from_special_project,
 )
 from logistics.special_projects.special_project_charge_lifecycle import (
-	_lifecycle_job_row_by_name,
 	is_planning_lifecycle_row,
 	lifecycle_row_order_link_is_cancelled,
 	planning_row_is_open,
 	programme_charges_for_service_type,
+)
+from logistics.special_projects.special_project_service_compat import (
+	row_special_project_service_link,
+	special_project_service_doctype,
+	special_project_service_record_exists,
+)
+from logistics.special_projects.special_project_service_helpers import (
+	is_planning_special_project_service_row,
+	planning_service_is_open,
+	special_project_service_by_name,
 )
 from logistics.utils.internal_job_from_source import (
 	apply_internal_job_detail_row_to_operational_doc,
@@ -49,7 +60,6 @@ from logistics.utils.sales_quote_charge_parameters import (
 	SALES_QUOTE_CHARGE_PARAMETER_FIELDS,
 	any_programme_charge_matches_params_dict,
 	collect_wildcard_fields_for_programme_param_set,
-	count_meaningful_service_scoped_params,
 	extract_service_scoped_params_dict,
 	extract_service_scoped_quote_parameters,
 	filter_fields_existing_in_doctype,
@@ -142,7 +152,7 @@ def _resolve_scoped_creation_params(
 		else _service_label_for_lifecycle_row(jt, row)
 	) or ""
 	scoped = extract_service_scoped_params_dict(parsed, service_label)
-	if not scoped and not parsed:
+	if not scoped and parsed_params is None:
 		scoped = suggested_parameters_from_programme_charges(sp_doc, service_label)
 	return service_label, scoped, merged_row or row
 
@@ -151,17 +161,9 @@ def _validate_scoped_creation_params(
 	parent_doc: Any,
 	service_label: str,
 	scoped_params: dict[str, Any],
-	*,
-	user_provided_params: bool,
 ) -> None:
-	"""Require ≥1 service-scoped parameter (when applicable) and a programme charge match."""
+	"""Reject create when set parameters do not match any programme charge row (empty = wildcard)."""
 	st = (service_label or "").strip()
-	param_fields = parameter_fields_for_service_type(st)
-	if user_provided_params and param_fields and not scoped_params:
-		frappe.throw(
-			_("Set at least one parameter before creating."),
-			title=_("Cannot create booking / order"),
-		)
 	if scoped_params and not any_programme_charge_matches_params_dict(
 		parent_doc, scoped_params, st
 	):
@@ -180,7 +182,7 @@ def _parameter_fieldnames_on_programme_charges(sp_doc: Any, service_type_label: 
 	)
 	service_fields = parameter_fields_for_service_type(st)
 	found: set[str] = set()
-	for ch in programme_charges_for_service_type(sp_doc, st):
+	for ch in programme_charges_for_booking_copy(sp_doc, st):
 		resolved = resolve_programme_charge_row_parameters(ch, st)
 		for fn in service_fields:
 			val = resolved.get(fn)
@@ -199,11 +201,74 @@ def suggested_parameters_from_programme_charges(
 ) -> dict[str, Any]:
 	"""First non-empty parameter value per field from programme charge rows."""
 	out: dict[str, Any] = {}
-	for ch in programme_charges_for_service_type(sp_doc, service_type_label):
+	for ch in programme_charges_for_booking_copy(sp_doc, service_type_label):
 		for k, v in programme_charge_row_parameters(ch, service_type_label).items():
 			if k not in out:
 				out[k] = v
 	return out
+
+
+def _service_row_doctype_for_meta() -> str:
+	"""DocType whose field definitions drive service-line booking parameters."""
+	if frappe.db.exists("DocType", "Special Project Service"):
+		return "Special Project Service"
+	return "Lifecycle Job"
+
+
+def _legacy_lifecycle_job_meta():
+	if not frappe.db.exists("DocType", "Lifecycle Job"):
+		return None
+	return frappe.get_meta("Lifecycle Job")
+
+
+def _service_row_meta():
+	return frappe.get_meta(_service_row_doctype_for_meta())
+
+
+def _service_row_doctype_for_name(row_name: str) -> str:
+	if row_name and frappe.db.exists("Special Project Service", row_name):
+		return "Special Project Service"
+	if row_name and frappe.db.exists("Lifecycle Job", row_name):
+		return "Lifecycle Job"
+	return _service_row_doctype_for_meta()
+
+
+def _field_def_for_service_parameter(fieldname: str, *fallback_metas: Any) -> Any | None:
+	df = _service_row_meta().get_field(fieldname)
+	if df:
+		return df
+	legacy_meta = _legacy_lifecycle_job_meta()
+	if legacy_meta:
+		df = legacy_meta.get_field(fieldname)
+		if df:
+			return df
+	for meta in fallback_metas:
+		if not meta:
+			continue
+		df = meta.get_field(fieldname)
+		if df:
+			return df
+	return None
+
+
+def _field_specs_for_fieldnames(
+	fieldnames: tuple[str, ...] | list[str], *fallback_metas: Any
+) -> list[dict[str, Any]]:
+	specs: list[dict[str, Any]] = []
+	for fn in fieldnames:
+		df = _field_def_for_service_parameter(fn, *fallback_metas)
+		if not df:
+			continue
+		spec: dict[str, Any] = {
+			"fieldname": fn,
+			"label": _(df.label or fn),
+			"fieldtype": df.fieldtype,
+			"options": df.options or "",
+		}
+		if df.fieldtype == "Dynamic Link" and df.options:
+			spec["options_fieldname"] = df.options
+		specs.append(spec)
+	return specs
 
 
 def get_programme_charge_parameter_field_specs(sp_doc: Any, service_type: str | None = None) -> list[dict[str, Any]]:
@@ -212,52 +277,27 @@ def get_programme_charge_parameter_field_specs(sp_doc: Any, service_type: str | 
 	fieldnames = _parameter_fieldnames_on_programme_charges(sp_doc, st)
 	if not fieldnames:
 		resolved_keys: set[str] = set()
-		for ch in programme_charges_for_service_type(sp_doc, st):
+		for ch in programme_charges_for_booking_copy(sp_doc, st):
 			resolved_keys.update(resolve_programme_charge_row_parameters(ch, st).keys())
 		fieldnames = tuple(
 			fn for fn in parameter_fields_for_service_type(st) if fn in resolved_keys
 		)
 	sp_meta = frappe.get_meta("Special Project Charges")
-	lj_meta = frappe.get_meta("Lifecycle Job")
 	sqc_meta = frappe.get_meta("Sales Quote Charge")
-	specs: list[dict[str, Any]] = []
-	for fn in fieldnames:
-		df = sp_meta.get_field(fn) or lj_meta.get_field(fn) or sqc_meta.get_field(fn)
-		if not df:
-			continue
-		spec: dict[str, Any] = {
-			"fieldname": fn,
-			"label": _(df.label or fn),
-			"fieldtype": df.fieldtype,
-			"options": df.options or "",
-		}
-		if df.fieldtype == "Dynamic Link" and df.options:
-			spec["options_fieldname"] = df.options
-		specs.append(spec)
-	return specs
+	return _field_specs_for_fieldnames(fieldnames, sp_meta, sqc_meta)
 
 
 @frappe.whitelist()
+def get_special_project_service_parameter_field_specs(service_type: str | None = None):
+	"""Desk field specs for service-scoped Special Project Service parameters."""
+	return get_lifecycle_job_parameter_field_specs(service_type)
+
+
 def get_lifecycle_job_parameter_field_specs(service_type: str | None = None):
-	"""Desk field specs for service-scoped Lifecycle Job parameters."""
+	"""Desk field specs for service-scoped planning row parameters (Special Project Service or legacy Lifecycle Job)."""
 	st = (service_type or "").strip()
 	fields = parameter_fields_for_service_type(st)
-	meta = frappe.get_meta("Lifecycle Job")
-	specs: list[dict[str, Any]] = []
-	for fn in fields:
-		df = meta.get_field(fn)
-		if not df:
-			continue
-		spec: dict[str, Any] = {
-			"fieldname": fn,
-			"label": _(df.label or fn),
-			"fieldtype": df.fieldtype,
-			"options": df.options or "",
-		}
-		if df.fieldtype == "Dynamic Link" and df.options:
-			spec["options_fieldname"] = df.options
-		specs.append(spec)
-	return specs
+	return _field_specs_for_fieldnames(fields)
 
 
 def _filter_programme_charges_for_params(
@@ -280,8 +320,10 @@ def _programme_charge_pool_for_booking(
 	"""Matching programme charge rows for a lifecycle line and optional creation parameters."""
 	jt = (job_type or "").strip()
 	service_label = _service_label_for_lifecycle_row(jt, lifecycle_row) if lifecycle_row else ""
-	pool = programme_charges_for_service_type(
-		sp_doc, getattr(lifecycle_row, "service_type", None) if lifecycle_row else None
+	pool = programme_charges_for_booking_copy(
+		sp_doc,
+		getattr(lifecycle_row, "service_type", None) if lifecycle_row else None,
+		job_type=jt,
 	)
 	if jt == "Project Order":
 		pool = [
@@ -292,7 +334,7 @@ def _programme_charge_pool_for_booking(
 			)
 		]
 	scoped = extract_service_scoped_params_dict(creation_parameters or {}, service_label or "")
-	if not scoped:
+	if not scoped and creation_parameters is None:
 		scoped = suggested_parameters_from_programme_charges(sp_doc, service_label or "")
 	if scoped:
 		pool = _filter_programme_charges_for_params(sp_doc, pool, service_label, scoped)
@@ -405,10 +447,7 @@ def _preview_creatability_flags(
 	base_creatable: bool,
 ) -> dict[str, Any]:
 	service_label = _service_label_for_lifecycle_row(jt, row) if row else ""
-	param_fieldnames = _parameter_fieldnames_on_programme_charges(sp_doc, service_label or "")
-	param_fields = param_fieldnames or parameter_fields_for_service_type(service_label or "")
 	scoped = params or {}
-	has_params = bool(scoped) if param_fields else True
 	has_charge_match = True
 	wildcard_fields: list[str] = []
 	if scoped:
@@ -423,16 +462,9 @@ def _preview_creatability_flags(
 				service_label or "",
 				scoped,
 			)
-	creatable = (
-		base_creatable
-		and has_params
-		and has_charge_match
-		and (not param_fields or count_meaningful_service_scoped_params(scoped, service_label or "") >= 1)
-	)
+	creatable = base_creatable and has_charge_match
 	not_creatable_message: str | None = None
-	if base_creatable and param_fields and count_meaningful_service_scoped_params(scoped, service_label or "") < 1:
-		not_creatable_message = _("Set at least one parameter before creating.")
-	elif base_creatable and scoped and not has_charge_match:
+	if base_creatable and scoped and not has_charge_match:
 		not_creatable_message = LIFECYCLE_JOB_QUOTE_PARAMETER_MISMATCH_MESSAGE
 	if creatable and row is not None:
 		from logistics.utils.internal_job_creation_eligibility import (
@@ -453,7 +485,7 @@ def _preview_creatability_flags(
 			not_creatable_message = elig.get("message") or not_creatable_message
 	return {
 		"creatable": creatable,
-		"has_params": has_params,
+		"has_params": True,
 		"has_charge_match": has_charge_match,
 		"has_quote_match": has_charge_match,
 		"wildcard_fields": wildcard_fields,
@@ -490,28 +522,26 @@ def validate_lifecycle_job_params_match_quotation(
 	"""Reject create when parameters do not match any programme charge row."""
 	jt = (job_type or "").strip()
 	row, _resolved_idx = _resolve_row_for_create(parent_doc, jt, coerce_internal_job_detail_idx(lifecycle_job_idx))
+	params_explicit = creation_parameters is not None
 	parsed_params = (
-		_parse_creation_parameters(creation_parameters) if creation_parameters is not None else None
+		_parse_creation_parameters(creation_parameters) if params_explicit else None
 	)
-	user_provided_params = bool(parsed_params)
 	service_label, scoped_params, _merged_row = _resolve_scoped_creation_params(
 		parent_doc,
 		jt,
 		row,
-		parsed_params if user_provided_params else None,
+		parsed_params,
 	)
-	_validate_scoped_creation_params(
-		parent_doc,
-		service_label,
-		scoped_params,
-		user_provided_params=user_provided_params,
-	)
+	_validate_scoped_creation_params(parent_doc, service_label, scoped_params)
 	from logistics.utils.internal_job_creation_eligibility import (
 		require_internal_job_creation_eligible,
 	)
 
 	sq_link = getattr(parent_doc, "sales_quote", None) or _resolve_sales_quote_from_programme_charges(
-		parent_doc, row, jt, scoped_params if user_provided_params else None
+		parent_doc,
+		row,
+		jt,
+		parsed_params if params_explicit else None,
 	)
 	require_internal_job_creation_eligible(
 		sales_quote=sq_link,
@@ -580,7 +610,7 @@ def _linked_order_for_planning(parent_doc: Any, planning_row: Any) -> tuple[str,
 	planning_name = _norm(getattr(planning_row, "name", None))
 	if not planning_name:
 		return "", ""
-	check = _lifecycle_job_row_by_name(parent_doc, planning_name) or planning_row
+	check = _service_row_by_name(parent_doc, planning_name) or planning_row
 	jt = _norm(getattr(check, "job_type", None))
 	on = _norm(getattr(check, "order_no", None))
 	if jt in _PLANNING_ORDER_TYPES and on:
@@ -600,7 +630,7 @@ def _linked_execution_for_planning(parent_doc: Any, planning_row: Any) -> tuple[
 	planning_name = _norm(getattr(planning_row, "name", None))
 	if not planning_name:
 		return "", ""
-	check = _lifecycle_job_row_by_name(parent_doc, planning_name) or planning_row
+	check = _service_row_by_name(parent_doc, planning_name) or planning_row
 	ref = resolve_lifecycle_job_row_to_operational_ref(check)
 	return ref if ref else ("", "")
 
@@ -614,7 +644,7 @@ def _planning_rows_for_form(parent_doc: Any, client_lifecycle_jobs: Any) -> list
 	"""Planning lifecycle rows for the Create dialog (``detail_idx`` = child row ``idx``)."""
 	with _client_rows_context(client_lifecycle_jobs):
 		rows = _lifecycle_rows_list(parent_doc)
-	planning = [r for r in rows if is_planning_lifecycle_row(r)]
+	planning = [r for r in rows if _is_planning_service_row(r)]
 	out: list[tuple[int, Any]] = []
 	for i, row in enumerate(planning, start=1):
 		out.append((_planning_row_idx(row, i), row))
@@ -625,7 +655,7 @@ def _planning_row_by_idx(parent_doc: Any, idx: int | None) -> Any | None:
 	if idx is None:
 		return None
 	for row in _lifecycle_rows_list(parent_doc):
-		if not is_planning_lifecycle_row(row):
+		if not _is_planning_service_row(row):
 			continue
 		if cint(getattr(row, "idx", 0) or 0) == cint(idx):
 			return row
@@ -645,7 +675,7 @@ _LOGISTICS_SP_CLIENT_ROWS = "_logistics_sp_ij_client_rows"
 
 
 def _coerce_client_rows(client_value: Any) -> list | None:
-	"""List of Internal Job Detail row dicts from the desk form, or None to use the saved document."""
+	"""List of Special Project Service / legacy Lifecycle Job row dicts from the desk form."""
 	if client_value is None or client_value == "":
 		return None
 	if isinstance(client_value, str):
@@ -683,11 +713,61 @@ def _client_rows_context(client_value: Any):
 					pass
 
 
-def _lifecycle_rows_list(parent_doc: Any) -> list[Any]:
+def _service_rows_list(parent_doc: Any) -> list[Any]:
+	"""Planning service rows for Create; falls back to legacy lifecycle rows when no services exist."""
 	ov = getattr(frappe.local, _LOGISTICS_SP_CLIENT_ROWS, None)
 	if ov is not None:
 		return list(ov)
+	services = list(getattr(parent_doc, "special_project_services", None) or [])
+	if services:
+		return services
 	return list(getattr(parent_doc, "lifecycle_jobs", None) or [])
+
+
+def _uses_special_project_services(parent_doc: Any) -> bool:
+	ov = getattr(frappe.local, _LOGISTICS_SP_CLIENT_ROWS, None)
+	if ov is not None:
+		return True
+	return bool(getattr(parent_doc, "special_project_services", None))
+
+
+def _uses_special_project_services_from_row(row: Any) -> bool:
+	return hasattr(row, "special_project_service_line")
+
+
+def _is_planning_service_row(row: Any) -> bool:
+	if _uses_special_project_services_from_row(row):
+		return is_planning_special_project_service_row(row)
+	return is_planning_lifecycle_row(row)
+
+
+def _planning_row_is_open(sp_doc: Any, row: Any) -> bool:
+	if _uses_special_project_services(sp_doc) or _uses_special_project_services_from_row(row):
+		return planning_service_is_open(sp_doc, row)
+	return planning_row_is_open(sp_doc, row)
+
+
+def _legacy_lifecycle_job_row_by_name(parent_doc: Any, row_name: str) -> Any | None:
+	row_name = _norm(row_name)
+	if not row_name:
+		return None
+	for row in getattr(parent_doc, "lifecycle_jobs", None) or []:
+		if _norm(getattr(row, "name", None)) == row_name:
+			return row
+	return None
+
+
+def _service_row_by_name(parent_doc: Any, row_name: str) -> Any | None:
+	row_name = _norm(row_name)
+	if not row_name:
+		return None
+	if _uses_special_project_services(parent_doc):
+		return special_project_service_by_name(parent_doc, row_name)
+	return _legacy_lifecycle_job_row_by_name(parent_doc, row_name)
+
+
+def _lifecycle_rows_list(parent_doc: Any) -> list[Any]:
+	return _service_rows_list(parent_doc)
 
 
 def _all_rows_for_form(parent_doc: Any, client_lifecycle_jobs: Any) -> list[tuple[int, Any]]:
@@ -706,7 +786,7 @@ def _resolve_row_for_create(
 		row_jt = _dialog_creatable_job_type(row)
 		if row_jt != jt:
 			frappe.throw(_("The selected line is not for {0}.").format(jt))
-		if not planning_row_is_open(parent_doc, row):
+		if not _planning_row_is_open(parent_doc, row):
 			linked_jt, linked_jn = _linked_job_for_planning(parent_doc, row)
 			frappe.throw(
 				_("This Lifecycle Job line already references {0} {1}.").format(
@@ -716,11 +796,11 @@ def _resolve_row_for_create(
 			)
 		return row, _planning_row_idx(row, idx)
 	for row in _lifecycle_rows_list(parent_doc):
-		if not is_planning_lifecycle_row(row):
+		if not _is_planning_service_row(row):
 			continue
 		if _dialog_creatable_job_type(row) != jt:
 			continue
-		if not planning_row_is_open(parent_doc, row):
+		if not _planning_row_is_open(parent_doc, row):
 			continue
 		return row, _planning_row_idx(row)
 	return None, None
@@ -759,16 +839,17 @@ def _choice_header(
 
 @frappe.whitelist()
 def get_special_project_booking_choices(
-	special_project: str, lifecycle_jobs: Any = None
+	special_project: str, lifecycle_jobs: Any = None, special_project_services: Any = None
 ):
-	"""Return Create > Booking/Order options for each Lifecycle Job row on a Special Project."""
+	"""Return Create > Booking/Order options for each Special Project Service row on a Special Project."""
 	if not special_project or not frappe.db.exists("Special Project", special_project):
 		frappe.throw(_("Invalid Special Project."))
 	doc = frappe.get_doc("Special Project", special_project)
 	doc.check_permission("read")
 
+	client_rows = special_project_services if special_project_services is not None else lifecycle_jobs
 	choices: list[dict[str, Any]] = []
-	for idx, row in _all_rows_for_form(doc, lifecycle_jobs):
+	for idx, row in _all_rows_for_form(doc, client_rows):
 		st = (getattr(row, "service_type", None) or "").strip()
 		jt = _dialog_creatable_job_type(row)
 		linked_ot, order_no = _linked_order_for_planning(doc, row)
@@ -778,7 +859,7 @@ def get_special_project_booking_choices(
 		creatable = (
 			bool(jt)
 			and jt in SPECIAL_PROJECT_CREATABLE_JOB_TYPES
-			and planning_row_is_open(doc, row)
+			and _planning_row_is_open(doc, row)
 		)
 		header = _choice_header(jt, row, idx, order_no, exec_no)
 		cancelled = bool(order_no and lifecycle_row_order_link_is_cancelled(row))
@@ -820,9 +901,10 @@ def get_special_project_booking_preview(
 	job_type: str,
 	lifecycle_job_idx: int | None = None,
 	lifecycle_jobs: Any = None,
+	special_project_services: Any = None,
 	creation_parameters: Any = None,
 ):
-	"""Lifecycle Job parameters and matching charge rows that will inform the new operational document."""
+	"""Special Project Service parameters and matching charge rows that will inform the new operational document."""
 	if not special_project or not frappe.db.exists("Special Project", special_project):
 		frappe.throw(_("Invalid Special Project."))
 	doc = frappe.get_doc("Special Project", special_project)
@@ -830,9 +912,13 @@ def get_special_project_booking_preview(
 
 	jt = (job_type or "").strip()
 	idx = coerce_internal_job_detail_idx(lifecycle_job_idx)
-	parsed_params = _parse_creation_parameters(creation_parameters)
+	params_explicit = creation_parameters is not None
+	parsed_params = (
+		_parse_creation_parameters(creation_parameters) if params_explicit else None
+	)
+	client_rows = special_project_services if special_project_services is not None else lifecycle_jobs
 
-	with _client_rows_context(lifecycle_jobs):
+	with _client_rows_context(client_rows):
 		planning_row = _planning_row_by_idx(doc, idx) if idx is not None else None
 
 		if planning_row is not None:
@@ -918,20 +1004,17 @@ def get_special_project_booking_preview(
 			doc,
 			jt,
 			row,
-			parsed_params if parsed_params else None,
+			parsed_params,
 		)
 
-		base_creatable = row is not None and planning_row_is_open(doc, row)
+		base_creatable = row is not None and _planning_row_is_open(doc, row)
 		flags = _preview_creatability_flags(
 			doc, jt, merged_row, scoped_params, base_creatable=base_creatable
 		)
 
-		pool, *_rest = _programme_charge_pool_for_booking(
-			doc, merged_row, jt, scoped_params or None
-		)
-		source_context = _booking_source_context(
-			doc, merged_row, jt, scoped_params or None
-		)
+		pool_params = parsed_params if params_explicit else None
+		pool, *_rest = _programme_charge_pool_for_booking(doc, merged_row, jt, pool_params)
+		source_context = _booking_source_context(doc, merged_row, jt, pool_params)
 
 		out = {
 			"job_type": jt,
@@ -1192,24 +1275,70 @@ def _booking_date_field(target_doc: Any) -> str | None:
 	return None
 
 
-def _link_planning_lifecycle_row(
+def _propagate_linked_services_after_insert(sp_doc: Any, operational_doc: Any) -> None:
+	"""Clone subsidiary Sales Quote Linked Services onto a Special Project booking/order."""
+	from logistics.utils.sales_quote_one_off_internal_jobs import (
+		propagate_linked_services_for_special_project_booking,
+	)
+
+	propagate_linked_services_for_special_project_booking(sp_doc, operational_doc)
+
+
+def _row_field(row: Any, field: str) -> Any:
+	if isinstance(row, dict):
+		return row.get(field)
+	return getattr(row, field, None)
+
+
+def _special_project_service_name_from_row(row: Any) -> str:
+	return _norm(row_special_project_service_link(row) or _row_field(row, "name"))
+
+
+def _link_special_project_service_order(
+	service_name: str,
+	order_type: str,
+	order_no: str,
+) -> str:
+	service_name = _norm(service_name)
+	if not service_name or not special_project_service_record_exists(service_name):
+		frappe.throw(_("Planning service row not found on this Special Project."))
+	service_doc = frappe.get_doc(special_project_service_doctype(), service_name)
+	service_doc.job_type = order_type
+	service_doc.order_no = order_no
+	service_doc.job_no = None
+	service_doc.flags.ignore_permissions = True
+	service_doc.flags.skip_special_project_service_detail_sync = True
+	service_doc.save(ignore_permissions=True)
+	return service_name
+
+
+def _link_planning_service_row(
 	sp_name: str,
 	planning_row: Any,
 	order_type: str,
 	order_no: str,
 	operational_doc: Any | None = None,
 ) -> str:
-	"""Set job_type/order_no on the planning lifecycle row."""
+	"""Set job_type/order_no on the planning service (or legacy lifecycle) row."""
 	if not (order_type and order_no and planning_row):
 		return ""
-	planning_name = _norm(getattr(planning_row, "name", None))
+	planning_name = _norm(_row_field(planning_row, "name"))
 	if not planning_name:
-		frappe.throw(_("Planning lifecycle row must be saved before creating a booking/order."))
+		frappe.throw(_("Planning service row must be saved before creating a booking/order."))
 
 	sp = frappe.get_doc("Special Project", sp_name)
-	linked_row = _lifecycle_job_row_by_name(sp, planning_name)
+	if _uses_special_project_services(sp):
+		linked_row = special_project_service_by_name(sp, planning_name)
+		if not linked_row:
+			frappe.throw(_("Planning service row not found on this Special Project."))
+		service_name = _special_project_service_name_from_row(planning_row)
+		if not service_name:
+			service_name = _special_project_service_name_from_row(linked_row)
+		return _link_special_project_service_order(service_name, order_type, order_no)
+
+	linked_row = _legacy_lifecycle_job_row_by_name(sp, planning_name)
 	if not linked_row:
-		frappe.throw(_("Planning lifecycle row not found on this Special Project."))
+		frappe.throw(_("Planning service row not found on this Special Project."))
 
 	linked_row.job_type = order_type
 	linked_row.order_no = order_no
@@ -1217,23 +1346,36 @@ def _link_planning_lifecycle_row(
 
 	sp.flags.ignore_validate = True
 	sp.save(ignore_permissions=True)
-	return linked_row.name or ""
+	return _norm(_row_field(linked_row, "name"))
+
+
+def _link_planning_lifecycle_row(
+	sp_name: str,
+	planning_row: Any,
+	order_type: str,
+	order_no: str,
+	operational_doc: Any | None = None,
+) -> str:
+	return _link_planning_service_row(
+		sp_name, planning_row, order_type, order_no, operational_doc
+	)
 
 
 def _update_lifecycle_job_row_financials(
 	row_name: str, order_type: str, order_no: str
 ) -> None:
-	"""Refresh planned/actual columns on one Lifecycle Job row after linking an operational job."""
+	"""Refresh planned/actual columns on one planning service row after linking an operational job."""
 	from logistics.special_projects.lifecycle_job_financial_rollup import (
 		calculate_linked_job_stack_totals,
 	)
 
-	row_doc = frappe.get_doc("Lifecycle Job", row_name)
+	doctype = _service_row_doctype_for_name(row_name)
+	row_doc = frappe.get_doc(doctype, row_name)
 	pc, pr, ac, ar = calculate_linked_job_stack_totals(
 		order_type, order_no, lifecycle_row=row_doc
 	)
 	frappe.db.set_value(
-		"Lifecycle Job",
+		doctype,
 		row_name,
 		{
 			"planned_cost": pc,
@@ -1266,6 +1408,7 @@ def _create_air_booking(
 	_apply_air_sea_settings_defaults_before_insert(doc)
 	_validate_air_sea_corridor_ports_before_insert(doc)
 	doc.insert(ignore_permissions=True)
+	_propagate_linked_services_after_insert(sp_doc, doc)
 	_link_planning_lifecycle_row(sp_doc.name, row, "Air Booking", doc.name, doc)
 	frappe.db.commit()
 	return {"air_booking": doc.name, "message": _("Air Booking {0} created.").format(doc.name)}
@@ -1292,6 +1435,7 @@ def _create_sea_booking(
 	_apply_air_sea_settings_defaults_before_insert(doc)
 	_validate_air_sea_corridor_ports_before_insert(doc)
 	doc.insert(ignore_permissions=True)
+	_propagate_linked_services_after_insert(sp_doc, doc)
 	_link_planning_lifecycle_row(sp_doc.name, row, "Sea Booking", doc.name, doc)
 	frappe.db.commit()
 	return {"sea_booking": doc.name, "message": _("Sea Booking {0} created.").format(doc.name)}
@@ -1331,6 +1475,7 @@ def _create_transport_order(
 	_apply_cargo_and_shipment_lines(sp_doc, order, shipment_lines)
 	_prepare_charges_before_insert(sp_doc, order, row, creation_parameters)
 	order.insert(ignore_permissions=True)
+	_propagate_linked_services_after_insert(sp_doc, order)
 	_link_planning_lifecycle_row(sp_doc.name, row, "Transport Order", order.name, order)
 	frappe.db.commit()
 	return {"transport_order": order.name, "message": _("Transport Order {0} created.").format(order.name)}
@@ -1360,6 +1505,7 @@ def _create_declaration_order(
 		order.is_internal_job = 0
 	_prepare_charges_before_insert(sp_doc, order, row, creation_parameters)
 	order.insert(ignore_permissions=True)
+	_propagate_linked_services_after_insert(sp_doc, order)
 	_link_planning_lifecycle_row(sp_doc.name, row, "Declaration Order", order.name, order)
 	frappe.db.commit()
 	return {
@@ -1389,6 +1535,7 @@ def _create_inbound_order(
 	_apply_cargo_and_shipment_lines(sp_doc, order, shipment_lines)
 	_prepare_charges_before_insert(sp_doc, order, row, creation_parameters)
 	order.insert(ignore_permissions=True)
+	_propagate_linked_services_after_insert(sp_doc, order)
 	_link_planning_lifecycle_row(sp_doc.name, row, "Inbound Order", order.name, order)
 	frappe.db.commit()
 	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
@@ -1408,6 +1555,7 @@ def _create_project_order(
 	order = build_project_order_from_special_project(sp_doc, title, lifecycle_row=row)
 	_apply_cargo_and_shipment_lines(sp_doc, order, shipment_lines)
 	order.insert(ignore_permissions=True)
+	_propagate_linked_services_after_insert(sp_doc, order)
 	_link_planning_lifecycle_row(sp_doc.name, row, "Project Order", order.name, order)
 	frappe.db.commit()
 	return {
@@ -1452,11 +1600,12 @@ def create_booking_or_order_from_special_project(
 	job_type: str,
 	lifecycle_job_idx: int | None = None,
 	lifecycle_jobs: Any = None,
+	special_project_services: Any = None,
 	order_title: str | None = None,
 	shipment_lines: Any = None,
 	creation_parameters: Any = None,
 ):
-	"""Create the chosen booking/order from the matching Lifecycle Job row on the Special Project."""
+	"""Create the chosen booking/order from the matching Special Project Service row on the Special Project."""
 	if not special_project or not frappe.db.exists("Special Project", special_project):
 		frappe.throw(_("Invalid Special Project."))
 	jt = (job_type or "").strip()
@@ -1467,34 +1616,40 @@ def create_booking_or_order_from_special_project(
 	sp_doc.check_permission("write")
 
 	idx = coerce_internal_job_detail_idx(lifecycle_job_idx)
-	parsed_params = _parse_creation_parameters(creation_parameters)
+	params_explicit = creation_parameters is not None
+	parsed_params = (
+		_parse_creation_parameters(creation_parameters) if params_explicit else None
+	)
+	client_rows = special_project_services if special_project_services is not None else lifecycle_jobs
 
-	with _client_rows_context(lifecycle_jobs):
+	with _client_rows_context(client_rows):
 		validate_lifecycle_job_params_match_quotation(
 			sp_doc,
 			jt,
 			idx,
-			creation_parameters=parsed_params if parsed_params else None,
+			creation_parameters=creation_parameters,
 		)
 		row, resolved_idx = _resolve_row_for_create(sp_doc, jt, idx)
 		if row is None:
 			frappe.throw(
 				_(
-					"Add a Lifecycle Job line with service type matching {0}, or select an existing open line."
+					"Add a Service line with service type matching {0}, or select an existing open line."
 				).format(jt)
 			)
 		if resolved_idx is None:
-			frappe.throw(_("Could not resolve the Lifecycle Job row to update after creation."))
+			frappe.throw(_("Could not resolve the Service row to update after creation."))
 		service_label, scoped_params, merged_row = _resolve_scoped_creation_params(
 			sp_doc,
 			jt,
 			row,
-			parsed_params if parsed_params else None,
+			parsed_params,
 		)
 		handler = _CREATE_DISPATCH[jt]
 		kwargs: dict[str, Any] = {
 			"shipment_lines": shipment_lines,
-			"creation_parameters": scoped_params or None,
+			"creation_parameters": (
+				parsed_params if params_explicit else (scoped_params or None)
+			),
 		}
 		if jt == "Project Order":
 			return handler(

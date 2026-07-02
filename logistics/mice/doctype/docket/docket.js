@@ -46,10 +46,10 @@ frappe.ui.form.on("Docket", {
 					return r.message || { filters: [] };
 				});
 		});
-		frm.set_query("warehouse_item", "packages", function (doc) {
+		frm.set_query("warehouse_item", "packages", function () {
 			var filters = {};
-			if (doc.customer) {
-				filters.customer = doc.customer;
+			if (frm.doc.customer) {
+				filters.customer = frm.doc.customer;
 			}
 			return { filters: filters };
 		});

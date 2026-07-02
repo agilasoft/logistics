@@ -7,11 +7,16 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from logistics.utils.internal_job_creation_eligibility import (
+	_quote_has_matching_linked_service_row,
+	apply_eligibility_to_preview_flags,
 	charges_exist_for_service,
 	evaluate_internal_job_creation_eligibility,
 	has_matching_internal_job_setup,
 	internal_job_matches_charges,
 )
+from logistics.utils.module_integration import _require_internal_job_eligible_for_parent_row
+from logistics.utils.internal_job_persistence import sync_internal_job_details_to_internal_jobs
+from logistics.utils.linked_service_compat import linked_service_doctype
 
 
 class TestInternalJobCreationEligibility(FrappeTestCase):
@@ -173,7 +178,7 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 		self.assertTrue(result["eligible"])
 		self.assertIsNone(result["message"])
 
-	def test_eligibility_message_uses_lifecycle_tab_for_special_project(self):
+	def test_eligibility_message_uses_services_tab_for_special_project(self):
 		parent = MagicMock(doctype="Special Project")
 		ij_row = MagicMock(service_type="Transport", name="lj-1")
 		with patch(
@@ -190,11 +195,141 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 					service_type_label="Transport",
 				)
 		msg = (result.get("message") or "").lower()
-		self.assertIn("lifecycle", msg)
+		self.assertIn("services", msg)
 		self.assertNotIn("internal jobs tab", msg)
 
-	def test_parent_ij_fieldname_uses_lifecycle_jobs_on_special_project(self):
+	def test_parent_ij_fieldname_uses_special_project_services(self):
 		from logistics.utils.internal_job_creation_eligibility import _parent_ij_fieldname
 
-		self.assertEqual(_parent_ij_fieldname("Special Project"), "lifecycle_jobs")
+		self.assertEqual(_parent_ij_fieldname("Special Project"), "special_project_services")
 		self.assertEqual(_parent_ij_fieldname("Exhibit"), "lifecycle_jobs")
+
+	def test_quote_has_matching_linked_service_row_uses_virtual_grid(self):
+		"""Regression: eligibility must not read ``sq_doc.get('linked_services')`` (always empty after save)."""
+		if not frappe.db.exists("DocType", "Sales Quote"):
+			self.skipTest("Sales Quote not installed")
+		if not frappe.db.exists("DocType", linked_service_doctype()):
+			self.skipTest("Linked Service not installed")
+
+		sq = frappe.new_doc("Sales Quote")
+		sq.quotation_type = "Project"
+		sq.main_service = "Special Project"
+		sq.naming_series = "PQ.#####"
+		sq.project_name = "SQ Eligibility Virtual LS"
+		sq.customer = frappe.db.get_value("Customer", {}, "name")
+		if not sq.customer:
+			self.skipTest("No Customer in system")
+		sq.date = frappe.utils.today()
+		sq.valid_until = frappe.utils.add_days(frappe.utils.today(), 30)
+		sq.flags.ignore_mandatory = True
+		sq.insert(ignore_permissions=True)
+		try:
+			sq.append("linked_services", {"service_type": "Transport"})
+			sq.flags._linked_services_from_form = True
+			sync_internal_job_details_to_internal_jobs(sq)
+			reloaded = frappe.get_cached_doc("Sales Quote", sq.name)
+			self.assertEqual(reloaded.get("linked_services") or [], [])
+			self.assertEqual(len(reloaded.linked_services), 1)
+			ls_name = reloaded.linked_services[0].get("linked_service")
+			ls_doc = frappe.get_doc(linked_service_doctype(), ls_name)
+			self.assertTrue(
+				_quote_has_matching_linked_service_row(sq.name, ls_doc, "Transport")
+			)
+		finally:
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+
+	def test_apply_eligibility_to_preview_flags_uses_virtual_linked_services(self):
+		"""Preview must use linked-service eligibility for Air/Sea Shipment sources."""
+		if not frappe.db.exists("DocType", "Sales Quote"):
+			self.skipTest("Sales Quote not installed")
+		if not frappe.db.exists("DocType", linked_service_doctype()):
+			self.skipTest("Linked Service not installed")
+
+		sq = frappe.new_doc("Sales Quote")
+		sq.quotation_type = "Project"
+		sq.main_service = "Special Project"
+		sq.naming_series = "PQ.#####"
+		sq.project_name = "SQ Preview Virtual LS"
+		sq.customer = frappe.db.get_value("Customer", {}, "name")
+		if not sq.customer:
+			self.skipTest("No Customer in system")
+		sq.date = frappe.utils.today()
+		sq.valid_until = frappe.utils.add_days(frappe.utils.today(), 30)
+		sq.flags.ignore_mandatory = True
+		sq.insert(ignore_permissions=True)
+		try:
+			sq.append("linked_services", {"service_type": "Transport"})
+			sq.flags._linked_services_from_form = True
+			sync_internal_job_details_to_internal_jobs(sq)
+			reloaded = frappe.get_cached_doc("Sales Quote", sq.name)
+			ls_name = reloaded.linked_services[0].get("linked_service")
+			charge_row = frappe._dict(
+				service_type="Transport",
+				linked_service=ls_name,
+				charge_scope="Linked",
+			)
+			preview = apply_eligibility_to_preview_flags(
+				{"creatable": True},
+				sales_quote=reloaded.name,
+				parent_doc=reloaded,
+				ij_row=charge_row,
+				service_type_label="Transport",
+				uses_linked_charge_create=True,
+			)
+			self.assertTrue(preview.get("creatable"), msg=preview.get("not_creatable_message"))
+			self.assertIsNone(preview.get("not_creatable_message"))
+		finally:
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+
+	def test_require_internal_job_eligible_for_parent_row_uses_virtual_linked_services(self):
+		"""Create-time validation must use linked-service eligibility for freight shipments."""
+		if not frappe.db.exists("DocType", "Sales Quote"):
+			self.skipTest("Sales Quote not installed")
+		if not frappe.db.exists("DocType", linked_service_doctype()):
+			self.skipTest("Linked Service not installed")
+		if not frappe.db.exists("DocType", "Air Shipment"):
+			self.skipTest("Air Shipment not installed")
+
+		sq = frappe.new_doc("Sales Quote")
+		sq.quotation_type = "Project"
+		sq.main_service = "Special Project"
+		sq.naming_series = "PQ.#####"
+		sq.project_name = "SQ Create Eligibility LS"
+		sq.customer = frappe.db.get_value("Customer", {}, "name")
+		if not sq.customer:
+			self.skipTest("No Customer in system")
+		sq.date = frappe.utils.today()
+		sq.valid_until = frappe.utils.add_days(frappe.utils.today(), 30)
+		sq.flags.ignore_mandatory = True
+		sq.insert(ignore_permissions=True)
+		asp = None
+		try:
+			sq.append("linked_services", {"service_type": "Transport"})
+			sq.flags._linked_services_from_form = True
+			sync_internal_job_details_to_internal_jobs(sq)
+			reloaded_sq = frappe.get_cached_doc("Sales Quote", sq.name)
+			ls_name = reloaded_sq.linked_services[0].get("linked_service")
+			charge_row = frappe._dict(
+				service_type="Transport",
+				linked_service=ls_name,
+				charge_scope="Linked",
+			)
+			asp = frappe.new_doc("Air Shipment")
+			asp.sales_quote = sq.name
+			asp.flags.ignore_mandatory = True
+			asp.insert(ignore_permissions=True)
+			asp.append(
+				"charges",
+				{
+					"service_type": "Transport",
+					"linked_service": ls_name,
+					"charge_scope": "Linked",
+				},
+			)
+			asp.flags.ignore_mandatory = True
+			asp.save(ignore_permissions=True)
+			_require_internal_job_eligible_for_parent_row(asp, charge_row, "Transport Order")
+		finally:
+			if asp and frappe.db.exists("Air Shipment", asp.name):
+				frappe.delete_doc("Air Shipment", asp.name, force=True, ignore_permissions=True)
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)

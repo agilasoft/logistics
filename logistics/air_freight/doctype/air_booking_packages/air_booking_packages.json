@@ -14,6 +14,7 @@
   "column_break_pjoj",
   "uom",
   "no_of_packs",
+  "quantity",
   "column_break_dbep",
   "goods_description",
   "measurements_section",
@@ -55,8 +56,8 @@
   {
    "fieldname": "warehouse_item",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Warehouse Item",
-   "link_filters": "[[\"Warehouse Item\",\"customer\",\"=\",\"eval:parent.local_customer\"]]",
    "options": "Warehouse Item"
   },
   {
@@ -84,6 +85,13 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "No of Packs"
+  },
+  {
+   "columns": 1,
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Quantity"
   },
   {
    "fieldname": "uom",
@@ -229,8 +237,8 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-06-05 14:01:03.300668",
- "modified_by": "dee.sambrano@agilasoft.com",
+ "modified": "2026-06-26 10:54:44.904671",
+ "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Booking Packages",
  "owner": "Administrator",
