@@ -87,6 +87,9 @@ _SQC_TO_PROGRAMME_CHARGE_FIELDS = (
 _PROGRAMME_CHARGE_LINKAGE_FIELDS = (
 	"change_request",
 	"change_request_charge",
+	"charge_scope",
+	"linked_service",
+	"internal_job",
 )
 
 _SALES_QUOTE_CHARGE_DOCTYPE = "Sales Quote Charge"

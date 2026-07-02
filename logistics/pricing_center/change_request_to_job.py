@@ -16,6 +16,13 @@ from logistics.pricing_center.additional_charge_to_job import (
 	_amendment_family_names,
 	_row_val,
 )
+from logistics.utils.linked_service_compat import (
+	CHARGE_SCOPE_LINKED,
+	charge_row_linked_service_link,
+	linked_service_detail_doctype,
+	set_charge_row_linked_service_link,
+)
+from logistics.utils.sales_quote_charge_copy import stamp_scope_fields_on_charge_row
 
 # Backward-compatible alias for declaration-only checks elsewhere in this module.
 _DECLARATION_JOB_TYPES = frozenset({"Declaration", "Declaration Order"})
@@ -362,20 +369,26 @@ def _resolve_main_and_default_internal_job(cr_doc):
 
 
 def _satellite_for_internal_job(main_job_type, main_job, internal_job_name):
-	"""Locate the operational satellite booking materialised from a given Internal Job under a Main job.
+	"""Locate the operational satellite booking materialised from a given Linked Service under a Main job.
 
 	Returns ``(satellite_doctype, satellite_name)`` or ``(None, None)`` when no satellite exists
-	(the Internal Job Detail row may not have been materialised into an actual booking yet).
+	(the Linked Service Detail row may not have been materialised into an actual booking yet).
 	"""
-	ij = (internal_job_name or "").strip()
-	if not ij or not main_job_type or not main_job:
+	ls = (internal_job_name or "").strip()
+	if not ls or not main_job_type or not main_job:
 		return None, None
+	detail_dt = linked_service_detail_doctype()
+	try:
+		detail_meta = frappe.get_meta(detail_dt)
+	except Exception:
+		return None, None
+	link_field = "linked_service" if detail_meta.has_field("linked_service") else "internal_job"
 	rows = frappe.get_all(
-		"Internal Job Detail",
+		detail_dt,
 		filters={
 			"parent": main_job,
 			"parenttype": main_job_type,
-			"internal_job": ij,
+			link_field: ls,
 		},
 		fields=["job_type", "job_no"],
 		limit=1,
@@ -408,7 +421,7 @@ def _safe_append_charge_to_doc(target_doc, raw_dict):
 	``MagicMock`` document — the dict is appended as-is so the existing main-job code path stays
 	wire-compatible with the previous implementation.
 
-	After ``append``, the resulting row's ``charge_scope`` / ``internal_job`` are re-stamped from
+	After ``append``, the resulting row's ``charge_scope`` / ``linked_service`` are re-stamped from
 	the raw dict (when present) to guarantee they survive any default value the destination's
 	schema may apply (``Main`` is the default for ``charge_scope`` on every booking child table).
 
@@ -426,16 +439,14 @@ def _safe_append_charge_to_doc(target_doc, raw_dict):
 		except Exception:
 			payload = raw_dict
 	appended = target_doc.append("charges", payload)
-	# Force ``charge_scope`` / ``internal_job`` onto the appended row in case Frappe applied a
-	# schema default (every booking child table defaults ``charge_scope`` to "Main") that
-	# silently shadowed the value we passed in via ``payload``.
+	# Force scope / linked-service onto the appended row in case Frappe applied schema defaults.
 	scope_val = raw_dict.get("charge_scope")
-	ij_val = raw_dict.get("internal_job")
+	ls_val = charge_row_linked_service_link(raw_dict)
 	if appended is not None:
 		if scope_val and hasattr(appended, "charge_scope"):
-			appended.charge_scope = scope_val
-		if ij_val and hasattr(appended, "internal_job"):
-			appended.internal_job = ij_val
+			stamp_scope_fields_on_charge_row(appended, scope_val, ls_val)
+		elif ls_val:
+			stamp_scope_fields_on_charge_row(appended, CHARGE_SCOPE_LINKED, ls_val)
 	return True
 
 
@@ -456,22 +467,66 @@ def _produce_cost_dict_for_target(cr_doc, row, target_job_type, target_job_doc):
 	return fn(row, cr_doc.name, row.name)
 
 
-def _internal_job_for_row(row, default_internal_job):
-	"""Pick the Internal Job tag for a CR Charge row: row-level wins, else the CR's default."""
-	row_ij = (_row_val(row, "internal_job") or "").strip()
-	return row_ij or ((default_internal_job or "").strip() or None)
+def _cr_charge_linked_service_map(cr_doc):
+	return {
+		(c.name or ""): charge_row_linked_service_link(c)
+		for c in (cr_doc.get("charges") or [])
+	}
 
 
-def _decorate_charge_dict_with_internal_job_scope(charge_dict, target_doc, internal_job_name):
-	"""Mark a charge dict as Internal-Job-scoped when the destination supports those columns.
+def _linked_service_names_from_cr_doc(cr_doc, default_linked_service=None):
+	names = set()
+	for row in cr_doc.get("charges") or []:
+		ls = charge_row_linked_service_link(row)
+		if ls:
+			names.add(ls)
+	default_ls = (default_linked_service or "").strip()
+	if default_ls:
+		names.add(default_ls)
+	return names
 
-	Sets ``charge_scope='Internal Job'`` and ``internal_job=<X>`` explicitly (not via setdefault).
+
+def _restamp_linked_scope_on_charge_row(row, linked_service_name):
+	"""Re-assert Linked scope + linked_service link on a charge row. Returns True if changed."""
+	if not linked_service_name:
+		return False
+	changed = False
+	if hasattr(row, "charge_scope"):
+		current_scope = getattr(row, "charge_scope", None)
+		if (current_scope or "").strip() != CHARGE_SCOPE_LINKED:
+			stamp_scope_fields_on_charge_row(row, CHARGE_SCOPE_LINKED, linked_service_name)
+			changed = True
+		elif charge_row_linked_service_link(row) != linked_service_name:
+			stamp_scope_fields_on_charge_row(row, CHARGE_SCOPE_LINKED, linked_service_name)
+			changed = True
+	elif isinstance(row, dict):
+		stamp_scope_fields_on_charge_row(row, CHARGE_SCOPE_LINKED, linked_service_name)
+		changed = True
+	return changed
+
+
+def _linked_service_for_row(row, default_linked_service=None):
+	"""Pick the Linked Service tag for a CR Charge row: row-level wins, else the CR default."""
+	ls = charge_row_linked_service_link(row)
+	if ls:
+		return ls
+	return ((default_linked_service or "").strip() or None)
+
+
+# Backward-compatible alias.
+_internal_job_for_row = _linked_service_for_row
+
+
+def _decorate_charge_dict_with_linked_service_scope(charge_dict, target_doc, linked_service_name):
+	"""Mark a charge dict as Linked-service-scoped when the destination supports those columns.
+
+	Sets ``charge_scope='Linked'`` and ``linked_service=<X>`` explicitly (not via setdefault).
 	Direct assignment guarantees that even if an upstream mapper accidentally produced a
 	``charge_scope`` value (e.g. ``Main`` inherited from a row copy), it gets overridden so the
-	IJ-scoped row is always tagged correctly. Silently skipped on tables that don't expose
+	linked-service row is always tagged correctly. Silently skipped on tables that don't expose
 	``charge_scope`` (e.g. Special Project Charges).
 	"""
-	if not internal_job_name:
+	if not linked_service_name:
 		return charge_dict
 	child = _child_doctype_for_charges_table(target_doc.doctype)
 	if not child:
@@ -482,10 +537,13 @@ def _decorate_charge_dict_with_internal_job_scope(charge_dict, target_doc, inter
 		return charge_dict
 	valid = {f.fieldname for f in meta.fields}
 	if "charge_scope" in valid:
-		charge_dict["charge_scope"] = "Internal Job"
-	if "internal_job" in valid:
-		charge_dict["internal_job"] = internal_job_name
+		charge_dict["charge_scope"] = CHARGE_SCOPE_LINKED
+	set_charge_row_linked_service_link(charge_dict, linked_service_name)
 	return charge_dict
+
+
+# Backward-compatible alias.
+_decorate_charge_dict_with_internal_job_scope = _decorate_charge_dict_with_linked_service_scope
 
 
 # ---------------------------------------------------------------------------
@@ -584,12 +642,12 @@ def apply_change_request_charges_to_job(cr_doc):
 		if not _row_val(row, "item_code"):
 			continue
 
-		ij_tag = _internal_job_for_row(row, default_ij)
+		ij_tag = _linked_service_for_row(row, default_ij)
 
 		# --- Main side ----------------------------------------------------------------
 		main_dict = _produce_cost_dict_for_target(cr_doc, row, main_job_type, main_job_doc)
 		if main_dict:
-			_decorate_charge_dict_with_internal_job_scope(main_dict, main_job_doc, ij_tag)
+			_decorate_charge_dict_with_linked_service_scope(main_dict, main_job_doc, ij_tag)
 			if _safe_append_charge_to_doc(main_job_doc, main_dict):
 				added_main += 1
 
@@ -612,7 +670,7 @@ def apply_change_request_charges_to_job(cr_doc):
 		if sat_dict:
 			# Satellite row already implicitly scoped to its IJ (it lives on the satellite).
 			# Still set the tag explicitly when the child supports it for clarity / filtering.
-			_decorate_charge_dict_with_internal_job_scope(sat_dict, sat_doc, ij_tag)
+			_decorate_charge_dict_with_linked_service_scope(sat_dict, sat_doc, ij_tag)
 			if _safe_append_charge_to_doc(sat_doc, sat_dict):
 				added_satellites += 1
 
@@ -672,14 +730,7 @@ def remove_change_request_charges_from_job(cr_doc):
 	# Walk every satellite that may have received a mirrored row. The set of IJs to clean up is
 	# the union of (a) IJs explicitly tagged on the CR's own charge rows and (b) the satellite's
 	# own IJ when the CR target was a satellite.
-	ij_names = set()
-	for row in cr_doc.get("charges") or []:
-		ij = (_row_val(row, "internal_job") or "").strip()
-		if ij:
-			ij_names.add(ij)
-	if default_ij:
-		ij_names.add(default_ij)
-
+	ij_names = _linked_service_names_from_cr_doc(cr_doc, default_ij)
 	for ij in ij_names:
 		sat_type, sat_name = _satellite_for_internal_job(main_job_type, main_job_name, ij)
 		if not sat_type or not sat_name:
@@ -840,14 +891,7 @@ def _docs_touched_by_change_request(cr_doc):
 	except frappe.DoesNotExistError:
 		return
 
-	ij_names = set()
-	for row in cr_doc.get("charges") or []:
-		ij = (_row_val(row, "internal_job") or "").strip()
-		if ij:
-			ij_names.add(ij)
-	if default_ij:
-		ij_names.add(default_ij)
-
+	ij_names = _linked_service_names_from_cr_doc(cr_doc, default_ij)
 	for ij in ij_names:
 		sat_type, sat_name = _satellite_for_internal_job(main_job_type, main_job_name, ij)
 		if not sat_type or not sat_name:
@@ -877,12 +921,8 @@ def link_sales_quote_to_change_request_job_charges(cr_name: str, sales_quote_nam
 	if not getattr(cr_doc, "job_type", None) or not getattr(cr_doc, "job", None):
 		return 0
 
-	# CR Charge name -> internal_job tag, used to re-stamp scope on linked job rows so the
-	# scope set at CR submit time is reasserted on every save in this flow.
-	cr_charge_ij = {
-		(c.name or ""): (getattr(c, "internal_job", None) or "").strip()
-		for c in (cr_doc.get("charges") or [])
-	}
+	# CR Charge name -> linked_service tag, used to re-stamp scope on linked job rows.
+	cr_charge_ls = _cr_charge_linked_service_map(cr_doc)
 
 	total_updated = 0
 	for job_doc in _docs_touched_by_change_request(cr_doc):
@@ -891,15 +931,9 @@ def link_sales_quote_to_change_request_job_charges(cr_name: str, sales_quote_nam
 			if getattr(row, "change_request", None) != cr_name:
 				continue
 			crc = (getattr(row, "change_request_charge", None) or "").strip()
-			ij = cr_charge_ij.get(crc) or ""
-			# Re-assert IJ scope defensively (no-op when the schema lacks the columns).
-			if ij:
-				if hasattr(row, "charge_scope") and getattr(row, "charge_scope", None) != "Internal Job":
-					row.charge_scope = "Internal Job"
-					updated_here += 1
-				if hasattr(row, "internal_job") and (getattr(row, "internal_job", None) or "") != ij:
-					row.internal_job = ij
-					updated_here += 1
+			ls = cr_charge_ls.get(crc) or ""
+			if ls and _restamp_linked_scope_on_charge_row(row, ls):
+				updated_here += 1
 			if (getattr(row, "sales_quote_link", None) or "").strip() == sales_quote_name:
 				continue
 			row.sales_quote_link = sales_quote_name
@@ -935,11 +969,8 @@ def merge_sales_quote_revenue_into_change_request_job_rows(sq_doc):
 		return 0
 
 	job_doc = frappe.get_doc(sq_doc.job_type, sq_doc.job)
-	# Cache the CR Charge -> internal_job lookup so we can re-stamp scope after revenue merge.
-	cr_charge_ij = {
-		(c.name or ""): (getattr(c, "internal_job", None) or "").strip()
-		for c in (frappe.get_doc("Change Request", cr_name).get("charges") or [])
-	}
+	cr_doc = frappe.get_doc("Change Request", cr_name)
+	cr_charge_ls = _cr_charge_linked_service_map(cr_doc)
 	updated = 0
 	for sq_row in sq_doc.get("charges") or []:
 		if not _row_val(sq_row, "item_code"):
@@ -955,15 +986,9 @@ def merge_sales_quote_revenue_into_change_request_job_rows(sq_doc):
 			continue
 		applier(job_row, sq_row)
 		job_row.sales_quote_link = sq_doc.name
-		# Re-assert IJ scope on the Main row when the originating CR Charge was IJ-tagged. The
-		# applier never sets ``charge_scope`` / ``internal_job`` itself, so this guarantees the
-		# Main row still reflects the Change Request's scope after the revenue merge.
-		ij = cr_charge_ij.get(crc) or ""
-		if ij:
-			if hasattr(job_row, "charge_scope"):
-				job_row.charge_scope = "Internal Job"
-			if hasattr(job_row, "internal_job"):
-				job_row.internal_job = ij
+		ls = cr_charge_ls.get(crc) or ""
+		if ls:
+			_restamp_linked_scope_on_charge_row(job_row, ls)
 		updated += 1
 
 	if updated > 0:
@@ -1003,13 +1028,7 @@ def _propagate_sales_quote_revenue_to_change_request_satellites(sq_doc, cr_name)
 	if not main_job_type or not main_job_name:
 		return
 
-	ij_names = set()
-	for row in cr_doc.get("charges") or []:
-		ij = (_row_val(row, "internal_job") or "").strip()
-		if ij:
-			ij_names.add(ij)
-	if default_ij:
-		ij_names.add(default_ij)
+	ij_names = _linked_service_names_from_cr_doc(cr_doc, default_ij)
 	if not ij_names:
 		return
 
@@ -1046,13 +1065,7 @@ def _propagate_sales_quote_revenue_to_change_request_satellites(sq_doc, cr_name)
 				continue
 			applier(sat_row, sq_row)
 			sat_row.sales_quote_link = sq_doc.name
-			# Re-assert IJ scope on the satellite row — defensively, in case an intervening flow
-			# (e.g. ``_populate_charges_from_sales_quote_doc`` Path-2) rebuilt the row and left
-			# ``charge_scope`` at the schema default of ``Main``.
-			if hasattr(sat_row, "charge_scope"):
-				sat_row.charge_scope = "Internal Job"
-			if hasattr(sat_row, "internal_job"):
-				sat_row.internal_job = ij
+			_restamp_linked_scope_on_charge_row(sat_row, ij)
 			touched += 1
 		if touched > 0:
 			sat_doc.flags.ignore_validate_update_after_submit = True
@@ -1134,13 +1147,7 @@ def _clear_sales_quote_revenue_from_satellites(sq_doc, cr_name, family):
 	main_job_type, main_job_name, default_ij = _resolve_main_and_default_internal_job(cr_doc)
 	if not main_job_type or not main_job_name:
 		return
-	ij_names = set()
-	for row in cr_doc.get("charges") or []:
-		ij = (_row_val(row, "internal_job") or "").strip()
-		if ij:
-			ij_names.add(ij)
-	if default_ij:
-		ij_names.add(default_ij)
+	ij_names = _linked_service_names_from_cr_doc(cr_doc, default_ij)
 	for ij in ij_names:
 		sat_type, sat_name = _satellite_for_internal_job(main_job_type, main_job_name, ij)
 		if not sat_type or not sat_name:
@@ -1162,14 +1169,12 @@ def _clear_sales_quote_revenue_from_satellites(sq_doc, cr_name, family):
 
 @frappe.whitelist()
 def backfill_internal_job_scope_on_change_request_rows(cr_name: str | None = None) -> dict:
-	"""Re-stamp ``charge_scope='Internal Job'`` and ``internal_job=<X>`` on Change-Request-tagged
-	rows that were created before the explicit scope assignment was added.
+	"""Re-stamp ``charge_scope='Linked'`` and ``linked_service=<X>`` on Change-Request-tagged rows.
 
 	When ``cr_name`` is supplied only that Change Request is fixed; otherwise every submitted
-	Change Request is walked. For each CR Charge with a non-empty ``internal_job`` value, every
-	matching job/satellite row tagged with the CR is patched so its ``charge_scope`` is
-	``Internal Job`` and its ``internal_job`` matches the CR Charge tag. Returns a summary dict
-	with the count of documents updated.
+	Change Request is walked. For each CR Charge with a non-empty linked-service value, every
+	matching job/satellite row tagged with the CR is patched. Returns a summary dict with the
+	count of documents updated.
 
 	Run via::
 
@@ -1186,11 +1191,8 @@ def backfill_internal_job_scope_on_change_request_rows(cr_name: str | None = Non
 			cr_doc = frappe.get_doc("Change Request", crn)
 		except frappe.DoesNotExistError:
 			continue
-		cr_charge_ij = {
-			(c.name or ""): (getattr(c, "internal_job", None) or "").strip()
-			for c in (cr_doc.get("charges") or [])
-		}
-		if not any(cr_charge_ij.values()):
+		cr_charge_ls = _cr_charge_linked_service_map(cr_doc)
+		if not any(cr_charge_ls.values()):
 			continue
 		for job_doc in _docs_touched_by_change_request(cr_doc):
 			rows_changed = 0
@@ -1198,14 +1200,10 @@ def backfill_internal_job_scope_on_change_request_rows(cr_name: str | None = Non
 				if getattr(row, "change_request", None) != crn:
 					continue
 				crc = (getattr(row, "change_request_charge", None) or "").strip()
-				ij = cr_charge_ij.get(crc) or ""
-				if not ij:
+				ls = cr_charge_ls.get(crc) or ""
+				if not ls:
 					continue
-				if hasattr(row, "charge_scope") and getattr(row, "charge_scope", None) != "Internal Job":
-					row.charge_scope = "Internal Job"
-					rows_changed += 1
-				if hasattr(row, "internal_job") and (getattr(row, "internal_job", None) or "") != ij:
-					row.internal_job = ij
+				if _restamp_linked_scope_on_charge_row(row, ls):
 					rows_changed += 1
 			if rows_changed > 0:
 				job_doc.flags.ignore_validate_update_after_submit = True

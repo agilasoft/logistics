@@ -86,7 +86,6 @@
   "recognized_costs",
   "accrual_closed",
   "quote_reference_section",
-  "service_scope",
   "main_service",
   "main_service_type",
   "service_role",
@@ -96,8 +95,6 @@
   "is_internal_job",
   "main_job_type",
   "main_job",
-  "internal_job_details_section",
-  "internal_job_details",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
@@ -670,19 +667,6 @@
    "read_only": 1
   },
   {
-   "depends_on": "eval:doc.is_main_service",
-   "fieldname": "internal_job_details_section",
-   "fieldtype": "Section Break",
-   "label": "Internal Jobs"
-  },
-  {
-   "depends_on": "eval:doc.is_main_service",
-   "fieldname": "internal_job_details",
-   "fieldtype": "Table",
-   "label": "Internal Jobs",
-   "options": "Internal Job Detail"
-  },
-  {
    "fieldname": "milestones_tab",
    "fieldtype": "Tab Break",
    "label": "Milestones"
@@ -914,13 +898,6 @@
    "fieldtype": "Dynamic Link",
    "label": "Main Service",
    "options": "main_service_type",
-   "read_only": 1
-  },
-  {
-   "fieldname": "service_scope",
-   "fieldtype": "Link",
-   "label": "Service Scope",
-   "options": "Sales Quote",
    "read_only": 1
   }
  ],

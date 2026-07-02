@@ -5,6 +5,7 @@ import frappe
 from frappe.model.document import Document
 
 
+
 class ExhibitJob(Document):
 	def validate(self):
 		if self.exhibit:

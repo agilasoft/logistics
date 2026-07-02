@@ -5,6 +5,7 @@ import frappe
 from frappe.model.document import Document
 
 
+
 class MICEJob(Document):
 	def validate(self):
 		self._sync_from_exhibit()

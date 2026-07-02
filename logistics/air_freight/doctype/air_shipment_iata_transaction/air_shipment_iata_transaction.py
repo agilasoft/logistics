@@ -74,7 +74,16 @@ class AirShipmentIATATransaction(Document):
 	@frappe.whitelist()
 	def lookup_tact_rate(self):
 		try:
-			iata_settings = frappe.get_single("IATA Settings")
+			from logistics.air_freight.utils.iata_settings_utils import get_settings
+
+			company = frappe.db.get_value("Air Shipment", self.air_shipment, "company")
+			iata_settings = get_settings(company=company, air_shipment=self.air_shipment)
+			if not iata_settings:
+				frappe.throw(
+					_("IATA Settings not found for company {0}. Please create IATA Settings for this company.").format(
+						company or _("(unknown)")
+					)
+				)
 			if not iata_settings.tact_subscription:
 				frappe.throw(_("TACT subscription is not enabled in IATA Settings"))
 			if not iata_settings.tact_api_key:

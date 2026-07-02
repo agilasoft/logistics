@@ -154,15 +154,67 @@ def parameter_fields_for_service_type(service_type_label: str) -> tuple[str, ...
 	return _SERVICE_SCOPED_PARAMETER_FIELDS.get(canonical, ())
 
 
-def extract_sales_quote_charge_parameters(row: Any) -> dict[str, Any]:
-	"""Non-empty parameter values from a Sales Quote Charge row (dict or document)."""
+def _extract_legacy_row_parameters(row: Any) -> dict[str, Any]:
+	"""Read routing parameters stored on the charge row (pre-migration columns)."""
 	out: dict[str, Any] = {}
+	existing = set(
+		filter_fields_existing_in_doctype("Sales Quote Charge", list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS))
+	)
 	for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS:
+		if fn not in existing:
+			continue
 		val = _row_val(row, fn)
 		if not _is_meaningful_param_value(fn, val):
 			continue
 		out[fn] = val
 	return out
+
+
+def resolve_parameters_for_charge_row(charge_row: Any, quote_doc: Any | None = None) -> dict[str, Any]:
+	"""Routing parameters for a Sales Quote Charge from its tagged service (Main or Linked)."""
+	from logistics.utils.linked_service_compat import (
+		charge_row_linked_service_link,
+		is_linked_charge_scope,
+		linked_service_doctype,
+		normalize_charge_scope,
+	)
+
+	service_type = (_row_val(charge_row, "service_type") or "").strip()
+	scope = normalize_charge_scope(_row_val(charge_row, "charge_scope"))
+
+	if is_linked_charge_scope(scope):
+		ls_name = charge_row_linked_service_link(charge_row)
+		dt = linked_service_doctype()
+		if ls_name and frappe.db.exists(dt, ls_name):
+			try:
+				ls_doc = frappe.get_cached_doc(dt, ls_name)
+				return extract_service_scoped_quote_parameters(ls_doc, service_type)
+			except Exception:
+				return {}
+		return {}
+
+	if quote_doc:
+		return extract_service_scoped_quote_parameters(quote_doc, service_type)
+	return {}
+
+
+def extract_sales_quote_charge_parameters(row: Any, quote_doc: Any | None = None) -> dict[str, Any]:
+	"""Non-empty routing parameters for a Sales Quote Charge row.
+
+	When *quote_doc* is supplied, parameters are resolved from the tagged service
+	(Main = quote scope header, Linked = Linked Service document). Otherwise falls
+	back to legacy per-row columns when present.
+	"""
+	if quote_doc is not None:
+		resolved = resolve_parameters_for_charge_row(row, quote_doc)
+		if resolved:
+			return resolved
+	legacy = _extract_legacy_row_parameters(row)
+	if legacy:
+		return legacy
+	if quote_doc is not None:
+		return resolve_parameters_for_charge_row(row, quote_doc)
+	return {}
 
 
 def merge_charge_row_parameters_onto_dict(
@@ -371,8 +423,17 @@ def _lookup_change_request_charge_parameters(
 def resolve_programme_charge_row_parameters(
 	charge_row: Any, service_type_label: str | None = None
 ) -> dict[str, Any]:
-	"""Routing parameters for a programme charge row, including linked CR / Sales Quote sources."""
+	"""Routing parameters for a programme charge row, including linked service / CR / Sales Quote."""
 	st = (service_type_label or _row_val(charge_row, "service_type") or "").strip()
+	service_line = (_row_val(charge_row, "special_project_service_line") or "").strip()
+	if service_line and frappe.db.exists("Special Project Service", service_line):
+		try:
+			service_doc = frappe.get_cached_doc("Special Project Service", service_line)
+			resolved = extract_service_scoped_quote_parameters(service_doc, st)
+			if resolved:
+				return resolved
+		except Exception:
+			pass
 	direct = (
 		extract_service_scoped_quote_parameters(charge_row, st)
 		if st
@@ -516,12 +577,81 @@ def resolve_parameters_from_sales_quote_scope(quote_doc: Any) -> dict[str, Any]:
 	return out
 
 
+def _parameter_field_label(fieldname: str) -> str:
+	for dt in ("Linked Service", "Sales Quote"):
+		try:
+			df = frappe.get_meta(dt).get_field(fieldname)
+			if df and df.label:
+				return str(df.label)
+		except Exception:
+			pass
+	return fieldname.replace("_", " ").title()
+
+
+def format_parameters_display_text(
+	params: dict[str, Any] | None, service_type_label: str | None = None
+) -> str:
+	"""Human-readable multi-line summary for the charge ``parameters`` display field."""
+	if not params:
+		return ""
+	scoped = (
+		extract_service_scoped_params_dict(params, service_type_label or "")
+		if service_type_label
+		else params
+	)
+	if not scoped:
+		scoped = {
+			k: v
+			for k, v in (params or {}).items()
+			if k != "charge_group" and _is_meaningful_param_value(k, v)
+		}
+	if not scoped:
+		return ""
+	lines: list[str] = []
+	for fn in sorted(scoped.keys()):
+		if fn == "charge_group":
+			continue
+		val = scoped[fn]
+		if not _is_meaningful_param_value(fn, val):
+			continue
+		lines.append(f"{_parameter_field_label(fn)}: {val}")
+	return "\n".join(lines)
+
+
+def refresh_sales_quote_charge_parameters_display(charge_row: Any, quote_doc: Any | None = None) -> str:
+	"""Set and return the read-only ``parameters`` text for one charge row."""
+	service_type = (_row_val(charge_row, "service_type") or "").strip()
+	params = resolve_parameters_for_charge_row(charge_row, quote_doc)
+	if not params:
+		params = _extract_legacy_row_parameters(charge_row)
+	text = format_parameters_display_text(params, service_type)
+	if hasattr(charge_row, "parameters"):
+		charge_row.parameters = text
+	elif isinstance(charge_row, dict):
+		charge_row["parameters"] = text
+	return text
+
+
+@frappe.whitelist()
+def format_charge_parameters_display(charge_row=None, quote_doc=None) -> str:
+	"""Desk helper: format parameters for a charge row given optional parent quote snapshot."""
+	if isinstance(charge_row, str):
+		charge_row = frappe.parse_json(charge_row)
+	if isinstance(quote_doc, str):
+		quote_doc = frappe.parse_json(quote_doc)
+	if not charge_row:
+		return ""
+	service_type = ""
+	if isinstance(charge_row, dict):
+		service_type = (charge_row.get("service_type") or "").strip()
+	else:
+		service_type = (getattr(charge_row, "service_type", None) or "").strip()
+	params = resolve_parameters_for_charge_row(charge_row, quote_doc)
+	if not params:
+		params = _extract_legacy_row_parameters(charge_row)
+	return format_parameters_display_text(params, service_type)
+
+
 def effective_charge_row_parameters(charge_row: Any, quote_doc: Any | None = None) -> dict[str, Any]:
-	"""Merge quote-scope header parameters with any non-empty values on the charge row."""
-	scope_params = resolve_parameters_from_sales_quote_scope(quote_doc) if quote_doc else {}
-	row_params = extract_sales_quote_charge_parameters(charge_row)
-	merged = dict(scope_params)
-	for k, v in row_params.items():
-		if v is not None and str(v).strip() != "":
-			merged[k] = v
-	return merged
+	"""Routing parameters for a charge row (tagged service, with legacy row fallback)."""
+	return extract_sales_quote_charge_parameters(charge_row, quote_doc)

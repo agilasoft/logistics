@@ -8,6 +8,7 @@ from frappe.model.document import Document
 from typing import Dict, Any, List, Optional
 from frappe.utils import nowdate, flt, getdate, get_datetime, add_days, cint
 
+
 class TransportJob(Document):
     def validate(self):
         """Validate Transport Job data"""

@@ -6,9 +6,12 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "charge_scope",
+  "linked_service",
   "column_break_other_svc",
   "service_type",
-  "lifecycle_job_line",
+  "lifecycle_stage",
+  "special_project_service_line",
   "item_code",
   "item_name",
   "container_deposit_pending_refund_gl",
@@ -112,12 +115,20 @@
    "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE"
   },
   {
-   "description": "Lifecycle execution row that owns this charge. Empty = available for assignment.",
-   "fieldname": "lifecycle_job_line",
+   "description": "Lifecycle stage this charge belongs to. Empty = available for assignment.",
+   "fieldname": "lifecycle_stage",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Lifecycle Job Line",
-   "options": "Lifecycle Job"
+   "label": "Lifecycle Stage",
+   "options": "Lifecycle Stage"
+  },
+  {
+   "description": "Service leg this charge belongs to. Empty = available for assignment.",
+   "fieldname": "special_project_service_line",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Service Line",
+   "options": "Special Project Service"
   },
   {
    "default": "0",
@@ -751,6 +762,26 @@
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"
+  },
+  {
+   "default": "Main",
+   "fieldname": "charge_scope",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Scope",
+   "options": "Main\nLinked"
+  },
+  {
+   "depends_on": "eval:doc.charge_scope==\"Linked\"",
+   "fieldname": "linked_service",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Linked Service",
+   "mandatory_depends_on": "eval:doc.charge_scope==\"Linked\"",
+   "options": "Linked Service",
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,

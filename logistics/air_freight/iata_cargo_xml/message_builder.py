@@ -9,14 +9,22 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Dict, Any, Optional
 from .base_connector import IATAConnector
+from logistics.air_freight.utils.iata_airport import resolve_unloco_iata_code
 
 
 class MessageBuilder(IATAConnector):
     """Builds IATA Cargo-XML messages"""
     
-    def __init__(self):
-        super().__init__()
+    def __init__(self, company=None):
+        super().__init__(company=company)
         self.namespace = "http://www.iata.org/IATA/CargoXML/1.0"
+
+    def _apply_company(self, company):
+        from logistics.air_freight.utils.iata_settings_utils import default_settings, get_settings
+
+        if company and company != self.company:
+            self.company = company
+            self.settings = get_settings(company=company) or default_settings()
     
     def build_fwb_message(self, air_freight_job_name: str) -> str:
         """Build FWB (Freight Waybill Message) XML"""
@@ -153,6 +161,11 @@ class MessageBuilder(IATAConnector):
     def send_fwb_message(self, air_freight_job_name: str) -> Dict[str, Any]:
         """Build and send FWB message"""
         try:
+            from logistics.air_freight.utils.iata_settings_utils import resolve_company
+
+            self._apply_company(
+                resolve_company(air_shipment=air_freight_job_name)
+            )
             xml_content = self.build_fwb_message(air_freight_job_name)
             result = self.send_message("FWB", xml_content)
             
@@ -168,6 +181,11 @@ class MessageBuilder(IATAConnector):
     def send_fsu_message(self, air_freight_job_name: str, status_code: str = "DEP", status_description: str = "Departed") -> Dict[str, Any]:
         """Build and send FSU message"""
         try:
+            from logistics.air_freight.utils.iata_settings_utils import resolve_company
+
+            self._apply_company(
+                resolve_company(air_shipment=air_freight_job_name)
+            )
             xml_content = self.build_fsu_message(air_freight_job_name, status_code, status_description)
             result = self.send_message("FSU", xml_content)
             
@@ -183,8 +201,16 @@ class MessageBuilder(IATAConnector):
     def send_fma_message(self, master_awb_name: str) -> Dict[str, Any]:
         """Build and send FMA message"""
         try:
+            from logistics.air_freight.utils.iata_settings_utils import resolve_company
+
+            self._apply_company(resolve_company(master_awb=master_awb_name))
             xml_content = self.build_fma_message(master_awb_name)
-            result = self.send_message("FMA", xml_content)
+            result = self.send_message(
+                "FMA",
+                xml_content,
+                reference_doctype="Master Air Waybill",
+                reference_name=master_awb_name,
+            )
             
             # Queue message for tracking
             self._queue_message("FMA", "outbound", master_awb_name, xml_content)
@@ -194,6 +220,105 @@ class MessageBuilder(IATAConnector):
         except Exception as e:
             frappe.log_error(f"Send FMA error: {str(e)}")
             raise
+
+    def build_mawb_eawb_message(self, master_awb_name: str) -> str:
+        """Build XFWB (Master e-AWB) Cargo-XML message."""
+        try:
+            mawb = frappe.get_doc("Master Air Waybill", master_awb_name)
+
+            root = ET.Element("XFWB")
+            root.set("xmlns", self.namespace)
+
+            self._add_message_header(root, "XFWB", mawb.name)
+            self._add_mawb_air_waybill_info(root, mawb)
+            self._add_mawb_origin_destination(root, mawb)
+            self._add_flight_info(root, mawb)
+            self._add_mawb_agents(root, mawb)
+
+            xml_str = ET.tostring(root, encoding="unicode", method="xml")
+
+            self.log_transaction({
+                "message_type": "XFWB",
+                "direction": "outbound",
+                "status": "created",
+                "reference_doctype": "Master Air Waybill",
+                "reference_name": mawb.name,
+                "message_content": xml_str[:5000],
+            })
+
+            return xml_str
+
+        except Exception as e:
+            frappe.log_error(f"XFWB message building error: {str(e)}")
+            raise
+
+    def send_mawb_eawb_message(self, master_awb_name: str) -> Dict[str, Any]:
+        """Build and send master e-AWB (XFWB) message."""
+        try:
+            from logistics.air_freight.utils.iata_settings_utils import resolve_company
+
+            self._apply_company(resolve_company(master_awb=master_awb_name))
+            xml_content = self.build_mawb_eawb_message(master_awb_name)
+            result = self.send_message(
+                "XFWB",
+                xml_content,
+                reference_doctype="Master Air Waybill",
+                reference_name=master_awb_name,
+            )
+
+            self._queue_message("XFWB", "outbound", master_awb_name, xml_content)
+
+            return result
+
+        except Exception as e:
+            frappe.log_error(f"Send XFWB error: {str(e)}")
+            raise
+
+    def _add_mawb_air_waybill_info(self, root: ET.Element, mawb):
+        awb = ET.SubElement(root, "AirWaybill")
+        awb_no = (mawb.master_awb_no or "").replace("-", "").replace(" ", "")
+        awb.set("AWBNo", awb_no or mawb.name)
+        awb.set("AWBType", "M")
+
+        if mawb.airline:
+            airline = frappe.get_doc("Airline", mawb.airline)
+            awb.set("AirlineCode", airline.two_character_code or airline.code or "")
+
+    def _add_mawb_origin_destination(self, root: ET.Element, mawb):
+        origin_code = self._resolve_mawb_iata_code(
+            mawb.origin_airport_iata,
+            mawb.origin_airport,
+        )
+        dest_code = self._resolve_mawb_iata_code(
+            mawb.destination_airport_iata,
+            mawb.destination_airport,
+        )
+
+        origin = ET.SubElement(root, "Origin")
+        origin.set("AirportCode", origin_code)
+        if mawb.scheduled_departure:
+            origin.set("ETD", str(mawb.scheduled_departure)[:10])
+        elif mawb.flight_date:
+            origin.set("ETD", mawb.flight_date.strftime("%Y-%m-%d"))
+
+        destination = ET.SubElement(root, "Destination")
+        destination.set("AirportCode", dest_code)
+        if mawb.scheduled_arrival:
+            destination.set("ETA", str(mawb.scheduled_arrival)[:10])
+
+    def _resolve_mawb_iata_code(self, iata_field: Optional[str], location_link: Optional[str]) -> str:
+        code = resolve_unloco_iata_code(location_link, iata_field)
+        if not code:
+            frappe.throw(_("Origin and destination IATA airport codes are required for master e-AWB submission."))
+        return code
+
+    def _add_mawb_agents(self, root: ET.Element, mawb):
+        if mawb.sending_agent:
+            agent = ET.SubElement(root, "SendingAgent")
+            agent.set("Code", str(mawb.sending_agent))
+        if mawb.receiving_agent:
+            agent = ET.SubElement(root, "ReceivingAgent")
+            agent.set("Code", str(mawb.receiving_agent))
     
     def _add_message_header(self, root: ET.Element, message_type: str, reference: str):
         """Add message header to XML"""
@@ -367,7 +492,9 @@ class MessageBuilder(IATAConnector):
                 "message_type": message_type,
                 "direction": direction.title(),
                 "status": "Pending",
-                "reference_doctype": "Air Shipment" if message_type in ["FWB", "FSU"] else "Master Air Waybill",
+                "reference_doctype": "Air Shipment"
+                if message_type in ["FWB", "FSU"]
+                else "Master Air Waybill",
                 "reference_name": reference_name,
                 "message_content": content,
                 "retry_count": 0

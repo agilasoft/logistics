@@ -102,6 +102,7 @@ PAGE_MAP = {
     # Special Projects
     "special_projects_module": "Special-Projects-Module",
     "special_project_packages": "Special-Project-Packages-and-Deliveries",
+    "special_project_delivery_workflow": "Special-Project-Delivery-Workflow",
     "uld_type": "ULD-Type",
     "logistics_milestone": "Logistics-Milestone",
     # Pages
@@ -228,7 +229,8 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 ## Special Projects
 
 - [Special Projects Module](Special-Projects-Module) – Complex multi-mode projects, scoping, resources, and milestone billing
-- [Special Project — Site Materials](Special-Project-Site-Materials) – Programme site inventory, receipts, and partial shipment creation
+- [Special Project — Delivery Workflow](Special-Project-Delivery-Workflow) – Step-by-step: Services → booking → execution submit → Fulfillment
+- [Special Project — Fulfillment (Packages & Deliveries)](Special-Project-Packages-and-Deliveries) – Packages grid, Deliveries, and fulfillment summary
 
 ## Pages (Mobile & Field)
 
@@ -354,7 +356,8 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 
 **Special Projects**
 - [Special Projects Module](Special-Projects-Module)
-- [Special Project — Site Materials](Special-Project-Site-Materials)
+- [Special Project — Delivery Workflow](Special-Project-Delivery-Workflow)
+- [Special Project — Fulfillment (Packages & Deliveries)](Special-Project-Packages-and-Deliveries)
 
 **Pages**
 - [Pages Overview](Pages-Overview)

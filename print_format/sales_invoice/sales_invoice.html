@@ -1,4 +1,3 @@
-<!-- SALES INVOICE - Sales Invoice only (Service Invoice / Disbursement Bill / Credit Note). -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -32,25 +31,52 @@
                     overflow-x: hidden;
                     overflow-y: auto;
                 }
+
+                .receipt-container.single-page-invoice {
+                    min-height: 100vh;
+                }
             }
             
-            .top-section {
-                display: flex;
-                flex-direction: column;
-            }
-            
-            /* Last-page cluster: tax summary, disclaimer, BIR – document flow, never fixed/repeating */
-            .last-page-block {
+            .receipt-body {
                 display: block;
             }
-            
-            .page-bottom {
+
+            .top-section {
+                display: block;
+            }
+
+            .last-page-push {
+                height: var(--last-page-push-height, 0);
+                flex-shrink: 0;
+            }
+
+            .receipt-container.single-page-invoice {
                 display: flex;
                 flex-direction: column;
+                min-height: calc(100vh - 24mm);
             }
-            
-            .bottom-section {
-                flex: 0 0 auto;
+
+            .receipt-container.single-page-invoice .receipt-body {
+                flex: 1 1 auto;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+
+            .receipt-container.single-page-invoice .top-section {
+                flex: 1 1 auto;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+
+            .receipt-container.single-page-invoice .last-page-block {
+                margin-top: auto;
+                flex-shrink: 0;
+            }
+
+            .receipt-container.single-page-invoice .last-page-push {
+                height: 0 !important;
             }
             
             /* Header Section */
@@ -303,7 +329,7 @@
                 display: flex;
                 flex-direction: column;
                 gap: 0.5mm;
-                flex: 0 1 auto;
+                flex: 0 0 auto;
                 min-height: 0;
             }
             
@@ -315,35 +341,52 @@
                 line-height: 1.2;
                 table-layout: fixed;
             }
+
+            .invoice-table thead {
+                display: table-header-group;
+            }
+
+            .invoice-table tbody {
+                display: table-row-group;
+            }
+
+            .invoice-table tfoot {
+                display: table-footer-group;
+            }
             
             .invoice-table th:nth-child(1),
             .invoice-table td:nth-child(1) {
-                width: 10%;
+                width: 5%;
             }
             
             .invoice-table th:nth-child(2),
             .invoice-table td:nth-child(2) {
-                width: 40%;
+                width: 9%;
             }
             
             .invoice-table th:nth-child(3),
             .invoice-table td:nth-child(3) {
-                width: 20%;
+                width: 36%;
             }
             
             .invoice-table th:nth-child(4),
             .invoice-table td:nth-child(4) {
-                width: 15%;
+                width: 18%;
             }
             
             .invoice-table th:nth-child(5),
             .invoice-table td:nth-child(5) {
-                width: 15%;
+                width: 14%;
             }
             
-            /* DSB: 4 columns (no Tax) - adjust last column width */
-            .invoice-table.dsb-no-tax-column th:nth-child(4),
-            .invoice-table.dsb-no-tax-column td:nth-child(4) {
+            .invoice-table th:nth-child(6),
+            .invoice-table td:nth-child(6) {
+                width: 18%;
+            }
+            
+            /* DSB: 5 columns (no Tax) - adjust last column width */
+            .invoice-table.dsb-no-tax-column th:nth-child(5),
+            .invoice-table.dsb-no-tax-column td:nth-child(5) {
                 width: 25%;
             }
             
@@ -389,15 +432,17 @@
                 border-right: 2px solid #000 !important;
             }
             
-            .table-header tr:first-child th:nth-child(2) {
+            .table-header tr:first-child th:nth-child(2),
+            .table-header tr:first-child th:nth-child(3) {
                 border-top: 2px solid #000 !important;
                 border-bottom: 2px solid #000 !important;
                 border-left: none !important;
                 border-right: none !important;
             }
             
-            .table-header tr:first-child th:nth-child(3),
-            .table-header tr:first-child th:nth-child(4) {
+            .table-header tr:first-child th:nth-child(4),
+            .table-header tr:first-child th:nth-child(5),
+            .table-header tr:first-child th:nth-child(6) {
                 border-top: 2px solid #000 !important;
                 border-bottom: 2px solid #000 !important;
                 border-left: none !important;
@@ -405,7 +450,7 @@
                 text-align: right;
             }
             
-            .table-header tr:first-child th:nth-child(5) {
+            .table-header tr:first-child th:nth-child(6) {
                 text-align: right;
                 border-left: none !important;
             }
@@ -421,16 +466,17 @@
             }
             
             .table-row td:nth-child(1) {
+                text-align: center;
+            }
+            
+            .table-row td:nth-child(2),
+            .table-row td:nth-child(3) {
                 text-align: left;
             }
             
-            .table-row td:nth-child(2) {
-                text-align: left;
-            }
-            
-            .table-row td:nth-child(3),
             .table-row td:nth-child(4),
-            .table-row td:nth-child(5) {
+            .table-row td:nth-child(5),
+            .table-row td:nth-child(6) {
                 text-align: right;
             }
             
@@ -478,89 +524,93 @@
                 margin-top: auto;
             }
             
-            /* VAT Summary Section - table layout for reliable PDF alignment */
+            /* VAT Summary Section - Two Columns */
             .vat-summary-container {
-                width: 52%;
-                margin-left: auto;
+                display: flex;
+                flex-direction: row;
+                justify-content: space-between;
+                gap: 3mm;
+                width: 100%;
                 margin-top: 2mm;
                 margin-bottom: 2mm;
             }
             
-            .vat-summary-table {
+            .vat-left-column {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
                 width: 100%;
-                border-collapse: collapse;
-                table-layout: fixed;
             }
             
-            .vat-summary-table col.vat-left-label-col {
-                width: 34%;
+            .vat-left-column .vat-summary-row {
+                display: flex !important;
+                justify-content: flex-start !important;
+                width: 100% !important;
+                margin-bottom: 0.5mm !important;
+                align-items: center !important;
+                gap: 2mm !important;
             }
             
-            .vat-summary-table col.vat-left-value-col {
-                width: 16%;
+            .vat-left-column .vat-summary-label {
+                text-align: right !important;
+                font-size: 8pt !important;
+                font-weight: bold !important;
+                flex: 0 0 auto !important;
+                margin-left: 30mm !important;
+                min-width: 35mm !important;
             }
             
-            .vat-summary-table col.vat-col-gap {
-                width: 4%;
+            .vat-left-column .vat-summary-value {
+                text-align: right !important;
+                font-size: 8pt !important;
+                min-width: 25mm !important;
+                flex: 0 0 auto !important;
+                margin-left: auto !important;
             }
             
-            .vat-summary-table col.vat-right-label-col {
-                width: 30%;
+            .vat-right-column {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
             }
             
-            .vat-summary-table col.vat-right-value-col {
-                width: 16%;
+            .vat-summary-row {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 0.5mm;
+                align-items: center;
+                gap: 1.5mm;
             }
             
-            .vat-summary-table td {
+            .vat-summary-label {
                 font-size: 8pt;
-                padding: 0.2mm 0;
-                vertical-align: top;
-                border: none;
-            }
-            
-            .vat-summary-table .vat-left-label {
-                font-weight: bold;
-                text-align: right;
-                padding-right: 1.5mm;
-                white-space: nowrap;
-            }
-            
-            .vat-summary-table .vat-left-value,
-            .vat-summary-table .vat-right-value,
-            .vat-summary-table .vat-total-value {
-                text-align: right;
-                white-space: nowrap;
-            }
-            
-            .vat-summary-table .vat-right-label {
                 font-weight: bold;
                 text-align: left;
-                padding-left: 1mm;
-                padding-right: 1.5mm;
             }
             
-            .vat-summary-table .vat-total-label {
-                font-weight: 900;
-                text-align: left;
-                padding-left: 1mm;
-                padding-right: 1.5mm;
+            .vat-summary-value {
+                font-size: 8pt;
+                text-align: right;
+                min-width: 25mm;
             }
             
-            .vat-summary-table .vat-total-value {
-                font-weight: 900;
-            }
-            
-            .vat-summary-table tr.vat-total-border td {
+            .vat-total-row {
                 border-top: 1px solid #000;
-                padding: 0;
-                line-height: 0;
-                font-size: 0;
-                height: 0;
+                margin-top: 0.5mm;
+                padding-top: 0.8mm;
             }
             
-            .vat-summary-table tr.vat-total-row td {
-                padding-top: 0.6mm;
+            .vat-total-label {
+                font-size: 8pt;
+                font-weight: 900;
+                text-align: left;
+            }
+            
+            .vat-total-value {
+                font-size: 8pt;
+                font-weight: 900;
+                text-align: right;
+                min-width: 25mm;
             }
             
             /* Disclaimer Section - Two Columns (Last Page Footer Only) */
@@ -574,7 +624,6 @@
                 margin-bottom: 2mm;
                 border-top: 1px solid #000;
                 padding-top: 1mm;
-                page-break-inside: avoid;
             }
             
             /* Disclaimer container only appears in last-page-footer */
@@ -715,25 +764,87 @@
                 padding: 1mm 0;
             }
             
-            /* Footer Section (BIR) – last page only, anchored via .page-bottom */
+            /* Footer Section */
             .footer-section {
+                margin-top: auto;
                 padding-top: 1mm;
                 border-top: 1px solid #000;
                 font-size: 7pt;
+            }
+            
+            /* Repeating footer for every page */
+            .footer-section.repeating-footer {
+                margin-top: 4mm;
+            }
+            
+            .bottom-section {
+                display: block;
+            }
+
+            .last-page-block {
+                margin-top: 5mm;
+            }
+
+            .last-page-block.footer-with-table {
+                display: flex;
+                flex-direction: column;
+                page-break-before: avoid;
+                break-before: avoid;
+            }
+
+            .last-page-block.footer-with-table .last-page-push {
+                flex: 1 1 auto;
+                min-height: 0;
+            }
+
+            .last-page-block.footer-with-table .last-page-footer-group {
+                flex-shrink: 0;
+            }
+
+            .last-page-block.footer-new-page {
+                display: flex;
+                flex-direction: column;
+                page-break-before: always;
+                break-before: page;
                 margin-top: 0;
+                box-sizing: border-box;
+            }
+
+            .last-page-block.footer-new-page .last-page-push {
+                flex: 1 1 auto;
+                min-height: 0;
+            }
+
+            .last-page-block.footer-new-page .last-page-footer-group {
+                flex-shrink: 0;
+            }
+
+            .last-page-footer-group {
+                display: block;
+            }
+
+            .last-page-block .disclaimer-container {
+                margin-top: 5mm;
             }
             
             /* Last page footer: tax summary + BIR + disclaimer on final page only */
             .last-page-footer .vat-summary-container {
-                margin-bottom: 2mm;
+                margin-top: 0;
+                margin-bottom: 0;
             }
             /* DSB: Total Amount Due only - right-aligned like tax summary right column */
             .vat-summary-container.dsb-total-only {
-                width: 26%;
+                display: flex !important;
+                justify-content: flex-end;
+                margin-bottom: 2mm;
+                margin-top: 2mm;
+                width: 100%;
             }
-            .vat-summary-container.dsb-total-only .vat-total-label {
-                text-align: left;
-                padding-left: 1mm;
+            .vat-summary-container.dsb-total-only .vat-right-column {
+                min-width: 50%;
+            }
+            .vat-summary-container.dsb-total-only .vat-total-row {
+                display: flex !important;
             }
             
             .footer-row {
@@ -764,7 +875,7 @@
             
             @page {
                 size: A4;
-                margin: 12mm 12mm 15mm 12mm;
+                margin: 12mm 12mm 12mm 12mm;
             }
             @page {
                 @bottom-right {
@@ -774,56 +885,95 @@
                 }
             }
             
-            @media print {
-                html, body {
-                    height: auto;
-                    margin: 0;
-                    padding: 0;
-                    -webkit-print-color-adjust: exact;
-                    print-color-adjust: exact;
-                }
-
-                .receipt-container {
-                    max-width: 100%;
-                    width: 100%;
-                    padding: 0;
-                    box-sizing: border-box;
-                }
-
-                /*
-                 * Last-page-only footer cluster (tax summary + disclaimer + BIR).
-                 * Normal document flow — never position:fixed (repeats every page).
-                 * No min-height / flex spacer — footer sits directly after content so
-                 * short invoices do not get a blank page or a gap to the physical page bottom.
-                 */
-                .page-bottom {
-                    display: flex;
-                    flex-direction: column;
-                    width: 100%;
-                    page-break-inside: avoid;
-                    break-inside: avoid;
-                }
-
-                .last-page-footer,
-                .disclaimer-container,
-                .footer-section {
-                    page-break-inside: avoid;
-                    break-inside: avoid;
-                }
-
-                .footer-section {
-                    position: static !important;
-                    margin-top: 0;
-                    padding-top: 2mm;
-                    border-top: 1px solid #000;
-                    background: transparent !important;
-                }
-
-                .invoice-table tbody tr {
-                    page-break-inside: avoid;
-                    break-inside: avoid;
-                }
+@media print {
+            .receipt-container.single-page-invoice {
+                display: flex;
+                flex-direction: column;
+                min-height: 273mm;
             }
+
+            .receipt-container.single-page-invoice .receipt-body {
+                flex: 1 1 auto;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+
+            .receipt-container.single-page-invoice .top-section {
+                flex: 1 1 auto;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+
+            .receipt-container.single-page-invoice .last-page-block {
+                margin-top: auto;
+                flex-shrink: 0;
+                page-break-before: avoid;
+                break-before: avoid;
+            }
+
+            .receipt-container.single-page-invoice .last-page-push {
+                height: 0 !important;
+            }
+
+  .last-page-push {
+    height: var(--last-page-push-height, 0);
+    flex-shrink: 0;
+  }
+
+  .last-page-block.footer-with-table {
+    display: flex;
+    flex-direction: column;
+    page-break-before: avoid;
+    break-before: avoid;
+  }
+
+  .last-page-block.footer-with-table .last-page-push {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .last-page-block.footer-with-table .last-page-footer-group {
+    flex-shrink: 0;
+  }
+
+  .last-page-block.footer-new-page {
+    display: flex;
+    flex-direction: column;
+    page-break-before: always;
+    break-before: page;
+    margin-top: 0;
+    box-sizing: border-box;
+    min-height: 273mm;
+  }
+
+  .last-page-block.footer-new-page .last-page-push {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .last-page-block.footer-new-page .last-page-footer-group {
+    flex-shrink: 0;
+  }
+
+  .last-page-footer-group {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .footer-section {
+    position: static;
+    border-top: 1px solid #000;
+    padding-top: 2mm;
+    margin-top: 4mm;
+  }
+
+  .table-row {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
         </style>
     </head>
     <body>
@@ -839,23 +989,30 @@
             <strong>Wrong print format.</strong> This format is for <strong>Sales Invoice</strong> only. Use the Payment Entry print format for Payment Entry.
         </div>
         {% else %}
-        <div class="receipt-container">
+        <div class="receipt-container" data-item-count="{{ doc.items|length if doc.items else 0 }}">
             {% set invoice_type_val = (doc.custom_invoice_type or doc.invoice_type or '')|upper|trim %}
             {% set is_dsb = (invoice_type_val == 'DSB' or invoice_type_val == 'DISBURSEMENT BILL' or 'DSB' in invoice_type_val) %}
             {% set is_crd = (invoice_type_val == 'CRD' or invoice_type_val == 'CREDIT NOTE' or 'CRD' in invoice_type_val or doc.is_return) %}
             {% set is_dbt = (doc.is_debit_note or invoice_type_val == 'DBT' or invoice_type_val == 'DEBIT NOTE' or 'DBT' in invoice_type_val) %}
-            {# CRD: tax summary only when taxes include Vatable, Zero-rated or Exempt (by account name) #}
+            {# CRD: tax summary when taxes include VAT / Vatable / Zero-rated / Exempt #}
             {% set ns_crd_tax = namespace(has_vat_exempt_zero=False) %}
             {% if doc.taxes %}
                 {% for tax in doc.taxes %}
                     {% set _acc_name = frappe.db.get_value("Account", tax.account_head, "account_name") or "" %}
                     {% set _acc_lower = _acc_name|lower %}
-                    {% if "vatable" in _acc_lower or "exempt" in _acc_lower or "zero-rated" in _acc_lower or "zero rated" in _acc_lower %}
+                    {% set _desc_lower = (tax.description or "")|lower %}
+                    {% set _label_lower = _acc_lower ~ " " ~ _desc_lower %}
+                    {% if "exempt" in _label_lower and "withhold" not in _label_lower %}
+                        {% set ns_crd_tax.has_vat_exempt_zero = True %}
+                    {% elif "zero-rated" in _label_lower or "zero rated" in _label_lower %}
+                        {% set ns_crd_tax.has_vat_exempt_zero = True %}
+                    {% elif ("vatable" in _label_lower or "vat" in _label_lower) and "withhold" not in _label_lower %}
                         {% set ns_crd_tax.has_vat_exempt_zero = True %}
                     {% endif %}
                 {% endfor %}
             {% endif %}
             {% set show_tax_summary = (not is_dsb) and (not is_crd or ns_crd_tax.has_vat_exempt_zero) %}
+            <div class="receipt-body">
             <!-- Header -->
             <div class="header">
                 {% if company_doc %}
@@ -1147,6 +1304,7 @@
                 <table class="invoice-table{% if is_dsb %} dsb-no-tax-column{% endif %}">
                     <thead class="table-header">
                         <tr>
+                            <th>#</th>
                             <th>Qty</th>
                             <th>Item</th>
                             <th>Amount</th>
@@ -1161,6 +1319,7 @@
                             {% set currency = doc.currency or 'PHP' %}
                             {% for item in doc.items %}
                                 <tr class="table-row">
+                                    <td>{{ loop.index }}</td>
                                     <td>{{ frappe.utils.fmt_money(item.qty, precision=2) }}</td>
                                     <td>{{ item.item_name or item.item_code or '' }}</td>
                                     <td>
@@ -1188,213 +1347,567 @@
                         {% endif %}
                     </tbody>
                 </table>
-                
             </div>
-            </div>
-            
-            <!-- Last page only: tax summary + disclaimer + BIR footer (document flow, no repeat) -->
+
             <div class="last-page-block">
-            <div class="page-bottom">
-            <!-- Bottom Section: Last Page Footer (Tax Summary + BIR + Disclaimer) -->
-            <div class="bottom-section last-page-footer">
-                {% if show_tax_summary %}
-                <!-- Tax Summary - in last page footer (hidden for DSB; for CRD only when Vatable/Exempt/Zero-rated taxes used) -->
-                <div class="vat-summary-container">
-                    {% set currency = doc.currency or 'PHP' %}
-                    {% set ns = namespace(vatable_sales=0, exempt_sales=0, zero_rated_sales=0) %}
-                    {# Vatable / Exempt / Zero-rated Sales = amounts NET OF VAT #}
-                    {% if doc.taxes %}
-                        {% for tax in doc.taxes %}
-                            {% set account_name = frappe.db.get_value("Account", tax.account_head, "account_name") or "" %}
-                            {% set account_lower = account_name|lower %}
-                            {% set tax_rate = tax.rate or 0 %}
-                            {% if "vatable" in account_lower %}
-                                {% if tax_rate and tax_rate > 0 %}
-                                    {% set row_net = (tax.tax_amount or tax.base_tax_amount or 0) / (tax_rate / 100) %}
-                                {% else %}
-                                    {% set row_net = tax.total or tax.base_total or 0 %}
-                                {% endif %}
-                                {% set ns.vatable_sales = ns.vatable_sales + row_net %}
-                            {% elif "exempt" in account_lower %}
-                                {% set row_net = tax.total or tax.base_total or 0 %}
-                                {% set ns.exempt_sales = ns.exempt_sales + row_net %}
-                            {% elif "zero-rated" in account_lower or "zero rated" in account_lower %}
-                                {% set row_net = tax.total or tax.base_total or 0 %}
-                                {% set ns.zero_rated_sales = ns.zero_rated_sales + row_net %}
+                <div class="last-page-push"></div>
+                <div class="last-page-footer-group">
+                <!-- Bottom Section: Last Page Footer (Tax Summary + BIR + Disclaimer) -->
+                <div class="bottom-section last-page-footer">
+                    {% if show_tax_summary %}
+                    <!-- Tax Summary - in last page footer (hidden for DSB; for CRD only when Vatable/Exempt/Zero-rated taxes used) -->
+                    <div class="vat-summary-container">
+                        <!-- Left Column: Sales Types -->
+                        <div class="vat-left-column">
+                            {% set currency = doc.currency or 'PHP' %}
+                            {% set ns = namespace(vatable_sales=0, exempt_sales=0, zero_rated_sales=0) %}
+                            {# Vatable / Exempt / Zero-rated Sales = item net amounts by VAT treatment / tax template #}
+                            {% if doc.items %}
+                                {% for item in doc.items %}
+                                    {% set item_net = item.net_amount or item.amount or 0 %}
+                                    {% set item_treatment = (item.get('vat_treatment') or '')|lower %}
+                                    {% set item_template = (item.item_tax_template or '')|lower %}
+                                    {% if 'zero rated' in item_treatment or 'zero-rated' in item_treatment or 'zero rated' in item_template or 'zero-rated' in item_template %}
+                                        {% set ns.zero_rated_sales = ns.zero_rated_sales + item_net %}
+                                    {% elif 'exempt' in item_treatment or ('exempt' in item_template and 'zero' not in item_template) %}
+                                        {% set ns.exempt_sales = ns.exempt_sales + item_net %}
+                                    {% else %}
+                                        {% set ns.vatable_sales = ns.vatable_sales + item_net %}
+                                    {% endif %}
+                                {% endfor %}
                             {% endif %}
-                        {% endfor %}
+                            {# Fallback: entire net_total as vatable when items carry no classification #}
+                            {% if not ns.vatable_sales and not ns.exempt_sales and not ns.zero_rated_sales %}
+                                {% set ns.vatable_sales = doc.get('net_total') or 0 %}
+                            {% endif %}
+                            <div class="vat-summary-row">
+                                <div class="vat-summary-label">Vatable Sales :</div>
+                                <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(ns.vatable_sales, precision=2) }}</div>
+                            </div>
+                            <div class="vat-summary-row">
+                                <div class="vat-summary-label">Exempt Sales :</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(ns.exempt_sales, precision=2) }}</div>
+                            </div>
+                            <div class="vat-summary-row">
+                                <div class="vat-summary-label">Zero Rated Sales :</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(ns.zero_rated_sales, precision=2) }}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Column: VAT Calculations -->
+                        <div class="vat-right-column">
+                            {% set ns_vat = namespace(vat_amount=0, withholding_tax=0) %}
+                            {% if doc.taxes %}
+                                {% for tax in doc.taxes %}
+                                    {% set _wh_acc = (frappe.db.get_value("Account", tax.account_head, "account_name") or "")|lower %}
+                                    {% set _wh_desc = (tax.description or "")|lower %}
+                                    {% set _wh_label = _wh_acc ~ " " ~ _wh_desc %}
+                                    {% set _wh_amt = tax.tax_amount if tax.tax_amount is not none else (tax.base_tax_amount if tax.base_tax_amount is not none else 0) %}
+                                    {% set _wh_rate = tax.rate or 0 %}
+                                    {% if "withhold" in _wh_label %}
+                                        {% set ns_vat.withholding_tax = ns_vat.withholding_tax + _wh_amt %}
+                                    {% elif _wh_rate > 0 and ("vat" in _wh_label or "vatable" in _wh_label) and "withhold" not in _wh_label and "exempt" not in _wh_label and "zero rated" not in _wh_label and "zero-rated" not in _wh_label %}
+                                        {% set ns_vat.vat_amount = ns_vat.vat_amount + _wh_amt %}
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                            {% set vat_amount = ns_vat.vat_amount %}
+                            {% set withholding_tax = ns_vat.withholding_tax %}
+                            {% if not vat_amount %}
+                                {% set vat_amount = (doc.get('total_taxes_and_charges') or 0) - withholding_tax %}
+                            {% endif %}
+                            {% set withholding_tax_display = withholding_tax|abs %}
+                            {% set net_of_vat = doc.get('net_total') or 0 %}
+                            {% set total_sales_vat_inclusive = net_of_vat + vat_amount %}
+                            {% set sc_pwd_discount = (doc.get('discount_amount') or 0) %}
+                            {% set amount_due = net_of_vat - sc_pwd_discount %}
+                            {% set total_amount = total_sales_vat_inclusive %}
+                            {% set final_amount_due = (doc.get('grand_total') or 0) %}
+                            {% if not final_amount_due %}
+                                {% set final_amount_due = total_amount - withholding_tax_display %}
+                            {% endif %}
+                            
+                            <div class="vat-summary-row">
+                                <div class="vat-summary-label">Total Sales (VAT Inclusive)</div>
+                                <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(total_sales_vat_inclusive, precision=2) }}</div>
+                            </div>
+                            <div class="vat-summary-row">
+                                <div class="vat-summary-label">Less: VAT</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(vat_amount, precision=2) }}</div>
+                            </div>
+                            <div class="vat-summary-row">
+                                <div class="vat-summary-label">Amount: Net of VAT</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(net_of_vat, precision=2) }}</div>
+                            </div>
+                            <div class="vat-summary-row">
+                                <div class="vat-summary-label">Less: SC/PWD Discount</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(sc_pwd_discount, precision=2) }}</div>
+                            </div>
+                            <div class="vat-summary-row">
+                                <div class="vat-summary-label">Amount Due</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(amount_due, precision=2) }}</div>
+                            </div>
+                            <div class="vat-summary-row">
+                                <div class="vat-summary-label">Add: VAT</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(vat_amount, precision=2) }}</div>
+                            </div>
+                            <div class="vat-summary-row vat-total-row">
+                                <div class="vat-total-label">Total</div>
+                                <div class="vat-total-value">{{ currency }} {{ frappe.utils.fmt_money(total_amount, precision=2) }}</div>
+                            </div>
+                            <div class="vat-summary-row">
+                                <div class="vat-summary-label">Less Withholding Tax</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(withholding_tax_display, precision=2) }}</div>
+                            </div>
+                            <div class="vat-summary-row">
+                                <div class="vat-summary-label">Amount Due</div>
+                                <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(final_amount_due, precision=2) }}</div>
+                            </div>
+                        </div>
+                    </div>
                     {% endif %}
-                    {% set total_sales_vat_inclusive = (doc.get('grand_total') or 0) %}
-                    {% set vat_amount = (doc.get('total_taxes_and_charges') or 0) %}
-                    {% set net_of_vat = total_sales_vat_inclusive - vat_amount %}
-                    {% set sc_pwd_discount = (doc.get('discount_amount') or 0) %}
-                    {% set amount_due = net_of_vat - sc_pwd_discount %}
-                    {% set total_amount_due = (doc.get('grand_total') or 0) %}
-                    <table class="vat-summary-table">
-                        <colgroup>
-                            <col class="vat-left-label-col">
-                            <col class="vat-left-value-col">
-                            <col class="vat-col-gap">
-                            <col class="vat-right-label-col">
-                            <col class="vat-right-value-col">
-                        </colgroup>
-                        <tr>
-                            <td class="vat-left-label">Vatable Sales :</td>
-                            <td class="vat-left-value">{{ currency }} {{ frappe.utils.fmt_money(ns.vatable_sales, precision=2) }}</td>
-                            <td></td>
-                            <td class="vat-right-label">Total Sales (VAT Inclusive)</td>
-                            <td class="vat-right-value">{{ currency }} {{ frappe.utils.fmt_money(total_sales_vat_inclusive, precision=2) }}</td>
-                        </tr>
-                        <tr>
-                            <td class="vat-left-label">Exempt Sales :</td>
-                            <td class="vat-left-value">{{ frappe.utils.fmt_money(ns.exempt_sales, precision=2) }}</td>
-                            <td></td>
-                            <td class="vat-right-label">Less: VAT</td>
-                            <td class="vat-right-value">{{ frappe.utils.fmt_money(vat_amount, precision=2) }}</td>
-                        </tr>
-                        <tr>
-                            <td class="vat-left-label">Zero Rated Sales :</td>
-                            <td class="vat-left-value">{{ frappe.utils.fmt_money(ns.zero_rated_sales, precision=2) }}</td>
-                            <td></td>
-                            <td class="vat-right-label">Amount: Net of VAT</td>
-                            <td class="vat-right-value">{{ frappe.utils.fmt_money(net_of_vat, precision=2) }}</td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td class="vat-right-label">Less: SC/PWD Discount</td>
-                            <td class="vat-right-value">{{ frappe.utils.fmt_money(sc_pwd_discount, precision=2) }}</td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td class="vat-right-label">Amount Due</td>
-                            <td class="vat-right-value">{{ frappe.utils.fmt_money(amount_due, precision=2) }}</td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td class="vat-right-label">Add: VAT</td>
-                            <td class="vat-right-value">{{ frappe.utils.fmt_money(vat_amount, precision=2) }}</td>
-                        </tr>
-                        <tr class="vat-total-border">
-                            <td colspan="5"></td>
-                        </tr>
-                        <tr class="vat-total-row">
-                            <td colspan="3"></td>
-                            <td class="vat-total-label">Total Amount Due</td>
-                            <td class="vat-total-value">{{ currency }} {{ frappe.utils.fmt_money(total_amount_due, precision=2) }}</td>
-                        </tr>
-                    </table>
-                </div>
-                {% endif %}
-{% if is_dsb %}
-                <!-- DSB: show Total Amount Due -->
-                <div class="vat-summary-container dsb-total-only">
-                    {% set _currency = doc.currency or 'PHP' %}
-                    {% set _total_due = (doc.get('grand_total') or 0) %}
-                    <table class="vat-summary-table">
-                        <tr class="vat-total-row">
-                            <td class="vat-total-label">Total Amount Due</td>
-                            <td class="vat-total-value">{{ _currency }} {{ frappe.utils.fmt_money(_total_due, precision=2) }}</td>
-                        </tr>
-                    </table>
-                </div>
-                {% endif %}
-{% if not show_tax_summary %}
-                <div class="dsb-input-tax-notice">THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX</div>
-                {% endif %}
-            </div>
-            
-            <!-- Disclaimer Section (above footer) - Last page only -->
-            <div class="disclaimer-container">
-                <!-- Left Column: Terms and Conditions -->
-                <div class="disclaimer-left-column">
-                    <div class="disclaimer-item">
-                        Please contact us within 7 days should there be any discrepancies.
+                    {% if is_dsb %}
+                    <!-- DSB: show Total Amount Due -->
+                    <div class="vat-summary-container dsb-total-only">
+                        <div class="vat-right-column">
+                            {% set _currency = doc.currency or 'PHP' %}
+                            {% set _total_due = (doc.get('grand_total') or 0) %}
+                            <div class="vat-summary-row vat-total-row">
+                                <div class="vat-total-label">Total</div>
+                                <div class="vat-total-value">{{ _currency }} {{ frappe.utils.fmt_money(_total_due, precision=2) }}</div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="disclaimer-item">
-                        Interest of 1% & penalty of 2% per month will be charged on overdue invoice calculated from due date till date of actual payment.
-                    </div>
+                    {% endif %}
+                    {% if not show_tax_summary %}
+                    <div class="dsb-input-tax-notice">THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX</div>
+                    {% endif %}
                 </div>
                 
-                {% if not is_dsb %}
-                <!-- Right Column: Withholding Taxes (hidden for DSB) -->
-                <div class="disclaimer-right-column">
-                    <div class="disclaimer-title">Applicable Withholding Taxes:</div>
-                    <div class="disclaimer-item">
-                        2% Forwarding, Warehousing and Local Charges
+                <!-- Disclaimer Section (above footer) - Last page only -->
+                <div class="disclaimer-container">
+                    <!-- Left Column: Terms and Conditions -->
+                    <div class="disclaimer-left-column">
+                        <div class="disclaimer-item">
+                            Please contact us within 7 days should there be any discrepancies.
+                        </div>
+                        <div class="disclaimer-item">
+                            Interest of 1% & penalty of 2% per month will be charged on overdue invoice calculated from due date till date of actual payment.
+                        </div>
                     </div>
-                    <div class="disclaimer-item">
-                        15% Brokerage Fee
+                    
+                    {% if not is_dsb %}
+                    <!-- Right Column: Withholding Taxes (hidden for DSB) -->
+                    <div class="disclaimer-right-column">
+                        <div class="disclaimer-title">Applicable Withholding Taxes:</div>
+                        <div class="disclaimer-item">
+                            2% Forwarding, Warehousing and Local Charges
+                        </div>
+                        <div class="disclaimer-item">
+                            15% Brokerage Fee
+                        </div>
                     </div>
-                </div>
-                {% endif %}
-            </div>
-            
-            <!-- Footer Section (BIR) - Last page only -->
-            <div class="footer-section">
-                {% set bir_name = frappe.db.get_value("BIR CAS Settings", {"company": doc.company}, "name") %}
-                {% if bir_name %}
-                    {% set bir = frappe.get_doc("BIR CAS Settings", bir_name) %}
-                {% else %}
-                    {% set bir = None %}
-                {% endif %}
-                {% set name = (doc.name or "") %}
-                {% set ns = namespace(start=None, end=None) %}
-                {% for i in range(name|length) %}
-                    {% set ch = name[i] %}
-                    {% if ch.isdigit() %}
-                        {% if ns.start is none %}
-                            {% set ns.start = i %}
-                        {% endif %}
-                        {% set ns.end = i %}
                     {% endif %}
-                {% endfor %}
-                {% if ns.start is not none %}
-                    {% set prefix = name[0:ns.start] %}
-                    {% set digit_len = ns.end - ns.start + 1 %}
-                    {% set seq = namespace(min_seq="", max_seq="") %}
-                    {% for i in range(digit_len) %}
-                        {% if i == digit_len - 1 %}
-                            {% set seq.min_seq = seq.min_seq ~ "1" %}
-                        {% else %}
-                            {% set seq.min_seq = seq.min_seq ~ "0" %}
+                </div>
+                
+                <!-- Footer Section (BIR) - Repeats on every page -->
+                <div class="footer-section repeating-footer">
+                    {% set bir_name = frappe.db.get_value("BIR CAS Settings", {"company": doc.company}, "name") %}
+                    {% if bir_name %}
+                        {% set bir = frappe.get_doc("BIR CAS Settings", bir_name) %}
+                    {% else %}
+                        {% set bir = None %}
+                    {% endif %}
+                    {% set name = (doc.name or "") %}
+                    {% set ns = namespace(start=None, end=None) %}
+                    {% for i in range(name|length) %}
+                        {% set ch = name[i] %}
+                        {% if ch.isdigit() %}
+                            {% if ns.start is none %}
+                                {% set ns.start = i %}
+                            {% endif %}
+                            {% set ns.end = i %}
                         {% endif %}
-                        {% set seq.max_seq = seq.max_seq ~ "9" %}
                     {% endfor %}
-                    {% set series_start = prefix ~ seq.min_seq %}
-                    {% set series_end = prefix ~ seq.max_seq %}
-                {% else %}
-                    {% set series_start = name %}
-                    {% set series_end = name %}
-                {% endif %}
-<div class="footer-row">
-                    BIR Acknowledgment Certificate No. 
-                    {% if bir and bir.ptu_no %}
-                        {{ bir.ptu_no }}
+                    {% if ns.start is not none %}
+                        {% set prefix = name[0:ns.start] %}
+                        {% set digit_len = ns.end - ns.start + 1 %}
+                        {% set seq = namespace(min_seq="", max_seq="") %}
+                        {% for i in range(digit_len) %}
+                            {% if i == digit_len - 1 %}
+                                {% set seq.min_seq = seq.min_seq ~ "1" %}
+                            {% else %}
+                                {% set seq.min_seq = seq.min_seq ~ "0" %}
+                            {% endif %}
+                            {% set seq.max_seq = seq.max_seq ~ "9" %}
+                        {% endfor %}
+                        {% set series_start = prefix ~ seq.min_seq %}
+                        {% set series_end = prefix ~ seq.max_seq %}
                     {% else %}
-                        -
+                        {% set series_start = name %}
+                        {% set series_end = name %}
                     {% endif %}
+                    <div class="footer-row">
+                        BIR Acknowledgment Certificate No. 
+                        {% if bir and bir.ptu_no %}
+                            {{ bir.ptu_no }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                    <div class="footer-row">
+                        Range: {{ series_start }} - {{ series_end }}
+                    </div>
+                    <div class="footer-row">
+                        Date Issued: 
+                        {% if bir and bir.ptu_date %}
+                            {{ frappe.utils.formatdate(bir.ptu_date, 'MMMM dd, yyyy') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
                 </div>
-                <div class="footer-row">
-                    Range: {{ series_start }} - {{ series_end }}
-                </div>
-                <div class="footer-row">
-                    Date Issued: 
-                    {% if bir and bir.ptu_date %}
-                        {{ frappe.utils.formatdate(bir.ptu_date, 'MMMM dd, yyyy') }}
-                    {% else %}
-                        -
-                    {% endif %}
                 </div>
             </div>
             </div>
             </div>
         </div>
         {% endif %}
+        <script>
+        (function () {
+            var PAGE_HEIGHT_MM = 273;
+            var PAGE_BOTTOM_MARGIN_MM = 12;
+            var BLOCK_MARGIN_MM = 5;
+            var MM_TO_PX = 96 / 25.4;
+            var SAFETY_PX = 8;
+            var SINGLE_PAGE_HEIGHT_RATIO = 1.38;
+            var MULTI_PAGE_MIN_HEIGHT_RATIO = 1.42;
+            var SHORT_INVOICE_MAX_ITEMS = 15;
+            var SHORT_INVOICE_HEIGHT_RATIO = 1.55;
+            var MULTI_PAGE_ITEM_THRESHOLD = 12;
+
+            function setPushHeight(px) {
+                document.documentElement.style.setProperty(
+                    '--last-page-push-height',
+                    Math.max(0, px) + 'px'
+                );
+            }
+
+            function getPageHeightPx() {
+                return PAGE_HEIGHT_MM * MM_TO_PX;
+            }
+
+            function getDocTop(element) {
+                var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+                return element.getBoundingClientRect().top + scrollY;
+            }
+
+            function getItemCount(container) {
+                var fromData = parseInt(container.getAttribute('data-item-count'), 10);
+                if (!isNaN(fromData) && fromData >= 0) {
+                    return fromData;
+                }
+                return container.querySelectorAll('.invoice-table tbody .table-row').length;
+            }
+
+            function fitsSinglePageHeight(scrollHeight, pageHeightPx) {
+                return scrollHeight <= pageHeightPx * SINGLE_PAGE_HEIGHT_RATIO;
+            }
+
+            function isClearlyMultiPage(container, pageHeightPx) {
+                if (container.scrollHeight > pageHeightPx * MULTI_PAGE_MIN_HEIGHT_RATIO) {
+                    return true;
+                }
+                return getItemCount(container) > MULTI_PAGE_ITEM_THRESHOLD;
+            }
+
+            function applySinglePageMode(container) {
+                container.classList.add('single-page-invoice');
+                document.body.classList.add('single-page-invoice');
+                setPushHeight(0);
+            }
+
+            function isSinglePageInvoice(container, pageHeightPx) {
+                if (isClearlyMultiPage(container, pageHeightPx)) {
+                    return false;
+                }
+
+                var naturalHeight = container.scrollHeight;
+                if (fitsSinglePageHeight(naturalHeight, pageHeightPx)) {
+                    return true;
+                }
+
+                var itemCount = getItemCount(container);
+                if (
+                    itemCount <= SHORT_INVOICE_MAX_ITEMS &&
+                    naturalHeight <= pageHeightPx * SHORT_INVOICE_HEIGHT_RATIO
+                ) {
+                    return true;
+                }
+
+                applySinglePageMode(container);
+                var flexHeight = container.scrollHeight;
+                container.classList.remove('single-page-invoice');
+                document.body.classList.remove('single-page-invoice');
+                setPushHeight(0);
+                return fitsSinglePageHeight(flexHeight, pageHeightPx);
+            }
+
+            function getOuterHeight(element) {
+                if (!element) {
+                    return 0;
+                }
+                var style = window.getComputedStyle(element);
+                var marginTop = parseFloat(style.marginTop) || 0;
+                var marginBottom = parseFloat(style.marginBottom) || 0;
+                return element.offsetHeight + marginTop + marginBottom;
+            }
+
+            function wrapSplittableHeight(used, height, pageHeightPx) {
+                used += height;
+                while (used >= pageHeightPx) {
+                    used -= pageHeightPx;
+                }
+                return used;
+            }
+
+            function addAvoidBreakSegment(used, height, pageHeightPx) {
+                if (height <= 0) {
+                    return used;
+                }
+                if (used > 0 && used + height > pageHeightPx) {
+                    used = 0;
+                }
+                return used + height;
+            }
+
+            function simulateTableLayout(container, pageHeightPx) {
+                var table = container.querySelector('.invoice-table');
+                var result = {
+                    usedAfterRows: 0,
+                    blockStartOffset: 0
+                };
+                if (!table) {
+                    return result;
+                }
+
+                var used = Math.max(0, getDocTop(table) - getDocTop(container));
+                used = wrapSplittableHeight(0, used, pageHeightPx);
+
+                var thead = table.querySelector('thead');
+                if (thead) {
+                    used = addAvoidBreakSegment(used, getOuterHeight(thead), pageHeightPx);
+                }
+
+                var rows = table.querySelectorAll('tbody .table-row');
+                for (var i = 0; i < rows.length; i++) {
+                    used = addAvoidBreakSegment(used, getOuterHeight(rows[i]), pageHeightPx);
+                }
+
+                result.usedAfterRows = used;
+                var blockMarginPx = BLOCK_MARGIN_MM * MM_TO_PX;
+                result.blockStartOffset = addAvoidBreakSegment(used, blockMarginPx, pageHeightPx);
+                return result;
+            }
+
+            function getPageIndex(element, pageHeightPx) {
+                return Math.max(0, Math.floor(getDocTop(element) / pageHeightPx));
+            }
+
+            function getOffsetOnPage(element, pageHeightPx, pageIndex) {
+                pageHeightPx = pageHeightPx || getPageHeightPx();
+                pageIndex = (pageIndex === undefined) ? getPageIndex(element, pageHeightPx) : pageIndex;
+                return getDocTop(element) - (pageIndex * pageHeightPx);
+            }
+
+            function getRemainingAfterElement(element, pageHeightPx, maxBottom, pageIndex) {
+                var bottom = getOffsetOnPage(element, pageHeightPx, pageIndex) + element.offsetHeight;
+                return Math.max(0, maxBottom - bottom);
+            }
+
+            function pxToMm(px) {
+                return px / MM_TO_PX;
+            }
+
+            function applyPushSize(push, px) {
+                var safePx = Math.max(0, px);
+                setPushHeight(safePx);
+                if (!push) {
+                    return safePx;
+                }
+                push.style.display = 'block';
+                push.style.flex = '';
+                push.style.height = pxToMm(safePx) + 'mm';
+                push.style.minHeight = pxToMm(safePx) + 'mm';
+                return safePx;
+            }
+
+            function applyFlexBottomPin(block, push, minHeightPx) {
+                if (block) {
+                    block.style.minHeight = pxToMm(Math.max(0, minHeightPx)) + 'mm';
+                }
+                setPushHeight(0);
+                if (push) {
+                    push.style.display = 'block';
+                    push.style.flex = '1 1 auto';
+                    push.style.height = 'auto';
+                    push.style.minHeight = '0';
+                }
+            }
+
+            function resetFooterPinStyles(block, group, push) {
+                if (block) {
+                    block.style.paddingTop = '';
+                    block.style.minHeight = '';
+                }
+                if (group) {
+                    group.style.marginTop = '';
+                }
+                if (push) {
+                    push.style.display = '';
+                    push.style.flex = '';
+                    push.style.height = '';
+                    push.style.minHeight = '';
+                }
+            }
+
+            function clearLayoutModes() {
+                var container = document.querySelector('.receipt-container');
+                var block = document.querySelector('.last-page-block');
+                var group = document.querySelector('.last-page-footer-group');
+                var push = document.querySelector('.last-page-push');
+                if (container) {
+                    container.classList.remove('single-page-invoice');
+                }
+                if (block) {
+                    block.classList.remove('footer-with-table', 'footer-new-page');
+                }
+                resetFooterPinStyles(block, group, push);
+                document.body.classList.remove('single-page-invoice');
+                setPushHeight(0);
+            }
+
+            function applyNewPageBottomPin(block, group, push, pageHeightPx) {
+                var maxBottom = pageHeightPx - (PAGE_BOTTOM_MARGIN_MM * MM_TO_PX);
+                var groupHeight = group.offsetHeight || 0;
+                block.classList.add('footer-new-page');
+                block.style.paddingTop = '';
+                applyFlexBottomPin(block, push, maxBottom);
+                var spacerPx = Math.max(0, maxBottom - groupHeight - SAFETY_PX);
+                if (spacerPx > 0) {
+                    applyPushSize(push, spacerPx);
+                    push.style.flex = '0 0 auto';
+                }
+            }
+
+            function pinFooterToPageBottom(block, push, group, anchorPageIndex, pageHeightPx, contentStartOffset) {
+                var maxBottom = pageHeightPx - (PAGE_BOTTOM_MARGIN_MM * MM_TO_PX);
+                var groupHeight = group.offsetHeight || 0;
+                var safeStartOffset = Math.max(0, Math.min(contentStartOffset, maxBottom - groupHeight - SAFETY_PX));
+                var blockMinHeightPx = Math.max(groupHeight, maxBottom - safeStartOffset);
+                block.classList.add('footer-with-table');
+                applyFlexBottomPin(block, push, blockMinHeightPx);
+
+                var spacerPx = Math.max(0, maxBottom - safeStartOffset - groupHeight - SAFETY_PX);
+                if (spacerPx > 0) {
+                    applyPushSize(push, spacerPx);
+                    push.style.flex = '0 0 auto';
+                }
+            }
+
+            function updateMultiPageFooter(container, pageHeightPx) {
+                var push = document.querySelector('.last-page-push');
+                var group = document.querySelector('.last-page-footer-group');
+                var block = document.querySelector('.last-page-block');
+                if (!push || !group || !block) {
+                    return;
+                }
+
+                var maxBottom = pageHeightPx - (PAGE_BOTTOM_MARGIN_MM * MM_TO_PX);
+                var groupHeight = group.offsetHeight;
+                var layout = simulateTableLayout(container, pageHeightPx);
+                var remainingAfterTable = Math.max(0, maxBottom - layout.usedAfterRows);
+                var blockMarginPx = BLOCK_MARGIN_MM * MM_TO_PX;
+
+                block.classList.remove('footer-with-table', 'footer-new-page');
+                resetFooterPinStyles(block, group, push);
+
+                if (groupHeight + blockMarginPx + SAFETY_PX > remainingAfterTable) {
+                    applyNewPageBottomPin(block, group, push, pageHeightPx);
+                    return;
+                }
+
+                pinFooterToPageBottom(
+                    block,
+                    push,
+                    group,
+                    0,
+                    pageHeightPx,
+                    layout.blockStartOffset
+                );
+            }
+
+            function updateInvoiceLayout() {
+                var container = document.querySelector('.receipt-container');
+                if (!container) return;
+
+                clearLayoutModes();
+
+                var pageHeightPx = getPageHeightPx();
+
+                if (isSinglePageInvoice(container, pageHeightPx)) {
+                    applySinglePageMode(container);
+                    return;
+                }
+
+                updateMultiPageFooter(container, pageHeightPx);
+            }
+
+            function scheduleLayout() {
+                updateInvoiceLayout();
+                window.requestAnimationFrame(function () {
+                    updateInvoiceLayout();
+                    window.requestAnimationFrame(updateInvoiceLayout);
+                });
+                window.setTimeout(updateInvoiceLayout, 50);
+                window.setTimeout(updateInvoiceLayout, 200);
+                window.setTimeout(updateInvoiceLayout, 500);
+            }
+
+            function schedulePrintLayout() {
+                updateInvoiceLayout();
+                window.requestAnimationFrame(function () {
+                    updateInvoiceLayout();
+                    window.requestAnimationFrame(function () {
+                        updateInvoiceLayout();
+                        window.setTimeout(updateInvoiceLayout, 0);
+                        window.setTimeout(updateInvoiceLayout, 100);
+                    });
+                });
+            }
+
+            window.addEventListener('beforeprint', schedulePrintLayout);
+
+            window.addEventListener('afterprint', function () {
+                scheduleLayout();
+            });
+
+            if (window.matchMedia) {
+                window.matchMedia('print').addListener(function (event) {
+                    if (event.matches) {
+                        schedulePrintLayout();
+                    }
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', scheduleLayout);
+            } else {
+                scheduleLayout();
+            }
+
+            window.addEventListener('resize', scheduleLayout);
+        })();
+        </script>
     </body>
     </html>

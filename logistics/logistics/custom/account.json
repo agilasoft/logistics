@@ -9,6 +9,25 @@
    "insert_after": "account_type",
    "depends_on": "eval:!doc.is_group",
    "description": "For Income Account / Expense Account: Profit, WIP, Accrual, or Disbursements. For other account types: Disbursements only."
+  },
+  {
+   "dt": "Account",
+   "fieldname": "fund_type",
+   "fieldtype": "Select",
+   "label": "Fund Type",
+   "options": "\nBank\nPetty Cash\nRevolving Fund",
+   "insert_after": "job_profit_account_type",
+   "depends_on": "eval:!doc.is_group && ['Bank', 'Cash'].includes(doc.account_type)",
+   "description": "Cash advance fund classification for Bank and Cash accounts."
+  },
+  {
+   "dt": "Account",
+   "fieldname": "cash_advance_request_limit",
+   "fieldtype": "Currency",
+   "label": "Cash Advance Request Limit",
+   "insert_after": "fund_type",
+   "depends_on": "eval:!doc.is_group && ['Bank', 'Cash'].includes(doc.account_type) && doc.fund_type",
+   "description": "Maximum total amount allowed per Cash Advance Request from this fund source."
   }
  ],
  "custom_perms": [],

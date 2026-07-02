@@ -9,6 +9,7 @@
   "lifecycle_stage",
   "activity_code",
   "activity_name",
+  "lifecycle_row_label",
   "lifecycle_activity_status",
   "column_break_lifecycle",
   "service_type",
@@ -85,6 +86,14 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Activity Name",
+   "read_only": 1
+  },
+  {
+   "description": "Used for link display on Services and Charges.",
+   "fieldname": "lifecycle_row_label",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Lifecycle Row Label",
    "read_only": 1
   },
   {
@@ -473,7 +482,10 @@
  "owner": "Administrator",
  "permissions": [],
  "row_format": "Dynamic",
+ "search_fields": "lifecycle_row_label,activity_name,lifecycle_stage,activity_code",
+ "show_title_field_in_link": 1,
  "sort_field": "idx",
  "sort_order": "ASC",
- "states": []
+ "states": [],
+ "title_field": "lifecycle_row_label"
 }

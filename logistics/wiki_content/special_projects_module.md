@@ -45,19 +45,21 @@ Logistics documents (Air Shipment, Sea Shipment, Transport Job, Warehouse Job, D
 4. Add **Scoping Activities** (Ocular Inspection, Road Inspection, Technical Consultation) with dates, costs, and status
 5. **Save** – an ERPNext Project is auto-created and linked
 
-### 3.2 Jobs Tab – Internal Job Detail
+### 3.2 Services tab
 
-The **Jobs** tab uses the shared **Internal Job Detail** child table (not legacy per-mode activity tabs on the Special Project form):
+The **Services** tab holds programme legs and resource lines (virtual **Services** grid backed by **Special Project Service** records):
 
-1. **Linked operational legs** – Rows with service type Air, Sea, Transport, Customs, or Warehousing reference the relevant order/booking (**Job Type** / **Job No**). Planned and actual cost and revenue can be tracked per row.
-2. **Special Project resource rows** – Rows with service type **Special Project** capture site, manpower, equipment, handling, and notes for programme-only resources (these rows do not resolve to a shipment/declaration job for milestone maps).
+1. **Linked operational legs** — Rows with **Service Type** Air, Sea, Transport, Customs, or Warehousing reference the relevant order/booking (**Job Type** / **Order No**) and, after execution, the shipment or job (**Job No**). Planned and actual cost and revenue roll up per row.
+2. **Special Project resource rows** — Rows with **Service Type = Special Project** capture site, manpower, equipment, handling, and notes for programme-only resources (these rows do not resolve to a shipment/declaration job for milestone maps).
 3. Alternatively, set the **Project** field on operational documents directly; milestones from those jobs are aggregated on the **Milestones** tab when rows resolve to shipments/jobs.
 
-### 3.3 Programme Tasks (Optional)
+Use **Create → Booking / Order** to spawn planning documents from **Services** rows. See [Special Project — Delivery Workflow](welcome/special-project-delivery-workflow).
 
-1. On the **Lifecycle** tab, add a **Lifecycle Jobs** row with **Service Type = Special Project** (leave **Job No** empty until created).
-2. On the Special Project form, use **Create > Booking / Order**. In the dialog, open the card for that line and click **Create**, then enter **Order Title**. The system creates a **Project Order** (programme header and Special Project charge lines copied), links it on **Job No**, and opens the order.
-3. Add milestones and documents on the order if needed, then use **Create > Project Job** on the Project Order to create the execution job (or create a **Project Job** standalone linked to the programme).
+### 3.3 Programme tasks (optional)
+
+1. On **Services**, add a row with **Service Type = Special Project** (leave **Order No** / **Job No** empty until created).
+2. On the Special Project form, use **Create → Booking / Order**. In the dialog, open the card for that row and click **Create**, then enter **Order Title**. The system creates a **Project Order**, links it on **Order No**, and opens the order.
+3. Add milestones and documents on the order if needed, then create a **Project Job** from the Project Order (or create a **Project Job** standalone linked to the programme).
 
 ### 3.4 Track Billing
 
@@ -80,7 +82,7 @@ Use the Dashboard to monitor project health, resource utilization, and cost vs b
 
 ### 4.2 Milestones Tab
 
-Same pattern as **Sea Shipment** milestones: optional **Milestone Template**, editable **Milestones** child table (**Special Project Milestone** rows with planned/actual dates and automation metadata from the template), and a graphical timeline from **Get Milestones** / template population. The **Dashboard** tab still shows a read-only rollup of milestones from linked logistics jobs (via **Internal Job Detail**); programme-level milestones live on the Milestones tab.
+Same pattern as **Sea Shipment** milestones: optional **Milestone Template**, editable **Milestones** child table (**Special Project Milestone** rows with planned/actual dates and automation metadata from the template), and a graphical timeline from **Get Milestones** / template population. The **Dashboard** tab still shows a read-only rollup of milestones from linked logistics jobs (via **Services** rows); programme-level milestones live on the Milestones tab.
 
 ### 4.3 ERPNext Project Integration
 
@@ -95,11 +97,11 @@ Same pattern as **Sea Shipment** milestones: optional **Milestone Template**, ed
 - **Cost tracking** – Record cost per activity; mark **Charged to Project** when booked
 - **Auto-charge** – When status changes to Booked/Approved/Planning/In Progress, completed scoping activities can be auto-marked as charged
 
-### 4.5 Jobs Tab and Cost & Revenue
+### 4.5 Services tab and Cost & Revenue
 
-- **Internal Job Detail** – One grid for multimodal legs and programme resource lines; aligns with **General Job** and other documents using the same child DocType
-- **Resolution** – Standard service rows resolve to operational jobs for dashboard milestone rollup and maps; **Special Project** service rows are resource-only
-- **Cost & Revenue Summary** – Collapsible HTML summary for totals and breakdown
+- **Services** — One grid for multimodal legs and programme resource lines; each saved row is a **Special Project Service** record
+- **Resolution** — Standard service rows resolve to operational jobs for dashboard milestone rollup and maps; **Special Project** service rows are resource-only
+- **Cost & Revenue Summary** — Collapsible HTML summary for totals and breakdown (under **Services** tab)
 
 ### 4.6 Documents Tab
 
@@ -108,9 +110,9 @@ Same pattern as **Sea Shipment** milestones: optional **Milestone Template**, ed
 - Uses **Job Document** child table; supports document status and attachments
 - See [Document Management](welcome/document-management) for document types and templates
 
-### 4.7 Site Materials Tab
+### 4.7 Fulfillment tab
 
-Programme-level **site inventory** (one Site Materials grid covering tracked requirements and always-along packages, plus receipts and partial shipment picks from **Create → Booking / Order**). See the dedicated user guide: [Special Project — Site Materials](welcome/special-project-site-materials).
+Programme-level **Packages** and **Deliveries** (tracked requirements, always-along packages, and automatic receipt posting from execution jobs). Partial shipment picks use **Create → Booking / Order** and the **Shipment lines** dialog. See [Special Project — Fulfillment (Packages & Deliveries)](welcome/special-project-packages) and [Special Project — Delivery Workflow](welcome/special-project-delivery-workflow).
 
 ### 4.8 Billings Tab
 
@@ -197,4 +199,5 @@ _Special projects use [General Job](welcome/general-job) and the same **Internal
 - [Document Management](welcome/document-management)
 - [Document List Template](welcome/document-list-template)
 - [Milestone Tracking](welcome/milestone-tracking)
-- [Special Project — Site Materials](welcome/special-project-site-materials)
+- [Special Project — Delivery Workflow](welcome/special-project-delivery-workflow)
+- [Special Project — Fulfillment (Packages & Deliveries)](welcome/special-project-packages)

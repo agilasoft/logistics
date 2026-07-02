@@ -1,6 +1,13 @@
 // Copyright (c) 2025, logistics.agilasoft.com and contributors
 // For license information, please see license.txt
 
+function _sea_booking_setup_linked_service_query(frm) {
+	logistics.linked_service_link_query.setup(frm, {
+		parentBookingType: "Sea Booking",
+		chargeRowDoctype: "Sea Booking Charges",
+	});
+}
+
 function _load_milestone_html(frm) {
 	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
 	if (frm._milestone_html_called) return;
@@ -280,14 +287,15 @@ frappe.ui.form.on('Sea Booking', {
 			}
 			return {};
 		});
-		frm.set_query('warehouse_item', 'packages', function(doc) {
+		frm.set_query('warehouse_item', 'packages', function() {
 			const filters = {};
-			if (doc.local_customer) {
-				filters.customer = doc.local_customer;
+			if (frm.doc.local_customer) {
+				filters.customer = frm.doc.local_customer;
 			}
 			return { filters: filters };
 		});
 		_sea_booking_set_query_shipping_line_cto(frm);
+		_sea_booking_setup_linked_service_query(frm);
 	},
 
 	shipping_line: function(frm) {
@@ -494,11 +502,15 @@ frappe.ui.form.on('Sea Booking', {
 			});
 		}
 	},
+
+	before_save: function(frm) {
+	},
 	
 	refresh: function(frm) {
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
+		_sea_booking_setup_linked_service_query(frm);
 		_logistics_set_charges_cannot_add_rows(frm);
 		setTimeout(function () {
 			if (window.logistics_hide_cannot_add_rows_buttons) {
@@ -737,21 +749,6 @@ function _apply_routing_legs_from_sales_quote_response(frm, r) {
 	frm.refresh_field('routing_legs');
 }
 
-function _apply_internal_job_details_from_sales_quote_response(frm, r) {
-	if (!r.message || !r.message.internal_job_details || !r.message.internal_job_details.length) {
-		return;
-	}
-	frm.clear_table('internal_job_details');
-	r.message.internal_job_details.forEach(function(row) {
-		var d = frm.add_child('internal_job_details');
-		Object.keys(row).forEach(function(key) {
-			if (row[key] !== null && row[key] !== undefined) {
-				d[key] = row[key];
-			}
-		});
-	});
-	frm.refresh_field('internal_job_details');
-}
 
 function _populate_charges_from_quote(frm) {
 	var docname = frm.is_new() ? null : frm.doc.name;
@@ -823,7 +820,6 @@ function _populate_charges_from_quote(frm) {
 					return;
 				}
 				_apply_routing_legs_from_sales_quote_response(frm, r);
-				_apply_internal_job_details_from_sales_quote_response(frm, r);
 				if (r.message.message) {
 					frappe.msgprint({
 						title: __("No Charges Found"),
@@ -857,6 +853,13 @@ function _populate_charges_from_quote(frm) {
 								message: message,
 								indicator: 'green'
 							});
+						}
+						if (
+							quote_type === 'Sales Quote' &&
+							window.logistics &&
+							logistics.apply_sales_quote_linked_services_after_fetch
+						) {
+							logistics.apply_sales_quote_linked_services_after_fetch(frm, target_quote);
 						}
 					});
 				} else {

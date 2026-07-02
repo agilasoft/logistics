@@ -17,6 +17,7 @@
   "column_break_sdrs",
   "uom",
   "no_of_packs",
+  "quantity",
   "measurements_section",
   "dimension_uom",
   "length",
@@ -47,8 +48,8 @@
   {
    "fieldname": "warehouse_item",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Warehouse Item",
-   "link_filters": "[[\"Warehouse Item\",\"customer\",\"=\",\"eval:parent.local_customer\"]]",
    "options": "Warehouse Item"
   },
   {
@@ -68,6 +69,13 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "No of Packs"
+  },
+  {
+   "columns": 1,
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Quantity"
   },
   {
    "fieldname": "uom",

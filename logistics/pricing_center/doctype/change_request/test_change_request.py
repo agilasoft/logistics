@@ -295,7 +295,7 @@ class TestChangeRequestToJob(UnitTestCase):
 					name="crc-1",
 					item_code="EXTRA",
 					service_type="Sea",
-					internal_job="IJ-X",
+					linked_service="IJ-X",
 					estimated_cost=50,
 					cost_quantity=1,
 				),
@@ -309,47 +309,42 @@ class TestChangeRequestToJob(UnitTestCase):
 		target_docs_appended_to = {call.args[0] for call in mock_safe_append.call_args_list}
 		self.assertIn(main_doc, target_docs_appended_to)
 		self.assertIn(sat_doc, target_docs_appended_to)
-		# Main row should carry the Internal Job scope tag.
+		# Main row should carry the Linked Service scope tag.
 		main_call = next(c for c in mock_safe_append.call_args_list if c.args[0] is main_doc)
 		main_payload = main_call.args[1]
 		self.assertEqual(main_payload.get("change_request"), "CR-IJ")
-		# The dict handed to ``_safe_append_charge_to_doc`` must already carry the IJ scope —
-		# ``_decorate_charge_dict_with_internal_job_scope`` is responsible for it and uses direct
-		# assignment (not ``setdefault``) so even mapper-produced ``Main`` would be overwritten.
-		self.assertEqual(main_payload.get("charge_scope"), "Internal Job")
-		self.assertEqual(main_payload.get("internal_job"), "IJ-X")
-		# Same expectation on the satellite side — the row mirror must persist as IJ-scoped.
+		self.assertEqual(main_payload.get("charge_scope"), "Linked")
+		self.assertEqual(main_payload.get("linked_service"), "IJ-X")
+		# Same expectation on the satellite side — the row mirror must persist as linked-scoped.
 		sat_call = next(c for c in mock_safe_append.call_args_list if c.args[0] is sat_doc)
 		sat_payload = sat_call.args[1]
-		self.assertEqual(sat_payload.get("charge_scope"), "Internal Job")
-		self.assertEqual(sat_payload.get("internal_job"), "IJ-X")
+		self.assertEqual(sat_payload.get("charge_scope"), "Linked")
+		self.assertEqual(sat_payload.get("linked_service"), "IJ-X")
 		main_doc.save.assert_called_once()
 		sat_doc.save.assert_called_once()
 
 	def test_decorate_charge_dict_overrides_existing_main_scope(self):
-		"""Decoration must overwrite a pre-existing ``charge_scope='Main'`` with ``Internal Job``.
+		"""Decoration must overwrite a pre-existing ``charge_scope='Main'`` with ``Linked``.
 
 		This guards the regression where the Sales Quote Charge (created from a CR Charge) was
-		showing as ``Main`` on the Internal Job satellite booking because the default ``Main``
-		scope was never overwritten by ``setdefault``-style decoration.
+		showing as ``Main`` on the linked-service satellite booking because the default ``Main``
+		scope was never overwritten.
 		"""
 		from logistics.pricing_center.change_request_to_job import (
-			_decorate_charge_dict_with_internal_job_scope,
+			_decorate_charge_dict_with_linked_service_scope,
 		)
 
-		# Use a real Frappe doctype with the scope columns (Sea Booking → Sea Booking Charges).
 		target = frappe._dict(doctype="Sea Booking")
-		payload = {"item_code": "EXTRA", "charge_scope": "Main", "internal_job": "OLD"}
-		_decorate_charge_dict_with_internal_job_scope(payload, target, "IJ-X")
-		self.assertEqual(payload["charge_scope"], "Internal Job")
-		self.assertEqual(payload["internal_job"], "IJ-X")
+		payload = {"item_code": "EXTRA", "charge_scope": "Main", "linked_service": "OLD"}
+		_decorate_charge_dict_with_linked_service_scope(payload, target, "IJ-X")
+		self.assertEqual(payload["charge_scope"], "Linked")
+		self.assertEqual(payload["linked_service"], "IJ-X")
 
-	def test_sales_quote_dict_from_ij_tagged_cr_charge_sets_internal_job_scope(self):
-		"""Sales Quote Charge produced from an IJ-tagged CR Charge must carry the IJ scope.
+	def test_sales_quote_dict_from_linked_service_tagged_cr_charge_sets_linked_scope(self):
+		"""Sales Quote Charge produced from a linked-service-tagged CR Charge must carry Linked scope.
 
 		Without this, the SQ Charge inherits the schema default ``charge_scope='Main'`` and
-		any downstream copy (``_populate_charges_from_sales_quote_doc`` Path-2 fallback, GCFQ
-		per-scope helpers, …) reads ``Main`` and writes ``Main`` on the satellite booking.
+		any downstream copy reads ``Main`` and writes ``Main`` on the satellite booking.
 		"""
 		from logistics.pricing_center.doctype.change_request.change_request import (
 			_charge_row_as_sales_quote_dict,
@@ -361,21 +356,19 @@ class TestChangeRequestToJob(UnitTestCase):
 			row.as_dict = MagicMock(return_value=data)
 			return row
 
-		# CR Charge tagged with internal_job=IJ-X — the SQ row must inherit IJ scope.
 		row = _fake_charge_row(
 			name="crc-1",
 			item_code="EXTRA",
 			service_type="Sea",
-			internal_job="IJ-X",
+			linked_service="IJ-X",
 			estimated_cost=100,
 			cost_quantity=1,
 		)
 		out = _charge_row_as_sales_quote_dict(row, "Sea")
-		self.assertEqual(out["charge_scope"], "Internal Job")
-		self.assertEqual(out["internal_job"], "IJ-X")
+		self.assertEqual(out["charge_scope"], "Linked")
+		self.assertEqual(out["linked_service"], "IJ-X")
 		self.assertEqual(out["item_code"], "EXTRA")
 
-		# CR Charge with no internal_job → SQ row stays without forcing scope (defaults to Main).
 		row2 = _fake_charge_row(
 			name="crc-2",
 			item_code="EXTRA2",

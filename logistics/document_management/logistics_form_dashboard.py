@@ -515,11 +515,15 @@ def render_logistics_form_dashboard_html(doc, cfg):
 	- milestones_tab_inner_html (optional str; replaces child-table milestone panel)
 	- milestone_count_override, milestone_done_override: when milestones_tab_inner_html is set, use these for the progress ring (else Job Milestone display rows)
 	- route_tab_override_html (optional str): replaces the default Route tab map (e.g. Special Project task + job split layout)
+	- route_tab_label (optional str): label for the Route sub-tab (default Route)
 	- alerts_prepend_html (str)
 	- status_slug (optional str for ring), ring_status_from workflow|docstatus
 	- ring_status_field when workflow (default status)
 	- customs_dashboard_enhanced_layout (bool): Declaration / Declaration Order — divider + layout CSS
 	- hide_header_details_body (bool): omit footer KPI strip when meta cluster already shows the same fields
+	- extra_dashboard_tabs (optional list): additional sub-tabs after Alerts, each dict with
+	  suffix (str, unique id suffix), label (str), inner_html (str, wrapped in log-ab-ro-card),
+	  and optional count (int, renders as "Label (n)")
 	"""
 	from logistics.document_management.api import (
 		get_dashboard_alerts,
@@ -595,7 +599,7 @@ def render_logistics_form_dashboard_html(doc, cfg):
 		else:
 			from logistics.document_management.api import get_milestone_display_rows_and_editor_doctype
 
-			ring_rows, _ = get_milestone_display_rows_and_editor_doctype(doc)
+			ring_rows, _editor_doctype = get_milestone_display_rows_and_editor_doctype(doc)
 			n_ms = len(ring_rows)
 			done_ms = sum(1 for m in ring_rows if str(m.get("status") or "").strip() == "Completed")
 	else:
@@ -707,38 +711,84 @@ def render_logistics_form_dashboard_html(doc, cfg):
 	alerts_tab_wrapped = f'<div class="log-ab-ro-card">{alerts_tab_inner}</div>'
 
 	safe_uid = re.sub(r"[^a-zA-Z0-9_]", "_", map_id_prefix or "lfdash")
-	tid_r = f"{safe_uid}_route"
-	tid_m = f"{safe_uid}_milestones"
-	tid_a = f"{safe_uid}_alerts"
 	tab_name = f"ab_sub_{safe_uid}"
+	route_tab_label = escape_html(cfg.get("route_tab_label") or _("Route"))
+
+	default_tabs = [
+		{
+			"suffix": "route",
+			"label": route_tab_label,
+			"count_html": "",
+			"inner_html": route_inner,
+			"checked": True,
+		},
+		{
+			"suffix": "milestones",
+			"label": escape_html(_("Milestones")),
+			"count_html": ms_count_html,
+			"inner_html": milestones_inner,
+		},
+		{
+			"suffix": "alerts",
+			"label": escape_html(_("Alerts and Notifications")),
+			"count_html": al_count_html,
+			"inner_html": alerts_tab_wrapped,
+		},
+	]
+	for extra in cfg.get("extra_dashboard_tabs") or []:
+		suffix = (extra.get("suffix") or "").strip()
+		if not suffix:
+			continue
+		count = extra.get("count")
+		count_html = (
+			f'<span class="ab-tab-count">({int(count)})</span>' if count is not None else ""
+		)
+		default_tabs.append(
+			{
+				"suffix": suffix,
+				"label": escape_html(str(extra.get("label") or suffix)),
+				"count_html": count_html,
+				"inner_html": f'<div class="log-ab-ro-card">{extra.get("inner_html") or ""}</div>',
+			}
+		)
+
+	tab_inputs = []
+	tab_labels = []
+	tab_panels = []
+	checked_label_rules = []
+	checked_panel_rules = []
+	for tab in default_tabs:
+		tid = f"{safe_uid}_{tab['suffix']}"
+		checked_attr = ' checked' if tab.get("checked") else ""
+		tab_inputs.append(
+			f'<input type="radio" name="{tab_name}" id="{tid}" class="ab-dash-tab-input"{checked_attr}>'
+		)
+		tab_labels.append(
+			f'<label for="{tid}" class="ab-tlabel">{tab["label"]}{tab["count_html"]}</label>'
+		)
+		tab_panels.append(
+			f'<div class="ab-tab-panel ab-tab-panel-{tab["suffix"]}">{tab["inner_html"]}</div>'
+		)
+		checked_label_rules.append(f'#{tid}:checked ~ .ab-tab-bar label[for="{tid}"]')
+		checked_panel_rules.append(f'#{tid}:checked ~ .ab-ro-body .ab-tab-panel-{tab["suffix"]}')
 
 	tab_block = f"""
 		<div class="ab-tab-shell">
-			<input type="radio" name="{tab_name}" id="{tid_r}" class="ab-dash-tab-input" checked>
-			<input type="radio" name="{tab_name}" id="{tid_m}" class="ab-dash-tab-input">
-			<input type="radio" name="{tab_name}" id="{tid_a}" class="ab-dash-tab-input">
+			{"".join(tab_inputs)}
 			<div class="ab-tab-bar">
-				<label for="{tid_r}" class="ab-tlabel">Route</label>
-				<label for="{tid_m}" class="ab-tlabel">Milestones{ms_count_html}</label>
-				<label for="{tid_a}" class="ab-tlabel">Alerts and Notifications{al_count_html}</label>
+				{"".join(tab_labels)}
 			</div>
 			<div class="ab-ro-body">
 				<div class="ab-tab-panels ab-ro-shell">
-					<div class="ab-tab-panel ab-tab-panel-route">{route_inner}</div>
-					<div class="ab-tab-panel ab-tab-panel-milestones">{milestones_inner}</div>
-					<div class="ab-tab-panel ab-tab-panel-alerts">{alerts_tab_wrapped}</div>
+					{"".join(tab_panels)}
 				</div>
 			</div>
 		</div>
 		<style>
-			#{tid_r}:checked ~ .ab-tab-bar label[for="{tid_r}"],
-			#{tid_m}:checked ~ .ab-tab-bar label[for="{tid_m}"],
-			#{tid_a}:checked ~ .ab-tab-bar label[for="{tid_a}"] {{
+			{", ".join(checked_label_rules)} {{
 				font-weight: 600; color: #212529; border-bottom-color: #212529;
 			}}
-			#{tid_r}:checked ~ .ab-ro-body .ab-tab-panel-route,
-			#{tid_m}:checked ~ .ab-ro-body .ab-tab-panel-milestones,
-			#{tid_a}:checked ~ .ab-ro-body .ab-tab-panel-alerts {{
+			{", ".join(checked_panel_rules)} {{
 				display: block;
 			}}
 		</style>

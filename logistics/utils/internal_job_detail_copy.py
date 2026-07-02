@@ -11,6 +11,12 @@ import frappe
 from frappe import _
 
 from logistics.utils.charge_service_type import effective_internal_job_detail_job_type
+from logistics.utils.linked_service_compat import (
+	linked_service_doctype,
+	linked_service_record_exists,
+	row_linked_service_link,
+)
+from logistics.utils.virtual_internal_job_details import uses_virtual_internal_job_details
 
 DECLARATION_ORDER_JOB_TYPE = "Declaration Order"
 
@@ -40,69 +46,56 @@ _SKIP_KEYS = frozenset(
 
 def internal_job_detail_row_as_dict(row: Any) -> dict:
 	"""Serialize a child row for append() on another parent."""
-	d = row.as_dict()
+	if isinstance(row, dict):
+		d = dict(row)
+	else:
+		d = row.as_dict()
 	for k in _SKIP_KEYS:
 		d.pop(k, None)
 	return d
 
 
 def sync_internal_job_details_from_declaration_to_declaration_order(declaration: Any) -> None:
-	"""Copy Declaration.internal_job_details onto the linked Declaration Order so row counts stay aligned.
-
-	Called when the Declaration is saved so downstream flows (e.g. persist_internal_job_detail_job_link on
-	the Order) see the same Internal Jobs lines as on the Declaration. Preserves ``job_no`` / ``job_type``
-	from the Order row when the Declaration row is still open (link was written only on the Order).
-	"""
+	"""Align ``job_no`` / ``job_type`` on Declaration Order Linked Service docs with Declaration."""
 	do_name = (getattr(declaration, "declaration_order", None) or "").strip()
-	if not do_name or not frappe.db.exists("Declaration Order", do_name):
+	dec_name = (getattr(declaration, "name", None) or "").strip()
+	if not do_name or not dec_name or not frappe.db.exists("Declaration Order", do_name):
 		return
-	dec_rows = list(getattr(declaration, "internal_job_details", None) or [])
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_booking,
+	)
 
-	try:
-		order = frappe.get_doc("Declaration Order", do_name)
-	except frappe.DoesNotExistError:
-		return
-
-	old_rows = list(getattr(order, "internal_job_details", None) or [])
+	dec_rows = list(get_linked_services_for_booking("Declaration", dec_name))
 	if not dec_rows:
-		if not old_rows:
-			return
-		order.set("internal_job_details", [])
-		order.flags.ignore_validate_update_after_submit = True
-		order.flags.ignore_links = True
-		order.save(ignore_permissions=True)
 		return
+	order_rows = list(get_linked_services_for_booking("Declaration Order", do_name))
 
-	merged: list[dict[str, Any]] = []
-	for i, row in enumerate(dec_rows):
-		d = internal_job_detail_row_as_dict(row)
-		if i < len(old_rows):
-			old_jn = (getattr(old_rows[i], "job_no", None) or "").strip()
-			new_jn = (d.get("job_no") or "").strip()
-			old_jt = (getattr(old_rows[i], "job_type", None) or "").strip()
-			if old_jn and not new_jn:
-				d["job_no"] = old_jn
-				if old_jt:
-					d["job_type"] = old_jt
-		merged.append(d)
+	def _row_key(ls: Any) -> tuple:
+		st = (getattr(ls, "service_type", None) or "").strip()
+		jt = effective_internal_job_detail_job_type(ls)
+		ls_name = row_linked_service_link(ls) or (getattr(ls, "name", None) or "").strip()
+		return (st, jt, ls_name)
 
-	def _row_matches(doc_row: Any, want: dict[str, Any]) -> bool:
-		for k, v in want.items():
-			if getattr(doc_row, k, None) != v:
-				return False
-		return True
-
-	if len(merged) == len(old_rows) and all(
-		_row_matches(old_rows[i], merged[i]) for i in range(len(merged))
-	):
-		return
-
-	order.set("internal_job_details", [])
-	for d in merged:
-		order.append("internal_job_details", d)
-	order.flags.ignore_validate_update_after_submit = True
-	order.flags.ignore_links = True
-	order.save(ignore_permissions=True)
+	order_by_key = {_row_key(ls): ls for ls in order_rows}
+	ls_dt = linked_service_doctype()
+	for dec_ls in dec_rows:
+		key = _row_key(dec_ls)
+		ord_ls = order_by_key.get(key)
+		if not ord_ls:
+			continue
+		dec_jn = (getattr(dec_ls, "job_no", None) or "").strip()
+		ord_jn = (getattr(ord_ls, "job_no", None) or "").strip()
+		dec_jt = (effective_internal_job_detail_job_type(dec_ls) or "").strip()
+		ord_jt = (effective_internal_job_detail_job_type(ord_ls) or "").strip()
+		new_jn = dec_jn or ord_jn
+		new_jt = dec_jt or ord_jt
+		updates: dict[str, Any] = {}
+		if new_jn and new_jn != ord_jn:
+			updates["job_no"] = new_jn
+		if new_jt and new_jt != ord_jt:
+			updates["job_type"] = new_jt
+		if updates:
+			frappe.db.set_value(ls_dt, ord_ls.name, updates, update_modified=False)
 
 
 def copy_internal_job_details_to_doc(source_doc: Any, dest_doc: Any) -> None:
@@ -110,19 +103,76 @@ def copy_internal_job_details_to_doc(source_doc: Any, dest_doc: Any) -> None:
 	rows = getattr(source_doc, "internal_job_details", None) or []
 	if not rows:
 		return
-	for row in rows:
-		dest_doc.append("internal_job_details", internal_job_detail_row_as_dict(row))
+	staged = [internal_job_detail_row_as_dict(row) for row in rows]
+	if uses_virtual_internal_job_details(getattr(dest_doc, "doctype", None)):
+		dest_doc.set("internal_job_details", [])
+		for payload in staged:
+			dest_doc.append("internal_job_details", payload)
+		dest_doc.flags._internal_job_details_from_form = True
+		return
+	for payload in staged:
+		dest_doc.append("internal_job_details", payload)
+
+
+def _reparent_linked_service(ls_name: str, parent_doctype: str, parent_name: str) -> None:
+	if not linked_service_record_exists(ls_name):
+		return
+	ls = frappe.get_doc(linked_service_doctype(), ls_name)
+	ls.parent_booking_type = parent_doctype
+	ls.parent_booking_name = parent_name
+	ls.flags.ignore_permissions = True
+	ls.flags.skip_internal_job_detail_sync = True
+	ls.save(ignore_permissions=True)
+
+
+def reparent_linked_services_between_parents(
+	source_doctype: str,
+	source_name: str,
+	dest_doctype: str,
+	dest_name: str,
+) -> None:
+	"""Re-parent every Linked Service owned by *source* onto *dest*."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_booking,
+	)
+
+	for ls in get_linked_services_for_booking(source_doctype, source_name):
+		ls_name = (getattr(ls, "name", None) or "").strip()
+		if ls_name:
+			_reparent_linked_service(ls_name, dest_doctype, dest_name)
+
+
+def transfer_linked_services_to_parent(source_doc: Any, dest_doc: Any) -> None:
+	"""Re-parent Linked Service documents from *source* onto *dest*."""
+	dest_name = (getattr(dest_doc, "name", None) or "").strip()
+	source_name = (getattr(source_doc, "name", None) or "").strip()
+	if not dest_name or not source_name:
+		return
+	reparent_linked_services_between_parents(
+		getattr(source_doc, "doctype", None) or "",
+		source_name,
+		getattr(dest_doc, "doctype", None) or "",
+		dest_name,
+	)
 
 
 def get_declaration_order_job_no_from_shipment_doc(shipment_doc: Any) -> str | None:
-	"""Return linked Declaration Order name from internal_job_details (job_type = Declaration Order).
+	"""Return linked Declaration Order name from Linked Service docs on the shipment.
 
 	Skips cancelled Declaration Orders so the main shipment can create/link a replacement after cancel.
 	"""
-	for row in getattr(shipment_doc, "internal_job_details", None) or []:
-		if effective_internal_job_detail_job_type(row) != DECLARATION_ORDER_JOB_TYPE:
+	parent_doctype = getattr(shipment_doc, "doctype", None) or ""
+	parent_name = (getattr(shipment_doc, "name", None) or "").strip()
+	if not parent_name:
+		return None
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_booking,
+	)
+
+	for ls in get_linked_services_for_booking(parent_doctype, parent_name):
+		if effective_internal_job_detail_job_type(ls) != DECLARATION_ORDER_JOB_TYPE:
 			continue
-		jn = (getattr(row, "job_no", None) or "").strip()
+		jn = (getattr(ls, "job_no", None) or "").strip()
 		if not jn or not frappe.db.exists("Declaration Order", jn):
 			continue
 		if frappe.db.get_value("Declaration Order", jn, "docstatus") == 2:
@@ -167,11 +217,9 @@ def _stamp_internal_job_link_on_target(job_type: str, job_no: str, ij_row: Any) 
 	jn = (job_no or "").strip()
 	if not jt or not jn:
 		return
-	ij_link = (getattr(ij_row, "internal_job", None) or "") if not isinstance(ij_row, dict) else (
-		ij_row.get("internal_job") or ""
-	)
-	if isinstance(ij_link, str):
-		ij_link = ij_link.strip()
+	from logistics.utils.linked_service_compat import row_linked_service_link
+
+	ij_link = row_linked_service_link(ij_row)
 	if not ij_link:
 		return
 	try:
@@ -328,31 +376,48 @@ def _internal_job_detail_row_open_for_declaration_order_link(row: Any) -> bool:
 def link_declaration_order_on_shipment(
 	shipment_doctype: str, shipment_name: str, declaration_order_name: str
 ) -> None:
-	"""Set or append an Internal Job Detail row linking this shipment to a Declaration Order."""
+	"""Set job_no on the shipment's Customs Linked Service for this Declaration Order."""
 	if not declaration_order_name or not frappe.db.exists("Declaration Order", declaration_order_name):
 		return
-	meta = frappe.get_meta(shipment_doctype)
-	if not meta.get_field("internal_job_details"):
-		return
-	shipment = frappe.get_doc(shipment_doctype, shipment_name)
-	for row in shipment.internal_job_details or []:
-		if not _internal_job_detail_row_open_for_declaration_order_link(row):
-			continue
-		row.job_type = DECLARATION_ORDER_JOB_TYPE
-		row.job_no = declaration_order_name
-		if hasattr(row, "service_type") and not (getattr(row, "service_type", None) or "").strip():
-			row.service_type = "Customs"
-		_save_shipment_internal_jobs(shipment)
-		return
-	shipment.append(
-		"internal_job_details",
-		{
-			"job_type": DECLARATION_ORDER_JOB_TYPE,
-			"job_no": declaration_order_name,
-			"service_type": "Customs",
-		},
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_booking,
 	)
-	_save_shipment_internal_jobs(shipment)
+	from logistics.utils.internal_job_persistence import sync_internal_job_doc_job_link
+
+	for ls in get_linked_services_for_booking(shipment_doctype, shipment_name):
+		if not _internal_job_detail_row_open_for_declaration_order_link(ls):
+			continue
+		sync_internal_job_doc_job_link(ls, DECLARATION_ORDER_JOB_TYPE, declaration_order_name)
+		return
+
+	parent = frappe.get_doc(shipment_doctype, shipment_name)
+	new_name = frappe.db.get_value(
+		linked_service_doctype(),
+		{
+			"parent_booking_type": shipment_doctype,
+			"parent_booking_name": shipment_name,
+			"service_type": "Customs",
+			"job_type": DECLARATION_ORDER_JOB_TYPE,
+		},
+		"name",
+	)
+	if new_name:
+		ls = frappe.get_doc(linked_service_doctype(), new_name)
+		sync_internal_job_doc_job_link(ls, DECLARATION_ORDER_JOB_TYPE, declaration_order_name)
+		return
+	from logistics.utils.internal_job_persistence import _create_internal_job_from_row
+
+	row = frappe._dict(
+		service_type="Customs",
+		job_type=DECLARATION_ORDER_JOB_TYPE,
+		job_no=declaration_order_name,
+	)
+	ij_name = _create_internal_job_from_row(parent, row)
+	sync_internal_job_doc_job_link(
+		frappe._dict(linked_service=ij_name, internal_job=ij_name),
+		DECLARATION_ORDER_JOB_TYPE,
+		declaration_order_name,
+	)
 
 
 def unlink_declaration_order_from_shipment(
@@ -360,28 +425,23 @@ def unlink_declaration_order_from_shipment(
 	shipment_name: str,
 	declaration_order_name: str,
 ) -> None:
-	"""Remove the Internal Job Detail row that points to this Declaration Order."""
+	"""Clear Declaration Order job_no on the shipment's matching Linked Service."""
 	if not (declaration_order_name or "").strip():
 		return
-	meta = frappe.get_meta(shipment_doctype)
-	if not meta.get_field("internal_job_details"):
-		return
-	try:
-		shipment = frappe.get_doc(shipment_doctype, shipment_name)
-	except frappe.DoesNotExistError:
-		return
-	to_remove = []
-	for row in list(shipment.internal_job_details or []):
-		if (getattr(row, "job_type", None) or "").strip() != DECLARATION_ORDER_JOB_TYPE:
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_booking,
+	)
+
+	do_name = declaration_order_name.strip()
+	ls_dt = linked_service_doctype()
+	for ls in get_linked_services_for_booking(shipment_doctype, shipment_name):
+		if (getattr(ls, "job_type", None) or "").strip() != DECLARATION_ORDER_JOB_TYPE:
 			continue
-		jn = (getattr(row, "job_no", None) or "").strip()
-		if jn != declaration_order_name.strip():
+		jn = (getattr(ls, "job_no", None) or "").strip()
+		if jn != do_name:
 			continue
-		to_remove.append(row)
-	for row in to_remove:
-		shipment.remove(row)
-	if to_remove:
-		_save_shipment_internal_jobs(shipment)
+		frappe.db.set_value(ls_dt, ls.name, {"job_no": "", "job_type": DECLARATION_ORDER_JOB_TYPE}, update_modified=False)
+		return
 
 
 def unlink_declaration_order_from_internal_job_parent_documents(

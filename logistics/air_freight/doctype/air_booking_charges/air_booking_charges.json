@@ -7,9 +7,8 @@
  "engine": "InnoDB",
  "field_order": [
   "service_type",
-  "service_scope",
   "charge_scope",
-  "internal_job",
+  "linked_service",
   "column_break_pkuo",
   "item_code",
   "item_name",
@@ -605,12 +604,6 @@
   {
    "fieldname": "column_break_pkuo",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "service_scope",
-   "fieldtype": "Link",
-   "label": "Service Scope",
-   "options": "Sales Quote"
   },
   {
    "default": "Main",

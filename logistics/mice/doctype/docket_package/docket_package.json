@@ -10,13 +10,13 @@
   "warehouse_item",
   "hs_code",
   "reference_no",
-  "description",
   "atl",
   "column_break_2",
+  "description",
+  "column_break_3",
   "uom",
   "quantity",
   "no_of_packs",
-  "column_break_3",
   "measurements_section",
   "dimension_uom",
   "length",
@@ -86,14 +86,14 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Commodity",
-   "options": "Commodity",
-   "link_filters": "[[\"Commodity\", \"active\", \"=\", 1]]"
+   "link_filters": "[[\"Commodity\", \"active\", \"=\", 1]]",
+   "options": "Commodity"
   },
   {
    "fieldname": "warehouse_item",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Warehouse Item",
-   "link_filters": "[[\"Warehouse Item\",\"customer\",\"=\",\"eval:parent.customer\"]]",
    "options": "Warehouse Item"
   },
   {
@@ -142,8 +142,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "columns": 1,
@@ -156,8 +156,8 @@
    "fieldname": "weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "columns": 1,
@@ -171,8 +171,8 @@
    "fieldname": "volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "column_break_3",
@@ -201,6 +201,7 @@
    "default": "0",
    "fieldname": "atl",
    "fieldtype": "Check",
+   "hidden": 1,
    "in_list_view": 1,
    "label": "ATL"
   },
@@ -209,6 +210,7 @@
    "depends_on": "eval:doc.contains_dangerous_goods",
    "fieldname": "section_break_dg_identification",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Dangerous Goods Identification"
   },
   {
@@ -281,6 +283,7 @@
    "collapsible": 1,
    "fieldname": "section_break_dg_emergency",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Emergency Contact Information"
   },
   {
@@ -325,6 +328,7 @@
    "collapsible": 1,
    "fieldname": "section_break_dg_restrictions",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Transport Restrictions"
   },
   {
@@ -350,6 +354,7 @@
    "collapsible": 1,
    "fieldname": "section_break_dg_temperature",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Temperature Control"
   },
   {
@@ -376,6 +381,7 @@
    "collapsible": 1,
    "fieldname": "section_break_dg_radioactive",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Radioactive Materials"
   },
   {
@@ -407,6 +413,7 @@
    "collapsible": 1,
    "fieldname": "section_break_dg_documentation",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Documentation & Declaration"
   },
   {
@@ -432,6 +439,7 @@
   {
    "fieldname": "goods_details_section",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Goods Details"
   },
   {
@@ -446,8 +454,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Dimension UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "column_break_ycdf",
@@ -456,8 +464,8 @@
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-02-24 10:59:00.351592",
- "modified_by": "Administrator",
+ "modified": "2026-06-26 12:03:07.773772",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "MICE",
  "name": "Docket Package",
  "owner": "Administrator",

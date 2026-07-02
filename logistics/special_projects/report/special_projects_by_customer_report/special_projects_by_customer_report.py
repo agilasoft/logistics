@@ -52,7 +52,7 @@ def get_data(filters):
 			COALESCE(SUM(j.actual_revenue), 0) as total_actual_revenue
 		FROM `tabSpecial Project` sp
 		LEFT JOIN `tabCustomer` c ON c.name = sp.customer
-		LEFT JOIN `tabLifecycle Job` j ON j.parent = sp.name AND j.parenttype = 'Special Project' AND j.parentfield = 'lifecycle_jobs'
+		LEFT JOIN `tabSpecial Project Service` j ON j.parent_booking_type = 'Special Project' AND j.parent_booking_name = sp.name AND IFNULL(j.special_project_service_line, '') = ''
 		WHERE {where}
 		GROUP BY sp.customer, c.customer_name
 		ORDER BY project_count DESC, total_actual_revenue DESC

@@ -13,7 +13,7 @@
   "status",
   "posted_on",
   "column_break_plan",
-  "lifecycle_job_line",
+  "lifecycle_stage",
   "job_type",
   "order_no",
   "column_break_exec",
@@ -79,10 +79,10 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "lifecycle_job_line",
+   "fieldname": "lifecycle_stage",
    "fieldtype": "Link",
-   "label": "Lifecycle Job Line",
-   "options": "Lifecycle Job",
+   "label": "Lifecycle Stage",
+   "options": "Lifecycle Stage",
    "read_only": 1
   },
   {

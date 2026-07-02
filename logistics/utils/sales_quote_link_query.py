@@ -21,6 +21,64 @@ from logistics.utils.charge_service_type import (
 from logistics.utils.sales_quote_service_eligibility import SERVICE_LEGACY_TABLE
 
 _SALES_QUOTE_TABLE_COLUMNS_KEY = "table_columns::tabSales Quote"
+_SQC_PARAMETER_COLUMNS: frozenset[str] | None = None
+_SALES_QUOTE_PARAMETER_COLUMNS: frozenset[str] | None = None
+
+
+def _sqc_parameter_columns() -> frozenset[str]:
+	"""Routing parameter columns still present on ``tabSales Quote Charge`` (pre-migration sites)."""
+	global _SQC_PARAMETER_COLUMNS
+	if _SQC_PARAMETER_COLUMNS is None:
+		from logistics.utils.sales_quote_charge_parameters import (
+			SALES_QUOTE_CHARGE_PARAMETER_FIELDS,
+			filter_fields_existing_in_doctype,
+		)
+
+		cols = filter_fields_existing_in_doctype(
+			"Sales Quote Charge", list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
+		)
+		_SQC_PARAMETER_COLUMNS = frozenset(cols)
+	return _SQC_PARAMETER_COLUMNS
+
+
+def _sales_quote_parameter_columns() -> frozenset[str]:
+	"""Routing parameter columns on ``tabSales Quote`` header (Main scope source)."""
+	global _SALES_QUOTE_PARAMETER_COLUMNS
+	if _SALES_QUOTE_PARAMETER_COLUMNS is None:
+		from logistics.utils.sales_quote_charge_parameters import (
+			SALES_QUOTE_CHARGE_PARAMETER_FIELDS,
+			filter_fields_existing_in_doctype,
+		)
+
+		cols = filter_fields_existing_in_doctype(
+			"Sales Quote", list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
+		)
+		_SALES_QUOTE_PARAMETER_COLUMNS = frozenset(cols)
+	return _SALES_QUOTE_PARAMETER_COLUMNS
+
+
+def _sqc_has_parameter_column(fieldname: str) -> bool:
+	return fieldname in _sqc_parameter_columns()
+
+
+def _sales_quote_has_parameter_column(fieldname: str) -> bool:
+	return fieldname in _sales_quote_parameter_columns()
+
+
+def _linked_service_table_quoted() -> str:
+	from logistics.utils.linked_service_compat import linked_service_doctype
+
+	return f"`tab{linked_service_doctype()}`"
+
+
+def _sqc_is_main_scope_sql(sqc_alias: str = "sqc") -> str:
+	return (
+		f"IFNULL({sqc_alias}.charge_scope,'Main') NOT IN ('Linked','Internal Job')"
+	)
+
+
+def _sqc_is_linked_scope_sql(sqc_alias: str = "sqc") -> str:
+	return f"IFNULL({sqc_alias}.charge_scope,'Main') IN ('Linked','Internal Job')"
 
 
 def _invalidate_sales_quote_table_column_cache() -> None:
@@ -146,7 +204,7 @@ def _airline_only_match_sql() -> str:
 		SELECT 1 FROM `tabSales Quote Charge` sqc
 		WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
 		AND sqc.service_type IN %(service_types)s
-		{_air_corridor_job_airline_sql("sqc")}
+		AND {_unified_charge_airline_match_sql()}
 	)"""
 	legacy = ""
 	legacy_dt = SERVICE_LEGACY_TABLE.get("Air")
@@ -201,6 +259,204 @@ def _d_wildcard_loc_to(alias: str) -> str:
 	)
 
 
+def _customs_field_wildcard_match_sql(alias: str, column: str, param_key: str) -> str:
+	"""Match one customs filter field with empty filter / empty quote value wildcards."""
+	return (
+		f"(TRIM(IFNULL(%({param_key})s,'')) = '' OR "
+		f"TRIM(IFNULL({alias}.{column},'')) = TRIM(IFNULL(%({param_key})s,'')))"
+	)
+
+
+def _customs_broker_wildcard_match_sql(alias: str) -> str:
+	return f"""(
+		TRIM(IFNULL(%(customs_broker)s,'')) = ''
+		OR IFNULL({alias}.customs_broker,'') = ''
+		OR TRIM(IFNULL({alias}.customs_broker,'')) = TRIM(IFNULL(%(customs_broker)s,''))
+	)"""
+
+
+def _unified_charge_legacy_port_match_sql(
+	st: str, job_airline: str | None, job_shipping_line: str | None
+) -> str:
+	"""Per-row corridor match when legacy parameter columns still exist on ``tabSales Quote Charge``."""
+	if st == "Air":
+		air_al = _air_corridor_job_airline_sql("sqc") if (job_airline or "").strip() else ""
+		return f"""(
+			{_o_wildcard_port("sqc")}
+			AND {_d_wildcard_port("sqc")}
+			{air_al}
+		)"""
+	if st == "Sea":
+		sea_sl = _sea_corridor_job_shipping_line_sql("sqc") if (job_shipping_line or "").strip() else ""
+		return f"""(
+			{_o_wildcard_port("sqc")}
+			AND {_d_wildcard_port("sqc")}
+			{sea_sl}
+		)"""
+	if st == "Transport":
+		return f"""(
+			{_o_wildcard_loc_from("sqc")}
+			AND {_d_wildcard_loc_to("sqc")}
+		)"""
+	return "(1=0)"
+
+
+def _unified_charge_main_scope_port_match_sql(
+	st: str, job_airline: str | None, job_shipping_line: str | None
+) -> str:
+	"""Main-scope charge rows inherit corridor from the Sales Quote header (``sq``)."""
+	if st == "Air":
+		air_al = _air_corridor_job_airline_sql("sq") if (job_airline or "").strip() else ""
+		return f"""(
+			{_sqc_is_main_scope_sql()}
+			AND {_o_wildcard_port("sq")}
+			AND {_d_wildcard_port("sq")}
+			{air_al}
+		)"""
+	if st == "Sea":
+		sea_sl = _sea_corridor_job_shipping_line_sql("sq") if (job_shipping_line or "").strip() else ""
+		return f"""(
+			{_sqc_is_main_scope_sql()}
+			AND {_o_wildcard_port("sq")}
+			AND {_d_wildcard_port("sq")}
+			{sea_sl}
+		)"""
+	if st == "Transport":
+		return f"""(
+			{_sqc_is_main_scope_sql()}
+			AND {_o_wildcard_loc_from("sq")}
+			AND {_d_wildcard_loc_to("sq")}
+		)"""
+	return "(1=0)"
+
+
+def _unified_charge_linked_scope_port_match_sql(
+	st: str, job_airline: str | None, job_shipping_line: str | None
+) -> str:
+	"""Linked-scope charge rows inherit corridor from the tagged Linked Service document."""
+	ls_table = _linked_service_table_quoted()
+	if st == "Air":
+		air_al = _air_corridor_job_airline_sql("ls") if (job_airline or "").strip() else ""
+		return f"""(
+			{_sqc_is_linked_scope_sql()}
+			AND IFNULL(sqc.linked_service,'') != ''
+			AND EXISTS (
+				SELECT 1 FROM {ls_table} ls
+				WHERE ls.name = sqc.linked_service
+				AND {_o_wildcard_port("ls")}
+				AND {_d_wildcard_port("ls")}
+				{air_al}
+			)
+		)"""
+	if st == "Sea":
+		sea_sl = _sea_corridor_job_shipping_line_sql("ls") if (job_shipping_line or "").strip() else ""
+		return f"""(
+			{_sqc_is_linked_scope_sql()}
+			AND IFNULL(sqc.linked_service,'') != ''
+			AND EXISTS (
+				SELECT 1 FROM {ls_table} ls
+				WHERE ls.name = sqc.linked_service
+				AND {_o_wildcard_port("ls")}
+				AND {_d_wildcard_port("ls")}
+				{sea_sl}
+			)
+		)"""
+	if st == "Transport":
+		return f"""(
+			{_sqc_is_linked_scope_sql()}
+			AND IFNULL(sqc.linked_service,'') != ''
+			AND EXISTS (
+				SELECT 1 FROM {ls_table} ls
+				WHERE ls.name = sqc.linked_service
+				AND {_o_wildcard_loc_from("ls")}
+				AND {_d_wildcard_loc_to("ls")}
+			)
+		)"""
+	return "(1=0)"
+
+
+def _unified_charge_corridor_match_sql(
+	st: str, job_airline: str | None = None, job_shipping_line: str | None = None
+) -> str:
+	"""SQL fragment for corridor/carrier match on unified ``tabSales Quote Charge`` rows."""
+	clauses: list[str] = []
+	if _sqc_has_parameter_column("origin_port") or (
+		st == "Transport" and _sqc_has_parameter_column("location_from")
+	):
+		clauses.append(_unified_charge_legacy_port_match_sql(st, job_airline, job_shipping_line))
+	clauses.append(_unified_charge_main_scope_port_match_sql(st, job_airline, job_shipping_line))
+	clauses.append(_unified_charge_linked_scope_port_match_sql(st, job_airline, job_shipping_line))
+	return f"({' OR '.join(clauses)})"
+
+
+def _unified_charge_airline_match_sql() -> str:
+	"""Airline match for unified charge rows (Main header, Linked Service, or legacy sqc column)."""
+	clauses: list[str] = []
+	if _sqc_has_parameter_column("airline"):
+		clauses.append(f"({_air_corridor_job_airline_sql('sqc')})")
+	clauses.append(
+		f"""(
+			{_sqc_is_main_scope_sql()}
+			{_air_corridor_job_airline_sql("sq")}
+		)"""
+	)
+	ls_table = _linked_service_table_quoted()
+	clauses.append(
+		f"""(
+			{_sqc_is_linked_scope_sql()}
+			AND IFNULL(sqc.linked_service,'') != ''
+			AND EXISTS (
+				SELECT 1 FROM {ls_table} ls
+				WHERE ls.name = sqc.linked_service
+				{_air_corridor_job_airline_sql("ls")}
+			)
+		)"""
+	)
+	return f"({' OR '.join(clauses)})"
+
+
+def _unified_customs_charge_match_sql() -> str:
+	"""Customs filter match for unified charge rows (legacy sqc, Main header, Linked Service)."""
+	clauses: list[str] = []
+	if _sqc_has_parameter_column("customs_authority"):
+		clauses.append(
+			f"""(
+				{_customs_field_wildcard_match_sql("sqc", "customs_authority", "customs_authority")}
+				AND {_customs_field_wildcard_match_sql("sqc", "declaration_type", "declaration_type")}
+				AND {_customs_broker_wildcard_match_sql("sqc")}
+			)"""
+		)
+	if _sales_quote_has_parameter_column("customs_authority"):
+		clauses.append(
+			f"""(
+				{_sqc_is_main_scope_sql()}
+				AND {_customs_field_wildcard_match_sql("sq", "customs_authority", "customs_authority")}
+				AND {_customs_field_wildcard_match_sql("sq", "declaration_type", "declaration_type")}
+				AND {_customs_broker_wildcard_match_sql("sq")}
+			)"""
+		)
+	ls_table = _linked_service_table_quoted()
+	if frappe.db.has_column("Linked Service", "customs_authority") or frappe.db.has_column(
+		"Internal Job", "customs_authority"
+	):
+		clauses.append(
+			f"""(
+				{_sqc_is_linked_scope_sql()}
+				AND IFNULL(sqc.linked_service,'') != ''
+				AND EXISTS (
+					SELECT 1 FROM {ls_table} ls
+					WHERE ls.name = sqc.linked_service
+					AND {_customs_field_wildcard_match_sql("ls", "customs_authority", "customs_authority")}
+					AND {_customs_field_wildcard_match_sql("ls", "declaration_type", "declaration_type")}
+					AND {_customs_broker_wildcard_match_sql("ls")}
+				)
+			)"""
+		)
+	if not clauses:
+		return "(1=0)"
+	return f"({' OR '.join(clauses)})"
+
+
 def _corridor_match_sql_charges_header_legacy(
 	service_type: str, job_airline: str | None = None, job_shipping_line: str | None = None
 ) -> str:
@@ -212,23 +468,13 @@ def _corridor_match_sql_charges_header_legacy(
 	unified/legacy/header rows the same way (blank on quotation = wildcard).
 	"""
 	st = (service_type or "").strip()
-	air_al = ""
-	if st == "Air" and (job_airline or "").strip():
-		air_al = _air_corridor_job_airline_sql("sqc")
-	sea_sl = ""
-	if st == "Sea" and (job_shipping_line or "").strip():
-		sea_sl = _sea_corridor_job_shipping_line_sql("sqc")
 	if st in ("Sea", "Air"):
-		oq = _o_wildcard_port("sqc")
-		dq = _d_wildcard_port("sqc")
+		corridor_match = _unified_charge_corridor_match_sql(st, job_airline, job_shipping_line)
 		unified = f"""EXISTS (
 			SELECT 1 FROM `tabSales Quote Charge` sqc
 			WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
 			AND sqc.service_type IN %(service_types)s
-			AND {oq}
-			AND {dq}
-			{air_al}
-			{sea_sl}
+			AND {corridor_match}
 		)"""
 		child_dt = SERVICE_LEGACY_TABLE.get(st)
 		legacy = ""
@@ -265,14 +511,12 @@ def _corridor_match_sql_charges_header_legacy(
 		)"""
 		return f"({unified}{legacy}{parent_ports})"
 	if st == "Transport":
-		lf = _o_wildcard_loc_from("sqc")
-		lt = _d_wildcard_loc_to("sqc")
+		corridor_match = _unified_charge_corridor_match_sql(st, job_airline, job_shipping_line)
 		unified = f"""EXISTS (
 			SELECT 1 FROM `tabSales Quote Charge` sqc
 			WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
 			AND sqc.service_type IN %(service_types)s
-			AND {lf}
-			AND {lt}
+			AND {corridor_match}
 		)"""
 		legacy = ""
 		child_dt = SERVICE_LEGACY_TABLE.get("Transport")
@@ -307,24 +551,13 @@ def _customs_declaration_charge_match_sql() -> str:
 	Legacy transport mode: when ``job_transport_mode`` is NULL/empty, do not filter by mode; otherwise
 	legacy lines must match (unified charge rows are not restricted by mode).
 	"""
-	return """(
+	unified_customs = _unified_customs_charge_match_sql()
+	return f"""(
 		EXISTS (
 			SELECT 1 FROM `tabSales Quote Charge` sqc
 			WHERE sqc.parent = sq.name AND sqc.parenttype = 'Sales Quote'
 			AND sqc.service_type IN ('Custom', 'Customs', 'custom')
-			AND (
-				TRIM(IFNULL(%(customs_authority)s,'')) = ''
-				OR TRIM(IFNULL(sqc.customs_authority,'')) = TRIM(IFNULL(%(customs_authority)s,''))
-			)
-			AND (
-				TRIM(IFNULL(%(declaration_type)s,'')) = ''
-				OR TRIM(IFNULL(sqc.declaration_type,'')) = TRIM(IFNULL(%(declaration_type)s,''))
-			)
-			AND (
-				TRIM(IFNULL(%(customs_broker)s,'')) = ''
-				OR IFNULL(sqc.customs_broker,'') = ''
-				OR TRIM(IFNULL(sqc.customs_broker,'')) = TRIM(IFNULL(%(customs_broker)s,''))
-			)
+			AND {unified_customs}
 		)
 		OR EXISTS (
 			SELECT 1 FROM `tabSales Quote Customs` leg

@@ -9,24 +9,19 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "request_section",
+  "job_number",
   "item_code",
   "description",
   "column_break_4",
-  "amount_requested",
-  "liquidation_section",
-  "reference_no",
-  "date",
-  "amount_liquidated",
-  "attachment",
-  "column_break_12",
-  "particulars"
+  "amount_requested"
  ],
  "fields": [
   {
-   "fieldname": "request_section",
-   "fieldtype": "Section Break",
-   "label": "Charge"
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Job Number",
+   "options": "Job Number"
   },
   {
    "fieldname": "item_code",
@@ -40,8 +35,9 @@
    "fieldname": "description",
    "fieldtype": "Data",
    "fetch_from": "item_code.item_name",
-   "label": "Description",
-   "read_only": 1
+   "fetch_if_empty": 1,
+   "in_list_view": 1,
+   "label": "Description"
   },
   {
    "fieldname": "column_break_4",
@@ -50,42 +46,8 @@
   {
    "fieldname": "amount_requested",
    "fieldtype": "Currency",
+   "in_list_view": 1,
    "label": "Amount Requested"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "liquidation_section",
-   "fieldtype": "Section Break",
-   "label": "Liquidation"
-  },
-  {
-   "fieldname": "reference_no",
-   "fieldtype": "Data",
-   "label": "Reference No"
-  },
-  {
-   "fieldname": "date",
-   "fieldtype": "Date",
-   "label": "Date"
-  },
-  {
-   "fieldname": "amount_liquidated",
-   "fieldtype": "Currency",
-   "label": "Amount Liquidated"
-  },
-  {
-   "fieldname": "attachment",
-   "fieldtype": "Attach",
-   "label": "Attachment"
-  },
-  {
-   "fieldname": "column_break_12",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "particulars",
-   "fieldtype": "Long Text",
-   "label": "Particulars"
   }
  ],
  "index_web_pages_for_search": 1,

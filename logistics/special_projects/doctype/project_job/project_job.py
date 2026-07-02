@@ -6,6 +6,7 @@ from frappe import _
 from frappe.model.document import Document
 
 
+
 class ProjectJob(Document):
 	def validate(self):
 		if self.special_project:

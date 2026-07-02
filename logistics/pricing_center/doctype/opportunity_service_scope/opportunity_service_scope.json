@@ -1,0 +1,379 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-26 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "scope_title",
+  "service_type",
+  "is_high_value",
+  "origin_port",
+  "destination_port",
+  "load_type",
+  "column_break_scope_hdr",
+  "incoterm",
+  "incoterm_place",
+  "section_break_lane",
+  "air_house_type",
+  "airline",
+  "freight_agent",
+  "sea_house_type",
+  "freight_agent_sea",
+  "shipping_line",
+  "transport_mode",
+  "direction",
+  "column_break_lane",
+  "transport_template",
+  "vehicle_type",
+  "container_type",
+  "container_no",
+  "location_type",
+  "location_from",
+  "location_to",
+  "pick_mode",
+  "drop_mode",
+  "customs_authority",
+  "declaration_type",
+  "customs_broker",
+  "customs_charge_category",
+  "sp_site",
+  "sp_manpower",
+  "sp_skilled",
+  "sp_equipment_type",
+  "column_break_sp_res",
+  "sp_handling",
+  "sp_resource_notes",
+  "section_break_commercial",
+  "opportunity_value",
+  "column_break_actuals",
+  "actual_revenue",
+  "actual_profit"
+ ],
+ "fields": [
+  {
+   "fieldname": "scope_title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Scope Title"
+  },
+  {
+   "fieldname": "service_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Primary Service Type",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "description": "Tag this scope (and downstream bookings, shipments, jobs) as high value.",
+   "fieldname": "is_high_value",
+   "fieldtype": "Check",
+   "label": "High Value"
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "origin_port",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Origin",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Destination",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\",\"Transport\",\"Customs\",\"Warehousing\"].includes(doc.service_type)",
+   "fieldname": "load_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Load Type",
+   "options": "Load Type"
+  },
+  {
+   "fieldname": "column_break_scope_hdr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "incoterm",
+   "fieldtype": "Link",
+   "label": "Incoterm",
+   "options": "Incoterm"
+  },
+  {
+   "fieldname": "incoterm_place",
+   "fieldtype": "Data",
+   "label": "Incoterm Place"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_lane",
+   "fieldtype": "Section Break",
+   "label": "Main Service Parameters"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Air\"",
+   "fieldname": "air_house_type",
+   "fieldtype": "Select",
+   "label": "Air House Type",
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Air\"",
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "label": "Airline",
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]",
+   "options": "Airline"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Air\"",
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fieldname": "sea_house_type",
+   "fieldtype": "Select",
+   "label": "Sea House Type",
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fieldname": "freight_agent_sea",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Sea\"",
+   "fieldname": "shipping_line",
+   "fieldtype": "Link",
+   "label": "Shipping Line",
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]",
+   "options": "Shipping Line"
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "transport_mode",
+   "fieldtype": "Link",
+   "label": "Transport Mode",
+   "link_filters": "[[\"Transport Mode\", \"is_active\", \"=\", 1]]",
+   "options": "Transport Mode"
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "Import\nExport\nDomestic"
+  },
+  {
+   "fieldname": "column_break_lane",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "transport_template",
+   "fieldtype": "Link",
+   "label": "Transport Template",
+   "options": "Transport Template"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]",
+   "options": "Vehicle Type"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "container_type",
+   "fieldtype": "Link",
+   "label": "Container Type",
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]",
+   "options": "Container Type"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "description": "Sea container number for Transport Order created from Sea Shipment (cargo scoped to this unit).",
+   "fieldname": "container_no",
+   "fieldtype": "Data",
+   "label": "Container No."
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "location_type",
+   "fieldtype": "Link",
+   "label": "Location Type",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"UNLOCO\",\"Transport Zone\"]]]",
+   "options": "DocType"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "location_from",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Origin",
+   "options": "location_type"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "location_to",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Destination",
+   "options": "location_type"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "pick_mode",
+   "fieldtype": "Link",
+   "label": "Pick Mode",
+   "options": "Pick and Drop Mode"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Transport\"",
+   "fieldname": "drop_mode",
+   "fieldtype": "Link",
+   "label": "Drop Mode",
+   "options": "Pick and Drop Mode"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fieldname": "customs_authority",
+   "fieldtype": "Link",
+   "label": "Customs Authority",
+   "link_filters": "[[\"Customs Authority\", \"is_active\", \"=\", 1]]",
+   "options": "Customs Authority"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fieldname": "declaration_type",
+   "fieldtype": "Select",
+   "label": "Declaration Type",
+   "options": "Import\nExport\nTransit\nBonded"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fieldname": "customs_broker",
+   "fieldtype": "Link",
+   "label": "Customs Broker",
+   "link_filters": "[[\"Broker\", \"is_active\", \"=\", 1]]",
+   "options": "Broker"
+  },
+  {
+   "depends_on": "eval:doc.service_type == \"Customs\"",
+   "fieldname": "customs_charge_category",
+   "fieldtype": "Select",
+   "label": "Charge Category",
+   "options": "Customs Clearance\nDocumentation\nStorage\nOther"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
+   "description": "Customer address where this scope will be executed.",
+   "fieldname": "sp_site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Address"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
+   "description": "Headcount or person-days for general manpower.",
+   "fieldname": "sp_manpower",
+   "fieldtype": "Float",
+   "label": "Manpower"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
+   "description": "Skilled labor count or person-days.",
+   "fieldname": "sp_skilled",
+   "fieldtype": "Float",
+   "label": "Skilled Labor"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
+   "fieldname": "sp_equipment_type",
+   "fieldtype": "Link",
+   "label": "Equipment",
+   "options": "Special Handling Equipment Type"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
+   "fieldname": "column_break_sp_res",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
+   "fieldname": "sp_handling",
+   "fieldtype": "Link",
+   "label": "Handling",
+   "options": "Special Handling Type"
+  },
+  {
+   "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",
+   "fieldname": "sp_resource_notes",
+   "fieldtype": "Small Text",
+   "label": "Resource Notes"
+  },
+  {
+   "fieldname": "section_break_commercial",
+   "fieldtype": "Section Break",
+   "label": "Commercial"
+  },
+  {
+   "description": "Annual target value for this scope (compared with YTD actuals below).",
+   "fieldname": "opportunity_value",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Annual Opportunity Value",
+   "options": "currency"
+  },
+  {
+   "fieldname": "column_break_actuals",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Year-to-date actual revenue for this customer and service type (fiscal year).",
+   "fieldname": "actual_revenue",
+   "fieldtype": "Currency",
+   "is_virtual": 1,
+   "label": "Actual Revenue (YTD)",
+   "read_only": 1
+  },
+  {
+   "description": "Year-to-date gross profit for this customer and service type (fiscal year).",
+   "fieldname": "actual_profit",
+   "fieldtype": "Currency",
+   "is_virtual": 1,
+   "label": "Actual Profit (YTD)",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-26 00:00:00",
+ "module": "Pricing Center",
+ "name": "Opportunity Service Scope",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": []
+}

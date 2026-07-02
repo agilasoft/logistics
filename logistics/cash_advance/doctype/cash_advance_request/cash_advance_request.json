@@ -15,6 +15,7 @@
   "job_number",
   "column_break_acct",
   "fund_source",
+  "fund_type",
   "payee",
   "payee_name",
   "date",
@@ -24,13 +25,14 @@
   "column_break_22",
   "liquidation_due_date",
   "liquidation_date",
+  "items_tab",
   "section_break_25",
   "items",
-  "calculate",
   "total_requested",
   "total_liquidated",
   "unliquidated",
   "status_reason",
+  "returns_and_refunds_tab",
   "refund_return",
   "refunded",
   "returned",
@@ -38,13 +40,13 @@
   "reference",
   "from_to",
   "advance_journal_entry",
-  "amended_from"
+  "amended_from",
+  "connections_tab"
  ],
  "fields": [
   {
    "fieldname": "accounting_section",
-   "fieldtype": "Section Break",
-   "label": "Accounting dimensions"
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "company",
@@ -64,13 +66,14 @@
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
-   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center"
   },
   {
    "fieldname": "profit_center",
    "fieldtype": "Link",
    "label": "Profit Center",
+   "link_filters": "[[\"Profit Center\", \"company\", \"=\", \"eval:doc.company\"]]",
    "options": "Profit Center"
   },
   {
@@ -79,8 +82,7 @@
    "in_list_view": 1,
    "label": "Job Number",
    "no_copy": 1,
-   "options": "Job Number",
-   "reqd": 1
+   "options": "Job Number"
   },
   {
    "fieldname": "column_break_acct",
@@ -91,7 +93,16 @@
    "fieldname": "fund_source",
    "fieldtype": "Link",
    "label": "Fund Source",
+   "link_filters": "[[\"Account\", \"company\", \"=\", \"eval:doc.company\"], [\"Account\", \"is_group\", \"=\", 0], [\"Account\", \"disabled\", \"=\", 0], [\"Account\", \"account_type\", \"in\", [\"Bank\", \"Cash\"]], [\"Account\", \"fund_type\", \"in\", [\"Bank\", \"Petty Cash\", \"Revolving Fund\"]]]",
    "options": "Account"
+  },
+  {
+   "fetch_from": "fund_source.fund_type",
+   "fieldname": "fund_type",
+   "fieldtype": "Select",
+   "label": "Fund Type",
+   "options": "\nBank\nPetty Cash\nRevolving Fund",
+   "read_only": 1
   },
   {
    "description": "Supplier who receives the cash. Used as the party on the advance journal entry (required on submit).",
@@ -152,11 +163,6 @@
    "fieldtype": "Table",
    "label": "Items",
    "options": "Cash Advance Request Item"
-  },
-  {
-   "fieldname": "calculate",
-   "fieldtype": "Button",
-   "label": "Calculate"
   },
   {
    "fieldname": "total_requested",
@@ -228,6 +234,22 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "items_tab",
+   "fieldtype": "Tab Break",
+   "label": "Items"
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "fieldname": "returns_and_refunds_tab",
+   "fieldtype": "Tab Break",
+   "label": "Returns and Refunds"
   }
  ],
  "index_web_pages_for_search": 1,
@@ -237,9 +259,14 @@
    "group": "Liquidation",
    "link_doctype": "Cash Advance Liquidation",
    "link_fieldname": "cash_advance_request"
+  },
+  {
+   "group": "Liquidation",
+   "link_doctype": "Cash Acknowledgment",
+   "link_fieldname": "cash_advance_request"
   }
  ],
- "modified": "2026-06-10 09:48:18.706619",
+ "modified": "2026-07-01 13:02:18.768955",
  "modified_by": "Administrator",
  "module": "Cash Advance",
  "name": "Cash Advance Request",

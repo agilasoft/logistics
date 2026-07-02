@@ -66,20 +66,17 @@ def get_linked_services_for_booking(parent_booking_type: str, parent_booking_nam
 
 
 def get_linked_services_for_sales_quote(sales_quote_name: str) -> list[Document]:
-	"""Linked Service rows for a Sales Quote — active parent or transferred via ``service_scope``."""
+	"""Linked Service rows parented directly to a Sales Quote."""
 	if not sales_quote_name:
 		return []
-	names = frappe.db.sql(
-		"""
-		SELECT name
-		FROM `tabLinked Service`
-		WHERE (
-			parent_booking_type = %s AND parent_booking_name = %s
-		) OR service_scope = %s
-		ORDER BY creation ASC
-		""",
-		("Sales Quote", sales_quote_name, sales_quote_name),
+	names = frappe.get_all(
+		"Linked Service",
+		filters={
+			"parent_booking_type": "Sales Quote",
+			"parent_booking_name": sales_quote_name,
+		},
 		pluck="name",
+		order_by="creation asc",
 	)
 	return [frappe.get_doc("Linked Service", n) for n in names]
 

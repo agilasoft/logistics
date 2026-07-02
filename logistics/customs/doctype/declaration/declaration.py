@@ -209,6 +209,14 @@ class Declaration(Document):
 				)
 			else:
 				return
+		order_name = (getattr(self.flags, "reparent_linked_services_from_order", None) or "").strip()
+		if order_name:
+			from logistics.utils.internal_job_detail_copy import reparent_linked_services_between_parents
+
+			reparent_linked_services_between_parents(
+				"Declaration Order", order_name, "Declaration", self.name
+			)
+			self.flags.reparent_linked_services_from_order = None
 		self.sync_internal_job_details_to_declaration_order()
 
 	def sync_internal_job_details_to_declaration_order(self):
@@ -1411,18 +1419,8 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.internal_notes = order.internal_notes
 	declaration.external_notes = getattr(order, "external_notes", None)
 
-	# Child tables: internal jobs (same child doctype on both)
-	if order.get("internal_job_details"):
-		declaration.set("internal_job_details", [])
-		ij_meta = frappe.get_meta("Internal Job Detail")
-		ij_fields = {
-			f.fieldname
-			for f in ij_meta.fields
-			if f.fieldtype not in ("Section Break", "Column Break", "Tab Break")
-		}
-		for row in order.internal_job_details:
-			child = declaration.append("internal_job_details", {})
-			_copy_child_row(row, child, ij_fields)
+	# Linked Services: re-parent from Declaration Order onto Declaration after insert
+	declaration.flags.reparent_linked_services_from_order = (order.name or "").strip()
 
 	# Child tables: commercial invoice line items (same structure)
 	if order.get("commercial_invoice_line_items"):

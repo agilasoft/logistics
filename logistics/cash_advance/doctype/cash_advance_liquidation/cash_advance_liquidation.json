@@ -18,9 +18,7 @@
   "profit_center",
   "job_number",
   "column_break_dim",
-  "fund_source",
   "posting_date",
-  "book_cash_balance",
   "payee",
   "payee_name",
   "request_date",
@@ -28,7 +26,6 @@
   "liquidation_date",
   "section_items",
   "items",
-  "calculate",
   "total_requested",
   "total_liquidated",
   "unliquidated",
@@ -90,24 +87,10 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "fund_source",
-   "fieldtype": "Link",
-   "label": "Fund Source (Liquidation)",
-   "options": "Account",
-   "description": "Bank or Cash account for unused cash return or additional payout (required on submit)."
-  },
-  {
    "default": "Today",
    "fieldname": "posting_date",
    "fieldtype": "Date",
    "label": "Posting Date"
-  },
-  {
-   "default": "1",
-   "fieldname": "book_cash_balance",
-   "fieldtype": "Check",
-   "label": "Book unused / excess cash vs. advance total",
-   "description": "When checked, posts the difference between the linked request total and liquidated expenses to this fund source and A/R Employee (disable for partial liquidations settled separately)."
   },
   {
    "fieldname": "payee",
@@ -147,11 +130,6 @@
    "fieldtype": "Table",
    "label": "Items",
    "options": "Cash Advance Liquidation Item"
-  },
-  {
-   "fieldname": "calculate",
-   "fieldtype": "Button",
-   "label": "Calculate"
   },
   {
    "fieldname": "total_requested",

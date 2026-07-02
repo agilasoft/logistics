@@ -16,6 +16,7 @@
   "goods_description",
   "column_break_sdrs",
   "no_of_packs",
+  "quantity",
   "uom",
   "measurements_section",
   "dimension_uom",
@@ -77,6 +78,13 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "No of Packs"
+  },
+  {
+   "columns": 1,
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Quantity"
   },
   {
    "fieldname": "uom",

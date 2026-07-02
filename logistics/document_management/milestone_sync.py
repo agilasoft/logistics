@@ -4,7 +4,7 @@
 """
 Milestone update triggers: sync parent date <-> milestone actual_end, and complete milestones from field conditions.
 Update triggers (Date Based / Field Based) always set milestone actual_end and status (Completed) when conditions are met.
-Runs on parent on_update after ensure_documents_and_milestones_from_template.
+Runs on parent before_save via update_milestone_status_on_parent_before_save (same transaction as populate).
 """
 
 from __future__ import unicode_literals
@@ -65,6 +65,10 @@ def apply_milestone_sync_in_place(doc, method=None):
 		ut = (getattr(row, "automation_update_trigger_type", None) or "").strip()
 		sync_field = (getattr(row, "automation_sync_parent_date_field", None) or "").strip()
 		direction = (getattr(row, "automation_sync_direction", None) or "").strip()
+		trigger_field = (getattr(row, "automation_trigger_field", None) or "").strip()
+		trigger_condition = (getattr(row, "automation_trigger_condition", None) or "").strip()
+		trigger_value = (getattr(row, "automation_trigger_value", None) or "").strip()
+		trigger_action = (getattr(row, "automation_trigger_action", None) or "").strip()
 		if not ut and item_by_milestone:
 			key = (getattr(row, "milestone", None) or "").strip()
 			item = item_by_milestone.get(key)
@@ -80,7 +84,23 @@ def apply_milestone_sync_in_place(doc, method=None):
 				ut = (getattr(row, "automation_update_trigger_type", None) or "").strip()
 				sync_field = (getattr(row, "automation_sync_parent_date_field", None) or "").strip()
 				direction = (getattr(row, "automation_sync_direction", None) or "").strip()
-		return {"update_trigger_type": ut, "sync_parent_date_field": sync_field, "sync_direction": direction}
+				trigger_field = (getattr(row, "automation_trigger_field", None) or "").strip()
+				trigger_condition = (getattr(row, "automation_trigger_condition", None) or "").strip()
+				trigger_value = (getattr(row, "automation_trigger_value", None) or "").strip()
+				trigger_action = (getattr(row, "automation_trigger_action", None) or "").strip()
+		return {
+			"update_trigger_type": ut,
+			"sync_parent_date_field": sync_field,
+			"sync_direction": direction,
+			"trigger_field": trigger_field,
+			"trigger_condition": trigger_condition,
+			"trigger_value": trigger_value,
+			"trigger_action": trigger_action,
+		}
+
+	def _is_field_based(cfg):
+		ut = (cfg.get("update_trigger_type") or "").strip()
+		return ut in ("Field Based", "Parent field condition")
 
 	def _is_date_based(cfg):
 		ut = (cfg.get("update_trigger_type") or "").strip()
@@ -145,6 +165,29 @@ def apply_milestone_sync_in_place(doc, method=None):
 		current = doc.get(fieldname)
 		if not _dates_equal(current, val):
 			doc.set(fieldname, val)
+
+	# 3) Field Based: when condition is met, set milestone actual_end and status (Completed)
+	for row in milestones:
+		cfg = _cfg(row)
+		if not _is_field_based(cfg):
+			continue
+		fieldname = (cfg.get("trigger_field") or "").strip()
+		if not fieldname or not hasattr(doc, fieldname):
+			continue
+		condition = (cfg.get("trigger_condition") or "").strip()
+		trigger_value = (cfg.get("trigger_value") or "").strip()
+		action = (cfg.get("trigger_action") or "").strip()
+		if not _trigger_condition_met(doc.get(fieldname), condition, trigger_value):
+			continue
+		if (row.status or "").strip() == "Completed":
+			continue
+		if action == "Set actual_end from field":
+			val = doc.get(fieldname)
+			if val is not None:
+				row.actual_end = val
+		else:
+			row.actual_end = row.actual_end or now_datetime()
+		row.status = "Completed"
 
 	# 4) Status from actual_start/actual_end
 	for row in milestones:
@@ -339,6 +382,9 @@ def apply_milestone_sync_and_triggers(doc, method=None):
 		if changed:
 			parent.flags.ignore_validate = True
 			parent.flags.ignore_documents_milestones_populate = True
+			# Nested save during on_update caused TimestampMismatchError on the desk; sync now runs in before_save.
+			if getattr(frappe.flags, "in_ensure_documents_milestones", False):
+				return
 			parent.save()
 	finally:
 		frappe.flags.in_milestone_sync = False

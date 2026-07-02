@@ -92,6 +92,41 @@ class TestReconcileOrphanChargeInternalJobLinks(unittest.TestCase):
 		self.assertIsNone(parent.charges[0].linked_service)
 		self.assertEqual(parent.charges[0].charge_scope, "Main")
 
+	def test_fills_empty_linked_scope_by_service_type(self):
+		parent = _stub_air_booking(
+			internal_job_details=[
+				_row(service_type="Transport", internal_job="IJ-TRANSPORT"),
+			],
+			charges=[
+				_row(
+					charge_scope="Linked",
+					service_type="Transport",
+				),
+			],
+		)
+		with patch(
+			"logistics.utils.internal_job_persistence.linked_service_record_exists",
+			side_effect=lambda name: name == "IJ-TRANSPORT",
+		):
+			reconcile_orphan_charge_internal_job_links(parent, {})
+		self.assertEqual(parent.charges[0].internal_job, "IJ-TRANSPORT")
+		self.assertEqual(parent.charges[0].charge_scope, "Linked")
+
+	def test_resets_empty_linked_scope_to_main_when_no_match(self):
+		parent = _stub_air_booking(
+			internal_job_details=[],
+			charges=[
+				_row(
+					charge_scope="Linked",
+					service_type="Transport",
+				),
+			],
+		)
+		reconcile_orphan_charge_internal_job_links(parent, {})
+		self.assertEqual(parent.charges[0].charge_scope, "Main")
+		self.assertIsNone(parent.charges[0].internal_job)
+		self.assertIsNone(parent.charges[0].linked_service)
+
 	def test_leaves_valid_internal_job_links_unchanged(self):
 		parent = _stub_air_booking(
 			charges=[

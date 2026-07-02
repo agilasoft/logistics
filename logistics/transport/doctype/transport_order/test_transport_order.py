@@ -154,12 +154,11 @@ class TestTransportOrderDuplicatePricingClear(FrappeTestCase):
 	def tearDown(self):
 		frappe.db.rollback()
 
-	def test_apply_duplicate_pricing_clear_strips_service_scope(self):
+	def test_apply_duplicate_pricing_clear_strips_quote_links(self):
 		order = frappe.get_doc(
 			{
 				"doctype": "Transport Order",
 				"sales_quote": "SQU-TEST-1109",
-				"service_scope": "SQU-TEST-1103",
 				"quote": "SQU-TEST-1109",
 				"quote_type": "Sales Quote",
 			}
@@ -169,12 +168,11 @@ class TestTransportOrderDuplicatePricingClear(FrappeTestCase):
 		_apply_duplicate_pricing_clear(order)
 
 		self.assertEqual(order.sales_quote, None)
-		self.assertEqual(order.service_scope, None)
 		self.assertEqual(order.quote, None)
 		self.assertEqual(order.quote_type, None)
 		self.assertEqual(order.get("charges"), [])
 
-	def test_clear_pricing_after_desk_duplicate_strips_service_scope(self):
+	def test_clear_pricing_after_desk_duplicate_strips_quote_links(self):
 		if not frappe.db.has_column("Transport Order", "logistics_duplicate_from"):
 			return
 
@@ -183,7 +181,6 @@ class TestTransportOrderDuplicatePricingClear(FrappeTestCase):
 				"doctype": "Transport Order",
 				"logistics_duplicate_from": "TRO-SOURCE",
 				"sales_quote": "SQU-TEST-1109",
-				"service_scope": "SQU-TEST-1103",
 			}
 		)
 
@@ -191,7 +188,6 @@ class TestTransportOrderDuplicatePricingClear(FrappeTestCase):
 
 		self.assertTrue(order.flags.logistics_duplicate_pricing_cleared)
 		self.assertEqual(order.sales_quote, None)
-		self.assertEqual(order.service_scope, None)
 		self.assertEqual(order.logistics_duplicate_from, None)
 
 

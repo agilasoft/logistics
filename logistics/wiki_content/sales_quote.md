@@ -51,7 +51,7 @@ From a submitted Sales Quote, you can create:
 - Declaration Order
 - Inbound Order, Release Order
 
-**Separate Billings per Service Type** (Routing tab): When **checked**, each Booking/Order gets only charges for its service type. When **unchecked**, all charges go to the main service; legs with no charges for their service are created as **Internal Jobs** linked to the Main Job (revenue = cost of main job, cost as per tariff). See [Sales Quote – Separate Billings and Internal Job](welcome/sales-quote-separate-billings-and-internal-job).
+**Separate Billings per Service Type** (Routing tab): When **checked**, each Booking/Order gets only charges for its service type. When **unchecked**, all charges go to the document matching the quote **Main Service** field (e.g. Sea Booking when Main Service = Sea), regardless of the booking Main Service checkbox; other legs get only their service-type charges. See [Sales Quote – Separate Billings and Internal Job](welcome/sales-quote-separate-billings-and-internal-job).
 
 ### 3.2 Change Request
 

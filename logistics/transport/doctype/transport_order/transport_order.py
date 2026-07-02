@@ -67,6 +67,7 @@ SALES_QUOTE_CHARGE_FIELDS = [
 SALES_QUOTE_CHARGE_SOURCE_FIELDS = list(SALES_QUOTE_CHARGE_FIELDS) + [
     "unit_rate",
     "charge_scope",
+    "linked_service",
     "internal_job",
 ]
 
@@ -119,12 +120,10 @@ def _apply_duplicate_pricing_clear(doc):
         doc.quote = None
     if doc.meta.get_field("quote_type"):
         doc.quote_type = None
-    if doc.meta.get_field("service_scope"):
-        doc.service_scope = None
 
 
 def _clear_pricing_after_desk_duplicate(doc):
-    """New doc created via Duplicate: drop charges, Sales Quote, Service Scope, and legacy quote fields.
+    """New doc created via Duplicate: drop charges, Sales Quote, and legacy quote fields.
     Desk sets ``logistics_duplicate_from`` to the source document name; we clear pricing and the marker
     before the rest of ``validate`` (which can otherwise restore ``sales_quote`` from ``quote``).
 
@@ -2288,11 +2287,6 @@ def action_create_transport_job(docname: str):
             src_doc=doc, src_table_field="milestones", dst_doc=job, dst_table_field="milestones"
         )
 
-        # ---- Internal Job Details (TO -> TJ) by common fields
-        _copy_child_rows_by_common_fields(
-            src_doc=doc, src_table_field="internal_job_details", dst_doc=job, dst_table_field="internal_job_details"
-        )
-
         # ---- Warehouse Items (TO -> TJ) by common fields
         _copy_child_rows_by_common_fields(
             src_doc=doc, src_table_field="warehouse_items", dst_doc=job, dst_table_field="warehouse_items"
@@ -2312,6 +2306,10 @@ def action_create_transport_job(docname: str):
         # Reload so in-memory doc matches DB (modified, etc.). Avoids TimestampMismatchError
         # when leg.insert() or hooks touch the job and we call job.save().
         job.reload()
+
+        from logistics.utils.internal_job_detail_copy import transfer_linked_services_to_parent
+
+        transfer_linked_services_to_parent(doc, job)
 
         # Re-enable validation for save(); otherwise run_before_save_methods returns early and
         # totals/capacity checks from validate() never run on the created job.

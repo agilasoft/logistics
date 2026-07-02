@@ -114,8 +114,9 @@
 {% set curr = company_doc.default_currency if company_doc and company_doc.default_currency else (frappe.db.get_default("currency") or "") %}
 {% set mawb_raw = doc.master_awb_no or doc.name %}
 {% set iata_cass = "" %}
-{% if frappe.db.exists("IATA Settings", "IATA Settings") %}
-{% set iata_cass = frappe.db.get_value("IATA Settings", "IATA Settings", "cass_participant_code") or "" %}
+{% set settings_company = linked_company or default_company %}
+{% if settings_company and frappe.db.exists("IATA Settings", settings_company) %}
+{% set iata_cass = frappe.db.get_value("IATA Settings", settings_company, "cass_participant_code") or "" %}
 {% endif %}
 {% set airline_doc = None %}
 {% set airline_iata = "" %}

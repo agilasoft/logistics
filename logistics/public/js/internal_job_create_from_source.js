@@ -1010,10 +1010,48 @@
 		go();
 	}
 
-	window.logistics_show_create_internal_job_dialog = function (frm) {
-		if (!frm || !frm.doc || !frm.doc.name || frm.doc.__islocal) {
+	function _showCreateInternalJobBlocked(msg) {
+		frappe.msgprint({
+			title: __("Create Internal Job"),
+			message:
+				(msg && msg.blocked_message) ||
+				__("No internal jobs can be created from this document."),
+			indicator: "orange",
+		});
+	}
+
+	function _openCreateInternalJobChoiceDialog(frm, msg) {
+		var choices = (msg && msg.choices) || [];
+		if (!choices.length) {
+			_showCreateInternalJobBlocked(msg);
 			return;
 		}
+		var d = new frappe.ui.Dialog({
+			title: __("Create internal job"),
+			size: "large",
+			fields: [
+				{ fieldname: "info", fieldtype: "HTML" },
+				{ fieldname: "cards_html", fieldtype: "HTML", label: "" },
+			],
+			primary_action_label: __("Close"),
+			primary_action: function () {
+				d.hide();
+			},
+		});
+		if (d.fields_dict.info && d.fields_dict.info.$wrapper) {
+			d.fields_dict.info.$wrapper.html(_dialogIntroHtml(frm));
+		}
+		var $cardsRoot = d.fields_dict.cards_html && d.fields_dict.cards_html.$wrapper;
+		if ($cardsRoot && $cardsRoot.length) {
+			$cardsRoot.empty();
+			$cardsRoot.append(_ijStyles());
+			$cardsRoot.append(_buildChoiceCards(choices));
+			_bindChoiceCards($cardsRoot, frm, d);
+		}
+		d.show();
+	}
+
+	function _loadCreateInternalJobChoices(frm) {
 		frappe.call({
 			method: "logistics.utils.internal_job_from_source.get_internal_job_creation_choices",
 			args: {
@@ -1024,42 +1062,15 @@
 			freeze: true,
 			freeze_message: __("Loading options..."),
 			callback: function (r) {
-				var msg = r.message || {};
-				var choices = msg.choices || [];
-				if (!choices.length) {
-					frappe.msgprint({
-						title: __("Create Internal Job"),
-						message:
-							msg.blocked_message ||
-							__("No internal jobs can be created from this document."),
-						indicator: "orange",
-					});
-					return;
-				}
-				var d = new frappe.ui.Dialog({
-					title: __("Create internal job"),
-					size: "large",
-					fields: [
-						{ fieldname: "info", fieldtype: "HTML" },
-						{ fieldname: "cards_html", fieldtype: "HTML", label: "" },
-					],
-					primary_action_label: __("Close"),
-					primary_action: function () {
-						d.hide();
-					},
-				});
-				if (d.fields_dict.info && d.fields_dict.info.$wrapper) {
-					d.fields_dict.info.$wrapper.html(_dialogIntroHtml(frm));
-				}
-				var $cardsRoot = d.fields_dict.cards_html && d.fields_dict.cards_html.$wrapper;
-				if ($cardsRoot && $cardsRoot.length) {
-					$cardsRoot.empty();
-					$cardsRoot.append(_ijStyles());
-					$cardsRoot.append(_buildChoiceCards(choices));
-					_bindChoiceCards($cardsRoot, frm, d);
-				}
-				d.show();
+				_openCreateInternalJobChoiceDialog(frm, r.message || {});
 			},
 		});
+	}
+
+	window.logistics_show_create_internal_job_dialog = function (frm) {
+		if (!frm || !frm.doc || !frm.doc.name || frm.doc.__islocal) {
+			return;
+		}
+		_loadCreateInternalJobChoices(frm);
 	};
 })();

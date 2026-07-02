@@ -328,10 +328,10 @@ frappe.ui.form.on("Transport Order", {
 			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
 				.then(function(r) { return r.message || { filters: [] }; });
 		});
-		frm.set_query('warehouse_item', 'packages', function(doc) {
+		frm.set_query('warehouse_item', 'packages', function() {
 			var filters = {};
-			if (doc.customer) {
-				filters.customer = doc.customer;
+			if (frm.doc.customer) {
+				filters.customer = frm.doc.customer;
 			}
 			return { filters: filters };
 		});
@@ -945,6 +945,9 @@ function _populate_charges_from_sales_quote(frm) {
 								message: __("Successfully populated {0} charges from Sales Quote: {1}", [r.message.charges_count, sales_quote]),
 								indicator: 'green'
 							});
+						}
+						if (window.logistics && logistics.apply_sales_quote_linked_services_after_fetch) {
+							logistics.apply_sales_quote_linked_services_after_fetch(frm, sales_quote);
 						}
 					});
 					_warn_if_missing_service_charges(frm, "Transport");
@@ -1887,9 +1890,6 @@ frappe.ui.form.on('Transport Order Package', {
 		}
 		if (frappe.meta.has_field("Transport Order", "quote_type")) {
 			newdoc.quote_type = null;
-		}
-		if (frappe.meta.has_field("Transport Order", "service_scope")) {
-			newdoc.service_scope = null;
 		}
 		newdoc.logistics_duplicate_from = doc.name || "";
 		return newdoc;

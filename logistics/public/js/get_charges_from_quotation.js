@@ -2137,3 +2137,40 @@ logistics.prefill_air_charge_qty_for_unit_type_change = function (frm, row, side
 	var cdt = row.doctype;
 	logistics.sync_air_charge_qty_for_unit_type_to_grid(frm, cdt, cdn, side);
 };
+
+/**
+ * After charges are loaded from a Sales Quote onto a saved job, sync Linked Service rows
+ * (clone for Regular quotes; re-parent when the quote still owns them).
+ */
+logistics.apply_sales_quote_linked_services_after_fetch = function (frm, sales_quote, done) {
+	if (!frm || frm.is_new() || !frm.doc.name || !sales_quote) {
+		if (typeof done === "function") {
+			done();
+		}
+		return;
+	}
+	function _apply() {
+		frappe.call({
+			method:
+				"logistics.utils.sales_quote_one_off_internal_jobs.apply_sales_quote_linked_services_to_job",
+			args: {
+				doctype: frm.doctype,
+				docname: frm.doc.name,
+				sales_quote: sales_quote,
+			},
+			callback: function (r) {
+				if (r.message && r.message.success && r.message.linked_services_count) {
+					frm.reload_doc();
+				}
+				if (typeof done === "function") {
+					done(r.message);
+				}
+			},
+		});
+	}
+	if (frm.is_dirty()) {
+		frm.save().then(_apply);
+	} else {
+		_apply();
+	}
+};

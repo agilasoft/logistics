@@ -3,15 +3,156 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
+
+import re
+
 import frappe
+from frappe import _
 from frappe.model.document import Document
+from frappe.utils import now_datetime
+
+from logistics.air_freight.utils.iata_airport import resolve_unloco_iata_code
+
 
 class MasterAirWaybill(Document):
 	def validate(self):
 		"""Validate Master Air Waybill"""
-		# Auto-sync flight schedule if flight number and date are provided
 		if self.flight_no and self.flight_date and not self.flight_schedule:
 			self.auto_link_flight_schedule()
+
+	@frappe.whitelist()
+	def submit_eawb(self):
+		"""Build and submit master e-AWB (XFWB) to IATA / sandbox."""
+		self.ensure_eawb_routing()
+		self.validate_eawb_submission()
+		self.check_permission("write")
+
+		from logistics.air_freight.utils.iata_settings_utils import resolve_company
+		from logistics.air_freight.iata_cargo_xml.message_builder import MessageBuilder
+
+		company = resolve_company(master_awb=self.name)
+		builder = MessageBuilder(company=company)
+		result = builder.send_mawb_eawb_message(self.name)
+
+		sandbox_mode = result.get("sandbox_mode") or builder.get_sandbox_mode()
+		self.eawb_sandbox_mode = sandbox_mode
+		self.eawb_submitted_date = now_datetime()
+
+		if result.get("success"):
+			self.eawb_status = "Submitted"
+			if result.get("accepted"):
+				self.eawb_status = "Accepted"
+			message_id = result.get("message_id")
+			if not message_id and result.get("response"):
+				message_id = _extract_message_id_from_response(result.get("response"))
+			if message_id:
+				self.eawb_message_id = message_id
+		else:
+			self.eawb_status = "Rejected"
+			self.save(ignore_permissions=True)
+			frappe.db.commit()
+			error = result.get("error") or _("Unknown error submitting e-AWB")
+			frappe.throw(
+				_("e-AWB submission failed: {0}").format(error),
+				title=_("e-AWB Error"),
+			)
+
+		self.save(ignore_permissions=True)
+		frappe.db.commit()
+
+		return {
+			"success": True,
+			"eawb_status": self.eawb_status,
+			"sandbox_mode": sandbox_mode,
+			"message_id": self.eawb_message_id,
+			"message_queue": result.get("message_queue"),
+		}
+
+	def validate_eawb_submission(self):
+		if self.eawb_status == "Accepted":
+			frappe.throw(
+				_("e-AWB has already been accepted for this Master AWB."),
+				title=_("e-AWB Error"),
+			)
+
+		if not self.master_awb_no:
+			frappe.throw(_("Master AWB number is required."), title=_("e-AWB Error"))
+
+		awb_clean = self.master_awb_no.replace("-", "").replace(" ", "")
+		if not re.match(r"^\d{11}$", awb_clean):
+			frappe.throw(
+				_("Master AWB number must be 11 digits (IATA format). Current format: {0}").format(
+					self.master_awb_no
+				),
+				title=_("AWB Format Error"),
+			)
+
+		if not self.airline:
+			frappe.throw(_("Airline is required for e-AWB submission."), title=_("e-AWB Error"))
+
+		origin = resolve_unloco_iata_code(self.origin_airport, self.origin_airport_iata)
+		destination = resolve_unloco_iata_code(
+			self.destination_airport, self.destination_airport_iata
+		)
+		missing = []
+		if not origin:
+			missing.append(_("Origin Airport"))
+		if not destination:
+			missing.append(_("Destination Airport"))
+		if missing:
+			frappe.throw(
+				_(
+					"{0} required for e-AWB submission. Set Origin/Destination Airport on the MAWB, "
+					"link a Flight Schedule, or assign Air Shipments with origin/destination ports."
+				).format(", ".join(missing)),
+				title=_("e-AWB Error"),
+			)
+
+	def ensure_eawb_routing(self):
+		"""Populate routing fields from flight schedule, linked shipments, or UNLOCO."""
+		changed = False
+
+		if self.flight_schedule and (not self.origin_airport or not self.destination_airport):
+			self.sync_from_flight_schedule()
+			changed = True
+
+		if not self.origin_airport or not self.destination_airport:
+			shipment = frappe.db.get_value(
+				"Air Shipment",
+				{"master_awb": self.name},
+				["origin_port", "destination_port", "flight_no", "etd", "airline"],
+				as_dict=True,
+			)
+			if shipment:
+				if not self.origin_airport and shipment.origin_port:
+					self.origin_airport = shipment.origin_port
+					changed = True
+				if not self.destination_airport and shipment.destination_port:
+					self.destination_airport = shipment.destination_port
+					changed = True
+				if not self.flight_no and shipment.flight_no:
+					self.flight_no = shipment.flight_no
+					changed = True
+				if not self.flight_date and shipment.etd:
+					self.flight_date = shipment.etd
+					changed = True
+				if not self.airline and shipment.airline:
+					self.airline = shipment.airline
+					changed = True
+
+		for iata_field, unloco_field in (
+			("origin_airport_iata", "origin_airport"),
+			("destination_airport_iata", "destination_airport"),
+		):
+			if not self.get(iata_field) and self.get(unloco_field):
+				resolved = resolve_unloco_iata_code(self.get(unloco_field))
+				if resolved:
+					self.set(iata_field, resolved)
+					changed = True
+
+		if changed:
+			self.save(ignore_permissions=True)
+			frappe.db.commit()
 	
 	def on_update(self):
 		"""Called after saving"""
@@ -166,6 +307,21 @@ class MasterAirWaybill(Document):
 				self.eta_local = str(flight.arrival_time_scheduled)
 		except Exception:
 			pass
+
+
+def _extract_message_id_from_response(response_text):
+	try:
+		import xml.etree.ElementTree as ET
+
+		root = ET.fromstring(response_text)
+		if root.get("MessageId"):
+			return root.get("MessageId")
+		header = root.find("MessageHeader")
+		if header is not None and header.get("MessageId"):
+			return header.get("MessageId")
+	except Exception:
+		pass
+	return None
 
 
 @frappe.whitelist()

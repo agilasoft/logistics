@@ -4,8 +4,14 @@
 import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, flt, today
+from unittest.mock import patch
 
 from logistics.mice.doctype.mice_project.mice_project import (
+	_aggregate_job_status_counts,
+	_batch_unloco_table_labels,
+	_build_exhibit_job_status_tab_html,
+	_build_operational_jobs_card_html,
+	_fetch_transport_job_endpoints,
 	get_linkable_dockets_for_exhibit,
 	get_sales_quote_defaults_from_exhibit,
 	link_dockets_to_exhibit,
@@ -333,6 +339,240 @@ class TestShow(IntegrationTestCase):
 
 	def test_mice_project_has_sales_quote_field(self):
 		self.assertTrue(frappe.get_meta("MICE Project").has_field("sales_quote"))
+
+	def _test_logistics_milestone(self, code="TEST-MS-DASH"):
+		existing = frappe.db.get_value("Logistics Milestone", {"code": code}, "name")
+		if existing:
+			return existing
+		doc = frappe.new_doc("Logistics Milestone")
+		doc.code = code
+		doc.description = "Dashboard test milestone"
+		doc.insert(ignore_permissions=True)
+		return doc.name
+
+	def test_get_dashboard_html_renders_without_error(self):
+		from logistics.mice.doctype.mice_project.mice_project import get_dashboard_html
+
+		exhibit = self._minimal_exhibit("Dashboard Test Exhibit")
+		try:
+			html = get_dashboard_html(exhibit.name)
+			self.assertNotIn("Error loading dashboard", html)
+			self.assertIn("log-ab-dash", html)
+			self.assertIn("Job Status", html)
+			self.assertIn("ab-tab-panel-job_status", html)
+			self.assertNotIn("Open the Milestones tab to manage milestone status.", html)
+		finally:
+			exhibit.delete(ignore_permissions=True)
+
+	def test_get_dashboard_html_renders_milestone_grid(self):
+		from logistics.mice.doctype.mice_project.mice_project import get_dashboard_html
+
+		exhibit = self._minimal_exhibit("Dashboard Milestones Exhibit")
+		milestone = self._test_logistics_milestone()
+		exhibit.append("milestones", {"milestone": milestone, "status": "Planned"})
+		exhibit.save(ignore_permissions=True)
+		try:
+			html = get_dashboard_html(exhibit.name)
+			self.assertIn("log-ab-jc-grid", html)
+			self.assertIn("Operational milestones", html)
+			self.assertNotIn("Open the Milestones tab to manage milestone status.", html)
+		finally:
+			exhibit.delete(ignore_permissions=True)
+
+	def test_aggregate_job_status_counts_orders_and_groups(self):
+		counts = _aggregate_job_status_counts(
+			["Draft", "In Progress", "In Progress", "Completed", "", None]
+		)
+		self.assertEqual(list(counts.keys()), ["Draft", "In Progress", "Completed"])
+		self.assertEqual(counts["Draft"], 3)
+		self.assertEqual(counts["In Progress"], 2)
+		self.assertEqual(counts["Completed"], 1)
+
+	def test_build_exhibit_job_status_tab_html_empty_dockets(self):
+		html = _build_exhibit_job_status_tab_html("NONEXISTENT-EXHIBIT", docket_rows=[])
+		self.assertIn("No dockets linked to this exhibit yet.", html)
+
+	def test_batch_unloco_table_labels_formats_city_and_country_code(self):
+		code = "TEST-UNLOCO-MICE-DASH"
+		if not frappe.db.exists("UNLOCO", code):
+			doc = frappe.new_doc("UNLOCO")
+			doc.unlocode = code
+			doc.location_name = "Test Port"
+			doc.city = "Shanghai"
+			doc.country_code = "CN"
+			doc.is_active = 1
+			doc.insert(ignore_permissions=True)
+		else:
+			frappe.db.set_value(
+				"UNLOCO",
+				code,
+				{"city": "Shanghai", "country_code": "CN", "location_name": "Test Port"},
+				update_modified=False,
+			)
+		try:
+			labels = _batch_unloco_table_labels([code, ""])
+			self.assertEqual(labels[code], "Shanghai, CN")
+		finally:
+			if frappe.db.exists("UNLOCO", code):
+				frappe.delete_doc("UNLOCO", code, force=1, ignore_permissions=True)
+
+	def test_build_operational_jobs_card_html_renders_table_and_badges(self):
+		jobs = [
+			{
+				"job_type": "Sea Shipment",
+				"name": "SF000000384",
+				"service_label": "Sea",
+				"job_status": "Draft",
+				"origin_code": "CNSHA",
+				"destination_code": "SGSIN",
+				"origin_kind": "unloco",
+				"destination_kind": "unloco",
+				"modified": "2025-05-12 10:00:00",
+			},
+			{
+				"job_type": "Sea Shipment",
+				"name": "SF000000386",
+				"service_label": "Sea",
+				"job_status": "Submitted",
+				"origin_code": "JPTYO",
+				"destination_code": "SGSIN",
+				"origin_kind": "unloco",
+				"destination_kind": "unloco",
+				"modified": "2025-05-20 09:15:00",
+			},
+		]
+		status_counts = _aggregate_job_status_counts(j["job_status"] for j in jobs)
+		unloco_labels = {
+			"CNSHA": "Shanghai, CN",
+			"JPTYO": "Tokyo, JP",
+			"SGSIN": "Singapore, SG",
+		}
+		html = _build_operational_jobs_card_html(jobs, status_counts, unloco_labels, {})
+		self.assertIn("exhibit-shipment-details-card", html)
+		self.assertIn("Job Details", html)
+		self.assertIn("2 jobs", html)
+		self.assertIn("<strong>Draft:</strong> 1", html)
+		self.assertIn("<strong>Submitted:</strong> 1", html)
+		self.assertIn("SF000000384", html)
+		self.assertIn("Shanghai, CN", html)
+		self.assertIn("Singapore, SG", html)
+		self.assertIn('exhibit-shipment-status-badge draft', html)
+		self.assertIn('exhibit-shipment-status-badge submitted', html)
+		self.assertIn("exhibit-shipment-row-icon--draft", html)
+		self.assertIn("exhibit-shipment-row-icon--active", html)
+		self.assertIn("Service", html)
+		self.assertIn("Job ID", html)
+
+	def test_build_operational_jobs_card_html_renders_mixed_service_types(self):
+		jobs = [
+			{
+				"job_type": "Sea Shipment",
+				"name": "SF000000384",
+				"service_label": "Sea",
+				"job_status": "Draft",
+				"origin_code": "CNSHA",
+				"destination_code": "SGSIN",
+				"origin_kind": "unloco",
+				"destination_kind": "unloco",
+				"modified": None,
+			},
+			{
+				"job_type": "Transport Job",
+				"name": "TJ-00001",
+				"service_label": "Transport",
+				"job_status": "In Progress",
+				"origin_code": "ADDR-PICK",
+				"destination_code": "ADDR-DROP",
+				"origin_kind": "address",
+				"destination_kind": "address",
+				"modified": None,
+			},
+			{
+				"job_type": "Declaration",
+				"name": "DEC-00001",
+				"service_label": "Customs",
+				"job_status": "Submitted",
+				"origin_code": "HKHKG",
+				"destination_code": "PHMNL",
+				"origin_kind": "unloco",
+				"destination_kind": "unloco",
+				"modified": None,
+			},
+			{
+				"job_type": "Warehouse Job",
+				"name": "WJ-00001",
+				"service_label": "Warehousing",
+				"job_status": "Draft",
+				"origin_code": "Inbound Order",
+				"destination_code": "IO-00001",
+				"origin_kind": "text",
+				"destination_kind": "text",
+				"modified": None,
+			},
+		]
+		status_counts = _aggregate_job_status_counts(j["job_status"] for j in jobs)
+		unloco_labels = {"CNSHA": "Shanghai, CN", "SGSIN": "Singapore, SG", "HKHKG": "Hong Kong, HK", "PHMNL": "Manila, PH"}
+		address_labels = {"ADDR-PICK": "Warehouse A", "ADDR-DROP": "Venue Hall 3"}
+		html = _build_operational_jobs_card_html(jobs, status_counts, unloco_labels, address_labels)
+		self.assertIn("Sea", html)
+		self.assertIn("Transport", html)
+		self.assertIn("Customs", html)
+		self.assertIn("Warehousing", html)
+		self.assertIn("Warehouse A", html)
+		self.assertIn("Venue Hall 3", html)
+		self.assertIn("Hong Kong, HK", html)
+		self.assertIn("Inbound Order", html)
+		self.assertIn("IO-00001", html)
+
+	def test_build_exhibit_job_status_tab_html_renders_job_details_card(self):
+		docket_rows = [{"docket": "DK-TEST-1", "status": "Draft", "exhibitor": "Acme", "booth_no": "A1"}]
+		job = {
+			"job_type": "Sea Shipment",
+			"name": "SF000000384",
+			"service_label": "Sea",
+			"job_status": "Draft",
+			"origin_code": "CNSHA",
+			"destination_code": "SGSIN",
+			"origin_kind": "unloco",
+			"destination_kind": "unloco",
+			"modified": None,
+		}
+
+		with (
+			patch(
+				"logistics.mice.doctype.mice_project.mice_project._resolve_docket_operational_jobs",
+				return_value=[{"job_type": "Sea Shipment", "job_no": "SF000000384"}],
+			),
+			patch(
+				"logistics.mice.doctype.mice_project.mice_project._fetch_operational_job_statuses",
+				return_value={("Sea Shipment", "SF000000384"): job},
+			),
+			patch(
+				"logistics.mice.doctype.mice_project.mice_project._batch_unloco_table_labels",
+				return_value={"CNSHA": "Shanghai, CN", "SGSIN": "Singapore, SG"},
+			),
+			patch(
+				"logistics.mice.doctype.mice_project.mice_project._batch_address_table_labels",
+				return_value={},
+			),
+		):
+			html = _build_exhibit_job_status_tab_html("EXH-TEST", docket_rows=docket_rows)
+			self.assertIn("exhibit-shipment-details-card", html)
+			self.assertIn("Job Details", html)
+			self.assertIn("1 job", html)
+			self.assertIn("DK-TEST-1", html)
+			self.assertIn("Shanghai, CN", html)
+
+	def test_fetch_transport_job_endpoints_queries_transport_job_link(self):
+		with patch("logistics.mice.doctype.mice_project.mice_project.frappe.get_all") as mock_get_all:
+			mock_get_all.return_value = []
+			self.assertEqual(_fetch_transport_job_endpoints(["TJ-00001"]), {})
+			mock_get_all.assert_called_once()
+			args, kwargs = mock_get_all.call_args
+			self.assertEqual(args[0], "Transport Leg")
+			filters = kwargs.get("filters", {})
+			self.assertIn("transport_job", filters)
+			self.assertNotIn("parent", filters)
 
 	def test_sales_quote_dashboard_links_mice_project_via_exhibit(self):
 		from logistics.pricing_center.doctype.sales_quote.sales_quote_dashboard import get_data

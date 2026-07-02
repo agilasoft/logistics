@@ -27,6 +27,8 @@ _MAWB_VIRTUAL_FIELD_SOURCES = (
 )
 
 
+
+
 class AirShipment(Document):
 	def before_save(self):
 		"""Calculate sustainability metrics before saving"""
@@ -3212,9 +3214,6 @@ def populate_charges_from_sales_quote(docname=None):
 				title="No Charges Found",
 				indicator="orange"
 			)
-			from logistics.utils.sync_internal_job_details_from_sales_quote import sync_internal_job_details_from_sales_quote
-
-			sync_internal_job_details_from_sales_quote(self, sq_doc)
 			self.save(ignore_permissions=True)
 			return
 		
@@ -3233,10 +3232,6 @@ def populate_charges_from_sales_quote(docname=None):
 
 		sync_operational_exchange_rates_from_charge_rows(self, self.charges)
 
-		from logistics.utils.sync_internal_job_details_from_sales_quote import sync_internal_job_details_from_sales_quote
-
-		sync_internal_job_details_from_sales_quote(self, sq_doc)
-		
 		# Save the document
 		self.save(ignore_permissions=True)
 		
@@ -3551,3 +3546,14 @@ def get_google_route_polyline(waypoints):
 			"success": False,
 			"error": str(e)
 		}
+
+
+@frappe.whitelist()
+def get_linked_declaration_order_name(docname: str) -> str:
+	"""Return linked Declaration Order from this shipment's Linked Service records."""
+	from logistics.utils.internal_job_detail_copy import get_declaration_order_job_no_from_shipment_doc
+
+	if not docname or not frappe.db.exists("Air Shipment", docname):
+		return ""
+	doc = frappe.get_doc("Air Shipment", docname)
+	return get_declaration_order_job_no_from_shipment_doc(doc) or ""

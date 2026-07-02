@@ -249,11 +249,11 @@ function _calculate_change_request_charge_row(frm, cdt, cdn) {
 }
 
 /**
- * Job types that are Internal Job satellite bookings (when a CR targets one of these, all charge
- * rows default to the satellite's own internal_job link, and the row-level internal_job is
+ * Job types that are linked-service satellite bookings (when a CR targets one of these, all charge
+ * rows default to the satellite's own linked_service link, and the row-level linked_service is
  * restricted to that single value).
  */
-const CR_INTERNAL_JOB_SATELLITE_JOB_TYPES = new Set([
+const CR_LINKED_SERVICE_SATELLITE_JOB_TYPES = new Set([
 	"Transport Order",
 	"Sea Booking",
 	"Air Booking",
@@ -278,15 +278,20 @@ const CR_JOB_TYPE_TO_SERVICE_TYPE = {
 	"Release Order": "warehousing",
 };
 
-/** Fetch eligible Internal Jobs for the CR's job_type/job; cache on the form. */
-function cr_fetch_eligible_internal_jobs(frm, callback) {
+/** Fetch eligible Linked Services for the CR's job_type/job; cache on the form. */
+function cr_fetch_eligible_linked_services(frm, callback) {
 	if (!frm.doc.job_type || !frm.doc.job) {
-		frm._eligible_internal_jobs = { internal_jobs: [], default_internal_job: "" };
+		frm._eligible_linked_services = {
+			linked_services: [],
+			default_linked_service: "",
+			internal_jobs: [],
+			default_internal_job: "",
+		};
 		if (callback) callback();
 		return;
 	}
 	const cache_key = `${frm.doc.job_type}::${frm.doc.job}`;
-	if (frm._eligible_internal_jobs_key === cache_key) {
+	if (frm._eligible_linked_services_key === cache_key) {
 		if (callback) callback();
 		return;
 	}
@@ -294,8 +299,16 @@ function cr_fetch_eligible_internal_jobs(frm, callback) {
 		method: "logistics.pricing_center.doctype.change_request.change_request.get_eligible_internal_jobs_for_change_request_job",
 		args: { job_type: frm.doc.job_type, job_name: frm.doc.job },
 		callback: function (r) {
-			frm._eligible_internal_jobs_key = cache_key;
-			frm._eligible_internal_jobs = r.message || { internal_jobs: [], default_internal_job: "" };
+			frm._eligible_linked_services_key = cache_key;
+			const message = r.message || {};
+			frm._eligible_linked_services = {
+				linked_services: message.linked_services || message.internal_jobs || [],
+				default_linked_service:
+					message.default_linked_service || message.default_internal_job || "",
+				internal_jobs: message.internal_jobs || message.linked_services || [],
+				default_internal_job:
+					message.default_internal_job || message.default_linked_service || "",
+			};
 			if (callback) callback();
 		},
 	});
@@ -304,16 +317,16 @@ function cr_fetch_eligible_internal_jobs(frm, callback) {
 frappe.ui.form.on("Change Request", {
 	onload(frm) {
 		frm.events.setup_item_code_query(frm);
-		frm.events.setup_internal_job_query(frm);
-		cr_fetch_eligible_internal_jobs(frm);
+		frm.events.setup_linked_service_query(frm);
+		cr_fetch_eligible_linked_services(frm);
 	},
 
 	job_type(frm) {
-		cr_fetch_eligible_internal_jobs(frm);
+		cr_fetch_eligible_linked_services(frm);
 	},
 
 	job(frm) {
-		cr_fetch_eligible_internal_jobs(frm);
+		cr_fetch_eligible_linked_services(frm);
 	},
 
 	charges_add: function (frm, cdt, cdn) {
@@ -321,25 +334,25 @@ frappe.ui.form.on("Change Request", {
 		if (st) {
 			frappe.model.set_value(cdt, cdn, "service_type", st);
 		}
-		// Default the new row's internal_job to the CR's resolved default (the satellite's IJ when
-		// the CR targets an Internal Job satellite). Users can clear or change it manually.
-		cr_fetch_eligible_internal_jobs(frm, function () {
-			const eligible = frm._eligible_internal_jobs || {};
-			const default_ij = eligible.default_internal_job;
-			if (default_ij) {
-				frappe.model.set_value(cdt, cdn, "internal_job", default_ij);
+		// Default the new row's linked_service to the CR's resolved default (the satellite's
+		// linked service when the CR targets a satellite booking).
+		cr_fetch_eligible_linked_services(frm, function () {
+			const eligible = frm._eligible_linked_services || {};
+			const default_ls = eligible.default_linked_service;
+			if (default_ls) {
+				frappe.model.set_value(cdt, cdn, "linked_service", default_ls);
 			}
 		});
 	},
 
-	setup_internal_job_query(frm) {
+	setup_linked_service_query(frm) {
 		if (!frm.fields_dict.charges) return;
-		frm.set_query("internal_job", "charges", function () {
-			const eligible = (frm._eligible_internal_jobs && frm._eligible_internal_jobs.internal_jobs) || [];
+		frm.set_query("linked_service", "charges", function () {
+			const eligible =
+				(frm._eligible_linked_services && frm._eligible_linked_services.linked_services) || [];
 			const names = eligible.map((r) => r.name).filter(Boolean);
 			if (names.length === 0) {
-				// No materialised IJs yet — fall back to listing all IJs under the CR's main job.
-				if (CR_INTERNAL_JOB_SATELLITE_JOB_TYPES.has(frm.doc.job_type)) {
+				if (CR_LINKED_SERVICE_SATELLITE_JOB_TYPES.has(frm.doc.job_type)) {
 					return { filters: {} };
 				}
 				return { filters: { parent_booking_name: frm.doc.job || "" } };
@@ -361,8 +374,8 @@ frappe.ui.form.on("Change Request", {
 	refresh(frm) {
 		cr_strip_charge_item_code_link_filters_from_meta(frm);
 		frm.events.setup_item_code_query(frm);
-		frm.events.setup_internal_job_query(frm);
-		cr_fetch_eligible_internal_jobs(frm);
+		frm.events.setup_linked_service_query(frm);
+		cr_fetch_eligible_linked_services(frm);
 		// Cost lines are pushed to the job when the Change Request is submitted; revenue is updated when the linked Sales Quote is submitted.
 		if (
 			!frm.doc.__islocal &&

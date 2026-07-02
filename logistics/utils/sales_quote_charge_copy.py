@@ -11,41 +11,47 @@ import frappe
 
 
 def extend_charge_fields_with_scope_and_internal_job(fields: list[str]) -> list[str]:
-	"""Append ``charge_scope`` and ``internal_job`` to a ``frappe.get_all`` fields list when missing.
+	"""Append scope/link columns to a ``frappe.get_all`` fields list when missing.
 
 	Used by per-doctype ``_populate_charges_from_sales_quote*`` flows so the per-charge scope
 	tagging defined on the Sales Quote survives copy to the booking. Caller is expected to also
 	use :func:`apply_scope_tagging_to_mapped_charge` in the row mapper.
 	"""
 	out = list(fields or [])
-	for fn in ("charge_scope", "internal_job"):
+	for fn in ("charge_scope", "internal_job", "linked_service"):
 		if fn not in out:
 			out.append(fn)
 	return out
 
 
 def apply_scope_tagging_to_mapped_charge(source_row: Any, target_dict: dict) -> None:
-	"""Copy ``charge_scope`` and (when scope is Internal Job) ``internal_job`` onto *target_dict*.
+	"""Copy ``charge_scope`` and linked-service pointer onto *target_dict*.
 
-	``source_row`` may be a dict (from ``frappe.get_all``) or a document-like object. ``internal_job``
-	on the source is the Sales-Quote-side IJ name; the booking-side conversion runs
-	``remap_internal_job_links_on_booking_charges`` later to translate it to the booking-owned IJ.
+	``source_row`` may be a dict (from ``frappe.get_all``) or a document-like object. The
+	linked-service name on the source is the Sales-Quote-side record; the booking-side conversion
+	runs ``remap_internal_job_links_on_booking_charges`` later to keep scope in sync on the booking.
 	"""
+	from logistics.utils.linked_service_compat import (
+		charge_row_linked_service_link,
+		is_linked_charge_scope,
+		normalize_charge_scope,
+	)
+
 	def _get(key, default=None):
 		if isinstance(source_row, dict):
 			return source_row.get(key, default)
 		return getattr(source_row, key, default)
 
-	scope = (_get("charge_scope") or "Main")
-	if isinstance(scope, str):
-		scope = scope.strip() or "Main"
+	scope = normalize_charge_scope(_get("charge_scope"))
 	target_dict["charge_scope"] = scope
-	if scope == "Internal Job":
-		ij = _get("internal_job")
-		if isinstance(ij, str):
-			ij = ij.strip()
-		if ij:
-			target_dict["internal_job"] = ij
+	if not is_linked_charge_scope(_get("charge_scope")):
+		return
+	ls = charge_row_linked_service_link(source_row)
+	if not ls:
+		return
+	target_dict["linked_service"] = ls
+	if "internal_job" not in target_dict:
+		target_dict["internal_job"] = ls
 
 
 def filter_charge_rows_by_names(rows, charge_row_names: list[str] | None):
@@ -179,6 +185,37 @@ def _row_matches_scope(row: Any, scope_obj: Any, service_label: str) -> bool:
 	return sales_quote_charge_row_matches_internal_job_detail_params(row, scope_params)
 
 
+def _charge_row_matches_main_pass(row: Any, parent_doc: Any, service_label: str) -> bool:
+	"""Main-scope extraction: exclude Linked-tagged rows; legacy rows use parameter matching."""
+	from logistics.utils.linked_service_compat import (
+		CHARGE_SCOPE_LINKED,
+		is_linked_charge_scope,
+		normalize_charge_scope,
+	)
+
+	scope = normalize_charge_scope(_row_field(row, "charge_scope"))
+	if is_linked_charge_scope(scope) or scope == CHARGE_SCOPE_LINKED:
+		return False
+	return _row_matches_scope(row, parent_doc, service_label)
+
+
+def _charge_row_matches_internal_job_pass(
+	row: Any, ij: Any, ij_st: str, ij_name: str
+) -> bool:
+	"""Linked-scope extraction: prefer explicit charge tagging; legacy rows use parameter matching."""
+	from logistics.utils.linked_service_compat import (
+		charge_row_linked_service_link,
+		is_linked_charge_scope,
+		normalize_charge_scope,
+	)
+
+	scope = normalize_charge_scope(_row_field(row, "charge_scope"))
+	ls_link = charge_row_linked_service_link(row)
+	if is_linked_charge_scope(scope):
+		return bool(ls_link and ls_link == ij_name)
+	return _row_matches_scope(row, ij, ij_st)
+
+
 def _iter_quote_charge_rows(
 	sales_quote_doc: Any,
 	*,
@@ -264,7 +301,7 @@ def populate_charges_from_quote_by_scope(
 			continue
 
 		main_label = row_st_raw or parent_implied
-		if _row_matches_scope(row, parent_doc, main_label):
+		if _charge_row_matches_main_pass(row, parent_doc, main_label):
 			append_charge_callback(row, SCOPE_MAIN, None)
 			counts["main"] += 1
 
@@ -284,7 +321,7 @@ def populate_charges_from_quote_by_scope(
 				continue
 			if service_label_filter and not _service_types_match(row_st_raw or ij_st, service_label_filter):
 				continue
-			if _row_matches_scope(row, ij, ij_st):
+			if _charge_row_matches_internal_job_pass(row, ij, ij_st, ij.name):
 				append_charge_callback(row, SCOPE_INTERNAL_JOB, ij.name)
 				counts["internal_job"] += 1
 
@@ -447,7 +484,10 @@ def stamp_main_or_internal_job_scope_on_booking_charges(parent_doc: Any) -> None
 	except Exception:
 		child_meta = None
 	has_scope_field = bool(child_meta and child_meta.has_field("charge_scope"))
-	has_ij_field = bool(child_meta and child_meta.has_field("internal_job"))
+	has_ij_field = bool(
+		child_meta
+		and (child_meta.has_field("internal_job") or child_meta.has_field("linked_service"))
+	)
 	if not has_scope_field and not has_ij_field:
 		return
 
