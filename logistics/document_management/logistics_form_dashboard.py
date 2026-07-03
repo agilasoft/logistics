@@ -521,9 +521,10 @@ def render_logistics_form_dashboard_html(doc, cfg):
 	- ring_status_field when workflow (default status)
 	- customs_dashboard_enhanced_layout (bool): Declaration / Declaration Order — divider + layout CSS
 	- hide_header_details_body (bool): omit footer KPI strip when meta cluster already shows the same fields
-	- extra_dashboard_tabs (optional list): additional sub-tabs after Alerts, each dict with
+	- extra_dashboard_tabs (optional list): additional sub-tabs, each dict with
 	  suffix (str, unique id suffix), label (str), inner_html (str, wrapped in log-ab-ro-card),
-	  and optional count (int, renders as "Label (n)")
+	  optional count (int, renders as "Label (n)"), and optional after_suffix (str) to insert
+	  after an existing tab (default: append after Alerts)
 	"""
 	from logistics.document_management.api import (
 		get_dashboard_alerts,
@@ -743,14 +744,25 @@ def render_logistics_form_dashboard_html(doc, cfg):
 		count_html = (
 			f'<span class="ab-tab-count">({int(count)})</span>' if count is not None else ""
 		)
-		default_tabs.append(
-			{
-				"suffix": suffix,
-				"label": escape_html(str(extra.get("label") or suffix)),
-				"count_html": count_html,
-				"inner_html": f'<div class="log-ab-ro-card">{extra.get("inner_html") or ""}</div>',
-			}
-		)
+		tab_entry = {
+			"suffix": suffix,
+			"label": escape_html(str(extra.get("label") or suffix)),
+			"count_html": count_html,
+			"inner_html": f'<div class="log-ab-ro-card">{extra.get("inner_html") or ""}</div>',
+		}
+		after_suffix = (extra.get("after_suffix") or "").strip()
+		if after_suffix:
+			insert_at = None
+			for i, tab in enumerate(default_tabs):
+				if tab["suffix"] == after_suffix:
+					insert_at = i + 1
+					break
+			if insert_at is not None:
+				default_tabs.insert(insert_at, tab_entry)
+			else:
+				default_tabs.append(tab_entry)
+		else:
+			default_tabs.append(tab_entry)
 
 	tab_inputs = []
 	tab_labels = []

@@ -55,7 +55,7 @@ from logistics.utils.virtual_internal_job_details import (
 )
 
 
-_VIRTUAL_LINKED_SERVICE_PARENTS = frozenset({"Sales Quote"}) | VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS
+_VIRTUAL_LINKED_SERVICE_PARENTS = frozenset({"Sales Quote", "Change Request"}) | VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS
 
 
 # Operational booking doctypes that carry an Internal Job Detail child table, mapped to the
@@ -69,7 +69,7 @@ _VIRTUAL_LINKED_SERVICE_PARENTS = frozenset({"Sales Quote"}) | VIRTUAL_INTERNAL_
 # transferred onto the Booking/Order created from the quote (see
 # ``logistics.utils.sales_quote_one_off_internal_jobs.propagate_one_off_internal_jobs_to_booking``).
 INTERNAL_JOB_DETAIL_PARENTS: dict[str, str] = {
-	"Sea Booking": "internal_job_details",
+	"Sea Booking": "linked_services",
 	"Air Booking": "internal_job_details",
 	"Sea Shipment": "internal_job_details",
 	"Air Shipment": "internal_job_details",
@@ -88,6 +88,7 @@ INTERNAL_JOB_DETAIL_PARENTS: dict[str, str] = {
 	"Docket": "internal_jobs",
 	"Exhibit": "internal_jobs",
 	"Sales Quote": "linked_services",
+	"Change Request": "linked_services",
 }
 
 

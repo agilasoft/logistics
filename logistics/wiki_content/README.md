@@ -63,6 +63,7 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | logistics_settings.md | Logistics Settings (incl. Credit Control overview) | Setup |
 | credit_management.md | Credit Management (holds, Subject DocTypes, apply-all, lifts) | Setup |
 | default_details_and_relationships.md | Default Details and Relationships | Setup |
+| service_type_load_transport_validation.md | Load Type and Transport Mode — Service Type Validation | Setup |
 | sea_freight_settings.md | Sea Freight Settings | Setup |
 | air_freight_settings.md | Air Freight Settings | Setup |
 | transport_settings.md | Transport Settings | Setup |
@@ -96,6 +97,7 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | proof_of_delivery.md | Proof of Delivery | Transport |
 | transport_template.md | Transport Template | Transport |
 | load_type.md | Load Type | Transport |
+| transport_mode.md | Transport Mode | Logistics |
 | declaration_order.md | Declaration Order | Customs |
 | declaration.md | Declaration | Customs |
 | customs_workflow_guide.md | Customs Workflow Guide | Customs |

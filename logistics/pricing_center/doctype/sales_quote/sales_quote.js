@@ -53,6 +53,11 @@ function logistics_load_type_flag_for_charge_service_type(st) {
 	return c;
 }
 
+/** Transport Mode uses the same module flags as Load Type. */
+function logistics_transport_mode_flag_for_charge_service_type(st) {
+	return logistics_load_type_flag_for_charge_service_type(st);
+}
+
 function logistics_sq_charge_filter_flag_on(row, fieldname) {
 	if (!row) return false;
 	const v = row[fieldname];
@@ -84,6 +89,22 @@ function logistics_strip_sq_charge_load_type_link_filters_from_meta(frm) {
 		const gdf = frm.fields_dict.charges.grid.get_docfield("load_type");
 		if (gdf && gdf.link_filters) {
 			gdf.link_filters = null;
+		}
+	}
+}
+
+/**
+ * Static link_filters on transport_mode (is_active only) override get_query on every Link search.
+ */
+function logistics_strip_sq_transport_mode_link_filters_from_meta(frm) {
+	const df = frappe.meta.get_docfield("Sales Quote", "transport_mode");
+	if (df && df.link_filters) {
+		df.link_filters = null;
+	}
+	if (frm && frm.fields_dict && frm.fields_dict.transport_mode) {
+		const live_df = frm.fields_dict.transport_mode.df;
+		if (live_df && live_df.link_filters) {
+			live_df.link_filters = null;
 		}
 	}
 }
@@ -174,7 +195,7 @@ function logistics_charge_row_expected_load_type_filter_flags(service_type) {
 	};
 }
 
-/** Sync hidden load-type filter checkboxes from service_type for one charge row. */
+/** Sync hidden load-type filter checkboxes from service_type for one charge row (no dirty). */
 function logistics_sync_charge_load_type_filter_flags(cdt, cdn) {
 	const row = locals[cdt] && locals[cdt][cdn];
 	if (!row) return;
@@ -182,7 +203,7 @@ function logistics_sync_charge_load_type_filter_flags(cdt, cdn) {
 	Object.keys(exp).forEach((k) => {
 		const cur = row[k] ? 1 : 0;
 		if (cur !== exp[k]) {
-			frappe.model.set_value(cdt, cdn, k, exp[k]);
+			row[k] = exp[k];
 		}
 	});
 }
@@ -192,6 +213,19 @@ function logistics_sync_all_sales_quote_charge_load_type_filter_flags(frm) {
 		if (!row || !row.name) return;
 		logistics_sync_charge_load_type_filter_flags(row.doctype, row.name);
 	});
+}
+
+/** Submitted quotes: refresh must not leave a false "Not Saved" from hidden charge filter sync. */
+function logistics_stabilize_submitted_sales_quote_dirty(frm) {
+	if (!frm || !frm.doc || frm.doc.docstatus !== 1) return;
+	if (!frm._sq_was_clean_before_refresh || !frm.doc.__unsaved) {
+		delete frm._sq_was_clean_before_refresh;
+		return;
+	}
+	frm.doc.__unsaved = 0;
+	$(frm.wrapper).attr("data-state", "clean");
+	$(frm.wrapper).trigger("clean");
+	delete frm._sq_was_clean_before_refresh;
 }
 
 /** Item checkbox used for charge line item_code filtering by module. */
@@ -248,6 +282,27 @@ function logistics_sanitize_sales_quote_load_types(frm) {
 			});
 			if (changed) {
 				frm.refresh_field("charges");
+			}
+		},
+	});
+}
+
+/** Clear Transport Mode when it does not match main_service (stale e.g. Sea mode on an Air quote). */
+function logistics_sanitize_sales_quote_transport_modes(frm) {
+	if (!frm.doc) return;
+	if (!["Regular", "One-off"].includes(frm.doc.quotation_type) || !frm.doc.transport_mode) {
+		return;
+	}
+	const headerFlag = logistics_transport_mode_flag_for_charge_service_type(frm.doc.main_service);
+	if (!headerFlag) return;
+	frappe.call({
+		method: "logistics.pricing_center.doctype.sales_quote.sales_quote.get_transport_mode_service_flags",
+		args: { transport_modes: [frm.doc.transport_mode] },
+		callback: function (r) {
+			const flags = r.message || {};
+			const fl = flags[frm.doc.transport_mode];
+			if (!fl || !fl[headerFlag]) {
+				frm.set_value("transport_mode", "");
 			}
 		},
 	});
@@ -360,6 +415,26 @@ function logistics_setup_linked_services_grid(frm) {
 	logistics_enable_linked_services_grid_add_row(frm);
 }
 
+function logistics_open_sales_quote_booking_dialog(frm) {
+	function _openDlg() {
+		if (window.logistics_show_sales_quote_booking_dialog) {
+			window.logistics_show_sales_quote_booking_dialog(frm);
+		} else {
+			frappe.msgprint({
+				title: __("Not available"),
+				message: __("The Booking / Order dialog could not load. Please hard-refresh the page (Ctrl+Shift+R) and try again."),
+				indicator: "orange",
+			});
+		}
+	}
+	if (window.logistics_show_sales_quote_booking_dialog) {
+		_openDlg();
+		return;
+	}
+	// Do not append ?v=… to the path — Frappe assets.extn() breaks on manual query strings.
+	frappe.require("/assets/logistics/js/sales_quote_booking_dialog.js", _openDlg);
+}
+
 (function patch_sq_linked_services_grid_refresh() {
 	function patch_grid_refresh(grid) {
 		if (!logistics_is_sales_quote_linked_services_grid(grid) || grid._logistics_sq_ls_refresh_patched) {
@@ -435,6 +510,112 @@ frappe.ui.form.on("Sales Quote", {
 		if (frm.doc.date) {
 			_set_valid_until_from_settings(frm);
 		}
+		frm.events._check_direction_port_alignment(frm);
+	},
+
+	direction(frm) {
+		frm.events._check_direction_port_alignment(frm);
+	},
+
+	origin_port(frm) {
+		frm.events._check_direction_port_alignment(frm);
+		frm.events._maybe_auto_populate_routing_legs(frm);
+	},
+
+	destination_port(frm) {
+		frm.events._check_direction_port_alignment(frm);
+		frm.events._maybe_auto_populate_routing_legs(frm);
+	},
+
+	shipper(frm) {
+		frm.events._maybe_auto_populate_routing_legs(frm);
+	},
+
+	consignee(frm) {
+		frm.events._maybe_auto_populate_routing_legs(frm);
+	},
+
+	transport_mode(frm) {
+		if (frm._sq_routing_legs_auto) {
+			frm.events._maybe_auto_populate_routing_legs(frm, true);
+		}
+	},
+
+	_maybe_auto_populate_routing_legs(frm, force_refresh) {
+		if (!["Regular", "One-off"].includes(frm.doc.quotation_type || "")) {
+			return;
+		}
+		if (frm._sq_routing_legs_manual && !force_refresh) {
+			return;
+		}
+		const has_legs = (frm.doc.routing_legs || []).length > 0;
+		if (has_legs && !frm._sq_routing_legs_auto && !force_refresh) {
+			return;
+		}
+		if (!frm.doc.shipper || !frm.doc.consignee || !frm.doc.origin_port || !frm.doc.destination_port) {
+			return;
+		}
+		if (!["Air", "Sea", "Transport"].includes(frm.doc.main_service || "")) {
+			return;
+		}
+		frappe.call({
+			method: "logistics.utils.sales_quote_routing_defaults.get_suggested_sales_quote_routing_legs",
+			args: {
+				shipper: frm.doc.shipper,
+				consignee: frm.doc.consignee,
+				origin_port: frm.doc.origin_port,
+				destination_port: frm.doc.destination_port,
+				main_service: frm.doc.main_service,
+				transport_mode: frm.doc.transport_mode || null,
+			},
+			async: true,
+			callback(r) {
+				const legs = (r.message && r.message.legs) || [];
+				if (!legs.length) {
+					return;
+				}
+				frm.clear_table("routing_legs");
+				legs.forEach((leg) => frm.add_child("routing_legs", leg));
+				frm._sq_routing_legs_auto = true;
+				frm._sq_routing_legs_manual = false;
+				frm.refresh_field("routing_legs");
+			},
+		});
+	},
+
+	_check_direction_port_alignment(frm) {
+		if (!["Regular", "One-off"].includes(frm.doc.quotation_type || "")) {
+			return;
+		}
+		if (!["Air", "Sea"].includes(frm.doc.main_service || "")) {
+			return;
+		}
+		if (!frm.doc.direction || !frm.doc.company) {
+			return;
+		}
+		if (!frm.doc.origin_port && !frm.doc.destination_port) {
+			return;
+		}
+		frappe.call({
+			method: "logistics.utils.direction_port_validation.check_direction_port_alignment",
+			args: {
+				direction: frm.doc.direction,
+				origin_port: frm.doc.origin_port,
+				destination_port: frm.doc.destination_port,
+				company: frm.doc.company,
+			},
+			async: true,
+			callback(r) {
+				const result = r && r.message;
+				if (result && result.valid === false && result.message) {
+					frappe.msgprint({
+						title: __("Direction and Ports Do Not Match"),
+						indicator: "orange",
+						message: result.message,
+					});
+				}
+			},
+		});
 	},
 	
 	onload(frm) {
@@ -443,14 +624,22 @@ frappe.ui.form.on("Sales Quote", {
 		// Grid may append the placeholder row after first paint when the charges table was required; clear once more.
 		if (frm.is_new()) {
 			setTimeout(() => frm.events._clear_default_empty_charge_row(frm), 0);
+			setTimeout(() => frm.events._maybe_auto_populate_routing_legs(frm), 150);
 		}
 		frm.events.setup_load_type_query(frm);
+		frm.events.setup_transport_mode_query(frm);
 		frm.events.setup_vehicle_type_query(frm);
+		frm.events.setup_transport_template_queries(frm);
 		frm.events.setup_item_code_query(frm);
 		frm.events.setup_internal_job_query(frm);
 		logistics_setup_linked_services_grid(frm);
+		frm._sq_routing_legs_manual = (frm.doc.routing_legs || []).length > 0;
+		frm._sq_routing_legs_auto = false;
 		if (!frm.is_new()) {
-			setTimeout(() => logistics_sanitize_sales_quote_load_types(frm), 100);
+			setTimeout(() => {
+				logistics_sanitize_sales_quote_load_types(frm);
+				logistics_sanitize_sales_quote_transport_modes(frm);
+			}, 100);
 		}
 		// Preload vehicle types cache for load_types in Transport charges
 		const transport_charges = (frm.doc.charges || []).filter(c => logistics_canonical_charge_service_type(c.service_type) === "transport");
@@ -670,10 +859,88 @@ frappe.ui.form.on("Sales Quote", {
 				});
 			}
 		}
+		if (["Regular", "One-off"].includes(frm.doc.quotation_type) && frm.doc.transport_mode) {
+			const tmFlag = logistics_transport_mode_flag_for_charge_service_type(frm.doc.main_service);
+			if (tmFlag) {
+				frappe.db.get_value("Transport Mode", frm.doc.transport_mode, tmFlag, (r) => {
+					if (r && r[tmFlag]) return;
+					frm.set_value("transport_mode", "");
+				});
+			}
+		}
+		frm.events.setup_transport_mode_query(frm);
 		frm.refresh_field("projects_tab");
+		frm.events._maybe_auto_populate_routing_legs(frm);
+		frm.events.setup_transport_template_queries(frm);
+	},
+
+	transport_template(frm) {
+		if (frm.doc.main_service !== "Transport" || !frm.doc.transport_template) {
+			return;
+		}
+		frappe.call({
+			method: "logistics.transport.doctype.transport_template.transport_template.get_transport_template_constraints",
+			args: { template_name: frm.doc.transport_template },
+			callback(r) {
+				const constraints = (r && r.message) || {};
+				const allowed = constraints.allowed_load_types || [];
+				const default_lt = constraints.default_load_type;
+				const default_vt = constraints.default_vehicle_type;
+
+				if (frm.doc.load_type && allowed.length && !allowed.includes(frm.doc.load_type)) {
+					frm.set_value("load_type", "");
+				}
+				if (!frm.doc.load_type && default_lt) {
+					frm.set_value("load_type", default_lt);
+				}
+				if (frm.doc.vehicle_type && frm.doc.load_type) {
+					frm.events.load_allowed_vehicle_types(frm, frm.doc.load_type, function () {
+						const permitted = (frm.allowed_vehicle_types_cache || {})[frm.doc.load_type] || [];
+						if (permitted.length && !permitted.includes(frm.doc.vehicle_type)) {
+							frm.set_value("vehicle_type", "");
+						}
+						if (!frm.doc.vehicle_type && default_vt) {
+							frm.set_value("vehicle_type", default_vt);
+						}
+					});
+				} else if (!frm.doc.vehicle_type && default_vt) {
+					frm.set_value("vehicle_type", default_vt);
+				}
+				frm.events.setup_transport_template_queries(frm);
+			},
+		});
+	},
+
+	load_type(frm) {
+		if (frm.doc.main_service !== "Transport" || !frm.doc.transport_template) {
+			return;
+		}
+		if (!frm.doc.load_type) {
+			return;
+		}
+		frappe.call({
+			method: "logistics.transport.doctype.transport_template.transport_template.get_transport_template_constraints",
+			args: { template_name: frm.doc.transport_template },
+			callback(r) {
+				const allowed = ((r && r.message) || {}).allowed_load_types || [];
+				if (allowed.length && !allowed.includes(frm.doc.load_type)) {
+					frappe.msgprint({
+						title: __("Invalid Load Type"),
+						indicator: "red",
+						message: __("Load Type {0} is not allowed for Transport Template {1}.", [
+							frm.doc.load_type,
+							frm.doc.transport_template,
+						]),
+					});
+					frm.set_value("load_type", "");
+				}
+			},
+		});
 	},
 
 	routing_legs_add(frm, cdt, cdn) {
+		frm._sq_routing_legs_manual = true;
+		frm._sq_routing_legs_auto = false;
 		// Leg order is determined by child table idx (no separate Leg field).
 		frm.events._apply_one_off_routing_leg_main_job_readonly(frm);
 	},
@@ -698,6 +965,9 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	refresh(frm) {
+		if (frm.doc && frm.doc.docstatus === 1) {
+			frm._sq_was_clean_before_refresh = !frm.doc.__unsaved;
+		}
 		logistics_strip_sq_charge_load_type_link_filters_from_meta(frm);
 		logistics_strip_sq_charge_item_code_link_filters_from_meta(frm);
 		frm.events._show_sales_quote_charges_row_checkboxes(frm);
@@ -754,6 +1024,7 @@ frappe.ui.form.on("Sales Quote", {
 		// Update primary button state
 		// Use setTimeout to ensure form state is fully updated after refresh
 		setTimeout(function() {
+			logistics_stabilize_submitted_sales_quote_dirty(frm);
 			frm.events.update_primary_button(frm);
 		}, 50);
 		
@@ -768,10 +1039,36 @@ frappe.ui.form.on("Sales Quote", {
 			load_types.forEach(lt => frm.events.load_allowed_vehicle_types(frm, lt));
 		}
 		frm.events.setup_load_type_query(frm);
+		frm.events.setup_transport_mode_query(frm);
 		frm.events.setup_vehicle_type_query(frm);
+		frm.events.setup_transport_template_queries(frm);
 		frm.events.setup_item_code_query(frm);
 		frm.events.setup_internal_job_query(frm);
 		logistics_setup_linked_services_grid(frm);
+
+		// Regular Sales Quote: Create Booking/Order from Main Service scope (reusable — no job back-link)
+		if (
+			frm.doc.docstatus === 1 &&
+			frm.doc.quotation_type === "Regular" &&
+			!frm.doc.__islocal &&
+			!frm.doc.additional_charge
+		) {
+			frm.add_custom_button(__("Booking / Order"), function () {
+				if (frm.is_dirty() && frm.doc.docstatus !== 1) {
+					frm.save().then(function () {
+						logistics_open_sales_quote_booking_dialog(frm);
+					});
+					return;
+				}
+				if (frm.is_dirty() && frm.doc.docstatus === 1) {
+					frappe.show_alert({
+						message: __("Opening with current Scope values (unsaved). Save the quote separately if needed."),
+						indicator: "blue",
+					}, 5);
+				}
+				logistics_open_sales_quote_booking_dialog(frm);
+			}, __("Create"));
+		}
 
 		// Blanket Quotation: call-off from submitted Regular quotes
 		if (
@@ -1063,6 +1360,12 @@ frappe.ui.form.on("Sales Quote", {
 			if (flag) {
 				filters[flag] = 1;
 			}
+			if (frm.doc.main_service === "Transport" && frm.doc.transport_template) {
+				const allowed = (frm._transport_template_allowed_load_types || []).filter(Boolean);
+				if (allowed.length) {
+					filters.name = ["in", allowed];
+				}
+			}
 			return { filters };
 		});
 		frm.set_query("load_type", "charges", function (doc, cdt, cdn) {
@@ -1080,7 +1383,38 @@ frappe.ui.form.on("Sales Quote", {
 		});
 	},
 
+	setup_transport_mode_query(frm) {
+		logistics_strip_sq_transport_mode_link_filters_from_meta(frm);
+		frm.set_query("transport_mode", function () {
+			const flag = logistics_transport_mode_flag_for_charge_service_type(frm.doc.main_service);
+			const filters = { is_active: 1 };
+			if (flag) {
+				filters[flag] = 1;
+			}
+			return { filters };
+		});
+	},
+
 	setup_vehicle_type_query(frm) {
+		frm.set_query("vehicle_type", function () {
+			if (frm.doc.main_service !== "Transport") {
+				return { filters: { is_active: 1 } };
+			}
+			const load_type = frm.doc.load_type;
+			if (!load_type) {
+				return { filters: { is_active: 1 } };
+			}
+			if (!frm.allowed_vehicle_types_cache) frm.allowed_vehicle_types_cache = {};
+			const allowed = frm.allowed_vehicle_types_cache[load_type];
+			if (allowed && allowed.length > 0) {
+				return { filters: { is_active: 1, name: ["in", allowed] } };
+			}
+			frm.events.load_allowed_vehicle_types(frm, load_type, function () {
+				frm.refresh_field("vehicle_type");
+			});
+			return { filters: { is_active: 1, name: ["in", []] } };
+		});
+
 		// Set up get_query for vehicle_type in Transport charges based on row's load_type
 		if (frm.fields_dict.charges) {
 			frm.set_query("vehicle_type", "charges", function (doc, cdt, cdn) {
@@ -1106,6 +1440,26 @@ frappe.ui.form.on("Sales Quote", {
 				return { filters: { is_active: 1, name: ["in", []] } };
 			});
 		}
+	},
+
+	setup_transport_template_queries(frm) {
+		if (frm.doc.main_service !== "Transport" || !frm.doc.transport_template) {
+			frm._transport_template_allowed_load_types = [];
+			return;
+		}
+		frappe.call({
+			method: "logistics.transport.doctype.transport_template.transport_template.get_transport_template_constraints",
+			args: { template_name: frm.doc.transport_template },
+			callback(r) {
+				const constraints = (r && r.message) || {};
+				frm._transport_template_allowed_load_types = constraints.allowed_load_types || [];
+				frm.events.setup_load_type_query(frm);
+				frm.events.setup_vehicle_type_query(frm);
+				if (frm.doc.load_type) {
+					frm.events.load_allowed_vehicle_types(frm, frm.doc.load_type);
+				}
+			},
+		});
 	},
 
 	setup_item_code_query(frm) {
@@ -1852,9 +2206,24 @@ function show_transport_order_confirmation(frm) {
 			{ fieldname: "branch", fieldtype: "Link", label: __("Branch"), options: "Branch", default: frm.doc.branch || "" },
 			{ fieldname: "cost_center", fieldtype: "Link", label: __("Cost Center"), options: "Cost Center", default: frm.doc.cost_center || "" },
 			{ fieldname: "profit_center", fieldtype: "Link", label: __("Profit Center"), options: "Cost Center", default: frm.doc.profit_center || "" },
-			{ fieldname: "location_type", fieldtype: "Select", label: __("Location Type"), options: "\nUNLOCO\nAddress\nEconomic Zone", default: frm.doc.location_type || "UNLOCO" },
+			{
+				fieldname: "location_type",
+				fieldtype: "Link",
+				label: __("Location Type"),
+				options: "DocType",
+				default: frm.doc.location_type || "",
+				get_query: function () {
+					return { filters: { name: ["in", ["UNLOCO", "Transport Zone"]] } };
+				},
+			},
 			{ fieldname: "location_from", fieldtype: "Dynamic Link", options: "location_type", label: __("Location From"), default: frm.doc.location_from || frm.doc.origin_port || "" },
-			{ fieldname: "location_to", fieldtype: "Dynamic Link", options: "location_type", label: __("Location To"), default: frm.doc.location_to || frm.doc.destination_port || "" }
+			{ fieldname: "location_to", fieldtype: "Dynamic Link", options: "location_type", label: __("Location To"), default: frm.doc.location_to || frm.doc.destination_port || "" },
+			{ fieldname: "transport_scope_section", fieldtype: "Section Break", label: __("Transport scope (from Sales Quote)") },
+			{ fieldname: "transport_mode", fieldtype: "Link", label: __("Transport Mode"), options: "Transport Mode", read_only: 1, default: frm.doc.transport_mode || "" },
+			{ fieldname: "load_type", fieldtype: "Link", label: __("Load Type"), options: "Load Type", read_only: 1, default: frm.doc.load_type || "" },
+			{ fieldname: "vehicle_type", fieldtype: "Link", label: __("Vehicle Type"), options: "Vehicle Type", read_only: 1, default: frm.doc.vehicle_type || "" },
+			{ fieldname: "transport_template", fieldtype: "Link", label: __("Transport Template"), options: "Transport Template", read_only: 1, default: frm.doc.transport_template || "" },
+			{ fieldname: "container_type", fieldtype: "Link", label: __("Container Type"), options: "Container Type", read_only: 1, default: frm.doc.container_type || "" },
 		],
 		apply_values: function(values) {
 			frm.set_value("company", values.company || "");
@@ -2426,3 +2795,27 @@ function create_warehouse_contract_from_sales_quote(frm) {
 		}
 	);
 }
+
+function logistics_mark_sales_quote_routing_legs_manual(frm) {
+	if (!frm) return;
+	frm._sq_routing_legs_manual = true;
+	frm._sq_routing_legs_auto = false;
+}
+
+frappe.ui.form.on("Sales Quote Routing Leg", {
+	mode(frm) {
+		logistics_mark_sales_quote_routing_legs_manual(frm);
+	},
+	type(frm) {
+		logistics_mark_sales_quote_routing_legs_manual(frm);
+	},
+	is_main_job(frm) {
+		logistics_mark_sales_quote_routing_legs_manual(frm);
+	},
+	origin(frm) {
+		logistics_mark_sales_quote_routing_legs_manual(frm);
+	},
+	destination(frm) {
+		logistics_mark_sales_quote_routing_legs_manual(frm);
+	},
+});

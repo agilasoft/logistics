@@ -285,6 +285,10 @@ function apply_load_type_filters(frm, preserve_existing_value) {
 		filters.multimodal = 1;
 	}
 
+	if (frm._transport_template_allowed_load_types && frm._transport_template_allowed_load_types.length) {
+		filters.name = ["in", frm._transport_template_allowed_load_types];
+	}
+
 	// Apply filters to load_type field
 	frm.set_df_property('load_type', 'filters', filters);
 	
@@ -320,6 +324,41 @@ function apply_load_type_filters(frm, preserve_existing_value) {
 	
 	// Refresh the field to apply filters
 	frm.refresh_field('load_type');
+}
+
+function load_transport_template_constraints(frm, callback) {
+	if (!frm.doc.transport_template) {
+		frm._transport_template_allowed_load_types = [];
+		if (callback) callback({});
+		return;
+	}
+	frappe.call({
+		method: "logistics.transport.doctype.transport_template.transport_template.get_transport_template_constraints",
+		args: { template_name: frm.doc.transport_template },
+		callback: function(r) {
+			var constraints = (r && r.message) || {};
+			frm._transport_template_allowed_load_types = constraints.allowed_load_types || [];
+			if (callback) callback(constraints);
+		},
+	});
+}
+
+function apply_transport_template_defaults_to_order(frm, constraints) {
+	constraints = constraints || {};
+	var allowed = constraints.allowed_load_types || [];
+	if (frm.doc.load_type && allowed.length && allowed.indexOf(frm.doc.load_type) === -1) {
+		frm.set_value("load_type", "");
+	}
+	if (!frm.doc.load_type && constraints.default_load_type) {
+		frm.set_value("load_type", constraints.default_load_type);
+	}
+	if (!frm.doc.vehicle_type && constraints.default_vehicle_type) {
+		frm.set_value("vehicle_type", constraints.default_vehicle_type);
+	}
+	apply_load_type_filters(frm);
+	reload_allowed_vehicle_types(frm, function() {
+		frm.refresh_field("vehicle_type");
+	});
 }
 
 frappe.ui.form.on("Transport Order", {
@@ -365,6 +404,14 @@ frappe.ui.form.on("Transport Order", {
 		// Apply load_type filters on load (preserve existing values for existing documents)
 		if (frm.doc.transport_job_type) {
 			apply_load_type_filters(frm, !frm.is_new());
+		}
+		if (frm.doc.transport_template) {
+			load_transport_template_constraints(frm, function(constraints) {
+				apply_load_type_filters(frm, !frm.is_new());
+				if (frm.is_new()) {
+					apply_transport_template_defaults_to_order(frm, constraints);
+				}
+			});
 		}
 
 		// Set get_query for Load Type so filter is applied and "Filtered by" is shown (transport_job_type based)
@@ -730,6 +777,12 @@ frappe.ui.form.on("Transport Order", {
 			update_vehicle_type_filter_description(frm);
 			frm.refresh_field('vehicle_type');
 			frm.refresh_field('legs');
+		});
+	},
+
+	transport_template: function(frm) {
+		load_transport_template_constraints(frm, function(constraints) {
+			apply_transport_template_defaults_to_order(frm, constraints);
 		});
 	},
 

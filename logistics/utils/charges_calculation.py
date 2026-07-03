@@ -1699,6 +1699,14 @@ def calculate_charge_row(
                 parent_doc = frappe.get_doc(parenttype, parent)
             except Exception:
                 pass
+        if parent_doc and parenttype == "Change Request" and doctype == "Change Request Charge":
+            from logistics.utils.sales_quote_charge_parameters import (
+                resolve_change_request_charge_parameters,
+            )
+
+            resolved = resolve_change_request_charge_parameters(doc, parent_doc)
+            if resolved:
+                doc.update(resolved)
         if parent_doc and parent_overrides and parenttype != "Sales Quote":
             _apply_charge_parent_overrides(parent_doc, parent_overrides)
 

@@ -41,6 +41,10 @@ WIKI_PAGES_CONFIG = {
     "warehouse_settings": ("Warehouse Settings", "Setup"),
     "customs_settings": ("Customs Settings", "Setup"),
     "default_details_and_relationships": ("Default Details and Relationships", "Setup"),
+    "service_type_load_transport_validation": (
+        "Load Type and Transport Mode — Service Type Validation",
+        "Setup",
+    ),
     # Module Intros
     "sea_freight_module": ("Sea Freight Module", "Sea Freight"),
     "air_freight_module": ("Air Freight Module", "Air Freight"),
@@ -76,6 +80,7 @@ WIKI_PAGES_CONFIG = {
     "proof_of_delivery": ("Proof of Delivery", "Transport"),
     "transport_template": ("Transport Template", "Transport"),
     "load_type": ("Load Type", "Transport"),
+    "transport_mode": ("Transport Mode", "Logistics"),
     # Customs
     "declaration_order": ("Declaration Order", "Customs"),
     "declaration": ("Declaration", "Customs"),

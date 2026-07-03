@@ -21,6 +21,7 @@ from logistics.utils.charge_service_type import (
 	sales_quote_charge_service_types_equal,
 )
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
+from logistics.utils.sales_quote_routing_defaults import apply_sales_quote_routing_defaults
 
 
 def map_sales_quote_entry_type_to_air_booking(sales_quote_entry_type):
@@ -398,11 +399,15 @@ class SalesQuote(Document):
 		self.clear_hidden_one_off_fields_for_non_one_off()
 		self.ensure_one_off_status()
 		self.validate_one_off_required_parameters()
+		self.validate_direction_ports()
 		self.validate_programme_required_parameters()
 		self.validate_additional_charge_job()
 		self.validate_load_type_matches_service()
+		self.validate_transport_mode_matches_service()
+		self.validate_transport_template_compatibility()
 		self.validate_vehicle_type_load_type()
 		self.validate_vehicle_type_capacity()
+		apply_sales_quote_routing_defaults(self)
 		self.validate_multimodal_main_job()
 		self.validate_customs_unit_types()
 		self.validate_linked_service_charge_tagging()
@@ -673,6 +678,12 @@ class SalesQuote(Document):
 					)
 				)
 
+	def validate_direction_ports(self):
+		"""Direction must align with origin/destination ports for the quote company country."""
+		from logistics.utils.direction_port_validation import validate_sales_quote_direction_ports
+
+		validate_sales_quote_direction_ports(self)
+
 	def validate_programme_required_parameters(self):
 		"""Require programme header links and exhibit show fields based on main_service / quotation_type."""
 		if getattr(self, "additional_charge", 0):
@@ -793,44 +804,47 @@ class SalesQuote(Document):
 		A Load Type may have several mode flags set; validation only checks that the flag matching the charge's
 		service_type (or one-off main_service) is enabled—not that other flags are off.
 		"""
-		service_to_field = {
-			"air": "air",
-			"sea": "sea",
-			"transport": "transport",
-			"custom": "customs",
-			"warehousing": "warehousing",
-		}
-
-		def _check(load_type_name, service_label, field_name, context):
-			if not load_type_name or not field_name:
-				return
-			if not frappe.db.exists("Load Type", load_type_name):
-				return
-			if not frappe.db.get_value("Load Type", load_type_name, field_name):
-				frappe.throw(
-					_("Load Type '{0}' is not valid for {1}. Select a Load Type with '{2}' enabled.").format(
-						load_type_name,
-						context,
-						service_label,
-					),
-					title=_("Invalid Load Type"),
-				)
+		from logistics.utils.service_mode_flags import validate_service_mode_link
 
 		if getattr(self, "quotation_type", None) in ("One-off", "Regular") and not getattr(self, "additional_charge", 0):
 			main = getattr(self, "main_service", None)
 			lt = getattr(self, "load_type", None)
-			main_c = canonical_charge_service_type_for_storage(main)
-			field = service_to_field.get(main_c)
-			if lt and field:
-				_check(lt, main, field, _("this quote's Main Service"))
+			if lt and main:
+				validate_service_mode_link(
+					"Load Type",
+					lt,
+					main,
+					context=_("this quote's Main Service"),
+				)
 
 		for row in getattr(self, "charges", None) or []:
 			st = getattr(row, "service_type", None)
 			lt = getattr(row, "load_type", None)
-			st_c = canonical_charge_service_type_for_storage(st)
-			field = service_to_field.get(st_c)
-			if lt and field:
-				_check(lt, st, field, _("charge row {0}").format(getattr(row, "idx", "") or ""))
+			if lt and st:
+				validate_service_mode_link(
+					"Load Type",
+					lt,
+					st,
+					context=_("charge row {0}").format(getattr(row, "idx", "") or ""),
+				)
+
+	def validate_transport_mode_matches_service(self):
+		"""Transport Mode must match Main Service module flags on Regular / One-off quotes."""
+		from logistics.utils.service_mode_flags import validate_service_mode_link
+
+		if getattr(self, "quotation_type", None) not in ("One-off", "Regular"):
+			return
+		if getattr(self, "additional_charge", 0):
+			return
+		tm = getattr(self, "transport_mode", None)
+		main = getattr(self, "main_service", None)
+		if tm and main:
+			validate_service_mode_link(
+				"Transport Mode",
+				tm,
+				main,
+				context=_("this quote's Main Service"),
+			)
 
 	def validate_customs_unit_types(self):
 		"""Ensure customs charge rows use unit types allowed by Declaration Order / Declaration Charges.
@@ -861,6 +875,19 @@ class SalesQuote(Document):
 					),
 					title=_("Invalid Cost Unit Type"),
 				)
+
+	def validate_transport_template_compatibility(self):
+		"""Load Type / Vehicle Type must match the selected Transport Template (#1122)."""
+		from logistics.transport.doctype.transport_template.transport_template import (
+			validate_doc_transport_template,
+		)
+
+		if getattr(self, "main_service", None) != "Transport":
+			return
+		if not getattr(self, "transport_template", None):
+			return
+
+		validate_doc_transport_template(self, context=_("Sales Quote"))
 
 	def validate_vehicle_type_load_type(self):
 		"""Validate that the selected vehicle_type is allowed for the selected load_type in each Transport charge"""
@@ -1816,9 +1843,9 @@ def _propagate_linked_services_to_created_booking(
 ):
 	"""Mirror SQ-owned Linked Services onto the new booking and remap per-charge links.
 
-	* One-off / Regular full conversion: re-parent the same ``LS-…`` documents.
-	* Blanket call-off: clone Linked Services referenced by the selected charge rows so the
-	  quote retains its originals for later call-offs.
+	* One-off full conversion: re-parent the same ``LS-…`` documents.
+	* Regular / blanket call-off: **clone** Linked Services so the quote retains its originals
+	  for later bookings and Services rows are not tied to a single job.
 
 	Logs (without re-raising) on failure so conversion still completes.
 	"""
@@ -1829,7 +1856,9 @@ def _propagate_linked_services_to_created_booking(
 			stamp_scope_main_when_untagged,
 		)
 
-		if blanket_call_off:
+		qt = (getattr(sales_quote, "quotation_type", None) or "").strip()
+		use_clone = blanket_call_off or qt == "Regular"
+		if use_clone:
 			sq_name = getattr(sales_quote, "name", None) or ""
 			sq_owned = frappe.get_all(
 				"Linked Service",
@@ -1870,6 +1899,86 @@ def _propagate_one_off_internal_jobs_to_created_booking(sales_quote, booking_doc
 	_propagate_linked_services_to_created_booking(sales_quote, booking_doc)
 
 
+def _resolve_transport_locations_from_sales_quote(
+	sales_quote,
+	first,
+	parent_overrides=None,
+	transport_charges=None,
+):
+	"""Resolve location_from / location_to / location_type for Transport Order creation."""
+	transport_charges = transport_charges or []
+	location_from = getattr(first, "location_from", None) or getattr(sales_quote, "location_from", None)
+	location_to = getattr(first, "location_to", None) or getattr(sales_quote, "location_to", None)
+	if parent_overrides:
+		location_from = parent_overrides.get("location_from") or location_from
+		location_to = parent_overrides.get("location_to") or location_to
+	if not location_from or not location_to:
+		for ch in transport_charges:
+			if not location_from and getattr(ch, "location_from", None):
+				location_from = ch.location_from
+			if not location_to and getattr(ch, "location_to", None):
+				location_to = ch.location_to
+			if location_from and location_to:
+				break
+	if (not location_from or not location_to) and (
+		getattr(sales_quote, "origin_port", None) or getattr(sales_quote, "destination_port", None)
+	):
+		if not location_from:
+			location_from = getattr(sales_quote, "origin_port", None)
+		if not location_to:
+			location_to = getattr(sales_quote, "destination_port", None)
+	if (not location_from or not location_to) and getattr(sales_quote, "routing_legs", None):
+		for leg in sales_quote.routing_legs:
+			mode = getattr(leg, "mode", None)
+			if mode in ("Road", "Transport") or (mode and str(mode).lower() in ("road", "transport")):
+				if not location_from and getattr(leg, "origin", None):
+					location_from = leg.origin
+				if not location_to and getattr(leg, "destination", None):
+					location_to = leg.destination
+				if location_from and location_to:
+					break
+	location_type = getattr(first, "location_type", None) or getattr(sales_quote, "location_type", None)
+	if parent_overrides and parent_overrides.get("location_type"):
+		location_type = parent_overrides.get("location_type") or location_type
+	if not location_type and (location_from or location_to):
+		location_type = "UNLOCO"
+	return location_from, location_to, location_type
+
+
+def _build_transport_scope_row_from_sales_quote(
+	sales_quote,
+	first,
+	parent_overrides=None,
+	transport_charges=None,
+):
+	"""Merge Sales Quote Main Service scope with the selected Transport charge row."""
+	from logistics.utils.sales_quote_charge_parameters import (
+		SALES_QUOTE_CHARGE_PARAMETER_FIELDS,
+		resolve_parameters_from_sales_quote_scope,
+	)
+
+	row = frappe._dict(resolve_parameters_from_sales_quote_scope(sales_quote))
+	row.service_type = "Transport"
+	for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS:
+		if fn == "charge_group":
+			continue
+		val = getattr(first, fn, None) if first else None
+		if val is not None and str(val).strip() != "":
+			row[fn] = val
+	if parent_overrides:
+		for k, v in parent_overrides.items():
+			if v is not None and str(v).strip() != "":
+				row[k] = v
+	location_from, location_to, location_type = _resolve_transport_locations_from_sales_quote(
+		sales_quote, first, parent_overrides, transport_charges
+	)
+	row.location_from = location_from
+	row.location_to = location_to
+	if location_type:
+		row.location_type = location_type
+	return row
+
+
 def _create_transport_order_from_sales_quote(
 	sales_quote,
 	parent_overrides=None,
@@ -1897,41 +2006,10 @@ def _create_transport_order_from_sales_quote(
 		selected_charge_row_names,
 		(legacy_transport[0] if legacy_transport else (transport_charges[0] if transport_charges else None)),
 	)
-	location_from = getattr(first, "location_from", None) or getattr(sales_quote, "location_from", None)
-	location_to = getattr(first, "location_to", None) or getattr(sales_quote, "location_to", None)
-	if parent_overrides:
-		location_from = parent_overrides.get("location_from") or location_from
-		location_to = parent_overrides.get("location_to") or location_to
-	# Fallback: scan all Transport charges for location_from/location_to
-	if not location_from or not location_to:
-		for ch in transport_charges:
-			if not location_from and getattr(ch, "location_from", None):
-				location_from = ch.location_from
-			if not location_to and getattr(ch, "location_to", None):
-				location_to = ch.location_to
-			if location_from and location_to:
-				break
-	# Fallback: use origin_port/destination_port (One-off params) with location_type UNLOCO
-	if (not location_from or not location_to) and (getattr(sales_quote, "origin_port", None) or getattr(sales_quote, "destination_port", None)):
-		if not location_from:
-			location_from = getattr(sales_quote, "origin_port", None)
-		if not location_to:
-			location_to = getattr(sales_quote, "destination_port", None)
-		if location_from and location_to:
-			# Will set location_type="UNLOCO" below when using this fallback
-			pass
-	# Fallback: routing leg with mode Road
-	if (not location_from or not location_to) and getattr(sales_quote, "routing_legs", None):
-		for leg in sales_quote.routing_legs:
-			mode = getattr(leg, "mode", None)
-			if mode in ("Road", "Transport") or (mode and str(mode).lower() in ("road", "transport")):
-				if not location_from and getattr(leg, "origin", None):
-					location_from = leg.origin
-				if not location_to and getattr(leg, "destination", None):
-					location_to = leg.destination
-				if location_from and location_to:
-					break
-	if not location_from or not location_to:
+	scope_row = _build_transport_scope_row_from_sales_quote(
+		sales_quote, first, parent_overrides, transport_charges
+	)
+	if not scope_row.location_from or not scope_row.location_to:
 		frappe.throw(_(
 			"Location From and Location To are required for Transport. Set them in Transport charges (location_from, location_to), "
 			"in One-off Parameters (Origin Port, Destination Port), or in the Routing leg with mode Road."
@@ -1948,24 +2026,24 @@ def _create_transport_order_from_sales_quote(
 	transport_order.sales_quote = sales_quote.name
 	_sync_quote_and_sales_quote(transport_order)
 
-	transport_order.transport_template = getattr(first, "transport_template", None) or getattr(sales_quote, "transport_template", None)
-	transport_order.load_type = getattr(first, "load_type", None) or getattr(sales_quote, "load_type", None)
-	transport_order.vehicle_type = getattr(first, "vehicle_type", None) or getattr(sales_quote, "vehicle_type", None)
-	transport_order.container_type = getattr(first, "container_type", None) or getattr(sales_quote, "container_type", None)
+	from logistics.utils.sales_quote_charge_parameters import apply_scope_fields_to_operational_doc
+	from logistics.utils.internal_job_from_source import apply_internal_job_detail_row_to_operational_doc
+
+	apply_scope_fields_to_operational_doc(transport_order, scope_row, overwrite=True)
+	apply_internal_job_detail_row_to_operational_doc(transport_order, scope_row, overwrite=True)
+
+	if transport_order.transport_template:
+		from logistics.transport.doctype.transport_template.transport_template import (
+			on_transport_template_selected,
+			validate_doc_transport_template,
+		)
+
+		on_transport_template_selected(transport_order)
+		validate_doc_transport_template(transport_order, context=_("Transport Order"))
 	transport_order.company = sales_quote.company
 	transport_order.branch = sales_quote.branch
 	transport_order.cost_center = sales_quote.cost_center
 	transport_order.profit_center = sales_quote.profit_center
-	# location_type: from first charge, header (One-off Transport params), or UNLOCO when using origin_port/destination_port or routing leg fallback
-	transport_order.location_type = (
-		getattr(first, "location_type", None)
-		or getattr(sales_quote, "location_type", None)
-	)
-	if not transport_order.location_type and (location_from or location_to):
-		# Values from origin_port/destination_port or routing leg are UNLOCO
-		transport_order.location_type = "UNLOCO"
-	transport_order.location_from = location_from
-	transport_order.location_to = location_to
 
 	transport_order.transport_job_type = sales_quote._determine_transport_job_type(
 		current_job_type=None,
@@ -2126,6 +2204,16 @@ def _create_air_booking_from_sales_quote(
 	apply_shipper_consignee_defaults(air_booking)
 	_apply_parent_overrides_to_doc(air_booking, parent_overrides)
 
+	from logistics.utils.sales_quote_charge_parameters import (
+		apply_scope_fields_to_operational_doc,
+		build_main_service_scope_row,
+	)
+
+	scope_row = build_main_service_scope_row(sales_quote, first, parent_overrides)
+	scope_row.origin_port = origin
+	scope_row.destination_port = dest
+	apply_scope_fields_to_operational_doc(air_booking, scope_row, overwrite=False)
+
 	# Populate charges before insert so they are saved with the document (avoids insert+reload clearing them)
 	from logistics.air_freight.doctype.air_booking.air_booking import _sync_quote_and_sales_quote
 	_sync_quote_and_sales_quote(air_booking)
@@ -2264,6 +2352,16 @@ def _create_sea_booking_from_sales_quote(
 	apply_shipper_consignee_defaults(sea_booking)
 	_apply_parent_overrides_to_doc(sea_booking, parent_overrides)
 
+	from logistics.utils.sales_quote_charge_parameters import (
+		apply_scope_fields_to_operational_doc,
+		build_main_service_scope_row,
+	)
+
+	scope_row = build_main_service_scope_row(sales_quote, first, parent_overrides)
+	scope_row.origin_port = origin
+	scope_row.destination_port = dest
+	apply_scope_fields_to_operational_doc(sea_booking, scope_row, overwrite=False)
+
 	# Populate charges before insert (same as Air Booking) so One-off validation and desk load are consistent.
 	from logistics.sea_freight.doctype.sea_booking.sea_booking import _sync_quote_and_sales_quote
 
@@ -2310,25 +2408,17 @@ def suggest_contributors_for_routing_leg(sales_quote_name, leg_idx):
 @frappe.whitelist()
 def get_load_type_service_flags(load_types=None):
 	"""Return mode flags for Load Type names (client sanitization vs service_type)."""
-	import json
+	from logistics.utils.service_mode_flags import get_service_mode_flags_bulk
 
-	if isinstance(load_types, str):
-		load_types = json.loads(load_types)
-	if not load_types:
-		return {}
-	out = {}
-	for name in load_types:
-		if not name:
-			continue
-		row = frappe.db.get_value(
-			"Load Type",
-			name,
-			["air", "sea", "transport", "customs", "warehousing"],
-			as_dict=True,
-		)
-		if row:
-			out[name] = row
-	return out
+	return get_service_mode_flags_bulk("Load Type", load_types)
+
+
+@frappe.whitelist()
+def get_transport_mode_service_flags(transport_modes=None):
+	"""Return mode flags for Transport Mode names (client sanitization vs main_service)."""
+	from logistics.utils.service_mode_flags import get_service_mode_flags_bulk
+
+	return get_service_mode_flags_bulk("Transport Mode", transport_modes)
 
 
 @frappe.whitelist()

@@ -4,6 +4,7 @@
 from __future__ import unicode_literals
 
 import frappe
+from frappe import _
 from frappe.model.document import Document
 
 from logistics.utils.charge_service_type import default_job_type_for_internal_job_service_type
@@ -32,6 +33,19 @@ class LinkedService(Document):
 
 	def validate(self):
 		self._sync_job_type_from_service_type()
+		self._validate_transport_template_compatibility()
+
+	def _validate_transport_template_compatibility(self):
+		if (self.service_type or "").strip() != "Transport":
+			return
+		if not getattr(self, "transport_template", None):
+			return
+
+		from logistics.transport.doctype.transport_template.transport_template import (
+			validate_doc_transport_template,
+		)
+
+		validate_doc_transport_template(self, context=_("Linked Service"))
 
 	def _sync_job_type_from_service_type(self):
 		st = (self.service_type or "").strip()
@@ -74,6 +88,22 @@ def get_linked_services_for_sales_quote(sales_quote_name: str) -> list[Document]
 		filters={
 			"parent_booking_type": "Sales Quote",
 			"parent_booking_name": sales_quote_name,
+		},
+		pluck="name",
+		order_by="creation asc",
+	)
+	return [frappe.get_doc("Linked Service", n) for n in names]
+
+
+def get_linked_services_for_change_request(change_request_name: str) -> list[Document]:
+	"""Linked Service rows parented directly to a Change Request."""
+	if not change_request_name:
+		return []
+	names = frappe.get_all(
+		"Linked Service",
+		filters={
+			"parent_booking_type": "Change Request",
+			"parent_booking_name": change_request_name,
 		},
 		pluck="name",
 		order_by="creation asc",

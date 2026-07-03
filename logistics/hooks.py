@@ -60,6 +60,7 @@ app_include_js = [
 	"/assets/logistics/js/document_alerts_dialog.js?v=2",
 	"/assets/logistics/js/documents_tab_utils.js",
 	"/assets/logistics/js/opportunity_dashboard_boot.js?v=3",
+	"/assets/logistics/js/crm_sales_quote_actions.js?v=2",
 	"/assets/logistics/js/profitability_form.js?v=5",
 	"/assets/logistics/js/purchase_invoice_dialog.js",
 	"/assets/logistics/js/invoice_billing_currency.js",
@@ -91,6 +92,7 @@ doctype_js = {
 		"logistics/pricing_center/doctype/sales_quote_charge/sales_quote_charge.js",
 		"logistics/pricing_center/doctype/sales_quote_air_freight/sales_quote_air_freight.js",
 		"logistics/pricing_center/doctype/sales_quote_sea_freight/sales_quote_sea_freight.js",
+		"logistics/public/js/sales_quote_booking_dialog.js",
 		"logistics/pricing_center/doctype/sales_quote/sales_quote.js",
 	],
 	"Sales Quote Pack": "logistics/pricing_center/doctype/sales_quote_pack/sales_quote_pack.js",
@@ -298,6 +300,8 @@ doctype_js = {
 	"Cash Advance Request": "logistics/cash_advance/doctype/cash_advance_request/cash_advance_request.js",
 	"Cash Advance Liquidation": "logistics/cash_advance/doctype/cash_advance_liquidation/cash_advance_liquidation.js",
 	"Cash Acknowledgment": "logistics/cash_advance/doctype/cash_acknowledgment/cash_acknowledgment.js",
+	"Outlook Calendar Settings": "logistics/logistics/doctype/outlook_calendar_settings/outlook_calendar_settings.js",
+	"User": "logistics/integrations/outlook/user_outlook.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -372,6 +376,12 @@ doc_events = {
 		"onload": "logistics.pricing_center.utils.opportunity_scopes.on_opportunity_onload",
 		"validate": "logistics.pricing_center.utils.opportunity_scopes.on_opportunity_validate",
 	},
+	"Lead": {
+		"onload": "logistics.pricing_center.crm_sales_quote_onload.lead_onload",
+	},
+	"Prospect": {
+		"onload": "logistics.pricing_center.crm_sales_quote_onload.prospect_onload",
+	},
 	"Customer": {
 		"validate": "logistics.utils.party_code.validate_customer_supplier_party_code",
 	},
@@ -410,6 +420,11 @@ doc_events = {
 		"before_update_after_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
 		"on_submit": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_submit",
 		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_cancel",
+	},
+	"Task": {
+		"after_insert": "logistics.integrations.outlook.task_sync.on_task_change",
+		"on_update": "logistics.integrations.outlook.task_sync.on_task_change",
+		"on_trash": "logistics.integrations.outlook.task_sync.on_task_delete",
 	},
 }
 for _dt in _doc_milestone_doctypes:
@@ -586,6 +601,7 @@ for _dt in (
 	# Sales Quote (One-off) owns Internal Jobs that get re-parented to the Booking/Order
 	# created from the quote. The sync is gated on quotation_type inside the handler.
 	"Sales Quote",
+	"Change Request",
 ):
 	if _dt not in doc_events:
 		doc_events[_dt] = {}
@@ -739,6 +755,8 @@ scheduler_events = {
 	"hourly": [
 		"logistics.status_update.tasks.update_milestone_statuses",
 		"logistics.air_freight.flight_schedules.tasks.update_air_freight_jobs_with_flight_status",
+		"logistics.integrations.outlook.tasks.reconcile_failed_syncs",
+		"logistics.integrations.outlook.tasks.sync_recent_task_changes",
 	],
 	"daily": [
 		"logistics.status_update.tasks.update_document_statuses",
@@ -765,9 +783,12 @@ scheduler_events = {
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
-# override_doctype_dashboards = {
-# 	"Task": "logistics.task.get_dashboard_data"
-# }
+override_doctype_dashboards = {
+	"Opportunity": "logistics.pricing_center.dashboards.opportunity_dashboard.get_data",
+	"Lead": "logistics.pricing_center.dashboards.lead_dashboard.get_data",
+	"Customer": "logistics.pricing_center.dashboards.customer_dashboard.get_data",
+	"Prospect": "logistics.pricing_center.dashboards.prospect_dashboard.get_data",
+}
 
 # exempt linked doctypes from being automatically cancelled
 #

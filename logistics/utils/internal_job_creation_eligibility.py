@@ -16,6 +16,7 @@ from logistics.utils.linked_service_compat import linked_service_rows
 from logistics.utils.sales_quote_charge_parameters import (
 	any_programme_charge_matches_params_dict,
 	any_sales_quote_charge_matches_internal_job_detail_params,
+	coerce_sales_quote_name,
 	extract_service_scoped_quote_parameters,
 	sales_quote_charge_row_matches_internal_job_detail_params,
 )
@@ -67,12 +68,12 @@ def _row_val(row: Any, fieldname: str) -> Any:
 	return getattr(row, fieldname, None)
 
 
-def _resolve_sales_quote_name(sales_quote: str | None, parent_doc: Any | None) -> str:
-	sq = (sales_quote or "").strip()
+def _resolve_sales_quote_name(sales_quote: str | Any | None, parent_doc: Any | None) -> str:
+	sq = coerce_sales_quote_name(sales_quote)
 	if sq:
 		return sq
 	if parent_doc is not None:
-		sq = (getattr(parent_doc, "sales_quote", None) or "").strip()
+		sq = coerce_sales_quote_name(getattr(parent_doc, "sales_quote", None))
 		if sq:
 			return sq
 		dt = getattr(parent_doc, "doctype", None) or ""

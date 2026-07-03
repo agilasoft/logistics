@@ -1040,9 +1040,11 @@ frappe.ui.form.on("Special Project", {
 	},
 	packages_add: function (frm) {
 		_refresh_packages_summary(frm);
+		_refresh_dashboard_html(frm);
 	},
 	packages_remove: function (frm) {
 		_refresh_packages_summary(frm);
+		_refresh_dashboard_html(frm);
 	},
 	deliveries_add: function (frm) {
 		_refresh_packages_delivered_grid(frm);

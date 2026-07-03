@@ -8,9 +8,9 @@ A Sales Quote owns ``Linked Service`` documents via ``parent_booking_type = "Sal
 Order, Declaration Order, or similar operational document, those Linked Service records are
 transferred:
 
-1. **Re-parent** (default for One-off / Regular full conversion): same ``LS-…`` document moves to
+1. **Re-parent** (default for One-off full conversion): same ``LS-…`` document moves to
    the booking; charge ``linked_service`` links need no remapping.
-2. **Clone** (blanket call-offs and Special Project bookings): a new ``LS-…`` is created on the
+2. **Clone** (Regular quotes, blanket call-offs, and Special Project bookings): a new ``LS-…`` is created on the
    booking from the quote-owned source; charge links are remapped via the returned mapping.
 
 The same Linked Service record continues through Booking → Shipment → Job via existing
@@ -42,11 +42,13 @@ from logistics.utils.linked_service_compat import (
 	is_linked_charge_scope,
 	linked_service_doctype,
 	linked_service_rows,
+	linked_services_fieldname,
 	normalize_charge_scope,
 	row_linked_service_link,
 	set_charge_row_linked_service_link,
 	set_row_linked_service_link,
 )
+from logistics.utils.virtual_internal_job_details import uses_virtual_internal_job_details
 
 
 def is_one_off_sales_quote(sales_quote: Any) -> bool:
@@ -228,11 +230,13 @@ def propagate_linked_services_to_booking(
 	if not booking_dt or not booking_nm or not sq_name:
 		return {}
 
-	ij_fieldname = internal_job_detail_fieldname(booking_dt)
+	ij_fieldname = linked_services_fieldname(booking_dt) or internal_job_detail_fieldname(booking_dt)
 	if not ij_fieldname:
 		return {}
 	meta = frappe.get_meta(booking_dt)
-	if not meta.get_field(ij_fieldname):
+	virtual_parent = uses_virtual_internal_job_details(booking_dt)
+	persisted_grid = meta.get_field(ij_fieldname) if ij_fieldname else None
+	if not virtual_parent and not persisted_grid:
 		return {}
 
 	candidate_names = list(ls_names) if ls_names is not None else _sq_owned_linked_services(sq_name)
@@ -248,7 +252,7 @@ def propagate_linked_services_to_booking(
 	if not ls_names_to_process:
 		return {}
 
-	existing_rows = list(getattr(booking_doc, ij_fieldname, None) or [])
+	existing_rows = list(linked_service_rows(booking_doc) or [])
 	existing_ls = {
 		row_linked_service_link(r) for r in existing_rows if row_linked_service_link(r)
 	}
@@ -304,14 +308,15 @@ def propagate_linked_services_to_booking(
 			continue
 
 		sq_row = sq_detail_by_ls.get(ls_name)
-		if sq_row is not None:
-			payload = _booking_ij_detail_payload(sq_row, target_ls)
-		else:
-			payload = _payload_from_linked_service_doc(ls_doc, target_ls)
-		booking_doc.append(ij_fieldname, payload)
+		if persisted_grid and not getattr(persisted_grid, "is_virtual", 0):
+			if sq_row is not None:
+				payload = _booking_ij_detail_payload(sq_row, target_ls)
+			else:
+				payload = _payload_from_linked_service_doc(ls_doc, target_ls)
+			booking_doc.append(ij_fieldname, payload)
+			appended = True
 		if ls_st:
 			existing_service_types.add(ls_st)
-		appended = True
 
 	if appended:
 		booking_doc.flags.ignore_links = True

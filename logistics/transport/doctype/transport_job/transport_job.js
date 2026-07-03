@@ -111,6 +111,10 @@ function apply_load_type_filters(frm, preserve_existing_value) {
 		filters.multimodal = 1;
 	}
 
+	if (frm._transport_template_allowed_load_types && frm._transport_template_allowed_load_types.length) {
+		filters.name = ["in", frm._transport_template_allowed_load_types];
+	}
+
 	// Apply filters to load_type field
 	frm.set_df_property('load_type', 'filters', filters);
 	
@@ -146,6 +150,23 @@ function apply_load_type_filters(frm, preserve_existing_value) {
 	
 	// Refresh the field to apply filters
 	frm.refresh_field('load_type');
+}
+
+function load_transport_template_constraints_job(frm, callback) {
+	if (!frm.doc.transport_template) {
+		frm._transport_template_allowed_load_types = [];
+		if (callback) callback({});
+		return;
+	}
+	frappe.call({
+		method: "logistics.transport.doctype.transport_template.transport_template.get_transport_template_constraints",
+		args: { template_name: frm.doc.transport_template },
+		callback: function(r) {
+			var constraints = (r && r.message) || {};
+			frm._transport_template_allowed_load_types = constraints.allowed_load_types || [];
+			if (callback) callback(constraints);
+		},
+	});
 }
 
 // Helper function to update toolbar buttons: Only primary Save and Submit buttons when draft; allow Cancel when submitted
@@ -331,6 +352,11 @@ frappe.ui.form.on('Transport Job', {
 		// Apply load_type filters on load (preserve existing values for existing documents)
 		if (frm.doc.transport_job_type) {
 			apply_load_type_filters(frm, !frm.is_new());
+		}
+		if (frm.doc.transport_template) {
+			load_transport_template_constraints_job(frm, function() {
+				apply_load_type_filters(frm, !frm.is_new());
+			});
 		}
 		// Fetch scheduled_date from Transport Order if transport_order is set and scheduled_date is empty
 		if (frm.doc.transport_order && !frm.doc.scheduled_date) {
@@ -803,6 +829,16 @@ frappe.ui.form.on('Transport Job', {
 				}
 			});
 		}
+	},
+
+	transport_template: function(frm) {
+		load_transport_template_constraints_job(frm, function(constraints) {
+			var allowed = constraints.allowed_load_types || [];
+			if (frm.doc.load_type && allowed.length && allowed.indexOf(frm.doc.load_type) === -1) {
+				frm.set_value("load_type", "");
+			}
+			apply_load_type_filters(frm);
+		});
 	},
 
 	transport_job_type: function(frm) {

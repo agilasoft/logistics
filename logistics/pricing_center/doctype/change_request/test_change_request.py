@@ -377,4 +377,4 @@ class TestChangeRequestToJob(UnitTestCase):
 			cost_quantity=1,
 		)
 		out2 = _charge_row_as_sales_quote_dict(row2, "Sea")
-		self.assertNotIn("charge_scope", out2)
+		self.assertEqual(out2.get("charge_scope"), "Main")

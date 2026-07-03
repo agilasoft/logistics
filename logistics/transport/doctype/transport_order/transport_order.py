@@ -285,6 +285,8 @@ class TransportOrder(Document):
         
             # Validate load type is allowed for job type
             self.validate_load_type_allowed_for_job()
+
+            self._validate_transport_template_compatibility()
         
             # Validate consolidation eligibility
             self.validate_consolidation_eligibility()
@@ -893,6 +895,16 @@ class TransportOrder(Document):
             frappe.throw(
                 _(f"Load Type {self.load_type} is not allowed for {self.transport_job_type} jobs.")
             )
+
+    def _validate_transport_template_compatibility(self):
+        if not getattr(self, "transport_template", None):
+            return
+
+        from logistics.transport.doctype.transport_template.transport_template import (
+            validate_doc_transport_template,
+        )
+
+        validate_doc_transport_template(self, context=_("Transport Order"))
 
     def validate_vehicle_type_capacity(self):
         """Validate vehicle type capacity when vehicle_type is assigned"""
@@ -2088,6 +2100,12 @@ def action_get_leg_plan(docname: str, replace: int = 1, save: int = 1):
     template_name = _coalesce(doc, ["transport_template", "template", "template_name"])
     if not template_name:
         frappe.throw("Please choose a Transport Template on this order first.")
+
+    from logistics.transport.doctype.transport_template.transport_template import (
+        validate_doc_transport_template,
+    )
+
+    validate_doc_transport_template(doc, context=_("Leg Plan"))
 
     template_rows = _fetch_template_legs(template_name)
     if not template_rows:

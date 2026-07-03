@@ -457,6 +457,9 @@ def _produce_cost_dict_for_target(cr_doc, row, target_job_type, target_job_doc):
 	Sea Shipment mapper, etc.); ``_safe_append_charge_to_doc`` later strips fields not present on
 	the destination child schema.
 	"""
+	from logistics.utils.sales_quote_charge_parameters import effective_change_request_charge_row
+
+	row = effective_change_request_charge_row(row, cr_doc)
 	mappers = _cost_mappers()
 	mapper_key = _SATELLITE_TO_MAIN_MAPPER_JOB_TYPE.get(target_job_type, target_job_type)
 	fn = mappers.get(mapper_key)
@@ -507,9 +510,14 @@ def _restamp_linked_scope_on_charge_row(row, linked_service_name):
 
 def _linked_service_for_row(row, default_linked_service=None):
 	"""Pick the Linked Service tag for a CR Charge row: row-level wins, else the CR default."""
+	from logistics.utils.linked_service_compat import CHARGE_SCOPE_MAIN, normalize_charge_scope
+
+	scope = normalize_charge_scope(getattr(row, "charge_scope", None))
 	ls = charge_row_linked_service_link(row)
 	if ls:
 		return ls
+	if scope == CHARGE_SCOPE_MAIN:
+		return None
 	return ((default_linked_service or "").strip() or None)
 
 

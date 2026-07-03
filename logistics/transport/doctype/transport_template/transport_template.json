@@ -9,6 +9,10 @@
  "field_order": [
   "code",
   "description",
+  "section_break_defaults",
+  "default_load_type",
+  "default_vehicle_type",
+  "allowed_load_types",
   "section_break_xvtl",
   "legs"
  ],
@@ -25,8 +29,34 @@
    "label": "Description"
   },
   {
+   "fieldname": "section_break_defaults",
+   "fieldtype": "Section Break",
+   "label": "Defaults & Constraints"
+  },
+  {
+   "fieldname": "default_load_type",
+   "fieldtype": "Link",
+   "label": "Default Load Type",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"transport\",\"=\",1]]",
+   "options": "Load Type"
+  },
+  {
+   "fieldname": "default_vehicle_type",
+   "fieldtype": "Link",
+   "label": "Default Vehicle Type",
+   "link_filters": "[[\"Vehicle Type\",\"is_active\",\"=\",1]]",
+   "options": "Vehicle Type"
+  },
+  {
+   "fieldname": "allowed_load_types",
+   "fieldtype": "Table MultiSelect",
+   "label": "Allowed Load Types",
+   "options": "Transport Template Allowed Load Type"
+  },
+  {
    "fieldname": "section_break_xvtl",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Legs"
   },
   {
    "fieldname": "legs",
@@ -37,8 +67,8 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-12-18 14:10:07.739144",
- "modified_by": "paulinemae.cabile@agilasoft.com",
+ "modified": "2026-07-03 09:40:39.118537",
+ "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Template",
  "naming_rule": "By fieldname",

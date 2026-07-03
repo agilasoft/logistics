@@ -150,6 +150,22 @@ def install_load_types():
             "transport": 1
         },
         {
+            "load_type_name": "FTL",
+            "description": "Full Truck Load",
+            "sea": 0,
+            "air": 0,
+            "transport": 1,
+            "non_container": 1,
+        },
+        {
+            "load_type_name": "LTL",
+            "description": "Less than Truck Load",
+            "sea": 0,
+            "air": 0,
+            "transport": 1,
+            "non_container": 1,
+        },
+        {
             "load_type_name": "RAIL",
             "description": "Rail Transport",
             "sea": 0,

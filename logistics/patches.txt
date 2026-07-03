@@ -276,3 +276,13 @@ logistics.patches.v3_0_restore_special_project_service_documents
 logistics.patches.v3_0_seed_official_appointment_status
 # MICE Project: backfill is_active on Official Appointment Status
 logistics.patches.v3_0_official_appointment_status_is_active
+# Outlook: Connected App skeleton, User opt-in field, default settings
+logistics.patches.v3_0_outlook_calendar_setup
+# CRM: Sales Quote replaces Quotation actions; Pricing workspace analytics links
+logistics.patches.v3_0_crm_sales_quote_integration
+# CRM: Lead/Prospect Sales Quote settings and prospect traceability
+logistics.patches.v3_0_crm_sales_quote_lead_prospect_settings
+# Transport: FTL/LTL load types for template validation (#1122)
+logistics.patches.v3_0_ensure_ftl_ltl_load_types
+# Sea Booking: backfill booking-owned Linked Services for bookings created before virtual grid
+logistics.patches.v3_0_backfill_sea_booking_linked_services

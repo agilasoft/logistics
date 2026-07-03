@@ -30,6 +30,7 @@ from logistics.utils.sales_quote_routing import (
 	routing_legs_for_api_response,
 )
 from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
+from logistics.utils.virtual_linked_services_view import VirtualLinkedServicesMixin
 
 
 def _has_legacy_quote_link_fields(doc):
@@ -72,7 +73,7 @@ def _sync_quote_and_sales_quote(doc):
         doc.quote = doc.sales_quote
 
 
-class SeaBooking(Document):
+class SeaBooking(VirtualLinkedServicesMixin, Document):
 	def before_validate(self):
 		"""Normalize legacy house_type values before validation"""
 		# Normalize legacy house_type values BEFORE _validate_selects() runs

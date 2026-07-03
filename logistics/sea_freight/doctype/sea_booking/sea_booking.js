@@ -171,6 +171,14 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 	frm.set_df_property("charges", "allow_bulk_edit", 0);
 }
 
+function _logistics_set_linked_services_read_only(frm) {
+	if (!frm.get_docfield || !frm.get_docfield("linked_services")) {
+		return;
+	}
+	frm.set_df_property("linked_services", "cannot_add_rows", 1);
+	frm.set_df_property("linked_services", "read_only", 1);
+}
+
 /** Origin/destination CTAs limited to Shipping Line CTO for that line and UNLOCO port. */
 function _sea_booking_set_query_shipping_line_cto(frm) {
 	frm.set_query("origin_cto", function() {
@@ -256,6 +264,7 @@ frappe.ui.form.on('Sea Booking', {
 			});
 		}
 		_logistics_set_charges_cannot_add_rows(frm);
+		_logistics_set_linked_services_read_only(frm);
 	},
 	setup: function(frm) {
 		frm.set_query('milestone_template', function() {
@@ -512,9 +521,11 @@ frappe.ui.form.on('Sea Booking', {
 		}
 		_sea_booking_setup_linked_service_query(frm);
 		_logistics_set_charges_cannot_add_rows(frm);
+		_logistics_set_linked_services_read_only(frm);
 		setTimeout(function () {
 			if (window.logistics_hide_cannot_add_rows_buttons) {
 				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");
+				window.logistics_hide_cannot_add_rows_buttons(frm, "linked_services");
 			}
 		}, 0);
 		if (window.logistics_apply_sea_freight_settings_accounting_defaults) {

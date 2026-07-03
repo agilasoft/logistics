@@ -21,7 +21,9 @@ from logistics.utils.internal_job_detail_copy import (
 )
 from logistics.utils.sales_quote_charge_parameters import (
 	any_sales_quote_charge_matches_internal_job_detail_params,
+	coerce_sales_quote_name,
 	extract_sales_quote_charge_parameters,
+	parameter_fields_for_service_type,
 )
 
 
@@ -179,6 +181,10 @@ def persist_internal_job_create_back_link(
 	detail_idx: int | None = None,
 ) -> None:
 	"""Back-link after create; linked-charge parents skip the Internal Jobs child table."""
+	if parent_doctype == "Sales Quote":
+		qt = frappe.db.get_value("Sales Quote", parent_name, "quotation_type")
+		if (qt or "").strip() == "Regular":
+			return
 	from logistics.utils.internal_job_persistence import sync_internal_job_doc_job_link
 	from logistics.utils.linked_service_compat import row_linked_service_link
 
@@ -444,16 +450,6 @@ def apply_internal_job_detail_row_to_operational_doc(
 	if not row:
 		return
 	meta = frappe.get_meta(doc.doctype)
-	dt = doc.doctype
-
-	def set_field(fieldname: str, val: Any) -> None:
-		if val is None or val == "":
-			return
-		if not meta.get_field(fieldname):
-			return
-		cur = getattr(doc, fieldname, None)
-		if overwrite or cur is None or cur == "":
-			doc.set(fieldname, val)
 
 	# Always carry the canonical Linked Service link onto the new operational doc (when the target
 	# doctype defines the field). This is set before the parameter early-return below so we still
@@ -471,46 +467,15 @@ def apply_internal_job_detail_row_to_operational_doc(
 		if overwrite or not cur_ls:
 			doc.set("linked_service", ij_link_val)
 
-	params = extract_sales_quote_charge_parameters(row)
-	if not params:
+	from logistics.utils.sales_quote_charge_parameters import (
+		apply_scope_fields_to_operational_doc,
+		resolve_operational_doc_scope_parameters,
+	)
+
+	if not resolve_operational_doc_scope_parameters(row):
 		return
 
-	if dt == "Air Booking":
-		if "air_house_type" in params:
-			set_field("house_type", params["air_house_type"])
-		for fn in (
-			"airline",
-			"freight_agent",
-			"direction",
-			"origin_port",
-			"destination_port",
-			"transport_mode",
-			"load_type",
-		):
-			if fn in params:
-				set_field(fn, params[fn])
-		if params.get("location_from") and not (getattr(doc, "origin_port", None) or "").strip():
-			set_field("origin_port", params["location_from"])
-		if params.get("location_to") and not (getattr(doc, "destination_port", None) or "").strip():
-			set_field("destination_port", params["location_to"])
-		return
-
-	if dt == "Sea Booking":
-		if "sea_house_type" in params:
-			set_field("house_type", params["sea_house_type"])
-		if "freight_agent_sea" in params:
-			set_field("freight_agent", params["freight_agent_sea"])
-		for fn in ("shipping_line", "direction", "origin_port", "destination_port", "transport_mode"):
-			if fn in params:
-				set_field(fn, params[fn])
-		if params.get("location_from") and not (getattr(doc, "origin_port", None) or "").strip():
-			set_field("origin_port", params["location_from"])
-		if params.get("location_to") and not (getattr(doc, "destination_port", None) or "").strip():
-			set_field("destination_port", params["location_to"])
-		return
-
-	for fn, val in params.items():
-		set_field(fn, val)
+	apply_scope_fields_to_operational_doc(doc, row, overwrite=overwrite)
 
 
 _CONTACTS_ADDRESSES_FIELD_NAMES: tuple[str, ...] = (
@@ -1026,7 +991,7 @@ def _charges_preview_list(
 	# preview reflects the rows that will be copied onto the new Internal Job Booking. The parent's
 	# own ``charges`` rows are scope=Main and don't carry the SQ parameter columns, so matching them
 	# by IJ params yields false-positive wildcards.
-	sq_name = (getattr(parent_doc, "sales_quote", None) or "").strip()
+	sq_name = coerce_sales_quote_name(getattr(parent_doc, "sales_quote", None))
 	if ij_link and sq_name and svc_label and frappe.db.exists("Sales Quote", sq_name):
 		try:
 			sq_doc = frappe.get_cached_doc("Sales Quote", sq_name)

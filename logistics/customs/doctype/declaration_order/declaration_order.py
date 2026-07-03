@@ -587,6 +587,20 @@ def _resolve_customs_params_from_sales_quote(sales_quote, sq_doc=None):
 			sq_doc = None
 
 	if sq_doc:
+		from logistics.utils.sales_quote_charge_parameters import (
+			resolve_parameters_from_sales_quote_scope,
+		)
+
+		scope = resolve_parameters_from_sales_quote_scope(sq_doc)
+		for fn in (
+			"customs_authority",
+			"declaration_type",
+			"customs_broker",
+			"customs_charge_category",
+		):
+			if scope.get(fn):
+				out[fn] = scope[fn]
+
 		customs_row = None
 		param_row = None
 		for row in sq_doc.get("charges") or []:
