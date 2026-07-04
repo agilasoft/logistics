@@ -408,6 +408,7 @@ class SalesQuote(Document):
 		self.ensure_one_off_status()
 		self.validate_one_off_required_parameters()
 		self.validate_direction_ports()
+		self.validate_freight_agent_locations()
 		self.validate_programme_required_parameters()
 		self.validate_additional_charge_job()
 		self.validate_load_type_matches_service()
@@ -692,6 +693,14 @@ class SalesQuote(Document):
 		from logistics.utils.direction_port_validation import validate_sales_quote_direction_ports
 
 		validate_sales_quote_direction_ports(self)
+
+	def validate_freight_agent_locations(self):
+		"""UNLOCO ports must fall within the selected freight agent's covered locations."""
+		from logistics.utils.freight_agent_location_validation import (
+			validate_sales_quote_freight_agent_locations,
+		)
+
+		validate_sales_quote_freight_agent_locations(self)
 
 	def validate_programme_required_parameters(self):
 		"""Require programme header links and exhibit show fields based on main_service / quotation_type."""

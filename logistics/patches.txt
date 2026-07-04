@@ -294,3 +294,5 @@ logistics.patches.v3_0_backfill_main_service_from_legacy_internal_job
 logistics.patches.v3_0_drop_legacy_internal_job_columns
 # Freight Agent: backfill Applicable Service Types on existing masters (#1118)
 logistics.patches.v3_0_freight_agent_applicable_service_types
+# Freight Agent: backfill covered_unlocs from default_unloco (#1119)
+logistics.patches.v3_0_backfill_freight_agent_covered_unlocs_from_default

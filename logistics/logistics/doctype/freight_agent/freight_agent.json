@@ -18,6 +18,9 @@
   "transport",
   "customs",
   "warehousing",
+  "locations_tab",
+  "section_covered_unlocs",
+  "covered_unlocs",
   "tab_2_tab",
   "customer",
   "supplier",
@@ -90,6 +93,20 @@
    "fieldname": "warehousing",
    "fieldtype": "Check",
    "label": "Warehousing"
+   "fieldname": "locations_tab",
+   "fieldtype": "Tab Break",
+   "label": "Locations"
+  },
+  {
+   "fieldname": "section_covered_unlocs",
+   "fieldtype": "Section Break",
+   "label": "Covered UNLOCOs"
+  },
+  {
+   "fieldname": "covered_unlocs",
+   "fieldtype": "Table",
+   "label": "Covered UNLOCOs",
+   "options": "Freight Agent Covered Location"
   },
   {
    "fieldname": "tab_2_tab",
