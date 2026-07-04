@@ -298,3 +298,5 @@ logistics.patches.v3_0_freight_agent_applicable_service_types
 logistics.patches.v3_0_backfill_freight_agent_covered_unlocs_from_default
 # Charge rows: Unit Breaks checkbox/button and Value unit type (#1126)
 logistics.patches.v3_0_add_charge_unit_breaks
+# Special Project: backfill service-row planned/actual from charges and linked jobs
+logistics.patches.v3_0_sync_special_project_service_financials

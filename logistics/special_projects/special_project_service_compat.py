@@ -48,6 +48,7 @@ def special_project_service_grid_rows(parent_doc: Any) -> list[Any]:
 		return []
 	if getattr(getattr(parent_doc, "flags", None), "_special_project_services_from_form", False):
 		return list(parent_doc.__dict__.get(SPECIAL_PROJECT_SERVICES_FIELD) or [])
-	if hasattr(parent_doc, "_build_special_project_services_view"):
-		return parent_doc._build_special_project_services_view()
+	build_view = getattr(parent_doc, "_build_special_project_services_view", None)
+	if callable(build_view):
+		return build_view()
 	return list(getattr(parent_doc, SPECIAL_PROJECT_SERVICES_FIELD, None) or [])

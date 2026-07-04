@@ -249,11 +249,13 @@ class SpecialProject(Document):
 			)
 			from logistics.special_projects.special_project_service_helpers import (
 				sync_charge_tags_from_service_line,
+				tag_untagged_charges_to_planning_services,
 				validate_charge_service_tags,
 				validate_special_project_service_lifecycle_stages,
 				validate_special_project_service_line_not_referenced,
 			)
 
+			tag_untagged_charges_to_planning_services(self)
 			for charge in self.get("charges") or []:
 				sync_charge_tags_from_service_line(charge, self)
 			recompute_all_charge_tag_allocations(self)
@@ -884,12 +886,16 @@ class SpecialProject(Document):
 
 	def populate_charges_from_sales_quote(self, sales_quote=None):
 		"""Copy charge lines from the linked Sales Quote (or explicit quote name)."""
+		from logistics.special_projects.special_project_service_helpers import (
+			tag_untagged_charges_to_planning_services,
+		)
 		from logistics.utils.sales_quote_programme_charges import populate_programme_charges_from_sales_quote
 
 		sq_name = sales_quote or self.sales_quote
 		if not sq_name:
 			frappe.throw(_("No Sales Quote linked."))
 		populate_programme_charges_from_sales_quote(self, sq_name, clear_existing=True)
+		tag_untagged_charges_to_planning_services(self)
 
 
 def create_job_number_for_special_project(

@@ -355,11 +355,13 @@ def effective_internal_job_detail_job_type(row):
 	Inbound/Release/Transfer. Legacy storage job types on Warehousing rows resolve to VAS Order
 	unless a storage order is already linked on ``job_no``.
 	"""
+	from logistics.special_projects.special_project_service_rows import service_row_field
+
 	if not row:
 		return ""
-	jt = (getattr(row, "job_type", None) or "").strip()
-	jn = (getattr(row, "job_no", None) or "").strip()
-	st = (getattr(row, "service_type", None) or "").strip()
+	jt = (service_row_field(row, "job_type") or "").strip()
+	jn = (service_row_field(row, "job_no") or "").strip()
+	st = (service_row_field(row, "service_type") or "").strip()
 	if st == "Warehousing":
 		if jt == "VAS Order":
 			return jt

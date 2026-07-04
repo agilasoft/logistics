@@ -101,26 +101,28 @@ def resolve_lifecycle_job_row_to_operational_ref(row):
 	Return ``(logistics_doctype, job_name)`` for dashboards and milestones (operational job doc),
 	or ``None`` when the row is resource-only (Special Project) or cannot be resolved.
 	"""
+	from logistics.special_projects.special_project_service_rows import service_row_field
+
 	if not row:
 		return None
-	st = (getattr(row, "service_type", None) or "").strip()
+	st = (service_row_field(row, "service_type") or "").strip()
 	if st == "Special Project":
 		return None
 
-	jn = (getattr(row, "job_no", None) or "").strip()
+	jn = (service_row_field(row, "job_no") or "").strip()
 	if jn:
 		ref = _resolve_execution_name_to_operational_ref(jn)
 		if ref:
 			return ref
 
-	jt = (getattr(row, "job_type", None) or "").strip()
-	on = (getattr(row, "order_no", None) or "").strip()
+	jt = (service_row_field(row, "job_type") or "").strip()
+	on = (service_row_field(row, "order_no") or "").strip()
 	if jt and on:
 		ref = _resolve_order_ref_to_operational_ref(jt, on)
 		if ref:
 			return ref
 
-	ot = (getattr(row, "order_type", None) or "").strip()
+	ot = (service_row_field(row, "order_type") or "").strip()
 	if ot and on:
 		ref = _resolve_order_ref_to_operational_ref(ot, on)
 		if ref:

@@ -59,20 +59,21 @@ def _lifecycle_row_job_type(lifecycle_row: Any) -> str:
 
 def _lifecycle_row_financial_link(lifecycle_row: Any) -> tuple[str, str]:
 	"""Return ``(doctype, name)`` used to roll up lifecycle financials for one row."""
+	from logistics.special_projects.special_project_service_rows import service_row_field
 	from logistics.utils.special_project_internal_jobs import (
 		_resolve_execution_name_to_operational_ref,
 	)
 
-	jn = (getattr(lifecycle_row, "job_no", None) or "").strip()
+	jn = (service_row_field(lifecycle_row, "job_no") or "").strip()
 	if jn:
 		ref = _resolve_execution_name_to_operational_ref(jn)
 		if ref:
 			return ref
-	jt = (getattr(lifecycle_row, "job_type", None) or "").strip()
-	on = (getattr(lifecycle_row, "order_no", None) or "").strip()
+	jt = (service_row_field(lifecycle_row, "job_type") or "").strip()
+	on = (service_row_field(lifecycle_row, "order_no") or "").strip()
 	if jt and on:
 		return jt, on
-	ot = (getattr(lifecycle_row, "order_type", None) or "").strip()
+	ot = (service_row_field(lifecycle_row, "order_type") or "").strip()
 	if ot and on:
 		return ot, on
 	mapped = _lifecycle_row_job_type(lifecycle_row)
@@ -109,12 +110,14 @@ def _primary_charge_doc_for_lifecycle_link(
 	``actual_cost`` on charge rows is used. Fall back to the lifecycle ``job_no`` document when
 	the child has no charge lines yet.
 	"""
+	from logistics.special_projects.special_project_service_rows import service_row_field
+
 	row = lifecycle_row if lifecycle_row is not None else frappe._dict(
 		job_type=link_job_type,
 		job_no=link_job_no,
 	)
-	jt = (getattr(row, "job_type", None) or link_job_type or "").strip()
-	jn = (getattr(row, "job_no", None) or link_job_no or "").strip()
+	jt = (service_row_field(row, "job_type") or link_job_type or "").strip()
+	jn = (service_row_field(row, "job_no") or link_job_no or "").strip()
 	_EXECUTION = frozenset(
 		{
 			"Air Shipment",
@@ -227,23 +230,25 @@ def sync_lifecycle_job_financials(doc: Any) -> None:
 	"""Update programme service planned/actual from charges and linked jobs."""
 	from logistics.special_projects.special_project_service_rows import service_rows
 
-	if not service_rows(doc):
+	lifecycle_rows = service_rows(doc)
+	if not lifecycle_rows:
 		return
 
 	from logistics.special_projects.special_project_charge_lifecycle import (
 		sync_lifecycle_job_execution_refs,
 	)
 
-	sync_lifecycle_job_execution_refs(doc)
+	sync_lifecycle_job_execution_refs(doc, lifecycle_rows)
 	_auto_assign_charge_lifecycle_rows(doc)
 	_validate_charge_lifecycle_links(doc)
-	_sync_special_project_service_financials(doc)
-	lifecycle_rows = _lifecycle_rows(doc)
+	_sync_special_project_service_financials(doc, lifecycle_rows=lifecycle_rows)
 	_persist_lifecycle_job_financials(doc, lifecycle_rows)
 	_persist_lifecycle_job_execution_refs(doc, lifecycle_rows)
 
 
-def _sync_special_project_service_financials(doc: Any) -> None:
+def _sync_special_project_service_financials(
+	doc: Any, lifecycle_rows: list[Any] | None = None
+) -> None:
 	"""Roll planned/actual totals onto programme service rows from linked jobs or tagged charges."""
 	from logistics.special_projects.special_project_service_rows import (
 		is_planning_special_project_service_row,
@@ -255,7 +260,8 @@ def _sync_special_project_service_financials(doc: Any) -> None:
 		row_special_project_service_link,
 	)
 
-	lifecycle_rows = service_rows(doc)
+	if lifecycle_rows is None:
+		lifecycle_rows = service_rows(doc)
 	charges = _charges(doc)
 	for row in lifecycle_rows:
 		if not is_planning_special_project_service_row(row):
@@ -299,19 +305,21 @@ def _sync_special_project_service_financials(doc: Any) -> None:
 
 
 def _persist_lifecycle_job_execution_refs(doc: Any, lifecycle_rows: list[Any]) -> None:
+	from logistics.special_projects.special_project_service_rows import service_row_field
+
 	if not getattr(doc, "name", None):
 		return
 	for row in lifecycle_rows:
-		row_name = (getattr(row, "name", None) or "").strip()
+		row_name = (service_row_field(row, "name") or "").strip()
 		if not row_name or not frappe.db.exists("Special Project Service", row_name):
 			continue
 		frappe.db.set_value(
 			"Special Project Service",
 			row_name,
 			{
-				"job_type": getattr(row, "job_type", None),
-				"order_no": getattr(row, "order_no", None),
-				"job_no": getattr(row, "job_no", None),
+				"job_type": service_row_field(row, "job_type"),
+				"order_no": service_row_field(row, "order_no"),
+				"job_no": service_row_field(row, "job_no"),
 			},
 			update_modified=False,
 		)
@@ -319,20 +327,27 @@ def _persist_lifecycle_job_execution_refs(doc: Any, lifecycle_rows: list[Any]) -
 
 def _persist_lifecycle_job_financials(doc: Any, lifecycle_rows: list[Any]) -> None:
 	"""Write computed financial columns; read-only child fields are not saved via normal ORM."""
+	from logistics.special_projects.special_project_service_compat import (
+		row_special_project_service_link,
+	)
+	from logistics.special_projects.special_project_service_rows import service_row_field
+
 	if not getattr(doc, "name", None):
 		return
 	for row in lifecycle_rows:
-		row_name = (getattr(row, "name", None) or "").strip()
+		row_name = row_special_project_service_link(row) or (
+			service_row_field(row, "name") or ""
+		).strip()
 		if not row_name or not frappe.db.exists("Special Project Service", row_name):
 			continue
 		frappe.db.set_value(
 			"Special Project Service",
 			row_name,
 			{
-				"planned_cost": row.planned_cost,
-				"planned_revenue": row.planned_revenue,
-				"actual_cost": row.actual_cost,
-				"actual_revenue": row.actual_revenue,
+				"planned_cost": service_row_field(row, "planned_cost"),
+				"planned_revenue": service_row_field(row, "planned_revenue"),
+				"actual_cost": service_row_field(row, "actual_cost"),
+				"actual_revenue": service_row_field(row, "actual_revenue"),
 			},
 			update_modified=False,
 		)

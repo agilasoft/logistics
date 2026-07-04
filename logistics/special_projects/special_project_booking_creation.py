@@ -1246,8 +1246,8 @@ def _validate_air_sea_corridor_ports_before_insert(target_doc: Any) -> None:
 	if not (getattr(target_doc, "origin_port", None) or "").strip():
 		frappe.throw(
 			_(
-				"Origin Port is required. Set Origin Port (or Location From) on the Lifecycle Job "
-				"line, on the linked Sales Quote, or in Air Freight Settings defaults."
+				"Origin Port is required. Set Origin Port (or Location From) on the Special Project "
+				"Service line, on the linked Sales Quote, or in Air Freight Settings defaults."
 			),
 			title=_("Origin Port Required"),
 		)
@@ -1255,7 +1255,8 @@ def _validate_air_sea_corridor_ports_before_insert(target_doc: Any) -> None:
 		frappe.throw(
 			_(
 				"Destination Port is required. Set Destination Port (or Location To) on the "
-				"Lifecycle Job line, on the linked Sales Quote, or in Air Freight Settings defaults."
+				"Special Project Service line, on the linked Sales Quote, or in Air Freight "
+				"Settings defaults."
 			),
 			title=_("Destination Port Required"),
 		)

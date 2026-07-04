@@ -40,12 +40,8 @@ _PARAM_FIELDS: tuple[str, ...] = (
 	fn
 	for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS
 	if fn != "charge_group"
-) + (
-	"planned_cost",
-	"actual_cost",
-	"planned_revenue",
-	"actual_revenue",
 )
+# planned/actual cost/revenue are rolled up by sync_lifecycle_job_financials — never copy from the desk grid.
 
 
 def _norm(val: Any) -> str:

@@ -8,6 +8,7 @@ from frappe.tests import IntegrationTestCase, UnitTestCase
 from frappe.utils import now_datetime
 
 from logistics.special_projects.lifecycle_job_financial_rollup import (
+	_lifecycle_row_financial_link,
 	_primary_charge_doc_for_lifecycle_link,
 	calculate_lifecycle_job_charge_totals,
 	calculate_linked_job_stack_totals,
@@ -22,6 +23,33 @@ from logistics.special_projects.special_project_charge_lifecycle import (
 	programme_charges_for_lifecycle_row,
 )
 from logistics.utils.internal_job_main_rollup import calculate_internal_job_rollup_totals
+
+
+class TestLifecycleRowFinancialLink(UnitTestCase):
+	def test_reads_order_no_from_dict_service_row(self):
+		row = {
+			"name": "SPS-1",
+			"service_type": "Air",
+			"job_type": "Air Booking",
+			"order_no": "ABK-1",
+		}
+		jt, jn = _lifecycle_row_financial_link(row)
+		self.assertEqual(jt, "Air Booking")
+		self.assertEqual(jn, "ABK-1")
+
+	def test_prefers_execution_job_no_over_order_no(self):
+		row = frappe._dict(
+			service_type="Transport",
+			job_type="Transport Order",
+			order_no="TO-1",
+			job_no="TJ-1",
+		)
+		with patch(
+			"logistics.utils.special_project_internal_jobs._resolve_execution_name_to_operational_ref",
+			return_value=("Transport Job", "TJ-1"),
+		):
+			jt, jn = _lifecycle_row_financial_link(row)
+		self.assertEqual((jt, jn), ("Transport Job", "TJ-1"))
 
 
 class TestProgrammeChargesForLifecycleRow(UnitTestCase):
