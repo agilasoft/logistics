@@ -1143,6 +1143,9 @@ def _apply_unit_break_to_rate_data(
     if not applicable:
         return None
 
+    tier_rate = flt(applicable.get("unit_rate", 0))
+    rate_data["rate"] = tier_rate
+    rate_data["unit_rate"] = tier_rate
     original_rate = flt(rate_data.get("rate", 0))
     tier_rate = flt(applicable.get("unit_rate", 0))
     rate_data["rate"] = tier_rate
@@ -1157,6 +1160,14 @@ def _apply_unit_break_to_rate_data(
     unit_break = flt(applicable.get("unit_break", 0))
     currency = applicable.get("currency") or rate_data.get("currency") or "USD"
     method = rate_data.get("calculation_method") or "Per Unit"
+    if method == "Percentage":
+        return (
+            f"Unit Break ({ut_label}): Value {comparison_qty} {uom} ≥ break {unit_break} {uom} → "
+            f"Rate {tier_rate}%"
+        )
+    return (
+        f"Unit Break ({ut_label}): Actual {comparison_qty} {uom} ≥ break {unit_break} {uom} → "
+        f"Rate {tier_rate} {currency}/{uom}"
     rate_detail = f"Rate {tier_rate}%"
     if method != "Percentage":
         if original_rate and tier_rate != original_rate:
@@ -1304,6 +1315,37 @@ def _calculate_charge_amount(
         )
         if row_qty > 0:
             derived_qty = row_qty
+            ut = (unit_type or "Weight").strip().lower()
+            actual_data["actual_quantity"] = row_qty
+            if ut == "weight":
+                actual_data["actual_weight"] = row_qty
+            elif ut == "chargeable weight":
+                actual_data["actual_chargeable_weight"] = row_qty
+            elif ut == "volume":
+                actual_data["actual_volume"] = row_qty
+            elif ut in ("piece", "package"):
+                actual_data["actual_pieces"] = row_qty
+            elif ut == "distance":
+                actual_data["actual_distance"] = row_qty
+            elif ut == "teu":
+                actual_data["actual_teu"] = row_qty
+            elif ut == "container":
+                actual_data["actual_containers"] = row_qty
+            elif ut == "operation time":
+                actual_data["actual_operation_time"] = row_qty
+            elif ut == "day":
+                actual_data["actual_days"] = row_qty
+                actual_data["actual_operation_time"] = row_qty
+            elif ut == "item count":
+                actual_data["actual_item_count"] = row_qty
+            elif ut == "handling unit":
+                actual_data["actual_handling_units"] = row_qty
+            elif ut == "trip":
+                actual_data["actual_trips"] = row_qty
+            elif ut == "job":
+                actual_data["actual_quantity"] = row_qty
+            elif ut == "value":
+                actual_data["actual_goods_value"] = row_qty
             _spread_row_qty_into_actual_data(actual_data, unit_type, row_qty)
 
     if is_revenue:
