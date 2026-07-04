@@ -41,6 +41,7 @@ app_include_css = [
 app_include_js = [
 	"/assets/logistics/js/address_link_query.js?v=1",
 	"/assets/logistics/js/linked_service_link_query.js?v=1",
+	"/assets/logistics/js/freight_agent_service.js?v=1",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=3",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
@@ -519,6 +520,11 @@ append_hook(
 	doc_events,
 	"*",
 	{"validate": "logistics.utils.load_type_active.validate_load_type_links_on_doc"},
+)
+append_hook(
+	doc_events,
+	"*",
+	{"validate": "logistics.utils.freight_agent_service.validate_freight_agent_links_on_doc"},
 )
 
 # Operational exchange rates: resolve from Source Exchange Rate (date-based) and push to charge lines

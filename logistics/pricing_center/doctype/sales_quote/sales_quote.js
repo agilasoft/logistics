@@ -110,6 +110,24 @@ function logistics_strip_sq_transport_mode_link_filters_from_meta(frm) {
 }
 
 /**
+ * Static link_filters on freight_agent fields (is_active only) override get_query on every Link search.
+ */
+function logistics_strip_sq_freight_agent_link_filters_from_meta(frm) {
+	["freight_agent", "freight_agent_sea"].forEach((fieldname) => {
+		const df = frappe.meta.get_docfield("Sales Quote", fieldname);
+		if (df && df.link_filters) {
+			df.link_filters = null;
+		}
+		if (frm && frm.fields_dict && frm.fields_dict[fieldname]) {
+			const live_df = frm.fields_dict[fieldname].df;
+			if (live_df && live_df.link_filters) {
+				live_df.link_filters = null;
+			}
+		}
+	});
+}
+
+/**
  * Static link_filters on item_code (disabled=0 only) override get_query on every Link search.
  * Strip so Service Type → Item logistics checkbox filters apply.
  */
@@ -303,6 +321,40 @@ function logistics_sanitize_sales_quote_transport_modes(frm) {
 			const fl = flags[frm.doc.transport_mode];
 			if (!fl || !fl[headerFlag]) {
 				frm.set_value("transport_mode", "");
+			}
+		},
+	});
+}
+
+/** Clear Freight Agent when it does not match main_service. */
+function logistics_sanitize_sales_quote_freight_agents(frm) {
+	if (!frm.doc) return;
+	if (!["Regular", "One-off"].includes(frm.doc.quotation_type)) {
+		return;
+	}
+	const headerFlag = logistics_load_type_flag_for_charge_service_type(frm.doc.main_service);
+	if (!headerFlag) return;
+	const agents = ["freight_agent", "freight_agent_sea"]
+		.map((fieldname) => frm.doc[fieldname])
+		.filter(Boolean);
+	if (!agents.length) return;
+	frappe.call({
+		method: "logistics.pricing_center.doctype.sales_quote.sales_quote.get_freight_agent_service_flags",
+		args: { freight_agents: agents },
+		callback: function (r) {
+			const flags = r.message || {};
+			let changed = false;
+			["freight_agent", "freight_agent_sea"].forEach((fieldname) => {
+				const agent = frm.doc[fieldname];
+				if (!agent) return;
+				const fl = flags[agent];
+				if (!fl || !fl[headerFlag]) {
+					frm.set_value(fieldname, "");
+					changed = true;
+				}
+			});
+			if (changed) {
+				frm.refresh_fields(["freight_agent", "freight_agent_sea"]);
 			}
 		},
 	});
@@ -628,6 +680,7 @@ frappe.ui.form.on("Sales Quote", {
 		}
 		frm.events.setup_load_type_query(frm);
 		frm.events.setup_transport_mode_query(frm);
+		frm.events.setup_freight_agent_query(frm);
 		frm.events.setup_vehicle_type_query(frm);
 		frm.events.setup_transport_template_queries(frm);
 		frm.events.setup_item_code_query(frm);
@@ -639,6 +692,7 @@ frappe.ui.form.on("Sales Quote", {
 			setTimeout(() => {
 				logistics_sanitize_sales_quote_load_types(frm);
 				logistics_sanitize_sales_quote_transport_modes(frm);
+				logistics_sanitize_sales_quote_freight_agents(frm);
 			}, 100);
 		}
 		// Preload vehicle types cache for load_types in Transport charges
@@ -868,7 +922,19 @@ frappe.ui.form.on("Sales Quote", {
 				});
 			}
 		}
+		["freight_agent", "freight_agent_sea"].forEach((fieldname) => {
+			if (!["Regular", "One-off"].includes(frm.doc.quotation_type) || !frm.doc[fieldname]) {
+				return;
+			}
+			const faFlag = logistics_load_type_flag_for_charge_service_type(frm.doc.main_service);
+			if (!faFlag) return;
+			frappe.db.get_value("Freight Agent", frm.doc[fieldname], faFlag, (r) => {
+				if (r && r[faFlag]) return;
+				frm.set_value(fieldname, "");
+			});
+		});
 		frm.events.setup_transport_mode_query(frm);
+		frm.events.setup_freight_agent_query(frm);
 		frm.refresh_field("projects_tab");
 		frm.events._maybe_auto_populate_routing_legs(frm);
 		frm.events.setup_transport_template_queries(frm);
@@ -1040,6 +1106,7 @@ frappe.ui.form.on("Sales Quote", {
 		}
 		frm.events.setup_load_type_query(frm);
 		frm.events.setup_transport_mode_query(frm);
+		frm.events.setup_freight_agent_query(frm);
 		frm.events.setup_vehicle_type_query(frm);
 		frm.events.setup_transport_template_queries(frm);
 		frm.events.setup_item_code_query(frm);
@@ -1392,6 +1459,21 @@ frappe.ui.form.on("Sales Quote", {
 				filters[flag] = 1;
 			}
 			return { filters };
+		});
+	},
+
+	setup_freight_agent_query(frm) {
+		logistics_strip_sq_freight_agent_link_filters_from_meta(frm);
+		["freight_agent", "freight_agent_sea"].forEach((fieldname) => {
+			frm.set_query(fieldname, function () {
+				logistics_strip_sq_freight_agent_link_filters_from_meta(frm);
+				const flag = logistics_load_type_flag_for_charge_service_type(frm.doc.main_service);
+				const filters = { is_active: 1 };
+				if (flag) {
+					filters[flag] = 1;
+				}
+				return { filters };
+			});
 		});
 	},
 
@@ -2081,6 +2163,8 @@ frappe.ui.form.on('Sales Quote Charge', {
 	cost_minimum_charge: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_maximum_charge: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_base_amount: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	use_unit_breaks: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	cost_use_unit_breaks: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 
 	charge_scope: function(frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);

@@ -538,6 +538,18 @@
 					}
 					if (frm && frm.doc) {
 						_refresh_charge_grids_on_parent(frm);
+						if (
+							reference_no &&
+							window.logistics &&
+							logistics.charge_type_cleanup &&
+							logistics.charge_type_cleanup.recalculate_charge_row
+						) {
+							var cdt = reference_doctype;
+							var cdn = reference_no;
+							if (locals[cdt] && locals[cdt][cdn]) {
+								logistics.charge_type_cleanup.recalculate_charge_row(frm, cdt, cdn);
+							}
+						}
 					}
 				} else {
 					frappe.msgprint({

@@ -127,6 +127,27 @@ function _register_break_handlers(doctype) {
 
 CHARGE_DOCTYPES_WITH_BREAKS.forEach(function(doctype) {
 	_register_break_handlers(doctype);
+	var unitBreakRecalcEvents = {
+		use_unit_breaks: function(frm, cdt, cdn) {
+			if (
+				window.logistics &&
+				logistics.charge_type_cleanup &&
+				logistics.charge_type_cleanup.recalculate_charge_row
+			) {
+				logistics.charge_type_cleanup.recalculate_charge_row(frm, cdt, cdn);
+			}
+		},
+		cost_use_unit_breaks: function(frm, cdt, cdn) {
+			if (
+				window.logistics &&
+				logistics.charge_type_cleanup &&
+				logistics.charge_type_cleanup.recalculate_charge_row
+			) {
+				logistics.charge_type_cleanup.recalculate_charge_row(frm, cdt, cdn);
+			}
+		},
+	};
+	frappe.ui.form.on(doctype, unitBreakRecalcEvents);
 });
 
 CHARGE_PARENT_DOCTYPES.forEach(function(doctype) {
