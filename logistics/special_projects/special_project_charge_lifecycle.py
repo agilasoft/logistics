@@ -356,7 +356,9 @@ def programme_charges_for_lifecycle_row(sp_doc: Any, lifecycle_row: Any) -> list
 						if idx:
 							seen_idxs.add(idx)
 
-	return matched
+	return _legacy_programme_charges_for_lifecycle_row(
+		sp_doc, lifecycle_row, matched, seen_idxs
+	)
 
 
 def _legacy_programme_charges_for_lifecycle_row(
