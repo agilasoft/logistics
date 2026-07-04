@@ -12,6 +12,12 @@
   "default_unloco",
   "is_active",
   "column_break_pbzu",
+  "applicable_services_section",
+  "air",
+  "sea",
+  "transport",
+  "customs",
+  "warehousing",
   "tab_2_tab",
   "customer",
   "supplier",
@@ -49,6 +55,41 @@
   {
    "fieldname": "column_break_pbzu",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "applicable_services_section",
+   "fieldtype": "Section Break",
+   "label": "Applicable Service Types"
+  },
+  {
+   "default": "0",
+   "fieldname": "air",
+   "fieldtype": "Check",
+   "label": "Air"
+  },
+  {
+   "default": "0",
+   "fieldname": "sea",
+   "fieldtype": "Check",
+   "label": "Sea"
+  },
+  {
+   "default": "0",
+   "fieldname": "transport",
+   "fieldtype": "Check",
+   "label": "Transport"
+  },
+  {
+   "default": "0",
+   "fieldname": "customs",
+   "fieldtype": "Check",
+   "label": "Customs"
+  },
+  {
+   "default": "0",
+   "fieldname": "warehousing",
+   "fieldtype": "Check",
+   "label": "Warehousing"
   },
   {
    "fieldname": "tab_2_tab",

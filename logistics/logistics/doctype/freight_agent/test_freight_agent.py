@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Agilasoft Cloud Technologies Inc. and Contributors
 # See license.txt
 
-# import frappe
+import frappe
 from frappe.tests import IntegrationTestCase
 
 
@@ -19,4 +19,13 @@ class IntegrationTestFreightAgent(IntegrationTestCase):
 	Use this class for testing interactions between multiple components.
 	"""
 
-	pass
+	def test_new_freight_agent_requires_service_type(self):
+		sfx = frappe.generate_hash(length=6)
+		with self.assertRaises(frappe.ValidationError):
+			frappe.get_doc(
+				{
+					"doctype": "Freight Agent",
+					"code": f"IT-FA-{sfx}",
+					"freight_agent_name": f"Integration Agent {sfx}",
+				}
+			).insert(ignore_permissions=True)

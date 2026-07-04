@@ -412,6 +412,7 @@ class SalesQuote(Document):
 		self.validate_additional_charge_job()
 		self.validate_load_type_matches_service()
 		self.validate_transport_mode_matches_service()
+		self.validate_freight_agent_matches_service()
 		self.validate_transport_template_compatibility()
 		self.validate_vehicle_type_load_type()
 		self.validate_vehicle_type_capacity()
@@ -850,6 +851,27 @@ class SalesQuote(Document):
 			validate_service_mode_link(
 				"Transport Mode",
 				tm,
+				main,
+				context=_("this quote's Main Service"),
+			)
+
+	def validate_freight_agent_matches_service(self):
+		"""Freight Agent must have the module flag for the quote's Main Service."""
+		from logistics.utils.freight_agent_service import validate_freight_agent_link
+
+		if getattr(self, "quotation_type", None) not in ("One-off", "Regular"):
+			return
+		if getattr(self, "additional_charge", 0):
+			return
+		main = getattr(self, "main_service", None)
+		if not main:
+			return
+		for fieldname in ("freight_agent", "freight_agent_sea"):
+			agent = getattr(self, fieldname, None)
+			if not agent:
+				continue
+			validate_freight_agent_link(
+				agent,
 				main,
 				context=_("this quote's Main Service"),
 			)
@@ -2430,6 +2452,14 @@ def get_transport_mode_service_flags(transport_modes=None):
 	from logistics.utils.service_mode_flags import get_service_mode_flags_bulk
 
 	return get_service_mode_flags_bulk("Transport Mode", transport_modes)
+
+
+@frappe.whitelist()
+def get_freight_agent_service_flags(freight_agents=None):
+	"""Return mode flags for Freight Agent names (client sanitization vs main_service)."""
+	from logistics.utils.service_mode_flags import get_service_mode_flags_bulk
+
+	return get_service_mode_flags_bulk("Freight Agent", freight_agents)
 
 
 @frappe.whitelist()
