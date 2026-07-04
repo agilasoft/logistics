@@ -101,6 +101,11 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 
 			apply_shipper_consignee_defaults(self)
+			from logistics.utils.freight_agent_location_validation import (
+				validate_booking_freight_agent_locations,
+			)
+
+			validate_booking_freight_agent_locations(self)
 			if self.is_new():
 				from logistics.sea_freight.sea_freight_settings_defaults import (
 					apply_accounting_defaults_from_sea_freight_settings,
