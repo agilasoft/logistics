@@ -12,6 +12,9 @@
   "default_unloco",
   "is_active",
   "column_break_pbzu",
+  "locations_tab",
+  "section_covered_unlocs",
+  "covered_unlocs",
   "tab_2_tab",
   "customer",
   "supplier",
@@ -49,6 +52,22 @@
   {
    "fieldname": "column_break_pbzu",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "locations_tab",
+   "fieldtype": "Tab Break",
+   "label": "Locations"
+  },
+  {
+   "fieldname": "section_covered_unlocs",
+   "fieldtype": "Section Break",
+   "label": "Covered UNLOCOs"
+  },
+  {
+   "fieldname": "covered_unlocs",
+   "fieldtype": "Table",
+   "label": "Covered UNLOCOs",
+   "options": "Freight Agent Covered Location"
   },
   {
    "fieldname": "tab_2_tab",

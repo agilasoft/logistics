@@ -292,3 +292,5 @@ logistics.patches.v3_0_backfill_sea_booking_linked_services
 logistics.patches.v3_0_backfill_main_service_from_legacy_internal_job
 # Drop orphaned is_internal_job / main_job_* / internal_job columns after service_role cutover
 logistics.patches.v3_0_drop_legacy_internal_job_columns
+# Freight Agent: backfill covered_unlocs from default_unloco (#1119)
+logistics.patches.v3_0_backfill_freight_agent_covered_unlocs_from_default
