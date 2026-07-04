@@ -1134,8 +1134,11 @@ class AirBooking(Document):
 				row_dict["unit_rate"] = row.unit_rate
 
 	def _populate_charges_from_sales_quote(self, sales_quote_name):
-		"""Populate charges from Sales Quote Air Freight records
-		
+		"""Populate charges (and routing legs) from Sales Quote Air Freight records.
+
+		Routing is applied here so Create Air Booking and other populate paths copy
+		Sales Quote ``routing_legs`` in the same step as charges (#1135).
+
 		Args:
 			sales_quote_name: Name of the Sales Quote (string) or Sales Quote document
 		"""
@@ -1145,11 +1148,17 @@ class AirBooking(Document):
 				sq_name = sales_quote_name
 			else:
 				sq_name = sales_quote_name.name
-			
+
+			if sq_name and not getattr(self, "sales_quote", None):
+				self.sales_quote = sq_name
+
+			sales_quote = frappe.get_doc("Sales Quote", sq_name)
+			# Same as Sea Booking: include quote routing when populating from Sales Quote
+			apply_sales_quote_routing_to_booking(self, sales_quote)
+
 			# Clear existing charges
 			self.set("charges", [])
-			
-			sales_quote = frappe.get_doc("Sales Quote", sq_name)
+
 			filters = sales_quote_charge_filters(self, sales_quote)
 
 			# Get records from Sales Quote Charge (filtered by main service / internal job) or Sales Quote Air Freight (legacy)
@@ -2157,10 +2166,31 @@ class AirBooking(Document):
 				air_shipment.transport_mode = self.transport_mode
 			if getattr(self, "load_type", None):
 				air_shipment.load_type = self.load_type
-			air_shipment.is_main_service = self.is_main_service
-			air_shipment.is_internal_job = self.is_internal_job
-			air_shipment.main_job_type = self.main_job_type
-			air_shipment.main_job = self.main_job
+			from logistics.utils.service_role_rules import (
+				SERVICE_ROLE_LINKED,
+				SERVICE_ROLE_MAIN,
+				apply_linked_service_satellite_flags,
+				apply_main_service_flags,
+				apply_standalone_service_flags,
+				get_linked_service_name,
+				get_main_service_name,
+				get_main_service_type,
+				get_service_role,
+				set_linked_service_name,
+			)
+
+			role = get_service_role(self)
+			if role == SERVICE_ROLE_LINKED:
+				apply_linked_service_satellite_flags(
+					air_shipment, get_main_service_type(self), get_main_service_name(self)
+				)
+			elif role == SERVICE_ROLE_MAIN:
+				apply_main_service_flags(air_shipment)
+			else:
+				apply_standalone_service_flags(air_shipment)
+			ls = get_linked_service_name(self)
+			if ls:
+				set_linked_service_name(air_shipment, ls)
 			air_shipment.shipper = self.shipper
 			air_shipment.consignee = self.consignee
 			if hasattr(self, "sending_agent") and self.sending_agent:
@@ -2710,7 +2740,7 @@ def get_available_one_off_quotes(air_booking_name: str = None) -> Dict[str, Any]
 				"quote_type": "One-Off Quote",
 				"name": ["!=", air_booking_name or ""],
 				"docstatus": ["!=", 2],
-				"is_main_service": 1,
+				"service_role": "Main",
 				"sales_quote": ["is", "set"],
 			},
 			fields=["sales_quote"],
@@ -2792,16 +2822,18 @@ def populate_charges_from_sales_quote(
 			except Exception:
 				pass
 		
-		sales_quote_doc = frappe.get_doc("Sales Quote", sales_quote)
-		parent = doc if doc else frappe._dict(
-			doctype="Air Booking", name=docname, is_internal_job=0, is_main_service=0
+		from logistics.utils.service_role_rules import (
+			apply_linked_service_satellite_flags,
+			apply_standalone_service_flags,
 		)
-		if is_internal_job is not None:
-			parent.is_internal_job = frappe.utils.cint(is_internal_job)
-		if main_job_type is not None:
-			parent.main_job_type = main_job_type
-		if main_job is not None:
-			parent.main_job = main_job
+
+		sales_quote_doc = frappe.get_doc("Sales Quote", sales_quote)
+		parent = doc if doc else frappe._dict(doctype="Air Booking", name=docname)
+		# API param names kept for client compat; stamp service_role as source of truth.
+		if is_internal_job is not None and frappe.utils.cint(is_internal_job):
+			apply_linked_service_satellite_flags(parent, main_job_type or "", main_job or "")
+		elif is_internal_job is not None or not doc:
+			apply_standalone_service_flags(parent)
 		if frappe.utils.cint(gcfq_main_service_only):
 			if doc is not None:
 				doc.flags.gcfq_main_service_only = 1

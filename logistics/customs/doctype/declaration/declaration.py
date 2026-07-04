@@ -1037,7 +1037,9 @@ def create_declaration_from_declaration_order(declaration_order_name: str) -> Di
 		order_customs_charges = any(
 			sales_quote_charge_service_types_equal(getattr(c, "service_type", None), "Customs") for c in (order.charges or [])
 		)
-		internal_job_customs_ok = cint(getattr(order, "is_internal_job", 0)) and (
+		from logistics.utils.service_role_rules import SERVICE_ROLE_LINKED, get_service_role
+
+		internal_job_customs_ok = get_service_role(order) == SERVICE_ROLE_LINKED and (
 			order_customs_charges or should_apply_internal_job_main_charge_overlay(order)
 		)
 		if not has_customs_on_quote and not internal_job_customs_ok:
@@ -1062,7 +1064,7 @@ def create_declaration_from_declaration_order(declaration_order_name: str) -> Di
 		# Prefer charges from Declaration Order; else internal-job main service; else Sales Quote
 		if hasattr(order, "charges") and order.charges:
 			_populate_charges_from_declaration_order(declaration, order)
-		elif cint(getattr(order, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(order):
+		elif should_apply_internal_job_main_charge_overlay(order):
 			_append_declaration_charges_from_do_style_dicts(
 				declaration, build_internal_job_declaration_charge_dicts(order)
 			)
@@ -1312,11 +1314,32 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 			if default_ca:
 				declaration.customs_authority = default_ca
 	declaration.status = "Draft"
-	declaration.is_main_service = cint(getattr(order, "is_main_service", 0))
-	# Preserve internal-job classification context from the source order.
-	declaration.is_internal_job = getattr(order, "is_internal_job", 0)
-	declaration.main_job_type = getattr(order, "main_job_type", None)
-	declaration.main_job = getattr(order, "main_job", None)
+	# Preserve service-role classification context from the source order.
+	from logistics.utils.service_role_rules import (
+		SERVICE_ROLE_LINKED,
+		SERVICE_ROLE_MAIN,
+		apply_linked_service_satellite_flags,
+		apply_main_service_flags,
+		apply_standalone_service_flags,
+		get_linked_service_name,
+		get_main_service_name,
+		get_main_service_type,
+		get_service_role,
+		set_linked_service_name,
+	)
+
+	role = get_service_role(order)
+	if role == SERVICE_ROLE_LINKED:
+		apply_linked_service_satellite_flags(
+			declaration, get_main_service_type(order), get_main_service_name(order)
+		)
+	elif role == SERVICE_ROLE_MAIN:
+		apply_main_service_flags(declaration)
+	else:
+		apply_standalone_service_flags(declaration)
+	ls = get_linked_service_name(order)
+	if ls:
+		set_linked_service_name(declaration, ls)
 	_set_is_high_value_if_empty(declaration, getattr(order, "is_high_value", None))
 	_set_is_high_value_if_empty(declaration, getattr(sales_quote, "is_high_value", None))
 

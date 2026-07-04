@@ -105,6 +105,7 @@
   },
   {
    "fetch_from": "item_code.description",
+   "fetch_if_empty": 1,
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"

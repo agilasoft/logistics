@@ -591,13 +591,15 @@ def get_eligible_internal_jobs_for_change_request_job(
 		return out
 
 	if job_type in INTERNAL_JOB_SATELLITE_JOB_TYPES:
+		from logistics.utils.service_role_rules import get_linked_service_name
+
 		sat = frappe.db.get_value(
 			job_type,
 			job_name,
-			("main_job_type", "main_job", "internal_job"),
+			("main_service_type", "main_service", "linked_service"),
 			as_dict=True,
 		) or {}
-		ls_name = (sat.get("internal_job") or "").strip()
+		ls_name = get_linked_service_name(sat)
 		if ls_name and linked_service_record_exists(ls_name):
 			row = frappe.db.get_value(
 				ls_dt,
@@ -634,14 +636,16 @@ def _resolve_main_job_for_change_request(cr):
 
 	* CR target is a Main job → returns the CR target itself.
 	* CR target is an Internal Job satellite (Transport Order / Sea Booking / Air Booking /
-	  Declaration Order / Inbound Order / Release Order) → walks ``main_job_type`` / ``main_job``
-	  on the satellite to find its parent Main job. The Sales Quote is always created against the
-	  Main so that billing and the Change Request revenue merge stay on one canonical job.
+	  Declaration Order / Inbound Order / Release Order) → walks ``main_service_type`` /
+	  ``main_service`` on the satellite to find its parent Main job. The Sales Quote is always
+	  created against the Main so that billing and the Change Request revenue merge stay on one
+	  canonical job.
 	"""
 	from logistics.pricing_center.additional_charge_to_job import (
 		INTERNAL_JOB_SATELLITE_JOB_TYPES,
 		MAIN_JOB_TYPES_FOR_CHANGE_REQUEST,
 	)
+	from logistics.utils.service_role_rules import get_main_service_name, get_main_service_type
 
 	if cr.job_type in MAIN_JOB_TYPES_FOR_CHANGE_REQUEST:
 		return cr.job_type, cr.job
@@ -650,19 +654,19 @@ def _resolve_main_job_for_change_request(cr):
 			frappe.db.get_value(
 				cr.job_type,
 				cr.job,
-				("main_job_type", "main_job", "is_internal_job"),
+				("service_role", "main_service_type", "main_service"),
 				as_dict=True,
 			)
 			or {}
 		)
-		mt = (sat.get("main_job_type") or "").strip()
-		mn = (sat.get("main_job") or "").strip()
+		mt = get_main_service_type(sat)
+		mn = get_main_service_name(sat)
 		if mt and mn and frappe.db.exists(mt, mn):
 			return mt, mn
 		frappe.throw(
 			_(
 				"Cannot create Sales Quote: Change Request target {0} {1} is not linked to a Main job. "
-				"Set main_job_type / main_job on the Internal Job satellite first."
+				"Set main_service_type / main_service on the Internal Job satellite first."
 			).format(cr.job_type, cr.job)
 		)
 	# Fallback: behave like the legacy path on unknown job types.

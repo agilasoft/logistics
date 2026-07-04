@@ -1058,15 +1058,21 @@ def _apply_sales_quote_parties_to_target(target_doc: Any, sq_name: str | None = 
 
 def _set_main_service_for_one_off_quote_target(target_doc: Any, sq_name: str | None = None) -> None:
 	"""Primary legs from One-off Sales Quotes are main service (Project quotes leave flags unset)."""
-	if not hasattr(target_doc, "is_main_service"):
+	from logistics.utils.service_role_rules import (
+		apply_main_service_flags,
+		get_service_role,
+		SERVICE_ROLE_LINKED,
+	)
+
+	if not (hasattr(target_doc, "service_role") or hasattr(target_doc, "is_main_service")):
 		return
-	if cint(getattr(target_doc, "is_internal_job", 0)):
+	if get_service_role(target_doc) == SERVICE_ROLE_LINKED:
 		return
 	sq_name = (sq_name or getattr(target_doc, "sales_quote", None) or "").strip()
 	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
 		return
 	if frappe.db.get_value("Sales Quote", sq_name, "quotation_type") == "One-off":
-		target_doc.is_main_service = 1
+		apply_main_service_flags(target_doc)
 
 
 def _apply_special_project_context(
@@ -1469,9 +1475,10 @@ def _create_transport_order(
 	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
 	apply_container_transport_context_to_order(order, row)
 	set_internal_transport_order_draft_insert_flags(order)
-	# Special Project orders are standalone, not internal jobs.
-	if frappe.get_meta("Transport Order").get_field("is_internal_job"):
-		order.is_internal_job = 0
+	# Special Project orders are standalone, not linked satellites.
+	from logistics.utils.service_role_rules import apply_standalone_service_flags
+
+	apply_standalone_service_flags(order)
 	_apply_cargo_and_shipment_lines(sp_doc, order, shipment_lines)
 	_prepare_charges_before_insert(sp_doc, order, row, creation_parameters)
 	order.insert(ignore_permissions=True)
@@ -1501,8 +1508,9 @@ def _create_declaration_order(
 	if frappe.get_meta("Declaration Order").get_field("transport_mode") and not order.get("transport_mode"):
 		order.transport_mode = getattr(row, "transport_mode", None) or order.get("transport_mode")
 	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
-	if frappe.get_meta("Declaration Order").get_field("is_internal_job"):
-		order.is_internal_job = 0
+	from logistics.utils.service_role_rules import apply_standalone_service_flags
+
+	apply_standalone_service_flags(order)
 	_prepare_charges_before_insert(sp_doc, order, row, creation_parameters)
 	order.insert(ignore_permissions=True)
 	_propagate_linked_services_after_insert(sp_doc, order)

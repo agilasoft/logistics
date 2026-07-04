@@ -4,8 +4,8 @@
 
 """
 Create intercompany Sales and Purchase Invoices when a customer Sales Invoice
-(from a Sales Quote) is submitted. For each **Internal Job** (is_internal_job +
-Main Job link on the job or parent booking/order) where the job's operating
+(from a Sales Quote) is submitted. For each **Internal Job** (service_role=Linked +
+Main Service link on the job or parent booking/order) where the job's operating
 company differs from the Main Job's company, the operating company invoices the
 Main Job company (intercompany SI + PI). Item and Job Number dimensions
 are set on SI (internal job) and PI (main job).
@@ -67,8 +67,8 @@ def create_intercompany_invoices_for_quote(
 	create intercompany Sales Invoice (operating -> Main Job company) and
 	Purchase Invoice (Main Job company <- operating).
 
-	The Main Job company is resolved from each job's Main Job link
-	(``main_job_type`` / ``main_job``), not from a document ``billing_company`` field.
+	The Main Job company is resolved from each job's Main Service link
+	(``main_service_type`` / ``main_service``), not from a document ``billing_company`` field.
 	"""
 	if not is_intercompany_enabled():
 		return {"success": True, "created": 0, "message": _("Intercompany invoicing is disabled.")}

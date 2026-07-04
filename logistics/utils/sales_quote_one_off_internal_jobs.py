@@ -26,9 +26,8 @@ from typing import Any, Iterable
 
 import frappe
 from frappe import _
-from frappe.utils import cint
-
 from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
+from logistics.utils.service_role_rules import SERVICE_ROLE_LINKED, get_service_role
 from logistics.utils.internal_job_detail_copy import internal_job_detail_row_as_dict
 from logistics.utils.internal_job_persistence import (
 	_internal_job_doctype_exists,
@@ -549,7 +548,7 @@ def stamp_scope_main_when_untagged(booking_doc: Any) -> None:
 		return
 
 	changed = False
-	is_internal_booking = bool(cint(getattr(booking_doc, "is_internal_job", 0)))
+	is_internal_booking = get_service_role(booking_doc) == SERVICE_ROLE_LINKED
 	for row in rows:
 		scope = (getattr(row, "charge_scope", None) or "").strip()
 		if scope:

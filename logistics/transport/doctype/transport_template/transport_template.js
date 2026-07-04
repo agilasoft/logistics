@@ -1,5 +1,100 @@
 // Copyright (c) 2026, Agilasoft and contributors
 
+function load_vehicle_types_for_load_type(frm, load_type, callback) {
+	if (!load_type) {
+		if (callback) callback([]);
+		return;
+	}
+	if (!frm._vehicle_types_by_load_type) {
+		frm._vehicle_types_by_load_type = {};
+	}
+	if (frm._vehicle_types_by_load_type[load_type]) {
+		if (callback) callback(frm._vehicle_types_by_load_type[load_type]);
+		return;
+	}
+	if (!frm._loading_vehicle_types) {
+		frm._loading_vehicle_types = {};
+	}
+	if (!frm._vehicle_type_load_callbacks) {
+		frm._vehicle_type_load_callbacks = {};
+	}
+	if (!frm._vehicle_type_load_callbacks[load_type]) {
+		frm._vehicle_type_load_callbacks[load_type] = [];
+	}
+	if (callback) {
+		frm._vehicle_type_load_callbacks[load_type].push(callback);
+	}
+	if (frm._loading_vehicle_types[load_type]) {
+		return;
+	}
+	frm._loading_vehicle_types[load_type] = true;
+	frappe.call({
+		method: "logistics.pricing_center.doctype.sales_quote.sales_quote.get_vehicle_types_for_load_type",
+		args: { load_type },
+		callback(r) {
+			if (!frm._vehicle_types_by_load_type) {
+				frm._vehicle_types_by_load_type = {};
+			}
+			const names = (r.message && r.message.vehicle_types) || [];
+			frm._vehicle_types_by_load_type[load_type] = names;
+			if (frm._loading_vehicle_types) {
+				delete frm._loading_vehicle_types[load_type];
+			}
+			const pending = (frm._vehicle_type_load_callbacks &&
+				frm._vehicle_type_load_callbacks[load_type]) || [];
+			if (frm._vehicle_type_load_callbacks) {
+				delete frm._vehicle_type_load_callbacks[load_type];
+			}
+			pending.forEach((cb) => cb(names));
+		},
+	});
+}
+
+function get_default_vehicle_type_filters(frm) {
+	const load_type = frm.doc.default_load_type;
+	if (!load_type) {
+		return { filters: { is_active: 1 } };
+	}
+	// Resolve allowed names via API; never filter Vehicle Type by load_type
+	// (that field is on the child table and fails field permission checks).
+	const names =
+		frm._vehicle_types_by_load_type && frm._vehicle_types_by_load_type[load_type];
+	if (names) {
+		return {
+			filters: {
+				is_active: 1,
+				name: ["in", names.length ? names : ["__none__"]],
+			},
+		};
+	}
+	load_vehicle_types_for_load_type(frm, load_type, () => {
+		frm.refresh_field("default_vehicle_type");
+	});
+	return {
+		filters: {
+			is_active: 1,
+			name: ["in", ["__none__"]],
+		},
+	};
+}
+
+function sync_default_vehicle_type_for_load_type(frm) {
+	const load_type = frm.doc.default_load_type;
+	const previous = frm.doc.default_vehicle_type;
+
+	if (!load_type) {
+		frm.refresh_field("default_vehicle_type");
+		return;
+	}
+
+	load_vehicle_types_for_load_type(frm, load_type, (names) => {
+		if (previous && !(names && names.includes(previous))) {
+			frm.set_value("default_vehicle_type", null);
+		}
+		frm.refresh_field("default_vehicle_type");
+	});
+}
+
 frappe.ui.form.on("Transport Template", {
 	refresh(frm) {
 		// Table MultiSelect does not apply link_filters from the child Link field.
@@ -28,17 +123,19 @@ frappe.ui.form.on("Transport Template", {
 			};
 		});
 
-		frm.set_query("default_vehicle_type", () => {
-			const load_type = frm.doc.default_load_type;
-			if (!load_type) {
-				return { filters: { is_active: 1 } };
-			}
-			return {
-				query: "logistics.pricing_center.doctype.sales_quote.sales_quote.get_vehicle_types_for_load_type",
-				filters: { load_type },
-			};
-		});
+		frm.set_query("default_vehicle_type", () => get_default_vehicle_type_filters(frm));
+
+		if (frm.doc.default_load_type) {
+			load_vehicle_types_for_load_type(frm, frm.doc.default_load_type, () => {
+				frm.refresh_field("default_vehicle_type");
+			});
+		}
 	},
+
+	default_load_type(frm) {
+		sync_default_vehicle_type_for_load_type(frm);
+	},
+
 
 	legs_add(frm) {
 		frm.trigger("suggest_allowed_load_types");

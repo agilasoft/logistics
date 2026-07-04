@@ -501,9 +501,10 @@ def _create_transport_order(ep_doc: Any, row: Any, detail_idx: int) -> dict[str,
 	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
 	apply_container_transport_context_to_order(order, row)
 	set_internal_transport_order_draft_insert_flags(order)
-	# Exhibit-created orders are standalone, not internal jobs.
-	if frappe.get_meta("Transport Order").get_field("is_internal_job"):
-		order.is_internal_job = 0
+	# Exhibit-created orders are standalone, not linked satellites.
+	from logistics.utils.service_role_rules import apply_standalone_service_flags
+
+	apply_standalone_service_flags(order)
 	order.insert(ignore_permissions=True)
 	_persist_row_link(ep_doc.name, "Transport Order", order.name, detail_idx)
 	frappe.db.commit()
@@ -523,8 +524,9 @@ def _create_declaration_order(ep_doc: Any, row: Any, detail_idx: int) -> dict[st
 	):
 		order.transport_mode = getattr(row, "transport_mode", None) or order.get("transport_mode")
 	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
-	if frappe.get_meta("Declaration Order").get_field("is_internal_job"):
-		order.is_internal_job = 0
+	from logistics.utils.service_role_rules import apply_standalone_service_flags
+
+	apply_standalone_service_flags(order)
 	order.insert(ignore_permissions=True)
 	_persist_row_link(ep_doc.name, "Declaration Order", order.name, detail_idx)
 	frappe.db.commit()

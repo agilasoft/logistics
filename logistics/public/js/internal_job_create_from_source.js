@@ -618,6 +618,19 @@
 			});
 			return;
 		}
+		if (msg.vas_order) {
+			frappe.show_alert(
+				{
+					message: msg.message || __("VAS Order {0} created.", [msg.vas_order]),
+					indicator: "green",
+				},
+				5
+			);
+			_whenDocExistsThenNavigate("VAS Order", msg.vas_order, function () {
+				_routeAfterFormNavigate("VAS Order", ["Form", "VAS Order", msg.vas_order]);
+			});
+			return;
+		}
 		if (msg.inbound_order) {
 			frappe.show_alert(
 				{
@@ -966,6 +979,11 @@
 		}
 		if (frm.doctype === "Sea Shipment" && dec.job_type === "Transport Order") {
 			_seaShipmentTransportOrderFromIjThenCreate(frm, dec);
+			return;
+		}
+		// Linked Warehousing creates VAS Order (cross-dock / in-transit), not storage Inbound.
+		if (dec.job_type === "VAS Order") {
+			_runInternalJobCreate(frm, dec);
 			return;
 		}
 		if (dec.job_type !== "Inbound Order") {

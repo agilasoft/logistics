@@ -18,6 +18,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from logistics.utils.charge_service_type import canonical_charge_service_type_for_storage
 from logistics.utils.rate_calculation_engine import RateCalculationEngine
+from logistics.utils.service_role_rules import (
+    get_main_service_name,
+    get_main_service_type,
+    get_service_role,
+    SERVICE_ROLE_LINKED,
+)
 
 # During parent Document.validate(), child rows may run validate() before the DB row reflects new totals.
 # Register the in-memory parent so charge math uses fresh aggregates (weight, chargeable, volume, …).
@@ -1048,10 +1054,10 @@ def _calculate_charge_amount(
         is_revenue
         and parent_doc
         and getattr(parent_doc, "doctype", None) in ("Transport Order", "Declaration Order")
-        and cint(getattr(parent_doc, "is_internal_job", 0))
+        and get_service_role(parent_doc) == SERVICE_ROLE_LINKED
     ):
-        mt = getattr(parent_doc, "main_job_type", None)
-        mn = getattr(parent_doc, "main_job", None)
+        mt = get_main_service_type(parent_doc)
+        mn = get_main_service_name(parent_doc)
         if mt in INTERNAL_JOB_MAIN_JOB_TYPES and mn and frappe.db.exists(mt, mn):
             main_doc = frappe.get_doc(mt, mn)
             item_code = _get_item_code_from_charge(charge_doc)
@@ -1085,9 +1091,9 @@ def _calculate_charge_amount(
             not is_revenue
             and parent_doc
             and getattr(parent_doc, "doctype", None) in ("Transport Order", "Declaration Order")
-            and cint(getattr(parent_doc, "is_internal_job", 0))
-            and getattr(parent_doc, "main_job_type", None) in INTERNAL_JOB_MAIN_JOB_TYPES
-            and getattr(parent_doc, "main_job", None)
+            and get_service_role(parent_doc) == SERVICE_ROLE_LINKED
+            and get_main_service_type(parent_doc) in INTERNAL_JOB_MAIN_JOB_TYPES
+            and get_main_service_name(parent_doc)
         ):
             std = _item_fallback_buying_or_standard_rate(_get_item_code_from_charge(charge_doc))
             if std > 0:
@@ -1327,11 +1333,11 @@ def _calculate_charge_amount(
         not is_revenue
         and parent_doc
         and getattr(parent_doc, "doctype", None) in ("Transport Order", "Declaration Order")
-        and cint(getattr(parent_doc, "is_internal_job", 0))
+        and get_service_role(parent_doc) == SERVICE_ROLE_LINKED
         and flt(result.get("amount", 0)) <= 0
     ):
-        mt = getattr(parent_doc, "main_job_type", None)
-        mn = getattr(parent_doc, "main_job", None)
+        mt = get_main_service_type(parent_doc)
+        mn = get_main_service_name(parent_doc)
         if mt in INTERNAL_JOB_MAIN_JOB_TYPES and mn:
             std = _item_fallback_buying_or_standard_rate(_get_item_code_from_charge(charge_doc))
             if std > 0:

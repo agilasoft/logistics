@@ -31,7 +31,6 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 import frappe
-from frappe.utils import cint
 
 from logistics.utils.charge_service_type import default_job_type_for_internal_job_service_type
 from logistics.utils.linked_service_compat import (
@@ -210,9 +209,10 @@ def _ensure_job_type_from_service(ij_doc: Any) -> None:
 		return
 	jt = (getattr(ij_doc, "job_type", None) or "").strip()
 	if st == "Warehousing":
-		if jt in ("Inbound Order", "Release Order", "Transfer Order"):
+		jn = (getattr(ij_doc, "job_no", None) or "").strip()
+		if jt in ("Inbound Order", "Release Order", "Transfer Order") and jn:
 			return
-		ij_doc.job_type = "Inbound Order"
+		ij_doc.job_type = "VAS Order"
 		return
 	ij_doc.job_type = expected
 
@@ -591,27 +591,39 @@ def iter_internal_job_detail_parent_doctypes() -> Iterable[str]:
 
 
 def resolve_internal_job_for_internal_job_booking(doc: Any) -> str | None:
-	"""Return the linked ``Internal Job`` DocType name for a booking flagged as an internal job.
+	"""Return the linked ``Internal Job`` DocType name for a booking flagged as a Linked service.
 
-	The link is resolved via the booking's parent main job: each main job carries an
-	``internal_job_details`` row with ``job_type`` / ``job_no`` matching this booking and an
-	``internal_job`` field pointing at the canonical IJ record. As a fallback the lookup falls
-	through to ``tabInternal Job Detail`` directly so it works on partially-loaded docs (e.g.
-	freshly created from a Create > Booking/Order dialog before the parent has been reloaded).
+	The link is resolved via the booking's parent main service: each main carries an
+	``internal_job_details`` row with ``job_type`` / ``job_no`` matching this booking and a
+	``linked_service`` / ``internal_job`` field pointing at the canonical record. As a fallback
+	the lookup falls through to the Linked Service doctype directly so it works on partially-loaded
+	docs (e.g. freshly created from a Create > Booking/Order dialog before the parent has been
+	reloaded).
 	"""
+	from logistics.utils.service_role_rules import (
+		get_main_service_name,
+		get_main_service_type,
+		get_service_role,
+		SERVICE_ROLE_LINKED,
+	)
+
 	if not doc:
 		return None
-	if not cint(getattr(doc, "is_internal_job", 0)):
+	if get_service_role(doc) != SERVICE_ROLE_LINKED:
 		return None
 	doctype = getattr(doc, "doctype", None)
 	name = getattr(doc, "name", None)
 	if not doctype or not name:
 		return None
-	main_job_type = (getattr(doc, "main_job_type", None) or "").strip()
-	main_job = (getattr(doc, "main_job", None) or "").strip()
+	main_job_type = get_main_service_type(doc)
+	main_job = get_main_service_name(doc)
 	if main_job_type and main_job:
 		fieldname = internal_job_detail_fieldname(main_job_type)
 		if fieldname:
+			columns = _internal_job_detail_table_columns()
+			link_fields = [f for f in ("linked_service", "internal_job") if f in columns] or [
+				"internal_job"
+			]
 			try:
 				rows = frappe.get_all(
 					linked_service_detail_doctype(),
@@ -622,13 +634,13 @@ def resolve_internal_job_for_internal_job_booking(doc: Any) -> str | None:
 						"job_type": doctype,
 						"job_no": name,
 					},
-					fields=["internal_job"],
+					fields=link_fields,
 					limit=1,
 				)
 			except Exception:
 				rows = []
 			for r in rows:
-				ij = (r.get("internal_job") or "").strip()
+				ij = row_linked_service_link(r)
 				if ij:
 					return ij
 	if not _internal_job_doctype_exists():

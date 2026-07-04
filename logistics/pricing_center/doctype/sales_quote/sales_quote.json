@@ -97,6 +97,10 @@
   "project_resources",
   "project_products",
   "additional_information_tab",
+  "notes_section",
+  "internal_notes",
+  "column_break_notes",
+  "external_notes",
   "terms_and_conditions_section",
   "tc_name",
   "terms",
@@ -679,10 +683,31 @@
   },
   {
    "collapsible": 1,
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Text Editor",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "column_break_notes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "external_notes",
+   "fieldtype": "Text Editor",
+   "label": "External Notes"
+  },
+  {
+   "collapsible": 1,
    "fieldname": "terms_and_conditions_section",
    "fieldtype": "Section Break",
    "label": "Terms and Conditions"
   },
+
   {
    "fieldname": "tc_name",
    "fieldtype": "Link",

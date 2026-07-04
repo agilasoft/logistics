@@ -12,6 +12,11 @@ from logistics.utils.charge_service_type import (
 	iter_sales_quote_charge_service_type_db_values_for_canonical,
 	sales_quote_charge_service_types_equal,
 )
+from logistics.utils.service_role_rules import (
+	get_main_service_name,
+	get_main_service_type,
+	is_linked_service_satellite,
+)
 
 # Legacy child tables (pre–Sales Quote Charge); a row still counts as that service.
 SERVICE_LEGACY_TABLE: dict[str, str] = {
@@ -180,8 +185,6 @@ def get_quote_module_flags(
 	When ``source_doctype`` / ``source_name`` are an Air or Sea Shipment, **Declaration Order** is also
 	allowed for **internal jobs** (Customs charges live on the Main Job, not on the Sales Quote).
 	"""
-	from frappe.utils import cint
-
 	allow_inbound = False
 	allow_declaration = False
 
@@ -197,12 +200,14 @@ def get_quote_module_flags(
 		src = frappe.get_cached_doc(source_doctype, source_name)
 		if source_doctype in ("Air Shipment", "Sea Shipment"):
 			sq_on_src = getattr(src, "sales_quote", None)
+			mt = get_main_service_type(src)
+			mn = get_main_service_name(src)
 			internal_job_declaration = (
 				sq_on_src
-				and cint(getattr(src, "is_internal_job", 0))
-				and getattr(src, "main_job_type", None)
-				and getattr(src, "main_job", None)
-				and frappe.db.exists(src.main_job_type, src.main_job)
+				and is_linked_service_satellite(src)
+				and mt
+				and mn
+				and frappe.db.exists(mt, mn)
 			)
 			if internal_job_declaration:
 				allow_declaration = True

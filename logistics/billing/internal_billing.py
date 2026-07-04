@@ -4,7 +4,7 @@
 
 """
 Internal billing: Journal Entry for Internal Jobs where the operating company matches
-the Main Job company. Internal Job is identified by is_internal_job + Main Job link
+the Main Job company. Internal Job is identified by service_role=Linked + Main Service link
 (on the job or parent booking/order). Intercompany SI/PI is handled separately when
 companies differ (see intercompany_invoice).
 

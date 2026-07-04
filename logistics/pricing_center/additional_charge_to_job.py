@@ -31,7 +31,7 @@ JOB_TYPE_TO_SERVICE = {
 
 # Set of operational booking doctypes that can act as Internal Job satellites of a Main job.
 # A Change Request filed against any of these will mirror cost rows up to its parent main job
-# (resolved via the satellite's main_job_type / main_job back-links).
+# (resolved via the satellite's main_service_type / main_service back-links).
 INTERNAL_JOB_SATELLITE_JOB_TYPES = frozenset({
 	"Transport Order",
 	"Sea Booking",

@@ -169,13 +169,13 @@
 {%- endmacro %}
 
 {% macro charge_description(row) %}
-{% set label = (row.item_name or row.description or row.item_code or '')|upper %}
+{% set label = (row.description or row.item_name or row.item_code or '')|upper %}
 {% if row.quantity and row.unit_rate and row.currency %}
 {{ label }} - {{ frappe.utils.fmt_money(row.quantity, precision=3) }} {{ row.uom or '' }} @ {{ row.currency }} {{ frappe.utils.fmt_money(row.unit_rate, precision=2) }}/{{ row.uom or 'UNIT' }}
 {% elif row.revenue_calc_notes %}
 {{ label }}{% if row.revenue_calc_notes %}: {{ row.revenue_calc_notes }}{% endif %}
 {% else %}
-{{ label }}{% if row.description and row.description != row.item_name %}: {{ row.description }}{% endif %}
+{{ label }}
 {% endif %}
 {% endmacro %}
 

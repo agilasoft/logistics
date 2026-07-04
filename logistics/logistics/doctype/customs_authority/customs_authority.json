@@ -13,6 +13,7 @@
   "customs_authority_name",
   "country",
   "authority_type",
+  "default_unloco",
   "column_break_info",
   "is_active",
   "timezone",
@@ -98,6 +99,14 @@
    "fieldtype": "Select",
    "label": "Authority Type",
    "options": "National\nRegional\nPort\nAirport\nBorder"
+  },
+  {
+   "fieldname": "default_unloco",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Default UNLOCO",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
   },
   {
    "fieldname": "column_break_info",
@@ -368,7 +377,7 @@
   }
  ],
  "row_format": "Dynamic",
- "search_fields": "country,customs_authority_name",
+ "search_fields": "customs_authority_name,country,default_unloco,city,authority_type",
  "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",

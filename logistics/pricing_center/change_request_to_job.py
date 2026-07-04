@@ -333,13 +333,20 @@ def _resolve_main_and_default_internal_job(cr_doc):
 	"""Return ``(main_job_type, main_job_name, default_internal_job_or_None)`` for the CR target.
 
 	* CR target is a Main job → the Main is the target itself; default internal_job is ``None``.
-	* CR target is an IJ satellite booking → walks ``main_job_type`` / ``main_job`` back-links to the
-	  parent Main and exposes the satellite's ``internal_job`` link as the default IJ to tag all
-	  rows with (when an individual CR Charge row doesn't carry its own ``internal_job`` value).
+	* CR target is an IJ satellite booking → walks ``main_service_type`` / ``main_service`` back-links
+	  to the parent Main and exposes the satellite's ``linked_service`` link as the default IJ to tag
+	  all rows with (when an individual CR Charge row doesn't carry its own ``internal_job`` value).
 
 	Returns ``(None, None, None)`` when the target is misconfigured (missing back-links, satellite
-	with ``is_internal_job=0``, or the parent main job no longer exists).
+	not Linked, or the parent main job no longer exists).
 	"""
+	from logistics.utils.service_role_rules import (
+		get_linked_service_name,
+		get_main_service_name,
+		get_main_service_type,
+		is_linked_service_satellite,
+	)
+
 	if not cr_doc.job_type or not cr_doc.job:
 		return None, None, None
 	if cr_doc.job_type in MAIN_JOB_TYPES_FOR_CHANGE_REQUEST:
@@ -351,17 +358,22 @@ def _resolve_main_and_default_internal_job(cr_doc):
 			frappe.db.get_value(
 				cr_doc.job_type,
 				cr_doc.job,
-				("main_job_type", "main_job", "internal_job", "is_internal_job"),
+				(
+					"service_role",
+					"main_service_type",
+					"main_service",
+					"linked_service",
+				),
 				as_dict=True,
 			)
 			or {}
 		)
-		if not cint(sat.get("is_internal_job") or 0):
-			# Satellite booking that isn't flagged as IJ — treat as standalone, no Main mirroring.
+		if not is_linked_service_satellite(sat):
+			# Satellite booking that isn't Linked — treat as standalone, no Main mirroring.
 			return None, None, None
-		mt = (sat.get("main_job_type") or "").strip()
-		mn = (sat.get("main_job") or "").strip()
-		ij = (sat.get("internal_job") or "").strip()
+		mt = get_main_service_type(sat)
+		mn = get_main_service_name(sat)
+		ij = get_linked_service_name(sat)
 		if not mt or not mn or not frappe.db.exists(mt, mn):
 			return None, None, None
 		return mt, mn, ij or None
@@ -621,7 +633,7 @@ def apply_change_request_charges_to_job(cr_doc):
 		frappe.msgprint(
 			_(
 				"Change Request job {0} is not linked to a Main job. "
-				"Internal Job satellites must carry main_job_type / main_job back-links."
+				"Internal Job satellites must carry main_service_type / main_service back-links."
 			).format(cr_doc.job),
 			indicator="orange",
 		)

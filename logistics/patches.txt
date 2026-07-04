@@ -46,6 +46,8 @@ logistics.patches.v3_0_drop_docket_internal_job_detail_table
 logistics.patches.v3_0_migrate_special_project_service_child_to_stash
 # Special Project Services grid: Special Project Service Detail is virtual
 logistics.patches.v3_0_drop_special_project_service_detail_table
+# Before dropping is_internal_job / main_job_* / internal_job: backfill service_role, main_service_*, linked_service
+logistics.patches.v3_0_pre_drop_legacy_internal_job_fields
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
@@ -286,3 +288,7 @@ logistics.patches.v3_0_crm_sales_quote_lead_prospect_settings
 logistics.patches.v3_0_ensure_ftl_ltl_load_types
 # Sea Booking: backfill booking-owned Linked Services for bookings created before virtual grid
 logistics.patches.v3_0_backfill_sea_booking_linked_services
+# Hide legacy Internal Job UI: backfill main_service_* / service_role from main_job_* / is_internal_job
+logistics.patches.v3_0_backfill_main_service_from_legacy_internal_job
+# Drop orphaned is_internal_job / main_job_* / internal_job columns after service_role cutover
+logistics.patches.v3_0_drop_legacy_internal_job_columns

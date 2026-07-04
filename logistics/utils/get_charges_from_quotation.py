@@ -263,9 +263,13 @@ def assert_one_off_sales_quote_job_rules(doc):
 	qtp = frappe.db.get_value("Sales Quote", doc.sales_quote, "quotation_type")
 	if (qtp or "") != "One-off":
 		return
-	from frappe.utils import cint
+	from logistics.utils.service_role_rules import (
+		SERVICE_ROLE_LINKED,
+		SERVICE_ROLE_MAIN,
+		get_service_role,
+	)
 
-	if cint(getattr(doc, "is_main_service", 0)) or cint(getattr(doc, "is_internal_job", 0)):
+	if get_service_role(doc) in (SERVICE_ROLE_MAIN, SERVICE_ROLE_LINKED):
 		return
 	frappe.throw(
 		_(

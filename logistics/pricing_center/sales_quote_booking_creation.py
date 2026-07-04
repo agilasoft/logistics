@@ -503,14 +503,20 @@ def _apply_sq_booking_context(sq_doc: Any, target_doc: Any, row: Any | None, job
 	_set_main_service_for_one_off_quote_target(target_doc, sq_doc.name)
 	service_label = _service_label_for_row(job_type, row) or ""
 	main_st = _norm(getattr(sq_doc, "main_service", None))
+	from logistics.utils.service_role_rules import (
+		SERVICE_ROLE_LINKED,
+		apply_main_service_flags,
+		get_service_role,
+	)
+
 	if (
-		hasattr(target_doc, "is_main_service")
+		(hasattr(target_doc, "service_role") or hasattr(target_doc, "is_main_service"))
 		and service_label
 		and main_st
 		and sales_quote_charge_service_types_equal(service_label, main_st)
-		and not cint(getattr(target_doc, "is_internal_job", 0))
+		and get_service_role(target_doc) != SERVICE_ROLE_LINKED
 	):
-		target_doc.is_main_service = 1
+		apply_main_service_flags(target_doc)
 	_apply_sales_quote_parties_to_target(target_doc, sq_doc.name)
 
 
@@ -579,10 +585,15 @@ def _create_air_booking(
 	populate_air_sea_booking_party_fields_from_masters(doc)
 	apply_shipper_consignee_defaults(doc)
 	_validate_air_sea_corridor_ports_before_insert(doc)
-	_populate_charges_on_target(sq_doc, doc)
-	if hasattr(doc, "_normalize_charges_before_save"):
-		doc._normalize_charges_before_save()
-	doc.insert(ignore_permissions=True)
+	# Charges populate also copies Sales Quote routing_legs onto the booking (#1135)
+	doc.flags.skip_sales_quote_on_change = True
+	try:
+		_populate_charges_on_target(sq_doc, doc)
+		if hasattr(doc, "_normalize_charges_before_save"):
+			doc._normalize_charges_before_save()
+		doc.insert(ignore_permissions=True)
+	finally:
+		doc.flags.skip_sales_quote_on_change = False
 	_propagate_subsidiary_linked_services(sq_doc, doc)
 	frappe.db.commit()
 	return {"air_booking": doc.name, "message": _("Air Booking {0} created.").format(doc.name)}
@@ -672,8 +683,9 @@ def _create_declaration_order(
 	if frappe.get_meta("Declaration Order").get_field("order_date"):
 		order.order_date = today()
 	apply_internal_job_detail_row_to_operational_doc(order, merged, overwrite=True)
-	if frappe.get_meta("Declaration Order").get_field("is_internal_job"):
-		order.is_internal_job = 0
+	from logistics.utils.service_role_rules import apply_standalone_service_flags
+
+	apply_standalone_service_flags(order)
 	_populate_charges_on_target(sq_doc, order)
 	order.insert(ignore_permissions=True)
 	_propagate_subsidiary_linked_services(sq_doc, order)

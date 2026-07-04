@@ -29,7 +29,7 @@ from logistics.utils.special_project_internal_jobs import (
 	resolve_lifecycle_job_row_to_operational_ref,
 )
 
-# Doctypes that may be flagged ``is_internal_job`` and linked to a main via main_job / main_job_type.
+# Doctypes that may be Linked satellites (service_role=Linked) with main_service / main_service_type.
 _INTERNAL_JOB_CAPABLE_DOCTYPES: tuple[str, ...] = (
 	"Air Booking",
 	"Sea Booking",
@@ -176,16 +176,16 @@ def _iter_internal_satellite_docs(main_job_type: str, main_job_no: str) -> list[
 		if dt == main_job_type:
 			continue
 		meta = frappe.get_meta(dt)
-		if not meta.get_field("is_internal_job") or not meta.get_field("main_job"):
+		if not meta.get_field("service_role") or not meta.get_field("main_service"):
 			continue
 		if not _doctype_has_charges_table(dt):
 			continue
 		for name in frappe.get_all(
 			dt,
 			filters={
-				"is_internal_job": 1,
-				"main_job_type": main_job_type,
-				"main_job": main_job_no,
+				"service_role": "Linked",
+				"main_service_type": main_job_type,
+				"main_service": main_job_no,
 				"docstatus": ("!=", 2),
 			},
 			pluck="name",

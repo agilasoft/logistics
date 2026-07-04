@@ -928,8 +928,8 @@ function _recalculate_transport_order_charge_rows(frm, done) {
 function _populate_charges_from_sales_quote(frm) {
 	var docname = frm.is_new() ? null : frm.doc.name;
 	var sales_quote = frm.doc.sales_quote;
-	var ij = frm.doc.is_internal_job;
-	var mjt = frm.doc.main_job_type;
+	var ij = (frm.doc.service_role === "Linked" || frm.doc.is_internal_job) ? 1 : 0;
+	var mjt = frm.doc.main_service_type || frm.doc.main_job_type;
 	var mj = frm.doc.main_job;
 
 	if (!sales_quote) {
@@ -1061,15 +1061,15 @@ function _prompt_internal_transport_job_dialog(frm, sales_quote) {
 			fields: [
 				{ fieldtype: "HTML", fieldname: "context_html" },
 				{ fieldtype: "Section Break", label: __("Internal Job Setup") },
-				{ fieldtype: "Check", fieldname: "is_internal_job", label: __("Internal Job"), default: 1, read_only: 1 },
-				{ fieldtype: "Link", fieldname: "main_job_type", label: __("Main Job Type"), options: "DocType", reqd: 1, default: frm.doc.main_job_type || "" },
+				{ fieldtype: "Check", fieldname: "is_internal_job", label: __("Linked Service"), default: 1, read_only: 1 },
+				{ fieldtype: "Link", fieldname: "main_job_type", label: __("Main Service Type"), options: "DocType", reqd: 1, default: frm.doc.main_service_type || frm.doc.main_job_type || "" },
 				{
 					fieldtype: "Dynamic Link",
 					fieldname: "main_job",
-					label: __("Main Job"),
+					label: __("Main Service"),
 					options: "main_job_type",
 					reqd: 1,
-					default: frm.doc.main_job || ""
+					default: frm.doc.main_service || frm.doc.main_job || ""
 				},
 				{ fieldtype: "Section Break", label: __("Defaults") },
 				{ fieldtype: "Link", fieldname: "company", label: __("Company"), options: "Company", default: defaults.company },
@@ -1084,9 +1084,11 @@ function _prompt_internal_transport_job_dialog(frm, sales_quote) {
 			],
 			primary_action_label: __("Create Internal Job"),
 			primary_action: function(values) {
-				frm.set_value("is_internal_job", 1);
-				frm.set_value("main_job_type", values.main_job_type);
-				frm.set_value("main_job", values.main_job);
+				frm.set_value("service_role", "Linked");
+				frm.set_value("main_service_type", values.main_job_type || values.main_service_type);
+				if (frm.get_docfield("main_job_type")) { frm.set_value("main_job_type", values.main_job_type || values.main_service_type); }
+				frm.set_value("main_service", values.main_job || values.main_service);
+				if (frm.get_docfield("main_job")) { frm.set_value("main_job", values.main_job || values.main_service); }
 				frm.set_value("company", values.company || frm.doc.company);
 				frm.set_value("branch", values.branch || "");
 				frm.set_value("cost_center", values.cost_center || "");

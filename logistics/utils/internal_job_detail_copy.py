@@ -208,10 +208,10 @@ def _persist_internal_job_detail_row_db(row: Any, job_type: str, job_no: str) ->
 
 
 def _stamp_internal_job_link_on_target(job_type: str, job_no: str, ij_row: Any) -> None:
-	"""DB-level ``internal_job`` stamp on the just-created operational doc (no parent ``modified`` bump).
+	"""DB-level Linked Service stamp on the just-created operational doc (no parent ``modified`` bump).
 
-	Idempotent: only writes when the target doctype carries an ``internal_job`` Link field, the row's
-	``internal_job`` link is set, and the target doc's current value differs.
+	Idempotent: only writes when the target doctype carries ``linked_service`` and/or ``internal_job``,
+	the row's link is set, and the target doc's current value differs.
 	"""
 	jt = (job_type or "").strip()
 	jn = (job_no or "").strip()
@@ -226,15 +226,24 @@ def _stamp_internal_job_link_on_target(job_type: str, job_no: str, ij_row: Any) 
 		meta = frappe.get_meta(jt)
 	except Exception:
 		return
-	if not meta.get_field("internal_job"):
+	has_linked = bool(meta.get_field("linked_service"))
+	has_internal = bool(meta.get_field("internal_job"))
+	if not has_linked and not has_internal:
 		return
 	if not frappe.db.exists(jt, jn):
 		return
-	current = (frappe.db.get_value(jt, jn, "internal_job") or "").strip()
+	read_fields = [f for f in ("linked_service", "internal_job") if meta.get_field(f)]
+	cur = frappe.db.get_value(jt, jn, read_fields, as_dict=True) or {}
+	current = (cur.get("linked_service") or cur.get("internal_job") or "").strip()
 	if current == ij_link:
 		return
+	updates = {}
+	if has_linked:
+		updates["linked_service"] = ij_link
+	if has_internal:
+		updates["internal_job"] = ij_link
 	try:
-		frappe.db.set_value(jt, jn, "internal_job", ij_link, update_modified=False)
+		frappe.db.set_value(jt, jn, updates, update_modified=False)
 	except Exception:
 		frappe.log_error(
 			title="Internal Job link stamp failed",
@@ -307,7 +316,7 @@ def persist_internal_job_detail_job_link(
 
 	def _commit_row_link(target: Any, di: int) -> None:
 		_apply_to_canonical_row(target, di)
-		if not (getattr(target, "internal_job", None) or "").strip():
+		if not row_linked_service_link(target):
 			_save_parent_internal_job_details(parent)
 			parent.reload()
 			rows_after = list(getattr(parent, fieldname, None) or [])
@@ -457,9 +466,11 @@ def unlink_declaration_order_from_internal_job_parent_documents(
 
 	When False (**delete**), matching rows are removed so parents do not keep links to a non-existent document.
 
-	Parents may be linked via ``air_shipment`` / ``sea_shipment`` (freight flow) and/or ``main_job`` /
-	``main_job_type`` (e.g. internal-job orders from Transport Job).
+	Parents may be linked via ``air_shipment`` / ``sea_shipment`` (freight flow) and/or
+	``main_service`` / ``main_service_type`` (e.g. linked-service orders from Transport Job).
 	"""
+	from logistics.utils.service_role_rules import get_main_service_name, get_main_service_type
+
 	dco = (declaration_order_name or "").strip()
 	if not dco:
 		return
@@ -470,8 +481,8 @@ def unlink_declaration_order_from_internal_job_parent_documents(
 		nm = (getattr(order_doc, fn, None) or "").strip()
 		if nm:
 			targets.append((dt, nm))
-	mjt = (getattr(order_doc, "main_job_type", None) or "").strip()
-	mj = (getattr(order_doc, "main_job", None) or "").strip()
+	mjt = get_main_service_type(order_doc)
+	mj = get_main_service_name(order_doc)
 	if mj and mjt in ("Air Shipment", "Sea Shipment", "Transport Job"):
 		targets.append((mjt, mj))
 	seen: set[tuple[str, str]] = set()

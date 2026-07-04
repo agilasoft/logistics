@@ -10,6 +10,11 @@ from frappe.model.document import Document
 
 from frappe.utils import cint
 
+from logistics.utils.service_role_rules import (
+	get_main_service_name,
+	get_main_service_type,
+	is_linked_service_satellite,
+)
 from logistics.utils.transport_mode_flags import get_air_sea_flags_for_transport_mode
 
 _SEA_ROUTING_OPERATIONAL_FIELDS = ("vessel", "voyage_no", "shipping_line")
@@ -104,10 +109,10 @@ def apply_main_job_routing_operational_overlay(booking_doc: Document) -> bool:
 
 	Used after Sales Quote routing is applied on internal Air/Sea Booking create (#936).
 	"""
-	if not cint(getattr(booking_doc, "is_internal_job", 0)):
+	if not is_linked_service_satellite(booking_doc):
 		return False
-	mjt = (getattr(booking_doc, "main_job_type", None) or "").strip()
-	mj = (getattr(booking_doc, "main_job", None) or "").strip()
+	mjt = get_main_service_type(booking_doc)
+	mj = get_main_service_name(booking_doc)
 	if not mjt or not mj or mjt not in _MAIN_JOB_ROUTING_OVERLAY_DOCTYPES:
 		return False
 	if not frappe.db.exists(mjt, mj):

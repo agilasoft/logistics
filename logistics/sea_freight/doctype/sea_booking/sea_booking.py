@@ -1016,10 +1016,7 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			if (
 				sea_charge_exists
 				or sea_freight_exists
-				or (
-					cint(getattr(self, "is_internal_job", 0))
-					and should_apply_internal_job_main_charge_overlay(self)
-				)
+				or should_apply_internal_job_main_charge_overlay(self)
 			):
 				self._populate_charges_from_sales_quote(sales_quote)
 
@@ -1063,7 +1060,7 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 		"""Populate charges based on sales_quote_transport of the filled sales_quote."""
 		apply_linked_sales_quote_routing_to_booking(self)
 		overlay_populated = False
-		if cint(getattr(self, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(self):
+		if should_apply_internal_job_main_charge_overlay(self):
 			try:
 				n, st = populate_internal_job_charges_from_main_service(self)
 				if n:
@@ -1196,7 +1193,7 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			self.sales_quote = sq_name
 		apply_linked_sales_quote_routing_to_booking(self)
 		overlay_populated = False
-		if cint(getattr(self, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(self):
+		if should_apply_internal_job_main_charge_overlay(self):
 			try:
 				n, st = populate_internal_job_charges_from_main_service(self)
 				if n:
@@ -1875,14 +1872,31 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			sea_shipment.booking_date = self.booking_date or today()
 			sea_shipment.sea_booking = self.name
 			copy_sales_quote_fields_to_target(self, sea_shipment)
-			if hasattr(sea_shipment, "is_main_service") and hasattr(self, "is_main_service"):
-				sea_shipment.is_main_service = self.is_main_service
-			if hasattr(sea_shipment, "is_internal_job") and hasattr(self, "is_internal_job"):
-				sea_shipment.is_internal_job = self.is_internal_job
-			if hasattr(sea_shipment, "main_job_type") and hasattr(self, "main_job_type"):
-				sea_shipment.main_job_type = self.main_job_type
-			if hasattr(sea_shipment, "main_job") and hasattr(self, "main_job"):
-				sea_shipment.main_job = self.main_job
+			from logistics.utils.service_role_rules import (
+				SERVICE_ROLE_LINKED,
+				SERVICE_ROLE_MAIN,
+				apply_linked_service_satellite_flags,
+				apply_main_service_flags,
+				apply_standalone_service_flags,
+				get_linked_service_name,
+				get_main_service_name,
+				get_main_service_type,
+				get_service_role,
+				set_linked_service_name,
+			)
+
+			role = get_service_role(self)
+			if role == SERVICE_ROLE_LINKED:
+				apply_linked_service_satellite_flags(
+					sea_shipment, get_main_service_type(self), get_main_service_name(self)
+				)
+			elif role == SERVICE_ROLE_MAIN:
+				apply_main_service_flags(sea_shipment)
+			else:
+				apply_standalone_service_flags(sea_shipment)
+			ls = get_linked_service_name(self)
+			if ls:
+				set_linked_service_name(sea_shipment, ls)
 			if hasattr(self, "booking_party") and self.booking_party:
 				sea_shipment.booking_party = self.booking_party
 			if hasattr(self, "controlling_party") and self.controlling_party:
@@ -2129,9 +2143,7 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			if not hasattr(self, 'charges') or not self.charges:
 				if self.sales_quote:
 					self._populate_charges_from_sales_quote_doc()
-				elif cint(getattr(self, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(
-					self
-				):
+				elif should_apply_internal_job_main_charge_overlay(self):
 					self._populate_charges_from_sales_quote_doc()
 				elif getattr(self, "quote_type", None) == "One-Off Quote" and getattr(self, "quote", None):
 					self._populate_charges_from_one_off_quote()
@@ -2670,7 +2682,7 @@ def get_available_one_off_quotes(sea_booking_name: str = None) -> Dict[str, Any]
 				"quote_type": "One-Off Quote",
 				"name": ["!=", sea_booking_name or ""],
 				"docstatus": ["!=", 2],
-				"is_main_service": 1,
+				"service_role": "Main",
 				"sales_quote": ["is", "set"],
 			},
 			fields=["sales_quote"],
@@ -2735,15 +2747,17 @@ def populate_charges_from_sales_quote(
 			except Exception:
 				pass
 
-		parent = doc if doc else frappe._dict(
-			doctype="Sea Booking", name=docname, is_internal_job=0, is_main_service=0
+		from logistics.utils.service_role_rules import (
+			apply_linked_service_satellite_flags,
+			apply_standalone_service_flags,
 		)
-		if is_internal_job is not None:
-			parent.is_internal_job = cint(is_internal_job)
-		if main_job_type is not None:
-			parent.main_job_type = main_job_type
-		if main_job is not None:
-			parent.main_job = main_job
+
+		parent = doc if doc else frappe._dict(doctype="Sea Booking", name=docname)
+		# API param names kept for client compat; stamp service_role as source of truth.
+		if is_internal_job is not None and cint(is_internal_job):
+			apply_linked_service_satellite_flags(parent, main_job_type or "", main_job or "")
+		elif is_internal_job is not None or not doc:
+			apply_standalone_service_flags(parent)
 		if cint(gcfq_main_service_only):
 			if doc is not None:
 				doc.flags.gcfq_main_service_only = 1

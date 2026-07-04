@@ -40,7 +40,7 @@
         {% set amt = (ch.estimated_revenue or 0) * (ch.bill_to_exchange_rate or 1) %}
         {% set line_total.value = line_total.value + amt %}
         <tr>
-            <td>{{ ch.item_name or ch.description or ch.item_code }}</td>
+            <td>{{ ch.description or ch.item_name or ch.item_code }}</td>
             <td>{{ ch.service_type or '' }}</td>
             <td>{{ ch.charge_scope or 'Main' }}</td>
             <td style="text-align:right">{{ frappe.utils.fmt_money(amt, precision=2) }}</td>

@@ -9,7 +9,7 @@
 		Sea: "Sea Booking",
 		Transport: "Transport Order",
 		Customs: "Declaration Order",
-		Warehousing: "Inbound Order",
+		Warehousing: "VAS Order",
 		"Special Project": "Project Order",
 	};
 

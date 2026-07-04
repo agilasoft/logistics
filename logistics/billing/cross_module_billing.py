@@ -8,7 +8,7 @@ from __future__ import unicode_literals
 
 import frappe
 from frappe import _
-from frappe.utils import cint, flt
+from frappe.utils import flt
 from typing import Dict, List, Any, Optional, Tuple, Iterator
 
 # Parent booking/order carries Internal Job + Main Job when the operational job does not.
@@ -50,15 +50,21 @@ BILLING_JOB_TYPES = (
 
 def resolve_internal_job_main_job(job_type: str, job_name: str) -> Tuple[Optional[str], Optional[str]]:
     """
-    Return (main_job_type, main_job_name) when the job is an internal job (checkbox on the job
-    or on its parent Transport Order / Air Booking / Sea Booking), with a valid Main Job link.
+    Return (main_service_type, main_service_name) when the job is a Linked service (on the job
+    or on its parent Transport Order / Air Booking / Sea Booking), with a valid Main Service link.
     """
+    from logistics.utils.service_role_rules import (
+        get_main_service_name,
+        get_main_service_type,
+        is_linked_service_satellite,
+    )
+
     if not job_type or not job_name or not frappe.db.exists(job_type, job_name):
         return (None, None)
     doc = frappe.get_doc(job_type, job_name)
-    mt = getattr(doc, "main_job_type", None)
-    mn = getattr(doc, "main_job", None)
-    if cint(getattr(doc, "is_internal_job", 0)) and mt and mn and frappe.db.exists(mt, mn):
+    mt = get_main_service_type(doc)
+    mn = get_main_service_name(doc)
+    if is_linked_service_satellite(doc) and mt and mn and frappe.db.exists(mt, mn):
         return (mt, mn)
     parent = INTERNAL_JOB_PARENT_LINKS.get(job_type)
     if parent:
@@ -66,9 +72,9 @@ def resolve_internal_job_main_job(job_type: str, job_name: str) -> Tuple[Optiona
         pname = getattr(doc, link_field, None)
         if pname and frappe.db.exists(pdoctype, pname):
             parent_doc = frappe.get_doc(pdoctype, pname)
-            mt = getattr(parent_doc, "main_job_type", None)
-            mn = getattr(parent_doc, "main_job", None)
-            if cint(getattr(parent_doc, "is_internal_job", 0)) and mt and mn and frappe.db.exists(mt, mn):
+            mt = get_main_service_type(parent_doc)
+            mn = get_main_service_name(parent_doc)
+            if is_linked_service_satellite(parent_doc) and mt and mn and frappe.db.exists(mt, mn):
                 return (mt, mn)
     return (None, None)
 

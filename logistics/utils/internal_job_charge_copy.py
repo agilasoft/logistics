@@ -11,20 +11,25 @@ from __future__ import unicode_literals
 
 import frappe
 from frappe import _
-from frappe.utils import cint, cstr, flt
+from frappe.utils import cstr, flt
 
 from logistics.utils.charges_calculation import _get_item_code_from_charge
 from logistics.utils.charge_service_type import (
 	implied_service_type_for_doctype,
 	sales_quote_charge_service_types_equal,
 )
+from logistics.utils.service_role_rules import (
+	get_main_service_name,
+	get_main_service_type,
+	is_linked_service_satellite,
+)
 
 
 def should_apply_internal_job_main_charge_overlay(doc):
-	if not cint(getattr(doc, "is_internal_job", 0)):
+	if not is_linked_service_satellite(doc):
 		return False
-	mt = getattr(doc, "main_job_type", None)
-	mn = getattr(doc, "main_job", None)
+	mt = get_main_service_type(doc)
+	mn = get_main_service_name(doc)
 	if not mt or not mn or not frappe.db.exists(mt, mn):
 		return False
 	return True
@@ -34,8 +39,8 @@ def _declaration_order_charge_overlay_redundant_with_linked_shipment(doc):
 	"""Charges were copied from this freight shipment; overlay would re-clear/re-map the same rows and can zero them."""
 	if doc.doctype != "Declaration Order":
 		return False
-	mt = getattr(doc, "main_job_type", None)
-	mn = getattr(doc, "main_job", None) or ""
+	mt = get_main_service_type(doc)
+	mn = get_main_service_name(doc) or ""
 	if not mn:
 		return False
 	air = getattr(doc, "air_shipment", None) or ""
@@ -102,12 +107,14 @@ def _iter_main_charge_rows_for_internal_job(parent_doc):
 	"""
 	if not should_apply_internal_job_main_charge_overlay(parent_doc):
 		return
-	main = frappe.get_doc(parent_doc.main_job_type, parent_doc.main_job)
+	main = frappe.get_doc(get_main_service_type(parent_doc), get_main_service_name(parent_doc))
 	want = _main_job_charge_filter_service_type_for_internal_child(parent_doc)
 	if not want:
 		return
 
-	ij_link = (getattr(parent_doc, "internal_job", None) or "").strip()
+	ij_link = (
+		getattr(parent_doc, "linked_service", None) or getattr(parent_doc, "internal_job", None) or ""
+	).strip()
 	main_rows = list(main.get("charges") or [])
 
 	# Prefer rows explicitly tagged for this Internal Job, regardless of service type — the per-scope
@@ -117,7 +124,12 @@ def _iter_main_charge_rows_for_internal_job(parent_doc):
 		tagged = [
 			ch
 			for ch in main_rows
-			if (cstr(getattr(ch, "internal_job", None) or "").strip() == ij_link)
+			if (
+				cstr(
+					getattr(ch, "linked_service", None) or getattr(ch, "internal_job", None) or ""
+				).strip()
+				== ij_link
+			)
 			and _main_charge_matches_internal_service(ch, want, main.doctype)
 		]
 		if tagged:
@@ -129,7 +141,9 @@ def _iter_main_charge_rows_for_internal_job(parent_doc):
 	for ch in main_rows:
 		# Skip rows tagged for a *different* Internal Job — only Main-scope or matching-scope rows
 		# may overlay onto this IJ booking when there are no per-IJ tags for it.
-		row_ij = cstr(getattr(ch, "internal_job", None) or "").strip()
+		row_ij = cstr(
+			getattr(ch, "linked_service", None) or getattr(ch, "internal_job", None) or ""
+		).strip()
 		if row_ij and ij_link and row_ij != ij_link:
 			continue
 		if _main_charge_matches_internal_service(ch, want, main.doctype):
@@ -495,7 +509,7 @@ def apply_internal_job_main_charge_overlay(parent_doc):
 		return
 	if _declaration_order_charge_overlay_redundant_with_linked_shipment(parent_doc):
 		return
-	main = frappe.get_doc(parent_doc.main_job_type, parent_doc.main_job)
+	main = frappe.get_doc(get_main_service_type(parent_doc), get_main_service_name(parent_doc))
 	restrict = _main_job_charge_filter_service_type_for_internal_child(parent_doc)
 	idx = _index_main_charges_by_item(main, restrict_service_type=restrict)
 	dt = parent_doc.doctype

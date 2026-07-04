@@ -225,11 +225,18 @@ class TransportOrder(Document):
                 allow_sea, allow_air = resolve_one_off_chain_freight_booking_allowances(
                     self, self.sales_quote
                 )
-                # Main leg and internal satellite TOs (linked to main via main_job / booking) may share the
+                # Main leg and linked satellite TOs (linked to main via main_service / booking) may share the
                 # same one-off quote when customs was converted first (Declaration Order).
-                is_internal = cint(getattr(self, "is_internal_job", 0)) == 1
-                main_job_type = (getattr(self, "main_job_type", None) or "").strip()
-                main_job = (getattr(self, "main_job", None) or "").strip()
+                from logistics.utils.service_role_rules import (
+                    get_main_service_name,
+                    get_main_service_type,
+                    is_linked_service_satellite,
+                    is_main_service_doc,
+                )
+
+                is_internal = is_linked_service_satellite(self)
+                main_job_type = get_main_service_type(self)
+                main_job = get_main_service_name(self)
                 linked_to_main_transport = is_internal and main_job_type == "Transport Order" and bool(main_job)
                 linked_to_freight_shipment = bool(getattr(self, "air_shipment", None) or getattr(self, "sea_shipment", None))
                 linked_declaration_order = None
@@ -242,7 +249,7 @@ class TransportOrder(Document):
                         linked_declaration_order = None
 
                 allow_decl_order_same_chain = (
-                    cint(getattr(self, "is_main_service", 0)) == 1
+                    is_main_service_doc(self)
                     or linked_to_main_transport
                     or linked_to_freight_shipment
                     or (is_internal and (bool(allow_sea) or bool(allow_air)))
@@ -2263,17 +2270,38 @@ def action_create_transport_job(docname: str):
             "customer_service_rep": getattr(doc, "customer_service_rep", None),
             "air_shipment": getattr(doc, "air_shipment", None),
             "sea_shipment": getattr(doc, "sea_shipment", None),
-            "is_main_service": getattr(doc, "is_main_service", None),
             "is_high_value": getattr(doc, "is_high_value", None),
-            "is_internal_job": getattr(doc, "is_internal_job", None),
-            "main_job_type": getattr(doc, "main_job_type", None),
-            "main_job": getattr(doc, "main_job", None),
             "internal_notes": getattr(doc, "internal_notes", None),
             "client_notes": getattr(doc, "client_notes", None),
         }
         for k, v in header_map.items():
             if v is not None and job_meta.has_field(k):
                 job.set(k, v)
+        from logistics.utils.service_role_rules import (
+            SERVICE_ROLE_LINKED,
+            SERVICE_ROLE_MAIN,
+            apply_linked_service_satellite_flags,
+            apply_main_service_flags,
+            apply_standalone_service_flags,
+            get_linked_service_name,
+            get_main_service_name,
+            get_main_service_type,
+            get_service_role,
+            set_linked_service_name,
+        )
+
+        role = get_service_role(doc)
+        if role == SERVICE_ROLE_LINKED:
+            apply_linked_service_satellite_flags(
+                job, get_main_service_type(doc), get_main_service_name(doc)
+            )
+        elif role == SERVICE_ROLE_MAIN:
+            apply_main_service_flags(job)
+        else:
+            apply_standalone_service_flags(job)
+        ls = get_linked_service_name(doc)
+        if ls:
+            set_linked_service_name(job, ls)
         # Service Level (TO) -> SLA block (TJ): different field names, same Logistics Service Level link
         if job_meta.has_field("logistics_service_level"):
             sl = getattr(doc, "service_level", None)
@@ -2797,7 +2825,7 @@ def get_available_one_off_quotes(transport_order_name: str = None) -> Dict[str, 
                 "quote_type": "One-Off Quote",
                 "name": ["!=", transport_order_name or ""],
                 "docstatus": ["!=", 2],
-                "is_main_service": 1,
+                "service_role": "Main",
                 "sales_quote": ["is", "set"],
             },
             fields=["sales_quote"],

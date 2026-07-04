@@ -82,7 +82,7 @@
    "in_list_view": 1,
    "label": "Job Type",
    "no_copy": 1,
-   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nInbound Order\nRelease Order\nTransfer Order\nProject Order\nProject Job\nMICE Order\nMICE Job",
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nVAS Order\nInbound Order\nRelease Order\nTransfer Order\nProject Order\nProject Job\nMICE Order\nMICE Job",
    "read_only": 1
   },
   {

@@ -110,7 +110,7 @@ function _apply_master_bill_virtuals(frm) {
 }
 
 function _show_create_from_shipment_review_dialog(frm, target_label, on_continue) {
-	var is_internal = !!frm.doc.is_internal_job;
+	var is_internal = (frm.doc.service_role === "Linked" || !!frm.doc.is_internal_job);
 	var message = is_internal
 		? __("This source is an Internal Job. The new {0} will also be created as an Internal Job linked to this source.", [target_label])
 		: __("Review source data that will be passed to {0}.", [target_label]);
@@ -122,9 +122,9 @@ function _show_create_from_shipment_review_dialog(frm, target_label, on_continue
 			{ fieldtype: "Data", fieldname: "source_doc", label: __("Source Document"), read_only: 1, default: frm.doc.name || "" },
 			{ fieldtype: "Data", fieldname: "customer", label: __("Customer"), read_only: 1, default: frm.doc.local_customer || "" },
 			{ fieldtype: "Data", fieldname: "company", label: __("Company"), read_only: 1, default: frm.doc.company || "" },
-			{ fieldtype: "Check", fieldname: "is_internal_job", label: __("Internal Job"), read_only: 1, default: is_internal ? 1 : 0 },
-			{ fieldtype: "Data", fieldname: "main_job_type", label: __("Main Job Type"), read_only: 1, default: frm.doc.main_job_type || "" },
-			{ fieldtype: "Data", fieldname: "main_job", label: __("Main Job"), read_only: 1, default: frm.doc.main_job || "" },
+			{ fieldtype: "Check", fieldname: "is_internal_job", label: __("Linked Service"), read_only: 1, default: is_internal ? 1 : 0 },
+			{ fieldtype: "Data", fieldname: "main_job_type", label: __("Main Service Type"), read_only: 1, default: frm.doc.main_service_type || frm.doc.main_job_type || "" },
+			{ fieldtype: "Data", fieldname: "main_job", label: __("Main Service"), read_only: 1, default: frm.doc.main_service || frm.doc.main_job || "" },
 		],
 		primary_action_label: __("Continue"),
 		primary_action: function() {
@@ -563,7 +563,7 @@ frappe.ui.form.on('Sea Shipment', {
 						frappe.msgprint({ title: __('Error'), message: __('Purchase Invoice feature is not loaded. Please refresh the page.'), indicator: 'red' });
 					}
 				}, __('Create'));
-				if (!(cint(frm.doc.is_internal_job) && frm.doc.main_job_type && frm.doc.main_job)) {
+				if (!((frm.doc.service_role === "Linked" || cint(frm.doc.is_internal_job)) && (frm.doc.main_service_type || frm.doc.main_job_type) && (frm.doc.main_service || frm.doc.main_job))) {
 					frm.add_custom_button(__('Booking / Order'), function() {
 						function _openInternalJobDlg() {
 							if (window.logistics_show_create_internal_job_dialog) {
