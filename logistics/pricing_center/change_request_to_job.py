@@ -524,13 +524,16 @@ def _linked_service_for_row(row, default_linked_service=None):
 	"""Pick the Linked Service tag for a CR Charge row: row-level wins, else the CR default."""
 	from logistics.utils.linked_service_compat import CHARGE_SCOPE_MAIN, normalize_charge_scope
 
-	scope = normalize_charge_scope(getattr(row, "charge_scope", None))
 	ls = charge_row_linked_service_link(row)
 	if ls:
 		return ls
+	default_ls = ((default_linked_service or "").strip() or None)
+	if default_ls:
+		return default_ls
+	scope = normalize_charge_scope(getattr(row, "charge_scope", None))
 	if scope == CHARGE_SCOPE_MAIN:
 		return None
-	return ((default_linked_service or "").strip() or None)
+	return None
 
 
 # Backward-compatible alias.
