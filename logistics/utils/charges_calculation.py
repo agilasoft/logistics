@@ -486,6 +486,41 @@ def _get_quantity_for_calculation_method(
     return flt(actual_data.get("actual_quantity") or 0)
 
 
+def _spread_row_qty_into_actual_data(actual_data: Dict, unit_type: str, qty_val: float) -> None:
+    """Map charge-row quantity into parent actual aggregates for the given unit_type."""
+    actual_data["actual_quantity"] = qty_val
+    ut = (unit_type or "Weight").strip().lower()
+    if ut == "weight":
+        actual_data["actual_weight"] = qty_val
+    elif ut == "chargeable weight":
+        actual_data["actual_chargeable_weight"] = qty_val
+    elif ut == "volume":
+        actual_data["actual_volume"] = qty_val
+    elif ut in ("piece", "package"):
+        actual_data["actual_pieces"] = qty_val
+    elif ut == "distance":
+        actual_data["actual_distance"] = qty_val
+    elif ut == "teu":
+        actual_data["actual_teu"] = qty_val
+    elif ut == "container":
+        actual_data["actual_containers"] = qty_val
+    elif ut == "operation time":
+        actual_data["actual_operation_time"] = qty_val
+    elif ut == "day":
+        actual_data["actual_days"] = qty_val
+        actual_data["actual_operation_time"] = qty_val
+    elif ut == "item count":
+        actual_data["actual_item_count"] = qty_val
+    elif ut == "handling unit":
+        actual_data["actual_handling_units"] = qty_val
+    elif ut == "trip":
+        actual_data["actual_trips"] = qty_val
+    elif ut == "job":
+        actual_data["actual_quantity"] = qty_val
+    elif ut == "value":
+        actual_data["actual_goods_value"] = qty_val
+
+
 def get_quantity_from_parent_by_unit_type(parent_doc: Any, unit_type: Optional[str]) -> float:
     """Resolve quantity from an operational parent (Air Booking, Air Shipment, …) by ``unit_type``.
 
@@ -1108,23 +1143,37 @@ def _apply_unit_break_to_rate_data(
     if not applicable:
         return None
 
+    original_rate = flt(rate_data.get("rate", 0))
     tier_rate = flt(applicable.get("unit_rate", 0))
     rate_data["rate"] = tier_rate
     rate_data["unit_rate"] = tier_rate
+    if is_revenue and hasattr(charge_doc, "unit_rate"):
+        charge_doc.unit_rate = tier_rate
+    elif not is_revenue and hasattr(charge_doc, "unit_cost"):
+        charge_doc.unit_cost = tier_rate
 
     ut_label = (unit_type or "Weight").strip()
     uom = _unit_break_uom_label(unit_type, charge_doc, is_revenue)
     unit_break = flt(applicable.get("unit_break", 0))
     currency = applicable.get("currency") or rate_data.get("currency") or "USD"
     method = rate_data.get("calculation_method") or "Per Unit"
+    rate_detail = f"Rate {tier_rate}%"
+    if method != "Percentage":
+        if original_rate and tier_rate != original_rate:
+            rate_detail = (
+                f"Rate adjusted from {original_rate} to {tier_rate} {currency}/{uom} "
+                f"based on unit break"
+            )
+        else:
+            rate_detail = f"Rate {tier_rate} {currency}/{uom}"
     if method == "Percentage":
         return (
             f"Unit Break ({ut_label}): Value {comparison_qty} {uom} ≥ break {unit_break} {uom} → "
-            f"Rate {tier_rate}%"
+            f"{rate_detail}"
         )
     return (
         f"Unit Break ({ut_label}): Actual {comparison_qty} {uom} ≥ break {unit_break} {uom} → "
-        f"Rate {tier_rate} {currency}/{uom}"
+        f"{rate_detail}"
     )
 
 
@@ -1255,37 +1304,7 @@ def _calculate_charge_amount(
         )
         if row_qty > 0:
             derived_qty = row_qty
-            ut = (unit_type or "Weight").strip().lower()
-            actual_data["actual_quantity"] = row_qty
-            if ut == "weight":
-                actual_data["actual_weight"] = row_qty
-            elif ut == "chargeable weight":
-                actual_data["actual_chargeable_weight"] = row_qty
-            elif ut == "volume":
-                actual_data["actual_volume"] = row_qty
-            elif ut in ("piece", "package"):
-                actual_data["actual_pieces"] = row_qty
-            elif ut == "distance":
-                actual_data["actual_distance"] = row_qty
-            elif ut == "teu":
-                actual_data["actual_teu"] = row_qty
-            elif ut == "container":
-                actual_data["actual_containers"] = row_qty
-            elif ut == "operation time":
-                actual_data["actual_operation_time"] = row_qty
-            elif ut == "day":
-                actual_data["actual_days"] = row_qty
-                actual_data["actual_operation_time"] = row_qty
-            elif ut == "item count":
-                actual_data["actual_item_count"] = row_qty
-            elif ut == "handling unit":
-                actual_data["actual_handling_units"] = row_qty
-            elif ut == "trip":
-                actual_data["actual_trips"] = row_qty
-            elif ut == "job":
-                actual_data["actual_quantity"] = row_qty
-            elif ut == "value":
-                actual_data["actual_goods_value"] = row_qty
+            _spread_row_qty_into_actual_data(actual_data, unit_type, row_qty)
 
     if is_revenue:
         # Sales Quote / Special Project: keep non-zero row quantity; other operational parents follow actuals.
@@ -1398,6 +1417,14 @@ def _calculate_charge_amount(
         result["calc_notes"] = "Charge calculation: Could not prepare rate data. Check calculation method and unit type."
         return result
 
+    # Use charge-row quantity as the unit-break comparison basis before resolving tiers.
+    if is_revenue:
+        line_qty = _get_field(charge_doc, "quantity")
+    else:
+        line_qty = _get_field(charge_doc, "cost_quantity")
+    if line_qty is not None and flt(line_qty) > 0:
+        _spread_row_qty_into_actual_data(actual_data, unit_type, flt(line_qty))
+
     unit_break_prefix = _apply_unit_break_to_rate_data(
         charge_doc, rate_data, actual_data, unit_type, record_type, is_revenue
     )
@@ -1415,29 +1442,6 @@ def _calculate_charge_amount(
         if not base:
             result["calc_notes"] = "Charge calculation: Base Amount is required for Percentage method. Enter base amount."
             return result
-
-    # Use quantity from charge row (already set above from method, or user override)
-    if is_revenue:
-        line_qty = _get_field(charge_doc, "quantity")
-    else:
-        line_qty = _get_field(charge_doc, "cost_quantity")
-    if line_qty is not None and flt(line_qty) > 0:
-        qty_val = flt(line_qty)
-        actual_data["actual_quantity"] = qty_val
-        # When parent has no weight/volume/etc, use charge row quantity for generic Per Unit lookup.
-        # Do not spread into weight fields for unit types that use dedicated aggregates (item lines, HU count, …).
-        ut_spread = (unit_type or "Weight").strip().lower()
-        if ut_spread not in (
-            "item count",
-            "handling unit",
-            "job",
-            "trip",
-            "shipment",
-        ) and actual_data.get("actual_weight", 0) <= 0 and actual_data.get("actual_volume", 0) <= 0:
-            actual_data["actual_weight"] = qty_val
-            actual_data["actual_volume"] = qty_val
-            actual_data["actual_chargeable_weight"] = qty_val
-            actual_data["actual_pieces"] = max(actual_data.get("actual_pieces", 0), qty_val)
 
     try:
         engine = RateCalculationEngine()
