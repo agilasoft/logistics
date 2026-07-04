@@ -1,7 +1,7 @@
 # Copyright (c) 2026, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
-"""Module flags on Load Type / Transport Mode masters vs charge service types."""
+"""Module flags on Load Type / Transport Mode / Freight Agent masters vs charge service types."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from frappe import _
 from logistics.utils.charge_service_type import canonical_charge_service_type_for_storage
 
 MODULE_FLAG_FIELDS = ("air", "sea", "transport", "customs", "warehousing")
+SERVICE_MODE_MASTER_DOCTYPES = ("Load Type", "Transport Mode", "Freight Agent")
 
 SERVICE_TYPE_TO_MODULE_FLAG = {
 	"air": "air",
@@ -33,8 +34,8 @@ def module_flag_for_charge_service_type(value: Any) -> str | None:
 
 
 def get_service_mode_flags_bulk(master_doctype: str, names: list | str | None) -> dict:
-	"""Return module flags for Load Type or Transport Mode names (desk sanitization)."""
-	if master_doctype not in ("Load Type", "Transport Mode"):
+	"""Return module flags for Load Type, Transport Mode, or Freight Agent names (desk sanitization)."""
+	if master_doctype not in SERVICE_MODE_MASTER_DOCTYPES:
 		return {}
 	if isinstance(names, str):
 		names = json.loads(names)
@@ -62,8 +63,8 @@ def validate_service_mode_link(
 	*,
 	context: str,
 ) -> None:
-	"""Raise when a Load Type / Transport Mode is incompatible with the service type."""
-	if master_doctype not in ("Load Type", "Transport Mode"):
+	"""Raise when a Load Type / Transport Mode / Freight Agent is incompatible with the service type."""
+	if master_doctype not in SERVICE_MODE_MASTER_DOCTYPES:
 		return
 	if not mode_name:
 		return

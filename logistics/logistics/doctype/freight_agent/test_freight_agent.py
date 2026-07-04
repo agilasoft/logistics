@@ -10,6 +10,16 @@ from logistics.utils.test_freight_agent_location_validation import create_test_f
 class IntegrationTestFreightAgent(IntegrationTestCase):
 	"""Integration tests for Freight Agent."""
 
+	def test_new_freight_agent_requires_service_type(self):
+		sfx = frappe.generate_hash(length=6)
+		with self.assertRaises(frappe.ValidationError):
+			frappe.get_doc(
+				{
+					"doctype": "Freight Agent",
+					"code": f"IT-FA-{sfx}",
+					"freight_agent_name": f"Integration Agent {sfx}",
+				}
+			).insert(ignore_permissions=True)
 	def test_freight_agent_covered_unlocs_persist(self):
 		agent = create_test_freight_agent(
 			code="INT-FA-001",
