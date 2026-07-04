@@ -54,6 +54,7 @@ class RateCalculationEngine:
             "Handling Unit": "hu",
             "Operation Time": "hrs",
             "Day": "day",
+            "Value": "value",
         }
 
     def calculate_rate(

@@ -70,6 +70,14 @@ function _calculate_charge_row(frm, cdt, cdn, opts) {
 		},
 		callback: function(r) {
 			if (r.message && r.message.success) {
+				if (
+					window.logistics &&
+					logistics.charge_type_cleanup &&
+					logistics.charge_type_cleanup.apply_calculate_charge_row_response
+				) {
+					logistics.charge_type_cleanup.apply_calculate_charge_row_response(frm, cdt, cdn, r);
+					return;
+				}
 				frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
 				frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
 				if (r.message.quantity != null) {

@@ -296,3 +296,5 @@ logistics.patches.v3_0_drop_legacy_internal_job_columns
 logistics.patches.v3_0_freight_agent_applicable_service_types
 # Freight Agent: backfill covered_unlocs from default_unloco (#1119)
 logistics.patches.v3_0_backfill_freight_agent_covered_unlocs_from_default
+# Charge rows: Unit Breaks checkbox/button and Value unit type (#1126)
+logistics.patches.v3_0_add_charge_unit_breaks

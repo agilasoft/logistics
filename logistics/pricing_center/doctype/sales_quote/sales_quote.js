@@ -2163,6 +2163,8 @@ frappe.ui.form.on('Sales Quote Charge', {
 	cost_minimum_charge: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_maximum_charge: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_base_amount: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	use_unit_breaks: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	cost_use_unit_breaks: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 
 	charge_scope: function(frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);
