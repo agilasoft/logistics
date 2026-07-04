@@ -69,6 +69,8 @@ _SQC_TO_PROGRAMME_CHARGE_FIELDS = (
 	"cost_base_amount",
 	"estimated_cost",
 	"cost_calc_notes",
+	"use_unit_breaks",
+	"cost_use_unit_breaks",
 	"bill_to",
 	"pay_to",
 	"bill_to_exchange_rate",
@@ -104,6 +106,11 @@ _CHARGE_BREAK_SPECS = (
 		"Sales Quote Qty Break",
 		("rate_type", "qty_break", "unit_rate", "currency"),
 		"Qty Break",
+	),
+	(
+		"Charge Unit Break",
+		("unit_type", "unit_break", "unit_rate", "currency"),
+		None,
 	),
 )
 
@@ -283,10 +290,12 @@ def copy_charge_breaks_for_reference(
 					val = row.get(fieldname)
 					if fieldname == "rate_type":
 						val = val or default_rate_type
-					elif fieldname in ("weight_break", "qty_break", "unit_rate"):
+					elif fieldname in ("weight_break", "qty_break", "unit_break", "unit_rate"):
 						val = flt(val or 0)
 					elif fieldname == "currency":
 						val = val or "USD"
+					if fieldname == "rate_type" and val is None:
+						continue
 					setattr(doc, fieldname, val)
 				doc.insert(ignore_permissions=True)
 				copied += 1
