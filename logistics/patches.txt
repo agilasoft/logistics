@@ -292,3 +292,5 @@ logistics.patches.v3_0_backfill_sea_booking_linked_services
 logistics.patches.v3_0_backfill_main_service_from_legacy_internal_job
 # Drop orphaned is_internal_job / main_job_* / internal_job columns after service_role cutover
 logistics.patches.v3_0_drop_legacy_internal_job_columns
+# Charge rows: Unit Breaks checkbox/button and Value unit type (#1126)
+logistics.patches.v3_0_add_charge_unit_breaks
