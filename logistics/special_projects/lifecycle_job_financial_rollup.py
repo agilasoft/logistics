@@ -245,9 +245,6 @@ def sync_lifecycle_job_financials(doc: Any) -> None:
 
 def _sync_special_project_service_financials(doc: Any) -> None:
 	"""Roll planned/actual totals onto programme service rows from linked jobs or tagged charges."""
-	from logistics.special_projects.lifecycle_job_planned_rollup import (
-		_planned_totals_for_lifecycle_row,
-	)
 	from logistics.special_projects.special_project_service_rows import (
 		is_planning_special_project_service_row,
 		service_row_field,
@@ -258,20 +255,14 @@ def _sync_special_project_service_financials(doc: Any) -> None:
 		row_special_project_service_link,
 	)
 
-	for row in service_rows(doc):
+	lifecycle_rows = service_rows(doc)
+	charges = _charges(doc)
+	for row in lifecycle_rows:
 		if not is_planning_special_project_service_row(row):
 			continue
-		st = (service_row_field(row, "service_type") or "").strip()
-		planned_cost = 0.0
-		planned_revenue = 0.0
-		for charge in doc.get("charges") or []:
-			from logistics.special_projects.special_project_service_helpers import (
-				charge_applies_to_service_row,
-			)
-
-			if charge_applies_to_service_row(doc, charge, row):
-				planned_cost += _charge_planned_cost(charge)
-				planned_revenue += _charge_planned_revenue(charge)
+		planned_cost, planned_revenue = _planned_totals_for_lifecycle_row(
+			doc, row, lifecycle_rows, charges
+		)
 		planned_cost = flt(planned_cost)
 		planned_revenue = flt(planned_revenue)
 		set_service_row_field(row, "planned_cost", planned_cost)
