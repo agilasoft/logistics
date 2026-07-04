@@ -425,12 +425,12 @@ def _charge_row_as_sales_quote_dict(charge_row, default_service_type, default_li
 		out["service_type"] = default_service_type
 	ls = (_linked_service_for_row(out, default_linked_service) or "").strip()
 	raw_scope = (out.get("charge_scope") or "").strip()
-	if raw_scope and normalize_charge_scope(raw_scope) == CHARGE_SCOPE_MAIN:
-		out["charge_scope"] = CHARGE_SCOPE_MAIN
-		set_charge_row_linked_service_link(out, None)
-	elif ls:
+	if ls:
 		out["charge_scope"] = CHARGE_SCOPE_LINKED
 		set_charge_row_linked_service_link(out, ls)
+	elif raw_scope and normalize_charge_scope(raw_scope) == CHARGE_SCOPE_MAIN:
+		out["charge_scope"] = CHARGE_SCOPE_MAIN
+		set_charge_row_linked_service_link(out, None)
 	else:
 		out["charge_scope"] = CHARGE_SCOPE_MAIN
 	return out
@@ -463,9 +463,15 @@ def _seed_linked_services_from_job_if_empty(cr):
 	if cr.job_type in MAIN_JOB_TYPES_FOR_CHANGE_REQUEST:
 		source_docs = get_linked_services_for_booking(cr.job_type, cr.job)
 	elif cr.job_type in INTERNAL_JOB_SATELLITE_JOB_TYPES:
-		ls_name = (
-			frappe.db.get_value(cr.job_type, cr.job, "internal_job") or ""
-		).strip()
+		from logistics.utils.service_role_rules import get_linked_service_name
+
+		job_row = frappe.db.get_value(
+			cr.job_type,
+			cr.job,
+			("linked_service", "internal_job"),
+			as_dict=True,
+		) or {}
+		ls_name = get_linked_service_name(job_row)
 		if ls_name and linked_service_record_exists(ls_name):
 			source_docs = [frappe.get_doc(linked_service_doctype(), ls_name)]
 
