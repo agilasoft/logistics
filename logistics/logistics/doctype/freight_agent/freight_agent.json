@@ -93,6 +93,8 @@
    "fieldname": "warehousing",
    "fieldtype": "Check",
    "label": "Warehousing"
+  },
+  {
    "fieldname": "locations_tab",
    "fieldtype": "Tab Break",
    "label": "Locations"

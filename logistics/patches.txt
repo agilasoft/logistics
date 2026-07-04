@@ -48,6 +48,8 @@ logistics.patches.v3_0_migrate_special_project_service_child_to_stash
 logistics.patches.v3_0_drop_special_project_service_detail_table
 # Before dropping is_internal_job / main_job_* / internal_job: backfill service_role, main_service_*, linked_service
 logistics.patches.v3_0_pre_drop_legacy_internal_job_fields
+# Sites that ran the pre patch before linked_service was added: drop legacy columns first.
+logistics.patches.v3_0_drop_legacy_columns_before_linked_service_sync
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
