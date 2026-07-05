@@ -75,7 +75,13 @@ class IATAConnector:
 				return True
 		return False
 
-	def _resolve_endpoint(self, endpoint_override: Optional[str] = None) -> Tuple[Optional[str], str]:
+	def _resolve_endpoint(
+		self,
+		endpoint_override: Optional[str] = None,
+		airline: Optional[str] = None,
+	) -> Tuple[Optional[str], str]:
+		from logistics.air_freight.iata_cargo_xml.eawb_utils import resolve_airline_endpoint
+
 		mode = self.get_sandbox_mode()
 		if mode == "sandbox_mock":
 			return None, mode
@@ -90,8 +96,11 @@ class IATAConnector:
 			return endpoint, route_mode if not test_mode else f"{route_mode}_test"
 
 		if mode == "sandbox_endpoint":
-			return endpoint_override or self.settings.test_endpoint, mode
-		return endpoint_override or self.settings.cargo_xml_endpoint, mode
+			airline_endpoint = resolve_airline_endpoint(self.settings, airline, test_mode=True) if airline else None
+			return endpoint_override or airline_endpoint or self.settings.test_endpoint, mode
+
+		airline_endpoint = resolve_airline_endpoint(self.settings, airline, test_mode=False) if airline else None
+		return endpoint_override or airline_endpoint or self.settings.cargo_xml_endpoint, mode
 
 	def authenticate(self, sandbox_mode: Optional[str] = None) -> bool:
 		"""Handle IATA API authentication."""
@@ -142,6 +151,8 @@ class IATAConnector:
 				return self._validate_fsu_message(root)
 			if schema_type == "FMA":
 				return self._validate_fma_message(root)
+			if schema_type in ("XFHL", "XFZB"):
+				return self._validate_xfhl_message(root)
 
 			return {"valid": True, "errors": [], "warnings": []}
 
@@ -175,7 +186,7 @@ class IATAConnector:
 				resolve_airline_from_reference,
 			)
 
-			resolved_endpoint, mode = self._resolve_endpoint(endpoint)
+			resolved_endpoint, mode = self._resolve_endpoint(endpoint, airline=airline)
 			self._debug_log(f"send_message mode={mode} type={message_type} ref={reference_name}")
 
 			if mode != "sandbox_mock":
@@ -431,6 +442,14 @@ class IATAConnector:
 		for element in required_elements:
 			if self._find_element(root, element) is None:
 				errors.append(f"Missing required element: {element}")
+		return {"valid": len(errors) == 0, "errors": errors, "warnings": []}
+
+	def _validate_xfhl_message(self, root: ET.Element) -> Dict[str, Any]:
+		errors = []
+		if self._find_element(root, "MessageHeader") is None:
+			errors.append("Missing required element: MessageHeader")
+		if self._find_element(root, "MasterAirWaybill") is None and self._find_element(root, "HouseWaybill") is None:
+			errors.append("Missing MasterAirWaybill or HouseWaybill")
 		return {"valid": len(errors) == 0, "errors": errors, "warnings": []}
 
 	def _extract_message_data(self, root: ET.Element, message_type: str) -> Dict[str, Any]:

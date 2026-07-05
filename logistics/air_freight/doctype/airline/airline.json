@@ -54,6 +54,9 @@
   "ccs_pima_code",
   "eawb_enabled",
   "eawb_message_types",
+  "cargo_xml_endpoint",
+  "cargo_xml_test_endpoint",
+  "default_special_handling_codes",
   "contact_section",
   "website",
   "phone",
@@ -332,6 +335,25 @@
    "fieldname": "eawb_message_types",
    "fieldtype": "Small Text",
    "label": "e-AWB Message Types"
+  },
+  {
+   "depends_on": "eawb_enabled",
+   "description": "Direct Cargo-XML endpoint for this carrier (overrides company IATA Settings in Direct mode).",
+   "fieldname": "cargo_xml_endpoint",
+   "fieldtype": "Data",
+   "label": "Cargo-XML Endpoint URL"
+  },
+  {
+   "depends_on": "eawb_enabled",
+   "fieldname": "cargo_xml_test_endpoint",
+   "fieldtype": "Data",
+   "label": "Cargo-XML Test Endpoint URL"
+  },
+  {
+   "depends_on": "eawb_enabled",
+   "fieldname": "default_special_handling_codes",
+   "fieldtype": "Small Text",
+   "label": "Default Special Handling Codes"
   },
   {
    "collapsible": 1,

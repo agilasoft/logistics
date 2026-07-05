@@ -42,7 +42,9 @@
   "testing_section",
   "test_mode",
   "test_endpoint",
-  "debug_logging"
+  "debug_logging",
+  "webhook_api_key",
+  "cargo_xml_autocheck_url"
  ],
  "fields": [
   {
@@ -258,6 +260,18 @@
    "fieldname": "debug_logging",
    "fieldtype": "Check",
    "label": "Enable Debug Logging"
+  },
+  {
+   "fieldname": "webhook_api_key",
+   "fieldtype": "Password",
+   "label": "Inbound Webhook API Key",
+   "description": "Required for unauthenticated Cargo-XML webhook posts. Send as X-IATA-Webhook-Key header."
+  },
+  {
+   "fieldname": "cargo_xml_autocheck_url",
+   "fieldtype": "Data",
+   "label": "Cargo-XML AutoCheck URL",
+   "description": "Optional remote validation endpoint (IATA Cargo-XML AutoCheck or equivalent) called before outbound submit."
   }
  ],
  "icon": "fa fa-plane",

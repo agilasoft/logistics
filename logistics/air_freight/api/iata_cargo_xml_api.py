@@ -13,6 +13,9 @@ import json
 def receive_cargo_xml():
     """Receive incoming IATA Cargo-XML messages via webhook"""
     try:
+        from logistics.air_freight.iata_cargo_xml.webhook_auth import verify_inbound_webhook
+
+        verify_inbound_webhook()
         # Get XML content from request
         xml_content = frappe.request.get_data(as_text=True)
         
@@ -303,6 +306,35 @@ def _connection_message(mode, auth_result, connector=None):
     return "Production mode — messages POST to Cargo-XML Endpoint URL"
 
 
+@frappe.whitelist()
+def submit_consolidated_eawb(master_awb_name, include_house_manifest=1, include_house_awbs=0):
+    from logistics.air_freight.iata_cargo_xml.eawb_service import submit_consolidated_eawb as _submit
+
+    return _submit(
+        master_awb_name,
+        include_house_manifest=bool(int(include_house_manifest)),
+        include_house_awbs=bool(int(include_house_awbs)),
+    )
+
+
+@frappe.whitelist()
+def submit_house_eawb(iata_transaction_name):
+    from logistics.air_freight.iata_cargo_xml.eawb_service import submit_house_eawb as _submit
+
+    return _submit(iata_transaction_name)
+
+
+@frappe.whitelist()
+def validate_dg_autocheck(air_shipment):
+    from logistics.air_freight.iata_cargo_xml.integrations.dg_autocheck_client import (
+        validate_dangerous_goods,
+    )
+    from logistics.air_freight.utils.iata_settings_utils import get_settings
+
+    settings = get_settings(air_shipment=air_shipment)
+    return validate_dangerous_goods(air_shipment, settings)
+
+
 def _determine_message_type(xml_content):
     """Determine message type from XML content"""
     try:
@@ -321,8 +353,14 @@ def _determine_message_type(xml_content):
             return "FHL"
         elif root_tag.endswith("XFWB"):
             return "XFWB"
+        elif root_tag.endswith("XFNM"):
+            return "XFNM"
         elif root_tag.endswith("XFHL"):
             return "XFHL"
+        elif root_tag.endswith("XFZB"):
+            return "XFZB"
+        elif root_tag.endswith("XFSU"):
+            return "XFSU"
         elif root_tag.endswith("XSDG"):
             return "XSDG"
         
