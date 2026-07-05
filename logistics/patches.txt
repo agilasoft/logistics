@@ -242,6 +242,8 @@ logistics.patches.v3_0_fix_iata_settings_single
 # IATA Settings: one record per Company (migrate legacy singleton values)
 logistics.patches.v3_0_migrate_iata_settings_per_company
 logistics.patches.v3_0_ensure_iata_settings_company_records
+# CCS Provider master records for Cargo Community System connectivity
+logistics.patches.v3_0_seed_ccs_providers
 # Docket Internal Jobs: restore persisted Internal Job Detail rows after virtual-grid rollback
 logistics.patches.v3_0_restore_docket_internal_job_detail_rows
 # Cash Advance: backfill request total_liquidated / unliquidated from submitted liquidations

@@ -167,7 +167,14 @@ class MessageBuilder(IATAConnector):
                 resolve_company(air_shipment=air_freight_job_name)
             )
             xml_content = self.build_fwb_message(air_freight_job_name)
-            result = self.send_message("FWB", xml_content)
+            job = frappe.get_doc("Air Shipment", air_freight_job_name)
+            result = self.send_message(
+                "FWB",
+                xml_content,
+                reference_doctype="Air Shipment",
+                reference_name=air_freight_job_name,
+                airline=job.airline,
+            )
             
             # Queue message for tracking
             self._queue_message("FWB", "outbound", air_freight_job_name, xml_content)
@@ -187,7 +194,14 @@ class MessageBuilder(IATAConnector):
                 resolve_company(air_shipment=air_freight_job_name)
             )
             xml_content = self.build_fsu_message(air_freight_job_name, status_code, status_description)
-            result = self.send_message("FSU", xml_content)
+            job = frappe.get_doc("Air Shipment", air_freight_job_name)
+            result = self.send_message(
+                "FSU",
+                xml_content,
+                reference_doctype="Air Shipment",
+                reference_name=air_freight_job_name,
+                airline=job.airline,
+            )
             
             # Queue message for tracking
             self._queue_message("FSU", "outbound", air_freight_job_name, xml_content)
@@ -259,11 +273,13 @@ class MessageBuilder(IATAConnector):
 
             self._apply_company(resolve_company(master_awb=master_awb_name))
             xml_content = self.build_mawb_eawb_message(master_awb_name)
+            mawb = frappe.get_doc("Master Air Waybill", master_awb_name)
             result = self.send_message(
                 "XFWB",
                 xml_content,
                 reference_doctype="Master Air Waybill",
                 reference_name=master_awb_name,
+                airline=mawb.airline,
             )
 
             self._queue_message("XFWB", "outbound", master_awb_name, xml_content)

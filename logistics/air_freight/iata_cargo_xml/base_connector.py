@@ -33,6 +33,11 @@ class IATAConnector:
 			cargo_xml_enabled=0,
 			cargo_xml_endpoint=None,
 			cargo_xml_username=None,
+			connection_mode="Direct",
+			ccs_provider=None,
+			ccs_participant_code=None,
+			ccs_endpoint=None,
+			ccs_test_endpoint=None,
 			debug_logging=0,
 		)
 
@@ -41,18 +46,49 @@ class IATAConnector:
 			return None
 		return self.settings.get_password("cargo_xml_password", raise_exception=False)
 
+	def _get_ccs_password(self):
+		if isinstance(self.settings, frappe._dict) or not hasattr(self.settings, "get_password"):
+			return None
+		return self.settings.get_password("ccs_password", raise_exception=False)
+
 	def get_sandbox_mode(self) -> str:
 		"""Return sandbox_mock, sandbox_endpoint, or production."""
 		if self.settings.test_mode:
-			if self.settings.test_endpoint:
+			if self._has_test_endpoint():
 				return "sandbox_endpoint"
 			return "sandbox_mock"
 		return "production"
+
+	def uses_ccs_hub(self) -> bool:
+		from logistics.air_freight.iata_cargo_xml.ccs.factory import uses_ccs_hub
+
+		return uses_ccs_hub(self.settings)
+
+	def _has_test_endpoint(self) -> bool:
+		if self.settings.test_endpoint:
+			return True
+		if self.uses_ccs_hub():
+			if getattr(self.settings, "ccs_test_endpoint", None):
+				return True
+			provider = getattr(self.settings, "ccs_provider", None)
+			if provider and frappe.db.get_value("CCS Provider", provider, "test_endpoint"):
+				return True
+		return False
 
 	def _resolve_endpoint(self, endpoint_override: Optional[str] = None) -> Tuple[Optional[str], str]:
 		mode = self.get_sandbox_mode()
 		if mode == "sandbox_mock":
 			return None, mode
+
+		if self.uses_ccs_hub():
+			from logistics.air_freight.iata_cargo_xml.ccs.factory import resolve_ccs_endpoint
+
+			test_mode = mode == "sandbox_endpoint"
+			endpoint, route_mode = resolve_ccs_endpoint(self.settings, test_mode=test_mode)
+			if endpoint_override:
+				endpoint = endpoint_override
+			return endpoint, route_mode if not test_mode else f"{route_mode}_test"
+
 		if mode == "sandbox_endpoint":
 			return endpoint_override or self.settings.test_endpoint, mode
 		return endpoint_override or self.settings.cargo_xml_endpoint, mode
@@ -65,6 +101,20 @@ class IATAConnector:
 				password = self._get_cargo_xml_password()
 				if self.settings.cargo_xml_username and password:
 					self.session.auth = (self.settings.cargo_xml_username, password)
+				ccs_password = self._get_ccs_password()
+				ccs_username = getattr(self.settings, "ccs_username", None)
+				if ccs_username and ccs_password:
+					self.session.auth = (ccs_username, ccs_password)
+				return True
+
+			if self.uses_ccs_hub():
+				ccs_password = self._get_ccs_password()
+				ccs_username = getattr(self.settings, "ccs_username", None) or getattr(
+					self.settings, "cargo_xml_username", None
+				)
+				password = ccs_password or self._get_cargo_xml_password()
+				if ccs_username and password:
+					self.session.auth = (ccs_username, password)
 				return True
 
 			if not self.settings.cargo_xml_enabled:
@@ -116,9 +166,15 @@ class IATAConnector:
 		endpoint: Optional[str] = None,
 		reference_doctype: Optional[str] = None,
 		reference_name: Optional[str] = None,
+		airline: Optional[str] = None,
 	) -> Dict[str, Any]:
-		"""Send message to IATA platform (production, sandbox endpoint, or in-app mock)."""
+		"""Send message to IATA platform (production, sandbox endpoint, CCS hub, or in-app mock)."""
 		try:
+			from logistics.air_freight.iata_cargo_xml.ccs.routing import (
+				build_routing_context,
+				resolve_airline_from_reference,
+			)
+
 			resolved_endpoint, mode = self._resolve_endpoint(endpoint)
 			self._debug_log(f"send_message mode={mode} type={message_type} ref={reference_name}")
 
@@ -141,6 +197,39 @@ class IATAConnector:
 
 			if not resolved_endpoint:
 				raise Exception("No endpoint configured")
+
+			routing_airline = airline or resolve_airline_from_reference(
+				reference_doctype, reference_name
+			)
+			routing_context = build_routing_context(
+				airline=routing_airline,
+				reference_doctype=reference_doctype,
+				reference_name=reference_name,
+				awb_number=self._extract_awb_from_content(content),
+			)
+
+			if self.uses_ccs_hub() and mode not in ("sandbox_mock",):
+				from logistics.air_freight.iata_cargo_xml.ccs.factory import get_ccs_connector
+
+				ccs_result = get_ccs_connector(self.settings).send(
+					message_type=message_type,
+					content=content,
+					session=self.session,
+					routing_context=routing_context,
+					validation=validation,
+					test_mode=mode.endswith("_test") or mode == "sandbox_endpoint",
+				)
+				self.log_transaction({
+					"message_type": message_type,
+					"direction": "outbound",
+					"status": "Sent" if ccs_result.get("success") else "Failed",
+					"message_content": content[:5000],
+					"response_content": (ccs_result.get("response") or "")[:1000],
+					"reference_doctype": reference_doctype,
+					"reference_name": reference_name,
+					"timestamp": datetime.now().isoformat(),
+				})
+				return ccs_result
 
 			response = self.session.post(resolved_endpoint, data=content, timeout=30)
 

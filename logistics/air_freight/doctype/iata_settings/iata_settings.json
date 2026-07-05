@@ -10,9 +10,18 @@
   "company",
   "cargo_xml_section",
   "cargo_xml_enabled",
+  "connection_mode",
   "cargo_xml_endpoint",
   "cargo_xml_username",
   "cargo_xml_password",
+  "ccs_section",
+  "ccs_provider",
+  "ccs_participant_code",
+  "ccs_endpoint",
+  "ccs_username",
+  "ccs_password",
+  "column_break_ccs",
+  "ccs_test_endpoint",
   "column_break_1",
   "dg_autocheck_enabled",
   "dg_autocheck_api_key",
@@ -58,19 +67,84 @@
    "label": "Enable Cargo-XML"
   },
   {
+   "default": "Direct",
+   "depends_on": "cargo_xml_enabled",
+   "fieldname": "connection_mode",
+   "fieldtype": "Select",
+   "label": "Connection Mode",
+   "options": "Direct\nCCS Hub",
+   "description": "Direct posts Cargo-XML to an airline or handler endpoint. CCS Hub routes messages through a Cargo Community System (e.g. CHAMP TRAXON) using PIMA addressing."
+  },
+  {
+   "depends_on": "eval:doc.cargo_xml_enabled && doc.connection_mode=='Direct'",
    "fieldname": "cargo_xml_endpoint",
    "fieldtype": "Data",
    "label": "Cargo-XML Endpoint URL"
   },
   {
+   "depends_on": "eval:doc.cargo_xml_enabled && (doc.connection_mode=='Direct' || doc.connection_mode=='CCS Hub')",
    "fieldname": "cargo_xml_username",
    "fieldtype": "Data",
    "label": "Username"
   },
   {
+   "depends_on": "eval:doc.cargo_xml_enabled && (doc.connection_mode=='Direct' || doc.connection_mode=='CCS Hub')",
    "fieldname": "cargo_xml_password",
    "fieldtype": "Password",
    "label": "Password"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.cargo_xml_enabled && doc.connection_mode=='CCS Hub'",
+   "fieldname": "ccs_section",
+   "fieldtype": "Section Break",
+   "label": "CCS Hub Configuration"
+  },
+  {
+   "depends_on": "eval:doc.cargo_xml_enabled && doc.connection_mode=='CCS Hub'",
+   "fieldname": "ccs_provider",
+   "fieldtype": "Link",
+   "label": "CCS Provider",
+   "options": "CCS Provider",
+   "link_filters": "[[\"CCS Provider\", \"is_active\", \"=\", 1]]"
+  },
+  {
+   "depends_on": "eval:doc.cargo_xml_enabled && doc.connection_mode=='CCS Hub'",
+   "description": "Forwarder PIMA / participant mailbox code assigned by the CCS provider.",
+   "fieldname": "ccs_participant_code",
+   "fieldtype": "Data",
+   "label": "CCS Participant Code (PIMA)"
+  },
+  {
+   "depends_on": "eval:doc.cargo_xml_enabled && doc.connection_mode=='CCS Hub'",
+   "description": "Optional override of the CCS Provider default hub URL.",
+   "fieldname": "ccs_endpoint",
+   "fieldtype": "Data",
+   "label": "CCS Endpoint URL Override"
+  },
+  {
+   "depends_on": "eval:doc.cargo_xml_enabled && doc.connection_mode=='CCS Hub'",
+   "description": "Optional CCS-specific credentials. When blank, Cargo-XML username/password are used.",
+   "fieldname": "ccs_username",
+   "fieldtype": "Data",
+   "label": "CCS Username"
+  },
+  {
+   "depends_on": "eval:doc.cargo_xml_enabled && doc.connection_mode=='CCS Hub'",
+   "fieldname": "ccs_password",
+   "fieldtype": "Password",
+   "label": "CCS Password"
+  },
+  {
+   "fieldname": "column_break_ccs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.cargo_xml_enabled && doc.connection_mode=='CCS Hub'",
+   "description": "Optional CCS sandbox hub URL used when Test Mode is enabled.",
+   "fieldname": "ccs_test_endpoint",
+   "fieldtype": "Data",
+   "label": "CCS Test Endpoint URL"
   },
   {
    "fieldname": "column_break_1",

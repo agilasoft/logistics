@@ -225,6 +225,9 @@ def get_iata_settings(company=None, master_awb=None, air_shipment=None):
         ),
         "settings": {
             "cargo_xml_enabled": settings.cargo_xml_enabled,
+            "connection_mode": getattr(settings, "connection_mode", "Direct"),
+            "ccs_provider": getattr(settings, "ccs_provider", None),
+            "ccs_participant_code": getattr(settings, "ccs_participant_code", None),
             "dg_autocheck_enabled": settings.dg_autocheck_enabled,
             "cass_enabled": settings.cass_enabled,
             "tact_subscription": settings.tact_subscription,
@@ -239,19 +242,38 @@ def get_iata_settings(company=None, master_awb=None, air_shipment=None):
 
 
 @frappe.whitelist()
-def test_iata_connection():
+def test_iata_connection(company=None):
     """Test IATA API connection"""
     try:
         from logistics.air_freight.iata_cargo_xml.base_connector import IATAConnector
-        
-        connector = IATAConnector()
+        from logistics.air_freight.utils.iata_settings_utils import get_settings
+
+        settings = get_settings(company=company)
+        connector = IATAConnector(company=settings.company if settings else company)
         mode = connector.get_sandbox_mode()
         auth_result = connector.authenticate(sandbox_mode=mode)
-        
+
+        ccs_info = {}
+        if connector.uses_ccs_hub() and settings:
+            from logistics.air_freight.iata_cargo_xml.ccs.factory import get_ccs_connector
+
+            ccs = get_ccs_connector(settings)
+            endpoint, route_mode = ccs.resolve_endpoint(test_mode=mode == "sandbox_endpoint")
+            ccs_info = {
+                "provider": settings.ccs_provider,
+                "connector": ccs.connector_label(),
+                "endpoint": endpoint,
+                "route_mode": route_mode,
+                "participant_code": settings.ccs_participant_code,
+            }
+
         return {
             "success": auth_result,
             "mode": mode,
-            "message": _connection_message(mode, auth_result),
+            "connection_mode": getattr(settings, "connection_mode", "Direct") if settings else "Direct",
+            "uses_ccs_hub": connector.uses_ccs_hub(),
+            "ccs": ccs_info,
+            "message": _connection_message(mode, auth_result, connector),
         }
         
     except Exception as e:
@@ -267,11 +289,15 @@ def _get_sandbox_mode(settings):
     return "production"
 
 
-def _connection_message(mode, auth_result):
+def _connection_message(mode, auth_result, connector=None):
     if not auth_result:
         return "Connection failed"
     if mode == "sandbox_mock":
         return "Sandbox mock mode — no external HTTP required"
+    if connector and connector.uses_ccs_hub():
+        if mode == "sandbox_endpoint":
+            return "CCS Hub sandbox mode — messages POST to CCS test endpoint with PIMA routing"
+        return "CCS Hub production mode — messages POST to CCS provider endpoint with PIMA routing"
     if mode == "sandbox_endpoint":
         return "Sandbox endpoint mode — messages POST to Test Endpoint URL"
     return "Production mode — messages POST to Cargo-XML Endpoint URL"
