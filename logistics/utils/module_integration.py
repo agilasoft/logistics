@@ -876,6 +876,11 @@ def create_transport_order_from_air_shipment(
 	order.profit_center = getattr(shipment, "profit_center", None)
 	order.project = getattr(shipment, "project", None)
 	copy_sales_quote_fields_to_target(shipment, order)
+	from logistics.utils.party_address_contact_from_masters import (
+		apply_party_address_contact_from_source_or_masters,
+	)
+
+	apply_party_address_contact_from_source_or_masters(order, shipment)
 	ij, mjt, mj = final_transport_order_job_context_from_freight_shipment(
 		shipment, "Air Shipment", air_shipment_name
 	)
@@ -975,6 +980,11 @@ def create_transport_order_from_sea_shipment(
 	order.profit_center = getattr(shipment, "profit_center", None)
 	order.project = getattr(shipment, "project", None)
 	copy_sales_quote_fields_to_target(shipment, order)
+	from logistics.utils.party_address_contact_from_masters import (
+		apply_party_address_contact_from_source_or_masters,
+	)
+
+	apply_party_address_contact_from_source_or_masters(order, shipment)
 	ij, mjt, mj = final_transport_order_job_context_from_freight_shipment(
 		shipment, "Sea Shipment", sea_shipment_name
 	)

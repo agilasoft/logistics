@@ -40,6 +40,7 @@ app_include_css = [
 ]
 app_include_js = [
 	"/assets/logistics/js/address_link_query.js?v=1",
+	"/assets/logistics/js/party_address_contact.js?v=1",
 	"/assets/logistics/js/linked_service_link_query.js?v=1",
 	"/assets/logistics/js/freight_agent_service.js?v=1",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",

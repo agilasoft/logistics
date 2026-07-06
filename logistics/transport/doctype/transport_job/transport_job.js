@@ -327,6 +327,45 @@ frappe.ui.form.on('Transport Job', {
 			}
 			return { filters: filters };
 		});
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.setup_queries(frm);
+		}
+	},
+
+	shipper(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_change(frm);
+		}
+	},
+
+	consignee(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_change(frm);
+		}
+	},
+
+	shipper_address(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_address_change(frm);
+		}
+	},
+
+	consignee_address(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_address_change(frm);
+		}
+	},
+
+	shipper_contact(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_contact_change(frm);
+		}
+	},
+
+	consignee_contact(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_contact_change(frm);
+		}
 	},
 
 	onload: function(frm) {
@@ -378,6 +417,9 @@ frappe.ui.form.on('Transport Job', {
 	},
 
 	refresh: function(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.populate_displays_if_missing(frm);
+		}
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
@@ -1481,7 +1523,23 @@ frappe.ui.form.on('Transport Job', {
 			return;
 		}
 		
-		frappe.db.get_value('Transport Order', frm.doc.transport_order, ['scheduled_date', 'shipper', 'consignee'], (r) => {
+		frappe.db.get_value(
+			'Transport Order',
+			frm.doc.transport_order,
+			[
+				'scheduled_date',
+				'shipper',
+				'consignee',
+				'shipper_address',
+				'shipper_address_display',
+				'shipper_contact',
+				'shipper_contact_display',
+				'consignee_address',
+				'consignee_address_display',
+				'consignee_contact',
+				'consignee_contact_display',
+			],
+			(r) => {
 			if (r) {
 				if (r.scheduled_date && !frm.doc.scheduled_date) {
 					frm.set_value('scheduled_date', r.scheduled_date);
@@ -1492,6 +1550,21 @@ frappe.ui.form.on('Transport Job', {
 				if (r.consignee && !frm.doc.consignee) {
 					frm.set_value('consignee', r.consignee);
 				}
+				const party_fields = [
+					'shipper_address',
+					'shipper_address_display',
+					'shipper_contact',
+					'shipper_contact_display',
+					'consignee_address',
+					'consignee_address_display',
+					'consignee_contact',
+					'consignee_contact_display',
+				];
+				party_fields.forEach((fieldname) => {
+					if (r[fieldname] && !frm.doc[fieldname]) {
+						frm.set_value(fieldname, r[fieldname]);
+					}
+				});
 			}
 		});
 	},
