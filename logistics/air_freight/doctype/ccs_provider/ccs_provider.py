@@ -12,6 +12,6 @@ from frappe.utils import validate_url
 class CCSProvider(Document):
 	def validate(self):
 		if self.default_endpoint:
-			validate_url(self.default_endpoint, throw=True, fieldname="default_endpoint")
+			validate_url(self.default_endpoint, throw=True)
 		if self.test_endpoint:
-			validate_url(self.test_endpoint, throw=True, fieldname="test_endpoint")
+			validate_url(self.test_endpoint, throw=True)

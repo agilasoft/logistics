@@ -30,18 +30,10 @@ class IATASettings(Document):
 			frappe.throw(_("Company is required"))
 
 		if self.test_mode and self.test_endpoint:
-			validate_url(
-				self.test_endpoint,
-				throw=True,
-				fieldname="test_endpoint",
-			)
+			validate_url(self.test_endpoint, throw=True)
 
 		if self.test_mode and self.ccs_test_endpoint:
-			validate_url(
-				self.ccs_test_endpoint,
-				throw=True,
-				fieldname="ccs_test_endpoint",
-			)
+			validate_url(self.ccs_test_endpoint, throw=True)
 
 		if not self.cargo_xml_enabled:
 			return
@@ -98,7 +90,7 @@ class IATASettings(Document):
 			frappe.throw(_("CCS Password or Cargo-XML Password is required for CCS Hub connectivity"))
 
 		if self.ccs_endpoint:
-			validate_url(self.ccs_endpoint, throw=True, fieldname="ccs_endpoint")
+			validate_url(self.ccs_endpoint, throw=True)
 
 		if self.dg_autocheck_enabled and not self.dg_autocheck_api_key:
 			frappe.throw(_("DG AutoCheck API Key is required when DG AutoCheck is enabled"))
