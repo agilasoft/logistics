@@ -942,7 +942,31 @@
 		});
 	}
 
-	function _ijDetailRowContainerNo(frm, detailIdx) {
+	function _ijDetailRowContainerNo(frm, detailIdx, dec) {
+		if (dec && dec.container_no != null && dec.container_no !== "") {
+			return $.trim(String(dec.container_no));
+		}
+		if (dec && dec.internal_job) {
+			var tableFields = ["linked_services", "internal_job_details", "internal_jobs"];
+			for (var ti = 0; ti < tableFields.length; ti++) {
+				var gridRows = (frm.doc && frm.doc[tableFields[ti]]) || [];
+				for (var gi = 0; gi < gridRows.length; gi++) {
+					var gridRow = gridRows[gi];
+					var ls =
+						gridRow.linked_service ||
+						gridRow.internal_job ||
+						gridRow.name;
+					if (
+						ls &&
+						String(ls) === String(dec.internal_job) &&
+						gridRow.container_no != null &&
+						gridRow.container_no !== ""
+					) {
+						return $.trim(String(gridRow.container_no));
+					}
+				}
+			}
+		}
 		var rows = frm.doc.internal_job_details || [];
 		if (!detailIdx || detailIdx < 1 || detailIdx > rows.length) {
 			return "";
@@ -958,19 +982,29 @@
 		function go(cn) {
 			_runInternalJobCreate(frm, dec, cn);
 		}
-		var cn = _ijDetailRowContainerNo(frm, dec.detail_idx);
+		var cn = _ijDetailRowContainerNo(frm, dec.detail_idx, dec);
 		if (cn) {
 			go(cn);
 			return;
 		}
-		frappe.confirm(
-			__(
-				"No container number on this Internal Job line. The Transport Order may include all packages or follow default rules. Continue?"
-			),
-			function () {
+		frappe.call({
+			method: "logistics.utils.module_integration.get_sea_shipment_containers_for_transport_order",
+			args: { sea_shipment_name: frm.doc.name },
+			callback: function (r) {
+				var info = (r && r.message) || {};
+				if (info.selection_required && (info.container_numbers || []).length) {
+					frappe.msgprint({
+						title: __("Container required"),
+						message: __(
+							"This shipment has multiple containers. Set Container No. on the linked Transport service before creating the Transport Order."
+						),
+						indicator: "orange",
+					});
+					return;
+				}
 				go(null);
-			}
-		);
+			},
+		});
 	}
 
 	function _maybeConfirmInboundThenCreate(frm, dec) {

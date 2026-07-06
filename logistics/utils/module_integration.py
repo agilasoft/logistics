@@ -987,6 +987,14 @@ def create_transport_order_from_sea_shipment(
 	effective_cn = (container_no or "").strip() or (
 		(getattr(ij_row, "container_no", None) or "").strip() if ij_row else ""
 	)
+	if not effective_cn and ij_row:
+		from logistics.utils.linked_service_compat import linked_service_doctype, row_linked_service_link
+
+		ls_name = row_linked_service_link(ij_row)
+		if ls_name and frappe.db.exists(linked_service_doctype(), ls_name):
+			effective_cn = (
+				frappe.db.get_value(linked_service_doctype(), ls_name, "container_no") or ""
+			).strip()
 	_resolve_sea_shipment_container_for_transport_order(
 		shipment, order, container_no=effective_cn or None
 	)

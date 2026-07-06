@@ -71,7 +71,7 @@ def _linked_charge_group_key(charge: Any) -> tuple:
 
 def _virtual_ij_row_from_linked_charge(charge: Any) -> Any:
 	from logistics.utils.linked_service_compat import charge_row_linked_service_link
-	from logistics.utils.sales_quote_charge_parameters import extract_service_scoped_quote_parameters
+	from logistics.utils.sales_quote_charge_parameters import resolve_parameters_for_charge_row
 
 	st = (getattr(charge, "service_type", None) or "").strip()
 	jt = default_job_type_for_internal_job_service_type(st)
@@ -84,9 +84,8 @@ def _virtual_ij_row_from_linked_charge(charge: Any) -> Any:
 			"linked_service": ls,
 		}
 	)
-	if st:
-		for k, v in extract_service_scoped_quote_parameters(charge, st).items():
-			row[k] = v
+	for k, v in resolve_parameters_for_charge_row(charge).items():
+		row[k] = v
 	return row
 
 
@@ -867,6 +866,9 @@ def get_internal_job_creation_choices(
 			from logistics.utils.linked_service_compat import row_linked_service_link
 
 			ij_link_for_row = row_linked_service_link(row)
+		row_container_no = (getattr(row, "container_no", None) or "").strip()
+		if isinstance(row, dict):
+			row_container_no = (row.get("container_no") or row_container_no or "").strip()
 		choice: dict[str, Any] = {
 			"mode": "detail",
 			"detail_idx": idx,
@@ -878,6 +880,8 @@ def get_internal_job_creation_choices(
 			"creatable": creatable,
 			**header,
 		}
+		if row_container_no:
+			choice["container_no"] = row_container_no
 		if not_creatable_message:
 			choice["not_creatable_message"] = not_creatable_message
 		choices.append(choice)
