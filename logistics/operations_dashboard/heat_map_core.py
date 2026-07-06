@@ -233,6 +233,36 @@ def transport_job_resolve_ports(row):
 	return "", ""
 
 
+def rollup_dashboard_alerts(rows, ports_for, traffic_mode, cc_by_unloco, link_doctype):
+	"""Aggregate dashboard alert counts/items for filtered document rows."""
+	alert_summary = {"danger": 0, "warning": 0, "info": 0}
+	alert_items = []
+	for r in rows:
+		op, dp = ports_for(r)
+		if not row_matches_traffic(traffic_mode, op, dp, cc_by_unloco):
+			continue
+		if not op and not dp:
+			continue
+		try:
+			alerts = get_dashboard_alerts(link_doctype, r.name)
+		except Exception:
+			alerts = []
+		for a in alerts:
+			lvl = a.get("level") or "info"
+			if lvl not in alert_summary:
+				lvl = "info"
+			alert_summary[lvl] += 1
+			if len(alert_items) < MAX_ALERT_ITEMS:
+				alert_items.append(
+					{
+						"level": lvl,
+						"msg": a.get("msg") or "",
+						"shipment": r.name,
+					}
+				)
+	return alert_summary, alert_items
+
+
 def run_heat_map_dashboard(
 	source_doctype,
 	link_doctype,
@@ -248,6 +278,7 @@ def run_heat_map_dashboard(
 	resolve_ports=None,
 	job_status_filter=None,
 	filter_user=None,
+	alert_filter_user=None,
 	traffic=None,
 	carriers_param=None,
 	limit=None,
@@ -410,31 +441,24 @@ def run_heat_map_dashboard(
 			source_doctype, option_filters, carrier_field, carrier_doctype, _carrier_label
 		)
 
-	alert_summary = {"danger": 0, "warning": 0, "info": 0}
-	alert_items = []
-	for r in rows:
-		op, dp = ports_for(r)
-		if not row_matches_traffic(traffic_mode, op, dp, cc_by_unloco):
-			continue
-		if not op and not dp:
-			continue
-		try:
-			alerts = get_dashboard_alerts(link_doctype, r.name)
-		except Exception:
-			alerts = []
-		for a in alerts:
-			lvl = a.get("level") or "info"
-			if lvl not in alert_summary:
-				lvl = "info"
-			alert_summary[lvl] += 1
-			if len(alert_items) < MAX_ALERT_ITEMS:
-				alert_items.append(
-					{
-						"level": lvl,
-						"msg": a.get("msg") or "",
-						"shipment": r.name,
-					}
-				)
+	alert_fu = alert_filter_user if alert_filter_user is not None else filter_user
+	if (alert_fu or "").strip() == (filter_user or "").strip():
+		alert_rows = rows
+	else:
+		alert_filters = base_doc_filters(
+			job_status_filter, alert_fu, comp, job_status_field, valid_job_statuses
+		)
+		if extra_filters:
+			alert_filters.update(extra_filters)
+		if carrier_field and safe_carriers:
+			alert_filters[carrier_field] = ["in", safe_carriers]
+		alert_list_kwargs = dict(list_kwargs)
+		alert_list_kwargs["filters"] = alert_filters
+		alert_rows = frappe.get_list(source_doctype, **alert_list_kwargs)
+
+	alert_summary, alert_items = rollup_dashboard_alerts(
+		alert_rows, ports_for, traffic_mode, cc_by_unloco, link_doctype
+	)
 
 	max_applied = list_kwargs.get("limit_page_length")
 	if max_applied == 0:
@@ -452,6 +476,7 @@ def run_heat_map_dashboard(
 			"traffic": traffic_mode,
 			"company": comp or None,
 			"job_status_filter": ((job_status_filter or "").strip() or "ongoing"),
+			"alert_filter_user": (alert_fu or "").strip() or None,
 		},
 	}
 	out.update(session_company_context())
