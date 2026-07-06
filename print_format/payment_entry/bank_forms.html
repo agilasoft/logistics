@@ -1,0 +1,202 @@
+<!-- BDO Foreign/Domestic Telegraphic Transfer - Payment Entry overlay -->
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+
+		@page {
+			size: 210mm 271.5mm;
+			margin: 0;
+		}
+
+		html, body {
+			width: 210mm;
+			height: 271.5mm;
+			margin: 0;
+			padding: 0;
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 6.5pt;
+			line-height: 1;
+			color: #000;
+			background: #fff;
+			-webkit-print-color-adjust: exact;
+			print-color-adjust: exact;
+			overflow: hidden;
+		}
+
+		/* Coordinate space matches source form 791 × 1024 px */
+		.form-page {
+			position: relative;
+			width: 210mm;
+			height: 271.5mm;
+			background: url("/assets/logistics/images/bdo_telegraphic_transfer.png") no-repeat top left;
+			background-size: 100% 100%;
+			overflow: hidden;
+			page-break-after: avoid;
+			page-break-inside: avoid;
+		}
+
+		.f {
+			position: absolute;
+			z-index: 1;
+			overflow: hidden;
+			white-space: nowrap;
+			text-overflow: ellipsis;
+			line-height: 1.15;
+			padding-top: 0.3mm;
+		}
+
+		.f-wrap {
+			white-space: normal;
+			word-break: break-word;
+			display: -webkit-box;
+			-webkit-box-orient: vertical;
+			-webkit-line-clamp: 2;
+			line-clamp: 2;
+		}
+
+		.f-bold { font-weight: bold; }
+
+		.ck {
+			position: absolute;
+			z-index: 1;
+			font-size: 6pt;
+			font-weight: bold;
+			line-height: 1;
+			text-align: center;
+		}
+
+		@media print {
+			html, body, .form-page {
+				-webkit-print-color-adjust: exact;
+				print-color-adjust: exact;
+			}
+		}
+	</style>
+</head>
+<body>
+{% if doc.doctype != 'Payment Entry' %}
+<div style="padding: 20px; color: red;">Wrong print format. Use on Payment Entry only.</div>
+{% else %}
+{% set company_name = doc.company or frappe.db.get_single_value("Global Defaults", "default_company") or '' %}
+{% set company_doc = frappe.get_doc("Company", company_name) if company_name and frappe.db.exists("Company", company_name) else None %}
+
+{% set currency = doc.paid_from_account_currency or doc.paid_to_account_currency or doc.company_currency or 'PHP' %}
+{% set payment_amount = doc.paid_amount or doc.received_amount or 0 %}
+
+{% set company_address_text = '' %}
+{% if company_name %}
+{% set company_addrs = frappe.get_all("Address", filters=[["Dynamic Link", "link_doctype", "=", "Company"], ["Dynamic Link", "link_name", "=", company_name]], fields=["name"], limit=1) %}
+{% if company_addrs %}
+{% set addr = frappe.get_doc("Address", company_addrs[0].name) %}
+{% set parts = [] %}
+{% if addr.address_line1 %}{% set _ = parts.append(addr.address_line1) %}{% endif %}
+{% if addr.address_line2 %}{% set _ = parts.append(addr.address_line2) %}{% endif %}
+{% set cl = (addr.city or '') ~ (', ' ~ addr.state if addr.state else '') ~ (', ' ~ addr.country if addr.country else '') %}
+{% if cl.strip() %}{% set _ = parts.append(cl.strip()) %}{% endif %}
+{% set company_address_text = parts|join(', ') %}
+{% endif %}
+{% endif %}
+
+{% set party_address_text = '' %}
+{% set party_country = '' %}
+{% if doc.party and doc.party_type in ['Customer', 'Supplier'] and frappe.db.exists(doc.party_type, doc.party) %}
+{% set party_doc = frappe.get_doc(doc.party_type, doc.party) %}
+{% set pan = party_doc.customer_primary_address or party_doc.supplier_primary_address or '' %}
+{% if pan and frappe.db.exists("Address", pan) %}
+{% set pa = frappe.get_doc("Address", pan) %}
+{% set pp = [] %}
+{% if pa.address_line1 %}{% set _ = pp.append(pa.address_line1) %}{% endif %}
+{% if pa.address_line2 %}{% set _ = pp.append(pa.address_line2) %}{% endif %}
+{% set pl = (pa.city or '') ~ (', ' ~ pa.state if pa.state else '') ~ (', ' ~ pa.country if pa.country else '') %}
+{% if pl.strip() %}{% set _ = pp.append(pl.strip()) %}{% endif %}
+{% set party_address_text = pp|join(', ') %}
+{% set party_country = pa.country or '' %}
+{% endif %}
+{% endif %}
+
+{% set remitter_bank = frappe.get_doc("Bank Account", doc.bank_account) if doc.bank_account and frappe.db.exists("Bank Account", doc.bank_account) else None %}
+{% set beneficiary_bank = frappe.get_doc("Bank Account", doc.party_bank_account) if doc.party_bank_account and frappe.db.exists("Bank Account", doc.party_bank_account) else None %}
+
+{% set purpose = (doc.remarks or '')|striptags %}
+{% if not purpose and doc.references %}
+{% set ref_names = [] %}
+{% for ref in doc.references %}{% if ref.reference_name %}{% set _ = ref_names.append(ref.reference_name) %}{% endif %}{% endfor %}
+{% if ref_names %}{% set purpose = 'Payment for ' ~ ref_names|join(', ') %}{% endif %}
+{% endif %}
+{% if purpose|length > 90 %}{% set purpose = purpose[:87] ~ '...' %}{% endif %}
+
+{% set remitter_account_no = doc.bank_account_no or (remitter_bank.bank_account_no if remitter_bank else '') or '' %}
+{% set applicant_name = (company_doc.company_name if company_doc else company_name) or '' %}
+{% set beneficiary_name = doc.party_name or doc.party or '' %}
+{% set beneficiary_account_no = (beneficiary_bank.bank_account_no if beneficiary_bank else '') or '' %}
+{% set beneficiary_bank_name = (beneficiary_bank.bank if beneficiary_bank else doc.bank or '') or '' %}
+{% set swift_code = (beneficiary_bank.branch_code or beneficiary_bank.iban if beneficiary_bank else '') or '' %}
+{% set ordering_bank = (remitter_bank.bank if remitter_bank else '') or '' %}
+{% set company_phone = frappe.db.get_value("Company", company_name, "phone_no") if company_name else '' %}
+{% set company_fax = frappe.db.get_value("Company", company_name, "fax") if company_name else '' %}
+{% set company_tax_id = '' %}
+{% if company_name %}{% set company_tax_id = frappe.db.get_value("Company", company_name, "tax_id") or frappe.db.get_value("Company", company_name, "tin") or '' %}{% endif %}
+{% set mode_lower = (doc.mode_of_payment or '')|lower %}
+{% set is_cash = 'cash' in mode_lower %}
+{% set is_check = 'cheque' in mode_lower or 'check' in mode_lower or doc.cheque_no %}
+{% set is_debit = 'bank' in mode_lower or 'transfer' in mode_lower or 'debit' in mode_lower %}
+{% set is_domestic = currency == 'PHP' %}
+{% set is_foreign = currency != 'PHP' %}
+{% set amount_figures = frappe.utils.fmt_money(payment_amount, precision=2) ~ ' ' ~ currency %}
+
+<div class="form-page">
+
+	{# top: (y-10)/1024*100, left: x/791*100, width: w/791*100 #}
+
+	<!-- Date / Branch -->
+	{% if doc.posting_date %}<div class="f" style="top:5.3%;left:79.2%;width:18%;height:1.8%;">{{ frappe.utils.formatdate(doc.posting_date, 'yyyy/MM/dd') }}</div>{% endif %}
+	{% if doc.branch %}<div class="f" style="top:9.0%;left:79.2%;width:18%;height:1.8%;">{{ doc.branch }}</div>{% endif %}
+
+	<!-- Transfer type -->
+	{% if is_domestic %}<div class="ck" style="top:10.1%;left:5.8%;width:2%;">X</div>{% endif %}
+	{% if is_domestic and currency == 'USD' %}<div class="ck" style="top:11.2%;left:10.5%;width:2%;">X</div>{% endif %}
+	{% if is_domestic and currency == 'PHP' %}<div class="ck" style="top:11.2%;left:27.5%;width:2%;">X</div>{% endif %}
+	{% if is_foreign %}<div class="ck" style="top:12.6%;left:5.8%;width:2%;">X</div>{% endif %}
+
+	<!-- LEFT COLUMN -->
+	{% if beneficiary_bank_name %}<div class="f f-bold" style="top:11.0%;left:7.3%;width:45%;height:1.8%;">{{ beneficiary_bank_name }}</div>{% endif %}
+	<div class="f" style="top:13.4%;left:7.3%;width:45%;height:1.8%;">{{ doc.reference_no or doc.name or '' }}</div>
+	{% if remitter_account_no %}<div class="f f-bold" style="top:15.7%;left:7.3%;width:45%;height:1.8%;">{{ remitter_account_no }}</div>{% endif %}
+	<div class="f" style="top:20.4%;left:7.3%;width:45%;height:1.8%;">{% if doc.reference_date %}{{ frappe.utils.formatdate(doc.reference_date, 'yy/MM/dd') }}{% elif doc.posting_date %}{{ frappe.utils.formatdate(doc.posting_date, 'yy/MM/dd') }}{% endif %}</div>
+	<div class="f f-bold" style="top:22.8%;left:7.3%;width:45%;height:1.8%;">{{ amount_figures }}</div>
+	{% if applicant_name %}<div class="f f-bold" style="top:27.3%;left:7.3%;width:45%;height:1.8%;">{{ applicant_name }}</div>{% endif %}
+	{% if company_address_text %}<div class="f f-wrap" style="top:32.0%;left:7.3%;width:45%;height:2.4%;">{{ company_address_text }}</div>{% endif %}
+	{% if company_address_text %}<div class="f f-wrap" style="top:36.7%;left:7.3%;width:45%;height:2.4%;">{{ company_address_text }}</div>{% endif %}
+	{% if company_phone %}<div class="f" style="top:41.3%;left:7.3%;width:18%;height:1.8%;">{{ company_phone }}</div>{% endif %}
+	{% if company_fax %}<div class="f" style="top:41.3%;left:28.5%;width:23%;height:1.8%;">{{ company_fax }}</div>{% endif %}
+	{% if company_tax_id %}<div class="f" style="top:43.7%;left:7.3%;width:18%;height:1.8%;">{{ company_tax_id }}</div>{% endif %}
+	{% if ordering_bank %}<div class="f" style="top:48.3%;left:7.3%;width:45%;height:1.8%;">{{ ordering_bank }}</div>{% endif %}
+	{% if swift_code %}<div class="f" style="top:57.6%;left:7.3%;width:45%;height:1.8%;">{{ swift_code }}</div>{% endif %}
+	{% if beneficiary_bank_name %}<div class="f f-bold" style="top:59.9%;left:10%;width:42%;height:1.8%;">{{ beneficiary_bank_name }}</div>{% endif %}
+	{% if party_country %}<div class="f" style="top:62.3%;left:10%;width:42%;height:1.8%;">{{ party_country }}</div>{% endif %}
+	{% if beneficiary_account_no %}<div class="f f-bold" style="top:69.2%;left:7.3%;width:45%;height:1.8%;">{{ beneficiary_account_no }}</div>{% endif %}
+	{% if beneficiary_name %}<div class="f f-bold" style="top:71.6%;left:7.3%;width:45%;height:1.8%;">{{ beneficiary_name }}</div>{% endif %}
+	{% if party_address_text %}<div class="f f-wrap" style="top:76.3%;left:7.3%;width:45%;height:2.4%;">{{ party_address_text }}</div>{% endif %}
+	{% if purpose %}<div class="f f-wrap" style="top:83.2%;left:7.3%;width:45%;height:2.8%;">{{ purpose }}</div>{% endif %}
+	<div class="f" style="top:85.5%;left:7.3%;width:45%;height:1.8%;">SHA</div>
+	{% if doc.cheque_no %}<div class="f" style="top:88.0%;left:7.3%;width:45%;height:1.8%;">Cheque No: {{ doc.cheque_no }}</div>{% endif %}
+
+	<!-- RIGHT COLUMN -->
+	<div class="f" style="top:11.0%;left:52.5%;width:43%;height:1.8%;">Trade / Business</div>
+	<div class="f" style="top:20.4%;left:75%;width:20%;height:1.8%;">Philippines</div>
+	{% if applicant_name %}<div class="f" style="top:27.2%;left:52.5%;width:43%;height:1.8%;">{{ applicant_name }}</div>{% endif %}
+	{% if purpose %}<div class="f f-wrap" style="top:34.5%;left:52.5%;width:43%;height:2.4%;">{{ purpose }}</div>{% endif %}
+
+	<!-- Mode of Payment -->
+	{% if is_cash %}<div class="ck" style="top:36.8%;left:53%;width:2%;">X</div>{% endif %}
+	{% if is_check %}<div class="ck" style="top:38.0%;left:53%;width:2%;">X</div>{% endif %}
+	{% if is_debit %}<div class="ck" style="top:39.2%;left:53%;width:2%;">X</div>{% endif %}
+	{% if is_debit and remitter_account_no %}<div class="f" style="top:39.2%;left:69%;width:26%;height:1.8%;">{{ remitter_account_no }}</div>{% endif %}
+
+</div>
+{% endif %}
+</body>
+</html>
