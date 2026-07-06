@@ -136,3 +136,43 @@ class TestSpecialProjectVirtualServices(IntegrationTestCase):
 			self.assertNotIn("AttributeError", html)
 		finally:
 			self._cleanup_special_project(sp.name)
+
+	def test_save_heals_charge_service_line_temp_grid_names(self):
+		"""Desk save must not fail when charges reference unsaved virtual service row names."""
+		sp = self._minimal_special_project("SP Virtual Services Charge Link")
+		try:
+			stage = frappe.db.get_value("Lifecycle Stage", {}, "name")
+			if not stage:
+				self.skipTest("no lifecycle stage")
+			doc = frappe.get_doc("Special Project", sp.name)
+			temp_name = "new-special-project-service-detail-testrow"
+			doc.append(
+				"special_project_services",
+				{
+					"name": temp_name,
+					"service_type": "Air",
+					"lifecycle_stage": stage,
+				},
+			)
+			doc.append(
+				"charges",
+				{
+					"service_type": "Air",
+					"description": "Air freight",
+					"estimated_cost": 100,
+					"special_project_service_line": temp_name,
+				},
+			)
+			doc.flags._special_project_services_from_form = True
+			doc.flags.ignore_mandatory = True
+			doc.save(ignore_permissions=True)
+
+			reloaded = frappe.get_doc("Special Project", sp.name)
+			self.assertEqual(len(reloaded.special_project_services), 1)
+			service_name = reloaded.special_project_services[0].get("special_project_service")
+			self.assertTrue(service_name)
+			self.assertFalse(service_name.startswith("new-"))
+			self.assertEqual(len(reloaded.charges), 1)
+			self.assertEqual(reloaded.charges[0].special_project_service_line, service_name)
+		finally:
+			self._cleanup_special_project(sp.name)

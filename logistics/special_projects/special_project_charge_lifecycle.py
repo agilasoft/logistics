@@ -24,7 +24,7 @@ from logistics.special_projects.special_project_service_rows import (
 	set_service_row_field,
 )
 from logistics.special_projects.special_project_service_compat import (
-	row_special_project_service_link,
+	persisted_special_project_service_name,
 )
 from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
 from logistics.utils.internal_job_main_rollup import (
@@ -39,7 +39,7 @@ def _norm(value: Any) -> str:
 
 
 def _lifecycle_row_name(row: Any) -> str:
-	return _norm(row_special_project_service_link(row) or service_row_field(row, "name"))
+	return persisted_special_project_service_name(row)
 
 
 def _service_rows_by_name(doc: Any) -> dict[str, Any]:
