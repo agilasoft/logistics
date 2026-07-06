@@ -328,7 +328,7 @@ doctype_js = {
 # Installation
 # ------------
 
-# before_install = "logistics.install.before_install"
+before_install = "logistics.integrations.outlook.install.before_install"
 # after_install = "logistics.install.after_install"
 
 # Desk Notifications

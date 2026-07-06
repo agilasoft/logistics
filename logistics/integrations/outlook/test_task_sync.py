@@ -17,7 +17,7 @@ from logistics.integrations.outlook.task_sync import (
 	sync_task_for_user,
 	delete_task_for_user,
 )
-from logistics.patches.v3_0_outlook_calendar_setup import _create_connected_app
+from logistics.integrations.outlook.install import create_connected_app
 
 
 class TestOutlookTaskSync(IntegrationTestCase):
@@ -27,10 +27,10 @@ class TestOutlookTaskSync(IntegrationTestCase):
 		self.user = frappe.session.user
 
 	def _ensure_outlook_settings(self, enabled=True):
-		_create_connected_app()
+		create_connected_app()
 		settings = frappe.get_single("Outlook Calendar Settings")
 		settings.enable_sync = 1 if enabled else 0
-		settings.connected_app = _create_connected_app()
+		settings.connected_app = create_connected_app()
 		settings.azure_tenant_id = settings.azure_tenant_id or "common"
 		settings.mark_completed_tasks_as_free = 1
 		settings.delete_outlook_event_on_task_delete = 1
