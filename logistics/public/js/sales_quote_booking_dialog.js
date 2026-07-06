@@ -532,6 +532,24 @@
 		);
 	}
 
+	window.logistics_sales_quote_supports_booking_order_creation =
+		window.logistics_sales_quote_supports_booking_order_creation ||
+		function (doc) {
+			if (!doc || doc.additional_charge) {
+				return false;
+			}
+			const qt = doc.quotation_type;
+			if (qt === "Regular") {
+				return true;
+			}
+			if (qt === "Project") {
+				return ["Air", "Sea", "Transport", "Customs", "Custom", "Warehousing"].includes(
+					doc.main_service
+				);
+			}
+			return false;
+		};
+
 	window.logistics_show_sales_quote_booking_dialog = function (frm) {
 		if (!frm || !frm.doc || !frm.doc.name || frm.doc.__islocal) {
 			frappe.msgprint({
@@ -549,10 +567,12 @@
 			});
 			return;
 		}
-		if (frm.doc.quotation_type !== "Regular") {
+		if (!logistics_sales_quote_supports_booking_order_creation(frm.doc)) {
 			frappe.msgprint({
 				title: __("Not available"),
-				message: __("Create Booking/Order is only available for Regular Sales Quotes."),
+				message: __(
+					"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, or Warehousing."
+				),
 				indicator: "orange",
 			});
 			return;

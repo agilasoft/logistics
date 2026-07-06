@@ -467,6 +467,22 @@ function logistics_setup_linked_services_grid(frm) {
 	logistics_enable_linked_services_grid_add_row(frm);
 }
 
+function logistics_sales_quote_supports_booking_order_creation(doc) {
+	if (!doc || doc.additional_charge) {
+		return false;
+	}
+	const qt = doc.quotation_type;
+	if (qt === "Regular") {
+		return true;
+	}
+	if (qt === "Project") {
+		return ["Air", "Sea", "Transport", "Customs", "Custom", "Warehousing"].includes(
+			doc.main_service
+		);
+	}
+	return false;
+}
+
 function logistics_open_sales_quote_booking_dialog(frm) {
 	function _openDlg() {
 		if (window.logistics_show_sales_quote_booking_dialog) {
@@ -1113,10 +1129,10 @@ frappe.ui.form.on("Sales Quote", {
 		frm.events.setup_internal_job_query(frm);
 		logistics_setup_linked_services_grid(frm);
 
-		// Regular Sales Quote: Create Booking/Order from Main Service scope (reusable — no job back-link)
+		// Regular / Project Sales Quote: Create Booking/Order from Main Service scope (reusable — no job back-link)
 		if (
 			frm.doc.docstatus === 1 &&
-			frm.doc.quotation_type === "Regular" &&
+			logistics_sales_quote_supports_booking_order_creation(frm.doc) &&
 			!frm.doc.__islocal &&
 			!frm.doc.additional_charge
 		) {

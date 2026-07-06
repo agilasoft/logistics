@@ -1,10 +1,10 @@
 # Copyright (c) 2026, Agilasoft and contributors
 # For license information, please see license.txt
 
-"""Create Air/Sea Booking, Transport/Declaration/Inbound Order from Regular Sales Quote Main Service.
+"""Create Air/Sea Booking, Transport/Declaration/Inbound Order from Sales Quote Main Service.
 
-Regular quotes stay reusable: created bookings link to the quote but Services rows and quote-owned
-Linked Service documents are **not** updated with ``job_type`` / ``job_no``.
+Regular and Project quotes stay reusable: created bookings link to the quote but Services rows and
+quote-owned Linked Service documents are **not** updated with ``job_type`` / ``job_no``.
 """
 
 from __future__ import annotations
@@ -69,6 +69,19 @@ _MAIN_SERVICE_JOB_TYPE: dict[str, str] = {
 	"Custom": "Declaration Order",
 	"Warehousing": "Inbound Order",
 }
+
+_SALES_QUOTE_BOOKING_QUOTATION_TYPES: frozenset[str] = frozenset({"Regular", "Project"})
+
+
+def quotation_type_supports_booking_creation(sq_doc: Any) -> bool:
+	"""Regular quotes always; Project quotes when Main Service maps to a booking/order type."""
+	qt = _norm(getattr(sq_doc, "quotation_type", None))
+	if qt not in _SALES_QUOTE_BOOKING_QUOTATION_TYPES:
+		return False
+	if qt == "Project":
+		ms = _norm(getattr(sq_doc, "main_service", None))
+		return ms in _MAIN_SERVICE_JOB_TYPE
+	return True
 
 
 def _norm(value: Any) -> str:
@@ -261,7 +274,7 @@ def _main_service_choice(sq_doc: Any) -> dict[str, Any] | None:
 		"header_title": title,
 		"header_badge": _("Main Service"),
 		"header_subtitle": _(
-			"Creates {0} from Main Service scope. Regular quotes stay reusable — Services lines are not updated with Job No."
+			"Creates {0} from Main Service scope. Regular and Project quotes stay reusable — Services lines are not updated with Job No."
 		).format(_(jt)),
 		**{k: flags.get(k) for k in ("not_creatable_message",)},
 	}
@@ -359,7 +372,7 @@ def _choice_header(job_type: str, row: Any | None, idx: int | None) -> dict[str,
 		subtitle = _("Could not resolve target document type for this service.")
 	else:
 		subtitle = _(
-			"Creates {0}. Regular quotes stay reusable — this service line is not updated with Job No."
+			"Creates {0}. Regular and Project quotes stay reusable — this service line is not updated with Job No."
 		).format(_(jt_label))
 	return {"header_title": title, "header_badge": badge, "header_subtitle": subtitle}
 
@@ -368,13 +381,17 @@ def _choice_header(job_type: str, row: Any | None, idx: int | None) -> dict[str,
 def get_sales_quote_booking_choices(
 	sales_quote: str, linked_services: Any = None, quote_context: Any = None
 ):
-	"""Return Create > Booking/Order option from Main Service on a Regular Sales Quote."""
+	"""Return Create > Booking/Order option from Main Service on a Regular or Project Sales Quote."""
 	if not sales_quote or not frappe.db.exists("Sales Quote", sales_quote):
 		frappe.throw(_("Invalid Sales Quote."))
 	sq_doc = _load_sales_quote_for_booking(sales_quote, quote_context)
 	sq_doc.check_permission("read")
-	if _norm(sq_doc.quotation_type) != "Regular":
-		frappe.throw(_("Create Booking/Order is only available for Regular Sales Quotes."))
+	if not quotation_type_supports_booking_creation(sq_doc):
+		frappe.throw(
+			_(
+				"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, or Warehousing."
+			)
+		)
 	if cint(sq_doc.docstatus) != 1:
 		frappe.throw(_("Submit the Sales Quote before creating bookings or orders."))
 
@@ -738,7 +755,7 @@ def create_booking_or_order_from_sales_quote(
 	use_main_service: int | None = None,
 	quote_context: Any = None,
 ):
-	"""Create a booking/order from a Regular Sales Quote Main Service scope."""
+	"""Create a booking/order from a Regular or Project Sales Quote Main Service scope."""
 	if not sales_quote or not frappe.db.exists("Sales Quote", sales_quote):
 		frappe.throw(_("Invalid Sales Quote."))
 	jt = _norm(job_type)
@@ -746,8 +763,12 @@ def create_booking_or_order_from_sales_quote(
 		frappe.throw(_("Invalid job type."))
 	sq_doc = _load_sales_quote_for_booking(sales_quote, quote_context)
 	sq_doc.check_permission("write")
-	if _norm(sq_doc.quotation_type) != "Regular":
-		frappe.throw(_("Create Booking/Order is only available for Regular Sales Quotes."))
+	if not quotation_type_supports_booking_creation(sq_doc):
+		frappe.throw(
+			_(
+				"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, or Warehousing."
+			)
+		)
 	idx = coerce_internal_job_detail_idx(detail_idx)
 	parsed_params = (
 		_parse_creation_parameters(creation_parameters)

@@ -11,6 +11,7 @@ from logistics.pricing_center.sales_quote_booking_creation import (
 	_preview_main_service_creatability,
 	_use_main_service_mode,
 	get_sales_quote_booking_choices,
+	quotation_type_supports_booking_creation,
 )
 
 
@@ -124,6 +125,61 @@ class TestSalesQuoteBookingMainService(UnitTestCase):
 		self.assertIsNotNone(choice)
 		self.assertFalse(choice["creatable"])
 		self.assertIn("charge", (choice.get("not_creatable_message") or "").lower())
+
+	def test_transport_project_quote_booking_choices(self):
+		sq = frappe.get_doc(
+			{
+				"doctype": "Sales Quote",
+				"name": "PQ-TEST-TRANSPORT",
+				"quotation_type": "Project",
+				"docstatus": 1,
+				"main_service": "Transport",
+				"location_from": "PHMNL",
+				"location_to": "PHBAG",
+				"company": "_Test Company",
+				"customer": "_Test Customer",
+			}
+		)
+		sq.append(
+			"charges",
+			{
+				"service_type": "Transport",
+				"location_from": "PHMNL",
+				"location_to": "PHBAG",
+			},
+		)
+		sq.check_permission = lambda *a, **k: None
+		self.assertTrue(quotation_type_supports_booking_creation(sq))
+
+		with patch(
+			"logistics.pricing_center.sales_quote_booking_creation.frappe.db.exists",
+			return_value=True,
+		), patch(
+			"logistics.pricing_center.sales_quote_booking_creation.frappe.get_doc",
+			return_value=sq,
+		), patch(
+			"logistics.pricing_center.sales_quote_booking_creation.charges_exist_for_service",
+			return_value=True,
+		), patch(
+			"logistics.pricing_center.sales_quote_booking_creation.internal_job_matches_charges",
+			return_value=True,
+		):
+			result = get_sales_quote_booking_choices("PQ-TEST-TRANSPORT")
+
+		self.assertEqual(len(result["choices"]), 1)
+		choice = result["choices"][0]
+		self.assertEqual(choice["job_type"], "Transport Order")
+		self.assertTrue(choice["creatable"])
+
+	def test_project_special_project_main_service_not_supported(self):
+		sq = frappe._dict(
+			{
+				"quotation_type": "Project",
+				"main_service": "Special Project",
+				"additional_charge": 0,
+			}
+		)
+		self.assertFalse(quotation_type_supports_booking_creation(sq))
 
 	def test_main_service_virtual_row_scope_parameters_extractable(self):
 		from logistics.pricing_center.sales_quote_booking_creation import _main_service_virtual_row
