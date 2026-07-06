@@ -15,6 +15,7 @@ HTML_FILE_SYNC = {
 	"Journal Entry HTML": "print_format/journal_entry/journal_entry.html",
 	"Payment Entry HTML": "print_format/payment_entry/payment_entry.html",
 	"Bank Forms": "print_format/payment_entry/bank_forms.html",
+	"Bank Cheque": "print_format/payment_entry/bank_cheque.html",
 	"MAWB": "logistics/air_freight/print_format/mawb/mawb.html",
 	"MAWB Forwarder Copy": "logistics/air_freight/doctype/master_air_waybill/mawb.html",
 	"HAWB": "logistics/air_freight/print_format/hawb/hawb.html",

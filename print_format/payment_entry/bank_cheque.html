@@ -1,0 +1,109 @@
+<!-- BDO Bank Cheque - Payment Entry overlay -->
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+
+		@page {
+			size: 210mm 297mm;
+			margin: 0;
+		}
+
+		html, body {
+			width: 210mm;
+			height: 297mm;
+			margin: 0;
+			padding: 0;
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 8pt;
+			line-height: 1;
+			color: #000;
+			background: #fff;
+			-webkit-print-color-adjust: exact;
+			print-color-adjust: exact;
+			overflow: hidden;
+		}
+
+		/* Coordinate space matches source form 595 × 842 pt (A4) */
+		.form-page {
+			position: relative;
+			width: 210mm;
+			height: 297mm;
+			background: url("/assets/logistics/images/bdo_cheque.png") no-repeat top left;
+			background-size: 100% 100%;
+			overflow: hidden;
+			page-break-after: avoid;
+			page-break-inside: avoid;
+		}
+
+		.f {
+			position: absolute;
+			z-index: 1;
+			overflow: hidden;
+			white-space: nowrap;
+			text-overflow: ellipsis;
+			line-height: 1.15;
+			padding-top: 0.3mm;
+		}
+
+		.f-wrap {
+			white-space: normal;
+			word-break: break-word;
+			display: -webkit-box;
+			-webkit-box-orient: vertical;
+			-webkit-line-clamp: 2;
+			line-clamp: 2;
+		}
+
+		.f-bold { font-weight: bold; }
+
+		.f-right { text-align: right; }
+
+		@media print {
+			html, body, .form-page {
+				-webkit-print-color-adjust: exact;
+				print-color-adjust: exact;
+			}
+		}
+	</style>
+</head>
+<body>
+{% if doc.doctype != 'Payment Entry' %}
+<div style="padding: 20px; color: red;">Wrong print format. Use on Payment Entry only.</div>
+{% else %}
+{% set currency = doc.paid_from_account_currency or doc.paid_to_account_currency or doc.company_currency or 'PHP' %}
+{% set payment_amount = doc.paid_amount if doc.payment_type == 'Pay' else (doc.received_amount or doc.paid_amount or 0) %}
+{% set payee_name = doc.party_name or doc.party or '' %}
+{% set cheque_date = doc.cheque_date or doc.posting_date %}
+{% set amount_words = frappe.utils.money_in_words(payment_amount, currency) %}
+{% set amount_figures = frappe.utils.fmt_money(payment_amount, precision=2) %}
+{% if cheque_date %}
+{% set date_spaced = frappe.utils.formatdate(cheque_date, 'MM dd yyyy') %}
+{% endif %}
+
+<div class="form-page">
+
+	{# top: y/842*100, left: x/595*100, width: w/595*100 #}
+
+	{% if cheque_date %}
+	<div class="f f-bold" style="top:10.5%;left:76.5%;width:18.5%;height:2.4%;letter-spacing:0.35mm;">{{ date_spaced }}</div>
+	{% endif %}
+
+	{% if payee_name %}
+	<div class="f f-bold f-wrap" style="top:16.4%;left:21.8%;width:58%;height:2.4%;">{{ payee_name }}</div>
+	{% endif %}
+
+	{% if amount_words %}
+	<div class="f f-wrap" style="top:20.0%;left:16.0%;width:63.0%;height:2.4%;">{{ amount_words }}</div>
+	{% endif %}
+
+	{% if payment_amount %}
+	<div class="f f-bold f-right" style="top:19.4%;left:81.5%;width:13.4%;height:3.0%;padding-right:0.5mm;">{{ amount_figures }}</div>
+	{% endif %}
+
+</div>
+{% endif %}
+</body>
+</html>
