@@ -8,48 +8,18 @@ from __future__ import unicode_literals
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
+from logistics.integrations.outlook.install import create_connected_app
 from logistics.integrations.outlook.utils import OUTLOOK_PROVIDER_NAME
 
 CONNECTED_APP_NAME = OUTLOOK_PROVIDER_NAME
-OUTLOOK_SCOPES = [
-	"openid",
-	"profile",
-	"offline_access",
-	"User.Read",
-	"Calendars.ReadWrite",
-]
 
 
 def execute():
-	connected_app_name = _create_connected_app()
+	connected_app_name = create_connected_app()
 	_create_user_custom_fields()
 	_create_default_settings(connected_app_name)
 	frappe.clear_cache(doctype="User")
 	frappe.db.commit()
-
-
-def _create_connected_app() -> str:
-	existing_name = frappe.db.get_value(
-		"Connected App", {"provider_name": CONNECTED_APP_NAME}, "name"
-	)
-	if existing_name:
-		if existing_name != CONNECTED_APP_NAME:
-			frappe.rename_doc("Connected App", existing_name, CONNECTED_APP_NAME, force=True)
-		return CONNECTED_APP_NAME
-
-	if frappe.db.exists("Connected App", CONNECTED_APP_NAME):
-		return CONNECTED_APP_NAME
-
-	doc = frappe.new_doc("Connected App")
-	doc.name = CONNECTED_APP_NAME
-	doc.provider_name = CONNECTED_APP_NAME
-	doc.client_id = ""
-	doc.authorization_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
-	doc.token_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
-	for scope in OUTLOOK_SCOPES:
-		doc.append("scopes", {"scope": scope})
-	doc.insert(ignore_permissions=True)
-	return CONNECTED_APP_NAME
 
 
 def _create_user_custom_fields():
