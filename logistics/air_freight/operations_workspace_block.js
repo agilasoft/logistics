@@ -562,6 +562,42 @@ function populateUserFilter(root, job_status_filter) {
   });
 }
 
+function populateAlertUserFilter(root, job_status_filter) {
+  var sel = root.querySelector(".afw-ops-filter-alert-user");
+  if (!sel) return;
+  var prev = sel.value;
+  frappe.call({
+    method: "logistics.air_freight.air_freight_operations_dashboard.get_air_freight_operations_filter_users",
+    args: { job_status_filter: job_status_filter || "ongoing" },
+    callback: function (r2) {
+      var rows = r2.message || [];
+      sel.innerHTML = "";
+      rows.forEach(function (row) {
+        var o = document.createElement("option");
+        o.value = row.value || "";
+        o.textContent = row.label || row.value || "";
+        sel.appendChild(o);
+      });
+      var pick = prev;
+      if (!sel._afwAlertUserTouched && !pick && frappe.session.user) {
+        for (var j = 0; j < sel.options.length; j++) {
+          if (sel.options[j].value === frappe.session.user) {
+            pick = frappe.session.user;
+            break;
+          }
+        }
+      }
+      var want = pick != null && pick !== undefined ? pick : "";
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === want) {
+          sel.selectedIndex = i;
+          break;
+        }
+      }
+    },
+  });
+}
+
 function selectedAirlineCodes(root) {
   var out = [];
   root.querySelectorAll(".afw-ops-airline-cb:checked").forEach(function (cb) {
@@ -776,6 +812,8 @@ function refresh() {
   var job_status_filter = getJobStatusFilter(root);
   var sel = root.querySelector(".afw-ops-filter-user");
   var filter_user = sel && sel.value ? sel.value : "";
+  var alertSel = root.querySelector(".afw-ops-filter-alert-user");
+  var alert_filter_user = alertSel && alertSel.value ? alertSel.value : "";
   var prevAir = selectedAirlineCodes(root);
   var tr = root.querySelector(".afw-ops-filter-traffic");
   var traffic = tr && tr.value ? tr.value : "all";
@@ -784,6 +822,7 @@ function refresh() {
     args: {
       job_status_filter: job_status_filter,
       filter_user: filter_user,
+      alert_filter_user: alert_filter_user,
       traffic: traffic,
       airlines: prevAir.length ? JSON.stringify(prevAir) : "",
     },
@@ -1129,6 +1168,7 @@ var st = r.querySelector(".afw-ops-filter-status");
 if (st) {
   st.addEventListener("change", function () {
     populateUserFilter(root_element, getJobStatusFilter(root_element));
+    populateAlertUserFilter(root_element, getJobStatusFilter(root_element));
     refresh();
   });
 }
@@ -1139,6 +1179,17 @@ if (fu) {
     refresh();
   });
 }
+var afu = r.querySelector(".afw-ops-filter-alert-user");
+if (afu) {
+  afu.addEventListener("change", function () {
+    afu._afwAlertUserTouched = true;
+    refresh();
+  });
+}
+var arf = r.querySelector(".afw-ops-alerts-refresh");
+if (arf) {
+  arf.addEventListener("click", refresh);
+}
 var trf = r.querySelector(".afw-ops-filter-traffic");
 if (trf) {
   trf.addEventListener("change", refresh);
@@ -1146,4 +1197,5 @@ if (trf) {
 bindAirlineDropdown(root_element);
 bindLiveFlights(root_element);
 populateUserFilter(root_element, getJobStatusFilter(root_element));
+populateAlertUserFilter(root_element, getJobStatusFilter(root_element));
 refresh();

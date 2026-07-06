@@ -40,6 +40,7 @@ def get_customs_operations_filter_users(job_status_filter=None, include_draft=No
 def get_customs_operations_dashboard(
 	limit=None,
 	filter_user=None,
+	alert_filter_user=None,
 	traffic=None,
 	job_status_filter=None,
 	include_draft=None,
@@ -56,6 +57,7 @@ def get_customs_operations_dashboard(
 		carrier_label_fn=None,
 		job_status_filter=job_status_filter,
 		filter_user=filter_user,
+		alert_filter_user=alert_filter_user,
 		traffic=traffic,
 		carriers_param=None,
 		limit=limit,
