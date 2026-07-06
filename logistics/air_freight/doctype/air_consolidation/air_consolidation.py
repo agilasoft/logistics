@@ -425,6 +425,18 @@ class AirConsolidation(Document):
         """Actions after document update"""
         self.update_related_air_freight_jobs()
         self.send_consolidation_notifications()
+        if getattr(self, "auto_send_eawb", 0) and self.master_awb:
+            if self.is_new() or self.has_value_changed("auto_send_eawb") or self.has_value_changed("master_awb"):
+                try:
+                    mawb_status = frappe.db.get_value("Master Air Waybill", self.master_awb, "eawb_status")
+                    if mawb_status not in ("Accepted", "Submitted"):
+                        from logistics.air_freight.iata_cargo_xml.eawb_service import (
+                            auto_send_eawb_for_consolidation,
+                        )
+
+                        auto_send_eawb_for_consolidation(self.name)
+                except Exception:
+                    frappe.log_error(frappe.get_traceback(), "Air Consolidation auto-send e-AWB")
 
     def before_submit(self):
         if not self.consolidation_packages:

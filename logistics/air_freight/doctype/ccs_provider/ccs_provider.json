@@ -1,0 +1,139 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "field:provider_code",
+ "creation": "2026-07-05 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "provider_code",
+  "provider_name",
+  "column_break_main",
+  "connector_type",
+  "is_active",
+  "description_section",
+  "description",
+  "endpoints_section",
+  "default_endpoint",
+  "test_endpoint",
+  "column_break_endpoints",
+  "protocol",
+  "requires_pima_routing",
+  "documentation_url"
+ ],
+ "fields": [
+  {
+   "fieldname": "provider_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Provider Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "provider_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Provider Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "generic",
+   "fieldname": "connector_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Connector Type",
+   "options": "champ_traxon\ngeneric\nwise\ndescartes\nccnhub",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "description_section",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "endpoints_section",
+   "fieldtype": "Section Break",
+   "label": "Endpoints"
+  },
+  {
+   "description": "Production Cargo-XML / messaging hub URL supplied by the CCS provider.",
+   "fieldname": "default_endpoint",
+   "fieldtype": "Data",
+   "label": "Default Endpoint URL"
+  },
+  {
+   "description": "Sandbox or UAT hub URL for testing.",
+   "fieldname": "test_endpoint",
+   "fieldtype": "Data",
+   "label": "Test Endpoint URL"
+  },
+  {
+   "fieldname": "column_break_endpoints",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "HTTP REST",
+   "fieldname": "protocol",
+   "fieldtype": "Select",
+   "label": "Protocol",
+   "options": "HTTP REST\nSOAP\nSFTP"
+  },
+  {
+   "default": "1",
+   "description": "When enabled, outbound messages are addressed to the airline PIMA code via CCS routing headers.",
+   "fieldname": "requires_pima_routing",
+   "fieldtype": "Check",
+   "label": "Requires PIMA Routing"
+  },
+  {
+   "fieldname": "documentation_url",
+   "fieldtype": "Data",
+   "label": "Documentation URL",
+   "options": "URL"
+  }
+ ],
+ "icon": "fa fa-exchange",
+ "links": [],
+ "modified": "2026-07-05 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "CCS Provider",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "provider_name",
+ "track_changes": 1
+}

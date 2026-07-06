@@ -7,9 +7,20 @@ import frappe
 from frappe import _
 import xml.etree.ElementTree as ET
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from .base_connector import IATAConnector
 from logistics.air_freight.utils.iata_airport import resolve_unloco_iata_code
+from logistics.air_freight.iata_cargo_xml.eawb_utils import (
+    aggregate_mawb_totals,
+    collect_packages_for_security,
+    resolve_special_handling_codes,
+)
+from logistics.air_freight.iata_cargo_xml.xml_helpers import (
+    add_charges,
+    add_oci_security,
+    add_special_handling_codes,
+)
+from logistics.air_freight.iata_cargo_xml.validation import validate_before_submit
 
 
 class MessageBuilder(IATAConnector):
@@ -167,7 +178,14 @@ class MessageBuilder(IATAConnector):
                 resolve_company(air_shipment=air_freight_job_name)
             )
             xml_content = self.build_fwb_message(air_freight_job_name)
-            result = self.send_message("FWB", xml_content)
+            job = frappe.get_doc("Air Shipment", air_freight_job_name)
+            result = self.send_message(
+                "FWB",
+                xml_content,
+                reference_doctype="Air Shipment",
+                reference_name=air_freight_job_name,
+                airline=job.airline,
+            )
             
             # Queue message for tracking
             self._queue_message("FWB", "outbound", air_freight_job_name, xml_content)
@@ -187,7 +205,14 @@ class MessageBuilder(IATAConnector):
                 resolve_company(air_shipment=air_freight_job_name)
             )
             xml_content = self.build_fsu_message(air_freight_job_name, status_code, status_description)
-            result = self.send_message("FSU", xml_content)
+            job = frappe.get_doc("Air Shipment", air_freight_job_name)
+            result = self.send_message(
+                "FSU",
+                xml_content,
+                reference_doctype="Air Shipment",
+                reference_name=air_freight_job_name,
+                airline=job.airline,
+            )
             
             # Queue message for tracking
             self._queue_message("FSU", "outbound", air_freight_job_name, xml_content)
@@ -235,6 +260,27 @@ class MessageBuilder(IATAConnector):
             self._add_flight_info(root, mawb)
             self._add_mawb_agents(root, mawb)
 
+            agg = aggregate_mawb_totals(master_awb_name)
+            primary = agg.get("primary_shipment")
+            if primary:
+                self._add_shipper_consignee(root, primary)
+            cargo = ET.SubElement(root, "Cargo")
+            cargo.set("TotalWeight", str(agg.get("total_weight") or 0))
+            cargo.set("TotalVolume", str(agg.get("total_volume") or 0))
+            cargo.set("ChargeableWeight", str(agg.get("total_chargeable") or 0))
+            cargo.set("TotalPieces", str(agg.get("total_pieces") or 0))
+
+            if primary and primary.get("charges"):
+                add_charges(root, primary.charges)
+
+            shc_codes = resolve_special_handling_codes(
+                airline=mawb.airline,
+                paper_awb_required=getattr(mawb, "paper_awb_required", 0),
+                manual_codes=getattr(mawb, "special_handling_codes", None),
+            )
+            add_special_handling_codes(root, shc_codes)
+            add_oci_security(root, collect_packages_for_security(agg.get("shipments") or []))
+
             xml_str = ET.tostring(root, encoding="unicode", method="xml")
 
             self.log_transaction({
@@ -259,12 +305,20 @@ class MessageBuilder(IATAConnector):
 
             self._apply_company(resolve_company(master_awb=master_awb_name))
             xml_content = self.build_mawb_eawb_message(master_awb_name)
+            validation = validate_before_submit(xml_content, "XFWB", self.settings, self)
+            if not validation.get("valid"):
+                raise frappe.ValidationError(
+                    _("Master e-AWB validation failed: {0}").format(validation.get("errors"))
+                )
+            mawb = frappe.get_doc("Master Air Waybill", master_awb_name)
             result = self.send_message(
                 "XFWB",
                 xml_content,
                 reference_doctype="Master Air Waybill",
                 reference_name=master_awb_name,
+                airline=mawb.airline,
             )
+            result["validation"] = validation
 
             self._queue_message("XFWB", "outbound", master_awb_name, xml_content)
 
@@ -273,6 +327,99 @@ class MessageBuilder(IATAConnector):
         except Exception as e:
             frappe.log_error(f"Send XFWB error: {str(e)}")
             raise
+
+    def build_house_eawb_message(self, air_shipment_name: str) -> str:
+        """Build XFZB (House e-AWB) Cargo-XML message."""
+        job = frappe.get_doc("Air Shipment", air_shipment_name)
+        root = ET.Element("XFZB")
+        root.set("xmlns", self.namespace)
+        self._add_message_header(root, "XFZB", job.name)
+        self._add_air_waybill_info(root, job)
+        awb = root.find("AirWaybill")
+        if awb is not None and job.house_awb_no:
+            awb.set("AWBNo", str(job.house_awb_no).replace("-", "").replace(" ", ""))
+            awb.set("AWBType", "H")
+        self._add_origin_destination(root, job)
+        self._add_shipper_consignee(root, job)
+        self._add_cargo_details(root, job)
+        self._add_routing_info(root, job)
+        self._add_handling_info(root, job)
+        if job.get("charges"):
+            add_charges(root, job.charges)
+        shc_codes = resolve_special_handling_codes(
+            airline=job.airline,
+            direction=job.direction,
+            manual_codes=getattr(job, "special_handling_codes", None),
+        )
+        add_special_handling_codes(root, shc_codes)
+        add_oci_security(root, list(job.get("packages") or []))
+        return ET.tostring(root, encoding="unicode", method="xml")
+
+    def send_house_eawb_message(self, air_shipment_name: str) -> Dict[str, Any]:
+        from logistics.air_freight.utils.iata_settings_utils import resolve_company
+
+        self._apply_company(resolve_company(air_shipment=air_shipment_name))
+        xml_content = self.build_house_eawb_message(air_shipment_name)
+        job = frappe.get_doc("Air Shipment", air_shipment_name)
+        validation = validate_before_submit(xml_content, "XFZB", self.settings, self)
+        if not validation.get("valid"):
+            raise frappe.ValidationError(_("House e-AWB validation failed: {0}").format(validation.get("errors")))
+
+        result = self.send_message(
+            "XFZB",
+            xml_content,
+            reference_doctype="Air Shipment",
+            reference_name=air_shipment_name,
+            airline=job.airline,
+        )
+        result["validation"] = validation
+        self._queue_message("XFZB", "outbound", air_shipment_name, xml_content)
+        return result
+
+    def build_xfhl_message(self, master_awb_name: str, air_shipment_name: str) -> str:
+        """Build XFHL house manifest line for a shipment under a MAWB."""
+        mawb = frappe.get_doc("Master Air Waybill", master_awb_name)
+        job = frappe.get_doc("Air Shipment", air_shipment_name)
+        root = ET.Element("XFHL")
+        root.set("xmlns", self.namespace)
+        self._add_message_header(root, "XFHL", f"{mawb.name}_{job.name}")
+        master_ref = ET.SubElement(root, "MasterAirWaybill")
+        master_ref.set("AWBNo", (mawb.master_awb_no or "").replace("-", "").replace(" ", ""))
+        house = ET.SubElement(root, "HouseWaybill")
+        house.set("AWBNo", (job.house_awb_no or job.name).replace("-", "").replace(" ", ""))
+        house.set("Pieces", str(job.packs or 0))
+        house.set("Weight", str(job.weight or 0))
+        if job.shipper:
+            shipper_doc = frappe.get_doc("Shipper", job.shipper)
+            house.set("ShipperName", shipper_doc.shipper_name or "")
+        if job.consignee:
+            consignee_doc = frappe.get_doc("Consignee", job.consignee)
+            house.set("ConsigneeName", consignee_doc.consignee_name or "")
+        return ET.tostring(root, encoding="unicode", method="xml")
+
+    def send_xfhl_for_mawb(self, master_awb_name: str) -> List[Dict[str, Any]]:
+        from logistics.air_freight.utils.iata_settings_utils import resolve_company
+
+        self._apply_company(resolve_company(master_awb=master_awb_name))
+        mawb = frappe.get_doc("Master Air Waybill", master_awb_name)
+        results = []
+        for ship_name in frappe.get_all(
+            "Air Shipment", filters={"master_awb": master_awb_name}, pluck="name"
+        ):
+            xml_content = self.build_xfhl_message(master_awb_name, ship_name)
+            validation = validate_before_submit(xml_content, "XFHL", self.settings, self)
+            result = self.send_message(
+                "XFHL",
+                xml_content,
+                reference_doctype="Air Shipment",
+                reference_name=ship_name,
+                airline=mawb.airline,
+            )
+            result["validation"] = validation
+            result["air_shipment"] = ship_name
+            self._queue_message("XFHL", "outbound", ship_name, xml_content)
+            results.append(result)
+        return results
 
     def _add_mawb_air_waybill_info(self, root: ET.Element, mawb):
         awb = ET.SubElement(root, "AirWaybill")

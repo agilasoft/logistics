@@ -26,6 +26,9 @@
   "flight_date",
   "manifest_sent",
   "manifest_sent_date",
+  "send_awb_to_airline",
+  "special_handling_codes",
+  "paper_awb_required",
   "eawb_status",
   "eawb_submitted_date",
   "column_break_eawb",
@@ -206,6 +209,25 @@
    "fieldtype": "Datetime",
    "label": "Manifest Sent Date",
    "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "When enabled, e-AWB and house manifests are sent automatically after MAWB issue or consolidation update.",
+   "fieldname": "send_awb_to_airline",
+   "fieldtype": "Check",
+   "label": "Send AWB to Airline"
+  },
+  {
+   "description": "Comma-separated IATA SHC codes (e.g. ECC, ECP, PER). Leave blank for automatic ECC/ECP.",
+   "fieldname": "special_handling_codes",
+   "fieldtype": "Small Text",
+   "label": "Special Handling Codes"
+  },
+  {
+   "default": "0",
+   "fieldname": "paper_awb_required",
+   "fieldtype": "Check",
+   "label": "Paper AWB Required (ECP)"
   },
   {
    "default": "Not Submitted",

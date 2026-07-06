@@ -14,6 +14,19 @@ frappe.ui.form.on("Master Air Waybill", {
 			frm.add_custom_button(__("Submit eAWB"), function () {
 				submit_mawb_eawb(frm);
 			}, __("Action"));
+			frm.add_custom_button(__("Submit Consolidated e-AWB"), function () {
+				frappe.call({
+					method: "submit_consolidated_eawb",
+					doc: frm.doc,
+					freeze: true,
+					freeze_message: __("Submitting master and house manifests..."),
+					callback: function (r) {
+						if (!r.exc) {
+							frm.reload_doc();
+						}
+					},
+				});
+			}, __("Action"));
 		}
 
 		if (!frm._iata_sandbox_checked) {
