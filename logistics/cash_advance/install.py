@@ -16,10 +16,47 @@ def after_migrate():
 def _ensure_cash_advance_settings():
 	if not frappe.db.exists("DocType", "Cash Advance Settings"):
 		return
-	if frappe.db.exists("Cash Advance Settings", "Cash Advance Settings"):
+
+	legacy = _load_legacy_cash_advance_settings_data()
+	companies = frappe.get_all("Company", pluck="name")
+	if not companies:
 		return
-	doc = frappe.new_doc("Cash Advance Settings")
-	doc.insert(ignore_permissions=True)
+
+	skip_keys = {
+		"name",
+		"owner",
+		"creation",
+		"modified",
+		"modified_by",
+		"docstatus",
+		"idx",
+		"company",
+	}
+
+	for company in companies:
+		if frappe.db.exists("Cash Advance Settings", company):
+			continue
+		doc = frappe.new_doc("Cash Advance Settings")
+		doc.company = company
+		if legacy:
+			for key, value in legacy.items():
+				if key in skip_keys or value is None:
+					continue
+				if doc.meta.has_field(key):
+					doc.set(key, value)
+		doc.flags.ignore_validate = True
+		doc.insert(ignore_permissions=True)
+
+
+def _load_legacy_cash_advance_settings_data():
+	if frappe.db.exists("Cash Advance Settings", "Cash Advance Settings"):
+		return frappe.db.get_value("Cash Advance Settings", "Cash Advance Settings", "*", as_dict=True)
+
+	latest_name = frappe.db.get_value("Cash Advance Settings", {}, "name", order_by="modified desc")
+	if latest_name:
+		return frappe.db.get_value("Cash Advance Settings", latest_name, "*", as_dict=True)
+
+	return None
 
 
 def _backfill_account_require_job_number_for_revolving_fund():
