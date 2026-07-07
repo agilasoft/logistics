@@ -46,6 +46,7 @@ frappe.ui.form.on('Cash Advance Request', {
 	fund_type: function(frm) {
 		logistics_cash_advance_toggle_item_job_number(frm);
 		logistics_cash_advance_set_item_query(frm);
+		logistics_cash_advance_clear_invalid_items(frm);
 	},
 
 	job_number: function(frm) {
@@ -160,6 +161,25 @@ function logistics_cash_advance_toggle_item_job_number(frm) {
 	frm.refresh_field('items');
 }
 
+function logistics_cash_advance_header_job_number_required(frm) {
+	return frm.doc.fund_type && frm.doc.fund_type !== 'Revolving Fund';
+}
+
+function logistics_cash_advance_row_job_number_required(frm) {
+	return frm.doc.fund_type === 'Revolving Fund';
+}
+
+function logistics_cash_advance_item_job_number_required(frm, row) {
+	if (logistics_cash_advance_row_job_number_required(frm)) {
+		return true;
+	}
+	return logistics_cash_advance_header_job_number_required(frm);
+}
+
+function logistics_cash_advance_no_charge_items_filter() {
+	return { filters: [['Item', 'name', '=', '__no_job_number__']] };
+}
+
 function logistics_cash_advance_resolve_item_job_number(frm, row) {
 	if (frm.doc.fund_type === 'Revolving Fund') {
 		return row && row.job_number;
@@ -172,10 +192,10 @@ function logistics_cash_advance_set_item_query(frm) {
 		var row = locals[cdt][cdn];
 		var job_number = logistics_cash_advance_resolve_item_job_number(frm, row);
 		if (!job_number) {
-			if (frm.doc.fund_type && frm.doc.fund_type !== 'Revolving Fund') {
-				return {};
+			if (logistics_cash_advance_item_job_number_required(frm, row)) {
+				return logistics_cash_advance_no_charge_items_filter();
 			}
-			return { filters: [['Item', 'name', '=', '__no_job_number__']] };
+			return {};
 		}
 		return {
 			query: 'logistics.cash_advance.job_charge_items.item_query',
@@ -220,17 +240,48 @@ function logistics_cash_advance_clear_invalid_items(frm) {
 	if (!frm.doc.items || !frm.doc.items.length) {
 		return;
 	}
-	if (frm.doc.fund_type === 'Revolving Fund') {
+	if (logistics_cash_advance_row_job_number_required(frm)) {
+		var tasks = [];
 		$.each(frm.doc.items || [], function(i, row) {
-			if (!row.job_number && row.item_code) {
-				frappe.model.set_value(row.doctype, row.name, 'item_code', null);
+			if (!row.job_number) {
+				if (row.item_code) {
+					frappe.model.set_value(row.doctype, row.name, 'item_code', null);
+				}
+				return;
 			}
+			if (!row.item_code) {
+				return;
+			}
+			tasks.push(new Promise(function(resolve) {
+				frappe.call({
+					method: 'logistics.cash_advance.job_charge_items.get_charge_item_codes',
+					args: { job_number: row.job_number },
+					callback: function(r) {
+						var allowed = r.message || [];
+						if (row.item_code && allowed.indexOf(row.item_code) === -1) {
+							frappe.model.set_value(row.doctype, row.name, 'item_code', null);
+						}
+						resolve();
+					}
+				});
+			}));
 		});
-		frm.refresh_field('items');
-		calculate_totals(frm);
+		Promise.all(tasks).then(function() {
+			frm.refresh_field('items');
+			calculate_totals(frm);
+		});
 		return;
 	}
 	if (!frm.doc.job_number) {
+		if (logistics_cash_advance_header_job_number_required(frm)) {
+			$.each(frm.doc.items || [], function(i, row) {
+				if (row.item_code) {
+					frappe.model.set_value(row.doctype, row.name, 'item_code', null);
+				}
+			});
+			frm.refresh_field('items');
+			calculate_totals(frm);
+		}
 		return;
 	}
 	frappe.call({
@@ -314,18 +365,28 @@ function calculate_totals(frm) {
 frappe.ui.form.on('Cash Advance Request Item', {
 	job_number: function(frm, cdt, cdn) {
 		var row = locals[cdt][cdn];
-		if (frm.doc.fund_type === 'Revolving Fund' && row.item_code) {
-			frappe.call({
-				method: 'logistics.cash_advance.job_charge_items.get_charge_item_codes',
-				args: { job_number: row.job_number },
-				callback: function(r) {
-					var allowed = r.message || [];
-					if (row.item_code && allowed.indexOf(row.item_code) === -1) {
-						frappe.model.set_value(cdt, cdn, 'item_code', null);
-					}
-				}
-			});
+		if (!logistics_cash_advance_row_job_number_required(frm)) {
+			return;
 		}
+		if (!row.job_number) {
+			if (row.item_code) {
+				frappe.model.set_value(cdt, cdn, 'item_code', null);
+			}
+			return;
+		}
+		if (!row.item_code) {
+			return;
+		}
+		frappe.call({
+			method: 'logistics.cash_advance.job_charge_items.get_charge_item_codes',
+			args: { job_number: row.job_number },
+			callback: function(r) {
+				var allowed = r.message || [];
+				if (row.item_code && allowed.indexOf(row.item_code) === -1) {
+					frappe.model.set_value(cdt, cdn, 'item_code', null);
+				}
+			}
+		});
 	},
 
 	item_code: function(frm, cdt, cdn) {

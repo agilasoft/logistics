@@ -15,7 +15,11 @@ from logistics.cash_advance.accounting import (
 	create_advance_release_journal_entry,
 	ensure_payee_for_party_accounts,
 )
-from logistics.cash_advance.job_charge_items import get_item_codes_for_job_number
+from logistics.cash_advance.job_charge_items import (
+	get_item_codes_for_job_number,
+	header_job_number_required,
+	row_job_number_required,
+)
 from logistics.cash_advance.totals_sync import (
 	compute_unliquidated,
 	get_cash_advance_request_totals,
@@ -204,6 +208,8 @@ class CashAdvanceRequest(Document):
 			frappe.throw(_("Fund Source (Bank or Cash account) is required to submit."))
 		if not self.payee:
 			frappe.throw(_("Payee (Supplier) is required to submit (used as the party on the advance entry)."))
+		if header_job_number_required(self.fund_type) and not self.job_number:
+			frappe.throw(_("Job Number is required for {0} cash advances.").format(self.fund_type))
 		_validate_cash_bank_account(self.fund_source, self.company)
 		ensure_payee_for_party_accounts(self)
 		if flt(self.total_requested, 2) <= 0:
@@ -263,7 +269,7 @@ class CashAdvanceRequest(Document):
 			)
 
 	def _validate_items_against_job(self):
-		if self.fund_type == "Revolving Fund":
+		if row_job_number_required(self.fund_type):
 			for idx, row in enumerate(self.items or [], start=1):
 				if not row.item_code and not row.job_number:
 					continue
@@ -279,6 +285,11 @@ class CashAdvanceRequest(Document):
 							idx, row.item_code, row.job_number
 						)
 					)
+			return
+
+		if header_job_number_required(self.fund_type) and not self.job_number:
+			if any(getattr(row, "item_code", None) for row in self.items or []):
+				frappe.throw(_("Job Number is required to select charge items."))
 			return
 
 		if not self.job_number:
