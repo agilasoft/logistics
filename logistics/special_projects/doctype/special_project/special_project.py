@@ -221,7 +221,11 @@ class SpecialProject(Document):
 		from logistics.special_projects.special_project_service_helpers import (
 			normalize_special_project_service_order_job_fields,
 		)
+		from logistics.special_projects.special_project_service_persistence import (
+			prepare_special_project_services_before_link_validation,
+		)
 
+		prepare_special_project_services_before_link_validation(self)
 		normalize_lifecycle_job_order_job_fields(self)
 		normalize_special_project_service_order_job_fields(self)
 		from logistics.special_projects.lifecycle_job_display import sync_lifecycle_row_labels

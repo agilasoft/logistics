@@ -20,7 +20,7 @@ from logistics.special_projects.special_project_service_rows import (
 	service_rows,
 )
 from logistics.special_projects.special_project_service_compat import (
-	row_special_project_service_link,
+	persisted_special_project_service_name,
 )
 from logistics.special_projects.special_project_charge_lifecycle import (
 	lifecycle_row_order_link_is_cancelled,
@@ -33,7 +33,7 @@ def _norm(value: Any) -> str:
 
 
 def _service_row_name(row: Any) -> str:
-	return _norm(row_special_project_service_link(row) or service_row_field(row, "name"))
+	return persisted_special_project_service_name(row)
 
 
 def _special_project_services_by_name(doc: Any) -> dict[str, Any]:

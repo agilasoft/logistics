@@ -26,6 +26,24 @@ def special_project_service_record_exists(name: str | None) -> bool:
 	return bool(name and frappe.db.exists(SPECIAL_PROJECT_SERVICE_DOCTYPE, name))
 
 
+def is_local_special_project_service_detail_name(name: str | None) -> bool:
+	"""True for unsaved virtual grid row names (``new-special-project-service-detail-*``)."""
+	value = (name or "").strip()
+	return bool(value) and value.startswith("new-")
+
+
+def persisted_special_project_service_name(row: Any) -> str:
+	"""Return the Special Project Service document name for a grid row, if known."""
+	link = row_special_project_service_link(row)
+	if link:
+		return link
+	name = (row.get("name") if isinstance(row, dict) else getattr(row, "name", None)) or ""
+	name = str(name).strip()
+	if name and not is_local_special_project_service_detail_name(name):
+		return name
+	return ""
+
+
 def row_special_project_service_link(row: Any) -> str:
 	if row is None:
 		return ""
