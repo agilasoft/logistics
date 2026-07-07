@@ -135,7 +135,7 @@ class CashAdvanceRequest(Document):
 		today = nowdate()
 		unliquidated_expr = (
 			"IFNULL(car.total_requested, 0) - IFNULL(liq.total_liquidated, 0) "
-			"- IFNULL(ack.returned, 0) + IFNULL(ack.refunded, 0)"
+			"+ IFNULL(ack.refunded, 0) - IFNULL(ack.returned, 0)"
 		)
 		overdue = frappe.db.sql(
 			f"""

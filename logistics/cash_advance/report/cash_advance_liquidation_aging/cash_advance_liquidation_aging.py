@@ -61,7 +61,7 @@ def _columns():
 def _rows(filters, as_on):
 	unliquidated_expr = (
 		"IFNULL(car.total_requested, 0) - IFNULL(liq.total_liquidated, 0) "
-		"- IFNULL(ack.returned, 0) + IFNULL(ack.refunded, 0)"
+		"+ IFNULL(ack.refunded, 0) - IFNULL(ack.returned, 0)"
 	)
 	conditions = ["({0}) > 0".format(unliquidated_expr)]
 	values = {"as_on": as_on}

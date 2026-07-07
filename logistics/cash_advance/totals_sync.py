@@ -14,8 +14,10 @@ from frappe.utils import flt
 def compute_unliquidated(
 	total_requested: float, total_liquidated: float, returned: float = 0, refunded: float = 0
 ) -> float:
-	"""Outstanding advance balance after expenses, cash returned, and additional payouts."""
-	return flt(flt(total_requested) - flt(total_liquidated) - flt(returned) + flt(refunded), 2)
+	"""Outstanding balance: Total Requested - Total Liquidated + Refunded - Returned."""
+	return flt(
+		flt(total_requested) - flt(total_liquidated) + flt(refunded) - flt(returned), 2
+	)
 
 
 def _sum_submitted_acknowledgments(
@@ -104,7 +106,7 @@ def unliquidated_sql_expr(car_alias: str = "car") -> str:
 	return (
 		f"IFNULL({car_alias}.total_requested, 0) "
 		f"- IFNULL(liq.total_liquidated, 0) "
-		f"- IFNULL(ack.returned, 0) + IFNULL(ack.refunded, 0)"
+		f"+ IFNULL(ack.refunded, 0) - IFNULL(ack.returned, 0)"
 	)
 
 
