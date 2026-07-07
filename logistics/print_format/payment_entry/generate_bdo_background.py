@@ -1,4 +1,9 @@
-"""Render BDO Telegraphic Transfer PDF to a high-DPI PNG for bank_forms print format."""
+"""Render BDO Telegraphic Transfer PDF to PNG (legacy fallback).
+
+The Bank Forms print format now stamps fields directly onto the vector PDF
+via bank_forms_pdf.py. This script is only needed if you still want a raster
+preview asset.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +18,7 @@ OUTPUT_PATH = os.path.join(IMAGES_DIR, "bdo_telegraphic_transfer.png")
 SOURCE_CANDIDATES = [
 	os.path.join(IMAGES_DIR, "bdo_telegraphic_transfer_source.pdf"),
 	"/home/kitler/Documents/ATN Print Format/BDO Telegraphic Transfer.pdf",
+	"/home/frappe/frappe-bench/apps/logistics/logistics/public/images/BDO Telegraphic Transfer.pdf",
 ]
 
 
@@ -23,10 +29,13 @@ def _find_pdf(pdf_path: str | None = None) -> str:
 		if os.path.isfile(candidate):
 			return candidate
 	frappe.throw(
-		"BDO PDF not found. Copy the original PDF to "
-		f"{SOURCE_CANDIDATES[0]} or pass pdf_path, then run:\n"
-		"bench --site <site> execute "
-		"logistics.print_format.payment_entry.generate_bdo_background.render"
+		"BDO PDF not found. Copy the original PDF to either:\n"
+		f"  {SOURCE_CANDIDATES[0]}\n"
+		f"  {SOURCE_CANDIDATES[1]}\n"
+		"Then run:\n"
+		"  bench --site <site> execute "
+		"logistics.print_format.payment_entry.generate_bdo_background.render\n"
+		"  bench build --app logistics"
 	)
 
 

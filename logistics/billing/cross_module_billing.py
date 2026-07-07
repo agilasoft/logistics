@@ -361,38 +361,49 @@ def get_suggested_contributors(
 def get_all_billing_jobs_from_sales_quote(sales_quote) -> List[Tuple[str, str]]:
 	"""
 	Return list of (job_type, job_no) for every job that should be billed from this quote:
-	each leg's anchor + each leg's contributors. Used for intercompany (one pair per job).
+	each leg's anchor + each leg's contributors + operational docs linked via ``sales_quote``.
+
+	Routing legs no longer store ``job_type`` / ``job_no``; anchors are resolved the same way
+	as Sales Quote customer invoicing (``_resolve_job_for_routing_leg``).
 	"""
-	legs = getattr(sales_quote, "routing_legs", None) or []
-	seen = set()
-	out = []
-	for leg in legs:
-		job_type = getattr(leg, "job_type", None)
-		job_no = getattr(leg, "job_no", None)
+	from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+		_get_contributors_for_leg,
+		_iter_linked_jobs_for_sales_quote,
+		_resolve_job_for_routing_leg,
+	)
+
+	sq_name = sales_quote.name if hasattr(sales_quote, "name") else sales_quote
+	seen: set = set()
+	out: List[Tuple[str, str]] = []
+
+	def _add(job_type: Optional[str], job_no: Optional[str]) -> None:
 		if job_type and job_no and (job_type, job_no) not in seen:
 			seen.add((job_type, job_no))
 			out.append((job_type, job_no))
-		# Contributors
-		contrib_list = getattr(leg, "bill_with_contributors", None)
-		if contrib_list:
-			for c in contrib_list:
-				ct = getattr(c, "contributor_job_type", None)
-				cn = getattr(c, "contributor_job_no", None)
-				if ct and cn and (ct, cn) not in seen:
-					seen.add((ct, cn))
-					out.append((ct, cn))
-		else:
-			leg_name = getattr(leg, "name", None)
-			if leg_name:
-				for c in frappe.get_all(
-					"Sales Quote Routing Leg Contributor",
-					filters={"parent": leg_name, "parenttype": "Sales Quote Routing Leg"},
-					fields=["contributor_job_type", "contributor_job_no"],
-				):
-					ct, cn = c.get("contributor_job_type"), c.get("contributor_job_no")
-					if ct and cn and (ct, cn) not in seen:
-						seen.add((ct, cn))
-						out.append((ct, cn))
+
+	legs = getattr(sales_quote, "routing_legs", None) or []
+	for leg in legs:
+		# Legacy rows may still carry job_type / job_no
+		_add(getattr(leg, "job_type", None), getattr(leg, "job_no", None))
+		anchor_type, anchor_name = _resolve_job_for_routing_leg(sales_quote, leg)
+		_add(anchor_type, anchor_name)
+		for ct, cn in _get_contributors_for_leg(leg):
+			_add(ct, cn)
+
+	for job_type, job_no in _iter_linked_jobs_for_sales_quote(sales_quote):
+		_add(job_type, job_no)
+
+	for job_type in BILLING_JOB_TYPES:
+		if not frappe.db.has_column(job_type, "sales_quote"):
+			continue
+		for job_no in frappe.get_all(
+			job_type,
+			filters={"sales_quote": sq_name, "docstatus": ["!=", 2]},
+			pluck="name",
+			order_by="creation asc",
+		):
+			_add(job_type, job_no)
+
 	return out
 
 

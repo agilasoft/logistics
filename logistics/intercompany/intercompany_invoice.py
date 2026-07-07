@@ -90,6 +90,7 @@ def create_intercompany_invoices_for_quote(
 		get_main_job_company,
 	)
 	all_jobs = get_all_billing_jobs_from_sales_quote(sales_quote)
+	same_company_jobs: List[str] = []
 
 	for job_type, job_no in all_jobs:
 		if job_type not in INTERCOMPANY_JOB_TYPES:
@@ -115,6 +116,8 @@ def create_intercompany_invoices_for_quote(
 
 		operating_company = getattr(job_doc, "company", None)
 		if not operating_company or operating_company == main_job_company:
+			if operating_company and operating_company == main_job_company:
+				same_company_jobs.append(f"{job_type} {job_no}")
 			continue
 
 		rel = get_relationship(main_job_company, operating_company)
@@ -215,7 +218,22 @@ def create_intercompany_invoices_for_quote(
 		"created": len(created_logs),
 		"logs": created_logs,
 		"errors": errors,
-		"message": _("Created {0} intercompany invoice pair(s).").format(len(created_logs)) if created_logs else (errors[0] if errors else _("No intercompany legs to invoice.")),
+		"message": (
+			_("Created {0} intercompany invoice pair(s).").format(len(created_logs))
+			if created_logs
+			else (
+				errors[0]
+				if errors
+				else (
+					_(
+						"Linked job(s) {0} are in the same company as their Main Job. "
+						"Use Internal Billing (Journal Entry), not intercompany invoices."
+					).format(", ".join(same_company_jobs))
+					if same_company_jobs
+					else _("No intercompany legs to invoice.")
+				)
+			)
+		),
 	}
 
 

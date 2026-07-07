@@ -1,4 +1,4 @@
-"""Install / refresh Payment Entry BDO bank form print formats from repo HTML."""
+"""Install / refresh Payment Entry Union Bank Telegraphic Transfer print formats from repo HTML."""
 
 from __future__ import annotations
 
@@ -6,13 +6,13 @@ import os
 
 import frappe
 
-PRINT_FORMAT_NAME = "Bank Forms"
-BLANK_PRINT_FORMAT_NAME = "BDO Form Blank"
+PRINT_FORMAT_NAME = "UBP Bank Form"
+BLANK_PRINT_FORMAT_NAME = "UBP Form Blank"
 DOC_TYPE = "Payment Entry"
 
 PRINT_FORMATS = {
-	PRINT_FORMAT_NAME: "print_format/payment_entry/bdo_form.html",
-	BLANK_PRINT_FORMAT_NAME: "print_format/payment_entry/bdo_form_blank.html",
+	PRINT_FORMAT_NAME: "print_format/payment_entry/ubp_bank_form.html",
+	BLANK_PRINT_FORMAT_NAME: "print_format/payment_entry/ubp_bank_form_blank.html",
 }
 
 
@@ -58,14 +58,14 @@ def _upsert_print_format(name: str, html: str) -> None:
 	doc.insert(ignore_permissions=True)
 
 
-def install_bank_forms_print_format() -> None:
+def install_ubp_bank_form_print_format() -> None:
 	try:
-		from logistics.print_format.payment_entry.bank_forms_pdf import ensure_template_pdf
+		from logistics.print_format.payment_entry.ubp_bank_form_pdf import ensure_template_pdf
 
 		ensure_template_pdf()
 	except Exception as exc:
 		if frappe.flags.in_install or frappe.flags.in_patch:
-			frappe.log_error(title="BDO vector template not installed", message=str(exc))
+			frappe.log_error(title="UBP vector template not installed", message=str(exc))
 		else:
 			raise
 

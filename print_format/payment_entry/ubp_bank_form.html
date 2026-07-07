@@ -1,4 +1,4 @@
-<!-- Union Bank Telegraphic Transfer (TMP-XT-25-19) - Payment Entry overlay -->
+<!-- Union Bank Telegraphic Transfer — vector PDF preview (fields filled on source PDF) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -6,200 +6,38 @@
 	<style>
 		* { margin: 0; padding: 0; box-sizing: border-box; }
 
-		@page {
-			size: 210mm 321.2mm;
-			margin: 0;
-		}
+		@page { size: 216mm 330mm; margin: 0; }
 
 		html, body {
-			width: 210mm;
-			height: 321.2mm;
 			margin: 0;
 			padding: 0;
-			font-family: Arial, Helvetica, sans-serif;
-			font-size: 7pt;
-			line-height: 1;
-			color: #000;
+			width: 216mm;
+			height: 330mm;
+			overflow: hidden;
 			background: #fff;
-			-webkit-print-color-adjust: exact;
-			print-color-adjust: exact;
-			overflow: hidden;
 		}
 
-		/* Coordinate space matches source form 612 × 936 pt */
-		.form-page {
-			position: relative;
-			width: 210mm;
-			height: 321.2mm;
-			background: url("/assets/logistics/images/ubp_telegraphic_transfer.png") no-repeat top left;
-			background-size: 100% 100%;
-			overflow: hidden;
-			page-break-after: avoid;
-			page-break-inside: avoid;
+		.pdf-page {
+			width: 216mm;
+			height: 330mm;
+			border: 0;
+			display: block;
 		}
 
-		.f {
-			position: absolute;
-			z-index: 1;
-			overflow: hidden;
-			white-space: nowrap;
-			text-overflow: ellipsis;
-			line-height: 1.15;
-			padding-top: 0.3mm;
-		}
-
-		.f-wrap {
-			white-space: normal;
-			word-break: break-word;
-			display: -webkit-box;
-			-webkit-box-orient: vertical;
-			-webkit-line-clamp: 2;
-			line-clamp: 2;
-		}
-
-		.f-small {
-			font-size: 6pt;
-		}
-
-		.ck {
-			position: absolute;
-			z-index: 1;
-			font-size: 7pt;
-			font-weight: bold;
-			line-height: 1;
-			text-align: center;
-		}
-
-		@media print {
-			html, body, .form-page {
-				-webkit-print-color-adjust: exact;
-				print-color-adjust: exact;
-			}
+		.missing-template {
+			padding: 20px;
+			font-family: Arial, sans-serif;
+			font-size: 12px;
+			color: #333;
 		}
 	</style>
 </head>
 <body>
 {% if doc.doctype != 'Payment Entry' %}
-<div style="padding: 20px; color: red;">Wrong print format. Use on Payment Entry only.</div>
+<div class="missing-template">Wrong print format. Use on Payment Entry only.</div>
 {% else %}
-{% set company_name = doc.company or frappe.db.get_single_value("Global Defaults", "default_company") or '' %}
-{% set company_doc = frappe.get_doc("Company", company_name) if company_name and frappe.db.exists("Company", company_name) else None %}
-
-{% set currency = doc.paid_from_account_currency or doc.paid_to_account_currency or doc.company_currency or 'PHP' %}
-{% set payment_amount = doc.paid_amount or doc.received_amount or 0 %}
-{% if doc.references %}
-{% set payment_amount = 0 %}
-{% for ref in doc.references %}{% set payment_amount = payment_amount + (ref.allocated_amount or 0) %}{% endfor %}
-{% endif %}
-
-{% set company_address_text = '' %}
-{% set company_email = '' %}
-{% set company_phone = '' %}
-{% if company_name %}
-{% set company_addrs = frappe.get_all("Address", filters=[["Dynamic Link", "link_doctype", "=", "Company"], ["Dynamic Link", "link_name", "=", company_name]], fields=["name"], limit=1) %}
-{% if company_addrs %}
-{% set addr = frappe.get_doc("Address", company_addrs[0].name) %}
-{% set parts = [] %}
-{% if addr.address_line1 %}{% set _ = parts.append(addr.address_line1) %}{% endif %}
-{% if addr.address_line2 %}{% set _ = parts.append(addr.address_line2) %}{% endif %}
-{% set cl = (addr.city or '') ~ (', ' ~ addr.state if addr.state else '') ~ (', ' ~ addr.country if addr.country else '') %}
-{% if addr.pincode %}{% set cl = cl ~ (' ' ~ addr.pincode if cl else addr.pincode) %}{% endif %}
-{% if cl.strip() %}{% set _ = parts.append(cl.strip()) %}{% endif %}
-{% set company_address_text = parts|join(', ') %}
-{% set company_email = addr.email_id or '' %}
-{% set company_phone = addr.phone or '' %}
-{% endif %}
-{% if company_doc %}
-{% set company_email = company_email or company_doc.email or '' %}
-{% set company_phone = company_phone or company_doc.phone_no or company_doc.mobile_no or '' %}
-{% endif %}
-{% endif %}
-
-{% set party_address_text = '' %}
-{% if doc.party and doc.party_type in ['Customer', 'Supplier'] and frappe.db.exists(doc.party_type, doc.party) %}
-{% set party_doc = frappe.get_doc(doc.party_type, doc.party) %}
-{% set pan = party_doc.customer_primary_address or party_doc.supplier_primary_address or '' %}
-{% if pan and frappe.db.exists("Address", pan) %}
-{% set pa = frappe.get_doc("Address", pan) %}
-{% set pp = [] %}
-{% if pa.address_line1 %}{% set _ = pp.append(pa.address_line1) %}{% endif %}
-{% if pa.address_line2 %}{% set _ = pp.append(pa.address_line2) %}{% endif %}
-{% set pl = (pa.city or '') ~ (', ' ~ pa.state if pa.state else '') ~ (', ' ~ pa.country if pa.country else '') %}
-{% if pa.pincode %}{% set pl = pl ~ (' ' ~ pa.pincode if pl else pa.pincode) %}{% endif %}
-{% if pl.strip() %}{% set _ = pp.append(pl.strip()) %}{% endif %}
-{% set party_address_text = pp|join(', ') %}
-{% endif %}
-{% endif %}
-
-{% set remitter_bank = frappe.get_doc("Bank Account", doc.bank_account) if doc.bank_account and frappe.db.exists("Bank Account", doc.bank_account) else None %}
-{% set beneficiary_bank = frappe.get_doc("Bank Account", doc.party_bank_account) if doc.party_bank_account and frappe.db.exists("Bank Account", doc.party_bank_account) else None %}
-
-{% set purpose = (doc.remarks or '')|striptags %}
-{% if not purpose and doc.references %}
-{% set ref_names = [] %}
-{% for ref in doc.references %}{% if ref.reference_name %}{% set _ = ref_names.append(ref.reference_name) %}{% endif %}{% endfor %}
-{% if ref_names %}{% set purpose = 'Payment for ' ~ ref_names|join(', ') %}{% endif %}
-{% endif %}
-{% if purpose|length > 120 %}{% set purpose = purpose[:117] ~ '...' %}{% endif %}
-
-{% set remitter_account_no = doc.bank_account_no or (remitter_bank.bank_account_no if remitter_bank else '') or '' %}
-{% if not remitter_account_no and doc.paid_from_account and frappe.db.exists("Account", doc.paid_from_account) %}
-{% set from_account = frappe.get_doc("Account", doc.paid_from_account) %}
-{% set remitter_account_no = from_account.account_number or from_account.account_name or doc.paid_from_account %}
-{% endif %}
-{% set applicant_name = (company_doc.company_name if company_doc else company_name) or '' %}
-{% set beneficiary_name = doc.party_name or doc.party or '' %}
-{% set beneficiary_account_no = (beneficiary_bank.bank_account_no if beneficiary_bank else '') or '' %}
-{% set beneficiary_bank_name = (beneficiary_bank.bank if beneficiary_bank else doc.bank or '') or '' %}
-{% set swift_code = (beneficiary_bank.branch_code or beneficiary_bank.iban if beneficiary_bank else '') or '' %}
-{% set amount_figures = frappe.utils.fmt_money(payment_amount, precision=2) ~ ' ' ~ currency %}
-{% set amount_words = frappe.utils.money_in_words(payment_amount, currency) %}
-{% set fx_rate = '' %}
-{% if doc.source_exchange_rate %}{% set fx_rate = frappe.utils.fmt_money(doc.source_exchange_rate, precision=4) %}{% endif %}
-
-<div class="form-page">
-
-	{# top: y/936*100, left: x/612*100, width: w/612*100 #}
-
-	<!-- Applicant type: Corporate / Other Entity -->
-	<div class="ck" style="top:7.8%;left:36.0%;width:2.3%;">X</div>
-
-	<!-- Date of Application -->
-	{% if doc.posting_date %}<div class="f" style="top:8.8%;left:87.9%;width:9.0%;height:1.2%;">{{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') }}</div>{% endif %}
-
-	<!-- Client details -->
-	{% if applicant_name %}<div class="f" style="top:12.8%;left:3.8%;width:92.4%;height:1.9%;">{{ applicant_name }}</div>{% endif %}
-	{% if company_address_text %}<div class="f f-wrap" style="top:16.0%;left:3.8%;width:92.4%;height:1.9%;">{{ company_address_text }}</div>{% endif %}
-	{% if company_email %}<div class="f" style="top:19.2%;left:3.9%;width:37.9%;height:1.9%;">{{ company_email }}</div>{% endif %}
-	{% if company_phone %}<div class="f" style="top:19.2%;left:43.4%;width:14.7%;height:1.9%;">{{ company_phone }}</div>{% endif %}
-
-	<!-- Remittance type: SWIFT -->
-	<div class="ck" style="top:19.5%;left:83.7%;width:2.3%;">X</div>
-
-	<!-- Currency -->
-	{% if currency == 'PHP' %}<div class="ck" style="top:23.5%;left:4.3%;width:1.9%;">X</div>{% endif %}
-	{% if currency == 'USD' %}<div class="ck" style="top:23.5%;left:12.2%;width:2.0%;">X</div>{% endif %}
-	{% if currency != 'PHP' and currency != 'USD' %}<div class="ck" style="top:23.5%;left:22.4%;width:2.0%;">X</div>{% endif %}
-	{% if currency != 'PHP' and currency != 'USD' %}<div class="f f-small" style="top:23.1%;left:30.6%;width:11.3%;height:2.2%;">{{ currency }}</div>{% endif %}
-
-	{% if fx_rate %}<div class="f" style="top:23.1%;left:42.9%;width:5.9%;height:2.2%;">{{ fx_rate }}</div>{% endif %}
-	{% if remitter_account_no %}<div class="f" style="top:23.1%;left:59.5%;width:36.7%;height:2.2%;">{{ remitter_account_no }}</div>{% endif %}
-
-	{% if amount_words %}<div class="f f-wrap" style="top:27.4%;left:3.9%;width:54.2%;height:1.9%;">{{ amount_words }}</div>{% endif %}
-	<div class="f" style="top:27.4%;left:59.7%;width:36.6%;height:1.9%;">{{ amount_figures }}</div>
-
-	{% if purpose %}<div class="f f-wrap" style="top:30.6%;left:3.8%;width:92.3%;height:1.9%;">{{ purpose }}</div>{% endif %}
-
-	<!-- Beneficiary details -->
-	{% if beneficiary_name %}<div class="f" style="top:35.4%;left:3.9%;width:54.2%;height:1.9%;">{{ beneficiary_name }}</div>{% endif %}
-	{% if beneficiary_account_no %}<div class="f" style="top:35.4%;left:59.7%;width:36.6%;height:1.9%;">{{ beneficiary_account_no }}</div>{% endif %}
-	{% if party_address_text %}<div class="f f-wrap" style="top:38.5%;left:3.8%;width:92.4%;height:1.9%;">{{ party_address_text }}</div>{% endif %}
-
-	<!-- Beneficiary bank details -->
-	{% if beneficiary_bank_name %}<div class="f" style="top:46.5%;left:30.8%;width:31.7%;height:1.9%;">{{ beneficiary_bank_name }}</div>{% endif %}
-	{% if swift_code %}<div class="f" style="top:49.9%;left:30.7%;width:31.8%;height:1.9%;">{{ swift_code }}</div>{% endif %}
-
-</div>
+{% set pdf_uri = frappe.call('logistics.print_format.payment_entry.ubp_bank_form_pdf.get_embedded_pdf', doctype=doc.doctype, name=doc.name) %}
+<embed class="pdf-page" type="application/pdf" src="{{ pdf_uri }}" />
 {% endif %}
 </body>
 </html>

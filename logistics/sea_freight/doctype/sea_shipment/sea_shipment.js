@@ -621,10 +621,13 @@ frappe.ui.form.on('Sea Shipment', {
 							callback: function(r) {
 								if (r.message) {
 									var msg = r.message.message || __('Intercompany invoices processed');
-									if (r.message.created !== undefined) {
+									if (r.message.created > 0) {
 										msg = __('Created {0} intercompany invoice(s).', [r.message.created]);
+									} else if (r.message.errors && r.message.errors.length) {
+										msg = r.message.errors[0];
 									}
-									frappe.show_alert({ message: msg, indicator: 'green' }, 5);
+									var indicator = (r.message.created > 0) ? 'green' : (r.message.errors && r.message.errors.length ? 'orange' : 'blue');
+									frappe.show_alert({ message: msg, indicator: indicator }, 8);
 									frm.reload_doc();
 								}
 							}

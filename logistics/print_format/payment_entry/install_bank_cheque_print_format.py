@@ -16,6 +16,16 @@ def _html_path() -> str:
 
 
 def install_bank_cheque_print_format() -> None:
+	try:
+		from logistics.print_format.payment_entry.bank_cheque_pdf import ensure_template_pdf
+
+		ensure_template_pdf()
+	except Exception as exc:
+		if frappe.flags.in_install or frappe.flags.in_patch:
+			frappe.log_error(title="BDO cheque vector template not installed", message=str(exc))
+		else:
+			raise
+
 	with open(_html_path(), encoding="utf-8") as handle:
 		html = handle.read()
 

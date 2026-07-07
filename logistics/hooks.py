@@ -783,9 +783,15 @@ scheduler_events = {
 # Overriding Methods
 # ------------------------------
 #
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "logistics.event.get_events"
-# }
+override_whitelisted_methods = {
+	"frappe.utils.print_format.download_pdf": (
+		"logistics.print_format.payment_entry.bank_forms_pdf.download_pdf"
+	),
+}
+
+pdf_generator = [
+	"logistics.print_format.payment_entry.bank_forms_pdf.pdf_generator_hook",
+]
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,

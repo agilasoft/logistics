@@ -1,4 +1,4 @@
-<!-- BDO Bank Cheque — vector PDF preview (fields filled on source PDF) -->
+<!-- Union Bank Telegraphic Transfer — values only on blank page (for pre-printed forms) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -6,22 +6,23 @@
 	<style>
 		* { margin: 0; padding: 0; box-sizing: border-box; }
 
-		@page { size: 210mm 297mm; margin: 0; }
+		@page { size: 216mm 330mm; margin: 0; }
 
 		html, body {
 			margin: 0;
 			padding: 0;
-			width: 210mm;
-			height: 297mm;
+			width: 216mm;
+			height: 330mm;
 			overflow: hidden;
 			background: #fff;
 		}
 
 		.pdf-page {
-			width: 210mm;
-			height: 297mm;
+			width: 216mm;
+			height: 330mm;
 			border: 0;
 			display: block;
+			background: #fff;
 		}
 
 		.missing-template {
@@ -36,7 +37,7 @@
 {% if doc.doctype != 'Payment Entry' %}
 <div class="missing-template">Wrong print format. Use on Payment Entry only.</div>
 {% else %}
-{% set pdf_uri = frappe.call('logistics.print_format.payment_entry.bank_cheque_pdf.get_embedded_pdf', doctype=doc.doctype, name=doc.name) %}
+{% set pdf_uri = frappe.call('logistics.print_format.payment_entry.ubp_bank_form_pdf.get_embedded_blank_pdf', doctype=doc.doctype, name=doc.name) %}
 <embed class="pdf-page" type="application/pdf" src="{{ pdf_uri }}" />
 {% endif %}
 </body>

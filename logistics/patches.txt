@@ -225,8 +225,10 @@ logistics.patches.v1_31_sync_mawb_print_formats
 logistics.patches.v1_32_fix_custom_mawb_print_formats
 # Payment Entry: BDO Telegraphic Transfer bank form overlay print format.
 logistics.patches.v1_33_install_bank_forms_print_format
+# Payment Entry: Union Bank Telegraphic Transfer bank form print formats.
+logistics.patches.v1_34_install_ubp_bank_form_print_format
 # Payment Entry: BDO bank cheque overlay print format.
-logistics.patches.v1_34_install_bank_cheque_print_format
+logistics.patches.v1_35_install_bank_cheque_print_format
 # Pricing desktop tile: workspace JSON was deleted; restore so sidebar Home link resolves.
 logistics.patches.v1_0_restore_pricing_workspace
 # v3.0: Linked Service rename, service_role, Service Scope tab, Sales Quote Pack
