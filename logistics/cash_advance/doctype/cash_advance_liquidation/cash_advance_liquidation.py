@@ -15,6 +15,10 @@ from logistics.cash_advance.accounting import (
 )
 from logistics.cash_advance.totals_sync import sync_cash_advance_request_liquidation_totals
 from logistics.cash_advance.job_charge_items import get_item_codes_for_job_number
+from logistics.cash_advance.job_number_rules import (
+	resolve_row_job_number,
+	row_requires_job_number,
+)
 
 
 class CashAdvanceLiquidation(Document):
@@ -62,64 +66,42 @@ class CashAdvanceLiquidation(Document):
 		if req_co and self.company and req_co != self.company:
 			frappe.throw(_("Company must match the linked Cash Advance Request."))
 
-	def _get_linked_request_fund_type(self):
+	def _get_linked_request_require_job_number(self):
 		if not self.cash_advance_request:
-			return None
-		return frappe.db.get_value("Cash Advance Request", self.cash_advance_request, "fund_type")
+			return 0
+		return frappe.db.get_value(
+			"Cash Advance Request", self.cash_advance_request, "require_job_number"
+		)
 
 	def _validate_job_number_when_request_linked(self):
 		if not self.cash_advance_request:
 			return
 
-		fund_type = self._get_linked_request_fund_type()
-		if fund_type == "Revolving Fund":
-			for idx, row in enumerate(self.items or [], start=1):
-				if not row.item_code:
-					continue
-				if not row.job_number:
-					frappe.throw(_("Row {0}: Job Number is required.").format(idx))
-			return
+		require_job_number = self._get_linked_request_require_job_number()
+		for idx, row in enumerate(self.items or [], start=1):
+			if not row_requires_job_number(require_job_number, row.item_code):
+				continue
+			job_number = resolve_row_job_number(self.job_number, row)
+			if not job_number:
+				frappe.throw(_("Row {0}: Job Number is required for this charge item.").format(idx))
+			if not row.job_number:
+				row.job_number = job_number
 
-		if not self.job_number:
-			frappe.throw(_("Job Number is required when a Cash Advance Request is linked."))
-
+	def _validate_items_against_job(self):
+		require_job_number = self._get_linked_request_require_job_number()
 		for idx, row in enumerate(self.items or [], start=1):
 			if not row.item_code:
 				continue
-			if not row.job_number:
-				row.job_number = self.job_number
-
-	def _validate_items_against_job(self):
-		fund_type = self._get_linked_request_fund_type()
-		if fund_type == "Revolving Fund":
-			for idx, row in enumerate(self.items or [], start=1):
-				if not row.item_code:
-					continue
-				job_number = row.job_number
-				if not job_number:
-					continue
-				allowed = set(get_item_codes_for_job_number(job_number))
-				if row.item_code not in allowed:
-					frappe.throw(
-						_("Row {0}: Charge Item {1} is not on the charges for Job Number {2}.").format(
-							idx, row.item_code, job_number
-						)
-					)
-			return
-
-		if not self.job_number:
-			if any(getattr(r, "item_code", None) for r in self.items or []):
-				frappe.throw(_("Job Number is required (load from Cash Advance Request)."))
-			return
-
-		allowed = set(get_item_codes_for_job_number(self.job_number))
-		for row in self.items or []:
-			if not row.item_code:
+			if not row_requires_job_number(require_job_number, row.item_code):
 				continue
+			job_number = resolve_row_job_number(self.job_number, row)
+			if not job_number:
+				continue
+			allowed = set(get_item_codes_for_job_number(job_number))
 			if row.item_code not in allowed:
 				frappe.throw(
-					_("Charge Item {0} is not on the charges for Job Number {1}.").format(
-						row.item_code, self.job_number
+					_("Row {0}: Charge Item {1} is not on the charges for Job Number {2}.").format(
+						idx, row.item_code, job_number
 					)
 				)
 

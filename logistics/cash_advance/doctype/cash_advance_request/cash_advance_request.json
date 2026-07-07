@@ -12,10 +12,10 @@
   "date",
   "fund_source",
   "fund_type",
+  "require_job_number",
   "column_break_tuun",
   "payee",
   "payee_name",
-  "job_number",
   "column_break_xblv",
   "company",
   "branch",
@@ -78,15 +78,6 @@
    "options": "Profit Center"
   },
   {
-   "fieldname": "job_number",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Job Number",
-   "mandatory_depends_on": "eval:doc.fund_type && doc.fund_type != 'Revolving Fund'",
-   "no_copy": 1,
-   "options": "Job Number"
-  },
-  {
    "fieldname": "column_break_acct",
    "fieldtype": "Column Break"
   },
@@ -103,6 +94,14 @@
    "fieldtype": "Select",
    "label": "Fund Type",
    "options": "\nBank\nPetty Cash\nRevolving Fund",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fetch_from": "fund_source.require_job_number",
+   "fieldname": "require_job_number",
+   "fieldtype": "Check",
+   "label": "Require Job Number",
    "read_only": 1
   },
   {

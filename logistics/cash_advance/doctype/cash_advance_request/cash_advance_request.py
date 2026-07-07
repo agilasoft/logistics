@@ -15,11 +15,8 @@ from logistics.cash_advance.accounting import (
 	create_advance_release_journal_entry,
 	ensure_payee_for_party_accounts,
 )
-from logistics.cash_advance.job_charge_items import (
-	get_item_codes_for_job_number,
-	header_job_number_required,
-	row_job_number_required,
-)
+from logistics.cash_advance.job_charge_items import get_item_codes_for_job_number
+from logistics.cash_advance.job_number_rules import row_requires_job_number
 from logistics.cash_advance.totals_sync import (
 	compute_unliquidated,
 	get_cash_advance_request_totals,
@@ -74,10 +71,10 @@ class CashAdvanceRequest(Document):
 
 	def validate(self):
 		self._validate_no_overdue_advance_for_payee()
-		self._validate_job_number_company_alignment()
 		self._validate_accounting_dimensions()
 		self._validate_fund_source_company()
 		self._validate_fund_source_fund_type()
+		self._sync_require_job_number_from_fund_source()
 		self._validate_request_limit()
 		self._validate_items_against_job()
 
@@ -107,6 +104,13 @@ class CashAdvanceRequest(Document):
 			)
 		if self.fund_type and self.fund_type != fund_type:
 			self.fund_type = fund_type
+
+	def _sync_require_job_number_from_fund_source(self):
+		if not self.fund_source:
+			return
+		self.require_job_number = cint(
+			frappe.db.get_value("Account", self.fund_source, "require_job_number")
+		)
 
 	def _validate_request_limit(self):
 		if not self.fund_source:
@@ -208,8 +212,6 @@ class CashAdvanceRequest(Document):
 			frappe.throw(_("Fund Source (Bank or Cash account) is required to submit."))
 		if not self.payee:
 			frappe.throw(_("Payee (Supplier) is required to submit (used as the party on the advance entry)."))
-		if header_job_number_required(self.fund_type) and not self.job_number:
-			frappe.throw(_("Job Number is required for {0} cash advances.").format(self.fund_type))
 		_validate_cash_bank_account(self.fund_source, self.company)
 		ensure_payee_for_party_accounts(self)
 		if flt(self.total_requested, 2) <= 0:
@@ -257,52 +259,20 @@ class CashAdvanceRequest(Document):
 					)
 				return
 
-	def _validate_job_number_company_alignment(self):
-		if not self.job_number:
-			return
-		jn = frappe.get_doc("Job Number", self.job_number)
-		if jn.company and self.company and jn.company != self.company:
-			frappe.throw(
-				_("Company {0} does not match Job Number {1} ({2}).").format(
-					self.company, self.job_number, jn.company
-				)
-			)
-
 	def _validate_items_against_job(self):
-		if row_job_number_required(self.fund_type):
-			for idx, row in enumerate(self.items or [], start=1):
-				if not row.item_code and not row.job_number:
-					continue
-				if not row.job_number:
-					frappe.throw(
-						_("Row {0}: Job Number is required for Revolving Fund items.").format(idx)
-					)
-				self._validate_item_job_number_company(row.job_number)
-				allowed = set(get_item_codes_for_job_number(row.job_number))
-				if row.item_code and row.item_code not in allowed:
-					frappe.throw(
-						_("Row {0}: Charge Item {1} is not on the charges for Job Number {2}.").format(
-							idx, row.item_code, row.job_number
-						)
-					)
-			return
-
-		if header_job_number_required(self.fund_type) and not self.job_number:
-			if any(getattr(row, "item_code", None) for row in self.items or []):
-				frappe.throw(_("Job Number is required to select charge items."))
-			return
-
-		if not self.job_number:
-			return
-
-		allowed = set(get_item_codes_for_job_number(self.job_number))
-		for row in self.items or []:
+		for idx, row in enumerate(self.items or [], start=1):
 			if not row.item_code:
 				continue
+			if not row_requires_job_number(self.require_job_number, row.item_code):
+				continue
+			if not row.job_number:
+				frappe.throw(_("Row {0}: Job Number is required for this charge item.").format(idx))
+			self._validate_item_job_number_company(row.job_number)
+			allowed = set(get_item_codes_for_job_number(row.job_number))
 			if row.item_code not in allowed:
 				frappe.throw(
-					_("Charge Item {0} is not on the charges for Job Number {1}.").format(
-						row.item_code, self.job_number
+					_("Row {0}: Charge Item {1} is not on the charges for Job Number {2}.").format(
+						idx, row.item_code, row.job_number
 					)
 				)
 

@@ -71,10 +71,19 @@ def _rows(filters, as_on):
 	else:
 		conditions.append("car.docstatus = 1")
 
-	for field in ("company", "branch", "cost_center", "profit_center", "job_number", "payee"):
+	for field in ("company", "branch", "cost_center", "profit_center", "payee"):
 		if filters.get(field):
 			conditions.append("car.`{0}` = %({0})s".format(field))
 			values[field] = filters[field]
+
+	if filters.get("job_number"):
+		conditions.append(
+			"""EXISTS (
+				SELECT 1 FROM `tabCash Advance Request Item` cari
+				WHERE cari.parent = car.name AND cari.job_number = %(job_number)s
+			)"""
+		)
+		values["job_number"] = filters["job_number"]
 
 	where = " AND ".join(conditions)
 
@@ -82,7 +91,12 @@ def _rows(filters, as_on):
 		"""
 		SELECT
 			car.name, car.date, car.release_date, car.liquidation_due_date,
-			car.payee, car.payee_name, car.job_number,
+			car.payee, car.payee_name,
+			(
+				SELECT MIN(cari.job_number)
+				FROM `tabCash Advance Request Item` cari
+				WHERE cari.parent = car.name AND IFNULL(cari.job_number, '') != ''
+			) AS job_number,
 			car.company, car.branch, car.cost_center, car.profit_center,
 			car.total_requested,
 			IFNULL(liq.total_liquidated, 0) AS total_liquidated,

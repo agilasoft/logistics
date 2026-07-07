@@ -1189,6 +1189,21 @@
    "width": null
   },
   {
+   "creation": "2026-07-07 00:00:00",
+   "default": "0",
+   "depends_on": "eval:doc.custom_logistics_charge_item",
+   "description": "When enabled, cash advance lines using this charge item must include a Job Number when the fund source requires it.",
+   "dt": "Item",
+   "fieldname": "require_job_number",
+   "fieldtype": "Check",
+   "insert_after": "custom_logistics_charge_item",
+   "label": "Require Job Number",
+   "modified": "2026-07-07 00:00:00",
+   "modified_by": "Administrator",
+   "name": "Item-require_job_number",
+   "owner": "Administrator"
+  },
+  {
    "_assign": null,
    "_comments": null,
    "_liked_by": null,
