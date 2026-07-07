@@ -45,6 +45,26 @@ def get_relationship(main_job_company: str, operating_company: str) -> Optional[
 	return None
 
 
+def _find_routing_leg_for_job(sales_quote, legs, job_type: str, job_no: str):
+	"""Return the routing leg whose anchor or contributor matches the job (for log display)."""
+	from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+		_get_contributors_for_leg,
+		_resolve_job_for_routing_leg,
+	)
+
+	for leg in legs:
+		# Legacy rows may still carry job_type / job_no
+		if getattr(leg, "job_type", None) == job_type and getattr(leg, "job_no", None) == job_no:
+			return leg
+		anchor_type, anchor_name = _resolve_job_for_routing_leg(sales_quote, leg)
+		if anchor_type == job_type and anchor_name == job_no:
+			return leg
+		for ct, cn in _get_contributors_for_leg(leg):
+			if ct == job_type and cn == job_no:
+				return leg
+	return legs[0] if legs else None
+
+
 def get_invoice_items_from_job(
 	job_type: str, job_name: str, customer_for_sea: Optional[str] = None
 ) -> List[Dict[str, Any]]:
@@ -144,19 +164,7 @@ def create_intercompany_invoices_for_quote(
 			errors.append(_("Job {0} {1}: no charge items.").format(job_type, job_no))
 			continue
 
-		# Leg for log/display (first leg that references this job, or None)
-		leg_for_log = next((l for l in legs if getattr(l, "job_type") == job_type and getattr(l, "job_no") == job_no), None)
-		if not leg_for_log:
-			for l in legs:
-				contrib = getattr(l, "bill_with_contributors", None) or []
-				for c in contrib:
-					if getattr(c, "contributor_job_type", None) == job_type and getattr(c, "contributor_job_no", None) == job_no:
-						leg_for_log = l
-						break
-				if leg_for_log:
-					break
-		if not leg_for_log and legs:
-			leg_for_log = legs[0]
+		leg_for_log = _find_routing_leg_for_job(sales_quote, legs, job_type, job_no)
 
 		try:
 			si_name, pi_name = _create_intercompany_pair(
