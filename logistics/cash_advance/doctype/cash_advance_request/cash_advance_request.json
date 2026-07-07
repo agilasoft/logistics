@@ -84,6 +84,7 @@
   {
    "fieldname": "fund_source",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Fund Source",
    "link_filters": "[[\"Account\", \"company\", \"=\", \"eval:doc.company\"], [\"Account\", \"is_group\", \"=\", 0], [\"Account\", \"disabled\", \"=\", 0], [\"Account\", \"account_type\", \"in\", [\"Bank\", \"Cash\"]], [\"Account\", \"fund_type\", \"in\", [\"Bank\", \"Petty Cash\", \"Revolving Fund\"]]]",
    "options": "Account"
@@ -114,6 +115,7 @@
    "fetch_from": "payee.supplier_name",
    "fieldname": "payee_name",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Payee Name",
    "read_only": 1
   },
@@ -121,6 +123,7 @@
    "default": "Today",
    "fieldname": "date",
    "fieldtype": "Date",
+   "in_list_view": 1,
    "label": "Request Date"
   },
   {
@@ -272,7 +275,7 @@
    "link_fieldname": "cash_advance_request"
   }
  ],
- "modified": "2026-07-07 08:17:58.295230",
+ "modified": "2026-07-07 11:08:47.857555",
  "modified_by": "Administrator",
  "module": "Cash Advance",
  "name": "Cash Advance Request",
@@ -311,6 +314,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "company,payee,fund_type,total_requested",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
