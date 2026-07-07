@@ -15,6 +15,11 @@ frappe.ui.form.on('Cash Advance Liquidation', {
 		logistics_cash_advance_liquidation_pull_from_request(frm, true);
 	},
 
+	job_number: function(frm) {
+		logistics_cash_advance_liquidation_set_item_query(frm);
+		logistics_cash_advance_liquidation_clear_invalid_items(frm);
+	},
+
 	total_requested: function(frm) {
 		calculate_liquidation_totals(frm);
 	},
@@ -38,6 +43,28 @@ function logistics_cash_advance_liquidation_set_item_query(frm) {
 			query: 'logistics.cash_advance.job_charge_items.item_query',
 			filters: { job_number: job_number }
 		};
+	});
+}
+
+function logistics_cash_advance_liquidation_clear_invalid_items(frm) {
+	if (!frm.doc.job_number || !frm.doc.items || !frm.doc.items.length) {
+		return;
+	}
+	frappe.call({
+		method: 'logistics.cash_advance.job_charge_items.get_charge_item_codes',
+		args: { job_number: frm.doc.job_number },
+		callback: function(r) {
+			var allowed = r.message || [];
+			var allowed_set = {};
+			allowed.forEach(function(name) { allowed_set[name] = 1; });
+			$.each(frm.doc.items || [], function(i, row) {
+				if (row.item_code && !allowed_set[row.item_code]) {
+					frappe.model.set_value(row.doctype, row.name, 'item_code', null);
+				}
+			});
+			frm.refresh_field('items');
+			calculate_liquidation_totals(frm);
+		}
 	});
 }
 

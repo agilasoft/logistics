@@ -82,6 +82,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Job Number",
+   "mandatory_depends_on": "eval:doc.fund_type && doc.fund_type != 'Revolving Fund'",
    "no_copy": 1,
    "options": "Job Number"
   },

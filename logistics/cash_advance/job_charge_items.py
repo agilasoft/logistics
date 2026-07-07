@@ -48,6 +48,25 @@ def _item_code_from_charge_row(charge) -> Optional[str]:
 	)
 
 
+def header_job_number_required(fund_type: Optional[str]) -> bool:
+	"""Header Job Number is required for Bank and Petty Cash advances."""
+	return bool(fund_type) and fund_type != "Revolving Fund"
+
+
+def row_job_number_required(fund_type: Optional[str]) -> bool:
+	"""Each item row needs its own Job Number for Revolving Fund advances."""
+	return fund_type == "Revolving Fund"
+
+
+def resolve_item_job_number(
+	fund_type: Optional[str], header_job_number: Optional[str], row_job_number: Optional[str] = None
+) -> Optional[str]:
+	"""Job Number used to scope charge-item selection for a request/liquidation row."""
+	if row_job_number_required(fund_type):
+		return row_job_number
+	return header_job_number
+
+
 def get_item_codes_for_job_number(job_number: Optional[str]) -> List[str]:
 	"""Distinct Item codes from the operational job linked to this Job Number."""
 	if not job_number or not frappe.db.exists("Job Number", job_number):
