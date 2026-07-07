@@ -313,3 +313,5 @@ logistics.patches.v3_0_backfill_freight_agent_covered_unlocs_from_default
 logistics.patches.v3_0_add_charge_unit_breaks
 # Special Project: backfill service-row planned/actual from charges and linked jobs
 logistics.patches.v3_0_sync_special_project_service_financials
+# Cash Advance: backfill Require Job Number on Revolving Fund accounts
+logistics.patches.v3_0_backfill_account_require_job_number_for_revolving_fund

@@ -4,7 +4,9 @@ frappe.ui.form.on('Cash Advance Request', {
 		logistics_cash_advance_set_employee_advance_query(frm);
 		logistics_cash_advance_set_dimension_queries(frm);
 		logistics_cash_advance_set_item_query(frm);
-		logistics_cash_advance_toggle_item_job_number(frm);
+		logistics_cash_advance_preload_item_require_job_number(frm).then(function() {
+			logistics_cash_advance_toggle_item_job_number(frm);
+		});
 
 		if (
 			!frm.is_new() &&
@@ -33,17 +35,26 @@ frappe.ui.form.on('Cash Advance Request', {
 	fund_source: function(frm) {
 		if (!frm.doc.fund_source) {
 			frm.set_value('fund_type', null);
+			frm.set_value('require_job_number', 0);
+			logistics_cash_advance_toggle_item_job_number(frm);
 			return;
 		}
-		frappe.db.get_value('Account', frm.doc.fund_source, ['fund_type', 'cash_advance_request_limit'], function(r) {
-			if (r) {
-				frm.set_value('fund_type', r.fund_type || null);
+		frappe.db.get_value(
+			'Account',
+			frm.doc.fund_source,
+			['fund_type', 'cash_advance_request_limit', 'require_job_number'],
+			function(r) {
+				if (r) {
+					frm.set_value('fund_type', r.fund_type || null);
+					frm.set_value('require_job_number', r.require_job_number ? 1 : 0);
+				}
+				logistics_cash_advance_toggle_item_job_number(frm);
 			}
-		});
+		);
 		logistics_cash_advance_set_item_query(frm);
 	},
 
-	fund_type: function(frm) {
+	require_job_number: function(frm) {
 		logistics_cash_advance_toggle_item_job_number(frm);
 		logistics_cash_advance_set_item_query(frm);
 	},
@@ -52,6 +63,7 @@ frappe.ui.form.on('Cash Advance Request', {
 		logistics_cash_advance_apply_job_number_dimensions(frm).then(function() {
 			logistics_cash_advance_set_item_query(frm);
 			logistics_cash_advance_clear_invalid_items(frm);
+			logistics_cash_advance_sync_item_job_numbers(frm);
 		});
 	},
 
@@ -127,6 +139,7 @@ function logistics_cash_advance_clear_mismatched_dimensions(frm) {
 			if (r && r.company && r.company !== company) {
 				frm.set_value('fund_source', null);
 				frm.set_value('fund_type', null);
+				frm.set_value('require_job_number', 0);
 			}
 		});
 	}
@@ -149,32 +162,66 @@ function logistics_cash_advance_set_fund_source_query(frm) {
 	});
 }
 
+function logistics_cash_advance_preload_item_require_job_number(frm) {
+	var codes = (frm.doc.items || []).map(function(row) { return row.item_code; }).filter(Boolean);
+	if (!codes.length) {
+		return Promise.resolve();
+	}
+	return frappe.db.get_list('Item', {
+		filters: { name: ['in', codes] },
+		fields: ['name', 'require_job_number'],
+		limit_page_length: 0
+	}).then(function(rows) {
+		frm._cash_advance_item_require_job_number = frm._cash_advance_item_require_job_number || {};
+		rows.forEach(function(row) {
+			frm._cash_advance_item_require_job_number[row.name] = row.require_job_number ? 1 : 0;
+		});
+	});
+}
+
+function logistics_cash_advance_row_requires_job_number(frm, row) {
+	if (!frm.doc.require_job_number || !row || !row.item_code) {
+		return false;
+	}
+	var cache = frm._cash_advance_item_require_job_number || {};
+	return !!cache[row.item_code];
+}
+
 function logistics_cash_advance_toggle_item_job_number(frm) {
-	var revolving = frm.doc.fund_type === 'Revolving Fund';
+	var show = !!frm.doc.require_job_number;
 	frm.fields_dict.items.grid.update_docfield_property(
-		'job_number', 'reqd', revolving ? 1 : 0
-	);
-	frm.fields_dict.items.grid.update_docfield_property(
-		'job_number', 'hidden', revolving ? 0 : 1
+		'job_number', 'hidden', show ? 0 : 1
 	);
 	frm.refresh_field('items');
 }
 
 function logistics_cash_advance_resolve_item_job_number(frm, row) {
-	if (frm.doc.fund_type === 'Revolving Fund') {
-		return row && row.job_number;
+	if (row && row.job_number) {
+		return row.job_number;
 	}
 	return frm.doc.job_number;
+}
+
+function logistics_cash_advance_sync_item_job_numbers(frm) {
+	if (!frm.doc.require_job_number || !frm.doc.job_number || !frm.doc.items || !frm.doc.items.length) {
+		return;
+	}
+	$.each(frm.doc.items, function(i, row) {
+		if (!logistics_cash_advance_row_requires_job_number(frm, row) || row.job_number) {
+			return;
+		}
+		frappe.model.set_value(row.doctype, row.name, 'job_number', frm.doc.job_number);
+	});
 }
 
 function logistics_cash_advance_set_item_query(frm) {
 	frm.set_query('item_code', 'items', function(doc, cdt, cdn) {
 		var row = locals[cdt][cdn];
+		if (!logistics_cash_advance_row_requires_job_number(frm, row)) {
+			return {};
+		}
 		var job_number = logistics_cash_advance_resolve_item_job_number(frm, row);
 		if (!job_number) {
-			if (frm.doc.fund_type && frm.doc.fund_type !== 'Revolving Fund') {
-				return {};
-			}
 			return { filters: [['Item', 'name', '=', '__no_job_number__']] };
 		}
 		return {
@@ -220,34 +267,32 @@ function logistics_cash_advance_clear_invalid_items(frm) {
 	if (!frm.doc.items || !frm.doc.items.length) {
 		return;
 	}
-	if (frm.doc.fund_type === 'Revolving Fund') {
+	logistics_cash_advance_preload_item_require_job_number(frm).then(function() {
 		$.each(frm.doc.items || [], function(i, row) {
-			if (!row.job_number && row.item_code) {
-				frappe.model.set_value(row.doctype, row.name, 'item_code', null);
+			if (!row.item_code) {
+				return;
 			}
+			if (!logistics_cash_advance_row_requires_job_number(frm, row)) {
+				return;
+			}
+			var job_number = logistics_cash_advance_resolve_item_job_number(frm, row);
+			if (!job_number) {
+				frappe.model.set_value(row.doctype, row.name, 'item_code', null);
+				return;
+			}
+			frappe.call({
+				method: 'logistics.cash_advance.job_charge_items.get_charge_item_codes',
+				args: { job_number: job_number },
+				callback: function(r) {
+					var allowed = r.message || [];
+					if (row.item_code && allowed.indexOf(row.item_code) === -1) {
+						frappe.model.set_value(row.doctype, row.name, 'item_code', null);
+					}
+				}
+			});
 		});
 		frm.refresh_field('items');
 		calculate_totals(frm);
-		return;
-	}
-	if (!frm.doc.job_number) {
-		return;
-	}
-	frappe.call({
-		method: 'logistics.cash_advance.job_charge_items.get_charge_item_codes',
-		args: { job_number: frm.doc.job_number },
-		callback: function(r) {
-			var allowed = r.message || [];
-			var set = {};
-			allowed.forEach(function(name) { set[name] = 1; });
-			$.each(frm.doc.items || [], function(i, row) {
-				if (row.item_code && !set[row.item_code]) {
-					frappe.model.set_value(row.doctype, row.name, 'item_code', null);
-				}
-			});
-			frm.refresh_field('items');
-			calculate_totals(frm);
-		}
 	});
 }
 
@@ -314,7 +359,7 @@ function calculate_totals(frm) {
 frappe.ui.form.on('Cash Advance Request Item', {
 	job_number: function(frm, cdt, cdn) {
 		var row = locals[cdt][cdn];
-		if (frm.doc.fund_type === 'Revolving Fund' && row.item_code) {
+		if (logistics_cash_advance_row_requires_job_number(frm, row) && row.item_code) {
 			frappe.call({
 				method: 'logistics.cash_advance.job_charge_items.get_charge_item_codes',
 				args: { job_number: row.job_number },
@@ -329,7 +374,18 @@ frappe.ui.form.on('Cash Advance Request Item', {
 	},
 
 	item_code: function(frm, cdt, cdn) {
-		calculate_totals(frm);
+		var row = locals[cdt][cdn];
+		logistics_cash_advance_preload_item_require_job_number(frm).then(function() {
+			if (
+				logistics_cash_advance_row_requires_job_number(frm, row) &&
+				!row.job_number &&
+				frm.doc.job_number
+			) {
+				frappe.model.set_value(cdt, cdn, 'job_number', frm.doc.job_number);
+			}
+			logistics_cash_advance_set_item_query(frm);
+			calculate_totals(frm);
+		});
 	},
 
 	amount_requested: function(frm, cdt, cdn) {
