@@ -550,6 +550,9 @@ frappe.ui.form.on("Sales Quote", {
 		if (logistics.lifecycle && logistics.lifecycle.setup_queries) {
 			logistics.lifecycle.setup_queries(frm);
 		}
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.setup_queries(frm);
+		}
 		// Initialize cache for allowed vehicle types
 		frm.allowed_vehicle_types_cache = {};
 		// If grid pagination is missing but the grid DOM exists, init pagination only (see documents_tab_utils.js).
@@ -596,11 +599,41 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	shipper(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_change(frm, { apply_party_defaults: false });
+		}
 		frm.events._maybe_auto_populate_routing_legs(frm);
 	},
 
 	consignee(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_change(frm, { apply_party_defaults: false });
+		}
 		frm.events._maybe_auto_populate_routing_legs(frm);
+	},
+
+	shipper_address(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_address_change(frm);
+		}
+	},
+
+	consignee_address(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_address_change(frm);
+		}
+	},
+
+	shipper_contact(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_contact_change(frm);
+		}
+	},
+
+	consignee_contact(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_contact_change(frm);
+		}
 	},
 
 	transport_mode(frm) {
@@ -1047,6 +1080,9 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	refresh(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.populate_displays_if_missing(frm);
+		}
 		if (frm.doc && frm.doc.docstatus === 1) {
 			frm._sq_was_clean_before_refresh = !frm.doc.__unsaved;
 		}

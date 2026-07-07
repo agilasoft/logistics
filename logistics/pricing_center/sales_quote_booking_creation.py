@@ -584,7 +584,7 @@ def _create_air_booking(
 		_validate_air_sea_corridor_ports_before_insert,
 	)
 	from logistics.utils.party_address_contact_from_masters import (
-		populate_air_sea_booking_party_fields_from_masters,
+		apply_party_address_contact_from_source_or_masters,
 	)
 	from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 
@@ -599,7 +599,7 @@ def _create_air_booking(
 	apply_internal_job_detail_row_to_operational_doc(doc, merged, overwrite=True)
 	_apply_air_sea_corridor_ports_from_context(doc, sq_doc, merged)
 	_apply_air_sea_settings_defaults_before_insert(doc)
-	populate_air_sea_booking_party_fields_from_masters(doc)
+	apply_party_address_contact_from_source_or_masters(doc, sq_doc)
 	apply_shipper_consignee_defaults(doc)
 	_validate_air_sea_corridor_ports_before_insert(doc)
 	# Charges populate also copies Sales Quote routing_legs onto the booking (#1135)
@@ -630,7 +630,7 @@ def _create_sea_booking(
 		_validate_air_sea_corridor_ports_before_insert,
 	)
 	from logistics.utils.party_address_contact_from_masters import (
-		populate_air_sea_booking_party_fields_from_masters,
+		apply_party_address_contact_from_source_or_masters,
 	)
 	from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 
@@ -645,7 +645,7 @@ def _create_sea_booking(
 	apply_internal_job_detail_row_to_operational_doc(doc, merged, overwrite=True)
 	_apply_air_sea_corridor_ports_from_context(doc, sq_doc, merged)
 	_apply_air_sea_settings_defaults_before_insert(doc)
-	populate_air_sea_booking_party_fields_from_masters(doc)
+	apply_party_address_contact_from_source_or_masters(doc, sq_doc)
 	apply_shipper_consignee_defaults(doc)
 	_validate_air_sea_corridor_ports_before_insert(doc)
 	_populate_charges_on_target(sq_doc, doc)

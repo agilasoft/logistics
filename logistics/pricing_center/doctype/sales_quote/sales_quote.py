@@ -9,7 +9,7 @@ from frappe.utils import format_date, today, flt, getdate, cint
 from logistics.utils.module_integration import copy_sales_quote_fields_to_target
 from logistics.utils.party_address_contact_from_masters import (
 	append_transport_order_door_leg_from_party_masters,
-	populate_air_sea_booking_party_fields_from_masters,
+	apply_party_address_contact_from_source_or_masters,
 )
 from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 from logistics.utils.sales_quote_validity import throw_if_sales_quote_expired_for_creation
@@ -1126,6 +1126,7 @@ class SalesQuote(Document):
 			apply_main_service_flags(air_shipment)
 			air_shipment.is_high_value = cint(getattr(self, "is_high_value", 0))
 			copy_sales_quote_fields_to_target(self, air_shipment)
+			apply_party_address_contact_from_source_or_masters(air_shipment, self)
 
 			# Insert the Air Shipment
 			air_shipment.insert(ignore_permissions=True)
@@ -2092,6 +2093,7 @@ def _create_transport_order_from_sales_quote(
 	apply_main_service_flags(transport_order)
 	transport_order.is_high_value = cint(getattr(sales_quote, "is_high_value", 0))
 	copy_sales_quote_fields_to_target(sales_quote, transport_order)
+	apply_party_address_contact_from_source_or_masters(transport_order, sales_quote)
 	append_transport_order_door_leg_from_party_masters(transport_order)
 	apply_shipper_consignee_defaults(transport_order)
 	_apply_parent_overrides_to_doc(transport_order, parent_overrides)
@@ -2238,7 +2240,7 @@ def _create_air_booking_from_sales_quote(
 	if volume is not None and flt(volume) > 0:
 		air_booking.volume = volume
 
-	populate_air_sea_booking_party_fields_from_masters(air_booking)
+	apply_party_address_contact_from_source_or_masters(air_booking, sales_quote)
 	apply_shipper_consignee_defaults(air_booking)
 	_apply_parent_overrides_to_doc(air_booking, parent_overrides)
 
@@ -2390,7 +2392,7 @@ def _create_sea_booking_from_sales_quote(
 	copy_sales_quote_fields_to_target(sales_quote, sea_booking)
 
 	apply_sales_quote_routing_to_booking(sea_booking, sales_quote)
-	populate_air_sea_booking_party_fields_from_masters(sea_booking)
+	apply_party_address_contact_from_source_or_masters(sea_booking, sales_quote)
 	apply_shipper_consignee_defaults(sea_booking)
 	_apply_parent_overrides_to_doc(sea_booking, parent_overrides)
 

@@ -377,17 +377,48 @@ frappe.ui.form.on("Transport Order", {
 		frm._allowed_vehicle_types = {};
 		// Apply load_type filters before field is ever used
 		apply_load_type_filters(frm);
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.setup_queries(frm);
+		}
 	},
 
 	shipper(frm) {
-		if (logistics.party_defaults) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_change(frm);
+		} else if (logistics.party_defaults) {
 			logistics.party_defaults.apply(frm);
 		}
 	},
 
 	consignee(frm) {
-		if (logistics.party_defaults) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_change(frm);
+		} else if (logistics.party_defaults) {
 			logistics.party_defaults.apply(frm);
+		}
+	},
+
+	shipper_address(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_address_change(frm);
+		}
+	},
+
+	consignee_address(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_address_change(frm);
+		}
+	},
+
+	shipper_contact(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_contact_change(frm);
+		}
+	},
+
+	consignee_contact(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_contact_change(frm);
 		}
 	},
 
@@ -463,6 +494,9 @@ frappe.ui.form.on("Transport Order", {
 	},
 
 	refresh: function(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.populate_displays_if_missing(frm);
+		}
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
