@@ -10,12 +10,12 @@
   "charge_section",
   "item_code",
   "description",
-  "job_number",
   "column_break_4",
   "amount_requested",
   "liquidation_entry_section",
   "date",
   "reference_no",
+  "job_number",
   "amount_liquidated",
   "attachment",
   "column_break_12",
@@ -97,9 +97,9 @@
   {
    "fieldname": "job_number",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Job Number",
-   "options": "Job Number",
-   "read_only": 1
+   "options": "Job Number"
   }
  ],
  "index_web_pages_for_search": 1,
