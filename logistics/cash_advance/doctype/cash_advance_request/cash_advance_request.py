@@ -7,13 +7,16 @@ from __future__ import unicode_literals
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cint, flt, fmt_money, formatdate, get_link_to_form, getdate, nowdate, today
+from frappe.utils import cint, date_diff, flt, fmt_money, formatdate, get_link_to_form, getdate, nowdate, today
 
 from logistics.cash_advance.accounting import (
 	_validate_cash_bank_account,
 	cancel_journal_entry,
 	create_advance_release_journal_entry,
 	ensure_payee_for_party_accounts,
+)
+from logistics.cash_advance.doctype.cash_advance_settings.cash_advance_settings import (
+	get_max_due_date_extension_days,
 )
 from logistics.cash_advance.job_charge_items import get_item_codes_for_job_number
 from logistics.cash_advance.job_number_rules import row_requires_job_number
@@ -308,11 +311,26 @@ class CashAdvanceRequest(Document):
 
 
 @frappe.whitelist()
-def extend_liquidation_due_date(cash_advance_request, liquidation_due_date, reason=None):
+def extend_liquidation_due_date(
+	cash_advance_request,
+	liquidation_due_date,
+	reason_code=None,
+	reason_description=None,
+):
 	"""Extend liquidation due date on a submitted cash advance with an outstanding balance."""
 	if not cash_advance_request:
 		frappe.throw(_("Cash Advance Request is required."))
 	frappe.has_permission("Cash Advance Request", "write", doc=cash_advance_request, throw=True)
+
+	if not reason_code:
+		frappe.throw(_("Reason Code is required."), title=_("Missing Reason Code"))
+	if not reason_description or not str(reason_description).strip():
+		frappe.throw(_("Reason Description is required."), title=_("Missing Reason Description"))
+
+	if not frappe.db.exists("Cash Advance Reason Code", reason_code):
+		frappe.throw(_("Reason Code {0} does not exist.").format(reason_code))
+	if not cint(frappe.db.get_value("Cash Advance Reason Code", reason_code, "is_active")):
+		frappe.throw(_("Reason Code {0} is not active.").format(reason_code))
 
 	doc = frappe.get_doc("Cash Advance Request", cash_advance_request)
 	if doc.docstatus != 1:
@@ -335,14 +353,40 @@ def extend_liquidation_due_date(cash_advance_request, liquidation_due_date, reas
 				),
 				title=_("Invalid Extension"),
 			)
+		extension_days = date_diff(new_due, old_d)
+	else:
+		extension_days = date_diff(new_due, today_d)
 
-	updates = {"liquidation_due_date": new_due}
-	if reason and str(reason).strip():
-		prefix = _("Due date extended to {0}: ").format(formatdate(new_due))
-		existing = (doc.status_reason or "").strip()
-		updates["status_reason"] = (existing + "\n" + prefix + str(reason).strip()).strip() if existing else prefix + str(reason).strip()
+	max_extension_days = get_max_due_date_extension_days(doc.company)
+	if max_extension_days > 0 and extension_days > max_extension_days:
+		frappe.throw(
+			_(
+				"Due date extension of {0} day(s) exceeds the maximum allowed extension of {1} day(s) for company {2}."
+			).format(extension_days, max_extension_days, doc.company),
+			title=_("Extension Limit Exceeded"),
+		)
 
-	frappe.db.set_value("Cash Advance Request", doc.name, updates, update_modified=True)
+	reason_label = reason_code
+	reason_master_description = frappe.db.get_value(
+		"Cash Advance Reason Code", reason_code, "description"
+	)
+	if reason_master_description:
+		reason_label = f"{reason_code} ({reason_master_description})"
+
+	reason_text = str(reason_description).strip()
+	prefix = _("Due date extended to {0} [{1}]: ").format(formatdate(new_due), reason_label)
+	existing = (doc.status_reason or "").strip()
+	status_reason = (existing + "\n" + prefix + reason_text).strip() if existing else prefix + reason_text
+
+	frappe.db.set_value(
+		"Cash Advance Request",
+		doc.name,
+		{
+			"liquidation_due_date": new_due,
+			"status_reason": status_reason,
+		},
+		update_modified=True,
+	)
 
 	return {
 		"success": True,

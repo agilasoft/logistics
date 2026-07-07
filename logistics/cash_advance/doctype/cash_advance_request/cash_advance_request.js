@@ -8,6 +8,10 @@ frappe.ui.form.on('Cash Advance Request', {
 			logistics_cash_advance_toggle_item_job_number(frm);
 		});
 
+		if (frm.doc.docstatus === 0 && frm.doc.date && frm.doc.company) {
+			logistics_cash_advance_set_default_liquidation_due_date(frm);
+		}
+
 		if (
 			!frm.is_new() &&
 			!frm.doc.__islocal &&
@@ -30,6 +34,11 @@ frappe.ui.form.on('Cash Advance Request', {
 		logistics_cash_advance_set_employee_advance_query(frm);
 		logistics_cash_advance_set_dimension_queries(frm);
 		logistics_cash_advance_clear_mismatched_dimensions(frm);
+		logistics_cash_advance_set_default_liquidation_due_date(frm);
+	},
+
+	date: function(frm) {
+		logistics_cash_advance_set_default_liquidation_due_date(frm);
 	},
 
 	fund_source: function(frm) {
@@ -273,49 +282,118 @@ function logistics_cash_advance_clear_invalid_items(frm) {
 	});
 }
 
+function logistics_cash_advance_set_default_liquidation_due_date(frm) {
+	if (!frm.doc || frm.doc.docstatus !== 0 || !frm.doc.date) {
+		return;
+	}
+
+	var set_with_offset = function(offsetDays) {
+		var base = frm.doc.date;
+		var days = (typeof offsetDays === 'number' && !isNaN(offsetDays)) ? offsetDays : 30;
+		frm.set_value('liquidation_due_date', frappe.datetime.add_days(base, days));
+	};
+
+	frm._cash_advance_due_date_cache = frm._cash_advance_due_date_cache || {};
+	if (frm._cash_advance_due_date_cache[frm.doc.company] != null) {
+		set_with_offset(frm._cash_advance_due_date_cache[frm.doc.company]);
+		return;
+	}
+
+	frappe.call({
+		method: 'logistics.cash_advance.doctype.cash_advance_settings.cash_advance_settings.get_due_date_settings',
+		args: { company: frm.doc.company },
+		callback: function(r) {
+			var days = (r && r.message && r.message.liquidation_due_date_offset_days != null)
+				? r.message.liquidation_due_date_offset_days
+				: 30;
+			frm._cash_advance_due_date_cache[frm.doc.company] = days;
+			set_with_offset(days);
+		}
+	});
+}
+
 function logistics_cash_advance_extend_due_date(frm) {
 	var base = frm.doc.liquidation_due_date || frappe.datetime.get_today();
 	var default_date = frappe.datetime.add_days(base, 30);
-	frappe.prompt(
-		[
-			{
-				fieldname: 'liquidation_due_date',
-				fieldtype: 'Date',
-				label: __('New Liquidation Due Date'),
-				reqd: 1,
-				default: default_date,
-				description: __('Must be after the current due date and not before today.')
-			},
-			{
-				fieldname: 'reason',
-				fieldtype: 'Small Text',
-				label: __('Reason')
-			}
-		],
-		function(values) {
-			frappe.call({
-				method: 'logistics.cash_advance.doctype.cash_advance_request.cash_advance_request.extend_liquidation_due_date',
-				args: {
-					cash_advance_request: frm.doc.name,
-					liquidation_due_date: values.liquidation_due_date,
-					reason: values.reason
+
+	var show_prompt = function(max_extension_days) {
+		var max_days = (typeof max_extension_days === 'number' && !isNaN(max_extension_days))
+			? max_extension_days
+			: 30;
+		var description = __('Must be after the current due date and not before today.');
+		if (max_days > 0) {
+			description += ' ' + __('Maximum extension: {0} day(s).', [max_days]);
+		}
+
+		frappe.prompt(
+			[
+				{
+					fieldname: 'liquidation_due_date',
+					fieldtype: 'Date',
+					label: __('New Liquidation Due Date'),
+					reqd: 1,
+					default: default_date,
+					description: description
 				},
-				freeze: true,
-				freeze_message: __('Extending due date...'),
-				callback: function(r) {
-					if (r.message && r.message.success) {
-						frm.reload_doc();
-						frappe.show_alert({
-							message: r.message.message || __('Due date updated.'),
-							indicator: 'green'
-						}, 5);
+				{
+					fieldname: 'reason_code',
+					fieldtype: 'Link',
+					label: __('Reason Code'),
+					options: 'Cash Advance Reason Code',
+					reqd: 1,
+					get_query: function() {
+						return {
+							filters: { is_active: 1 }
+						};
 					}
+				},
+				{
+					fieldname: 'reason_description',
+					fieldtype: 'Small Text',
+					label: __('Reason Description'),
+					reqd: 1
 				}
-			});
-		},
-		__('Extend Due Date'),
-		__('Update')
-	);
+			],
+			function(values) {
+				frappe.call({
+					method: 'logistics.cash_advance.doctype.cash_advance_request.cash_advance_request.extend_liquidation_due_date',
+					args: {
+						cash_advance_request: frm.doc.name,
+						liquidation_due_date: values.liquidation_due_date,
+						reason_code: values.reason_code,
+						reason_description: values.reason_description
+					},
+					freeze: true,
+					freeze_message: __('Extending due date...'),
+					callback: function(r) {
+						if (r.message && r.message.success) {
+							frm.reload_doc();
+							frappe.show_alert({
+								message: r.message.message || __('Due date updated.'),
+								indicator: 'green'
+							}, 5);
+						}
+					}
+				});
+			},
+			__('Extend Due Date'),
+			__('Update')
+		);
+	};
+
+	frappe.call({
+		method: 'logistics.cash_advance.doctype.cash_advance_settings.cash_advance_settings.get_due_date_settings',
+		args: { company: frm.doc.company },
+		callback: function(r) {
+			var max_extension_days = (r && r.message && r.message.max_due_date_extension_days != null)
+				? r.message.max_due_date_extension_days
+				: 30;
+			if (max_extension_days > 0) {
+				default_date = frappe.datetime.add_days(base, max_extension_days);
+			}
+			show_prompt(max_extension_days);
+		}
+	});
 }
 
 function calculate_totals(frm) {
