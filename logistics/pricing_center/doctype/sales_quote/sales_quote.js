@@ -2105,7 +2105,9 @@ function add_create_button(frm, config) {
 		["docstatus", "!=", 2],
 	];
 	if (doctype === "Sea Booking" || doctype === "Air Booking" || doctype === "Transport Order") {
-		booking_filters.push(["is_main_service", "=", 1]);
+		// v3.0: is_main_service was removed from operational DocTypes (service_role cutover).
+		// Filtering on the legacy field raises "Field not permitted in query" from get_list.
+		booking_filters.push(["service_role", "=", "Main"]);
 	}
 	frappe.call({
 		method: "frappe.client.get_list",
@@ -2639,7 +2641,8 @@ function _get_main_sea_booking_for_sales_quote(sales_quote_name, callback) {
 			doctype: "Sea Booking",
 			filters: [
 				["sales_quote", "=", sales_quote_name],
-				["is_main_service", "=", 1],
+				// Match resolve_single_main_sea_booking_for_sales_quote (sales_quote.py): service_role Main.
+				["service_role", "=", "Main"],
 				["docstatus", "!=", 2],
 			],
 			fields: ["name"],

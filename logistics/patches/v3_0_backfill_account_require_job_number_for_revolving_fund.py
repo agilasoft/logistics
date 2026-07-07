@@ -4,6 +4,10 @@ import frappe
 
 
 def execute():
+	# Custom Account fields sync in post_schema_updates, after post_model_sync patches.
+	if not frappe.db.has_column("Account", "require_job_number"):
+		return
+
 	frappe.db.sql(
 		"""
 		UPDATE `tabAccount`
