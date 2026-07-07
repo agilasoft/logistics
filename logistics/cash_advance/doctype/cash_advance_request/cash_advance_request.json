@@ -8,34 +8,40 @@
  "engine": "InnoDB",
  "field_order": [
   "accounting_section",
-  "company",
-  "branch",
-  "cost_center",
-  "profit_center",
-  "job_number",
   "column_break_acct",
+  "date",
   "fund_source",
   "fund_type",
+  "column_break_tuun",
   "payee",
   "payee_name",
-  "date",
+  "job_number",
+  "column_break_xblv",
+  "company",
+  "branch",
+  "profit_center",
+  "cost_center",
   "releasing_and_liquidation",
   "released_to",
   "release_date",
+  "advance_journal_entry",
   "column_break_22",
   "liquidation_due_date",
-  "liquidation_date",
+  "column_break_dtvs",
   "items_tab",
   "section_break_25",
   "items",
+  "section_break_knqx",
   "total_requested",
+  "unliquidated",
+  "amended_from",
+  "column_break_weiu",
   "total_liquidated",
   "refunded",
   "returned",
-  "advance_journal_entry",
-  "unliquidated",
+  "column_break_ooxx",
+  "section_break_agmk",
   "status_reason",
-  "amended_from",
   "connections_tab"
  ],
  "fields": [
@@ -84,7 +90,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "Bank or Cash account paid out for this advance (required on submit).",
    "fieldname": "fund_source",
    "fieldtype": "Link",
    "label": "Fund Source",
@@ -100,7 +105,6 @@
    "read_only": 1
   },
   {
-   "description": "Supplier who receives the cash. Used as the party on the advance journal entry (required on submit).",
    "fieldname": "payee",
    "fieldtype": "Link",
    "label": "Payee",
@@ -145,11 +149,6 @@
    "label": "Liquidation Due Date"
   },
   {
-   "fieldname": "liquidation_date",
-   "fieldtype": "Date",
-   "label": "Liquidation Date"
-  },
-  {
    "fieldname": "section_break_25",
    "fieldtype": "Section Break"
   },
@@ -162,18 +161,17 @@
   {
    "fieldname": "total_requested",
    "fieldtype": "Currency",
-   "label": "Total Requested"
-  },
-  {
-   "description": "Sum of submitted Cash Advance Liquidation totals.",
-   "fieldname": "total_liquidated",
-   "fieldtype": "Currency",
-   "is_virtual": 1,
-   "label": "Total Liquidated",
+   "label": "Requested",
    "read_only": 1
   },
   {
-   "description": "Sum of submitted Cash Acknowledgment payments (additional payouts).",
+   "fieldname": "total_liquidated",
+   "fieldtype": "Currency",
+   "is_virtual": 1,
+   "label": "Liquidated",
+   "read_only": 1
+  },
+  {
    "fieldname": "refunded",
    "fieldtype": "Currency",
    "is_virtual": 1,
@@ -181,7 +179,6 @@
    "read_only": 1
   },
   {
-   "description": "Sum of submitted Cash Acknowledgment receipts (unused cash returned).",
    "fieldname": "returned",
    "fieldtype": "Currency",
    "is_virtual": 1,
@@ -199,7 +196,7 @@
    "read_only": 1
   },
   {
-   "description": "Total Requested - Total Liquidated + Refunded - Returned.",
+   "description": "\n",
    "fieldname": "unliquidated",
    "fieldtype": "Currency",
    "is_virtual": 1,
@@ -224,13 +221,41 @@
   {
    "fieldname": "items_tab",
    "fieldtype": "Tab Break",
-   "label": "Items"
+   "label": "Charges"
   },
   {
    "fieldname": "connections_tab",
    "fieldtype": "Tab Break",
    "label": "Connections",
    "show_dashboard": 1
+  },
+  {
+   "fieldname": "column_break_xblv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_knqx",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_weiu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ooxx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_agmk",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_tuun",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_dtvs",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
@@ -247,7 +272,7 @@
    "link_fieldname": "cash_advance_request"
   }
  ],
- "modified": "2026-07-07 00:00:00.000000",
+ "modified": "2026-07-07 08:17:58.295230",
  "modified_by": "Administrator",
  "module": "Cash Advance",
  "name": "Cash Advance Request",

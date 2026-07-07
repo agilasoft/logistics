@@ -6,6 +6,8 @@ import os
 
 import frappe
 
+from logistics.print_format.pdf_generator import ensure_chrome_pdf_generator_option, preferred_pdf_generator
+
 PRINT_FORMAT_NAME = "UBP Bank Form"
 BLANK_PRINT_FORMAT_NAME = "UBP Form Blank"
 DOC_TYPE = "Payment Entry"
@@ -26,11 +28,12 @@ def _read_html(rel_path: str) -> str:
 
 
 def _upsert_print_format(name: str, html: str) -> None:
+	pdf_generator = preferred_pdf_generator()
 	if frappe.db.exists("Print Format", name):
 		frappe.db.set_value(
 			"Print Format",
 			name,
-			{"html": html, "pdf_generator": "chrome"},
+			{"html": html, "pdf_generator": pdf_generator},
 			update_modified=False,
 		)
 		return
@@ -45,7 +48,7 @@ def _upsert_print_format(name: str, html: str) -> None:
 			"custom_format": 1,
 			"print_format_type": "Jinja",
 			"html": html,
-			"pdf_generator": "chrome",
+			"pdf_generator": pdf_generator,
 			"font_size": 8,
 			"disabled": 0,
 			"align_labels_right": 0,
@@ -59,6 +62,8 @@ def _upsert_print_format(name: str, html: str) -> None:
 
 
 def install_ubp_bank_form_print_format() -> None:
+	ensure_chrome_pdf_generator_option()
+
 	try:
 		from logistics.print_format.payment_entry.ubp_bank_form_pdf import ensure_template_pdf
 
