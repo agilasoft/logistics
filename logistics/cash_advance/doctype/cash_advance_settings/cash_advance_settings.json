@@ -8,7 +8,10 @@
  "engine": "InnoDB",
  "field_order": [
   "company",
-  "ar_employee_account"
+  "ar_employee_account",
+  "section_break_due_dates",
+  "liquidation_due_date_offset_days",
+  "max_due_date_extension_days"
  ],
  "fields": [
   {
@@ -28,6 +31,29 @@
    "label": "A/R Employee (Employee Advance)",
    "options": "Account",
    "description": "Receivable / employee advance control account debited when cash is released to the employee (required before submitting cash advances)."
+  },
+  {
+   "fieldname": "section_break_due_dates",
+   "fieldtype": "Section Break",
+   "label": "Liquidation Due Dates"
+  },
+  {
+   "default": "30",
+   "description": "Number of days to add to Request Date when setting the default Liquidation Due Date on new Cash Advance Requests.",
+   "fieldname": "liquidation_due_date_offset_days",
+   "fieldtype": "Int",
+   "label": "Default Due Date Offset (Days)",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "default": "30",
+   "description": "Maximum number of days a liquidation due date can be extended beyond the current due date in one extension.",
+   "fieldname": "max_due_date_extension_days",
+   "fieldtype": "Int",
+   "label": "Maximum Due Date Extension (Days)",
+   "non_negative": 1,
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
