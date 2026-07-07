@@ -11,7 +11,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt
 
-from logistics.cash_advance.totals_sync import _sum_submitted_acknowledgments
+from logistics.cash_advance.totals_sync import _sum_submitted_acknowledgments, get_release_journal_entry
 
 
 def get_ar_employee_account() -> str:
@@ -188,7 +188,7 @@ def _append_je_line(je, account: str, debit: float, credit: float, source_doc, i
 def create_advance_release_journal_entry(doc) -> str:
 	"""Post a Supplier Advance Entry: Dr Advance account (party = Payee, is_advance=Yes), Cr Cash/Bank."""
 	if doc.name and frappe.db.exists(doc.doctype, doc.name):
-		existing = frappe.db.get_value(doc.doctype, doc.name, "advance_journal_entry")
+		existing = get_release_journal_entry(doc.name)
 		if existing:
 			return existing
 
@@ -216,6 +216,7 @@ def create_advance_release_journal_entry(doc) -> str:
 	je.voucher_type = voucher_type
 	je.company = doc.company
 	je.posting_date = doc.release_date or doc.date
+	je.bill_no = doc.name
 	je.user_remark = _("Cash advance released {0} to {1}").format(doc.name, payee)
 
 	_append_je_line(je, ar, amount, 0, doc, is_advance=True)

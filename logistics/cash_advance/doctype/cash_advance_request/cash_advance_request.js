@@ -308,13 +308,7 @@ function calculate_totals(frm) {
 	}
 
 	frm.set_value('total_requested', total_requested);
-	var total_liquidated = parseFloat(frm.doc.total_liquidated) || 0;
-	var returned = parseFloat(frm.doc.returned) || 0;
-	var refunded = parseFloat(frm.doc.refunded) || 0;
-	frm.set_value('unliquidated', total_requested - total_liquidated - returned + refunded);
-
 	frm.refresh_field('total_requested');
-	frm.refresh_field('unliquidated');
 }
 
 frappe.ui.form.on('Cash Advance Request Item', {

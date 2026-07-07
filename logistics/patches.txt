@@ -253,6 +253,8 @@ logistics.patches.v3_0_seed_ccs_providers
 logistics.patches.v3_0_restore_docket_internal_job_detail_rows
 # Cash Advance: backfill request total_liquidated / unliquidated from submitted liquidations
 logistics.patches.v1_0_backfill_cash_advance_request_liquidation_totals
+# Cash Advance: virtual rollup fields sourced from liquidation / acknowledgment / journal entry
+logistics.patches.v1_0_cash_advance_request_virtual_fields
 # v3.0: charge tables still listed internal_job in field_order after linked_service rename
 logistics.patches.v3_0_fix_linked_service_field_order_on_charge_tables
 # v3.0: Sea Booking / Sea Shipment internal_job_details virtual grid (Linked Service only)

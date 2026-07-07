@@ -30,16 +30,11 @@
   "items",
   "total_requested",
   "total_liquidated",
-  "unliquidated",
-  "status_reason",
-  "returns_and_refunds_tab",
-  "refund_return",
   "refunded",
   "returned",
-  "refund_return_date",
-  "reference",
-  "from_to",
   "advance_journal_entry",
+  "unliquidated",
+  "status_reason",
   "amended_from",
   "connections_tab"
  ],
@@ -170,14 +165,44 @@
    "label": "Total Requested"
   },
   {
+   "description": "Sum of submitted Cash Advance Liquidation totals.",
    "fieldname": "total_liquidated",
    "fieldtype": "Currency",
+   "is_virtual": 1,
    "label": "Total Liquidated",
    "read_only": 1
   },
   {
+   "description": "Sum of submitted Cash Acknowledgment payments (additional payouts).",
+   "fieldname": "refunded",
+   "fieldtype": "Currency",
+   "is_virtual": 1,
+   "label": "Refunded",
+   "read_only": 1
+  },
+  {
+   "description": "Sum of submitted Cash Acknowledgment receipts (unused cash returned).",
+   "fieldname": "returned",
+   "fieldtype": "Currency",
+   "is_virtual": 1,
+   "label": "Returned",
+   "read_only": 1
+  },
+  {
+   "description": "Journal entry posted when this request is submitted.",
+   "fieldname": "advance_journal_entry",
+   "fieldtype": "Link",
+   "is_virtual": 1,
+   "label": "Release Journal Entry",
+   "no_copy": 1,
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "description": "Outstanding advance balance after expenses, cash returned, and additional payouts.",
    "fieldname": "unliquidated",
    "fieldtype": "Currency",
+   "is_virtual": 1,
    "label": "Unliquidated",
    "read_only": 1
   },
@@ -185,45 +210,6 @@
    "fieldname": "status_reason",
    "fieldtype": "Small Text",
    "label": "Status Reason"
-  },
-  {
-   "fieldname": "refund_return",
-   "fieldtype": "Section Break",
-   "label": "Refund /Return"
-  },
-  {
-   "fieldname": "refunded",
-   "fieldtype": "Currency",
-   "label": "Refunded"
-  },
-  {
-   "fieldname": "returned",
-   "fieldtype": "Currency",
-   "label": "Returned"
-  },
-  {
-   "fieldname": "refund_return_date",
-   "fieldtype": "Date",
-   "label": "Refund/Return Date"
-  },
-  {
-   "fieldname": "reference",
-   "fieldtype": "Data",
-   "label": "Reference"
-  },
-  {
-   "fieldname": "from_to",
-   "fieldtype": "Link",
-   "label": "From/To",
-   "options": "Supplier"
-  },
-  {
-   "fieldname": "advance_journal_entry",
-   "fieldtype": "Link",
-   "label": "Release Journal Entry",
-   "no_copy": 1,
-   "options": "Journal Entry",
-   "read_only": 1
   },
   {
    "fieldname": "amended_from",
@@ -245,11 +231,6 @@
    "fieldtype": "Tab Break",
    "label": "Connections",
    "show_dashboard": 1
-  },
-  {
-   "fieldname": "returns_and_refunds_tab",
-   "fieldtype": "Tab Break",
-   "label": "Returns and Refunds"
   }
  ],
  "index_web_pages_for_search": 1,
@@ -266,7 +247,7 @@
    "link_fieldname": "cash_advance_request"
   }
  ],
- "modified": "2026-07-01 13:02:18.768955",
+ "modified": "2026-07-07 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cash Advance",
  "name": "Cash Advance Request",
