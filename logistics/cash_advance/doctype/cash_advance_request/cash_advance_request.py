@@ -16,10 +16,7 @@ from logistics.cash_advance.accounting import (
 	ensure_payee_for_party_accounts,
 )
 from logistics.cash_advance.job_charge_items import get_item_codes_for_job_number
-from logistics.cash_advance.job_number_rules import (
-	resolve_row_job_number,
-	row_requires_job_number,
-)
+from logistics.cash_advance.job_number_rules import row_requires_job_number
 from logistics.cash_advance.totals_sync import (
 	compute_unliquidated,
 	get_cash_advance_request_totals,
@@ -74,7 +71,6 @@ class CashAdvanceRequest(Document):
 
 	def validate(self):
 		self._validate_no_overdue_advance_for_payee()
-		self._validate_job_number_company_alignment()
 		self._validate_accounting_dimensions()
 		self._validate_fund_source_company()
 		self._validate_fund_source_fund_type()
@@ -263,32 +259,20 @@ class CashAdvanceRequest(Document):
 					)
 				return
 
-	def _validate_job_number_company_alignment(self):
-		if not self.job_number:
-			return
-		jn = frappe.get_doc("Job Number", self.job_number)
-		if jn.company and self.company and jn.company != self.company:
-			frappe.throw(
-				_("Company {0} does not match Job Number {1} ({2}).").format(
-					self.company, self.job_number, jn.company
-				)
-			)
-
 	def _validate_items_against_job(self):
 		for idx, row in enumerate(self.items or [], start=1):
 			if not row.item_code:
 				continue
 			if not row_requires_job_number(self.require_job_number, row.item_code):
 				continue
-			job_number = resolve_row_job_number(self.job_number, row)
-			if not job_number:
+			if not row.job_number:
 				frappe.throw(_("Row {0}: Job Number is required for this charge item.").format(idx))
-			self._validate_item_job_number_company(job_number)
-			allowed = set(get_item_codes_for_job_number(job_number))
+			self._validate_item_job_number_company(row.job_number)
+			allowed = set(get_item_codes_for_job_number(row.job_number))
 			if row.item_code not in allowed:
 				frappe.throw(
 					_("Row {0}: Charge Item {1} is not on the charges for Job Number {2}.").format(
-						idx, row.item_code, job_number
+						idx, row.item_code, row.job_number
 					)
 				)
 

@@ -16,7 +16,6 @@
   "column_break_tuun",
   "payee",
   "payee_name",
-  "job_number",
   "column_break_xblv",
   "company",
   "branch",
@@ -77,14 +76,6 @@
    "label": "Profit Center",
    "link_filters": "[[\"Profit Center\", \"company\", \"=\", \"eval:doc.company\"]]",
    "options": "Profit Center"
-  },
-  {
-   "fieldname": "job_number",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Job Number",
-   "no_copy": 1,
-   "options": "Job Number"
   },
   {
    "fieldname": "column_break_acct",

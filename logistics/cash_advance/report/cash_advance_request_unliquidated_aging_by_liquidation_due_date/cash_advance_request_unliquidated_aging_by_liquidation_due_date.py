@@ -17,10 +17,18 @@ def execute(filters=None):
 	joins = unliquidated_join_sql(car)
 
 	where, values = ["car.docstatus = 1", "car.liquidation_due_date IS NOT NULL", f"({unliquidated_expr}) > 0"], {}
-	for field in ("company", "branch", "cost_center", "profit_center", "job_number", "payee"):
+	for field in ("company", "branch", "cost_center", "profit_center", "payee"):
 		if filters.get(field):
 			where.append(f"car.`{field}` = %({field})s")
 			values[field] = filters[field]
+	if filters.get("job_number"):
+		where.append(
+			"""EXISTS (
+				SELECT 1 FROM `tabCash Advance Request Item` cari
+				WHERE cari.parent = car.name AND cari.job_number = %(job_number)s
+			)"""
+		)
+		values["job_number"] = filters["job_number"]
 
 	columns = [
 		{"fieldname": "age_bucket", "label": _("Aging bucket"), "fieldtype": "Data", "width": 180},

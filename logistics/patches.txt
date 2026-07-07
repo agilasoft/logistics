@@ -315,3 +315,5 @@ logistics.patches.v3_0_add_charge_unit_breaks
 logistics.patches.v3_0_sync_special_project_service_financials
 # Cash Advance: backfill Require Job Number on Revolving Fund accounts
 logistics.patches.v3_0_backfill_account_require_job_number_for_revolving_fund
+# Cash Advance: drop header job_number from Cash Advance Request
+logistics.patches.v3_0_drop_cash_advance_request_job_number

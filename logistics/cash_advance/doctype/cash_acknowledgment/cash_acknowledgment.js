@@ -52,7 +52,6 @@ function logistics_cash_acknowledgment_pull_from_request(frm) {
 		p = p.then(function() { return frm.set_value('branch', ca.branch); });
 		p = p.then(function() { return frm.set_value('cost_center', ca.cost_center); });
 		p = p.then(function() { return frm.set_value('profit_center', ca.profit_center); });
-		p = p.then(function() { return frm.set_value('job_number', ca.job_number); });
 		p = p.then(function() { return frm.set_value('fund_source', ca.fund_source); });
 		p = p.then(function() { return frm.set_value('payee', ca.payee); });
 		p = p.then(function() { return frm.set_value('payee_name', ca.payee_name); });

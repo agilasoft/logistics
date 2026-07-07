@@ -154,7 +154,6 @@ function logistics_cash_advance_liquidation_pull_from_request(frm, silent) {
 		p = p.then(function() { return frm.set_value('branch', ca.branch); });
 		p = p.then(function() { return frm.set_value('cost_center', ca.cost_center); });
 		p = p.then(function() { return frm.set_value('profit_center', ca.profit_center); });
-		p = p.then(function() { return frm.set_value('job_number', ca.job_number); });
 		p = p.then(function() { return frm.set_value('payee', ca.payee); });
 		p = p.then(function() { return frm.set_value('payee_name', ca.payee_name); });
 		p = p.then(function() { return frm.set_value('request_date', ca.date); });
@@ -167,7 +166,7 @@ function logistics_cash_advance_liquidation_pull_from_request(frm, silent) {
 				row.item_code = r.item_code;
 				row.description = r.description;
 				row.amount_requested = r.amount_requested;
-				row.job_number = r.job_number || ca.job_number;
+				row.job_number = r.job_number;
 			});
 			frm.refresh_field('items');
 			return logistics_cash_advance_liquidation_preload_item_require_job_number(frm).then(function() {
@@ -205,15 +204,7 @@ function calculate_liquidation_totals(frm) {
 
 frappe.ui.form.on('Cash Advance Liquidation Item', {
 	item_code: function(frm, cdt, cdn) {
-		var row = locals[cdt][cdn];
 		logistics_cash_advance_liquidation_preload_item_require_job_number(frm).then(function() {
-			if (
-				logistics_cash_advance_liquidation_row_requires_job_number(frm, row) &&
-				!row.job_number &&
-				frm.doc.job_number
-			) {
-				frappe.model.set_value(cdt, cdn, 'job_number', frm.doc.job_number);
-			}
 			calculate_liquidation_totals(frm);
 		});
 	},
