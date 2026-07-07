@@ -14,15 +14,29 @@ from frappe.utils import cint, flt
 from logistics.cash_advance.totals_sync import _sum_submitted_acknowledgments, get_release_journal_entry
 
 
-def get_ar_employee_account() -> str:
-	"""A/R employee (advance) control account from Cash Advance Settings."""
+def get_ar_employee_account(company: Optional[str] = None) -> str:
+	"""A/R employee (advance) control account from per-company Cash Advance Settings."""
+	from logistics.cash_advance.doctype.cash_advance_settings.cash_advance_settings import CashAdvanceSettings
+
+	if not company:
+		company = frappe.defaults.get_user_default("Company")
+	if not company:
+		frappe.throw(_("Company is required to resolve Cash Advance Settings."))
 	if not frappe.db.exists("DocType", "Cash Advance Settings"):
 		frappe.throw(_("Install Cash Advance Settings DocType first."))
-	if not frappe.db.exists("Cash Advance Settings", "Cash Advance Settings"):
-		frappe.throw(_("Create Cash Advance Settings (run migrate or open the form once)."))
-	settings = frappe.get_doc("Cash Advance Settings", "Cash Advance Settings")
+	settings = CashAdvanceSettings.get_settings(company)
+	if not settings:
+		frappe.throw(
+			_("Create Cash Advance Settings for company {0} (run migrate or open the form once).").format(
+				company
+			)
+		)
 	if not settings.ar_employee_account:
-		frappe.throw(_("Set A/R Employee (Employee Advance) in Cash Advance Settings."))
+		frappe.throw(
+			_("Set A/R Employee (Employee Advance) in Cash Advance Settings for company {0}.").format(
+				company
+			)
+		)
 	return settings.ar_employee_account
 
 
@@ -124,7 +138,7 @@ def _party_fields_for_account(account: str, source_doc) -> Dict[str, str]:
 def ensure_payee_for_party_accounts(source_doc) -> None:
 	"""Supplier payee required when any posted account is Receivable/Payable (e.g. Creditors)."""
 	payee = _resolve_payee_supplier(source_doc)
-	accounts = [get_ar_employee_account()]
+	accounts = [get_ar_employee_account(getattr(source_doc, "company", None))]
 	if getattr(source_doc, "doctype", None) == "Cash Advance Liquidation":
 		co = getattr(source_doc, "company", None)
 		for row in source_doc.get("items") or []:
@@ -193,7 +207,7 @@ def create_advance_release_journal_entry(doc) -> str:
 			return existing
 
 	_validate_cash_bank_account(doc.fund_source, doc.company)
-	ar = get_ar_employee_account()
+	ar = get_ar_employee_account(doc.company)
 
 	payee = _resolve_payee_supplier(doc)
 	if not payee:
@@ -300,7 +314,7 @@ def create_liquidation_journal_entry(doc) -> str:
 	if frappe.db.get_value("Cash Advance Request", doc.cash_advance_request, "docstatus") != 1:
 		frappe.throw(_("Cash Advance Request must be submitted before liquidation."))
 
-	ar = get_ar_employee_account()
+	ar = get_ar_employee_account(doc.company)
 
 	posting_date = getattr(doc, "posting_date", None) or doc.liquidation_date or doc.request_date
 	if not posting_date:
@@ -385,7 +399,7 @@ def create_cash_acknowledgment_journal_entry(doc) -> str:
 		frappe.throw(_("Cash Advance Request must be submitted before cash acknowledgment."))
 
 	_validate_cash_bank_account(doc.fund_source, doc.company)
-	ar = get_ar_employee_account()
+	ar = get_ar_employee_account(doc.company)
 	amount = flt(doc.amount, 2)
 	if amount <= 0:
 		frappe.throw(_("Amount must be greater than zero."))
