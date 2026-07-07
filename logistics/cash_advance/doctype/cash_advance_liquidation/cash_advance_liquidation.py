@@ -20,6 +20,7 @@ from logistics.cash_advance.job_charge_items import get_item_codes_for_job_numbe
 class CashAdvanceLiquidation(Document):
 	def validate(self):
 		self._validate_linked_request()
+		self._validate_job_number_when_request_linked()
 		self._validate_items_against_job()
 
 		if self.total_requested and self.total_requested < 0:
@@ -61,7 +62,51 @@ class CashAdvanceLiquidation(Document):
 		if req_co and self.company and req_co != self.company:
 			frappe.throw(_("Company must match the linked Cash Advance Request."))
 
+	def _get_linked_request_fund_type(self):
+		if not self.cash_advance_request:
+			return None
+		return frappe.db.get_value("Cash Advance Request", self.cash_advance_request, "fund_type")
+
+	def _validate_job_number_when_request_linked(self):
+		if not self.cash_advance_request:
+			return
+
+		fund_type = self._get_linked_request_fund_type()
+		if fund_type == "Revolving Fund":
+			for idx, row in enumerate(self.items or [], start=1):
+				if not row.item_code:
+					continue
+				if not row.job_number:
+					frappe.throw(_("Row {0}: Job Number is required.").format(idx))
+			return
+
+		if not self.job_number:
+			frappe.throw(_("Job Number is required when a Cash Advance Request is linked."))
+
+		for idx, row in enumerate(self.items or [], start=1):
+			if not row.item_code:
+				continue
+			if not row.job_number:
+				row.job_number = self.job_number
+
 	def _validate_items_against_job(self):
+		fund_type = self._get_linked_request_fund_type()
+		if fund_type == "Revolving Fund":
+			for idx, row in enumerate(self.items or [], start=1):
+				if not row.item_code:
+					continue
+				job_number = row.job_number
+				if not job_number:
+					continue
+				allowed = set(get_item_codes_for_job_number(job_number))
+				if row.item_code not in allowed:
+					frappe.throw(
+						_("Row {0}: Charge Item {1} is not on the charges for Job Number {2}.").format(
+							idx, row.item_code, job_number
+						)
+					)
+			return
+
 		if not self.job_number:
 			if any(getattr(r, "item_code", None) for r in self.items or []):
 				frappe.throw(_("Job Number is required (load from Cash Advance Request)."))
