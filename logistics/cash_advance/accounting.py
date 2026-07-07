@@ -12,6 +12,7 @@ from frappe import _
 from frappe.utils import cint, flt
 
 from logistics.cash_advance.totals_sync import _sum_submitted_acknowledgments, get_release_journal_entry
+from logistics.job_management.recognition_engine import apply_journal_entry_posting_header_from_job
 
 
 def get_ar_employee_account() -> str:
@@ -158,6 +159,31 @@ def _backfill_party_on_receivable_payable_rows(je, source_doc) -> None:
 		d.party = payee
 
 
+def _first_line_job_number(source_doc) -> Optional[str]:
+	for row in source_doc.get("items") or []:
+		jn = getattr(row, "job_number", None)
+		if jn:
+			return jn
+	return None
+
+
+def _posting_header_context(source_doc):
+	"""Resolve company/branch/job_number for mandatory Journal Entry posting header fields."""
+	if getattr(source_doc, "branch", None) or getattr(source_doc, "job_number", None):
+		return source_doc
+	jn = _first_line_job_number(source_doc)
+	if not jn:
+		return source_doc
+	ctx = frappe._dict(source_doc.as_dict())
+	ctx.job_number = jn
+	return ctx
+
+
+def _apply_je_posting_header(je, source_doc) -> None:
+	"""Populate site-specific mandatory Journal Entry header fields (e.g. Posting Company/Branch)."""
+	apply_journal_entry_posting_header_from_job(je, _posting_header_context(source_doc))
+
+
 def _append_je_line(je, account: str, debit: float, credit: float, source_doc, is_advance: bool = False):
 	if not account:
 		return
@@ -222,6 +248,7 @@ def create_advance_release_journal_entry(doc) -> str:
 	_append_je_line(je, ar, amount, 0, doc, is_advance=True)
 	_append_je_line(je, doc.fund_source, 0, amount, doc)
 	_backfill_party_on_receivable_payable_rows(je, doc)
+	_apply_je_posting_header(je, doc)
 
 	je.flags.ignore_permissions = True
 	je.insert()
@@ -333,6 +360,7 @@ def create_liquidation_journal_entry(doc) -> str:
 		frappe.throw(_("Total liquidated amount must be greater than zero."))
 
 	_backfill_party_on_receivable_payable_rows(je, doc)
+	_apply_je_posting_header(je, doc)
 
 	je.flags.ignore_permissions = True
 	je.insert()
@@ -426,6 +454,7 @@ def create_cash_acknowledgment_journal_entry(doc) -> str:
 		_append_je_line(je, doc.fund_source, 0, amount, doc)
 
 	_backfill_party_on_receivable_payable_rows(je, doc)
+	_apply_je_posting_header(je, doc)
 
 	je.flags.ignore_permissions = True
 	je.insert()
