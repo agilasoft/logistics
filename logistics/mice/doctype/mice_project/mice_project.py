@@ -50,6 +50,20 @@ EGRESS_PROGRESS_WEIGHTS = {
 DOCKET_EXCLUDED_STATUSES = {"Cancelled", "On Hold"}
 
 
+def _docket_allocation_basis(docket_name):
+	"""Return (weight_basis, volume_basis, target_title) from a Docket's package totals."""
+	docket = frappe.get_doc("Docket", docket_name)
+	docket._update_packing_summary()
+	title = (
+		docket.exhibitor_name
+		or docket.title
+		or docket.booth_no
+		or docket.exhibitor
+		or docket.name
+	)
+	return flt(docket.total_weight), flt(docket.total_volume), title
+
+
 class MICEProject(Document):
 	@property
 	def dockets(self):
@@ -317,30 +331,19 @@ class MICEProject(Document):
 	def _refresh_cost_allocation_targets(self, target_type):
 		"""Replace ``cost_allocations`` rows with the live target list, preserving custom % entries."""
 		existing_pct = {}
-		existing_basis = {}
+		existing_value_basis = {}
 		for row in self.get("cost_allocations") or []:
 			key = (row.target_type, row.target)
 			existing_pct[key] = flt(row.cost_allocation_percentage)
-			existing_basis[key] = (
-				flt(row.weight_basis),
-				flt(row.volume_basis),
-				flt(row.value_basis),
-			)
+			existing_value_basis[key] = flt(row.value_basis)
 
 		self.set("cost_allocations", [])
 
 		if target_type == "Docket":
 			rows = self._fetch_dockets_for_allocation()
 			for r in rows:
-				title = (
-					r.get("exhibitor_name")
-					or r.get("title")
-					or r.get("booth_no")
-					or r.get("exhibitor")
-					or r.get("name")
-				)
 				key = ("Docket", r.get("name"))
-				wb, vb, valb = existing_basis.get(key, (0, 0, 0))
+				wb, vb, title = _docket_allocation_basis(r.get("name"))
 				self.append(
 					"cost_allocations",
 					{
@@ -350,7 +353,7 @@ class MICEProject(Document):
 						"cost_allocation_percentage": existing_pct.get(key, 0),
 						"weight_basis": wb,
 						"volume_basis": vb,
-						"value_basis": valb,
+						"value_basis": existing_value_basis.get(key, 0),
 					},
 				)
 			return len(rows)
@@ -359,7 +362,6 @@ class MICEProject(Document):
 		for r in rows:
 			title = r.get("title") or r.get("name")
 			key = ("MICE Job", r.get("name"))
-			wb, vb, valb = existing_basis.get(key, (0, 0, 0))
 			self.append(
 				"cost_allocations",
 				{
@@ -367,9 +369,9 @@ class MICEProject(Document):
 					"target": r.get("name"),
 					"target_title": title,
 					"cost_allocation_percentage": existing_pct.get(key, 0),
-					"weight_basis": wb,
-					"volume_basis": vb,
-					"value_basis": valb,
+					"weight_basis": 0,
+					"volume_basis": 0,
+					"value_basis": existing_value_basis.get(key, 0),
 				},
 			)
 		return len(rows)
@@ -647,6 +649,20 @@ def _strip_or_none(value):
 		return None
 	s = str(value).strip()
 	return s or None
+
+
+@frappe.whitelist()
+def get_cost_allocation_target_basis(target_type, target):
+	"""Return weight/volume basis and display title for a cost allocation target row."""
+	target_type = _strip_or_none(target_type)
+	target = _strip_or_none(target)
+	if target_type == "Docket" and target:
+		wb, vb, title = _docket_allocation_basis(target)
+		return {"weight_basis": wb, "volume_basis": vb, "target_title": title}
+	if target_type == "MICE Job" and target:
+		title = frappe.db.get_value("MICE Job", target, "title") or target
+		return {"weight_basis": 0, "volume_basis": 0, "target_title": title}
+	return {}
 
 
 @frappe.whitelist()
@@ -1864,6 +1880,7 @@ def get_dashboard_html(exhibit):
 					"label": _("Job Status"),
 					"count": len(docket_rows),
 					"inner_html": job_status_inner,
+					"after_suffix": "route",
 				}
 			],
 		}

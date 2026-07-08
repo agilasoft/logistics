@@ -147,6 +147,14 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 	frm.set_df_property("charges", "allow_bulk_edit", 0);
 }
 
+function _logistics_set_linked_services_read_only(frm) {
+	if (!frm.get_docfield || !frm.get_docfield("linked_services")) {
+		return;
+	}
+	frm.set_df_property("linked_services", "cannot_add_rows", 1);
+	frm.set_df_property("linked_services", "read_only", 1);
+}
+
 function _sea_shipment_save_then_populate_template(frm, method, freeze_message) {
 	if (!frm.doc.name || frm.doc.__islocal) return;
 	frm._logistics_template_populate_busy = true;
@@ -206,6 +214,7 @@ frappe.ui.form.on('Sea Shipment', {
 			logistics.apply_one_off_route_options_onload(frm);
 		}
 		_logistics_set_charges_cannot_add_rows(frm);
+		_logistics_set_linked_services_read_only(frm);
 		if (frm.doc.master_bill) {
 			_apply_master_bill_virtuals(frm);
 		}
@@ -423,9 +432,11 @@ frappe.ui.form.on('Sea Shipment', {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
 		_logistics_set_charges_cannot_add_rows(frm);
+		_logistics_set_linked_services_read_only(frm);
 		setTimeout(function () {
 			if (window.logistics_hide_cannot_add_rows_buttons) {
 				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");
+				window.logistics_hide_cannot_add_rows_buttons(frm, "linked_services");
 			}
 		}, 0);
 		if (window.logistics_apply_sea_freight_settings_accounting_defaults) {
