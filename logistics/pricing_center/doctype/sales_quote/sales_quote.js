@@ -1343,6 +1343,13 @@ frappe.ui.form.on("Sales Quote", {
 			}, __("Action"));
 		}
 
+		// Copy Quotation Services — duplicated draft with empty Services tab
+		if (logistics_should_show_copy_quotation_services_button(frm)) {
+			frm.add_custom_button(__("Copy Quotation Services"), function () {
+				logistics_copy_quotation_services(frm);
+			}, __("Action"));
+		}
+
 		// Recalculate Charges - show when quote has any charge lines
 		const has_charges = frm.doc.charges && frm.doc.charges.length > 0;
 		if (has_charges && !frm.is_new()) {
@@ -2958,3 +2965,97 @@ frappe.ui.form.on("Sales Quote Routing Leg", {
 		logistics_mark_sales_quote_routing_legs_manual(frm);
 	},
 });
+
+function logistics_should_show_copy_quotation_services_button(frm) {
+	if (!frm || !frm.doc) {
+		return false;
+	}
+	if (frm.doc.additional_charge) {
+		return false;
+	}
+	if (frm.doc.docstatus !== 0) {
+		return false;
+	}
+	const source = (frm.doc.logistics_duplicate_from || "").trim();
+	if (!source) {
+		return false;
+	}
+	const fieldname = logistics_sq_linked_services_fieldname(frm);
+	const rows = (frm.doc[fieldname] || []).filter(
+		(r) => (r.service_type || "").trim() || (r.linked_service || "").trim()
+	);
+	return rows.length === 0;
+}
+
+function logistics_copy_quotation_services(frm) {
+	const run_copy = () => {
+		frappe.call({
+			method:
+				"logistics.pricing_center.doctype.sales_quote.sales_quote.copy_quotation_services_from_duplicate_source",
+			args: { sales_quote_name: frm.doc.name },
+			freeze: true,
+			freeze_message: __("Copying quotation services..."),
+			callback(r) {
+				if (r.exc) {
+					return;
+				}
+				const msg = r.message || {};
+				if (msg.success) {
+					frm.reload_doc().then(() => {
+						frappe.show_alert(
+							{
+								message: msg.message || __("Quotation services copied."),
+								indicator: "green",
+							},
+							5
+						);
+					});
+				}
+			},
+		});
+	};
+	if (frm.is_new() || frm.doc.__islocal) {
+		frm.save().then(run_copy);
+		return;
+	}
+	run_copy();
+}
+
+// Duplicate / Copy must not carry Services grid rows; source quote is tracked for optional copy.
+(function () {
+	if (frappe.model._logistics_sales_quote_copy_doc_patched) {
+		return;
+	}
+	frappe.model._logistics_sales_quote_copy_doc_patched = 1;
+	const _origCopyDoc = frappe.model.copy_doc;
+	frappe.model.copy_doc = function (doc, from_amend, parent_doc, parentfield) {
+		const newdoc = _origCopyDoc.apply(this, arguments);
+		if (
+			from_amend ||
+			parent_doc ||
+			!doc ||
+			!newdoc ||
+			doc.doctype !== "Sales Quote" ||
+			newdoc.doctype !== "Sales Quote"
+		) {
+			return newdoc;
+		}
+		if (frappe.meta.has_field("Sales Quote", "linked_services")) {
+			frappe.model.clear_table(newdoc, "linked_services");
+		}
+		if (frappe.meta.has_field("Sales Quote", "internal_job_details")) {
+			frappe.model.clear_table(newdoc, "internal_job_details");
+		}
+		if (frappe.meta.has_field("Sales Quote", "logistics_duplicate_from")) {
+			newdoc.logistics_duplicate_from = (
+				(doc.logistics_duplicate_from || doc.name || "") + ""
+			).trim();
+		}
+		for (const row of newdoc.charges || []) {
+			if (row.charge_scope === "Linked" && !row.linked_service) {
+				row.charge_scope = "Main";
+			}
+		}
+		return newdoc;
+	};
+})();
