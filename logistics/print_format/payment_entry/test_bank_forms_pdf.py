@@ -119,10 +119,20 @@ class TestBankFormsPdf(unittest.TestCase):
 
 		pdf_bytes = bank_forms_pdf.build_pdf(FakeDoc(), pdf_path=template)
 		output = fitz.open(stream=pdf_bytes, filetype="pdf")
-		fields = {w.field_name: w.field_value for w in output[0].widgets() or [] if w.field_value}
-		self.assertEqual(fields.get("Branch"), "Makati")
-		self.assertEqual(fields.get("Amount and Currency"), "1,500.00 PHP")
-		self.assertEqual(fields.get("Remitters Account No"), "1234567890")
+		page = output[0]
+		text_blocks = page.get_text("dict")["blocks"]
+		ref_y = None
+		for block in text_blocks:
+			if block.get("type") != 0:
+				continue
+			for line in block["lines"]:
+				text = "".join(span["text"] for span in line["spans"]).strip()
+				if text == "REF-001":
+					ref_y = line["bbox"][3]
+		self.assertIsNotNone(ref_y)
+		# Stamped baseline should sit in the input box below the label, not on it.
+		self.assertGreater(ref_y, 125)
+		self.assertLess(ref_y, 135)
 		output.close()
 
 	def test_build_pdf_stamps_text_on_template(self):

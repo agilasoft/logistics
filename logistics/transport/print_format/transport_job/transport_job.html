@@ -96,11 +96,11 @@
     {% set ab_routes = frappe.get_all("Air Booking Routing Leg", filters={"parent": ab_name}, fields=["name", "airline", "load_port", "discharge_port", "etd", "eta", "flight_no"], order_by="idx asc", limit_page_length=1) %}
     {% if ab_routes %}{% set route_ns.leg = ab_routes[0] %}{% set route_flight_no = frappe.db.get_value("Air Booking Routing Leg", ab_routes[0].name, "flight_no", ignore=True) or "" %}{% endif %}
 {% elif sq_name %}
-    {% set sq_routes = frappe.get_all("Sales Quote Routing Leg", filters={"parent": sq_name}, fields=["mode", "origin", "destination", "etd", "eta", "flight_no"], order_by="idx asc") %}
+    {% set sq_routes = frappe.get_all("Sales Quote Routing Leg", filters={"parent": sq_name}, fields=["mode", "origin", "destination", "etd", "eta"], order_by="idx asc") %}
     {% for rl in sq_routes %}
-        {% if not route_ns.leg and rl.mode == "Air" %}{% set route_ns.leg = rl %}{% set route_flight_no = rl.flight_no or "" %}{% endif %}
+        {% if not route_ns.leg and rl.mode == "Air" %}{% set route_ns.leg = rl %}{% endif %}
     {% endfor %}
-    {% if not route_ns.leg and sq_routes|length > 0 %}{% set route_ns.leg = sq_routes[0] %}{% set route_flight_no = sq_routes[0].flight_no or "" %}{% endif %}
+    {% if not route_ns.leg and sq_routes|length > 0 %}{% set route_ns.leg = sq_routes[0] %}{% endif %}
 {% endif %}
 {% set route_leg = route_ns.leg %}
 
@@ -308,6 +308,12 @@
                             <tr><td class="field-label">FLIGHT/DATE:</td><td class="field-value">{{ flight_date }}</td></tr>
                             <tr><td class="field-label">MAWB:</td><td class="field-value">{{ mawb }}</td></tr>
                             <tr><td class="field-label">HAWB:</td><td class="field-value">{{ hawb }}</td></tr>
+                            <tr><td class="field-label">ORIGIN:</td><td class="field-value">{{ origin }}</td></tr>
+                            <tr><td class="field-label">DESTINATION:</td><td class="field-value">{{ destination }}</td></tr>
+                            <tr><td class="field-label">ETA:</td><td class="field-value">{% if eta %}{{ frappe.utils.formatdate(eta, 'MM-dd-yyyy') }}{% endif %}</td></tr>
+                            <tr><td class="field-label">ETD:</td><td class="field-value">{% if etd %}{{ frappe.utils.formatdate(etd, 'MM-dd-yyyy') }}{% endif %}</td></tr>
+                            <tr><td class="field-label">PORT OF LOADING:</td><td class="field-value">{{ port_of_loading }}</td></tr>
+                            <tr><td class="field-label">PORT OF DISCHARGE:</td><td class="field-value">{{ port_of_discharge }}</td></tr>
                         </table>
                     </td>
                     <td class="right-column">
@@ -321,12 +327,6 @@
                             <tr><td class="field-label">REEFER / DG:</td><td class="field-value">{% if doc.refrigeration %}Reefer {% endif %}{% if doc.contains_dangerous_goods %}DG{% endif %}</td></tr>
                             <tr><td class="field-label">SALES QUOTE:</td><td class="field-value">{{ doc.sales_quote or '' }}</td></tr>
                             <tr><td class="field-label">JOB NUMBER:</td><td class="field-value">{{ doc.job_number or '' }}</td></tr>
-                            <tr><td class="field-label">ORIGIN:</td><td class="field-value">{{ origin }}</td></tr>
-                            <tr><td class="field-label">DESTINATION:</td><td class="field-value">{{ destination }}</td></tr>
-                            <tr><td class="field-label">ETA:</td><td class="field-value">{% if eta %}{{ frappe.utils.formatdate(eta, 'MM-dd-yyyy') }}{% endif %}</td></tr>
-                            <tr><td class="field-label">ETD:</td><td class="field-value">{% if etd %}{{ frappe.utils.formatdate(etd, 'MM-dd-yyyy') }}{% endif %}</td></tr>
-                            <tr><td class="field-label">PORT OF LOADING:</td><td class="field-value">{{ port_of_loading }}</td></tr>
-                            <tr><td class="field-label">PORT OF DISCHARGE:</td><td class="field-value">{{ port_of_discharge }}</td></tr>
                         </table>
                     </td>
                 </tr>
@@ -362,7 +362,7 @@
             <thead class="table-header">
                 <tr>
                     <th>COMMODITY</th>
-                    <th>HS</th>
+                    <th>DESCRIPTION</th>
                     <th class="num">PACKS</th>
                     <th class="num">WEIGHT</th>
                     <th class="num">VOLUME</th>
@@ -373,7 +373,7 @@
                     {% for row in doc.packages %}
                         <tr class="table-row">
                             <td>{{ row.commodity or '' }}</td>
-                            <td>{{ row.hs_code or '' }}</td>
+                            <td>{{ row.goods_description or row.description or (frappe.db.get_value("Commodity", row.commodity, "description") if row.commodity else '') }}</td>
                             <td class="num">{% if row.no_of_packs is not none %}{{ frappe.utils.fmt_money(row.no_of_packs, precision=3) }}{% endif %}</td>
                             <td class="num">{% if row.weight is not none %}{{ frappe.utils.fmt_money(row.weight, precision=3) }}{% endif %}</td>
                             <td class="num">{% if row.volume is not none %}{{ frappe.utils.fmt_money(row.volume, precision=3) }}{% endif %}</td>

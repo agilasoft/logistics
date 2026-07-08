@@ -8,14 +8,20 @@ import frappe
 
 from logistics.print_format.pdf_generator import ensure_chrome_pdf_generator_option, preferred_pdf_generator
 
-PRINT_FORMAT_NAME = "Bank Forms"
-BLANK_PRINT_FORMAT_NAME = "BDO Form Blank"
-DOC_TYPE = "Payment Entry"
+from logistics.print_format.payment_entry.bank_forms_pdf import (
+	BLANK_PRINT_FORMAT_NAME,
+	LEGACY_BLANK_PRINT_FORMAT_NAME,
+	LEGACY_PRINT_FORMAT_NAME,
+	PRINT_FORMAT_NAME,
+)
 
 PRINT_FORMATS = {
 	PRINT_FORMAT_NAME: "print_format/payment_entry/bdo_form.html",
 	BLANK_PRINT_FORMAT_NAME: "print_format/payment_entry/bdo_form_blank.html",
+	LEGACY_PRINT_FORMAT_NAME: "print_format/payment_entry/bdo_form.html",
+	LEGACY_BLANK_PRINT_FORMAT_NAME: "print_format/payment_entry/bdo_form_blank.html",
 }
+DOC_TYPE = "Payment Entry"
 
 
 def _app_root() -> str:

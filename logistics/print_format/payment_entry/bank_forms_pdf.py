@@ -14,7 +14,14 @@ from frappe.utils.print_format import validate_print_permission
 
 PRINT_FORMAT_NAME = "Bank Forms"
 BLANK_PRINT_FORMAT_NAME = "BDO Form Blank"
-BDO_PRINT_FORMATS = {PRINT_FORMAT_NAME, BLANK_PRINT_FORMAT_NAME}
+LEGACY_PRINT_FORMAT_NAME = "BDO FORM HTML"
+LEGACY_BLANK_PRINT_FORMAT_NAME = "BDO FORM BLANK HTML"
+BDO_PRINT_FORMATS = {
+	PRINT_FORMAT_NAME,
+	BLANK_PRINT_FORMAT_NAME,
+	LEGACY_PRINT_FORMAT_NAME,
+	LEGACY_BLANK_PRINT_FORMAT_NAME,
+}
 DOC_TYPE = "Payment Entry"
 
 APP_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -409,15 +416,78 @@ def _fill_pdf_widgets(page, form_data: dict[str, str]) -> None:
 		widget.update()
 
 
+def _stamp_widget_rects_on_page(
+	page,
+	widgets,
+	form_data: dict[str, str],
+	selections: dict[str, str] | None = None,
+) -> None:
+	"""Stamp values at widget rectangles onto any page (template or blank)."""
+	import fitz
+
+	selections = selections or {}
+	for widget in widgets:
+		if widget.field_type_string == "RadioButton":
+			continue
+		text = form_data.get(widget.field_name)
+		if not text:
+			continue
+		rect = widget.rect
+		if rect.height > 12:
+			page.insert_textbox(
+				rect,
+				text,
+				fontname="helv",
+				fontsize=FONT_SIZE,
+				color=(0, 0, 0),
+				align=fitz.TEXT_ALIGN_LEFT,
+			)
+			continue
+		baseline_y = rect.y1 - 1.2
+		page.insert_text(
+			(rect.x0, baseline_y),
+			text,
+			fontname="helv",
+			fontsize=FONT_SIZE,
+			color=(0, 0, 0),
+		)
+
+	for widget in widgets:
+		if widget.field_type_string != "RadioButton":
+			continue
+		selected = selections.get(widget.field_name)
+		if not selected or not _widget_matches_radio(widget, widget.field_name, selected):
+			continue
+		page.insert_textbox(
+			widget.rect,
+			"X",
+			fontname="hebo",
+			fontsize=CHECK_FONT_SIZE,
+			color=(0, 0, 0),
+			align=fitz.TEXT_ALIGN_CENTER,
+		)
+
+
+def _stamp_form_values_on_page(page, form_data: dict[str, str], selections: dict[str, str] | None = None) -> None:
+	"""Stamp values onto the visual form using widget rectangles.
+
+	AcroForm widgets on the BDO PDF sit on field labels; filling widget.field_value
+	renders text at the top of each rect and overlaps labels. Bottom-align text
+	within each widget rect so values land in the input boxes below the labels.
+	"""
+	_stamp_widget_rects_on_page(page, page.widgets() or [], form_data, selections)
+
+
 def _build_pdf_from_form(doc, pdf_path: str | None = None) -> bytes:
 	import fitz
 
 	source = _find_pdf(pdf_path)
 	values = _field_values(doc)
+	form_data = _pdf_form_data(values)
+	selections = _radio_selections(values)
 	template = fitz.open(source)
 	page = template[0]
-	_fill_pdf_widgets(page, _pdf_form_data(values))
-	_fill_pdf_radios(page, values)
+	_stamp_form_values_on_page(page, form_data, selections)
 	return template.tobytes(garbage=4, deflate=True)
 
 
@@ -545,40 +615,11 @@ def _build_blank_pdf_from_widgets(doc, pdf_path: str | None = None) -> bytes:
 	template = fitz.open(source)
 	src_page = template[0]
 	page_rect = src_page.rect
+	widgets = list(src_page.widgets() or [])
 
 	output = fitz.open()
 	page = output.new_page(width=page_rect.width, height=page_rect.height)
-
-	for widget in src_page.widgets() or []:
-		if widget.field_type_string == "RadioButton":
-			continue
-		text = form_data.get(widget.field_name)
-		if not text:
-			continue
-		rect = widget.rect
-		baseline_y = rect.y1 - 1.2
-		page.insert_text(
-			(rect.x0, baseline_y),
-			text,
-			fontname="helv",
-			fontsize=7,
-			color=(0, 0, 0),
-		)
-
-	for widget in src_page.widgets() or []:
-		if widget.field_type_string != "RadioButton":
-			continue
-		selected = selections.get(widget.field_name)
-		if not selected or not _widget_matches_radio(widget, widget.field_name, selected):
-			continue
-		page.insert_textbox(
-			widget.rect,
-			"X",
-			fontname="hebo",
-			fontsize=CHECK_FONT_SIZE,
-			color=(0, 0, 0),
-			align=fitz.TEXT_ALIGN_CENTER,
-		)
+	_stamp_widget_rects_on_page(page, widgets, form_data, selections)
 
 	template.close()
 	return output.tobytes(garbage=4, deflate=True)
@@ -691,20 +732,34 @@ def ensure_template_pdf() -> dict:
 	return {"path": path, "quality": quality, "vector": quality == "vector"}
 
 
-@frappe.whitelist()
-def get_embedded_pdf(doctype: str, name: str) -> str:
-	doc = frappe.get_doc(doctype, name)
-	pdf_bytes = build_pdf(doc)
+def _pdf_preview_data(pdf_bytes: bytes) -> dict[str, float | str]:
+	"""Return a PDF data URI and exact page size for aligned browser PDF preview."""
+	import fitz
+
+	doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+	page = doc[0]
+	rect = page.rect
+	width_mm = round(rect.width / 72 * 25.4, 1)
+	height_mm = round(rect.height / 72 * 25.4, 1)
+	doc.close()
 	encoded = base64.b64encode(pdf_bytes).decode("ascii")
-	return f"data:application/pdf;base64,{encoded}"
+	return {
+		"src": f"data:application/pdf;base64,{encoded}",
+		"width_mm": width_mm,
+		"height_mm": height_mm,
+	}
 
 
 @frappe.whitelist()
-def get_embedded_blank_pdf(doctype: str, name: str) -> str:
+def get_embedded_pdf(doctype: str, name: str) -> dict[str, float | str]:
 	doc = frappe.get_doc(doctype, name)
-	pdf_bytes = build_blank_pdf(doc)
-	encoded = base64.b64encode(pdf_bytes).decode("ascii")
-	return f"data:application/pdf;base64,{encoded}"
+	return _pdf_preview_data(build_pdf(doc))
+
+
+@frappe.whitelist()
+def get_embedded_blank_pdf(doctype: str, name: str) -> dict[str, float | str]:
+	doc = frappe.get_doc(doctype, name)
+	return _pdf_preview_data(build_blank_pdf(doc))
 
 
 def _bank_form_pdf_bytes(print_format: str, doc):
@@ -723,17 +778,20 @@ def _bank_form_pdf_bytes(print_format: str, doc):
 		return build_cheque_pdf(doc)
 	if print_format in UBP_PRINT_FORMATS:
 		return build_ubp_blank_pdf(doc) if print_format == UBP_BLANK_PRINT_FORMAT_NAME else build_ubp_pdf(doc)
-	return build_blank_pdf(doc) if print_format == BLANK_PRINT_FORMAT_NAME else build_pdf(doc)
+	blank_formats = {BLANK_PRINT_FORMAT_NAME, LEGACY_BLANK_PRINT_FORMAT_NAME}
+	return build_blank_pdf(doc) if print_format in blank_formats else build_pdf(doc)
 
 
 def pdf_generator_hook(print_format, html, options, output, pdf_generator):
 	from logistics.print_format.payment_entry.bank_cheque_pdf import CHEQUE_PRINT_FORMATS
 	from logistics.print_format.payment_entry.ubp_bank_form_pdf import UBP_PRINT_FORMATS
+	from logistics.print_format.purchase_invoice.bir_2307_pdf import BIR_2307_PRINT_FORMATS
 
 	if (
 		print_format not in BDO_PRINT_FORMATS
 		and print_format not in UBP_PRINT_FORMATS
 		and print_format not in CHEQUE_PRINT_FORMATS
+		and print_format not in BIR_2307_PRINT_FORMATS
 	):
 		return None
 
@@ -747,7 +805,12 @@ def pdf_generator_hook(print_format, html, options, output, pdf_generator):
 	elif isinstance(doc, dict):
 		doc = frappe.get_doc(doc)
 
-	pdf_bytes = _bank_form_pdf_bytes(print_format, doc)
+	if print_format in BIR_2307_PRINT_FORMATS:
+		from logistics.print_format.purchase_invoice.bir_2307_pdf import build_pdf as build_bir_2307_pdf
+
+		pdf_bytes = build_bir_2307_pdf(doc)
+	else:
+		pdf_bytes = _bank_form_pdf_bytes(print_format, doc)
 	if output is not None:
 		from io import BytesIO
 
@@ -773,6 +836,11 @@ def download_pdf(
 ):
 	from logistics.print_format.payment_entry.bank_cheque_pdf import CHEQUE_PRINT_FORMATS
 	from logistics.print_format.payment_entry.ubp_bank_form_pdf import UBP_PRINT_FORMATS
+	from logistics.print_format.purchase_invoice.bir_2307_pdf import (
+		BIR_2307_PRINT_FORMATS,
+		DOC_TYPE as BIR_2307_DOC_TYPE,
+		build_pdf as build_bir_2307_pdf,
+	)
 
 	if doctype == DOC_TYPE and format in (BDO_PRINT_FORMATS | UBP_PRINT_FORMATS | CHEQUE_PRINT_FORMATS):
 		doc = doc or frappe.get_doc(doctype, name)
@@ -784,6 +852,22 @@ def download_pdf(
 
 		with print_language(language):
 			pdf_file = _bank_form_pdf_bytes(format, doc)
+
+		frappe.local.response.filename = "{name}.pdf".format(name=name.replace(" ", "-").replace("/", "-"))
+		frappe.local.response.filecontent = pdf_file
+		frappe.local.response.type = "pdf"
+		return
+
+	if doctype == BIR_2307_DOC_TYPE and format in BIR_2307_PRINT_FORMATS:
+		doc = doc or frappe.get_doc(doctype, name)
+		if isinstance(doc, str):
+			doc = json.loads(doc)
+		if isinstance(doc, dict):
+			doc = frappe.get_doc(doc)
+		validate_print_permission(doc)
+
+		with print_language(language):
+			pdf_file = build_bir_2307_pdf(doc)
 
 		frappe.local.response.filename = "{name}.pdf".format(name=name.replace(" ", "-").replace("/", "-"))
 		frappe.local.response.filecontent = pdf_file
