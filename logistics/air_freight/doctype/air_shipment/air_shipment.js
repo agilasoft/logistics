@@ -94,7 +94,7 @@ function _air_shipment_volume_fallback(frm, cdt, cdn, grid_row) {
 }
 
 function _show_create_from_shipment_review_dialog(frm, target_label, on_continue) {
-	var is_internal = !!frm.doc.is_internal_job;
+	var is_internal = (frm.doc.service_role === "Linked" || !!frm.doc.is_internal_job);
 	var message = is_internal
 		? __("This source is an Internal Job. The new {0} will also be created as an Internal Job linked to this source.", [target_label])
 		: __("Review source data that will be passed to {0}.", [target_label]);
@@ -106,9 +106,9 @@ function _show_create_from_shipment_review_dialog(frm, target_label, on_continue
 			{ fieldtype: "Data", fieldname: "source_doc", label: __("Source Document"), read_only: 1, default: frm.doc.name || "" },
 			{ fieldtype: "Data", fieldname: "customer", label: __("Customer"), read_only: 1, default: frm.doc.local_customer || "" },
 			{ fieldtype: "Data", fieldname: "company", label: __("Company"), read_only: 1, default: frm.doc.company || "" },
-			{ fieldtype: "Check", fieldname: "is_internal_job", label: __("Internal Job"), read_only: 1, default: is_internal ? 1 : 0 },
-			{ fieldtype: "Data", fieldname: "main_job_type", label: __("Main Job Type"), read_only: 1, default: frm.doc.main_job_type || "" },
-			{ fieldtype: "Data", fieldname: "main_job", label: __("Main Job"), read_only: 1, default: frm.doc.main_job || "" },
+			{ fieldtype: "Check", fieldname: "is_internal_job", label: __("Linked Service"), read_only: 1, default: is_internal ? 1 : 0 },
+			{ fieldtype: "Data", fieldname: "main_job_type", label: __("Main Service Type"), read_only: 1, default: frm.doc.main_service_type || frm.doc.main_job_type || "" },
+			{ fieldtype: "Data", fieldname: "main_job", label: __("Main Service"), read_only: 1, default: frm.doc.main_service || frm.doc.main_job || "" },
 		],
 		primary_action_label: __("Continue"),
 		primary_action: function() {
@@ -240,12 +240,9 @@ frappe.ui.form.on('Air Shipment', {
 			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
 				.then(function(r) { return r.message || { filters: [] }; });
 		});
-		frm.set_query('shipper_address', function() {
-			return logistics.address.query_for_link('Shipper', frm.doc.shipper);
-		});
-		frm.set_query('consignee_address', function() {
-			return logistics.address.query_for_link('Consignee', frm.doc.consignee);
-		});
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.setup_queries(frm);
+		}
 		frm.set_query('sales_quote', function() {
 			return {
 				query: 'logistics.utils.sales_quote_link_query.sales_quote_by_service_link_search',
@@ -263,58 +260,38 @@ frappe.ui.form.on('Air Shipment', {
 	},
 
 	shipper: function(frm) {
-		if (!frm.doc.shipper) {
-			frm.set_value('shipper_address', '');
-			frm.set_value('shipper_address_display', '');
-			return;
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_change(frm, { apply_party_defaults: false });
 		}
-		frappe.db.get_value('Shipper', frm.doc.shipper, ['pick_address', 'shipper_primary_address'], function(r) {
-			if (r && (r.pick_address || r.shipper_primary_address)) {
-				frm.set_value('shipper_address', r.pick_address || r.shipper_primary_address);
-				frm.trigger('shipper_address');
-			}
-		});
 	},
 
 	consignee: function(frm) {
-		if (!frm.doc.consignee) {
-			frm.set_value('consignee_address', '');
-			frm.set_value('consignee_address_display', '');
-			return;
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_change(frm, { apply_party_defaults: false });
 		}
-		frappe.db.get_value('Consignee', frm.doc.consignee, ['delivery_address', 'consignee_primary_address'], function(r) {
-			if (r && (r.delivery_address || r.consignee_primary_address)) {
-				frm.set_value('consignee_address', r.delivery_address || r.consignee_primary_address);
-				frm.trigger('consignee_address');
-			}
-		});
 	},
 
 	shipper_address: function(frm) {
-		if (frm.doc.shipper_address) {
-			frappe.call({
-				method: 'frappe.contacts.doctype.address.address.get_address_display',
-				args: { address_dict: frm.doc.shipper_address },
-				callback: function(r) {
-					frm.set_value('shipper_address_display', r.message || '');
-				}
-			});
-		} else {
-			frm.set_value('shipper_address_display', '');
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_address_change(frm);
 		}
 	},
 
 	consignee_address: function(frm) {
-		if (frm.doc.consignee_address) {
-			frappe.call({
-				method: 'frappe.contacts.doctype.address.address.get_address_display',
-				args: { address_dict: frm.doc.consignee_address },
-				callback: function(r) {
-					frm.set_value('consignee_address_display', r.message || '');
-				}
-			});
-		} else {
-			frm.set_value('consignee_address_display', '');
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_address_change(frm);
+		}
+	},
+
+	shipper_contact: function(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_contact_change(frm);
+		}
+	},
+
+	consignee_contact: function(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_contact_change(frm);
 		}
 	},
 
@@ -323,6 +300,9 @@ frappe.ui.form.on('Air Shipment', {
 	},
 
 	refresh: function(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.populate_displays_if_missing(frm);
+		}
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
@@ -490,7 +470,7 @@ frappe.ui.form.on('Air Shipment', {
 						show_create_purchase_invoice_dialog(frm);
 					}, __('Create'));
 				}
-				if (!(cint(frm.doc.is_internal_job) && frm.doc.main_job_type && frm.doc.main_job)) {
+				if (!((frm.doc.service_role === "Linked" || cint(frm.doc.is_internal_job)) && (frm.doc.main_service_type || frm.doc.main_job_type) && (frm.doc.main_service || frm.doc.main_job))) {
 					frm.add_custom_button(__('Booking / Order'), function() {
 						function _openInternalJobDlg() {
 							if (window.logistics_show_create_internal_job_dialog) {

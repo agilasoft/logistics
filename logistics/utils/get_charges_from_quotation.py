@@ -11,7 +11,8 @@ the Sales Quote** document (create booking/order actions). They are **not** sele
 then use **Action → Get Charges from Quotation** to pick a quotation and apply **charges**
 (+ **routing legs** on Sea/Air where applicable). The ``sales_quote`` link is **read-only** on
 the form and is written only by create-from-quote or by the apply step. The Action button is
-**hidden on the desk** when the job is linked (or pending) to a One-off or Project Sales Quote.
+**hidden on the desk** when a Sales Quote is already linked, or when linked (or pending) to a
+One-off or Project Sales Quote.
 
 **Customer match**: only Sales Quotes whose ``customer`` matches the job's customer
 (``local_customer`` on Sea/Air, ``customer`` on Transport Order) are listed and may be applied.
@@ -262,9 +263,13 @@ def assert_one_off_sales_quote_job_rules(doc):
 	qtp = frappe.db.get_value("Sales Quote", doc.sales_quote, "quotation_type")
 	if (qtp or "") != "One-off":
 		return
-	from frappe.utils import cint
+	from logistics.utils.service_role_rules import (
+		SERVICE_ROLE_LINKED,
+		SERVICE_ROLE_MAIN,
+		get_service_role,
+	)
 
-	if cint(getattr(doc, "is_main_service", 0)) or cint(getattr(doc, "is_internal_job", 0)):
+	if get_service_role(doc) in (SERVICE_ROLE_MAIN, SERVICE_ROLE_LINKED):
 		return
 	frappe.throw(
 		_(

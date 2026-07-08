@@ -8,39 +8,40 @@
  "engine": "InnoDB",
  "field_order": [
   "accounting_section",
-  "company",
-  "branch",
-  "cost_center",
-  "profit_center",
-  "job_number",
   "column_break_acct",
+  "date",
   "fund_source",
   "fund_type",
+  "require_job_number",
+  "column_break_tuun",
   "payee",
   "payee_name",
-  "date",
+  "column_break_xblv",
+  "company",
+  "branch",
+  "profit_center",
+  "cost_center",
   "releasing_and_liquidation",
   "released_to",
   "release_date",
+  "advance_journal_entry",
   "column_break_22",
   "liquidation_due_date",
-  "liquidation_date",
+  "column_break_dtvs",
   "items_tab",
   "section_break_25",
   "items",
+  "section_break_knqx",
   "total_requested",
-  "total_liquidated",
   "unliquidated",
-  "status_reason",
-  "returns_and_refunds_tab",
-  "refund_return",
+  "amended_from",
+  "column_break_weiu",
+  "total_liquidated",
   "refunded",
   "returned",
-  "refund_return_date",
-  "reference",
-  "from_to",
-  "advance_journal_entry",
-  "amended_from",
+  "column_break_ooxx",
+  "section_break_agmk",
+  "status_reason",
   "connections_tab"
  ],
  "fields": [
@@ -77,21 +78,13 @@
    "options": "Profit Center"
   },
   {
-   "fieldname": "job_number",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Job Number",
-   "no_copy": 1,
-   "options": "Job Number"
-  },
-  {
    "fieldname": "column_break_acct",
    "fieldtype": "Column Break"
   },
   {
-   "description": "Bank or Cash account paid out for this advance (required on submit).",
    "fieldname": "fund_source",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Fund Source",
    "link_filters": "[[\"Account\", \"company\", \"=\", \"eval:doc.company\"], [\"Account\", \"is_group\", \"=\", 0], [\"Account\", \"disabled\", \"=\", 0], [\"Account\", \"account_type\", \"in\", [\"Bank\", \"Cash\"]], [\"Account\", \"fund_type\", \"in\", [\"Bank\", \"Petty Cash\", \"Revolving Fund\"]]]",
    "options": "Account"
@@ -105,7 +98,14 @@
    "read_only": 1
   },
   {
-   "description": "Supplier who receives the cash. Used as the party on the advance journal entry (required on submit).",
+   "default": "0",
+   "fetch_from": "fund_source.require_job_number",
+   "fieldname": "require_job_number",
+   "fieldtype": "Check",
+   "label": "Require Job Number",
+   "read_only": 1
+  },
+  {
    "fieldname": "payee",
    "fieldtype": "Link",
    "label": "Payee",
@@ -115,6 +115,7 @@
    "fetch_from": "payee.supplier_name",
    "fieldname": "payee_name",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Payee Name",
    "read_only": 1
   },
@@ -122,6 +123,7 @@
    "default": "Today",
    "fieldname": "date",
    "fieldtype": "Date",
+   "in_list_view": 1,
    "label": "Request Date"
   },
   {
@@ -150,11 +152,6 @@
    "label": "Liquidation Due Date"
   },
   {
-   "fieldname": "liquidation_date",
-   "fieldtype": "Date",
-   "label": "Liquidation Date"
-  },
-  {
    "fieldname": "section_break_25",
    "fieldtype": "Section Break"
   },
@@ -167,17 +164,45 @@
   {
    "fieldname": "total_requested",
    "fieldtype": "Currency",
-   "label": "Total Requested"
+   "label": "Requested",
+   "read_only": 1
   },
   {
    "fieldname": "total_liquidated",
    "fieldtype": "Currency",
-   "label": "Total Liquidated",
+   "is_virtual": 1,
+   "label": "Liquidated",
    "read_only": 1
   },
   {
+   "fieldname": "refunded",
+   "fieldtype": "Currency",
+   "is_virtual": 1,
+   "label": "Refunded",
+   "read_only": 1
+  },
+  {
+   "fieldname": "returned",
+   "fieldtype": "Currency",
+   "is_virtual": 1,
+   "label": "Returned",
+   "read_only": 1
+  },
+  {
+   "description": "Journal entry posted when this request is submitted.",
+   "fieldname": "advance_journal_entry",
+   "fieldtype": "Link",
+   "is_virtual": 1,
+   "label": "Release Journal Entry",
+   "no_copy": 1,
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "description": "\n",
    "fieldname": "unliquidated",
    "fieldtype": "Currency",
+   "is_virtual": 1,
    "label": "Unliquidated",
    "read_only": 1
   },
@@ -185,45 +210,6 @@
    "fieldname": "status_reason",
    "fieldtype": "Small Text",
    "label": "Status Reason"
-  },
-  {
-   "fieldname": "refund_return",
-   "fieldtype": "Section Break",
-   "label": "Refund /Return"
-  },
-  {
-   "fieldname": "refunded",
-   "fieldtype": "Currency",
-   "label": "Refunded"
-  },
-  {
-   "fieldname": "returned",
-   "fieldtype": "Currency",
-   "label": "Returned"
-  },
-  {
-   "fieldname": "refund_return_date",
-   "fieldtype": "Date",
-   "label": "Refund/Return Date"
-  },
-  {
-   "fieldname": "reference",
-   "fieldtype": "Data",
-   "label": "Reference"
-  },
-  {
-   "fieldname": "from_to",
-   "fieldtype": "Link",
-   "label": "From/To",
-   "options": "Supplier"
-  },
-  {
-   "fieldname": "advance_journal_entry",
-   "fieldtype": "Link",
-   "label": "Release Journal Entry",
-   "no_copy": 1,
-   "options": "Journal Entry",
-   "read_only": 1
   },
   {
    "fieldname": "amended_from",
@@ -238,7 +224,7 @@
   {
    "fieldname": "items_tab",
    "fieldtype": "Tab Break",
-   "label": "Items"
+   "label": "Charges"
   },
   {
    "fieldname": "connections_tab",
@@ -247,9 +233,32 @@
    "show_dashboard": 1
   },
   {
-   "fieldname": "returns_and_refunds_tab",
-   "fieldtype": "Tab Break",
-   "label": "Returns and Refunds"
+   "fieldname": "column_break_xblv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_knqx",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_weiu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ooxx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_agmk",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_tuun",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_dtvs",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
@@ -266,7 +275,7 @@
    "link_fieldname": "cash_advance_request"
   }
  ],
- "modified": "2026-07-01 13:02:18.768955",
+ "modified": "2026-07-07 11:08:47.857555",
  "modified_by": "Administrator",
  "module": "Cash Advance",
  "name": "Cash Advance Request",
@@ -305,6 +314,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "company,payee,fund_type,total_requested",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

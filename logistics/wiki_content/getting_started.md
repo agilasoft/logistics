@@ -44,7 +44,7 @@ For **CargoNext v1 (Astraea)** scope and upgrade summary, see [CargoNext v1 — 
 ### 2.4 Transport Setup
 
 1. **[Transport Settings](welcome/transport-settings)** – Routing, constraints, carbon, automation, capacity
-2. **[Load Type](welcome/load-type)** – FCL, LCL, Palletized, etc.
+2. **[Load Type](welcome/load-type)** and **[Transport Mode](welcome/transport-mode)** – Set **Used in Module** flags per service; see [Load Type and Transport Mode — Service Type Validation](welcome/service-type-load-transport-validation)
 3. **[Transport Template](welcome/transport-template)** – Predefined configurations, vehicle types, transport zones (Pricing Center)
 
 ### 2.5 Customs Setup

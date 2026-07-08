@@ -11,10 +11,49 @@ from frappe.utils import today
 from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
 from logistics.utils.linked_service_compat import (
 	CHARGE_SCOPE_LINKED,
+	CHARGE_SCOPE_MAIN,
 	charge_row_linked_service_link,
 	linked_service_doctype,
 	linked_service_record_exists,
+	linked_service_rows,
+	normalize_charge_scope,
 	set_charge_row_linked_service_link,
+)
+
+_LINKED_SERVICE_VIEW_FIELDS = (
+	"linked_service",
+	"service_type",
+	"job_type",
+	"job_no",
+	"job_description",
+	"air_house_type",
+	"airline",
+	"freight_agent",
+	"sea_house_type",
+	"freight_agent_sea",
+	"shipping_line",
+	"transport_mode",
+	"load_type",
+	"direction",
+	"origin_port",
+	"destination_port",
+	"transport_template",
+	"vehicle_type",
+	"container_type",
+	"container_no",
+	"location_type",
+	"location_from",
+	"location_to",
+	"pick_mode",
+	"drop_mode",
+	"customs_authority",
+	"declaration_type",
+	"customs_broker",
+	"customs_charge_category",
+	"planned_cost",
+	"actual_cost",
+	"planned_revenue",
+	"actual_revenue",
 )
 
 
@@ -35,6 +74,135 @@ _SKIP_CHARGE_COPY = frozenset(
 
 
 class ChangeRequest(Document):
+	def __setup__(self):
+		self._stage_linked_services_from_form()
+
+	@property
+	def linked_services(self):
+		"""Live view of Linked Service documents owned by this Change Request."""
+		if self.flags.get("_linked_services_from_form"):
+			return self.__dict__.get("linked_services") or []
+		rows = self.__dict__.get("linked_services")
+		if rows and any(getattr(r, "__islocal", None) for r in rows):
+			self.flags._linked_services_from_form = True
+			return rows
+		if self.flags.get("_linked_services_view_cached"):
+			return self.__dict__.get("linked_services") or []
+		value = self._build_linked_services_view()
+		self.__dict__["linked_services"] = value
+		self.flags._linked_services_view_cached = True
+		return value
+
+	def _build_linked_services_view(self):
+		if not getattr(self, "name", None) or getattr(self, "__islocal", False):
+			return []
+		from logistics.logistics.doctype.linked_service.linked_service import (
+			get_linked_services_for_change_request,
+		)
+
+		rows = []
+		for ls in get_linked_services_for_change_request(self.name):
+			row = {"linked_service": ls.name}
+			for fn in _LINKED_SERVICE_VIEW_FIELDS:
+				if fn == "linked_service":
+					continue
+				if hasattr(ls, fn):
+					row[fn] = getattr(ls, fn, None)
+			rows.append(row)
+		return rows
+
+	def _drop_virtual_linked_services_rows(self):
+		self.flags._linked_services_from_form = False
+		self.flags._linked_services_view_cached = False
+		if "linked_services" in self.__dict__:
+			del self.__dict__["linked_services"]
+
+	def _stage_linked_services_from_form(self):
+		if "linked_services" not in self.__dict__:
+			return
+		if self.__dict__.get("linked_services") is None:
+			self.__dict__["linked_services"] = []
+		if not self.flags.get("_linked_services_view_cached"):
+			self.flags._linked_services_from_form = True
+
+	def _honour_linked_services_form_rows(self):
+		self._stage_linked_services_from_form()
+
+	def validate(self):
+		self._honour_linked_services_form_rows()
+		if self.docstatus == 0:
+			_seed_linked_services_from_job_if_empty(self)
+		self.validate_linked_service_charge_tagging()
+
+	def validate_linked_service_charge_tagging(self):
+		"""Validate per-charge Linked Service tagging on Change Request charges."""
+		from logistics.utils.linked_service_compat import (
+			CHARGE_SCOPE_LINKED,
+			CHARGE_SCOPE_MAIN,
+			normalize_charge_scope,
+			set_charge_row_linked_service_link,
+		)
+
+		allowed_ls: set[str] = set()
+		for ls_row in linked_service_rows(self):
+			ls_name = charge_row_linked_service_link(ls_row)
+			if ls_name:
+				allowed_ls.add(ls_name)
+
+		for row in getattr(self, "charges", None) or []:
+			scope = normalize_charge_scope(getattr(row, "charge_scope", None))
+			ls_link = charge_row_linked_service_link(row)
+			if not getattr(row, "charge_scope", None) and ls_link:
+				row.charge_scope = CHARGE_SCOPE_LINKED
+				scope = CHARGE_SCOPE_LINKED
+			if scope != CHARGE_SCOPE_LINKED:
+				if ls_link:
+					set_charge_row_linked_service_link(row, None)
+				row.charge_scope = CHARGE_SCOPE_MAIN
+				continue
+			row.charge_scope = CHARGE_SCOPE_LINKED
+			if not ls_link:
+				frappe.throw(
+					_("Charges row {0}: select a Linked Service when Scope is \"Linked\".").format(
+						getattr(row, "idx", "") or "?",
+					),
+					title=_("Linked Service Required"),
+				)
+			if allowed_ls and ls_link not in allowed_ls:
+				frappe.throw(
+					_(
+						"Charges row {0}: Linked Service {1} is not defined on this Change Request. "
+						"Add it to the Services tab first."
+					).format(
+						getattr(row, "idx", "") or "?",
+						frappe.bold(ls_link),
+					),
+					title=_("Linked Service Not Found"),
+				)
+			ls_service_type = frappe.db.get_value(
+				linked_service_doctype(), ls_link, "service_type"
+			)
+			if ls_service_type and not sales_quote_charge_service_types_equal(
+				getattr(row, "service_type", None), ls_service_type
+			):
+				frappe.throw(
+					_(
+						"Charges row {0}: Linked Service {1} is {2}, but this charge is {3}."
+					).format(
+						getattr(row, "idx", "") or "?",
+						frappe.bold(ls_link),
+						frappe.bold(ls_service_type),
+						frappe.bold(getattr(row, "service_type", None) or "?"),
+					),
+					title=_("Linked Service Type Mismatch"),
+				)
+
+	def after_insert(self):
+		self._drop_virtual_linked_services_rows()
+
+	def on_update(self):
+		self._drop_virtual_linked_services_rows()
+
 	def on_submit(self):
 		from logistics.pricing_center.change_request_to_job import apply_change_request_charges_to_job
 
@@ -238,16 +406,14 @@ def populate_sales_quote_from_job(sales_quote, job_doc, job_type):
 		_append_routing_legs_from_air_sea_shipment(sales_quote, job_doc, job_type)
 
 
-def _charge_row_as_sales_quote_dict(charge_row, default_service_type):
+def _charge_row_as_sales_quote_dict(charge_row, default_service_type, default_linked_service=None):
 	"""Map Change Request Charge row to Sales Quote Charge child dict (same field names).
 
-	When the CR Charge row is tagged with a Linked Service, force ``charge_scope='Linked'`` on the
-	produced Sales Quote Charge so any downstream copy (satellite ``_populate_charges_from_sales_quote_doc``
-	Path-2 fallback, ``Get Charges from Quotation`` per-scope helpers, etc.) preserves linked-service
-	scoping rather than defaulting to ``Main``. ``charge_scope`` is not a field on
-	``Change Request Charge`` itself, so without this explicit decoration the SQ side would always
-	default to ``Main``.
+	When the CR Charge row is tagged with a Linked Service (explicitly or via *default_linked_service*),
+	force ``charge_scope='Linked'`` on the produced Sales Quote Charge.
 	"""
+	from logistics.pricing_center.change_request_to_job import _linked_service_for_row
+
 	out = {}
 	for k, v in charge_row.as_dict().items():
 		if k in _SKIP_CHARGE_COPY:
@@ -257,24 +423,127 @@ def _charge_row_as_sales_quote_dict(charge_row, default_service_type):
 		out[k] = v
 	if not out.get("service_type"):
 		out["service_type"] = default_service_type
-	ls = (charge_row_linked_service_link(out) or "").strip()
+	ls = (_linked_service_for_row(out, default_linked_service) or "").strip()
+	raw_scope = (out.get("charge_scope") or "").strip()
 	if ls:
 		out["charge_scope"] = CHARGE_SCOPE_LINKED
 		set_charge_row_linked_service_link(out, ls)
+	elif raw_scope and normalize_charge_scope(raw_scope) == CHARGE_SCOPE_MAIN:
+		out["charge_scope"] = CHARGE_SCOPE_MAIN
+		set_charge_row_linked_service_link(out, None)
+	else:
+		out["charge_scope"] = CHARGE_SCOPE_MAIN
 	return out
 
 
+def _linked_service_identity(ls_doc) -> tuple:
+	return (
+		(getattr(ls_doc, "service_type", None) or "").strip(),
+		(getattr(ls_doc, "job_type", None) or "").strip(),
+		(getattr(ls_doc, "job_no", None) or "").strip(),
+	)
+
+
+def _seed_linked_services_from_job_if_empty(cr):
+	"""Pre-fill the Services tab from the linked job when the Change Request has no services yet."""
+	cr._honour_linked_services_form_rows()
+	if linked_service_rows(cr):
+		return
+	if cr.flags.get("_cr_linked_services_seeded"):
+		return
+
+	from logistics.logistics.doctype.linked_service.linked_service import get_linked_services_for_booking
+	from logistics.pricing_center.additional_charge_to_job import (
+		INTERNAL_JOB_SATELLITE_JOB_TYPES,
+		MAIN_JOB_TYPES_FOR_CHANGE_REQUEST,
+	)
+	from logistics.utils.sales_quote_one_off_internal_jobs import _payload_from_linked_service_doc
+
+	source_docs = []
+	if cr.job_type in MAIN_JOB_TYPES_FOR_CHANGE_REQUEST:
+		source_docs = get_linked_services_for_booking(cr.job_type, cr.job)
+	elif cr.job_type in INTERNAL_JOB_SATELLITE_JOB_TYPES:
+		from logistics.utils.service_role_rules import get_linked_service_name
+
+		job_row = frappe.db.get_value(
+			cr.job_type,
+			cr.job,
+			("linked_service", "internal_job"),
+			as_dict=True,
+		) or {}
+		ls_name = get_linked_service_name(job_row)
+		if ls_name and linked_service_record_exists(ls_name):
+			source_docs = [frappe.get_doc(linked_service_doctype(), ls_name)]
+
+	if not source_docs:
+		return
+
+	rows = []
+	for ls in source_docs:
+		payload = _payload_from_linked_service_doc(ls, ls.name)
+		set_charge_row_linked_service_link(payload, None)
+		rows.append(payload)
+
+	cr.__dict__["linked_services"] = rows
+	cr.flags._linked_services_from_form = True
+	cr.flags._cr_linked_services_seeded = True
+
+
+def _cr_default_linked_service_for_charges(cr) -> str | None:
+	"""Default Linked Service tag for charge rows on this Change Request."""
+	rows = linked_service_rows(cr)
+	if len(rows) == 1:
+		return charge_row_linked_service_link(rows[0]) or None
+
+	from logistics.pricing_center.change_request_to_job import _resolve_main_and_default_internal_job
+
+	_, _, job_default = _resolve_main_and_default_internal_job(cr)
+	if not job_default:
+		return None
+	if any(charge_row_linked_service_link(r) == job_default for r in rows):
+		return job_default
+
+	try:
+		job_default_doc = frappe.get_doc(linked_service_doctype(), job_default)
+	except frappe.DoesNotExistError:
+		return job_default
+
+	job_identity = _linked_service_identity(job_default_doc)
+	for row in rows:
+		ls_name = charge_row_linked_service_link(row)
+		if not ls_name:
+			continue
+		try:
+			cr_ls = frappe.get_doc(linked_service_doctype(), ls_name)
+		except frappe.DoesNotExistError:
+			continue
+		if _linked_service_identity(cr_ls) == job_identity:
+			return ls_name
+	return job_default
+
+
+def _clone_change_request_linked_services_onto_sales_quote(cr, sq_name: str) -> dict[str, str]:
+	"""Clone CR-owned Linked Services onto a Sales Quote; return ``{cr_ls: sq_ls}``."""
+	from logistics.utils.internal_job_persistence import (
+		create_internal_job_for_parent_from_source,
+		get_internal_jobs_for_booking,
+	)
+
+	mapping: dict[str, str] = {}
+	for cr_ls in get_internal_jobs_for_booking(cr):
+		new_name = create_internal_job_for_parent_from_source("Sales Quote", sq_name, cr_ls)
+		mapping[cr_ls.name] = new_name
+	return mapping
+
+
 @frappe.whitelist()
-def get_eligible_internal_jobs_for_change_request_job(job_type, job_name):
+def get_eligible_internal_jobs_for_change_request_job(
+	job_type, job_name, change_request_name=None
+):
 	"""Return Linked Service names eligible for tagging on Change Request Charge rows.
 
-	* When ``job_type`` is a Main job, returns every Linked Service whose
-	  ``parent_booking_type``/``parent_booking_name`` matches the Main.
-	* When ``job_type`` is a linked-service satellite booking, returns the satellite's own
-	  ``internal_job`` link so the user is steered to tag only that service.
-
-	Used by the client-side filter on ``Change Request Charge.linked_service``.
-	Response keys include legacy ``internal_jobs`` / ``default_internal_job`` aliases.
+	When *change_request_name* is set, returns services from that Change Request's Services tab.
+	Otherwise falls back to linked services on the job (legacy / pre-save).
 	"""
 	from logistics.pricing_center.additional_charge_to_job import (
 		INTERNAL_JOB_SATELLITE_JOB_TYPES,
@@ -288,6 +557,29 @@ def get_eligible_internal_jobs_for_change_request_job(job_type, job_name):
 		"internal_jobs": [],
 		"default_internal_job": "",
 	}
+	if change_request_name and frappe.db.exists("Change Request", change_request_name):
+		from logistics.logistics.doctype.linked_service.linked_service import (
+			get_linked_services_for_change_request,
+		)
+
+		rows = []
+		for ls in get_linked_services_for_change_request(change_request_name):
+			rows.append(
+				{
+					"name": ls.name,
+					"service_type": ls.service_type,
+					"job_type": ls.job_type,
+					"job_no": ls.job_no,
+					"job_description": ls.job_description,
+				}
+			)
+		out["linked_services"] = rows
+		out["internal_jobs"] = rows
+		if len(rows) == 1:
+			out["default_linked_service"] = rows[0]["name"]
+			out["default_internal_job"] = rows[0]["name"]
+		return out
+
 	if not job_type or not job_name:
 		return out
 	if not frappe.db.exists(job_type, job_name):
@@ -305,13 +597,15 @@ def get_eligible_internal_jobs_for_change_request_job(job_type, job_name):
 		return out
 
 	if job_type in INTERNAL_JOB_SATELLITE_JOB_TYPES:
+		from logistics.utils.service_role_rules import get_linked_service_name
+
 		sat = frappe.db.get_value(
 			job_type,
 			job_name,
-			("main_job_type", "main_job", "internal_job"),
+			("main_service_type", "main_service", "linked_service"),
 			as_dict=True,
 		) or {}
-		ls_name = (sat.get("internal_job") or "").strip()
+		ls_name = get_linked_service_name(sat)
 		if ls_name and linked_service_record_exists(ls_name):
 			row = frappe.db.get_value(
 				ls_dt,
@@ -348,14 +642,16 @@ def _resolve_main_job_for_change_request(cr):
 
 	* CR target is a Main job → returns the CR target itself.
 	* CR target is an Internal Job satellite (Transport Order / Sea Booking / Air Booking /
-	  Declaration Order / Inbound Order / Release Order) → walks ``main_job_type`` / ``main_job``
-	  on the satellite to find its parent Main job. The Sales Quote is always created against the
-	  Main so that billing and the Change Request revenue merge stay on one canonical job.
+	  Declaration Order / Inbound Order / Release Order) → walks ``main_service_type`` /
+	  ``main_service`` on the satellite to find its parent Main job. The Sales Quote is always
+	  created against the Main so that billing and the Change Request revenue merge stay on one
+	  canonical job.
 	"""
 	from logistics.pricing_center.additional_charge_to_job import (
 		INTERNAL_JOB_SATELLITE_JOB_TYPES,
 		MAIN_JOB_TYPES_FOR_CHANGE_REQUEST,
 	)
+	from logistics.utils.service_role_rules import get_main_service_name, get_main_service_type
 
 	if cr.job_type in MAIN_JOB_TYPES_FOR_CHANGE_REQUEST:
 		return cr.job_type, cr.job
@@ -364,19 +660,19 @@ def _resolve_main_job_for_change_request(cr):
 			frappe.db.get_value(
 				cr.job_type,
 				cr.job,
-				("main_job_type", "main_job", "is_internal_job"),
+				("service_role", "main_service_type", "main_service"),
 				as_dict=True,
 			)
 			or {}
 		)
-		mt = (sat.get("main_job_type") or "").strip()
-		mn = (sat.get("main_job") or "").strip()
+		mt = get_main_service_type(sat)
+		mn = get_main_service_name(sat)
 		if mt and mn and frappe.db.exists(mt, mn):
 			return mt, mn
 		frappe.throw(
 			_(
 				"Cannot create Sales Quote: Change Request target {0} {1} is not linked to a Main job. "
-				"Set main_job_type / main_job on the Internal Job satellite first."
+				"Set main_service_type / main_service on the Internal Job satellite first."
 			).format(cr.job_type, cr.job)
 		)
 	# Fallback: behave like the legacy path on unknown job types.
@@ -430,12 +726,23 @@ def create_sales_quote_from_change_request(change_request_name):
 	sq.naming_series = "OOQ.#####"
 	sq.change_request = cr.name
 	populate_sales_quote_from_job(sq, job_doc, main_job_type)
+	sq.flags.ignore_mandatory = True
+	sq.insert(ignore_permissions=True)
+
+	ls_mapping = _clone_change_request_linked_services_onto_sales_quote(cr, sq.name)
+	default_ls = _cr_default_linked_service_for_charges(cr)
+
+	sq.reload()
 	for row in cr.charges:
-		row_dict = _charge_row_as_sales_quote_dict(row, sq.main_service)
+		row_dict = _charge_row_as_sales_quote_dict(row, sq.main_service, default_ls)
+		cr_ls = charge_row_linked_service_link(row_dict)
+		if cr_ls and ls_mapping.get(cr_ls):
+			set_charge_row_linked_service_link(row_dict, ls_mapping[cr_ls])
+			row_dict["charge_scope"] = CHARGE_SCOPE_LINKED
 		row_dict["change_request_charge"] = row.name
 		sq.append("charges", row_dict)
 	sq.flags.ignore_mandatory = True
-	sq.insert(ignore_permissions=True)
+	sq.save(ignore_permissions=True)
 	# Link back (submitted doc: avoid save(); status/sales_quote are not allow_on_submit)
 	frappe.db.set_value(
 		"Change Request",

@@ -455,9 +455,10 @@ def stamp_main_or_internal_job_scope_on_booking_charges(parent_doc: Any) -> None
 
 	Behaviour:
 
-	* When the booking has ``is_internal_job = 1``: every row whose ``charge_scope`` is empty gets
-	  ``charge_scope = "Internal Job"``; the canonical Internal Job DocType is resolved (best effort)
-	  and stamped on rows whose ``internal_job`` is empty. Existing scope/link values are preserved.
+	* When the booking is a Linked satellite (``service_role = Linked``): every row whose
+	  ``charge_scope`` is empty gets ``charge_scope = "Internal Job"``; the canonical Linked Service
+	  DocType is resolved (best effort) and stamped on rows whose ``internal_job`` / ``linked_service``
+	  is empty. Existing scope/link values are preserved.
 	* Otherwise (Main booking, or programme parent): every row whose ``charge_scope`` is empty gets
 	  ``charge_scope = "Main"``. Rows that explicitly carry ``charge_scope = "Internal Job"`` together
 	  with an ``internal_job`` link are left untouched (so a Main booking may carry both scopes side
@@ -466,7 +467,11 @@ def stamp_main_or_internal_job_scope_on_booking_charges(parent_doc: Any) -> None
 	The function is a no-op for booking doctypes whose charge child table does not declare the
 	``charge_scope`` / ``internal_job`` fields.
 	"""
-	from frappe.utils import cint
+	from logistics.utils.service_role_rules import (
+		SERVICE_ROLE_LINKED,
+		get_linked_service_name,
+		get_service_role,
+	)
 
 	if not parent_doc:
 		return
@@ -491,14 +496,14 @@ def stamp_main_or_internal_job_scope_on_booking_charges(parent_doc: Any) -> None
 	if not has_scope_field and not has_ij_field:
 		return
 
-	is_internal = bool(cint(getattr(parent_doc, "is_internal_job", 0)))
+	is_internal = get_service_role(parent_doc) == SERVICE_ROLE_LINKED
 	resolved_ij: str | None = None
 	if is_internal and has_ij_field:
 		# Prefer the link already on the doc (populated by ``apply_internal_job_detail_row_to_operational_doc``
 		# during Create > Internal Job and by ``_resolve_and_set_internal_job_link`` during validate). This
 		# is the only source available on the very first ``insert``, before the parent's Internal Job
 		# Detail row has been persisted with ``job_no = doc.name``.
-		header_ij = (getattr(parent_doc, "internal_job", None) or "").strip()
+		header_ij = get_linked_service_name(parent_doc)
 		if header_ij:
 			resolved_ij = header_ij
 		else:

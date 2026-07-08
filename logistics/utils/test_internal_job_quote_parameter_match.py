@@ -11,7 +11,9 @@ from logistics.utils.internal_job_from_source import (
 	validate_internal_job_detail_params_match_quotation,
 )
 from logistics.utils.sales_quote_charge_parameters import (
+	SALES_QUOTE_CHARGE_PARAMETER_FIELDS,
 	any_sales_quote_charge_matches_internal_job_detail_params,
+	coerce_sales_quote_name,
 	extract_service_scoped_quote_parameters,
 	sales_quote_charge_row_matches_internal_job_detail_params,
 )
@@ -22,6 +24,39 @@ from logistics.utils.internal_job_persistence import (
 
 
 class TestSalesQuoteChargeParameterMatch(FrappeTestCase):
+	def test_coerce_sales_quote_name_accepts_document(self):
+		import frappe
+		from frappe.model.document import Document
+
+		sq_doc = frappe._dict(doctype="Sales Quote", name="SQU-1")
+		self.assertEqual(coerce_sales_quote_name(sq_doc), "SQU-1")
+		self.assertEqual(coerce_sales_quote_name("SQU-1"), "SQU-1")
+
+		sq_document = MagicMock(spec=Document)
+		sq_document.doctype = "Sales Quote"
+		sq_document.name = "SQU-2"
+		self.assertEqual(coerce_sales_quote_name(sq_document), "SQU-2")
+
+	def test_coerce_sales_quote_name_from_parent_link_field(self):
+		sq_doc = MagicMock(doctype="Sales Quote", name="SQU-1")
+		parent = MagicMock(sales_quote=sq_doc)
+		self.assertEqual(coerce_sales_quote_name(parent.sales_quote), "SQU-1")
+
+	@patch("logistics.utils.sales_quote_charge_parameters.frappe.db.exists", return_value=True)
+	def test_any_match_accepts_sales_quote_document(self, _exists):
+		blank_charge = {fn: "" for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS}
+		sea_row = MagicMock(
+			service_type="Sea",
+			**{**blank_charge, "origin_port": "HKHKG", "destination_port": "PHMNL"},
+		)
+		sq_doc = MagicMock(doctype="Sales Quote", name="SQU-1")
+		sq_doc.get.return_value = [sea_row]
+		ij_row = MagicMock(**{**blank_charge, "origin_port": "HKHKG", "destination_port": "PHMNL"})
+		with patch("logistics.utils.sales_quote_charge_parameters.frappe.get_doc", return_value=sq_doc):
+			self.assertTrue(
+				any_sales_quote_charge_matches_internal_job_detail_params(sq_doc, ij_row, "Sea")
+			)
+
 	def test_row_match_blank_charge_field_is_wildcard(self):
 		charge = MagicMock(
 			transport_template="TPL-1",
@@ -207,5 +242,5 @@ class TestInternalJobDetailParentRegistry(FrappeTestCase):
 		self.assertEqual(internal_job_detail_fieldname("MICE Project"), "internal_jobs")
 		self.assertEqual(internal_job_detail_fieldname("Docket"), "internal_jobs")
 		self.assertEqual(internal_job_detail_fieldname("Special Project"), "lifecycle_jobs")
-		self.assertEqual(internal_job_detail_fieldname("Sea Booking"), "internal_job_details")
+		self.assertEqual(internal_job_detail_fieldname("Sea Booking"), "linked_services")
 		self.assertIsNone(internal_job_detail_fieldname("Customer"))

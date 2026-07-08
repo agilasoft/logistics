@@ -45,9 +45,10 @@ class InternalJob(Document):
 			return
 		jt = (self.job_type or "").strip()
 		if st == "Warehousing":
-			if jt in ("Inbound Order", "Release Order", "Transfer Order"):
+			jn = (getattr(self, "job_no", None) or "").strip()
+			if jt in ("Inbound Order", "Release Order", "Transfer Order") and jn:
 				return
-			self.job_type = "Inbound Order"
+			self.job_type = "VAS Order"
 			return
 		self.job_type = expected
 

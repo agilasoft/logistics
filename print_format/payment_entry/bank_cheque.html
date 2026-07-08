@@ -1,0 +1,43 @@
+<!-- BDO Bank Cheque — vector PDF preview (fields filled on source PDF) -->
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+
+		@page { size: 210mm 297mm; margin: 0; }
+
+		html, body {
+			margin: 0;
+			padding: 0;
+			width: 210mm;
+			height: 297mm;
+			overflow: hidden;
+			background: #fff;
+		}
+
+		.pdf-page {
+			width: 210mm;
+			height: 297mm;
+			border: 0;
+			display: block;
+		}
+
+		.missing-template {
+			padding: 20px;
+			font-family: Arial, sans-serif;
+			font-size: 12px;
+			color: #333;
+		}
+	</style>
+</head>
+<body>
+{% if doc.doctype != 'Payment Entry' %}
+<div class="missing-template">Wrong print format. Use on Payment Entry only.</div>
+{% else %}
+{% set pdf_uri = frappe.call('logistics.print_format.payment_entry.bank_cheque_pdf.get_embedded_pdf', doctype=doc.doctype, name=doc.name) %}
+<embed class="pdf-page" type="application/pdf" src="{{ pdf_uri }}" />
+{% endif %}
+</body>
+</html>

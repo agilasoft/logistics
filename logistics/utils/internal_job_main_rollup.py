@@ -3,8 +3,8 @@
 
 """Roll up planned / actual cost & revenue from an internal job into the Main Service's Internal Job Detail row.
 
-When an operational document acts as an *internal job* (``is_internal_job=1`` with
-``main_job_type`` + ``main_job`` set), its charge totals belong on the Internal Jobs table of the
+When an operational document acts as a Linked satellite (``service_role=Linked`` with
+``main_service_type`` + ``main_service`` set), its charge totals belong on the Internal Jobs table of the
 Main Service. This module computes those totals from the internal job's ``charges`` child table
 and writes them back to the matching ``Internal Job Detail`` row (matched by ``job_no = doc.name``).
 
@@ -25,7 +25,9 @@ from __future__ import annotations
 from typing import Any, Iterable, Tuple
 
 import frappe
-from frappe.utils import cint, flt
+from frappe.utils import flt
+
+from logistics.utils.service_role_rules import is_linked_service_satellite
 
 
 _DISBURSEMENT_LOWER = "disbursement"
@@ -114,12 +116,8 @@ def calculate_internal_job_rollup_totals(doc: Any) -> Tuple[float, float, float,
 
 
 def _doc_is_internal_job(doc: Any) -> bool:
-	"""Internal job iff ``is_internal_job=1`` AND a non-empty ``main_job_type`` + ``main_job`` pair."""
-	if not cint(getattr(doc, "is_internal_job", 0)):
-		return False
-	mt = (getattr(doc, "main_job_type", None) or "").strip()
-	mn = (getattr(doc, "main_job", None) or "").strip()
-	return bool(mt and mn)
+	"""Internal job iff Linked service role with a non-empty main service type + name pair."""
+	return is_linked_service_satellite(doc)
 
 
 def _iter_internal_job_detail_rows_for_job(job_type: str, job_no: str) -> Iterable[dict]:

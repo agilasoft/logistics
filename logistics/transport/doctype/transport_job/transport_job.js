@@ -111,6 +111,10 @@ function apply_load_type_filters(frm, preserve_existing_value) {
 		filters.multimodal = 1;
 	}
 
+	if (frm._transport_template_allowed_load_types && frm._transport_template_allowed_load_types.length) {
+		filters.name = ["in", frm._transport_template_allowed_load_types];
+	}
+
 	// Apply filters to load_type field
 	frm.set_df_property('load_type', 'filters', filters);
 	
@@ -146,6 +150,23 @@ function apply_load_type_filters(frm, preserve_existing_value) {
 	
 	// Refresh the field to apply filters
 	frm.refresh_field('load_type');
+}
+
+function load_transport_template_constraints_job(frm, callback) {
+	if (!frm.doc.transport_template) {
+		frm._transport_template_allowed_load_types = [];
+		if (callback) callback({});
+		return;
+	}
+	frappe.call({
+		method: "logistics.transport.doctype.transport_template.transport_template.get_transport_template_constraints",
+		args: { template_name: frm.doc.transport_template },
+		callback: function(r) {
+			var constraints = (r && r.message) || {};
+			frm._transport_template_allowed_load_types = constraints.allowed_load_types || [];
+			if (callback) callback(constraints);
+		},
+	});
 }
 
 // Helper function to update toolbar buttons: Only primary Save and Submit buttons when draft; allow Cancel when submitted
@@ -208,7 +229,7 @@ function _transport_job_volume_fallback(frm, cdt, cdn, grid_row) {
 }
 
 function _show_create_from_job_review_dialog(frm, target_label, on_continue) {
-	var is_internal = !!frm.doc.is_internal_job;
+	var is_internal = (frm.doc.service_role === "Linked" || !!frm.doc.is_internal_job);
 	var message = is_internal
 		? __("This source is an Internal Job. The new {0} will also be created as an Internal Job linked to this source.", [target_label])
 		: __("Review source data that will be passed to {0}.", [target_label]);
@@ -220,9 +241,9 @@ function _show_create_from_job_review_dialog(frm, target_label, on_continue) {
 			{ fieldtype: "Data", fieldname: "source_doc", label: __("Source Job"), read_only: 1, default: frm.doc.name || "" },
 			{ fieldtype: "Data", fieldname: "customer", label: __("Customer"), read_only: 1, default: frm.doc.customer || "" },
 			{ fieldtype: "Data", fieldname: "company", label: __("Company"), read_only: 1, default: frm.doc.company || "" },
-			{ fieldtype: "Check", fieldname: "is_internal_job", label: __("Internal Job"), read_only: 1, default: is_internal ? 1 : 0 },
-			{ fieldtype: "Data", fieldname: "main_job_type", label: __("Main Job Type"), read_only: 1, default: frm.doc.main_job_type || "" },
-			{ fieldtype: "Data", fieldname: "main_job", label: __("Main Job"), read_only: 1, default: frm.doc.main_job || "" }
+			{ fieldtype: "Check", fieldname: "is_internal_job", label: __("Linked Service"), read_only: 1, default: is_internal ? 1 : 0 },
+			{ fieldtype: "Data", fieldname: "main_job_type", label: __("Main Service Type"), read_only: 1, default: frm.doc.main_service_type || frm.doc.main_job_type || "" },
+			{ fieldtype: "Data", fieldname: "main_job", label: __("Main Service"), read_only: 1, default: frm.doc.main_service || frm.doc.main_job || "" }
 		],
 		primary_action_label: __("Continue"),
 		primary_action: function() {
@@ -306,6 +327,45 @@ frappe.ui.form.on('Transport Job', {
 			}
 			return { filters: filters };
 		});
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.setup_queries(frm);
+		}
+	},
+
+	shipper(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_change(frm);
+		}
+	},
+
+	consignee(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_change(frm);
+		}
+	},
+
+	shipper_address(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_address_change(frm);
+		}
+	},
+
+	consignee_address(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_address_change(frm);
+		}
+	},
+
+	shipper_contact(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_contact_change(frm);
+		}
+	},
+
+	consignee_contact(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_contact_change(frm);
+		}
 	},
 
 	onload: function(frm) {
@@ -332,6 +392,11 @@ frappe.ui.form.on('Transport Job', {
 		if (frm.doc.transport_job_type) {
 			apply_load_type_filters(frm, !frm.is_new());
 		}
+		if (frm.doc.transport_template) {
+			load_transport_template_constraints_job(frm, function() {
+				apply_load_type_filters(frm, !frm.is_new());
+			});
+		}
 		// Fetch scheduled_date from Transport Order if transport_order is set and scheduled_date is empty
 		if (frm.doc.transport_order && !frm.doc.scheduled_date) {
 			frm.events.fetch_scheduled_date_from_transport_order(frm);
@@ -352,6 +417,9 @@ frappe.ui.form.on('Transport Job', {
 	},
 
 	refresh: function(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.populate_displays_if_missing(frm);
+		}
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
@@ -686,7 +754,7 @@ frappe.ui.form.on('Transport Job', {
 							}
 						});
 					}, __('Create'));
-					if (!(cint(frm.doc.is_internal_job) && frm.doc.main_job_type && frm.doc.main_job)) {
+					if (!((frm.doc.service_role === "Linked" || cint(frm.doc.is_internal_job)) && (frm.doc.main_service_type || frm.doc.main_job_type) && (frm.doc.main_service || frm.doc.main_job))) {
 						frm.add_custom_button(__('Internal Job'), function() {
 							function _openInternalJobDlg() {
 								if (window.logistics_show_create_internal_job_dialog) {
@@ -758,10 +826,13 @@ frappe.ui.form.on('Transport Job', {
 								callback: function(r) {
 									if (r.message) {
 										var msg = r.message.message || __('Intercompany invoices processed');
-										if (r.message.created !== undefined) {
+										if (r.message.created > 0) {
 											msg = __('Created {0} intercompany invoice(s).', [r.message.created]);
+										} else if (r.message.errors && r.message.errors.length) {
+											msg = r.message.errors[0];
 										}
-										frappe.show_alert({ message: msg, indicator: 'green' }, 5);
+										var indicator = (r.message.created > 0) ? 'green' : (r.message.errors && r.message.errors.length ? 'orange' : 'blue');
+										frappe.show_alert({ message: msg, indicator: indicator }, 8);
 										frm.reload_doc();
 									}
 								}
@@ -803,6 +874,16 @@ frappe.ui.form.on('Transport Job', {
 				}
 			});
 		}
+	},
+
+	transport_template: function(frm) {
+		load_transport_template_constraints_job(frm, function(constraints) {
+			var allowed = constraints.allowed_load_types || [];
+			if (frm.doc.load_type && allowed.length && allowed.indexOf(frm.doc.load_type) === -1) {
+				frm.set_value("load_type", "");
+			}
+			apply_load_type_filters(frm);
+		});
 	},
 
 	transport_job_type: function(frm) {
@@ -1445,7 +1526,23 @@ frappe.ui.form.on('Transport Job', {
 			return;
 		}
 		
-		frappe.db.get_value('Transport Order', frm.doc.transport_order, ['scheduled_date', 'shipper', 'consignee'], (r) => {
+		frappe.db.get_value(
+			'Transport Order',
+			frm.doc.transport_order,
+			[
+				'scheduled_date',
+				'shipper',
+				'consignee',
+				'shipper_address',
+				'shipper_address_display',
+				'shipper_contact',
+				'shipper_contact_display',
+				'consignee_address',
+				'consignee_address_display',
+				'consignee_contact',
+				'consignee_contact_display',
+			],
+			(r) => {
 			if (r) {
 				if (r.scheduled_date && !frm.doc.scheduled_date) {
 					frm.set_value('scheduled_date', r.scheduled_date);
@@ -1456,6 +1553,21 @@ frappe.ui.form.on('Transport Job', {
 				if (r.consignee && !frm.doc.consignee) {
 					frm.set_value('consignee', r.consignee);
 				}
+				const party_fields = [
+					'shipper_address',
+					'shipper_address_display',
+					'shipper_contact',
+					'shipper_contact_display',
+					'consignee_address',
+					'consignee_address_display',
+					'consignee_contact',
+					'consignee_contact_display',
+				];
+				party_fields.forEach((fieldname) => {
+					if (r[fieldname] && !frm.doc[fieldname]) {
+						frm.set_value(fieldname, r[fieldname]);
+					}
+				});
 			}
 		});
 	},

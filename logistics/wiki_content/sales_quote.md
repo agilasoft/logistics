@@ -15,6 +15,7 @@ Before creating a Sales Quote, it is advised to set up the following:
 - Customer (from ERPNext)
 - Port/Airport masters (for freight)
 - [Transport Settings](welcome/transport-settings) and [Transport Template](welcome/transport-template) (for transport)
+- [Load Type](welcome/load-type) and [Transport Mode](welcome/transport-mode) with correct **Used in Module** flags — see [Load Type and Transport Mode — Service Type Validation](welcome/service-type-load-transport-validation)
 - Warehouse (for warehousing)
 
 ## 2. How to Create a Sales Quote
@@ -60,6 +61,14 @@ For additional charges on existing jobs (Air Shipment, Sea Shipment, Transport J
 ### 3.3 Integration with ERPNext
 
 Sales Quote can be linked to ERPNext Sales Order. When the order is confirmed, you can create the corresponding logistics documents.
+
+### 3.4 Load Type and Transport Mode (Regular / One-off)
+
+For **Regular** and **One-off** quotes, **Main Service Parameters** includes **Load Type** and **Transport Mode**. Both fields are filtered by **Main Service**: only active masters with the matching module flag (Air, Sea, Transport, Customs, or Warehousing) are listed. Changing **Main Service** clears incompatible values; save is blocked if a mismatch remains.
+
+Charge line **Load Type** is filtered by each row’s **Service Type** the same way.
+
+Setup and troubleshooting: [Load Type and Transport Mode — Service Type Validation](welcome/service-type-load-transport-validation).
 
 ## 4. Calculation Methods
 

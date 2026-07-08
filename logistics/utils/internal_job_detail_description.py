@@ -91,9 +91,11 @@ def build_internal_job_description(row):
 				parts.append(x)
 
 	elif st == "Warehousing":
+		# Linked Service Warehousing is cross-dock / in-transit VAS only (not storage).
+		parts.append("Cross-dock / in-transit VAS")
 		jt = _g(row, "job_type")
 		jn = _g(row, "job_no")
-		if jt:
+		if jt and jt != "VAS Order":
 			parts.append(jt)
 		if jn:
 			parts.append(jn)

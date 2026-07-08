@@ -30,6 +30,18 @@
   background: var(--ro-fill-light);
   border-bottom: 1px solid var(--ro-border-soft);
 }
+.afw-ops-dash .afw-ops-alerts-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  background: var(--ro-fill-light);
+  border-bottom: 1px solid var(--ro-border-soft);
+}
+.afw-ops-dash .afw-ops-alerts-booking-format {
+  padding: 0.75rem 1rem 1rem;
+}
 .afw-ops-dash .afw-ops-user-filter {
   display: inline-flex;
   align-items: center;
@@ -126,6 +138,14 @@
   letter-spacing: 0.04em;
 }
 .afw-ops-dash .afw-ops-filter-user {
+  min-width: 11rem;
+  max-width: 18rem;
+  height: auto;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+.afw-ops-dash .afw-ops-filter-alert-user {
   min-width: 11rem;
   max-width: 18rem;
   height: auto;

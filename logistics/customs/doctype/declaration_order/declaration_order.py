@@ -299,9 +299,7 @@ class DeclarationOrder(Document):
 		if self.is_new() and not (self.get("charges") or []):
 			if self.sales_quote:
 				self._populate_charges_from_sales_quote()
-			elif cint(getattr(self, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(
-				self
-			):
+			elif should_apply_internal_job_main_charge_overlay(self):
 				self._populate_charges_from_sales_quote()
 		if self.sales_quote and frappe.db.exists("Sales Quote", self.sales_quote):
 			if self.is_new() or self.has_value_changed("sales_quote"):
@@ -434,7 +432,7 @@ class DeclarationOrder(Document):
 			self.save()
 
 			source = "sales_quote"
-			if cint(getattr(self, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(self):
+			if should_apply_internal_job_main_charge_overlay(self):
 				source = "main_job"
 
 			return {
@@ -474,7 +472,7 @@ class DeclarationOrder(Document):
 	def _populate_charges_from_sales_quote(self):
 		"""Populate charges from Sales Quote Charge (Customs) or Sales Quote Customs (legacy)."""
 		overlay_populated = False
-		if cint(getattr(self, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(self):
+		if should_apply_internal_job_main_charge_overlay(self):
 			try:
 				n, st = populate_internal_job_charges_from_main_service(self)
 				if n:
@@ -587,6 +585,20 @@ def _resolve_customs_params_from_sales_quote(sales_quote, sq_doc=None):
 			sq_doc = None
 
 	if sq_doc:
+		from logistics.utils.sales_quote_charge_parameters import (
+			resolve_parameters_from_sales_quote_scope,
+		)
+
+		scope = resolve_parameters_from_sales_quote_scope(sq_doc)
+		for fn in (
+			"customs_authority",
+			"declaration_type",
+			"customs_broker",
+			"customs_charge_category",
+		):
+			if scope.get(fn):
+				out[fn] = scope[fn]
+
 		customs_row = None
 		param_row = None
 		for row in sq_doc.get("charges") or []:
@@ -697,19 +709,21 @@ def populate_charges_from_sales_quote(
 	charge rows. See ``customs_charges_rows_from_sales_quote_doc``.
 	"""
 	try:
+		from logistics.utils.service_role_rules import (
+			apply_linked_service_satellite_flags,
+			apply_standalone_service_flags,
+		)
+
 		parent = (
 			frappe.get_doc("Declaration Order", docname)
 			if docname and frappe.db.exists("Declaration Order", docname)
-			else frappe._dict(
-				doctype="Declaration Order", name=docname, is_internal_job=0, is_main_service=0
-			)
+			else frappe._dict(doctype="Declaration Order", name=docname)
 		)
-		if is_internal_job is not None:
-			parent.is_internal_job = cint(is_internal_job)
-		if main_job_type is not None:
-			parent.main_job_type = main_job_type
-		if main_job is not None:
-			parent.main_job = main_job
+		# API param names kept for client compat; stamp service_role as source of truth.
+		if is_internal_job is not None and cint(is_internal_job):
+			apply_linked_service_satellite_flags(parent, main_job_type or "", main_job or "")
+		elif is_internal_job is not None or not docname:
+			apply_standalone_service_flags(parent)
 		if cint(gcfq_main_service_only):
 			if isinstance(parent, Document):
 				parent.flags.gcfq_main_service_only = 1
@@ -890,15 +904,14 @@ def create_declaration_order_from_sales_quote(
 		direction = getattr(sq, "direction", None) or details.get("direction")
 		if direction in ("Import", "Export"):
 			details["declaration_type"] = direction
+	from logistics.utils.service_role_rules import apply_main_service_flags
+
 	order = frappe.new_doc("Declaration Order")
 	order.sales_quote = sales_quote_name
 	order.order_date = today()
 	# Same contract as other Create-from-Sales-Quote flows (Transport Order, Air/Sea Booking): this
 	# One-off leg’s operational document is the main service job for billing/charge rollup.
-	order.is_main_service = 1
-	order.is_internal_job = 0
-	order.main_job_type = None
-	order.main_job = None
+	apply_main_service_flags(order)
 	order.is_high_value = cint(getattr(sq, "is_high_value", 0))
 	from logistics.pricing_center.doctype.sales_quote.sales_quote import (
 		get_special_project_for_sales_quote,

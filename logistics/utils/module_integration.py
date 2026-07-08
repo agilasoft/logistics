@@ -24,6 +24,30 @@ from logistics.transport.doctype.transport_order.transport_order import (
 	append_transport_order_charges_from_sales_quote_if_empty,
 )
 from logistics.utils.container_validation import normalize_container_number
+from logistics.utils.service_role_rules import (
+	SERVICE_ROLE_LINKED,
+	SERVICE_ROLE_MAIN,
+	SERVICE_ROLE_STANDALONE,
+	apply_linked_service_satellite_flags,
+	get_main_service_name,
+	get_main_service_type,
+	get_service_role,
+	is_linked_service_satellite,
+)
+
+
+def _set_linked_or_standalone_job_context(doc, is_linked, main_type=None, main_name=None):
+	"""Stamp Linked satellite flags or clear to Standalone (service_role is source of truth)."""
+	if is_linked:
+		apply_linked_service_satellite_flags(doc, main_type, main_name)
+		return
+	if hasattr(doc, "service_role"):
+		doc.service_role = SERVICE_ROLE_STANDALONE
+	for fn in ("main_service_type", "main_service", "main_job_type", "main_job"):
+		if hasattr(doc, fn):
+			setattr(doc, fn, None)
+	if hasattr(doc, "is_internal_job"):
+		doc.is_internal_job = 0
 
 
 def _freight_shipment_has_linked_charge_group_for_job_type(shipment, job_type: str) -> bool:
@@ -330,11 +354,9 @@ def apply_internal_job_declaration_order_from_shipment(doc):
 	"""Declaration Order before_save: sync main-job link from Air/Sea Shipment when this is an internal job.
 
 	Runs after ``run_propagate_on_link`` so shipment-driven customer / sales_quote are already set.
-	Fills ``main_job_type`` / ``main_job`` only when still empty (user or dialog values win).
+	Fills main service refs only when still empty (user or dialog values win).
 	"""
-	from frappe.utils import cint
-
-	if doc.doctype != "Declaration Order" or not cint(getattr(doc, "is_internal_job", 0)):
+	if doc.doctype != "Declaration Order" or get_service_role(doc) != SERVICE_ROLE_LINKED:
 		return
 
 	shipment_dt = shipment_name = None
@@ -350,9 +372,20 @@ def apply_internal_job_declaration_order_from_shipment(doc):
 	except Exception:
 		return
 
-	for fn in ("main_job_type", "main_job"):
-		if hasattr(doc, fn) and hasattr(shipment, fn):
-			_set_if_empty(doc, fn, getattr(shipment, fn, None))
+	mt = get_main_service_type(shipment)
+	mn = get_main_service_name(shipment)
+	if not get_main_service_type(doc) and mt:
+		if hasattr(doc, "main_service_type"):
+			doc.main_service_type = mt
+		if hasattr(doc, "main_job_type"):
+			doc.main_job_type = mt
+	if not get_main_service_name(doc) and mn:
+		if hasattr(doc, "main_service"):
+			doc.main_service = mn
+		if hasattr(doc, "main_job"):
+			doc.main_job = mn
+	if hasattr(doc, "service_role") and not (getattr(doc, "service_role", None) or "").strip():
+		doc.service_role = SERVICE_ROLE_LINKED
 
 
 def _set_if_empty(doc, fieldname, value):
@@ -436,6 +469,7 @@ HIGH_VALUE_DOWNSTREAM_DOCTYPES = (
 	"Transport Job",
 	"Declaration Order",
 	"Declaration",
+	"VAS Order",
 	"Inbound Order",
 	"Release Order",
 	"Warehouse Job",
@@ -772,6 +806,7 @@ _SERVICE_LABEL_FOR_CREATE_JOB_TYPE = {
 	"Declaration Order": "Customs",
 	"Air Booking": "Air",
 	"Sea Booking": "Sea",
+	"VAS Order": "Warehousing",
 	"Inbound Order": "Warehousing",
 }
 
@@ -841,20 +876,18 @@ def create_transport_order_from_air_shipment(
 	order.profit_center = getattr(shipment, "profit_center", None)
 	order.project = getattr(shipment, "project", None)
 	copy_sales_quote_fields_to_target(shipment, order)
+	from logistics.utils.party_address_contact_from_masters import (
+		apply_party_address_contact_from_source_or_masters,
+	)
+
+	apply_party_address_contact_from_source_or_masters(order, shipment)
 	ij, mjt, mj = final_transport_order_job_context_from_freight_shipment(
 		shipment, "Air Shipment", air_shipment_name
 	)
 	ij, mjt, mj = resolve_transport_order_freight_main_job_if_empty(
 		shipment, "Air Shipment", air_shipment_name, ij, mjt, mj
 	)
-	order.is_internal_job = ij
-	if ij:
-		order.main_job_type = mjt
-		order.main_job = mj
-		order.is_main_service = 0
-	else:
-		order.main_job_type = None
-		order.main_job = None
+	_set_linked_or_standalone_job_context(order, ij, mjt, mj)
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	from logistics.utils.transport_job_type import (
@@ -947,25 +980,31 @@ def create_transport_order_from_sea_shipment(
 	order.profit_center = getattr(shipment, "profit_center", None)
 	order.project = getattr(shipment, "project", None)
 	copy_sales_quote_fields_to_target(shipment, order)
+	from logistics.utils.party_address_contact_from_masters import (
+		apply_party_address_contact_from_source_or_masters,
+	)
+
+	apply_party_address_contact_from_source_or_masters(order, shipment)
 	ij, mjt, mj = final_transport_order_job_context_from_freight_shipment(
 		shipment, "Sea Shipment", sea_shipment_name
 	)
 	ij, mjt, mj = resolve_transport_order_freight_main_job_if_empty(
 		shipment, "Sea Shipment", sea_shipment_name, ij, mjt, mj
 	)
-	order.is_internal_job = ij
-	if ij:
-		order.main_job_type = mjt
-		order.main_job = mj
-		order.is_main_service = 0
-	else:
-		order.main_job_type = None
-		order.main_job = None
+	_set_linked_or_standalone_job_context(order, ij, mjt, mj)
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	effective_cn = (container_no or "").strip() or (
 		(getattr(ij_row, "container_no", None) or "").strip() if ij_row else ""
 	)
+	if not effective_cn and ij_row:
+		from logistics.utils.linked_service_compat import linked_service_doctype, row_linked_service_link
+
+		ls_name = row_linked_service_link(ij_row)
+		if ls_name and frappe.db.exists(linked_service_doctype(), ls_name):
+			effective_cn = (
+				frappe.db.get_value(linked_service_doctype(), ls_name, "container_no") or ""
+			).strip()
 	_resolve_sea_shipment_container_for_transport_order(
 		shipment, order, container_no=effective_cn or None
 	)
@@ -1055,11 +1094,10 @@ def _freight_shipment_has_internal_job_detail_for_transport_order(shipment) -> b
 
 def _preview_from_main_service_internal_for_target(shipment, target_service_type: str) -> bool:
 	"""True when preview message should explain main-service → internal job (not legacy internal job on shipment)."""
-	from frappe.utils import cint
-
-	if cint(getattr(shipment, "is_internal_job", 0)):
+	role = get_service_role(shipment)
+	if role == SERVICE_ROLE_LINKED or is_linked_service_satellite(shipment):
 		return False
-	if not cint(getattr(shipment, "is_main_service", 0)):
+	if role != SERVICE_ROLE_MAIN:
 		return False
 	if target_service_type == "customs":
 		return _freight_shipment_has_customs_charge_rows(shipment)
@@ -1073,15 +1111,13 @@ def _preview_from_main_service_internal_for_target(shipment, target_service_type
 
 def _transport_order_job_context_from_freight_shipment(shipment, shipment_doctype: str, shipment_name: str):
 	"""Internal job on shipment, or main service + Transport charges or Internal Job Detail line."""
-	from frappe.utils import cint
-
-	if cint(getattr(shipment, "is_internal_job", 0)):
+	if get_service_role(shipment) == SERVICE_ROLE_LINKED:
 		return (
 			1,
-			getattr(shipment, "main_job_type", None),
-			getattr(shipment, "main_job", None),
+			get_main_service_type(shipment) or None,
+			get_main_service_name(shipment) or None,
 		)
-	if cint(getattr(shipment, "is_main_service", 0)) and (
+	if get_service_role(shipment) == SERVICE_ROLE_MAIN and (
 		_freight_shipment_has_transport_charge_rows(shipment)
 		or _freight_shipment_has_internal_job_detail_for_transport_order(shipment)
 	):
@@ -1149,8 +1185,8 @@ def resolve_transport_order_freight_main_job_if_empty(
 
 	if bk_name and bk_doctype and frappe.db.exists(bk_doctype, bk_name):
 		booking = frappe.get_cached_doc(bk_doctype, bk_name)
-		bjt = (getattr(booking, "main_job_type", None) or "").strip()
-		bj = (getattr(booking, "main_job", None) or "").strip()
+		bjt = get_main_service_type(booking)
+		bj = get_main_service_name(booking)
 		if bjt in _TRANSPORT_ORDER_MAIN_JOB_TYPE_OPTIONS and bj:
 			return ij, bjt, bj
 
@@ -1170,13 +1206,14 @@ def _freight_shipment_has_warehousing_charge_rows(shipment) -> bool:
 
 
 def _freight_shipment_has_internal_job_detail_for_inbound_order(shipment) -> bool:
-	"""True if Internal Job Details include a warehousing / Inbound Order line (even before charge rows exist)."""
+	"""True if Linked Services include a warehousing leg (VAS Order / legacy storage orders)."""
 	from logistics.utils.charge_service_type import effective_internal_job_detail_job_type
 
 	from logistics.utils.internal_job_persistence import internal_job_detail_rows_for_parent
 
 	for row in internal_job_detail_rows_for_parent(shipment):
-		if effective_internal_job_detail_job_type(row) == "Inbound Order":
+		jt = effective_internal_job_detail_job_type(row)
+		if jt in ("VAS Order", "Inbound Order", "Release Order", "Transfer Order"):
 			return True
 	return False
 
@@ -1185,15 +1222,13 @@ def _inbound_order_job_context_from_freight_shipment(
 	shipment, shipment_doctype: str, shipment_name: str
 ):
 	"""Return (is_internal_job, main_job_type, main_job) for Inbound Order from Air/Sea Shipment (mirrors Declaration/TO patterns)."""
-	from frappe.utils import cint
-
-	if cint(getattr(shipment, "is_internal_job", 0)):
+	if get_service_role(shipment) == SERVICE_ROLE_LINKED:
 		return (
 			1,
-			getattr(shipment, "main_job_type", None),
-			getattr(shipment, "main_job", None),
+			get_main_service_type(shipment) or None,
+			get_main_service_name(shipment) or None,
 		)
-	if cint(getattr(shipment, "is_main_service", 0)) and (
+	if get_service_role(shipment) == SERVICE_ROLE_MAIN and (
 		_freight_shipment_has_warehousing_charge_rows(shipment)
 		or _freight_shipment_has_internal_job_detail_for_inbound_order(shipment)
 	):
@@ -1255,8 +1290,8 @@ def resolve_inbound_order_freight_main_job_if_empty(
 
 	if bk_name and bk_doctype and frappe.db.exists(bk_doctype, bk_name):
 		booking = frappe.get_cached_doc(bk_doctype, bk_name)
-		bjt = (getattr(booking, "main_job_type", None) or "").strip()
-		bj = (getattr(booking, "main_job", None) or "").strip()
+		bjt = get_main_service_type(booking)
+		bj = get_main_service_name(booking)
 		if bjt in _TRANSPORT_ORDER_MAIN_JOB_TYPE_OPTIONS and bj:
 			return ij, bjt, bj
 
@@ -1272,8 +1307,6 @@ def apply_inbound_order_freight_job_context_from_shipment(
 	doc, shipment, shipment_doctype: str, shipment_name: str
 ):
 	"""Set Job Details (internal job + main job link) on Inbound/Release Order from linked Air/Sea Shipment."""
-	from frappe.utils import cint
-
 	if doc.doctype not in ("Inbound Order", "Release Order"):
 		return
 	ij, mjt, mj = final_inbound_order_job_context_from_freight_shipment(
@@ -1282,30 +1315,19 @@ def apply_inbound_order_freight_job_context_from_shipment(
 	ij, mjt, mj = resolve_inbound_order_freight_main_job_if_empty(
 		shipment, shipment_doctype, shipment_name, ij, mjt, mj
 	)
-	doc.is_internal_job = cint(ij)
-	if ij:
-		doc.main_job_type = mjt
-		doc.main_job = mj
-	else:
-		doc.main_job_type = None
-		doc.main_job = None
+	_set_linked_or_standalone_job_context(doc, ij, mjt, mj)
 
 
 def apply_warehousing_job_context_from_internal_job_source(doc, source):
 	"""Copy Main Service / Internal Job hierarchy from Transport Job or Transport Order."""
-	from frappe.utils import cint
-
 	if doc.doctype not in ("Inbound Order", "Release Order"):
 		return
-	if cint(getattr(source, "is_internal_job", 0)):
-		doc.is_internal_job = 1
-		doc.is_main_service = 0
-		doc.main_job_type = getattr(source, "main_job_type", None)
-		doc.main_job = getattr(source, "main_job", None)
+	if get_service_role(source) == SERVICE_ROLE_LINKED:
+		apply_linked_service_satellite_flags(
+			doc, get_main_service_type(source), get_main_service_name(source)
+		)
 	else:
-		doc.is_internal_job = 0
-		doc.main_job_type = None
-		doc.main_job = None
+		_set_linked_or_standalone_job_context(doc, False)
 
 
 def apply_inbound_order_job_context_from_transport_job(doc, job):
@@ -1315,28 +1337,20 @@ def apply_inbound_order_job_context_from_transport_job(doc, job):
 	Transport Job, the Inbound Order is a satellite (same pattern as Transport Order /
 	Declaration Order created from a Transport Job).
 	"""
-	from frappe.utils import cint
-
 	if doc.doctype != "Inbound Order":
 		return
-	if cint(getattr(job, "is_internal_job", 0)):
-		doc.is_internal_job = 1
-		doc.is_main_service = 0
-		doc.main_job_type = getattr(job, "main_job_type", None)
-		doc.main_job = getattr(job, "main_job", None)
+	if get_service_role(job) == SERVICE_ROLE_LINKED:
+		apply_linked_service_satellite_flags(
+			doc, get_main_service_type(job), get_main_service_name(job)
+		)
 	else:
-		doc.is_internal_job = 1
-		doc.is_main_service = 0
-		doc.main_job_type = "Transport Job"
-		doc.main_job = job.name
+		apply_linked_service_satellite_flags(doc, "Transport Job", job.name)
 
 
 def ensure_main_service_on_freight_hub_for_transport_order_link(
 	shipment_doctype: str, shipment_name: str
 ) -> None:
 	"""Mark the hub or parent freight document as Main Service when a Transport Order is linked from it."""
-	from frappe.utils import cint
-
 	if shipment_doctype not in ("Air Shipment", "Sea Shipment"):
 		return
 	if not frappe.db.exists(shipment_doctype, shipment_name):
@@ -1353,16 +1367,17 @@ def ensure_main_service_on_freight_hub_for_transport_order_link(
 		m = frappe.get_meta(doctype)
 		if not m.get_field("is_main_service"):
 			return
-		if cint(frappe.db.get_value(doctype, name, "is_internal_job")):
+		hub = frappe.get_cached_doc(doctype, name)
+		if get_service_role(hub) == SERVICE_ROLE_LINKED:
 			return
 		frappe.db.set_value(doctype, name, "is_main_service", 1)
 
-	if not cint(getattr(shipment, "is_internal_job", 0)):
+	if get_service_role(shipment) != SERVICE_ROLE_LINKED:
 		_set_main_service_if_eligible(shipment_doctype, shipment_name)
 		return
 
-	mjt = (getattr(shipment, "main_job_type", None) or "").strip()
-	mj = (getattr(shipment, "main_job", None) or "").strip()
+	mjt = get_main_service_type(shipment)
+	mj = get_main_service_name(shipment)
 	if mjt and mj:
 		_set_main_service_if_eligible(mjt, mj)
 
@@ -1541,13 +1556,11 @@ def _declaration_order_job_context_from_freight_shipment(shipment, shipment_doct
 	  (charges only on the order) so ``resolve_allow_linked_freight_bookings_for_internal_job`` can allow the
 	  same one-off Sales Quote held on Air/Sea Booking as the freight leg.
 	"""
-	from frappe.utils import cint
-
-	if cint(getattr(shipment, "is_internal_job", 0)):
+	if get_service_role(shipment) == SERVICE_ROLE_LINKED:
 		return (
 			1,
-			getattr(shipment, "main_job_type", None),
-			getattr(shipment, "main_job", None),
+			get_main_service_type(shipment) or None,
+			get_main_service_name(shipment) or None,
 		)
 	return (1, shipment_doctype, shipment_name)
 
@@ -1723,13 +1736,7 @@ def _create_declaration_order_from_freight_shipment(
 	ij, mjt, mj = _declaration_order_job_context_from_freight_shipment(
 		shipment, shipment_doctype, shipment_name
 	)
-	order.is_internal_job = ij
-	if ij:
-		order.main_job_type = mjt
-		order.main_job = mj
-	else:
-		order.main_job_type = None
-		order.main_job = None
+	_set_linked_or_standalone_job_context(order, ij, mjt, mj)
 
 	from logistics.utils.customs_country_defaults import (
 		apply_internal_job_customs_country_defaults,
@@ -1923,13 +1930,7 @@ def create_inbound_order_from_air_shipment(
 	ij, mjt, mj = resolve_inbound_order_freight_main_job_if_empty(
 		shipment, "Air Shipment", air_shipment_name, ij, mjt, mj
 	)
-	order.is_internal_job = cint(ij)
-	if ij:
-		order.main_job_type = mjt
-		order.main_job = mj
-	else:
-		order.main_job_type = None
-		order.main_job = None
+	_set_linked_or_standalone_job_context(order, ij, mjt, mj)
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	_copy_shipment_packages_to_inbound_order(shipment, order)
@@ -1987,13 +1988,7 @@ def create_inbound_order_from_sea_shipment(
 	ij, mjt, mj = resolve_inbound_order_freight_main_job_if_empty(
 		shipment, "Sea Shipment", sea_shipment_name, ij, mjt, mj
 	)
-	order.is_internal_job = cint(ij)
-	if ij:
-		order.main_job_type = mjt
-		order.main_job = mj
-	else:
-		order.main_job_type = None
-		order.main_job = None
+	_set_linked_or_standalone_job_context(order, ij, mjt, mj)
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	_copy_sea_packages_to_inbound_order(shipment, order)
@@ -2201,7 +2196,6 @@ def create_transport_order_from_declaration(
 ):
 	"""Create a Transport Order from a Declaration (main-service or internal-job); link on Declaration."""
 	from frappe import _
-	from frappe.utils import cint
 
 	from logistics.utils.internal_job_detail_copy import (
 		sync_internal_job_details_from_declaration_to_declaration_order,
@@ -2219,9 +2213,10 @@ def create_transport_order_from_declaration(
 	# Align linked Declaration Order child rows before resolving / persisting Internal Job Detail index.
 	sync_internal_job_details_from_declaration_to_declaration_order(dec)
 
-	is_ij = cint(getattr(dec, "is_internal_job", 0))
-	is_main = cint(getattr(dec, "is_main_service", 0))
-	if not ((is_main and not is_ij) or is_ij):
+	role = get_service_role(dec)
+	is_ij = role == SERVICE_ROLE_LINKED
+	is_main = role == SERVICE_ROLE_MAIN
+	if not (is_main or is_ij):
 		frappe.throw(
 			_("Transport Order can only be created from a Main Service declaration or an Internal Job declaration.")
 		)
@@ -2256,11 +2251,9 @@ def create_transport_order_from_declaration(
 	copy_sales_quote_fields_to_target(header_src, order)
 	# Internal job on the TO when the declaration is an internal job, or when this TO
 	# is created from a Main Service declaration via an Internal Job Detail line.
+	# main_job_type Select only allows "Declaration" (not DocType "Declaration Order"); link to this Declaration.
 	if is_ij or ij_row:
-		order.is_internal_job = 1
-		# main_job_type Select only allows "Declaration" (not DocType "Declaration Order"); link to this Declaration.
-		order.main_job_type = "Declaration"
-		order.main_job = dec.name
+		apply_linked_service_satellite_flags(order, "Declaration", dec.name)
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	from logistics.utils.transport_job_type import (
@@ -2310,7 +2303,6 @@ def create_inbound_order_from_declaration(
 ):
 	"""Create an Inbound Order from a Declaration when the quote allows warehousing."""
 	from frappe import _
-	from frappe.utils import cint
 
 	from logistics.utils.sales_quote_service_eligibility import get_quote_module_flags
 
@@ -2357,11 +2349,8 @@ def create_inbound_order_from_declaration(
 	if getattr(dec, "job_number", None):
 		order.job_number = dec.job_number
 	copy_sales_quote_fields_to_target(dec, order)
-	is_ij = cint(getattr(dec, "is_internal_job", 0))
-	if is_ij or ij_row:
-		order.is_internal_job = 1
-		order.main_job_type = "Declaration"
-		order.main_job = dec.name
+	if get_service_role(dec) == SERVICE_ROLE_LINKED or ij_row:
+		apply_linked_service_satellite_flags(order, "Declaration", dec.name)
 	default_item = _get_default_warehouse_item(customer)
 	if default_item:
 		order.append("items", {"item": default_item, "quantity": 1})
@@ -2379,6 +2368,360 @@ def create_inbound_order_from_declaration(
 		)
 	frappe.db.commit()
 	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
+
+
+def _get_or_create_cross_dock_vas_order_type() -> str:
+	"""VAS Order Type for linked-service cross-dock / in-transit handling (not storage)."""
+	code = "CROSS-DOCK"
+	if frappe.db.exists("VAS Order Type", code):
+		return code
+	doc = frappe.get_doc(
+		{
+			"doctype": "VAS Order Type",
+			"code": code,
+			"description": "Cross Dock / In-transit VAS",
+			"usage": "Linked Service Warehousing on main freight shipments (no storage)",
+		}
+	)
+	doc.insert(ignore_permissions=True)
+	return doc.name
+
+
+def _copy_warehousing_charges_from_shipment_to_vas_order(order, shipment, ij_row=None) -> None:
+	"""Append VAS Order Charges from parent charge rows where service_type is Warehousing."""
+	from frappe.utils import flt
+
+	rows = [
+		r
+		for r in (getattr(shipment, "charges", None) or [])
+		if (getattr(r, "service_type", None) or "").strip().lower() == "warehousing"
+	]
+	rows = _filter_charges_by_internal_job_detail_params(rows, ij_row, "Warehousing")
+	if not rows:
+		return
+
+	meta = frappe.get_meta("VAS Order Charges")
+	tfields = {f.fieldname for f in meta.fields}
+	for src in rows:
+		row = order.append("charges", {})
+		if "item_code" in tfields and getattr(src, "item_code", None):
+			row.item_code = src.item_code
+		if "item_name" in tfields:
+			row.item_name = getattr(src, "item_name", None) or ""
+		if "description" in tfields and getattr(src, "description", None):
+			row.description = src.description
+		qty = getattr(src, "quantity", None)
+		if qty is None:
+			qty = 1
+		if "quantity" in tfields:
+			row.quantity = qty
+		rate = getattr(src, "unit_rate", None)
+		if "unit_rate" in tfields and rate is not None:
+			row.unit_rate = rate
+		if "currency" in tfields and getattr(src, "currency", None):
+			row.currency = src.currency
+		if "uom" in tfields and getattr(src, "uom", None):
+			row.uom = src.uom
+		if "charge_type" in tfields and getattr(src, "charge_type", None):
+			row.charge_type = src.charge_type
+		if "charge_category" in tfields and getattr(src, "charge_category", None):
+			row.charge_category = src.charge_category
+		if "total" in tfields:
+			row.total = flt(qty) * flt(rate or 0)
+
+
+def _fill_vas_order_accounts_from_source(order, source) -> None:
+	"""Ensure mandatory accounts fields on VAS Order from the operational source."""
+	from frappe import _
+
+	company = getattr(source, "company", None) or frappe.defaults.get_defaults().get("company")
+	if not company:
+		frappe.throw(_("Company is required to create a VAS Order."))
+	order.company = company
+	order.branch = getattr(source, "branch", None) or order.branch
+	order.cost_center = getattr(source, "cost_center", None) or order.cost_center
+	order.profit_center = getattr(source, "profit_center", None) or order.profit_center
+	if not order.branch or not order.cost_center or not order.profit_center:
+		from logistics.api import get_default_branch, get_default_cost_center, get_default_profit_center
+
+		if not order.branch:
+			order.branch = get_default_branch(company)
+		if not order.cost_center:
+			order.cost_center = get_default_cost_center(company)
+		if not order.profit_center:
+			order.profit_center = get_default_profit_center(company, order.customer)
+	missing = [
+		label
+		for label, val in (
+			(_("Branch"), order.branch),
+			(_("Cost Center"), order.cost_center),
+			(_("Profit Center"), order.profit_center),
+		)
+		if not val
+	]
+	if missing:
+		frappe.throw(
+			_("Cannot create VAS Order: missing {0} on the source document (or defaults).").format(
+				", ".join(missing)
+			)
+		)
+
+
+def _new_linked_vas_order_from_source(
+	source,
+	*,
+	customer: str,
+	ij_row=None,
+	main_job_type: str | None = None,
+	main_job: str | None = None,
+	is_internal_job: int = 1,
+):
+	"""Build a draft VAS Order for linked-service cross-dock / in-transit VAS."""
+	from frappe import _
+
+	if not customer:
+		frappe.throw(_("Customer is required to create a VAS Order."))
+	contract = _get_customer_warehouse_contract(customer)
+	if not contract:
+		frappe.throw(
+			_("No active Warehouse Contract for customer {0}. Link a contract before creating linked warehousing VAS.").format(
+				customer
+			)
+		)
+
+	order = frappe.new_doc("VAS Order")
+	order.customer = customer
+	order.contract = contract
+	order.type = _get_or_create_cross_dock_vas_order_type()
+	order.order_date = frappe.utils.today()
+	planned = (
+		getattr(source, "eta", None)
+		or getattr(source, "etd", None)
+		or getattr(source, "scheduled_date", None)
+		or getattr(source, "booking_date", None)
+		or frappe.utils.now_datetime()
+	)
+	order.planned_date = planned
+	order.due_date = planned
+	order.shipper = getattr(source, "shipper", None) or getattr(source, "exporter_shipper", None)
+	order.consignee = getattr(source, "consignee", None) or getattr(source, "importer_consignee", None)
+	order.project = getattr(source, "project", None)
+	if getattr(source, "job_number", None):
+		order.job_number = source.job_number
+	copy_sales_quote_fields_to_target(source, order)
+	_fill_vas_order_accounts_from_source(order, source)
+
+	_set_linked_or_standalone_job_context(order, is_internal_job, main_job_type, main_job)
+	if hasattr(order, "is_main_service"):
+		order.is_main_service = 0
+
+	if ij_row:
+		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
+	return order
+
+
+@frappe.whitelist()
+def create_vas_order_from_air_shipment(
+	air_shipment_name: str, internal_job_detail_idx: int | None = None
+):
+	"""Create a linked VAS Order (cross-dock / in-transit) from an Air Shipment."""
+	from frappe import _
+
+	shipment = frappe.get_doc("Air Shipment", air_shipment_name)
+	shipment.check_permission("write")
+	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	ij_row = None
+	resolved_detail_idx = None
+	if detail_idx is not None:
+		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
+			shipment, "VAS Order", detail_idx
+		)
+	customer = shipment.local_customer
+	if not customer:
+		frappe.throw(_("Air Shipment must have Local Customer to create a VAS Order."))
+
+	ij, mjt, mj = final_inbound_order_job_context_from_freight_shipment(
+		shipment, "Air Shipment", air_shipment_name
+	)
+	ij, mjt, mj = resolve_inbound_order_freight_main_job_if_empty(
+		shipment, "Air Shipment", air_shipment_name, ij, mjt, mj
+	)
+	# Linked warehousing from a main shipment is always a satellite of that leg.
+	if not ij:
+		ij, mjt, mj = 1, "Air Shipment", air_shipment_name
+
+	order = _new_linked_vas_order_from_source(
+		shipment,
+		customer=customer,
+		ij_row=ij_row,
+		main_job_type=mjt,
+		main_job=mj,
+		is_internal_job=ij,
+	)
+	order.air_shipment = air_shipment_name
+	_copy_warehousing_charges_from_shipment_to_vas_order(order, shipment, ij_row=ij_row)
+	order.insert(ignore_permissions=True)
+	persist_internal_job_create_back_link(
+		"Air Shipment",
+		air_shipment_name,
+		"VAS Order",
+		order.name,
+		ij_row=ij_row,
+		detail_idx=resolved_detail_idx,
+	)
+	ensure_main_service_on_freight_hub_for_transport_order_link("Air Shipment", air_shipment_name)
+	frappe.db.commit()
+	return {"vas_order": order.name, "message": _("VAS Order {0} created.").format(order.name)}
+
+
+@frappe.whitelist()
+def create_vas_order_from_sea_shipment(
+	sea_shipment_name: str, internal_job_detail_idx: int | None = None
+):
+	"""Create a linked VAS Order (cross-dock / strip-stuff, no storage) from a Sea Shipment."""
+	from frappe import _
+
+	shipment = frappe.get_doc("Sea Shipment", sea_shipment_name)
+	shipment.check_permission("write")
+	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	ij_row = None
+	resolved_detail_idx = None
+	if detail_idx is not None:
+		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
+			shipment, "VAS Order", detail_idx
+		)
+	customer = shipment.local_customer
+	if not customer:
+		frappe.throw(_("Sea Shipment must have Local Customer to create a VAS Order."))
+
+	ij, mjt, mj = final_inbound_order_job_context_from_freight_shipment(
+		shipment, "Sea Shipment", sea_shipment_name
+	)
+	ij, mjt, mj = resolve_inbound_order_freight_main_job_if_empty(
+		shipment, "Sea Shipment", sea_shipment_name, ij, mjt, mj
+	)
+	if not ij:
+		ij, mjt, mj = 1, "Sea Shipment", sea_shipment_name
+
+	order = _new_linked_vas_order_from_source(
+		shipment,
+		customer=customer,
+		ij_row=ij_row,
+		main_job_type=mjt,
+		main_job=mj,
+		is_internal_job=ij,
+	)
+	order.sea_shipment = sea_shipment_name
+	_copy_warehousing_charges_from_shipment_to_vas_order(order, shipment, ij_row=ij_row)
+	order.insert(ignore_permissions=True)
+	persist_internal_job_create_back_link(
+		"Sea Shipment",
+		sea_shipment_name,
+		"VAS Order",
+		order.name,
+		ij_row=ij_row,
+		detail_idx=resolved_detail_idx,
+	)
+	ensure_main_service_on_freight_hub_for_transport_order_link("Sea Shipment", sea_shipment_name)
+	frappe.db.commit()
+	return {"vas_order": order.name, "message": _("VAS Order {0} created.").format(order.name)}
+
+
+@frappe.whitelist()
+def create_vas_order_from_transport_job(
+	transport_job_name: str, internal_job_detail_idx: int | None = None
+):
+	"""Create a linked VAS Order (cross-dock / in-transit) from a Transport Job."""
+	from frappe import _
+
+	job = frappe.get_doc("Transport Job", transport_job_name)
+	job.check_permission("write")
+	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	ij_row = None
+	resolved_detail_idx = None
+	if detail_idx is not None:
+		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
+			job, "VAS Order", detail_idx
+		)
+	customer = job.customer
+	if not customer:
+		frappe.throw(_("Transport Job must have Customer to create a VAS Order."))
+
+	order = _new_linked_vas_order_from_source(
+		job,
+		customer=customer,
+		ij_row=ij_row,
+		main_job_type="Transport Job",
+		main_job=transport_job_name,
+		is_internal_job=1,
+	)
+	order.transport_job = transport_job_name
+	_copy_warehousing_charges_from_shipment_to_vas_order(order, job, ij_row=ij_row)
+	order.insert(ignore_permissions=True)
+	if ij_row or resolved_detail_idx:
+		persist_internal_job_create_back_link(
+			"Transport Job",
+			transport_job_name,
+			"VAS Order",
+			order.name,
+			ij_row=ij_row,
+			detail_idx=resolved_detail_idx,
+		)
+	frappe.db.commit()
+	return {"vas_order": order.name, "message": _("VAS Order {0} created.").format(order.name)}
+
+
+@frappe.whitelist()
+def create_vas_order_from_declaration(
+	declaration_name: str, internal_job_detail_idx: int | None = None
+):
+	"""Create a linked VAS Order (cross-dock / in-transit) from a Declaration."""
+	from frappe import _
+
+	from logistics.utils.sales_quote_service_eligibility import get_quote_module_flags
+
+	dec = frappe.get_doc("Declaration", declaration_name)
+	dec.check_permission("write")
+	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	ij_row = None
+	resolved_detail_idx = None
+	if detail_idx is not None:
+		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
+			dec, "VAS Order", detail_idx
+		)
+	if not getattr(dec, "sales_quote", None):
+		frappe.throw(_("Link a Sales Quote on this Declaration before creating a VAS Order."))
+	flags = get_quote_module_flags(
+		dec.sales_quote, source_doctype="Declaration", source_name=declaration_name
+	)
+	if not flags.get("allow_inbound"):
+		frappe.throw(_("Warehousing VAS is not allowed for this Sales Quote."))
+
+	customer = dec.customer
+	if not customer:
+		frappe.throw(_("Declaration must have a Customer to create a VAS Order."))
+
+	order = _new_linked_vas_order_from_source(
+		dec,
+		customer=customer,
+		ij_row=ij_row,
+		main_job_type="Declaration",
+		main_job=declaration_name,
+		is_internal_job=1,
+	)
+	_copy_warehousing_charges_from_shipment_to_vas_order(order, dec, ij_row=ij_row)
+	order.insert(ignore_permissions=True)
+	if ij_row or resolved_detail_idx:
+		persist_internal_job_create_back_link(
+			"Declaration",
+			declaration_name,
+			"VAS Order",
+			order.name,
+			ij_row=ij_row,
+			detail_idx=resolved_detail_idx,
+		)
+	frappe.db.commit()
+	return {"vas_order": order.name, "message": _("VAS Order {0} created.").format(order.name)}
 
 
 def _get_customer_warehouse_contract(customer):

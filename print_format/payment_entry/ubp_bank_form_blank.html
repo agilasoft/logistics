@@ -1,0 +1,44 @@
+<!-- Union Bank Telegraphic Transfer — values only on blank page (for pre-printed forms) -->
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+
+		@page { size: 216mm 330mm; margin: 0; }
+
+		html, body {
+			margin: 0;
+			padding: 0;
+			width: 216mm;
+			height: 330mm;
+			overflow: hidden;
+			background: #fff;
+		}
+
+		.pdf-page {
+			width: 216mm;
+			height: 330mm;
+			border: 0;
+			display: block;
+			background: #fff;
+		}
+
+		.missing-template {
+			padding: 20px;
+			font-family: Arial, sans-serif;
+			font-size: 12px;
+			color: #333;
+		}
+	</style>
+</head>
+<body>
+{% if doc.doctype != 'Payment Entry' %}
+<div class="missing-template">Wrong print format. Use on Payment Entry only.</div>
+{% else %}
+{% set pdf_uri = frappe.call('logistics.print_format.payment_entry.ubp_bank_form_pdf.get_embedded_blank_pdf', doctype=doc.doctype, name=doc.name) %}
+<embed class="pdf-page" type="application/pdf" src="{{ pdf_uri }}" />
+{% endif %}
+</body>
+</html>

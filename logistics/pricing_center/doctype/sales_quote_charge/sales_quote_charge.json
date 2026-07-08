@@ -52,6 +52,7 @@
   "base_amount",
   "estimated_revenue",
   "revenue_calc_notes",
+  "use_unit_breaks",
   "cost_column",
   "cost_calculation_method",
   "cost_quantity",
@@ -65,11 +66,14 @@
   "cost_base_amount",
   "estimated_cost",
   "cost_calc_notes",
+  "cost_use_unit_breaks",
   "cost_sheet_source",
   "section_break_weight_breaks",
+  "selling_unit_break",
   "selling_weight_break",
   "selling_qty_break",
   "column_break_calc_notes",
+  "cost_unit_break",
   "cost_weight_break",
   "cost_qty_break"
  ],
@@ -105,6 +109,7 @@
   },
   {
    "fetch_from": "item_code.description",
+   "fetch_if_empty": 1,
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"
@@ -273,7 +278,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nContainer\nTEU\nItem Count\nOperation Time\nJob\nTrip\nHandling Unit",
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nContainer\nTEU\nItem Count\nOperation Time\nJob\nTrip\nHandling Unit\nValue",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
@@ -364,7 +369,7 @@
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nContainer\nTEU\nItem Count\nOperation Time\nJob\nTrip\nHandling Unit",
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nContainer\nTEU\nItem Count\nOperation Time\nJob\nTrip\nHandling Unit\nValue",
    "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
   },
   {
@@ -431,9 +436,21 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval:!['Cost','Disbursement'].includes(doc.charge_type)",
+   "fieldname": "use_unit_breaks",
+   "fieldtype": "Check",
+   "label": "Unit Breaks"
+  },
+  {
    "fieldname": "section_break_weight_breaks",
    "fieldtype": "Section Break",
-   "label": "Weight Breaks"
+   "label": "Breaks"
+  },
+  {
+   "depends_on": "eval:doc.use_unit_breaks && !['Cost','Disbursement'].includes(doc.charge_type)",
+   "fieldname": "selling_unit_break",
+   "fieldtype": "Button",
+   "label": "Manage Unit Breaks"
   },
   {
    "depends_on": "eval:doc.revenue_calculation_method=='Weight Break'",
@@ -450,6 +467,18 @@
   {
    "fieldname": "column_break_calc_notes",
    "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.charge_type != 'Revenue'",
+   "fieldname": "cost_use_unit_breaks",
+   "fieldtype": "Check",
+   "label": "Unit Breaks"
+  },
+  {
+   "depends_on": "eval:doc.cost_use_unit_breaks && doc.charge_type != 'Revenue'",
+   "fieldname": "cost_unit_break",
+   "fieldtype": "Button",
+   "label": "Manage Unit Breaks"
   },
   {
    "depends_on": "eval:doc.cost_calculation_method=='Weight Break'",

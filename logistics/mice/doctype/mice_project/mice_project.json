@@ -279,7 +279,7 @@
   },
   {
    "fieldname": "internal_notes",
-   "fieldtype": "Long Text",
+   "fieldtype": "Text Editor",
    "label": "Internal Notes"
   },
   {
@@ -737,8 +737,8 @@
    "link_fieldname": "exhibit"
   }
  ],
- "modified": "2026-06-03 10:50:55.252815",
- "modified_by": "Administrator",
+ "modified": "2026-07-07 16:38:12.792894",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "MICE",
  "name": "MICE Project",
  "naming_rule": "By \"Naming Series\" field",

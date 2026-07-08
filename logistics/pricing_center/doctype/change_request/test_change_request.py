@@ -377,4 +377,39 @@ class TestChangeRequestToJob(UnitTestCase):
 			cost_quantity=1,
 		)
 		out2 = _charge_row_as_sales_quote_dict(row2, "Sea")
-		self.assertNotIn("charge_scope", out2)
+		self.assertEqual(out2.get("charge_scope"), "Main")
+
+	def test_sales_quote_dict_from_main_scoped_cr_charge_uses_default_linked_service(self):
+		"""CR Charge rows left at schema-default Main must inherit the CR default Linked Service.
+
+		Regression for issue #1036: additional-charge Sales Quotes showed Scope=Main instead of
+		Linked when CR charges were created before the desk UI stamped linked_service.
+		"""
+		from logistics.pricing_center.doctype.change_request.change_request import (
+			_charge_row_as_sales_quote_dict,
+		)
+
+		def _fake_charge_row(**kw):
+			data = dict(kw)
+			row = MagicMock()
+			row.as_dict = MagicMock(return_value=data)
+			return row
+
+		row = _fake_charge_row(
+			name="crc-3",
+			item_code="CUSTOMS",
+			service_type="Customs",
+			charge_scope="Main",
+			estimated_cost=100,
+			cost_quantity=1,
+		)
+		out = _charge_row_as_sales_quote_dict(row, "Customs", "LS-DECL-001")
+		self.assertEqual(out["charge_scope"], "Linked")
+		self.assertEqual(out["linked_service"], "LS-DECL-001")
+
+	def test_linked_service_for_row_uses_cr_default_over_schema_main_scope(self):
+		from logistics.pricing_center.change_request_to_job import _linked_service_for_row
+
+		row = frappe._dict(charge_scope="Main", linked_service=None)
+		self.assertEqual(_linked_service_for_row(row, "LS-SAT-001"), "LS-SAT-001")
+		self.assertIsNone(_linked_service_for_row(row, None))

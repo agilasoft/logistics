@@ -34,7 +34,7 @@ def get_data():
 					"type": "doctype",
 					"name": "Cash Advance Settings",
 					"label": _("Cash Advance Settings"),
-					"description": _("A/R Employee account for journal entries"),
+					"description": _("Per-company A/R Employee account for journal entries"),
 					"onboard": 0,
 				},
 			],

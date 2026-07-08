@@ -7,7 +7,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cint, flt, fmt_money, formatdate, get_link_to_form, getdate, nowdate, today
+from frappe.utils import cint, date_diff, flt, fmt_money, formatdate, get_link_to_form, getdate, nowdate, today
 
 from logistics.cash_advance.accounting import (
 	_validate_cash_bank_account,
@@ -15,16 +15,69 @@ from logistics.cash_advance.accounting import (
 	create_advance_release_journal_entry,
 	ensure_payee_for_party_accounts,
 )
+from logistics.cash_advance.doctype.cash_advance_settings.cash_advance_settings import (
+	get_max_due_date_extension_days,
+)
 from logistics.cash_advance.job_charge_items import get_item_codes_for_job_number
+from logistics.cash_advance.job_number_rules import row_requires_job_number
+from logistics.cash_advance.totals_sync import (
+	compute_unliquidated,
+	get_cash_advance_request_totals,
+	get_release_journal_entry,
+)
 
 
 class CashAdvanceRequest(Document):
+	@property
+	def total_liquidated(self) -> float:
+		return flt(self._request_totals().get("total_liquidated"))
+
+	@property
+	def returned(self) -> float:
+		return flt(self._request_totals().get("returned"))
+
+	@property
+	def refunded(self) -> float:
+		return flt(self._request_totals().get("refunded"))
+
+	@property
+	def unliquidated(self) -> float:
+		return flt(self._request_totals().get("unliquidated"))
+
+	@property
+	def advance_journal_entry(self):
+		if not self.name or self.name.startswith("new-"):
+			return None
+		return get_release_journal_entry(self.name)
+
+	def _request_totals(self) -> dict:
+		cache_key = "_logistics_cash_advance_request_totals"
+		if not hasattr(self, cache_key):
+			if not self.name or self.name.startswith("new-"):
+				totals = {
+					"total_requested": flt(self.total_requested, 2),
+					"total_liquidated": 0,
+					"returned": 0,
+					"refunded": 0,
+					"unliquidated": flt(self.total_requested, 2),
+				}
+			else:
+				totals = get_cash_advance_request_totals(self.name)
+				totals["unliquidated"] = compute_unliquidated(
+					flt(self.total_requested if self.total_requested is not None else totals.get("total_requested")),
+					totals.get("total_liquidated", 0),
+					totals.get("returned", 0),
+					totals.get("refunded", 0),
+				)
+			setattr(self, cache_key, totals)
+		return getattr(self, cache_key)
+
 	def validate(self):
 		self._validate_no_overdue_advance_for_payee()
-		self._validate_job_number_company_alignment()
 		self._validate_accounting_dimensions()
 		self._validate_fund_source_company()
 		self._validate_fund_source_fund_type()
+		self._sync_require_job_number_from_fund_source()
 		self._validate_request_limit()
 		self._validate_items_against_job()
 
@@ -55,6 +108,13 @@ class CashAdvanceRequest(Document):
 		if self.fund_type and self.fund_type != fund_type:
 			self.fund_type = fund_type
 
+	def _sync_require_job_number_from_fund_source(self):
+		if not self.fund_source:
+			return
+		self.require_job_number = cint(
+			frappe.db.get_value("Account", self.fund_source, "require_job_number")
+		)
+
 	def _validate_request_limit(self):
 		if not self.fund_source:
 			return
@@ -84,21 +144,40 @@ class CashAdvanceRequest(Document):
 			return
 
 		today = nowdate()
+		unliquidated_expr = (
+			"IFNULL(car.total_requested, 0) - IFNULL(liq.total_liquidated, 0) "
+			"+ IFNULL(ack.refunded, 0) - IFNULL(ack.returned, 0)"
+		)
 		overdue = frappe.db.sql(
-			"""
+			f"""
 			SELECT
-				name,
-				liquidation_due_date,
-				unliquidated,
-				DATEDIFF(%(today)s, liquidation_due_date) AS days_overdue
-			FROM `tabCash Advance Request`
-			WHERE payee = %(payee)s
-			  AND docstatus = 1
-			  AND IFNULL(unliquidated, 0) > 0
-			  AND liquidation_due_date IS NOT NULL
-			  AND liquidation_due_date < %(today)s
-			  AND name != %(self_name)s
-			ORDER BY liquidation_due_date ASC
+				car.name,
+				car.liquidation_due_date,
+				({unliquidated_expr}) AS unliquidated,
+				DATEDIFF(%(today)s, car.liquidation_due_date) AS days_overdue
+			FROM `tabCash Advance Request` car
+			LEFT JOIN (
+				SELECT cash_advance_request, SUM(total_liquidated) AS total_liquidated
+				FROM `tabCash Advance Liquidation`
+				WHERE docstatus = 1
+				GROUP BY cash_advance_request
+			) liq ON liq.cash_advance_request = car.name
+			LEFT JOIN (
+				SELECT
+					cash_advance_request,
+					SUM(CASE WHEN acknowledgment_type = 'Receipt' THEN amount ELSE 0 END) AS returned,
+					SUM(CASE WHEN acknowledgment_type = 'Payment' THEN amount ELSE 0 END) AS refunded
+				FROM `tabCash Acknowledgment`
+				WHERE docstatus = 1
+				GROUP BY cash_advance_request
+			) ack ON ack.cash_advance_request = car.name
+			WHERE car.payee = %(payee)s
+			  AND car.docstatus = 1
+			  AND ({unliquidated_expr}) > 0
+			  AND car.liquidation_due_date IS NOT NULL
+			  AND car.liquidation_due_date < %(today)s
+			  AND car.name != %(self_name)s
+			ORDER BY car.liquidation_due_date ASC
 			LIMIT 5
 			""",
 			{
@@ -142,14 +221,12 @@ class CashAdvanceRequest(Document):
 			frappe.throw(_("Total Requested must be greater than zero to submit."))
 
 	def on_submit(self):
-		if frappe.db.get_value(self.doctype, self.name, "advance_journal_entry"):
+		if get_release_journal_entry(self.name):
 			return
-		je_name = create_advance_release_journal_entry(self)
-		frappe.db.set_value(self.doctype, self.name, "advance_journal_entry", je_name, update_modified=False)
+		create_advance_release_journal_entry(self)
 
 	def on_cancel(self):
-		cancel_journal_entry(self.advance_journal_entry)
-		frappe.db.set_value(self.doctype, self.name, "advance_journal_entry", None, update_modified=False)
+		cancel_journal_entry(get_release_journal_entry(self.name))
 
 	def _validate_accounting_dimensions(self):
 		if not self.company:
@@ -185,47 +262,20 @@ class CashAdvanceRequest(Document):
 					)
 				return
 
-	def _validate_job_number_company_alignment(self):
-		if not self.job_number:
-			return
-		jn = frappe.get_doc("Job Number", self.job_number)
-		if jn.company and self.company and jn.company != self.company:
-			frappe.throw(
-				_("Company {0} does not match Job Number {1} ({2}).").format(
-					self.company, self.job_number, jn.company
-				)
-			)
-
 	def _validate_items_against_job(self):
-		if self.fund_type == "Revolving Fund":
-			for idx, row in enumerate(self.items or [], start=1):
-				if not row.item_code and not row.job_number:
-					continue
-				if not row.job_number:
-					frappe.throw(
-						_("Row {0}: Job Number is required for Revolving Fund items.").format(idx)
-					)
-				self._validate_item_job_number_company(row.job_number)
-				allowed = set(get_item_codes_for_job_number(row.job_number))
-				if row.item_code and row.item_code not in allowed:
-					frappe.throw(
-						_("Row {0}: Charge Item {1} is not on the charges for Job Number {2}.").format(
-							idx, row.item_code, row.job_number
-						)
-					)
-			return
-
-		if not self.job_number:
-			return
-
-		allowed = set(get_item_codes_for_job_number(self.job_number))
-		for row in self.items or []:
+		for idx, row in enumerate(self.items or [], start=1):
 			if not row.item_code:
 				continue
+			if not row_requires_job_number(self.require_job_number, row.item_code):
+				continue
+			if not row.job_number:
+				frappe.throw(_("Row {0}: Job Number is required for this charge item.").format(idx))
+			self._validate_item_job_number_company(row.job_number)
+			allowed = set(get_item_codes_for_job_number(row.job_number))
 			if row.item_code not in allowed:
 				frappe.throw(
-					_("Charge Item {0} is not on the charges for Job Number {1}.").format(
-						row.item_code, self.job_number
+					_("Row {0}: Charge Item {1} is not on the charges for Job Number {2}.").format(
+						idx, row.item_code, row.job_number
 					)
 				)
 
@@ -249,23 +299,38 @@ class CashAdvanceRequest(Document):
 					total_requested += flt(item.amount_requested)
 
 		self.total_requested = total_requested
-		self.unliquidated = flt(
-			flt(total_requested) - flt(self.total_liquidated) - flt(self.returned) + flt(self.refunded), 2
-		)
+		if hasattr(self, "_logistics_cash_advance_request_totals"):
+			delattr(self, "_logistics_cash_advance_request_totals")
+		totals = self._request_totals()
 
 		return {
 			"total_requested": total_requested,
-			"total_liquidated": flt(self.total_liquidated),
-			"unliquidated": self.unliquidated,
+			"total_liquidated": flt(totals.get("total_liquidated")),
+			"unliquidated": flt(totals.get("unliquidated")),
 		}
 
 
 @frappe.whitelist()
-def extend_liquidation_due_date(cash_advance_request, liquidation_due_date, reason=None):
+def extend_liquidation_due_date(
+	cash_advance_request,
+	liquidation_due_date,
+	reason_code=None,
+	reason_description=None,
+):
 	"""Extend liquidation due date on a submitted cash advance with an outstanding balance."""
 	if not cash_advance_request:
 		frappe.throw(_("Cash Advance Request is required."))
 	frappe.has_permission("Cash Advance Request", "write", doc=cash_advance_request, throw=True)
+
+	if not reason_code:
+		frappe.throw(_("Reason Code is required."), title=_("Missing Reason Code"))
+	if not reason_description or not str(reason_description).strip():
+		frappe.throw(_("Reason Description is required."), title=_("Missing Reason Description"))
+
+	if not frappe.db.exists("Cash Advance Reason Code", reason_code):
+		frappe.throw(_("Reason Code {0} does not exist.").format(reason_code))
+	if not cint(frappe.db.get_value("Cash Advance Reason Code", reason_code, "is_active")):
+		frappe.throw(_("Reason Code {0} is not active.").format(reason_code))
 
 	doc = frappe.get_doc("Cash Advance Request", cash_advance_request)
 	if doc.docstatus != 1:
@@ -288,14 +353,40 @@ def extend_liquidation_due_date(cash_advance_request, liquidation_due_date, reas
 				),
 				title=_("Invalid Extension"),
 			)
+		extension_days = date_diff(new_due, old_d)
+	else:
+		extension_days = date_diff(new_due, today_d)
 
-	updates = {"liquidation_due_date": new_due}
-	if reason and str(reason).strip():
-		prefix = _("Due date extended to {0}: ").format(formatdate(new_due))
-		existing = (doc.status_reason or "").strip()
-		updates["status_reason"] = (existing + "\n" + prefix + str(reason).strip()).strip() if existing else prefix + str(reason).strip()
+	max_extension_days = get_max_due_date_extension_days(doc.company)
+	if max_extension_days > 0 and extension_days > max_extension_days:
+		frappe.throw(
+			_(
+				"Due date extension of {0} day(s) exceeds the maximum allowed extension of {1} day(s) for company {2}."
+			).format(extension_days, max_extension_days, doc.company),
+			title=_("Extension Limit Exceeded"),
+		)
 
-	frappe.db.set_value("Cash Advance Request", doc.name, updates, update_modified=True)
+	reason_label = reason_code
+	reason_master_description = frappe.db.get_value(
+		"Cash Advance Reason Code", reason_code, "description"
+	)
+	if reason_master_description:
+		reason_label = f"{reason_code} ({reason_master_description})"
+
+	reason_text = str(reason_description).strip()
+	prefix = _("Due date extended to {0} [{1}]: ").format(formatdate(new_due), reason_label)
+	existing = (doc.status_reason or "").strip()
+	status_reason = (existing + "\n" + prefix + reason_text).strip() if existing else prefix + reason_text
+
+	frappe.db.set_value(
+		"Cash Advance Request",
+		doc.name,
+		{
+			"liquidation_due_date": new_due,
+			"status_reason": status_reason,
+		},
+		update_modified=True,
+	)
 
 	return {
 		"success": True,

@@ -2,9 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "hash",
- "creation": "2026-04-22 18:00:00.000000",
- "default_sort_field": "modified",
- "default_sort_order": "DESC",
+ "creation": "2026-04-22 18:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
@@ -15,8 +13,9 @@
   "column_break_4",
   "amount_requested",
   "liquidation_entry_section",
-  "reference_no",
   "date",
+  "reference_no",
+  "job_number",
   "amount_liquidated",
   "attachment",
   "column_break_12",
@@ -34,12 +33,13 @@
    "in_list_view": 1,
    "label": "Charge Item",
    "options": "Item",
+   "read_only": 1,
    "reqd": 1
   },
   {
+   "fetch_from": "item_code.item_name",
    "fieldname": "description",
    "fieldtype": "Data",
-   "fetch_from": "item_code.item_name",
    "in_list_view": 1,
    "label": "Description",
    "read_only": 1
@@ -52,10 +52,10 @@
    "fieldname": "amount_requested",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Amount Requested"
+   "label": "Amount Requested",
+   "read_only": 1
   },
   {
-   "collapsible": 1,
    "fieldname": "liquidation_entry_section",
    "fieldtype": "Section Break",
    "label": "Liquidation"
@@ -93,18 +93,26 @@
    "fieldtype": "Long Text",
    "in_list_view": 1,
    "label": "Particulars"
+  },
+  {
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Job Number",
+   "options": "Job Number"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
- "max_attachments": 0,
- "modified": "2026-04-22 18:00:00.000000",
+ "links": [],
+ "modified": "2026-07-07 08:29:46.082598",
  "modified_by": "Administrator",
  "module": "Cash Advance",
  "name": "Cash Advance Liquidation Item",
  "naming_rule": "Random",
  "owner": "Administrator",
  "permissions": [],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

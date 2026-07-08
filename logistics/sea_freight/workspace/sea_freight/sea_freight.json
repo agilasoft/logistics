@@ -410,8 +410,8 @@
    "type": "Link"
   }
  ],
- "modified": "2026-06-24 08:06:23.123515",
- "modified_by": "dee.sambrano@agilasoft.com",
+ "modified": "2026-07-02 21:48:13.811266",
+ "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Freight",
  "number_cards": [],
@@ -435,7 +435,7 @@
    "doc_view": "List",
    "label": "Sales Quote",
    "link_to": "Sales Quote",
-   "stats_filter": "[]",
+   "stats_filter": "[[\"Sales Quote\",\"main_service\",\"=\",\"Sea\"]]",
    "type": "DocType"
   },
   {

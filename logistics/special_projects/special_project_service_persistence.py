@@ -15,6 +15,7 @@ from typing import Any
 import frappe
 
 from logistics.special_projects.special_project_service_compat import (
+	is_local_special_project_service_detail_name,
 	row_special_project_service_link,
 	set_row_special_project_service_link,
 	special_project_service_doctype,
@@ -40,12 +41,8 @@ _PARAM_FIELDS: tuple[str, ...] = (
 	fn
 	for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS
 	if fn != "charge_group"
-) + (
-	"planned_cost",
-	"actual_cost",
-	"planned_revenue",
-	"actual_revenue",
 )
+# planned/actual cost/revenue are rolled up by sync_lifecycle_job_financials — never copy from the desk grid.
 
 
 def _norm(val: Any) -> str:
@@ -217,6 +214,73 @@ def _delete_orphan_service_docs(prev: set[str], cur: set[str]) -> None:
 				title="Special Project Service orphan cleanup failed",
 				message=frappe.get_traceback(),
 			)
+
+
+def _service_row_temp_to_persisted_remap(parent_doc: Any) -> dict[str, str]:
+	"""Map unsaved virtual grid row names to persisted Special Project Service names."""
+	remap: dict[str, str] = {}
+	for row in special_project_service_grid_rows(parent_doc):
+		temp = _norm(_row_value(row, "name"))
+		persisted = row_special_project_service_link(row)
+		if temp and persisted and temp != persisted:
+			remap[temp] = persisted
+	return remap
+
+
+def _heal_special_project_service_line_links(parent_doc: Any, remap: dict[str, str]) -> None:
+	"""Replace stale virtual grid names on charge / service Link fields."""
+	for charge in parent_doc.get("charges") or []:
+		line = _norm(getattr(charge, "special_project_service_line", None))
+		if not line:
+			continue
+		if line in remap:
+			charge.special_project_service_line = remap[line]
+			continue
+		if is_local_special_project_service_detail_name(line):
+			charge.special_project_service_line = None
+			continue
+		if not special_project_service_record_exists(line):
+			charge.special_project_service_line = None
+
+	for row in special_project_service_grid_rows(parent_doc):
+		line = _norm(_row_value(row, "special_project_service_line"))
+		if not line:
+			continue
+		if line in remap:
+			new_line = remap[line]
+			if isinstance(row, dict):
+				row["special_project_service_line"] = new_line
+			elif hasattr(row, "special_project_service_line"):
+				row.special_project_service_line = new_line
+			continue
+		if is_local_special_project_service_detail_name(line):
+			if isinstance(row, dict):
+				row["special_project_service_line"] = None
+			elif hasattr(row, "special_project_service_line"):
+				row.special_project_service_line = None
+
+
+def prepare_special_project_services_before_link_validation(doc: Any) -> None:
+	"""Materialise service documents and heal charge links before Frappe link validation.
+
+	Frappe validates Link fields after ``validate()`` but before ``before_save`` hooks.
+	The virtual Services grid uses temporary row names until ``Special Project Service``
+	documents are synced; charge auto-tagging can reference those names during
+	``validate()``. Pre-flight sync keeps desk saves from raising ``LinkValidationError``.
+	"""
+	if not doc or doc.doctype != "Special Project":
+		return
+	if getattr(doc.flags, "ignore_links", False):
+		return
+	if not special_project_service_grid_rows(doc):
+		return
+	if not doc.name:
+		return
+	honour_form_rows = getattr(doc, "_honour_special_project_services_form_rows", None)
+	if callable(honour_form_rows):
+		honour_form_rows()
+	sync_special_project_services_to_documents(doc)
+	_heal_special_project_service_line_links(doc, _service_row_temp_to_persisted_remap(doc))
 
 
 def sync_special_project_services_to_documents(doc: Any, *_method) -> None:

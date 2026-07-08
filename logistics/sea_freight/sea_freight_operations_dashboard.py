@@ -45,6 +45,7 @@ def get_sea_freight_operations_filter_users(job_status_filter=None, include_draf
 def get_sea_freight_operations_dashboard(
 	limit=None,
 	filter_user=None,
+	alert_filter_user=None,
 	traffic=None,
 	airlines=None,
 	job_status_filter=None,
@@ -63,6 +64,7 @@ def get_sea_freight_operations_dashboard(
 		carrier_label_fn=_shipping_line_label,
 		job_status_filter=job_status_filter,
 		filter_user=filter_user,
+		alert_filter_user=alert_filter_user,
 		traffic=traffic,
 		carriers_param=airlines,
 		limit=limit,

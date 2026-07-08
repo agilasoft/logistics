@@ -37,7 +37,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Message Type",
-   "options": "FWB\nFSU\nFMA\nFHL\nXFWB\nXFHL\nXSDG"
+   "options": "FWB\nFSU\nFMA\nFHL\nXFWB\nXFHL\nXFZB\nXSDG\nXFNM\nXFSU"
   },
   {
    "fieldname": "direction",

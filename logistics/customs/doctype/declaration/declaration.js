@@ -588,7 +588,7 @@ frappe.ui.form.on("Declaration", {
 		// --- Create and Post menus - use setTimeout so they appear after form ready ---
 		if (frm.doc.name && !frm.doc.__islocal) {
 			setTimeout(function() {
-				if (!(cint(frm.doc.is_internal_job) && frm.doc.main_job_type && frm.doc.main_job)) {
+				if (!((frm.doc.service_role === "Linked" || cint(frm.doc.is_internal_job)) && (frm.doc.main_service_type || frm.doc.main_job_type) && (frm.doc.main_service || frm.doc.main_job))) {
 					frm.add_custom_button(__('Internal Job'), function() {
 						function _openInternalJobDlg() {
 							if (window.logistics_show_create_internal_job_dialog) {

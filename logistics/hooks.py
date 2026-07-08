@@ -40,7 +40,9 @@ app_include_css = [
 ]
 app_include_js = [
 	"/assets/logistics/js/address_link_query.js?v=1",
+	"/assets/logistics/js/party_address_contact.js?v=1",
 	"/assets/logistics/js/linked_service_link_query.js?v=1",
+	"/assets/logistics/js/freight_agent_service.js?v=1",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=3",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
@@ -48,7 +50,7 @@ app_include_js = [
 	"/assets/logistics/js/internal_job_create_from_source.js?v=20",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js?v=2",
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
-	"/assets/logistics/js/service_role.js?v=1",
+	"/assets/logistics/js/service_role.js?v=3",
 	"/assets/logistics/js/internal_job_detail_grid_delete_fix.js",
 	"/assets/logistics/js/get_charges_from_quotation.js?v=18",
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=3",
@@ -60,6 +62,7 @@ app_include_js = [
 	"/assets/logistics/js/document_alerts_dialog.js?v=2",
 	"/assets/logistics/js/documents_tab_utils.js",
 	"/assets/logistics/js/opportunity_dashboard_boot.js?v=3",
+	"/assets/logistics/js/crm_sales_quote_actions.js?v=2",
 	"/assets/logistics/js/profitability_form.js?v=5",
 	"/assets/logistics/js/purchase_invoice_dialog.js",
 	"/assets/logistics/js/invoice_billing_currency.js",
@@ -91,6 +94,7 @@ doctype_js = {
 		"logistics/pricing_center/doctype/sales_quote_charge/sales_quote_charge.js",
 		"logistics/pricing_center/doctype/sales_quote_air_freight/sales_quote_air_freight.js",
 		"logistics/pricing_center/doctype/sales_quote_sea_freight/sales_quote_sea_freight.js",
+		"logistics/public/js/sales_quote_booking_dialog.js",
 		"logistics/pricing_center/doctype/sales_quote/sales_quote.js",
 	],
 	"Sales Quote Pack": "logistics/pricing_center/doctype/sales_quote_pack/sales_quote_pack.js",
@@ -297,7 +301,10 @@ doctype_js = {
 	"Credit Hold Lift Request": "logistics/logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
 	"Cash Advance Request": "logistics/cash_advance/doctype/cash_advance_request/cash_advance_request.js",
 	"Cash Advance Liquidation": "logistics/cash_advance/doctype/cash_advance_liquidation/cash_advance_liquidation.js",
+	"Cash Advance Settings": "logistics/cash_advance/doctype/cash_advance_settings/cash_advance_settings.js",
 	"Cash Acknowledgment": "logistics/cash_advance/doctype/cash_acknowledgment/cash_acknowledgment.js",
+	"Outlook Calendar Settings": "logistics/logistics/doctype/outlook_calendar_settings/outlook_calendar_settings.js",
+	"User": "logistics/integrations/outlook/user_outlook.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -323,7 +330,7 @@ doctype_js = {
 # Installation
 # ------------
 
-# before_install = "logistics.install.before_install"
+before_install = "logistics.integrations.outlook.install.before_install"
 # after_install = "logistics.install.after_install"
 
 # Desk Notifications
@@ -372,6 +379,12 @@ doc_events = {
 		"onload": "logistics.pricing_center.utils.opportunity_scopes.on_opportunity_onload",
 		"validate": "logistics.pricing_center.utils.opportunity_scopes.on_opportunity_validate",
 	},
+	"Lead": {
+		"onload": "logistics.pricing_center.crm_sales_quote_onload.lead_onload",
+	},
+	"Prospect": {
+		"onload": "logistics.pricing_center.crm_sales_quote_onload.prospect_onload",
+	},
 	"Customer": {
 		"validate": "logistics.utils.party_code.validate_customer_supplier_party_code",
 	},
@@ -411,6 +424,11 @@ doc_events = {
 		"on_submit": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_submit",
 		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_cancel",
 	},
+	"Task": {
+		"after_insert": "logistics.integrations.outlook.task_sync.on_task_change",
+		"on_update": "logistics.integrations.outlook.task_sync.on_task_change",
+		"on_trash": "logistics.integrations.outlook.task_sync.on_task_delete",
+	},
 }
 for _dt in _doc_milestone_doctypes:
 	_before_save = [
@@ -438,6 +456,7 @@ for _dt in (
 	"Declaration",
 	"Declaration Order",
 	"Warehouse Job",
+	"VAS Order",
 	"Inbound Order",
 	"Release Order",
 	"Project Job",
@@ -503,6 +522,11 @@ append_hook(
 	doc_events,
 	"*",
 	{"validate": "logistics.utils.load_type_active.validate_load_type_links_on_doc"},
+)
+append_hook(
+	doc_events,
+	"*",
+	{"validate": "logistics.utils.freight_agent_service.validate_freight_agent_links_on_doc"},
 )
 
 # Operational exchange rates: resolve from Source Exchange Rate (date-based) and push to charge lines
@@ -586,6 +610,7 @@ for _dt in (
 	# Sales Quote (One-off) owns Internal Jobs that get re-parented to the Booking/Order
 	# created from the quote. The sync is gated on quotation_type inside the handler.
 	"Sales Quote",
+	"Change Request",
 ):
 	if _dt not in doc_events:
 		doc_events[_dt] = {}
@@ -739,6 +764,8 @@ scheduler_events = {
 	"hourly": [
 		"logistics.status_update.tasks.update_milestone_statuses",
 		"logistics.air_freight.flight_schedules.tasks.update_air_freight_jobs_with_flight_status",
+		"logistics.integrations.outlook.tasks.reconcile_failed_syncs",
+		"logistics.integrations.outlook.tasks.sync_recent_task_changes",
 	],
 	"daily": [
 		"logistics.status_update.tasks.update_document_statuses",
@@ -758,16 +785,25 @@ scheduler_events = {
 # Overriding Methods
 # ------------------------------
 #
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "logistics.event.get_events"
-# }
+override_whitelisted_methods = {
+	"frappe.utils.print_format.download_pdf": (
+		"logistics.print_format.payment_entry.bank_forms_pdf.download_pdf"
+	),
+}
+
+pdf_generator = [
+	"logistics.print_format.payment_entry.bank_forms_pdf.pdf_generator_hook",
+]
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
-# override_doctype_dashboards = {
-# 	"Task": "logistics.task.get_dashboard_data"
-# }
+override_doctype_dashboards = {
+	"Opportunity": "logistics.pricing_center.dashboards.opportunity_dashboard.get_data",
+	"Lead": "logistics.pricing_center.dashboards.lead_dashboard.get_data",
+	"Customer": "logistics.pricing_center.dashboards.customer_dashboard.get_data",
+	"Prospect": "logistics.pricing_center.dashboards.prospect_dashboard.get_data",
+}
 
 # exempt linked doctypes from being automatically cancelled
 #

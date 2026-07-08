@@ -7,6 +7,8 @@ import frappe
 
 PUBLIC_SETTINGS_FIELDS = (
 	"cargo_xml_enabled",
+	"connection_mode",
+	"ccs_provider",
 	"dg_autocheck_enabled",
 	"cass_enabled",
 	"tact_subscription",
@@ -99,6 +101,11 @@ def default_settings():
 		cargo_xml_enabled=0,
 		cargo_xml_endpoint=None,
 		cargo_xml_username=None,
+		connection_mode="Direct",
+		ccs_provider=None,
+		ccs_participant_code=None,
+		ccs_endpoint=None,
+		ccs_test_endpoint=None,
 		dg_autocheck_enabled=0,
 		cass_enabled=0,
 		tact_subscription=0,

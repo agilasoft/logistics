@@ -82,6 +82,45 @@ class TestSalesQuote(FrappeTestCase):
 		sq.insert()
 		self.assertIsNotNone(sq.name)
 
+	def test_transport_mode_must_match_main_service(self):
+		"""Regular / One-off quotes reject Transport Mode incompatible with Main Service."""
+		sfx = frappe.generate_hash(length=6)
+		sea_mode = frappe.get_doc(
+			{
+				"doctype": "Transport Mode",
+				"mode_code": f"TST-SQ-SEA-{sfx}",
+				"mode_name": f"TST Sea {sfx}",
+				"primary_document": "Sea Shipment",
+				"sea": 1,
+				"air": 0,
+			}
+		).insert(ignore_permissions=True).name
+		sq = frappe.get_doc(
+			{
+				"doctype": "Sales Quote",
+				"company": self.company,
+				"customer": self.customer,
+				"date": today(),
+				"valid_until": today(),
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"quotation_type": "Regular",
+				"main_service": "Air",
+				"transport_mode": sea_mode,
+			}
+		)
+		sq.append(
+			"charges",
+			{
+				"service_type": "air",
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+			},
+		)
+		with self.assertRaises(frappe.ValidationError):
+			sq.insert()
+
 	def test_expired_sales_quote_blocks_creation_guard(self):
 		"""Valid Until in the past must raise when creating jobs from the quote."""
 		from logistics.utils.sales_quote_validity import throw_if_sales_quote_expired_for_creation

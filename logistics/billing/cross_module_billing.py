@@ -8,7 +8,7 @@ from __future__ import unicode_literals
 
 import frappe
 from frappe import _
-from frappe.utils import cint, flt
+from frappe.utils import flt
 from typing import Dict, List, Any, Optional, Tuple, Iterator
 
 # Parent booking/order carries Internal Job + Main Job when the operational job does not.
@@ -50,15 +50,21 @@ BILLING_JOB_TYPES = (
 
 def resolve_internal_job_main_job(job_type: str, job_name: str) -> Tuple[Optional[str], Optional[str]]:
     """
-    Return (main_job_type, main_job_name) when the job is an internal job (checkbox on the job
-    or on its parent Transport Order / Air Booking / Sea Booking), with a valid Main Job link.
+    Return (main_service_type, main_service_name) when the job is a Linked service (on the job
+    or on its parent Transport Order / Air Booking / Sea Booking), with a valid Main Service link.
     """
+    from logistics.utils.service_role_rules import (
+        get_main_service_name,
+        get_main_service_type,
+        is_linked_service_satellite,
+    )
+
     if not job_type or not job_name or not frappe.db.exists(job_type, job_name):
         return (None, None)
     doc = frappe.get_doc(job_type, job_name)
-    mt = getattr(doc, "main_job_type", None)
-    mn = getattr(doc, "main_job", None)
-    if cint(getattr(doc, "is_internal_job", 0)) and mt and mn and frappe.db.exists(mt, mn):
+    mt = get_main_service_type(doc)
+    mn = get_main_service_name(doc)
+    if is_linked_service_satellite(doc) and mt and mn and frappe.db.exists(mt, mn):
         return (mt, mn)
     parent = INTERNAL_JOB_PARENT_LINKS.get(job_type)
     if parent:
@@ -66,9 +72,9 @@ def resolve_internal_job_main_job(job_type: str, job_name: str) -> Tuple[Optiona
         pname = getattr(doc, link_field, None)
         if pname and frappe.db.exists(pdoctype, pname):
             parent_doc = frappe.get_doc(pdoctype, pname)
-            mt = getattr(parent_doc, "main_job_type", None)
-            mn = getattr(parent_doc, "main_job", None)
-            if cint(getattr(parent_doc, "is_internal_job", 0)) and mt and mn and frappe.db.exists(mt, mn):
+            mt = get_main_service_type(parent_doc)
+            mn = get_main_service_name(parent_doc)
+            if is_linked_service_satellite(parent_doc) and mt and mn and frappe.db.exists(mt, mn):
                 return (mt, mn)
     return (None, None)
 
@@ -355,38 +361,49 @@ def get_suggested_contributors(
 def get_all_billing_jobs_from_sales_quote(sales_quote) -> List[Tuple[str, str]]:
 	"""
 	Return list of (job_type, job_no) for every job that should be billed from this quote:
-	each leg's anchor + each leg's contributors. Used for intercompany (one pair per job).
+	each leg's anchor + each leg's contributors + operational docs linked via ``sales_quote``.
+
+	Routing legs no longer store ``job_type`` / ``job_no``; anchors are resolved the same way
+	as Sales Quote customer invoicing (``_resolve_job_for_routing_leg``).
 	"""
-	legs = getattr(sales_quote, "routing_legs", None) or []
-	seen = set()
-	out = []
-	for leg in legs:
-		job_type = getattr(leg, "job_type", None)
-		job_no = getattr(leg, "job_no", None)
+	from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+		_get_contributors_for_leg,
+		_iter_linked_jobs_for_sales_quote,
+		_resolve_job_for_routing_leg,
+	)
+
+	sq_name = sales_quote.name if hasattr(sales_quote, "name") else sales_quote
+	seen: set = set()
+	out: List[Tuple[str, str]] = []
+
+	def _add(job_type: Optional[str], job_no: Optional[str]) -> None:
 		if job_type and job_no and (job_type, job_no) not in seen:
 			seen.add((job_type, job_no))
 			out.append((job_type, job_no))
-		# Contributors
-		contrib_list = getattr(leg, "bill_with_contributors", None)
-		if contrib_list:
-			for c in contrib_list:
-				ct = getattr(c, "contributor_job_type", None)
-				cn = getattr(c, "contributor_job_no", None)
-				if ct and cn and (ct, cn) not in seen:
-					seen.add((ct, cn))
-					out.append((ct, cn))
-		else:
-			leg_name = getattr(leg, "name", None)
-			if leg_name:
-				for c in frappe.get_all(
-					"Sales Quote Routing Leg Contributor",
-					filters={"parent": leg_name, "parenttype": "Sales Quote Routing Leg"},
-					fields=["contributor_job_type", "contributor_job_no"],
-				):
-					ct, cn = c.get("contributor_job_type"), c.get("contributor_job_no")
-					if ct and cn and (ct, cn) not in seen:
-						seen.add((ct, cn))
-						out.append((ct, cn))
+
+	legs = getattr(sales_quote, "routing_legs", None) or []
+	for leg in legs:
+		# Legacy rows may still carry job_type / job_no
+		_add(getattr(leg, "job_type", None), getattr(leg, "job_no", None))
+		anchor_type, anchor_name = _resolve_job_for_routing_leg(sales_quote, leg)
+		_add(anchor_type, anchor_name)
+		for ct, cn in _get_contributors_for_leg(leg):
+			_add(ct, cn)
+
+	for job_type, job_no in _iter_linked_jobs_for_sales_quote(sales_quote):
+		_add(job_type, job_no)
+
+	for job_type in BILLING_JOB_TYPES:
+		if not frappe.db.has_column(job_type, "sales_quote"):
+			continue
+		for job_no in frappe.get_all(
+			job_type,
+			filters={"sales_quote": sq_name, "docstatus": ["!=", 2]},
+			pluck="name",
+			order_by="creation asc",
+		):
+			_add(job_type, job_no)
+
 	return out
 
 

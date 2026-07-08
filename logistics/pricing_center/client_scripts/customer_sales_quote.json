@@ -1,0 +1,9 @@
+{
+  "name": "CRM Customer - Sales Quote",
+  "dt": "Customer",
+  "view": "Form",
+  "module": "Pricing Center",
+  "enabled": 1,
+  "script": "// Pricing Center: Customer connections → Sales Quote (replaces Quotation)\nfrappe.ui.form.on('Customer', {\n\tsetup(frm) {\n\t\tif (logistics.crm_sales_quote) {\n\t\t\tlogistics.crm_sales_quote.replace_make_methods(frm);\n\t\t}\n\t},\n\trefresh(frm) {\n\t\tif (logistics.crm_sales_quote) {\n\t\t\tlogistics.crm_sales_quote.replace_make_methods(frm);\n\t\t}\n\t}\n});",
+  "doctype": "Client Script"
+}

@@ -22,3 +22,34 @@ def get_valid_until_offset(company: str | None = None) -> int:
 	except Exception:
 		return 30
 
+
+def get_crm_sales_quote_settings(company: str | None = None) -> frappe._dict:
+	"""Per-company CRM Sales Quote flags (Lead/Prospect creation)."""
+	defaults = frappe._dict(
+		allow_sales_quote_from_lead=0,
+		allow_sales_quote_from_prospect=0,
+	)
+	if not company:
+		return defaults
+	try:
+		row = frappe.db.get_value(
+			"Pricing Center Settings",
+			{"company": company},
+			["allow_sales_quote_from_lead", "allow_sales_quote_from_prospect"],
+			as_dict=True,
+		)
+	except Exception:
+		return defaults
+	if not row:
+		return defaults
+	return frappe._dict(
+		allow_sales_quote_from_lead=cint(row.allow_sales_quote_from_lead),
+		allow_sales_quote_from_prospect=cint(row.allow_sales_quote_from_prospect),
+	)
+
+
+@frappe.whitelist()
+def get_crm_sales_quote_settings_for_desk(company: str | None = None) -> dict:
+	"""Desk helper for CRM Sales Quote settings."""
+	return dict(get_crm_sales_quote_settings(company))
+

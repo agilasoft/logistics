@@ -68,6 +68,27 @@ class MasterAirWaybill(Document):
 			"message_queue": result.get("message_queue"),
 		}
 
+	@frappe.whitelist()
+	def submit_consolidated_eawb(self, include_house_manifest=1, include_house_awbs=0):
+		from logistics.air_freight.iata_cargo_xml.eawb_service import submit_consolidated_eawb
+
+		self.check_permission("write")
+		return submit_consolidated_eawb(
+			self.name,
+			include_house_manifest=bool(int(include_house_manifest)),
+			include_house_awbs=bool(int(include_house_awbs)),
+		)
+
+	def on_update(self):
+		if getattr(self, "send_awb_to_airline", 0) and self.eawb_status in (None, "", "Not Submitted"):
+			if getattr(self.flags, "auto_send_eawb", 0):
+				try:
+					from logistics.air_freight.iata_cargo_xml.eawb_service import auto_send_eawb_for_mawb
+
+					auto_send_eawb_for_mawb(self.name)
+				except Exception:
+					frappe.log_error(frappe.get_traceback(), "MAWB auto-send e-AWB")
+
 	def validate_eawb_submission(self):
 		if self.eawb_status == "Accepted":
 			frappe.throw(

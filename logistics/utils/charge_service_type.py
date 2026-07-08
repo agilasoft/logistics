@@ -27,6 +27,11 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
+from logistics.utils.service_role_rules import (
+	SERVICE_ROLE_LINKED,
+	get_service_role,
+)
+
 # Same options as Sales Quote Charge.service_type / Change Request Charge.service_type (stored as UI labels).
 SERVICE_TYPE_SELECT_OPTIONS = "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE"
 
@@ -40,6 +45,7 @@ IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 	"Declaration": "Customs",
 	"Declaration Order": "Customs",
 	"Warehouse Job": "Warehousing",
+	"VAS Order": "Warehousing",
 	"Inbound Order": "Warehousing",
 	"Special Project": "Special Project",
 	"Project Order": "Special Project",
@@ -304,8 +310,8 @@ INTERNAL_JOB_DETAIL_JOB_TYPE_BY_SERVICE_TYPE = {
 	"Customs": "Declaration Order",
 	"custom": "Declaration Order",
 	"customs": "Declaration Order",
-	"Warehousing": "Inbound Order",
-	"warehousing": "Inbound Order",
+	"Warehousing": "VAS Order",
+	"warehousing": "VAS Order",
 	"Special Project": "Project Order",
 	"special project": "Project Order",
 	"MICE": "MICE Order",
@@ -343,13 +349,27 @@ def default_job_type_for_internal_job_service_type(service_type):
 
 
 def effective_internal_job_detail_job_type(row):
-	"""Operational job type for matching and create flows: mapped service_type wins over stored job_type."""
+	"""Operational job type for matching and create flows: mapped service_type wins over stored job_type.
+
+	Linked Service Warehousing is cross-dock / in-transit VAS only (VAS Order), not storage
+	Inbound/Release/Transfer. Legacy storage job types on Warehousing rows resolve to VAS Order
+	unless a storage order is already linked on ``job_no``.
+	"""
+	from logistics.special_projects.special_project_service_rows import service_row_field
+
 	if not row:
 		return ""
-	jt = (getattr(row, "job_type", None) or "").strip()
-	if jt in ("Inbound Order", "Release Order", "Transfer Order"):
+	jt = (service_row_field(row, "job_type") or "").strip()
+	jn = (service_row_field(row, "job_no") or "").strip()
+	st = (service_row_field(row, "service_type") or "").strip()
+	if st == "Warehousing":
+		if jt == "VAS Order":
+			return jt
+		if jt in ("Inbound Order", "Release Order", "Transfer Order") and jn:
+			return jt
+		return "VAS Order"
+	if jt in ("Inbound Order", "Release Order", "Transfer Order", "VAS Order"):
 		return jt
-	st = (getattr(row, "service_type", None) or "").strip()
 	mapped = default_job_type_for_internal_job_service_type(st)
 	if mapped:
 		return mapped
@@ -444,9 +464,11 @@ def _internal_job_param_filter_for_parent(parent_doc) -> dict | None:
 	Returns ``None`` to opt the row out of additional filtering (no IJ link / Internal Job record
 	missing / no meaningful params).
 	"""
-	if not parent_doc or not cint(getattr(parent_doc, "is_internal_job", 0)):
+	if not parent_doc or get_service_role(parent_doc) != SERVICE_ROLE_LINKED:
 		return None
-	ij_name = (getattr(parent_doc, "internal_job", None) or "").strip()
+	ij_name = (
+		getattr(parent_doc, "linked_service", None) or getattr(parent_doc, "internal_job", None) or ""
+	).strip()
 	if not ij_name:
 		return None
 	if not frappe.db.exists("Internal Job", ij_name):
@@ -507,7 +529,7 @@ def is_combined_billing_main_service_booking(parent_doc, sales_quote_doc) -> boo
 	"""
 	if not parent_doc or not sales_quote_doc:
 		return False
-	if cint(getattr(parent_doc, "is_internal_job", 0)):
+	if get_service_role(parent_doc) == SERVICE_ROLE_LINKED:
 		return False
 	if cint(getattr(sales_quote_doc, "separate_billings_per_service_type", 0)):
 		return False
@@ -560,7 +582,7 @@ def sales_quote_charge_filters(parent_doc, sales_quote_doc, implied_service_type
 
 	implied_service_type = implied_service_type or implied_service_type_for_doctype(parent_doc.doctype)
 	base = {"parent": sales_quote_doc.name, "parenttype": "Sales Quote"}
-	if cint(getattr(parent_doc, "is_internal_job", 0)):
+	if get_service_role(parent_doc) == SERVICE_ROLE_LINKED:
 		# Quote filters are not used to populate internal job charges (see internal_job_charge_copy);
 		# kept for any legacy callers that still query Sales Quote Charge for internal jobs.
 		if implied_service_type:
@@ -662,7 +684,7 @@ def customs_charges_rows_from_sales_quote_doc(parent_doc, sales_quote_doc):
 	if hasattr(sales_quote_doc, "customs") and sales_quote_doc.customs:
 		legacy_rows = _merge_unified_and_legacy_customs_rows(legacy_rows, list(sales_quote_doc.customs))
 
-	if cint(getattr(parent_doc, "is_internal_job", 0)) or (
+	if get_service_role(parent_doc) == SERVICE_ROLE_LINKED or (
 		_gcfq_main_service_only_flag_set(parent_doc)
 		and not is_combined_billing_main_service_booking(parent_doc, sales_quote_doc)
 	):
@@ -724,6 +746,6 @@ def throw_if_missing_destination_service_charge(doc, required_service_type=None)
 
 def assert_destination_service_charges_on_submit_unless_internal_job(doc, required_service_type=None):
 	"""Block submit when main-service jobs have no matching charge lines; internal jobs exempt."""
-	if cint(getattr(doc, "is_internal_job", 0)):
+	if get_service_role(doc) == SERVICE_ROLE_LINKED:
 		return
 	throw_if_missing_destination_service_charge(doc, required_service_type=required_service_type)

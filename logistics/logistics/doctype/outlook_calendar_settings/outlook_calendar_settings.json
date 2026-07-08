@@ -1,0 +1,93 @@
+{
+ "actions": [],
+ "creation": "2026-07-02 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "enable_sync",
+  "connected_app",
+  "azure_tenant_id",
+  "column_break_1",
+  "default_timezone",
+  "sync_on_save",
+  "delete_outlook_event_on_task_delete",
+  "mark_completed_tasks_as_free"
+ ],
+ "fields": [
+  {
+   "default": "0",
+   "fieldname": "enable_sync",
+   "fieldtype": "Check",
+   "label": "Enable Outlook Task Sync"
+  },
+  {
+   "default": "Microsoft Outlook",
+   "fieldname": "connected_app",
+   "fieldtype": "Link",
+   "label": "Connected App",
+   "options": "Connected App",
+   "reqd": 1
+  },
+  {
+   "default": "common",
+   "description": "Azure AD tenant ID, or \"common\" for multi-tenant apps.",
+   "fieldname": "azure_tenant_id",
+   "fieldtype": "Data",
+   "label": "Azure Tenant ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Fallback when a user has no time zone set.",
+   "fieldname": "default_timezone",
+   "fieldtype": "Data",
+   "label": "Default Timezone"
+  },
+  {
+   "default": "1",
+   "fieldname": "sync_on_save",
+   "fieldtype": "Check",
+   "label": "Sync on Task Save"
+  },
+  {
+   "default": "1",
+   "fieldname": "delete_outlook_event_on_task_delete",
+   "fieldtype": "Check",
+   "label": "Delete Outlook Event on Task Delete"
+  },
+  {
+   "default": "1",
+   "description": "Show completed or cancelled tasks as free time in Outlook.",
+   "fieldname": "mark_completed_tasks_as_free",
+   "fieldtype": "Check",
+   "label": "Mark Completed Tasks as Free"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-02 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Outlook Calendar Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

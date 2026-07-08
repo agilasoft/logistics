@@ -4,8 +4,8 @@
 
 """
 Create intercompany Sales and Purchase Invoices when a customer Sales Invoice
-(from a Sales Quote) is submitted. For each **Internal Job** (is_internal_job +
-Main Job link on the job or parent booking/order) where the job's operating
+(from a Sales Quote) is submitted. For each **Internal Job** (service_role=Linked +
+Main Service link on the job or parent booking/order) where the job's operating
 company differs from the Main Job's company, the operating company invoices the
 Main Job company (intercompany SI + PI). Item and Job Number dimensions
 are set on SI (internal job) and PI (main job).
@@ -45,6 +45,26 @@ def get_relationship(main_job_company: str, operating_company: str) -> Optional[
 	return None
 
 
+def _find_routing_leg_for_job(sales_quote, legs, job_type: str, job_no: str):
+	"""Return the routing leg whose anchor or contributor matches the job (for log display)."""
+	from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+		_get_contributors_for_leg,
+		_resolve_job_for_routing_leg,
+	)
+
+	for leg in legs:
+		# Legacy rows may still carry job_type / job_no
+		if getattr(leg, "job_type", None) == job_type and getattr(leg, "job_no", None) == job_no:
+			return leg
+		anchor_type, anchor_name = _resolve_job_for_routing_leg(sales_quote, leg)
+		if anchor_type == job_type and anchor_name == job_no:
+			return leg
+		for ct, cn in _get_contributors_for_leg(leg):
+			if ct == job_type and cn == job_no:
+				return leg
+	return legs[0] if legs else None
+
+
 def get_invoice_items_from_job(
 	job_type: str, job_name: str, customer_for_sea: Optional[str] = None
 ) -> List[Dict[str, Any]]:
@@ -67,8 +87,8 @@ def create_intercompany_invoices_for_quote(
 	create intercompany Sales Invoice (operating -> Main Job company) and
 	Purchase Invoice (Main Job company <- operating).
 
-	The Main Job company is resolved from each job's Main Job link
-	(``main_job_type`` / ``main_job``), not from a document ``billing_company`` field.
+	The Main Job company is resolved from each job's Main Service link
+	(``main_service_type`` / ``main_service``), not from a document ``billing_company`` field.
 	"""
 	if not is_intercompany_enabled():
 		return {"success": True, "created": 0, "message": _("Intercompany invoicing is disabled.")}
@@ -90,6 +110,7 @@ def create_intercompany_invoices_for_quote(
 		get_main_job_company,
 	)
 	all_jobs = get_all_billing_jobs_from_sales_quote(sales_quote)
+	same_company_jobs: List[str] = []
 
 	for job_type, job_no in all_jobs:
 		if job_type not in INTERCOMPANY_JOB_TYPES:
@@ -115,6 +136,8 @@ def create_intercompany_invoices_for_quote(
 
 		operating_company = getattr(job_doc, "company", None)
 		if not operating_company or operating_company == main_job_company:
+			if operating_company and operating_company == main_job_company:
+				same_company_jobs.append(f"{job_type} {job_no}")
 			continue
 
 		rel = get_relationship(main_job_company, operating_company)
@@ -141,19 +164,7 @@ def create_intercompany_invoices_for_quote(
 			errors.append(_("Job {0} {1}: no charge items.").format(job_type, job_no))
 			continue
 
-		# Leg for log/display (first leg that references this job, or None)
-		leg_for_log = next((l for l in legs if getattr(l, "job_type") == job_type and getattr(l, "job_no") == job_no), None)
-		if not leg_for_log:
-			for l in legs:
-				contrib = getattr(l, "bill_with_contributors", None) or []
-				for c in contrib:
-					if getattr(c, "contributor_job_type", None) == job_type and getattr(c, "contributor_job_no", None) == job_no:
-						leg_for_log = l
-						break
-				if leg_for_log:
-					break
-		if not leg_for_log and legs:
-			leg_for_log = legs[0]
+		leg_for_log = _find_routing_leg_for_job(sales_quote, legs, job_type, job_no)
 
 		try:
 			si_name, pi_name = _create_intercompany_pair(
@@ -215,7 +226,22 @@ def create_intercompany_invoices_for_quote(
 		"created": len(created_logs),
 		"logs": created_logs,
 		"errors": errors,
-		"message": _("Created {0} intercompany invoice pair(s).").format(len(created_logs)) if created_logs else (errors[0] if errors else _("No intercompany legs to invoice.")),
+		"message": (
+			_("Created {0} intercompany invoice pair(s).").format(len(created_logs))
+			if created_logs
+			else (
+				errors[0]
+				if errors
+				else (
+					_(
+						"Linked job(s) {0} are in the same company as their Main Job. "
+						"Use Internal Billing (Journal Entry), not intercompany invoices."
+					).format(", ".join(same_company_jobs))
+					if same_company_jobs
+					else _("No intercompany legs to invoice.")
+				)
+			)
+		),
 	}
 
 

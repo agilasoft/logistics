@@ -285,6 +285,10 @@ function apply_load_type_filters(frm, preserve_existing_value) {
 		filters.multimodal = 1;
 	}
 
+	if (frm._transport_template_allowed_load_types && frm._transport_template_allowed_load_types.length) {
+		filters.name = ["in", frm._transport_template_allowed_load_types];
+	}
+
 	// Apply filters to load_type field
 	frm.set_df_property('load_type', 'filters', filters);
 	
@@ -322,6 +326,41 @@ function apply_load_type_filters(frm, preserve_existing_value) {
 	frm.refresh_field('load_type');
 }
 
+function load_transport_template_constraints(frm, callback) {
+	if (!frm.doc.transport_template) {
+		frm._transport_template_allowed_load_types = [];
+		if (callback) callback({});
+		return;
+	}
+	frappe.call({
+		method: "logistics.transport.doctype.transport_template.transport_template.get_transport_template_constraints",
+		args: { template_name: frm.doc.transport_template },
+		callback: function(r) {
+			var constraints = (r && r.message) || {};
+			frm._transport_template_allowed_load_types = constraints.allowed_load_types || [];
+			if (callback) callback(constraints);
+		},
+	});
+}
+
+function apply_transport_template_defaults_to_order(frm, constraints) {
+	constraints = constraints || {};
+	var allowed = constraints.allowed_load_types || [];
+	if (frm.doc.load_type && allowed.length && allowed.indexOf(frm.doc.load_type) === -1) {
+		frm.set_value("load_type", "");
+	}
+	if (!frm.doc.load_type && constraints.default_load_type) {
+		frm.set_value("load_type", constraints.default_load_type);
+	}
+	if (!frm.doc.vehicle_type && constraints.default_vehicle_type) {
+		frm.set_value("vehicle_type", constraints.default_vehicle_type);
+	}
+	apply_load_type_filters(frm);
+	reload_allowed_vehicle_types(frm, function() {
+		frm.refresh_field("vehicle_type");
+	});
+}
+
 frappe.ui.form.on("Transport Order", {
 	setup: function(frm) {
 		frm.set_query('milestone_template', function() {
@@ -338,17 +377,48 @@ frappe.ui.form.on("Transport Order", {
 		frm._allowed_vehicle_types = {};
 		// Apply load_type filters before field is ever used
 		apply_load_type_filters(frm);
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.setup_queries(frm);
+		}
 	},
 
 	shipper(frm) {
-		if (logistics.party_defaults) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_change(frm);
+		} else if (logistics.party_defaults) {
 			logistics.party_defaults.apply(frm);
 		}
 	},
 
 	consignee(frm) {
-		if (logistics.party_defaults) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_change(frm);
+		} else if (logistics.party_defaults) {
 			logistics.party_defaults.apply(frm);
+		}
+	},
+
+	shipper_address(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_address_change(frm);
+		}
+	},
+
+	consignee_address(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_address_change(frm);
+		}
+	},
+
+	shipper_contact(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_contact_change(frm);
+		}
+	},
+
+	consignee_contact(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_contact_change(frm);
 		}
 	},
 
@@ -365,6 +435,14 @@ frappe.ui.form.on("Transport Order", {
 		// Apply load_type filters on load (preserve existing values for existing documents)
 		if (frm.doc.transport_job_type) {
 			apply_load_type_filters(frm, !frm.is_new());
+		}
+		if (frm.doc.transport_template) {
+			load_transport_template_constraints(frm, function(constraints) {
+				apply_load_type_filters(frm, !frm.is_new());
+				if (frm.is_new()) {
+					apply_transport_template_defaults_to_order(frm, constraints);
+				}
+			});
 		}
 
 		// Set get_query for Load Type so filter is applied and "Filtered by" is shown (transport_job_type based)
@@ -416,6 +494,9 @@ frappe.ui.form.on("Transport Order", {
 	},
 
 	refresh: function(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.populate_displays_if_missing(frm);
+		}
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
@@ -733,6 +814,12 @@ frappe.ui.form.on("Transport Order", {
 		});
 	},
 
+	transport_template: function(frm) {
+		load_transport_template_constraints(frm, function(constraints) {
+			apply_transport_template_defaults_to_order(frm, constraints);
+		});
+	},
+
 	transport_job_type: function(frm) {
 		frm.events.apply_transport_job_type_filters(frm);
 		populate_legs_transport_job_type_from_parent(frm);
@@ -875,8 +962,8 @@ function _recalculate_transport_order_charge_rows(frm, done) {
 function _populate_charges_from_sales_quote(frm) {
 	var docname = frm.is_new() ? null : frm.doc.name;
 	var sales_quote = frm.doc.sales_quote;
-	var ij = frm.doc.is_internal_job;
-	var mjt = frm.doc.main_job_type;
+	var ij = (frm.doc.service_role === "Linked" || frm.doc.is_internal_job) ? 1 : 0;
+	var mjt = frm.doc.main_service_type || frm.doc.main_job_type;
 	var mj = frm.doc.main_job;
 
 	if (!sales_quote) {
@@ -1008,15 +1095,15 @@ function _prompt_internal_transport_job_dialog(frm, sales_quote) {
 			fields: [
 				{ fieldtype: "HTML", fieldname: "context_html" },
 				{ fieldtype: "Section Break", label: __("Internal Job Setup") },
-				{ fieldtype: "Check", fieldname: "is_internal_job", label: __("Internal Job"), default: 1, read_only: 1 },
-				{ fieldtype: "Link", fieldname: "main_job_type", label: __("Main Job Type"), options: "DocType", reqd: 1, default: frm.doc.main_job_type || "" },
+				{ fieldtype: "Check", fieldname: "is_internal_job", label: __("Linked Service"), default: 1, read_only: 1 },
+				{ fieldtype: "Link", fieldname: "main_job_type", label: __("Main Service Type"), options: "DocType", reqd: 1, default: frm.doc.main_service_type || frm.doc.main_job_type || "" },
 				{
 					fieldtype: "Dynamic Link",
 					fieldname: "main_job",
-					label: __("Main Job"),
+					label: __("Main Service"),
 					options: "main_job_type",
 					reqd: 1,
-					default: frm.doc.main_job || ""
+					default: frm.doc.main_service || frm.doc.main_job || ""
 				},
 				{ fieldtype: "Section Break", label: __("Defaults") },
 				{ fieldtype: "Link", fieldname: "company", label: __("Company"), options: "Company", default: defaults.company },
@@ -1031,9 +1118,11 @@ function _prompt_internal_transport_job_dialog(frm, sales_quote) {
 			],
 			primary_action_label: __("Create Internal Job"),
 			primary_action: function(values) {
-				frm.set_value("is_internal_job", 1);
-				frm.set_value("main_job_type", values.main_job_type);
-				frm.set_value("main_job", values.main_job);
+				frm.set_value("service_role", "Linked");
+				frm.set_value("main_service_type", values.main_job_type || values.main_service_type);
+				if (frm.get_docfield("main_job_type")) { frm.set_value("main_job_type", values.main_job_type || values.main_service_type); }
+				frm.set_value("main_service", values.main_job || values.main_service);
+				if (frm.get_docfield("main_job")) { frm.set_value("main_job", values.main_job || values.main_service); }
 				frm.set_value("company", values.company || frm.doc.company);
 				frm.set_value("branch", values.branch || "");
 				frm.set_value("cost_center", values.cost_center || "");
