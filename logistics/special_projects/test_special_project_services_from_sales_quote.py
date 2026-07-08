@@ -1,19 +1,16 @@
 # Copyright (c) 2026, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
-"""Tests for populating Special Project Services from Sales Quote Linked Services."""
+"""Tests for copying Sales Quote programme data onto Special Project."""
 
 from __future__ import annotations
 
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from logistics.special_projects.special_project_service_persistence import (
-	_special_project_service_names_from_db,
-)
 from logistics.special_projects.special_project_services_from_sales_quote import (
-	populate_special_project_services_from_sales_quote,
-	remap_special_project_charges_after_quote_populate,
+	copy_special_project_programme_data_from_sales_quote,
+	linked_services_view_rows_for_sales_quote,
 )
 from logistics.special_projects.test_special_project_helpers import (
 	new_special_project_for_test,
@@ -21,7 +18,6 @@ from logistics.special_projects.test_special_project_helpers import (
 from logistics.utils.linked_service_compat import linked_service_doctype
 from logistics.utils.sales_quote_programme_charges import (
 	map_sales_quote_charge_to_programme_charge_dict,
-	populate_programme_charges_from_sales_quote,
 )
 
 
@@ -42,7 +38,7 @@ class TestSpecialProjectServicesFromSalesQuote(IntegrationTestCase):
 			return
 		frappe.delete_doc("Sales Quote", sq_name, force=True, ignore_permissions=True)
 
-	def test_map_charge_skips_linked_service_for_special_project(self):
+	def test_map_charge_preserves_linked_service_for_special_project(self):
 		mapped = map_sales_quote_charge_to_programme_charge_dict(
 			{
 				"service_type": "Air",
@@ -53,11 +49,10 @@ class TestSpecialProjectServicesFromSalesQuote(IntegrationTestCase):
 			"SQ-TEST",
 			"Special Project Charges",
 		)
-		self.assertNotIn("linked_service", mapped)
-		self.assertNotIn("internal_job", mapped)
+		self.assertEqual(mapped.get("linked_service"), "IJ-TEST")
 		self.assertEqual(mapped.get("charge_scope"), "Linked")
 
-	def test_populate_services_and_remap_charges_from_quote(self):
+	def test_copy_charges_from_quote_preserves_linked_service(self):
 		if not frappe.db.exists("DocType", linked_service_doctype()):
 			self.skipTest("Linked Service not installed")
 
@@ -132,57 +127,38 @@ class TestSpecialProjectServicesFromSalesQuote(IntegrationTestCase):
 		sp.insert(ignore_permissions=True)
 
 		try:
-			ls_to_sps = populate_special_project_services_from_sales_quote(
+			copy_special_project_programme_data_from_sales_quote(
 				sp, sq.name, clear_existing=True
 			)
-			self.assertEqual(ls_to_sps.get(ls_air.name), ls_to_sps[ls_air.name])
-			self.assertEqual(ls_to_sps.get(ls_sea.name), ls_to_sps[ls_sea.name])
+			self.assertEqual(len(sp.charges), 3)
 
-			populate_programme_charges_from_sales_quote(
-				sp, sq.name, clear_existing=True, service_types="__all__"
-			)
-			ls_to_sps = remap_special_project_charges_after_quote_populate(
-				sp, ls_to_sps, sales_quote_name=sq.name, service_types="__all__"
-			)
-			self.assertTrue(ls_to_sps.get("__main_special_project__"))
+			linked_charges = [c for c in sp.charges if (c.charge_scope or "").strip() == "Linked"]
+			self.assertEqual(len(linked_charges), 2)
+			linked_by_service = {c.linked_service: c for c in linked_charges}
+			self.assertEqual(linked_by_service[ls_air.name].item_code, "FREIGHT")
+			self.assertEqual(linked_by_service[ls_sea.name].item_code, "FREIGHT")
 
-			service_names = _special_project_service_names_from_db(sp.name)
-			self.assertEqual(len(service_names), 3)
+			view_rows = linked_services_view_rows_for_sales_quote(sq.name)
+			self.assertEqual(len(view_rows), 2)
 
-			for charge in sp.charges:
-				self.assertTrue(
-					charge.special_project_service_line,
-					msg=f"Service Line missing on charge {charge.idx} before save",
-				)
-
+			sp.flags.ignore_links = True
 			sp.flags.ignore_mandatory = True
 			sp.save(ignore_permissions=True)
 
 			reloaded = frappe.get_doc("Special Project", sp.name)
-			self.assertEqual(len(reloaded.special_project_services), 3)
 			self.assertEqual(len(reloaded.charges), 3)
-
-			linked_charges = [c for c in reloaded.charges if (c.charge_scope or "").strip() == "Linked"]
-			self.assertEqual(len(linked_charges), 2)
-			for charge in linked_charges:
-				self.assertTrue(charge.special_project_service_line)
-				self.assertFalse(charge.linked_service)
-				self.assertTrue(
-					frappe.db.exists(
-						"Special Project Service",
-						charge.special_project_service_line,
+			for charge in reloaded.charges:
+				if (charge.charge_scope or "").strip() == "Linked":
+					self.assertTrue(charge.linked_service)
+					self.assertIn(
+						charge.linked_service,
+						{ls_air.name, ls_sea.name},
 					)
-				)
-
-			main_charges = [c for c in reloaded.charges if (c.charge_scope or "").strip() == "Main"]
-			self.assertEqual(len(main_charges), 1)
-			self.assertTrue(main_charges[0].special_project_service_line)
 		finally:
 			self._cleanup_special_project(sp.name)
 			self._cleanup_sales_quote(sq.name)
 
-	def test_remap_uses_quote_linked_service_when_duplicate_service_types(self):
-		"""Two Air linked services: each charge maps to the correct Service Line via quote link."""
+	def test_copy_preserves_distinct_linked_services_for_duplicate_service_types(self):
 		if not frappe.db.exists("DocType", linked_service_doctype()):
 			self.skipTest("Linked Service not installed")
 
@@ -248,29 +224,12 @@ class TestSpecialProjectServicesFromSalesQuote(IntegrationTestCase):
 		sp.insert(ignore_permissions=True)
 
 		try:
-			ls_to_sps = populate_special_project_services_from_sales_quote(
+			copy_special_project_programme_data_from_sales_quote(
 				sp, sq.name, clear_existing=True
 			)
-			populate_programme_charges_from_sales_quote(
-				sp, sq.name, clear_existing=True, service_types="__all__"
-			)
-			remap_special_project_charges_after_quote_populate(
-				sp, ls_to_sps, sales_quote_name=sq.name, service_types="__all__"
-			)
-
 			by_item = {c.item_code: c for c in sp.charges}
-			self.assertEqual(
-				by_item["FREIGHT-A"].special_project_service_line,
-				ls_to_sps[ls_air_a.name],
-			)
-			self.assertEqual(
-				by_item["FREIGHT-B"].special_project_service_line,
-				ls_to_sps[ls_air_b.name],
-			)
-			self.assertNotEqual(
-				by_item["FREIGHT-A"].special_project_service_line,
-				by_item["FREIGHT-B"].special_project_service_line,
-			)
+			self.assertEqual(by_item["FREIGHT-A"].linked_service, ls_air_a.name)
+			self.assertEqual(by_item["FREIGHT-B"].linked_service, ls_air_b.name)
 		finally:
 			self._cleanup_special_project(sp.name)
 			self._cleanup_sales_quote(sq.name)

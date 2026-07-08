@@ -142,11 +142,8 @@ def map_sales_quote_charge_to_programme_charge_dict(sq_row, sales_quote_name: st
 	linkage_allowed = set(
 		filter_fields_existing_in_doctype(charge_doctype, list(_PROGRAMME_CHARGE_LINKAGE_FIELDS))
 	)
-	skip_quote_linked_service = charge_doctype == "Special Project Charges"
 	for fn in _PROGRAMME_CHARGE_LINKAGE_FIELDS:
 		if fn not in linkage_allowed:
-			continue
-		if skip_quote_linked_service and fn in ("linked_service", "internal_job"):
 			continue
 		val = _sqc_val(sq_row, fn)
 		if val is not None and val != "":

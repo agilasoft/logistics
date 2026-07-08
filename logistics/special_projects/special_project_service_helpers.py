@@ -26,6 +26,7 @@ from logistics.special_projects.special_project_charge_lifecycle import (
 	lifecycle_row_order_link_is_cancelled,
 )
 from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
+from logistics.utils.linked_service_compat import charge_row_linked_service_link
 
 
 def _norm(value: Any) -> str:
@@ -120,6 +121,8 @@ def tag_untagged_charges_to_planning_services(sp_doc: Any) -> None:
 	"""Tag untagged charges to the unique planning service row of the same service type."""
 	for charge in sp_doc.get("charges") or []:
 		if _charge_service_line(charge):
+			continue
+		if charge_row_linked_service_link(charge):
 			continue
 		ch_st = _norm(getattr(charge, "service_type", None))
 		if not ch_st:

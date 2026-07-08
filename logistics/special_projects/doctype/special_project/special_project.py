@@ -189,6 +189,14 @@ class SpecialProject(Document):
 				if hasattr(service_doc, fn):
 					row[fn] = getattr(service_doc, fn, None)
 			rows.append(row)
+		if not rows:
+			sq_name = (getattr(self, "sales_quote", None) or "").strip()
+			if sq_name:
+				from logistics.special_projects.special_project_services_from_sales_quote import (
+					linked_services_view_rows_for_sales_quote,
+				)
+
+				rows = linked_services_view_rows_for_sales_quote(sq_name)
 		return rows
 
 	def _drop_virtual_special_project_services_rows(self):
@@ -890,49 +898,23 @@ class SpecialProject(Document):
 
 	def populate_charges_from_sales_quote(self, sales_quote=None):
 		"""Copy charge lines from the linked Sales Quote (or explicit quote name)."""
-		from logistics.special_projects.special_project_service_helpers import (
-			tag_untagged_charges_to_planning_services,
-		)
 		from logistics.special_projects.special_project_services_from_sales_quote import (
-			populate_special_project_services_from_sales_quote,
-			remap_special_project_charges_after_quote_populate,
+			copy_special_project_programme_data_from_sales_quote,
 		)
-		from logistics.utils.sales_quote_programme_charges import populate_programme_charges_from_sales_quote
 
 		sq_name = sales_quote or self.sales_quote
 		if not sq_name:
 			frappe.throw(_("No Sales Quote linked."))
-		ls_to_sps = populate_special_project_services_from_sales_quote(
+		copy_special_project_programme_data_from_sales_quote(
 			self, sq_name, clear_existing=True
 		)
-		populate_programme_charges_from_sales_quote(
-			self, sq_name, clear_existing=True, service_types="__all__"
-		)
-		remap_special_project_charges_after_quote_populate(
-			self, ls_to_sps, sales_quote_name=sq_name, service_types="__all__"
-		)
-		tag_untagged_charges_to_planning_services(self)
 
 	def populate_services_from_sales_quote(self, sales_quote=None):
-		"""Rebuild Services from the linked Sales Quote and re-tag programme charges."""
-		from logistics.special_projects.special_project_service_helpers import (
-			tag_untagged_charges_to_planning_services,
-		)
-		from logistics.special_projects.special_project_services_from_sales_quote import (
-			populate_special_project_services_from_sales_quote,
-			remap_special_project_charges_after_quote_populate,
-		)
-
+		"""Refresh the Services view from the linked Sales Quote (read-only quote services)."""
 		sq_name = sales_quote or self.sales_quote
 		if not sq_name:
 			frappe.throw(_("No Sales Quote linked."))
-		ls_to_sps = populate_special_project_services_from_sales_quote(
-			self, sq_name, clear_existing=True
-		)
-		remap_special_project_charges_after_quote_populate(
-			self, ls_to_sps, sales_quote_name=sq_name, service_types="__all__"
-		)
-		tag_untagged_charges_to_planning_services(self)
+		self._drop_virtual_special_project_services_rows()
 
 
 def create_job_number_for_special_project(

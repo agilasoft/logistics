@@ -1,13 +1,14 @@
 # Copyright (c) 2026, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
-"""Populate Special Project Services from Sales Quote Linked Service documents."""
+"""Copy Sales Quote programme data onto Special Project without cloning service records."""
 
 from __future__ import annotations
 
 from typing import Any
 
 import frappe
+from frappe import _
 
 from logistics.special_projects.special_project_service_compat import (
 	special_project_service_doctype,
@@ -23,6 +24,7 @@ from logistics.utils.lifecycle_stage import FOR_SPECIAL_PROJECT, resolve_default
 from logistics.utils.linked_service_compat import (
 	charge_row_linked_service_link,
 	linked_service_doctype_exists,
+	linked_service_record_exists,
 	normalize_charge_scope,
 )
 from logistics.utils.sales_quote_one_off_internal_jobs import _payload_from_linked_service_doc
@@ -36,6 +38,8 @@ _SERVICE_TYPE_DEFAULT_LIFECYCLE_STAGE: dict[str, str] = {
 	"Warehousing": "Logistics",
 	"MICE": "Pre-Shipment",
 }
+
+_QUOTE_LINKED_SERVICE_VIEW_FLAG = "__quote_linked_service_readonly__"
 
 
 def _norm(val: Any) -> str:
@@ -72,6 +76,57 @@ def _linked_services_for_sales_quote(sales_quote_name: str) -> list[Any]:
 	)
 
 	return list(get_linked_services_for_sales_quote(sales_quote_name))
+
+
+def linked_services_view_rows_for_sales_quote(sales_quote_name: str) -> list[dict[str, Any]]:
+	"""Read-only Services grid rows backed by quote-owned Linked Service documents."""
+	rows: list[dict[str, Any]] = []
+	for ls_doc in _linked_services_for_sales_quote(sales_quote_name):
+		ls_name = _norm(getattr(ls_doc, "name", None))
+		if not ls_name:
+			continue
+		row = _row_from_linked_service_doc(ls_doc)
+		row["name"] = ls_name
+		row[_QUOTE_LINKED_SERVICE_VIEW_FLAG] = 1
+		rows.append(row)
+	return rows
+
+
+def _sync_charge_lifecycle_from_linked_services(sp_doc: Any) -> None:
+	"""Inherit lifecycle stage from the linked quote service when the charge row has one."""
+	for charge in sp_doc.get("charges") or []:
+		ls_name = charge_row_linked_service_link(charge)
+		if not ls_name or not linked_service_record_exists(ls_name):
+			continue
+		if _norm(getattr(charge, "lifecycle_stage", None)):
+			continue
+		ls_doc = frappe.get_doc("Linked Service", ls_name)
+		row = _row_from_linked_service_doc(ls_doc)
+		stage = row.get("lifecycle_stage")
+		if _norm(stage):
+			charge.lifecycle_stage = stage
+
+
+def copy_special_project_programme_data_from_sales_quote(
+	sp_doc: Any,
+	sales_quote_name: str | None = None,
+	*,
+	clear_existing: bool = True,
+) -> int:
+	"""Copy quote charges onto Special Project, preserving Linked Service links as-is."""
+	if not sp_doc or sp_doc.doctype != "Special Project":
+		return 0
+	sq_name = _norm(sales_quote_name) or _norm(getattr(sp_doc, "sales_quote", None))
+	if not sq_name:
+		return 0
+
+	from logistics.utils.sales_quote_programme_charges import populate_programme_charges_from_sales_quote
+
+	added = populate_programme_charges_from_sales_quote(
+		sp_doc, sq_name, clear_existing=clear_existing, service_types="__all__"
+	)
+	_sync_charge_lifecycle_from_linked_services(sp_doc)
+	return added
 
 
 def _clear_owned_special_project_services(sp_doc: Any) -> None:
@@ -127,7 +182,8 @@ def populate_special_project_services_from_sales_quote(
 ) -> dict[str, str]:
 	"""Create Special Project Service documents from quote-owned Linked Services.
 
-	Returns ``{linked_service_name: special_project_service_name}`` for charge remapping.
+	Used by explicit repair / service rebuild flows. Sales Quote → Special Project
+	create copies quote Linked Service links on charges instead of cloning services.
 	"""
 	if not sp_doc or sp_doc.doctype != "Special Project":
 		return {}
@@ -179,23 +235,19 @@ def remap_special_project_charges_after_quote_populate(
 	sales_quote_name: str | None = None,
 	service_types: Any = "__all__",
 ) -> dict[str, str]:
-	"""Tag programme charges to Service Line rows and drop stale quote Linked Service links.
-
-	Quote ``linked_service`` values are not copied onto Special Project charge rows; when
-	*sales_quote_name* is given, each charge is paired with its source Sales Quote charge
-	so the link can be translated to ``special_project_service_line``.
+	"""Tag programme charges to Service Line rows when services were cloned from the quote.
 
 	Returns the updated ``{linked_service_name: special_project_service_name}`` map.
 	"""
 	if not sp_doc or sp_doc.doctype != "Special Project":
 		return dict(ls_to_sps or {})
 	ls_to_sps = dict(ls_to_sps or {})
+	if not ls_to_sps:
+		return ls_to_sps
 	sq_name = _norm(sales_quote_name) or _norm(getattr(sp_doc, "sales_quote", None))
 
-	# Charges are often populated after services; create the main SP leg once charges exist.
 	ls_to_sps = _ensure_main_special_project_service(sp_doc, ls_to_sps)
 	main_sps = ls_to_sps.get("__main_special_project__")
-	meta = frappe.get_meta("Special Project Charges")
 
 	charge_pairs = (
 		_iter_special_project_charge_sq_pairs(sp_doc, sq_name, service_types=service_types)
@@ -229,49 +281,26 @@ def remap_special_project_charges_after_quote_populate(
 			if _norm(sps_stage):
 				charge.lifecycle_stage = sps_stage
 
-		if meta.has_field("linked_service"):
-			charge.linked_service = None
-		if meta.has_field("internal_job"):
-			charge.internal_job = None
-
 	return ls_to_sps
 
 
 @frappe.whitelist()
 def repair_special_project_from_sales_quote(docname: str) -> dict[str, Any]:
-	"""Backfill Services and charge Service Line links from the linked Sales Quote."""
+	"""Re-copy quote charges (with Linked Service links) onto the Special Project."""
 	if not docname or not frappe.db.exists("Special Project", docname):
 		frappe.throw(_("Special Project {0} not found.").format(docname))
-
-	from logistics.special_projects.special_project_service_helpers import (
-		tag_untagged_charges_to_planning_services,
-	)
 
 	sp = frappe.get_doc("Special Project", docname)
 	sq_name = (getattr(sp, "sales_quote", None) or "").strip()
 	if not sq_name:
 		frappe.throw(_("No Sales Quote linked on {0}.").format(docname))
 
-	ls_to_sps = populate_special_project_services_from_sales_quote(
-		sp, sq_name, clear_existing=True
-	)
-	remap_special_project_charges_after_quote_populate(
-		sp, ls_to_sps, sales_quote_name=sq_name, service_types="__all__"
-	)
-	tag_untagged_charges_to_planning_services(sp)
+	copy_special_project_programme_data_from_sales_quote(sp, sq_name, clear_existing=True)
+	sp.flags.ignore_links = True
 	sp.flags.ignore_permissions = True
 	sp.save(ignore_permissions=True)
 	frappe.db.commit()
 
-	service_count = len(
-		frappe.get_all(
-			special_project_service_doctype(),
-			filters={
-				"parent_booking_type": "Special Project",
-				"parent_booking_name": docname,
-			},
-		)
-	)
 	charges = frappe.get_all(
 		"Special Project Charges",
 		filters={"parent": docname, "parenttype": "Special Project"},
@@ -283,6 +312,6 @@ def repair_special_project_from_sales_quote(docname: str) -> dict[str, Any]:
 		"success": True,
 		"special_project": docname,
 		"sales_quote": sq_name,
-		"service_count": service_count,
+		"service_count": len(linked_services_view_rows_for_sales_quote(sq_name)),
 		"charges": charges,
 	}
