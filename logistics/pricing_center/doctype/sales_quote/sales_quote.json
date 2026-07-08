@@ -9,16 +9,16 @@
  "field_order": [
   "section_break_aall",
   "quotation_type",
-  "blanket_quotation",
   "naming_series",
-  "section_break_duom",
-  "amended_from",
   "customer",
-  "consignee",
-  "shipper",
-  "column_break_abll",
+  "column_break_jowg",
   "date",
   "valid_until",
+  "blanket_quotation",
+  "section_break_duom",
+  "amended_from",
+  "consignee",
+  "shipper",
   "sales_quote_pack",
   "column_break_rpzo",
   "company",
@@ -29,15 +29,26 @@
   "sales_rep",
   "operations_rep",
   "customer_service_rep",
+  "contacts_addresses_tab",
+  "contacts_and_addresses_section",
+  "shipper_address",
+  "shipper_address_display",
+  "shipper_contact",
+  "shipper_contact_display",
+  "column_break_sq_addr",
+  "consignee_address",
+  "consignee_address_display",
+  "consignee_contact",
+  "consignee_contact_display",
   "service_scope_tab",
   "scope_header_section",
   "scope_title",
   "main_service",
-  "is_high_value",
   "incoterm",
   "incoterm_place",
   "column_break_scope_hdr",
   "separate_billings_per_service_type",
+  "is_high_value",
   "status_section",
   "column_break_ralf",
   "status",
@@ -97,6 +108,10 @@
   "project_resources",
   "project_products",
   "additional_information_tab",
+  "notes_section",
+  "internal_notes",
+  "column_break_notes",
+  "external_notes",
   "terms_and_conditions_section",
   "tc_name",
   "terms",
@@ -122,6 +137,7 @@
    "fieldname": "quotation_type",
    "fieldtype": "Select",
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Quotation Type",
    "options": "\nRegular\nOne-off\nProject",
    "reqd": 1
@@ -192,10 +208,6 @@
    "label": "Valid Until"
   },
   {
-   "fieldname": "column_break_abll",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "shipper",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -212,6 +224,68 @@
    "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
    "options": "Consignee",
    "reqd": 1
+  },
+  {
+   "fieldname": "contacts_addresses_tab",
+   "fieldtype": "Tab Break",
+   "label": "Contacts & Addresses"
+  },
+  {
+   "fieldname": "contacts_and_addresses_section",
+   "fieldtype": "Section Break",
+   "label": "Contacts & Addresses"
+  },
+  {
+   "fieldname": "shipper_address",
+   "fieldtype": "Link",
+   "label": "Shipper Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "shipper_address_display",
+   "fieldtype": "Small Text",
+   "label": "Shipper Address Display",
+   "read_only": 1
+  },
+  {
+   "fieldname": "shipper_contact",
+   "fieldtype": "Link",
+   "label": "Shipper Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "shipper_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Shipper Contact Display",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sq_addr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consignee_address",
+   "fieldtype": "Link",
+   "label": "Consignee Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "consignee_address_display",
+   "fieldtype": "Small Text",
+   "label": "Consignee Address Display",
+   "read_only": 1
+  },
+  {
+   "fieldname": "consignee_contact",
+   "fieldtype": "Link",
+   "label": "Consignee Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "consignee_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Consignee Contact Display",
+   "read_only": 1
   },
   {
    "fieldname": "sales_quote_pack",
@@ -232,7 +306,6 @@
    "label": "Scope / Lane"
   },
   {
-   "description": "Display title for this lane (e.g. PHMNL → HKHKG EXW).",
    "fieldname": "scope_title",
    "fieldtype": "Data",
    "label": "Scope Title"
@@ -511,8 +584,7 @@
    "fieldtype": "Link",
    "label": "Operations Rep",
    "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
-   "options": "Employee",
-   "reqd": 1
+   "options": "Employee"
   },
   {
    "fieldname": "customer_service_rep",
@@ -639,6 +711,7 @@
    "fieldname": "routing_legs",
    "fieldtype": "Table",
    "label": "Routing Legs",
+   "no_copy": 1,
    "options": "Sales Quote Routing Leg"
   },
   {
@@ -647,13 +720,11 @@
    "label": "Services"
   },
   {
-   "description": "Subsidiary services linked to the primary service on this quote. Tag charges with Scope = Linked to assign billing to a service row.",
    "fieldname": "linked_services_section",
    "fieldtype": "Section Break",
    "label": "Services"
   },
   {
-   "description": "Subsidiary services for this quote. Each row is a Linked Service record (created on save).",
    "fieldname": "linked_services",
    "fieldtype": "Table",
    "is_virtual": 1,
@@ -685,10 +756,31 @@
   },
   {
    "collapsible": 1,
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Text Editor",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "column_break_notes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "external_notes",
+   "fieldtype": "Text Editor",
+   "label": "External Notes"
+  },
+  {
+   "collapsible": 1,
    "fieldname": "terms_and_conditions_section",
    "fieldtype": "Section Break",
    "label": "Terms and Conditions"
   },
+
   {
    "fieldname": "tc_name",
    "fieldtype": "Link",
@@ -753,15 +845,11 @@
    "fieldtype": "Section Break"
   },
   {
-   "fieldname": "column_break_trty",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "column_break_pfsj",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "column_break_eoty",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_jowg",
    "fieldtype": "Column Break"
   }
  ],
@@ -850,8 +938,8 @@
    "link_fieldname": "sales_quote"
   }
  ],
- "modified": "2026-06-10 09:23:58.893178",
- "modified_by": "dee.sambrano@agilasoft.com",
+ "modified": "2026-07-03 09:24:27.772165",
+ "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote",
  "naming_rule": "By \"Naming Series\" field",

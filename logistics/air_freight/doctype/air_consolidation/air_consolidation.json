@@ -29,6 +29,7 @@
   "flight_number",
   "section_break_documents",
   "master_awb",
+  "auto_send_eawb",
   "house_awb_prefix",
   "column_break_4",
   "customs_declaration",
@@ -391,6 +392,14 @@
    "fieldtype": "Link",
    "label": "Master AWB",
    "options": "Master Air Waybill"
+  },
+  {
+   "default": "0",
+   "depends_on": "master_awb",
+   "description": "Automatically submit master e-AWB and house manifests when the consolidation is saved with a MAWB.",
+   "fieldname": "auto_send_eawb",
+   "fieldtype": "Check",
+   "label": "Auto-send e-AWB to Airline"
   },
   {
    "fieldname": "house_awb_prefix",

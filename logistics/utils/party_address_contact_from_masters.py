@@ -11,6 +11,31 @@ from __future__ import annotations
 import frappe
 from frappe.contacts.doctype.address.address import get_address_display
 
+PARTY_ADDRESS_CONTACT_DOCTYPES: frozenset[str] = frozenset(
+	{
+		"Sales Quote",
+		"Air Booking",
+		"Sea Booking",
+		"Air Shipment",
+		"Sea Shipment",
+		"Transport Order",
+		"Transport Job",
+	}
+)
+
+CONTACTS_ADDRESSES_FIELD_NAMES: tuple[str, ...] = (
+	"shipper_address",
+	"shipper_address_display",
+	"consignee_address",
+	"consignee_address_display",
+	"shipper_contact",
+	"shipper_contact_display",
+	"consignee_contact",
+	"consignee_contact_display",
+	"notify_party",
+	"notify_party_address",
+)
+
 
 def contact_display_text(contact_name: str | None) -> str:
 	"""Multi-line display string for a Contact, aligned with booking form triggers."""
@@ -37,32 +62,68 @@ def contact_display_text(contact_name: str | None) -> str:
 		return ""
 
 
-def populate_air_sea_booking_party_fields_from_masters(doc) -> None:
-	"""Set Air/Sea Booking Contacts & Addresses fields from Shipper/Consignee when links are set."""
-	if doc.doctype not in ("Air Booking", "Sea Booking"):
+def _set_shipper_party_fields_from_master(doc, only_if_empty: bool = False) -> None:
+	if not doc.shipper or not frappe.db.exists("Shipper", doc.shipper):
 		return
+	sd = frappe.get_cached_doc("Shipper", doc.shipper)
+	addr = getattr(sd, "pick_address", None) or getattr(sd, "shipper_primary_address", None)
+	if addr and (not only_if_empty or not getattr(doc, "shipper_address", None)):
+		doc.shipper_address = addr
+		doc.shipper_address_display = get_address_display(addr)
+	pc = getattr(sd, "shipper_primary_contact", None)
+	if pc and (not only_if_empty or not getattr(doc, "shipper_contact", None)):
+		doc.shipper_contact = pc
+		doc.shipper_contact_display = contact_display_text(pc)
 
-	if doc.shipper and frappe.db.exists("Shipper", doc.shipper):
-		sd = frappe.get_cached_doc("Shipper", doc.shipper)
-		addr = getattr(sd, "pick_address", None) or getattr(sd, "shipper_primary_address", None)
-		if addr:
-			doc.shipper_address = addr
-			doc.shipper_address_display = get_address_display(addr)
-		pc = getattr(sd, "shipper_primary_contact", None)
-		if pc:
-			doc.shipper_contact = pc
-			doc.shipper_contact_display = contact_display_text(pc)
 
-	if doc.consignee and frappe.db.exists("Consignee", doc.consignee):
-		cd = frappe.get_cached_doc("Consignee", doc.consignee)
-		addr = getattr(cd, "delivery_address", None) or getattr(cd, "consignee_primary_address", None)
-		if addr:
-			doc.consignee_address = addr
-			doc.consignee_address_display = get_address_display(addr)
-		pc = getattr(cd, "consignee_primary_contact", None)
-		if pc:
-			doc.consignee_contact = pc
-			doc.consignee_contact_display = contact_display_text(pc)
+def _set_consignee_party_fields_from_master(doc, only_if_empty: bool = False) -> None:
+	if not doc.consignee or not frappe.db.exists("Consignee", doc.consignee):
+		return
+	cd = frappe.get_cached_doc("Consignee", doc.consignee)
+	addr = getattr(cd, "delivery_address", None) or getattr(cd, "consignee_primary_address", None)
+	if addr and (not only_if_empty or not getattr(doc, "consignee_address", None)):
+		doc.consignee_address = addr
+		doc.consignee_address_display = get_address_display(addr)
+	pc = getattr(cd, "consignee_primary_contact", None)
+	if pc and (not only_if_empty or not getattr(doc, "consignee_contact", None)):
+		doc.consignee_contact = pc
+		doc.consignee_contact_display = contact_display_text(pc)
+
+
+def populate_party_address_contact_from_masters(doc, only_if_empty: bool = False) -> None:
+	"""Set Contacts & Addresses fields from Shipper/Consignee when links are set."""
+	if doc.doctype not in PARTY_ADDRESS_CONTACT_DOCTYPES:
+		return
+	_set_shipper_party_fields_from_master(doc, only_if_empty=only_if_empty)
+	_set_consignee_party_fields_from_master(doc, only_if_empty=only_if_empty)
+
+
+def populate_air_sea_booking_party_fields_from_masters(doc) -> None:
+	"""Backward-compatible alias; fills empty party address/contact fields from masters."""
+	populate_party_address_contact_from_masters(doc, only_if_empty=False)
+
+
+def copy_party_address_contact_fields(source_doc, target_doc, only_if_empty: bool = False) -> None:
+	"""Copy Contacts & Addresses tab scalars when the target DocType defines the field."""
+	if not source_doc or not target_doc:
+		return
+	meta = frappe.get_meta(target_doc.doctype)
+	for fn in CONTACTS_ADDRESSES_FIELD_NAMES:
+		if not meta.get_field(fn):
+			continue
+		if not hasattr(source_doc, fn):
+			continue
+		value = getattr(source_doc, fn, None)
+		if only_if_empty and getattr(target_doc, fn, None):
+			continue
+		setattr(target_doc, fn, value)
+
+
+def apply_party_address_contact_from_source_or_masters(target_doc, source_doc=None) -> None:
+	"""Copy party address/contact from source when set, then fill gaps from Shipper/Consignee masters."""
+	if source_doc:
+		copy_party_address_contact_fields(source_doc, target_doc, only_if_empty=True)
+	populate_party_address_contact_from_masters(target_doc, only_if_empty=True)
 
 
 def append_transport_order_door_leg_from_party_masters(order) -> None:
@@ -81,13 +142,17 @@ def append_transport_order_door_leg_from_party_masters(order) -> None:
 
 	if frappe.db.exists("Shipper", order.shipper):
 		sd = frappe.get_cached_doc("Shipper", order.shipper)
-		pick = getattr(sd, "pick_address", None) or getattr(sd, "shipper_primary_address", None)
+		pick = getattr(order, "shipper_address", None) or getattr(sd, "pick_address", None) or getattr(
+			sd, "shipper_primary_address", None
+		)
 		if pick:
 			leg["pick_address"] = pick
 
 	if frappe.db.exists("Consignee", order.consignee):
 		cd = frappe.get_cached_doc("Consignee", order.consignee)
-		drop = getattr(cd, "delivery_address", None) or getattr(cd, "consignee_primary_address", None)
+		drop = getattr(order, "consignee_address", None) or getattr(cd, "delivery_address", None) or getattr(
+			cd, "consignee_primary_address", None
+		)
 		if drop:
 			leg["drop_address"] = drop
 

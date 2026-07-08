@@ -65,6 +65,17 @@
 		return (sq && sq.fieldtype === "Button") || (cq && cq.fieldtype === "Button");
 	};
 
+	/** Unit-break row buttons (checkbox-driven). */
+	window.logistics_charge_child_doctype_has_unit_break_buttons = function(dt) {
+		if (!dt || !frappe.meta.docfield_map || !frappe.meta.docfield_map[dt]) {
+			return false;
+		}
+		var m = frappe.meta.docfield_map[dt];
+		var su = m.selling_unit_break;
+		var cu = m.cost_unit_break;
+		return (su && su.fieldtype === "Button") || (cu && cu.fieldtype === "Button");
+	};
+
 	function _pricing_charge_reference_doctype_from_row(row) {
 		if (row.doctype) {
 			return row.doctype;
@@ -493,6 +504,211 @@
 		});
 	};
 
+	window.logistics_unit_break_label_for_row = function(row, record_type) {
+		var unit_type =
+			record_type === "Cost"
+				? row.cost_unit_type || row.unit_type || "Weight"
+				: row.unit_type || row.cost_unit_type || "Weight";
+		return unit_type;
+	};
+
+	window.logistics_save_unit_breaks_for_reference = function(
+		reference_doctype,
+		reference_no,
+		record_type,
+		unit_type,
+		to_save,
+		frm,
+		callback
+	) {
+		frappe.call({
+			method: "logistics.pricing_center.doctype.charge_unit_break.charge_unit_break.save_unit_breaks_for_reference",
+			args: {
+				reference_doctype: reference_doctype,
+				reference_no: reference_no,
+				unit_breaks: to_save,
+				record_type: record_type,
+				unit_type: unit_type,
+			},
+			callback: function(save_r) {
+				if (save_r.message && save_r.message.success) {
+					frappe.show_alert({ message: __("Unit breaks saved"), indicator: "green" });
+					if (callback) {
+						callback(true);
+					}
+					if (frm && frm.doc) {
+						_refresh_charge_grids_on_parent(frm);
+						if (
+							reference_no &&
+							window.logistics &&
+							logistics.charge_type_cleanup &&
+							logistics.charge_type_cleanup.recalculate_charge_row
+						) {
+							var cdt = reference_doctype;
+							var cdn = reference_no;
+							if (locals[cdt] && locals[cdt][cdn]) {
+								logistics.charge_type_cleanup.recalculate_charge_row(frm, cdt, cdn);
+							}
+						}
+					}
+				} else {
+					frappe.msgprint({
+						title: __("Error"),
+						message: (save_r.message && save_r.message.error) || __("Failed to save unit breaks"),
+						indicator: "red",
+					});
+					if (callback) {
+						callback(false);
+					}
+				}
+			},
+		});
+	};
+
+	window.open_unit_break_rate_dialog = function(frm, row, record_type) {
+		record_type = record_type || "Selling";
+		var ref = _wb_reference_from_row(row);
+		var reference_doctype = ref.reference_doctype;
+		var reference_no = ref.reference_no;
+		if (!reference_no || reference_no === "new" || String(reference_no).startsWith("new-")) {
+			frappe.msgprint({
+				title: __("Save Required"),
+				message: __("Please save the document first before managing unit breaks."),
+				indicator: "orange",
+			});
+			return;
+		}
+		var unit_type = window.logistics_unit_break_label_for_row(row, record_type);
+		if (!unit_type) {
+			frappe.msgprint({
+				title: __("Unit Type Required"),
+				message: __("Set Unit Type on this charge row before managing unit breaks."),
+				indicator: "orange",
+			});
+			return;
+		}
+		var currency =
+			record_type === "Cost"
+				? row.cost_currency || row.currency || "USD"
+				: row.currency || row.cost_currency || "USD";
+		frappe.call({
+			method: "logistics.pricing_center.doctype.charge_unit_break.charge_unit_break.get_unit_breaks",
+			args: {
+				reference_doctype: reference_doctype,
+				reference_no: reference_no,
+				record_type: record_type,
+			},
+			callback: function(r) {
+				if (!r.message || !r.message.success) {
+					frappe.msgprint({ title: __("Error"), message: __("Could not load unit breaks."), indicator: "red" });
+					return;
+				}
+				var unit_breaks = r.message.unit_breaks || [];
+				var break_label = __("Unit Break") + " (" + unit_type + ")";
+				var table_data =
+					unit_breaks.length > 0
+						? unit_breaks.map(function(ub) {
+								return {
+									unit_break: ub.unit_break,
+									unit_rate: ub.unit_rate,
+									currency: ub.currency || currency,
+								};
+						  })
+						: [{ unit_break: "", unit_rate: "", currency: currency }];
+
+				var table_html = [
+					'<div class="unit-break-dialog-table">',
+					'<p class="text-muted small">' +
+						__("Tiers apply when actual {0} meets or exceeds the break threshold.", [unit_type]) +
+						"</p>",
+					'<table class="table table-bordered table-sm">',
+					"<thead><tr>",
+					"<th>" + frappe.utils.escape_html(break_label) + "</th>",
+					"<th>" + __("Unit Rate") + "</th>",
+					"<th>" + __("Currency") + "</th>",
+					'<th style="width:40px"></th>',
+					"</tr></thead>",
+					'<tbody id="unit_break_tbody"></tbody>',
+					"</table>",
+					'<button type="button" class="btn btn-xs btn-secondary mt-2" id="unit_break_add_row">' +
+						__("Add row") +
+						"</button>",
+					"</div>",
+				].join("");
+
+				var dialog = new frappe.ui.Dialog({
+					title:
+						record_type === "Cost"
+							? __("Manage Cost Unit Breaks ({0})", [unit_type])
+							: __("Manage Selling Unit Breaks ({0})", [unit_type]),
+					size: "large",
+					fields: [
+						{ fieldname: "unit_breaks_section", fieldtype: "Section Break", label: __("Unit Breaks") },
+						{ fieldname: "unit_breaks_html", fieldtype: "HTML", options: table_html },
+					],
+					primary_action_label: __("Save"),
+					primary_action: function() {
+						var tbody = dialog.$wrapper.find("#unit_break_tbody");
+						var to_save = [];
+						tbody.find("tr").each(function() {
+							var $row = $(this);
+							var unit_break = parseFloat($row.find("input.unit-break").val()) || 0;
+							var unit_rate = parseFloat($row.find("input.unit-rate").val()) || 0;
+							var curr = $row.find("input.currency-code").val() || currency;
+							if (unit_break || unit_rate) {
+								to_save.push({ unit_break: unit_break, unit_rate: unit_rate, currency: curr });
+							}
+						});
+						window.logistics_save_unit_breaks_for_reference(
+							reference_doctype,
+							reference_no,
+							record_type,
+							unit_type,
+							to_save,
+							frm,
+							function(ok) {
+								if (ok) {
+									dialog.hide();
+								}
+							}
+						);
+					},
+				});
+				dialog.show();
+
+				var render_row = function(ub) {
+					return (
+						"<tr>" +
+						'<td><input type="number" step="0.001" class="form-control form-control-sm unit-break" value="' +
+						(ub.unit_break != null ? frappe.utils.escape_html(ub.unit_break) : "") +
+						'"></td>' +
+						'<td><input type="number" step="0.01" class="form-control form-control-sm unit-rate" value="' +
+						(ub.unit_rate != null ? frappe.utils.escape_html(ub.unit_rate) : "") +
+						'"></td>' +
+						'<td><input type="text" class="form-control form-control-sm currency-code" value="' +
+						frappe.utils.escape_html(ub.currency || currency) +
+						'" placeholder="USD"></td>' +
+						'<td><button type="button" class="btn btn-xs btn-default btn-remove-row">&times;</button></td>' +
+						"</tr>"
+					);
+				};
+
+				dialog.$wrapper.one("shown.bs.modal", function() {
+					var tbody = dialog.$wrapper.find("#unit_break_tbody");
+					table_data.forEach(function(ub) {
+						tbody.append(render_row(ub));
+					});
+					dialog.$wrapper.find("#unit_break_add_row").on("click", function() {
+						tbody.append(render_row({ unit_break: "", unit_rate: "", currency: currency }));
+					});
+					dialog.$wrapper.on("click", ".btn-remove-row", function() {
+						$(this).closest("tr").remove();
+					});
+				});
+			},
+		});
+	};
+
 	// Grid row "Weight Break" buttons: ControlButton only triggers frappe.ui.form.on when
 	// script_manager.has_handlers(...) is true; in expanded child row forms that path is unreliable.
 	// Capture on document so we open the dialog before the event reaches the inner <button>.
@@ -510,12 +726,25 @@
 			var freight = window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS || [];
 			var rows = [];
 			freight.forEach(function(dt) {
-				rows.push({ doctype: dt, fields: ["revenue_calculation_method", "cost_calculation_method"] });
+				rows.push({
+					doctype: dt,
+					fields: [
+						"revenue_calculation_method",
+						"cost_calculation_method",
+						"use_unit_breaks",
+						"cost_use_unit_breaks",
+					],
+				});
 			});
 			if (freight.indexOf("Sales Quote Charge") === -1) {
 				rows.push({
 					doctype: "Sales Quote Charge",
-					fields: ["revenue_calculation_method", "cost_calculation_method"],
+					fields: [
+						"revenue_calculation_method",
+						"cost_calculation_method",
+						"use_unit_breaks",
+						"cost_use_unit_breaks",
+					],
 				});
 			}
 			rows.push(

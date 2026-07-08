@@ -1,0 +1,9 @@
+{
+  "name": "CRM Lead - Sales Quote",
+  "dt": "Lead",
+  "view": "Form",
+  "module": "Pricing Center",
+  "enabled": 1,
+  "script": "// Pricing Center: Lead Create → Sales Quote (replaces Quotation)\nfrappe.ui.form.on('Lead', {\n\tsetup(frm) {\n\t\tif (logistics.crm_sales_quote) {\n\t\t\tlogistics.crm_sales_quote.replace_make_methods(frm);\n\t\t}\n\t},\n\trefresh(frm) {\n\t\tif (!logistics.crm_sales_quote) {\n\t\t\treturn;\n\t\t}\n\t\tlogistics.crm_sales_quote.replace_make_methods(frm);\n\t\tlogistics.crm_sales_quote.replace_create_button(frm);\n\t}\n});",
+  "doctype": "Client Script"
+}

@@ -50,6 +50,13 @@
   "supports_live_animals",
   "supports_refrigerated",
   "supports_oversized",
+  "ccs_routing_section",
+  "ccs_pima_code",
+  "eawb_enabled",
+  "eawb_message_types",
+  "cargo_xml_endpoint",
+  "cargo_xml_test_endpoint",
+  "default_special_handling_codes",
   "contact_section",
   "website",
   "phone",
@@ -303,6 +310,50 @@
    "fieldname": "supports_oversized",
    "fieldtype": "Check",
    "label": "Supports Oversized Cargo"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "ccs_routing_section",
+   "fieldtype": "Section Break",
+   "label": "CCS / e-AWB Routing"
+  },
+  {
+   "description": "Airline PIMA address used by CCS hubs (e.g. CHAMP TRAXON) to route Cargo-XML messages.",
+   "fieldname": "ccs_pima_code",
+   "fieldtype": "Data",
+   "label": "CCS PIMA Code"
+  },
+  {
+   "default": "0",
+   "fieldname": "eawb_enabled",
+   "fieldtype": "Check",
+   "label": "e-AWB Enabled with Carrier"
+  },
+  {
+   "default": "XFWB,FWB,FHL",
+   "description": "Comma-separated Cargo-XML / Cargo-IMP message types supported for this carrier.",
+   "fieldname": "eawb_message_types",
+   "fieldtype": "Small Text",
+   "label": "e-AWB Message Types"
+  },
+  {
+   "depends_on": "eawb_enabled",
+   "description": "Direct Cargo-XML endpoint for this carrier (overrides company IATA Settings in Direct mode).",
+   "fieldname": "cargo_xml_endpoint",
+   "fieldtype": "Data",
+   "label": "Cargo-XML Endpoint URL"
+  },
+  {
+   "depends_on": "eawb_enabled",
+   "fieldname": "cargo_xml_test_endpoint",
+   "fieldtype": "Data",
+   "label": "Cargo-XML Test Endpoint URL"
+  },
+  {
+   "depends_on": "eawb_enabled",
+   "fieldname": "default_special_handling_codes",
+   "fieldtype": "Small Text",
+   "label": "Default Special Handling Codes"
   },
   {
    "collapsible": 1,

@@ -51,6 +51,32 @@ class TestLinkedChargeInternalJobCreate(FrappeTestCase):
 		self.assertEqual(groups[1][1].service_type, "Warehousing")
 		self.assertEqual(groups[1][1].internal_job, "LS-WH-1")
 
+	@patch("logistics.utils.sales_quote_charge_parameters.frappe.get_cached_doc")
+	@patch("logistics.utils.sales_quote_charge_parameters.frappe.db.exists", return_value=True)
+	def test_virtual_linked_charge_row_includes_container_no_from_linked_service(
+		self, _mock_exists, mock_get_cached_doc
+	):
+		mock_get_cached_doc.return_value = frappe._dict(
+			service_type="Transport",
+			container_no="MSCU1234567",
+			container_type="CT-20FT",
+		)
+		shipment = self._make_shipment(
+			[
+				frappe._dict(
+					service_type="Transport",
+					charge_scope="Linked",
+					linked_service="LS-TR-1",
+				),
+			]
+		)
+
+		groups = _linked_charge_groups_for_create(shipment)
+
+		self.assertEqual(len(groups), 1)
+		self.assertEqual(groups[0][1].container_no, "MSCU1234567")
+		self.assertEqual(groups[0][1].container_type, "CT-20FT")
+
 	@patch(
 		"logistics.utils.internal_job_from_source._job_no_for_linked_charge_row",
 		return_value="",

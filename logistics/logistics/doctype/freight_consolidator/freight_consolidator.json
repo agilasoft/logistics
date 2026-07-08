@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:code",
- "creation": "2025-05-28 15:43:37.349503",
+ "creation": "2026-07-04 14:14:28.779654",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -33,7 +33,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-30 21:57:08.217622",
+ "modified": "2026-07-04 14:40:19.205563",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Freight Consolidator",
@@ -54,7 +54,9 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "consolidator_name",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "code"
 }

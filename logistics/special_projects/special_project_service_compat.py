@@ -26,6 +26,24 @@ def special_project_service_record_exists(name: str | None) -> bool:
 	return bool(name and frappe.db.exists(SPECIAL_PROJECT_SERVICE_DOCTYPE, name))
 
 
+def is_local_special_project_service_detail_name(name: str | None) -> bool:
+	"""True for unsaved virtual grid row names (``new-special-project-service-detail-*``)."""
+	value = (name or "").strip()
+	return bool(value) and value.startswith("new-")
+
+
+def persisted_special_project_service_name(row: Any) -> str:
+	"""Return the Special Project Service document name for a grid row, if known."""
+	link = row_special_project_service_link(row)
+	if link:
+		return link
+	name = (row.get("name") if isinstance(row, dict) else getattr(row, "name", None)) or ""
+	name = str(name).strip()
+	if name and not is_local_special_project_service_detail_name(name):
+		return name
+	return ""
+
+
 def row_special_project_service_link(row: Any) -> str:
 	if row is None:
 		return ""
@@ -48,6 +66,7 @@ def special_project_service_grid_rows(parent_doc: Any) -> list[Any]:
 		return []
 	if getattr(getattr(parent_doc, "flags", None), "_special_project_services_from_form", False):
 		return list(parent_doc.__dict__.get(SPECIAL_PROJECT_SERVICES_FIELD) or [])
-	if hasattr(parent_doc, "_build_special_project_services_view"):
-		return parent_doc._build_special_project_services_view()
+	build_view = getattr(parent_doc, "_build_special_project_services_view", None)
+	if callable(build_view):
+		return build_view()
 	return list(getattr(parent_doc, SPECIAL_PROJECT_SERVICES_FIELD, None) or [])

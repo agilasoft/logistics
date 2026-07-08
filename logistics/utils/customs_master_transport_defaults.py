@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import frappe
-from frappe.utils import cint
 
 from logistics.utils.customs_country_defaults import (
 	_CUSTOMS_DOCTYPES,
@@ -14,6 +13,7 @@ from logistics.utils.customs_country_defaults import (
 	_set_if_empty,
 	country_from_unloco,
 )
+from logistics.utils.service_role_rules import get_main_service_type, is_linked_service_satellite
 
 
 def _sea_vessel_flight_display(master_bill) -> str | None:
@@ -78,14 +78,14 @@ def _apply_from_master_air_waybill(doc, main_job_doc) -> bool:
 
 def apply_internal_job_master_transport_defaults(doc) -> None:
 	"""Fill transport header fields from Master Bill / Master Air Waybill on the main freight job only."""
-	if doc.doctype not in _CUSTOMS_DOCTYPES or not cint(getattr(doc, "is_internal_job", 0)):
+	if doc.doctype not in _CUSTOMS_DOCTYPES or not is_linked_service_satellite(doc):
 		return
 
 	main_job_doc = _load_main_job_doc(doc)
 	if not main_job_doc:
 		return
 
-	main_job_type = (getattr(doc, "main_job_type", None) or "").strip()
+	main_job_type = get_main_service_type(doc)
 	if main_job_type == "Sea Shipment":
 		_apply_from_master_bill(doc, main_job_doc)
 	elif main_job_type == "Air Shipment":

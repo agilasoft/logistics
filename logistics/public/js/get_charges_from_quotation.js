@@ -485,11 +485,31 @@ function _gcfq_mount_filter_panel($parent, frm, dialog, reloadList) {
 }
 
 /**
+ * Linked Sales Quote name on a job (``sales_quote`` or legacy ``quote`` when type is Sales Quote).
+ * @param {frappe.ui.form.Form} frm
+ * @returns {string}
+ */
+logistics.job_linked_sales_quote_name = function (frm) {
+	if (!frm || !frm.doc) {
+		return "";
+	}
+	var sq = (frm.doc.sales_quote || "").trim();
+	if (sq) {
+		return sq;
+	}
+	if ((frm.doc.quote_type || "").trim() === "Sales Quote") {
+		return (frm.doc.quote || "").trim();
+	}
+	return "";
+};
+
+/**
  * Single source of truth for whether the Action → Get Charges from Quotation button is shown.
  *
- * Rule: visible on draft (`docstatus === 0`) jobs that are not flagged as Internal Job.
- * Hidden when linked (or pending) Sales Quote is One-off or Project — charges come from
- * create-from-quote / programme flows, not this action (backend lists Regular only).
+ * Rule: visible on draft (`docstatus === 0`) jobs that are not flagged as Internal Job and have
+ * no Sales Quote linked yet. Hidden when a Sales Quote is already set, or when linked (or pending)
+ * Sales Quote is One-off or Project — charges come from create-from-quote / programme flows, not
+ * this action (backend lists Regular only).
  *
  * @param {frappe.ui.form.Form} frm
  * @returns {boolean}
@@ -577,6 +597,9 @@ logistics.should_show_get_charges_from_quotation = function (frm) {
 	if (logistics.job_should_hide_get_charges_from_quotation(frm)) {
 		return false;
 	}
+	if (logistics.job_linked_sales_quote_name(frm)) {
+		return false;
+	}
 	return true;
 };
 
@@ -593,7 +616,7 @@ logistics._add_get_charges_from_quotation_button = function (frm) {
 };
 
 /**
- * Add Action → Get Charges from Quotation when allowed (draft, not internal job, not One-off/Project link).
+ * Add Action → Get Charges from Quotation when allowed (draft, not internal job, no linked quote).
  * @param {frappe.ui.form.Form} frm
  */
 logistics.add_get_charges_from_quotation_button_if_allowed = function (frm) {
@@ -604,32 +627,7 @@ logistics.add_get_charges_from_quotation_button_if_allowed = function (frm) {
 	) {
 		return;
 	}
-	var sq = (frm.doc.sales_quote || "").trim();
-	if (!sq) {
-		logistics._add_get_charges_from_quotation_button(frm);
-		return;
-	}
-	if (logistics.job_should_hide_get_charges_from_quotation(frm)) {
-		return;
-	}
-	var token = (frm._logistics_gcfq_button_token = (frm._logistics_gcfq_button_token || 0) + 1);
-	frappe.db.get_value("Sales Quote", sq, "quotation_type", function (r) {
-		if (!frm.doc || frm._logistics_gcfq_button_token !== token) {
-			return;
-		}
-		if ((frm.doc.sales_quote || "").trim() !== sq) {
-			return;
-		}
-		var qt = r && r.quotation_type != null ? String(r.quotation_type).trim() : "";
-		frm._logistics_sales_quote_quotation_type = qt;
-		if (logistics.job_should_hide_get_charges_from_quotation(frm, qt)) {
-			return;
-		}
-		if (!logistics.should_show_get_charges_from_quotation(frm)) {
-			return;
-		}
-		logistics._add_get_charges_from_quotation_button(frm);
-	});
+	logistics._add_get_charges_from_quotation_button(frm);
 };
 
 /**
@@ -647,7 +645,7 @@ logistics.open_get_charges_from_quotation_dialog = function (frm) {
 	) {
 		frappe.msgprint(
 			__(
-				"Get Charges from Quotation is not available for this document (e.g. One-off or Project quotation, internal job, or submitted document)."
+				"Get Charges from Quotation is not available for this document (e.g. Sales Quote already linked, One-off or Project quotation, internal job, or submitted document)."
 			)
 		);
 		return;

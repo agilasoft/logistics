@@ -45,6 +45,16 @@
   {
    "hidden": 0,
    "is_query_report": 0,
+   "label": "Cash Advance Reason Code",
+   "link_count": 0,
+   "link_to": "Cash Advance Reason Code",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "Aging & Overdue",
    "link_count": 3,
    "link_type": "DocType",

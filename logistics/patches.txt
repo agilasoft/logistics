@@ -46,6 +46,10 @@ logistics.patches.v3_0_drop_docket_internal_job_detail_table
 logistics.patches.v3_0_migrate_special_project_service_child_to_stash
 # Special Project Services grid: Special Project Service Detail is virtual
 logistics.patches.v3_0_drop_special_project_service_detail_table
+# Before dropping is_internal_job / main_job_* / internal_job: backfill service_role, main_service_*, linked_service
+logistics.patches.v3_0_pre_drop_legacy_internal_job_fields
+# Sites that ran the pre patch before linked_service was added: drop legacy columns first.
+logistics.patches.v3_0_drop_legacy_columns_before_linked_service_sync
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
@@ -129,6 +133,7 @@ logistics.patches.v1_0_resync_air_freight_custom_html_block_user_meta_default_ow
 logistics.patches.v1_0_resync_air_freight_custom_html_block_alerts_booking_format
 logistics.patches.v1_0_ensure_operations_dashboard_custom_html_blocks
 logistics.patches.v1_0_resync_operations_custom_html_block_alert_scroll
+logistics.patches.v1_0_resync_operations_custom_html_block_alert_user_filter
 logistics.patches.v1_0_sync_declaration_internal_jobs_to_declaration_orders
 logistics.patches.v1_0_ensure_sea_load_transport_modes
 logistics.patches.v1_0_migrate_default_service_level_to_lsl
@@ -218,6 +223,14 @@ logistics.patches.v1_30_fix_print_format_company_lookup
 logistics.patches.v1_31_sync_mawb_print_formats
 # Cloud benches: patch custom MAWB print formats that still use doc.company.
 logistics.patches.v1_32_fix_custom_mawb_print_formats
+# Payment Entry: BDO Telegraphic Transfer bank form overlay print format.
+logistics.patches.v1_33_install_bank_forms_print_format
+# Payment Entry: Union Bank Telegraphic Transfer bank form print formats.
+logistics.patches.v1_34_install_ubp_bank_form_print_format
+# Payment Entry: BDO bank cheque overlay print format.
+logistics.patches.v1_35_install_bank_cheque_print_format
+# Purchase Invoice: BIR Form 2307 vector PDF overlay print format.
+logistics.patches.v1_36_install_bir_2307_print_format
 # Pricing desktop tile: workspace JSON was deleted; restore so sidebar Home link resolves.
 logistics.patches.v1_0_restore_pricing_workspace
 # v3.0: Linked Service rename, service_role, Service Scope tab, Sales Quote Pack
@@ -238,10 +251,14 @@ logistics.patches.v3_0_fix_iata_settings_single
 # IATA Settings: one record per Company (migrate legacy singleton values)
 logistics.patches.v3_0_migrate_iata_settings_per_company
 logistics.patches.v3_0_ensure_iata_settings_company_records
+# CCS Provider master records for Cargo Community System connectivity
+logistics.patches.v3_0_seed_ccs_providers
 # Docket Internal Jobs: restore persisted Internal Job Detail rows after virtual-grid rollback
 logistics.patches.v3_0_restore_docket_internal_job_detail_rows
 # Cash Advance: backfill request total_liquidated / unliquidated from submitted liquidations
 logistics.patches.v1_0_backfill_cash_advance_request_liquidation_totals
+# Cash Advance: virtual rollup fields sourced from liquidation / acknowledgment / journal entry
+logistics.patches.v1_0_cash_advance_request_virtual_fields
 # v3.0: charge tables still listed internal_job in field_order after linked_service rename
 logistics.patches.v3_0_fix_linked_service_field_order_on_charge_tables
 # v3.0: Sea Booking / Sea Shipment internal_job_details virtual grid (Linked Service only)
@@ -276,3 +293,34 @@ logistics.patches.v3_0_restore_special_project_service_documents
 logistics.patches.v3_0_seed_official_appointment_status
 # MICE Project: backfill is_active on Official Appointment Status
 logistics.patches.v3_0_official_appointment_status_is_active
+# Outlook: Connected App skeleton, User opt-in field, default settings
+logistics.patches.v3_0_outlook_calendar_setup
+# CRM: Sales Quote replaces Quotation actions; Pricing workspace analytics links
+logistics.patches.v3_0_crm_sales_quote_integration
+# CRM: Lead/Prospect Sales Quote settings and prospect traceability
+logistics.patches.v3_0_crm_sales_quote_lead_prospect_settings
+# Transport: FTL/LTL load types for template validation (#1122)
+logistics.patches.v3_0_ensure_ftl_ltl_load_types
+# Sea Booking: backfill booking-owned Linked Services for bookings created before virtual grid
+logistics.patches.v3_0_backfill_sea_booking_linked_services
+# Hide legacy Internal Job UI: backfill main_service_* / service_role from main_job_* / is_internal_job
+logistics.patches.v3_0_backfill_main_service_from_legacy_internal_job
+# Drop orphaned is_internal_job / main_job_* / internal_job columns after service_role cutover
+logistics.patches.v3_0_drop_legacy_internal_job_columns
+# Freight Agent: backfill Applicable Service Types on existing masters (#1118)
+logistics.patches.v3_0_freight_agent_applicable_service_types
+# Freight Agent: backfill covered_unlocs from default_unloco (#1119)
+logistics.patches.v3_0_backfill_freight_agent_covered_unlocs_from_default
+# Charge rows: Unit Breaks checkbox/button and Value unit type (#1126)
+logistics.patches.v3_0_add_charge_unit_breaks
+# Special Project: backfill service-row planned/actual from charges and linked jobs
+logistics.patches.v3_0_sync_special_project_service_financials
+# Cash Advance: backfill Require Job Number on Revolving Fund accounts
+logistics.patches.v3_0_backfill_account_require_job_number_for_revolving_fund
+# Cash Advance: drop header job_number from Cash Advance Request
+logistics.patches.v3_0_drop_cash_advance_request_job_number
+# Cash Advance: migrate global settings to per-company records (#1173)
+logistics.patches.v3_0_migrate_cash_advance_settings_per_company
+logistics.patches.v3_0_ensure_cash_advance_settings_company_records
+# Cash Advance: seed default due date extension reason codes
+logistics.patches.v3_0_seed_cash_advance_reason_codes

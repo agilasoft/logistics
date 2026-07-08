@@ -32,6 +32,7 @@ PAGE_MAP = {
     "warehouse_settings": "Warehouse-Settings",
     "customs_settings": "Customs-Settings",
     "default_details_and_relationships": "Default-Details-And-Relationships",
+    "service_type_load_transport_validation": "Load-Type-And-Transport-Mode-Service-Type-Validation",
     # Module Intros
     "sea_freight_module": "Sea-Freight-Module",
     "air_freight_module": "Air-Freight-Module",
@@ -63,6 +64,7 @@ PAGE_MAP = {
     "proof_of_delivery": "Proof-of-Delivery",
     "transport_template": "Transport-Template",
     "load_type": "Load-Type",
+    "transport_mode": "Transport-Mode",
     # Customs
     "declaration_order": "Declaration-Order",
     "declaration": "Declaration",
@@ -161,6 +163,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 - [Logistics Settings](Logistics-Settings)
 - [Credit Management](Credit-Management) – holds, Subject DocTypes, apply-all, lifts
 - [Default Details and Relationships](Default-Details-And-Relationships) – Shipper, Consignee, Freight Agent, Carrier defaults
+- [Load Type and Transport Mode — Service Type Validation](Load-Type-And-Transport-Mode-Service-Type-Validation)
 - [Sea Freight Settings](Sea-Freight-Settings)
 - [Air Freight Settings](Air-Freight-Settings)
 - [Transport Settings](Transport-Settings)
@@ -186,7 +189,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 - [Transport Order](Transport-Order) | [Transport Job](Transport-Job) | [Transport Consolidation](Transport-Consolidation)
 - [Transport Leg](Transport-Leg) | [Transport Plan](Transport-Plan) | [Run Sheet](Run-Sheet)
 - [Proof of Delivery](Proof-of-Delivery)
-- [Transport Template](Transport-Template) | [Load Type](Load-Type)
+- [Transport Template](Transport-Template) | [Load Type](Load-Type) | [Transport Mode](Transport-Mode)
 - [Transport Order — Inter-module Field Copy](Transport-Order-Intermodule-Field-Copy)
 
 ## Customs
@@ -276,6 +279,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 - [Logistics Settings](Logistics-Settings)
 - [Credit Management](Credit-Management)
 - [Default Details and Relationships](Default-Details-And-Relationships)
+- [Load Type and Transport Mode — Service Type Validation](Load-Type-And-Transport-Mode-Service-Type-Validation)
 - [Sea Freight Settings](Sea-Freight-Settings)
 - [Air Freight Settings](Air-Freight-Settings)
 - [Transport Settings](Transport-Settings)
@@ -312,6 +316,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 - [Proof of Delivery](Proof-of-Delivery)
 - [Transport Template](Transport-Template)
 - [Load Type](Load-Type)
+- [Transport Mode](Transport-Mode)
 - [Transport Order — Inter-module Field Copy](Transport-Order-Intermodule-Field-Copy)
 
 **Customs**

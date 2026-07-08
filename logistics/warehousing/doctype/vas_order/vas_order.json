@@ -26,6 +26,18 @@
   "items",
   "tab_2_tab",
   "charges",
+  "quote_reference_section",
+  "is_high_value",
+  "sales_quote",
+  "column_break_quote_ref",
+  "linked_service",
+  "service_role",
+  "main_service_type",
+  "main_service",
+  "freight_connections_section",
+  "air_shipment",
+  "sea_shipment",
+  "transport_job",
   "accounts_tab",
   "company",
   "branch",
@@ -143,6 +155,90 @@
    "fieldname": "charges",
    "fieldtype": "Table",
    "options": "VAS Order Charges"
+  },
+  {
+   "description": "Linked Service Warehousing is for cross-dock and in-transit VAS only (not storage). Filled when created from a main freight shipment.",
+   "fieldname": "quote_reference_section",
+   "fieldtype": "Section Break",
+   "label": "Job Details"
+  },
+  {
+   "default": "0",
+   "description": "Inherited from the linked Sales Quote (if any).",
+   "fieldname": "is_high_value",
+   "fieldtype": "Check",
+   "label": "High Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "label": "Sales Quote",
+   "no_copy": 1,
+   "options": "Sales Quote",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_quote_ref",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "linked_service",
+   "fieldtype": "Link",
+   "label": "Linked Service",
+   "no_copy": 1,
+   "options": "Linked Service",
+   "read_only": 1
+  },
+  {
+   "default": "Standalone",
+   "fieldname": "service_role",
+   "fieldtype": "Select",
+   "label": "Service Role",
+   "options": "Main\nLinked\nStandalone",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.service_role==\"Linked\"",
+   "fieldname": "main_service_type",
+   "fieldtype": "Select",
+   "label": "Main Service Type",
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.service_role==\"Linked\"",
+   "fieldname": "main_service",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Service",
+   "options": "main_service_type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "freight_connections_section",
+   "fieldtype": "Section Break",
+   "label": "Freight Connections"
+  },
+  {
+   "description": "Main air shipment for cross-dock / airport transfer VAS",
+   "fieldname": "air_shipment",
+   "fieldtype": "Link",
+   "label": "Air Shipment",
+   "options": "Air Shipment"
+  },
+  {
+   "description": "Main sea shipment for strip/stuff / transfer VAS (no storage)",
+   "fieldname": "sea_shipment",
+   "fieldtype": "Link",
+   "label": "Sea Shipment",
+   "options": "Sea Shipment"
+  },
+  {
+   "fieldname": "transport_job",
+   "fieldtype": "Link",
+   "label": "Transport Job",
+   "options": "Transport Job"
   },
   {
    "fieldname": "contract",

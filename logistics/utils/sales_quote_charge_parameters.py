@@ -69,7 +69,9 @@ _SERVICE_SCOPED_PARAMETER_FIELDS: dict[str, tuple[str, ...]] = {
 		"destination_port",
 	),
 	"transport": (
+		"transport_mode",
 		"transport_template",
+		"load_type",
 		"vehicle_type",
 		"container_type",
 		"container_no",
@@ -170,6 +172,17 @@ def _extract_legacy_row_parameters(row: Any) -> dict[str, Any]:
 	return out
 
 
+def _extract_in_memory_row_parameters(row: Any) -> dict[str, Any]:
+	"""Read routing parameters from a synthetic row (e.g. Sales Quote scope / virtual Services line)."""
+	out: dict[str, Any] = {}
+	for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS:
+		val = _row_val(row, fn)
+		if not _is_meaningful_param_value(fn, val):
+			continue
+		out[fn] = val
+	return out
+
+
 def resolve_parameters_for_charge_row(charge_row: Any, quote_doc: Any | None = None) -> dict[str, Any]:
 	"""Routing parameters for a Sales Quote Charge from its tagged service (Main or Linked)."""
 	from logistics.utils.linked_service_compat import (
@@ -198,6 +211,78 @@ def resolve_parameters_for_charge_row(charge_row: Any, quote_doc: Any | None = N
 	return {}
 
 
+def resolve_change_request_charge_parameters(
+	charge_row: Any, cr_doc: Any | None = None
+) -> dict[str, Any]:
+	"""Routing parameters for a Change Request Charge from its tagged service or linked job."""
+	from logistics.utils.linked_service_compat import (
+		CHARGE_SCOPE_MAIN,
+		charge_row_linked_service_link,
+		is_linked_charge_scope,
+		linked_service_doctype,
+		normalize_charge_scope,
+	)
+
+	service_type = (_row_val(charge_row, "service_type") or "").strip()
+	scope = normalize_charge_scope(_row_val(charge_row, "charge_scope"))
+	ls_name = charge_row_linked_service_link(charge_row)
+	if not scope and ls_name:
+		scope = "Linked"
+
+	if is_linked_charge_scope(scope):
+		dt = linked_service_doctype()
+		if ls_name and frappe.db.exists(dt, ls_name):
+			try:
+				ls_doc = frappe.get_cached_doc(dt, ls_name)
+				return extract_service_scoped_quote_parameters(ls_doc, service_type)
+			except Exception:
+				return {}
+		return {}
+
+	if scope == CHARGE_SCOPE_MAIN and cr_doc:
+		try:
+			from logistics.pricing_center.doctype.change_request.change_request import (
+				_resolve_main_job_for_change_request,
+			)
+
+			main_type, main_name = _resolve_main_job_for_change_request(cr_doc)
+			if main_type and main_name and frappe.db.exists(main_type, main_name):
+				job_doc = frappe.get_cached_doc(main_type, main_name)
+				return extract_service_scoped_quote_parameters(job_doc, service_type)
+		except Exception:
+			pass
+
+	return _extract_legacy_row_parameters(charge_row)
+
+
+def refresh_change_request_charge_parameters_display(
+	charge_row: Any, cr_doc: Any | None = None
+) -> str:
+	"""Set and return the read-only ``parameters`` text for one CR charge row."""
+	service_type = (_row_val(charge_row, "service_type") or "").strip()
+	params = resolve_change_request_charge_parameters(charge_row, cr_doc)
+	if not params:
+		params = _extract_legacy_row_parameters(charge_row)
+	text = format_parameters_display_text(params, service_type)
+	if hasattr(charge_row, "parameters"):
+		charge_row.parameters = text
+	elif isinstance(charge_row, dict):
+		charge_row["parameters"] = text
+	return text
+
+
+def effective_change_request_charge_row(charge_row: Any, cr_doc: Any | None = None) -> Any:
+	"""Charge row merged with routing parameters resolved from Services / job scope."""
+	params = resolve_change_request_charge_parameters(charge_row, cr_doc)
+	if not params:
+		return charge_row
+	if isinstance(charge_row, dict):
+		return frappe._dict({**charge_row, **params})
+	if hasattr(charge_row, "as_dict"):
+		return frappe._dict({**charge_row.as_dict(), **params})
+	return frappe._dict({**{fn: getattr(charge_row, fn, None) for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS}, **params})
+
+
 def extract_sales_quote_charge_parameters(row: Any, quote_doc: Any | None = None) -> dict[str, Any]:
 	"""Non-empty routing parameters for a Sales Quote Charge row.
 
@@ -210,11 +295,135 @@ def extract_sales_quote_charge_parameters(row: Any, quote_doc: Any | None = None
 		if resolved:
 			return resolved
 	legacy = _extract_legacy_row_parameters(row)
+	in_memory = _extract_in_memory_row_parameters(row)
+	if in_memory:
+		# Synthetic scope rows (Main Service virtual line) carry full parameters in memory while
+		# legacy columns on the row may only expose charge_group after the parameter migration.
+		if legacy:
+			return {**legacy, **in_memory}
+		return in_memory
 	if legacy:
 		return legacy
 	if quote_doc is not None:
 		return resolve_parameters_for_charge_row(row, quote_doc)
 	return {}
+
+
+# Target field renames when copying Sales Quote scope onto operational documents.
+_OPERATIONAL_SCOPE_FIELD_ALIASES: dict[str, dict[str, str]] = {
+	"Air Booking": {"air_house_type": "house_type"},
+	"Sea Booking": {"sea_house_type": "house_type", "freight_agent_sea": "freight_agent"},
+}
+
+
+def resolve_operational_doc_scope_parameters(
+	row: Any, quote_doc: Any | None = None
+) -> dict[str, Any]:
+	"""Routing parameters for applying a scope / virtual row onto an operational document."""
+	params = extract_sales_quote_charge_parameters(row, quote_doc)
+	in_memory = _extract_in_memory_row_parameters(row)
+	if in_memory:
+		params = {**(params or {}), **in_memory}
+	return params or {}
+
+
+def build_main_service_scope_row(
+	quote_doc: Any,
+	first_charge: Any | None = None,
+	parent_overrides: dict[str, Any] | None = None,
+) -> frappe._dict:
+	"""Synthetic Main Service row from quote scope header (+ optional charge / override values)."""
+	row = frappe._dict(resolve_parameters_from_sales_quote_scope(quote_doc))
+	ms = (getattr(quote_doc, "main_service", None) or "").strip()
+	if ms:
+		row.service_type = ms
+	if first_charge:
+		for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS:
+			if fn == "charge_group":
+				continue
+			val = _row_val(first_charge, fn)
+			if _is_meaningful_param_value(fn, val):
+				row[fn] = val
+	if parent_overrides:
+		for k, v in parent_overrides.items():
+			if k == "charge_group":
+				continue
+			if v is not None and str(v).strip() != "":
+				row[k] = v
+	return row
+
+
+_DOCTYPE_DEFAULT_SERVICE_TYPE: dict[str, str] = {
+	"Air Booking": "Air",
+	"Sea Booking": "Sea",
+	"Transport Order": "Transport",
+	"Declaration Order": "Customs",
+	"Inbound Order": "Warehousing",
+}
+
+
+def apply_scope_fields_to_operational_doc(
+	doc: Any, row: Any, *, overwrite: bool = False
+) -> None:
+	"""Copy Sales Quote Main Service scope parameters onto an operational document."""
+	if not row or not doc:
+		return
+	params = resolve_operational_doc_scope_parameters(row)
+	if not params:
+		return
+	meta = frappe.get_meta(doc.doctype)
+	aliases = _OPERATIONAL_SCOPE_FIELD_ALIASES.get(doc.doctype, {})
+	st = (_row_val(row, "service_type") or "").strip()
+	if not st:
+		st = _DOCTYPE_DEFAULT_SERVICE_TYPE.get(doc.doctype, "")
+
+	def set_field(dest_fn: str, val: Any) -> None:
+		if val is None or val == "":
+			return
+		if not meta.get_field(dest_fn):
+			return
+		cur = getattr(doc, dest_fn, None)
+		if overwrite or cur is None or cur == "":
+			doc.set(dest_fn, val)
+
+	extra_cross_fields: tuple[str, ...] = ()
+	if doc.doctype in ("Air Booking", "Sea Booking", "Transport Order"):
+		extra_cross_fields = ("transport_mode", "direction")
+
+	for src_fn in list(parameter_fields_for_service_type(st)) + list(extra_cross_fields):
+		if src_fn == "charge_group" or src_fn not in params:
+			continue
+		dest_fn = aliases.get(src_fn, src_fn)
+		set_field(dest_fn, params[src_fn])
+
+	if doc.doctype == "Air Booking":
+		if params.get("location_from") and not (getattr(doc, "origin_port", None) or "").strip():
+			set_field("origin_port", params["location_from"])
+		if params.get("location_to") and not (getattr(doc, "destination_port", None) or "").strip():
+			set_field("destination_port", params["location_to"])
+	elif doc.doctype == "Sea Booking":
+		if params.get("location_from") and not (getattr(doc, "origin_port", None) or "").strip():
+			set_field("origin_port", params["location_from"])
+		if params.get("location_to") and not (getattr(doc, "destination_port", None) or "").strip():
+			set_field("destination_port", params["location_to"])
+	elif doc.doctype == "Transport Order":
+		if params.get("location_from"):
+			set_field("location_from", params["location_from"])
+		elif params.get("origin_port"):
+			set_field("location_from", params["origin_port"])
+		if params.get("location_to"):
+			set_field("location_to", params["location_to"])
+		elif params.get("destination_port"):
+			set_field("location_to", params["destination_port"])
+		if (
+			(getattr(doc, "location_from", None) or getattr(doc, "location_to", None))
+			and not (getattr(doc, "location_type", None) or "").strip()
+		):
+			set_field("location_type", params.get("location_type") or "UNLOCO")
+	elif st:
+		for fn in parameter_fields_for_service_type(st):
+			if fn in params and fn != "charge_group":
+				set_field(fn, params[fn])
 
 
 def merge_charge_row_parameters_onto_dict(
@@ -278,15 +487,40 @@ def sales_quote_charge_row_matches_internal_job_detail_params(
 	return True
 
 
+def coerce_sales_quote_name(sales_quote: Any) -> str:
+	"""Return a Sales Quote name from a link string, document, dict, or parent-like object."""
+	from frappe.model.document import Document
+	from frappe.utils import cstr
+
+	if not sales_quote:
+		return ""
+	if isinstance(sales_quote, Document):
+		return cstr(getattr(sales_quote, "name", None)).strip()
+	if isinstance(sales_quote, str):
+		return sales_quote.strip()
+	if isinstance(sales_quote, dict):
+		if cstr(sales_quote.get("doctype")).strip() == "Sales Quote":
+			return cstr(sales_quote.get("name")).strip()
+		link = sales_quote.get("sales_quote")
+		return coerce_sales_quote_name(link) if link else ""
+	doctype = cstr(getattr(sales_quote, "doctype", None)).strip()
+	if doctype == "Sales Quote":
+		return cstr(getattr(sales_quote, "name", None)).strip()
+	link = getattr(sales_quote, "sales_quote", None)
+	if link:
+		return coerce_sales_quote_name(link)
+	return ""
+
+
 def any_sales_quote_charge_matches_internal_job_detail_params(
-	sales_quote: str | None,
+	sales_quote: str | Any | None,
 	ij_row: Any,
 	service_type_label: str,
 ) -> bool:
 	"""True when at least one Sales Quote Charge row matches the Internal Job Detail parameters."""
 	from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
 
-	sq_name = (sales_quote or "").strip()
+	sq_name = coerce_sales_quote_name(sales_quote)
 	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
 		return True
 
@@ -348,7 +582,7 @@ def matching_quote_charge_rows(
 	"""Sales Quote Charge rows matching service type and parameter dict."""
 	from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
 
-	sq_name = (sales_quote or "").strip()
+	sq_name = coerce_sales_quote_name(sales_quote)
 	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
 		return []
 	scoped = extract_service_scoped_params_dict(params, service_type_label)
@@ -385,12 +619,12 @@ def collect_wildcard_fields_for_param_set(
 
 
 def any_sales_quote_charge_matches_params_dict(
-	sales_quote: str | None,
+	sales_quote: str | Any | None,
 	params: dict[str, Any] | None,
 	service_type_label: str,
 ) -> bool:
 	"""True when at least one Sales Quote Charge row matches a parameter dict."""
-	sq_name = (sales_quote or "").strip()
+	sq_name = coerce_sales_quote_name(sales_quote)
 	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
 		return True
 	scoped = extract_service_scoped_params_dict(params, service_type_label)
@@ -415,8 +649,7 @@ def _lookup_change_request_charge_parameters(
 	for row in cr_doc.get("charges") or []:
 		if (_row_val(row, "name") or "").strip() != crc_name:
 			continue
-		row_st = (_row_val(row, "service_type") or st or "").strip()
-		return extract_service_scoped_quote_parameters(row, row_st)
+		return resolve_change_request_charge_parameters(row, cr_doc)
 	return {}
 
 
@@ -630,6 +863,26 @@ def refresh_sales_quote_charge_parameters_display(charge_row: Any, quote_doc: An
 	elif isinstance(charge_row, dict):
 		charge_row["parameters"] = text
 	return text
+
+
+@frappe.whitelist()
+def format_change_request_charge_parameters_display(
+	charge_row=None, change_request_doc=None
+) -> str:
+	"""Desk helper: format parameters for a CR charge row."""
+	if isinstance(charge_row, str):
+		charge_row = frappe.parse_json(charge_row)
+	if isinstance(change_request_doc, str):
+		change_request_doc = frappe.parse_json(change_request_doc)
+	if not charge_row:
+		return ""
+	cr_doc = change_request_doc
+	if isinstance(cr_doc, dict) and cr_doc.get("name"):
+		try:
+			cr_doc = frappe.get_doc("Change Request", cr_doc["name"])
+		except Exception:
+			cr_doc = frappe._dict(change_request_doc)
+	return refresh_change_request_charge_parameters_display(charge_row, cr_doc)
 
 
 @frappe.whitelist()

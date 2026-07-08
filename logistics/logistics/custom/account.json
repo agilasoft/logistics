@@ -28,6 +28,15 @@
    "insert_after": "fund_type",
    "depends_on": "eval:!doc.is_group && ['Bank', 'Cash'].includes(doc.account_type) && doc.fund_type",
    "description": "Maximum total amount allowed per Cash Advance Request from this fund source."
+  },
+  {
+   "dt": "Account",
+   "fieldname": "require_job_number",
+   "fieldtype": "Check",
+   "label": "Require Job Number",
+   "insert_after": "cash_advance_request_limit",
+   "depends_on": "eval:!doc.is_group && ['Bank', 'Cash'].includes(doc.account_type) && doc.fund_type",
+   "description": "When enabled, cash advance lines for charge items marked Require Job Number must include a Job Number."
   }
  ],
  "custom_perms": [],

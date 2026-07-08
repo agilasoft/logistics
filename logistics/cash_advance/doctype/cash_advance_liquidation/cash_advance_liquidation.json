@@ -2,9 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "format:CAL.{#####}",
- "creation": "2026-04-22 18:00:00.000000",
- "default_sort_field": "modified",
- "default_sort_order": "DESC",
+ "creation": "2026-04-22 18:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
@@ -24,13 +22,15 @@
   "request_date",
   "liquidation_due_date",
   "liquidation_date",
+  "charges_tab",
   "section_items",
   "items",
   "total_requested",
   "total_liquidated",
   "unliquidated",
   "remarks",
-  "liquidation_journal_entry"
+  "liquidation_journal_entry",
+  "amended_from"
  ],
  "fields": [
   {
@@ -99,9 +99,9 @@
    "options": "Supplier"
   },
   {
+   "fetch_from": "payee.supplier_name",
    "fieldname": "payee_name",
    "fieldtype": "Data",
-   "fetch_from": "payee.supplier_name",
    "label": "Payee Name",
    "read_only": 1
   },
@@ -161,17 +161,31 @@
    "no_copy": 1,
    "options": "Journal Entry",
    "read_only": 1
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Cash Advance Liquidation",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "max_attachments": 0,
- "modified": "2026-04-22 20:00:00.000000",
+ "modified": "2026-07-07 08:24:29.865376",
  "modified_by": "Administrator",
  "module": "Cash Advance",
  "name": "Cash Advance Liquidation",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
@@ -205,6 +219,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

@@ -21,7 +21,9 @@ from logistics.utils.internal_job_detail_copy import (
 )
 from logistics.utils.sales_quote_charge_parameters import (
 	any_sales_quote_charge_matches_internal_job_detail_params,
+	coerce_sales_quote_name,
 	extract_sales_quote_charge_parameters,
+	parameter_fields_for_service_type,
 )
 
 
@@ -31,7 +33,7 @@ CREATABLE_INTERNAL_JOB_TYPES: frozenset[str] = frozenset(
 		"Declaration Order",
 		"Air Booking",
 		"Sea Booking",
-		"Inbound Order",
+		"VAS Order",
 		"MICE Order",
 	}
 )
@@ -69,7 +71,7 @@ def _linked_charge_group_key(charge: Any) -> tuple:
 
 def _virtual_ij_row_from_linked_charge(charge: Any) -> Any:
 	from logistics.utils.linked_service_compat import charge_row_linked_service_link
-	from logistics.utils.sales_quote_charge_parameters import extract_service_scoped_quote_parameters
+	from logistics.utils.sales_quote_charge_parameters import resolve_parameters_for_charge_row
 
 	st = (getattr(charge, "service_type", None) or "").strip()
 	jt = default_job_type_for_internal_job_service_type(st)
@@ -82,9 +84,8 @@ def _virtual_ij_row_from_linked_charge(charge: Any) -> Any:
 			"linked_service": ls,
 		}
 	)
-	if st:
-		for k, v in extract_service_scoped_quote_parameters(charge, st).items():
-			row[k] = v
+	for k, v in resolve_parameters_for_charge_row(charge).items():
+		row[k] = v
 	return row
 
 
@@ -179,6 +180,10 @@ def persist_internal_job_create_back_link(
 	detail_idx: int | None = None,
 ) -> None:
 	"""Back-link after create; linked-charge parents skip the Internal Jobs child table."""
+	if parent_doctype == "Sales Quote":
+		qt = frappe.db.get_value("Sales Quote", parent_name, "quotation_type")
+		if (qt or "").strip() == "Regular":
+			return
 	from logistics.utils.internal_job_persistence import sync_internal_job_doc_job_link
 	from logistics.utils.linked_service_compat import row_linked_service_link
 
@@ -192,13 +197,10 @@ def persist_internal_job_create_back_link(
 
 
 def _apply_internal_job_satellite_flags(doc: Any, main_job_type: str, main_job: str) -> None:
-	"""Converted internal job: IJ on, MS off, link to main."""
-	doc.is_internal_job = 1
-	doc.is_main_service = 0
-	if hasattr(doc, "main_job_type"):
-		doc.main_job_type = main_job_type
-	if hasattr(doc, "main_job"):
-		doc.main_job = main_job
+	"""Converted linked service: Service Role=Linked, stamp main refs (new + legacy)."""
+	from logistics.utils.service_role_rules import apply_linked_service_satellite_flags
+
+	apply_linked_service_satellite_flags(doc, main_job_type, main_job)
 
 
 def linked_internal_job_target_is_cancelled(job_type: str, job_no: str) -> bool:
@@ -219,14 +221,26 @@ def _source_internal_job_nested_block_message() -> str:
 
 
 def is_source_internal_job_linked_to_main(parent_doc: Any) -> bool:
-	"""True when the document is an internal job that already references a main (cannot spawn another internal job from it)."""
-	from frappe.utils import cint
+	"""True when the document is a Linked satellite that already references a main."""
+	from logistics.utils.service_role_rules import is_linked_service_satellite
 
-	if not cint(getattr(parent_doc, "is_internal_job", 0)):
-		return False
-	mjt = (getattr(parent_doc, "main_job_type", None) or "").strip()
-	mj = (getattr(parent_doc, "main_job", None) or "").strip()
-	return bool(mjt and mj)
+	return is_linked_service_satellite(parent_doc)
+
+
+def _source_service_role_context(doc: Any) -> dict[str, Any]:
+	"""Dialog/API keys keep legacy names; values come from service_role helpers."""
+	from logistics.utils.service_role_rules import (
+		SERVICE_ROLE_LINKED,
+		get_main_service_name,
+		get_main_service_type,
+		get_service_role,
+	)
+
+	return {
+		"source_is_internal_job": get_service_role(doc) == SERVICE_ROLE_LINKED,
+		"source_main_job_type": get_main_service_type(doc) or None,
+		"source_main_job": get_main_service_name(doc) or None,
+	}
 
 
 def ensure_operational_source_can_create_internal_job(parent_doc: Any) -> None:
@@ -243,7 +257,7 @@ _SERVICE_LOWER_FOR_JOB_TYPE: dict[str, str] = {
 	"Declaration Order": "customs",
 	"Air Booking": "air",
 	"Sea Booking": "sea",
-	"Inbound Order": "warehousing",
+	"VAS Order": "warehousing",
 }
 
 _SERVICE_LABEL_FOR_JOB_TYPE: dict[str, str] = {
@@ -251,7 +265,7 @@ _SERVICE_LABEL_FOR_JOB_TYPE: dict[str, str] = {
 	"Declaration Order": "Customs",
 	"Air Booking": "Air",
 	"Sea Booking": "Sea",
-	"Inbound Order": "Warehousing",
+	"VAS Order": "Warehousing",
 }
 
 INTERNAL_JOB_QUOTE_PARAMETER_MISMATCH_MESSAGE = _(
@@ -444,16 +458,6 @@ def apply_internal_job_detail_row_to_operational_doc(
 	if not row:
 		return
 	meta = frappe.get_meta(doc.doctype)
-	dt = doc.doctype
-
-	def set_field(fieldname: str, val: Any) -> None:
-		if val is None or val == "":
-			return
-		if not meta.get_field(fieldname):
-			return
-		cur = getattr(doc, fieldname, None)
-		if overwrite or cur is None or cur == "":
-			doc.set(fieldname, val)
 
 	# Always carry the canonical Linked Service link onto the new operational doc (when the target
 	# doctype defines the field). This is set before the parameter early-return below so we still
@@ -471,46 +475,15 @@ def apply_internal_job_detail_row_to_operational_doc(
 		if overwrite or not cur_ls:
 			doc.set("linked_service", ij_link_val)
 
-	params = extract_sales_quote_charge_parameters(row)
-	if not params:
+	from logistics.utils.sales_quote_charge_parameters import (
+		apply_scope_fields_to_operational_doc,
+		resolve_operational_doc_scope_parameters,
+	)
+
+	if not resolve_operational_doc_scope_parameters(row):
 		return
 
-	if dt == "Air Booking":
-		if "air_house_type" in params:
-			set_field("house_type", params["air_house_type"])
-		for fn in (
-			"airline",
-			"freight_agent",
-			"direction",
-			"origin_port",
-			"destination_port",
-			"transport_mode",
-			"load_type",
-		):
-			if fn in params:
-				set_field(fn, params[fn])
-		if params.get("location_from") and not (getattr(doc, "origin_port", None) or "").strip():
-			set_field("origin_port", params["location_from"])
-		if params.get("location_to") and not (getattr(doc, "destination_port", None) or "").strip():
-			set_field("destination_port", params["location_to"])
-		return
-
-	if dt == "Sea Booking":
-		if "sea_house_type" in params:
-			set_field("house_type", params["sea_house_type"])
-		if "freight_agent_sea" in params:
-			set_field("freight_agent", params["freight_agent_sea"])
-		for fn in ("shipping_line", "direction", "origin_port", "destination_port", "transport_mode"):
-			if fn in params:
-				set_field(fn, params[fn])
-		if params.get("location_from") and not (getattr(doc, "origin_port", None) or "").strip():
-			set_field("origin_port", params["location_from"])
-		if params.get("location_to") and not (getattr(doc, "destination_port", None) or "").strip():
-			set_field("destination_port", params["location_to"])
-		return
-
-	for fn, val in params.items():
-		set_field(fn, val)
+	apply_scope_fields_to_operational_doc(doc, row, overwrite=overwrite)
 
 
 _CONTACTS_ADDRESSES_FIELD_NAMES: tuple[str, ...] = (
@@ -704,7 +677,7 @@ def _job_type_allowed_for_source(
 			# Allow cross-mode (Air-under-Sea) and same-mode (Air-under-Air) Internal Job bookings.
 			# Same-mode is unusual but valid (e.g. a Domestic Air leg under an Import Air Main).
 			return _shipment_charge_matches_service(parent_doc, "air")
-		if jt == "Inbound Order":
+		if jt == "VAS Order":
 			return bool(flags.get("allow_inbound"))
 		return False
 	if source_doctype == "Transport Job":
@@ -714,22 +687,24 @@ def _job_type_allowed_for_source(
 			return bool(flags.get("allow_declaration"))
 		if jt in ("Air Booking", "Sea Booking"):
 			return True
-		if jt == "Inbound Order":
+		if jt == "VAS Order":
 			return bool(flags.get("allow_inbound"))
 		return False
 	if source_doctype == "Declaration":
-		from frappe.utils import cint
-
 		sq = getattr(parent_doc, "sales_quote", None)
 		if jt == "Transport Order":
 			if not sq:
 				return False
 			if (getattr(parent_doc, "transport_order", None) or "").strip():
 				return False
-			is_ij = cint(getattr(parent_doc, "is_internal_job", 0))
-			is_main = cint(getattr(parent_doc, "is_main_service", 0))
-			return bool((is_main and not is_ij) or is_ij)
-		if jt == "Inbound Order":
+			from logistics.utils.service_role_rules import (
+				SERVICE_ROLE_LINKED,
+				SERVICE_ROLE_MAIN,
+				get_service_role,
+			)
+
+			return get_service_role(parent_doc) in (SERVICE_ROLE_MAIN, SERVICE_ROLE_LINKED)
+		if jt == "VAS Order":
 			return bool(flags.get("allow_inbound")) and bool(sq)
 		return False
 	return False
@@ -891,6 +866,9 @@ def get_internal_job_creation_choices(
 			from logistics.utils.linked_service_compat import row_linked_service_link
 
 			ij_link_for_row = row_linked_service_link(row)
+		row_container_no = (getattr(row, "container_no", None) or "").strip()
+		if isinstance(row, dict):
+			row_container_no = (row.get("container_no") or row_container_no or "").strip()
 		choice: dict[str, Any] = {
 			"mode": "detail",
 			"detail_idx": idx,
@@ -902,6 +880,8 @@ def get_internal_job_creation_choices(
 			"creatable": creatable,
 			**header,
 		}
+		if row_container_no:
+			choice["container_no"] = row_container_no
 		if not_creatable_message:
 			choice["not_creatable_message"] = not_creatable_message
 		choices.append(choice)
@@ -1026,7 +1006,7 @@ def _charges_preview_list(
 	# preview reflects the rows that will be copied onto the new Internal Job Booking. The parent's
 	# own ``charges`` rows are scope=Main and don't carry the SQ parameter columns, so matching them
 	# by IJ params yields false-positive wildcards.
-	sq_name = (getattr(parent_doc, "sales_quote", None) or "").strip()
+	sq_name = coerce_sales_quote_name(getattr(parent_doc, "sales_quote", None))
 	if ij_link and sq_name and svc_label and frappe.db.exists("Sales Quote", sq_name):
 		try:
 			sq_doc = frappe.get_cached_doc("Sales Quote", sq_name)
@@ -1112,8 +1092,6 @@ def get_internal_job_creation_preview(
 	doc = frappe.get_doc(source_doctype, source_name)
 	doc.check_permission("read")
 
-	from frappe.utils import cint
-
 	if is_source_internal_job_linked_to_main(doc):
 		idx_block = coerce_internal_job_detail_idx(internal_job_detail_idx)
 		customer = getattr(doc, "local_customer", None) or getattr(doc, "customer", None)
@@ -1130,9 +1108,7 @@ def get_internal_job_creation_preview(
 				"customer": customer,
 				"company": getattr(doc, "company", None),
 				"sales_quote": getattr(doc, "sales_quote", None),
-				"source_is_internal_job": bool(cint(getattr(doc, "is_internal_job", 0))),
-				"source_main_job_type": getattr(doc, "main_job_type", None),
-				"source_main_job": getattr(doc, "main_job", None),
+				**_source_service_role_context(doc),
 				"from_main_service_shipment": False,
 			},
 			"target_internal_job": None,
@@ -1170,8 +1146,6 @@ def _get_internal_job_creation_preview_body(
 	jt: str,
 	idx: int | None,
 ) -> dict[str, Any]:
-	from frappe.utils import cint
-
 	from logistics.utils import module_integration as mi
 
 	def _line_only_preview(
@@ -1206,9 +1180,7 @@ def _get_internal_job_creation_preview_body(
 				"customer": customer,
 				"company": getattr(doc, "company", None),
 				"sales_quote": getattr(doc, "sales_quote", None),
-				"source_is_internal_job": bool(cint(getattr(doc, "is_internal_job", 0))),
-				"source_main_job_type": getattr(doc, "main_job_type", None),
-				"source_main_job": getattr(doc, "main_job", None),
+				**_source_service_role_context(doc),
 				"from_main_service_shipment": False,
 			},
 			"target_internal_job": None,
@@ -1289,10 +1261,18 @@ def _get_internal_job_creation_preview_body(
 
 	routing_params: dict[str, Any] = extract_sales_quote_charge_parameters(ij_row) if ij_row else {}
 	from_main = False
+	from logistics.utils.service_role_rules import (
+		SERVICE_ROLE_LINKED,
+		get_main_service_name,
+		get_main_service_type,
+		get_service_role,
+	)
+
+	# Client-compat keys (is_internal_job / main_job_*); values derived from service_role helpers.
 	ij, mjt, mj = (
-		cint(getattr(doc, "is_internal_job", 0)),
-		getattr(doc, "main_job_type", None),
-		getattr(doc, "main_job", None),
+		1 if get_service_role(doc) == SERVICE_ROLE_LINKED else 0,
+		get_main_service_type(doc) or None,
+		get_main_service_name(doc) or None,
 	)
 	target_internal: dict[str, Any] | None = None
 
@@ -1310,10 +1290,21 @@ def _get_internal_job_creation_preview_body(
 			ij, mjt, mj = mi._declaration_order_job_context_from_freight_shipment(doc, source_doctype, source_name)
 			from_main = mi._preview_from_main_service_internal_for_target(doc, "customs")
 			target_internal = {"is_internal_job": bool(ij), "main_job_type": mjt, "main_job": mj}
+		elif jt == "VAS Order":
+			ij, mjt, mj = mi.final_inbound_order_job_context_from_freight_shipment(
+				doc, source_doctype, source_name
+			)
+			ij, mjt, mj = mi.resolve_inbound_order_freight_main_job_if_empty(
+				doc, source_doctype, source_name, ij, mjt, mj
+			)
+			if not ij:
+				ij, mjt, mj = 1, source_doctype, source_name
+			from_main = True
+			target_internal = {"is_internal_job": bool(ij), "main_job_type": mjt, "main_job": mj}
 		else:
 			target_internal = None
 	elif source_doctype == "Transport Job":
-		if jt in ("Declaration Order", "Transport Order"):
+		if jt in ("Declaration Order", "Transport Order", "VAS Order"):
 			target_internal = {
 				"is_internal_job": True,
 				"main_job_type": "Transport Job",
@@ -1321,14 +1312,14 @@ def _get_internal_job_creation_preview_body(
 			}
 	elif source_doctype == "Declaration":
 		if jt == "Transport Order" and (
-			cint(getattr(doc, "is_internal_job", 0)) or ij_row is not None
+			get_service_role(doc) == SERVICE_ROLE_LINKED or ij_row is not None
 		):
 			target_internal = {
 				"is_internal_job": True,
 				"main_job_type": "Declaration",
 				"main_job": doc.name,
 			}
-		elif jt == "Inbound Order":
+		elif jt == "VAS Order":
 			target_internal = {
 				"is_internal_job": True,
 				"main_job_type": "Declaration",
@@ -1377,9 +1368,7 @@ def _get_internal_job_creation_preview_body(
 			"customer": customer,
 			"company": getattr(doc, "company", None),
 			"sales_quote": getattr(doc, "sales_quote", None),
-			"source_is_internal_job": bool(cint(getattr(doc, "is_internal_job", 0))),
-			"source_main_job_type": getattr(doc, "main_job_type", None),
-			"source_main_job": getattr(doc, "main_job", None),
+			**_source_service_role_context(doc),
 			"from_main_service_shipment": from_main,
 		},
 		"target_internal_job": target_internal,
@@ -1438,8 +1427,8 @@ def create_internal_job_from_operational_source(
 			if jt == "Air Booking":
 				# Same-mode IJ (e.g. Domestic Air leg under Import Air Main).
 				return _create_air_booking_from_air_shipment(source_name, internal_job_detail_idx=idx)
-			if jt == "Inbound Order":
-				return mi.create_inbound_order_from_air_shipment(
+			if jt == "VAS Order":
+				return mi.create_vas_order_from_air_shipment(
 					source_name, internal_job_detail_idx=idx
 				)
 		if source_doctype == "Sea Shipment":
@@ -1456,8 +1445,8 @@ def create_internal_job_from_operational_source(
 			if jt == "Sea Booking":
 				# Same-mode IJ (e.g. Domestic Sea leg under Import Sea Main).
 				return _create_sea_booking_from_sea_shipment(source_name, internal_job_detail_idx=idx)
-			if jt == "Inbound Order":
-				return mi.create_inbound_order_from_sea_shipment(
+			if jt == "VAS Order":
+				return mi.create_vas_order_from_sea_shipment(
 					source_name, internal_job_detail_idx=idx
 				)
 		if source_doctype == "Transport Job":
@@ -1469,8 +1458,8 @@ def create_internal_job_from_operational_source(
 				return _create_air_booking_from_transport_job(source_name, internal_job_detail_idx=idx)
 			if jt == "Sea Booking":
 				return _create_sea_booking_from_transport_job(source_name, internal_job_detail_idx=idx)
-			if jt == "Inbound Order":
-				return mi.create_inbound_order_from_transport_job(
+			if jt == "VAS Order":
+				return mi.create_vas_order_from_transport_job(
 					source_name, internal_job_detail_idx=idx
 				)
 		if source_doctype == "Declaration":
@@ -1478,8 +1467,8 @@ def create_internal_job_from_operational_source(
 				return mi.create_transport_order_from_declaration(
 					source_name, internal_job_detail_idx=idx
 				)
-			if jt == "Inbound Order":
-				return mi.create_inbound_order_from_declaration(
+			if jt == "VAS Order":
+				return mi.create_vas_order_from_declaration(
 					source_name, internal_job_detail_idx=idx
 				)
 
@@ -1494,8 +1483,6 @@ def _populate_sea_booking_charges_from_linked_quote_on_internal_create(doc) -> N
 	Prefers Sea ``service_type`` charge rows copied from the Main Job when present, otherwise Sales Quote.
 	Routing is always applied from the linked quote when legs exist (independent of charge overlay).
 	"""
-	from frappe.utils import cint
-
 	from logistics.utils.internal_job_charge_copy import (
 		populate_internal_job_charges_from_main_service,
 		should_apply_internal_job_main_charge_overlay,
@@ -1509,7 +1496,7 @@ def _populate_sea_booking_charges_from_linked_quote_on_internal_create(doc) -> N
 	apply_main_job_routing_operational_overlay(doc)
 
 	overlay_populated = False
-	if cint(getattr(doc, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(doc):
+	if should_apply_internal_job_main_charge_overlay(doc):
 		try:
 			n, _st = populate_internal_job_charges_from_main_service(doc)
 			if n:
@@ -1543,8 +1530,6 @@ def _populate_air_booking_charges_from_linked_quote_on_internal_create(doc) -> N
 	Prefers Air ``service_type`` charge rows copied from the Main Job when present, otherwise Sales Quote.
 	Routing is always applied from the linked quote when legs exist (independent of charge overlay).
 	"""
-	from frappe.utils import cint
-
 	from logistics.utils.internal_job_charge_copy import (
 		populate_internal_job_charges_from_main_service,
 		should_apply_internal_job_main_charge_overlay,
@@ -1558,7 +1543,7 @@ def _populate_air_booking_charges_from_linked_quote_on_internal_create(doc) -> N
 	apply_main_job_routing_operational_overlay(doc)
 
 	overlay_populated = False
-	if cint(getattr(doc, "is_internal_job", 0)) and should_apply_internal_job_main_charge_overlay(doc):
+	if should_apply_internal_job_main_charge_overlay(doc):
 		try:
 			n, _st = populate_internal_job_charges_from_main_service(doc)
 			if n:

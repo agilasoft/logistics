@@ -90,6 +90,10 @@ class TestOperationalLinkedServices(FrappeTestCase):
 			frappe.delete_doc("Sea Shipment", shipment.name, force=True, ignore_permissions=True)
 			frappe.delete_doc("Sea Booking", booking.name, force=True, ignore_permissions=True)
 
-	def test_meta_has_no_internal_job_details_field_on_sea_booking(self):
+	def test_meta_has_linked_services_field_on_sea_booking(self):
 		meta = frappe.get_meta("Sea Booking")
+		field = meta.get_field("linked_services")
+		self.assertIsNotNone(field)
+		self.assertEqual(field.fieldtype, "Table")
+		self.assertTrue(field.is_virtual)
 		self.assertIsNone(meta.get_field("internal_job_details"))

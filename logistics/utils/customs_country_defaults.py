@@ -6,7 +6,12 @@
 from __future__ import annotations
 
 import frappe
-from frappe.utils import cint
+
+from logistics.utils.service_role_rules import (
+	get_main_service_name,
+	get_main_service_type,
+	is_linked_service_satellite,
+)
 
 _CUSTOMS_DOCTYPES = frozenset({"Declaration Order", "Declaration"})
 
@@ -114,8 +119,8 @@ def _country_from_port_candidates(port_codes: list[str]) -> str | None:
 
 
 def _load_main_job_doc(doc):
-	main_job_type = getattr(doc, "main_job_type", None)
-	main_job = getattr(doc, "main_job", None)
+	main_job_type = get_main_service_type(doc)
+	main_job = get_main_service_name(doc)
 	if not main_job_type or not main_job or not frappe.db.exists(main_job_type, main_job):
 		return None
 	try:
@@ -153,7 +158,7 @@ def apply_internal_job_customs_country_defaults(doc):
 		apply_internal_job_master_transport_defaults,
 	)
 
-	if doc.doctype not in _CUSTOMS_DOCTYPES or not cint(getattr(doc, "is_internal_job", 0)):
+	if doc.doctype not in _CUSTOMS_DOCTYPES or not is_linked_service_satellite(doc):
 		return
 
 	apply_internal_job_master_transport_defaults(doc)

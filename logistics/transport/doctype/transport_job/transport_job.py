@@ -48,6 +48,7 @@ class TransportJob(Document):
             # This prevents "Job Type must be set first" errors by only validating when transport_job_type exists
             self._validate_transport_job_type()
             self._validate_load_type_compatibility()
+            self._validate_transport_template_compatibility()
             self.validate_legs()
             self.validate_accounts()
             self.validate_status_transition()
@@ -633,6 +634,16 @@ class TransportJob(Document):
                 load_type_name or self.load_type, 
                 self.transport_job_type
             ))
+
+    def _validate_transport_template_compatibility(self):
+        if not getattr(self, "transport_template", None):
+            return
+
+        from logistics.transport.doctype.transport_template.transport_template import (
+            validate_doc_transport_template,
+        )
+
+        validate_doc_transport_template(self, context=_("Transport Job"))
     
     def validate_legs(self):
         """Validate that submitted jobs have at least one leg and update missing data"""

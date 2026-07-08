@@ -24,6 +24,7 @@ from logistics.document_management.dashboard_layout import (
 	render_special_project_fulfillment_route_tab_html,
 )
 from logistics.special_projects.doctype.special_project.special_project import (
+	_build_dashboard_required_materials_tab_html,
 	_build_fulfillment_tab_html,
 	_build_lifecycle_grouped_job_cards_sidebar,
 	_build_main_dash_fulfillment_left_html,
@@ -435,6 +436,16 @@ class TestDashboardFulfillmentSurfaces(UnitTestCase):
 		self.assertNotIn('<div class="sp-pfn-hero">', html)
 		self.assertNotIn('<div class="sp-pfn-pipeline"', html)
 		self.assertNotIn('<div class="sp-pfn-toolbar">', html)
+
+	def test_dashboard_required_materials_tab_has_table_not_hero(self):
+		sp = self._sample_sp()
+		ctx = _packages_fulfillment_context(sp, current_lifecycle_stage="Logistics")
+		html = _build_dashboard_required_materials_tab_html(sp, ctx)
+		self.assertIn("sp-packages-summary--dash-materials", html)
+		self.assertIn('<div class="sp-pfn-summary-panel"', html)
+		self.assertIn("sp-pfn-filter-chip", html)
+		self.assertNotIn('<div class="sp-pfn-hero">', html)
+		self.assertNotIn('<div class="sp-pfn-current-stage-throughput"', html)
 
 	def test_lifecycle_group_header_embeds_throughput(self):
 		tp = {"Logistics": {"qty": 30.0, "pct": 30.0, "required": 100.0}}

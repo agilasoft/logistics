@@ -2,7 +2,8 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe.tests import IntegrationTestCase
+from frappe.tests import IntegrationTestCase, UnitTestCase
+from unittest.mock import patch
 
 from logistics.special_projects.special_project_charge_lifecycle import (
 	append_charge_lifecycle_tag_for_test,
@@ -12,6 +13,22 @@ from logistics.special_projects.special_project_charge_lifecycle import (
 from logistics.special_projects.test_special_project_helpers import (
 	new_special_project_for_test,
 )
+
+
+class TestSyncLifecycleJobExecutionNo(UnitTestCase):
+	def test_sets_job_no_from_dict_service_row(self):
+		row = {
+			"name": "SPS-1",
+			"service_type": "Air",
+			"job_type": "Air Booking",
+			"order_no": "ABK-1",
+		}
+		with patch(
+			"logistics.utils.special_project_internal_jobs._resolve_order_ref_to_operational_ref",
+			return_value=("Air Shipment", "ASP-1"),
+		):
+			sync_lifecycle_job_execution_no(row)
+		self.assertEqual(row["job_no"], "ASP-1")
 
 
 class TestChargeLifecycleTag(IntegrationTestCase):
@@ -32,7 +49,10 @@ class TestChargeLifecycleTag(IntegrationTestCase):
 			job_no="AB-LEGACY-1",
 			order_no=None,
 		)
-		normalize_lifecycle_job_order_job_fields(frappe._dict(special_project_services=[row]))
+		doc = frappe.get_doc({"doctype": "Special Project", "name": "TEST-NORM"})
+		doc.__dict__["special_project_services"] = [row]
+		doc.flags._special_project_services_from_form = True
+		normalize_lifecycle_job_order_job_fields(doc)
 		self.assertEqual(row.job_type, "Air Booking")
 		self.assertEqual(row.order_no, "AB-LEGACY-1")
 		self.assertIsNone(row.job_no)
@@ -66,7 +86,7 @@ class TestChargeLifecycleTag(IntegrationTestCase):
 		sp.save(ignore_permissions=True)
 		sp.reload()
 		row = sp.special_project_services[0]
-		self.assertFalse((row.job_type or "").strip())
+		self.assertEqual((row.job_type or "").strip(), "Air Booking")
 		self.assertFalse((row.job_no or "").strip())
 
 	def test_charge_row_tags_lifecycle_line(self):

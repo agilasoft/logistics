@@ -4,7 +4,7 @@
 
 """
 Internal billing: Journal Entry for Internal Jobs where the operating company matches
-the Main Job company. Internal Job is identified by is_internal_job + Main Job link
+the Main Job company. Internal Job is identified by service_role=Linked + Main Service link
 (on the job or parent booking/order). Intercompany SI/PI is handled separately when
 companies differ (see intercompany_invoice).
 
@@ -165,12 +165,11 @@ def create_internal_billing_journal_entries_for_quote(
     if not legs:
         return {"success": True, "created": 0, "message": _("No routing legs.")}
 
-    main_leg = next((r for r in legs if getattr(r, "is_main_job", 0)), None)
-    if not main_leg:
-        return {"success": True, "created": 0, "message": _("No Main Job on quote.")}
+    from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+        _resolve_main_job_for_sales_quote,
+    )
 
-    main_job_type = getattr(main_leg, "job_type", None)
-    main_job_no = getattr(main_leg, "job_no", None)
+    main_job_type, main_job_no = _resolve_main_job_for_sales_quote(sales_quote)
     if not main_job_type or not main_job_no:
         return {"success": True, "created": 0, "message": _("Main Job has no job linked.")}
 

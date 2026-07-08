@@ -75,6 +75,7 @@ class AirShipmentIATATransaction(Document):
 	def lookup_tact_rate(self):
 		try:
 			from logistics.air_freight.utils.iata_settings_utils import get_settings
+			from logistics.air_freight.iata_cargo_xml.integrations.tact_client import lookup_tact_rate
 
 			company = frappe.db.get_value("Air Shipment", self.air_shipment, "company")
 			iata_settings = get_settings(company=company, air_shipment=self.air_shipment)
@@ -84,23 +85,49 @@ class AirShipmentIATATransaction(Document):
 						company or _("(unknown)")
 					)
 				)
-			if not iata_settings.tact_subscription:
-				frappe.throw(_("TACT subscription is not enabled in IATA Settings"))
-			if not iata_settings.tact_api_key:
-				frappe.throw(_("TACT API key is not configured in IATA Settings"))
+			result = lookup_tact_rate(self.air_shipment, iata_settings)
+			if not result.get("success"):
+				frappe.throw(result.get("error") or _("TACT lookup failed"))
 
-			# Future TACT API: load Air Shipment for origin/destination/weight/chargeable.
-			frappe.msgprint(
-				_("TACT rate lookup functionality requires TACT API integration. Please configure TACT API endpoint."),
-				indicator="blue",
-				title=_("TACT Integration"),
-			)
-			return {"status": "info", "message": "TACT rate lookup requires API integration"}
+			self.tact_rate_lookup = 1
+			self.tact_rate_reference = result.get("tact_rate_reference")
+			self.tact_rate_amount = result.get("tact_rate_amount")
+			self.tact_currency = result.get("tact_currency")
+			self.tact_rate_validity = result.get("tact_rate_validity")
+			self.save()
+			return {"status": "success", **result}
 		except (frappe.ValidationError, frappe.LinkValidationError, frappe.PermissionError):
 			raise
 		except Exception as e:
 			frappe.log_error(f"TACT rate lookup error: {str(e)}", "Air Shipment IATA Transaction - TACT")
 			frappe.throw(_("Error looking up TACT rate: {0}").format(str(e)))
+
+	@frappe.whitelist()
+	def submit_cass_settlement(self):
+		from logistics.air_freight.utils.iata_settings_utils import get_settings
+		from logistics.air_freight.iata_cargo_xml.integrations.cass_client import submit_cass_settlement
+
+		company = frappe.db.get_value("Air Shipment", self.air_shipment, "company")
+		settings = get_settings(company=company, air_shipment=self.air_shipment)
+		result = submit_cass_settlement(self, settings)
+		if result.get("success"):
+			self.cass_settlement_status = "Submitted"
+			self.cass_settlement_date = today()
+			self.save()
+		else:
+			frappe.throw(result.get("error") or _("CASS submission failed"))
+		return result
+
+	@frappe.whitelist()
+	def validate_dg_autocheck(self):
+		from logistics.air_freight.utils.iata_settings_utils import get_settings
+		from logistics.air_freight.iata_cargo_xml.integrations.dg_autocheck_client import (
+			validate_dangerous_goods,
+		)
+
+		company = frappe.db.get_value("Air Shipment", self.air_shipment, "company")
+		settings = get_settings(company=company, air_shipment=self.air_shipment)
+		return validate_dangerous_goods(self.air_shipment, settings)
 
 	@frappe.whitelist()
 	def create_eawb(self):
@@ -150,3 +177,9 @@ class AirShipmentIATATransaction(Document):
 		except Exception as e:
 			frappe.log_error(f"e-AWB signing error: {str(e)}", "Air Shipment IATA Transaction - e-AWB")
 			frappe.throw(_("Error signing e-AWB: {0}").format(str(e)))
+
+	@frappe.whitelist()
+	def submit_eawb(self):
+		from logistics.air_freight.iata_cargo_xml.eawb_service import submit_house_eawb
+
+		return submit_house_eawb(self.name)

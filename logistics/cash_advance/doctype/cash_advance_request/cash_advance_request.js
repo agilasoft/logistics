@@ -4,7 +4,13 @@ frappe.ui.form.on('Cash Advance Request', {
 		logistics_cash_advance_set_employee_advance_query(frm);
 		logistics_cash_advance_set_dimension_queries(frm);
 		logistics_cash_advance_set_item_query(frm);
-		logistics_cash_advance_toggle_item_job_number(frm);
+		logistics_cash_advance_preload_item_require_job_number(frm).then(function() {
+			logistics_cash_advance_toggle_item_job_number(frm);
+		});
+
+		if (frm.doc.docstatus === 0 && frm.doc.date && frm.doc.company) {
+			logistics_cash_advance_set_default_liquidation_due_date(frm);
+		}
 
 		if (
 			!frm.is_new() &&
@@ -28,31 +34,38 @@ frappe.ui.form.on('Cash Advance Request', {
 		logistics_cash_advance_set_employee_advance_query(frm);
 		logistics_cash_advance_set_dimension_queries(frm);
 		logistics_cash_advance_clear_mismatched_dimensions(frm);
+		logistics_cash_advance_set_default_liquidation_due_date(frm);
+	},
+
+	date: function(frm) {
+		logistics_cash_advance_set_default_liquidation_due_date(frm);
 	},
 
 	fund_source: function(frm) {
 		if (!frm.doc.fund_source) {
 			frm.set_value('fund_type', null);
+			frm.set_value('require_job_number', 0);
+			logistics_cash_advance_toggle_item_job_number(frm);
 			return;
 		}
-		frappe.db.get_value('Account', frm.doc.fund_source, ['fund_type', 'cash_advance_request_limit'], function(r) {
-			if (r) {
-				frm.set_value('fund_type', r.fund_type || null);
+		frappe.db.get_value(
+			'Account',
+			frm.doc.fund_source,
+			['fund_type', 'cash_advance_request_limit', 'require_job_number'],
+			function(r) {
+				if (r) {
+					frm.set_value('fund_type', r.fund_type || null);
+					frm.set_value('require_job_number', r.require_job_number ? 1 : 0);
+				}
+				logistics_cash_advance_toggle_item_job_number(frm);
 			}
-		});
+		);
 		logistics_cash_advance_set_item_query(frm);
 	},
 
-	fund_type: function(frm) {
+	require_job_number: function(frm) {
 		logistics_cash_advance_toggle_item_job_number(frm);
 		logistics_cash_advance_set_item_query(frm);
-	},
-
-	job_number: function(frm) {
-		logistics_cash_advance_apply_job_number_dimensions(frm).then(function() {
-			logistics_cash_advance_set_item_query(frm);
-			logistics_cash_advance_clear_invalid_items(frm);
-		});
 	},
 
 	total_requested: function(frm) {
@@ -127,6 +140,7 @@ function logistics_cash_advance_clear_mismatched_dimensions(frm) {
 			if (r && r.company && r.company !== company) {
 				frm.set_value('fund_source', null);
 				frm.set_value('fund_type', null);
+				frm.set_value('require_job_number', 0);
 			}
 		});
 	}
@@ -149,32 +163,51 @@ function logistics_cash_advance_set_fund_source_query(frm) {
 	});
 }
 
+function logistics_cash_advance_preload_item_require_job_number(frm) {
+	var codes = (frm.doc.items || []).map(function(row) { return row.item_code; }).filter(Boolean);
+	if (!codes.length) {
+		return Promise.resolve();
+	}
+	return frappe.db.get_list('Item', {
+		filters: { name: ['in', codes] },
+		fields: ['name', 'require_job_number'],
+		limit_page_length: 0
+	}).then(function(rows) {
+		frm._cash_advance_item_require_job_number = frm._cash_advance_item_require_job_number || {};
+		rows.forEach(function(row) {
+			frm._cash_advance_item_require_job_number[row.name] = row.require_job_number ? 1 : 0;
+		});
+	});
+}
+
+function logistics_cash_advance_row_requires_job_number(frm, row) {
+	if (!frm.doc.require_job_number || !row || !row.item_code) {
+		return false;
+	}
+	var cache = frm._cash_advance_item_require_job_number || {};
+	return !!cache[row.item_code];
+}
+
 function logistics_cash_advance_toggle_item_job_number(frm) {
-	var revolving = frm.doc.fund_type === 'Revolving Fund';
+	var show = !!frm.doc.require_job_number;
 	frm.fields_dict.items.grid.update_docfield_property(
-		'job_number', 'reqd', revolving ? 1 : 0
-	);
-	frm.fields_dict.items.grid.update_docfield_property(
-		'job_number', 'hidden', revolving ? 0 : 1
+		'job_number', 'hidden', show ? 0 : 1
 	);
 	frm.refresh_field('items');
 }
 
 function logistics_cash_advance_resolve_item_job_number(frm, row) {
-	if (frm.doc.fund_type === 'Revolving Fund') {
-		return row && row.job_number;
-	}
-	return frm.doc.job_number;
+	return row && row.job_number;
 }
 
 function logistics_cash_advance_set_item_query(frm) {
 	frm.set_query('item_code', 'items', function(doc, cdt, cdn) {
 		var row = locals[cdt][cdn];
+		if (!logistics_cash_advance_row_requires_job_number(frm, row)) {
+			return {};
+		}
 		var job_number = logistics_cash_advance_resolve_item_job_number(frm, row);
 		if (!job_number) {
-			if (frm.doc.fund_type && frm.doc.fund_type !== 'Revolving Fund') {
-				return {};
-			}
 			return { filters: [['Item', 'name', '=', '__no_job_number__']] };
 		}
 		return {
@@ -194,11 +227,11 @@ function logistics_cash_advance_set_item_query(frm) {
 	});
 }
 
-function logistics_cash_advance_apply_job_number_dimensions(frm) {
-	if (!frm.doc.job_number) {
+function logistics_cash_advance_apply_row_job_number_dimensions(frm, job_number) {
+	if (!job_number) {
 		return Promise.resolve();
 	}
-	return frappe.db.get_doc('Job Number', frm.doc.job_number).then(function(jn) {
+	return frappe.db.get_doc('Job Number', job_number).then(function(jn) {
 		var chain = Promise.resolve();
 		if (jn.company) {
 			chain = chain.then(function() { return frm.set_value('company', jn.company); });
@@ -220,33 +253,61 @@ function logistics_cash_advance_clear_invalid_items(frm) {
 	if (!frm.doc.items || !frm.doc.items.length) {
 		return;
 	}
-	if (frm.doc.fund_type === 'Revolving Fund') {
+	logistics_cash_advance_preload_item_require_job_number(frm).then(function() {
 		$.each(frm.doc.items || [], function(i, row) {
-			if (!row.job_number && row.item_code) {
-				frappe.model.set_value(row.doctype, row.name, 'item_code', null);
+			if (!row.item_code) {
+				return;
 			}
+			if (!logistics_cash_advance_row_requires_job_number(frm, row)) {
+				return;
+			}
+			var job_number = logistics_cash_advance_resolve_item_job_number(frm, row);
+			if (!job_number) {
+				frappe.model.set_value(row.doctype, row.name, 'item_code', null);
+				return;
+			}
+			frappe.call({
+				method: 'logistics.cash_advance.job_charge_items.get_charge_item_codes',
+				args: { job_number: job_number },
+				callback: function(r) {
+					var allowed = r.message || [];
+					if (row.item_code && allowed.indexOf(row.item_code) === -1) {
+						frappe.model.set_value(row.doctype, row.name, 'item_code', null);
+					}
+				}
+			});
 		});
 		frm.refresh_field('items');
 		calculate_totals(frm);
+	});
+}
+
+function logistics_cash_advance_set_default_liquidation_due_date(frm) {
+	if (!frm.doc || frm.doc.docstatus !== 0 || !frm.doc.date) {
 		return;
 	}
-	if (!frm.doc.job_number) {
+
+	var set_with_offset = function(offsetDays) {
+		var base = frm.doc.date;
+		var days = (typeof offsetDays === 'number' && !isNaN(offsetDays)) ? offsetDays : 30;
+		frm.set_value('liquidation_due_date', frappe.datetime.add_days(base, days));
+	};
+
+	frm._cash_advance_due_date_cache = frm._cash_advance_due_date_cache || {};
+	if (frm._cash_advance_due_date_cache[frm.doc.company] != null) {
+		set_with_offset(frm._cash_advance_due_date_cache[frm.doc.company]);
 		return;
 	}
+
 	frappe.call({
-		method: 'logistics.cash_advance.job_charge_items.get_charge_item_codes',
-		args: { job_number: frm.doc.job_number },
+		method: 'logistics.cash_advance.doctype.cash_advance_settings.cash_advance_settings.get_due_date_settings',
+		args: { company: frm.doc.company },
 		callback: function(r) {
-			var allowed = r.message || [];
-			var set = {};
-			allowed.forEach(function(name) { set[name] = 1; });
-			$.each(frm.doc.items || [], function(i, row) {
-				if (row.item_code && !set[row.item_code]) {
-					frappe.model.set_value(row.doctype, row.name, 'item_code', null);
-				}
-			});
-			frm.refresh_field('items');
-			calculate_totals(frm);
+			var days = (r && r.message && r.message.liquidation_due_date_offset_days != null)
+				? r.message.liquidation_due_date_offset_days
+				: 30;
+			frm._cash_advance_due_date_cache[frm.doc.company] = days;
+			set_with_offset(days);
 		}
 	});
 }
@@ -254,46 +315,85 @@ function logistics_cash_advance_clear_invalid_items(frm) {
 function logistics_cash_advance_extend_due_date(frm) {
 	var base = frm.doc.liquidation_due_date || frappe.datetime.get_today();
 	var default_date = frappe.datetime.add_days(base, 30);
-	frappe.prompt(
-		[
-			{
-				fieldname: 'liquidation_due_date',
-				fieldtype: 'Date',
-				label: __('New Liquidation Due Date'),
-				reqd: 1,
-				default: default_date,
-				description: __('Must be after the current due date and not before today.')
-			},
-			{
-				fieldname: 'reason',
-				fieldtype: 'Small Text',
-				label: __('Reason')
-			}
-		],
-		function(values) {
-			frappe.call({
-				method: 'logistics.cash_advance.doctype.cash_advance_request.cash_advance_request.extend_liquidation_due_date',
-				args: {
-					cash_advance_request: frm.doc.name,
-					liquidation_due_date: values.liquidation_due_date,
-					reason: values.reason
+
+	var show_prompt = function(max_extension_days) {
+		var max_days = (typeof max_extension_days === 'number' && !isNaN(max_extension_days))
+			? max_extension_days
+			: 30;
+		var description = __('Must be after the current due date and not before today.');
+		if (max_days > 0) {
+			description += ' ' + __('Maximum extension: {0} day(s).', [max_days]);
+		}
+
+		frappe.prompt(
+			[
+				{
+					fieldname: 'liquidation_due_date',
+					fieldtype: 'Date',
+					label: __('New Liquidation Due Date'),
+					reqd: 1,
+					default: default_date,
+					description: description
 				},
-				freeze: true,
-				freeze_message: __('Extending due date...'),
-				callback: function(r) {
-					if (r.message && r.message.success) {
-						frm.reload_doc();
-						frappe.show_alert({
-							message: r.message.message || __('Due date updated.'),
-							indicator: 'green'
-						}, 5);
+				{
+					fieldname: 'reason_code',
+					fieldtype: 'Link',
+					label: __('Reason Code'),
+					options: 'Cash Advance Reason Code',
+					reqd: 1,
+					get_query: function() {
+						return {
+							filters: { is_active: 1 }
+						};
 					}
+				},
+				{
+					fieldname: 'reason_description',
+					fieldtype: 'Small Text',
+					label: __('Reason Description'),
+					reqd: 1
 				}
-			});
-		},
-		__('Extend Due Date'),
-		__('Update')
-	);
+			],
+			function(values) {
+				frappe.call({
+					method: 'logistics.cash_advance.doctype.cash_advance_request.cash_advance_request.extend_liquidation_due_date',
+					args: {
+						cash_advance_request: frm.doc.name,
+						liquidation_due_date: values.liquidation_due_date,
+						reason_code: values.reason_code,
+						reason_description: values.reason_description
+					},
+					freeze: true,
+					freeze_message: __('Extending due date...'),
+					callback: function(r) {
+						if (r.message && r.message.success) {
+							frm.reload_doc();
+							frappe.show_alert({
+								message: r.message.message || __('Due date updated.'),
+								indicator: 'green'
+							}, 5);
+						}
+					}
+				});
+			},
+			__('Extend Due Date'),
+			__('Update')
+		);
+	};
+
+	frappe.call({
+		method: 'logistics.cash_advance.doctype.cash_advance_settings.cash_advance_settings.get_due_date_settings',
+		args: { company: frm.doc.company },
+		callback: function(r) {
+			var max_extension_days = (r && r.message && r.message.max_due_date_extension_days != null)
+				? r.message.max_due_date_extension_days
+				: 30;
+			if (max_extension_days > 0) {
+				default_date = frappe.datetime.add_days(base, max_extension_days);
+			}
+			show_prompt(max_extension_days);
+		}
+	});
 }
 
 function calculate_totals(frm) {
@@ -308,34 +408,34 @@ function calculate_totals(frm) {
 	}
 
 	frm.set_value('total_requested', total_requested);
-	var total_liquidated = parseFloat(frm.doc.total_liquidated) || 0;
-	var returned = parseFloat(frm.doc.returned) || 0;
-	var refunded = parseFloat(frm.doc.refunded) || 0;
-	frm.set_value('unliquidated', total_requested - total_liquidated - returned + refunded);
-
 	frm.refresh_field('total_requested');
-	frm.refresh_field('unliquidated');
 }
 
 frappe.ui.form.on('Cash Advance Request Item', {
 	job_number: function(frm, cdt, cdn) {
 		var row = locals[cdt][cdn];
-		if (frm.doc.fund_type === 'Revolving Fund' && row.item_code) {
-			frappe.call({
-				method: 'logistics.cash_advance.job_charge_items.get_charge_item_codes',
-				args: { job_number: row.job_number },
-				callback: function(r) {
-					var allowed = r.message || [];
-					if (row.item_code && allowed.indexOf(row.item_code) === -1) {
-						frappe.model.set_value(cdt, cdn, 'item_code', null);
+		logistics_cash_advance_apply_row_job_number_dimensions(frm, row.job_number).then(function() {
+			if (logistics_cash_advance_row_requires_job_number(frm, row) && row.item_code) {
+				frappe.call({
+					method: 'logistics.cash_advance.job_charge_items.get_charge_item_codes',
+					args: { job_number: row.job_number },
+					callback: function(r) {
+						var allowed = r.message || [];
+						if (row.item_code && allowed.indexOf(row.item_code) === -1) {
+							frappe.model.set_value(cdt, cdn, 'item_code', null);
+						}
 					}
-				}
-			});
-		}
+				});
+			}
+			logistics_cash_advance_set_item_query(frm);
+		});
 	},
 
 	item_code: function(frm, cdt, cdn) {
-		calculate_totals(frm);
+		logistics_cash_advance_preload_item_require_job_number(frm).then(function() {
+			logistics_cash_advance_set_item_query(frm);
+			calculate_totals(frm);
+		});
 	},
 
 	amount_requested: function(frm, cdt, cdn) {

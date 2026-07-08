@@ -221,7 +221,11 @@ class SpecialProject(Document):
 		from logistics.special_projects.special_project_service_helpers import (
 			normalize_special_project_service_order_job_fields,
 		)
+		from logistics.special_projects.special_project_service_persistence import (
+			prepare_special_project_services_before_link_validation,
+		)
 
+		prepare_special_project_services_before_link_validation(self)
 		normalize_lifecycle_job_order_job_fields(self)
 		normalize_special_project_service_order_job_fields(self)
 		from logistics.special_projects.lifecycle_job_display import sync_lifecycle_row_labels
@@ -249,11 +253,13 @@ class SpecialProject(Document):
 			)
 			from logistics.special_projects.special_project_service_helpers import (
 				sync_charge_tags_from_service_line,
+				tag_untagged_charges_to_planning_services,
 				validate_charge_service_tags,
 				validate_special_project_service_lifecycle_stages,
 				validate_special_project_service_line_not_referenced,
 			)
 
+			tag_untagged_charges_to_planning_services(self)
 			for charge in self.get("charges") or []:
 				sync_charge_tags_from_service_line(charge, self)
 			recompute_all_charge_tag_allocations(self)
@@ -884,12 +890,16 @@ class SpecialProject(Document):
 
 	def populate_charges_from_sales_quote(self, sales_quote=None):
 		"""Copy charge lines from the linked Sales Quote (or explicit quote name)."""
+		from logistics.special_projects.special_project_service_helpers import (
+			tag_untagged_charges_to_planning_services,
+		)
 		from logistics.utils.sales_quote_programme_charges import populate_programme_charges_from_sales_quote
 
 		sq_name = sales_quote or self.sales_quote
 		if not sq_name:
 			frappe.throw(_("No Sales Quote linked."))
 		populate_programme_charges_from_sales_quote(self, sq_name, clear_existing=True)
+		tag_untagged_charges_to_planning_services(self)
 
 
 def create_job_number_for_special_project(
@@ -1614,6 +1624,8 @@ def get_dashboard_html(special_project, applicable_stages=None):
 			current_lifecycle_stage=doc.lifecycle_stage,
 		)
 
+		materials_tab_inner = _build_dashboard_required_materials_tab_html(doc, fulfillment_ctx)
+
 		cfg = {
 			"doctype": "Special Project",
 			"map_id_prefix": "sp-form-dash",
@@ -1633,6 +1645,15 @@ def get_dashboard_html(special_project, applicable_stages=None):
 			"include_default_dg": False,
 			"map_points": [],
 			"map_segments": None,
+			"extra_dashboard_tabs": [
+				{
+					"suffix": "required_materials",
+					"label": _("Required Materials"),
+					"count": mat_count or None,
+					"inner_html": materials_tab_inner,
+					"after_suffix": "route",
+				}
+			],
 		}
 		dash = render_logistics_form_dashboard_html(doc, cfg)
 		return quote_html + dash
@@ -3613,6 +3634,48 @@ def _build_main_dash_fulfillment_left_html(doc: Any, ctx: dict[str, Any] | None)
 	return _packages_fulfillment_wrap_html(
 		inner,
 		outer_class="sp-packages-summary sp-packages-summary--dash-left",
+	)
+
+
+def _build_dashboard_required_materials_tab_html(doc: Any, ctx: dict[str, Any] | None) -> str:
+	"""Dashboard sub-tab: read-only list of required project materials (packages)."""
+	if not ctx or ctx.get("empty"):
+		empty_key = (ctx or {}).get("empty") or "no_packages"
+		return _packages_fulfillment_wrap_html(
+			_packages_fulfillment_empty_inner_html(empty_key),
+			outer_class="sp-packages-summary sp-packages-summary--dash-materials",
+		)
+
+	summary_col_template = (
+		"40px 28px minmax(140px, 1.5fr) 72px 72px 72px 64px minmax(100px, 1fr) 116px"
+	)
+	summary_header_html = (
+		f'<div class="sp-pfn-header">'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-rowno">#</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-warn" aria-hidden="true"></span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-package">{escape_html(_("Package"))}</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-required">{escape_html(_("Required"))}</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-delivered">{escape_html(_("Delivered"))}</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-remaining">{escape_html(_("Remaining"))}</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-pct">{escape_html(_("%"))}</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-current-stage">{escape_html(_("Current Stage"))}</span>'
+		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-status">{escape_html(_("Status"))}</span>'
+		f"</div>"
+	)
+	summary_table_html = (
+		f'<div class="sp-pfn-summary-panel" style="--sp-pfn-cols: {summary_col_template}">'
+		f'<div class="sp-pfn-table">{summary_header_html}{"".join(ctx.get("summary_rows_html") or [])}</div>'
+		f"</div>"
+	)
+	inner = (
+		f'<div class="sp-pfn-card" data-sp-fulfillment-panel="1">'
+		f"{_packages_summary_filter_chips_html()}"
+		f"{summary_table_html}"
+		f"</div>"
+	)
+	return _packages_fulfillment_wrap_html(
+		inner,
+		outer_class="sp-packages-summary sp-packages-summary--dash-materials",
 	)
 
 

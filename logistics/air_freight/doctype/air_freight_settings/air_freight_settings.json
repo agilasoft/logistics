@@ -56,6 +56,7 @@
   "document_settings_section",
   "auto_generate_house_awb",
   "auto_generate_master_awb",
+  "auto_send_eawb_default",
   "use_mawb_stock",
   "default_mawb_stock_range",
   "column_break_document",
@@ -372,6 +373,13 @@
    "fieldname": "auto_generate_master_awb",
    "fieldtype": "Check",
    "label": "Auto-generate Master AWB Number"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_send_eawb_default",
+   "fieldtype": "Check",
+   "label": "Auto-send e-AWB by Default",
+   "description": "Default the Send AWB to Airline option on new Master Air Waybills."
   },
   {
    "default": "0",

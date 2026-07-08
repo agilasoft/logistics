@@ -10,6 +10,9 @@
   "company",
   "section_break_main",
   "valid_until_offset_days",
+  "section_break_crm",
+  "allow_sales_quote_from_lead",
+  "allow_sales_quote_from_prospect",
   "notes"
  ],
  "fields": [
@@ -33,6 +36,25 @@
    "fieldname": "valid_until_offset_days",
    "fieldtype": "Int",
    "label": "Valid Until Offset (Days)"
+  },
+  {
+   "fieldname": "section_break_crm",
+   "fieldtype": "Section Break",
+   "label": "CRM Sales Quote"
+  },
+  {
+   "default": "0",
+   "description": "Allow creating a Sales Quote from a Lead without an existing Customer. A Customer is created automatically when needed.",
+   "fieldname": "allow_sales_quote_from_lead",
+   "fieldtype": "Check",
+   "label": "Allow Sales Quote from Lead"
+  },
+  {
+   "default": "0",
+   "description": "Allow creating a Sales Quote from a Prospect without an existing Customer. A Customer is created automatically when needed.",
+   "fieldname": "allow_sales_quote_from_prospect",
+   "fieldtype": "Check",
+   "label": "Allow Sales Quote from Prospect"
   },
   {
    "fieldname": "notes",

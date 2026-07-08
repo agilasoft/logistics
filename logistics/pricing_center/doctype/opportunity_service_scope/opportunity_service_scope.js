@@ -59,6 +59,56 @@
 		});
 	}
 
+	function clear_incompatible_transport_mode(cdt, cdn, service_type) {
+		const row = locals[cdt] && locals[cdt][cdn];
+		if (!row || !row.transport_mode) {
+			return;
+		}
+		const flag = load_type_flag_for_service_type(service_type);
+		if (!flag) {
+			return;
+		}
+		frappe.db.get_value("Transport Mode", row.transport_mode, flag, (r) => {
+			if (r && r[flag]) {
+				return;
+			}
+			frappe.model.set_value(cdt, cdn, "transport_mode", "");
+		});
+	}
+
+	function clear_incompatible_freight_agent(cdt, cdn, service_type, fieldname) {
+		const row = locals[cdt] && locals[cdt][cdn];
+		if (!row || !row[fieldname]) {
+			return;
+		}
+		const flag = load_type_flag_for_service_type(service_type);
+		if (!flag) {
+			return;
+		}
+		frappe.db.get_value("Freight Agent", row[fieldname], flag, (r) => {
+			if (r && r[flag]) {
+				return;
+			}
+			frappe.model.set_value(cdt, cdn, fieldname, "");
+		});
+	}
+
+	function strip_freight_agent_link_filters(frm) {
+		["freight_agent", "freight_agent_sea"].forEach((fieldname) => {
+			const df = frappe.meta.get_docfield("Opportunity Service Scope", fieldname);
+			if (df && df.link_filters) {
+				df.link_filters = null;
+			}
+			const grid = frm.fields_dict.custom_opportunity_scopes && frm.fields_dict.custom_opportunity_scopes.grid;
+			if (grid) {
+				const gdf = grid.get_docfield(fieldname);
+				if (gdf && gdf.link_filters) {
+					gdf.link_filters = null;
+				}
+			}
+		});
+	}
+
 	function strip_load_type_link_filters(frm) {
 		const df = frappe.meta.get_docfield("Opportunity Service Scope", "load_type");
 		if (df && df.link_filters) {
@@ -73,11 +123,27 @@
 		}
 	}
 
+	function strip_transport_mode_link_filters(frm) {
+		const df = frappe.meta.get_docfield("Opportunity Service Scope", "transport_mode");
+		if (df && df.link_filters) {
+			df.link_filters = null;
+		}
+		const grid = frm.fields_dict.custom_opportunity_scopes && frm.fields_dict.custom_opportunity_scopes.grid;
+		if (grid) {
+			const gdf = grid.get_docfield("transport_mode");
+			if (gdf && gdf.link_filters) {
+				gdf.link_filters = null;
+			}
+		}
+	}
+
 	window.logistics_setup_opportunity_scope_queries = function (frm) {
 		if (!frm.fields_dict.custom_opportunity_scopes) {
 			return;
 		}
 		strip_load_type_link_filters(frm);
+		strip_transport_mode_link_filters(frm);
+		strip_freight_agent_link_filters(frm);
 		frm.set_query("load_type", "custom_opportunity_scopes", function (doc, cdt, cdn) {
 			strip_load_type_link_filters(frm);
 			const row = (locals[cdt] && locals[cdt][cdn]) || doc;
@@ -87,6 +153,28 @@
 				filters[flag] = 1;
 			}
 			return { filters };
+		});
+		frm.set_query("transport_mode", "custom_opportunity_scopes", function (doc, cdt, cdn) {
+			strip_transport_mode_link_filters(frm);
+			const row = (locals[cdt] && locals[cdt][cdn]) || doc;
+			const filters = { is_active: 1 };
+			const flag = load_type_flag_for_service_type(row && row.service_type);
+			if (flag) {
+				filters[flag] = 1;
+			}
+			return { filters };
+		});
+		["freight_agent", "freight_agent_sea"].forEach((fieldname) => {
+			frm.set_query(fieldname, "custom_opportunity_scopes", function (doc, cdt, cdn) {
+				strip_freight_agent_link_filters(frm);
+				const row = (locals[cdt] && locals[cdt][cdn]) || doc;
+				const filters = { is_active: 1 };
+				const flag = load_type_flag_for_service_type(row && row.service_type);
+				if (flag) {
+					filters[flag] = 1;
+				}
+				return { filters };
+			});
 		});
 	};
 
@@ -105,6 +193,9 @@
 			setTimeout(() => {
 				refresh_scope_row_dependencies(frm, cdt, cdn);
 				clear_incompatible_load_type(cdt, cdn, row && row.service_type);
+				clear_incompatible_transport_mode(cdt, cdn, row && row.service_type);
+				clear_incompatible_freight_agent(cdt, cdn, row && row.service_type, "freight_agent");
+				clear_incompatible_freight_agent(cdt, cdn, row && row.service_type, "freight_agent_sea");
 			if (typeof logistics_refresh_opportunity_scope_actuals === "function") {
 				logistics_refresh_opportunity_scope_actuals(frm);
 			}
