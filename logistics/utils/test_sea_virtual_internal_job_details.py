@@ -97,3 +97,11 @@ class TestOperationalLinkedServices(FrappeTestCase):
 		self.assertEqual(field.fieldtype, "Table")
 		self.assertTrue(field.is_virtual)
 		self.assertIsNone(meta.get_field("internal_job_details"))
+
+	def test_meta_has_linked_services_field_on_sea_shipment(self):
+		meta = frappe.get_meta("Sea Shipment")
+		field = meta.get_field("linked_services")
+		self.assertIsNotNone(field)
+		self.assertEqual(field.fieldtype, "Table")
+		self.assertTrue(field.is_virtual)
+		self.assertIsNone(meta.get_field("internal_job_details"))

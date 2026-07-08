@@ -517,3 +517,28 @@ frappe.ui.form.on("MICE Project", {
 		_refresh_exhibit_dashboard_html(frm);
 	},
 });
+
+frappe.ui.form.on("MICE Project Cost Allocation", {
+	target: function (frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+		if (!row.target_type || !row.target) {
+			return;
+		}
+		frappe.call({
+			method:
+				"logistics.mice.doctype.mice_project.mice_project.get_cost_allocation_target_basis",
+			args: { target_type: row.target_type, target: row.target },
+			callback: function (r) {
+				if (!r.message) {
+					return;
+				}
+				const { weight_basis, volume_basis, target_title } = r.message;
+				frappe.model.set_value(cdt, cdn, "weight_basis", weight_basis);
+				frappe.model.set_value(cdt, cdn, "volume_basis", volume_basis);
+				if (target_title) {
+					frappe.model.set_value(cdt, cdn, "target_title", target_title);
+				}
+			},
+		});
+	},
+});
