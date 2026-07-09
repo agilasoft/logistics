@@ -905,8 +905,12 @@ class SpecialProject(Document):
 		ls_to_sps = populate_special_project_services_from_sales_quote(
 			self, sq_name, clear_existing=True
 		)
-		populate_programme_charges_from_sales_quote(self, sq_name, clear_existing=True)
-		remap_special_project_charges_after_quote_populate(self, ls_to_sps)
+		populate_programme_charges_from_sales_quote(
+			self, sq_name, clear_existing=True, service_types="__all__"
+		)
+		remap_special_project_charges_after_quote_populate(
+			self, ls_to_sps, sales_quote_name=sq_name, service_types="__all__"
+		)
 		tag_untagged_charges_to_planning_services(self)
 
 	def populate_services_from_sales_quote(self, sales_quote=None):
@@ -925,7 +929,9 @@ class SpecialProject(Document):
 		ls_to_sps = populate_special_project_services_from_sales_quote(
 			self, sq_name, clear_existing=True
 		)
-		remap_special_project_charges_after_quote_populate(self, ls_to_sps)
+		remap_special_project_charges_after_quote_populate(
+			self, ls_to_sps, sales_quote_name=sq_name, service_types="__all__"
+		)
 		tag_untagged_charges_to_planning_services(self)
 
 

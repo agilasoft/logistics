@@ -1,0 +1,20 @@
+{
+ "content": null,
+ "doctype": "Page",
+ "creation": "2026-07-09 00:00:00.000000",
+ "docstatus": 0,
+ "idx": 0,
+ "modified": "2026-07-09 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Workflow Center",
+ "name": "workflow-center",
+ "owner": "Administrator",
+ "page_name": "workflow-center",
+ "restrict_to_domain": "",
+ "roles": [],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Workflow Center"
+}

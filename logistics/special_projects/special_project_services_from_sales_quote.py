@@ -152,19 +152,62 @@ def populate_special_project_services_from_sales_quote(
 	return _ensure_main_special_project_service(sp_doc, ls_to_sps)
 
 
+def _iter_special_project_charge_sq_pairs(
+	sp_doc: Any,
+	sales_quote_name: str,
+	*,
+	service_types=None,
+) -> list[tuple[Any | None, Any]]:
+	"""Pair programme charge rows with source Sales Quote charge rows (populate order)."""
+	from logistics.utils.sales_quote_programme_charges import _iter_programme_charge_sq_pairs
+
+	if not sales_quote_name or not frappe.db.exists("Sales Quote", sales_quote_name):
+		return [(None, charge) for charge in (sp_doc.get("charges") or [])]
+
+	pairs = list(
+		_iter_programme_charge_sq_pairs(sp_doc, sales_quote_name, service_types=service_types)
+	)
+	if pairs:
+		return pairs
+	return [(None, charge) for charge in (sp_doc.get("charges") or [])]
+
+
 def remap_special_project_charges_after_quote_populate(
 	sp_doc: Any,
 	ls_to_sps: dict[str, str] | None = None,
-) -> None:
-	"""Tag programme charges to Service Line rows and drop stale quote Linked Service links."""
+	*,
+	sales_quote_name: str | None = None,
+	service_types: Any = "__all__",
+) -> dict[str, str]:
+	"""Tag programme charges to Service Line rows, keeping the quote Linked Service link.
+
+	When *sales_quote_name* is given, each charge is paired with its source Sales Quote
+	charge so the quote ``linked_service`` can be translated to
+	``special_project_service_line`` while also being retained on the charge row for
+	traceability.
+
+	Returns the updated ``{linked_service_name: special_project_service_name}`` map.
+	"""
 	if not sp_doc or sp_doc.doctype != "Special Project":
-		return
+		return dict(ls_to_sps or {})
 	ls_to_sps = dict(ls_to_sps or {})
+	sq_name = _norm(sales_quote_name) or _norm(getattr(sp_doc, "sales_quote", None))
+
+	# Charges are often populated after services; create the main SP leg once charges exist.
+	ls_to_sps = _ensure_main_special_project_service(sp_doc, ls_to_sps)
 	main_sps = ls_to_sps.get("__main_special_project__")
 	meta = frappe.get_meta("Special Project Charges")
 
-	for charge in sp_doc.get("charges") or []:
+	charge_pairs = (
+		_iter_special_project_charge_sq_pairs(sp_doc, sq_name, service_types=service_types)
+		if sq_name
+		else [(None, charge) for charge in (sp_doc.get("charges") or [])]
+	)
+
+	for sq_row, charge in charge_pairs:
 		ls_name = charge_row_linked_service_link(charge)
+		if not ls_name and sq_row is not None:
+			ls_name = charge_row_linked_service_link(sq_row)
 		line_name = None
 		if ls_name and ls_name in ls_to_sps:
 			line_name = ls_to_sps[ls_name]
@@ -187,10 +230,14 @@ def remap_special_project_charges_after_quote_populate(
 			if _norm(sps_stage):
 				charge.lifecycle_stage = sps_stage
 
+		# Retain the quote's Linked Service link for traceability; only ``internal_job``
+		# (which belongs to the quote's own legs) is dropped.
 		if meta.has_field("linked_service"):
-			charge.linked_service = None
+			charge.linked_service = ls_name or None
 		if meta.has_field("internal_job"):
 			charge.internal_job = None
+
+	return ls_to_sps
 
 
 @frappe.whitelist()
@@ -211,7 +258,9 @@ def repair_special_project_from_sales_quote(docname: str) -> dict[str, Any]:
 	ls_to_sps = populate_special_project_services_from_sales_quote(
 		sp, sq_name, clear_existing=True
 	)
-	remap_special_project_charges_after_quote_populate(sp, ls_to_sps)
+	remap_special_project_charges_after_quote_populate(
+		sp, ls_to_sps, sales_quote_name=sq_name, service_types="__all__"
+	)
 	tag_untagged_charges_to_planning_services(sp)
 	sp.flags.ignore_permissions = True
 	sp.save(ignore_permissions=True)

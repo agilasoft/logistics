@@ -546,6 +546,13 @@
         {% endfor %}
         {% endif %}
 
+        {% if doc.external_notes %}
+        <div class="terms-section">
+            <div class="terms-title">External Notes</div>
+            {{ doc.external_notes }}
+        </div>
+        {% endif %}
+
         {% if doc.terms %}
         <div class="terms-section">
             <div class="terms-title">Terms and Conditions</div>
