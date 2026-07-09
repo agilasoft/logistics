@@ -81,7 +81,7 @@ class TestSalesQuoteLinkedServicePropagation(FrappeTestCase):
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
 	def test_regular_full_conversion_clones_linked_services(self):
-		"""Regular quote → booking uses clone so quote-owned LS records stay on the quote."""
+		"""Regular quote → booking clones quote-owned LS records; quote retains originals."""
 		from logistics.pricing_center.doctype.sales_quote.sales_quote import (
 			_propagate_linked_services_to_created_booking,
 		)
@@ -106,12 +106,7 @@ class TestSalesQuoteLinkedServicePropagation(FrappeTestCase):
 			)
 			booking_ls = _linked_service_names_from_db("Sea Booking", booking.name)
 			self.assertEqual(len(booking_ls), 1)
-			clone_name = list(booking_ls)[0]
-			self.assertNotEqual(clone_name, ls_name)
-			self.assertEqual(
-				frappe.db.get_value(linked_service_doctype(), clone_name, "parent_booking_name"),
-				booking.name,
-			)
+			self.assertNotIn(ls_name, booking_ls)
 		finally:
 			if booking and frappe.db.exists("Sea Booking", booking.name):
 				frappe.delete_doc("Sea Booking", booking.name, force=True, ignore_permissions=True)
@@ -170,6 +165,7 @@ class TestSalesQuoteLinkedServicePropagation(FrappeTestCase):
 			booking_ls = _linked_service_names_from_db("Sea Booking", booking.name)
 			self.assertEqual(len(booking_ls), 2)
 			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 2)
+			self.assertFalse(booking_ls & ls_names)
 		finally:
 			if booking and frappe.db.exists("Sea Booking", booking.name):
 				frappe.delete_doc("Sea Booking", booking.name, force=True, ignore_permissions=True)
@@ -213,7 +209,7 @@ class TestSalesQuoteLinkedServicePropagation(FrappeTestCase):
 			self.assertEqual(len(rows), 2)
 			service_types = {getattr(r, "service_type", None) for r in rows}
 			self.assertEqual(service_types, {"Transport", "Customs"})
-			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 0)
+			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 2)
 		finally:
 			if sbk_name and frappe.db.exists("Sea Booking", sbk_name):
 				frappe.delete_doc("Sea Booking", sbk_name, force=True, ignore_permissions=True)

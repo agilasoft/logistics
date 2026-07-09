@@ -16,6 +16,12 @@ When you create **Sea Booking**, **Air Booking**, or **Transport Order** from a 
 
 Air Booking charge category resolution prefers the quote line, then the Item, then a default. See also [Sales Quote – Separate Billings and Internal Job](welcome/sales-quote-separate-billings-and-internal-job).
 
+### 1.1 Linked Services — clone, Services tab, and save behaviour
+
+Full conversion from a Sales Quote now **clones** Linked Service documents onto the booking or order while the quote **keeps its originals** (same pattern as charge rows). Booking → shipment/job also **clones** so each parent retains its Services grid. Operational documents across **Sea**, **Air**, and **Transport** show a read-only **Services** tab; linked legs remain visible after save.
+
+Details and troubleshooting: [Linked Services on Operational Documents](welcome/linked-services-on-operational-documents).
+
 ## 2. Internal and intercompany billing
 
 **Unified rules** apply: the **Main Job** holds customer-facing charges; **Internal Jobs** hold service-specific charges with revenue tied to the main job’s cost allocation. The only difference is the document: **Journal Entry** (same company) vs **Sales Invoice / Purchase Invoice** (intercompany).

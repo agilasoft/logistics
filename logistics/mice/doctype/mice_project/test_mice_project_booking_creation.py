@@ -163,7 +163,7 @@ class TestCreateMiceOrderFromExhibit(FrappeTestCase):
 		sq.submit()
 
 		ex.append(
-			"internal_jobs",
+			"linked_services",
 			{
 				"service_type": "MICE",
 				"job_description": "Site resource line",
@@ -186,7 +186,7 @@ class TestCreateMiceOrderFromExhibit(FrappeTestCase):
 	def test_create_mice_order_from_internal_job_row(self):
 		ex, _sq = self._minimal_mice_project_with_ij()
 		ex.reload()
-		ij_idx = len(ex.internal_jobs)
+		ij_idx = len(ex.linked_services)
 
 		result = create_booking_or_order_from_exhibit(
 			ex.name,
@@ -198,7 +198,7 @@ class TestCreateMiceOrderFromExhibit(FrappeTestCase):
 		self.assertTrue(frappe.db.exists("MICE Order", order_name))
 
 		ex.reload()
-		row = ex.internal_jobs[ij_idx - 1]
+		row = ex.linked_services[ij_idx - 1]
 		self.assertEqual(row.job_type, "MICE Order")
 		self.assertEqual(row.job_no, order_name)
 
@@ -212,7 +212,7 @@ class TestCreateMiceOrderFromExhibit(FrappeTestCase):
 		result = create_booking_or_order_from_exhibit(
 			ex.name,
 			"MICE Order",
-			internal_job_idx=len(ex.internal_jobs),
+			internal_job_idx=len(ex.linked_services),
 		)
 		order_name = result["mice_order"]
 		payload = action_create_mice_job(order_name, title="Execution job")

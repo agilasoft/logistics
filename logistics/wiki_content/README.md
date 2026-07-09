@@ -116,6 +116,7 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | handling_unit_type.md | Handling Unit Type | Warehousing |
 | sales_quote.md | Sales Quote | Pricing Center |
 | sales_quote_separate_billings_and_internal_job.md | Sales Quote — Separate Billings and Internal Job | Pricing Center |
+| linked_services_on_operational_documents.md | Linked Services on Operational Documents | Pricing Center |
 | change_request.md | Change Request | Pricing Center |
 | sales_quote_calculation_method.md | Sales Quote – Calculation Method | Pricing Center |
 | charges_tariff_revenue_cost_pattern.md | Charges, Tariff, Revenue & Cost Pattern | Pricing Center |

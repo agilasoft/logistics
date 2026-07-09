@@ -414,6 +414,9 @@ frappe.ui.form.on('Transport Job', {
 			}, 50);
 		});
 		_logistics_set_charges_cannot_add_rows(frm);
+		if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+			logistics.setup_virtual_linked_services_grid(frm);
+		}
 	},
 
 	refresh: function(frm) {
@@ -424,6 +427,9 @@ frappe.ui.form.on('Transport Job', {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
 		_logistics_set_charges_cannot_add_rows(frm);
+		if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+			logistics.setup_virtual_linked_services_grid(frm);
+		}
 		setTimeout(function () {
 			if (window.logistics_hide_cannot_add_rows_buttons) {
 				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");

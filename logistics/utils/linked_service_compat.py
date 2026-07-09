@@ -78,7 +78,15 @@ def linked_services_fieldname(parent_doctype: str) -> str | None:
 		return "linked_services"
 	if parent_doctype == "Special Project":
 		return "special_project_services"
-	if parent_doctype in ("MICE Project", "Docket", "Exhibit"):
+	if parent_doctype == "MICE Project":
+		try:
+			meta = frappe.get_meta("MICE Project")
+			if meta.has_field("linked_services"):
+				return "linked_services"
+		except Exception:
+			pass
+		return "internal_jobs"
+	if parent_doctype in ("Docket", "Exhibit"):
 		return "internal_jobs"
 	if uses_virtual_internal_job_details(parent_doctype):
 		try:
@@ -156,6 +164,11 @@ def linked_service_rows(parent_doc: Any) -> list[Any]:
 		if hasattr(parent_doc, "_build_linked_services_view"):
 			return parent_doc._build_linked_services_view()
 	if doctype == "Change Request":
+		if getattr(getattr(parent_doc, "flags", None), "_linked_services_from_form", False):
+			return list(parent_doc.__dict__.get(fieldname) or [])
+		if hasattr(parent_doc, "_build_linked_services_view"):
+			return parent_doc._build_linked_services_view()
+	if doctype == "MICE Project":
 		if getattr(getattr(parent_doc, "flags", None), "_linked_services_from_form", False):
 			return list(parent_doc.__dict__.get(fieldname) or [])
 		if hasattr(parent_doc, "_build_linked_services_view"):

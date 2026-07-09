@@ -3,8 +3,9 @@
 
 """Create Air/Sea Booking, Transport/Declaration/Inbound Order from Sales Quote Main Service.
 
-Regular and Project quotes stay reusable: created bookings link to the quote but Services rows and
-quote-owned Linked Service documents are **not** updated with ``job_type`` / ``job_no``.
+On full conversion, subsidiary Linked Service documents are **cloned** from the Sales Quote onto
+the booking (the quote keeps its originals, like charge rows). Blanket call-offs restrict which
+legs are cloned. Services grid rows are not updated with ``job_type`` / ``job_no`` on the quote itself.
 """
 
 from __future__ import annotations

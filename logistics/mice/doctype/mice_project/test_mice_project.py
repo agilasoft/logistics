@@ -414,6 +414,11 @@ class TestShow(IntegrationTestCase):
 	def test_mice_project_has_sales_quote_field(self):
 		self.assertTrue(frappe.get_meta("MICE Project").has_field("sales_quote"))
 
+	def test_mice_project_has_linked_services_field(self):
+		meta = frappe.get_meta("MICE Project")
+		self.assertTrue(meta.has_field("linked_services"))
+		self.assertFalse(meta.has_field("internal_jobs"))
+
 	def _test_logistics_milestone(self, code="TEST-MS-DASH"):
 		existing = frappe.db.get_value("Logistics Milestone", {"code": code}, "name")
 		if existing:

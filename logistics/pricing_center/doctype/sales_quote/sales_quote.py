@@ -1907,9 +1907,8 @@ def _propagate_linked_services_to_created_booking(
 ):
 	"""Mirror SQ-owned Linked Services onto the new booking and remap per-charge links.
 
-	* One-off full conversion: re-parent the same ``LS-…`` documents.
-	* Regular / blanket call-off: **clone** Linked Services so the quote retains its originals
-	  for later bookings and Services rows are not tied to a single job.
+	Subsidiary legs are **cloned** onto the booking; the quote retains its ``IJ-…`` originals
+	(the same pattern as charge rows). Blanket call-offs restrict which legs are cloned.
 
 	Raises on failure so conversion does not complete with an empty Linked Services grid.
 	"""

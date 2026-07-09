@@ -74,11 +74,25 @@ class VirtualLinkedServicesMixin:
 	def __setup__(self):
 		self._drop_virtual_linked_services_rows()
 
+	def before_save(self):
+		"""Ignore empty desk payloads for the read-only virtual ``linked_services`` grid."""
+		if getattr(self, "name", None) and not getattr(self, "__islocal", False):
+			self._drop_virtual_linked_services_rows()
+
 	@property
 	def linked_services(self):
 		"""Live view of ``Linked Service`` documents parented to this booking."""
 		if self.flags.get("_linked_services_view_cached"):
-			return self.__dict__.get("linked_services") or []
+			cached = self.__dict__.get("linked_services")
+			if cached:
+				return cached
+			# Desk save may replace the grid with ``[]`` while the cache flag stays set.
+			if getattr(self, "name", None) and not getattr(self, "__islocal", False):
+				value = self._build_linked_services_view()
+				self.__dict__["linked_services"] = value
+				self.flags._linked_services_view_cached = True
+				return value
+			return []
 		value = self._build_linked_services_view()
 		self.__dict__["linked_services"] = value
 		self.flags._linked_services_view_cached = True
