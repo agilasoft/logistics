@@ -11,6 +11,7 @@
 		Customs: "Declaration Order",
 		Warehousing: "VAS Order",
 		"Special Project": "Project Order",
+		MICE: "MICE Order",
 	};
 
 	/** Fields that should refresh the auto-generated Job Description when edited */

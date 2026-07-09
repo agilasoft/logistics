@@ -13,6 +13,10 @@
 		return JSON.stringify((frm && frm.doc && frm.doc.internal_jobs) || []);
 	}
 
+	function _parentLabel(frm) {
+		return frm && frm.doctype === "MICE Project" ? __("MICE Project") : __("Exhibit");
+	}
+
 	function _encodeChoice(c) {
 		const cr = c.creatable === false ? "0" : "1";
 		const idx = c.detail_idx != null ? String(c.detail_idx) : "";
@@ -243,7 +247,12 @@
 			$("<p>")
 				.addClass("text-muted")
 				.css({ fontSize: "12px", marginBottom: "10px", lineHeight: 1.45 })
-				.text(__("Each card is one Internal Job line on this Exhibit. Expand for details; use Create in the card header when ready."))
+				.text(
+					__(
+						"Each card is one Internal Job line on this {0}. Expand for details; use Create in the card header when ready.",
+						[_parentLabel(frm)]
+					)
+				)
 		);
 		const $scroll = $("<div class='ex-cards-scroll'>");
 		const $cards = $("<div class='ex-cards'>");
@@ -379,7 +388,7 @@
 
 	function _introHtml(frm) {
 		const esc = frappe.utils.escape_html;
-		const ref = esc(__("MICE Project") + " · " + (frm.doc.name || ""));
+		const ref = esc(_parentLabel(frm) + " · " + (frm.doc.name || ""));
 		return (
 			"<div class='" + PREVIEW_CLASS + "' style='margin-bottom:4px'>" +
 			"<div style='font-size:12px;color:var(--text-muted,#64748b);line-height:1.5'>" +
@@ -393,7 +402,7 @@
 		if (!frm || !frm.doc || !frm.doc.name || frm.doc.__islocal) {
 			frappe.msgprint({
 				title: __("Save Required"),
-				message: __("Save the Exhibit before creating bookings or orders."),
+				message: __("Save the {0} before creating bookings or orders.", [_parentLabel(frm)]),
 				indicator: "orange",
 			});
 			return;
@@ -412,7 +421,10 @@
 				if (!choices.length) {
 					frappe.msgprint({
 						title: __("Create Booking / Order"),
-						message: __("No Internal Job lines on this Exhibit. Add a row under the Jobs tab first."),
+						message: __(
+							"No Internal Job lines on this {0}. Add a row under the Jobs tab first.",
+							[_parentLabel(frm)]
+						),
 						indicator: "orange",
 					});
 					return;
