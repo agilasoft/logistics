@@ -14,7 +14,8 @@ from workflow_center.workflow_center.queries import (
 
 
 def has_app_permission() -> bool:
-	return bool(get_user_roles())
+	user = frappe.session.user
+	return user == "Administrator" or bool(get_user_roles(user))
 
 
 @frappe.whitelist()
