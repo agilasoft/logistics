@@ -164,7 +164,7 @@ function _setup_dockets_grid_buttons(frm) {
 		function () {
 			if (!frm || !frm.doc || !frm.doc.name || frm.doc.__islocal) {
 				frappe.msgprint({
-					message: __("Save this Exhibit before creating a Sales Quote."),
+					message: __("Save this MICE Project before creating a Sales Quote."),
 					indicator: "orange",
 				});
 				return;
@@ -269,9 +269,11 @@ function _exhibit_allocate_costs_dialog(frm) {
 }
 
 function logistics_set_internal_job_site_query(frm) {
-	frm.set_query("sp_site", "lifecycle_jobs", function () {
+	var site_query = function () {
 		return logistics.address.query_for_customer(frm._mice_organizer_customer);
-	});
+	};
+	frm.set_query("sp_site", "internal_jobs", site_query);
+	frm.set_query("sp_site", "lifecycle_jobs", site_query);
 }
 
 function _cache_organizer_customer(frm) {
@@ -371,6 +373,9 @@ frappe.ui.form.on("MICE Project", {
 		}
 
 		if (!frm.is_new() && !frm.doc.__islocal) {
+			if (window.logistics && logistics.add_get_charges_from_quotation_button_if_allowed) {
+				logistics.add_get_charges_from_quotation_button_if_allowed(frm);
+			}
 			frm.add_custom_button(
 				__("Booking / Order"),
 				function () {
