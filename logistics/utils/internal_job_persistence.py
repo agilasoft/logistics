@@ -70,7 +70,7 @@ _VIRTUAL_LINKED_SERVICE_PARENTS = frozenset({"Sales Quote", "Change Request"}) |
 INTERNAL_JOB_DETAIL_PARENTS: dict[str, str] = {
 	"Sea Booking": "linked_services",
 	"Air Booking": "internal_job_details",
-	"Sea Shipment": "internal_job_details",
+	"Sea Shipment": "linked_services",
 	"Air Shipment": "internal_job_details",
 	"Transport Order": "internal_job_details",
 	"Transport Job": "internal_job_details",

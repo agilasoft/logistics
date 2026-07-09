@@ -14,6 +14,7 @@ from logistics.utils.sea_fcl_container_validation import (
 )
 from logistics.utils.dg_fields import update_parent_dg_compliance_status
 from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
+from logistics.utils.virtual_linked_services_view import VirtualLinkedServicesMixin
 
 # Virtual MBL display fields: (fieldname on Sea Shipment, column on Master Bill)
 _MBL_VIRTUAL_FIELD_SOURCES = (
@@ -32,7 +33,7 @@ _MBL_VIRTUAL_FIELD_SOURCES = (
 )
 
 
-class SeaShipment(Document):
+class SeaShipment(VirtualLinkedServicesMixin, Document):
     def validate(self):
         """Validate Sea Shipment data"""
         from logistics.utils.charges_calculation import (

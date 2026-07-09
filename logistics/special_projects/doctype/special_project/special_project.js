@@ -578,6 +578,14 @@ function _bind_special_project_main_dash_lifecycle($root) {
 	}
 }
 
+function _packages_summary_root($scope) {
+	if (!$scope || !$scope.length) {
+		return $();
+	}
+	const $found = $scope.find(".sp-packages-summary").first();
+	return $found.length ? $found : $scope.filter(".sp-packages-summary");
+}
+
 function _sync_packages_summary_full_width($root) {
 	if (!$root || !$root.length) {
 		return;
@@ -598,11 +606,7 @@ function _bind_packages_summary_layout($scope) {
 		return;
 	}
 	$scope.addClass("sp-packages-summary-field");
-	const $root = $scope.find(".sp-packages-summary").first();
-	if (!$root.length && $scope.hasClass("sp-packages-summary")) {
-		$scope.addClass("sp-packages-summary-field");
-	}
-	const $summary = $root.length ? $root : $scope.filter(".sp-packages-summary");
+	const $summary = _packages_summary_root($scope);
 	_sync_packages_summary_full_width($summary);
 
 	if (!window._logistics_sp_pks_fullwidth_bound) {
@@ -619,7 +623,7 @@ function _bind_packages_summary_collapse($scope) {
 	if (!$scope || !$scope.length) {
 		return;
 	}
-	const $root = $scope.find(".sp-packages-summary").first();
+	const $root = _packages_summary_root($scope);
 	if (!$root.length) {
 		return;
 	}
@@ -659,7 +663,7 @@ function _bind_packages_summary_filters($scope) {
 	if (!$scope || !$scope.length) {
 		return;
 	}
-	const $root = $scope.find(".sp-packages-summary").first();
+	const $root = _packages_summary_root($scope);
 	const $filters = $root.find(".sp-pfn-filters");
 	if (!$root.length || !$filters.length) {
 		return;

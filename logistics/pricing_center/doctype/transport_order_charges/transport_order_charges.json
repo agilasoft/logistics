@@ -607,6 +607,7 @@
    "in_standard_filter": 1,
    "label": "Linked Service",
    "mandatory_depends_on": "eval:doc.charge_scope==\"Linked\"",
+   "no_copy": 1,
    "options": "Linked Service",
    "read_only": 1,
    "search_index": 1

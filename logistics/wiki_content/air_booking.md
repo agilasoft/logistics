@@ -25,6 +25,10 @@ To access: **Home > Air Freight > Air Booking**
 
 When the booking is created from a [Sales Quote](welcome/sales-quote), charge lines copy **Item Code**, **Item Name**, **charge category**, **description**, **Item Tax Template**, and **Invoice Type** (from the Item where applicable) from the quote charges so invoicing and categories stay aligned.
 
+**Service-type filter:** Only **Air** charge rows from the quote are copied onto an Air Booking. Sea, Transport, Customs, and other service types stay on their own bookings/orders. See [Sales Quote — Separate Billings and Internal Job](welcome/sales-quote-separate-billings-and-internal-job) §1.3 for multimodal quotes and combined-billing rules.
+
+Use **Fetch from Quotation** to reload Air charges from the linked Sales Quote. If a Sea line appears on an Air Booking from an older fetch, remove it manually or re-fetch after updating the platform; create a **Sea Booking** from the same quote for Sea freight lines.
+
 ## 3. Workflow
 
 1. Create Air Booking from [Sales Quote](welcome/sales-quote) or manually.
