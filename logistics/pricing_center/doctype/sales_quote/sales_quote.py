@@ -1911,51 +1911,18 @@ def _propagate_linked_services_to_created_booking(
 	* Regular / blanket call-off: **clone** Linked Services so the quote retains its originals
 	  for later bookings and Services rows are not tied to a single job.
 
-	Logs (without re-raising) on failure so conversion still completes.
+	Raises on failure so conversion does not complete with an empty Linked Services grid.
 	"""
-	try:
-		from logistics.utils.sales_quote_one_off_internal_jobs import (
-			linked_service_names_from_quote_charges,
-			propagate_linked_services_and_remap_charges,
-			stamp_scope_main_when_untagged,
-		)
+	from logistics.utils.sales_quote_one_off_internal_jobs import (
+		propagate_linked_services_from_sales_quote_to_booking,
+	)
 
-		qt = (getattr(sales_quote, "quotation_type", None) or "").strip()
-		use_clone = blanket_call_off or qt == "Regular"
-		if use_clone:
-			sq_name = getattr(sales_quote, "name", None) or ""
-			sq_owned = frappe.get_all(
-				"Linked Service",
-				filters={
-					"parent_booking_type": "Sales Quote",
-					"parent_booking_name": sq_name,
-				},
-				pluck="name",
-				order_by="creation asc",
-			)
-			charge_ls = linked_service_names_from_quote_charges(
-				sales_quote, selected_charge_row_names
-			)
-			if charge_ls:
-				ls_names = [n for n in charge_ls if n in set(sq_owned or [])]
-			else:
-				ls_names = list(sq_owned or [])
-			if ls_names:
-				propagate_linked_services_and_remap_charges(
-					sales_quote, booking_doc, clone=True, ls_names=ls_names
-				)
-		else:
-			propagate_linked_services_and_remap_charges(sales_quote, booking_doc, clone=False)
-		stamp_scope_main_when_untagged(booking_doc)
-	except Exception:
-		frappe.log_error(
-			title="Sales Quote Linked Service propagation failed",
-			message=(
-				f"Sales Quote: {getattr(sales_quote, 'name', None)}; "
-				f"Booking: {getattr(booking_doc, 'doctype', None)} "
-				f"{getattr(booking_doc, 'name', None)}\n{frappe.get_traceback()}"
-			),
-		)
+	return propagate_linked_services_from_sales_quote_to_booking(
+		sales_quote,
+		booking_doc,
+		blanket_call_off=blanket_call_off,
+		selected_charge_row_names=selected_charge_row_names,
+	)
 
 
 def _propagate_one_off_internal_jobs_to_created_booking(sales_quote, booking_doc):

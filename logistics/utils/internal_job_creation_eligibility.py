@@ -39,7 +39,6 @@ _PROGRAMME_CHARGE_PARENTS = frozenset(
 _PROGRAMME_LIFECYCLE_JOB_PARENTS: dict[str, str] = {
 	"Special Project": "special_project_services",
 	"Exhibit": "lifecycle_jobs",
-	"MICE Project": "lifecycle_jobs",
 }
 
 _EXHIBIT_LINKED_SALES_QUOTE_PARENTS = frozenset({"MICE Project", "Exhibit"})

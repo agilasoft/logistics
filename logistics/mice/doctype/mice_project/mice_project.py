@@ -149,6 +149,16 @@ class MICEProject(Document):
 		except Exception:
 			return None
 
+	def populate_charges_from_sales_quote(self, sales_quote=None):
+		"""GCFQ entry point: link the Sales Quote (programme has no per-service charges table)."""
+		sq_name = (sales_quote or self.sales_quote or "").strip()
+		if not sq_name:
+			frappe.throw(_("No Sales Quote linked."))
+		if not frappe.db.exists("Sales Quote", sq_name):
+			frappe.throw(_("Sales Quote {0} not found.").format(sq_name))
+		self.sales_quote = sq_name
+		return 0
+
 	def _ensure_org_defaults(self):
 		"""Default ``company`` from the linked ERPNext Project (and ``cost_center``
 		from that Company) so the Exhibit-level Organization fields are always
