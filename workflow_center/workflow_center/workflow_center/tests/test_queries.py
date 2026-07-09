@@ -23,6 +23,30 @@ class TestWorkflowCenterQueries(IntegrationTestCase):
 		self.assertIn("open_actions", summary["counts"])
 		self.assertIn("workflow_doctypes", summary)
 
+	def test_role_filter_matches_permitted_role_not_user_roles(self):
+		from workflow_center.workflow_center.queries import _user_can_see_action
+
+		self.assertTrue(
+			_user_can_see_action(
+				"Administrator",
+				["Purchase Invoice Approver"],
+				"Purchase Invoice Approver",
+			)
+		)
+		self.assertFalse(
+			_user_can_see_action(
+				"Administrator",
+				["Purchase Invoice Approver"],
+				"Accounts Manager",
+			)
+		)
+
+	def test_open_action_not_dropped_without_sla(self):
+		from workflow_center.workflow_center.queries import _classify_item
+
+		item = {"severity": "ok", "sla_enabled": False, "creation": "2026-07-09 00:00:00"}
+		self.assertEqual(_classify_item(item), "compliance_gaps")
+
 	def test_purchase_invoice_in_workflow_doctypes_when_active(self):
 		from workflow_center.workflow_center.queries import get_active_workflow_doctypes
 
