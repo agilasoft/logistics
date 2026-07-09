@@ -2358,10 +2358,6 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 						"ata": leg.ata
 					})
 
-			from logistics.utils.internal_job_detail_copy import transfer_linked_services_to_parent
-
-			transfer_linked_services_to_parent(self, sea_shipment)
-			
 			# Copy milestone_template if it exists
 			if hasattr(self, 'milestone_template') and self.milestone_template:
 				sea_shipment.milestone_template = self.milestone_template
@@ -2433,6 +2429,10 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			# Reload the document to sync the timestamp after insert
 			# This prevents timestamp mismatch errors when saving again
 			sea_shipment.reload()
+
+			from logistics.utils.internal_job_detail_copy import clone_linked_services_to_parent
+
+			clone_linked_services_to_parent(self, sea_shipment)
 			
 			# Save the Sea Shipment (after_insert may have already saved it, but we save again to be sure)
 			try:

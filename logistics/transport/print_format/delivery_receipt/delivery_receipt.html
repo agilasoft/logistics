@@ -174,7 +174,9 @@
 {% set sea_ship = frappe.db.get_value("Sea Shipment", doc.sea_shipment, ["name", "shipping_line", "origin_port", "destination_port", "etd", "eta", "house_bl", "master_bill", "mbl_booking_reference_no"], as_dict=True) if doc.sea_shipment and frappe.db.exists("Sea Shipment", doc.sea_shipment) else None %}
 
 {% set ab_name = frappe.db.get_value("Air Booking", {"sales_quote": sq_name, "docstatus": ["!=", 2]}, "name") if sq_name else "" %}
-{% set ab = frappe.db.get_value("Air Booking", ab_name, ["house_awb", "origin_port", "destination_port", "etd", "eta", "airline", "booking_reference", "master_awb"], as_dict=True) if ab_name else None %}
+{% set ab = frappe.db.get_value("Air Booking", ab_name, ["house_awb", "origin_port", "destination_port", "etd", "eta", "airline"], as_dict=True) if ab_name else None %}
+{% set ab_booking_ref = frappe.db.get_value("Air Booking", ab_name, "booking_reference", ignore=True) if ab_name else "" %}
+{% set ab_master_awb = frappe.db.get_value("Air Booking", ab_name, "master_awb", ignore=True) if ab_name else "" %}
 
 {% set sb_name = frappe.db.get_value("Sea Booking", {"sales_quote": sq_name, "docstatus": ["!=", 2]}, "name") if sq_name else "" %}
 {% set sb = frappe.db.get_value("Sea Booking", sb_name, ["house_bl", "origin_port", "destination_port", "etd", "eta", "shipping_line"], as_dict=True) if sb_name else None %}
@@ -220,8 +222,8 @@
     {% set reference = air_ship.booking_reference %}
 {% elif air_ship and air_ship.agent_reference and not reference %}
     {% set reference = air_ship.agent_reference %}
-{% elif ab and ab.booking_reference %}
-    {% set reference = ab.booking_reference %}
+{% elif ab_booking_ref %}
+    {% set reference = ab_booking_ref %}
 {% elif sea_ship and sea_ship.mbl_booking_reference_no %}
     {% set reference = sea_ship.mbl_booking_reference_no %}
 {% endif %}
@@ -237,8 +239,8 @@
 {% set mawb = "" %}
 {% if air_ship and air_ship.master_awb %}
     {% set mawb = frappe.db.get_value("Master Air Waybill", air_ship.master_awb, "master_awb_no", ignore=True) or air_ship.master_awb %}
-{% elif ab and ab.master_awb %}
-    {% set mawb = frappe.db.get_value("Master Air Waybill", ab.master_awb, "master_awb_no", ignore=True) or ab.master_awb %}
+{% elif ab_master_awb %}
+    {% set mawb = frappe.db.get_value("Master Air Waybill", ab_master_awb, "master_awb_no", ignore=True) or ab_master_awb %}
 {% elif sea_ship and sea_ship.master_bill %}
     {% set mawb = frappe.db.get_value("Master Bill", sea_ship.master_bill, "master_bl", ignore=True) or sea_ship.master_bill %}
 {% endif %}

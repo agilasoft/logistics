@@ -239,7 +239,7 @@ class TestInternalJobDetailParentRegistry(FrappeTestCase):
 		self.assertEqual(set(INTERNAL_JOB_DETAIL_PARENTS.keys()), self.EXPECTED_DOCTYPES)
 
 	def test_field_lookup_handles_mice_alias(self):
-		self.assertEqual(internal_job_detail_fieldname("MICE Project"), "internal_jobs")
+		self.assertEqual(internal_job_detail_fieldname("MICE Project"), "linked_services")
 		self.assertEqual(internal_job_detail_fieldname("Docket"), "internal_jobs")
 		self.assertEqual(internal_job_detail_fieldname("Special Project"), "lifecycle_jobs")
 		self.assertEqual(internal_job_detail_fieldname("Sea Booking"), "linked_services")

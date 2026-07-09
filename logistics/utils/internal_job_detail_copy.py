@@ -156,6 +156,59 @@ def transfer_linked_services_to_parent(source_doc: Any, dest_doc: Any) -> None:
 	)
 
 
+def clone_linked_services_between_parents(
+	source_doctype: str,
+	source_name: str,
+	dest_doctype: str,
+	dest_name: str,
+) -> dict[str, str]:
+	"""Clone every Linked Service owned by *source* onto *dest*; *source* keeps originals."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_booking,
+	)
+	from logistics.utils.internal_job_persistence import (
+		create_internal_job_for_parent_from_source,
+	)
+
+	mapping: dict[str, str] = {}
+	if not source_doctype or not source_name or not dest_doctype or not dest_name:
+		return mapping
+	for ls in get_linked_services_for_booking(source_doctype, source_name):
+		ls_name = (getattr(ls, "name", None) or "").strip()
+		if not ls_name:
+			continue
+		mapping[ls_name] = create_internal_job_for_parent_from_source(
+			dest_doctype, dest_name, ls
+		)
+	return mapping
+
+
+def clone_linked_services_to_parent(
+	source_doc: Any,
+	dest_doc: Any,
+	*,
+	remap_charges: bool = True,
+) -> dict[str, str]:
+	"""Clone Linked Service documents from *source* onto *dest*; *source* retains originals."""
+	dest_name = (getattr(dest_doc, "name", None) or "").strip()
+	source_name = (getattr(source_doc, "name", None) or "").strip()
+	if not dest_name or not source_name:
+		return {}
+	mapping = clone_linked_services_between_parents(
+		getattr(source_doc, "doctype", None) or "",
+		source_name,
+		getattr(dest_doc, "doctype", None) or "",
+		dest_name,
+	)
+	if remap_charges and mapping:
+		from logistics.utils.sales_quote_one_off_internal_jobs import (
+			remap_internal_job_links_on_booking_charges,
+		)
+
+		remap_internal_job_links_on_booking_charges(dest_doc, mapping)
+	return mapping
+
+
 def get_declaration_order_job_no_from_shipment_doc(shipment_doc: Any) -> str | None:
 	"""Return linked Declaration Order name from Linked Service docs on the shipment.
 

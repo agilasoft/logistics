@@ -8,7 +8,7 @@ from __future__ import annotations
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from logistics.utils.internal_job_detail_copy import transfer_linked_services_to_parent
+from logistics.utils.internal_job_detail_copy import clone_linked_services_to_parent
 from logistics.utils.internal_job_persistence import (
 	_linked_service_names_from_db,
 	internal_job_detail_rows_for_parent,
@@ -69,7 +69,7 @@ class TestOperationalLinkedServices(FrappeTestCase):
 				delattr(frappe.local, "_logistics_ij_client_rows")
 			frappe.delete_doc("Sea Booking", booking.name, force=True, ignore_permissions=True)
 
-	def test_transfer_linked_services_reparents_to_shipment(self):
+	def test_clone_linked_services_copies_to_shipment(self):
 		booking = self._minimal_sea_booking()
 		shipment = self._minimal_sea_shipment(booking.name)
 		try:
@@ -77,13 +77,14 @@ class TestOperationalLinkedServices(FrappeTestCase):
 			sync_internal_job_details_to_internal_jobs(booking)
 			ls_names = _linked_service_names_from_db("Sea Booking", booking.name)
 			self.assertEqual(len(ls_names), 1)
-			transfer_linked_services_to_parent(
+			clone_linked_services_to_parent(
 				frappe.get_doc("Sea Booking", booking.name),
 				frappe.get_doc("Sea Shipment", shipment.name),
 			)
-			self.assertEqual(_linked_service_names_from_db("Sea Booking", booking.name), set())
+			self.assertEqual(_linked_service_names_from_db("Sea Booking", booking.name), ls_names)
 			shipment_ls = _linked_service_names_from_db("Sea Shipment", shipment.name)
-			self.assertEqual(shipment_ls, ls_names)
+			self.assertEqual(len(shipment_ls), 1)
+			self.assertNotEqual(list(shipment_ls)[0], list(ls_names)[0])
 		finally:
 			if hasattr(frappe.local, "_logistics_ij_client_rows"):
 				delattr(frappe.local, "_logistics_ij_client_rows")
@@ -150,6 +151,15 @@ class TestOperationalLinkedServices(FrappeTestCase):
 			self.assertEqual(_linked_service_names_from_db("Sea Booking", booking.name), booking_ls)
 			reloaded = frappe.get_doc("Sea Booking", booking.name)
 			self.assertEqual(len(reloaded.linked_services), 2)
+
+			# Regression: desk may POST an empty virtual grid on save; same in-memory doc
+			# must still expose linked services in the save response (not only after reload).
+			doc.__dict__["linked_services"] = []
+			doc.flags.ignore_mandatory = True
+			doc.save(ignore_permissions=True)
+			self.assertEqual(_linked_service_names_from_db("Sea Booking", booking.name), booking_ls)
+			self.assertEqual(len(doc.linked_services), 2)
+			self.assertEqual(len(doc.as_dict().get("linked_services") or []), 2)
 		finally:
 			if booking and frappe.db.exists("Sea Booking", booking.name):
 				frappe.delete_doc("Sea Booking", booking.name, force=True, ignore_permissions=True)

@@ -203,7 +203,7 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 
 		self.assertEqual(_parent_ij_fieldname("Special Project"), "special_project_services")
 		self.assertEqual(_parent_ij_fieldname("Exhibit"), "lifecycle_jobs")
-		self.assertEqual(_parent_ij_fieldname("MICE Project"), "internal_jobs")
+		self.assertEqual(_parent_ij_fieldname("MICE Project"), "linked_services")
 		self.assertEqual(_parent_ij_fieldname("Docket"), "internal_jobs")
 
 	@patch("logistics.utils.internal_job_creation_eligibility.frappe.db.exists", return_value=True)
@@ -215,7 +215,7 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 		mock_meta.return_value.get_field.return_value = None
 		ij_row = MagicMock(service_type="MICE", name="ij-mice-1")
 		parent = MagicMock(doctype="MICE Project", sales_quote="SQ-1")
-		parent.internal_jobs = [ij_row]
+		parent.linked_services = [ij_row]
 		with patch(
 			"logistics.utils.internal_job_creation_eligibility.internal_job_matches_charges",
 			return_value=True,
@@ -228,7 +228,7 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 		parent = frappe._dict(
 			doctype="MICE Project",
 			sales_quote=None,
-			internal_jobs=[ij_row],
+			linked_services=[ij_row],
 		)
 		with patch(
 			"logistics.utils.internal_job_creation_eligibility.charges_exist_for_service",
@@ -246,7 +246,7 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 		self.assertTrue(result["eligible"])
 		self.assertIsNone(result["message"])
 
-	def test_eligibility_message_uses_internal_jobs_tab_for_mice_project(self):
+	def test_eligibility_message_uses_services_tab_for_mice_project(self):
 		parent = MagicMock(doctype="MICE Project")
 		ij_row = MagicMock(service_type="Air", name="ij-air-1")
 		with patch(
@@ -263,7 +263,7 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 					service_type_label="Air",
 				)
 		msg = (result.get("message") or "").lower()
-		self.assertIn("internal jobs", msg)
+		self.assertIn("services", msg)
 		self.assertNotIn("lifecycle", msg)
 
 	def test_quote_has_matching_linked_service_row_uses_virtual_grid(self):

@@ -272,8 +272,89 @@ function logistics_set_internal_job_site_query(frm) {
 	var site_query = function () {
 		return logistics.address.query_for_customer(frm._mice_organizer_customer);
 	};
-	frm.set_query("sp_site", "internal_jobs", site_query);
+	frm.set_query("sp_site", "linked_services", site_query);
 	frm.set_query("sp_site", "lifecycle_jobs", site_query);
+}
+
+function _mice_linked_services_fieldname(frm) {
+	if (frm.fields_dict.linked_services) return "linked_services";
+	return null;
+}
+
+function _mice_enable_linked_services_grid_add_row(frm) {
+	if (!frm || !frm.doc || frm.doc.docstatus !== 0) return;
+	var fieldname = _mice_linked_services_fieldname(frm);
+	if (!fieldname || !frm.fields_dict[fieldname]) return;
+	var grid = frm.fields_dict[fieldname].grid;
+	if (!grid || !grid.wrapper) return;
+
+	grid.display_status = "Write";
+	grid.wrapper.find(".grid-footer").removeClass("hidden");
+	grid.wrapper
+		.find(".grid-add-row, .grid-add-multiple-rows")
+		.removeClass("hidden d-none");
+	if (typeof grid.setup_toolbar === "function") {
+		grid.setup_toolbar();
+	}
+}
+
+function _mice_activate_linked_services_grid_row(frm, cdn, attempt) {
+	if (!frm || !cdn) return;
+	var fieldname = _mice_linked_services_fieldname(frm);
+	var grid = fieldname && frm.fields_dict[fieldname] && frm.fields_dict[fieldname].grid;
+	if (!grid) return;
+	var row = (grid.grid_rows_by_docname && grid.grid_rows_by_docname[cdn]) || null;
+	if (!row) {
+		if ((attempt || 0) < 10) {
+			setTimeout(function () {
+				_mice_activate_linked_services_grid_row(frm, cdn, (attempt || 0) + 1);
+			}, 50);
+		}
+		return;
+	}
+	_mice_enable_linked_services_grid_add_row(frm);
+	if (typeof grid.allow_on_grid_editing === "function" && grid.allow_on_grid_editing()) {
+		row.toggle_editable_row(true);
+		return;
+	}
+	row.toggle_view(true);
+}
+
+function _mice_patch_linked_services_grid_add_row(frm) {
+	var fieldname = _mice_linked_services_fieldname(frm);
+	if (!fieldname || !frm.fields_dict[fieldname]) return false;
+	var grid = frm.fields_dict[fieldname].grid;
+	if (!grid || typeof grid.add_new_row !== "function") return false;
+	if (grid._logistics_mice_ls_add_patched) return true;
+
+	var orig_add_new_row = grid.add_new_row.bind(grid);
+	grid.add_new_row = function (idx, callback, show, copy_doc, go_to_last_page, go_to_first_page) {
+		var row_doc = orig_add_new_row(
+			idx,
+			callback,
+			show,
+			copy_doc,
+			go_to_last_page,
+			go_to_first_page
+		);
+		if (row_doc && row_doc.name) {
+			_mice_activate_linked_services_grid_row(frm, row_doc.name);
+		}
+		return row_doc;
+	};
+	grid._logistics_mice_ls_add_patched = true;
+	return true;
+}
+
+function _mice_setup_linked_services_grid(frm) {
+	if (!_mice_patch_linked_services_grid_add_row(frm) && !frm._logistics_mice_ls_patch_retry) {
+		frm._logistics_mice_ls_patch_retry = true;
+		setTimeout(function () {
+			_mice_setup_linked_services_grid(frm);
+		}, 300);
+		return;
+	}
+	_mice_enable_linked_services_grid_add_row(frm);
 }
 
 function _cache_organizer_customer(frm) {
@@ -301,6 +382,7 @@ frappe.ui.form.on("MICE Project", {
 		if (window.logistics && logistics.lifecycle && logistics.lifecycle.setup_queries) {
 			logistics.lifecycle.setup_queries(frm);
 		}
+		_mice_setup_linked_services_grid(frm);
 		frm.set_query("milestone_template", function () {
 			return frappe
 				.call("logistics.document_management.api.get_milestone_template_filters", { doctype: frm.doctype })
@@ -319,6 +401,7 @@ frappe.ui.form.on("MICE Project", {
 	refresh: function (frm) {
 		_cache_organizer_customer(frm);
 		logistics_set_internal_job_site_query(frm);
+		_mice_setup_linked_services_grid(frm);
 		_setup_dockets_grid_buttons(frm);
 		setTimeout(function () {
 			_setup_dockets_grid_buttons(frm);
@@ -509,6 +592,12 @@ frappe.ui.form.on("MICE Project", {
 				},
 			});
 		});
+	},
+	before_save: function (frm) {
+		if (frm.fields_dict.linked_services) {
+			frm.doc.flags = frm.doc.flags || {};
+			frm.doc.flags._linked_services_from_form = true;
+		}
 	},
 	lifecycle_jobs_add: function (frm, cdt, cdn) {
 		if (logistics.lifecycle && logistics.lifecycle.clear_lifecycle_job_link_on_row_add) {

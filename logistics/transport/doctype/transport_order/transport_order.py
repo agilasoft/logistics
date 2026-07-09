@@ -13,6 +13,7 @@ from pymysql.err import ProgrammingError
 from logistics.utils.dg_fields import copy_parent_dg_header
 from logistics.utils.charge_service_type import filter_sales_quote_charge_rows_for_operational_doc
 from logistics.utils.sales_quote_charge_parameters import filter_fields_existing_in_doctype
+from logistics.utils.virtual_linked_services_view import VirtualLinkedServicesMixin
 # keep these exactly as requested
 ORDER_LEGS_FIELDNAME_FALLBACKS = ["legs"]
 JOB_LEGS_FIELDNAME_FALLBACKS = ["legs"]
@@ -175,7 +176,7 @@ def _clear_pricing_after_desk_duplicate(doc):
     doc.logistics_duplicate_from = None
 
 
-class TransportOrder(Document):
+class TransportOrder(VirtualLinkedServicesMixin, Document):
     def validate(self):
         _clear_pricing_after_desk_duplicate(self)
         from logistics.utils.charges_calculation import (
@@ -392,6 +393,7 @@ class TransportOrder(Document):
                 row_dict["rate"] = row.rate
 
     def before_save(self):
+        super().before_save()
         from logistics.utils.module_integration import run_propagate_on_link
 
         run_propagate_on_link(self)
@@ -2374,9 +2376,9 @@ def action_create_transport_job(docname: str):
         # when leg.insert() or hooks touch the job and we call job.save().
         job.reload()
 
-        from logistics.utils.internal_job_detail_copy import transfer_linked_services_to_parent
+        from logistics.utils.internal_job_detail_copy import clone_linked_services_to_parent
 
-        transfer_linked_services_to_parent(doc, job)
+        clone_linked_services_to_parent(doc, job)
 
         # Re-enable validation for save(); otherwise run_before_save_methods returns early and
         # totals/capacity checks from validate() never run on the created job.

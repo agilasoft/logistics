@@ -9,6 +9,7 @@ from logistics.utils.document_date_validation import (
 	throw_if_left_date_after_right,
 	is_future_date,
 )
+from logistics.utils.virtual_linked_services_view import VirtualLinkedServicesMixin
 
 # Virtual MAWB display fields: (fieldname on Air Shipment, column on Master Air Waybill)
 _MAWB_VIRTUAL_FIELD_SOURCES = (
@@ -29,9 +30,10 @@ _MAWB_VIRTUAL_FIELD_SOURCES = (
 
 
 
-class AirShipment(Document):
+class AirShipment(VirtualLinkedServicesMixin, Document):
 	def before_save(self):
 		"""Calculate sustainability metrics before saving"""
+		super().before_save()
 		self.calculate_sustainability_metrics()
 	
 	def after_submit(self):

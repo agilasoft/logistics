@@ -8,8 +8,10 @@ from frappe.model.document import Document
 from typing import Dict, Any, List, Optional
 from frappe.utils import nowdate, flt, getdate, get_datetime, add_days, cint
 
+from logistics.utils.virtual_linked_services_view import VirtualLinkedServicesMixin
 
-class TransportJob(Document):
+
+class TransportJob(VirtualLinkedServicesMixin, Document):
     def validate(self):
         """Validate Transport Job data"""
         from logistics.utils.charges_calculation import (
@@ -108,6 +110,7 @@ class TransportJob(Document):
 
     def before_save(self):
         """Calculate sustainability metrics and create job costing number before saving"""
+        super().before_save()
         from logistics.utils.module_integration import run_propagate_on_link
         run_propagate_on_link(self)
         # Clear container fields if transport_job_type is not 'Container'

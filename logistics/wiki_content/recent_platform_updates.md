@@ -16,9 +16,9 @@ When you create **Sea Booking**, **Air Booking**, or **Transport Order** from a 
 
 Air Booking charge category resolution prefers the quote line, then the Item, then a default. See also [Sales Quote – Separate Billings and Internal Job](welcome/sales-quote-separate-billings-and-internal-job).
 
-### 1.1 Linked Services — re-parent, Services tab, and save behaviour
+### 1.1 Linked Services — clone, Services tab, and save behaviour
 
-Full conversion from a Sales Quote now **transfers** (re-parents) Linked Service documents to the booking or order instead of cloning them. Operational documents across **Sea**, **Air**, and **Transport** show a read-only **Services** tab; linked legs remain visible after save and when converting to shipment or job.
+Full conversion from a Sales Quote now **clones** Linked Service documents onto the booking or order while the quote **keeps its originals** (same pattern as charge rows). Booking → shipment/job also **clones** so each parent retains its Services grid. Operational documents across **Sea**, **Air**, and **Transport** show a read-only **Services** tab; linked legs remain visible after save.
 
 Details and troubleshooting: [Linked Services on Operational Documents](welcome/linked-services-on-operational-documents).
 

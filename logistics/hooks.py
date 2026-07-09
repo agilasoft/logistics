@@ -43,6 +43,7 @@ app_include_js = [
 	"/assets/logistics/js/address_link_query.js?v=1",
 	"/assets/logistics/js/party_address_contact.js?v=1",
 	"/assets/logistics/js/linked_service_link_query.js?v=1",
+	"/assets/logistics/js/virtual_linked_services_grid.js?v=1",
 	"/assets/logistics/js/freight_agent_service.js?v=1",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=3",
@@ -613,7 +614,7 @@ for _dt in (
 	"MICE Project",
 	"Docket",
 	"Exhibit",
-	# Sales Quote (One-off) owns Internal Jobs that get re-parented to the Booking/Order
+	# Sales Quote owns Linked Services that are cloned onto the Booking/Order created from the quote.
 	# created from the quote. The sync is gated on quotation_type inside the handler.
 	"Sales Quote",
 	"Change Request",

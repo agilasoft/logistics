@@ -5,16 +5,12 @@
 
 A Sales Quote owns ``Linked Service`` documents via ``parent_booking_type = "Sales Quote"`` and
 ``parent_booking_name = <quote>``. When the quote is converted to a Sea/Air Booking, Transport
-Order, Declaration Order, or similar operational document, those Linked Service records are
-transferred:
+Order, Declaration Order, or similar operational document, subsidiary legs are **cloned** onto
+the booking (same pattern as charges): the quote keeps its ``IJ-…`` records and the booking gets
+new copies; charge ``linked_service`` links are remapped to the booking-owned clones.
 
-1. **Re-parent** (default for One-off full conversion): same ``LS-…`` document moves to
-   the booking; charge ``linked_service`` links need no remapping.
-2. **Clone** (Regular quotes, blanket call-offs, and Special Project bookings): a new ``LS-…`` is created on the
-   booking from the quote-owned source; charge links are remapped via the returned mapping.
-
-The same Linked Service record continues through Booking → Shipment → Job via existing
-``internal_job_details`` rows and the persistence hooks on each operational parent.
+Booking → Shipment / Order → Job uses the same clone pattern via
+``internal_job_detail_copy.clone_linked_services_to_parent``.
 
 The module name retains ``one_off`` for backward compatibility — propagation runs for any quote-type
 that owns Linked Services.
@@ -328,8 +324,8 @@ def propagate_linked_services_to_booking(
 def propagate_one_off_internal_jobs_to_booking(
 	sales_quote: Any, booking_doc: Any
 ) -> dict[str, str]:
-	"""Backward-compatible alias: re-parent all quote-owned Linked Services."""
-	return propagate_linked_services_to_booking(sales_quote, booking_doc, clone=False)
+	"""Backward-compatible alias: clone all quote-owned Linked Services onto the booking."""
+	return propagate_linked_services_to_booking(sales_quote, booking_doc, clone=True)
 
 
 def remap_internal_job_links_on_booking_charges(
@@ -413,7 +409,7 @@ def propagate_one_off_internal_jobs_and_remap_charges(
 	sales_quote: Any, booking_doc: Any
 ) -> dict[str, str]:
 	"""Backward-compatible alias."""
-	return propagate_linked_services_and_remap_charges(sales_quote, booking_doc, clone=False)
+	return propagate_linked_services_and_remap_charges(sales_quote, booking_doc, clone=True)
 
 
 def _linked_service_names_for_quote_to_booking_propagation(
@@ -438,9 +434,7 @@ def _linked_service_names_for_quote_to_booking_propagation(
 		return [n for n in charge_ls if n in sq_owned_set]
 
 	ls_names = list(sq_owned)
-	qt = (getattr(sales_quote, "quotation_type", None) or "").strip()
-	use_clone = blanket_call_off or qt == "Regular"
-	if exclude_main_booking_service_type and use_clone:
+	if exclude_main_booking_service_type:
 		from logistics.utils.charge_service_type import implied_service_type_for_doctype
 
 		main_st = implied_service_type_for_doctype(getattr(booking_doc, "doctype", None) or "")
@@ -457,18 +451,17 @@ def propagate_linked_services_from_sales_quote_to_booking(
 	selected_charge_row_names: list[str] | None = None,
 	exclude_main_booking_service_type: bool = True,
 ) -> dict[str, str]:
-	"""Transfer or clone quote-owned Linked Services onto *booking_doc* and remap charge links.
+	"""Clone quote-owned Linked Services onto *booking_doc* and remap charge links.
 
-	* One-off / Project full conversion: re-parent the same ``LS-…`` documents.
-	* Regular / blanket call-off: clone so the quote retains its originals.
+	The quote retains its originals (like charge rows). Blanket call-offs restrict which
+	``IJ-…`` records are cloned via *selected_charge_row_names*.
 
 	Raises on failure so conversion does not complete with an empty Linked Services grid.
 	"""
 	if not sales_quote or not booking_doc:
 		return {}
 
-	qt = (getattr(sales_quote, "quotation_type", None) or "").strip()
-	use_clone = blanket_call_off or qt == "Regular"
+	use_clone = True
 	ls_names = _linked_service_names_for_quote_to_booking_propagation(
 		sales_quote,
 		booking_doc,
@@ -517,11 +510,9 @@ def apply_linked_services_from_sales_quote_on_fetch(
 	*,
 	selected_charge_row_names: list[str] | None = None,
 ) -> dict[str, str]:
-	"""Clone or re-parent quote Linked Services when applying/fetching onto an existing job.
+	"""Clone quote Linked Services when applying/fetching onto an existing job.
 
-	Regular quotes keep their canonical ``LS-…`` records; subsidiary services are **cloned** onto
-	the job so the quote remains the source of truth for later call-offs. One-off / Project quotes
-	that still own Linked Services use **re-parent** (same ids).
+	Blanket call-offs (selected charge rows) restrict which ``IJ-…`` records are cloned.
 	"""
 	return propagate_linked_services_from_sales_quote_to_booking(
 		sales_quote,
