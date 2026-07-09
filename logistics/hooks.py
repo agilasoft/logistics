@@ -396,6 +396,9 @@ doc_events = {
 		"on_update": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
 		"on_trash": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
 	},
+	"Cost Center": {
+		"validate": "logistics.job_management.cost_center_defaults.set_cost_center_branch_default",
+	},
 	"Account": {
 		"validate": "logistics.logistics.account_job_profit.validate_account_job_profit",
 	},
