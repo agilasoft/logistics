@@ -112,6 +112,9 @@
   "is_high_value",
   "sales_quote",
   "column_break_pbmx",
+  "services_tab",
+  "linked_services_section",
+  "linked_services",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
@@ -152,6 +155,26 @@
    "fieldtype": "HTML",
    "is_virtual": 1,
    "label": "Dashboard"
+  },
+  {
+   "fieldname": "services_tab",
+   "fieldtype": "Tab Break",
+   "label": "Services"
+  },
+  {
+   "fieldname": "linked_services_section",
+   "fieldtype": "Section Break",
+   "label": "Linked Services"
+  },
+  {
+   "description": "Subsidiary service legs linked to this booking (from the Sales Quote or created jobs).",
+   "fieldname": "linked_services",
+   "fieldtype": "Table",
+   "is_virtual": 1,
+   "label": "Linked Services",
+   "options": "Linked Service Detail",
+   "read_only": 1,
+   "cannot_add_rows": 1
   },
   {
    "fieldname": "milestones_tab",

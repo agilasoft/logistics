@@ -105,6 +105,10 @@ WIKI_PAGES_CONFIG = {
         "Sales Quote — Service Scope, Linked Services, and Separate Billings",
         "Pricing Center",
     ),
+    "linked_services_on_operational_documents": (
+        "Linked Services on Operational Documents",
+        "Pricing Center",
+    ),
     "change_request": ("Change Request", "Pricing Center"),
     "sales_quote_calculation_method": ("Sales Quote – Calculation Method", "Pricing Center"),
     "charges_tariff_revenue_cost_pattern": ("Charges, Tariff, Revenue & Cost Pattern", "Pricing Center"),

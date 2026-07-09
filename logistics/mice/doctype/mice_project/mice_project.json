@@ -44,7 +44,7 @@
   "dockets",
   "jobs_tab",
   "section_jobs",
-  "internal_jobs",
+  "linked_services",
   "profitability_tab",
   "profitability_section_break",
   "profitability_section_html",
@@ -336,19 +336,20 @@
   {
    "fieldname": "jobs_tab",
    "fieldtype": "Tab Break",
-   "label": "Jobs"
+   "label": "Services"
   },
   {
-   "description": "Internal jobs (Air / Sea / Transport / Customs / Warehousing / MICE lines) to be spawned at the MICE Project level. Use <b>Create &gt; Booking / Order</b> to turn each row into a booking, order, or MICE Order; open the MICE Order and use <b>Create &gt; Job</b> for the MICE Job.",
    "fieldname": "section_jobs",
    "fieldtype": "Section Break",
-   "label": "Internal Jobs"
+   "label": "Linked Services"
   },
   {
-   "fieldname": "internal_jobs",
+   "description": "Subsidiary service legs linked to this booking (from the Sales Quote or created jobs).",
+   "fieldname": "linked_services",
    "fieldtype": "Table",
-   "label": "Internal Jobs",
-   "options": "Internal Job Detail"
+   "is_virtual": 1,
+   "label": "Linked Services",
+   "options": "Linked Service Detail"
   },
   {
    "fieldname": "section_warehouse",

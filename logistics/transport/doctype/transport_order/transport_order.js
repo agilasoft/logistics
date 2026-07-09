@@ -491,6 +491,9 @@ frappe.ui.form.on("Transport Order", {
 		}
 		
 		_logistics_set_charges_cannot_add_rows(frm);
+		if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+			logistics.setup_virtual_linked_services_grid(frm);
+		}
 	},
 
 	refresh: function(frm) {
@@ -501,6 +504,9 @@ frappe.ui.form.on("Transport Order", {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
 		_logistics_set_charges_cannot_add_rows(frm);
+		if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+			logistics.setup_virtual_linked_services_grid(frm);
+		}
 		if (window.logistics && logistics.add_get_charges_from_quotation_button_if_allowed) {
 			logistics.add_get_charges_from_quotation_button_if_allowed(frm);
 		}

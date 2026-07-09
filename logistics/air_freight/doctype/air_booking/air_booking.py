@@ -21,6 +21,7 @@ from logistics.utils.sales_quote_routing import (
 	apply_sales_quote_routing_to_booking,
 	routing_legs_for_api_response,
 )
+from logistics.utils.virtual_linked_services_view import VirtualLinkedServicesMixin
 
 
 def _has_legacy_quote_link_fields(doc):
@@ -148,7 +149,7 @@ def _normalize_booking_charge_row_for_shipment(charge_row: dict, company: str | 
 	return charge_row
 
 
-class AirBooking(Document):
+class AirBooking(VirtualLinkedServicesMixin, Document):
 	def validate(self):
 		"""Validate Air Booking data"""
 		from logistics.utils.charges_calculation import (
@@ -2492,10 +2493,6 @@ class AirBooking(Document):
 						"ata": getattr(leg, 'ata', None)
 					})
 
-			from logistics.utils.internal_job_detail_copy import transfer_linked_services_to_parent
-
-			transfer_linked_services_to_parent(self, air_shipment)
-			
 			# Final validation check before insert - ensure all link fields are valid
 			# This prevents errors during insert/after_insert hooks
 			if hasattr(air_shipment, 'service_level') and air_shipment.service_level:
@@ -2522,6 +2519,11 @@ class AirBooking(Document):
 					air_shipment.insert(ignore_permissions=True)
 				else:
 					raise
+
+			from logistics.utils.internal_job_detail_copy import clone_linked_services_to_parent
+
+			clone_linked_services_to_parent(self, air_shipment)
+
 			# Do not call save() here: insert() already persists the document and runs post-save hooks.
 			# A follow-up save() triggers TimestampMismatchError when DB modified differs from the
 			# in-memory copy (see e.g. Transport Order create_job_from_order: reload + single writer).

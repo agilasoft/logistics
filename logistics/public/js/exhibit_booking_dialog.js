@@ -10,11 +10,16 @@
 	const PREVIEW_CLASS = "logistics-ex-ij-preview";
 
 	function _internalJobsPayload(frm) {
-		return JSON.stringify((frm && frm.doc && frm.doc.internal_jobs) || []);
+		var rows = (frm && frm.doc && (frm.doc.linked_services || frm.doc.internal_jobs)) || [];
+		return JSON.stringify(rows);
 	}
 
 	function _parentLabel(frm) {
 		return frm && frm.doctype === "MICE Project" ? __("MICE Project") : __("Exhibit");
+	}
+
+	function _servicesTabLabel(frm) {
+		return frm && frm.doctype === "MICE Project" ? __("Services tab") : __("Jobs tab");
 	}
 
 	function _encodeChoice(c) {
@@ -422,8 +427,8 @@
 					frappe.msgprint({
 						title: __("Create Booking / Order"),
 						message: __(
-							"No Internal Job lines on this {0}. Add a row under the Jobs tab first.",
-							[_parentLabel(frm)]
+							"No Internal Job lines on this {0}. Add a row under the {1} first.",
+							[_parentLabel(frm), _servicesTabLabel(frm)]
 						),
 						indicator: "orange",
 					});

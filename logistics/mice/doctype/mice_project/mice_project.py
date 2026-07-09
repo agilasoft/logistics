@@ -17,6 +17,7 @@ from logistics.utils.lifecycle_stage import (
 	resolve_default_lifecycle_stage,
 	validate_internal_job_activity_codes,
 )
+from logistics.utils.virtual_linked_services_view import build_linked_services_view_for_booking
 
 
 INGRESS_PROGRESS_WEIGHTS = {
@@ -117,6 +118,52 @@ class MICEProject(Document):
 			for r in rows
 		]
 
+	def __setup__(self):
+		"""Keep virtual ``linked_services`` initialised; honour desk grid rows on save."""
+		self._stage_linked_services_from_form()
+
+	@property
+	def linked_services(self):
+		"""Live view of ``Linked Service`` documents owned by this MICE Project."""
+		if self.flags.get("_linked_services_from_form"):
+			return self.__dict__.get("linked_services") or []
+		rows = self.__dict__.get("linked_services")
+		if rows and any(getattr(r, "__islocal", None) for r in rows):
+			self.flags._linked_services_from_form = True
+			return rows
+		if self.flags.get("_linked_services_view_cached"):
+			return self.__dict__.get("linked_services") or []
+		value = self._build_linked_services_view()
+		self.__dict__["linked_services"] = value
+		self.flags._linked_services_view_cached = True
+		return value
+
+	def _build_linked_services_view(self):
+		"""Return Linked Service Detail row dicts sourced from ``Linked Service`` documents."""
+		if not getattr(self, "name", None) or getattr(self, "__islocal", False):
+			return []
+		return build_linked_services_view_for_booking(self.doctype, self.name)
+
+	def _drop_virtual_linked_services_rows(self):
+		"""Clear desk grid rows after sync; source of truth is ``Linked Service`` documents."""
+		self.flags._linked_services_from_form = False
+		self.flags._linked_services_view_cached = False
+		if "linked_services" in self.__dict__:
+			del self.__dict__["linked_services"]
+
+	def _stage_linked_services_from_form(self):
+		"""Honour desk/API grid rows on save, including an intentional empty grid."""
+		if "linked_services" not in self.__dict__:
+			return
+		if self.__dict__.get("linked_services") is None:
+			self.__dict__["linked_services"] = []
+		if not self.flags.get("_linked_services_view_cached"):
+			self.flags._linked_services_from_form = True
+
+	def _honour_linked_services_form_rows(self):
+		"""Rows staged in ``__dict__`` (desk grid / API append) must sync before the virtual view reloads."""
+		self._stage_linked_services_from_form()
+
 	def _validate_links(self):
 		from logistics.special_projects.special_project_charge_lifecycle import (
 			normalize_lifecycle_job_order_job_fields,
@@ -127,6 +174,7 @@ class MICEProject(Document):
 
 	def validate(self):
 		self._drop_virtual_dockets_rows()
+		self._honour_linked_services_form_rows()
 		self._ensure_org_defaults()
 		self._validate_org_accounts()
 		validate_internal_job_activity_codes(self, module_filter=FOR_EXHIBITS)
@@ -290,9 +338,11 @@ class MICEProject(Document):
 			module_filter=FOR_EXHIBITS, preferred="Pre-Show"
 		)
 
+	def after_insert(self):
+		self._drop_virtual_linked_services_rows()
+
 	def on_update(self):
-		"""Hook reserved for future status-change side effects."""
-		return
+		self._drop_virtual_linked_services_rows()
 
 	def _resolve_allocation_target_type(self):
 		"""Pick the allocation target type based on the parent setting and what data is available.

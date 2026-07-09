@@ -2140,7 +2140,7 @@ logistics.prefill_air_charge_qty_for_unit_type_change = function (frm, row, side
 
 /**
  * After charges are loaded from a Sales Quote onto a saved job, sync Linked Service rows
- * (clone for Regular quotes; re-parent when the quote still owns them).
+ * (clone onto the operational document; quote retains originals when still owned by the quote).
  */
 logistics.apply_sales_quote_linked_services_after_fetch = function (frm, sales_quote, done) {
 	if (!frm || frm.is_new() || !frm.doc.name || !sales_quote) {

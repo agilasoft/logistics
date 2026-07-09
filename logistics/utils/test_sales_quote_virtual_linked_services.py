@@ -149,13 +149,13 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 		finally:
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
-	def test_transfer_reparents_linked_service_to_booking(self):
-		"""Same Linked Service record is re-parented on quote conversion, not duplicated."""
+	def test_clone_linked_service_to_booking(self):
+		"""Quote conversion clones Linked Service records onto the booking; quote keeps originals."""
 		from logistics.utils.sales_quote_one_off_internal_jobs import (
 			propagate_one_off_internal_jobs_to_booking,
 		)
 
-		sq = self._minimal_sales_quote("SQ Transfer LS")
+		sq = self._minimal_sales_quote("SQ Clone LS To Booking")
 		booking = None
 		try:
 			sq.append("linked_services", {"service_type": "Sea"})
@@ -169,15 +169,15 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			booking.flags.ignore_mandatory = True
 			booking.insert(ignore_permissions=True)
 			mapping = propagate_one_off_internal_jobs_to_booking(sq, booking)
-			self.assertEqual(mapping, {ls_name: ls_name})
+			self.assertNotEqual(mapping.get(ls_name), ls_name)
 
 			ls = frappe.get_doc(linked_service_doctype(), ls_name)
-			self.assertEqual(ls.parent_booking_type, "Sea Booking")
-			self.assertEqual(ls.parent_booking_name, booking.name)
-			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 0)
+			self.assertEqual(ls.parent_booking_type, "Sales Quote")
+			self.assertEqual(ls.parent_booking_name, sq.name)
+			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 1)
 
 			reloaded_sq = frappe.get_doc("Sales Quote", sq.name)
-			self.assertEqual(len(reloaded_sq.linked_services), 0)
+			self.assertEqual(len(reloaded_sq.linked_services), 1)
 		finally:
 			if booking and frappe.db.exists("Sea Booking", booking.name):
 				frappe.delete_doc("Sea Booking", booking.name, force=True, ignore_permissions=True)

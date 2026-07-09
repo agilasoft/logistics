@@ -354,6 +354,7 @@ class SeaShipment(VirtualLinkedServicesMixin, Document):
     
     def before_save(self):
         """Calculate sustainability metrics before saving"""
+        super().before_save()
         self.calculate_sustainability_metrics()
         self.check_delays()
         self.calculate_penalties()
