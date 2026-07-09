@@ -2,11 +2,25 @@
 
 Unified cockpit for pending workflow actions across **all** doctypes with active workflows.
 
-## Install
+## Deploy / upgrade on bench
+
+If an older private `workflow_center` app is installed, replace it with this package:
 
 ```bash
-bench get-app workflow_center
+cd ~/frappe-bench/apps
+rm -rf workflow_center
+git clone <logistics-repo> /tmp/logistics && cp -a /tmp/logistics/workflow_center workflow_center
+cd workflow_center && pip install -e .
+cd ~/frappe-bench
 bench --site <site> install-app workflow_center
+bench build --app workflow_center
+bench restart
+```
+
+Verify the API resolves:
+
+```bash
+bench --site <site> execute workflow_center.api.get_workflow_center_summary
 ```
 
 ## Features

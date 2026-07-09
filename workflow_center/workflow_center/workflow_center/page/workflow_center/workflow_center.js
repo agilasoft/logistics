@@ -132,7 +132,7 @@ workflow_center.WorkflowCenterPage = class WorkflowCenterPage {
 
 	load_filter_options() {
 		return frappe.call({
-			method: "workflow_center.workflow_center.api.get_workflow_center_filter_options",
+			method: "workflow_center.api.get_workflow_center_filter_options",
 		}).then((r) => {
 			this.filter_options = r.message || {};
 			this.$container.find("#wc-user-name").text(this.filter_options.full_name || frappe.session.user);
@@ -151,7 +151,7 @@ workflow_center.WorkflowCenterPage = class WorkflowCenterPage {
 	refresh() {
 		this.collect_filters();
 		return frappe.call({
-			method: "workflow_center.workflow_center.api.get_workflow_center_dashboard",
+			method: "workflow_center.api.get_workflow_center_dashboard",
 			args: {
 				filters: this.filters,
 			},
@@ -162,6 +162,12 @@ workflow_center.WorkflowCenterPage = class WorkflowCenterPage {
 			this.items = data.items || [];
 			this.render_cards();
 			this.render_list();
+		}).catch((err) => {
+			frappe.msgprint({
+				title: __("Workflow Center"),
+				indicator: "red",
+				message: err?.message || __("Failed to load workflow actions."),
+			});
 		});
 	}
 
