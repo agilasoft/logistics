@@ -1,0 +1,67 @@
+{
+ "actions": [],
+ "creation": "2026-07-09 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "section_thresholds",
+  "info_percent",
+  "warning_percent",
+  "critical_percent"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "section_thresholds",
+   "fieldtype": "Section Break",
+   "label": "SLA Thresholds (%)"
+  },
+  {
+   "default": "50",
+   "fieldname": "info_percent",
+   "fieldtype": "Float",
+   "label": "Information"
+  },
+  {
+   "default": "75",
+   "fieldname": "warning_percent",
+   "fieldtype": "Float",
+   "label": "Warning"
+  },
+  {
+   "default": "90",
+   "fieldname": "critical_percent",
+   "fieldtype": "Float",
+   "label": "Critical"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-09 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Workflow Center",
+ "name": "Workflow Center Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
