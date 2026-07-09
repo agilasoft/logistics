@@ -656,12 +656,14 @@ logistics.open_get_charges_from_quotation_dialog = function (frm) {
 	}
 
 	var cust =
-		frm.doctype === "Transport Order" || frm.doctype === "Declaration Order"
-			? frm.doc.customer
-			: frm.doctype === "Special Project" || frm.doctype === "Exhibit"
+		frm.doctype === "MICE Project"
+			? null
+			: frm.doctype === "Transport Order" || frm.doctype === "Declaration Order"
 				? frm.doc.customer
-				: frm.doc.local_customer;
-	if (!cust) {
+				: frm.doctype === "Special Project" || frm.doctype === "Exhibit"
+					? frm.doc.customer
+					: frm.doc.local_customer;
+	if (!cust && frm.doctype !== "MICE Project") {
 		frappe.msgprint(
 			__(
 				frm.doctype === "Transport Order" ||

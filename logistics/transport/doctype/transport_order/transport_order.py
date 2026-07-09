@@ -107,6 +107,35 @@ def _sync_quote_and_sales_quote(doc):
         doc.quote = doc.sales_quote
 
 
+def _get_linked_sales_quote(doc, *, from_db=False):
+    """Resolve linked Sales Quote for lifecycle hooks.
+
+    Prefer ``sales_quote``. Legacy ``quote`` is read only when that field still
+    exists on the DocType (older sites); current schema has no ``quote`` column.
+    """
+    sales_quote = None
+    if from_db and getattr(doc, "name", None) and not doc.is_new():
+        sales_quote = frappe.db.get_value(doc.doctype, doc.name, "sales_quote")
+
+    if not sales_quote:
+        sales_quote = getattr(doc, "sales_quote", None)
+
+    if sales_quote and frappe.db.exists("Sales Quote", sales_quote):
+        return sales_quote
+
+    if not doc.meta.get_field("quote"):
+        return None
+
+    legacy_quote = getattr(doc, "quote", None)
+    if not legacy_quote and from_db and getattr(doc, "name", None) and not doc.is_new():
+        legacy_quote = frappe.db.get_value(doc.doctype, doc.name, "quote")
+
+    if legacy_quote and frappe.db.exists("Sales Quote", legacy_quote):
+        return legacy_quote
+
+    return None
+
+
 def _apply_duplicate_pricing_clear(doc):
     """Strip charge child rows and quote / scope links (used for desk Duplicate and after link propagation)."""
     for row in list(doc.get("charges") or []):
@@ -511,36 +540,25 @@ class TransportOrder(Document):
         assert_destination_service_charges_on_submit_unless_internal_job(self)
     
     def on_submit(self):
-        """Ensure quote field values remain after submission; update One-off Sales Quote when converted.
+        """Ensure sales_quote remains after submission; update One-off Sales Quote when converted.
 
         Frappe invokes ``on_submit`` on submit; ``after_submit`` is not a standard Document hook and never runs.
         """
-        # Preserve quote field value after submission - ensure it's not cleared
-        # Get the quote value from the database to ensure it's preserved
-        current_quote = frappe.db.get_value(self.doctype, self.name, 'quote')
-        current_quote_type = frappe.db.get_value(self.doctype, self.name, 'quote_type')
-        current_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
-        if (
-            not current_sales_quote
-            and current_quote
-            and frappe.db.exists("Sales Quote", current_quote)
-        ):
-            current_sales_quote = current_quote
-        if not current_sales_quote:
-            for cand in (getattr(self, "sales_quote", None), getattr(self, "quote", None)):
-                if cand and frappe.db.exists("Sales Quote", cand):
-                    current_sales_quote = cand
-                    break
-        
-        # If quote was set before submission, ensure it remains set
-        # This prevents any code from clearing the quote field after submission
-        if current_quote and not getattr(self, 'quote', None):
-            self.db_set('quote', current_quote, update_modified=False)
-        if current_quote_type and not getattr(self, 'quote_type', None):
-            self.db_set('quote_type', current_quote_type, update_modified=False)
-        if current_sales_quote and not getattr(self, 'sales_quote', None):
-            self.db_set('sales_quote', current_sales_quote, update_modified=False)
-        
+        current_sales_quote = _get_linked_sales_quote(self, from_db=True)
+
+        if current_sales_quote and not getattr(self, "sales_quote", None):
+            self.db_set("sales_quote", current_sales_quote, update_modified=False)
+
+        # Legacy schema: preserve quote / quote_type when those columns still exist
+        if self.meta.get_field("quote"):
+            current_quote = frappe.db.get_value(self.doctype, self.name, "quote")
+            if current_quote and not getattr(self, "quote", None):
+                self.db_set("quote", current_quote, update_modified=False)
+        if self.meta.get_field("quote_type"):
+            current_quote_type = frappe.db.get_value(self.doctype, self.name, "quote_type")
+            if current_quote_type and not getattr(self, "quote_type", None):
+                self.db_set("quote_type", current_quote_type, update_modified=False)
+
         # Update One-off Sales Quote status to Converted
         if current_sales_quote:
             from logistics.pricing_center.doctype.sales_quote.sales_quote import update_one_off_quote_on_submit
@@ -560,12 +578,7 @@ class TransportOrder(Document):
     
     def on_cancel(self):
         """Reset One-off Sales Quote status when Transport Order is cancelled."""
-        current_sales_quote = frappe.db.get_value(self.doctype, self.name, 'sales_quote')
-        if not current_sales_quote:
-            qt = frappe.db.get_value(self.doctype, self.name, 'quote_type')
-            q = frappe.db.get_value(self.doctype, self.name, 'quote')
-            if qt == "One-Off Quote" and q and frappe.db.exists("Sales Quote", q):
-                current_sales_quote = q
+        current_sales_quote = _get_linked_sales_quote(self, from_db=True)
         if current_sales_quote:
             from logistics.pricing_center.doctype.sales_quote.sales_quote import (
                 reset_one_off_quote_on_cancel_for_document,

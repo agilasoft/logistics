@@ -203,6 +203,68 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 
 		self.assertEqual(_parent_ij_fieldname("Special Project"), "special_project_services")
 		self.assertEqual(_parent_ij_fieldname("Exhibit"), "lifecycle_jobs")
+		self.assertEqual(_parent_ij_fieldname("MICE Project"), "internal_jobs")
+		self.assertEqual(_parent_ij_fieldname("Docket"), "internal_jobs")
+
+	@patch("logistics.utils.internal_job_creation_eligibility.frappe.db.exists", return_value=True)
+	@patch("logistics.utils.internal_job_creation_eligibility.frappe.get_meta")
+	@patch("logistics.utils.internal_job_creation_eligibility.frappe.get_cached_doc")
+	def test_has_matching_setup_accepts_internal_job_row_on_mice_project(
+		self, mock_cached_doc, mock_meta, _exists
+	):
+		mock_meta.return_value.get_field.return_value = None
+		ij_row = MagicMock(service_type="MICE", name="ij-mice-1")
+		parent = MagicMock(doctype="MICE Project", sales_quote="SQ-1")
+		parent.internal_jobs = [ij_row]
+		with patch(
+			"logistics.utils.internal_job_creation_eligibility.internal_job_matches_charges",
+			return_value=True,
+		):
+			self.assertTrue(has_matching_internal_job_setup("SQ-1", parent, ij_row, "MICE"))
+
+	@patch("logistics.utils.internal_job_creation_eligibility.frappe.db.exists", return_value=False)
+	def test_evaluate_eligible_for_mice_project_internal_job_row(self, _exists):
+		ij_row = frappe._dict(service_type="MICE", name="ij-mice-1")
+		parent = frappe._dict(
+			doctype="MICE Project",
+			sales_quote=None,
+			internal_jobs=[ij_row],
+		)
+		with patch(
+			"logistics.utils.internal_job_creation_eligibility.charges_exist_for_service",
+			return_value=True,
+		):
+			with patch(
+				"logistics.utils.internal_job_creation_eligibility.has_matching_internal_job_setup",
+				return_value=True,
+			):
+				result = evaluate_internal_job_creation_eligibility(
+					parent_doc=parent,
+					ij_row=ij_row,
+					service_type_label="MICE",
+				)
+		self.assertTrue(result["eligible"])
+		self.assertIsNone(result["message"])
+
+	def test_eligibility_message_uses_internal_jobs_tab_for_mice_project(self):
+		parent = MagicMock(doctype="MICE Project")
+		ij_row = MagicMock(service_type="Air", name="ij-air-1")
+		with patch(
+			"logistics.utils.internal_job_creation_eligibility.charges_exist_for_service",
+			return_value=True,
+		):
+			with patch(
+				"logistics.utils.internal_job_creation_eligibility.has_matching_internal_job_setup",
+				return_value=False,
+			):
+				result = evaluate_internal_job_creation_eligibility(
+					parent_doc=parent,
+					ij_row=ij_row,
+					service_type_label="Air",
+				)
+		msg = (result.get("message") or "").lower()
+		self.assertIn("internal jobs", msg)
+		self.assertNotIn("lifecycle", msg)
 
 	def test_quote_has_matching_linked_service_row_uses_virtual_grid(self):
 		"""Regression: eligibility must not read ``sq_doc.get('linked_services')`` (always empty after save)."""
