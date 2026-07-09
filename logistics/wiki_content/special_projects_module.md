@@ -64,6 +64,121 @@ Use **Create → Booking / Order** to spawn planning documents from **Services**
 ### 3.4 Track Billing
 
 1. **Charges** tab – Programme charge lines (same pattern as Sea Shipment charges); link Sales Invoice when invoiced
+2. When charges are brought in from a linked [Sales Quote](welcome/sales-quote), each row is tagged to the correct programme leg — see [§3.5 Programme charges: Linked Service and Service Line](#35-programme-charges-linked-service-and-service-line) below
+
+### 3.5 Programme charges: Linked Service and Service Line
+
+When you populate charges on a **Special Project** from a **Sales Quote**, each charge row can show two related fields on the **Charges** tab:
+
+| Column | What it means |
+| --- | --- |
+| **Scope** | Whether the charge belongs to the **main programme** or a **linked leg** (Air, Sea, Transport, Customs, etc.) |
+| **Linked Service** | The **original service leg from the Sales Quote** (traceability back to the quote) |
+| **Service Line** | The **matching service leg on this Special Project** (used for planning, tagging, and execution on the programme) |
+
+Think of it this way:
+
+- **Linked Service** = where this charge came from on the quote
+- **Service Line** = which programme leg this charge belongs to now
+
+Both can be filled at the same time. They answer different questions.
+
+#### How charges flow from Sales Quote to Special Project
+
+**On the Sales Quote**
+
+1. Define **Linked Services** on the quote (Air, Sea, Transport, Customs, etc.).
+2. On the **Charges** tab, each charge has **Scope** (`Linked` or `Main`) and, for linked charges, **Linked Service** pointing to the quote leg.
+
+Example on quote **PQ00232**:
+
+| Charge | Scope | Linked Service | Service Type |
+| --- | --- | --- | --- |
+| Freight (Air) | Linked | IJ-2026-005944 | Air |
+| Freight (Sea) | Linked | IJ-2026-005945 | Sea |
+| Delivery | Linked | IJ-2026-005946 | Transport |
+| Brokerage | Linked | IJ-2026-005947 | Customs |
+| PM Fee | Main | *(empty)* | Special Project |
+
+**On the Special Project**
+
+When charges are populated from the quote (for example on **PROJ-0147**):
+
+1. The system creates **Special Project Service** rows on the **Services** tab — one per linked leg, plus any main programme leg.
+2. Each charge on the **Charges** tab is tagged to the correct programme leg.
+
+Result on **PROJ-0147**:
+
+| Charge | Scope | Linked Service | Service Line | Service Type |
+| --- | --- | --- | --- | --- |
+| Freight (Air) | Linked | IJ-2026-005944 | SPS-2026-000052 | Air |
+| Freight (Sea) | Linked | IJ-2026-005945 | SPS-2026-000053 | Sea |
+| Delivery | Linked | IJ-2026-005946 | SPS-2026-000054 | Transport |
+| Brokerage | Linked | IJ-2026-005947 | SPS-2026-000055 | Customs |
+| PM Fee | Main | *(empty)* | SPS-2026-000056 | Special Project |
+
+#### What each field is for
+
+**Linked Service (quote reference)** — use when you need to know which **Sales Quote** leg the charge came from, how it was priced on the quote, or for audit traceability. **Linked Service** keeps the quote’s service ID (for example `IJ-2026-005944`). It does not replace the programme’s own service rows.
+
+**Service Line (programme reference)** — use when you plan and execute work on the **Special Project**, link charges to the correct leg on the **Services** tab, create bookings and jobs, or roll up cost and revenue per leg. **Service Line** points to a **Special Project Service** record (for example `SPS-2026-000052`).
+
+#### Scope: Main vs Linked
+
+| Scope | Meaning | Linked Service | Service Line |
+| --- | --- | --- | --- |
+| **Linked** | Charge belongs to a supporting leg (Air, Sea, Transport, Customs, Warehousing, etc.) | Filled from the quote | Filled with the matching programme service |
+| **Main** | Charge belongs to core Special Project work (for example project management fee, site work) | Usually empty | Filled with the main Special Project service row |
+
+If **Scope = Main**, it is normal for **Linked Service** to be blank.
+
+#### What to check on the Charges tab
+
+After populating charges from a Sales Quote, confirm:
+
+1. **Scope** matches the quote (Linked vs Main).
+2. **Linked Service** is filled for **Linked** charges (shows the quote leg).
+3. **Service Line** is filled for every charge (shows the programme leg).
+4. **Service Type** and **Lifecycle Stage** look correct for each row.
+
+If **Service Line** is filled but **Linked Service** is empty on a **Linked** charge, re-populate charges from the quote or ask an administrator to backfill older programmes.
+
+#### Common questions
+
+**Why are Linked Service and Service Line different IDs?**
+
+They refer to different documents:
+
+- **Linked Service** (`IJ-…`) lives on the **Sales Quote**
+- **Service Line** (`SPS-…`) lives on the **Special Project**
+
+When the programme is created, the system copies the *relationship* from quote to project. The IDs differ because each document has its own service records.
+
+**I only see Scope = Linked on the quote — where is Linked Service?**
+
+On the Sales Quote **Charges** grid, **Linked Service** may not appear in the default list view. Open the charge row to see it, or add the column to the grid. The value is stored even when the column is hidden.
+
+**Should I edit Linked Service on the Special Project?**
+
+Usually **no**. It is set automatically from the quote for traceability. For programme work, use **Service Line** and the **Services** tab.
+
+**Which field do I use when creating bookings?**
+
+Use the **Services** tab and **Service Line** on charges — not **Linked Service**. Bookings and execution documents are created from programme services (`SPS-…`), not from quote linked services (`IJ-…`).
+
+#### Quick reference
+
+```
+Sales Quote                          Special Project
+───────────                          ───────────────
+Linked Service (IJ-…)    ──────────►  Linked Service (same IJ-…)
+       │                                      │
+       │ (mapped to)                          ▼
+       └──────────────────────────►  Service Line (SPS-…)
+                                              │
+                                              ▼
+                                     Services tab / bookings / jobs
+```
 
 ## 4. Features
 
@@ -120,7 +235,13 @@ Programme-level **Packages** and **Deliveries** (tracked requirements, always-al
 - **Status** – Pending, Invoiced, Paid
 - **Sales Invoice** – Link when invoiced; invoice date tracked
 
-### 4.9 More Info Tab
+### 4.9 Charges Tab
+
+- Programme charge lines aligned with other logistics jobs (revenue, cost, invoice status)
+- **Scope**, **Linked Service**, and **Service Line** when charges come from a [Sales Quote](welcome/sales-quote) — see [§3.5 Programme charges: Linked Service and Service Line](#35-programme-charges-linked-service-and-service-line)
+- **Billing Status** at programme level (Not Billed, Partially Billed, Fully Billed)
+
+### 4.10 More Info Tab
 
 - **Client Notes** – Notes visible to customer
 - **Internal Notes** – Internal-only notes (also available on Details flow per form layout)

@@ -179,11 +179,12 @@ def remap_special_project_charges_after_quote_populate(
 	sales_quote_name: str | None = None,
 	service_types: Any = "__all__",
 ) -> dict[str, str]:
-	"""Tag programme charges to Service Line rows and drop stale quote Linked Service links.
+	"""Tag programme charges to Service Line rows, keeping the quote Linked Service link.
 
-	Quote ``linked_service`` values are not copied onto Special Project charge rows; when
-	*sales_quote_name* is given, each charge is paired with its source Sales Quote charge
-	so the link can be translated to ``special_project_service_line``.
+	When *sales_quote_name* is given, each charge is paired with its source Sales Quote
+	charge so the quote ``linked_service`` can be translated to
+	``special_project_service_line`` while also being retained on the charge row for
+	traceability.
 
 	Returns the updated ``{linked_service_name: special_project_service_name}`` map.
 	"""
@@ -229,8 +230,10 @@ def remap_special_project_charges_after_quote_populate(
 			if _norm(sps_stage):
 				charge.lifecycle_stage = sps_stage
 
+		# Retain the quote's Linked Service link for traceability; only ``internal_job``
+		# (which belongs to the quote's own legs) is dropped.
 		if meta.has_field("linked_service"):
-			charge.linked_service = None
+			charge.linked_service = ls_name or None
 		if meta.has_field("internal_job"):
 			charge.internal_job = None
 

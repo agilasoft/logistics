@@ -42,18 +42,19 @@ class TestSpecialProjectServicesFromSalesQuote(IntegrationTestCase):
 			return
 		frappe.delete_doc("Sales Quote", sq_name, force=True, ignore_permissions=True)
 
-	def test_map_charge_skips_linked_service_for_special_project(self):
+	def test_map_charge_retains_linked_service_for_special_project(self):
 		mapped = map_sales_quote_charge_to_programme_charge_dict(
 			{
 				"service_type": "Air",
 				"item_code": "FREIGHT",
 				"charge_scope": "Linked",
 				"linked_service": "IJ-TEST",
+				"internal_job": "IJ-TEST",
 			},
 			"SQ-TEST",
 			"Special Project Charges",
 		)
-		self.assertNotIn("linked_service", mapped)
+		self.assertEqual(mapped.get("linked_service"), "IJ-TEST")
 		self.assertNotIn("internal_job", mapped)
 		self.assertEqual(mapped.get("charge_scope"), "Linked")
 
@@ -164,9 +165,10 @@ class TestSpecialProjectServicesFromSalesQuote(IntegrationTestCase):
 
 			linked_charges = [c for c in reloaded.charges if (c.charge_scope or "").strip() == "Linked"]
 			self.assertEqual(len(linked_charges), 2)
+			quote_linked_services = {ls_air.name, ls_sea.name}
 			for charge in linked_charges:
 				self.assertTrue(charge.special_project_service_line)
-				self.assertFalse(charge.linked_service)
+				self.assertIn(charge.linked_service, quote_linked_services)
 				self.assertTrue(
 					frappe.db.exists(
 						"Special Project Service",
