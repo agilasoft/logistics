@@ -1,0 +1,119 @@
+.wc-dashboard {
+	padding: 0 15px 20px;
+}
+
+.wc-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	margin-bottom: 16px;
+}
+
+.wc-header h4 {
+	margin: 0 0 4px;
+	font-weight: 600;
+}
+
+.wc-header .text-muted {
+	font-size: 12px;
+}
+
+.wc-filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 16px;
+}
+
+.wc-filters .form-control {
+	min-width: 180px;
+	max-width: 220px;
+}
+
+.wc-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 12px;
+	margin-bottom: 18px;
+}
+
+.wc-card {
+	border: 1px solid var(--border-color, #d1d8dd);
+	border-radius: 8px;
+	padding: 14px 16px;
+	cursor: pointer;
+	background: #fff;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.wc-card:hover {
+	border-color: #8d99a6;
+}
+
+.wc-card.active {
+	border-color: #171717;
+	box-shadow: 0 0 0 1px #171717;
+}
+
+.wc-card .wc-card-count {
+	font-size: 28px;
+	font-weight: 700;
+	line-height: 1.1;
+}
+
+.wc-card .wc-card-title {
+	font-size: 13px;
+	font-weight: 600;
+	margin-top: 4px;
+}
+
+.wc-card .wc-card-desc {
+	font-size: 11px;
+	color: #6c757d;
+	margin-top: 2px;
+}
+
+.wc-card.at-risk .wc-card-count { color: #e03636; }
+.wc-card.delay-risk .wc-card-count { color: #f2711c; }
+.wc-card.penalty-risk .wc-card-count { color: #db2828; }
+.wc-card.todays-tasks .wc-card-count { color: #2185d0; }
+.wc-card.compliance-gaps .wc-card-count { color: #767676; }
+.wc-card.open-actions .wc-card-count { color: #21ba45; }
+
+.wc-list-header {
+	margin-bottom: 10px;
+}
+
+.wc-list-header h5 {
+	margin: 0 0 4px;
+	font-weight: 600;
+}
+
+.wc-table td, .wc-table th {
+	vertical-align: middle !important;
+	font-size: 12px;
+}
+
+.wc-severity {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 10px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: capitalize;
+}
+
+.wc-severity.ok { background: #e8f5e9; color: #2e7d32; }
+.wc-severity.info { background: #e3f2fd; color: #1565c0; }
+.wc-severity.warning { background: #fff3e0; color: #ef6c00; }
+.wc-severity.critical { background: #ffebee; color: #c62828; }
+.wc-severity.overdue { background: #fce4ec; color: #ad1457; }
+
+.wc-empty {
+	padding: 28px;
+	text-align: center;
+	color: #6c757d;
+	border: 1px dashed #d1d8dd;
+	border-radius: 8px;
+}
