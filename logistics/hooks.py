@@ -37,6 +37,7 @@ app_include_css = [
 	"/assets/logistics/css/get_charges_from_quotation.css?v=8",
 	"/assets/logistics/css/charges_grid_no_row_check.css?v=2",
 	"/assets/logistics/css/density_factor.css?v=1",
+	"/assets/logistics/css/workflow_center.css?v=1",
 ]
 app_include_js = [
 	"/assets/logistics/js/address_link_query.js?v=1",
@@ -75,7 +76,9 @@ app_include_js = [
 # web_include_js = "/assets/logistics/js/logistics.js"
 
 # include js in page
-# page_js = {"page" : "public/js/file.js"}
+page_js = {
+	"workflow-center": "public/js/workflow_center.js",
+}
 
 # include js in doctype views
 doctype_js = {
