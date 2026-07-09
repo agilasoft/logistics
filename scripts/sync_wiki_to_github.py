@@ -86,6 +86,7 @@ PAGE_MAP = {
     # Pricing Center
     "sales_quote": "Sales-Quote",
     "sales_quote_separate_billings_and_internal_job": "Sales-Quote-Separate-Billings-And-Internal-Job",
+    "linked_services_on_operational_documents": "Linked-Services-On-Operational-Documents",
     "change_request": "Change-Request",
     "sales_quote_calculation_method": "Sales-Quote-Calculation-Method",
     "charges_tariff_revenue_cost_pattern": "Charges-Tariff-Revenue-Cost-Pattern",
@@ -210,6 +211,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 
 - [Sales Quote](Sales-Quote)
 - [Sales Quote — Separate Billings and Internal Job](Sales-Quote-Separate-Billings-And-Internal-Job)
+- [Linked Services on Operational Documents](Linked-Services-On-Operational-Documents)
 - [Change Request](Change-Request)
 - [Sales Quote – Calculation Method](Sales-Quote-Calculation-Method)
 
@@ -343,6 +345,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 **Pricing Center**
 - [Sales Quote](Sales-Quote)
 - [Sales Quote — Separate Billings and Internal Job](Sales-Quote-Separate-Billings-And-Internal-Job)
+- [Linked Services on Operational Documents](Linked-Services-On-Operational-Documents)
 - [Change Request](Change-Request)
 - [Sales Quote – Calculation Method](Sales-Quote-Calculation-Method)
 
