@@ -563,11 +563,11 @@ def _populate_charges_on_target(sq_doc: Any, target_doc: Any) -> None:
 
 
 def _propagate_subsidiary_linked_services(sq_doc: Any, booking_doc: Any) -> None:
-	from logistics.utils.sales_quote_one_off_internal_jobs import (
-		propagate_linked_services_for_special_project_booking,
+	from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+		_propagate_linked_services_to_created_booking,
 	)
 
-	propagate_linked_services_for_special_project_booking(sq_doc, booking_doc)
+	_propagate_linked_services_to_created_booking(sq_doc, booking_doc)
 
 
 def _create_air_booking(
