@@ -15,6 +15,6 @@ add_to_apps_screen = [
 		"logo": "/assets/workflow_center/images/workflow_center.svg",
 		"title": "Workflow Center",
 		"route": "/workflow-center",
-		"has_permission": "workflow_center.workflow_center.api.has_app_permission",
+		"has_permission": "workflow_center.api.has_app_permission",
 	}
 ]
