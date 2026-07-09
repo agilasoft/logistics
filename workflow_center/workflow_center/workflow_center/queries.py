@@ -4,12 +4,20 @@
 from __future__ import annotations
 
 import json
+<<<<<<< HEAD
+=======
+from datetime import datetime
+>>>>>>> origin/develop
 from typing import Any
 
 import frappe
 from frappe import _
 from frappe.model.workflow import get_workflow_name, get_workflow_state_field, has_approval_access
 from frappe.permissions import has_permission
+<<<<<<< HEAD
+=======
+from frappe.query_builder import DocType
+>>>>>>> origin/develop
 from frappe.utils import cint, flt, get_datetime, getdate, now_datetime, time_diff_in_seconds
 
 
@@ -34,6 +42,7 @@ def get_active_workflow_doctypes() -> list[str]:
 	)
 
 
+<<<<<<< HEAD
 def get_user_roles(user: str | None = None) -> set[str]:
 	user = user or frappe.session.user
 	return set(frappe.get_roles(user))
@@ -57,6 +66,14 @@ def _user_can_see_action(user: str, permitted_roles: list[str], role_filter: str
 
 	user_roles = get_user_roles(user)
 	return bool(user_roles.intersection(permitted_roles))
+=======
+def get_user_roles(user: str | None = None, role_filter: str | None = None) -> set[str]:
+	user = user or frappe.session.user
+	roles = set(frappe.get_roles(user))
+	if role_filter:
+		roles = roles.intersection({role_filter})
+	return roles
+>>>>>>> origin/develop
 
 
 def get_open_workflow_actions(
@@ -64,6 +81,7 @@ def get_open_workflow_actions(
 	role_filter: str | None = None,
 	limit: int = 500,
 ) -> list[dict[str, Any]]:
+<<<<<<< HEAD
 	"""Return open Workflow Action rows visible to the user, across all doctypes."""
 	user = user or frappe.session.user
 
@@ -93,10 +111,45 @@ def get_open_workflow_actions(
 		if not _user_can_see_action(user, permitted_roles, role_filter):
 			continue
 
+=======
+	"""Return open Workflow Action rows the user can act on, across all doctypes."""
+	user = user or frappe.session.user
+	roles = get_user_roles(user, role_filter)
+	if not roles:
+		return []
+
+	WorkflowAction = DocType("Workflow Action")
+	WorkflowActionPermittedRole = DocType("Workflow Action Permitted Role")
+
+	rows = (
+		frappe.qb.from_(WorkflowAction)
+		.join(WorkflowActionPermittedRole)
+		.on(WorkflowAction.name == WorkflowActionPermittedRole.parent)
+		.select(
+			WorkflowAction.name.as_("workflow_action"),
+			WorkflowAction.reference_doctype,
+			WorkflowAction.reference_name,
+			WorkflowAction.workflow_state,
+			WorkflowAction.creation,
+			WorkflowAction.modified,
+			WorkflowActionPermittedRole.role.as_("permitted_role"),
+		)
+		.where(WorkflowAction.status == "Open")
+		.where(WorkflowActionPermittedRole.role.isin(list(roles)))
+		.orderby(WorkflowAction.modified, order=frappe.qb.desc)
+		.limit(cint(limit) or 500)
+	).run(as_dict=True)
+
+	# Deduplicate by (doctype, name) keeping the most recently modified row.
+	seen: set[tuple[str, str]] = set()
+	deduped: list[dict[str, Any]] = []
+	for row in rows:
+>>>>>>> origin/develop
 		key = (row.reference_doctype, row.reference_name)
 		if key in seen:
 			continue
 		seen.add(key)
+<<<<<<< HEAD
 
 		deduped.append(
 			{
@@ -111,6 +164,9 @@ def get_open_workflow_actions(
 				"assigned_user": row.user,
 			}
 		)
+=======
+		deduped.append(row)
+>>>>>>> origin/develop
 
 	return deduped
 
@@ -138,26 +194,34 @@ def _matches_dimension_filters(doc: frappe.model.document.Document, filters: dic
 	return True
 
 
+<<<<<<< HEAD
 def _get_available_actions(
 	doc: frappe.model.document.Document,
 	workflow_state: str,
 	user: str,
 	permitted_roles: list[str] | None = None,
 ) -> list[str]:
+=======
+def _get_available_actions(doc: frappe.model.document.Document, workflow_state: str, user: str) -> list[str]:
+>>>>>>> origin/develop
 	workflow = get_workflow_name(doc.doctype)
 	if not workflow:
 		return []
 
 	roles = set(frappe.get_roles(user))
+<<<<<<< HEAD
 	if user == "Administrator":
 		roles.add("Administrator")
 
+=======
+>>>>>>> origin/develop
 	actions: list[str] = []
 	for transition in frappe.get_all(
 		"Workflow Transition",
 		filters={"parent": workflow, "state": workflow_state},
 		fields=["action", "allowed", "allow_self_approval", "condition"],
 	):
+<<<<<<< HEAD
 		if permitted_roles and transition.allowed not in permitted_roles:
 			# Still allow if user has the transition role directly.
 			if transition.allowed not in roles:
@@ -177,6 +241,13 @@ def _get_available_actions(
 			pluck="action",
 		)
 
+=======
+		if transition.allowed not in roles:
+			continue
+		if not has_approval_access(user, doc, transition):
+			continue
+		actions.append(transition.action)
+>>>>>>> origin/develop
 	return sorted(set(actions))
 
 
@@ -235,11 +306,19 @@ def _classify_item(item: dict[str, Any]) -> str:
 		return "delay_risk"
 	if item.get("sla_breach_penalty"):
 		return "penalty_risk"
+<<<<<<< HEAD
 	creation = get_datetime(item.get("creation"))
 	if creation and getdate(creation) == getdate():
 		return "todays_tasks"
 	if not item.get("sla_enabled"):
 		return "compliance_gaps"
+=======
+	if not item.get("sla_enabled"):
+		return "compliance_gaps"
+	creation = get_datetime(item.get("creation"))
+	if creation and getdate(creation) == getdate():
+		return "todays_tasks"
+>>>>>>> origin/develop
 	return "open_actions"
 
 
@@ -260,6 +339,7 @@ def enrich_workflow_action(row: dict[str, Any], user: str, filters: dict[str, An
 	workflow = get_workflow_name(doctype)
 	state_field = get_workflow_state_field(workflow) if workflow else "workflow_state"
 	current_state = doc.get(state_field) or row.get("workflow_state")
+<<<<<<< HEAD
 	permitted_roles = row.get("permitted_roles") or (
 		[row.get("permitted_role")] if row.get("permitted_role") else []
 	)
@@ -268,6 +348,10 @@ def enrich_workflow_action(row: dict[str, Any], user: str, filters: dict[str, An
 	# clearly for a different state than the document currently holds.
 	action_state = row.get("workflow_state")
 	if action_state and current_state and action_state != current_state:
+=======
+	if current_state != row.get("workflow_state"):
+		# Stale action — document moved on; skip from dashboard.
+>>>>>>> origin/develop
 		return None
 
 	sla = _get_sla_config(current_state)
@@ -275,7 +359,13 @@ def enrich_workflow_action(row: dict[str, Any], user: str, filters: dict[str, An
 	entered_at = get_datetime(row.get("modified") or row.get("creation"))
 	elapsed = time_diff_in_seconds(now_datetime(), entered_at) if entered_at else 0
 	severity = _severity(elapsed, allowed, sla)
+<<<<<<< HEAD
 	actions = _get_available_actions(doc, current_state, user, permitted_roles=permitted_roles)
+=======
+	actions = _get_available_actions(doc, current_state, user)
+	if not actions:
+		return None
+>>>>>>> origin/develop
 
 	title = doc.get("title") or doc.get("supplier_name") or doc.get("customer_name") or name
 	item = {
@@ -286,7 +376,10 @@ def enrich_workflow_action(row: dict[str, Any], user: str, filters: dict[str, An
 		"workflow": workflow,
 		"workflow_state": current_state,
 		"permitted_role": row.get("permitted_role"),
+<<<<<<< HEAD
 		"permitted_roles": permitted_roles,
+=======
+>>>>>>> origin/develop
 		"available_actions": actions,
 		"company": doc.get("company"),
 		"branch": doc.get("branch"),
@@ -352,6 +445,10 @@ def get_dashboard_summary(filters: dict | str | None = None, user: str | None = 
 		"counts": counts,
 		"workflow_doctypes": get_active_workflow_doctypes(),
 		"user": user,
+<<<<<<< HEAD
 		"roles": sorted(get_user_roles(user)),
+=======
+		"roles": sorted(get_user_roles(user, filters.get("role"))),
+>>>>>>> origin/develop
 		"filters": filters,
 	}
