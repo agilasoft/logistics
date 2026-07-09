@@ -105,3 +105,52 @@ class TestOperationalLinkedServices(FrappeTestCase):
 		self.assertEqual(field.fieldtype, "Table")
 		self.assertTrue(field.is_virtual)
 		self.assertIsNone(meta.get_field("internal_job_details"))
+
+	def test_save_preserves_quote_propagated_linked_services(self):
+		"""Regression: saving a Sea Booking must not delete propagated Linked Service docs."""
+		from logistics.utils.sales_quote_one_off_internal_jobs import (
+			propagate_linked_services_from_sales_quote_to_booking,
+		)
+
+		sq = frappe.new_doc("Sales Quote")
+		sq.quotation_type = "One-off"
+		sq.main_service = "Sea"
+		sq.naming_series = "OOQ.#####"
+		sq.customer = frappe.db.get_value("Customer", {}, "name")
+		sq.shipper = frappe.db.get_value("Shipper", {}, "name")
+		sq.consignee = frappe.db.get_value("Consignee", {}, "name")
+		if not sq.customer or not sq.shipper or not sq.consignee:
+			self.skipTest("Missing Customer/Shipper/Consignee master data")
+		sq.date = frappe.utils.today()
+		sq.valid_until = frappe.utils.add_days(frappe.utils.today(), 30)
+		sq.flags.ignore_mandatory = True
+		sq.insert(ignore_permissions=True)
+		booking = None
+		try:
+			sq.append("linked_services", {"service_type": "Transport"})
+			sq.append("linked_services", {"service_type": "Customs"})
+			sq.flags._linked_services_from_form = True
+			sync_internal_job_details_to_internal_jobs(sq)
+			ls_before = _linked_service_names_from_db("Sales Quote", sq.name)
+			self.assertEqual(len(ls_before), 2)
+
+			booking = frappe.new_doc("Sea Booking")
+			booking.sales_quote = sq.name
+			booking.flags.ignore_mandatory = True
+			booking.insert(ignore_permissions=True)
+			propagate_linked_services_from_sales_quote_to_booking(sq, booking)
+			booking_ls = _linked_service_names_from_db("Sea Booking", booking.name)
+			self.assertEqual(len(booking_ls), 2)
+
+			doc = frappe.get_doc("Sea Booking", booking.name)
+			doc.notify_party = (doc.notify_party or "") + " updated"
+			doc.flags.ignore_mandatory = True
+			doc.save(ignore_permissions=True)
+
+			self.assertEqual(_linked_service_names_from_db("Sea Booking", booking.name), booking_ls)
+			reloaded = frappe.get_doc("Sea Booking", booking.name)
+			self.assertEqual(len(reloaded.linked_services), 2)
+		finally:
+			if booking and frappe.db.exists("Sea Booking", booking.name):
+				frappe.delete_doc("Sea Booking", booking.name, force=True, ignore_permissions=True)
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)

@@ -288,11 +288,22 @@ def _linked_service_names_from_db(parent_doctype: str, parent_name: str) -> set[
 	)
 
 
+def _linked_service_name_from_row(row: Any) -> str:
+	"""Resolve the canonical Linked Service name from a detail row or LS document."""
+	name = row_linked_service_link(row)
+	if name:
+		return name
+	if getattr(row, "doctype", None) == linked_service_doctype():
+		return _norm(getattr(row, "name", None))
+	return ""
+
+
 def _currently_linked_internal_jobs(parent_doc: Any, fieldname: str) -> set[str]:
 	return {
-		row_linked_service_link(r)
+		name
 		for r in internal_job_detail_rows_for_parent(parent_doc)
-		if row_linked_service_link(r)
+		for name in [_linked_service_name_from_row(r)]
+		if name
 	}
 
 
@@ -362,7 +373,7 @@ def _ensure_internal_job_docs_for_detail_rows(parent_doc: Any) -> dict[str, str]
 		return remap
 
 	for row in internal_job_detail_rows_for_parent(parent_doc):
-		ij_name = row_linked_service_link(row)
+		ij_name = _linked_service_name_from_row(row)
 		if ij_name and linked_service_record_exists(ij_name):
 			_update_internal_job_from_row(row, ij_name)
 			if _norm(getattr(parent_doc, "name", None)):
@@ -407,7 +418,7 @@ def _internal_job_by_service_type(parent_doc: Any, fieldname: str) -> dict[str, 
 	out: dict[str, str] = {}
 	for row in internal_job_detail_rows_for_parent(parent_doc):
 		st = _norm(_row_value(row, "service_type"))
-		ij = row_linked_service_link(row)
+		ij = _linked_service_name_from_row(row)
 		if st and ij:
 			out[st] = ij
 	return out
