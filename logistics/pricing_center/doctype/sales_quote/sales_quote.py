@@ -1370,6 +1370,30 @@ def create_special_project_from_sales_quote(sales_quote_name):
 	return _create_special_project_from_sales_quote(sales_quote)
 
 
+def _propagate_linked_services_to_docket(sales_quote, docket_doc):
+	"""Clone quote-owned Linked Services onto *docket_doc* and remap charge links."""
+	if not sales_quote or not docket_doc:
+		return
+	from logistics.utils.sales_quote_one_off_internal_jobs import (
+		propagate_linked_services_from_sales_quote_to_booking,
+	)
+
+	try:
+		propagate_linked_services_from_sales_quote_to_booking(
+			sales_quote,
+			docket_doc,
+			exclude_main_booking_service_type=False,
+		)
+	except Exception:
+		frappe.log_error(
+			title="Sales Quote Linked Service propagation to Docket failed",
+			message=(
+				f"Sales Quote: {getattr(sales_quote, 'name', None)}; "
+				f"Docket: {getattr(docket_doc, 'name', None)}\n{frappe.get_traceback()}"
+			),
+		)
+
+
 def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 	"""Create (or return) the Docket for ``sales_quote.customer`` on the linked Exhibit.
 
@@ -1417,6 +1441,7 @@ def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 		)
 		doc.save(ignore_permissions=True)
 		copy_sales_quote_charge_breaks_to_programme_parent(doc, sales_quote.name)
+		_propagate_linked_services_to_docket(sales_quote, doc)
 		frappe.db.commit()
 		return {"success": True, "docket": docket_name, "message": docket_name}
 
@@ -1461,6 +1486,7 @@ def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 		insert_kwargs["set_name"] = docket_name
 	doc.insert(**insert_kwargs)
 	copy_sales_quote_charge_breaks_to_programme_parent(doc, sales_quote.name)
+	_propagate_linked_services_to_docket(sales_quote, doc)
 	frappe.db.commit()
 
 	frappe.msgprint(

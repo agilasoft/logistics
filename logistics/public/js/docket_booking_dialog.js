@@ -1,7 +1,7 @@
 // Copyright (c) 2026, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
-// Create Booking/Order dialog for Docket: lists each Internal Job row, lets the user create
+// Create Booking/Order dialog for Docket: lists each Linked Service row, lets the user create
 // the matching Air/Sea Booking, Transport/Declaration/Inbound Order from it.
 
 (function () {
@@ -9,8 +9,9 @@
 
 	const PREVIEW_CLASS = "logistics-dk-ij-preview";
 
-	function _internalJobsPayload(frm) {
-		return JSON.stringify((frm && frm.doc && frm.doc.internal_jobs) || []);
+	function _linkedServicesPayload(frm) {
+		var rows = (frm && frm.doc && (frm.doc.linked_services || frm.doc.internal_jobs)) || [];
+		return JSON.stringify(rows);
 	}
 
 	function _encodeChoice(c) {
@@ -220,7 +221,8 @@
 				docket: frm.doc.name,
 				job_type: dec.job_type != null ? dec.job_type : "",
 				internal_job_idx: dec.detail_idx,
-				internal_jobs: _internalJobsPayload(frm),
+				linked_services: _linkedServicesPayload(frm),
+				internal_jobs: _linkedServicesPayload(frm),
 			},
 			callback: function (r) {
 				if (r.exc) {
@@ -288,7 +290,7 @@
 			$("<p>")
 				.addClass("text-muted")
 				.css({ fontSize: "12px", marginBottom: "10px", lineHeight: 1.45 })
-				.text(__("Each card is one Internal Job line on this Docket. Expand for details; use Create in the card header when ready."))
+				.text(__("Each card is one Services line on this Docket. Expand for details; use Create in the card header when ready."))
 		);
 		const $scroll = $("<div class='dk-cards-scroll'>");
 		const $cards = $("<div class='dk-cards'>");
@@ -361,7 +363,8 @@
 				docket: frm.doc.name,
 				job_type: dec.job_type,
 				internal_job_idx: dec.detail_idx,
-				internal_jobs: _internalJobsPayload(frm),
+				linked_services: _linkedServicesPayload(frm),
+				internal_jobs: _linkedServicesPayload(frm),
 			},
 			freeze: true,
 			freeze_message: __("Creating..."),
@@ -410,7 +413,7 @@
 			if (!dec.job_type) {
 				frappe.msgprint({
 					title: __("Create Booking / Order"),
-					message: __("Set Service Type on this Internal Job line before creating."),
+					message: __("Set Service Type on this Services line before creating."),
 					indicator: "orange",
 				});
 				return;
@@ -436,7 +439,7 @@
 			"<div class='" + PREVIEW_CLASS + "' style='margin-bottom:4px'>" +
 			"<div style='font-size:12px;color:var(--text-muted,#64748b);line-height:1.5'>" +
 			"<strong style='color:var(--text-color,#0f172a)'>" + __("From") + "</strong> " + ref + "<br>" +
-			__("Each card is one Internal Job line. Expand to preview; use Create in the card header when ready.") +
+			__("Each card is one Services line. Expand to preview; use Create in the card header when ready.") +
 			"</div></div>"
 		);
 	}
@@ -454,7 +457,8 @@
 			method: "logistics.mice.doctype.docket.docket_booking_creation.get_docket_booking_choices",
 			args: {
 				docket: frm.doc.name,
-				internal_jobs: _internalJobsPayload(frm),
+				linked_services: _linkedServicesPayload(frm),
+				internal_jobs: _linkedServicesPayload(frm),
 			},
 			freeze: true,
 			freeze_message: __("Loading options..."),
@@ -464,7 +468,7 @@
 				if (!choices.length) {
 					frappe.msgprint({
 						title: __("Create Booking / Order"),
-						message: __("No Internal Job lines on this Docket. Add a row under the Jobs tab first."),
+						message: __("No Services lines on this Docket. Link a Sales Quote with subsidiary services first."),
 						indicator: "orange",
 					});
 					return;

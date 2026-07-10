@@ -45,9 +45,9 @@
   "total_weight",
   "column_break_summary",
   "density_factor_html",
-  "jobs_tab",
-  "section_jobs",
-  "internal_jobs",
+  "services_tab",
+  "linked_services_section",
+  "linked_services",
   "charges_tab",
   "section_org",
   "company",
@@ -302,22 +302,24 @@
    "label": "Deliverables"
   },
   {
-   "fieldname": "jobs_tab",
+   "fieldname": "services_tab",
    "fieldtype": "Tab Break",
-   "label": "Jobs"
+   "label": "Services"
   },
   {
-   "description": "Internal jobs (Air / Sea / Transport / Customs / Warehousing / MICE lines) that fulfil this docket.",
-   "fieldname": "section_jobs",
+   "fieldname": "linked_services_section",
    "fieldtype": "Section Break",
-   "label": "Internal Jobs"
+   "label": "Linked Services"
   },
   {
-   "description": "Internal jobs (Air / Sea / Transport / Customs / Warehousing / MICE lines) that fulfil this docket. Use <b>Create &gt; Booking / Order</b> to turn each row into a booking, order, or MICE Order.",
-   "fieldname": "internal_jobs",
+   "description": "Subsidiary service legs linked to this booking (from the Sales Quote or created jobs).",
+   "fieldname": "linked_services",
    "fieldtype": "Table",
-   "label": "Internal Jobs",
-   "options": "Internal Job Detail"
+   "is_virtual": 1,
+   "label": "Linked Services",
+   "options": "Linked Service Detail",
+   "read_only": 1,
+   "cannot_add_rows": 1
   },
   {
    "fieldname": "charges_tab",
