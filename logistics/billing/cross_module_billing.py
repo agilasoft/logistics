@@ -252,7 +252,10 @@ def iter_main_job_linked_scope_charge_splits(
     job_type = getattr(main_job_doc, "doctype", None)
     if not job_type:
         return
-    charges_table = main_job_doc.get("charges") or []
+    if hasattr(main_job_doc, "get") and callable(main_job_doc.get):
+        charges_table = main_job_doc.get("charges") or []
+    else:
+        charges_table = getattr(main_job_doc, "charges", None) or []
     if not charges_table:
         return
     parent_meta = frappe.get_meta(job_type)
