@@ -58,6 +58,7 @@ Migrations may reset recognition custom fields on Air Shipment (see patches `v1_
 ## 7. Pricing center and jobs
 
 - [Sales Quote](welcome/sales-quote): separate billings per service type, main vs internal job routing, unified charge calculation across modules.
+- **[Change Request](welcome/change-request) — Services tab starts empty:** creating a Change Request from a shipment or job no longer copies existing Linked Services onto the Change Request. Add only **new** additional services on the Services tab; use **Charges** for the fee lines and create a Sales Quote when ready to bill.
 - **General Job** and workspace updates align with costing and recognition where applicable.
 
 ## 8. Integrations and utilities

@@ -21,6 +21,28 @@ from logistics.invoice_integration.recognition_voucher_reversal import (
 from logistics.invoice_integration.wip_reversal import post_wip_reversal_journal_multi
 
 
+def _linked_jobs_on_internal_billing_je(je_doc):
+	"""Resolve linked jobs from JE credit rows (job_number) or legacy reference fields."""
+	seen = set()
+	for row in je_doc.get("accounts") or []:
+		rt = row.get("reference_type")
+		rn = row.get("reference_name")
+		if rt in INTERNAL_BILLING_JOB_TYPES and rn and frappe.db.exists(rt, rn):
+			seen.add((rt, rn))
+			continue
+		if flt(row.get("credit_in_account_currency")) <= 0:
+			continue
+		jcn = row.get("job_number")
+		if not jcn:
+			continue
+		for jt in INTERNAL_BILLING_JOB_TYPES:
+			jn = frappe.db.get_value(jt, {"job_number": jcn}, "name")
+			if jn:
+				seen.add((jt, jn))
+				break
+	return seen
+
+
 def reverse_recognition_for_internal_billing_je(je_doc, end_customer):
 	"""
 	Reverse WIP and accrual for each job referenced on the internal billing JE.
@@ -32,12 +54,7 @@ def reverse_recognition_for_internal_billing_je(je_doc, end_customer):
 	if not je_doc or getattr(je_doc, "docstatus", None) != 1:
 		return {}
 
-	seen = set()
-	for row in je_doc.get("accounts") or []:
-		rt = row.get("reference_type")
-		rn = row.get("reference_name")
-		if rt in INTERNAL_BILLING_JOB_TYPES and rn and frappe.db.exists(rt, rn):
-			seen.add((rt, rn))
+	seen = _linked_jobs_on_internal_billing_je(je_doc)
 
 	if not seen:
 		return {}

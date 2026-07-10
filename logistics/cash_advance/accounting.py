@@ -13,6 +13,7 @@ from frappe.utils import cint, flt
 
 from logistics.cash_advance.totals_sync import _sum_submitted_acknowledgments, get_release_journal_entry
 from logistics.job_management.recognition_engine import apply_journal_entry_posting_header_from_job
+from logistics.utils.item_accounts import get_expense_account_for_item  # re-export
 
 
 def get_ar_employee_account(company: Optional[str] = None) -> str:
@@ -279,54 +280,6 @@ def cancel_journal_entry(je_name: Optional[str]) -> None:
 		je.flags.ignore_permissions = True
 		je.cancel()
 
-
-def get_expense_account_for_item(item_code: str, company: str) -> Optional[str]:
-	"""Resolve expense account: Item Default -> Item Group Default -> Company default."""
-	if not item_code:
-		return None
-
-	# 1) Item Default (per-company) on the Item itself.
-	row = frappe.db.sql(
-		"""
-		SELECT expense_account, purchase_expense_account
-		FROM `tabItem Default`
-		WHERE parent=%(item)s AND parenttype='Item' AND company=%(co)s
-		LIMIT 1
-		""",
-		{"item": item_code, "co": company},
-		as_dict=True,
-	)
-	if row:
-		acc = row[0].get("expense_account") or row[0].get("purchase_expense_account")
-		if acc:
-			return acc
-
-	# 2) Item Group Defaults (per-company) for the item's group.
-	item_group = frappe.db.get_value("Item", item_code, "item_group")
-	if item_group:
-		row = frappe.db.sql(
-			"""
-			SELECT expense_account, purchase_expense_account
-			FROM `tabItem Default`
-			WHERE parent=%(grp)s AND parenttype='Item Group' AND company=%(co)s
-			LIMIT 1
-			""",
-			{"grp": item_group, "co": company},
-			as_dict=True,
-		)
-		if row:
-			acc = row[0].get("expense_account") or row[0].get("purchase_expense_account")
-			if acc:
-				return acc
-
-	# 3) Company-level default (Cost of Goods Sold / Purchase Expense).
-	co_defaults = frappe.db.get_value(
-		"Company",
-		company,
-		["default_expense_account", "purchase_expense_account"],
-		as_dict=True,
-	) or {}
-	return co_defaults.get("default_expense_account") or co_defaults.get("purchase_expense_account") or None
 
 
 def create_liquidation_journal_entry(doc) -> str:

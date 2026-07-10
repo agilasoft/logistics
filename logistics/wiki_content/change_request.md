@@ -10,12 +10,21 @@ To access Change Request, go to:
 
 1. Open a job (e.g., Air Shipment, Transport Job).
 2. Click **Create Change Request** (from the Additional Charges or custom button).
-3. Add charge lines in the **Charges** child table (set **Service Type** to match the fee — Air, Sea, Transport, Customs, or Warehousing).
-4. **Submit** the Change Request — cost rows are pushed to the linked job's **Charges** table (tagged with `change_request` and `change_request_charge`). Revenue on those rows starts at zero until a Sales Quote is submitted.
-5. Create a **Sales Quote** from the Change Request (button on the submitted Change Request).
-6. **Submit** the Additional Charge Sales Quote — revenue is merged onto the existing Change Request charge rows on the job (matched by `change_request_charge`).
+3. On the **Services** tab, add only the **new** additional services you need (e.g. an extra transport leg or customs clearance). The tab starts **empty** — existing services on the shipment or job are **not** copied in.
+4. Add charge lines in the **Charges** child table (set **Service Type** to match the fee — Air, Sea, Transport, Customs, or Warehousing). Use **Scope = Linked** and pick a service from the Services tab when the charge belongs to a new linked leg.
+5. **Submit** the Change Request — cost rows are pushed to the linked job's **Charges** table (tagged with `change_request` and `change_request_charge`). Revenue on those rows starts at zero until a Sales Quote is submitted.
+6. Create a **Sales Quote** from the Change Request (button on the submitted Change Request).
+7. **Submit** the Additional Charge Sales Quote — revenue is merged onto the existing Change Request charge rows on the job (matched by `change_request_charge`).
 
-Charges do **not** appear on the job until step 4 (Change Request submit). Revenue does **not** appear until step 6 (Sales Quote submit).
+Charges do **not** appear on the job until step 5 (Change Request submit). Revenue does **not** appear until step 7 (Sales Quote submit).
+
+### Services tab (new additional services only)
+
+When you create a Change Request from a shipment or job, the **Services** tab is **empty**. CargoNext does **not** copy the job's existing Linked Services into the Change Request.
+
+Use the Services tab like a mini quotation workspace: define only the **new** subsidiary services you are adding (transport leg, customs brokerage, warehousing, and so on). Each row you add creates a Change Request–owned Linked Service. Charges that belong to one of those new legs should use **Scope = Linked** and reference the matching service row.
+
+Charges for fees on the **main** job itself (no new subsidiary leg) can stay on **Scope = Main** without adding a Services row.
 
 ### Multimodal jobs (Air Shipment / Sea Shipment)
 
@@ -55,7 +64,7 @@ Row 4 is tagged with `change_request_charge = 2mipjiaefb`, matching the sole Cha
 | Change Request submitted | 2026-06-02 15:56 | Cost row appears; revenue still 0 |
 | Sales Quote OOQ00319 submitted | 2026-06-02 16:01 | Revenue merged onto existing row |
 
-Charges do **not** appear until the Change Request is **submitted** (step 4). Revenue stays at zero until the Additional Charge Sales Quote is **submitted** (step 6). Reload the Air Shipment form after each submit.
+Charges do **not** appear until the Change Request is **submitted**. Revenue stays at zero until the Additional Charge Sales Quote is **submitted**. Reload the Air Shipment form after each submit.
 
 #### If charges still appear missing
 
