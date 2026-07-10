@@ -6,6 +6,34 @@ from frappe.model.document import Document
 
 from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
 
+_WAREHOUSE_CONTRACT_UNIT_TYPES = frozenset(
+	{
+		"Handling Unit",
+		"Weight",
+		"Chargeable Weight",
+		"Volume",
+		"Package",
+		"Piece",
+		"Job",
+		"TEU",
+		"Operation Time",
+	}
+)
+
+_QUOTE_ONLY_UNIT_TYPE_MAP = {
+	"Container": "TEU",
+	"Item Count": "Piece",
+}
+
+
+def _map_sales_quote_unit_type_to_warehouse_contract(unit_type):
+	"""Map Sales Quote Charge unit types to Warehouse Contract Item options."""
+	if not unit_type:
+		return unit_type
+	if unit_type in _WAREHOUSE_CONTRACT_UNIT_TYPES:
+		return unit_type
+	return _QUOTE_ONLY_UNIT_TYPE_MAP.get(unit_type, unit_type)
+
 
 class WarehouseContract(Document):
 	def validate(self):
@@ -91,7 +119,13 @@ def get_rates_from_sales_quote(warehouse_contract, sales_quote):
 		contract_item.currency = warehouse_item.get("currency") or warehouse_item.get("selling_currency")
 		contract_item.rate = warehouse_item.get("unit_rate")
 		contract_item.calculation_method = warehouse_item.get("calculation_method")
-		contract_item.unit_type = warehouse_item.get("unit_type")
+		contract_item.unit_type = _map_sales_quote_unit_type_to_warehouse_contract(
+			warehouse_item.get("unit_type")
+		)
+		if contract_item.unit_type == "TEU":
+			container_type = warehouse_item.get("container_type") or sales_quote_doc.get("container_type")
+			if container_type:
+				contract_item.container_type = container_type
 		contract_item.uom = warehouse_item.get("uom")
 		contract_item.minimum_quantity = warehouse_item.get("minimum_quantity")
 		contract_item.minimum_charge = warehouse_item.get("minimum_charge")

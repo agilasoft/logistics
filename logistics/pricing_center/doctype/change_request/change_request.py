@@ -130,8 +130,6 @@ class ChangeRequest(Document):
 
 	def validate(self):
 		self._honour_linked_services_form_rows()
-		if self.docstatus == 0:
-			_seed_linked_services_from_job_if_empty(self)
 		self.validate_linked_service_charge_tagging()
 
 	def validate_linked_service_charge_tagging(self):
@@ -442,51 +440,6 @@ def _linked_service_identity(ls_doc) -> tuple:
 		(getattr(ls_doc, "job_type", None) or "").strip(),
 		(getattr(ls_doc, "job_no", None) or "").strip(),
 	)
-
-
-def _seed_linked_services_from_job_if_empty(cr):
-	"""Pre-fill the Services tab from the linked job when the Change Request has no services yet."""
-	cr._honour_linked_services_form_rows()
-	if linked_service_rows(cr):
-		return
-	if cr.flags.get("_cr_linked_services_seeded"):
-		return
-
-	from logistics.logistics.doctype.linked_service.linked_service import get_linked_services_for_booking
-	from logistics.pricing_center.additional_charge_to_job import (
-		INTERNAL_JOB_SATELLITE_JOB_TYPES,
-		MAIN_JOB_TYPES_FOR_CHANGE_REQUEST,
-	)
-	from logistics.utils.sales_quote_one_off_internal_jobs import _payload_from_linked_service_doc
-
-	source_docs = []
-	if cr.job_type in MAIN_JOB_TYPES_FOR_CHANGE_REQUEST:
-		source_docs = get_linked_services_for_booking(cr.job_type, cr.job)
-	elif cr.job_type in INTERNAL_JOB_SATELLITE_JOB_TYPES:
-		from logistics.utils.service_role_rules import get_linked_service_name
-
-		job_row = frappe.db.get_value(
-			cr.job_type,
-			cr.job,
-			("linked_service", "internal_job"),
-			as_dict=True,
-		) or {}
-		ls_name = get_linked_service_name(job_row)
-		if ls_name and linked_service_record_exists(ls_name):
-			source_docs = [frappe.get_doc(linked_service_doctype(), ls_name)]
-
-	if not source_docs:
-		return
-
-	rows = []
-	for ls in source_docs:
-		payload = _payload_from_linked_service_doc(ls, ls.name)
-		set_charge_row_linked_service_link(payload, None)
-		rows.append(payload)
-
-	cr.__dict__["linked_services"] = rows
-	cr.flags._linked_services_from_form = True
-	cr.flags._cr_linked_services_seeded = True
 
 
 def _cr_default_linked_service_for_charges(cr) -> str | None:
