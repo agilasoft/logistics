@@ -7,7 +7,7 @@ from frappe.model.document import Document
 
 # When a Job Number's job_type is one of these operational doctypes, the source doc
 # carries a Link to its originating "Order/Booking" doc. The Docket's
-# `internal_jobs` table is keyed by that order/booking doctype + name, so we use
+# `internal_jobs` / `linked_services` grid is keyed by that order/booking doctype + name, so we use
 # this map to resolve "which Docket references this Job Number?".
 JOB_TYPE_TO_BOOKING = {
 	"Sea Shipment": ("Sea Booking", "sea_booking"),
@@ -38,7 +38,7 @@ class JobNumber(Document):
 		  onto this Job Number (always overwritten). The ``docket`` field is only
 		  set from the source when ours is blank.
 		* For operational jobs that originate from an order/booking, we also walk
-		  the Docket ``internal_jobs`` table to find a Docket that references
+		  the Docket ``linked_services`` view to find a Docket that references
 		  this job (directly, via its booking, or via its reference order in the
 		  case of Warehouse Job).
 		* When a Docket is found and ``project`` is still blank, we pull the
@@ -71,7 +71,7 @@ class JobNumber(Document):
 				self.docket = src_docket
 
 		if not self.docket:
-			docket = self._find_docket_via_internal_jobs(meta)
+			docket = self._find_docket_via_linked_services(meta)
 			if docket:
 				self.docket = docket
 
@@ -80,8 +80,14 @@ class JobNumber(Document):
 			if dp:
 				self.project = dp
 
-	def _find_docket_via_internal_jobs(self, meta):
-		"""Return the name of a Docket whose ``internal_jobs`` table references this job, or None."""
+	def _find_docket_via_linked_services(self, meta):
+		"""Return the name of a Docket whose linked services reference this job, or None."""
+		from logistics.utils.linked_service_compat import linked_service_doctype
+
+		ls_dt = linked_service_doctype()
+		if not ls_dt or not frappe.db.exists("DocType", ls_dt):
+			return None
+
 		candidates: list[tuple[str, str]] = [(self.job_type, self.job_no)]
 
 		booking = JOB_TYPE_TO_BOOKING.get(self.job_type)
@@ -105,14 +111,13 @@ class JobNumber(Document):
 
 		for jt, jn in candidates:
 			docket = frappe.db.get_value(
-				"Internal Job Detail",
+				ls_dt,
 				{
-					"parenttype": "Docket",
-					"parentfield": "internal_jobs",
+					"parent_booking_type": "Docket",
 					"job_type": jt,
 					"job_no": jn,
 				},
-				"parent",
+				"parent_booking_name",
 			)
 			if docket:
 				return docket

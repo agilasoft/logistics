@@ -44,7 +44,7 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 				self.assertTrue(charges_exist_for_service(None, parent, "Air"))
 
 	def test_no_charges_not_eligible(self):
-		parent = MagicMock(doctype="Docket", sales_quote=None, internal_jobs=[])
+		parent = MagicMock(doctype="Docket", sales_quote=None, linked_services=[])
 		ij_row = MagicMock(service_type="Transport", internal_job="IJ-1")
 		with patch(
 			"logistics.utils.internal_job_creation_eligibility.charges_exist_for_service",
@@ -204,7 +204,7 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 		self.assertEqual(_parent_ij_fieldname("Special Project"), "special_project_services")
 		self.assertEqual(_parent_ij_fieldname("Exhibit"), "lifecycle_jobs")
 		self.assertEqual(_parent_ij_fieldname("MICE Project"), "linked_services")
-		self.assertEqual(_parent_ij_fieldname("Docket"), "internal_jobs")
+		self.assertEqual(_parent_ij_fieldname("Docket"), "linked_services")
 
 	@patch("logistics.utils.internal_job_creation_eligibility.frappe.db.exists", return_value=True)
 	@patch("logistics.utils.internal_job_creation_eligibility.frappe.get_meta")

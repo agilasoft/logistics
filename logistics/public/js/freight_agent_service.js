@@ -65,6 +65,17 @@ frappe.provide("logistics.freight_agent_service");
 		return c;
 	}
 
+	/** Sales Quote main_service is a Select (Air/Sea/…); on linked bookings it is a Dynamic Link job ID. */
+	function quoteStyleMainService(frm) {
+		const df =
+			(frm.get_docfield && frm.get_docfield("main_service")) ||
+			frappe.meta.get_docfield(frm.doctype, "main_service");
+		if (!df || df.fieldtype === "Dynamic Link" || !frm.doc.main_service) {
+			return null;
+		}
+		return frm.doc.main_service;
+	}
+
 	function resolveServiceTypeLabel(frm, fieldname, row) {
 		if (row && row.service_type) {
 			return row.service_type;
@@ -72,8 +83,9 @@ frappe.provide("logistics.freight_agent_service");
 		if (FIELD_SERVICE_MAP[fieldname]) {
 			return FIELD_SERVICE_MAP[fieldname];
 		}
-		if (frm.doc.main_service) {
-			return frm.doc.main_service;
+		const quoteMain = quoteStyleMainService(frm);
+		if (quoteMain) {
+			return quoteMain;
 		}
 		if (SETTINGS_DOCTYPE_SERVICE[frm.doctype]) {
 			return SETTINGS_DOCTYPE_SERVICE[frm.doctype];
@@ -162,7 +174,7 @@ frappe.provide("logistics.freight_agent_service");
 		main_service(frm) {
 			["freight_agent", "freight_agent_sea"].forEach((fieldname) => {
 				if (!frm.fields_dict[fieldname]) return;
-				clearIncompatibleFreightAgent(frm, fieldname, frm.doc.main_service);
+				clearIncompatibleFreightAgent(frm, fieldname, resolveServiceTypeLabel(frm, fieldname));
 			});
 		},
 	});

@@ -6,6 +6,9 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import cint, flt
 
+from logistics.utils.linked_service_compat import linked_service_rows
+from logistics.utils.virtual_linked_services_view import VirtualLinkedServicesMixin
+
 
 # Maps an Internal Job Detail row's order/booking job_type to the operational
 # job_type (and its Link field back to that order/booking). Used to find the
@@ -21,7 +24,7 @@ BOOKING_TO_OPERATIONAL_JOB = {
 }
 
 
-class Docket(Document):
+class Docket(VirtualLinkedServicesMixin, Document):
 	def validate(self):
 		self._ensure_org_defaults()
 		self._sync_customer_from_exhibit_organizer()
@@ -55,6 +58,7 @@ class Docket(Document):
 			self.customer = None
 
 	def before_save(self):
+		super().before_save()
 		# Create Job Number synchronously on subsequent saves if it is still missing
 		# (after_insert runs the first-time enqueue; this is the safety net).
 		if self.name and not self.job_number and frappe.db.exists("Docket", self.name):
@@ -110,8 +114,8 @@ class Docket(Document):
 
 		Targets:
 		  * The Docket's own Job Number (``self.job_number``).
-		  * The Job Number of every operational job referenced by an
-		    ``internal_jobs`` row. Rows hold booking/order doctypes; we resolve them
+		  * The Job Number of every operational job referenced by a
+		    ``linked_services`` row. Rows hold booking/order doctypes; we resolve them
 		    to their operational job via ``BOOKING_TO_OPERATIONAL_JOB`` and update
 		    that operational job's Job Number.
 		"""
@@ -124,7 +128,7 @@ class Docket(Document):
 		if self.job_number:
 			targets.add(self.job_number)
 
-		for row in self.get("internal_jobs") or []:
+		for row in linked_service_rows(self) or []:
 			jt = (getattr(row, "job_type", None) or "").strip()
 			jn = (getattr(row, "job_no", None) or "").strip()
 			if not jt or not jn:

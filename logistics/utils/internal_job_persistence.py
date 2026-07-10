@@ -54,11 +54,11 @@ from logistics.utils.virtual_internal_job_details import (
 )
 
 
-_VIRTUAL_LINKED_SERVICE_PARENTS = frozenset({"Sales Quote", "Change Request", "MICE Project"}) | VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS
+_VIRTUAL_LINKED_SERVICE_PARENTS = frozenset({"Sales Quote", "Change Request", "MICE Project", "Docket"}) | VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS
 
 
 # Operational booking doctypes that carry an Internal Job Detail child table, mapped to the
-# fieldname on each parent (most use `internal_job_details`; Docket / Exhibit use `internal_jobs`).
+# fieldname on each parent (most use `internal_job_details`; Exhibit uses `internal_jobs`).
 #
 # ``Sales Quote`` is a non-operational parent that may also own Internal Jobs. A single Sales Quote
 # can have multiple Internal Jobs regardless of ``quotation_type`` — the desk UI currently surfaces
@@ -84,7 +84,7 @@ INTERNAL_JOB_DETAIL_PARENTS: dict[str, str] = {
 	"MICE Job": "internal_job_details",
 	"Exhibit Job": "internal_job_details",
 	"MICE Project": "linked_services",
-	"Docket": "internal_jobs",
+	"Docket": "linked_services",
 	"Exhibit": "internal_jobs",
 	"Sales Quote": "linked_services",
 	"Change Request": "linked_services",

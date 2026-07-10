@@ -28,6 +28,7 @@ from logistics.utils.internal_job_from_source import (
 	coerce_internal_job_detail_idx,
 	linked_internal_job_target_is_cancelled,
 )
+from logistics.utils.linked_service_compat import linked_service_rows
 
 
 DOCKET_CREATABLE_JOB_TYPES: frozenset[str] = frozenset(
@@ -102,24 +103,31 @@ def _client_rows_context(client_value: Any):
 					pass
 
 
-def _internal_jobs_list(parent_doc: Any) -> list[Any]:
+def _resolve_client_rows(client_value: Any, linked_services: Any = None) -> Any:
+	if client_value is not None and client_value != "":
+		return client_value
+	return linked_services
+
+
+def _linked_services_list(parent_doc: Any) -> list[Any]:
 	ov = getattr(frappe.local, _LOGISTICS_DK_CLIENT_ROWS, None)
 	if ov is not None:
 		return list(ov)
-	return list(getattr(parent_doc, "internal_jobs", None) or [])
+	return linked_service_rows(parent_doc)
 
 
-def _all_rows_for_form(parent_doc: Any, client_rows: Any) -> list[tuple[int, Any]]:
+def _all_rows_for_form(parent_doc: Any, client_rows: Any, linked_services: Any = None) -> list[tuple[int, Any]]:
+	client_rows = _resolve_client_rows(client_rows, linked_services)
 	parsed = _coerce_client_rows(client_rows)
 	if parsed is None:
-		rows = getattr(parent_doc, "internal_jobs", None) or []
+		rows = linked_service_rows(parent_doc)
 		return [(i, r) for i, r in enumerate(rows, start=1)]
 	if (
 		not parsed
 		and getattr(parent_doc, "name", None)
 		and not getattr(parent_doc, "__islocal", False)
 	):
-		rows = getattr(parent_doc, "internal_jobs", None) or []
+		rows = linked_service_rows(parent_doc)
 		return [(i, r) for i, r in enumerate(rows, start=1)]
 	out: list[tuple[int, Any]] = []
 	for i, rowd in enumerate(parsed, start=1):
@@ -133,9 +141,9 @@ def _resolve_row_for_create(
 ) -> tuple[Any | None, int | None]:
 	jt = (job_type or "").strip()
 	if idx is not None:
-		rows = _internal_jobs_list(parent_doc)
+		rows = _linked_services_list(parent_doc)
 		if idx < 1 or idx > len(rows):
-			frappe.throw(_("Invalid Internal Job row."))
+			frappe.throw(_("Invalid Linked Service row."))
 		row = rows[idx - 1]
 		row_jt = _dialog_creatable_job_type(row)
 		if row_jt != jt:
@@ -147,7 +155,7 @@ def _resolve_row_for_create(
 				title=_("Already linked"),
 			)
 		return row, idx
-	rows = _internal_jobs_list(parent_doc)
+	rows = _linked_services_list(parent_doc)
 	for i, r in enumerate(rows, start=1):
 		if _dialog_creatable_job_type(r) != jt:
 			continue
@@ -182,54 +190,56 @@ def _choice_header(job_type: str, row: Any | None, idx: int | None, jn: str) -> 
 
 
 @frappe.whitelist()
-def get_docket_booking_choices(docket: str, internal_jobs: Any = None):
-	"""Return Create > Booking/Order options for each Internal Job row on a Docket."""
+def get_docket_booking_choices(docket: str, internal_jobs: Any = None, linked_services: Any = None):
+	"""Return Create > Booking/Order options for each Linked Service row on a Docket."""
 	if not docket or not frappe.db.exists("Docket", docket):
 		frappe.throw(_("Invalid Docket."))
 	doc = frappe.get_doc("Docket", docket)
 	doc.check_permission("read")
 
-	choices: list[dict[str, Any]] = []
-	for idx, row in _all_rows_for_form(doc, internal_jobs):
-		st = (getattr(row, "service_type", None) or "").strip()
-		jt = _dialog_creatable_job_type(row)
-		jn = (getattr(row, "job_no", None) or "").strip()
-		creatable = bool(jt) and jt in DOCKET_CREATABLE_JOB_TYPES and not jn
-		not_creatable_message = None
-		if creatable:
-			from logistics.utils.internal_job_creation_eligibility import (
-				evaluate_internal_job_creation_eligibility,
-			)
+	client_rows = _resolve_client_rows(internal_jobs, linked_services)
+	with _client_rows_context(client_rows):
+		choices: list[dict[str, Any]] = []
+		for idx, row in _all_rows_for_form(doc, client_rows):
+			st = (getattr(row, "service_type", None) or "").strip()
+			jt = _dialog_creatable_job_type(row)
+			jn = (getattr(row, "job_no", None) or "").strip()
+			creatable = bool(jt) and jt in DOCKET_CREATABLE_JOB_TYPES and not jn
+			not_creatable_message = None
+			if creatable:
+				from logistics.utils.internal_job_creation_eligibility import (
+					evaluate_internal_job_creation_eligibility,
+				)
 
-			elig = evaluate_internal_job_creation_eligibility(
-				sales_quote=getattr(doc, "sales_quote", None),
-				parent_doc=doc,
-				ij_row=row,
-				service_type_label=st,
+				elig = evaluate_internal_job_creation_eligibility(
+					sales_quote=getattr(doc, "sales_quote", None),
+					parent_doc=doc,
+					ij_row=row,
+					service_type_label=st,
+				)
+				if not elig.get("eligible"):
+					creatable = False
+					not_creatable_message = elig.get("message")
+			header = _choice_header(jt, row, idx, jn)
+			cancelled = bool(jn and linked_internal_job_target_is_cancelled(jt, jn))
+			if cancelled:
+				header = {
+					**header,
+					"header_subtitle": _("Linked to {0} (cancelled).").format(jn),
+					"linked_job_cancelled": True,
+				}
+			choices.append(
+				{
+					"mode": "detail",
+					"detail_idx": idx,
+					"job_type": jt,
+					"service_type": st or None,
+					"job_no": jn or None,
+					"creatable": creatable,
+					"not_creatable_message": not_creatable_message,
+					**header,
+				}
 			)
-			if not elig.get("eligible"):
-				creatable = False
-				not_creatable_message = elig.get("message")
-		header = _choice_header(jt, row, idx, jn)
-		cancelled = bool(jn and linked_internal_job_target_is_cancelled(jt, jn))
-		if cancelled:
-			header = {
-				**header,
-				"header_subtitle": _("Linked to {0} (cancelled).").format(jn),
-				"linked_job_cancelled": True,
-			}
-		choices.append(
-			{
-				"mode": "detail",
-				"detail_idx": idx,
-				"job_type": jt,
-				"service_type": st or None,
-				"job_no": jn or None,
-				"creatable": creatable,
-				"not_creatable_message": not_creatable_message,
-				**header,
-			}
-		)
 	return {"choices": choices}
 
 
@@ -239,6 +249,7 @@ def get_docket_booking_preview(
 	job_type: str,
 	internal_job_idx: int | None = None,
 	internal_jobs: Any = None,
+	linked_services: Any = None,
 ):
 	"""Internal Job row parameters and matching charge rows that will inform the new operational document."""
 	if not docket or not frappe.db.exists("Docket", docket):
@@ -261,8 +272,9 @@ def get_docket_booking_preview(
 		"from_main_service_shipment": False,
 	}
 
-	with _client_rows_context(internal_jobs):
-		rows = _internal_jobs_list(doc)
+	client_rows = _resolve_client_rows(internal_jobs, linked_services)
+	with _client_rows_context(client_rows):
+		rows = _linked_services_list(doc)
 
 		if idx is not None and 1 <= idx <= len(rows):
 			row_linked = rows[idx - 1]
@@ -774,8 +786,9 @@ def create_booking_or_order_from_docket(
 	job_type: str,
 	internal_job_idx: int | None = None,
 	internal_jobs: Any = None,
+	linked_services: Any = None,
 ):
-	"""Create the chosen booking/order from the matching Internal Job row on the Docket."""
+	"""Create the chosen booking/order from the matching Linked Service row on the Docket."""
 	if not docket or not frappe.db.exists("Docket", docket):
 		frappe.throw(_("Invalid Docket."))
 	jt = (job_type or "").strip()
@@ -787,16 +800,17 @@ def create_booking_or_order_from_docket(
 
 	idx = coerce_internal_job_detail_idx(internal_job_idx)
 
-	with _client_rows_context(internal_jobs):
+	client_rows = _resolve_client_rows(internal_jobs, linked_services)
+	with _client_rows_context(client_rows):
 		row, resolved_idx = _resolve_row_for_create(dk_doc, jt, idx)
 		if row is None:
 			frappe.throw(
 				_(
-					"Add an Internal Job line with service type matching {0}, or select an existing open line."
+					"No matching Services row for {0}. Link a Sales Quote with subsidiary services first."
 				).format(jt)
 			)
 		if resolved_idx is None:
-			frappe.throw(_("Could not resolve the Internal Job row to update after creation."))
+			frappe.throw(_("Could not resolve the Linked Service row to update after creation."))
 		from logistics.utils.internal_job_creation_eligibility import (
 			require_internal_job_creation_eligible,
 		)

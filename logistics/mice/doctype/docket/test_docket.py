@@ -91,8 +91,8 @@ class IntegrationTestDocket(IntegrationTestCase):
 		finally:
 			exhibit.delete(ignore_permissions=True)
 
-	def test_docket_db_load_initializes_internal_jobs_for_version_diff(self):
-		"""Fresh DB loads must not leave ``internal_jobs`` as None (breaks submit/version diff)."""
+	def test_docket_db_load_initializes_linked_services_for_version_diff(self):
+		"""Fresh DB loads must not leave ``linked_services`` as None (breaks submit/version diff)."""
 		if not frappe.db.exists("DocType", "Docket"):
 			self.skipTest("Docket DocType not installed")
 		exhibit = self._minimal_exhibit("Test Docket Version Diff Exhibit")
@@ -100,7 +100,7 @@ class IntegrationTestDocket(IntegrationTestCase):
 		try:
 			dk = self._minimal_docket(exhibit.name)
 			reloaded = frappe.get_doc("Docket", dk.name)
-			self.assertEqual(reloaded.get("internal_jobs"), [])
+			self.assertEqual(reloaded.get("linked_services"), [])
 
 			from frappe.core.doctype.version.version import get_diff
 
@@ -139,3 +139,10 @@ class IntegrationTestDocket(IntegrationTestCase):
 			self.assertNotEqual(s1[0], s2[0])
 		finally:
 			exhibit.delete(ignore_permissions=True)
+
+	def test_docket_has_linked_services_field(self):
+		if not frappe.db.exists("DocType", "Docket"):
+			self.skipTest("Docket DocType not installed")
+		meta = frappe.get_meta("Docket")
+		self.assertTrue(meta.has_field("linked_services"))
+		self.assertFalse(meta.has_field("internal_jobs"))

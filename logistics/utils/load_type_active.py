@@ -77,8 +77,9 @@ def _validate_child_table_load_type_links(doc, prev):
 			if df.fieldtype != "Table":
 				continue
 			for row in prev.get(df.fieldname) or []:
-				if row.name:
-					prev_by_name[(df.fieldname, row.name)] = row
+				row_name = row.get("name")
+				if row_name:
+					prev_by_name[(df.fieldname, row_name)] = row
 
 	for df in meta.fields:
 		if df.fieldtype != "Table":
@@ -89,7 +90,8 @@ def _validate_child_table_load_type_links(doc, prev):
 			continue
 		table_label = df.label or df.fieldname
 		for row in doc.get(df.fieldname) or []:
-			pr = prev_by_name.get((df.fieldname, row.name)) if row.name else None
+			row_name = row.get("name")
+			pr = prev_by_name.get((df.fieldname, row_name)) if row_name else None
 			for lf in link_fields:
 				val = row.get(lf.fieldname)
 				if not val:
@@ -102,7 +104,7 @@ def _validate_child_table_load_type_links(doc, prev):
 				frappe.throw(
 					_(
 						"Load Type {0} is inactive ({1} row {2}). Choose an active Load Type or set Is Active on that Load Type master."
-					).format(frappe.bold(val), table_label, row.idx),
+					).format(frappe.bold(val), table_label, row.get("idx")),
 					title=_("Inactive Load Type"),
 				)
 

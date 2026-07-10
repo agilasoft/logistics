@@ -255,6 +255,8 @@ logistics.patches.v3_0_ensure_iata_settings_company_records
 logistics.patches.v3_0_seed_ccs_providers
 # Docket Internal Jobs: restore persisted Internal Job Detail rows after virtual-grid rollback
 logistics.patches.v3_0_restore_docket_internal_job_detail_rows
+# Docket Jobs tab: virtual read-only linked_services grid (Linked Service docs)
+logistics.patches.v3_0_migrate_docket_internal_jobs_to_linked_services
 # MICE Project Jobs tab: virtual linked_services grid (Linked Service docs)
 logistics.patches.v3_0_drop_mice_project_internal_job_detail_table
 # Cash Advance: backfill request total_liquidated / unliquidated from submitted liquidations
