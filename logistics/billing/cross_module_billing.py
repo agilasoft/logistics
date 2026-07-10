@@ -85,6 +85,205 @@ def get_main_job_company(main_job_type: str, main_job_name: str) -> Optional[str
     return frappe.db.get_value(main_job_type, main_job_name, "company")
 
 
+# Order/booking DocType -> (operational job DocType, link field on operational job).
+BOOKING_TO_OPERATIONAL_JOB = {
+    "Sea Booking": ("Sea Shipment", "sea_booking"),
+    "Air Booking": ("Air Shipment", "air_booking"),
+    "Transport Order": ("Transport Job", "transport_order"),
+    "Declaration Order": ("Declaration", "declaration_order"),
+    "Inbound Order": ("Warehouse Job", "reference_order"),
+    "Release Order": ("Warehouse Job", "reference_order"),
+    "Transfer Order": ("Warehouse Job", "reference_order"),
+}
+
+
+_LINKED_OPERATIONAL_JOB_TYPES = BILLING_JOB_TYPES + ("Transport Order",)
+
+
+def _operational_job_from_booking_row(
+    job_type: str,
+    job_no: str,
+    sales_quote_name: Optional[str] = None,
+) -> Tuple[Optional[str], Optional[str]]:
+    """Map a booking/order row to its operational shipment/job when applicable."""
+    if not job_type or not job_no:
+        return (None, None)
+    if job_type in _LINKED_OPERATIONAL_JOB_TYPES and frappe.db.exists(job_type, job_no):
+        return (job_type, job_no)
+    mapping = BOOKING_TO_OPERATIONAL_JOB.get(job_type)
+    if not mapping:
+        return (None, None)
+    op_dt, link_field = mapping
+    filters: Dict[str, Any] = {link_field: job_no}
+    if sales_quote_name and frappe.db.has_column(op_dt, "sales_quote"):
+        filters["sales_quote"] = sales_quote_name
+    if op_dt == "Warehouse Job":
+        filters["reference_order_type"] = job_type
+        filters.pop(link_field, None)
+        filters["reference_order"] = job_no
+    names = frappe.get_all(op_dt, filters=filters, pluck="name", limit=1)
+    if names:
+        return (op_dt, names[0])
+    return (None, None)
+
+
+def resolve_operational_job_for_linked_service(
+    linked_service_name: str,
+    main_job_type: str,
+    main_job_name: str,
+    sales_quote_name: Optional[str] = None,
+) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Resolve the operational linked job for a Linked Service / Internal Job record.
+
+    Used when main-job charge rows (charge_scope=Linked) carry revenue attributed to a linked service.
+    """
+    from logistics.utils.internal_job_persistence import internal_job_detail_fieldname
+    from logistics.utils.linked_service_compat import (
+        linked_service_doctype,
+        linked_service_detail_doctype,
+        linked_service_record_exists,
+    )
+
+    if not linked_service_name or not linked_service_record_exists(linked_service_name):
+        return (None, None)
+
+    detail_dt = linked_service_detail_doctype()
+    fieldname = internal_job_detail_fieldname(main_job_type)
+    if fieldname and main_job_type and main_job_name:
+        for link_field in ("linked_service", "internal_job"):
+            if not frappe.db.has_column(detail_dt, link_field):
+                continue
+            rows = frappe.get_all(
+                detail_dt,
+                filters={
+                    "parent": main_job_name,
+                    "parenttype": main_job_type,
+                    "parentfield": fieldname,
+                    link_field: linked_service_name,
+                },
+                fields=["job_type", "job_no"],
+                limit=1,
+            )
+            if rows:
+                return _operational_job_from_booking_row(
+                    rows[0].get("job_type"),
+                    rows[0].get("job_no"),
+                    sales_quote_name=sales_quote_name,
+                )
+
+    try:
+        ls_doc = frappe.get_doc(linked_service_doctype(), linked_service_name)
+    except Exception:
+        return (None, None)
+    if ls_doc.get("job_type") and ls_doc.get("job_no"):
+        op = _operational_job_from_booking_row(
+            ls_doc.job_type,
+            ls_doc.job_no,
+            sales_quote_name=sales_quote_name,
+        )
+        if op[0] and op[1]:
+            return op
+
+    if sales_quote_name:
+        from logistics.utils.internal_job_persistence import resolve_internal_job_for_internal_job_booking
+
+        for jt in _LINKED_OPERATIONAL_JOB_TYPES:
+            if not frappe.db.has_column(jt, "sales_quote"):
+                continue
+            for jn in frappe.get_all(
+                jt,
+                filters={"sales_quote": sales_quote_name, "docstatus": ["!=", 2]},
+                pluck="name",
+            ):
+                try:
+                    job_doc = frappe.get_doc(jt, jn)
+                except Exception:
+                    continue
+                if resolve_internal_job_for_internal_job_booking(job_doc) == linked_service_name:
+                    return (jt, jn)
+
+    return (None, None)
+
+
+def _charge_row_item_code(ch, job_type: str) -> Optional[str]:
+    if job_type == "Sea Shipment":
+        return getattr(ch, "charge_item", None)
+    return getattr(ch, "item_code", None) or getattr(ch, "item", None)
+
+
+def _charge_row_revenue(ch, job_type: str, *, include_estimated: bool = False) -> float:
+    """Revenue amount for internal billing from one charge row."""
+    if job_type == "Sea Shipment":
+        rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "selling_amount", 0))
+        if include_estimated and not rev:
+            rev = flt(getattr(ch, "estimated_revenue", 0))
+        return rev
+    if job_type == "Air Shipment":
+        rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "total_amount", 0))
+        if include_estimated and not rev:
+            rev = flt(getattr(ch, "estimated_revenue", 0))
+        return rev
+    if job_type in ("Declaration", "Declaration Order"):
+        rev = (
+            flt(getattr(ch, "actual_revenue", 0))
+            or flt(getattr(ch, "total_amount", 0))
+            or flt(getattr(ch, "estimated_revenue", 0))
+        )
+        return rev
+    rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "estimated_revenue", 0))
+    return rev
+
+
+def iter_main_job_linked_scope_charge_splits(
+    main_job_doc,
+) -> Iterator[Dict[str, Any]]:
+    """
+    Yield linked-service charge splits from the main job's charges table.
+
+    Rows must have charge_scope=Linked (or legacy Internal Job) and a linked_service link.
+    Revenue uses estimated amounts when actuals are not yet posted.
+    """
+    from logistics.utils.linked_service_compat import (
+        charge_row_linked_service_link,
+        is_linked_charge_scope,
+    )
+
+    job_type = getattr(main_job_doc, "doctype", None)
+    if not job_type:
+        return
+    if hasattr(main_job_doc, "get") and callable(main_job_doc.get):
+        charges_table = main_job_doc.get("charges") or []
+    else:
+        charges_table = getattr(main_job_doc, "charges", None) or []
+    if not charges_table:
+        return
+    parent_meta = frappe.get_meta(job_type)
+    charges_df = parent_meta.get_field("charges")
+    if not charges_df or not charges_df.options:
+        return
+    child_meta = frappe.get_meta(charges_df.options)
+    if not child_meta.has_field("charge_scope"):
+        return
+
+    for ch in charges_table:
+        if not is_linked_charge_scope(getattr(ch, "charge_scope", None)):
+            continue
+        linked_service = charge_row_linked_service_link(ch)
+        if not linked_service:
+            continue
+        rev = _charge_row_revenue(ch, job_type, include_estimated=True)
+        if rev <= 0:
+            continue
+        item_code = _charge_row_item_code(ch, job_type)
+        yield {
+            "revenue": rev,
+            "cost": 0,
+            "item_code": item_code,
+            "linked_service": linked_service,
+        }
+
+
 def iter_internal_job_charge_splits(
     job_type: str,
     job_name: str,

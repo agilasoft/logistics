@@ -107,8 +107,14 @@ When the Main Job and all Internal Jobs are in the **same company**, internal bi
 
 ### 3.3 No Invoice for Internal Billing — Journal Entry Only
 
-- For **internal billing** (same operating company as Main Job), **no Sales Invoice** is raised for Internal Jobs.
-- Internal billing amounts are entered through **Journal Entry** (same company): allocate cost/revenue between Main Job and Internal Jobs so that Internal Job revenue = cost of Main Job allocated, and Internal Job cost = tariff/actual.
+- For **internal billing** (same operating company as Main Job), **no Sales Invoice** is raised for linked (internal) jobs.
+- **One Journal Entry** per billing event (Sales Quote + optional trigger Sales Invoice) transfers each linked job’s **charge revenue** to the **Main Job as cost**.
+- Per charge line with revenue and `item_code`:
+  - **Dr** Item `expense_account` (from Item Defaults) on the **Main Job** (cost center / Job Number dimensions).
+  - **Cr** Item `income_account` (from Item Defaults) on the **linked job** (cost center / Job Number dimensions).
+- Linked-job **cost/tariff** is not posted in this JV (WIP/accrual reversal still runs separately when recognition is open on the linked job).
+- When linked-service revenue is stored on **main job charge rows** (`charge_scope = Linked`), internal billing reads those rows and resolves the operational linked job via the `linked_service` link (e.g. Air Shipment for an air leg on a Sea main job).
+- Each charge item must have **Item Defaults** (or Item Group Defaults) with both income and expense accounts for the company.
 
 ### 3.4 Consolidated vs Per-Product Customer Invoices
 

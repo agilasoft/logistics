@@ -21,6 +21,13 @@ from logistics.pricing_center.change_request_to_job import (
 
 
 class TestChangeRequestToJob(UnitTestCase):
+	def test_change_request_does_not_seed_linked_services_from_job(self):
+		"""Services tab stays empty on create — CR is for new additional services only."""
+		cr = frappe.new_doc("Change Request")
+		cr.job_type = "Air Shipment"
+		cr.job = "ASP-TEST"
+		cr.validate()
+		self.assertEqual(list(cr.linked_services or []), [])
 	def test_charge_row_service_type_matches_job_accepts_canonical_aliases(self):
 		self.assertTrue(_charge_row_service_type_matches_job("Air Shipment", "air"))
 		self.assertTrue(_charge_row_service_type_matches_job("Air Shipment", "Air"))
