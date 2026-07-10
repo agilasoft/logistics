@@ -86,7 +86,15 @@ def linked_services_fieldname(parent_doctype: str) -> str | None:
 		except Exception:
 			pass
 		return "internal_jobs"
-	if parent_doctype in ("Docket", "Exhibit"):
+	if parent_doctype == "Docket":
+		try:
+			meta = frappe.get_meta("Docket")
+			if meta.has_field("linked_services"):
+				return "linked_services"
+		except Exception:
+			pass
+		return "internal_jobs"
+	if parent_doctype == "Exhibit":
 		return "internal_jobs"
 	if uses_virtual_internal_job_details(parent_doctype):
 		try:
@@ -173,7 +181,10 @@ def linked_service_rows(parent_doc: Any) -> list[Any]:
 			return list(parent_doc.__dict__.get(fieldname) or [])
 		if hasattr(parent_doc, "_build_linked_services_view"):
 			return parent_doc._build_linked_services_view()
-	if doctype in ("Docket", "Exhibit"):
+	if doctype == "Docket":
+		if fieldname == "linked_services" and hasattr(parent_doc, "linked_services"):
+			return list(parent_doc.linked_services)
+	if doctype == "Exhibit":
 		if getattr(getattr(parent_doc, "flags", None), "_internal_jobs_from_form", False):
 			return list(parent_doc.__dict__.get(fieldname) or [])
 		if hasattr(parent_doc, "_build_internal_jobs_view"):

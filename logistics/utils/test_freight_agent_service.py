@@ -53,6 +53,27 @@ class TestFreightAgentService(FrappeTestCase):
 			"Sea",
 		)
 
+	def test_resolve_service_type_ignores_linked_main_service_job_id(self):
+		doc = frappe._dict(
+			{
+				"doctype": "Sea Booking",
+				"service_role": "Linked",
+				"main_service_type": "Air Shipment",
+				"main_service": "ASP-000000337",
+			}
+		)
+		self.assertEqual(
+			resolve_service_type_label_for_freight_agent(doc, "freight_agent"),
+			"Sea",
+		)
+
+	def test_resolve_service_type_uses_sales_quote_main_service_select(self):
+		doc = frappe._dict({"doctype": "Sales Quote", "main_service": "Air"})
+		self.assertEqual(
+			resolve_service_type_label_for_freight_agent(doc, "freight_agent"),
+			"Air",
+		)
+
 	def test_resolve_service_type_for_shipper_air_default(self):
 		doc = frappe._dict({"doctype": "Shipper"})
 		self.assertEqual(

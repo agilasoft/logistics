@@ -75,11 +75,11 @@ def resolve_service_type_label_for_freight_agent(doc, fieldname: str, row=None) 
 	if fieldname in _FIELD_SERVICE_TYPE_LABELS:
 		return _FIELD_SERVICE_TYPE_LABELS[fieldname]
 
-	main_service = _read_value(doc, "main_service")
+	doctype = getattr(doc, "doctype", None) or ""
+	main_service = _quote_style_main_service(doc, doctype)
 	if main_service:
 		return operational_booking_charge_service_type_label(main_service, default=main_service)
 
-	doctype = getattr(doc, "doctype", None) or ""
 	if doctype in _SETTINGS_DOCTYPE_SERVICE:
 		return _SETTINGS_DOCTYPE_SERVICE[doctype]
 
@@ -149,8 +149,9 @@ def _validate_child_table_freight_agent_links(doc, prev) -> None:
 			if df.fieldtype != "Table":
 				continue
 			for row in prev.get(df.fieldname) or []:
-				if row.name:
-					prev_by_name[(df.fieldname, row.name)] = row
+				row_name = row.get("name")
+				if row_name:
+					prev_by_name[(df.fieldname, row_name)] = row
 
 	for df in meta.fields:
 		if df.fieldtype != "Table":
@@ -163,7 +164,8 @@ def _validate_child_table_freight_agent_links(doc, prev) -> None:
 			continue
 		table_label = df.label or df.fieldname
 		for row in doc.get(df.fieldname) or []:
-			pr = prev_by_name.get((df.fieldname, row.name)) if row.name else None
+			row_name = row.get("name")
+			pr = prev_by_name.get((df.fieldname, row_name)) if row_name else None
 			for lf in link_fields:
 				val = row.get(lf.fieldname)
 				if not val:
@@ -177,7 +179,7 @@ def _validate_child_table_freight_agent_links(doc, prev) -> None:
 				validate_freight_agent_link(
 					val,
 					service_label,
-					context=_("{0} row {1} ({2})").format(table_label, row.idx, lf.label or lf.fieldname),
+					context=_("{0} row {1} ({2})").format(table_label, row.get("idx"), lf.label or lf.fieldname),
 				)
 
 
@@ -187,3 +189,19 @@ def _read_value(doc, fieldname: str):
 	if isinstance(doc, dict):
 		return doc.get(fieldname)
 	return getattr(doc, fieldname, None)
+
+
+def _quote_style_main_service(doc, doctype: str) -> str | None:
+	"""Return main_service only when it is a quote Select value, not a linked job ID."""
+	if not doctype:
+		return None
+	try:
+		df = frappe.get_meta(doctype).get_field("main_service")
+	except Exception:
+		df = None
+	if not df or df.fieldtype == "Dynamic Link":
+		return None
+	value = _read_value(doc, "main_service")
+	if not value:
+		return None
+	return str(value).strip() or None

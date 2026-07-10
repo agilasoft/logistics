@@ -5,10 +5,15 @@
 
 
 def get_data(data):
-	data.fieldname = data.fieldname or "prospect"
 	non_standard_fieldnames = data.non_standard_fieldnames or {}
 	non_standard_fieldnames["Sales Quote"] = "prospect"
+	non_standard_fieldnames["Customer"] = "prospect_name"
+	non_standard_fieldnames["Opportunity"] = "party_name"
 	data.non_standard_fieldnames = non_standard_fieldnames
+
+	dynamic_links = data.dynamic_links or {}
+	dynamic_links["party_name"] = ["Prospect", "opportunity_from"]
+	data.dynamic_links = dynamic_links
 
 	transactions = list(data.transactions or [])
 	items = []

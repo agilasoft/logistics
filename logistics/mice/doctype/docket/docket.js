@@ -31,10 +31,20 @@ function _load_docket_milestone_html(frm) {
 	});
 }
 
+function _logistics_docket_set_linked_services_read_only(frm) {
+	if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+		logistics.setup_virtual_linked_services_grid(frm);
+	}
+	if (window.logistics_hide_cannot_add_rows_buttons) {
+		logistics_hide_cannot_add_rows_buttons(frm, "linked_services");
+	}
+}
+
 frappe.ui.form.on("Docket", {
 	onload(frm) {
 		logistics_docket_set_exhibitor_query(frm);
 		logistics_docket_set_site_query(frm);
+		_logistics_docket_set_linked_services_read_only(frm);
 	},
 	setup(frm) {
 		frm.set_query("milestone_template", function () {
@@ -57,6 +67,7 @@ frappe.ui.form.on("Docket", {
 	refresh(frm) {
 		logistics_docket_set_exhibitor_query(frm);
 		logistics_docket_set_site_query(frm);
+		_logistics_docket_set_linked_services_read_only(frm);
 		_load_docket_milestone_html(frm);
 
 		if (window.logistics_load_documents_html) {

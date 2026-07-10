@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Agilasoft and contributors
 # For license information, please see license.txt
 
-"""Tests for Docket virtual ``internal_jobs`` grid backed by Linked Service docs."""
+"""Tests for Docket virtual read-only ``linked_services`` grid backed by Linked Service docs."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from logistics.utils.internal_job_persistence import (
 from logistics.utils.linked_service_compat import linked_service_doctype
 
 
-class TestDocketVirtualInternalJobs(FrappeTestCase):
+class TestDocketVirtualLinkedServices(FrappeTestCase):
 	def setUp(self):
 		if not frappe.db.exists("DocType", "Docket"):
 			self.skipTest("Docket not installed")
@@ -53,52 +53,53 @@ class TestDocketVirtualInternalJobs(FrappeTestCase):
 		dk.insert(ignore_permissions=True)
 		return dk
 
-	def test_append_and_save_creates_linked_service(self):
-		exhibit = self._minimal_exhibit("Docket Virtual IJ Append")
+	def test_linked_services_view_from_owned_documents(self):
+		exhibit = self._minimal_exhibit("Docket Virtual LS View")
 		dk = self._minimal_docket(exhibit.name)
 		try:
-			doc = frappe.get_doc("Docket", dk.name)
-			doc.append("internal_jobs", {"service_type": "Air"})
-			self.assertTrue(doc.flags.get("_internal_jobs_from_form"))
-			self.assertEqual(len(doc.internal_jobs), 1)
-			doc.flags.ignore_mandatory = True
-			doc.save(ignore_permissions=True)
-			names = _linked_service_names_from_db("Docket", dk.name)
-			self.assertEqual(len(names), 1)
+			ls = frappe.new_doc(linked_service_doctype())
+			ls.parent_booking_type = "Docket"
+			ls.parent_booking_name = dk.name
+			ls.service_type = "Air"
+			ls.flags.ignore_mandatory = True
+			ls.insert(ignore_permissions=True)
 			reloaded = frappe.get_doc("Docket", dk.name)
-			self.assertEqual(len(reloaded.internal_jobs), 1)
-			self.assertEqual(reloaded.internal_jobs[0].get("service_type"), "Air")
+			self.assertEqual(len(reloaded.linked_services), 1)
+			self.assertEqual(reloaded.linked_services[0].get("service_type"), "Air")
 		finally:
 			frappe.delete_doc("Docket", dk.name, force=True, ignore_permissions=True)
 			frappe.delete_doc("MICE Project", exhibit.name, force=True, ignore_permissions=True)
 
-	def test_sync_creates_linked_service_document(self):
-		exhibit = self._minimal_exhibit("Docket Virtual IJ Sync")
+	def test_staged_sync_creates_linked_service_document(self):
+		exhibit = self._minimal_exhibit("Docket Virtual LS Sync")
 		dk = self._minimal_docket(exhibit.name)
 		try:
 			doc = frappe.get_doc("Docket", dk.name)
-			doc.append("internal_jobs", {"service_type": "Sea"})
+			frappe.local._logistics_dk_ij_client_rows = [
+				frappe._dict({"service_type": "Sea", "job_type": "Sea Booking"})
+			]
 			sync_internal_job_details_to_internal_jobs(doc)
 			names = _linked_service_names_from_db("Docket", dk.name)
 			self.assertEqual(len(names), 1)
-			ls = frappe.get_doc(linked_service_doctype(), list(names)[0])
+			ls = frappe.get_doc(linked_service_doctype(), names[0])
 			self.assertEqual(ls.parent_booking_type, "Docket")
 			self.assertEqual(ls.parent_booking_name, dk.name)
 			self.assertEqual(ls.service_type, "Sea")
 		finally:
+			if hasattr(frappe.local, "_logistics_dk_ij_client_rows"):
+				delattr(frappe.local, "_logistics_dk_ij_client_rows")
 			frappe.delete_doc("Docket", dk.name, force=True, ignore_permissions=True)
 			frappe.delete_doc("MICE Project", exhibit.name, force=True, ignore_permissions=True)
 
-	def test_save_with_virtual_internal_jobs_does_not_fail_version(self):
-		exhibit = self._minimal_exhibit("Docket Virtual IJ Version")
+	def test_save_with_virtual_linked_services_does_not_fail_version(self):
+		exhibit = self._minimal_exhibit("Docket Virtual LS Version")
 		dk = self._minimal_docket(exhibit.name)
 		try:
 			doc = frappe.get_doc("Docket", dk.name)
-			doc.append("internal_jobs", {"service_type": "Transport"})
 			doc.flags.ignore_mandatory = True
 			doc.save(ignore_permissions=True)
 			reloaded = frappe.get_doc("Docket", dk.name)
-			self.assertIsInstance(reloaded.get("internal_jobs"), list)
+			self.assertIsInstance(reloaded.get("linked_services"), list)
 			reloaded.description = (reloaded.description or "") + " updated"
 			reloaded.flags.ignore_mandatory = True
 			reloaded.save(ignore_permissions=True)
