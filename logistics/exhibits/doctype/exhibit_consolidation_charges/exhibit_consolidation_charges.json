@@ -69,7 +69,7 @@
   {
    "fetch_from": "item_code.description",
    "fieldname": "description",
-   "fieldtype": "Long Text",
+   "fieldtype": "Text Editor",
    "label": "Description"
   },
   {
@@ -121,7 +121,7 @@
    "fieldname": "unit_of_measure",
    "fieldtype": "Select",
    "label": "Unit of Measure",
-   "options": "docket\nexhibit\nbooth\nm\u00b2\nday\npackage\npiece\nhour"
+   "options": "docket\nexhibit\nbooth\nm²\nday\npackage\npiece\nhour"
   },
   {
    "fieldname": "column_break_2",

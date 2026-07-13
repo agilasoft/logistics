@@ -45,10 +45,13 @@ function logistics_canonical_charge_service_type(st) {
 	return low;
 }
 
+/** Load Type module flags exist only for air/sea/transport/customs/warehousing. */
+const LOGISTICS_LOAD_TYPE_FLAGS_WITHOUT_MODULE = new Set(["special project", "exhibits"]);
+
 /** Load Type DocType checkbox field for service_type (custom → customs). */
 function logistics_load_type_flag_for_charge_service_type(st) {
 	const c = logistics_canonical_charge_service_type(st);
-	if (!c) return null;
+	if (!c || LOGISTICS_LOAD_TYPE_FLAGS_WITHOUT_MODULE.has(c)) return null;
 	if (c === "custom") return "customs";
 	return c;
 }
@@ -1099,10 +1102,12 @@ frappe.ui.form.on("Sales Quote", {
 			frm.set_df_property("quotation_type", "read_only", 0);
 		}
 		
-		// Delegated click handler for Weight/Qty Break buttons (bypasses form event system if needed)
+		// Delegated click handler for Weight/Qty/Percentage Break buttons (bypasses form event system if needed)
 		$(frm.wrapper).off("click.break_buttons").on("click.break_buttons", function (e) {
 			const $ctrl = $(e.target).closest(
-				'[data-fieldname="selling_qty_break"], [data-fieldname="cost_qty_break"]'
+				'[data-fieldname="selling_qty_break"], [data-fieldname="cost_qty_break"],' +
+					'[data-fieldname="selling_weight_break"], [data-fieldname="cost_weight_break"],' +
+					'[data-fieldname="selling_percentage_break"], [data-fieldname="cost_percentage_break"]'
 			);
 			if (!$ctrl.length) return;
 			const fieldname = $ctrl.attr("data-fieldname");
@@ -1133,6 +1138,16 @@ frappe.ui.form.on("Sales Quote", {
 			const record_type = fieldname.indexOf("cost_") === 0 ? "Cost" : "Selling";
 			if (fieldname.indexOf("qty_break") !== -1 && typeof window.open_qty_break_rate_dialog === "function") {
 				window.open_qty_break_rate_dialog(frm, row_doc, record_type);
+			} else if (
+				fieldname.indexOf("weight_break") !== -1 &&
+				typeof window.open_weight_break_rate_dialog === "function"
+			) {
+				window.open_weight_break_rate_dialog(frm, row_doc, record_type);
+			} else if (
+				fieldname.indexOf("percentage_break") !== -1 &&
+				typeof window.open_percentage_break_rate_dialog === "function"
+			) {
+				window.open_percentage_break_rate_dialog(frm, row_doc, record_type);
 			} else {
 				frappe.msgprint({ title: __("Error"), message: __("Dialog not loaded. Please refresh the page."), indicator: "red" });
 			}

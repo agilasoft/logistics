@@ -175,10 +175,13 @@ def programme_charge_service_type_label(value, charge_doctype=None, default=None
 	)
 
 
+_LOAD_TYPE_FLAGS_WITHOUT_MODULE = frozenset({"special project", "exhibits"})
+
+
 def charge_service_type_to_load_type_flag_field(service_type):
 	"""Load Type DocType checkbox fieldname for this charge service_type (uses 'customs' on Load Type, not 'custom')."""
 	c = canonical_charge_service_type_for_storage(service_type)
-	if not c:
+	if not c or c in _LOAD_TYPE_FLAGS_WITHOUT_MODULE:
 		return None
 	if c == "custom":
 		return "customs"

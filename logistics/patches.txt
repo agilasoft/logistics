@@ -328,3 +328,8 @@ logistics.patches.v3_0_migrate_cash_advance_settings_per_company
 logistics.patches.v3_0_ensure_cash_advance_settings_company_records
 # Cash Advance: seed default due date extension reason codes
 logistics.patches.v3_0_seed_cash_advance_reason_codes
+logistics.patches.v1_0_unset_freight_container_deposit_charge
+# Project Type: Is Active checkbox for filtering inactive types
+logistics.patches.v1_0_add_project_type_is_active
+# Charge calculation methods: add Percentage Break option on charge/rate DocTypes
+logistics.patches.v1_0_add_percentage_break_option

@@ -5,7 +5,7 @@
 Centralized charge calculation for Air, Sea, Transport, and Declaration charges.
 
 Follows the Sales Quote charge calculation pattern using RateCalculationEngine.
-Supports Weight Break and Qty Break methods via Sales Quote Weight Break / Qty Break tables.
+Supports Weight Break, Qty Break, and Percentage Break methods via Sales Quote break tables.
 Unit Breaks (checkbox) tier rates by charge row unit_type via Charge Unit Break (#1126).
 Uses calculation_method and unit_type for engine; legacy values (e.g. Per kg) are normalized via mapping.
 """
@@ -75,6 +75,7 @@ METHOD_TO_ENGINE = {
     "Flat rate": ("Flat Rate", None),
     "Weight Break": ("Weight Break", "Weight"),
     "Qty Break": ("Qty Break", "Piece"),
+    "Percentage Break": ("Percentage Break", "Value"),
     "Per Day": ("Per Unit", "Day"),
     "Per TEU": ("Per Unit", "TEU"),
     "Per container": ("Per Unit", "Container"),
@@ -439,6 +440,9 @@ def _get_quantity_for_calculation_method(
         return flt(
             actual_data.get("actual_pieces") or actual_data.get("actual_weight") or 1
         )
+    if method == "Percentage Break":
+        # Tier comparison uses quantity; goods value is resolved separately for the amount.
+        return flt(actual_data.get("actual_quantity") or 0)
     # Per Unit, Base Plus Additional, First Plus Additional, Location-based
     ut = (unit_type or "Weight").strip().lower()
     if ut == "weight":
@@ -951,8 +955,8 @@ def _prepare_rate_data(
     # Map legacy method values to engine format
     method, unit_type = _normalize_calculation_method(method, unit_type)
 
-    # Weight Break and Qty Break are handled separately
-    if method in ("Weight Break", "Qty Break"):
+    # Weight Break, Qty Break, and Percentage Break are handled separately
+    if method in ("Weight Break", "Qty Break", "Percentage Break"):
         return None
 
     uom = getattr(charge_doc, "uom", None) or getattr(charge_doc, f"{prefix}uom", None)
@@ -1044,6 +1048,40 @@ def _resolve_qty_break_rate(
         if flt(actual_qty) >= flt(qb.get("qty_break", 0)):
             return qb
     return sorted(qty_breaks, key=lambda x: flt(x.get("qty_break", 0)))[0]
+
+
+def _resolve_percentage_break_rate(
+    charge_doc: Any,
+    comparison_qty: float,
+    record_type: str = "Selling",
+) -> Optional[Dict]:
+    """Resolve applicable percentage from Sales Quote Percentage Break by Quantity tier."""
+    ref_name = getattr(charge_doc, "name", None)
+    if not ref_name or ref_name == "new":
+        return None
+
+    percentage_breaks = frappe.get_all(
+        "Sales Quote Percentage Break",
+        filters={
+            "reference_doctype": charge_doc.doctype,
+            "reference_no": ref_name,
+            "type": record_type,
+        },
+        fields=["value_break", "percentage_rate", "rate_type", "currency"],
+        order_by="value_break asc",
+    )
+    if not percentage_breaks:
+        return None
+
+    sorted_breaks = sorted(
+        percentage_breaks,
+        key=lambda x: flt(x.get("value_break", 0)),
+        reverse=True,
+    )
+    for pb in sorted_breaks:
+        if flt(comparison_qty) >= flt(pb.get("value_break", 0)):
+            return pb
+    return sorted(percentage_breaks, key=lambda x: flt(x.get("value_break", 0)))[0]
 
 
 def _charge_side_uses_unit_breaks(charge_doc: Any, is_revenue: bool) -> bool:
@@ -1442,6 +1480,70 @@ def _calculate_charge_amount(
         result["success"] = True
         return result
 
+    # Percentage Break: tier by Quantity; amount = (goods_value × %) + minimum_charge (additive)
+    if method == "Percentage Break":
+        if is_revenue:
+            qty = flt(getattr(charge_doc, "quantity", None) or result.get("quantity") or derived_qty or 0)
+        else:
+            qty = flt(
+                getattr(charge_doc, "cost_quantity", None)
+                or result.get("cost_quantity")
+                or derived_qty
+                or 0
+            )
+        applicable = _resolve_percentage_break_rate(charge_doc, qty, record_type)
+        if not applicable:
+            result["calc_notes"] = "Percentage Break: No percentage break rates defined for this charge"
+            return result
+        percentage_rate = flt(applicable.get("percentage_rate", 0))
+        # Quantity selects the tier; do not use quantity-spread Value as goods value.
+        goods_value = 0.0
+        if parent_doc:
+            goods_value = flt(
+                getattr(parent_doc, "goods_value", None)
+                or getattr(parent_doc, "declared_value", None)
+                or 0
+            )
+        if not goods_value:
+            prefix = "" if is_revenue else "cost_"
+            goods_value = flt(getattr(charge_doc, f"{prefix}base_amount", None) or 0)
+        pct_amount = goods_value * (percentage_rate / 100.0)
+        min_charge = (
+            flt(_get_field(charge_doc, "minimum_charge") or 0)
+            if is_revenue
+            else flt(_get_field(charge_doc, "cost_minimum_charge") or 0)
+        )
+        max_charge = (
+            flt(_get_field(charge_doc, "maximum_charge") or 0)
+            if is_revenue
+            else flt(_get_field(charge_doc, "cost_maximum_charge") or 0)
+        )
+        # Minimum charge is additive for Percentage Break (not a floor clamp).
+        calc_base = pct_amount + min_charge
+        amount = calc_base
+        if max_charge > 0 and amount > max_charge:
+            amount = max_charge
+        if is_revenue:
+            row_currency = getattr(charge_doc, "currency", None) or "USD"
+        else:
+            row_currency = getattr(charge_doc, "cost_currency", None) or getattr(charge_doc, "currency", None) or "USD"
+        currency = applicable.get("currency") or row_currency
+        value_break = flt(applicable.get("value_break", 0))
+        detail = (
+            f"Percentage Break: Qty {qty} ≥ break {value_break} → {percentage_rate}%; "
+            f"{percentage_rate}% × goods {goods_value} = {pct_amount}"
+        )
+        if min_charge:
+            detail += f" + minimum {min_charge} = {calc_base} {currency}"
+        else:
+            detail += f" = {calc_base} {currency}"
+        if max_charge > 0 and calc_base > max_charge and amount == max_charge:
+            detail += f"; Maximum charge {max_charge} {currency} applied (Final: {amount} {currency})"
+        result["amount"] = amount
+        result["calc_notes"] = detail
+        result["success"] = True
+        return result
+
     # Standard methods via engine
     rate_data = _prepare_rate_data(charge_doc, is_revenue=is_revenue)
     if not rate_data:
@@ -1647,7 +1749,12 @@ CHARGE_REVENUE_SIDE_CLEAR_FIELDS = (
     "actual_revenue",
 )
 
-_CHARGE_BREAK_DOCTYPES = ("Sales Quote Weight Break", "Sales Quote Qty Break", "Charge Unit Break")
+_CHARGE_BREAK_DOCTYPES = (
+    "Sales Quote Weight Break",
+    "Sales Quote Qty Break",
+    "Sales Quote Percentage Break",
+    "Charge Unit Break",
+)
 
 
 def _reset_charge_field_for_cleanup(meta: Any, fieldname: str) -> Any:

@@ -1,6 +1,6 @@
 // Copyright (c) 2026, www.agilasoft.com and contributors
-// Weight Break and Qty Break dialogs - loaded first for Sales Quote and charge doctypes
-// Shared weight-break / qty-break editor markup and dialogs (see charge_break_buttons.js for grid + row buttons).
+// Weight Break, Qty Break, and Percentage Break dialogs - loaded first for Sales Quote and charge doctypes
+// Shared break editor markup and dialogs (see charge_break_buttons.js for grid + row buttons).
 
 (function() {
 	"use strict";
@@ -21,26 +21,28 @@
 	window.LOGISTICS_SPECIAL_PROJECT_CHARGE_DOCTYPES = ["Special Project Charges"];
 	/** Pricing — unified quote charge rows (same break UX as Sea Booking Charges). */
 	window.LOGISTICS_PRICING_CHARGE_DOCTYPES = ["Sales Quote Charge", "Tariff Charge"];
-
+	window.LOGISTICS_MICE_CHARGE_DOCTYPES = ["MICE Project Charges"];
+	window.LOGISTICS_EXHIBIT_CHARGE_DOCTYPES = ["Exhibit Charges"];
 	window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS = [].concat(
 		window.LOGISTICS_SEA_FREIGHT_CHARGE_DOCTYPES,
 		window.LOGISTICS_AIR_FREIGHT_CHARGE_DOCTYPES,
 		window.LOGISTICS_CUSTOMS_CHARGE_DOCTYPES,
 		window.LOGISTICS_TRANSPORT_CHARGE_DOCTYPES,
 		window.LOGISTICS_SPECIAL_PROJECT_CHARGE_DOCTYPES,
-		window.LOGISTICS_PRICING_CHARGE_DOCTYPES
+		window.LOGISTICS_PRICING_CHARGE_DOCTYPES,
+		window.LOGISTICS_MICE_CHARGE_DOCTYPES,
+		window.LOGISTICS_EXHIBIT_CHARGE_DOCTYPES,
+		["Change Request Charge"]
 	);
-	/** Warehousing / MICE charge child tables (linked_service scope, no break buttons). */
+	/** Warehousing charge child tables (linked_service scope). */
 	window.LOGISTICS_WAREHOUSING_CHARGE_DOCTYPES = [
 		"Warehouse Job Charges",
 		"Inbound Order Charges",
 		"Release Order Charges",
 	];
-	window.LOGISTICS_MICE_CHARGE_DOCTYPES = ["MICE Project Charges"];
 	window.LOGISTICS_CHARGE_DOCTYPES_WITH_LINKED_SCOPE = [].concat(
 		window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS,
-		window.LOGISTICS_WAREHOUSING_CHARGE_DOCTYPES,
-		window.LOGISTICS_MICE_CHARGE_DOCTYPES
+		window.LOGISTICS_WAREHOUSING_CHARGE_DOCTYPES
 	);
 
 	/** Any child DocType that ships freight-style weight-break row buttons (reference → Sales Quote Weight Break). */
@@ -63,6 +65,17 @@
 		var sq = m.selling_qty_break;
 		var cq = m.cost_qty_break;
 		return (sq && sq.fieldtype === "Button") || (cq && cq.fieldtype === "Button");
+	};
+
+	/** Same pattern for percentage-break row buttons. */
+	window.logistics_charge_child_doctype_has_percentage_break_buttons = function(dt) {
+		if (!dt || !frappe.meta.docfield_map || !frappe.meta.docfield_map[dt]) {
+			return false;
+		}
+		var m = frappe.meta.docfield_map[dt];
+		var sp = m.selling_percentage_break;
+		var cp = m.cost_percentage_break;
+		return (sp && sp.fieldtype === "Button") || (cp && cp.fieldtype === "Button");
 	};
 
 	/** Unit-break row buttons (checkbox-driven). */
@@ -504,6 +517,169 @@
 		});
 	};
 
+	window.open_percentage_break_rate_dialog = function(frm, row, record_type) {
+		record_type = record_type || "Selling";
+		var reference_doctype = _pricing_charge_reference_doctype_from_row(row);
+		var reference_no = row.name;
+		if (!reference_no || reference_no === "new" || String(reference_no).startsWith("new-")) {
+			frappe.msgprint({
+				title: __("Save Required"),
+				message: __("Please save the document first before managing percentage breaks."),
+				indicator: "orange",
+			});
+			return;
+		}
+		frappe.call({
+			method: "logistics.pricing_center.doctype.sales_quote_percentage_break.sales_quote_percentage_break.get_percentage_breaks",
+			args: { reference_doctype: reference_doctype, reference_no: reference_no, record_type: record_type },
+			callback: function(r) {
+				if (!r.message || !r.message.success) {
+					frappe.msgprint({ title: __("Error"), message: __("Could not load percentage breaks."), indicator: "red" });
+					return;
+				}
+				var percentage_breaks = r.message.percentage_breaks || [];
+				var currency =
+					record_type === "Cost"
+						? row.cost_currency || row.currency || "USD"
+						: row.currency || row.cost_currency || "USD";
+				var table_data =
+					percentage_breaks.length > 0
+						? percentage_breaks.map(function(pb) {
+								return {
+									rate_type: pb.rate_type || "N (Normal)",
+									value_break: pb.value_break,
+									percentage_rate: pb.percentage_rate,
+									currency: pb.currency || currency,
+								};
+						  })
+						: [{ rate_type: "N (Normal)", value_break: "", percentage_rate: "", currency: currency }];
+
+				var table_html = [
+					'<div class="percentage-break-dialog-table">',
+					'<table class="table table-bordered table-sm">',
+					"<thead><tr>",
+					"<th>" + __("Break Type") + "</th>",
+					"<th>" + __("Value Break") + "</th>",
+					"<th>" + __("Percentage Rate") + "</th>",
+					"<th>" + __("Currency") + "</th>",
+					'<th style="width:40px"></th>',
+					"</tr></thead>",
+					'<tbody id="percentage_break_tbody"></tbody>',
+					"</table>",
+					'<button type="button" class="btn btn-xs btn-secondary mt-2" id="percentage_break_add_row">' +
+						__("Add row") +
+						"</button>",
+					"</div>",
+				].join("");
+
+				var dialog = new frappe.ui.Dialog({
+					title:
+						record_type === "Cost"
+							? __("Manage Cost Percentage Breaks")
+							: __("Manage Selling Percentage Breaks"),
+					size: "large",
+					fields: [
+						{ fieldname: "percentage_breaks_section", fieldtype: "Section Break", label: __("Percentage Breaks") },
+						{ fieldname: "percentage_breaks_html", fieldtype: "HTML", options: table_html },
+					],
+					primary_action_label: __("Save"),
+					primary_action: function() {
+						var tbody = dialog.$wrapper.find("#percentage_break_tbody");
+						var to_save = [];
+						tbody.find("tr").each(function() {
+							var $row = $(this);
+							var value_break = parseFloat($row.find("input.value-break").val()) || 0;
+							var percentage_rate = parseFloat($row.find("input.percentage-rate").val()) || 0;
+							var curr = $row.find("input.currency-code").val() || currency;
+							var rate_type = $row.find("select.rate-type").val() || "N (Normal)";
+							if (value_break || percentage_rate) {
+								to_save.push({
+									rate_type: rate_type,
+									value_break: value_break,
+									percentage_rate: percentage_rate,
+									currency: curr,
+								});
+							}
+						});
+						frappe.call({
+							method:
+								"logistics.pricing_center.doctype.sales_quote_percentage_break.sales_quote_percentage_break.save_percentage_breaks_for_reference",
+							args: {
+								reference_doctype: reference_doctype,
+								reference_no: reference_no,
+								percentage_breaks: to_save,
+								record_type: record_type,
+							},
+							callback: function(save_r) {
+								if (save_r.message && save_r.message.success) {
+									frappe.show_alert({ message: __("Percentage breaks saved"), indicator: "green" });
+									dialog.hide();
+									if (frm && frm.doc) {
+										_refresh_charge_grids_on_parent(frm);
+									}
+								} else {
+									frappe.msgprint({
+										title: __("Error"),
+										message:
+											(save_r.message && save_r.message.error) ||
+											__("Failed to save percentage breaks"),
+										indicator: "red",
+									});
+								}
+							},
+						});
+					},
+				});
+				dialog.show();
+
+				var render_row = function(pb) {
+					return (
+						"<tr>" +
+						'<td><select class="form-control form-control-sm rate-type">' +
+						'<option value="M (Minimum)"' +
+						(pb.rate_type === "M (Minimum)" ? " selected" : "") +
+						">M (Minimum)</option>" +
+						'<option value="N (Normal)"' +
+						(!pb.rate_type || pb.rate_type === "N (Normal)" ? " selected" : "") +
+						">N (Normal)</option>" +
+						'<option value="Q (Quantity Break)"' +
+						(pb.rate_type === "Q (Quantity Break)" ? " selected" : "") +
+						">Q (Quantity Break)</option>" +
+						"</select></td>" +
+						'<td><input type="number" step="0.001" class="form-control form-control-sm value-break" value="' +
+						(pb.value_break != null ? frappe.utils.escape_html(pb.value_break) : "") +
+						'"></td>' +
+						'<td><input type="number" step="0.01" class="form-control form-control-sm percentage-rate" value="' +
+						(pb.percentage_rate != null ? frappe.utils.escape_html(pb.percentage_rate) : "") +
+						'"></td>' +
+						'<td><input type="text" class="form-control form-control-sm currency-code" value="' +
+						frappe.utils.escape_html(pb.currency || currency) +
+						'" placeholder="USD"></td>' +
+						'<td><button type="button" class="btn btn-xs btn-default btn-remove-row">&times;</button></td>' +
+						"</tr>"
+					);
+				};
+
+				dialog.$wrapper.one("shown.bs.modal", function() {
+					var tbody = dialog.$wrapper.find("#percentage_break_tbody");
+					table_data.forEach(function(pb) {
+						tbody.append(render_row(pb));
+					});
+
+					dialog.$wrapper.find("#percentage_break_add_row").on("click", function() {
+						tbody.append(
+							render_row({ rate_type: "N (Normal)", value_break: "", percentage_rate: "", currency: currency })
+						);
+					});
+
+					dialog.$wrapper.on("click", ".btn-remove-row", function() {
+						$(this).closest("tr").remove();
+					});
+				});
+			},
+		});
+	};
+
 	window.logistics_unit_break_label_for_row = function(row, record_type) {
 		var unit_type =
 			record_type === "Cost"
@@ -874,6 +1050,27 @@
 					ev.stopPropagation();
 					ev.stopImmediatePropagation();
 					window.open_qty_break_rate_dialog(fo.frm, row, fn === "cost_qty_break" ? "Cost" : "Selling");
+					return;
+				}
+				if (fn === "selling_percentage_break" || fn === "cost_percentage_break") {
+					var known_pb = (window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS || []).indexOf(fo.doctype) !== -1;
+					var meta_pb =
+						window.logistics_charge_child_doctype_has_percentage_break_buttons &&
+						window.logistics_charge_child_doctype_has_percentage_break_buttons(fo.doctype);
+					if (!known_pb && !meta_pb) {
+						return;
+					}
+					if (typeof window.open_percentage_break_rate_dialog !== "function") {
+						return;
+					}
+					ev.preventDefault();
+					ev.stopPropagation();
+					ev.stopImmediatePropagation();
+					window.open_percentage_break_rate_dialog(
+						fo.frm,
+						row,
+						fn === "cost_percentage_break" ? "Cost" : "Selling"
+					);
 				}
 			},
 			true

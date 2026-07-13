@@ -192,7 +192,7 @@
   },
   {
    "fieldname": "shipper_address_display",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Shipper Address Display",
    "read_only": 1
   },
@@ -220,7 +220,7 @@
   },
   {
    "fieldname": "consignee_address_display",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Consignee Address Display",
    "read_only": 1
   },

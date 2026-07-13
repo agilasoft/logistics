@@ -236,6 +236,9 @@ class SpecialProject(Document):
 
 	def validate(self):
 		self._honour_special_project_services_form_rows()
+		from logistics.utils.document_date_validation import validate_planned_date_range
+
+		validate_planned_date_range(self)
 		validate_internal_job_activity_codes(self, module_filter=FOR_SPECIAL_PROJECT)
 		validate_special_project_lifecycle_stage_advance(self)
 		self._ensure_charges_tab_defaults()
