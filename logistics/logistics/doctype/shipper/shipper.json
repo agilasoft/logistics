@@ -10,6 +10,7 @@
   "details_tab",
   "code",
   "shipper_name",
+  "customer",
   "column_break_mmav",
   "exporter_category",
   "default_unloco",
@@ -105,6 +106,14 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Shipper Name"
+  },
+  {
+   "description": "ERPNext Customer linked to this shipper for billing and portal access.",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
+   "options": "Customer"
   },
   {
    "fieldname": "column_break_mmav",
