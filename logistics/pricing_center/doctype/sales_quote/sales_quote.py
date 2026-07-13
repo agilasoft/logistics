@@ -423,6 +423,7 @@ class SalesQuote(Document):
 		self.validate_direction_ports()
 		self.validate_freight_agent_locations()
 		self.validate_programme_required_parameters()
+		self.validate_planned_dates()
 		self.validate_additional_charge_job()
 		self.validate_load_type_matches_service()
 		self.validate_transport_mode_matches_service()
@@ -439,6 +440,20 @@ class SalesQuote(Document):
 		from logistics.utils.operational_exchange_rates import resolve_sales_quote_charge_exchange_rates
 
 		resolve_sales_quote_charge_exchange_rates(self)
+
+	def validate_planned_dates(self):
+		"""Hard-block inverted Planned Start/End; soft-warn when window ends before quote date."""
+		from logistics.utils.document_date_validation import (
+			validate_planned_date_range,
+			warn_if_planned_end_before_reference,
+		)
+
+		validate_planned_date_range(self)
+		warn_if_planned_end_before_reference(
+			self,
+			reference_field="date",
+			reference_label=_("Quote Date"),
+		)
 
 	def refresh_charge_parameters_display(self):
 		"""Populate read-only parameters text on charge rows from tagged services."""

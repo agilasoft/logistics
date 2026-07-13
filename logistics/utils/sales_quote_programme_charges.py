@@ -108,6 +108,11 @@ _CHARGE_BREAK_SPECS = (
 		"Qty Break",
 	),
 	(
+		"Sales Quote Percentage Break",
+		("rate_type", "value_break", "percentage_rate", "currency"),
+		"N (Normal)",
+	),
+	(
 		"Charge Unit Break",
 		("unit_type", "unit_break", "unit_rate", "currency"),
 		None,
@@ -295,7 +300,14 @@ def copy_charge_breaks_for_reference(
 					val = row.get(fieldname)
 					if fieldname == "rate_type":
 						val = val or default_rate_type
-					elif fieldname in ("weight_break", "qty_break", "unit_break", "unit_rate"):
+					elif fieldname in (
+						"weight_break",
+						"qty_break",
+						"unit_break",
+						"unit_rate",
+						"value_break",
+						"percentage_rate",
+					):
 						val = flt(val or 0)
 					elif fieldname == "currency":
 						val = val or "USD"

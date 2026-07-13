@@ -112,6 +112,7 @@ def _submit_internal_billing_journal_entry(
     user_remark: str,
     sales_quote,
     end_customer: str,
+    billing_main_job=None,
 ) -> str:
     """Build, submit one Journal Entry from prepared account rows; run recognition reversal."""
     total_debit = sum(flt(e.get("debit_in_account_currency"), 2) for e in entries)
@@ -180,7 +181,20 @@ def _submit_internal_billing_journal_entry(
             reverse_recognition_for_internal_billing_je,
         )
 
-        reverse_recognition_for_internal_billing_je(je, end_customer)
+        recognition = reverse_recognition_for_internal_billing_je(
+            je, end_customer, billing_main_job=billing_main_job
+        )
+        parts = []
+        if recognition.get("wip_recognition_journal_entry"):
+            parts.append(_("WIP recognition: {0}").format(recognition["wip_recognition_journal_entry"]))
+        if recognition.get("accrual_recognition_journal_entry"):
+            parts.append(_("Accrual recognition: {0}").format(recognition["accrual_recognition_journal_entry"]))
+        if recognition.get("wip_journal_entry"):
+            parts.append(_("WIP reversal: {0}").format(recognition["wip_journal_entry"]))
+        if recognition.get("accrual_journal_entry"):
+            parts.append(_("Accrual reversal: {0}").format(recognition["accrual_journal_entry"]))
+        if parts:
+            frappe.msgprint(" ".join(parts), indicator="green")
     except Exception as e:
         frappe.log_error(
             title="Recognition reversal on Internal Billing JE submit",
@@ -211,16 +225,26 @@ def create_internal_billing_journal_entries_for_quote(
     if not legs:
         return {"success": True, "created": 0, "message": _("No routing legs.")}
 
-    from logistics.pricing_center.doctype.sales_quote.sales_quote import (
-        _resolve_main_job_for_sales_quote,
+    from logistics.billing.cross_module_billing import (
+        get_all_billing_jobs_from_sales_quote,
+        resolve_internal_job_main_job,
+        get_main_job_company,
+        iter_internal_job_charge_splits,
+        iter_main_job_linked_scope_charge_splits,
+        resolve_operational_job_for_linked_service,
+        linked_job_matches_billing_main,
+        resolve_billing_main_job_for_quote,
+        is_booking_superseded_by_operational_job,
     )
 
-    main_job_type, main_job_no = _resolve_main_job_for_sales_quote(sales_quote)
-    if not main_job_type or not main_job_no:
+    quote_main_type, quote_main_no, billing_main_type, billing_main_no = (
+        resolve_billing_main_job_for_quote(sales_quote)
+    )
+    if not quote_main_type or not quote_main_no:
         return {"success": True, "created": 0, "message": _("Main Job has no job linked.")}
 
     try:
-        main_job_doc = frappe.get_doc(main_job_type, main_job_no)
+        main_job_doc = frappe.get_doc(billing_main_type, billing_main_no)
     except Exception:
         return {"success": True, "created": 0, "message": _("Main Job document not found.")}
 
@@ -230,18 +254,10 @@ def create_internal_billing_journal_entries_for_quote(
 
     posting_date = posting_date or today()
     end_customer = sales_quote.customer
-
-    from logistics.billing.cross_module_billing import (
-        get_all_billing_jobs_from_sales_quote,
-        resolve_internal_job_main_job,
-        get_main_job_company,
-        iter_internal_job_charge_splits,
-        iter_main_job_linked_scope_charge_splits,
-        resolve_operational_job_for_linked_service,
-    )
     from logistics.utils.internal_job_persistence import resolve_internal_job_for_internal_job_booking
 
     all_jobs = get_all_billing_jobs_from_sales_quote(sales_quote)
+    quote_job_keys = set(all_jobs)
     je_row_has_jcn = bool(frappe.get_meta("Journal Entry Account").get_field("job_number"))
 
     entries: List[Dict[str, Any]] = []
@@ -252,12 +268,23 @@ def create_internal_billing_journal_entries_for_quote(
     for job_type, job_no in all_jobs:
         if job_type not in INTERNAL_BILLING_JOB_TYPES:
             continue
-        if (job_type, job_no) == (main_job_type, main_job_no):
+        if (job_type, job_no) in (
+            (billing_main_type, billing_main_no),
+            (quote_main_type, quote_main_no),
+        ):
+            continue
+        if is_booking_superseded_by_operational_job(
+            job_type, job_no, quote_job_keys, sales_quote_name=sales_quote_name
+        ):
             continue
         mt, mn = resolve_internal_job_main_job(job_type, job_no)
-        if not mt or not mn or (mt, mn) != (main_job_type, main_job_no):
+        if not linked_job_matches_billing_main(
+            mt, mn, quote_main_type, quote_main_no, billing_main_type, billing_main_no
+        ):
             continue
-        main_co_check = get_main_job_company(mt, mn)
+        main_co_check = get_main_job_company(mt, mn) or get_main_job_company(
+            billing_main_type, billing_main_no
+        )
         if not main_co_check:
             continue
         try:
@@ -268,11 +295,16 @@ def create_internal_billing_journal_entries_for_quote(
         if not op_co or op_co != main_co_check:
             continue
 
-        splits = list(iter_internal_job_charge_splits(job_type, job_no, customer=end_customer))
+        splits = list(
+            iter_internal_job_charge_splits(
+                job_type, job_no, customer=end_customer, prefer_actual=True
+            )
+        )
         if splits:
             ls_name = resolve_internal_job_for_internal_job_booking(linked_job_doc)
             if ls_name:
                 linked_services_billed_via_operational_job.add(ls_name)
+            linked_services_billed_via_operational_job.add((job_type, job_no))
         if not splits:
             continue
 
@@ -301,11 +333,13 @@ def create_internal_billing_journal_entries_for_quote(
         if ls_name not in linked_job_doc_cache:
             op_jt, op_jn = resolve_operational_job_for_linked_service(
                 ls_name,
-                main_job_type,
-                main_job_no,
+                billing_main_type,
+                billing_main_no,
                 sales_quote_name=sales_quote_name,
             )
             if not op_jt or not op_jn:
+                continue
+            if (op_jt, op_jn) in linked_services_billed_via_operational_job:
                 continue
             try:
                 linked_job_doc_cache[ls_name] = frappe.get_doc(op_jt, op_jn)
@@ -321,7 +355,7 @@ def create_internal_billing_journal_entries_for_quote(
         item_code = split.get("item_code")
         if not item_code:
             missing_item_codes.append(
-                _("Main Job {0} linked service {1}").format(main_job_no, ls_name)
+                _("Main Job {0} linked service {1}").format(billing_main_no, ls_name)
             )
             continue
         _append_revenue_transfer_rows(
@@ -365,6 +399,7 @@ def create_internal_billing_journal_entries_for_quote(
         user_remark,
         sales_quote,
         end_customer,
+        billing_main_job=main_job_doc,
     )
 
     return {

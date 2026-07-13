@@ -87,6 +87,21 @@ class TestItemAccounts(FrappeTestCase):
         cls.expense_account = expense
         cls.income_account = income
 
+    @classmethod
+    def _ensure_job_number(cls, job_type, job_no):
+        if frappe.db.exists("Job Number", job_no):
+            return
+        doc = frappe.new_doc("Job Number")
+        doc.job_type = job_type
+        doc.job_no = job_no
+        doc.company = cls.company
+        doc.insert(ignore_permissions=True)
+
+    def _ensure_jv_job_numbers(self, *job_docs):
+        for job in job_docs:
+            job.job_number = job.name
+            self._ensure_job_number(job.doctype, job.name)
+
     def test_item_default_accounts_resolved(self):
         self.assertEqual(
             get_expense_account_for_item(self.item_code, self.company),
@@ -220,6 +235,7 @@ class TestCreateInternalBillingJV(TestItemAccounts):
         mock_get_doc,
         _mock_reversal,
     ):
+        self._ensure_jv_job_numbers(self.main_job, self.linked_job)
         mock_resolve_main.return_value = ("Transport Job", self.main_job.name)
         mock_all_jobs.return_value = [
             ("Transport Job", self.main_job.name),
@@ -289,6 +305,7 @@ class TestCreateInternalBillingJV(TestItemAccounts):
         mock_get_doc,
         _mock_reversal,
     ):
+        self._ensure_jv_job_numbers(self.main_job, self.linked_job)
         mock_resolve_main.return_value = ("Transport Job", self.main_job.name)
         mock_all_jobs.return_value = [("Transport Job", self.linked_job.name)]
         mock_splits.return_value = self.splits
@@ -376,7 +393,7 @@ class TestMainJobLinkedScopeBilling(TestItemAccounts):
                     charge_scope="Linked",
                     linked_service=self.ls_name,
                     charge_item=self.item_code,
-                    actual_revenue=0,
+                    actual_revenue=350.0,
                     selling_amount=0,
                     estimated_revenue=350.0,
                 )
@@ -414,6 +431,7 @@ class TestMainJobLinkedScopeBilling(TestItemAccounts):
         mock_get_doc,
         _mock_reversal,
     ):
+        self._ensure_jv_job_numbers(self.main_job, self.linked_job)
         mock_resolve_main.return_value = ("Sea Shipment", self.main_job.name)
         mock_all_jobs.return_value = [("Sea Shipment", self.main_job.name)]
 
@@ -461,3 +479,108 @@ class TestMainJobLinkedScopeBilling(TestItemAccounts):
         je = frappe.get_doc("Journal Entry", result.get("journal_entry"))
         self.assertEqual(len(je.accounts), 2)
         self.assertEqual(flt(je.accounts[0].debit_in_account_currency), 350.0)
+
+
+class TestBookingOperationalMainMismatch(TestItemAccounts):
+    """Quote main is Air Booking; linked Transport Job points at Air Shipment."""
+
+    def setUp(self):
+        self.quote_name = "SQ-IB-TRJ-{0}".format(frappe.generate_hash(length=6))
+        self.booking_name = "ABK-IB-TEST"
+        self.main_job = SimpleNamespace(
+            doctype="Air Shipment",
+            name="ASP-IB-MAIN",
+            company=self.company,
+            cost_center=None,
+            profit_center=None,
+            job_number="JCN-ASP-MAIN",
+        )
+        self.linked_job = SimpleNamespace(
+            doctype="Transport Job",
+            name="TRJ-IB-LINK",
+            company=self.company,
+            cost_center=None,
+            profit_center=None,
+            job_number="JCN-TRJ-LINK",
+        )
+        self.splits = [{"revenue": 270000.0, "cost": 0, "item_code": self.item_code}]
+
+    def tearDown(self):
+        remark = _internal_billing_jv_user_remark(self.quote_name, None)
+        for je in frappe.get_all("Journal Entry", filters={"user_remark": remark}, pluck="name"):
+            doc = frappe.get_doc("Journal Entry", je)
+            if doc.docstatus == 1:
+                doc.cancel()
+            frappe.delete_doc("Journal Entry", je, force=1)
+
+    @patch(
+        "logistics.invoice_integration.internal_billing_recognition_reversal.reverse_recognition_for_internal_billing_je"
+    )
+    @patch("logistics.billing.internal_billing.frappe.get_doc")
+    @patch("logistics.billing.cross_module_billing.iter_internal_job_charge_splits")
+    @patch("logistics.billing.cross_module_billing.get_all_billing_jobs_from_sales_quote")
+    @patch("logistics.billing.cross_module_billing.resolve_billing_main_job_for_quote")
+    def test_transport_linked_job_bills_when_quote_main_is_booking(
+        self,
+        mock_billing_main,
+        mock_all_jobs,
+        mock_splits,
+        mock_get_doc,
+        _mock_reversal,
+    ):
+        self._ensure_jv_job_numbers(self.main_job, self.linked_job)
+        mock_billing_main.return_value = (
+            "Air Booking",
+            self.booking_name,
+            "Air Shipment",
+            self.main_job.name,
+        )
+        mock_all_jobs.return_value = [("Transport Job", self.linked_job.name)]
+        mock_splits.return_value = self.splits
+
+        def _get_doc(*args, **kwargs):
+            if args and isinstance(args[0], dict):
+                return _REAL_GET_DOC(*args, **kwargs)
+            doctype, name = args[0], args[1]
+            if doctype == "Sales Quote":
+                return SimpleNamespace(
+                    name=self.quote_name,
+                    customer="Test Customer",
+                    routing_legs=[SimpleNamespace()],
+                    branch=None,
+                    cost_center=None,
+                )
+            if name == self.main_job.name:
+                return self.main_job
+            if name == self.linked_job.name:
+                return self.linked_job
+            return _REAL_GET_DOC(doctype, name)
+
+        mock_get_doc.side_effect = _get_doc
+
+        original_exists = frappe.db.exists
+        with patch.object(frappe.db, "exists") as mock_exists:
+
+            def _exists(dt, name=None, **kwargs):
+                if dt == "Sales Quote":
+                    return True
+                if dt == "Transport Job":
+                    return True
+                return original_exists(dt, name, **kwargs)
+
+            mock_exists.side_effect = _exists
+            with patch(
+                "logistics.billing.cross_module_billing.resolve_internal_job_main_job",
+                return_value=("Air Shipment", self.main_job.name),
+            ):
+                with patch(
+                    "logistics.billing.cross_module_billing.get_main_job_company",
+                    return_value=self.company,
+                ):
+                    result = create_internal_billing_journal_entries_for_quote(self.quote_name)
+
+        self.assertTrue(result.get("success"))
+        self.assertEqual(result.get("created"), 1)
+        je = frappe.get_doc("Journal Entry", result.get("journal_entry"))
+        self.assertEqual(len(je.accounts), 2)
+        self.assertEqual(flt(je.accounts[0].debit_in_account_currency), 270000.0)

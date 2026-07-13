@@ -90,16 +90,17 @@ doctype_js = {
 		"logistics/logistics/doctype/unloco/unloco.js",
 		"logistics/logistics/doctype/unloco/unloco_list.js",
 	],
-	# Sales Quote: dialogs first, break row/grid handlers, then air/sea freight scripts
+	# Sales Quote: dialogs first, break row/grid handlers, then air/sea freight scripts.
+	# Paths are module-relative (no leading "logistics/") — see NOTE below for Special Project.
+	# sales_quote.js is omitted: it loads via the DocType's own __js; listing it here would double-bind.
 	"Sales Quote": [
-		"logistics/public/js/operational_exchange_rate_grid.js",
-		"logistics/public/js/charge_break_dialogs.js",
-		"logistics/public/js/charge_break_buttons.js",
-		"logistics/pricing_center/doctype/sales_quote_charge/sales_quote_charge.js",
-		"logistics/pricing_center/doctype/sales_quote_air_freight/sales_quote_air_freight.js",
-		"logistics/pricing_center/doctype/sales_quote_sea_freight/sales_quote_sea_freight.js",
-		"logistics/public/js/sales_quote_booking_dialog.js",
-		"logistics/pricing_center/doctype/sales_quote/sales_quote.js",
+		"public/js/operational_exchange_rate_grid.js",
+		"public/js/charge_break_dialogs.js",
+		"public/js/charge_break_buttons.js",
+		"pricing_center/doctype/sales_quote_charge/sales_quote_charge.js",
+		"pricing_center/doctype/sales_quote_air_freight/sales_quote_air_freight.js",
+		"pricing_center/doctype/sales_quote_sea_freight/sales_quote_sea_freight.js",
+		"public/js/sales_quote_booking_dialog.js",
 	],
 	"Sales Quote Pack": "logistics/pricing_center/doctype/sales_quote_pack/sales_quote_pack.js",
 	"Opportunity": [

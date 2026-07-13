@@ -115,6 +115,9 @@ class Exhibit(Document):
 
 	def validate(self):
 		self._drop_virtual_dockets_rows()
+		from logistics.utils.document_date_validation import validate_planned_date_range
+
+		validate_planned_date_range(self)
 		validate_internal_job_activity_codes(self, module_filter=FOR_EXHIBITS)
 		validate_lifecycle_stage_advance(self)
 		self._recalculate_consolidation_charge_totals()

@@ -246,7 +246,7 @@
 		return $block;
 	}
 
-	function _buildCards(choices) {
+	function _buildCards(choices, frm) {
 		const $wrap = $("<div class='ex-cards-wrap'>");
 		$wrap.append(
 			$("<p>")
@@ -453,7 +453,7 @@
 				if ($cardsRoot && $cardsRoot.length) {
 					$cardsRoot.empty();
 					$cardsRoot.append(_styles());
-					$cardsRoot.append(_buildCards(choices));
+					$cardsRoot.append(_buildCards(choices, frm));
 					_bindCards($cardsRoot, frm, d);
 				}
 				d.show();

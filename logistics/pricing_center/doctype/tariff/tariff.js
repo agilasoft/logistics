@@ -3,7 +3,7 @@
 
 // Aligned with Sales Quote Charge: revenue_calculation_method / cost_calculation_method (same order and labels).
 const SALES_QUOTE_CALCULATION_METHOD_OPTIONS =
-	"Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break";
+	"Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break";
 
 frappe.ui.form.on('Tariff', {
 	refresh: function (frm) {

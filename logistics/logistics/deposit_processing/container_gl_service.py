@@ -3,7 +3,8 @@
 """
 Container deposit / charge views from **GL Entry** using the **Container** accounting dimension.
 
-The **Deposits** HTML table lists only GL rows on **Deposits Pending for Refund Request** (Sea Freight Settings).
+The **Deposits** HTML table lists only GL rows on **Deposits Pending for Refund Request** (Sea Freight Settings)
+whose **Item** accounting dimension is a **Container Deposit Charge** item (or non-item refund JE lines).
 **Charges** include only GL rows whose **Item** accounting dimension points to an Item with **Container charge** checked;
 those amounts roll into Total charges and are **not** deducted from the deposit header.
 """
@@ -14,7 +15,10 @@ import frappe
 from frappe import _
 from frappe.utils import escape_html, flt, formatdate
 
-from logistics.invoice_integration.container_deposit_pi import item_is_container_charge
+from logistics.invoice_integration.container_deposit_pi import (
+	item_is_container_charge,
+	item_is_container_deposit,
+)
 from logistics.job_management.gl_item_dimension import get_item_dimension_fieldname_on_gl_entry
 from logistics.job_management.gl_reference_dimension import get_accounting_dimension_fieldname
 
@@ -98,6 +102,25 @@ def get_deposit_system_accounts():
 	return accts
 
 
+def _gl_row_is_container_deposit_charge(row):
+	"""True when a pending-account GL row belongs on the Container Deposit tab."""
+	item_code = row.get("gl_item_code")
+	if item_code:
+		return item_is_container_deposit(item_code)
+	# Refund JEs and other non-item postings on the pending account stay visible.
+	return True
+
+
+def _deposit_gl_item_filter_sql(item_fn):
+	"""SQL fragment: pending-account GL is a container-deposit charge (or non-item refund line)."""
+	if not item_fn or not frappe.db.has_column("Item", "custom_container_deposit_charge"):
+		return "1=1"
+	return """(
+		IFNULL(gle.`{item_fn}`, '') = ''
+		OR IFNULL(item.custom_container_deposit_charge, 0) = 1
+	)""".format(item_fn=item_fn)
+
+
 def _query_gl_for_container(container_name):
 	fn = _container_column()
 	if not fn:
@@ -122,7 +145,7 @@ def _query_gl_for_container(container_name):
 def get_gl_rows_split(container_name):
 	"""Return (deposit_rows, charge_rows) for HTML.
 
-	**Deposit** display rows: only **Deposits Pending for Refund Request** (Sea Freight Settings).
+	**Deposit** display rows: pending-refund account GL with **Container Deposit Charge** Items only.
 	**Charge** display rows: GL lines on **Container charge** Items (Item dimension), excluding deposit account lines.
 	"""
 	fn = _container_column()
@@ -135,7 +158,7 @@ def get_gl_rows_split(container_name):
 		acc = r.get("account")
 		co = r.get("company")
 		pending = _pending_refund_account_for_company(co) if co else None
-		if pending and acc == pending:
+		if pending and acc == pending and _gl_row_is_container_deposit_charge(r):
 			deposit_rows.append(r)
 			continue
 		item_code = r.get("gl_item_code")
@@ -147,15 +170,22 @@ def get_gl_rows_split(container_name):
 def net_pending_balance_for_container(container_name):
 	"""Net balance on the Deposits Pending for Refund account for this container (company currency)."""
 	fn = _container_column()
+	item_fn = _gl_item_column()
 	accounts = _all_pending_refund_accounts()
 	if not fn or not accounts:
 		return 0.0
 	ph = ",".join(["%s"] * len(accounts))
+	item_filter = _deposit_gl_item_filter_sql(item_fn)
+	join_item = ""
+	if item_fn and frappe.db.has_column("Item", "custom_container_deposit_charge"):
+		join_item = "LEFT JOIN `tabItem` item ON item.name = gle.`{item_fn}`".format(item_fn=item_fn)
 	r = frappe.db.sql(
 		"""
-		SELECT COALESCE(SUM(debit - credit), 0) FROM `tabGL Entry`
-		WHERE `{col}` = %s AND account IN ({ph}) AND IFNULL(is_cancelled, 0) = 0
-		""".format(col=fn, ph=ph),
+		SELECT COALESCE(SUM(gle.debit - gle.credit), 0) FROM `tabGL Entry` gle
+		{join_item}
+		WHERE gle.`{col}` = %s AND gle.account IN ({ph}) AND IFNULL(gle.is_cancelled, 0) = 0
+			AND {item_filter}
+		""".format(col=fn, ph=ph, join_item=join_item, item_filter=item_filter),
 		(container_name,) + tuple(accounts),
 	)
 	return flt(r[0][0] if r else 0)
@@ -218,12 +248,19 @@ def sync_deposit_header_from_gl(container_doc):
 		pending_accounts = _all_pending_refund_accounts()
 		if fn and pending_accounts:
 			ph = ",".join(["%s"] * len(pending_accounts))
+			item_fn = _gl_item_column()
+			item_filter = _deposit_gl_item_filter_sql(item_fn)
+			join_item = ""
+			if item_fn and frappe.db.has_column("Item", "custom_container_deposit_charge"):
+				join_item = "LEFT JOIN `tabItem` item ON item.name = gle.`{item_fn}`".format(item_fn=item_fn)
 			cur = frappe.db.sql(
 				"""
 				SELECT gle.account_currency FROM `tabGL Entry` gle
+				{join_item}
 				WHERE gle.`{col}` = %s AND gle.account IN ({ph}) AND IFNULL(gle.is_cancelled, 0) = 0
+					AND {item_filter}
 				ORDER BY gle.posting_date DESC LIMIT 1
-				""".format(col=fn, ph=ph),
+				""".format(col=fn, ph=ph, join_item=join_item, item_filter=item_filter),
 				(name,) + tuple(pending_accounts),
 			)
 			if cur and cur[0][0] and meta.has_field("deposit_currency"):
@@ -231,9 +268,10 @@ def sync_deposit_header_from_gl(container_doc):
 			last_pd = frappe.db.sql(
 				"""
 				SELECT MAX(gle.posting_date) FROM `tabGL Entry` gle
+				{join_item}
 				WHERE gle.`{col}` = %s AND gle.account IN ({ph}) AND gle.voucher_type = 'Purchase Invoice'
-					AND IFNULL(gle.is_cancelled, 0) = 0
-				""".format(col=fn, ph=ph),
+					AND IFNULL(gle.is_cancelled, 0) = 0 AND {item_filter}
+				""".format(col=fn, ph=ph, join_item=join_item, item_filter=item_filter),
 				(name,) + tuple(pending_accounts),
 			)
 			if last_pd and last_pd[0][0] and meta.has_field("deposit_paid_date"):
@@ -307,8 +345,117 @@ def get_deposits_gl_html(container_name):
 		pending_label = _("multiple accounts")
 	return _html_table(
 		deposit_rows,
-		_("Deposits Pending for Refund Request ({0}) — GL (Container dimension)").format(pending_label),
+		_("Container deposit charges only — Deposits Pending for Refund Request ({0})").format(pending_label),
 	)
+
+
+def _account_label(account):
+	if not account:
+		return ""
+	if not frappe.db.exists("Account", account):
+		return account
+	row = frappe.db.get_value(
+		"Account",
+		account,
+		["account_number", "account_name", "company"],
+		as_dict=True,
+	)
+	if not row:
+		return account
+	abbr = frappe.db.get_value("Company", row.company, "abbr") if row.company else ""
+	parts = [p for p in (row.account_number, row.account_name, abbr) if p]
+	return " - ".join(parts) if parts else account
+
+
+def _party_label(party_type, party):
+	if not party:
+		return ""
+	if party_type == "Supplier":
+		return frappe.db.get_value("Supplier", party, "supplier_name") or party
+	if party_type == "Customer":
+		return frappe.db.get_value("Customer", party, "customer_name") or party
+	return party
+
+
+def _refunded_purchase_invoices_for_container(container_name):
+	rows = frappe.get_all(
+		"Container Refund Link",
+		filters={"parent": container_name},
+		fields=["purchase_invoice"],
+	)
+	return {r.purchase_invoice for r in rows if r.get("purchase_invoice")}
+
+
+def _refund_status_for_gl_row(row, refunded_pis):
+	voucher_type = row.get("voucher_type") or ""
+	voucher_no = row.get("voucher_no") or ""
+	if voucher_type == "Journal Entry":
+		return "Refunded"
+	if voucher_type == "Purchase Invoice":
+		return "Refunded" if voucher_no in refunded_pis else "Open"
+	if flt(row.get("credit")) > flt(row.get("debit")):
+		return "Refunded"
+	return "Open"
+
+
+def get_deposit_postings_data(container_name):
+	"""Structured deposit transaction rows for the Container Deposit tab UI."""
+	if not container_name or str(container_name).startswith("new-"):
+		return {"rows": [], "items": [], "currency": None, "error": None}
+
+	accounts = _all_pending_refund_accounts()
+	if not accounts:
+		return {
+			"rows": [],
+			"items": [],
+			"currency": None,
+			"error": _(
+				"No Deposits Pending for Refund Request account is configured on any Sea Freight Settings row. "
+				"Ask an administrator to set it per company on Sea Freight Settings."
+			),
+		}
+
+	deposit_rows, _charge = get_gl_rows_split(container_name)
+	refunded_pis = _refunded_purchase_invoices_for_container(container_name)
+	items = set()
+	out_rows = []
+	currency = None
+
+	for r in deposit_rows:
+		item_code = (r.get("gl_item_code") or "").strip()
+		if item_code:
+			items.add(item_code)
+		if not currency and r.get("company"):
+			currency = frappe.db.get_value("Company", r.get("company"), "default_currency")
+
+		party = _party_label(r.get("party_type"), r.get("party"))
+		if not party and r.get("voucher_type") == "Purchase Invoice" and r.get("voucher_no"):
+			party = frappe.db.get_value("Purchase Invoice", r.voucher_no, "supplier")
+
+		out_rows.append(
+			{
+				"posting_date": str(r.get("posting_date") or ""),
+				"voucher_type": r.get("voucher_type") or "",
+				"voucher_no": r.get("voucher_no") or "",
+				"item_code": item_code,
+				"account": r.get("account") or "",
+				"account_label": _account_label(r.get("account")),
+				"debit": flt(r.get("debit")),
+				"credit": flt(r.get("credit")),
+				"party": party or "",
+				"refund_status": _refund_status_for_gl_row(r, refunded_pis),
+			}
+		)
+
+	if not currency:
+		currency = frappe.defaults.get_user_default("currency")
+
+	return {
+		"rows": out_rows,
+		"items": sorted(items),
+		"currency": currency,
+		"error": None,
+	}
 
 
 def get_charges_gl_html(container_name):
@@ -324,18 +471,24 @@ def get_charges_gl_html(container_name):
 def pending_amount_for_pi_container(container_name, purchase_invoice):
 	"""Carrier deposit posted on PI: debit to pending account with Container dimension."""
 	fn = _container_column()
+	item_fn = _gl_item_column()
 	if not fn or not purchase_invoice:
 		return 0.0
 	co = frappe.db.get_value("Purchase Invoice", purchase_invoice, "company")
 	pending = _pending_refund_account_for_company(co)
 	if not pending:
 		return 0.0
+	item_filter = _deposit_gl_item_filter_sql(item_fn)
+	join_item = ""
+	if item_fn and frappe.db.has_column("Item", "custom_container_deposit_charge"):
+		join_item = "LEFT JOIN `tabItem` item ON item.name = gle.`{item_fn}`".format(item_fn=item_fn)
 	r = frappe.db.sql(
 		"""
-		SELECT COALESCE(SUM(debit), 0) FROM `tabGL Entry`
-		WHERE `{col}` = %s AND account = %s AND voucher_type = 'Purchase Invoice'
-			AND voucher_no = %s AND IFNULL(is_cancelled, 0) = 0
-		""".format(col=fn),
+		SELECT COALESCE(SUM(gle.debit), 0) FROM `tabGL Entry` gle
+		{join_item}
+		WHERE gle.`{col}` = %s AND gle.account = %s AND gle.voucher_type = 'Purchase Invoice'
+			AND gle.voucher_no = %s AND IFNULL(gle.is_cancelled, 0) = 0 AND {item_filter}
+		""".format(col=fn, join_item=join_item, item_filter=item_filter),
 		(container_name, pending, purchase_invoice),
 	)
 	return flt(r[0][0] if r else 0)
@@ -343,16 +496,22 @@ def pending_amount_for_pi_container(container_name, purchase_invoice):
 
 def total_pending_pi_debits_for_container(container_name):
 	fn = _container_column()
+	item_fn = _gl_item_column()
 	accounts = _all_pending_refund_accounts()
 	if not fn or not accounts:
 		return 0.0
 	ph = ",".join(["%s"] * len(accounts))
+	item_filter = _deposit_gl_item_filter_sql(item_fn)
+	join_item = ""
+	if item_fn and frappe.db.has_column("Item", "custom_container_deposit_charge"):
+		join_item = "LEFT JOIN `tabItem` item ON item.name = gle.`{item_fn}`".format(item_fn=item_fn)
 	r = frappe.db.sql(
 		"""
-		SELECT COALESCE(SUM(debit), 0) FROM `tabGL Entry`
-		WHERE `{col}` = %s AND account IN ({ph}) AND voucher_type = 'Purchase Invoice'
-			AND IFNULL(is_cancelled, 0) = 0
-		""".format(col=fn, ph=ph),
+		SELECT COALESCE(SUM(gle.debit), 0) FROM `tabGL Entry` gle
+		{join_item}
+		WHERE gle.`{col}` = %s AND gle.account IN ({ph}) AND gle.voucher_type = 'Purchase Invoice'
+			AND IFNULL(gle.is_cancelled, 0) = 0 AND {item_filter}
+		""".format(col=fn, ph=ph, join_item=join_item, item_filter=item_filter),
 		(container_name,) + tuple(accounts),
 	)
 	return flt(r[0][0] if r else 0)
@@ -397,17 +556,23 @@ def net_refund_amount_after_charges_for_pi(container_name, purchase_invoice):
 def list_eligible_refund_purchase_invoices(container_name):
 	"""Purchase Invoices with pending deposit GL for this container and no refund JE yet."""
 	fn = _container_column()
+	item_fn = _gl_item_column()
 	accounts = _all_pending_refund_accounts()
 	if not fn or not accounts:
 		return []
 	ph = ",".join(["%s"] * len(accounts))
+	item_filter = _deposit_gl_item_filter_sql(item_fn)
+	join_item = ""
+	if item_fn and frappe.db.has_column("Item", "custom_container_deposit_charge"):
+		join_item = "LEFT JOIN `tabItem` item ON item.name = gle.`{item_fn}`".format(item_fn=item_fn)
 	pis = frappe.db.sql(
 		"""
 		SELECT DISTINCT gle.voucher_no
 		FROM `tabGL Entry` gle
+		{join_item}
 		WHERE gle.`{fn}` = %s AND gle.account IN ({ph}) AND gle.voucher_type = 'Purchase Invoice'
-			AND gle.debit > 0 AND IFNULL(gle.is_cancelled, 0) = 0
-		""".format(fn=fn, ph=ph),
+			AND gle.debit > 0 AND IFNULL(gle.is_cancelled, 0) = 0 AND {item_filter}
+		""".format(fn=fn, ph=ph, join_item=join_item, item_filter=item_filter),
 		(container_name,) + tuple(accounts),
 	)
 	out = []

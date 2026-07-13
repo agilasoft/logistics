@@ -116,7 +116,7 @@
   {
    "fetch_from": "item_code.description",
    "fieldname": "description",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Description"
   },
   {
@@ -171,7 +171,7 @@
    "read_only": 1
   },
   {
-   "description": "Total standard cost (Quantity \u00d7 Standard Unit Cost)",
+   "description": "Total standard cost (Quantity × Standard Unit Cost)",
    "fieldname": "total_standard_cost",
    "fieldtype": "Currency",
    "label": "Total Standard Cost",

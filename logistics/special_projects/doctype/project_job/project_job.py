@@ -9,6 +9,9 @@ from frappe.model.document import Document
 
 class ProjectJob(Document):
 	def validate(self):
+		from logistics.utils.document_date_validation import validate_planned_date_range
+
+		validate_planned_date_range(self)
 		if self.special_project:
 			row = frappe.db.get_value(
 				"Special Project",

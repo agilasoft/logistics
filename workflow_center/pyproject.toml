@@ -11,9 +11,7 @@ description = "Workflow Center — unified cockpit for pending workflow actions 
 requires-python = ">=3.14,<3.15"
 readme = "README.md"
 dynamic = ["version"]
-dependencies = [
-    "frappe",
-]
+dependencies = []
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -26,6 +24,9 @@ classifiers = [
 Homepage = "https://github.com/agilasoft/logistics"
 Repository = "https://github.com/agilasoft/logistics"
 Issues = "https://github.com/agilasoft/logistics/issues"
+
+[tool.bench.frappe-dependencies]
+frappe = ">=16.0.0,<17.0.0"
 
 [tool.setuptools]
 packages = ["workflow_center"]

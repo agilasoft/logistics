@@ -12,13 +12,8 @@ requires-python = ">=3.14,<3.15"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = [
-    "frappe",
     "zeep>=4.2",
     "xmltodict>=0.13",
-    # URL dependencies required for Frappe v16+ with uv installer
-    # Dependency resolver will handle version conflicts with v15
-    "PyPika @ git+https://github.com/frappe/pypika@2c50e6142b2d61d2d243e466fdd5dc03b3d918f2",
-    "gunicorn @ git+https://github.com/frappe/gunicorn@bb554053bb87218120d76ab6676af7015680e8b6"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -32,6 +27,10 @@ classifiers = [
 Homepage = "https://github.com/agilasoft/logistics"
 Repository = "https://github.com/agilasoft/logistics"
 Issues = "https://github.com/agilasoft/logistics/issues"
+
+[tool.bench.frappe-dependencies]
+frappe = ">=16.0.0,<17.0.0"
+erpnext = ">=16.0.0,<17.0.0"
 
 [tool.setuptools]
 packages = ["logistics"]
