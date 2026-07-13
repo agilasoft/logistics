@@ -254,7 +254,7 @@
   },
   {
    "fieldname": "shipper_address_display",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Shipper Address Display",
    "read_only": 1
   },
@@ -282,7 +282,7 @@
   },
   {
    "fieldname": "consignee_address_display",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Consignee Address Display",
    "read_only": 1
   },
@@ -518,7 +518,7 @@
    "label": "Planned End"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
+   "depends_on": "eval:doc.quotation_type == \"Project\" || [\"Special Project\", \"MICE\"].includes(doc.main_service)",
    "fieldname": "sp_programme_details_section",
    "fieldtype": "Section Break",
    "label": "Details"
@@ -791,7 +791,6 @@
    "fieldtype": "Section Break",
    "label": "Terms and Conditions"
   },
-
   {
    "fieldname": "tc_name",
    "fieldtype": "Link",

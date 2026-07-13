@@ -54,6 +54,30 @@ def milestone_planned_range_invalid_message():
 	)
 
 
+def planned_date_range_invalid_message():
+	return _(
+		"Planned Start is after Planned End. The planned window must start on or before it ends.\n\n"
+		"What to do: Set Planned Start to the same day as Planned End or earlier, "
+		"or move Planned End later. Then save again."
+	)
+
+
+def planned_date_range_title():
+	return _("Invalid planned dates")
+
+
+def planned_window_before_reference_warning_message(reference_label, reference_value):
+	return _(
+		"Planned End is before {0} ({1}). The planned window has already ended relative to that date.\n\n"
+		"What to do: If this is intentional (historical or backdated work), you can continue. "
+		"Otherwise update Planned Start and Planned End to the correct programme window."
+	).format(reference_label, reference_value)
+
+
+def planned_window_before_reference_warning_title():
+	return _("Planned window already ended")
+
+
 def milestone_actual_range_invalid_message():
 	return _(
 		"Actual Start is after Actual End. Actual times must show the milestone began on or before it finished.\n\n"

@@ -68,7 +68,7 @@
   {
    "fetch_from": "item_code.description",
    "fieldname": "description",
-   "fieldtype": "Long Text",
+   "fieldtype": "Text Editor",
    "label": "Description"
   },
   {
@@ -120,7 +120,7 @@
    "fieldname": "unit_of_measure",
    "fieldtype": "Select",
    "label": "Unit of Measure",
-   "options": "kg\nm\u00b3\npackage\nshipment\nhour\nday"
+   "options": "kg\nm³\npackage\nshipment\nhour\nday"
   },
   {
    "fieldname": "column_break_2",

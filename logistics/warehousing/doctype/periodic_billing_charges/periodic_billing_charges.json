@@ -45,7 +45,7 @@
   {
    "fetch_from": "item.description",
    "fieldname": "description",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Description"
   },
   {

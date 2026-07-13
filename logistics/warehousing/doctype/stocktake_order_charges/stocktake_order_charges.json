@@ -36,7 +36,7 @@
   {
    "fetch_from": "item_code.description",
    "fieldname": "description",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Description"
   },
   {

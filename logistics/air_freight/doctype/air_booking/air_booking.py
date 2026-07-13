@@ -1027,7 +1027,7 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 					# Validate it's in the valid list
 					valid_calc_methods = [
 						"Per Unit", "Fixed Amount", "Flat Rate", "Base Plus Additional",
-						"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
+						"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break", "Percentage Break"
 					]
 					if calc_method not in valid_calc_methods:
 						frappe.log_error(
@@ -1246,7 +1246,7 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 			# Normalize calculation_method values in fetched records before processing
 			valid_calc_methods = [
 				"Per Unit", "Fixed Amount", "Flat Rate", "Base Plus Additional",
-				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
+				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break", "Percentage Break"
 			]
 			for sqaf_record in sales_quote_air_freight_records:
 				_raw_method = sqaf_record.get("revenue_calculation_method") or sqaf_record.get("calculation_method")
@@ -1309,7 +1309,7 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 						# Final safety check: ensure calculation_method is valid before appending
 						valid_calc_methods = [
 							"Per Unit", "Fixed Amount", "Flat Rate", "Base Plus Additional",
-							"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
+							"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break", "Percentage Break"
 						]
 						if mapped_calc_method not in valid_calc_methods:
 							frappe.log_error(
@@ -1635,7 +1635,7 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 		
 		valid_calc_methods = [
 			"Per Unit", "Fixed Amount", "Flat Rate", "Base Plus Additional",
-			"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
+			"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break", "Percentage Break"
 		]
 		
 		from logistics.utils.charges_calculation import normalize_operational_charge_type
@@ -1787,7 +1787,7 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 			# Define valid calculation methods for Air Booking Charges
 			valid_calc_methods = [
 				"Per Unit", "Fixed Amount", "Flat Rate", "Base Plus Additional",
-				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
+				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break", "Percentage Break"
 			]
 			
 			# STEP 1: Extract UOM from calculation_method if it contains unit strings

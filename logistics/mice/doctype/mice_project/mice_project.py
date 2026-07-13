@@ -177,6 +177,9 @@ class MICEProject(Document):
 		self._honour_linked_services_form_rows()
 		self._ensure_org_defaults()
 		self._validate_org_accounts()
+		from logistics.utils.document_date_validation import validate_planned_date_range
+
+		validate_planned_date_range(self)
 		validate_internal_job_activity_codes(self, module_filter=FOR_EXHIBITS)
 		validate_lifecycle_stage_advance(self)
 		self._recalculate_consolidation_charge_rows()

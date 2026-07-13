@@ -30,6 +30,9 @@ class Docket(VirtualLinkedServicesMixin, Document):
 		self._sync_customer_from_exhibit_organizer()
 		self._sync_exhibitor_metadata()
 		self._validate_unique_booth_no_on_exhibit()
+		from logistics.utils.document_date_validation import validate_planned_date_range
+
+		validate_planned_date_range(self)
 		self.validate_accounts()
 		self._sync_charges()
 

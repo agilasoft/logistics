@@ -84,9 +84,11 @@
   "calculation_notes_section",
   "selling_weight_break",
   "selling_qty_break",
+  "selling_percentage_break",
   "column_break_calc_notes",
   "cost_weight_break",
   "cost_qty_break",
+  "cost_percentage_break",
   "section_break_status",
   "sales_invoice",
   "sales_invoice_status",
@@ -439,10 +441,22 @@
    "label": "Manage Selling Qty Breaks"
   },
   {
+   "depends_on": "eval:doc.revenue_calculation_method=='Percentage Break'",
+   "fieldname": "selling_percentage_break",
+   "fieldtype": "Button",
+   "label": "Manage Selling Percentage Breaks"
+  },
+  {
    "depends_on": "eval:doc.cost_calculation_method=='Qty Break'",
    "fieldname": "cost_qty_break",
    "fieldtype": "Button",
    "label": "Manage Cost Qty Breaks"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method=='Percentage Break'",
+   "fieldname": "cost_percentage_break",
+   "fieldtype": "Button",
+   "label": "Manage Cost Percentage Breaks"
   },
   {
    "fieldname": "section_break_calc",
@@ -460,7 +474,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Revenue Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
@@ -555,7 +569,7 @@
    "fieldname": "cost_calculation_method",
    "fieldtype": "Select",
    "label": "Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
@@ -751,7 +765,7 @@
    "label": "Item Name"
   },
   {
-   "description": "When the Item is a container-deposit charge, shows per-company Sea Freight Settings \u201cDeposits Pending for Refund Request\u201d for GL alignment. Set the same account on the Item Group / Item defaults as needed.",
+   "description": "When the Item is a container-deposit charge, shows per-company Sea Freight Settings “Deposits Pending for Refund Request” for GL alignment. Set the same account on the Item Group / Item defaults as needed.",
    "fieldname": "container_deposit_pending_refund_gl",
    "fieldtype": "Data",
    "label": "Deposit pending refund GL",
@@ -760,7 +774,7 @@
   {
    "fetch_from": "item_code.description",
    "fieldname": "description",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Description"
   },
   {

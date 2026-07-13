@@ -16,6 +16,7 @@ from logistics.logistics.deposit_processing.container_deposit_gl import (
 )
 from logistics.logistics.deposit_processing.container_gl_service import (
 	get_charges_gl_html as build_charges_gl_html,
+	get_deposit_postings_data as build_deposit_postings_data,
 	get_deposits_gl_html as build_deposits_gl_html,
 	sync_deposit_header_from_gl,
 )
@@ -191,6 +192,11 @@ def get_linked_transport_jobs_html(container):
 @frappe.whitelist()
 def get_deposits_gl_html(container):
 	return build_deposits_gl_html(container)
+
+
+@frappe.whitelist()
+def get_deposit_postings_data(container):
+	return build_deposit_postings_data(container)
 
 
 @frappe.whitelist()

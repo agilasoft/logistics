@@ -1,6 +1,6 @@
 // Copyright (c) 2026, www.agilasoft.com and contributors
 // For license information, please see license.txt
-// Weight Break / Qty Break: grid toolbar buttons + row buttons → dialogs.
+// Weight Break / Qty Break / Percentage Break: grid toolbar buttons + row buttons → dialogs.
 // Child tables are detected via LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS and meta (see charge_break_dialogs.js).
 
 var CHARGE_DOCTYPES_WITH_BREAKS =
@@ -10,7 +10,10 @@ var CHARGE_DOCTYPES_WITH_BREAKS =
 		["Air Booking Charges", "Air Shipment Charges"],
 		["Declaration Charges", "Declaration Order Charges"],
 		["Transport Order Charges", "Transport Job Charges"],
-		["Special Project Charges"]
+		["Special Project Charges"],
+		["Sales Quote Charge", "Tariff Charge"],
+		["MICE Project Charges", "Exhibit Charges"],
+		["Change Request Charge"]
 	);
 
 var CHARGE_PARENT_DOCTYPES = [
@@ -27,6 +30,9 @@ var CHARGE_PARENT_DOCTYPES = [
 	"Special Project",
 	"Sales Quote",
 	"Tariff",
+	"MICE Project",
+	"Exhibit",
+	"Change Request",
 ];
 
 function _register_break_handlers(doctype) {
@@ -87,6 +93,36 @@ function _register_break_handlers(doctype) {
 				frappe.msgprint({
 					title: __("Error"),
 					message: __("Qty Break dialog is not loaded. Please refresh the page."),
+					indicator: "red",
+				});
+			}
+		},
+		selling_percentage_break: function(frm, cdt, cdn) {
+			var row = cdn && cdt ? frappe.get_doc(cdt, cdn) : frm && frm.selected_doc ? frm.selected_doc : null;
+			if (!row) {
+				return;
+			}
+			if (typeof window.open_percentage_break_rate_dialog === "function") {
+				window.open_percentage_break_rate_dialog(frm, row, "Selling");
+			} else {
+				frappe.msgprint({
+					title: __("Error"),
+					message: __("Percentage Break dialog is not loaded. Please refresh the page."),
+					indicator: "red",
+				});
+			}
+		},
+		cost_percentage_break: function(frm, cdt, cdn) {
+			var row = cdn && cdt ? frappe.get_doc(cdt, cdn) : frm && frm.selected_doc ? frm.selected_doc : null;
+			if (!row) {
+				return;
+			}
+			if (typeof window.open_percentage_break_rate_dialog === "function") {
+				window.open_percentage_break_rate_dialog(frm, row, "Cost");
+			} else {
+				frappe.msgprint({
+					title: __("Error"),
+					message: __("Percentage Break dialog is not loaded. Please refresh the page."),
 					indicator: "red",
 				});
 			}
@@ -185,6 +221,19 @@ function _qty_break_side_for_child_doctype(dt) {
 	return "Selling";
 }
 
+function _percentage_break_side_for_child_doctype(dt) {
+	if (!dt || !frappe.meta.docfield_map || !frappe.meta.docfield_map[dt]) {
+		return "Selling";
+	}
+	var m = frappe.meta.docfield_map[dt];
+	var sp = m.selling_percentage_break && m.selling_percentage_break.fieldtype === "Button";
+	var cp = m.cost_percentage_break && m.cost_percentage_break.fieldtype === "Button";
+	if (cp && !sp) {
+		return "Cost";
+	}
+	return "Selling";
+}
+
 function _unit_break_side_for_child_doctype(dt) {
 	if (!dt || !frappe.meta.docfield_map || !frappe.meta.docfield_map[dt]) {
 		return "Selling";
@@ -219,6 +268,12 @@ function _grid_is_logistics_charge_breaks_table(grid) {
 		return true;
 	}
 	if (
+		window.logistics_charge_child_doctype_has_percentage_break_buttons &&
+		window.logistics_charge_child_doctype_has_percentage_break_buttons(dt)
+	) {
+		return true;
+	}
+	if (
 		window.logistics_charge_child_doctype_has_unit_break_buttons &&
 		window.logistics_charge_child_doctype_has_unit_break_buttons(dt)
 	) {
@@ -243,8 +298,9 @@ function _add_break_buttons_to_charge_grid(frm) {
 		}
 		var $wb = $custom.find(".btn-weight-break-mgr");
 		var $qb = $custom.find(".btn-qty-break-mgr");
+		var $pb = $custom.find(".btn-percentage-break-mgr");
 		var $ub = $custom.find(".btn-unit-break-mgr");
-		if ($wb.length && $qb.length && $ub.length) {
+		if ($wb.length && $qb.length && $pb.length && $ub.length) {
 			return;
 		}
 		if (!$wb.length) {
@@ -280,6 +336,28 @@ function _add_break_buttons_to_charge_grid(frm) {
 				}
 			});
 			$custom.append($qb);
+		}
+		if (!$pb.length) {
+			$pb = $(
+				'<button type="button" class="btn btn-xs btn-default btn-percentage-break-mgr">' +
+					__("Manage Percentage Breaks") +
+					"</button>"
+			);
+			$pb.on("click", function() {
+				var row = _get_selected_charge_row(frm, item.fieldname);
+				if (row) {
+					var pbSide = _percentage_break_side_for_child_doctype(grid.doctype);
+					window.open_percentage_break_rate_dialog &&
+						window.open_percentage_break_rate_dialog(frm, row, pbSide);
+				} else {
+					frappe.msgprint({
+						title: __("Select Row"),
+						message: __("Please select a charge row first (click on the row)."),
+						indicator: "orange",
+					});
+				}
+			});
+			$custom.append($pb);
 		}
 		if (!$ub.length) {
 			$ub = $(

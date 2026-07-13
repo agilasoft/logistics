@@ -8,6 +8,9 @@ from frappe.model.document import Document
 
 class ExhibitJob(Document):
 	def validate(self):
+		from logistics.utils.document_date_validation import validate_planned_date_range
+
+		validate_planned_date_range(self)
 		if self.exhibit:
 			row = frappe.db.get_value(
 				"Exhibit",

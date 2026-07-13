@@ -8,6 +8,9 @@ from frappe.model.document import Document
 
 class MICEJob(Document):
 	def validate(self):
+		from logistics.utils.document_date_validation import validate_planned_date_range
+
+		validate_planned_date_range(self)
 		self._sync_from_exhibit()
 
 	def _sync_from_exhibit(self):

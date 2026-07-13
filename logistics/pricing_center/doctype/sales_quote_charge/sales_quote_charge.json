@@ -72,10 +72,12 @@
   "selling_unit_break",
   "selling_weight_break",
   "selling_qty_break",
+  "selling_percentage_break",
   "column_break_calc_notes",
   "cost_unit_break",
   "cost_weight_break",
-  "cost_qty_break"
+  "cost_qty_break",
+  "cost_percentage_break"
  ],
  "fields": [
   {
@@ -111,7 +113,7 @@
    "fetch_from": "item_code.description",
    "fetch_if_empty": 1,
    "fieldname": "description",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Description"
   },
   {
@@ -354,7 +356,7 @@
    "fieldname": "cost_calculation_method",
    "fieldtype": "Select",
    "label": "Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break",
    "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
   },
   {
@@ -465,6 +467,12 @@
    "label": "Manage Selling Qty Breaks"
   },
   {
+   "depends_on": "eval:doc.revenue_calculation_method=='Percentage Break'",
+   "fieldname": "selling_percentage_break",
+   "fieldtype": "Button",
+   "label": "Manage Selling Percentage Breaks"
+  },
+  {
    "fieldname": "column_break_calc_notes",
    "fieldtype": "Column Break"
   },
@@ -493,6 +501,12 @@
    "label": "Manage Cost Qty Breaks"
   },
   {
+   "depends_on": "eval:doc.cost_calculation_method=='Percentage Break'",
+   "fieldname": "cost_percentage_break",
+   "fieldtype": "Button",
+   "label": "Manage Cost Percentage Breaks"
+  },
+  {
    "fieldname": "cost_sheet_source",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -518,7 +532,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Revenue Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
