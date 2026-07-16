@@ -50,6 +50,78 @@ def apply_currency_and_exchange_rates_from_declaration_order(
 			target.set(fieldname, order_val)
 
 
+def _normalize_currency_code(currency):
+	return (currency or "").strip()
+
+
+def _amount_to_declaration_currency(doc, amount, from_currency, *, rate_field):
+	"""Express ``amount`` in ``from_currency`` as declaration ``currency``.
+
+	``rate_field`` is the exchange-rate attribute on ``doc`` (e.g. ``inv_exchange_rate``,
+	``payment_ex_rate``) with units of declaration currency per one unit of ``from_currency``.
+	"""
+	amt = flt(amount or 0)
+	from_cur = _normalize_currency_code(from_currency)
+	doc_cur = _normalize_currency_code(getattr(doc, "currency", None))
+	if not from_cur or not doc_cur or from_cur == doc_cur:
+		return amt
+	rate = flt(getattr(doc, rate_field, None) or 0)
+	if rate:
+		return amt * rate
+	return None
+
+
+def _declaration_amount_to_invoice_currency(doc, amount):
+	"""Express a declaration-currency amount in ``inv_currency``."""
+	amt = flt(amount or 0)
+	inv_cur = _normalize_currency_code(getattr(doc, "inv_currency", None))
+	doc_cur = _normalize_currency_code(getattr(doc, "currency", None))
+	if not inv_cur or not doc_cur or inv_cur == doc_cur:
+		return amt
+	rate = flt(getattr(doc, "inv_exchange_rate", None) or 0)
+	if rate:
+		return amt / rate
+	return None
+
+
+def payment_amount_to_invoice_currency(doc):
+	"""Convert ``payment_amount`` from ``payment_currency`` to ``inv_currency``."""
+	pay_cur = _normalize_currency_code(getattr(doc, "payment_currency", None))
+	inv_cur = _normalize_currency_code(getattr(doc, "inv_currency", None))
+	paid = flt(getattr(doc, "payment_amount", None) or 0)
+	if not paid:
+		return 0
+	if pay_cur and inv_cur and pay_cur == inv_cur:
+		return paid
+	amt_decl = _amount_to_declaration_currency(
+		doc, paid, pay_cur, rate_field="payment_ex_rate"
+	)
+	if amt_decl is None:
+		return None
+	return _declaration_amount_to_invoice_currency(doc, amt_decl)
+
+
+def format_commercial_invoice_balance(balance):
+	"""Format balance for the read-only Data field on the Commercial Invoice tab."""
+	return f"{flt(balance):.2f}"
+
+
+def calculate_commercial_invoice_balance(doc):
+	"""Populate ``balance`` as remaining invoice total in ``inv_currency``."""
+	inv_total = flt(getattr(doc, "inv_total_amount", None) or 0)
+	if not inv_total:
+		doc.balance = None
+		return
+
+	paid_in_inv = payment_amount_to_invoice_currency(doc)
+	if paid_in_inv is None and flt(getattr(doc, "payment_amount", None) or 0):
+		doc.balance = None
+		return
+
+	balance = max(0, inv_total - flt(paid_in_inv or 0))
+	doc.balance = format_commercial_invoice_balance(balance)
+
+
 class Declaration(Document):
 	def validate(self):
 		from logistics.utils.charges_calculation import (
@@ -186,6 +258,7 @@ class Declaration(Document):
 		self.calculate_exemptions()
 		self.calculate_total_payable()
 		self.calculate_declaration_value()
+		self.calculate_balance()
 		self.calculate_sustainability_metrics()
 		self._enforce_mutually_exclusive_processing_dates()
 		self.update_processing_dates()
@@ -746,10 +819,19 @@ class Declaration(Document):
 				total_value += qty * price
 		self.declaration_value = self._invoice_amount_to_declaration_currency(total_value)
 
+	def calculate_balance(self):
+		"""Calculate remaining commercial-invoice balance in ``inv_currency``."""
+		calculate_commercial_invoice_balance(self)
+
 	def update_payment_status(self):
 		"""Auto-set payment status from invoice total, payment amount, and payment due date."""
 		total_amount = flt(self.inv_total_amount or 0)
-		paid_amount = flt(self.payment_amount or 0)
+		paid_amount = payment_amount_to_invoice_currency(self)
+		if paid_amount is None:
+			if flt(self.payment_amount or 0) > 0:
+				self.payment_status = "Partially Paid"
+				return
+			paid_amount = 0
 		due_date = getdate(self.payment_date) if self.payment_date else None
 		today_date = getdate(today())
 

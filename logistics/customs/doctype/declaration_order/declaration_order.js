@@ -7,6 +7,78 @@ function _is_empty_stringish(v) {
 	return v == null || (typeof v === "string" && v.trim() === "");
 }
 
+function _to_num(value) {
+	var n = parseFloat(value);
+	return isNaN(n) ? 0 : n;
+}
+
+function _normalize_currency_code(currency) {
+	return (currency || "").trim();
+}
+
+function _amount_to_declaration_currency(doc, amount, fromCurrency, rateField) {
+	var amt = _to_num(amount);
+	var fromCur = _normalize_currency_code(fromCurrency);
+	var docCur = _normalize_currency_code(doc.currency);
+	if (!fromCur || !docCur || fromCur === docCur) {
+		return amt;
+	}
+	var rate = flt(doc[rateField]);
+	if (rate) {
+		return amt * rate;
+	}
+	return null;
+}
+
+function _declaration_amount_to_invoice_currency(doc, amount) {
+	var amt = _to_num(amount);
+	var invCur = _normalize_currency_code(doc.inv_currency);
+	var docCur = _normalize_currency_code(doc.currency);
+	if (!invCur || !docCur || invCur === docCur) {
+		return amt;
+	}
+	var rate = flt(doc.inv_exchange_rate);
+	if (rate) {
+		return amt / rate;
+	}
+	return null;
+}
+
+function _payment_amount_to_invoice_currency(doc) {
+	var payCur = _normalize_currency_code(doc.payment_currency);
+	var invCur = _normalize_currency_code(doc.inv_currency);
+	var paid = _to_num(doc.payment_amount);
+	if (!paid) {
+		return 0;
+	}
+	if (payCur && invCur && payCur === invCur) {
+		return paid;
+	}
+	var amtDecl = _amount_to_declaration_currency(doc, paid, payCur, "payment_ex_rate");
+	if (amtDecl === null) {
+		return null;
+	}
+	return _declaration_amount_to_invoice_currency(doc, amtDecl);
+}
+
+function _declaration_order_recalculate_balance(frm) {
+	var invTotal = _to_num(frm.doc.inv_total_amount);
+	if (!invTotal) {
+		frm.set_value("balance", "");
+		return;
+	}
+	var paidInInv = _payment_amount_to_invoice_currency(frm.doc);
+	if (paidInInv === null && _to_num(frm.doc.payment_amount)) {
+		frm.set_value("balance", "");
+		return;
+	}
+	var balance = Math.max(0, invTotal - _to_num(paidInInv));
+	var formatted = balance.toFixed(2);
+	if (frm.doc.balance !== formatted) {
+		frm.set_value("balance", formatted);
+	}
+}
+
 function _maybe_apply_transport_document_type_default(frm) {
 	if (!frm || !frm.doc) return;
 	const mode = (frm.doc.transport_mode || "").trim();
@@ -435,6 +507,27 @@ frappe.ui.form.on("Declaration Order", {
 			logistics.schedule_customs_line_charge_recalc(frm);
 		}
 	},
+	inv_total_amount(frm) {
+		_declaration_order_recalculate_balance(frm);
+	},
+	inv_currency(frm) {
+		_declaration_order_recalculate_balance(frm);
+	},
+	inv_exchange_rate(frm) {
+		_declaration_order_recalculate_balance(frm);
+	},
+	payment_amount(frm) {
+		_declaration_order_recalculate_balance(frm);
+	},
+	payment_currency(frm) {
+		_declaration_order_recalculate_balance(frm);
+	},
+	payment_ex_rate(frm) {
+		_declaration_order_recalculate_balance(frm);
+	},
+	currency(frm) {
+		_declaration_order_recalculate_balance(frm);
+	},
 	document_list_template: function (frm) {
 		_declaration_order_save_then_populate_template(
 			frm,
@@ -487,6 +580,7 @@ frappe.ui.form.on("Declaration Order", {
 		}
 	},
 	refresh(frm) {
+		_declaration_order_recalculate_balance(frm);
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
