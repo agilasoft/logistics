@@ -134,7 +134,9 @@ def _normalize_packing_group_for_shipment(value):
 	return None
 
 
-def _normalize_booking_charge_row_for_shipment(charge_row: dict, company: str | None = None) -> dict:
+def _normalize_booking_charge_row_for_shipment(
+	charge_row: dict, company: str | None = None, parent_doc: Any | None = None
+) -> dict:
 	"""Air Shipment charge lines require unit_rate/currency/method; booking lines may leave them empty."""
 	if not charge_row.get("revenue_calculation_method"):
 		charge_row["revenue_calculation_method"] = "Per Unit"
@@ -146,6 +148,10 @@ def _normalize_booking_charge_row_for_shipment(charge_row: dict, company: str | 
 			or frappe.get_system_settings("currency")
 			or "USD"
 		)
+	if parent_doc is not None:
+		from logistics.utils.charges_calculation import realign_charge_row_quantities_from_parent
+
+		realign_charge_row_quantities_from_parent(frappe._dict(charge_row), parent_doc)
 	return charge_row
 
 
@@ -2452,7 +2458,9 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 					charge_row["uom"] = getattr(charge, 'unit_of_measure', None) or getattr(charge, 'uom', None)
 					# sales_quote_link: from parent or charge
 					charge_row["sales_quote_link"] = self.sales_quote or getattr(charge, 'sales_quote_link', None)
-					_normalize_booking_charge_row_for_shipment(charge_row, company=getattr(self, "company", None))
+					_normalize_booking_charge_row_for_shipment(
+						charge_row, company=getattr(self, "company", None), parent_doc=air_shipment
+					)
 					air_shipment.append("charges", charge_row)
 
 			if getattr(self, "operational_exchange_rates", None):

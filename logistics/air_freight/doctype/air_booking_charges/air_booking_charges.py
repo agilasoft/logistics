@@ -7,6 +7,7 @@ from frappe.utils import flt
 from logistics.utils.charges_calculation import (
     apply_charge_type_side_cleanup,
     compute_charge_row_estimates,
+    realign_charge_row_quantities_from_parent,
 )
 from logistics.utils.other_services_charges_sync import validate_charge_item_not_manual_other_service
 from logistics.utils.freight_95_5 import validate_freight_95_5_row
@@ -23,6 +24,7 @@ class AirBookingCharges(Document):
     def _calculate_charges(self, parent_doc=None):
         """Calculate estimated revenue and cost using centralized charges module."""
         apply_charge_type_side_cleanup(self)
+        realign_charge_row_quantities_from_parent(self, parent_doc)
         compute_charge_row_estimates(self, parent_doc)
 
         if hasattr(self, "total_amount"):

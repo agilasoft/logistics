@@ -63,3 +63,40 @@ class TestRateCalculationEngine(FrappeTestCase):
 		self.assertTrue(result["success"])
 		self.assertEqual(result["amount"], 900)
 		self.assertEqual(result["quantity_used"], 1)
+
+	def test_flat_rate_with_minimum_charge_and_no_rate_stays_zero(self):
+		engine = RateCalculationEngine()
+		rate_data = {
+			"calculation_method": "Flat Rate",
+			"unit_rate": 0,
+			"minimum_charge": 5000,
+			"currency": "PHP",
+		}
+		result = engine.calculate_rate(rate_data=rate_data)
+		self.assertTrue(result["success"])
+		self.assertEqual(result["amount"], 0)
+
+	def test_flat_rate_applies_minimum_when_rate_below_floor(self):
+		engine = RateCalculationEngine()
+		rate_data = {
+			"calculation_method": "Flat Rate",
+			"unit_rate": 100,
+			"minimum_charge": 5000,
+			"currency": "PHP",
+		}
+		result = engine.calculate_rate(rate_data=rate_data)
+		self.assertTrue(result["success"])
+		self.assertEqual(result["amount"], 5000)
+
+	def test_per_unit_zero_quantity_does_not_apply_minimum(self):
+		engine = RateCalculationEngine()
+		rate_data = {
+			"calculation_method": "Per Unit",
+			"unit_rate": 10,
+			"unit_type": "Weight",
+			"minimum_charge": 5000,
+			"currency": "PHP",
+		}
+		result = engine.calculate_rate(rate_data=rate_data, actual_weight=0)
+		self.assertTrue(result["success"])
+		self.assertEqual(result["amount"], 0)
