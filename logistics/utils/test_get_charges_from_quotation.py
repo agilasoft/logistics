@@ -25,6 +25,7 @@ from logistics.utils.get_charges_from_quotation import (
 	_effective_declaration_order_filter_fields,
 	_effective_sea_air_transport_corridor,
 	_gcfq_customer_matches_job,
+	_sq_charge_row_to_operational_dict,
 	assert_sales_quote_customer_matches_job_before_submit,
 )
 from logistics.utils.charge_service_type import (
@@ -471,6 +472,33 @@ class TestGetChargesCorridorHelpers(FrappeTestCase):
 		):
 			rows = customs_charges_rows_from_sales_quote_doc(parent, sq)
 		self.assertEqual(len(rows), 2)
+
+
+class TestSqChargeRowToOperationalDict(FrappeTestCase):
+	"""Sales Quote Charge → operational charge child row mapping."""
+
+	def tearDown(self):
+		import frappe
+
+		frappe.db.rollback()
+
+	def test_declaration_order_charges_maps_unit_rate_and_revenue_method(self):
+		sq_row = {
+			"item_code": "CUSTOMS-FEE",
+			"item_name": "Customs Fee",
+			"unit_rate": 150.0,
+			"calculation_method": "Fixed",
+			"charge_type": "Revenue",
+			"service_type": "Customs",
+		}
+		out = _sq_charge_row_to_operational_dict(
+			sq_row, "Declaration Order Charges", "SQ-001"
+		)
+		self.assertIsNotNone(out)
+		self.assertEqual(out.get("unit_rate"), 150.0)
+		self.assertEqual(out.get("revenue_calculation_method"), "Fixed")
+		self.assertNotIn("rate", out)
+		self.assertNotIn("charge_basis", out)
 
 
 def run():

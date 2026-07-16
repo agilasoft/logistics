@@ -157,9 +157,83 @@ function _to_num(value) {
 	return isNaN(n) ? 0 : n;
 }
 
+function _normalize_currency_code(currency) {
+	return (currency || "").trim();
+}
+
+function _amount_to_declaration_currency(doc, amount, from_currency, rateField) {
+	var amt = _to_num(amount);
+	var fromCur = _normalize_currency_code(from_currency);
+	var docCur = _normalize_currency_code(doc.currency);
+	if (!fromCur || !docCur || fromCur === docCur) {
+		return amt;
+	}
+	var rate = flt(doc[rateField]);
+	if (rate) {
+		return amt * rate;
+	}
+	return null;
+}
+
+function _declaration_amount_to_invoice_currency(doc, amount) {
+	var amt = _to_num(amount);
+	var invCur = _normalize_currency_code(doc.inv_currency);
+	var docCur = _normalize_currency_code(doc.currency);
+	if (!invCur || !docCur || invCur === docCur) {
+		return amt;
+	}
+	var rate = flt(doc.inv_exchange_rate);
+	if (rate) {
+		return amt / rate;
+	}
+	return null;
+}
+
+function _payment_amount_to_invoice_currency(doc) {
+	var payCur = _normalize_currency_code(doc.payment_currency);
+	var invCur = _normalize_currency_code(doc.inv_currency);
+	var paid = _to_num(doc.payment_amount);
+	if (!paid) {
+		return 0;
+	}
+	if (payCur && invCur && payCur === invCur) {
+		return paid;
+	}
+	var amtDecl = _amount_to_declaration_currency(doc, paid, payCur, "payment_ex_rate");
+	if (amtDecl === null) {
+		return null;
+	}
+	return _declaration_amount_to_invoice_currency(doc, amtDecl);
+}
+
+function _declaration_recalculate_balance(frm) {
+	var invTotal = _to_num(frm.doc.inv_total_amount);
+	if (!invTotal) {
+		frm.set_value("balance", "");
+		return;
+	}
+	var paidInInv = _payment_amount_to_invoice_currency(frm.doc);
+	if (paidInInv === null && _to_num(frm.doc.payment_amount)) {
+		frm.set_value("balance", "");
+		return;
+	}
+	var balance = Math.max(0, invTotal - _to_num(paidInInv));
+	var formatted = balance.toFixed(2);
+	if (frm.doc.balance !== formatted) {
+		frm.set_value("balance", formatted);
+	}
+}
+
 function _auto_set_payment_status(frm) {
 	var totalAmount = _to_num(frm.doc.inv_total_amount);
-	var paidAmount = _to_num(frm.doc.payment_amount);
+	var paidAmount = _payment_amount_to_invoice_currency(frm.doc);
+	if (paidAmount === null) {
+		if (_to_num(frm.doc.payment_amount) > 0) {
+			frm.set_value("payment_status", "Partially Paid");
+			return;
+		}
+		paidAmount = 0;
+	}
 	var dueDate = frm.doc.payment_date;
 	var todayStr = frappe.datetime.get_today();
 
@@ -327,6 +401,18 @@ frappe.ui.form.on("Declaration", {
 	},
 	payment_amount(frm) {
 		_auto_set_payment_status(frm);
+		_declaration_recalculate_balance(frm);
+	},
+	payment_currency(frm) {
+		_auto_set_payment_status(frm);
+		_declaration_recalculate_balance(frm);
+	},
+	payment_ex_rate(frm) {
+		_auto_set_payment_status(frm);
+		_declaration_recalculate_balance(frm);
+	},
+	currency(frm) {
+		_declaration_recalculate_balance(frm);
 	},
 	payment_date(frm) {
 		_auto_set_payment_status(frm);
