@@ -1,6 +1,24 @@
 // Copyright (c) 2026, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+/**
+ * Static link_filters on exhibitor/customer (Customer.disabled) trigger a
+ * permlevel-0 field permission check (Customer.0) for roles that can create
+ * Dockets but cannot read base Customer fields. Filtering is handled by
+ * get_exhibitor_options_query on the server instead.
+ */
+function logistics_strip_docket_customer_link_filters(frm) {
+	["exhibitor", "customer"].forEach((fieldname) => {
+		const df = frappe.meta.get_docfield("Docket", fieldname);
+		if (df && df.link_filters) {
+			df.link_filters = null;
+		}
+		if (frm.fields_dict[fieldname]?.df?.link_filters) {
+			frm.fields_dict[fieldname].df.link_filters = null;
+		}
+	});
+}
+
 function logistics_docket_set_exhibitor_query(frm) {
 	frm.set_query("exhibitor", function () {
 		const exhibit = frm.doc.exhibit;
@@ -42,6 +60,7 @@ function _logistics_docket_set_linked_services_read_only(frm) {
 
 frappe.ui.form.on("Docket", {
 	onload(frm) {
+		logistics_strip_docket_customer_link_filters(frm);
 		logistics_docket_set_exhibitor_query(frm);
 		logistics_docket_set_site_query(frm);
 		_logistics_docket_set_linked_services_read_only(frm);
@@ -65,6 +84,7 @@ frappe.ui.form.on("Docket", {
 		});
 	},
 	refresh(frm) {
+		logistics_strip_docket_customer_link_filters(frm);
 		logistics_docket_set_exhibitor_query(frm);
 		logistics_docket_set_site_query(frm);
 		_logistics_docket_set_linked_services_read_only(frm);
