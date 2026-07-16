@@ -546,8 +546,7 @@
   {
    "fieldname": "approval_date",
    "fieldtype": "Date",
-   "label": "Approval Date",
-   "read_only": 1
+   "label": "Approval Date"
   },
   {
    "fieldname": "column_break_processing",
@@ -556,8 +555,7 @@
   {
    "fieldname": "rejection_date",
    "fieldtype": "Date",
-   "label": "Rejection Date",
-   "read_only": 1
+   "label": "Rejection Date"
   },
   {
    "fieldname": "rejection_reason",
