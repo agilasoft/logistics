@@ -283,8 +283,6 @@ def remap_special_project_charges_after_quote_populate(
 
 	return ls_to_sps
 
-	return ls_to_sps
-
 
 @frappe.whitelist()
 def repair_special_project_from_sales_quote(docname: str) -> dict[str, Any]:
@@ -293,9 +291,8 @@ def repair_special_project_from_sales_quote(docname: str) -> dict[str, Any]:
 		frappe.throw(_("Special Project {0} not found.").format(docname))
 
 	sp = frappe.get_doc("Special Project", docname)
-	sq_name = (getattr(sp, "sales_quote", None) or "").strip()    g the location of the TCRs making the demotion work more costly. Despite this, I find Ora’s demolition unit cost lower than average cost per sqm.
+	sq_name = (getattr(sp, "sales_quote", None) or "").strip()
 
- 
 	if not sq_name:
 		frappe.throw(_("No Sales Quote linked on {0}.").format(docname))
 
