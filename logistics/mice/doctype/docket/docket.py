@@ -66,11 +66,15 @@ class Docket(VirtualLinkedServicesMixin, Document):
 			self.customer = None
 			return
 		try:
-			self.customer = (
+			customer = (
 				frappe.db.get_value("MICE Organizer", organizer, "customer") or None
 			)
 		except Exception:
-			self.customer = None
+			customer = None
+		self.customer = customer
+		# Read-only inherited link — MICE ops roles may lack Customer read.
+		if customer:
+			self.flags.ignore_links = True
 
 	def before_save(self):
 		super().before_save()
