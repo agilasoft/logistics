@@ -62,7 +62,7 @@
    "fieldname": "calculation_method",
    "fieldtype": "Select",
    "label": "Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break",
    "reqd": 1
   },
   {

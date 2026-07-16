@@ -148,6 +148,9 @@
   "is_high_value",
   "sales_quote",
   "column_break_quote_ref",
+  "services_tab",
+  "linked_services_section",
+  "linked_services",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
@@ -626,8 +629,9 @@
   },
   {
    "fieldname": "shipper_address_display",
-   "fieldtype": "Small Text",
-   "label": "Shipper Address Display"
+   "fieldtype": "Text Editor",
+   "label": "Shipper Address Display",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_cyzc",
@@ -641,8 +645,9 @@
   },
   {
    "fieldname": "consignee_address_display",
-   "fieldtype": "Small Text",
-   "label": "Consignee Address Display"
+   "fieldtype": "Text Editor",
+   "label": "Consignee Address Display",
+   "read_only": 1
   },
   {
    "fieldname": "notify_party",
@@ -1206,6 +1211,26 @@
    "fieldtype": "HTML",
    "is_virtual": 1,
    "label": "Dashboard"
+  },
+  {
+   "fieldname": "services_tab",
+   "fieldtype": "Tab Break",
+   "label": "Services"
+  },
+  {
+   "fieldname": "linked_services_section",
+   "fieldtype": "Section Break",
+   "label": "Linked Services"
+  },
+  {
+   "description": "Subsidiary service legs linked to this shipment (from the Sales Quote or created jobs).",
+   "fieldname": "linked_services",
+   "fieldtype": "Table",
+   "is_virtual": 1,
+   "label": "Linked Services",
+   "options": "Linked Service Detail",
+   "read_only": 1,
+   "cannot_add_rows": 1
   },
   {
    "fieldname": "milestones_tab",

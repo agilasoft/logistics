@@ -1226,8 +1226,9 @@
   },
   {
    "fieldname": "shipper_address_display",
-   "fieldtype": "Small Text",
-   "label": "Shipper Address Display"
+   "fieldtype": "Text Editor",
+   "label": "Shipper Address Display",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_dzim",
@@ -1246,8 +1247,9 @@
   },
   {
    "fieldname": "consignee_address_display",
-   "fieldtype": "Small Text",
-   "label": "Consignee Address Display"
+   "fieldtype": "Text Editor",
+   "label": "Consignee Address Display",
+   "read_only": 1
   },
   {
    "fieldname": "notify_party",

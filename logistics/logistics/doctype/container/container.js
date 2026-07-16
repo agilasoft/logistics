@@ -134,14 +134,10 @@ frappe.ui.form.on("Container", {
 				}
 			},
 		});
-		frappe.call({
-			method: "logistics.logistics.doctype.container.container.get_deposits_gl_html",
-			args: { container: frm.doc.name },
-			callback: function (r) {
-				if (r.message && frm.fields_dict.deposits_gl_html) {
-					frm.fields_dict.deposits_gl_html.$wrapper.html(r.message);
-				}
-			},
+		frappe.require("/assets/logistics/js/container_deposit_postings.js", () => {
+			if (window.logistics && window.logistics.container_deposit_postings) {
+				window.logistics.container_deposit_postings.render(frm);
+			}
 		});
 		frappe.call({
 			method: "logistics.logistics.doctype.container.container.get_charges_gl_html",

@@ -255,6 +255,10 @@ logistics.patches.v3_0_ensure_iata_settings_company_records
 logistics.patches.v3_0_seed_ccs_providers
 # Docket Internal Jobs: restore persisted Internal Job Detail rows after virtual-grid rollback
 logistics.patches.v3_0_restore_docket_internal_job_detail_rows
+# Docket Jobs tab: virtual read-only linked_services grid (Linked Service docs)
+logistics.patches.v3_0_migrate_docket_internal_jobs_to_linked_services
+# MICE Project Jobs tab: virtual linked_services grid (Linked Service docs)
+logistics.patches.v3_0_drop_mice_project_internal_job_detail_table
 # Cash Advance: backfill request total_liquidated / unliquidated from submitted liquidations
 logistics.patches.v1_0_backfill_cash_advance_request_liquidation_totals
 # Cash Advance: virtual rollup fields sourced from liquidation / acknowledgment / journal entry
@@ -324,3 +328,8 @@ logistics.patches.v3_0_migrate_cash_advance_settings_per_company
 logistics.patches.v3_0_ensure_cash_advance_settings_company_records
 # Cash Advance: seed default due date extension reason codes
 logistics.patches.v3_0_seed_cash_advance_reason_codes
+logistics.patches.v1_0_unset_freight_container_deposit_charge
+# Project Type: Is Active checkbox for filtering inactive types
+logistics.patches.v1_0_add_project_type_is_active
+# Charge calculation methods: add Percentage Break option on charge/rate DocTypes
+logistics.patches.v1_0_add_percentage_break_option

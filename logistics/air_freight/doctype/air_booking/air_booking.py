@@ -13,7 +13,7 @@ from logistics.utils.charge_service_type import (
 	canonical_charge_service_type_for_storage,
 	filter_sales_quote_charge_rows_for_operational_doc,
 	sales_quote_charge_filters,
-	sales_quote_charge_filters_air_sea_service_types_combined,
+	sales_quote_charge_filters_service_type_only,
 	throw_if_missing_destination_service_charge,
 )
 from logistics.utils.sales_quote_charge_parameters import filter_fields_existing_in_doctype
@@ -21,6 +21,7 @@ from logistics.utils.sales_quote_routing import (
 	apply_sales_quote_routing_to_booking,
 	routing_legs_for_api_response,
 )
+from logistics.utils.virtual_linked_services_view import VirtualLinkedServicesMixin
 
 
 def _has_legacy_quote_link_fields(doc):
@@ -148,7 +149,7 @@ def _normalize_booking_charge_row_for_shipment(charge_row: dict, company: str | 
 	return charge_row
 
 
-class AirBooking(Document):
+class AirBooking(VirtualLinkedServicesMixin, Document):
 	def validate(self):
 		"""Validate Air Booking data"""
 		from logistics.utils.charges_calculation import (
@@ -862,7 +863,7 @@ class AirBooking(Document):
 				"Sales Quote Charge",
 				{
 					**{"parent": self.sales_quote, "parenttype": "Sales Quote"},
-					**sales_quote_charge_filters_air_sea_service_types_combined(),
+					**sales_quote_charge_filters_service_type_only("Air"),
 				},
 			)
 			air_freight_count = frappe.db.count("Sales Quote Air Freight", {
@@ -871,7 +872,7 @@ class AirBooking(Document):
 			}) if frappe.db.table_exists("Sales Quote Air Freight") else 0
 			if air_charge_count == 0 and air_freight_count == 0:
 				frappe.msgprint(
-					_("No air or sea freight lines found in Sales Quote {0}. Only basic fields will be populated.").format(self.sales_quote),
+					_("No air freight lines found in Sales Quote {0}. Only basic fields will be populated.").format(self.sales_quote),
 					indicator="orange"
 				)
 			
@@ -980,7 +981,7 @@ class AirBooking(Document):
 				"Sales Quote Charge",
 				{
 					**{"parent": self.sales_quote, "parenttype": "Sales Quote"},
-					**sales_quote_charge_filters_air_sea_service_types_combined(),
+					**sales_quote_charge_filters_service_type_only("Air"),
 				},
 			)
 			air_freight_count = frappe.db.count("Sales Quote Air Freight", {
@@ -1026,7 +1027,7 @@ class AirBooking(Document):
 					# Validate it's in the valid list
 					valid_calc_methods = [
 						"Per Unit", "Fixed Amount", "Flat Rate", "Base Plus Additional",
-						"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
+						"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break", "Percentage Break"
 					]
 					if calc_method not in valid_calc_methods:
 						frappe.log_error(
@@ -1207,7 +1208,7 @@ class AirBooking(Document):
 			)
 			# Backward-compatible fallback: when separate billing is ON, quotes may have blank service_type.
 			# If nothing was returned, retry by fetching all quote charges and filtering in Python by
-			# allowed service types (Air, Sea, or blank), so Air Booking still receives its rows.
+			# allowed service types (Air or blank), so Air Booking still receives its rows.
 			if not sales_quote_air_freight_records:
 				try:
 					separate = frappe.utils.cint(getattr(sales_quote, "separate_billings_per_service_type", 0))
@@ -1226,7 +1227,7 @@ class AirBooking(Document):
 					def _air_booking_sq_charge_row_allowed(row):
 						raw = row.get("service_type") if isinstance(row, dict) else None
 						c = canonical_charge_service_type_for_storage(raw)
-						return c is None or c in ("air", "sea")
+						return c is None or c == "air"
 
 					sales_quote_air_freight_records = [
 						row for row in all_sq_charges if _air_booking_sq_charge_row_allowed(row)
@@ -1245,7 +1246,7 @@ class AirBooking(Document):
 			# Normalize calculation_method values in fetched records before processing
 			valid_calc_methods = [
 				"Per Unit", "Fixed Amount", "Flat Rate", "Base Plus Additional",
-				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
+				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break", "Percentage Break"
 			]
 			for sqaf_record in sales_quote_air_freight_records:
 				_raw_method = sqaf_record.get("revenue_calculation_method") or sqaf_record.get("calculation_method")
@@ -1308,7 +1309,7 @@ class AirBooking(Document):
 						# Final safety check: ensure calculation_method is valid before appending
 						valid_calc_methods = [
 							"Per Unit", "Fixed Amount", "Flat Rate", "Base Plus Additional",
-							"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
+							"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break", "Percentage Break"
 						]
 						if mapped_calc_method not in valid_calc_methods:
 							frappe.log_error(
@@ -1634,7 +1635,7 @@ class AirBooking(Document):
 		
 		valid_calc_methods = [
 			"Per Unit", "Fixed Amount", "Flat Rate", "Base Plus Additional",
-			"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
+			"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break", "Percentage Break"
 		]
 		
 		from logistics.utils.charges_calculation import normalize_operational_charge_type
@@ -1786,7 +1787,7 @@ class AirBooking(Document):
 			# Define valid calculation methods for Air Booking Charges
 			valid_calc_methods = [
 				"Per Unit", "Fixed Amount", "Flat Rate", "Base Plus Additional",
-				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
+				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break", "Percentage Break"
 			]
 			
 			# STEP 1: Extract UOM from calculation_method if it contains unit strings
@@ -2492,10 +2493,6 @@ class AirBooking(Document):
 						"ata": getattr(leg, 'ata', None)
 					})
 
-			from logistics.utils.internal_job_detail_copy import transfer_linked_services_to_parent
-
-			transfer_linked_services_to_parent(self, air_shipment)
-			
 			# Final validation check before insert - ensure all link fields are valid
 			# This prevents errors during insert/after_insert hooks
 			if hasattr(air_shipment, 'service_level') and air_shipment.service_level:
@@ -2522,6 +2519,11 @@ class AirBooking(Document):
 					air_shipment.insert(ignore_permissions=True)
 				else:
 					raise
+
+			from logistics.utils.internal_job_detail_copy import clone_linked_services_to_parent
+
+			clone_linked_services_to_parent(self, air_shipment)
+
 			# Do not call save() here: insert() already persists the document and runs post-save hooks.
 			# A follow-up save() triggers TimestampMismatchError when DB modified differs from the
 			# in-memory copy (see e.g. Transport Order create_job_from_order: reload + single writer).
@@ -3037,7 +3039,7 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 			filters={
 				"parent": one_off_quote,
 				"parenttype": "Sales Quote",
-				**sales_quote_charge_filters_air_sea_service_types_combined(),
+				**sales_quote_charge_filters_service_type_only("Air"),
 			},
 			fields=sqc_fields,
 			order_by="idx"
@@ -3057,7 +3059,7 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
 		if not sales_quote_air_freight_records:
 			return {
 				"charges": [],
-				"message": f"No air or sea freight charges found in Sales Quote: {one_off_quote}",
+				"message": f"No air freight charges found in Sales Quote: {one_off_quote}",
 			}
 		
 		# Create a temporary document instance for mapping

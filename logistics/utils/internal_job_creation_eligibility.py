@@ -39,7 +39,6 @@ _PROGRAMME_CHARGE_PARENTS = frozenset(
 _PROGRAMME_LIFECYCLE_JOB_PARENTS: dict[str, str] = {
 	"Special Project": "special_project_services",
 	"Exhibit": "lifecycle_jobs",
-	"MICE Project": "lifecycle_jobs",
 }
 
 _EXHIBIT_LINKED_SALES_QUOTE_PARENTS = frozenset({"MICE Project", "Exhibit"})
@@ -274,11 +273,11 @@ def _eligibility_message(
 	st = (service_type_label or "").strip() or _("this service")
 	parent_dt = getattr(parent_doc, "doctype", None) or ""
 	uses_lifecycle = _parent_uses_lifecycle_jobs(parent_doc)
-	is_special_project = parent_dt == "Special Project"
+	uses_services_tab = parent_dt in ("Special Project", "MICE Project")
 	if has_charges and has_matching_ij:
 		return None
 	if not has_charges and not has_matching_ij:
-		if is_special_project:
+		if uses_services_tab:
 			return _(
 				"Add charge lines for {0} on the Sales Quote (or programme) and define a matching Services row on the Services tab before creating."
 			).format(st)
@@ -293,7 +292,7 @@ def _eligibility_message(
 		return _("Add charge lines for {0} on the Sales Quote before creating this internal job.").format(
 			st
 		)
-	if is_special_project:
+	if uses_services_tab:
 		return _(
 			"Define a matching Services row for {0} on the Services tab before creating."
 		).format(st)

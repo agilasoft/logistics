@@ -9,6 +9,7 @@ import frappe
 from frappe import _
 from frappe.utils import get_datetime, now_datetime
 
+from logistics.utils.document_date_validation import validate_planned_date_range
 from logistics.utils.validation_user_messages import (
 	milestone_actual_end_without_start_message,
 	milestone_actual_future_dates_message,
@@ -65,11 +66,12 @@ def validate_milestone_date_ranges(milestone_doc):
 	planned_start = _dt(milestone_doc.get("planned_start"))
 	planned_end = _dt(milestone_doc.get("planned_end"))
 
-	if planned_start and planned_end and planned_start > planned_end:
-		frappe.throw(
-			milestone_planned_range_invalid_message(),
-			title=milestone_date_validation_title(),
-		)
+	validate_planned_date_range(
+		milestone_doc,
+		use_datetime=True,
+		message_getter=milestone_planned_range_invalid_message,
+		title_getter=milestone_date_validation_title,
+	)
 
 	actual_start = _dt(milestone_doc.get("actual_start"))
 	actual_end = _dt(milestone_doc.get("actual_end"))

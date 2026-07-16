@@ -7,9 +7,10 @@ canonical lowercase air/sea/transport/custom/warehousing is used for comparisons
 
 Operational charge tables mirror this. Helpers build filters when copying quote → booking/shipment/job.
 
-Air and Sea Booking/Shipment documents fetch Sales Quote Charge rows for **both** Air and Sea
-``service_type`` values when the quote filter would otherwise restrict to one mode (separate billing
-or internal-job detail), so multimodal quotes still populate charges on either leg.
+Air and Sea Booking/Shipment documents each receive only their own ``service_type`` charge rows
+unless combined billing applies (quote Main Service matches the booking doctype and Separate Billings
+is off). Multimodal quotes therefore split Air charges onto Air Booking and Sea charges onto Sea
+Booking; the main-service booking may still receive all charge types when combined billing is on.
 
 Internal jobs do not take line items from the Sales Quote; they take charge rows from the Main Job
 document whose **service_type** matches the internal job (e.g. Transport / Customs).
@@ -174,10 +175,13 @@ def programme_charge_service_type_label(value, charge_doctype=None, default=None
 	)
 
 
+_LOAD_TYPE_FLAGS_WITHOUT_MODULE = frozenset({"special project", "exhibits"})
+
+
 def charge_service_type_to_load_type_flag_field(service_type):
 	"""Load Type DocType checkbox fieldname for this charge service_type (uses 'customs' on Load Type, not 'custom')."""
 	c = canonical_charge_service_type_for_storage(service_type)
-	if not c:
+	if not c or c in _LOAD_TYPE_FLAGS_WITHOUT_MODULE:
 		return None
 	if c == "custom":
 		return "customs"
@@ -241,13 +245,8 @@ def iter_combined_air_sea_sales_quote_charge_service_type_db_values():
 
 
 def use_combined_air_sea_sales_quote_charge_service_type_filter(parent_doc, implied_or_label):
-	"""Whether to fetch both Air and Sea quote charge rows for this parent and logical service type."""
-	if not parent_doc:
-		return False
-	if getattr(parent_doc, "doctype", None) not in _QUOTE_CHARGE_AIR_SEA_FETCH_COMBINED_DOCTYPES:
-		return False
-	c = canonical_charge_service_type_for_storage(implied_or_label)
-	return c in ("air", "sea")
+	"""Deprecated: Air/Sea bookings no longer cross-fetch the other mode's charge rows."""
+	return False
 
 
 def sales_quote_charge_filters_air_sea_service_types_combined():
@@ -261,14 +260,8 @@ def sales_quote_charge_filters_air_sea_service_types_combined():
 
 
 def apply_sales_quote_charge_service_type_to_filters(base, implied_or_label, parent_doc=None):
-	"""Set ``service_type`` on a frappe filter dict (handles legacy and Title Case DB values).
-
-	For Air/Sea Booking and Shipment, a filter for logical Air or Sea includes both modes' DB values.
-	"""
-	if use_combined_air_sea_sales_quote_charge_service_type_filter(parent_doc, implied_or_label):
-		variants = iter_combined_air_sea_sales_quote_charge_service_type_db_values()
-	else:
-		variants = iter_sales_quote_charge_service_type_db_values_for_canonical(implied_or_label)
+	"""Set ``service_type`` on a frappe filter dict (handles legacy and Title Case DB values)."""
+	variants = iter_sales_quote_charge_service_type_db_values_for_canonical(implied_or_label)
 	if not variants:
 		return
 	if len(variants) == 1:
@@ -569,9 +562,6 @@ def sales_quote_charge_filters(parent_doc, sales_quote_doc, implied_service_type
 
 	When the result has no service_type key, fetch all charge rows for the quote (subject to caller
 	also handling legacy child tables without service_type).
-
-	For Air/Sea Booking and Shipment, a service_type restriction to Air or Sea includes both modes
-	(see ``use_combined_air_sea_sales_quote_charge_service_type_filter``).
 
 	Action → Get Charges from Quotation passes ``parent_doc.flags.gcfq_main_service_only`` to keep
 	Main bookings/orders aligned with the listing filter (implied service type only) when

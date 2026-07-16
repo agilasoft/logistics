@@ -255,6 +255,26 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 	frm.set_df_property("charges", "allow_bulk_edit", 0);
 }
 
+function _declaration_processing_date_constraints(frm) {
+	const today = frappe.datetime.str_to_obj(frappe.datetime.get_today());
+	["approval_date", "rejection_date"].forEach((fieldname) => {
+		const c = frm.fields_dict[fieldname];
+		if (!c || !c.datepicker) {
+			return;
+		}
+		c.datepicker.update({ maxDate: moment(today) });
+	});
+}
+
+/** Approval and rejection dates are mutually exclusive in Processing Information. */
+function _declaration_processing_date_field_state(frm) {
+	const has_rejection = !!frm.doc.rejection_date;
+	const has_approval = !!frm.doc.approval_date;
+	frm.set_df_property("approval_date", "read_only", has_rejection ? 1 : 0);
+	frm.set_df_property("rejection_date", "read_only", has_approval ? 1 : 0);
+	_declaration_processing_date_constraints(frm);
+}
+
 frappe.ui.form.on("Declaration", {
 	duty_amount(frm) {
 		_declaration_recalculate_total_payable(frm);
@@ -284,6 +304,18 @@ frappe.ui.form.on("Declaration", {
 	},
 	payment_date(frm) {
 		_auto_set_payment_status(frm);
+	},
+	approval_date(frm) {
+		if (frm.doc.approval_date && frm.doc.rejection_date) {
+			frm.set_value("rejection_date", null);
+		}
+		_declaration_processing_date_field_state(frm);
+	},
+	rejection_date(frm) {
+		if (frm.doc.rejection_date && frm.doc.approval_date) {
+			frm.set_value("approval_date", null);
+		}
+		_declaration_processing_date_field_state(frm);
 	},
 	document_list_template: function (frm) {
 		if (!frm.doc.name || frm.doc.__islocal) return;
@@ -368,6 +400,7 @@ frappe.ui.form.on("Declaration", {
 	},
 	
 	refresh(frm) {
+		_declaration_processing_date_field_state(frm);
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}

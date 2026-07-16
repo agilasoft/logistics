@@ -33,6 +33,58 @@ Two different fields control related but distinct behaviour:
 
 **When Separate Billings per Service Type is on**, every document gets **only** charges matching its own service type (Sea Booking → Sea only), regardless of the quote Main Service field.
 
+### 1.3 Multimodal quotes (Air + Sea + Transport + Customs on one Sales Quote)
+
+A single Sales Quote may include charge lines for **several service types** (for example Air FREIGHT, Sea FREIGHT, Transport DELIVERY, Customs BROKERAGE, and Special Project fees). When you create or fetch charges onto operational documents, each booking/order receives **only the lines for its own service type** — unless **combined billing** applies (see §1.1).
+
+| Operational document | Charges loaded from quote |
+|----------------------|---------------------------|
+| **Air Booking** / **Air Shipment** | **Air only** |
+| **Sea Booking** / **Sea Shipment** | **Sea only** |
+| **Transport Order** / **Transport Job** | **Transport only** |
+| **Declaration Order** / **Declaration** | **Customs only** (plus customs-parameter filtering) |
+| **Special Project** / programme jobs | Per programme rules (see [Special Projects](welcome/special-projects-module)) |
+
+**Combined billing exception:** When **Separate Billings per Service Type** is **off** and the quote **Main Service** matches the document type (e.g. Main Service = **Sea** on a **Sea Booking**), that main-service document receives **all** quote charge rows. Other service documents still receive **only their own** `service_type`.
+
+#### Example: quote Main Service = Special Project
+
+Quote **PQ00234** (Main Service = **Special Project**, Separate Billings = off) has five charge lines:
+
+| # | Item | Service type | Scope |
+|---|------|--------------|-------|
+| 1 | FREIGHT | Air | Linked |
+| 2 | FREIGHT | Sea | Linked |
+| 3 | DELIVERY | Transport | Linked |
+| 4 | BROKERAGE FEE | Customs | Linked |
+| 5 | SP-PM-FEE | Special Project | Main |
+
+Expected split when creating jobs from this quote:
+
+| Document | Charges loaded |
+|----------|----------------|
+| **Air Booking** (e.g. ABK-000000763) | Row 1 — **Air FREIGHT only** |
+| **Sea Booking** | Row 2 — **Sea FREIGHT only** |
+| **Transport Order** | Row 3 — **DELIVERY only** |
+| **Declaration Order** | Row 4 — **BROKERAGE FEE only** |
+| **Special Project** | Row 5 and programme rules for Main scope |
+
+Sea charges must **not** appear on an Air Booking. If they do (for example after an older fetch), remove the Sea line or re-fetch from quotation after the platform update; create a **Sea Booking** for the Sea FREIGHT leg.
+
+#### Fetch from Quotation / Create from Sales Quote
+
+- **Air Booking → Fetch from Quotation** copies **Air** charge lines only and links them to an **Air** Linked Service on the booking.
+- **Sea Booking** copies **Sea** lines only.
+- Do not expect one operational document to carry freight charges for multiple modes unless that document is the **combined-billing main service** (§1.1).
+
+#### Linked Services
+
+Each charge line on the quote may reference a quote-level **Linked Service** (Internal Job). When you convert a **full** quote to a booking or order, the system **clones** those legs onto the operational document while the **quote keeps its originals** (same pattern as charge rows). **Blanket call-off** conversions clone only the legs tied to selected charges.
+
+On operational documents (Sea/Air bookings and shipments, Transport orders and jobs), the **Services** tab shows a read-only view of that document's linked legs. Full user guide: [Linked Services on Operational Documents](welcome/linked-services-on-operational-documents).
+
+An Air Booking should have **Air** Linked Services tied to **Air** charge rows — not Sea/Transport/Customs services unless those are separate internal legs created deliberately.
+
 ### 1.2 Charge tables on Bookings/Orders
 
 - When **Separate Billings per Service Type** is **checked**: each document’s charges table is populated only with Sales Quote Charge rows where `service_type` matches that document (Air, Sea, Transport, Customs, etc.). Existing charge tables support this; ensure filters use `service_type` when this option is on.

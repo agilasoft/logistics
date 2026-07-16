@@ -37,12 +37,15 @@ app_include_css = [
 	"/assets/logistics/css/get_charges_from_quotation.css?v=8",
 	"/assets/logistics/css/charges_grid_no_row_check.css?v=2",
 	"/assets/logistics/css/density_factor.css?v=1",
+	"/assets/logistics/css/workflow_center.css?v=1",
 ]
 app_include_js = [
 	"/assets/logistics/js/address_link_query.js?v=1",
 	"/assets/logistics/js/party_address_contact.js?v=1",
 	"/assets/logistics/js/linked_service_link_query.js?v=1",
-	"/assets/logistics/js/freight_agent_service.js?v=1",
+	"/assets/logistics/js/virtual_linked_services_grid.js?v=1",
+	"/assets/logistics/js/freight_agent_service.js?v=3",
+	"/assets/logistics/js/charge_bill_to.js?v=1",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=3",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
@@ -75,7 +78,9 @@ app_include_js = [
 # web_include_js = "/assets/logistics/js/logistics.js"
 
 # include js in page
-# page_js = {"page" : "public/js/file.js"}
+page_js = {
+	"workflow-center": "public/js/workflow_center.js",
+}
 
 # include js in doctype views
 doctype_js = {
@@ -86,16 +91,17 @@ doctype_js = {
 		"logistics/logistics/doctype/unloco/unloco.js",
 		"logistics/logistics/doctype/unloco/unloco_list.js",
 	],
-	# Sales Quote: dialogs first, break row/grid handlers, then air/sea freight scripts
+	# Sales Quote: dialogs first, break row/grid handlers, then air/sea freight scripts.
+	# Paths are module-relative (no leading "logistics/") — see NOTE below for Special Project.
+	# sales_quote.js is omitted: it loads via the DocType's own __js; listing it here would double-bind.
 	"Sales Quote": [
-		"logistics/public/js/operational_exchange_rate_grid.js",
-		"logistics/public/js/charge_break_dialogs.js",
-		"logistics/public/js/charge_break_buttons.js",
-		"logistics/pricing_center/doctype/sales_quote_charge/sales_quote_charge.js",
-		"logistics/pricing_center/doctype/sales_quote_air_freight/sales_quote_air_freight.js",
-		"logistics/pricing_center/doctype/sales_quote_sea_freight/sales_quote_sea_freight.js",
-		"logistics/public/js/sales_quote_booking_dialog.js",
-		"logistics/pricing_center/doctype/sales_quote/sales_quote.js",
+		"public/js/operational_exchange_rate_grid.js",
+		"public/js/charge_break_dialogs.js",
+		"public/js/charge_break_buttons.js",
+		"pricing_center/doctype/sales_quote_charge/sales_quote_charge.js",
+		"pricing_center/doctype/sales_quote_air_freight/sales_quote_air_freight.js",
+		"pricing_center/doctype/sales_quote_sea_freight/sales_quote_sea_freight.js",
+		"public/js/sales_quote_booking_dialog.js",
 	],
 	"Sales Quote Pack": "logistics/pricing_center/doctype/sales_quote_pack/sales_quote_pack.js",
 	"Opportunity": [
@@ -396,6 +402,9 @@ doc_events = {
 		"on_update": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
 		"on_trash": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
 	},
+	"Cost Center": {
+		"validate": "logistics.job_management.cost_center_defaults.set_cost_center_branch_default",
+	},
 	"Account": {
 		"validate": "logistics.logistics.account_job_profit.validate_account_job_profit",
 	},
@@ -607,7 +616,7 @@ for _dt in (
 	"MICE Project",
 	"Docket",
 	"Exhibit",
-	# Sales Quote (One-off) owns Internal Jobs that get re-parented to the Booking/Order
+	# Sales Quote owns Linked Services that are cloned onto the Booking/Order created from the quote.
 	# created from the quote. The sync is gated on quotation_type inside the handler.
 	"Sales Quote",
 	"Change Request",

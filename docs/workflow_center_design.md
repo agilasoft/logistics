@@ -295,13 +295,15 @@ Reliable dwell time requires a **timestamp**. Options:
 
 ## 12. Deliverables Checklist (Implementation)
 
-- [ ] New app `workflow_center` with `hooks.py`, `modules.txt`, `workflow_center/config/desktop.py` (workspace)
+- [x] New app `workflow_center` with `hooks.py`, `modules.txt`, workspace
 - [ ] Custom fields on `Workflow State` via `fixtures` or `after_install` patch
-- [ ] DocType `Workflow Center Settings` (Single)
-- [ ] Desk **Page** / workspace **Workflow Center**
-- [ ] Server module: SLA computation, notification triggers, (optional) registry maintenance
+- [x] DocType `Workflow Center Settings` (Single)
+- [x] Desk **Page** / workspace **Workflow Center**
+- [x] Server module: SLA computation, query layer for open workflow actions
 - [ ] Scheduled task: digest + reconciliation
-- [ ] Documentation in app `README` (short) + this design in `docs/`
+- [x] Documentation in app `README` (short) + this design in `docs/`
+
+**Implementation note (v0.1.1):** Pending actions are sourced from `tabWorkflow Action` for every doctype with an active workflow (no hardcoded allowlist). This includes ERPNext doctypes such as **Purchase Invoice**.
 
 ---
 

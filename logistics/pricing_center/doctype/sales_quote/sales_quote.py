@@ -397,8 +397,21 @@ class SalesQuote(Document):
 		"""Rows staged in ``__dict__`` (desk grid / API append) must sync before the virtual view reloads."""
 		self._stage_linked_services_from_form()
 
+	def _discard_duplicate_linked_services_staging(self):
+		"""Desk duplicate should not implicitly create Linked Services from copied grid rows."""
+		if not self.is_new():
+			return
+		marker = (getattr(self, "logistics_duplicate_from", None) or "").strip()
+		if not marker or self.flags.get("_linked_services_copy_applied"):
+			return
+		if "linked_services" not in self.__dict__:
+			return
+		self.__dict__["linked_services"] = []
+		self.flags._linked_services_from_form = True
+
 	def validate(self):
 		"""Validate Sales Quote data"""
+		self._discard_duplicate_linked_services_staging()
 		self._honour_linked_services_form_rows()
 		for ch in getattr(self, "charges", None) or []:
 			_sync_sales_quote_charge_load_type_filter_flags_for_row(ch)
@@ -410,6 +423,7 @@ class SalesQuote(Document):
 		self.validate_direction_ports()
 		self.validate_freight_agent_locations()
 		self.validate_programme_required_parameters()
+		self.validate_planned_dates()
 		self.validate_additional_charge_job()
 		self.validate_load_type_matches_service()
 		self.validate_transport_mode_matches_service()
@@ -426,6 +440,20 @@ class SalesQuote(Document):
 		from logistics.utils.operational_exchange_rates import resolve_sales_quote_charge_exchange_rates
 
 		resolve_sales_quote_charge_exchange_rates(self)
+
+	def validate_planned_dates(self):
+		"""Hard-block inverted Planned Start/End; soft-warn when window ends before quote date."""
+		from logistics.utils.document_date_validation import (
+			validate_planned_date_range,
+			warn_if_planned_end_before_reference,
+		)
+
+		validate_planned_date_range(self)
+		warn_if_planned_end_before_reference(
+			self,
+			reference_field="date",
+			reference_label=_("Quote Date"),
+		)
 
 	def refresh_charge_parameters_display(self):
 		"""Populate read-only parameters text on charge rows from tagged services."""
@@ -1350,6 +1378,30 @@ def create_special_project_from_sales_quote(sales_quote_name):
 	return _create_special_project_from_sales_quote(sales_quote)
 
 
+def _propagate_linked_services_to_docket(sales_quote, docket_doc):
+	"""Clone quote-owned Linked Services onto *docket_doc* and remap charge links."""
+	if not sales_quote or not docket_doc:
+		return
+	from logistics.utils.sales_quote_one_off_internal_jobs import (
+		propagate_linked_services_from_sales_quote_to_booking,
+	)
+
+	try:
+		propagate_linked_services_from_sales_quote_to_booking(
+			sales_quote,
+			docket_doc,
+			exclude_main_booking_service_type=False,
+		)
+	except Exception:
+		frappe.log_error(
+			title="Sales Quote Linked Service propagation to Docket failed",
+			message=(
+				f"Sales Quote: {getattr(sales_quote, 'name', None)}; "
+				f"Docket: {getattr(docket_doc, 'name', None)}\n{frappe.get_traceback()}"
+			),
+		)
+
+
 def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 	"""Create (or return) the Docket for ``sales_quote.customer`` on the linked Exhibit.
 
@@ -1397,6 +1449,7 @@ def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 		)
 		doc.save(ignore_permissions=True)
 		copy_sales_quote_charge_breaks_to_programme_parent(doc, sales_quote.name)
+		_propagate_linked_services_to_docket(sales_quote, doc)
 		frappe.db.commit()
 		return {"success": True, "docket": docket_name, "message": docket_name}
 
@@ -1441,6 +1494,7 @@ def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 		insert_kwargs["set_name"] = docket_name
 	doc.insert(**insert_kwargs)
 	copy_sales_quote_charge_breaks_to_programme_parent(doc, sales_quote.name)
+	_propagate_linked_services_to_docket(sales_quote, doc)
 	frappe.db.commit()
 
 	frappe.msgprint(
@@ -1887,55 +1941,21 @@ def _propagate_linked_services_to_created_booking(
 ):
 	"""Mirror SQ-owned Linked Services onto the new booking and remap per-charge links.
 
-	* One-off full conversion: re-parent the same ``LS-…`` documents.
-	* Regular / blanket call-off: **clone** Linked Services so the quote retains its originals
-	  for later bookings and Services rows are not tied to a single job.
+	Subsidiary legs are **cloned** onto the booking; the quote retains its ``IJ-…`` originals
+	(the same pattern as charge rows). Blanket call-offs restrict which legs are cloned.
 
-	Logs (without re-raising) on failure so conversion still completes.
+	Raises on failure so conversion does not complete with an empty Linked Services grid.
 	"""
-	try:
-		from logistics.utils.sales_quote_one_off_internal_jobs import (
-			linked_service_names_from_quote_charges,
-			propagate_linked_services_and_remap_charges,
-			stamp_scope_main_when_untagged,
-		)
+	from logistics.utils.sales_quote_one_off_internal_jobs import (
+		propagate_linked_services_from_sales_quote_to_booking,
+	)
 
-		qt = (getattr(sales_quote, "quotation_type", None) or "").strip()
-		use_clone = blanket_call_off or qt == "Regular"
-		if use_clone:
-			sq_name = getattr(sales_quote, "name", None) or ""
-			sq_owned = frappe.get_all(
-				"Linked Service",
-				filters={
-					"parent_booking_type": "Sales Quote",
-					"parent_booking_name": sq_name,
-				},
-				pluck="name",
-				order_by="creation asc",
-			)
-			charge_ls = linked_service_names_from_quote_charges(
-				sales_quote, selected_charge_row_names
-			)
-			if charge_ls:
-				ls_names = [n for n in charge_ls if n in set(sq_owned or [])]
-			else:
-				ls_names = list(sq_owned or [])
-			if ls_names:
-				propagate_linked_services_and_remap_charges(
-					sales_quote, booking_doc, clone=True, ls_names=ls_names
-				)
-		else:
-			propagate_linked_services_and_remap_charges(sales_quote, booking_doc, clone=False)
-		stamp_scope_main_when_untagged(booking_doc)
-	except Exception:
-		frappe.log_error(
-			title="Sales Quote Linked Service propagation failed",
-			message=(
-				f"Sales Quote: {getattr(sales_quote, 'name', None)}; "
-				f"Booking: {getattr(booking_doc, 'doctype', None)} "
-				f"{getattr(booking_doc, 'name', None)}\n{frappe.get_traceback()}"
-			),
-		)
+	return propagate_linked_services_from_sales_quote_to_booking(
+		sales_quote,
+		booking_doc,
+		blanket_call_off=blanket_call_off,
+		selected_charge_row_names=selected_charge_row_names,
+	)
 
 
 def _propagate_one_off_internal_jobs_to_created_booking(sales_quote, booking_doc):
@@ -4028,6 +4048,112 @@ def validate_one_off_quote_not_converted(
 			f"Error validating One-off Sales Quote {sales_quote_name}: {str(e)}",
 			"One-off Quote Validation Error"
 		)
+
+
+@frappe.whitelist()
+def copy_quotation_services_from_duplicate_source(sales_quote_name: str):
+	"""Clone Linked Services from the duplicate source quote onto this draft Sales Quote."""
+	if not sales_quote_name:
+		frappe.throw(_("Sales Quote is required."))
+	frappe.has_permission("Sales Quote", "write", doc=sales_quote_name, throw=True)
+
+	target = frappe.get_doc("Sales Quote", sales_quote_name)
+	if target.docstatus != 0:
+		frappe.throw(_("Copy Quotation Services is only available on draft Sales Quotes."))
+	if cint(getattr(target, "additional_charge", 0)):
+		frappe.throw(_("Copy Quotation Services is not available on additional-charge quotes."))
+
+	source_name = (getattr(target, "logistics_duplicate_from", None) or "").strip()
+	if not source_name:
+		frappe.throw(
+			_("This Sales Quote was not created by duplicating another quote."),
+			title=_("No Duplicate Source"),
+		)
+	if not frappe.db.exists("Sales Quote", source_name):
+		frappe.throw(
+			_("Source Sales Quote {0} was not found.").format(frappe.bold(source_name)),
+			title=_("Source Not Found"),
+		)
+
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_sales_quote,
+	)
+
+	if get_linked_services_for_sales_quote(sales_quote_name):
+		frappe.throw(
+			_("This Sales Quote already has services. Remove them before copying again."),
+			title=_("Services Already Exist"),
+		)
+
+	source_services = get_linked_services_for_sales_quote(source_name)
+	if not source_services:
+		frappe.throw(
+			_("Source Sales Quote {0} has no services to copy.").format(frappe.bold(source_name)),
+			title=_("No Services To Copy"),
+		)
+
+	mapping = _clone_sales_quote_linked_services(source_name, target.name)
+	_remap_sales_quote_charges_from_duplicate_source(target, source_name, mapping)
+
+	target.logistics_duplicate_from = None
+	target.flags._linked_services_copy_applied = True
+	target.flags.ignore_mandatory = True
+	target.save(ignore_permissions=True)
+
+	return {
+		"success": True,
+		"copied_count": len(mapping),
+		"mapping": mapping,
+		"message": _("Copied {0} service(s) from {1}.").format(len(mapping), source_name),
+	}
+
+
+def _clone_sales_quote_linked_services(source_sq_name: str, target_sq_name: str) -> dict[str, str]:
+	"""Clone source-quote Linked Services onto *target_sq_name*; return ``{source_ls: target_ls}``."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_sales_quote,
+	)
+	from logistics.utils.internal_job_persistence import create_internal_job_for_parent_from_source
+
+	mapping: dict[str, str] = {}
+	for source_ls in get_linked_services_for_sales_quote(source_sq_name):
+		new_name = create_internal_job_for_parent_from_source(
+			"Sales Quote", target_sq_name, source_ls
+		)
+		mapping[source_ls.name] = new_name
+	return mapping
+
+
+def _remap_sales_quote_charges_from_duplicate_source(
+	target_sq: Document, source_sq_name: str, ls_mapping: dict[str, str]
+) -> None:
+	"""Restore Linked charge scope/links on *target_sq* from the duplicate source quote."""
+	if not ls_mapping:
+		return
+	from logistics.utils.linked_service_compat import (
+		CHARGE_SCOPE_LINKED,
+		charge_row_linked_service_link,
+		normalize_charge_scope,
+		set_charge_row_linked_service_link,
+	)
+
+	source_sq = frappe.get_doc("Sales Quote", source_sq_name)
+	source_by_idx = {int(r.idx): r for r in (source_sq.charges or []) if r.idx}
+	for row in target_sq.charges or []:
+		idx = int(getattr(row, "idx", 0) or 0)
+		if not idx:
+			continue
+		source_row = source_by_idx.get(idx)
+		if not source_row:
+			continue
+		if normalize_charge_scope(getattr(source_row, "charge_scope", None)) != CHARGE_SCOPE_LINKED:
+			continue
+		source_ls = charge_row_linked_service_link(source_row)
+		target_ls = ls_mapping.get(source_ls or "")
+		if not target_ls:
+			continue
+		set_charge_row_linked_service_link(row, target_ls)
+		row.charge_scope = CHARGE_SCOPE_LINKED
 
 
 @frappe.whitelist()

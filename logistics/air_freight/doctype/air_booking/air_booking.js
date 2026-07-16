@@ -343,6 +343,9 @@ frappe.ui.form.on('Air Booking', {
 		}
 		_apply_air_booking_settings_defaults(frm, false);
 		_logistics_set_charges_cannot_add_rows(frm);
+		if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+			logistics.setup_virtual_linked_services_grid(frm);
+		}
 		_ensure_air_booking_milestone_actual_end_editable_meta(frm);
 	},
 	after_save: function(frm) {
@@ -668,6 +671,9 @@ frappe.ui.form.on('Air Booking', {
 		}
 		_ensure_air_booking_milestone_actual_end_editable_meta(frm);
 		_logistics_set_charges_cannot_add_rows(frm);
+		if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+			logistics.setup_virtual_linked_services_grid(frm);
+		}
 		setTimeout(function () {
 			if (window.logistics_hide_cannot_add_rows_buttons) {
 				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");

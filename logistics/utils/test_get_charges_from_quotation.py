@@ -31,6 +31,7 @@ from logistics.utils.charge_service_type import (
 	_is_customs_related_sq_charge_row,
 	_merge_unified_and_legacy_customs_rows,
 	customs_charges_rows_from_sales_quote_doc,
+	iter_sales_quote_charge_service_type_db_values_for_canonical,
 	sales_quote_charge_filters,
 )
 from logistics.utils.sales_quote_link_query import (
@@ -82,6 +83,21 @@ class TestGetChargesCorridorHelpers(FrappeTestCase):
 		import frappe
 
 		frappe.db.rollback()
+
+	def _service_type_filter_variants(self, filters):
+		st = filters.get("service_type")
+		if isinstance(st, (list, tuple)) and len(st) == 2 and st[0] == "in":
+			return set(st[1])
+		if st:
+			return {st}
+		return set()
+
+	def _assert_air_only_service_type_filter(self, filters):
+		variants = self._service_type_filter_variants(filters)
+		air = set(iter_sales_quote_charge_service_type_db_values_for_canonical("Air"))
+		sea = set(iter_sales_quote_charge_service_type_db_values_for_canonical("Sea"))
+		self.assertTrue(variants <= air)
+		self.assertFalse(variants & sea)
 
 	def test_effective_corridor_air_strips(self):
 		d = MagicMock()
@@ -318,7 +334,25 @@ class TestGetChargesCorridorHelpers(FrappeTestCase):
 		sq.main_service = "Sea"
 		sq.separate_billings_per_service_type = 0
 		filters = sales_quote_charge_filters(parent, sq)
-		self.assertIn("service_type", filters)
+		self._assert_air_only_service_type_filter(filters)
+
+	@patch(
+		"logistics.utils.routing_quote_context.routing_leg_service_type_for_parent",
+		return_value=None,
+	)
+	def test_sales_quote_charge_filters_air_booking_excludes_sea_for_special_project_main(self, _mock_rt):
+		"""Multimodal quote with Main Service Special Project: Air Booking gets Air charges only."""
+		parent = MagicMock()
+		parent.doctype = "Air Booking"
+		parent.is_internal_job = 0
+		parent.is_main_service = 0
+		parent.flags = None
+		sq = MagicMock()
+		sq.name = "PQ00234"
+		sq.main_service = "Special Project"
+		sq.separate_billings_per_service_type = 0
+		filters = sales_quote_charge_filters(parent, sq)
+		self._assert_air_only_service_type_filter(filters)
 
 	@patch("logistics.utils.charge_service_type._legacy_customs_rows_for_quote", return_value=[])
 	def test_customs_charges_rows_gcfq_main_only_keeps_customs_only_when_separate_on(self, _mock_legacy):

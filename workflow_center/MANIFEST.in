@@ -1,0 +1,7 @@
+include *.txt
+recursive-include workflow_center *.json
+recursive-include workflow_center *.html
+recursive-include workflow_center *.js
+recursive-include workflow_center *.css
+recursive-include workflow_center *.py
+recursive-include workflow_center *.md

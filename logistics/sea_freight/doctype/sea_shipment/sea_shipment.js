@@ -148,11 +148,9 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 }
 
 function _logistics_set_linked_services_read_only(frm) {
-	if (!frm.get_docfield || !frm.get_docfield("linked_services")) {
-		return;
+	if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+		logistics.setup_virtual_linked_services_grid(frm);
 	}
-	frm.set_df_property("linked_services", "cannot_add_rows", 1);
-	frm.set_df_property("linked_services", "read_only", 1);
 }
 
 function _sea_shipment_save_then_populate_template(frm, method, freeze_message) {

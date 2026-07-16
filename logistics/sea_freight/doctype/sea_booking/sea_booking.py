@@ -1509,7 +1509,7 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			sqsf_calc_method = _quote_rev_method()
 			valid_calc_methods = [
 				"Per Unit", "Fixed Amount", "Flat Rate", "Base Plus Additional",
-				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break"
+				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break", "Percentage Break"
 			]
 			
 			# Invalid calculation methods that should be converted
@@ -2358,10 +2358,6 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 						"ata": leg.ata
 					})
 
-			from logistics.utils.internal_job_detail_copy import transfer_linked_services_to_parent
-
-			transfer_linked_services_to_parent(self, sea_shipment)
-			
 			# Copy milestone_template if it exists
 			if hasattr(self, 'milestone_template') and self.milestone_template:
 				sea_shipment.milestone_template = self.milestone_template
@@ -2433,6 +2429,10 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			# Reload the document to sync the timestamp after insert
 			# This prevents timestamp mismatch errors when saving again
 			sea_shipment.reload()
+
+			from logistics.utils.internal_job_detail_copy import clone_linked_services_to_parent
+
+			clone_linked_services_to_parent(self, sea_shipment)
 			
 			# Save the Sea Shipment (after_insert may have already saved it, but we save again to be sure)
 			try:
@@ -2552,6 +2552,48 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 						new_qb.unit_rate = qb.get("unit_rate", 0)
 						new_qb.currency = qb.get("currency") or "USD"
 						new_qb.insert(ignore_permissions=True)
+
+					# Copy percentage breaks (Selling)
+					old_pct_breaks = frappe.get_all(
+						"Sales Quote Percentage Break",
+						filters={
+							"reference_doctype": "Sea Booking Charges",
+							"reference_no": old_charge_name,
+							"type": "Selling",
+						},
+						fields=["rate_type", "value_break", "percentage_rate", "currency"],
+					)
+					for pb in old_pct_breaks:
+						new_pb = frappe.new_doc("Sales Quote Percentage Break")
+						new_pb.reference_doctype = "Sea Shipment Charges"
+						new_pb.reference_no = new_charge_name
+						new_pb.type = "Selling"
+						new_pb.rate_type = pb.get("rate_type") or "N (Normal)"
+						new_pb.value_break = pb.get("value_break", 0)
+						new_pb.percentage_rate = pb.get("percentage_rate", 0)
+						new_pb.currency = pb.get("currency") or "USD"
+						new_pb.insert(ignore_permissions=True)
+
+					# Copy percentage breaks (Cost)
+					old_cost_pct_breaks = frappe.get_all(
+						"Sales Quote Percentage Break",
+						filters={
+							"reference_doctype": "Sea Booking Charges",
+							"reference_no": old_charge_name,
+							"type": "Cost",
+						},
+						fields=["rate_type", "value_break", "percentage_rate", "currency"],
+					)
+					for pb in old_cost_pct_breaks:
+						new_pb = frappe.new_doc("Sales Quote Percentage Break")
+						new_pb.reference_doctype = "Sea Shipment Charges"
+						new_pb.reference_no = new_charge_name
+						new_pb.type = "Cost"
+						new_pb.rate_type = pb.get("rate_type") or "N (Normal)"
+						new_pb.value_break = pb.get("value_break", 0)
+						new_pb.percentage_rate = pb.get("percentage_rate", 0)
+						new_pb.currency = pb.get("currency") or "USD"
+						new_pb.insert(ignore_permissions=True)
 			
 			# Ensure commit before client navigates to the new doc (avoids "not found" on form load)
 			frappe.db.commit()

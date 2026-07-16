@@ -5,16 +5,12 @@
 
 A Sales Quote owns ``Linked Service`` documents via ``parent_booking_type = "Sales Quote"`` and
 ``parent_booking_name = <quote>``. When the quote is converted to a Sea/Air Booking, Transport
-Order, Declaration Order, or similar operational document, those Linked Service records are
-transferred:
+Order, Declaration Order, or similar operational document, subsidiary legs are **cloned** onto
+the booking (same pattern as charges): the quote keeps its ``IJ-…`` records and the booking gets
+new copies; charge ``linked_service`` links are remapped to the booking-owned clones.
 
-1. **Re-parent** (default for One-off full conversion): same ``LS-…`` document moves to
-   the booking; charge ``linked_service`` links need no remapping.
-2. **Clone** (Regular quotes, blanket call-offs, and Special Project bookings): a new ``LS-…`` is created on the
-   booking from the quote-owned source; charge links are remapped via the returned mapping.
-
-The same Linked Service record continues through Booking → Shipment → Job via existing
-``internal_job_details`` rows and the persistence hooks on each operational parent.
+Booking → Shipment / Order → Job uses the same clone pattern via
+``internal_job_detail_copy.clone_linked_services_to_parent``.
 
 The module name retains ``one_off`` for backward compatibility — propagation runs for any quote-type
 that owns Linked Services.
@@ -328,8 +324,8 @@ def propagate_linked_services_to_booking(
 def propagate_one_off_internal_jobs_to_booking(
 	sales_quote: Any, booking_doc: Any
 ) -> dict[str, str]:
-	"""Backward-compatible alias: re-parent all quote-owned Linked Services."""
-	return propagate_linked_services_to_booking(sales_quote, booking_doc, clone=False)
+	"""Backward-compatible alias: clone all quote-owned Linked Services onto the booking."""
+	return propagate_linked_services_to_booking(sales_quote, booking_doc, clone=True)
 
 
 def remap_internal_job_links_on_booking_charges(
@@ -413,7 +409,99 @@ def propagate_one_off_internal_jobs_and_remap_charges(
 	sales_quote: Any, booking_doc: Any
 ) -> dict[str, str]:
 	"""Backward-compatible alias."""
-	return propagate_linked_services_and_remap_charges(sales_quote, booking_doc, clone=False)
+	return propagate_linked_services_and_remap_charges(sales_quote, booking_doc, clone=True)
+
+
+def _linked_service_names_for_quote_to_booking_propagation(
+	sales_quote: Any,
+	booking_doc: Any,
+	*,
+	blanket_call_off: bool = False,
+	selected_charge_row_names: list[str] | None = None,
+	exclude_main_booking_service_type: bool = True,
+) -> list[str]:
+	"""Resolve which quote-owned Linked Services should transfer onto *booking_doc*."""
+	sq_name = getattr(sales_quote, "name", None) or ""
+	sq_owned = _sq_owned_linked_services(sq_name)
+	if not sq_owned:
+		return []
+
+	sq_owned_set = set(sq_owned)
+	if blanket_call_off and selected_charge_row_names:
+		charge_ls = linked_service_names_from_quote_charges(
+			sales_quote, selected_charge_row_names
+		)
+		return [n for n in charge_ls if n in sq_owned_set]
+
+	ls_names = list(sq_owned)
+	if exclude_main_booking_service_type:
+		from logistics.utils.charge_service_type import implied_service_type_for_doctype
+
+		main_st = implied_service_type_for_doctype(getattr(booking_doc, "doctype", None) or "")
+		if main_st:
+			ls_names = _filter_linked_service_names(ls_names, exclude_service_types=[main_st])
+	return ls_names
+
+
+def propagate_linked_services_from_sales_quote_to_booking(
+	sales_quote: Any,
+	booking_doc: Any,
+	*,
+	blanket_call_off: bool = False,
+	selected_charge_row_names: list[str] | None = None,
+	exclude_main_booking_service_type: bool = True,
+) -> dict[str, str]:
+	"""Clone quote-owned Linked Services onto *booking_doc* and remap charge links.
+
+	The quote retains its originals (like charge rows). Blanket call-offs restrict which
+	``IJ-…`` records are cloned via *selected_charge_row_names*.
+
+	Raises on failure so conversion does not complete with an empty Linked Services grid.
+	"""
+	if not sales_quote or not booking_doc:
+		return {}
+
+	use_clone = True
+	ls_names = _linked_service_names_for_quote_to_booking_propagation(
+		sales_quote,
+		booking_doc,
+		blanket_call_off=blanket_call_off,
+		selected_charge_row_names=selected_charge_row_names,
+		exclude_main_booking_service_type=exclude_main_booking_service_type,
+	)
+	if not ls_names:
+		stamp_scope_main_when_untagged(booking_doc)
+		return {}
+
+	try:
+		mapping = propagate_linked_services_and_remap_charges(
+			sales_quote,
+			booking_doc,
+			clone=use_clone,
+			ls_names=ls_names,
+		)
+		stamp_scope_main_when_untagged(booking_doc)
+		return mapping
+	except Exception as exc:
+		frappe.log_error(
+			title="Sales Quote Linked Service propagation failed",
+			message=(
+				f"Sales Quote: {getattr(sales_quote, 'name', None)}; "
+				f"Booking: {getattr(booking_doc, 'doctype', None)} "
+				f"{getattr(booking_doc, 'name', None)}\n{frappe.get_traceback()}"
+			),
+		)
+		frappe.throw(
+			_(
+				"Could not copy Linked Services from Sales Quote {0} to {1} {2}: {3}"
+			).format(
+				getattr(sales_quote, "name", ""),
+				getattr(booking_doc, "doctype", ""),
+				getattr(booking_doc, "name", ""),
+				str(exc),
+			),
+			title=_("Linked Service propagation failed"),
+		)
 
 
 def apply_linked_services_from_sales_quote_on_fetch(
@@ -422,38 +510,16 @@ def apply_linked_services_from_sales_quote_on_fetch(
 	*,
 	selected_charge_row_names: list[str] | None = None,
 ) -> dict[str, str]:
-	"""Clone or re-parent quote Linked Services when applying/fetching onto an existing job.
+	"""Clone quote Linked Services when applying/fetching onto an existing job.
 
-	Regular quotes keep their canonical ``LS-…`` records; subsidiary services are **cloned** onto
-	the job so the quote remains the source of truth for later call-offs. One-off / Project quotes
-	that still own Linked Services use **re-parent** (same ids).
+	Blanket call-offs (selected charge rows) restrict which ``IJ-…`` records are cloned.
 	"""
-	if not sales_quote or not operational_doc:
-		return {}
-	qt = (getattr(sales_quote, "quotation_type", None) or "").strip()
-	use_clone = qt == "Regular"
-	ls_names = linked_service_names_from_quote_charges(
-		sales_quote, selected_charge_row_names
-	) or None
-	try:
-		mapping = propagate_linked_services_and_remap_charges(
-			sales_quote,
-			operational_doc,
-			clone=use_clone,
-			ls_names=ls_names,
-		)
-		stamp_scope_main_when_untagged(operational_doc)
-		return mapping
-	except Exception:
-		frappe.log_error(
-			title="Sales Quote fetch — Linked Service propagation failed",
-			message=(
-				f"Sales Quote: {getattr(sales_quote, 'name', None)}; "
-				f"Job: {getattr(operational_doc, 'doctype', None)} "
-				f"{getattr(operational_doc, 'name', None)}\n{frappe.get_traceback()}"
-			),
-		)
-		return {}
+	return propagate_linked_services_from_sales_quote_to_booking(
+		sales_quote,
+		operational_doc,
+		blanket_call_off=bool(selected_charge_row_names),
+		selected_charge_row_names=selected_charge_row_names,
+	)
 
 
 @frappe.whitelist()
@@ -483,7 +549,7 @@ def apply_sales_quote_linked_services_to_job(
 def propagate_linked_services_for_special_project_booking(
 	sp_doc: Any, booking_doc: Any
 ) -> dict[str, str]:
-	"""Clone subsidiary quote-owned Linked Services onto a Special Project booking/order."""
+	"""Clone or re-parent quote-owned Linked Services onto a Special Project booking/order."""
 	sq_name = (
 		(getattr(sp_doc, "sales_quote", None) or getattr(booking_doc, "sales_quote", None) or "")
 		.strip()
@@ -491,38 +557,7 @@ def propagate_linked_services_for_special_project_booking(
 	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
 		return {}
 	sq = frappe.get_doc("Sales Quote", sq_name)
-
-	from logistics.utils.charge_service_type import implied_service_type_for_doctype
-
-	main_st = implied_service_type_for_doctype(getattr(booking_doc, "doctype", None) or "")
-	exclude = [main_st] if main_st else None
-
-	sq_owned = _sq_owned_linked_services(sq_name)
-	ls_names = _filter_linked_service_names(sq_owned, exclude_service_types=exclude)
-
-	for ls in linked_service_names_from_charge_rows(getattr(booking_doc, "charges", None) or []):
-		if ls in sq_owned and ls not in ls_names:
-			ls_names.append(ls)
-
-	if not ls_names:
-		return {}
-
-	try:
-		mapping = propagate_linked_services_and_remap_charges(
-			sq, booking_doc, clone=True, ls_names=ls_names
-		)
-		stamp_scope_main_when_untagged(booking_doc)
-		return mapping
-	except Exception:
-		frappe.log_error(
-			title="Special Project Linked Service propagation failed",
-			message=(
-				f"Special Project: {getattr(sp_doc, 'name', None)}; "
-				f"Booking: {getattr(booking_doc, 'doctype', None)} "
-				f"{getattr(booking_doc, 'name', None)}\n{frappe.get_traceback()}"
-			),
-		)
-		return {}
+	return propagate_linked_services_from_sales_quote_to_booking(sq, booking_doc)
 
 
 def stamp_scope_main_when_untagged(booking_doc: Any) -> None:

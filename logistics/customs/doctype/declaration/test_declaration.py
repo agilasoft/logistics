@@ -128,3 +128,34 @@ class UnitTestDeclarationValue(UnitTestCase):
 		)
 		_copy_order_to_declaration(declaration, order, sales_quote)
 		self.assertEqual(declaration.is_high_value, 1)
+
+
+class UnitTestDeclarationProcessingDates(UnitTestCase):
+	"""Unit tests for mutually exclusive approval / rejection dates."""
+
+	def _declaration(self, **kwargs):
+		data = {"doctype": "Declaration"}
+		data.update(kwargs)
+		return frappe.get_doc(data)
+
+	def test_rejection_date_clears_approval_date(self):
+		d = self._declaration(approval_date="2026-07-01", rejection_date="2026-07-10")
+		d._enforce_mutually_exclusive_processing_dates()
+		self.assertIsNone(d.approval_date)
+		self.assertEqual(str(d.rejection_date), "2026-07-10")
+
+	def test_rejection_date_takes_precedence_when_both_set(self):
+		d = self._declaration(approval_date="2026-07-10", rejection_date="2026-07-01")
+		d._enforce_mutually_exclusive_processing_dates()
+		self.assertIsNone(d.approval_date)
+		self.assertEqual(str(d.rejection_date), "2026-07-01")
+
+	def test_validate_rejects_both_processing_dates(self):
+		d = self._declaration(approval_date="2026-07-01", rejection_date="2026-07-10")
+		with self.assertRaises(frappe.ValidationError):
+			d._validate_processing_event_dates()
+
+	def test_update_processing_dates_skips_approval_when_rejected(self):
+		d = self._declaration(status="Cleared", rejection_date="2026-07-10")
+		d.update_processing_dates()
+		self.assertIsNone(d.approval_date)

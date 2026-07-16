@@ -4,7 +4,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import today, getdate, flt, cint
+from frappe.utils import today, getdate, flt, cint, nowdate
 from typing import Dict, Any, Optional
 
 from logistics.utils.charge_service_type import (
@@ -64,6 +64,7 @@ class Declaration(Document):
 			validate_internal_job_main_link_unchanged(self)
 			self._validate_declaration_order_unique()
 			self._validate_etd_eta()
+			self._validate_processing_event_dates()
 			self.update_payment_status()
 			try:
 				from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
@@ -110,6 +111,25 @@ class Declaration(Document):
 			frappe.throw(
 				declaration_etd_eta_invalid_message(),
 				title=declaration_etd_eta_title(),
+			)
+
+	def _validate_processing_event_dates(self):
+		"""Approval and rejection dates are mutually exclusive and cannot be in the future."""
+		today_d = getdate(nowdate())
+		if self.approval_date and getdate(self.approval_date) > today_d:
+			frappe.throw(
+				_("Approval Date cannot be later than today."),
+				title=_("Invalid Approval Date"),
+			)
+		if self.rejection_date and getdate(self.rejection_date) > today_d:
+			frappe.throw(
+				_("Rejection Date cannot be later than today."),
+				title=_("Invalid Rejection Date"),
+			)
+		if self.approval_date and self.rejection_date:
+			frappe.throw(
+				_("Approval Date and Rejection Date cannot both be set."),
+				title=_("Invalid Processing Dates"),
 			)
 
 	def _sync_currency_and_exchange_rates_from_declaration_order(self):
@@ -167,6 +187,7 @@ class Declaration(Document):
 		self.calculate_total_payable()
 		self.calculate_declaration_value()
 		self.calculate_sustainability_metrics()
+		self._enforce_mutually_exclusive_processing_dates()
 		self.update_processing_dates()
 		# Sync Job Number to Declaration Order if it exists
 		if self.job_number:
@@ -750,14 +771,23 @@ class Declaration(Document):
 		# Default for unpaid invoices not yet due or with no due date.
 		self.payment_status = "Pending"
 	
+	def _enforce_mutually_exclusive_processing_dates(self):
+		"""Keep approval and rejection dates mutually exclusive."""
+		if self.rejection_date:
+			self.approval_date = None
+		elif self.approval_date:
+			self.rejection_date = None
+
 	def update_processing_dates(self):
 		"""Update processing dates based on status"""
-		from frappe.utils import now, nowdate, get_datetime
-		
+		from frappe.utils import get_datetime, now
+
 		if self.status == "Submitted" and not self.submission_date:
 			self.submission_date = nowdate()
 			if not self.submission_time:
 				self.submission_time = get_datetime(now()).strftime("%H:%M:%S")
+		elif self.rejection_date:
+			return
 		elif self.status in ("Cleared", "Released") and not self.approval_date:
 			self.approval_date = nowdate()
 		elif self.status == "Rejected" and not self.rejection_date:

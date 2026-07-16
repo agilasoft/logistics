@@ -22,6 +22,7 @@
   "column_break_calc_notes",
   "cost_weight_break",
   "cost_qty_break",
+  "cost_percentage_break",
   "section_break_calc",
   "cost_calculation_method",
   "cost_quantity",
@@ -80,7 +81,7 @@
   {
    "fetch_from": "charge_item.description",
    "fieldname": "charge_description",
-   "fieldtype": "Long Text",
+   "fieldtype": "Text Editor",
    "label": "Charge Description"
   },
   {
@@ -142,6 +143,12 @@
    "label": "Manage Cost Qty Breaks"
   },
   {
+   "depends_on": "eval:doc.cost_calculation_method=='Percentage Break'",
+   "fieldname": "cost_percentage_break",
+   "fieldtype": "Button",
+   "label": "Manage Cost Percentage Breaks"
+  },
+  {
    "fieldname": "section_break_calc",
    "fieldtype": "Section Break"
   },
@@ -150,7 +157,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break"
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break"
   },
   {
    "fieldname": "cost_quantity",

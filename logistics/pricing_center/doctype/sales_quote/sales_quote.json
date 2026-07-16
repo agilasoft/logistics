@@ -17,6 +17,7 @@
   "blanket_quotation",
   "section_break_duom",
   "amended_from",
+  "logistics_duplicate_from",
   "consignee",
   "shipper",
   "sales_quote_pack",
@@ -187,6 +188,16 @@
    "search_index": 1
   },
   {
+   "description": "Set by the desk when duplicating; cleared after Copy Quotation Services.",
+   "fieldname": "logistics_duplicate_from",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Duplicate From",
+   "no_copy": 1,
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
    "fieldname": "customer",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -243,7 +254,7 @@
   },
   {
    "fieldname": "shipper_address_display",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Shipper Address Display",
    "read_only": 1
   },
@@ -271,7 +282,7 @@
   },
   {
    "fieldname": "consignee_address_display",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Consignee Address Display",
    "read_only": 1
   },
@@ -507,7 +518,7 @@
    "label": "Planned End"
   },
   {
-   "depends_on": "eval:doc.quotation_type == \"Project\" || doc.main_service == \"Special Project\"",
+   "depends_on": "eval:doc.quotation_type == \"Project\" || [\"Special Project\", \"MICE\"].includes(doc.main_service)",
    "fieldname": "sp_programme_details_section",
    "fieldtype": "Section Break",
    "label": "Details"
@@ -780,7 +791,6 @@
    "fieldtype": "Section Break",
    "label": "Terms and Conditions"
   },
-
   {
    "fieldname": "tc_name",
    "fieldtype": "Link",

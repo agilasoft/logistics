@@ -4,10 +4,12 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import today
+from unittest.mock import patch
 
 from logistics.transport.doctype.transport_order.transport_order import (
 	_apply_duplicate_pricing_clear,
 	_clear_pricing_after_desk_duplicate,
+	_get_linked_sales_quote,
 	get_vehicle_types_for_transport_order,
 )
 
@@ -189,6 +191,51 @@ class TestTransportOrderDuplicatePricingClear(FrappeTestCase):
 		self.assertTrue(order.flags.logistics_duplicate_pricing_cleared)
 		self.assertEqual(order.sales_quote, None)
 		self.assertEqual(order.logistics_duplicate_from, None)
+
+
+class TestTransportOrderLegacyQuoteLifecycle(FrappeTestCase):
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def test_on_submit_does_not_query_removed_quote_columns(self):
+		"""Submit hook must not SELECT legacy quote/quote_type when schema has sales_quote only."""
+		from logistics.transport.doctype.transport_order.transport_order import TransportOrder
+
+		order = frappe.get_doc(
+			{
+				"doctype": "Transport Order",
+				"name": "TRO000000057",
+				"sales_quote": "SQU-TEST-LEGACY",
+			}
+		)
+
+		with patch.object(frappe.db, "get_value") as mock_get_value:
+			mock_get_value.return_value = "SQU-TEST-LEGACY"
+			with patch(
+				"logistics.pricing_center.doctype.sales_quote.sales_quote.update_one_off_quote_on_submit"
+			):
+				with patch(
+					"logistics.special_projects.special_project_packages.post_site_receipts_from_transport_order"
+				):
+					TransportOrder.on_submit(order)
+
+			queried_fields = [
+				call.args[2]
+				for call in mock_get_value.call_args_list
+				if len(call.args) >= 3
+			]
+			self.assertNotIn("quote", queried_fields)
+			self.assertNotIn("quote_type", queried_fields)
+
+	def test_get_linked_sales_quote_prefers_sales_quote_on_doc(self):
+		order = frappe.get_doc(
+			{
+				"doctype": "Transport Order",
+				"sales_quote": "SQU-ON-DOC",
+			}
+		)
+		with patch.object(frappe.db, "exists", return_value=True):
+			self.assertEqual(_get_linked_sales_quote(order, from_db=False), "SQU-ON-DOC")
 
 
 class TestTransportOrderChargeSubmitGate(FrappeTestCase):

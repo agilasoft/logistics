@@ -248,10 +248,10 @@
    "label": "Transaction Postings"
   },
   {
-   "description": "GL lines with **Container** dimension on **Deposits Pending for Refund Request** only (per-company Sea Freight Settings).",
+   "description": "GL lines on **Deposits Pending for Refund Request** with **Container Deposit Charge** Items only (per-company Sea Freight Settings).",
    "fieldname": "deposits_gl_html",
    "fieldtype": "HTML",
-   "label": "Deposit GL entries",
+   "label": "",
    "read_only": 1
   },
   {

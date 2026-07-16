@@ -187,7 +187,7 @@ class TestSalesQuoteProgrammeCharges(FrappeTestCase):
 			self.assertEqual(frappe.utils.flt(weight_rows[0].unit_rate), 12.5)
 		finally:
 			if target_name:
-				for break_dt in ("Sales Quote Weight Break", "Sales Quote Qty Break"):
+				for break_dt in ("Sales Quote Weight Break", "Sales Quote Qty Break", "Sales Quote Percentage Break"):
 					if frappe.db.exists("DocType", break_dt):
 						frappe.db.delete(
 							break_dt,

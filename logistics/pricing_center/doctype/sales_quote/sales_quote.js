@@ -45,10 +45,13 @@ function logistics_canonical_charge_service_type(st) {
 	return low;
 }
 
+/** Load Type module flags exist only for air/sea/transport/customs/warehousing. */
+const LOGISTICS_LOAD_TYPE_FLAGS_WITHOUT_MODULE = new Set(["special project", "exhibits"]);
+
 /** Load Type DocType checkbox field for service_type (custom → customs). */
 function logistics_load_type_flag_for_charge_service_type(st) {
 	const c = logistics_canonical_charge_service_type(st);
-	if (!c) return null;
+	if (!c || LOGISTICS_LOAD_TYPE_FLAGS_WITHOUT_MODULE.has(c)) return null;
 	if (c === "custom") return "customs";
 	return c;
 }
@@ -1099,10 +1102,12 @@ frappe.ui.form.on("Sales Quote", {
 			frm.set_df_property("quotation_type", "read_only", 0);
 		}
 		
-		// Delegated click handler for Weight/Qty Break buttons (bypasses form event system if needed)
+		// Delegated click handler for Weight/Qty/Percentage Break buttons (bypasses form event system if needed)
 		$(frm.wrapper).off("click.break_buttons").on("click.break_buttons", function (e) {
 			const $ctrl = $(e.target).closest(
-				'[data-fieldname="selling_qty_break"], [data-fieldname="cost_qty_break"]'
+				'[data-fieldname="selling_qty_break"], [data-fieldname="cost_qty_break"],' +
+					'[data-fieldname="selling_weight_break"], [data-fieldname="cost_weight_break"],' +
+					'[data-fieldname="selling_percentage_break"], [data-fieldname="cost_percentage_break"]'
 			);
 			if (!$ctrl.length) return;
 			const fieldname = $ctrl.attr("data-fieldname");
@@ -1133,6 +1138,16 @@ frappe.ui.form.on("Sales Quote", {
 			const record_type = fieldname.indexOf("cost_") === 0 ? "Cost" : "Selling";
 			if (fieldname.indexOf("qty_break") !== -1 && typeof window.open_qty_break_rate_dialog === "function") {
 				window.open_qty_break_rate_dialog(frm, row_doc, record_type);
+			} else if (
+				fieldname.indexOf("weight_break") !== -1 &&
+				typeof window.open_weight_break_rate_dialog === "function"
+			) {
+				window.open_weight_break_rate_dialog(frm, row_doc, record_type);
+			} else if (
+				fieldname.indexOf("percentage_break") !== -1 &&
+				typeof window.open_percentage_break_rate_dialog === "function"
+			) {
+				window.open_percentage_break_rate_dialog(frm, row_doc, record_type);
 			} else {
 				frappe.msgprint({ title: __("Error"), message: __("Dialog not loaded. Please refresh the page."), indicator: "red" });
 			}
@@ -1340,6 +1355,13 @@ frappe.ui.form.on("Sales Quote", {
 					__("Extend Validity"),
 					__("Update")
 				);
+			}, __("Action"));
+		}
+
+		// Copy Quotation Services — duplicated draft with empty Services tab
+		if (logistics_should_show_copy_quotation_services_button(frm)) {
+			frm.add_custom_button(__("Copy Quotation Services"), function () {
+				logistics_copy_quotation_services(frm);
 			}, __("Action"));
 		}
 
@@ -2958,3 +2980,97 @@ frappe.ui.form.on("Sales Quote Routing Leg", {
 		logistics_mark_sales_quote_routing_legs_manual(frm);
 	},
 });
+
+function logistics_should_show_copy_quotation_services_button(frm) {
+	if (!frm || !frm.doc) {
+		return false;
+	}
+	if (frm.doc.additional_charge) {
+		return false;
+	}
+	if (frm.doc.docstatus !== 0) {
+		return false;
+	}
+	const source = (frm.doc.logistics_duplicate_from || "").trim();
+	if (!source) {
+		return false;
+	}
+	const fieldname = logistics_sq_linked_services_fieldname(frm);
+	const rows = (frm.doc[fieldname] || []).filter(
+		(r) => (r.service_type || "").trim() || (r.linked_service || "").trim()
+	);
+	return rows.length === 0;
+}
+
+function logistics_copy_quotation_services(frm) {
+	const run_copy = () => {
+		frappe.call({
+			method:
+				"logistics.pricing_center.doctype.sales_quote.sales_quote.copy_quotation_services_from_duplicate_source",
+			args: { sales_quote_name: frm.doc.name },
+			freeze: true,
+			freeze_message: __("Copying quotation services..."),
+			callback(r) {
+				if (r.exc) {
+					return;
+				}
+				const msg = r.message || {};
+				if (msg.success) {
+					frm.reload_doc().then(() => {
+						frappe.show_alert(
+							{
+								message: msg.message || __("Quotation services copied."),
+								indicator: "green",
+							},
+							5
+						);
+					});
+				}
+			},
+		});
+	};
+	if (frm.is_new() || frm.doc.__islocal) {
+		frm.save().then(run_copy);
+		return;
+	}
+	run_copy();
+}
+
+// Duplicate / Copy must not carry Services grid rows; source quote is tracked for optional copy.
+(function () {
+	if (frappe.model._logistics_sales_quote_copy_doc_patched) {
+		return;
+	}
+	frappe.model._logistics_sales_quote_copy_doc_patched = 1;
+	const _origCopyDoc = frappe.model.copy_doc;
+	frappe.model.copy_doc = function (doc, from_amend, parent_doc, parentfield) {
+		const newdoc = _origCopyDoc.apply(this, arguments);
+		if (
+			from_amend ||
+			parent_doc ||
+			!doc ||
+			!newdoc ||
+			doc.doctype !== "Sales Quote" ||
+			newdoc.doctype !== "Sales Quote"
+		) {
+			return newdoc;
+		}
+		if (frappe.meta.has_field("Sales Quote", "linked_services")) {
+			frappe.model.clear_table(newdoc, "linked_services");
+		}
+		if (frappe.meta.has_field("Sales Quote", "internal_job_details")) {
+			frappe.model.clear_table(newdoc, "internal_job_details");
+		}
+		if (frappe.meta.has_field("Sales Quote", "logistics_duplicate_from")) {
+			newdoc.logistics_duplicate_from = (
+				(doc.logistics_duplicate_from || doc.name || "") + ""
+			).trim();
+		}
+		for (const row of newdoc.charges || []) {
+			if (row.charge_scope === "Linked" && !row.linked_service) {
+				row.charge_scope = "Main";
+			}
+		}
+		return newdoc;
+	};
+})();

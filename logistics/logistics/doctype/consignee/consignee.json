@@ -10,6 +10,7 @@
   "details_tab",
   "code",
   "consignee_name",
+  "customer",
   "column_break_bvoo",
   "importer_category",
   "default_unloco",
@@ -103,6 +104,14 @@
    "fieldname": "consignee_name",
    "fieldtype": "Data",
    "label": "Consignee Name"
+  },
+  {
+   "description": "ERPNext Customer linked to this consignee for billing and portal access.",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
+   "options": "Customer"
   },
   {
    "description": "Customs lane classification (SGL=Super Green Lane, GL=Green Lane)",

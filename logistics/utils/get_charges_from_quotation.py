@@ -81,10 +81,11 @@ JOB_DOCTYPES = frozenset(
 		"Declaration Order",
 		"Special Project",
 		"Exhibit",
+		"MICE Project",
 	}
 )
 
-_PROGRAMME_GCFQ_DOCTYPES = frozenset({"Special Project", "Exhibit"})
+_PROGRAMME_GCFQ_DOCTYPES = frozenset({"Special Project", "Exhibit", "MICE Project"})
 
 # Whitelisted keys for Action → Get Charges from Quotation dialog filters (client-sent).
 GCFQ_FILTER_KEYS: dict[str, frozenset[str]] = {
@@ -112,6 +113,7 @@ GCFQ_FILTER_KEYS: dict[str, frozenset[str]] = {
 	),
 	"Special Project": frozenset({"branch", "cost_center", "profit_center"}),
 	"Exhibit": frozenset({"branch", "cost_center", "profit_center"}),
+	"MICE Project": frozenset({"branch", "cost_center", "profit_center"}),
 }
 
 
@@ -283,6 +285,11 @@ def assert_one_off_sales_quote_job_rules(doc):
 def _job_customer(doc) -> str | None:
 	if doc.doctype in ("Sea Booking", "Air Booking"):
 		return (getattr(doc, "local_customer", None) or "").strip() or None
+	if doc.doctype == "MICE Project":
+		getter = getattr(doc, "get_organizer_customer", None)
+		if callable(getter):
+			return (getter() or "").strip() or None
+		return None
 	if doc.doctype in ("Transport Order", "Declaration Order", "Special Project", "Exhibit"):
 		return (getattr(doc, "customer", None) or "").strip() or None
 	return None
@@ -864,7 +871,7 @@ def preview_quotation_charges_for_job(
 		from logistics.utils.sales_quote_programme_charges import preview_programme_charges_from_sales_quote
 
 		return preview_programme_charges_from_sales_quote(docname, doctype, sales_quote)
-	if doctype == "Exhibit":
+	if doctype in ("Exhibit", "MICE Project"):
 		from logistics.utils.sales_quote_programme_charges import preview_programme_charges_from_sales_quote
 
 		return preview_programme_charges_from_sales_quote(docname, doctype, sales_quote)
@@ -1306,7 +1313,7 @@ def apply_quotation_charges_to_job(
 			doc._populate_charges_from_sales_quote()
 		elif doctype == "Special Project":
 			doc.populate_charges_from_sales_quote(sales_quote)
-		elif doctype == "Exhibit":
+		elif doctype in ("Exhibit", "MICE Project"):
 			doc.populate_charges_from_sales_quote(sales_quote)
 
 	# Append Internal-Job-scoped Sales Quote Charge rows into the Main's charges table (no separate
