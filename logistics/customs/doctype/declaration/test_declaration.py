@@ -7,6 +7,8 @@ from frappe.tests import IntegrationTestCase, UnitTestCase
 from logistics.customs.doctype.declaration.declaration import (
 	_copy_order_to_declaration,
 	apply_currency_and_exchange_rates_from_declaration_order,
+	calculate_commercial_invoice_balance,
+	payment_amount_to_invoice_currency,
 )
 
 
@@ -134,6 +136,63 @@ class UnitTestDeclarationValue(UnitTestCase):
 		)
 		_copy_order_to_declaration(declaration, order, sales_quote)
 		self.assertEqual(declaration.is_high_value, 1)
+
+
+class UnitTestDeclarationCommercialInvoiceBalance(UnitTestCase):
+	"""Unit tests for commercial-invoice balance and settlement currency conversion."""
+
+	def _declaration(self, **kwargs):
+		data = {"doctype": "Declaration"}
+		data.update(kwargs)
+		return frappe.get_doc(data)
+
+	def test_balance_usd_invoice_php_payment_converts_via_inv_exchange_rate(self):
+		"""Issue #1248: USD invoice with PHP settlement must not compare raw amounts."""
+		d = self._declaration(
+			currency="PHP",
+			inv_currency="USD",
+			inv_total_amount=55000,
+			inv_exchange_rate=58,
+			payment_currency="PHP",
+			payment_amount=55000,
+		)
+		paid_in_inv = payment_amount_to_invoice_currency(d)
+		self.assertAlmostEqual(paid_in_inv, 55000 / 58, places=2)
+		calculate_commercial_invoice_balance(d)
+		self.assertEqual(d.balance, f"{55000 - (55000 / 58):.2f}")
+
+	def test_balance_same_currency_subtracts_directly(self):
+		d = self._declaration(
+			currency="USD",
+			inv_currency="USD",
+			inv_total_amount=55000,
+			payment_currency="USD",
+			payment_amount=10000,
+		)
+		calculate_commercial_invoice_balance(d)
+		self.assertEqual(d.balance, "45000.00")
+
+	def test_balance_empty_when_cross_currency_payment_missing_rate(self):
+		d = self._declaration(
+			currency="PHP",
+			inv_currency="USD",
+			inv_total_amount=55000,
+			payment_currency="EUR",
+			payment_amount=1000,
+		)
+		calculate_commercial_invoice_balance(d)
+		self.assertIsNone(d.balance)
+
+	def test_balance_zero_when_fully_paid_in_same_currency(self):
+		d = self._declaration(
+			currency="USD",
+			inv_currency="USD",
+			inv_total_amount=55000,
+			payment_currency="USD",
+			payment_amount=55000,
+		)
+		calculate_commercial_invoice_balance(d)
+		self.assertEqual(d.balance, "0.00")
 
 
 class UnitTestDeclarationProcessingDates(UnitTestCase):
