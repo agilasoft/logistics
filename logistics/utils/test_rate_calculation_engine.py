@@ -45,3 +45,21 @@ class TestRateCalculationEngine(FrappeTestCase):
 		self.assertTrue(result["success"])
 		self.assertEqual(result["amount"], 50)
 		self.assertIn("5 kg × 10 USD/kg = 50 USD", result["calculation_details"])
+
+	def test_job_unit_type_always_quantity_one(self):
+		engine = RateCalculationEngine()
+		rate_data = {
+			"calculation_method": "Per Unit",
+			"unit_rate": 900,
+			"unit_type": "Job",
+			"currency": "PHP",
+		}
+		# actual_quantity would historically be weight fallback (e.g. 100 kg)
+		result = engine.calculate_rate(
+			rate_data=rate_data,
+			actual_quantity=100,
+			actual_weight=100,
+		)
+		self.assertTrue(result["success"])
+		self.assertEqual(result["amount"], 900)
+		self.assertEqual(result["quantity_used"], 1)

@@ -1101,57 +1101,6 @@ frappe.ui.form.on("Sales Quote", {
 		} else {
 			frm.set_df_property("quotation_type", "read_only", 0);
 		}
-		
-		// Delegated click handler for Weight/Qty/Percentage Break buttons (bypasses form event system if needed)
-		$(frm.wrapper).off("click.break_buttons").on("click.break_buttons", function (e) {
-			const $ctrl = $(e.target).closest(
-				'[data-fieldname="selling_qty_break"], [data-fieldname="cost_qty_break"],' +
-					'[data-fieldname="selling_weight_break"], [data-fieldname="cost_weight_break"],' +
-					'[data-fieldname="selling_percentage_break"], [data-fieldname="cost_percentage_break"]'
-			);
-			if (!$ctrl.length) return;
-			const fieldname = $ctrl.attr("data-fieldname");
-			const $row = $ctrl.closest(".grid-row");
-			if (!$row.length) return;
-			let row_doc = $row.data("doc");
-			const grid_row = $row.data("grid_row");
-			if (grid_row && grid_row.doc) row_doc = grid_row.doc;
-			// Fallback: resolve row from grid by docname (data can be stale on wrapper)
-			if (!row_doc || !row_doc.doctype) {
-				const docname = $row.attr("data-name");
-				if (docname && frm.fields_dict) {
-					for (const fn of Object.keys(frm.fields_dict)) {
-						const grid = frm.fields_dict[fn]?.grid;
-						if (grid?.grid_rows_by_docname?.[docname]) {
-							row_doc = grid.grid_rows_by_docname[docname].doc;
-							break;
-						}
-					}
-				}
-			}
-			if (!row_doc || !row_doc.doctype) {
-				row_doc = frm.selected_doc;
-			}
-			if (!row_doc || !row_doc.doctype) return;
-			e.preventDefault();
-			e.stopPropagation();
-			const record_type = fieldname.indexOf("cost_") === 0 ? "Cost" : "Selling";
-			if (fieldname.indexOf("qty_break") !== -1 && typeof window.open_qty_break_rate_dialog === "function") {
-				window.open_qty_break_rate_dialog(frm, row_doc, record_type);
-			} else if (
-				fieldname.indexOf("weight_break") !== -1 &&
-				typeof window.open_weight_break_rate_dialog === "function"
-			) {
-				window.open_weight_break_rate_dialog(frm, row_doc, record_type);
-			} else if (
-				fieldname.indexOf("percentage_break") !== -1 &&
-				typeof window.open_percentage_break_rate_dialog === "function"
-			) {
-				window.open_percentage_break_rate_dialog(frm, row_doc, record_type);
-			} else {
-				frappe.msgprint({ title: __("Error"), message: __("Dialog not loaded. Please refresh the page."), indicator: "red" });
-			}
-		});
 		frm.events._set_child_param_readonly(frm);
 		frm.events._apply_one_off_routing_leg_main_job_readonly(frm);
 		// Update primary button state

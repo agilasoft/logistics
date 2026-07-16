@@ -526,6 +526,8 @@ class DeclarationOrder(Document):
 				"use_tariff_in_revenue", "revenue_tariff", "use_tariff_in_cost", "cost_tariff",
 				"bill_to", "bill_to_exchange_rate", "pay_to", "pay_to_exchange_rate",
 			]
+			from logistics.utils.sales_quote_charge_copy import apply_scope_tagging_to_mapped_charge
+
 			self.set("charges", [])
 			sq_name = self.sales_quote
 			for sq_charge in sq_charges:
@@ -566,6 +568,12 @@ class DeclarationOrder(Document):
 					)
 				if "charge_type" in charge_fields and not row.get("charge_type"):
 					row.set("charge_type", "Revenue")
+				# Keep Main/Linked + linked_service from the quote (remapped after LS clone).
+				scope_vals = {}
+				apply_scope_tagging_to_mapped_charge(sq_charge, scope_vals)
+				for fn, val in scope_vals.items():
+					if fn in charge_fields and val is not None:
+						row.set(fn, val)
 		except Exception as e:
 			frappe.log_error(f"Error populating Declaration Order charges from Sales Quote: {str(e)}")
 
@@ -774,6 +782,8 @@ def populate_charges_from_sales_quote(
 		def _ch_get(ch, fn, default=None):
 			return ch.get(fn, default) if isinstance(ch, dict) else getattr(ch, fn, default)
 
+		from logistics.utils.sales_quote_charge_copy import apply_scope_tagging_to_mapped_charge
+
 		charges = []
 		for sq_charge in sq_charges:
 			row = {}
@@ -814,6 +824,14 @@ def populate_charges_from_sales_quote(
 				)
 			if "charge_type" not in row or not row.get("charge_type"):
 				row["charge_type"] = "Revenue"
+			# Keep Main/Linked + linked_service from the quote (remapped after LS clone).
+			apply_scope_tagging_to_mapped_charge(sq_charge, row)
+			if "linked_service" not in charge_fields:
+				row.pop("linked_service", None)
+			if "internal_job" not in charge_fields:
+				row.pop("internal_job", None)
+			if "charge_scope" not in charge_fields:
+				row.pop("charge_scope", None)
 			if row:
 				charges.append(row)
 		if isinstance(parent, Document) and charges:

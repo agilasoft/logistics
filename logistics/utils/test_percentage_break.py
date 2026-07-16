@@ -73,3 +73,38 @@ class TestPercentageBreakCalculation(UnitTestCase):
 		self.assertEqual(flt(result.get("amount")), 110)
 		self.assertIn("5.0%", result.get("calc_notes") or "")
 		self.assertIn("minimum 100", result.get("calc_notes") or "")
+
+	def test_amount_falls_back_to_quantity_not_base_amount(self):
+		"""No parent goods value: use Quantity × % (+ min); ignore Base Amount."""
+		charge = SimpleNamespace(
+			name="PB-TEST-4",
+			doctype="Sales Quote Charge",
+			parenttype="Sales Quote",
+			revenue_calculation_method="Percentage Break",
+			unit_type="Value",
+			quantity=2000,
+			minimum_charge=100,
+			maximum_charge=0,
+			currency="USD",
+			base_amount=99999,
+			uom=None,
+			use_tariff_in_revenue=0,
+			tariff=None,
+		)
+		parent = SimpleNamespace(doctype="Sales Quote", goods_value=0, declared_value=0)
+		breaks = [
+			{"value_break": 1000, "percentage_rate": 3, "currency": "USD"},
+			{"value_break": 2000, "percentage_rate": 5, "currency": "USD"},
+			{"value_break": 3000, "percentage_rate": 10, "currency": "USD"},
+		]
+		with patch("logistics.utils.charges_calculation.frappe.get_all", return_value=breaks):
+			with patch(
+				"logistics.utils.charges_calculation._fetch_rates_from_tariff_if_needed",
+				return_value=None,
+			):
+				result = calculate_charge_revenue(charge, parent)
+		# 2000 × 5% + 100 = 200
+		self.assertTrue(result.get("success"), result.get("calc_notes"))
+		self.assertEqual(flt(result.get("amount")), 200)
+		self.assertIn("5.0%", result.get("calc_notes") or "")
+		self.assertIn("goods 2000", result.get("calc_notes") or "")

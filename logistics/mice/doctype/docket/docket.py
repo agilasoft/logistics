@@ -25,6 +25,18 @@ BOOKING_TO_OPERATIONAL_JOB = {
 
 
 class Docket(VirtualLinkedServicesMixin, Document):
+	def onload(self):
+		"""Heal missing SQ→Docket Linked Service clones so the Services tab is not empty."""
+		if not self.name or getattr(self, "__islocal", False):
+			return
+		if not (getattr(self, "sales_quote", None) or "").strip():
+			return
+		from logistics.utils.internal_job_persistence import (
+			ensure_linked_service_rows_materialized,
+		)
+
+		ensure_linked_service_rows_materialized(self)
+
 	def validate(self):
 		self._ensure_org_defaults()
 		self._sync_customer_from_exhibit_organizer()

@@ -23,6 +23,21 @@ class TestChargeUnitBreaks(FrappeTestCase):
 		qty = _get_quantity_for_calculation_method(actual_data, "Per Unit", "Value")
 		self.assertEqual(qty, 50000)
 
+	def test_job_unit_type_always_one_not_weight_fallback(self):
+		"""Job must not use actual_quantity (weight/volume fallback) or qty inflates."""
+		actual_data = {
+			"actual_quantity": 100.0,
+			"actual_weight": 100.0,
+			"actual_volume": 8.0,
+			"actual_pieces": 1.0,
+		}
+		qty = _get_quantity_for_calculation_method(actual_data, "Per Unit", "Job")
+		self.assertEqual(qty, 1.0)
+		self.assertEqual(
+			_get_quantity_for_calculation_method(actual_data, "Per Unit", "Shipment"),
+			1.0,
+		)
+
 	def test_charge_side_uses_unit_breaks_flag(self):
 		row = frappe._dict(use_unit_breaks=1, cost_use_unit_breaks=0)
 		self.assertTrue(_charge_side_uses_unit_breaks(row, True))

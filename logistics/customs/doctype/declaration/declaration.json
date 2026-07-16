@@ -560,8 +560,7 @@
   {
    "fieldname": "rejection_reason",
    "fieldtype": "Small Text",
-   "label": "Rejection Reason",
-   "read_only": 1
+   "label": "Rejection Reason"
   },
   {
    "fieldname": "processing_officer",
@@ -1375,11 +1374,11 @@
    "options": "Freight Agent"
   },
   {
+   "default": "Standalone",
    "fieldname": "service_role",
    "fieldtype": "Select",
    "label": "Service Role",
    "options": "Main\nLinked\nStandalone",
-   "default": "Standalone",
    "read_only": 1
   },
   {
@@ -1403,12 +1402,12 @@
    "description": "Canonical Linked Service record this document represents.",
    "fieldname": "linked_service",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Linked Service",
    "no_copy": 1,
    "options": "Linked Service",
    "read_only": 1,
-   "search_index": 1,
-   "hidden": 1
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,
@@ -1426,7 +1425,7 @@
    "link_fieldname": "job_no"
   }
  ],
- "modified": "2026-05-13 13:26:53.499557",
+ "modified": "2026-07-15 14:43:09.206331",
  "modified_by": "ejay.sambrano@agilasoft.com",
  "module": "Customs",
  "name": "Declaration",

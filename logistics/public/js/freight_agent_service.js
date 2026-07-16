@@ -38,6 +38,9 @@ frappe.provide("logistics.freight_agent_service");
 		"Inbound Order": "Warehousing",
 	};
 
+	/** Services with no Freight Agent module checkbox (must not become filter fieldnames). */
+	const MODULE_FLAGS_WITHOUT_SERVICE = new Set(["special project", "exhibits", "mice", "events"]);
+
 	function canonicalChargeServiceType(st) {
 		const raw = (st && String(st).trim()) || "";
 		if (!raw) return "";
@@ -50,19 +53,28 @@ frappe.provide("logistics.freight_agent_service");
 			custom: "custom",
 			customs: "custom",
 			Warehousing: "warehousing",
+			"Special Project": "special project",
+			MICE: "exhibits",
+			Exhibits: "exhibits",
+			Events: "exhibits",
 		};
 		if (byTitle[raw] !== undefined) return byTitle[raw];
 		const low = raw.toLowerCase();
 		if (low === "customs") return "custom";
-		if (["air", "sea", "transport", "warehousing"].includes(low)) return low;
+		if (low === "events" || low === "mice") return "exhibits";
+		if (["air", "sea", "transport", "warehousing", "special project", "exhibits"].includes(low)) {
+			return low;
+		}
 		return low;
 	}
 
+	/** Freight Agent checkbox field for a service type, or null when none applies. */
 	function moduleFlagForServiceType(st) {
 		const c = canonicalChargeServiceType(st);
-		if (!c) return null;
+		if (!c || MODULE_FLAGS_WITHOUT_SERVICE.has(c)) return null;
 		if (c === "custom") return "customs";
-		return c;
+		if (["air", "sea", "transport", "warehousing"].includes(c)) return c;
+		return null;
 	}
 
 	/** Sales Quote main_service is a Select (Air/Sea/…); on linked bookings it is a Dynamic Link job ID. */

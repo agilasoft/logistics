@@ -46,6 +46,33 @@ class TestSeaBookingSalesQuoteChargeMapping(FrappeTestCase):
 		self.assertEqual(flt(charge_data.get("unit_rate")), 250.5)
 		self.assertNotIn("rate", charge_data)
 
+	def test_map_sales_quote_preserves_value_unit_type(self):
+		"""Value (Percentage Break / goods-value) must copy through, not remap to Package."""
+		item_code = self._test_item_code()
+		booking = frappe.new_doc("Sea Booking")
+		booking.total_weight = 100
+		booking.total_volume = 1
+
+		sq_row = {
+			"item_code": item_code,
+			"item_name": "Ad Valorem Charge",
+			"revenue_calculation_method": "Percentage Break",
+			"unit_type": "Value",
+			"unit_rate": 1.5,
+			"currency": "USD",
+			"charge_type": "Both",
+			"service_type": "Sea",
+			"cost_calculation_method": "Percentage Break",
+			"cost_unit_type": "Value",
+			"unit_cost": 1.0,
+		}
+
+		charge_data = booking._map_sales_quote_sea_freight_to_charge(sq_row)
+
+		self.assertIsNotNone(charge_data)
+		self.assertEqual(charge_data.get("unit_type"), "Value")
+		self.assertEqual(charge_data.get("cost_unit_type"), "Value")
+
 
 class IntegrationTestSeaBooking(FrappeTestCase):
 	"""

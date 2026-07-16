@@ -16,26 +16,22 @@ var CHARGE_DOCTYPES_WITH_BREAKS =
 		["Change Request Charge"]
 	);
 
+// Toolbar "Manage … Breaks" buttons only on pricing/air-consolidation/project parents.
+// Hidden on booking/order, shipment/job, Sea Consolidation, Change Request, and Sales Quote.
 var CHARGE_PARENT_DOCTYPES = [
-	"Air Booking",
-	"Air Shipment",
 	"Air Consolidation",
-	"Sea Booking",
-	"Sea Shipment",
-	"Sea Consolidation",
-	"Transport Order",
-	"Transport Job",
-	"Declaration",
-	"Declaration Order",
 	"Special Project",
-	"Sales Quote",
 	"Tariff",
 	"MICE Project",
 	"Exhibit",
-	"Change Request",
 ];
 
 function _register_break_handlers(doctype) {
+	window.__logistics_break_handlers_registered = window.__logistics_break_handlers_registered || {};
+	if (window.__logistics_break_handlers_registered[doctype]) {
+		return;
+	}
+	window.__logistics_break_handlers_registered[doctype] = true;
 	var handlers = {
 		selling_weight_break: function(frm, cdt, cdn) {
 			var row = cdn && cdt ? frappe.get_doc(cdt, cdn) : null;

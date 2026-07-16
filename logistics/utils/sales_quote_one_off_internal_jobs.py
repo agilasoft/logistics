@@ -377,6 +377,12 @@ def remap_internal_job_links_on_booking_charges(
 	if not changed:
 		return False
 
+	# When called from before_save during insert, the parent is still unsaved. Mutating
+	# charge rows in memory is enough — calling save() here re-enters insert() and
+	# duplicate-inserts the same naming-series name (DuplicateEntryError).
+	if booking_doc.is_new():
+		return True
+
 	booking_doc.flags.ignore_links = True
 	booking_doc.flags.ignore_validate_update_after_submit = True
 	booking_doc.save(ignore_permissions=True)

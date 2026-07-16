@@ -220,8 +220,9 @@ class RateCalculationEngine:
             hu = flt(ah_units or 0)
             return hu if hu > 0 else 1.0
         elif unit_type == "Job":
-            j = flt(actual_quantity or 0)
-            return j if j > 0 else 1.0
+            # Per-job flat unit: always 1 (do not use actual_quantity — it can be
+            # weight/volume fallback and incorrectly inflate Job quantity).
+            return 1.0
         elif unit_type == "Trip":
             t = flt(trips or 0)
             return t if t > 0 else 1.0
@@ -471,6 +472,7 @@ def get_available_unit_types() -> List[str]:
         "TEU",
         "Container",
         "Operation Time",
+        "Value",
     ]
 
 

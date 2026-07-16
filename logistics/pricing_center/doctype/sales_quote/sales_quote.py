@@ -60,12 +60,12 @@ def map_sales_quote_entry_type_to_air_booking(sales_quote_entry_type):
 
 
 # Unit types allowed when Sales Quote customs charges are synced to Declaration Order / Declaration Charges.
-# Aligned with Sales Quote Customs and other booking/order modules (Job, Trip supported).
+# Aligned with Declaration Charges (includes Value for Percentage Break; Job/Trip supported).
 CUSTOMS_ALLOWED_UNIT_TYPES = frozenset({
-	"Weight", "Volume", "Distance", "Package", "Piece", "TEU", "Container", "Operation Time", "Job", "Trip",
+	"Weight", "Volume", "Distance", "Package", "Piece", "TEU", "Container", "Operation Time", "Job", "Trip", "Value",
 })
 CUSTOMS_ALLOWED_UNIT_TYPES_DISPLAY = (
-	"Weight", "Volume", "Distance", "Package", "Piece", "TEU", "Container", "Operation Time", "Job", "Trip"
+	"Weight", "Volume", "Distance", "Package", "Piece", "TEU", "Container", "Operation Time", "Job", "Trip", "Value"
 )
 
 
@@ -1402,6 +1402,18 @@ def _propagate_linked_services_to_docket(sales_quote, docket_doc):
 		)
 
 
+def _heal_linked_services_on_existing_docket(sales_quote, docket_name: str) -> None:
+	"""Clone quote Linked Services onto an existing Docket when it has none yet."""
+	if not sales_quote or not docket_name or not frappe.db.exists("Docket", docket_name):
+		return
+	from logistics.utils.internal_job_persistence import _linked_service_names_from_db
+
+	if _linked_service_names_from_db("Docket", docket_name):
+		return
+	docket_doc = frappe.get_doc("Docket", docket_name)
+	_propagate_linked_services_to_docket(sales_quote, docket_doc)
+
+
 def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 	"""Create (or return) the Docket for ``sales_quote.customer`` on the linked Exhibit.
 
@@ -1460,10 +1472,12 @@ def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 			"name",
 		)
 		if existing_docket:
+			_heal_linked_services_on_existing_docket(sales_quote, existing_docket)
 			return {"success": True, "docket": existing_docket, "message": existing_docket}
 
 		predicted_name = f"{ep.name}-{exhibitor}"
 		if frappe.db.exists("Docket", predicted_name):
+			_heal_linked_services_on_existing_docket(sales_quote, predicted_name)
 			return {"success": True, "docket": predicted_name, "message": predicted_name}
 
 	doc = frappe.new_doc("Docket")

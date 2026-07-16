@@ -108,12 +108,16 @@ def internal_job_detail_fieldname(parent_doctype: str) -> str | None:
 
 
 def internal_job_detail_rows_for_parent(parent_doc: Any) -> list[Any]:
-	"""Linked Service rows for *parent_doc*, honouring unsaved desk grid overrides when present."""
+	"""Linked Service rows for *parent_doc*, honouring unsaved desk grid overrides when present.
+
+	An empty override list is treated as no override (virtual Linked Services grids often
+	serialize as ``[]`` from the desk; honouring that would wipe rows on persist/sync).
+	"""
 	fieldname = internal_job_detail_fieldname(getattr(parent_doc, "doctype", None) or "")
 	parent_doctype = getattr(parent_doc, "doctype", None) or ""
 	for key in ("_logistics_dk_ij_client_rows", "_logistics_ij_client_rows"):
 		ov = getattr(frappe.local, key, None)
-		if ov is not None:
+		if ov is not None and len(ov) > 0:
 			return list(ov)
 	if parent_doctype in VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS:
 		parent_name = (getattr(parent_doc, "name", None) or "").strip()
@@ -133,7 +137,7 @@ def internal_job_detail_rows_for_parent(parent_doc: Any) -> list[Any]:
 
 def sync_internal_job_doc_job_link(row: Any, job_type: str, job_no: str) -> None:
 	"""Push ``job_type`` / ``job_no`` onto the linked ``Internal Job`` (source of truth for fetch_from)."""
-	ij_name = row_linked_service_link(row)
+	ij_name = _linked_service_name_from_row(row) if row is not None else ""
 	jn = _norm(job_no)
 	jt = _norm(job_type)
 	if not ij_name or not jn:
@@ -286,6 +290,46 @@ def _linked_service_names_from_db(parent_doctype: str, parent_name: str) -> set[
 		)
 		or []
 	)
+
+
+def ensure_linked_service_rows_materialized(parent_doc: Any) -> None:
+	"""Ensure Linked Service documents exist for *parent_doc* before booking back-link persist.
+
+	Virtual-grid parents (Docket, MICE Project, …) store legs as top-level Linked Service
+	docs, not child-table rows. Create Booking/Order can see desk ``form_rows`` while the
+	server-side virtual view is still empty (propagation never ran). This heals that gap:
+
+	1. No-op when Linked Service docs already exist for the parent.
+	2. Docket with ``sales_quote`` → clone from the quote via ``_propagate_linked_services_to_docket``.
+	3. Otherwise create/update from current detail rows (honours desk client-row overrides).
+	4. Drop the virtual ``linked_services`` cache so the next read rebuilds from DB.
+	"""
+	if not parent_doc:
+		return
+	parent_doctype = getattr(parent_doc, "doctype", None) or ""
+	parent_name = _norm(getattr(parent_doc, "name", None))
+	if not parent_doctype or not parent_name:
+		return
+	if parent_doctype not in _VIRTUAL_LINKED_SERVICE_PARENTS:
+		return
+	if _linked_service_names_from_db(parent_doctype, parent_name):
+		return
+
+	if parent_doctype == "Docket":
+		sq_name = _norm(getattr(parent_doc, "sales_quote", None))
+		if sq_name and frappe.db.exists("Sales Quote", sq_name):
+			from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+				_propagate_linked_services_to_docket,
+			)
+
+			sq_doc = frappe.get_doc("Sales Quote", sq_name)
+			_propagate_linked_services_to_docket(sq_doc, parent_doc)
+
+	if not _linked_service_names_from_db(parent_doctype, parent_name):
+		_ensure_internal_job_docs_for_detail_rows(parent_doc)
+
+	if hasattr(parent_doc, "_drop_virtual_linked_services_rows"):
+		parent_doc._drop_virtual_linked_services_rows()
 
 
 def _linked_service_name_from_row(row: Any) -> str:

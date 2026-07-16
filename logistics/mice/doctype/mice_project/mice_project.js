@@ -486,6 +486,33 @@ frappe.ui.form.on("MICE Project", {
 				},
 				__("Create")
 			);
+
+			frm.add_custom_button(
+				__("Purchase Invoice"),
+				function () {
+					if (typeof window.show_create_purchase_invoice_dialog === "function") {
+						window.show_create_purchase_invoice_dialog(frm);
+					} else {
+						frappe.require(
+							"/assets/logistics/js/purchase_invoice_dialog.js",
+							function () {
+								if (typeof window.show_create_purchase_invoice_dialog === "function") {
+									window.show_create_purchase_invoice_dialog(frm);
+								} else {
+									frappe.msgprint({
+										title: __("Not available"),
+										message: __(
+											"The Purchase Invoice dialog could not load. Refresh the page or contact your administrator."
+										),
+										indicator: "red",
+									});
+								}
+							}
+						);
+					}
+				},
+				__("Create")
+			);
 		}
 
 		if (!frm.is_new() && !frm.doc.__islocal) {

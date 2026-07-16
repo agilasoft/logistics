@@ -190,7 +190,7 @@
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time"
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time\nValue"
   },
   {
    "fieldname": "cost_minimum_quantity",

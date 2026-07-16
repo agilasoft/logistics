@@ -1552,9 +1552,9 @@ def _append_declaration_charges_from_do_style_dicts(declaration: Document, charg
 	field_name_map = {"description": "charge_description"}
 	direct_fields = [
 		"service_type",
-		# Per-scope tagging — keep Main / Internal Job classification across conversion.
+		# Per-scope tagging — keep Main / Linked classification across conversion.
 		"charge_scope",
-		"internal_job",
+		"linked_service",
 		"item_code",
 		"item_name",
 		"charge_type",
@@ -1630,9 +1630,9 @@ def _populate_charges_from_declaration_order(declaration: Document, order: Docum
 		# 1) Direct one-to-one fields present on both doctypes
 		direct_fields = [
 			"service_type",
-			# Per-scope tagging — keep Main / Internal Job classification across conversion.
+			# Per-scope tagging — keep Main / Linked classification across conversion.
 			"charge_scope",
-			"internal_job",
+			"linked_service",
 			"item_code",
 			"item_name",
 			"description",
@@ -1712,6 +1712,8 @@ def _populate_charges_from_declaration_order(declaration: Document, order: Docum
 def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Document):
 	"""Populate charges from Sales Quote Charge (Customs) or Sales Quote Customs (legacy)."""
 	try:
+		from logistics.utils.sales_quote_charge_copy import apply_scope_tagging_to_mapped_charge
+
 		customs_charges = customs_charges_rows_from_sales_quote_doc(declaration, sales_quote)
 		if not customs_charges:
 			return
@@ -1742,6 +1744,12 @@ def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Docum
 					value = getattr(sq_charge, field, None)
 					if value is not None:
 						charge_row.set(field, value)
+			# Keep Main/Linked + linked_service from the quote (same as Air/Sea/Transport).
+			scope_vals = {}
+			apply_scope_tagging_to_mapped_charge(sq_charge, scope_vals)
+			for fn, val in scope_vals.items():
+				if fn in declaration_charges_fields and val is not None:
+					charge_row.set(fn, val)
 		
 	except Exception as e:
 		frappe.log_error(f"Error populating charges from Sales Quote: {str(e)}", "Declaration Charges Error")

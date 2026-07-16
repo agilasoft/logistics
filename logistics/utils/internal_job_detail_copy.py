@@ -318,6 +318,39 @@ def _coerce_positive_detail_idx(value: Any) -> int | None:
 		return None
 
 
+def _is_virtual_linked_service_parent(parent_doctype: str) -> bool:
+	from logistics.utils.virtual_internal_job_details import VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS
+
+	return parent_doctype in (
+		frozenset({"Sales Quote", "Change Request", "MICE Project", "Docket"})
+		| VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS
+	)
+
+
+def _throw_linked_service_save_required(parent_name: str) -> None:
+	frappe.throw(
+		_(
+			"Save {0} before creating this internal job so the Linked Service line exists in the database."
+		).format(parent_name),
+		title=_("Save required"),
+	)
+
+
+def _resolve_linked_service_name_for_persist(row: Any) -> str:
+	"""Resolve Linked Service name from a view dict, detail row, or Linked Service document."""
+	name = row_linked_service_link(row)
+	if name:
+		return name
+	if getattr(row, "doctype", None) == linked_service_doctype():
+		return (getattr(row, "name", None) or "").strip()
+	if isinstance(row, dict) and (row.get("name") or "").strip():
+		# Virtual views sometimes carry the LS name as ``name`` without ``linked_service``.
+		candidate = (row.get("name") or "").strip()
+		if linked_service_record_exists(candidate):
+			return candidate
+	return ""
+
+
 def persist_internal_job_detail_job_link(
 	parent_doctype: str,
 	parent_name: str,
@@ -331,15 +364,22 @@ def persist_internal_job_detail_job_link(
 	When the desk passes child-table JSON, resolution uses that list but we must write ``job_no`` onto
 	the parent document's real child rows so ``save`` persists the back-reference. Also updates the
 	linked ``Internal Job`` document because detail-row ``job_no`` is a ``fetch_from`` view of it.
+
+	Virtual-grid parents (Docket, MICE Project, …) store legs as Linked Service documents. We always
+	stamp ``job_type`` / ``job_no`` on those documents directly (after materializing if needed) and
+	never parent-save — a weak desk ``linked_services`` payload would otherwise orphan-delete rows.
 	"""
 	jn = (job_no or "").strip()
 	if not jn or not frappe.db.exists(parent_doctype, parent_name):
 		return
 	from logistics.utils.internal_job_persistence import (
+		create_internal_job_for_parent_from_source,
+		ensure_linked_service_rows_materialized,
 		internal_job_detail_fieldname,
 		internal_job_detail_rows_for_parent,
 		sync_internal_job_doc_job_link,
 	)
+	from logistics.utils.linked_service_compat import linked_service_rows
 
 	fieldname = internal_job_detail_fieldname(parent_doctype)
 	if not fieldname:
@@ -351,28 +391,71 @@ def persist_internal_job_detail_job_link(
 	parent = frappe.get_doc(parent_doctype, parent_name)
 	jt = (job_type or "").strip()
 	st_default = _DEFAULT_SERVICE_TYPE_FOR_JOB_TYPE.get(jt)
-	# Rows as seen during create (grid JSON when provided, else DB child rows on parent).
+	virtual_parent = _is_virtual_linked_service_parent(parent_doctype)
+	# Rows as seen during create (grid JSON when provided, else DB / virtual view on parent).
 	form_rows = internal_job_detail_rows_for_parent(parent)
-	canonical = list(getattr(parent, fieldname, None) or [])
 
-	def _apply_to_canonical_row(target: Any, di: int) -> None:
-		src = form_rows[di - 1] if 0 < di <= len(form_rows) else target
+	def _refresh_canonical() -> list[Any]:
+		if hasattr(parent, "_drop_virtual_linked_services_rows"):
+			parent._drop_virtual_linked_services_rows()
+		if virtual_parent or fieldname in ("linked_services", "internal_jobs"):
+			return list(linked_service_rows(parent))
+		return list(getattr(parent, fieldname, None) or [])
+
+	canonical = _refresh_canonical()
+
+	def _validate_form_row_job_type(src: Any, di: int) -> None:
 		existing_eff = effective_internal_job_detail_job_type(src)
 		if existing_eff and existing_eff != jt:
 			frappe.throw(
 				_("Internal Job Detail row {0} is for {1}, not {2}.").format(di, existing_eff, jt)
 			)
+
+	def _sync_linked_service_row(src: Any) -> None:
+		ls_name = _resolve_linked_service_name_for_persist(src)
+		if not ls_name:
+			return
+		sync_row = frappe._dict({"linked_service": ls_name, "internal_job": ls_name})
+		sync_internal_job_doc_job_link(sync_row, jt, jn)
+		_stamp_internal_job_link_on_target(jt, jn, sync_row)
+
+	def _apply_to_canonical_row(target: Any, di: int) -> None:
+		src = form_rows[di - 1] if 0 < di <= len(form_rows) else target
+		_validate_form_row_job_type(src, di)
 		target.job_type = jt
 		target.job_no = jn
 		if st_default and hasattr(target, "service_type") and not (getattr(target, "service_type", None) or "").strip():
 			target.service_type = st_default
 
+	def _commit_virtual_row_link(target: Any, di: int) -> None:
+		"""Stamp job_no on the Linked Service doc only — never parent-save virtual grids."""
+		src = form_rows[di - 1] if 0 < di <= len(form_rows) else target
+		_validate_form_row_job_type(src, di)
+		ls_name = _resolve_linked_service_name_for_persist(src) or _resolve_linked_service_name_for_persist(
+			target
+		)
+		if not ls_name:
+			ensure_linked_service_rows_materialized(parent)
+			rows_after = _refresh_canonical()
+			if di > len(rows_after):
+				_throw_linked_service_save_required(parent_name)
+			target = rows_after[di - 1]
+			ls_name = _resolve_linked_service_name_for_persist(target)
+		if not ls_name:
+			_throw_linked_service_save_required(parent_name)
+		sync_row = frappe._dict({"linked_service": ls_name, "internal_job": ls_name})
+		sync_internal_job_doc_job_link(sync_row, jt, jn)
+		_stamp_internal_job_link_on_target(jt, jn, sync_row)
+
 	def _commit_row_link(target: Any, di: int) -> None:
+		if virtual_parent:
+			_commit_virtual_row_link(target, di)
+			return
 		_apply_to_canonical_row(target, di)
 		if not row_linked_service_link(target):
 			_save_parent_internal_job_details(parent)
 			parent.reload()
-			rows_after = list(getattr(parent, fieldname, None) or [])
+			rows_after = _refresh_canonical()
 			if di > len(rows_after):
 				return
 			target = rows_after[di - 1]
@@ -386,17 +469,26 @@ def persist_internal_job_detail_job_link(
 		# bypass that helper).
 		_stamp_internal_job_link_on_target(jt, jn, target)
 
+	def _ensure_canonical_has_row(di: int) -> list[Any]:
+		nonlocal canonical
+		if di <= len(canonical):
+			return canonical
+		ensure_linked_service_rows_materialized(parent)
+		canonical = _refresh_canonical()
+		return canonical
+
 	di = _coerce_positive_detail_idx(detail_idx)
 	if di is not None:
 		if di < 1 or di > len(form_rows):
 			frappe.throw(_("Invalid Internal Job Detail row index for persist."))
+		src = form_rows[di - 1]
+		if virtual_parent and _resolve_linked_service_name_for_persist(src):
+			_validate_form_row_job_type(src, di)
+			_sync_linked_service_row(src)
+			return
+		canonical = _ensure_canonical_has_row(di)
 		if di > len(canonical):
-			frappe.throw(
-				_(
-					"Save {0} before creating this internal job so the Internal Jobs line exists in the database."
-				).format(parent_name),
-				title=_("Save required"),
-			)
+			_throw_linked_service_save_required(parent_name)
 		_commit_row_link(canonical[di - 1], di)
 		return
 
@@ -406,19 +498,24 @@ def persist_internal_job_detail_job_link(
 		if (getattr(src, "job_no", None) or "").strip():
 			continue
 		di_open = i + 1
+		if virtual_parent and _resolve_linked_service_name_for_persist(src):
+			_sync_linked_service_row(src)
+			return
+		canonical = _ensure_canonical_has_row(di_open)
 		if di_open > len(canonical):
-			frappe.throw(
-				_(
-					"Save {0} before creating this internal job so the Internal Jobs line exists in the database."
-				).format(parent_name),
-				title=_("Save required"),
-			)
+			_throw_linked_service_save_required(parent_name)
 		_commit_row_link(canonical[di_open - 1], di_open)
 		return
 
 	new_row: dict[str, Any] = {"job_type": jt, "job_no": jn}
 	if st_default:
 		new_row["service_type"] = st_default
+	if virtual_parent:
+		ls_name = create_internal_job_for_parent_from_source(parent_doctype, parent_name, new_row)
+		sync_row = frappe._dict({"linked_service": ls_name, "internal_job": ls_name})
+		sync_internal_job_doc_job_link(sync_row, jt, jn)
+		_stamp_internal_job_link_on_target(jt, jn, sync_row)
+		return
 	parent.append(fieldname, new_row)
 	_save_parent_internal_job_details(parent)
 

@@ -41,6 +41,7 @@ JOB_DOCTYPES = (
     "Declaration",
     "Special Project",
     "Docket",
+    "MICE Project",
 )
 
 CONSOLIDATION_DOCTYPES = ("Air Consolidation", "Sea Consolidation")
@@ -68,6 +69,7 @@ CHARGES_CHILD_DOCTYPE = {
     "Declaration": "Declaration Charges",
     "Special Project": "Special Project Charges",
     "Docket": "MICE Project Charges",
+    "MICE Project": "MICE Project Consolidation Charges",
 }
 
 # Charge table and cost field mapping: (charges_field, cost_field, rate_field, qty_field, item_field, supplier_field)
@@ -82,6 +84,8 @@ CHARGE_CONFIG = {
     "Special Project": ("charges", "estimated_cost", "unit_cost", "cost_quantity", "item_code", "pay_to"),
     # Exhibit Charges share the cost layout with Sea Shipment / Special Project.
     "Docket": ("charges", "estimated_cost", "unit_cost", "cost_quantity", "item_code", "pay_to"),
+    # MICE Project programme cost lines live on consolidation_charges (total_amount).
+    "MICE Project": ("consolidation_charges", "total_amount", "unit_rate", "quantity", "item_code", "pay_to"),
 }
 
 # Statuses that mean the charge is already in a PI or further along - exclude from eligibility (avoid duplicate posting)
@@ -131,6 +135,14 @@ def _get_eligible_cost_rows(job, config):
             continue
         if job.doctype in ("Sea Shipment", "Special Project", "Docket"):
             cost = _sea_shipment_row_cost(ch)
+        elif job.doctype == "MICE Project":
+            # Consolidation charge lines: use total_amount (already net of discount/tax/surcharge).
+            cost = flt(getattr(ch, cost_field, None) or 0)
+            if cost <= 0:
+                cost = flt(
+                    flt(getattr(ch, rate_field, 0)) * flt(getattr(ch, qty_field or "quantity", 1) or 1),
+                    0,
+                )
         else:
             # Use actual_cost for PI when present and > 0, else estimated/cost_field
             cost = flt(getattr(ch, "actual_cost", None) or 0)
