@@ -6,6 +6,8 @@ from frappe import _
 from frappe.utils import flt, getdate, formatdate
 from datetime import datetime, timedelta
 
+from logistics.sea_freight.sea_shipment_charges_report_sql import SEA_SHIPMENT_VESSEL_NAME
+
 def execute(filters=None):
 	columns = get_columns()
 	data = get_data(filters)
@@ -119,7 +121,7 @@ def get_data(filters):
 			sship.origin_port,
 			sship.destination_port,
 			sship.shipping_line,
-			sship.vessel_name,
+			{sea_shipment_vessel_name} as vessel_name,
 			sship.etd,
 			sship.atd,
 			CASE 
@@ -151,7 +153,10 @@ def get_data(filters):
 			{conditions}
 		ORDER BY
 			sship.booking_date DESC, sship.name DESC
-	""".format(conditions=conditions), filters, as_dict=1)
+	""".format(
+		conditions=conditions,
+		sea_shipment_vessel_name=SEA_SHIPMENT_VESSEL_NAME,
+	), filters, as_dict=1)
 	
 	return data
 
