@@ -1417,10 +1417,13 @@ def _calculate_charge_amount(
         min_charge = flt(_get_field(charge_doc, "minimum_charge") or 0) if is_revenue else flt(_get_field(charge_doc, "cost_minimum_charge") or 0)
         max_charge = flt(_get_field(charge_doc, "maximum_charge") or 0) if is_revenue else flt(_get_field(charge_doc, "cost_maximum_charge") or 0)
         amount = calc_base
-        if min_charge > 0 and amount < min_charge:
-            amount = min_charge
-        if max_charge > 0 and amount > max_charge:
-            amount = max_charge
+        if calc_base > 0:
+            if min_charge > 0 and amount < min_charge:
+                amount = min_charge
+            if max_charge > 0 and amount > max_charge:
+                amount = max_charge
+        else:
+            amount = 0.0
         if is_revenue:
             row_currency = getattr(charge_doc, "currency", None) or "USD"
         else:
@@ -1432,7 +1435,7 @@ def _calculate_charge_amount(
             f"Weight Break (Weight): Actual weight {weight} {weight_uom} ≥ break {weight_break} {weight_uom} → "
             f"Rate {rate} {currency}/{weight_uom} × {weight} {weight_uom} = {calc_base} {currency}"
         )
-        if min_charge > 0 and calc_base < min_charge and amount == min_charge:
+        if calc_base > 0 and min_charge > 0 and calc_base < min_charge and amount == min_charge:
             detail += f"; Minimum charge {min_charge} {currency} applied"
         elif max_charge > 0 and calc_base > max_charge and amount == max_charge:
             detail += f"; Maximum charge {max_charge} {currency} applied"
@@ -1455,10 +1458,13 @@ def _calculate_charge_amount(
         min_charge = flt(_get_field(charge_doc, "minimum_charge") or 0) if is_revenue else flt(_get_field(charge_doc, "cost_minimum_charge") or 0)
         max_charge = flt(_get_field(charge_doc, "maximum_charge") or 0) if is_revenue else flt(_get_field(charge_doc, "cost_maximum_charge") or 0)
         amount = calc_base
-        if min_charge > 0 and amount < min_charge:
-            amount = min_charge
-        if max_charge > 0 and amount > max_charge:
-            amount = max_charge
+        if calc_base > 0:
+            if min_charge > 0 and amount < min_charge:
+                amount = min_charge
+            if max_charge > 0 and amount > max_charge:
+                amount = max_charge
+        else:
+            amount = 0.0
         if is_revenue:
             row_currency = getattr(charge_doc, "currency", None) or "USD"
         else:
@@ -1470,7 +1476,7 @@ def _calculate_charge_amount(
             f"Qty Break (Piece): Actual qty {qty} {qty_uom} ≥ break {qty_break} {qty_uom} → "
             f"Rate {rate} {currency}/{qty_uom} × {qty} {qty_uom} = {calc_base} {currency}"
         )
-        if min_charge > 0 and calc_base < min_charge and amount == min_charge:
+        if calc_base > 0 and min_charge > 0 and calc_base < min_charge and amount == min_charge:
             detail += f"; Minimum charge {min_charge} {currency} applied"
         elif max_charge > 0 and calc_base > max_charge and amount == max_charge:
             detail += f"; Maximum charge {max_charge} {currency} applied"
@@ -1562,7 +1568,7 @@ def _calculate_charge_amount(
         charge_doc, rate_data, actual_data, unit_type, record_type, is_revenue
     )
     rate = flt(rate_data.get("rate", 0))
-    if not rate and not unit_break_prefix and rate_data.get("calculation_method") not in ("Fixed Amount", "Flat Rate"):
+    if not rate and not unit_break_prefix:
         result["calc_notes"] = "Charge calculation: No unit rate specified. Enter rate for this charge."
         return result
 
