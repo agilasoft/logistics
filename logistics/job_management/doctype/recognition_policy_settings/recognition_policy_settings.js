@@ -9,24 +9,25 @@ const PARAM_ACCOUNT_FIELDS = [
 
 function param_account_filters(company, fieldname) {
 	if (!company) {
-		return [["name", "=", ""]];
+		return { name: "" };
 	}
-	const f = [
-		["Account", "company", "=", company],
-		["Account", "is_group", "=", 0],
-	];
+	const filters = {
+		company,
+		is_group: 0,
+		disabled: 0,
+	};
 	if (fieldname === "wip_account") {
-		f.push(["Account", "account_type", "=", "Income Account"]);
-		f.push(["Account", "job_profit_account_type", "=", "WIP"]);
+		filters.account_type = "Income Account";
+		filters.job_profit_account_type = "WIP";
 	} else if (fieldname === "revenue_liability_account") {
-		f.push(["Account", "root_type", "=", "Asset"]);
+		filters.root_type = "Asset";
 	} else if (fieldname === "cost_accrual_account") {
-		f.push(["Account", "account_type", "=", "Expense Account"]);
-		f.push(["Account", "job_profit_account_type", "=", "Accrual"]);
+		filters.account_type = "Expense Account";
+		filters.job_profit_account_type = "Accrual";
 	} else if (fieldname === "accrued_cost_liability_account") {
-		f.push(["Account", "root_type", "=", "Liability"]);
+		filters.root_type = "Liability";
 	}
-	return f;
+	return filters;
 }
 
 function bind_parameter_account_queries(frm) {
