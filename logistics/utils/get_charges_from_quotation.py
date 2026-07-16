@@ -1145,12 +1145,7 @@ def _sq_charge_row_to_operational_dict(
 			continue
 		out[fn] = val
 
-	# Declaration Order Charges uses ``rate`` + ``charge_basis`` instead of ``unit_rate`` + method.
 	rev_basis = _get("revenue_calculation_method") or _get("calculation_method")
-	if "charge_basis" in valid and rev_basis and not out.get("charge_basis"):
-		out["charge_basis"] = rev_basis
-	if "rate" in valid and out.get("unit_rate") is not None and not out.get("rate"):
-		out["rate"] = out["unit_rate"]
 	if "revenue_calculation_method" in valid and rev_basis and not out.get(
 		"revenue_calculation_method"
 	):
