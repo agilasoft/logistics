@@ -401,6 +401,7 @@ frappe.ui.form.on("Declaration", {
 	
 	refresh(frm) {
 		_declaration_processing_date_field_state(frm);
+		_auto_set_payment_status(frm);
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
