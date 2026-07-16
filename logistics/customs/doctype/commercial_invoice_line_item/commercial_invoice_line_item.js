@@ -12,7 +12,28 @@ function _schedule_customs_line_charge_recalc_from_grid(frm) {
 	}
 }
 
+function _schedule_commercial_invoice_totals_recalc_from_grid(frm) {
+	if (
+		window.logistics &&
+		logistics.schedule_commercial_invoice_totals_recalc &&
+		frm &&
+		(frm.doctype === "Declaration" || frm.doctype === "Declaration Order")
+	) {
+		logistics.schedule_commercial_invoice_totals_recalc(frm);
+	}
+}
+
 frappe.ui.form.on("Commercial Invoice Line Item", {
+	invoice_qty(frm) {
+		_schedule_commercial_invoice_totals_recalc_from_grid(frm);
+		_schedule_customs_line_charge_recalc_from_grid(frm);
+	},
+	customs_qty(frm) {
+		_schedule_commercial_invoice_totals_recalc_from_grid(frm);
+	},
+	price(frm) {
+		_schedule_commercial_invoice_totals_recalc_from_grid(frm);
+	},
 	chargeable_weight(frm) {
 		_schedule_customs_line_charge_recalc_from_grid(frm);
 	},

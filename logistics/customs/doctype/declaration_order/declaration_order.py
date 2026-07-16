@@ -311,6 +311,9 @@ class DeclarationOrder(Document):
 				apply_linked_services_from_sales_quote_on_fetch(sq, self)
 		# After propagation / charge overlay so transport_mode is final; fills default doc type when still empty.
 		apply_default_transport_document_type(self)
+		from logistics.utils.commercial_invoice_totals import apply_commercial_invoice_totals
+
+		apply_commercial_invoice_totals(self)
 
 	def before_submit(self):
 		"""Prevent submission if no Sales Quote is linked to this Declaration Order.

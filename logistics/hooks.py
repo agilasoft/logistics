@@ -194,6 +194,7 @@ doctype_js = {
 		"logistics/public/js/shipper_consignee_defaults.js",
 		"logistics/public/js/sales_invoice_dialog.js",
 		"logistics/public/js/purchase_invoice_dialog.js",
+		"logistics/public/js/commercial_invoice_totals.js",
 		"public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
 		"logistics/customs/doctype/declaration_charges/declaration_charges.js",
@@ -206,6 +207,7 @@ doctype_js = {
 	"Declaration Order": [
 		"logistics/public/js/transport_mode_default_document_type.js",
 		"logistics/public/js/shipper_consignee_defaults.js",
+		"logistics/public/js/commercial_invoice_totals.js",
 		"public/js/charge_break_dialogs.js",
 		"logistics/public/js/document_alerts_dialog.js",
 		"logistics/customs/doctype/declaration_order_charges/declaration_order_charges.js",

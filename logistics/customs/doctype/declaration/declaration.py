@@ -186,6 +186,9 @@ class Declaration(Document):
 		self.calculate_exemptions()
 		self.calculate_total_payable()
 		self.calculate_declaration_value()
+		from logistics.utils.commercial_invoice_totals import apply_commercial_invoice_totals
+
+		apply_commercial_invoice_totals(self)
 		self.calculate_sustainability_metrics()
 		self._enforce_mutually_exclusive_processing_dates()
 		self.update_processing_dates()
