@@ -147,13 +147,8 @@ def map_sales_quote_charge_to_programme_charge_dict(sq_row, sales_quote_name: st
 	linkage_allowed = set(
 		filter_fields_existing_in_doctype(charge_doctype, list(_PROGRAMME_CHARGE_LINKAGE_FIELDS))
 	)
-	# Special Project charges retain the quote's Linked Service link (for traceability) but
-	# never inherit the quote's internal_job, which belongs to the quote's own legs.
-	skip_quote_internal_job = charge_doctype == "Special Project Charges"
 	for fn in _PROGRAMME_CHARGE_LINKAGE_FIELDS:
 		if fn not in linkage_allowed:
-			continue
-		if skip_quote_internal_job and fn == "internal_job":
 			continue
 		val = _sqc_val(sq_row, fn)
 		if val is not None and val != "":

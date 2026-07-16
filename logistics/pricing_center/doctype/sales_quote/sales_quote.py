@@ -1337,28 +1337,21 @@ def _create_special_project_from_sales_quote(sales_quote):
 		sp.project_name = resolve_erpnext_project_name_for_sales_quote(sales_quote)
 	from logistics.utils.sales_quote_programme_charges import (
 		copy_sales_quote_charge_breaks_to_programme_parent,
-		populate_programme_charges_from_sales_quote,
 	)
 
 	from logistics.special_projects.special_project_services_from_sales_quote import (
-		populate_special_project_services_from_sales_quote,
-		remap_special_project_charges_after_quote_populate,
+		copy_special_project_programme_data_from_sales_quote,
 	)
 
-	ls_to_sps = populate_special_project_services_from_sales_quote(
+	copy_special_project_programme_data_from_sales_quote(
 		sp, sales_quote.name, clear_existing=True
-	)
-	populate_programme_charges_from_sales_quote(
-		sp, sales_quote.name, clear_existing=True, service_types="__all__"
-	)
-	remap_special_project_charges_after_quote_populate(
-		sp, ls_to_sps, sales_quote_name=sales_quote.name, service_types="__all__"
 	)
 	from logistics.special_projects.special_project_packages import (
 		seed_packages_from_sales_quote,
 	)
 
 	seed_packages_from_sales_quote(sp, sales_quote, clear_existing=False)
+	sp.flags.ignore_links = True
 	sp.save(ignore_permissions=True)
 	copy_sales_quote_charge_breaks_to_programme_parent(sp, sales_quote.name)
 	frappe.db.commit()

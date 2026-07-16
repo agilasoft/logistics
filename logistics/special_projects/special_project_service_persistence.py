@@ -175,6 +175,8 @@ def _ensure_service_docs_for_grid_rows(parent_doc: Any) -> None:
 		return
 
 	for row in special_project_service_grid_rows(parent_doc):
+		if _row_value(row, "__quote_linked_service_readonly__"):
+			continue
 		service_name = row_special_project_service_link(row)
 		if service_name and special_project_service_record_exists(service_name):
 			_update_service_doc_from_row(row, service_name)
