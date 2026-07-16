@@ -9,6 +9,7 @@ from logistics.utils.charges_calculation import (
     apply_disbursement_charge_calculation_if_applicable,
     calculate_charge_revenue,
     calculate_charge_cost,
+    realign_charge_row_quantities_from_parent,
 )
 from logistics.utils.other_services_charges_sync import validate_charge_item_not_manual_other_service
 from logistics.utils.freight_95_5 import validate_freight_95_5_row
@@ -29,8 +30,13 @@ class AirShipmentCharges(Document):
             if hasattr(self, "total_amount"):
                 self.total_amount = flt(self.estimated_revenue) or 0
             return
+        realign_charge_row_quantities_from_parent(self, parent_doc)
         rev = calculate_charge_revenue(self, parent_doc)
         cost = calculate_charge_cost(self, parent_doc)
+        if rev.get("quantity") is not None and hasattr(self, "quantity"):
+            self.quantity = flt(rev.get("quantity"))
+        if cost.get("cost_quantity") is not None and hasattr(self, "cost_quantity"):
+            self.cost_quantity = flt(cost.get("cost_quantity"))
         if hasattr(self, "actual_revenue"):
             self.actual_revenue = flt(rev.get("amount", 0))
         if hasattr(self, "actual_cost"):

@@ -2733,37 +2733,26 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 		
 		# Get default currency from system settings
 		default_currency = frappe.get_system_settings("currency") or "USD"
-		
-		# Map unit_type to calculation_method and quantity
-		unit_type_to_calc = {
-			"Weight": "Per Unit",
-			"Chargeable Weight": "Per Unit",
-			"Volume": "Per Unit",
-			"Package": "Per Unit",
-			"Piece": "Per Unit",
-			"Shipment": "Flat Rate"
-		}
-		calculation_method = unit_type_to_calc.get(_af_r("unit_type"), "Flat Rate")
-		
-		# Get quantity based on unit_type
-		quantity = 0
-		if _af_r("unit_type") == "Chargeable Weight":
-			quantity = flt(
-				air_shipment.get("chargeable", 0)
-				or air_shipment.get("chargeable_weight", 0)
-			)
-		elif _af_r("unit_type") == "Weight":
-			quantity = flt(air_shipment.get("total_weight") or air_shipment.get("weight")) or 0
-		elif _af_r("unit_type") == "Volume":
-			quantity = flt(air_shipment.get("total_volume") or air_shipment.get("volume")) or 0
-		elif _af_r("unit_type") in ("Package", "Piece"):
-			if hasattr(air_shipment, 'packages') and air_shipment.packages:
-				quantity = len(air_shipment.packages)
-			else:
-				quantity = 1
-		elif _af_r("unit_type") == "Shipment" or calculation_method == "Flat Rate":
+
+		unit_type = _af_r("unit_type")
+		from logistics.utils.charges_calculation import get_quantity_from_parent_by_unit_type
+
+		quantity = get_quantity_from_parent_by_unit_type(air_shipment, unit_type)
+		if unit_type in ("Package", "Piece") and flt(quantity) <= 0:
 			quantity = 1
-		
+		cost_unit_type = _af_r("cost_unit_type")
+		cost_quantity = (
+			get_quantity_from_parent_by_unit_type(air_shipment, cost_unit_type)
+			if cost_unit_type
+			else None
+		)
+		if cost_unit_type in ("Package", "Piece") and flt(cost_quantity or 0) <= 0:
+			cost_quantity = 1
+
+		revenue_calculation_method = (
+			_af_r("revenue_calculation_method") or _af_r("calculation_method") or "Per Unit"
+		)
+
 		from logistics.utils.charges_calculation import normalize_operational_charge_type
 
 		raw_charge_type = _af_r("charge_type") or (
@@ -2799,10 +2788,11 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 			"description": _af_description,
 			"charge_type": charge_type,
 			"charge_category": charge_category,
-			"revenue_calculation_method": _af_r("revenue_calculation_method") or _af_r("calculation_method") or calculation_method,
+			"revenue_calculation_method": revenue_calculation_method,
 			"unit_rate": _af_r("unit_rate") or 0,
 			"currency": _af_r("currency") or default_currency,
 			"quantity": quantity,
+			"unit_type": unit_type,
 			"unit_of_measure": normalized_uom,
 			"billing_status": "To Bill",
 			"bill_to": getattr(sqaf_record, "bill_to", None),
@@ -2823,6 +2813,16 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 			charge_data["minimum_charge"] = _af_r("minimum_charge")
 		if _af_r("maximum_charge"):
 			charge_data["maximum_charge"] = _af_r("maximum_charge")
+		if _af_r("cost_calculation_method"):
+			charge_data["cost_calculation_method"] = _af_r("cost_calculation_method")
+		if _af_r("unit_cost") is not None:
+			charge_data["unit_cost"] = _af_r("unit_cost")
+		if cost_unit_type:
+			charge_data["cost_unit_type"] = cost_unit_type
+		if cost_quantity is not None:
+			charge_data["cost_quantity"] = cost_quantity
+		if _af_r("cost_currency"):
+			charge_data["cost_currency"] = _af_r("cost_currency")
 
 		if _af_r("apply_95_5_rule") is not None:
 			charge_data["apply_95_5_rule"] = cint(_af_r("apply_95_5_rule"))
