@@ -369,16 +369,35 @@ frappe.ui.form.on("Declaration", {
 		if (window.logistics && logistics.schedule_customs_line_charge_recalc) {
 			logistics.schedule_customs_line_charge_recalc(frm);
 		}
+		if (window.logistics && logistics.schedule_commercial_invoice_totals_recalc) {
+			logistics.schedule_commercial_invoice_totals_recalc(frm);
+		}
 	},
 	inv_total_amount(frm) {
 		_auto_set_payment_status(frm);
-		_declaration_recalculate_balance(frm);
+		if (window.logistics && logistics.schedule_commercial_invoice_totals_recalc) {
+			logistics.schedule_commercial_invoice_totals_recalc(frm);
+		}
 	},
 	inv_currency(frm) {
-		_declaration_recalculate_balance(frm);
+		if (window.logistics && logistics.schedule_commercial_invoice_totals_recalc) {
+			logistics.schedule_commercial_invoice_totals_recalc(frm);
+		}
 	},
-	inv_exchange_rate(frm) {
-		_declaration_recalculate_balance(frm);
+	charges_excl_from_itot(frm) {
+		if (window.logistics && logistics.schedule_commercial_invoice_totals_recalc) {
+			logistics.schedule_commercial_invoice_totals_recalc(frm);
+		}
+	},
+	commercial_invoice_charges_add(frm) {
+		if (window.logistics && logistics.schedule_commercial_invoice_totals_recalc) {
+			logistics.schedule_commercial_invoice_totals_recalc(frm);
+		}
+	},
+	commercial_invoice_charges_remove(frm) {
+		if (window.logistics && logistics.schedule_commercial_invoice_totals_recalc) {
+			logistics.schedule_commercial_invoice_totals_recalc(frm);
+		}
 	},
 	payment_amount(frm) {
 		_auto_set_payment_status(frm);
@@ -494,7 +513,10 @@ frappe.ui.form.on("Declaration", {
 	
 	refresh(frm) {
 		_declaration_processing_date_field_state(frm);
-		_declaration_recalculate_balance(frm);
+		_auto_set_payment_status(frm);
+		if (window.logistics && logistics.apply_commercial_invoice_totals_to_form) {
+			logistics.apply_commercial_invoice_totals_to_form(frm);
+		}
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
