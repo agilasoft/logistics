@@ -541,6 +541,24 @@ def get_quantity_from_parent_by_unit_type(parent_doc: Any, unit_type: Optional[s
     return _get_quantity_for_calculation_method(actual_data, "Per Unit", ut, is_revenue=True)
 
 
+def realign_charge_row_quantities_from_parent(
+    charge_doc: Any, parent_doc: Optional[Any]
+) -> None:
+    """Set Per Unit quantity/cost_quantity from parent metrics and unit_type (Job → 1, not weight)."""
+    if not parent_doc:
+        return
+    rev_method = _get_field(charge_doc, *REVENUE_METHOD_FIELDS)
+    if rev_method == "Per Unit":
+        ut = _get_field(charge_doc, *UNIT_TYPE_FIELDS)
+        if ut and hasattr(charge_doc, "quantity"):
+            charge_doc.quantity = get_quantity_from_parent_by_unit_type(parent_doc, ut)
+    cost_method = _get_field(charge_doc, *COST_METHOD_FIELDS)
+    if cost_method == "Per Unit":
+        cut = _get_field(charge_doc, *COST_UNIT_TYPE_FIELDS)
+        if cut and hasattr(charge_doc, "cost_quantity"):
+            charge_doc.cost_quantity = get_quantity_from_parent_by_unit_type(parent_doc, cut)
+
+
 def _normalize_calculation_method(method: str, unit_type: str) -> tuple:
     """Map legacy values (e.g. Per kg) to engine calculation_method and unit_type."""
     if not method:
