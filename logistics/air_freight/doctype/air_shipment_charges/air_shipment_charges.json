@@ -393,7 +393,6 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Bill To",
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer",
    "read_only_depends_on": "eval:doc.charge_type=='Cost'"
   },

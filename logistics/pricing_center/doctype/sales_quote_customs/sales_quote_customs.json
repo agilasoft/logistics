@@ -386,8 +386,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Bill To",
-   "options": "Customer",
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+   "options": "Customer"
   },
   {
    "fieldname": "pay_to",
