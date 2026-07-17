@@ -157,9 +157,83 @@ function _to_num(value) {
 	return isNaN(n) ? 0 : n;
 }
 
+function _normalize_currency_code(currency) {
+	return (currency || "").trim();
+}
+
+function _amount_to_declaration_currency(doc, amount, from_currency, rateField) {
+	var amt = _to_num(amount);
+	var fromCur = _normalize_currency_code(from_currency);
+	var docCur = _normalize_currency_code(doc.currency);
+	if (!fromCur || !docCur || fromCur === docCur) {
+		return amt;
+	}
+	var rate = flt(doc[rateField]);
+	if (rate) {
+		return amt * rate;
+	}
+	return null;
+}
+
+function _declaration_amount_to_invoice_currency(doc, amount) {
+	var amt = _to_num(amount);
+	var invCur = _normalize_currency_code(doc.inv_currency);
+	var docCur = _normalize_currency_code(doc.currency);
+	if (!invCur || !docCur || invCur === docCur) {
+		return amt;
+	}
+	var rate = flt(doc.inv_exchange_rate);
+	if (rate) {
+		return amt / rate;
+	}
+	return null;
+}
+
+function _payment_amount_to_invoice_currency(doc) {
+	var payCur = _normalize_currency_code(doc.payment_currency);
+	var invCur = _normalize_currency_code(doc.inv_currency);
+	var paid = _to_num(doc.payment_amount);
+	if (!paid) {
+		return 0;
+	}
+	if (payCur && invCur && payCur === invCur) {
+		return paid;
+	}
+	var amtDecl = _amount_to_declaration_currency(doc, paid, payCur, "payment_ex_rate");
+	if (amtDecl === null) {
+		return null;
+	}
+	return _declaration_amount_to_invoice_currency(doc, amtDecl);
+}
+
+function _declaration_recalculate_balance(frm) {
+	var invTotal = _to_num(frm.doc.inv_total_amount);
+	if (!invTotal) {
+		frm.set_value("balance", "");
+		return;
+	}
+	var paidInInv = _payment_amount_to_invoice_currency(frm.doc);
+	if (paidInInv === null && _to_num(frm.doc.payment_amount)) {
+		frm.set_value("balance", "");
+		return;
+	}
+	var balance = Math.max(0, invTotal - _to_num(paidInInv));
+	var formatted = balance.toFixed(2);
+	if (frm.doc.balance !== formatted) {
+		frm.set_value("balance", formatted);
+	}
+}
+
 function _auto_set_payment_status(frm) {
 	var totalAmount = _to_num(frm.doc.inv_total_amount);
-	var paidAmount = _to_num(frm.doc.payment_amount);
+	var paidAmount = _payment_amount_to_invoice_currency(frm.doc);
+	if (paidAmount === null) {
+		if (_to_num(frm.doc.payment_amount) > 0) {
+			frm.set_value("payment_status", "Partially Paid");
+			return;
+		}
+		paidAmount = 0;
+	}
 	var dueDate = frm.doc.payment_date;
 	var todayStr = frappe.datetime.get_today();
 
@@ -255,6 +329,26 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 	frm.set_df_property("charges", "allow_bulk_edit", 0);
 }
 
+function _declaration_processing_date_constraints(frm) {
+	const today = frappe.datetime.str_to_obj(frappe.datetime.get_today());
+	["approval_date", "rejection_date"].forEach((fieldname) => {
+		const c = frm.fields_dict[fieldname];
+		if (!c || !c.datepicker) {
+			return;
+		}
+		c.datepicker.update({ maxDate: moment(today) });
+	});
+}
+
+/** Approval and rejection dates are mutually exclusive in Processing Information. */
+function _declaration_processing_date_field_state(frm) {
+	const has_rejection = !!frm.doc.rejection_date;
+	const has_approval = !!frm.doc.approval_date;
+	frm.set_df_property("approval_date", "read_only", has_rejection ? 1 : 0);
+	frm.set_df_property("rejection_date", "read_only", has_approval ? 1 : 0);
+	_declaration_processing_date_constraints(frm);
+}
+
 frappe.ui.form.on("Declaration", {
 	duty_amount(frm) {
 		_declaration_recalculate_total_payable(frm);
@@ -275,15 +369,65 @@ frappe.ui.form.on("Declaration", {
 		if (window.logistics && logistics.schedule_customs_line_charge_recalc) {
 			logistics.schedule_customs_line_charge_recalc(frm);
 		}
+		if (window.logistics && logistics.schedule_commercial_invoice_totals_recalc) {
+			logistics.schedule_commercial_invoice_totals_recalc(frm);
+		}
 	},
 	inv_total_amount(frm) {
 		_auto_set_payment_status(frm);
+		if (window.logistics && logistics.schedule_commercial_invoice_totals_recalc) {
+			logistics.schedule_commercial_invoice_totals_recalc(frm);
+		}
+	},
+	inv_currency(frm) {
+		if (window.logistics && logistics.schedule_commercial_invoice_totals_recalc) {
+			logistics.schedule_commercial_invoice_totals_recalc(frm);
+		}
+	},
+	charges_excl_from_itot(frm) {
+		if (window.logistics && logistics.schedule_commercial_invoice_totals_recalc) {
+			logistics.schedule_commercial_invoice_totals_recalc(frm);
+		}
+	},
+	commercial_invoice_charges_add(frm) {
+		if (window.logistics && logistics.schedule_commercial_invoice_totals_recalc) {
+			logistics.schedule_commercial_invoice_totals_recalc(frm);
+		}
+	},
+	commercial_invoice_charges_remove(frm) {
+		if (window.logistics && logistics.schedule_commercial_invoice_totals_recalc) {
+			logistics.schedule_commercial_invoice_totals_recalc(frm);
+		}
 	},
 	payment_amount(frm) {
 		_auto_set_payment_status(frm);
+		_declaration_recalculate_balance(frm);
+	},
+	payment_currency(frm) {
+		_auto_set_payment_status(frm);
+		_declaration_recalculate_balance(frm);
+	},
+	payment_ex_rate(frm) {
+		_auto_set_payment_status(frm);
+		_declaration_recalculate_balance(frm);
+	},
+	currency(frm) {
+		_declaration_recalculate_balance(frm);
 	},
 	payment_date(frm) {
 		_auto_set_payment_status(frm);
+	},
+	approval_date(frm) {
+		if (frm.doc.approval_date && frm.doc.rejection_date) {
+			frm.set_value("rejection_date", null);
+		}
+		_declaration_processing_date_field_state(frm);
+	},
+	rejection_date(frm) {
+		if (frm.doc.rejection_date && frm.doc.approval_date) {
+			frm.set_value("approval_date", null);
+		}
+		_declaration_processing_date_field_state(frm);
 	},
 	document_list_template: function (frm) {
 		if (!frm.doc.name || frm.doc.__islocal) return;
@@ -368,6 +512,11 @@ frappe.ui.form.on("Declaration", {
 	},
 	
 	refresh(frm) {
+		_declaration_processing_date_field_state(frm);
+		_auto_set_payment_status(frm);
+		if (window.logistics && logistics.apply_commercial_invoice_totals_to_form) {
+			logistics.apply_commercial_invoice_totals_to_form(frm);
+		}
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}

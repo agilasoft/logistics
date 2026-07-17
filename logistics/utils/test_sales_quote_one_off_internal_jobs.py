@@ -470,3 +470,29 @@ class TestBookingMappersApplyScopeTagging(FrappeTestCase):
 					f"{func_name} in {rel_path} must call extend_charge_fields_with_scope_and_internal_job "
 					"so the per-charge Internal Job link is fetched from the SQ.",
 				)
+
+	def test_customs_populate_paths_apply_scope_tagging(self):
+		"""Declaration / Declaration Order SQ charge copy must keep Linked vs Main."""
+		import os
+
+		app_root = frappe.get_app_path("logistics", "..")
+		sources = (
+			"logistics/customs/doctype/declaration_order/declaration_order.py",
+			"logistics/customs/doctype/declaration/declaration.py",
+		)
+		for rel_path in sources:
+			with self.subTest(path=rel_path):
+				full_path = os.path.normpath(os.path.join(app_root, rel_path))
+				with open(full_path) as fh:
+					src = fh.read()
+				self.assertIn(
+					"apply_scope_tagging_to_mapped_charge",
+					src,
+					f"{rel_path} must call apply_scope_tagging_to_mapped_charge so Linked "
+					"quote charges stay Linked on the customs job.",
+				)
+				self.assertIn(
+					"linked_service",
+					src,
+					f"{rel_path} must copy linked_service when transferring charge scope.",
+				)

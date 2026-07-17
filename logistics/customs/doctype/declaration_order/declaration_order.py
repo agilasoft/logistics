@@ -214,8 +214,8 @@ class DeclarationOrder(Document):
 				row_dict["revenue_calc_notes"] = row.revenue_calc_notes
 			if hasattr(row, "cost_calc_notes"):
 				row_dict["cost_calc_notes"] = row.cost_calc_notes
-			if hasattr(row, "rate"):
-				row_dict["rate"] = row.rate
+			if hasattr(row, "unit_rate"):
+				row_dict["unit_rate"] = row.unit_rate
 
 	def _validate_etd_eta(self):
 		"""Departure must not be after arrival (same calendar day allowed)."""
@@ -311,6 +311,9 @@ class DeclarationOrder(Document):
 				apply_linked_services_from_sales_quote_on_fetch(sq, self)
 		# After propagation / charge overlay so transport_mode is final; fills default doc type when still empty.
 		apply_default_transport_document_type(self)
+		from logistics.utils.commercial_invoice_totals import apply_commercial_invoice_totals
+
+		apply_commercial_invoice_totals(self)
 
 	def before_submit(self):
 		"""Prevent submission if no Sales Quote is linked to this Declaration Order.
@@ -516,16 +519,18 @@ class DeclarationOrder(Document):
 			# Keep in sync with populate_charges_from_sales_quote (API / client): bill_to, pay_to, sales_quote_link, tariffs
 			common_fields = [
 				"service_type", "item_code", "item_name", "description", "charge_type", "charge_category", "quantity", "uom",
-				"currency", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
+				"currency", "unit_rate", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
 				"maximum_charge", "base_amount", "base_quantity", "estimated_revenue",
 				"revenue_calculation_method",
 				"cost_calculation_method", "cost_quantity", "cost_uom", "cost_currency", "unit_cost",
 				"cost_unit_type", "cost_minimum_quantity", "cost_minimum_unit_rate", "cost_minimum_charge",
 				"cost_maximum_charge", "cost_base_amount", "cost_base_quantity", "estimated_cost",
-				"revenue_calc_notes", "cost_calc_notes", "charge_basis", "rate",
+				"revenue_calc_notes", "cost_calc_notes",
 				"use_tariff_in_revenue", "revenue_tariff", "use_tariff_in_cost", "cost_tariff",
 				"bill_to", "bill_to_exchange_rate", "pay_to", "pay_to_exchange_rate",
 			]
+			from logistics.utils.sales_quote_charge_copy import apply_scope_tagging_to_mapped_charge
+
 			self.set("charges", [])
 			sq_name = self.sales_quote
 			for sq_charge in sq_charges:
@@ -538,12 +543,12 @@ class DeclarationOrder(Document):
 				_rev_basis = _ch_get(sq_charge, "revenue_calculation_method") or _ch_get(
 					sq_charge, "calculation_method"
 				)
-				if "charge_basis" in charge_fields and _rev_basis:
-					row.set("charge_basis", _rev_basis)
-				if "rate" in charge_fields and _ch_get(sq_charge, "unit_rate") is not None:
-					row.set("rate", _ch_get(sq_charge, "unit_rate"))
 				if "revenue_calculation_method" in charge_fields and _rev_basis:
 					row.set("revenue_calculation_method", _rev_basis)
+				if "unit_rate" in charge_fields and row.get("unit_rate") is None:
+					unit_rate = _ch_get(sq_charge, "unit_rate")
+					if unit_rate is not None:
+						row.set("unit_rate", unit_rate)
 				legacy_tariff = _ch_get(sq_charge, "tariff")
 				if legacy_tariff and not row.get("revenue_tariff") and not row.get("cost_tariff"):
 					if "revenue_tariff" in charge_fields and (
@@ -566,6 +571,12 @@ class DeclarationOrder(Document):
 					)
 				if "charge_type" in charge_fields and not row.get("charge_type"):
 					row.set("charge_type", "Revenue")
+				# Keep Main/Linked + linked_service from the quote (remapped after LS clone).
+				scope_vals = {}
+				apply_scope_tagging_to_mapped_charge(sq_charge, scope_vals)
+				for fn, val in scope_vals.items():
+					if fn in charge_fields and val is not None:
+						row.set(fn, val)
 		except Exception as e:
 			frappe.log_error(f"Error populating Declaration Order charges from Sales Quote: {str(e)}")
 
@@ -758,13 +769,13 @@ def populate_charges_from_sales_quote(
 		charge_fields = [f.fieldname for f in meta.fields]
 		common_fields = [
 			"service_type", "item_code", "item_name", "description", "charge_type", "charge_category", "quantity", "uom",
-			"currency", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
+			"currency", "unit_rate", "unit_type", "minimum_quantity", "minimum_unit_rate", "minimum_charge",
 			"maximum_charge", "base_amount", "base_quantity", "estimated_revenue",
 			"revenue_calculation_method",
 			"cost_calculation_method", "cost_quantity", "cost_uom", "cost_currency", "unit_cost",
 			"cost_unit_type", "cost_minimum_quantity", "cost_minimum_unit_rate", "cost_minimum_charge",
 			"cost_maximum_charge", "cost_base_amount", "cost_base_quantity", "estimated_cost",
-			"revenue_calc_notes", "cost_calc_notes", "charge_basis", "rate",
+			"revenue_calc_notes", "cost_calc_notes",
 			"use_tariff_in_revenue", "revenue_tariff", "use_tariff_in_cost", "cost_tariff",
 			"bill_to", "bill_to_exchange_rate", "pay_to", "pay_to_exchange_rate",
 		]
@@ -773,6 +784,8 @@ def populate_charges_from_sales_quote(
 
 		def _ch_get(ch, fn, default=None):
 			return ch.get(fn, default) if isinstance(ch, dict) else getattr(ch, fn, default)
+
+		from logistics.utils.sales_quote_charge_copy import apply_scope_tagging_to_mapped_charge
 
 		charges = []
 		for sq_charge in sq_charges:
@@ -786,12 +799,12 @@ def populate_charges_from_sales_quote(
 			_rev_basis = _ch_get(sq_charge, "revenue_calculation_method") or _ch_get(
 				sq_charge, "calculation_method"
 			)
-			if "charge_basis" in charge_fields and _rev_basis:
-				row["charge_basis"] = _rev_basis
-			if "rate" in charge_fields and _ch_get(sq_charge, "unit_rate") is not None:
-				row["rate"] = _ch_get(sq_charge, "unit_rate")
 			if "revenue_calculation_method" in charge_fields and _rev_basis:
 				row["revenue_calculation_method"] = _rev_basis
+			if "unit_rate" in charge_fields and row.get("unit_rate") is None:
+				unit_rate = _ch_get(sq_charge, "unit_rate")
+				if unit_rate is not None:
+					row["unit_rate"] = unit_rate
 			# Map legacy tariff field to revenue_tariff and cost_tariff if they exist
 			legacy_tariff = _ch_get(sq_charge, "tariff")
 			if legacy_tariff and not row.get("revenue_tariff") and not row.get("cost_tariff"):
@@ -814,6 +827,14 @@ def populate_charges_from_sales_quote(
 				)
 			if "charge_type" not in row or not row.get("charge_type"):
 				row["charge_type"] = "Revenue"
+			# Keep Main/Linked + linked_service from the quote (remapped after LS clone).
+			apply_scope_tagging_to_mapped_charge(sq_charge, row)
+			if "linked_service" not in charge_fields:
+				row.pop("linked_service", None)
+			if "internal_job" not in charge_fields:
+				row.pop("internal_job", None)
+			if "charge_scope" not in charge_fields:
+				row.pop("charge_scope", None)
 			if row:
 				charges.append(row)
 		if isinstance(parent, Document) and charges:

@@ -555,12 +555,14 @@
   {
    "fieldname": "cif",
    "fieldtype": "Currency",
-   "label": "CIF"
+   "label": "CIF",
+   "options": "inv_currency"
   },
   {
    "fieldname": "fob",
    "fieldtype": "Currency",
-   "label": "FOB"
+   "label": "FOB",
+   "options": "inv_currency"
   },
   {
    "default": "0",
@@ -571,7 +573,8 @@
   {
    "fieldname": "expected_invoice_line_total",
    "fieldtype": "Currency",
-   "label": "Expected Invoice Line Total"
+   "label": "Expected Invoice Line Total",
+   "options": "inv_currency"
   },
   {
    "fieldname": "column_break_inv_bank",

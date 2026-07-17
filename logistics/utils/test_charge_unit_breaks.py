@@ -11,6 +11,8 @@ from logistics.utils.charges_calculation import (
 	_resolve_unit_break_rate,
 	_spread_row_qty_into_actual_data,
 	calculate_charge_revenue,
+	calculate_charge_cost,
+	realign_charge_row_quantities_from_parent,
 )
 
 
@@ -22,6 +24,70 @@ class TestChargeUnitBreaks(FrappeTestCase):
 		actual_data = {"actual_goods_value": 50000, "actual_quantity": 0}
 		qty = _get_quantity_for_calculation_method(actual_data, "Per Unit", "Value")
 		self.assertEqual(qty, 50000)
+
+	def test_job_unit_type_always_one_not_weight_fallback(self):
+		"""Job must not use actual_quantity (weight/volume fallback) or qty inflates."""
+		actual_data = {
+			"actual_quantity": 100.0,
+			"actual_weight": 100.0,
+			"actual_volume": 8.0,
+			"actual_pieces": 1.0,
+		}
+		qty = _get_quantity_for_calculation_method(actual_data, "Per Unit", "Job")
+		self.assertEqual(qty, 1.0)
+		self.assertEqual(
+			_get_quantity_for_calculation_method(actual_data, "Per Unit", "Shipment"),
+			1.0,
+		)
+
+	def test_realign_charge_row_quantities_job_uses_one_not_weight(self):
+		parent = frappe._dict(doctype="Air Shipment", total_weight=500, total_volume=0, total_pieces=1)
+		charge = frappe._dict(
+			doctype="Air Shipment Charges",
+			revenue_calculation_method="Per Unit",
+			unit_type="Job",
+			quantity=500,
+			cost_calculation_method="Per Unit",
+			cost_unit_type="Job",
+			cost_quantity=500,
+		)
+		realign_charge_row_quantities_from_parent(charge, parent)
+		self.assertEqual(charge.quantity, 1.0)
+		self.assertEqual(charge.cost_quantity, 1.0)
+
+	def test_calculate_charge_revenue_job_unit_on_air_shipment(self):
+		parent = frappe._dict(doctype="Air Shipment", total_weight=500, total_volume=0, total_pieces=1)
+		charge = frappe._dict(
+			doctype="Air Shipment Charges",
+			revenue_calculation_method="Per Unit",
+			unit_type="Job",
+			unit_rate=78000,
+			quantity=500,
+			currency="PHP",
+			parenttype="Air Shipment",
+			parent="ASP-TEST",
+		)
+		result = calculate_charge_revenue(charge, parent)
+		self.assertTrue(result.get("success"))
+		self.assertEqual(result.get("amount"), 78000.0)
+		self.assertEqual(charge.quantity, 1.0)
+
+	def test_calculate_charge_cost_job_unit_on_air_shipment(self):
+		parent = frappe._dict(doctype="Air Shipment", total_weight=500, total_volume=0, total_pieces=1)
+		charge = frappe._dict(
+			doctype="Air Shipment Charges",
+			cost_calculation_method="Per Unit",
+			cost_unit_type="Job",
+			unit_cost=12000,
+			cost_quantity=500,
+			cost_currency="PHP",
+			parenttype="Air Shipment",
+			parent="ASP-TEST",
+		)
+		result = calculate_charge_cost(charge, parent)
+		self.assertTrue(result.get("success"))
+		self.assertEqual(result.get("amount"), 12000.0)
+		self.assertEqual(charge.cost_quantity, 1.0)
 
 	def test_charge_side_uses_unit_breaks_flag(self):
 		row = frappe._dict(use_unit_breaks=1, cost_use_unit_breaks=0)

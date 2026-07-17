@@ -525,11 +525,12 @@
 		}
 	}
 
-	var JOB_DOCTYPES_FOR_PI = ["Transport Job", "Air Shipment", "Sea Shipment", "Warehouse Job", "Declaration", "Special Project", "Docket"];
+	var JOB_DOCTYPES_FOR_PI = ["Transport Job", "Air Shipment", "Sea Shipment", "Warehouse Job", "Declaration", "Special Project", "Docket", "MICE Project"];
 	JOB_DOCTYPES_FOR_PI.forEach(function(doctype) {
 		frappe.ui.form.on(doctype, {
 			refresh: function(frm) {
-				set_requested_charge_rows_readonly(frm, "charges");
+				var charges_field = doctype === "MICE Project" ? "consolidation_charges" : "charges";
+				set_requested_charge_rows_readonly(frm, charges_field);
 			}
 		});
 	});

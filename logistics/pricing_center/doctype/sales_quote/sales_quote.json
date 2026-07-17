@@ -650,7 +650,7 @@
    "fieldtype": "Select",
    "label": "Job Type",
    "no_copy": 1,
-   "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration\nSpecial Project",
+   "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration\nSpecial Project\nDocket",
    "read_only": 1
   },
   {

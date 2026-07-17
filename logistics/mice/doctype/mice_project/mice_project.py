@@ -1043,26 +1043,90 @@ _OPERATIONAL_JOB_TYPES = (
 	"Warehouse Job",
 )
 
+_BOOKING_ORDER_TYPES = (
+	"Air Booking",
+	"Sea Booking",
+	"Transport Order",
+	"Declaration Order",
+	"Inbound Order",
+	"Release Order",
+	"Transfer Order",
+)
+
+_DISPLAY_JOB_TYPES = frozenset(_OPERATIONAL_JOB_TYPES + _BOOKING_ORDER_TYPES)
+_BOOKING_ORDER_TYPE_SET = frozenset(_BOOKING_ORDER_TYPES)
+
 _SERVICE_LABEL_BY_JOB_TYPE = {
 	"Air Shipment": "Air",
+	"Air Booking": "Air",
 	"Sea Shipment": "Sea",
+	"Sea Booking": "Sea",
 	"Transport Job": "Transport",
+	"Transport Order": "Transport",
 	"Declaration": "Customs",
+	"Declaration Order": "Customs",
 	"Warehouse Job": "Warehousing",
+	"Inbound Order": "Warehousing",
+	"Release Order": "Warehousing",
+	"Transfer Order": "Warehousing",
 }
 
 _SERVICE_LABEL_ORDER = ("Air", "Sea", "Transport", "Customs", "Warehousing")
 
 
+def _docstatus_to_status_label(docstatus):
+	"""Map Frappe docstatus to a display status label."""
+	ds = frappe.utils.cint(docstatus)
+	if ds == 1:
+		return "Submitted"
+	if ds == 2:
+		return "Cancelled"
+	return "Draft"
+
+
+def _iter_docket_linked_service_rows(docket_name):
+	"""Yield ``(job_type, job_no)`` from Linked Service, with Internal Job Detail fallback."""
+	from logistics.utils.linked_service_compat import (
+		LEGACY_INTERNAL_JOB_DETAIL_DOCTYPE,
+		LINKED_SERVICE_DOCTYPE,
+	)
+
+	if frappe.db.exists("DocType", LINKED_SERVICE_DOCTYPE):
+		for row in frappe.get_all(
+			LINKED_SERVICE_DOCTYPE,
+			filters={
+				"parent_booking_type": "Docket",
+				"parent_booking_name": docket_name,
+			},
+			fields=["job_type", "job_no"],
+		):
+			yield row.get("job_type"), row.get("job_no")
+
+	# Legacy child-table storage (pre Linked Service migration).
+	if frappe.db.exists("DocType", LEGACY_INTERNAL_JOB_DETAIL_DOCTYPE):
+		for row in frappe.get_all(
+			LEGACY_INTERNAL_JOB_DETAIL_DOCTYPE,
+			filters={"parent": docket_name, "parenttype": "Docket"},
+			fields=["job_type", "job_no"],
+		):
+			yield row.get("job_type"), row.get("job_no")
+
+
 def _resolve_docket_operational_jobs(docket_name):
-	"""Return deduplicated operational job keys for a Docket."""
+	"""Return deduplicated booking/order and operational job keys for a Docket.
+
+	Sources:
+	  * Job Number rows stamped with ``docket`` (operational types).
+	  * Linked Service docs owned by the Docket (bookings/orders → resolve shipments/jobs).
+	  * Legacy Internal Job Detail child rows when Linked Service is unavailable.
+	"""
 	seen = set()
 	results = []
 
 	def _add(job_type, job_no):
 		jt = (job_type or "").strip()
 		jn = (job_no or "").strip()
-		if jt not in _OPERATIONAL_JOB_TYPES or not jn:
+		if jt not in _DISPLAY_JOB_TYPES or not jn:
 			return
 		key = (jt, jn)
 		if key in seen:
@@ -1079,19 +1143,31 @@ def _resolve_docket_operational_jobs(docket_name):
 
 	from logistics.mice.doctype.docket.docket import _resolve_operational_jobs_for_internal_row
 
-	for row in frappe.get_all(
-		"Internal Job Detail",
-		filters={"parent": docket_name, "parenttype": "Docket"},
-		fields=["job_type", "job_no"],
-	):
-		jt = (row.get("job_type") or "").strip()
-		jn = (row.get("job_no") or "").strip()
+	for jt_raw, jn_raw in _iter_docket_linked_service_rows(docket_name):
+		jt = (jt_raw or "").strip()
+		jn = (jn_raw or "").strip()
 		if not jt or not jn:
 			continue
 		for op_jt, op_jn in _resolve_operational_jobs_for_internal_row(jt, jn):
 			_add(op_jt, op_jn)
 
 	return results
+
+
+def _job_status_count_label(jobs):
+	"""Return a short count label distinguishing bookings from operational jobs."""
+	n_bookings = sum(1 for j in jobs if (j.get("job_type") or "") in _BOOKING_ORDER_TYPE_SET)
+	n_ops = len(jobs) - n_bookings
+	parts = []
+	if n_bookings:
+		bw = _("booking") if n_bookings == 1 else _("bookings")
+		parts.append(f"{n_bookings} {bw}")
+	if n_ops:
+		jw = _("job") if n_ops == 1 else _("jobs")
+		parts.append(f"{n_ops} {jw}")
+	if not parts:
+		return f"0 {_('jobs')}"
+	return " · ".join(parts)
 
 
 def _fetch_transport_job_endpoints(transport_job_names):
@@ -1123,9 +1199,105 @@ def _fetch_transport_job_endpoints(transport_job_names):
 	}
 
 
+def _status_map_entry(
+	job_type,
+	name,
+	*,
+	job_status,
+	origin_code="",
+	destination_code="",
+	origin_kind="text",
+	destination_kind="text",
+	modified=None,
+):
+	return {
+		"job_type": job_type,
+		"name": name,
+		"service_label": _SERVICE_LABEL_BY_JOB_TYPE.get(job_type) or job_type,
+		"job_status": (job_status or "").strip() or "Draft",
+		"origin_code": (origin_code or "").strip(),
+		"destination_code": (destination_code or "").strip(),
+		"origin_kind": origin_kind,
+		"destination_kind": destination_kind,
+		"modified": modified,
+	}
+
+
+def _fetch_booking_order_statuses(by_type, status_map):
+	"""Append booking/order rows into ``status_map`` (mutates in place)."""
+	# Sea / Air bookings: ports + status field (or docstatus fallback).
+	for job_type, status_field in (
+		("Sea Booking", "shipping_status"),
+		("Air Booking", None),
+	):
+		names = by_type.get(job_type) or []
+		if not names:
+			continue
+		fields = ["name", "docstatus", "origin_port", "destination_port", "modified"]
+		if status_field:
+			fields.append(status_field)
+		for row in frappe.get_all(job_type, filters={"name": ["in", names]}, fields=fields):
+			if status_field:
+				status = (row.get(status_field) or "").strip() or _docstatus_to_status_label(
+					row.get("docstatus")
+				)
+			else:
+				status = _docstatus_to_status_label(row.get("docstatus"))
+			status_map[(job_type, row.name)] = _status_map_entry(
+				job_type,
+				row.name,
+				job_status=status,
+				origin_code=row.get("origin_port"),
+				destination_code=row.get("destination_port"),
+				origin_kind="unloco",
+				destination_kind="unloco",
+				modified=row.get("modified"),
+			)
+
+	# Declaration Order has an explicit status Select.
+	names = by_type.get("Declaration Order") or []
+	if names:
+		for row in frappe.get_all(
+			"Declaration Order",
+			filters={"name": ["in", names]},
+			fields=["name", "status", "docstatus", "modified"],
+		):
+			status = (row.get("status") or "").strip() or _docstatus_to_status_label(
+				row.get("docstatus")
+			)
+			status_map[("Declaration Order", row.name)] = _status_map_entry(
+				"Declaration Order",
+				row.name,
+				job_status=status,
+				modified=row.get("modified"),
+			)
+
+	# Transport + warehouse orders: docstatus only (no dedicated status / ports).
+	for job_type in (
+		"Transport Order",
+		"Inbound Order",
+		"Release Order",
+		"Transfer Order",
+	):
+		names = by_type.get(job_type) or []
+		if not names:
+			continue
+		for row in frappe.get_all(
+			job_type,
+			filters={"name": ["in", names]},
+			fields=["name", "docstatus", "modified"],
+		):
+			status_map[(job_type, row.name)] = _status_map_entry(
+				job_type,
+				row.name,
+				job_status=_docstatus_to_status_label(row.get("docstatus")),
+				modified=row.get("modified"),
+			)
+
+
 def _fetch_operational_job_statuses(job_keys):
-	"""Batch-fetch operational job fields linked to a docket."""
-	by_type = {jt: [] for jt in _OPERATIONAL_JOB_TYPES}
+	"""Batch-fetch booking/order and operational job fields linked to a docket."""
+	by_type = {jt: [] for jt in _DISPLAY_JOB_TYPES}
 	for item in job_keys or []:
 		jt = (item.get("job_type") or "").strip()
 		jn = (item.get("job_no") or "").strip()
@@ -1135,79 +1307,74 @@ def _fetch_operational_job_statuses(job_keys):
 	status_map = {}
 	transport_endpoints = _fetch_transport_job_endpoints(by_type.get("Transport Job") or [])
 
-	for job_type, names in by_type.items():
+	for job_type in _OPERATIONAL_JOB_TYPES:
+		names = by_type.get(job_type) or []
 		if not names:
 			continue
 		if job_type in ("Air Shipment", "Sea Shipment"):
 			fields = ["name", "job_status", "origin_port", "destination_port", "modified"]
 			for row in frappe.get_all(job_type, filters={"name": ["in", names]}, fields=fields):
-				status = (row.get("job_status") or "").strip() or "Draft"
-				status_map[(job_type, row.name)] = {
-					"job_type": job_type,
-					"name": row.name,
-					"service_label": _SERVICE_LABEL_BY_JOB_TYPE[job_type],
-					"job_status": status,
-					"origin_code": (row.get("origin_port") or "").strip(),
-					"destination_code": (row.get("destination_port") or "").strip(),
-					"origin_kind": "unloco",
-					"destination_kind": "unloco",
-					"modified": row.get("modified"),
-				}
+				status_map[(job_type, row.name)] = _status_map_entry(
+					job_type,
+					row.name,
+					job_status=(row.get("job_status") or "").strip() or "Draft",
+					origin_code=row.get("origin_port"),
+					destination_code=row.get("destination_port"),
+					origin_kind="unloco",
+					destination_kind="unloco",
+					modified=row.get("modified"),
+				)
 		elif job_type == "Transport Job":
 			for row in frappe.get_all(
 				"Transport Job",
 				filters={"name": ["in", names]},
 				fields=["name", "status", "modified"],
 			):
-				status = (row.get("status") or "").strip() or "Draft"
 				first_pick, last_drop = transport_endpoints.get(row.name, ("", ""))
-				status_map[(job_type, row.name)] = {
-					"job_type": job_type,
-					"name": row.name,
-					"service_label": _SERVICE_LABEL_BY_JOB_TYPE[job_type],
-					"job_status": status,
-					"origin_code": first_pick,
-					"destination_code": last_drop,
-					"origin_kind": "address",
-					"destination_kind": "address",
-					"modified": row.get("modified"),
-				}
+				status_map[(job_type, row.name)] = _status_map_entry(
+					job_type,
+					row.name,
+					job_status=(row.get("status") or "").strip() or "Draft",
+					origin_code=first_pick,
+					destination_code=last_drop,
+					origin_kind="address",
+					destination_kind="address",
+					modified=row.get("modified"),
+				)
 		elif job_type == "Declaration":
 			for row in frappe.get_all(
 				"Declaration",
 				filters={"name": ["in", names]},
 				fields=["name", "job_status", "port_of_loading", "port_of_discharge", "modified"],
 			):
-				status = (row.get("job_status") or "").strip() or "Draft"
-				status_map[(job_type, row.name)] = {
-					"job_type": job_type,
-					"name": row.name,
-					"service_label": _SERVICE_LABEL_BY_JOB_TYPE[job_type],
-					"job_status": status,
-					"origin_code": (row.get("port_of_loading") or "").strip(),
-					"destination_code": (row.get("port_of_discharge") or "").strip(),
-					"origin_kind": "unloco",
-					"destination_kind": "unloco",
-					"modified": row.get("modified"),
-				}
+				status_map[(job_type, row.name)] = _status_map_entry(
+					job_type,
+					row.name,
+					job_status=(row.get("job_status") or "").strip() or "Draft",
+					origin_code=row.get("port_of_loading"),
+					destination_code=row.get("port_of_discharge"),
+					origin_kind="unloco",
+					destination_kind="unloco",
+					modified=row.get("modified"),
+				)
 		elif job_type == "Warehouse Job":
 			for row in frappe.get_all(
 				"Warehouse Job",
 				filters={"name": ["in", names]},
 				fields=["name", "job_status", "reference_order_type", "reference_order", "modified"],
 			):
-				status = (row.get("job_status") or "").strip() or "Draft"
-				status_map[(job_type, row.name)] = {
-					"job_type": job_type,
-					"name": row.name,
-					"service_label": _SERVICE_LABEL_BY_JOB_TYPE[job_type],
-					"job_status": status,
-					"origin_code": (row.get("reference_order_type") or "").strip(),
-					"destination_code": (row.get("reference_order") or "").strip(),
-					"origin_kind": "text",
-					"destination_kind": "text",
-					"modified": row.get("modified"),
-				}
+				status_map[(job_type, row.name)] = _status_map_entry(
+					job_type,
+					row.name,
+					job_status=(row.get("job_status") or "").strip() or "Draft",
+					origin_code=row.get("reference_order_type"),
+					destination_code=row.get("reference_order"),
+					origin_kind="text",
+					destination_kind="text",
+					modified=row.get("modified"),
+				)
+
+	_fetch_booking_order_statuses(by_type, status_map)
 	return status_map
 
 
@@ -1314,8 +1481,7 @@ def _format_shipment_modified(modified):
 
 def _build_operational_jobs_card_html(jobs, status_counts, unloco_labels, address_labels):
 	"""Job Details card: header, status summary, and unified operational jobs table."""
-	n = len(jobs)
-	job_word = _("job") if n == 1 else _("jobs")
+	count_label = _job_status_count_label(jobs)
 	summary_html = " · ".join(
 		f"<strong>{escape_html(status)}:</strong> {count}"
 		for status, count in status_counts.items()
@@ -1325,7 +1491,7 @@ def _build_operational_jobs_card_html(jobs, status_counts, unloco_labels, addres
 		f'<div class="exhibit-shipment-details-card">'
 		f'<div class="exhibit-shipment-details-header">'
 		f'<span class="exhibit-shipment-details-title">{escape_html(_("Job Details"))}</span>'
-		f'<span class="exhibit-shipment-details-count">{n} {escape_html(str(job_word))}</span>'
+		f'<span class="exhibit-shipment-details-count">{escape_html(count_label)}</span>'
 		f"</div>"
 		f'<div class="exhibit-shipment-details-summary">{summary_html}</div>'
 		f'<div class="exhibit-shipment-details-table-wrap">'
@@ -1503,7 +1669,7 @@ def _build_exhibit_job_status_tab_html(exhibit_name, docket_rows=None):
 		docket_link = (
 			f'<a href="{get_url_to_form("Docket", docket_name)}">{escape_html(docket_name)}</a>'
 		)
-		job_word = _("job") if len(jobs) == 1 else _("jobs")
+		count_label = _job_status_count_label(jobs)
 		summary = (
 			f'<details class="exhibit-docket-status-item">'
 			f'<summary class="exhibit-docket-status-item-summary">'
@@ -1512,7 +1678,7 @@ def _build_exhibit_job_status_tab_html(exhibit_name, docket_rows=None):
 			f'<span class="exhibit-docket-status-badge">{escape_html(docket_status)}</span>'
 			f"</div>"
 			f'<span class="exhibit-docket-shipment-count">'
-			f"{len(jobs)} {escape_html(str(job_word))}"
+			f"{escape_html(count_label)}"
 			f"</span>"
 			f"</summary>"
 		)
@@ -1521,7 +1687,7 @@ def _build_exhibit_job_status_tab_html(exhibit_name, docket_rows=None):
 			body = (
 				f'<div class="exhibit-docket-status-body">'
 				f'<p class="exhibit-job-status-empty">'
-				f'{escape_html(_("No operational jobs linked to this docket yet."))}'
+				f'{escape_html(_("No bookings or operational jobs linked to this docket yet."))}'
 				f"</p>"
 				f"</div>"
 			)

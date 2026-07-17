@@ -238,6 +238,7 @@ const CR_JOB_TYPE_TO_SERVICE_TYPE = {
 	Declaration: "custom",
 	"Declaration Order": "custom",
 	"Special Project": "special project",
+	Docket: "exhibits",
 	// IJ satellite bookings: derive service from their implied service.
 	"Transport Order": "transport",
 	"Sea Booking": "sea",

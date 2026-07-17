@@ -12,6 +12,8 @@ from logistics.mice.doctype.mice_project.mice_project import (
 	_build_exhibit_job_status_tab_html,
 	_build_operational_jobs_card_html,
 	_fetch_transport_job_endpoints,
+	_job_status_count_label,
+	_resolve_docket_operational_jobs,
 	get_cost_allocation_target_basis,
 	get_linkable_dockets_for_exhibit,
 	get_sales_quote_defaults_from_exhibit,
@@ -652,6 +654,136 @@ class TestShow(IntegrationTestCase):
 			filters = kwargs.get("filters", {})
 			self.assertIn("transport_job", filters)
 			self.assertNotIn("parent", filters)
+
+	def test_job_status_count_label_distinguishes_bookings_and_jobs(self):
+		self.assertEqual(_job_status_count_label([]), "0 jobs")
+		self.assertEqual(
+			_job_status_count_label([{"job_type": "Sea Shipment"}]),
+			"1 job",
+		)
+		self.assertEqual(
+			_job_status_count_label([{"job_type": "Sea Booking"}]),
+			"1 booking",
+		)
+		self.assertEqual(
+			_job_status_count_label(
+				[{"job_type": "Sea Booking"}, {"job_type": "Sea Shipment"}, {"job_type": "Transport Job"}]
+			),
+			"1 booking · 2 jobs",
+		)
+
+	def test_resolve_docket_operational_jobs_reads_linked_service(self):
+		"""Job Status must resolve via Linked Service, not only Internal Job Detail."""
+		docket_name = "DK-LS-RESOLVE"
+
+		def fake_get_all(doctype, *args, **kwargs):
+			if doctype == "Job Number":
+				return []
+			if doctype == "Linked Service":
+				filters = kwargs.get("filters") or {}
+				self.assertEqual(filters.get("parent_booking_type"), "Docket")
+				self.assertEqual(filters.get("parent_booking_name"), docket_name)
+				return [{"job_type": "Sea Booking", "job_no": "SB-00001"}]
+			if doctype == "Internal Job Detail":
+				return []
+			return []
+
+		def fake_exists(dt, name=None):
+			target = name or dt
+			return target in ("Linked Service", "Internal Job Detail")
+
+		with (
+			patch(
+				"logistics.mice.doctype.mice_project.mice_project.frappe.get_all",
+				side_effect=fake_get_all,
+			),
+			patch(
+				"logistics.mice.doctype.mice_project.mice_project.frappe.db.exists",
+				side_effect=fake_exists,
+			),
+			patch(
+				"logistics.mice.doctype.docket.docket._resolve_operational_jobs_for_internal_row",
+				return_value=[
+					("Sea Booking", "SB-00001"),
+					("Sea Shipment", "SF-00001"),
+				],
+			) as resolve_ops,
+		):
+			results = _resolve_docket_operational_jobs(docket_name)
+
+		resolve_ops.assert_called_once_with("Sea Booking", "SB-00001")
+		keys = {(r["job_type"], r["job_no"]) for r in results}
+		self.assertEqual(keys, {("Sea Booking", "SB-00001"), ("Sea Shipment", "SF-00001")})
+
+	def test_build_exhibit_job_status_tab_html_renders_booking_and_shipment(self):
+		docket_rows = [{"docket": "DK-TEST-2", "status": "Draft", "exhibitor": "Acme", "booth_no": "B2"}]
+		status_map = {
+			("Sea Booking", "SB-00001"): {
+				"job_type": "Sea Booking",
+				"name": "SB-00001",
+				"service_label": "Sea",
+				"job_status": "Confirmed",
+				"origin_code": "CNSHA",
+				"destination_code": "SGSIN",
+				"origin_kind": "unloco",
+				"destination_kind": "unloco",
+				"modified": None,
+			},
+			("Sea Shipment", "SF-00001"): {
+				"job_type": "Sea Shipment",
+				"name": "SF-00001",
+				"service_label": "Sea",
+				"job_status": "Draft",
+				"origin_code": "CNSHA",
+				"destination_code": "SGSIN",
+				"origin_kind": "unloco",
+				"destination_kind": "unloco",
+				"modified": None,
+			},
+		}
+
+		with (
+			patch(
+				"logistics.mice.doctype.mice_project.mice_project._resolve_docket_operational_jobs",
+				return_value=[
+					{"job_type": "Sea Booking", "job_no": "SB-00001"},
+					{"job_type": "Sea Shipment", "job_no": "SF-00001"},
+				],
+			),
+			patch(
+				"logistics.mice.doctype.mice_project.mice_project._fetch_operational_job_statuses",
+				return_value=status_map,
+			),
+			patch(
+				"logistics.mice.doctype.mice_project.mice_project._batch_unloco_table_labels",
+				return_value={"CNSHA": "Shanghai, CN", "SGSIN": "Singapore, SG"},
+			),
+			patch(
+				"logistics.mice.doctype.mice_project.mice_project._batch_address_table_labels",
+				return_value={},
+			),
+		):
+			html = _build_exhibit_job_status_tab_html("EXH-TEST", docket_rows=docket_rows)
+			self.assertIn("1 booking · 1 job", html)
+			self.assertIn("SB-00001", html)
+			self.assertIn("SF-00001", html)
+			self.assertNotIn("No bookings or operational jobs linked to this docket yet.", html)
+
+	def test_build_exhibit_job_status_tab_html_empty_jobs_message(self):
+		docket_rows = [{"docket": "DK-EMPTY", "status": "Draft", "exhibitor": "Acme", "booth_no": None}]
+		with (
+			patch(
+				"logistics.mice.doctype.mice_project.mice_project._resolve_docket_operational_jobs",
+				return_value=[],
+			),
+			patch(
+				"logistics.mice.doctype.mice_project.mice_project._fetch_operational_job_statuses",
+				return_value={},
+			),
+		):
+			html = _build_exhibit_job_status_tab_html("EXH-TEST", docket_rows=docket_rows)
+			self.assertIn("0 jobs", html)
+			self.assertIn("No bookings or operational jobs linked to this docket yet.", html)
 
 	def test_sales_quote_dashboard_links_mice_project_via_exhibit(self):
 		from logistics.pricing_center.doctype.sales_quote.sales_quote_dashboard import get_data

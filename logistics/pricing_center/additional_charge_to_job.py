@@ -19,6 +19,7 @@ JOB_TYPE_TO_SERVICE = {
 	"Sea Shipment": "Sea",
 	"Declaration": "Customs",
 	"Special Project": "Special Project",
+	"Docket": "MICE",
 	# Internal Job satellite bookings — Change Request now also accepts these as targets
 	# and mirrors cost rows to their parent main job (and vice versa).
 	"Transport Order": "Transport",
@@ -49,6 +50,7 @@ MAIN_JOB_TYPES_FOR_CHANGE_REQUEST = frozenset({
 	"Sea Shipment",
 	"Declaration",
 	"Special Project",
+	"Docket",
 })
 
 # Job charge tables that may carry multiple service types on one job.
@@ -58,6 +60,7 @@ _MULTI_SERVICE_CHARGE_JOB_TYPES = frozenset({
 	"Declaration",
 	"Declaration Order",
 	"Special Project",
+	"Docket",
 })
 
 

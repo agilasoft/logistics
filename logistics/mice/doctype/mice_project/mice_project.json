@@ -103,6 +103,10 @@
   "service_level_agreement_section",
   "logistics_service_level",
   "service_level_details",
+  "invoice_section",
+  "purchase_invoice",
+  "date_purchase_invoice_requested",
+  "date_purchase_invoice_submitted",
   "connections_tab",
   "amended_from"
  ],
@@ -698,6 +702,34 @@
    "fieldname": "service_level_details",
    "fieldtype": "Text Editor",
    "label": "Service Level Details"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "invoice_section",
+   "fieldtype": "Section Break",
+   "label": "Invoices"
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "no_copy": 1,
+   "options": "Purchase Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_purchase_invoice_requested",
+   "fieldtype": "Date",
+   "label": "Date Purchase Invoice Requested",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "date_purchase_invoice_submitted",
+   "fieldtype": "Date",
+   "label": "Date Purchase Invoice Submitted",
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "fieldname": "details_tab",

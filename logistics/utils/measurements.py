@@ -516,8 +516,9 @@ def compute_density_factor(
 	when volume_uom/weight_uom are not provided (e.g. header aggregates).
 	Returns None if weight is zero or missing.
 	"""
-	volume = flt(volume, 0)
-	weight = flt(weight, 0)
+	# Do not pass precision=0: flt(0.24, 0) rounds to 0 and zeros out fractional m³.
+	volume = flt(volume)
+	weight = flt(weight)
 	if not weight or weight <= 0:
 		return None
 	try:

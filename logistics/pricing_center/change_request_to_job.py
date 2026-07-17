@@ -312,6 +312,60 @@ def _map_cr_charge_to_special_project_cost(row, cr_name, charge_row_name):
 	return out
 
 
+def _map_cr_charge_to_docket_cost(row, cr_name, charge_row_name):
+	"""Map Change Request Charge → MICE Project Charges row on a Docket."""
+	from logistics.utils.sales_quote_charge_parameters import merge_charge_row_parameters_onto_dict
+
+	qty = flt(_row_val(row, "cost_quantity"), 2)
+	if not qty:
+		qty = 1
+	rev_qty = flt(_row_val(row, "quantity"), 2) or 1
+	ccy = _row_val(row, "currency") or _row_val(row, "cost_currency")
+	ic = _row_val(row, "item_code")
+	item_name = _row_val(row, "item_name") or ""
+	if ic and not item_name:
+		item_name = frappe.db.get_value("Item", ic, "item_name") or ""
+	out = {
+		"service_type": _row_val(row, "service_type") or "MICE",
+		"item_code": ic,
+		"charge_type": "Margin",
+		"charge_category": _row_val(row, "charge_category") or "Other",
+		"revenue_calculation_method": _row_val(row, "calculation_method") or "Flat Rate",
+		"quantity": rev_qty,
+		"uom": _row_val(row, "uom"),
+		"currency": ccy,
+		"selling_currency": ccy,
+		"buying_currency": _row_val(row, "cost_currency") or ccy,
+		"unit_rate": 0,
+		"unit_type": _row_val(row, "unit_type"),
+		"minimum_quantity": flt(_row_val(row, "minimum_quantity"), 2),
+		"minimum_charge": flt(_row_val(row, "minimum_charge"), 2),
+		"maximum_charge": flt(_row_val(row, "maximum_charge"), 2),
+		"base_amount": 0,
+		"estimated_revenue": 0,
+		"bill_to": _row_val(row, "bill_to"),
+		"description": item_name,
+		"cost_calculation_method": _row_val(row, "cost_calculation_method") or "Flat Rate",
+		"cost_quantity": qty,
+		"cost_uom": _row_val(row, "cost_uom"),
+		"cost_currency": _row_val(row, "cost_currency") or ccy,
+		"unit_cost": flt(_row_val(row, "unit_cost"), 2),
+		"cost_unit_type": _row_val(row, "cost_unit_type"),
+		"cost_minimum_quantity": flt(_row_val(row, "cost_minimum_quantity"), 2),
+		"cost_minimum_charge": flt(_row_val(row, "cost_minimum_charge"), 2),
+		"cost_maximum_charge": flt(_row_val(row, "cost_maximum_charge"), 2),
+		"cost_base_amount": flt(_row_val(row, "cost_base_amount"), 2),
+		"estimated_cost": flt(_row_val(row, "estimated_cost"), 2),
+		"pay_to": _row_val(row, "pay_to"),
+		"revenue_calc_notes": "",
+		"cost_calc_notes": _row_val(row, "cost_calc_notes") or "",
+		"change_request": cr_name,
+		"change_request_charge": charge_row_name,
+	}
+	merge_charge_row_parameters_onto_dict(row, out, "MICE Project Charges")
+	return out
+
+
 def _cost_mappers():
 	return {
 		"Air Shipment": _map_cr_charge_to_air_cost,
@@ -321,6 +375,7 @@ def _cost_mappers():
 		"Declaration": _map_cr_charge_to_declaration_cost,
 		"Declaration Order": _map_cr_charge_to_declaration_cost,
 		"Special Project": _map_cr_charge_to_special_project_cost,
+		"Docket": _map_cr_charge_to_docket_cost,
 	}
 
 
@@ -892,6 +947,7 @@ def _revenue_appliers():
 		"Declaration": _apply_sq_revenue_to_declaration_job_row,
 		"Declaration Order": _apply_sq_revenue_to_declaration_job_row,
 		"Special Project": _apply_sq_revenue_to_special_project_job_row,
+		"Docket": _apply_sq_revenue_to_special_project_job_row,
 	}
 
 
@@ -1106,6 +1162,7 @@ def _zero_revenue_on_job_row(job_row, job_type_for_layout):
 		"Transport Job",
 		"Transport Order",
 		"Special Project",
+		"Docket",
 	):
 		job_row.estimated_revenue = 0
 		if hasattr(job_row, "unit_rate"):
