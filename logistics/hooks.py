@@ -45,7 +45,7 @@ app_include_js = [
 	"/assets/logistics/js/linked_service_link_query.js?v=1",
 	"/assets/logistics/js/virtual_linked_services_grid.js?v=1",
 	"/assets/logistics/js/freight_agent_service.js?v=4",
-	"/assets/logistics/js/charge_bill_to.js?v=1",
+	"/assets/logistics/js/charge_bill_to.js?v=2",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=3",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
