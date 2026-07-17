@@ -46,6 +46,29 @@ CTO_CLIENT_QUERY_FIELDS = {
     ("Shipping Line CTO", "sea_cto"),
 }
 
+# Charge Bill To fields — Customer.disabled link_filters cause PermissionError (Customer.0).
+# Filtering is handled by logistics/public/js/charge_bill_to.js and charge_bill_to.py.
+CHARGE_BILL_TO_FIELDS = {
+    ("Air Booking Charges", "bill_to"),
+    ("Air Shipment Charges", "bill_to"),
+    ("Change Request Charge", "bill_to"),
+    ("Declaration Charges", "bill_to"),
+    ("Declaration Order Charges", "bill_to"),
+    ("Exhibit Charges", "bill_to"),
+    ("MICE Project Charges", "bill_to"),
+    ("Sales Quote Air Freight", "bill_to"),
+    ("Sales Quote Charge", "bill_to"),
+    ("Sales Quote Customs", "bill_to"),
+    ("Sales Quote Sea Freight", "bill_to"),
+    ("Sales Quote Transport", "bill_to"),
+    ("Sea Booking Charges", "bill_to"),
+    ("Sea Shipment Charges", "bill_to"),
+    ("Special Project Charges", "bill_to"),
+    ("Tariff Charge", "bill_to"),
+    ("Transport Job Charges", "bill_to"),
+    ("Transport Order Charges", "bill_to"),
+}
+
 
 def _logistics_app_root():
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -150,6 +173,8 @@ def main():
             if opt == "Address" and (d.get("name"), fld.get("fieldname")) in ADDRESS_CLIENT_QUERY_FIELDS:
                 continue
             if opt == "Cargo Terminal Operator" and (d.get("name"), fld.get("fieldname")) in CTO_CLIENT_QUERY_FIELDS:
+                continue
+            if opt == "Customer" and (d.get("name"), fld.get("fieldname")) in CHARGE_BILL_TO_FIELDS:
                 continue
             field, op, value = registry[opt]
             new_lf = merge_link_filters(fld.get("link_filters"), opt, field, op, value)

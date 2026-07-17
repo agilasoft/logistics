@@ -124,15 +124,20 @@ class MICEProject(Document):
 
 	@property
 	def linked_services(self):
-		"""Live view of ``Linked Service`` documents owned by this MICE Project."""
+		"""Live view of ``Linked Service`` documents owned by this MICE Project.
+
+		Prefer ``__dict__`` when present so Frappe's computed Table wrapper +
+		``LazyDocument.append`` (full-page printview) does not RecursionError.
+		"""
 		if self.flags.get("_linked_services_from_form"):
 			return self.__dict__.get("linked_services") or []
-		rows = self.__dict__.get("linked_services")
-		if rows and any(getattr(r, "__islocal", None) for r in rows):
-			self.flags._linked_services_from_form = True
+		if "linked_services" in self.__dict__:
+			rows = self.__dict__["linked_services"]
+			if rows and any(getattr(r, "__islocal", None) for r in rows):
+				self.flags._linked_services_from_form = True
 			return rows
 		if self.flags.get("_linked_services_view_cached"):
-			return self.__dict__.get("linked_services") or []
+			return []
 		value = self._build_linked_services_view()
 		self.__dict__["linked_services"] = value
 		self.flags._linked_services_view_cached = True

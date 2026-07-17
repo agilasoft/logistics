@@ -107,6 +107,25 @@ On the **Shipper** master, set **Default UNLOCO** (and optionally **Default Seap
 
 **Rule:** Match UNLOCO to the **physical pickup point** (factory, warehouse, port, airport). If cargo is picked up from Pasig warehouse but cleared through Manila port, warehouse pickup → `PHMNL` or nearest valid code for that address; sea leg origin on the quote may still be `CNSHA` → `PHMNL`.
 
+### Shipper address example — Singapore HQ (`SGSIN`)
+
+Use when the shipper (or billing HQ) is in Singapore. On the **Shipper** master set **Default UNLOCO** = `SGSIN`, then create a linked **Address**:
+
+| Address field | Example value |
+| --- | --- |
+| **Address Title** | Solara Telecom — Singapore HQ |
+| **Address Type** | Shipping / Office (or Billing) |
+| **Address Line 1** | 12 Marina Boulevard, #18-01 Marina Bay Financial Centre Tower 3 |
+| **Address Line 2** | (leave blank or floor/unit if needed) |
+| **City** | Singapore |
+| **Country** | Singapore |
+| **Pincode / Postal Code** | 018982 |
+| **Phone** | +65 6808 1200 |
+| **Email** | logistics@solara-telecom.sg |
+| **Links** | Link doctype **Shipper** → Solara Telecom Infrastructure Pte Ltd |
+
+**Default UNLOCO on Shipper:** `SGSIN` (Port of Singapore / Singapore city).
+
 ---
 
 ## 5. Scoping activities

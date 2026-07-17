@@ -198,8 +198,12 @@ function _calculate_change_request_charge_row(frm, cdt, cdn) {
 		},
 		callback: function (r) {
 			if (r.message && r.message.success) {
-				frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
-				frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
+				if ("estimated_revenue" in r.message) {
+					frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
+				}
+				if ("estimated_cost" in r.message) {
+					frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
+				}
 				if (r.message.quantity != null) {
 					frappe.model.set_value(cdt, cdn, "quantity", r.message.quantity);
 				}

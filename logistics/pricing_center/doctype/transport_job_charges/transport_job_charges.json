@@ -394,8 +394,7 @@
    "in_list_view": 1,
    "label": "Bill To",
    "options": "Customer",
-   "read_only_depends_on": "eval:doc.charge_type=='Cost'",
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+   "read_only_depends_on": "eval:doc.charge_type=='Cost'"
   },
   {
    "default": "1",
