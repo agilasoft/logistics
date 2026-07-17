@@ -98,3 +98,57 @@ class TestChargesCalculationEstimated(UnitTestCase):
 			cost = calculate_charge_cost(charge, parent)
 		self.assertEqual(flt(rev.get("amount")), 78000)
 		self.assertEqual(flt(cost.get("amount")), 12000)
+
+	def test_calculate_charge_row_returns_null_estimates_without_rate(self):
+		from logistics.utils.charges_calculation import calculate_charge_row
+
+		row = {
+			"name": "sqc-test",
+			"doctype": "Sales Quote Charge",
+			"parenttype": "Sales Quote",
+			"parent": "OOQ-TEST",
+			"revenue_calculation_method": "Flat Rate",
+			"cost_calculation_method": "Flat Rate",
+			"unit_rate": 0,
+			"unit_cost": 0,
+			"minimum_charge": 5000,
+			"cost_minimum_charge": 5000,
+			"currency": "PHP",
+			"cost_currency": "PHP",
+			"unit_type": "Job",
+			"cost_unit_type": "Job",
+		}
+
+		class MockDoc:
+			def __init__(self, data):
+				self.__dict__.update(data)
+
+			def update(self, data):
+				self.__dict__.update(data)
+
+		with patch(
+			"logistics.utils.charges_calculation.frappe.new_doc",
+			return_value=MockDoc(row),
+		), patch(
+			"logistics.utils.charges_calculation.apply_charge_type_side_cleanup",
+			return_value=False,
+		), patch(
+			"logistics.utils.charges_calculation.calculate_charge_revenue",
+			return_value={"amount": 0, "calc_notes": ""},
+		), patch(
+			"logistics.utils.charges_calculation.calculate_charge_cost",
+			return_value={"amount": 0, "calc_notes": ""},
+		), patch(
+			"logistics.utils.charges_calculation._charge_row_sync_dict_for_client",
+			return_value={},
+		):
+			result = calculate_charge_row(
+				"Sales Quote Charge",
+				"Sales Quote",
+				"OOQ-TEST",
+				row,
+			)
+
+		self.assertTrue(result.get("success"))
+		self.assertIsNone(result.get("estimated_revenue"))
+		self.assertIsNone(result.get("estimated_cost"))

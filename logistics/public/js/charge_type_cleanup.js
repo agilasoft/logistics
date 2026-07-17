@@ -103,6 +103,99 @@ frappe.provide("logistics.charge_type_cleanup");
 		_clear_fields_on_row(cdt, cdn, REVENUE_CLEAR_FIELDS);
 	};
 
+	function _has_billable_rate_input(row, isRevenue) {
+		if (!row) {
+			return false;
+		}
+		var method = isRevenue
+			? (row.revenue_calculation_method || row.calculation_method || "").trim()
+			: (row.cost_calculation_method || "").trim();
+		var rate = isRevenue ? flt(row.unit_rate) : flt(row.unit_cost);
+		if (!method) {
+			return false;
+		}
+		if (["Weight Break", "Qty Break", "Percentage Break"].indexOf(method) !== -1) {
+			return true;
+		}
+		if (method === "Percentage") {
+			var base = isRevenue ? flt(row.base_amount) : flt(row.cost_base_amount);
+			return rate > 0 && base > 0;
+		}
+		return rate > 0;
+	}
+
+	logistics.charge_type_cleanup.has_billable_rate_input = _has_billable_rate_input;
+
+	logistics.charge_type_cleanup.row_has_stale_estimate = function (row) {
+		if (!row) {
+			return false;
+		}
+		var staleRev =
+			flt(row.estimated_revenue) > 0 && !_has_billable_rate_input(row, true);
+		var staleCost =
+			flt(row.estimated_cost) > 0 && !_has_billable_rate_input(row, false);
+		return staleRev || staleCost;
+	};
+
+	logistics.charge_type_cleanup.clear_charge_row_estimates = function (cdt, cdn) {
+		["estimated_revenue", "estimated_cost"].forEach(function (fieldname) {
+			if (!frappe.meta.get_docfield(cdt, fieldname)) {
+				return;
+			}
+			frappe.model.set_value(cdt, cdn, fieldname, null);
+		});
+	};
+
+	logistics.charge_type_cleanup.refresh_charge_row_estimate_controls = function (
+		frm,
+		cdt,
+		cdn,
+		tableFieldname
+	) {
+		if (!frm || !frm.fields_dict) {
+			return;
+		}
+		var table = tableFieldname || "charges";
+		var grid = frm.fields_dict[table] && frm.fields_dict[table].grid;
+		if (!grid) {
+			return;
+		}
+		var grid_row = grid.grid_rows_by_docname[cdn];
+		if (!grid_row) {
+			return;
+		}
+		["estimated_revenue", "estimated_cost"].forEach(function (fieldname) {
+			grid_row.refresh_field(fieldname);
+			if (grid_row.grid_form) {
+				grid_row.grid_form.refresh_field(fieldname);
+			}
+		});
+	};
+
+	logistics.charge_type_cleanup.refresh_stale_charge_estimates = function (
+		frm,
+		tableFieldname,
+		childDoctype
+	) {
+		if (!frm || !frm.doc || frm.is_new()) {
+			return;
+		}
+		var table = tableFieldname || "charges";
+		var rows = frm.doc[table] || [];
+		rows.forEach(function (row) {
+			if (!row || !row.name || row.doctype !== childDoctype) {
+				return;
+			}
+			if (logistics.charge_type_cleanup.row_has_stale_estimate(row)) {
+				logistics.charge_type_cleanup.recalculate_charge_row(
+					frm,
+					childDoctype,
+					row.name
+				);
+			}
+		});
+	};
+
 	logistics.charge_type_cleanup.apply_calculate_charge_row_response = function (frm, cdt, cdn, r) {
 		if (!r || !r.message || !r.message.success) {
 			return;
@@ -141,6 +234,7 @@ frappe.provide("logistics.charge_type_cleanup");
 		if (logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
 			logistics.charges_disbursement.apply_charge_row_response(cdt, cdn, r);
 		}
+		logistics.charge_type_cleanup.refresh_charge_row_estimate_controls(frm, cdt, cdn);
 	};
 
 	logistics.charge_type_cleanup.recalculate_charge_row = function (frm, cdt, cdn) {
@@ -193,6 +287,16 @@ frappe.provide("logistics.charge_type_cleanup");
 		var events = {};
 		events.charge_type = function (frm, cdt, cdn) {
 			logistics.charge_type_cleanup.on_charge_type_change(frm, cdt, cdn);
+		};
+		events.form_render = function (frm, cdt, cdn) {
+			var row = locals[cdt] && locals[cdt][cdn];
+			if (row && logistics.charge_type_cleanup.row_has_stale_estimate(row)) {
+				logistics.charge_type_cleanup.recalculate_charge_row(frm, cdt, cdn);
+			}
+		};
+		events.item_code = function (frm, cdt, cdn) {
+			logistics.charge_type_cleanup.clear_charge_row_estimates(cdt, cdn);
+			logistics.charge_type_cleanup.refresh_charge_row_estimate_controls(frm, cdt, cdn);
 		};
 		frappe.ui.form.on(doctype, events);
 	});

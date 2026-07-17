@@ -740,11 +740,16 @@ frappe.ui.form.on("Sales Quote", {
 		logistics_setup_linked_services_grid(frm);
 		frm._sq_routing_legs_manual = (frm.doc.routing_legs || []).length > 0;
 		frm._sq_routing_legs_auto = false;
-		if (!frm.is_new()) {
+		if (!frm.is_new() && frm.doc.name) {
 			setTimeout(() => {
 				logistics_sanitize_sales_quote_load_types(frm);
 				logistics_sanitize_sales_quote_transport_modes(frm);
 				logistics_sanitize_sales_quote_freight_agents(frm);
+				logistics.charge_type_cleanup.refresh_stale_charge_estimates(
+					frm,
+					"charges",
+					"Sales Quote Charge"
+				);
 			}, 100);
 		}
 		// Preload vehicle types cache for load_types in Transport charges
@@ -1128,6 +1133,14 @@ frappe.ui.form.on("Sales Quote", {
 		frm.events.setup_item_code_query(frm);
 		frm.events.setup_internal_job_query(frm);
 		logistics_setup_linked_services_grid(frm);
+
+		if (!frm.is_new()) {
+			logistics.charge_type_cleanup.refresh_stale_charge_estimates(
+				frm,
+				"charges",
+				"Sales Quote Charge"
+			);
+		}
 
 		// Regular / Project Sales Quote: Create Booking/Order from Main Service scope (reusable — no job back-link)
 		if (
@@ -2218,44 +2231,7 @@ function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 			row_data: JSON.stringify(row)
 		},
 		callback: function(r) {
-			if (r.message && r.message.success) {
-				if (r.message.row_updates && typeof r.message.row_updates === "object") {
-					frm._syncing_sq_charge_from_tariff = true;
-					try {
-						$.each(r.message.row_updates, function (key, v) {
-							if (v !== undefined && v !== null) {
-								frappe.model.set_value(cdt, cdn, key, v);
-							}
-						});
-					} finally {
-						frm._syncing_sq_charge_from_tariff = false;
-					}
-				}
-				if ("estimated_revenue" in r.message) {
-					frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
-				}
-				if ("estimated_cost" in r.message) {
-					frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
-				}
-				if (r.message.quantity != null) {
-					frappe.model.set_value(cdt, cdn, "quantity", r.message.quantity);
-				}
-				if (r.message.cost_quantity != null) {
-					frappe.model.set_value(cdt, cdn, "cost_quantity", r.message.cost_quantity);
-				}
-				frappe.model.set_value(cdt, cdn, "revenue_calc_notes", r.message.revenue_calc_notes || "");
-				frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
-				if (frm.fields_dict.charges && frm.fields_dict.charges.grid) {
-					var grid_row = frm.fields_dict.charges.grid.grid_rows_by_docname[cdn];
-					if (grid_row && grid_row.grid_form) {
-						grid_row.grid_form.refresh_field("estimated_revenue");
-						grid_row.grid_form.refresh_field("estimated_cost");
-					}
-				}
-				if (logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
-					logistics.charges_disbursement.apply_charge_row_response(cdt, cdn, r);
-				}
-			}
+			logistics.charge_type_cleanup.apply_calculate_charge_row_response(frm, cdt, cdn, r);
 		}
 	});
 }

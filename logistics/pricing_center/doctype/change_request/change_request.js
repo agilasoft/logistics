@@ -197,25 +197,7 @@ function _calculate_change_request_charge_row(frm, cdt, cdn) {
 			row_data: JSON.stringify(row),
 		},
 		callback: function (r) {
-			if (r.message && r.message.success) {
-				if ("estimated_revenue" in r.message) {
-					frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
-				}
-				if ("estimated_cost" in r.message) {
-					frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
-				}
-				if (r.message.quantity != null) {
-					frappe.model.set_value(cdt, cdn, "quantity", r.message.quantity);
-				}
-				if (r.message.cost_quantity != null) {
-					frappe.model.set_value(cdt, cdn, "cost_quantity", r.message.cost_quantity);
-				}
-				frappe.model.set_value(cdt, cdn, "revenue_calc_notes", r.message.revenue_calc_notes || "");
-				frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
-				if (logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
-					logistics.charges_disbursement.apply_charge_row_response(cdt, cdn, r);
-				}
-			}
+			logistics.charge_type_cleanup.apply_calculate_charge_row_response(frm, cdt, cdn, r);
 		},
 	});
 }
@@ -372,6 +354,13 @@ frappe.ui.form.on("Change Request", {
 		frm.events.setup_linked_service_query(frm);
 		cr_setup_linked_services_grid(frm);
 		cr_fetch_eligible_linked_services(frm);
+		if (!frm.is_new()) {
+			logistics.charge_type_cleanup.refresh_stale_charge_estimates(
+				frm,
+				"charges",
+				"Change Request Charge"
+			);
+		}
 	},
 
 	job_type(frm) {
@@ -452,6 +441,13 @@ frappe.ui.form.on("Change Request", {
 		frm.events.setup_linked_service_query(frm);
 		cr_setup_linked_services_grid(frm);
 		cr_fetch_eligible_linked_services(frm);
+		if (!frm.is_new()) {
+			logistics.charge_type_cleanup.refresh_stale_charge_estimates(
+				frm,
+				"charges",
+				"Change Request Charge"
+			);
+		}
 		// Cost lines are pushed to the job when the Change Request is submitted; revenue is updated when the linked Sales Quote is submitted.
 		if (
 			!frm.doc.__islocal &&
