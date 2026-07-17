@@ -4,7 +4,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import today, getdate, flt, cint
+from frappe.utils import today, getdate, flt, cint, nowdate
 from typing import Dict, Any, Optional
 
 from logistics.utils.charge_service_type import (
@@ -50,6 +50,78 @@ def apply_currency_and_exchange_rates_from_declaration_order(
 			target.set(fieldname, order_val)
 
 
+def _normalize_currency_code(currency):
+	return (currency or "").strip()
+
+
+def _amount_to_declaration_currency(doc, amount, from_currency, *, rate_field):
+	"""Express ``amount`` in ``from_currency`` as declaration ``currency``.
+
+	``rate_field`` is the exchange-rate attribute on ``doc`` (e.g. ``inv_exchange_rate``,
+	``payment_ex_rate``) with units of declaration currency per one unit of ``from_currency``.
+	"""
+	amt = flt(amount or 0)
+	from_cur = _normalize_currency_code(from_currency)
+	doc_cur = _normalize_currency_code(getattr(doc, "currency", None))
+	if not from_cur or not doc_cur or from_cur == doc_cur:
+		return amt
+	rate = flt(getattr(doc, rate_field, None) or 0)
+	if rate:
+		return amt * rate
+	return None
+
+
+def _declaration_amount_to_invoice_currency(doc, amount):
+	"""Express a declaration-currency amount in ``inv_currency``."""
+	amt = flt(amount or 0)
+	inv_cur = _normalize_currency_code(getattr(doc, "inv_currency", None))
+	doc_cur = _normalize_currency_code(getattr(doc, "currency", None))
+	if not inv_cur or not doc_cur or inv_cur == doc_cur:
+		return amt
+	rate = flt(getattr(doc, "inv_exchange_rate", None) or 0)
+	if rate:
+		return amt / rate
+	return None
+
+
+def payment_amount_to_invoice_currency(doc):
+	"""Convert ``payment_amount`` from ``payment_currency`` to ``inv_currency``."""
+	pay_cur = _normalize_currency_code(getattr(doc, "payment_currency", None))
+	inv_cur = _normalize_currency_code(getattr(doc, "inv_currency", None))
+	paid = flt(getattr(doc, "payment_amount", None) or 0)
+	if not paid:
+		return 0
+	if pay_cur and inv_cur and pay_cur == inv_cur:
+		return paid
+	amt_decl = _amount_to_declaration_currency(
+		doc, paid, pay_cur, rate_field="payment_ex_rate"
+	)
+	if amt_decl is None:
+		return None
+	return _declaration_amount_to_invoice_currency(doc, amt_decl)
+
+
+def format_commercial_invoice_balance(balance):
+	"""Format balance for the read-only Data field on the Commercial Invoice tab."""
+	return f"{flt(balance):.2f}"
+
+
+def calculate_commercial_invoice_balance(doc):
+	"""Populate ``balance`` as remaining invoice total in ``inv_currency``."""
+	inv_total = flt(getattr(doc, "inv_total_amount", None) or 0)
+	if not inv_total:
+		doc.balance = None
+		return
+
+	paid_in_inv = payment_amount_to_invoice_currency(doc)
+	if paid_in_inv is None and flt(getattr(doc, "payment_amount", None) or 0):
+		doc.balance = None
+		return
+
+	balance = max(0, inv_total - flt(paid_in_inv or 0))
+	doc.balance = format_commercial_invoice_balance(balance)
+
+
 class Declaration(Document):
 	def validate(self):
 		from logistics.utils.charges_calculation import (
@@ -64,6 +136,7 @@ class Declaration(Document):
 			validate_internal_job_main_link_unchanged(self)
 			self._validate_declaration_order_unique()
 			self._validate_etd_eta()
+			self._validate_processing_event_dates()
 			self.update_payment_status()
 			try:
 				from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
@@ -110,6 +183,25 @@ class Declaration(Document):
 			frappe.throw(
 				declaration_etd_eta_invalid_message(),
 				title=declaration_etd_eta_title(),
+			)
+
+	def _validate_processing_event_dates(self):
+		"""Approval and rejection dates are mutually exclusive and cannot be in the future."""
+		today_d = getdate(nowdate())
+		if self.approval_date and getdate(self.approval_date) > today_d:
+			frappe.throw(
+				_("Approval Date cannot be later than today."),
+				title=_("Invalid Approval Date"),
+			)
+		if self.rejection_date and getdate(self.rejection_date) > today_d:
+			frappe.throw(
+				_("Rejection Date cannot be later than today."),
+				title=_("Invalid Rejection Date"),
+			)
+		if self.approval_date and self.rejection_date:
+			frappe.throw(
+				_("Approval Date and Rejection Date cannot both be set."),
+				title=_("Invalid Processing Dates"),
 			)
 
 	def _sync_currency_and_exchange_rates_from_declaration_order(self):
@@ -166,7 +258,11 @@ class Declaration(Document):
 		self.calculate_exemptions()
 		self.calculate_total_payable()
 		self.calculate_declaration_value()
+		from logistics.utils.commercial_invoice_totals import apply_commercial_invoice_totals
+
+		apply_commercial_invoice_totals(self)
 		self.calculate_sustainability_metrics()
+		self._enforce_mutually_exclusive_processing_dates()
 		self.update_processing_dates()
 		# Sync Job Number to Declaration Order if it exists
 		if self.job_number:
@@ -725,10 +821,19 @@ class Declaration(Document):
 				total_value += qty * price
 		self.declaration_value = self._invoice_amount_to_declaration_currency(total_value)
 
+	def calculate_balance(self):
+		"""Calculate remaining commercial-invoice balance in ``inv_currency``."""
+		calculate_commercial_invoice_balance(self)
+
 	def update_payment_status(self):
 		"""Auto-set payment status from invoice total, payment amount, and payment due date."""
 		total_amount = flt(self.inv_total_amount or 0)
-		paid_amount = flt(self.payment_amount or 0)
+		paid_amount = payment_amount_to_invoice_currency(self)
+		if paid_amount is None:
+			if flt(self.payment_amount or 0) > 0:
+				self.payment_status = "Partially Paid"
+				return
+			paid_amount = 0
 		due_date = getdate(self.payment_date) if self.payment_date else None
 		today_date = getdate(today())
 
@@ -750,14 +855,23 @@ class Declaration(Document):
 		# Default for unpaid invoices not yet due or with no due date.
 		self.payment_status = "Pending"
 	
+	def _enforce_mutually_exclusive_processing_dates(self):
+		"""Keep approval and rejection dates mutually exclusive."""
+		if self.rejection_date:
+			self.approval_date = None
+		elif self.approval_date:
+			self.rejection_date = None
+
 	def update_processing_dates(self):
 		"""Update processing dates based on status"""
-		from frappe.utils import now, nowdate, get_datetime
-		
+		from frappe.utils import get_datetime, now
+
 		if self.status == "Submitted" and not self.submission_date:
 			self.submission_date = nowdate()
 			if not self.submission_time:
 				self.submission_time = get_datetime(now()).strftime("%H:%M:%S")
+		elif self.rejection_date:
+			return
 		elif self.status in ("Cleared", "Released") and not self.approval_date:
 			self.approval_date = nowdate()
 		elif self.status == "Rejected" and not self.rejection_date:
@@ -1522,9 +1636,9 @@ def _append_declaration_charges_from_do_style_dicts(declaration: Document, charg
 	field_name_map = {"description": "charge_description"}
 	direct_fields = [
 		"service_type",
-		# Per-scope tagging — keep Main / Internal Job classification across conversion.
+		# Per-scope tagging — keep Main / Linked classification across conversion.
 		"charge_scope",
-		"internal_job",
+		"linked_service",
 		"item_code",
 		"item_name",
 		"charge_type",
@@ -1600,9 +1714,9 @@ def _populate_charges_from_declaration_order(declaration: Document, order: Docum
 		# 1) Direct one-to-one fields present on both doctypes
 		direct_fields = [
 			"service_type",
-			# Per-scope tagging — keep Main / Internal Job classification across conversion.
+			# Per-scope tagging — keep Main / Linked classification across conversion.
 			"charge_scope",
-			"internal_job",
+			"linked_service",
 			"item_code",
 			"item_name",
 			"description",
@@ -1682,6 +1796,8 @@ def _populate_charges_from_declaration_order(declaration: Document, order: Docum
 def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Document):
 	"""Populate charges from Sales Quote Charge (Customs) or Sales Quote Customs (legacy)."""
 	try:
+		from logistics.utils.sales_quote_charge_copy import apply_scope_tagging_to_mapped_charge
+
 		customs_charges = customs_charges_rows_from_sales_quote_doc(declaration, sales_quote)
 		if not customs_charges:
 			return
@@ -1712,6 +1828,12 @@ def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Docum
 					value = getattr(sq_charge, field, None)
 					if value is not None:
 						charge_row.set(field, value)
+			# Keep Main/Linked + linked_service from the quote (same as Air/Sea/Transport).
+			scope_vals = {}
+			apply_scope_tagging_to_mapped_charge(sq_charge, scope_vals)
+			for fn, val in scope_vals.items():
+				if fn in declaration_charges_fields and val is not None:
+					charge_row.set(fn, val)
 		
 	except Exception as e:
 		frappe.log_error(f"Error populating charges from Sales Quote: {str(e)}", "Declaration Charges Error")

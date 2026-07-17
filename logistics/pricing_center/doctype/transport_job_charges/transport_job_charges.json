@@ -323,7 +323,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time\nValue",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
@@ -459,7 +459,7 @@
    "fieldname": "cost_unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time",
+   "options": "Distance\nWeight\nVolume\nPackage\nPiece\nJob\nTrip\nTEU\nContainer\nOperation Time\nValue",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {

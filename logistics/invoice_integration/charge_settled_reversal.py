@@ -21,6 +21,7 @@ CHARGES_FIELD_BY_JOB = {
 	"Project Job": "charges",
 	"Special Project": "charges",
 	"Docket": "charges",
+	"MICE Project": "consolidation_charges",
 }
 
 

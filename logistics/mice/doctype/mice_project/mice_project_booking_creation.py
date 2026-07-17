@@ -107,10 +107,12 @@ def _coerce_client_rows(client_value: Any) -> list | None:
 def _client_rows_context(client_value: Any):
 	key = _LOGISTICS_EX_CLIENT_ROWS
 	parsed = _coerce_client_rows(client_value)
+	# Empty list is not a useful override — virtual Linked Services grids often serialize as [].
+	install = parsed is not None and len(parsed) > 0
 	had_before = hasattr(frappe.local, key)
 	old_val = getattr(frappe.local, key, None) if had_before else None
 	try:
-		if parsed is not None:
+		if install:
 			setattr(
 				frappe.local,
 				key,
@@ -118,7 +120,7 @@ def _client_rows_context(client_value: Any):
 			)
 		yield
 	finally:
-		if parsed is not None:
+		if install:
 			if had_before:
 				setattr(frappe.local, key, old_val)
 			else:
@@ -137,7 +139,7 @@ def _resolve_client_rows(client_value: Any, linked_services: Any = None) -> Any:
 
 def _linked_services_list(parent_doc: Any) -> list[Any]:
 	ov = getattr(frappe.local, _LOGISTICS_EX_CLIENT_ROWS, None)
-	if ov is not None:
+	if ov:
 		return list(ov)
 	return linked_service_rows(parent_doc)
 
@@ -889,6 +891,11 @@ def create_booking_or_order_from_exhibit(
 
 	client_rows = _resolve_client_rows(internal_jobs, linked_services)
 	with _client_rows_context(client_rows):
+		from logistics.utils.internal_job_persistence import (
+			ensure_linked_service_rows_materialized,
+		)
+
+		ensure_linked_service_rows_materialized(ep_doc)
 		row, resolved_idx = _resolve_row_for_create(ep_doc, jt, idx)
 		if row is None:
 			frappe.throw(

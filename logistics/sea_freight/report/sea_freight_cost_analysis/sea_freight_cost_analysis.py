@@ -6,7 +6,10 @@ from frappe import _
 from frappe.utils import flt, getdate, formatdate
 from datetime import datetime, timedelta
 
-from logistics.sea_freight.sea_shipment_charges_report_sql import SFC_COST_AMOUNT
+from logistics.sea_freight.sea_shipment_charges_report_sql import (
+	SFC_COST_AMOUNT,
+	SEA_SHIPMENT_VESSEL_NAME,
+)
 
 def execute(filters=None):
 	columns = get_columns()
@@ -139,7 +142,7 @@ def get_data(filters):
 			sship.origin_port,
 			sship.destination_port,
 			sship.shipping_line,
-			sship.vessel_name,
+			{sea_shipment_vessel_name} as vessel_name,
 			sship.chargeable,
 			COALESCE(SUM(CASE WHEN sfc.charge_category = 'Freight' THEN {sfc_cost} ELSE 0 END), 0) as freight_cost,
 			COALESCE(SUM(CASE WHEN sfc.charge_category IN ('Fuel Surcharge', 'Security Surcharge', 'War Risk Surcharge') THEN {sfc_cost} ELSE 0 END), 0) as fuel_surcharge,
@@ -168,7 +171,11 @@ def get_data(filters):
 			sship.name
 		ORDER BY
 			sship.booking_date DESC, sship.name DESC
-	""".format(conditions=conditions, sfc_cost=SFC_COST_AMOUNT), filters, as_dict=1)
+	""".format(
+		conditions=conditions,
+		sfc_cost=SFC_COST_AMOUNT,
+		sea_shipment_vessel_name=SEA_SHIPMENT_VESSEL_NAME,
+	), filters, as_dict=1)
 	
 	return data
 

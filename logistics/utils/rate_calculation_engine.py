@@ -121,7 +121,7 @@ class RateCalculationEngine:
                 **kwargs,
             )
 
-            # Apply minimum and maximum charges
+            # Apply minimum and maximum charges (floor/ceiling only when a base was calculated)
             final_amount = self._apply_min_max_charges(base_amount, rate_data)
 
             # Round to 2 decimal places
@@ -220,8 +220,9 @@ class RateCalculationEngine:
             hu = flt(ah_units or 0)
             return hu if hu > 0 else 1.0
         elif unit_type == "Job":
-            j = flt(actual_quantity or 0)
-            return j if j > 0 else 1.0
+            # Per-job flat unit: always 1 (do not use actual_quantity — it can be
+            # weight/volume fallback and incorrectly inflate Job quantity).
+            return 1.0
         elif unit_type == "Trip":
             t = flt(trips or 0)
             return t if t > 0 else 1.0
@@ -368,9 +369,16 @@ class RateCalculationEngine:
         return self._calculate_per_unit(rate_data, **kwargs)
 
     def _apply_min_max_charges(self, amount: float, rate_data: Dict) -> float:
-        """Apply minimum and maximum charges."""
+        """Apply minimum and maximum charges.
+
+        Minimum/maximum are floors/ceilings on a calculated base amount. When the base
+        is zero (no rate or quantity entered yet), leave the result at zero instead of
+        promoting minimum_charge into the estimated amount.
+        """
         min_charge = flt(rate_data.get("minimum_charge", 0))
         max_charge = flt(rate_data.get("maximum_charge", 0))
+        if flt(amount) <= 0:
+            return 0.0
         if min_charge > 0 and amount < min_charge:
             amount = min_charge
         if max_charge > 0 and amount > max_charge:
@@ -471,6 +479,7 @@ def get_available_unit_types() -> List[str]:
         "TEU",
         "Container",
         "Operation Time",
+        "Value",
     ]
 
 

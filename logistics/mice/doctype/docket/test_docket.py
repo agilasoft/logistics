@@ -146,3 +146,32 @@ class IntegrationTestDocket(IntegrationTestCase):
 		meta = frappe.get_meta("Docket")
 		self.assertTrue(meta.has_field("linked_services"))
 		self.assertFalse(meta.has_field("internal_jobs"))
+
+	def test_docket_meta_has_no_customer_link_filters(self):
+		"""Regression #1249: Customer.disabled link_filters require Customer.0 read."""
+		if not frappe.db.exists("DocType", "Docket"):
+			self.skipTest("Docket DocType not installed")
+		meta = frappe.get_meta("Docket")
+		for fieldname in ("exhibitor", "customer"):
+			df = meta.get_field(fieldname)
+			self.assertIsNotNone(df, f"missing field {fieldname}")
+			self.assertFalse(
+				df.link_filters,
+				f"{fieldname} must not use Customer link_filters (permission error Customer.0)",
+			)
+
+	def test_sync_customer_from_exhibit_organizer_sets_ignore_links(self):
+		if not frappe.db.exists("DocType", "Docket"):
+			self.skipTest("Docket DocType not installed")
+		exhibit = self._minimal_exhibit("Test Docket Customer Sync")
+		dk = None
+		try:
+			dk = frappe.new_doc("Docket")
+			dk.exhibit = exhibit.name
+			dk.exhibitor = self._test_customer()
+			dk._sync_customer_from_exhibit_organizer()
+			self.assertTrue(getattr(dk.flags, "ignore_links", False))
+		finally:
+			if dk and dk.name and frappe.db.exists("Docket", dk.name):
+				dk.delete(ignore_permissions=True)
+			exhibit.delete(ignore_permissions=True)

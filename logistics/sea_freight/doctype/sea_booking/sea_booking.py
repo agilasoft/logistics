@@ -1421,6 +1421,7 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 					"TEU",
 					"Container",
 					"Operation Time",
+					"Value",
 				}
 			)
 			_quote_only_unit_type_map = {
@@ -1641,7 +1642,9 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 				charge_data["unit_cost"] = sqsf_record.unit_cost
 			cost_unit_type = _get("cost_unit_type")
 			if cost_unit_type:
-				charge_data["cost_unit_type"] = cost_unit_type
+				charge_data["cost_unit_type"] = _map_quote_unit_type_to_sea_booking_charge(
+					(cost_unit_type or "").strip() or None
+				)
 			if hasattr(sqsf_record, "cost_currency") and sqsf_record.cost_currency:
 				charge_data["cost_currency"] = sqsf_record.cost_currency
 			if hasattr(sqsf_record, "cost_quantity") and sqsf_record.cost_quantity is not None:

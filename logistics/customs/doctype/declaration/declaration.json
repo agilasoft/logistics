@@ -115,6 +115,7 @@
   "payment_currency",
   "payment_amount",
   "payment_ex_rate",
+  "payment_status",
   "section_break_invoice_charges",
   "commercial_invoice_charges",
   "section_break_processing",
@@ -133,7 +134,6 @@
   "other_charges",
   "column_break_financial",
   "total_payable",
-  "payment_status",
   "sla_section",
   "sla_target_date",
   "sla_status",
@@ -546,8 +546,7 @@
   {
    "fieldname": "approval_date",
    "fieldtype": "Date",
-   "label": "Approval Date",
-   "read_only": 1
+   "label": "Approval Date"
   },
   {
    "fieldname": "column_break_processing",
@@ -556,14 +555,12 @@
   {
    "fieldname": "rejection_date",
    "fieldtype": "Date",
-   "label": "Rejection Date",
-   "read_only": 1
+   "label": "Rejection Date"
   },
   {
    "fieldname": "rejection_reason",
    "fieldtype": "Small Text",
-   "label": "Rejection Reason",
-   "read_only": 1
+   "label": "Rejection Reason"
   },
   {
    "fieldname": "processing_officer",
@@ -610,13 +607,6 @@
    "fieldname": "total_payable",
    "fieldtype": "Currency",
    "label": "Total Payable",
-   "read_only": 1
-  },
-  {
-   "fieldname": "payment_status",
-   "fieldtype": "Select",
-   "label": "Payment Status",
-   "options": "Pending\nPartially Paid\nPaid\nOverdue",
    "read_only": 1
   },
   {
@@ -791,12 +781,14 @@
   {
    "fieldname": "cif",
    "fieldtype": "Currency",
-   "label": "CIF"
+   "label": "CIF",
+   "options": "inv_currency"
   },
   {
    "fieldname": "fob",
    "fieldtype": "Currency",
-   "label": "FOB"
+   "label": "FOB",
+   "options": "inv_currency"
   },
   {
    "default": "0",
@@ -807,7 +799,8 @@
   {
    "fieldname": "expected_invoice_line_total",
    "fieldtype": "Currency",
-   "label": "Expected Invoice Line Total"
+   "label": "Expected Invoice Line Total",
+   "options": "inv_currency"
   },
   {
    "fieldname": "column_break_fevp",
@@ -883,6 +876,14 @@
    "fieldname": "payment_ex_rate",
    "fieldtype": "Float",
    "label": "Payment Ex Rate"
+  },
+  {
+   "description": "Derived from Invoice Total, Payment Amount, and Payment Date.",
+   "fieldname": "payment_status",
+   "fieldtype": "Select",
+   "label": "Payment Status",
+   "options": "Pending\nPartially Paid\nPaid\nOverdue",
+   "read_only": 1
   },
   {
    "fieldname": "inv_gross_weight",
@@ -1377,11 +1378,11 @@
    "options": "Freight Agent"
   },
   {
+   "default": "Standalone",
    "fieldname": "service_role",
    "fieldtype": "Select",
    "label": "Service Role",
    "options": "Main\nLinked\nStandalone",
-   "default": "Standalone",
    "read_only": 1
   },
   {
@@ -1405,12 +1406,12 @@
    "description": "Canonical Linked Service record this document represents.",
    "fieldname": "linked_service",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Linked Service",
    "no_copy": 1,
    "options": "Linked Service",
    "read_only": 1,
-   "search_index": 1,
-   "hidden": 1
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,
@@ -1428,7 +1429,7 @@
    "link_fieldname": "job_no"
   }
  ],
- "modified": "2026-05-13 13:26:53.499557",
+ "modified": "2026-07-15 14:43:09.206331",
  "modified_by": "ejay.sambrano@agilasoft.com",
  "module": "Customs",
  "name": "Declaration",

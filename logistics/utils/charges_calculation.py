@@ -475,8 +475,9 @@ def _get_quantity_for_calculation_method(
         hu = flt(actual_data.get("actual_handling_units") or 0)
         return hu if hu > 0 else 1.0
     if ut == "job":
-        j = flt(actual_data.get("actual_quantity") or 0)
-        return j if j > 0 else 1.0
+        # Per-job flat unit: always 1 for the operational parent (do not use
+        # actual_quantity — that falls back to weight/volume and inflates Job qty).
+        return 1.0
     if ut == "trip":
         t = flt(actual_data.get("actual_trips") or 0)
         return t if t > 0 else 1.0
@@ -538,6 +539,24 @@ def get_quantity_from_parent_by_unit_type(parent_doc: Any, unit_type: Optional[s
         return 1.0
     actual_data = _get_parent_actual_data(None, parent_doc)
     return _get_quantity_for_calculation_method(actual_data, "Per Unit", ut, is_revenue=True)
+
+
+def realign_charge_row_quantities_from_parent(
+    charge_doc: Any, parent_doc: Optional[Any]
+) -> None:
+    """Set Per Unit quantity/cost_quantity from parent metrics and unit_type (Job → 1, not weight)."""
+    if not parent_doc:
+        return
+    rev_method = _get_field(charge_doc, *REVENUE_METHOD_FIELDS)
+    if rev_method == "Per Unit":
+        ut = _get_field(charge_doc, *UNIT_TYPE_FIELDS)
+        if ut and hasattr(charge_doc, "quantity"):
+            charge_doc.quantity = get_quantity_from_parent_by_unit_type(parent_doc, ut)
+    cost_method = _get_field(charge_doc, *COST_METHOD_FIELDS)
+    if cost_method == "Per Unit":
+        cut = _get_field(charge_doc, *COST_UNIT_TYPE_FIELDS)
+        if cut and hasattr(charge_doc, "cost_quantity"):
+            charge_doc.cost_quantity = get_quantity_from_parent_by_unit_type(parent_doc, cut)
 
 
 def _normalize_calculation_method(method: str, unit_type: str) -> tuple:
@@ -1416,10 +1435,13 @@ def _calculate_charge_amount(
         min_charge = flt(_get_field(charge_doc, "minimum_charge") or 0) if is_revenue else flt(_get_field(charge_doc, "cost_minimum_charge") or 0)
         max_charge = flt(_get_field(charge_doc, "maximum_charge") or 0) if is_revenue else flt(_get_field(charge_doc, "cost_maximum_charge") or 0)
         amount = calc_base
-        if min_charge > 0 and amount < min_charge:
-            amount = min_charge
-        if max_charge > 0 and amount > max_charge:
-            amount = max_charge
+        if calc_base > 0:
+            if min_charge > 0 and amount < min_charge:
+                amount = min_charge
+            if max_charge > 0 and amount > max_charge:
+                amount = max_charge
+        else:
+            amount = 0.0
         if is_revenue:
             row_currency = getattr(charge_doc, "currency", None) or "USD"
         else:
@@ -1431,7 +1453,7 @@ def _calculate_charge_amount(
             f"Weight Break (Weight): Actual weight {weight} {weight_uom} ≥ break {weight_break} {weight_uom} → "
             f"Rate {rate} {currency}/{weight_uom} × {weight} {weight_uom} = {calc_base} {currency}"
         )
-        if min_charge > 0 and calc_base < min_charge and amount == min_charge:
+        if calc_base > 0 and min_charge > 0 and calc_base < min_charge and amount == min_charge:
             detail += f"; Minimum charge {min_charge} {currency} applied"
         elif max_charge > 0 and calc_base > max_charge and amount == max_charge:
             detail += f"; Maximum charge {max_charge} {currency} applied"
@@ -1454,10 +1476,13 @@ def _calculate_charge_amount(
         min_charge = flt(_get_field(charge_doc, "minimum_charge") or 0) if is_revenue else flt(_get_field(charge_doc, "cost_minimum_charge") or 0)
         max_charge = flt(_get_field(charge_doc, "maximum_charge") or 0) if is_revenue else flt(_get_field(charge_doc, "cost_maximum_charge") or 0)
         amount = calc_base
-        if min_charge > 0 and amount < min_charge:
-            amount = min_charge
-        if max_charge > 0 and amount > max_charge:
-            amount = max_charge
+        if calc_base > 0:
+            if min_charge > 0 and amount < min_charge:
+                amount = min_charge
+            if max_charge > 0 and amount > max_charge:
+                amount = max_charge
+        else:
+            amount = 0.0
         if is_revenue:
             row_currency = getattr(charge_doc, "currency", None) or "USD"
         else:
@@ -1469,7 +1494,7 @@ def _calculate_charge_amount(
             f"Qty Break (Piece): Actual qty {qty} {qty_uom} ≥ break {qty_break} {qty_uom} → "
             f"Rate {rate} {currency}/{qty_uom} × {qty} {qty_uom} = {calc_base} {currency}"
         )
-        if min_charge > 0 and calc_base < min_charge and amount == min_charge:
+        if calc_base > 0 and min_charge > 0 and calc_base < min_charge and amount == min_charge:
             detail += f"; Minimum charge {min_charge} {currency} applied"
         elif max_charge > 0 and calc_base > max_charge and amount == max_charge:
             detail += f"; Maximum charge {max_charge} {currency} applied"
@@ -1496,7 +1521,7 @@ def _calculate_charge_amount(
             result["calc_notes"] = "Percentage Break: No percentage break rates defined for this charge"
             return result
         percentage_rate = flt(applicable.get("percentage_rate", 0))
-        # Quantity selects the tier; do not use quantity-spread Value as goods value.
+        # Prefer parent goods/declared value; fall back to Quantity (also used for tier).
         goods_value = 0.0
         if parent_doc:
             goods_value = flt(
@@ -1505,8 +1530,7 @@ def _calculate_charge_amount(
                 or 0
             )
         if not goods_value:
-            prefix = "" if is_revenue else "cost_"
-            goods_value = flt(getattr(charge_doc, f"{prefix}base_amount", None) or 0)
+            goods_value = qty
         pct_amount = goods_value * (percentage_rate / 100.0)
         min_charge = (
             flt(_get_field(charge_doc, "minimum_charge") or 0)
@@ -1562,7 +1586,7 @@ def _calculate_charge_amount(
         charge_doc, rate_data, actual_data, unit_type, record_type, is_revenue
     )
     rate = flt(rate_data.get("rate", 0))
-    if not rate and not unit_break_prefix and rate_data.get("calculation_method") not in ("Fixed Amount", "Flat Rate"):
+    if not rate and not unit_break_prefix:
         result["calc_notes"] = "Charge calculation: No unit rate specified. Enter rate for this charge."
         return result
 

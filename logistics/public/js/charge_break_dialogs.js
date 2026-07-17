@@ -107,6 +107,35 @@
 		return { reference_doctype: reference_doctype, reference_no: row.name };
 	}
 
+	/** Prevent stacked break dialogs when multiple click paths fire for the same row. */
+	window._logistics_break_dialog_inflight = window._logistics_break_dialog_inflight || {};
+
+	function _break_dialog_key(kind, reference_doctype, reference_no, record_type) {
+		return [kind, reference_doctype || "", reference_no || "", record_type || "Selling"].join("|");
+	}
+
+	function _begin_break_dialog(key) {
+		if (window._logistics_break_dialog_inflight[key]) {
+			return false;
+		}
+		window._logistics_break_dialog_inflight[key] = true;
+		return true;
+	}
+
+	function _end_break_dialog(key) {
+		delete window._logistics_break_dialog_inflight[key];
+	}
+
+	function _bind_break_dialog_release(dialog, key) {
+		if (!dialog || !dialog.$wrapper) {
+			_end_break_dialog(key);
+			return;
+		}
+		dialog.$wrapper.one("hidden.bs.modal", function () {
+			_end_break_dialog(key);
+		});
+	}
+
 	window.logistics_weight_break_break_type_options = function() {
 		return [
 			{ value: "M (Minimum)", label: __("M (Minimum)") },
@@ -320,6 +349,10 @@
 			});
 			return;
 		}
+		var dialog_key = _break_dialog_key("weight", reference_doctype, reference_no, record_type);
+		if (!_begin_break_dialog(dialog_key)) {
+			return;
+		}
 		var currency =
 			record_type === "Cost"
 				? row.cost_currency || row.currency || "USD"
@@ -333,6 +366,7 @@
 			},
 			callback: function(r) {
 				if (!r.message || !r.message.success) {
+					_end_break_dialog(dialog_key);
 					frappe.msgprint({ title: __("Error"), message: __("Could not load weight breaks."), indicator: "red" });
 					return;
 				}
@@ -363,6 +397,7 @@
 							);
 						},
 					});
+					_bind_break_dialog_release(dialog, dialog_key);
 					dialog.show();
 
 					dialog.$wrapper.one("shown.bs.modal", function() {
@@ -375,6 +410,9 @@
 						window.logistics_bind_weight_break_editor_controls($root, currency);
 					});
 				});
+			},
+			error: function() {
+				_end_break_dialog(dialog_key);
 			},
 		});
 	};
@@ -402,11 +440,16 @@
 			});
 			return;
 		}
+		var dialog_key = _break_dialog_key("qty", reference_doctype, reference_no, record_type);
+		if (!_begin_break_dialog(dialog_key)) {
+			return;
+		}
 		frappe.call({
 			method: "logistics.pricing_center.doctype.sales_quote_qty_break.sales_quote_qty_break.get_qty_breaks",
 			args: { reference_doctype: reference_doctype, reference_no: reference_no, record_type: record_type },
 			callback: function(r) {
 				if (!r.message || !r.message.success) {
+					_end_break_dialog(dialog_key);
 					frappe.msgprint({ title: __("Error"), message: __("Could not load qty breaks."), indicator: "red" });
 					return;
 				}
@@ -480,6 +523,7 @@
 						});
 					},
 				});
+				_bind_break_dialog_release(dialog, dialog_key);
 				dialog.show();
 
 				var render_row = function(qb) {
@@ -514,6 +558,9 @@
 					});
 				});
 			},
+			error: function() {
+				_end_break_dialog(dialog_key);
+			},
 		});
 	};
 
@@ -529,11 +576,16 @@
 			});
 			return;
 		}
+		var dialog_key = _break_dialog_key("percentage", reference_doctype, reference_no, record_type);
+		if (!_begin_break_dialog(dialog_key)) {
+			return;
+		}
 		frappe.call({
 			method: "logistics.pricing_center.doctype.sales_quote_percentage_break.sales_quote_percentage_break.get_percentage_breaks",
 			args: { reference_doctype: reference_doctype, reference_no: reference_no, record_type: record_type },
 			callback: function(r) {
 				if (!r.message || !r.message.success) {
+					_end_break_dialog(dialog_key);
 					frappe.msgprint({ title: __("Error"), message: __("Could not load percentage breaks."), indicator: "red" });
 					return;
 				}
@@ -630,6 +682,7 @@
 						});
 					},
 				});
+				_bind_break_dialog_release(dialog, dialog_key);
 				dialog.show();
 
 				var render_row = function(pb) {
@@ -676,6 +729,9 @@
 						$(this).closest("tr").remove();
 					});
 				});
+			},
+			error: function() {
+				_end_break_dialog(dialog_key);
 			},
 		});
 	};
@@ -763,6 +819,10 @@
 			});
 			return;
 		}
+		var dialog_key = _break_dialog_key("unit", reference_doctype, reference_no, record_type);
+		if (!_begin_break_dialog(dialog_key)) {
+			return;
+		}
 		var currency =
 			record_type === "Cost"
 				? row.cost_currency || row.currency || "USD"
@@ -776,6 +836,7 @@
 			},
 			callback: function(r) {
 				if (!r.message || !r.message.success) {
+					_end_break_dialog(dialog_key);
 					frappe.msgprint({ title: __("Error"), message: __("Could not load unit breaks."), indicator: "red" });
 					return;
 				}
@@ -850,6 +911,7 @@
 						);
 					},
 				});
+				_bind_break_dialog_release(dialog, dialog_key);
 				dialog.show();
 
 				var render_row = function(ub) {
@@ -881,6 +943,9 @@
 						$(this).closest("tr").remove();
 					});
 				});
+			},
+			error: function() {
+				_end_break_dialog(dialog_key);
 			},
 		});
 	};
@@ -998,11 +1063,15 @@
 		document.addEventListener(
 			"click",
 			function(ev) {
-				var t = ev.target;
-				if (!t || String(t.tagName || "").toUpperCase() !== "BUTTON") {
+				var raw = ev.target;
+				if (!raw || !raw.closest) {
 					return;
 				}
-				if (!t.closest || !t.closest(".form-in-grid")) {
+				var t = raw.closest("button");
+				if (!t) {
+					return;
+				}
+				if (!t.closest(".form-in-grid")) {
 					return;
 				}
 				var wrap = t.closest(".frappe-control[data-fieldname]");
@@ -1071,6 +1140,23 @@
 						row,
 						fn === "cost_percentage_break" ? "Cost" : "Selling"
 					);
+					return;
+				}
+				if (fn === "selling_unit_break" || fn === "cost_unit_break") {
+					var known_ub = (window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS || []).indexOf(fo.doctype) !== -1;
+					var meta_ub =
+						window.logistics_charge_child_doctype_has_unit_break_buttons &&
+						window.logistics_charge_child_doctype_has_unit_break_buttons(fo.doctype);
+					if (!known_ub && !meta_ub) {
+						return;
+					}
+					if (typeof window.open_unit_break_rate_dialog !== "function") {
+						return;
+					}
+					ev.preventDefault();
+					ev.stopPropagation();
+					ev.stopImmediatePropagation();
+					window.open_unit_break_rate_dialog(fo.frm, row, fn === "cost_unit_break" ? "Cost" : "Selling");
 				}
 			},
 			true

@@ -30,12 +30,12 @@
    "options": "CR-.#########"
   },
   {
-   "description": "Pick a Main job (Transport Job, Warehouse Job, Air Shipment, Sea Shipment, Declaration, Special Project) or an Internal Job satellite (Transport Order, Sea Booking, Air Booking, Declaration Order, Inbound Order, Release Order). Cost rows are mirrored to the other side automatically on submit.",
+   "description": "Pick a Main job (Transport Job, Warehouse Job, Air Shipment, Sea Shipment, Declaration, Special Project, Docket) or an Internal Job satellite (Transport Order, Sea Booking, Air Booking, Declaration Order, Inbound Order, Release Order). Cost rows are mirrored to the other side automatically on submit.",
    "fieldname": "job_type",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Job Type",
-   "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration\nSpecial Project\nTransport Order\nSea Booking\nAir Booking\nDeclaration Order\nInbound Order\nRelease Order",
+   "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration\nSpecial Project\nDocket\nTransport Order\nSea Booking\nAir Booking\nDeclaration Order\nInbound Order\nRelease Order",
    "reqd": 1
   },
   {

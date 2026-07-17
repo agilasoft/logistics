@@ -205,6 +205,7 @@ class TestChangeRequestToJob(UnitTestCase):
 		self.assertIn("Warehouse Job", MAIN_JOB_TYPES_FOR_CHANGE_REQUEST)
 		self.assertIn("Declaration", MAIN_JOB_TYPES_FOR_CHANGE_REQUEST)
 		self.assertIn("Special Project", MAIN_JOB_TYPES_FOR_CHANGE_REQUEST)
+		self.assertIn("Docket", MAIN_JOB_TYPES_FOR_CHANGE_REQUEST)
 		self.assertIn("Sea Booking", INTERNAL_JOB_SATELLITE_JOB_TYPES)
 		self.assertIn("Air Booking", INTERNAL_JOB_SATELLITE_JOB_TYPES)
 		self.assertIn("Transport Order", INTERNAL_JOB_SATELLITE_JOB_TYPES)
@@ -420,3 +421,29 @@ class TestChangeRequestToJob(UnitTestCase):
 		row = frappe._dict(charge_scope="Main", linked_service=None)
 		self.assertEqual(_linked_service_for_row(row, "LS-SAT-001"), "LS-SAT-001")
 		self.assertIsNone(_linked_service_for_row(row, None))
+
+	@patch("logistics.pricing_center.change_request_to_job.frappe.db.get_value", return_value="Extra Handling")
+	def test_map_cr_charge_to_docket_cost_defaults_mice_and_tags(self, _mock_item_name):
+		from logistics.pricing_center.change_request_to_job import _map_cr_charge_to_docket_cost
+
+		row = frappe._dict(
+			item_code="MICE-EXTRA",
+			cost_quantity=2,
+			quantity=1,
+			currency="USD",
+			cost_currency="USD",
+			unit_cost=50,
+			estimated_cost=100,
+		)
+		out = _map_cr_charge_to_docket_cost(row, "CR-DOCKET", "crc-dk-1")
+		self.assertEqual(out["service_type"], "MICE")
+		self.assertEqual(out["change_request"], "CR-DOCKET")
+		self.assertEqual(out["change_request_charge"], "crc-dk-1")
+		self.assertEqual(out["estimated_revenue"], 0)
+		self.assertEqual(out["description"], "Extra Handling")
+
+	def test_docket_is_registered_in_cost_and_revenue_appliers(self):
+		from logistics.pricing_center.change_request_to_job import _cost_mappers, _revenue_appliers
+
+		self.assertIn("Docket", _cost_mappers())
+		self.assertIn("Docket", _revenue_appliers())

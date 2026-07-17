@@ -779,6 +779,17 @@ function logistics_set_internal_job_site_query(frm) {
 	frm.set_query("lifecycle_stage", "charges", function () {
 		return { filters: _applicableLifecycleStageFilters(frm) };
 	});
+	frm.set_query("linked_service", "charges", function () {
+		var filters = [];
+		if (frm.doc.sales_quote) {
+			filters.push(["Linked Service", "parent_booking_type", "=", "Sales Quote"]);
+			filters.push(["Linked Service", "parent_booking_name", "=", frm.doc.sales_quote]);
+		} else if (frm.doc.name) {
+			filters.push(["Linked Service", "parent_booking_type", "=", "Special Project"]);
+			filters.push(["Linked Service", "parent_booking_name", "=", frm.doc.name]);
+		}
+		return { filters: filters };
+	});
 	frm.set_query("special_project_service_line", "charges", function (doc, cdt, cdn) {
 		var row = cdn && locals[cdt] && locals[cdt][cdn];
 		var filters = [
