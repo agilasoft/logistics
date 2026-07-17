@@ -181,6 +181,11 @@ class SeaShipment(VirtualLinkedServicesMixin, Document):
         """Validate required data before submit; block DG non-compliance."""
         self.validate_required_fields_for_submit()
         validate_fcl_container_numbers_required(self)
+        from logistics.utils.charge_service_type import (
+            assert_destination_service_charges_on_submit_unless_internal_job,
+        )
+
+        assert_destination_service_charges_on_submit_unless_internal_job(self)
         try:
             contains_dg = bool(getattr(self, "contains_dangerous_goods", 0))
             dg_status = (getattr(self, "dg_compliance_status", "") or "").strip()
@@ -192,6 +197,8 @@ class SeaShipment(VirtualLinkedServicesMixin, Document):
                     ),
                     title=_("Dangerous Goods Non-Compliant"),
                 )
+        except frappe.ValidationError:
+            raise
         except Exception:
             # If any unexpected error occurs while checking, fail safe by throwing a clear message
             frappe.throw(

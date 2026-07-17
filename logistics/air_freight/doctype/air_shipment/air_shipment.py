@@ -39,7 +39,56 @@ class AirShipment(VirtualLinkedServicesMixin, Document):
 	def after_submit(self):
 		"""Record sustainability metrics after shipment submission"""
 		self.record_sustainability_metrics()
-	
+
+	def before_submit(self):
+		"""Validate required data and destination service charges before submit."""
+		self.validate_required_fields_for_submit()
+		from logistics.utils.charge_service_type import (
+			assert_destination_service_charges_on_submit_unless_internal_job,
+		)
+
+		assert_destination_service_charges_on_submit_unless_internal_job(self)
+		try:
+			contains_dg = bool(getattr(self, "contains_dangerous_goods", 0))
+			dg_status = (getattr(self, "dg_compliance_status", "") or "").strip()
+			if contains_dg and dg_status == "Non-Compliant":
+				frappe.throw(
+					_(
+						"Cannot submit Air Shipment: DG Compliance Status is Non-Compliant while "
+						"this shipment contains dangerous goods. Please resolve compliance first."
+					),
+					title=_("Dangerous Goods Non-Compliant"),
+				)
+		except frappe.ValidationError:
+			raise
+		except Exception:
+			frappe.throw(
+				_(
+					"Submission blocked due to Dangerous Goods compliance validation error. "
+					"Please review DG fields."
+				),
+				title=_("Dangerous Goods Validation"),
+			)
+
+	def validate_required_fields_for_submit(self):
+		"""Enforce party/routing/booking links when submitting (draft saves may omit them)."""
+		if not self.booking_date:
+			frappe.throw(_("Booking Date is required"))
+		if not self.air_booking:
+			frappe.throw(_("Air Booking is required. Shipments can only be created by converting an Air Booking."))
+		if not self.shipper:
+			frappe.throw(_("Shipper is required"))
+		if not self.consignee:
+			frappe.throw(_("Consignee is required"))
+		if not self.origin_port:
+			frappe.throw(_("Origin Port is required"))
+		if not self.destination_port:
+			frappe.throw(_("Destination Port is required"))
+		if not self.direction:
+			frappe.throw(_("Direction is required"))
+		if not self.local_customer:
+			frappe.throw(_("Local Customer is required for billing"))
+
 	def calculate_sustainability_metrics(self):
 		"""Calculate sustainability metrics for this air shipment"""
 		try:

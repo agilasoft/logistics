@@ -132,9 +132,14 @@ def close_job_for_charges(doctype, name):
 			)
 		)
 
+	from logistics.job_management.job_readiness import enforce_job_readiness
+
+	enforce_job_readiness(doc, gate="close")
+
 	setattr(doc, field, "Closed")
 	if cfg.get("uses_transition_flags"):
 		doc.flags.allow_charge_close_transition = True
 	doc.flags.skip_job_status_sync = True
+	doc.flags.enforce_job_readiness_close = True
 	doc.save()
 	return {"ok": 1, "doctype": doctype, "name": name, field: "Closed"}
