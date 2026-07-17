@@ -216,6 +216,70 @@ RUN_SHEET_LAYOUT_CSS = """
 .dg-alert-compliant { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
 .dg-alert-non-compliant { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
 .dg-alert-pending { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+/* Capacity metrics embedded in run-sheet-style header (payload / capacity / used %) */
+.rs-cap-metrics-inline {
+	display: flex; flex-direction: row; flex-wrap: wrap; align-items: flex-end;
+	gap: 0; margin-left: auto; min-width: 200px;
+}
+.rs-cap-metric { display: flex; flex-direction: column; align-items: flex-start; padding: 0 16px 0 0; }
+.rs-cap-metric + .rs-cap-metric { padding-left: 16px; border-left: 1px solid #e5e7eb; }
+.rs-cap-metric-label { font-size: 10px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
+.rs-cap-metric-value { font-size: 15px; line-height: 1.3; white-space: nowrap; }
+.rs-cap-metric-value .rs-cap-used { font-weight: 700; color: #111827; }
+.rs-cap-metric-value .rs-cap-muted { color: #9ca3af; font-weight: 400; }
+.rs-cap-used-row {
+	display: flex; flex-direction: row; align-items: center; gap: 10px;
+	width: 100%; margin-top: 10px; flex-basis: 100%;
+}
+.rs-cap-used-label { font-size: 11px; color: #6b7280; white-space: nowrap; flex: 0 0 auto; }
+.rs-cap-used-track-wrap { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; }
+.rs-cap-used-track { flex: 1 1 auto; height: 8px; background: #e5e7eb; border-radius: 999px; overflow: hidden; min-width: 80px; }
+.rs-cap-used-fill { height: 100%; background: #2563eb; border-radius: 999px; }
+.rs-cap-used-pct { font-size: 12px; font-weight: 600; color: #374151; white-space: nowrap; flex: 0 0 auto; }
+/* Full run-sheet capacity header card (left meta + right metrics) */
+.rs-cap-header {
+	background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+	padding: 16px 20px 12px; margin-bottom: 16px; box-sizing: border-box; width: 100%;
+}
+.rs-cap-header__main {
+	display: grid; grid-template-columns: minmax(120px, 200px) minmax(180px, 1fr) minmax(240px, 36%);
+	align-items: center; column-gap: 12px; width: 100%; box-sizing: border-box;
+}
+.rs-cap-header__left { min-width: 0; align-self: flex-start; }
+.rs-cap-header__left .section-label { font-size: 10px; color: #9ca3af; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px; display: block; }
+.rs-cap-primary-title { font-size: 20px; font-weight: 700; color: #007bff; line-height: 1.2; margin-bottom: 8px; }
+.rs-cap-meta-list { display: flex; flex-direction: column; gap: 4px; }
+.rs-cap-meta-row { font-size: 11px; color: #6b7280; display: flex; align-items: center; gap: 6px; }
+.rs-cap-meta-row i { width: 14px; text-align: center; color: #9ca3af; }
+.rs-cap-header__avatars { position: relative; width: 124px; height: 114px; margin-left: auto; }
+.rs-cap-avatar { border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; color: #fff; }
+.rs-cap-avatar--driver { width: 104px; height: 104px; background: #1e3a8a; font-size: 36px; }
+.rs-cap-avatar--vehicle {
+	position: absolute; right: -5px; bottom: -3px; width: 50px; height: 50px;
+	background: #6b7280; border: 2px solid #fff; font-size: 18px;
+}
+.rs-cap-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.rs-cap-header__right { min-width: 0; display: flex; flex-direction: column; align-self: flex-start; padding-left: 12px; box-sizing: border-box; }
+.rs-cap-header__right .rs-cap-metrics-inline { margin-left: 0; width: 100%; }
+.rs-cap-header__right .rs-cap-used-row { margin-top: 14px; }
+.rs-cap-vehicle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.rs-cap-vehicle-name { font-size: 13px; font-weight: 700; color: #111827; text-transform: uppercase; letter-spacing: 0.35px; }
+.rs-cap-status-badge {
+	display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 999px;
+	background: #f3f4f6; border: 1px solid #e5e7eb; font-size: 12px; color: #111827; font-weight: 500;
+}
+.rs-cap-status-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.rs-cap-header__footer {
+	display: flex; flex-wrap: nowrap; align-items: center; gap: 24px; width: 100%;
+	padding-top: 10px; margin-top: 8px; border-top: 1px solid #f3f4f6; font-size: 11px; color: #6b7280;
+}
+.rs-cap-header__footer .rs-cap-footer-value { color: #374151; font-weight: 600; }
+.rs-cap-header__footer .rs-cap-footer-legs { margin-left: auto; }
+@media (max-width: 900px) {
+	.rs-cap-header__main { grid-template-columns: 1fr; row-gap: 16px; }
+	.rs-cap-header__avatars { margin: 0 auto; }
+	.rs-cap-header__right { padding-left: 0; }
+}
 /* Importer classification card (below Importer in Declaration dashboard) */
 .importer-classification-card { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 10px 14px; margin-top: 10px; display: inline-block; }
 .importer-classification-card .classification-label { font-size: 10px; color: #6c757d; text-transform: uppercase; font-weight: 600; }
@@ -1460,6 +1524,187 @@ def render_special_project_fulfillment_route_tab_html(
 """
 
 
+def _fmt_capacity_num(value, precision=0):
+	"""Format a capacity number with thin-space thousands separators."""
+	try:
+		n = float(value or 0)
+	except (TypeError, ValueError):
+		n = 0.0
+	if precision <= 0:
+		text = frappe.format_value(int(round(n)), {"fieldtype": "Int"})
+	else:
+		text = frappe.format_value(n, {"fieldtype": "Float", "precision": precision})
+	return str(text).replace(",", "\u00a0")
+
+
+def _capacity_pair_html(used, max_value, unit, used_precision=0):
+	used_str = _fmt_capacity_num(used, used_precision)
+	try:
+		max_n = float(max_value or 0)
+	except (TypeError, ValueError):
+		max_n = 0.0
+	max_str = _fmt_capacity_num(max_n, 0) if max_n > 0 else "—"
+	unit_text = f" {unit}" if unit else ""
+	return (
+		f'<span class="rs-cap-used">{escape_html(used_str)}</span>'
+		f'<span class="rs-cap-muted"> / </span>'
+		f'<span class="rs-cap-muted">{escape_html(max_str)}</span>'
+		f'<span class="rs-cap-muted">{escape_html(unit_text)}</span>'
+	)
+
+
+def _status_dot_color(status):
+	s = (status or "").lower()
+	if s in ("dispatched", "completed"):
+		return "#22c55e"
+	if s in ("in-progress", "started", "in progress"):
+		return "#2563eb"
+	if s in ("hold", "cancelled"):
+		return "#ef4444"
+	if s == "draft":
+		return "#9ca3af"
+	return "#22c55e"
+
+
+def compute_capacity_pct(used_weight, max_weight, used_volume, max_volume):
+	"""Return estimated used-capacity % as max(weight%, volume%)."""
+	try:
+		uw, mw = float(used_weight or 0), float(max_weight or 0)
+		uv, mv = float(used_volume or 0), float(max_volume or 0)
+	except (TypeError, ValueError):
+		return 0.0
+	weight_pct = (uw / mw) * 100.0 if mw > 0 else 0.0
+	volume_pct = (uv / mv) * 100.0 if mv > 0 else 0.0
+	return max(0.0, min(100.0, max(weight_pct, volume_pct)))
+
+
+def build_capacity_metrics_html(
+	used_weight=0,
+	max_weight=0,
+	used_volume=0,
+	max_volume=0,
+	capacity_pct=None,
+	used_label="Estimated used capacity",
+	compact=False,
+):
+	"""
+	Build Payload / Capacity / estimated used-capacity bar HTML for embedding in headers.
+	compact=True: metrics row only (for simple dashboard headers).
+	compact=False: metrics + progress bar block for the rich run-sheet header right column.
+	"""
+	if capacity_pct is None:
+		capacity_pct = compute_capacity_pct(used_weight, max_weight, used_volume, max_volume)
+	pct = max(0.0, min(100.0, float(capacity_pct or 0)))
+	pct_str = _fmt_capacity_num(pct, 0)
+	metrics = f"""
+		<div class="rs-cap-metrics-inline">
+			<div class="rs-cap-metric">
+				<span class="rs-cap-metric-label">Payload</span>
+				<div class="rs-cap-metric-value">{_capacity_pair_html(used_weight, max_weight, "kg")}</div>
+			</div>
+			<div class="rs-cap-metric">
+				<span class="rs-cap-metric-label">Capacity</span>
+				<div class="rs-cap-metric-value">{_capacity_pair_html(used_volume, max_volume, "m\u00b3", 3)}</div>
+			</div>
+		</div>
+		<div class="rs-cap-used-row">
+			<span class="rs-cap-used-label">{escape_html(used_label)}</span>
+			<div class="rs-cap-used-track-wrap">
+				<div class="rs-cap-used-track">
+					<div class="rs-cap-used-fill" style="width:{pct:.1f}%"></div>
+				</div>
+				<span class="rs-cap-used-pct">{escape_html(pct_str)}%</span>
+			</div>
+		</div>
+	"""
+	if compact:
+		return f'<div class="rs-cap-metrics-block" style="width:100%;margin-top:8px;">{metrics}</div>'
+	return metrics
+
+
+def build_run_sheet_capacity_header_html(
+	vehicle_type_label="Vehicle type",
+	primary_title="New",
+	transport_company="Not assigned",
+	driver_name="Not assigned",
+	run_sheet_id="—",
+	vehicle_display_name="Not assigned",
+	status="Draft",
+	run_date="Not set",
+	leg_count=0,
+	driver_image_url="",
+	vehicle_image_url="",
+	used_weight=0,
+	max_weight=0,
+	used_volume=0,
+	max_volume=0,
+	capacity_pct=None,
+	used_capacity_label="Estimated used capacity",
+	include_style=True,
+):
+	"""
+	Build a Run Sheet-style header card with payload / capacity / used-capacity in the header
+	(not a separate dashboard panel).
+	"""
+	if capacity_pct is None:
+		capacity_pct = compute_capacity_pct(used_weight, max_weight, used_volume, max_volume)
+	status_color = _status_dot_color(status)
+	driver_avatar = (
+		f'<img src="{escape_html(driver_image_url)}" alt="" />'
+		if driver_image_url
+		else '<i class="fa fa-user"></i>'
+	)
+	vehicle_avatar = (
+		f'<img src="{escape_html(vehicle_image_url)}" alt="" />'
+		if vehicle_image_url
+		else '<i class="fa fa-truck"></i>'
+	)
+	metrics_html = build_capacity_metrics_html(
+		used_weight=used_weight,
+		max_weight=max_weight,
+		used_volume=used_volume,
+		max_volume=max_volume,
+		capacity_pct=capacity_pct,
+		used_label=used_capacity_label,
+		compact=False,
+	)
+	style_block = f"<style>{RUN_SHEET_LAYOUT_CSS}</style>" if include_style else ""
+	return f"""
+	{style_block}
+	<div class="rs-cap-header">
+		<div class="rs-cap-header__main">
+			<div class="rs-cap-header__left">
+				<label class="section-label">{escape_html(vehicle_type_label or "Vehicle type")}</label>
+				<div class="rs-cap-primary-title">{escape_html(primary_title or "New")}</div>
+				<div class="rs-cap-meta-list">
+					<div class="rs-cap-meta-row"><i class="fa fa-building"></i><span>{escape_html(transport_company or "Not assigned")}</span></div>
+					<div class="rs-cap-meta-row"><i class="fa fa-user"></i><span>{escape_html(driver_name or "Not assigned")}</span></div>
+					<div class="rs-cap-meta-row"><i class="fa fa-file-text-o"></i><span>{escape_html(run_sheet_id or "—")}</span></div>
+				</div>
+			</div>
+			<div class="rs-cap-header__avatars" title="{escape_html(driver_name or "")}">
+				<div class="rs-cap-avatar rs-cap-avatar--driver">{driver_avatar}</div>
+				<div class="rs-cap-avatar rs-cap-avatar--vehicle" title="{escape_html(vehicle_display_name or "")}">{vehicle_avatar}</div>
+			</div>
+			<div class="rs-cap-header__right">
+				<div class="rs-cap-vehicle-row">
+					<span class="rs-cap-vehicle-name">{escape_html(vehicle_display_name or "Not assigned")}</span>
+					<span class="rs-cap-status-badge">
+						<span class="rs-cap-status-dot" style="background:{status_color}"></span>
+						{escape_html(status or "Draft")}
+					</span>
+				</div>
+				{metrics_html}
+			</div>
+		</div>
+		<div class="rs-cap-header__footer">
+			<span><i class="fa fa-calendar" style="color:#9ca3af;margin-right:6px;"></i>Run Date: <span class="rs-cap-footer-value">{escape_html(run_date or "Not set")}</span></span>
+			<span class="rs-cap-footer-legs">Legs: <span class="rs-cap-footer-value">{int(leg_count or 0)}</span></span>
+		</div>
+	</div>
+	"""
+
+
 def build_run_sheet_style_dashboard(
 	header_title,
 	header_subtitle,
@@ -1482,6 +1727,7 @@ def build_run_sheet_style_dashboard(
 	header_items_in_card=False,
 	status_badge_html="",
 	alerts_html="",
+	capacity_metrics=None,
 ):
 	"""
 	Build dashboard HTML with Run Sheet layout: header + sidebar cards + map.
@@ -1493,6 +1739,8 @@ def build_run_sheet_style_dashboard(
 	straight_line: if True, draw straight lines between points (for air/sea); else use road-following route
 	origin_label: optional display label for origin (shown in first section)
 	destination_label: optional display label for destination (shown in first section)
+	capacity_metrics: optional dict with used_weight, max_weight, used_volume, max_volume, capacity_pct
+		— rendered inside the header (not a separate dashboard).
 	"""
 	# Exclude Origin/Destination from header_items when passed separately
 	_filtered_items = []
@@ -1591,6 +1839,17 @@ def build_run_sheet_style_dashboard(
 	status_badge = (status_badge_html or "").strip()
 	doc_above_header = doc_management_section if (doc_management_section and doc_management_position == "before") else ""
 	doc_below_body = doc_management_section if (doc_management_section and doc_management_position != "before") else ""
+	capacity_block = ""
+	if capacity_metrics and isinstance(capacity_metrics, dict):
+		capacity_block = build_capacity_metrics_html(
+			used_weight=capacity_metrics.get("used_weight", 0),
+			max_weight=capacity_metrics.get("max_weight", 0),
+			used_volume=capacity_metrics.get("used_volume", 0),
+			max_volume=capacity_metrics.get("max_volume", 0),
+			capacity_pct=capacity_metrics.get("capacity_pct"),
+			used_label=capacity_metrics.get("used_label") or "Estimated used capacity",
+			compact=True,
+		)
 	html = f"""
 	<div class="run-sheet-dash">
 		<style>{RUN_SHEET_LAYOUT_CSS}</style>
@@ -1604,6 +1863,7 @@ def build_run_sheet_style_dashboard(
 				</div>
 				{route_section}
 				<div class="{header_details_class}">{header_details}</div>
+				{capacity_block}
 			</div>
 			{merged_cards_content}
 		</div>

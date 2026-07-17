@@ -23,6 +23,7 @@
   "column_break_2",
   "consolidation_notes",
   "run_sheet_tab",
+  "run_sheet_header_html",
   "run_sheet",
   "accounts_tab",
   "company",
@@ -129,6 +130,11 @@
    "fieldname": "run_sheet_tab",
    "fieldtype": "Tab Break",
    "label": "Run Sheet"
+  },
+  {
+   "fieldname": "run_sheet_header_html",
+   "fieldtype": "HTML",
+   "label": "Run Sheet Header"
   },
   {
    "fieldname": "run_sheet",

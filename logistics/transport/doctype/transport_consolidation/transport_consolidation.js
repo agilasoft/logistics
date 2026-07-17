@@ -28,6 +28,13 @@ frappe.ui.form.on("Transport Consolidation", {
 			frm.layout.wrapper.off("click.tc_dashboard").on("click.tc_dashboard", '[data-fieldname="dashboard_tab"]', load_dashboard);
 		}
 
+		load_tc_run_sheet_header(frm);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper
+				.off("click.tc_run_sheet_header")
+				.on("click.tc_run_sheet_header", '[data-fieldname="run_sheet_tab"]', () => load_tc_run_sheet_header(frm));
+		}
+
 		// Add custom button to fetch jobs (always show dialog for manual selection)
 		frm.add_custom_button(__("Jobs"), function() {
 			fetch_consolidatable_jobs(frm);
@@ -61,6 +68,18 @@ frappe.ui.form.on("Transport Consolidation", {
 			};
 		});
 	},
+
+	run_sheet(frm) {
+		load_tc_run_sheet_header(frm);
+	},
+
+	total_weight(frm) {
+		load_tc_run_sheet_header(frm);
+	},
+
+	total_volume(frm) {
+		load_tc_run_sheet_header(frm);
+	},
 	
 	consolidation_type(frm) {
 		// When consolidation_type changes in the form, update the dialog if it's open
@@ -85,6 +104,38 @@ frappe.ui.form.on("Transport Consolidation", {
 		}
 	}
 });
+
+function load_tc_run_sheet_header(frm) {
+	if (!frm.fields_dict.run_sheet_header_html) {
+		return;
+	}
+	const $wrap = frm.fields_dict.run_sheet_header_html.$wrapper;
+	if (!$wrap || !$wrap.length) {
+		return;
+	}
+	if (frm.is_new() || !frm.doc.name) {
+		$wrap.html(
+			'<div class="text-muted" style="padding:8px 0;">Save the consolidation to see payload, capacity, and estimated used capacity in the run sheet header.</div>'
+		);
+		return;
+	}
+	if (frm._tc_run_sheet_header_loading) {
+		return;
+	}
+	frm._tc_run_sheet_header_loading = true;
+	frm.call("get_run_sheet_header_html")
+		.then((r) => {
+			if (r.message) {
+				$wrap.html(r.message);
+			}
+		})
+		.catch(() => {
+			$wrap.html('<div class="alert alert-warning">Error loading run sheet header.</div>');
+		})
+		.then(() => {
+			frm._tc_run_sheet_header_loading = false;
+		});
+}
 
 // Handle child table events for Transport Consolidation Job
 frappe.ui.form.on("Transport Consolidation Job", {
