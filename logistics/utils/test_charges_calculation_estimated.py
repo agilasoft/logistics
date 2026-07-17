@@ -78,6 +78,59 @@ class TestChargesCalculationEstimated(UnitTestCase):
 		self.assertEqual(_estimated_display_amount(charge, rev.get("amount"), is_revenue=True), 5000)
 		self.assertEqual(_estimated_display_amount(charge, cost.get("amount"), is_revenue=False), 5000)
 
+	def test_calculate_charge_row_returns_null_estimates_without_rate(self):
+		import json
+		from unittest.mock import MagicMock, patch
+
+		from logistics.utils.charges_calculation import calculate_charge_row
+
+		class _Doc(dict):
+			def __init__(self, doctype):
+				super().__init__()
+				self.doctype = doctype
+
+			def update(self, row_dict):
+				for key, val in row_dict.items():
+					setattr(self, key, val)
+
+		row = dict(
+			name="sqc-test",
+			doctype="Sales Quote Charge",
+			parenttype="Sales Quote",
+			parent="new-OOQ-TEST",
+			revenue_calculation_method="Flat Rate",
+			cost_calculation_method="Flat Rate",
+			unit_rate=0,
+			unit_cost=0,
+			minimum_charge=5000,
+			cost_minimum_charge=5000,
+			currency="PHP",
+			cost_currency="PHP",
+			estimated_revenue=5000,
+			estimated_cost=5000,
+		)
+		with patch(
+			"logistics.utils.charges_calculation._fetch_rates_from_tariff_if_needed",
+			return_value=None,
+		), patch(
+			"logistics.utils.charges_calculation.frappe.new_doc",
+			side_effect=lambda dt: _Doc(dt),
+		), patch(
+			"logistics.utils.charges_calculation.frappe.get_meta",
+			return_value=MagicMock(has_field=lambda _n: True, get_field=lambda _n: None),
+		):
+			out = calculate_charge_row(
+				"Sales Quote Charge",
+				"Sales Quote",
+				"new-OOQ-TEST",
+				json.dumps(row),
+			)
+		self.assertTrue(out.get("success"))
+		self.assertIn("estimated_revenue", out)
+		self.assertIn("estimated_cost", out)
+		self.assertIsNone(out.get("estimated_revenue"))
+		self.assertIsNone(out.get("estimated_cost"))
+
 	def test_per_unit_with_rate_shows_calculated_amount(self):
 		charge = self._flat_rate_charge(
 			revenue_calculation_method="Per Unit",
