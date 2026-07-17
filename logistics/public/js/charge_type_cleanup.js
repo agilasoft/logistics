@@ -128,7 +128,7 @@ frappe.provide("logistics.charge_type_cleanup");
 			"cost_quantity",
 		];
 		numericFields.forEach(function (fn) {
-			if (r.message[fn] != null && frappe.meta.get_docfield(cdt, fn)) {
+			if (fn in r.message && frappe.meta.get_docfield(cdt, fn)) {
 				frappe.model.set_value(cdt, cdn, fn, r.message[fn]);
 			}
 		});

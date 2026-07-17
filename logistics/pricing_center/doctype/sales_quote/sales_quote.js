@@ -2231,8 +2231,12 @@ function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 						frm._syncing_sq_charge_from_tariff = false;
 					}
 				}
-				frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
-				frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
+				if ("estimated_revenue" in r.message) {
+					frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
+				}
+				if ("estimated_cost" in r.message) {
+					frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
+				}
 				if (r.message.quantity != null) {
 					frappe.model.set_value(cdt, cdn, "quantity", r.message.quantity);
 				}
@@ -2241,6 +2245,13 @@ function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 				}
 				frappe.model.set_value(cdt, cdn, "revenue_calc_notes", r.message.revenue_calc_notes || "");
 				frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
+				if (frm.fields_dict.charges && frm.fields_dict.charges.grid) {
+					var grid_row = frm.fields_dict.charges.grid.grid_rows_by_docname[cdn];
+					if (grid_row && grid_row.grid_form) {
+						grid_row.grid_form.refresh_field("estimated_revenue");
+						grid_row.grid_form.refresh_field("estimated_cost");
+					}
+				}
 				if (logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
 					logistics.charges_disbursement.apply_charge_row_response(cdt, cdn, r);
 				}

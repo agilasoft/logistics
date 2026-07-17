@@ -952,6 +952,34 @@ def _fetch_rates_from_tariff_if_needed(charge_doc: Any) -> None:
         pass
 
 
+def _has_billable_rate_input(charge_doc: Any, is_revenue: bool = True) -> bool:
+    """True when the user has entered enough pricing input to show an estimated amount."""
+    if is_revenue:
+        method = (_get_field(charge_doc, *REVENUE_METHOD_FIELDS) or "").strip()
+        rate = flt(_get_field(charge_doc, *RATE_FIELDS) or 0)
+        prefix = ""
+    else:
+        method = (_get_field(charge_doc, *COST_METHOD_FIELDS) or "").strip()
+        rate = flt(_get_field(charge_doc, *COST_RATE_FIELDS) or 0)
+        prefix = "cost_"
+
+    if not method:
+        return False
+    if method in ("Weight Break", "Qty Break", "Percentage Break"):
+        return True
+    if method == "Percentage":
+        base = flt(getattr(charge_doc, f"{prefix}base_amount", None) or 0)
+        return rate > 0 and base > 0
+    return rate > 0
+
+
+def _estimated_display_amount(charge_doc: Any, amount: Any, is_revenue: bool = True):
+    """Return None so Currency fields stay empty until pricing input exists; otherwise the amount."""
+    if not _has_billable_rate_input(charge_doc, is_revenue):
+        return None
+    return flt(amount)
+
+
 def _prepare_rate_data(
     charge_doc: Any,
     is_revenue: bool = True,
@@ -1543,7 +1571,11 @@ def _calculate_charge_amount(
             else flt(_get_field(charge_doc, "cost_maximum_charge") or 0)
         )
         # Minimum charge is additive for Percentage Break (not a floor clamp).
-        calc_base = pct_amount + min_charge
+        # Do not surface minimum alone when there is no goods/qty basis yet.
+        if pct_amount <= 0 and goods_value <= 0 and qty <= 0:
+            calc_base = 0.0
+        else:
+            calc_base = pct_amount + min_charge
         amount = calc_base
         if max_charge > 0 and amount > max_charge:
             amount = max_charge
@@ -1879,7 +1911,7 @@ def compute_charge_row_estimates(doc: Any, parent_doc: Optional[Any] = None) -> 
         return
     rev = calculate_charge_revenue(doc, parent_doc)
     if hasattr(doc, "estimated_revenue"):
-        doc.estimated_revenue = rev.get("amount", 0)
+        doc.estimated_revenue = _estimated_display_amount(doc, rev.get("amount", 0), is_revenue=True)
     if hasattr(doc, "revenue_calc_notes"):
         doc.revenue_calc_notes = rev.get("calc_notes", "")
     elif hasattr(doc, "calculation_notes") and rev.get("calc_notes"):
@@ -1887,7 +1919,7 @@ def compute_charge_row_estimates(doc: Any, parent_doc: Optional[Any] = None) -> 
 
     cost = calculate_charge_cost(doc, parent_doc)
     if hasattr(doc, "estimated_cost"):
-        doc.estimated_cost = cost.get("amount", 0)
+        doc.estimated_cost = _estimated_display_amount(doc, cost.get("amount", 0), is_revenue=False)
     if hasattr(doc, "cost_calc_notes"):
         doc.cost_calc_notes = cost.get("calc_notes", "")
     elif hasattr(doc, "calculation_notes") and cost.get("calc_notes") and not rev.get("calc_notes"):
@@ -2028,7 +2060,7 @@ def calculate_charge_row(
             _mirror_disbursement_cost_to_revenue(doc, doctype)
             cost = calculate_charge_cost(doc, parent_doc)
             disbursement_mirror = _mirror_disbursement_cost_to_revenue(doc, doctype)
-            est_cost = flt(cost.get("amount", 0))
+            est_cost = _estimated_display_amount(doc, cost.get("amount", 0), is_revenue=False)
             est_rev = est_cost
             notes = cost.get("calc_notes", "")
             actual_cst = (
@@ -2055,8 +2087,8 @@ def calculate_charge_row(
 
         rev = calculate_charge_revenue(doc, parent_doc)
         cost = calculate_charge_cost(doc, parent_doc)
-        est_rev = flt(rev.get("amount", 0))
-        est_cost = flt(cost.get("amount", 0))
+        est_rev = _estimated_display_amount(doc, rev.get("amount", 0), is_revenue=True)
+        est_cost = _estimated_display_amount(doc, cost.get("amount", 0), is_revenue=False)
         # Actual = same calculation (basis for SI/PI); override with actual-value inputs when present
         actual_rev = flt(row_dict.get("actual_revenue")) if row_dict.get("actual_revenue") is not None else est_rev
         actual_cst = flt(row_dict.get("actual_cost")) if row_dict.get("actual_cost") is not None else est_cost
