@@ -158,6 +158,23 @@ frappe.ui.form.on("Docket", {
 			);
 
 			frm.add_custom_button(
+				__("Create Change Request"),
+				function () {
+					frappe.call({
+						method:
+							"logistics.pricing_center.doctype.change_request.change_request.create_change_request",
+						args: { job_type: "Docket", job_name: frm.doc.name },
+						callback: function (r) {
+							if (r.message) {
+								frappe.set_route("Form", "Change Request", r.message);
+							}
+						},
+					});
+				},
+				__("Create")
+			);
+
+			frm.add_custom_button(
 				__("Sales Invoice"),
 				function () {
 					if (typeof window.show_create_sales_invoice_dialog === "function") {

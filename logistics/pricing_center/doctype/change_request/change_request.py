@@ -672,6 +672,7 @@ def create_sales_quote_from_change_request(change_request_name):
 		"Declaration": "Customs",
 		"Declaration Order": "Customs",
 		"Special Project": "Special Project",
+		"Docket": "MICE",
 	}
 	sq.main_service = job_to_service.get(main_job_type, "Transport")
 	# Additional-charge quotes from Change Request are always one-off (and matching naming series).
