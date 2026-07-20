@@ -47,11 +47,12 @@ def get_warehouse_job_charges_with_contract(customer: str, date_from: str, date_
         
         if branch and not frappe.db.exists("Branch", branch):
             frappe.throw(_("Invalid Branch: {0}").format(branch))
-        # Get warehouse jobs for the customer in the date range
+        # Get warehouse jobs for this contract (and customer) in the date range
         filters = {
-            "docstatus": 1, 
-            "customer": customer, 
-            "job_open_date": ["between", [date_from, date_to]]
+            "docstatus": 1,
+            "customer": customer,
+            "warehouse_contract": warehouse_contract,
+            "job_open_date": ["between", [date_from, date_to]],
         }
         
         if company:
@@ -62,13 +63,17 @@ def get_warehouse_job_charges_with_contract(customer: str, date_from: str, date_
         jobs = frappe.get_all(
             "Warehouse Job",
             filters=filters,
-            fields=["name", "job_open_date"],
+            fields=["name", "job_open_date", "warehouse_contract"],
             order_by="job_open_date asc, name asc",
             ignore_permissions=True,
         ) or []
         
         if not jobs:
-            warnings.append(_("No warehouse jobs found for the specified period."))
+            warnings.append(
+                _("No warehouse jobs found for contract {0} in the specified period.").format(
+                    warehouse_contract
+                )
+            )
             return charges, total, warnings
         
         # Get contract items for job charges

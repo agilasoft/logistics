@@ -32,10 +32,26 @@ def periodic_billing_get_volume_charges(periodic_billing: str, clear_existing: i
     created = 0
     grand_total = 0.0
 
-    # Process existing job charges (unchanged)
+    warehouse_contract = getattr(pb, "warehouse_contract", None)
+    company = getattr(pb, "company", None)
+    branch = getattr(pb, "branch", None)
+
+    # Process existing job charges (scoped to PB warehouse_contract when set)
+    job_filters = {
+        "docstatus": 1,
+        "customer": customer,
+        "job_open_date": ["between", [date_from, date_to]],
+    }
+    if company:
+        job_filters["company"] = company
+    if branch:
+        job_filters["branch"] = branch
+    if warehouse_contract:
+        job_filters["warehouse_contract"] = warehouse_contract
+
     jobs = frappe.get_all(
         "Warehouse Job",
-        filters={"docstatus": 1, "customer": customer, "job_open_date": ["between", [date_from, date_to]]},
+        filters=job_filters,
         fields=["name", "job_open_date"],
         order_by="job_open_date asc, name asc",
         ignore_permissions=True,

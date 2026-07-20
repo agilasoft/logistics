@@ -53,8 +53,10 @@ def get_comprehensive_periodic_billing_charges(periodic_billing: str, clear_exis
         if not customer:
             return {"error": "Customer is required"}
         
-        # Get customer contract
-        contract = _get_customer_contract(customer, company, branch)
+        # Get customer contract (prefer PB selection)
+        contract = getattr(pb_doc, "warehouse_contract", None) or _get_customer_contract(
+            customer, company, branch
+        )
         if not contract:
             return {"error": f"No contract found for customer {customer}"}
         
@@ -77,13 +79,14 @@ def get_comprehensive_periodic_billing_charges(periodic_billing: str, clear_exis
             created_charges += 1
             total_amount += flt(charge.get("total", 0))
         
-        # 2. FETCH CHARGES FROM WAREHOUSE JOBS
+        # 2. FETCH CHARGES FROM WAREHOUSE JOBS (same contract only)
         job_charges = _fetch_warehouse_job_charges(
             customer=customer,
             date_from=date_from,
             date_to=date_to,
             company=company,
-            branch=branch
+            branch=branch,
+            warehouse_contract=contract,
         )
         
         for charge in job_charges:
@@ -227,20 +230,31 @@ def _compute_storage_charges(contract: str, customer: str, date_from: str, date_
         return []
 
 
-def _fetch_warehouse_job_charges(customer: str, date_from: str, date_to: str, 
-                                company: str, branch: str) -> List[Dict[str, Any]]:
-    """Fetch charges from warehouse jobs for the customer"""
+def _fetch_warehouse_job_charges(
+    customer: str,
+    date_from: str,
+    date_to: str,
+    company: str,
+    branch: str,
+    warehouse_contract: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Fetch charges from warehouse jobs for the customer (optionally scoped to a contract)."""
     try:
+        filters = {
+            "customer": customer,
+            "company": company,
+            "branch": branch,
+            "job_open_date": ["between", [date_from, date_to]],
+            "docstatus": 1,
+        }
+        if warehouse_contract:
+            filters["warehouse_contract"] = warehouse_contract
+
         # Get warehouse jobs for the customer in the date range
-        jobs = frappe.get_all("Warehouse Job", 
-            filters={
-                "customer": customer,
-                "company": company,
-                "branch": branch,
-                "posting_date": ["between", [date_from, date_to]],
-                "docstatus": 1
-            },
-            fields=["name", "posting_date", "job_type"]
+        jobs = frappe.get_all(
+            "Warehouse Job",
+            filters=filters,
+            fields=["name", "job_open_date", "type", "warehouse_contract"],
         )
         
         if not jobs:
