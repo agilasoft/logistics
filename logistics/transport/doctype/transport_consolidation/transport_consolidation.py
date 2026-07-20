@@ -8,6 +8,183 @@ from frappe.utils import flt
 
 
 class TransportConsolidation(Document):
+	def _get_capacity_metrics(self):
+		"""
+		Payload / capacity limits for header metrics.
+		Prefer linked Run Sheet vehicle; fall back to Load Type limits.
+		"""
+		used_weight = flt(self.total_weight)
+		used_volume = flt(self.total_volume)
+		max_weight = 0.0
+		max_volume = 0.0
+
+		if self.run_sheet and frappe.db.exists("Run Sheet", self.run_sheet):
+			try:
+				rs = frappe.db.get_value(
+					"Run Sheet",
+					self.run_sheet,
+					["vehicle", "vehicle_type"],
+					as_dict=True,
+				) or {}
+				if rs.get("vehicle"):
+					v = frappe.db.get_value(
+						"Transport Vehicle",
+						rs.vehicle,
+						["capacity_weight", "max_weight_kg", "capacity_volume", "max_volume_m3"],
+						as_dict=True,
+					) or {}
+					max_weight = flt(v.get("capacity_weight") or v.get("max_weight_kg"))
+					max_volume = flt(v.get("capacity_volume") or v.get("max_volume_m3"))
+				if (not max_weight or not max_volume) and rs.get("vehicle_type"):
+					vt_vehicles = frappe.get_all(
+						"Transport Vehicle",
+						filters={"vehicle_type": rs.vehicle_type, "is_active": 1},
+						fields=["capacity_weight", "capacity_volume"],
+						limit_page_length=200,
+					)
+					for row in vt_vehicles or []:
+						if not max_weight:
+							max_weight = max(max_weight, flt(row.get("capacity_weight")))
+						if not max_volume:
+							max_volume = max(max_volume, flt(row.get("capacity_volume")))
+			except Exception:
+				pass
+
+		if (not max_weight or not max_volume) and self.load_type:
+			try:
+				lt = frappe.db.get_value(
+					"Load Type",
+					self.load_type,
+					["max_weight", "max_volume"],
+					as_dict=True,
+				) or {}
+				if not max_weight:
+					max_weight = flt(lt.get("max_weight"))
+				if not max_volume:
+					max_volume = flt(lt.get("max_volume"))
+			except Exception:
+				pass
+
+		from logistics.document_management.dashboard_layout import compute_capacity_pct
+
+		return {
+			"used_weight": used_weight,
+			"max_weight": max_weight,
+			"used_volume": used_volume,
+			"max_volume": max_volume,
+			"capacity_pct": compute_capacity_pct(used_weight, max_weight, used_volume, max_volume),
+			"used_label": "Estimated used capacity",
+		}
+
+	def _resolve_attach_image_url(self, file_url):
+		if not file_url or not str(file_url).strip():
+			return ""
+		url = str(file_url).strip()
+		if url.startswith("http://") or url.startswith("https://"):
+			return url
+		return url if url.startswith("/") else f"/{url}"
+
+	def _get_run_sheet_header_context(self):
+		"""Gather data for the Run Sheet-style capacity header on TC."""
+		metrics = self._get_capacity_metrics()
+		ctx = {
+			"vehicle_type_label": self.load_type or "Consolidation",
+			"primary_title": self.name or "Transport Consolidation",
+			"transport_company": "Not assigned",
+			"driver_name": "Not assigned",
+			"run_sheet_id": self.run_sheet or "—",
+			"vehicle_display_name": "Not assigned",
+			"status": self.get("status") or "Draft",
+			"run_date": str(self.consolidation_date) if self.consolidation_date else "Not set",
+			"leg_count": 0,
+			"driver_image_url": "",
+			"vehicle_image_url": "",
+			**metrics,
+		}
+
+		if not self.run_sheet or not frappe.db.exists("Run Sheet", self.run_sheet):
+			return ctx
+
+		try:
+			rs = frappe.get_doc("Run Sheet", self.run_sheet)
+			ctx["run_sheet_id"] = rs.name
+			ctx["status"] = rs.status or ctx["status"]
+			ctx["vehicle_type_label"] = rs.vehicle_type or ctx["vehicle_type_label"]
+			ctx["transport_company"] = rs.transport_company or ctx["transport_company"]
+			ctx["driver_name"] = rs.driver_name or rs.driver or ctx["driver_name"]
+			ctx["leg_count"] = len(rs.legs or [])
+			if rs.run_date:
+				ctx["run_date"] = frappe.format_value(rs.run_date, {"fieldtype": "Datetime"})
+			if rs.route_name:
+				ctx["primary_title"] = rs.route_name
+
+			vehicle_display = rs.vehicle or "Not assigned"
+			license_plate = ""
+			if rs.vehicle:
+				v = frappe.db.get_value(
+					"Transport Vehicle",
+					rs.vehicle,
+					["vehicle_name", "code", "license_plate_number"],
+					as_dict=True,
+				) or {}
+				vehicle_display = v.get("vehicle_name") or v.get("code") or rs.vehicle
+				license_plate = v.get("license_plate_number") or v.get("code") or ""
+			ctx["vehicle_display_name"] = vehicle_display
+			if not rs.route_name and license_plate:
+				ctx["primary_title"] = license_plate
+
+			if rs.driver:
+				driver_img = frappe.db.get_value("Driver", rs.driver, "image")
+				ctx["driver_image_url"] = self._resolve_attach_image_url(driver_img)
+
+			vehicle_type = rs.vehicle_type
+			if not vehicle_type and rs.vehicle:
+				vehicle_type = frappe.db.get_value("Transport Vehicle", rs.vehicle, "vehicle_type")
+			if vehicle_type:
+				vt_img = frappe.db.get_value("Vehicle Type", vehicle_type, "image")
+				ctx["vehicle_image_url"] = self._resolve_attach_image_url(vt_img)
+		except Exception:
+			frappe.log_error(
+				frappe.get_traceback(),
+				"Transport Consolidation Run Sheet Header",
+			)
+
+		return ctx
+
+	@frappe.whitelist()
+	def get_run_sheet_header_html(self):
+		"""Run Sheet tab header with payload / capacity / estimated used capacity inline."""
+		try:
+			from logistics.document_management.dashboard_layout import build_run_sheet_capacity_header_html
+
+			ctx = self._get_run_sheet_header_context()
+			return build_run_sheet_capacity_header_html(
+				vehicle_type_label=ctx["vehicle_type_label"],
+				primary_title=ctx["primary_title"],
+				transport_company=ctx["transport_company"],
+				driver_name=ctx["driver_name"],
+				run_sheet_id=ctx["run_sheet_id"],
+				vehicle_display_name=ctx["vehicle_display_name"],
+				status=ctx["status"],
+				run_date=ctx["run_date"],
+				leg_count=ctx["leg_count"],
+				driver_image_url=ctx["driver_image_url"],
+				vehicle_image_url=ctx["vehicle_image_url"],
+				used_weight=ctx["used_weight"],
+				max_weight=ctx["max_weight"],
+				used_volume=ctx["used_volume"],
+				max_volume=ctx["max_volume"],
+				capacity_pct=ctx["capacity_pct"],
+				used_capacity_label=ctx.get("used_label") or "Estimated used capacity",
+				include_style=True,
+			)
+		except Exception as e:
+			frappe.log_error(
+				f"Transport Consolidation get_run_sheet_header_html: {str(e)}",
+				"Transport Consolidation Run Sheet Header",
+			)
+			return "<div class='alert alert-warning'>Error loading run sheet header.</div>"
+
 	@frappe.whitelist()
 	def get_dashboard_html(self):
 		"""Generate HTML for Dashboard tab: consolidation details and header alerts."""
@@ -26,8 +203,11 @@ class TransportConsolidation(Document):
 				("Total Weight", frappe.format_value(self.total_weight or 0, df=dict(fieldtype="Float"))),
 				("Total Volume", frappe.format_value(self.total_volume or 0, df=dict(fieldtype="Float"))),
 			]
+			if self.run_sheet:
+				header_items.append(("Run Sheet", self.run_sheet))
 			alerts_html = get_dashboard_alerts_html("Transport Consolidation", self.name or "new")
 			cards_html = '<div class="text-muted">Transport jobs in this consolidation. Use Run Sheet tab to create run sheet.</div>'
+			capacity_metrics = self._get_capacity_metrics()
 			return build_run_sheet_style_dashboard(
 				header_title=self.name or "Transport Consolidation",
 				header_subtitle="Transport Consolidation",
@@ -43,6 +223,7 @@ class TransportConsolidation(Document):
 				destination_label="—",
 				hide_map=True,
 				cards_full_width=True,
+				capacity_metrics=capacity_metrics,
 			)
 		except Exception as e:
 			frappe.log_error(f"Transport Consolidation get_dashboard_html: {str(e)}", "Transport Consolidation Dashboard")

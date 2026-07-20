@@ -333,3 +333,5 @@ logistics.patches.v1_0_unset_freight_container_deposit_charge
 logistics.patches.v1_0_add_project_type_is_active
 # Charge calculation methods: add Percentage Break option on charge/rate DocTypes
 logistics.patches.v1_0_add_percentage_break_option
+# Charge Bill To: clear Customer.disabled link_filters (PermissionError Customer.0, #1266)
+logistics.patches.v3_0_clear_charge_bill_to_link_filters

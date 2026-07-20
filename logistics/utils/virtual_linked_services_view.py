@@ -81,18 +81,24 @@ class VirtualLinkedServicesMixin:
 
 	@property
 	def linked_services(self):
-		"""Live view of ``Linked Service`` documents parented to this booking."""
+		"""Live view of ``Linked Service`` documents parented to this booking.
+
+		Must return ``__dict__`` when present: Frappe wraps virtual Table fields in a
+		computed property that calls ``set()``, and ``LazyDocument.append`` does
+		``getattr`` while seeding the table. Rebuilding here causes RecursionError
+		on full-page printview (``get_lazy_doc`` + ``set_link_titles``).
+		"""
+		if "linked_services" in self.__dict__:
+			return self.__dict__["linked_services"]
+
 		if self.flags.get("_linked_services_view_cached"):
-			cached = self.__dict__.get("linked_services")
-			if cached:
-				return cached
-			# Desk save may replace the grid with ``[]`` while the cache flag stays set.
+			# Desk save may clear ``__dict__`` while the cache flag stays set.
 			if getattr(self, "name", None) and not getattr(self, "__islocal", False):
 				value = self._build_linked_services_view()
 				self.__dict__["linked_services"] = value
-				self.flags._linked_services_view_cached = True
 				return value
 			return []
+
 		value = self._build_linked_services_view()
 		self.__dict__["linked_services"] = value
 		self.flags._linked_services_view_cached = True

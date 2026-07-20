@@ -790,6 +790,23 @@ frappe.ui.form.on("Sales Quote", {
 		// Sync quotation_type to child table rows so Charge Parameters show when Regular
 		frm.events._sync_quotation_type_to_children(frm);
 
+		if (
+			!frm.is_new() &&
+			frm.doc.charges &&
+			frm.doc.charges.length &&
+			logistics.charge_type_cleanup &&
+			logistics.charge_type_cleanup.recalculate_stale_charge_estimates
+		) {
+			setTimeout(function () {
+				logistics.charge_type_cleanup.recalculate_stale_charge_estimates(
+					frm,
+					"Sales Quote Charge",
+					"charges",
+					_calculate_sales_quote_charge_row
+				);
+			}, 0);
+		}
+
 		// One-off: back-fill Converted To / Status from linked bookings when missing
 		if (
 			frm.doc.quotation_type === "One-off" &&
@@ -2218,32 +2235,14 @@ function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 			row_data: JSON.stringify(row)
 		},
 		callback: function(r) {
-			if (r.message && r.message.success) {
-				if (r.message.row_updates && typeof r.message.row_updates === "object") {
-					frm._syncing_sq_charge_from_tariff = true;
-					try {
-						$.each(r.message.row_updates, function (key, v) {
-							if (v !== undefined && v !== null) {
-								frappe.model.set_value(cdt, cdn, key, v);
-							}
-						});
-					} finally {
-						frm._syncing_sq_charge_from_tariff = false;
-					}
-				}
-				frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
-				frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
-				if (r.message.quantity != null) {
-					frappe.model.set_value(cdt, cdn, "quantity", r.message.quantity);
-				}
-				if (r.message.cost_quantity != null) {
-					frappe.model.set_value(cdt, cdn, "cost_quantity", r.message.cost_quantity);
-				}
-				frappe.model.set_value(cdt, cdn, "revenue_calc_notes", r.message.revenue_calc_notes || "");
-				frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
-				if (logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
-					logistics.charges_disbursement.apply_charge_row_response(cdt, cdn, r);
-				}
+			if (logistics.charge_type_cleanup && logistics.charge_type_cleanup.apply_calculate_charge_row_response) {
+				logistics.charge_type_cleanup.apply_calculate_charge_row_response(
+					frm,
+					cdt,
+					cdn,
+					r,
+					"charges"
+				);
 			}
 		}
 	});

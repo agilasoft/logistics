@@ -197,20 +197,14 @@ function _calculate_change_request_charge_row(frm, cdt, cdn) {
 			row_data: JSON.stringify(row),
 		},
 		callback: function (r) {
-			if (r.message && r.message.success) {
-				frappe.model.set_value(cdt, cdn, "estimated_revenue", r.message.estimated_revenue);
-				frappe.model.set_value(cdt, cdn, "estimated_cost", r.message.estimated_cost);
-				if (r.message.quantity != null) {
-					frappe.model.set_value(cdt, cdn, "quantity", r.message.quantity);
-				}
-				if (r.message.cost_quantity != null) {
-					frappe.model.set_value(cdt, cdn, "cost_quantity", r.message.cost_quantity);
-				}
-				frappe.model.set_value(cdt, cdn, "revenue_calc_notes", r.message.revenue_calc_notes || "");
-				frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
-				if (logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
-					logistics.charges_disbursement.apply_charge_row_response(cdt, cdn, r);
-				}
+			if (logistics.charge_type_cleanup && logistics.charge_type_cleanup.apply_calculate_charge_row_response) {
+				logistics.charge_type_cleanup.apply_calculate_charge_row_response(
+					frm,
+					cdt,
+					cdn,
+					r,
+					"charges"
+				);
 			}
 		},
 	});

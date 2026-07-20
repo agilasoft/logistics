@@ -51,16 +51,23 @@ frappe.provide("logistics.charge_bill_to");
 		return frm.doc.local_customer || frm.doc.customer || null;
 	};
 
+	function stripBillToLinkFilters(cdt) {
+		const df = frappe.meta.get_docfield(cdt, "bill_to");
+		if (df && df.link_filters) {
+			df.link_filters = null;
+		}
+	}
+
 	function billToFilters(frm) {
 		const eligible = frm._eligible_bill_to_customers;
 		if (!eligible || !eligible.length) {
 			return { filters: { name: "__none__" } };
 		}
+		// Do not filter on Customer.disabled here — link_filters and doctype-prefixed
+		// filters trigger a permlevel-0 permission check (Customer.0). Eligible customers
+		// are already limited to enabled customers on the server.
 		return {
-			filters: [
-				["Customer", "disabled", "=", 0],
-				["Customer", "name", "in", eligible],
-			],
+			filters: [["name", "in", eligible]],
 		};
 	}
 
@@ -114,6 +121,10 @@ frappe.provide("logistics.charge_bill_to");
 	logistics.charge_bill_to.setup = function (frm) {
 		if (!frm.fields_dict.charges || !chargeRowHasBillTo(frm)) {
 			return;
+		}
+		const cdt = chargeChildDoctype(frm);
+		if (cdt) {
+			stripBillToLinkFilters(cdt);
 		}
 		frm.set_query("bill_to", "charges", function () {
 			return billToFilters(frm);
