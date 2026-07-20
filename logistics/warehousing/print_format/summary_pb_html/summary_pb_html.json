@@ -1,0 +1,17 @@
+{
+ "align_labels_right": 0,
+ "custom_format": 1,
+ "disabled": 0,
+ "doc_type": "Periodic Billing",
+ "doctype": "Print Format",
+ "font_size": 8,
+ "html": "",
+ "line_breaks": 0,
+ "module": "Warehousing",
+ "name": "Summary PB HTML",
+ "print_format_builder": 0,
+ "print_format_type": "Jinja",
+ "raw_printing": 0,
+ "show_section_headings": 0,
+ "standard": "No"
+}

@@ -2766,8 +2766,8 @@ function show_declaration_order_confirmation(frm) {
 				branch: frm.doc.branch || sqd.branch || "",
 				cost_center: frm.doc.cost_center || sqd.cost_center || "",
 				profit_center: frm.doc.profit_center || sqd.profit_center || "",
-				customs_authority: sqd.customs_authority || "",
-				declaration_type: decl_type
+				customs_authority: frm.doc.customs_authority || sqd.customs_authority || "",
+				declaration_type: frm.doc.declaration_type || decl_type
 			};
 			show_precreate_review_dialog(frm, {
 				title: __("Create > Declaration Order"),
@@ -2792,8 +2792,11 @@ function show_declaration_order_confirmation(frm) {
 					frm.set_value("branch", values.branch || "");
 					frm.set_value("cost_center", values.cost_center || "");
 					frm.set_value("profit_center", values.profit_center || "");
-					// customs_authority / declaration_type live on Customs charge rows, not the quote header;
-					// pass them to create_declaration_order_from_sales_quote instead of frm.set_value.
+					// Prefer dialog values for create; also persist onto Scope header when Main Service is Customs.
+					if (frm.doc.main_service === "Customs") {
+						frm.set_value("customs_authority", values.customs_authority || "");
+						frm.set_value("declaration_type", values.declaration_type || "");
+					}
 					frm._declaration_order_precreate_values = {
 						customs_authority: values.customs_authority || "",
 						declaration_type: values.declaration_type || ""
@@ -2937,6 +2940,9 @@ function logistics_should_show_copy_quotation_services_button(frm) {
 		return false;
 	}
 	if (frm.doc.docstatus !== 0) {
+		return false;
+	}
+	if (frm.doc.main_service === "Warehousing") {
 		return false;
 	}
 	const source = (frm.doc.logistics_duplicate_from || "").trim();

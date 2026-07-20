@@ -43,6 +43,44 @@ class TestServiceScopeTabLayout(IntegrationTestCase):
 		self.assertLess(routing_idx, services_idx)
 		self.assertLess(services_idx, charges_idx)
 
+	def test_main_service_parameters_per_primary_service_type(self):
+		"""Header Main Service Parameters match Opportunity / charge param maps per type."""
+		meta = frappe.get_meta("Sales Quote")
+		expected = {
+			"air_house_type": "Air",
+			"airline": "Air",
+			"sea_house_type": "Sea",
+			"shipping_line": "Sea",
+			"pick_mode": "Transport",
+			"drop_mode": "Transport",
+			"container_no": "Transport",
+			"customs_authority": "Customs",
+			"declaration_type": "Customs",
+			"customs_broker": "Customs",
+			"customs_charge_category": "Customs",
+			"site": "Warehousing",
+			"sp_site": "Special Project",
+			"sp_manpower": "Special Project",
+			"sp_skilled": "Special Project",
+			"sp_equipment_type": "Special Project",
+			"sp_handling": "Special Project",
+			"sp_resource_notes": "Special Project",
+		}
+		for fieldname, service in expected.items():
+			df = meta.get_field(fieldname)
+			self.assertIsNotNone(df, fieldname)
+			self.assertIn(service, df.depends_on or "", fieldname)
+			self.assertIn("Regular", df.depends_on or "", fieldname)
+		ports = meta.get_field("origin_port")
+		self.assertIn("Air", ports.depends_on)
+		self.assertIn("Sea", ports.depends_on)
+		self.assertNotIn("Transport", ports.depends_on)
+		load = meta.get_field("load_type")
+		for svc in ("Air", "Sea", "Transport", "Customs"):
+			self.assertIn(svc, load.depends_on)
+		self.assertNotIn("Warehousing", load.depends_on)
+		self.assertNotIn("Special Project", load.depends_on)
+
 	def test_sales_quote_charge_linked_scope_options(self):
 		meta = frappe.get_meta("Sales Quote Charge")
 		df = meta.get_field("charge_scope")

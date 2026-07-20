@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_bulk_edit": 1,
  "allow_rename": 1,
  "autoname": "naming_series:",
  "creation": "2025-01-27 00:00:00",
@@ -167,8 +168,8 @@
    "fieldname": "consolidation_agent",
    "fieldtype": "Link",
    "label": "Consolidation Agent",
-   "link_filters": "[[\"User\", \"enabled\", \"=\", 1]]",
-   "options": "User"
+   "link_filters": "[[\"freight_consolidator\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Consolidator"
   },
   {
    "fieldname": "section_break_route",
@@ -567,7 +568,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-05-15 10:04:56.191388",
+ "modified": "2026-07-17 13:20:17.081266",
  "modified_by": "Administrator",
  "module": "Sea Freight",
  "name": "Sea Consolidation",
