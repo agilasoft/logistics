@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body {
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 8pt;
+			color: #000;
+			background: #fff;
+		}
+		@page { size: A4 landscape; margin: 8mm; }
+		.sheet { width: 100%; }
+		.hdr {
+			display: table;
+			width: 100%;
+			border: 1.5px solid #000;
+			border-bottom: none;
+			padding: 2mm 3mm;
+		}
+		.hdr-left, .hdr-center, .hdr-right {
+			display: table-cell;
+			vertical-align: top;
+		}
+		.hdr-left { width: 38%; }
+		.hdr-center { width: 34%; text-align: center; }
+		.hdr-right { width: 28%; text-align: right; }
+		.title {
+			font-size: 14pt;
+			font-weight: 900;
+			letter-spacing: 0.5px;
+			margin-top: 1mm;
+		}
+		.company-name {
+			font-size: 10pt;
+			font-weight: bold;
+			text-transform: uppercase;
+		}
+		.client-line {
+			font-size: 9pt;
+			font-weight: bold;
+			margin-top: 2mm;
+		}
+		.meta-table { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
+		.meta-table td { padding: 0.4mm 1mm; text-align: left; }
+		.meta-table .lbl { font-weight: bold; white-space: nowrap; width: 32%; }
+		.meta-table .val { font-weight: bold; }
+		.logo {
+			max-height: 18mm;
+			max-width: 45mm;
+			object-fit: contain;
+			float: right;
+		}
+		.balance-bar {
+			width: 100%;
+			border: 1.5px solid #000;
+			border-bottom: none;
+			border-collapse: collapse;
+			font-size: 7.5pt;
+		}
+		.balance-bar th, .balance-bar td {
+			border: 1px solid #000;
+			padding: 1mm 2mm;
+			text-align: center;
+		}
+		.balance-bar th { font-weight: bold; }
+		.main {
+			width: 100%;
+			border-collapse: collapse;
+			table-layout: fixed;
+			font-size: 7pt;
+		}
+		.main th, .main td {
+			border: 1px solid #000;
+			padding: 0.8mm 1mm;
+			vertical-align: middle;
+		}
+		.main thead th {
+			font-weight: bold;
+			text-align: center;
+		}
+		.main .subhead th {
+			font-weight: bold;
+			text-align: center;
+			font-size: 6.5pt;
+		}
+		.col-no { width: 4%; text-align: center; }
+		.col-from, .col-to { width: 10%; text-align: center; }
+		.col-days { width: 5%; text-align: center; }
+		.col-in, .col-out { width: 6%; text-align: center; }
+		.col-bal { width: 9%; text-align: center; }
+		.col-php { width: 7%; text-align: center; }
+		.col-total { width: 9%; text-align: right; font-weight: bold; }
+		.col-remarks { width: 24%; text-align: left; font-size: 6.5pt; }
+		.other-hdr td {
+			font-weight: 900;
+			text-align: left;
+			padding: 1.2mm 2mm;
+		}
+		.other-desc { text-align: left; font-weight: bold; }
+		.num { text-align: right; }
+		.ctr { text-align: center; }
+		.totals-wrap {
+			width: 100%;
+			border-collapse: collapse;
+			margin-top: 0;
+		}
+		.totals-wrap td {
+			border: 1px solid #000;
+			padding: 1.2mm 2mm;
+			vertical-align: top;
+		}
+		.total-label {
+			font-weight: 900;
+			font-size: 8pt;
+			width: 70%;
+		}
+		.total-vat { text-align: right; font-size: 7pt; }
+		.total-amt {
+			font-weight: 900;
+			font-size: 9pt;
+			text-align: right;
+			width: 15%;
+		}
+		.footer {
+			width: 100%;
+			border-collapse: collapse;
+			margin-top: 3mm;
+			table-layout: fixed;
+		}
+		.footer td {
+			border: 1px solid #000;
+			vertical-align: top;
+			padding: 2mm;
+			height: 28mm;
+		}
+		.footer .section-title {
+			font-weight: 900;
+			font-size: 7.5pt;
+			display: block;
+			margin: -2mm -2mm 2mm -2mm;
+			padding: 1.5mm 2mm;
+			border-bottom: 1px solid #000;
+		}
+		.sig-name { font-weight: bold; margin-top: 8mm; text-transform: uppercase; }
+		.sig-role { font-size: 7pt; margin-top: 1mm; }
+		.sig-line {
+			border-top: 1px solid #000;
+			margin-top: 12mm;
+			padding-top: 1mm;
+			font-size: 6.5pt;
+			color: #444;
+		}
+	</style>
+</head>
+<body>
+{% set data = frappe.call(
+	'logistics.warehousing.print_format.summary_pb_html.summary_pb_html.get_summary_pb_print_data',
+	name=doc.name
+) %}
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set company_doc = None %}
+{% if doc.company and frappe.db.exists("Company", doc.company) %}
+{% set company_doc = frappe.get_doc("Company", doc.company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
+{% set company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
+
+<div class="sheet">
+	<div class="hdr">
+		<div class="hdr-left">
+			<div class="company-name">{{ data.company_name or (company_doc.company_name if company_doc else '') }}</div>
+			<div class="client-line">CLIENT: {{ data.customer_name or doc.customer or '' }}</div>
+		</div>
+		<div class="hdr-center">
+			<div class="title">WAREHOUSE CHARGES</div>
+		</div>
+		<div class="hdr-right">
+			{% if company_doc and (company_doc.company_logo or company_doc.logo or company_doc.image) %}
+			<img class="logo" src="{{ company_doc.company_logo or company_doc.logo or company_doc.image }}" alt="Logo" />
+			{% endif %}
+			<table class="meta-table">
+				<tr><td class="lbl">REVISION DATE:</td><td>{{ data.revision_date or '' }}</td></tr>
+				<tr><td class="lbl">LOCATION CODE:</td><td>{{ data.location }}</td></tr>
+				<tr><td class="lbl">DATE:</td><td>{{ data.period_label }}</td></tr>
+			</table>
+		</div>
+	</div>
+
+	<table class="balance-bar">
+		<tr>
+			<th style="width:40%">LAST MONTH BALANCE</th>
+			<th style="width:30%">DATE</th>
+			<th style="width:30%">BALANCE PALLET</th>
+		</tr>
+		<tr>
+			<td></td>
+			<td>{{ data.last_month_date or '' }}</td>
+			<td>{% if data.last_month_balance is not none %}{{ frappe.utils.fmt_money(data.last_month_balance, precision=2) }}{% endif %}</td>
+		</tr>
+	</table>
+
+	<table class="main">
+		<thead>
+			<tr>
+				<th rowspan="2" class="col-no">NO.</th>
+				<th colspan="2">DATE RANGE</th>
+				<th rowspan="2" class="col-days">NO. of DAYS</th>
+				<th colspan="2">TRANSACTION</th>
+				<th rowspan="2" class="col-bal">BALANCE PALLET AND CARTONS</th>
+				<th rowspan="2" class="col-php">PHP</th>
+				<th rowspan="2" class="col-total">TOTAL</th>
+				<th rowspan="2" class="col-remarks">REMARKS</th>
+			</tr>
+			<tr class="subhead">
+				<th class="col-from">FROM</th>
+				<th class="col-to">TO</th>
+				<th class="col-in">INBOUND</th>
+				<th class="col-out">OUTBOUND</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for row in data.storage_rows or [] %}
+			<tr>
+				<td class="ctr">{{ row.no }}</td>
+				<td class="ctr">{{ row.date_from }}</td>
+				<td class="ctr">{{ row.date_to }}</td>
+				<td class="ctr">{{ row.days }}</td>
+				<td class="ctr">{% if row.inbound != '' and row.inbound is not none %}{{ frappe.utils.fmt_money(row.inbound, precision=2) }}{% endif %}</td>
+				<td class="ctr">{% if row.outbound != '' and row.outbound is not none %}{{ frappe.utils.fmt_money(row.outbound, precision=2) }}{% endif %}</td>
+				<td class="col-bal">{{ frappe.utils.fmt_money(row.balance, precision=2) }}</td>
+				<td class="col-php">{% if row.rate %}P{{ frappe.utils.fmt_money(row.rate, precision=2) }}{% endif %}</td>
+				<td class="col-total">{% if row.total %}P{{ frappe.utils.fmt_money(row.total, precision=2) }}{% endif %}</td>
+				<td class="col-remarks">{{ row.remarks or '' }}</td>
+			</tr>
+			{% endfor %}
+
+			{% if data.other_rows %}
+			<tr class="other-hdr">
+				<td colspan="10">OTHER CHARGES</td>
+			</tr>
+			{% for row in data.other_rows %}
+			<tr>
+				<td class="ctr">{{ row.no }}</td>
+				<td colspan="5" class="other-desc">{{ row.description }}</td>
+				<td class="ctr">{% if row.quantity %}{{ frappe.utils.fmt_money(row.quantity, precision=2) }}{% if row.uom %} {{ row.uom }}{% endif %}{% endif %}</td>
+				<td class="col-php">{% if row.rate %}P{{ frappe.utils.fmt_money(row.rate, precision=2) }}{% endif %}</td>
+				<td class="col-total">{% if row.total %}P{{ frappe.utils.fmt_money(row.total, precision=2) }}{% endif %}</td>
+				<td class="col-remarks">{{ row.remarks or '' }}</td>
+			</tr>
+			{% endfor %}
+			{% endif %}
+
+			{% if not data.storage_rows and not data.other_rows %}
+			<tr>
+				<td colspan="10" class="ctr" style="padding:6mm;">No charges</td>
+			</tr>
+			{% endif %}
+		</tbody>
+	</table>
+
+	<table class="totals-wrap">
+		<tr>
+			<td class="total-label">TOTAL BILLING {{ data.period_label }}</td>
+			<td class="total-vat">{{ data.vat_rate_pct }}% VAT<br>P{{ frappe.utils.fmt_money(data.vat_amount, precision=2) }}</td>
+			<td class="total-amt">P{{ frappe.utils.fmt_money(data.grand_total, precision=2) }}</td>
+		</tr>
+	</table>
+
+	<table class="footer">
+		<tr>
+			<td style="width:25%">
+				<span class="section-title">SPECIAL REMARKS</span>
+				{{ data.special_remarks or '' }}
+			</td>
+			<td style="width:25%">
+				<span class="section-title">PREPARED BY:</span>
+				{% if data.prepared_by %}
+				<div class="sig-name">{{ data.prepared_by }}</div>
+				<div class="sig-role">{{ data.prepared_role or '' }}</div>
+				{% else %}
+				<div class="sig-line">Name / Designation</div>
+				{% endif %}
+			</td>
+			<td style="width:25%">
+				<span class="section-title">CHECKED BY:</span>
+				{% if data.checked_by %}
+				<div class="sig-name">{{ data.checked_by }}</div>
+				<div class="sig-role">{{ data.checked_role or '' }}</div>
+				{% else %}
+				<div class="sig-line">Name / Designation</div>
+				{% endif %}
+			</td>
+			<td style="width:25%">
+				<span class="section-title">NOTED BY:</span>
+				{% if data.noted_by %}
+				<div class="sig-name">{{ data.noted_by }}</div>
+				<div class="sig-role">{{ data.noted_role or '' }}</div>
+				{% else %}
+				<div class="sig-line">Name / Designation</div>
+				{% endif %}
+			</td>
+		</tr>
+	</table>
+</div>
+</body>
+</html>

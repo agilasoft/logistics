@@ -38,6 +38,7 @@ SALES_QUOTE_CHARGE_PARAMETER_FIELDS: tuple[str, ...] = (
 	"declaration_type",
 	"customs_broker",
 	"customs_charge_category",
+	"site",
 	"sp_site",
 	"sp_manpower",
 	"sp_skilled",
@@ -87,7 +88,9 @@ _SERVICE_SCOPED_PARAMETER_FIELDS: dict[str, tuple[str, ...]] = {
 		"customs_broker",
 		"customs_charge_category",
 	),
-	"warehousing": (),
+	"warehousing": (
+		"site",
+	),
 	"special project": (
 		"sp_site",
 		"sp_manpower",

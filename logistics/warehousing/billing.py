@@ -56,14 +56,14 @@ def periodic_billing_get_charges(periodic_billing: str, clear_existing: int = 1)
         created = 0
         grand_total = 0.0
         
-        # Step 1: Process Warehouse Job Charges
+        # Step 1: Process Warehouse Job Charges (scoped to PB warehouse_contract when set)
         # First, try to get existing charges from warehouse_job_charges table
         frappe.log_error(
             title="Getting Warehouse Job Charges",
-            message=f"customer={customer}, date_from={date_from}, date_to={date_to}"
+            message=f"customer={customer}, date_from={date_from}, date_to={date_to}, warehouse_contract={warehouse_contract}"
         )
         job_charges_created, job_total, job_warnings = get_existing_warehouse_job_charges(
-            customer, date_from, date_to, company, branch
+            customer, date_from, date_to, company, branch, warehouse_contract
         )
         frappe.log_error(
             title="Job Charges Found",
@@ -80,10 +80,10 @@ def periodic_billing_get_charges(periodic_billing: str, clear_existing: int = 1)
             job_total += contract_total
             job_warnings.extend(contract_warnings)
         
-        # If still no charges, generate basic job charges
+        # If still no charges, generate basic job charges (still scoped to contract when set)
         if not job_charges_created:
             basic_charges, basic_total, basic_warnings = get_warehouse_job_charges(
-                customer, date_from, date_to, company, branch
+                customer, date_from, date_to, company, branch, warehouse_contract
             )
             job_charges_created.extend(basic_charges)
             job_total += basic_total
@@ -131,9 +131,9 @@ def periodic_billing_get_charges(periodic_billing: str, clear_existing: int = 1)
         populate_storage_details_from_inventory(pb, customer, date_from, date_to, company, branch)
         
         # Step 4: Save and return results
-        if created > 0:
-            pb.save(ignore_permissions=True)
-            frappe.db.commit()
+        # Persist even when created==0 so clear_existing removes stale wrong-contract lines
+        pb.save(ignore_permissions=True)
+        frappe.db.commit()
         
         msg = _("Added {0} charge line(s). Total: {1}").format(int(created), flt(grand_total))
         if warnings:
@@ -146,8 +146,18 @@ def periodic_billing_get_charges(periodic_billing: str, clear_existing: int = 1)
         return {"ok": False, "message": str(e), "created": 0, "grand_total": 0.0, "warnings": []}
 
 
-def get_existing_warehouse_job_charges(customer: str, date_from: str, date_to: str, company: Optional[str] = None, branch: Optional[str] = None) -> Tuple[List[Dict], float, List[str]]:
-    """Get existing warehouse job charges from the warehouse_job_charges table."""
+def get_existing_warehouse_job_charges(
+    customer: str,
+    date_from: str,
+    date_to: str,
+    company: Optional[str] = None,
+    branch: Optional[str] = None,
+    warehouse_contract: Optional[str] = None,
+) -> Tuple[List[Dict], float, List[str]]:
+    """Get existing warehouse job charges from the warehouse_job_charges table.
+
+    When warehouse_contract is set, only jobs linked to that contract are included.
+    """
     charges = []
     total = 0.0
     warnings = []
@@ -164,11 +174,13 @@ def get_existing_warehouse_job_charges(customer: str, date_from: str, date_to: s
             job_filters["company"] = company
         if branch:
             job_filters["branch"] = branch
+        if warehouse_contract:
+            job_filters["warehouse_contract"] = warehouse_contract
 
         jobs = frappe.get_all(
             "Warehouse Job",
             filters=job_filters,
-            fields=["name", "job_open_date"],
+            fields=["name", "job_open_date", "warehouse_contract"],
             order_by="job_open_date asc, name asc",
             ignore_permissions=True,
         ) or []
@@ -216,8 +228,18 @@ def get_existing_warehouse_job_charges(customer: str, date_from: str, date_to: s
     return charges, total, warnings
 
 
-def get_warehouse_job_charges(customer: str, date_from: str, date_to: str, company: Optional[str] = None, branch: Optional[str] = None) -> Tuple[List[Dict], float, List[str]]:
-    """Get warehouse job charges for the billing period."""
+def get_warehouse_job_charges(
+    customer: str,
+    date_from: str,
+    date_to: str,
+    company: Optional[str] = None,
+    branch: Optional[str] = None,
+    warehouse_contract: Optional[str] = None,
+) -> Tuple[List[Dict], float, List[str]]:
+    """Get warehouse job charges for the billing period.
+
+    When warehouse_contract is set, only jobs linked to that contract are included.
+    """
     charges = []
     total = 0.0
     warnings = []
@@ -234,11 +256,13 @@ def get_warehouse_job_charges(customer: str, date_from: str, date_to: str, compa
             filters["company"] = company
         if branch:
             filters["branch"] = branch
+        if warehouse_contract:
+            filters["warehouse_contract"] = warehouse_contract
 
         jobs = frappe.get_all(
             "Warehouse Job",
             filters=filters,
-            fields=["name", "job_open_date"],
+            fields=["name", "job_open_date", "warehouse_contract"],
             order_by="job_open_date asc, name asc",
             ignore_permissions=True,
         ) or []
