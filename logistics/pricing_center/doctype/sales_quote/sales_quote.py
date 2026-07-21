@@ -1659,6 +1659,7 @@ _MAIN_SERVICE_PRIMARY_DOCTYPE = {
 	"Transport": "Transport Order",
 	"Customs": "Declaration Order",
 	"Warehousing": "Inbound Order",
+	"Cross-Docking": "Cross-Docking Order",
 }
 
 

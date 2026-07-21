@@ -54,6 +54,11 @@ def run():
         results.append(r6)
         frappe.db.rollback()
 
+        # Flow 6b: Cross-Docking Order -> Warehouse Job
+        r6b = _test_cross_docking_order_to_warehouse_job(company, customer, shipper, consignee)
+        results.append(r6b)
+        frappe.db.rollback()
+
     except Exception as e:
         results.append({"flow": "Setup", "status": "error", "error": str(e)})
 
@@ -332,6 +337,44 @@ def _test_inbound_order_to_warehouse_job(company, customer, shipper, consignee):
 
         job = frappe.get_doc("Warehouse Job", job_name)
         assert job.reference_order == order.name, "Job not linked to order"
+
+        return {"flow": flow, "status": "pass", "order": order.name, "job": job_name}
+    except Exception as e:
+        return {"flow": flow, "status": "error", "error": str(e)}
+
+
+def _test_cross_docking_order_to_warehouse_job(company, customer, shipper, consignee):
+    """Flow: Cross-Docking Order -> Warehouse Job (type Cross Dock)"""
+    flow = "Cross-Docking Order -> Warehouse Job"
+    try:
+        from logistics.warehousing.doctype.cross_docking_order.cross_docking_order import (
+            make_warehouse_job,
+        )
+
+        order = frappe.get_doc(
+            {
+                "doctype": "Cross-Docking Order",
+                "company": company,
+                "customer": customer,
+                "shipper": shipper,
+                "consignee": consignee,
+                "planned_date": today(),
+                "due_date": today(),
+            }
+        )
+        order.insert()
+        frappe.db.commit()
+
+        job_doc = make_warehouse_job(order.name)
+        if job_doc is None:
+            raise frappe.ValidationError("make_warehouse_job returned None")
+        job_name = job_doc.name if hasattr(job_doc, "name") else str(job_doc)
+        frappe.db.commit()
+
+        job = frappe.get_doc("Warehouse Job", job_name)
+        assert job.reference_order == order.name, "Job not linked to order"
+        assert job.type == "Cross Dock", f"Expected Cross Dock job type, got {job.type}"
+        assert job.reference_order_type == "Cross-Docking Order"
 
         return {"flow": flow, "status": "pass", "order": order.name, "job": job_name}
     except Exception as e:

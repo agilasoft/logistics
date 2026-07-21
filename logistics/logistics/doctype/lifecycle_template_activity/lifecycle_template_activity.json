@@ -57,7 +57,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nSpecial Project\nMICE",
    "reqd": 1
   },
   {

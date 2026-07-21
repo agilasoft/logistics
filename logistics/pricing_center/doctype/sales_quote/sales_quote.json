@@ -353,7 +353,7 @@
    "options": "Incoterm"
   },
   {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && [\"Air\", \"Sea\", \"Transport\", \"Customs\", \"Warehousing\", \"Special Project\", \"MICE\"].includes(doc.main_service)",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && [\"Air\", \"Sea\", \"Transport\", \"Customs\", \"Warehousing\", \"Cross-Docking\", \"Special Project\", \"MICE\"].includes(doc.main_service)",
    "fieldname": "one_off_params_section",
    "fieldtype": "Section Break",
    "label": "Main Service Parameters"
@@ -815,7 +815,7 @@
    "fieldname": "main_service",
    "fieldtype": "Select",
    "label": "Primary Service Type",
-   "options": "\nAir\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE",
+   "options": "\nAir\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nSpecial Project\nMICE",
    "reqd": 1
   },
   {

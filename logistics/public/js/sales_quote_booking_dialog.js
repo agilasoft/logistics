@@ -15,6 +15,7 @@
 		Customs: "Declaration Order",
 		Custom: "Declaration Order",
 		Warehousing: "Inbound Order",
+		"Cross-Docking": "Cross-Docking Order",
 	};
 	const SQ_SCOPE_FIELDS = [
 		"transport_mode",
@@ -446,6 +447,8 @@
 			_go("Declaration Order", msg.declaration_order);
 		} else if (msg.inbound_order) {
 			_go("Inbound Order", msg.inbound_order);
+		} else if (msg.cross_docking_order) {
+			_go("Cross-Docking Order", msg.cross_docking_order);
 		}
 	}
 
@@ -543,7 +546,7 @@
 				return true;
 			}
 			if (qt === "Project") {
-				return ["Air", "Sea", "Transport", "Customs", "Custom", "Warehousing"].includes(
+				return ["Air", "Sea", "Transport", "Customs", "Custom", "Warehousing", "Cross-Docking"].includes(
 					doc.main_service
 				);
 			}
@@ -571,7 +574,7 @@
 			frappe.msgprint({
 				title: __("Not available"),
 				message: __(
-					"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, or Warehousing."
+					"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, Warehousing, or Cross-Docking."
 				),
 				indicator: "orange",
 			});
@@ -593,7 +596,7 @@
 					frappe.msgprint({
 						title: __("Create Booking / Order"),
 						message: __(
-							"No booking or order can be created from this Sales Quote. Set Main Service to Air, Sea, Transport, Customs, or Warehousing with matching charges, or add Services lines."
+							"No booking or order can be created from this Sales Quote. Set Main Service to Air, Sea, Transport, Customs, Warehousing, or Cross-Docking with matching charges, or add Services lines."
 						),
 						indicator: "orange",
 					});

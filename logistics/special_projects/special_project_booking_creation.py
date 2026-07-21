@@ -78,6 +78,7 @@ SPECIAL_PROJECT_CREATABLE_JOB_TYPES: frozenset[str] = frozenset(
 		"Transport Order",
 		"Declaration Order",
 		"Inbound Order",
+		"Cross-Docking Order",
 		"Project Order",
 	}
 )
@@ -89,6 +90,7 @@ _TARGET_DOC_LABELS: dict[str, str] = {
 	"Transport Order": "Transport Order",
 	"Declaration Order": "Declaration Order",
 	"Inbound Order": "Inbound Order",
+	"Cross-Docking Order": "Cross-Docking Order",
 	"Project Order": "Project Order",
 }
 
@@ -98,6 +100,7 @@ _SERVICE_LABEL_FOR_SP_JOB_TYPE: dict[str, str] = {
 	"Air Booking": "Air",
 	"Sea Booking": "Sea",
 	"Inbound Order": "Warehousing",
+	"Cross-Docking Order": "Cross-Docking",
 	"Project Order": "Special Project",
 }
 
@@ -1550,6 +1553,36 @@ def _create_inbound_order(
 	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
 
 
+def _create_cross_docking_order(
+	sp_doc: Any,
+	row: Any,
+	detail_idx: int,
+	shipment_lines: Any = None,
+	creation_parameters: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+	order = frappe.new_doc("Cross-Docking Order")
+	_apply_special_project_context(
+		order,
+		sp_doc,
+		lifecycle_row=row,
+		job_type="Cross-Docking Order",
+		creation_parameters=creation_parameters,
+	)
+	if frappe.get_meta("Cross-Docking Order").get_field("order_date"):
+		order.order_date = today()
+	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
+	_apply_cargo_and_shipment_lines(sp_doc, order, shipment_lines)
+	_prepare_charges_before_insert(sp_doc, order, row, creation_parameters)
+	order.insert(ignore_permissions=True)
+	_propagate_linked_services_after_insert(sp_doc, order)
+	_link_planning_lifecycle_row(sp_doc.name, row, "Cross-Docking Order", order.name, order)
+	frappe.db.commit()
+	return {
+		"cross_docking_order": order.name,
+		"message": _("Cross-Docking Order {0} created.").format(order.name),
+	}
+
+
 def _create_project_order(
 	sp_doc: Any,
 	row: Any,
@@ -1579,6 +1612,7 @@ _CREATE_DISPATCH = {
 	"Transport Order": _create_transport_order,
 	"Declaration Order": _create_declaration_order,
 	"Inbound Order": _create_inbound_order,
+	"Cross-Docking Order": _create_cross_docking_order,
 	"Project Order": _create_project_order,
 }
 
@@ -1598,6 +1632,7 @@ def _apply_cargo_and_shipment_lines(
 		"Sea Booking",
 		"Transport Order",
 		"Inbound Order",
+		"Cross-Docking Order",
 		"Project Order",
 	):
 		copy_always_along_packages_to_target(sp_doc, target_doc)

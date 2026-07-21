@@ -41,7 +41,10 @@
   "staging_posted_at",
   "column_break_isuc",
   "putaway_posted",
-  "putaway_posted_at"
+  "putaway_posted_at",
+  "column_break_release",
+  "release_posted",
+  "release_posted_at"
  ],
  "fields": [
   {
@@ -183,6 +186,25 @@
    "fieldname": "putaway_posted_at",
    "fieldtype": "Datetime",
    "label": "Putaway Posted At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_release",
+   "fieldtype": "Column Break"
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "0",
+   "fieldname": "release_posted",
+   "fieldtype": "Check",
+   "label": "Release Posted",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "release_posted_at",
+   "fieldtype": "Datetime",
+   "label": "Release Posted At",
    "read_only": 1
   },
   {

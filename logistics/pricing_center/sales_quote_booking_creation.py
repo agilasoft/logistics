@@ -51,6 +51,7 @@ SALES_QUOTE_CREATABLE_JOB_TYPES: frozenset[str] = frozenset(
 		"Transport Order",
 		"Declaration Order",
 		"Inbound Order",
+		"Cross-Docking Order",
 	}
 )
 
@@ -60,6 +61,7 @@ _SERVICE_LABEL_FOR_JOB_TYPE: dict[str, str] = {
 	"Air Booking": "Air",
 	"Sea Booking": "Sea",
 	"Inbound Order": "Warehousing",
+	"Cross-Docking Order": "Cross-Docking",
 }
 
 _MAIN_SERVICE_JOB_TYPE: dict[str, str] = {
@@ -69,6 +71,7 @@ _MAIN_SERVICE_JOB_TYPE: dict[str, str] = {
 	"Customs": "Declaration Order",
 	"Custom": "Declaration Order",
 	"Warehousing": "Inbound Order",
+	"Cross-Docking": "Cross-Docking Order",
 }
 
 _SALES_QUOTE_BOOKING_QUOTATION_TYPES: frozenset[str] = frozenset({"Regular", "Project"})
@@ -390,7 +393,7 @@ def get_sales_quote_booking_choices(
 	if not quotation_type_supports_booking_creation(sq_doc):
 		frappe.throw(
 			_(
-				"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, or Warehousing."
+				"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, Warehousing, or Cross-Docking."
 			)
 		)
 	if cint(sq_doc.docstatus) != 1:
@@ -737,12 +740,39 @@ def _create_inbound_order(
 	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
 
 
+def _create_cross_docking_order(
+	sq_doc: Any, row: Any, creation_parameters: dict[str, Any] | None = None
+) -> dict[str, Any]:
+	from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+		throw_if_additional_charge_sales_quote_blocks_booking_order_creation,
+		throw_if_sales_quote_expired_for_creation,
+	)
+
+	throw_if_sales_quote_expired_for_creation(sq_doc)
+	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sq_doc)
+	merged = _merge_creation_parameters(row, creation_parameters)
+	order = frappe.new_doc("Cross-Docking Order")
+	_apply_sq_booking_context(sq_doc, order, merged, "Cross-Docking Order")
+	if frappe.get_meta("Cross-Docking Order").get_field("order_date"):
+		order.order_date = today()
+	apply_internal_job_detail_row_to_operational_doc(order, merged, overwrite=True)
+	_populate_charges_on_target(sq_doc, order)
+	order.insert(ignore_permissions=True)
+	_propagate_subsidiary_linked_services(sq_doc, order)
+	frappe.db.commit()
+	return {
+		"cross_docking_order": order.name,
+		"message": _("Cross-Docking Order {0} created.").format(order.name),
+	}
+
+
 _CREATE_DISPATCH = {
 	"Air Booking": _create_air_booking,
 	"Sea Booking": _create_sea_booking,
 	"Transport Order": _create_transport_order,
 	"Declaration Order": _create_declaration_order,
 	"Inbound Order": _create_inbound_order,
+	"Cross-Docking Order": _create_cross_docking_order,
 }
 
 
@@ -767,7 +797,7 @@ def create_booking_or_order_from_sales_quote(
 	if not quotation_type_supports_booking_creation(sq_doc):
 		frappe.throw(
 			_(
-				"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, or Warehousing."
+				"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, Warehousing, or Cross-Docking."
 			)
 		)
 	idx = coerce_internal_job_detail_idx(detail_idx)

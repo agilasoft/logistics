@@ -201,7 +201,8 @@ def find_matching_contract_items_for_job(job_type: str, contract_items: List[Dic
         "Putaway": "inbound_charge",  # Putaway operations are inbound
         "Transfer": "transfer_charge",
         "VAS": "vas_charge",
-        "Stocktake": "stocktake_charge"
+        "Stocktake": "stocktake_charge",
+        "Cross Dock": "cross_dock_charge",
     }
     
     charge_type = job_type_mapping.get(job_type, "inbound_charge")  # Default to inbound
