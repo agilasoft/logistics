@@ -34,6 +34,7 @@ CREDIT_SUBJECT_DOCTYPES = (
 	"Transfer Order",
 	"VAS Order",
 	"Stocktake Order",
+	"Cross-Docking Order",
 	"Gate Pass",
 	"Periodic Billing",
 	"Warehouse Contract",

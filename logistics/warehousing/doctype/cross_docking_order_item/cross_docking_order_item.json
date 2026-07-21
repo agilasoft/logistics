@@ -1,0 +1,264 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-07-21 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "column_break_bsls",
+  "item",
+  "item_name",
+  "uom",
+  "quantity",
+  "sku_tracking",
+  "serial_tracking",
+  "batch_tracking",
+  "column_break_vapv",
+  "serial_no_text",
+  "serial_no",
+  "batch_no_text",
+  "batch_no",
+  "batch_expiry",
+  "handling_unit_type",
+  "handling_unit",
+  "dimensions_section",
+  "dimension_uom",
+  "length",
+  "width",
+  "height",
+  "volume_uom",
+  "volume",
+  "column_break_drkz",
+  "weight_uom",
+  "weight",
+  "chargeable_weight_uom",
+  "chargeable_weight"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "handling_unit",
+   "fieldtype": "Link",
+   "label": "Handling Unit",
+   "link_filters": "[[\"Handling Unit\",\"type\",\"=\",\"eval:doc.handling_unit_type\"]]",
+   "options": "Handling Unit"
+  },
+  {
+   "columns": 1,
+   "fieldname": "handling_unit_type",
+   "fieldtype": "Link",
+   "label": "Handling Unit Type",
+   "options": "Handling Unit Type"
+  },
+  {
+   "fieldname": "column_break_bsls",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "fetch_from": "item.uom",
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
+  },
+  {
+   "columns": 1,
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Quantity"
+  },
+  {
+   "columns": 1,
+   "depends_on": "eval:doc.serial_tracking==1",
+   "fieldname": "serial_no",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Serial No",
+   "link_filters": "[[\"Warehouse Serial\",\"item_code\",\"=\",\"eval:doc.item\"]]",
+   "options": "Warehouse Serial",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "depends_on": "eval:doc.batch_tracking==1",
+   "fieldname": "batch_no",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Batch No",
+   "link_filters": "[[\"Warehouse Batch\",\"item_code\",\"=\",\"eval:doc.item\"]]",
+   "options": "Warehouse Batch",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fetch_from": "item.serial_tracking",
+   "fieldname": "serial_tracking",
+   "fieldtype": "Check",
+   "label": "Serial Tracking",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fetch_from": "item.batch_tracking",
+   "fieldname": "batch_tracking",
+   "fieldtype": "Check",
+   "label": "Batch Tracking",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fetch_from": "item.sku_tracking",
+   "fieldname": "sku_tracking",
+   "fieldtype": "Check",
+   "label": "SKU Tracking",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_vapv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:!doc.serial_no",
+   "fieldname": "serial_no_text",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Serial No",
+   "mandatory_depends_on": "eval:doc.serial_tracking==1",
+   "read_only_depends_on": "eval:doc.serial_tracking==0"
+  },
+  {
+   "depends_on": "eval:!doc.batch_no",
+   "fieldname": "batch_no_text",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Batch No",
+   "mandatory_depends_on": "eval:doc.batch_tracking==1",
+   "read_only_depends_on": "eval:doc.batch_tracking==0"
+  },
+  {
+   "depends_on": "eval:doc.batch_tracking==1",
+   "fieldname": "batch_expiry",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Batch Expiry",
+   "mandatory_depends_on": "eval:doc.batch_tracking==1",
+   "read_only_depends_on": "eval:doc.batch_tracking==0"
+  },
+  {
+   "columns": 2,
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "link_filters": "[[\"Cross-Docking Order Item\",\"customer\",\"=\",\"eval:parent.customer\"]]",
+   "options": "Warehouse Item",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fetch_from": "item.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name"
+  },
+  {
+   "fieldname": "dimensions_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
+  },
+  {
+   "fetch_from": "item.length",
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "label": "Length",
+   "precision": "3"
+  },
+  {
+   "fetch_from": "item.width",
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "label": "Width",
+   "precision": "3"
+  },
+  {
+   "fetch_from": "item.height",
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Height",
+   "precision": "3"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume",
+   "precision": "3"
+  },
+  {
+   "fetch_from": "item.weight",
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight",
+   "precision": "3"
+  },
+  {
+   "columns": 1,
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "chargeable_weight",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Weight UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_drkz",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-21 00:00:00.000000",
+ "modified_by": "dee.sambrano@agilasoft.com",
+ "module": "Warehousing",
+ "name": "Cross-Docking Order Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

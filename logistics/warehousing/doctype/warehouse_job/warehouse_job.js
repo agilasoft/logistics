@@ -279,7 +279,7 @@ frappe.ui.form.on('Warehouse Job', {
             }
         }
         
-        // Add Allocate button if job is not completed (exclude Stocktake jobs)
+		// Add Allocate button if job is not completed (exclude Stocktake jobs)
         if (frm.doc.docstatus === 0 && frm.doc.status !== 'Completed' && frm.doc.type !== 'Stocktake') {
             // Determine button text based on job type
             let button_text = 'Allocate';
@@ -291,6 +291,8 @@ frappe.ui.form.on('Warehouse Job', {
                 button_text = 'Allocate Move';
             } else if (frm.doc.type === 'VAS') {
                 button_text = 'Allocate VAS';
+            } else if (frm.doc.type === 'Cross Dock') {
+                button_text = 'Allocate Staging';
             }
             
             frm.add_custom_button(__(button_text), function() {
@@ -334,6 +336,16 @@ frappe.ui.form.on('Warehouse Job', {
         if (frm.doc.type === 'Pick' && frm.doc.docstatus === 1 && frm.doc.items && frm.doc.items.length > 0) {
             frm.add_custom_button(__('Post Release'), function() {
                 post_release(frm);
+            }, __('Post'));
+        }
+
+        // Cross Dock: Post Receiving (staging in) then Post Release (staging out) — no putaway/pick
+        if (frm.doc.type === 'Cross Dock' && frm.doc.docstatus === 1 && frm.doc.items && frm.doc.items.length > 0) {
+            frm.add_custom_button(__('Post Receiving'), function() {
+                post_cross_dock_receiving(frm);
+            }, __('Post'));
+            frm.add_custom_button(__('Post Release'), function() {
+                post_cross_dock_release(frm);
             }, __('Post'));
         }
         
@@ -737,6 +749,8 @@ function allocate_items(frm) {
         confirm_message = __('This will allocate move tasks from orders. Continue?');
     } else if (frm.doc.type === 'VAS') {
         confirm_message = __('This will allocate VAS putaway tasks from orders. Continue?');
+    } else if (frm.doc.type === 'Cross Dock') {
+        confirm_message = __('This will allocate order lines to the staging area for cross-dock. Continue?');
     }
     
     frappe.confirm(
@@ -1291,6 +1305,64 @@ function post_release(frm) {
                         frappe.msgprint({
                             title: __('❌ Post Release Error'),
                             message: r.message.error || __('Failed to post release.'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+
+// Cross Dock Post Receiving (staging in)
+function post_cross_dock_receiving(frm) {
+    frappe.confirm(
+        __('This will post cross-dock receiving into staging. Continue?'),
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.api.post_cross_dock_receiving',
+                args: { warehouse_job: frm.doc.name },
+                callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('Post Receiving'),
+                            message: r.message.message || __('Receiving posted successfully.'),
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+                    } else {
+                        frappe.msgprint({
+                            title: __('Post Receiving Error'),
+                            message: (r.message && (r.message.message || r.message.error)) || __('Failed to post receiving.'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+
+// Cross Dock Post Release (staging out)
+function post_cross_dock_release(frm) {
+    frappe.confirm(
+        __('This will post cross-dock release from staging. Continue?'),
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.api.post_cross_dock_release',
+                args: { warehouse_job: frm.doc.name },
+                callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('Post Release'),
+                            message: r.message.message || __('Release posted successfully.'),
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+                    } else {
+                        frappe.msgprint({
+                            title: __('Post Release Error'),
+                            message: (r.message && (r.message.message || r.message.error)) || __('Failed to post release.'),
                             indicator: 'red'
                         });
                     }

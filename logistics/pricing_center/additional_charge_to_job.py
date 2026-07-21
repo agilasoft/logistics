@@ -40,6 +40,7 @@ INTERNAL_JOB_SATELLITE_JOB_TYPES = frozenset({
 	"Declaration Order",
 	"Inbound Order",
 	"Release Order",
+	"Cross-Docking Order",
 })
 
 # Set of Main job doctypes the Change Request supports directly.

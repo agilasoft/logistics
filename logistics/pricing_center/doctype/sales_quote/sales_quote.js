@@ -32,6 +32,7 @@ function logistics_canonical_charge_service_type(st) {
 		custom: "custom",
 		customs: "custom",
 		Warehousing: "warehousing",
+		"Cross-Docking": "cross-docking",
 		"Special Project": "special project",
 		MICE: "exhibits",
 		Exhibits: "exhibits",
@@ -479,7 +480,7 @@ function logistics_sales_quote_supports_booking_order_creation(doc) {
 		return true;
 	}
 	if (qt === "Project") {
-		return ["Air", "Sea", "Transport", "Customs", "Custom", "Warehousing"].includes(
+		return ["Air", "Sea", "Transport", "Customs", "Custom", "Warehousing", "Cross-Docking"].includes(
 			doc.main_service
 		);
 	}
@@ -1803,7 +1804,7 @@ function show_get_rates_from_cost_sheet_dialog(frm) {
 			fieldname: "service_type",
 			fieldtype: "Select",
 			label: __("Service Type"),
-			options: "\nAir\nSea\nTransport\nCustoms\nWarehousing",
+			options: "\nAir\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking",
 			default: defaults.service_type
 		},
 		{

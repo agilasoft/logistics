@@ -1,6 +1,6 @@
 # Warehousing Module
 
-**Warehousing** covers receiving, putaway, picking, release, transfers, value-added services (VAS), and stocktake. In CargoNext, the Warehousing module manages: Inbound Order → Warehouse Job (receiving/putaway) | Release Order → Warehouse Job (pick/release) | Transfer Order, VAS Order, Stocktake Order → Warehouse Job.
+**Warehousing** covers receiving, putaway, picking, release, transfers, value-added services (VAS), stocktake, and cross-docking. In CargoNext, the Warehousing module manages: Inbound Order → Warehouse Job (receiving/putaway) | Release Order → Warehouse Job (pick/release) | Cross-Docking Order → Warehouse Job (stage in / stage out) | Transfer Order, VAS Order, Stocktake Order → Warehouse Job.
 
 Industry terms: **3PL** (Third-Party Logistics), **VAS** (Value-Added Services), **Putaway**, **Pick**, **Cycle Count**, **ABC Analysis**, **Storage Location**.
 
@@ -57,7 +57,7 @@ Track inventory by [Handling Unit Type](welcome/handling-unit-type) (Pallet, Box
 
 ### 3.1 Quick Access
 
-- Sales Quote, Warehouse Contract, Inbound Order, Release Order, Transfer Order, VAS Order, Stocktake Order, Warehouse Job, Periodic Billing, Gate Pass
+- Sales Quote, Warehouse Contract, Inbound Order, Release Order, Cross-Docking Order, Transfer Order, VAS Order, Stocktake Order, Warehouse Job, Periodic Billing, Gate Pass
 
 ### 3.2 Mobile Pages
 
@@ -78,7 +78,7 @@ Track inventory by [Handling Unit Type](welcome/handling-unit-type) (Pallet, Box
 
 _Module transactions and masters:_
 
-- [Inbound Order](welcome/inbound-order), [Release Order](welcome/release-order), [Transfer Order](welcome/transfer-order), [VAS Order](welcome/vas-order), [Stocktake Order](welcome/stocktake-order)
+- [Inbound Order](welcome/inbound-order), [Release Order](welcome/release-order), [Cross-Docking Order](welcome/cross-docking-order), [Transfer Order](welcome/transfer-order), [VAS Order](welcome/vas-order), [Stocktake Order](welcome/stocktake-order)
 - [Warehouse Job](welcome/warehouse-job), [Warehouse Contract](welcome/warehouse-contract), [Gate Pass](welcome/gate-pass), [Periodic Billing](welcome/periodic-billing)
 - [Storage Location](welcome/storage-location), [Handling Unit Type](welcome/handling-unit-type), [Warehouse Settings](welcome/warehouse-settings)
 

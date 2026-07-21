@@ -3437,7 +3437,7 @@ def fetch_charges_from_contract(warehouse_job: str, clear_existing: int = 0) -> 
 				minimum_billing_time
 			FROM `tabWarehouse Contract Item`
 			WHERE parent = %s AND parenttype = 'Warehouse Contract'
-			AND (inbound_charge = 1 OR outbound_charge = 1 OR transfer_charge = 1 OR vas_charge = 1 OR stocktake_charge = 1)
+			AND (inbound_charge = 1 OR outbound_charge = 1 OR transfer_charge = 1 OR vas_charge = 1 OR stocktake_charge = 1 OR cross_dock_charge = 1)
 			ORDER BY handling_unit_type, storage_type
 		""", (contract,), as_dict=True)
 		
@@ -3545,7 +3545,7 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
 				minimum_billing_time
 			FROM `tabWarehouse Contract Item`
 			WHERE parent = %s AND parenttype = 'Warehouse Contract'
-			AND (inbound_charge = 1 OR outbound_charge = 1 OR transfer_charge = 1 OR vas_charge = 1 OR stocktake_charge = 1)
+			AND (inbound_charge = 1 OR outbound_charge = 1 OR transfer_charge = 1 OR vas_charge = 1 OR stocktake_charge = 1 OR cross_dock_charge = 1)
 			ORDER BY handling_unit_type, storage_type
 		""", (contract,), as_dict=True)
 		
@@ -3871,10 +3871,15 @@ def allocate_items(job_name: str) -> Dict[str, Any]:
 				"logistics.warehousing.api_parts.vas.allocate_vas",
 				warehouse_job=job_name
 			)
+		elif job_type == "Cross Dock":
+			result = frappe.call(
+				"logistics.warehousing.api_parts.cross_dock.allocate_cross_dock",
+				warehouse_job=job_name
+			)
 		else:
 			return {
 				"success": False,
-				"error": f"Unsupported job type '{job_type}'. Supported types: Pick, Putaway, Move, VAS"
+				"error": f"Unsupported job type '{job_type}'. Supported types: Pick, Putaway, Move, VAS, Cross Dock"
 			}
 		
 		if result and result.get("ok"):
@@ -4664,7 +4669,8 @@ def _contract_item_applies_to_job_type(contract_item: dict, job_type: str) -> bo
 		"Putaway": "inbound_charge",  # Putaway operations are inbound
 		"Transfer": "transfer_charge",
 		"VAS": "vas_charge",
-		"Stocktake": "stocktake_charge"
+		"Stocktake": "stocktake_charge",
+		"Cross Dock": "cross_dock_charge",
 	}
 	
 	charge_type = job_type_mapping.get(job_type, "inbound_charge")  # Default to inbound
@@ -5283,6 +5289,8 @@ def get_contract_charge_items(warehouse_contract: str, context: str = None) -> d
 				filters["storage_charge"] = 1
 			elif context == "stocktake":
 				filters["stocktake_charge"] = 1
+			elif context in ("cross_dock", "cross-dock", "crossdock"):
+				filters["cross_dock_charge"] = 1
 		
 		# Get contract items
 		contract_items = frappe.get_all(
@@ -5299,7 +5307,8 @@ def get_contract_charge_items(warehouse_contract: str, context: str = None) -> d
 				"transfer_charge",
 				"vas_charge",
 				"storage_charge",
-				"stocktake_charge"
+				"stocktake_charge",
+				"cross_dock_charge",
 			],
 			order_by="item_charge"
 		)

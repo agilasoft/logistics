@@ -49,6 +49,9 @@ frappe.ui.form.on("Warehouse Contract", {
 			frm.add_custom_button(__("Release Order"), function() {
 				frappe.new_doc("Release Order", { contract: frm.doc.name, customer: frm.doc.customer });
 			}, __("Create"));
+			frm.add_custom_button(__("Cross-Docking Order"), function() {
+				frappe.new_doc("Cross-Docking Order", { contract: frm.doc.name, customer: frm.doc.customer });
+			}, __("Create"));
 			frm.add_custom_button(__("Transfer Order"), function() {
 				frappe.new_doc("Transfer Order", { contract: frm.doc.name, customer: frm.doc.customer });
 			}, __("Create"));

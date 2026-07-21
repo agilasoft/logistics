@@ -104,7 +104,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking",
    "reqd": 1
   },
   {

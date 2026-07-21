@@ -373,7 +373,7 @@ _doc_milestone_doctypes = [
 	"Sea Booking", "Sea Shipment", "Sea Consolidation",
 	"Transport Order", "Transport Job",
 	"Declaration", "Declaration Order",
-	"Inbound Order", "Release Order", "Transfer Order",
+	"Inbound Order", "Release Order", "Transfer Order", "Cross-Docking Order",
 	"Warehouse Job", "General Job", "Special Project",
 	"Project Order", "Project Job",
 	# Exhibit family: parent doctypes with a ``milestones`` child table and
@@ -471,6 +471,7 @@ for _dt in (
 	"VAS Order",
 	"Inbound Order",
 	"Release Order",
+	"Cross-Docking Order",
 	"Project Job",
 	"MICE Job",
 	"Exhibit Job",
@@ -577,6 +578,7 @@ for _dt in (
 	"Warehouse Job",
 	"Inbound Order",
 	"Release Order",
+	"Cross-Docking Order",
 	"Project Job",
 ):
 	if _dt not in doc_events:
@@ -612,6 +614,7 @@ for _dt in (
 	"Warehouse Job",
 	"Inbound Order",
 	"Release Order",
+	"Cross-Docking Order",
 	"General Job",
 	"Project Job",
 	"MICE Job",
@@ -696,6 +699,7 @@ for _dt in (
 	"Warehouse Job",
 	"Inbound Order",
 	"Release Order",
+	"Cross-Docking Order",
 	"Project Job",
 ):
 	if _dt not in doc_events:
