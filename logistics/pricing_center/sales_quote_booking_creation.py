@@ -655,6 +655,9 @@ def _create_sea_booking(
 	_populate_charges_on_target(sq_doc, doc)
 	if hasattr(doc, "_normalize_charges_before_save"):
 		doc._normalize_charges_before_save()
+	from logistics.sea_freight.sea_container_row_utils import copy_sales_quote_containers_to_booking
+
+	copy_sales_quote_containers_to_booking(sq_doc, doc)
 	doc.insert(ignore_permissions=True)
 	_propagate_subsidiary_linked_services(sq_doc, doc)
 	frappe.db.commit()
