@@ -269,7 +269,6 @@ frappe.ui.form.on('Warehouse Job', {
         }
 
         calculate_job_totals(frm);
-        update_uom_fields_for_items(frm);
         
         // Refresh dashboard to show updated actual_hours
         if (frm.doc.name && frm.doc.name !== 'new-warehouse-job') {
@@ -279,7 +278,7 @@ frappe.ui.form.on('Warehouse Job', {
             }
         }
         
-        // Add Allocate button if job is not completed (exclude Stocktake jobs)
+		// Add Allocate button if job is not completed (exclude Stocktake jobs)
         if (frm.doc.docstatus === 0 && frm.doc.status !== 'Completed' && frm.doc.type !== 'Stocktake') {
             // Determine button text based on job type
             let button_text = 'Allocate';
@@ -291,6 +290,8 @@ frappe.ui.form.on('Warehouse Job', {
                 button_text = 'Allocate Move';
             } else if (frm.doc.type === 'VAS') {
                 button_text = 'Allocate VAS';
+            } else if (frm.doc.type === 'Cross Dock') {
+                button_text = 'Allocate Staging';
             }
             
             frm.add_custom_button(__(button_text), function() {
@@ -334,6 +335,16 @@ frappe.ui.form.on('Warehouse Job', {
         if (frm.doc.type === 'Pick' && frm.doc.docstatus === 1 && frm.doc.items && frm.doc.items.length > 0) {
             frm.add_custom_button(__('Post Release'), function() {
                 post_release(frm);
+            }, __('Post'));
+        }
+
+        // Cross Dock: Post Receiving (staging in) then Post Release (staging out) — no putaway/pick
+        if (frm.doc.type === 'Cross Dock' && frm.doc.docstatus === 1 && frm.doc.items && frm.doc.items.length > 0) {
+            frm.add_custom_button(__('Post Receiving'), function() {
+                post_cross_dock_receiving(frm);
+            }, __('Post'));
+            frm.add_custom_button(__('Post Release'), function() {
+                post_cross_dock_release(frm);
             }, __('Post'));
         }
         
@@ -465,18 +476,7 @@ frappe.ui.form.on('Warehouse Job', {
 });
 
 frappe.ui.form.on('Warehouse Job Item', {
-    length: function(frm, cdt, cdn) {
-        calculate_item_volume(frm, cdt, cdn);
-        calculate_job_totals(frm);
-    },
-    width: function(frm, cdt, cdn) {
-        calculate_item_volume(frm, cdt, cdn);
-        calculate_job_totals(frm);
-    },
-    height: function(frm, cdt, cdn) {
-        calculate_item_volume(frm, cdt, cdn);
-        calculate_job_totals(frm);
-    },
+    // Measurements are read-only from Warehouse Item; only refresh job totals.
     volume: function(frm, cdt, cdn) {
         calculate_job_totals(frm);
     },
@@ -536,18 +536,7 @@ function recalculate_total_standard_cost(frm, cdt, cdn) {
 }
 
 frappe.ui.form.on('Warehouse Job Order Items', {
-    length: function(frm, cdt, cdn) {
-        calculate_item_volume(frm, cdt, cdn);
-        calculate_job_totals(frm);
-    },
-    width: function(frm, cdt, cdn) {
-        calculate_item_volume(frm, cdt, cdn);
-        calculate_job_totals(frm);
-    },
-    height: function(frm, cdt, cdn) {
-        calculate_item_volume(frm, cdt, cdn);
-        calculate_job_totals(frm);
-    },
+    // Measurements are read-only from Warehouse Item; only refresh job totals.
     volume: function(frm, cdt, cdn) {
         calculate_job_totals(frm);
     },
@@ -652,49 +641,6 @@ function _calculate_totals_with_filter(frm, vas_sum_type) {
     frm.set_value('total_handling_units', total_handling_units);
 }
 
-function calculate_item_volume(frm, cdt, cdn) {
-    // Get the current item row
-    const item = locals[cdt][cdn];
-    if (!item) return;
-    
-    // Get dimension values
-    const length = flt(item.length || 0);
-    const width = flt(item.width || 0);
-    const height = flt(item.height || 0);
-    
-    // Calculate volume if all dimensions are provided
-    if (length > 0 && width > 0 && height > 0) {
-        // Get UOMs from item or warehouse settings
-        const dimension_uom = item.dimension_uom;
-        const volume_uom = item.volume_uom;
-        const company = frm.doc.company;
-        
-        // Call server-side method to calculate volume with UOM conversion
-        frappe.call({
-            method: "logistics.warehousing.doctype.warehouse_settings.warehouse_settings.calculate_volume_from_dimensions",
-            args: {
-                length: length,
-                width: width,
-                height: height,
-                dimension_uom: dimension_uom,
-                volume_uom: volume_uom,
-                company: company
-            },
-            callback: function(r) {
-                if (r.message && r.message.volume !== undefined) {
-                    frappe.model.set_value(cdt, cdn, "volume", r.message.volume);
-                }
-            },
-            error: function(r) {
-                const volume = 0;
-                frappe.model.set_value(cdt, cdn, "volume", volume);
-            }
-        });
-    } else {
-        // Clear volume if dimensions are incomplete
-        frappe.model.set_value(cdt, cdn, "volume", 0);
-    }
-}
 
 // Allocation functions
 function allocate_items(frm) {
@@ -737,6 +683,8 @@ function allocate_items(frm) {
         confirm_message = __('This will allocate move tasks from orders. Continue?');
     } else if (frm.doc.type === 'VAS') {
         confirm_message = __('This will allocate VAS putaway tasks from orders. Continue?');
+    } else if (frm.doc.type === 'Cross Dock') {
+        confirm_message = __('This will allocate order lines to the staging area for cross-dock. Continue?');
     }
     
     frappe.confirm(
@@ -1300,6 +1248,64 @@ function post_release(frm) {
     );
 }
 
+// Cross Dock Post Receiving (staging in)
+function post_cross_dock_receiving(frm) {
+    frappe.confirm(
+        __('This will post cross-dock receiving into staging. Continue?'),
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.api.post_cross_dock_receiving',
+                args: { warehouse_job: frm.doc.name },
+                callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('Post Receiving'),
+                            message: r.message.message || __('Receiving posted successfully.'),
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+                    } else {
+                        frappe.msgprint({
+                            title: __('Post Receiving Error'),
+                            message: (r.message && (r.message.message || r.message.error)) || __('Failed to post receiving.'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+
+// Cross Dock Post Release (staging out)
+function post_cross_dock_release(frm) {
+    frappe.confirm(
+        __('This will post cross-dock release from staging. Continue?'),
+        function() {
+            frappe.call({
+                method: 'logistics.warehousing.api.post_cross_dock_release',
+                args: { warehouse_job: frm.doc.name },
+                callback: function(r) {
+                    if (r.message && r.message.ok) {
+                        frappe.msgprint({
+                            title: __('Post Release'),
+                            message: r.message.message || __('Release posted successfully.'),
+                            indicator: 'green'
+                        });
+                        frm.reload_doc();
+                    } else {
+                        frappe.msgprint({
+                            title: __('Post Release Error'),
+                            message: (r.message && (r.message.message || r.message.error)) || __('Failed to post release.'),
+                            indicator: 'red'
+                        });
+                    }
+                }
+            });
+        }
+    );
+}
+
 // Fetch Count Sheet function
 function fetch_count_sheet(frm) {
     frappe.confirm(
@@ -1401,39 +1407,6 @@ function post_by_scan(frm) {
     );
 }
 
-// Update UOM fields for child table items
-function update_uom_fields_for_items(frm) {
-    // Get UOM values from Warehouse Settings
-    const company = frappe.defaults.get_user_default("Company");
-    
-    frappe.call({
-        method: "frappe.client.get_value",
-        args: {
-            doctype: "Warehouse Settings",
-            name: company,
-            fieldname: ["default_volume_uom", "default_weight_uom"]
-        },
-        callback: function(r) {
-            if (r.message) {
-                const volume_uom = r.message.default_volume_uom;
-                const weight_uom = r.message.default_weight_uom;
-                
-                // Update UOM fields for all items in the child table
-                if (frm.doc.items && frm.doc.items.length > 0) {
-                    frm.doc.items.forEach(function(item, index) {
-                        if (volume_uom) {
-                            frappe.model.set_value("Warehouse Job Item", item.name, "volume_uom", volume_uom);
-                        }
-                        if (weight_uom) {
-                            frappe.model.set_value("Warehouse Job Item", item.name, "weight_uom", weight_uom);
-                        }
-                    });
-                    frm.refresh_field("items");
-                }
-            }
-        }
-    });
-}
 
 // Fetch Charges from Contract function
 function fetch_charges_from_contract(frm) {

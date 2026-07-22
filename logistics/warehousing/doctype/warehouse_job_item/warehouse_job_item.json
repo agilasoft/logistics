@@ -41,7 +41,10 @@
   "staging_posted_at",
   "column_break_isuc",
   "putaway_posted",
-  "putaway_posted_at"
+  "putaway_posted_at",
+  "column_break_release",
+  "release_posted",
+  "release_posted_at"
  ],
  "fields": [
   {
@@ -186,6 +189,25 @@
    "read_only": 1
   },
   {
+   "fieldname": "column_break_release",
+   "fieldtype": "Column Break"
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "0",
+   "fieldname": "release_posted",
+   "fieldtype": "Check",
+   "label": "Release Posted",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "release_posted_at",
+   "fieldtype": "Datetime",
+   "label": "Release Posted At",
+   "read_only": 1
+  },
+  {
    "collapsible": 1,
    "fieldname": "dimensions_section",
    "fieldtype": "Section Break",
@@ -193,31 +215,30 @@
   },
   {
    "fetch_from": "item.length",
-   "fetch_if_empty": 1,
    "fieldname": "length",
    "fieldtype": "Float",
    "label": "Length",
-   "precision": "3"
+   "precision": "3",
+   "read_only": 1
   },
   {
    "fetch_from": "item.width",
-   "fetch_if_empty": 1,
    "fieldname": "width",
    "fieldtype": "Float",
    "label": "Width",
-   "precision": "3"
+   "precision": "3",
+   "read_only": 1
   },
   {
    "fetch_from": "item.height",
-   "fetch_if_empty": 1,
    "fieldname": "height",
    "fieldtype": "Float",
    "label": "Height",
-   "precision": "3"
+   "precision": "3",
+   "read_only": 1
   },
   {
    "fetch_from": "item.volume",
-   "fetch_if_empty": 1,
    "fieldname": "volume",
    "fieldtype": "Float",
    "label": "Volume",
@@ -226,11 +247,11 @@
   },
   {
    "fetch_from": "item.weight",
-   "fetch_if_empty": 1,
    "fieldname": "weight",
    "fieldtype": "Float",
    "label": "Weight",
-   "precision": "3"
+   "precision": "3",
+   "read_only": 1
   },
   {
    "columns": 1,
@@ -239,7 +260,8 @@
    "label": "Volume UOM",
    "options": "UOM",
    "read_only": 1,
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "fetch_from": "item.volume_uom"
   },
   {
    "columns": 1,
@@ -248,19 +270,24 @@
    "label": "Weight UOM",
    "options": "UOM",
    "read_only": 1,
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "fetch_from": "item.weight_uom"
   },
   {
    "fieldname": "chargeable_weight",
    "fieldtype": "Float",
-   "label": "Chargeable Weight"
+   "label": "Chargeable Weight",
+   "fetch_from": "item.chargeable_weight",
+   "read_only": 1
   },
   {
    "fieldname": "chargeable_weight_uom",
    "fieldtype": "Link",
    "label": "Chargeable Weight UOM",
    "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "fetch_from": "item.chargeable_weight_uom",
+   "read_only": 1
   },
   {
    "fetch_from": "item.uom",
@@ -276,7 +303,8 @@
    "label": "Dimension UOM",
    "options": "UOM",
    "read_only": 1,
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "fetch_from": "item.dimension_uom"
   },
   {
    "fieldname": "column_break_ehlr",

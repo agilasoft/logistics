@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import add_days, today
+from frappe.utils import add_days, flt, today
 
 from logistics.mice.doctype.docket.docket import get_recommended_booth_numbers
 
@@ -175,3 +175,48 @@ class IntegrationTestDocket(IntegrationTestCase):
 			if dk and dk.name and frappe.db.exists("Docket", dk.name):
 				dk.delete(ignore_permissions=True)
 			exhibit.delete(ignore_permissions=True)
+
+	def test_calculate_chargeable_weight_higher_of_both_iata(self):
+		"""Dense cargo: actual weight wins over volumetric weight."""
+		from logistics.utils.measurements import IATA_VOLUMETRIC_DENSITY_KG_M3
+
+		if not frappe.db.exists("DocType", "Docket"):
+			self.skipTest("Docket DocType not installed")
+
+		dk = frappe.new_doc("Docket")
+		dk.total_volume = 0.03
+		dk.total_weight = 500
+		dk.calculate_chargeable_weight()
+		# volume_weight ≈ 0.03 * 166.67 ≈ 5 kg; chargeable = max(500, 5) = 500
+		self.assertAlmostEqual(flt(dk.chargeable), 500.0, places=2)
+		self.assertGreater(flt(dk.total_weight), flt(dk.total_volume) * IATA_VOLUMETRIC_DENSITY_KG_M3)
+
+	def test_calculate_chargeable_weight_volumetric_wins(self):
+		"""Light/bulky cargo: volumetric weight wins."""
+		from logistics.utils.measurements import IATA_VOLUMETRIC_DENSITY_KG_M3
+
+		if not frappe.db.exists("DocType", "Docket"):
+			self.skipTest("Docket DocType not installed")
+
+		dk = frappe.new_doc("Docket")
+		dk.total_volume = 1.2
+		dk.total_weight = 50
+		dk.calculate_chargeable_weight()
+		expected = 1.2 * IATA_VOLUMETRIC_DENSITY_KG_M3  # ≈ 200 kg
+		self.assertAlmostEqual(flt(dk.chargeable), expected, places=4)
+
+	def test_update_packing_summary_sets_chargeable_from_packages(self):
+		if not frappe.db.exists("DocType", "Docket"):
+			self.skipTest("Docket DocType not installed")
+		if not frappe.db.exists("DocType", "Docket Package"):
+			self.skipTest("Docket Package DocType not installed")
+
+		dk = frappe.new_doc("Docket")
+		dk.append(
+			"packages",
+			{"commodity": "TEST", "volume": 0.03, "weight": 500, "no_of_packs": 1},
+		)
+		dk._update_packing_summary()
+		self.assertAlmostEqual(flt(dk.total_volume), 0.03, places=4)
+		self.assertAlmostEqual(flt(dk.total_weight), 500.0, places=2)
+		self.assertAlmostEqual(flt(dk.chargeable), 500.0, places=2)

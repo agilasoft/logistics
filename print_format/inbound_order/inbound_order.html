@@ -23,19 +23,17 @@
             margin: 0 auto;
             padding: 0;
             background: white;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
             position: relative;
+            display: block;
         }
         
         .top-section {
-            flex: 0 0 auto;
+            display: block;
         }
         
         .bottom-section {
-            margin-top: auto;
-            flex: 0 0 auto;
+            display: block;
+            margin-top: 0;
         }
         
         /* Header Section */
@@ -220,89 +218,185 @@
             margin-top: 0.1mm;
         }
         
+        /* Summary / Info boxes (Shipment + Receiving) */
+        .info-box {
+            width: 100%;
+            border: 1px solid #000;
+            margin-top: 3mm;
+            margin-bottom: 0;
+            page-break-inside: avoid;
+        }
+        
+        .info-box + .info-box {
+            margin-top: 0;
+            border-top: none;
+        }
+        
+        .info-box-header {
+            background: #e0e0e0;
+            border-bottom: 1px solid #000;
+            padding: 1mm 2mm;
+            font-size: 8pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+        
+        .info-box-grid {
+            display: flex;
+            width: 100%;
+        }
+        
+        .info-box-cell {
+            flex: 1;
+            padding: 2mm 1.5mm;
+            text-align: center;
+            border-right: 1px solid #000;
+            min-width: 0;
+        }
+        
+        .info-box-cell:last-child {
+            border-right: none;
+        }
+        
+        .info-box-label {
+            display: block;
+            font-size: 6.5pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 0.8mm;
+            color: #000;
+        }
+        
+        .info-box-value {
+            display: block;
+            font-size: 10pt;
+            font-weight: bold;
+            word-break: break-word;
+            min-height: 4mm;
+        }
+        
         /* Table Section */
         .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 0;
+            margin-top: 2mm;
             margin-bottom: 0;
+            border: 1px solid #bbb;
+        }
+        
+        .items-table thead {
+            display: table-header-group;
+        }
+        
+        .items-table tbody {
+            display: table-row-group;
+        }
+        
+        .items-table tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
         
         .table-header {
             background: #e0e0e0;
-            border: 2px solid #000;
         }
         
         .table-header th {
-            padding: 0.3mm 0.5mm;
-            text-align: left;
+            padding: 1.2mm 1mm;
+            text-align: center;
             font-size: 7pt;
             font-weight: bold;
             color: #000;
-            border-top: 2px solid #000;
-            border-bottom: 2px solid #000;
-            border-left: none;
-            border-right: none;
+            text-transform: uppercase;
+            border: 1px solid #bbb;
+            vertical-align: middle;
         }
         
-        .table-header th:first-child {
-            border-left: 2px solid #000;
-        }
-        
-        .table-header th:last-child {
-            border-right: 2px solid #000;
-        }
-        
-        .table-header th:last-child,
-        .table-header th:nth-last-child(2) {
-            text-align: right;
+        .table-header th.col-item-name {
+            text-align: left;
         }
         
         .table-row td {
-            padding: 0.3mm 0.5mm;
+            padding: 1.2mm 1mm;
             font-size: 7pt;
             background: white;
-            border: none;
-            border-bottom: 1px solid #ddd;
+            border-left: 1px solid #bbb;
+            border-right: 1px solid #bbb;
+            border-top: none;
+            border-bottom: 1px dashed #999;
+            vertical-align: middle;
         }
         
-        .table-row td:last-child,
-        .table-row td:nth-last-child(2) {
-            text-align: right;
+        .table-row:last-child td {
+            border-bottom: 1px solid #bbb;
         }
         
-        /* Charges Table */
-        .charges-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 0;
-            margin-bottom: 8mm;
+        /* Close table border at the end of each page chunk */
+        .items-table tbody tr.table-row.page-chunk-end td {
+            border-bottom: 1px solid #bbb;
         }
         
-        /* Summary Section */
-        /* Footer Section */
+        /* Page breaks: 8 rows on page 1, then 19 rows per continuation page */
+        .items-table tbody tr.table-row.page-break-before {
+            page-break-before: always;
+            break-before: page;
+        }
+        
+        .items-table .col-num,
+        .items-table .col-qty,
+        .items-table .col-uom,
+        .items-table .col-batch,
+        .items-table .col-serial,
+        .items-table .col-storage {
+            text-align: center;
+        }
+        
+        .items-table .col-code,
+        .items-table .col-name {
+            text-align: left;
+        }
+        
+        .items-table .col-name {
+            vertical-align: top;
+        }
+        
+        .item-name-text {
+            display: block;
+            line-height: 1.25;
+        }
+        
+        .item-meta {
+            display: block;
+            margin-top: 0.6mm;
+            font-size: 6.5pt;
+            color: #444;
+            line-height: 1.2;
+        }
+        
+        /* Company footer — repeats on every page via position:fixed in print */
         .footer-section {
-            margin-top: 10mm;
-            padding-top: 2mm;
-            padding-bottom: 1mm;
+            margin: 0;
+            padding: 2mm 0 1mm 0;
+            border: none;
             border-top: 2px solid #000;
             font-size: 7pt;
+            line-height: 1.35;
             background: white;
-            display: block;
-            visibility: visible;
+            text-align: left;
+            color: #000;
             page-break-inside: avoid;
-            page-break-before: auto;
-        }
-        
-        .bottom-section {
-            margin-top: auto;
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
+            break-inside: avoid;
         }
         
         .footer-row {
-            margin-bottom: 0;
+            margin: 0;
+            padding: 0;
+            text-align: left;
+        }
+        
+        .items-table tbody tr:last-child td {
+            border-bottom: 1px solid #bbb;
         }
         
         @page {
@@ -311,18 +405,50 @@
         }
         
         @media print {
-            body {
-                margin: 0;
-                padding: 0;
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                height: auto !important;
             }
             .order-container {
-                padding: 0;
-                padding-bottom: 30mm;
+                display: block;
+                min-height: 0 !important;
                 max-width: 100%;
-                position: relative;
+                padding: 0;
+                padding-bottom: 28mm;
+                box-sizing: border-box;
             }
-            .page-break {
-                page-break-after: always;
+            .top-section {
+                display: block;
+                margin-top: 0;
+            }
+            .bottom-section {
+                display: block;
+                margin-top: 0;
+            }
+            .header,
+            .main-body,
+            .info-box {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+            .items-table {
+                page-break-inside: auto;
+                break-inside: auto;
+            }
+            .items-table thead {
+                display: table-header-group;
+            }
+            .items-table tbody {
+                display: table-row-group;
+            }
+            .items-table tbody tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+            .items-table tbody tr.table-row.page-break-before {
+                page-break-before: always;
+                break-before: page;
             }
             .footer-section {
                 position: fixed;
@@ -330,23 +456,14 @@
                 left: 0;
                 right: 0;
                 width: 100%;
-                background: white;
-                padding-top: 2mm;
-                padding-bottom: 2mm;
-                padding-left: 12mm;
-                padding-right: 12mm;
-                border-top: 2px solid #000;
                 margin: 0;
-                margin-top: 0;
+                padding: 2mm 12mm;
+                border-top: 2px solid #000;
+                background: white;
                 box-sizing: border-box;
                 z-index: 1000;
-                display: block !important;
-            }
-            .charges-table {
-                margin-bottom: 10mm;
-            }
-            .bottom-section {
-                padding-bottom: 0;
+                page-break-inside: avoid;
+                break-inside: avoid;
             }
         }
     </style>
@@ -512,100 +629,171 @@
             </div>
         </div>
         
+        {# --- Dock / shipment data --- #}
+        {% set plate_parts = [] %}
+        {% set container_parts = [] %}
+        {% set door_parts = [] %}
+        {% if doc.docks %}
+            {% for d in doc.docks %}
+                {% set vehicle_plate = ((d.vehicle_type ~ ' / ') if d.vehicle_type else '') ~ (d.plate_no or '') %}
+                {% if vehicle_plate|trim %}{% set _ = plate_parts.append(vehicle_plate|trim) %}{% endif %}
+                {% if d.container_no %}{% set _ = container_parts.append(d.container_no) %}{% endif %}
+                {% if d.dock_door %}{% set _ = door_parts.append(d.dock_door) %}{% endif %}
+            {% endfor %}
+        {% endif %}
+        {% set vehicle_plate_no = plate_parts|join(', ') %}
+        {% set container_no = container_parts|join(', ') %}
+        {% set dock_door = door_parts|join(', ') %}
+        
+        <!-- Shipment Information -->
+        <div class="info-box">
+            <div class="info-box-header">Shipment Information</div>
+            <div class="info-box-grid">
+                <div class="info-box-cell">
+                    <span class="info-box-label">Vehicle / Plate No.</span>
+                    <span class="info-box-value">{{ vehicle_plate_no or '—' }}</span>
+                </div>
+                <div class="info-box-cell">
+                    <span class="info-box-label">Container No.</span>
+                    <span class="info-box-value">{{ container_no or '—' }}</span>
+                </div>
+                <div class="info-box-cell">
+                    <span class="info-box-label">Dock Door</span>
+                    <span class="info-box-value">{{ dock_door or '—' }}</span>
+                </div>
+            </div>
+        </div>
+        
+        {# --- Receiving summary totals from items --- #}
+        {% set totals = namespace(pallets=0, cartons=0.0, pieces=0.0, weight=0.0, volume=0.0, hus=[], weight_uom='', volume_uom='') %}
+        {% if doc.items %}
+            {% for item in doc.items %}
+                {% set qty = item.quantity or 0 %}
+                {% set totals.pieces = totals.pieces + qty %}
+                {% set totals.weight = totals.weight + (item.weight or 0) %}
+                {% set totals.volume = totals.volume + (item.volume or 0) %}
+                {% if item.weight_uom and not totals.weight_uom %}{% set totals.weight_uom = item.weight_uom %}{% endif %}
+                {% if item.volume_uom and not totals.volume_uom %}{% set totals.volume_uom = item.volume_uom %}{% endif %}
+                
+                {% set hu_type = (item.handling_unit_type or '')|lower %}
+                {% set uom_l = (item.uom or '')|lower %}
+                {% if 'pal' in hu_type or 'pallet' in uom_l %}
+                    {% set totals.pallets = totals.pallets + 1 %}
+                {% endif %}
+                {% if 'carton' in hu_type or 'carton' in uom_l or 'box' in uom_l or 'case' in uom_l %}
+                    {% set totals.cartons = totals.cartons + qty %}
+                {% endif %}
+                
+                {% if item.handling_unit and item.handling_unit not in totals.hus %}
+                    {% set _ = totals.hus.append(item.handling_unit) %}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        {% if totals.cartons == 0 %}
+            {% set totals.cartons = totals.pieces %}
+        {% endif %}
+        {% set hu_count = totals.hus|length if totals.hus|length > 0 else (totals.pallets if totals.pallets > 0 else (doc.items|length if doc.items else 0)) %}
+        
+        <!-- Receiving Summary -->
+        <div class="info-box">
+            <div class="info-box-header">Receiving Summary</div>
+            <div class="info-box-grid">
+                <div class="info-box-cell">
+                    <span class="info-box-label">Expected Pallets</span>
+                    <span class="info-box-value">{{ totals.pallets }}</span>
+                </div>
+                <div class="info-box-cell">
+                    <span class="info-box-label">Expected Cartons</span>
+                    <span class="info-box-value">{{ frappe.utils.fmt_money(totals.cartons, precision=0) }}</span>
+                </div>
+                <div class="info-box-cell">
+                    <span class="info-box-label">Expected Pieces</span>
+                    <span class="info-box-value">{{ frappe.utils.fmt_money(totals.pieces, precision=0) }}</span>
+                </div>
+                <div class="info-box-cell">
+                    <span class="info-box-label">Gross Weight</span>
+                    <span class="info-box-value">{{ frappe.utils.fmt_money(totals.weight, precision=2) }}{% if totals.weight_uom %} {{ totals.weight_uom }}{% endif %}</span>
+                </div>
+                <div class="info-box-cell">
+                    <span class="info-box-label">Volume</span>
+                    <span class="info-box-value">{{ frappe.utils.fmt_money(totals.volume, precision=2) }}{% if totals.volume_uom %} {{ totals.volume_uom }}{% endif %}</span>
+                </div>
+                <div class="info-box-cell">
+                    <span class="info-box-label">Handling Units</span>
+                    <span class="info-box-value">{{ hu_count }}</span>
+                </div>
+            </div>
+        </div>
+        
         <!-- Items Table -->
         <table class="items-table">
             <thead class="table-header">
                 <tr>
-                    <th>ITEM CODE</th>
-                    <th>ITEM NAME</th>
-                    <th>QUANTITY</th>
+                    <th style="width: 6mm;">#</th>
+                    <th>Item Code</th>
+                    <th class="col-item-name">Item Name / Description</th>
+                    <th>Quantity</th>
                     <th>UOM</th>
-                    <th>SERIAL NO</th>
-                    <th>BATCH NO</th>
+                    <th>Batch No.</th>
+                    <th>Serial No.</th>
+                    <th>Storage Type</th>
                 </tr>
             </thead>
             <tbody>
                 {% if doc.items %}
                     {% for item in doc.items %}
-                        <tr class="table-row">
-                            <td>{{ item.item or '' }}</td>
-                            <td>{{ item.item_name or '' }}</td>
-                            <td style="text-align: right;">{{ frappe.utils.fmt_money(item.quantity, precision=2) if item.quantity else '' }}</td>
-                            <td>{{ item.uom or '' }}</td>
-                            <td>{{ item.serial_no or '' }}</td>
-                            <td>{{ item.batch_no or '' }}</td>
+                        {% set serial_val = item.serial_no or item.serial_no_text or '' %}
+                        {% set batch_val = item.batch_no or item.batch_no_text or '' %}
+                        {% set storage_type = '' %}
+                        {% if item.item and frappe.db.exists("Warehouse Item", item.item) %}
+                            {% set storage_type = frappe.db.get_value("Warehouse Item", item.item, "preferred_storage_type") or '' %}
+                        {% endif %}
+                        {% set first_page_rows = 8 %}
+                        {% set cont_page_rows = 19 %}
+                        {% set page_break = loop.index == (first_page_rows + 1) or (loop.index > (first_page_rows + 1) and (loop.index - first_page_rows - 1) % cont_page_rows == 0) %}
+                        {% set chunk_end = loop.index == first_page_rows or (loop.index > first_page_rows and (loop.index - first_page_rows) % cont_page_rows == 0) %}
+                        <tr class="table-row{% if page_break %} page-break-before{% endif %}{% if chunk_end %} page-chunk-end{% endif %}">
+                            <td class="col-num">{{ loop.index }}</td>
+                            <td class="col-code">{{ item.item or '' }}</td>
+                            <td class="col-name">
+                                <span class="item-name-text">{{ item.item_name or '' }}</span>
+                                {% if item.volume or item.weight %}
+                                <span class="item-meta">
+                                    {% if item.volume %}Vol: {{ frappe.utils.fmt_money(item.volume, precision=2) }} {{ item.volume_uom or 'CBM' }}{% endif %}
+                                    {% if item.volume and item.weight %} · {% endif %}
+                                    {% if item.weight %}Wt: {{ frappe.utils.fmt_money(item.weight, precision=2) }}{% if item.weight_uom %} {{ item.weight_uom }}{% endif %}{% endif %}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="col-qty">{{ frappe.utils.fmt_money(item.quantity, precision=2) if item.quantity is not none else '' }}</td>
+                            <td class="col-uom">{{ item.uom or '' }}</td>
+                            <td class="col-batch">{{ batch_val if batch_val else '—' }}</td>
+                            <td class="col-serial">{{ serial_val if serial_val else '—' }}</td>
+                            <td class="col-storage">{{ storage_type if storage_type else '—' }}</td>
                         </tr>
                     {% endfor %}
                 {% else %}
                     <tr class="table-row">
-                        <td colspan="6" style="text-align: center; padding: 5mm;">No items</td>
+                        <td colspan="8" style="text-align: center; padding: 5mm;">No items</td>
                     </tr>
                 {% endif %}
             </tbody>
         </table>
         </div>
         
-        <!-- Bottom Section: Charges, Summary, Footer -->
+        <!-- Footer repeats on every printed page (position:fixed) -->
         <div class="bottom-section">
-        <!-- Charges Table -->
-        {% if doc.charges and doc.charges|length > 0 %}
-        <table class="charges-table">
-            <thead class="table-header">
-                <tr>
-                    <th>CHARGE ITEM</th>
-                    <th>DESCRIPTION</th>
-                    <th>QUANTITY</th>
-                    <th>UOM</th>
-                    <th>RATE</th>
-                    <th>TOTAL</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for charge in doc.charges %}
-                    <tr class="table-row">
-                        <td>{{ charge.item_code or charge.charge_item or '' }}</td>
-                        <td>{{ charge.item_name or '' }}</td>
-                        <td style="text-align: right;">{{ frappe.utils.fmt_money(charge.quantity, precision=2) if charge.quantity else '' }}</td>
-                        <td>{{ charge.uom or '' }}</td>
-                        <td style="text-align: right;">
-                            {% if charge.unit_rate %}
-                                {% set currency = charge.currency or 'PHP' %}
-                                {{ frappe.utils.fmt_money(charge.unit_rate, precision=2) }} {{ currency }}
-                            {% endif %}
-                        </td>
-                        <td style="text-align: right;">
-                            {% if charge.total %}
-                                {% set currency = charge.currency or 'PHP' %}
-                                {{ frappe.utils.fmt_money(charge.total, precision=2) }} {{ currency }}
-                            {% endif %}
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% endif %}
-        
-        <!-- Footer Section -->
-        <div class="footer-section">
-            <div class="footer-row">
-                Company: {{ doc.company or '' }}
+            <div class="footer-section">
+                {% set sales_rep_name = '' %}
+                {% if doc.get('sales_rep') %}
+                    {% set sales_rep_name = frappe.db.get_value('Employee', doc.sales_rep, 'employee_name') or doc.sales_rep %}
+                {% endif %}
+                <div class="footer-row">Company: {{ (company_doc.company_name if company_doc else None) or doc.company or '' }}</div>
+                <div class="footer-row">Branch: {{ doc.branch or '' }}</div>
+                <div class="footer-row">Sales Rep: {{ sales_rep_name }}</div>
+                <div class="footer-row">Cost Center: {{ doc.cost_center or '' }}</div>
+                <div class="footer-row">Profit Center: {{ doc.profit_center or '' }}</div>
             </div>
-            {% if doc.branch %}
-            <div class="footer-row">
-                Branch: {{ doc.branch }}
-            </div>
-            {% endif %}
-{% if doc.cost_center %}
-            <div class="footer-row">
-                Cost Center: {{ doc.cost_center }}
-            </div>
-            {% endif %}
-{% if doc.profit_center %}
-            <div class="footer-row">
-                Profit Center: {{ doc.profit_center }}
-            </div>
-            {% endif %}
-        </div>
         </div>
     </div>
 </body>

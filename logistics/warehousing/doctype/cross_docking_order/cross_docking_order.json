@@ -1,0 +1,396 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-07-21 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_6vby",
+  "amended_from",
+  "naming_series",
+  "order_date",
+  "shipper",
+  "consignee",
+  "column_break_pggc",
+  "customer",
+  "project",
+  "contract",
+  "cust_reference",
+  "column_break_pyci",
+  "priority",
+  "planned_date",
+  "due_date",
+  "section_break_tams",
+  "items",
+  "quote_reference_section",
+  "main_service",
+  "linked_service",
+  "main_service_type",
+  "service_role",
+  "is_high_value",
+  "sales_quote",
+  "column_break_quote_ref",
+  "carrier_details_tab",
+  "docks",
+  "additional_charges_tab",
+  "charges",
+  "documents_tab",
+  "documents_section",
+  "documents_html",
+  "document_list_template",
+  "documents",
+  "notes_tab",
+  "accounts_tab",
+  "company",
+  "branch",
+  "cost_center",
+  "profit_center",
+  "column_break_scjj",
+  "job_number"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_6vby",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Cross-Docking Order",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_pggc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Today",
+   "fieldname": "order_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Order Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "description": "ERPNext Project for Special Projects integration",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "link_filters": "[[\"Project\", \"is_active\", \"=\", 1]]",
+   "no_copy": 1,
+   "options": "Project"
+  },
+  {
+   "fieldname": "contract",
+   "fieldtype": "Link",
+   "label": "Contract",
+   "link_filters": "[[\"Warehouse Contract\",\"customer\",\"=\",\"eval:doc.customer\"]]",
+   "options": "Warehouse Contract"
+  },
+  {
+   "fieldname": "column_break_pyci",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh"
+  },
+  {
+   "fieldname": "planned_date",
+   "fieldtype": "Datetime",
+   "label": "Planned Date"
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Datetime",
+   "label": "Due Date"
+  },
+  {
+   "fieldname": "cust_reference",
+   "fieldtype": "Data",
+   "label": "Cust. Reference"
+  },
+  {
+   "fieldname": "carrier_details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Docking"
+  },
+  {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "additional_charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "options": "Cross-Docking Order Item"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "WCD.######"
+  },
+  {
+   "fieldname": "docks",
+   "fieldtype": "Table",
+   "options": "Cross-Docking Order Dock"
+  },
+  {
+   "description": "Sales Quote and main/internal job hierarchy for billing and recognition. Filled when the order is created from a job or declaration.",
+   "fieldname": "quote_reference_section",
+   "fieldtype": "Section Break",
+   "label": "Job Details"
+  },
+  {
+   "default": "0",
+   "description": "Inherited from the linked Sales Quote (if any).",
+   "fieldname": "is_high_value",
+   "fieldtype": "Check",
+   "label": "High Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "label": "Sales Quote",
+   "no_copy": 1,
+   "options": "Sales Quote",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_quote_ref",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_tams",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "options": "Cross-Docking Order Charges"
+  },
+  {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Document Checklist"
+  },
+  {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
+   "description": "Override default template. Leave empty to use product default.",
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template"
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
+  },
+  {
+   "fieldname": "accounts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Accounts"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "contract.branch",
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "contract.cost_center",
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "contract.profit_center",
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_scjj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "For revenue/cost recognition",
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "no_copy": 1,
+   "options": "Job Number"
+  },
+  {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "label": "Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
+   "options": "Consignee"
+  },
+  {
+   "default": "Standalone",
+   "fieldname": "service_role",
+   "fieldtype": "Select",
+   "label": "Service Role",
+   "options": "Main\nLinked\nStandalone",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.service_role==\"Linked\"",
+   "fieldname": "main_service_type",
+   "fieldtype": "Select",
+   "label": "Main Service Type",
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.service_role==\"Linked\"",
+   "fieldname": "main_service",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Service",
+   "options": "main_service_type",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.service_role==\"Linked\"",
+   "description": "Canonical Linked Service record this document represents.",
+   "fieldname": "linked_service",
+   "fieldtype": "Link",
+   "label": "Linked Service",
+   "no_copy": 1,
+   "options": "Linked Service",
+   "read_only": 1,
+   "search_index": 1,
+   "hidden": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-07-21 00:00:00.000000",
+ "modified_by": "dee.sambrano@agilasoft.com",
+ "module": "Warehousing",
+ "name": "Cross-Docking Order",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Customer",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Warehouse Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Warehouse User",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -34,7 +34,7 @@ from logistics.utils.service_role_rules import (
 )
 
 # Same options as Sales Quote Charge.service_type / Change Request Charge.service_type (stored as UI labels).
-SERVICE_TYPE_SELECT_OPTIONS = "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE"
+SERVICE_TYPE_SELECT_OPTIONS = "Air\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nSpecial Project\nMICE"
 
 IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 	"Air Booking": "Air",
@@ -48,6 +48,7 @@ IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 	"Warehouse Job": "Warehousing",
 	"VAS Order": "Warehousing",
 	"Inbound Order": "Warehousing",
+	"Cross-Docking Order": "Cross-Docking",
 	"Special Project": "Special Project",
 	"Project Order": "Special Project",
 	"Project Job": "Special Project",
@@ -74,7 +75,7 @@ def canonical_charge_service_type_for_storage(value):
 	low = s.lower()
 	if low in ("custom", "customs"):
 		return "custom"
-	if low in ("air", "sea", "transport", "warehousing", "special project", "exhibits"):
+	if low in ("air", "sea", "transport", "warehousing", "cross-docking", "special project", "exhibits"):
 		return low
 	if low in ("events", "mice"):
 		return "exhibits"
@@ -85,6 +86,7 @@ def canonical_charge_service_type_for_storage(value):
 		"Custom": "custom",
 		"Customs": "custom",
 		"Warehousing": "warehousing",
+		"Cross-Docking": "cross-docking",
 		"Special Project": "special project",
 		"Exhibits": "exhibits",
 		"MICE": "exhibits",
@@ -95,7 +97,7 @@ def canonical_charge_service_type_for_storage(value):
 
 # Select options on Sea/Air Booking (and similar) charge child tables use Title Case labels.
 OPERATIONAL_CHARGE_CHILD_SERVICE_TYPE_OPTIONS = (
-	"Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE"
+	"Air\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nSpecial Project\nMICE"
 )
 
 _OPERATIONAL_BOOKING_CHARGE_SERVICE_TYPE_LABELS = {
@@ -104,6 +106,7 @@ _OPERATIONAL_BOOKING_CHARGE_SERVICE_TYPE_LABELS = {
 	"transport": "Transport",
 	"custom": "Customs",
 	"warehousing": "Warehousing",
+	"cross-docking": "Cross-Docking",
 	"exhibits": "MICE",
 	"special project": "Special Project",
 }
@@ -128,6 +131,7 @@ def operational_booking_charge_service_type_label(value, default="Sea"):
 		"Transport",
 		"Customs",
 		"Warehousing",
+		"Cross-Docking",
 		"Special Project",
 		"MICE",
 	):
@@ -305,6 +309,8 @@ INTERNAL_JOB_DETAIL_JOB_TYPE_BY_SERVICE_TYPE = {
 	"customs": "Declaration Order",
 	"Warehousing": "VAS Order",
 	"warehousing": "VAS Order",
+	"Cross-Docking": "Cross-Docking Order",
+	"cross-docking": "Cross-Docking Order",
 	"Special Project": "Project Order",
 	"special project": "Project Order",
 	"MICE": "MICE Order",
@@ -361,7 +367,9 @@ def effective_internal_job_detail_job_type(row):
 		if jt in ("Inbound Order", "Release Order", "Transfer Order") and jn:
 			return jt
 		return "VAS Order"
-	if jt in ("Inbound Order", "Release Order", "Transfer Order", "VAS Order"):
+	if st == "Cross-Docking":
+		return "Cross-Docking Order"
+	if jt in ("Inbound Order", "Release Order", "Transfer Order", "VAS Order", "Cross-Docking Order"):
 		return jt
 	mapped = default_job_type_for_internal_job_service_type(st)
 	if mapped:

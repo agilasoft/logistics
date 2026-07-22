@@ -335,3 +335,7 @@ logistics.patches.v1_0_add_project_type_is_active
 logistics.patches.v1_0_add_percentage_break_option
 # Charge Bill To: clear Customer.disabled link_filters (PermissionError Customer.0, #1266)
 logistics.patches.v3_0_clear_charge_bill_to_link_filters
+# Lifecycle Stage: Icon + Color for Special Project dashboard cards
+logistics.patches.v3_0_seed_lifecycle_stage_icon_color
+# Declaration: fix job_status stuck as Draft after submit (Job Status tab)
+logistics.patches.v1_0_fix_declaration_job_status_after_submit

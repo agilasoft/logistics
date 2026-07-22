@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 9pt;
+            line-height: 1.4;
+            color: #000;
+            background: white;
+        }
+        
+        .order-container {
+            width: 100%;
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 0;
+            background: white;
+            position: relative;
+            display: block;
+        }
+        
+        .top-section {
+            display: block;
+        }
+        
+        .bottom-section {
+            display: block;
+            margin-top: 0;
+        }
+        
+        .last-page-block {
+            display: block;
+            margin-top: 3mm;
+            page-break-before: avoid;
+            break-before: avoid;
+        }
+        
+        .last-page-push {
+            display: block;
+            height: var(--last-page-push-height, 0);
+            flex-shrink: 0;
+        }
+        
+        .last-page-footer-group {
+            display: block;
+            page-break-before: avoid;
+            break-before: avoid;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        
+        /* Keep final line item(s) with the company footer — prevents footer-only pages */
+        .items-table tbody tr.table-row:nth-last-child(-n+3) {
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+        
+        .last-page-block.footer-with-table {
+            display: block;
+            page-break-before: avoid;
+            break-before: avoid;
+        }
+        
+        .last-page-block.footer-with-table .last-page-push {
+            display: block;
+            flex: none;
+        }
+        
+        .last-page-block.footer-with-table .last-page-footer-group {
+            display: block;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            page-break-before: avoid;
+            break-before: avoid;
+        }
+        
+        /* Short docs: pin company footer to bottom of the only page */
+        .order-container.single-page-order {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        
+        .order-container.single-page-order .top-section {
+            flex: 0 1 auto;
+        }
+        
+        .order-container.single-page-order .last-page-block {
+            margin-top: 0;
+            flex: 0 0 auto;
+        }
+        
+        .order-container.single-page-order .last-page-push {
+            display: block;
+            flex: 0 0 auto;
+        }
+        
+        /* Header Section */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3mm;
+        }
+        
+        .logo-placeholder {
+            width: 60mm;
+            height: 30mm;
+            background: #e0e0e0;
+            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 7pt;
+            color: #666;
+        }
+        
+        .company-logo {
+            width: 60mm;
+            height: 30mm;
+            object-fit: contain;
+        }
+        
+        .company-info {
+            flex: 1;
+            text-align: left;
+            padding-left: 3mm;
+        }
+        
+        .company-name {
+            font-size: 12pt;
+            font-weight: bold;
+            margin-bottom: 0;
+        }
+        
+        .company-address {
+            font-size: 7pt;
+            line-height: 1.3;
+            margin-bottom: 0;
+        }
+        
+        .vat-reg {
+            font-size: 7pt;
+        }
+        
+        /* Separator Line */
+        .separator {
+            border-bottom: 1px solid #000;
+            margin: 3mm 0;
+        }
+        
+        /* Main Body - Two Columns */
+        .main-body {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0;
+            margin-top: 35mm;
+            border: 2px solid #000;
+            padding: 1.5mm;
+            position: relative;
+        }
+        
+        .left-column {
+            flex: 1;
+            padding-right: 5mm;
+        }
+        
+        .right-column {
+            flex: 1;
+            padding-left: 5mm;
+        }
+        
+        .field-row {
+            display: flex;
+            margin-bottom: -1mm;
+            align-items: flex-start;
+            gap: 0.3mm;
+        }
+        
+        .field-label {
+            font-weight: 900;
+            min-width: 28mm;
+            font-size: 8pt;
+            flex-shrink: 0;
+            text-align: right;
+        }
+        
+        .left-column .field-label {
+            text-align: right;
+            min-width: 20mm;
+        }
+        
+        .left-column .field-row {
+            gap: 0.1mm;
+        }
+        
+        .field-value {
+            flex: 1;
+            font-size: 8pt;
+            min-height: 5mm;
+            padding: 0.3mm 0.5mm;
+            background: white;
+        }
+        
+        /* Customer Info Section - Aligned with QR */
+        .customer-info-section {
+            position: absolute;
+            top: -35mm;
+            left: 1.5mm;
+            z-index: 10;
+            max-width: 80mm;
+        }
+        
+        .customer-label {
+            font-weight: bold;
+            font-size: 8pt;
+            margin-top: 5mm;
+            margin-bottom: 1mm;
+            line-height: 1;
+        }
+        
+        .customer-name-box {
+            padding: 0.3mm 0.5mm;
+            font-size: 12pt;
+            font-weight: bold;
+            font-weight: 900;
+            margin-bottom: 0.1mm;
+            margin-top: -1mm;
+            line-height: 1;
+            background: white;
+        }
+        
+        .customer-address-box {
+            padding: 0.3mm 0.5mm;
+            font-size: 8pt;
+            background: white;
+            width: 100mm;
+        }
+        
+        /* QR Code Section */
+        .qr-section {
+            position: absolute;
+            top: -35mm;
+            right: 1.5mm;
+            text-align: right;
+            z-index: 10;
+            margin-bottom: 30mm;
+        }
+        
+        .qr-placeholder {
+            width: 25mm;
+            height: 25mm;
+            background: #f5f5f5;
+            border: 1px solid #ccc;
+            margin-bottom: 0.5mm;
+            display: inline-block;
+        }
+        
+        .qr-code {
+            width: 20mm;
+            height: 20mm;
+            border: 0px solid #000;
+        }
+        
+        .order-title-qr {
+            font-size: 16pt;
+            font-weight: bold;
+            font-weight: 900;
+            margin-top: 0.11mm;
+            margin-bottom: -1mm;
+            text-align: right;
+        }
+        
+        .reference-number {
+            font-size: 8pt;
+            font-weight: regular;
+            margin-top: 0.1mm;
+        }
+        
+        /* Summary / Info boxes (Shipment + Receiving) */
+        .info-box {
+            width: 100%;
+            border: 1px solid #000;
+            margin-top: 3mm;
+            margin-bottom: 0;
+            page-break-inside: avoid;
+        }
+        
+        .info-box + .info-box {
+            margin-top: 0;
+            border-top: none;
+        }
+        
+        .info-box-header {
+            background: #e0e0e0;
+            border-bottom: 1px solid #000;
+            padding: 1mm 2mm;
+            font-size: 8pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+        
+        .info-box-grid {
+            display: flex;
+            width: 100%;
+        }
+        
+        .info-box-cell {
+            flex: 1;
+            padding: 2mm 1.5mm;
+            text-align: center;
+            border-right: 1px solid #000;
+            min-width: 0;
+        }
+        
+        .info-box-cell:last-child {
+            border-right: none;
+        }
+        
+        .info-box-label {
+            display: block;
+            font-size: 6.5pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 0.8mm;
+            color: #000;
+        }
+        
+        .info-box-value {
+            display: block;
+            font-size: 10pt;
+            font-weight: bold;
+            word-break: break-word;
+            min-height: 4mm;
+        }
+        
+        /* Table Section */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 2mm;
+            margin-bottom: 0;
+            border: 1px solid #bbb;
+        }
+        
+        .items-table thead {
+            display: table-header-group;
+        }
+        
+        .items-table tbody {
+            display: table-row-group;
+        }
+        
+        .items-table tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        
+        .table-header {
+            background: #e0e0e0;
+        }
+        
+        .table-header th {
+            padding: 1.2mm 1mm;
+            text-align: center;
+            font-size: 7pt;
+            font-weight: bold;
+            color: #000;
+            text-transform: uppercase;
+            border: 1px solid #bbb;
+            vertical-align: middle;
+        }
+        
+        .table-header th.col-item-name {
+            text-align: left;
+        }
+        
+        .table-row td {
+            padding: 1.2mm 1mm;
+            font-size: 7pt;
+            background: white;
+            border-left: 1px solid #bbb;
+            border-right: 1px solid #bbb;
+            border-top: none;
+            border-bottom: 1px dashed #999;
+            vertical-align: middle;
+        }
+        
+        .table-row:last-child td {
+            border-bottom: 1px solid #bbb;
+        }
+        
+        .items-table .col-num,
+        .items-table .col-qty,
+        .items-table .col-uom,
+        .items-table .col-batch,
+        .items-table .col-serial,
+        .items-table .col-storage {
+            text-align: center;
+        }
+        
+        .items-table .col-code,
+        .items-table .col-name {
+            text-align: left;
+        }
+        
+        .items-table .col-name {
+            vertical-align: top;
+        }
+        
+        .item-name-text {
+            display: block;
+            line-height: 1.25;
+        }
+        
+        .item-meta {
+            display: block;
+            margin-top: 0.6mm;
+            font-size: 6.5pt;
+            color: #444;
+            line-height: 1.2;
+        }
+        
+        /* Company footer — last page only (never position:fixed) */
+        .footer-section {
+            margin: 0;
+            padding: 2mm 0 1mm 0;
+            border: none;
+            border-top: 2px solid #000;
+            font-size: 7pt;
+            line-height: 1.35;
+            background: white;
+            text-align: left;
+            color: #000;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        
+        .footer-row {
+            margin: 0;
+            padding: 0;
+            text-align: left;
+        }
+        
+        .items-table tbody tr:last-child td {
+            border-bottom: 1px solid #bbb;
+        }
+        
+        @page {
+            size: A4;
+            margin: 12mm;
+        }
+        
+        @media print {
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                height: auto !important;
+            }
+            .order-container {
+                display: block;
+                min-height: 0 !important;
+                max-width: 100%;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            .order-container.single-page-order {
+                display: flex !important;
+                flex-direction: column;
+                /* Must beat .order-container { min-height: 0 !important } */
+                min-height: calc(297mm - 24mm) !important;
+            }
+            .order-container.single-page-order .last-page-block {
+                margin-top: 0;
+                flex: 0 0 auto;
+            }
+            .order-container.single-page-order .last-page-push {
+                display: block;
+            }
+            .top-section {
+                display: block;
+                margin-top: 0;
+            }
+            .bottom-section {
+                display: block;
+                height: auto;
+                margin-top: 0;
+                overflow: visible;
+            }
+            .header,
+            .main-body,
+            .info-box {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+            .items-table {
+                page-break-inside: auto;
+                break-inside: auto;
+            }
+            .items-table thead {
+                display: table-header-group;
+            }
+            .items-table tbody {
+                display: table-row-group;
+            }
+            .items-table tbody tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+                page-break-after: auto;
+                break-after: auto;
+            }
+            .footer-section {
+                position: static;
+                width: 100%;
+                margin: 0;
+                padding: 2mm 0 1mm 0;
+                min-height: 0;
+                border-top: 2px solid #000;
+                background: #fff;
+                box-sizing: border-box;
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set company_doc = None %}
+{% if doc.company and frappe.db.exists("Company", doc.company) %}
+{% set company_doc = frappe.get_doc("Company", doc.company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
+{% set company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
+<div class="order-container">
+        <!-- Header -->
+        <div class="header">
+            {% if company_doc %}
+            {% if company_doc.company_logo %}
+                <img src="{{ company_doc.company_logo }}" alt="Company Logo" class="company-logo" />
+            {% elif company_doc.logo %}
+                <img src="{{ company_doc.logo }}" alt="Company Logo" class="company-logo" />
+            {% elif company_doc.image %}
+                <img src="{{ company_doc.image }}" alt="Company Logo" class="company-logo" />
+            {% else %}
+                <div class="logo-placeholder">
+                    company_logo
+                </div>
+            {% endif %}
+<div class="company-info">
+                <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
+                <div class="company-address">
+                    {% if company_doc.address %}
+                        {% set company_address = frappe.get_doc("Address", company_doc.address) %}
+                        {{ company_address.address_line1 if company_address.address_line1 else '' }}
+                        {% if company_address.address_line2 %}{{ company_address.address_line2 }}{% endif %}
+{% if company_address.city %}{{ company_address.city }}{% endif %}
+{% if company_address.state %}, {{ company_address.state }}{% endif %}
+{% if company_address.country %}{{ company_address.country }}{% endif %}
+{% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                    {% elif company_doc.address_line1 %}
+                        {{ company_doc.address_line1 }}<br>
+                        {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
+                        {{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}<br>
+                        {{ company_doc.country }}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
+                    {% endif %}
+                </div>
+                <div class="vat-reg">
+                    {% if doc.branch %}
+                        {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
+                        {% if branch_doc.custom_registration_details %}
+                            {{ branch_doc.custom_registration_details }}
+                        {% elif company_doc.tax_id %}
+                            VAT Reg. TIN: {{ company_doc.tax_id }}
+                        {% elif company_doc.tin %}
+                            VAT Reg. TIN: {{ company_doc.tin }}
+                        {% endif %}
+                    {% elif company_doc.tax_id %}
+                        VAT Reg. TIN: {{ company_doc.tax_id }}
+                    {% elif company_doc.tin %}
+                        VAT Reg. TIN: {{ company_doc.tin }}
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+                <div class="logo-placeholder">company_logo</div>
+                <div class="company-info">
+                    <div class="company-name">{{ doc.company or default_company or '' }}</div>
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Top Section: Customer/Order Details and Items Table -->
+        <div class="top-section">
+        <!-- Main Body -->
+        <div class="main-body">
+            <!-- Customer Info Section - Aligned with QR Code -->
+            <div class="customer-info-section">
+                <div class="customer-label">CUSTOMER</div>
+                <div class="customer-name-box">
+                    {% if doc.customer %}
+                        {% set customer_doc = frappe.get_doc("Customer", doc.customer) %}
+                        {{ customer_doc.customer_name or doc.customer }}
+                    {% endif %}
+                </div>
+                <div class="customer-address-box">
+                    {% if doc.customer %}
+                        {% set customer_doc = frappe.get_doc("Customer", doc.customer) %}
+                        {% if customer_doc.customer_primary_address %}
+                            {% set customer_address = frappe.get_doc("Address", customer_doc.customer_primary_address) %}
+                            {{ customer_address.address_line1 if customer_address.address_line1 else '' }}
+                            {% if customer_address.address_line2 %}{{ customer_address.address_line2 }}{% endif %}
+{% if customer_address.city %}{{ customer_address.city }}{% endif %}
+{% if customer_address.state %}, {{ customer_address.state }}{% endif %}
+{% if customer_address.country %}{{ customer_address.country }}{% endif %}
+{% if customer_address.pincode %} {{ customer_address.pincode }}{% endif %}
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- QR Code Section - Positioned in top right of main body -->
+            <div class="qr-section">
+                {% set qr_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + doc.name|urlencode %}
+                <img src="{{ qr_url }}" alt="QR Code" class="qr-code" />
+                <div class="order-title-qr">RELEASE ORDER</div>
+                <div class="reference-number">{{ doc.name }}</div>
+            </div>
+            
+            <!-- Left Column - Customer Information -->
+            <div class="left-column">
+                <div class="field-row">
+                    <div class="field-label">CONTRACT:</div>
+                    <div class="field-value">
+                        {% if doc.contract %}
+                            {{ doc.contract }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field-label">CUST. REF:</div>
+                    <div class="field-value">
+                        {% if doc.cust_reference %}
+                            {{ doc.cust_reference }}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Column - Order Details -->
+            <div class="right-column">
+                <div class="field-row">
+                    <div class="field-label">ORDER DATE:</div>
+                    <div class="field-value">
+                        {% if doc.order_date %}
+                            {{ frappe.utils.formatdate(doc.order_date, 'MM-dd-yyyy') }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field-label">PLANNED DATE:</div>
+                    <div class="field-value">
+                        {% if doc.planned_date %}
+                            {{ frappe.utils.format_datetime(doc.planned_date, 'MM-dd-yyyy HH:mm') }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field-label">DUE DATE:</div>
+                    <div class="field-value">
+                        {% if doc.due_date %}
+                            {{ frappe.utils.format_datetime(doc.due_date, 'MM-dd-yyyy HH:mm') }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field-label">PRIORITY:</div>
+                    <div class="field-value">
+                        {% if doc.priority %}
+                            {{ doc.priority }}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {# --- Dock / shipment data --- #}
+        {% set plate_parts = [] %}
+        {% set container_parts = [] %}
+        {% set door_parts = [] %}
+        {% if doc.docks %}
+            {% for d in doc.docks %}
+                {% set vehicle_plate = ((d.vehicle_type ~ ' / ') if d.vehicle_type else '') ~ (d.plate_no or '') %}
+                {% if vehicle_plate|trim %}{% set _ = plate_parts.append(vehicle_plate|trim) %}{% endif %}
+                {% if d.container_no %}{% set _ = container_parts.append(d.container_no) %}{% endif %}
+                {% if d.dock_door %}{% set _ = door_parts.append(d.dock_door) %}{% endif %}
+            {% endfor %}
+        {% endif %}
+        {% set vehicle_plate_no = plate_parts|join(', ') %}
+        {% set container_no = container_parts|join(', ') %}
+        {% set dock_door = door_parts|join(', ') %}
+        
+        <!-- Shipment Information -->
+        <div class="info-box">
+            <div class="info-box-header">Shipment Information</div>
+            <div class="info-box-grid">
+                <div class="info-box-cell">
+                    <span class="info-box-label">Vehicle / Plate No.</span>
+                    <span class="info-box-value">{{ vehicle_plate_no or '—' }}</span>
+                </div>
+                <div class="info-box-cell">
+                    <span class="info-box-label">Container No.</span>
+                    <span class="info-box-value">{{ container_no or '—' }}</span>
+                </div>
+                <div class="info-box-cell">
+                    <span class="info-box-label">Dock Door</span>
+                    <span class="info-box-value">{{ dock_door or '—' }}</span>
+                </div>
+            </div>
+        </div>
+        
+        {# --- Dispatch summary totals from items --- #}
+        {% set totals = namespace(pallets=0, cartons=0.0, pieces=0.0, weight=0.0, volume=0.0, hus=[], weight_uom='', volume_uom='') %}
+        {% if doc.items %}
+            {% for item in doc.items %}
+                {% set qty = item.quantity or 0 %}
+                {% set totals.pieces = totals.pieces + qty %}
+                {% set totals.weight = totals.weight + (item.weight or 0) %}
+                {% set totals.volume = totals.volume + (item.volume or 0) %}
+                {% if item.weight_uom and not totals.weight_uom %}{% set totals.weight_uom = item.weight_uom %}{% endif %}
+                {% if item.volume_uom and not totals.volume_uom %}{% set totals.volume_uom = item.volume_uom %}{% endif %}
+                
+                {% set hu_type = (item.handling_unit_type or '')|lower %}
+                {% set uom_l = (item.uom or '')|lower %}
+                {% if 'pal' in hu_type or 'pallet' in uom_l %}
+                    {% set totals.pallets = totals.pallets + 1 %}
+                {% endif %}
+                {% if 'carton' in hu_type or 'carton' in uom_l or 'box' in uom_l or 'case' in uom_l %}
+                    {% set totals.cartons = totals.cartons + qty %}
+                {% endif %}
+                
+                {% if item.handling_unit and item.handling_unit not in totals.hus %}
+                    {% set _ = totals.hus.append(item.handling_unit) %}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        {% if totals.cartons == 0 %}
+            {% set totals.cartons = totals.pieces %}
+        {% endif %}
+        {% set hu_count = totals.hus|length if totals.hus|length > 0 else (totals.pallets if totals.pallets > 0 else (doc.items|length if doc.items else 0)) %}
+        
+        <!-- Dispatch Summary -->
+        <div class="info-box">
+            <div class="info-box-header">Dispatch Summary</div>
+            <div class="info-box-grid">
+                <div class="info-box-cell">
+                    <span class="info-box-label">Pallets</span>
+                    <span class="info-box-value">{{ totals.pallets }}</span>
+                </div>
+                <div class="info-box-cell">
+                    <span class="info-box-label">Cartons</span>
+                    <span class="info-box-value">{{ frappe.utils.fmt_money(totals.cartons, precision=0) }}</span>
+                </div>
+                <div class="info-box-cell">
+                    <span class="info-box-label">Pieces</span>
+                    <span class="info-box-value">{{ frappe.utils.fmt_money(totals.pieces, precision=0) }}</span>
+                </div>
+                <div class="info-box-cell">
+                    <span class="info-box-label">Gross Weight</span>
+                    <span class="info-box-value">{{ frappe.utils.fmt_money(totals.weight, precision=2) }}{% if totals.weight_uom %} {{ totals.weight_uom }}{% endif %}</span>
+                </div>
+                <div class="info-box-cell">
+                    <span class="info-box-label">Volume</span>
+                    <span class="info-box-value">{{ frappe.utils.fmt_money(totals.volume, precision=2) }}{% if totals.volume_uom %} {{ totals.volume_uom }}{% endif %}</span>
+                </div>
+                <div class="info-box-cell">
+                    <span class="info-box-label">Handling Units</span>
+                    <span class="info-box-value">{{ hu_count }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Items Table -->
+        <table class="items-table">
+            <thead class="table-header">
+                <tr>
+                    <th style="width: 6mm;">#</th>
+                    <th>Item Code</th>
+                    <th class="col-item-name">Item Name / Description</th>
+                    <th>Quantity</th>
+                    <th>UOM</th>
+                    <th>Batch No.</th>
+                    <th>Serial No.</th>
+                    <th>Storage Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if doc.items %}
+                    {% for item in doc.items %}
+                        {% set serial_val = item.serial_no or item.serial_no_text or '' %}
+                        {% set batch_val = item.batch_no or item.batch_no_text or '' %}
+                        {% set storage_type = '' %}
+                        {% if item.item and frappe.db.exists("Warehouse Item", item.item) %}
+                            {% set storage_type = frappe.db.get_value("Warehouse Item", item.item, "preferred_storage_type") or '' %}
+                        {% endif %}
+                        <tr class="table-row">
+                            <td class="col-num">{{ loop.index }}</td>
+                            <td class="col-code">{{ item.item or '' }}</td>
+                            <td class="col-name">
+                                <span class="item-name-text">{{ item.item_name or '' }}</span>
+                                {% if item.volume or item.weight %}
+                                <span class="item-meta">
+                                    {% if item.volume %}Vol: {{ frappe.utils.fmt_money(item.volume, precision=2) }} {{ item.volume_uom or 'CBM' }}{% endif %}
+                                    {% if item.volume and item.weight %} · {% endif %}
+                                    {% if item.weight %}Wt: {{ frappe.utils.fmt_money(item.weight, precision=2) }}{% if item.weight_uom %} {{ item.weight_uom }}{% endif %}{% endif %}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="col-qty">{{ frappe.utils.fmt_money(item.quantity, precision=2) if item.quantity is not none else '' }}</td>
+                            <td class="col-uom">{{ item.uom or '' }}</td>
+                            <td class="col-batch">{{ batch_val if batch_val else '—' }}</td>
+                            <td class="col-serial">{{ serial_val if serial_val else '—' }}</td>
+                            <td class="col-storage">{{ storage_type if storage_type else '—' }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr class="table-row">
+                        <td colspan="8" style="text-align: center; padding: 5mm;">No items</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+        </div>
+        
+        <!-- Company footer: last page only, pinned to bottom printable margin -->
+        <div class="last-page-block">
+            <div class="last-page-push" aria-hidden="true"></div>
+            <div class="last-page-footer-group">
+                <div class="bottom-section">
+                    <div class="footer-section">
+                        {% set sales_rep_name = '' %}
+                        {% if doc.get('sales_rep') %}
+                            {% set sales_rep_name = frappe.db.get_value('Employee', doc.sales_rep, 'employee_name') or doc.sales_rep %}
+                        {% endif %}
+                        <div class="footer-row">Company: {{ (company_doc.company_name if company_doc else None) or doc.company or '' }}</div>
+                        <div class="footer-row">Branch: {{ doc.branch or '' }}</div>
+                        <div class="footer-row">Sales Rep: {{ sales_rep_name }}</div>
+                        <div class="footer-row">Cost Center: {{ doc.cost_center or '' }}</div>
+                        <div class="footer-row">Profit Center: {{ doc.profit_center or '' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<script>
+(function () {
+    /* Slightly conservative printable height so we leave room for the footer band */
+    var PAGE_HEIGHT_MM = 255;
+    var SINGLE_PAGE_HEIGHT_MM = 273;
+    var PAGE_BOTTOM_MARGIN_MM = 4;
+    var BLOCK_MARGIN_MM = 3;
+    var MM_TO_PX = 96 / 25.4;
+    var SAFETY_PX = 12;
+    var SINGLE_PAGE_HEIGHT_RATIO = 1.2;
+    var MULTI_PAGE_MIN_HEIGHT_RATIO = 1.25;
+    var MULTI_PAGE_ITEM_THRESHOLD = 8;
+    var KEEP_WITH_FOOTER_ROWS = 3;
+
+    function setPushHeight(px) {
+        document.documentElement.style.setProperty(
+            '--last-page-push-height',
+            Math.max(0, px) + 'px'
+        );
+    }
+
+    function getPageHeightPx() {
+        return PAGE_HEIGHT_MM * MM_TO_PX;
+    }
+
+    function getDocTop(element) {
+        var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+        return element.getBoundingClientRect().top + scrollY;
+    }
+
+    function getOuterHeight(element) {
+        if (!element) return 0;
+        var style = window.getComputedStyle(element);
+        return element.offsetHeight +
+            (parseFloat(style.marginTop) || 0) +
+            (parseFloat(style.marginBottom) || 0);
+    }
+
+    function wrapSplittableHeight(used, height, pageLimitPx) {
+        used += height;
+        while (pageLimitPx > 0 && used >= pageLimitPx) {
+            used -= pageLimitPx;
+        }
+        return used;
+    }
+
+    function pxToMm(px) {
+        return px / MM_TO_PX;
+    }
+
+    function applyPushSize(push, px) {
+        var safePx = Math.max(0, px);
+        setPushHeight(safePx);
+        if (!push) return safePx;
+        push.style.display = safePx > 0 ? 'block' : 'none';
+        push.style.flex = '0 0 auto';
+        push.style.height = safePx > 0 ? pxToMm(safePx) + 'mm' : '0';
+        push.style.minHeight = safePx > 0 ? pxToMm(safePx) + 'mm' : '0';
+        push.style.maxHeight = safePx > 0 ? pxToMm(safePx) + 'mm' : '0';
+        return safePx;
+    }
+
+    function resetFooterPinStyles(block, group, push) {
+        if (block) {
+            block.style.paddingTop = '';
+            block.style.minHeight = '';
+            block.style.height = '';
+        }
+        if (group) group.style.marginTop = '';
+        if (push) {
+            push.style.display = '';
+            push.style.flex = '';
+            push.style.height = '';
+            push.style.minHeight = '';
+            push.style.maxHeight = '';
+        }
+    }
+
+    function clearForcedRowBreaks(container) {
+        var rows = container.querySelectorAll('.items-table tbody .table-row');
+        for (var i = 0; i < rows.length; i++) {
+            rows[i].style.pageBreakBefore = '';
+            rows[i].style.breakBefore = '';
+            rows[i].style.pageBreakAfter = '';
+            rows[i].style.breakAfter = '';
+        }
+    }
+
+    /** Keep the last few rows on the same page as the company footer. */
+    function keepLastRowsWithFooter(container) {
+        var rows = container.querySelectorAll('.items-table tbody .table-row');
+        var start = Math.max(0, rows.length - KEEP_WITH_FOOTER_ROWS);
+        for (var i = start; i < rows.length; i++) {
+            rows[i].style.pageBreakAfter = 'avoid';
+            rows[i].style.breakAfter = 'avoid';
+        }
+    }
+
+    /**
+     * Pack rows using a content limit that already reserves footer height.
+     * Always apply forced breaks so the last page never fills into the footer band.
+     */
+    function packTableRows(container, contentLimitPx, applyBreaks) {
+        var table = container.querySelector('.items-table');
+        var result = { usedAfterRows: 0, blockStartOffset: 0 };
+        if (!table) return result;
+
+        var thead = table.querySelector('thead');
+        var theadH = thead ? getOuterHeight(thead) : 0;
+        var rows = table.querySelectorAll('tbody .table-row');
+        var blockMarginPx = BLOCK_MARGIN_MM * MM_TO_PX;
+        var limit = Math.max(theadH + 40, contentLimitPx);
+
+        if (applyBreaks) {
+            clearForcedRowBreaks(container);
+        }
+
+        var used = Math.max(0, getDocTop(table) - getDocTop(container));
+        used = wrapSplittableHeight(0, used, limit);
+
+        if (used > 0 && used + theadH > limit) {
+            used = 0;
+        }
+        used += theadH;
+
+        for (var i = 0; i < rows.length; i++) {
+            var rowH = getOuterHeight(rows[i]);
+            if (used > 0 && used + rowH > limit) {
+                if (applyBreaks) {
+                    rows[i].style.pageBreakBefore = 'always';
+                    rows[i].style.breakBefore = 'page';
+                }
+                used = theadH;
+            }
+            used += rowH;
+        }
+
+        result.usedAfterRows = used;
+        result.blockStartOffset = Math.min(used + blockMarginPx, limit);
+        return result;
+    }
+
+    function clearLayoutModes() {
+        var container = document.querySelector('.order-container');
+        var block = document.querySelector('.last-page-block');
+        var group = document.querySelector('.last-page-footer-group');
+        var push = document.querySelector('.last-page-push');
+        if (container) {
+            container.classList.remove('single-page-order');
+            clearForcedRowBreaks(container);
+        }
+        if (block) block.classList.remove('footer-with-table', 'footer-new-page');
+        resetFooterPinStyles(block, group, push);
+        document.body.classList.remove('single-page-order');
+        setPushHeight(0);
+    }
+
+    function applySinglePageMode(container) {
+        container.classList.add('single-page-order');
+        document.body.classList.add('single-page-order');
+        clearForcedRowBreaks(container);
+        keepLastRowsWithFooter(container);
+
+        var push = document.querySelector('.last-page-push');
+        var group = document.querySelector('.last-page-footer-group');
+        var block = document.querySelector('.last-page-block');
+        var header = container.querySelector('.header');
+        var top = container.querySelector('.top-section');
+        var pageHeightPx = SINGLE_PAGE_HEIGHT_MM * MM_TO_PX;
+        var used =
+            (header ? getOuterHeight(header) : 0) +
+            (top ? getOuterHeight(top) : 0);
+        var footerH = group ? group.offsetHeight : 0;
+        var spacerPx = Math.max(0, pageHeightPx - used - footerH - SAFETY_PX);
+
+        if (block) {
+            block.classList.add('footer-with-table');
+            block.style.minHeight = '';
+            block.style.height = '';
+        }
+        /* Explicit spacer — reliable in PDF where flex min-height is flaky */
+        applyPushSize(push, spacerPx);
+    }
+
+    function getItemCount(container) {
+        return container.querySelectorAll('.items-table tbody .table-row').length;
+    }
+
+    function isSinglePageOrder(container, pageHeightPx) {
+        var items = getItemCount(container);
+        /* One / few lines: always use single-page bottom pin when content is short */
+        if (items > 0 && items <= 5 && container.scrollHeight <= pageHeightPx * 1.5) {
+            return true;
+        }
+        if (container.scrollHeight > pageHeightPx * MULTI_PAGE_MIN_HEIGHT_RATIO) {
+            return false;
+        }
+        if (items > MULTI_PAGE_ITEM_THRESHOLD) {
+            return false;
+        }
+        return container.scrollHeight <= pageHeightPx * SINGLE_PAGE_HEIGHT_RATIO;
+    }
+
+    /**
+     * Optional bottom pin: only a spacer that still fits on the last content page.
+     * Prefer same-page footer over flush-bottom if space is tight.
+     */
+    function pinFooterToPageBottom(block, push, group, pageHeightPx, usedOnLastPagePx) {
+        var maxBottom = pageHeightPx - (PAGE_BOTTOM_MARGIN_MM * MM_TO_PX);
+        var groupHeight = group.offsetHeight || 0;
+        var used = Math.max(0, Math.min(usedOnLastPagePx || 0, maxBottom));
+        var remaining = Math.max(0, maxBottom - used);
+        var footerNeed = groupHeight + SAFETY_PX;
+
+        block.classList.add('footer-with-table');
+        block.style.minHeight = '';
+        block.style.height = '';
+
+        if (footerNeed >= remaining) {
+            applyPushSize(push, 0);
+            return;
+        }
+
+        var spacerPx = Math.max(0, remaining - footerNeed);
+        applyPushSize(push, spacerPx);
+    }
+
+    function updateMultiPageFooter(container, pageHeightPx) {
+        var push = document.querySelector('.last-page-push');
+        var group = document.querySelector('.last-page-footer-group');
+        var block = document.querySelector('.last-page-block');
+        if (!push || !group || !block) return;
+
+        var maxBottom = pageHeightPx - (PAGE_BOTTOM_MARGIN_MM * MM_TO_PX);
+        var groupHeight = group.offsetHeight || 0;
+        var blockMarginPx = BLOCK_MARGIN_MM * MM_TO_PX;
+        var reserved = groupHeight + blockMarginPx + SAFETY_PX;
+        /* Always reserve footer band so the last content page never fills completely */
+        var contentWithFooter = Math.max(80, maxBottom - reserved);
+
+        block.classList.remove('footer-with-table', 'footer-new-page');
+        resetFooterPinStyles(block, group, push);
+        clearForcedRowBreaks(container);
+
+        var layout = packTableRows(container, contentWithFooter, true);
+        keepLastRowsWithFooter(container);
+        pinFooterToPageBottom(block, push, group, pageHeightPx, layout.blockStartOffset);
+    }
+
+    function updateOrderLayout() {
+        var container = document.querySelector('.order-container');
+        if (!container) return;
+
+        clearLayoutModes();
+        var pageHeightPx = getPageHeightPx();
+
+        if (isSinglePageOrder(container, pageHeightPx)) {
+            applySinglePageMode(container);
+            return;
+        }
+
+        updateMultiPageFooter(container, pageHeightPx);
+    }
+
+    function scheduleLayout() {
+        updateOrderLayout();
+        window.requestAnimationFrame(function () {
+            updateOrderLayout();
+            window.requestAnimationFrame(updateOrderLayout);
+        });
+        window.setTimeout(updateOrderLayout, 50);
+        window.setTimeout(updateOrderLayout, 200);
+        window.setTimeout(updateOrderLayout, 500);
+    }
+
+    function schedulePrintLayout() {
+        updateOrderLayout();
+        window.requestAnimationFrame(function () {
+            updateOrderLayout();
+            window.requestAnimationFrame(function () {
+                updateOrderLayout();
+                window.setTimeout(updateOrderLayout, 0);
+                window.setTimeout(updateOrderLayout, 100);
+            });
+        });
+    }
+
+    window.addEventListener('beforeprint', schedulePrintLayout);
+    window.addEventListener('afterprint', scheduleLayout);
+    if (window.matchMedia) {
+        window.matchMedia('print').addListener(function (event) {
+            if (event.matches) schedulePrintLayout();
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', scheduleLayout);
+    } else {
+        scheduleLayout();
+    }
+    window.addEventListener('resize', scheduleLayout);
+})();
+</script>
+</body>
+</html>

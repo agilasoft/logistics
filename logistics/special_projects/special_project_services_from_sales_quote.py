@@ -52,11 +52,13 @@ def resolve_lifecycle_stage_for_service_type(service_type: str | None) -> str | 
 	"""Pick a lifecycle stage for a new Special Project Service row."""
 	st = _norm(service_type)
 	preferred = _SERVICE_TYPE_DEFAULT_LIFECYCLE_STAGE.get(st)
-	if preferred and frappe.db.exists("Lifecycle Stage", preferred):
+	if preferred and frappe.db.exists(
+		"Lifecycle Stage", {"name": preferred, FOR_SPECIAL_PROJECT: 1}
+	):
 		return preferred
 	return resolve_default_lifecycle_stage(
 		module_filter=FOR_SPECIAL_PROJECT,
-		preferred=preferred or "Pre-Show",
+		preferred=preferred or "Logistics",
 	)
 
 

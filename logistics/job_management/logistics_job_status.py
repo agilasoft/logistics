@@ -89,6 +89,11 @@ def sync_declaration_job_status(doc):
 		doc.job_status = "Submitted"
 		return
 	if cs == "Draft":
+		# validate runs before before_submit flips status Draft→Submitted
+		if docstatus >= 1:
+			if not cur or cur == "Draft":
+				doc.job_status = "Submitted"
+			return
 		doc.job_status = "Draft"
 		return
 	if not cur or cur == "Draft":
