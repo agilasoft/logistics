@@ -2458,6 +2458,10 @@ def _create_sea_booking_from_sales_quote(
 		sea_booking.flags.blanket_call_off_charge_row_names = list(selected_charge_row_names)
 	sea_booking._populate_charges_from_sales_quote(sales_quote)
 
+	from logistics.sea_freight.sea_container_row_utils import copy_sales_quote_containers_to_booking
+
+	copy_sales_quote_containers_to_booking(sales_quote, sea_booking)
+
 	sea_booking.insert(ignore_permissions=True)
 
 	_propagate_linked_services_to_created_booking(

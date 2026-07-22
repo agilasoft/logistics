@@ -2105,23 +2105,9 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			
 			# Copy containers if they exist (from Sea Booking Containers to Sea Freight Containers)
 			if hasattr(self, 'containers') and self.containers:
-				for container in self.containers:
-					sea_shipment.append("containers", {
-						"container_no": container.container_no,
-						"seal_no": container.seal_no,
-						"type": container.type,
-						"mode": container.mode,
-						"delivery_modes": container.delivery_modes,
-						"sealed_by": container.sealed_by,
-						"other_references": container.other_references,
-						"size": getattr(container, "size", None),
-						"packages_in_container": getattr(container, "packages_in_container", None),
-						"weight_in_container": getattr(container, "weight_in_container", None),
-						"volume_in_container": getattr(container, "volume_in_container", None),
-						"max_weight": getattr(container, "max_weight", None),
-						"max_volume": getattr(container, "max_volume", None),
-						"utilization_percentage": getattr(container, "utilization_percentage", None),
-					})
+				from logistics.sea_freight.sea_container_row_utils import copy_booking_containers_to_shipment
+
+				copy_booking_containers_to_shipment(self, sea_shipment)
 			
 			# Copy packages if they exist (from Sea Booking Packages to Sea Freight Packages)
 			if hasattr(self, 'packages') and self.packages:

@@ -15,6 +15,7 @@
   "size",
   "mode",
   "delivery_modes",
+  "free_time_days",
   "section_break_cargo",
   "packages_in_container",
   "weight_in_container",
@@ -82,6 +83,13 @@
    "in_list_view": 1,
    "label": "Delivery Mode",
    "options": "CY/CY\nCY/CFS\nCFS/CY\nCFS/CFS\nDoor/CY\nCY/Door\nDoor/Door"
+  },
+  {
+   "description": "Commercial free time (days) for this container; copied from Sales Quote and synced to Container.",
+   "fieldname": "free_time_days",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Free Time (Days)"
   },
   {
    "fieldname": "section_break_cargo",
