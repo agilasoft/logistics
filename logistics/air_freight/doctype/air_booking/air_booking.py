@@ -508,6 +508,9 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 		)
 
 		assert_sales_quote_customer_matches_job_before_submit(self)
+		from logistics.utils.get_charges_from_tariff import assert_tariff_customer_matches_job_before_submit
+
+		assert_tariff_customer_matches_job_before_submit(self)
 		self._require_positive_booking_volume(
 			_("Volume must be greater than 0 before submitting the Air Booking")
 		)
@@ -1382,6 +1385,49 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 				"Air Booking - Charges Population Error"
 			)
 			raise
+
+	def _build_charge_dicts_from_tariff(self, tariff_name, filter_overrides=None):
+		"""Map Tariff Charge rows to Air Booking charge dicts (preview / apply)."""
+		from logistics.utils.charge_service_type import implied_service_type_for_doctype
+		from logistics.utils.tariff_charge_copy import (
+			effective_booking_corridor,
+			filter_tariff_charge_rows_for_booking,
+			parse_gcft_filter_overrides,
+			tariff_charge_row_as_quote_like_dict,
+		)
+
+		ov = parse_gcft_filter_overrides(self.doctype, filter_overrides)
+		service_type = implied_service_type_for_doctype(self.doctype) or "Air"
+		origin, dest, airline, shipping_line = effective_booking_corridor(self, ov)
+		tariff_doc = frappe.get_doc("Tariff", tariff_name)
+		rows = filter_tariff_charge_rows_for_booking(
+			self,
+			tariff_doc,
+			service_type,
+			origin=origin,
+			destination=dest,
+			airline=airline,
+			shipping_line=shipping_line,
+		)
+		charges = []
+		for row in rows:
+			quote_like = tariff_charge_row_as_quote_like_dict(row, tariff_name)
+			charge_row = self._map_sales_quote_air_freight_to_charge(quote_like)
+			if not charge_row:
+				continue
+			charge_row["revenue_tariff"] = tariff_name
+			charge_row["cost_tariff"] = tariff_name
+			charge_row.pop("sales_quote_link", None)
+			charges.append(charge_row)
+		if charges:
+			self._apply_actuals_to_charge_dicts(charges)
+		return charges
+
+	def _populate_charges_from_tariff(self, tariff_name, filter_overrides=None):
+		"""Replace charge lines from an active Tariff (Action → Get Charges from Tariff)."""
+		self.set("charges", [])
+		for charge_row in self._build_charge_dicts_from_tariff(tariff_name, filter_overrides):
+			self.append("charges", charge_row)
 	
 	def _populate_charges_from_one_off_quote(self):
 		"""Populate charges from One-Off Quote (which is a Sales Quote with quotation_type='One-off').
@@ -2974,6 +3020,41 @@ def populate_charges_from_sales_quote(
 			"error": f"Error populating charges: {str(e)}",
 			"charges": []
 		}
+
+
+@frappe.whitelist()
+def populate_charges_from_tariff(docname: str = None, tariff_name: str = None, filter_overrides=None):
+	"""Preview charge lines from a tariff without saving the Air Booking."""
+	if not tariff_name:
+		return {"charges": []}
+	try:
+		if not frappe.db.exists("Tariff", tariff_name):
+			return {"error": _("Tariff {0} does not exist").format(tariff_name), "charges": []}
+		doc = None
+		if docname:
+			try:
+				doc = frappe.get_doc("Air Booking", docname)
+			except Exception:
+				pass
+		temp_doc = doc if doc else frappe.new_doc("Air Booking")
+		charges = temp_doc._build_charge_dicts_from_tariff(tariff_name, filter_overrides)
+		if not charges:
+			return {
+				"charges": [],
+				"message": _("No matching charge lines on tariff {0}.").format(tariff_name),
+				"tariff": tariff_name,
+			}
+		return {
+			"charges": charges,
+			"charges_count": len(charges),
+			"tariff": tariff_name,
+		}
+	except Exception as e:
+		frappe.log_error(
+			f"Error populating Air Booking charges from tariff {tariff_name}: {str(e)}",
+			"Air Booking Tariff Charges Population Error",
+		)
+		return {"error": _("Error populating charges: {0}").format(str(e)), "charges": []}
 
 
 @frappe.whitelist()
