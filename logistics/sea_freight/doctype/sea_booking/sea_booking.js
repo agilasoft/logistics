@@ -633,6 +633,9 @@ frappe.ui.form.on('Sea Booking', {
 			if (window.logistics && logistics.add_get_charges_from_quotation_button_if_allowed) {
 				logistics.add_get_charges_from_quotation_button_if_allowed(frm);
 			}
+			if (window.logistics && logistics.add_get_charges_from_tariff_button_if_allowed) {
+				logistics.add_get_charges_from_tariff_button_if_allowed(frm);
+			}
 		}
 
 		// --- Create menu ---
