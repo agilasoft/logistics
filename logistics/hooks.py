@@ -56,6 +56,7 @@ app_include_js = [
 	"/assets/logistics/js/service_role.js?v=3",
 	"/assets/logistics/js/internal_job_detail_grid_delete_fix.js",
 	"/assets/logistics/js/get_charges_from_quotation.js?v=18",
+	"/assets/logistics/js/get_charges_from_tariff.js?v=1",
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=3",
 	"/assets/logistics/js/air_consolidation_matching_shipments.js?v=5",
 	"/assets/logistics/js/charges_disbursement_sync.js",
@@ -128,6 +129,7 @@ doctype_js = {
 		"public/js/charge_break_buttons.js",
 		# Same Get Charges from Quotation UI as Sea Booking / Transport Order (list criteria, search, cards, Apply).
 		"logistics/public/js/get_charges_from_quotation.js",
+		"logistics/public/js/get_charges_from_tariff.js",
 	],
 	"Air Shipment": [
 		"logistics/public/js/operational_exchange_rate_grid.js",
