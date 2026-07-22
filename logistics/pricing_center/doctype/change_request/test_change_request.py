@@ -212,6 +212,7 @@ class TestChangeRequestToJob(UnitTestCase):
 		self.assertIn("Declaration Order", INTERNAL_JOB_SATELLITE_JOB_TYPES)
 		self.assertIn("Inbound Order", INTERNAL_JOB_SATELLITE_JOB_TYPES)
 		self.assertIn("Release Order", INTERNAL_JOB_SATELLITE_JOB_TYPES)
+		self.assertIn("Cross-Docking Order", INTERNAL_JOB_SATELLITE_JOB_TYPES)
 		# A doctype must be in exactly one set (Main vs Satellite) — never both.
 		self.assertEqual(
 			MAIN_JOB_TYPES_FOR_CHANGE_REQUEST & INTERNAL_JOB_SATELLITE_JOB_TYPES,

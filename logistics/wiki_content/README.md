@@ -104,6 +104,7 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | commodity.md | Commodity | Customs |
 | customs_authority.md | Customs Authority | Customs |
 | inbound_order.md | Inbound Order | Warehousing |
+| cross_docking_order.md | Cross-Docking Order | Warehousing |
 | release_order.md | Release Order | Warehousing |
 | transfer_order.md | Transfer Order | Warehousing |
 | vas_order.md | VAS Order | Warehousing |

@@ -114,7 +114,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nSpecial Project\nMICE",
    "reqd": 1
   },
   {
@@ -128,7 +128,7 @@
    "in_list_view": 1,
    "label": "Job Type",
    "no_copy": 1,
-   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nInbound Order\nProject Order",
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nInbound Order\nCross-Docking Order\nProject Order",
    "read_only": 1
   },
   {

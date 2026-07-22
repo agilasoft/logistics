@@ -36,3 +36,11 @@ class TestLinkedWarehousingVasOrder(unittest.TestCase):
 	def test_vas_order_is_creatable_internal_job_type(self):
 		self.assertIn("VAS Order", CREATABLE_INTERNAL_JOB_TYPES)
 		self.assertNotIn("Inbound Order", CREATABLE_INTERNAL_JOB_TYPES)
+
+	def test_cross_docking_maps_to_cross_docking_order(self):
+		self.assertEqual(
+			default_job_type_for_internal_job_service_type("Cross-Docking"),
+			"Cross-Docking Order",
+		)
+		row = SimpleNamespace(service_type="Cross-Docking", job_type="VAS Order", job_no="")
+		self.assertEqual(effective_internal_job_detail_job_type(row), "Cross-Docking Order")

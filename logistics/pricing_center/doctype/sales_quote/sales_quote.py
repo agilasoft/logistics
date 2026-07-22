@@ -1659,6 +1659,7 @@ _MAIN_SERVICE_PRIMARY_DOCTYPE = {
 	"Transport": "Transport Order",
 	"Customs": "Declaration Order",
 	"Warehousing": "Inbound Order",
+	"Cross-Docking": "Cross-Docking Order",
 }
 
 
@@ -2457,7 +2458,13 @@ def _create_sea_booking_from_sales_quote(
 		sea_booking.flags.blanket_call_off_charge_row_names = list(selected_charge_row_names)
 	sea_booking._populate_charges_from_sales_quote(sales_quote)
 
-	sea_booking.insert(ignore_permissions=True)
+	from logistics.sea_freight.sea_container_row_utils import copy_sales_quote_containers_to_booking
+
+	copy_sales_quote_containers_to_booking(sales_quote, sea_booking)
+
+	# Quote containers have no seal; Seal Number stays reqd on Sea Booking form.
+	sea_booking.flags.ignore_mandatory = True
+	sea_booking.insert(ignore_permissions=True, ignore_mandatory=True)
 
 	_propagate_linked_services_to_created_booking(
 		sales_quote,

@@ -167,6 +167,27 @@ def _sea_freight_default_free_time_days(company=None):
 	return 7
 
 
+def _resolve_container_free_time_days(free_time_days, company=None):
+	"""Use upstream free time when set; otherwise Sea Freight Settings default."""
+	ft = flt(free_time_days or 0)
+	if ft:
+		return ft
+	return _sea_freight_default_free_time_days(company)
+
+
+def _apply_free_time_to_container(container_name, free_time_days):
+	"""Set Container.free_time_days from upstream unless manually overridden."""
+	if not container_name or not flt(free_time_days or 0):
+		return
+	container = frappe.get_doc("Container", container_name)
+	if getattr(container, "penalty_manual_override", 0):
+		return
+	if flt(container.free_time_days or 0) == flt(free_time_days):
+		return
+	container.free_time_days = flt(free_time_days)
+	container.save(ignore_permissions=True)
+
+
 def get_or_create_container(
 	container_no,
 	container_type=None,
@@ -176,6 +197,7 @@ def get_or_create_container(
 	parent_name=None,
 	master_bill=None,
 	company=None,
+	free_time_days=None,
 ):
 	"""
 	Get existing Container or create new one.
@@ -195,6 +217,8 @@ def get_or_create_container(
 	if not valid:
 		frappe.throw(err, title=_("Invalid Container Number"))
 
+	resolved_free_time = _resolve_container_free_time_days(free_time_days, company)
+
 	if master_bill:
 		existing = frappe.db.get_value(
 			"Container",
@@ -205,6 +229,7 @@ def get_or_create_container(
 			container_name = existing
 			if status:
 				_apply_status_with_return_sync(existing, status)
+			_apply_free_time_to_container(existing, resolved_free_time)
 			return container_name
 		container = frappe.new_doc("Container")
 		container.container_number = container_no
@@ -213,7 +238,7 @@ def get_or_create_container(
 		container.container_type = container_type
 		container.seal_number = seal_number
 		container.status = status or "In Transit"
-		container.free_time_days = _sea_freight_default_free_time_days(company)
+		container.free_time_days = resolved_free_time
 		container.return_status = "Not Returned"
 		if container.status in ("Empty Returned", "Closed"):
 			container.return_status = "Returned"
@@ -234,6 +259,7 @@ def get_or_create_container(
 	if existing:
 		if status:
 			_apply_status_with_return_sync(existing, status)
+		_apply_free_time_to_container(existing, resolved_free_time)
 		return existing
 
 	container = frappe.new_doc("Container")
@@ -241,7 +267,7 @@ def get_or_create_container(
 	container.container_type = container_type
 	container.seal_number = seal_number
 	container.status = status or "In Transit"
-	container.free_time_days = _sea_freight_default_free_time_days(company)
+	container.free_time_days = resolved_free_time
 	container.return_status = "Not Returned"
 	if container.status in ("Empty Returned", "Closed"):
 		container.return_status = "Returned"
@@ -282,6 +308,7 @@ def sync_shipment_containers_and_penalties(shipment_doc):
 			container_name = raw
 		else:
 			eq = sea_container_row_field_to_equipment_number(raw) or raw
+			row_free_time = flt(getattr(row, "free_time_days", 0) or 0) or None
 			container_name = get_or_create_container(
 				container_no=eq,
 				container_type=getattr(row, "type", None),
@@ -291,9 +318,14 @@ def sync_shipment_containers_and_penalties(shipment_doc):
 				),
 				master_bill=getattr(shipment_doc, "master_bill", None) or None,
 				company=getattr(shipment_doc, "company", None),
+				free_time_days=row_free_time,
 			)
 		if container_name:
 			row.container = container_name
+			_apply_free_time_to_container(
+				container_name,
+				flt(getattr(row, "free_time_days", 0) or 0) or None,
+			)
 			_sync_penalty_to_container(container_name, shipment_doc)
 
 

@@ -43,6 +43,7 @@
   "total_packages",
   "total_volume",
   "total_weight",
+  "chargeable",
   "column_break_summary",
   "density_factor_html",
   "services_tab",
@@ -243,24 +244,26 @@
    "label": "Docket Date"
   },
   {
+   "fetch_from": "exhibit.show_open_date",
    "fieldname": "planned_start",
    "fieldtype": "Datetime",
-   "label": "Planned Start"
+   "label": "Event Open Date"
   },
   {
+   "fetch_from": "exhibit.show_close_date",
    "fieldname": "planned_end",
    "fieldtype": "Datetime",
-   "label": "Planned End"
+   "label": "Event Close Date"
   },
   {
    "fieldname": "required_by",
    "fieldtype": "Date",
-   "label": "Required By"
+   "label": "Move-In Date"
   },
   {
    "fieldname": "valid_until",
    "fieldtype": "Date",
-   "label": "Valid Until"
+   "label": "Move-Out Date"
   },
   {
    "description": "Primary site or address for work under this docket.",
@@ -731,6 +734,12 @@
    "fieldname": "total_weight",
    "fieldtype": "Float",
    "label": "Total Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "chargeable",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight (kg)",
    "read_only": 1
   },
   {

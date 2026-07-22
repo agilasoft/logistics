@@ -44,6 +44,7 @@ from .api_parts.pick import allocate_pick, post_pick
 from .api_parts.vas import initiate_vas_pick, allocate_vas, post_vas_pick, post_vas, post_vas_putaway
 from .api_parts.ops import populate_job_operations, create_sales_invoice_from_job, update_job_operations_times
 from .api_parts.transfer import allocate_move
+from .api_parts.cross_dock import allocate_cross_dock, post_cross_dock_receiving, post_cross_dock_release
 
 # =============================================================================
 # Meta helpers
@@ -429,6 +430,9 @@ CTX_FLAG = {
     "vas":       "vas_charge",
     "storage":   "storage_charge",
     "stocktake": "stocktake_charge",
+    "cross_dock": "cross_dock_charge",
+    "cross-dock": "cross_dock_charge",
+    "crossdock": "cross_dock_charge",
 }
 
 @frappe.whitelist()

@@ -64,6 +64,7 @@ app_include_js = [
 	"/assets/logistics/js/density_factor.js?v=2",
 	"/assets/logistics/js/document_alerts_dialog.js?v=2",
 	"/assets/logistics/js/documents_tab_utils.js",
+	"/assets/logistics/js/logistics_lifecycle_stepper.js",
 	"/assets/logistics/js/opportunity_dashboard_boot.js?v=3",
 	"/assets/logistics/js/crm_sales_quote_actions.js?v=2",
 	"/assets/logistics/js/profitability_form.js?v=5",
@@ -373,14 +374,14 @@ _doc_milestone_doctypes = [
 	"Sea Booking", "Sea Shipment", "Sea Consolidation",
 	"Transport Order", "Transport Job",
 	"Declaration", "Declaration Order",
-	"Inbound Order", "Release Order", "Transfer Order",
+	"Inbound Order", "Release Order", "Transfer Order", "Cross-Docking Order",
 	"Warehouse Job", "General Job", "Special Project",
 	"Project Order", "Project Job",
-	# Exhibit family: parent doctypes with a ``milestones`` child table and
+	# MICE family: parent doctypes with a ``milestones`` child table and
 	# ``milestone_template`` field. Without these hooks, Date Based sync
 	# (parent date field <-> milestone actual_end) and status auto-update
 	# (Planned / Started / Completed / Delayed) never run on save.
-	"Exhibit", "Docket", "Exhibit Order", "Exhibit Job",
+	"MICE Project", "Docket", "MICE Order", "MICE Job",
 ]
 
 doc_events = {
@@ -471,6 +472,7 @@ for _dt in (
 	"VAS Order",
 	"Inbound Order",
 	"Release Order",
+	"Cross-Docking Order",
 	"Project Job",
 	"MICE Job",
 	"Exhibit Job",
@@ -577,6 +579,7 @@ for _dt in (
 	"Warehouse Job",
 	"Inbound Order",
 	"Release Order",
+	"Cross-Docking Order",
 	"Project Job",
 ):
 	if _dt not in doc_events:
@@ -612,6 +615,7 @@ for _dt in (
 	"Warehouse Job",
 	"Inbound Order",
 	"Release Order",
+	"Cross-Docking Order",
 	"General Job",
 	"Project Job",
 	"MICE Job",
@@ -696,6 +700,7 @@ for _dt in (
 	"Warehouse Job",
 	"Inbound Order",
 	"Release Order",
+	"Cross-Docking Order",
 	"Project Job",
 ):
 	if _dt not in doc_events:

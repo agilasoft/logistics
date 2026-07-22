@@ -154,29 +154,48 @@ window.logistics_load_documents_html = function (frm, doctype, opts) {
 	});
 };
 
-// Defensive patch: some forms can carry table controls whose grid pagination is not initialized
-// yet at switch time, which crashes Form.switch_doc on go_to_page(). Initialize lazily first.
+// Defensive patch: table controls are added to frm.grids before Grid.make(), so
+// grid_pagination may be missing at switch time. Frappe's Form.switch_doc always
+// calls go_to_page() and crashes. Mirror switch_doc but guard pagination access.
 (function patch_form_switch_doc_for_grid_pagination() {
 	if (!frappe || !frappe.ui || !frappe.ui.form || !frappe.ui.form.Form) return;
 	const Form = frappe.ui.form.Form;
 	if (Form.__logistics_switch_doc_patched) return;
-
-	const original_switch_doc = Form.prototype.switch_doc;
-	if (typeof original_switch_doc !== "function") return;
+	if (typeof Form.prototype.switch_doc !== "function") return;
 
 	Form.prototype.switch_doc = function (docname) {
 		(this.grids || []).forEach((grid_obj) => {
 			const grid = grid_obj && grid_obj.grid;
 			if (!grid) return;
-			if (!grid.grid_pagination && typeof grid.setup_grid_pagination === "function") {
+
+			grid.visible_columns = null;
+
+			// Only init pagination when the grid DOM exists; GridPagination needs wrapper.
+			// Do not call Grid.make() here (data may be unset; see sales_quote.js).
+			if (
+				!grid.grid_pagination &&
+				grid.wrapper &&
+				typeof grid.setup_grid_pagination === "function"
+			) {
 				try {
+					if (!Array.isArray(grid.data)) {
+						grid.data = [];
+					}
 					grid.setup_grid_pagination();
 				} catch (e) {
-					// Keep original flow; this is only a best-effort initializer.
+					// Best-effort; skip go_to_page below if still missing.
 				}
 			}
+
+			if (grid.grid_pagination && typeof grid.grid_pagination.go_to_page === "function") {
+				grid.grid_pagination.go_to_page(1, true);
+			}
 		});
-		return original_switch_doc.call(this, docname);
+
+		frappe.ui.form.close_grid_form();
+		this.viewers && this.viewers.parent.empty();
+		this.docname = docname;
+		this.setup_docinfo_change_listener();
 	};
 
 	Form.__logistics_switch_doc_patched = true;

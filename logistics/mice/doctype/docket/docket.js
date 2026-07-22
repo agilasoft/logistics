@@ -402,6 +402,9 @@ frappe.ui.form.on("Docket", {
 					if (r.message.total_packages !== undefined && frm.fields_dict.total_packages) {
 						frm.set_value("total_packages", r.message.total_packages);
 					}
+					if (r.message.chargeable !== undefined && frm.fields_dict.chargeable) {
+						frm.set_value("chargeable", r.message.chargeable);
+					}
 				}
 			},
 		});

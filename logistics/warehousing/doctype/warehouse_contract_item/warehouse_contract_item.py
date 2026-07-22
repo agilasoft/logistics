@@ -28,6 +28,7 @@ class WarehouseContractItem(Document):
 		transfer_charge: DF.Check
 		vas_charge: DF.Check
 		stocktake_charge: DF.Check
+		cross_dock_charge: DF.Check
 		billing_method: DF.Literal["Per Volume", "Per Weight", "Per Piece", "Per Container", "Per Hour", "Per Handling Unit", "High Water Mark"]
 		volume_uom: DF.Link | None
 		volume_calculation_method: DF.Literal["Daily Volume", "Peak Volume", "Average Volume", "End Volume"]
@@ -76,7 +77,8 @@ class WarehouseContractItem(Document):
 		try:
 			# Validate billing method for any active charge type
 			if (self.storage_charge or self.inbound_charge or self.outbound_charge or 
-				self.transfer_charge or self.vas_charge or self.stocktake_charge) and self.billing_method:
+				self.transfer_charge or self.vas_charge or self.stocktake_charge or
+				self.cross_dock_charge) and self.billing_method:
 				self.validate_billing_method("general", self.billing_method)
 			
 				

@@ -164,35 +164,40 @@
    "fieldname": "length",
    "fieldtype": "Float",
    "label": "Length",
-   "precision": "3"
+   "precision": "3",
+   "read_only": 1
   },
   {
    "fetch_from": "item.width",
    "fieldname": "width",
    "fieldtype": "Float",
    "label": "Width",
-   "precision": "3"
+   "precision": "3",
+   "read_only": 1
   },
   {
    "fetch_from": "item.height",
    "fieldname": "height",
    "fieldtype": "Float",
    "label": "Height",
-   "precision": "3"
+   "precision": "3",
+   "read_only": 1
   },
   {
    "fetch_from": "item.volume",
    "fieldname": "volume",
    "fieldtype": "Float",
    "label": "Volume",
-   "precision": "3"
+   "precision": "3",
+   "read_only": 1
   },
   {
    "fetch_from": "item.weight",
    "fieldname": "weight",
    "fieldtype": "Float",
    "label": "Weight",
-   "precision": "3"
+   "precision": "3",
+   "read_only": 1
   },
   {
    "columns": 1,
@@ -201,7 +206,8 @@
    "label": "Volume UOM",
    "options": "UOM",
    "read_only": 1,
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "fetch_from": "item.volume_uom"
   },
   {
    "columns": 1,
@@ -210,19 +216,24 @@
    "label": "Weight UOM",
    "options": "UOM",
    "read_only": 1,
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "fetch_from": "item.weight_uom"
   },
   {
    "fieldname": "chargeable_weight",
    "fieldtype": "Float",
-   "label": "Chargeable Weight"
+   "label": "Chargeable Weight",
+   "fetch_from": "item.chargeable_weight",
+   "read_only": 1
   },
   {
    "fieldname": "chargeable_weight_uom",
    "fieldtype": "Link",
    "label": "Chargeable Weight UOM",
    "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "fetch_from": "item.chargeable_weight_uom",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_xcjq",
@@ -234,7 +245,8 @@
    "label": "Dimension UOM",
    "options": "UOM",
    "read_only": 1,
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "fetch_from": "item.dimension_uom"
   },
   {
    "fieldname": "handling_unit_type",

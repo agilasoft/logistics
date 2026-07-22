@@ -1,13 +1,15 @@
 # Copyright (c) 2026, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
-"""Create Air / Sea Booking and Transport / Declaration / Inbound Order from Docket Internal Job rows.
+"""Create Air / Sea Booking and Transport / Declaration / VAS Order from Docket Internal Job rows.
 
 Mirrors ``logistics.special_projects.special_project_booking_creation`` but for the Docket DocType:
 each row of ``docket.internal_jobs`` (Internal Job Detail) represents one intended main-service job
 for the docket, and this module turns those rows into standalone booking/order documents. The new
 documents are not internal jobs — they link back to the Docket only through the row's ``job_no``
 (and through accounting context / linked Sales Quote).
+
+Warehousing Linked Services create a VAS Order (cross-dock / in-transit), not storage Inbound.
 """
 
 from __future__ import annotations
@@ -37,7 +39,7 @@ DOCKET_CREATABLE_JOB_TYPES: frozenset[str] = frozenset(
 		"Sea Booking",
 		"Transport Order",
 		"Declaration Order",
-		"Inbound Order",
+		"VAS Order",
 		"MICE Order",
 	}
 )
@@ -47,7 +49,7 @@ _TARGET_DOC_LABELS: dict[str, str] = {
 	"Sea Booking": "Sea Booking",
 	"Transport Order": "Transport Order",
 	"Declaration Order": "Declaration Order",
-	"Inbound Order": "Inbound Order",
+	"VAS Order": "VAS Order",
 	"MICE Order": "MICE Order",
 }
 
@@ -849,20 +851,50 @@ def _create_declaration_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[st
 	}
 
 
-def _create_inbound_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
-	order = frappe.new_doc("Inbound Order")
+def _create_vas_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
+	"""Create a standalone VAS Order (cross-dock / in-transit) from a Docket Warehousing row."""
+	from logistics.utils.module_integration import (
+		_fill_vas_order_accounts_from_source,
+		_get_customer_warehouse_contract,
+		_get_or_create_cross_dock_vas_order_type,
+	)
+	from logistics.utils.service_role_rules import apply_standalone_service_flags
+
+	customer = (
+		getattr(dk_doc, "exhibitor", None) or getattr(dk_doc, "customer", None) or ""
+	).strip()
+	if not customer:
+		frappe.throw(_("Set Exhibitor / Customer on the Docket before creating a VAS Order."))
+	contract = _get_customer_warehouse_contract(customer)
+	if not contract:
+		frappe.throw(
+			_(
+				"No active Warehouse Contract for customer {0}. "
+				"Link a contract before creating warehousing VAS."
+			).format(customer)
+		)
+
+	order = frappe.new_doc("VAS Order")
+	order.customer = customer
+	order.contract = contract
+	order.type = _get_or_create_cross_dock_vas_order_type()
+	order.order_date = today()
+	planned = today()
+	order.planned_date = planned
+	if order.meta.get_field("due_date"):
+		order.due_date = planned
 	_apply_docket_context(order, dk_doc)
-	if frappe.get_meta("Inbound Order").get_field("order_date"):
-		order.order_date = today()
+	_fill_vas_order_accounts_from_source(order, dk_doc)
 	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
+	apply_standalone_service_flags(order)
 	_copy_docket_packages_to_target(dk_doc, order)
 	_prepare_charges_before_insert(dk_doc, order, row)
 	order.insert(ignore_permissions=True)
-	_persist_row_link(dk_doc.name, "Inbound Order", order.name, detail_idx)
+	_persist_row_link(dk_doc.name, "VAS Order", order.name, detail_idx)
 	frappe.db.commit()
 	return {
-		"inbound_order": order.name,
-		"message": _("Inbound Order {0} created.").format(order.name),
+		"vas_order": order.name,
+		"message": _("VAS Order {0} created.").format(order.name),
 	}
 
 
@@ -952,7 +984,7 @@ _CREATE_DISPATCH = {
 	"Sea Booking": _create_sea_booking,
 	"Transport Order": _create_transport_order,
 	"Declaration Order": _create_declaration_order,
-	"Inbound Order": _create_inbound_order,
+	"VAS Order": _create_vas_order,
 	"MICE Order": _create_mice_order,
 }
 
@@ -978,6 +1010,8 @@ def create_booking_or_order_from_docket(
 	idx = coerce_internal_job_detail_idx(internal_job_idx)
 
 	client_rows = _resolve_client_rows(internal_jobs, linked_services)
+	# Desk override is only for Docket resolve/materialize — clear before insert so the
+	# new booking/order does not sync Docket Linked Services onto itself.
 	with _client_rows_context(client_rows):
 		from logistics.utils.internal_job_persistence import (
 			ensure_linked_service_rows_materialized,
@@ -1003,5 +1037,5 @@ def create_booking_or_order_from_docket(
 			ij_row=row,
 			service_type_label=(getattr(row, "service_type", None) or "").strip(),
 		)
-		handler = _CREATE_DISPATCH[jt]
-		return handler(dk_doc, row, resolved_idx)
+	handler = _CREATE_DISPATCH[jt]
+	return handler(dk_doc, row, resolved_idx)

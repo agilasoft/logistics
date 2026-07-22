@@ -1,0 +1,133 @@
+# Copyright (c) 2026, www.agilasoft.com and contributors
+# For license information, please see license.txt
+
+import frappe
+from frappe import _
+from frappe.model.document import Document
+from frappe.model.mapper import get_mapped_doc
+
+
+class CrossDockingOrder(Document):
+	def before_save(self):
+		from logistics.utils.module_integration import run_propagate_on_link
+		run_propagate_on_link(self)
+
+	def validate(self):
+		try:
+			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
+			apply_measurement_uom_conversion_to_children(self, "items", company=getattr(self, "company", None))
+		except Exception:
+			pass
+		# Measurements on items are read-only and always fetched from Warehouse Item.
+
+
+@frappe.whitelist()
+def make_warehouse_job(source_name, target_doc=None):
+	try:
+		import time
+
+		if source_name and source_name.startswith("new-"):
+			frappe.throw(_("Cannot create Warehouse Job for unsaved document. Please save the Cross-Docking Order first."))
+
+		if getattr(frappe.flags, "in_save", False):
+			frappe.db.commit()
+			time.sleep(0.3)
+
+		if source_name:
+			try:
+				source_doc = frappe.get_doc("Cross-Docking Order", source_name)
+			except frappe.DoesNotExistError:
+				time.sleep(0.3)
+				try:
+					source_doc = frappe.get_cached_doc("Cross-Docking Order", source_name)
+				except frappe.DoesNotExistError:
+					frappe.throw(_("Cross-Docking Order {0} is not ready yet. Please try again in a moment.").format(source_name))
+
+			if source_doc.contract:
+				contract_status = frappe.db.get_value("Warehouse Contract", source_doc.contract, "docstatus")
+				if contract_status == 2:
+					frappe.throw(_("Cannot create Warehouse Job from Cross-Docking Order with cancelled contract: {0}").format(source_doc.contract))
+
+		def set_missing_values(source, target):
+			target.type = "Cross Dock"
+			target.reference_order_type = "Cross-Docking Order"
+			target.reference_order = source.name
+			target.company = source.company
+			target.branch = source.branch
+			target.customer = source.customer
+			target.shipper = source.shipper
+			target.consignee = source.consignee
+			if source.contract:
+				contract_status = frappe.db.get_value("Warehouse Contract", source.contract, "docstatus")
+				if contract_status != 2:
+					target.warehouse_contract = source.contract
+				else:
+					frappe.throw(_("Cannot link cancelled contract: {0}").format(source.contract))
+
+		def update_item(source_doc, target_doc, source_parent):
+			target_doc.item = source_doc.item
+			target_doc.uom = source_doc.uom
+			target_doc.quantity = source_doc.quantity
+			target_doc.handling_unit_type = source_doc.handling_unit_type
+			target_doc.handling_unit = source_doc.handling_unit
+			target_doc.serial_no = source_doc.serial_no
+			target_doc.batch_no = source_doc.batch_no
+
+		def update_charge(source_doc, target_doc, source_parent):
+			target_doc.item_code = source_doc.item_code
+			target_doc.uom = source_doc.uom
+			target_doc.quantity = source_doc.quantity
+			target_doc.currency = source_doc.currency
+			target_doc.unit_rate = source_doc.unit_rate
+			target_doc.total = source_doc.total
+			if hasattr(source_doc, "description") and source_doc.description:
+				target_doc.description = source_doc.description
+
+		def update_dock(source_doc, target_doc, source_parent):
+			target_doc.dock_door = source_doc.dock_door
+			target_doc.eta = source_doc.eta
+			target_doc.transport_company = source_doc.transport_company
+			target_doc.vehicle_type = source_doc.vehicle_type
+			target_doc.plate_no = source_doc.plate_no
+
+		doc = get_mapped_doc(
+			"Cross-Docking Order",
+			source_name,
+			{
+				"Cross-Docking Order": {
+					"doctype": "Warehouse Job",
+					"field_map": {
+						"name": "reference_order"
+					},
+					"field_no_map": [
+						"naming_series"
+					]
+				},
+				"Cross-Docking Order Item": {
+					"doctype": "Warehouse Job Order Items",
+					"postprocess": update_item
+				},
+				"Cross-Docking Order Charges": {
+					"doctype": "Warehouse Job Charges",
+					"postprocess": update_charge
+				},
+				"Cross-Docking Order Dock": {
+					"doctype": "Warehouse Job Dock",
+					"postprocess": update_dock
+				},
+			},
+			target_doc,
+			set_missing_values
+		)
+
+		doc.save()
+		frappe.db.commit()
+
+		return doc
+
+	except Exception as e:
+		error_msg = f"Error converting Cross-Docking Order {source_name} to Warehouse Job: {str(e)}"
+		if len(error_msg) > 500:
+			error_msg = error_msg[:500] + "..."
+		frappe.log_error(error_msg, "Cross-Docking Order to Warehouse Job Error")
+		frappe.throw(_("Failed to convert order to warehouse job: {0}").format(str(e)))

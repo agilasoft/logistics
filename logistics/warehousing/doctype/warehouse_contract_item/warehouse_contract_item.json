@@ -15,6 +15,7 @@
   "transfer_charge",
   "vas_charge",
   "stocktake_charge",
+  "cross_dock_charge",
   "column_break_oijb",
   "handling_unit_type",
   "storage_type",
@@ -151,7 +152,16 @@
    "read_only": 1
   },
   {
-   "depends_on": "eval:doc.storage_charge || doc.inbound_charge || doc.outbound_charge || doc.transfer_charge || doc.vas_charge || doc.stocktake_charge",
+   "default": "0",
+   "depends_on": "cross_dock_charge",
+   "fetch_from": "item_charge.custom_cross_dock_charge",
+   "fieldname": "cross_dock_charge",
+   "fieldtype": "Check",
+   "label": "Cross Dock Charge",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.storage_charge || doc.inbound_charge || doc.outbound_charge || doc.transfer_charge || doc.vas_charge || doc.stocktake_charge || doc.cross_dock_charge",
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
@@ -213,7 +223,7 @@
   },
   {
    "default": "Volume",
-   "depends_on": "eval:doc.storage_charge || doc.inbound_charge || doc.outbound_charge || doc.transfer_charge || doc.vas_charge || doc.stocktake_charge",
+   "depends_on": "eval:doc.storage_charge || doc.inbound_charge || doc.outbound_charge || doc.transfer_charge || doc.vas_charge || doc.stocktake_charge || doc.cross_dock_charge",
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",

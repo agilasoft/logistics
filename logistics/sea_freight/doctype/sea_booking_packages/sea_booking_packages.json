@@ -87,7 +87,7 @@
   },
   {
    "fieldname": "container",
-   "fieldtype": "Data",
+   "fieldtype": "Select",
    "label": "Container"
   },
   {
