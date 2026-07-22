@@ -2724,6 +2724,353 @@ def create_vas_order_from_declaration(
 	return {"vas_order": order.name, "message": _("VAS Order {0} created.").format(order.name)}
 
 
+def _copy_cross_docking_charges_from_shipment_to_order(order, shipment, ij_row=None) -> None:
+	"""Append Cross-Docking Order Charges from parent rows with service_type Cross-Docking."""
+	from frappe.utils import flt
+
+	from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
+
+	rows = [
+		r
+		for r in (getattr(shipment, "charges", None) or [])
+		if sales_quote_charge_service_types_equal(
+			getattr(r, "service_type", None) or "", "Cross-Docking"
+		)
+	]
+	rows = _filter_charges_by_internal_job_detail_params(rows, ij_row, "Cross-Docking")
+	if not rows:
+		return
+
+	meta = frappe.get_meta("Cross-Docking Order Charges")
+	tfields = {f.fieldname for f in meta.fields}
+	for src in rows:
+		row = order.append("charges", {})
+		if "item_code" in tfields and getattr(src, "item_code", None):
+			row.item_code = src.item_code
+		if "item_name" in tfields:
+			row.item_name = getattr(src, "item_name", None) or ""
+		if "description" in tfields and getattr(src, "description", None):
+			row.description = src.description
+		qty = getattr(src, "quantity", None)
+		if qty is None:
+			qty = 1
+		if "quantity" in tfields:
+			row.quantity = qty
+		rate = getattr(src, "unit_rate", None)
+		if "unit_rate" in tfields and rate is not None:
+			row.unit_rate = rate
+		if "currency" in tfields and getattr(src, "currency", None):
+			row.currency = src.currency
+		if "uom" in tfields and getattr(src, "uom", None):
+			row.uom = src.uom
+		if "charge_type" in tfields and getattr(src, "charge_type", None):
+			row.charge_type = src.charge_type
+		if "charge_category" in tfields and getattr(src, "charge_category", None):
+			row.charge_category = src.charge_category
+		if "total" in tfields:
+			row.total = flt(qty) * flt(rate or 0)
+
+
+def _fill_cross_docking_order_accounts_from_source(order, source) -> None:
+	"""Ensure mandatory accounts fields on Cross-Docking Order from the operational source."""
+	from frappe import _
+
+	company = getattr(source, "company", None) or frappe.defaults.get_defaults().get("company")
+	if not company:
+		frappe.throw(_("Company is required to create a Cross-Docking Order."))
+	order.company = company
+	order.branch = getattr(source, "branch", None) or order.branch
+	order.cost_center = getattr(source, "cost_center", None) or order.cost_center
+	order.profit_center = getattr(source, "profit_center", None) or order.profit_center
+	if not order.branch or not order.cost_center or not order.profit_center:
+		from logistics.api import get_default_branch, get_default_cost_center, get_default_profit_center
+
+		if not order.branch:
+			order.branch = get_default_branch(company)
+		if not order.cost_center:
+			order.cost_center = get_default_cost_center(company)
+		if not order.profit_center:
+			order.profit_center = get_default_profit_center(company, order.customer)
+	missing = [
+		label
+		for label, val in (
+			(_("Branch"), order.branch),
+			(_("Cost Center"), order.cost_center),
+			(_("Profit Center"), order.profit_center),
+		)
+		if not val
+	]
+	if missing:
+		frappe.throw(
+			_("Cannot create Cross-Docking Order: missing {0} on the source document (or defaults).").format(
+				", ".join(missing)
+			)
+		)
+
+
+def _new_linked_cross_docking_order_from_source(
+	source,
+	*,
+	customer: str,
+	ij_row=None,
+	main_job_type: str | None = None,
+	main_job: str | None = None,
+	is_internal_job: int = 1,
+):
+	"""Build a draft Cross-Docking Order for linked-service temporary staging."""
+	from frappe import _
+
+	if not customer:
+		frappe.throw(_("Customer is required to create a Cross-Docking Order."))
+	contract = _get_customer_warehouse_contract(customer)
+
+	order = frappe.new_doc("Cross-Docking Order")
+	order.customer = customer
+	order.contract = contract or ""
+	order.order_date = frappe.utils.today()
+	planned = (
+		getattr(source, "eta", None)
+		or getattr(source, "etd", None)
+		or getattr(source, "scheduled_date", None)
+		or getattr(source, "booking_date", None)
+		or frappe.utils.now_datetime()
+	)
+	order.planned_date = planned
+	order.due_date = planned
+	order.shipper = getattr(source, "shipper", None) or getattr(source, "local_shipper", None)
+	order.consignee = getattr(source, "consignee", None) or getattr(source, "importer_consignee", None)
+	order.project = getattr(source, "project", None)
+	if getattr(source, "job_number", None):
+		order.job_number = source.job_number
+	copy_sales_quote_fields_to_target(source, order)
+	_fill_cross_docking_order_accounts_from_source(order, source)
+
+	_set_linked_or_standalone_job_context(order, is_internal_job, main_job_type, main_job)
+	if hasattr(order, "is_main_service"):
+		order.is_main_service = 0
+
+	if ij_row:
+		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
+	return order
+
+
+@frappe.whitelist()
+def create_cross_docking_order_from_air_shipment(
+	air_shipment_name: str, internal_job_detail_idx: int | None = None
+):
+	"""Create a linked Cross-Docking Order from an Air Shipment."""
+	from frappe import _
+
+	shipment = frappe.get_doc("Air Shipment", air_shipment_name)
+	shipment.check_permission("write")
+	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	ij_row = None
+	resolved_detail_idx = None
+	if detail_idx is not None:
+		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
+			shipment, "Cross-Docking Order", detail_idx
+		)
+	customer = shipment.local_customer
+	if not customer:
+		frappe.throw(_("Air Shipment must have Local Customer to create a Cross-Docking Order."))
+
+	ij, mjt, mj = final_inbound_order_job_context_from_freight_shipment(
+		shipment, "Air Shipment", air_shipment_name
+	)
+	ij, mjt, mj = resolve_inbound_order_freight_main_job_if_empty(
+		shipment, "Air Shipment", air_shipment_name, ij, mjt, mj
+	)
+	if not ij:
+		ij, mjt, mj = 1, "Air Shipment", air_shipment_name
+
+	order = _new_linked_cross_docking_order_from_source(
+		shipment,
+		customer=customer,
+		ij_row=ij_row,
+		main_job_type=mjt,
+		main_job=mj,
+		is_internal_job=ij,
+	)
+	_copy_shipment_packages_to_inbound_order(shipment, order)
+	_copy_cross_docking_charges_from_shipment_to_order(order, shipment, ij_row=ij_row)
+	order.insert(ignore_permissions=True)
+	persist_internal_job_create_back_link(
+		"Air Shipment",
+		air_shipment_name,
+		"Cross-Docking Order",
+		order.name,
+		ij_row=ij_row,
+		detail_idx=resolved_detail_idx,
+	)
+	ensure_main_service_on_freight_hub_for_transport_order_link("Air Shipment", air_shipment_name)
+	frappe.db.commit()
+	return {
+		"cross_docking_order": order.name,
+		"message": _("Cross-Docking Order {0} created.").format(order.name),
+	}
+
+
+@frappe.whitelist()
+def create_cross_docking_order_from_sea_shipment(
+	sea_shipment_name: str, internal_job_detail_idx: int | None = None
+):
+	"""Create a linked Cross-Docking Order from a Sea Shipment."""
+	from frappe import _
+
+	shipment = frappe.get_doc("Sea Shipment", sea_shipment_name)
+	shipment.check_permission("write")
+	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	ij_row = None
+	resolved_detail_idx = None
+	if detail_idx is not None:
+		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
+			shipment, "Cross-Docking Order", detail_idx
+		)
+	customer = shipment.local_customer
+	if not customer:
+		frappe.throw(_("Sea Shipment must have Local Customer to create a Cross-Docking Order."))
+
+	ij, mjt, mj = final_inbound_order_job_context_from_freight_shipment(
+		shipment, "Sea Shipment", sea_shipment_name
+	)
+	ij, mjt, mj = resolve_inbound_order_freight_main_job_if_empty(
+		shipment, "Sea Shipment", sea_shipment_name, ij, mjt, mj
+	)
+	if not ij:
+		ij, mjt, mj = 1, "Sea Shipment", sea_shipment_name
+
+	order = _new_linked_cross_docking_order_from_source(
+		shipment,
+		customer=customer,
+		ij_row=ij_row,
+		main_job_type=mjt,
+		main_job=mj,
+		is_internal_job=ij,
+	)
+	_copy_shipment_packages_to_inbound_order(shipment, order)
+	_copy_cross_docking_charges_from_shipment_to_order(order, shipment, ij_row=ij_row)
+	order.insert(ignore_permissions=True)
+	persist_internal_job_create_back_link(
+		"Sea Shipment",
+		sea_shipment_name,
+		"Cross-Docking Order",
+		order.name,
+		ij_row=ij_row,
+		detail_idx=resolved_detail_idx,
+	)
+	ensure_main_service_on_freight_hub_for_transport_order_link("Sea Shipment", sea_shipment_name)
+	frappe.db.commit()
+	return {
+		"cross_docking_order": order.name,
+		"message": _("Cross-Docking Order {0} created.").format(order.name),
+	}
+
+
+@frappe.whitelist()
+def create_cross_docking_order_from_transport_job(
+	transport_job_name: str, internal_job_detail_idx: int | None = None
+):
+	"""Create a linked Cross-Docking Order from a Transport Job."""
+	from frappe import _
+
+	job = frappe.get_doc("Transport Job", transport_job_name)
+	job.check_permission("write")
+	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	ij_row = None
+	resolved_detail_idx = None
+	if detail_idx is not None:
+		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
+			job, "Cross-Docking Order", detail_idx
+		)
+	customer = getattr(job, "customer", None) or getattr(job, "local_customer", None)
+	if not customer:
+		frappe.throw(_("Transport Job must have a Customer to create a Cross-Docking Order."))
+
+	order = _new_linked_cross_docking_order_from_source(
+		job,
+		customer=customer,
+		ij_row=ij_row,
+		main_job_type="Transport Job",
+		main_job=transport_job_name,
+		is_internal_job=1,
+	)
+	_copy_shipment_packages_to_inbound_order(job, order)
+	_copy_cross_docking_charges_from_shipment_to_order(order, job, ij_row=ij_row)
+	order.insert(ignore_permissions=True)
+	persist_internal_job_create_back_link(
+		"Transport Job",
+		transport_job_name,
+		"Cross-Docking Order",
+		order.name,
+		ij_row=ij_row,
+		detail_idx=resolved_detail_idx,
+	)
+	frappe.db.commit()
+	return {
+		"cross_docking_order": order.name,
+		"message": _("Cross-Docking Order {0} created.").format(order.name),
+	}
+
+
+@frappe.whitelist()
+def create_cross_docking_order_from_declaration(
+	declaration_name: str, internal_job_detail_idx: int | None = None
+):
+	"""Create a linked Cross-Docking Order from a Declaration."""
+	from frappe import _
+
+	from logistics.utils.sales_quote_service_eligibility import get_quote_module_flags
+
+	dec = frappe.get_doc("Declaration", declaration_name)
+	dec.check_permission("write")
+	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
+	ij_row = None
+	resolved_detail_idx = None
+	if detail_idx is not None:
+		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
+			dec, "Cross-Docking Order", detail_idx
+		)
+	if not getattr(dec, "sales_quote", None):
+		frappe.throw(_("Link a Sales Quote on this Declaration before creating a Cross-Docking Order."))
+	flags = get_quote_module_flags(
+		dec.sales_quote, source_doctype="Declaration", source_name=declaration_name
+	)
+	if not flags.get("allow_cross_docking") and not any(
+		(getattr(r, "service_type", None) or "").strip().lower() in ("cross-docking", "cross docking")
+		for r in (getattr(dec, "charges", None) or [])
+	):
+		frappe.throw(_("Cross-Docking is not allowed for this Sales Quote."))
+
+	customer = dec.customer
+	if not customer:
+		frappe.throw(_("Declaration must have a Customer to create a Cross-Docking Order."))
+
+	order = _new_linked_cross_docking_order_from_source(
+		dec,
+		customer=customer,
+		ij_row=ij_row,
+		main_job_type="Declaration",
+		main_job=declaration_name,
+		is_internal_job=1,
+	)
+	_copy_cross_docking_charges_from_shipment_to_order(order, dec, ij_row=ij_row)
+	order.insert(ignore_permissions=True)
+	if ij_row or resolved_detail_idx:
+		persist_internal_job_create_back_link(
+			"Declaration",
+			declaration_name,
+			"Cross-Docking Order",
+			order.name,
+			ij_row=ij_row,
+			detail_idx=resolved_detail_idx,
+		)
+	frappe.db.commit()
+	return {
+		"cross_docking_order": order.name,
+		"message": _("Cross-Docking Order {0} created.").format(order.name),
+	}
+
+
 def _get_customer_warehouse_contract(customer):
 	"""Get first active Warehouse Contract for customer."""
 	if not customer:

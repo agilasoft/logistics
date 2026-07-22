@@ -187,14 +187,20 @@ def get_quote_module_flags(
 	"""
 	allow_inbound = False
 	allow_declaration = False
+	allow_cross_docking = False
 
 	if sales_quote and frappe.db.exists("Sales Quote", sales_quote):
 		allow_inbound = sales_quote_has_service_charges(sales_quote, "Warehousing")
+		allow_cross_docking = sales_quote_has_service_charges(sales_quote, "Cross-Docking")
 		allow_declaration = sales_quote_has_service_charges(sales_quote, "Customs")
 		if not allow_declaration:
 			main_sv = frappe.db.get_value("Sales Quote", sales_quote, "main_service")
 			if sales_quote_charge_service_types_equal(main_sv or "", "Customs"):
 				allow_declaration = True
+		if not allow_cross_docking:
+			main_sv = frappe.db.get_value("Sales Quote", sales_quote, "main_service")
+			if sales_quote_charge_service_types_equal(main_sv or "", "Cross-Docking"):
+				allow_cross_docking = True
 
 	if source_doctype and source_name and frappe.db.exists(source_doctype, source_name):
 		src = frappe.get_cached_doc(source_doctype, source_name)
@@ -211,5 +217,17 @@ def get_quote_module_flags(
 			)
 			if internal_job_declaration:
 				allow_declaration = True
+			# Linked Cross-Docking charges on the shipment itself enable create even when
+			# the quote flag was not refreshed yet.
+			for ch in getattr(src, "charges", None) or []:
+				if sales_quote_charge_service_types_equal(
+					getattr(ch, "service_type", None) or "", "Cross-Docking"
+				):
+					allow_cross_docking = True
+					break
 
-	return {"allow_inbound": allow_inbound, "allow_declaration": allow_declaration}
+	return {
+		"allow_inbound": allow_inbound,
+		"allow_declaration": allow_declaration,
+		"allow_cross_docking": allow_cross_docking,
+	}
