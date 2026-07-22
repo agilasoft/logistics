@@ -90,7 +90,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Job Type",
-   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nInbound Order\nProject Order",
+   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nInbound Order\nCross-Docking Order\nProject Order",
    "read_only": 1
   },
   {

@@ -203,7 +203,7 @@ def propagate_from_air_shipment(doc, fieldname="air_shipment"):
 		_set_if_empty(doc, "consignee", getattr(shipment, "consignee", None))
 		_set_if_empty(doc, "customer", getattr(shipment, "local_customer", None))
 
-	if doctype in ("Transport Order", "Transport Job", "Declaration", "Declaration Order", "Inbound Order", "Release Order"):
+	if doctype in ("Transport Order", "Transport Job", "Declaration", "Declaration Order", "Inbound Order", "Release Order", "Cross-Docking Order"):
 		propagate_sales_quote_from_source_if_empty(shipment, doc)
 
 	_set_is_high_value_if_empty(doc, getattr(shipment, "is_high_value", None))
@@ -269,7 +269,7 @@ def propagate_from_sea_shipment(doc, fieldname="sea_shipment"):
 		_set_if_empty(doc, "consignee", getattr(shipment, "consignee", None))
 		_set_if_empty(doc, "customer", getattr(shipment, "local_customer", None))
 
-	if doctype in ("Transport Order", "Transport Job", "Declaration", "Declaration Order", "Inbound Order", "Release Order"):
+	if doctype in ("Transport Order", "Transport Job", "Declaration", "Declaration Order", "Inbound Order", "Release Order", "Cross-Docking Order"):
 		propagate_sales_quote_from_source_if_empty(shipment, doc)
 
 	_set_is_high_value_if_empty(doc, getattr(shipment, "is_high_value", None))
@@ -472,6 +472,7 @@ HIGH_VALUE_DOWNSTREAM_DOCTYPES = (
 	"VAS Order",
 	"Inbound Order",
 	"Release Order",
+	"Cross-Docking Order",
 	"Warehouse Job",
 	"Warehouse Contract",
 )
@@ -808,6 +809,7 @@ _SERVICE_LABEL_FOR_CREATE_JOB_TYPE = {
 	"Sea Booking": "Sea",
 	"VAS Order": "Warehousing",
 	"Inbound Order": "Warehousing",
+	"Cross-Docking Order": "Cross-Docking",
 }
 
 

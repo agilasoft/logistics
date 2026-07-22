@@ -1649,6 +1649,7 @@ _SALES_QUOTE_LINKED_OPERATIONAL_DOCTYPES = (
 	"Sea Booking",
 	"Transport Order",
 	"Inbound Order",
+	"Cross-Docking Order",
 	"Warehouse Job",
 	"Declaration",
 )

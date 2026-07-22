@@ -22,6 +22,7 @@
 		"VAS Order",
 		"Inbound Order",
 		"Release Order",
+		"Cross-Docking Order",
 		"Warehouse Job",
 		"Project Job",
 		"MICE Job",

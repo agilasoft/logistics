@@ -103,7 +103,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Source Job Type",
-   "options": "\nTransport Order\nTransport Job\nAir Booking\nAir Shipment\nSea Booking\nSea Shipment\nInbound Order\nDeclaration Order\nProject Job\nProject Order",
+   "options": "\nTransport Order\nTransport Job\nAir Booking\nAir Shipment\nSea Booking\nSea Shipment\nInbound Order\nCross-Docking Order\nDeclaration Order\nProject Job\nProject Order",
    "read_only": 1
   },
   {

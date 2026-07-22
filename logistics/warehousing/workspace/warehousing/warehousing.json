@@ -646,7 +646,7 @@
    "format": "{} Open",
    "label": "Cross-Docking Order",
    "link_to": "Cross-Docking Order",
-   "stats_filter": "[[\"Inbound Order\",\"docstatus\",\"=\",\"0\",false]]",
+   "stats_filter": "[[\"Cross-Docking Order\",\"docstatus\",\"=\",\"0\",false]]",
    "type": "DocType"
   },
   {

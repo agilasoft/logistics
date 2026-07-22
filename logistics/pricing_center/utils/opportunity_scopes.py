@@ -17,6 +17,7 @@ JOB_TYPES_BY_OPPORTUNITY_SERVICE_TYPE: dict[str, tuple[str, ...]] = {
 	"Transport": ("Transport Job", "Transport Order"),
 	"Customs": ("Declaration", "Declaration Order"),
 	"Warehousing": ("Warehouse Job", "Inbound Order", "Release Order", "Transfer Order"),
+	"Cross-Docking": ("Warehouse Job", "Cross-Docking Order"),
 	"Special Project": ("Special Project", "Project Job", "Project Order"),
 	"MICE": ("Docket", "MICE Project", "MICE Job", "MICE Order", "Exhibit Job", "Exhibit Order"),
 }
