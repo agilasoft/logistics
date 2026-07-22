@@ -60,6 +60,7 @@ app_include_js = [
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=3",
 	"/assets/logistics/js/air_consolidation_matching_shipments.js?v=5",
 	"/assets/logistics/js/charges_disbursement_sync.js",
+	"/assets/logistics/js/charge_type_cleanup.js",
 	"/assets/logistics/js/charge_break_dialogs.js",
 	"/assets/logistics/js/volume_from_dimensions.js",
 	"/assets/logistics/js/density_factor.js?v=2",
@@ -98,6 +99,7 @@ doctype_js = {
 	# sales_quote.js is omitted: it loads via the DocType's own __js; listing it here would double-bind.
 	"Sales Quote": [
 		"public/js/operational_exchange_rate_grid.js",
+		"public/js/charge_type_cleanup.js",
 		"public/js/charge_break_dialogs.js",
 		"public/js/charge_break_buttons.js",
 		"pricing_center/doctype/sales_quote_charge/sales_quote_charge.js",
