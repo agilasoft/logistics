@@ -31,6 +31,14 @@ _MAWB_VIRTUAL_FIELD_SOURCES = (
 
 
 class AirShipment(VirtualLinkedServicesMixin, Document):
+	def before_insert(self):
+		self.set_new_name()
+		from logistics.utils.house_document_defaults import (
+			auto_populate_export_house_document_from_shipment_id,
+		)
+
+		auto_populate_export_house_document_from_shipment_id(self)
+
 	def before_save(self):
 		"""Calculate sustainability metrics before saving"""
 		super().before_save()
@@ -1657,6 +1665,12 @@ class AirShipment(VirtualLinkedServicesMixin, Document):
 		# Apply settings defaults if this is a new document
 		if self.is_new():
 			self.apply_settings_defaults()
+
+		from logistics.utils.house_document_defaults import (
+			auto_populate_export_house_document_from_shipment_id,
+		)
+
+		auto_populate_export_house_document_from_shipment_id(self)
 		
 		# Update DG compliance status before saving
 		self.update_dg_compliance_status()

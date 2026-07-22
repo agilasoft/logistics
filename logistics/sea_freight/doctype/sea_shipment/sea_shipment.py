@@ -34,6 +34,14 @@ _MBL_VIRTUAL_FIELD_SOURCES = (
 
 
 class SeaShipment(VirtualLinkedServicesMixin, Document):
+    def before_insert(self):
+        self.set_new_name()
+        from logistics.utils.house_document_defaults import (
+            auto_populate_export_house_document_from_shipment_id,
+        )
+
+        auto_populate_export_house_document_from_shipment_id(self)
+
     def validate(self):
         """Validate Sea Shipment data"""
         from logistics.utils.charges_calculation import (
@@ -355,6 +363,11 @@ class SeaShipment(VirtualLinkedServicesMixin, Document):
     def before_save(self):
         """Calculate sustainability metrics before saving"""
         super().before_save()
+        from logistics.utils.house_document_defaults import (
+            auto_populate_export_house_document_from_shipment_id,
+        )
+
+        auto_populate_export_house_document_from_shipment_id(self)
         self.calculate_sustainability_metrics()
         self.check_delays()
         self.calculate_penalties()
