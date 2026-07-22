@@ -2462,7 +2462,9 @@ def _create_sea_booking_from_sales_quote(
 
 	copy_sales_quote_containers_to_booking(sales_quote, sea_booking)
 
-	sea_booking.insert(ignore_permissions=True)
+	# Quote containers have no seal; Seal Number stays reqd on Sea Booking form.
+	sea_booking.flags.ignore_mandatory = True
+	sea_booking.insert(ignore_permissions=True, ignore_mandatory=True)
 
 	_propagate_linked_services_to_created_booking(
 		sales_quote,

@@ -377,11 +377,11 @@ _doc_milestone_doctypes = [
 	"Inbound Order", "Release Order", "Transfer Order", "Cross-Docking Order",
 	"Warehouse Job", "General Job", "Special Project",
 	"Project Order", "Project Job",
-	# Exhibit family: parent doctypes with a ``milestones`` child table and
+	# MICE family: parent doctypes with a ``milestones`` child table and
 	# ``milestone_template`` field. Without these hooks, Date Based sync
 	# (parent date field <-> milestone actual_end) and status auto-update
 	# (Planned / Started / Completed / Delayed) never run on save.
-	"Exhibit", "Docket", "Exhibit Order", "Exhibit Job",
+	"MICE Project", "Docket", "MICE Order", "MICE Job",
 ]
 
 doc_events = {

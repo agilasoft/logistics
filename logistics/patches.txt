@@ -337,3 +337,5 @@ logistics.patches.v1_0_add_percentage_break_option
 logistics.patches.v3_0_clear_charge_bill_to_link_filters
 # Lifecycle Stage: Icon + Color for Special Project dashboard cards
 logistics.patches.v3_0_seed_lifecycle_stage_icon_color
+# Declaration: fix job_status stuck as Draft after submit (Job Status tab)
+logistics.patches.v1_0_fix_declaration_job_status_after_submit

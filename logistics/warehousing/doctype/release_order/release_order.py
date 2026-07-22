@@ -19,6 +19,7 @@ class ReleaseOrder(Document):
 			apply_measurement_uom_conversion_to_children(self, "items", company=getattr(self, "company", None))
 		except Exception:
 			pass
+		# Measurements on items are read-only and always fetched from Warehouse Item.
 
 
 @frappe.whitelist()

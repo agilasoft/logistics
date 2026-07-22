@@ -658,7 +658,9 @@ def _create_sea_booking(
 	from logistics.sea_freight.sea_container_row_utils import copy_sales_quote_containers_to_booking
 
 	copy_sales_quote_containers_to_booking(sq_doc, doc)
-	doc.insert(ignore_permissions=True)
+	# Quote containers have no seal; Seal Number stays reqd on Sea Booking form.
+	doc.flags.ignore_mandatory = True
+	doc.insert(ignore_permissions=True, ignore_mandatory=True)
 	_propagate_subsidiary_linked_services(sq_doc, doc)
 	frappe.db.commit()
 	return {"sea_booking": doc.name, "message": _("Sea Booking {0} created.").format(doc.name)}

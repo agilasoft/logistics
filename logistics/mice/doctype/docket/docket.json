@@ -43,6 +43,7 @@
   "total_packages",
   "total_volume",
   "total_weight",
+  "chargeable",
   "column_break_summary",
   "density_factor_html",
   "services_tab",
@@ -733,6 +734,12 @@
    "fieldname": "total_weight",
    "fieldtype": "Float",
    "label": "Total Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "chargeable",
+   "fieldtype": "Float",
+   "label": "Chargeable Weight (kg)",
    "read_only": 1
   },
   {

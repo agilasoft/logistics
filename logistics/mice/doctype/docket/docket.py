@@ -45,6 +45,7 @@ class Docket(VirtualLinkedServicesMixin, Document):
 		from logistics.utils.document_date_validation import validate_planned_date_range
 
 		validate_planned_date_range(self)
+		self._update_packing_summary()
 		self.validate_accounts()
 		self._sync_charges()
 
@@ -354,7 +355,7 @@ class Docket(VirtualLinkedServicesMixin, Document):
 		return total_volume
 
 	def _update_packing_summary(self):
-		"""Update total_packages, total_volume, total_weight from packages."""
+		"""Update total_packages, total_volume, total_weight, chargeable from packages."""
 		packages = self.get("packages") or []
 		self.total_packages = sum(
 			flt(getattr(p, "no_of_packs", 0) or getattr(p, "quantity", 0) or 1)
@@ -362,6 +363,24 @@ class Docket(VirtualLinkedServicesMixin, Document):
 		)
 		self.total_volume = self.get_total_volume()
 		self.total_weight = self.get_total_weight()
+		self.calculate_chargeable_weight()
+
+	def calculate_chargeable_weight(self):
+		"""IATA higher-of-both: max(actual weight, volume × 1000/6 kg/m³)."""
+		from logistics.utils.measurements import IATA_VOLUMETRIC_DENSITY_KG_M3
+
+		volume = flt(self.total_volume)
+		weight = flt(self.total_weight)
+		volume_weight = volume * IATA_VOLUMETRIC_DENSITY_KG_M3 if volume > 0 else 0
+
+		if weight > 0 and volume_weight > 0:
+			self.chargeable = max(weight, volume_weight)
+		elif weight > 0:
+			self.chargeable = weight
+		elif volume_weight > 0:
+			self.chargeable = volume_weight
+		else:
+			self.chargeable = 0
 
 
 def _resolve_operational_jobs_for_internal_row(job_type: str, job_no: str) -> list[tuple[str, str]]:
@@ -463,6 +482,7 @@ def aggregate_volume_from_packages_remote(doc=None):
 		"total_volume": flt(docket.total_volume),
 		"total_weight": flt(docket.total_weight),
 		"total_packages": flt(docket.total_packages),
+		"chargeable": flt(docket.chargeable),
 	}
 
 

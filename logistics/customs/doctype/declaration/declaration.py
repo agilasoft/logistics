@@ -282,6 +282,9 @@ class Declaration(Document):
 		# Auto-set status to Submitted when submitting from Draft
 		if self.status == "Draft":
 			self.status = "Submitted"
+		from logistics.job_management.logistics_job_status import sync_declaration_job_status
+
+		sync_declaration_job_status(self)
 	
 	def after_submit(self):
 		"""Record sustainability metrics after declaration submission"""

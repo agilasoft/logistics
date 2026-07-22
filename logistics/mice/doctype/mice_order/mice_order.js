@@ -75,9 +75,90 @@ function _logistics_mice_order_add_create_or_open_job(frm) {
 	});
 }
 
+function _load_milestone_html(frm) {
+	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._milestone_html_called) return;
+	frm._milestone_html_called = true;
+	frappe.call({
+		method: "logistics.document_management.api.get_milestone_html",
+		args: { doctype: frm.doctype, docname: frm.doc.name },
+		callback: function (r) {
+			if (r.message && frm.fields_dict.milestone_html) {
+				frm.fields_dict.milestone_html.$wrapper.html(r.message);
+			}
+		},
+	}).always(function () {
+		setTimeout(function () {
+			frm._milestone_html_called = false;
+		}, 2000);
+	});
+}
+
 frappe.ui.form.on("MICE Order", {
+	setup(frm) {
+		frm.set_query("milestone_template", function () {
+			return frappe
+				.call("logistics.document_management.api.get_milestone_template_filters", {
+					doctype: frm.doctype,
+				})
+				.then(function (r) {
+					return r.message || { filters: [] };
+				});
+		});
+	},
 	refresh(frm) {
 		logistics_set_site_query_exhibit_order(frm);
 		_logistics_mice_order_add_create_or_open_job(frm);
+
+		if (frm.fields_dict.milestone_html && frm.doc.name && !frm.doc.__islocal) {
+			_load_milestone_html(frm);
+		}
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper
+				.off("click.milestone_html")
+				.on("click.milestone_html", '[data-fieldname="milestones_tab"]', function () {
+					_load_milestone_html(frm);
+				});
+		}
+	},
+	milestone_template(frm) {
+		if (!frm.doc.name || frm.doc.__islocal) return;
+		frm.save().then(function () {
+			frappe.call({
+				method: "logistics.document_management.api.populate_milestones_from_template",
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				callback: function (r) {
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) {
+							frappe.show_alert(
+								{ message: __(r.message.message), indicator: "blue" },
+								5
+							);
+						}
+					}
+				},
+			});
+		});
+	},
+	document_list_template(frm) {
+		if (!frm.doc.name || frm.doc.__islocal) return;
+		frm.save().then(function () {
+			frappe.call({
+				method: "logistics.document_management.api.populate_documents_from_template",
+				args: { doctype: frm.doctype, docname: frm.doc.name },
+				callback: function (r) {
+					if (r.message) {
+						frm.reload_doc();
+						if (r.message.added) {
+							frappe.show_alert(
+								{ message: __(r.message.message), indicator: "blue" },
+								5
+							);
+						}
+					}
+				},
+			});
+		});
 	},
 });
