@@ -463,9 +463,60 @@ class TestDashboardFulfillmentSurfaces(UnitTestCase):
 		html = _lifecycle_collapsible_group_html("Logistics", [], "Logistics")
 		self.assertIn("sp-dash-lifecycle-group collapsed", html)
 		self.assertIn("fa-chevron-right", html)
-		self.assertNotIn("fa-chevron-down", html)
-		self.assertIn('sp-dash-lifecycle-group-body" style="padding:8px 10px 6px;display:none"', html)
+		self.assertIn("sp-dash-lifecycle-icon", html)
+		self.assertIn("#icon-truck", html)
+		self.assertIn("sp-dash-lifecycle-current", html)
+		self.assertIn('sp-dash-lifecycle-group-body" style="display:none"', html)
 
+	def test_internal_job_card_helpers_read_dict_service_rows(self):
+		"""Virtual SPS rows are dicts; dashboard helpers must not use getattr-only access."""
+		from logistics.special_projects.doctype.special_project.special_project import (
+			_internal_job_card_title,
+			_sp_dash_card_html,
+		)
+
+		row = {
+			"service_type": "Sea",
+			"lifecycle_stage": "Port operation",
+			"origin_port": "CNSHA",
+			"destination_port": "PHMNL",
+			"idx": 2,
+		}
+		self.assertEqual(_internal_job_card_title(row), "Sea · CNSHA → PHMNL")
+		html = _build_lifecycle_grouped_job_cards_sidebar(
+			[
+				{
+					"lifecycle_stage": "Port operation",
+					"card_html": '<div class="sp-dash-card">Sea</div>',
+				}
+			],
+			"Pre-Show",
+			["Logistics", "Port operation", "On-Site"],
+		)
+		self.assertIn('data-stage="Port operation"', html)
+		self.assertIn("1 job", html)
+		self.assertNotIn("Unassigned", html)
+
+		card = _sp_dash_card_html(
+			"Sea · Sea Booking: SF000000443",
+			"FCL",
+			"Sea Shipment (linked)",
+			kind="job",
+			lifecycle_stage="Port operation",
+			job_doctype="Sea Shipment",
+			job_name="SF000000443",
+			job_id="SF000000443",
+			meta_lines=["Domestic", "Standard House"],
+			planned_cost_label="₱ 460.00",
+			planned_revenue_label="₱ 3,600.00",
+			service_type="Sea",
+		)
+		self.assertIn('data-sp-job-doctype="Sea Shipment"', card)
+		self.assertIn('data-sp-job-name="SF000000443"', card)
+		self.assertIn("sp-dash-job-row", card)
+		self.assertIn("View Shipment", card)
+		self.assertIn("Planned cost", card)
+		self.assertIn("#icon-ship", card)
 	def test_lifecycle_sidebar_passes_throughput_to_groups(self):
 		sp = self._sample_sp()
 		ctx = _packages_fulfillment_context(sp, current_lifecycle_stage="Logistics")

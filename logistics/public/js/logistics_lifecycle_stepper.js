@@ -117,6 +117,12 @@ logistics.lifecycle.setup_queries = function (frm) {
 		});
 	}
 
+	if (frm.fields_dict.applicable_lifecycle_stages) {
+		frm.set_query("lifecycle_stage", "applicable_lifecycle_stages", function () {
+			return { filters: filters };
+		});
+	}
+
 	if (frm.fields_dict.internal_job_details) {
 		frm.set_query("lifecycle_stage", "internal_job_details", function () {
 			return {

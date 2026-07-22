@@ -16,6 +16,7 @@ from logistics.special_projects.special_project_service_compat import (
 )
 from logistics.special_projects.special_project_service_rows import (
 	service_row_currency_total,
+	service_row_field,
 	service_rows,
 )
 from logistics.utils.lifecycle_stage import (
@@ -130,6 +131,7 @@ class SpecialProject(Document):
 
 		view_fields = {
 			"special_project_service",
+			"idx",
 			"lifecycle_stage",
 			"activity_code",
 			"activity_name",
@@ -741,19 +743,20 @@ class SpecialProject(Document):
 		self._normalize_default_lifecycle_stage()
 
 	def _normalize_default_lifecycle_stage(self):
-		"""Ensure ``lifecycle_stage`` references an existing master row.
+		"""Ensure ``lifecycle_stage`` is a Special Project master row.
 
-		The DocType default is ``Pre-Show``, but new sites or sites that pre-date the
-		shared Lifecycle Stage master may not have that record. Validating links during
-		``insert`` would then raise ``LinkValidationError``, blocking creation from
-		Sales Quote and similar flows. We resolve a safe fallback instead.
+		Rejects exhibit-only stages (e.g. Pre-Show) and missing names so insert does
+		not raise ``LinkValidationError``. Falls back to the first ``for_special_project``
+		stage by sort order when needed.
 		"""
 		stage = (self.lifecycle_stage or "").strip()
-		if stage and frappe.db.exists("Lifecycle Stage", stage):
+		if stage and frappe.db.exists(
+			"Lifecycle Stage", {"name": stage, FOR_SPECIAL_PROJECT: 1}
+		):
 			self.lifecycle_stage = stage
 			return
 		self.lifecycle_stage = resolve_default_lifecycle_stage(
-			module_filter=FOR_SPECIAL_PROJECT, preferred="Pre-Show"
+			module_filter=FOR_SPECIAL_PROJECT, preferred="Logistics"
 		)
 
 	def _ensure_charges_tab_defaults(self):
@@ -1081,10 +1084,10 @@ def _job_map_payload(job_type, job_name):
 
 def _format_internal_job_location(row, which):
 	"""Display name for location_from / location_to (UNLOCO code or Transport Zone name)."""
-	val = getattr(row, "location_from" if which == "from" else "location_to", None)
+	val = service_row_field(row, "location_from" if which == "from" else "location_to")
 	if not val:
 		return ""
-	lt = (getattr(row, "location_type", None) or "").strip()
+	lt = (service_row_field(row, "location_type") or "").strip()
 	if lt == "Transport Zone" and frappe.db.exists("Transport Zone", val):
 		zn = frappe.db.get_value("Transport Zone", val, "zone_name")
 		return (zn or val).strip()
@@ -1093,12 +1096,15 @@ def _format_internal_job_location(row, which):
 
 def _map_points_from_internal_job_transport_unloco(row):
 	"""When no booking: route from UNLOCO location_from → location_to (location_type must be UNLOCO)."""
-	if (getattr(row, "location_type", None) or "").strip() != "UNLOCO":
+	if (service_row_field(row, "location_type") or "").strip() != "UNLOCO":
 		return []
 	from logistics.document_management.dashboard_layout import get_unloco_coords
 
 	map_points = []
-	for loc in (getattr(row, "location_from", None), getattr(row, "location_to", None)):
+	for loc in (
+		service_row_field(row, "location_from"),
+		service_row_field(row, "location_to"),
+	):
 		if not loc:
 			continue
 		c = get_unloco_coords(loc)
@@ -1123,9 +1129,9 @@ def _transport_fallback_route_label(row):
 
 
 def _internal_job_card_title(row):
-	st = (getattr(row, "service_type", None) or "").strip() or _("Line")
-	jt = (getattr(row, "job_type", None) or "").strip()
-	jn = (getattr(row, "job_no", None) or "").strip()
+	st = (service_row_field(row, "service_type") or "").strip() or _("Line")
+	jt = (service_row_field(row, "job_type") or "").strip()
+	jn = (service_row_field(row, "job_no") or "").strip()
 	if jn and jt:
 		return f"{st} · {jt}: {jn}"
 	if jn:
@@ -1133,12 +1139,13 @@ def _internal_job_card_title(row):
 	if st == "Transport":
 		return f"{st} · {_transport_fallback_route_label(row)}"
 	if st in ("Air", "Sea"):
-		op = (getattr(row, "origin_port", None) or "").strip()
-		dp = (getattr(row, "destination_port", None) or "").strip()
+		op = (service_row_field(row, "origin_port") or "").strip()
+		dp = (service_row_field(row, "destination_port") or "").strip()
 		if op or dp:
 			return f"{st} · {op or '—'} → {dp or '—'}"
-	if st == "Customs" and (getattr(row, "customs_authority", None) or "").strip():
-		return f"{st} · {row.customs_authority}"
+	customs_authority = (service_row_field(row, "customs_authority") or "").strip()
+	if st == "Customs" and customs_authority:
+		return f"{st} · {customs_authority}"
 	if st == "Special Project" and jn:
 		return f"{st} · {jn}"
 	return st
@@ -1146,63 +1153,68 @@ def _internal_job_card_title(row):
 
 def _internal_job_card_sub(row):
 	parts = []
-	st = (getattr(row, "service_type", None) or "").strip()
+	st = (service_row_field(row, "service_type") or "").strip()
 	if st == "Air":
-		for x in (
-			getattr(row, "airline", None),
-			getattr(row, "freight_agent", None),
-			getattr(row, "load_type", None),
-			getattr(row, "direction", None),
-			getattr(row, "air_house_type", None),
+		for fn in (
+			"airline",
+			"freight_agent",
+			"load_type",
+			"direction",
+			"air_house_type",
 		):
+			x = service_row_field(row, fn)
 			if x:
 				parts.append(str(x).strip())
 	elif st == "Sea":
-		for x in (
-			getattr(row, "shipping_line", None),
-			getattr(row, "freight_agent_sea", None),
-			getattr(row, "load_type", None),
-			getattr(row, "direction", None),
-			getattr(row, "sea_house_type", None),
+		for fn in (
+			"shipping_line",
+			"freight_agent_sea",
+			"load_type",
+			"direction",
+			"sea_house_type",
 		):
+			x = service_row_field(row, fn)
 			if x:
 				parts.append(str(x).strip())
 	elif st == "Transport":
-		for x in (
-			getattr(row, "transport_template", None),
-			getattr(row, "vehicle_type", None),
-			getattr(row, "container_type", None),
-			getattr(row, "container_no", None),
-			getattr(row, "pick_mode", None),
-			getattr(row, "drop_mode", None),
+		for fn in (
+			"transport_template",
+			"vehicle_type",
+			"container_type",
+			"container_no",
+			"pick_mode",
+			"drop_mode",
 		):
+			x = service_row_field(row, fn)
 			if x:
 				parts.append(str(x).strip())
-		ltp = (getattr(row, "location_type", None) or "").strip()
+		ltp = (service_row_field(row, "location_type") or "").strip()
 		if ltp:
 			parts.append(ltp)
-		if not (getattr(row, "job_no", None) or "").strip():
+		if not (service_row_field(row, "job_no") or "").strip():
 			lf = _format_internal_job_location(row, "from")
 			lt = _format_internal_job_location(row, "to")
 			if lf or lt:
 				parts.append(f"{lf or '—'} → {lt or '—'}")
 	elif st == "Customs":
-		for x in (
-			getattr(row, "customs_broker", None),
-			getattr(row, "declaration_type", None),
-			getattr(row, "customs_charge_category", None),
+		for fn in (
+			"customs_broker",
+			"declaration_type",
+			"customs_charge_category",
 		):
+			x = service_row_field(row, fn)
 			if x:
 				parts.append(str(x).strip())
 	elif st == "Special Project":
-		for x in (getattr(row, "sp_equipment_type", None), getattr(row, "sp_handling", None)):
+		for fn in ("sp_equipment_type", "sp_handling"):
+			x = service_row_field(row, fn)
 			if x:
 				parts.append(str(x).strip())
-		sp_site = getattr(row, "sp_site", None)
+		sp_site = service_row_field(row, "sp_site")
 		if sp_site:
 			site_lbl = frappe.db.get_value("Address", sp_site, "address_title")
 			parts.append((site_lbl or sp_site)[:120])
-		sn = getattr(row, "sp_resource_notes", None)
+		sn = service_row_field(row, "sp_resource_notes")
 		if sn:
 			parts.append((sn or "")[:120])
 	return " · ".join(parts) if parts else "—"
@@ -1237,9 +1249,9 @@ def _internal_job_row_map_payload(row):
 	if op:
 		return _job_map_payload(op[0], op[1])
 
-	st = (getattr(row, "service_type", None) or "").strip()
+	st = (service_row_field(row, "service_type") or "").strip()
 	if st == "Special Project":
-		site = getattr(row, "sp_site", None)
+		site = service_row_field(row, "sp_site")
 		if site:
 			pl = _map_payload_from_site_address(site)
 			if pl:
@@ -1249,8 +1261,8 @@ def _internal_job_row_map_payload(row):
 		try:
 			from logistics.document_management.dashboard_layout import get_unloco_coords
 
-			o_code = getattr(row, "origin_port", None)
-			d_code = getattr(row, "destination_port", None)
+			o_code = service_row_field(row, "origin_port")
+			d_code = service_row_field(row, "destination_port")
 			o = get_unloco_coords(o_code) if o_code else None
 			d = get_unloco_coords(d_code) if d_code else None
 			map_points = []
@@ -1305,32 +1317,396 @@ def _internal_job_row_map_payload(row):
 	}
 
 
-_LIFECYCLE_STAGE_COLORS = {
-	"Pre-Show": "#14b8a6",
-	"Logistics": "#ec4899",
-	"On-Site": "#eab308",
-	"Post-Show": "#a855f7",
-	"Closed": "#64748b",
+_JOB_TYPE_ICONS = {
+	"Air": "plane",
+	"Air Shipment": "plane",
+	"Air Booking": "plane",
+	"Sea": "ship",
+	"Sea Shipment": "ship",
+	"Sea Booking": "ship",
+	"Transport": "truck",
+	"Transport Order": "truck",
+	"Transport Job": "truck",
+	"Customs": "user",
+	"Declaration Order": "user",
+	"Declaration": "user",
+	"Special Project": "building-2",
+	"Special Project Service": "box",
 }
 
 _DASH_LIFECYCLE_SIDEBAR_CSS = """
+.sp-dash-lifecycle-sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 4px 2px 8px;
+	box-sizing: border-box;
+}
+.sp-dash-lifecycle-group {
+	background: #fff;
+	border: 1px solid #e8eaed;
+	border-radius: 12px;
+	border-left: 4px solid var(--sp-stage-color, #94a3b8);
+	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+	overflow: hidden;
+	margin: 0;
+}
 .sp-dash-lifecycle-group.collapsed .sp-dash-lifecycle-group-body {
 	display: none;
+}
+.sp-dash-lifecycle-group.is-stage-filter {
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--sp-stage-color, #6366F1) 35%, #fff);
+}
+.sp-dash-lifecycle-group-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 14px 16px;
+	background: #fff;
+	cursor: pointer;
+	user-select: none;
+}
+.sp-dash-lifecycle-group-header:hover {
+	background: #fafbfc;
+}
+.sp-dash-lifecycle-icon {
+	flex: 0 0 auto;
+	width: 36px;
+	height: 36px;
+	border-radius: 10px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: color-mix(in srgb, var(--sp-stage-color, #94a3b8) 14%, #fff);
+	color: var(--sp-stage-color, #94a3b8);
+}
+.sp-dash-lifecycle-icon .icon,
+.sp-dash-job-icon .icon {
+	width: 18px;
+	height: 18px;
+	stroke: currentColor;
+}
+.sp-dash-lifecycle-title-wrap {
+	flex: 0 1 auto;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.sp-dash-lifecycle-title {
+	font-size: 14px;
+	font-weight: 700;
+	color: #111827;
+	white-space: nowrap;
+}
+.sp-dash-lifecycle-current {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 8px;
+	border-radius: 999px;
+	background: #111827;
+	color: #fff;
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+}
+.sp-dash-lifecycle-throughput {
+	flex: 1 1 140px;
+	min-width: 0;
+	margin: 0 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+.sp-dash-lifecycle-throughput-metrics {
+	display: flex;
+	align-items: baseline;
+	gap: 4px;
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	color: #6b7280;
+}
+.sp-dash-lifecycle-throughput-qty {
+	font-weight: 700;
+	color: #111827;
+}
+.sp-dash-lifecycle-throughput-pct {
+	margin-left: auto;
+	font-weight: 700;
+	color: var(--sp-stage-color, #6366F1);
+}
+.sp-dash-lifecycle-throughput-meter {
+	height: 5px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--sp-stage-color, #6366F1) 12%, #f1f2f4);
+	overflow: hidden;
+}
+.sp-dash-lifecycle-throughput-fill {
+	height: 100%;
+	background: var(--sp-stage-color, #6366F1);
+	border-radius: 999px;
+}
+.sp-dash-lifecycle-trailing {
+	margin-left: auto;
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	color: #6b7280;
+	font-size: 12px;
+}
+.sp-dash-lifecycle-job-count {
+	white-space: nowrap;
+}
+.sp-dash-lifecycle-chevron {
+	font-size: 12px;
+	color: #9ca3af;
+}
+.sp-dash-lifecycle-group-body {
+	padding: 0 8px 8px;
+	border-top: 1px solid #f1f3f5;
+}
+.sp-dash-lifecycle-empty {
+	padding: 14px 12px;
+	color: #9ca3af;
+	font-size: 12px;
+}
+.sp-dash-card.sp-dash-job-row {
+	display: grid;
+	grid-template-columns: 36px minmax(120px, 1.4fr) minmax(80px, 0.9fr) auto auto auto;
+	align-items: center;
+	gap: 12px 14px;
+	margin: 0;
+	padding: 14px 12px;
+	border: none;
+	border-radius: 0;
+	border-bottom: 1px solid #f1f3f5;
+	border-left: none !important;
+	box-shadow: none;
+	background: transparent;
+	cursor: pointer;
+}
+.sp-dash-card.sp-dash-job-row:last-of-type {
+	border-bottom: none;
+}
+.sp-dash-card.sp-dash-job-row:hover {
+	background: #f8fafc;
+	box-shadow: none;
+}
+.sp-dash-card.sp-dash-job-row.is-selected {
+	background: color-mix(in srgb, var(--sp-stage-color, #3b82f6) 6%, #fff);
+	border-top-color: transparent;
+	border-right-color: transparent;
+	border-bottom-color: #f1f3f5;
+	box-shadow: none;
+}
+.sp-dash-job-icon {
+	width: 32px;
+	height: 32px;
+	border-radius: 8px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: color-mix(in srgb, var(--sp-stage-color, #3b82f6) 12%, #fff);
+	color: var(--sp-stage-color, #3b82f6);
+}
+.sp-dash-job-main {
+	min-width: 0;
+}
+.sp-dash-job-title {
+	font-size: 13px;
+	font-weight: 700;
+	color: #111827;
+	line-height: 1.3;
+}
+.sp-dash-job-id {
+	margin-top: 2px;
+	font-size: 11px;
+	color: #9ca3af;
+	font-variant-numeric: tabular-nums;
+}
+.sp-dash-job-meta {
+	min-width: 0;
+	font-size: 12px;
+	color: #6b7280;
+	line-height: 1.35;
+}
+.sp-dash-job-meta-line {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.sp-dash-job-metric {
+	min-width: 88px;
+}
+.sp-dash-job-metric-label {
+	display: block;
+	font-size: 10px;
+	color: #9ca3af;
+	margin-bottom: 2px;
+}
+.sp-dash-job-metric-value {
+	font-size: 13px;
+	font-weight: 600;
+	color: #111827;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+.sp-dash-job-action {
+	justify-self: end;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 12px;
+	border: 1px solid var(--sp-stage-color, #3b82f6);
+	border-radius: 999px;
+	background: #fff;
+	color: var(--sp-stage-color, #3b82f6);
+	font-size: 12px;
+	font-weight: 600;
+	white-space: nowrap;
+	line-height: 1.2;
+}
+.sp-dash-card.sp-dash-job-row:hover .sp-dash-job-action {
+	background: color-mix(in srgb, var(--sp-stage-color, #3b82f6) 8%, #fff);
+}
+.sp-dash-lifecycle-show-less {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	width: 100%;
+	padding: 10px 8px 6px;
+	border: none;
+	background: transparent;
+	color: #6b7280;
+	font-size: 12px;
+	font-weight: 600;
+	cursor: pointer;
+}
+.sp-dash-lifecycle-show-less:hover {
+	color: #111827;
+}
+@media (max-width: 1100px) {
+	.sp-dash-card.sp-dash-job-row {
+		grid-template-columns: 32px 1fr auto;
+		grid-template-areas:
+			"icon main action"
+			"icon meta action"
+			"icon metrics action";
+	}
+	.sp-dash-job-icon { grid-area: icon; }
+	.sp-dash-job-main { grid-area: main; }
+	.sp-dash-job-meta { grid-area: meta; }
+	.sp-dash-job-metrics {
+		grid-area: metrics;
+		display: flex;
+		gap: 16px;
+	}
+	.sp-dash-job-action { grid-area: action; align-self: center; }
 }
 """
 
 
-def _sp_dash_card_html(title, sub, badge, kind="task", map_index=None, lifecycle_stage=None):
-	border = "#17a2b8" if kind == "job" else "#667eea"
+def _lifecycle_stage_style(stage: str) -> tuple[str, str]:
+	"""Return (accent_color, lucide_icon_name) from Lifecycle Stage master."""
+	from logistics.utils.lifecycle_stage import get_lifecycle_stage_appearance
+
+	appearance = get_lifecycle_stage_appearance(stage)
+	return appearance["color"], appearance["icon"]
+
+
+def _sp_dash_job_icon_name(service_type: str | None, job_doctype: str | None) -> str:
+	for key in ((job_doctype or "").strip(), (service_type or "").strip()):
+		if key and key in _JOB_TYPE_ICONS:
+			return _JOB_TYPE_ICONS[key]
+	return "box"
+
+
+def _sp_dash_view_action_label(job_doctype: str | None) -> str:
+	dt = (job_doctype or "").lower()
+	if "shipment" in dt:
+		return _("View Shipment")
+	return _("View Job")
+
+
+def _sp_dash_job_meta_lines(row) -> list[str]:
+	sub = _internal_job_card_sub(row)
+	if not sub or sub == "—":
+		return []
+	return [p.strip() for p in sub.split(" · ") if p.strip()][:2]
+
+
+def _sp_dash_card_html(
+	title,
+	sub,
+	badge,
+	kind="task",
+	map_index=None,
+	lifecycle_stage=None,
+	job_doctype=None,
+	job_name=None,
+	*,
+	job_id=None,
+	meta_lines=None,
+	planned_cost_label=None,
+	planned_revenue_label=None,
+	service_type=None,
+	stage_color=None,
+):
+	"""Job row for the lifecycle sidebar (mockup: icon / title+id / meta / costs / View)."""
+	from logistics.utils.lifecycle_stage import render_lifecycle_icon_html
+
+	color = stage_color or _lifecycle_stage_style(lifecycle_stage or "")[0]
+	icon_html = render_lifecycle_icon_html(_sp_dash_job_icon_name(service_type, job_doctype))
+	display_title = (badge or title or _("Job")).strip()
+	display_id = (job_id or job_name or "").strip()
+	lines = [str(x).strip() for x in (meta_lines or []) if str(x or "").strip()]
+	if not lines and sub and sub != "—":
+		lines = [p.strip() for p in str(sub).split(" · ") if p.strip()][:2]
+	meta_html = "".join(
+		f'<div class="sp-dash-job-meta-line">{escape_html(line)}</div>' for line in lines
+	) or '<div class="sp-dash-job-meta-line">—</div>'
+	cost_html = (
+		f'<div class="sp-dash-job-metric">'
+		f'<span class="sp-dash-job-metric-label">{escape_html(_("Planned cost"))}</span>'
+		f'<span class="sp-dash-job-metric-value">{escape_html(planned_cost_label or "—")}</span>'
+		f"</div>"
+	)
+	rev_html = (
+		f'<div class="sp-dash-job-metric">'
+		f'<span class="sp-dash-job-metric-label">{escape_html(_("Planned revenue"))}</span>'
+		f'<span class="sp-dash-job-metric-value">{escape_html(planned_revenue_label or "—")}</span>'
+		f"</div>"
+	)
+	action_label = escape_html(_sp_dash_view_action_label(job_doctype))
 	idx_attr = f' data-sp-map-idx="{int(map_index)}"' if map_index is not None else ""
 	stage_attr = ""
 	if lifecycle_stage:
 		stage_attr = f' data-sp-lifecycle-stage="{escape_html(lifecycle_stage)}"'
+	job_attr = ""
+	if job_doctype and job_name:
+		job_attr = (
+			f' data-sp-job-doctype="{escape_html(job_doctype)}"'
+			f' data-sp-job-name="{escape_html(job_name)}"'
+			f' title="{escape_html(_("Open {0}").format(job_name))}"'
+		)
+	kind_attr = f' data-sp-job-kind="{escape_html(kind)}"'
+	id_html = (
+		f'<div class="sp-dash-job-id">{escape_html(display_id)}</div>' if display_id else ""
+	)
 	return (
-		f'<div class="sp-dash-card" style="border-left-color: {border};" role="button" tabindex="0"{idx_attr}{stage_attr}>'
-		f'<div class="sp-dash-card-title">{escape_html(title)}</div>'
-		f'<div class="sp-dash-card-sub">{escape_html(sub)}</div>'
-		f'<span class="sp-dash-card-badge">{escape_html(badge)}</span></div>'
+		f'<div class="sp-dash-card sp-dash-job-row" style="--sp-stage-color:{color};" '
+		f'role="button" tabindex="0"{idx_attr}{stage_attr}{job_attr}{kind_attr}>'
+		f'<span class="sp-dash-job-icon">{icon_html}</span>'
+		f'<div class="sp-dash-job-main">'
+		f'<div class="sp-dash-job-title">{escape_html(display_title)}</div>'
+		f"{id_html}"
+		f"</div>"
+		f'<div class="sp-dash-job-meta">{meta_html}</div>'
+		f"{cost_html}{rev_html}"
+		f'<span class="sp-dash-job-action">{action_label} <i class="fa fa-chevron-right" aria-hidden="true"></i></span>'
+		f"</div>"
 	)
 
 
@@ -1365,15 +1741,15 @@ def _lifecycle_collapsible_group_html(
 	stage_throughput: dict[str, dict[str, float]] | None = None,
 ):
 	"""Collapsible lifecycle section wrapping dashboard job cards."""
-	color = _LIFECYCLE_STAGE_COLORS.get(stage, "#94a3b8")
+	from logistics.utils.lifecycle_stage import render_lifecycle_icon_html
+
+	color, icon_name = _lifecycle_stage_style(stage)
+	icon_html = render_lifecycle_icon_html(icon_name)
 	current = (current_stage or "Pre-Show").strip()
 	is_current = stage == current
 	collapsed = " collapsed"
-	chevron = "fa-chevron-right"
 	current_badge = (
-		f' <span class="badge badge-primary" style="margin-left:6px;font-size:10px">{_("Current")}</span>'
-		if is_current
-		else ""
+		f'<span class="sp-dash-lifecycle-current">{_("Current")}</span>' if is_current else ""
 	)
 	throughput_html = ""
 	if stage_throughput:
@@ -1384,23 +1760,35 @@ def _lifecycle_collapsible_group_html(
 				tp.get("required", 0.0),
 				stage_color=color,
 			)
-	body = (
-		"".join(e["card_html"] for e in entries)
-		if entries
-		else f'<div class="text-muted small" style="padding:6px 8px 4px;">{escape_html(_("No jobs in this stage"))}</div>'
-	)
+	if entries:
+		body_inner = "".join(e["card_html"] for e in entries)
+		body_inner += (
+			f'<button type="button" class="sp-dash-lifecycle-show-less">'
+			f'{escape_html(_("Show less"))} <i class="fa fa-chevron-up" aria-hidden="true"></i>'
+			f"</button>"
+		)
+	else:
+		body_inner = (
+			f'<div class="sp-dash-lifecycle-empty">{escape_html(_("No jobs in this stage"))}</div>'
+		)
+	n_jobs = len(entries)
+	jobs_label = _("job") if n_jobs == 1 else _("jobs")
 	return (
 		f'<div class="sp-dash-lifecycle-group{collapsed}" data-stage="{escape_html(stage)}" '
-		f'style="margin-bottom:10px;border:1px solid #e9ecef;border-radius:8px;border-left:4px solid {color};overflow:hidden">'
-		f'<div class="sp-dash-lifecycle-group-header" role="button" tabindex="0" '
-		f'style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f8f9fa;cursor:pointer;user-select:none">'
-		f'<i class="fa {chevron} sp-dash-lifecycle-chevron" style="width:12px;font-size:11px;color:#6c757d"></i>'
-		f"<strong style=\"font-size:13px;flex:0 0 auto\">{escape_html(stage)}{current_badge}</strong>"
-		f'{throughput_html}'
-		f'<span class="text-muted small sp-dash-lifecycle-job-count" style="margin-left:auto;flex:0 0 auto">'
-		f"{len(entries)} {escape_html(_('jobs'))}</span>"
+		f'style="--sp-stage-color:{color};">'
+		f'<div class="sp-dash-lifecycle-group-header" role="button" tabindex="0">'
+		f'<span class="sp-dash-lifecycle-icon">{icon_html}</span>'
+		f'<span class="sp-dash-lifecycle-title-wrap">'
+		f'<span class="sp-dash-lifecycle-title">{escape_html(stage)}</span>'
+		f"{current_badge}"
+		f"</span>"
+		f"{throughput_html}"
+		f'<span class="sp-dash-lifecycle-trailing">'
+		f'<span class="sp-dash-lifecycle-job-count">{n_jobs} {escape_html(jobs_label)}</span>'
+		f'<i class="fa fa-chevron-right sp-dash-lifecycle-chevron" aria-hidden="true"></i>'
+		f"</span>"
 		f"</div>"
-		f'<div class="sp-dash-lifecycle-group-body" style="padding:8px 10px 6px;display:none">{body}</div>'
+		f'<div class="sp-dash-lifecycle-group-body" style="display:none">{body_inner}</div>'
 		f"</div>"
 	)
 
@@ -1562,31 +1950,36 @@ def get_dashboard_html(special_project, applicable_stages=None):
 
 		card_entries = []
 
-		lines_ordered = sorted(job_rows, key=lambda r: int(getattr(r, "idx", None) or 0))
+		from logistics.special_projects.special_project_service_compat import (
+			persisted_special_project_service_name,
+			special_project_service_doctype,
+		)
+
+		lines_ordered = sorted(
+			job_rows, key=lambda r: int(service_row_field(r, "idx") or 0)
+		)
 		for map_index, row in enumerate(lines_ordered):
 			title = _internal_job_card_title(row)[:200]
 			sub = _internal_job_card_sub(row)
-			pc = getattr(row, "planned_cost", None)
-			pr = getattr(row, "planned_revenue", None)
-			if pc or pr:
-				bits = []
-				if pc:
-					bits.append(_("Planned cost {0}").format(fmt(pc)))
-				if pr:
-					bits.append(_("Planned revenue {0}").format(fmt(pr)))
-				fin = " · ".join(bits)
-				if sub and sub != "—":
-					sub = sub + " · " + fin
-				else:
-					sub = fin
+			pc = service_row_field(row, "planned_cost")
+			pr = service_row_field(row, "planned_revenue")
 			op = resolve_internal_job_detail_row_to_operational_ref(row)
 			badge = (
 				_("{0} (linked)").format(op[0])
 				if op
-				else (getattr(row, "service_type", None) or _("Job line"))
+				else (service_row_field(row, "service_type") or _("Job line"))
 			)
 			kind = "job" if op else "task"
-			stage = (getattr(row, "lifecycle_stage", None) or "").strip()
+			stage = (service_row_field(row, "lifecycle_stage") or "").strip()
+			service_type = (service_row_field(row, "service_type") or "").strip()
+			if op:
+				job_doctype, job_name = op[0], op[1]
+			else:
+				job_doctype = special_project_service_doctype()
+				job_name = persisted_special_project_service_name(row) or (
+					service_row_field(row, "name") or ""
+				).strip()
+			stage_color = _lifecycle_stage_style(stage)[0]
 			card_entries.append(
 				{
 					"lifecycle_stage": stage,
@@ -1597,6 +1990,14 @@ def get_dashboard_html(special_project, applicable_stages=None):
 						kind=kind,
 						map_index=map_index,
 						lifecycle_stage=stage,
+						job_doctype=job_doctype or None,
+						job_name=job_name or None,
+						job_id=job_name or None,
+						meta_lines=_sp_dash_job_meta_lines(row),
+						planned_cost_label=fmt(pc) if pc else None,
+						planned_revenue_label=fmt(pr) if pr else None,
+						service_type=service_type,
+						stage_color=stage_color,
 					),
 				}
 			)

@@ -275,13 +275,22 @@ class Docket(VirtualLinkedServicesMixin, Document):
 
 		``project`` always tracks the parent Exhibit because it is the ERPNext Project
 		used as the Accounting Dimension on every posting from this docket.
+		Event Open/Close dates are filled from the Exhibit when empty.
 		"""
 		if not self.exhibit:
 			return
 		sp = frappe.db.get_value(
 			"MICE Project",
 			self.exhibit,
-			["company", "cost_center", "branch", "profit_center", "project"],
+			[
+				"company",
+				"cost_center",
+				"branch",
+				"profit_center",
+				"project",
+				"show_open_date",
+				"show_close_date",
+			],
 			as_dict=True,
 		)
 		if not sp:
@@ -297,6 +306,10 @@ class Docket(VirtualLinkedServicesMixin, Document):
 		exhibit_project = (sp.get("project") or "").strip() or None
 		if exhibit_project and getattr(self, "project", None) != exhibit_project:
 			self.project = exhibit_project
+		if not self.planned_start and sp.get("show_open_date"):
+			self.planned_start = sp.show_open_date
+		if not self.planned_end and sp.get("show_close_date"):
+			self.planned_end = sp.show_close_date
 		if not self.company:
 			co = frappe.defaults.get_user_default("Company") or frappe.db.get_single_value(
 				"Global Defaults", "default_company"

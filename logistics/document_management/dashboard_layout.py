@@ -1098,7 +1098,9 @@ def render_special_project_interactive_route_tab_html(
 	box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }}
 .sp-dash-card.is-selected {{
-	border-color: #007bff;
+	border-top-color: #007bff;
+	border-right-color: #007bff;
+	border-bottom-color: #007bff;
 	box-shadow: 0 0 0 1px #007bff;
 }}
 .sp-dash-card .sp-dash-card-title {{
@@ -1486,10 +1488,11 @@ def render_special_project_fulfillment_route_tab_html(
 .sp-dash-split.sp-dash-split--fulfillment {{
 	display: flex;
 	flex-wrap: wrap;
-	gap: 1rem;
+	gap: 1.25rem;
 	align-items: stretch;
 	width: 100%;
 	min-height: 380px;
+	padding: 4px 0;
 }}
 .sp-dash-split--fulfillment .sp-dash-fulfillment-col {{
 	flex: 0 1 340px;
@@ -1498,6 +1501,8 @@ def render_special_project_fulfillment_route_tab_html(
 	max-height: 560px;
 	overflow-y: auto;
 	overflow-x: hidden;
+	padding: 12px 8px 16px 16px;
+	box-sizing: border-box;
 }}
 .sp-dash-split--fulfillment .sp-dash-cards-col {{
 	flex: 1 1 380px;
@@ -1505,16 +1510,24 @@ def render_special_project_fulfillment_route_tab_html(
 	max-height: 560px;
 	overflow-y: auto;
 	overflow-x: hidden;
-	padding-right: 4px;
+	padding: 12px 16px 16px 8px;
+	box-sizing: border-box;
+}}
+.sp-dash-split--fulfillment .sp-pfn-card--dash-left {{
+	margin: 0;
+	border-radius: 12px;
+	overflow: hidden;
+	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}}
+.sp-dash-split--fulfillment .sp-packages-summary--dash-left {{
+	padding: 0;
+	margin: 0;
 }}
 .sp-dash-lifecycle-group.collapsed .sp-dash-lifecycle-group-body {{
 	display: none;
 }}
 .sp-dash-lifecycle-group.is-stage-filter .sp-dash-lifecycle-group-header {{
-	background: #EEF2FF;
-}}
-.sp-dash-lifecycle-group.is-stage-filter {{
-	border-color: #C7D2FE !important;
+	background: #f8fafc;
 }}
 </style>
 <div class="sp-dash-split sp-dash-split--fulfillment" data-sp-fulfillment-dash="1" data-sp-current-stage="{escape_html(current_stage)}">

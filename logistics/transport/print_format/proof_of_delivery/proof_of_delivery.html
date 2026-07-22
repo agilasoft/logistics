@@ -152,6 +152,10 @@
             text-align: center;
         }
         .pkg-table .num { text-align: right; }
+        .pkg-table .totals td {
+            background: #f0f0f0;
+            font-weight: bold;
+        }
         .dim-sub th { font-size: 6pt; font-weight: normal; }
 
         /* Pick / Drop cards */
@@ -396,7 +400,7 @@
 
 {# --- Data loading: db.get_value / get_all only (never get_doc) --- #}
 {% set job_name = doc.transport_job if doc.transport_job and frappe.db.exists("Transport Job", doc.transport_job) else "" %}
-{% set job = frappe.db.get_value("Transport Job", job_name, ["name", "company", "sales_quote", "shipper", "consignee", "transport_company", "customer", "customer_ref_no", "transport_mode", "vehicle_type", "scheduled_date", "branch"], as_dict=True) if job_name else None %}
+{% set job = frappe.db.get_value("Transport Job", job_name, ["name", "company", "sales_quote", "shipper", "consignee", "transport_company", "customer", "customer_ref_no", "transport_mode", "vehicle_type", "container_no", "container", "scheduled_date", "branch"], as_dict=True) if job_name else None %}
 {% set shipment_no = job.name if job else (doc.transport_job or doc.name) %}
 
 {% set sq_name = job.sales_quote if job and job.sales_quote and frappe.db.exists("Sales Quote", job.sales_quote) else "" %}
@@ -436,6 +440,14 @@
 {% set transport_co_name = (frappe.db.get_value("Transport Company", job.transport_company, "company_name", ignore=True) or job.transport_company) if job and job.transport_company else "" %}
 
 {% set packages = frappe.get_all("Transport Job Package", filters={"parent": job.name}, fields=["reference_no", "no_of_packs", "uom", "weight", "weight_uom", "volume", "volume_uom", "goods_description", "description", "commodity", "length", "width", "height", "dimension_uom"], order_by="idx asc") if job else [] %}
+
+{% set pkg_totals = namespace(weight=0.0, volume=0.0, weight_uom='', volume_uom='') %}
+{% for pkg in packages %}
+{% set pkg_totals.weight = pkg_totals.weight + (pkg.weight or 0) %}
+{% set pkg_totals.volume = pkg_totals.volume + (pkg.volume or 0) %}
+{% if pkg.weight_uom and not pkg_totals.weight_uom %}{% set pkg_totals.weight_uom = pkg.weight_uom %}{% endif %}
+{% if pkg.volume_uom and not pkg_totals.volume_uom %}{% set pkg_totals.volume_uom = pkg.volume_uom %}{% endif %}
+{% endfor %}
 
 {% set goods_ns = namespace(desc="") %}
 {% for pkg in packages %}
@@ -525,6 +537,7 @@
 {% set drop_mode_footer = drop_mode_label if is_placeholder(drop_mode_label) == '0' else 'Any / Not specified' %}
 
 {% set vehicle_type = doc.vehicle_type or (job.vehicle_type if job else "") %}
+{% set container_no = (job.container_no or job.container or "") if job else "" %}
 
 {% set pick_schedule = "" %}
 {% if doc.start_date %}
@@ -606,6 +619,7 @@
                     {% if etd %}<div class="kv-row"><span class="k">ETD</span><span class="v">{{ frappe.utils.formatdate(etd, "d-MMM-yyyy") }}</span></div>{% endif %}
                     {% if eta %}<div class="kv-row"><span class="k">ETA</span><span class="v">{{ frappe.utils.formatdate(eta, "d-MMM-yyyy") }}</span></div>{% endif %}
                     {% if transport_co_name %}<div class="kv-row"><span class="k">Transport Co.</span><span class="v">{{ transport_co_name }}</span></div>{% endif %}
+                    {% if container_no %}<div class="kv-row"><span class="k">Container No.</span><span class="v">{{ container_no }}</span></div>{% endif %}
                     {% if ab_booking_ref %}<div class="kv-row"><span class="k">Carrier Booking Reference</span><span class="v">{{ ab_booking_ref }}</span></div>{% endif %}
                     {% if mawb_no %}<div class="kv-row"><span class="k">MAWB</span><span class="v">{{ mawb_no }}</span></div>{% endif %}
                 </div>
@@ -658,6 +672,15 @@
                                 <td>{{ pkg.dimension_uom or '' }}</td>
                             </tr>
                             {% endfor %}
+                            <tr class="totals">
+                                <td colspan="2">Total</td>
+                                <td class="num">{{ frappe.utils.fmt_money(pkg_totals.weight, precision=2) }} {{ pkg_totals.weight_uom or 'KG' }}</td>
+                                <td class="num">{{ frappe.utils.fmt_money(pkg_totals.volume, precision=2) }} {{ pkg_totals.volume_uom or 'M3' }}</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>
                         </tbody>
                     </table>
                     {% else %}

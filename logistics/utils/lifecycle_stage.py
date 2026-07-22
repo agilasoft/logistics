@@ -13,6 +13,22 @@ FOR_SPECIAL_PROJECT = "for_special_project"
 
 LIFECYCLE_STAGES_FALLBACK = ["Pre-Show", "Logistics", "On-Site", "Post-Show", "Closed"]
 
+# Used only when Lifecycle Stage has no icon/color set (or DocType missing fields).
+_STAGE_APPEARANCE_FALLBACK = {
+	"Pre-Show": {"icon": "calendar", "color": "#14b8a6"},
+	"Pre-Shipment": {"icon": "package", "color": "#14b8a6"},
+	"Logistics": {"icon": "truck", "color": "#ec4899"},
+	"Port operation": {"icon": "ship", "color": "#3b82f6"},
+	"Delivery to site": {"icon": "truck", "color": "#8b5cf6"},
+	"On-Site": {"icon": "building-2", "color": "#f59e0b"},
+	"Post-Show": {"icon": "flag", "color": "#a855f7"},
+	"Closed": {"icon": "lock", "color": "#64748b"},
+	"Sourcing and Procurement": {"icon": "shopping-cart", "color": "#10b981"},
+	"Unassigned": {"icon": "help-circle", "color": "#64748b"},
+}
+_DEFAULT_STAGE_COLOR = "#94a3b8"
+_DEFAULT_STAGE_ICON = "circle"
+
 
 def get_lifecycle_stages(module_filter: str = FOR_EXHIBITS) -> list[str]:
 	"""Ordered stage names for a module (for_exhibits or for_special_project)."""
@@ -62,9 +78,8 @@ def resolve_default_lifecycle_stage(
 			["name", module_filter],
 			as_dict=True,
 		)
+		# Only accept preferred when it is flagged for this module.
 		if preferred_row and preferred_row.get(module_filter):
-			return preferred_row["name"]
-		if preferred_row:
 			return preferred_row["name"]
 
 	return frappe.db.get_value(
@@ -73,6 +88,44 @@ def resolve_default_lifecycle_stage(
 		"name",
 		order_by="sort_order asc, name asc",
 	)
+
+
+def render_lifecycle_icon_html(icon: str | None) -> str:
+	"""Render a Lucide icon name (Lifecycle Stage / Logistics Milestone Icon field)."""
+	from logistics.document_management.milestone_html import _render_icon_html
+
+	return _render_icon_html(icon or _DEFAULT_STAGE_ICON)
+
+
+def get_lifecycle_stage_appearance(stage: str | None) -> dict[str, str]:
+	"""Return ``{icon, color}`` for a stage from the Lifecycle Stage master.
+
+	Falls back to built-in defaults when the master row or fields are empty.
+	"""
+	stage = (stage or "").strip()
+	fallback = _STAGE_APPEARANCE_FALLBACK.get(stage) or {
+		"icon": _DEFAULT_STAGE_ICON,
+		"color": _DEFAULT_STAGE_COLOR,
+	}
+	icon = fallback["icon"]
+	color = fallback["color"]
+	if not stage or not frappe.db.exists("DocType", "Lifecycle Stage"):
+		return {"icon": icon, "color": color}
+	meta = frappe.get_meta("Lifecycle Stage")
+	fields = ["name"]
+	if meta.has_field("icon"):
+		fields.append("icon")
+	if meta.has_field("color"):
+		fields.append("color")
+	row = frappe.db.get_value("Lifecycle Stage", stage, fields, as_dict=True)
+	if not row:
+		return {"icon": icon, "color": color}
+	master_icon = (row.get("icon") or "").strip()
+	master_color = (row.get("color") or "").strip()
+	return {
+		"icon": master_icon or icon,
+		"color": master_color or color,
+	}
 
 
 def _stage_index(stage: str, stages: list[str]) -> int | None:

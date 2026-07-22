@@ -25,6 +25,7 @@ _DEFAULT_SERVICE_TYPE_FOR_JOB_TYPE: dict[str, str] = {
 	"Transport Order": "Transport",
 	"Air Booking": "Air",
 	"Sea Booking": "Sea",
+	"VAS Order": "Warehousing",
 }
 
 _SKIP_KEYS = frozenset(
@@ -351,6 +352,51 @@ def _resolve_linked_service_name_for_persist(row: Any) -> str:
 	return ""
 
 
+def _linked_service_owned_by_parent(ls_name: str, parent_doctype: str, parent_name: str) -> bool:
+	"""True when *ls_name* is a Linked Service parented to this booking/quote."""
+	if not ls_name or not linked_service_record_exists(ls_name):
+		return False
+	row = frappe.db.get_value(
+		linked_service_doctype(),
+		ls_name,
+		["parent_booking_type", "parent_booking_name"],
+		as_dict=True,
+	)
+	if not row:
+		return False
+	return (row.get("parent_booking_type") or "").strip() == (parent_doctype or "").strip() and (
+		row.get("parent_booking_name") or ""
+	).strip() == (parent_name or "").strip()
+
+
+def _stamp_and_verify_virtual_job_link(
+	*,
+	ls_name: str,
+	job_type: str,
+	job_no: str,
+	sync_internal_job_doc_job_link,
+) -> None:
+	"""Write job_type/job_no onto *ls_name*, verify the DB write, stamp the operational doc."""
+	jn = (job_no or "").strip()
+	jt = (job_type or "").strip()
+	if not ls_name or not jn:
+		frappe.throw(_("Could not set Job No on Linked Service."), title=_("Job link failed"))
+	if not linked_service_record_exists(ls_name):
+		frappe.throw(
+			_("Linked Service {0} does not exist.").format(ls_name),
+			title=_("Job link failed"),
+		)
+	sync_row = frappe._dict({"linked_service": ls_name, "internal_job": ls_name})
+	sync_internal_job_doc_job_link(sync_row, jt, jn)
+	written = (frappe.db.get_value(linked_service_doctype(), ls_name, "job_no") or "").strip()
+	if written != jn:
+		frappe.throw(
+			_("Could not set Job No on Linked Service {0}.").format(ls_name),
+			title=_("Job link failed"),
+		)
+	_stamp_internal_job_link_on_target(jt, jn, sync_row)
+
+
 def persist_internal_job_detail_job_link(
 	parent_doctype: str,
 	parent_name: str,
@@ -368,6 +414,9 @@ def persist_internal_job_detail_job_link(
 	Virtual-grid parents (Docket, MICE Project, …) store legs as Linked Service documents. We always
 	stamp ``job_type`` / ``job_no`` on those documents directly (after materializing if needed) and
 	never parent-save — a weak desk ``linked_services`` payload would otherwise orphan-delete rows.
+
+	For virtual parents with ``detail_idx``, resolve by **canonical DB order** (not desk JSON alone)
+	and throw if the Linked Service cannot be stamped — Create must not succeed with a blank Job No.
 	"""
 	jn = (job_no or "").strip()
 	if not jn or not frappe.db.exists(parent_doctype, parent_name):
@@ -411,13 +460,36 @@ def persist_internal_job_detail_job_link(
 				_("Internal Job Detail row {0} is for {1}, not {2}.").format(di, existing_eff, jt)
 			)
 
-	def _sync_linked_service_row(src: Any) -> None:
-		ls_name = _resolve_linked_service_name_for_persist(src)
+	def _resolve_owned_ls_name(*candidates: Any) -> str:
+		"""First Linked Service name among *candidates* that is owned by this parent."""
+		for cand in candidates:
+			ls_name = _resolve_linked_service_name_for_persist(cand) if cand is not None else ""
+			if ls_name and _linked_service_owned_by_parent(ls_name, parent_doctype, parent_name):
+				return ls_name
+		return ""
+
+	def _commit_virtual_by_detail_idx(di: int) -> None:
+		"""Stamp Job No using canonical DB Linked Services by idx — never trust desk JSON alone."""
+		if di < 1:
+			frappe.throw(_("Invalid Internal Job Detail row index for persist."))
+		if 0 < di <= len(form_rows):
+			_validate_form_row_job_type(form_rows[di - 1], di)
+		ensure_linked_service_rows_materialized(parent)
+		rows = _refresh_canonical()
+		if di > len(rows):
+			_throw_linked_service_save_required(parent_name)
+		target = rows[di - 1]
+		form_src = form_rows[di - 1] if 0 < di <= len(form_rows) else None
+		# Prefer an owned LS name from the form row when present; otherwise canonical idx.
+		ls_name = _resolve_owned_ls_name(form_src, target)
 		if not ls_name:
-			return
-		sync_row = frappe._dict({"linked_service": ls_name, "internal_job": ls_name})
-		sync_internal_job_doc_job_link(sync_row, jt, jn)
-		_stamp_internal_job_link_on_target(jt, jn, sync_row)
+			_throw_linked_service_save_required(parent_name)
+		_stamp_and_verify_virtual_job_link(
+			ls_name=ls_name,
+			job_type=jt,
+			job_no=jn,
+			sync_internal_job_doc_job_link=sync_internal_job_doc_job_link,
+		)
 
 	def _apply_to_canonical_row(target: Any, di: int) -> None:
 		src = form_rows[di - 1] if 0 < di <= len(form_rows) else target
@@ -427,30 +499,7 @@ def persist_internal_job_detail_job_link(
 		if st_default and hasattr(target, "service_type") and not (getattr(target, "service_type", None) or "").strip():
 			target.service_type = st_default
 
-	def _commit_virtual_row_link(target: Any, di: int) -> None:
-		"""Stamp job_no on the Linked Service doc only — never parent-save virtual grids."""
-		src = form_rows[di - 1] if 0 < di <= len(form_rows) else target
-		_validate_form_row_job_type(src, di)
-		ls_name = _resolve_linked_service_name_for_persist(src) or _resolve_linked_service_name_for_persist(
-			target
-		)
-		if not ls_name:
-			ensure_linked_service_rows_materialized(parent)
-			rows_after = _refresh_canonical()
-			if di > len(rows_after):
-				_throw_linked_service_save_required(parent_name)
-			target = rows_after[di - 1]
-			ls_name = _resolve_linked_service_name_for_persist(target)
-		if not ls_name:
-			_throw_linked_service_save_required(parent_name)
-		sync_row = frappe._dict({"linked_service": ls_name, "internal_job": ls_name})
-		sync_internal_job_doc_job_link(sync_row, jt, jn)
-		_stamp_internal_job_link_on_target(jt, jn, sync_row)
-
 	def _commit_row_link(target: Any, di: int) -> None:
-		if virtual_parent:
-			_commit_virtual_row_link(target, di)
-			return
 		_apply_to_canonical_row(target, di)
 		if not row_linked_service_link(target):
 			_save_parent_internal_job_details(parent)
@@ -479,13 +528,11 @@ def persist_internal_job_detail_job_link(
 
 	di = _coerce_positive_detail_idx(detail_idx)
 	if di is not None:
+		if virtual_parent:
+			_commit_virtual_by_detail_idx(di)
+			return
 		if di < 1 or di > len(form_rows):
 			frappe.throw(_("Invalid Internal Job Detail row index for persist."))
-		src = form_rows[di - 1]
-		if virtual_parent and _resolve_linked_service_name_for_persist(src):
-			_validate_form_row_job_type(src, di)
-			_sync_linked_service_row(src)
-			return
 		canonical = _ensure_canonical_has_row(di)
 		if di > len(canonical):
 			_throw_linked_service_save_required(parent_name)
@@ -498,8 +545,8 @@ def persist_internal_job_detail_job_link(
 		if (getattr(src, "job_no", None) or "").strip():
 			continue
 		di_open = i + 1
-		if virtual_parent and _resolve_linked_service_name_for_persist(src):
-			_sync_linked_service_row(src)
+		if virtual_parent:
+			_commit_virtual_by_detail_idx(di_open)
 			return
 		canonical = _ensure_canonical_has_row(di_open)
 		if di_open > len(canonical):
@@ -512,9 +559,12 @@ def persist_internal_job_detail_job_link(
 		new_row["service_type"] = st_default
 	if virtual_parent:
 		ls_name = create_internal_job_for_parent_from_source(parent_doctype, parent_name, new_row)
-		sync_row = frappe._dict({"linked_service": ls_name, "internal_job": ls_name})
-		sync_internal_job_doc_job_link(sync_row, jt, jn)
-		_stamp_internal_job_link_on_target(jt, jn, sync_row)
+		_stamp_and_verify_virtual_job_link(
+			ls_name=ls_name,
+			job_type=jt,
+			job_no=jn,
+			sync_internal_job_doc_job_link=sync_internal_job_doc_job_link,
+		)
 		return
 	parent.append(fieldname, new_row)
 	_save_parent_internal_job_details(parent)
