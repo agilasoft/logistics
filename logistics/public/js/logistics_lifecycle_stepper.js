@@ -118,12 +118,24 @@ logistics.lifecycle.setup_queries = function (frm) {
 	}
 
 	if (frm.fields_dict.applicable_lifecycle_stages) {
-		frm.set_query("lifecycle_stage", "applicable_lifecycle_stages", function () {
-			return { filters: filters };
-		});
+		var als = frm.fields_dict.applicable_lifecycle_stages;
+		if (als.grid && typeof als.grid.get_field === "function") {
+			frm.set_query("lifecycle_stage", "applicable_lifecycle_stages", function () {
+				return { filters: filters };
+			});
+		} else {
+			// Table MultiSelect: no grid — query the parent field like a Link.
+			frm.set_query("applicable_lifecycle_stages", function () {
+				return { filters: filters };
+			});
+		}
 	}
 
-	if (frm.fields_dict.internal_job_details) {
+	if (
+		frm.fields_dict.internal_job_details &&
+		frm.fields_dict.internal_job_details.grid &&
+		typeof frm.fields_dict.internal_job_details.grid.get_field === "function"
+	) {
 		frm.set_query("lifecycle_stage", "internal_job_details", function () {
 			return {
 				filters: Object.assign({}, filters, { is_closed: 0 }),

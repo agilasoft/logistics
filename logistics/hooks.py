@@ -64,6 +64,7 @@ app_include_js = [
 	"/assets/logistics/js/density_factor.js?v=2",
 	"/assets/logistics/js/document_alerts_dialog.js?v=2",
 	"/assets/logistics/js/documents_tab_utils.js",
+	"/assets/logistics/js/logistics_lifecycle_stepper.js",
 	"/assets/logistics/js/opportunity_dashboard_boot.js?v=3",
 	"/assets/logistics/js/crm_sales_quote_actions.js?v=2",
 	"/assets/logistics/js/profitability_form.js?v=5",

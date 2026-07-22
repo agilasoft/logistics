@@ -420,18 +420,28 @@ function logistics_clear_stale_package_grid_settings(frm) {
 	}
 }
 
+/** Child-table set_query only when the grid control exists (Table MultiSelect has no grid). */
+function _safe_child_set_query(frm, fieldname, parentfield, query) {
+	const ctrl = frm.fields_dict && frm.fields_dict[parentfield];
+	if (!ctrl || !ctrl.grid || typeof ctrl.grid.get_field !== "function") {
+		return false;
+	}
+	frm.set_query(fieldname, parentfield, query);
+	return true;
+}
+
 function logistics_set_packages_site_query(frm) {
-	frm.set_query("site", "packages", function () {
+	_safe_child_set_query(frm, "site", "packages", function () {
 		return logistics.address.query_for_customer(frm.doc.customer);
 	});
-	frm.set_query("warehouse_item", "packages", function (doc) {
+	_safe_child_set_query(frm, "warehouse_item", "packages", function (doc) {
 		const filters = {};
 		if (doc.customer) {
 			filters.customer = doc.customer;
 		}
 		return { filters: filters };
 	});
-	frm.set_query("commodity", "packages", function () {
+	_safe_child_set_query(frm, "commodity", "packages", function () {
 		return { filters: { active: 1 } };
 	});
 }
@@ -804,19 +814,22 @@ function logistics_set_internal_job_site_query(frm) {
 	frm.set_query("lifecycle_stage", function () {
 		return { filters: _applicableLifecycleStageFilters(frm) };
 	});
-	frm.set_query("lifecycle_stage", "applicable_lifecycle_stages", function () {
-		return { filters: { for_special_project: 1 } };
-	});
-	frm.set_query("sp_site", "special_project_services", function () {
+	// Table MultiSelect has no grid — set_query on the parent field (like Link).
+	if (frm.fields_dict.applicable_lifecycle_stages) {
+		frm.set_query("applicable_lifecycle_stages", function () {
+			return { filters: { for_special_project: 1 } };
+		});
+	}
+	_safe_child_set_query(frm, "sp_site", "special_project_services", function () {
 		return logistics.address.query_for_customer(frm.doc.customer);
 	});
-	frm.set_query("lifecycle_stage", "special_project_services", function () {
+	_safe_child_set_query(frm, "lifecycle_stage", "special_project_services", function () {
 		return { filters: _applicableLifecycleStageFilters(frm) };
 	});
-	frm.set_query("lifecycle_stage", "charges", function () {
+	_safe_child_set_query(frm, "lifecycle_stage", "charges", function () {
 		return { filters: _applicableLifecycleStageFilters(frm) };
 	});
-	frm.set_query("linked_service", "charges", function () {
+	_safe_child_set_query(frm, "linked_service", "charges", function () {
 		var filters = [];
 		if (frm.doc.sales_quote) {
 			filters.push(["Linked Service", "parent_booking_type", "=", "Sales Quote"]);
@@ -827,7 +840,7 @@ function logistics_set_internal_job_site_query(frm) {
 		}
 		return { filters: filters };
 	});
-	frm.set_query("special_project_service_line", "charges", function (doc, cdt, cdn) {
+	_safe_child_set_query(frm, "special_project_service_line", "charges", function (doc, cdt, cdn) {
 		var row = cdn && locals[cdt] && locals[cdt][cdn];
 		var filters = [
 			["Special Project Service", "parent_booking_type", "=", "Special Project"],
@@ -873,7 +886,7 @@ frappe.ui.form.on("Special Project", {
 				return r.message || { filters: [] };
 			});
 		});
-		frm.set_query("sales_quote_link", "charges", function (doc, cdt, cdn) {
+		_safe_child_set_query(frm, "sales_quote_link", "charges", function (doc, cdt, cdn) {
 			var row = cdn && locals[cdt] && locals[cdt][cdn];
 			if (row && row.change_request) {
 				return {
