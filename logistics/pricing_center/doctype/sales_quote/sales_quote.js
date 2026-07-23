@@ -877,6 +877,7 @@ frappe.ui.form.on("Sales Quote", {
 				frm.events._validate_naming_series_quotation_type(frm);
 			}, 100);
 		}
+		frm.events._refresh_main_service_param_visibility(frm);
 		
 		frm.refresh_field("naming_series");
 		frm.refresh_field("status_section");
@@ -1022,6 +1023,35 @@ frappe.ui.form.on("Sales Quote", {
 		frm.refresh_field("projects_tab");
 		frm.events._maybe_auto_populate_routing_legs(frm);
 		frm.events.setup_transport_template_queries(frm);
+		frm.events._refresh_main_service_param_visibility(frm);
+	},
+
+	_refresh_main_service_param_visibility(frm) {
+		// Transport params live in their own Section Break; force depends_on re-eval so
+		// fields are not stuck hidden behind a previously gated Column Break on deploy.
+		if (frm.layout && frm.layout.refresh_dependency) {
+			frm.layout.refresh_dependency();
+		}
+		[
+			"transport_params_section",
+			"location_type",
+			"location_from",
+			"location_to",
+			"transport_template",
+			"column_break_transport_params",
+			"vehicle_type",
+			"container_type",
+			"container_no",
+			"pick_mode",
+			"drop_mode",
+			"load_type",
+			"transport_mode",
+			"one_off_params_section",
+		].forEach((fieldname) => {
+			if (frm.fields_dict[fieldname]) {
+				frm.refresh_field(fieldname);
+			}
+		});
 	},
 
 	transport_template(frm) {
@@ -1157,6 +1187,7 @@ frappe.ui.form.on("Sales Quote", {
 		frm.events.setup_freight_agent_query(frm);
 		frm.events.setup_vehicle_type_query(frm);
 		frm.events.setup_transport_template_queries(frm);
+		frm.events._refresh_main_service_param_visibility(frm);
 		frm.events.setup_item_code_query(frm);
 		frm.events.setup_internal_job_query(frm);
 		logistics_setup_linked_services_grid(frm);

@@ -71,15 +71,6 @@
   "sp_skilled",
   "sp_equipment_type",
   "column_break_params",
-  "location_type",
-  "location_from",
-  "location_to",
-  "transport_template",
-  "vehicle_type",
-  "container_type",
-  "container_no",
-  "pick_mode",
-  "drop_mode",
   "air_house_type",
   "airline",
   "freight_agent",
@@ -88,10 +79,20 @@
   "freight_agent_sea",
   "sp_handling",
   "sp_resource_notes",
+  "transport_params_section",
+  "location_type",
+  "location_from",
+  "location_to",
+  "transport_template",
+  "column_break_transport_params",
+  "vehicle_type",
+  "container_type",
+  "container_no",
+  "pick_mode",
+  "drop_mode",
   "containers_section",
   "containers",
-  "routing_tab",
-  "routing_section",
+  "routing_tab",  "routing_section",
   "billing_mode",
   "routing_legs",
   "services_tab",
@@ -469,78 +470,9 @@
    "options": "Special Handling Equipment Type"
   },
   {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && [\"Air\", \"Sea\", \"Transport\", \"Special Project\", \"MICE\"].includes(doc.main_service)",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && [\"Air\", \"Sea\", \"Special Project\", \"MICE\"].includes(doc.main_service)",
    "fieldname": "column_break_params",
    "fieldtype": "Column Break"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
-   "fieldname": "location_type",
-   "fieldtype": "Link",
-   "label": "Location Type",
-   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"UNLOCO\",\"Transport Zone\"]]]",
-   "mandatory_depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
-   "options": "DocType"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
-   "fieldname": "location_from",
-   "fieldtype": "Dynamic Link",
-   "label": "Location From",
-   "mandatory_depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
-   "options": "location_type"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
-   "fieldname": "location_to",
-   "fieldtype": "Dynamic Link",
-   "label": "Location To",
-   "mandatory_depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
-   "options": "location_type"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
-   "fieldname": "transport_template",
-   "fieldtype": "Link",
-   "label": "Transport Template",
-   "options": "Transport Template"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
-   "fieldname": "vehicle_type",
-   "fieldtype": "Link",
-   "label": "Vehicle Type",
-   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]",
-   "options": "Vehicle Type"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
-   "fieldname": "container_type",
-   "fieldtype": "Link",
-   "label": "Container Type",
-   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]",
-   "options": "Container Type"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
-   "description": "Sea container number for Transport Order created from Sea Shipment (cargo scoped to this unit).",
-   "fieldname": "container_no",
-   "fieldtype": "Data",
-   "label": "Container No."
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
-   "fieldname": "pick_mode",
-   "fieldtype": "Link",
-   "label": "Pick Mode",
-   "options": "Pick and Drop Mode"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
-   "fieldname": "drop_mode",
-   "fieldtype": "Link",
-   "label": "Drop Mode",
-   "options": "Pick and Drop Mode"
   },
   {
    "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Air\"",
@@ -601,6 +533,86 @@
    "fieldname": "sp_resource_notes",
    "fieldtype": "Small Text",
    "label": "Resource Notes"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
+   "fieldname": "transport_params_section",
+   "fieldtype": "Section Break",
+   "label": "Transport Parameters"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
+   "fieldname": "location_type",
+   "fieldtype": "Link",
+   "label": "Location Type",
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"UNLOCO\",\"Transport Zone\"]]]",
+   "mandatory_depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
+   "options": "DocType"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
+   "fieldname": "location_from",
+   "fieldtype": "Dynamic Link",
+   "label": "Location From",
+   "mandatory_depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
+   "options": "location_type"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
+   "fieldname": "location_to",
+   "fieldtype": "Dynamic Link",
+   "label": "Location To",
+   "mandatory_depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
+   "options": "location_type"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
+   "fieldname": "transport_template",
+   "fieldtype": "Link",
+   "label": "Transport Template",
+   "options": "Transport Template"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
+   "fieldname": "column_break_transport_params",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]",
+   "options": "Vehicle Type"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
+   "fieldname": "container_type",
+   "fieldtype": "Link",
+   "label": "Container Type",
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]",
+   "options": "Container Type"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
+   "description": "Sea container number for Transport Order created from Sea Shipment (cargo scoped to this unit).",
+   "fieldname": "container_no",
+   "fieldtype": "Data",
+   "label": "Container No."
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
+   "fieldname": "pick_mode",
+   "fieldtype": "Link",
+   "label": "Pick Mode",
+   "options": "Pick and Drop Mode"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
+   "fieldname": "drop_mode",
+   "fieldtype": "Link",
+   "label": "Drop Mode",
+   "options": "Pick and Drop Mode"
   },
   {
    "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
