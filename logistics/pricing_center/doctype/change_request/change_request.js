@@ -222,6 +222,7 @@ const CR_LINKED_SERVICE_SATELLITE_JOB_TYPES = new Set([
 	"Declaration Order",
 	"Inbound Order",
 	"Release Order",
+	"Cross-Docking Order",
 ]);
 
 const CR_JOB_TYPE_TO_SERVICE_TYPE = {
@@ -239,6 +240,7 @@ const CR_JOB_TYPE_TO_SERVICE_TYPE = {
 	"Air Booking": "air",
 	"Inbound Order": "warehousing",
 	"Release Order": "warehousing",
+	"Cross-Docking Order": "cross-docking",
 };
 
 /** Fetch eligible Linked Services from this Change Request's Services tab (or job fallback). */

@@ -965,10 +965,24 @@ frappe.ui.form.on("Sales Quote", {
 	},
 	main_service(frm) {
 		if (frm.doc.main_service) {
-			const prefix_map = { "Sea": "sea_", "Air": "air_", "Transport": "transport_", "Warehousing": "warehouse_" };
+			const prefix_map = {
+				Sea: "sea_",
+				Air: "air_",
+				Transport: "transport_",
+				Warehousing: "warehouse_",
+				"Cross-Docking": "warehouse_",
+			};
+			const domain_map = {
+				Sea: "sea",
+				Air: "air",
+				Transport: "transport",
+				Warehousing: "warehousing",
+				"Cross-Docking": "warehousing",
+			};
 			const prefix = prefix_map[frm.doc.main_service];
-			if (prefix) {
-				frm.events.apply_default_uoms_for_tab(frm, frm.doc.main_service.toLowerCase(), prefix);
+			const domain = domain_map[frm.doc.main_service];
+			if (prefix && domain) {
+				frm.events.apply_default_uoms_for_tab(frm, domain, prefix);
 			}
 		}
 		// Explicit refresh: warehousing / charges use depends_on vs main_service; ensures grids repaint when switching mode.
@@ -1630,7 +1644,7 @@ frappe.ui.form.on("Sales Quote", {
 			{ domain: "sea", visible: main === "Sea", prefix: "sea_" },
 			{ domain: "air", visible: main === "Air", prefix: "air_" },
 			{ domain: "transport", visible: main === "Transport", prefix: "transport_" },
-			{ domain: "warehousing", visible: main === "Warehousing", prefix: "warehouse_" }
+			{ domain: "warehousing", visible: main === "Warehousing" || main === "Cross-Docking", prefix: "warehouse_" }
 		];
 		tabs.forEach(function (tab) {
 			if (tab.visible) {

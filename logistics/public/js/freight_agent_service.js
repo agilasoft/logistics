@@ -36,6 +36,7 @@ frappe.provide("logistics.freight_agent_service");
 		"Warehouse Job": "Warehousing",
 		"VAS Order": "Warehousing",
 		"Inbound Order": "Warehousing",
+		"Cross-Docking Order": "Cross-Docking",
 	};
 
 	/** Services with no Freight Agent module checkbox (must not become filter fieldnames). */
@@ -53,6 +54,7 @@ frappe.provide("logistics.freight_agent_service");
 			custom: "custom",
 			customs: "custom",
 			Warehousing: "warehousing",
+			"Cross-Docking": "warehousing",
 			"Special Project": "special project",
 			MICE: "exhibits",
 			Exhibits: "exhibits",

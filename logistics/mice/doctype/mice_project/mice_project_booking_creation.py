@@ -38,6 +38,7 @@ EXHIBIT_CREATABLE_JOB_TYPES: frozenset[str] = frozenset(
 		"Transport Order",
 		"Declaration Order",
 		"Inbound Order",
+		"Cross-Docking Order",
 		"MICE Order",
 	}
 )
@@ -48,6 +49,7 @@ _TARGET_DOC_LABELS: dict[str, str] = {
 	"Transport Order": "Transport Order",
 	"Declaration Order": "Declaration Order",
 	"Inbound Order": "Inbound Order",
+	"Cross-Docking Order": "Cross-Docking Order",
 	"MICE Order": "MICE Order",
 }
 
@@ -592,6 +594,8 @@ def _populate_charges_from_linked_sales_quote(target_doc: Any) -> None:
 			target_doc._populate_charges_from_sales_quote()
 		elif dt == "Inbound Order" and hasattr(target_doc, "_populate_charges_from_sales_quote"):
 			target_doc._populate_charges_from_sales_quote()
+		elif dt == "Cross-Docking Order" and hasattr(target_doc, "_populate_charges_from_sales_quote"):
+			target_doc._populate_charges_from_sales_quote()
 	except Exception:
 		frappe.log_error(
 			frappe.get_traceback(),
@@ -764,6 +768,22 @@ def _create_inbound_order(ep_doc: Any, row: Any, detail_idx: int) -> dict[str, A
 	}
 
 
+def _create_cross_docking_order(ep_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
+	order = frappe.new_doc("Cross-Docking Order")
+	_apply_exhibit_context(order, ep_doc)
+	if frappe.get_meta("Cross-Docking Order").get_field("order_date"):
+		order.order_date = today()
+	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
+	_prepare_operational_charges_before_insert(ep_doc, order, row)
+	order.insert(ignore_permissions=True)
+	_persist_row_link(ep_doc.name, "Cross-Docking Order", order.name, detail_idx)
+	frappe.db.commit()
+	return {
+		"cross_docking_order": order.name,
+		"message": _("Cross-Docking Order {0} created.").format(order.name),
+	}
+
+
 def _resolve_sales_quote_for_exhibit(ep_doc: Any) -> str | None:
 	sq = (getattr(ep_doc, "sales_quote", None) or "").strip()
 	if sq and frappe.db.exists("Sales Quote", sq):
@@ -865,6 +885,7 @@ _CREATE_DISPATCH = {
 	"Transport Order": _create_transport_order,
 	"Declaration Order": _create_declaration_order,
 	"Inbound Order": _create_inbound_order,
+	"Cross-Docking Order": _create_cross_docking_order,
 	"MICE Order": _create_mice_order,
 }
 

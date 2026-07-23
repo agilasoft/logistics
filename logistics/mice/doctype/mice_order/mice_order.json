@@ -10,19 +10,36 @@
   "details_tab",
   "section_basic",
   "naming_series",
-  "exhibit",
-  "lifecycle_stage",
   "order_title",
+  "exhibit",
   "project_type",
-  "customer",
   "column_break_basic",
   "sales_quote",
-  "priority",
-  "status",
+  "customer",
+  "lifecycle_stage",
+  "shipper",
+  "consignee",
+  "column_break_nvvi",
   "order_date",
   "required_by",
   "valid_until",
+  "status",
+  "priority",
   "site",
+  "contacts_addresses_tab",
+  "contacts_and_addresses_section",
+  "shipper_address",
+  "shipper_address_display",
+  "shipper_contact",
+  "shipper_contact_display",
+  "column_break_order_addr",
+  "consignee_address",
+  "consignee_address_display",
+  "consignee_contact",
+  "consignee_contact_display",
+  "resources_tab",
+  "section_resources",
+  "order_resources",
   "charges_tab",
   "section_order_org",
   "company",
@@ -41,6 +58,7 @@
   "milestones",
   "documents_tab",
   "section_documents",
+  "documents_html",
   "document_list_template",
   "documents",
   "more_info_tab",
@@ -123,7 +141,6 @@
    "read_only": 1
   },
   {
-   "fetch_from": "exhibit.priority",
    "fieldname": "priority",
    "fieldtype": "Select",
    "label": "Priority",
@@ -165,6 +182,101 @@
    "options": "Address"
   },
   {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "label": "Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
+   "options": "Consignee"
+  },
+  {
+   "fieldname": "contacts_addresses_tab",
+   "fieldtype": "Tab Break",
+   "label": "Contacts and Address"
+  },
+  {
+   "fieldname": "contacts_and_addresses_section",
+   "fieldtype": "Section Break",
+   "label": "Contacts and Address"
+  },
+  {
+   "fieldname": "shipper_address",
+   "fieldtype": "Link",
+   "label": "Shipper Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "options": "Address"
+  },
+  {
+   "fieldname": "shipper_address_display",
+   "fieldtype": "Text Editor",
+   "label": "Shipper Address Display",
+   "read_only": 1
+  },
+  {
+   "fieldname": "shipper_contact",
+   "fieldtype": "Link",
+   "label": "Shipper Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "shipper_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Shipper Contact Display",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_order_addr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consignee_address",
+   "fieldtype": "Link",
+   "label": "Consignee Address",
+   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
+   "options": "Address"
+  },
+  {
+   "fieldname": "consignee_address_display",
+   "fieldtype": "Text Editor",
+   "label": "Consignee Address Display",
+   "read_only": 1
+  },
+  {
+   "fieldname": "consignee_contact",
+   "fieldtype": "Link",
+   "label": "Consignee Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "consignee_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Consignee Contact Display",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resources_tab",
+   "fieldtype": "Tab Break",
+   "label": "Resources"
+  },
+  {
+   "description": "People, equipment, facilities, budget, vendors, and other inputs required to execute this job (replaces freight Routing).",
+   "fieldname": "section_resources",
+   "fieldtype": "Section Break",
+   "label": "Resources Required"
+  },
+  {
+   "fieldname": "order_resources",
+   "fieldtype": "Table",
+   "label": "Resources",
+   "options": "MICE Job Resource"
+  },
+  {
    "fieldname": "charges_tab",
    "fieldtype": "Tab Break",
    "label": "Charges"
@@ -178,13 +290,15 @@
    "fieldname": "company",
    "fieldtype": "Link",
    "label": "Company",
-   "options": "Company"
+   "options": "Company",
+   "reqd": 1
   },
   {
    "fieldname": "branch",
    "fieldtype": "Link",
    "label": "Branch",
-   "options": "Branch"
+   "options": "Branch",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_org",
@@ -195,13 +309,15 @@
    "fieldtype": "Link",
    "label": "Cost Center",
    "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
-   "options": "Cost Center"
+   "options": "Cost Center",
+   "reqd": 1
   },
   {
    "fieldname": "profit_center",
    "fieldtype": "Link",
    "label": "Profit Center",
-   "options": "Profit Center"
+   "options": "Profit Center",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_billing",
@@ -264,6 +380,12 @@
    "label": "Document Checklist"
   },
   {
+   "fieldname": "documents_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Document Summary"
+  },
+  {
    "fieldname": "document_list_template",
    "fieldtype": "Link",
    "label": "Document Template",
@@ -306,6 +428,10 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "column_break_nvvi",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
@@ -322,7 +448,7 @@
    "link_fieldname": "exhibit"
   }
  ],
- "modified": "2026-07-22 15:55:59.368681",
+ "modified": "2026-07-23 09:00:36.832514",
  "modified_by": "dee.sambrano@agilasoft.com",
  "module": "MICE",
  "name": "MICE Order",

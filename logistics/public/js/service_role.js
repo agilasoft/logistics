@@ -19,6 +19,7 @@
 		"VAS Order",
 		"Inbound Order",
 		"Release Order",
+		"Cross-Docking Order",
 		"Project Job",
 		"MICE Job",
 		"Exhibit Job",

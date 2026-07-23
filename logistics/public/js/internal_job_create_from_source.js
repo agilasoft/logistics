@@ -631,6 +631,25 @@
 			});
 			return;
 		}
+		if (msg.cross_docking_order) {
+			frappe.show_alert(
+				{
+					message:
+						msg.message ||
+						__("Cross-Docking Order {0} created.", [msg.cross_docking_order]),
+					indicator: "green",
+				},
+				5
+			);
+			_whenDocExistsThenNavigate("Cross-Docking Order", msg.cross_docking_order, function () {
+				_routeAfterFormNavigate("Cross-Docking Order", [
+					"Form",
+					"Cross-Docking Order",
+					msg.cross_docking_order,
+				]);
+			});
+			return;
+		}
 		if (msg.inbound_order) {
 			frappe.show_alert(
 				{
@@ -1017,6 +1036,11 @@
 		}
 		// Linked Warehousing creates VAS Order (cross-dock / in-transit), not storage Inbound.
 		if (dec.job_type === "VAS Order") {
+			_runInternalJobCreate(frm, dec);
+			return;
+		}
+		// Linked Cross-Docking creates Cross-Docking Order (staging in/out).
+		if (dec.job_type === "Cross-Docking Order") {
 			_runInternalJobCreate(frm, dec);
 			return;
 		}

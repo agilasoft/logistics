@@ -91,6 +91,9 @@ _SERVICE_SCOPED_PARAMETER_FIELDS: dict[str, tuple[str, ...]] = {
 	"warehousing": (
 		"site",
 	),
+	"cross-docking": (
+		"site",
+	),
 	"special project": (
 		"sp_site",
 		"sp_manpower",
@@ -362,6 +365,7 @@ _DOCTYPE_DEFAULT_SERVICE_TYPE: dict[str, str] = {
 	"Transport Order": "Transport",
 	"Declaration Order": "Customs",
 	"Inbound Order": "Warehousing",
+	"Cross-Docking Order": "Cross-Docking",
 }
 
 

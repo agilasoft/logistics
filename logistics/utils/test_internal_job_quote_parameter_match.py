@@ -230,9 +230,10 @@ class TestInternalJobDetailParentRegistry(FrappeTestCase):
 		"Sea Shipment", "Air Shipment",
 		"Transport Order", "Transport Job",
 		"Declaration", "Declaration Order",
-		"Warehouse Job", "Inbound Order", "Release Order",
+		"Warehouse Job", "Inbound Order", "Release Order", "Cross-Docking Order",
 		"General Job", "Project Job",
-		"MICE Job", "MICE Project", "Docket",
+		"MICE Job", "Exhibit Job", "MICE Project", "Docket", "Exhibit",
+		"Sales Quote", "Change Request",
 	})
 
 	def test_all_expected_doctypes_are_registered(self):

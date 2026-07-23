@@ -40,6 +40,9 @@ frappe.ui.form.on("Project Job", {
 					return r.message || { filters: [] };
 				});
 		});
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.setup_queries(frm);
+		}
 	},
 	document_list_template(frm) {
 		_logistics_project_job_populate_from_template(
@@ -55,8 +58,41 @@ frappe.ui.form.on("Project Job", {
 			__("Applying milestone template...")
 		);
 	},
+	shipper(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_change(frm);
+		}
+	},
+	consignee(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_change(frm);
+		}
+	},
+	shipper_address(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_address_change(frm);
+		}
+	},
+	consignee_address(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_address_change(frm);
+		}
+	},
+	shipper_contact(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_contact_change(frm);
+		}
+	},
+	consignee_contact(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_contact_change(frm);
+		}
+	},
 	refresh(frm) {
 		logistics_set_site_query_project_job(frm);
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.populate_displays_if_missing(frm);
+		}
 
 		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
 			frm.add_custom_button(

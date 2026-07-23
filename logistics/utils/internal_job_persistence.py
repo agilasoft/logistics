@@ -79,6 +79,7 @@ INTERNAL_JOB_DETAIL_PARENTS: dict[str, str] = {
 	"Warehouse Job": "internal_job_details",
 	"Inbound Order": "internal_job_details",
 	"Release Order": "internal_job_details",
+	"Cross-Docking Order": "internal_job_details",
 	"General Job": "internal_job_details",
 	"Project Job": "internal_job_details",
 	"MICE Job": "internal_job_details",

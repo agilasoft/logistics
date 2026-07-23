@@ -19,6 +19,7 @@ VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS = frozenset(
 		"Warehouse Job",
 		"Inbound Order",
 		"Release Order",
+		"Cross-Docking Order",
 		"General Job",
 		"Project Job",
 		"MICE Job",

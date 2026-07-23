@@ -42,6 +42,7 @@ _INTERNAL_JOB_CAPABLE_DOCTYPES: tuple[str, ...] = (
 	"Warehouse Job",
 	"Inbound Order",
 	"Release Order",
+	"Cross-Docking Order",
 	"Project Job",
 	"Project Order",
 )

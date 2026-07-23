@@ -46,6 +46,8 @@ DOCTYPE_CONTEXT = {
 	"Inbound Order": ("Warehousing", "Booking"),
 	"Release Order": ("Warehousing", "Booking"),
 	"Transfer Order": ("Warehousing", "Booking"),
+	"Cross-Docking Order": ("Warehousing", "Booking"),
+	"VAS Order": ("Warehousing", "Booking"),
 	"Air Shipment": ("Air Freight", "Shipment/Job"),
 	"Air Consolidation": ("Air Freight", "Shipment/Job"),
 	"Sea Shipment": ("Sea Freight", "Shipment/Job"),
@@ -102,7 +104,7 @@ MILESTONE_CHILD_DOCTYPE = {
 	"MICE Project": "MICE Project Milestone",
 	"Docket": "MICE Project Milestone",
 	"MICE Order": "MICE Project Milestone",
-	"MICE Job": "MICE Project Milestone",
+	"MICE Job": "Transport Job Milestone",
 }
 
 
@@ -363,6 +365,22 @@ def update_job_document_status_on_parent_before_save(doc, method=None):
 _JOB_DOCUMENT_COMPLETE_STATUSES = frozenset(("Received", "Verified", "Done"))
 
 
+def get_incomplete_required_documents(doc):
+	"""Return labels for required Job Document rows not in Received/Verified/Done."""
+	if not doc or not hasattr(doc, "documents"):
+		return []
+	incomplete = []
+	for row in doc.get("documents") or []:
+		if not cint(row.get("is_required")):
+			continue
+		status = (row.get("status") or "").strip()
+		if status in _JOB_DOCUMENT_COMPLETE_STATUSES:
+			continue
+		label = row.get("document_type") or row.get("document_name") or _("Document")
+		incomplete.append("{0} ({1})".format(label, status or _("Pending")))
+	return incomplete
+
+
 def enforce_required_job_documents_before_submit(doc, method=None):
 	"""Optional gate from Logistics Settings: block submit when required Job Document rows are incomplete."""
 	if not doc or getattr(doc, "flags", None) and doc.flags.get("skip_required_documents_submit_check"):
@@ -373,18 +391,7 @@ def enforce_required_job_documents_before_submit(doc, method=None):
 		return
 	if not cint(getattr(settings, "block_submit_if_required_documents_pending", 0)):
 		return
-	if not hasattr(doc, "documents"):
-		return
-	rows = doc.get("documents") or []
-	incomplete = []
-	for row in rows:
-		if not cint(row.get("is_required")):
-			continue
-		status = (row.get("status") or "").strip()
-		if status in _JOB_DOCUMENT_COMPLETE_STATUSES:
-			continue
-		label = row.get("document_type") or row.get("document_name") or _("Document")
-		incomplete.append("{0} ({1})".format(label, status or _("Pending")))
+	incomplete = get_incomplete_required_documents(doc)
 	if not incomplete:
 		return
 	msg = _("Cannot submit: required document(s) are not complete. Complete or update the Documents table first.") + "\n\n" + "\n".join(

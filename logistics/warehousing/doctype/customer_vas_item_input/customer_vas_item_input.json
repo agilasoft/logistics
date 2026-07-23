@@ -18,6 +18,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item",
+   "link_filters": "[[\"Warehouse Item\",\"customer\",\"=\",\"eval:parent.customer\"]]",
    "options": "Warehouse Item"
   },
   {

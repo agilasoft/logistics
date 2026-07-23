@@ -92,6 +92,7 @@ WIKI_PAGES_CONFIG = {
     "release_order": ("Release Order", "Warehousing"),
     "transfer_order": ("Transfer Order", "Warehousing"),
     "vas_order": ("VAS Order", "Warehousing"),
+    "cross_docking_order": ("Cross-Docking Order", "Warehousing"),
     "stocktake_order": ("Stocktake Order", "Warehousing"),
     "warehouse_job": ("Warehouse Job", "Warehousing"),
     "warehouse_contract": ("Warehouse Contract", "Warehousing"),

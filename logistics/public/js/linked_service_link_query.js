@@ -22,6 +22,7 @@ frappe.provide("logistics.linked_service_link_query");
 			custom: "custom",
 			customs: "custom",
 			Warehousing: "warehousing",
+			"Cross-Docking": "cross-docking",
 			"Special Project": "special project",
 			MICE: "exhibits",
 			Exhibits: "exhibits",
@@ -31,7 +32,7 @@ frappe.provide("logistics.linked_service_link_query");
 		const low = raw.toLowerCase();
 		if (low === "customs") return "custom";
 		if (low === "events" || low === "mice") return "exhibits";
-		if (["air", "sea", "transport", "warehousing", "special project", "exhibits"].includes(low)) {
+		if (["air", "sea", "transport", "warehousing", "cross-docking", "special project", "exhibits"].includes(low)) {
 			return low;
 		}
 		return low;
@@ -47,6 +48,7 @@ frappe.provide("logistics.linked_service_link_query");
 			transport: "Transport",
 			custom: "Customs",
 			warehousing: "Warehousing",
+			"cross-docking": "Cross-Docking",
 			"special project": "Special Project",
 			exhibits: "MICE",
 		};
