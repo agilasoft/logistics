@@ -1,6 +1,6 @@
 {
  "app": "logistics",
- "creation": "2026-02-06 00:00:00",
+ "creation": "2026-05-06 10:21:55.616140",
  "docstatus": 0,
  "doctype": "Workspace Sidebar",
  "header_icon": "plane",
@@ -21,7 +21,7 @@
   {
    "child": 0,
    "collapsible": 1,
-   "icon": "layout-dashboard",
+   "icon": "tower-control",
    "indent": 0,
    "keep_closed": 0,
    "label": "Control Tower",
@@ -347,14 +347,14 @@
    "collapsible": 1,
    "indent": 0,
    "keep_closed": 0,
-   "label": "GoConnect Settings (Flight)",
-   "link_to": "GoConnect Settings",
+   "label": "Flight Schedule Settings",
+   "link_to": "Flight Schedule Settings",
    "link_type": "DocType",
    "show_arrow": 0,
    "type": "Link"
   }
  ],
- "modified": "2026-03-24 17:31:05.710217",
+ "modified": "2026-07-23 13:22:59.658439",
  "modified_by": "Administrator",
  "module": "Air Freight",
  "name": "Air Freight",
