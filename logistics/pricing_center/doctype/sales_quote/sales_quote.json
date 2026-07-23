@@ -77,6 +77,8 @@
   "sea_house_type",
   "shipping_line",
   "freight_agent_sea",
+  "containers_section",
+  "containers",
   "location_type",
   "location_from",
   "location_to",
@@ -517,6 +519,19 @@
    "label": "Freight Agent",
    "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
    "options": "Freight Agent"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
+   "fieldname": "containers_section",
+   "fieldtype": "Section Break",
+   "label": "Containers"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
+   "fieldname": "containers",
+   "fieldtype": "Table",
+   "label": "Containers",
+   "options": "Sales Quote Containers"
   },
   {
    "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",

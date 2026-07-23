@@ -27,15 +27,16 @@
   "section_order_org",
   "company",
   "branch",
-  "column_break_org",
-  "cost_center",
   "profit_center",
+  "cost_center",
+  "column_break_org",
   "column_break_billing",
-  "billing_status",
   "section_charges",
+  "billing_status",
   "charges",
   "milestones_tab",
   "section_milestones",
+  "milestone_html",
   "milestone_template",
   "milestones",
   "documents_tab",
@@ -45,7 +46,8 @@
   "more_info_tab",
   "section_notes",
   "notes",
-  "connections_tab"
+  "connections_tab",
+  "amended_from"
  ],
  "fields": [
   {
@@ -234,6 +236,12 @@
    "label": "Milestones"
   },
   {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestone View"
+  },
+  {
    "fieldname": "milestone_template",
    "fieldtype": "Link",
    "label": "Milestone Template",
@@ -288,9 +296,20 @@
    "fieldtype": "Tab Break",
    "label": "Connections",
    "show_dashboard": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "MICE Order",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [
   {
    "group": "MICE Orders",
@@ -303,8 +322,8 @@
    "link_fieldname": "exhibit"
   }
  ],
- "modified": "2026-05-18 12:00:00.000000",
- "modified_by": "Administrator",
+ "modified": "2026-07-22 15:55:59.368681",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "MICE",
  "name": "MICE Order",
  "naming_rule": "By \"Naming Series\" field",

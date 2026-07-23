@@ -349,6 +349,8 @@
 			_go("Transport Order", msg.transport_order);
 		} else if (msg.declaration_order) {
 			_go("Declaration Order", msg.declaration_order);
+		} else if (msg.vas_order) {
+			_go("VAS Order", msg.vas_order);
 		} else if (msg.inbound_order) {
 			_go("Inbound Order", msg.inbound_order);
 		} else if (msg.cross_docking_order) {
@@ -377,6 +379,11 @@
 					frappe.show_alert({ message: r.message.message, indicator: "green" }, 5);
 				}
 				function _afterReload() {
+					// Virtual Services grid reads Job No from Linked Service docs — refresh
+					// after reload so the stamped job_no is visible before routing away.
+					if (frm && typeof frm.refresh_field === "function") {
+						frm.refresh_field("linked_services");
+					}
 					_routeAfterCreate(r.message);
 				}
 				if (frm && frm.doc && frm.doc.name && typeof frm.reload_doc === "function") {

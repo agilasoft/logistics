@@ -1120,7 +1120,10 @@ def _iter_docket_linked_service_rows(docket_name):
 
 
 def _resolve_docket_operational_jobs(docket_name):
-	"""Return deduplicated booking/order and operational job keys for a Docket.
+	"""Return deduplicated operational job keys for a Docket (shipments/jobs only).
+
+	Bookings/orders linked via Linked Service are resolved to their related
+	operational docs; the booking/order keys themselves are not included.
 
 	Sources:
 	  * Job Number rows stamped with ``docket`` (operational types).
@@ -1129,11 +1132,12 @@ def _resolve_docket_operational_jobs(docket_name):
 	"""
 	seen = set()
 	results = []
+	operational_types = frozenset(_OPERATIONAL_JOB_TYPES)
 
 	def _add(job_type, job_no):
 		jt = (job_type or "").strip()
 		jn = (job_no or "").strip()
-		if jt not in _DISPLAY_JOB_TYPES or not jn:
+		if jt not in operational_types or not jn:
 			return
 		key = (jt, jn)
 		if key in seen:
@@ -1162,19 +1166,11 @@ def _resolve_docket_operational_jobs(docket_name):
 
 
 def _job_status_count_label(jobs):
-	"""Return a short count label distinguishing bookings from operational jobs."""
-	n_bookings = sum(1 for j in jobs if (j.get("job_type") or "") in _BOOKING_ORDER_TYPE_SET)
-	n_ops = len(jobs) - n_bookings
-	parts = []
-	if n_bookings:
-		bw = _("booking") if n_bookings == 1 else _("bookings")
-		parts.append(f"{n_bookings} {bw}")
-	if n_ops:
-		jw = _("job") if n_ops == 1 else _("jobs")
-		parts.append(f"{n_ops} {jw}")
-	if not parts:
-		return f"0 {_('jobs')}"
-	return " · ".join(parts)
+	"""Return a short count label for operational jobs only."""
+	n_ops = len(jobs or [])
+	if n_ops == 1:
+		return f"1 {_('job')}"
+	return f"{n_ops} {_('jobs')}"
 
 
 def _fetch_transport_job_endpoints(transport_job_names):
@@ -1469,6 +1465,47 @@ def _job_status_badge_html(status):
 	)
 
 
+_SERVICE_ICON_BY_LABEL = {
+	"Air": "fa-plane",
+	"Sea": "fa-ship",
+	"Transport": "fa-truck",
+	"Customs": "fa-file-text-o",
+	"Warehousing": "fa-cubes",
+}
+
+
+def _service_cell_html(service_label):
+	label = (service_label or "").strip() or "—"
+	icon = _SERVICE_ICON_BY_LABEL.get(label, "fa-circle-o")
+	return (
+		f'<span class="exhibit-shipment-service-cell">'
+		f'<span class="exhibit-shipment-service-icon" aria-hidden="true">'
+		f'<i class="fa {icon}"></i></span>'
+		f'<span class="exhibit-shipment-service-label">{escape_html(label)}</span>'
+		f"</span>"
+	)
+
+
+def _endpoint_cell_html(label):
+	text = (label or "").strip() or "—"
+	return (
+		f'<span class="exhibit-shipment-endpoint-cell">'
+		f'<i class="fa fa-map-marker" aria-hidden="true"></i>'
+		f'<span>{escape_html(text)}</span>'
+		f"</span>"
+	)
+
+
+def _updated_cell_html(modified):
+	text = _format_shipment_modified(modified)
+	return (
+		f'<span class="exhibit-shipment-updated-cell">'
+		f'<i class="fa fa-calendar" aria-hidden="true"></i>'
+		f'<span>{escape_html(text)}</span>'
+		f"</span>"
+	)
+
+
 def _shipment_row_icon_html(status):
 	if (status or "").strip().lower() == "draft":
 		return (
@@ -1489,19 +1526,22 @@ def _format_shipment_modified(modified):
 
 def _build_operational_jobs_card_html(jobs, status_counts, unloco_labels, address_labels):
 	"""Job Details card: header, status summary, and unified operational jobs table."""
-	count_label = _job_status_count_label(jobs)
-	summary_html = " · ".join(
-		f"<strong>{escape_html(status)}:</strong> {count}"
-		for status, count in status_counts.items()
+	summary_html = " • ".join(
+		f"{escape_html(status)}: {count}" for status, count in status_counts.items()
 	)
 
 	header = (
 		f'<div class="exhibit-shipment-details-card">'
 		f'<div class="exhibit-shipment-details-header">'
+		f'<div class="exhibit-shipment-details-header-left">'
+		f'<span class="exhibit-shipment-details-header-icon" aria-hidden="true">'
+		f'<i class="fa fa-file-text-o"></i></span>'
+		f'<div class="exhibit-shipment-details-header-text">'
 		f'<span class="exhibit-shipment-details-title">{escape_html(_("Job Details"))}</span>'
-		f'<span class="exhibit-shipment-details-count">{escape_html(count_label)}</span>'
+		f'<span class="exhibit-shipment-details-summary">{summary_html}</span>'
 		f"</div>"
-		f'<div class="exhibit-shipment-details-summary">{summary_html}</div>'
+		f"</div>"
+		f"</div>"
 		f'<div class="exhibit-shipment-details-table-wrap">'
 		f'<table class="exhibit-shipment-details-table">'
 		f"<thead><tr>"
@@ -1531,12 +1571,12 @@ def _build_operational_jobs_card_html(jobs, status_counts, unloco_labels, addres
 		)
 		rows.append(
 			f"<tr>"
-			f'<td class="exhibit-shipment-col-service">{escape_html(job.get("service_label") or "—")}</td>'
+			f'<td class="exhibit-shipment-col-service">{_service_cell_html(job.get("service_label"))}</td>'
 			f'<td class="exhibit-shipment-col-id">{id_cell}</td>'
-			f"<td>{escape_html(origin_label)}</td>"
-			f"<td>{escape_html(dest_label)}</td>"
+			f"<td>{_endpoint_cell_html(origin_label)}</td>"
+			f"<td>{_endpoint_cell_html(dest_label)}</td>"
 			f"<td>{_job_status_badge_html(job.get('job_status'))}</td>"
-			f'<td class="exhibit-shipment-col-updated">{escape_html(_format_shipment_modified(job.get("modified")))}</td>'
+			f'<td class="exhibit-shipment-col-updated">{_updated_cell_html(job.get("modified"))}</td>'
 			f"</tr>"
 		)
 
@@ -1563,85 +1603,140 @@ def _aggregate_job_status_counts(statuses):
 
 EXHIBIT_JOB_STATUS_TAB_CSS = """
 <style>
-.exhibit-job-status-list { display: flex; flex-direction: column; gap: 8px; }
+.exhibit-job-status-list {
+	display: flex; flex-direction: column; gap: 0;
+	border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; overflow: hidden;
+}
 .exhibit-docket-status-item {
-	margin: 0; border: 1px solid #e0e0e0; border-radius: 6px; background: #fff; overflow: hidden;
+	margin: 0; border: none; border-radius: 0; background: #fff; overflow: hidden;
+}
+.exhibit-docket-status-item + .exhibit-docket-status-item {
+	border-top: 1px solid #e5e7eb;
 }
 .exhibit-docket-status-item-summary {
 	list-style: none; cursor: pointer; user-select: none;
-	padding: 10px 12px; font-size: 13px; display: flex; align-items: center; gap: 10px;
-	flex-wrap: wrap; background: #f8f9fa; border-bottom: 1px solid #e9ecef;
+	padding: 12px 14px; font-size: 13px; display: flex; align-items: center; gap: 12px;
+	flex-wrap: wrap; background: #f8fafc;
 }
-.exhibit-docket-status-item-summary::-webkit-details-marker { display: none; }
-.exhibit-docket-status-item-summary::before {
-	content: ""; display: inline-block; width: 0; height: 0;
-	border-left: 5px solid transparent; border-right: 5px solid transparent;
-	border-top: 6px solid #6c757d; transition: transform 0.2s ease; flex-shrink: 0;
+.exhibit-docket-status-item[open] > .exhibit-docket-status-item-summary {
+	border-bottom: 1px solid #e5e7eb;
 }
-.exhibit-docket-status-item[open] > .exhibit-docket-status-item-summary::before {
-	transform: rotate(180deg);
+.exhibit-docket-status-item-summary::-webkit-details-marker,
+.exhibit-docket-status-item-summary::marker { display: none; content: ""; }
+.exhibit-docket-toggle {
+	display: inline-flex; align-items: center; justify-content: center;
+	width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
+	background: #eef2f7; color: #64748b; font-size: 11px;
+	transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
-.exhibit-docket-status-item:not([open]) > .exhibit-docket-status-item-summary { border-bottom: none; }
-.exhibit-docket-status-item-main { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
-.exhibit-docket-status-item-meta { color: #6c757d; font-size: 12px; }
+.exhibit-docket-toggle i { transition: transform 0.15s ease; }
+.exhibit-docket-status-item[open] > .exhibit-docket-status-item-summary .exhibit-docket-toggle {
+	background: #d1fae5; color: #047857;
+}
+.exhibit-docket-status-item[open] > .exhibit-docket-status-item-summary .exhibit-docket-toggle i {
+	transform: rotate(-90deg);
+}
+.exhibit-docket-status-item-main {
+	flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center;
+}
+.exhibit-docket-status-item-main > a {
+	font-weight: 700; color: #0f172a; text-decoration: none;
+}
+.exhibit-docket-status-item-main > a:hover { color: #2563eb; text-decoration: underline; }
+.exhibit-docket-status-item-meta { color: #64748b; font-size: 13px; font-weight: 400; }
+.exhibit-docket-status-divider {
+	display: inline-block; width: 1px; height: 14px; background: #d1d5db; flex-shrink: 0;
+}
 .exhibit-docket-status-badge {
-	display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px;
-	font-weight: 600; background: #e9ecef; color: #495057; white-space: nowrap;
+	display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px;
+	font-weight: 600; background: #eef2f7; color: #475569; white-space: nowrap;
 }
 .exhibit-docket-shipment-count {
-	margin-left: auto; font-size: 12px; color: #6c757d; white-space: nowrap;
+	margin-left: auto; font-size: 12px; color: #64748b; white-space: nowrap;
 	font-variant-numeric: tabular-nums;
+	display: inline-flex; align-items: center; gap: 6px;
 }
-.exhibit-docket-status-body { padding: 10px 12px 12px; font-size: 12px; }
-.exhibit-job-status-empty { color: #6c757d; font-style: italic; margin: 0; }
+.exhibit-docket-shipment-count i { font-size: 12px; opacity: 0.85; }
+.exhibit-docket-status-item[open] > .exhibit-docket-status-item-summary .exhibit-docket-shipment-count {
+	color: #2563eb;
+}
+.exhibit-docket-status-body { padding: 14px 16px 16px; font-size: 12px; background: #fff; }
+.exhibit-job-status-empty { color: #64748b; font-style: italic; margin: 0; }
 .exhibit-shipment-details-card {
-	border: 1px solid #e9ecef; border-radius: 8px; background: #fff; overflow: hidden;
+	border: none; border-radius: 0; background: #fff; overflow: hidden;
 }
 .exhibit-shipment-details-header {
-	display: flex; align-items: center; justify-content: space-between; gap: 12px;
-	padding: 12px 14px; border-bottom: 1px solid #e9ecef;
+	display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+	padding: 0 0 14px; border-bottom: 1px solid #eef2f7; margin-bottom: 0;
 }
-.exhibit-shipment-details-title { font-size: 14px; font-weight: 600; color: #212529; }
-.exhibit-shipment-details-count { font-size: 12px; color: #6c757d; white-space: nowrap; }
+.exhibit-shipment-details-header-left {
+	display: flex; align-items: flex-start; gap: 10px; min-width: 0;
+}
+.exhibit-shipment-details-header-icon {
+	display: inline-flex; align-items: center; justify-content: center;
+	width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+	background: #dbeafe; color: #2563eb; font-size: 14px;
+}
+.exhibit-shipment-details-header-text {
+	display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+.exhibit-shipment-details-title { font-size: 14px; font-weight: 700; color: #0f172a; }
 .exhibit-shipment-details-summary {
-	padding: 10px 14px; font-size: 12px; color: #495057; border-bottom: 1px solid #f1f3f5;
+	font-size: 12px; color: #64748b; line-height: 1.4;
 }
-.exhibit-shipment-details-summary strong { font-weight: 600; color: #212529; }
-.exhibit-shipment-details-table-wrap { overflow-x: auto; }
+.exhibit-shipment-details-table-wrap { overflow-x: auto; margin-top: 4px; }
 .exhibit-shipment-details-table {
 	width: 100%; border-collapse: collapse; font-size: 12px;
 }
 .exhibit-shipment-details-table th {
-	text-align: left; padding: 10px 14px; font-weight: 600; color: #6c757d;
-	border-bottom: 1px solid #e9ecef; white-space: nowrap;
+	text-align: left; padding: 12px 10px; font-weight: 600; color: #94a3b8;
+	border-bottom: 1px solid #e5e7eb; white-space: nowrap;
+	text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px;
 }
 .exhibit-shipment-details-table td {
-	padding: 10px 14px; color: #212529; border-bottom: 1px solid #f1f3f5; vertical-align: middle;
+	padding: 12px 10px; color: #0f172a; border-bottom: 1px solid #f1f5f9; vertical-align: middle;
 }
 .exhibit-shipment-details-table tbody tr:last-child td { border-bottom: none; }
 .exhibit-shipment-id-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .exhibit-shipment-id-text { font-weight: 600; min-width: 0; }
-.exhibit-shipment-id-text a { color: #212529; text-decoration: none; }
-.exhibit-shipment-id-text a:hover { color: #0d6efd; text-decoration: underline; }
+.exhibit-shipment-id-text a { color: #0f172a; text-decoration: none; }
+.exhibit-shipment-id-text a:hover { color: #2563eb; text-decoration: underline; }
 .exhibit-shipment-row-icon {
 	display: inline-flex; align-items: center; justify-content: center;
 	width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0; font-size: 13px;
 }
-.exhibit-shipment-row-icon--draft { background: #f1f3f5; color: #6c757d; }
-.exhibit-shipment-row-icon--active { background: #d1e7dd; color: #0f5132; }
-.exhibit-shipment-col-updated { color: #6c757d; white-space: nowrap; }
-.exhibit-shipment-col-service { font-weight: 600; white-space: nowrap; }
+.exhibit-shipment-row-icon--draft { background: #dbeafe; color: #2563eb; }
+.exhibit-shipment-row-icon--active { background: #d1fae5; color: #047857; }
+.exhibit-shipment-service-cell {
+	display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+}
+.exhibit-shipment-service-icon {
+	display: inline-flex; align-items: center; justify-content: center;
+	width: 28px; height: 28px; border-radius: 999px; flex-shrink: 0;
+	background: #dbeafe; color: #2563eb; font-size: 12px;
+}
+.exhibit-shipment-service-label { font-weight: 600; color: #0f172a; }
+.exhibit-shipment-endpoint-cell,
+.exhibit-shipment-updated-cell {
+	display: inline-flex; align-items: center; gap: 6px; color: #334155;
+}
+.exhibit-shipment-endpoint-cell .fa,
+.exhibit-shipment-updated-cell .fa {
+	color: #94a3b8; font-size: 12px; width: 12px; text-align: center;
+}
+.exhibit-shipment-col-updated { color: #64748b; white-space: nowrap; }
+.exhibit-shipment-col-service { white-space: nowrap; }
 .exhibit-shipment-status-badge {
 	display: inline-block; padding: 3px 10px; border-radius: 999px;
 	font-size: 11px; font-weight: 600; white-space: nowrap;
 }
-.exhibit-shipment-status-badge.draft { background: #e9ecef; color: #495057; }
-.exhibit-shipment-status-badge.submitted { background: #d1e7dd; color: #0f5132; }
-.exhibit-shipment-status-badge.in_progress { background: #cfe2ff; color: #084298; }
-.exhibit-shipment-status-badge.completed { background: #d1e7dd; color: #0f5132; }
-.exhibit-shipment-status-badge.closed { background: #e2e3e5; color: #383d41; }
-.exhibit-shipment-status-badge.reopened { background: #fff3cd; color: #856404; }
-.exhibit-shipment-status-badge.cancelled { background: #f8d7da; color: #721c24; }
+.exhibit-shipment-status-badge.draft { background: #eef2f7; color: #475569; }
+.exhibit-shipment-status-badge.submitted { background: #d1fae5; color: #047857; }
+.exhibit-shipment-status-badge.in_progress { background: #dbeafe; color: #1d4ed8; }
+.exhibit-shipment-status-badge.completed { background: #d1fae5; color: #047857; }
+.exhibit-shipment-status-badge.closed { background: #e2e8f0; color: #475569; }
+.exhibit-shipment-status-badge.reopened { background: #fef3c7; color: #92400e; }
+.exhibit-shipment-status-badge.cancelled { background: #fee2e2; color: #b91c1c; }
 </style>
 """
 
@@ -1665,13 +1760,12 @@ def _build_exhibit_job_status_tab_html(exhibit_name, docket_rows=None):
 		status_counts = _aggregate_job_status_counts(j.get("job_status") for j in jobs)
 
 		exhibitor = (row.get("exhibitor") or "").strip()
-		booth_no = (row.get("booth_no") or "").strip()
-		meta_parts = [p for p in (exhibitor, booth_no and f"{_('Booth')} {booth_no}") if p]
 		meta_html = (
-			f'<span class="exhibit-docket-status-item-meta">{" · ".join(escape_html(p) for p in meta_parts)}</span>'
-			if meta_parts
+			f'<span class="exhibit-docket-status-item-meta">{escape_html(exhibitor)}</span>'
+			if exhibitor
 			else ""
 		)
+		divider_html = '<span class="exhibit-docket-status-divider" aria-hidden="true"></span>'
 
 		docket_status = (row.get("status") or "Draft").strip()
 		docket_link = (
@@ -1681,11 +1775,14 @@ def _build_exhibit_job_status_tab_html(exhibit_name, docket_rows=None):
 		summary = (
 			f'<details class="exhibit-docket-status-item">'
 			f'<summary class="exhibit-docket-status-item-summary">'
+			f'<span class="exhibit-docket-toggle" aria-hidden="true">'
+			f'<i class="fa fa-chevron-right"></i></span>'
 			f'<div class="exhibit-docket-status-item-main">'
-			f"{docket_link}{meta_html}"
+			f"{docket_link}{meta_html}{divider_html}"
 			f'<span class="exhibit-docket-status-badge">{escape_html(docket_status)}</span>'
 			f"</div>"
 			f'<span class="exhibit-docket-shipment-count">'
+			f'<i class="fa fa-briefcase" aria-hidden="true"></i>'
 			f"{escape_html(count_label)}"
 			f"</span>"
 			f"</summary>"
@@ -1695,7 +1792,7 @@ def _build_exhibit_job_status_tab_html(exhibit_name, docket_rows=None):
 			body = (
 				f'<div class="exhibit-docket-status-body">'
 				f'<p class="exhibit-job-status-empty">'
-				f'{escape_html(_("No bookings or operational jobs linked to this docket yet."))}'
+				f'{escape_html(_("No operational jobs linked to this docket yet."))}'
 				f"</p>"
 				f"</div>"
 			)

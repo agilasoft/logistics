@@ -113,11 +113,18 @@ def internal_job_detail_rows_for_parent(parent_doc: Any) -> list[Any]:
 
 	An empty override list is treated as no override (virtual Linked Services grids often
 	serialize as ``[]`` from the desk; honouring that would wipe rows on persist/sync).
+
+	Desk overrides are scoped by parent doctype so a Docket create payload cannot leak into
+	Transport Order / Sea Booking insert sync (which would reparent Docket Linked Services).
 	"""
 	fieldname = internal_job_detail_fieldname(getattr(parent_doc, "doctype", None) or "")
 	parent_doctype = getattr(parent_doc, "doctype", None) or ""
-	for key in ("_logistics_dk_ij_client_rows", "_logistics_ij_client_rows"):
-		ov = getattr(frappe.local, key, None)
+	if parent_doctype == "Docket":
+		ov = getattr(frappe.local, "_logistics_dk_ij_client_rows", None)
+		if ov is not None and len(ov) > 0:
+			return list(ov)
+	else:
+		ov = getattr(frappe.local, "_logistics_ij_client_rows", None)
 		if ov is not None and len(ov) > 0:
 			return list(ov)
 	if parent_doctype in VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS:
@@ -189,6 +196,9 @@ def _copy_row_params_to_internal_job(row: Any, ij_doc: Any) -> bool:
 	"""Copy parameter values from a Linked Service Detail row onto a Linked Service document.
 
 	Returns True when any field changed.
+
+	Never clears an existing ``job_no`` with a blank desk value — stale virtual-grid payloads
+	often omit Job No after a sibling create and would otherwise wipe the stamped link.
 	"""
 	meta = _ls_meta()
 	changed = False
@@ -199,6 +209,8 @@ def _copy_row_params_to_internal_job(row: Any, ij_doc: Any) -> bool:
 		if new_val is None:
 			continue
 		cur_val = getattr(ij_doc, fn, None)
+		if fn == "job_no" and not _norm(new_val) and _norm(cur_val):
+			continue
 		if _norm(cur_val) != _norm(new_val):
 			setattr(ij_doc, fn, new_val)
 			changed = True
@@ -379,17 +391,47 @@ def _delete_orphan_internal_jobs_from_sets(prev: set[str], cur: set[str]) -> Non
 			)
 
 
+def _linked_service_owned_by_parent_doc(ij_name: str, parent_doc: Any) -> bool:
+	"""True when *ij_name* is already parented to *parent_doc* (or has no parent yet)."""
+	if not ij_name or not parent_doc:
+		return False
+	row = frappe.db.get_value(
+		linked_service_doctype(),
+		ij_name,
+		["parent_booking_type", "parent_booking_name"],
+		as_dict=True,
+	)
+	if not row:
+		return False
+	existing_dt = _norm(row.get("parent_booking_type"))
+	existing_name = _norm(row.get("parent_booking_name"))
+	# Unowned / blank parent can be claimed by the current parent.
+	if not existing_dt and not existing_name:
+		return True
+	return existing_dt == _norm(getattr(parent_doc, "doctype", None)) and existing_name == _norm(
+		getattr(parent_doc, "name", None)
+	)
+
+
 def _backfill_internal_job_parent_link(ij_doc: Any, parent_doc: Any) -> bool:
 	"""Ensure ``parent_booking_type`` / ``parent_booking_name`` on an IJ when the parent has a name."""
 	parent_name = _norm(getattr(parent_doc, "name", None))
 	if not parent_name:
 		return False
+	# Never steal a Linked Service already owned by another booking/quote.
+	existing_dt = _norm(getattr(ij_doc, "parent_booking_type", None))
+	existing_name = _norm(getattr(ij_doc, "parent_booking_name", None))
+	if existing_dt and existing_name and (
+		existing_dt != _norm(getattr(parent_doc, "doctype", None))
+		or existing_name != parent_name
+	):
+		return False
 	changed = False
 	parent_dt = getattr(parent_doc, "doctype", None) or ""
-	if parent_dt and _norm(getattr(ij_doc, "parent_booking_type", None)) != parent_dt:
+	if parent_dt and existing_dt != parent_dt:
 		ij_doc.parent_booking_type = parent_dt
 		changed = True
-	if _norm(getattr(ij_doc, "parent_booking_name", None)) != parent_name:
+	if existing_name != parent_name:
 		ij_doc.parent_booking_name = parent_name
 		changed = True
 	return changed
@@ -402,6 +444,7 @@ def _ensure_internal_job_docs_for_detail_rows(parent_doc: Any) -> dict[str, str]
 	non-existent Internal Job and were re-pointed at a freshly materialised document.
 
 	Does **not** delete Internal Jobs whose detail row was removed (see ``before_save`` sync).
+	Skips Linked Services owned by a different parent (e.g. Docket LS leaked into TRO insert).
 	"""
 	remap: dict[str, str] = {}
 	if not parent_doc:
@@ -420,6 +463,9 @@ def _ensure_internal_job_docs_for_detail_rows(parent_doc: Any) -> dict[str, str]
 	for row in internal_job_detail_rows_for_parent(parent_doc):
 		ij_name = _linked_service_name_from_row(row)
 		if ij_name and linked_service_record_exists(ij_name):
+			if not _linked_service_owned_by_parent_doc(ij_name, parent_doc):
+				# Foreign Linked Service (wrong parent) — do not update or reparent.
+				continue
 			_update_internal_job_from_row(row, ij_name)
 			if _norm(getattr(parent_doc, "name", None)):
 				ij = frappe.get_doc(linked_service_doctype(), ij_name)
@@ -436,7 +482,6 @@ def _ensure_internal_job_docs_for_detail_rows(parent_doc: Any) -> dict[str, str]
 			remap[stale_name] = new_name
 		set_row_linked_service_link(row, new_name)
 	return remap
-
 
 def _charges_child_meta(parent_doc: Any) -> tuple[Any | None, Any | None]:
 	"""Return (charges_table_field, child_doctype_meta) when the parent has a charges table."""

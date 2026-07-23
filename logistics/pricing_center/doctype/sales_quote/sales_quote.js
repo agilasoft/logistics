@@ -2258,6 +2258,20 @@ function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 					r,
 					"charges"
 				);
+				return;
+			}
+			// Fallback when charge_type_cleanup.js is not loaded (estimates would otherwise stay blank)
+			if (!r || !r.message || !r.message.success) return;
+			["estimated_revenue", "estimated_cost", "quantity", "cost_quantity"].forEach(function (fn) {
+				if (fn in r.message && frappe.meta.get_docfield(cdt, fn)) {
+					frappe.model.set_value(cdt, cdn, fn, r.message[fn]);
+				}
+			});
+			if (frappe.meta.get_docfield(cdt, "revenue_calc_notes")) {
+				frappe.model.set_value(cdt, cdn, "revenue_calc_notes", r.message.revenue_calc_notes || "");
+			}
+			if (frappe.meta.get_docfield(cdt, "cost_calc_notes")) {
+				frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
 			}
 		}
 	});

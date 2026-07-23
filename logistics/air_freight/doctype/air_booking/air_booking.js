@@ -803,6 +803,9 @@ frappe.ui.form.on('Air Booking', {
 			if (window.logistics && logistics.add_get_charges_from_quotation_button_if_allowed) {
 				logistics.add_get_charges_from_quotation_button_if_allowed(frm);
 			}
+			if (window.logistics && logistics.add_get_charges_from_tariff_button_if_allowed) {
+				logistics.add_get_charges_from_tariff_button_if_allowed(frm);
+			}
 			frm.add_custom_button(__('Get Milestones'), function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_milestones_from_template',

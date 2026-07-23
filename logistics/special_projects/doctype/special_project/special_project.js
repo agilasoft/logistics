@@ -64,7 +64,17 @@ function _applicable_lifecycle_stages_for_dashboard(frm) {
 
 function _load_dashboard_html(frm, opts) {
 	opts = opts || {};
-	if (!frm.fields_dict.dashboard_html || !frm.doc.name || frm.doc.__islocal) {
+	if (!frm.fields_dict.dashboard_html) {
+		if (opts.done) opts.done();
+		return;
+	}
+	// New/unsaved docs have no programme dashboard yet — show empty state instead of a blank panel.
+	if (!frm.doc.name || frm.doc.__islocal || frm.is_new()) {
+		frm.fields_dict.dashboard_html.$wrapper.html(
+			'<div class="text-muted" style="padding:8px 0;">' +
+				__("Save the Special Project to see the dashboard.") +
+				"</div>"
+		);
 		if (opts.done) opts.done();
 		return;
 	}
@@ -204,10 +214,12 @@ function _applicableLifecycleStageFilters(frm) {
 		.map((row) => row.lifecycle_stage)
 		.filter(Boolean);
 	// Must be a plain object — array filters break when merged with link_filters in link.js.
-	if (!stages.length) {
-		return { for_special_project: 1 };
+	// Always restrict to Special Project stages (exclude exhibit-only like Pre-Show).
+	const filters = { for_special_project: 1 };
+	if (stages.length) {
+		filters.name = ["in", stages];
 	}
-	return { name: ["in", stages] };
+	return filters;
 }
 
 function _refresh_special_project_services_grid_rows(frm) {
@@ -408,18 +420,28 @@ function logistics_clear_stale_package_grid_settings(frm) {
 	}
 }
 
+/** Child-table set_query only when the grid control exists (Table MultiSelect has no grid). */
+function _safe_child_set_query(frm, fieldname, parentfield, query) {
+	const ctrl = frm.fields_dict && frm.fields_dict[parentfield];
+	if (!ctrl || !ctrl.grid || typeof ctrl.grid.get_field !== "function") {
+		return false;
+	}
+	frm.set_query(fieldname, parentfield, query);
+	return true;
+}
+
 function logistics_set_packages_site_query(frm) {
-	frm.set_query("site", "packages", function () {
+	_safe_child_set_query(frm, "site", "packages", function () {
 		return logistics.address.query_for_customer(frm.doc.customer);
 	});
-	frm.set_query("warehouse_item", "packages", function (doc) {
+	_safe_child_set_query(frm, "warehouse_item", "packages", function (doc) {
 		const filters = {};
 		if (doc.customer) {
 			filters.customer = doc.customer;
 		}
 		return { filters: filters };
 	});
-	frm.set_query("commodity", "packages", function () {
+	_safe_child_set_query(frm, "commodity", "packages", function () {
 		return { filters: { active: 1 } };
 	});
 }
@@ -531,6 +553,14 @@ function _bind_special_project_main_dash_lifecycle($root) {
 		syncGroupCollapsedState($group);
 	}
 
+	function openJobFromCard($card) {
+		const jobDoctype = ($card.attr("data-sp-job-doctype") || "").trim();
+		const jobName = ($card.attr("data-sp-job-name") || "").trim();
+		if (jobDoctype && jobName && typeof frappe !== "undefined" && frappe.set_route) {
+			frappe.set_route("Form", jobDoctype, jobName);
+		}
+	}
+
 	$root.find(".sp-dash-lifecycle-group").each(function () {
 		syncGroupCollapsedState($(this));
 	});
@@ -539,24 +569,32 @@ function _bind_special_project_main_dash_lifecycle($root) {
 		const $header = $(this);
 		if ($header.attr("data-sp-lifecycle-bound")) return;
 		$header.attr("data-sp-lifecycle-bound", "1");
-		const $chevron = $header.find(".sp-dash-lifecycle-chevron");
-		if ($chevron.length && !$chevron.attr("data-sp-lifecycle-bound")) {
-			$chevron.attr("data-sp-lifecycle-bound", "1");
-			$chevron.on("click.sp-lifecycle-dash", function (ev) {
-				ev.stopPropagation();
-				const $group = $header.closest(".sp-dash-lifecycle-group");
-				if ($group.length) toggleGroup($group);
-			});
-		}
-		$header.on("click.sp-lifecycle-dash", function (ev) {
-			if ($(ev.target).closest(".sp-dash-lifecycle-chevron").length) return;
+		$header.on("click.sp-lifecycle-dash", function () {
 			const $group = $header.closest(".sp-dash-lifecycle-group");
 			if (!$group.length) return;
 			const stage = ($group.attr("data-stage") || "").trim();
 			const current = ($root.attr("data-stage-filter") || "").trim();
 			if (stage) setStageHighlight(stage === current ? "" : stage);
-			if ($group.hasClass("collapsed")) {
-				$group.removeClass("collapsed");
+			toggleGroup($group);
+		});
+		$header.on("keydown.sp-lifecycle-dash", function (ev) {
+			if (ev.key !== "Enter" && ev.key !== " ") return;
+			ev.preventDefault();
+			$header.trigger("click.sp-lifecycle-dash");
+		});
+	});
+
+	$root.find(".sp-dash-lifecycle-show-less").each(function () {
+		const $btn = $(this);
+		if ($btn.attr("data-sp-lifecycle-bound")) return;
+		$btn.attr("data-sp-lifecycle-bound", "1");
+		$btn.on("click.sp-lifecycle-dash", function (ev) {
+			ev.preventDefault();
+			ev.stopPropagation();
+			const $group = $btn.closest(".sp-dash-lifecycle-group");
+			if (!$group.length) return;
+			if (!$group.hasClass("collapsed")) {
+				$group.addClass("collapsed");
 				syncGroupCollapsedState($group);
 			}
 		});
@@ -570,6 +608,12 @@ function _bind_special_project_main_dash_lifecycle($root) {
 			ev.stopPropagation();
 			const stage = ($card.attr("data-sp-lifecycle-stage") || "").trim();
 			if (stage) setStageHighlight(stage);
+			openJobFromCard($card);
+		});
+		$card.on("keydown.sp-lifecycle-dash", function (ev) {
+			if (ev.key !== "Enter" && ev.key !== " ") return;
+			ev.preventDefault();
+			$card.trigger("click.sp-lifecycle-dash");
 		});
 	});
 
@@ -770,16 +814,22 @@ function logistics_set_internal_job_site_query(frm) {
 	frm.set_query("lifecycle_stage", function () {
 		return { filters: _applicableLifecycleStageFilters(frm) };
 	});
-	frm.set_query("sp_site", "special_project_services", function () {
+	// Table MultiSelect has no grid — set_query on the parent field (like Link).
+	if (frm.fields_dict.applicable_lifecycle_stages) {
+		frm.set_query("applicable_lifecycle_stages", function () {
+			return { filters: { for_special_project: 1 } };
+		});
+	}
+	_safe_child_set_query(frm, "sp_site", "special_project_services", function () {
 		return logistics.address.query_for_customer(frm.doc.customer);
 	});
-	frm.set_query("lifecycle_stage", "special_project_services", function () {
+	_safe_child_set_query(frm, "lifecycle_stage", "special_project_services", function () {
 		return { filters: _applicableLifecycleStageFilters(frm) };
 	});
-	frm.set_query("lifecycle_stage", "charges", function () {
+	_safe_child_set_query(frm, "lifecycle_stage", "charges", function () {
 		return { filters: _applicableLifecycleStageFilters(frm) };
 	});
-	frm.set_query("linked_service", "charges", function () {
+	_safe_child_set_query(frm, "linked_service", "charges", function () {
 		var filters = [];
 		if (frm.doc.sales_quote) {
 			filters.push(["Linked Service", "parent_booking_type", "=", "Sales Quote"]);
@@ -790,7 +840,7 @@ function logistics_set_internal_job_site_query(frm) {
 		}
 		return { filters: filters };
 	});
-	frm.set_query("special_project_service_line", "charges", function (doc, cdt, cdn) {
+	_safe_child_set_query(frm, "special_project_service_line", "charges", function (doc, cdt, cdn) {
 		var row = cdn && locals[cdt] && locals[cdt][cdn];
 		var filters = [
 			["Special Project Service", "parent_booking_type", "=", "Special Project"],
@@ -836,7 +886,7 @@ frappe.ui.form.on("Special Project", {
 				return r.message || { filters: [] };
 			});
 		});
-		frm.set_query("sales_quote_link", "charges", function (doc, cdt, cdn) {
+		_safe_child_set_query(frm, "sales_quote_link", "charges", function (doc, cdt, cdn) {
 			var row = cdn && locals[cdt] && locals[cdt][cdn];
 			if (row && row.change_request) {
 				return {
@@ -908,6 +958,14 @@ frappe.ui.form.on("Special Project", {
 		_bind_special_project_lazy_tabs(frm);
 		_refresh_packages_summary(frm);
 		_sync_programme_charge_sales_quote_links(frm);
+
+		// New docs land on empty Dashboard first — open Details and seed dashboard empty-state.
+		if (frm.is_new()) {
+			_load_dashboard_html(frm);
+			if (frm.fields_dict.details_tab && frm.fields_dict.details_tab.tab) {
+				frm.fields_dict.details_tab.tab.set_active();
+			}
+		}
 
 		// --- Action menu: Get Milestones, Get Documents, Calculate Charges, Apply Lifecycle Template ---
 		if (!frm.is_new() && !frm.doc.__islocal) {

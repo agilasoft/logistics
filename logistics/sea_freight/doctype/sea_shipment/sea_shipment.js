@@ -218,9 +218,16 @@ frappe.ui.form.on('Sea Shipment', {
 		}
 	},
 	packages_on_form_rendered: function(frm) {
+		_sea_shipment_refresh_package_container_options(frm);
 		if (window.logistics_attach_packages_change_listener) {
 			window.logistics_attach_packages_change_listener(frm, 'Sea Freight Packages', 'packages', 'sea_shipment_volume');
 		}
+	},
+	containers_add: function(frm) {
+		_sea_shipment_refresh_package_container_options(frm);
+	},
+	containers_remove: function(frm) {
+		_sea_shipment_refresh_package_container_options(frm);
 	},
 	document_list_template: function (frm) {
 		_sea_shipment_save_then_populate_template(
@@ -426,6 +433,7 @@ frappe.ui.form.on('Sea Shipment', {
 	},
 
 	refresh: function(frm) {
+		_sea_shipment_refresh_package_container_options(frm);
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
@@ -919,9 +927,67 @@ function _sea_shipment_package_or_container_changed(frm) {
 	_refresh_packing_summary_debounced(frm);
 }
 
+/**
+ * Rebuild Packages.container Select options from Containers table equipment numbers.
+ * container_no is a Link (doc name); cargo rollups match on container_number.
+ */
+function _sea_shipment_refresh_package_container_options(frm) {
+	if (!frm || !frm.fields_dict || !frm.fields_dict.packages || !frm.fields_dict.packages.grid) {
+		return;
+	}
+	var grid = frm.fields_dict.packages.grid;
+	var names = (frm.doc.containers || [])
+		.map(function (c) {
+			return c.container_no;
+		})
+		.filter(Boolean);
+
+	function apply_options(numbers) {
+		var unique = [];
+		var seen = {};
+		(numbers || []).forEach(function (n) {
+			var key = String(n || "").trim();
+			if (!key || seen[key]) return;
+			seen[key] = true;
+			unique.push(key);
+		});
+		grid.update_docfield_property("container", "options", "\n" + unique.join("\n"));
+	}
+
+	if (!names.length) {
+		apply_options([]);
+		return;
+	}
+
+	frappe.db
+		.get_list("Container", {
+			filters: { name: ["in", names] },
+			fields: ["name", "container_number"],
+			limit: names.length,
+		})
+		.then(function (rows) {
+			var map = {};
+			(rows || []).forEach(function (r) {
+				if (r && r.name) {
+					map[r.name] = r.container_number || r.name;
+				}
+			});
+			apply_options(
+				names.map(function (n) {
+					return map[n] || n;
+				})
+			);
+		})
+		.catch(function () {
+			// Legacy / unresolved: use raw container_no values
+			apply_options(names);
+		});
+}
+
 // Sea Freight Packages: refresh totals and per-container cargo when packages change
 frappe.ui.form.on('Sea Freight Packages', {
 	form_render: function(frm) {
+		_sea_shipment_refresh_package_container_options(frm);
 		_sea_shipment_package_or_container_changed(frm);
 	},
 	container: function(frm) {
@@ -947,10 +1013,14 @@ frappe.ui.form.on('Sea Freight Packages', {
 // Sea Freight Containers: refresh capacity metrics when container type changes
 frappe.ui.form.on('Sea Freight Containers', {
 	form_render: function(frm) {
+		_sea_shipment_refresh_package_container_options(frm);
 		_refresh_container_cargo_debounced(frm);
 		if (!_is_grid_dialog_open()) {
 			_refresh_packing_summary_debounced(frm);
 		}
+	},
+	container_no: function(frm) {
+		_sea_shipment_refresh_package_container_options(frm);
 	},
 	type: function(frm) {
 		_refresh_container_cargo_debounced(frm);

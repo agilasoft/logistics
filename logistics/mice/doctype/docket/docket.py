@@ -46,6 +46,7 @@ class Docket(VirtualLinkedServicesMixin, Document):
 		from logistics.utils.document_date_validation import validate_planned_date_range
 
 		validate_planned_date_range(self)
+		self._update_packing_summary()
 		self.validate_accounts()
 		self._sync_charges()
 
@@ -276,13 +277,22 @@ class Docket(VirtualLinkedServicesMixin, Document):
 
 		``project`` always tracks the parent Exhibit because it is the ERPNext Project
 		used as the Accounting Dimension on every posting from this docket.
+		Event Open/Close dates are filled from the Exhibit when empty.
 		"""
 		if not self.exhibit:
 			return
 		sp = frappe.db.get_value(
 			"MICE Project",
 			self.exhibit,
-			["company", "cost_center", "branch", "profit_center", "project"],
+			[
+				"company",
+				"cost_center",
+				"branch",
+				"profit_center",
+				"project",
+				"show_open_date",
+				"show_close_date",
+			],
 			as_dict=True,
 		)
 		if not sp:
@@ -298,6 +308,10 @@ class Docket(VirtualLinkedServicesMixin, Document):
 		exhibit_project = (sp.get("project") or "").strip() or None
 		if exhibit_project and getattr(self, "project", None) != exhibit_project:
 			self.project = exhibit_project
+		if not self.planned_start and sp.get("show_open_date"):
+			self.planned_start = sp.show_open_date
+		if not self.planned_end and sp.get("show_close_date"):
+			self.planned_end = sp.show_close_date
 		if not self.company:
 			co = frappe.defaults.get_user_default("Company") or frappe.db.get_single_value(
 				"Global Defaults", "default_company"
@@ -342,7 +356,7 @@ class Docket(VirtualLinkedServicesMixin, Document):
 		return total_volume
 
 	def _update_packing_summary(self):
-		"""Update total_packages, total_volume, total_weight from packages."""
+		"""Update total_packages, total_volume, total_weight, chargeable from packages."""
 		packages = self.get("packages") or []
 		self.total_packages = sum(
 			flt(getattr(p, "no_of_packs", 0) or getattr(p, "quantity", 0) or 1)
@@ -350,6 +364,24 @@ class Docket(VirtualLinkedServicesMixin, Document):
 		)
 		self.total_volume = self.get_total_volume()
 		self.total_weight = self.get_total_weight()
+		self.calculate_chargeable_weight()
+
+	def calculate_chargeable_weight(self):
+		"""IATA higher-of-both: max(actual weight, volume × 1000/6 kg/m³)."""
+		from logistics.utils.measurements import IATA_VOLUMETRIC_DENSITY_KG_M3
+
+		volume = flt(self.total_volume)
+		weight = flt(self.total_weight)
+		volume_weight = volume * IATA_VOLUMETRIC_DENSITY_KG_M3 if volume > 0 else 0
+
+		if weight > 0 and volume_weight > 0:
+			self.chargeable = max(weight, volume_weight)
+		elif weight > 0:
+			self.chargeable = weight
+		elif volume_weight > 0:
+			self.chargeable = volume_weight
+		else:
+			self.chargeable = 0
 
 
 def _resolve_operational_jobs_for_internal_row(job_type: str, job_no: str) -> list[tuple[str, str]]:
@@ -451,6 +483,7 @@ def aggregate_volume_from_packages_remote(doc=None):
 		"total_volume": flt(docket.total_volume),
 		"total_weight": flt(docket.total_weight),
 		"total_packages": flt(docket.total_packages),
+		"chargeable": flt(docket.chargeable),
 	}
 
 

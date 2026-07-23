@@ -56,14 +56,17 @@ app_include_js = [
 	"/assets/logistics/js/service_role.js?v=3",
 	"/assets/logistics/js/internal_job_detail_grid_delete_fix.js",
 	"/assets/logistics/js/get_charges_from_quotation.js?v=18",
+	"/assets/logistics/js/get_charges_from_tariff.js?v=1",
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=3",
 	"/assets/logistics/js/air_consolidation_matching_shipments.js?v=5",
 	"/assets/logistics/js/charges_disbursement_sync.js",
+	"/assets/logistics/js/charge_type_cleanup.js",
 	"/assets/logistics/js/charge_break_dialogs.js",
 	"/assets/logistics/js/volume_from_dimensions.js",
 	"/assets/logistics/js/density_factor.js?v=2",
 	"/assets/logistics/js/document_alerts_dialog.js?v=2",
 	"/assets/logistics/js/documents_tab_utils.js",
+	"/assets/logistics/js/logistics_lifecycle_stepper.js",
 	"/assets/logistics/js/opportunity_dashboard_boot.js?v=3",
 	"/assets/logistics/js/crm_sales_quote_actions.js?v=2",
 	"/assets/logistics/js/profitability_form.js?v=5",
@@ -96,6 +99,7 @@ doctype_js = {
 	# sales_quote.js is omitted: it loads via the DocType's own __js; listing it here would double-bind.
 	"Sales Quote": [
 		"public/js/operational_exchange_rate_grid.js",
+		"public/js/charge_type_cleanup.js",
 		"public/js/charge_break_dialogs.js",
 		"public/js/charge_break_buttons.js",
 		"pricing_center/doctype/sales_quote_charge/sales_quote_charge.js",
@@ -127,6 +131,7 @@ doctype_js = {
 		"public/js/charge_break_buttons.js",
 		# Same Get Charges from Quotation UI as Sea Booking / Transport Order (list criteria, search, cards, Apply).
 		"logistics/public/js/get_charges_from_quotation.js",
+		"logistics/public/js/get_charges_from_tariff.js",
 	],
 	"Air Shipment": [
 		"logistics/public/js/operational_exchange_rate_grid.js",
@@ -376,11 +381,11 @@ _doc_milestone_doctypes = [
 	"Inbound Order", "Release Order", "Transfer Order", "Cross-Docking Order",
 	"Warehouse Job", "General Job", "Special Project",
 	"Project Order", "Project Job",
-	# Exhibit family: parent doctypes with a ``milestones`` child table and
+	# MICE family: parent doctypes with a ``milestones`` child table and
 	# ``milestone_template`` field. Without these hooks, Date Based sync
 	# (parent date field <-> milestone actual_end) and status auto-update
 	# (Planned / Started / Completed / Delayed) never run on save.
-	"Exhibit", "Docket", "Exhibit Order", "Exhibit Job",
+	"MICE Project", "Docket", "MICE Order", "MICE Job",
 ]
 
 doc_events = {

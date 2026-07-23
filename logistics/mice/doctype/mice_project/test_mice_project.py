@@ -531,9 +531,14 @@ class TestShow(IntegrationTestCase):
 		html = _build_operational_jobs_card_html(jobs, status_counts, unloco_labels, {})
 		self.assertIn("exhibit-shipment-details-card", html)
 		self.assertIn("Job Details", html)
-		self.assertIn("2 jobs", html)
-		self.assertIn("<strong>Draft:</strong> 1", html)
-		self.assertIn("<strong>Submitted:</strong> 1", html)
+		self.assertIn("Draft: 1", html)
+		self.assertIn("Submitted: 1", html)
+		self.assertIn("Draft: 1 • Submitted: 1", html)
+		self.assertIn("exhibit-shipment-details-header-icon", html)
+		self.assertIn("exhibit-shipment-service-icon", html)
+		self.assertIn("fa-ship", html)
+		self.assertIn("fa-map-marker", html)
+		self.assertIn("fa-calendar", html)
 		self.assertIn("SF000000384", html)
 		self.assertIn("Shanghai, CN", html)
 		self.assertIn("Singapore, SG", html)
@@ -642,6 +647,10 @@ class TestShow(IntegrationTestCase):
 			self.assertIn("Job Details", html)
 			self.assertIn("1 job", html)
 			self.assertIn("DK-TEST-1", html)
+			self.assertIn("Acme", html)
+			self.assertIn("exhibit-docket-toggle", html)
+			self.assertIn("fa-briefcase", html)
+			self.assertIn("exhibit-docket-status-divider", html)
 			self.assertIn("Shanghai, CN", html)
 
 	def test_fetch_transport_job_endpoints_queries_transport_job_link(self):
@@ -655,21 +664,17 @@ class TestShow(IntegrationTestCase):
 			self.assertIn("transport_job", filters)
 			self.assertNotIn("parent", filters)
 
-	def test_job_status_count_label_distinguishes_bookings_and_jobs(self):
+	def test_job_status_count_label_reports_jobs_only(self):
 		self.assertEqual(_job_status_count_label([]), "0 jobs")
 		self.assertEqual(
 			_job_status_count_label([{"job_type": "Sea Shipment"}]),
 			"1 job",
 		)
 		self.assertEqual(
-			_job_status_count_label([{"job_type": "Sea Booking"}]),
-			"1 booking",
-		)
-		self.assertEqual(
 			_job_status_count_label(
-				[{"job_type": "Sea Booking"}, {"job_type": "Sea Shipment"}, {"job_type": "Transport Job"}]
+				[{"job_type": "Sea Shipment"}, {"job_type": "Transport Job"}]
 			),
-			"1 booking · 2 jobs",
+			"2 jobs",
 		)
 
 	def test_resolve_docket_operational_jobs_reads_linked_service(self):
@@ -713,22 +718,11 @@ class TestShow(IntegrationTestCase):
 
 		resolve_ops.assert_called_once_with("Sea Booking", "SB-00001")
 		keys = {(r["job_type"], r["job_no"]) for r in results}
-		self.assertEqual(keys, {("Sea Booking", "SB-00001"), ("Sea Shipment", "SF-00001")})
+		self.assertEqual(keys, {("Sea Shipment", "SF-00001")})
 
-	def test_build_exhibit_job_status_tab_html_renders_booking_and_shipment(self):
+	def test_build_exhibit_job_status_tab_html_renders_shipment_only(self):
 		docket_rows = [{"docket": "DK-TEST-2", "status": "Draft", "exhibitor": "Acme", "booth_no": "B2"}]
 		status_map = {
-			("Sea Booking", "SB-00001"): {
-				"job_type": "Sea Booking",
-				"name": "SB-00001",
-				"service_label": "Sea",
-				"job_status": "Confirmed",
-				"origin_code": "CNSHA",
-				"destination_code": "SGSIN",
-				"origin_kind": "unloco",
-				"destination_kind": "unloco",
-				"modified": None,
-			},
 			("Sea Shipment", "SF-00001"): {
 				"job_type": "Sea Shipment",
 				"name": "SF-00001",
@@ -746,7 +740,6 @@ class TestShow(IntegrationTestCase):
 			patch(
 				"logistics.mice.doctype.mice_project.mice_project._resolve_docket_operational_jobs",
 				return_value=[
-					{"job_type": "Sea Booking", "job_no": "SB-00001"},
 					{"job_type": "Sea Shipment", "job_no": "SF-00001"},
 				],
 			),
@@ -764,10 +757,11 @@ class TestShow(IntegrationTestCase):
 			),
 		):
 			html = _build_exhibit_job_status_tab_html("EXH-TEST", docket_rows=docket_rows)
-			self.assertIn("1 booking · 1 job", html)
-			self.assertIn("SB-00001", html)
+			self.assertIn("1 job", html)
+			self.assertNotIn("booking", html.lower())
+			self.assertNotIn("SB-00001", html)
 			self.assertIn("SF-00001", html)
-			self.assertNotIn("No bookings or operational jobs linked to this docket yet.", html)
+			self.assertNotIn("No operational jobs linked to this docket yet.", html)
 
 	def test_build_exhibit_job_status_tab_html_empty_jobs_message(self):
 		docket_rows = [{"docket": "DK-EMPTY", "status": "Draft", "exhibitor": "Acme", "booth_no": None}]
@@ -783,7 +777,7 @@ class TestShow(IntegrationTestCase):
 		):
 			html = _build_exhibit_job_status_tab_html("EXH-TEST", docket_rows=docket_rows)
 			self.assertIn("0 jobs", html)
-			self.assertIn("No bookings or operational jobs linked to this docket yet.", html)
+			self.assertIn("No operational jobs linked to this docket yet.", html)
 
 	def test_sales_quote_dashboard_links_mice_project_via_exhibit(self):
 		from logistics.pricing_center.doctype.sales_quote.sales_quote_dashboard import get_data

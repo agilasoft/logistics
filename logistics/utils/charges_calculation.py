@@ -103,6 +103,7 @@ PARENT_QUANTITY_FIELDS = {
     "Warehouse Job": ("total_weight", "total_volume", "total_pieces"),
     # Programme header has no cargo totals; charge math uses flat-rate / tariff context (quantities default to 0).
     "Special Project": ("total_weight", "total_volume", "total_pieces", "total_teu", "total_containers"),
+    "Docket": ("total_weight", "chargeable", "total_volume", "total_packages"),
 }
 
 # Allowed keys for client-supplied parent snapshot (calculate_charge_row); blocks arbitrary setattr.
