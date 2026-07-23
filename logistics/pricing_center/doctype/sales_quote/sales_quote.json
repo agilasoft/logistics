@@ -71,14 +71,6 @@
   "sp_skilled",
   "sp_equipment_type",
   "column_break_params",
-  "air_house_type",
-  "airline",
-  "freight_agent",
-  "sea_house_type",
-  "shipping_line",
-  "freight_agent_sea",
-  "containers_section",
-  "containers",
   "location_type",
   "location_from",
   "location_to",
@@ -88,8 +80,16 @@
   "container_no",
   "pick_mode",
   "drop_mode",
+  "air_house_type",
+  "airline",
+  "freight_agent",
+  "sea_house_type",
+  "shipping_line",
+  "freight_agent_sea",
   "sp_handling",
   "sp_resource_notes",
+  "containers_section",
+  "containers",
   "routing_tab",
   "routing_section",
   "billing_mode",
@@ -474,66 +474,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Air\"",
-   "fieldname": "air_house_type",
-   "fieldtype": "Select",
-   "label": "Air House Type",
-   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Air\"",
-   "fieldname": "airline",
-   "fieldtype": "Link",
-   "label": "Airline",
-   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]",
-   "mandatory_depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Air\"",
-   "options": "Airline"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Air\"",
-   "fieldname": "freight_agent",
-   "fieldtype": "Link",
-   "label": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
-   "options": "Freight Agent"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
-   "fieldname": "sea_house_type",
-   "fieldtype": "Select",
-   "label": "Sea House Type",
-   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
-   "fieldname": "shipping_line",
-   "fieldtype": "Link",
-   "label": "Shipping Line",
-   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]",
-   "options": "Shipping Line"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
-   "fieldname": "freight_agent_sea",
-   "fieldtype": "Link",
-   "label": "Freight Agent",
-   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
-   "options": "Freight Agent"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
-   "fieldname": "containers_section",
-   "fieldtype": "Section Break",
-   "label": "Containers"
-  },
-  {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
-   "fieldname": "containers",
-   "fieldtype": "Table",
-   "label": "Containers",
-   "options": "Sales Quote Containers"
-  },
-  {
    "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Transport\"",
    "fieldname": "location_type",
    "fieldtype": "Link",
@@ -603,6 +543,53 @@
    "options": "Pick and Drop Mode"
   },
   {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Air\"",
+   "fieldname": "air_house_type",
+   "fieldtype": "Select",
+   "label": "Air House Type",
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Air\"",
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "label": "Airline",
+   "link_filters": "[[\"Airline\", \"is_active\", \"=\", 1]]",
+   "mandatory_depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Air\"",
+   "options": "Airline"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Air\"",
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
+   "fieldname": "sea_house_type",
+   "fieldtype": "Select",
+   "label": "Sea House Type",
+   "options": "Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
+   "fieldname": "shipping_line",
+   "fieldtype": "Link",
+   "label": "Shipping Line",
+   "link_filters": "[[\"Shipping Line\", \"is_active\", \"=\", 1]]",
+   "options": "Shipping Line"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
+   "fieldname": "freight_agent_sea",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "link_filters": "[[\"Freight Agent\", \"is_active\", \"=\", 1]]",
+   "options": "Freight Agent"
+  },
+  {
    "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && [\"Special Project\", \"MICE\"].includes(doc.main_service)",
    "fieldname": "sp_handling",
    "fieldtype": "Link",
@@ -614,6 +601,19 @@
    "fieldname": "sp_resource_notes",
    "fieldtype": "Small Text",
    "label": "Resource Notes"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
+   "fieldname": "containers_section",
+   "fieldtype": "Section Break",
+   "label": "Containers"
+  },
+  {
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
+   "fieldname": "containers",
+   "fieldtype": "Table",
+   "label": "Containers",
+   "options": "Sales Quote Containers"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Project\" || [\"Special Project\", \"MICE\"].includes(doc.main_service)",

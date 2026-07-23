@@ -104,7 +104,7 @@ MILESTONE_CHILD_DOCTYPE = {
 	"MICE Project": "MICE Project Milestone",
 	"Docket": "MICE Project Milestone",
 	"MICE Order": "MICE Project Milestone",
-	"MICE Job": "MICE Project Milestone",
+	"MICE Job": "Transport Job Milestone",
 }
 
 
