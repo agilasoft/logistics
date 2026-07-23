@@ -87,8 +87,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Commodity",
-   "options": "Commodity",
-   "link_filters": "[[\"Commodity\", \"active\", \"=\", 1]]"
+   "link_filters": "[[\"Commodity\", \"active\", \"=\", 1]]",
+   "options": "Commodity"
   },
   {
    "fieldname": "warehouse_item",
@@ -114,7 +114,8 @@
    "fieldname": "description",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Description"
+   "label": "Description",
+   "reqd": 1
   },
   {
    "fieldname": "goods_description",
@@ -143,22 +144,24 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "columns": 1,
    "fieldname": "weight",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Weight"
+   "label": "Weight",
+   "reqd": 1
   },
   {
+   "default": "Kilogram",
    "fieldname": "weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "columns": 1,
@@ -172,8 +175,8 @@
    "fieldname": "volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "column_break_3",
@@ -189,14 +192,16 @@
    "fieldname": "length",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Length"
+   "label": "Length",
+   "reqd": 1
   },
   {
    "columns": 1,
    "fieldname": "height",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Height"
+   "label": "Height",
+   "reqd": 1
   },
   {
    "default": "0",
@@ -440,15 +445,17 @@
    "fieldname": "width",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Width"
+   "label": "Width",
+   "reqd": 1
   },
   {
+   "default": "Centimeter",
    "fieldname": "dimension_uom",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Dimension UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "column_break_ycdf",
@@ -457,8 +464,8 @@
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-02-24 10:59:00.351592",
- "modified_by": "Administrator",
+ "modified": "2026-07-23 13:22:35.190196",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "Transport",
  "name": "Transport Order Package",
  "owner": "Administrator",
