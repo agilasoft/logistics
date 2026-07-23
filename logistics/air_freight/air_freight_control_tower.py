@@ -304,12 +304,83 @@ def get_dashboard_data(filters=None, company=None, branch=None, cost_center=None
 
 @frappe.whitelist()
 def get_filter_defaults():
-	"""Default Company for the dashboard filter bar."""
+	"""Default Company + full Company list for the dashboard filter bar."""
+	companies = frappe.get_all("Company", pluck="name", order_by="name asc") or []
 	company = frappe.defaults.get_user_default("Company")
-	if not company:
-		companies = frappe.get_all("Company", pluck="name", limit=1, order_by="name asc")
-		company = companies[0] if companies else ""
+	if company and company not in companies:
+		companies.insert(0, company)
+	if not company and companies:
+		company = companies[0]
 	return {
 		"company": company or "",
+		"companies": companies,
 		"fiscal_year": int(nowdate()[:4]),
+	}
+
+
+@frappe.whitelist()
+def get_filter_options(company=None):
+	"""Cascading Branch / Cost Center / Profit Center / UNLOCO options.
+
+	UNLOCO options are distinct origin/destination ports used on Air Shipments
+	(optionally scoped by company) so the dropdown stays usable.
+	"""
+	company = (company or "").strip()
+	branches = []
+	cost_centers = []
+	profit_centers = []
+
+	if frappe.db.exists("DocType", "Branch"):
+		try:
+			filters = {"company": company} if company and frappe.db.has_column("Branch", "company") else {}
+			branches = frappe.get_all("Branch", filters=filters, pluck="name", order_by="name asc") or []
+		except Exception:
+			branches = frappe.get_all("Branch", pluck="name", order_by="name asc") or []
+
+	if company and frappe.db.exists("DocType", "Cost Center"):
+		cc_filters = {"company": company}
+		if frappe.db.has_column("Cost Center", "is_group"):
+			cc_filters["is_group"] = 0
+		cost_centers = frappe.get_all(
+			"Cost Center", filters=cc_filters, pluck="name", order_by="name asc"
+		) or []
+
+	if company and frappe.db.exists("DocType", "Profit Center"):
+		profit_centers = frappe.get_all(
+			"Profit Center",
+			filters={"company": company} if frappe.db.has_column("Profit Center", "company") else {},
+			pluck="name",
+			order_by="name asc",
+		) or []
+
+	unloco_values = []
+	try:
+		params = []
+		where = "IFNULL(origin_port, '') != '' OR IFNULL(destination_port, '') != ''"
+		if company:
+			where = "company = %s AND ({0})".format(where)
+			params.append(company)
+		rows = frappe.db.sql(
+			"""
+			SELECT DISTINCT port FROM (
+				SELECT origin_port AS port FROM `tabAir Shipment` WHERE {where}
+				UNION
+				SELECT destination_port AS port FROM `tabAir Shipment` WHERE {where}
+			) u
+			WHERE IFNULL(port, '') != ''
+			ORDER BY port
+			LIMIT 500
+			""".format(where=where),
+			tuple(params + params),
+		)
+		unloco_values = [r[0] for r in rows if r and r[0]]
+	except Exception:
+		frappe.log_error(frappe.get_traceback(), "afct_unloco_options")
+
+	return {
+		"company": company,
+		"branches": branches,
+		"cost_centers": cost_centers,
+		"profit_centers": profit_centers,
+		"unlocos": unloco_values,
 	}
