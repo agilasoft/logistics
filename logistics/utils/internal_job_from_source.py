@@ -34,6 +34,7 @@ CREATABLE_INTERNAL_JOB_TYPES: frozenset[str] = frozenset(
 		"Air Booking",
 		"Sea Booking",
 		"VAS Order",
+		"Cross-Docking Order",
 		"MICE Order",
 	}
 )
@@ -258,6 +259,7 @@ _SERVICE_LOWER_FOR_JOB_TYPE: dict[str, str] = {
 	"Air Booking": "air",
 	"Sea Booking": "sea",
 	"VAS Order": "warehousing",
+	"Cross-Docking Order": "cross-docking",
 }
 
 _SERVICE_LABEL_FOR_JOB_TYPE: dict[str, str] = {
@@ -266,6 +268,7 @@ _SERVICE_LABEL_FOR_JOB_TYPE: dict[str, str] = {
 	"Air Booking": "Air",
 	"Sea Booking": "Sea",
 	"VAS Order": "Warehousing",
+	"Cross-Docking Order": "Cross-Docking",
 }
 
 INTERNAL_JOB_QUOTE_PARAMETER_MISMATCH_MESSAGE = _(
@@ -679,6 +682,10 @@ def _job_type_allowed_for_source(
 			return _shipment_charge_matches_service(parent_doc, "air")
 		if jt == "VAS Order":
 			return bool(flags.get("allow_inbound"))
+		if jt == "Cross-Docking Order":
+			return bool(flags.get("allow_cross_docking")) or _shipment_charge_matches_service(
+				parent_doc, "cross-docking"
+			)
 		return False
 	if source_doctype == "Transport Job":
 		if jt == "Transport Order":
@@ -689,6 +696,10 @@ def _job_type_allowed_for_source(
 			return True
 		if jt == "VAS Order":
 			return bool(flags.get("allow_inbound"))
+		if jt == "Cross-Docking Order":
+			return bool(flags.get("allow_cross_docking")) or _shipment_charge_matches_service(
+				parent_doc, "cross-docking"
+			)
 		return False
 	if source_doctype == "Declaration":
 		sq = getattr(parent_doc, "sales_quote", None)
@@ -706,6 +717,11 @@ def _job_type_allowed_for_source(
 			return get_service_role(parent_doc) in (SERVICE_ROLE_MAIN, SERVICE_ROLE_LINKED)
 		if jt == "VAS Order":
 			return bool(flags.get("allow_inbound")) and bool(sq)
+		if jt == "Cross-Docking Order":
+			return bool(sq) and (
+				bool(flags.get("allow_cross_docking"))
+				or _shipment_charge_matches_service(parent_doc, "cross-docking")
+			)
 		return False
 	return False
 
@@ -1232,10 +1248,13 @@ def _get_internal_job_creation_preview_body(
 	if jt not in CREATABLE_INTERNAL_JOB_TYPES:
 		if idx is None:
 			frappe.throw(_("Invalid job type."))
-		row = resolve_internal_job_detail_row(doc, idx, jt)
+		# Linked-charge sources use virtual rows; resolve via the create helper, not IJ Detail idx.
+		row, res_idx = resolve_internal_job_detail_row_for_create(doc, jt, idx)
+		if not row:
+			frappe.throw(_("Invalid Internal Job Detail row."))
 		return _line_only_preview(
 			row,
-			idx,
+			res_idx if res_idx is not None else idx,
 			message=_(
 				"This job type cannot be created from this screen. Create or link the job another way, or choose a supported type."
 			),
@@ -1301,10 +1320,21 @@ def _get_internal_job_creation_preview_body(
 				ij, mjt, mj = 1, source_doctype, source_name
 			from_main = True
 			target_internal = {"is_internal_job": bool(ij), "main_job_type": mjt, "main_job": mj}
+		elif jt == "Cross-Docking Order":
+			ij, mjt, mj = mi.final_inbound_order_job_context_from_freight_shipment(
+				doc, source_doctype, source_name
+			)
+			ij, mjt, mj = mi.resolve_inbound_order_freight_main_job_if_empty(
+				doc, source_doctype, source_name, ij, mjt, mj
+			)
+			if not ij:
+				ij, mjt, mj = 1, source_doctype, source_name
+			from_main = True
+			target_internal = {"is_internal_job": bool(ij), "main_job_type": mjt, "main_job": mj}
 		else:
 			target_internal = None
 	elif source_doctype == "Transport Job":
-		if jt in ("Declaration Order", "Transport Order", "VAS Order"):
+		if jt in ("Declaration Order", "Transport Order", "VAS Order", "Cross-Docking Order"):
 			target_internal = {
 				"is_internal_job": True,
 				"main_job_type": "Transport Job",
@@ -1319,7 +1349,7 @@ def _get_internal_job_creation_preview_body(
 				"main_job_type": "Declaration",
 				"main_job": doc.name,
 			}
-		elif jt == "VAS Order":
+		elif jt in ("VAS Order", "Cross-Docking Order"):
 			target_internal = {
 				"is_internal_job": True,
 				"main_job_type": "Declaration",
@@ -1335,6 +1365,7 @@ def _get_internal_job_creation_preview_body(
 		"transport": "Transport",
 		"customs": "Customs",
 		"warehousing": "Warehousing",
+		"cross-docking": "Cross-Docking",
 	}
 	charges = _charges_preview_list(
 		doc,
@@ -1431,6 +1462,10 @@ def create_internal_job_from_operational_source(
 				return mi.create_vas_order_from_air_shipment(
 					source_name, internal_job_detail_idx=idx
 				)
+			if jt == "Cross-Docking Order":
+				return mi.create_cross_docking_order_from_air_shipment(
+					source_name, internal_job_detail_idx=idx
+				)
 		if source_doctype == "Sea Shipment":
 			if jt == "Transport Order":
 				return mi.create_transport_order_from_sea_shipment(
@@ -1449,6 +1484,10 @@ def create_internal_job_from_operational_source(
 				return mi.create_vas_order_from_sea_shipment(
 					source_name, internal_job_detail_idx=idx
 				)
+			if jt == "Cross-Docking Order":
+				return mi.create_cross_docking_order_from_sea_shipment(
+					source_name, internal_job_detail_idx=idx
+				)
 		if source_doctype == "Transport Job":
 			if jt == "Transport Order":
 				return _create_transport_order_from_transport_job(source_name, internal_job_detail_idx=idx)
@@ -1462,6 +1501,10 @@ def create_internal_job_from_operational_source(
 				return mi.create_vas_order_from_transport_job(
 					source_name, internal_job_detail_idx=idx
 				)
+			if jt == "Cross-Docking Order":
+				return mi.create_cross_docking_order_from_transport_job(
+					source_name, internal_job_detail_idx=idx
+				)
 		if source_doctype == "Declaration":
 			if jt == "Transport Order":
 				return mi.create_transport_order_from_declaration(
@@ -1469,6 +1512,10 @@ def create_internal_job_from_operational_source(
 				)
 			if jt == "VAS Order":
 				return mi.create_vas_order_from_declaration(
+					source_name, internal_job_detail_idx=idx
+				)
+			if jt == "Cross-Docking Order":
+				return mi.create_cross_docking_order_from_declaration(
 					source_name, internal_job_detail_idx=idx
 				)
 

@@ -38,6 +38,7 @@
 	window.LOGISTICS_WAREHOUSING_CHARGE_DOCTYPES = [
 		"Warehouse Job Charges",
 		"Inbound Order Charges",
+		"Cross-Docking Order Charges",
 		"Release Order Charges",
 	];
 	window.LOGISTICS_CHARGE_DOCTYPES_WITH_LINKED_SCOPE = [].concat(

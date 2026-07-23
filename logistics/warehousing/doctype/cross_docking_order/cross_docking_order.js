@@ -86,6 +86,7 @@ frappe.ui.form.on('Cross-Docking Order', {
       }, __("Action"));
     }
 
+    update_uom_fields_for_items(frm);
 
     if (frm.fields_dict.docks) {
       frm.set_query("dock_door", "docks", function(doc, cdt, cdn) {
@@ -306,6 +307,67 @@ frappe.ui.form.on("Cross-Docking Order Item", {
     _fetch(frm, cdt, cdn, "cross_dock");
   },
 
+  length: function(frm, cdt, cdn) { calculate_volume(frm, cdt, cdn); },
+  width: function(frm, cdt, cdn) { calculate_volume(frm, cdt, cdn); },
+  height: function(frm, cdt, cdn) { calculate_volume(frm, cdt, cdn); },
+  dimension_uom: function(frm, cdt, cdn) { calculate_volume(frm, cdt, cdn); },
+  volume_uom: function(frm, cdt, cdn) { calculate_volume(frm, cdt, cdn); }
 });
 
+function update_uom_fields_for_items(frm) {
+  const company = frappe.defaults.get_user_default("Company");
+  frappe.call({
+    method: "frappe.client.get_value",
+    args: {
+      doctype: "Warehouse Settings",
+      name: company,
+      fieldname: ["default_volume_uom", "default_weight_uom"]
+    },
+    callback: function(r) {
+      if (r.message && frm.doc.items && frm.doc.items.length > 0) {
+        const volume_uom = r.message.default_volume_uom;
+        const weight_uom = r.message.default_weight_uom;
+        frm.doc.items.forEach(function(item) {
+          if (volume_uom) {
+            frappe.model.set_value("Cross-Docking Order Item", item.name, "volume_uom", volume_uom);
+          }
+          if (weight_uom) {
+            frappe.model.set_value("Cross-Docking Order Item", item.name, "weight_uom", weight_uom);
+          }
+        });
+        frm.refresh_field("items");
+      }
+    }
+  });
+}
 
+function calculate_volume(frm, cdt, cdn) {
+  const doc = frappe.get_doc(cdt, cdn);
+  const length = parseFloat(doc.length) || 0;
+  const width = parseFloat(doc.width) || 0;
+  const height = parseFloat(doc.height) || 0;
+
+  if (length > 0 && width > 0 && height > 0) {
+    frappe.call({
+      method: "logistics.warehousing.doctype.warehouse_settings.warehouse_settings.calculate_volume_from_dimensions",
+      args: {
+        length: length,
+        width: width,
+        height: height,
+        dimension_uom: doc.dimension_uom,
+        volume_uom: doc.volume_uom,
+        company: frappe.defaults.get_user_default("Company")
+      },
+      callback: function(r) {
+        if (r.message && r.message.volume !== undefined) {
+          frappe.model.set_value(cdt, cdn, 'volume', r.message.volume);
+        }
+      },
+      error: function() {
+        frappe.model.set_value(cdt, cdn, 'volume', 0);
+      }
+    });
+  } else {
+    frappe.model.set_value(cdt, cdn, 'volume', 0);
+  }
+}

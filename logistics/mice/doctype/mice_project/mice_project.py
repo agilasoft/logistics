@@ -1056,6 +1056,7 @@ _BOOKING_ORDER_TYPES = (
 	"Inbound Order",
 	"Release Order",
 	"Transfer Order",
+	"Cross-Docking Order",
 )
 
 _DISPLAY_JOB_TYPES = frozenset(_OPERATIONAL_JOB_TYPES + _BOOKING_ORDER_TYPES)
@@ -1074,9 +1075,10 @@ _SERVICE_LABEL_BY_JOB_TYPE = {
 	"Inbound Order": "Warehousing",
 	"Release Order": "Warehousing",
 	"Transfer Order": "Warehousing",
+	"Cross-Docking Order": "Cross-Docking",
 }
 
-_SERVICE_LABEL_ORDER = ("Air", "Sea", "Transport", "Customs", "Warehousing")
+_SERVICE_LABEL_ORDER = ("Air", "Sea", "Transport", "Customs", "Warehousing", "Cross-Docking")
 
 
 def _docstatus_to_status_label(docstatus):
@@ -1279,6 +1281,7 @@ def _fetch_booking_order_statuses(by_type, status_map):
 		"Inbound Order",
 		"Release Order",
 		"Transfer Order",
+		"Cross-Docking Order",
 	):
 		names = by_type.get(job_type) or []
 		if not names:

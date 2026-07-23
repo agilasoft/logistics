@@ -29,6 +29,7 @@
 		Sea: "Sea Freight",
 		Transport: "Transport",
 		Warehousing: "Warehousing",
+		"Cross-Docking": "Warehousing",
 		Custom: "Customs",
 		Customs: "Customs",
 		"Special Project": "Special Projects",

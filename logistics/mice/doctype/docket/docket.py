@@ -21,6 +21,7 @@ BOOKING_TO_OPERATIONAL_JOB = {
 	"Inbound Order": ("Warehouse Job", "reference_order"),
 	"Release Order": ("Warehouse Job", "reference_order"),
 	"Transfer Order": ("Warehouse Job", "reference_order"),
+	"Cross-Docking Order": ("Warehouse Job", "reference_order"),
 }
 
 

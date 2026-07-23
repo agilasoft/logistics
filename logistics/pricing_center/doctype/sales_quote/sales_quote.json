@@ -431,7 +431,7 @@
    "options": "Customs Clearance\nDocumentation\nStorage\nOther"
   },
   {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Warehousing\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && [\"Warehousing\", \"Cross-Docking\"].includes(doc.main_service)",
    "description": "Warehouse site for this quote; copied to Warehouse Contract on create.",
    "fieldname": "site",
    "fieldtype": "Link",

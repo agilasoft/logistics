@@ -36,6 +36,7 @@ class TestLinkedWarehousingVasOrder(unittest.TestCase):
 	def test_vas_order_is_creatable_internal_job_type(self):
 		self.assertIn("VAS Order", CREATABLE_INTERNAL_JOB_TYPES)
 		self.assertNotIn("Inbound Order", CREATABLE_INTERNAL_JOB_TYPES)
+		self.assertIn("Cross-Docking Order", CREATABLE_INTERNAL_JOB_TYPES)
 
 	def test_cross_docking_maps_to_cross_docking_order(self):
 		self.assertEqual(

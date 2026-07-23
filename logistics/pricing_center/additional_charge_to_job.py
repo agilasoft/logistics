@@ -28,6 +28,7 @@ JOB_TYPE_TO_SERVICE = {
 	"Declaration Order": "Customs",
 	"Inbound Order": "Warehousing",
 	"Release Order": "Warehousing",
+	"Cross-Docking Order": "Cross-Docking",
 }
 
 # Set of operational booking doctypes that can act as Internal Job satellites of a Main job.

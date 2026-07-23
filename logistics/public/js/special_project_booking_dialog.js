@@ -586,12 +586,14 @@
 			_go("Declaration Order", msg.declaration_order);
 		} else if (msg.inbound_order) {
 			_go("Inbound Order", msg.inbound_order);
+		} else if (msg.cross_docking_order) {
+			_go("Cross-Docking Order", msg.cross_docking_order);
 		} else if (msg.project_order) {
 			_go("Project Order", msg.project_order);
 		}
 	}
 
-	const _PACKAGE_JOB_TYPES = ["Transport Order", "Air Booking", "Sea Booking", "Inbound Order"];
+	const _PACKAGE_JOB_TYPES = ["Transport Order", "Air Booking", "Sea Booking", "Inbound Order", "Cross-Docking Order"];
 
 	function _shipRowTitle(row) {
 		const item =

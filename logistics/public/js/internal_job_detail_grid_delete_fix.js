@@ -23,6 +23,7 @@
 		Transport: "Transport Order",
 		Customs: "Declaration Order",
 		Warehousing: "VAS Order",
+		"Cross-Docking": "Cross-Docking Order",
 		"Special Project": "Project Order",
 	};
 

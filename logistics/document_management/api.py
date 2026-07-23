@@ -46,6 +46,8 @@ DOCTYPE_CONTEXT = {
 	"Inbound Order": ("Warehousing", "Booking"),
 	"Release Order": ("Warehousing", "Booking"),
 	"Transfer Order": ("Warehousing", "Booking"),
+	"Cross-Docking Order": ("Warehousing", "Booking"),
+	"VAS Order": ("Warehousing", "Booking"),
 	"Air Shipment": ("Air Freight", "Shipment/Job"),
 	"Air Consolidation": ("Air Freight", "Shipment/Job"),
 	"Sea Shipment": ("Sea Freight", "Shipment/Job"),
