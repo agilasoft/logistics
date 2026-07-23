@@ -37,6 +37,7 @@ EXHIBIT_CREATABLE_JOB_TYPES: frozenset[str] = frozenset(
 		"Transport Order",
 		"Declaration Order",
 		"Inbound Order",
+		"Cross-Docking Order",
 	}
 )
 
@@ -46,6 +47,7 @@ _TARGET_DOC_LABELS: dict[str, str] = {
 	"Transport Order": "Transport Order",
 	"Declaration Order": "Declaration Order",
 	"Inbound Order": "Inbound Order",
+	"Cross-Docking Order": "Cross-Docking Order",
 }
 
 
@@ -551,12 +553,28 @@ def _create_inbound_order(ep_doc: Any, row: Any, detail_idx: int) -> dict[str, A
 	}
 
 
+def _create_cross_docking_order(ep_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
+	order = frappe.new_doc("Cross-Docking Order")
+	_apply_exhibit_context(order, ep_doc)
+	if frappe.get_meta("Cross-Docking Order").get_field("order_date"):
+		order.order_date = today()
+	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
+	order.insert(ignore_permissions=True)
+	_persist_row_link(ep_doc.name, "Cross-Docking Order", order.name, detail_idx)
+	frappe.db.commit()
+	return {
+		"cross_docking_order": order.name,
+		"message": _("Cross-Docking Order {0} created.").format(order.name),
+	}
+
+
 _CREATE_DISPATCH = {
 	"Air Booking": _create_air_booking,
 	"Sea Booking": _create_sea_booking,
 	"Transport Order": _create_transport_order,
 	"Declaration Order": _create_declaration_order,
 	"Inbound Order": _create_inbound_order,
+	"Cross-Docking Order": _create_cross_docking_order,
 }
 
 

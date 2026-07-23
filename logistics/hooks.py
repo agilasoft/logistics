@@ -149,6 +149,7 @@ doctype_js = {
 		"logistics/job_management/recognition_client.js",
 		"logistics/job_management/recognition_policy_fields.js",
 		"logistics/job_management/job_charge_reopen.js",
+		"logistics/job_management/job_readiness.js",
 	],
 	"Air Consolidation": [
 		"public/js/charge_break_dialogs.js",
@@ -185,6 +186,7 @@ doctype_js = {
 		"logistics/job_management/recognition_client.js",
 		"logistics/job_management/recognition_policy_fields.js",
 		"logistics/job_management/job_charge_reopen.js",
+		"logistics/job_management/job_readiness.js",
 	],
 	"Sea Consolidation": [
 		"public/js/charge_break_dialogs.js",
@@ -208,6 +210,7 @@ doctype_js = {
 		"logistics/job_management/recognition_client.js",
 		"logistics/job_management/recognition_policy_fields.js",
 		"logistics/job_management/job_charge_reopen.js",
+		"logistics/job_management/job_readiness.js",
 	],
 	"Declaration Order": [
 		"logistics/public/js/transport_mode_default_document_type.js",
@@ -242,6 +245,7 @@ doctype_js = {
 		"logistics/job_management/recognition_client.js",
 		"logistics/job_management/recognition_policy_fields.js",
 		"logistics/job_management/job_charge_reopen.js",
+		"logistics/job_management/job_readiness.js",
 	],
 	"Transport Consolidation": [
 		"logistics/public/js/document_alerts_dialog.js",
@@ -253,6 +257,7 @@ doctype_js = {
 		"logistics/job_management/recognition_client.js",
 		"logistics/job_management/recognition_policy_fields.js",
 		"logistics/job_management/job_charge_reopen.js",
+		"logistics/job_management/job_readiness.js",
 	],
 	"Warehouse Contract": [
 		"public/js/charge_break_dialogs.js",
@@ -535,6 +540,39 @@ for _dt in (
 			doc_events[_dt]["validate"] = list(_v) + [_CHARGE_REOPEN_VALIDATE]
 	elif _v != _CHARGE_REOPEN_VALIDATE:
 		doc_events[_dt]["validate"] = [_v, _CHARGE_REOPEN_VALIDATE]
+
+# Job readiness: block Complete/Close when documents, milestones, or charges fail settings gates
+_JOB_READINESS_VALIDATE = "logistics.job_management.job_readiness.validate_job_readiness_on_status_change"
+for _dt in (
+	"Transport Job",
+	"Sea Shipment",
+	"Air Shipment",
+	"Warehouse Job",
+	"Declaration",
+):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	_v = doc_events[_dt].get("validate")
+	if not _v:
+		doc_events[_dt]["validate"] = _JOB_READINESS_VALIDATE
+	elif isinstance(_v, list):
+		if _JOB_READINESS_VALIDATE not in _v:
+			doc_events[_dt]["validate"] = list(_v) + [_JOB_READINESS_VALIDATE]
+	elif _v != _JOB_READINESS_VALIDATE:
+		doc_events[_dt]["validate"] = [_v, _JOB_READINESS_VALIDATE]
+
+# Warehouse Job completeness / capacity before submit (was defined but unwired)
+_WAREHOUSE_JOB_BEFORE_SUBMIT = "logistics.warehousing.api.warehouse_job_before_submit"
+if "Warehouse Job" not in doc_events:
+	doc_events["Warehouse Job"] = {}
+_wj_bs = doc_events["Warehouse Job"].get("before_submit")
+if not _wj_bs:
+	doc_events["Warehouse Job"]["before_submit"] = _WAREHOUSE_JOB_BEFORE_SUBMIT
+elif isinstance(_wj_bs, list):
+	if _WAREHOUSE_JOB_BEFORE_SUBMIT not in _wj_bs:
+		doc_events["Warehouse Job"]["before_submit"] = list(_wj_bs) + [_WAREHOUSE_JOB_BEFORE_SUBMIT]
+elif _wj_bs != _WAREHOUSE_JOB_BEFORE_SUBMIT:
+	doc_events["Warehouse Job"]["before_submit"] = [_wj_bs, _WAREHOUSE_JOB_BEFORE_SUBMIT]
 
 append_hook(
 	doc_events,

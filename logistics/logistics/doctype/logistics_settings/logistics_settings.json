@@ -60,6 +60,14 @@
   "document_expiring_soon_days",
   "document_informational_days",
   "block_submit_if_required_documents_pending",
+  "job_readiness_section",
+  "block_complete_if_required_documents_pending",
+  "block_complete_if_milestones_incomplete",
+  "block_complete_if_charges_not_posted",
+  "column_break_job_readiness",
+  "block_close_if_required_documents_pending",
+  "block_close_if_milestones_incomplete",
+  "block_close_if_charges_not_posted",
   "milestones_section",
   "milestone_impending_days",
   "milestone_informational_days",
@@ -419,6 +427,52 @@
    "fieldtype": "Check",
    "label": "Prevent submit if required document incomplete",
    "description": "When enabled, submit is blocked on logistics forms that use the Documents table until every required row reaches Received, Verified, or Done (Pending, Uploaded, Overdue, Expired, and Rejected count as incomplete)."
+  },
+  {
+   "fieldname": "job_readiness_section",
+   "fieldtype": "Section Break",
+   "label": "Job Readiness (Complete / Close)",
+   "description": "Optional hard blocks when Job Status moves to Completed or Closed. Close gates default on. Completed gates default off so operational Delivered sync is not blocked by billing lag. Charge posting requires a submitted Sales/Purchase Invoice (Draft invoices do not count)."
+  },
+  {
+   "default": "0",
+   "fieldname": "block_complete_if_required_documents_pending",
+   "fieldtype": "Check",
+   "label": "Prevent Complete if required document incomplete"
+  },
+  {
+   "default": "0",
+   "fieldname": "block_complete_if_milestones_incomplete",
+   "fieldtype": "Check",
+   "label": "Prevent Complete if milestones incomplete"
+  },
+  {
+   "default": "0",
+   "fieldname": "block_complete_if_charges_not_posted",
+   "fieldtype": "Check",
+   "label": "Prevent Complete if charges not posted to SI/PI"
+  },
+  {
+   "fieldname": "column_break_job_readiness",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "block_close_if_required_documents_pending",
+   "fieldtype": "Check",
+   "label": "Prevent Close if required document incomplete"
+  },
+  {
+   "default": "1",
+   "fieldname": "block_close_if_milestones_incomplete",
+   "fieldtype": "Check",
+   "label": "Prevent Close if milestones incomplete"
+  },
+  {
+   "default": "1",
+   "fieldname": "block_close_if_charges_not_posted",
+   "fieldtype": "Check",
+   "label": "Prevent Close if charges not posted to SI/PI"
   },
   {
    "fieldname": "milestones_section",

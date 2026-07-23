@@ -339,3 +339,5 @@ logistics.patches.v3_0_clear_charge_bill_to_link_filters
 logistics.patches.v3_0_seed_lifecycle_stage_icon_color
 # Declaration: fix job_status stuck as Draft after submit (Job Status tab)
 logistics.patches.v1_0_fix_declaration_job_status_after_submit
+# Air Freight Control Tower: force-sync page JS (Company + dimension filters)
+logistics.patches.v3_0_sync_air_freight_control_tower_page

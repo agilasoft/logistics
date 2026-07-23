@@ -55,6 +55,7 @@ _PLANNING_ORDER_TYPES: frozenset[str] = frozenset(
 		"Transport Order",
 		"Declaration Order",
 		"Inbound Order",
+		"Cross-Docking Order",
 		"Project Order",
 	}
 )

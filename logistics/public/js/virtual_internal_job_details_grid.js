@@ -16,6 +16,7 @@
 		"Warehouse Job",
 		"Inbound Order",
 		"Release Order",
+		"Cross-Docking Order",
 		"General Job",
 		"Project Job",
 		"MICE Job",

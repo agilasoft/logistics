@@ -215,6 +215,7 @@ def iter_sales_quote_charge_service_type_db_values_for_canonical(canonical_or_la
 		"transport": "Transport",
 		"custom": "Customs",
 		"warehousing": "Warehousing",
+		"cross-docking": "Cross-Docking",
 		"special project": "Special Project",
 		"exhibits": "Exhibits",
 	}

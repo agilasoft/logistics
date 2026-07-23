@@ -503,14 +503,6 @@ class TransportOrder(VirtualLinkedServicesMixin, Document):
 
         assert_sales_quote_customer_matches_job_before_submit(self)
 
-        if not getattr(self, "transport_template", None):
-            frappe.throw(
-                _(
-                    "Transport Template is required. Please select a Transport Template "
-                    "before submitting the Transport Order."
-                )
-            )
-        
         # Validate quote reference: either sales_quote (for Sales Quote) or quote (for One-Off Quote) must be set
         quote_type = getattr(self, "quote_type", None)
         if quote_type == "Sales Quote":

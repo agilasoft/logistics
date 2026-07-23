@@ -96,6 +96,9 @@ function _load_milestone_html(frm) {
 
 frappe.ui.form.on("MICE Order", {
 	setup(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.setup_queries(frm);
+		}
 		frm.set_query("milestone_template", function () {
 			return frappe
 				.call("logistics.document_management.api.get_milestone_template_filters", {
@@ -108,6 +111,9 @@ frappe.ui.form.on("MICE Order", {
 	},
 	refresh(frm) {
 		logistics_set_site_query_exhibit_order(frm);
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.populate_displays_if_missing(frm);
+		}
 		_logistics_mice_order_add_create_or_open_job(frm);
 
 		if (frm.fields_dict.milestone_html && frm.doc.name && !frm.doc.__islocal) {
@@ -119,6 +125,55 @@ frappe.ui.form.on("MICE Order", {
 				.on("click.milestone_html", '[data-fieldname="milestones_tab"]', function () {
 					_load_milestone_html(frm);
 				});
+		}
+
+		if (window.logistics_load_documents_html) {
+			window.logistics_load_documents_html(frm, "MICE Order");
+		}
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper
+				.off("click.documents_html")
+				.on("click.documents_html", '[data-fieldname="documents_tab"]', function () {
+					if (window.logistics_load_documents_html) {
+						window.logistics_load_documents_html(frm, "MICE Order");
+					}
+				});
+		}
+	},
+
+	shipper(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_change(frm);
+		}
+	},
+
+	consignee(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_change(frm);
+		}
+	},
+
+	shipper_address(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_address_change(frm);
+		}
+	},
+
+	consignee_address(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_address_change(frm);
+		}
+	},
+
+	shipper_contact(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_shipper_contact_change(frm);
+		}
+	},
+
+	consignee_contact(frm) {
+		if (logistics.party_address_contact) {
+			logistics.party_address_contact.on_consignee_contact_change(frm);
 		}
 	},
 	milestone_template(frm) {

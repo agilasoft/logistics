@@ -39,7 +39,8 @@ DOCKET_CREATABLE_JOB_TYPES: frozenset[str] = frozenset(
 		"Sea Booking",
 		"Transport Order",
 		"Declaration Order",
-		"VAS Order",
+		"Inbound Order",
+		"Cross-Docking Order",
 		"MICE Order",
 	}
 )
@@ -49,7 +50,8 @@ _TARGET_DOC_LABELS: dict[str, str] = {
 	"Sea Booking": "Sea Booking",
 	"Transport Order": "Transport Order",
 	"Declaration Order": "Declaration Order",
-	"VAS Order": "VAS Order",
+	"Inbound Order": "Inbound Order",
+	"Cross-Docking Order": "Cross-Docking Order",
 	"MICE Order": "MICE Order",
 }
 
@@ -898,6 +900,23 @@ def _create_vas_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
 	}
 
 
+def _create_cross_docking_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
+	order = frappe.new_doc("Cross-Docking Order")
+	_apply_docket_context(order, dk_doc)
+	if frappe.get_meta("Cross-Docking Order").get_field("order_date"):
+		order.order_date = today()
+	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
+	_copy_docket_packages_to_target(dk_doc, order)
+	_prepare_charges_before_insert(dk_doc, order, row)
+	order.insert(ignore_permissions=True)
+	_persist_row_link(dk_doc.name, "Cross-Docking Order", order.name, detail_idx)
+	frappe.db.commit()
+	return {
+		"cross_docking_order": order.name,
+		"message": _("Cross-Docking Order {0} created.").format(order.name),
+	}
+
+
 def _populate_mice_order_charges_from_sales_quote(target_doc: Any, row: Any | None) -> None:
 	"""Copy matching MICE Sales Quote charge lines onto a MICE Order."""
 	from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
@@ -984,7 +1003,8 @@ _CREATE_DISPATCH = {
 	"Sea Booking": _create_sea_booking,
 	"Transport Order": _create_transport_order,
 	"Declaration Order": _create_declaration_order,
-	"VAS Order": _create_vas_order,
+	"Inbound Order": _create_inbound_order,
+	"Cross-Docking Order": _create_cross_docking_order,
 	"MICE Order": _create_mice_order,
 }
 

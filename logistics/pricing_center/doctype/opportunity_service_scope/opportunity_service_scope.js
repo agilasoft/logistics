@@ -11,6 +11,7 @@
 		Customs: "customs",
 		Custom: "customs",
 		Warehousing: "warehousing",
+		"Cross-Docking": "warehousing",
 	};
 
 	function load_type_flag_for_service_type(service_type) {

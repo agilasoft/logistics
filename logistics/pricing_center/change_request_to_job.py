@@ -39,6 +39,7 @@ _SATELLITE_TO_MAIN_MAPPER_JOB_TYPE = {
 	"Declaration Order": "Declaration",
 	"Inbound Order": "Warehouse Job",
 	"Release Order": "Warehouse Job",
+	"Cross-Docking Order": "Warehouse Job",
 }
 
 
@@ -1169,7 +1170,7 @@ def _zero_revenue_on_job_row(job_row, job_type_for_layout):
 			job_row.unit_rate = 0
 		if hasattr(job_row, "revenue_calc_notes"):
 			job_row.revenue_calc_notes = ""
-	elif job_type_for_layout in ("Warehouse Job", "Inbound Order", "Release Order"):
+	elif job_type_for_layout in ("Warehouse Job", "Inbound Order", "Release Order", "Cross-Docking Order"):
 		if hasattr(job_row, "estimated_revenue"):
 			job_row.estimated_revenue = 0
 		if hasattr(job_row, "unit_rate"):

@@ -353,6 +353,8 @@
 			_go("VAS Order", msg.vas_order);
 		} else if (msg.inbound_order) {
 			_go("Inbound Order", msg.inbound_order);
+		} else if (msg.cross_docking_order) {
+			_go("Cross-Docking Order", msg.cross_docking_order);
 		} else if (msg.mice_order) {
 			_go("MICE Order", msg.mice_order);
 		}

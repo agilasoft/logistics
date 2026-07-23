@@ -204,6 +204,21 @@ def action_create_mice_job(docname: str, title: Optional[str] = None):
 	if getattr(order, "site", None) and job.meta.has_field("site"):
 		job.site = order.site
 
+	for fieldname in (
+		"shipper",
+		"consignee",
+		"shipper_address",
+		"shipper_address_display",
+		"shipper_contact",
+		"shipper_contact_display",
+		"consignee_address",
+		"consignee_address_display",
+		"consignee_contact",
+		"consignee_contact_display",
+	):
+		if job.meta.has_field(fieldname) and getattr(order, fieldname, None):
+			setattr(job, fieldname, getattr(order, fieldname))
+
 	_copy_child_rows_by_common_fields(order, "order_resources", job, "job_resources")
 	_copy_child_rows_by_common_fields(order, "charges", job, "charges")
 	_copy_child_rows_by_common_fields(order, "milestones", job, "milestones")
