@@ -10,8 +10,6 @@ frappe.pages["air-freight-control-tower"].on_page_load = function (wrapper) {
 };
 
 (function () {
-	const DEFAULT_ORG = "ATN Airfreight";
-
 	class AirFreightControlTowerPage {
 		constructor(wrapper) {
 			this.wrapper = $(wrapper);
@@ -20,10 +18,16 @@ frappe.pages["air-freight-control-tower"].on_page_load = function (wrapper) {
 				title: __("Air Freight Control Tower"),
 				single_column: true,
 			});
-			this._orgs_loaded = false;
+			this.filter_controls = {};
+			this._refresh_timer = null;
+			this._booting = true;
 			this.make_layout();
+			this.mount_filters();
 			this.bind_events();
-			this._load_organizations(() => this.refresh());
+			this._load_defaults(() => {
+				this._booting = false;
+				this.refresh();
+			});
 		}
 
 		make_layout() {
@@ -38,20 +42,40 @@ frappe.pages["air-freight-control-tower"].on_page_load = function (wrapper) {
 								${__("Live view of open files, lead times, airline mix, and returned billings.")}
 							</p>
 						</div>
-						<div class="afct-toolbar">
-							<label class="afct-field">
-								<span>${__("Organization")}</span>
-								<select id="afct-org" class="form-control input-sm"></select>
-							</label>
-							<label class="afct-field afct-field-year">
-								<span>${__("Fiscal Year")}</span>
-								<input id="afct-year" type="number" class="form-control input-sm" value="${year}" min="2000" max="2100" />
-							</label>
+					</header>
+
+					<section class="afct-filters" aria-label="${__("Dashboard filters")}">
+						<label class="afct-field">
+							<span>${__("Company")}</span>
+							<div class="afct-control" id="afct-company"></div>
+						</label>
+						<label class="afct-field">
+							<span>${__("Branch")}</span>
+							<div class="afct-control" id="afct-branch"></div>
+						</label>
+						<label class="afct-field">
+							<span>${__("Cost Center")}</span>
+							<div class="afct-control" id="afct-cost-center"></div>
+						</label>
+						<label class="afct-field">
+							<span>${__("Profit Center")}</span>
+							<div class="afct-control" id="afct-profit-center"></div>
+						</label>
+						<label class="afct-field">
+							<span>${__("UNLOCO")}</span>
+							<div class="afct-control" id="afct-unloco"></div>
+						</label>
+						<label class="afct-field afct-field-year">
+							<span>${__("Fiscal Year")}</span>
+							<input id="afct-year" type="number" class="form-control input-sm" value="${year}" min="2000" max="2100" />
+						</label>
+						<div class="afct-field afct-field-actions">
+							<span>&nbsp;</span>
 							<button type="button" class="btn btn-primary btn-sm afct-refresh" id="afct-refresh">
 								<i class="fa fa-refresh"></i> ${__("Refresh")}
 							</button>
 						</div>
-					</header>
+					</section>
 
 					<section class="afct-kpi-row" id="afct-kpis" aria-live="polite">
 						${this._kpi_skeleton()}
@@ -119,13 +143,8 @@ frappe.pages["air-freight-control-tower"].on_page_load = function (wrapper) {
 					}
 
 					.afct-hero {
-						display: flex;
-						flex-wrap: wrap;
-						justify-content: space-between;
-						gap: 18px 28px;
-						align-items: flex-end;
 						padding: 22px 22px 20px;
-						margin-bottom: 16px;
+						margin-bottom: 12px;
 						border-radius: var(--afct-radius);
 						background:
 							radial-gradient(1200px 280px at 8% -20%, rgba(20, 131, 200, 0.28), transparent 55%),
@@ -167,46 +186,63 @@ frappe.pages["air-freight-control-tower"].on_page_load = function (wrapper) {
 						line-height: 1.45;
 						color: rgba(232, 242, 250, 0.72);
 					}
-					.afct-toolbar {
-						display: flex;
-						flex-wrap: wrap;
-						align-items: flex-end;
-						gap: 10px;
+
+					.afct-filters {
+						display: grid;
+						grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+						gap: 10px 12px;
+						align-items: end;
+						padding: 14px 14px 12px;
+						margin-bottom: 14px;
+						border-radius: var(--afct-radius);
+						background: #fff;
+						border: 1px solid var(--afct-line);
 						position: relative;
-						z-index: 1;
+						z-index: 5;
 					}
 					.afct-field {
 						display: flex;
 						flex-direction: column;
 						gap: 4px;
 						margin: 0;
-						min-width: 11rem;
+						min-width: 0;
 					}
-					.afct-field-year { min-width: 6.5rem; max-width: 7.5rem; }
-					.afct-field span {
+					.afct-field-year { max-width: 7.5rem; }
+					.afct-field-actions { max-width: 8rem; }
+					.afct-field > span {
 						font-size: 0.7rem;
 						text-transform: uppercase;
 						letter-spacing: 0.06em;
-						color: rgba(232, 242, 250, 0.65);
+						color: var(--afct-muted);
 						font-weight: 600;
 					}
-					.afct-field .form-control {
-						border: 1px solid rgba(255,255,255,0.18);
-						background: rgba(255,255,255,0.1);
-						color: #fff;
-						height: 32px;
-						border-radius: 8px;
+					.afct-control .form-group { margin-bottom: 0; }
+					.afct-control .control-input-wrapper,
+					.afct-control .control-input { width: 100%; }
+					.afct-control .clearfix,
+					.afct-control .help-box,
+					.afct-control .control-label { display: none !important; }
+					.afct-control input.input-with-feedback,
+					.afct-control .form-control,
+					.afct-field-year .form-control {
+						height: 32px !important;
+						min-height: 32px !important;
+						border-radius: 8px !important;
+						border: 1px solid var(--afct-line) !important;
+						background: var(--afct-paper) !important;
+						font-size: 0.82rem !important;
+						box-shadow: none !important;
 					}
-					.afct-field .form-control option { color: #0b1f33; }
 					.afct-refresh {
 						height: 32px;
+						width: 100%;
 						border-radius: 8px;
 						border: none;
-						background: #e8f2fa !important;
-						color: var(--afct-ink) !important;
+						background: var(--afct-ink) !important;
+						color: #e8f2fa !important;
 						font-weight: 600;
 					}
-					.afct-refresh:hover { filter: brightness(0.96); }
+					.afct-refresh:hover { filter: brightness(1.08); }
 
 					.afct-kpi-row {
 						display: grid;
@@ -423,10 +459,103 @@ frappe.pages["air-freight-control-tower"].on_page_load = function (wrapper) {
 						.afct-brand { font-size: 1.15rem; }
 						.afct-mod-row { grid-template-columns: 1fr 1fr; }
 						.afct-mod-head { display: none; }
+						.afct-field-year, .afct-field-actions { max-width: none; }
 					}
 				</style>
 			`);
 			this.page.main.empty().append($ui);
+		}
+
+		mount_filters() {
+			const self = this;
+			const company_ctrl = this._make_link("afct-company", {
+				fieldname: "company",
+				options: "Company",
+				placeholder: __("Select Company"),
+			});
+			company_ctrl.df.onchange = () => {
+				self._clear_company_dependents();
+				self._schedule_refresh();
+			};
+
+			const branch_ctrl = this._make_link("afct-branch", {
+				fieldname: "branch",
+				options: "Branch",
+				placeholder: __("All Branches"),
+				get_query: () => self._company_query(),
+			});
+			branch_ctrl.df.onchange = () => self._schedule_refresh();
+
+			const cost_ctrl = this._make_link("afct-cost-center", {
+				fieldname: "cost_center",
+				options: "Cost Center",
+				placeholder: __("All Cost Centers"),
+				get_query: () => self._company_query({ is_group: 0 }),
+			});
+			cost_ctrl.df.onchange = () => self._schedule_refresh();
+
+			const profit_ctrl = this._make_link("afct-profit-center", {
+				fieldname: "profit_center",
+				options: "Profit Center",
+				placeholder: __("All Profit Centers"),
+				get_query: () => self._company_query(),
+			});
+			profit_ctrl.df.onchange = () => self._schedule_refresh();
+
+			const unloco_ctrl = this._make_link("afct-unloco", {
+				fieldname: "unloco",
+				options: "UNLOCO",
+				placeholder: __("All UNLOCOs"),
+			});
+			unloco_ctrl.df.onchange = () => self._schedule_refresh();
+
+			this.filter_controls = {
+				company: company_ctrl,
+				branch: branch_ctrl,
+				cost_center: cost_ctrl,
+				profit_center: profit_ctrl,
+				unloco: unloco_ctrl,
+			};
+		}
+
+		_make_link(parent_id, df) {
+			const ctrl = frappe.ui.form.make_control({
+				df: Object.assign(
+					{
+						fieldtype: "Link",
+						only_select: 1,
+					},
+					df
+				),
+				parent: this.wrapper.find("#" + parent_id),
+				render_input: true,
+			});
+			ctrl.refresh();
+			return ctrl;
+		}
+
+		_company_query(extra) {
+			const filters = Object.assign({}, extra || {});
+			const company = this._get_control_value("company");
+			if (company) {
+				filters.company = company;
+			}
+			return { filters: filters };
+		}
+
+		_get_control_value(key) {
+			const ctrl = this.filter_controls[key];
+			if (!ctrl) return "";
+			return (ctrl.get_value && ctrl.get_value()) || "";
+		}
+
+		_clear_company_dependents() {
+			["branch", "cost_center", "profit_center"].forEach((key) => {
+				const ctrl = this.filter_controls[key];
+				if (ctrl && ctrl.set_value) {
+					ctrl.set_value("");
+				}
+			});
 		}
 
 		_kpi_skeleton() {
@@ -454,31 +583,40 @@ frappe.pages["air-freight-control-tower"].on_page_load = function (wrapper) {
 
 		bind_events() {
 			this.wrapper.on("click", "#afct-refresh", () => this.refresh());
-			this.wrapper.on("change", "#afct-org, #afct-year", () => this.refresh());
+			this.wrapper.on("change", "#afct-year", () => this._schedule_refresh());
 		}
 
-		_load_organizations(done) {
+		_schedule_refresh() {
+			if (this._booting) {
+				return;
+			}
+			if (this._refresh_timer) {
+				clearTimeout(this._refresh_timer);
+			}
+			this._refresh_timer = setTimeout(() => this.refresh(), 250);
+		}
+
+		_load_defaults(done) {
 			frappe.call({
-				method: "logistics.air_freight.air_freight_control_tower.get_organizations",
+				method: "logistics.air_freight.air_freight_control_tower.get_filter_defaults",
 				callback: (r) => {
 					const data = r.message || {};
-					const $sel = this.wrapper.find("#afct-org");
-					$sel.empty();
-					(data.organizations || []).forEach((o) => {
-						const name = o.organization_name || o.name;
-						$sel.append($("<option>").attr("value", name).text(name));
-					});
-					const def = data.default || DEFAULT_ORG;
-					if ($sel.find(`option[value="${def}"]`).length) {
-						$sel.val(def);
+					if (data.company && this.filter_controls.company) {
+						this.filter_controls.company.set_value(data.company);
 					}
-					this._orgs_loaded = true;
+					if (data.fiscal_year) {
+						this.wrapper.find("#afct-year").val(data.fiscal_year);
+					}
 					if (done) done();
 				},
 				error: () => {
-					const $sel = this.wrapper.find("#afct-org");
-					$sel.empty().append($("<option>").attr("value", DEFAULT_ORG).text(DEFAULT_ORG));
-					this._orgs_loaded = true;
+					const fallback =
+						frappe.defaults.get_user_default("Company") ||
+						(frappe.boot && frappe.boot.sysdefaults && frappe.boot.sysdefaults.company) ||
+						"";
+					if (fallback && this.filter_controls.company) {
+						this.filter_controls.company.set_value(fallback);
+					}
 					if (done) done();
 				},
 			});
@@ -486,9 +624,23 @@ frappe.pages["air-freight-control-tower"].on_page_load = function (wrapper) {
 
 		_filters() {
 			return {
-				organization: this.wrapper.find("#afct-org").val() || DEFAULT_ORG,
+				company: this._get_control_value("company"),
+				branch: this._get_control_value("branch"),
+				cost_center: this._get_control_value("cost_center"),
+				profit_center: this._get_control_value("profit_center"),
+				unloco: this._get_control_value("unloco"),
 				fiscal_year: this.wrapper.find("#afct-year").val() || new Date().getFullYear(),
 			};
+		}
+
+		_filter_summary(filters) {
+			const parts = [];
+			if (filters.company) parts.push(filters.company);
+			if (filters.branch) parts.push(filters.branch);
+			if (filters.cost_center) parts.push(filters.cost_center);
+			if (filters.profit_center) parts.push(filters.profit_center);
+			if (filters.unloco) parts.push(filters.unloco);
+			return parts.join(" · ") || __("All companies");
 		}
 
 		refresh() {
@@ -499,7 +651,7 @@ frappe.pages["air-freight-control-tower"].on_page_load = function (wrapper) {
 				args: filters,
 				callback: (r) => {
 					this.wrapper.find("#afct-refresh").prop("disabled", false);
-					this.render(r.message || {});
+					this.render(r.message || {}, filters);
 				},
 				error: () => {
 					this.wrapper.find("#afct-refresh").prop("disabled", false);
@@ -511,20 +663,21 @@ frappe.pages["air-freight-control-tower"].on_page_load = function (wrapper) {
 			});
 		}
 
-		render(data) {
+		render(data, filters) {
+			filters = filters || data.filters || this._filters();
 			const kpis = data.kpis || {};
 			this._render_kpis(kpis);
 			this._render_airlines(data.top_airlines || [], data.top_airlines_max || 1);
 			this._render_returned(kpis, data.fiscal_year);
 			this._render_modules(data.by_module || []);
-			this._render_links(data.links || {}, data.organization);
+			this._render_links(data.links || {});
 			const asOf = data.as_of || "";
 			this.wrapper.find("#afct-asof").text(
 				asOf
 					? __("As of {0} · {1} · FY {2}", [
 							frappe.datetime.str_to_user(asOf),
-							data.organization || "",
-							data.fiscal_year || "",
+							this._filter_summary(filters),
+							data.fiscal_year || filters.fiscal_year || "",
 					  ])
 					: ""
 			);
@@ -633,7 +786,7 @@ frappe.pages["air-freight-control-tower"].on_page_load = function (wrapper) {
 			$host.html(head + body);
 		}
 
-		_render_links(links, organization) {
+		_render_links(links) {
 			const items = [];
 			if (links.control_tower_dashboard) {
 				items.push({
@@ -644,17 +797,13 @@ frappe.pages["air-freight-control-tower"].on_page_load = function (wrapper) {
 			if (links.jobs_report) {
 				items.push({
 					label: __("Jobs KPI Report"),
-					route: `/app/query-report/${encodeURIComponent(links.jobs_report)}?organization=${encodeURIComponent(
-						organization || DEFAULT_ORG
-					)}`,
+					route: `/app/query-report/${encodeURIComponent(links.jobs_report)}`,
 				});
 			}
 			if (links.returned_billings_report) {
 				items.push({
 					label: __("Returned Billings"),
-					route: `/app/query-report/${encodeURIComponent(links.returned_billings_report)}?organization=${encodeURIComponent(
-						organization || DEFAULT_ORG
-					)}`,
+					route: `/app/query-report/${encodeURIComponent(links.returned_billings_report)}`,
 				});
 			}
 			const html = items
