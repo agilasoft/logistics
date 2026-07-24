@@ -345,6 +345,8 @@ logistics.patches.v3_0_sync_air_freight_control_tower_page
 logistics.patches.v3_0_resync_air_freight_control_tower_page_native_filters
 # Air Freight Control Tower: re-sync FieldGroup filters + modern cards
 logistics.patches.v3_0_resync_air_freight_control_tower_fieldgroup
+# Air Freight Control Tower: load UI via hooks page_js + stub page script
+logistics.patches.v3_0_afct_page_js_hooks_stub
 # Sales Quote: force-sync Main Service Parameter depends_on (Transport fields missing after deploy)
 logistics.patches.v3_0_sync_sales_quote_transport_field_props
 # Sales Quote: move Transport fields to own Section Break (avoid Column Break hide)
