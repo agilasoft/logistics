@@ -11,16 +11,116 @@
   "job",
   "column_break_cr",
   "status",
+  "change_sections",
+  "reason",
+  "dashboard_tab",
+  "dashboard_html",
+  "change_summary",
+  "baseline_json",
+  "parties_tab",
+  "section_parties",
+  "customer",
+  "local_customer",
+  "booking_party",
+  "controlling_party",
+  "column_break_parties",
+  "shipper",
+  "consignee",
+  "freight_agent",
+  "section_party_addresses",
+  "shipper_address",
+  "shipper_contact",
+  "column_break_party_addr",
+  "consignee_address",
+  "consignee_contact",
+  "section_notify",
+  "notify_party",
+  "notify_party_address",
+  "column_break_agents",
+  "sending_agent",
+  "receiving_agent",
+  "broker",
+  "section_commercial_party",
+  "incoterm",
+  "direction",
+  "house_type",
+  "column_break_commercial",
+  "release_type",
+  "entry_type",
+  "service_level",
+  "logistics_service_level",
+  "places_tab",
+  "section_places",
+  "origin_port",
+  "destination_port",
+  "etd",
+  "eta",
+  "column_break_places",
+  "scheduled_date",
+  "booking_date",
+  "transport_mode",
+  "load_type",
+  "section_transport_places",
+  "vehicle_type",
+  "transport_company",
+  "transport_job_type",
+  "column_break_container",
+  "container_type",
+  "container_no",
+  "section_run_sheet",
+  "run_date",
+  "run_type",
+  "route_name",
+  "vehicle",
+  "column_break_run_sheet",
+  "driver",
+  "trailer_type",
+  "transport_consolidation",
+  "section_run_sheet_terminals",
+  "dispatch_terminal",
+  "return_terminal",
+  "estimated_dispatch_datetime",
+  "column_break_run_sheet_est",
+  "estimated_return_datetime",
+  "estimated_completion_time",
+  "section_cutoffs",
+  "cargo_cut_off",
+  "document_cut_off",
+  "vgm_cut_off",
+  "column_break_cutoffs",
+  "gate_in_cut_off",
+  "empty_return_cut_off",
+  "other_cut_off",
+  "packages_tab",
+  "package_changes",
   "services_tab",
   "linked_services_section",
   "linked_services",
   "charges_tab",
   "section_break_charges",
   "charges",
+  "notes_tab",
+  "section_notes",
+  "internal_notes",
+  "client_notes",
+  "column_break_notes",
+  "sales_rep",
+  "operations_rep",
+  "customer_service_rep",
+  "dispatcher",
+  "return_inspector",
+  "section_cargo_notes",
+  "description",
+  "marks_and_nos",
+  "customer_ref_no",
   "section_break_remarks",
   "remarks",
   "sales_quote",
-  "amended_from"
+  "amended_from",
+  "approvals_tab",
+  "approvals_html",
+  "history_tab",
+  "history_html"
  ],
  "fields": [
   {
@@ -30,12 +130,12 @@
    "options": "CR-.#########"
   },
   {
-   "description": "Pick a Main job (Transport Job, Warehouse Job, Air Shipment, Sea Shipment, Declaration, Special Project, Docket) or an Internal Job satellite (Transport Order, Sea Booking, Air Booking, Declaration Order, Inbound Order, Release Order, Cross-Docking Order). Cost rows are mirrored to the other side automatically on submit.",
+   "description": "Pick a Main job (Transport Job, Warehouse Job, Air Shipment, Sea Shipment, Declaration, Special Project, Docket, Run Sheet) or an Internal Job satellite (Transport Order, Sea Booking, Air Booking, Declaration Order, Inbound Order, Release Order, Cross-Docking Order). Cost rows are mirrored to the other side automatically on submit (except Run Sheet, which has no charge table).",
    "fieldname": "job_type",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Job Type",
-   "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration\nSpecial Project\nDocket\nTransport Order\nSea Booking\nAir Booking\nDeclaration Order\nInbound Order\nRelease Order\nCross-Docking Order",
+   "options": "Transport Job\nWarehouse Job\nAir Shipment\nSea Shipment\nDeclaration\nSpecial Project\nDocket\nRun Sheet\nTransport Order\nSea Booking\nAir Booking\nDeclaration Order\nInbound Order\nRelease Order\nCross-Docking Order",
    "reqd": 1
   },
   {
@@ -59,6 +159,451 @@
    "no_copy": 1,
    "options": "Draft\nSubmitted\nApproved\nSales Quote Created",
    "read_only": 1
+  },
+  {
+   "description": "Sections included in this amendment. Values are seeded from the job on create.",
+   "fieldname": "change_sections",
+   "fieldtype": "Small Text",
+   "label": "Change Sections"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Reason"
+  },
+  {
+   "fieldname": "dashboard_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "dashboard_html",
+   "fieldtype": "HTML",
+   "label": "",
+   "options": "<div class=\"cr-dash-mount text-muted\">Loading dashboard…</div>"
+  },
+  {
+   "fieldname": "change_summary",
+   "fieldtype": "Text Editor",
+   "hidden": 1,
+   "label": "Change Summary",
+   "read_only": 1
+  },
+  {
+   "fieldname": "baseline_json",
+   "fieldtype": "Code",
+   "hidden": 1,
+   "label": "Baseline JSON",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "parties_tab",
+   "fieldtype": "Tab Break",
+   "label": "Parties"
+  },
+  {
+   "fieldname": "section_parties",
+   "fieldtype": "Section Break",
+   "label": "Customers & Parties"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "local_customer",
+   "fieldtype": "Link",
+   "label": "Local Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "booking_party",
+   "fieldtype": "Link",
+   "label": "Booking Party",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "controlling_party",
+   "fieldtype": "Select",
+   "label": "Controlling Party",
+   "options": "\nCustomer Controlled\nAgent Controlled"
+  },
+  {
+   "fieldname": "column_break_parties",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "label": "Shipper",
+   "options": "Shipper"
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "options": "Consignee"
+  },
+  {
+   "fieldname": "freight_agent",
+   "fieldtype": "Link",
+   "label": "Freight Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "section_party_addresses",
+   "fieldtype": "Section Break",
+   "label": "Addresses & Contacts"
+  },
+  {
+   "fieldname": "shipper_address",
+   "fieldtype": "Link",
+   "label": "Shipper Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "shipper_contact",
+   "fieldtype": "Link",
+   "label": "Shipper Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "column_break_party_addr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consignee_address",
+   "fieldtype": "Link",
+   "label": "Consignee Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "consignee_contact",
+   "fieldtype": "Link",
+   "label": "Consignee Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "section_notify",
+   "fieldtype": "Section Break",
+   "label": "Notify & Agents"
+  },
+  {
+   "fieldname": "notify_party",
+   "fieldtype": "Data",
+   "label": "Notify Party"
+  },
+  {
+   "fieldname": "notify_party_address",
+   "fieldtype": "Small Text",
+   "label": "Notify Party Address"
+  },
+  {
+   "fieldname": "column_break_agents",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sending_agent",
+   "fieldtype": "Link",
+   "label": "Sending Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "receiving_agent",
+   "fieldtype": "Link",
+   "label": "Receiving Agent",
+   "options": "Freight Agent"
+  },
+  {
+   "fieldname": "broker",
+   "fieldtype": "Link",
+   "label": "Broker",
+   "options": "Broker"
+  },
+  {
+   "fieldname": "section_commercial_party",
+   "fieldtype": "Section Break",
+   "label": "Commercial"
+  },
+  {
+   "fieldname": "incoterm",
+   "fieldtype": "Link",
+   "label": "Incoterm",
+   "options": "Incoterm"
+  },
+  {
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "\nImport\nExport\nDomestic"
+  },
+  {
+   "fieldname": "house_type",
+   "fieldtype": "Select",
+   "label": "House Type",
+   "options": "\nStandard House\nCo-load Master\nBlind Co-load Master\nCo-load House\nBuyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
+  },
+  {
+   "fieldname": "column_break_commercial",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "release_type",
+   "fieldtype": "Link",
+   "label": "Release Type",
+   "options": "Release Type"
+  },
+  {
+   "fieldname": "entry_type",
+   "fieldtype": "Select",
+   "label": "Entry Type",
+   "options": "\nDirect\nTransit\nTransshipment\nATA Carnet"
+  },
+  {
+   "fieldname": "service_level",
+   "fieldtype": "Link",
+   "label": "Service Level",
+   "options": "Logistics Service Level"
+  },
+  {
+   "fieldname": "logistics_service_level",
+   "fieldtype": "Link",
+   "label": "Logistics Service Level",
+   "options": "Logistics Service Level"
+  },
+  {
+   "fieldname": "places_tab",
+   "fieldtype": "Tab Break",
+   "label": "Places & Dates"
+  },
+  {
+   "fieldname": "section_places",
+   "fieldtype": "Section Break",
+   "label": "Routing & Schedule"
+  },
+  {
+   "fieldname": "origin_port",
+   "fieldtype": "Link",
+   "label": "Origin Port",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "destination_port",
+   "fieldtype": "Link",
+   "label": "Destination Port",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "etd",
+   "fieldtype": "Date",
+   "label": "ETD"
+  },
+  {
+   "fieldname": "eta",
+   "fieldtype": "Date",
+   "label": "ETA"
+  },
+  {
+   "fieldname": "column_break_places",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scheduled_date",
+   "fieldtype": "Date",
+   "label": "Scheduled Date"
+  },
+  {
+   "fieldname": "booking_date",
+   "fieldtype": "Date",
+   "label": "Booking Date"
+  },
+  {
+   "fieldname": "transport_mode",
+   "fieldtype": "Link",
+   "label": "Transport Mode",
+   "options": "Transport Mode"
+  },
+  {
+   "fieldname": "load_type",
+   "fieldtype": "Link",
+   "label": "Load Type",
+   "options": "Load Type"
+  },
+  {
+   "fieldname": "section_transport_places",
+   "fieldtype": "Section Break",
+   "label": "Transport"
+  },
+  {
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "options": "Vehicle Type"
+  },
+  {
+   "fieldname": "transport_company",
+   "fieldtype": "Link",
+   "label": "Transport Company",
+   "options": "Transport Company"
+  },
+  {
+   "fieldname": "transport_job_type",
+   "fieldtype": "Select",
+   "label": "Transport Job Type",
+   "options": "\nContainer\nNon-Container\nSpecial\nOversized\nMultimodal\nHeavy Haul"
+  },
+  {
+   "fieldname": "column_break_container",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "container_type",
+   "fieldtype": "Link",
+   "label": "Container Type",
+   "options": "Container Type"
+  },
+  {
+   "fieldname": "container_no",
+   "fieldtype": "Data",
+   "label": "Container No."
+  },
+  {
+   "fieldname": "section_run_sheet",
+   "fieldtype": "Section Break",
+   "label": "Run Sheet"
+  },
+  {
+   "fieldname": "run_date",
+   "fieldtype": "Datetime",
+   "label": "Run Date"
+  },
+  {
+   "fieldname": "run_type",
+   "fieldtype": "Select",
+   "label": "Run Type",
+   "options": "\nRegular\nBackload\nSpot\nReposition\nOthers"
+  },
+  {
+   "fieldname": "route_name",
+   "fieldtype": "Data",
+   "label": "Route Name"
+  },
+  {
+   "fieldname": "vehicle",
+   "fieldtype": "Link",
+   "label": "Vehicle",
+   "options": "Transport Vehicle"
+  },
+  {
+   "fieldname": "column_break_run_sheet",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "driver",
+   "fieldtype": "Link",
+   "label": "Driver",
+   "options": "Driver"
+  },
+  {
+   "fieldname": "trailer_type",
+   "fieldtype": "Link",
+   "label": "Trailer Type",
+   "options": "Vehicle Type"
+  },
+  {
+   "fieldname": "transport_consolidation",
+   "fieldtype": "Link",
+   "label": "Transport Consolidation",
+   "options": "Transport Consolidation"
+  },
+  {
+   "fieldname": "section_run_sheet_terminals",
+   "fieldtype": "Section Break",
+   "label": "Dispatch & Return"
+  },
+  {
+   "fieldname": "dispatch_terminal",
+   "fieldtype": "Link",
+   "label": "Dispatch Terminal",
+   "options": "Transport Terminal"
+  },
+  {
+   "fieldname": "return_terminal",
+   "fieldtype": "Link",
+   "label": "Return Terminal",
+   "options": "Transport Terminal"
+  },
+  {
+   "fieldname": "estimated_dispatch_datetime",
+   "fieldtype": "Datetime",
+   "label": "Estimated Dispatch Datetime"
+  },
+  {
+   "fieldname": "column_break_run_sheet_est",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "estimated_return_datetime",
+   "fieldtype": "Datetime",
+   "label": "Estimated Return Datetime"
+  },
+  {
+   "fieldname": "estimated_completion_time",
+   "fieldtype": "Datetime",
+   "label": "Estimated Completion Time"
+  },
+  {
+   "fieldname": "section_cutoffs",
+   "fieldtype": "Section Break",
+   "label": "Cut-offs (Sea)"
+  },
+  {
+   "fieldname": "cargo_cut_off",
+   "fieldtype": "Datetime",
+   "label": "Cargo Cut-off"
+  },
+  {
+   "fieldname": "document_cut_off",
+   "fieldtype": "Datetime",
+   "label": "Document Cut-off"
+  },
+  {
+   "fieldname": "vgm_cut_off",
+   "fieldtype": "Datetime",
+   "label": "VGM Cut-off"
+  },
+  {
+   "fieldname": "column_break_cutoffs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "gate_in_cut_off",
+   "fieldtype": "Datetime",
+   "label": "Gate-In Cut-off"
+  },
+  {
+   "fieldname": "empty_return_cut_off",
+   "fieldtype": "Datetime",
+   "label": "Empty Return Cut-off"
+  },
+  {
+   "fieldname": "other_cut_off",
+   "fieldtype": "Datetime",
+   "label": "Other Cut-off"
+  },
+  {
+   "fieldname": "packages_tab",
+   "fieldtype": "Tab Break",
+   "label": "Packages"
+  },
+  {
+   "fieldname": "package_changes",
+   "fieldtype": "Table",
+   "label": "Package Changes",
+   "options": "Change Request Package"
   },
   {
    "fieldname": "services_tab",
@@ -94,6 +639,80 @@
    "options": "Change Request Charge"
   },
   {
+   "fieldname": "notes_tab",
+   "fieldtype": "Tab Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes & Assignment"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Text Editor",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "client_notes",
+   "fieldtype": "Text Editor",
+   "label": "Client Notes"
+  },
+  {
+   "fieldname": "column_break_notes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_rep",
+   "fieldtype": "Link",
+   "label": "Sales Rep",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "operations_rep",
+   "fieldtype": "Link",
+   "label": "Operations Rep",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "customer_service_rep",
+   "fieldtype": "Link",
+   "label": "Customer Service Rep",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "dispatcher",
+   "fieldtype": "Link",
+   "label": "Dispatcher",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "return_inspector",
+   "fieldtype": "Link",
+   "label": "Return Inspector",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "section_cargo_notes",
+   "fieldtype": "Section Break",
+   "label": "Cargo Notes"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Long Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "marks_and_nos",
+   "fieldtype": "Long Text",
+   "label": "Marks and Nos"
+  },
+  {
+   "fieldname": "customer_ref_no",
+   "fieldtype": "Data",
+   "label": "Customer Ref No"
+  },
+  {
    "fieldname": "section_break_remarks",
    "fieldtype": "Section Break",
    "label": "Remarks"
@@ -120,11 +739,33 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "approvals_tab",
+   "fieldtype": "Tab Break",
+   "label": "Approvals"
+  },
+  {
+   "fieldname": "approvals_html",
+   "fieldtype": "HTML",
+   "label": "",
+   "options": "<div class=\"cr-approvals-mount text-muted\">Loading approvals…</div>"
+  },
+  {
+   "fieldname": "history_tab",
+   "fieldtype": "Tab Break",
+   "label": "History"
+  },
+  {
+   "fieldname": "history_html",
+   "fieldtype": "HTML",
+   "label": "",
+   "options": "<div class=\"cr-history-mount text-muted\">Loading history…</div>"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-07-02 23:16:27.079718",
+ "modified": "2026-07-24 14:00:00.000000",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Change Request",
@@ -132,6 +773,8 @@
  "owner": "Administrator",
  "permissions": [
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -140,9 +783,12 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   },
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -152,6 +798,7 @@
    "report": 1,
    "role": "Change Request Approver",
    "share": 1,
+   "submit": 1,
    "write": 1
   }
  ],

@@ -303,6 +303,9 @@ frappe.ui.form.on('Air Shipment', {
 	},
 
 	refresh: function(frm) {
+		if (window.logistics && logistics.job_change_lock) {
+			logistics.job_change_lock.apply(frm);
+		}
 		if (logistics.party_address_contact) {
 			logistics.party_address_contact.populate_displays_if_missing(frm);
 		}
@@ -502,17 +505,6 @@ frappe.ui.form.on('Air Shipment', {
 					frm,
 					"logistics.air_freight.doctype.air_shipment.air_shipment.get_linked_declaration_order_name"
 				);
-				frm.add_custom_button(__('Create Change Request'), function() {
-					frappe.call({
-						method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
-						args: { job_type: 'Air Shipment', job_name: frm.doc.name },
-						callback: function(r) {
-							if (r.message) {
-								frappe.set_route('Form', 'Change Request', r.message);
-							}
-						}
-					});
-				}, __('Create'));
 				// Post menu
 				frm.add_custom_button(__('Standard Costs'), function() {
 					frappe.call({

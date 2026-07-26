@@ -237,6 +237,9 @@ frappe.ui.form.on('Warehouse Job', {
         };
     },
     refresh: function(frm) {
+        if (window.logistics && logistics.job_change_lock) {
+            logistics.job_change_lock.apply(frm);
+        }
         if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
             logistics.apply_one_off_sales_quote_order_standard(frm);
         }
@@ -433,15 +436,6 @@ frappe.ui.form.on('Warehouse Job', {
 					show_create_purchase_invoice_dialog(frm);
 				}, __('Create'));
 			}
-			frm.add_custom_button(__('Create Change Request'), function() {
-					frappe.call({
-						method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
-                    args: { job_type: 'Warehouse Job', job_name: frm.doc.name },
-                    callback: function(r) {
-                        if (r.message) frappe.set_route('Form', 'Change Request', r.message);
-                    }
-                });
-            }, __('Create'));
         }
         
         // Add Post Standard Costs button - show only when submitted and has charges with standard costs that haven't been posted

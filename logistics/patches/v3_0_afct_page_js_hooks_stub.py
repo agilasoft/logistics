@@ -4,6 +4,10 @@
 
 Rewrites ``tabPage.script`` to the thin stub so stale inline page JS
 (Organization / missing filters) cannot overwrite the asset-loaded UI.
+
+Older Frappe versions stored page JS in ``tabPage.script``. Current Frappe
+loads page assets from disk via ``Page.load_assets()``, so there is no
+``script`` column — in that case only clear Page caches.
 """
 
 from __future__ import unicode_literals
@@ -29,11 +33,13 @@ def execute():
 	if not frappe.db.exists("Page", PAGE_NAME):
 		return
 
-	with open(js_path, "r", encoding="utf-8") as fh:
-		script = fh.read()
+	# Legacy installs only: refresh DB-stored script when the column exists.
+	if frappe.db.has_column("Page", "script"):
+		with open(js_path, "r", encoding="utf-8") as fh:
+			script = fh.read()
+		frappe.db.set_value("Page", PAGE_NAME, "script", script, update_modified=True)
+		frappe.db.commit()
 
-	frappe.db.set_value("Page", PAGE_NAME, "script", script, update_modified=True)
-	frappe.db.commit()
 	frappe.clear_cache(doctype="Page")
 	try:
 		frappe.clear_cache()

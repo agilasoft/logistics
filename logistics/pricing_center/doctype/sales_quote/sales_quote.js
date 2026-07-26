@@ -586,6 +586,7 @@ frappe.ui.form.on("Sales Quote", {
 			_set_valid_until_from_settings(frm);
 		}
 		frm.events._check_direction_port_alignment(frm);
+		frm.events.refresh_estimated_profitability(frm);
 	},
 
 	direction(frm) {
@@ -963,7 +964,17 @@ frappe.ui.form.on("Sales Quote", {
 
 	charges_add(frm) {
 		frm.events._sync_quotation_type_to_children(frm);
+		frm.events.refresh_estimated_profitability(frm);
 	},
+
+	charges_remove(frm) {
+		frm.events.refresh_estimated_profitability(frm);
+	},
+
+	refresh_estimated_profitability(frm) {
+		logistics_refresh_sales_quote_estimated_profitability(frm);
+	},
+
 	main_service(frm) {
 		if (frm.doc.main_service) {
 			const prefix_map = {
@@ -989,6 +1000,7 @@ frappe.ui.form.on("Sales Quote", {
 		// Explicit refresh: warehousing / charges use depends_on vs main_service; ensures grids repaint when switching mode.
 		frm.refresh_field("charges");
 		frm.refresh_field("warehousing");
+		frm.events.refresh_estimated_profitability(frm);
 		if (["Regular", "One-off"].includes(frm.doc.quotation_type) && frm.doc.load_type) {
 			const flag = logistics_load_type_flag_for_charge_service_type(frm.doc.main_service);
 			if (flag) {
@@ -1052,6 +1064,47 @@ frappe.ui.form.on("Sales Quote", {
 				frm.refresh_field(fieldname);
 			}
 		});
+		// depends_on only gates Transport; container fields also need Vehicle Type.containerized.
+		frm.events.toggle_container_fields_for_vehicle_type(frm);
+	},
+
+	toggle_container_fields_for_vehicle_type(frm, clear_when_hidden) {
+		// Show Container Type / Container No. only when selected Vehicle Type is containerized.
+		// JSON depends_on already requires Regular/One-off + Transport; this adds the VT check.
+		const apply = (is_containerized) => {
+			frm.set_df_property("container_type", "hidden", !is_containerized);
+			frm.set_df_property("container_no", "hidden", !is_containerized);
+			if (frm.fields_dict.container_type) {
+				frm.refresh_field("container_type");
+			}
+			if (frm.fields_dict.container_no) {
+				frm.refresh_field("container_no");
+			}
+			if (clear_when_hidden && !is_containerized) {
+				if (frm.doc.container_type) {
+					frm.set_value("container_type", "");
+				}
+				if (frm.doc.container_no) {
+					frm.set_value("container_no", "");
+				}
+			}
+		};
+
+		const transport_ctx =
+			["Regular", "One-off"].includes(frm.doc.quotation_type) &&
+			frm.doc.main_service === "Transport";
+		if (!transport_ctx || !frm.doc.vehicle_type) {
+			apply(false);
+			return;
+		}
+
+		frappe.db.get_value("Vehicle Type", frm.doc.vehicle_type, "containerized", (r) => {
+			apply(!!(r && cint(r.containerized)));
+		});
+	},
+
+	vehicle_type(frm) {
+		frm.events.toggle_container_fields_for_vehicle_type(frm, true);
 	},
 
 	transport_template(frm) {
@@ -1191,6 +1244,7 @@ frappe.ui.form.on("Sales Quote", {
 		frm.events.setup_item_code_query(frm);
 		frm.events.setup_internal_job_query(frm);
 		logistics_setup_linked_services_grid(frm);
+		frm.events.refresh_estimated_profitability(frm);
 
 		// Regular / Project Sales Quote: Create Booking/Order from Main Service scope (reusable — no job back-link)
 		if (
@@ -2179,6 +2233,18 @@ function add_create_button(frm, config) {
 
 // Child table events for Sales Quote Charge (Transport: vehicle_type, load_type; revenue/cost calculation)
 frappe.ui.form.on('Sales Quote Charge', {
+	estimated_revenue: function(frm) {
+		frm.events.refresh_estimated_profitability(frm);
+	},
+	estimated_cost: function(frm) {
+		frm.events.refresh_estimated_profitability(frm);
+	},
+	bill_to_exchange_rate: function(frm) {
+		frm.events.refresh_estimated_profitability(frm);
+	},
+	pay_to_exchange_rate: function(frm) {
+		frm.events.refresh_estimated_profitability(frm);
+	},
 	service_type: function(frm, cdt, cdn) {
 		logistics_sync_charge_load_type_filter_flags(cdt, cdn);
 		let row = frappe.get_doc(cdt, cdn);
@@ -2265,6 +2331,47 @@ frappe.ui.form.on('Sales Quote Charge', {
 	},
 });
 
+function logistics_refresh_sales_quote_estimated_profitability(frm) {
+	if (!frm || !frm.fields_dict || !frm.fields_dict.profitability_section_html) {
+		return;
+	}
+	const control = frm.fields_dict.profitability_section_html;
+	const payload = {
+		company: frm.doc.company || "",
+		charges: (frm.doc.charges || []).map(function (row) {
+			return {
+				estimated_revenue: row.estimated_revenue,
+				estimated_cost: row.estimated_cost,
+				bill_to_exchange_rate: row.bill_to_exchange_rate,
+				pay_to_exchange_rate: row.pay_to_exchange_rate,
+			};
+		}),
+	};
+
+	function apply_html(html) {
+		const s = html || "";
+		if (control.set_value) {
+			control.set_value(s);
+		} else {
+			frm.set_df_property("profitability_section_html", "options", s);
+			frm.refresh_field("profitability_section_html");
+		}
+		if (control.$wrapper && control.$wrapper.length) {
+			control.$wrapper.html(s);
+		}
+	}
+
+	frappe.call({
+		method: "logistics.pricing_center.doctype.sales_quote.sales_quote.get_estimated_profitability_html",
+		args: { doc: JSON.stringify(payload) },
+		callback: function (r) {
+			if (r && r.message) {
+				apply_html(r.message);
+			}
+		},
+	});
+}
+
 function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 	if (!cdn) return;
 	if (frm && frm._syncing_sq_charge_from_tariff) {
@@ -2289,6 +2396,7 @@ function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 					r,
 					"charges"
 				);
+				logistics_refresh_sales_quote_estimated_profitability(frm);
 				return;
 			}
 			// Fallback when charge_type_cleanup.js is not loaded (estimates would otherwise stay blank)
@@ -2304,6 +2412,7 @@ function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 			if (frappe.meta.get_docfield(cdt, "cost_calc_notes")) {
 				frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
 			}
+			logistics_refresh_sales_quote_estimated_profitability(frm);
 		}
 	});
 }

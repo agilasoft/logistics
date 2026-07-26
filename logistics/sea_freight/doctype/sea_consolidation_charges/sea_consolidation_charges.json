@@ -69,10 +69,11 @@
   },
   {
    "fieldname": "charge_category",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Charge Category",
-   "options": "Freight\nFuel Surcharge\nSecurity Surcharge\nWar Risk Surcharge\nTerminal Handling\nPort Charges\nCustoms Clearance\nDocumentation\nInsurance\nStorage\nDetention\nDemurrage\nOther"
+   "options": "Charge Category",
+   "link_filters": "[[\"Charge Category\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_ncht",

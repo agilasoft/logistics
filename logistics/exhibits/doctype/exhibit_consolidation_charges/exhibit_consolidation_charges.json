@@ -60,11 +60,12 @@
   },
   {
    "fieldname": "charge_category",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Charge Category",
-   "options": "Booth Construction\nBooth Dismantling\nFreight\nHandling\nDocumentation\nInsurance\nStorage\nUtilities\nTransportation\nCustoms\nOther",
-   "reqd": 1
+   "options": "Charge Category",
+   "reqd": 1,
+   "link_filters": "[[\"Charge Category\", \"disabled\", \"=\", 0]]"
   },
   {
    "fetch_from": "item_code.description",

@@ -11,7 +11,7 @@ desk page, filtered by Company / Branch / Cost Center / Profit Center / UNLOCO:
 - Average age of open job files
 - Number of job files handled (YTD)
 - Average lead time per milestone
-- Top 5 airlines
+- Top airlines (limit is a per-user preference)
 - Number of returned billings (YTD)
 """
 
@@ -19,15 +19,87 @@ from __future__ import unicode_literals
 
 import frappe
 from frappe import _
-from frappe.utils import cint, flt, nowdate
+from frappe.utils import cint, flt, getdate, nowdate
 
 OPEN_EXCLUDES = ("Completed", "Closed", "Cancelled")
 AIR_SHIPMENT = "Air Shipment"
 AIR_MILESTONE = "Air Shipment Milestone"
+PREFS_KEY = "afct_preferences"
+DEFAULT_AIRLINE_LIMIT = 10
+MAX_AIRLINE_LIMIT = 50
+
+DEFAULT_PREFERENCES = {
+	"kpis": {
+		"show_open_jobs": 1,
+		"show_avg_age": 1,
+		"show_handled": 1,
+		"show_lead_time": 1,
+		"warn_age_days": 60,
+	},
+	"airlines": {
+		"limit": DEFAULT_AIRLINE_LIMIT,
+	},
+	"returned": {
+		"visible": 1,
+	},
+	"modules": {
+		"visible": 1,
+	},
+	"links": {
+		"visible": 1,
+	},
+}
+
+
+def _clamp_airline_limit(n):
+	n = cint(n) or DEFAULT_AIRLINE_LIMIT
+	return max(1, min(MAX_AIRLINE_LIMIT, n))
+
+
+def _merge_preferences(raw=None):
+	"""Return a full prefs dict with defaults filled in."""
+	prefs = frappe.parse_json(raw) if isinstance(raw, str) else (raw or {})
+	if not isinstance(prefs, dict):
+		prefs = {}
+	out = frappe._dict()
+	for section, defaults in DEFAULT_PREFERENCES.items():
+		section_vals = prefs.get(section) if isinstance(prefs.get(section), dict) else {}
+		merged = dict(defaults)
+		merged.update({k: section_vals[k] for k in defaults if k in section_vals})
+		out[section] = merged
+	out["airlines"]["limit"] = _clamp_airline_limit(out["airlines"].get("limit"))
+	out["kpis"]["warn_age_days"] = max(0, cint(out["kpis"].get("warn_age_days") or 0))
+	for key in ("show_open_jobs", "show_avg_age", "show_handled", "show_lead_time"):
+		out["kpis"][key] = 1 if cint(out["kpis"].get(key)) else 0
+	for section in ("returned", "modules", "links"):
+		out[section]["visible"] = 1 if cint(out[section].get("visible")) else 0
+	return out
+
+
+def _default_date_range(fiscal_year=None):
+	"""Return (from_date, to_date) for a fiscal/calendar year."""
+	year = cint(fiscal_year) or cint(nowdate()[:4])
+	from_date = "{0}-01-01".format(year)
+	today = nowdate()
+	year_end = "{0}-12-31".format(year)
+	to_date = today if str(today)[:4] == str(year) else year_end
+	return from_date, to_date
+
+
+def _date_bounds(filters):
+	"""Effective booking/returned date window from filters."""
+	from_date = filters.get("from_date")
+	to_date = filters.get("to_date")
+	if from_date and to_date:
+		fd, td = getdate(from_date), getdate(to_date)
+		if fd > td:
+			fd, td = td, fd
+		return str(fd), str(td)
+	return _default_date_range(filters.get("fiscal_year"))
 
 
 def _parse_filters(filters=None, company=None, branch=None, cost_center=None,
-		profit_center=None, unloco=None, fiscal_year=None):
+		profit_center=None, unloco=None, fiscal_year=None, from_date=None, to_date=None):
 	"""Normalize whitelist args into a filter dict.
 
 	Accepts either a JSON ``filters`` object or individual kwargs (desk call).
@@ -46,6 +118,18 @@ def _parse_filters(filters=None, company=None, branch=None, cost_center=None,
 	}
 	fy = filters.get("fiscal_year") or fiscal_year
 	out["fiscal_year"] = int(fy) if fy else int(nowdate()[:4])
+
+	fd = filters.get("from_date") or from_date
+	td = filters.get("to_date") or to_date
+	if not fd or not td:
+		default_from, default_to = _default_date_range(out["fiscal_year"])
+		fd = fd or default_from
+		td = td or default_to
+	fd, td = getdate(fd), getdate(td)
+	if fd > td:
+		fd, td = td, fd
+	out["from_date"] = str(fd)
+	out["to_date"] = str(td)
 	return out
 
 
@@ -76,9 +160,7 @@ def _unloco_clause(filters, prefix=""):
 def _air_shipment_kpis(filters):
 	"""Open / avg age / handled counts for Air Shipment."""
 	today = nowdate()
-	year = filters["fiscal_year"]
-	year_start = "{0}-01-01".format(year)
-	year_end = "{0}-12-31".format(year)
+	from_date, to_date = _date_bounds(filters)
 
 	dim_c, dim_v = _dim_clauses(filters)
 	unloco_c, unloco_v = _unloco_clause(filters)
@@ -105,7 +187,7 @@ def _air_shipment_kpis(filters):
 		frappe.log_error(frappe.get_traceback(), "afct_open_jobs")
 
 	handled_where = dim_c + unloco_c + ["booking_date BETWEEN %s AND %s"]
-	handled_values = dim_v + unloco_v + [year_start, year_end]
+	handled_values = dim_v + unloco_v + [from_date, to_date]
 	handled_count = 0
 	try:
 		rs = frappe.db.sql(
@@ -138,11 +220,12 @@ def _avg_lead_time(filters):
 	if not frappe.db.exists("DocType", AIR_MILESTONE):
 		return 0.0
 
+	from_date, to_date = _date_bounds(filters)
 	dim_c, dim_v = _dim_clauses(filters, prefix="p.")
 	unloco_c, unloco_v = _unloco_clause(filters, prefix="p.")
-	extra = ""
-	if dim_c or unloco_c:
-		extra = " AND " + " AND ".join(dim_c + unloco_c)
+	extra_parts = list(dim_c) + list(unloco_c) + ["p.booking_date BETWEEN %s AND %s"]
+	extra_values = list(dim_v) + list(unloco_v) + [from_date, to_date]
+	extra = " AND " + " AND ".join(extra_parts)
 
 	try:
 		rs = frappe.db.sql(
@@ -163,7 +246,7 @@ def _avg_lead_time(filters):
 			  AND (c.planned_end IS NOT NULL OR c.planned_start IS NOT NULL)
 			  {extra}
 			""".format(child=AIR_MILESTONE, parent=AIR_SHIPMENT, extra=extra),
-			tuple([AIR_SHIPMENT] + dim_v + unloco_v),
+			tuple([AIR_SHIPMENT] + extra_values),
 		)
 		sum_sec = flt(rs[0][0]) if rs and rs[0] and rs[0][0] is not None else 0.0
 		count = int(rs[0][1]) if rs and rs[0] and rs[0][1] is not None else 0
@@ -176,10 +259,8 @@ def _avg_lead_time(filters):
 	return (sum_sec / count) / 86400.0
 
 
-def _top_airlines(filters, n=5):
-	year = filters["fiscal_year"]
-	year_start = "{0}-01-01".format(year)
-	year_end = "{0}-12-31".format(year)
+def _top_airlines(filters, n=DEFAULT_AIRLINE_LIMIT):
+	from_date, to_date = _date_bounds(filters)
 	dim_c, dim_v = _dim_clauses(filters)
 	unloco_c, unloco_v = _unloco_clause(filters)
 	conditions = dim_c + unloco_c + [
@@ -187,7 +268,8 @@ def _top_airlines(filters, n=5):
 		"airline IS NOT NULL",
 		"airline != ''",
 	]
-	values = dim_v + unloco_v + [year_start, year_end]
+	values = dim_v + unloco_v + [from_date, to_date]
+	limit = _clamp_airline_limit(n)
 	try:
 		rs = frappe.db.sql(
 			"""
@@ -198,7 +280,7 @@ def _top_airlines(filters, n=5):
 			ORDER BY value DESC
 			LIMIT %s
 			""".format(where=" AND ".join(conditions)),
-			tuple(values + [cint(n)]),
+			tuple(values + [limit]),
 			as_dict=True,
 		)
 	except Exception:
@@ -208,15 +290,13 @@ def _top_airlines(filters, n=5):
 
 
 def _returned_billings_count(filters):
-	year = filters["fiscal_year"]
-	year_start = "{0}-01-01".format(year)
-	year_end = "{0}-12-31".format(year)
+	from_date, to_date = _date_bounds(filters)
 	if not frappe.db.exists("DocType", "Returned Billing"):
 		return 0
 
 	dim_c, dim_v = _dim_clauses(filters)
 	conditions = dim_c + ["returned_on BETWEEN %s AND %s"]
-	values = dim_v + [year_start, year_end]
+	values = dim_v + [from_date, to_date]
 	# Prefer Air Freight module rows when the column exists.
 	try:
 		if frappe.db.has_column("Returned Billing", "module"):
@@ -253,8 +333,26 @@ def _returned_billings_count(filters):
 
 
 @frappe.whitelist()
+def get_preferences():
+	"""Per-user Air Freight Control Tower widget preferences."""
+	raw = frappe.db.get_default(PREFS_KEY)
+	return _merge_preferences(raw)
+
+
+@frappe.whitelist()
+def save_preferences(preferences=None):
+	"""Persist per-user widget preferences for Air Freight Control Tower."""
+	if isinstance(preferences, str):
+		preferences = frappe.parse_json(preferences)
+	merged = _merge_preferences(preferences)
+	frappe.db.set_default(PREFS_KEY, frappe.as_json(merged))
+	return merged
+
+
+@frappe.whitelist()
 def get_dashboard_data(filters=None, company=None, branch=None, cost_center=None,
-		profit_center=None, unloco=None, fiscal_year=None):
+		profit_center=None, unloco=None, fiscal_year=None, from_date=None, to_date=None,
+		airline_limit=None):
 	"""Return all Air Freight Control Tower metrics in one call."""
 	f = _parse_filters(
 		filters=filters,
@@ -264,11 +362,18 @@ def get_dashboard_data(filters=None, company=None, branch=None, cost_center=None
 		profit_center=profit_center,
 		unloco=unloco,
 		fiscal_year=fiscal_year,
+		from_date=from_date,
+		to_date=to_date,
+	)
+
+	prefs = get_preferences()
+	limit = _clamp_airline_limit(
+		airline_limit if airline_limit not in (None, "") else prefs["airlines"]["limit"]
 	)
 
 	kpi = _air_shipment_kpis(f)
 	lead_time = _avg_lead_time(f)
-	airlines = _top_airlines(f, n=5)
+	airlines = _top_airlines(f, n=limit)
 	returned = _returned_billings_count(f)
 
 	top_airlines = []
@@ -282,7 +387,11 @@ def get_dashboard_data(filters=None, company=None, branch=None, cost_center=None
 	return {
 		"filters": f,
 		"fiscal_year": f["fiscal_year"],
+		"from_date": f["from_date"],
+		"to_date": f["to_date"],
 		"as_of": nowdate(),
+		"preferences": prefs,
+		"airline_limit": limit,
 		"kpis": {
 			"open_job_files_count": int(kpi.get("open_job_files_count") or 0),
 			"avg_age_open_jobs": round(flt(kpi.get("avg_age_open_jobs") or 0), 1),
@@ -294,10 +403,11 @@ def get_dashboard_data(filters=None, company=None, branch=None, cost_center=None
 		"top_airlines_max": max_airline,
 		"by_module": kpi.get("by_module") or [],
 		"links": {
-			"control_tower_dashboard": "Control Tower - ATN Airfreight",
-			"jobs_report": "CT Jobs KPI",
-			"airlines_report": "CT Top Carriers Volumes",
-			"returned_billings_report": "CT Returned Billings",
+			"job_files_open": "AFCT Job Files Detail",
+			"job_files_handled": "AFCT Job Files Detail",
+			"milestone_lead_time": "AFCT Milestone Lead Time",
+			"airline_volumes": "AFCT Airline Volumes",
+			"returned_billings": "AFCT Returned Billings",
 		},
 	}
 
@@ -311,10 +421,14 @@ def get_filter_defaults():
 		companies.insert(0, company)
 	if not company and companies:
 		company = companies[0]
+	fiscal_year = int(nowdate()[:4])
+	from_date, to_date = _default_date_range(fiscal_year)
 	return {
 		"company": company or "",
 		"companies": companies,
-		"fiscal_year": int(nowdate()[:4]),
+		"fiscal_year": fiscal_year,
+		"from_date": from_date,
+		"to_date": to_date,
 	}
 
 
@@ -332,8 +446,15 @@ def get_filter_options(company=None):
 
 	if frappe.db.exists("DocType", "Branch"):
 		try:
-			filters = {"company": company} if company and frappe.db.has_column("Branch", "company") else {}
-			branches = frappe.get_all("Branch", filters=filters, pluck="name", order_by="name asc") or []
+			branch_filters = {}
+			if company:
+				if frappe.db.has_column("Branch", "company"):
+					branch_filters["company"] = company
+				elif frappe.db.has_column("Branch", "custom_company"):
+					branch_filters["custom_company"] = company
+			branches = frappe.get_all(
+				"Branch", filters=branch_filters, pluck="name", order_by="name asc"
+			) or []
 		except Exception:
 			branches = frappe.get_all("Branch", pluck="name", order_by="name asc") or []
 

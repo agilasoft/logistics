@@ -3,6 +3,8 @@
 
 from __future__ import unicode_literals
 
+import json
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -136,6 +138,14 @@ class ChangeRequest(Document):
 	def validate(self):
 		self._honour_linked_services_form_rows()
 		self.validate_linked_service_charge_tagging()
+		if not (getattr(self, "reason", None) or "").strip():
+			frappe.throw(_("Reason is required for a Change Request."), title=_("Reason Required"))
+		try:
+			from logistics.pricing_center.change_request_field_apply import refresh_change_request_summary
+
+			refresh_change_request_summary(self)
+		except Exception:
+			frappe.log_error(frappe.get_traceback(), "Change Request summary refresh")
 
 	def validate_linked_service_charge_tagging(self):
 		"""Validate per-charge Linked Service tagging on Change Request charges."""
@@ -207,15 +217,25 @@ class ChangeRequest(Document):
 		self._drop_virtual_linked_services_rows()
 
 	def on_submit(self):
+		from logistics.pricing_center.change_request_field_apply import apply_change_request_fields_to_job
 		from logistics.pricing_center.change_request_to_job import apply_change_request_charges_to_job
 
-		apply_change_request_charges_to_job(self)
+		frappe.flags.from_change_request = True
+		try:
+			apply_change_request_fields_to_job(self)
+			apply_change_request_charges_to_job(self)
+		finally:
+			frappe.flags.from_change_request = False
 		frappe.db.set_value("Change Request", self.name, "status", "Submitted", update_modified=False)
 
 	def on_cancel(self):
 		from logistics.pricing_center.change_request_to_job import remove_change_request_charges_from_job
 
-		remove_change_request_charges_from_job(self)
+		frappe.flags.from_change_request = True
+		try:
+			remove_change_request_charges_from_job(self)
+		finally:
+			frappe.flags.from_change_request = False
 		frappe.db.set_value("Change Request", self.name, "status", "Draft", update_modified=False)
 
 
@@ -580,17 +600,46 @@ def get_eligible_internal_jobs_for_change_request_job(
 
 
 @frappe.whitelist()
-def create_change_request(job_type, job_name):
-	"""Create a new Change Request linked to the given job. Returns the new doc name."""
+def create_change_request(job_type, job_name, sections=None, reason=None, reuse_draft=None):
+	"""Create a Change Request linked to the job, seeded from current job values.
+
+	Returns the Change Request name. When *reuse_draft* is truthy and a Draft CR already
+	exists for this job, returns that name instead of creating another.
+	"""
 	if not job_type or not job_name:
 		frappe.throw(_("Job Type and Job are required"))
-	# Validate job exists
 	if not frappe.db.exists(job_type, job_name):
 		frappe.throw(_("Job {0} does not exist").format(job_name))
+
+	from frappe.utils import cint
+
+	from logistics.pricing_center.change_request_field_apply import seed_change_request_from_job
+
+	if cint(reuse_draft):
+		existing_rows = frappe.get_all(
+			"Change Request",
+			filters={"job_type": job_type, "job": job_name, "docstatus": 0},
+			pluck="name",
+			order_by="modified desc",
+			limit_page_length=1,
+		)
+		if existing_rows:
+			return existing_rows[0]
+
+	reason = (reason or "").strip() or _("Amendment")
+
+	# sections may arrive as JSON list from the dialog
+	if isinstance(sections, str) and sections.strip().startswith("["):
+		try:
+			sections = json.loads(sections)
+		except Exception:
+			pass
+
 	cr = frappe.new_doc("Change Request")
 	cr.job_type = job_type
 	cr.job = job_name
 	cr.status = "Draft"
+	seed_change_request_from_job(cr, sections=sections, reason=reason)
 	cr.insert(ignore_permissions=True)
 	return cr.name
 

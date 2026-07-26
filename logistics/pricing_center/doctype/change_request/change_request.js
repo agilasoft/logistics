@@ -444,6 +444,9 @@ frappe.ui.form.on("Change Request", {
 		frm.events.setup_linked_service_query(frm);
 		cr_setup_linked_services_grid(frm);
 		cr_fetch_eligible_linked_services(frm);
+		if (logistics.change_request_summary && logistics.change_request_summary.render) {
+			logistics.change_request_summary.render(frm);
+		}
 		// Cost lines are pushed to the job when the Change Request is submitted; revenue is updated when the linked Sales Quote is submitted.
 		if (
 			!frm.doc.__islocal &&

@@ -373,3 +373,86 @@ class TestTransportOrderTemplateValidation(FrappeTestCase):
 		)
 		with self.assertRaises(frappe.ValidationError):
 			order._validate_transport_template_compatibility()
+
+	def test_auto_populate_legs_from_transport_template_when_empty(self):
+		ftl = self._ensure_load_type("FTL", transport=1, non_container=1)
+
+		tpl = frappe.get_doc(
+			{
+				"doctype": "Transport Template",
+				"code": "TO-TEST-AUTO-LEGS",
+				"description": "Two-leg lane",
+				"default_load_type": ftl,
+				"legs": [
+					{
+						"facility_type_from": "Container Freight Station",
+						"facility_type_to": "Storage Facility",
+					},
+					{
+						"facility_type_from": "Storage Facility",
+						"facility_type_to": "Consignee",
+					},
+				],
+				"allowed_load_types": [{"load_type": ftl}],
+			}
+		)
+		tpl.insert(ignore_permissions=True)
+
+		order = frappe.get_doc(
+			{
+				"doctype": "Transport Order",
+				"transport_template": tpl.name,
+				"load_type": ftl,
+				"transport_job_type": "Non-Container",
+			}
+		)
+		order._maybe_auto_populate_legs_from_template()
+
+		self.assertEqual(len(order.legs or []), 2)
+		self.assertEqual(order.legs[0].facility_type_from, "Container Freight Station")
+		self.assertEqual(order.legs[0].facility_type_to, "Storage Facility")
+		self.assertEqual(order.legs[1].facility_type_from, "Storage Facility")
+		self.assertEqual(order.legs[1].facility_type_to, "Consignee")
+		self.assertEqual(order.legs[0].transport_job_type, "Non-Container")
+
+	def test_auto_populate_preserves_preseeded_legs_on_new_order(self):
+		ftl = self._ensure_load_type("FTL", transport=1, non_container=1)
+
+		tpl = frappe.get_doc(
+			{
+				"doctype": "Transport Template",
+				"code": "TO-TEST-PRESEED",
+				"description": "Template with legs",
+				"default_load_type": ftl,
+				"legs": [
+					{
+						"facility_type_from": "Container Freight Station",
+						"facility_type_to": "Storage Facility",
+					}
+				],
+				"allowed_load_types": [{"load_type": ftl}],
+			}
+		)
+		tpl.insert(ignore_permissions=True)
+
+		order = frappe.get_doc(
+			{
+				"doctype": "Transport Order",
+				"transport_template": tpl.name,
+				"load_type": ftl,
+				"transport_job_type": "Non-Container",
+				"legs": [
+					{
+						"facility_type_from": "Shipper",
+						"facility_type_to": "Consignee",
+						"transport_job_type": "Non-Container",
+					}
+				],
+			}
+		)
+		order._clear_legs_if_transport_template_changed()
+		order._maybe_auto_populate_legs_from_template()
+
+		self.assertEqual(len(order.legs or []), 1)
+		self.assertEqual(order.legs[0].facility_type_from, "Shipper")
+		self.assertEqual(order.legs[0].facility_type_to, "Consignee")

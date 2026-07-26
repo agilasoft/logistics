@@ -38,6 +38,7 @@ app_include_css = [
 	"/assets/logistics/css/charges_grid_no_row_check.css?v=2",
 	"/assets/logistics/css/density_factor.css?v=1",
 	"/assets/logistics/css/workflow_center.css?v=1",
+	"/assets/logistics/css/change_request_summary.css?v=3",
 ]
 app_include_js = [
 	"/assets/logistics/js/address_link_query.js?v=1",
@@ -74,6 +75,8 @@ app_include_js = [
 	"/assets/logistics/js/invoice_billing_currency.js",
 	"/assets/logistics/js/sales_invoice_dialog.js",
 	"/assets/logistics/js/sales_invoice_job_dimension_cleanup.js",
+	"/assets/logistics/js/job_change_lock.js?v=2",
+	"/assets/logistics/js/change_request_summary.js?v=3",
 ]
 
 # include js, css files in header of web template
@@ -84,6 +87,7 @@ app_include_js = [
 page_js = {
 	"workflow-center": "public/js/workflow_center.js",
 	"air-freight-control-tower": "public/js/air_freight_control_tower_page.js",
+	"sea-freight-control-tower": "public/js/sea_freight_control_tower_page.js",
 }
 
 # include js in doctype views
@@ -541,6 +545,27 @@ for _dt in (
 			doc_events[_dt]["validate"] = list(_v) + [_CHARGE_REOPEN_VALIDATE]
 	elif _v != _CHARGE_REOPEN_VALIDATE:
 		doc_events[_dt]["validate"] = [_v, _CHARGE_REOPEN_VALIDATE]
+
+# Submitted jobs/shipments: amend via Change Request only (non-exempt fields)
+_JOB_CHANGE_LOCK_VALIDATE = "logistics.job_management.job_change_lock.validate_job_locked_against_user_edits"
+for _dt in (
+	"Transport Job",
+	"Sea Shipment",
+	"Air Shipment",
+	"Warehouse Job",
+	"Declaration",
+	"Run Sheet",
+):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	_v = doc_events[_dt].get("validate")
+	if not _v:
+		doc_events[_dt]["validate"] = _JOB_CHANGE_LOCK_VALIDATE
+	elif isinstance(_v, list):
+		if _JOB_CHANGE_LOCK_VALIDATE not in _v:
+			doc_events[_dt]["validate"] = list(_v) + [_JOB_CHANGE_LOCK_VALIDATE]
+	elif _v != _JOB_CHANGE_LOCK_VALIDATE:
+		doc_events[_dt]["validate"] = [_v, _JOB_CHANGE_LOCK_VALIDATE]
 
 # Job readiness: block Complete/Close when documents, milestones, or charges fail settings gates
 _JOB_READINESS_VALIDATE = "logistics.job_management.job_readiness.validate_job_readiness_on_status_change"

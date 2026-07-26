@@ -17,12 +17,14 @@
   "facility_from",
   "pick_mode",
   "pick_address",
+  "pick_datetime",
   "pick_address_html",
   "column_break_aejb",
   "facility_type_to",
   "facility_to",
   "drop_mode",
   "drop_address",
+  "drop_datetime",
   "drop_address_html"
  ],
  "fields": [
@@ -118,6 +120,13 @@
    "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
   },
   {
+   "fetch_from": "transport_leg.pick_datetime",
+   "fieldname": "pick_datetime",
+   "fieldtype": "Datetime",
+   "label": "Pick Date and Time",
+   "read_only": 1
+  },
+  {
    "fieldname": "pick_address_html",
    "fieldtype": "Text",
    "read_only": 1
@@ -129,6 +138,13 @@
    "label": "Drop Address",
    "options": "Address",
    "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]"
+  },
+  {
+   "fetch_from": "transport_leg.drop_datetime",
+   "fieldname": "drop_datetime",
+   "fieldtype": "Datetime",
+   "label": "Drop Date and Time",
+   "read_only": 1
   },
   {
    "fieldname": "drop_address_html",

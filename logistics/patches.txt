@@ -351,3 +351,5 @@ logistics.patches.v3_0_afct_page_js_hooks_stub
 logistics.patches.v3_0_sync_sales_quote_transport_field_props
 # Sales Quote: move Transport fields to own Section Break (avoid Column Break hide)
 logistics.patches.v3_0_relayout_sales_quote_transport_params
+# Charge Category: master DocType + Select→Link on charge tables / Item
+logistics.patches.v3_0_seed_charge_category_and_convert_links

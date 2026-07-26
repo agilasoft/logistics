@@ -512,6 +512,9 @@ frappe.ui.form.on("Declaration", {
 	},
 	
 	refresh(frm) {
+		if (window.logistics && logistics.job_change_lock) {
+			logistics.job_change_lock.apply(frm);
+		}
 		_declaration_processing_date_field_state(frm);
 		_auto_set_payment_status(frm);
 		if (window.logistics && logistics.apply_commercial_invoice_totals_to_form) {
@@ -665,17 +668,6 @@ frappe.ui.form.on("Declaration", {
 			frm.add_custom_button(__("Exemption Certificate"), function () {
 				logistics_show_create_exemption_certificate_dialog(frm);
 			}, __("Create"));
-			frm.add_custom_button(__('Create Change Request'), function() {
-				frappe.call({
-					method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
-					args: { job_type: 'Declaration', job_name: frm.doc.name },
-					callback: function(r) {
-						if (r.message) {
-							frappe.set_route('Form', 'Change Request', r.message);
-						}
-					}
-				});
-			}, __('Create'));
 		}
 		// Create > Declaration Order from linked Sales Quote (same eligibility as Air/Sea Shipment)
 		if (frm.doc.name && !frm.doc.__islocal && frm.doc.sales_quote && !frm.doc.declaration_order) {
