@@ -27,12 +27,17 @@ When the order is created from a [Sales Quote](welcome/sales-quote), charge line
 
 Fields may be pre-filled when the order is created from linked sea/air/transport customs documents. See [Transport Order — Inter-module Field Copy](welcome/transport-order-intermodule-field-copy).
 
+### 2.3 Pick and Drop Date and Time (per leg)
+
+Each **Transport Order Leg** has **Pick Date and Time** (`pick_datetime`) and **Drop Date and Time** (`drop_datetime`) under the pick/drop address columns. They are required on submit and copy to the [Transport Leg](welcome/transport-leg) when a job is created. See [Transport Order — Pick and Drop Date and Time](welcome/transport-order-pick-drop-datetime).
+
 ## 3. Workflow
 
 1. Create Transport Order from [Sales Quote](welcome/sales-quote) or manually.
 2. Add packages, charges.
-3. Submit when ready.
-4. Create [Transport Job](welcome/transport-job) from the order.
+3. On each leg, set pick/drop date and time (required to submit).
+4. Submit when ready.
+5. Create [Transport Job](welcome/transport-job) from the order.
 
 
 <!-- wiki-field-reference:start -->
@@ -223,12 +228,14 @@ _All fields from DocType **Transport Order** and nested child tables, in form or
 | Facility From (`facility_from`) | Dynamic Link | **Purpose:** References another document whose **DocType** is chosen in field **facility_type_from** (same pattern as ERPNext Dynamic Link). **What to enter:** First set the DocType field, then pick the document **name** for that type. |
 | Pick Mode (`pick_mode`) | Link | **Purpose:** Creates a controlled reference to **Pick and Drop Mode** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **Pick and Drop Mode**. Create the master first if it does not exist. |
 | Pick Address (`pick_address`) | Link | **Purpose:** Creates a controlled reference to **Address** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **Address**. Create the master first if it does not exist. |
+| Pick Date and Time (`pick_datetime`) | Datetime | **Purpose:** Scheduled pickup appointment for this leg (date and time). **What to enter:** Pick date and time; use the time zone your process expects (often local site). **Behaviour:** Required on Transport Order submit; copies to Transport Leg when a job is created. |
 | `pick_address_html` | Text | **Purpose:** Multi-line narrative (instructions, clauses, template text). **What to enter:** Free text across multiple lines; use line breaks where helpful. **Behaviour:** Read-only here — value comes from calculation, another field, or workflow. |
 | `column_break_uqra` | Column Break | **Purpose:** Continues the current row in a second column (standard ERP two-column layout). **What to enter:** No data — layout only. |
 | Facility Type To (`facility_type_to`) | Link | **Purpose:** Creates a controlled reference to **DocType** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **DocType**. Create the master first if it does not exist. |
 | Facility To (`facility_to`) | Dynamic Link | **Purpose:** References another document whose **DocType** is chosen in field **facility_type_to** (same pattern as ERPNext Dynamic Link). **What to enter:** First set the DocType field, then pick the document **name** for that type. |
 | Drop Mode (`drop_mode`) | Link | **Purpose:** Creates a controlled reference to **Pick and Drop Mode** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **Pick and Drop Mode**. Create the master first if it does not exist. |
 | Drop Address (`drop_address`) | Link | **Purpose:** Creates a controlled reference to **Address** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **Address**. Create the master first if it does not exist. |
+| Drop Date and Time (`drop_datetime`) | Datetime | **Purpose:** Scheduled delivery appointment for this leg (date and time). **What to enter:** Pick date and time; must not be earlier than **Pick Date and Time** on the same leg. **Behaviour:** Required on Transport Order submit; copies to Transport Leg when a job is created. |
 | `drop_address_html` | Text | **Purpose:** Multi-line narrative (instructions, clauses, template text). **What to enter:** Free text across multiple lines; use line breaks where helpful. **Behaviour:** Read-only here — value comes from calculation, another field, or workflow. |
 
 #### Child table: Transport Order Charges (field `charges` on parent)

@@ -958,3 +958,67 @@ class TestSalesQuote(FrappeTestCase):
 		sp.flags.ignore_mandatory = True
 		sp.insert(ignore_permissions=True)
 		return sp.name
+
+
+class TestSalesQuoteEstimatedProfitability(FrappeTestCase):
+	"""Unit tests for Sales Quote estimated profitability rollup."""
+
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def test_rollup_revenue_cost_profit_margin(self):
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+			get_sales_quote_estimated_profitability,
+			build_sales_quote_profitability_html,
+		)
+
+		data = get_sales_quote_estimated_profitability(
+			{
+				"company": None,
+				"charges": [
+					{
+						"estimated_revenue": 1000,
+						"estimated_cost": 600,
+						"bill_to_exchange_rate": 1,
+						"pay_to_exchange_rate": 1,
+					},
+					{
+						"estimated_revenue": 640,
+						"estimated_cost": 430,
+						"bill_to_exchange_rate": 1,
+						"pay_to_exchange_rate": 1,
+					},
+				],
+			}
+		)
+		self.assertEqual(data["total_estimated_revenue"], 1640.0)
+		self.assertEqual(data["total_estimated_cost"], 1030.0)
+		self.assertEqual(data["estimated_profit"], 610.0)
+		self.assertEqual(data["estimated_margin_pct"], 37.2)
+
+		html = build_sales_quote_profitability_html(data)
+		self.assertIn("Profitability (Estimated)", html)
+		self.assertIn("sq-profitability-estimated", html)
+		self.assertIn("37.20%", html)
+
+	def test_exchange_rate_conversion(self):
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+			get_sales_quote_estimated_profitability,
+		)
+
+		data = get_sales_quote_estimated_profitability(
+			{
+				"company": None,
+				"charges": [
+					{
+						"estimated_revenue": 100,
+						"estimated_cost": 50,
+						"bill_to_exchange_rate": 2,
+						"pay_to_exchange_rate": 1.5,
+					}
+				],
+			}
+		)
+		self.assertEqual(data["total_estimated_revenue"], 200.0)
+		self.assertEqual(data["total_estimated_cost"], 75.0)
+		self.assertEqual(data["estimated_profit"], 125.0)

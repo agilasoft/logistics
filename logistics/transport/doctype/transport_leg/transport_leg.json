@@ -37,6 +37,7 @@
   "pick_mode",
   "pick_window_start",
   "pick_window_end",
+  "pick_datetime",
   "pick_consolidated",
   "pick_signature",
   "pick_signed_by",
@@ -55,6 +56,7 @@
   "drop_mode",
   "drop_window_start",
   "drop_window_end",
+  "drop_datetime",
   "drop_consolidated",
   "drop_signature",
   "drop_signed_by",
@@ -234,6 +236,11 @@
    "label": "Pick Window End"
   },
   {
+   "fieldname": "pick_datetime",
+   "fieldtype": "Datetime",
+   "label": "Pick Date and Time"
+  },
+  {
    "default": "0",
    "fieldname": "pick_consolidated",
    "fieldtype": "Check",
@@ -304,6 +311,11 @@
    "fieldname": "drop_window_end",
    "fieldtype": "Time",
    "label": "Drop Window End"
+  },
+  {
+   "fieldname": "drop_datetime",
+   "fieldtype": "Datetime",
+   "label": "Drop Date and Time"
   },
   {
    "default": "0",

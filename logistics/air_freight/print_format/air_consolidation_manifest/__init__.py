@@ -1,0 +1,1 @@
+# Install: bench execute logistics.air_freight.print_format.air_consolidation_manifest.install_print_format.install_air_consolidation_manifest_print_format

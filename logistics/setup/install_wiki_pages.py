@@ -76,6 +76,10 @@ WIKI_PAGES_CONFIG = {
         "Transport Order — Inter-module Field Copy",
         "Transport",
     ),
+    "transport_order_pick_drop_datetime": (
+        "Transport Order — Pick and Drop Date and Time",
+        "Transport",
+    ),
     "run_sheet": ("Run Sheet", "Transport"),
     "proof_of_delivery": ("Proof of Delivery", "Transport"),
     "transport_template": ("Transport Template", "Transport"),

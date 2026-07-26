@@ -137,9 +137,10 @@
   },
   {
    "fieldname": "charge_category",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Charge Category",
-   "options": "Freight\nFuel Surcharge\nTerminal Handling\nPort Charges\nCustoms Clearance\nDocumentation\nInsurance\nStorage\nDetention\nDemurrage\nOther"
+   "options": "Charge Category",
+   "link_filters": "[[\"Charge Category\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "section_break_scope",
@@ -463,9 +464,10 @@
   {
    "depends_on": "eval:0",
    "fieldname": "customs_charge_category",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Charge Category",
-   "options": "Customs Clearance\nDocumentation\nStorage\nOther"
+   "options": "Charge Category",
+   "link_filters": "[[\"Charge Category\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "section_break_revenue_cost",

@@ -1,0 +1,221 @@
+{
+ "actions": [],
+ "creation": "2026-07-24 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "row_action",
+  "source_row_name",
+  "package_row",
+  "commodity",
+  "warehouse_item",
+  "hs_code",
+  "reference_no",
+  "column_break_1",
+  "goods_description",
+  "description",
+  "measurements_section",
+  "no_of_packs",
+  "quantity",
+  "uom",
+  "column_break_2",
+  "weight",
+  "weight_uom",
+  "volume",
+  "volume_uom",
+  "dimensions_section",
+  "length",
+  "width",
+  "height",
+  "dimension_uom",
+  "dg_section",
+  "contains_dangerous_goods",
+  "dg_substance",
+  "un_number",
+  "proper_shipping_name",
+  "dg_class",
+  "packing_group"
+ ],
+ "fields": [
+  {
+   "default": "Update",
+   "fieldname": "row_action",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Action",
+   "options": "Update\nAdd\nRemove",
+   "reqd": 1
+  },
+  {
+   "description": "Original package row name on the job (for Update/Remove).",
+   "fieldname": "source_row_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Source Row"
+  },
+  {
+   "fieldname": "package_row",
+   "fieldtype": "Int",
+   "label": "Package Row"
+  },
+  {
+   "fieldname": "commodity",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Commodity"
+  },
+  {
+   "fieldname": "warehouse_item",
+   "fieldtype": "Link",
+   "label": "Warehouse Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "hs_code",
+   "fieldtype": "Data",
+   "label": "HS Code"
+  },
+  {
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "label": "Reference No"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "goods_description",
+   "fieldtype": "Small Text",
+   "label": "Goods Description"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "measurements_section",
+   "fieldtype": "Section Break",
+   "label": "Measurements"
+  },
+  {
+   "fieldname": "no_of_packs",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "No of Packs"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity"
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Weight"
+  },
+  {
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume"
+  },
+  {
+   "fieldname": "volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "dimensions_section",
+   "fieldtype": "Section Break",
+   "label": "Dimensions"
+  },
+  {
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "label": "Length"
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "label": "Width"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Height"
+  },
+  {
+   "fieldname": "dimension_uom",
+   "fieldtype": "Link",
+   "label": "Dimension UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "dg_section",
+   "fieldtype": "Section Break",
+   "label": "Dangerous Goods"
+  },
+  {
+   "default": "0",
+   "fieldname": "contains_dangerous_goods",
+   "fieldtype": "Check",
+   "label": "Contains Dangerous Goods"
+  },
+  {
+   "fieldname": "dg_substance",
+   "fieldtype": "Data",
+   "label": "DG Substance"
+  },
+  {
+   "fieldname": "un_number",
+   "fieldtype": "Data",
+   "label": "UN Number"
+  },
+  {
+   "fieldname": "proper_shipping_name",
+   "fieldtype": "Data",
+   "label": "Proper Shipping Name"
+  },
+  {
+   "fieldname": "dg_class",
+   "fieldtype": "Data",
+   "label": "DG Class"
+  },
+  {
+   "fieldname": "packing_group",
+   "fieldtype": "Data",
+   "label": "Packing Group"
+  }
+ ],
+ "istable": 1,
+ "modified": "2026-07-24 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Pricing Center",
+ "name": "Change Request Package",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": []
+}

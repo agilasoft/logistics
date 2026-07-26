@@ -49,9 +49,10 @@
   },
   {
    "fieldname": "charge_category",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Charge Category",
-   "options": "Freight\nFuel Surcharge\nTerminal Handling\nCustoms Clearance\nDocumentation\nInsurance\nStorage\nHandling\nOther"
+   "options": "Charge Category",
+   "link_filters": "[[\"Charge Category\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "uom",

@@ -593,11 +593,11 @@ frappe.ui.form.on("Transport Order", {
 			delete frappe.route_options.__event_charges_message;
 		}
 		
-		// Add Create Leg Plan button if transport template is set and document is not submitted
-		// Only show if document exists and has a valid name (not temporary)
+		// Add Leg Plan button for manual refresh (auto-populate also runs on save when legs are empty)
 		if (!frm.is_new() && frm.doc.transport_template && frm.doc.docstatus !== 1 && 
 		    frm.doc.name && !frm.doc.name.startsWith('new-')) {
-			frm.add_custom_button(__("Leg Plan"), function() {
+			const has_legs = (frm.doc.legs || []).length > 0;
+			frm.add_custom_button(__(has_legs ? "Refresh Leg Plan" : "Create Leg Plan"), function() {
 				// Ensure document is saved before creating leg plan
 				if (frm.is_dirty()) {
 					frm.save().then(function() {
@@ -824,6 +824,20 @@ frappe.ui.form.on("Transport Order", {
 		load_transport_template_constraints(frm, function(constraints) {
 			apply_transport_template_defaults_to_order(frm, constraints);
 		});
+		// Mirror server: changing template on an existing order clears legs; save rebuilds them.
+		if (!frm.is_new() && frm.doc.docstatus !== 1) {
+			const had_legs = (frm.doc.legs || []).length > 0;
+			if (had_legs) {
+				frm.clear_table("legs");
+				frm.refresh_field("legs");
+			}
+			if (frm.doc.transport_template) {
+				frappe.show_alert({
+					message: __("Leg Plan will be built from the Transport Template when you save."),
+					indicator: "blue",
+				}, 5);
+			}
+		}
 	},
 
 	transport_job_type: function(frm) {
@@ -1346,6 +1360,18 @@ frappe.ui.form.on("Transport Order", {
 			for (var i = 0; i < frm.doc.legs.length; i++) {
 				var leg = frm.doc.legs[i];
 				var row_num = leg.idx || (i + 1);
+				if (!leg.pick_datetime || !leg.drop_datetime) {
+					var missing = [];
+					if (!leg.pick_datetime) missing.push(__("Pick Date and Time"));
+					if (!leg.drop_datetime) missing.push(__("Drop Date and Time"));
+					var dt_msg = __("Row {0}: Missing required fields: {1}", [row_num, missing.join(", ")]);
+					frappe.msgprint({
+						title: __("Validation Error"),
+						message: dt_msg,
+						indicator: 'red'
+					});
+					return Promise.reject(dt_msg);
+				}
 				if (leg.facility_from && leg.facility_to && leg.facility_from === leg.facility_to) {
 					if (leg.pick_address === leg.drop_address) {
 						var facility_msg = __("Row {0}: Pick facility and drop facility cannot be the same.", [row_num]);

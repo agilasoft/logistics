@@ -60,6 +60,7 @@ PAGE_MAP = {
     "transport_leg": "Transport-Leg",
     "transport_plan": "Transport-Plan",
     "transport_order_intermodule_field_copy": "Transport-Order-Intermodule-Field-Copy",
+    "transport_order_pick_drop_datetime": "Transport-Order-Pick-and-Drop-Date-and-Time",
     "run_sheet": "Run-Sheet",
     "proof_of_delivery": "Proof-of-Delivery",
     "transport_template": "Transport-Template",
@@ -192,6 +193,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 - [Proof of Delivery](Proof-of-Delivery)
 - [Transport Template](Transport-Template) | [Load Type](Load-Type) | [Transport Mode](Transport-Mode)
 - [Transport Order — Inter-module Field Copy](Transport-Order-Intermodule-Field-Copy)
+- [Transport Order — Pick and Drop Date and Time](Transport-Order-Pick-and-Drop-Date-and-Time)
 
 ## Customs
 
@@ -320,6 +322,7 @@ CargoNext is a comprehensive, integrated logistics management platform designed 
 - [Load Type](Load-Type)
 - [Transport Mode](Transport-Mode)
 - [Transport Order — Inter-module Field Copy](Transport-Order-Intermodule-Field-Copy)
+- [Transport Order — Pick and Drop Date and Time](Transport-Order-Pick-and-Drop-Date-and-Time)
 
 **Customs**
 - [Customs Module](Customs-Module)
