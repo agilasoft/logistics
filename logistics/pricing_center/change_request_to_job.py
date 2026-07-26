@@ -684,6 +684,10 @@ def apply_change_request_charges_to_job(cr_doc):
 	if not frappe.db.exists(cr_doc.job_type, cr_doc.job):
 		frappe.throw(_("Job {0} does not exist").format(cr_doc.job))
 	if not cr_doc.get("charges"):
+		# Field-only CRs (parties/packages/notes) skip charge apply without warning.
+		sections = (getattr(cr_doc, "change_sections", None) or "").strip()
+		if sections and "Charges" not in sections:
+			return
 		frappe.msgprint(_("No charge lines on this Change Request; nothing was applied to the job."), indicator="orange")
 		return
 

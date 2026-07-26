@@ -237,21 +237,36 @@ function _refresh_special_project_services_grid_rows(frm) {
 	});
 }
 
-/** Virtual ``special_project_services`` defaults to Read display_status; show Add row on draft projects. */
-function _enable_special_project_services_grid_add_row(frm) {
-	if (!frm || !frm.doc || frm.doc.docstatus !== 0) return;
+/**
+ * Virtual ``special_project_services`` defaults to Read display_status.
+ * Keep draft rows editable, but never show Add row — extra service lines go via Change Request.
+ */
+function _disable_special_project_services_grid_add_row(frm) {
+	if (!frm || !frm.get_docfield || !frm.get_docfield("special_project_services")) return;
+	frm.set_df_property("special_project_services", "cannot_add_rows", 1);
 	const field = frm.fields_dict.special_project_services;
-	if (!field || !field.grid || !field.grid.wrapper) return;
+	if (!field || !field.grid) return;
 	const grid = field.grid;
-	grid.display_status = "Write";
-	grid.wrapper.find(".grid-footer").removeClass("hidden");
-	grid.wrapper
-		.find(".grid-add-row, .grid-add-multiple-rows")
-		.removeClass("hidden d-none");
-	if (typeof grid.setup_toolbar === "function") {
-		grid.setup_toolbar();
+	grid.cannot_add_rows = true;
+	if (grid.df) {
+		grid.df.cannot_add_rows = 1;
 	}
-	_refresh_special_project_services_grid_rows(frm);
+	// Draft only: virtual table needs Write so existing rows stay editable.
+	if (frm.doc && frm.doc.docstatus === 0 && grid.wrapper) {
+		grid.display_status = "Write";
+		grid.wrapper.find(".grid-footer").removeClass("hidden");
+		if (typeof grid.setup_toolbar === "function") {
+			grid.setup_toolbar();
+		}
+		_refresh_special_project_services_grid_rows(frm);
+	}
+	if (window.logistics_hide_cannot_add_rows_buttons) {
+		window.logistics_hide_cannot_add_rows_buttons(frm, "special_project_services");
+	} else if (grid.wrapper) {
+		grid.wrapper
+			.find(".grid-add-row, .grid-add-multiple-rows, .grid-duplicate-rows")
+			.addClass("hidden");
+	}
 }
 
 function _activate_special_project_services_grid_row(frm, cdn, attempt) {
@@ -268,7 +283,7 @@ function _activate_special_project_services_grid_row(frm, cdn, attempt) {
 		}
 		return;
 	}
-	_enable_special_project_services_grid_add_row(frm);
+	_disable_special_project_services_grid_add_row(frm);
 	if (typeof grid.allow_on_grid_editing === "function" && grid.allow_on_grid_editing()) {
 		row.toggle_editable_row(true);
 		return;
@@ -313,7 +328,7 @@ function _setup_special_project_services_grid(frm) {
 		setTimeout(() => _setup_special_project_services_grid(frm), 300);
 		return;
 	}
-	_enable_special_project_services_grid_add_row(frm);
+	_disable_special_project_services_grid_add_row(frm);
 }
 
 (function patch_sp_services_grid_refresh() {
@@ -326,7 +341,7 @@ function _setup_special_project_services_grid(frm) {
 		grid.refresh = function () {
 			orig.apply(this, arguments);
 			if (this.frm) {
-				_enable_special_project_services_grid_add_row(this.frm);
+				_disable_special_project_services_grid_add_row(this.frm);
 			}
 		};
 	}
@@ -874,6 +889,7 @@ frappe.ui.form.on("Special Project", {
 			frm.set_df_property("deliveries", "cannot_add_rows", 1);
 			frm.set_df_property("deliveries", "cannot_delete_rows", 1);
 		}
+		_disable_special_project_services_grid_add_row(frm);
 		_setup_special_project_services_grid(frm);
 	},
 	setup: function (frm) {
@@ -943,6 +959,7 @@ frappe.ui.form.on("Special Project", {
 			frm.set_df_property("charge_execution_logs", "cannot_delete_rows", 1);
 		}
 		logistics_set_internal_job_site_query(frm);
+		_disable_special_project_services_grid_add_row(frm);
 		_setup_special_project_services_grid(frm);
 		_setup_special_project_services_lifecycle_formatters(frm);
 		if (!frm.fields_dict.special_project_services?.grid?._logistics_ps_lifecycle_label_patched) {

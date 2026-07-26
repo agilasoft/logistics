@@ -382,9 +382,10 @@
   {
    "depends_on": "eval:doc.service_type == \"Customs\"",
    "fieldname": "customs_charge_category",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Charge Category",
-   "options": "Customs Clearance\nDocumentation\nStorage\nOther"
+   "options": "Charge Category",
+   "link_filters": "[[\"Charge Category\", \"disabled\", \"=\", 0]]"
   },
   {
    "depends_on": "eval:[\"Special Project\",\"MICE\"].includes(doc.service_type)",

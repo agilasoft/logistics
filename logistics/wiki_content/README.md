@@ -93,6 +93,7 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | transport_leg.md | Transport Leg | Transport |
 | transport_plan.md | Transport Plan | Transport |
 | transport_order_intermodule_field_copy.md | Transport Order — Inter-module Field Copy | Transport |
+| transport_order_pick_drop_datetime.md | Transport Order — Pick and Drop Date and Time | Transport |
 | run_sheet.md | Run Sheet | Transport |
 | proof_of_delivery.md | Proof of Delivery | Transport |
 | transport_template.md | Transport Template | Transport |

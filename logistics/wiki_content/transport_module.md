@@ -71,6 +71,7 @@ _Module transactions and masters:_
 - [Getting Started](welcome/getting-started)
 - [Transport Settings](welcome/transport-settings)
 - [Transport Order](welcome/transport-order)
+- [Transport Order — Pick and Drop Date and Time](welcome/transport-order-pick-drop-datetime)
 - [Transport Job](welcome/transport-job)
 - [Run Sheet Scan](welcome/run-sheet-scan)
 - [Glossary](welcome/glossary)

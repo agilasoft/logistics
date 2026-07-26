@@ -355,9 +355,10 @@
    "fetch_from": "internal_job.customs_charge_category",
    "fetch_if_empty": 1,
    "fieldname": "customs_charge_category",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Charge Category",
-   "options": "Customs Clearance\nDocumentation\nStorage\nOther"
+   "options": "Charge Category",
+   "link_filters": "[[\"Charge Category\", \"disabled\", \"=\", 0]]"
   },
   {
    "fetch_from": "internal_job.job_description",

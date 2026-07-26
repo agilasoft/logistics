@@ -5104,6 +5104,9 @@ window.viewTransportLeg = function(transportLegName) {
 // ---------- form bindings ----------
 frappe.ui.form.on('Run Sheet', {
   refresh(frm) {
+    if (window.logistics && logistics.job_change_lock) {
+      logistics.job_change_lock.apply(frm);
+    }
     // Always try to render the route map, even for new documents
     // Use setTimeout to ensure form is fully loaded
     setTimeout(() => {

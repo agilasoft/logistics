@@ -228,21 +228,10 @@ class TransportOrder(VirtualLinkedServicesMixin, Document):
                     and original_sales_quote == getattr(self, "quote", None)
                 ):
                     self.sales_quote = original_sales_quote
-            # If the Transport Template changes, clear the Leg Plan table.
-            try:
-                if self.has_value_changed("transport_template"):
-                    legs_field = _find_child_table_fieldname(
-                        "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
-                    )
-                    self.set(legs_field, [])
-            except Exception:
-                old = getattr(self, "_doc_before_save", None) or self.get_doc_before_save()
-                if old and getattr(old, "transport_template", None) != getattr(self, "transport_template", None):
-                    legs_field = _find_child_table_fieldname(
-                        "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
-                    )
-                    self.set(legs_field, [])
-        
+            # If the Transport Template changes on an existing order, clear stale Leg Plan rows.
+            # New docs may already carry pre-seeded legs (e.g. from Sales Quote); leave those alone.
+            self._clear_legs_if_transport_template_changed()
+
             # Validate One-off Sales Quote not already converted (internal-job TO may share quote with main Sea/Air leg)
             if self.sales_quote:
                 from frappe.utils import cint
@@ -324,7 +313,8 @@ class TransportOrder(VirtualLinkedServicesMixin, Document):
             self.validate_load_type_allowed_for_job()
 
             self._validate_transport_template_compatibility()
-        
+            self._maybe_auto_populate_legs_from_template()
+
             # Validate consolidation eligibility
             self.validate_consolidation_eligibility()
         
@@ -629,6 +619,12 @@ class TransportOrder(VirtualLinkedServicesMixin, Document):
                 missing_fields.append("Pick Mode")
             if not leg.get("drop_mode"):
                 missing_fields.append("Drop Mode")
+
+            # Check pick and drop date/time
+            if not leg.get("pick_datetime"):
+                missing_fields.append("Pick Date and Time")
+            if not leg.get("drop_datetime"):
+                missing_fields.append("Drop Date and Time")
             
             # Check scheduled_date if it's filled
             if leg.get("scheduled_date"):
@@ -637,6 +633,21 @@ class TransportOrder(VirtualLinkedServicesMixin, Document):
                     getdate(leg.scheduled_date)  # Validate date format
                 except Exception:
                     frappe.throw(_("Row {0}: Invalid scheduled date format. Please use a valid date format.").format(i))
+
+            # Validate pick/drop datetime order when both are set
+            if leg.get("pick_datetime") and leg.get("drop_datetime"):
+                try:
+                    from frappe.utils import get_datetime
+                    pick_dt = get_datetime(leg.pick_datetime)
+                    drop_dt = get_datetime(leg.drop_datetime)
+                    if drop_dt < pick_dt:
+                        frappe.throw(
+                            _("Row {0}: Drop Date and Time cannot be earlier than Pick Date and Time.").format(i)
+                        )
+                except frappe.ValidationError:
+                    raise
+                except Exception:
+                    frappe.throw(_("Row {0}: Invalid pick or drop date and time format.").format(i))
             
             # Note: day_offset is not a field in Transport Order Legs table
             # It's only used during template mapping
@@ -919,6 +930,45 @@ class TransportOrder(VirtualLinkedServicesMixin, Document):
         )
 
         validate_doc_transport_template(self, context=_("Transport Order"))
+
+    def _order_legs_fieldname(self) -> str:
+        return _find_child_table_fieldname(
+            "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
+        )
+
+    def _clear_legs_if_transport_template_changed(self):
+        """Drop Leg Plan rows when template changes on an existing order.
+
+        New / unsaved docs may already carry pre-seeded legs (e.g. from Sales Quote);
+        only clear when there is a prior saved version with a different template.
+        """
+        old = getattr(self, "_doc_before_save", None)
+        if old is None:
+            try:
+                old = self.get_doc_before_save()
+            except Exception:
+                old = None
+        if not old:
+            return
+        if getattr(old, "transport_template", None) == getattr(self, "transport_template", None):
+            return
+        self.set(self._order_legs_fieldname(), [])
+
+    def _maybe_auto_populate_legs_from_template(self):
+        """Fill empty Leg Plan from Transport Template (draft-safe; no throw if template has no legs)."""
+        if getattr(self.flags, "ignore_auto_leg_plan", False):
+            return
+        if not getattr(self, "transport_template", None):
+            return
+        legs_field = self._order_legs_fieldname()
+        if self.get(legs_field):
+            return
+        _apply_leg_plan_from_template(
+            self,
+            replace=False,
+            raise_on_empty=False,
+            validate_template=False,
+        )
 
     def validate_vehicle_type_capacity(self):
         """Validate vehicle type capacity when vehicle_type is assigned"""
@@ -2076,11 +2126,75 @@ def populate_charges_from_one_off_quote(docname: str = None, one_off_quote: str 
         }
 
 
+def _apply_leg_plan_from_template(
+    doc,
+    *,
+    replace: bool = True,
+    raise_on_empty: bool = True,
+    validate_template: bool = True,
+) -> int:
+    """Populate Transport Order legs from its Transport Template. Returns count of legs added."""
+    order_child_dt = "Transport Order Legs"
+    order_child_field = _find_child_table_fieldname(
+        "Transport Order", order_child_dt, ORDER_LEGS_FIELDNAME_FALLBACKS
+    )
+
+    template_name = _coalesce(doc, ["transport_template", "template", "template_name"])
+    if not template_name:
+        if raise_on_empty:
+            frappe.throw(_("Please choose a Transport Template on this order first."))
+        return 0
+
+    if validate_template:
+        from logistics.transport.doctype.transport_template.transport_template import (
+            validate_doc_transport_template,
+        )
+
+        validate_doc_transport_template(doc, context=_("Leg Plan"))
+
+    template_rows = _fetch_template_legs(template_name)
+    if not template_rows:
+        if raise_on_empty:
+            frappe.throw(_("No legs found in template: {0}").format(frappe.bold(template_name)))
+        return 0
+
+    base_date = None
+    if getattr(doc, "scheduled_date", None):
+        try:
+            base_date = getdate(doc.scheduled_date)
+        except Exception:
+            base_date = None
+
+    if replace:
+        doc.set(order_child_field, [])
+
+    created = 0
+    for tr in template_rows:
+        row_data = _map_template_row_to_order_row(order_child_dt, tr, base_date)
+        if not row_data:
+            continue
+
+        if getattr(doc, "transport_job_type", None):
+            row_data["transport_job_type"] = doc.transport_job_type
+
+        if base_date and _has_field(order_child_dt, "scheduled_date"):
+            if not row_data.get("scheduled_date"):
+                row_data["scheduled_date"] = base_date
+
+        if not row_data.get("vehicle_type") and getattr(doc, "vehicle_type", None):
+            row_data["vehicle_type"] = doc.vehicle_type
+
+        doc.append(order_child_field, row_data)
+        created += 1
+
+    return created
+
+
 @frappe.whitelist()
 def action_get_leg_plan(docname: str, replace: int = 1, save: int = 1):
     """Populate Transport Order legs from the selected Transport Template."""
     if not docname:
-        frappe.throw("Missing Transport Order name.")
+        frappe.throw(_("Missing Transport Order name."))
 
     # Check if docname is a temporary name (starts with "new-")
     # This can happen if the function is called before the document is fully saved
@@ -2088,7 +2202,7 @@ def action_get_leg_plan(docname: str, replace: int = 1, save: int = 1):
         frappe.throw(_("Cannot create leg plan for unsaved document. Please save the Transport Order first."))
 
     # Guard: Check if we're in a save transaction and handle accordingly
-    if getattr(frappe.flags, 'in_save', False):
+    if getattr(frappe.flags, "in_save", False):
         frappe.db.commit()
         time.sleep(0.3)  # Wait for transaction to complete
 
@@ -2105,25 +2219,8 @@ def action_get_leg_plan(docname: str, replace: int = 1, save: int = 1):
             # Return graceful error response for post-save fetch failures
             return {"error": "doc_not_ready"}
 
-    # discover order child table dt/field
-    order_child_dt = "Transport Order Legs"
-    order_child_field = _find_child_table_fieldname(
-        "Transport Order", order_child_dt, ORDER_LEGS_FIELDNAME_FALLBACKS
-    )
-
     template_name = _coalesce(doc, ["transport_template", "template", "template_name"])
-    if not template_name:
-        frappe.throw("Please choose a Transport Template on this order first.")
-
-    from logistics.transport.doctype.transport_template.transport_template import (
-        validate_doc_transport_template,
-    )
-
-    validate_doc_transport_template(doc, context=_("Leg Plan"))
-
-    template_rows = _fetch_template_legs(template_name)
-    if not template_rows:
-        frappe.throw(f"No legs found in template: {frappe.bold(template_name)}")
+    created = _apply_leg_plan_from_template(doc, replace=bool(cint(replace)), raise_on_empty=True)
 
     base_date = None
     if getattr(doc, "scheduled_date", None):
@@ -2132,45 +2229,20 @@ def action_get_leg_plan(docname: str, replace: int = 1, save: int = 1):
         except Exception:
             base_date = None
 
-    if cint(replace):
-        doc.set(order_child_field, [])
-
-    created = 0
-    for tr in template_rows:
-        row_data = _map_template_row_to_order_row(order_child_dt, tr, base_date)
-        if not row_data:
-            continue
-        
-        # Auto-fill transport_job_type from parent Transport Order (default to parent value)
-        if getattr(doc, "transport_job_type", None):
-            row_data["transport_job_type"] = doc.transport_job_type
-        
-        # Auto-fill scheduled_date from parent Transport Order (default to parent value)
-        # This ensures scheduled_date defaults to Transport Order's scheduled_date
-        # The _map_template_row_to_order_row function already calculates scheduled_date from
-        # base_date + day_offset, but we ensure it defaults to base_date if not set
-        if base_date and _has_field(order_child_dt, "scheduled_date"):
-            # If scheduled_date was not set by template mapping, use base_date directly
-            if not row_data.get("scheduled_date"):
-                row_data["scheduled_date"] = base_date
-            # Otherwise, scheduled_date is already set from base_date + day_offset in
-            # _map_template_row_to_order_row, which is correct (defaults to base_date when offset=0)
-        
-        if not row_data.get("vehicle_type") and getattr(doc, "vehicle_type", None):
-            row_data["vehicle_type"] = doc.vehicle_type
-        
-        doc.append(order_child_field, row_data)
-        created += 1
-
     # Save the document if requested
     saved = False
     if cint(save):
         try:
             doc.flags.ignore_permissions = True
+            # Avoid a second auto-populate pass wiping a replace that already ran
+            doc.flags.ignore_auto_leg_plan = True
             doc.save()
             saved = True
         except Exception as e:
-            frappe.log_error(f"Error saving Transport Order {docname} after leg plan creation: {str(e)}", "Leg Plan Save Error")
+            frappe.log_error(
+                f"Error saving Transport Order {docname} after leg plan creation: {str(e)}",
+                "Leg Plan Save Error",
+            )
             # Continue even if save fails - document is still modified in memory
 
     # --- build UI message safely ---
@@ -2180,7 +2252,7 @@ def action_get_leg_plan(docname: str, replace: int = 1, save: int = 1):
     html = f"""
         <div>
             <div style="font-weight:600;margin-bottom:6px;">
-                {_('Template')}: {frappe.utils.escape_html(template_name)}
+                {_('Template')}: {frappe.utils.escape_html(template_name or "")}
             </div>
             <ul style="margin:0 0 8px 16px;padding:0;">
                 <li>{_('Base date')}: {base_label}</li>
@@ -2985,8 +3057,8 @@ def _create_and_attach_job_legs_from_order_legs(
     Create Transport Leg docs from Transport Order Legs and attach them to Transport Job Legs.
 
     Copies these fields when available on the order leg:
-      facility_type_from, facility_from, pick_mode, pick_address,
-      facility_type_to,   facility_to,   drop_mode, drop_address
+      facility_type_from, facility_from, pick_mode, pick_address, pick_datetime,
+      facility_type_to,   facility_to,   drop_mode, drop_address, drop_datetime
 
     Also sets Transport Job reference on each created Transport Leg.
     """
@@ -3016,11 +3088,13 @@ def _create_and_attach_job_legs_from_order_legs(
         _safe_set(leg, "facility_from", getattr(ol, "facility_from", None))
         _safe_set(leg, "pick_mode", pick_mode)  # Use validated value
         _safe_set(leg, "pick_address", getattr(ol, "pick_address", None))
+        _safe_set(leg, "pick_datetime", getattr(ol, "pick_datetime", None))
 
         _safe_set(leg, "facility_type_to", getattr(ol, "facility_type_to", None))
         _safe_set(leg, "facility_to", getattr(ol, "facility_to", None))
         _safe_set(leg, "drop_mode", drop_mode)  # Use validated value
         _safe_set(leg, "drop_address", getattr(ol, "drop_address", None))
+        _safe_set(leg, "drop_datetime", getattr(ol, "drop_datetime", None))
         
         # Map transport details from order leg
         _safe_set(leg, "vehicle_type", getattr(ol, "vehicle_type", None))
@@ -3038,10 +3112,12 @@ def _create_and_attach_job_legs_from_order_legs(
                 "facility_from": getattr(ol, "facility_from", None),
                 "pick_mode": pick_mode,  # Use validated value, passed through unchanged
                 "pick_address": getattr(ol, "pick_address", None),
+                "pick_datetime": getattr(ol, "pick_datetime", None),
                 "facility_type_to": getattr(ol, "facility_type_to", None),
                 "facility_to": getattr(ol, "facility_to", None),
                 "drop_mode": drop_mode,  # Use validated value, passed through unchanged
                 "drop_address": getattr(ol, "drop_address", None),
+                "drop_datetime": getattr(ol, "drop_datetime", None),
                 "vehicle_type": getattr(ol, "vehicle_type", None),
                 "transport_job_type": getattr(ol, "transport_job_type", None),
             },

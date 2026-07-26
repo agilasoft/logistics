@@ -2,9 +2,10 @@
 # Copyright (c) 2026, Agilasoft and contributors
 """Force-sync Air Freight Control Tower page script from the app file.
 
-Frappe can keep a stale ``tabPage.script`` after the on-disk page JS changes.
-Reload the script from the module file and clear Page caches so desk clients
-pick up Company / Branch / Cost Center / Profit Center / UNLOCO filters.
+Older Frappe versions stored page JS in ``tabPage.script``. Current Frappe
+loads page assets from disk via ``Page.load_assets()``, so there is no
+``script`` column. Clear Page caches so desk clients pick up Company /
+Branch / Cost Center / Profit Center / UNLOCO filters from the on-disk JS.
 """
 
 from __future__ import unicode_literals
@@ -28,14 +29,15 @@ def execute():
 	if not os.path.exists(js_path):
 		return
 
-	with open(js_path, "r", encoding="utf-8") as fh:
-		script = fh.read()
-
 	if not frappe.db.exists("Page", PAGE_NAME):
 		return
 
-	frappe.db.set_value("Page", PAGE_NAME, "script", script, update_modified=True)
-	frappe.db.commit()
+	# Legacy installs only: refresh DB-stored script when the column exists.
+	if frappe.db.has_column("Page", "script"):
+		with open(js_path, "r", encoding="utf-8") as fh:
+			script = fh.read()
+		frappe.db.set_value("Page", PAGE_NAME, "script", script, update_modified=True)
+		frappe.db.commit()
 
 	frappe.clear_cache(doctype="Page")
 	try:

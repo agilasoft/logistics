@@ -420,6 +420,9 @@ frappe.ui.form.on('Transport Job', {
 	},
 
 	refresh: function(frm) {
+		if (window.logistics && logistics.job_change_lock) {
+			logistics.job_change_lock.apply(frm);
+		}
 		if (logistics.party_address_contact) {
 			logistics.party_address_contact.populate_displays_if_missing(frm);
 		}
@@ -749,17 +752,6 @@ frappe.ui.form.on('Transport Job', {
 		if (frm.doc.name && !frm.doc.__islocal) {
 			setTimeout(function() {
 				function _transport_job_add_rest_of_create_toolbar() {
-					frm.add_custom_button(__('Create Change Request'), function() {
-						frappe.call({
-							method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
-							args: { job_type: 'Transport Job', job_name: frm.doc.name },
-							callback: function(r) {
-								if (r.message) {
-									frappe.set_route('Form', 'Change Request', r.message);
-								}
-							}
-						});
-					}, __('Create'));
 					if (!((frm.doc.service_role === "Linked" || cint(frm.doc.is_internal_job)) && (frm.doc.main_service_type || frm.doc.main_job_type) && (frm.doc.main_service || frm.doc.main_job))) {
 						frm.add_custom_button(__('Internal Job'), function() {
 							function _openInternalJobDlg() {

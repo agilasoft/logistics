@@ -433,6 +433,9 @@ frappe.ui.form.on('Sea Shipment', {
 	},
 
 	refresh: function(frm) {
+		if (window.logistics && logistics.job_change_lock) {
+			logistics.job_change_lock.apply(frm);
+		}
 		_sea_shipment_refresh_package_container_options(frm);
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
@@ -606,17 +609,6 @@ frappe.ui.form.on('Sea Shipment', {
 					frm,
 					"logistics.sea_freight.doctype.sea_shipment.sea_shipment.get_linked_declaration_order_name"
 				);
-				frm.add_custom_button(__('Create Change Request'), function() {
-					frappe.call({
-						method: 'logistics.pricing_center.doctype.change_request.change_request.create_change_request',
-						args: { job_type: 'Sea Shipment', job_name: frm.doc.name },
-						callback: function(r) {
-							if (r.message) {
-								frappe.set_route('Form', 'Change Request', r.message);
-							}
-						}
-					});
-				}, __('Create'));
 				// Post menu
 				frm.add_custom_button(__('Standard Costs'), function() {
 					frappe.call({

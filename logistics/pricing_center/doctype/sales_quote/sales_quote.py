@@ -445,6 +445,15 @@ class SalesQuote(Document):
 		from logistics.utils.operational_exchange_rates import resolve_sales_quote_charge_exchange_rates
 
 		resolve_sales_quote_charge_exchange_rates(self)
+		self.update_estimated_profitability()
+
+	def update_estimated_profitability(self):
+		"""Roll up charge estimates into header profitability fields."""
+		data = get_sales_quote_estimated_profitability(self)
+		self.total_estimated_revenue = data["total_estimated_revenue"]
+		self.total_estimated_cost = data["total_estimated_cost"]
+		self.estimated_profit = data["estimated_profit"]
+		self.estimated_margin_pct = data["estimated_margin_pct"]
 
 	def validate_planned_dates(self):
 		"""Hard-block inverted Planned Start/End; soft-warn when window ends before quote date."""
@@ -4245,6 +4254,174 @@ def recalculate_charges(docname):
 		"message": _("Successfully recalculated {0} charge line(s)").format(lines_recalculated),
 		"lines_recalculated": lines_recalculated,
 	}
+
+
+def get_sales_quote_estimated_profitability(doc_or_dict):
+	"""
+	Sum estimated revenue/cost from Sales Quote charges into company currency.
+
+	Revenue uses bill_to_exchange_rate; cost uses pay_to_exchange_rate (default 1).
+	"""
+	if isinstance(doc_or_dict, dict):
+		company = doc_or_dict.get("company")
+		charges = doc_or_dict.get("charges") or []
+	else:
+		company = getattr(doc_or_dict, "company", None)
+		charges = getattr(doc_or_dict, "charges", None) or []
+
+	currency = "USD"
+	if company:
+		currency = frappe.get_cached_value("Company", company, "default_currency") or currency
+
+	total_revenue = 0.0
+	total_cost = 0.0
+	for row in charges:
+		if isinstance(row, dict):
+			rev = flt(row.get("estimated_revenue"))
+			cost = flt(row.get("estimated_cost"))
+			rev_rate = flt(row.get("bill_to_exchange_rate") or 1)
+			cost_rate = flt(row.get("pay_to_exchange_rate") or 1)
+		else:
+			rev = flt(getattr(row, "estimated_revenue", 0))
+			cost = flt(getattr(row, "estimated_cost", 0))
+			rev_rate = flt(getattr(row, "bill_to_exchange_rate", None) or 1)
+			cost_rate = flt(getattr(row, "pay_to_exchange_rate", None) or 1)
+		if rev_rate <= 0:
+			rev_rate = 1.0
+		if cost_rate <= 0:
+			cost_rate = 1.0
+		total_revenue += rev * rev_rate
+		total_cost += cost * cost_rate
+
+	total_revenue = flt(total_revenue, 2)
+	total_cost = flt(total_cost, 2)
+	profit = flt(total_revenue - total_cost, 2)
+	margin = flt((profit / total_revenue * 100.0) if total_revenue else 0.0, 2)
+
+	return {
+		"total_estimated_revenue": total_revenue,
+		"total_estimated_cost": total_cost,
+		"estimated_profit": profit,
+		"estimated_margin_pct": margin,
+		"currency": currency,
+	}
+
+
+def build_sales_quote_profitability_html(data):
+	"""Build the Charges-tab estimated profitability card (mockup-style)."""
+	from frappe.utils import fmt_money
+	from frappe.utils.html_utils import escape_html
+
+	currency = data.get("currency") or "USD"
+	revenue = flt(data.get("total_estimated_revenue"), 2)
+	cost = flt(data.get("total_estimated_cost"), 2)
+	profit = flt(data.get("estimated_profit"), 2)
+	margin = flt(data.get("estimated_margin_pct"), 2)
+
+	def money(amount):
+		try:
+			return escape_html(fmt_money(amount, currency=currency))
+		except Exception:
+			return escape_html("{0} {1:,.2f}".format(currency, flt(amount, 2)))
+
+	profit_color = "#198754" if profit >= 0 else "#dc3545"
+	margin_color = "#198754" if margin >= 0 else "#dc3545"
+	info_title = escape_html(
+		_("Totals from charge Estimated Revenue and Estimated Cost, converted with exchange rates to company currency.")
+	)
+
+	return """
+<div class="sq-profitability-estimated" style="border:1px solid #198754;border-radius:10px;padding:16px 18px;margin:4px 0 12px 0;background:#fff;">
+	<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+		<span style="color:#198754;font-size:15px;line-height:1;"><i class="fa fa-calculator" aria-hidden="true"></i></span>
+		<span style="font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#212529;">{title}</span>
+		<span title="{info_title}" style="color:#6c757d;cursor:help;font-size:12px;line-height:1;">
+			<i class="fa fa-info-circle" aria-hidden="true"></i>
+		</span>
+	</div>
+	<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;">
+		<div style="padding:4px 14px 4px 0;border-right:1px solid #e9ecef;">
+			<div style="font-size:11px;color:#6c757d;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">{rev_label}</div>
+			<div style="font-size:20px;font-weight:700;color:#198754;line-height:1.2;">{rev_val}</div>
+			<div style="font-size:11px;color:#adb5bd;margin-top:4px;">{excl_tax}</div>
+		</div>
+		<div style="padding:4px 14px;border-right:1px solid #e9ecef;">
+			<div style="font-size:11px;color:#6c757d;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">{cost_label}</div>
+			<div style="font-size:20px;font-weight:700;color:#212529;line-height:1.2;">{cost_val}</div>
+			<div style="font-size:11px;color:#adb5bd;margin-top:4px;">{excl_tax}</div>
+		</div>
+		<div style="padding:4px 14px;border-right:1px solid #e9ecef;">
+			<div style="font-size:11px;color:#6c757d;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">{profit_label}</div>
+			<div style="font-size:20px;font-weight:700;color:{profit_color};line-height:1.2;">{profit_val}</div>
+			<div style="font-size:11px;color:#adb5bd;margin-top:4px;">{excl_tax}</div>
+		</div>
+		<div style="padding:4px 0 4px 14px;">
+			<div style="font-size:11px;color:#6c757d;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">{margin_label}</div>
+			<div style="font-size:20px;font-weight:700;color:{margin_color};line-height:1.2;">{margin_val}</div>
+			<div style="font-size:11px;color:#adb5bd;margin-top:4px;">{margin_hint}</div>
+		</div>
+	</div>
+</div>
+<style>
+@media (max-width: 768px) {{
+	.sq-profitability-estimated > div:last-child {{
+		grid-template-columns: 1fr 1fr !important;
+		row-gap: 14px;
+	}}
+	.sq-profitability-estimated > div:last-child > div {{
+		border-right: none !important;
+		padding-left: 0 !important;
+		padding-right: 8px !important;
+	}}
+}}
+</style>
+""".format(
+		title=escape_html(_("Profitability (Estimated)")),
+		info_title=info_title,
+		rev_label=escape_html(_("Total Estimated Revenue")),
+		cost_label=escape_html(_("Total Estimated Cost")),
+		profit_label=escape_html(_("Estimated Profit")),
+		margin_label=escape_html(_("Estimated Margin %")),
+		rev_val=money(revenue),
+		cost_val=money(cost),
+		profit_val=money(profit),
+		margin_val=escape_html("{0}%".format("{:.2f}".format(margin))),
+		excl_tax=escape_html(_("(Excl. Tax)")),
+		margin_hint=escape_html(_("(Profit ÷ Revenue)")),
+		profit_color=profit_color,
+		margin_color=margin_color,
+	)
+
+
+@frappe.whitelist()
+def get_estimated_profitability_html(doc=None):
+	"""Return estimated profitability HTML for a Sales Quote (doc JSON or name)."""
+	if not doc:
+		return build_sales_quote_profitability_html(
+			{
+				"total_estimated_revenue": 0,
+				"total_estimated_cost": 0,
+				"estimated_profit": 0,
+				"estimated_margin_pct": 0,
+				"currency": "USD",
+			}
+		)
+	if isinstance(doc, str):
+		try:
+			parsed = frappe.parse_json(doc)
+		except Exception:
+			parsed = None
+		if isinstance(parsed, dict):
+			data = get_sales_quote_estimated_profitability(parsed)
+		elif frappe.db.exists("Sales Quote", doc):
+			data = get_sales_quote_estimated_profitability(frappe.get_doc("Sales Quote", doc))
+		else:
+			data = get_sales_quote_estimated_profitability({"charges": [], "company": None})
+	elif isinstance(doc, dict):
+		data = get_sales_quote_estimated_profitability(doc)
+	else:
+		data = get_sales_quote_estimated_profitability(doc)
+	return build_sales_quote_profitability_html(data)
 
 
 @frappe.whitelist()
