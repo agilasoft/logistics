@@ -54,10 +54,9 @@ logistics.operational_exchange_rate.fetch_sales_quote_charge_side_rate = functio
 			as_of_date,
 		},
 		callback: (r) => {
-			if (r.message != null && r.message !== '') {
-				frappe.model.set_value(cdt, cdn, rate_field, r.message);
-				frm.dirty();
-			}
+			const rate = r.message != null && r.message !== '' ? r.message : 0;
+			frappe.model.set_value(cdt, cdn, rate_field, rate);
+			frm.dirty();
 		},
 	});
 };

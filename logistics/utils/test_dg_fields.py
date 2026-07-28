@@ -113,3 +113,35 @@ class TestTransportOrderPackageRowFromShipmentPkg(FrappeTestCase):
 		self.assertEqual(row.get("no_of_packs"), 7)
 		self.assertEqual(row.get("commodity"), "TEST-COMMODITY")
 		self.assertEqual(row.get("uom"), "Box")
+		# Commodity is used when goods_description is absent
+		self.assertEqual(row.get("description"), "TEST-COMMODITY")
+
+	def test_maps_goods_description_to_required_description(self):
+		shipment = SimpleNamespace(contains_dangerous_goods=0)
+		pkg = SimpleNamespace(
+			goods_description="Electronic parts\nMore detail on line 2",
+			quantity=1,
+			weight=2,
+		)
+		row = transport_order_package_row_from_shipment_pkg(shipment, pkg)
+		self.assertEqual(row.get("description"), "Electronic parts")
+		self.assertEqual(row.get("goods_description"), "Electronic parts\nMore detail on line 2")
+
+	def test_prefers_goods_description_over_commodity_for_description(self):
+		shipment = SimpleNamespace(contains_dangerous_goods=0)
+		pkg = SimpleNamespace(
+			commodity="TEST-COMMODITY",
+			goods_description="Real cargo text",
+			quantity=1,
+		)
+		row = transport_order_package_row_from_shipment_pkg(shipment, pkg)
+		self.assertEqual(row.get("description"), "Real cargo text")
+
+	def test_throws_when_no_goods_description_or_commodity(self):
+		import frappe
+
+		shipment = SimpleNamespace(contains_dangerous_goods=0)
+		pkg = SimpleNamespace(idx=2, quantity=1, weight=5)
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			transport_order_package_row_from_shipment_pkg(shipment, pkg)
+		self.assertIn("Goods Description", str(ctx.exception))

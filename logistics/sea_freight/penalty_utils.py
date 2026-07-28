@@ -91,10 +91,18 @@ def compute_penalty_days(detention_reference_date, gate_in_date, today, free_tim
 	return detention_days, demurrage_days
 
 
-def estimated_penalty_amount_for_days(detention_days, demurrage_days, settings):
+def penalty_amounts_for_days(detention_days, demurrage_days, settings):
+	"""Return (detention_amount, demurrage_amount, total) from days and Settings rates."""
 	detention_rate = flt(getattr(settings, "detention_rate_per_day", 0) or 0)
 	demurrage_rate = flt(getattr(settings, "demurrage_rate_per_day", 0) or 0)
-	return flt(detention_days) * detention_rate + flt(demurrage_days) * demurrage_rate
+	det_amt = flt(detention_days) * detention_rate
+	dem_amt = flt(demurrage_days) * demurrage_rate
+	return det_amt, dem_amt, det_amt + dem_amt
+
+
+def estimated_penalty_amount_for_days(detention_days, demurrage_days, settings):
+	_, _, total = penalty_amounts_for_days(detention_days, demurrage_days, settings)
+	return total
 
 
 def resolve_container_doc_from_sea_row(row):
@@ -124,8 +132,9 @@ def min_effective_free_time_days_for_shipment(shipment_doc, settings):
 
 def compute_penalty_totals_for_sea_shipment(shipment_doc, settings, today):
 	"""
-	Aggregate detention/demurrage days and estimated penalty amount for a Sea Shipment.
-	Returns dict: detention_days, demurrage_days, estimated_penalty_amount, free_time_days_summary, has_any_anchor.
+	Aggregate detention/demurrage days and amounts for a Sea Shipment.
+	Returns dict: detention_days, demurrage_days, detention_amount, demurrage_amount,
+	estimated_penalty_amount, free_time_days_summary, has_any_anchor.
 	"""
 	det_ref, gate_in = get_shipment_penalty_dates(shipment_doc)
 	default_ft = flt(getattr(settings, "default_free_time_days", 7))
@@ -133,6 +142,8 @@ def compute_penalty_totals_for_sea_shipment(shipment_doc, settings, today):
 
 	total_det = 0.0
 	total_dem = 0.0
+	total_det_amt = 0.0
+	total_dem_amt = 0.0
 	total_amount = 0.0
 	max_ft = 0.0
 	has_any_anchor = bool(det_ref or gate_in)
@@ -141,6 +152,8 @@ def compute_penalty_totals_for_sea_shipment(shipment_doc, settings, today):
 		return {
 			"detention_days": 0.0,
 			"demurrage_days": 0.0,
+			"detention_amount": 0.0,
+			"demurrage_amount": 0.0,
 			"estimated_penalty_amount": 0.0,
 			"free_time_days_summary": default_ft,
 			"has_any_anchor": False,
@@ -151,7 +164,7 @@ def compute_penalty_totals_for_sea_shipment(shipment_doc, settings, today):
 		d_det, d_dem = compute_penalty_days(det_ref, gate_in, today, ft)
 		total_det = d_det
 		total_dem = d_dem
-		total_amount = estimated_penalty_amount_for_days(d_det, d_dem, settings)
+		total_det_amt, total_dem_amt, total_amount = penalty_amounts_for_days(d_det, d_dem, settings)
 		max_ft = ft
 	else:
 		for row in rows:
@@ -161,11 +174,16 @@ def compute_penalty_totals_for_sea_shipment(shipment_doc, settings, today):
 			d_det, d_dem = compute_penalty_days(det_ref, gate_in, today, ft)
 			total_det += d_det
 			total_dem += d_dem
-			total_amount += estimated_penalty_amount_for_days(d_det, d_dem, settings)
+			det_amt, dem_amt, row_total = penalty_amounts_for_days(d_det, d_dem, settings)
+			total_det_amt += det_amt
+			total_dem_amt += dem_amt
+			total_amount += row_total
 
 	return {
 		"detention_days": total_det,
 		"demurrage_days": total_dem,
+		"detention_amount": total_det_amt,
+		"demurrage_amount": total_dem_amt,
 		"estimated_penalty_amount": total_amount,
 		"free_time_days_summary": max_ft if rows else default_ft,
 		"has_any_anchor": True,

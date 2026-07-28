@@ -228,6 +228,8 @@
   "column_break_penalty",
   "penalty_alert_sent",
   "last_penalty_check",
+  "detention_amount",
+  "demurrage_amount",
   "estimated_penalty_amount",
   "column_break_iklg",
   "amended_from",
@@ -1501,6 +1503,21 @@
    "read_only": 1
   },
   {
+   "description": "Detention days \u00d7 detention rate per day (Sea Freight Settings), summed across containers using each container's free time.",
+   "fieldname": "detention_amount",
+   "fieldtype": "Currency",
+   "label": "Detention Amount",
+   "read_only": 1
+  },
+  {
+   "description": "Demurrage days \u00d7 demurrage rate per day (Sea Freight Settings), summed across containers using each container's free time.",
+   "fieldname": "demurrage_amount",
+   "fieldtype": "Currency",
+   "label": "Demurrage Amount",
+   "read_only": 1
+  },
+  {
+   "description": "Sum of Detention Amount and Demurrage Amount.",
    "fieldname": "estimated_penalty_amount",
    "fieldtype": "Currency",
    "label": "Estimated Penalty Amount",

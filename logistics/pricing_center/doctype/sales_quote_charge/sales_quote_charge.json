@@ -355,7 +355,8 @@
   {
    "fieldname": "cost_calculation_method",
    "fieldtype": "Select",
-   "label": "Calculation Method",
+   "in_list_view": 1,
+   "label": "Cost Calculation Method",
    "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break",
    "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
   },

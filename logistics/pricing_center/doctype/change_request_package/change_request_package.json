@@ -69,7 +69,7 @@
    "fieldname": "warehouse_item",
    "fieldtype": "Link",
    "label": "Warehouse Item",
-   "options": "Item"
+   "options": "Warehouse Item"
   },
   {
    "fieldname": "hs_code",

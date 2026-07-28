@@ -103,15 +103,13 @@ def resolve_sales_quote_charge_exchange_rates(doc) -> None:
 		b_src = getattr(ch, "bill_to_exchange_rate_source", None)
 		if b_src and cur:
 			rate = resolve_charge_side_exchange_rate(company, b_src, cur, as_of_date)
-			if rate is not None:
-				ch.bill_to_exchange_rate = rate
+			ch.bill_to_exchange_rate = rate if rate is not None else 0
 
 		cc = getattr(ch, "cost_currency", None)
 		p_src = getattr(ch, "pay_to_exchange_rate_source", None)
 		if p_src and cc:
 			rate = resolve_charge_side_exchange_rate(company, p_src, cc, as_of_date)
-			if rate is not None:
-				ch.pay_to_exchange_rate = rate
+			ch.pay_to_exchange_rate = rate if rate is not None else 0
 
 
 def resolve_single_operational_exchange_rate_row(row: Row) -> None:

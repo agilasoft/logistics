@@ -103,6 +103,21 @@ frappe.provide("logistics.change_request_summary");
 		"height",
 	];
 
+	const LAYOUT_SKIP_FIELDTYPES = {
+		"Tab Break": true,
+		"Section Break": true,
+		"Column Break": true,
+		HTML: true,
+		Button: true,
+		Fold: true,
+		Heading: true,
+		Table: true,
+		"Table MultiSelect": true,
+	};
+
+	/** Cache: job_type → { by_field, tabs: [{label, sections: [{label, fields[]}]}] } */
+	const _job_layout_cache = {};
+
 	function esc(v) {
 		return frappe.utils && frappe.utils.escape_html
 			? frappe.utils.escape_html(cstr(v))
@@ -145,18 +160,135 @@ frappe.provide("logistics.change_request_summary");
 		return cstr(v).trim();
 	}
 
+	/**
+	 * Walk job DocType meta in field order → tab → section → fields.
+	 * Used to group Field Changes like the shipment form.
+	 */
+	function build_job_field_layout(job_type) {
+		job_type = cstr(job_type).trim();
+		if (!job_type) return null;
+		if (_job_layout_cache[job_type]) return _job_layout_cache[job_type];
+
+		const meta = frappe.get_meta(job_type);
+		if (!meta || !meta.fields || !meta.fields.length) return null;
+
+		const by_name = {};
+		meta.fields.forEach(function (df) {
+			if (df && df.fieldname) by_name[df.fieldname] = df;
+		});
+		const field_order =
+			meta.field_order && meta.field_order.length
+				? meta.field_order
+				: meta.fields.map(function (df) {
+						return df.fieldname;
+				  });
+
+		const by_field = {};
+		const tabs = [];
+		let tab_idx = 0;
+		let section_idx = 0;
+		let tab = { label: __("Details"), sections: [] };
+		let section = { label: "", key: tab_idx + ":0", fields: [] };
+		tab.sections.push(section);
+		tabs.push(tab);
+
+		field_order.forEach(function (fn) {
+			const df = by_name[fn];
+			if (!df) return;
+			const ft = df.fieldtype;
+			if (ft === "Tab Break") {
+				tab_idx += 1;
+				section_idx = 0;
+				tab = {
+					label: cstr(df.label).trim() || __(frappe.unscrub(df.fieldname)),
+					sections: [],
+				};
+				section = { label: "", key: tab_idx + ":" + section_idx, fields: [] };
+				tab.sections.push(section);
+				tabs.push(tab);
+				return;
+			}
+			if (ft === "Section Break") {
+				section_idx += 1;
+				section = {
+					label: cstr(df.label).trim(),
+					key: tab_idx + ":" + section_idx,
+					fields: [],
+				};
+				tab.sections.push(section);
+				return;
+			}
+			if (LAYOUT_SKIP_FIELDTYPES[ft]) return;
+			if (!df.fieldname) return;
+			by_field[df.fieldname] = {
+				tab: tab.label,
+				section: section.label,
+				section_key: section.key,
+				fieldname: df.fieldname,
+			};
+			section.fields.push(df.fieldname);
+		});
+
+		const layout = { by_field: by_field, tabs: tabs };
+		_job_layout_cache[job_type] = layout;
+		return layout;
+	}
+
+	function ensure_job_layout(frm, done) {
+		const job_type = cstr(frm.doc.job_type).trim();
+		if (!job_type) {
+			if (done) done(null);
+			return;
+		}
+		const cached = build_job_field_layout(job_type);
+		if (cached) {
+			if (done) done(cached);
+			return;
+		}
+		frappe.model.with_doctype(job_type, function () {
+			if (done) done(build_job_field_layout(job_type));
+		});
+	}
+
+	function layout_for_field(layout, fieldname, cr_section) {
+		const hit = layout && layout.by_field && layout.by_field[fieldname];
+		if (hit) {
+			return {
+				tab: hit.tab,
+				form_section: hit.section || "",
+				section_key: hit.section_key,
+			};
+		}
+		return {
+			tab: cr_section || __("Other"),
+			form_section: "",
+			section_key: "fallback:" + (cr_section || "Other"),
+		};
+	}
+
 	function collect_field_diffs(frm) {
 		const baseline = parse_baseline(frm);
 		const header = (baseline && baseline.header) || {};
 		const changed = [];
 		const unchanged = [];
+		const vis = logistics.change_request_visibility;
+		const applicable =
+			vis && vis.applicable_header_fields
+				? vis.applicable_header_fields(frm.doc.job_type, frm.doc.change_sections)
+				: null;
+		const layout = build_job_field_layout(frm.doc.job_type);
 		Object.keys(SECTION_FIELDS).forEach(function (section) {
 			SECTION_FIELDS[section].forEach(function (fn) {
+				if (applicable && !applicable[fn]) return;
 				if (frm.doc[fn] === undefined) return;
 				const from_v = normalize_for_compare(fn, header[fn]);
 				const to_v = normalize_for_compare(fn, frm.doc[fn]);
+				const place = layout_for_field(layout, fn, section);
 				const row = {
 					section: section,
+					tab: place.tab,
+					form_section: place.form_section,
+					section_key: place.section_key,
 					fieldname: fn,
 					label: field_label(fn),
 					from: from_v,
@@ -166,7 +298,70 @@ frappe.provide("logistics.change_request_summary");
 				else unchanged.push(row);
 			});
 		});
-		return { changed: changed, unchanged: unchanged };
+		return { changed: changed, unchanged: unchanged, layout: layout };
+	}
+
+	/**
+	 * Group diff rows by job form tab → section, preserving meta field order when possible.
+	 */
+	function group_rows_by_job_layout(rows, layout) {
+		const groups = [];
+		const group_index = {};
+
+		function ensure_group(tab, form_section, section_key) {
+			const key = section_key || tab + "\0" + form_section;
+			if (group_index[key] !== undefined) return groups[group_index[key]];
+			const g = {
+				tab: tab,
+				form_section: form_section,
+				section_key: key,
+				rows: [],
+			};
+			group_index[key] = groups.length;
+			groups.push(g);
+			return g;
+		}
+
+		if (layout && layout.tabs && layout.tabs.length) {
+			const row_by_fn = {};
+			rows.forEach(function (r) {
+				row_by_fn[r.fieldname] = r;
+			});
+			layout.tabs.forEach(function (tab) {
+				(tab.sections || []).forEach(function (sec) {
+					const collected = [];
+					(sec.fields || []).forEach(function (fn) {
+						if (row_by_fn[fn]) {
+							collected.push(row_by_fn[fn]);
+							delete row_by_fn[fn];
+						}
+					});
+					if (collected.length) {
+						ensure_group(tab.label, sec.label || "", sec.key).rows = collected;
+					}
+				});
+			});
+			rows.forEach(function (r) {
+				if (!row_by_fn[r.fieldname]) return;
+				ensure_group(
+					r.tab || r.section || __("Other"),
+					r.form_section || "",
+					r.section_key
+				).rows.push(r);
+			});
+			return groups.filter(function (g) {
+				return g.rows && g.rows.length;
+			});
+		}
+
+		rows.forEach(function (r) {
+			ensure_group(
+				r.tab || r.section || __("Other"),
+				r.form_section || "",
+				r.section_key
+			).rows.push(r);
+		});
+		return groups;
 	}
 
 	function base_pkg_map(baseline) {
@@ -194,18 +389,30 @@ frappe.provide("logistics.change_request_summary");
 		diffs.changed.forEach(function (r) {
 			if (by_section[r.section] !== undefined) by_section[r.section] += 1;
 		});
+		const vis = logistics.change_request_visibility;
+		const job_type = cstr(frm.doc.job_type);
 		const pkgs = base_pkg_map(baseline);
 		let pkg_n = 0;
-		(frm.doc.package_changes || []).forEach(function (row) {
-			if (package_row_changed(row, pkgs[cstr(row.source_row_name)] || {})) pkg_n += 1;
-		});
+		if (!vis || !vis.supports_packages || vis.supports_packages(job_type)) {
+			(frm.doc.package_changes || []).forEach(function (row) {
+				if (package_row_changed(row, pkgs[cstr(row.source_row_name)] || {})) pkg_n += 1;
+			});
+		}
+		const charge_n =
+			vis && vis.supports_charges && !vis.supports_charges(job_type)
+				? 0
+				: (frm.doc.charges || []).length;
+		const service_n =
+			vis && vis.supports_services && !vis.supports_services(job_type)
+				? 0
+				: (frm.doc.linked_services || []).length;
 		return {
 			Parties: by_section.Parties,
 			"Places & Dates": by_section["Places & Dates"],
 			Packages: pkg_n,
-			Charges: (frm.doc.charges || []).length,
+			Charges: charge_n,
 			Notes: by_section.Notes,
-			Services: (frm.doc.linked_services || []).length,
+			Services: service_n,
 		};
 	}
 
@@ -298,6 +505,84 @@ frappe.provide("logistics.change_request_summary");
 		return html;
 	}
 
+	function render_field_change_row(frm, r) {
+		const is_changed = r.from !== r.to;
+		return (
+			"<tr" +
+			(is_changed ? "" : ' class="cr-dash__row--unchanged"') +
+			' data-cr-field="' +
+			esc(r.fieldname) +
+			'"><td class="cr-dash__field-name">' +
+			esc(r.label) +
+			"</td><td>" +
+			val_box(is_changed ? "old" : "plain", r.from) +
+			'</td><td class="cr-dash__arrow">→</td><td>' +
+			proposed_cell_html(frm, r, is_changed) +
+			'</td><td class="cr-dash__status-cell">' +
+			status_cell_html(frm, r, is_changed) +
+			"</td></tr>"
+		);
+	}
+
+	function render_field_table(frm, rows) {
+		let html =
+			'<div class="cr-dash__table-wrap"><table class="cr-dash__table">' +
+			"<thead><tr>" +
+			"<th>" +
+			esc(__("Field")) +
+			"</th><th>" +
+			esc(__("Original Value (From Job)")) +
+			"</th><th></th><th>" +
+			esc(__("Proposed Value (In Change Request)")) +
+			"</th><th>" +
+			esc(__("Status")) +
+			"</th></tr></thead><tbody>";
+		rows.forEach(function (r) {
+			html += render_field_change_row(frm, r);
+		});
+		html += "</tbody></table></div>";
+		return html;
+	}
+
+	function render_field_changes_grouped(frm, rows, layout) {
+		const groups = group_rows_by_job_layout(rows, layout);
+		if (!groups.length) return "";
+
+		// Nest section groups under tab headings
+		const by_tab = [];
+		const tab_index = {};
+		groups.forEach(function (g) {
+			let bucket = tab_index[g.tab];
+			if (bucket === undefined) {
+				bucket = by_tab.length;
+				tab_index[g.tab] = bucket;
+				by_tab.push({ tab: g.tab, sections: [] });
+			}
+			by_tab[bucket].sections.push(g);
+		});
+
+		let html = "";
+		by_tab.forEach(function (tab_group) {
+			html +=
+				'<div class="cr-dash__tab-group">' +
+				'<h5 class="cr-dash__tab-title">' +
+				esc(__(tab_group.tab)) +
+				"</h5>";
+			tab_group.sections.forEach(function (g) {
+				html += '<div class="cr-dash__section-group">';
+				if (g.form_section) {
+					html +=
+						'<h6 class="cr-dash__section-title">' +
+						esc(__(g.form_section)) +
+						"</h6>";
+				}
+				html += render_field_table(frm, g.rows) + "</div>";
+			});
+			html += "</div>";
+		});
+		return html;
+	}
+
 	function render_field_changes(frm, show_unchanged) {
 		const diffs = collect_field_diffs(frm);
 		const rows = show_unchanged ? diffs.changed.concat(diffs.unchanged) : diffs.changed;
@@ -329,37 +614,7 @@ frappe.provide("logistics.change_request_summary");
 					: "") +
 				"</div>";
 		} else {
-			html +=
-				'<div class="cr-dash__table-wrap"><table class="cr-dash__table">' +
-				"<thead><tr>" +
-				"<th>" +
-				esc(__("Field")) +
-				"</th><th>" +
-				esc(__("Original Value (From Job)")) +
-				"</th><th></th><th>" +
-				esc(__("Proposed Value (In Change Request)")) +
-				"</th><th>" +
-				esc(__("Status")) +
-				"</th></tr></thead><tbody>";
-
-			rows.forEach(function (r) {
-				const is_changed = r.from !== r.to;
-				html +=
-					"<tr" +
-					(is_changed ? "" : ' class="cr-dash__row--unchanged"') +
-					' data-cr-field="' +
-					esc(r.fieldname) +
-					'"><td class="cr-dash__field-name">' +
-					esc(r.label) +
-					"</td><td>" +
-					val_box(is_changed ? "old" : "plain", r.from) +
-					'</td><td class="cr-dash__arrow">→</td><td>' +
-					proposed_cell_html(frm, r, is_changed) +
-					"</td><td class=\"cr-dash__status-cell\">" +
-					status_cell_html(frm, r, is_changed) +
-					"</td></tr>";
-			});
-			html += "</tbody></table></div>";
+			html += render_field_changes_grouped(frm, rows, diffs.layout);
 		}
 
 		if (n_unchanged) {
@@ -840,38 +1095,53 @@ frappe.provide("logistics.change_request_summary");
 
 	function show_full_comparison(frm) {
 		const diffs = collect_field_diffs(frm);
-		let body =
-			'<div class="cr-dash__table-wrap"><table class="cr-dash__table"><thead><tr>' +
-			"<th>" +
-			esc(__("Section")) +
-			"</th><th>" +
-			esc(__("Field")) +
-			"</th><th>" +
-			esc(__("Original")) +
-			"</th><th>" +
-			esc(__("Proposed")) +
-			"</th></tr></thead><tbody>";
 		const list = diffs.changed.length ? diffs.changed : [];
-		if (!list.length) {
-			body +=
-				'<tr><td colspan="4" class="text-muted">' +
+		const groups = group_rows_by_job_layout(list, diffs.layout);
+
+		let body = "";
+		if (!groups.length) {
+			body =
+				'<div class="cr-dash__empty">' +
 				esc(__("No differences from baseline yet.")) +
-				"</td></tr>";
+				"</div>";
 		} else {
-			list.forEach(function (r) {
+			let last_tab = null;
+			groups.forEach(function (g) {
+				if (g.tab !== last_tab) {
+					body +=
+						'<h5 class="cr-dash__tab-title">' +
+						esc(__(g.tab)) +
+						"</h5>";
+					last_tab = g.tab;
+				}
+				if (g.form_section) {
+					body +=
+						'<h6 class="cr-dash__section-title">' +
+						esc(__(g.form_section)) +
+						"</h6>";
+				}
 				body +=
-					"<tr><td>" +
-					esc(__(r.section)) +
-					"</td><td>" +
-					esc(r.label) +
-					"</td><td>" +
-					val_box("old", r.from) +
-					"</td><td>" +
-					val_box("new", r.to) +
-					"</td></tr>";
+					'<div class="cr-dash__table-wrap" style="margin-bottom:12px"><table class="cr-dash__table"><thead><tr>' +
+					"<th>" +
+					esc(__("Field")) +
+					"</th><th>" +
+					esc(__("Original")) +
+					"</th><th>" +
+					esc(__("Proposed")) +
+					"</th></tr></thead><tbody>";
+				g.rows.forEach(function (r) {
+					body +=
+						"<tr><td>" +
+						esc(r.label) +
+						"</td><td>" +
+						val_box("old", r.from) +
+						"</td><td>" +
+						val_box("new", r.to) +
+						"</td></tr>";
+				});
+				body += "</tbody></table></div>";
 			});
 		}
-		body += "</tbody></table></div>";
 		const d = new frappe.ui.Dialog({
 			title: __("Full Comparison"),
 			size: "extra-large",
@@ -1012,12 +1282,24 @@ frappe.provide("logistics.change_request_summary");
 	}
 
 	function render_dashboard(frm) {
-		const $root = set_html_field(frm, "dashboard_html", build_dashboard_html(frm));
-		bind_actions(frm, $root);
-		if (frm.fields_dict.approvals_html) {
-			set_html_field(frm, "approvals_html", render_approvals(frm));
+		function paint() {
+			const $root = set_html_field(frm, "dashboard_html", build_dashboard_html(frm));
+			bind_actions(frm, $root);
+			if (frm.fields_dict.approvals_html) {
+				set_html_field(frm, "approvals_html", render_approvals(frm));
+			}
+			load_history(frm);
 		}
-		load_history(frm);
+		const job_type = cstr(frm.doc.job_type).trim();
+		if (job_type && !build_job_field_layout(job_type)) {
+			ensure_job_layout(frm, function () {
+				paint();
+			});
+			// Show skeleton immediately while meta loads
+			paint();
+			return;
+		}
+		paint();
 	}
 
 	logistics.change_request_summary.render = render_dashboard;

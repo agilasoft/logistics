@@ -87,38 +87,421 @@ JOB_DOCTYPES = frozenset(
 
 _PROGRAMME_GCFQ_DOCTYPES = frozenset({"Special Project", "Exhibit", "MICE Project"})
 
+_DECLARATION_TYPE_OPTIONS = "Import\nExport\nTransit\nBonded"
+
+_ORG_DIM_ENTRIES = (
+	{"key": "branch", "label": "Branch", "fieldtype": "Link", "options": "Branch", "doc_attr": "branch"},
+	{
+		"key": "cost_center",
+		"label": "Cost Center",
+		"fieldtype": "Link",
+		"options": "Cost Center",
+		"doc_attr": "cost_center",
+	},
+	{
+		"key": "profit_center",
+		"label": "Profit Center",
+		"fieldtype": "Link",
+		"options": "Profit Center",
+		"doc_attr": "profit_center",
+	},
+)
+
+# Fixed catalog: match semantics live in code; settings only toggle enabled / editable / order.
+GCFQ_FILTER_CATALOG: dict[str, tuple[dict, ...]] = {
+	"Sea Booking": (
+		{
+			"key": "origin_port",
+			"label": "Origin Port",
+			"fieldtype": "Link",
+			"options": "UNLOCO",
+			"doc_attr": "origin_port",
+		},
+		{
+			"key": "destination_port",
+			"label": "Destination Port",
+			"fieldtype": "Link",
+			"options": "UNLOCO",
+			"doc_attr": "destination_port",
+		},
+		{
+			"key": "shipping_line",
+			"label": "Shipping Line",
+			"fieldtype": "Link",
+			"options": "Shipping Line",
+			"doc_attr": "shipping_line",
+		},
+		*_ORG_DIM_ENTRIES,
+	),
+	"Air Booking": (
+		{
+			"key": "origin_port",
+			"label": "Origin Port",
+			"fieldtype": "Link",
+			"options": "UNLOCO",
+			"doc_attr": "origin_port",
+		},
+		{
+			"key": "destination_port",
+			"label": "Destination Port",
+			"fieldtype": "Link",
+			"options": "UNLOCO",
+			"doc_attr": "destination_port",
+		},
+		{
+			"key": "airline",
+			"label": "Airline",
+			"fieldtype": "Link",
+			"options": "Airline",
+			"doc_attr": "airline",
+		},
+		*_ORG_DIM_ENTRIES,
+	),
+	"Transport Order": (
+		{
+			"key": "location_from",
+			"label": "Location From",
+			"fieldtype": "Data",
+			"options": "",
+			"doc_attr": "location_from",
+		},
+		{
+			"key": "location_to",
+			"label": "Location To",
+			"fieldtype": "Data",
+			"options": "",
+			"doc_attr": "location_to",
+		},
+		*_ORG_DIM_ENTRIES,
+	),
+	"Declaration Order": (
+		{
+			"key": "customs_authority",
+			"label": "Customs Authority",
+			"fieldtype": "Link",
+			"options": "Customs Authority",
+			"doc_attr": "customs_authority",
+		},
+		{
+			"key": "declaration_type",
+			"label": "Declaration Type",
+			"fieldtype": "Select",
+			"options": "",
+			"select_options": _DECLARATION_TYPE_OPTIONS,
+			"doc_attr": "declaration_type",
+		},
+		{
+			"key": "customs_broker",
+			"label": "Customs Broker",
+			"fieldtype": "Link",
+			"options": "Broker",
+			"doc_attr": "customs_broker",
+		},
+		{
+			"key": "transport_mode",
+			"label": "Transport Mode",
+			"fieldtype": "Link",
+			"options": "Transport Mode",
+			"doc_attr": "transport_mode",
+		},
+		{
+			"key": "port_of_loading",
+			"label": "Port of Loading/Entry",
+			"fieldtype": "Link",
+			"options": "UNLOCO",
+			"doc_attr": "port_of_loading",
+		},
+		{
+			"key": "port_of_discharge",
+			"label": "Port of Discharge/Exit",
+			"fieldtype": "Link",
+			"options": "UNLOCO",
+			"doc_attr": "port_of_discharge",
+		},
+		*_ORG_DIM_ENTRIES,
+	),
+	"Special Project": _ORG_DIM_ENTRIES,
+	"Exhibit": _ORG_DIM_ENTRIES,
+	"MICE Project": _ORG_DIM_ENTRIES,
+}
+
 # Whitelisted keys for Action → Get Charges from Quotation dialog filters (client-sent).
 GCFQ_FILTER_KEYS: dict[str, frozenset[str]] = {
-	"Sea Booking": frozenset(
-		{"origin_port", "destination_port", "shipping_line", "branch", "cost_center", "profit_center"}
-	),
-	"Air Booking": frozenset(
-		{"origin_port", "destination_port", "airline", "branch", "cost_center", "profit_center"}
-	),
-	"Transport Order": frozenset(
-		{"location_from", "location_to", "branch", "cost_center", "profit_center"}
-	),
-	"Declaration Order": frozenset(
-		{
-			"customs_authority",
-			"declaration_type",
-			"customs_broker",
-			"transport_mode",
-			"port_of_loading",
-			"port_of_discharge",
-			"branch",
-			"cost_center",
-			"profit_center",
-		}
-	),
-	"Special Project": frozenset({"branch", "cost_center", "profit_center"}),
-	"Exhibit": frozenset({"branch", "cost_center", "profit_center"}),
-	"MICE Project": frozenset({"branch", "cost_center", "profit_center"}),
+	dt: frozenset(e["key"] for e in entries) for dt, entries in GCFQ_FILTER_CATALOG.items()
 }
+
+_GCFQ_SETTINGS_DOCTYPE = "Get Charges from Quotation Settings"
+
+
+def _gcfq_catalog_entry(doctype: str, key: str) -> dict | None:
+	for entry in GCFQ_FILTER_CATALOG.get(doctype, ()):
+		if entry["key"] == key:
+			return entry
+	return None
+
+
+def seed_gcfq_filter_settings_rows(settings_doc) -> None:
+	"""Append default catalog rows (enabled + editable) when the settings table is empty."""
+	if settings_doc.get("filter_settings"):
+		return
+	for job_doctype, entries in GCFQ_FILTER_CATALOG.items():
+		for entry in entries:
+			settings_doc.append(
+				"filter_settings",
+				{
+					"job_doctype": job_doctype,
+					"filter_key": entry["key"],
+					"enabled": 1,
+					"editable": 1,
+				},
+			)
+
+
+@frappe.whitelist()
+def seed_gcfq_filter_settings_if_empty():
+	"""Ensure the Single has default filter rows; used by desk refresh and install patch."""
+	if not frappe.db.exists("DocType", _GCFQ_SETTINGS_DOCTYPE):
+		return {"seeded": False}
+	doc = frappe.get_single(_GCFQ_SETTINGS_DOCTYPE)
+	if doc.get("filter_settings"):
+		return {"seeded": False, "count": len(doc.filter_settings)}
+	seed_gcfq_filter_settings_rows(doc)
+	doc.save(ignore_permissions=True)
+	return {"seeded": True, "count": len(doc.filter_settings)}
+
+
+@frappe.whitelist()
+def get_gcfq_catalog_keys_for_doctype(doctype: str) -> list[str]:
+	"""Filter keys valid for a job DocType (settings form helper)."""
+	return [e["key"] for e in GCFQ_FILTER_CATALOG.get(doctype, ())]
+
+
+def _gcfq_settings_rows_for_doctype(doctype: str) -> list[dict]:
+	"""Ordered settings rows for a job DocType. Empty list → caller uses catalog defaults."""
+	if not frappe.db.exists("DocType", _GCFQ_SETTINGS_DOCTYPE):
+		return []
+	try:
+		rows = frappe.get_all(
+			"GCFQ Filter Setting",
+			filters={"parent": _GCFQ_SETTINGS_DOCTYPE, "parenttype": _GCFQ_SETTINGS_DOCTYPE, "job_doctype": doctype},
+			fields=["filter_key", "enabled", "editable", "idx"],
+			order_by="idx asc",
+		)
+	except Exception:
+		return []
+	return rows or []
+
+
+def _gcfq_effective_filter_config(doctype: str) -> list[dict]:
+	"""Enabled catalog entries in settings order (or full catalog defaults).
+
+	Each item: catalog entry + ``editable`` (bool).
+	"""
+	catalog = list(GCFQ_FILTER_CATALOG.get(doctype, ()))
+	if not catalog:
+		return []
+	by_key = {e["key"]: e for e in catalog}
+	settings_rows = _gcfq_settings_rows_for_doctype(doctype)
+	if not settings_rows:
+		return [{**e, "editable": True} for e in catalog]
+
+	out: list[dict] = []
+	seen: set[str] = set()
+	for row in settings_rows:
+		key = (row.get("filter_key") or "").strip()
+		if key not in by_key or key in seen:
+			continue
+		seen.add(key)
+		if not cint(row.get("enabled")):
+			continue
+		out.append({**by_key[key], "editable": bool(cint(row.get("editable")))})
+
+	# Catalog keys missing from settings (new keys after upgrade) stay enabled+editable at end.
+	for entry in catalog:
+		if entry["key"] in seen:
+			continue
+		out.append({**entry, "editable": True})
+	return out
+
+
+def _gcfq_overridable_filter_keys(doctype: str) -> frozenset[str]:
+	"""Keys the client may send as filter_overrides (enabled + editable)."""
+	return frozenset(e["key"] for e in _gcfq_effective_filter_config(doctype) if e.get("editable"))
+
+
+def _gcfq_assert_settings_write():
+	frappe.has_permission(_GCFQ_SETTINGS_DOCTYPE, "write", throw=True)
+
+
+def _gcfq_dashboard_filters_for_doctype(doctype: str) -> list[dict]:
+	"""Full workspace list for a module (includes disabled). Catalog order + settings order."""
+	catalog = list(GCFQ_FILTER_CATALOG.get(doctype, ()))
+	if not catalog:
+		return []
+	by_key = {e["key"]: e for e in catalog}
+	settings_rows = _gcfq_settings_rows_for_doctype(doctype)
+	out: list[dict] = []
+	seen: set[str] = set()
+	if settings_rows:
+		for row in settings_rows:
+			key = (row.get("filter_key") or "").strip()
+			entry = by_key.get(key)
+			if not entry or key in seen:
+				continue
+			seen.add(key)
+			out.append(
+				{
+					"key": key,
+					"label": _(entry.get("label") or key),
+					"enabled": bool(cint(row.get("enabled"))),
+					"editable": bool(cint(row.get("editable"))),
+				}
+			)
+	for entry in catalog:
+		key = entry["key"]
+		if key in seen:
+			continue
+		out.append(
+			{
+				"key": key,
+				"label": _(entry.get("label") or key),
+				"enabled": True,
+				"editable": True,
+			}
+		)
+	return out
+
+
+@frappe.whitelist()
+def get_gcfq_dashboard_modules() -> dict:
+	"""Module list + filter counts for the Settings Dashboard tab."""
+	frappe.has_permission(_GCFQ_SETTINGS_DOCTYPE, "read", throw=True)
+	modules = []
+	for doctype, entries in GCFQ_FILTER_CATALOG.items():
+		filters = _gcfq_dashboard_filters_for_doctype(doctype)
+		enabled_n = sum(1 for f in filters if f.get("enabled"))
+		modules.append(
+			{
+				"doctype": doctype,
+				"label": _(doctype),
+				"filter_count": len(filters),
+				"enabled_count": enabled_n,
+				"catalog_count": len(entries),
+			}
+		)
+	return {"modules": modules}
+
+
+@frappe.whitelist()
+def get_gcfq_dashboard_workspace(doctype: str) -> dict:
+	"""Filter cards + locked fields for one job DocType workspace."""
+	frappe.has_permission(_GCFQ_SETTINGS_DOCTYPE, "read", throw=True)
+	doctype = (doctype or "").strip()
+	if doctype not in GCFQ_FILTER_CATALOG:
+		frappe.throw(_("Unsupported document type."))
+	cust_label = (
+		_("Local Customer")
+		if doctype in ("Sea Booking", "Air Booking")
+		else _("Customer")
+	)
+	return {
+		"doctype": doctype,
+		"label": _(doctype),
+		"locked": [
+			{"key": "_svc", "label": _("Main Service")},
+			{"key": "_cust", "label": cust_label},
+		],
+		"filters": _gcfq_dashboard_filters_for_doctype(doctype),
+		"available": [
+			{"key": e["key"], "label": _(e.get("label") or e["key"])}
+			for e in GCFQ_FILTER_CATALOG[doctype]
+			if e["key"] not in {f["key"] for f in _gcfq_dashboard_filters_for_doctype(doctype)}
+		],
+	}
+
+
+@frappe.whitelist()
+def save_gcfq_dashboard_workspace(doctype: str, filters=None) -> dict:
+	"""Replace filter rows for one DocType from dashboard card order/toggles."""
+	_gcfq_assert_settings_write()
+	doctype = (doctype or "").strip()
+	if doctype not in GCFQ_FILTER_CATALOG:
+		frappe.throw(_("Unsupported document type."))
+	if isinstance(filters, str):
+		filters = frappe.parse_json(filters)
+	if not isinstance(filters, list):
+		frappe.throw(_("Invalid filters payload."))
+
+	allowed = {e["key"] for e in GCFQ_FILTER_CATALOG[doctype]}
+	cleaned: list[dict] = []
+	seen: set[str] = set()
+	for item in filters:
+		if not isinstance(item, dict):
+			continue
+		key = (item.get("key") or "").strip()
+		if key not in allowed or key in seen:
+			continue
+		seen.add(key)
+		cleaned.append(
+			{
+				"job_doctype": doctype,
+				"filter_key": key,
+				"enabled": 1 if cint(item.get("enabled")) else 0,
+				"editable": 1 if cint(item.get("editable")) else 0,
+			}
+		)
+
+	# Keep catalog keys not sent as disabled at end (admin removed card → treat as disabled row)
+	for entry in GCFQ_FILTER_CATALOG[doctype]:
+		if entry["key"] in seen:
+			continue
+		cleaned.append(
+			{
+				"job_doctype": doctype,
+				"filter_key": entry["key"],
+				"enabled": 0,
+				"editable": 1,
+			}
+		)
+
+	doc = frappe.get_single(_GCFQ_SETTINGS_DOCTYPE)
+	if not doc.filter_settings:
+		seed_gcfq_filter_settings_rows(doc)
+
+	kept = [r for r in list(doc.filter_settings) if (r.job_doctype or "").strip() != doctype]
+	doc.set("filter_settings", [])
+	for row in kept:
+		doc.append(
+			"filter_settings",
+			{
+				"job_doctype": row.job_doctype,
+				"filter_key": row.filter_key,
+				"enabled": cint(row.enabled),
+				"editable": cint(row.editable),
+			},
+		)
+	for row in cleaned:
+		doc.append("filter_settings", row)
+	doc.save(ignore_permissions=True)
+	frappe.clear_cache(doctype=_GCFQ_SETTINGS_DOCTYPE)
+	return get_gcfq_dashboard_workspace(doctype)
+
+
+@frappe.whitelist()
+def restore_gcfq_dashboard_defaults(doctype: str) -> dict:
+	"""Reset one module's filters to catalog defaults (enabled + editable, catalog order)."""
+	_gcfq_assert_settings_write()
+	doctype = (doctype or "").strip()
+	if doctype not in GCFQ_FILTER_CATALOG:
+		frappe.throw(_("Unsupported document type."))
+	defaults = [
+		{"key": e["key"], "enabled": 1, "editable": 1} for e in GCFQ_FILTER_CATALOG[doctype]
+	]
+	return save_gcfq_dashboard_workspace(doctype, defaults)
 
 
 def _parse_gcfq_filter_overrides(doctype: str, filter_overrides) -> dict[str, str]:
-	"""Sanitize client filter payload to allowed string keys only."""
+	"""Sanitize client filter payload to allowed editable keys only."""
 	if not filter_overrides:
 		return {}
 	if isinstance(filter_overrides, str):
@@ -128,7 +511,8 @@ def _parse_gcfq_filter_overrides(doctype: str, filter_overrides) -> dict[str, st
 			return {}
 	if not isinstance(filter_overrides, dict):
 		return {}
-	allowed = GCFQ_FILTER_KEYS.get(doctype, frozenset())
+	# Must be in catalog AND enabled+editable in settings (disabled/locked → use saved job).
+	allowed = GCFQ_FILTER_KEYS.get(doctype, frozenset()) & _gcfq_overridable_filter_keys(doctype)
 	out: dict[str, str] = {}
 	for k, v in filter_overrides.items():
 		if k not in allowed:
@@ -138,6 +522,94 @@ def _parse_gcfq_filter_overrides(doctype: str, filter_overrides) -> dict[str, st
 		else:
 			out[k] = str(v).strip()
 	return out
+
+
+def _gcfq_readonly_party_label(doc) -> str:
+	"""Display label for locked Customer / Local Customer filter cell."""
+	dt = getattr(doc, "doctype", None)
+	if dt in ("Sea Booking", "Air Booking"):
+		return (
+			(getattr(doc, "local_customer_name", None) or getattr(doc, "local_customer", None) or "")
+		).strip()
+	if dt in ("Transport Order", "Declaration Order", "Special Project", "Exhibit"):
+		return ((getattr(doc, "customer_name", None) or getattr(doc, "customer", None) or "")).strip()
+	if dt == "MICE Project":
+		cust = _job_customer(doc) or ""
+		return cust
+	return ""
+
+
+def _gcfq_main_service_label(doctype: str) -> str:
+	st = implied_service_type_for_doctype(doctype) or ""
+	return _(st) if st else ""
+
+
+def _gcfq_spec_from_catalog_entry(doc, entry: dict) -> dict:
+	"""Build one dialog filter spec from a catalog entry (+ editable flag)."""
+	key = entry["key"]
+	doc_attr = entry.get("doc_attr") or key
+	value = (getattr(doc, doc_attr, None) or "").strip() if doc else ""
+	editable = bool(entry.get("editable", True))
+	fieldtype = entry.get("fieldtype") or "Data"
+	options = entry.get("options") or ""
+	spec = {
+		"key": key,
+		"label": _(entry.get("label") or key),
+		"value": value,
+		"readonly": not editable,
+		"fieldtype": fieldtype,
+		"options": options,
+	}
+	if entry.get("select_options"):
+		spec["select_options"] = entry["select_options"]
+
+	# Transport locations: Dynamic Link when location_type is set on the job.
+	if doc and doc.doctype == "Transport Order" and key in ("location_from", "location_to"):
+		loc_type = (getattr(doc, "location_type", None) or "").strip()
+		if loc_type:
+			spec["fieldtype"] = "Dynamic Link"
+			spec["options"] = "location_type"
+			spec["use_location_type"] = True
+		else:
+			spec["fieldtype"] = "Data"
+			spec["options"] = ""
+	return spec
+
+
+@frappe.whitelist()
+def get_gcfq_filter_specs(doctype: str, docname: str) -> dict:
+	"""Return ordered filter specs for the Get Charges from Quotation dialog.
+
+	Always includes locked Main Service + Customer, then enabled settings filters.
+	"""
+	if doctype not in JOB_DOCTYPES:
+		frappe.throw(_("Unsupported document type."))
+
+	doc = frappe.get_doc(doctype, docname)
+	frappe.has_permission(doctype, "read", doc=doc, throw=True)
+
+	specs: list[dict] = [
+		{
+			"key": "_svc",
+			"readonly": True,
+			"label": _("Main Service"),
+			"value": _gcfq_main_service_label(doctype),
+		},
+		{
+			"key": "_cust",
+			"readonly": True,
+			"label": (
+				_("Local Customer")
+				if doctype in ("Sea Booking", "Air Booking")
+				else _("Customer")
+			),
+			"value": _gcfq_readonly_party_label(doc),
+		},
+	]
+	for entry in _gcfq_effective_filter_config(doctype):
+		specs.append(_gcfq_spec_from_catalog_entry(doc, entry))
+
+	return {"specs": specs, "doctype": doctype}
 
 
 def _pick_gcfq_field(doc, overrides: dict, param_key: str, doc_attr: str) -> str:

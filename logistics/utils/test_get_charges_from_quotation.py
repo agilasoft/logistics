@@ -21,12 +21,18 @@ from unittest.mock import MagicMock, patch
 from frappe.tests.utils import FrappeTestCase
 
 from logistics.utils.get_charges_from_quotation import (
+	GCFQ_FILTER_CATALOG,
+	GCFQ_FILTER_KEYS,
 	_corridor_mismatch_message_for_preview,
 	_effective_declaration_order_filter_fields,
 	_effective_sea_air_transport_corridor,
 	_gcfq_customer_matches_job,
+	_gcfq_effective_filter_config,
+	_gcfq_overridable_filter_keys,
+	_parse_gcfq_filter_overrides,
 	_sq_charge_row_to_operational_dict,
 	assert_sales_quote_customer_matches_job_before_submit,
+	get_gcfq_catalog_keys_for_doctype,
 )
 from logistics.utils.charge_service_type import (
 	_is_customs_related_sq_charge_row,
@@ -499,6 +505,84 @@ class TestSqChargeRowToOperationalDict(FrappeTestCase):
 		self.assertEqual(out.get("revenue_calculation_method"), "Fixed")
 		self.assertNotIn("rate", out)
 		self.assertNotIn("charge_basis", out)
+
+
+class TestGcfqFilterSettingsCatalog(FrappeTestCase):
+	"""Catalog + settings-driven override stripping (DB mocked where needed)."""
+
+	def tearDown(self):
+		import frappe
+
+		frappe.db.rollback()
+
+	def test_catalog_keys_match_whitelist(self):
+		for dt, entries in GCFQ_FILTER_CATALOG.items():
+			self.assertEqual(GCFQ_FILTER_KEYS[dt], frozenset(e["key"] for e in entries))
+
+	def test_get_catalog_keys_for_sea(self):
+		keys = get_gcfq_catalog_keys_for_doctype("Sea Booking")
+		self.assertIn("origin_port", keys)
+		self.assertIn("shipping_line", keys)
+		self.assertNotIn("airline", keys)
+
+	@patch(
+		"logistics.utils.get_charges_from_quotation._gcfq_settings_rows_for_doctype",
+		return_value=[],
+	)
+	def test_effective_config_defaults_all_editable(self, _mock_rows):
+		cfg = _gcfq_effective_filter_config("Air Booking")
+		keys = [e["key"] for e in cfg]
+		self.assertEqual(keys[0], "origin_port")
+		self.assertTrue(all(e.get("editable") for e in cfg))
+
+	@patch(
+		"logistics.utils.get_charges_from_quotation._gcfq_settings_rows_for_doctype",
+		return_value=[
+			{"filter_key": "airline", "enabled": 1, "editable": 1, "idx": 1},
+			{"filter_key": "origin_port", "enabled": 0, "editable": 1, "idx": 2},
+			{"filter_key": "destination_port", "enabled": 1, "editable": 0, "idx": 3},
+			{"filter_key": "branch", "enabled": 1, "editable": 1, "idx": 4},
+		],
+	)
+	def test_effective_config_respects_enabled_editable_order(self, _mock_rows):
+		cfg = _gcfq_effective_filter_config("Air Booking")
+		by_key = {e["key"]: e for e in cfg}
+		self.assertNotIn("origin_port", by_key)
+		self.assertTrue(by_key["airline"]["editable"])
+		self.assertFalse(by_key["destination_port"]["editable"])
+		# Order: airline, destination_port, branch, then missing catalog keys (cost_center, profit_center)
+		keys = [e["key"] for e in cfg]
+		self.assertEqual(keys[:3], ["airline", "destination_port", "branch"])
+		self.assertIn("cost_center", keys)
+		self.assertIn("profit_center", keys)
+
+	@patch(
+		"logistics.utils.get_charges_from_quotation._gcfq_overridable_filter_keys",
+		return_value=frozenset({"airline", "branch"}),
+	)
+	def test_parse_overrides_strips_non_editable_and_disabled(self, _mock_ov):
+		parsed = _parse_gcfq_filter_overrides(
+			"Air Booking",
+			{
+				"airline": "AL1",
+				"origin_port": "USLAX",
+				"branch": "BR1",
+				"destination_port": "USJFK",
+			},
+		)
+		self.assertEqual(parsed, {"airline": "AL1", "branch": "BR1"})
+
+	@patch(
+		"logistics.utils.get_charges_from_quotation._gcfq_settings_rows_for_doctype",
+		return_value=[
+			{"filter_key": "airline", "enabled": 1, "editable": 0, "idx": 1},
+			{"filter_key": "origin_port", "enabled": 1, "editable": 1, "idx": 2},
+		],
+	)
+	def test_overridable_keys_exclude_locked(self, _mock_rows):
+		keys = _gcfq_overridable_filter_keys("Air Booking")
+		self.assertIn("origin_port", keys)
+		self.assertNotIn("airline", keys)
 
 
 def run():
