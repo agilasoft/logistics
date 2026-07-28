@@ -4,6 +4,14 @@
 frappe.ui.form.on("Logistics Settings", {
 	refresh(frm) {
 		toggle_credit_control_rules_readonly(frm);
+		if (
+			frappe.model.can_read("Get Charges from Quotation Settings") &&
+			!frm.custom_buttons[__("Get Charges from Quotation Settings")]
+		) {
+			frm.add_custom_button(__("Get Charges from Quotation Settings"), () => {
+				frappe.set_route("Form", "Get Charges from Quotation Settings");
+			});
+		}
 	},
 	credit_apply_hold_to_all_doctypes(frm) {
 		toggle_credit_control_rules_readonly(frm);

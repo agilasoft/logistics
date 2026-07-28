@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; line-height: 1.4; color: #000; background: white; }
+        .order-container { width: 100%; max-width: 210mm; margin: 0 auto; padding: 0; background: white; position: relative; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3mm; }
+        .logo-placeholder { width: 60mm; height: 30mm; background: #e0e0e0; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 7pt; color: #666; }
+        .company-logo { width: 60mm; height: 30mm; object-fit: contain; }
+        .company-info { flex: 1; text-align: left; padding-left: 3mm; }
+        .company-name { font-size: 12pt; font-weight: bold; margin-bottom: 0; }
+        .company-address { font-size: 7pt; line-height: 1.3; margin-bottom: 0; }
+        .vat-reg { font-size: 7pt; }
+        .top-section { position: relative; margin-top: 8mm; margin-bottom: 8mm; min-height: 28mm; }
+        .customer-info-section { position: absolute; top: 0; left: 0; z-index: 10; max-width: 80mm; }
+        .customer-label { font-weight: bold; font-size: 8pt; margin-bottom: 1mm; line-height: 1; }
+        .customer-name-box { padding: 0.3mm 0.5mm; font-size: 12pt; font-weight: 900; margin-bottom: 0.1mm; line-height: 1; background: white; }
+        .customer-address-box { padding: 0.3mm 0.5mm; font-size: 8pt; background: white; width: 100mm; }
+        .qr-section { position: absolute; top: 0; right: 0; text-align: right; z-index: 10; }
+        .qr-code { width: 20mm; height: 20mm; border: 0 solid #000; }
+        .order-title-qr { font-size: 16pt; font-weight: 900; margin-top: 0.11mm; margin-bottom: -1mm; text-align: right; }
+        .reference-number { font-size: 8pt; font-weight: normal; margin-top: 0.1mm; }
+        .acceptance-section { margin-top: 6mm; }
+        .creator-block { margin-bottom: 4mm; font-size: 9pt; line-height: 1.45; }
+        .creator-name { font-size: 11pt; font-weight: 900; margin-bottom: 1mm; }
+        .creator-company-address { font-size: 8pt; line-height: 1.4; }
+        .acceptance-banner {
+            background: #e0e0e0;
+            color: #000;
+            font-size: 11pt;
+            font-weight: 900;
+            text-transform: uppercase;
+            padding: 2.5mm 3mm;
+            letter-spacing: 0.3px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .acceptance-body { margin-top: 4mm; font-size: 9pt; line-height: 1.5; }
+        .acceptance-body p { margin: 0 0 3mm 0; }
+        .acceptance-divider {
+            border: none;
+            border-top: 1px solid #000;
+            margin: 3mm 0;
+        }
+        .signature-section {
+            margin-top: 12mm;
+            font-size: 9pt;
+            line-height: 1.4;
+            page-break-inside: avoid;
+        }
+        .signature-closing { margin-bottom: 18mm; }
+        .signature-line {
+            border: none;
+            border-top: 1px solid #000;
+            width: 70mm;
+            margin: 0 0 1.5mm 0;
+        }
+        .signature-label {
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 9pt;
+            margin-bottom: 0.5mm;
+        }
+        .signature-company {
+            text-transform: uppercase;
+            font-size: 9pt;
+            font-weight: normal;
+        }
+        @page { size: A4; margin: 12mm 12mm 12mm 12mm; }
+        @media print {
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .order-container { max-width: 100%; }
+            .acceptance-banner {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set company_doc = None %}
+{% if doc.company and frappe.db.exists("Company", doc.company) %}
+{% set company_doc = frappe.get_doc("Company", doc.company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
+{% set company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
+
+{% set customer_name = '' %}
+{% set customer_address = '' %}
+{% if doc.customer and frappe.db.exists("Customer", doc.customer) %}
+{% set cust = frappe.get_doc("Customer", doc.customer) %}
+{% set customer_name = cust.customer_name or doc.customer %}
+{% if cust.customer_primary_address and frappe.db.exists("Address", cust.customer_primary_address) %}
+{% set addr = frappe.get_doc("Address", cust.customer_primary_address) %}
+{% set customer_address = (addr.address_line1 or '') %}
+{% if addr.address_line2 %}{% set customer_address = customer_address + ' ' + addr.address_line2 %}{% endif %}
+{% if addr.city %}{% set customer_address = customer_address + ' ' + addr.city %}{% endif %}
+{% if addr.state %}{% set customer_address = customer_address + ', ' + addr.state %}{% endif %}
+{% if addr.country %}{% set customer_address = customer_address + ' ' + addr.country %}{% endif %}
+{% if addr.pincode %}{% set customer_address = customer_address + ' ' + addr.pincode %}{% endif %}
+{% endif %}
+{% endif %}
+
+{% set creator_name = '' %}
+{% if doc.owner and frappe.db.exists("User", doc.owner) %}
+{% set creator_name = frappe.db.get_value("User", doc.owner, "full_name") or doc.owner %}
+{% else %}
+{% set creator_name = doc.owner or '' %}
+{% endif %}
+
+{% set creator_company = None %}
+{% if doc.owner %}
+{% set emp_company = frappe.db.get_value("Employee", {"user_id": doc.owner}, "company") %}
+{% if emp_company %}
+{% set creator_company = emp_company %}
+{% endif %}
+{% endif %}
+{% if not creator_company %}
+{% set creator_company = doc.company or default_company %}
+{% endif %}
+
+{% set creator_company_doc = None %}
+{% if creator_company and frappe.db.exists("Company", creator_company) %}
+{% set creator_company_doc = frappe.get_doc("Company", creator_company) %}
+{% endif %}
+
+{% set creator_addr = None %}
+{% set creator_primary_address_text = '' %}
+{% if creator_company_doc %}
+{% if creator_company_doc.company_primary_address and frappe.db.exists("Address", creator_company_doc.company_primary_address) %}
+{% set creator_addr = frappe.get_doc("Address", creator_company_doc.company_primary_address) %}
+{% elif creator_company_doc.address and frappe.db.exists("Address", creator_company_doc.address) %}
+{% set creator_addr = frappe.get_doc("Address", creator_company_doc.address) %}
+{% elif creator_company_doc.primary_address %}
+{% set creator_primary_address_text = creator_company_doc.primary_address %}
+{% endif %}
+{% endif %}
+
+<div class="order-container">
+    <div class="header">
+        {% if company_doc %}
+        {% if company_doc.company_logo %}
+            <img src="{{ company_doc.company_logo }}" alt="Company Logo" class="company-logo" />
+        {% elif company_doc.logo %}
+            <img src="{{ company_doc.logo }}" alt="Company Logo" class="company-logo" />
+        {% elif company_doc.image %}
+            <img src="{{ company_doc.image }}" alt="Company Logo" class="company-logo" />
+        {% else %}
+            <div class="logo-placeholder">company_logo</div>
+        {% endif %}
+        <div class="company-info">
+            <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
+            <div class="company-address">
+                {% if company_doc.address and frappe.db.exists("Address", company_doc.address) %}
+                    {% set company_address = frappe.get_doc("Address", company_doc.address) %}
+                    {{ company_address.address_line1 or '' }}
+                    {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
+                    {% if company_address.city %} {{ company_address.city }}{% endif %}
+                    {% if company_address.state %}, {{ company_address.state }}{% endif %}
+                    {% if company_address.country %} {{ company_address.country }}{% endif %}
+                    {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                {% elif company_doc.address_line1 %}
+                    {{ company_doc.address_line1 }}<br>
+                    {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
+                    {{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}<br>
+                    {{ company_doc.country }}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
+                {% endif %}
+            </div>
+            <div class="vat-reg">
+                {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
+                    {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
+                    {% if branch_doc.custom_registration_details %}
+                        {{ branch_doc.custom_registration_details }}
+                    {% elif company_doc.tax_id %}
+                        VAT Reg. TIN: {{ company_doc.tax_id }}
+                    {% elif company_doc.tin %}
+                        VAT Reg. TIN: {{ company_doc.tin }}
+                    {% endif %}
+                {% elif company_doc.tax_id %}
+                    VAT Reg. TIN: {{ company_doc.tax_id }}
+                {% elif company_doc.tin %}
+                    VAT Reg. TIN: {{ company_doc.tin }}
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+            <div class="logo-placeholder">company_logo</div>
+            <div class="company-info">
+                <div class="company-name">{{ doc.company or default_company or '' }}</div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="top-section">
+        <div class="customer-info-section">
+            <div class="customer-label">CUSTOMER</div>
+            <div class="customer-name-box">{{ customer_name }}</div>
+            {% if customer_address %}
+            <div class="customer-address-box">{{ customer_address }}</div>
+            {% endif %}
+        </div>
+        <div class="qr-section">
+            {% set qr_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + doc.name|urlencode %}
+            <img src="{{ qr_url }}" alt="QR Code" class="qr-code" />
+            <div class="order-title-qr">SALES QUOTE</div>
+            <div class="reference-number">{{ doc.name }}</div>
+        </div>
+    </div>
+
+    <div class="acceptance-section">
+        <div class="creator-block">
+            {% if creator_name %}
+            <div class="creator-name">{{ creator_name }}</div>
+            {% endif %}
+            <div class="creator-company-address">
+                {% if creator_addr %}
+                    {% if creator_addr.address_line1 %}{{ creator_addr.address_line1 }}<br>{% endif %}
+                    {% if creator_addr.address_line2 %}{{ creator_addr.address_line2 }}<br>{% endif %}
+                    {% if creator_addr.city %}{{ creator_addr.city }}<br>{% endif %}
+                    {% if creator_addr.state %}{{ creator_addr.state }}<br>{% endif %}
+                    {% if creator_addr.pincode %}{{ creator_addr.pincode }}<br>{% endif %}
+                    {% if creator_addr.country %}{{ creator_addr.country }}{% endif %}
+                {% elif creator_primary_address_text %}
+                    {{ creator_primary_address_text|replace('\n', '<br>')|safe }}
+                {% elif creator_company_doc %}
+                    {{ creator_company_doc.company_name or creator_company }}
+                {% endif %}
+            </div>
+        </div>
+        <div class="acceptance-banner">QUOTATION {{ doc.name }} ACCEPTANCE</div>
+        <div class="acceptance-body">
+            <p>Please sign and return this acceptance document to our office at the address included above, if you wish to accept the included Quotation.</p>
+            <hr class="acceptance-divider" />
+            <p>Please accept this letter as an acceptance of the quote sent to us.</p>
+            <p>We agree to your Standard Terms and Conditions set forth at <a href="https://www.atn.com.ph/wp-content/uploads/2016/12/TCs.pdf">https://www.atn.com.ph/wp-content/uploads/2016/12/TCs.pdf</a> as well as accept the charges specified in the Quotation.</p>
+        </div>
+        <div class="signature-section">
+            <div class="signature-closing">Yours Sincerely,</div>
+            <hr class="signature-line" />
+            <div class="signature-label">SIGNATURE OVER PRINTED NAME</div>
+            <div class="signature-company">{{ customer_name or doc.customer or '' }}</div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

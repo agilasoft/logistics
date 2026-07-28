@@ -153,6 +153,7 @@
    "label": "Weight"
   },
   {
+   "default": "Kilogram",
    "fieldname": "weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
@@ -450,6 +451,7 @@
    "label": "Width"
   },
   {
+   "default": "Centimeter",
    "fieldname": "dimension_uom",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -464,7 +466,7 @@
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-06-26 12:03:07.773772",
+ "modified": "2026-07-27 07:10:59.736803",
  "modified_by": "dee.sambrano@agilasoft.com",
  "module": "MICE",
  "name": "Docket Package",

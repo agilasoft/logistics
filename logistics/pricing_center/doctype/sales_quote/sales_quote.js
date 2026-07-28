@@ -2234,15 +2234,27 @@ function add_create_button(frm, config) {
 // Child table events for Sales Quote Charge (Transport: vehicle_type, load_type; revenue/cost calculation)
 frappe.ui.form.on('Sales Quote Charge', {
 	estimated_revenue: function(frm) {
+		if (frm._suppress_sq_profitability_refresh) {
+			return;
+		}
 		frm.events.refresh_estimated_profitability(frm);
 	},
 	estimated_cost: function(frm) {
+		if (frm._suppress_sq_profitability_refresh) {
+			return;
+		}
 		frm.events.refresh_estimated_profitability(frm);
 	},
 	bill_to_exchange_rate: function(frm) {
+		if (frm._suppress_sq_profitability_refresh) {
+			return;
+		}
 		frm.events.refresh_estimated_profitability(frm);
 	},
 	pay_to_exchange_rate: function(frm) {
+		if (frm._suppress_sq_profitability_refresh) {
+			return;
+		}
 		frm.events.refresh_estimated_profitability(frm);
 	},
 	service_type: function(frm, cdt, cdn) {
@@ -2335,6 +2347,26 @@ function logistics_refresh_sales_quote_estimated_profitability(frm) {
 	if (!frm || !frm.fields_dict || !frm.fields_dict.profitability_section_html) {
 		return;
 	}
+	if (frm._suppress_sq_profitability_refresh) {
+		return;
+	}
+	// Debounce: estimated_revenue/cost handlers + calc callback otherwise rewrite HTML repeatedly.
+	if (frm._sq_profitability_refresh_timer) {
+		clearTimeout(frm._sq_profitability_refresh_timer);
+	}
+	frm._sq_profitability_refresh_timer = setTimeout(function () {
+		frm._sq_profitability_refresh_timer = null;
+		logistics_refresh_sales_quote_estimated_profitability_now(frm);
+	}, 150);
+}
+
+function logistics_refresh_sales_quote_estimated_profitability_now(frm) {
+	if (!frm || !frm.fields_dict || !frm.fields_dict.profitability_section_html) {
+		return;
+	}
+	if (frm._suppress_sq_profitability_refresh) {
+		return;
+	}
 	const control = frm.fields_dict.profitability_section_html;
 	const payload = {
 		company: frm.doc.company || "",
@@ -2350,6 +2382,10 @@ function logistics_refresh_sales_quote_estimated_profitability(frm) {
 
 	function apply_html(html) {
 		const s = html || "";
+		if (frm._last_sq_profitability_html === s) {
+			return;
+		}
+		frm._last_sq_profitability_html = s;
 		if (control.set_value) {
 			control.set_value(s);
 		} else {

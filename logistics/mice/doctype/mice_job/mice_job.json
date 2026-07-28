@@ -34,16 +34,15 @@
   "section_contacts",
   "shipper",
   "consignee",
-  "column_break_ca",
+  "contacts_addresses_tab",
+  "contacts_and_addresses_section",
   "shipper_address",
   "shipper_address_display",
-  "column_break_cb",
-  "consignee_address",
-  "consignee_address_display",
-  "section_contacts_p",
   "shipper_contact",
   "shipper_contact_display",
-  "column_break_cc",
+  "column_break_job_addr",
+  "consignee_address",
+  "consignee_address_display",
   "consignee_contact",
   "consignee_contact_display",
   "resources_tab",
@@ -327,8 +326,14 @@
    "options": "Consignee"
   },
   {
-   "fieldname": "column_break_ca",
-   "fieldtype": "Column Break"
+   "fieldname": "contacts_addresses_tab",
+   "fieldtype": "Tab Break",
+   "label": "Contacts and Address"
+  },
+  {
+   "fieldname": "contacts_and_addresses_section",
+   "fieldtype": "Section Break",
+   "label": "Contacts and Address"
   },
   {
    "fieldname": "shipper_address",
@@ -344,7 +349,19 @@
    "read_only": 1
   },
   {
-   "fieldname": "column_break_cb",
+   "fieldname": "shipper_contact",
+   "fieldtype": "Link",
+   "label": "Shipper Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "shipper_contact_display",
+   "fieldtype": "Small Text",
+   "label": "Shipper Contact Display",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_job_addr",
    "fieldtype": "Column Break"
   },
   {
@@ -359,27 +376,6 @@
    "fieldtype": "Text Editor",
    "label": "Consignee Address Display",
    "read_only": 1
-  },
-  {
-   "fieldname": "section_contacts_p",
-   "fieldtype": "Section Break",
-   "label": "Contact Persons"
-  },
-  {
-   "fieldname": "shipper_contact",
-   "fieldtype": "Link",
-   "label": "Shipper Contact",
-   "options": "Contact"
-  },
-  {
-   "fieldname": "shipper_contact_display",
-   "fieldtype": "Small Text",
-   "label": "Shipper Contact Display",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_cc",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "consignee_contact",
@@ -723,9 +719,11 @@
    "fieldname": "tc_name",
    "fieldtype": "Link",
    "label": "Terms",
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]",
    "options": "Terms and Conditions"
   },
   {
+   "fetch_from": "tc_name.terms",
    "fieldname": "terms",
    "fieldtype": "Text Editor",
    "label": "Terms and Conditions",

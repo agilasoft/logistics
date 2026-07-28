@@ -17,10 +17,9 @@ var CHARGE_DOCTYPES_WITH_BREAKS =
 	);
 
 // Toolbar "Manage … Breaks" buttons only on pricing/air-consolidation/project parents.
-// Hidden on booking/order, shipment/job, Sea Consolidation, Change Request, Sales Quote, and Special Project.
+// Hidden on booking/order, shipment/job, Sea Consolidation, Change Request, Sales Quote, Tariff, and Special Project.
 var CHARGE_PARENT_DOCTYPES = [
 	"Air Consolidation",
-	"Tariff",
 	"MICE Project",
 	"Exhibit",
 ];

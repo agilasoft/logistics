@@ -364,16 +364,31 @@ frappe.ui.form.on("Change Request", {
 		frm.events.setup_linked_service_query(frm);
 		cr_setup_linked_services_grid(frm);
 		cr_fetch_eligible_linked_services(frm);
+		if (logistics.change_request_visibility && logistics.change_request_visibility.apply) {
+			logistics.change_request_visibility.apply(frm);
+		}
 	},
 
 	job_type(frm) {
 		frm._eligible_linked_services_key = null;
 		cr_fetch_eligible_linked_services(frm);
+		if (logistics.change_request_visibility && logistics.change_request_visibility.apply) {
+			logistics.change_request_visibility.apply(frm);
+		}
 	},
 
 	job(frm) {
 		frm._eligible_linked_services_key = null;
 		cr_fetch_eligible_linked_services(frm);
+		if (logistics.change_request_visibility && logistics.change_request_visibility.apply) {
+			logistics.change_request_visibility.apply(frm);
+		}
+	},
+
+	change_sections(frm) {
+		if (logistics.change_request_visibility && logistics.change_request_visibility.apply) {
+			logistics.change_request_visibility.apply(frm);
+		}
 	},
 
 	linked_services_add(frm, _cdt, cdn) {
@@ -444,6 +459,9 @@ frappe.ui.form.on("Change Request", {
 		frm.events.setup_linked_service_query(frm);
 		cr_setup_linked_services_grid(frm);
 		cr_fetch_eligible_linked_services(frm);
+		if (logistics.change_request_visibility && logistics.change_request_visibility.apply) {
+			logistics.change_request_visibility.apply(frm);
+		}
 		if (logistics.change_request_summary && logistics.change_request_summary.render) {
 			logistics.change_request_summary.render(frm);
 		}

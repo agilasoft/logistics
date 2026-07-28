@@ -34,11 +34,12 @@ fixtures = [
 # include js, css files in header of desk.html
 app_include_css = [
 	"/assets/logistics/css/print_footer_fix.css",
-	"/assets/logistics/css/get_charges_from_quotation.css?v=8",
+	"/assets/logistics/css/get_charges_from_quotation.css?v=9",
+	"/assets/logistics/css/gcfq_settings_dashboard.css?v=2",
 	"/assets/logistics/css/charges_grid_no_row_check.css?v=2",
 	"/assets/logistics/css/density_factor.css?v=1",
 	"/assets/logistics/css/workflow_center.css?v=1",
-	"/assets/logistics/css/change_request_summary.css?v=3",
+	"/assets/logistics/css/change_request_summary.css?v=4",
 ]
 app_include_js = [
 	"/assets/logistics/js/address_link_query.js?v=1",
@@ -56,7 +57,8 @@ app_include_js = [
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
 	"/assets/logistics/js/service_role.js?v=3",
 	"/assets/logistics/js/internal_job_detail_grid_delete_fix.js",
-	"/assets/logistics/js/get_charges_from_quotation.js?v=18",
+	"/assets/logistics/js/get_charges_from_quotation.js?v=19",
+	"/assets/logistics/js/gcfq_settings_dashboard.js?v=1",
 	"/assets/logistics/js/get_charges_from_tariff.js?v=1",
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=3",
 	"/assets/logistics/js/air_consolidation_matching_shipments.js?v=5",
@@ -76,7 +78,8 @@ app_include_js = [
 	"/assets/logistics/js/sales_invoice_dialog.js",
 	"/assets/logistics/js/sales_invoice_job_dimension_cleanup.js",
 	"/assets/logistics/js/job_change_lock.js?v=2",
-	"/assets/logistics/js/change_request_summary.js?v=3",
+	"/assets/logistics/js/change_request_visibility.js?v=1",
+	"/assets/logistics/js/change_request_summary.js?v=5",
 ]
 
 # include js, css files in header of web template

@@ -145,7 +145,11 @@ def update_parent_dg_compliance_status(doc):
 
 
 def transport_order_package_row_from_shipment_pkg(shipment, pkg):
-	"""Build a Transport Order Package dict from an Air Shipment Packages or Sea Freight Packages row."""
+	"""Build a Transport Order Package dict from an Air Shipment Packages or Sea Freight Packages row.
+
+	Air/Sea shipment packages use ``goods_description`` (not ``description``). Transport Order
+	Package requires short ``description``, so map goods text (first line) or commodity when needed.
+	"""
 	to_meta = frappe.get_meta("Transport Order Package")
 	common = (
 		"commodity",
@@ -180,4 +184,29 @@ def transport_order_package_row_from_shipment_pkg(shipment, pkg):
 		line_dg = package_indicates_dangerous_goods(pkg)
 		if parent_dg or line_dg:
 			row["contains_dangerous_goods"] = 1
+	_ensure_transport_order_package_description(row, pkg)
 	return row
+
+
+def _ensure_transport_order_package_description(row, pkg):
+	"""Fill required Transport Order Package ``description`` from shipment package fields.
+
+	Priority: existing description → goods_description (first line) → commodity.
+	Raises a clear error when none are available (no invented placeholder text).
+	"""
+	desc = (row.get("description") or "").strip()
+	if not desc:
+		gd = (getattr(pkg, "goods_description", None) or row.get("goods_description") or "").strip()
+		if gd:
+			desc = gd.split("\n", 1)[0].strip()[:140]
+		elif getattr(pkg, "commodity", None) or row.get("commodity"):
+			desc = str(getattr(pkg, "commodity", None) or row.get("commodity")).strip()
+	if not desc:
+		frappe.throw(
+			_(
+				"Cannot create Transport Order package: {0} has no Goods Description. "
+				"Fill Goods Description on the shipment package and try again."
+			).format(dg_child_row_display_label(pkg)),
+			title=_("Missing package description"),
+		)
+	row["description"] = desc

@@ -247,6 +247,17 @@
    "collapsible": 1,
    "indent": 0,
    "keep_closed": 0,
+   "label": "Get Charges from Quotation Settings",
+   "link_to": "Get Charges from Quotation Settings",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
    "label": "Transport Settings",
    "link_to": "Transport Settings",
    "link_type": "DocType",

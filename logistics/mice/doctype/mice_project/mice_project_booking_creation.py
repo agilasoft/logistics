@@ -29,6 +29,7 @@ from logistics.utils.internal_job_from_source import (
 	linked_internal_job_target_is_cancelled,
 )
 from logistics.utils.linked_service_compat import linked_service_rows
+from logistics.utils.operational_rep_fields import copy_operational_rep_fields_from_chain
 
 
 EXHIBIT_CREATABLE_JOB_TYPES: frozenset[str] = frozenset(
@@ -539,6 +540,7 @@ def _apply_exhibit_context(target_doc: Any, ep_doc: Any) -> None:
 		if meta.get_field("customer"):
 			target_doc.customer = cust
 	_apply_sales_quote_parties_to_target(target_doc, ep_doc)
+	copy_operational_rep_fields_from_chain(target_doc, source_doc=ep_doc)
 
 
 def _apply_sales_quote_parties_to_target(target_doc: Any, ep_doc: Any) -> None:

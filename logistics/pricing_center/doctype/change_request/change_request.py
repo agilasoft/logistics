@@ -137,6 +137,7 @@ class ChangeRequest(Document):
 
 	def validate(self):
 		self._honour_linked_services_form_rows()
+		self.validate_job_context_immutable()
 		self.validate_linked_service_charge_tagging()
 		if not (getattr(self, "reason", None) or "").strip():
 			frappe.throw(_("Reason is required for a Change Request."), title=_("Reason Required"))
@@ -146,6 +147,26 @@ class ChangeRequest(Document):
 			refresh_change_request_summary(self)
 		except Exception:
 			frappe.log_error(frappe.get_traceback(), "Change Request summary refresh")
+
+	def validate_job_context_immutable(self):
+		"""Job Type / Job are locked after the CR is linked to a job (create-from-job path)."""
+		if self.is_new():
+			return
+		before = self.get_doc_before_save()
+		if not before:
+			return
+		prev_type = (getattr(before, "job_type", None) or "").strip()
+		prev_job = (getattr(before, "job", None) or "").strip()
+		if not prev_job:
+			return
+		cur_type = (getattr(self, "job_type", None) or "").strip()
+		cur_job = (getattr(self, "job", None) or "").strip()
+		if prev_type != cur_type or prev_job != cur_job:
+			frappe.throw(
+				_("Job Type and Job cannot be changed after the Change Request is created. "
+				  "Cancel this request and create a new one from the correct job."),
+				title=_("Job Locked"),
+			)
 
 	def validate_linked_service_charge_tagging(self):
 		"""Validate per-charge Linked Service tagging on Change Request charges."""

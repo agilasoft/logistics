@@ -64,3 +64,29 @@ class UnitTestPenaltyUtils(UnitTestCase):
 		s = _Settings(default_ft=7, det_r=10, dem_r=5)
 		amt = penalty_utils.estimated_penalty_amount_for_days(2, 4, s)
 		self.assertEqual(amt, 2 * 10 + 4 * 5)
+
+	def test_penalty_amounts_for_days(self):
+		s = _Settings(default_ft=7, det_r=10, dem_r=5)
+		det_amt, dem_amt, total = penalty_utils.penalty_amounts_for_days(2, 4, s)
+		self.assertEqual(det_amt, 20)
+		self.assertEqual(dem_amt, 20)
+		self.assertEqual(total, 40)
+
+	def test_compute_penalty_totals_includes_amount_breakdown(self):
+		s = _Settings(default_ft=7, det_r=10, dem_r=5)
+
+		class Ship:
+			milestones = []
+			ata = getdate("2026-01-01")
+			containers = []
+
+		today = getdate("2026-01-20")
+		totals = penalty_utils.compute_penalty_totals_for_sea_shipment(Ship(), s, today)
+		# 19 days since ATA, 7 free -> 12 detention days @ 10
+		self.assertEqual(totals["detention_days"], 12)
+		self.assertEqual(totals["demurrage_days"], 0)
+		self.assertEqual(totals["detention_amount"], 120)
+		self.assertEqual(totals["demurrage_amount"], 0)
+		self.assertEqual(totals["estimated_penalty_amount"], 120)
+		self.assertIn("detention_amount", totals)
+		self.assertIn("demurrage_amount", totals)

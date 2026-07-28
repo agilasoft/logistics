@@ -7,6 +7,8 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from logistics.utils.operational_rep_fields import copy_operational_rep_fields_from_chain
+
 
 class MICEOrder(Document):
 	def validate(self):
@@ -192,6 +194,7 @@ def action_create_mice_job(docname: str, title: Optional[str] = None):
 		job.job_date = order.order_date
 
 	_apply_org_defaults_to_job(job, order)
+	copy_operational_rep_fields_from_chain(job, source_doc=order)
 
 	if getattr(order, "billing_status", None) and job.meta.has_field("billing_status"):
 		job.billing_status = order.billing_status
@@ -215,6 +218,11 @@ def action_create_mice_job(docname: str, title: Optional[str] = None):
 		"consignee_address_display",
 		"consignee_contact",
 		"consignee_contact_display",
+		"logistics_service_level",
+		"sla_target_source",
+		"sla_target_date",
+		"sla_status",
+		"sla_notes",
 	):
 		if job.meta.has_field(fieldname) and getattr(order, fieldname, None):
 			setattr(job, fieldname, getattr(order, fieldname))

@@ -1,0 +1,65 @@
+{
+ "actions": [],
+ "creation": "2026-07-28 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "dashboard_tab",
+  "dashboard_html",
+  "config_tab",
+  "filters_section",
+  "filter_settings"
+ ],
+ "fields": [
+  {
+   "fieldname": "dashboard_tab",
+   "fieldtype": "Tab Break",
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "dashboard_html",
+   "fieldtype": "HTML",
+   "label": "Dashboard"
+  },
+  {
+   "fieldname": "config_tab",
+   "fieldtype": "Tab Break",
+   "label": "Table Config"
+  },
+  {
+   "description": "Advanced: raw filter rows. Prefer the Dashboard tab for day-to-day changes. Main Service and Customer are always shown and locked. Disabled filters still use the value saved on the job for matching.",
+   "fieldname": "filters_section",
+   "fieldtype": "Section Break",
+   "label": "List Filter Criteria"
+  },
+  {
+   "fieldname": "filter_settings",
+   "fieldtype": "Table",
+   "label": "Filter Settings",
+   "options": "GCFQ Filter Setting"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-28 02:20:00.000000",
+ "modified_by": "Administrator",
+ "module": "Pricing Center",
+ "name": "Get Charges from Quotation Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

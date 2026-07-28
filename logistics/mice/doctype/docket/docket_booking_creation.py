@@ -1,7 +1,7 @@
 # Copyright (c) 2026, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
-"""Create Air / Sea Booking and Transport / Declaration / VAS Order from Docket Internal Job rows.
+"""Create Air / Sea Booking and Transport / Declaration / Inbound / Cross-Docking / MICE Order from Docket Internal Job rows.
 
 Mirrors ``logistics.special_projects.special_project_booking_creation`` but for the Docket DocType:
 each row of ``docket.internal_jobs`` (Internal Job Detail) represents one intended main-service job
@@ -9,7 +9,7 @@ for the docket, and this module turns those rows into standalone booking/order d
 documents are not internal jobs — they link back to the Docket only through the row's ``job_no``
 (and through accounting context / linked Sales Quote).
 
-Warehousing Linked Services create a VAS Order (cross-dock / in-transit), not storage Inbound.
+Warehousing Linked Services create an Inbound Order; Cross-Docking rows create a Cross-Docking Order.
 """
 
 from __future__ import annotations
@@ -897,6 +897,23 @@ def _create_vas_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
 	return {
 		"vas_order": order.name,
 		"message": _("VAS Order {0} created.").format(order.name),
+	}
+
+
+def _create_inbound_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
+	order = frappe.new_doc("Inbound Order")
+	_apply_docket_context(order, dk_doc)
+	if frappe.get_meta("Inbound Order").get_field("order_date"):
+		order.order_date = today()
+	apply_internal_job_detail_row_to_operational_doc(order, row, overwrite=True)
+	_copy_docket_packages_to_target(dk_doc, order)
+	_prepare_charges_before_insert(dk_doc, order, row)
+	order.insert(ignore_permissions=True)
+	_persist_row_link(dk_doc.name, "Inbound Order", order.name, detail_idx)
+	frappe.db.commit()
+	return {
+		"inbound_order": order.name,
+		"message": _("Inbound Order {0} created.").format(order.name),
 	}
 
 

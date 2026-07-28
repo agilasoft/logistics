@@ -1123,6 +1123,8 @@ class SeaShipment(VirtualLinkedServicesMixin, Document):
 
             self.detention_days = totals["detention_days"]
             self.demurrage_days = totals["demurrage_days"]
+            self.detention_amount = totals["detention_amount"]
+            self.demurrage_amount = totals["demurrage_amount"]
             self.estimated_penalty_amount = totals["estimated_penalty_amount"]
             self.free_time_days = totals["free_time_days_summary"]
             self.has_penalties = 1 if (self.detention_days > 0 or self.demurrage_days > 0) else 0
