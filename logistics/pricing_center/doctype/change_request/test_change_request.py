@@ -448,3 +448,150 @@ class TestChangeRequestToJob(UnitTestCase):
 
 		self.assertIn("Docket", _cost_mappers())
 		self.assertIn("Docket", _revenue_appliers())
+
+
+class TestChangeRequestVisibility(UnitTestCase):
+	"""Job-type field visibility + immutable Job Type / Job."""
+
+	def test_air_shipment_hides_run_sheet_and_cutoffs(self):
+		from logistics.pricing_center.change_request_field_apply import (
+			applicable_header_fields,
+			header_fields_for_job_type,
+			job_type_supports_charges,
+			job_type_supports_packages,
+		)
+
+		fields = header_fields_for_job_type("Air Shipment")
+		self.assertIn("origin_port", fields)
+		self.assertIn("shipper", fields)
+		self.assertNotIn("run_date", fields)
+		self.assertNotIn("cargo_cut_off", fields)
+		self.assertNotIn("dispatcher", fields)
+		self.assertTrue(job_type_supports_packages("Air Shipment"))
+		self.assertTrue(job_type_supports_charges("Air Shipment"))
+
+		charges_only = applicable_header_fields("Air Shipment", {"Charges"})
+		self.assertEqual(charges_only, frozenset())
+
+	def test_sea_shipment_includes_cutoffs_not_run_sheet(self):
+		from logistics.pricing_center.change_request_field_apply import header_fields_for_job_type
+
+		fields = header_fields_for_job_type("Sea Shipment")
+		self.assertIn("cargo_cut_off", fields)
+		self.assertIn("origin_port", fields)
+		self.assertNotIn("run_date", fields)
+
+	def test_run_sheet_has_no_charges_or_packages(self):
+		from logistics.pricing_center.change_request_field_apply import (
+			header_fields_for_job_type,
+			job_type_supports_charges,
+			job_type_supports_packages,
+			job_type_supports_services,
+		)
+
+		fields = header_fields_for_job_type("Run Sheet")
+		self.assertIn("run_date", fields)
+		self.assertIn("dispatcher", fields)
+		self.assertNotIn("customer", fields)
+		self.assertNotIn("origin_port", fields)
+		self.assertFalse(job_type_supports_packages("Run Sheet"))
+		self.assertFalse(job_type_supports_charges("Run Sheet"))
+		self.assertFalse(job_type_supports_services("Run Sheet"))
+
+	def test_transport_job_shows_transport_places_not_ports(self):
+		from logistics.pricing_center.change_request_field_apply import header_fields_for_job_type
+
+		fields = header_fields_for_job_type("Transport Job")
+		self.assertIn("vehicle_type", fields)
+		self.assertIn("container_no", fields)
+		self.assertIn("customer", fields)
+		self.assertNotIn("origin_port", fields)
+		self.assertNotIn("cargo_cut_off", fields)
+
+	def test_count_section_changes_ignores_inapplicable_fields(self):
+		from logistics.pricing_center.change_request_field_apply import count_section_changes
+
+		cr = frappe._dict(
+			job_type="Warehouse Job",
+			change_sections="Parties\nNotes",
+			customer="C-1",
+			shipper="S-1",
+			# Noise that exists on CR but not on Warehouse Job:
+			origin_port="PHMNL",
+			run_date="2026-01-01",
+			charges=[],
+			package_changes=[],
+			baseline_json='{"header": {"customer": "C-0", "shipper": "S-1", "origin_port": "", "run_date": ""}}',
+		)
+		counts = count_section_changes(cr)
+		self.assertEqual(counts["Parties"], 1)  # customer only
+		self.assertEqual(counts["Places & Dates"], 0)
+		self.assertEqual(counts["Packages"], 0)
+
+
+class TestChangeRequestFetchFromApply(UnitTestCase):
+	"""CR header apply must not lose values re-fetched from linked parents on save."""
+
+	def test_sync_fetch_from_sources_updates_transport_order(self):
+		from logistics.pricing_center.change_request_field_apply import (
+			_sync_fetch_from_sources_for_applied_fields,
+		)
+
+		job = frappe._dict(
+			doctype="Transport Job",
+			transport_order="TRO-TEST",
+			transport_company="TRC-NEW",
+		)
+		with patch(
+			"logistics.pricing_center.change_request_field_apply.frappe.get_meta"
+		) as mock_meta, patch(
+			"logistics.pricing_center.change_request_field_apply.frappe.db.exists",
+			return_value=True,
+		), patch(
+			"logistics.pricing_center.change_request_field_apply.frappe.db.get_value",
+			return_value="TRC-OLD",
+		), patch(
+			"logistics.pricing_center.change_request_field_apply.frappe.db.set_value"
+		) as mock_set:
+			tj_meta = MagicMock()
+			tc_df = MagicMock(
+				fetch_from="transport_order.transport_company",
+				fieldtype="Link",
+			)
+			to_df = MagicMock(fieldtype="Link", options="Transport Order")
+			tj_meta.get_field.side_effect = lambda fn: {
+				"transport_company": tc_df,
+				"transport_order": to_df,
+			}.get(fn)
+			to_meta = MagicMock()
+			to_meta.has_field.return_value = True
+			mock_meta.side_effect = lambda dt: tj_meta if dt == "Transport Job" else to_meta
+
+			_sync_fetch_from_sources_for_applied_fields(
+				job, {"transport_company": "TRC-NEW"}
+			)
+			mock_set.assert_called_once_with(
+				"Transport Order", "TRO-TEST", "transport_company", "TRC-NEW"
+			)
+
+	def test_reassert_applied_header_values_rewrites_overwritten_field(self):
+		from logistics.pricing_center.change_request_field_apply import (
+			_reassert_applied_header_values,
+		)
+
+		with patch(
+			"logistics.pricing_center.change_request_field_apply.frappe.db.get_value",
+			return_value="TRC-OLD",
+		), patch(
+			"logistics.pricing_center.change_request_field_apply.frappe.db.set_value"
+		) as mock_set:
+			_reassert_applied_header_values(
+				"Transport Job", "TRJ-TEST", {"transport_company": "TRC-NEW"}
+			)
+			mock_set.assert_called_once_with(
+				"Transport Job",
+				"TRJ-TEST",
+				"transport_company",
+				"TRC-NEW",
+				update_modified=False,
+			)

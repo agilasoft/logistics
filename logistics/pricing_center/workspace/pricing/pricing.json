@@ -78,7 +78,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Module Settings",
-   "link_count": 6,
+   "link_count": 7,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -89,6 +89,16 @@
    "label": "Logistics Settings",
    "link_count": 0,
    "link_to": "Logistics Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Get Charges from Quotation Settings",
+   "link_count": 0,
+   "link_to": "Get Charges from Quotation Settings",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"

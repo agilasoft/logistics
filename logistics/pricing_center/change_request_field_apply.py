@@ -85,6 +85,7 @@ NOTES_FIELDS = (
 	# Run Sheet assignment
 	"dispatcher",
 	"return_inspector",
+	"remarks",
 )
 
 SECTION_FIELD_MAP = {
@@ -92,6 +93,228 @@ SECTION_FIELD_MAP = {
 	"Places & Dates": PLACES_DATES_FIELDS,
 	"Notes": NOTES_FIELDS,
 }
+
+# Header fields that exist on each job DocType (union of seed/apply mirrors).
+# Keep in sync with logistics/public/js/change_request_visibility.js.
+_AIR_SEA_PARTIES = (
+	"local_customer",
+	"booking_party",
+	"shipper",
+	"consignee",
+	"shipper_address",
+	"consignee_address",
+	"shipper_contact",
+	"consignee_contact",
+	"notify_party",
+	"notify_party_address",
+	"freight_agent",
+	"sending_agent",
+	"receiving_agent",
+	"broker",
+	"controlling_party",
+	"incoterm",
+	"direction",
+	"house_type",
+	"release_type",
+	"entry_type",
+	"service_level",
+)
+
+_AIR_SEA_PLACES = (
+	"origin_port",
+	"destination_port",
+	"etd",
+	"eta",
+	"booking_date",
+	"transport_mode",
+	"load_type",
+)
+
+_SEA_CUTOFFS = (
+	"cargo_cut_off",
+	"document_cut_off",
+	"vgm_cut_off",
+	"gate_in_cut_off",
+	"empty_return_cut_off",
+	"other_cut_off",
+)
+
+_AIR_SEA_NOTES = (
+	"internal_notes",
+	"client_notes",
+	"sales_rep",
+	"operations_rep",
+	"customer_service_rep",
+	"description",
+	"marks_and_nos",
+)
+
+_TRANSPORT_PARTIES = (
+	"customer",
+	"shipper",
+	"consignee",
+	"shipper_address",
+	"consignee_address",
+	"shipper_contact",
+	"consignee_contact",
+	"logistics_service_level",
+	"service_level",
+)
+
+_TRANSPORT_PLACES = (
+	"scheduled_date",
+	"booking_date",
+	"vehicle_type",
+	"transport_mode",
+	"load_type",
+	"transport_company",
+	"transport_job_type",
+	"container_type",
+	"container_no",
+)
+
+_TRANSPORT_NOTES = (
+	"internal_notes",
+	"client_notes",
+	"sales_rep",
+	"operations_rep",
+	"customer_service_rep",
+	"customer_ref_no",
+)
+
+_RUN_SHEET_PLACES = (
+	"vehicle_type",
+	"transport_company",
+	"run_date",
+	"run_type",
+	"route_name",
+	"vehicle",
+	"driver",
+	"trailer_type",
+	"dispatch_terminal",
+	"return_terminal",
+	"estimated_completion_time",
+	"estimated_dispatch_datetime",
+	"estimated_return_datetime",
+	"transport_consolidation",
+)
+
+_RUN_SHEET_NOTES = (
+	"dispatcher",
+	"return_inspector",
+)
+
+JOB_TYPE_HEADER_FIELDS = {
+	"Air Shipment": frozenset(_AIR_SEA_PARTIES + _AIR_SEA_PLACES + _AIR_SEA_NOTES),
+	"Air Booking": frozenset(_AIR_SEA_PARTIES + _AIR_SEA_PLACES + _AIR_SEA_NOTES),
+	"Sea Shipment": frozenset(
+		_AIR_SEA_PARTIES + _AIR_SEA_PLACES + _SEA_CUTOFFS + ("internal_notes",)
+		+ (
+			"sales_rep",
+			"operations_rep",
+			"customer_service_rep",
+			"description",
+			"marks_and_nos",
+		)
+	),
+	"Sea Booking": frozenset(_AIR_SEA_PARTIES + _AIR_SEA_PLACES + _SEA_CUTOFFS + _AIR_SEA_NOTES),
+	"Transport Job": frozenset(
+		("customer", "shipper", "consignee", "shipper_address", "consignee_address",
+		 "shipper_contact", "consignee_contact", "logistics_service_level")
+		+ _TRANSPORT_PLACES
+		+ _TRANSPORT_NOTES
+	),
+	"Transport Order": frozenset(
+		("customer", "shipper", "consignee", "shipper_address", "consignee_address",
+		 "shipper_contact", "consignee_contact", "service_level")
+		+ _TRANSPORT_PLACES
+		+ _TRANSPORT_NOTES
+	),
+	"Warehouse Job": frozenset(
+		("customer", "shipper", "consignee", "logistics_service_level")
+	),
+	"Inbound Order": frozenset(("customer", "shipper", "consignee")),
+	"Release Order": frozenset(("customer", "shipper", "consignee")),
+	"Cross-Docking Order": frozenset(("customer", "shipper", "consignee")),
+	"Declaration": frozenset(
+		(
+			"customer",
+			"notify_party",
+			"notify_party_address",
+			"freight_agent",
+			"incoterm",
+			"service_level",
+			"etd",
+			"eta",
+			"transport_mode",
+			"internal_notes",
+			"sales_rep",
+			"operations_rep",
+			"customer_service_rep",
+			"remarks",
+		)
+	),
+	"Declaration Order": frozenset(
+		(
+			"customer",
+			"notify_party",
+			"freight_agent",
+			"incoterm",
+			"service_level",
+			"etd",
+			"eta",
+			"transport_mode",
+			"internal_notes",
+			"sales_rep",
+			"operations_rep",
+			"customer_service_rep",
+			"remarks",
+		)
+	),
+	"Special Project": frozenset(
+		(
+			"customer",
+			"logistics_service_level",
+			"internal_notes",
+			"client_notes",
+			"sales_rep",
+			"operations_rep",
+			"customer_service_rep",
+			"description",
+		)
+	),
+	"Docket": frozenset(
+		(
+			"customer",
+			"internal_notes",
+			"client_notes",
+			"sales_rep",
+			"operations_rep",
+			"customer_service_rep",
+			"description",
+		)
+	),
+	"Run Sheet": frozenset(_RUN_SHEET_PLACES + _RUN_SHEET_NOTES),
+}
+
+JOB_TYPES_WITH_PACKAGES = frozenset(
+	{
+		"Air Shipment",
+		"Air Booking",
+		"Sea Shipment",
+		"Sea Booking",
+		"Transport Job",
+		"Transport Order",
+		"Declaration",
+		"Declaration Order",
+		"Special Project",
+		"Docket",
+	}
+)
+
+JOB_TYPES_WITHOUT_CHARGES = frozenset({"Run Sheet"})
+
+JOB_TYPES_WITHOUT_SERVICES = frozenset({"Run Sheet"})
 
 # Package fields shared across Air / Sea / Transport package child tables.
 PACKAGE_COPY_FIELDS = (
@@ -141,6 +364,46 @@ def parse_change_sections(value):
 		if chunk:
 			parts.append(chunk)
 	return set(parts)
+
+
+def header_fields_for_job_type(job_type):
+	"""Amendable header fields that exist on the linked job DocType."""
+	if not job_type:
+		return frozenset(all_amendable_header_fields())
+	known = JOB_TYPE_HEADER_FIELDS.get(job_type)
+	if known is not None:
+		return known
+	return frozenset(all_amendable_header_fields())
+
+
+def job_type_supports_packages(job_type):
+	if not job_type:
+		return True
+	return job_type in JOB_TYPES_WITH_PACKAGES
+
+
+def job_type_supports_charges(job_type):
+	if not job_type:
+		return True
+	return job_type not in JOB_TYPES_WITHOUT_CHARGES
+
+
+def job_type_supports_services(job_type):
+	if not job_type:
+		return True
+	return job_type not in JOB_TYPES_WITHOUT_SERVICES
+
+
+def applicable_header_fields(job_type, sections=None):
+	"""Intersection of job-type fields and selected change_sections (empty = all)."""
+	allowed = header_fields_for_job_type(job_type)
+	section_set = parse_change_sections(sections) if sections is not None else set()
+	if not section_set:
+		return allowed
+	wanted = set()
+	for sec in section_set:
+		wanted.update(SECTION_FIELD_MAP.get(sec) or ())
+	return frozenset(fn for fn in allowed if fn in wanted)
 
 
 def header_fields_for_sections(sections):
@@ -263,9 +526,13 @@ def count_section_changes(cr_doc, baseline=None):
 		"Charges": 0,
 		"Notes": 0,
 	}
+	job_type = getattr(cr_doc, "job_type", None)
+	applicable = applicable_header_fields(job_type, cr_doc.get("change_sections"))
 	for section, fields in SECTION_FIELD_MAP.items():
 		n = 0
 		for fn in fields:
+			if fn not in applicable:
+				continue
 			if not hasattr(cr_doc, fn):
 				continue
 			if str(header_base.get(fn) or "") != str(cr_doc.get(fn) or ""):
@@ -273,22 +540,23 @@ def count_section_changes(cr_doc, baseline=None):
 		counts[section] = n
 
 	pkg_count = 0
-	base_pkgs = {(p.get("source_row_name") or ""): p for p in (baseline or {}).get("packages") or []}
-	for row in cr_doc.get("package_changes") or []:
-		action = (row.get("row_action") or "Update").strip()
-		src = row.get("source_row_name") or ""
-		if action in ("Add", "Remove"):
-			pkg_count += 1
-			continue
-		prev = base_pkgs.get(src) or {}
-		for fn in PACKAGE_COPY_FIELDS:
-			if not hasattr(row, fn):
-				continue
-			if str(prev.get(fn) or "") != str(row.get(fn) or ""):
+	if job_type_supports_packages(job_type):
+		base_pkgs = {(p.get("source_row_name") or ""): p for p in (baseline or {}).get("packages") or []}
+		for row in cr_doc.get("package_changes") or []:
+			action = (row.get("row_action") or "Update").strip()
+			src = row.get("source_row_name") or ""
+			if action in ("Add", "Remove"):
 				pkg_count += 1
-				break
+				continue
+			prev = base_pkgs.get(src) or {}
+			for fn in PACKAGE_COPY_FIELDS:
+				if not hasattr(row, fn):
+					continue
+				if str(prev.get(fn) or "") != str(row.get(fn) or ""):
+					pkg_count += 1
+					break
 	counts["Packages"] = pkg_count
-	counts["Charges"] = len(cr_doc.get("charges") or [])
+	counts["Charges"] = len(cr_doc.get("charges") or []) if job_type_supports_charges(job_type) else 0
 	return counts
 
 
@@ -300,7 +568,11 @@ def _refresh_change_summary(cr_doc, baseline=None):
 			baseline = {}
 	lines = []
 	header_base = (baseline or {}).get("header") or {}
+	job_type = getattr(cr_doc, "job_type", None)
+	applicable = applicable_header_fields(job_type, cr_doc.get("change_sections"))
 	for fn in all_amendable_header_fields():
+		if fn not in applicable:
+			continue
 		if not hasattr(cr_doc, fn):
 			continue
 		new_val = cr_doc.get(fn)
@@ -311,29 +583,30 @@ def _refresh_change_summary(cr_doc, baseline=None):
 		lines.append(f"<li><b>{frappe.bold(label)}</b>: {_fmt(old_val)} → {_fmt(new_val)}</li>")
 
 	pkg_lines = []
-	base_pkgs = {(p.get("source_row_name") or ""): p for p in (baseline or {}).get("packages") or []}
-	for row in cr_doc.get("package_changes") or []:
-		action = (row.get("row_action") or "Update").strip()
-		src = row.get("source_row_name") or ""
-		if action == "Add":
-			pkg_lines.append(
-				f"<li>Package <b>Add</b>: {escape_html(cstr(row.get('goods_description') or row.get('commodity') or src or 'new'))}</li>"
-			)
-			continue
-		if action == "Remove":
-			pkg_lines.append(f"<li>Package <b>Remove</b>: {escape_html(src)}</li>")
-			continue
-		prev = base_pkgs.get(src) or {}
-		diffs = []
-		for fn in PACKAGE_COPY_FIELDS:
-			if not hasattr(row, fn):
+	if job_type_supports_packages(job_type):
+		base_pkgs = {(p.get("source_row_name") or ""): p for p in (baseline or {}).get("packages") or []}
+		for row in cr_doc.get("package_changes") or []:
+			action = (row.get("row_action") or "Update").strip()
+			src = row.get("source_row_name") or ""
+			if action == "Add":
+				pkg_lines.append(
+					f"<li>Package <b>Add</b>: {escape_html(cstr(row.get('goods_description') or row.get('commodity') or src or 'new'))}</li>"
+				)
 				continue
-			if str(prev.get(fn) or "") != str(row.get(fn) or ""):
-				diffs.append(fn)
-		if diffs:
-			pkg_lines.append(
-				f"<li>Package <b>{escape_html(src or '?')}</b> changed: {', '.join(diffs)}</li>"
-			)
+			if action == "Remove":
+				pkg_lines.append(f"<li>Package <b>Remove</b>: {escape_html(src)}</li>")
+				continue
+			prev = base_pkgs.get(src) or {}
+			diffs = []
+			for fn in PACKAGE_COPY_FIELDS:
+				if not hasattr(row, fn):
+					continue
+				if str(prev.get(fn) or "") != str(row.get(fn) or ""):
+					diffs.append(fn)
+			if diffs:
+				pkg_lines.append(
+					f"<li>Package <b>{escape_html(src or '?')}</b> changed: {', '.join(diffs)}</li>"
+				)
 
 	counts = count_section_changes(cr_doc, baseline)
 	charge_count = counts.get("Charges") or 0
@@ -385,17 +658,11 @@ def apply_change_request_fields_to_job(cr_doc):
 
 	job = frappe.get_doc(cr_doc.job_type, cr_doc.job)
 	sections = parse_change_sections(cr_doc.get("change_sections"))
-	# Apply mirrored header fields for selected sections (Charges alone → no header apply).
-	apply_headers = ()
-	if not sections:
-		apply_headers = all_amendable_header_fields()
-	else:
-		wanted = set()
-		for sec in sections:
-			wanted.update(SECTION_FIELD_MAP.get(sec) or ())
-		apply_headers = tuple(fn for fn in all_amendable_header_fields() if fn in wanted)
+	# Apply mirrored header fields for selected sections ∩ job-type fields.
+	apply_headers = applicable_header_fields(cr_doc.job_type, sections or None)
 
 	changed = False
+	applied_headers = {}
 	for fn in apply_headers:
 		if not hasattr(job, fn) or not hasattr(cr_doc, fn):
 			continue
@@ -403,14 +670,24 @@ def apply_change_request_fields_to_job(cr_doc):
 		if str(job.get(fn) or "") == str(new_val or ""):
 			continue
 		job.set(fn, new_val)
+		applied_headers[fn] = new_val
 		changed = True
 
-	if (not sections or "Packages" in sections) and hasattr(cr_doc, "package_changes"):
+	if (
+		job_type_supports_packages(cr_doc.job_type)
+		and (not sections or "Packages" in sections)
+		and hasattr(cr_doc, "package_changes")
+	):
 		if _apply_package_changes(job, cr_doc):
 			changed = True
 
 	if not changed:
 		return
+
+	# Keep fetch_from sources in sync before save — otherwise validate_links re-fetches
+	# the old parent value and silently discards the CR change (e.g. Transport Job
+	# transport_company ← transport_order.transport_company).
+	_sync_fetch_from_sources_for_applied_fields(job, applied_headers)
 
 	job.flags.from_change_request = True
 	job.flags.ignore_job_change_lock = True
@@ -419,6 +696,45 @@ def apply_change_request_fields_to_job(cr_doc):
 		job.save(ignore_permissions=True)
 	finally:
 		frappe.flags.from_change_request = False
+
+	_reassert_applied_header_values(job.doctype, job.name, applied_headers)
+
+
+def _sync_fetch_from_sources_for_applied_fields(job, applied_headers):
+	"""Update linked parent fields that the job would re-fetch on save."""
+	if not applied_headers:
+		return
+	meta = frappe.get_meta(job.doctype)
+	for fn, new_val in applied_headers.items():
+		df = meta.get_field(fn)
+		fetch_from = df.fetch_from if df else None
+		if not fetch_from or "." not in cstr(fetch_from):
+			continue
+		link_field, source_field = fetch_from.split(".", 1)
+		source_name = job.get(link_field)
+		if not source_name:
+			continue
+		link_df = meta.get_field(link_field)
+		source_dt = link_df.options if link_df and link_df.fieldtype == "Link" else None
+		if not source_dt or not frappe.db.exists(source_dt, source_name):
+			continue
+		if not frappe.get_meta(source_dt).has_field(source_field):
+			continue
+		current = frappe.db.get_value(source_dt, source_name, source_field)
+		if str(current or "") == str(new_val or ""):
+			continue
+		frappe.db.set_value(source_dt, source_name, source_field, new_val)
+
+
+def _reassert_applied_header_values(doctype, name, applied_headers):
+	"""Force CR header values if save-time fetch_from still overwrote them."""
+	if not applied_headers:
+		return
+	for fn, new_val in applied_headers.items():
+		current = frappe.db.get_value(doctype, name, fn)
+		if str(current or "") == str(new_val or ""):
+			continue
+		frappe.db.set_value(doctype, name, fn, new_val, update_modified=False)
 
 
 def _apply_package_changes(job, cr_doc):

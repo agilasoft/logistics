@@ -1,0 +1,61 @@
+{
+ "actions": [],
+ "creation": "2026-07-28 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "job_doctype",
+  "filter_key",
+  "enabled",
+  "editable"
+ ],
+ "fields": [
+  {
+   "columns": 3,
+   "fieldname": "job_doctype",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Job DocType",
+   "options": "Sea Booking\nAir Booking\nTransport Order\nDeclaration Order\nSpecial Project\nExhibit\nMICE Project",
+   "reqd": 1
+  },
+  {
+   "columns": 3,
+   "fieldname": "filter_key",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Filter Key",
+   "options": "origin_port\ndestination_port\nshipping_line\nairline\nlocation_from\nlocation_to\ncustoms_authority\ndeclaration_type\ncustoms_broker\ntransport_mode\nport_of_loading\nport_of_discharge\nbranch\ncost_center\nprofit_center",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "columns": 1,
+   "default": "1",
+   "description": "When unchecked, the filter is shown (if Enabled) but operators cannot change it in Get Charges from Quotation.",
+   "fieldname": "editable",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Editable"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-28 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Pricing Center",
+ "name": "GCFQ Filter Setting",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": []
+}

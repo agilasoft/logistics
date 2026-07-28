@@ -1,0 +1,277 @@
+/* Get Charges from Quotation Settings — Dashboard tab */
+.gcfq-dash {
+	display: grid;
+	grid-template-columns: 220px minmax(0, 1fr) 220px;
+	gap: 16px;
+	align-items: start;
+	min-height: 420px;
+	font-size: 13px;
+	color: #36414c;
+}
+
+@media (max-width: 1100px) {
+	.gcfq-dash {
+		grid-template-columns: 1fr;
+	}
+}
+
+.gcfq-dash-panel {
+	background: #fff;
+	border: 1px solid #e6e8eb;
+	border-radius: 8px;
+	padding: 12px;
+}
+
+.gcfq-dash-step {
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: #6c7680;
+	margin-bottom: 10px;
+}
+
+.gcfq-dash-modules {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.gcfq-dash-module {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	width: 100%;
+	text-align: left;
+	border: 1px solid #e6e8eb;
+	background: #fafbfc;
+	border-radius: 6px;
+	padding: 8px 10px;
+	cursor: pointer;
+	color: inherit;
+}
+
+.gcfq-dash-module:hover {
+	border-color: #c8cdd3;
+	background: #f5f7fa;
+}
+
+.gcfq-dash-module.is-active {
+	border-color: #2490ef;
+	background: #eef6fc;
+	box-shadow: inset 3px 0 0 #2490ef;
+}
+
+.gcfq-dash-module-label {
+	font-weight: 500;
+	line-height: 1.3;
+}
+
+.gcfq-dash-module-count {
+	flex-shrink: 0;
+	min-width: 1.5rem;
+	padding: 1px 6px;
+	border-radius: 999px;
+	background: #e8ecf0;
+	font-size: 11px;
+	font-weight: 600;
+	text-align: center;
+}
+
+.gcfq-dash-module.is-active .gcfq-dash-module-count {
+	background: #2490ef;
+	color: #fff;
+}
+
+.gcfq-dash-about {
+	margin-top: 12px;
+	padding-top: 10px;
+	border-top: 1px solid #eef0f2;
+	font-size: 12px;
+	color: #6c7680;
+	line-height: 1.4;
+}
+
+.gcfq-dash-workspace-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+.gcfq-dash-workspace-title {
+	font-size: 15px;
+	font-weight: 600;
+	margin: 0;
+}
+
+.gcfq-dash-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.gcfq-dash-locked {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+.gcfq-dash-locked-card {
+	flex: 1 1 160px;
+	border: 1px dashed #c8cdd3;
+	border-radius: 6px;
+	padding: 10px 12px;
+	background: #f8f9fa;
+	color: #6c7680;
+}
+
+.gcfq-dash-locked-card strong {
+	display: block;
+	color: #36414c;
+	margin-bottom: 2px;
+}
+
+.gcfq-dash-cards {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+	min-height: 80px;
+}
+
+.gcfq-dash-card {
+	border: 1px solid #e6e8eb;
+	border-radius: 8px;
+	background: #fff;
+	padding: 10px 12px;
+	cursor: grab;
+	user-select: none;
+}
+
+.gcfq-dash-card.is-dragging {
+	opacity: 0.55;
+}
+
+.gcfq-dash-card.is-disabled {
+	background: #f5f6f7;
+	border-style: dashed;
+}
+
+.gcfq-dash-card-top {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.gcfq-dash-card-handle {
+	color: #98a1a9;
+	font-size: 14px;
+	line-height: 1.2;
+	cursor: grab;
+}
+
+.gcfq-dash-card-seq {
+	font-size: 11px;
+	font-weight: 700;
+	color: #98a1a9;
+	min-width: 1rem;
+}
+
+.gcfq-dash-card-title {
+	font-weight: 600;
+	line-height: 1.25;
+}
+
+.gcfq-dash-card-key {
+	font-size: 11px;
+	color: #8d99a6;
+	font-family: var(--font-stack-mono, monospace);
+}
+
+.gcfq-dash-card-toggles {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px 14px;
+	padding-top: 8px;
+	border-top: 1px solid #eef0f2;
+}
+
+.gcfq-dash-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	margin: 0;
+	cursor: pointer;
+}
+
+.gcfq-dash-badge {
+	display: inline-block;
+	margin-top: 8px;
+	padding: 1px 7px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 600;
+}
+
+.gcfq-dash-badge--ok {
+	background: #e5f7ee;
+	color: #18794e;
+}
+
+.gcfq-dash-badge--ro {
+	background: #eaf3fb;
+	color: #1a6fb5;
+}
+
+.gcfq-dash-badge--off {
+	background: #eceff1;
+	color: #5c6a75;
+}
+
+.gcfq-dash-side-block + .gcfq-dash-side-block {
+	margin-top: 14px;
+	padding-top: 12px;
+	border-top: 1px solid #eef0f2;
+}
+
+.gcfq-dash-side-title {
+	font-weight: 600;
+	margin-bottom: 6px;
+}
+
+.gcfq-dash-legend,
+.gcfq-dash-tips {
+	margin: 0;
+	padding-left: 1.1rem;
+	color: #6c7680;
+	font-size: 12px;
+	line-height: 1.45;
+}
+
+.gcfq-dash-note {
+	margin-top: 12px;
+	padding: 8px 10px;
+	border-radius: 6px;
+	background: #eef6fc;
+	border: 1px solid #cfe6f8;
+	font-size: 12px;
+	color: #1a5f96;
+	line-height: 1.4;
+}
+
+.gcfq-dash-empty {
+	padding: 24px;
+	text-align: center;
+	color: #8d99a6;
+	border: 1px dashed #d5d9de;
+	border-radius: 8px;
+}

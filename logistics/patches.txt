@@ -353,3 +353,5 @@ logistics.patches.v3_0_sync_sales_quote_transport_field_props
 logistics.patches.v3_0_relayout_sales_quote_transport_params
 # Charge Category: master DocType + Select→Link on charge tables / Item
 logistics.patches.v3_0_seed_charge_category_and_convert_links
+# GCFQ: seed default list filter criteria on Get Charges from Quotation Settings
+logistics.patches.v3_0_seed_gcfq_filter_settings

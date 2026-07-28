@@ -24,6 +24,11 @@ class TestJobChangeLock(unittest.TestCase):
 		self.assertFalse(_scalar_changed(None, ""))
 		self.assertFalse(_scalar_changed("a", "a"))
 		self.assertTrue(_scalar_changed("a", "b"))
+		# DB float vs JSON int must not count as a change
+		self.assertFalse(_scalar_changed(61.0, 61))
+		self.assertFalse(_scalar_changed(106384.0, 106384))
+		self.assertTrue(_scalar_changed(61.0, 62))
+		self.assertTrue(_scalar_changed(61.0, "61.5"))
 
 	def test_is_locked_requires_submitted(self):
 		doc = MagicMock()
@@ -44,8 +49,26 @@ class TestJobChangeLock(unittest.TestCase):
 		self.assertFalse(is_job_change_locked(doc))
 
 	@patch("logistics.job_management.job_change_lock.frappe.throw")
+	def test_validate_allows_first_submit_from_draft(self, mock_throw):
+		before = MagicMock()
+		before.docstatus = 0
+		before.get = lambda fn, default=None: "Old Shipper" if fn == "shipper" else None
+
+		doc = MagicMock()
+		doc.doctype = "Declaration"
+		doc.docstatus = 1
+		doc.is_new.return_value = False
+		doc.flags = {}
+		doc.get_doc_before_save.return_value = before
+		doc.get = lambda fn, default=None: "New Shipper" if fn == "shipper" else None
+
+		validate_job_locked_against_user_edits(doc)
+		self.assertFalse(mock_throw.called)
+
+	@patch("logistics.job_management.job_change_lock.frappe.throw")
 	def test_validate_throws_on_locked_party_change(self, mock_throw):
 		before = MagicMock()
+		before.docstatus = 1
 		before.get = lambda fn, default=None: "Old Shipper" if fn == "shipper" else None
 		before.packages = []
 

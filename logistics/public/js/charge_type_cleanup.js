@@ -86,12 +86,42 @@ frappe.provide("logistics.charge_type_cleanup");
 		return "";
 	}
 
+	function _values_equal(a, b) {
+		if (a === b) {
+			return true;
+		}
+		if (a == null && b == null) {
+			return true;
+		}
+		if (a == null || b == null) {
+			return flt(a) === 0 && flt(b) === 0;
+		}
+		if (typeof a === "number" || typeof b === "number") {
+			return flt(a) === flt(b);
+		}
+		return String(a) === String(b);
+	}
+
+	function _set_row_value_if_changed(cdt, cdn, fieldname, value) {
+		if (!frappe.meta.get_docfield(cdt, fieldname)) {
+			return false;
+		}
+		var row = locals[cdt] && locals[cdt][cdn];
+		if (!row || _values_equal(row[fieldname], value)) {
+			return false;
+		}
+		frappe.model.set_value(cdt, cdn, fieldname, value);
+		return true;
+	}
+
 	function _clear_fields_on_row(cdt, cdn, fieldnames) {
 		fieldnames.forEach(function (fieldname) {
-			if (!frappe.meta.get_docfield(cdt, fieldname)) {
-				return;
-			}
-			frappe.model.set_value(cdt, cdn, fieldname, _empty_value_for_field(cdt, fieldname));
+			_set_row_value_if_changed(
+				cdt,
+				cdn,
+				fieldname,
+				_empty_value_for_field(cdt, fieldname)
+			);
 		});
 	}
 
@@ -101,6 +131,25 @@ frappe.provide("logistics.charge_type_cleanup");
 
 	logistics.charge_type_cleanup.clear_revenue_fields_on_row = function (cdt, cdn) {
 		_clear_fields_on_row(cdt, cdn, REVENUE_CLEAR_FIELDS);
+	};
+
+	logistics.charge_type_cleanup.run_without_charge_handlers = function (frm, fn) {
+		if (!frm || typeof fn !== "function") {
+			if (typeof fn === "function") {
+				fn();
+			}
+			return;
+		}
+		var prevSync = frm._syncing_sq_charge_from_tariff;
+		var prevProfit = frm._suppress_sq_profitability_refresh;
+		frm._syncing_sq_charge_from_tariff = true;
+		frm._suppress_sq_profitability_refresh = true;
+		try {
+			fn();
+		} finally {
+			frm._syncing_sq_charge_from_tariff = prevSync;
+			frm._suppress_sq_profitability_refresh = prevProfit;
+		}
 	};
 
 	function _charge_side_has_billable_rate(row, isRevenue) {
@@ -146,10 +195,7 @@ frappe.provide("logistics.charge_type_cleanup");
 			}
 			if (grid_row.grid_form && grid_row.grid_form.fields_dict[fieldname]) {
 				var control = grid_row.grid_form.fields_dict[fieldname];
-				var row = locals[cdt] && locals[cdt][cdn];
-				if (control.set_value && row) {
-					control.set_value(row[fieldname]);
-				}
+				// refresh() re-evaluates read_only_depends_on; avoid set_value (extra events / flicker)
 				if (control.refresh) {
 					control.refresh();
 				}
@@ -184,46 +230,53 @@ frappe.provide("logistics.charge_type_cleanup");
 		if (!r || !r.message || !r.message.success) {
 			return;
 		}
-		if (r.message.row_updates && typeof r.message.row_updates === "object") {
-			frm._syncing_sq_charge_from_tariff = true;
-			try {
+		// Keep handlers quiet for the whole apply — otherwise quantity/cost_quantity
+		// set_value re-fires calculate_charge_row and estimated_* thrash profitability HTML.
+		logistics.charge_type_cleanup.run_without_charge_handlers(frm, function () {
+			if (r.message.row_updates && typeof r.message.row_updates === "object") {
 				$.each(r.message.row_updates, function (key, v) {
 					if (v !== undefined && v !== null) {
-						frappe.model.set_value(cdt, cdn, key, v);
+						_set_row_value_if_changed(cdt, cdn, key, v);
 					}
 				});
-			} finally {
-				frm._syncing_sq_charge_from_tariff = false;
 			}
-		}
-		var numericFields = [
-			"estimated_revenue",
-			"estimated_cost",
-			"actual_revenue",
-			"actual_cost",
-			"quantity",
-			"cost_quantity",
-		];
-		numericFields.forEach(function (fn) {
-			if (fn in r.message && frappe.meta.get_docfield(cdt, fn)) {
-				frappe.model.set_value(cdt, cdn, fn, r.message[fn]);
+			[
+				"estimated_revenue",
+				"estimated_cost",
+				"actual_revenue",
+				"actual_cost",
+				"quantity",
+				"cost_quantity",
+			].forEach(function (fn) {
+				if (fn in r.message) {
+					_set_row_value_if_changed(cdt, cdn, fn, r.message[fn]);
+				}
+			});
+			_set_row_value_if_changed(
+				cdt,
+				cdn,
+				"revenue_calc_notes",
+				r.message.revenue_calc_notes || ""
+			);
+			_set_row_value_if_changed(
+				cdt,
+				cdn,
+				"cost_calc_notes",
+				r.message.cost_calc_notes || ""
+			);
+			logistics.charge_type_cleanup.refresh_charge_row_estimate_controls(
+				frm,
+				cdt,
+				cdn,
+				tableFieldname
+			);
+			if (
+				logistics.charges_disbursement &&
+				logistics.charges_disbursement.apply_charge_row_response
+			) {
+				logistics.charges_disbursement.apply_charge_row_response(cdt, cdn, r);
 			}
 		});
-		if (frappe.meta.get_docfield(cdt, "revenue_calc_notes")) {
-			frappe.model.set_value(cdt, cdn, "revenue_calc_notes", r.message.revenue_calc_notes || "");
-		}
-		if (frappe.meta.get_docfield(cdt, "cost_calc_notes")) {
-			frappe.model.set_value(cdt, cdn, "cost_calc_notes", r.message.cost_calc_notes || "");
-		}
-		logistics.charge_type_cleanup.refresh_charge_row_estimate_controls(
-			frm,
-			cdt,
-			cdn,
-			tableFieldname
-		);
-		if (logistics.charges_disbursement && logistics.charges_disbursement.apply_charge_row_response) {
-			logistics.charges_disbursement.apply_charge_row_response(cdt, cdn, r);
-		}
 	};
 
 	logistics.charge_type_cleanup.recalculate_stale_charge_estimates = function (
@@ -277,6 +330,13 @@ frappe.provide("logistics.charge_type_cleanup");
 					r,
 					tableFieldname
 				);
+				if (
+					frm &&
+					frm.events &&
+					typeof frm.events.refresh_estimated_profitability === "function"
+				) {
+					frm.events.refresh_estimated_profitability(frm);
+				}
 			},
 		});
 	};
@@ -287,15 +347,35 @@ frappe.provide("logistics.charge_type_cleanup");
 			return;
 		}
 		var ct = row.charge_type;
-		if (ct === "Revenue") {
-			logistics.charge_type_cleanup.clear_cost_fields_on_row(cdt, cdn);
-		} else if (ct === "Cost") {
-			logistics.charge_type_cleanup.clear_revenue_fields_on_row(cdt, cdn);
-		}
 		var table = tableFieldname || "charges";
-		if (frm && frm.refresh_field) {
-			frm.refresh_field(table);
-		}
+		// Clearing many fields via set_value would otherwise fire N parallel recalcs.
+		logistics.charge_type_cleanup.run_without_charge_handlers(frm, function () {
+			if (ct === "Revenue") {
+				logistics.charge_type_cleanup.clear_cost_fields_on_row(cdt, cdn);
+			} else if (ct === "Cost") {
+				logistics.charge_type_cleanup.clear_revenue_fields_on_row(cdt, cdn);
+			}
+			// Refresh only the open row controls — avoid frm.refresh_field(table) grid rebuild flicker.
+			_refresh_charge_row_field_controls(
+				frm,
+				cdt,
+				cdn,
+				[
+					"revenue_calculation_method",
+					"cost_calculation_method",
+					"calculation_method",
+					"unit_rate",
+					"unit_cost",
+					"quantity",
+					"cost_quantity",
+					"currency",
+					"cost_currency",
+					"estimated_revenue",
+					"estimated_cost",
+				],
+				table
+			);
+		});
 		if (ct === "Revenue" || ct === "Cost" || ct === "Disbursement") {
 			logistics.charge_type_cleanup.recalculate_charge_row(frm, cdt, cdn, tableFieldname);
 		}

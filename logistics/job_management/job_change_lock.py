@@ -7,6 +7,7 @@ from __future__ import unicode_literals
 
 import frappe
 from frappe import _
+from frappe.utils import cint
 
 # Main operational docs gated after submit (docstatus >= 1).
 LOCKED_JOB_TYPES = frozenset(
@@ -171,6 +172,11 @@ def validate_job_locked_against_user_edits(doc, method=None):
 	if not before:
 		return
 
+	# First submit (Draft → Submitted): accept the form as-is. Lock only applies to
+	# already-submitted documents being saved/updated again.
+	if cint(getattr(before, "docstatus", 0)) == 0:
+		return
+
 	changed = _changed_locked_paths(before, doc)
 	if not changed:
 		return
@@ -217,11 +223,23 @@ def _changed_locked_paths(before, doc):
 	return changed
 
 
+def _is_number(value):
+	return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
 def _scalar_changed(old, new):
 	if old is None and new in (None, ""):
 		return False
 	if new is None and old in (None, ""):
 		return False
+	# DB floats (61.0) vs JSON ints (61) must not count as edits.
+	if _is_number(old) and _is_number(new):
+		return float(old) != float(new)
+	if _is_number(old) or _is_number(new):
+		try:
+			return float(old) != float(new)
+		except (TypeError, ValueError):
+			pass
 	return str(old or "") != str(new or "")
 
 

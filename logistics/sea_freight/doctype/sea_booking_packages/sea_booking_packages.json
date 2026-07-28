@@ -42,8 +42,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Commodity",
-   "options": "Commodity",
-   "link_filters": "[[\"Commodity\", \"active\", \"=\", 1]]"
+   "link_filters": "[[\"Commodity\", \"active\", \"=\", 1]]",
+   "options": "Commodity"
   },
   {
    "fieldname": "warehouse_item",
@@ -82,8 +82,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "container",
@@ -112,25 +112,27 @@
    "label": "Volume"
   },
   {
+   "default": "Kilogram",
    "fieldname": "weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
+   "default": "Centimeter",
    "fieldname": "dimension_uom",
    "fieldtype": "Link",
    "label": "Dimension UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "length",
@@ -166,8 +168,8 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-02-28 15:30:13.775708",
- "modified_by": "Administrator",
+ "modified": "2026-07-27 08:17:21.394044",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "Sea Freight",
  "name": "Sea Booking Packages",
  "owner": "Administrator",
