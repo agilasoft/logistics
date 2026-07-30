@@ -1,0 +1,77 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "creation": "2026-07-28 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "container_no",
+  "type",
+  "size",
+  "mode",
+  "delivery_modes",
+  "free_time_days"
+ ],
+ "fields": [
+  {
+   "fieldname": "container_no",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Container No",
+   "link_filters": "[[\"Container\",\"is_active\",\"=\",1],[\"Container\",\"return_status\",\"=\",\"Returned\"]]",
+   "options": "Container"
+  },
+  {
+   "fieldname": "type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Container Type",
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]",
+   "options": "Container Type"
+  },
+  {
+   "fieldname": "size",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Size",
+   "options": "20ft\n40ft\n45ft\nOther"
+  },
+  {
+   "fieldname": "mode",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Mode",
+   "link_filters": "[[\"Load Type\",\"is_active\",\"=\",1],[\"Load Type\",\"sea\",\"=\",1]]",
+   "options": "Load Type"
+  },
+  {
+   "fieldname": "delivery_modes",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Delivery Mode",
+   "options": "CY/CY\nCY/CFS\nCFS/CY\nCFS/CFS\nDoor/CY\nCY/Door\nDoor/Door"
+  },
+  {
+   "fieldname": "free_time_days",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Free Time (Days)"
+  }
+ ],
+ "grid_page_length": 50,
+ "hide_toolbar": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-28 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Declaration Containers",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

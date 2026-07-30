@@ -1670,6 +1670,24 @@ def _existing_declaration_order_for_freight_shipment(shipment, shipment_name: st
 	)
 
 
+def _copy_sea_shipment_containers_to_declaration_order(order, shipment):
+	"""Copy Sea Shipment container rows onto a Declaration Order containers table."""
+	from logistics.sea_freight.sea_container_row_utils import container_row_to_dict
+
+	_fields = (
+		"container_no",
+		"type",
+		"size",
+		"mode",
+		"delivery_modes",
+		"free_time_days",
+	)
+	for row in getattr(shipment, "containers", None) or []:
+		data = container_row_to_dict(row, _fields)
+		if data:
+			order.append("containers", data)
+
+
 def _create_declaration_order_from_freight_shipment(
 	shipment,
 	*,
@@ -1726,6 +1744,8 @@ def _create_declaration_order_from_freight_shipment(
 	order.port_of_discharge = getattr(shipment, "destination_port", None)
 	order.etd = getattr(shipment, "etd", None)
 	order.eta = getattr(shipment, "eta", None)
+	if shipment_doctype == "Sea Shipment":
+		_copy_sea_shipment_containers_to_declaration_order(order, shipment)
 	copy_sales_quote_fields_to_target(shipment, order)
 	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
 	ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(

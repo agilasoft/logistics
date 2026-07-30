@@ -498,6 +498,47 @@ class TestChangeRequestVisibility(UnitTestCase):
 		self.assertFalse(job_type_supports_charges("Run Sheet"))
 		self.assertFalse(job_type_supports_services("Run Sheet"))
 
+	def test_declaration_has_no_package_table(self):
+		"""Declaration.packages is a Float count, not a child table — CR must not iterate it."""
+		from logistics.pricing_center.change_request_field_apply import (
+			build_baseline_snapshot,
+			default_sections_for_job_type,
+			filter_sections_for_job_type,
+			job_type_supports_packages,
+			seed_change_request_from_job,
+		)
+
+		self.assertFalse(job_type_supports_packages("Declaration"))
+		self.assertFalse(job_type_supports_packages("Declaration Order"))
+		self.assertNotIn("Packages", default_sections_for_job_type("Declaration"))
+		self.assertNotIn(
+			"Packages",
+			filter_sections_for_job_type("Declaration", {"Parties", "Packages", "Charges"}),
+		)
+
+		job = frappe._dict(
+			doctype="Declaration",
+			name="DEC-TEST",
+			customer="C-1",
+			packages=12.0,  # Float count — must not raise TypeError
+		)
+		baseline = build_baseline_snapshot(job, {"Parties", "Packages", "Charges"})
+		self.assertEqual(baseline["packages"], [])
+
+		cr = frappe.new_doc("Change Request")
+		cr.job_type = "Declaration"
+		cr.job = "DEC-TEST"
+		cr.status = "Draft"
+		# Avoid DB fetch: pass job_doc explicitly
+		seed_change_request_from_job(
+			cr,
+			job_doc=job,
+			sections=["Parties", "Packages", "Charges"],
+			reason="Test amendment",
+		)
+		self.assertNotIn("Packages", cr.change_sections or "")
+		self.assertFalse(cr.get("package_changes"))
+
 	def test_transport_job_shows_transport_places_not_ports(self):
 		from logistics.pricing_center.change_request_field_apply import header_fields_for_job_type
 

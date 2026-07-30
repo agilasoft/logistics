@@ -43,13 +43,14 @@
   "vessel_flight_number",
   "transport_document_number",
   "transport_document_type",
-  "container_numbers",
   "column_break_hyfv",
   "port_of_loading",
   "etd",
   "column_break_erxo",
   "port_of_discharge",
   "eta",
+  "containers_section",
+  "containers",
   "section_break_trade",
   "incoterm",
   "payment_terms",
@@ -477,10 +478,15 @@
    "label": "ETA (Expected Arrival)"
   },
   {
-   "description": "Comma-separated list of container numbers",
-   "fieldname": "container_numbers",
-   "fieldtype": "Small Text",
-   "label": "Container Numbers"
+   "fieldname": "containers_section",
+   "fieldtype": "Section Break",
+   "label": "Containers"
+  },
+  {
+   "fieldname": "containers",
+   "fieldtype": "Table",
+   "label": "Containers",
+   "options": "Declaration Containers"
   },
   {
    "collapsible": 1,

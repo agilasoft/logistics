@@ -1478,7 +1478,21 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.vessel_flight_number = order.vessel_flight_number
 	declaration.transport_document_number = order.transport_document_number
 	declaration.transport_document_type = order.transport_document_type
-	declaration.container_numbers = order.container_numbers
+	declaration.set("containers", [])
+	from logistics.sea_freight.sea_container_row_utils import container_row_to_dict
+
+	_container_fields = (
+		"container_no",
+		"type",
+		"size",
+		"mode",
+		"delivery_modes",
+		"free_time_days",
+	)
+	for row in order.get("containers") or []:
+		data = container_row_to_dict(row, _container_fields)
+		if data:
+			declaration.append("containers", data)
 	declaration.port_of_loading = order.port_of_loading
 	declaration.port_of_discharge = order.port_of_discharge
 	declaration.etd = order.etd

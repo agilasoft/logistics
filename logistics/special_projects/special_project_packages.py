@@ -96,7 +96,7 @@ def lifecycle_stages_for_special_project() -> list[dict[str, Any]]:
 	stages = frappe.get_all(
 		"Lifecycle Stage",
 		filters={"for_special_project": 1},
-		fields=["name", "sort_order", "is_closed", "description"],
+		fields=["name", "sort_order", "is_closed", "description", "color"],
 		order_by="sort_order asc, name asc",
 	)
 	return stages
@@ -793,6 +793,7 @@ def apply_shipment_lines_to_target(
 		):
 			row_dict["no_of_packs"] = _pack_count_from_sp(pkg_info)
 		if row_dict:
+			_ensure_to_package_description_if_needed(child_dt, row_dict, pkg_info or line)
 			target_doc.append("packages", row_dict)
 			count += 1
 	return count
@@ -836,9 +837,21 @@ def copy_always_along_packages_to_target(sp_doc: Any, target_doc: Any) -> int:
 			if meta.get_field(fn):
 				row_dict[fn] = value
 		if row_dict:
+			_ensure_to_package_description_if_needed(child_dt, row_dict, pkg)
 			target_doc.append("packages", row_dict)
 			count += 1
 	return count
+
+
+def _ensure_to_package_description_if_needed(
+	child_dt: str, row_dict: dict[str, Any], source: Any
+) -> None:
+	"""Fill mandatory Transport Order Package description before append/insert."""
+	if child_dt != "Transport Order Package":
+		return
+	from logistics.utils.dg_fields import ensure_transport_order_package_description
+
+	ensure_transport_order_package_description(row_dict, source)
 
 
 def _receipt_exists(sp_doc: Any, source_doctype: str, source_name: str, package_idx: int) -> bool:

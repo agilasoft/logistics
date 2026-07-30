@@ -77,8 +77,8 @@ app_include_js = [
 	"/assets/logistics/js/invoice_billing_currency.js",
 	"/assets/logistics/js/sales_invoice_dialog.js",
 	"/assets/logistics/js/sales_invoice_job_dimension_cleanup.js",
-	"/assets/logistics/js/job_change_lock.js?v=2",
-	"/assets/logistics/js/change_request_visibility.js?v=1",
+	"/assets/logistics/js/job_change_lock.js?v=3",
+	"/assets/logistics/js/change_request_visibility.js?v=2",
 	"/assets/logistics/js/change_request_summary.js?v=5",
 ]
 
@@ -321,6 +321,9 @@ doctype_js = {
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
 		"logistics/job_management/recognition_policy_fields.js",
+	],
+	"MICE Job": [
+		"logistics/public/js/profitability_form.js",
 	],
 	"Account": "logistics/public/js/account_job_profit.js",
 	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",

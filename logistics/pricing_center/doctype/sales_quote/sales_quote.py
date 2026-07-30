@@ -438,6 +438,7 @@ class SalesQuote(Document):
 		self.validate_vehicle_type_capacity()
 		apply_sales_quote_routing_defaults(self)
 		self.validate_multimodal_main_job()
+		self.validate_routing_leg_dates()
 		self.validate_customs_unit_types()
 		self.validate_linked_service_charge_tagging()
 		self.auto_scope_title()
@@ -521,6 +522,15 @@ class SalesQuote(Document):
 		self.validate_main_service_has_charges()
 		self.validate_air_sea_charge_ports_before_submit()
 		self.validate_erpnext_project_name_before_submit()
+		self.validate_charge_exchange_rates_before_submit()
+
+	def validate_charge_exchange_rates_before_submit(self):
+		"""Block submit when charge FX would fail Operational Exchange Rate checks on booking create."""
+		from logistics.utils.operational_exchange_rates import (
+			validate_sales_quote_charge_exchange_rates_for_submit,
+		)
+
+		validate_sales_quote_charge_exchange_rates_for_submit(self)
 
 	def validate_erpnext_project_name_before_submit(self):
 		"""Block submit when the programme name would collide with an existing ERPNext Project."""
@@ -528,7 +538,9 @@ class SalesQuote(Document):
 
 	def validate_air_sea_charge_ports_before_submit(self):
 		"""At least one Air/Sea charge line must have Origin Port and Destination Port (row or quote-level fallbacks)."""
-		if getattr(self, "quotation_type", None) == "Project":
+		# Programme quotes (Project type or Special Project main service) collect corridor
+		# ports when creating supporting Air/Sea bookings, not at quote submit.
+		if _is_special_project_programme_quote(self):
 			return
 		doc_origin, doc_dest = self._document_level_origin_destination_for_charges()
 		has_air_or_sea = False
@@ -857,6 +869,19 @@ class SalesQuote(Document):
 		main_count = sum(1 for r in legs if getattr(r, "is_main_job", 0))
 		if main_count == 0:
 			frappe.throw(_("Multimodal routing requires at least one Main Job. Please check 'Main Job' on one or more legs."))
+
+	def validate_routing_leg_dates(self):
+		"""Reject routing legs where ETD is after ETA (same-day allowed)."""
+		from logistics.utils.document_date_validation import throw_if_left_date_after_right
+		from logistics.utils.validation_user_messages import (
+			etd_eta_freight_invalid_message,
+			etd_eta_freight_title,
+		)
+
+		for leg in getattr(self, "routing_legs", None) or []:
+			throw_if_left_date_after_right(
+				leg.etd, leg.eta, etd_eta_freight_invalid_message, etd_eta_freight_title
+			)
 
 	def validate_load_type_matches_service(self):
 		"""Load Type must have the checkbox for the current service mode enabled (air/sea/transport/customs/warehousing).

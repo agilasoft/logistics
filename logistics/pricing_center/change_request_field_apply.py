@@ -297,6 +297,7 @@ JOB_TYPE_HEADER_FIELDS = {
 	"Run Sheet": frozenset(_RUN_SHEET_PLACES + _RUN_SHEET_NOTES),
 }
 
+# DocTypes whose ``packages`` field is a child Table (not a Float/Int count).
 JOB_TYPES_WITH_PACKAGES = frozenset(
 	{
 		"Air Shipment",
@@ -305,8 +306,6 @@ JOB_TYPES_WITH_PACKAGES = frozenset(
 		"Sea Booking",
 		"Transport Job",
 		"Transport Order",
-		"Declaration",
-		"Declaration Order",
 		"Special Project",
 		"Docket",
 	}
@@ -394,6 +393,28 @@ def job_type_supports_services(job_type):
 	return job_type not in JOB_TYPES_WITHOUT_SERVICES
 
 
+def default_sections_for_job_type(job_type):
+	"""Sections offered when seeding a Change Request for *job_type*."""
+	if job_type == "Run Sheet":
+		return {"Places & Dates", "Notes"}
+	sections = set(SECTION_LABELS)
+	if not job_type_supports_packages(job_type):
+		sections.discard("Packages")
+	if not job_type_supports_charges(job_type):
+		sections.discard("Charges")
+	return sections
+
+
+def filter_sections_for_job_type(job_type, sections):
+	"""Drop sections that do not apply to *job_type* (e.g. Packages on Declaration)."""
+	section_set = set(sections or ())
+	if not job_type_supports_packages(job_type):
+		section_set.discard("Packages")
+	if not job_type_supports_charges(job_type):
+		section_set.discard("Charges")
+	return section_set
+
+
 def applicable_header_fields(job_type, sections=None):
 	"""Intersection of job-type fields and selected change_sections (empty = all)."""
 	allowed = header_fields_for_job_type(job_type)
@@ -456,13 +477,17 @@ def build_baseline_snapshot(job_doc, sections=None):
 			header[fn] = job_doc.get(fn)
 
 	packages = []
-	if "Packages" in sections or not sections:
-		for row in job_doc.get("packages") or []:
-			item = {"source_row_name": row.name, "row_action": "Update"}
-			for fn in PACKAGE_COPY_FIELDS:
-				if hasattr(row, fn):
-					item[fn] = row.get(fn)
-			packages.append(item)
+	job_type = getattr(job_doc, "doctype", None)
+	if job_type_supports_packages(job_type) and ("Packages" in sections or not sections):
+		# ``packages`` must be a child table; Float/Int counts (e.g. Declaration) are not iterable.
+		raw_packages = job_doc.get("packages")
+		if isinstance(raw_packages, (list, tuple)):
+			for row in raw_packages:
+				item = {"source_row_name": row.name, "row_action": "Update"}
+				for fn in PACKAGE_COPY_FIELDS:
+					if hasattr(row, fn):
+						item[fn] = row.get(fn)
+				packages.append(item)
 
 	return {
 		"job_type": job_doc.doctype,
@@ -481,10 +506,9 @@ def seed_change_request_from_job(cr_doc, job_doc=None, sections=None, reason=Non
 
 	section_set = parse_change_sections(sections if sections is not None else cr_doc.get("change_sections"))
 	if not section_set:
-		if cr_doc.job_type == "Run Sheet":
-			section_set = {"Places & Dates", "Notes"}
-		else:
-			section_set = set(SECTION_LABELS)
+		section_set = default_sections_for_job_type(cr_doc.job_type)
+	else:
+		section_set = filter_sections_for_job_type(cr_doc.job_type, section_set)
 
 	if reason is not None:
 		cr_doc.reason = reason
@@ -500,7 +524,11 @@ def seed_change_request_from_job(cr_doc, job_doc=None, sections=None, reason=Non
 		if hasattr(job_doc, fn):
 			cr_doc.set(fn, job_doc.get(fn))
 
-	if "Packages" in section_set and hasattr(cr_doc, "package_changes"):
+	if (
+		job_type_supports_packages(cr_doc.job_type)
+		and "Packages" in section_set
+		and hasattr(cr_doc, "package_changes")
+	):
 		cr_doc.package_changes = []
 		for item in baseline.get("packages") or []:
 			row = cr_doc.append("package_changes", {})

@@ -65,7 +65,12 @@
   "documents",
   "more_info_tab",
   "section_notes",
-  "notes",
+  "internal_notes",
+  "column_break_notes",
+  "client_notes",
+  "terms_and_conditions_section",
+  "tc_name",
+  "terms",
   "sla_section",
   "logistics_service_level",
   "sla_target_source",
@@ -435,9 +440,37 @@
    "label": "Notes"
   },
   {
-   "fieldname": "notes",
-   "fieldtype": "Small Text",
-   "label": "Notes"
+   "fieldname": "internal_notes",
+   "fieldtype": "Text Editor",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "column_break_notes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_notes",
+   "fieldtype": "Text Editor",
+   "label": "Client Notes"
+  },
+  {
+   "fieldname": "terms_and_conditions_section",
+   "fieldtype": "Section Break",
+   "label": "Terms and Conditions"
+  },
+  {
+   "fieldname": "tc_name",
+   "fieldtype": "Link",
+   "label": "Terms",
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]",
+   "options": "Terms and Conditions"
+  },
+  {
+   "fetch_from": "tc_name.terms",
+   "fieldname": "terms",
+   "fieldtype": "Text Editor",
+   "label": "Terms and Conditions",
+   "read_only": 1
   },
   {
    "collapsible": 1,

@@ -965,6 +965,53 @@ def sales_quote_matches_job_org_dimensions(
 	return True
 
 
+def _header_fields_match_sql(header_filters: dict[str, str] | None) -> tuple[str, dict[str, Any]]:
+	"""AND clauses: empty job filter skipped; quote blank OR equals job (case-insensitive trim)."""
+	filters = {k: (v or "").strip() for k, v in (header_filters or {}).items() if (v or "").strip()}
+	if not filters:
+		return "", {}
+	clauses: list[str] = []
+	params: dict[str, Any] = {}
+	for i, (col, val) in enumerate(filters.items()):
+		# Defensive: only allow simple fieldnames (mapped from catalog).
+		if not col.replace("_", "").isalnum():
+			continue
+		if not frappe.db.has_column("Sales Quote", col):
+			continue
+		pkey = f"hdr_f_{i}"
+		params[pkey] = val
+		clauses.append(
+			f"""(
+			TRIM(IFNULL(sq.`{col}`,'')) = ''
+			OR LOWER(TRIM(IFNULL(sq.`{col}`,''))) = LOWER(TRIM(%({pkey})s))
+		)"""
+		)
+	if not clauses:
+		return "", {}
+	return "AND " + " AND ".join(clauses), params
+
+
+def sales_quote_matches_job_header_fields(
+	sales_quote_name: str, header_filters: dict[str, str] | None = None
+) -> bool:
+	"""True when each non-empty header filter matches the Sales Quote header (blank quote = wildcard)."""
+	filters = {k: (v or "").strip() for k, v in (header_filters or {}).items() if (v or "").strip()}
+	if not filters:
+		return True
+	cols = [c for c in filters if c.replace("_", "").isalnum() and frappe.db.has_column("Sales Quote", c)]
+	if not cols:
+		return True
+	row = frappe.db.get_value("Sales Quote", sales_quote_name, cols, as_dict=True)
+	if not row:
+		return False
+	for col in cols:
+		qv = (row.get(col) or "").strip()
+		jv = filters[col]
+		if qv and qv.lower() != jv.lower():
+			return False
+	return True
+
+
 def fetch_eligible_regular_sales_quote_names(
 	service_type: str,
 	customer: str | None = None,
@@ -982,6 +1029,7 @@ def fetch_eligible_regular_sales_quote_names(
 	job_branch: str | None = None,
 	job_cost_center: str | None = None,
 	job_profit_center: str | None = None,
+	header_filters: dict[str, str] | None = None,
 ) -> list[str]:
 	"""Sales Quote names eligible for Action → Get Charges from Quotation.
 
@@ -999,6 +1047,9 @@ def fetch_eligible_regular_sales_quote_names(
 	  (see ``_corridor_match_sql``).
 
 	**Org dimensions**: Branch / Cost Center / Profit Center on the quote header vs job (blank = wildcard).
+
+	**Header filters**: additional Sales Quote header fields (commercial / party / programme) with the
+	same blank-or-equal rule (see ``header_filters``).
 	"""
 	service_type = (service_type or "").strip()
 	if service_type not in SERVICE_LEGACY_TABLE:
@@ -1044,6 +1095,8 @@ def fetch_eligible_regular_sales_quote_names(
 	params["job_cost_center"] = (job_cost_center or "").strip()
 	params["job_profit_center"] = (job_profit_center or "").strip()
 	org_sql = _org_dimensions_header_match_sql()
+	hdr_sql, hdr_params = _header_fields_match_sql(header_filters)
+	params.update(hdr_params)
 	# Action → Get Charges from Quotation: **Regular** quotes only (excludes One-off, Project, blank).
 	regular_only_where = "TRIM(IFNULL(sq.quotation_type,'')) = 'Regular'"
 
@@ -1066,6 +1119,7 @@ def fetch_eligible_regular_sales_quote_names(
 		AND (sq.valid_until IS NULL OR sq.valid_until >= CURDATE())
 		AND sq.docstatus = 1
 		{org_sql}
+		{hdr_sql}
 		{match_cond}
 		ORDER BY sq.modified DESC
 		LIMIT %(limit)s

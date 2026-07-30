@@ -26,7 +26,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Filter Key",
-   "options": "origin_port\ndestination_port\nshipping_line\nairline\nlocation_from\nlocation_to\ncustoms_authority\ndeclaration_type\ncustoms_broker\ntransport_mode\nport_of_loading\nport_of_discharge\nbranch\ncost_center\nprofit_center",
+   "options": "origin_port\ndestination_port\nshipping_line\nairline\nlocation_from\nlocation_to\nlocation_type\nvehicle_type\ntransport_template\ncontainer_type\ncontainer_no\ncustoms_authority\ndeclaration_type\ncustoms_broker\ntransport_mode\nport_of_loading\nport_of_discharge\ndirection\nload_type\nincoterm\nincoterm_place\nhouse_type\nfreight_agent\nshipper\nconsignee\nshipper_address\nconsignee_address\nshipper_contact\nconsignee_contact\nsales_rep\noperations_rep\ncustomer_service_rep\nproject_type\npriority\nbranch\ncost_center\nprofit_center",
    "reqd": 1
   },
   {

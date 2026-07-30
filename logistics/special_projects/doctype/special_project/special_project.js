@@ -527,10 +527,138 @@ function _bind_fulfillment_panels_in_wrapper(frm, $wrapper) {
 		_bind_packages_summary_layout($scope);
 		_bind_packages_summary_collapse($scope);
 		_bind_packages_summary_filters($scope);
+		_bind_fulfillment_design2($panel);
 	});
 	$wrapper.find("[data-sp-fulfillment-dash]").each(function () {
 		_bind_special_project_main_dash_lifecycle($(this));
 	});
+}
+
+function _bind_fulfillment_design2($panel) {
+	if (!$panel || !$panel.length) {
+		return;
+	}
+	if ($panel.attr("data-sp-fulfillment-design") !== "sp_fullfillment_design_2") {
+		return;
+	}
+	if ($panel.attr("data-sp-ff2-bound")) {
+		return;
+	}
+	$panel.attr("data-sp-ff2-bound", "1");
+
+	const $root = $panel;
+	const $packages = $root.find("#sp-ff2-packages");
+	let pageSize = parseInt($packages.attr("data-ff2-page-size") || "20", 10) || 20;
+	let showAll = false;
+
+	function syncShowAllButton() {
+		const $btn = $root.find("[data-ff2-show-all]");
+		if (!$btn.length) return;
+		const showLabel = $btn.attr("data-ff2-show-label") || __("Show all packages");
+		const hideLabel = $btn.attr("data-ff2-hide-label") || __("Hide all");
+		$btn.text(showAll ? hideLabel : showLabel);
+		$btn.toggleClass("is-expanded", !!showAll);
+		$btn.attr("aria-pressed", showAll ? "true" : "false");
+	}
+
+	function applyVisibility() {
+		const stage = ($root.find('[data-ff2-filter="stage"]').val() || "").trim();
+		const status = ($root.find('[data-ff2-filter="status"]').val() || "all").trim();
+		let visibleCount = 0;
+		$root.find(".sp-ff2-pkg-row").each(function () {
+			const $row = $(this);
+			const rowStage = ($row.attr("data-lifecycle-stage") || "").trim();
+			const rowStatus = ($row.attr("data-status") || "").trim();
+			let match = true;
+			if (stage) {
+				const notStarted =
+					!rowStage || rowStage === __("Not started") || rowStage === "Not started";
+				const isFirstStage =
+					$root.find(".sp-ff2-stage").first().attr("data-ff2-stage") === stage;
+				match = rowStage === stage || (notStarted && isFirstStage);
+			}
+			if (match && status && status !== "all") {
+				if (status === "in_progress") {
+					match = rowStatus === "in_progress" || rowStatus === "stalled";
+				} else {
+					match = rowStatus === status;
+				}
+			}
+			$row.toggleClass("is-hidden", !match);
+			if (!match) {
+				$row.addClass("is-page-hidden");
+				return;
+			}
+			visibleCount += 1;
+			const pageHidden = !showAll && visibleCount > pageSize;
+			$row.toggleClass("is-page-hidden", pageHidden);
+		});
+		$root.find(".sp-ff2-stage").each(function () {
+			const s = ($(this).attr("data-ff2-stage") || "").trim();
+			$(this).toggleClass("is-active", !!stage && s === stage);
+		});
+		syncShowAllButton();
+	}
+
+	function applyFilters() {
+		applyVisibility();
+	}
+
+	$root.on("change.sp-ff2", "[data-ff2-filter]", applyFilters);
+
+	$root.on("click.sp-ff2", "[data-ff2-reset]", function (ev) {
+		ev.preventDefault();
+		$root.find('[data-ff2-filter="stage"]').val("");
+		$root.find('[data-ff2-filter="status"]').val("all");
+		$root.find(".sp-ff2-stage").removeClass("is-active");
+		$root.find(".sp-ff2-stage.is-current").addClass("is-active");
+		showAll = false;
+		applyVisibility();
+	});
+
+	$root.on("click.sp-ff2", ".sp-ff2-stage", function (ev) {
+		ev.preventDefault();
+		const stage = ($(this).attr("data-ff2-stage") || "").trim();
+		const $sel = $root.find('[data-ff2-filter="stage"]');
+		const current = ($sel.val() || "").trim();
+		$sel.val(stage && stage === current ? "" : stage);
+		applyFilters();
+	});
+
+	$root.on("click.sp-ff2", "[data-ff2-scroll-packages]", function (ev) {
+		ev.preventDefault();
+		const el = $root.find("#sp-ff2-packages").get(0);
+		if (el && el.scrollIntoView) {
+			el.scrollIntoView({ behavior: "smooth", block: "start" });
+		}
+		$root.find('[data-ff2-filter="status"]').val("pending");
+		applyFilters();
+	});
+
+	$root.on("click.sp-ff2", "[data-ff2-page-size]", function (ev) {
+		ev.preventDefault();
+		const next = parseInt($(this).attr("data-ff2-page-size") || "20", 10) || 20;
+		pageSize = next;
+		showAll = false;
+		$packages.attr("data-ff2-page-size", String(pageSize));
+		$root.find("[data-ff2-page-size]").removeClass("is-active");
+		$(this).addClass("is-active");
+		applyVisibility();
+	});
+
+	$root.on("click.sp-ff2", "[data-ff2-show-all]", function (ev) {
+		ev.preventDefault();
+		showAll = !showAll;
+		if (showAll) {
+			$root.find('[data-ff2-filter="stage"]').val("");
+			$root.find('[data-ff2-filter="status"]').val("all");
+			$root.find(".sp-ff2-stage").removeClass("is-active");
+			$root.find(".sp-ff2-stage.is-current").addClass("is-active");
+		}
+		applyVisibility();
+	});
+
+	applyVisibility();
 }
 
 function _bind_special_project_main_dash_lifecycle($root) {
@@ -540,6 +668,92 @@ function _bind_special_project_main_dash_lifecycle($root) {
 	$root.attr("data-sp-fulfillment-dash-bound", "1");
 
 	const currentStage = ($root.attr("data-sp-current-stage") || "").trim();
+	const STORAGE_KEY = "sp-dash-fulfillment-left-width";
+
+	function applyLeftWidth(px) {
+		const width = Math.round(px);
+		$root[0].style.setProperty("--sp-dash-left-width", `${width}px`);
+	}
+
+	function restoreLeftWidth() {
+		try {
+			const saved = parseInt(localStorage.getItem(STORAGE_KEY) || "", 10);
+			if (saved && saved >= 220 && saved <= 520) {
+				applyLeftWidth(saved);
+			}
+		} catch (e) {
+			/* ignore storage errors */
+		}
+	}
+
+	function bindSplitResize() {
+		const $handle = $root.find(".sp-dash-split-handle").first();
+		if (!$handle.length || $handle.attr("data-sp-split-bound")) {
+			return;
+		}
+		$handle.attr("data-sp-split-bound", "1");
+		restoreLeftWidth();
+
+		let dragging = false;
+		let startX = 0;
+		let startWidth = 0;
+
+		function onMove(ev) {
+			if (!dragging) return;
+			const clientX = ev.touches && ev.touches[0] ? ev.touches[0].clientX : ev.clientX;
+			const rootRect = $root[0].getBoundingClientRect();
+			const maxLeft = Math.min(520, Math.floor(rootRect.width * 0.55));
+			const next = Math.max(220, Math.min(maxLeft, startWidth + (clientX - startX)));
+			applyLeftWidth(next);
+		}
+
+		function onUp() {
+			if (!dragging) return;
+			dragging = false;
+			$root.removeClass("is-resizing");
+			$(document).off(".sp-dash-split");
+			try {
+				const raw = getComputedStyle($root[0]).getPropertyValue("--sp-dash-left-width");
+				const px = parseInt(raw, 10);
+				if (px) localStorage.setItem(STORAGE_KEY, String(px));
+			} catch (e) {
+				/* ignore storage errors */
+			}
+		}
+
+		function onDown(ev) {
+			if (ev.type === "mousedown" && ev.which !== 1) return;
+			ev.preventDefault();
+			dragging = true;
+			$root.addClass("is-resizing");
+			startX = ev.touches && ev.touches[0] ? ev.touches[0].clientX : ev.clientX;
+			const $left = $root.find(".sp-dash-fulfillment-col").first();
+			startWidth = $left.length ? $left[0].getBoundingClientRect().width : 340;
+			$(document).on("mousemove.sp-dash-split touchmove.sp-dash-split", onMove);
+			$(document).on("mouseup.sp-dash-split touchend.sp-dash-split touchcancel.sp-dash-split", onUp);
+		}
+
+		$handle.on("mousedown.sp-dash-split touchstart.sp-dash-split", onDown);
+		$handle.on("keydown.sp-dash-split", function (ev) {
+			const step = ev.shiftKey ? 24 : 12;
+			let delta = 0;
+			if (ev.key === "ArrowLeft") delta = -step;
+			else if (ev.key === "ArrowRight") delta = step;
+			else return;
+			ev.preventDefault();
+			const $left = $root.find(".sp-dash-fulfillment-col").first();
+			const current = $left.length ? $left[0].getBoundingClientRect().width : 340;
+			const rootRect = $root[0].getBoundingClientRect();
+			const maxLeft = Math.min(520, Math.floor(rootRect.width * 0.55));
+			const next = Math.max(220, Math.min(maxLeft, current + delta));
+			applyLeftWidth(next);
+			try {
+				localStorage.setItem(STORAGE_KEY, String(Math.round(next)));
+			} catch (e) {
+				/* ignore */
+			}
+		});
+	}
 
 	function setStageHighlight(stage) {
 		const normalized = (stage || "").trim();
@@ -575,6 +789,8 @@ function _bind_special_project_main_dash_lifecycle($root) {
 			frappe.set_route("Form", jobDoctype, jobName);
 		}
 	}
+
+	bindSplitResize();
 
 	$root.find(".sp-dash-lifecycle-group").each(function () {
 		syncGroupCollapsedState($(this));

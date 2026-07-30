@@ -355,3 +355,7 @@ logistics.patches.v3_0_relayout_sales_quote_transport_params
 logistics.patches.v3_0_seed_charge_category_and_convert_links
 # GCFQ: seed default list filter criteria on Get Charges from Quotation Settings
 logistics.patches.v3_0_seed_gcfq_filter_settings
+# MICE Order: migrate notes → internal_notes / client_notes (match MICE Job)
+logistics.patches.v3_0_migrate_mice_order_notes_to_internal_client
+# Customs: migrate Declaration Order / Declaration container_numbers Small Text → Containers table
+logistics.patches.v3_0_migrate_declaration_container_numbers_to_table
