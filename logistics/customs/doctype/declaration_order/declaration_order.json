@@ -116,6 +116,9 @@
   "permit_requirements",
   "exemptions_section",
   "exemptions",
+  "services_tab",
+  "linked_services_section",
+  "linked_services",
   "milestones_tab",
   "section_break_milestones",
   "milestone_html",
@@ -768,6 +771,26 @@
    "options": "Job Document"
   },
   {
+   "fieldname": "services_tab",
+   "fieldtype": "Tab Break",
+   "label": "Services"
+  },
+  {
+   "fieldname": "linked_services_section",
+   "fieldtype": "Section Break",
+   "label": "Linked Services"
+  },
+  {
+   "description": "Subsidiary service legs linked to this declaration order (from the Sales Quote or created jobs).",
+   "fieldname": "linked_services",
+   "fieldtype": "Table",
+   "is_virtual": 1,
+   "label": "Linked Services",
+   "options": "Linked Service Detail",
+   "read_only": 1,
+   "cannot_add_rows": 1
+  },
+  {
    "fieldname": "milestones_tab",
    "fieldtype": "Tab Break",
    "label": "Milestones"
@@ -1107,19 +1130,19 @@
    "group": "Connected Jobs",
    "link_doctype": "Sea Shipment",
    "link_fieldname": "job_no",
-   "table_fieldname": "internal_job_details"
+   "table_fieldname": "linked_services"
   },
   {
    "group": "Connected Jobs",
    "link_doctype": "Air Shipment",
    "link_fieldname": "job_no",
-   "table_fieldname": "internal_job_details"
+   "table_fieldname": "linked_services"
   },
   {
    "group": "Connected Jobs",
    "link_doctype": "Transport Order",
    "link_fieldname": "job_no",
-   "table_fieldname": "internal_job_details"
+   "table_fieldname": "linked_services"
   }
  ],
  "modified": "2026-05-04 13:29:33.046287",

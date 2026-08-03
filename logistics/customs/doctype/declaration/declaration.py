@@ -14,6 +14,7 @@ from logistics.utils.charge_service_type import (
 )
 from logistics.utils.module_integration import _set_is_high_value_if_empty
 from logistics.utils.operational_rep_fields import copy_operational_rep_fields_from_declaration_order
+from logistics.utils.virtual_linked_services_view import VirtualLinkedServicesMixin
 
 ORDER_CURRENCY_EXCHANGE_FIELDS = (
 	"currency",
@@ -122,7 +123,7 @@ def calculate_commercial_invoice_balance(doc):
 	doc.balance = format_commercial_invoice_balance(balance)
 
 
-class Declaration(Document):
+class Declaration(VirtualLinkedServicesMixin, Document):
 	def validate(self):
 		from logistics.utils.charges_calculation import (
 			clear_charge_resolution_parent,

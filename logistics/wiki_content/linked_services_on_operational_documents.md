@@ -1,6 +1,6 @@
 # Linked Services on Operational Documents
 
-**Linked Services** are subsidiary service legs (Internal Jobs) defined on a [Sales Quote](welcome/sales-quote) and carried through to operational documents — Sea/Air bookings and shipments, Transport orders and jobs. This page describes **what users should expect** for linked-service behaviour across Sea, Air, and Transport.
+**Linked Services** are subsidiary service legs defined on a [Sales Quote](welcome/sales-quote) and carried through to operational documents — Sea/Air bookings and shipments, Transport orders and jobs, and Customs Declaration Order / Declaration. This page describes **what users should expect** for linked-service behaviour across those modules.
 
 **Navigation:** Home > Pricing Center > Linked Services on Operational Documents
 
@@ -53,6 +53,7 @@ Operational documents expose a **Services** tab with a **read-only** linked serv
 | Sea Booking / Sea Shipment | Yes |
 | Air Booking / Air Shipment | Yes |
 | Transport Order / Transport Job | Yes |
+| Declaration Order / Declaration | Yes |
 
 The grid lists Linked Services owned by the document **or** tagged via Usage for that document. **You cannot add or edit rows** on operational Services tabs.
 
@@ -86,10 +87,12 @@ When you convert booking → shipment, or **Create → Internal Job** (satellite
 
 ## Related Topics
 
+- [Linked Services — Default Behaviour](welcome/linked-services-default) — manage on quote, view on bookings (platform default)
 - [How Linked Services Are Managed (Proposal)](welcome/how-linked-services-are-managed-proposal) — Time Sensitive dialog as the default manage UX (e.g. Sales Quote)
 - [Sales Quote](welcome/sales-quote)
 - [Sales Quote — Separate Billings and Internal Job](welcome/sales-quote-separate-billings-and-internal-job)
 - [Sea Booking](welcome/sea-booking) | [Sea Shipment](welcome/sea-shipment)
 - [Air Booking](welcome/air-booking) | [Air Shipment](welcome/air-shipment)
 - [Transport Order](welcome/transport-order) | [Transport Job](welcome/transport-job)
+- [Declaration Order](welcome/declaration-order) | [Declaration](welcome/declaration)
 - [Recent Platform Updates](welcome/recent-platform-updates)

@@ -116,6 +116,7 @@ Status and dependency guards (e.g. cannot remove the last service on an activate
 
 ## Related Topics
 
+- [Linked Services — Default Behaviour](welcome/linked-services-default) — manage on quote, view on bookings
 - [Linked Services on Operational Documents](welcome/linked-services-on-operational-documents)
 - [Sales Quote](welcome/sales-quote)
 - [Sales Quote — Separate Billings and Internal Job](welcome/sales-quote-separate-billings-and-internal-job)
