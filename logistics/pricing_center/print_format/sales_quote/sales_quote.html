@@ -497,7 +497,7 @@
         {% endfor %}
         {% endfor %}
 
-        {% set first_page_max_rows = 15 %}
+        {% set first_page_max_rows = 10 %}
         {% set continuation_page_max_rows = 26 %}
         {% set first_page_lines = charge_lines.items[:first_page_max_rows] %}
         {% set remaining_lines = charge_lines.items[first_page_max_rows:] %}

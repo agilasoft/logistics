@@ -207,6 +207,12 @@ def propagate_from_air_shipment(doc, fieldname="air_shipment"):
 		propagate_sales_quote_from_source_if_empty(shipment, doc)
 
 	_set_is_high_value_if_empty(doc, getattr(shipment, "is_high_value", None))
+	try:
+		from logistics.time_sensitive.propagation import apply_time_sensitive_from_source
+
+		apply_time_sensitive_from_source(shipment, doc)
+	except Exception:
+		pass
 
 
 def propagate_from_sea_shipment(doc, fieldname="sea_shipment"):
@@ -273,6 +279,12 @@ def propagate_from_sea_shipment(doc, fieldname="sea_shipment"):
 		propagate_sales_quote_from_source_if_empty(shipment, doc)
 
 	_set_is_high_value_if_empty(doc, getattr(shipment, "is_high_value", None))
+	try:
+		from logistics.time_sensitive.propagation import apply_time_sensitive_from_source
+
+		apply_time_sensitive_from_source(shipment, doc)
+	except Exception:
+		pass
 
 
 def propagate_from_transport_job(doc, fieldname="transport_job"):
@@ -305,6 +317,12 @@ def propagate_from_transport_job(doc, fieldname="transport_job"):
 		propagate_sales_quote_from_source_if_empty(job, doc)
 
 	_set_is_high_value_if_empty(doc, getattr(job, "is_high_value", None))
+	try:
+		from logistics.time_sensitive.propagation import apply_time_sensitive_from_source
+
+		apply_time_sensitive_from_source(job, doc)
+	except Exception:
+		pass
 
 
 def propagate_from_transport_order(doc, fieldname="transport_order"):
@@ -334,6 +352,12 @@ def propagate_from_transport_order(doc, fieldname="transport_order"):
 		propagate_sales_quote_from_source_if_empty(order, doc)
 
 	_set_is_high_value_if_empty(doc, getattr(order, "is_high_value", None))
+	try:
+		from logistics.time_sensitive.propagation import apply_time_sensitive_from_source
+
+		apply_time_sensitive_from_source(order, doc)
+	except Exception:
+		pass
 
 
 def run_propagate_on_link(doc):
@@ -422,6 +446,20 @@ def _copy_is_high_value_from_sales_quote(target_doc, sales_quote_name):
 	except Exception:
 		return
 	target_doc.is_high_value = cint(val)
+
+
+def _copy_time_sensitive_from_sales_quote(target_doc, sales_quote_name):
+	"""Copy time-sensitive identifiers from the linked Sales Quote onto the target."""
+	if not sales_quote_name or not hasattr(target_doc, "is_time_sensitive"):
+		return
+	try:
+		from logistics.time_sensitive.propagation import apply_time_sensitive_from_linked_sales_quote
+
+		if not getattr(target_doc, "sales_quote", None):
+			target_doc.sales_quote = sales_quote_name
+		apply_time_sensitive_from_linked_sales_quote(target_doc)
+	except Exception:
+		pass
 
 
 def _set_is_high_value_if_empty(target_doc, value):
@@ -591,13 +629,20 @@ def copy_sales_quote_fields_to_target(source_doc, target_doc):
 
 	Does **not** copy commercial header fields (ports, parties, charges, etc.) — only the link and
 	``sales_rep`` / ``operations_rep`` / ``customer_service_rep`` via ``copy_operational_rep_fields_from_chain``.
-	Also propagates the ``is_high_value`` flag from the resolved Sales Quote when the target supports it.
+	Also propagates the ``is_high_value`` and time-sensitive flags from the resolved Sales Quote when supported.
 	"""
 	sq = _resolve_sales_quote_from_doc(source_doc)
 	if sq and hasattr(target_doc, "sales_quote"):
 		target_doc.sales_quote = sq
 	copy_operational_rep_fields_from_chain(target_doc, source_doc=source_doc)
 	_copy_is_high_value_from_sales_quote(target_doc, sq)
+	_copy_time_sensitive_from_sales_quote(target_doc, sq)
+	try:
+		from logistics.time_sensitive.propagation import apply_time_sensitive_from_source
+
+		apply_time_sensitive_from_source(source_doc, target_doc)
+	except Exception:
+		pass
 
 
 def propagate_sales_quote_from_source_if_empty(source_doc, target_doc):
@@ -614,6 +659,12 @@ def propagate_sales_quote_from_source_if_empty(source_doc, target_doc):
 			_set_if_empty(target_doc, fn, getattr(source_doc, fn, None))
 	# High Value: inherit from the source doc (e.g. linked shipment) first, then fall back to the Sales Quote.
 	_set_is_high_value_if_empty(target_doc, getattr(source_doc, "is_high_value", None))
+	try:
+		from logistics.time_sensitive.propagation import apply_time_sensitive_from_source
+
+		apply_time_sensitive_from_source(source_doc, target_doc)
+	except Exception:
+		pass
 	if sq:
 		try:
 			sqdoc = frappe.get_cached_doc("Sales Quote", sq)
@@ -624,6 +675,12 @@ def propagate_sales_quote_from_source_if_empty(source_doc, target_doc):
 				if hasattr(target_doc, fn):
 					_set_if_empty(target_doc, fn, getattr(sqdoc, fn, None))
 			_set_is_high_value_if_empty(target_doc, getattr(sqdoc, "is_high_value", None))
+			try:
+				from logistics.time_sensitive.propagation import apply_time_sensitive_from_source
+
+				apply_time_sensitive_from_source(sqdoc, target_doc)
+			except Exception:
+				pass
 
 
 # -------------------------------------------------------------------

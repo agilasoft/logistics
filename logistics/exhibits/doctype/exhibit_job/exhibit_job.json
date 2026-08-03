@@ -335,7 +335,6 @@
    "fieldname": "shipper_address",
    "fieldtype": "Link",
    "label": "Shipper Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -352,7 +351,6 @@
    "fieldname": "consignee_address",
    "fieldtype": "Link",
    "label": "Consignee Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {

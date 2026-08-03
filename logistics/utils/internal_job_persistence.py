@@ -54,26 +54,23 @@ from logistics.utils.virtual_internal_job_details import (
 )
 
 
-_VIRTUAL_LINKED_SERVICE_PARENTS = frozenset({"Sales Quote", "Change Request", "MICE Project", "Docket"}) | VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS
+_VIRTUAL_LINKED_SERVICE_PARENTS = frozenset(
+	{"Change Request", "MICE Project", "Docket", "Time Sensitive Case"}
+) | VIRTUAL_INTERNAL_JOB_DETAILS_PARENTS
 
 
 # Operational booking doctypes that carry an Internal Job Detail child table, mapped to the
 # fieldname on each parent (most use `internal_job_details`; Exhibit uses `internal_jobs`).
 #
-# ``Sales Quote`` is a non-operational parent that may also own Internal Jobs. A single Sales Quote
-# can have multiple Internal Jobs regardless of ``quotation_type`` — the desk UI currently surfaces
-# the Internal Jobs tab for One-off quotes only (``depends_on`` on the doctype JSON), but the
-# server-side persistence runs uniformly so that any quote-type which exposes
-# ``linked_services`` rows materialises matching ``Linked Service`` docs. The same records are
-# transferred onto the Booking/Order created from the quote (see
-# ``logistics.utils.sales_quote_one_off_internal_jobs.propagate_one_off_internal_jobs_to_booking``).
+# ``Sales Quote`` owns Linked Service documents (``IJ-…``) that bookings/orders reuse via
+# ``Linked Service Usage`` (see ``sales_quote_one_off_internal_jobs``).
 INTERNAL_JOB_DETAIL_PARENTS: dict[str, str] = {
 	"Sea Booking": "linked_services",
-	"Air Booking": "internal_job_details",
+	"Air Booking": "linked_services",
 	"Sea Shipment": "linked_services",
-	"Air Shipment": "internal_job_details",
-	"Transport Order": "internal_job_details",
-	"Transport Job": "internal_job_details",
+	"Air Shipment": "linked_services",
+	"Transport Order": "linked_services",
+	"Transport Job": "linked_services",
 	"Declaration": "internal_job_details",
 	"Declaration Order": "internal_job_details",
 	"Warehouse Job": "internal_job_details",
@@ -89,13 +86,12 @@ INTERNAL_JOB_DETAIL_PARENTS: dict[str, str] = {
 	"Exhibit": "internal_jobs",
 	"Sales Quote": "linked_services",
 	"Change Request": "linked_services",
+	"Time Sensitive Case": "linked_services",
 }
 
 
 def _should_run_internal_job_sync_for_parent(parent_doc: Any) -> bool:
-	"""All listed parents (including ``Sales Quote`` of any ``quotation_type``) participate in
-	Internal Job persistence. A single Sales Quote can carry multiple Internal Jobs, so we do not
-	gate creation by ``quotation_type``.
+	"""Listed operational parents participate in Linked Service persistence on save.
 	"""
 	return True
 
@@ -144,7 +140,7 @@ def internal_job_detail_rows_for_parent(parent_doc: Any) -> list[Any]:
 
 
 def sync_internal_job_doc_job_link(row: Any, job_type: str, job_no: str) -> None:
-	"""Push ``job_type`` / ``job_no`` onto the linked ``Internal Job`` (source of truth for fetch_from)."""
+	"""Record Usage for the satellite job; Linked Service no longer stores job_type/job_no."""
 	ij_name = _linked_service_name_from_row(row) if row is not None else ""
 	jn = _norm(job_no)
 	jt = _norm(job_type)
@@ -152,19 +148,32 @@ def sync_internal_job_doc_job_link(row: Any, job_type: str, job_no: str) -> None
 		return
 	if not linked_service_record_exists(ij_name):
 		return
-	updates: dict[str, Any] = {"job_type": jt, "job_no": jn}
-	frappe.db.set_value(linked_service_doctype(), ij_name, updates, update_modified=False)
+	try:
+		from logistics.utils.linked_service_usage import (
+			USAGE_ROLE_SATELLITE_JOB,
+			record_linked_service_usage,
+		)
+
+		record_linked_service_usage(
+			ij_name,
+			jt,
+			jn,
+			usage_role=USAGE_ROLE_SATELLITE_JOB,
+		)
+	except Exception:
+		frappe.log_error(
+			title="Linked Service Usage job link failed",
+			message=frappe.get_traceback(),
+		)
 
 
 # Parameter fields stored on `Internal Job` that mirror `Internal Job Detail` and `Sales Quote Charge`.
 # `charge_group` is excluded - it's a Sales Quote Charge concept only.
+# job_type / job_no / job_description were removed from Linked Service (tracked via Usage).
 _PARAM_FIELDS: tuple[str, ...] = tuple(
 	fn for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS if fn != "charge_group"
 ) + (
 	"service_type",
-	"job_type",
-	"job_no",
-	"job_description",
 	"location_type",
 )
 
@@ -196,9 +205,6 @@ def _copy_row_params_to_internal_job(row: Any, ij_doc: Any) -> bool:
 	"""Copy parameter values from a Linked Service Detail row onto a Linked Service document.
 
 	Returns True when any field changed.
-
-	Never clears an existing ``job_no`` with a blank desk value — stale virtual-grid payloads
-	often omit Job No after a sibling create and would otherwise wipe the stamped link.
 	"""
 	meta = _ls_meta()
 	changed = False
@@ -209,8 +215,6 @@ def _copy_row_params_to_internal_job(row: Any, ij_doc: Any) -> bool:
 		if new_val is None:
 			continue
 		cur_val = getattr(ij_doc, fn, None)
-		if fn == "job_no" and not _norm(new_val) and _norm(cur_val):
-			continue
 		if _norm(cur_val) != _norm(new_val):
 			setattr(ij_doc, fn, new_val)
 			changed = True
@@ -218,20 +222,8 @@ def _copy_row_params_to_internal_job(row: Any, ij_doc: Any) -> bool:
 
 
 def _ensure_job_type_from_service(ij_doc: Any) -> None:
-	st = (getattr(ij_doc, "service_type", None) or "").strip()
-	if not st:
-		return
-	expected = default_job_type_for_internal_job_service_type(st)
-	if not expected:
-		return
-	jt = (getattr(ij_doc, "job_type", None) or "").strip()
-	if st == "Warehousing":
-		jn = (getattr(ij_doc, "job_no", None) or "").strip()
-		if jt in ("Inbound Order", "Release Order", "Transfer Order") and jn:
-			return
-		ij_doc.job_type = "VAS Order"
-		return
-	ij_doc.job_type = expected
+	"""No-op: Linked Service no longer stores ``job_type`` (Usage table tracks jobs)."""
+	return
 
 
 def _create_internal_job_from_row(
@@ -278,7 +270,7 @@ def _update_internal_job_from_row(row: Any, ij_name: str) -> None:
 	ij = frappe.get_doc(linked_service_doctype(), ij_name)
 	changed = _copy_row_params_to_internal_job(row, ij)
 	_ensure_job_type_from_service(ij)
-	if not changed and (ij.job_type == _row_value(row, "job_type") or not _row_value(row, "job_type")):
+	if not changed:
 		return
 	ij.flags.ignore_permissions = True
 	# Skip the reverse IJ -> child-row propagation: we are already writing the same
@@ -303,6 +295,18 @@ def _linked_service_names_from_db(parent_doctype: str, parent_name: str) -> set[
 		)
 		or []
 	)
+
+
+def _linked_service_names_visible_on_parent(parent_doctype: str, parent_name: str) -> set[str]:
+	"""Owned Linked Services plus Usage-linked names (desk grid source of truth)."""
+	names = _linked_service_names_from_db(parent_doctype, parent_name)
+	try:
+		from logistics.utils.linked_service_usage import get_linked_services_used_by
+
+		names |= {n for n in (get_linked_services_used_by(parent_doctype, parent_name) or []) if n}
+	except Exception:
+		pass
+	return names
 
 
 def ensure_linked_service_rows_materialized(parent_doc: Any) -> None:
@@ -367,7 +371,7 @@ def _currently_linked_internal_jobs(parent_doc: Any, fieldname: str) -> set[str]
 def _previously_linked_internal_jobs(parent_doc: Any, fieldname: str) -> set[str]:
 	"""Internal Job names that were linked to this booking on its last persisted state."""
 	if parent_doc.doctype in _VIRTUAL_LINKED_SERVICE_PARENTS and parent_doc.name:
-		return _linked_service_names_from_db(parent_doc.doctype, parent_doc.name)
+		return _linked_service_names_visible_on_parent(parent_doc.doctype, parent_doc.name)
 	prev = parent_doc.get_doc_before_save() if hasattr(parent_doc, "get_doc_before_save") else None
 	if prev is None:
 		return set()
@@ -378,11 +382,40 @@ def _previously_linked_internal_jobs(parent_doc: Any, fieldname: str) -> set[str
 	}
 
 
-def _delete_orphan_internal_jobs_from_sets(prev: set[str], cur: set[str]) -> None:
+def _linked_service_strictly_parented_to(ij_name: str, parent_doc: Any) -> bool:
+	"""True when *ij_name* is parented to *parent_doc* (blank parent does not count)."""
+	if not ij_name or not parent_doc:
+		return False
+	row = frappe.db.get_value(
+		linked_service_doctype(),
+		ij_name,
+		["parent_booking_type", "parent_booking_name"],
+		as_dict=True,
+	)
+	if not row:
+		return False
+	return _norm(row.get("parent_booking_type")) == _norm(
+		getattr(parent_doc, "doctype", None)
+	) and _norm(row.get("parent_booking_name")) == _norm(getattr(parent_doc, "name", None))
+
+
+def _delete_orphan_internal_jobs_from_sets(
+	prev: set[str], cur: set[str], parent_doc: Any | None = None
+) -> None:
 	for ij_name in prev - cur:
 		if not ij_name or not linked_service_record_exists(ij_name):
 			continue
 		try:
+			# Shared / quote-owned IJ-…: drop Usage for this consumer only.
+			if parent_doc and not _linked_service_strictly_parented_to(ij_name, parent_doc):
+				from logistics.utils.linked_service_usage import clear_linked_service_usage
+
+				clear_linked_service_usage(
+					parent_doc.doctype,
+					parent_doc.name or "",
+					linked_service=ij_name,
+				)
+				continue
 			frappe.delete_doc(linked_service_doctype(), ij_name, ignore_permissions=True, force=True)
 		except Exception:
 			frappe.log_error(
@@ -606,7 +639,7 @@ def _delete_orphan_internal_jobs(parent_doc: Any, fieldname: str) -> None:
 	"""Delete Internal Job docs that were previously linked but are no longer in the table."""
 	prev = _previously_linked_internal_jobs(parent_doc, fieldname)
 	cur = _currently_linked_internal_jobs(parent_doc, fieldname)
-	_delete_orphan_internal_jobs_from_sets(prev, cur)
+	_delete_orphan_internal_jobs_from_sets(prev, cur, parent_doc=parent_doc)
 
 
 def sync_internal_job_details_to_internal_jobs(doc: Any, *_method) -> None:
@@ -625,21 +658,34 @@ def sync_internal_job_details_to_internal_jobs(doc: Any, *_method) -> None:
 		return
 	prev_orphans: set[str] | None = None
 	if doc.doctype in _VIRTUAL_LINKED_SERVICE_PARENTS and doc.name:
-		prev_orphans = _linked_service_names_from_db(doc.doctype, doc.name)
+		prev_orphans = _linked_service_names_visible_on_parent(doc.doctype, doc.name)
 	_ensure_internal_job_docs_for_detail_rows(doc)
 	if prev_orphans is not None:
 		cur = _currently_linked_internal_jobs(doc, fieldname)
-		_delete_orphan_internal_jobs_from_sets(prev_orphans, cur)
+		_delete_orphan_internal_jobs_from_sets(prev_orphans, cur, parent_doc=doc)
 	else:
 		_delete_orphan_internal_jobs(doc, fieldname)
 
 
 def delete_internal_jobs_for_booking(doc: Any, *_method) -> None:
-	"""`on_trash` hook: delete every Internal Job owned by this booking."""
+	"""`on_trash` hook: delete booking-owned Linked Services; clear Usage tags only for shared IJs."""
 	if not doc or doc.doctype not in INTERNAL_JOB_DETAIL_PARENTS:
 		return
 	if not _internal_job_doctype_exists():
 		return
+
+	# Shared IJ-… (quote-owned): drop Usage rows for this consumer only.
+	try:
+		from logistics.utils.linked_service_usage import clear_linked_service_usage
+
+		clear_linked_service_usage(doc.doctype, doc.name or "")
+	except Exception:
+		frappe.log_error(
+			title="Linked Service Usage trash cleanup failed",
+			message=frappe.get_traceback(),
+		)
+
+	# Legacy / booking-owned Linked Services: still delete on parent trash.
 	names = frappe.get_all(
 		linked_service_doctype(),
 		filters={
@@ -746,21 +792,28 @@ def resolve_internal_job_for_internal_job_booking(doc: Any) -> str | None:
 					return ij
 	if not _internal_job_doctype_exists():
 		return None
+	# Fallback: Usage table (Linked Service no longer stores job_type / job_no).
 	try:
-		ij_names = frappe.get_all(
-			linked_service_doctype(),
-			filters={
-				"parent_booking_type": main_job_type or None,
-				"parent_booking_name": main_job or None,
-				"job_type": doctype,
-				"job_no": name,
-			},
-			pluck="name",
-			limit=1,
-		)
+		from logistics.utils.linked_service_usage import get_linked_services_used_by
+
+		for ls_name in get_linked_services_used_by(doctype, name):
+			if not linked_service_record_exists(ls_name):
+				continue
+			parent_type = frappe.db.get_value(
+				linked_service_doctype(), ls_name, "parent_booking_type"
+			)
+			parent_name = frappe.db.get_value(
+				linked_service_doctype(), ls_name, "parent_booking_name"
+			)
+			if main_job_type and main_job:
+				if _norm(parent_type) != _norm(main_job_type):
+					continue
+				if _norm(parent_name) != _norm(main_job):
+					continue
+			return ls_name
 	except Exception:
-		ij_names = []
-	return ij_names[0] if ij_names else None
+		pass
+	return None
 
 
 def _internal_job_detail_table_columns() -> set[str]:

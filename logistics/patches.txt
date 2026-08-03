@@ -50,9 +50,17 @@ logistics.patches.v3_0_drop_special_project_service_detail_table
 logistics.patches.v3_0_pre_drop_legacy_internal_job_fields
 # Sites that ran the pre patch before linked_service was added: drop legacy columns first.
 logistics.patches.v3_0_drop_legacy_columns_before_linked_service_sync
+# Air Shipment: drop Real-time Tracking columns (frees row space for the Data insurance fields)
+logistics.patches.v3_0_drop_air_shipment_tracking_fields
+# Time Sensitive: preserve legacy service-leg links as canonical Linked Services
+logistics.patches.v3_0_migrate_time_sensitive_service_legs
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
+# Air Shipment: finalize removal after model sync has discarded legacy metadata
+logistics.patches.v3_0_finalize_drop_air_shipment_tracking_fields
+# Time Sensitive: remove obsolete service-leg child metadata after parent sync
+logistics.patches.v3_0_drop_time_sensitive_service_leg_doctype
 # Tariff: restore stashed legacy rates into ``Tariff.rates`` (Tariff Charge) after the new child table exists.
 logistics.patches.v1_0_restore_tariff_rates_from_stash_unified_tariff_charge
 # Merge legacy Sea Consolidation Plan data after schema sync (needs consolidation_planning_lines on Sea Consolidation).
@@ -359,3 +367,10 @@ logistics.patches.v3_0_seed_gcfq_filter_settings
 logistics.patches.v3_0_migrate_mice_order_notes_to_internal_client
 # Customs: migrate Declaration Order / Declaration container_numbers Small Text → Containers table
 logistics.patches.v3_0_migrate_declaration_container_numbers_to_table
+# Time Sensitive: Module Def, desk assets, roles, default case types
+logistics.patches.v1_0_ensure_time_sensitive_module_def
+logistics.patches.v1_0_add_time_sensitive_module
+# Party Address Link fields: clear JSON link_filters that break address_query (PermissionError Address.link_doctype).
+logistics.patches.v1_0_clear_party_address_link_filters
+# Sales Quote / Opportunity: Cross-Docking is no longer a Primary Service Type (use Warehousing / linked Cross-Docking)
+logistics.patches.v3_0_migrate_sq_primary_cross_dock_to_warehousing

@@ -2,7 +2,8 @@
 // For license information, please see license.txt
 
 /**
- * Linked Service link picker on charge rows: filter by parent booking and charge service_type.
+ * Linked Service link picker on charge rows: filter by parent booking, Usage tags,
+ * and Sales Quote ownership (shared IJ-… IDs).
  */
 frappe.provide("logistics.linked_service_link_query");
 
@@ -71,11 +72,23 @@ frappe.provide("logistics.linked_service_link_query");
 		return row.linked_service !== undefined ? row.linked_service : row.internal_job;
 	}
 
+	function resolveSalesQuote(frm) {
+		if (!frm || !frm.doc) return "";
+		if (frm.doc.sales_quote) return frm.doc.sales_quote;
+		if (frm.doc.quote_type === "Sales Quote" && frm.doc.quote) return frm.doc.quote;
+		if (frm.doc.quote && String(frm.doc.quote).indexOf("SQU") === 0) return frm.doc.quote;
+		return "";
+	}
+
 	function buildFilters(frm, parentBookingType, row) {
 		const filters = {
 			parent_booking_type: parentBookingType,
 			parent_booking_name: frm.doc.name || "",
 		};
+		const sq = resolveSalesQuote(frm);
+		if (sq) {
+			filters.sales_quote = sq;
+		}
 		const label = linkedServiceLabelForChargeServiceType(row && row.service_type);
 		if (label) {
 			filters.service_type = label;
@@ -98,7 +111,10 @@ frappe.provide("logistics.linked_service_link_query");
 		const linkField = chargeRowLinkField(chargeRowDoctype);
 		frm.set_query(linkField, chargeChildTable, function (doc, cdt, cdn) {
 			const row = locals[cdt] && locals[cdt][cdn];
-			return { filters: buildFilters(frm, parentBookingType, row) };
+			return {
+				query: "logistics.logistics.doctype.linked_service.linked_service.linked_service_charge_link_query",
+				filters: buildFilters(frm, parentBookingType, row),
+			};
 		});
 	};
 

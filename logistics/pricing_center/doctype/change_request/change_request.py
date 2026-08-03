@@ -561,15 +561,18 @@ def get_eligible_internal_jobs_for_change_request_job(
 			get_linked_services_for_change_request,
 		)
 
+		from logistics.utils.linked_service_usage import latest_satellite_job_from_usage
+
 		rows = []
 		for ls in get_linked_services_for_change_request(change_request_name):
+			jt, jn = latest_satellite_job_from_usage(ls.name)
 			rows.append(
 				{
 					"name": ls.name,
 					"service_type": ls.service_type,
-					"job_type": ls.job_type,
-					"job_no": ls.job_no,
-					"job_description": ls.job_description,
+					"job_type": jt or None,
+					"job_no": jn or None,
+					"job_description": None,
 				}
 			)
 		out["linked_services"] = rows
@@ -584,13 +587,28 @@ def get_eligible_internal_jobs_for_change_request_job(
 	if not frappe.db.exists(job_type, job_name):
 		return out
 
+	from logistics.utils.linked_service_usage import latest_satellite_job_from_usage
+
 	if job_type in MAIN_JOB_TYPES_FOR_CHANGE_REQUEST:
-		rows = frappe.get_all(
+		ls_names = frappe.get_all(
 			ls_dt,
 			filters={"parent_booking_type": job_type, "parent_booking_name": job_name},
-			fields=["name", "service_type", "job_type", "job_no", "job_description"],
+			pluck="name",
 			order_by="creation asc",
 		)
+		rows = []
+		for ls_name in ls_names:
+			st = frappe.db.get_value(ls_dt, ls_name, "service_type")
+			jt, jn = latest_satellite_job_from_usage(ls_name)
+			rows.append(
+				{
+					"name": ls_name,
+					"service_type": st,
+					"job_type": jt or None,
+					"job_no": jn or None,
+					"job_description": None,
+				}
+			)
 		out["linked_services"] = rows
 		out["internal_jobs"] = rows
 		return out
@@ -606,17 +624,19 @@ def get_eligible_internal_jobs_for_change_request_job(
 		) or {}
 		ls_name = get_linked_service_name(sat)
 		if ls_name and linked_service_record_exists(ls_name):
-			row = frappe.db.get_value(
-				ls_dt,
-				ls_name,
-				("name", "service_type", "job_type", "job_no", "job_description"),
-				as_dict=True,
-			)
-			if row:
-				out["linked_services"] = [row]
-				out["default_linked_service"] = ls_name
-				out["internal_jobs"] = [row]
-				out["default_internal_job"] = ls_name
+			st = frappe.db.get_value(ls_dt, ls_name, "service_type")
+			jt, jn = latest_satellite_job_from_usage(ls_name)
+			row = {
+				"name": ls_name,
+				"service_type": st,
+				"job_type": jt or None,
+				"job_no": jn or None,
+				"job_description": None,
+			}
+			out["linked_services"] = [row]
+			out["default_linked_service"] = ls_name
+			out["internal_jobs"] = [row]
+			out["default_internal_job"] = ls_name
 	return out
 
 

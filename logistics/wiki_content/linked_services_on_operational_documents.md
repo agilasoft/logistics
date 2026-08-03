@@ -17,19 +17,34 @@ When you convert a **full** Sales Quote to operational documents (Regular, One-o
 
 | What you should see |
 |---------------------|
-| **Quote** keeps its `IJ-…` rows on the Services grid |
-| **Booking / Order** gets **new** cloned `IJ-…` rows (new numbers) for subsidiary legs |
-| Booking charges point at the **booking-owned** clones (remapped automatically) |
+| **Quote** keeps its `IJ-…` rows on the Services grid (still the owner) |
+| **Booking / Order** **reuses** the same `IJ-…` IDs (no new clone numbers) |
+| Booking charges keep pointing at those quote-owned `IJ-…` IDs |
+| Each Linked Service records a **Usage** row for the booking (Parent Booking) |
 
-The system **clones** linked services onto the booking — the same pattern as **charge rows**. The quote does **not** lose its legs.
+Multiple legs of the same service type (e.g. three Transport Linked Services) are all tagged on the booking.
 
 ### Blanket call-off
 
-**Blanket call-off** conversions clone only the linked services tied to the **selected charge rows**. The quote keeps all originals for future call-offs.
+**Blanket call-off** conversions tag only the linked services tied to the **selected charge rows**. The quote keeps all originals for future call-offs.
 
 ---
 
-## 2. Services tab (read-only view)
+## 2. Linked Service Usage (tracking)
+
+Open a Linked Service (`IJ-…`) to see the **Usage** table: every booking, order, or job that reused that ID, with **Planned/Actual Cost & Revenue per line**.
+
+| Column | Meaning |
+|--------|---------|
+| Used On Doctype / Name | Consumer document (Air Booking, Transport Order, …) |
+| Usage Role | Parent Booking / Satellite Job / Shipment |
+| Planned/Actual Cost & Revenue | Totals for **that** consumer only |
+
+The Linked Service header **Rollup** section is the **sum** of all Usage lines.
+
+---
+
+## 3. Services tab (read-only view)
 
 Operational documents expose a **Services** tab with a **read-only** linked services grid:
 
@@ -39,40 +54,39 @@ Operational documents expose a **Services** tab with a **read-only** linked serv
 | Air Booking / Air Shipment | Yes |
 | Transport Order / Transport Job | Yes |
 
-The grid shows subsidiary legs parented to that document. **You cannot add or edit rows** on operational Services tabs.
+The grid lists Linked Services owned by the document **or** tagged via Usage for that document. **You cannot add or edit rows** on operational Services tabs.
 
 ---
 
-## 3. Saving and editing — rows must stay visible
+## 4. Saving and editing — rows must stay visible
 
 Linked services **remain visible** on the Services tab after save and reload on quote, booking, shipment, and job forms.
 
 ---
 
-## 4. Booking → Shipment / Order → Job
+## 5. Booking → Shipment / Create Internal Job
 
-When you convert:
+When you convert booking → shipment, or **Create → Internal Job** (satellite Transport Order, Declaration Order, VAS Order, …):
 
-- **Sea Booking → Sea Shipment**
-- **Air Booking → Air Shipment**
-- **Transport Order → Transport Job**
-
-Linked services are **cloned** onto the child document; the **parent keeps its rows** (like charges). Shipment/job charges are remapped to the child-owned `IJ-…` clones.
+- The same `IJ-…` ID is **reused** (no clone).
+- A new **Usage** row is added (Shipment or Satellite Job).
+- Job Type / Job No are shown from the **Usage** table (latest satellite job); they are no longer stored on the Linked Service document itself.
 
 ---
 
-## 5. Happy-path example (Sea)
+## 6. Happy-path example (Air + multi Transport)
 
-1. Create quote **SQU…** with subsidiary Transport linked service `IJ-…-A`.
-2. Convert quote → **Sea Booking** **SBK…**  
-   → Quote still shows `IJ-…-A`; booking shows new clone `IJ-…-B`.
-3. Convert booking → **Sea Shipment**  
-   → Booking still shows `IJ-…-B`; shipment shows new clone `IJ-…-C`.
+1. Create quote **SQU…** with three Transport Linked Services `IJ-A`, `IJ-B`, `IJ-C` and matching Linked charges.
+2. Convert quote → **Air Booking** **ABK…**  
+   → Quote still owns `IJ-A/B/C`; booking charges still point at them; each IJ has a Usage row for ABK….
+3. Create Internal Job → **Transport Order** for `IJ-A`  
+   → Same `IJ-A`; Usage gains a Satellite Job line with that order’s Planned/Actual amounts.
 
 ---
 
 ## Related Topics
 
+- [How Linked Services Are Managed (Proposal)](welcome/how-linked-services-are-managed-proposal) — Time Sensitive dialog as the default manage UX (e.g. Sales Quote)
 - [Sales Quote](welcome/sales-quote)
 - [Sales Quote — Separate Billings and Internal Job](welcome/sales-quote-separate-billings-and-internal-job)
 - [Sea Booking](welcome/sea-booking) | [Sea Shipment](welcome/sea-shipment)

@@ -55,6 +55,7 @@ DOCTYPE_CONTEXT = {
 	"Transport Job": ("Transport", "Shipment/Job"),
 	"Warehouse Job": ("Warehousing", "Shipment/Job"),
 	"General Job": ("General", "Shipment/Job"),
+	"Time Sensitive Case": ("General", "Shipment/Job"),
 	"Declaration": ("Customs", "Shipment/Job"),
 	"Special Project": ("Special Projects", "Shipment/Job"),
 	"Project Order": ("Special Projects", "Booking"),
@@ -84,6 +85,7 @@ MILESTONE_DOCTYPES = (
 	"Docket",
 	"MICE Order",
 	"MICE Job",
+	"Time Sensitive Case",
 )
 
 # Child table doctype for each parent
@@ -105,6 +107,7 @@ MILESTONE_CHILD_DOCTYPE = {
 	"Docket": "MICE Project Milestone",
 	"MICE Order": "MICE Project Milestone",
 	"MICE Job": "Transport Job Milestone",
+	"Time Sensitive Case": "Time Sensitive Case Milestone",
 }
 
 

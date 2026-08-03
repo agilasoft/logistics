@@ -139,6 +139,11 @@
   "charges",
   "quote_reference",
   "is_high_value",
+  "is_time_sensitive",
+  "time_sensitive_case",
+  "ts_case_type",
+  "critical_deadline",
+  "ts_countdown",
   "sales_quote",
   "column_break_quote_ref",
   "main_service",
@@ -212,6 +217,44 @@
    "fieldtype": "Check",
    "label": "High Value",
    "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Mark this record for urgent / time-sensitive processing (AOG, live organ, line-stop, etc.).",
+   "fieldname": "is_time_sensitive",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Time Sensitive",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "time_sensitive_case",
+   "fieldtype": "Link",
+   "label": "Time Sensitive Case",
+   "no_copy": 1,
+   "options": "Time Sensitive Case",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "time_sensitive_case.case_type",
+   "fieldname": "ts_case_type",
+   "fieldtype": "Link",
+   "label": "TS Case Type",
+   "no_copy": 1,
+   "options": "Time Sensitive Case Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "critical_deadline",
+   "fieldtype": "Datetime",
+   "in_list_view": 0,
+   "label": "Critical Deadline",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "ts_countdown",
+   "fieldtype": "HTML",
+   "label": "TS Countdown"
   },
   {
    "fieldname": "customer",

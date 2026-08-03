@@ -1,0 +1,25 @@
+{
+ "app": "logistics",
+ "bg_color": "blue",
+ "creation": "2026-07-30 00:00:00",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "Time Sensitive",
+ "link_to": "Time Sensitive",
+ "link_type": "Workspace Sidebar",
+ "modified": "2026-07-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "name": "Time Sensitive",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
+ "sidebar": "Time Sensitive",
+ "standard": 1
+}

@@ -50,6 +50,11 @@
   "column_break_scope_hdr",
   "separate_billings_per_service_type",
   "is_high_value",
+  "is_time_sensitive",
+  "time_sensitive_case",
+  "ts_case_type",
+  "critical_deadline",
+  "ts_countdown",
   "status_section",
   "column_break_ralf",
   "status",
@@ -363,7 +368,7 @@
    "options": "Incoterm"
   },
   {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && [\"Air\", \"Sea\", \"Transport\", \"Customs\", \"Warehousing\", \"Cross-Docking\", \"Special Project\", \"MICE\"].includes(doc.main_service)",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && [\"Air\", \"Sea\", \"Transport\", \"Customs\", \"Warehousing\", \"Time Sensitive\", \"Special Project\", \"MICE\"].includes(doc.main_service)",
    "fieldname": "one_off_params_section",
    "fieldtype": "Section Break",
    "label": "Main Service Parameters"
@@ -440,7 +445,7 @@
    "link_filters": "[[\"Charge Category\", \"disabled\", \"=\", 0]]"
   },
   {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && [\"Warehousing\", \"Cross-Docking\"].includes(doc.main_service)",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Warehousing\"",
    "description": "Warehouse site for this quote; copied to Warehouse Contract on create.",
    "fieldname": "site",
    "fieldtype": "Link",
@@ -850,7 +855,7 @@
    "fieldname": "main_service",
    "fieldtype": "Select",
    "label": "Primary Service Type",
-   "options": "\nAir\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nSpecial Project\nMICE",
+   "options": "\nAir\nSea\nTransport\nCustoms\nWarehousing\nTime Sensitive\nSpecial Project\nMICE",
    "reqd": 1
   },
   {
@@ -884,6 +889,45 @@
    "fieldname": "is_high_value",
    "fieldtype": "Check",
    "label": "High Value"
+  },
+  {
+   "default": "0",
+   "description": "Mark this record for urgent / time-sensitive processing (AOG, live organ, line-stop, etc.).",
+   "fieldname": "is_time_sensitive",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Time Sensitive",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "time_sensitive_case",
+   "fieldtype": "Link",
+   "label": "Time Sensitive Case",
+   "no_copy": 1,
+   "options": "Time Sensitive Case",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "time_sensitive_case.case_type",
+   "fieldname": "ts_case_type",
+   "fieldtype": "Link",
+   "label": "TS Case Type",
+   "no_copy": 1,
+   "options": "Time Sensitive Case Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "critical_deadline",
+   "fieldtype": "Datetime",
+   "in_list_view": 0,
+   "label": "Critical Deadline",
+   "mandatory_depends_on": "eval:doc.main_service == \"Time Sensitive\"",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "ts_countdown",
+   "fieldtype": "HTML",
+   "label": "TS Countdown"
   },
   {
    "fieldname": "routing_legs",

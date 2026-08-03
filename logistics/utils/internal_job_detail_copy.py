@@ -57,7 +57,7 @@ def internal_job_detail_row_as_dict(row: Any) -> dict:
 
 
 def sync_internal_job_details_from_declaration_to_declaration_order(declaration: Any) -> None:
-	"""Align ``job_no`` / ``job_type`` on Declaration Order Linked Service docs with Declaration."""
+	"""Tag Declaration Order as a Usage consumer of Declaration's Customs Linked Services."""
 	do_name = (getattr(declaration, "declaration_order", None) or "").strip()
 	dec_name = (getattr(declaration, "name", None) or "").strip()
 	if not do_name or not dec_name or not frappe.db.exists("Declaration Order", do_name):
@@ -65,38 +65,23 @@ def sync_internal_job_details_from_declaration_to_declaration_order(declaration:
 	from logistics.logistics.doctype.linked_service.linked_service import (
 		get_linked_services_for_booking,
 	)
+	from logistics.utils.linked_service_usage import (
+		USAGE_ROLE_SATELLITE_JOB,
+		record_linked_service_usage,
+	)
 
-	dec_rows = list(get_linked_services_for_booking("Declaration", dec_name))
-	if not dec_rows:
-		return
-	order_rows = list(get_linked_services_for_booking("Declaration Order", do_name))
-
-	def _row_key(ls: Any) -> tuple:
-		st = (getattr(ls, "service_type", None) or "").strip()
-		jt = effective_internal_job_detail_job_type(ls)
-		ls_name = row_linked_service_link(ls) or (getattr(ls, "name", None) or "").strip()
-		return (st, jt, ls_name)
-
-	order_by_key = {_row_key(ls): ls for ls in order_rows}
-	ls_dt = linked_service_doctype()
-	for dec_ls in dec_rows:
-		key = _row_key(dec_ls)
-		ord_ls = order_by_key.get(key)
-		if not ord_ls:
+	for dec_ls in get_linked_services_for_booking("Declaration", dec_name):
+		ls_name = (getattr(dec_ls, "name", None) or "").strip()
+		if not ls_name:
 			continue
-		dec_jn = (getattr(dec_ls, "job_no", None) or "").strip()
-		ord_jn = (getattr(ord_ls, "job_no", None) or "").strip()
-		dec_jt = (effective_internal_job_detail_job_type(dec_ls) or "").strip()
-		ord_jt = (effective_internal_job_detail_job_type(ord_ls) or "").strip()
-		new_jn = dec_jn or ord_jn
-		new_jt = dec_jt or ord_jt
-		updates: dict[str, Any] = {}
-		if new_jn and new_jn != ord_jn:
-			updates["job_no"] = new_jn
-		if new_jt and new_jt != ord_jt:
-			updates["job_type"] = new_jt
-		if updates:
-			frappe.db.set_value(ls_dt, ord_ls.name, updates, update_modified=False)
+		if (getattr(dec_ls, "service_type", None) or "").strip() != "Customs":
+			continue
+		record_linked_service_usage(
+			ls_name,
+			DECLARATION_ORDER_JOB_TYPE,
+			do_name,
+			usage_role=USAGE_ROLE_SATELLITE_JOB,
+		)
 
 
 def copy_internal_job_details_to_doc(source_doc: Any, dest_doc: Any) -> None:
@@ -163,25 +148,42 @@ def clone_linked_services_between_parents(
 	dest_doctype: str,
 	dest_name: str,
 ) -> dict[str, str]:
-	"""Clone every Linked Service owned by *source* onto *dest*; *source* keeps originals."""
+	"""Reuse Linked Services visible on *source* onto *dest* via Usage tags (identity map).
+
+	Historically this cloned new IJ-… docs onto *dest*. Shared-ID model records Usage instead
+	so charge links keep pointing at the same Linked Service names.
+	"""
 	from logistics.logistics.doctype.linked_service.linked_service import (
 		get_linked_services_for_booking,
 	)
-	from logistics.utils.internal_job_persistence import (
-		create_internal_job_for_parent_from_source,
+	from logistics.utils.linked_service_usage import (
+		USAGE_ROLE_SHIPMENT,
+		record_usages_for_linked_services,
 	)
 
 	mapping: dict[str, str] = {}
 	if not source_doctype or not source_name or not dest_doctype or not dest_name:
 		return mapping
+	ls_names: list[str] = []
 	for ls in get_linked_services_for_booking(source_doctype, source_name):
 		ls_name = (getattr(ls, "name", None) or "").strip()
-		if not ls_name:
-			continue
-		mapping[ls_name] = create_internal_job_for_parent_from_source(
-			dest_doctype, dest_name, ls
-		)
-	return mapping
+		if ls_name:
+			ls_names.append(ls_name)
+	if not ls_names:
+		return mapping
+	# Prefer Shipment role when destination looks like a shipment; else Parent Booking.
+	role = USAGE_ROLE_SHIPMENT
+	dest_l = (dest_doctype or "").lower()
+	if "shipment" not in dest_l and "job" not in dest_l:
+		from logistics.utils.linked_service_usage import USAGE_ROLE_PARENT_BOOKING
+
+		role = USAGE_ROLE_PARENT_BOOKING
+	return record_usages_for_linked_services(
+		ls_names,
+		dest_doctype,
+		dest_name,
+		usage_role=role,
+	)
 
 
 def clone_linked_services_to_parent(
@@ -190,7 +192,7 @@ def clone_linked_services_to_parent(
 	*,
 	remap_charges: bool = True,
 ) -> dict[str, str]:
-	"""Clone Linked Service documents from *source* onto *dest*; *source* retains originals."""
+	"""Reuse Linked Service IDs from *source* onto *dest* (Usage tags; identity mapping)."""
 	dest_name = (getattr(dest_doc, "name", None) or "").strip()
 	source_name = (getattr(source_doc, "name", None) or "").strip()
 	if not dest_name or not source_name:
@@ -211,7 +213,7 @@ def clone_linked_services_to_parent(
 
 
 def get_declaration_order_job_no_from_shipment_doc(shipment_doc: Any) -> str | None:
-	"""Return linked Declaration Order name from Linked Service docs on the shipment.
+	"""Return linked Declaration Order name from Usage on the shipment's Linked Services.
 
 	Skips cancelled Declaration Orders so the main shipment can create/link a replacement after cancel.
 	"""
@@ -222,16 +224,25 @@ def get_declaration_order_job_no_from_shipment_doc(shipment_doc: Any) -> str | N
 	from logistics.logistics.doctype.linked_service.linked_service import (
 		get_linked_services_for_booking,
 	)
+	from logistics.utils.linked_service_usage import (
+		USAGE_ROLE_SATELLITE_JOB,
+		get_usages_for_linked_service,
+	)
 
 	for ls in get_linked_services_for_booking(parent_doctype, parent_name):
-		if effective_internal_job_detail_job_type(ls) != DECLARATION_ORDER_JOB_TYPE:
+		if (getattr(ls, "service_type", None) or "").strip() != "Customs":
 			continue
-		jn = (getattr(ls, "job_no", None) or "").strip()
-		if not jn or not frappe.db.exists("Declaration Order", jn):
-			continue
-		if frappe.db.get_value("Declaration Order", jn, "docstatus") == 2:
-			continue
-		return jn
+		for usage in get_usages_for_linked_service(ls.name):
+			if (usage.get("usage_role") or "").strip() != USAGE_ROLE_SATELLITE_JOB:
+				continue
+			if (usage.get("used_on_doctype") or "").strip() != DECLARATION_ORDER_JOB_TYPE:
+				continue
+			jn = (usage.get("used_on_name") or "").strip()
+			if not jn or not frappe.db.exists("Declaration Order", jn):
+				continue
+			if frappe.db.get_value("Declaration Order", jn, "docstatus") == 2:
+				continue
+			return jn
 	return None
 
 
@@ -376,11 +387,11 @@ def _stamp_and_verify_virtual_job_link(
 	job_no: str,
 	sync_internal_job_doc_job_link,
 ) -> None:
-	"""Write job_type/job_no onto *ls_name*, verify the DB write, stamp the operational doc."""
+	"""Record Usage for *ls_name* + stamp the operational doc (no job fields on Linked Service)."""
 	jn = (job_no or "").strip()
 	jt = (job_type or "").strip()
 	if not ls_name or not jn:
-		frappe.throw(_("Could not set Job No on Linked Service."), title=_("Job link failed"))
+		frappe.throw(_("Could not link Job No to Linked Service."), title=_("Job link failed"))
 	if not linked_service_record_exists(ls_name):
 		frappe.throw(
 			_("Linked Service {0} does not exist.").format(ls_name),
@@ -388,10 +399,14 @@ def _stamp_and_verify_virtual_job_link(
 		)
 	sync_row = frappe._dict({"linked_service": ls_name, "internal_job": ls_name})
 	sync_internal_job_doc_job_link(sync_row, jt, jn)
-	written = (frappe.db.get_value(linked_service_doctype(), ls_name, "job_no") or "").strip()
-	if written != jn:
+	from logistics.utils.linked_service_usage import get_linked_services_used_by
+
+	used = get_linked_services_used_by(jt, jn)
+	if ls_name not in used:
 		frappe.throw(
-			_("Could not set Job No on Linked Service {0}.").format(ls_name),
+			_("Could not record Usage for Linked Service {0} on {1} {2}.").format(
+				ls_name, jt, jn
+			),
 			title=_("Job link failed"),
 		)
 	_stamp_internal_job_link_on_target(jt, jn, sync_row)
@@ -571,7 +586,37 @@ def persist_internal_job_detail_job_link(
 
 
 def _internal_job_detail_row_open_for_declaration_order_link(row: Any) -> bool:
-	"""True if this Internal Job line can receive a new Declaration Order link without overwriting an active order."""
+	"""True if this Internal Job / Linked Service line can receive a new Declaration Order link."""
+	# Linked Service docs: open when Customs and no active Declaration Order Usage.
+	if getattr(row, "doctype", None) == linked_service_doctype() or (
+		isinstance(row, dict) and not row.get("parentfield")
+	):
+		st = (getattr(row, "service_type", None) if not isinstance(row, dict) else row.get("service_type")) or ""
+		if str(st).strip() != "Customs" and effective_internal_job_detail_job_type(row) != DECLARATION_ORDER_JOB_TYPE:
+			return False
+		ls_name = (getattr(row, "name", None) if not isinstance(row, dict) else row.get("name")) or ""
+		ls_name = str(ls_name).strip()
+		if not ls_name:
+			return True
+		from logistics.utils.linked_service_usage import (
+			USAGE_ROLE_SATELLITE_JOB,
+			get_usages_for_linked_service,
+		)
+
+		for usage in get_usages_for_linked_service(ls_name):
+			if (usage.get("usage_role") or "").strip() != USAGE_ROLE_SATELLITE_JOB:
+				continue
+			if (usage.get("used_on_doctype") or "").strip() != DECLARATION_ORDER_JOB_TYPE:
+				continue
+			jn = (usage.get("used_on_name") or "").strip()
+			if not jn:
+				continue
+			if not frappe.db.exists("Declaration Order", jn):
+				continue
+			if int(frappe.db.get_value("Declaration Order", jn, "docstatus") or 0) != 2:
+				return False
+		return True
+
 	if effective_internal_job_detail_job_type(row) != DECLARATION_ORDER_JOB_TYPE:
 		return False
 	jn = (getattr(row, "job_no", None) or "").strip()
@@ -585,7 +630,7 @@ def _internal_job_detail_row_open_for_declaration_order_link(row: Any) -> bool:
 def link_declaration_order_on_shipment(
 	shipment_doctype: str, shipment_name: str, declaration_order_name: str
 ) -> None:
-	"""Set job_no on the shipment's Customs Linked Service for this Declaration Order."""
+	"""Record Declaration Order Usage on the shipment's Customs Linked Service."""
 	if not declaration_order_name or not frappe.db.exists("Declaration Order", declaration_order_name):
 		return
 	from logistics.logistics.doctype.linked_service.linked_service import (
@@ -606,7 +651,6 @@ def link_declaration_order_on_shipment(
 			"parent_booking_type": shipment_doctype,
 			"parent_booking_name": shipment_name,
 			"service_type": "Customs",
-			"job_type": DECLARATION_ORDER_JOB_TYPE,
 		},
 		"name",
 	)
@@ -616,11 +660,7 @@ def link_declaration_order_on_shipment(
 		return
 	from logistics.utils.internal_job_persistence import _create_internal_job_from_row
 
-	row = frappe._dict(
-		service_type="Customs",
-		job_type=DECLARATION_ORDER_JOB_TYPE,
-		job_no=declaration_order_name,
-	)
+	row = frappe._dict(service_type="Customs")
 	ij_name = _create_internal_job_from_row(parent, row)
 	sync_internal_job_doc_job_link(
 		frappe._dict(linked_service=ij_name, internal_job=ij_name),
@@ -634,22 +674,23 @@ def unlink_declaration_order_from_shipment(
 	shipment_name: str,
 	declaration_order_name: str,
 ) -> None:
-	"""Clear Declaration Order job_no on the shipment's matching Linked Service."""
+	"""Clear Declaration Order Usage on the shipment's matching Linked Service."""
 	if not (declaration_order_name or "").strip():
 		return
 	from logistics.logistics.doctype.linked_service.linked_service import (
 		get_linked_services_for_booking,
 	)
+	from logistics.utils.linked_service_usage import clear_linked_service_usage
 
 	do_name = declaration_order_name.strip()
-	ls_dt = linked_service_doctype()
 	for ls in get_linked_services_for_booking(shipment_doctype, shipment_name):
-		if (getattr(ls, "job_type", None) or "").strip() != DECLARATION_ORDER_JOB_TYPE:
+		if (getattr(ls, "service_type", None) or "").strip() != "Customs":
 			continue
-		jn = (getattr(ls, "job_no", None) or "").strip()
-		if jn != do_name:
-			continue
-		frappe.db.set_value(ls_dt, ls.name, {"job_no": "", "job_type": DECLARATION_ORDER_JOB_TYPE}, update_modified=False)
+		clear_linked_service_usage(
+			DECLARATION_ORDER_JOB_TYPE,
+			do_name,
+			linked_service=ls.name,
+		)
 		return
 
 

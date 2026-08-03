@@ -16,6 +16,7 @@
   "column_break_basic",
   "sales_quote",
   "customer",
+  "task_type",
   "lifecycle_stage",
   "shipper",
   "consignee",
@@ -144,6 +145,13 @@
    "read_only": 1
   },
   {
+   "fieldname": "task_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Task Type",
+   "options": "Project Task Type"
+  },
+  {
    "fieldname": "column_break_basic",
    "fieldtype": "Column Break"
   },
@@ -180,13 +188,12 @@
   {
    "fieldname": "required_by",
    "fieldtype": "Date",
-   "label": "Required By"
+   "label": "Planned Start"
   },
   {
-   "description": "Commercial validity of this order (booking window).",
    "fieldname": "valid_until",
    "fieldtype": "Date",
-   "label": "Valid Until"
+   "label": "Planned End"
   },
   {
    "description": "Primary site or address for work under this order.",
@@ -223,7 +230,6 @@
    "fieldname": "shipper_address",
    "fieldtype": "Link",
    "label": "Shipper Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -252,7 +258,6 @@
    "fieldname": "consignee_address",
    "fieldtype": "Link",
    "label": "Consignee Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {

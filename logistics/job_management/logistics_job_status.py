@@ -43,8 +43,29 @@ def sync_sea_shipment_job_status(doc):
 		doc.job_status = "Submitted"
 
 
+def get_air_shipment_milestone_status(doc):
+	"""Return the Air Shipment's operational status from its milestones."""
+	milestones = list(doc.get("milestones") or [])
+	if not milestones:
+		return "Submitted"
+
+	statuses = [
+		(
+			getattr(row, "status", None)
+			or (row.get("status") if hasattr(row, "get") else None)
+			or ""
+		).strip()
+		for row in milestones
+	]
+	if all(status == "Completed" for status in statuses):
+		return "Completed"
+	if any(status in ("Started", "Completed", "Delayed") for status in statuses):
+		return "In Progress"
+	return "Submitted"
+
+
 def sync_air_shipment_job_status(doc):
-	"""Derive job_status from tracking_status (Delivered -> Completed)."""
+	"""Derive job_status from the Air Shipment Milestone table."""
 	if getattr(doc.flags, "skip_job_status_sync", False):
 		return
 	docstatus = getattr(doc, "docstatus", 0) or 0
@@ -55,12 +76,7 @@ def sync_air_shipment_job_status(doc):
 		return
 	if cur in ("Reopened", "Closed"):
 		return
-	ts = (getattr(doc, "tracking_status", None) or "").strip()
-	if ts == "Delivered":
-		doc.job_status = "Completed"
-		return
-	if not cur or cur == "Draft":
-		doc.job_status = "Submitted"
+	doc.job_status = get_air_shipment_milestone_status(doc)
 
 
 def sync_declaration_job_status(doc):

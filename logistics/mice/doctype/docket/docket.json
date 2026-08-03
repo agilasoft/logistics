@@ -256,11 +256,13 @@
    "label": "Event Close Date"
   },
   {
+   "fetch_from": "exhibit.move_in_date",
    "fieldname": "required_by",
    "fieldtype": "Date",
    "label": "Move-In Date"
   },
   {
+   "fetch_from": "exhibit.move_out_date",
    "fieldname": "valid_until",
    "fieldtype": "Date",
    "label": "Move-Out Date"

@@ -2,10 +2,22 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on('Warehouse Item', {
+    setup: function(frm) {
+        frm._code_manual = false;
+        frm._updating_code = false;
+        frm._last_auto_code = null;
+    },
     refresh: function(frm) {
         update_uom_fields(frm);
         // Bind change events directly to input fields for more reliable triggering
         _setup_dimension_listeners(frm);
+        // Saved documents keep their Code unless the user clears it (rename risk).
+        if (!frm.is_new() && frm.doc.code) {
+            frm._code_manual = true;
+            frm._last_auto_code = frm.doc.code;
+        } else if (frm.is_new() && !frm._code_manual) {
+            maybe_generate_item_code(frm);
+        }
     },
     length: function(frm) {
         // Use setTimeout to ensure value is committed to doc
@@ -36,6 +48,25 @@ frappe.ui.form.on('Warehouse Item', {
     },
     customer: function(frm) {
         set_customer_code(frm);
+    },
+    item_name: function(frm) {
+        maybe_generate_item_code(frm);
+    },
+    customer_code: function(frm) {
+        maybe_generate_item_code(frm);
+    },
+    code: function(frm) {
+        if (frm._updating_code) {
+            return;
+        }
+        // Treat any user edit as manual so subsequent Customer / Item Name
+        // changes do not overwrite a custom code.
+        const current = (frm.doc.code || '').trim();
+        frm._code_manual = current !== '' && current !== (frm._last_auto_code || '');
+        if (!current) {
+            frm._code_manual = false;
+            maybe_generate_item_code(frm);
+        }
     }
 });
 
@@ -44,8 +75,41 @@ function set_customer_code(frm) {
         frm.set_value('customer_code', '');
         return;
     }
-    frappe.db.get_value('Customer', frm.doc.customer, 'custom_code', (r) => {
-        frm.set_value('customer_code', (r && r.custom_code) || '');
+    frappe.db.get_value('Customer', frm.doc.customer, 'logistics_party_code', (r) => {
+        frm.set_value('customer_code', (r && r.logistics_party_code) || '');
+    });
+}
+
+function maybe_generate_item_code(frm) {
+    if (frm._code_manual) {
+        return;
+    }
+    if (!frm.doc.item_name || !frm.doc.customer) {
+        return;
+    }
+    // Wait for customer_code when it is still being fetched
+    if (!frm.doc.customer_code) {
+        return;
+    }
+
+    frappe.call({
+        method: 'logistics.warehousing.doctype.warehouse_item.warehouse_item.suggest_warehouse_item_code',
+        args: {
+            item_name: frm.doc.item_name,
+            customer: frm.doc.customer,
+            customer_code: frm.doc.customer_code,
+            doc_name: frm.doc.name
+        },
+        callback: function(r) {
+            if (frm._code_manual || !r.message) {
+                return;
+            }
+            frm._last_auto_code = r.message;
+            frm._updating_code = true;
+            frm.set_value('code', r.message).then(function() {
+                frm._updating_code = false;
+            });
+        }
     });
 }
 

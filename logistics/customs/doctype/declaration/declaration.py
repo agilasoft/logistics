@@ -250,6 +250,12 @@ class Declaration(Document):
 		from logistics.utils.module_integration import apply_high_value_from_linked_sales_quote
 
 		apply_high_value_from_linked_sales_quote(self)
+		try:
+			from logistics.time_sensitive.propagation import apply_time_sensitive_from_linked_sales_quote
+
+			apply_time_sensitive_from_linked_sales_quote(self)
+		except Exception:
+			pass
 		self._sync_currency_and_exchange_rates_from_declaration_order()
 		apply_internal_job_customs_country_defaults(self)
 		apply_shipper_consignee_defaults(self)

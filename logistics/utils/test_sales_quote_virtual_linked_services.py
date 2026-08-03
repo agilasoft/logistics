@@ -149,13 +149,14 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 		finally:
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
-	def test_clone_linked_service_to_booking(self):
-		"""Quote conversion clones Linked Service records onto the booking; quote keeps originals."""
+	def test_reuse_linked_service_on_booking(self):
+		"""Quote conversion reuses Linked Service IDs on the booking via Usage tags."""
+		from logistics.utils.linked_service_usage import get_linked_services_used_by
 		from logistics.utils.sales_quote_one_off_internal_jobs import (
 			propagate_one_off_internal_jobs_to_booking,
 		)
 
-		sq = self._minimal_sales_quote("SQ Clone LS To Booking")
+		sq = self._minimal_sales_quote("SQ Reuse LS To Booking")
 		booking = None
 		try:
 			sq.append("linked_services", {"service_type": "Sea"})
@@ -169,16 +170,77 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			booking.flags.ignore_mandatory = True
 			booking.insert(ignore_permissions=True)
 			mapping = propagate_one_off_internal_jobs_to_booking(sq, booking)
-			self.assertNotEqual(mapping.get(ls_name), ls_name)
+			self.assertEqual(mapping.get(ls_name), ls_name)
 
 			ls = frappe.get_doc(linked_service_doctype(), ls_name)
 			self.assertEqual(ls.parent_booking_type, "Sales Quote")
 			self.assertEqual(ls.parent_booking_name, sq.name)
 			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 1)
+			self.assertEqual(get_linked_services_used_by("Sea Booking", booking.name), [ls_name])
 
 			reloaded_sq = frappe.get_doc("Sales Quote", sq.name)
 			self.assertEqual(len(reloaded_sq.linked_services), 1)
 		finally:
 			if booking and frappe.db.exists("Sea Booking", booking.name):
 				frappe.delete_doc("Sea Booking", booking.name, force=True, ignore_permissions=True)
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+
+	def test_manage_dialog_apis_add_list_remove(self):
+		"""Toolbar Services dialog APIs create / list / delete quote-owned Linked Services."""
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+			add_linked_service,
+			list_quote_linked_services,
+			remove_linked_service,
+		)
+
+		sq = self._minimal_sales_quote("SQ Manage Dialog APIs")
+		try:
+			created = add_linked_service(sq.name, "Transport")
+			ls_name = created["linked_service"]
+			self.assertTrue(frappe.db.exists(linked_service_doctype(), ls_name))
+
+			listed = list_quote_linked_services(sq.name)
+			self.assertEqual(len(listed["linked_services"]), 1)
+			self.assertEqual(listed["linked_services"][0]["linked_service"], ls_name)
+			self.assertEqual(listed["linked_services"][0]["service_type"], "Transport")
+
+			result = remove_linked_service(sq.name, ls_name)
+			self.assertEqual(result["action"], "removed")
+			self.assertFalse(frappe.db.exists(linked_service_doctype(), ls_name))
+			self.assertEqual(len(list_quote_linked_services(sq.name)["linked_services"]), 0)
+			reloaded = frappe.get_doc("Sales Quote", sq.name)
+			self.assertEqual(len(reloaded.linked_services), 0)
+		finally:
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+
+	def test_dialog_edit_get_and_update_air_fields(self):
+		"""In-dialog edit APIs load Air fieldset and persist quick fields."""
+		from logistics.logistics.doctype.linked_service.linked_service import (
+			get_dialog_edit_payload,
+			update_dialog_edit,
+		)
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import add_linked_service
+
+		sq = self._minimal_sales_quote("SQ Dialog Edit Air")
+		try:
+			created = add_linked_service(sq.name, "Air")
+			ls_name = created["linked_service"]
+			payload = get_dialog_edit_payload(ls_name, "Sales Quote", sq.name)
+			self.assertEqual(payload["service_type"], "Air")
+			fieldnames = [f["fieldname"] for f in payload["fields"]]
+			self.assertIn("airline", fieldnames)
+			self.assertIn("shipper", fieldnames)
+			self.assertIn("notes", fieldnames)
+
+			updated = update_dialog_edit(
+				ls_name,
+				"Sales Quote",
+				sq.name,
+				{"reference_no": "REF-AIR-12345", "notes": "Handle with care."},
+			)
+			self.assertEqual(updated["changed"], 1)
+			ls = frappe.get_doc(linked_service_doctype(), ls_name)
+			self.assertEqual(ls.reference_no, "REF-AIR-12345")
+			self.assertEqual(ls.notes, "Handle with care.")
+		finally:
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)

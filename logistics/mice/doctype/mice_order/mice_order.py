@@ -221,6 +221,7 @@ def action_create_mice_job(docname: str, title: Optional[str] = None):
 		"consignee_address_display",
 		"consignee_contact",
 		"consignee_contact_display",
+		"task_type",
 		"logistics_service_level",
 		"sla_target_source",
 		"sla_target_date",

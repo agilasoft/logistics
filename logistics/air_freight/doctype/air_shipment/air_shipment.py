@@ -2626,39 +2626,6 @@ class AirShipment(VirtualLinkedServicesMixin, Document):
 		return tx.sign_eawb()
 
 	@frappe.whitelist()
-	def update_tracking_status(self):
-		"""Update tracking status from tracking provider"""
-		try:
-			if not self.real_time_tracking_enabled:
-				frappe.throw(_("Real-time tracking is not enabled for this shipment"))
-			
-			if not self.tracking_provider or not self.tracking_number:
-				frappe.throw(_("Tracking provider and tracking number are required"))
-			
-			# Update tracking status (placeholder - actual implementation would call tracking API)
-			from frappe.utils import now_datetime
-			
-			# This is a placeholder for actual tracking API integration
-			frappe.msgprint(
-				_("Tracking status update requires tracking provider API integration."),
-				indicator="blue",
-				title=_("Tracking Integration")
-			)
-			
-			self.last_tracking_update = now_datetime()
-			self.save()
-			
-			return {
-				"status": "info",
-				"message": "Tracking update requires API integration",
-				"last_update": self.last_tracking_update
-			}
-			
-		except Exception as e:
-			frappe.log_error(f"Tracking update error: {str(e)}", "Air Shipment - Tracking Update")
-			frappe.throw(_("Error updating tracking status: {0}").format(str(e)))
-	
-	@frappe.whitelist()
 	def recognize_revenue(self, recognition_date=None, method=None):
 		"""Recognize revenue for this shipment"""
 		try:
