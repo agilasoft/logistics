@@ -25,9 +25,9 @@ To access Cross-Docking Order, go to:
 
 ### 2.1 From Sales Quote
 
-Set Primary Service Type to **Cross-Docking**, add matching charge lines, then use **Create → Booking / Order** to create a Cross-Docking Order from the Main Service.
+Add a **Cross-Docking** Linked Service (and matching charge lines) on a Sales Quote whose Primary Service Type is another module (e.g. Air/Sea/Transport), then create the Cross-Docking Order via **Create → Internal Job** / linked-service flows.
 
-Linked Service type **Cross-Docking** maps to Cross-Docking Order (linked Warehousing continues to map to VAS Order CROSS-DOCK for backward compatibility).
+Cross-Docking is **not** a Primary Service Type on Sales Quote (it belongs to the Warehousing module). Linked Service type **Cross-Docking** maps to Cross-Docking Order (linked Warehousing continues to map to VAS Order CROSS-DOCK for backward compatibility).
 
 ## 3. Convert to Warehouse Job
 

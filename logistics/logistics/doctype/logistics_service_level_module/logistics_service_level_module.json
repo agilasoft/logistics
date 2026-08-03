@@ -20,7 +20,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Module",
-   "options": "Transport\nSea Freight\nAir Freight\nWarehousing\nCustoms",
+   "options": "Transport\nSea Freight\nAir Freight\nWarehousing\nCustoms\nTime Sensitive",
    "reqd": 1
   },
   {

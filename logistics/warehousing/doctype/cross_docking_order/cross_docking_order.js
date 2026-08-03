@@ -187,49 +187,59 @@ function _fetch(frm, cdt, cdn, context) {
 function populate_cross_docking_order_charges_from_contract(frm, replace) {
   if (!frm.doc.contract) return;
   if (!replace && (frm.doc.charges || []).length) return;
+  if (frm._populating_contract_charges) return;
+  frm._populating_contract_charges = true;
 
   frappe.call({
     method: "logistics.warehousing.doctype.warehouse_job.warehouse_job.get_contract_charge_items",
     args: { warehouse_contract: frm.doc.contract, context: "cross_dock" },
     callback: function (r) {
-      const msg = r.message || {};
-      if (!msg.ok) {
-        frappe.msgprint({
-          title: __("Contract charges"),
-          message: msg.message || __("Could not load charges from the contract."),
-          indicator: "red",
+      try {
+        const msg = r.message || {};
+        if (!msg.ok) {
+          frappe.msgprint({
+            title: __("Contract charges"),
+            message: msg.message || __("Could not load charges from the contract."),
+            indicator: "red",
+          });
+          return;
+        }
+        const items = msg.items || [];
+        if (!items.length) {
+          frappe.show_alert({
+            message: __("No cross-dock charges are set on this Warehouse Contract."),
+            indicator: "orange",
+          });
+          return;
+        }
+        if (!replace && (frm.doc.charges || []).length) return;
+        if (replace) {
+          frm.clear_table("charges");
+        }
+        const cdt = "Cross-Docking Order Charges";
+        items.forEach(function (ci) {
+          if (!ci.item_charge) return;
+          const row = frappe.model.add_child(frm.doc, "charges");
+          const cdn = row.name;
+          frappe.model.set_value(cdt, cdn, "item_code", ci.item_charge);
+          if (ci.item_name) frappe.model.set_value(cdt, cdn, "item_name", ci.item_name);
+          if (typeof ci.rate === "number") frappe.model.set_value(cdt, cdn, "unit_rate", ci.rate);
+          if (ci.currency) frappe.model.set_value(cdt, cdn, "currency", ci.currency);
+          if (ci.uom) frappe.model.set_value(cdt, cdn, "uom", ci.uom);
+          frappe.model.set_value(cdt, cdn, "quantity", 1);
+          recalc_charge_total(cdt, cdn);
         });
-        return;
+        frm.refresh_field("charges");
+        frappe.show_alert(
+          { message: __("Added {0} charge line(s) from contract.", [items.length]), indicator: "green" },
+          4
+        );
+      } finally {
+        frm._populating_contract_charges = false;
       }
-      const items = msg.items || [];
-      if (!items.length) {
-        frappe.show_alert({
-          message: __("No cross-dock charges are set on this Warehouse Contract."),
-          indicator: "orange",
-        });
-        return;
-      }
-      if (replace) {
-        frm.clear_table("charges");
-      }
-      const cdt = "Cross-Docking Order Charges";
-      items.forEach(function (ci) {
-        if (!ci.item_charge) return;
-        const row = frappe.model.add_child(frm.doc, "charges");
-        const cdn = row.name;
-        frappe.model.set_value(cdt, cdn, "item_code", ci.item_charge);
-        if (ci.item_name) frappe.model.set_value(cdt, cdn, "item_name", ci.item_name);
-        if (typeof ci.rate === "number") frappe.model.set_value(cdt, cdn, "unit_rate", ci.rate);
-        if (ci.currency) frappe.model.set_value(cdt, cdn, "currency", ci.currency);
-        if (ci.uom) frappe.model.set_value(cdt, cdn, "uom", ci.uom);
-        frappe.model.set_value(cdt, cdn, "quantity", 1);
-        recalc_charge_total(cdt, cdn);
-      });
-      frm.refresh_field("charges");
-      frappe.show_alert(
-        { message: __("Added {0} charge line(s) from contract.", [items.length]), indicator: "green" },
-        4
-      );
+    },
+    error: function () {
+      frm._populating_contract_charges = false;
     },
   });
 }

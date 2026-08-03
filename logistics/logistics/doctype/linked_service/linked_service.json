@@ -9,10 +9,6 @@
  "field_order": [
   "naming_series",
   "service_type",
-  "column_break_ident",
-  "job_type",
-  "job_no",
-  "job_description",
   "section_break_parent",
   "parent_booking_type",
   "column_break_parent",
@@ -31,6 +27,10 @@
   "direction",
   "origin_port",
   "destination_port",
+  "shipper",
+  "consignee",
+  "reference_no",
+  "notes",
   "section_break_transport_params",
   "transport_template",
   "vehicle_type",
@@ -47,6 +47,8 @@
   "declaration_type",
   "customs_broker",
   "customs_charge_category",
+  "section_break_usages",
+  "usages",
   "section_break_rollup",
   "planned_cost",
   "actual_cost",
@@ -69,30 +71,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nSpecial Project\nMICE",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nOn-Demand Last Mile\nSpecial Project\nMICE",
    "reqd": 1
-  },
-  {
-   "fieldname": "column_break_ident",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "job_type",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Job Type",
-   "no_copy": 1,
-   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nVAS Order\nInbound Order\nRelease Order\nTransfer Order\nCross-Docking Order\nProject Order\nProject Job\nMICE Order\nMICE Job",
-   "read_only": 1
-  },
-  {
-   "fieldname": "job_no",
-   "fieldtype": "Dynamic Link",
-   "in_list_view": 1,
-   "label": "Job No",
-   "no_copy": 1,
-   "options": "job_type",
-   "read_only": 1
   },
   {
    "fieldname": "section_break_parent",
@@ -229,6 +209,32 @@
    "options": "UNLOCO"
   },
   {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "label": "Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
+   "options": "Shipper"
+  },
+  {
+   "depends_on": "eval:[\"Air\",\"Sea\"].includes(doc.service_type)",
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "label": "Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
+   "options": "Consignee"
+  },
+  {
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "label": "Reference No."
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
    "depends_on": "eval:doc.service_type == \"Transport\"",
    "fieldname": "section_break_transport_params",
    "fieldtype": "Section Break",
@@ -343,9 +349,18 @@
    "link_filters": "[[\"Charge Category\", \"disabled\", \"=\", 0]]"
   },
   {
-   "fieldname": "job_description",
-   "fieldtype": "Small Text",
-   "label": "Job Description"
+   "collapsible": 0,
+   "fieldname": "section_break_usages",
+   "fieldtype": "Section Break",
+   "label": "Usage"
+  },
+  {
+   "description": "Documents that reuse this Linked Service ID (bookings, orders, jobs).",
+   "fieldname": "usages",
+   "fieldtype": "Table",
+   "label": "Usages",
+   "options": "Linked Service Usage",
+   "read_only": 1
   },
   {
    "collapsible": 1,
@@ -354,14 +369,14 @@
    "label": "Rollup"
   },
   {
-   "description": "Populated by internal-job rollup.",
+   "description": "Sum of Planned/Actual Cost & Revenue across all Usage rows.",
    "fieldname": "planned_cost",
    "fieldtype": "Currency",
    "label": "Planned Cost",
    "read_only": 1
   },
   {
-   "description": "Populated by internal-job rollup.",
+   "description": "Sum of Planned/Actual Cost & Revenue across all Usage rows.",
    "fieldname": "actual_cost",
    "fieldtype": "Currency",
    "label": "Actual Cost",
@@ -372,14 +387,14 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "Populated by internal-job rollup.",
+   "description": "Sum of Planned/Actual Cost & Revenue across all Usage rows.",
    "fieldname": "planned_revenue",
    "fieldtype": "Currency",
    "label": "Planned Revenue",
    "read_only": 1
   },
   {
-   "description": "Populated by internal-job rollup.",
+   "description": "Sum of Planned/Actual Cost & Revenue across all Usage rows.",
    "fieldname": "actual_revenue",
    "fieldtype": "Currency",
    "label": "Actual Revenue",
@@ -433,6 +448,6 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "title_field": "job_description",
+ "title_field": "service_type",
  "track_changes": 1
 }

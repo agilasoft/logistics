@@ -1,0 +1,197 @@
+{
+ "app": "logistics",
+ "charts": [],
+ "content": "[{\"id\":\"tsHeader\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Time Sensitive Operations</b></span>\",\"col\":12}},{\"id\":\"tsShortcut1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Time Sensitive Case\",\"col\":3}},{\"id\":\"tsShortcut2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Active Cases\",\"col\":3}},{\"id\":\"tsShortcut3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"At Risk\",\"col\":3}},{\"id\":\"tsShortcut4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"tsCardOps\",\"type\":\"card\",\"data\":{\"card_name\":\"Operations\",\"col\":4}},{\"id\":\"tsCardSetup\",\"type\":\"card\",\"data\":{\"card_name\":\"Setup\",\"col\":4}},{\"id\":\"tsCardModes\",\"type\":\"card\",\"data\":{\"card_name\":\"Service Modes\",\"col\":4}}]",
+ "creation": "2026-07-30 00:00:00",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "timer",
+ "idx": 0,
+ "indicator_color": "red",
+ "is_hidden": 0,
+ "label": "Time Sensitive",
+ "link_type": "DocType",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Operations",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Time Sensitive Case",
+   "link_count": 0,
+   "link_to": "Time Sensitive Case",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Case Health",
+   "link_count": 0,
+   "link_to": "Time Sensitive Case Health",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales Quote",
+   "link_count": 0,
+   "link_to": "Sales Quote",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Setup",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Case Type",
+   "link_count": 0,
+   "link_to": "Time Sensitive Case Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Escalation Rule",
+   "link_count": 0,
+   "link_to": "Time Sensitive Escalation Rule",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Service Modes",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Air Booking",
+   "link_count": 0,
+   "link_to": "Air Booking",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sea Booking",
+   "link_count": 0,
+   "link_to": "Sea Booking",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Transport Order",
+   "link_count": 0,
+   "link_to": "Transport Order",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Declaration Order",
+   "link_count": 0,
+   "link_to": "Declaration Order",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Inbound Order",
+   "link_count": 0,
+   "link_to": "Inbound Order",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-07-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Time Sensitive",
+ "name": "Time Sensitive",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
+ "sequence_id": 0.0,
+ "shortcuts": [
+  {
+   "color": "Red",
+   "doc_view": "List",
+   "label": "Time Sensitive Case",
+   "link_to": "Time Sensitive Case",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Active Cases",
+   "link_to": "Time Sensitive Case",
+   "stats_filter": "{\"status\":[\"in\",[\"Activated\",\"In Execution\"]]}",
+   "type": "DocType"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "List",
+   "label": "At Risk",
+   "link_to": "Time Sensitive Case",
+   "stats_filter": "{\"sla_status\":[\"in\",[\"At Risk\",\"Breached\"]]}",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sales Quote",
+   "link_to": "Sales Quote",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "Time Sensitive",
+ "type": "Workspace"
+}

@@ -97,6 +97,8 @@
 
 	const SECTION_OPTIONS_BY_DOCTYPE = {
 		"Run Sheet": ["Places & Dates", "Notes"],
+		// Declaration ``packages`` is a Float count, not a package table.
+		Declaration: ["Parties", "Places & Dates", "Charges", "Notes"],
 	};
 
 	function sections_for(doctype) {

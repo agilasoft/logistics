@@ -112,6 +112,88 @@ def resolve_sales_quote_charge_exchange_rates(doc) -> None:
 			ch.pay_to_exchange_rate = rate if rate is not None else 0
 
 
+def _rate_explicitly_zero(rate: Any) -> bool:
+	"""True when a rate value is present but zero (None/blank are not treated as zero)."""
+	if rate is None or rate == "":
+		return False
+	try:
+		return float(rate) == 0.0
+	except (TypeError, ValueError):
+		return False
+
+
+def _ensure_charge_side_exchange_rate(
+	doc,
+	row: Row,
+	*,
+	entity: Optional[str],
+	currency: Optional[str],
+	rate_field: str,
+	source_field: str,
+	side_label: str,
+	row_label: str,
+) -> None:
+	"""If entity+currency have an explicit zero rate, try to resolve; otherwise throw."""
+	if not entity or not currency:
+		return
+	rate = _get(row, rate_field)
+	if not _rate_explicitly_zero(rate):
+		return
+
+	company = doc.get("company")
+	as_of_date = doc.get("date") or doc.get("creation")
+	source = _get(row, source_field)
+	fetched = resolve_charge_side_exchange_rate(company, source, currency, as_of_date)
+	if fetched is not None and flt(fetched) != 0:
+		if isinstance(row, Mapping):
+			row[rate_field] = fetched
+		else:
+			setattr(row, rate_field, fetched)
+		return
+
+	frappe.throw(
+		_(
+			"Charge {0} ({1}): set Exchange Rate manually, or set Exchange Rate Source "
+			"so the rate can be loaded from Source Exchange Rate for {2} on the quote date."
+		).format(row_label, side_label, currency),
+		title=_("Missing exchange rate"),
+	)
+
+
+def validate_sales_quote_charge_exchange_rates_for_submit(doc) -> None:
+	"""Block Sales Quote submit when charge FX would fail Operational Exchange Rate checks on booking create.
+
+	After resolving from Source Exchange Rate, any bill/pay side with entity + currency and an
+	explicit zero rate cannot be synced onto a booking (same rule as ``resolve_single_operational_exchange_rate_row``).
+	"""
+	if getattr(doc, "doctype", None) != "Sales Quote":
+		return
+	resolve_sales_quote_charge_exchange_rates(doc)
+	for idx, ch in enumerate(doc.get("charges") or [], start=1):
+		item = _get(ch, "item_code") or _get(ch, "item_name")
+		row_label = _("row {0}: {1}").format(idx, item) if item else _("row {0}").format(idx)
+		_ensure_charge_side_exchange_rate(
+			doc,
+			ch,
+			entity=_get(ch, "bill_to"),
+			currency=_get(ch, "currency"),
+			rate_field="bill_to_exchange_rate",
+			source_field="bill_to_exchange_rate_source",
+			side_label=_("Bill To"),
+			row_label=row_label,
+		)
+		_ensure_charge_side_exchange_rate(
+			doc,
+			ch,
+			entity=_get(ch, "pay_to"),
+			currency=_get(ch, "cost_currency"),
+			rate_field="pay_to_exchange_rate",
+			source_field="pay_to_exchange_rate_source",
+			side_label=_("Pay To"),
+			row_label=row_label,
+		)
+
+
 def resolve_single_operational_exchange_rate_row(row: Row) -> None:
 	"""When Source, Currency, and Date are set, set ``rate`` from Source Exchange Rate master."""
 	src = _get(row, "exchange_rate_source")

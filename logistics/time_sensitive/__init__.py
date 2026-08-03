@@ -1,0 +1,4 @@
+# Copyright (c) 2026, www.agilasoft.com and contributors
+# For license information, please see license.txt
+
+"""Time Sensitive logistics module — urgent multimodal case orchestration."""

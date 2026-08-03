@@ -636,6 +636,39 @@ class TestSalesQuote(FrappeTestCase):
 		sq.reload()
 		self.assertEqual(sq.docstatus, 1)
 
+	def test_special_project_main_service_submit_allowed_without_air_sea_charge_ports(self):
+		"""Special Project main service skips Air/Sea port check (ports collected at booking create)."""
+		import uuid
+
+		sq = self._minimal_sales_quote_doc("Special Project")
+		sq.quotation_type = "One-off"
+		sq.naming_series = "OOQ.#####"
+		sq.project_name = f"SQ Test SP Ports {uuid.uuid4().hex[:8]}"
+		sq.append(
+			"charges",
+			{
+				"service_type": "Special Project",
+			},
+		)
+		sq.append(
+			"charges",
+			{
+				"service_type": "Air",
+				"direction": "Export",
+			},
+		)
+		sq.append(
+			"charges",
+			{
+				"service_type": "Sea",
+				"direction": "Export",
+			},
+		)
+		sq.insert()
+		sq.submit()
+		sq.reload()
+		self.assertEqual(sq.docstatus, 1)
+
 	def test_submit_allowed_when_air_ports_only_on_quote(self):
 		"""Charge row may leave ports blank if quote-level ports supply both ends."""
 		sq = self._minimal_sales_quote_doc("Air")

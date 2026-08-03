@@ -110,8 +110,16 @@ WIKI_PAGES_CONFIG = {
         "Sales Quote — Service Scope, Linked Services, and Separate Billings",
         "Pricing Center",
     ),
+    "linked_services_default": (
+        "Linked Services — Default Behaviour",
+        "Pricing Center",
+    ),
     "linked_services_on_operational_documents": (
         "Linked Services on Operational Documents",
+        "Pricing Center",
+    ),
+    "how_linked_services_are_managed_proposal": (
+        "How Linked Services Are Managed (Proposal)",
         "Pricing Center",
     ),
     "change_request": ("Change Request", "Pricing Center"),

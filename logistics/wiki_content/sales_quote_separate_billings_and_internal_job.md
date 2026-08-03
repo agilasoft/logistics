@@ -81,7 +81,7 @@ Sea charges must **not** appear on an Air Booking. If they do (for example after
 
 Each charge line on the quote may reference a quote-level **Linked Service** (Internal Job). When you convert a **full** quote to a booking or order, the system **clones** those legs onto the operational document while the **quote keeps its originals** (same pattern as charge rows). **Blanket call-off** conversions clone only the legs tied to selected charges.
 
-On operational documents (Sea/Air bookings and shipments, Transport orders and jobs), the **Services** tab shows a read-only view of that document's linked legs. Full user guide: [Linked Services on Operational Documents](welcome/linked-services-on-operational-documents).
+On operational documents (Sea/Air bookings and shipments, Transport orders and jobs), the **Services** tab shows a read-only view of that document's linked legs. Platform default: [Linked Services — Default Behaviour](welcome/linked-services-default). Detail: [Linked Services on Operational Documents](welcome/linked-services-on-operational-documents).
 
 An Air Booking should have **Air** Linked Services tied to **Air** charge rows — not Sea/Transport/Customs services unless those are separate internal legs created deliberately.
 

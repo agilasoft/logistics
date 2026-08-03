@@ -13,14 +13,15 @@
         .company-name { font-size: 12pt; font-weight: bold; margin-bottom: 0; }
         .company-address { font-size: 7pt; line-height: 1.3; margin-bottom: 0; }
         .vat-reg { font-size: 7pt; }
-        .main-body { display: flex; justify-content: space-between; margin-bottom: 0; margin-top: 35mm; border: 2px solid #000; padding: 1.5mm; position: relative; }
+        .details-wrap { margin-top: 35mm; margin-bottom: 0; position: relative; }
+        .main-body { display: flex; justify-content: space-between; border: 2px solid #000; padding: 1.5mm; position: relative; }
         .left-column { flex: 1; padding-right: 5mm; }
         .right-column { flex: 1; padding-left: 5mm; }
-        .field-row { display: flex; margin-bottom: -1mm; align-items: flex-start; gap: 0.3mm; }
-        .field-label { font-weight: 900; min-width: 28mm; font-size: 8pt; flex-shrink: 0; text-align: right; }
+        .field-row { display: flex; margin-bottom: -1mm; align-items: baseline; gap: 0.3mm; }
+        .field-label { font-weight: 900; min-width: 28mm; font-size: 8pt; flex-shrink: 0; text-align: right; line-height: 1.4; }
         .left-column .field-label { text-align: right; min-width: 22mm; }
         .left-column .field-row { gap: 0.1mm; }
-        .field-value { flex: 1; font-size: 8pt; min-height: 5mm; padding: 0.3mm 0.5mm; background: white; }
+        .field-value { flex: 1; font-size: 8pt; line-height: 1.4; padding: 0 0.5mm; background: white; }
         .customer-info-section { position: absolute; top: -35mm; left: 1.5mm; z-index: 10; max-width: 80mm; }
         .customer-label { font-weight: bold; font-size: 8pt; margin-top: 5mm; margin-bottom: 1mm; line-height: 1; }
         .customer-name-box { padding: 0.3mm 0.5mm; font-size: 12pt; font-weight: 900; margin-bottom: 0.1mm; margin-top: -1mm; line-height: 1; background: white; }
@@ -41,6 +42,9 @@
         .packages-table .category-total-row td.num, .packages-table .total-row td.num { text-align: right; }
         .packages-table .total-row td { font-weight: bold; border-top: 2px solid #000; background: #f5f5f5; page-break-inside: avoid; break-inside: avoid; }
         .section-title { font-size: 8pt; font-weight: bold; margin: 2mm 0 1mm 0; }
+        .scope-title-block { width: 100%; margin: 0 0 1.5mm 0; }
+        .scope-title-label { font-size: 7pt; color: #555; margin-bottom: 0.8mm; }
+        .scope-title-value { font-size: 8pt; color: #333; background: #f2f2f2; border-radius: 6px; padding: 1.5mm 2.5mm; }
         .charge-section-page-break { page-break-after: always; break-after: page; }
         .charge-section-continued { page-break-before: auto; break-before: auto; }
         .charge-section-continued-break { page-break-before: always; break-before: page; }
@@ -264,17 +268,28 @@
 {% set table_cols = 5 if show_foreign_amt else 4 %}
 
 {% set service_level_name = '' %}
-{% set transit_days = None %}
 {% if doc.service_code and frappe.db.exists("Logistics Service Level", doc.service_code) %}
 {% set sl_doc = frappe.get_doc("Logistics Service Level", doc.service_code) %}
 {% set service_level_name = sl_doc.service_name or doc.service_code %}
-{% set module_map = {'Air': 'Air Freight', 'Sea': 'Sea Freight', 'Transport': 'Transport', 'Customs': 'Customs', 'Warehousing': 'Warehousing'} %}
-{% set sla_module = module_map.get(doc.main_service, doc.main_service) %}
-{% for sl_row in sl_doc.module_settings or [] %}
-{% if sl_row.module == sla_module and sl_row.sla_transit_days %}
-{% set transit_days = sl_row.sla_transit_days %}
+{% endif %}
+
+{% set main_leg_ns = namespace(leg=None) %}
+{% for leg in doc.routing_legs or [] %}
+{% if leg.is_main_job and not main_leg_ns.leg %}
+{% set main_leg_ns.leg = leg %}
 {% endif %}
 {% endfor %}
+{% if not main_leg_ns.leg %}
+{% for leg in doc.routing_legs or [] %}
+{% if leg.type == 'Main' and not main_leg_ns.leg %}
+{% set main_leg_ns.leg = leg %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% set transit_days_display = '' %}
+{% if main_leg_ns.leg and main_leg_ns.leg.etd and main_leg_ns.leg.eta %}
+{% set transit_days_count = frappe.utils.date_diff(main_leg_ns.leg.eta, main_leg_ns.leg.etd) %}
+{% set transit_days_display = (transit_days_count|string) ~ (' Day' if transit_days_count == 1 else ' Days') %}
 {% endif %}
 
 {% set carrier = '' %}
@@ -336,12 +351,6 @@
 {% if doc.sales_rep and frappe.db.exists('Employee', doc.sales_rep) %}
 {% set footer_sales_rep = frappe.db.get_value('Employee', doc.sales_rep, 'employee_name') or doc.sales_rep %}
 {% endif %}
-{% set footer_cost_center = doc.cost_center or '' %}
-{% set footer_profit_center = doc.profit_center or '' %}
-{% if doc.profit_center and frappe.db.exists('Profit Center', doc.profit_center) %}
-{% set footer_profit_center = frappe.db.get_value('Profit Center', doc.profit_center, 'description') or doc.profit_center %}
-{% endif %}
-
 <div class="order-container">
     <div class="header">
         {% if company_doc %}
@@ -398,7 +407,7 @@
     </div>
 
     <div class="top-section">
-        <div class="main-body">
+        <div class="details-wrap">
             <div class="customer-info-section">
                 <div class="customer-label">CUSTOMER</div>
                 <div class="customer-name-box">
@@ -428,6 +437,12 @@
                 <div class="order-title-qr">SALES QUOTE</div>
                 <div class="reference-number">{{ doc.name }}</div>
             </div>
+            {% if doc.scope_title %}
+            <div class="scope-title-block">
+                <div class="scope-title-value" style="background: #ffffff; font-size: 20px; font-weight: bold;">{{ doc.scope_title }}</div>
+            </div>
+            {% endif %}
+            <div class="main-body">
             <div class="left-column">
                 {% if doc.main_service == 'MICE' %}
                 <div class="field-row"><div class="field-label">EXHIBIT:</div><div class="field-value">{{ mice_project_name }}</div></div>
@@ -449,8 +464,8 @@
                 <div class="field-row"><div class="field-label">QUOTE TYPE:</div><div class="field-value">{{ doc.quotation_type or '' }}</div></div>
                 <div class="field-row"><div class="field-label">MAIN SERVICE:</div><div class="field-value">{{ doc.main_service or '' }}</div></div>
                 <div class="field-row"><div class="field-label">SERVICE LEVEL:</div><div class="field-value">{{ service_level_name or doc.service_code or 'Standard' }}</div></div>
-                
-                <div class="field-row"><div class="field-label">FREQUENCY:</div><div class="field-value">Not Specified</div></div>
+                <div class="field-row"><div class="field-label">TRANSIT DAYS:</div><div class="field-value">{{ transit_days_display }}</div></div>
+            </div>
             </div>
         </div>
 
@@ -482,7 +497,7 @@
         {% endfor %}
         {% endfor %}
 
-        {% set first_page_max_rows = 15 %}
+        {% set first_page_max_rows = 10 %}
         {% set continuation_page_max_rows = 26 %}
         {% set first_page_lines = charge_lines.items[:first_page_max_rows] %}
         {% set remaining_lines = charge_lines.items[first_page_max_rows:] %}
@@ -567,8 +582,6 @@
         <div>Company: {{ footer_company }}</div>
         {% if footer_branch %}<div>Branch: {{ footer_branch }}</div>{% endif %}
         {% if footer_sales_rep %}<div>Sales Rep: {{ footer_sales_rep }}</div>{% endif %}
-        {% if footer_cost_center %}<div>Cost Center: {{ footer_cost_center }}</div>{% endif %}
-        {% if footer_profit_center %}<div>Profit Center: {{ footer_profit_center }}</div>{% endif %}
     </div>
 </div>
 </body>

@@ -15,7 +15,7 @@
 		Customs: "Declaration Order",
 		Custom: "Declaration Order",
 		Warehousing: "Inbound Order",
-		"Cross-Docking": "Cross-Docking Order",
+		"Time Sensitive": "Time Sensitive Case",
 	};
 	const SQ_SCOPE_FIELDS = [
 		"transport_mode",
@@ -449,6 +449,8 @@
 			_go("Inbound Order", msg.inbound_order);
 		} else if (msg.cross_docking_order) {
 			_go("Cross-Docking Order", msg.cross_docking_order);
+		} else if (msg.time_sensitive_case) {
+			_go("Time Sensitive Case", msg.time_sensitive_case);
 		}
 	}
 
@@ -546,7 +548,7 @@
 				return true;
 			}
 			if (qt === "Project") {
-				return ["Air", "Sea", "Transport", "Customs", "Custom", "Warehousing", "Cross-Docking"].includes(
+				return ["Air", "Sea", "Transport", "Customs", "Custom", "Warehousing", "Time Sensitive"].includes(
 					doc.main_service
 				);
 			}
@@ -574,7 +576,7 @@
 			frappe.msgprint({
 				title: __("Not available"),
 				message: __(
-					"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, Warehousing, or Cross-Docking."
+					"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, Warehousing, or Time Sensitive."
 				),
 				indicator: "orange",
 			});
@@ -596,7 +598,7 @@
 					frappe.msgprint({
 						title: __("Create Booking / Order"),
 						message: __(
-							"No booking or order can be created from this Sales Quote. Set Main Service to Air, Sea, Transport, Customs, Warehousing, or Cross-Docking with matching charges, or add Services lines."
+							"No booking or order can be created from this Sales Quote. Set Main Service to Air, Sea, Transport, Customs, Warehousing, or Time Sensitive with matching charges, or add Services lines."
 						),
 						indicator: "orange",
 					});

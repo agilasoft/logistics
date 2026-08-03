@@ -163,6 +163,9 @@ def _update_internal_job_detail_row(
 def sync_internal_job_rollup_to_main(doc: Any, *, cancelled: bool = False) -> bool:
 	"""Push planned / actual totals from this internal job onto its Main Service's Internal Job Detail row.
 
+	Also updates matching ``Linked Service Usage`` rows (shared IJ-… consumers) and recomputes
+	the Linked Service header Rollup as the sum of Usage lines.
+
 	When ``cancelled`` is True the rollup zeros the values (the internal job is no longer active so the
 	main service should not show stale numbers from a cancelled document).
 
@@ -199,6 +202,37 @@ def sync_internal_job_rollup_to_main(doc: Any, *, cancelled: bool = False) -> bo
 				title="Internal job rollup failed",
 				message=frappe.get_traceback(),
 			)
+
+	# Shared IJ-… Usage rollup (per-job line + Linked Service header sum).
+	try:
+		from logistics.utils.linked_service_usage import sync_usage_rollup_from_job
+		from logistics.utils.service_role_rules import get_linked_service_name
+
+		ls_name = ""
+		try:
+			ls_name = (get_linked_service_name(doc) or "").strip()
+		except Exception:
+			ls_name = ""
+		if not ls_name:
+			meta = frappe.get_meta(job_type)
+			if meta.has_field("linked_service"):
+				ls_name = (getattr(doc, "linked_service", None) or "").strip()
+			elif meta.has_field("internal_job"):
+				ls_name = (getattr(doc, "internal_job", None) or "").strip()
+		updated = sync_usage_rollup_from_job(
+			job_type,
+			job_no,
+			linked_service=ls_name or None,
+			cancelled=cancelled,
+		)
+		if updated:
+			changed = True
+	except Exception:
+		frappe.log_error(
+			title="Linked Service Usage rollup failed",
+			message=frappe.get_traceback(),
+		)
+
 	return changed
 
 
@@ -256,21 +290,43 @@ def on_internal_job_after_save(doc: Any, method: str | None = None) -> None:
 	if int(getattr(doc, "docstatus", 0) or 0) == 2:
 		return
 	sync_internal_job_rollup_to_main(doc, cancelled=False)
+	_sync_usage_rollup_safe(doc, cancelled=False)
 
 
 def on_internal_job_submit(doc: Any, method: str | None = None) -> None:
 	"""``on_submit``: persist planned / actual totals onto the Main Service row."""
 	sync_internal_job_rollup_to_main(doc, cancelled=False)
+	_sync_usage_rollup_safe(doc, cancelled=False)
 
 
 def on_internal_job_update_after_submit(doc: Any, method: str | None = None) -> None:
 	"""``on_update_after_submit``: refresh totals when a submitted internal job's charges change."""
 	sync_internal_job_rollup_to_main(doc, cancelled=False)
+	_sync_usage_rollup_safe(doc, cancelled=False)
 
 
 def on_internal_job_cancel(doc: Any, method: str | None = None) -> None:
 	"""``on_cancel``: clear totals so the Main Service does not reflect cancelled jobs."""
 	sync_internal_job_rollup_to_main(doc, cancelled=True)
+	_sync_usage_rollup_safe(doc, cancelled=True)
+
+
+def _sync_usage_rollup_safe(doc: Any, *, cancelled: bool = False) -> None:
+	"""Refresh Linked Service Usage amounts for this document when Usage rows exist.
+
+	Runs for Main bookings and satellite jobs alike (shared IJ-… model).
+	"""
+	if not doc or not getattr(doc, "name", None):
+		return
+	try:
+		from logistics.utils.linked_service_usage import sync_usage_rollup_from_job
+
+		sync_usage_rollup_from_job(doc.doctype, doc.name, cancelled=cancelled)
+	except Exception:
+		frappe.log_error(
+			title="Linked Service Usage rollup failed",
+			message=frappe.get_traceback(),
+		)
 
 
 @frappe.whitelist()

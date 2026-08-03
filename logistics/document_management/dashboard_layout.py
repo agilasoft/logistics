@@ -1487,30 +1487,65 @@ def render_special_project_fulfillment_route_tab_html(
 <style>
 .sp-dash-split.sp-dash-split--fulfillment {{
 	display: flex;
-	flex-wrap: wrap;
-	gap: 1.25rem;
+	flex-wrap: nowrap;
+	gap: 0;
 	align-items: stretch;
 	width: 100%;
 	min-height: 380px;
 	padding: 4px 0;
 }}
 .sp-dash-split--fulfillment .sp-dash-fulfillment-col {{
-	flex: 0 1 340px;
-	max-width: min(360px, 100%);
+	flex: 0 0 var(--sp-dash-left-width, 340px);
+	width: var(--sp-dash-left-width, 340px);
+	max-width: min(55%, 520px);
+	min-width: 220px;
+	max-height: 560px;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding: 12px 4px 16px 16px;
+	box-sizing: border-box;
+}}
+.sp-dash-split--fulfillment .sp-dash-split-handle {{
+	flex: 0 0 10px;
+	align-self: stretch;
+	position: relative;
+	cursor: col-resize;
+	touch-action: none;
+	user-select: none;
+	background: transparent;
+	border: none;
+	padding: 0;
+	margin: 0 2px;
+}}
+.sp-dash-split--fulfillment .sp-dash-split-handle::before {{
+	content: "";
+	position: absolute;
+	top: 16px;
+	bottom: 16px;
+	left: 50%;
+	width: 2px;
+	transform: translateX(-50%);
+	border-radius: 1px;
+	background: #e5e7eb;
+	transition: background 0.15s ease, width 0.15s ease;
+}}
+.sp-dash-split--fulfillment .sp-dash-split-handle:hover::before,
+.sp-dash-split--fulfillment .sp-dash-split-handle:focus-visible::before,
+.sp-dash-split--fulfillment.is-resizing .sp-dash-split-handle::before {{
+	width: 3px;
+	background: #94a3b8;
+}}
+.sp-dash-split--fulfillment.is-resizing {{
+	cursor: col-resize;
+	user-select: none;
+}}
+.sp-dash-split--fulfillment .sp-dash-cards-col {{
+	flex: 1 1 auto;
 	min-width: 260px;
 	max-height: 560px;
 	overflow-y: auto;
-	overflow-x: hidden;
-	padding: 12px 8px 16px 16px;
-	box-sizing: border-box;
-}}
-.sp-dash-split--fulfillment .sp-dash-cards-col {{
-	flex: 1 1 380px;
-	min-width: 280px;
-	max-height: 560px;
-	overflow-y: auto;
-	overflow-x: hidden;
-	padding: 12px 16px 16px 8px;
+	overflow-x: auto;
+	padding: 12px 16px 16px 4px;
 	box-sizing: border-box;
 }}
 .sp-dash-split--fulfillment .sp-pfn-card--dash-left {{
@@ -1529,9 +1564,27 @@ def render_special_project_fulfillment_route_tab_html(
 .sp-dash-lifecycle-group.is-stage-filter .sp-dash-lifecycle-group-header {{
 	background: #f8fafc;
 }}
+@media (max-width: 900px) {{
+	.sp-dash-split.sp-dash-split--fulfillment {{
+		flex-wrap: wrap;
+	}}
+	.sp-dash-split--fulfillment .sp-dash-fulfillment-col {{
+		flex: 1 1 100%;
+		width: 100%;
+		max-width: 100%;
+	}}
+	.sp-dash-split--fulfillment .sp-dash-split-handle {{
+		display: none;
+	}}
+	.sp-dash-split--fulfillment .sp-dash-cards-col {{
+		flex: 1 1 100%;
+		min-width: 0;
+	}}
+}}
 </style>
 <div class="sp-dash-split sp-dash-split--fulfillment" data-sp-fulfillment-dash="1" data-sp-current-stage="{escape_html(current_stage)}">
 	<div class="sp-dash-fulfillment-col">{fulfillment_left_html}</div>
+	<button type="button" class="sp-dash-split-handle" aria-label="Resize panels" title="Drag to resize" tabindex="0"></button>
 	<div class="sp-dash-cards-col">{lifecycle_right_html}</div>
 </div>
 """

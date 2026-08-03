@@ -523,7 +523,37 @@ class TestGcfqFilterSettingsCatalog(FrappeTestCase):
 		keys = get_gcfq_catalog_keys_for_doctype("Sea Booking")
 		self.assertIn("origin_port", keys)
 		self.assertIn("shipping_line", keys)
+		self.assertIn("direction", keys)
+		self.assertIn("house_type", keys)
+		self.assertIn("shipper", keys)
 		self.assertNotIn("airline", keys)
+
+	def test_header_field_map_covers_new_catalog_keys(self):
+		from logistics.utils.get_charges_from_quotation import GCFQ_SQ_HEADER_FIELD_MAP
+
+		# Every mapped filter_key must exist in the catalog for that doctype.
+		for dt, mapping in GCFQ_SQ_HEADER_FIELD_MAP.items():
+			catalog_keys = {e["key"] for e in GCFQ_FILTER_CATALOG[dt]}
+			for filter_key in mapping:
+				self.assertIn(filter_key, catalog_keys, msg=f"{dt}.{filter_key}")
+
+	@patch("logistics.utils.sales_quote_link_query.frappe.db.has_column", return_value=True)
+	@patch("logistics.utils.sales_quote_link_query.frappe.db.get_value")
+	def test_header_fields_blank_quote_is_wildcard(self, mock_gv, _mock_col):
+		from logistics.utils.sales_quote_link_query import sales_quote_matches_job_header_fields
+
+		mock_gv.return_value = {"direction": "", "incoterm": ""}
+		self.assertTrue(
+			sales_quote_matches_job_header_fields("SQ-X", {"direction": "Import", "incoterm": "FOB"})
+		)
+
+	@patch("logistics.utils.sales_quote_link_query.frappe.db.has_column", return_value=True)
+	@patch("logistics.utils.sales_quote_link_query.frappe.db.get_value")
+	def test_header_fields_mismatch_fails(self, mock_gv, _mock_col):
+		from logistics.utils.sales_quote_link_query import sales_quote_matches_job_header_fields
+
+		mock_gv.return_value = {"direction": "Export"}
+		self.assertFalse(sales_quote_matches_job_header_fields("SQ-X", {"direction": "Import"}))
 
 	@patch(
 		"logistics.utils.get_charges_from_quotation._gcfq_settings_rows_for_doctype",
@@ -550,11 +580,13 @@ class TestGcfqFilterSettingsCatalog(FrappeTestCase):
 		self.assertNotIn("origin_port", by_key)
 		self.assertTrue(by_key["airline"]["editable"])
 		self.assertFalse(by_key["destination_port"]["editable"])
-		# Order: airline, destination_port, branch, then missing catalog keys (cost_center, profit_center)
+		# Order: airline, destination_port, branch, then missing catalog keys
 		keys = [e["key"] for e in cfg]
 		self.assertEqual(keys[:3], ["airline", "destination_port", "branch"])
 		self.assertIn("cost_center", keys)
 		self.assertIn("profit_center", keys)
+		self.assertIn("direction", keys)
+		self.assertIn("house_type", keys)
 
 	@patch(
 		"logistics.utils.get_charges_from_quotation._gcfq_overridable_filter_keys",

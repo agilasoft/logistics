@@ -155,7 +155,6 @@
                 <div class="field-row"><div class="field-label">CONSOL. STATUS:</div><div class="field-value">{{ doc.consolidation_status or '' }}</div></div>
                 <div class="field-row"><div class="field-label">ORIGIN PORT:</div><div class="field-value">{{ doc.origin_port or '' }}</div></div>
                 <div class="field-row"><div class="field-label">DEST. PORT:</div><div class="field-value">{{ doc.destination_port or '' }}</div></div>
-                <div class="field-row"><div class="field-label">TRACKING:</div><div class="field-value">{{ doc.tracking_number or '' }}</div></div>
             </div>
             <div class="right-column">
                 <div class="field-row"><div class="field-label">BOOKING DATE:</div><div class="field-value">{% if doc.booking_date %}{{ frappe.utils.formatdate(doc.booking_date, 'MM-dd-yyyy') }}{% endif %}</div></div>

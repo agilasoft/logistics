@@ -14,6 +14,7 @@ from logistics.utils.charge_service_type import (
 )
 from logistics.utils.module_integration import _set_is_high_value_if_empty
 from logistics.utils.operational_rep_fields import copy_operational_rep_fields_from_declaration_order
+from logistics.utils.virtual_linked_services_view import VirtualLinkedServicesMixin
 
 ORDER_CURRENCY_EXCHANGE_FIELDS = (
 	"currency",
@@ -122,7 +123,7 @@ def calculate_commercial_invoice_balance(doc):
 	doc.balance = format_commercial_invoice_balance(balance)
 
 
-class Declaration(Document):
+class Declaration(VirtualLinkedServicesMixin, Document):
 	def validate(self):
 		from logistics.utils.charges_calculation import (
 			clear_charge_resolution_parent,
@@ -250,6 +251,12 @@ class Declaration(Document):
 		from logistics.utils.module_integration import apply_high_value_from_linked_sales_quote
 
 		apply_high_value_from_linked_sales_quote(self)
+		try:
+			from logistics.time_sensitive.propagation import apply_time_sensitive_from_linked_sales_quote
+
+			apply_time_sensitive_from_linked_sales_quote(self)
+		except Exception:
+			pass
 		self._sync_currency_and_exchange_rates_from_declaration_order()
 		apply_internal_job_customs_country_defaults(self)
 		apply_shipper_consignee_defaults(self)
@@ -1478,7 +1485,21 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.vessel_flight_number = order.vessel_flight_number
 	declaration.transport_document_number = order.transport_document_number
 	declaration.transport_document_type = order.transport_document_type
-	declaration.container_numbers = order.container_numbers
+	declaration.set("containers", [])
+	from logistics.sea_freight.sea_container_row_utils import container_row_to_dict
+
+	_container_fields = (
+		"container_no",
+		"type",
+		"size",
+		"mode",
+		"delivery_modes",
+		"free_time_days",
+	)
+	for row in order.get("containers") or []:
+		data = container_row_to_dict(row, _container_fields)
+		if data:
+			declaration.append("containers", data)
 	declaration.port_of_loading = order.port_of_loading
 	declaration.port_of_discharge = order.port_of_discharge
 	declaration.etd = order.etd

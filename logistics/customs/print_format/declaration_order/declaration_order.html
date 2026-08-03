@@ -151,7 +151,7 @@
                 <div class="field-row"><div class="field-label">FREIGHT AGENT:</div><div class="field-value">{{ doc.freight_agent or '' }}</div></div>
                 <div class="field-row"><div class="field-label">VESSEL / FLIGHT:</div><div class="field-value">{{ doc.vessel_flight_number or '' }}</div></div>
                 <div class="field-row"><div class="field-label">TRANSPORT DOC:</div><div class="field-value">{{ doc.transport_document_type or '' }} {{ doc.transport_document_number or '' }}</div></div>
-                <div class="field-row"><div class="field-label">CONTAINERS:</div><div class="field-value">{{ doc.container_numbers or '' }}</div></div>
+                <div class="field-row"><div class="field-label">CONTAINERS:</div><div class="field-value">{{ ", ".join([r.container_no for r in (doc.containers or []) if r.container_no]) }}</div></div>
             </div>
             <div class="right-column">
                 <div class="field-row"><div class="field-label">ORDER DATE:</div><div class="field-value">{% if doc.order_date %}{{ frappe.utils.formatdate(doc.order_date, 'MM-dd-yyyy') }}{% endif %}</div></div>

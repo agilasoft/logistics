@@ -36,6 +36,11 @@ that field.
 when set. If the booking has ``airline`` but both ports are empty, eligible quotes are filtered **by airline
 only** (unified/legacy Air charge lines). Transport Order uses ``location_from`` / ``location_to``.
 
+**Extra header filters** (catalog): commercial / party / programme fields mapped in ``GCFQ_SQ_HEADER_FIELD_MAP``
+(e.g. direction, load type, house type, shipper, project type). Match is Sales Quote **header** blank-or-equal
+(same rule as Branch / Cost Center / Profit Center). Sea ``house_type`` maps to ``sea_house_type``;
+Air ``house_type`` to ``air_house_type``; Declaration ports map to quote ``origin_port`` / ``destination_port``.
+
 **Main service**: the Sales Quote header ``main_service`` must match the job (Declaration Order →
 Customs, Air Booking → Air, etc.). A multimodal quote whose main service is Sea is **not** listed on
 a Declaration Order even if it has Customs charge lines.
@@ -68,6 +73,7 @@ from logistics.utils.sales_quote_link_query import (
 	sales_quote_matches_declaration_order_filters,
 	sales_quote_matches_job_airline_only,
 	sales_quote_matches_job_corridor,
+	sales_quote_matches_job_header_fields,
 	sales_quote_matches_job_org_dimensions,
 	sales_quote_matches_main_service,
 )
@@ -88,6 +94,12 @@ JOB_DOCTYPES = frozenset(
 _PROGRAMME_GCFQ_DOCTYPES = frozenset({"Special Project", "Exhibit", "MICE Project"})
 
 _DECLARATION_TYPE_OPTIONS = "Import\nExport\nTransit\nBonded"
+_DIRECTION_OPTIONS = "Import\nExport\nDomestic"
+_HOUSE_TYPE_OPTIONS = (
+	"Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\n"
+	"Buyer's Consol Lead\nShipper's Consol Lead\nBreak Bulk"
+)
+_PRIORITY_OPTIONS = "Low\nNormal\nHigh\nUrgent"
 
 _ORG_DIM_ENTRIES = (
 	{"key": "branch", "label": "Branch", "fieldtype": "Link", "options": "Branch", "doc_attr": "branch"},
@@ -104,6 +116,98 @@ _ORG_DIM_ENTRIES = (
 		"fieldtype": "Link",
 		"options": "Profit Center",
 		"doc_attr": "profit_center",
+	},
+)
+
+_PARTY_ENTRIES = (
+	{"key": "shipper", "label": "Shipper", "fieldtype": "Link", "options": "Shipper", "doc_attr": "shipper"},
+	{
+		"key": "consignee",
+		"label": "Consignee",
+		"fieldtype": "Link",
+		"options": "Consignee",
+		"doc_attr": "consignee",
+	},
+	{
+		"key": "shipper_address",
+		"label": "Shipper Address",
+		"fieldtype": "Link",
+		"options": "Address",
+		"doc_attr": "shipper_address",
+	},
+	{
+		"key": "consignee_address",
+		"label": "Consignee Address",
+		"fieldtype": "Link",
+		"options": "Address",
+		"doc_attr": "consignee_address",
+	},
+	{
+		"key": "shipper_contact",
+		"label": "Shipper Contact",
+		"fieldtype": "Link",
+		"options": "Contact",
+		"doc_attr": "shipper_contact",
+	},
+	{
+		"key": "consignee_contact",
+		"label": "Consignee Contact",
+		"fieldtype": "Link",
+		"options": "Contact",
+		"doc_attr": "consignee_contact",
+	},
+)
+
+_REP_ENTRIES = (
+	{"key": "sales_rep", "label": "Sales Rep", "fieldtype": "Link", "options": "Employee", "doc_attr": "sales_rep"},
+	{
+		"key": "operations_rep",
+		"label": "Operations Rep",
+		"fieldtype": "Link",
+		"options": "Employee",
+		"doc_attr": "operations_rep",
+	},
+	{
+		"key": "customer_service_rep",
+		"label": "Customer Service Rep",
+		"fieldtype": "Link",
+		"options": "Employee",
+		"doc_attr": "customer_service_rep",
+	},
+)
+
+_SEA_AIR_COMMERCIAL_ENTRIES = (
+	{
+		"key": "direction",
+		"label": "Direction",
+		"fieldtype": "Select",
+		"options": "",
+		"select_options": _DIRECTION_OPTIONS,
+		"doc_attr": "direction",
+	},
+	{"key": "load_type", "label": "Load Type", "fieldtype": "Link", "options": "Load Type", "doc_attr": "load_type"},
+	{
+		"key": "transport_mode",
+		"label": "Transport Mode",
+		"fieldtype": "Link",
+		"options": "Transport Mode",
+		"doc_attr": "transport_mode",
+	},
+	{"key": "incoterm", "label": "Incoterm", "fieldtype": "Link", "options": "Incoterm", "doc_attr": "incoterm"},
+	{
+		"key": "house_type",
+		"label": "House Type",
+		"fieldtype": "Select",
+		"options": "",
+		"select_options": _HOUSE_TYPE_OPTIONS,
+		"doc_attr": "house_type",
+	},
+	{
+		"key": "freight_agent",
+		"label": "Freight Agent",
+		"fieldtype": "Link",
+		"options": "Freight Agent",
+		"doc_attr": "freight_agent",
 	},
 )
 
@@ -131,6 +235,9 @@ GCFQ_FILTER_CATALOG: dict[str, tuple[dict, ...]] = {
 			"options": "Shipping Line",
 			"doc_attr": "shipping_line",
 		},
+		*_SEA_AIR_COMMERCIAL_ENTRIES,
+		*_PARTY_ENTRIES,
+		*_REP_ENTRIES,
 		*_ORG_DIM_ENTRIES,
 	),
 	"Air Booking": (
@@ -155,6 +262,9 @@ GCFQ_FILTER_CATALOG: dict[str, tuple[dict, ...]] = {
 			"options": "Airline",
 			"doc_attr": "airline",
 		},
+		*_SEA_AIR_COMMERCIAL_ENTRIES,
+		*_PARTY_ENTRIES,
+		*_REP_ENTRIES,
 		*_ORG_DIM_ENTRIES,
 	),
 	"Transport Order": (
@@ -172,6 +282,45 @@ GCFQ_FILTER_CATALOG: dict[str, tuple[dict, ...]] = {
 			"options": "",
 			"doc_attr": "location_to",
 		},
+		{
+			"key": "location_type",
+			"label": "Location Type",
+			"fieldtype": "Link",
+			"options": "DocType",
+			"doc_attr": "location_type",
+		},
+		{
+			"key": "vehicle_type",
+			"label": "Vehicle Type",
+			"fieldtype": "Link",
+			"options": "Vehicle Type",
+			"doc_attr": "vehicle_type",
+		},
+		{
+			"key": "transport_mode",
+			"label": "Transport Mode",
+			"fieldtype": "Link",
+			"options": "Transport Mode",
+			"doc_attr": "transport_mode",
+		},
+		{"key": "load_type", "label": "Load Type", "fieldtype": "Link", "options": "Load Type", "doc_attr": "load_type"},
+		{
+			"key": "transport_template",
+			"label": "Transport Template",
+			"fieldtype": "Link",
+			"options": "Transport Template",
+			"doc_attr": "transport_template",
+		},
+		{
+			"key": "container_type",
+			"label": "Container Type",
+			"fieldtype": "Link",
+			"options": "Container Type",
+			"doc_attr": "container_type",
+		},
+		{"key": "container_no", "label": "Container No.", "fieldtype": "Data", "options": "", "doc_attr": "container_no"},
+		*_PARTY_ENTRIES,
+		*_REP_ENTRIES,
 		*_ORG_DIM_ENTRIES,
 	),
 	"Declaration Order": (
@@ -218,11 +367,153 @@ GCFQ_FILTER_CATALOG: dict[str, tuple[dict, ...]] = {
 			"options": "UNLOCO",
 			"doc_attr": "port_of_discharge",
 		},
+		{"key": "incoterm", "label": "Incoterm", "fieldtype": "Link", "options": "Incoterm", "doc_attr": "incoterm"},
+		{
+			"key": "incoterm_place",
+			"label": "Incoterm Place",
+			"fieldtype": "Data",
+			"options": "",
+			"doc_attr": "incoterm_place",
+		},
+		{
+			"key": "freight_agent",
+			"label": "Freight Agent",
+			"fieldtype": "Link",
+			"options": "Freight Agent",
+			"doc_attr": "freight_agent",
+		},
 		*_ORG_DIM_ENTRIES,
 	),
-	"Special Project": _ORG_DIM_ENTRIES,
-	"Exhibit": _ORG_DIM_ENTRIES,
-	"MICE Project": _ORG_DIM_ENTRIES,
+	"Special Project": (
+		{
+			"key": "project_type",
+			"label": "Project Type",
+			"fieldtype": "Link",
+			"options": "Project Type",
+			"doc_attr": "project_type",
+		},
+		{
+			"key": "priority",
+			"label": "Priority",
+			"fieldtype": "Select",
+			"options": "",
+			"select_options": _PRIORITY_OPTIONS,
+			"doc_attr": "priority",
+		},
+		*_ORG_DIM_ENTRIES,
+	),
+	"Exhibit": (
+		{
+			"key": "project_type",
+			"label": "Project Type",
+			"fieldtype": "Link",
+			"options": "Project Type",
+			"doc_attr": "project_type",
+		},
+		{
+			"key": "priority",
+			"label": "Priority",
+			"fieldtype": "Select",
+			"options": "",
+			"select_options": _PRIORITY_OPTIONS,
+			"doc_attr": "priority",
+		},
+		*_ORG_DIM_ENTRIES,
+	),
+	"MICE Project": (
+		{
+			"key": "project_type",
+			"label": "Project Type",
+			"fieldtype": "Link",
+			"options": "Project Type",
+			"doc_attr": "project_type",
+		},
+		{
+			"key": "priority",
+			"label": "Priority",
+			"fieldtype": "Select",
+			"options": "",
+			"select_options": _PRIORITY_OPTIONS,
+			"doc_attr": "priority",
+		},
+		*_ORG_DIM_ENTRIES,
+	),
+}
+
+# Job filter_key → Sales Quote header column for blank-or-equal matching.
+# Corridor / customs / org dimensions stay on their dedicated match paths.
+GCFQ_SQ_HEADER_FIELD_MAP: dict[str, dict[str, str]] = {
+	"Sea Booking": {
+		"direction": "direction",
+		"load_type": "load_type",
+		"transport_mode": "transport_mode",
+		"incoterm": "incoterm",
+		"house_type": "sea_house_type",
+		"freight_agent": "freight_agent_sea",
+		"shipper": "shipper",
+		"consignee": "consignee",
+		"shipper_address": "shipper_address",
+		"consignee_address": "consignee_address",
+		"shipper_contact": "shipper_contact",
+		"consignee_contact": "consignee_contact",
+		"sales_rep": "sales_rep",
+		"operations_rep": "operations_rep",
+		"customer_service_rep": "customer_service_rep",
+	},
+	"Air Booking": {
+		"direction": "direction",
+		"load_type": "load_type",
+		"transport_mode": "transport_mode",
+		"incoterm": "incoterm",
+		"house_type": "air_house_type",
+		"freight_agent": "freight_agent",
+		"shipper": "shipper",
+		"consignee": "consignee",
+		"shipper_address": "shipper_address",
+		"consignee_address": "consignee_address",
+		"shipper_contact": "shipper_contact",
+		"consignee_contact": "consignee_contact",
+		"sales_rep": "sales_rep",
+		"operations_rep": "operations_rep",
+		"customer_service_rep": "customer_service_rep",
+	},
+	"Transport Order": {
+		"location_type": "location_type",
+		"vehicle_type": "vehicle_type",
+		"transport_mode": "transport_mode",
+		"load_type": "load_type",
+		"transport_template": "transport_template",
+		"container_type": "container_type",
+		"container_no": "container_no",
+		"shipper": "shipper",
+		"consignee": "consignee",
+		"shipper_address": "shipper_address",
+		"consignee_address": "consignee_address",
+		"shipper_contact": "shipper_contact",
+		"consignee_contact": "consignee_contact",
+		"sales_rep": "sales_rep",
+		"operations_rep": "operations_rep",
+		"customer_service_rep": "customer_service_rep",
+	},
+	"Declaration Order": {
+		"port_of_loading": "origin_port",
+		"port_of_discharge": "destination_port",
+		"incoterm": "incoterm",
+		"incoterm_place": "incoterm_place",
+		"freight_agent": "freight_agent",
+	},
+	"Special Project": {
+		"project_type": "project_type",
+		"priority": "priority",
+	},
+	"Exhibit": {
+		"project_type": "project_type",
+		"priority": "priority",
+	},
+	"MICE Project": {
+		"project_type": "project_type",
+		"priority": "priority",
+	},
 }
 
 # Whitelisted keys for Action → Get Charges from Quotation dialog filters (client-sent).
@@ -661,6 +952,26 @@ def _effective_org_dimension_fields(doc, overrides: dict) -> tuple[str, str, str
 	return b, cc, pc
 
 
+def _effective_sq_header_filters(doc, overrides: dict) -> dict[str, str]:
+	"""Sales Quote header column → filter value for blank-or-equal matching.
+
+	Uses ``GCFQ_SQ_HEADER_FIELD_MAP`` (commercial / party / programme fields). Empty values are
+	omitted (no constraint). Disabled catalog cards still contribute the saved job value.
+	"""
+	mapping = GCFQ_SQ_HEADER_FIELD_MAP.get(getattr(doc, "doctype", None) or "", {})
+	if not mapping:
+		return {}
+	by_key = {e["key"]: e for e in GCFQ_FILTER_CATALOG.get(doc.doctype, ())}
+	out: dict[str, str] = {}
+	for filter_key, sq_field in mapping.items():
+		entry = by_key.get(filter_key) or {}
+		doc_attr = entry.get("doc_attr") or filter_key
+		val = _pick_gcfq_field(doc, overrides, filter_key, doc_attr)
+		if val:
+			out[sq_field] = val
+	return out
+
+
 def _effective_declaration_order_filter_fields(
 	doc, overrides: dict
 ) -> tuple[str, str, str, str | None, str, str]:
@@ -1007,6 +1318,18 @@ def _org_dimension_mismatch_message_for_preview(
 	)
 
 
+def _header_fields_mismatch_message_for_preview(
+	doc, sales_quote: str, overrides: dict | None = None
+) -> str | None:
+	ov = overrides or {}
+	header_filters = _effective_sq_header_filters(doc, ov)
+	if sales_quote_matches_job_header_fields(sales_quote, header_filters):
+		return None
+	return str(
+		_("Sales Quote {0} does not match one or more filter fields on this document.").format(sales_quote)
+	)
+
+
 def _gcfq_saved_parent_match_error(
 	doc, service_type: str, sales_quote: str, overrides: dict | None = None
 ) -> str | None:
@@ -1025,7 +1348,10 @@ def _gcfq_saved_parent_match_error(
 		corr_err = _corridor_mismatch_message_for_preview(doc, service_type, sales_quote, parent)
 		if corr_err:
 			return corr_err
-	return _org_dimension_mismatch_message_for_preview(doc, sales_quote, parent)
+	org_err = _org_dimension_mismatch_message_for_preview(doc, sales_quote, parent)
+	if org_err:
+		return org_err
+	return _header_fields_mismatch_message_for_preview(doc, sales_quote, parent)
 
 
 def _assert_sales_quote_org_dimensions_match_job(
@@ -1038,6 +1364,17 @@ def _assert_sales_quote_org_dimensions_match_job(
 			_("Sales Quote {0} does not match this document's Branch, Cost Center, or Profit Center.").format(
 				sales_quote
 			)
+		)
+
+
+def _assert_sales_quote_header_fields_match_job(
+	doc, sales_quote: str, overrides: dict | None = None
+):
+	ov = overrides or {}
+	header_filters = _effective_sq_header_filters(doc, ov)
+	if not sales_quote_matches_job_header_fields(sales_quote, header_filters):
+		frappe.throw(
+			_("Sales Quote {0} does not match one or more filter fields on this document.").format(sales_quote)
 		)
 
 
@@ -1147,6 +1484,7 @@ def list_sales_quotes_for_job(doctype: str, docname: str, filter_overrides=None)
 
 	ov = _parse_gcfq_filter_overrides(doctype, filter_overrides)
 	jb, jcc, jpc = _effective_org_dimension_fields(doc, ov)
+	header_filters = _effective_sq_header_filters(doc, ov)
 
 	if doctype == "Declaration Order":
 		ca, dt, cb, jtm, pol, pod = _effective_declaration_order_filter_fields(doc, ov)
@@ -1180,10 +1518,11 @@ def list_sales_quotes_for_job(doctype: str, docname: str, filter_overrides=None)
 			job_branch=jb or None,
 			job_cost_center=jcc or None,
 			job_profit_center=jpc or None,
+			header_filters=header_filters,
 		)
 		empty_msg = (
 			_("No matching Sales Quotes for these filters.")
-			if (ca or dt or cb or jtm or jb or jcc or jpc)
+			if (ca or dt or cb or jtm or jb or jcc or jpc or header_filters)
 			else _("No matching Sales Quotes found.")
 		)
 	else:
@@ -1230,6 +1569,7 @@ def list_sales_quotes_for_job(doctype: str, docname: str, filter_overrides=None)
 			job_branch=jb or None,
 			job_cost_center=jcc or None,
 			job_profit_center=jpc or None,
+			header_filters=header_filters,
 		)
 		# Clearer copy when corridor is not narrowing (e.g. only Branch/CC/PC set — matches screenshot UX).
 		has_corridor_constraint = False
@@ -1245,7 +1585,7 @@ def list_sales_quotes_for_job(doctype: str, docname: str, filter_overrides=None)
 			has_corridor_constraint = bool((origin or "").strip() or (dest or "").strip())
 		if airline_only:
 			empty_msg = _("No matching Sales Quotes for this airline.")
-		elif not has_corridor_constraint and (jb or jcc or jpc):
+		elif not has_corridor_constraint and (jb or jcc or jpc or header_filters):
 			empty_msg = _("No matching Sales Quotes for these filters.")
 		elif not has_corridor_constraint:
 			empty_msg = _("No matching Sales Quotes found.")
@@ -1750,6 +2090,7 @@ def apply_quotation_charges_to_job(
 		_assert_sales_quote_corridor_matches_job(doc, service_type, sales_quote, ov)
 
 	_assert_sales_quote_org_dimensions_match_job(doc, sales_quote, ov)
+	_assert_sales_quote_header_fields_match_job(doc, sales_quote, ov)
 
 	parent_err = _gcfq_saved_parent_match_error(doc, service_type, sales_quote, ov)
 	if parent_err:

@@ -47,12 +47,65 @@ class TestCrossDockingServiceType(unittest.TestCase):
 		self.assertEqual(implied_service_type_for_doctype("Cross-Docking Order"), "Cross-Docking")
 
 	def test_main_service_job_type_mapping(self):
-		self.assertEqual(_MAIN_SERVICE_JOB_TYPE["Cross-Docking"], "Cross-Docking Order")
+		self.assertNotIn("Cross-Docking", _MAIN_SERVICE_JOB_TYPE)
+		self.assertEqual(_MAIN_SERVICE_JOB_TYPE["Time Sensitive"], "Time Sensitive Case")
 		self.assertIn("Cross-Docking Order", SALES_QUOTE_CREATABLE_JOB_TYPES)
+		self.assertIn("Time Sensitive Case", SALES_QUOTE_CREATABLE_JOB_TYPES)
 
 
-class TestSalesQuoteCrossDockingBooking(UnitTestCase):
-	def _cross_dock_quote(self):
+class TestSalesQuoteTimeSensitiveBooking(UnitTestCase):
+	def _ts_quote(self):
+		sq = frappe.get_doc(
+			{
+				"doctype": "Sales Quote",
+				"name": "SQU-TEST-TS",
+				"quotation_type": "Regular",
+				"docstatus": 1,
+				"main_service": "Time Sensitive",
+				"critical_deadline": "2099-01-01 12:00:00",
+				"company": "_Test Company",
+				"customer": "_Test Customer",
+			}
+		)
+		sq.append(
+			"charges",
+			{"service_type": "Air"},
+		)
+		return sq
+
+	def test_main_service_choice_time_sensitive(self):
+		sq = self._ts_quote()
+		sq.check_permission = lambda *a, **k: None
+
+		with patch(
+			"logistics.pricing_center.sales_quote_booking_creation.frappe.db.exists",
+			return_value=True,
+		), patch(
+			"logistics.pricing_center.sales_quote_booking_creation.frappe.get_doc",
+			return_value=sq,
+		):
+			result = get_sales_quote_booking_choices("SQU-TEST-TS")
+
+		self.assertEqual(len(result["choices"]), 1)
+		choice = result["choices"][0]
+		self.assertEqual(choice["mode"], "main")
+		self.assertEqual(choice["job_type"], "Time Sensitive Case")
+		self.assertTrue(choice["creatable"])
+
+	def test_preview_creatable(self):
+		sq = self._ts_quote()
+		flags = _preview_main_service_creatability(sq)
+		self.assertTrue(flags["creatable"])
+
+	def test_preview_requires_deadline(self):
+		sq = self._ts_quote()
+		sq.critical_deadline = None
+		flags = _preview_main_service_creatability(sq)
+		self.assertFalse(flags["creatable"])
+
+
+class TestSalesQuoteCrossDockingNotPrimary(UnitTestCase):
+	def test_cross_docking_main_service_not_creatable(self):
 		sq = frappe.get_doc(
 			{
 				"doctype": "Sales Quote",
@@ -64,48 +117,10 @@ class TestSalesQuoteCrossDockingBooking(UnitTestCase):
 				"customer": "_Test Customer",
 			}
 		)
-		sq.append(
-			"charges",
-			{"service_type": "Cross-Docking"},
-		)
-		return sq
-
-	def test_main_service_choice_cross_docking(self):
-		sq = self._cross_dock_quote()
-		sq.check_permission = lambda *a, **k: None
-
-		with patch(
-			"logistics.pricing_center.sales_quote_booking_creation.frappe.db.exists",
-			return_value=True,
-		), patch(
-			"logistics.pricing_center.sales_quote_booking_creation.frappe.get_doc",
-			return_value=sq,
-		), patch(
-			"logistics.pricing_center.sales_quote_booking_creation.charges_exist_for_service",
-			return_value=True,
-		), patch(
-			"logistics.pricing_center.sales_quote_booking_creation.internal_job_matches_charges",
-			return_value=True,
-		):
-			result = get_sales_quote_booking_choices("SQU-TEST-CDO")
-
-		self.assertEqual(len(result["choices"]), 1)
-		choice = result["choices"][0]
-		self.assertEqual(choice["mode"], "main")
-		self.assertEqual(choice["job_type"], "Cross-Docking Order")
-		self.assertTrue(choice["creatable"])
-
-	def test_preview_creatable(self):
-		sq = self._cross_dock_quote()
-		with patch(
-			"logistics.pricing_center.sales_quote_booking_creation.charges_exist_for_service",
-			return_value=True,
-		), patch(
-			"logistics.pricing_center.sales_quote_booking_creation.internal_job_matches_charges",
-			return_value=True,
-		):
-			flags = _preview_main_service_creatability(sq)
-		self.assertTrue(flags["creatable"])
+		sq.append("charges", {"service_type": "Cross-Docking"})
+		flags = _preview_main_service_creatability(sq)
+		self.assertFalse(flags["creatable"])
+		self.assertIsNone(_MAIN_SERVICE_JOB_TYPE.get("Cross-Docking"))
 
 
 class TestCrossDockingOrderMakeWarehouseJob(UnitTestCase):

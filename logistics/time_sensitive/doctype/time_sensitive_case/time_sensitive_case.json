@@ -1,0 +1,649 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-07-30 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "details_tab",
+  "section_basic",
+  "naming_series",
+  "case_title",
+  "case_type",
+  "case_type_name",
+  "customer",
+  "column_break_basic",
+  "status",
+  "severity",
+  "sla_status",
+  "sales_quote",
+  "priority",
+  "section_clock",
+  "critical_deadline",
+  "hard_stop_reason",
+  "ts_countdown",
+  "column_break_clock",
+  "activated_on",
+  "acknowledged_on",
+  "next_checkpoint",
+  "response_due_on",
+  "section_parties",
+  "coordinator",
+  "escalation_contact",
+  "contact_24x7_name",
+  "column_break_parties",
+  "contact_24x7_phone",
+  "contact_24x7_email",
+  "requested_outcome",
+  "section_routing",
+  "origin",
+  "destination",
+  "cargo_summary",
+  "section_org",
+  "company",
+  "branch",
+  "column_break_org",
+  "cost_center",
+  "profit_center",
+  "job_number",
+  "billing_status",
+  "section_service_role",
+  "service_role",
+  "main_service_type",
+  "main_service",
+  "linked_service",
+  "legs_tab",
+  "section_linked_services",
+  "linked_services",
+  "stakeholders_tab",
+  "section_stakeholders",
+  "stakeholders",
+  "events_tab",
+  "section_events",
+  "events",
+  "milestones_tab",
+  "section_milestones",
+  "milestone_template",
+  "milestones",
+  "documents_tab",
+  "section_documents",
+  "document_list_template",
+  "documents",
+  "charges_tab",
+  "section_charges",
+  "charges",
+  "closure_tab",
+  "section_closure",
+  "completion_proof",
+  "closure_reason",
+  "delivered_on",
+  "closed_on",
+  "notes",
+  "amended_from",
+  "last_alert_key",
+  "at_risk_hours",
+  "breach_grace_minutes"
+ ],
+ "fields": [
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "section_basic",
+   "fieldtype": "Section Break",
+   "label": "Case"
+  },
+  {
+   "default": "TSC-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "TSC-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "case_title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Case Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "case_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Case Type",
+   "options": "Time Sensitive Case Type",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "case_type.case_type_name",
+   "fieldname": "case_type_name",
+   "fieldtype": "Data",
+   "label": "Case Type Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "column_break_basic",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nTriage\nActivated\nIn Execution\nDelivered\nClosed\nOn Hold\nCancelled",
+   "reqd": 1
+  },
+  {
+   "default": "Urgent",
+   "fieldname": "severity",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Severity",
+   "options": "Normal\nHigh\nUrgent\nCritical"
+  },
+  {
+   "default": "On Track",
+   "fieldname": "sla_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "SLA Status",
+   "options": "On Track\nAt Risk\nBreached\nCompleted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "label": "Sales Quote",
+   "options": "Sales Quote"
+  },
+  {
+   "default": "Urgent",
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nNormal\nHigh\nUrgent"
+  },
+  {
+   "fieldname": "section_clock",
+   "fieldtype": "Section Break",
+   "label": "Critical Clock"
+  },
+  {
+   "fieldname": "critical_deadline",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Critical Deadline",
+   "reqd": 1
+  },
+  {
+   "fieldname": "hard_stop_reason",
+   "fieldtype": "Small Text",
+   "label": "Hard-Stop Reason"
+  },
+  {
+   "fieldname": "ts_countdown",
+   "fieldtype": "HTML",
+   "label": "Countdown"
+  },
+  {
+   "fieldname": "column_break_clock",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "activated_on",
+   "fieldtype": "Datetime",
+   "label": "Activated On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "acknowledged_on",
+   "fieldtype": "Datetime",
+   "label": "Acknowledged On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "next_checkpoint",
+   "fieldtype": "Datetime",
+   "label": "Next Checkpoint"
+  },
+  {
+   "fieldname": "response_due_on",
+   "fieldtype": "Datetime",
+   "label": "Response Due On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_parties",
+   "fieldtype": "Section Break",
+   "label": "Coordination"
+  },
+  {
+   "fieldname": "coordinator",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Coordinator",
+   "options": "User"
+  },
+  {
+   "fieldname": "escalation_contact",
+   "fieldtype": "Link",
+   "label": "Escalation Contact",
+   "options": "User"
+  },
+  {
+   "fieldname": "contact_24x7_name",
+   "fieldtype": "Data",
+   "label": "24/7 Contact Name"
+  },
+  {
+   "fieldname": "column_break_parties",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "contact_24x7_phone",
+   "fieldtype": "Data",
+   "label": "24/7 Phone"
+  },
+  {
+   "fieldname": "contact_24x7_email",
+   "fieldtype": "Data",
+   "label": "24/7 Email"
+  },
+  {
+   "fieldname": "requested_outcome",
+   "fieldtype": "Small Text",
+   "label": "Requested Outcome"
+  },
+  {
+   "fieldname": "section_routing",
+   "fieldtype": "Section Break",
+   "label": "Routing & Cargo"
+  },
+  {
+   "fieldname": "origin",
+   "fieldtype": "Link",
+   "label": "Origin",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "destination",
+   "fieldtype": "Link",
+   "label": "Destination",
+   "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
+   "options": "UNLOCO"
+  },
+  {
+   "fieldname": "cargo_summary",
+   "fieldtype": "Small Text",
+   "label": "Cargo Summary"
+  },
+  {
+   "fieldname": "section_org",
+   "fieldtype": "Section Break",
+   "label": "Organization"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "column_break_org",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "options": "Profit Center"
+  },
+  {
+   "fieldname": "job_number",
+   "fieldtype": "Link",
+   "label": "Job Number",
+   "no_copy": 1,
+   "options": "Job Number",
+   "read_only": 1
+  },
+  {
+   "default": "Not Billed",
+   "fieldname": "billing_status",
+   "fieldtype": "Select",
+   "label": "Billing Status",
+   "options": "Not Billed\nPending\nPartially Billed\nBilled\nTo Bill\nPaid\nOverdue\nCancelled"
+  },
+  {
+   "fieldname": "section_service_role",
+   "fieldtype": "Section Break",
+   "label": "Service Role"
+  },
+  {
+   "default": "Main",
+   "fieldname": "service_role",
+   "fieldtype": "Select",
+   "label": "Service Role",
+   "options": "Main\nLinked\nStandalone",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.service_role==\"Linked\"",
+   "fieldname": "main_service_type",
+   "fieldtype": "Select",
+   "label": "Main Service Type",
+   "options": "\nAir Shipment\nSea Shipment\nTransport Job\nDeclaration\nTime Sensitive Case",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.service_role==\"Linked\"",
+   "fieldname": "main_service",
+   "fieldtype": "Dynamic Link",
+   "label": "Main Service",
+   "options": "main_service_type",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.service_role==\"Linked\"",
+   "description": "Canonical Linked Service record this case represents.",
+   "fieldname": "linked_service",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Linked Service",
+   "no_copy": 1,
+   "options": "Linked Service",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "legs_tab",
+   "fieldtype": "Tab Break",
+   "label": "Services"
+  },
+  {
+   "fieldname": "section_linked_services",
+   "fieldtype": "Section Break",
+   "label": "Linked Services"
+  },
+  {
+   "cannot_add_rows": 1,
+   "description": "Live view of services on this case. Manage via the Services button (add / remove).",
+   "fieldname": "linked_services",
+   "fieldtype": "Table",
+   "is_virtual": 1,
+   "label": "Linked Services",
+   "options": "Linked Service Detail",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stakeholders_tab",
+   "fieldtype": "Tab Break",
+   "label": "Stakeholders"
+  },
+  {
+   "fieldname": "section_stakeholders",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "stakeholders",
+   "fieldtype": "Table",
+   "label": "Stakeholders",
+   "options": "Time Sensitive Case Stakeholder"
+  },
+  {
+   "fieldname": "events_tab",
+   "fieldtype": "Tab Break",
+   "label": "Events"
+  },
+  {
+   "fieldname": "section_events",
+   "fieldtype": "Section Break",
+   "label": "Event Trail"
+  },
+  {
+   "fieldname": "events",
+   "fieldtype": "Table",
+   "label": "Events",
+   "options": "Time Sensitive Case Event"
+  },
+  {
+   "fieldname": "milestones_tab",
+   "fieldtype": "Tab Break",
+   "label": "Milestones"
+  },
+  {
+   "fieldname": "section_milestones",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "Time Sensitive Case Milestone"
+  },
+  {
+   "fieldname": "documents_tab",
+   "fieldtype": "Tab Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "section_documents",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document Template",
+   "options": "Document List Template"
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "Job Document"
+  },
+  {
+   "fieldname": "charges_tab",
+   "fieldtype": "Tab Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "section_charges",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Time Sensitive Case Charge"
+  },
+  {
+   "fieldname": "closure_tab",
+   "fieldtype": "Tab Break",
+   "label": "Closure"
+  },
+  {
+   "fieldname": "section_closure",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "completion_proof",
+   "fieldtype": "Attach",
+   "label": "Completion Proof"
+  },
+  {
+   "fieldname": "closure_reason",
+   "fieldtype": "Small Text",
+   "label": "Closure Reason"
+  },
+  {
+   "fieldname": "delivered_on",
+   "fieldtype": "Datetime",
+   "label": "Delivered On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "closed_on",
+   "fieldtype": "Datetime",
+   "label": "Closed On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Time Sensitive Case",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_alert_key",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Last Alert Key",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "at_risk_hours",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "At Risk Hours"
+  },
+  {
+   "fieldname": "breach_grace_minutes",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Breach Grace Minutes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [
+  {
+   "group": "Accounts",
+   "link_doctype": "Sales Invoice",
+   "link_fieldname": "job_number"
+  },
+  {
+   "group": "Accounts",
+   "link_doctype": "Purchase Invoice",
+   "link_fieldname": "job_number"
+  }
+ ],
+ "modified": "2026-07-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Time Sensitive",
+ "name": "Time Sensitive Case",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Time Sensitive Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Time Sensitive Coordinator",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Time Sensitive Operator",
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Time Sensitive Viewer"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "case_title",
+ "track_changes": 1
+}

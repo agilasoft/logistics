@@ -169,6 +169,26 @@ class TestJobReadinessDocumentsAndMilestones(unittest.TestCase):
 		)
 		self.assertEqual(job_readiness.check_milestones_complete(doc), [])
 
+	def test_air_shipment_ops_requires_all_milestones_complete(self):
+		doc = _doc(
+			doctype="Air Shipment",
+			milestones=[
+				{"milestone": "ATD", "status": "Completed"},
+				{"milestone": "ATA", "status": "Started"},
+			],
+		)
+		issues = job_readiness.check_ops_terminal_status(doc)
+		self.assertEqual(len(issues), 1)
+		self.assertIn("ATA", issues[0]["message"])
+
+	def test_air_shipment_ops_complete_or_unconfigured(self):
+		for milestones in (
+			[],
+			[{"milestone": "ATA", "status": "Completed"}],
+		):
+			doc = _doc(doctype="Air Shipment", milestones=milestones)
+			self.assertEqual(job_readiness.check_ops_terminal_status(doc), [])
+
 
 class TestJobReadinessSettings(unittest.TestCase):
 	@patch("logistics.job_management.job_readiness.check_charges_posted")

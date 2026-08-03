@@ -343,7 +343,7 @@
 {% set footer_profit_center = frappe.db.get_value('Profit Center', doc.profit_center, 'description') or doc.profit_center %}
 {% endif %}
 
-{% set predefined_services = ['Air', 'Sea', 'Transport', 'Customs', 'Warehousing', 'Cross-Docking', 'Special Project', 'MICE'] %}
+{% set predefined_services = ['Air', 'Sea', 'Transport', 'Customs', 'Warehousing', 'Cross-Docking', 'Time Sensitive', 'Special Project', 'MICE'] %}
 {% set extra_services = namespace(items=[]) %}
 {% for row in doc.charges or [] %}
 {% if row.charge_type != 'Cost' %}

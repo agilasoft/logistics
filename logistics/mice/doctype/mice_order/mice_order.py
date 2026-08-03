@@ -178,6 +178,9 @@ def action_create_mice_job(docname: str, title: Optional[str] = None):
 	order = frappe.get_doc("MICE Order", docname)
 	frappe.has_permission("MICE Order", "write", doc=order, throw=True)
 
+	if order.docstatus != 1:
+		frappe.throw(_("Please submit the MICE Order before creating a MICE Job."))
+
 	existing = frappe.db.get_value("MICE Job", {"exhibit_order": order.name}, "name")
 	if existing:
 		return {"name": existing, "created": False, "already_exists": True}
@@ -218,11 +221,14 @@ def action_create_mice_job(docname: str, title: Optional[str] = None):
 		"consignee_address_display",
 		"consignee_contact",
 		"consignee_contact_display",
+		"task_type",
 		"logistics_service_level",
 		"sla_target_source",
 		"sla_target_date",
 		"sla_status",
 		"sla_notes",
+		"internal_notes",
+		"client_notes",
 	):
 		if job.meta.has_field(fieldname) and getattr(order, fieldname, None):
 			setattr(job, fieldname, getattr(order, fieldname))

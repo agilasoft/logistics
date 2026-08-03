@@ -316,7 +316,13 @@ class SalesQuote(Document):
 			rows = self.__dict__["linked_services"]
 			if rows and any(getattr(r, "__islocal", None) for r in rows):
 				self.flags._linked_services_from_form = True
-			return rows
+				return rows
+			# Empty or synced snapshot left by ``_drop_virtual_linked_services_rows``:
+			# rebuild from Linked Service documents when the quote is saved.
+			if not rows and getattr(self, "name", None) and not getattr(self, "__islocal", False):
+				del self.__dict__["linked_services"]
+			else:
+				return rows
 		if self.flags.get("_linked_services_view_cached"):
 			return []
 		value = self._build_linked_services_view()
@@ -335,9 +341,6 @@ class SalesQuote(Document):
 		view_fields = {
 			"linked_service",
 			"service_type",
-			"job_type",
-			"job_no",
-			"job_description",
 		}
 		for fn in (
 			"air_house_type",
@@ -371,6 +374,8 @@ class SalesQuote(Document):
 		):
 			view_fields.add(fn)
 
+		from logistics.utils.linked_service_usage import latest_satellite_job_from_usage
+
 		rows = []
 		for ls in get_linked_services_for_sales_quote(self.name):
 			row = {"linked_service": ls.name}
@@ -379,6 +384,9 @@ class SalesQuote(Document):
 					continue
 				if hasattr(ls, fn):
 					row[fn] = getattr(ls, fn, None)
+			jt, jn = latest_satellite_job_from_usage(ls.name)
+			row["job_type"] = jt or None
+			row["job_no"] = jn or None
 			rows.append(row)
 		return rows
 
@@ -386,8 +394,9 @@ class SalesQuote(Document):
 		"""Clear desk grid rows after sync; source of truth is ``Linked Service`` documents."""
 		self.flags._linked_services_from_form = False
 		self.flags._linked_services_view_cached = False
-		if "linked_services" in self.__dict__:
-			del self.__dict__["linked_services"]
+		# Keep an empty list so Document.get / global_search never iterates ``None``.
+		# Fresh ``frappe.get_doc`` rebuilds from Linked Service documents via the property.
+		self.__dict__["linked_services"] = []
 
 	def _stage_linked_services_from_form(self):
 		"""Honour desk/API grid rows on save, including an intentional empty grid."""
@@ -438,6 +447,7 @@ class SalesQuote(Document):
 		self.validate_vehicle_type_capacity()
 		apply_sales_quote_routing_defaults(self)
 		self.validate_multimodal_main_job()
+		self.validate_routing_leg_dates()
 		self.validate_customs_unit_types()
 		self.validate_linked_service_charge_tagging()
 		self.auto_scope_title()
@@ -490,6 +500,12 @@ class SalesQuote(Document):
 		self._drop_virtual_linked_services_rows()
 		from logistics.utils.module_integration import propagate_high_value_from_sales_quote
 		propagate_high_value_from_sales_quote(self.name)
+		try:
+			from logistics.time_sensitive.propagation import propagate_time_sensitive_from_sales_quote
+
+			propagate_time_sensitive_from_sales_quote(self.name)
+		except Exception:
+			pass
 
 	def clear_hidden_one_off_fields_for_non_one_off(self):
 		"""Prevent link validation errors from hidden scope parameter fields on Project quotes."""
@@ -521,6 +537,15 @@ class SalesQuote(Document):
 		self.validate_main_service_has_charges()
 		self.validate_air_sea_charge_ports_before_submit()
 		self.validate_erpnext_project_name_before_submit()
+		self.validate_charge_exchange_rates_before_submit()
+
+	def validate_charge_exchange_rates_before_submit(self):
+		"""Block submit when charge FX would fail Operational Exchange Rate checks on booking create."""
+		from logistics.utils.operational_exchange_rates import (
+			validate_sales_quote_charge_exchange_rates_for_submit,
+		)
+
+		validate_sales_quote_charge_exchange_rates_for_submit(self)
 
 	def validate_erpnext_project_name_before_submit(self):
 		"""Block submit when the programme name would collide with an existing ERPNext Project."""
@@ -528,7 +553,9 @@ class SalesQuote(Document):
 
 	def validate_air_sea_charge_ports_before_submit(self):
 		"""At least one Air/Sea charge line must have Origin Port and Destination Port (row or quote-level fallbacks)."""
-		if getattr(self, "quotation_type", None) == "Project":
+		# Programme quotes (Project type or Special Project main service) collect corridor
+		# ports when creating supporting Air/Sea bookings, not at quote submit.
+		if _is_special_project_programme_quote(self):
 			return
 		doc_origin, doc_dest = self._document_level_origin_destination_for_charges()
 		has_air_or_sea = False
@@ -578,6 +605,24 @@ class SalesQuote(Document):
 					_("Add warehousing details or at least one charge line with Service Type \"Warehousing\"."),
 					title=_("Main Service Has No Charges"),
 				)
+			return
+		if main == "Time Sensitive":
+			charges = getattr(self, "charges", None) or []
+			if not charges:
+				frappe.throw(
+					_(
+						"Add at least one charge line (Air, Sea, Transport, Customs, etc.) "
+						"for this Time Sensitive quote."
+					),
+					title=_("Main Service Has No Charges"),
+				)
+			if not getattr(self, "critical_deadline", None):
+				frappe.throw(
+					_("Critical Deadline is required when Primary Service Type is Time Sensitive."),
+					title=_("Critical Deadline Required"),
+				)
+			if not getattr(self, "is_time_sensitive", None):
+				self.is_time_sensitive = 1
 			return
 		if main == "Special Project":
 			if not _sales_quote_has_special_project_content(self):
@@ -857,6 +902,19 @@ class SalesQuote(Document):
 		main_count = sum(1 for r in legs if getattr(r, "is_main_job", 0))
 		if main_count == 0:
 			frappe.throw(_("Multimodal routing requires at least one Main Job. Please check 'Main Job' on one or more legs."))
+
+	def validate_routing_leg_dates(self):
+		"""Reject routing legs where ETD is after ETA (same-day allowed)."""
+		from logistics.utils.document_date_validation import throw_if_left_date_after_right
+		from logistics.utils.validation_user_messages import (
+			etd_eta_freight_invalid_message,
+			etd_eta_freight_title,
+		)
+
+		for leg in getattr(self, "routing_legs", None) or []:
+			throw_if_left_date_after_right(
+				leg.etd, leg.eta, etd_eta_freight_invalid_message, etd_eta_freight_title
+			)
 
 	def validate_load_type_matches_service(self):
 		"""Load Type must have the checkbox for the current service mode enabled (air/sea/transport/customs/warehousing).
@@ -1262,6 +1320,8 @@ class SalesQuote(Document):
 			warehouse_contract.profit_center = self.profit_center
 			warehouse_contract.cost_center = self.cost_center
 			warehouse_contract.is_high_value = cint(getattr(self, "is_high_value", 0))
+			warehouse_contract.shipper = getattr(self, "shipper", None)
+			warehouse_contract.consignee = getattr(self, "consignee", None)
 
 			# Insert the Warehouse Contract
 			warehouse_contract.insert(ignore_permissions=True)
@@ -1659,6 +1719,7 @@ _SALES_QUOTE_LINKED_OPERATIONAL_DOCTYPES = (
 	"Transport Order",
 	"Inbound Order",
 	"Cross-Docking Order",
+	"Time Sensitive Case",
 	"Warehouse Job",
 	"Declaration",
 )
@@ -1669,7 +1730,7 @@ _MAIN_SERVICE_PRIMARY_DOCTYPE = {
 	"Transport": "Transport Order",
 	"Customs": "Declaration Order",
 	"Warehousing": "Inbound Order",
-	"Cross-Docking": "Cross-Docking Order",
+	"Time Sensitive": "Time Sensitive Case",
 }
 
 
@@ -2447,7 +2508,13 @@ def _create_sea_booking_from_sales_quote(
 
 	apply_sales_quote_routing_to_booking(sea_booking, sales_quote)
 	apply_party_address_contact_from_source_or_masters(sea_booking, sales_quote)
-	apply_shipper_consignee_defaults(sea_booking)
+	from logistics.sea_freight.sea_freight_settings_defaults import (
+		apply_sea_booking_incoterm_defaults,
+	)
+
+	# Incoterm: Sales Quote (overwrite) → Consignee → Shipper → Sea Freight Settings
+	# Also applies other empty party defaults (agents, templates, etc.).
+	apply_sea_booking_incoterm_defaults(sea_booking, sales_quote=sales_quote)
 	_apply_parent_overrides_to_doc(sea_booking, parent_overrides)
 
 	from logistics.utils.sales_quote_charge_parameters import (
@@ -4084,6 +4151,143 @@ def validate_one_off_quote_not_converted(
 			f"Error validating One-off Sales Quote {sales_quote_name}: {str(e)}",
 			"One-off Quote Validation Error"
 		)
+
+
+def _clear_sales_quote_charge_links_to_linked_service(quote, linked_service: str) -> None:
+	"""Clear charge rows that tagged *linked_service* (revert to Main scope)."""
+	from logistics.utils.linked_service_compat import (
+		CHARGE_SCOPE_MAIN,
+		charge_row_linked_service_link,
+		set_charge_row_linked_service_link,
+	)
+
+	changed = False
+	for row in getattr(quote, "charges", None) or []:
+		if charge_row_linked_service_link(row) != linked_service:
+			continue
+		set_charge_row_linked_service_link(row, None)
+		row.charge_scope = CHARGE_SCOPE_MAIN
+		changed = True
+	if changed:
+		quote.flags.ignore_mandatory = True
+
+
+def _assert_sales_quote_can_manage_linked_services(quote) -> None:
+	if quote.docstatus != 0:
+		frappe.throw(
+			_("Linked Services can only be managed on draft Sales Quotes."),
+			title=_("Quote Not Editable"),
+		)
+	if cint(getattr(quote, "additional_charge", 0)):
+		frappe.throw(
+			_("Linked Services cannot be managed on additional-charge quotes."),
+			title=_("Not Available"),
+		)
+
+
+@frappe.whitelist()
+def list_quote_linked_services(sales_quote: str):
+	"""Return Linked Services for the Manage Services dialog on Sales Quote."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_sales_quote,
+	)
+	from logistics.utils.linked_service_usage import latest_satellite_job_from_usage
+
+	quote = frappe.get_doc("Sales Quote", sales_quote)
+	frappe.has_permission("Sales Quote", "read", doc=quote, throw=True)
+	rows = []
+	for linked in get_linked_services_for_sales_quote(quote.name):
+		job_type, job_no = latest_satellite_job_from_usage(linked.name)
+		rows.append(
+			{
+				"linked_service": linked.name,
+				"service_type": linked.service_type,
+				"owned_by_quote": 1,
+				"job_type": job_type or "",
+				"job_no": job_no or "",
+			}
+		)
+	return {"name": quote.name, "linked_services": rows}
+
+
+@frappe.whitelist()
+def add_linked_service(sales_quote: str, service_type: str):
+	"""Create a Linked Service owned by this Sales Quote."""
+	from logistics.time_sensitive.service_linking import validate_linked_service_type
+	from logistics.utils.linked_service_compat import linked_service_doctype
+
+	quote = frappe.get_doc("Sales Quote", sales_quote)
+	frappe.has_permission("Sales Quote", "write", doc=quote, throw=True)
+	_assert_sales_quote_can_manage_linked_services(quote)
+	if not quote.name or quote.is_new():
+		frappe.throw(_("Save the Sales Quote before adding a linked service."))
+
+	service_type = validate_linked_service_type(service_type)
+	linked = frappe.new_doc(linked_service_doctype())
+	linked.service_type = service_type
+	linked.parent_booking_type = "Sales Quote"
+	linked.parent_booking_name = quote.name
+	linked.insert(ignore_permissions=True)
+
+	quote.flags._linked_services_view_cached = False
+	if "linked_services" in quote.__dict__:
+		del quote.__dict__["linked_services"]
+
+	return {
+		"name": quote.name,
+		"linked_service": linked.name,
+		"service_type": linked.service_type,
+	}
+
+
+@frappe.whitelist()
+def remove_linked_service(sales_quote: str, linked_service: str):
+	"""Delete a Sales Quote–owned Linked Service and clear charge tags to it."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_sales_quote,
+	)
+	from logistics.utils.linked_service_compat import linked_service_doctype
+
+	quote = frappe.get_doc("Sales Quote", sales_quote)
+	frappe.has_permission("Sales Quote", "write", doc=quote, throw=True)
+	_assert_sales_quote_can_manage_linked_services(quote)
+
+	if not frappe.db.exists(linked_service_doctype(), linked_service):
+		frappe.throw(_("Linked Service {0} was not found.").format(linked_service))
+
+	owned_names = {row.name for row in get_linked_services_for_sales_quote(quote.name)}
+	if linked_service not in owned_names:
+		frappe.throw(
+			_("Linked Service {0} is not linked to this Sales Quote.").format(linked_service)
+		)
+
+	parent_type = frappe.db.get_value(
+		linked_service_doctype(), linked_service, "parent_booking_type"
+	)
+	parent_name = frappe.db.get_value(
+		linked_service_doctype(), linked_service, "parent_booking_name"
+	)
+	if parent_type != "Sales Quote" or parent_name != quote.name:
+		frappe.throw(
+			_("Linked Service {0} is not owned by this Sales Quote.").format(linked_service)
+		)
+
+	_clear_sales_quote_charge_links_to_linked_service(quote, linked_service)
+	frappe.delete_doc(
+		linked_service_doctype(), linked_service, ignore_permissions=True, force=True
+	)
+
+	quote.flags._linked_services_view_cached = False
+	if "linked_services" in quote.__dict__:
+		del quote.__dict__["linked_services"]
+	quote.flags.ignore_mandatory = True
+	quote.save(ignore_permissions=True)
+
+	return {
+		"name": quote.name,
+		"linked_service": linked_service,
+		"action": "removed",
+	}
 
 
 @frappe.whitelist()

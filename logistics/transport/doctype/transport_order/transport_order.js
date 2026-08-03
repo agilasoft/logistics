@@ -105,26 +105,40 @@ function _transport_order_async_still_for_doc(frm, docname_when_called) {
 	return String(frm.doc.name || "") === String(docname_when_called);
 }
 
-function _load_milestone_html(frm, opts) {
-	opts = opts || {};
-	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) {
-		if (opts.done) opts.done();
-		return;
-	}
-	var _milestone_docname = frm.doc.name;
+function _load_milestone_html(frm) {
+	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._milestone_html_called) return;
+	frm._milestone_html_called = true;
 	frappe.call({
 		method: 'logistics.document_management.api.get_milestone_html',
-		args: { doctype: 'Transport Order', docname: _milestone_docname },
+		args: { doctype: 'Transport Order', docname: frm.doc.name },
 		callback: function(r) {
-			if (!_transport_order_async_still_for_doc(frm, _milestone_docname)) {
-				return;
-			}
 			if (r.message && frm.fields_dict.milestone_html) {
 				frm.fields_dict.milestone_html.$wrapper.html(r.message);
 			}
 		}
 	}).always(function() {
-		if (opts.done) opts.done();
+		setTimeout(function() { frm._milestone_html_called = false; }, 2000);
+	});
+}
+
+function _load_documents_html(frm) {
+	if (!frm.fields_dict.documents_html || !frm.doc.name || frm.doc.__islocal) return;
+	if (frm._documents_html_called) return;
+	frm._documents_html_called = true;
+	frappe.call({
+		method: 'logistics.document_management.api.get_document_alerts_html',
+		args: { doctype: 'Transport Order', docname: frm.doc.name },
+		callback: function(r) {
+			if (r.message && frm.fields_dict.documents_html) {
+				frm.fields_dict.documents_html.$wrapper.html(r.message);
+				if (window.logistics_bind_document_alert_cards) {
+					window.logistics_bind_document_alert_cards(frm.fields_dict.documents_html.$wrapper);
+				}
+			}
+		}
+	}).always(function() {
+		setTimeout(function() { frm._documents_html_called = false; }, 2000);
 	});
 }
 
@@ -168,20 +182,6 @@ function _bind_transport_order_lazy_tabs(frm) {
 		frm._logistics_lazy_modified = frm.doc.modified;
 	}
 	logistics.bind_lazy_tab_loader(frm, "dashboard_tab", "dashboard", _load_dashboard_html);
-	logistics.bind_lazy_tab_loader(frm, "milestones_tab", "milestones", _load_milestone_html, {
-		defer_if_active: false,
-	});
-	if (window.logistics_load_documents_html) {
-		logistics.bind_lazy_tab_loader(
-			frm,
-			"documents_tab",
-			"documents",
-			function (f, o) {
-				window.logistics_load_documents_html(f, "Transport Order", o);
-			},
-			{ defer_if_active: false }
-		);
-	}
 }
 
 /** Table flags for charges: `cannot_add_rows` / `allow_bulk_edit` may not match client meta; set on the docfield so the grid hides Add / Upload / Download as intended. */
@@ -515,8 +515,24 @@ frappe.ui.form.on("Transport Order", {
 				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");
 			}
 		}, 0);
-		// Lazy-load tab HTML (dashboard deferred if active; others on tab click)
+		// Lazy-load dashboard HTML (deferred if Dashboard tab is active)
 		_bind_transport_order_lazy_tabs(frm);
+
+		// Document Summary — same eager load + tab click as Transport Job
+		_load_documents_html(frm);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off('click.documents_html').on('click.documents_html', '[data-fieldname="documents_tab"]', function() {
+				_load_documents_html(frm);
+			});
+		}
+
+		// Milestone dashboard — same eager load + tab click as Transport Job
+		_load_milestone_html(frm);
+		if (frm.layout && frm.layout.wrapper) {
+			frm.layout.wrapper.off('click.milestone_html').on('click.milestone_html', '[data-fieldname="milestones_tab"]', function() {
+				_load_milestone_html(frm);
+			});
+		}
 
 		// Populate Documents from Template
 		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {

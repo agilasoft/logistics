@@ -16,6 +16,7 @@
   "column_break_basic",
   "sales_quote",
   "customer",
+  "task_type",
   "lifecycle_stage",
   "shipper",
   "consignee",
@@ -65,7 +66,12 @@
   "documents",
   "more_info_tab",
   "section_notes",
-  "notes",
+  "internal_notes",
+  "column_break_notes",
+  "client_notes",
+  "terms_and_conditions_section",
+  "tc_name",
+  "terms",
   "sla_section",
   "logistics_service_level",
   "sla_target_source",
@@ -139,6 +145,13 @@
    "read_only": 1
   },
   {
+   "fieldname": "task_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Task Type",
+   "options": "Project Task Type"
+  },
+  {
    "fieldname": "column_break_basic",
    "fieldtype": "Column Break"
   },
@@ -175,13 +188,12 @@
   {
    "fieldname": "required_by",
    "fieldtype": "Date",
-   "label": "Required By"
+   "label": "Planned Start"
   },
   {
-   "description": "Commercial validity of this order (booking window).",
    "fieldname": "valid_until",
    "fieldtype": "Date",
-   "label": "Valid Until"
+   "label": "Planned End"
   },
   {
    "description": "Primary site or address for work under this order.",
@@ -218,7 +230,6 @@
    "fieldname": "shipper_address",
    "fieldtype": "Link",
    "label": "Shipper Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -247,7 +258,6 @@
    "fieldname": "consignee_address",
    "fieldtype": "Link",
    "label": "Consignee Address",
-   "link_filters": "[[\"Address\", \"disabled\", \"=\", 0]]",
    "options": "Address"
   },
   {
@@ -435,9 +445,37 @@
    "label": "Notes"
   },
   {
-   "fieldname": "notes",
-   "fieldtype": "Small Text",
-   "label": "Notes"
+   "fieldname": "internal_notes",
+   "fieldtype": "Text Editor",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "column_break_notes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_notes",
+   "fieldtype": "Text Editor",
+   "label": "Client Notes"
+  },
+  {
+   "fieldname": "terms_and_conditions_section",
+   "fieldtype": "Section Break",
+   "label": "Terms and Conditions"
+  },
+  {
+   "fieldname": "tc_name",
+   "fieldtype": "Link",
+   "label": "Terms",
+   "link_filters": "[[\"Terms and Conditions\", \"disabled\", \"=\", 0]]",
+   "options": "Terms and Conditions"
+  },
+  {
+   "fetch_from": "tc_name.terms",
+   "fieldname": "terms",
+   "fieldtype": "Text Editor",
+   "label": "Terms and Conditions",
+   "read_only": 1
   },
   {
    "collapsible": 1,

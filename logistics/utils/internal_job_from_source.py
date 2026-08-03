@@ -187,9 +187,37 @@ def persist_internal_job_create_back_link(
 			return
 	from logistics.utils.internal_job_persistence import sync_internal_job_doc_job_link
 	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import (
+		USAGE_ROLE_SATELLITE_JOB,
+		record_linked_service_usage,
+	)
 
+	ls_name = ""
 	if ij_row is not None and row_linked_service_link(ij_row):
+		ls_name = row_linked_service_link(ij_row)
 		sync_internal_job_doc_job_link(ij_row, job_type, job_no)
+	if not ls_name and job_type and job_no and frappe.db.exists(job_type, job_no):
+		meta = frappe.get_meta(job_type)
+		if meta.has_field("linked_service"):
+			ls_name = (frappe.db.get_value(job_type, job_no, "linked_service") or "").strip()
+		elif meta.has_field("internal_job"):
+			ls_name = (frappe.db.get_value(job_type, job_no, "internal_job") or "").strip()
+		if not ls_name:
+			try:
+				from logistics.utils.service_role_rules import get_linked_service_name
+
+				ls_name = (get_linked_service_name(frappe.get_doc(job_type, job_no)) or "").strip()
+			except Exception:
+				ls_name = ""
+
+	if ls_name and job_type and job_no:
+		record_linked_service_usage(
+			ls_name,
+			job_type,
+			job_no,
+			usage_role=USAGE_ROLE_SATELLITE_JOB,
+		)
+
 	if _uses_linked_charge_internal_job_create(parent_doctype):
 		return
 	persist_internal_job_detail_job_link(

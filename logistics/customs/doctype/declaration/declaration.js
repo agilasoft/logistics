@@ -462,6 +462,9 @@ frappe.ui.form.on("Declaration", {
 	onload(frm) {
 		_logistics_set_charges_cannot_add_rows(frm);
 		_declaration_apply_currency_exchange_from_order(frm);
+		if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+			logistics.setup_virtual_linked_services_grid(frm);
+		}
 	},
 	declaration_order(frm) {
 		_declaration_apply_currency_exchange_from_order(frm);
@@ -514,6 +517,9 @@ frappe.ui.form.on("Declaration", {
 	refresh(frm) {
 		if (window.logistics && logistics.job_change_lock) {
 			logistics.job_change_lock.apply(frm);
+		}
+		if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+			logistics.setup_virtual_linked_services_grid(frm);
 		}
 		_declaration_processing_date_field_state(frm);
 		_auto_set_payment_status(frm);
