@@ -1,8 +1,9 @@
 {
  "actions": [],
+ "allow_bulk_edit": 1,
  "allow_import": 1,
  "allow_rename": 1,
- "autoname": "format:{code}-{customer_code}",
+ "autoname": "format:{code}",
  "creation": "2025-08-18 16:42:28.773696",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -52,10 +53,10 @@
  ],
  "fields": [
   {
+   "description": "Generated from the Customer Code and a compressed Item Name abbreviation (unique per customer). Editable — enter a custom code, or clear the field to regenerate.",
    "fieldname": "code",
    "fieldtype": "Data",
-   "label": "Code",
-   "reqd": 1
+   "label": "Code"
   },
   {
    "fieldname": "item_name",
@@ -74,9 +75,9 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM",
-   "reqd": 1,
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "reqd": 1
   },
   {
    "fieldname": "column_break_ppbd",
@@ -87,9 +88,9 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Customer",
+   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]",
    "options": "Customer",
-   "reqd": 1,
-   "link_filters": "[[\"Customer\", \"disabled\", \"=\", 0]]"
+   "reqd": 1
   },
   {
    "default": "0",
@@ -120,7 +121,7 @@
    "fieldtype": "Section Break"
   },
   {
-   "fetch_from": "customer.custom_code",
+   "fetch_from": "customer.logistics_party_code",
    "fieldname": "customer_code",
    "fieldtype": "Data",
    "label": "Customer Code",
@@ -269,18 +270,18 @@
    "fieldname": "volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM",
-   "read_only": 1,
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "read_only": 1
   },
   {
    "columns": 1,
    "fieldname": "weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM",
-   "read_only": 1,
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "read_only": 1
   },
   {
    "fieldname": "chargeable_weight",
@@ -291,16 +292,16 @@
    "fieldname": "chargeable_weight_uom",
    "fieldtype": "Link",
    "label": "Chargeable Weight UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "dimension_uom",
    "fieldtype": "Link",
    "label": "Dimension UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM",
-   "read_only": 1,
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "read_only": 1
   },
   {
    "fieldname": "column_break_hyfh",
@@ -310,11 +311,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-30 17:35:28.911920",
+ "modified": "2026-07-30 08:08:19.699110",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Item",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {

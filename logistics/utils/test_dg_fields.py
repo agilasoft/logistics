@@ -144,4 +144,4 @@ class TestTransportOrderPackageRowFromShipmentPkg(FrappeTestCase):
 		pkg = SimpleNamespace(idx=2, quantity=1, weight=5)
 		with self.assertRaises(frappe.ValidationError) as ctx:
 			transport_order_package_row_from_shipment_pkg(shipment, pkg)
-		self.assertIn("Goods Description", str(ctx.exception))
+		self.assertIn("Description", str(ctx.exception))

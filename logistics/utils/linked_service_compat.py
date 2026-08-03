@@ -76,6 +76,8 @@ def linked_services_fieldname(parent_doctype: str) -> str | None:
 		return "internal_job_details"
 	if parent_doctype == "Change Request":
 		return "linked_services"
+	if parent_doctype == "Time Sensitive Case":
+		return "linked_services"
 	if parent_doctype == "Special Project":
 		return "special_project_services"
 	if parent_doctype == "MICE Project":
@@ -172,6 +174,11 @@ def linked_service_rows(parent_doc: Any) -> list[Any]:
 		if hasattr(parent_doc, "_build_linked_services_view"):
 			return parent_doc._build_linked_services_view()
 	if doctype == "Change Request":
+		if getattr(getattr(parent_doc, "flags", None), "_linked_services_from_form", False):
+			return list(parent_doc.__dict__.get(fieldname) or [])
+		if hasattr(parent_doc, "_build_linked_services_view"):
+			return parent_doc._build_linked_services_view()
+	if doctype == "Time Sensitive Case":
 		if getattr(getattr(parent_doc, "flags", None), "_linked_services_from_form", False):
 			return list(parent_doc.__dict__.get(fieldname) or [])
 		if hasattr(parent_doc, "_build_linked_services_view"):

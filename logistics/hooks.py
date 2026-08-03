@@ -40,12 +40,16 @@ app_include_css = [
 	"/assets/logistics/css/density_factor.css?v=1",
 	"/assets/logistics/css/workflow_center.css?v=1",
 	"/assets/logistics/css/change_request_summary.css?v=4",
+	"/assets/logistics/css/linked_services_dialog.css?v=9",
+	"/assets/logistics/css/ts_sq_fetch_dialog.css?v=6",
 ]
 app_include_js = [
 	"/assets/logistics/js/address_link_query.js?v=1",
 	"/assets/logistics/js/party_address_contact.js?v=1",
-	"/assets/logistics/js/linked_service_link_query.js?v=1",
+	"/assets/logistics/js/linked_service_link_query.js?v=2",
 	"/assets/logistics/js/virtual_linked_services_grid.js?v=1",
+	"/assets/logistics/js/linked_services_dialog.js?v=5",
+	"/assets/logistics/js/ts_sq_fetch_dialog.js?v=6",
 	"/assets/logistics/js/freight_agent_service.js?v=4",
 	"/assets/logistics/js/charge_bill_to.js?v=2",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
@@ -77,9 +81,12 @@ app_include_js = [
 	"/assets/logistics/js/invoice_billing_currency.js",
 	"/assets/logistics/js/sales_invoice_dialog.js",
 	"/assets/logistics/js/sales_invoice_job_dimension_cleanup.js",
-	"/assets/logistics/js/job_change_lock.js?v=2",
-	"/assets/logistics/js/change_request_visibility.js?v=1",
+	"/assets/logistics/js/job_change_lock.js?v=3",
+	"/assets/logistics/js/change_request_visibility.js?v=2",
 	"/assets/logistics/js/change_request_summary.js?v=5",
+	"/assets/logistics/js/time_sensitive_timer.js?v=1",
+	"/assets/logistics/js/time_sensitive_form.js?v=2",
+	"/assets/logistics/js/time_sensitive_list.js?v=1",
 ]
 
 # include js, css files in header of web template
@@ -95,6 +102,12 @@ page_js = {
 
 # include js in doctype views
 doctype_js = {
+	"Time Sensitive Case": [
+		"public/js/time_sensitive_timer.js",
+		"public/js/time_sensitive_services_dialog.js",
+		"public/js/ts_sq_fetch_dialog.js",
+		"time_sensitive/doctype/time_sensitive_case/time_sensitive_case.js",
+	],
 	"Internal Job Detail": "logistics/logistics/doctype/internal_job_detail/internal_job_detail.js",
 	"Linked Service Detail": "logistics/logistics/doctype/linked_service_detail/linked_service_detail.js",
 	"Container": "logistics/logistics/doctype/container/container.js",
@@ -110,6 +123,7 @@ doctype_js = {
 		"public/js/charge_type_cleanup.js",
 		"public/js/charge_break_dialogs.js",
 		"public/js/charge_break_buttons.js",
+		"public/js/ts_sq_fetch_dialog.js",
 		"pricing_center/doctype/sales_quote_charge/sales_quote_charge.js",
 		"pricing_center/doctype/sales_quote_air_freight/sales_quote_air_freight.js",
 		"pricing_center/doctype/sales_quote_sea_freight/sales_quote_sea_freight.js",
@@ -322,6 +336,9 @@ doctype_js = {
 		"logistics/job_management/recognition_client.js",
 		"logistics/job_management/recognition_policy_fields.js",
 	],
+	"MICE Job": [
+		"logistics/public/js/profitability_form.js",
+	],
 	"Account": "logistics/public/js/account_job_profit.js",
 	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
 	"Purchase Invoice": "logistics/public/js/purchase_invoice_container_deposit.js",
@@ -333,7 +350,9 @@ doctype_js = {
 	"Outlook Calendar Settings": "logistics/logistics/doctype/outlook_calendar_settings/outlook_calendar_settings.js",
 	"User": "logistics/integrations/outlook/user_outlook.js",
 }
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
+doctype_list_js = {
+	"Time Sensitive Case": "time_sensitive/doctype/time_sensitive_case/time_sensitive_case_list.js",
+}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -393,6 +412,7 @@ _doc_milestone_doctypes = [
 	"Declaration", "Declaration Order",
 	"Inbound Order", "Release Order", "Transfer Order", "Cross-Docking Order",
 	"Warehouse Job", "General Job", "Special Project",
+	"Time Sensitive Case",
 	"Project Order", "Project Job",
 	# MICE family: parent doctypes with a ``milestones`` child table and
 	# ``milestone_template`` field. Without these hooks, Date Based sync
@@ -694,10 +714,10 @@ for _dt in (
 	"MICE Project",
 	"Docket",
 	"Exhibit",
-	# Sales Quote owns Linked Services that are cloned onto the Booking/Order created from the quote.
-	# created from the quote. The sync is gated on quotation_type inside the handler.
+	# Sales Quote owns Linked Services reused on Booking/Order via Linked Service Usage.
 	"Sales Quote",
 	"Change Request",
+	"Time Sensitive Case",
 ):
 	if _dt not in doc_events:
 		doc_events[_dt] = {}
@@ -848,12 +868,17 @@ scheduler_events = {
 		"*/10 * * * *": [
 			"logistics.air_freight.flight_schedules.tasks.sync_active_flights",
 		],
+		# Time Sensitive: deadline / checkpoint / unacked monitoring every 5 minutes.
+		"*/5 * * * *": [
+			"logistics.time_sensitive.tasks.monitor_time_sensitive_cases",
+		],
 	},
 	"hourly": [
 		"logistics.status_update.tasks.update_milestone_statuses",
 		"logistics.air_freight.flight_schedules.tasks.update_air_freight_jobs_with_flight_status",
 		"logistics.integrations.outlook.tasks.reconcile_failed_syncs",
 		"logistics.integrations.outlook.tasks.sync_recent_task_changes",
+		"logistics.transport.tasks.update_sla_statuses",
 	],
 	"daily": [
 		"logistics.status_update.tasks.update_document_statuses",

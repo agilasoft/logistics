@@ -146,6 +146,11 @@
   "main_service_type",
   "service_role",
   "is_high_value",
+  "is_time_sensitive",
+  "time_sensitive_case",
+  "ts_case_type",
+  "critical_deadline",
+  "ts_countdown",
   "sales_quote",
   "column_break_quote_ref",
   "services_tab",
@@ -192,14 +197,6 @@
   "insurance_claim_number",
   "insurance_claim_status",
   "insurance_claim_date",
-  "tracking_section",
-  "tracking_provider",
-  "tracking_number",
-  "tracking_url",
-  "column_break_tracking",
-  "real_time_tracking_enabled",
-  "last_tracking_update",
-  "tracking_status",
   "sustainability_section",
   "estimated_carbon_footprint",
   "estimated_fuel_consumption",
@@ -738,8 +735,9 @@
   },
   {
    "fieldname": "insurance_policy_number",
-   "fieldtype": "Small Text",
-   "label": "Insurance Policy Number"
+   "fieldtype": "Data",
+   "label": "Insurance Policy Number",
+   "length": 140
   },
   {
    "description": "Insured value of the cargo",
@@ -753,8 +751,9 @@
   },
   {
    "fieldname": "insurance_claim_number",
-   "fieldtype": "Small Text",
-   "label": "Insurance Claim Number"
+   "fieldtype": "Data",
+   "label": "Insurance Claim Number",
+   "length": 140
   },
   {
    "fieldname": "insurance_claim_status",
@@ -835,6 +834,46 @@
    "read_only": 1
   },
   {
+   "default": "0",
+   "description": "Mark this record for urgent / time-sensitive processing (AOG, live organ, line-stop, etc.).",
+   "fieldname": "is_time_sensitive",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Time Sensitive",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "time_sensitive_case",
+   "fieldtype": "Link",
+   "label": "Time Sensitive Case",
+   "length": 40,
+   "no_copy": 1,
+   "options": "Time Sensitive Case",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "time_sensitive_case.case_type",
+   "fieldname": "ts_case_type",
+   "fieldtype": "Link",
+   "label": "TS Case Type",
+   "length": 40,
+   "no_copy": 1,
+   "options": "Time Sensitive Case Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "critical_deadline",
+   "fieldtype": "Datetime",
+   "in_list_view": 0,
+   "label": "Critical Deadline",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "ts_countdown",
+   "fieldtype": "HTML",
+   "label": "TS Countdown"
+  },
+  {
    "fieldname": "quote_reference_section",
    "fieldtype": "Section Break",
    "label": "Job Details"
@@ -899,52 +938,6 @@
    "fieldtype": "Table",
    "label": "Documents",
    "options": "Job Document"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "tracking_section",
-   "fieldtype": "Section Break",
-   "label": "Real-time Tracking"
-  },
-  {
-   "fieldname": "tracking_provider",
-   "fieldtype": "Select",
-   "label": "Tracking Provider",
-   "options": "\nIATA\nAirlines\nThird Party\nCustom"
-  },
-  {
-   "fieldname": "tracking_number",
-   "fieldtype": "Small Text",
-   "label": "Tracking Number"
-  },
-  {
-   "description": "URL for customer tracking portal",
-   "fieldname": "tracking_url",
-   "fieldtype": "Small Text",
-   "label": "Tracking URL"
-  },
-  {
-   "fieldname": "column_break_tracking",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "0",
-   "fieldname": "real_time_tracking_enabled",
-   "fieldtype": "Check",
-   "label": "Real-time Tracking Enabled"
-  },
-  {
-   "fieldname": "last_tracking_update",
-   "fieldtype": "Datetime",
-   "label": "Last Tracking Update",
-   "read_only": 1
-  },
-  {
-   "fieldname": "tracking_status",
-   "fieldtype": "Select",
-   "label": "Tracking Status",
-   "options": "\nPending\nIn Transit\nDelivered\nException",
-   "read_only": 1
   },
   {
    "fieldname": "charges_tab",

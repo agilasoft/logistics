@@ -10,8 +10,6 @@
   "naming_series",
   "service_type",
   "column_break_ident",
-  "job_type",
-  "job_no",
   "job_description",
   "section_break_parent",
   "parent_booking_type",
@@ -75,24 +73,6 @@
   {
    "fieldname": "column_break_ident",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "job_type",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Job Type",
-   "no_copy": 1,
-   "options": "\nAir Booking\nSea Booking\nTransport Order\nDeclaration Order\nVAS Order\nInbound Order\nCross-Docking Order\nRelease Order\nTransfer Order\nProject Order\nProject Job\nMICE Order\nMICE Job",
-   "read_only": 1
-  },
-  {
-   "fieldname": "job_no",
-   "fieldtype": "Dynamic Link",
-   "in_list_view": 1,
-   "label": "Job No",
-   "no_copy": 1,
-   "options": "job_type",
-   "read_only": 1
   },
   {
    "fieldname": "section_break_parent",

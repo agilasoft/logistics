@@ -1465,6 +1465,8 @@ _DASH_LIFECYCLE_SIDEBAR_CSS = """
 .sp-dash-lifecycle-group-body {
 	padding: 0 8px 8px;
 	border-top: 1px solid #f1f3f5;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
 }
 .sp-dash-lifecycle-empty {
 	padding: 14px 12px;
@@ -1473,11 +1475,15 @@ _DASH_LIFECYCLE_SIDEBAR_CSS = """
 }
 .sp-dash-card.sp-dash-job-row {
 	display: grid;
-	grid-template-columns: 36px minmax(120px, 1.4fr) minmax(80px, 0.9fr) auto auto auto;
+	grid-template-columns: 36px minmax(0, 1.35fr) minmax(0, 1fr) 13.5rem 9.5rem;
 	align-items: center;
-	gap: 12px 14px;
+	column-gap: 14px;
+	row-gap: 4px;
 	margin: 0;
-	padding: 14px 12px;
+	padding: 12px;
+	min-width: 640px;
+	width: 100%;
+	box-sizing: border-box;
 	border: none;
 	border-radius: 0;
 	border-bottom: 1px solid #f1f3f5;
@@ -1507,57 +1513,99 @@ _DASH_LIFECYCLE_SIDEBAR_CSS = """
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	line-height: 0;
+	flex-shrink: 0;
 	background: color-mix(in srgb, var(--sp-stage-color, #3b82f6) 12%, #fff);
 	color: var(--sp-stage-color, #3b82f6);
 }
+.sp-dash-job-icon .icon,
+.sp-dash-job-icon svg,
+.sp-dash-job-icon i {
+	display: block;
+	line-height: 0;
+}
 .sp-dash-job-main {
 	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 2px;
 }
 .sp-dash-job-title {
 	font-size: 13px;
 	font-weight: 700;
 	color: #111827;
 	line-height: 1.3;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 .sp-dash-job-id {
-	margin-top: 2px;
+	margin-top: 0;
 	font-size: 11px;
 	color: #9ca3af;
 	font-variant-numeric: tabular-nums;
+	line-height: 1.3;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 .sp-dash-job-meta {
 	min-width: 0;
 	font-size: 12px;
 	color: #6b7280;
 	line-height: 1.35;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 2px;
 }
 .sp-dash-job-meta-line {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
+.sp-dash-job-metrics {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	align-items: start;
+	gap: 12px;
+	width: 100%;
+	min-width: 0;
+}
 .sp-dash-job-metric {
-	min-width: 88px;
+	min-width: 0;
 }
 .sp-dash-job-metric-label {
 	display: block;
 	font-size: 10px;
 	color: #9ca3af;
 	margin-bottom: 2px;
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 .sp-dash-job-metric-value {
+	display: block;
 	font-size: 13px;
 	font-weight: 600;
 	color: #111827;
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
+	line-height: 1.3;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 .sp-dash-job-action {
-	justify-self: end;
+	justify-self: stretch;
 	display: inline-flex;
 	align-items: center;
+	justify-content: center;
 	gap: 6px;
-	padding: 6px 12px;
+	width: 100%;
+	box-sizing: border-box;
+	padding: 6px 10px;
 	border: 1px solid var(--sp-stage-color, #3b82f6);
 	border-radius: 999px;
 	background: #fff;
@@ -1589,21 +1637,22 @@ _DASH_LIFECYCLE_SIDEBAR_CSS = """
 }
 @media (max-width: 1100px) {
 	.sp-dash-card.sp-dash-job-row {
-		grid-template-columns: 32px 1fr auto;
+		grid-template-columns: 32px minmax(0, 1fr) 8.5rem;
 		grid-template-areas:
 			"icon main action"
 			"icon meta action"
 			"icon metrics action";
+		min-width: 0;
 	}
-	.sp-dash-job-icon { grid-area: icon; }
+	.sp-dash-job-icon { grid-area: icon; align-self: start; }
 	.sp-dash-job-main { grid-area: main; }
 	.sp-dash-job-meta { grid-area: meta; }
 	.sp-dash-job-metrics {
 		grid-area: metrics;
-		display: flex;
-		gap: 16px;
+		grid-template-columns: max-content max-content;
+		justify-content: start;
 	}
-	.sp-dash-job-action { grid-area: action; align-self: center; }
+	.sp-dash-job-action { grid-area: action; align-self: center; width: 100%; }
 }
 """
 
@@ -1667,16 +1716,16 @@ def _sp_dash_card_html(
 	meta_html = "".join(
 		f'<div class="sp-dash-job-meta-line">{escape_html(line)}</div>' for line in lines
 	) or '<div class="sp-dash-job-meta-line">—</div>'
-	cost_html = (
+	metrics_html = (
+		f'<div class="sp-dash-job-metrics">'
 		f'<div class="sp-dash-job-metric">'
 		f'<span class="sp-dash-job-metric-label">{escape_html(_("Planned cost"))}</span>'
 		f'<span class="sp-dash-job-metric-value">{escape_html(planned_cost_label or "—")}</span>'
 		f"</div>"
-	)
-	rev_html = (
 		f'<div class="sp-dash-job-metric">'
 		f'<span class="sp-dash-job-metric-label">{escape_html(_("Planned revenue"))}</span>'
 		f'<span class="sp-dash-job-metric-value">{escape_html(planned_revenue_label or "—")}</span>'
+		f"</div>"
 		f"</div>"
 	)
 	action_label = escape_html(_sp_dash_view_action_label(job_doctype))
@@ -1704,7 +1753,7 @@ def _sp_dash_card_html(
 		f"{id_html}"
 		f"</div>"
 		f'<div class="sp-dash-job-meta">{meta_html}</div>'
-		f"{cost_html}{rev_html}"
+		f"{metrics_html}"
 		f'<span class="sp-dash-job-action">{action_label} <i class="fa fa-chevron-right" aria-hidden="true"></i></span>'
 		f"</div>"
 	)
@@ -3859,6 +3908,14 @@ def get_packages_summary_html(special_project: str) -> str:
 	return _build_fulfillment_tab_html(doc, ctx)
 
 
+@frappe.whitelist()
+def get_fulfillment_design_variant() -> str:
+	"""Return the active Fulfillment tab design id (for client diagnostics / toggles)."""
+	from logistics.special_projects.fulfillment_designs import ACTIVE_FULFILLMENT_DESIGN
+
+	return ACTIVE_FULFILLMENT_DESIGN
+
+
 def _packages_fulfillment_context(
 	doc: Any,
 	*,
@@ -4099,45 +4156,12 @@ def _build_dashboard_required_materials_tab_html(doc: Any, ctx: dict[str, Any] |
 
 
 def _build_fulfillment_tab_html(doc: Any, ctx: dict[str, Any] | None) -> str:
-	"""Fulfillment tab: current stage throughput, filters, and package table."""
-	if not ctx or ctx.get("empty"):
-		empty_key = (ctx or {}).get("empty") or "no_packages"
-		return _packages_fulfillment_wrap_html(_packages_fulfillment_empty_inner_html(empty_key))
+	"""Fulfillment tab HTML — dispatches to the active named design variant.
 
-	current_tp_html = ""
-	if ctx.get("current_stage"):
-		current_tp_html = _packages_summary_current_stage_throughput_html(
-			ctx["current_stage"],
-			ctx["current_stage_qty"],
-			ctx["total_required"],
-		)
+	Variants live under ``logistics.special_projects.fulfillment_designs``:
+	- ``sp_fullfillment_design_1`` — prior throughput + filters + table UI
+	- ``sp_fullfillment_design_2`` — ops-scan layout (lifecycle strip + KPIs + table)
+	"""
+	from logistics.special_projects.fulfillment_designs import render_fulfillment_tab
 
-	summary_col_template = (
-		"40px 28px minmax(140px, 1.5fr) 72px 72px 72px 64px minmax(100px, 1fr) 116px"
-	)
-	summary_header_html = (
-		f'<div class="sp-pfn-header">'
-		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-rowno">#</span>'
-		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-warn" aria-hidden="true"></span>'
-		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-package">{escape_html(_("Package"))}</span>'
-		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-required">{escape_html(_("Required"))}</span>'
-		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-delivered">{escape_html(_("Delivered"))}</span>'
-		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-remaining">{escape_html(_("Remaining"))}</span>'
-		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-pct">{escape_html(_("%"))}</span>'
-		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-current-stage">{escape_html(_("Current Stage"))}</span>'
-		f'<span class="sp-pfn-cell sp-pfn-col-head sp-pfn-cell-status">{escape_html(_("Status"))}</span>'
-		f"</div>"
-	)
-	summary_table_html = (
-		f'<div class="sp-pfn-summary-panel" style="--sp-pfn-cols: {summary_col_template}">'
-		f'<div class="sp-pfn-table">{summary_header_html}{"".join(ctx.get("summary_rows_html") or [])}</div>'
-		f"</div>"
-	)
-	inner = (
-		f'<div class="sp-pfn-card" data-sp-fulfillment-panel="1">'
-		f"{current_tp_html}"
-		f"{_packages_summary_filter_chips_html()}"
-		f"{summary_table_html}"
-		f"</div>"
-	)
-	return _packages_fulfillment_wrap_html(inner)
+	return render_fulfillment_tab(doc, ctx)

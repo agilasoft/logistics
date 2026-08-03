@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Agilasoft and contributors
 # For license information, please see license.txt
 
-"""Integration tests for Linked Service propagation (clone + re-parent)."""
+"""Integration tests for Linked Service propagation (reuse + Usage tagging)."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from logistics.utils.internal_job_persistence import (
 	sync_internal_job_details_to_internal_jobs,
 )
 from logistics.utils.linked_service_compat import linked_service_doctype
+from logistics.utils.linked_service_usage import get_linked_services_used_by, get_usages_for_linked_service
 from logistics.utils.sales_quote_one_off_internal_jobs import (
 	linked_service_names_from_quote_charges,
 	propagate_linked_services_and_remap_charges,
@@ -26,6 +27,8 @@ class TestSalesQuoteLinkedServicePropagation(FrappeTestCase):
 			self.skipTest("Sales Quote not installed")
 		if not frappe.db.exists("DocType", linked_service_doctype()):
 			self.skipTest("Linked Service not installed")
+		if not frappe.db.exists("DocType", "Linked Service Usage"):
+			self.skipTest("Linked Service Usage not installed")
 
 	def _minimal_sales_quote(self, title: str, *, quotation_type="Regular"):
 		doc = frappe.new_doc("Sales Quote")
@@ -45,12 +48,32 @@ class TestSalesQuoteLinkedServicePropagation(FrappeTestCase):
 			self.skipTest("No Shipper/Consignee in system")
 		doc.date = frappe.utils.today()
 		doc.valid_until = frappe.utils.add_days(frappe.utils.today(), 30)
+		# Required for Sea Regular/One-off validation on insert/save.
+		# Export: origin must be in company country (PH); destination abroad.
+		origin = (
+			frappe.db.get_value("UNLOCO", {"is_active": 1, "name": ("like", "PH%")}, "name")
+			or "PHMNL"
+		)
+		dest = (
+			frappe.db.get_value(
+				"UNLOCO", {"is_active": 1, "name": ("not like", "PH%")}, "name"
+			)
+			or "USLAX"
+		)
+		doc.origin_port = origin
+		doc.destination_port = dest
+		doc.direction = "Export"
+		if hasattr(doc, "origin_port_sea"):
+			doc.origin_port_sea = origin
+		if hasattr(doc, "destination_port_sea"):
+			doc.destination_port_sea = dest
+		doc.flags.ignore_validate = True
 		doc.flags.ignore_mandatory = True
 		doc.insert(ignore_permissions=True)
 		return doc
 
-	def test_clone_keeps_quote_owned_linked_service(self):
-		sq = self._minimal_sales_quote("SQ Clone LS", quotation_type="Regular")
+	def test_reuse_keeps_quote_owned_linked_service(self):
+		sq = self._minimal_sales_quote("SQ Reuse LS", quotation_type="Regular")
 		booking = None
 		try:
 			sq.append("linked_services", {"service_type": "Transport"})
@@ -62,31 +85,31 @@ class TestSalesQuoteLinkedServicePropagation(FrappeTestCase):
 			booking.flags.ignore_mandatory = True
 			booking.insert(ignore_permissions=True)
 			mapping = propagate_linked_services_and_remap_charges(
-				sq, booking, clone=True, ls_names=[ls_name]
+				sq, booking, clone=False, ls_names=[ls_name]
 			)
-			self.assertNotEqual(mapping.get(ls_name), ls_name)
+			self.assertEqual(mapping.get(ls_name), ls_name)
 			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 1)
 			self.assertEqual(
 				frappe.db.get_value(linked_service_doctype(), ls_name, "parent_booking_name"),
 				sq.name,
 			)
-			clone_name = mapping[ls_name]
-			self.assertEqual(
-				frappe.db.get_value(linked_service_doctype(), clone_name, "parent_booking_name"),
-				booking.name,
-			)
+			self.assertEqual(get_linked_services_used_by("Sea Booking", booking.name), [ls_name])
+			usages = get_usages_for_linked_service(ls_name)
+			self.assertEqual(len(usages), 1)
+			self.assertEqual(usages[0]["used_on_doctype"], "Sea Booking")
+			self.assertEqual(usages[0]["used_on_name"], booking.name)
 		finally:
 			if booking and frappe.db.exists("Sea Booking", booking.name):
 				frappe.delete_doc("Sea Booking", booking.name, force=True, ignore_permissions=True)
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
-	def test_regular_full_conversion_clones_linked_services(self):
-		"""Regular quote → booking clones quote-owned LS records; quote retains originals."""
+	def test_regular_full_conversion_reuses_linked_services(self):
+		"""Regular quote → booking reuses quote-owned LS IDs and records Usage."""
 		from logistics.pricing_center.doctype.sales_quote.sales_quote import (
 			_propagate_linked_services_to_created_booking,
 		)
 
-		sq = self._minimal_sales_quote("SQ Regular Clone", quotation_type="Regular")
+		sq = self._minimal_sales_quote("SQ Regular Reuse", quotation_type="Regular")
 		booking = None
 		try:
 			sq.append("linked_services", {"service_type": "Transport"})
@@ -104,9 +127,9 @@ class TestSalesQuoteLinkedServicePropagation(FrappeTestCase):
 				frappe.db.get_value(linked_service_doctype(), ls_name, "parent_booking_name"),
 				sq.name,
 			)
-			booking_ls = _linked_service_names_from_db("Sea Booking", booking.name)
-			self.assertEqual(len(booking_ls), 1)
-			self.assertNotIn(ls_name, booking_ls)
+			# Booking does not own a clone; Usage points at the quote IJ.
+			self.assertEqual(len(_linked_service_names_from_db("Sea Booking", booking.name)), 0)
+			self.assertEqual(get_linked_services_used_by("Sea Booking", booking.name), [ls_name])
 		finally:
 			if booking and frappe.db.exists("Sea Booking", booking.name):
 				frappe.delete_doc("Sea Booking", booking.name, force=True, ignore_permissions=True)
@@ -136,7 +159,7 @@ class TestSalesQuoteLinkedServicePropagation(FrappeTestCase):
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
 	def test_regular_propagates_all_services_when_only_one_charge_tagged(self):
-		"""All Services grid rows copy to the booking even if only one charge is Linked-tagged."""
+		"""All Services grid rows are tagged on the booking even if only one charge is Linked."""
 		sq = self._minimal_sales_quote("SQ Regular All LS", quotation_type="Regular")
 		booking = None
 		try:
@@ -154,7 +177,7 @@ class TestSalesQuoteLinkedServicePropagation(FrappeTestCase):
 					"linked_service": ls_names[0],
 				},
 			)
-			sq.save(ignore_permissions=True)
+			# No save required — propagation reads quote-owned Linked Services directly.
 
 			booking = frappe.new_doc("Sea Booking")
 			booking.sales_quote = sq.name
@@ -162,17 +185,45 @@ class TestSalesQuoteLinkedServicePropagation(FrappeTestCase):
 			booking.insert(ignore_permissions=True)
 			propagate_linked_services_from_sales_quote_to_booking(sq, booking)
 
-			booking_ls = _linked_service_names_from_db("Sea Booking", booking.name)
-			self.assertEqual(len(booking_ls), 2)
+			used = set(get_linked_services_used_by("Sea Booking", booking.name))
+			self.assertEqual(used, set(ls_names))
 			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 2)
-			self.assertFalse(booking_ls & ls_names)
+			self.assertEqual(len(_linked_service_names_from_db("Sea Booking", booking.name)), 0)
+		finally:
+			if booking and frappe.db.exists("Sea Booking", booking.name):
+				frappe.delete_doc("Sea Booking", booking.name, force=True, ignore_permissions=True)
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+
+	def test_multi_transport_legs_all_tagged_on_booking(self):
+		"""Multiple Transport Linked Services are all reused (no one-per-service-type skip)."""
+		sq = self._minimal_sales_quote("SQ Multi Transport", quotation_type="Regular")
+		booking = None
+		try:
+			for _ in range(3):
+				sq.append("linked_services", {"service_type": "Transport"})
+			sq.flags._linked_services_from_form = True
+			sync_internal_job_details_to_internal_jobs(sq)
+			ls_names = list(_linked_service_names_from_db("Sales Quote", sq.name))
+			self.assertEqual(len(ls_names), 3)
+
+			booking = frappe.new_doc("Sea Booking")
+			booking.sales_quote = sq.name
+			booking.flags.ignore_mandatory = True
+			booking.insert(ignore_permissions=True)
+			mapping = propagate_linked_services_from_sales_quote_to_booking(sq, booking)
+			self.assertEqual(len(mapping), 3)
+			for ls in ls_names:
+				self.assertEqual(mapping.get(ls), ls)
+
+			used = get_linked_services_used_by("Sea Booking", booking.name)
+			self.assertEqual(sorted(used), sorted(ls_names))
 		finally:
 			if booking and frappe.db.exists("Sea Booking", booking.name):
 				frappe.delete_doc("Sea Booking", booking.name, force=True, ignore_permissions=True)
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
 	def test_one_off_sea_booking_conversion_populates_linked_services(self):
-		"""End-to-end: Create > Sea Booking copies subsidiary services onto the booking."""
+		"""End-to-end: Create > Sea Booking reuses subsidiary services via Usage."""
 		from logistics.pricing_center.doctype.sales_quote.sales_quote import (
 			create_sea_booking_from_sales_quote,
 		)
@@ -183,22 +234,23 @@ class TestSalesQuoteLinkedServicePropagation(FrappeTestCase):
 		sq = self._minimal_sales_quote("SQ One-off Sea LS", quotation_type="One-off")
 		sbk_name = None
 		try:
-			sq.origin_port = "USLAX"
-			sq.destination_port = "USJFK"
+			sq.direction = "Export"
 			sq.append(
 				"charges",
 				{
-					"service_type": "sea",
-					"origin_port": "USLAX",
-					"destination_port": "USJFK",
+					"service_type": "Sea",
+					"origin_port": sq.origin_port,
+					"destination_port": sq.destination_port,
 					"direction": "Export",
 				},
 			)
 			sq.append("linked_services", {"service_type": "Transport"})
 			sq.append("linked_services", {"service_type": "Customs"})
 			sq.flags._linked_services_from_form = True
+			sq.flags.ignore_mandatory = True
 			sq.save(ignore_permissions=True)
-			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 2)
+			quote_ls = list(_linked_service_names_from_db("Sales Quote", sq.name))
+			self.assertEqual(len(quote_ls), 2)
 
 			result = create_sea_booking_from_sales_quote(sq.name)
 			self.assertTrue(result.get("success"))
@@ -210,6 +262,11 @@ class TestSalesQuoteLinkedServicePropagation(FrappeTestCase):
 			service_types = {getattr(r, "service_type", None) for r in rows}
 			self.assertEqual(service_types, {"Transport", "Customs"})
 			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 2)
+			# Same IJ names reused on the booking.
+			self.assertEqual(
+				sorted(get_linked_services_used_by("Sea Booking", sbk_name)),
+				sorted(quote_ls),
+			)
 		finally:
 			if sbk_name and frappe.db.exists("Sea Booking", sbk_name):
 				frappe.delete_doc("Sea Booking", sbk_name, force=True, ignore_permissions=True)

@@ -426,16 +426,35 @@ class TestDashboardFulfillmentSurfaces(UnitTestCase):
 		self.assertNotIn('<div class="sp-pfn-pipeline"', html)
 		self.assertNotIn('<div class="sp-pfn-filters"', html)
 
-	def test_fulfillment_tab_has_current_throughput_and_table_not_hero(self):
+	def test_fulfillment_tab_design_2_ops_scan_layout(self):
 		sp = self._sample_sp()
 		ctx = _packages_fulfillment_context(sp, current_lifecycle_stage="Logistics")
 		html = _build_fulfillment_tab_html(sp, ctx)
+		self.assertIn('data-sp-fulfillment-design="sp_fullfillment_design_2"', html)
+		self.assertIn("sp-ff2-lifecycle", html)
+		self.assertIn("sp-ff2-kpi-row", html)
+		self.assertIn("Packages at a glance", html)
+		self.assertIn("sp-ff2-table", html)
+		self.assertNotIn('<div class="sp-pfn-hero">', html)
+		self.assertNotIn('class="sp-pfn-current-stage-throughput"', html)
+
+	def test_fulfillment_tab_design_1_fallback_preserved(self):
+		from logistics.special_projects.fulfillment_designs import render_fulfillment_tab
+		from logistics.special_projects.fulfillment_designs.sp_fullfillment_design_1 import (
+			build_fulfillment_tab_html as build_design_1,
+		)
+
+		sp = self._sample_sp()
+		ctx = _packages_fulfillment_context(sp, current_lifecycle_stage="Logistics")
+		html = build_design_1(sp, ctx)
+		self.assertIn('data-sp-fulfillment-design="sp_fullfillment_design_1"', html)
 		self.assertIn("sp-pfn-current-stage-throughput", html)
 		self.assertIn('<div class="sp-pfn-summary-panel"', html)
 		self.assertIn("sp-pfn-filter-chip", html)
 		self.assertNotIn('<div class="sp-pfn-hero">', html)
-		self.assertNotIn('<div class="sp-pfn-pipeline"', html)
-		self.assertNotIn('<div class="sp-pfn-toolbar">', html)
+		# Registry can still render design_1 on demand.
+		html2 = render_fulfillment_tab(sp, ctx, design="sp_fullfillment_design_1")
+		self.assertIn("sp_fullfillment_design_1", html2)
 
 	def test_dashboard_required_materials_tab_has_table_not_hero(self):
 		sp = self._sample_sp()
@@ -514,6 +533,7 @@ class TestDashboardFulfillmentSurfaces(UnitTestCase):
 		self.assertIn('data-sp-job-doctype="Sea Shipment"', card)
 		self.assertIn('data-sp-job-name="SF000000443"', card)
 		self.assertIn("sp-dash-job-row", card)
+		self.assertIn("sp-dash-job-metrics", card)
 		self.assertIn("View Shipment", card)
 		self.assertIn("Planned cost", card)
 		self.assertIn("#icon-ship", card)
@@ -544,6 +564,7 @@ class TestDashboardFulfillmentSurfaces(UnitTestCase):
 		)
 		self.assertNotIn("Fulfillment by lifecycle stage", html)
 		self.assertNotIn("sp-dash-fulfillment-hint", html)
+		self.assertIn("sp-dash-split-handle", html)
 
 
 class TestSeedFromSalesQuote(UnitTestCase):
@@ -722,6 +743,53 @@ class TestShipmentLinesAndCargo(UnitTestCase):
 		self.assertEqual(n, 1)
 		self.assertEqual(len(tro.packages), 1)
 		self.assertEqual(tro.packages[0].description, "Tool kit")
+
+	def test_apply_shipment_lines_fills_to_description_from_commodity(self):
+		"""Transport Order Package requires description; commodity-only SP rows must map."""
+		sp = frappe._dict(
+			packages=[
+				frappe._dict(
+					idx=1,
+					commodity="COMM-ONLY",
+					uom="Nos",
+					qty_required=10,
+					qty_short=10,
+				),
+			],
+		)
+		tro = frappe.new_doc("Transport Order")
+		lines = json.dumps([{"package_row": 1, "commodity": "COMM-ONLY", "qty": 3, "uom": "Nos"}])
+		n = apply_shipment_lines_to_target(sp, tro, lines)
+		self.assertEqual(n, 1)
+		self.assertEqual(tro.packages[0].description, "COMM-ONLY")
+
+	def test_copy_always_along_fills_to_description_from_commodity(self):
+		sp = frappe._dict(
+			packages=[
+				frappe._dict(
+					idx=1,
+					commodity="COMM-AA",
+					qty_required=1,
+					include_on_create=1,
+				),
+			],
+		)
+		tro = frappe.new_doc("Transport Order")
+		n = copy_always_along_packages_to_target(sp, tro)
+		self.assertEqual(n, 1)
+		self.assertEqual(tro.packages[0].description, "COMM-AA")
+
+	def test_apply_shipment_lines_throws_when_to_description_unavailable(self):
+		sp = frappe._dict(
+			packages=[
+				frappe._dict(idx=1, uom="Nos", qty_required=10, qty_short=10),
+			],
+		)
+		tro = frappe.new_doc("Transport Order")
+		lines = json.dumps([{"package_row": 1, "qty": 2, "uom": "Nos"}])
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			apply_shipment_lines_to_target(sp, tro, lines)
+		self.assertIn("Description", str(ctx.exception))
 
 
 class TestPackageRowIdentity(UnitTestCase):

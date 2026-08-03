@@ -277,7 +277,7 @@ class Docket(VirtualLinkedServicesMixin, Document):
 
 		``project`` always tracks the parent Exhibit because it is the ERPNext Project
 		used as the Accounting Dimension on every posting from this docket.
-		Event Open/Close dates are filled from the Exhibit when empty.
+		Event Open/Close and Move-In/Out dates are filled from the Exhibit when empty.
 		"""
 		if not self.exhibit:
 			return
@@ -292,6 +292,8 @@ class Docket(VirtualLinkedServicesMixin, Document):
 				"project",
 				"show_open_date",
 				"show_close_date",
+				"move_in_date",
+				"move_out_date",
 			],
 			as_dict=True,
 		)
@@ -312,6 +314,10 @@ class Docket(VirtualLinkedServicesMixin, Document):
 			self.planned_start = sp.show_open_date
 		if not self.planned_end and sp.get("show_close_date"):
 			self.planned_end = sp.show_close_date
+		if not self.required_by and sp.get("move_in_date"):
+			self.required_by = sp.move_in_date
+		if not self.valid_until and sp.get("move_out_date"):
+			self.valid_until = sp.move_out_date
 		if not self.company:
 			co = frappe.defaults.get_user_default("Company") or frappe.db.get_single_value(
 				"Global Defaults", "default_company"

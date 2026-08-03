@@ -1,0 +1,161 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:code",
+ "creation": "2026-07-30 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "code",
+  "case_type_name",
+  "column_break_hdr",
+  "enabled",
+  "default_severity",
+  "section_defaults",
+  "default_response_minutes",
+  "default_at_risk_hours",
+  "default_breach_grace_minutes",
+  "column_break_defaults",
+  "milestone_template",
+  "document_list_template",
+  "section_desc",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "case_type_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Case Type Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_hdr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "default": "Urgent",
+   "fieldname": "default_severity",
+   "fieldtype": "Select",
+   "label": "Default Severity",
+   "options": "Normal\nHigh\nUrgent\nCritical"
+  },
+  {
+   "fieldname": "section_defaults",
+   "fieldtype": "Section Break",
+   "label": "Clock Defaults"
+  },
+  {
+   "default": "15",
+   "description": "Minutes allowed to acknowledge a new case of this type.",
+   "fieldname": "default_response_minutes",
+   "fieldtype": "Int",
+   "label": "Response Window (minutes)"
+  },
+  {
+   "default": "4",
+   "fieldname": "default_at_risk_hours",
+   "fieldtype": "Int",
+   "label": "At Risk (hours before deadline)"
+  },
+  {
+   "default": "0",
+   "fieldname": "default_breach_grace_minutes",
+   "fieldtype": "Int",
+   "label": "Breach Grace (minutes)"
+  },
+  {
+   "fieldname": "column_break_defaults",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "milestone_template",
+   "fieldtype": "Link",
+   "label": "Milestone Template",
+   "options": "Milestone Template"
+  },
+  {
+   "fieldname": "document_list_template",
+   "fieldtype": "Link",
+   "label": "Document List Template",
+   "options": "Document List Template"
+  },
+  {
+   "fieldname": "section_desc",
+   "fieldtype": "Section Break",
+   "label": "Description"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Time Sensitive",
+ "name": "Time Sensitive Case Type",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Time Sensitive Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Time Sensitive Coordinator",
+   "share": 1
+  },
+  {
+   "read": 1,
+   "role": "Time Sensitive Viewer"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "case_type_name",
+ "track_changes": 1
+}

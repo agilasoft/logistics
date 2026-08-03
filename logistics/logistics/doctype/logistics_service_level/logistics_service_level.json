@@ -54,7 +54,7 @@
    "label": "SLA Monitoring"
   },
   {
-   "description": "Set SLA rules per module (Transport, Sea Freight, Air Freight, Warehousing, Customs).",
+   "description": "Set SLA rules per module (Transport, Sea Freight, Air Freight, Warehousing, Customs, Time Sensitive).",
    "fieldname": "module_settings",
    "fieldtype": "Table",
    "label": "Service Level by Module",

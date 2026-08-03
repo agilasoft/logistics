@@ -275,6 +275,7 @@ frappe.provide("logistics.change_request_visibility");
 		"Run Sheet": set_of(RUN_SHEET_PLACES.concat(["dispatcher", "return_inspector"])),
 	};
 
+	// DocTypes whose ``packages`` field is a child Table (not a Float/Int count).
 	const JOB_TYPES_WITH_PACKAGES = set_of([
 		"Air Shipment",
 		"Air Booking",
@@ -282,8 +283,6 @@ frappe.provide("logistics.change_request_visibility");
 		"Sea Booking",
 		"Transport Job",
 		"Transport Order",
-		"Declaration",
-		"Declaration Order",
 		"Special Project",
 		"Docket",
 	]);

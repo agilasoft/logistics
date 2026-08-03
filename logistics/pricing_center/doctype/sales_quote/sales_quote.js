@@ -371,104 +371,75 @@ function logistics_sq_linked_services_fieldname(frm) {
 	return null;
 }
 
-/** Re-render Services grid rows after forcing Write (virtual field renders Read on first pass). */
-function logistics_refresh_linked_services_grid_rows(frm) {
-	if (!frm || !frm.doc || frm.doc.docstatus !== 0) return;
-	const fieldname = logistics_sq_linked_services_fieldname(frm);
-	if (!fieldname || !frm.fields_dict[fieldname]) return;
-	const grid = frm.fields_dict[fieldname].grid;
-	if (!grid || !grid.grid_rows || typeof grid.is_editable !== "function" || !grid.is_editable()) {
-		return;
-	}
-	grid.grid_rows.forEach((row) => {
-		if (row && typeof row.refresh === "function") {
-			row.refresh();
-		}
-	});
-}
-
-/** Virtual ``linked_services`` defaults to Read display_status; show Add row on draft quotes. */
-function logistics_enable_linked_services_grid_add_row(frm) {
-	if (!frm || !frm.doc || frm.doc.docstatus !== 0) return;
-	const fieldname = logistics_sq_linked_services_fieldname(frm);
-	if (!fieldname || !frm.fields_dict[fieldname]) return;
-	const grid = frm.fields_dict[fieldname].grid;
-	if (!grid || !grid.wrapper) return;
-
-	grid.display_status = "Write";
-	grid.wrapper.find(".grid-footer").removeClass("hidden");
-	grid.wrapper
-		.find(".grid-add-row, .grid-add-multiple-rows")
-		.removeClass("hidden d-none");
-	if (typeof grid.setup_toolbar === "function") {
-		grid.setup_toolbar();
-	}
-	logistics_refresh_linked_services_grid_rows(frm);
-}
-
-function logistics_activate_linked_services_grid_row(frm, cdn, attempt) {
-	if (!frm || !cdn) return;
-	const fieldname = logistics_sq_linked_services_fieldname(frm);
-	const grid = fieldname && frm.fields_dict[fieldname] && frm.fields_dict[fieldname].grid;
-	if (!grid) return;
-	const row = (grid.grid_rows_by_docname && grid.grid_rows_by_docname[cdn]) || null;
-	if (!row) {
-		if ((attempt || 0) < 10) {
-			setTimeout(
-				() => logistics_activate_linked_services_grid_row(frm, cdn, (attempt || 0) + 1),
-				50
-			);
-		}
-		return;
-	}
-	logistics_enable_linked_services_grid_add_row(frm);
-	if (typeof grid.allow_on_grid_editing === "function" && grid.allow_on_grid_editing()) {
-		row.toggle_editable_row(true);
-		return;
-	}
-	row.toggle_view(true);
-}
-
-function logistics_is_sales_quote_linked_services_grid(grid) {
-	if (!grid || !grid.df || !grid.frm) return false;
-	if (grid.frm.doctype !== "Sales Quote") return false;
-	const fn = grid.df.fieldname;
-	return fn === "linked_services" || fn === "internal_job_details";
-}
-
-function logistics_patch_linked_services_grid_add_row(frm) {
-	const fieldname = logistics_sq_linked_services_fieldname(frm);
-	if (!fieldname || !frm.fields_dict[fieldname]) return false;
-	const grid = frm.fields_dict[fieldname].grid;
-	if (!grid || typeof grid.add_new_row !== "function") return false;
-	if (grid._logistics_sq_ls_add_patched) return true;
-
-	const orig_add_new_row = grid.add_new_row.bind(grid);
-	grid.add_new_row = function (idx, callback, show, copy_doc, go_to_last_page, go_to_first_page) {
-		const row_doc = orig_add_new_row(
-			idx,
-			callback,
-			show,
-			copy_doc,
-			go_to_last_page,
-			go_to_first_page
-		);
-		if (row_doc && row_doc.name) {
-			logistics_activate_linked_services_grid_row(frm, row_doc.name);
-		}
-		return row_doc;
-	};
-	grid._logistics_sq_ls_add_patched = true;
-	return true;
-}
-
+/** Services tab is a read-only mirror; manage via toolbar Services dialog. */
 function logistics_setup_linked_services_grid(frm) {
-	if (!logistics_patch_linked_services_grid_add_row(frm) && !frm._logistics_sq_ls_patch_retry) {
-		frm._logistics_sq_ls_patch_retry = true;
-		setTimeout(() => logistics_setup_linked_services_grid(frm), 300);
+	if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+		logistics.setup_virtual_linked_services_grid(frm);
 		return;
 	}
-	logistics_enable_linked_services_grid_add_row(frm);
+	const fieldname = logistics_sq_linked_services_fieldname(frm);
+	if (!fieldname || !frm.get_docfield || !frm.get_docfield(fieldname)) return;
+	frm.set_df_property(fieldname, "read_only", 1);
+	frm.set_df_property(fieldname, "cannot_add_rows", 1);
+	frm.set_df_property(fieldname, "cannot_delete_rows", 1);
+}
+
+const SQ_SERVICES_API = "logistics.pricing_center.doctype.sales_quote.sales_quote";
+
+function logistics_sq_can_manage_linked_services(frm) {
+	return !!(
+		frm &&
+		frm.doc &&
+		!frm.is_new() &&
+		frm.doc.docstatus === 0 &&
+		!frm.doc.additional_charge
+	);
+}
+
+function logistics_sq_open_services_dialog(frm) {
+	function open() {
+		if (!logistics.show_linked_services_dialog) {
+			frappe.msgprint({
+				message: __(
+					"Services dialog failed to load. Hard-refresh the page (Ctrl+Shift+R)."
+				),
+				indicator: "orange",
+			});
+			return;
+		}
+		const can_manage = logistics_sq_can_manage_linked_services(frm);
+		logistics.show_linked_services_dialog(frm, {
+			listMethod: SQ_SERVICES_API + ".list_quote_linked_services",
+			addMethod: can_manage ? SQ_SERVICES_API + ".add_linked_service" : null,
+			removeMethod: can_manage ? SQ_SERVICES_API + ".remove_linked_service" : null,
+			parentField: "sales_quote",
+			parentLabel: __("Quote"),
+			allowAdd: can_manage,
+			allowRemove: can_manage,
+			allowEdit: can_manage,
+			emptyHint: __("Add a service type below to link it to this quote."),
+			addHint: __(
+				"Select a service type to link to this quote. You can add multiple services of the same type (e.g. three Transport legs)."
+			),
+			unsavedMessage: __("Save the Sales Quote before managing services."),
+			removeConfirm: (ls) =>
+				__("Remove linked service {0} from this quote?", [
+					`<strong>${frappe.utils.escape_html(ls)}</strong>`,
+				]),
+		});
+	}
+	if (logistics.show_linked_services_dialog) {
+		open();
+		return;
+	}
+	frappe.require("/assets/logistics/js/linked_services_dialog.js", open);
+}
+
+function logistics_sq_setup_services_button(frm) {
+	if (frm.is_new()) return;
+	frm.add_custom_button(__("Services"), () => {
+		logistics_sq_open_services_dialog(frm);
+	});
 }
 
 function logistics_sales_quote_supports_booking_order_creation(doc) {
@@ -480,7 +451,7 @@ function logistics_sales_quote_supports_booking_order_creation(doc) {
 		return true;
 	}
 	if (qt === "Project") {
-		return ["Air", "Sea", "Transport", "Customs", "Custom", "Warehousing", "Cross-Docking"].includes(
+		return ["Air", "Sea", "Transport", "Customs", "Custom", "Warehousing", "Time Sensitive"].includes(
 			doc.main_service
 		);
 	}
@@ -506,41 +477,6 @@ function logistics_open_sales_quote_booking_dialog(frm) {
 	// Do not append ?v=… to the path — Frappe assets.extn() breaks on manual query strings.
 	frappe.require("/assets/logistics/js/sales_quote_booking_dialog.js", _openDlg);
 }
-
-(function patch_sq_linked_services_grid_refresh() {
-	function patch_grid_refresh(grid) {
-		if (!logistics_is_sales_quote_linked_services_grid(grid) || grid._logistics_sq_ls_refresh_patched) {
-			return;
-		}
-		grid._logistics_sq_ls_refresh_patched = true;
-		const orig = grid.refresh.bind(grid);
-		grid.refresh = function () {
-			orig.apply(this, arguments);
-			if (this.frm) {
-				logistics_enable_linked_services_grid_add_row(this.frm);
-			}
-		};
-	}
-
-	function run() {
-		if (!frappe.ui.form || !frappe.ui.form.ControlTable) {
-			setTimeout(run, 50);
-			return;
-		}
-		if (frappe.ui.form.ControlTable.prototype.make.__logistics_sq_ls_hooked) {
-			return;
-		}
-		const orig_make = frappe.ui.form.ControlTable.prototype.make;
-		frappe.ui.form.ControlTable.prototype.make = function () {
-			orig_make.apply(this, arguments);
-			if (this.grid) {
-				patch_grid_refresh(this.grid);
-			}
-		};
-		frappe.ui.form.ControlTable.prototype.make.__logistics_sq_ls_hooked = true;
-	}
-	run();
-})();
 
 frappe.ui.form.on("Sales Quote", {
 	_lock_naming_series(frm) {
@@ -982,20 +918,21 @@ frappe.ui.form.on("Sales Quote", {
 				Air: "air_",
 				Transport: "transport_",
 				Warehousing: "warehouse_",
-				"Cross-Docking": "warehouse_",
 			};
 			const domain_map = {
 				Sea: "sea",
 				Air: "air",
 				Transport: "transport",
 				Warehousing: "warehousing",
-				"Cross-Docking": "warehousing",
 			};
 			const prefix = prefix_map[frm.doc.main_service];
 			const domain = domain_map[frm.doc.main_service];
 			if (prefix && domain) {
 				frm.events.apply_default_uoms_for_tab(frm, domain, prefix);
 			}
+		}
+		if (frm.doc.main_service === "Time Sensitive" && !cint(frm.doc.is_time_sensitive)) {
+			frm.set_value("is_time_sensitive", 1);
 		}
 		// Explicit refresh: warehousing / charges use depends_on vs main_service; ensures grids repaint when switching mode.
 		frm.refresh_field("charges");
@@ -1186,15 +1123,7 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	_enable_linked_services_grid_add_row(frm) {
-		logistics_enable_linked_services_grid_add_row(frm);
-	},
-
-	linked_services_add(frm, _cdt, cdn) {
-		logistics_activate_linked_services_grid_row(frm, cdn);
-	},
-
-	internal_job_details_add(frm, _cdt, cdn) {
-		logistics_activate_linked_services_grid_row(frm, cdn);
+		logistics_setup_linked_services_grid(frm);
 	},
 
 	refresh(frm) {
@@ -1244,6 +1173,7 @@ frappe.ui.form.on("Sales Quote", {
 		frm.events.setup_item_code_query(frm);
 		frm.events.setup_internal_job_query(frm);
 		logistics_setup_linked_services_grid(frm);
+		logistics_sq_setup_services_button(frm);
 		frm.events.refresh_estimated_profitability(frm);
 
 		// Regular / Project Sales Quote: Create Booking/Order from Main Service scope (reusable — no job back-link)
@@ -1729,7 +1659,7 @@ frappe.ui.form.on("Sales Quote", {
 			{ domain: "sea", visible: main === "Sea", prefix: "sea_" },
 			{ domain: "air", visible: main === "Air", prefix: "air_" },
 			{ domain: "transport", visible: main === "Transport", prefix: "transport_" },
-			{ domain: "warehousing", visible: main === "Warehousing" || main === "Cross-Docking", prefix: "warehouse_" }
+			{ domain: "warehousing", visible: main === "Warehousing", prefix: "warehouse_" }
 		];
 		tabs.forEach(function (tab) {
 			if (tab.visible) {

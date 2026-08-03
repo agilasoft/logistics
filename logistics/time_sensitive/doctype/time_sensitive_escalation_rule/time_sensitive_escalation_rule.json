@@ -1,0 +1,168 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-07-30 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "rule_name",
+  "case_type",
+  "column_break_hdr",
+  "enabled",
+  "trigger_event",
+  "section_timing",
+  "minutes_before_deadline",
+  "minutes_after_event",
+  "column_break_timing",
+  "severity",
+  "escalate_to_role",
+  "escalate_to_user",
+  "section_msg",
+  "notification_subject",
+  "notification_message"
+ ],
+ "fields": [
+  {
+   "default": "TSER-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Series",
+   "options": "TSER-.#####"
+  },
+  {
+   "fieldname": "rule_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Rule Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "case_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Case Type",
+   "options": "Time Sensitive Case Type"
+  },
+  {
+   "fieldname": "column_break_hdr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "trigger_event",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Trigger Event",
+   "options": "Activation\nUnacknowledged\nAt Risk\nCheckpoint Missed\nDeadline Breach\nException Logged\nHandoff",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_timing",
+   "fieldtype": "Section Break",
+   "label": "Timing"
+  },
+  {
+   "description": "For At Risk: hours converted to minutes before deadline. Leave 0 to use case-type default.",
+   "fieldname": "minutes_before_deadline",
+   "fieldtype": "Int",
+   "label": "Minutes Before Deadline"
+  },
+  {
+   "description": "For Unacknowledged: minutes after activation without acknowledgement.",
+   "fieldname": "minutes_after_event",
+   "fieldtype": "Int",
+   "label": "Minutes After Event"
+  },
+  {
+   "fieldname": "column_break_timing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "impending",
+   "fieldname": "severity",
+   "fieldtype": "Select",
+   "label": "Severity",
+   "options": "informational\nimpending\ncritical"
+  },
+  {
+   "fieldname": "escalate_to_role",
+   "fieldtype": "Link",
+   "label": "Escalate To Role",
+   "options": "Role"
+  },
+  {
+   "fieldname": "escalate_to_user",
+   "fieldtype": "Link",
+   "label": "Escalate To User",
+   "options": "User"
+  },
+  {
+   "fieldname": "section_msg",
+   "fieldtype": "Section Break",
+   "label": "Notification"
+  },
+  {
+   "fieldname": "notification_subject",
+   "fieldtype": "Data",
+   "label": "Notification Subject"
+  },
+  {
+   "fieldname": "notification_message",
+   "fieldtype": "Small Text",
+   "label": "Notification Message"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Time Sensitive",
+ "name": "Time Sensitive Escalation Rule",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Time Sensitive Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Time Sensitive Coordinator"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "rule_name",
+ "track_changes": 1
+}

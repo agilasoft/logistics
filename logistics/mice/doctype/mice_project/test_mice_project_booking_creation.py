@@ -215,6 +215,8 @@ class TestCreateMiceOrderFromExhibit(FrappeTestCase):
 			internal_job_idx=len(ex.linked_services),
 		)
 		order_name = result["mice_order"]
+		order = frappe.get_doc("MICE Order", order_name)
+		order.submit()
 		payload = action_create_mice_job(order_name, title="Execution job")
 		self.assertTrue(payload.get("created"))
 		self.assertTrue(frappe.db.exists("MICE Job", payload["name"]))

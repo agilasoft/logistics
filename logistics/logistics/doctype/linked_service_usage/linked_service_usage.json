@@ -1,0 +1,99 @@
+{
+ "actions": [],
+ "creation": "2026-07-30 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "used_on_doctype",
+  "used_on_name",
+  "usage_role",
+  "sales_quote",
+  "planned_cost",
+  "planned_revenue",
+  "actual_cost",
+  "actual_revenue"
+ ],
+ "fields": [
+  {
+   "fieldname": "used_on_doctype",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Used On Doctype",
+   "options": "DocType",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "used_on_name",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Used On Name",
+   "options": "used_on_doctype",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "default": "Parent Booking",
+   "fieldname": "usage_role",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Usage Role",
+   "options": "Parent Booking\nSatellite Job\nShipment",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_quote",
+   "fieldtype": "Link",
+   "label": "Sales Quote",
+   "options": "Sales Quote",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "planned_cost",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Planned Cost",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "planned_revenue",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Planned Revenue",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "actual_cost",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Actual Cost",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "actual_revenue",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Actual Revenue",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Linked Service Usage",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

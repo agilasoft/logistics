@@ -10,13 +10,11 @@ from __future__ import unicode_literals
 import frappe
 from frappe import _
 
-from logistics.container_management.api import get_container_by_number, is_container_management_enabled
 from logistics.invoice_integration.container_deposit_pi import (
 	JOB_DOCTYPES_CONTAINER_DEPOSIT,
 	item_is_container_deposit,
 )
 from logistics.logistics.deposit_processing.container_gl_service import sync_deposit_header_from_gl
-from logistics.utils.container_validation import normalize_container_number
 
 
 def _containers_for_sea_shipment(job_name):
@@ -31,21 +29,11 @@ def _containers_for_sea_shipment(job_name):
 
 def _containers_for_declaration(job_name):
 	doc = frappe.get_doc("Declaration", job_name)
-	raw = (getattr(doc, "container_numbers", None) or "").strip()
-	if not raw:
-		return []
-	parts = [p.strip() for p in raw.replace("\n", ",").split(",") if p.strip()]
 	out = []
-	for p in parts:
-		eq = normalize_container_number(p)
-		if not eq:
-			continue
-		if is_container_management_enabled():
-			name = get_container_by_number(eq)
-			if name:
-				out.append(name)
-		elif frappe.db.exists("Container", eq):
-			out.append(eq)
+	for row in doc.get("containers") or []:
+		c = getattr(row, "container_no", None)
+		if c and frappe.db.exists("Container", c):
+			out.append(c)
 	return out
 
 

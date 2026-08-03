@@ -55,6 +55,7 @@ def build_linked_services_view_for_booking(
 	from logistics.logistics.doctype.linked_service.linked_service import (
 		get_linked_services_for_booking,
 	)
+	from logistics.utils.linked_service_usage import latest_satellite_job_from_usage
 
 	rows: list[dict[str, Any]] = []
 	for ls in get_linked_services_for_booking(parent_booking_type, parent_booking_name):
@@ -62,8 +63,15 @@ def build_linked_services_view_for_booking(
 		for fn in LINKED_SERVICE_VIEW_FIELDS:
 			if fn == "linked_service":
 				continue
+			if fn in ("job_type", "job_no", "job_description"):
+				continue
 			if hasattr(ls, fn):
 				row[fn] = getattr(ls, fn, None)
+		# Job Type / Job No come from Usage (satellite), not from Linked Service fields.
+		jt, jn = latest_satellite_job_from_usage(ls.name)
+		row["job_type"] = jt or None
+		row["job_no"] = jn or None
+		row["job_description"] = None
 		rows.append(row)
 	return rows
 

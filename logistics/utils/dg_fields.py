@@ -184,29 +184,59 @@ def transport_order_package_row_from_shipment_pkg(shipment, pkg):
 		line_dg = package_indicates_dangerous_goods(pkg)
 		if parent_dg or line_dg:
 			row["contains_dangerous_goods"] = 1
-	_ensure_transport_order_package_description(row, pkg)
+	ensure_transport_order_package_description(row, pkg)
 	return row
 
 
-def _ensure_transport_order_package_description(row, pkg):
-	"""Fill required Transport Order Package ``description`` from shipment package fields.
+def ensure_transport_order_package_description(row, pkg=None):
+	"""Fill required Transport Order Package ``description``.
 
-	Priority: existing description → goods_description (first line) → commodity.
-	Raises a clear error when none are available (no invented placeholder text).
+	Priority: existing description → goods_description (first line) → warehouse item
+	name → commodity. Used when copying from Air/Sea shipment packages or Special
+	Project packages. Raises a clear error when none are available.
 	"""
-	desc = (row.get("description") or "").strip()
+	pkg = pkg or row
+	desc = (row.get("description") if isinstance(row, dict) else getattr(row, "description", None) or "")
+	desc = (desc or "").strip()
 	if not desc:
-		gd = (getattr(pkg, "goods_description", None) or row.get("goods_description") or "").strip()
+		gd = (
+			getattr(pkg, "goods_description", None)
+			or (row.get("goods_description") if isinstance(row, dict) else None)
+			or ""
+		)
+		gd = (gd or "").strip()
 		if gd:
 			desc = gd.split("\n", 1)[0].strip()[:140]
-		elif getattr(pkg, "commodity", None) or row.get("commodity"):
-			desc = str(getattr(pkg, "commodity", None) or row.get("commodity")).strip()
+	if not desc:
+		wh = (
+			getattr(pkg, "warehouse_item", None)
+			or (row.get("warehouse_item") if isinstance(row, dict) else None)
+			or ""
+		)
+		wh = str(wh).strip()
+		if wh:
+			desc = (frappe.db.get_value("Warehouse Item", wh, "item_name") or wh).strip()
+	if not desc:
+		commodity = (
+			getattr(pkg, "commodity", None)
+			or (row.get("commodity") if isinstance(row, dict) else None)
+			or ""
+		)
+		if commodity:
+			desc = str(commodity).strip()
 	if not desc:
 		frappe.throw(
 			_(
-				"Cannot create Transport Order package: {0} has no Goods Description. "
-				"Fill Goods Description on the shipment package and try again."
+				"Cannot create Transport Order package: {0} has no Description. "
+				"Fill Description, Goods Description, Commodity, or Warehouse Item and try again."
 			).format(dg_child_row_display_label(pkg)),
 			title=_("Missing package description"),
 		)
-	row["description"] = desc
+	if isinstance(row, dict):
+		row["description"] = desc
+	else:
+		row.description = desc
+
+
+# Backward-compatible alias for callers/tests that used the private name.
+_ensure_transport_order_package_description = ensure_transport_order_package_description

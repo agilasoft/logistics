@@ -144,8 +144,8 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			ls = frappe.get_doc(linked_service_doctype(), list(names)[0])
 			self.assertEqual(ls.parent_booking_type, "Docket")
 			self.assertEqual(ls.parent_booking_name, dk.name)
-			self.assertEqual((ls.job_type or "").strip(), "Sea Booking")
-			self.assertEqual((ls.job_no or "").strip(), fake_job_no)
+			from logistics.utils.linked_service_usage import linked_service_has_satellite_job
+			self.assertEqual(linked_service_has_satellite_job(ls.name, "Sea Booking"), fake_job_no)
 		finally:
 			if hasattr(frappe.local, "_logistics_dk_ij_client_rows"):
 				delattr(frappe.local, "_logistics_dk_ij_client_rows")
@@ -174,7 +174,6 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 				ls.parent_booking_type = "Docket"
 				ls.parent_booking_name = dk.name
 				ls.service_type = service_type
-				ls.job_type = job_type
 				ls.flags.ignore_mandatory = True
 				ls.insert(ignore_permissions=True)
 				ls_names.append(ls.name)
@@ -196,10 +195,9 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			self.assertEqual(after, set(ls_names))
 			sea = frappe.get_doc(linked_service_doctype(), ls_names[0])
 			air = frappe.get_doc(linked_service_doctype(), ls_names[1])
-			self.assertEqual((sea.job_type or "").strip(), "Sea Booking")
-			self.assertEqual((sea.job_no or "").strip(), fake_job_no)
-			self.assertEqual((air.job_type or "").strip(), "Air Booking")
-			self.assertFalse((air.job_no or "").strip())
+			from logistics.utils.linked_service_usage import linked_service_has_satellite_job
+			self.assertEqual(linked_service_has_satellite_job(sea.name, "Sea Booking"), fake_job_no)
+			self.assertFalse(linked_service_has_satellite_job(air.name, "Air Booking"))
 		finally:
 			if hasattr(frappe.local, "_logistics_dk_ij_client_rows"):
 				delattr(frappe.local, "_logistics_dk_ij_client_rows")
@@ -230,12 +228,11 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 		sq.flags.ignore_mandatory = True
 		sq.flags.ignore_validate = True
 		sq.insert(ignore_permissions=True)
-		for service_type, job_type in (("Sea", "Sea Booking"), ("Transport", "Transport Order")):
+		for service_type, _job_type in (("Sea", "Sea Booking"), ("Transport", "Transport Order")):
 			ls = frappe.new_doc(linked_service_doctype())
 			ls.parent_booking_type = "Sales Quote"
 			ls.parent_booking_name = sq.name
 			ls.service_type = service_type
-			ls.job_type = job_type
 			ls.flags.ignore_mandatory = True
 			ls.insert(ignore_permissions=True)
 		return sq
@@ -318,7 +315,6 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			sq_ls.parent_booking_type = "Sales Quote"
 			sq_ls.parent_booking_name = f"SQ-FAKE-{frappe.generate_hash(length=6)}"
 			sq_ls.service_type = "Transport"
-			sq_ls.job_type = "Transport Order"
 			sq_ls.flags.ignore_mandatory = True
 			sq_ls.insert(ignore_permissions=True)
 			sq_ls_name = sq_ls.name
@@ -327,7 +323,6 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			dk_ls.parent_booking_type = "Docket"
 			dk_ls.parent_booking_name = dk.name
 			dk_ls.service_type = "Transport"
-			dk_ls.job_type = "Transport Order"
 			dk_ls.flags.ignore_mandatory = True
 			dk_ls.insert(ignore_permissions=True)
 			dk_ls_name = dk_ls.name
@@ -351,13 +346,14 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			)
 
 			dk_ls.reload()
-			self.assertEqual((dk_ls.job_no or "").strip(), fake_job_no)
+			from logistics.utils.linked_service_usage import linked_service_has_satellite_job
+			self.assertEqual(linked_service_has_satellite_job(dk_ls.name, "Transport Order"), fake_job_no)
 			sq_ls.reload()
-			self.assertFalse((sq_ls.job_no or "").strip())
+			self.assertFalse(linked_service_has_satellite_job(sq_ls.name, "Transport Order"))
 
 			view = build_linked_services_view_for_booking("Docket", dk.name)
 			self.assertEqual(len(view), 1)
-			self.assertEqual((view[0].get("job_no") or "").strip(), fake_job_no)
+			self.assertEqual(view[0].get("linked_service"), dk_ls.name)
 		finally:
 			if hasattr(frappe.local, "_logistics_dk_ij_client_rows"):
 				delattr(frappe.local, "_logistics_dk_ij_client_rows")
@@ -391,7 +387,6 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			ls.parent_booking_type = "Docket"
 			ls.parent_booking_name = dk.name
 			ls.service_type = "Transport"
-			ls.job_type = "Transport Order"
 			ls.flags.ignore_mandatory = True
 			ls.insert(ignore_permissions=True)
 			ls_name = ls.name
@@ -421,12 +416,12 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			self.assertTrue(order_name)
 
 			ls.reload()
-			self.assertEqual((ls.job_type or "").strip(), "Transport Order")
-			self.assertEqual((ls.job_no or "").strip(), order_name)
+			from logistics.utils.linked_service_usage import linked_service_has_satellite_job
+			self.assertEqual(linked_service_has_satellite_job(ls.name, "Transport Order"), order_name)
 
 			view = build_linked_services_view_for_booking("Docket", dk.name)
 			self.assertEqual(len(view), 1)
-			self.assertEqual((view[0].get("job_no") or "").strip(), order_name)
+			self.assertEqual(view[0].get("linked_service"), ls.name)
 
 			if frappe.get_meta("Transport Order").has_field("linked_service"):
 				tro_ls = frappe.db.get_value("Transport Order", order_name, "linked_service")
@@ -497,7 +492,6 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			ls.parent_booking_type = "Docket"
 			ls.parent_booking_name = dk.name
 			ls.service_type = "Warehousing"
-			ls.job_type = "VAS Order"
 			ls.flags.ignore_mandatory = True
 			ls.insert(ignore_permissions=True)
 			ls_name = ls.name
@@ -548,7 +542,6 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			ls.parent_booking_type = "Docket"
 			ls.parent_booking_name = dk.name
 			ls.service_type = "Sea"
-			ls.job_type = "Sea Booking"
 			port = frappe.db.get_value("UNLOCO", {}, "name") or frappe.db.get_value("Port", {}, "name")
 			if port and ls.meta.has_field("origin_port"):
 				ls.origin_port = port
@@ -576,12 +569,12 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			self.assertTrue(order_name)
 
 			ls.reload()
-			self.assertEqual((ls.job_type or "").strip(), "Sea Booking")
-			self.assertEqual((ls.job_no or "").strip(), order_name)
+			from logistics.utils.linked_service_usage import linked_service_has_satellite_job
+			self.assertEqual(linked_service_has_satellite_job(ls.name, "Sea Booking"), order_name)
 
 			view = build_linked_services_view_for_booking("Docket", dk.name)
 			self.assertEqual(len(view), 1)
-			self.assertEqual((view[0].get("job_no") or "").strip(), order_name)
+			self.assertEqual(view[0].get("linked_service"), ls.name)
 		finally:
 			if hasattr(frappe.local, "_logistics_dk_ij_client_rows"):
 				delattr(frappe.local, "_logistics_dk_ij_client_rows")
@@ -616,7 +609,6 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			ls.parent_booking_type = "Docket"
 			ls.parent_booking_name = dk.name
 			ls.service_type = "Customs"
-			ls.job_type = "Declaration Order"
 			ls.flags.ignore_mandatory = True
 			ls.insert(ignore_permissions=True)
 			ls_name = ls.name
@@ -640,12 +632,12 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			self.assertTrue(order_name)
 
 			ls.reload()
-			self.assertEqual((ls.job_type or "").strip(), "Declaration Order")
-			self.assertEqual((ls.job_no or "").strip(), order_name)
+			from logistics.utils.linked_service_usage import linked_service_has_satellite_job
+			self.assertEqual(linked_service_has_satellite_job(ls.name, "Declaration Order"), order_name)
 
 			view = build_linked_services_view_for_booking("Docket", dk.name)
 			self.assertEqual(len(view), 1)
-			self.assertEqual((view[0].get("job_no") or "").strip(), order_name)
+			self.assertEqual(view[0].get("linked_service"), ls.name)
 		finally:
 			if hasattr(frappe.local, "_logistics_dk_ij_client_rows"):
 				delattr(frappe.local, "_logistics_dk_ij_client_rows")
@@ -683,7 +675,6 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			ls.parent_booking_type = "Docket"
 			ls.parent_booking_name = dk.name
 			ls.service_type = "Warehousing"
-			ls.job_type = "VAS Order"
 			ls.flags.ignore_mandatory = True
 			ls.insert(ignore_permissions=True)
 			ls_name = ls.name
@@ -723,12 +714,12 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			self.assertTrue(order_name)
 
 			ls.reload()
-			self.assertEqual((ls.job_type or "").strip(), "VAS Order")
-			self.assertEqual((ls.job_no or "").strip(), order_name)
+			from logistics.utils.linked_service_usage import linked_service_has_satellite_job
+			self.assertEqual(linked_service_has_satellite_job(ls.name, "VAS Order"), order_name)
 
 			view = build_linked_services_view_for_booking("Docket", dk.name)
 			self.assertEqual(len(view), 1)
-			self.assertEqual((view[0].get("job_no") or "").strip(), order_name)
+			self.assertEqual(view[0].get("linked_service"), ls.name)
 		finally:
 			if hasattr(frappe.local, "_logistics_dk_ij_client_rows"):
 				delattr(frappe.local, "_logistics_dk_ij_client_rows")
@@ -770,17 +761,25 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			sea_ls.parent_booking_type = "Docket"
 			sea_ls.parent_booking_name = dk.name
 			sea_ls.service_type = "Sea"
-			sea_ls.job_type = "Sea Booking"
-			sea_ls.job_no = sea_job_no
 			sea_ls.flags.ignore_mandatory = True
 			sea_ls.insert(ignore_permissions=True)
 			sea_ls_name = sea_ls.name
+			from logistics.utils.linked_service_usage import (
+				USAGE_ROLE_SATELLITE_JOB,
+				linked_service_has_satellite_job,
+				record_linked_service_usage,
+			)
+			record_linked_service_usage(
+				sea_ls_name,
+				"Sea Booking",
+				sea_job_no,
+				usage_role=USAGE_ROLE_SATELLITE_JOB,
+			)
 
 			tro_ls = frappe.new_doc(linked_service_doctype())
 			tro_ls.parent_booking_type = "Docket"
 			tro_ls.parent_booking_name = dk.name
 			tro_ls.service_type = "Transport"
-			tro_ls.job_type = "Transport Order"
 			tro_ls.flags.ignore_mandatory = True
 			tro_ls.insert(ignore_permissions=True)
 			tro_ls_name = tro_ls.name
@@ -817,12 +816,16 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			self.assertTrue(order_name)
 
 			sea_ls.reload()
-			self.assertEqual((sea_ls.job_no or "").strip(), sea_job_no)
+			self.assertEqual(
+				linked_service_has_satellite_job(sea_ls.name, "Sea Booking"), sea_job_no
+			)
 			self.assertEqual((sea_ls.parent_booking_type or "").strip(), "Docket")
 			self.assertEqual((sea_ls.parent_booking_name or "").strip(), dk.name)
 
 			tro_ls.reload()
-			self.assertEqual((tro_ls.job_no or "").strip(), order_name)
+			self.assertEqual(
+				linked_service_has_satellite_job(tro_ls.name, "Transport Order"), order_name
+			)
 			self.assertEqual((tro_ls.parent_booking_type or "").strip(), "Docket")
 			self.assertEqual((tro_ls.parent_booking_name or "").strip(), dk.name)
 

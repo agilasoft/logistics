@@ -67,7 +67,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Service Type",
-   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nSpecial Project\nMICE",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nOn-Demand Last Mile\nSpecial Project\nMICE",
    "reqd": 1
   },
   {
@@ -75,7 +75,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "fetch_from": "linked_service.job_type",
    "fieldname": "job_type",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -85,7 +84,6 @@
    "read_only": 1
   },
   {
-   "fetch_from": "linked_service.job_no",
    "fieldname": "job_no",
    "fieldtype": "Dynamic Link",
    "in_list_view": 1,
@@ -361,8 +359,6 @@
    "link_filters": "[[\"Charge Category\", \"disabled\", \"=\", 0]]"
   },
   {
-   "fetch_from": "linked_service.job_description",
-   "fetch_if_empty": 1,
    "fieldname": "job_description",
    "fieldtype": "Small Text",
    "in_list_view": 1,

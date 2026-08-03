@@ -578,6 +578,9 @@ frappe.ui.form.on("Declaration Order", {
 		if (window.logistics && logistics.sync_form_breadcrumbs) {
 			logistics.sync_form_breadcrumbs(frm);
 		}
+		if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+			logistics.setup_virtual_linked_services_grid(frm);
+		}
 		_maybe_apply_transport_document_type_default(frm);
 	},
 	setup(frm) {
@@ -608,6 +611,9 @@ frappe.ui.form.on("Declaration Order", {
 		}
 	},
 	refresh(frm) {
+		if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+			logistics.setup_virtual_linked_services_grid(frm);
+		}
 		if (window.logistics && logistics.apply_commercial_invoice_totals_to_form) {
 			logistics.apply_commercial_invoice_totals_to_form(frm);
 		}

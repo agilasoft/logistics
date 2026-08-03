@@ -98,9 +98,13 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 
 			validate_internal_job_main_link_unchanged(self)
-			from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+			from logistics.sea_freight.sea_freight_settings_defaults import (
+				apply_sea_booking_incoterm_defaults,
+			)
 
-			apply_shipper_consignee_defaults(self)
+			# Incoterm: Sales Quote (overwrite) → Consignee → Shipper → Sea Freight Settings
+			# Also applies other empty party defaults (agents, templates, etc.).
+			apply_sea_booking_incoterm_defaults(self)
 			from logistics.utils.freight_agent_location_validation import (
 				validate_booking_freight_agent_locations,
 			)
@@ -992,8 +996,9 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 				self.chargeable = getattr(sales_quote, 'chargeable', None)
 			if not self.service_level:
 				self.service_level = getattr(sales_quote, 'service_level', None)
-			if not self.incoterm:
-				self.incoterm = getattr(sales_quote, 'incoterm', None)
+			sq_incoterm = getattr(sales_quote, "incoterm", None)
+			if sq_incoterm:
+				self.incoterm = sq_incoterm
 			if not self.additional_terms:
 				self.additional_terms = getattr(sales_quote, 'additional_terms', None)
 			if not self.company:

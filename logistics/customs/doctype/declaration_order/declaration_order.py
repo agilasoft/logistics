@@ -20,9 +20,10 @@ from logistics.utils.internal_job_charge_copy import (
 	should_apply_internal_job_main_charge_overlay,
 )
 from logistics.utils.operational_rep_fields import copy_operational_rep_fields_from_chain
+from logistics.utils.virtual_linked_services_view import VirtualLinkedServicesMixin
 
 
-class DeclarationOrder(Document):
+class DeclarationOrder(VirtualLinkedServicesMixin, Document):
 	@frappe.whitelist()
 	def get_dashboard_html(self):
 		"""Generate HTML for Dashboard tab: tabbed layout with route, milestones, alerts."""

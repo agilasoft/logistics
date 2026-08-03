@@ -36,10 +36,6 @@ _GATE_SETTING_MAP = {
 }
 
 _OPS_TERMINAL = {
-	"Air Shipment": {
-		"field": "tracking_status",
-		"ok": frozenset(("Delivered",)),
-	},
 	"Sea Shipment": {
 		"field": "shipping_status",
 		"ok": frozenset(("Delivered", "Empty Container Returned", "Closed")),
@@ -253,6 +249,8 @@ def check_ops_terminal_status(doc):
 	"""Warning when operational status has not reached a terminal value."""
 	spec = _OPS_TERMINAL.get(doc.doctype)
 	if not spec:
+		if doc.doctype == "Air Shipment":
+			return _check_air_milestones_terminal(doc)
 		if doc.doctype == "Transport Job":
 			return _check_transport_legs_terminal(doc)
 		return []
@@ -269,6 +267,35 @@ def check_ops_terminal_status(doc):
 			severity="warning",
 			field=field,
 			status=cur,
+		)
+	]
+
+
+def _check_air_milestones_terminal(doc):
+	milestones = list(doc.get("milestones") or [])
+	if not milestones:
+		return []
+	bad = []
+	for idx, milestone in enumerate(milestones):
+		status = (
+			getattr(milestone, "status", None)
+			or (milestone.get("status") if hasattr(milestone, "get") else None)
+			or ""
+		).strip()
+		if status != "Completed":
+			label = (
+				getattr(milestone, "milestone", None)
+				or (milestone.get("milestone") if hasattr(milestone, "get") else None)
+				or "#{0}".format(idx + 1)
+			)
+			bad.append("{0} ({1})".format(label, status or _("empty")))
+	if not bad:
+		return []
+	return [
+		_issue(
+			"ops_not_terminal",
+			_("Air shipment milestone(s) not Completed: {0}").format(", ".join(bad)),
+			severity="warning",
 		)
 	]
 
