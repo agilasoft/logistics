@@ -707,7 +707,7 @@
    "name": "Item-custom_default_charge_type",
    "no_copy": 0,
    "non_negative": 0,
-   "options": "Margin\nDisbursement\nRevenue\nCost",
+   "options": "Margin\nDisbursement\nRevenue\nCost\nOther",
    "owner": "Administrator",
    "permlevel": 0,
    "placeholder": null,

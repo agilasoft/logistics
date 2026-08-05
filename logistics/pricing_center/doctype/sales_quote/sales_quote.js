@@ -148,13 +148,16 @@ function logistics_strip_sq_charge_item_code_link_filters_from_meta(frm) {
 	}
 }
 
-/** Item link filters for a charge row from service_type (Item Logistics tab checkboxes). */
+/** Item link filters for a charge row from service_type + charge_type. */
 function logistics_item_code_filters_for_charge_row(row) {
 	const filters = { disabled: 0 };
 	if (!row) return filters;
 	const field = logistics_item_charge_field_for_service_type(row.service_type);
 	if (field) {
 		filters[field] = 1;
+	}
+	if (row.charge_type) {
+		filters.custom_default_charge_type = row.charge_type;
 	}
 	return filters;
 }
@@ -2213,6 +2216,16 @@ frappe.ui.form.on('Sales Quote Charge', {
 		if (logistics.linked_service_link_query) {
 			logistics.linked_service_link_query.clearLinkIfServiceTypeMismatch(frm, cdt, cdn);
 		}
+	},
+
+	charge_type: function (frm, cdt, cdn) {
+		const row = frappe.get_doc(cdt, cdn);
+		if (row && row.item_code) {
+			frappe.model.set_value(cdt, cdn, "item_code", "");
+			frappe.model.set_value(cdt, cdn, "item_name", "");
+		}
+		frm.events.setup_item_code_query(frm);
+		logistics_refresh_sq_charge_item_code_link(frm, cdt, cdn);
 	},
 
 	item_code: function(frm, cdt, cdn) {

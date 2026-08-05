@@ -10,7 +10,7 @@ description: >-
 
 Canonical UI for **Manage Linked Services** (toolbar → Services on manage DocTypes).
 
-Used by Time Sensitive Case and Sales Quote via `logistics.show_linked_services_dialog`.
+Used by Time Sensitive Case, Sales Quote, and Change Request via `logistics.show_linked_services_dialog`.
 
 ## Reference
 
@@ -49,5 +49,6 @@ See [reference.png](reference.png) in this folder.
 
 - Shared JS: `logistics/public/js/linked_services_dialog.js` → `logistics.show_linked_services_dialog(frm, options)`
 - TSC wrapper: `logistics/public/js/time_sensitive_services_dialog.js`
+- Change Request: toolbar Services button in `change_request.js` (same shared dialog)
 - CSS: `logistics/public/css/linked_services_dialog.css` (class prefix `lsd1-`)
 - Edit APIs: `linked_service.get_dialog_edit_payload` / `linked_service.update_dialog_edit`

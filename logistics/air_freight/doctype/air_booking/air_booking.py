@@ -889,8 +889,7 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 			sales_quote_data = frappe.db.get_value("Sales Quote", self.sales_quote, [
 				"customer", "shipper", "consignee", "location_from", "location_to",
 				"air_direction", "weight", "volume", "chargeable",
-				"service_level", "incoterm", "additional_terms", "airline",
-				"tc_name", "terms",
+				"incoterm", "airline",
 				"freight_agent", "air_house_type", "air_release_type", "air_entry_type",
 				"air_etd", "air_eta", "air_house_bl", "air_packs", "air_inner",
 				"air_gooda_value", "air_insurance", "air_description", "air_marks_and_nos",
@@ -921,12 +920,8 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 				self.volume = sales_quote_data.get("volume")
 			if not self.chargeable:
 				self.chargeable = sales_quote_data.get("chargeable")
-			if not self.service_level:
-				self.service_level = sales_quote_data.get("service_level")
 			if not self.incoterm:
 				self.incoterm = sales_quote_data.get("incoterm")
-			if not self.additional_terms:
-				self.additional_terms = sales_quote_data.get("additional_terms")
 			if not self.airline:
 				self.airline = sales_quote_data.get("airline")
 			if not self.freight_agent:
@@ -972,12 +967,12 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 				self.cost_center = sales_quote_data.get("cost_center")
 			if not self.profit_center:
 				self.profit_center = sales_quote_data.get("profit_center")
-			if not self.tc_name:
-				self.tc_name = sales_quote_data.get("tc_name")
-			if not self.terms:
-				self.terms = sales_quote_data.get("terms")
+
+			# SLA (service_code) + Terms — see #1380
+			from logistics.utils.sales_quote_sla_terms import apply_sales_quote_sla_and_terms
 
 			sq_for_routing = frappe.get_doc("Sales Quote", self.sales_quote)
+			apply_sales_quote_sla_and_terms(self, sq_for_routing, overwrite=False)
 			apply_sales_quote_routing_to_booking(self, sq_for_routing)
 			
 			# Sync legacy quote_type / quote when those columns still exist on the DocType
