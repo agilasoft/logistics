@@ -206,7 +206,7 @@ class ChangeRequest(Document):
 				frappe.throw(
 					_(
 						"Charges row {0}: Linked Service {1} is not defined on this Change Request. "
-						"Add it to the Services tab first."
+						"Add it via Manage Linked Services first."
 					).format(
 						getattr(row, "idx", "") or "?",
 						frappe.bold(ls_link),
@@ -801,3 +801,122 @@ def create_sales_quote_from_change_request(change_request_name):
 	)
 	link_sales_quote_to_change_request_job_charges(cr.name, sq.name)
 	return sq.name
+
+
+def _clear_change_request_charge_links_to_linked_service(cr, linked_service: str) -> None:
+	"""Clear charge rows that tagged *linked_service* (revert to Main scope)."""
+	changed = False
+	for row in getattr(cr, "charges", None) or []:
+		if charge_row_linked_service_link(row) != linked_service:
+			continue
+		set_charge_row_linked_service_link(row, None)
+		row.charge_scope = CHARGE_SCOPE_MAIN
+		changed = True
+	if changed:
+		cr.flags.ignore_mandatory = True
+
+
+def _assert_change_request_can_manage_linked_services(cr) -> None:
+	if cr.docstatus != 0:
+		frappe.throw(
+			_("Linked Services can only be managed on draft Change Requests."),
+			title=_("Change Request Not Editable"),
+		)
+
+
+@frappe.whitelist()
+def list_change_request_linked_services(change_request: str):
+	"""Return Linked Services for the Manage Services dialog on Change Request."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_change_request,
+	)
+	from logistics.utils.linked_service_usage import latest_satellite_job_from_usage
+
+	cr = frappe.get_doc("Change Request", change_request)
+	frappe.has_permission("Change Request", "read", doc=cr, throw=True)
+	rows = []
+	for linked in get_linked_services_for_change_request(cr.name):
+		job_type, job_no = latest_satellite_job_from_usage(linked.name)
+		rows.append(
+			{
+				"linked_service": linked.name,
+				"service_type": linked.service_type,
+				"owned_by_change_request": 1,
+				"job_type": job_type or "",
+				"job_no": job_no or "",
+			}
+		)
+	return {"name": cr.name, "linked_services": rows}
+
+
+@frappe.whitelist()
+def add_linked_service(change_request: str, service_type: str):
+	"""Create a Linked Service owned by this Change Request."""
+	from logistics.time_sensitive.service_linking import validate_linked_service_type
+
+	cr = frappe.get_doc("Change Request", change_request)
+	frappe.has_permission("Change Request", "write", doc=cr, throw=True)
+	_assert_change_request_can_manage_linked_services(cr)
+	if not cr.name or cr.is_new():
+		frappe.throw(_("Save the Change Request before adding a linked service."))
+
+	service_type = validate_linked_service_type(service_type)
+	linked = frappe.new_doc(linked_service_doctype())
+	linked.service_type = service_type
+	linked.parent_booking_type = "Change Request"
+	linked.parent_booking_name = cr.name
+	linked.insert(ignore_permissions=True)
+
+	cr.flags._linked_services_view_cached = False
+	if "linked_services" in cr.__dict__:
+		del cr.__dict__["linked_services"]
+
+	return {
+		"name": cr.name,
+		"linked_service": linked.name,
+		"service_type": linked.service_type,
+	}
+
+
+@frappe.whitelist()
+def remove_linked_service(change_request: str, linked_service: str):
+	"""Delete a Change Request–owned Linked Service and clear charge tags to it."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_change_request,
+	)
+
+	cr = frappe.get_doc("Change Request", change_request)
+	frappe.has_permission("Change Request", "write", doc=cr, throw=True)
+	_assert_change_request_can_manage_linked_services(cr)
+
+	ls_dt = linked_service_doctype()
+	if not frappe.db.exists(ls_dt, linked_service):
+		frappe.throw(_("Linked Service {0} was not found.").format(linked_service))
+
+	owned_names = {row.name for row in get_linked_services_for_change_request(cr.name)}
+	if linked_service not in owned_names:
+		frappe.throw(
+			_("Linked Service {0} is not linked to this Change Request.").format(linked_service)
+		)
+
+	parent_type = frappe.db.get_value(ls_dt, linked_service, "parent_booking_type")
+	parent_name = frappe.db.get_value(ls_dt, linked_service, "parent_booking_name")
+	if parent_type != "Change Request" or parent_name != cr.name:
+		frappe.throw(
+			_("Linked Service {0} is not owned by this Change Request.").format(linked_service)
+		)
+
+	_clear_change_request_charge_links_to_linked_service(cr, linked_service)
+	frappe.delete_doc(ls_dt, linked_service, ignore_permissions=True, force=True)
+
+	cr.flags._linked_services_view_cached = False
+	if "linked_services" in cr.__dict__:
+		del cr.__dict__["linked_services"]
+	cr.flags.ignore_mandatory = True
+	cr.save(ignore_permissions=True)
+
+	return {
+		"name": cr.name,
+		"linked_service": linked_service,
+		"action": "removed",
+	}

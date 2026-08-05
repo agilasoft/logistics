@@ -1216,9 +1216,7 @@ class SalesQuote(Document):
 			air_shipment.total_volume = volume if volume and flt(volume) > 0 else None
 			chargeable = getattr(self, 'air_chargeable', None) or getattr(self, 'chargeable', None)
 			air_shipment.chargeable = chargeable if chargeable and flt(chargeable) > 0 else None
-			air_shipment.service_level = getattr(self, 'service_level', None)
 			air_shipment.incoterm = getattr(self, 'incoterm', None)
-			air_shipment.additional_terms = getattr(self, 'additional_terms', None)
 			air_shipment.company = self.company
 			air_shipment.branch = self.branch
 			air_shipment.cost_center = self.cost_center
@@ -1226,6 +1224,9 @@ class SalesQuote(Document):
 			apply_main_service_flags(air_shipment)
 			air_shipment.is_high_value = cint(getattr(self, "is_high_value", 0))
 			copy_sales_quote_fields_to_target(self, air_shipment)
+			from logistics.utils.sales_quote_sla_terms import apply_sales_quote_sla_and_terms
+
+			apply_sales_quote_sla_and_terms(air_shipment, self, overwrite=False)
 			apply_party_address_contact_from_source_or_masters(air_shipment, self)
 
 			# Insert the Air Shipment
@@ -2208,6 +2209,9 @@ def _create_transport_order_from_sales_quote(
 	apply_main_service_flags(transport_order)
 	transport_order.is_high_value = cint(getattr(sales_quote, "is_high_value", 0))
 	copy_sales_quote_fields_to_target(sales_quote, transport_order)
+	from logistics.utils.sales_quote_sla_terms import apply_sales_quote_sla_and_terms
+
+	apply_sales_quote_sla_and_terms(transport_order, sales_quote, overwrite=False)
 	apply_party_address_contact_from_source_or_masters(transport_order, sales_quote)
 	append_transport_order_door_leg_from_party_masters(transport_order)
 	apply_shipper_consignee_defaults(transport_order)
@@ -2346,6 +2350,9 @@ def _create_air_booking_from_sales_quote(
 	apply_main_service_flags(air_booking)
 	air_booking.is_high_value = cint(getattr(sales_quote, "is_high_value", 0))
 	copy_sales_quote_fields_to_target(sales_quote, air_booking)
+	from logistics.utils.sales_quote_sla_terms import apply_sales_quote_sla_and_terms
+
+	apply_sales_quote_sla_and_terms(air_booking, sales_quote, overwrite=False)
 
 	# Set weight/volume from Sales Quote so charge quantities can be calculated when populating
 	weight = getattr(first, "weight", None) or getattr(sales_quote, "weight", None)
@@ -2505,6 +2512,9 @@ def _create_sea_booking_from_sales_quote(
 	apply_main_service_flags(sea_booking)
 	sea_booking.is_high_value = cint(getattr(sales_quote, "is_high_value", 0))
 	copy_sales_quote_fields_to_target(sales_quote, sea_booking)
+	from logistics.utils.sales_quote_sla_terms import apply_sales_quote_sla_and_terms
+
+	apply_sales_quote_sla_and_terms(sea_booking, sales_quote, overwrite=False)
 
 	apply_sales_quote_routing_to_booking(sea_booking, sales_quote)
 	apply_party_address_contact_from_source_or_masters(sea_booking, sales_quote)

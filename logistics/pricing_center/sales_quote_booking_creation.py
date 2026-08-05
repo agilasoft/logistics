@@ -535,6 +535,7 @@ def _apply_sq_booking_context(sq_doc: Any, target_doc: Any, row: Any | None, job
 		_set_main_service_for_one_off_quote_target,
 	)
 	from logistics.utils.module_integration import copy_sales_quote_fields_to_target
+	from logistics.utils.sales_quote_sla_terms import apply_sales_quote_sla_and_terms
 
 	meta = frappe.get_meta(target_doc.doctype)
 	target_doc.sales_quote = sq_doc.name
@@ -550,6 +551,8 @@ def _apply_sq_booking_context(sq_doc: Any, target_doc: Any, row: Any | None, job
 		if meta.get_field(fn) and getattr(sq_doc, fn, None):
 			target_doc.set(fn, getattr(sq_doc, fn))
 	copy_sales_quote_fields_to_target(sq_doc, target_doc)
+	# SLA (service_code) + Terms before settings defaults so quote values win (#1380).
+	apply_sales_quote_sla_and_terms(target_doc, sq_doc, overwrite=False)
 	_set_main_service_for_one_off_quote_target(target_doc, sq_doc.name)
 	service_label = _service_label_for_row(job_type, row) or ""
 	main_st = _norm(getattr(sq_doc, "main_service", None))

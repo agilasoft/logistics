@@ -6,6 +6,7 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "charge_type",
   "service_type",
   "column_break_ldaa",
   "charge_group",
@@ -13,7 +14,6 @@
   "item_name",
   "description",
   "change_request_charge",
-  "charge_type",
   "charge_category",
   "section_break_scope",
   "charge_scope",
