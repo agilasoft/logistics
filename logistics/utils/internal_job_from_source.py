@@ -114,31 +114,19 @@ def _linked_service_doc_for_row(row: Any) -> Any | None:
 
 
 def _job_no_for_linked_charge_row(row: Any) -> str:
+	"""Resolve satellite Job No from Linked Service Usage, not legacy header fields."""
 	from logistics.utils.linked_service_compat import (
-		linked_service_doctype,
 		linked_service_record_exists,
 		row_linked_service_link,
 	)
+	from logistics.utils.linked_service_usage import linked_service_has_satellite_job
 
 	ls = row_linked_service_link(row)
 	jt = effective_internal_job_detail_job_type(row)
-	if not ls or not linked_service_record_exists(ls):
+	if not ls or not jt or not linked_service_record_exists(ls):
 		return ""
-	info = frappe.db.get_value(
-		linked_service_doctype(),
-		ls,
-		("job_type", "job_no"),
-		as_dict=True,
-	)
-	if not info:
-		return ""
-	job_no = (info.get("job_no") or "").strip()
-	job_type = (info.get("job_type") or "").strip()
-	if not job_no:
-		return ""
-	if jt and job_type and job_type != jt:
-		return ""
-	return job_no
+	result = linked_service_has_satellite_job(ls, jt)
+	return result if isinstance(result, str) else ""
 
 
 def _resolve_linked_charge_row_for_create(

@@ -2675,6 +2675,14 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 
 
 @frappe.whitelist()
+def sea_booking_exists(docname):
+	"""Return True if the Sea Booking exists. Used by client to poll before navigating so form load does not show 'not found'."""
+	if not docname or docname == "new":
+		return False
+	return bool(frappe.db.exists("Sea Booking", docname))
+
+
+@frappe.whitelist()
 def fetch_sea_booking_dashboard_html(docname):
 	"""Return Dashboard tab HTML without run_doc_method / check_if_latest (avoids TimestampMismatchError)."""
 	if not docname or str(docname).startswith("new-"):
