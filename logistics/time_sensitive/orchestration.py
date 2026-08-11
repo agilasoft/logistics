@@ -97,6 +97,90 @@ def build_case_from_sales_quote(
 	return case
 
 
+def _scope_row_for_ts_service(sq, service_type: str, case) -> frappe._dict:
+	"""Build a parameter scope row from the linked Sales Quote for one service leg."""
+	from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
+	from logistics.utils.sales_quote_charge_parameters import (
+		SALES_QUOTE_CHARGE_PARAMETER_FIELDS,
+		build_main_service_scope_row,
+	)
+
+	st = (service_type or "").strip()
+	row = build_main_service_scope_row(sq)
+	if st:
+		row.service_type = st
+
+	for ch in sq.get("charges") or []:
+		ch_st = getattr(ch, "service_type", None)
+		if not sales_quote_charge_service_types_equal(ch_st, st):
+			continue
+		for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS:
+			if fn == "charge_group":
+				continue
+			val = getattr(ch, fn, None)
+			if val is not None and str(val).strip() != "":
+				row[fn] = val
+		break
+
+	if getattr(case, "origin", None) and not (row.get("origin_port") or row.get("location_from")):
+		row.origin_port = case.origin
+	if getattr(case, "destination", None) and not (
+		row.get("destination_port") or row.get("location_to")
+	):
+		row.destination_port = case.destination
+	return row
+
+
+def _populate_ts_operational_charges(sq, doc) -> None:
+	from logistics.pricing_center.sales_quote_booking_creation import _populate_charges_on_target
+
+	_populate_charges_on_target(sq, doc)
+
+
+def _apply_ts_service_scope(doc, case, sq, linked, scope_row) -> None:
+	from logistics.utils.internal_job_from_source import apply_internal_job_detail_row_to_operational_doc
+	from logistics.utils.party_address_contact_from_masters import (
+		apply_party_address_contact_from_source_or_masters,
+	)
+	from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+
+	apply_internal_job_detail_row_to_operational_doc(doc, scope_row, overwrite=True)
+
+	if doc.doctype in ("Air Booking", "Sea Booking"):
+		from logistics.special_projects.special_project_booking_creation import (
+			_apply_air_sea_corridor_ports_from_context,
+			_apply_air_sea_settings_defaults_before_insert,
+			_booking_date_field,
+			_validate_air_sea_corridor_ports_before_insert,
+		)
+		from frappe.utils import today
+
+		sp_ctx = frappe._dict(sales_quote=sq.name)
+		bd = _booking_date_field(doc)
+		if bd and not getattr(doc, bd, None):
+			doc.set(bd, today())
+		_apply_air_sea_corridor_ports_from_context(doc, sp_ctx, scope_row)
+		apply_party_address_contact_from_source_or_masters(doc, sq)
+		apply_shipper_consignee_defaults(doc)
+		_apply_air_sea_settings_defaults_before_insert(doc)
+		_validate_air_sea_corridor_ports_before_insert(doc)
+	elif doc.doctype == "Transport Order":
+		from frappe.utils import today
+
+		if hasattr(doc, "booking_date") and not doc.booking_date:
+			doc.booking_date = today()
+		if hasattr(doc, "scheduled_date") and not doc.scheduled_date:
+			doc.scheduled_date = today()
+	elif doc.doctype == "Declaration Order":
+		from frappe.utils import today
+
+		if hasattr(doc, "order_date") and not doc.order_date:
+			doc.order_date = today()
+
+	if hasattr(doc, "linked_service"):
+		doc.linked_service = linked.name
+
+
 def create_operational_doc_for_service(case, linked_service: str) -> dict:
 	"""Create a draft operational document for a canonical Linked Service."""
 	from logistics.time_sensitive.service_linking import record_operational_usage
@@ -135,6 +219,17 @@ def create_operational_doc_for_service(case, linked_service: str) -> dict:
 		doc.ts_case_type = case.case_type
 	if hasattr(doc, "critical_deadline"):
 		doc.critical_deadline = case.critical_deadline
+
+	sq_name = getattr(case, "sales_quote", None)
+	if sq_name and frappe.db.exists("Sales Quote", sq_name):
+		sq = frappe.get_doc("Sales Quote", sq_name)
+		scope_row = _scope_row_for_ts_service(sq, linked.service_type, case)
+		_apply_ts_service_scope(doc, case, sq, linked, scope_row)
+		_populate_ts_operational_charges(sq, doc)
+		if doc.doctype == "Air Booking" and hasattr(doc, "_normalize_charges_before_save"):
+			doc._normalize_charges_before_save()
+		elif doc.doctype == "Sea Booking" and hasattr(doc, "_normalize_charges_before_save"):
+			doc._normalize_charges_before_save()
 
 	doc.insert(ignore_permissions=False)
 	record_operational_usage(case, linked.name, doctype, doc.name)

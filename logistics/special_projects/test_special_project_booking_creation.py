@@ -495,6 +495,32 @@ class TestLifecycleJobQuoteParameterMatch(UnitTestCase):
 			{"transport_template": "TPL-CR", "vehicle_type": "40FT"},
 		)
 
+	def test_resolve_scoped_params_merges_suggested_into_row(self):
+		from logistics.special_projects.special_project_booking_creation import (
+			_resolve_scoped_creation_params,
+		)
+
+		parent = frappe._dict(
+			charges=[
+				_linked_charge_dict(
+					service_type="Air",
+					origin_port="HKHKG",
+					destination_port="USLAX",
+					direction="Export",
+					air_house_type="Consol",
+				),
+			],
+		)
+		row = frappe._dict(service_type="Air")
+		_, scoped, merged = _resolve_scoped_creation_params(
+			parent, "Air Booking", row, None
+		)
+		self.assertEqual(scoped.get("origin_port"), "HKHKG")
+		self.assertEqual(scoped.get("air_house_type"), "Consol")
+		self.assertEqual(merged.get("origin_port"), "HKHKG")
+		self.assertEqual(merged.get("destination_port"), "USLAX")
+		self.assertEqual(merged.get("air_house_type"), "Consol")
+
 	def test_resolve_programme_charge_params_from_change_request_link(self):
 		from logistics.utils.sales_quote_charge_parameters import (
 			resolve_programme_charge_row_parameters,
