@@ -17,6 +17,10 @@ frappe.provide("logistics.sea_freight");
  */
 function _logistics_set_route_when_exists(doctype, docname, after) {
 	function navigate() {
+		// Clear any cached document data before navigating to ensure fresh load
+		if (frappe.model && frappe.model.clear_doc) {
+			frappe.model.clear_doc(doctype, docname);
+		}
 		frappe.set_route("Form", doctype, docname);
 		if (typeof after === "function") {
 			after();
