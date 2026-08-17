@@ -148,13 +148,16 @@ function logistics_strip_sq_charge_item_code_link_filters_from_meta(frm) {
 	}
 }
 
-/** Item link filters for a charge row from service_type (Item Logistics tab checkboxes). */
+/** Item link filters for a charge row from service_type + charge_type. */
 function logistics_item_code_filters_for_charge_row(row) {
 	const filters = { disabled: 0 };
 	if (!row) return filters;
 	const field = logistics_item_charge_field_for_service_type(row.service_type);
 	if (field) {
 		filters[field] = 1;
+	}
+	if (row.charge_type) {
+		filters.custom_default_charge_type = row.charge_type;
 	}
 	return filters;
 }
@@ -2215,6 +2218,16 @@ frappe.ui.form.on('Sales Quote Charge', {
 		}
 	},
 
+	charge_type: function (frm, cdt, cdn) {
+		const row = frappe.get_doc(cdt, cdn);
+		if (row && row.item_code) {
+			frappe.model.set_value(cdt, cdn, "item_code", "");
+			frappe.model.set_value(cdt, cdn, "item_name", "");
+		}
+		frm.events.setup_item_code_query(frm);
+		logistics_refresh_sq_charge_item_code_link(frm, cdt, cdn);
+	},
+
 	item_code: function(frm, cdt, cdn) {
 		_calculate_sales_quote_charge_row(frm, cdt, cdn);
 	},
@@ -2587,30 +2600,38 @@ function show_air_booking_confirmation(frm) {
 								} else if (r.message && r.message.message) {
 									frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
 								}
-								function try_navigate(attempt) {
-									if (attempt > 15) {
-										if (frm.doc.quotation_type === "One-off") {
-											logistics_set_one_off_order_route_nav();
-										}
-										frappe.set_route("Form", "Air Booking", air_booking_name);
-										return;
+							function try_navigate(attempt) {
+								if (attempt > 15) {
+									if (frm.doc.quotation_type === "One-off") {
+										logistics_set_one_off_order_route_nav();
 									}
-									frappe.call({
-										method: "logistics.air_freight.doctype.air_booking.air_booking.air_booking_exists",
-										args: { docname: air_booking_name },
-										callback: function(res) {
-											if (res.message === true) {
-												if (frm.doc.quotation_type === "One-off") {
-													logistics_set_one_off_order_route_nav();
-												}
-												frappe.set_route("Form", "Air Booking", air_booking_name);
-											} else {
-												setTimeout(function() { try_navigate(attempt + 1); }, 300);
-											}
-										},
-										error: function() { setTimeout(function() { try_navigate(attempt + 1); }, 300); }
-									});
+									// Clear cached document before navigating to ensure fresh load
+									if (frappe.model && frappe.model.clear_doc) {
+										frappe.model.clear_doc("Air Booking", air_booking_name);
+									}
+									frappe.set_route("Form", "Air Booking", air_booking_name);
+									return;
 								}
+								frappe.call({
+									method: "logistics.air_freight.doctype.air_booking.air_booking.air_booking_exists",
+									args: { docname: air_booking_name },
+									callback: function(res) {
+										if (res.message === true) {
+											if (frm.doc.quotation_type === "One-off") {
+												logistics_set_one_off_order_route_nav();
+											}
+											// Clear cached document before navigating to ensure fresh load
+											if (frappe.model && frappe.model.clear_doc) {
+												frappe.model.clear_doc("Air Booking", air_booking_name);
+											}
+											frappe.set_route("Form", "Air Booking", air_booking_name);
+										} else {
+											setTimeout(function() { try_navigate(attempt + 1); }, 300);
+										}
+									},
+									error: function() { setTimeout(function() { try_navigate(attempt + 1); }, 300); }
+								});
+							}
 								try_navigate(1);
 							},
 							error: function() {
@@ -2719,17 +2740,21 @@ function create_air_booking_from_sales_quote(frm) {
 	// Check if one-off and booking already exists
 	if (frm.doc.quotation_type === "One-off") {
 		frappe.db.get_value("Air Booking", {"sales_quote": frm.doc.name}, "name", function(r) {
-			if (r && r.name) {
-				frappe.msgprint({
-					title: __("Cannot Create Multiple Orders"),
-					message: __("This is a One-Off Sales Quote and an Air Booking already exists. Only one booking can be created from a One-Off quote."),
-					indicator: "orange"
-				});
-				// Event existing booking
-				logistics_set_one_off_order_route_nav();
-				frappe.set_route("Form", "Air Booking", r.name);
-				return;
+		if (r && r.name) {
+			frappe.msgprint({
+				title: __("Cannot Create Multiple Orders"),
+				message: __("This is a One-Off Sales Quote and an Air Booking already exists. Only one booking can be created from a One-Off quote."),
+				indicator: "orange"
+			});
+			// Event existing booking
+			logistics_set_one_off_order_route_nav();
+			// Clear cached document before navigating to ensure fresh load
+			if (frappe.model && frappe.model.clear_doc) {
+				frappe.model.clear_doc("Air Booking", r.name);
 			}
+			frappe.set_route("Form", "Air Booking", r.name);
+			return;
+		}
 			// No existing booking - proceed with creation
 			show_air_booking_confirmation(frm);
 		});
@@ -2771,6 +2796,10 @@ function create_sea_booking_from_sales_quote(frm) {
 					indicator: "orange",
 				});
 				logistics_set_one_off_order_route_nav();
+				// Clear cached document before navigating to ensure fresh load
+				if (frappe.model && frappe.model.clear_doc) {
+					frappe.model.clear_doc("Sea Booking", existing_name);
+				}
 				frappe.set_route("Form", "Sea Booking", existing_name);
 				return;
 			}
@@ -2822,23 +2851,31 @@ function show_sea_booking_confirmation(frm) {
 									? __("Sea Booking {0} already exists for this quote.", [r.message.sea_booking])
 									: __("Sea Booking {0} has been created successfully.", [r.message.sea_booking])),
 								indicator: opened_existing ? "blue" : "green",
-							});
+						});
+						setTimeout(function() {
+							if (frm.doc.quotation_type === "One-off") {
+								logistics_set_one_off_order_route_nav();
+							}
+							// Clear cached document before navigating to ensure fresh load
+							if (frappe.model && frappe.model.clear_doc) {
+								frappe.model.clear_doc("Sea Booking", r.message.sea_booking);
+							}
+							frappe.set_route("Form", "Sea Booking", r.message.sea_booking);
+						}, 100);
+					} else if (r.message && r.message.message) {
+						frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
+						if (r.message.sea_booking) {
 							setTimeout(function() {
 								if (frm.doc.quotation_type === "One-off") {
 									logistics_set_one_off_order_route_nav();
 								}
+								// Clear cached document before navigating to ensure fresh load
+								if (frappe.model && frappe.model.clear_doc) {
+									frappe.model.clear_doc("Sea Booking", r.message.sea_booking);
+								}
 								frappe.set_route("Form", "Sea Booking", r.message.sea_booking);
 							}, 100);
-						} else if (r.message && r.message.message) {
-							frappe.msgprint({ title: __("Information"), message: r.message.message, indicator: "blue" });
-							if (r.message.sea_booking) {
-								setTimeout(function() {
-									if (frm.doc.quotation_type === "One-off") {
-										logistics_set_one_off_order_route_nav();
-									}
-									frappe.set_route("Form", "Sea Booking", r.message.sea_booking);
-								}, 100);
-							}
+						}
 						}
 					},
 					error: function(r) {

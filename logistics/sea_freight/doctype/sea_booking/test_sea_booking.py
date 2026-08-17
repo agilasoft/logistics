@@ -194,6 +194,23 @@ class TestSeaBookingIncotermPriority(FrappeTestCase):
 		self.assertEqual(booking.incoterm, "DAP")
 
 
+class TestSeaBookingExists(FrappeTestCase):
+	def test_sea_booking_exists_false_for_empty_or_new(self):
+		from logistics.sea_freight.doctype.sea_booking.sea_booking import sea_booking_exists
+
+		self.assertFalse(sea_booking_exists(None))
+		self.assertFalse(sea_booking_exists(""))
+		self.assertFalse(sea_booking_exists("new"))
+
+	@patch("logistics.sea_freight.doctype.sea_booking.sea_booking.frappe.db.exists")
+	def test_sea_booking_exists_delegates_to_db(self, mock_exists):
+		from logistics.sea_freight.doctype.sea_booking.sea_booking import sea_booking_exists
+
+		mock_exists.return_value = "SBK000000630"
+		self.assertTrue(sea_booking_exists("SBK000000630"))
+		mock_exists.assert_called_once_with("Sea Booking", "SBK000000630")
+
+
 class IntegrationTestSeaBooking(FrappeTestCase):
 	"""
 	Integration tests for SeaBooking.

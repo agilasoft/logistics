@@ -994,13 +994,9 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 				self.total_volume = getattr(sales_quote, 'total_volume', None) or getattr(sales_quote, 'volume', None)
 			if not self.chargeable:
 				self.chargeable = getattr(sales_quote, 'chargeable', None)
-			if not self.service_level:
-				self.service_level = getattr(sales_quote, 'service_level', None)
 			sq_incoterm = getattr(sales_quote, "incoterm", None)
 			if sq_incoterm:
 				self.incoterm = sq_incoterm
-			if not self.additional_terms:
-				self.additional_terms = getattr(sales_quote, 'additional_terms', None)
 			if not self.company:
 				self.company = sales_quote.company
 			if not self.branch:
@@ -1009,10 +1005,11 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 				self.cost_center = sales_quote.cost_center
 			if not self.profit_center:
 				self.profit_center = sales_quote.profit_center
-			if not self.tc_name:
-				self.tc_name = getattr(sales_quote, 'tc_name', None)
-			if not self.terms:
-				self.terms = getattr(sales_quote, 'terms', None)
+
+			# SLA (service_code) + Terms — see #1380
+			from logistics.utils.sales_quote_sla_terms import apply_sales_quote_sla_and_terms
+
+			apply_sales_quote_sla_and_terms(self, sales_quote, overwrite=False)
 
 			apply_sales_quote_routing_to_booking(self, sales_quote)
 			
@@ -2675,6 +2672,14 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 					)
 			else:
 				frappe.throw(_("Error converting to shipment: {0}").format(str(e)))
+
+
+@frappe.whitelist()
+def sea_booking_exists(docname):
+	"""Return True if the Sea Booking exists. Used by client to poll before navigating so form load does not show 'not found'."""
+	if not docname or docname == "new":
+		return False
+	return bool(frappe.db.exists("Sea Booking", docname))
 
 
 @frappe.whitelist()

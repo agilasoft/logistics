@@ -58,13 +58,16 @@ function cr_strip_charge_item_code_link_filters_from_meta(frm) {
 	}
 }
 
-/** Item link filters for a charge row from service_type (Item Logistics tab checkboxes). */
+/** Item link filters for a charge row from service_type + charge_type. */
 function cr_item_code_filters_for_charge_row(row) {
 	const filters = { disabled: 0 };
 	if (!row) return filters;
 	const field = cr_item_charge_field_for_service_type(row.service_type);
 	if (field) {
 		filters[field] = 1;
+	}
+	if (row.charge_type) {
+		filters.custom_default_charge_type = row.charge_type;
 	}
 	return filters;
 }
@@ -126,6 +129,16 @@ frappe.ui.form.on("Change Request Charge", {
 		if (logistics.linked_service_link_query) {
 			logistics.linked_service_link_query.clearLinkIfServiceTypeMismatch(frm, cdt, cdn);
 		}
+	},
+
+	charge_type: function (frm, cdt, cdn) {
+		const row = frappe.get_doc(cdt, cdn);
+		if (row && row.item_code) {
+			frappe.model.set_value(cdt, cdn, "item_code", "");
+			frappe.model.set_value(cdt, cdn, "item_name", "");
+		}
+		frm.events.setup_item_code_query(frm);
+		cr_refresh_charge_item_code_link(frm, cdt, cdn);
 	},
 
 	charge_scope: function (frm, cdt, cdn) {
@@ -283,79 +296,79 @@ function cr_fetch_eligible_linked_services(frm, callback) {
 	});
 }
 
-function cr_linked_services_fieldname(frm) {
-	if (frm.fields_dict.linked_services) return "linked_services";
-	return null;
-}
+const CR_SERVICES_API =
+	"logistics.pricing_center.doctype.change_request.change_request";
 
-function cr_enable_linked_services_grid_add_row(frm) {
-	if (!frm || !frm.doc || frm.doc.docstatus !== 0) return;
-	const fieldname = cr_linked_services_fieldname(frm);
-	if (!fieldname || !frm.fields_dict[fieldname]) return;
-	const grid = frm.fields_dict[fieldname].grid;
-	if (!grid || !grid.wrapper) return;
-
-	grid.display_status = "Write";
-	grid.wrapper.find(".grid-footer").removeClass("hidden");
-	grid.wrapper.find(".grid-add-row, .grid-add-multiple-rows").removeClass("hidden d-none");
-	if (typeof grid.setup_toolbar === "function") {
-		grid.setup_toolbar();
-	}
-}
-
-function cr_activate_linked_services_grid_row(frm, cdn, attempt) {
-	if (!frm || !cdn) return;
-	const fieldname = cr_linked_services_fieldname(frm);
-	const grid = fieldname && frm.fields_dict[fieldname] && frm.fields_dict[fieldname].grid;
-	if (!grid) return;
-	const row = (grid.grid_rows_by_docname && grid.grid_rows_by_docname[cdn]) || null;
-	if (!row) {
-		if ((attempt || 0) < 10) {
-			setTimeout(() => cr_activate_linked_services_grid_row(frm, cdn, (attempt || 0) + 1), 50);
-		}
+/** Services tab is a read-only mirror; manage via toolbar Services dialog. */
+function cr_setup_linked_services_grid(frm) {
+	if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+		logistics.setup_virtual_linked_services_grid(frm);
 		return;
 	}
-	cr_enable_linked_services_grid_add_row(frm);
-	if (typeof grid.allow_on_grid_editing === "function" && grid.allow_on_grid_editing()) {
-		row.toggle_editable_row(true);
-		return;
-	}
-	row.toggle_view(true);
+	if (!frm.get_docfield || !frm.get_docfield("linked_services")) return;
+	frm.set_df_property("linked_services", "read_only", 1);
+	frm.set_df_property("linked_services", "cannot_add_rows", 1);
+	frm.set_df_property("linked_services", "cannot_delete_rows", 1);
 }
 
-function cr_patch_linked_services_grid_add_row(frm) {
-	const fieldname = cr_linked_services_fieldname(frm);
-	if (!fieldname || !frm.fields_dict[fieldname]) return false;
-	const grid = frm.fields_dict[fieldname].grid;
-	if (!grid || typeof grid.add_new_row !== "function") return false;
-	if (grid._logistics_cr_ls_add_patched) return true;
+function cr_can_manage_linked_services(frm) {
+	return !!(frm && frm.doc && !frm.is_new() && frm.doc.docstatus === 0);
+}
 
-	const orig_add_new_row = grid.add_new_row.bind(grid);
-	grid.add_new_row = function (idx, callback, show, copy_doc, go_to_last_page, go_to_first_page) {
-		const row_doc = orig_add_new_row(
-			idx,
-			callback,
-			show,
-			copy_doc,
-			go_to_last_page,
-			go_to_first_page
-		);
-		if (row_doc && row_doc.name) {
-			cr_activate_linked_services_grid_row(frm, row_doc.name);
-		}
-		return row_doc;
-	};
-	grid._logistics_cr_ls_add_patched = true;
+function cr_supports_services_tab(frm) {
+	if (
+		logistics.change_request_visibility &&
+		typeof logistics.change_request_visibility.supports_services === "function"
+	) {
+		return logistics.change_request_visibility.supports_services(frm.doc.job_type);
+	}
 	return true;
 }
 
-function cr_setup_linked_services_grid(frm) {
-	if (!cr_patch_linked_services_grid_add_row(frm) && !frm._logistics_cr_ls_patch_retry) {
-		frm._logistics_cr_ls_patch_retry = true;
-		setTimeout(() => cr_setup_linked_services_grid(frm), 300);
+function cr_open_services_dialog(frm) {
+	function open() {
+		if (!logistics.show_linked_services_dialog) {
+			frappe.msgprint({
+				message: __(
+					"Services dialog failed to load. Hard-refresh the page (Ctrl+Shift+R)."
+				),
+				indicator: "orange",
+			});
+			return;
+		}
+		const can_manage = cr_can_manage_linked_services(frm);
+		logistics.show_linked_services_dialog(frm, {
+			listMethod: CR_SERVICES_API + ".list_change_request_linked_services",
+			addMethod: can_manage ? CR_SERVICES_API + ".add_linked_service" : null,
+			removeMethod: can_manage ? CR_SERVICES_API + ".remove_linked_service" : null,
+			parentField: "change_request",
+			parentLabel: __("Change Request"),
+			allowAdd: can_manage,
+			allowRemove: can_manage,
+			allowEdit: can_manage,
+			emptyHint: __("Add a service type above to link it to this change request."),
+			addHint: __(
+				"Select a service type to link to this change request. You can add multiple services of the same type (e.g. international and domestic Sea)."
+			),
+			unsavedMessage: __("Save the Change Request before managing services."),
+			removeConfirm: (ls) =>
+				__("Remove linked service {0} from this change request?", [
+					`<strong>${frappe.utils.escape_html(ls)}</strong>`,
+				]),
+		});
+	}
+	if (logistics.show_linked_services_dialog) {
+		open();
 		return;
 	}
-	cr_enable_linked_services_grid_add_row(frm);
+	frappe.require("/assets/logistics/js/linked_services_dialog.js", open);
+}
+
+function cr_setup_services_button(frm) {
+	if (frm.is_new() || !cr_supports_services_tab(frm)) return;
+	frm.add_custom_button(__("Services"), () => {
+		cr_open_services_dialog(frm);
+	});
 }
 
 frappe.ui.form.on("Change Request", {
@@ -389,10 +402,6 @@ frappe.ui.form.on("Change Request", {
 		if (logistics.change_request_visibility && logistics.change_request_visibility.apply) {
 			logistics.change_request_visibility.apply(frm);
 		}
-	},
-
-	linked_services_add(frm, _cdt, cdn) {
-		cr_activate_linked_services_grid_row(frm, cdn);
 	},
 
 	charges_add: function (frm, cdt, cdn) {
@@ -465,6 +474,7 @@ frappe.ui.form.on("Change Request", {
 		if (logistics.change_request_summary && logistics.change_request_summary.render) {
 			logistics.change_request_summary.render(frm);
 		}
+		cr_setup_services_button(frm);
 		// Cost lines are pushed to the job when the Change Request is submitted; revenue is updated when the linked Sales Quote is submitted.
 		if (
 			!frm.doc.__islocal &&

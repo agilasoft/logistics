@@ -568,6 +568,10 @@
 	function _routeAfterCreate(msg) {
 		function _go(doctype, docname) {
 			function navigate() {
+				// Clear any cached document data before navigating to ensure fresh load
+				if (frappe.model && frappe.model.clear_doc) {
+					frappe.model.clear_doc(doctype, docname);
+				}
 				frappe.set_route("Form", doctype, docname);
 			}
 			if (window.logistics_navigate_when_doc_exists) {
