@@ -240,3 +240,180 @@ class TestTimeSensitivePropagation(FrappeTestCase):
 		self.assertEqual(tgt.time_sensitive_case, "TSC-TEST")
 		self.assertEqual(tgt.ts_case_type, "AOG")
 		self.assertTrue(tgt.critical_deadline)
+
+
+class TestTimeSensitiveBookingCreation(FrappeTestCase):
+	"""Test booking creation from Time Sensitive Cases with complete parameters."""
+	
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		from logistics.time_sensitive.doctype.time_sensitive_case_type.time_sensitive_case_type import (
+			seed_default_case_types,
+		)
+		seed_default_case_types()
+	
+	def _make_test_case_with_parameters(self):
+		"""Create a Time Sensitive Case with comprehensive parameters."""
+		deadline = now_datetime() + timedelta(hours=24)
+		doc = frappe.get_doc({
+			"doctype": "Time Sensitive Case",
+			"case_title": "Test Critical Shipment",
+			"case_type": "AOG",
+			"critical_deadline": deadline,
+			"status": "Triage",
+			"severity": "Critical",
+			"priority": "Urgent",
+			"coordinator": "Administrator",
+			"contact_24x7_name": "Emergency Ops",
+			"contact_24x7_phone": "+1234567890",
+			"contact_24x7_email": "emergency@example.com",
+			"customer": "_Test Customer",
+			"company": "_Test Company",
+			"origin": "USNYC",
+			"destination": "CNSHA",
+			"cargo_summary": "Critical aircraft parts - handle with extreme care",
+			"notes": "Customer requires immediate notification on any delays",
+		})
+		doc.insert(ignore_permissions=True)
+		return doc
+	
+	def test_air_booking_parameters_from_case(self):
+		"""Test that Air Booking receives all parameters from Time Sensitive Case."""
+		from logistics.time_sensitive.service_linking import create_linked_service_for_case
+		from logistics.time_sensitive.doctype.time_sensitive_case.time_sensitive_case import (
+			create_service_document,
+		)
+		
+		# Create case with parameters
+		case = self._make_test_case_with_parameters()
+		
+		# Create linked service for Air
+		linked_service = create_linked_service_for_case(case, "Air")
+		
+		# Create Air Booking from the case
+		result = create_service_document(case.name, linked_service.name)
+		
+		# Verify booking was created
+		self.assertEqual(result["doctype"], "Air Booking")
+		self.assertTrue(result["name"])
+		
+		# Load the created booking
+		booking = frappe.get_doc("Air Booking", result["name"])
+		
+		# Verify basic organizational fields
+		self.assertEqual(booking.customer, case.customer)
+		self.assertEqual(booking.company, case.company)
+		
+		# Verify origin/destination mapping
+		self.assertEqual(booking.origin_port, case.origin)
+		self.assertEqual(booking.destination_port, case.destination)
+		
+		# Verify time-sensitive fields
+		self.assertEqual(booking.is_time_sensitive, 1)
+		self.assertEqual(booking.time_sensitive_case, case.name)
+		self.assertEqual(booking.critical_deadline, case.critical_deadline)
+		self.assertEqual(booking.priority, case.priority)
+		
+		# Clean up
+		frappe.delete_doc("Air Booking", booking.name, force=True, ignore_permissions=True)
+		frappe.delete_doc("Time Sensitive Case", case.name, force=True, ignore_permissions=True)
+	
+	def test_transport_order_parameters_from_case(self):
+		"""Test that Transport Order receives all parameters from Time Sensitive Case."""
+		from logistics.time_sensitive.service_linking import create_linked_service_for_case
+		from logistics.time_sensitive.doctype.time_sensitive_case.time_sensitive_case import (
+			create_service_document,
+		)
+		
+		# Create case with parameters
+		case = self._make_test_case_with_parameters()
+		
+		# Create linked service for Transport
+		linked_service = create_linked_service_for_case(case, "Transport")
+		
+		# Create Transport Order from the case
+		result = create_service_document(case.name, linked_service.name)
+		
+		# Verify order was created
+		self.assertEqual(result["doctype"], "Transport Order")
+		self.assertTrue(result["name"])
+		
+		# Load the created order
+		order = frappe.get_doc("Transport Order", result["name"])
+		
+		# Verify basic organizational fields
+		self.assertEqual(order.customer, case.customer)
+		self.assertEqual(order.company, case.company)
+		
+		# Verify origin/destination mapping (Transport Order uses location_from/location_to)
+		self.assertEqual(order.location_from, case.origin)
+		self.assertEqual(order.location_to, case.destination)
+		self.assertEqual(order.location_type, "UNLOCO")
+		
+		# Verify time-sensitive fields
+		self.assertEqual(order.is_time_sensitive, 1)
+		self.assertEqual(order.time_sensitive_case, case.name)
+		self.assertEqual(order.critical_deadline, case.critical_deadline)
+		self.assertEqual(order.priority, case.priority)
+		
+		# Clean up
+		frappe.delete_doc("Transport Order", order.name, force=True, ignore_permissions=True)
+		frappe.delete_doc("Time Sensitive Case", case.name, force=True, ignore_permissions=True)
+	
+	def test_charges_copied_from_case_to_booking(self):
+		"""Test that charges are properly filtered and copied from case to booking."""
+		from logistics.time_sensitive.service_linking import create_linked_service_for_case
+		from logistics.time_sensitive.doctype.time_sensitive_case.time_sensitive_case import (
+			create_service_document,
+		)
+		
+		# Create case with parameters
+		case = self._make_test_case_with_parameters()
+		
+		# Add charges to the case
+		case.append("charges", {
+			"item_code": "AIR-FREIGHT",
+			"description": "Air Freight Charge",
+			"qty": 100,
+			"rate": 5.50,
+			"service_type": "Air",
+			"charge_scope": "Main",
+			"currency": "USD",
+		})
+		case.append("charges", {
+			"item_code": "SEA-FREIGHT",
+			"description": "Sea Freight Charge",
+			"qty": 50,
+			"rate": 2.00,
+			"service_type": "Sea",
+			"charge_scope": "Main",
+			"currency": "USD",
+		})
+		case.save(ignore_permissions=True)
+		
+		# Create linked service for Air
+		linked_service = create_linked_service_for_case(case, "Air")
+		
+		# Create Air Booking from the case
+		result = create_service_document(case.name, linked_service.name)
+		
+		# Load the created booking
+		booking = frappe.get_doc("Air Booking", result["name"])
+		
+		# Verify only Air charges were copied (Sea should be filtered out)
+		air_charges = [ch for ch in booking.get("charges", []) if ch.item_code == "AIR-FREIGHT"]
+		sea_charges = [ch for ch in booking.get("charges", []) if ch.item_code == "SEA-FREIGHT"]
+		
+		self.assertEqual(len(air_charges), 1)
+		self.assertEqual(len(sea_charges), 0)
+		
+		# Verify charge details
+		air_charge = air_charges[0]
+		self.assertEqual(air_charge.description, "Air Freight Charge")
+		self.assertEqual(air_charge.qty, 100)
+		self.assertEqual(air_charge.rate, 5.50)
+		
+		# Clean up
+		frappe.delete_doc("Air Booking", booking.name, force=True, ignore_permissions=True)
+		frappe.delete_doc("Time Sensitive Case", case.name, force=True, ignore_permissions=True)
