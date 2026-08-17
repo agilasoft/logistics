@@ -451,6 +451,7 @@
 	var _DOC_EXISTS_API = {
 		"Air Booking": "logistics.air_freight.doctype.air_booking.air_booking.air_booking_exists",
 		"Air Shipment": "logistics.air_freight.doctype.air_shipment.air_shipment.air_shipment_exists",
+		"Sea Booking": "logistics.sea_freight.doctype.sea_booking.sea_booking.sea_booking_exists",
 		"Sea Shipment": "logistics.sea_freight.doctype.sea_shipment.sea_shipment.sea_shipment_exists",
 		"Transport Order": "logistics.transport.doctype.transport_order.transport_order.transport_order_exists",
 	};
@@ -608,13 +609,21 @@
 		}
 		if (msg.air_booking) {
 			_whenDocExistsThenNavigate("Air Booking", msg.air_booking, function () {
-				_routeAfterFormNavigate("Air Booking", ["Form", "Air Booking", msg.air_booking]);
+				_routeAfterFormNavigate("Air Booking", ["Form", "Air Booking", msg.air_booking]).then(
+					function () {
+						_maybeReloadSourceFreightShipmentIfStillActive(frm);
+					}
+				);
 			});
 			return;
 		}
 		if (msg.sea_booking) {
 			_whenDocExistsThenNavigate("Sea Booking", msg.sea_booking, function () {
-				_routeAfterFormNavigate("Sea Booking", ["Form", "Sea Booking", msg.sea_booking]);
+				_routeAfterFormNavigate("Sea Booking", ["Form", "Sea Booking", msg.sea_booking]).then(
+					function () {
+						_maybeReloadSourceFreightShipmentIfStillActive(frm);
+					}
+				);
 			});
 			return;
 		}
@@ -955,7 +964,6 @@
 				return;
 			}
 				_routeAfterInternalJobCreate(frm, dec.job_type, r2);
-				_maybeReloadSourceFreightShipmentIfStillActive(frm);
 				_applyMsIjRulesOnForm(frm);
 			},
 		});
