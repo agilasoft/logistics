@@ -48,6 +48,7 @@
 		"sp_handling",
 		"sp_resource_notes",
 		"job_type",
+		"order_no",
 		"job_no",
 	];
 

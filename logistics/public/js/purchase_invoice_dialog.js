@@ -11,6 +11,31 @@
 		return frappe.datetime.obj_to_str(d);
 	}
 
+	function unique_pay_to_suppliers(charges) {
+		var seen = {};
+		var result = [];
+		(charges || []).forEach(function(c) {
+			var payTo = (c && c.pay_to ? c.pay_to : "").toString().trim();
+			if (payTo && !seen[payTo]) {
+				seen[payTo] = true;
+				result.push(payTo);
+			}
+		});
+		return result;
+	}
+
+	function set_supplier_pay_to_query(supplierField, payToSuppliers) {
+		if (!supplierField) return;
+		supplierField.get_query = function() {
+			return {
+				filters: {
+					name: ["in", payToSuppliers || []],
+					disabled: 0
+				}
+			};
+		};
+	}
+
 	function build_pi_charges_table(charges, company) {
 		var header = [
 			'<table class="table table-bordered table-sm">',
@@ -112,6 +137,7 @@
 				var default_due = default_due_date(default_posting);
 				var default_billing_currency = data.default_billing_currency || data.company_currency || data.company;
 				var table_html = build_pi_charges_table(charges, data.company);
+				var payToSuppliers = unique_pay_to_suppliers(charges);
 
 				function normalize_supplier(value) {
 					return (value || "").toString().trim();
@@ -248,6 +274,7 @@
 
 				var billingBinder = null;
 				var supplierField = dialog.get_field("supplier");
+				set_supplier_pay_to_query(supplierField, payToSuppliers);
 				if (supplierField) {
 					supplierField.df.onchange = function() {
 						var selected = dialog.get_value("supplier");
@@ -327,6 +354,7 @@
 					.replace(/pi-charge-cb/g, "pi-charge-cb-c")
 					.replace(/pi_dialog_charges_tbody/g, "pi_dialog_charges_tbody_c")
 					.replace(__("Cost"), __("Charge total"));
+				var payToSuppliers = unique_pay_to_suppliers(charges);
 
 				function normalize_supplier(value) {
 					return (value || "").toString().trim();
@@ -460,6 +488,7 @@
 
 				var billingBinderC = null;
 				var supplierField = dialog.get_field("supplier");
+				set_supplier_pay_to_query(supplierField, payToSuppliers);
 				if (supplierField) {
 					supplierField.df.onchange = function() {
 						var selected = dialog.get_value("supplier");

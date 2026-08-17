@@ -1,12 +1,14 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:code",
- "creation": "2025-09-18 10:49:44.802718",
+ "creation": "2026-07-30 10:59:41.645548",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "code",
+  "license_plate_number",
   "vehicle_name",
   "is_active",
   "company_owned",
@@ -20,7 +22,6 @@
   "last_odometer_km",
   "last_fuel_level",
   "last_provider",
-  "column_break_mrie",
   "capacity_tab",
   "capacity_weight",
   "capacity_weight_uom",
@@ -38,7 +39,6 @@
   "routing_tab",
   "base_facility",
   "address",
-  "license_plate_number",
   "avg_speed",
   "cost_per_km",
   "cost_per_hour",
@@ -345,10 +345,6 @@
    "options": "Telematics Provider"
   },
   {
-   "fieldname": "column_break_mrie",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "telematics_device_name",
    "fieldtype": "Data",
    "label": "Telematics Device Name"
@@ -376,7 +372,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-26 19:09:44.072651",
+ "modified": "2026-08-13 09:23:38.078866",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Vehicle",

@@ -10,6 +10,7 @@
   "service_type",
   "column_break_ident",
   "job_type",
+  "order_no",
   "job_no",
   "job_description",
   "section_break_air_params",
@@ -75,7 +76,7 @@
    "fieldtype": "Column Break"
   },
   {
-   "fetch_from": "internal_job.job_type",
+   "description": "Booking/order type for this internal job leg.",
    "fieldname": "job_type",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -85,13 +86,22 @@
    "read_only": 1
   },
   {
-   "fetch_from": "internal_job.job_no",
-   "fieldname": "job_no",
+   "description": "Booking/order document created from this line.",
+   "fieldname": "order_no",
    "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Order No",
+   "no_copy": 1,
+   "options": "job_type",
+   "read_only": 1
+  },
+  {
+   "description": "Job/Shipment Number (execution doc), not the booking/order.",
+   "fieldname": "job_no",
+   "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Job No",
    "no_copy": 1,
-   "options": "job_type",
    "read_only": 1
   },
   {

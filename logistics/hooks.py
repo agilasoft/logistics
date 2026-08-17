@@ -42,6 +42,7 @@ app_include_css = [
 	"/assets/logistics/css/change_request_summary.css?v=4",
 	"/assets/logistics/css/linked_services_dialog.css?v=9",
 	"/assets/logistics/css/ts_sq_fetch_dialog.css?v=6",
+	"/assets/logistics/css/role_permission_matrix.css?v=5",
 ]
 app_include_js = [
 	"/assets/logistics/js/address_link_query.js?v=1",
@@ -98,10 +99,12 @@ page_js = {
 	"workflow-center": "public/js/workflow_center.js",
 	"air-freight-control-tower": "public/js/air_freight_control_tower_page.js",
 	"sea-freight-control-tower": "public/js/sea_freight_control_tower_page.js",
+	"role-permission-matrix": "public/js/role_permission_matrix_page.js",
 }
 
 # include js in doctype views
 doctype_js = {
+	"Address": "public/js/address_eza.js",
 	"Time Sensitive Case": [
 		"public/js/time_sensitive_timer.js",
 		"public/js/time_sensitive_services_dialog.js",
@@ -328,6 +331,10 @@ doctype_js = {
 	"MICE Project": [
 		"public/js/profitability_project_form.js",
 		"public/js/purchase_invoice_dialog.js",
+		"public/js/charge_break_dialogs.js",
+		"public/js/charge_break_buttons.js",
+		# istable DocTypes do not load their own .js via FormMeta; attach child handlers here.
+		"mice/doctype/mice_project_consolidation_charges/mice_project_consolidation_charges.js",
 	],
 	"Docket": [
 		"logistics/public/js/sales_invoice_dialog.js",
@@ -437,6 +444,12 @@ doc_events = {
 	},
 	"Supplier": {
 		"validate": "logistics.utils.party_code.validate_customer_supplier_party_code",
+	},
+	"Address": {
+		"validate": [
+			"logistics.transport.address_windows.validate_address_window_schedule",
+			"logistics.transport.address_eza.validate_address_eza",
+		],
 	},
 	"Accounting Dimension": {
 		"after_insert": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",

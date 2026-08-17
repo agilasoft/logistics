@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "naming_series:",
- "creation": "2025-01-27 00:00:00",
+ "creation": "2026-07-30 10:59:32.155371",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -10,7 +10,6 @@
   "dashboard_html",
   "naming_series",
   "consolidation_date",
-  "column_break_1",
   "consolidation_type",
   "load_type",
   "section_break_jobs",
@@ -58,10 +57,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "column_break_1",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "consolidation_type",
    "fieldtype": "Select",
    "label": "Consolidation Type",
@@ -107,15 +102,15 @@
    "fieldname": "total_volume_uom",
    "fieldtype": "Link",
    "label": "Total Volume UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "total_weight_uom",
    "fieldtype": "Link",
    "label": "Total Weight UOM",
-   "options": "UOM",
-   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]"
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "column_break_2",
@@ -195,8 +190,8 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-25 18:52:07.078383",
- "modified_by": "Administrator",
+ "modified": "2026-08-13 07:21:08.113244",
+ "modified_by": "dee.sambrano@agilasoft.com",
  "module": "Transport",
  "name": "Transport Consolidation",
  "naming_rule": "By \"Naming Series\" field",

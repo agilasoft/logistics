@@ -41,7 +41,8 @@ A Run Sheet groups multiple legs (from one or more jobs) for a driver/vehicle. U
 
 ### 3.2 Masters and Facilities
 
-- **Reference:** [Transport Template](welcome/transport-template), [Load Type](welcome/load-type), Transport Zone, [Container Type](welcome/container-type), Driver, Scheduling Constraint
+- **Facility hours:** [Address Pick / Drop Windows](welcome/address-pick-drop-windows) — per-day Pick/Drop schedule table on Address (Transport tab)
+- **Reference:** [Transport Template](welcome/transport-template), [Load Type](welcome/load-type), Transport Zone, [Container Type](welcome/container-type), Driver, Truck Ban Constraint (Constraint Type selects Area / Route / Time / Weight / Vehicle Type / Plate Coding; Scheduling Constraint is unused stub)
 - **Facilities:** Container Yard, Container Depot, Container Freight Station, Storage Facility, Terminal
 - **Vehicles:** Transport Vehicle, Vehicle Type, Economic Zone
 - **Organizations:** [Shipper](welcome/shipper), [Consignee](welcome/consignee), Transport Company

@@ -561,16 +561,21 @@ def get_eligible_internal_jobs_for_change_request_job(
 			get_linked_services_for_change_request,
 		)
 
-		from logistics.utils.linked_service_usage import latest_satellite_job_from_usage
+		from logistics.utils.linked_service_usage import (
+			latest_satellite_job_from_usage,
+			latest_shipment_from_usage,
+		)
 
 		rows = []
 		for ls in get_linked_services_for_change_request(change_request_name):
-			jt, jn = latest_satellite_job_from_usage(ls.name)
+			jt, on = latest_satellite_job_from_usage(ls.name)
+			_et, jn = latest_shipment_from_usage(ls.name)
 			rows.append(
 				{
 					"name": ls.name,
 					"service_type": ls.service_type,
 					"job_type": jt or None,
+					"order_no": on or None,
 					"job_no": jn or None,
 					"job_description": None,
 				}
@@ -587,7 +592,10 @@ def get_eligible_internal_jobs_for_change_request_job(
 	if not frappe.db.exists(job_type, job_name):
 		return out
 
-	from logistics.utils.linked_service_usage import latest_satellite_job_from_usage
+	from logistics.utils.linked_service_usage import (
+		latest_satellite_job_from_usage,
+		latest_shipment_from_usage,
+	)
 
 	if job_type in MAIN_JOB_TYPES_FOR_CHANGE_REQUEST:
 		ls_names = frappe.get_all(
@@ -599,12 +607,14 @@ def get_eligible_internal_jobs_for_change_request_job(
 		rows = []
 		for ls_name in ls_names:
 			st = frappe.db.get_value(ls_dt, ls_name, "service_type")
-			jt, jn = latest_satellite_job_from_usage(ls_name)
+			jt, on = latest_satellite_job_from_usage(ls_name)
+			_et, jn = latest_shipment_from_usage(ls_name)
 			rows.append(
 				{
 					"name": ls_name,
 					"service_type": st,
 					"job_type": jt or None,
+					"order_no": on or None,
 					"job_no": jn or None,
 					"job_description": None,
 				}
@@ -625,11 +635,13 @@ def get_eligible_internal_jobs_for_change_request_job(
 		ls_name = get_linked_service_name(sat)
 		if ls_name and linked_service_record_exists(ls_name):
 			st = frappe.db.get_value(ls_dt, ls_name, "service_type")
-			jt, jn = latest_satellite_job_from_usage(ls_name)
+			jt, on = latest_satellite_job_from_usage(ls_name)
+			_et, jn = latest_shipment_from_usage(ls_name)
 			row = {
 				"name": ls_name,
 				"service_type": st,
 				"job_type": jt or None,
+				"order_no": on or None,
 				"job_no": jn or None,
 				"job_description": None,
 			}

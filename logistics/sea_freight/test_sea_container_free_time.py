@@ -30,11 +30,15 @@ class UnitTestSeaContainerRowUtils(UnitTestCase):
 				"mode": "FCL",
 				"delivery_modes": "CY/CY",
 				"free_time_days": 10,
+				"demurrage_free_time_days": 5,
+				"detention_free_time_days": 8,
 				"container_no": None,
 			},
 		)()
 		data = container_row_to_dict(row, SALES_QUOTE_TO_BOOKING_CONTAINER_FIELDS)
 		self.assertEqual(data["free_time_days"], 10)
+		self.assertEqual(data["demurrage_free_time_days"], 5)
+		self.assertEqual(data["detention_free_time_days"], 8)
 		self.assertEqual(data["size"], "40ft")
 		self.assertNotIn("container_no", data)
 
@@ -48,6 +52,8 @@ class UnitTestSeaContainerRowUtils(UnitTestCase):
 				"mode": "FCL",
 				"delivery_modes": "CY/CY",
 				"free_time_days": 7,
+				"demurrage_free_time_days": 3,
+				"detention_free_time_days": 4,
 			},
 		)()
 		sales_quote = type("SQ", (), {"containers": [sq_row]})()
@@ -58,6 +64,8 @@ class UnitTestSeaContainerRowUtils(UnitTestCase):
 
 		self.assertEqual(len(booking.containers), 1)
 		self.assertEqual(booking.containers[0].free_time_days, 7)
+		self.assertEqual(booking.containers[0].demurrage_free_time_days, 3)
+		self.assertEqual(booking.containers[0].detention_free_time_days, 4)
 
 	def test_copy_booking_containers_to_shipment_includes_free_time(self):
 		bk_row = type(
@@ -79,6 +87,8 @@ class UnitTestSeaContainerRowUtils(UnitTestCase):
 				"max_volume": None,
 				"utilization_percentage": None,
 				"free_time_days": 14,
+				"demurrage_free_time_days": 6,
+				"detention_free_time_days": 9,
 			},
 		)()
 		booking = type("BK", (), {"containers": [bk_row]})()
@@ -89,4 +99,10 @@ class UnitTestSeaContainerRowUtils(UnitTestCase):
 
 		self.assertEqual(len(shipment.containers), 1)
 		self.assertEqual(shipment.containers[0].free_time_days, 14)
+		self.assertEqual(shipment.containers[0].demurrage_free_time_days, 6)
+		self.assertEqual(shipment.containers[0].detention_free_time_days, 9)
 		self.assertIn("free_time_days", BOOKING_TO_SHIPMENT_CONTAINER_FIELDS)
+		self.assertIn("demurrage_free_time_days", BOOKING_TO_SHIPMENT_CONTAINER_FIELDS)
+		self.assertIn("detention_free_time_days", BOOKING_TO_SHIPMENT_CONTAINER_FIELDS)
+		self.assertIn("demurrage_free_time_days", SALES_QUOTE_TO_BOOKING_CONTAINER_FIELDS)
+		self.assertIn("detention_free_time_days", SALES_QUOTE_TO_BOOKING_CONTAINER_FIELDS)

@@ -148,11 +148,11 @@ function _lsd1_render_list(rows, opts, selected) {
 		.map((row) => {
 			const ls = row.linked_service || "";
 			const st = row.service_type || "";
-			const has_job = !!(row.job_type && row.job_no);
-			const job_html = has_job
-				? `<span class="lsd1-pill lsd1-pill-job">${_lsd1_escape(
-						row.job_no
-				  )}</span>`
+			const has_job = !!(row.job_no || (row.job_type && row.order_no));
+			const job_html = row.job_no
+				? `<span class="lsd1-pill lsd1-pill-job">${_lsd1_escape(row.job_no)}</span>`
+				: row.order_no
+				? `<span class="lsd1-pill lsd1-pill-job">${_lsd1_escape(row.order_no)}</span>`
 				: `<span class="lsd1-pill">${__("No Job")}</span>`;
 
 			const edit_btn =

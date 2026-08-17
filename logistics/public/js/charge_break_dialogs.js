@@ -21,7 +21,7 @@
 	window.LOGISTICS_SPECIAL_PROJECT_CHARGE_DOCTYPES = ["Special Project Charges"];
 	/** Pricing — unified quote charge rows (same break UX as Sea Booking Charges). */
 	window.LOGISTICS_PRICING_CHARGE_DOCTYPES = ["Sales Quote Charge", "Tariff Charge"];
-	window.LOGISTICS_MICE_CHARGE_DOCTYPES = ["MICE Project Charges"];
+	window.LOGISTICS_MICE_CHARGE_DOCTYPES = ["MICE Project Charges", "MICE Project Consolidation Charges"];
 	window.LOGISTICS_EXHIBIT_CHARGE_DOCTYPES = ["Exhibit Charges"];
 	window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS = [].concat(
 		window.LOGISTICS_SEA_FREIGHT_CHARGE_DOCTYPES,

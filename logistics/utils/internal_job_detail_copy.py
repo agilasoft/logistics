@@ -259,12 +259,21 @@ def _save_parent_internal_job_details(parent: Any) -> None:
 
 
 def _persist_internal_job_detail_row_db(row: Any, job_type: str, job_no: str) -> bool:
-	"""Update a saved Internal Job Detail child row without bumping parent ``modified``."""
+	"""Update a saved Internal Job Detail child row without bumping parent ``modified``.
+
+	Booking/order ids go to ``order_no``; job/shipment ids go to ``job_no``.
+	"""
 	jn = (job_no or "").strip()
 	jt = (job_type or "").strip()
 	if not getattr(row, "name", None) or not jn:
 		return False
-	updates: dict[str, Any] = {"job_type": jt, "job_no": jn}
+	from logistics.utils.linked_service_usage import is_linked_service_execution_type
+
+	updates: dict[str, Any] = {"job_type": jt}
+	if is_linked_service_execution_type(jt):
+		updates["job_no"] = jn
+	else:
+		updates["order_no"] = jn
 	st_default = _DEFAULT_SERVICE_TYPE_FOR_JOB_TYPE.get(jt)
 	if st_default and hasattr(row, "service_type") and not (getattr(row, "service_type", None) or "").strip():
 		updates["service_type"] = st_default
@@ -345,6 +354,13 @@ def _throw_linked_service_save_required(parent_name: str) -> None:
 			"Save {0} before creating this internal job so the Linked Service line exists in the database."
 		).format(parent_name),
 		title=_("Save required"),
+	)
+
+
+def _throw_linked_service_job_link_unresolved(parent_name: str) -> None:
+	frappe.throw(
+		_("Could not link Job No to a Linked Service on {0}.").format(parent_name),
+		title=_("Job link failed"),
 	)
 
 
@@ -432,11 +448,14 @@ def persist_internal_job_detail_job_link(
 
 	For virtual parents with ``detail_idx``, resolve by **canonical DB order** (not desk JSON alone)
 	and throw if the Linked Service cannot be stamped — Create must not succeed with a blank Job No.
+	Stamp parent-owned LS when present; otherwise stamp a quote-owned LS already visible on the
+	parent via Linked Service Usage (shared IJ model).
 	"""
 	jn = (job_no or "").strip()
 	if not jn or not frappe.db.exists(parent_doctype, parent_name):
 		return
 	from logistics.utils.internal_job_persistence import (
+		_linked_service_names_visible_on_parent,
 		create_internal_job_for_parent_from_source,
 		ensure_linked_service_rows_materialized,
 		internal_job_detail_fieldname,
@@ -483,6 +502,18 @@ def persist_internal_job_detail_job_link(
 				return ls_name
 		return ""
 
+	def _resolve_stampable_ls_name(*candidates: Any) -> str:
+		"""Owned LS first; else a Usage-visible LS already on this parent's grid."""
+		owned = _resolve_owned_ls_name(*candidates)
+		if owned:
+			return owned
+		visible = _linked_service_names_visible_on_parent(parent_doctype, parent_name)
+		for cand in candidates:
+			ls_name = _resolve_linked_service_name_for_persist(cand) if cand is not None else ""
+			if ls_name and ls_name in visible:
+				return ls_name
+		return ""
+
 	def _commit_virtual_by_detail_idx(di: int) -> None:
 		"""Stamp Job No using canonical DB Linked Services by idx — never trust desk JSON alone."""
 		if di < 1:
@@ -492,13 +523,13 @@ def persist_internal_job_detail_job_link(
 		ensure_linked_service_rows_materialized(parent)
 		rows = _refresh_canonical()
 		if di > len(rows):
-			_throw_linked_service_save_required(parent_name)
+			_throw_linked_service_job_link_unresolved(parent_name)
 		target = rows[di - 1]
 		form_src = form_rows[di - 1] if 0 < di <= len(form_rows) else None
-		# Prefer an owned LS name from the form row when present; otherwise canonical idx.
-		ls_name = _resolve_owned_ls_name(form_src, target)
+		# Prefer parent-owned LS; otherwise stamp quote-owned LS already on the grid via Usage.
+		ls_name = _resolve_stampable_ls_name(form_src, target)
 		if not ls_name:
-			_throw_linked_service_save_required(parent_name)
+			_throw_linked_service_job_link_unresolved(parent_name)
 		_stamp_and_verify_virtual_job_link(
 			ls_name=ls_name,
 			job_type=jt,
@@ -509,8 +540,13 @@ def persist_internal_job_detail_job_link(
 	def _apply_to_canonical_row(target: Any, di: int) -> None:
 		src = form_rows[di - 1] if 0 < di <= len(form_rows) else target
 		_validate_form_row_job_type(src, di)
+		from logistics.utils.linked_service_usage import is_linked_service_execution_type
+
 		target.job_type = jt
-		target.job_no = jn
+		if is_linked_service_execution_type(jt):
+			target.job_no = jn
+		else:
+			target.order_no = jn
 		if st_default and hasattr(target, "service_type") and not (getattr(target, "service_type", None) or "").strip():
 			target.service_type = st_default
 
@@ -557,7 +593,16 @@ def persist_internal_job_detail_job_link(
 	for i, src in enumerate(form_rows):
 		if effective_internal_job_detail_job_type(src) != jt:
 			continue
-		if (getattr(src, "job_no", None) or "").strip():
+		# Open line = no order/booking link yet (job_no is execution-only).
+		existing_order = (getattr(src, "order_no", None) or "").strip()
+		if not existing_order:
+			# Legacy rows may still hold the booking id in job_no.
+			from logistics.utils.linked_service_usage import is_linked_service_execution_type
+
+			legacy_jn = (getattr(src, "job_no", None) or "").strip()
+			if legacy_jn and not is_linked_service_execution_type(jt):
+				existing_order = legacy_jn
+		if existing_order:
 			continue
 		di_open = i + 1
 		if virtual_parent:
@@ -569,7 +614,13 @@ def persist_internal_job_detail_job_link(
 		_commit_row_link(canonical[di_open - 1], di_open)
 		return
 
-	new_row: dict[str, Any] = {"job_type": jt, "job_no": jn}
+	from logistics.utils.linked_service_usage import is_linked_service_execution_type
+
+	new_row: dict[str, Any] = {"job_type": jt}
+	if is_linked_service_execution_type(jt):
+		new_row["job_no"] = jn
+	else:
+		new_row["order_no"] = jn
 	if st_default:
 		new_row["service_type"] = st_default
 	if virtual_parent:

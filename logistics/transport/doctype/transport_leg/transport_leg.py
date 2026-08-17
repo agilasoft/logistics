@@ -9,6 +9,7 @@ from frappe.utils import now_datetime
 class TransportLeg(Document):
     def validate(self):
         """Validate Transport Leg data"""
+        self.apply_address_window_schedule()
         self.validate_required_fields()
         self.validate_time_windows()
         self.validate_route_compatibility()
@@ -297,6 +298,64 @@ class TransportLeg(Document):
         
         # Note: Pick and Drop window settings are independent settings from their respective addresses
         # and should not be compared to each other. They are validated separately above.
+
+    def apply_address_window_schedule(self):
+        """Fill pick/drop windows from Address Pick / Drop Windows table for the leg weekday.
+
+        Re-resolves when address or relevant datetime fields change. Manual window edits are
+        kept when address/date are unchanged. With address but no date yet, windows are cleared.
+        """
+        from frappe.utils import getdate
+        from logistics.transport.address_windows import resolve_address_window
+
+        pick_date = None
+        if self.pick_datetime:
+            pick_date = getdate(self.pick_datetime)
+        elif self.date:
+            pick_date = getdate(self.date)
+        elif self.run_date:
+            pick_date = getdate(self.run_date)
+
+        drop_date = None
+        if self.drop_datetime:
+            drop_date = getdate(self.drop_datetime)
+        elif self.date:
+            drop_date = getdate(self.date)
+        elif self.run_date:
+            drop_date = getdate(self.run_date)
+
+        pick_changed = self.is_new() or any(
+            self.has_value_changed(f)
+            for f in ("pick_address", "pick_datetime", "date", "run_date")
+        )
+        drop_changed = self.is_new() or any(
+            self.has_value_changed(f)
+            for f in ("drop_address", "drop_datetime", "date", "run_date")
+        )
+
+        if pick_changed:
+            if self.pick_address and pick_date:
+                window = resolve_address_window(self.pick_address, "Pick", pick_date)
+                if window:
+                    self.pick_window_start, self.pick_window_end = window
+                else:
+                    self.pick_window_start = None
+                    self.pick_window_end = None
+            else:
+                self.pick_window_start = None
+                self.pick_window_end = None
+
+        if drop_changed:
+            if self.drop_address and drop_date:
+                window = resolve_address_window(self.drop_address, "Drop", drop_date)
+                if window:
+                    self.drop_window_start, self.drop_window_end = window
+                else:
+                    self.drop_window_start = None
+                    self.drop_window_end = None
+            else:
+                self.drop_window_start = None
+                self.drop_window_end = None
     
     def validate_route_compatibility(self):
         """Validate route compatibility"""

@@ -1,0 +1,70 @@
+{
+ "app": "logistics",
+ "charts": [],
+ "content": "[{\"id\":\"util-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Utilities</span>\",\"col\":12}},{\"id\":\"util-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Role Permission Matrix\",\"col\":4}}]",
+ "creation": "2026-08-15 00:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "tool",
+ "idx": 0,
+ "is_hidden": 0,
+ "is_standard": 1,
+ "label": "Utilities",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Role Permission Matrix",
+   "link_count": 0,
+   "link_to": "role-permission-matrix",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Role Permissions Manager",
+   "link_count": 0,
+   "link_to": "permission-manager",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-08-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Utilities",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "restrict_to_domain": "",
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 99.0,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Role Permission Matrix",
+   "link_to": "role-permission-matrix",
+   "type": "Page"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Role Permissions Manager",
+   "link_to": "permission-manager",
+   "type": "Page"
+  }
+ ],
+ "title": "Utilities"
+}

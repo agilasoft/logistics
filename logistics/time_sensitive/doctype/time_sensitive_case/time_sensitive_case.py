@@ -493,7 +493,10 @@ def add_linked_service(case_name: str, service_type: str):
 def list_case_linked_services(case_name: str):
 	"""Return Linked Services for the Manage Services dialog."""
 	from logistics.time_sensitive.service_linking import get_case_linked_services
-	from logistics.utils.linked_service_usage import latest_satellite_job_from_usage
+	from logistics.utils.linked_service_usage import (
+		latest_satellite_job_from_usage,
+		latest_shipment_from_usage,
+	)
 
 	case = frappe.get_doc("Time Sensitive Case", case_name)
 	frappe.has_permission("Time Sensitive Case", "read", doc=case, throw=True)
@@ -503,13 +506,15 @@ def list_case_linked_services(case_name: str):
 			(linked.parent_booking_type or "") == case.doctype
 			and (linked.parent_booking_name or "") == case.name
 		)
-		job_type, job_no = latest_satellite_job_from_usage(linked.name)
+		job_type, order_no = latest_satellite_job_from_usage(linked.name)
+		_et, job_no = latest_shipment_from_usage(linked.name)
 		rows.append(
 			{
 				"linked_service": linked.name,
 				"service_type": linked.service_type,
 				"owned_by_case": 1 if owned else 0,
 				"job_type": job_type or "",
+				"order_no": order_no or "",
 				"job_no": job_no or "",
 			}
 		)

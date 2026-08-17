@@ -28,7 +28,7 @@ class LinkedServiceDetail(Document):
 
 	def get_invalid_links(self, is_submittable=False):
 		invalid_links, cancelled_links = super().get_invalid_links(is_submittable=is_submittable)
-		cancelled_links = [c for c in cancelled_links if c[0] != "job_no"]
+		cancelled_links = [c for c in cancelled_links if c[0] not in ("job_no", "order_no")]
 		return invalid_links, cancelled_links
 
 	def validate(self):
@@ -41,7 +41,7 @@ class LinkedServiceDetail(Document):
 		jt = (self.job_type or "").strip()
 		if st == "Warehousing":
 			# Linked warehousing is cross-dock / in-transit VAS only (not storage orders).
-			jn = (getattr(self, "job_no", None) or "").strip()
+			jn = (getattr(self, "order_no", None) or getattr(self, "job_no", None) or "").strip()
 			if jt in ("Inbound Order", "Release Order", "Transfer Order") and jn:
 				return
 			self.job_type = "VAS Order"

@@ -17,6 +17,7 @@
   "exhibit_order",
   "customer",
   "task_type",
+  "lifecycle_stage",
   "shipper",
   "consignee",
   "column_break_sp_job",
@@ -160,6 +161,16 @@
    "in_list_view": 1,
    "label": "Task Type",
    "options": "Project Task Type"
+  },
+  {
+   "fieldname": "lifecycle_stage",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Lifecycle Stage",
+   "link_filters": "[[\"Lifecycle Stage\", \"for_exhibits\", \"=\", 1], [\"Lifecycle Stage\", \"is_closed\", \"=\", 0]]",
+   "options": "Lifecycle Stage",
+   "reqd": 1
   },
   {
    "fieldname": "exhibit",
