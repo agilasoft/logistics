@@ -57,8 +57,8 @@ Before configuring Transport Settings, ensure the following are set up:
 - **Constraint Checking Mode** – Strict or warning mode
 - **Enable Time Window Constraints** – Respect delivery time windows
 - **Enable Address Day Availability** – Restrict by day of week
-- **Enable Plate Coding Constraints** – Restrict by vehicle plate
-- **Enable Truck Ban Constraints** – Respect truck bans
+- **Enable Plate Coding Constraints (Deprecated)** – No longer enforced; use Truck Ban Constraint with Constraint Type **Plate Coding**
+- **Enable Truck Ban Constraints** – Respect Truck Ban Constraint by type (Area, Route, Time, Weight, Vehicle Type, Plate Coding)
 - **Enable Adhoc Factors** – Allow ad-hoc delay/blocking factors
 - **Require Vehicle Avg Speed** – Require speed for planning
 - **Allow Vehicle Assignment with Warnings** – Allow assignment despite warnings
@@ -132,9 +132,9 @@ _All fields from DocType **Transport Settings** and nested child tables, in form
 | Constraint Checking Mode (`constraint_checking_mode`) | Select | **From definition:** Strict: Block vehicle assignment if constraints fail Warning: Allow assignment but show warnings Disabled: Skip constraint checking **Purpose:** Constrains input to predefined values (compliance, mode, status, or internal classification). **What to enter:** Pick exactly one value from the list: Strict, Warning, Disabled. |
 | `column_break_constraints` | Column Break | **Purpose:** Continues the current row in a second column (standard ERP two-column layout). **What to enter:** No data — layout only. |
 | Enable Time Window Constraints (`enable_time_window_constraints`) | Check | **From definition:** Check pick/drop time windows when assigning vehicles **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
-| Enable Address Day Availability (`enable_address_day_availability`) | Check | **From definition:** Check day-of-week restrictions for pick/drop operations **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
-| Enable Plate Number Coding Constraints (`enable_plate_coding_constraints`) | Check | **From definition:** Check license plate coding restrictions (odd/even days, last digit rules) **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
-| Enable Truck Ban Constraints (`enable_truck_ban_constraints`) | Check | **From definition:** Check area and time-based truck ban restrictions **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
+| Enable Address Day Availability (`enable_address_day_availability`) | Check | **From definition:** Check day-of-week restrictions for pick/drop operations **Purpose:** When enabled, vehicle assignment checks the Address **Pick / Drop Windows** table — a matching day/operation row must exist. **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
+| Enable Plate Number Coding Constraints (Deprecated) (`enable_plate_coding_constraints`) | Check | **Deprecated:** No longer enforced. On **Truck Ban Constraint**, set Constraint Type to **Plate Coding** and enable **Enable Truck Ban Constraints**. |
+| Enable Truck Ban Constraints (`enable_truck_ban_constraints`) | Check | **Purpose:** Enforce Truck Ban Constraint by Constraint Type (Area Ban, Route Ban, Time-Based Ban, Weight-Based Ban, Vehicle Type Ban, Plate Coding). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
 | Enable Ad-Hoc Transport Factors (`enable_adhoc_factors`) | Check | **From definition:** Consider ad-hoc factors (road closures, port congestion, etc.) in planning **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
 | Routing and Travel Time (`section_routing_constraints`) | Section Break | **Purpose:** Visual grouping and optional heading for the fields that follow (improves long freight forms). **What to enter:** No data — informational layout only. |
 | Use Routing Service for Distance (`use_routing_service_for_distance`) | Check | **From definition:** Use routing provider API to calculate distances (if available) **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |

@@ -203,7 +203,92 @@ frappe.provide("logistics.charge_type_cleanup");
 		});
 	}
 
+	function _get_open_charge_grid_row(frm, cdn, tableFieldname) {
+		if (!frm || !frm.fields_dict) {
+			return null;
+		}
+		var grid = frm.fields_dict[tableFieldname || "charges"];
+		grid = grid && grid.grid;
+		if (!grid || !grid.grid_rows_by_docname) {
+			return null;
+		}
+		return grid.grid_rows_by_docname[cdn] || null;
+	}
+
+	function _set_open_grid_form_control_value(frm, cdt, cdn, fieldname, value, tableFieldname) {
+		var grid_row = _get_open_charge_grid_row(frm, cdn, tableFieldname);
+		if (!grid_row || !grid_row.grid_form || !grid_row.grid_form.fields_dict) {
+			return;
+		}
+		var control = grid_row.grid_form.fields_dict[fieldname];
+		if (!control) {
+			return;
+		}
+		// Link/Currency inputs in an open Editing Row often stay blank after model-only set_value.
+		if (control.set_value) {
+			control.set_value(value);
+		} else if (control.set_input) {
+			control.set_input(value);
+		} else if (control.$input && control.$input.length) {
+			control.$input.val(value == null ? "" : value);
+		}
+	}
+
+	var TARIFF_LINK_FIELDS = ["uom", "cost_uom", "currency", "cost_currency"];
+
+	function _apply_tariff_link_controls_from_updates(frm, cdt, cdn, updates, tableFieldname) {
+		if (!updates || typeof updates !== "object") {
+			return;
+		}
+		TARIFF_LINK_FIELDS.forEach(function (fieldname) {
+			if (!(fieldname in updates)) {
+				return;
+			}
+			var val = updates[fieldname];
+			if (val === undefined || val === null) {
+				return;
+			}
+			_set_open_grid_form_control_value(frm, cdt, cdn, fieldname, val, tableFieldname);
+		});
+	}
+
+	function _deferred_refresh_tariff_link_controls(frm, cdt, cdn, tableFieldname) {
+		setTimeout(function () {
+			if (!frm || frm.is_destroyed) {
+				return;
+			}
+			logistics.charge_type_cleanup.run_without_charge_handlers(frm, function () {
+				_refresh_charge_row_field_controls(
+					frm,
+					cdt,
+					cdn,
+					TARIFF_LINK_FIELDS,
+					tableFieldname
+				);
+				var row = locals[cdt] && locals[cdt][cdn];
+				if (!row) {
+					return;
+				}
+				TARIFF_LINK_FIELDS.forEach(function (fieldname) {
+					if (row[fieldname] === undefined || row[fieldname] === null) {
+						return;
+					}
+					_set_open_grid_form_control_value(
+						frm,
+						cdt,
+						cdn,
+						fieldname,
+						row[fieldname],
+						tableFieldname
+					);
+				});
+			});
+		}, 0);
+	}
+
 	logistics.charge_type_cleanup.charge_row_has_billable_rate = _charge_side_has_billable_rate;
+
+	logistics.charge_type_cleanup.refresh_charge_row_field_controls = _refresh_charge_row_field_controls;
 
 	logistics.charge_type_cleanup.refresh_charge_row_estimate_controls = function (
 		frm,
@@ -220,6 +305,37 @@ frappe.provide("logistics.charge_type_cleanup");
 		);
 	};
 
+	// Pricing fields that tariff fetch may populate — refresh open Editing Row dialog.
+	var TARIFF_PRICING_REFRESH_FIELDS = [
+		"revenue_calculation_method",
+		"calculation_method",
+		"quantity",
+		"uom",
+		"currency",
+		"unit_rate",
+		"unit_type",
+		"minimum_quantity",
+		"minimum_charge",
+		"maximum_charge",
+		"base_amount",
+		"cost_calculation_method",
+		"cost_quantity",
+		"cost_uom",
+		"cost_currency",
+		"unit_cost",
+		"cost_unit_type",
+		"cost_minimum_quantity",
+		"cost_minimum_charge",
+		"cost_maximum_charge",
+		"cost_base_amount",
+		"use_tariff_in_revenue",
+		"use_tariff_in_cost",
+		"use_unit_breaks",
+		"cost_use_unit_breaks",
+		"estimated_revenue",
+		"estimated_cost",
+	];
+
 	logistics.charge_type_cleanup.apply_calculate_charge_row_response = function (
 		frm,
 		cdt,
@@ -233,13 +349,22 @@ frappe.provide("logistics.charge_type_cleanup");
 		// Keep handlers quiet for the whole apply — otherwise quantity/cost_quantity
 		// set_value re-fires calculate_charge_row and estimated_* thrash profitability HTML.
 		logistics.charge_type_cleanup.run_without_charge_handlers(frm, function () {
-			if (r.message.row_updates && typeof r.message.row_updates === "object") {
-				$.each(r.message.row_updates, function (key, v) {
+			var changed_tariff_fields = [];
+			var row_updates =
+				r.message.row_updates && typeof r.message.row_updates === "object"
+					? r.message.row_updates
+					: null;
+			if (row_updates) {
+				$.each(row_updates, function (key, v) {
 					if (v !== undefined && v !== null) {
-						_set_row_value_if_changed(cdt, cdn, key, v);
+						if (_set_row_value_if_changed(cdt, cdn, key, v)) {
+							changed_tariff_fields.push(key);
+						}
 					}
 				});
 			}
+			var row = locals[cdt] && locals[cdt][cdn];
+			var break_methods = ["Weight Break", "Qty Break", "Percentage Break"];
 			[
 				"estimated_revenue",
 				"estimated_cost",
@@ -248,8 +373,27 @@ frappe.provide("logistics.charge_type_cleanup");
 				"quantity",
 				"cost_quantity",
 			].forEach(function (fn) {
-				if (fn in r.message) {
-					_set_row_value_if_changed(cdt, cdn, fn, r.message[fn]);
+				if (!(fn in r.message)) {
+					return;
+				}
+				var val = r.message[fn];
+				// Break methods: do not push 0/null qty — leave blank for user estimate.
+				if (
+					(fn === "quantity" || fn === "cost_quantity") &&
+					(val === 0 || val === null || val === undefined) &&
+					row
+				) {
+					var method = (
+						fn === "quantity"
+							? row.revenue_calculation_method || row.calculation_method
+							: row.cost_calculation_method
+					);
+					if (break_methods.indexOf((method || "").trim()) !== -1) {
+						return;
+					}
+				}
+				if (_set_row_value_if_changed(cdt, cdn, fn, val)) {
+					changed_tariff_fields.push(fn);
 				}
 			});
 			_set_row_value_if_changed(
@@ -264,12 +408,33 @@ frappe.provide("logistics.charge_type_cleanup");
 				"cost_calc_notes",
 				r.message.cost_calc_notes || ""
 			);
-			logistics.charge_type_cleanup.refresh_charge_row_estimate_controls(
+			// Force Link controls in the open Editing Row (UOM often stays blank after model-only set).
+			_apply_tariff_link_controls_from_updates(
 				frm,
 				cdt,
 				cdn,
+				row_updates || row,
 				tableFieldname
 			);
+			var refresh_fields = TARIFF_PRICING_REFRESH_FIELDS.filter(function (fn) {
+				return TARIFF_LINK_FIELDS.indexOf(fn) === -1;
+			});
+			changed_tariff_fields.forEach(function (fn) {
+				if (
+					refresh_fields.indexOf(fn) === -1 &&
+					TARIFF_LINK_FIELDS.indexOf(fn) === -1
+				) {
+					refresh_fields.push(fn);
+				}
+			});
+			_refresh_charge_row_field_controls(
+				frm,
+				cdt,
+				cdn,
+				refresh_fields,
+				tableFieldname
+			);
+			_deferred_refresh_tariff_link_controls(frm, cdt, cdn, tableFieldname);
 			if (
 				logistics.charges_disbursement &&
 				logistics.charges_disbursement.apply_charge_row_response

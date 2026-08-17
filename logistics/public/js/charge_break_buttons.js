@@ -16,11 +16,10 @@ var CHARGE_DOCTYPES_WITH_BREAKS =
 		["Change Request Charge"]
 	);
 
-// Toolbar "Manage … Breaks" buttons only on pricing/air-consolidation/project parents.
-// Hidden on booking/order, shipment/job, Sea Consolidation, Change Request, Sales Quote, Tariff, and Special Project.
+// Toolbar "Manage … Breaks" buttons only on Air Consolidation and Exhibit.
+// Hidden on booking/order, shipment/job, Sea Consolidation, MICE Project, Change Request, Sales Quote, Tariff, and Special Project.
 var CHARGE_PARENT_DOCTYPES = [
 	"Air Consolidation",
-	"MICE Project",
 	"Exhibit",
 ];
 

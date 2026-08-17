@@ -374,7 +374,10 @@ class SalesQuote(Document):
 		):
 			view_fields.add(fn)
 
-		from logistics.utils.linked_service_usage import latest_satellite_job_from_usage
+		from logistics.utils.linked_service_usage import (
+			latest_satellite_job_from_usage,
+			latest_shipment_from_usage,
+		)
 
 		rows = []
 		for ls in get_linked_services_for_sales_quote(self.name):
@@ -382,10 +385,14 @@ class SalesQuote(Document):
 			for fn in view_fields:
 				if fn == "linked_service":
 					continue
+				if fn in ("job_type", "order_no", "job_no", "job_description"):
+					continue
 				if hasattr(ls, fn):
 					row[fn] = getattr(ls, fn, None)
-			jt, jn = latest_satellite_job_from_usage(ls.name)
+			jt, on = latest_satellite_job_from_usage(ls.name)
+			_et, jn = latest_shipment_from_usage(ls.name)
 			row["job_type"] = jt or None
+			row["order_no"] = on or None
 			row["job_no"] = jn or None
 			rows.append(row)
 		return rows
@@ -465,6 +472,16 @@ class SalesQuote(Document):
 		self.estimated_profit = data["estimated_profit"]
 		self.estimated_margin_pct = data["estimated_margin_pct"]
 
+	def _sync_tariff_rates_and_breaks_on_charges(self):
+		"""Fetch tariff rates/Unit Breaks onto charge rows after children are in the DB.
+
+		Child Sales Quote Charge.validate does not run on parent save in Frappe v16.
+		Copy must run after child db_insert so Charge Unit Break Dynamic Links resolve.
+		"""
+		from logistics.utils.charges_calculation import sync_tariff_rates_and_breaks_on_charges
+
+		sync_tariff_rates_and_breaks_on_charges(self)
+
 	def validate_planned_dates(self):
 		"""Hard-block inverted Planned Start/End; soft-warn when window ends before quote date."""
 		from logistics.utils.document_date_validation import (
@@ -489,11 +506,13 @@ class SalesQuote(Document):
 			refresh_sales_quote_charge_parameters_display(row, self)
 
 	def after_insert(self):
+		self._sync_tariff_rates_and_breaks_on_charges()
 		_sync_special_project_from_sales_quote(self)
 		_sync_show_from_sales_quote(self)
 		self._drop_virtual_linked_services_rows()
 
 	def on_update(self):
+		self._sync_tariff_rates_and_breaks_on_charges()
 		_sync_special_project_from_sales_quote(self)
 		_sync_show_from_sales_quote(self)
 		_sync_special_project_fields_from_sales_quote(self)
@@ -534,10 +553,26 @@ class SalesQuote(Document):
 
 	def before_submit(self):
 		"""Validate before submitting the document"""
+		self.validate_submit_via_sales_quote_pack()
 		self.validate_main_service_has_charges()
 		self.validate_air_sea_charge_ports_before_submit()
 		self.validate_erpnext_project_name_before_submit()
 		self.validate_charge_exchange_rates_before_submit()
+
+	def validate_submit_via_sales_quote_pack(self):
+		"""Pack-linked quotes must be submitted via Sales Quote Pack Submit."""
+		pack = _sq_strip_or_none(getattr(self, "sales_quote_pack", None))
+		if not pack:
+			return
+		if getattr(self.flags, "submit_from_sales_quote_pack", False):
+			return
+		frappe.throw(
+			_(
+				"Sales Quote {0} belongs to Sales Quote Pack {1}. "
+				"Submit the Sales Quote Pack to submit this quote."
+			).format(self.name, pack),
+			title=_("Submit via Sales Quote Pack"),
+		)
 
 	def validate_charge_exchange_rates_before_submit(self):
 		"""Block submit when charge FX would fail Operational Exchange Rate checks on booking create."""
@@ -817,6 +852,9 @@ class SalesQuote(Document):
 		parts = []
 		origin = _sq_strip_or_none(getattr(self, "origin_port", None))
 		dest = _sq_strip_or_none(getattr(self, "destination_port", None))
+		if not (origin and dest):
+			origin = _sq_strip_or_none(getattr(self, "location_from", None))
+			dest = _sq_strip_or_none(getattr(self, "location_to", None))
 		if origin and dest:
 			parts.append(f"{origin} → {dest}")
 		inc = _sq_strip_or_none(getattr(self, "incoterm", None))
@@ -4201,19 +4239,24 @@ def list_quote_linked_services(sales_quote: str):
 	from logistics.logistics.doctype.linked_service.linked_service import (
 		get_linked_services_for_sales_quote,
 	)
-	from logistics.utils.linked_service_usage import latest_satellite_job_from_usage
+	from logistics.utils.linked_service_usage import (
+		latest_satellite_job_from_usage,
+		latest_shipment_from_usage,
+	)
 
 	quote = frappe.get_doc("Sales Quote", sales_quote)
 	frappe.has_permission("Sales Quote", "read", doc=quote, throw=True)
 	rows = []
 	for linked in get_linked_services_for_sales_quote(quote.name):
-		job_type, job_no = latest_satellite_job_from_usage(linked.name)
+		job_type, order_no = latest_satellite_job_from_usage(linked.name)
+		_et, job_no = latest_shipment_from_usage(linked.name)
 		rows.append(
 			{
 				"linked_service": linked.name,
 				"service_type": linked.service_type,
 				"owned_by_quote": 1,
 				"job_type": job_type or "",
+				"order_no": order_no or "",
 				"job_no": job_no or "",
 			}
 		)

@@ -1,6 +1,8 @@
 # Copyright (c) 2024, logistics and contributors
 # For license information, please see license.txt
 
+"""DEPRECATED: Use Truck Ban Constraint → Plate Coding instead."""
+
 # import frappe
 from frappe.model.document import Document
 

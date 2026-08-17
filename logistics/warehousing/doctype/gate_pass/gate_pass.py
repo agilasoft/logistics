@@ -54,19 +54,10 @@ class GatePass(Document):
 		"""Update reference fields based on warehouse job"""
 		if self.warehouse_job:
 			job = frappe.get_doc("Warehouse Job", self.warehouse_job)
-			
-			# Update items from warehouse job items
+
+			# Copy items from the warehouse job when the gate pass items table is empty
 			if not self.items and job.items:
-				for job_item in job.items:
-					self.append("items", {
-						"item_code": job_item.item_code,
-						"item_name": job_item.item_name,
-						"description": job_item.description,
-						"qty": job_item.qty,
-						"uom": job_item.uom,
-						"branch": self.branch or job.branch,
-						"handling_unit": job_item.handling_unit
-					})
+				append_items_from_warehouse_job(self, job)
 	
 	def validate_authorization(self):
 		"""Validate authorization fields"""
@@ -152,24 +143,42 @@ def create_single_gate_pass(job, dock):
 	gate_pass.gate_pass_date = frappe.utils.today()
 	gate_pass.gate_pass_time = frappe.utils.nowtime()
 	
-	# Add items from warehouse job
-	for item in job.items:
-		# Get item details from Warehouse Item
-		item_details = frappe.get_value("Warehouse Item", item.item, 
-			["item_name", "description", "uom"], as_dict=True) if item.item else {}
-		
-		gate_pass.append("items", {
-			"item_code": item.item,
-			"item_name": item_details.get("item_name", ""),
-			"description": item_details.get("description", ""),
-			"qty": item.quantity,
-			"uom": item_details.get("uom", ""),
-			"branch": job.branch,
-			"handling_unit": item.handling_unit
-		})
-	
+	append_items_from_warehouse_job(gate_pass, job)
+
 	gate_pass.insert()
 	return gate_pass
+
+
+def append_items_from_warehouse_job(gate_pass, job):
+	"""Copy Warehouse Job Item rows onto a Gate Pass.
+
+	Warehouse Job Item uses `item` / `quantity`; Gate Pass Item uses `item_code` / `qty`.
+	Name, description, and UOM come from Warehouse Item (with the job row UOM as fallback).
+	"""
+	for job_item in job.items:
+		item_details = (
+			frappe.get_value(
+				"Warehouse Item",
+				job_item.item,
+				["item_name", "description", "uom"],
+				as_dict=True,
+			)
+			if job_item.item
+			else {}
+		) or {}
+
+		gate_pass.append(
+			"items",
+			{
+				"item_code": job_item.item,
+				"item_name": item_details.get("item_name") or "",
+				"description": item_details.get("description") or "",
+				"qty": job_item.quantity,
+				"uom": job_item.uom or item_details.get("uom") or "",
+				"branch": gate_pass.branch or job.branch,
+				"handling_unit": job_item.handling_unit,
+			},
+		)
 
 
 @frappe.whitelist()

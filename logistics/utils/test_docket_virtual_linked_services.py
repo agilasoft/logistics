@@ -11,6 +11,7 @@ from frappe.utils import add_days, today
 
 from logistics.utils.internal_job_persistence import (
 	_linked_service_names_from_db,
+	_linked_service_names_visible_on_parent,
 	sync_internal_job_details_to_internal_jobs,
 )
 from logistics.utils.linked_service_compat import linked_service_doctype
@@ -156,6 +157,68 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			frappe.delete_doc("Docket", dk.name, force=True, ignore_permissions=True)
 			frappe.delete_doc("MICE Project", exhibit.name, force=True, ignore_permissions=True)
 
+	def test_persist_job_link_stamps_quote_owned_usage_visible_ls(self):
+		"""Quote-owned LS visible on Docket via Usage must stamp Job No (D-00021).
+
+		clone=False propagation keeps Sales Quote ownership and records Usage. Persist must
+		not throw Save required and must not reparent or clone the Linked Service.
+		"""
+		from logistics.utils.internal_job_detail_copy import persist_internal_job_detail_job_link
+		from logistics.utils.linked_service_usage import (
+			linked_service_has_satellite_job,
+			record_linked_service_usage,
+		)
+		from logistics.utils.virtual_linked_services_view import build_linked_services_view_for_booking
+
+		exhibit = self._minimal_exhibit("Docket Persist Quote LS Usage")
+		dk = self._minimal_docket(exhibit.name)
+		sq = self._minimal_sales_quote_with_linked_services("Docket Persist Quote LS Usage SQ")
+		fake_job_no = f"SB-TEST-{frappe.generate_hash(length=8)}"
+		try:
+			frappe.db.set_value("Docket", dk.name, "sales_quote", sq.name, update_modified=False)
+			sq_names = list(_linked_service_names_from_db("Sales Quote", sq.name))
+			sea_ls = None
+			for name in sq_names:
+				record_linked_service_usage(name, "Docket", dk.name)
+				ls = frappe.get_doc(linked_service_doctype(), name)
+				if (ls.service_type or "").strip() == "Sea":
+					sea_ls = name
+			self.assertTrue(sea_ls)
+			self.assertEqual(_linked_service_names_from_db("Docket", dk.name), set())
+			self.assertIn(sea_ls, _linked_service_names_visible_on_parent("Docket", dk.name))
+
+			view = build_linked_services_view_for_booking("Docket", dk.name)
+			sea_idx = next(
+				i for i, row in enumerate(view, 1) if (row.get("linked_service") or "") == sea_ls
+			)
+			persist_internal_job_detail_job_link(
+				"Docket",
+				dk.name,
+				"Sea Booking",
+				fake_job_no,
+				detail_idx=sea_idx,
+			)
+
+			self.assertEqual(_linked_service_names_from_db("Docket", dk.name), set())
+			ls = frappe.get_doc(linked_service_doctype(), sea_ls)
+			self.assertEqual(ls.parent_booking_type, "Sales Quote")
+			self.assertEqual(ls.parent_booking_name, sq.name)
+			self.assertEqual(linked_service_has_satellite_job(sea_ls, "Sea Booking"), fake_job_no)
+		finally:
+			if hasattr(frappe.local, "_logistics_dk_ij_client_rows"):
+				delattr(frappe.local, "_logistics_dk_ij_client_rows")
+			for ls_name in _linked_service_names_from_db("Docket", dk.name):
+				frappe.delete_doc(
+					linked_service_doctype(), ls_name, force=True, ignore_permissions=True
+				)
+			for ls_name in _linked_service_names_from_db("Sales Quote", sq.name):
+				frappe.delete_doc(
+					linked_service_doctype(), ls_name, force=True, ignore_permissions=True
+				)
+			frappe.delete_doc("Docket", dk.name, force=True, ignore_permissions=True)
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+			frappe.delete_doc("MICE Project", exhibit.name, force=True, ignore_permissions=True)
+
 	def test_persist_job_link_empty_client_override_does_not_wipe_linked_services(self):
 		"""Empty desk linked_services payload must not orphan-delete existing Docket LS docs.
 
@@ -238,7 +301,7 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 		return sq
 
 	def test_get_docket_booking_choices_materializes_from_sales_quote(self):
-		"""Empty Docket LS + quote-owned LS → choices materialize Docket clones."""
+		"""Empty Docket LS + quote-owned LS → choices reuse quote LS via Usage (no clones)."""
 		from logistics.mice.doctype.docket.docket_booking_creation import (
 			get_docket_booking_choices,
 		)
@@ -249,15 +312,15 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 		try:
 			frappe.db.set_value("Docket", dk.name, "sales_quote", sq.name, update_modified=False)
 			self.assertEqual(_linked_service_names_from_db("Docket", dk.name), set())
-			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 2)
+			sq_ls = _linked_service_names_from_db("Sales Quote", sq.name)
+			self.assertEqual(len(sq_ls), 2)
 
 			msg = get_docket_booking_choices(dk.name, linked_services="[]")
 			choices = msg.get("choices") or []
 			self.assertGreaterEqual(len(choices), 2)
-			dk_ls = _linked_service_names_from_db("Docket", dk.name)
-			self.assertEqual(len(dk_ls), 2)
-			# Quote originals remain; Docket clones are distinct.
-			self.assertFalse(dk_ls & _linked_service_names_from_db("Sales Quote", sq.name))
+			# clone=False: quote retains ownership; Docket sees the same IJ-… via Usage.
+			self.assertEqual(_linked_service_names_from_db("Docket", dk.name), set())
+			self.assertEqual(_linked_service_names_visible_on_parent("Docket", dk.name), sq_ls)
 			sea_choices = [c for c in choices if c.get("job_type") == "Sea Booking"]
 			self.assertTrue(sea_choices)
 		finally:
@@ -274,7 +337,7 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 			frappe.delete_doc("MICE Project", exhibit.name, force=True, ignore_permissions=True)
 
 	def test_docket_onload_materializes_from_sales_quote(self):
-		"""Opening a Docket with sales_quote but no LS clones from the quote."""
+		"""Opening a Docket with sales_quote attaches quote LS via Usage (no clones)."""
 		exhibit = self._minimal_exhibit("Docket Onload LS Heal")
 		dk = self._minimal_docket(exhibit.name)
 		sq = self._minimal_sales_quote_with_linked_services("Docket Onload LS Heal SQ")
@@ -284,9 +347,12 @@ class TestDocketVirtualLinkedServices(FrappeTestCase):
 
 			reloaded = frappe.get_doc("Docket", dk.name)
 			reloaded.run_method("onload")
-			dk_ls = _linked_service_names_from_db("Docket", dk.name)
-			self.assertEqual(len(dk_ls), 2)
+			self.assertEqual(_linked_service_names_from_db("Docket", dk.name), set())
 			self.assertEqual(len(reloaded.linked_services), 2)
+			self.assertEqual(
+				_linked_service_names_visible_on_parent("Docket", dk.name),
+				_linked_service_names_from_db("Sales Quote", sq.name),
+			)
 		finally:
 			for ls_name in _linked_service_names_from_db("Docket", dk.name):
 				frappe.delete_doc(

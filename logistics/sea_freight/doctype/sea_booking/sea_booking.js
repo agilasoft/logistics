@@ -211,9 +211,11 @@ frappe.ui.form.on('Sea Booking', {
 	},
 	containers_add: function(frm) {
 		_sea_booking_refresh_package_container_options(frm);
+		_sea_booking_toggle_seal_no_reqd(frm);
 	},
 	containers_remove: function(frm) {
 		_sea_booking_refresh_package_container_options(frm);
+		_sea_booking_toggle_seal_no_reqd(frm);
 	},
 	document_list_template: function (frm) {
 		if (!frm.doc.name || frm.doc.__islocal) return;
@@ -522,6 +524,7 @@ frappe.ui.form.on('Sea Booking', {
 	
 	refresh: function(frm) {
 		_sea_booking_refresh_package_container_options(frm);
+		_sea_booking_toggle_seal_no_reqd(frm);
 		if (window.logistics && logistics.apply_one_off_sales_quote_order_standard) {
 			logistics.apply_one_off_sales_quote_order_standard(frm);
 		}
@@ -1158,6 +1161,54 @@ function _refresh_packing_summary_api(frm) {
 }
 
 /**
+ * Seal Number is required when any container row Mode (Load Type) has Required Seal Number.
+ * Grid reqd is document-wide; per-row enforcement is on the server.
+ */
+function _sea_booking_toggle_seal_no_reqd(frm) {
+	if (!frm || !frm.fields_dict || !frm.fields_dict.containers || !frm.fields_dict.containers.grid) {
+		return;
+	}
+	var grid = frm.fields_dict.containers.grid;
+	if (typeof grid.update_docfield_property !== "function") {
+		return;
+	}
+
+	function apply_reqd(require_seal) {
+		grid.update_docfield_property("seal_no", "reqd", require_seal ? 1 : 0);
+	}
+
+	var modes = [];
+	var seen = {};
+	(frm.doc.containers || []).forEach(function (row) {
+		var mode = String((row && row.mode) || "").trim();
+		if (!mode || seen[mode]) return;
+		seen[mode] = true;
+		modes.push(mode);
+	});
+
+	if (!modes.length) {
+		apply_reqd(false);
+		return;
+	}
+
+	frappe.db
+		.get_list("Load Type", {
+			filters: { name: ["in", modes] },
+			fields: ["name", "required_seal_number"],
+			limit: modes.length,
+		})
+		.then(function (rows) {
+			var require_seal = (rows || []).some(function (r) {
+				return cint(r && r.required_seal_number);
+			});
+			apply_reqd(require_seal);
+		})
+		.catch(function () {
+			apply_reqd(false);
+		});
+}
+
+/**
  * Rebuild Packages.container Select options from Containers table equipment numbers.
  * container_no is a Link (doc name); cargo rollups match on container_number.
  */
@@ -1217,6 +1268,7 @@ function _sea_booking_refresh_package_container_options(frm) {
 frappe.ui.form.on('Sea Booking Containers', {
 	form_render: function(frm) {
 		_sea_booking_refresh_package_container_options(frm);
+		_sea_booking_toggle_seal_no_reqd(frm);
 		_refresh_container_cargo_debounced(frm);
 		if (!_is_grid_dialog_open()) {
 			if (frm._packing_summary_refresh_timer) clearTimeout(frm._packing_summary_refresh_timer);
@@ -1227,6 +1279,9 @@ frappe.ui.form.on('Sea Booking Containers', {
 				}
 			}, 300);
 		}
+	},
+	mode: function(frm) {
+		_sea_booking_toggle_seal_no_reqd(frm);
 	},
 	container_no: function(frm, cdt, cdn) {
 		let row = locals[cdt][cdn];

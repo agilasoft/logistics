@@ -266,6 +266,61 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 		self.assertIn("services", msg)
 		self.assertNotIn("lifecycle", msg)
 
+	def test_mice_project_consolidation_charges_without_sq_eligible(self):
+		"""Project Charges tab unlocks create; Sales Quote charges are not required."""
+		ij_row = frappe._dict(service_type="MICE", name="ij-mice-1")
+		parent = frappe._dict(
+			doctype="MICE Project",
+			name="PROJ-TEST-MICE",
+			sales_quote=None,
+			consolidation_charges=[
+				frappe._dict(charge_type="Margin", item_code="MICE-BOOTH"),
+			],
+			linked_services=[ij_row],
+		)
+		result = evaluate_internal_job_creation_eligibility(
+			parent_doc=parent,
+			ij_row=ij_row,
+			service_type_label="MICE",
+		)
+		self.assertTrue(result["has_charges"], result)
+		self.assertTrue(result["has_matching_ij"], result)
+		self.assertTrue(result["eligible"], result)
+		self.assertIsNone(result["message"])
+
+	def test_mice_project_empty_consolidation_charges_blocks_create(self):
+		"""Empty Charges tab blocks create; message points at Charges tab, not Sales Quote."""
+		ij_row = frappe._dict(service_type="MICE", name="ij-mice-1")
+		parent = frappe._dict(
+			doctype="MICE Project",
+			name="PROJ-TEST-MICE-EMPTY",
+			sales_quote=None,
+			consolidation_charges=[],
+			linked_services=[ij_row],
+		)
+		result = evaluate_internal_job_creation_eligibility(
+			parent_doc=parent,
+			ij_row=ij_row,
+			service_type_label="MICE",
+		)
+		self.assertFalse(result["eligible"])
+		self.assertFalse(result["has_charges"])
+		msg = (result.get("message") or "").lower()
+		self.assertIn("charges", msg)
+		self.assertNotIn("sales quote", msg)
+
+	def test_mice_project_disbursement_only_does_not_count_as_charges(self):
+		ij_row = frappe._dict(service_type="MICE", name="ij-mice-1")
+		parent = frappe._dict(
+			doctype="MICE Project",
+			sales_quote=None,
+			consolidation_charges=[
+				frappe._dict(charge_type="Disbursement", item_code="EXPENSE"),
+			],
+			linked_services=[ij_row],
+		)
+		self.assertFalse(charges_exist_for_service(None, parent, "MICE"))
+
 	def test_quote_has_matching_linked_service_row_uses_virtual_grid(self):
 		"""Regression: eligibility must not read ``sq_doc.get('linked_services')`` (always empty after save)."""
 		if not frappe.db.exists("DocType", "Sales Quote"):

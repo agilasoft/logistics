@@ -2232,8 +2232,14 @@ frappe.ui.form.on('Sales Quote Charge', {
 		_calculate_sales_quote_charge_row(frm, cdt, cdn);
 	},
 	tariff: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
-	revenue_tariff: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
-	cost_tariff: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	revenue_tariff: function(frm, cdt, cdn) {
+		_alert_if_tariff_selected_without_item(cdt, cdn);
+		_calculate_sales_quote_charge_row(frm, cdt, cdn);
+	},
+	cost_tariff: function(frm, cdt, cdn) {
+		_alert_if_tariff_selected_without_item(cdt, cdn);
+		_calculate_sales_quote_charge_row(frm, cdt, cdn);
+	},
 	use_tariff_in_revenue: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	use_tariff_in_cost: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	
@@ -2252,7 +2258,15 @@ frappe.ui.form.on('Sales Quote Charge', {
 			frm.refresh_field('charges');
 		});
 	},
-	revenue_calculation_method: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	revenue_calculation_method: function(frm, cdt, cdn) {
+		_apply_break_method_unit_type(cdt, cdn, true);
+		if (logistics.charge_type_cleanup && logistics.charge_type_cleanup.refresh_charge_row_field_controls) {
+			logistics.charge_type_cleanup.refresh_charge_row_field_controls(
+				frm, cdt, cdn, ["unit_rate", "unit_type"], "charges"
+			);
+		}
+		_calculate_sales_quote_charge_row(frm, cdt, cdn);
+	},
 	unit_rate: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	currency: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	uom: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
@@ -2262,7 +2276,15 @@ frappe.ui.form.on('Sales Quote Charge', {
 	minimum_charge: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	maximum_charge: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	base_amount: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
-	cost_calculation_method: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	cost_calculation_method: function(frm, cdt, cdn) {
+		_apply_break_method_unit_type(cdt, cdn, false);
+		if (logistics.charge_type_cleanup && logistics.charge_type_cleanup.refresh_charge_row_field_controls) {
+			logistics.charge_type_cleanup.refresh_charge_row_field_controls(
+				frm, cdt, cdn, ["unit_cost", "cost_unit_type"], "charges"
+			);
+		}
+		_calculate_sales_quote_charge_row(frm, cdt, cdn);
+	},
 	cost_quantity: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_currency: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_uom: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
@@ -2349,6 +2371,42 @@ function logistics_refresh_sales_quote_estimated_profitability_now(frm) {
 			}
 		},
 	});
+}
+
+function _apply_break_method_unit_type(cdt, cdn, is_revenue) {
+	var row = locals[cdt] && locals[cdt][cdn];
+	if (!row) return;
+	var method = (
+		is_revenue
+			? row.revenue_calculation_method || row.calculation_method
+			: row.cost_calculation_method
+	);
+	method = (method || "").trim();
+	var unit_field = is_revenue ? "unit_type" : "cost_unit_type";
+	var target = null;
+	if (method === "Weight Break") {
+		target = "Weight";
+	} else if (method === "Qty Break") {
+		target = "Piece";
+	} else if (method === "Percentage Break") {
+		target = "Value";
+	}
+	if (!target) return;
+	var current = (row[unit_field] || "").trim();
+	if (current !== target) {
+		frappe.model.set_value(cdt, cdn, unit_field, target);
+	}
+}
+
+function _alert_if_tariff_selected_without_item(cdt, cdn) {
+	var row = locals[cdt] && locals[cdt][cdn];
+	if (!row) return;
+	var has_tariff = !!(row.revenue_tariff || row.cost_tariff || row.tariff);
+	if (!has_tariff || row.item_code) return;
+	frappe.show_alert({
+		message: __("Set Item Code to auto-fetch rates from the selected Tariff."),
+		indicator: "orange",
+	}, 5);
 }
 
 function _calculate_sales_quote_charge_row(frm, cdt, cdn) {

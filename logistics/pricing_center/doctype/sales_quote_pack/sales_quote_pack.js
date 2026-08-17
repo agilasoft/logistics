@@ -2,6 +2,14 @@
 
 frappe.ui.form.on("Sales Quote Pack", {
 	refresh(frm) {
+		frm.set_query("sales_quote", "quotations", function () {
+			return {
+				filters: {
+					customer: frm.doc.customer || "",
+				},
+			};
+		});
+
 		if (!frm.is_new()) {
 			frm.add_custom_button(__("Add Sales Quote"), () => {
 				frappe.call({
