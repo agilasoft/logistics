@@ -67,7 +67,7 @@ Non–child Logistics DocTypes that use **`is_active`** or **`active`** are list
 | IATA Rate Class | is_active |
 | Issuing Authority | is_active |
 | Permit Type | is_active |
-| Plate Coding Rule | is_active |
+| Plate Coding Rule (deprecated — use Truck Ban Constraint plate coding) | is_active |
 | Release Type | is_active |
 | Settlement Group | is_active |
 | Shipper | is_active |

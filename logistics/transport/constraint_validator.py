@@ -6,8 +6,7 @@ Constraint Validator Module
 Validates vehicles against various constraints during transport planning:
 - Time window constraints
 - Address day availability
-- Plate number coding
-- Truck ban constraints
+- Truck ban constraints by Constraint Type (Area / Route / Time / Weight / Vehicle Type / Plate Coding)
 - Ad-hoc transport factors
 """
 
@@ -18,7 +17,19 @@ from datetime import datetime, timedelta
 
 import frappe
 from frappe import _
-from frappe.utils import get_datetime, getdate, get_time, combine_datetime, add_to_date
+from frappe.utils import get_datetime, getdate, get_time, add_to_date
+
+
+def _combine_datetime(date_val, time_val):
+	"""Combine date + time into datetime (frappe.utils.combine_datetime is unavailable)."""
+	from datetime import datetime, time as time_type, timedelta
+
+	d = getdate(date_val)
+	t = get_time(time_val)
+	if isinstance(t, timedelta):
+		total = int(t.total_seconds())
+		t = time_type(total // 3600, (total % 3600) // 60, total % 60)
+	return datetime.combine(d, t)
 
 
 def validate_vehicle_constraints(
@@ -96,15 +107,10 @@ def validate_vehicle_constraints(
                 return False, reason, 0, []
             warnings.append(reason or "PEZA address classification constraint violation")
     
-    # 3. Plate number coding
-    if settings.get("enable_plate_coding_constraints", False):
-        is_valid, reason = check_plate_coding_constraints(vehicle, scheduled_datetime, leg.get("pick_address"), debug)
-        if not is_valid:
-            if checking_mode == "Strict":
-                return False, reason, 0, []
-            warnings.append(reason or "Plate coding constraint violation")
-    
-    # 4. Truck bans
+    # 3. Plate number coding — deprecated (use Truck Ban Constraint → Plate Coding)
+    # Legacy Plate Coding Rule is no longer enforced; plate coding is checked under truck bans.
+
+    # 4. Truck bans (includes optional plate-coding child rows)
     if settings.get("enable_truck_ban_constraints", False):
         is_valid, reason = check_truck_ban_constraints(
             vehicle, scheduled_datetime, 
@@ -170,19 +176,34 @@ def check_time_window_constraints(
         loading_time_minutes = calculate_loading_time(leg, cargo_weight_kg, cargo_volume_m3)
         unloading_time_minutes = calculate_unloading_time(leg, cargo_weight_kg, cargo_volume_m3)
         
-        # Get time windows
+        # Get time windows (prefer Address schedule for the scheduled weekday)
         pick_window_start = leg.get("pick_window_start")
         pick_window_end = leg.get("pick_window_end")
         drop_window_start = leg.get("drop_window_start")
         drop_window_end = leg.get("drop_window_end")
         leg_date = leg.get("date") or leg.get("run_date")
+        if not leg_date and scheduled_datetime:
+            leg_date = getdate(scheduled_datetime)
+
+        from logistics.transport.address_windows import resolve_address_window
+
+        pick_address = leg.get("pick_address")
+        if pick_address and leg_date:
+            resolved_pick = resolve_address_window(pick_address, "Pick", leg_date)
+            if resolved_pick:
+                pick_window_start, pick_window_end = resolved_pick
+
+        drop_address = leg.get("drop_address")
+        if drop_address and leg_date:
+            resolved_drop = resolve_address_window(drop_address, "Drop", leg_date)
+            if resolved_drop:
+                drop_window_start, drop_window_end = resolved_drop
         
         if not leg_date:
             debug.append("No date specified for leg, skipping time window check")
             return True, None, 0
         
         # Calculate travel time to pick location
-        pick_address = leg.get("pick_address")
         if pick_address:
             distance_to_pick = get_distance(None, pick_address, leg.get("routing_provider")) or leg.get("distance_km", 0)
             travel_to_pick_minutes = calculate_travel_time_minutes(distance_to_pick, vehicle_avg_speed)
@@ -194,8 +215,8 @@ def check_time_window_constraints(
         
         # Check pick window
         if pick_window_start and pick_window_end:
-            pick_window_start_dt = combine_datetime(leg_date, pick_window_start)
-            pick_window_end_dt = combine_datetime(leg_date, pick_window_end)
+            pick_window_start_dt = _combine_datetime(leg_date, pick_window_start)
+            pick_window_end_dt = _combine_datetime(leg_date, pick_window_end)
             
             if not (pick_window_start_dt <= estimated_pick_arrival <= pick_window_end_dt):
                 return False, f"Cannot meet pick window. Estimated arrival: {estimated_pick_arrival}, Window: {pick_window_start_dt} - {pick_window_end_dt}", None
@@ -204,7 +225,6 @@ def check_time_window_constraints(
             estimated_pick_departure = add_to_date(estimated_pick_arrival, minutes=loading_time_minutes)
             
             # Calculate travel time from pick to drop
-            drop_address = leg.get("drop_address")
             if drop_address:
                 distance_pick_to_drop = get_distance(pick_address, drop_address, leg.get("routing_provider")) or leg.get("distance_km", 0)
                 travel_pick_to_drop_minutes = calculate_travel_time_minutes(distance_pick_to_drop, vehicle_avg_speed)
@@ -219,8 +239,8 @@ def check_time_window_constraints(
             
             # Check drop window
             if drop_window_start and drop_window_end:
-                drop_window_start_dt = combine_datetime(leg_date, drop_window_start)
-                drop_window_end_dt = combine_datetime(leg_date, drop_window_end)
+                drop_window_start_dt = _combine_datetime(leg_date, drop_window_start)
+                drop_window_end_dt = _combine_datetime(leg_date, drop_window_end)
                 
                 if not (drop_window_start_dt <= estimated_drop_completion <= drop_window_end_dt):
                     return False, f"Cannot meet drop window. Estimated completion: {estimated_drop_completion}, Window: {drop_window_start_dt} - {drop_window_end_dt}", None
@@ -248,7 +268,7 @@ def check_address_day_availability(
         pick_address = leg.get("pick_address")
         if pick_address:
             pick_available, pick_reason = _check_address_day_availability(
-                pick_address, day_of_week, day_name, "pick", debug
+                pick_address, day_of_week, day_name, "pick", debug, scheduled_datetime
             )
             if not pick_available:
                 return False, pick_reason
@@ -257,7 +277,7 @@ def check_address_day_availability(
         drop_address = leg.get("drop_address")
         if drop_address:
             drop_available, drop_reason = _check_address_day_availability(
-                drop_address, day_of_week, day_name, "drop", debug
+                drop_address, day_of_week, day_name, "drop", debug, scheduled_datetime
             )
             if not drop_available:
                 return False, drop_reason
@@ -313,18 +333,37 @@ def _check_address_day_availability(
     day_of_week: str,
     day_name: str,
     operation_type: str,
-    debug: Optional[List[str]] = None
+    debug: Optional[List[str]] = None,
+    scheduled_datetime: Optional[datetime] = None,
 ) -> Tuple[bool, Optional[str]]:
-    """Helper to check if address allows operation on specific day"""
+    """Helper to check if address allows operation on specific day via Pick / Drop Windows table."""
     debug = debug or []
     
     try:
         if not frappe.db.exists("Address", address_name):
             return True, None  # Address doesn't exist, assume available
-        
+
+        from logistics.transport.address_windows import (
+            SCHEDULE_DOCTYPE,
+            SCHEDULE_FIELD,
+            is_operation_allowed,
+        )
+
+        # Table-only schedule: if DocType + field exist, row presence is availability
+        if frappe.db.exists("DocType", SCHEDULE_DOCTYPE):
+            address_meta = frappe.get_meta("Address")
+            if address_meta.has_field(SCHEDULE_FIELD):
+                if not scheduled_datetime:
+                    return True, None
+                if not is_operation_allowed(address_name, operation_type, scheduled_datetime):
+                    return (
+                        False,
+                        f"Address {address_name} does not allow {operation_type} operations on {day_name}",
+                    )
+                return True, None
+
+        # Legacy fallback only when schedule field is not installed
         field_name = f"custom_{operation_type}_{day_of_week}"
-        
-        # Check if field exists
         address_doc = frappe.get_doc("Address", address_name)
         if not address_doc.meta.has_field(field_name):
             return True, None  # Field doesn't exist, assume available
@@ -347,79 +386,118 @@ def check_plate_coding_constraints(
     address: Optional[str] = None,
     debug: Optional[List[str]] = None
 ) -> Tuple[bool, Optional[str]]:
-    """Check if vehicle plate number is allowed on scheduled date/time"""
+    """Deprecated: Plate Coding Rule is no longer enforced.
+
+    Configure plate coding on Truck Ban Constraint → Plate Coding instead.
+    Kept as a no-op for any remaining callers.
+    """
     debug = debug or []
-    
+    debug.append("check_plate_coding_constraints is deprecated; use Truck Ban Constraint plate coding")
+    return True, None
+
+
+def _as_time(value):
+    """Normalize Frappe Time / timedelta / time to datetime.time for comparison."""
+    from datetime import time as time_type
+
+    if value is None:
+        return None
+    t = get_time(value)
+    if isinstance(t, timedelta):
+        total = int(t.total_seconds()) % (24 * 3600)
+        return time_type(total // 3600, (total % 3600) // 60, total % 60)
+    return t
+
+
+def _plate_last_digit(plate_number: Optional[str]) -> Optional[int]:
+    if not plate_number:
+        return None
+    plate_number = str(plate_number).strip()
+    if not plate_number or not plate_number[-1].isdigit():
+        return None
+    return int(plate_number[-1])
+
+
+def _vehicle_type_exempt_from_plate_coding(vehicle_type: Optional[str]) -> bool:
+    if not vehicle_type:
+        return False
     try:
-        # First, check if vehicle type is exempt from plate coding
-        vehicle_type = vehicle.get("vehicle_type")
-        if vehicle_type:
-            try:
-                vehicle_type_doc = frappe.get_doc("Vehicle Type", vehicle_type)
-                if hasattr(vehicle_type_doc, "exempt_from_plate_coding") and vehicle_type_doc.exempt_from_plate_coding:
-                    debug.append(f"Vehicle type {vehicle_type} is exempt from plate coding")
-                    return True, None
-            except Exception:
-                pass
-        
-        plate_number = vehicle.get("license_plate_number")
-        if not plate_number:
-            return True, None  # No plate number, assume allowed
-        
-        # Extract last digit
-        last_digit = None
-        if plate_number[-1].isdigit():
-            last_digit = int(plate_number[-1])
-        else:
-            return True, None  # No numeric digit found
-        
-        # Get day of week
-        day_of_week = scheduled_datetime.strftime("%A")
-        scheduled_date = scheduled_datetime.date()
-        scheduled_time = scheduled_datetime.time()
-        
-        # Build filters for active coding rules
-        filters = [
-            ["is_active", "=", 1],
-            ["start_date", "<=", scheduled_date],
-            ["end_date", ">=", scheduled_date]
-        ]
-        
-        # Get applicable coding rules
-        coding_rules = frappe.get_all(
-            "Plate Coding Rule",
-            filters=filters,
-            fields=["name", "coding_type", "time_restriction", 
-                    "restricted_start_time", "restricted_end_time"],
-            limit_page_length=100
-        )
-        
-        for rule in coding_rules:
-            # Check if time restriction applies
-            if rule.get("time_restriction"):
-                if not (rule.get("restricted_start_time") <= scheduled_time <= rule.get("restricted_end_time")):
-                    continue  # Time restriction doesn't apply
-            
-            # Get restricted digits for this rule
-            restricted_digits = frappe.get_all(
-                "Plate Coding Restricted Digits",
-                filters={"parent": rule.name},
-                fields=["restricted_digit", "restricted_day"],
-                limit_page_length=100
+        return bool(frappe.db.get_value("Vehicle Type", vehicle_type, "exempt_from_plate_coding"))
+    except Exception:
+        return False
+
+
+def _plate_coding_matches(
+    coding_rows: List[Dict[str, Any]],
+    day_of_week: str,
+    last_digit: int,
+    scheduled_time,
+) -> bool:
+    sched_t = _as_time(scheduled_time)
+    for row in coding_rows:
+        if row.get("restricted_digit") != last_digit:
+            continue
+        if row.get("restricted_day") and row.get("restricted_day") != day_of_week:
+            continue
+        ban_start = _as_time(row.get("ban_start"))
+        ban_end = _as_time(row.get("ban_end"))
+        if ban_start is None or ban_end is None or sched_t is None:
+            continue
+        if ban_start <= sched_t <= ban_end:
+            return True
+    return False
+
+
+def _truck_ban_parent_time_matches(ban: Dict[str, Any], scheduled_time) -> bool:
+    """True when parent All Day / Start / End Time covers scheduled_time."""
+    if ban.get("all_day"):
+        return True
+    start_t = _as_time(ban.get("start_time"))
+    end_t = _as_time(ban.get("end_time"))
+    if start_t is None or end_t is None or scheduled_time is None:
+        return False
+    return start_t <= scheduled_time <= end_t
+
+
+def _truck_ban_address_hit(
+    restricted_addresses: List[Dict[str, Any]],
+    pick_address: Optional[str],
+    drop_address: Optional[str],
+) -> Optional[Tuple[str, str]]:
+    """Return (addr_type, address) on first restricted-address match."""
+    addresses_to_check = []
+    if pick_address:
+        addresses_to_check.append(("pick", pick_address))
+    if drop_address:
+        addresses_to_check.append(("drop", drop_address))
+    for addr_type, address in addresses_to_check:
+        for ra in restricted_addresses:
+            if ra.get("address") == address:
+                return addr_type, address
+    return None
+
+
+def _truck_ban_route_hit(
+    restricted_routes: List[Dict[str, Any]],
+    pick_address: Optional[str],
+    drop_address: Optional[str],
+) -> Optional[str]:
+    """Return route display name on first restricted-route match."""
+    if not pick_address or not drop_address:
+        return None
+    for route in restricted_routes:
+        if (
+            route.get("from_address") == pick_address
+            and route.get("to_address") == drop_address
+        ) or (
+            route.get("from_address") == drop_address
+            and route.get("to_address") == pick_address
+        ):
+            return (
+                route.get("route_name")
+                or f"{route.get('from_address')} to {route.get('to_address')}"
             )
-            
-            for rd in restricted_digits:
-                # Check if digit matches and day matches
-                if rd.get("restricted_digit") == last_digit:
-                    restricted_day = rd.get("restricted_day")
-                    if not restricted_day or restricted_day == day_of_week:
-                        return False, f"Vehicle plate {plate_number} (last digit {last_digit}) is restricted on {day_of_week} by rule {rule.name}"
-        
-        return True, None
-        
-    except Exception as e:
-        debug.append(f"Error checking plate coding constraints: {str(e)}")
-        return True, None  # Fail gracefully
+    return None
 
 
 def check_truck_ban_constraints(
@@ -429,103 +507,203 @@ def check_truck_ban_constraints(
     drop_address: Optional[str] = None,
     debug: Optional[List[str]] = None
 ) -> Tuple[bool, Optional[str]]:
-    """Check if vehicle is banned from area/route at scheduled time"""
+    """Check if vehicle is banned from area/route at scheduled time.
+
+    Enforcement is gated by ``constraint_type`` when set:
+    Area / Route / Time / Weight / Vehicle Type / Plate Coding.
+    Legacy bans without ``constraint_type`` keep the previous hybrid behaviour.
+    """
     debug = debug or []
-    
+
     try:
         scheduled_date = scheduled_datetime.date()
         scheduled_time = scheduled_datetime.time()
-        
-        # Build filters for active truck ban constraints
+        day_of_week = scheduled_datetime.strftime("%A")
+        plate_number = vehicle.get("license_plate_number")
+        last_digit = _plate_last_digit(plate_number)
+
         filters = [
             ["is_active", "=", 1],
             ["start_date", "<=", scheduled_date],
-            ["end_date", ">=", scheduled_date]
+            ["end_date", ">=", scheduled_date],
         ]
-        
-        # Get active truck ban constraints
+
         truck_bans = frappe.get_all(
             "Truck Ban Constraint",
             filters=filters,
-            fields=["name", "ban_name", "ban_type", "all_day", "start_time", "end_time",
-                    "scope_level", "scope_location", "min_vehicle_weight_restriction"],
-            limit_page_length=100
+            fields=[
+                "name",
+                "ban_name",
+                "constraint_type",
+                "all_day",
+                "start_time",
+                "end_time",
+                "min_vehicle_weight_restriction",
+            ],
+            limit_page_length=100,
         )
-        
+
         for ban in truck_bans:
-            # Check time restriction
-            if not ban.get("all_day"):
-                if not (ban.get("start_time") <= scheduled_time <= ban.get("end_time")):
-                    continue
-            
-            # Get restricted vehicle types for this ban
+            ban_name = ban.get("ban_name") or ban.name
+            ctype = (ban.get("constraint_type") or "").strip()
+
             restricted_vehicle_types = frappe.get_all(
                 "Truck Ban Constraint Vehicle Types",
                 filters={"parent": ban.name},
                 pluck="vehicle_type",
-                limit_page_length=100
+                limit_page_length=100,
             )
-            
-            # Check vehicle type restriction
-            if restricted_vehicle_types:
-                # Ban applies only to specified vehicle types
+
+            # Vehicle-type filter: required gate for Vehicle Type Ban; optional elsewhere
+            # except Weight-Based Ban (field hidden for that type).
+            if ctype == "Weight-Based Ban":
+                pass
+            elif ctype == "Vehicle Type Ban":
+                if not restricted_vehicle_types:
+                    continue
                 if vehicle.get("vehicle_type") not in restricted_vehicle_types:
-                    continue  # This ban doesn't apply to this vehicle type
-            # If no vehicle types specified, ban applies to all vehicle types
-            
-            # Check vehicle weight restriction
+                    continue
+            elif restricted_vehicle_types and vehicle.get("vehicle_type") not in restricted_vehicle_types:
+                continue
+
+            coding_rows = frappe.get_all(
+                "Truck Ban Plate Coding",
+                filters={"parent": ban.name},
+                fields=["restricted_digit", "restricted_day", "ban_start", "ban_end"],
+                limit_page_length=500,
+            ) if (not ctype or ctype == "Plate Coding") else []
+
+            coding_matched = False
+            if ctype == "Plate Coding" or (not ctype and coding_rows):
+                if _vehicle_type_exempt_from_plate_coding(vehicle.get("vehicle_type")):
+                    debug.append(f"Vehicle type exempt from plate coding for ban {ban_name}")
+                    continue
+                if last_digit is None:
+                    continue
+                if not coding_rows or not _plate_coding_matches(
+                    coding_rows, day_of_week, last_digit, scheduled_time
+                ):
+                    continue
+                coding_matched = True
+            elif ctype in (
+                "Area Ban",
+                "Route Ban",
+                "Time-Based Ban",
+                "Weight-Based Ban",
+                "Vehicle Type Ban",
+            ):
+                if not _truck_ban_parent_time_matches(ban, scheduled_time):
+                    continue
+            else:
+                # Legacy untyped: parent time when no coding rows
+                if not _truck_ban_parent_time_matches(ban, scheduled_time):
+                    continue
+
+            if ctype == "Plate Coding":
+                return False, (
+                    f"Vehicle plate {plate_number} (last digit {last_digit}) is restricted "
+                    f"on {day_of_week} by constraint {ban_name}"
+                )
+
+            if ctype == "Weight-Based Ban":
+                limit = ban.get("min_vehicle_weight_restriction")
+                if not limit:
+                    continue
+                vehicle_weight = vehicle.get("capacity_weight", 0) or 0
+                if vehicle_weight >= limit:
+                    return False, (
+                        f"Vehicle weight {vehicle_weight}kg exceeds ban limit "
+                        f"{limit}kg for constraint {ban_name}"
+                    )
+                continue
+
+            if ctype == "Time-Based Ban":
+                return False, (
+                    f"Vehicle is blocked by time-based constraint {ban_name} "
+                    f"at {scheduled_datetime}"
+                )
+
+            if ctype == "Vehicle Type Ban":
+                return False, (
+                    f"Vehicle type {vehicle.get('vehicle_type')} is restricted "
+                    f"by constraint {ban_name}"
+                )
+
+            restricted_addresses = frappe.get_all(
+                "Truck Ban Restricted Addresses",
+                filters={"parent": ban.name},
+                fields=["address", "radius_km"],
+                limit_page_length=100,
+            ) if (not ctype or ctype == "Area Ban") else []
+
+            restricted_routes = frappe.get_all(
+                "Truck Ban Restricted Routes",
+                filters={"parent": ban.name},
+                fields=["from_address", "to_address", "route_name"],
+                limit_page_length=100,
+            ) if (not ctype or ctype == "Route Ban") else []
+
+            if ctype == "Area Ban":
+                hit = _truck_ban_address_hit(restricted_addresses, pick_address, drop_address)
+                if hit:
+                    addr_type, address = hit
+                    return False, (
+                        f"{addr_type.capitalize()} address {address} is in banned area "
+                        f"for constraint {ban_name}"
+                    )
+                continue
+
+            if ctype == "Route Ban":
+                route_name = _truck_ban_route_hit(restricted_routes, pick_address, drop_address)
+                if route_name:
+                    return False, f"Route {route_name} is banned by constraint {ban_name}"
+                continue
+
+            # ---- Legacy untyped bans (no constraint_type) ----
             if ban.get("min_vehicle_weight_restriction"):
                 vehicle_weight = vehicle.get("capacity_weight", 0) or 0
                 if vehicle_weight >= ban.get("min_vehicle_weight_restriction"):
-                    ban_name = ban.get("ban_name") or ban.name
-                    return False, f"Vehicle weight {vehicle_weight}kg exceeds ban limit {ban.get('min_vehicle_weight_restriction')}kg for constraint {ban_name}"
-            
-            # Check address/location restriction
-            addresses_to_check = []
-            if pick_address:
-                addresses_to_check.append(("pick", pick_address))
-            if drop_address:
-                addresses_to_check.append(("drop", drop_address))
-            
-            for addr_type, address in addresses_to_check:
-                # Check restricted addresses
-                restricted_addresses = frappe.get_all(
-                    "Truck Ban Restricted Addresses",
-                    filters={"parent": ban.name},
-                    fields=["address", "radius_km"],
-                    limit_page_length=100
+                    return False, (
+                        f"Vehicle weight {vehicle_weight}kg exceeds ban limit "
+                        f"{ban.get('min_vehicle_weight_restriction')}kg for constraint {ban_name}"
+                    )
+
+            location_hit = False
+            hit = _truck_ban_address_hit(restricted_addresses, pick_address, drop_address)
+            if hit:
+                location_hit = True
+                addr_type, address = hit
+                if coding_matched:
+                    return False, (
+                        f"Vehicle plate {plate_number} (last digit {last_digit}) is restricted "
+                        f"on {day_of_week} at {addr_type} address {address} by constraint {ban_name}"
+                    )
+                return False, (
+                    f"{addr_type.capitalize()} address {address} is in banned area "
+                    f"for constraint {ban_name}"
                 )
-                
-                for ra in restricted_addresses:
-                    if ra.get("address") == address:
-                        ban_name = ban.get("ban_name") or ban.name
-                        return False, f"{addr_type.capitalize()} address {address} is in banned area for constraint {ban_name}"
-                    
-                    # Check radius if specified
-                    if ra.get("radius_km", 0) > 0:
-                        # TODO: Implement distance calculation for radius check
-                        # For now, skip radius check
-                        pass
-            
-            # Check restricted routes (if both pick and drop addresses are provided)
-            if pick_address and drop_address:
-                restricted_routes = frappe.get_all(
-                    "Truck Ban Restricted Routes",
-                    filters={"parent": ban.name},
-                    fields=["from_address", "to_address", "route_name"],
-                    limit_page_length=100
+
+            route_name = _truck_ban_route_hit(restricted_routes, pick_address, drop_address)
+            if route_name:
+                location_hit = True
+                if coding_matched:
+                    return False, (
+                        f"Vehicle plate {plate_number} (last digit {last_digit}) is restricted "
+                        f"on {day_of_week} on route {route_name} by constraint {ban_name}"
+                    )
+                return False, f"Route {route_name} is banned by constraint {ban_name}"
+
+            if coding_matched and not restricted_addresses and not restricted_routes:
+                return False, (
+                    f"Vehicle plate {plate_number} (last digit {last_digit}) is restricted "
+                    f"on {day_of_week} by constraint {ban_name}"
                 )
-                
-                for route in restricted_routes:
-                    # Check if route matches (bidirectional)
-                    if (route.get("from_address") == pick_address and route.get("to_address") == drop_address) or \
-                       (route.get("from_address") == drop_address and route.get("to_address") == pick_address):
-                        route_name = route.get("route_name") or f"{route.get('from_address')} to {route.get('to_address')}"
-                        ban_name = ban.get("ban_name") or ban.name
-                        return False, f"Route {route_name} is banned by constraint {ban_name}"
-        
+
+            if coding_matched and (restricted_addresses or restricted_routes) and not location_hit:
+                continue
+
         return True, None
-        
+
     except Exception as e:
         debug.append(f"Error checking truck ban constraints: {str(e)}")
         return True, None  # Fail gracefully
@@ -868,4 +1046,55 @@ def _calculate_time_from_defaults(cargo_weight_kg: float, cargo_volume_m3: float
     except Exception:
         # Fallback to simple defaults
         return 15.0 + (cargo_volume_m3 * 5.0)
+
+
+def evaluate_truck_ban_for_planned_leg(
+    vehicle_type: Optional[str],
+    pick_address: Optional[str],
+    drop_address: Optional[str],
+    scheduled_datetime: datetime,
+    capacity_weight: Optional[float] = None,
+    debug: Optional[List[str]] = None,
+) -> Tuple[str, Optional[str]]:
+    """
+    Evaluate truck ban for a planned leg (e.g. Transport Order) before a specific vehicle is assigned.
+
+    Returns:
+        (action, reason) where action is one of:
+        - "skip": constraint system / truck ban disabled
+        - "ok": no violation
+        - "block": Strict mode violation (caller should throw)
+        - "warn": Warning mode violation (caller should msgprint)
+    """
+    debug = debug or []
+
+    try:
+        settings = frappe.get_single("Transport Settings")
+    except Exception:
+        debug.append("Transport Settings not available, skipping truck ban check")
+        return "skip", None
+
+    if not settings.get("enable_constraint_system", False):
+        return "skip", None
+
+    checking_mode = settings.get("constraint_checking_mode", "Strict")
+    if checking_mode == "Disabled":
+        return "skip", None
+
+    if not settings.get("enable_truck_ban_constraints", False):
+        return "skip", None
+
+    vehicle = {
+        "vehicle_type": vehicle_type,
+        "capacity_weight": capacity_weight or 0,
+    }
+    is_valid, reason = check_truck_ban_constraints(
+        vehicle, scheduled_datetime, pick_address, drop_address, debug
+    )
+    if is_valid:
+        return "ok", None
+
+    if checking_mode == "Strict":
+        return "block", reason or _("Truck ban constraint violation")
+    return "warn", reason or _("Truck ban constraint violation")
 

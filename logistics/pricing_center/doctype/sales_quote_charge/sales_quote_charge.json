@@ -272,9 +272,9 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Unit Rate",
-   "mandatory_depends_on": "eval:!['Cost','Disbursement'].includes(doc.charge_type)",
+   "mandatory_depends_on": "eval:!['Cost','Disbursement'].includes(doc.charge_type) && !['Weight Break','Qty Break','Percentage Break'].includes(doc.revenue_calculation_method)",
    "options": "currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type) || ['Weight Break','Qty Break','Percentage Break'].includes(doc.revenue_calculation_method)"
   },
   {
    "fieldname": "unit_type",
@@ -364,9 +364,9 @@
    "fieldname": "unit_cost",
    "fieldtype": "Currency",
    "label": "Unit Cost",
-   "mandatory_depends_on": "eval:doc.charge_type != \"Revenue\"",
+   "mandatory_depends_on": "eval:doc.charge_type != \"Revenue\" && !['Weight Break','Qty Break','Percentage Break'].includes(doc.cost_calculation_method)",
    "options": "cost_currency",
-   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
+   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\" || ['Weight Break','Qty Break','Percentage Break'].includes(doc.cost_calculation_method)"
   },
   {
    "fieldname": "cost_unit_type",

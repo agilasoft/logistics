@@ -321,8 +321,52 @@ def record_usages_for_linked_services(
 	return mapping
 
 
+# Booking/order doctypes stored on Usage as Satellite Job → grid ``order_no``.
+LINKED_SERVICE_ORDER_TYPES: frozenset[str] = frozenset(
+	{
+		"Air Booking",
+		"Sea Booking",
+		"Transport Order",
+		"Declaration Order",
+		"VAS Order",
+		"Inbound Order",
+		"Release Order",
+		"Transfer Order",
+		"Cross-Docking Order",
+		"Project Order",
+		"MICE Order",
+	}
+)
+
+# Job/shipment doctypes stored on Usage as Shipment → grid ``job_no``.
+LINKED_SERVICE_EXECUTION_TYPES: frozenset[str] = frozenset(
+	{
+		"Air Shipment",
+		"Sea Shipment",
+		"Transport Job",
+		"Declaration",
+		"Warehouse Job",
+		"Project Job",
+		"MICE Job",
+		"Air Consolidation",
+	}
+)
+
+
+def is_linked_service_order_type(doctype: str) -> bool:
+	return _norm(doctype) in LINKED_SERVICE_ORDER_TYPES
+
+
+def is_linked_service_execution_type(doctype: str) -> bool:
+	return _norm(doctype) in LINKED_SERVICE_EXECUTION_TYPES
+
+
 def latest_satellite_job_from_usage(linked_service: str) -> tuple[str, str]:
-	"""Return ``(job_type, job_no)`` from the latest Satellite Job Usage row, if any."""
+	"""Return ``(order_type, order_no)`` from the latest Satellite Job Usage row, if any.
+
+	Satellite Job Usage is the booking/order pointer. Job/Shipment numbers come from
+	``latest_shipment_from_usage``.
+	"""
 	ls = _norm(linked_service)
 	if not ls or not _usage_table_exists():
 		return "", ""
@@ -330,6 +374,23 @@ def latest_satellite_job_from_usage(linked_service: str) -> tuple[str, str]:
 	for row in reversed(rows):
 		role = _norm(row.get("usage_role"))
 		if role != USAGE_ROLE_SATELLITE_JOB:
+			continue
+		jt = _norm(row.get("used_on_doctype"))
+		jn = _norm(row.get("used_on_name"))
+		if jt and jn:
+			return jt, jn
+	return "", ""
+
+
+def latest_shipment_from_usage(linked_service: str) -> tuple[str, str]:
+	"""Return ``(execution_doctype, job_no)`` from the latest Shipment Usage row, if any."""
+	ls = _norm(linked_service)
+	if not ls or not _usage_table_exists():
+		return "", ""
+	rows = get_usages_for_linked_service(ls)
+	for row in reversed(rows):
+		role = _norm(row.get("usage_role"))
+		if role != USAGE_ROLE_SHIPMENT:
 			continue
 		jt = _norm(row.get("used_on_doctype"))
 		jn = _norm(row.get("used_on_name"))

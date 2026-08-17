@@ -374,3 +374,15 @@ logistics.patches.v1_0_add_time_sensitive_module
 logistics.patches.v1_0_clear_party_address_link_filters
 # Sales Quote / Opportunity: Cross-Docking is no longer a Primary Service Type (use Warehousing / linked Cross-Docking)
 logistics.patches.v3_0_migrate_sq_primary_cross_dock_to_warehousing
+# Linked Service Detail / Internal Job Detail: order_no = booking; job_no = job/shipment only
+logistics.patches.v3_0_split_linked_service_order_no_job_no
+# Address: Pick / Drop Windows schedule table; hide legacy day checkboxes + default windows
+logistics.patches.v3_0_address_window_schedule
+# Address: Economic Zone visible/required only when EZA is on; backfill EZA from existing zones
+logistics.patches.v3_0_address_eza_economic_zone
+# Load Type: Required Seal Number (Sea Booking); enable for existing non-LCL rows
+logistics.patches.v3_0_load_type_required_seal_number
+# Truck Ban Constraint: drop ban_type / scope_level / scope_location (plate coding child replaces type metadata)
+logistics.patches.v3_0_truck_ban_drop_ban_type_scope
+# Truck Ban Constraint: backfill constraint_type from addresses / routes / plate coding / weight
+logistics.patches.v3_0_truck_ban_constraint_type

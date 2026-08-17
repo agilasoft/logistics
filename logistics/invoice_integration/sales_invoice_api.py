@@ -91,7 +91,7 @@ SI_EXCLUDED_STATUSES = ("Requested", "Posted", "Paid")
 # bill_to_field and invoice_type_field used to pre-filter when customer/invoice_type provided
 SALES_CHARGE_CONFIG = {
     "Transport Job": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", "bill_to", None),
-    "Air Shipment": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", None, None),
+    "Air Shipment": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", None, "invoice_type"),
     # Sea Shipment currently uses item_code/item_name/estimated_revenue in child rows.
     # Keep downstream logic backward-compatible with legacy fields (charge_item/charge_name/selling_amount).
     "Sea Shipment": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", "bill_to", "invoice_type"),

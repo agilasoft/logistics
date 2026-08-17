@@ -211,6 +211,69 @@ class TestSeaBookingExists(FrappeTestCase):
 		mock_exists.assert_called_once_with("Sea Booking", "SBK000000630")
 
 
+class TestSeaBookingSealNumberValidation(FrappeTestCase):
+	"""Seal Number required by Load Type; create-from-quote may skip via ignore_mandatory."""
+
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def _ensure_load_type(self, name: str, **flags):
+		if frappe.db.exists("Load Type", name):
+			doc = frappe.get_doc("Load Type", name)
+			for key, value in flags.items():
+				doc.set(key, value)
+			doc.save(ignore_permissions=True)
+			return doc.name
+
+		doc = frappe.new_doc("Load Type")
+		doc.load_type_name = name
+		doc.description = name
+		doc.is_active = 1
+		for key, value in flags.items():
+			doc.set(key, value)
+		doc.insert(ignore_permissions=True)
+		return doc.name
+
+	def _booking_with_container(self, mode: str, seal_no: str | None = None):
+		booking = frappe.new_doc("Sea Booking")
+		booking.append(
+			"containers",
+			{
+				"mode": mode,
+				"seal_no": seal_no or "",
+			},
+		)
+		return booking
+
+	def test_seal_required_when_load_type_flag_set(self):
+		mode = self._ensure_load_type(
+			"TEST-SEAL-REQ",
+			sea=1,
+			container=1,
+			required_seal_number=1,
+		)
+		booking = self._booking_with_container(mode)
+
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			booking.validate_seal_numbers_by_mode()
+
+		self.assertIn("Seal Number", str(ctx.exception))
+
+	def test_ignore_mandatory_skips_seal_validation(self):
+		"""Sales Quote → Sea Booking create sets ignore_mandatory (quote has no seal)."""
+		mode = self._ensure_load_type(
+			"TEST-SEAL-REQ",
+			sea=1,
+			container=1,
+			required_seal_number=1,
+		)
+		booking = self._booking_with_container(mode)
+		booking.flags.ignore_mandatory = True
+
+		# Must not throw — same path as create-from-quote insert.
+		booking.validate_seal_numbers_by_mode()
+
+
 class IntegrationTestSeaBooking(FrappeTestCase):
 	"""
 	Integration tests for SeaBooking.

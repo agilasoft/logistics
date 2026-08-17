@@ -274,9 +274,14 @@ def _eligibility_message(
 	parent_dt = getattr(parent_doc, "doctype", None) or ""
 	uses_lifecycle = _parent_uses_lifecycle_jobs(parent_doc)
 	uses_services_tab = parent_dt in ("Special Project", "MICE Project")
+	uses_project_charges_tab = parent_dt == "MICE Project"
 	if has_charges and has_matching_ij:
 		return None
 	if not has_charges and not has_matching_ij:
+		if uses_project_charges_tab:
+			return _(
+				"Add charge lines on the Charges tab and define a matching Services row on the Services tab before creating."
+			)
 		if uses_services_tab:
 			return _(
 				"Add charge lines for {0} on the Sales Quote (or programme) and define a matching Services row on the Services tab before creating."
@@ -289,6 +294,8 @@ def _eligibility_message(
 			"Add charge lines for {0} on the Sales Quote (or programme) and define a matching Internal Job on the Internal Jobs tab before creating."
 		).format(st)
 	if not has_charges:
+		if uses_project_charges_tab:
+			return _("Add charge lines on the Charges tab before creating.")
 		return _("Add charge lines for {0} on the Sales Quote before creating this internal job.").format(
 			st
 		)

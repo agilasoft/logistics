@@ -3,25 +3,25 @@
  "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:ban_name",
- "creation": "2026-01-08 00:00:00.000000",
+ "creation": "2026-07-30 10:59:33.038930",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "ban_name",
-  "ban_type",
+  "constraint_type",
   "start_date",
   "end_date",
   "all_day",
   "start_time",
   "end_time",
-  "scope_level",
-  "scope_location",
   "restricted_addresses",
   "restricted_routes",
   "restricted_vehicle_types",
   "min_vehicle_weight_restriction",
   "is_active",
-  "description"
+  "description",
+  "section_break_mftb",
+  "plate_coding"
  ],
  "fields": [
   {
@@ -33,10 +33,11 @@
    "unique": 1
   },
   {
-   "fieldname": "ban_type",
+   "fieldname": "constraint_type",
    "fieldtype": "Select",
-   "label": "Ban Type",
-   "options": "Area Ban\nRoute Ban\nTime-Based Ban\nWeight-Based Ban\nVehicle Type Ban",
+   "in_list_view": 1,
+   "label": "Constraint Type",
+   "options": "Area Ban\nRoute Ban\nTime-Based Ban\nWeight-Based Ban\nVehicle Type Ban\nPlate Coding",
    "reqd": 1
   },
   {
@@ -53,58 +54,60 @@
   },
   {
    "default": "1",
+   "depends_on": "eval:doc.constraint_type && doc.constraint_type!='Plate Coding'",
+   "description": "Not used for Plate Coding (coding windows own the clock).",
    "fieldname": "all_day",
    "fieldtype": "Check",
    "label": "All Day"
   },
   {
-   "depends_on": "eval:!doc.all_day",
+   "depends_on": "eval:doc.constraint_type && doc.constraint_type!='Plate Coding' && !doc.all_day",
+   "description": "Not used for Plate Coding.",
    "fieldname": "start_time",
    "fieldtype": "Time",
    "label": "Start Time"
   },
   {
-   "depends_on": "eval:!doc.all_day",
+   "depends_on": "eval:doc.constraint_type && doc.constraint_type!='Plate Coding' && !doc.all_day",
+   "description": "Not used for Plate Coding.",
    "fieldname": "end_time",
    "fieldtype": "Time",
    "label": "End Time"
   },
   {
-   "fieldname": "scope_level",
-   "fieldtype": "Select",
-   "label": "Scope Level",
-   "options": "Nationwide\nRegion\nProvince\nCity / Municipality\nBarangay\nPort\nRoad / Corridor"
-  },
-  {
-   "fieldname": "scope_location",
-   "fieldtype": "Dynamic Link",
-   "label": "Scope Location",
-   "options": "scope_level"
-  },
-  {
+   "depends_on": "eval:doc.constraint_type=='Area Ban'",
+   "description": "Addresses/areas this Area Ban applies to.",
    "fieldname": "restricted_addresses",
    "fieldtype": "Table",
    "label": "Restricted Addresses/Areas",
+   "mandatory_depends_on": "eval:doc.constraint_type=='Area Ban'",
    "options": "Truck Ban Restricted Addresses"
   },
   {
+   "depends_on": "eval:doc.constraint_type=='Route Ban'",
+   "description": "Routes this Route Ban applies to.",
    "fieldname": "restricted_routes",
    "fieldtype": "Table",
    "label": "Restricted Routes",
+   "mandatory_depends_on": "eval:doc.constraint_type=='Route Ban'",
    "options": "Truck Ban Restricted Routes"
   },
   {
+   "depends_on": "eval:[\"Area Ban\",\"Route Ban\",\"Time-Based Ban\",\"Vehicle Type Ban\",\"Plate Coding\"].includes(doc.constraint_type)",
+   "description": "If specified, ban applies only to these vehicle types. Required for Vehicle Type Ban. If empty on other types, applies to all vehicle types.",
    "fieldname": "restricted_vehicle_types",
    "fieldtype": "Table",
    "label": "Restricted Vehicle Types",
-   "options": "Truck Ban Constraint Vehicle Types",
-   "description": "If specified, ban applies only to these vehicle types. If empty, applies to all vehicle types."
+   "mandatory_depends_on": "eval:doc.constraint_type=='Vehicle Type Ban'",
+   "options": "Truck Ban Constraint Vehicle Types"
   },
   {
+   "depends_on": "eval:doc.constraint_type=='Weight-Based Ban'",
+   "description": "Vehicles with weight at or above this value are banned.",
    "fieldname": "min_vehicle_weight_restriction",
    "fieldtype": "Float",
    "label": "Minimum Vehicle Weight (kg)",
-   "description": "Vehicles with weight above this value are banned. Leave empty if not applicable."
+   "mandatory_depends_on": "eval:doc.constraint_type=='Weight-Based Ban'"
   },
   {
    "default": "1",
@@ -116,11 +119,26 @@
    "fieldname": "description",
    "fieldtype": "Text Editor",
    "label": "Description"
+  },
+  {
+   "depends_on": "eval:doc.constraint_type=='Plate Coding'",
+   "fieldname": "section_break_mftb",
+   "fieldtype": "Section Break",
+   "label": "Plate Coding"
+  },
+  {
+   "depends_on": "eval:doc.constraint_type=='Plate Coding'",
+   "description": "One row per restricted plate digit and ban window (e.g. Monday digit 1, 07:00-10:00).",
+   "fieldname": "plate_coding",
+   "fieldtype": "Table",
+   "label": "Plate Coding",
+   "mandatory_depends_on": "eval:doc.constraint_type=='Plate Coding'",
+   "options": "Truck Ban Plate Coding"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-08 00:00:00.000000",
+ "modified": "2026-08-13 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Truck Ban Constraint",
@@ -152,6 +170,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

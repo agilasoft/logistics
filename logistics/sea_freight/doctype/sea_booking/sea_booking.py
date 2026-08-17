@@ -231,6 +231,7 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			self.validate_accounts()
 			self.validate_main_routing_legs_by_entry_type()
 			self.validate_house_bl_unique_among_sea_shipments()
+			self.validate_seal_numbers_by_mode()
 			self._prepare_header_totals_for_charge_calculation()
 			self._sync_charges_with_parent_actuals()
 			self._update_packing_summary()
@@ -508,6 +509,48 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			"container_cargo": container_cargo_payload_from_doc(self),
 		}
 	
+	def validate_seal_numbers_by_mode(self):
+		"""Seal Number is required when the row Mode (Load Type) has Required Seal Number."""
+		# Create-from-quote sets ignore_mandatory; quote containers have no seal field.
+		if getattr(self.flags, "ignore_mandatory", False):
+			return
+		if not hasattr(self, "containers") or not self.containers:
+			return
+
+		modes = sorted(
+			{
+				(getattr(row, "mode", None) or "").strip()
+				for row in self.containers
+				if (getattr(row, "mode", None) or "").strip()
+			}
+		)
+		required_by_mode = {}
+		if modes:
+			for lt in frappe.get_all(
+				"Load Type",
+				filters={"name": ["in", modes]},
+				fields=["name", "required_seal_number"],
+			):
+				required_by_mode[lt.name] = int(lt.required_seal_number or 0)
+
+		missing_rows = []
+		for row in self.containers:
+			mode = (getattr(row, "mode", None) or "").strip()
+			if not mode or not required_by_mode.get(mode):
+				continue
+			if (getattr(row, "seal_no", None) or "").strip():
+				continue
+			missing_rows.append(getattr(row, "idx", None) or "?")
+
+		if missing_rows:
+			frappe.throw(
+				_(
+					"Seal Number is mandatory for this Load Type (Required Seal Number). "
+					"Fill Seal Number in row(s): {0}."
+				).format(", ".join(str(r) for r in missing_rows)),
+				title=_("Missing Seal Number"),
+			)
+
 	def validate_container_numbers(self):
 		"""Check for duplicate container numbers in submitted Sea Bookings and Sea Shipments."""
 		if not hasattr(self, "containers") or not self.containers:

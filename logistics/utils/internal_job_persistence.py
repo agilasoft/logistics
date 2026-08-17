@@ -140,7 +140,7 @@ def internal_job_detail_rows_for_parent(parent_doc: Any) -> list[Any]:
 
 
 def sync_internal_job_doc_job_link(row: Any, job_type: str, job_no: str) -> None:
-	"""Record Usage for the satellite job; Linked Service no longer stores job_type/job_no."""
+	"""Record Usage for order (Satellite Job) or execution (Shipment); LS header has no job fields."""
 	ij_name = _linked_service_name_from_row(row) if row is not None else ""
 	jn = _norm(job_no)
 	jt = _norm(job_type)
@@ -151,14 +151,21 @@ def sync_internal_job_doc_job_link(row: Any, job_type: str, job_no: str) -> None
 	try:
 		from logistics.utils.linked_service_usage import (
 			USAGE_ROLE_SATELLITE_JOB,
+			USAGE_ROLE_SHIPMENT,
+			is_linked_service_execution_type,
 			record_linked_service_usage,
 		)
 
+		role = (
+			USAGE_ROLE_SHIPMENT
+			if is_linked_service_execution_type(jt)
+			else USAGE_ROLE_SATELLITE_JOB
+		)
 		record_linked_service_usage(
 			ij_name,
 			jt,
 			jn,
-			usage_role=USAGE_ROLE_SATELLITE_JOB,
+			usage_role=role,
 		)
 	except Exception:
 		frappe.log_error(
