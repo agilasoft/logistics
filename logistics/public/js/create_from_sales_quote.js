@@ -16,7 +16,17 @@ frappe.provide("logistics.sea_freight");
  * Falls back to a direct ``frappe.set_route`` if the helper isn't loaded (e.g. older bundle).
  */
 function _logistics_set_route_when_exists(doctype, docname, after) {
+	function is_valid_docname(name) {
+		if (name == null) {
+			return false;
+		}
+		var s = String(name).trim().toLowerCase();
+		return s && s !== "undefined" && s !== "null" && s !== "none" && s !== "new";
+	}
 	function navigate() {
+		if (!is_valid_docname(docname)) {
+			return;
+		}
 		// Clear any cached document data before navigating to ensure fresh load
 		if (frappe.model && frappe.model.clear_doc) {
 			frappe.model.clear_doc(doctype, docname);
@@ -25,6 +35,9 @@ function _logistics_set_route_when_exists(doctype, docname, after) {
 		if (typeof after === "function") {
 			after();
 		}
+	}
+	if (!is_valid_docname(docname)) {
+		return;
 	}
 	if (window.logistics_navigate_when_doc_exists) {
 		window.logistics_navigate_when_doc_exists(doctype, docname, navigate);

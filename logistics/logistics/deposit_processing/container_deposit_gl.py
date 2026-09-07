@@ -184,7 +184,10 @@ def _user_can_waive_refund_docs():
 @frappe.whitelist()
 def materialize_refund_readiness(container_name):
 	"""Append template-based refund readiness rows not already present."""
+	from logistics.utils.menu_permission import assert_perm
+
 	doc = frappe.get_doc("Container", container_name)
+	assert_perm("Container", "write", doc=doc)
 	settings = _settings()
 	existing = {r.requirement_name for r in doc.get("refund_readiness") or [] if r.requirement_name}
 	owner_sl = doc.get("owner_carrier")
@@ -268,9 +271,13 @@ def _container_eligible_for_cd_refund_request(container_doc):
 @frappe.whitelist()
 def create_request_cd_refund_journal_entry(container_name, purchase_invoice=None):
 	"""Dr Container Deposit Receivable (Customer), Cr Deposits Pending for Refund Request — GL-backed deposits."""
+	from logistics.utils.menu_permission import assert_perm
+
 	if not purchase_invoice:
 		frappe.throw(_("Purchase Invoice is required."), title=_("Request Deposit Refund"))
 	container = frappe.get_doc("Container", container_name)
+	assert_perm("Container", "write", doc=container)
+	assert_perm("Journal Entry", "create")
 	if not _container_eligible_for_cd_refund_request(container):
 		frappe.throw(
 			_("Container must be returned (empty returned / closed) before requesting CD refund."),

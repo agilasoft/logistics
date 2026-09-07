@@ -457,6 +457,7 @@ class SalesQuote(Document):
 		self.validate_routing_leg_dates()
 		self.validate_customs_unit_types()
 		self.validate_linked_service_charge_tagging()
+		self.validate_time_sensitive_deadline()
 		self.auto_scope_title()
 		self.refresh_charge_parameters_display()
 		from logistics.utils.operational_exchange_rates import resolve_sales_quote_charge_exchange_rates
@@ -641,24 +642,6 @@ class SalesQuote(Document):
 					title=_("Main Service Has No Charges"),
 				)
 			return
-		if main == "Time Sensitive":
-			charges = getattr(self, "charges", None) or []
-			if not charges:
-				frappe.throw(
-					_(
-						"Add at least one charge line (Air, Sea, Transport, Customs, etc.) "
-						"for this Time Sensitive quote."
-					),
-					title=_("Main Service Has No Charges"),
-				)
-			if not getattr(self, "critical_deadline", None):
-				frappe.throw(
-					_("Critical Deadline is required when Primary Service Type is Time Sensitive."),
-					title=_("Critical Deadline Required"),
-				)
-			if not getattr(self, "is_time_sensitive", None):
-				self.is_time_sensitive = 1
-			return
 		if main == "Special Project":
 			if not _sales_quote_has_special_project_content(self):
 				frappe.throw(
@@ -675,6 +658,17 @@ class SalesQuote(Document):
 				_("Add at least one charge line with Service Type \"{0}\" (Main Service).").format(main),
 				title=_("Main Service Has No Charges"),
 			)
+
+	def validate_time_sensitive_deadline(self):
+		"""Critical Deadline is required whenever the Time Sensitive checkbox is on."""
+		if not cint(getattr(self, "is_time_sensitive", 0)):
+			return
+		if getattr(self, "critical_deadline", None):
+			return
+		frappe.throw(
+			_("Critical Deadline is required when Time Sensitive is ticked."),
+			title=_("Critical Deadline Required"),
+		)
 
 	def on_submit(self):
 		"""Additional-charge quotes: push charge lines to the linked job with sales_quote_link."""
@@ -1634,7 +1628,10 @@ def _create_docket_from_sales_quote(sales_quote, booth_no=None):
 
 @frappe.whitelist()
 def create_docket_from_sales_quote(sales_quote_name, booth_no=None):
+	from logistics.utils.menu_permission import assert_create_from_source
+
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	assert_create_from_source("Docket", source_doc=sales_quote)
 	return _create_docket_from_sales_quote(sales_quote, booth_no=booth_no)
 
 
@@ -1643,7 +1640,10 @@ def create_transport_order_from_sales_quote(sales_quote_name):
 	"""
 	Create a Transport Order from Sales Quote. Populates job_no on matching routing leg if multimodal.
 	"""
+	from logistics.utils.menu_permission import assert_create_from_source
+
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	assert_create_from_source("Transport Order", source_doc=sales_quote)
 	return _create_transport_order_from_sales_quote(sales_quote)
 
 
@@ -1652,7 +1652,10 @@ def create_air_booking_from_sales_quote(sales_quote_name):
 	"""
 	Create an Air Booking from Sales Quote. Populates job_no on matching routing leg if multimodal.
 	"""
+	from logistics.utils.menu_permission import assert_create_from_source
+
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	assert_create_from_source("Air Booking", source_doc=sales_quote)
 	return _create_air_booking_from_sales_quote(sales_quote)
 
 
@@ -1661,8 +1664,54 @@ def create_sea_booking_from_sales_quote(sales_quote_name):
 	"""
 	Create a Sea Booking from Sales Quote. Populates job_no on matching routing leg if multimodal.
 	"""
+	from logistics.utils.menu_permission import assert_create_from_source
+
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	assert_create_from_source("Sea Booking", source_doc=sales_quote)
 	return _create_sea_booking_from_sales_quote(sales_quote)
+
+
+_SALES_QUOTE_LINKED_LOOKUP_DOCTYPES = frozenset(
+	{
+		"Air Booking",
+		"Sea Booking",
+		"Transport Order",
+		"Declaration Order",
+		"Warehouse Contract",
+		"Inbound Order",
+		"Cross-Docking Order",
+		"Time Sensitive Case",
+		"Declaration",
+	}
+)
+
+
+@frappe.whitelist()
+def get_linked_document_for_sales_quote(sales_quote_name, doctype):
+	"""Return the linked booking/order name for Create vs View on the quote toolbar.
+
+	Quote **read** is enough. Do not require list/read on the target — that is what hid
+	One-off Create buttons when ``frappe.client.get_list`` failed.
+	"""
+	from logistics.utils.menu_permission import assert_perm
+
+	if not sales_quote_name:
+		frappe.throw(_("Sales Quote is required."))
+	dt = (doctype or "").strip()
+	if dt not in _SALES_QUOTE_LINKED_LOOKUP_DOCTYPES:
+		frappe.throw(_("Invalid document type."))
+	if not frappe.db.exists("Sales Quote", sales_quote_name):
+		frappe.throw(_("Invalid Sales Quote."))
+	quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	assert_perm("Sales Quote", "read", doc=quote)
+
+	filters = {"sales_quote": sales_quote_name, "docstatus": ["!=", 2]}
+	if dt in ("Air Booking", "Sea Booking", "Transport Order") and frappe.get_meta(dt).has_field(
+		"service_role"
+	):
+		filters["service_role"] = "Main"
+	name = frappe.db.get_value(dt, filters, "name")
+	return {"name": name}
 
 
 @frappe.whitelist()
@@ -1671,7 +1720,10 @@ def create_air_shipment_from_sales_quote(sales_quote_name):
 	Standalone function to create Air Shipment from Sales Quote.
 	This function can be called from JavaScript.
 	"""
+	from logistics.utils.menu_permission import assert_create_from_source
+
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	assert_create_from_source("Air Shipment", source_doc=sales_quote)
 	return sales_quote.create_air_shipment_from_sales_quote()
 
 
@@ -1681,7 +1733,10 @@ def create_sea_shipment_from_sales_quote(sales_quote_name):
 	Standalone function to create Sea Shipment from Sales Quote.
 	This function can be called from JavaScript.
 	"""
+	from logistics.utils.menu_permission import assert_create_from_source
+
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	assert_create_from_source("Sea Shipment", source_doc=sales_quote)
 	return sales_quote.create_sea_shipment_from_sales_quote()
 
 
@@ -1691,7 +1746,10 @@ def create_warehouse_contract_from_sales_quote(sales_quote_name):
 	Standalone function to create Warehouse Contract from Sales Quote.
 	This function can be called from JavaScript.
 	"""
+	from logistics.utils.menu_permission import assert_create_from_source
+
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	assert_create_from_source("Warehouse Contract", source_doc=sales_quote)
 	return sales_quote.create_warehouse_contract_from_sales_quote()
 
 
@@ -1703,7 +1761,10 @@ def create_sales_invoice_from_sales_quote(sales_quote_name, posting_date=None):
 	- Consolidated: One invoice with charges from Main Job + all Sub-Jobs.
 	- Per Product: Separate invoice per routing leg that has a job.
 	"""
+	from logistics.utils.menu_permission import assert_create_from_source
+
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	assert_create_from_source("Sales Invoice", source_doc=sales_quote)
 	return _create_sales_invoice_from_multimodal_quote(sales_quote, posting_date)
 
 
@@ -1769,7 +1830,6 @@ _MAIN_SERVICE_PRIMARY_DOCTYPE = {
 	"Transport": "Transport Order",
 	"Customs": "Declaration Order",
 	"Warehousing": "Inbound Order",
-	"Time Sensitive": "Time Sensitive Case",
 }
 
 
@@ -4493,7 +4553,10 @@ def extend_sales_quote_validity(sales_quote, valid_until):
 @frappe.whitelist()
 def recalculate_charges(docname):
 	"""Recalculate all charges in Sales Quote charges table using RateCalculationEngine."""
+	from logistics.utils.menu_permission import assert_perm
+
 	doc = frappe.get_doc("Sales Quote", docname)
+	assert_perm("Sales Quote", "write", doc=doc)
 	lines_recalculated = 0
 
 	for row in doc.charges or []:

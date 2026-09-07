@@ -30,7 +30,7 @@ logistics.operational_exchange_rate.fetch_sales_quote_charge_side_rate = functio
 	frm,
 	cdt,
 	cdn,
-	{ source_field, currency_field, rate_field }
+	{ source_field, currency_field, rate_field, as_of_date }
 ) {
 	const row = frappe.get_doc(cdt, cdn);
 	if (!row || !frm || !frm.doc) {
@@ -38,8 +38,8 @@ logistics.operational_exchange_rate.fetch_sales_quote_charge_side_rate = functio
 	}
 	const source = row[source_field];
 	const currency = row[currency_field];
-	const as_of_date = frm.doc.date;
-	if (!currency || !as_of_date) {
+	const resolved_as_of_date = as_of_date || frm.doc.date;
+	if (!currency || !resolved_as_of_date) {
 		return;
 	}
 	if (!source) {
@@ -51,7 +51,7 @@ logistics.operational_exchange_rate.fetch_sales_quote_charge_side_rate = functio
 			company: frm.doc.company,
 			exchange_rate_source: source,
 			currency,
-			as_of_date,
+			as_of_date: resolved_as_of_date,
 		},
 		callback: (r) => {
 			const rate = r.message != null && r.message !== '' ? r.message : 0;

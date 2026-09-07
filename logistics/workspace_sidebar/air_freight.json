@@ -311,6 +311,39 @@
   {
    "child": 0,
    "collapsible": 1,
+   "icon": "receipt",
+   "indent": 1,
+   "keep_closed": 1,
+   "label": "CASSLink",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Section Break"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "CASS Settlement Period",
+   "link_to": "CASS Settlement Period",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "CASS File",
+   "link_to": "CASS File",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
    "icon": "settings",
    "indent": 1,
    "keep_closed": 1,

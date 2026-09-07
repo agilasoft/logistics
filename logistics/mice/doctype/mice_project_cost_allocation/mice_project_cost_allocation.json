@@ -86,11 +86,12 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "Total allocated cost from all charge rows for this target. Recomputed by Allocate Costs.",
+   "description": "Total allocated cost from all charge rows for this target, in company currency. Recomputed by Allocate Costs.",
    "fieldname": "allocated_amount",
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Allocated Amount",
+   "options": "Company:company:default_currency",
    "precision": "2",
    "read_only": 1
   }

@@ -32,6 +32,9 @@ from logistics.invoice_integration.billing_currency import (
     resolve_cost_charge_currency,
     supplier_default_billing_currency,
 )
+from logistics.mice.doctype.mice_project.mice_project_charge_copy import (
+    push_consolidation_charges_to_dockets,
+)
 
 JOB_DOCTYPES = (
     "Transport Job",
@@ -276,6 +279,9 @@ def get_eligible_charges_for_consolidation_purchase_invoice(consolidation_doctyp
         frappe.throw(_("{0} {1} does not exist.").format(consolidation_doctype, consolidation_name))
 
     c_doc = frappe.get_doc(consolidation_doctype, consolidation_name)
+    from logistics.utils.menu_permission import assert_create_from_source
+
+    assert_create_from_source("Purchase Invoice", source_doc=c_doc)
     _require_consolidation_planning_submitted(c_doc)
     cost_rows = _get_eligible_consolidation_cost_rows(c_doc)
     if not cost_rows:
@@ -345,6 +351,9 @@ def create_consolidation_purchase_invoice(
         frappe.throw(_("{0} {1} does not exist.").format(consolidation_doctype, consolidation_name))
 
     c_doc = frappe.get_doc(consolidation_doctype, consolidation_name)
+    from logistics.utils.menu_permission import assert_create_from_source
+
+    assert_create_from_source("Purchase Invoice", source_doc=c_doc)
     _require_consolidation_planning_submitted(c_doc)
     cost_rows_raw = _get_eligible_consolidation_cost_rows(c_doc)
     if not cost_rows_raw:
@@ -557,6 +566,9 @@ def get_eligible_charges_for_purchase_invoice(job_type: str, job_name: str) -> D
     if not frappe.db.exists(job_type, job_name):
         frappe.throw(_("{0} {1} does not exist.").format(job_type, job_name))
     job = frappe.get_doc(job_type, job_name)
+    from logistics.utils.menu_permission import assert_create_from_source
+
+    assert_create_from_source("Purchase Invoice", source_doc=job)
     config = CHARGE_CONFIG.get(job_type)
     if not config:
         frappe.throw(_("Purchase Invoice creation not supported for {0}.").format(job_type))
@@ -646,6 +658,9 @@ def create_purchase_invoice(
         frappe.throw(_("{0} {1} does not exist.").format(job_type, job_name))
 
     job = frappe.get_doc(job_type, job_name)
+    from logistics.utils.menu_permission import assert_create_from_source
+
+    assert_create_from_source("Purchase Invoice", source_doc=job)
     config = CHARGE_CONFIG.get(job_type)
     if not config:
         frappe.throw(_("Purchase Invoice creation not supported for {0}.").format(job_type))
@@ -819,6 +834,13 @@ def create_purchase_invoice(
                         update_modified=False,
                     )
             frappe.db.commit()
+
+    if job_type == "MICE Project":
+        push_consolidation_charges_to_dockets(
+            job,
+            selected_charges=[ch for _doc_idx, ch, _cost, _item_code, _sup in cost_rows],
+            purchase_invoice=pi.name,
+        )
 
     return {
         "ok": True,

@@ -52,6 +52,10 @@ def validate_submitted_charges_not_locked(doc, method=None):
 	"""DocType validate hook: block charge grid changes when Job Status locks charges."""
 	if not doc or getattr(doc, "docstatus", None) != 1:
 		return
+	if getattr(frappe.flags, "in_auto_recognition", False):
+		return
+	if getattr(doc, "flags", None) and doc.flags.get("ignore_job_change_lock"):
+		return
 	cfg = CHARGE_REOPEN_CONFIG.get(doc.doctype)
 	if not cfg:
 		return

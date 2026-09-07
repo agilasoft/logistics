@@ -1,5 +1,5 @@
 // Copyright (c) 2026, AgilaSoft and contributors
-// Shared: Action → Get Charges from Quotation (Sea Booking, Air Booking, Transport Order, Declaration Order)
+// Shared: Action → Get Charges from Quotation (Sea Booking, Air Booking, Transport Order, Declaration Order, Time Sensitive Case)
 
 frappe.provide("logistics");
 
@@ -297,6 +297,23 @@ logistics.should_show_get_charges_from_quotation = function (frm) {
 };
 
 logistics._add_get_charges_from_quotation_button = function (frm) {
+	if (window.logistics && logistics.menu) {
+		logistics.menu.add(frm, {
+			label: __("Get Charges from Quotation"),
+			group: __("Action"),
+			ptype: "write",
+			action: function () {
+				if (window.logistics && logistics.open_get_charges_from_quotation_dialog) {
+					logistics.open_get_charges_from_quotation_dialog(frm);
+				} else {
+					frappe.msgprint(
+						__("Charges dialog is not ready. Please refresh the page and try again.")
+					);
+				}
+			},
+		});
+		return;
+	}
 	frm.add_custom_button(__("Get Charges from Quotation"), function () {
 		if (window.logistics && logistics.open_get_charges_from_quotation_dialog) {
 			logistics.open_get_charges_from_quotation_dialog(frm);
@@ -351,19 +368,19 @@ logistics.open_get_charges_from_quotation_dialog = function (frm) {
 	var cust =
 		frm.doctype === "MICE Project"
 			? null
-			: frm.doctype === "Transport Order" || frm.doctype === "Declaration Order"
+			: frm.doctype === "Transport Order" ||
+				  frm.doctype === "Declaration Order" ||
+				  frm.doctype === "Special Project" ||
+				  frm.doctype === "Exhibit" ||
+				  frm.doctype === "Time Sensitive Case"
 				? frm.doc.customer
-				: frm.doctype === "Special Project" || frm.doctype === "Exhibit"
-					? frm.doc.customer
-					: frm.doc.local_customer;
+				: frm.doc.local_customer;
 	if (!cust && frm.doctype !== "MICE Project") {
 		frappe.msgprint(
 			__(
-				frm.doctype === "Transport Order" ||
-					frm.doctype === "Declaration Order" ||
-					frm.doctype === "Special Project" || frm.doctype === "Exhibit"
-					? "Set Customer first."
-					: "Set Local Customer first."
+				frm.doctype === "Sea Booking" || frm.doctype === "Air Booking"
+					? "Set Local Customer first."
+					: "Set Customer first."
 			)
 		);
 		return;
@@ -506,11 +523,28 @@ function _gcfq_preview_charges_inner_html(m) {
 	var charges = Array.isArray(m.charges) ? m.charges : [];
 	var cnt = m.charges_count != null ? m.charges_count : charges.length;
 	var ijCount = m.internal_job_charge_count || 0;
-	var hasIjRows = charges.some(function (c) {
-		return c && (c.charge_scope === "Internal Job" || !!c.internal_job);
+	var linkedCount =
+		m.linked_charge_count != null
+			? m.linked_charge_count
+			: charges.filter(function (c) {
+					return c && String(c.charge_scope || "").trim() === "Linked";
+			  }).length;
+	var hasScopeRows = charges.some(function (c) {
+		if (!c) {
+			return false;
+		}
+		var scope = String(c.charge_scope || "").trim();
+		return scope === "Internal Job" || scope === "Linked" || !!c.internal_job;
 	});
 	var toolbarSubtitle = "";
-	if (ijCount > 0) {
+	if (linkedCount > 0) {
+		toolbarSubtitle =
+			'<span class="logistics-gcfq-preview-subcount">' +
+			frappe.utils.escape_html(String(linkedCount)) +
+			" " +
+			__(linkedCount === 1 ? "tagged as Linked" : "tagged as Linked") +
+			"</span>";
+	} else if (ijCount > 0) {
 		toolbarSubtitle =
 			'<span class="logistics-gcfq-preview-subcount">' +
 			frappe.utils.escape_html(String(ijCount)) +
@@ -540,7 +574,7 @@ function _gcfq_preview_charges_inner_html(m) {
 		return lines;
 	}
 
-	var scopeHeader = hasIjRows
+	var scopeHeader = hasScopeRows
 		? "<th>" + __("Scope") + "</th>"
 		: "";
 	lines +=
@@ -566,16 +600,18 @@ function _gcfq_preview_charges_inner_html(m) {
 		var st = (c.service_type && String(c.service_type).trim()) || "";
 		var scope = (c.charge_scope && String(c.charge_scope).trim()) || "Main";
 		var ijName = (c.internal_job && String(c.internal_job).trim()) || "";
-		var ijLabel = (c.internal_job_label && String(c.internal_job_label).trim()) || ijName;
+		var lsName = (c.linked_service && String(c.linked_service).trim()) || "";
+		var ijLabel = (c.internal_job_label && String(c.internal_job_label).trim()) || ijName || lsName;
 		var stCell =
 			st !== ""
 				? '<span class="gcfq-preview-service-pill">' +
 				  frappe.utils.escape_html(st) +
 				  "</span>"
 				: '<span class="gcfq-preview-empty-cell">—</span>';
-		var rowClass = scope === "Internal Job" ? "gcfq-preview-row-ij" : "gcfq-preview-row-main";
+		var isSecondary = scope === "Internal Job" || scope === "Linked";
+		var rowClass = isSecondary ? "gcfq-preview-row-ij" : "gcfq-preview-row-main";
 		var scopeCell = "";
-		if (hasIjRows) {
+		if (hasScopeRows) {
 			if (scope === "Internal Job") {
 				var label = ijLabel || __("Internal Job");
 				scopeCell =
@@ -584,6 +620,15 @@ function _gcfq_preview_charges_inner_html(m) {
 					frappe.utils.escape_html(ijName) +
 					'">' +
 					frappe.utils.escape_html(label) +
+					"</span></td>";
+			} else if (scope === "Linked") {
+				var linkedLabel = ijLabel || lsName || __("Linked");
+				scopeCell =
+					"<td class='gcfq-preview-col-scope'>" +
+					'<span class="gcfq-preview-scope-pill gcfq-preview-scope-pill--ij" title="' +
+					frappe.utils.escape_html(lsName || linkedLabel) +
+					'">' +
+					frappe.utils.escape_html(linkedLabel) +
 					"</span></td>";
 			} else {
 				scopeCell =
@@ -1367,6 +1412,10 @@ logistics.charge_row_parent_overrides = function (frm) {
 			"total_pieces",
 			"total_packages",
 			"pieces",
+			"cif",
+			"fob",
+			"inv_total_amount",
+			"number_of_line_items",
 		];
 	} else if (dt === "Warehouse Job") {
 		keys = [

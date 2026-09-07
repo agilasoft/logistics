@@ -114,7 +114,7 @@ _CHARGE_BREAK_SPECS = (
 	),
 	(
 		"Charge Unit Break",
-		("unit_type", "unit_break", "unit_rate", "currency"),
+		("unit_type", "container_type", "unit_break", "unit_rate", "currency"),
 		None,
 	),
 )
@@ -284,6 +284,8 @@ def copy_charge_breaks_for_reference(
 	for break_doctype, fields, default_rate_type in _CHARGE_BREAK_SPECS:
 		if not frappe.db.exists("DocType", break_doctype):
 			continue
+		break_meta = frappe.get_meta(break_doctype)
+		query_fields = [f for f in fields if break_meta.has_field(f)]
 		for record_type in types_to_copy:
 			rows = frappe.get_all(
 				break_doctype,
@@ -292,7 +294,7 @@ def copy_charge_breaks_for_reference(
 					"reference_no": from_reference_no,
 					"type": record_type,
 				},
-				fields=list(fields),
+				fields=list(query_fields),
 			)
 			if not rows:
 				continue
@@ -310,6 +312,8 @@ def copy_charge_breaks_for_reference(
 				doc.reference_no = to_reference_no
 				doc.type = record_type
 				for fieldname in fields:
+					if fieldname not in ("rate_type",) and not break_meta.has_field(fieldname):
+						continue
 					val = row.get(fieldname)
 					if fieldname == "rate_type":
 						val = val or default_rate_type
@@ -322,6 +326,8 @@ def copy_charge_breaks_for_reference(
 						"percentage_rate",
 					):
 						val = flt(val or 0)
+					elif fieldname == "container_type":
+						val = (val or "").strip() or None
 					elif fieldname == "currency":
 						val = val or "USD"
 					if fieldname == "rate_type" and val is None:

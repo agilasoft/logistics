@@ -473,13 +473,30 @@ class TestChangeRequestVisibility(UnitTestCase):
 		charges_only = applicable_header_fields("Air Shipment", {"Charges"})
 		self.assertEqual(charges_only, frozenset())
 
-	def test_sea_shipment_includes_cutoffs_not_run_sheet(self):
+	def test_sea_shipment_excludes_flat_cutoffs_not_run_sheet(self):
 		from logistics.pricing_center.change_request_field_apply import header_fields_for_job_type
 
 		fields = header_fields_for_job_type("Sea Shipment")
-		self.assertIn("cargo_cut_off", fields)
 		self.assertIn("origin_port", fields)
 		self.assertNotIn("run_date", fields)
+		self.assertNotIn("cargo_cut_off", fields)
+		self.assertNotIn("document_cut_off", fields)
+		self.assertNotIn("vgm_cut_off", fields)
+		self.assertNotIn("gate_in_cut_off", fields)
+		self.assertNotIn("empty_return_cut_off", fields)
+		self.assertNotIn("other_cut_off", fields)
+
+	def test_sea_booking_excludes_flat_cutoffs(self):
+		from logistics.pricing_center.change_request_field_apply import header_fields_for_job_type
+
+		fields = header_fields_for_job_type("Sea Booking")
+		self.assertIn("origin_port", fields)
+		self.assertNotIn("cargo_cut_off", fields)
+		self.assertNotIn("document_cut_off", fields)
+		self.assertNotIn("vgm_cut_off", fields)
+		self.assertNotIn("gate_in_cut_off", fields)
+		self.assertNotIn("empty_return_cut_off", fields)
+		self.assertNotIn("other_cut_off", fields)
 
 	def test_run_sheet_has_no_charges_or_packages(self):
 		from logistics.pricing_center.change_request_field_apply import (

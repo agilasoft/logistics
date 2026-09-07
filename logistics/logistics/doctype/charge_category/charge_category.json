@@ -8,6 +8,7 @@
  "field_order": [
   "category_name",
   "disabled",
+  "apply_95_5_rule",
   "description"
  ],
  "fields": [
@@ -29,6 +30,13 @@
    "label": "Disabled"
   },
   {
+   "default": "0",
+   "fieldname": "apply_95_5_rule",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Apply 95/5 rule"
+  },
+  {
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"
@@ -37,7 +45,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-24 00:00:00",
+ "modified": "2026-08-18 10:22:00",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Charge Category",

@@ -1,9 +1,112 @@
 // Copyright (c) 2026, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
+frappe.provide("logistics.operational_exchange_rate");
+
+function mice_consolidation_charge_fetch_pay_to_exchange_rate(frm, cdt, cdn) {
+	logistics.operational_exchange_rate.fetch_sales_quote_charge_side_rate(frm, cdt, cdn, {
+		source_field: "pay_to_exchange_rate_source",
+		currency_field: "currency",
+		rate_field: "pay_to_exchange_rate",
+		as_of_date: frm.doc.start_date,
+	});
+}
+
+function mice_consolidation_charge_refresh_exchange_rates(frm) {
+	if (!frm || !frm.doc) {
+		return;
+	}
+	const charges = frm.doc.consolidation_charges || [];
+	for (const row of charges) {
+		if (!row.name) {
+			continue;
+		}
+		if (row.pay_to_exchange_rate_source && row.currency) {
+			mice_consolidation_charge_fetch_pay_to_exchange_rate(
+				frm,
+				"MICE Project Consolidation Charges",
+				row.name
+			);
+		}
+	}
+}
+
+function mice_consolidation_charge_sync_category_apply_95_5(frm, cdt, cdn) {
+	const row = locals[cdt][cdn];
+	if (!row) {
+		return;
+	}
+	if (!row.charge_category) {
+		frappe.model.set_value(cdt, cdn, "category_apply_95_5_rule", 0);
+		return;
+	}
+	frappe.db.get_value("Charge Category", row.charge_category, "apply_95_5_rule", (r) => {
+		frappe.model.set_value(cdt, cdn, "category_apply_95_5_rule", cint(r && r.apply_95_5_rule));
+	});
+}
+
+function _mice_consolidation_refresh_unit_rate_control(frm, cdt, cdn) {
+	if (logistics.charge_type_cleanup && logistics.charge_type_cleanup.refresh_charge_row_field_controls) {
+		logistics.charge_type_cleanup.refresh_charge_row_field_controls(
+			frm, cdt, cdn, ["unit_rate"], "consolidation_charges"
+		);
+	}
+}
+
+function mice_consolidation_sync_charges_category_apply_95_5(frm) {
+	const rows = frm.doc.consolidation_charges || [];
+	if (!rows.length) {
+		return;
+	}
+	const cats = [...new Set(rows.map((r) => r.charge_category).filter(Boolean))];
+	const apply_map = (map) => {
+		let changed = false;
+		rows.forEach((r) => {
+			const next = r.charge_category ? cint(map[r.charge_category]) : 0;
+			if (cint(r.category_apply_95_5_rule) !== next) {
+				r.category_apply_95_5_rule = next;
+				changed = true;
+			}
+		});
+		if (changed) {
+			frm.refresh_field("consolidation_charges");
+		}
+	};
+	if (!cats.length) {
+		apply_map({});
+		return;
+	}
+	frappe.db.get_list("Charge Category", {
+		filters: { name: ["in", cats] },
+		fields: ["name", "apply_95_5_rule"],
+		limit: cats.length,
+	}).then((list) => {
+		const map = {};
+		(list || []).forEach((d) => {
+			map[d.name] = cint(d.apply_95_5_rule);
+		});
+		apply_map(map);
+	});
+}
+
 frappe.ui.form.on("MICE Project Consolidation Charges", {
 	form_render: function (frm, cdt, cdn) {
+		mice_consolidation_charge_sync_category_apply_95_5(frm, cdt, cdn);
+		_mice_consolidation_refresh_unit_rate_control(frm, cdt, cdn);
 		_fetch_mice_consolidation_cost_tariff(frm, cdt, cdn);
+	},
+	charge_category: function (frm, cdt, cdn) {
+		mice_consolidation_charge_sync_category_apply_95_5(frm, cdt, cdn);
+	},
+	pay_to_exchange_rate_source: function (frm, cdt, cdn) {
+		mice_consolidation_charge_fetch_pay_to_exchange_rate(frm, cdt, cdn);
+	},
+	pay_to_exchange_rate: function (frm, cdt, cdn) {
+		_calculate_mice_consolidation_charge_row(frm, cdt, cdn);
+	},
+	currency: function (frm, cdt, cdn) {
+		mice_consolidation_charge_fetch_pay_to_exchange_rate(frm, cdt, cdn);
+		_calculate_mice_consolidation_charge_row(frm, cdt, cdn);
 	},
 	revenue_calculation_method: function (frm, cdt, cdn) {
 		_calculate_mice_consolidation_charge_row(frm, cdt, cdn);
@@ -35,6 +138,7 @@ frappe.ui.form.on("MICE Project Consolidation Charges", {
 		_fetch_mice_consolidation_cost_tariff(frm, cdt, cdn);
 	},
 	use_tariff_in_cost: function (frm, cdt, cdn) {
+		_mice_consolidation_refresh_unit_rate_control(frm, cdt, cdn);
 		_fetch_mice_consolidation_cost_tariff(frm, cdt, cdn);
 	},
 	cost_tariff: function (frm, cdt, cdn) {
@@ -42,6 +146,15 @@ frappe.ui.form.on("MICE Project Consolidation Charges", {
 	},
 	item_code: function (frm, cdt, cdn) {
 		_fetch_mice_consolidation_cost_tariff(frm, cdt, cdn);
+	},
+});
+
+frappe.ui.form.on("MICE Project", {
+	refresh: function (frm) {
+		mice_consolidation_sync_charges_category_apply_95_5(frm);
+	},
+	start_date: function (frm) {
+		mice_consolidation_charge_refresh_exchange_rates(frm);
 	},
 });
 
@@ -202,6 +315,9 @@ function _fetch_mice_consolidation_cost_tariff(frm, cdt, cdn) {
 			if (method && _MICE_CONSOLIDATION_CALC_METHODS[method]) {
 				frappe.model.set_value(cdt, cdn, "revenue_calculation_method", method);
 			}
+			if (rate_data.quantity != null) {
+				frappe.model.set_value(cdt, cdn, "quantity", rate_data.quantity || 0);
+			}
 			if (rate_data.has_cost_unit_breaks) {
 				frappe.model.set_value(cdt, cdn, "cost_use_unit_breaks", 1);
 				_apply_mice_consolidation_unit_break_rate(
@@ -290,9 +406,13 @@ function _calculate_mice_consolidation_charge_row(frm, cdt, cdn) {
 		allocated = total * (pct / 100.0);
 	}
 
+	var fxRate = frappe.utils.flt(row.pay_to_exchange_rate);
+	var baseTotal = fxRate > 0 ? total * fxRate : 0;
+
 	frappe.model.set_value(cdt, cdn, "base_amount", base);
 	frappe.model.set_value(cdt, cdn, "discount_amount", discount);
 	frappe.model.set_value(cdt, cdn, "total_amount", total);
+	frappe.model.set_value(cdt, cdn, "base_total_amount", baseTotal);
 	frappe.model.set_value(cdt, cdn, "allocated_amount", allocated);
 
 	if (frm && frm.refresh_field) {

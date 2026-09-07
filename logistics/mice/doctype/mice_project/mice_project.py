@@ -193,6 +193,11 @@ class MICEProject(Document):
 		validate_planned_date_range(self)
 		validate_internal_job_activity_codes(self, module_filter=FOR_EXHIBITS)
 		validate_lifecycle_stage_advance(self)
+		from logistics.utils.operational_exchange_rates import (
+			resolve_mice_project_consolidation_charge_exchange_rates,
+		)
+
+		resolve_mice_project_consolidation_charge_exchange_rates(self)
 		self._recalculate_consolidation_charge_rows()
 		self._recalculate_consolidation_charge_totals()
 		self._recalculate_cost_allocation_totals()
@@ -314,13 +319,13 @@ class MICEProject(Document):
 	def _recalculate_consolidation_charge_rows(self):
 		"""Recompute each consolidation charge row before summing or allocating."""
 		for row in self.get("consolidation_charges") or []:
-			row.calculate_charge_amount()
+			row.calculate_charge_amount(company=self.company)
 			row.calculate_allocated_amount()
 
 	def _recalculate_consolidation_charge_totals(self):
-		"""Sum ``total_amount`` across consolidation_charges rows into ``total_consolidation_charges``."""
+		"""Sum company-currency ``base_total_amount`` into ``total_consolidation_charges``."""
 		rows = self.get("consolidation_charges") or []
-		self.total_consolidation_charges = sum(flt(r.total_amount) for r in rows)
+		self.total_consolidation_charges = sum(flt(r.base_total_amount) for r in rows)
 
 	def _recalculate_cost_allocation_totals(self):
 		"""Sum ``allocated_amount`` across cost_allocations rows into ``total_allocated_amount``."""
@@ -373,7 +378,7 @@ class MICEProject(Document):
 				continue
 			if not getattr(ch, "name", None) or str(ch.name).startswith("new"):
 				continue
-			ch.calculate_charge_amount()
+			ch.calculate_charge_amount(company=self.company)
 			ch.calculate_allocated_amount()
 			frappe.db.set_value(
 				ch.doctype,
@@ -384,6 +389,7 @@ class MICEProject(Document):
 					"base_amount": flt(ch.base_amount),
 					"discount_amount": flt(ch.discount_amount),
 					"total_amount": flt(ch.total_amount),
+					"base_total_amount": flt(ch.base_total_amount),
 					"allocated_amount": flt(ch.allocated_amount),
 					"cost_use_unit_breaks": 1,
 				},
@@ -544,8 +550,9 @@ class MICEProject(Document):
 	def _apply_allocation_to_targets(self):
 		"""Compute per-target ``allocated_amount`` and overall ``cost_allocation_percentage``.
 
-		For each charge row, distribute its ``total_amount`` across cost_allocations rows by
-		the row's allocation method (or the parent ``cost_allocation_basis`` fallback).
+		For each charge row, distribute its company-currency ``base_total_amount`` across
+		cost_allocations rows by the row's allocation method (or the parent
+		``cost_allocation_basis`` fallback).
 		"""
 		allocations = self.get("cost_allocations") or []
 		if not allocations:
@@ -557,12 +564,12 @@ class MICEProject(Document):
 		grand_total = 0.0
 		n = len(allocations)
 		for charge in self.get("consolidation_charges") or []:
-			amount = flt(charge.total_amount)
+			amount = flt(charge.base_total_amount)
 			if amount <= 0:
 				continue
 			factors = self._per_target_allocation_factor(charge, allocations, n)
 			row_amounts = [amount * f for f in factors]
-			# Distribute rounding so per-charge sum equals charge.total_amount.
+			# Distribute rounding so per-charge sum equals charge.base_total_amount.
 			rounded = [round(x, 2) for x in row_amounts]
 			diff = round(amount - sum(rounded), 2)
 			for i in range(len(rounded) - 1, -1, -1):

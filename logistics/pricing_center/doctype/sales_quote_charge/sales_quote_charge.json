@@ -21,6 +21,7 @@
   "section_break_parameters",
   "parameters",
   "freight_taxes_section",
+  "category_apply_95_5_rule",
   "apply_95_5_rule",
   "taxable_freight_item",
   "taxable_freight_item_tax_template",
@@ -139,20 +140,28 @@
    "link_filters": "[[\"Charge Category\", \"disabled\", \"=\", 0]]"
   },
   {
-   "depends_on": "eval:doc.charge_category==\"Freight\"",
+   "depends_on": "eval:doc.category_apply_95_5_rule",
    "fieldname": "freight_taxes_section",
    "fieldtype": "Section Break",
    "label": "Taxes"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.charge_category==\"Freight\"",
+   "fetch_from": "charge_category.apply_95_5_rule",
+   "fieldname": "category_apply_95_5_rule",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.category_apply_95_5_rule",
    "fieldname": "apply_95_5_rule",
    "fieldtype": "Check",
    "label": "Apply 95/5 rule"
   },
   {
-   "depends_on": "eval:doc.charge_category==\"Freight\" && doc.apply_95_5_rule",
+   "depends_on": "eval:doc.category_apply_95_5_rule && doc.apply_95_5_rule",
    "fieldname": "taxable_freight_item",
    "fieldtype": "Link",
    "label": "Taxable Freight Item",
@@ -160,7 +169,7 @@
    "options": "Item"
   },
   {
-   "depends_on": "eval:doc.charge_category==\"Freight\" && doc.apply_95_5_rule",
+   "depends_on": "eval:doc.category_apply_95_5_rule && doc.apply_95_5_rule",
    "fieldname": "taxable_freight_item_tax_template",
    "fieldtype": "Link",
    "label": "Taxable Freight Item Tax Template",
@@ -272,9 +281,9 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Unit Rate",
-   "mandatory_depends_on": "eval:!['Cost','Disbursement'].includes(doc.charge_type) && !['Weight Break','Qty Break','Percentage Break'].includes(doc.revenue_calculation_method)",
+   "mandatory_depends_on": "eval:!doc.use_tariff_in_revenue && !['Cost','Disbursement'].includes(doc.charge_type) && !['Weight Break','Qty Break','Percentage Break'].includes(doc.revenue_calculation_method)",
    "options": "currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type) || ['Weight Break','Qty Break','Percentage Break'].includes(doc.revenue_calculation_method)"
+   "read_only_depends_on": "eval:doc.use_tariff_in_revenue || ['Cost','Disbursement'].includes(doc.charge_type) || ['Weight Break','Qty Break','Percentage Break'].includes(doc.revenue_calculation_method)"
   },
   {
    "fieldname": "unit_type",
@@ -364,9 +373,9 @@
    "fieldname": "unit_cost",
    "fieldtype": "Currency",
    "label": "Unit Cost",
-   "mandatory_depends_on": "eval:doc.charge_type != \"Revenue\" && !['Weight Break','Qty Break','Percentage Break'].includes(doc.cost_calculation_method)",
+   "mandatory_depends_on": "eval:!doc.use_tariff_in_cost && doc.charge_type != \"Revenue\" && !['Weight Break','Qty Break','Percentage Break'].includes(doc.cost_calculation_method)",
    "options": "cost_currency",
-   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\" || ['Weight Break','Qty Break','Percentage Break'].includes(doc.cost_calculation_method)"
+   "read_only_depends_on": "eval:doc.use_tariff_in_cost || doc.charge_type == \"Revenue\" || ['Weight Break','Qty Break','Percentage Break'].includes(doc.cost_calculation_method)"
   },
   {
    "fieldname": "cost_unit_type",
@@ -439,7 +448,7 @@
    "read_only": 1
   },
   {
-   "depends_on": "eval:!['Cost','Disbursement'].includes(doc.charge_type)",
+   "depends_on": "eval:doc.revenue_calculation_method=='Per Unit' && !['Cost','Disbursement'].includes(doc.charge_type)",
    "fieldname": "use_unit_breaks",
    "fieldtype": "Check",
    "label": "Unit Breaks"
@@ -450,7 +459,7 @@
    "label": "Breaks"
   },
   {
-   "depends_on": "eval:doc.use_unit_breaks && !['Cost','Disbursement'].includes(doc.charge_type)",
+   "depends_on": "eval:doc.use_unit_breaks && doc.revenue_calculation_method=='Per Unit' && !['Cost','Disbursement'].includes(doc.charge_type)",
    "fieldname": "selling_unit_break",
    "fieldtype": "Button",
    "label": "Manage Unit Breaks"
@@ -478,13 +487,13 @@
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:doc.charge_type != 'Revenue'",
+   "depends_on": "eval:doc.cost_calculation_method=='Per Unit' && doc.charge_type != 'Revenue'",
    "fieldname": "cost_use_unit_breaks",
    "fieldtype": "Check",
    "label": "Unit Breaks"
   },
   {
-   "depends_on": "eval:doc.cost_use_unit_breaks && doc.charge_type != 'Revenue'",
+   "depends_on": "eval:doc.cost_use_unit_breaks && doc.cost_calculation_method=='Per Unit' && doc.charge_type != 'Revenue'",
    "fieldname": "cost_unit_break",
    "fieldtype": "Button",
    "label": "Manage Unit Breaks"

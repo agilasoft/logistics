@@ -47,6 +47,7 @@ class Docket(VirtualLinkedServicesMixin, Document):
 
 		validate_planned_date_range(self)
 		self._update_packing_summary()
+		self.validate_containers()
 		self.validate_accounts()
 		self._sync_charges()
 
@@ -348,29 +349,185 @@ class Docket(VirtualLinkedServicesMixin, Document):
 			clear_charge_resolution_parent(self)
 
 	def get_total_weight(self):
-		"""Calculate total weight from packages."""
+		"""Calculate total weight from packages (simple sum, no UOM conversion)."""
 		total_weight = 0
 		for package in self.get("packages") or []:
 			total_weight += flt(getattr(package, "weight", 0) or 0)
 		return total_weight
 
 	def get_total_volume(self):
-		"""Calculate total volume from packages."""
+		"""Calculate total volume from packages (simple sum, no UOM conversion)."""
 		total_volume = 0
 		for package in self.get("packages") or []:
 			total_volume += flt(getattr(package, "volume", 0) or 0)
 		return total_volume
 
+	def aggregate_volume_from_packages(self):
+		"""Set header volume from sum of package volumes, converted to aggregation UOM."""
+		if getattr(self, "override_volume_weight", False):
+			return
+		packages = getattr(self, "packages", []) or []
+		if not packages:
+			return
+		try:
+			from logistics.utils.measurements import convert_volume, get_aggregation_volume_uom, get_default_uoms
+
+			target_volume_uom = get_aggregation_volume_uom(company=getattr(self, "company", None))
+			if not target_volume_uom:
+				self.total_volume = self.get_total_volume()
+				return
+			defaults = get_default_uoms(company=getattr(self, "company", None))
+			target_normalized = str(target_volume_uom).strip().upper()
+			total = 0
+			for pkg in packages:
+				pkg_vol = flt(getattr(pkg, "volume", 0) or 0)
+				if pkg_vol <= 0:
+					continue
+				pkg_volume_uom = getattr(pkg, "volume_uom", None) or defaults.get("volume")
+				if not pkg_volume_uom:
+					continue
+				if str(pkg_volume_uom).strip().upper() == target_normalized:
+					total += pkg_vol
+				else:
+					total += convert_volume(
+						pkg_vol,
+						from_uom=pkg_volume_uom,
+						to_uom=target_volume_uom,
+						company=getattr(self, "company", None),
+					)
+			if total > 0:
+				self.total_volume = total
+			else:
+				self.total_volume = self.get_total_volume()
+		except Exception:
+			self.total_volume = self.get_total_volume()
+
+	def aggregate_weight_from_packages(self):
+		"""Set total_weight from sum of package weights, converted to default weight UOM."""
+		if getattr(self, "override_volume_weight", False):
+			return
+		packages = getattr(self, "packages", []) or []
+		if not packages:
+			return
+		try:
+			from logistics.utils.measurements import convert_weight, get_default_uoms
+
+			defaults = get_default_uoms(company=getattr(self, "company", None))
+			target_weight_uom = defaults.get("weight")
+			if not target_weight_uom:
+				self.total_weight = self.get_total_weight()
+				return
+			target_normalized = str(target_weight_uom).strip().upper()
+			total = 0
+			for pkg in packages:
+				pkg_weight = flt(getattr(pkg, "weight", 0) or 0)
+				if pkg_weight <= 0:
+					continue
+				pkg_weight_uom = getattr(pkg, "weight_uom", None) or defaults.get("weight")
+				if not pkg_weight_uom:
+					continue
+				if str(pkg_weight_uom).strip().upper() == target_normalized:
+					total += pkg_weight
+				else:
+					total += convert_weight(
+						pkg_weight,
+						from_uom=pkg_weight_uom,
+						to_uom=target_weight_uom,
+						company=getattr(self, "company", None),
+					)
+			if total > 0:
+				self.total_weight = total
+			else:
+				self.total_weight = self.get_total_weight()
+		except Exception:
+			self.total_weight = self.get_total_weight()
+
+	def _ensure_total_volume_weight(self):
+		"""Ensure total_volume and total_weight are set; default to 0 when packages empty and not override."""
+		if not getattr(self, "packages", None) and not getattr(self, "override_volume_weight", False):
+			self.total_volume = 0
+			self.total_weight = 0
+		self.total_volume = flt(self.total_volume or 0)
+		self.total_weight = flt(self.total_weight or 0)
+
+	def _apply_uom_defaults(self):
+		"""Apply UOM defaults from Logistics Settings when not set."""
+		try:
+			from logistics.utils.measurements import get_default_uoms, get_aggregation_volume_uom
+
+			defaults = get_default_uoms(company=getattr(self, "company", None))
+			if not getattr(self, "total_volume_uom", None):
+				vol_uom = get_aggregation_volume_uom(company=getattr(self, "company", None)) or defaults.get("volume")
+				if vol_uom:
+					self.total_volume_uom = vol_uom
+			if not getattr(self, "total_weight_uom", None) and defaults.get("weight"):
+				self.total_weight_uom = defaults["weight"]
+			if not getattr(self, "chargeable_weight_uom", None):
+				self.chargeable_weight_uom = defaults.get("chargeable_weight") or defaults.get("weight")
+		except Exception:
+			pass
+
 	def _update_packing_summary(self):
-		"""Update total_packages, total_volume, total_weight, chargeable from packages."""
+		"""Update container totals, package totals, volume/weight, and chargeable from child tables."""
 		packages = self.get("packages") or []
+		containers = self.get("containers") or []
+		self.total_containers = len(containers)
+		total_teus = 0
+		for c in containers:
+			ct = getattr(c, "type", None)
+			if ct:
+				teu = frappe.db.get_value("Container Type", ct, "teu_count")
+				total_teus += flt(teu) or 0
+		self.total_teus = total_teus
 		self.total_packages = sum(
 			flt(getattr(p, "no_of_packs", 0) or getattr(p, "quantity", 0) or 1)
 			for p in packages
 		)
-		self.total_volume = self.get_total_volume()
-		self.total_weight = self.get_total_weight()
+		self._apply_uom_defaults()
+		if not getattr(self, "override_volume_weight", False):
+			self.aggregate_volume_from_packages()
+			self.aggregate_weight_from_packages()
+		self._ensure_total_volume_weight()
 		self.calculate_chargeable_weight()
+		from logistics.sea_freight.container_row_metrics import sync_sea_freight_container_child_rows
+
+		sync_sea_freight_container_child_rows(self)
+
+	def validate_containers(self):
+		"""Validate container rows for Docket (same rules as Sea Shipment)."""
+		if not getattr(self, "containers", None):
+			return
+		from logistics.utils.container_validation import (
+			get_strict_validation_setting,
+			validate_container_number,
+		)
+		from logistics.container_management.api import sea_container_row_field_to_equipment_number
+
+		strict = get_strict_validation_setting()
+		seen = {}
+		for i, container in enumerate(self.containers, 1):
+			if not container.type:
+				frappe.msgprint(
+					_("Container {0}: Container Type is required").format(i),
+					indicator="orange",
+				)
+
+			if container.container_no:
+				equip = sea_container_row_field_to_equipment_number(container.container_no)
+				valid, err = validate_container_number(equip, strict=strict)
+				if not valid:
+					frappe.throw(
+						_("Container {0}: {1}").format(i, err),
+						title=_("Invalid Container Number"),
+					)
+				if equip in seen:
+					frappe.throw(
+						_("Duplicate container number in this document: {0} appears on row {1} and row {2}.").format(
+							equip, seen[equip], i
+						),
+						title=_("Duplicate Container Numbers"),
+					)
+				seen[equip] = i
 
 	def calculate_chargeable_weight(self):
 		"""IATA higher-of-both: max(actual weight, volume × 1000/6 kg/m³)."""
@@ -489,6 +646,8 @@ def aggregate_volume_from_packages_remote(doc=None):
 		"total_volume": flt(docket.total_volume),
 		"total_weight": flt(docket.total_weight),
 		"total_packages": flt(docket.total_packages),
+		"total_containers": cint(docket.total_containers),
+		"total_teus": flt(docket.total_teus),
 		"chargeable": flt(docket.chargeable),
 	}
 
@@ -497,6 +656,9 @@ def aggregate_volume_from_packages_remote(doc=None):
 def recalculate_all_charges(docname):
 	"""Recalculate charge lines on this Docket."""
 	doc = frappe.get_doc("Docket", docname)
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm("Docket", "write", doc=doc)
 	if not doc.get("charges"):
 		return {"success": False, "message": _("No charges found to recalculate")}
 	try:
@@ -528,8 +690,11 @@ def post_standard_costs(docname):
 	requiring users to know which job types support standard costs.
 	"""
 	from frappe.utils import flt
+	from logistics.utils.menu_permission import assert_perm
 
 	docket = frappe.get_doc("Docket", docname)
+	assert_perm("Docket", "write", doc=docket)
+	assert_perm("Journal Entry", "create")
 	posted = 0
 	for ch in (docket.charges or []):
 		total_std = getattr(ch, "total_standard_cost", None)

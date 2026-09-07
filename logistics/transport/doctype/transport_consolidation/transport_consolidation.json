@@ -14,6 +14,10 @@
   "load_type",
   "section_break_jobs",
   "transport_jobs",
+  "routing_section",
+  "legs",
+  "packages_section",
+  "consolidation_packages",
   "section_break_details",
   "total_weight",
   "total_volume",
@@ -80,6 +84,31 @@
    "fieldtype": "Table",
    "label": "Transport Jobs",
    "options": "Transport Consolidation Job"
+  },
+  {
+   "fieldname": "routing_section",
+   "fieldtype": "Section Break",
+   "label": "Routing"
+  },
+  {
+   "allow_on_submit": 1,
+   "cannot_add_rows": 1,
+   "cannot_delete_rows": 1,
+   "fieldname": "legs",
+   "fieldtype": "Table",
+   "label": "Routing Legs",
+   "options": "Transport Consolidation Legs"
+  },
+  {
+   "fieldname": "packages_section",
+   "fieldtype": "Section Break",
+   "label": "Packages"
+  },
+  {
+   "fieldname": "consolidation_packages",
+   "fieldtype": "Table",
+   "label": "Consolidation Packages",
+   "options": "Transport Consolidation Packages"
   },
   {
    "fieldname": "section_break_details",

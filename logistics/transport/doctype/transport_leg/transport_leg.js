@@ -201,8 +201,10 @@ async function addActionButtons(frm) {
   if (frm._tl_buttons_added) return;
   frm._tl_buttons_added = true;
 
-  frm.page.add_action_item(__("Regenerate Routing"), () => run_regenerate_routing(frm));
-  frm.page.add_action_item(__("Regenerate Carbon (CO₂e)"), () => run_regenerate_carbon(frm));
+  if (!window.logistics || !logistics.menu || logistics.menu.can(frm.doctype, "write", frm)) {
+    frm.page.add_action_item(__("Regenerate Routing"), () => run_regenerate_routing(frm));
+    frm.page.add_action_item(__("Regenerate Carbon (CO₂e)"), () => run_regenerate_carbon(frm));
+  }
 }
 
 // ---------- actions ----------

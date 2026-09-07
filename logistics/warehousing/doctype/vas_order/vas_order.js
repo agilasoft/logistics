@@ -22,10 +22,10 @@ frappe.ui.form.on("VAS Order", {
       }, __("Action"));
     }
 
-    if (frm.is_new()) return;
-
-    // Event while Draft/Submitted (hide when Cancelled)
-    if (frm.doc.docstatus < 2) {
+    // Create → Warehouse Job only when submitted (docstatus = 1)
+    if (window.logistics && logistics.menu && logistics.menu.is_submitted
+			? logistics.menu.is_submitted(frm)
+			: (!frm.is_new() && frm.doc.docstatus === 1)) {
       frm.add_custom_button(
         __("Warehouse Job"),
         () => makeWarehouseJob(frm),

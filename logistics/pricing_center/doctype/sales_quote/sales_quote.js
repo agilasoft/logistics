@@ -378,13 +378,16 @@ function logistics_sq_linked_services_fieldname(frm) {
 function logistics_setup_linked_services_grid(frm) {
 	if (window.logistics && logistics.setup_virtual_linked_services_grid) {
 		logistics.setup_virtual_linked_services_grid(frm);
-		return;
+	} else {
+		const fieldname = logistics_sq_linked_services_fieldname(frm);
+		if (!fieldname || !frm.get_docfield || !frm.get_docfield(fieldname)) return;
+		frm.set_df_property(fieldname, "read_only", 1);
+		frm.set_df_property(fieldname, "cannot_add_rows", 1);
+		frm.set_df_property(fieldname, "cannot_delete_rows", 1);
 	}
-	const fieldname = logistics_sq_linked_services_fieldname(frm);
-	if (!fieldname || !frm.get_docfield || !frm.get_docfield(fieldname)) return;
-	frm.set_df_property(fieldname, "read_only", 1);
-	frm.set_df_property(fieldname, "cannot_add_rows", 1);
-	frm.set_df_property(fieldname, "cannot_delete_rows", 1);
+	if (window.logistics && logistics.apply_sales_quote_linked_services_columns) {
+		logistics.apply_sales_quote_linked_services_columns(frm);
+	}
 }
 
 const SQ_SERVICES_API = "logistics.pricing_center.doctype.sales_quote.sales_quote";
@@ -446,7 +449,7 @@ function logistics_sq_setup_services_button(frm) {
 }
 
 function logistics_sales_quote_supports_booking_order_creation(doc) {
-	if (!doc || doc.additional_charge) {
+	if (!doc || cint(doc.additional_charge)) {
 		return false;
 	}
 	const qt = doc.quotation_type;
@@ -454,7 +457,7 @@ function logistics_sales_quote_supports_booking_order_creation(doc) {
 		return true;
 	}
 	if (qt === "Project") {
-		return ["Air", "Sea", "Transport", "Customs", "Custom", "Warehousing", "Time Sensitive"].includes(
+		return ["Air", "Sea", "Transport", "Customs", "Custom", "Warehousing"].includes(
 			doc.main_service
 		);
 	}
@@ -934,9 +937,6 @@ frappe.ui.form.on("Sales Quote", {
 				frm.events.apply_default_uoms_for_tab(frm, domain, prefix);
 			}
 		}
-		if (frm.doc.main_service === "Time Sensitive" && !cint(frm.doc.is_time_sensitive)) {
-			frm.set_value("is_time_sensitive", 1);
-		}
 		// Explicit refresh: warehousing / charges use depends_on vs main_service; ensures grids repaint when switching mode.
 		frm.refresh_field("charges");
 		frm.refresh_field("warehousing");
@@ -1130,6 +1130,13 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	refresh(frm) {
+		setTimeout(function () {
+			try {
+				logistics_sq_add_convert_buttons(frm);
+			} catch (e) {
+				console.error("Sales Quote convert buttons", e);
+			}
+		}, 100);
 		if (logistics.party_address_contact) {
 			logistics.party_address_contact.populate_displays_if_missing(frm);
 		}
@@ -1179,139 +1186,7 @@ frappe.ui.form.on("Sales Quote", {
 		logistics_sq_setup_services_button(frm);
 		frm.events.refresh_estimated_profitability(frm);
 
-		// Regular / Project Sales Quote: Create Booking/Order from Main Service scope (reusable — no job back-link)
-		if (
-			frm.doc.docstatus === 1 &&
-			logistics_sales_quote_supports_booking_order_creation(frm.doc) &&
-			!frm.doc.__islocal &&
-			!frm.doc.additional_charge
-		) {
-			frm.add_custom_button(__("Booking / Order"), function () {
-				if (frm.is_dirty() && frm.doc.docstatus !== 1) {
-					frm.save().then(function () {
-						logistics_open_sales_quote_booking_dialog(frm);
-					});
-					return;
-				}
-				if (frm.is_dirty() && frm.doc.docstatus === 1) {
-					frappe.show_alert({
-						message: __("Opening with current Scope values (unsaved). Save the quote separately if needed."),
-						indicator: "blue",
-					}, 5);
-				}
-				logistics_open_sales_quote_booking_dialog(frm);
-			}, __("Create"));
-		}
-
-		// Blanket Quotation: call-off from submitted Regular quotes
-		if (
-			frm.doc.docstatus === 1 &&
-			frm.doc.quotation_type === "Regular" &&
-			frm.doc.blanket_quotation &&
-			!frm.doc.additional_charge
-		) {
-			frm.add_custom_button(__("Create Call-Off / New Booking…"), function () {
-				if (window.logistics && logistics.open_blanket_call_off_flow) {
-					logistics.open_blanket_call_off_flow(frm);
-				} else {
-					frappe.msgprint({
-						title: __("Call-Off Unavailable"),
-						message: __("Blanket call-off dialog did not load. Please hard-refresh the page (Ctrl+Shift+R) and try again."),
-						indicator: "orange",
-					});
-				}
-			}, __("Create"));
-			frm.add_custom_button(__("View Call-Offs"), function () {
-				if (window.logistics && logistics.view_blanket_call_offs) {
-					logistics.view_blanket_call_offs(frm);
-				} else {
-					frappe.msgprint({
-						title: __("Call-Off Unavailable"),
-						message: __("Blanket call-off scripts did not load. Please hard-refresh the page (Ctrl+Shift+R) and try again."),
-						indicator: "orange",
-					});
-				}
-			}, __("Action"));
-		}
-
-		// Add custom button to create Transport Order if main_service = Transport
-		add_create_button(frm, {
-			doctype: "Transport Order",
-			main_service: "Transport",
-			create_label: "Create Transport Order",
-			view_label: "View Transport Orders",
-			create_function: create_transport_order_from_sales_quote
-		});
-		
-		// Add custom button to create Warehouse Contract if quote is submitted and has warehousing items (unified or legacy)
-		const has_warehousing = (frm.doc.charges && frm.doc.charges.some(c => logistics_canonical_charge_service_type(c.service_type) === "warehousing")) ||
-			(frm.doc.warehousing && frm.doc.warehousing.length > 0);
-		const one_off_warehouse_ok =
-			frm.doc.quotation_type !== "One-off" || frm.doc.main_service === "Warehousing";
-		if (
-			frm.doc.docstatus === 1 &&
-			has_warehousing &&
-			!frm.doc.__islocal &&
-			one_off_warehouse_ok &&
-			!frm.doc.additional_charge
-		) {
-			frm.add_custom_button(__("Create Warehouse Contract"), function() {
-				create_warehouse_contract_from_sales_quote(frm);
-			}, __("Create"));
-			
-			// Also add a button to view existing Warehouse Contracts if any exist
-			frappe.db.get_value("Warehouse Contract", {"sales_quote": frm.doc.name}, "name", function(r) {
-				if (r && r.name) {
-					frm.add_custom_button(__("View Warehouse Contracts"), function() {
-						frappe.route_options = {"sales_quote": frm.doc.name};
-						frappe.set_route("List", "Warehouse Contract");
-					}, __("Action"));
-				}
-			});
-		}
-		
-		// Add custom button to create Declaration Order if quote is One-Off and submitted (unified or legacy)
-		const has_customs = (frm.doc.charges && frm.doc.charges.some(c => logistics_canonical_charge_service_type(c.service_type) === "custom")) ||
-			(frm.doc.customs && frm.doc.customs.length > 0);
-		if (
-			frm.doc.quotation_type === "One-off" &&
-			(frm.doc.main_service === "Custom" || frm.doc.main_service === "Customs") &&
-			has_customs &&
-			!frm.doc.__islocal &&
-			frm.doc.docstatus === 1 &&
-			!frm.doc.additional_charge
-		) {
-			frappe.db.get_value("Declaration Order", {"sales_quote": frm.doc.name}, "name", function(r) {
-				if (!r || !r.name) {
-					frm.add_custom_button(__("Declaration Order"), function() {
-						create_declaration_order_from_sales_quote(frm);
-					}, __("Create"));
-				} else {
-					frm.add_custom_button(__("View Declaration Orders"), function() {
-						frappe.route_options = {"sales_quote": frm.doc.name};
-						frappe.set_route("List", "Declaration Order");
-					}, __("Action"));
-				}
-			});
-		}
-		
-		// Add custom button to create Air Booking if main_service = Air
-		add_create_button(frm, {
-			doctype: "Air Booking",
-			main_service: "Air",
-			create_label: "Create Air Booking",
-			view_label: "View Air Bookings",
-			create_function: create_air_booking_from_sales_quote
-		});
-		
-		// Add custom button to create Sea Booking if main_service = Sea
-		add_create_button(frm, {
-			doctype: "Sea Booking",
-			main_service: "Sea",
-			create_label: "Create Sea Booking",
-			view_label: "View Sea Bookings",
-			create_function: create_sea_booking_from_sales_quote
-		});
+		logistics_sq_add_convert_buttons(frm);
 
 		logistics_sq_add_programme_create_buttons(frm);
 
@@ -2045,7 +1920,7 @@ function show_cost_sheet_charge_selection_dialog(frm, charges) {
 }
 
 function logistics_sq_add_programme_create_buttons(frm) {
-	if (frm.doc.additional_charge || frm.doc.__islocal || frm.doc.docstatus !== 1) {
+	if (cint(frm.doc.additional_charge) || frm.doc.__islocal || cint(frm.doc.docstatus) !== 1) {
 		return;
 	}
 
@@ -2093,6 +1968,207 @@ function logistics_sq_add_programme_create_buttons(frm) {
 	}
 }
 
+function logistics_sq_menu_add(frm, label, action, group, opts) {
+	opts = opts || {};
+	if (!frm || !frm.doc || typeof action !== "function") {
+		return null;
+	}
+	var btn = null;
+	try {
+		frm._logistics_menu_checked = true;
+		try {
+			btn = frm.add_custom_button(label, action, group);
+		} finally {
+			frm._logistics_menu_checked = false;
+		}
+	} catch (e) {
+		console.error("Sales Quote toolbar button", label, e);
+	}
+	try {
+		if (opts.menu !== false && frm.page && typeof frm.page.add_menu_item === "function") {
+			var menu_label = group ? group + " > " + label : label;
+			frm.page.add_menu_item(menu_label, action, true);
+			if (frm.page.menu_btn_group) {
+				frm.page.menu_btn_group.removeClass("hide");
+			}
+		}
+	} catch (e2) {
+		console.error("Sales Quote menu item", label, e2);
+	}
+	return btn;
+}
+
+function logistics_sq_add_convert_buttons(frm) {
+	if (!frm || !frm.doc || frm.doc.__islocal || !frm.doc.name) {
+		return;
+	}
+	if (cint(frm.doc.docstatus) !== 1 || cint(frm.doc.additional_charge)) {
+		return;
+	}
+
+	if (logistics_sales_quote_supports_booking_order_creation(frm.doc)) {
+		logistics_sq_menu_add(
+			frm,
+			__("Create Booking / Order"),
+			function () {
+				if (frm.is_dirty() && cint(frm.doc.docstatus) !== 1) {
+					frm.save().then(function () {
+						logistics_open_sales_quote_booking_dialog(frm);
+					});
+					return;
+				}
+				if (frm.is_dirty() && cint(frm.doc.docstatus) === 1) {
+					frappe.show_alert({
+						message: __("Opening with current Scope values (unsaved). Save the quote separately if needed."),
+						indicator: "blue",
+					}, 5);
+				}
+				logistics_open_sales_quote_booking_dialog(frm);
+			},
+			null
+		);
+	}
+
+	if (frm.doc.quotation_type === "Regular" && frm.doc.blanket_quotation) {
+		logistics_sq_menu_add(
+			frm,
+			__("Create Call-Off / New Booking…"),
+			function () {
+				if (window.logistics && logistics.open_blanket_call_off_flow) {
+					logistics.open_blanket_call_off_flow(frm);
+				} else {
+					frappe.msgprint({
+						title: __("Call-Off Unavailable"),
+						message: __("Blanket call-off dialog did not load. Please hard-refresh the page (Ctrl+Shift+R) and try again."),
+						indicator: "orange",
+					});
+				}
+			},
+			null
+		);
+		logistics_sq_menu_add(
+			frm,
+			__("View Call-Offs"),
+			function () {
+				if (window.logistics && logistics.view_blanket_call_offs) {
+					logistics.view_blanket_call_offs(frm);
+				} else {
+					frappe.msgprint({
+						title: __("Call-Off Unavailable"),
+						message: __("Blanket call-off scripts did not load. Please hard-refresh the page (Ctrl+Shift+R) and try again."),
+						indicator: "orange",
+					});
+				}
+			},
+			__("Action")
+		);
+	}
+
+	add_create_button(frm, {
+		doctype: "Transport Order",
+		main_service: "Transport",
+		create_label: "Create Transport Order",
+		view_label: "View Transport Orders",
+		create_function: create_transport_order_from_sales_quote,
+	});
+
+	const has_warehousing =
+		(frm.doc.charges &&
+			frm.doc.charges.some(
+				(c) => logistics_canonical_charge_service_type(c.service_type) === "warehousing"
+			)) ||
+		(frm.doc.warehousing && frm.doc.warehousing.length > 0);
+	const one_off_warehouse_ok =
+		frm.doc.quotation_type !== "One-off" || frm.doc.main_service === "Warehousing";
+	if (has_warehousing && one_off_warehouse_ok) {
+		logistics_sq_menu_add(frm, __("Create Warehouse Contract"), function () {
+			create_warehouse_contract_from_sales_quote(frm);
+		}, null);
+		logistics_sq_lookup_linked_document(frm, "Warehouse Contract", function (existing) {
+			if (!existing) {
+				return;
+			}
+			logistics_sq_menu_add(
+				frm,
+				__("View Warehouse Contracts"),
+				function () {
+					frappe.route_options = { sales_quote: frm.doc.name };
+					frappe.set_route("List", "Warehouse Contract");
+				},
+				__("Action")
+			);
+		});
+	}
+
+	const has_customs =
+		(frm.doc.charges &&
+			frm.doc.charges.some(
+				(c) => logistics_canonical_charge_service_type(c.service_type) === "custom"
+			)) ||
+		(frm.doc.customs && frm.doc.customs.length > 0);
+	if (
+		frm.doc.quotation_type === "One-off" &&
+		(frm.doc.main_service === "Custom" || frm.doc.main_service === "Customs") &&
+		has_customs
+	) {
+		logistics_sq_menu_add(frm, __("Create Declaration Order"), function () {
+			create_declaration_order_from_sales_quote(frm);
+		}, null);
+		logistics_sq_lookup_linked_document(frm, "Declaration Order", function (existing) {
+			if (!existing) {
+				return;
+			}
+			if (typeof frm.remove_custom_button === "function") {
+				frm.remove_custom_button(__("Create Declaration Order"));
+			}
+			logistics_sq_menu_add(
+				frm,
+				__("View Declaration Orders"),
+				function () {
+					frappe.route_options = { sales_quote: frm.doc.name };
+					frappe.set_route("List", "Declaration Order");
+				},
+				__("Action")
+			);
+		});
+	}
+
+	add_create_button(frm, {
+		doctype: "Air Booking",
+		main_service: "Air",
+		create_label: "Create Air Booking",
+		view_label: "View Air Bookings",
+		create_function: create_air_booking_from_sales_quote,
+	});
+	add_create_button(frm, {
+		doctype: "Sea Booking",
+		main_service: "Sea",
+		create_label: "Create Sea Booking",
+		view_label: "View Sea Bookings",
+		create_function: create_sea_booking_from_sales_quote,
+	});
+}
+
+function logistics_sq_lookup_linked_document(frm, doctype, callback) {
+	if (!frm || !frm.doc || !frm.doc.name || typeof callback !== "function") {
+		return;
+	}
+	frappe.call({
+		method: "logistics.pricing_center.doctype.sales_quote.sales_quote.get_linked_document_for_sales_quote",
+		args: { sales_quote_name: frm.doc.name, doctype: doctype },
+		callback: function (r) {
+			if (r.exc) {
+				callback(null);
+				return;
+			}
+			callback((r.message && r.message.name) || null);
+		},
+		error: function () {
+			callback(null);
+		},
+	});
+}
+
 // Helper function to add create/view buttons for related documents
 function add_create_button(frm, config) {
 	const {
@@ -2104,68 +2180,65 @@ function add_create_button(frm, config) {
 	} = config;
 
 	// Change Request additional-charge quotes bill the linked job; do not offer new bookings/orders here
-	if (frm.doc.additional_charge) {
+	if (cint(frm.doc.additional_charge)) {
 		return;
 	}
 
-	// Only charge lines for this service authorize creating the related job (not main_service alone)
 	const hasChargesForService = (frm.doc.charges || []).some((c) => logistics_canonical_charge_service_type(c.service_type) === logistics_canonical_charge_service_type(main_service));
 	if (!hasChargesForService) return;
-	
-	// Common conditions
-	const isSubmitted = !frm.doc.__islocal && frm.doc.docstatus === 1;
+
+	const isSubmitted = !frm.doc.__islocal && cint(frm.doc.docstatus) === 1;
 	const isOneOff = frm.doc.quotation_type === "One-off";
-	
+
 	if (!isOneOff || !isSubmitted) return;
-	// One-off: only the Main Service job type is offered from Create (not every service that has charge lines)
 	if (frm.doc.main_service !== main_service) return;
 
-	// Check if a main job already exists (One-off: single main booking/order per quote)
-	const booking_filters = [
-		["sales_quote", "=", frm.doc.name],
-		["docstatus", "!=", 2],
-	];
-	if (doctype === "Sea Booking" || doctype === "Air Booking" || doctype === "Transport Order") {
-		// v3.0: is_main_service was removed from operational DocTypes (service_role cutover).
-		// Filtering on the legacy field raises "Field not permitted in query" from get_list.
-		booking_filters.push(["service_role", "=", "Main"]);
+	function add_create() {
+		logistics_sq_menu_add(frm, __(create_label), function () {
+			create_function(frm);
+		}, null);
 	}
-	frappe.call({
-		method: "frappe.client.get_list",
-		args: {
-			doctype: doctype,
-			filters: booking_filters,
-			fields: ["name"],
-			limit_page_length: 1,
-		},
-		callback: function(r) {
-			const existing = r.message && r.message[0] && r.message[0].name;
-			if (!existing) {
-				frm.add_custom_button(__(create_label), function() {
-					create_function(frm);
-				}, __("Create"));
-			} else if (isOneOff) {
-				frm.add_custom_button(__(view_label), function() {
-					if (doctype === "Sea Booking" || doctype === "Air Booking" || doctype === "Transport Order") {
-						logistics_set_one_off_order_route_nav();
-						frappe.set_route("Form", doctype, existing);
-					} else {
-						frappe.route_options = {"sales_quote": frm.doc.name};
-						frappe.set_route("List", doctype);
-					}
-				}, __("Action"));
-			} else {
-				frm.add_custom_button(__(view_label), function() {
-					frappe.route_options = {"sales_quote": frm.doc.name};
+
+	function add_view(existing) {
+		logistics_sq_menu_add(
+			frm,
+			__(view_label),
+			function () {
+				if (doctype === "Sea Booking" || doctype === "Air Booking" || doctype === "Transport Order") {
+					logistics_set_one_off_order_route_nav();
+					frappe.set_route("Form", doctype, existing);
+				} else {
+					frappe.route_options = { sales_quote: frm.doc.name };
 					frappe.set_route("List", doctype);
-				}, __("Action"));
-			}
-		},
+				}
+			},
+			__("Action"),
+			{ doctype: doctype, ptype: "read" }
+		);
+	}
+
+	// Draw Create immediately. Lookup only switches to View if a main booking already exists.
+	add_create();
+	logistics_sq_lookup_linked_document(frm, doctype, function (existing) {
+		if (!existing) {
+			return;
+		}
+		if (typeof frm.remove_custom_button === "function") {
+			frm.remove_custom_button(__(create_label), __("Create"));
+		}
+		add_view(existing);
 	});
 }
 
 // Child table events for Sales Quote Charge (Transport: vehicle_type, load_type; revenue/cost calculation)
 frappe.ui.form.on('Sales Quote Charge', {
+	form_render: function(frm, cdt, cdn) {
+		if (logistics.charge_type_cleanup && logistics.charge_type_cleanup.refresh_charge_row_field_controls) {
+			logistics.charge_type_cleanup.refresh_charge_row_field_controls(
+				frm, cdt, cdn, ["unit_rate", "unit_cost"], "charges"
+			);
+		}
+	},
 	estimated_revenue: function(frm) {
 		if (frm._suppress_sq_profitability_refresh) {
 			return;
@@ -2240,8 +2313,22 @@ frappe.ui.form.on('Sales Quote Charge', {
 		_alert_if_tariff_selected_without_item(cdt, cdn);
 		_calculate_sales_quote_charge_row(frm, cdt, cdn);
 	},
-	use_tariff_in_revenue: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
-	use_tariff_in_cost: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+	use_tariff_in_revenue: function(frm, cdt, cdn) {
+		if (logistics.charge_type_cleanup && logistics.charge_type_cleanup.refresh_charge_row_field_controls) {
+			logistics.charge_type_cleanup.refresh_charge_row_field_controls(
+				frm, cdt, cdn, ["unit_rate"], "charges"
+			);
+		}
+		_calculate_sales_quote_charge_row(frm, cdt, cdn);
+	},
+	use_tariff_in_cost: function(frm, cdt, cdn) {
+		if (logistics.charge_type_cleanup && logistics.charge_type_cleanup.refresh_charge_row_field_controls) {
+			logistics.charge_type_cleanup.refresh_charge_row_field_controls(
+				frm, cdt, cdn, ["unit_cost"], "charges"
+			);
+		}
+		_calculate_sales_quote_charge_row(frm, cdt, cdn);
+	},
 	
 	load_type: function(frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);

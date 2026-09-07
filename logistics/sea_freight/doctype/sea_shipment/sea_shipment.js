@@ -248,6 +248,9 @@ frappe.ui.form.on('Sea Shipment', {
 			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
 				.then(function(r) { return r.message || { filters: [] }; });
 		});
+		frm.set_query('cut_off', 'cut_offs', function() {
+			return { filters: { is_active: 1 } };
+		});
 		frm.set_query('shipper', function() {
 			return { filters: { is_active: 1 } };
 		});

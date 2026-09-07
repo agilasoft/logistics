@@ -83,30 +83,54 @@ logistics.recognition = {
         var needs_wip = logistics.recognition.needs_wip_recognition(frm.doc);
         var needs_accrual = logistics.recognition.needs_accrual_recognition(frm.doc);
         if (needs_wip || needs_accrual) {
-            frm.add_custom_button(__('WIP and Accrual'), function() {
-                logistics.recognition.recognize(frm);
-            }, __('Post'));
+            logistics.menu.add(frm, {
+                label: __('WIP and Accrual'),
+                group: __('Post'),
+                ptype: 'write',
+                also: [{ doctype: 'Journal Entry', ptype: 'create' }],
+                action: function() {
+                    logistics.recognition.recognize(frm);
+                },
+            });
         }
 
         // Add WIP Adjustment button if there is open WIP balance
         if (frm.doc.wip_amount > 0) {
-            frm.add_custom_button(__('Adjust WIP'), function() {
-                logistics.recognition.adjust_wip(frm);
-            }, __('Recognition'));
+            logistics.menu.add(frm, {
+                label: __('Adjust WIP'),
+                group: __('Recognition'),
+                ptype: 'write',
+                also: [{ doctype: 'Journal Entry', ptype: 'create' }],
+                action: function() {
+                    logistics.recognition.adjust_wip(frm);
+                },
+            });
         }
         
         // Add Accrual Adjustment button if there is open accrual balance
         if (frm.doc.accrual_amount > 0) {
-            frm.add_custom_button(__('Adjust Accruals'), function() {
-                logistics.recognition.adjust_accruals(frm);
-            }, __('Recognition'));
+            logistics.menu.add(frm, {
+                label: __('Adjust Accruals'),
+                group: __('Recognition'),
+                ptype: 'write',
+                also: [{ doctype: 'Journal Entry', ptype: 'create' }],
+                action: function() {
+                    logistics.recognition.adjust_accruals(frm);
+                },
+            });
         }
         
         // Add Close Recognition button if there are open WIP or accruals
         if (frm.doc.wip_amount > 0 || frm.doc.accrual_amount > 0) {
-            frm.add_custom_button(__('Close Recognition'), function() {
-                logistics.recognition.close_recognition(frm);
-            }, __('Recognition'));
+            logistics.menu.add(frm, {
+                label: __('Close Recognition'),
+                group: __('Recognition'),
+                ptype: 'write',
+                also: [{ doctype: 'Journal Entry', ptype: 'create' }],
+                action: function() {
+                    logistics.recognition.close_recognition(frm);
+                },
+            });
         }
     },
     

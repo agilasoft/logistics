@@ -14,10 +14,17 @@
   "cost_tariff",
   "column_break_1",
   "description",
+  "freight_taxes_section",
+  "category_apply_95_5_rule",
+  "apply_95_5_rule",
+  "taxable_freight_item",
+  "taxable_freight_item_tax_template",
   "charge_info_section",
   "pay_to",
+  "pay_to_exchange_rate_source",
   "column_break_currency",
   "currency",
+  "pay_to_exchange_rate",
   "section_break_calculation",
   "revenue_calculation_method",
   "unit_type",
@@ -35,6 +42,7 @@
   "column_break_3",
   "surcharge_amount",
   "total_amount",
+  "base_total_amount",
   "section_break_allocation",
   "allocation_method",
   "allocation_percentage",
@@ -66,6 +74,7 @@
    "in_list_view": 1,
    "label": "Charge Type",
    "options": "Margin\nDisbursement\nRevenue\nCost",
+   "default": "Cost",
    "reqd": 1
   },
   {
@@ -110,6 +119,43 @@
    "label": "Charge Description"
   },
   {
+   "depends_on": "eval:doc.category_apply_95_5_rule",
+   "fieldname": "freight_taxes_section",
+   "fieldtype": "Section Break",
+   "label": "Taxes"
+  },
+  {
+   "default": "0",
+   "fetch_from": "charge_category.apply_95_5_rule",
+   "fieldname": "category_apply_95_5_rule",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.category_apply_95_5_rule",
+   "fieldname": "apply_95_5_rule",
+   "fieldtype": "Check",
+   "label": "Apply 95/5 rule"
+  },
+  {
+   "depends_on": "eval:doc.category_apply_95_5_rule && doc.apply_95_5_rule",
+   "fieldname": "taxable_freight_item",
+   "fieldtype": "Link",
+   "label": "Taxable Freight Item",
+   "link_filters": "[[\"Item\", \"disabled\", \"=\", 0], [\"Item\", \"custom_charge_category\", \"=\", \"Freight\"]]",
+   "options": "Item"
+  },
+  {
+   "depends_on": "eval:doc.category_apply_95_5_rule && doc.apply_95_5_rule",
+   "fieldname": "taxable_freight_item_tax_template",
+   "fieldtype": "Link",
+   "label": "Taxable Freight Item Tax Template",
+   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]",
+   "options": "Item Tax Template"
+  },
+  {
    "fieldname": "charge_info_section",
    "fieldtype": "Section Break"
   },
@@ -122,6 +168,12 @@
    "options": "Supplier"
   },
   {
+   "fieldname": "pay_to_exchange_rate_source",
+   "fieldtype": "Link",
+   "label": "Exchange Rate Source (Pay To)",
+   "options": "Exchange Rate Source"
+  },
+  {
    "fieldname": "column_break_currency",
    "fieldtype": "Column Break"
   },
@@ -132,6 +184,13 @@
    "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
    "options": "Currency",
    "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "pay_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Pay To)",
+   "precision": "9"
   },
   {
    "fieldname": "section_break_calculation",
@@ -150,7 +209,7 @@
    "fieldname": "unit_type",
    "fieldtype": "Select",
    "label": "Unit Type",
-   "options": "Docket\nMICE Job\nBooth\nSquare Meter\nDay\nPiece\nPackage\nTrip\nValue"
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nContainer\nTEU\nItem Count\nOperation Time\nJob\nTrip\nHandling Unit\nValue"
   },
   {
    "fieldname": "unit_of_measure",
@@ -174,7 +233,9 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Unit Rate",
+   "options": "currency",
    "precision": "2",
+   "read_only_depends_on": "eval:doc.use_tariff_in_cost",
    "reqd": 1
   },
   {
@@ -185,12 +246,13 @@
   },
   {
    "default": "0",
+   "depends_on": "eval:doc.revenue_calculation_method=='Per Unit'",
    "fieldname": "cost_use_unit_breaks",
    "fieldtype": "Check",
    "label": "Unit Breaks"
   },
   {
-   "depends_on": "eval:doc.cost_use_unit_breaks",
+   "depends_on": "eval:doc.cost_use_unit_breaks && doc.revenue_calculation_method=='Per Unit'",
    "fieldname": "cost_unit_break",
    "fieldtype": "Button",
    "label": "Manage Unit Breaks"
@@ -204,6 +266,7 @@
    "fieldname": "base_amount",
    "fieldtype": "Currency",
    "label": "Base Amount",
+   "options": "currency",
    "precision": "2",
    "read_only": 1
   },
@@ -211,6 +274,7 @@
    "fieldname": "discount_amount",
    "fieldtype": "Currency",
    "label": "Discount Amount",
+   "options": "currency",
    "precision": "2",
    "read_only": 1
   },
@@ -218,6 +282,7 @@
    "fieldname": "tax_amount",
    "fieldtype": "Currency",
    "label": "Tax Amount",
+   "options": "currency",
    "precision": "2",
    "read_only": 1
   },
@@ -229,12 +294,23 @@
    "fieldname": "surcharge_amount",
    "fieldtype": "Currency",
    "label": "Surcharge Amount",
+   "options": "currency",
    "precision": "2"
   },
   {
    "fieldname": "total_amount",
    "fieldtype": "Currency",
    "label": "Total Amount",
+   "options": "currency",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "description": "Total Amount converted to company currency using Exchange Rate (Pay To). Recomputed on save.",
+   "fieldname": "base_total_amount",
+   "fieldtype": "Currency",
+   "label": "Total Amount (Company Currency)",
+   "options": "Company:company:default_currency",
    "precision": "2",
    "read_only": 1
   },
@@ -265,6 +341,7 @@
    "fieldname": "allocated_amount",
    "fieldtype": "Currency",
    "label": "Allocated Amount",
+   "options": "currency",
    "precision": "2",
    "read_only": 1
   },
@@ -334,7 +411,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-08-14 14:15:00",
+ "modified": "2026-08-18 14:20:00",
  "modified_by": "Administrator",
  "module": "MICE",
  "name": "MICE Project Consolidation Charges",

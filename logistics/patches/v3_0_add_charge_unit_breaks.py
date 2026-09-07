@@ -30,28 +30,28 @@ UNIT_BREAK_FIELDS = [
 		"fieldtype": "Check",
 		"label": "Unit Breaks",
 		"insert_after": "revenue_calc_notes",
-		"depends_on": "eval:!['Cost','Disbursement'].includes(doc.charge_type)",
+		"depends_on": "eval:doc.revenue_calculation_method=='Per Unit' && !['Cost','Disbursement'].includes(doc.charge_type)",
 	},
 	{
 		"fieldname": "selling_unit_break",
 		"fieldtype": "Button",
 		"label": "Manage Unit Breaks",
 		"insert_after": "use_unit_breaks",
-		"depends_on": "eval:doc.use_unit_breaks && !['Cost','Disbursement'].includes(doc.charge_type)",
+		"depends_on": "eval:doc.use_unit_breaks && doc.revenue_calculation_method=='Per Unit' && !['Cost','Disbursement'].includes(doc.charge_type)",
 	},
 	{
 		"fieldname": "cost_use_unit_breaks",
 		"fieldtype": "Check",
 		"label": "Unit Breaks",
 		"insert_after": "cost_calc_notes",
-		"depends_on": "eval:doc.charge_type != 'Revenue'",
+		"depends_on": "eval:doc.cost_calculation_method=='Per Unit' && doc.charge_type != 'Revenue'",
 	},
 	{
 		"fieldname": "cost_unit_break",
 		"fieldtype": "Button",
 		"label": "Manage Unit Breaks",
 		"insert_after": "cost_use_unit_breaks",
-		"depends_on": "eval:doc.cost_use_unit_breaks && doc.charge_type != 'Revenue'",
+		"depends_on": "eval:doc.cost_use_unit_breaks && doc.cost_calculation_method=='Per Unit' && doc.charge_type != 'Revenue'",
 	},
 ]
 

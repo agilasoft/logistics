@@ -42,27 +42,29 @@ app_include_css = [
 	"/assets/logistics/css/change_request_summary.css?v=4",
 	"/assets/logistics/css/linked_services_dialog.css?v=9",
 	"/assets/logistics/css/ts_sq_fetch_dialog.css?v=6",
-	"/assets/logistics/css/role_permission_matrix.css?v=5",
+	"/assets/logistics/css/role_permission_matrix.css?v=6",
 ]
 app_include_js = [
 	"/assets/logistics/js/address_link_query.js?v=1",
 	"/assets/logistics/js/party_address_contact.js?v=1",
 	"/assets/logistics/js/linked_service_link_query.js?v=2",
-	"/assets/logistics/js/virtual_linked_services_grid.js?v=1",
+	"/assets/logistics/js/virtual_linked_services_grid.js?v=2",
 	"/assets/logistics/js/linked_services_dialog.js?v=5",
 	"/assets/logistics/js/ts_sq_fetch_dialog.js?v=6",
 	"/assets/logistics/js/freight_agent_service.js?v=4",
 	"/assets/logistics/js/charge_bill_to.js?v=2",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
-	"/assets/logistics/js/form_desk_title_route_guard.js?v=3",
+	"/assets/logistics/js/form_desk_title_route_guard.js?v=4",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
-	"/assets/logistics/js/internal_job_create_from_source.js?v=20",
+	"/assets/logistics/js/menu_permission.js?v=9",
+	"/assets/logistics/js/submitted_child_doc_toolbar.js?v=1",
+	"/assets/logistics/js/internal_job_create_from_source.js?v=22",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js?v=2",
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
 	"/assets/logistics/js/service_role.js?v=3",
 	"/assets/logistics/js/internal_job_detail_grid_delete_fix.js",
-	"/assets/logistics/js/get_charges_from_quotation.js?v=19",
+	"/assets/logistics/js/get_charges_from_quotation.js?v=21",
 	"/assets/logistics/js/gcfq_settings_dashboard.js?v=1",
 	"/assets/logistics/js/get_charges_from_tariff.js?v=1",
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=3",
@@ -85,9 +87,9 @@ app_include_js = [
 	"/assets/logistics/js/job_change_lock.js?v=3",
 	"/assets/logistics/js/change_request_visibility.js?v=2",
 	"/assets/logistics/js/change_request_summary.js?v=5",
-	"/assets/logistics/js/time_sensitive_timer.js?v=1",
-	"/assets/logistics/js/time_sensitive_form.js?v=2",
-	"/assets/logistics/js/time_sensitive_list.js?v=1",
+	"/assets/logistics/js/time_sensitive_timer.js?v=2",
+	"/assets/logistics/js/time_sensitive_form.js?v=3",
+	"/assets/logistics/js/time_sensitive_list.js?v=2",
 ]
 
 # include js, css files in header of web template
@@ -108,7 +110,12 @@ doctype_js = {
 	"Time Sensitive Case": [
 		"public/js/time_sensitive_timer.js",
 		"public/js/time_sensitive_services_dialog.js",
+		"public/js/time_sensitive_create_service_dialog.js",
 		"public/js/ts_sq_fetch_dialog.js",
+		"public/js/operational_exchange_rate_grid.js",
+		"public/js/charge_break_dialogs.js",
+		"time_sensitive/doctype/time_sensitive_case_charge/time_sensitive_case_charge.js",
+		"public/js/charge_break_buttons.js",
 		"time_sensitive/doctype/time_sensitive_case/time_sensitive_case.js",
 	],
 	"Internal Job Detail": "logistics/logistics/doctype/internal_job_detail/internal_job_detail.js",
@@ -333,6 +340,7 @@ doctype_js = {
 		"public/js/purchase_invoice_dialog.js",
 		"public/js/charge_break_dialogs.js",
 		"public/js/charge_break_buttons.js",
+		"public/js/operational_exchange_rate_grid.js",
 		# istable DocTypes do not load their own .js via FormMeta; attach child handlers here.
 		"mice/doctype/mice_project_consolidation_charges/mice_project_consolidation_charges.js",
 	],
@@ -561,6 +569,32 @@ for _dt in (
 			doc_events[_dt]["validate"] = list(_v) + [_JOB_HEADER_ESTIMATE_FROM_CHARGES]
 	elif _v != _JOB_HEADER_ESTIMATE_FROM_CHARGES:
 		doc_events[_dt]["validate"] = [_v, _JOB_HEADER_ESTIMATE_FROM_CHARGES]
+
+# Auto WIP / Accrual: enqueue after submit and after-submit updates (ATA/ATD, charges).
+_AUTO_RECOGNIZE_HANDLER = "logistics.job_management.auto_recognition.enqueue_auto_recognize"
+_AUTO_RECOGNIZE_EVENTS = ("on_submit", "on_update_after_submit")
+for _dt in (
+	"Air Shipment",
+	"Sea Shipment",
+	"Transport Job",
+	"Warehouse Job",
+	"Declaration",
+	"General Job",
+	"Project Job",
+	"Special Project",
+	"Docket",
+):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	for _event in _AUTO_RECOGNIZE_EVENTS:
+		_existing = doc_events[_dt].get(_event)
+		if not _existing:
+			doc_events[_dt][_event] = _AUTO_RECOGNIZE_HANDLER
+		elif isinstance(_existing, list):
+			if _AUTO_RECOGNIZE_HANDLER not in _existing:
+				doc_events[_dt][_event] = list(_existing) + [_AUTO_RECOGNIZE_HANDLER]
+		elif _existing != _AUTO_RECOGNIZE_HANDLER:
+			doc_events[_dt][_event] = [_existing, _AUTO_RECOGNIZE_HANDLER]
 
 # Block charge grid edits when job/shipment is in a closing status (Reopen Job unlocks)
 _CHARGE_REOPEN_VALIDATE = "logistics.job_management.charge_reopen.validate_submitted_charges_not_locked"
@@ -900,6 +934,8 @@ scheduler_events = {
 		"logistics.container_management.api.reconcile_containers_from_terminal_sea_shipments",
 		"logistics.air_freight.flight_schedules.tasks.cleanup_old_schedules",
 		"logistics.air_freight.flight_schedules.tasks.cleanup_old_sync_logs",
+		"logistics.air_freight.casslink.sftp_client.pull_configured_companies",
+		"logistics.job_management.auto_recognition.process_auto_recognition",
 	],
 }
 
@@ -967,6 +1003,7 @@ after_migrate = [
 	"logistics.analytics_reports.sync_cnx_reports.after_migrate",
 	"logistics.cash_advance.install.after_migrate",
 	"logistics.control_tower.install.after_migrate",
+	"logistics.sea_freight.install.after_migrate",
 ]
 
 after_install = "logistics.control_tower.install.after_install"

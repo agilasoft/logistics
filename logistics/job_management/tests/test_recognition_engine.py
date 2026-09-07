@@ -109,6 +109,7 @@ class TestRecognitionEngine(unittest.TestCase):
         self.assertIsNotNone(settings)
         self.assertIn("enable_wip_recognition", settings)
         self.assertIn("enable_accrual_recognition", settings)
+        self.assertIn("auto_recognize", settings)
     
     def test_date_resolution_functions(self):
         """Test date resolution helper functions."""
@@ -138,6 +139,27 @@ class TestRecognitionEngine(unittest.TestCase):
         # Test with no dimensions (should match default)
         policy = get_recognition_policy_by_dimensions(self.company)
         self.assertIsNotNone(policy)
+
+
+class TestRecognitionJobSave(unittest.TestCase):
+    """Recognition posting must be able to stamp JE links on a submitted job."""
+
+    def test_save_job_ignores_lock_and_update_after_submit(self):
+        class Job:
+            def __init__(self):
+                self.doctype = "Air Shipment"
+                self.company = "Test Co"
+                self.flags = frappe._dict()
+                self.saved_with = None
+
+            def save(self, ignore_permissions=False):
+                self.saved_with = ignore_permissions
+
+        job = Job()
+        engine = RecognitionEngine(job)
+        engine._save_job()
+        self.assertTrue(job.flags.ignore_job_change_lock)
+        self.assertTrue(job.flags.ignore_validate_update_after_submit)
 
 
 class TestRecognitionJeDimensions(unittest.TestCase):

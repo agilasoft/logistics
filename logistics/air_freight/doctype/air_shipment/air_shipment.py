@@ -2793,6 +2793,7 @@ class AirShipment(VirtualLinkedServicesMixin, Document):
 	@frappe.whitelist()
 	def recalculate_all_charges(self):
 		"""Recalculate all charges based on current Air Shipment data using centralized charge calculation."""
+		self.check_permission("write")
 		if not hasattr(self, 'charges') or not self.charges:
 			return {
 				"success": False,
@@ -3145,7 +3146,9 @@ def create_air_shipment_iata_transaction(air_shipment):
 	if not air_shipment:
 		frappe.throw(_("Air Shipment is required"))
 	doc = frappe.get_doc("Air Shipment", air_shipment)
-	doc.check_permission("write")
+	from logistics.utils.menu_permission import assert_create_from_source
+
+	assert_create_from_source("Air Shipment IATA Transaction", source_doc=doc)
 	existing = frappe.db.get_value(
 		"Air Shipment IATA Transaction", {"air_shipment": doc.name}, "name"
 	)
@@ -3182,6 +3185,9 @@ def populate_charges_from_sales_quote(docname=None):
 		self = frappe.get_doc("Air Shipment", docname)
 	except frappe.DoesNotExistError:
 		frappe.throw(_("Air Shipment document '{0}' not found").format(docname))
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm("Air Shipment", "write", doc=self)
 	
 	if not self.sales_quote:
 		frappe.throw(_("Sales Quote is not set for this Air Shipment"))
@@ -3364,8 +3370,11 @@ def create_sales_invoice_from_air_shipment(shipment_name, posting_date, customer
 @frappe.whitelist()
 def post_standard_costs(docname):
 	"""Post standard costs for Air Shipment charges. No-op if charges do not support standard costs."""
-	# Air Shipment Charges may not have standard_cost_posted; return message if nothing to post
+	from logistics.utils.menu_permission import assert_perm
+
 	shipment = frappe.get_doc("Air Shipment", docname)
+	assert_perm("Air Shipment", "write", doc=shipment)
+	assert_perm("Journal Entry", "create")
 	posted = 0
 	for ch in (shipment.charges or []):
 		if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(ch, "standard_cost_posted", False):

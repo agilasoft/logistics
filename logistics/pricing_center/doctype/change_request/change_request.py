@@ -521,15 +521,36 @@ def _cr_default_linked_service_for_charges(cr) -> str | None:
 	return job_default
 
 
+def _change_request_owns_linked_service(cr, linked) -> bool:
+	"""True when *linked* is parented to this Change Request (not a job-reused IJ)."""
+	cr_name = getattr(cr, "name", None) or ""
+	if not cr_name:
+		return False
+	if isinstance(linked, str):
+		ls_dt = linked_service_doctype()
+		parent_type = frappe.db.get_value(ls_dt, linked, "parent_booking_type")
+		parent_name = frappe.db.get_value(ls_dt, linked, "parent_booking_name")
+	else:
+		parent_type = getattr(linked, "parent_booking_type", None)
+		parent_name = getattr(linked, "parent_booking_name", None)
+	return (parent_type or "") == "Change Request" and (parent_name or "") == cr_name
+
+
 def _clone_change_request_linked_services_onto_sales_quote(cr, sq_name: str) -> dict[str, str]:
-	"""Clone CR-owned Linked Services onto a Sales Quote; return ``{cr_ls: sq_ls}``."""
-	from logistics.utils.internal_job_persistence import (
-		create_internal_job_for_parent_from_source,
-		get_internal_jobs_for_booking,
+	"""Clone CR-owned Linked Services onto a Sales Quote; return ``{cr_ls: sq_ls}``.
+
+	Job-originated IJs reused via Usage are left unmapped so additional-charge quote
+	rows keep the same ``linked_service`` as the live job.
+	"""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_change_request,
 	)
+	from logistics.utils.internal_job_persistence import create_internal_job_for_parent_from_source
 
 	mapping: dict[str, str] = {}
-	for cr_ls in get_internal_jobs_for_booking(cr):
+	for cr_ls in get_linked_services_for_change_request(cr.name):
+		if not _change_request_owns_linked_service(cr, cr_ls):
+			continue
 		new_name = create_internal_job_for_parent_from_source("Sales Quote", sq_name, cr_ls)
 		mapping[cr_ls.name] = new_name
 	return mapping
@@ -598,21 +619,18 @@ def get_eligible_internal_jobs_for_change_request_job(
 	)
 
 	if job_type in MAIN_JOB_TYPES_FOR_CHANGE_REQUEST:
-		ls_names = frappe.get_all(
-			ls_dt,
-			filters={"parent_booking_type": job_type, "parent_booking_name": job_name},
-			pluck="name",
-			order_by="creation asc",
+		from logistics.logistics.doctype.linked_service.linked_service import (
+			get_linked_services_for_booking,
 		)
+
 		rows = []
-		for ls_name in ls_names:
-			st = frappe.db.get_value(ls_dt, ls_name, "service_type")
-			jt, on = latest_satellite_job_from_usage(ls_name)
-			_et, jn = latest_shipment_from_usage(ls_name)
+		for ls in get_linked_services_for_booking(job_type, job_name):
+			jt, on = latest_satellite_job_from_usage(ls.name)
+			_et, jn = latest_shipment_from_usage(ls.name)
 			rows.append(
 				{
-					"name": ls_name,
-					"service_type": st,
+					"name": ls.name,
+					"service_type": ls.service_type,
 					"job_type": jt or None,
 					"order_no": on or None,
 					"job_no": jn or None,
@@ -621,6 +639,9 @@ def get_eligible_internal_jobs_for_change_request_job(
 			)
 		out["linked_services"] = rows
 		out["internal_jobs"] = rows
+		if len(rows) == 1:
+			out["default_linked_service"] = rows[0]["name"]
+			out["default_internal_job"] = rows[0]["name"]
 		return out
 
 	if job_type in INTERNAL_JOB_SATELLITE_JOB_TYPES:
@@ -652,6 +673,39 @@ def get_eligible_internal_jobs_for_change_request_job(
 	return out
 
 
+def _attach_job_linked_services_to_change_request(cr, job=None) -> None:
+	"""Record Usage so the job's existing IJs appear on this CR (same IDs, no clone)."""
+	if not cr or not getattr(cr, "name", None):
+		return
+	if not getattr(cr, "job_type", None) or not getattr(cr, "job", None):
+		return
+	eligible = get_eligible_internal_jobs_for_change_request_job(
+		cr.job_type, cr.job, change_request_name=None
+	)
+	names = [
+		(row.get("name") or "").strip()
+		for row in (eligible.get("linked_services") or [])
+		if (row.get("name") or "").strip()
+	]
+	if not names:
+		return
+	from logistics.utils.linked_service_usage import record_usages_for_linked_services
+
+	sq = None
+	if job is not None:
+		sq = getattr(job, "sales_quote", None)
+	else:
+		meta = frappe.get_meta(cr.job_type)
+		if meta.has_field("sales_quote"):
+			sq = frappe.db.get_value(cr.job_type, cr.job, "sales_quote")
+	record_usages_for_linked_services(
+		names,
+		"Change Request",
+		cr.name,
+		sales_quote=sq,
+	)
+
+
 @frappe.whitelist()
 def create_change_request(job_type, job_name, sections=None, reason=None, reuse_draft=None):
 	"""Create a Change Request linked to the job, seeded from current job values.
@@ -663,6 +717,11 @@ def create_change_request(job_type, job_name, sections=None, reason=None, reuse_
 		frappe.throw(_("Job Type and Job are required"))
 	if not frappe.db.exists(job_type, job_name):
 		frappe.throw(_("Job {0} does not exist").format(job_name))
+
+	from logistics.utils.menu_permission import assert_create_from_source
+
+	job = frappe.get_doc(job_type, job_name)
+	assert_create_from_source("Change Request", source_doc=job)
 
 	from frappe.utils import cint
 
@@ -677,6 +736,8 @@ def create_change_request(job_type, job_name, sections=None, reason=None, reuse_
 			limit_page_length=1,
 		)
 		if existing_rows:
+			existing = frappe._dict(name=existing_rows[0], job_type=job_type, job=job_name)
+			_attach_job_linked_services_to_change_request(existing, job)
 			return existing_rows[0]
 
 	reason = (reason or "").strip() or _("Amendment")
@@ -694,6 +755,7 @@ def create_change_request(job_type, job_name, sections=None, reason=None, reuse_
 	cr.status = "Draft"
 	seed_change_request_from_job(cr, sections=sections, reason=reason)
 	cr.insert(ignore_permissions=True)
+	_attach_job_linked_services_to_change_request(cr, job)
 	return cr.name
 
 
@@ -751,6 +813,9 @@ def create_sales_quote_from_change_request(change_request_name):
 	``logistics.pricing_center.change_request_to_job.merge_sales_quote_revenue_into_change_request_job_rows``).
 	"""
 	cr = frappe.get_doc("Change Request", change_request_name)
+	from logistics.utils.menu_permission import assert_create_from_source
+
+	assert_create_from_source("Sales Quote", source_doc=cr)
 	if cr.docstatus != 1:
 		frappe.throw(_("Submit the Change Request before creating a Sales Quote."))
 	if not cr.charges:
@@ -853,7 +918,7 @@ def list_change_request_linked_services(change_request: str):
 			{
 				"linked_service": linked.name,
 				"service_type": linked.service_type,
-				"owned_by_change_request": 1,
+				"owned_by_change_request": 1 if _change_request_owns_linked_service(cr, linked) else 0,
 				"job_type": job_type or "",
 				"job_no": job_no or "",
 			}
@@ -892,10 +957,15 @@ def add_linked_service(change_request: str, service_type: str):
 
 @frappe.whitelist()
 def remove_linked_service(change_request: str, linked_service: str):
-	"""Delete a Change Request–owned Linked Service and clear charge tags to it."""
+	"""Remove a Linked Service from this Change Request.
+
+	CR-owned rows are deleted. Job-originated rows (Usage) are unlinked only —
+	the live job keeps the IJ.
+	"""
 	from logistics.logistics.doctype.linked_service.linked_service import (
 		get_linked_services_for_change_request,
 	)
+	from logistics.utils.linked_service_usage import clear_linked_service_usage
 
 	cr = frappe.get_doc("Change Request", change_request)
 	frappe.has_permission("Change Request", "write", doc=cr, throw=True)
@@ -905,21 +975,20 @@ def remove_linked_service(change_request: str, linked_service: str):
 	if not frappe.db.exists(ls_dt, linked_service):
 		frappe.throw(_("Linked Service {0} was not found.").format(linked_service))
 
-	owned_names = {row.name for row in get_linked_services_for_change_request(cr.name)}
-	if linked_service not in owned_names:
+	linked_names = {row.name for row in get_linked_services_for_change_request(cr.name)}
+	if linked_service not in linked_names:
 		frappe.throw(
 			_("Linked Service {0} is not linked to this Change Request.").format(linked_service)
 		)
 
-	parent_type = frappe.db.get_value(ls_dt, linked_service, "parent_booking_type")
-	parent_name = frappe.db.get_value(ls_dt, linked_service, "parent_booking_name")
-	if parent_type != "Change Request" or parent_name != cr.name:
-		frappe.throw(
-			_("Linked Service {0} is not owned by this Change Request.").format(linked_service)
-		)
-
 	_clear_change_request_charge_links_to_linked_service(cr, linked_service)
-	frappe.delete_doc(ls_dt, linked_service, ignore_permissions=True, force=True)
+	owned = _change_request_owns_linked_service(cr, linked_service)
+	if owned:
+		frappe.delete_doc(ls_dt, linked_service, ignore_permissions=True, force=True)
+		action = "removed"
+	else:
+		clear_linked_service_usage("Change Request", cr.name, linked_service=linked_service)
+		action = "unlinked"
 
 	cr.flags._linked_services_view_cached = False
 	if "linked_services" in cr.__dict__:
@@ -930,5 +999,5 @@ def remove_linked_service(change_request: str, linked_service: str):
 	return {
 		"name": cr.name,
 		"linked_service": linked_service,
-		"action": "removed",
+		"action": action,
 	}

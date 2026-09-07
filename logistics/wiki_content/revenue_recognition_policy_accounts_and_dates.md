@@ -14,6 +14,15 @@
 
 Basis options: ATA, ATD, Job Booking Date, Job Creation, User Specified.
 
+## Auto Recognize
+
+**Auto Recognize** is an opt-in checkbox on **Revenue Recognition Policy Settings** (default off). When it is on:
+
+- WIP and Accrual journal entries are posted for **submitted** jobs once the recognition date is known and is not in the future.
+- Triggers: job submit, after-submit changes (ATA/ATD, charges, estimates), and a **daily** catch-up for jobs whose estimated revenue/cost still exceeds posted WIP/accrual.
+- If the date basis is **ATA** or **ATD** and that date is not set yet, posting waits (it does not block submit). **User Specified** waits until **Recognition Date** is filled on the job.
+- **Post → WIP and Accrual** on the job form remains available for manual posting (including drafts).
+
 ## GL accounts (parameter row)
 
 | Field | Account filter | Job Profit Account Type |

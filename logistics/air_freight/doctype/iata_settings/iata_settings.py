@@ -35,6 +35,10 @@ class IATASettings(Document):
 		if self.test_mode and self.ccs_test_endpoint:
 			validate_url(self.ccs_test_endpoint, throw=True)
 
+		self._validate_cass_settings()
+		self._validate_dg_settings()
+		self._validate_tact_settings()
+
 		if not self.cargo_xml_enabled:
 			return
 
@@ -60,6 +64,28 @@ class IATASettings(Document):
 			if not provider_test_endpoint:
 				# Sandbox mock is still allowed without a CCS test endpoint.
 				pass
+
+	def _validate_cass_settings(self):
+		if not self.cass_enabled:
+			return
+		if not self.cass_participant_code:
+			frappe.throw(_("CASS Participant Code is required when CASSLink is enabled"))
+		if self.cass_api_endpoint:
+			validate_url(self.cass_api_endpoint, throw=True)
+		if not self.cass_role:
+			self.cass_role = "Agent"
+
+	def _validate_dg_settings(self):
+		if self.dg_autocheck_enabled and not self.dg_autocheck_api_key:
+			frappe.throw(_("DG AutoCheck API Key is required when DG AutoCheck is enabled"))
+
+	def _validate_tact_settings(self):
+		if not self.tact_subscription:
+			return
+		if not self.tact_api_key:
+			frappe.throw(_("TACT API Key is required when TACT Subscription is enabled"))
+		if not self.tact_endpoint:
+			frappe.throw(_("TACT Endpoint is required when TACT Subscription is enabled"))
 
 	def _validate_ccs_hub_settings(self):
 		if not self.ccs_provider:
@@ -91,21 +117,6 @@ class IATASettings(Document):
 
 		if self.ccs_endpoint:
 			validate_url(self.ccs_endpoint, throw=True)
-
-		if self.dg_autocheck_enabled and not self.dg_autocheck_api_key:
-			frappe.throw(_("DG AutoCheck API Key is required when DG AutoCheck is enabled"))
-
-		if self.cass_enabled and not self.cass_participant_code:
-			frappe.throw(_("CASS Participant Code is required when CASSLink is enabled"))
-
-		if self.cass_enabled and not self.cass_api_endpoint:
-			frappe.throw(_("CASS API Endpoint is required when CASSLink is enabled"))
-
-		if self.tact_subscription and not self.tact_api_key:
-			frappe.throw(_("TACT API Key is required when TACT Subscription is enabled"))
-
-		if self.tact_subscription and not self.tact_endpoint:
-			frappe.throw(_("TACT Endpoint is required when TACT Subscription is enabled"))
 
 	def on_update(self):
 		"""Called after saving"""

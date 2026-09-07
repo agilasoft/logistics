@@ -36,22 +36,33 @@ frappe.ui.form.on("Transport Consolidation", {
 		}
 
 		// Add custom button to fetch jobs (always show dialog for manual selection)
-		frm.add_custom_button(__("Jobs"), function() {
-			fetch_consolidatable_jobs(frm);
-		}, __("Fetch"));
-		
+		logistics.menu.add(frm, {
+			label: __("Jobs"),
+			group: __("Fetch"),
+			ptype: "write",
+			action: function() {
+				fetch_consolidatable_jobs(frm);
+			},
+		});
+
 		// Add custom button to create Run Sheet
 		if (!frm.doc.__islocal && frm.doc.transport_jobs && frm.doc.transport_jobs.length > 0) {
-			frm.add_custom_button(__("Run Sheet"), function() {
-				create_run_sheet_from_consolidation(frm);
-			}, __("Create"));
+			logistics.menu.add(frm, {
+				label: __("Run Sheet"),
+				group: __("Create"),
+				doctype: "Run Sheet",
+				ptype: "create",
+				action: function() {
+					create_run_sheet_from_consolidation(frm);
+				},
+			});
 		}
 		
 		// Set query filter for transport_job field in child table
 		// Exclude jobs that have any leg with run_sheet assigned
 		frm.set_query("transport_job", "transport_jobs", function() {
 			// Call server method to get filters
-			let filters = { docstatus: 1 }; // Default: only submitted jobs
+			let filters = { status: "Draft" }; // Default: only draft jobs
 			
 			frappe.call({
 				method: "logistics.transport.doctype.transport_consolidation_job.transport_consolidation_job.get_transport_job_filter",
@@ -67,6 +78,28 @@ frappe.ui.form.on("Transport Consolidation", {
 				filters: filters
 			};
 		});
+
+		frm.set_query("transport_job", "consolidation_packages", function() {
+			const jobs = (frm.doc.transport_jobs || [])
+				.map((row) => row.transport_job)
+				.filter(Boolean);
+			return {
+				filters: {
+					name: ["in", jobs.length ? jobs : [""]],
+				},
+			};
+		});
+
+		// Routing legs are auto-synced from Transport Legs of consolidated jobs
+		if (frm.fields_dict.legs) {
+			frm.set_df_property("legs", "cannot_add_rows", true);
+			frm.set_df_property("legs", "cannot_delete_rows", true);
+			if (frm.fields_dict.legs.grid) {
+				frm.fields_dict.legs.grid.cannot_add_rows = true;
+				frm.fields_dict.legs.grid.only_sortable = true;
+			}
+			frm.refresh_field("legs");
+		}
 	},
 
 	run_sheet(frm) {

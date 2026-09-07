@@ -496,3 +496,188 @@ class TestSeaShipment(FrappeTestCase):
 		self.assertEqual(normalize_container_number(to.container_no), normalize_container_number(cn_b))
 		self.assertEqual(len(to.packages), 1)
 		self.assertEqual(to.packages[0].commodity, comms[1])
+
+	def test_transport_order_from_sea_shipment_copies_unassigned_packages_for_single_container(self):
+		"""FCL: one container on the shipment and blank package Container still copies cargo."""
+		from logistics.utils.container_validation import calculate_iso6346_check_digit, normalize_container_number
+		from logistics.utils.module_integration import create_transport_order_from_sea_shipment
+
+		def _iso_container(serial6: str) -> str:
+			base = "MSCU" + serial6
+			return base + str(calculate_iso6346_check_digit(base + "0"))
+
+		cn = _iso_container(f"{abs(hash(frappe.generate_hash())) % 1000000:06d}")
+
+		ct = frappe.db.get_value("Container Type", {"active": 1}, "name")
+		if not ct:
+			ct = frappe.get_doc(
+				{
+					"doctype": "Container Type",
+					"code": "TST-TO-FCL-CT",
+					"description": "Test container type for FCL unassigned cargo",
+					"active": 1,
+				}
+			).insert(ignore_permissions=True).name
+
+		uom = frappe.db.get_value("UOM", {"enabled": 1}, "name")
+		self.assertTrue(uom)
+
+		comms = frappe.get_all("Commodity", filters={"active": 1}, limit=2, pluck="name")
+		while len(comms) < 2:
+			sfx = frappe.generate_hash(length=4)
+			frappe.get_doc(
+				{"doctype": "Commodity", "commodity_name": f"TST-FCL {sfx}", "active": 1}
+			).insert(ignore_permissions=True)
+			comms = frappe.get_all("Commodity", filters={"active": 1}, limit=2, pluck="name")
+
+		booking = frappe.get_doc(
+			{
+				"doctype": "Sea Booking",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"direction": "Export",
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+			}
+		)
+		booking.insert()
+
+		shipment = frappe.get_doc(
+			{
+				"doctype": "Sea Shipment",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+				"sea_booking": booking.name,
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+				"container_type": ct,
+			}
+		)
+		shipment.append(
+			"routing_legs",
+			{"type": "Pre-carriage", "status": "Planned", "load_port": "USLAX", "discharge_port": "USJFK"},
+		)
+		shipment.append("containers", {"container_no": cn, "type": ct})
+		shipment.append(
+			"packages",
+			{"commodity": comms[0], "no_of_packs": 1, "uom": uom, "weight_uom": uom},
+		)
+		shipment.append(
+			"packages",
+			{"commodity": comms[1], "no_of_packs": 2, "uom": uom, "weight_uom": uom},
+		)
+		shipment.flags.ignore_links = True
+		shipment.insert(ignore_permissions=True, ignore_links=True)
+
+		res = create_transport_order_from_sea_shipment(shipment.name, container_no=cn)
+		to = frappe.get_doc("Transport Order", res["transport_order"])
+		self.assertEqual(normalize_container_number(to.container_no), normalize_container_number(cn))
+		self.assertEqual(len(to.packages), 2)
+		copied = {p.commodity for p in to.packages}
+		self.assertEqual(copied, {comms[0], comms[1]})
+
+	def test_transport_order_from_sea_shipment_unassigned_packages_fail_when_multiple_containers(self):
+		"""Multi-container: blank package Container does not copy; create throws an assign-Container error."""
+		from logistics.utils.container_validation import calculate_iso6346_check_digit
+		from logistics.utils.module_integration import create_transport_order_from_sea_shipment
+
+		def _iso_container(serial6: str) -> str:
+			base = "MSCU" + serial6
+			return base + str(calculate_iso6346_check_digit(base + "0"))
+
+		cn_a = _iso_container(f"{abs(hash(frappe.generate_hash())) % 1000000:06d}")
+		cn_b = _iso_container(f"{abs(hash(frappe.generate_hash())) % 1000000:06d}")
+		if cn_a == cn_b:
+			cn_b = _iso_container(f"{(abs(hash(frappe.generate_hash())) + 1) % 1000000:06d}")
+
+		ct = frappe.db.get_value("Container Type", {"active": 1}, "name")
+		if not ct:
+			ct = frappe.get_doc(
+				{
+					"doctype": "Container Type",
+					"code": "TST-TO-MC-CT",
+					"description": "Test container type for multi-container blank cargo",
+					"active": 1,
+				}
+			).insert(ignore_permissions=True).name
+
+		uom = frappe.db.get_value("UOM", {"enabled": 1}, "name")
+		self.assertTrue(uom)
+
+		comms = frappe.get_all("Commodity", filters={"active": 1}, limit=2, pluck="name")
+		while len(comms) < 2:
+			sfx = frappe.generate_hash(length=4)
+			frappe.get_doc(
+				{"doctype": "Commodity", "commodity_name": f"TST-MC {sfx}", "active": 1}
+			).insert(ignore_permissions=True)
+			comms = frappe.get_all("Commodity", filters={"active": 1}, limit=2, pluck="name")
+
+		booking = frappe.get_doc(
+			{
+				"doctype": "Sea Booking",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"direction": "Export",
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+			}
+		)
+		booking.insert()
+
+		shipment = frappe.get_doc(
+			{
+				"doctype": "Sea Shipment",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+				"sea_booking": booking.name,
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+				"container_type": ct,
+			}
+		)
+		shipment.append(
+			"routing_legs",
+			{"type": "Pre-carriage", "status": "Planned", "load_port": "USLAX", "discharge_port": "USJFK"},
+		)
+		shipment.append("containers", {"container_no": cn_a, "type": ct})
+		shipment.append("containers", {"container_no": cn_b, "type": ct})
+		shipment.append(
+			"packages",
+			{"commodity": comms[0], "no_of_packs": 1, "uom": uom, "weight_uom": uom},
+		)
+		shipment.append(
+			"packages",
+			{"commodity": comms[1], "no_of_packs": 2, "uom": uom, "weight_uom": uom},
+		)
+		shipment.flags.ignore_links = True
+		shipment.insert(ignore_permissions=True, ignore_links=True)
+
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			create_transport_order_from_sea_shipment(shipment.name, container_no=cn_a)
+		self.assertIn("Set Container on the Packages table", str(ctx.exception))

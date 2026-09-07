@@ -19,8 +19,14 @@ def _meta_has(doctype: str, fieldname: str) -> bool:
     return bool(frappe.get_meta(doctype).get_field(fieldname))
 
 
+def category_allows_95_5(charge_category: Optional[str]) -> bool:
+    if not charge_category:
+        return False
+    return cint(frappe.db.get_value("Charge Category", charge_category, "apply_95_5_rule")) == 1
+
+
 def clear_freight_95_5_if_not_freight(doc) -> None:
-    if getattr(doc, "charge_category", None) == FREIGHT_CATEGORY:
+    if category_allows_95_5(getattr(doc, "charge_category", None)):
         return
     if _meta_has(doc.doctype, "apply_95_5_rule"):
         doc.apply_95_5_rule = 0
@@ -38,7 +44,7 @@ def validate_freight_95_5_row(doc, main_item_field: Optional[str] = None) -> Non
     if not _meta_has(doc.doctype, "apply_95_5_rule"):
         return
     clear_freight_95_5_if_not_freight(doc)
-    if getattr(doc, "charge_category", None) != FREIGHT_CATEGORY:
+    if not category_allows_95_5(getattr(doc, "charge_category", None)):
         return
     if not getattr(doc, "apply_95_5_rule", 0):
         return
@@ -59,9 +65,9 @@ def validate_freight_95_5_row(doc, main_item_field: Optional[str] = None) -> Non
 
 def freight_split_applies(ch) -> bool:
     return (
-        getattr(ch, "charge_category", None) == FREIGHT_CATEGORY
-        and getattr(ch, "apply_95_5_rule", 0)
-        and getattr(ch, "taxable_freight_item", None)
+        bool(getattr(ch, "apply_95_5_rule", 0))
+        and bool(getattr(ch, "taxable_freight_item", None))
+        and category_allows_95_5(getattr(ch, "charge_category", None))
     )
 
 
