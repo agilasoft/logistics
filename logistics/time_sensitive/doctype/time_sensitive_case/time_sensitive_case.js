@@ -167,34 +167,68 @@ function logistics_ts_setup_actions_menu(frm) {
 		},
 		__("Actions")
 	);
-}
 
-function logistics_ts_setup_create_service_buttons(frm) {
-	(frm.doc.linked_services || []).forEach((service) => {
-		if (!service.job_no && service.linked_service) {
-			frm.add_custom_button(
-				__("Create {0}: {1}", [service.service_type, service.linked_service]),
-				() => {
+	frm.add_custom_button(
+		__("Create Change Request"),
+		() => {
+			frappe.prompt(
+				[
+					{
+						fieldname: "reason",
+						fieldtype: "Small Text",
+						label: __("Reason"),
+						reqd: 1,
+					},
+				],
+				(v) => {
 					frappe.call({
 						method:
-							"logistics.time_sensitive.doctype.time_sensitive_case.time_sensitive_case.create_service_document",
+							"logistics.time_sensitive.doctype.time_sensitive_case.time_sensitive_case.create_change_request_from_case",
 						args: {
 							case_name: frm.doc.name,
-							linked_service: service.linked_service,
+							reason: v.reason,
+							reuse_draft: 1,
 						},
 						freeze: true,
+						freeze_message: __("Creating Change Request..."),
 						callback(r) {
-							frm.reload_doc();
 							if (r.message) {
-								frappe.set_route("Form", r.message.doctype, r.message.name);
+								frappe.set_route("Form", "Change Request", r.message);
 							}
 						},
 					});
 				},
-				__("Create Service")
+				__("Create Change Request")
 			);
+		},
+		__("Actions")
+	);
+}
+
+function logistics_ts_setup_create_service_button(frm) {
+	if (frm.is_new()) return;
+	var linked = frm.doc.linked_services || [];
+	if (!linked.length) return;
+
+	frm.add_custom_button(__("Booking / Order"), () => {
+		function open() {
+			if (logistics.time_sensitive && logistics.time_sensitive.show_create_service_dialog) {
+				logistics.time_sensitive.show_create_service_dialog(frm);
+				return;
+			}
+			frappe.msgprint({
+				message: __(
+					"The Booking / Order dialog could not load. Refresh the page or contact your administrator if this continues."
+				),
+				indicator: "orange",
+			});
 		}
-	});
+		if (logistics.time_sensitive && logistics.time_sensitive.show_create_service_dialog) {
+			open();
+			return;
+		}
+		frappe.require("/assets/logistics/js/time_sensitive_create_service_dialog.js", open);
+	}, __("Create"));
 }
 
 frappe.ui.form.on("Time Sensitive Case", {
@@ -219,8 +253,11 @@ frappe.ui.form.on("Time Sensitive Case", {
 
 		logistics_ts_setup_services_button(frm);
 		logistics_ts_setup_fetch_button(frm);
+		if (window.logistics && logistics.add_get_charges_from_quotation_button_if_allowed) {
+			logistics.add_get_charges_from_quotation_button_if_allowed(frm);
+		}
 		logistics_ts_setup_actions_menu(frm);
-		logistics_ts_setup_create_service_buttons(frm);
+		logistics_ts_setup_create_service_button(frm);
 	},
 
 	case_type(frm) {

@@ -54,6 +54,8 @@ logistics.patches.v3_0_drop_legacy_columns_before_linked_service_sync
 logistics.patches.v3_0_drop_air_shipment_tracking_fields
 # Time Sensitive: preserve legacy service-leg links as canonical Linked Services
 logistics.patches.v3_0_migrate_time_sensitive_service_legs
+# Time Sensitive Case Charge: qty/rate/amount → quantity/unit_rate/base_amount before standard schema sync
+logistics.patches.v3_0_rename_time_sensitive_case_charge_qty_rate_amount
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
@@ -239,6 +241,8 @@ logistics.patches.v1_34_install_ubp_bank_form_print_format
 logistics.patches.v1_35_install_bank_cheque_print_format
 # Purchase Invoice: BIR Form 2307 vector PDF overlay print format.
 logistics.patches.v1_36_install_bir_2307_print_format
+# Tariff: ALTA customer-facing Jinja print format.
+logistics.patches.v1_37_install_tariff_alta_print_format
 # Pricing desktop tile: workspace JSON was deleted; restore so sidebar Home link resolves.
 logistics.patches.v1_0_restore_pricing_workspace
 # v3.0: Linked Service rename, service_role, Service Scope tab, Sales Quote Pack
@@ -363,6 +367,8 @@ logistics.patches.v3_0_relayout_sales_quote_transport_params
 logistics.patches.v3_0_seed_charge_category_and_convert_links
 # GCFQ: seed default list filter criteria on Get Charges from Quotation Settings
 logistics.patches.v3_0_seed_gcfq_filter_settings
+# GCFQ: append Time Sensitive Case filter rows on already-seeded sites
+logistics.patches.v3_0_seed_gcfq_time_sensitive_filter_settings
 # MICE Order: migrate notes → internal_notes / client_notes (match MICE Job)
 logistics.patches.v3_0_migrate_mice_order_notes_to_internal_client
 # Customs: migrate Declaration Order / Declaration container_numbers Small Text → Containers table
@@ -370,6 +376,18 @@ logistics.patches.v3_0_migrate_declaration_container_numbers_to_table
 # Time Sensitive: Module Def, desk assets, roles, default case types
 logistics.patches.v1_0_ensure_time_sensitive_module_def
 logistics.patches.v1_0_add_time_sensitive_module
+# Time Sensitive Home: operations dashboard (SLA KPIs + alert map)
+logistics.patches.v3_0_sync_time_sensitive_operations_dashboard
+# MICE Home: event operations dashboard (pipeline clocks + venue map)
+logistics.patches.v3_0_sync_mice_operations_dashboard
+# Special Projects Home: project operations dashboard (pipeline clocks + site map)
+logistics.patches.v3_0_sync_special_project_operations_dashboard
+# High Value Home: brand operations dashboard (HV Brands + HV freight SLA map)
+logistics.patches.v3_0_sync_high_value_operations_dashboard
+# Warehousing Home: job operations dashboard (jobs, owners, open orders, SLA)
+logistics.patches.v3_0_sync_warehouse_operations_dashboard
+# Job Management Home: jobs, WIP, accrual, billing monitor
+logistics.patches.v3_0_sync_job_operations_dashboard
 # Party Address Link fields: clear JSON link_filters that break address_query (PermissionError Address.link_doctype).
 logistics.patches.v1_0_clear_party_address_link_filters
 # Sales Quote / Opportunity: Cross-Docking is no longer a Primary Service Type (use Warehousing / linked Cross-Docking)
@@ -386,3 +404,79 @@ logistics.patches.v3_0_load_type_required_seal_number
 logistics.patches.v3_0_truck_ban_drop_ban_type_scope
 # Truck Ban Constraint: backfill constraint_type from addresses / routes / plate coding / weight
 logistics.patches.v3_0_truck_ban_constraint_type
+# Charge Category: enable Apply 95/5 rule on seeded Freight (Taxes section gate)
+logistics.patches.v3_0_charge_category_apply_95_5_rule
+# MICE Project Consolidation Charges: backfill Taxes-section 95/5 gate
+logistics.patches.v3_0_mice_consolidation_charges_apply_95_5_rule
+# Tariff ALTA: DESCRIPTION column resolves Item Name from Item master when row field is empty
+logistics.patches.v1_38_update_tariff_alta_print_format
+# Tariff ALTA: group rate rows by Charge Category instead of Service Type
+logistics.patches.v1_39_update_tariff_alta_print_format
+# Tariff ALTA: drop the No. column from the rates table
+logistics.patches.v1_40_update_tariff_alta_print_format
+# Tariff ALTA: print selling Unit Break tiers in the RATE column
+logistics.patches.v1_41_update_tariff_alta_print_format
+# Tariff ALTA: Unit Breaks as 1x20' / 1x40' / 1x40' HC columns
+logistics.patches.v1_42_update_tariff_alta_print_format
+# Tariff ALTA: drop Import / Valid Until from rate description cells
+logistics.patches.v1_43_update_tariff_alta_print_format
+# Tariff ALTA: DESCRIPTION column header; Charge Category without underline
+logistics.patches.v1_44_update_tariff_alta_print_format
+# Tariff ALTA: remove Tariff Rates heading above the rates table
+logistics.patches.v1_45_update_tariff_alta_print_format
+# Tariff ALTA: tighten Item Name row top/bottom spacing
+logistics.patches.v1_46_update_tariff_alta_print_format
+# Tariff ALTA: Word-style vertical padding on every rates-table row
+logistics.patches.v1_47_update_tariff_alta_print_format
+# Container: Location Type = DocType (UNLOCO / Transport Zone); location = Dynamic Link
+logistics.patches.v3_0_container_location_dynamic_link
+# MICE Sales Quote HTML: Item Name, Currency, Rate, Unit Type columns only
+logistics.patches.v3_0_update_mice_sales_quote_html_print_format
+# Sea Shipment: migrate flat cut-off Datetimes into Sea Freight Cut Off child table
+logistics.patches.v3_0_migrate_sea_shipment_cut_offs_to_table
+# Tariff ALTA: keep rate rows out of the repeating print footer
+logistics.patches.v3_0_update_tariff_alta_print_format
+# Tariff ALTA: 15 charge rows per printed page
+logistics.patches.v3_0_update_tariff_alta_print_format_row_limit
+# Air Freight CASSLink: workspace card + sidebar links
+logistics.patches.v3_0_sync_air_freight_casslink_desk
+# Tariff ALTA: Unit Break columns by Container Type (20/40/45) not numeric thresholds
+logistics.patches.v3_0_update_tariff_alta_container_type_breaks
+# Unit Breaks checkbox/button only when calculation method is Per Unit
+logistics.patches.v3_0_unit_breaks_depends_on_per_unit
+# Promote Unit Breaks Custom Fields onto native charge DocTypes
+logistics.patches.v3_0_promote_charge_unit_breaks_fields
+# Air/Sea Shipment: grant Freight Manager create so Create Shipment stays visible
+logistics.patches.v3_0_air_sea_shipment_manager_docperm
+# Utilities: Role Permission Matrix workspace + sidebar
+logistics.patches.v3_0_sync_utilities_role_permission_matrix
+# Services grid: Linked Service + Service Type only (drop job columns from list view)
+logistics.patches.v3_0_linked_service_detail_grid_columns
+# Services grid: restore canvas columns (Order No / Job No / Job Description); SQ is JS-only
+logistics.patches.v3_0_linked_service_detail_operational_grid_columns
+# MICE Sales Quote HTML: BIR Acknowledgment Certificate footer
+logistics.patches.v3_0_update_mice_sales_quote_html_bir_footer
+# Sales Quote: Time Sensitive is a checkbox, not a Primary Service Type
+logistics.patches.v3_0_migrate_sales_quote_time_sensitive_main_service
+# Sales Quote HTML: show company address under company name
+logistics.patches.v3_0_update_sales_quote_company_address
+# Sales Quote HTML: fix print error (frappe.get_attr not available in Jinja)
+logistics.patches.v3_0_fix_sales_quote_company_address_get_attr
+# Sales Quote HTML: company Email, Website, Phone under VAT
+logistics.patches.v3_0_sales_quote_company_contact_lines
+# Sales Quote HTML: BIR Acknowledgment Certificate footer
+logistics.patches.v3_0_update_sales_quote_bir_footer
+# Payment Entry: Payment Voucher HTML remittance-style print format
+logistics.patches.v3_0_install_payment_voucher_print_format
+# MICE Sales Quote HTML: tighten charge row spacing
+logistics.patches.v3_0_tighten_mice_sales_quote_charge_row_spacing
+# MICE Sales Quote HTML: header Email/Phone + Dynamic Link address
+logistics.patches.v3_0_mice_sales_quote_html_header_contact
+# MICE Sales Quote HTML: customer TIN + address lookup
+logistics.patches.v3_0_mice_sales_quote_html_customer_tin
+# MICE Sales Quote HTML: group charges by Charge Group
+logistics.patches.v3_0_mice_sales_quote_html_charge_group
+# MICE Sales Quote HTML: Destination charge group last
+logistics.patches.v3_0_mice_sales_quote_html_destination_last
+# Tariff ALTA: fix break_header crash when unit-break key is float
+logistics.patches.v3_0_update_tariff_alta_break_header_float_fix

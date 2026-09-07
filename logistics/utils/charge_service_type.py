@@ -39,6 +39,7 @@ SERVICE_TYPE_SELECT_OPTIONS = "Air\nSea\nTransport\nCustoms\nWarehousing\nCross-
 IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 	"Air Booking": "Air",
 	"Air Shipment": "Air",
+	"Air Consolidation": "Air",
 	"Sea Booking": "Sea",
 	"Sea Shipment": "Sea",
 	"Transport Order": "Transport",
@@ -59,6 +60,7 @@ IMPLIED_SERVICE_TYPE_BY_DOCTYPE = {
 	"MICE Job": "MICE",
 	"MICE Order": "MICE",
 	"Docket": "Exhibits",
+	"Time Sensitive Case": "Time Sensitive",
 }
 
 
@@ -738,6 +740,10 @@ def destination_service_charge_validation(doc, required_service_type=None):
 
 def throw_if_missing_destination_service_charge(doc, required_service_type=None):
 	"""Hard-block submit when destination-specific charges are missing."""
+	from logistics.time_sensitive.propagation import is_time_sensitive_operational_doc
+
+	if is_time_sensitive_operational_doc(doc):
+		return
 	payload = destination_service_charge_validation(doc, required_service_type=required_service_type)
 	if not payload.get("is_valid"):
 		frappe.throw(payload.get("block_message"))
@@ -745,6 +751,10 @@ def throw_if_missing_destination_service_charge(doc, required_service_type=None)
 
 def assert_destination_service_charges_on_submit_unless_internal_job(doc, required_service_type=None):
 	"""Block submit when main-service jobs have no matching charge lines; internal jobs exempt."""
+	from logistics.time_sensitive.propagation import is_time_sensitive_operational_doc
+
 	if get_service_role(doc) == SERVICE_ROLE_LINKED:
+		return
+	if is_time_sensitive_operational_doc(doc):
 		return
 	throw_if_missing_destination_service_charge(doc, required_service_type=required_service_type)

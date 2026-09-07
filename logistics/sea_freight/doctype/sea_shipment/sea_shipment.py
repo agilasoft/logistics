@@ -1467,6 +1467,9 @@ def get_master_bill_virtuals(master_bill=None):
 def recalculate_all_charges(docname):
 	"""Recalculate all charges based on current Sea Shipment data."""
 	shipment = frappe.get_doc("Sea Shipment", docname)
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm("Sea Shipment", "write", doc=shipment)
 	if not shipment.charges:
 		return {"success": False, "message": _("No charges found to recalculate")}
 	try:
@@ -1489,7 +1492,11 @@ def recalculate_all_charges(docname):
 @frappe.whitelist()
 def post_standard_costs(docname):
 	"""Post standard costs for Sea Shipment charges. No-op if charges do not support standard costs."""
+	from logistics.utils.menu_permission import assert_perm
+
 	shipment = frappe.get_doc("Sea Shipment", docname)
+	assert_perm("Sea Shipment", "write", doc=shipment)
+	assert_perm("Journal Entry", "create")
 	posted = 0
 	for ch in (shipment.charges or []):
 		if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(ch, "standard_cost_posted", False):

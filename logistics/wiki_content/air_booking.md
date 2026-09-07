@@ -31,10 +31,12 @@ Use **Fetch from Quotation** to reload Air charges from the linked Sales Quote. 
 
 ## 3. Workflow
 
-1. Create Air Booking from [Sales Quote](welcome/sales-quote) or manually.
+1. Create Air Booking from [Sales Quote](welcome/sales-quote), from a Time Sensitive Case, or manually.
 2. Add routing legs, packages, charges.
-3. Submit when ready.
+3. Submit when ready. A **Time Sensitive Case** leg (Time Sensitive ticked **and** a case linked) may submit without a quote and without charge lines; packages, ETD, and ETA are still required.
 4. Create [Air Shipment](welcome/air-shipment) from the booking.
+
+A Time Sensitive Case leg created from a Sales Quote already carries that quote. If the booking ran first with no quote, set Sales Quote on the **case** and Save — empty legs pick it up. After the shipment is done, **Create Change Request** on the Time Sensitive Case (not on the original quote) to enter actual cost and revenue.
 
 
 <!-- wiki-field-reference:start -->

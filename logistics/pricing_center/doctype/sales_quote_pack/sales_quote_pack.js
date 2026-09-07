@@ -11,16 +11,21 @@ frappe.ui.form.on("Sales Quote Pack", {
 		});
 
 		if (!frm.is_new()) {
-			frm.add_custom_button(__("Add Sales Quote"), () => {
-				frappe.call({
-					method: "logistics.pricing_center.doctype.sales_quote_pack.sales_quote_pack.create_sales_quote_from_pack",
-					args: { pack_name: frm.doc.name },
-					callback(r) {
-						if (r.message) {
-							frappe.set_route("Form", "Sales Quote", r.message);
-						}
-					},
-				});
+			logistics.menu.add(frm, {
+				label: __("Add Sales Quote"),
+				doctype: "Sales Quote",
+				ptype: "create",
+				action: () => {
+					frappe.call({
+						method: "logistics.pricing_center.doctype.sales_quote_pack.sales_quote_pack.create_sales_quote_from_pack",
+						args: { pack_name: frm.doc.name },
+						callback(r) {
+							if (r.message) {
+								frappe.set_route("Form", "Sales Quote", r.message);
+							}
+						},
+					});
+				},
 			});
 		}
 	},

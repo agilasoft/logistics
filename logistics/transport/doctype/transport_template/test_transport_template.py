@@ -4,7 +4,10 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from logistics.transport.doctype.transport_template.transport_template import TransportTemplate
+from logistics.transport.doctype.transport_template.transport_template import (
+	TransportTemplate,
+	get_transport_template_constraints,
+)
 
 
 class TestTransportTemplate(FrappeTestCase):
@@ -50,29 +53,63 @@ class TestTransportTemplate(FrappeTestCase):
 		doc.insert(ignore_permissions=True)
 		self.assertEqual(doc.default_load_type, ftl)
 
-	def test_save_rejects_fcl_on_land_lane(self):
+	def test_save_allows_fcl_on_land_lane(self):
 		ftl = self._ensure_load_type("FTL", transport=1, non_container=1)
 		fcl = self._ensure_load_type("FCL", transport=1, container=1, sea=1)
 
 		doc = frappe.get_doc(
 			{
 				"doctype": "Transport Template",
-				"code": "UT-BAD-LAND",
-				"description": "Invalid land template",
+				"code": "UT-CFS-RCVR",
+				"description": "CFS to Consignee",
+				"default_load_type": fcl,
 				"legs": [
 					{
 						"facility_type_from": "Container Freight Station",
-						"facility_type_to": "Storage Facility",
+						"facility_type_to": "Consignee",
 					}
 				],
-				"allowed_load_types": [{"load_type": fcl}],
+				"allowed_load_types": [{"load_type": fcl}, {"load_type": ftl}],
 			}
 		)
-		with self.assertRaises(frappe.ValidationError):
-			doc.insert(ignore_permissions=True)
-
-		doc.allowed_load_types = [{"load_type": ftl}]
 		doc.insert(ignore_permissions=True)
+		self.assertEqual(doc.default_load_type, fcl)
+
+	def test_get_constraints_filters_by_transport_job_type(self):
+		ftl = self._ensure_load_type("FTL", transport=1, non_container=1)
+		ltl = self._ensure_load_type("LTL", transport=1, non_container=1)
+		fcl = self._ensure_load_type("FCL", transport=1, container=1, sea=1)
+
+		doc = frappe.get_doc(
+			{
+				"doctype": "Transport Template",
+				"code": "UT-JOB-FILTER",
+				"description": "Job type filter test",
+				"default_load_type": fcl,
+				"legs": [
+					{
+						"facility_type_from": "Container Freight Station",
+						"facility_type_to": "Consignee",
+					}
+				],
+				"allowed_load_types": [
+					{"load_type": fcl},
+					{"load_type": ftl},
+					{"load_type": ltl},
+				],
+			}
+		)
+		doc.insert(ignore_permissions=True)
+
+		container_constraints = get_transport_template_constraints(doc.name, "Container")
+		self.assertEqual(container_constraints["allowed_load_types"], [fcl])
+		self.assertEqual(
+			container_constraints["allowed_load_types_all"],
+			[fcl, ftl, ltl],
+		)
+
+		non_container_constraints = get_transport_template_constraints(doc.name, "Non-Container")
+		self.assertEqual(non_container_constraints["allowed_load_types"], [ftl, ltl])
 
 	def test_transport_template_class_validate(self):
 		ftl = self._ensure_load_type("FTL", transport=1, non_container=1)

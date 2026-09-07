@@ -1,0 +1,111 @@
+<div class="tsw-ops-dash log-ab-dash run-sheet-dash" data-link-doctype="Time Sensitive Case">
+  <div class="log-ab-banner alert alert-warning tsw-ops-banner" style="display:none;margin:0 1.5rem 0.75rem;"></div>
+  <div class="log-ab-top">
+    <div class="run-sheet-header log-ab-head ab-summary-header-card">
+      <div class="log-ab-head-stack">
+        <div class="log-ab-top-row">
+          <div class="log-ab-hero-col">
+            <img class="log-ab-logo-img tsw-ops-company-logo" alt="" style="display:none;" />
+            <span class="log-ab-logo-ph tsw-ops-logo-ph">Co</span>
+          </div>
+          <div class="log-ab-main-block">
+            <div class="tsw-ops-page-title"></div>
+            <div class="log-ab-meta-cluster tsw-ops-meta-cluster"></div>
+          </div>
+          <div class="ab-summary-aside">
+            <div class="ab-ring-wrap">
+              <div class="ab-ring ab-ring--status-submitted tsw-ops-alert-ring" style="--ab-pct:0"></div>
+              <div class="ab-ring-center">
+                <span class="ab-ring-pct tsw-ops-ring-pct">0</span>
+                <span class="ab-ring-cap tsw-ops-ring-cap">cases</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="log-ab-body-block">
+          <div class="header-details tsw-ops-kpis"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ab-tab-shell">
+    <input type="radio" name="tsw_ops_tabs" id="tsw_ops_heat" class="ab-dash-tab-input" checked>
+    <input type="radio" name="tsw_ops_tabs" id="tsw_ops_alert" class="ab-dash-tab-input">
+    <div class="ab-tab-bar">
+      <label for="tsw_ops_heat" class="ab-tlabel">Alert Map</label>
+      <label for="tsw_ops_alert" class="ab-tlabel">Alerts and Notifications <span class="ab-tab-count tsw-ops-alerts-tab-count">(0)</span></label>
+    </div>
+    <div class="ab-ro-body">
+      <div class="ab-tab-panels ab-ro-shell">
+        <div class="ab-tab-panel ab-tab-panel-route">
+          <div class="log-ab-ro-card log-ab-ro-card--flush tsw-ops-heat-card">
+            <div class="tsw-ops-heat-toolbar">
+              <button type="button" class="btn btn-default btn-xs afw-hub-refresh" title="Refresh"><i class="fa fa-refresh"></i></button>
+              <span class="tsw-ops-user-filter tsw-ops-status-filter"><span class="tsw-ops-user-filter-lbl">Status</span>
+              <select class="form-control input-xs tsw-ops-filter-status">
+                <option value="ongoing" selected>Ongoing (no draft)</option>
+                <option value="open">Ongoing (incl. draft)</option>
+                <option value="Draft">Draft</option>
+                <option value="Triage">Triage</option>
+                <option value="Activated">Activated</option>
+                <option value="In Execution">In Execution</option>
+                <option value="On Hold">On Hold</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Closed">Closed</option>
+                <option value="Cancelled">Cancelled</option>
+              </select></span>
+              <span class="tsw-ops-user-filter tsw-ops-sla-filter"><span class="tsw-ops-user-filter-lbl">Attention</span>
+              <select class="form-control input-xs tsw-ops-filter-sla">
+                <option value="all" selected>All cases</option>
+                <option value="alerts">Alerts (due soon + overdue)</option>
+                <option value="at_risk">Nearing Due</option>
+                <option value="breached">Overdue</option>
+                <option value="on_track">On Track</option>
+              </select></span>
+              <span class="tsw-ops-user-filter tsw-ops-traffic-filter"><span class="tsw-ops-user-filter-lbl">Traffic</span>
+              <select class="form-control input-xs tsw-ops-filter-traffic">
+                <option value="all">All</option>
+                <option value="import">Import</option>
+                <option value="export">Export</option>
+                <option value="domestic">Domestic</option>
+              </select></span>
+              <span class="tsw-ops-user-filter"><span class="tsw-ops-user-filter-lbl">Owner</span>
+              <select class="form-control input-xs tsw-ops-filter-user"></select></span>
+              <span class="tsw-ops-user-filter tsw-ops-airline-filter"><span class="tsw-ops-user-filter-lbl">Case types</span>
+              <div class="tsw-ops-airline-ms">
+                <button type="button" class="btn btn-default btn-xs form-control text-left tsw-ops-airline-dd-toggle" aria-expanded="false" aria-haspopup="listbox">
+                  <span class="tsw-ops-airline-summary"></span>
+                </button>
+                <div class="tsw-ops-airline-dd-panel" role="listbox">
+                  <div class="tsw-ops-airline-checkboxes"></div>
+                </div>
+              </div></span>
+            </div>
+            <div class="afw-hub-map-host">
+              <div class="afw-hub-map"></div>
+              <aside class="tsw-ops-pri-card" aria-label="Priority shipments">
+                <div class="tsw-ops-pri-h">Priority <span class="tsw-ops-pri-count"></span></div>
+                <div class="tsw-ops-pri-list"></div>
+              </aside>
+            </div>
+          </div>
+        </div>
+        <div class="ab-tab-panel ab-tab-panel-alerts">
+          <div class="log-ab-ro-card log-ab-ro-card--flush tsw-ops-alerts-card">
+            <div class="tsw-ops-alerts-toolbar">
+              <button type="button" class="btn btn-default btn-xs tsw-ops-alerts-refresh" title="Refresh"><i class="fa fa-refresh"></i></button>
+              <span class="tsw-ops-user-filter"><span class="tsw-ops-user-filter-lbl">User</span>
+              <select class="form-control input-xs tsw-ops-filter-alert-user"></select></span>
+            </div>
+            <div class="tsw-ops-alerts-booking-format">
+              <div class="dash-alerts-section tsw-ops-dash-alerts-section"></div>
+              <div class="doc-alerts-cards-wrapper tsw-ops-ops-alert-cards-wrap" style="margin-bottom: 0;">
+                <div class="doc-alerts-cards tsw-ops-ops-alert-cards"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

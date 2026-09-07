@@ -39,6 +39,7 @@ logistics.role_permission_matrix.RolePermissionMatrixPage = class RolePermission
 		this.filtered_rows = [];
 		this.options = { roles: [], doctypes: [], modules: [] };
 		this.filters = { role: "", module: "", search: "" };
+		this.user_count = 0;
 		this._search_timer = null;
 		this._loading = false;
 		this._pending_toggles = new Set();
@@ -290,6 +291,7 @@ logistics.role_permission_matrix.RolePermissionMatrixPage = class RolePermission
 		if (!this.filters.role) {
 			this.all_rows = [];
 			this.filtered_rows = [];
+			this.user_count = 0;
 			this.render_empty(__("Select a Role to view and edit permissions."));
 			return Promise.resolve();
 		}
@@ -300,6 +302,12 @@ logistics.role_permission_matrix.RolePermissionMatrixPage = class RolePermission
 		})
 			.then((r) => {
 				this.all_rows = (r.message || []).filter((d) => d.parent !== "DocType");
+				return this.pm("get_users_with_role", { role: this.filters.role }).catch(() => ({
+					message: [],
+				}));
+			})
+			.then((r) => {
+				this.user_count = ((r && r.message) || []).length;
 				this.apply_filters_and_render();
 			})
 			.catch(() => {
@@ -329,7 +337,21 @@ logistics.role_permission_matrix.RolePermissionMatrixPage = class RolePermission
 	render_empty(message) {
 		this.$tbody.empty();
 		this.$empty.text(message).show();
-		this.$summary.text("");
+		this.update_summary(0);
+	}
+
+	update_summary(total) {
+		if (!this.filters.role) {
+			this.$summary.text("");
+			return;
+		}
+		const docs =
+			total === 1 ? __("Showing 1 DocType") : __("Showing {0} DocTypes", [total]);
+		const users =
+			this.user_count === 1
+				? __("1 user has this role")
+				: __("{0} users have this role", [this.user_count]);
+		this.$summary.text(`${docs} · ${users}`);
 	}
 
 	render_table() {
@@ -343,17 +365,14 @@ logistics.role_permission_matrix.RolePermissionMatrixPage = class RolePermission
 			this.render_empty(
 				this.filters.module
 					? __("No DocTypes found for this module.")
-					: __("No permissions set for this criteria.")
+					: __("No permissions set for this criteria. Use Add DocType, or filter by Module to see every DocType in that module.")
 			);
-			this.$summary.text(__("Showing 0 DocTypes"));
 			return;
 		}
 
 		this.$empty.hide();
 		this.$tbody.html(this.filtered_rows.map((row, i) => this.row_html(row, i + 1)).join(""));
-		this.$summary.text(
-			total === 1 ? __("Showing 1 DocType") : __("Showing {0} DocTypes", [total])
-		);
+		this.update_summary(total);
 	}
 
 	row_html(row, idx) {
@@ -371,7 +390,7 @@ logistics.role_permission_matrix.RolePermissionMatrixPage = class RolePermission
 			role,
 			permlevel: level,
 			if_owner,
-			applicable: true,
+			applicable: level === 0,
 			is_placeholder,
 		});
 
@@ -408,6 +427,11 @@ logistics.role_permission_matrix.RolePermissionMatrixPage = class RolePermission
 					<a href="/app/${frappe.router.slug(doctype)}">
 						${frappe.utils.escape_html(__(doctype))}
 					</a>
+					${
+						is_placeholder
+							? `<span class="rpm-placeholder">${__("no permission yet")}</span>`
+							: ""
+					}
 				</td>
 				<td class="rpm-col-level">${level}</td>
 				<td class="rpm-col-right">${if_owner_cell}</td>

@@ -66,8 +66,10 @@ frappe.ui.form.on('Transfer Order', {
       }, __("Action"));
     }
 
-    // Create → Warehouse Job (available for draft/submitted TO; adjust as you prefer)
-    if (frm.doc.docstatus == 1) {
+    // Create → Warehouse Job (only when submitted)
+    if (window.logistics && logistics.menu && logistics.menu.is_submitted
+			? logistics.menu.is_submitted(frm)
+			: frm.doc.docstatus == 1) {
       frm.add_custom_button(
         __('Warehouse Job'),
         () => make_warehouse_job_from_to(frm),

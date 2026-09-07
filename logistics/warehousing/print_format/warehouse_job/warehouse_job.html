@@ -155,16 +155,13 @@
         .notes-title { font-weight: 900; margin-bottom: 1mm; font-size: 8pt; }
 
         .footer-section {
-            margin-top: 3mm; padding-top: 1mm; padding-bottom: 0;
-            border-top: 2px solid #000; font-size: 7pt; background: white;
-            page-break-inside: avoid;
+            margin-top: 3mm; padding: 2mm 0 1mm 0;
+            border-top: 2px solid #000; font-size: 7pt; line-height: 1.35;
+            background: white; text-align: left; color: #000;
+            page-break-inside: avoid; break-inside: avoid;
         }
-        .footer-section table { width: 100%; border-collapse: collapse; }
-        .footer-section td {
-            padding: 0.1mm 2mm 0.1mm 0; font-size: 7pt; vertical-align: top; line-height: 1.2;
-        }
-        .footer-section .footer-label {
-            font-weight: bold; white-space: nowrap; width: 1%; padding-right: 1.5mm;
+        .footer-row {
+            margin: 0; padding: 0; text-align: left;
         }
 
         .sig-section {
@@ -185,9 +182,10 @@
                 position: static;
                 width: 100%;
                 margin-top: 3mm;
-                padding: 1mm 0 0 0;
+                padding: 2mm 0 1mm 0;
                 border-top: 2px solid #000;
                 background: white;
+                text-align: left;
             }
         }
     </style>
@@ -353,6 +351,8 @@
                     <div class="field-row"><div class="field-label">REFERENCE ORDER:</div><div class="field-value">{% if doc.reference_order_type %}{{ doc.reference_order_type }}: {% endif %}{{ doc.reference_order or '' }}</div></div>
                     <div class="field-row"><div class="field-label">CONTRACT:</div><div class="field-value">{{ doc.warehouse_contract or '' }}</div></div>
                     <div class="field-row"><div class="field-label">BRANCH:</div><div class="field-value">{{ doc.branch or '' }}</div></div>
+                    <div class="field-row"><div class="field-label">PROFIT CENTER:</div><div class="field-value">{{ doc.profit_center or '' }}</div></div>
+                    <div class="field-row"><div class="field-label">COST CENTER:</div><div class="field-value">{{ doc.cost_center or '' }}</div></div>
                     <div class="field-row"><div class="field-label">DOC STATUS:</div><div class="field-value">{{ {0: 'Draft', 1: 'Submitted', 2: 'Cancelled'}.get(doc.docstatus, '') }}</div></div>
                     {% if is_vas %}
                     <div class="field-row"><div class="field-label">VAS ORDER TYPE:</div><div class="field-value">{{ doc.vas_order_type or '' }}</div></div>
@@ -569,26 +569,60 @@
     </div>
 
     <div class="footer-section">
-        <table>
-            <tr>
-                <td class="footer-label">Company:</td>
-                <td>{{ doc.company or '' }}</td>
-                <td class="footer-label">Branch:</td>
-                <td>{{ doc.branch or '' }}</td>
-            </tr>
-            <tr>
-                <td class="footer-label">Cost Center:</td>
-                <td>{{ doc.cost_center or '' }}</td>
-                <td class="footer-label">Profit Center:</td>
-                <td>{{ doc.profit_center or '' }}</td>
-            </tr>
-            <tr>
-                <td class="footer-label">Job Number:</td>
-                <td>{{ doc.job_number or '' }}</td>
-                <td class="footer-label">Job Type:</td>
-                <td>{{ job_type }}</td>
-            </tr>
-        </table>
+        {% set bir_name = frappe.db.get_value("BIR CAS Settings", {"company": doc.company}, "name") %}
+        {% if bir_name %}
+            {% set bir = frappe.get_doc("BIR CAS Settings", bir_name) %}
+        {% else %}
+            {% set bir = None %}
+        {% endif %}
+        {% set name = (doc.name or "") %}
+        {% set ns = namespace(start=None, end=None) %}
+        {% for i in range(name|length) %}
+            {% set ch = name[i] %}
+            {% if ch.isdigit() %}
+                {% if ns.start is none %}
+                    {% set ns.start = i %}
+                {% endif %}
+                {% set ns.end = i %}
+            {% endif %}
+        {% endfor %}
+        {% if ns.start is not none %}
+            {% set prefix = name[0:ns.start] %}
+            {% set digit_len = ns.end - ns.start + 1 %}
+            {% set seq = namespace(min_seq="", max_seq="") %}
+            {% for i in range(digit_len) %}
+                {% if i == digit_len - 1 %}
+                    {% set seq.min_seq = seq.min_seq ~ "1" %}
+                {% else %}
+                    {% set seq.min_seq = seq.min_seq ~ "0" %}
+                {% endif %}
+                {% set seq.max_seq = seq.max_seq ~ "9" %}
+            {% endfor %}
+            {% set series_start = prefix ~ seq.min_seq %}
+            {% set series_end = prefix ~ seq.max_seq %}
+        {% else %}
+            {% set series_start = name %}
+            {% set series_end = name %}
+        {% endif %}
+        <div class="footer-row">
+            BIR Acknowledgment Certificate No.
+            {% if bir and bir.ptu_no %}
+                {{ bir.ptu_no }}
+            {% else %}
+                -
+            {% endif %}
+        </div>
+        <div class="footer-row">
+            Range: {{ series_start }} - {{ series_end }}
+        </div>
+        <div class="footer-row">
+            Date Issued:
+            {% if bir and bir.ptu_date %}
+                {{ frappe.utils.formatdate(bir.ptu_date, 'MMMM dd, yyyy') }}
+            {% else %}
+                -
+            {% endif %}
+        </div>
     </div>
 
 </div>

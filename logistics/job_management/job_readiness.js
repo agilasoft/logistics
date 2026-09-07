@@ -122,13 +122,14 @@ logistics.job_readiness.setup = function (frm) {
 	if (typeof frm.remove_custom_button === "function") {
 		frm.remove_custom_button(__("Check Job Readiness"), __("Action"));
 	}
-	frm.add_custom_button(
-		__("Check Job Readiness"),
-		function () {
+	logistics.menu.add(frm, {
+		label: __("Check Job Readiness"),
+		group: __("Action"),
+		ptype: "read",
+		action: function () {
 			logistics.job_readiness.show(frm);
 		},
-		__("Action")
-	);
+	});
 };
 
 (function () {

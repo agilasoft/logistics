@@ -14,6 +14,7 @@ from logistics.utils.charges_calculation import (
 	_resolve_unit_break_rate,
 	_tariff_rate_has_unit_breaks,
 )
+from logistics.utils.freight_95_5 import validate_freight_95_5_row
 
 
 _ALLOWED_CHARGE_TYPES = frozenset({"Margin", "Disbursement", "Revenue", "Cost"})
@@ -44,6 +45,7 @@ class MICEProjectConsolidationCharges(Document):
 	"""
 
 	def validate(self):
+		validate_freight_95_5_row(self)
 		self._apply_cost_tariff_rates_if_needed()
 		self.validate_charge_data()
 		self.calculate_charge_amount()
@@ -108,7 +110,7 @@ class MICEProjectConsolidationCharges(Document):
 		if applicable.get("currency"):
 			self.currency = applicable.get("currency")
 
-	def calculate_charge_amount(self):
+	def calculate_charge_amount(self, company=None):
 		"""Recalculate base amount, discount amount and total amount from rate, quantity and method."""
 		self._apply_cost_unit_break_rate()
 		rate = flt(self.unit_rate)
@@ -134,6 +136,45 @@ class MICEProjectConsolidationCharges(Document):
 			- flt(self.discount_amount)
 			+ flt(self.surcharge_amount)
 		)
+		self.calculate_base_total_amount(company=company)
+
+	def _resolve_company(self, company=None):
+		"""Company used to convert this row into company currency."""
+		if company:
+			return company
+		parent_doc = getattr(self, "parent_doc", None)
+		if parent_doc and getattr(parent_doc, "company", None):
+			return parent_doc.company
+		parent = getattr(self, "parent", None)
+		parenttype = getattr(self, "parenttype", None)
+		if parent and parenttype == "MICE Project" and not str(parent).startswith("new"):
+			return frappe.db.get_value("MICE Project", parent, "company")
+		return None
+
+	def calculate_base_total_amount(self, company=None):
+		"""Convert ``total_amount`` into company currency using Exchange Rate (Pay To)."""
+		amount = flt(self.total_amount)
+		company = self._resolve_company(company)
+		company_ccy = None
+		if company:
+			company_ccy = frappe.get_cached_value("Company", company, "default_currency")
+		row_ccy = (self.currency or "").strip()
+
+		if not row_ccy or not company_ccy or row_ccy == company_ccy:
+			self.base_total_amount = amount
+			return
+
+		rate = flt(self.pay_to_exchange_rate)
+		if rate <= 0:
+			label = self.item_code or self.charge_category or str(self.idx or "")
+			frappe.throw(
+				_(
+					"Consolidation charge {0} is in {1} but has no Exchange Rate (Pay To). "
+					"Set Exchange Rate Source or enter the rate so the amount can be converted to {2}."
+				).format(label, row_ccy, company_ccy),
+				title=_("Missing exchange rate"),
+			)
+		self.base_total_amount = flt(amount * rate)
 
 	def calculate_allocated_amount(self):
 		"""Row-level allocated amount from total × allocation %; parent fills the per-target table."""
@@ -172,6 +213,9 @@ def _cost_unit_breaks_for_tariff_rate(tariff_rate_name):
 	"""Return Cost Charge Unit Break rows for a Tariff Charge line."""
 	if not tariff_rate_name or not frappe.db.exists("DocType", "Charge Unit Break"):
 		return []
+	fields = ["unit_type", "unit_break", "unit_rate", "currency"]
+	if frappe.get_meta("Charge Unit Break").has_field("container_type"):
+		fields.insert(1, "container_type")
 	return frappe.get_all(
 		"Charge Unit Break",
 		filters={
@@ -179,7 +223,7 @@ def _cost_unit_breaks_for_tariff_rate(tariff_rate_name):
 			"reference_no": tariff_rate_name,
 			"type": "Cost",
 		},
-		fields=["unit_type", "unit_break", "unit_rate", "currency"],
+		fields=fields,
 		order_by="unit_break asc",
 	) or []
 
@@ -188,11 +232,14 @@ def _pick_unit_break_tier(unit_breaks, comparison_qty):
 	"""Pick highest Cost/Selling unit-break tier whose threshold ≤ comparison_qty."""
 	if not unit_breaks:
 		return None
-	sorted_desc = sorted(unit_breaks, key=lambda x: flt(x.get("unit_break", 0)), reverse=True)
+	numeric = [r for r in unit_breaks if not (r.get("container_type") or "").strip()]
+	if not numeric:
+		return None
+	sorted_desc = sorted(numeric, key=lambda x: flt(x.get("unit_break", 0)), reverse=True)
 	for row in sorted_desc:
 		if flt(comparison_qty) >= flt(row.get("unit_break", 0)):
 			return row
-	return sorted(unit_breaks, key=lambda x: flt(x.get("unit_break", 0)))[0]
+	return sorted(numeric, key=lambda x: flt(x.get("unit_break", 0)))[0]
 
 
 def sync_tariff_cost_unit_breaks_on_consolidation_charges(parent_doc):

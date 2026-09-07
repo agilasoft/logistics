@@ -1016,6 +1016,9 @@ def sync_programme_charge_sales_quote_links(docname):
 def recalculate_all_charges(docname):
 	"""Recalculate all Special Project charge lines on this programme."""
 	doc = frappe.get_doc("Special Project", docname)
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm("Special Project", "write", doc=doc)
 	if not doc.get("charges"):
 		return {"success": False, "message": _("No charges found to recalculate")}
 	try:

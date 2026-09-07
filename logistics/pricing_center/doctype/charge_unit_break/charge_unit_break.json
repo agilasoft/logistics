@@ -9,6 +9,7 @@
   "reference_no",
   "type",
   "unit_type",
+  "container_type",
   "unit_break",
   "currency",
   "unit_rate"
@@ -37,6 +38,14 @@
    "fieldtype": "Data",
    "label": "Unit Type",
    "read_only": 1
+  },
+  {
+   "fieldname": "container_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Container Type",
+   "link_filters": "[[\"Container Type\", \"active\", \"=\", 1]]",
+   "options": "Container Type"
   },
   {
    "fieldname": "unit_break",

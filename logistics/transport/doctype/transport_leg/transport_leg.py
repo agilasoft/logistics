@@ -760,6 +760,10 @@ def fix_status_for_submitted_legs():
 @frappe.whitelist()
 def regenerate_routing(leg_name: str):
     """Regenerate routing for a Transport Leg"""
+    from logistics.utils.menu_permission import assert_perm
+
+    leg = frappe.get_doc("Transport Leg", leg_name)
+    assert_perm("Transport Leg", "write", doc=leg)
     from logistics.transport.routing import compute_leg_distance_time
     
     result = compute_leg_distance_time(leg_name)
@@ -776,6 +780,10 @@ def regenerate_routing(leg_name: str):
 @frappe.whitelist()
 def regenerate_carbon(leg_name: str):
     """Regenerate carbon calculation for a Transport Leg"""
+    from logistics.utils.menu_permission import assert_perm
+
+    leg = frappe.get_doc("Transport Leg", leg_name)
+    assert_perm("Transport Leg", "write", doc=leg)
     from logistics.transport.carbon import compute_leg_carbon
     
     result = compute_leg_carbon(leg_name)

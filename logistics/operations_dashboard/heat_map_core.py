@@ -35,16 +35,17 @@ def flag_emoji_from_country_code(cc):
 	return chr(ord(a) + 127397) + chr(ord(b) + 127397)
 
 
-def job_status_filter_for_query(job_status_filter, valid_statuses=None):
+def job_status_filter_for_query(job_status_filter, valid_statuses=None, ongoing_exclude_statuses=None):
 	key = (job_status_filter or "").strip() or "ongoing"
 	valid = valid_statuses or DEFAULT_JOB_STATUSES
+	exclude = list(ongoing_exclude_statuses or ONGOING_EXCLUDE_STATUS)
 	if key == "ongoing":
-		return ("not_in", list(ONGOING_EXCLUDE_STATUS) + ["Draft"])
+		return ("not_in", exclude + ["Draft"])
 	if key in ("open", "open_with_draft"):
-		return ("not_in", list(ONGOING_EXCLUDE_STATUS))
+		return ("not_in", exclude)
 	if key in valid:
 		return ("equals", key)
-	return ("not_in", list(ONGOING_EXCLUDE_STATUS) + ["Draft"])
+	return ("not_in", exclude + ["Draft"])
 
 
 def parse_traffic(traffic):
@@ -137,22 +138,38 @@ def map_renderer():
 	return "OpenStreetMap"
 
 
+def _apply_docstatus_filter(filters, docstatus_filter):
+	if docstatus_filter is None:
+		return
+	if isinstance(docstatus_filter, (list, tuple)):
+		filters["docstatus"] = list(docstatus_filter)
+	else:
+		filters["docstatus"] = docstatus_filter
+
+
 def base_doc_filters(
 	job_status_filter,
 	filter_user,
 	company,
 	job_status_field,
 	valid_statuses,
+	ongoing_exclude_statuses=None,
+	docstatus_filter=1,
+	filter_user_field="owner",
 ):
-	mode, val = job_status_filter_for_query(job_status_filter, valid_statuses)
-	filters = {"docstatus": 1}
+	mode, val = job_status_filter_for_query(
+		job_status_filter, valid_statuses, ongoing_exclude_statuses=ongoing_exclude_statuses
+	)
+	filters = {}
+	_apply_docstatus_filter(filters, docstatus_filter)
 	if mode == "not_in":
 		filters[job_status_field] = ["not in", val]
 	else:
 		filters[job_status_field] = val
 	fu = (filter_user or "").strip()
+	field = (filter_user_field or "owner").strip() or "owner"
 	if fu and frappe.db.exists("User", fu):
-		filters["owner"] = fu
+		filters[field] = fu
 	if company:
 		filters["company"] = company
 	return filters
@@ -183,8 +200,26 @@ def carrier_multiselect_options(source_doctype, filters, carrier_field, carrier_
 	return out
 
 
-def operations_filter_users(source_doctype, job_status_filter, job_status_field, valid_statuses, company):
-	filters = base_doc_filters(job_status_filter, None, company, job_status_field, valid_statuses)
+def operations_filter_users(
+	source_doctype,
+	job_status_filter,
+	job_status_field,
+	valid_statuses,
+	company,
+	ongoing_exclude_statuses=None,
+	docstatus_filter=1,
+	filter_user_field="owner",
+):
+	filters = base_doc_filters(
+		job_status_filter,
+		None,
+		company,
+		job_status_field,
+		valid_statuses,
+		ongoing_exclude_statuses=ongoing_exclude_statuses,
+		docstatus_filter=docstatus_filter,
+		filter_user_field=filter_user_field,
+	)
 	try:
 		owners = frappe.get_list(
 			source_doctype,
@@ -284,6 +319,9 @@ def run_heat_map_dashboard(
 	limit=None,
 	include_draft=None,
 	extra_filters=None,
+	ongoing_exclude_statuses=None,
+	docstatus_filter=1,
+	filter_user_field="owner",
 ):
 	"""
 	Generic heat map + alerts payload for a submitted document type with two UNLOCO ports.
@@ -305,7 +343,16 @@ def run_heat_map_dashboard(
 	if carrier_field:
 		list_fields = list(list_fields) + [carrier_field]
 
-	filters = base_doc_filters(job_status_filter, filter_user, comp, job_status_field, valid_job_statuses)
+	filters = base_doc_filters(
+		job_status_filter,
+		filter_user,
+		comp,
+		job_status_field,
+		valid_job_statuses,
+		ongoing_exclude_statuses=ongoing_exclude_statuses,
+		docstatus_filter=docstatus_filter,
+		filter_user_field=filter_user_field,
+	)
 	option_filters = dict(filters)
 	if extra_filters:
 		filters.update(extra_filters)
@@ -446,7 +493,14 @@ def run_heat_map_dashboard(
 		alert_rows = rows
 	else:
 		alert_filters = base_doc_filters(
-			job_status_filter, alert_fu, comp, job_status_field, valid_job_statuses
+			job_status_filter,
+			alert_fu,
+			comp,
+			job_status_field,
+			valid_job_statuses,
+			ongoing_exclude_statuses=ongoing_exclude_statuses,
+			docstatus_filter=docstatus_filter,
+			filter_user_field=filter_user_field,
 		)
 		if extra_filters:
 			alert_filters.update(extra_filters)

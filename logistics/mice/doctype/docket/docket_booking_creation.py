@@ -766,6 +766,39 @@ def _copy_docket_packages_to_target(dk_doc: Any, target_doc: Any) -> None:
 			target_doc.append("items", row_dict)
 
 
+def _copy_docket_containers_to_target(dk_doc: Any, target_doc: Any) -> None:
+	"""Copy Docket container rows and shipping_status onto a newly created booking/order."""
+	containers = getattr(dk_doc, "containers", None) or []
+	target_meta = frappe.get_meta(target_doc.doctype)
+
+	if target_meta.get_field("shipping_status") and getattr(dk_doc, "shipping_status", None):
+		target_doc.shipping_status = dk_doc.shipping_status
+
+	if not containers:
+		return
+
+	from logistics.utils.internal_job_from_source import (
+		_child_doctype_for_table_field,
+		_copy_table_rows_matching_target_child_fields,
+	)
+
+	containers_df = target_meta.get_field("containers")
+	if not containers_df or containers_df.fieldtype != "Table":
+		return
+
+	child_dt = _child_doctype_for_table_field(target_doc.doctype, "containers")
+	if not child_dt:
+		return
+
+	_copy_table_rows_matching_target_child_fields(
+		containers,
+		target_doc,
+		table_fieldname="containers",
+		target_child_doctype=child_dt,
+	)
+	_refresh_target_packing_totals(target_doc)
+
+
 def _create_air_booking(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any]:
 	doc = frappe.new_doc("Air Booking")
 	_apply_docket_context(doc, dk_doc)
@@ -791,6 +824,7 @@ def _create_sea_booking(dk_doc: Any, row: Any, detail_idx: int) -> dict[str, Any
 	apply_internal_job_detail_row_to_operational_doc(doc, row, overwrite=True)
 	_apply_air_sea_corridor_ports_from_context(doc, dk_doc, row)
 	_copy_docket_packages_to_target(dk_doc, doc)
+	_copy_docket_containers_to_target(dk_doc, doc)
 	_prepare_charges_before_insert(dk_doc, doc, row)
 	doc.insert(ignore_permissions=True)
 	_persist_row_link(dk_doc.name, "Sea Booking", doc.name, detail_idx)
@@ -843,6 +877,7 @@ def _create_declaration_order(dk_doc: Any, row: Any, detail_idx: int) -> dict[st
 
 	apply_standalone_service_flags(order)
 	_copy_docket_packages_to_target(dk_doc, order)
+	_copy_docket_containers_to_target(dk_doc, order)
 	_prepare_charges_before_insert(dk_doc, order, row)
 	order.insert(ignore_permissions=True)
 	_persist_row_link(dk_doc.name, "Declaration Order", order.name, detail_idx)

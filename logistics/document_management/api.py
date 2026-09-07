@@ -293,6 +293,9 @@ def populate_documents_from_template(doctype, docname, doc=None):
 		return {"message": "Save the document first."}
 
 	doc = doc or frappe.get_doc(doctype, docname)
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm(doctype, "write", doc=doc)
 	context = DOCTYPE_CONTEXT.get(doctype)
 	if not context:
 		return {"message": "Documents not supported for this doctype."}
@@ -611,6 +614,9 @@ def populate_milestones_from_template(doctype, docname, doc=None):
 	if doctype not in MILESTONE_DOCTYPES:
 		return {"message": "Milestones not supported for this doctype.", "added": 0}
 	doc = doc or frappe.get_doc(doctype, docname)
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm(doctype, "write", doc=doc)
 	context = DOCTYPE_CONTEXT.get(doctype)
 	if not context:
 		return {"message": "Context not found.", "added": 0}

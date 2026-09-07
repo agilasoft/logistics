@@ -96,8 +96,11 @@ class GatePass(Document):
 @frappe.whitelist()
 def create_gate_pass_for_docking(warehouse_job, dock_name=None):
 	"""Create gate pass for docking entries in warehouse job"""
+	from logistics.utils.menu_permission import assert_create_from_source
+
 	try:
 		job = frappe.get_doc("Warehouse Job", warehouse_job)
+		assert_create_from_source("Gate Pass", source_doc=job)
 		
 		# If specific dock is mentioned, create for that dock only
 		if dock_name:

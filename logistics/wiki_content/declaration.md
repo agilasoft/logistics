@@ -68,7 +68,7 @@ The Commercial Invoice tab holds invoice header data and line items used for cus
 - **Inv. Date**, **Payment Date** – Dates
 - **Inv. Importer**, **Agreed Place**, **Incoterm Place**, **Inv. Incoterm** – Invoice terms
 - **Inv. Total Amount**, **Inv. Currency**, **Inv. Exchange Rate** – Currency and totals
-- **Inv. Volume**, **Inv. Gross Weight**, **Inv. Net Weight**, **Packages** – Quantities
+- **Inv. Volume**, **Inv. Gross Weight**, **Inv. Net Weight**, **Packages**, **Number of Line Items** – Quantities. **Number of Line Items** is used for Item Count charges; it defaults to the invoice row count and can be typed (for example 100 with a 1-row summary).
 - **CIF**, **FOB**, **Charges Excl. from ITOT** – Financial breakdown
 - **Settlement Details** – Bank account, LC, payment details
 

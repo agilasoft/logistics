@@ -48,20 +48,21 @@ class TestCrossDockingServiceType(unittest.TestCase):
 
 	def test_main_service_job_type_mapping(self):
 		self.assertNotIn("Cross-Docking", _MAIN_SERVICE_JOB_TYPE)
-		self.assertEqual(_MAIN_SERVICE_JOB_TYPE["Time Sensitive"], "Time Sensitive Case")
+		self.assertNotIn("Time Sensitive", _MAIN_SERVICE_JOB_TYPE)
 		self.assertIn("Cross-Docking Order", SALES_QUOTE_CREATABLE_JOB_TYPES)
-		self.assertIn("Time Sensitive Case", SALES_QUOTE_CREATABLE_JOB_TYPES)
+		self.assertNotIn("Time Sensitive Case", SALES_QUOTE_CREATABLE_JOB_TYPES)
 
 
 class TestSalesQuoteTimeSensitiveBooking(UnitTestCase):
-	def _ts_quote(self):
+	def _air_ts_quote(self):
 		sq = frappe.get_doc(
 			{
 				"doctype": "Sales Quote",
 				"name": "SQU-TEST-TS",
 				"quotation_type": "Regular",
 				"docstatus": 1,
-				"main_service": "Time Sensitive",
+				"main_service": "Air",
+				"is_time_sensitive": 1,
 				"critical_deadline": "2099-01-01 12:00:00",
 				"company": "_Test Company",
 				"customer": "_Test Customer",
@@ -73,8 +74,8 @@ class TestSalesQuoteTimeSensitiveBooking(UnitTestCase):
 		)
 		return sq
 
-	def test_main_service_choice_time_sensitive(self):
-		sq = self._ts_quote()
+	def test_flagged_air_quote_creates_air_booking(self):
+		sq = self._air_ts_quote()
 		sq.check_permission = lambda *a, **k: None
 
 		with patch(
@@ -83,25 +84,27 @@ class TestSalesQuoteTimeSensitiveBooking(UnitTestCase):
 		), patch(
 			"logistics.pricing_center.sales_quote_booking_creation.frappe.get_doc",
 			return_value=sq,
+		), patch(
+			"logistics.pricing_center.sales_quote_booking_creation.charges_exist_for_service",
+			return_value=True,
+		), patch(
+			"logistics.pricing_center.sales_quote_booking_creation.internal_job_matches_charges",
+			return_value=True,
 		):
 			result = get_sales_quote_booking_choices("SQU-TEST-TS")
 
 		self.assertEqual(len(result["choices"]), 1)
 		choice = result["choices"][0]
 		self.assertEqual(choice["mode"], "main")
-		self.assertEqual(choice["job_type"], "Time Sensitive Case")
+		self.assertEqual(choice["job_type"], "Air Booking")
 		self.assertTrue(choice["creatable"])
 
-	def test_preview_creatable(self):
-		sq = self._ts_quote()
-		flags = _preview_main_service_creatability(sq)
-		self.assertTrue(flags["creatable"])
-
-	def test_preview_requires_deadline(self):
-		sq = self._ts_quote()
-		sq.critical_deadline = None
+	def test_legacy_time_sensitive_main_service_not_creatable(self):
+		sq = self._air_ts_quote()
+		sq.main_service = "Time Sensitive"
 		flags = _preview_main_service_creatability(sq)
 		self.assertFalse(flags["creatable"])
+		self.assertIsNone(_MAIN_SERVICE_JOB_TYPE.get("Time Sensitive"))
 
 
 class TestSalesQuoteCrossDockingNotPrimary(UnitTestCase):

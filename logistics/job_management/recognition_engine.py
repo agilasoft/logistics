@@ -227,7 +227,7 @@ class RecognitionEngine:
 
             self.job.wip_amount = flt(self.job.get("wip_amount", 0)) + batch_total
             self.job.wip_journal_entry = je_name
-            self.job.save()
+            self._save_job()
             return je_name
 
         # No charge-level WIP left; job-level estimated revenue only (no header JE check)
@@ -243,7 +243,7 @@ class RecognitionEngine:
         je_name = self.create_wip_recognition_je(recognition_date, estimated_revenue)
         self.job.wip_amount = estimated_revenue
         self.job.wip_journal_entry = je_name
-        self.job.save()
+        self._save_job()
         return je_name
     
     def adjust_wip(self, adjustment_amount, adjustment_date=None):
@@ -276,7 +276,7 @@ class RecognitionEngine:
         # Update job
         self.job.wip_amount = current_wip - adjustment_amount
         self.job.recognized_revenue = flt(self.job.get("recognized_revenue", 0)) + adjustment_amount
-        self.job.save()
+        self._save_job()
         set_wip_adjustment_je_on_charges(self.job_type, self.job.name, je_name, item_codes=None)
         
         return je_name
@@ -304,7 +304,7 @@ class RecognitionEngine:
         self.job.wip_amount = 0
         self.job.recognized_revenue = flt(self.job.get("recognized_revenue", 0)) + wip_amount
         self.job.wip_closed = 1
-        self.job.save()
+        self._save_job()
         set_wip_adjustment_je_on_charges(self.job_type, self.job.name, je_name, item_codes=None)
         
         return je_name
@@ -357,7 +357,7 @@ class RecognitionEngine:
                 ch.accrual_recognition_journal_entry = je_name
 
         self.job.accrual_amount = flt(self.job.get("accrual_amount", 0)) + estimated_costs
-        self.job.save()
+        self._save_job()
         
         return je_name
     
@@ -391,7 +391,7 @@ class RecognitionEngine:
         # Update job
         self.job.accrual_amount = current_accrual - adjustment_amount
         self.job.recognized_costs = flt(self.job.get("recognized_costs", 0)) + adjustment_amount
-        self.job.save()
+        self._save_job()
         set_accrual_adjustment_je_on_charges(self.job_type, self.job.name, je_name, item_codes=None)
         
         return je_name
@@ -419,7 +419,7 @@ class RecognitionEngine:
         self.job.accrual_amount = 0
         self.job.recognized_costs = flt(self.job.get("recognized_costs", 0)) + accrual_amount
         self.job.accrual_closed = 1
-        self.job.save()
+        self._save_job()
         set_accrual_adjustment_je_on_charges(self.job_type, self.job.name, je_name, item_codes=None)
         
         return je_name
@@ -692,6 +692,25 @@ class RecognitionEngine:
             return flt(self.job.get("accrual_amount", 0)) < flt(self.job.estimated_costs)
         return False
 
+    def _ignore_permissions(self):
+        return bool(getattr(frappe.flags, "in_auto_recognition", False))
+
+    def _save_job(self):
+        """Stamp header amounts / charge JE links. Auto-recognize only runs after submit."""
+        flags = getattr(self.job, "flags", None)
+        if flags is not None:
+            flags.ignore_job_change_lock = True
+            flags.ignore_validate_update_after_submit = True
+        self.job.save(ignore_permissions=self._ignore_permissions())
+
+    def _insert_and_submit_je(self, je):
+        ignore = self._ignore_permissions()
+        flags = getattr(je, "flags", None)
+        if flags is not None:
+            flags.ignore_permissions = ignore
+        je.insert(ignore_permissions=ignore)
+        je.submit()
+
     # ==================== Journal Entry Creation ====================
 
     def create_wip_recognition_je_multi(self, recognition_date, lines):
@@ -752,8 +771,7 @@ class RecognitionEngine:
             je.append("accounts", row)
 
         apply_journal_entry_posting_header_from_job(je, self.job)
-        je.insert()
-        je.submit()
+        self._insert_and_submit_je(je)
 
         return je.name
 
@@ -798,8 +816,7 @@ class RecognitionEngine:
         je.append("accounts", row)
 
         apply_journal_entry_posting_header_from_job(je, self.job)
-        je.insert()
-        je.submit()
+        self._insert_and_submit_je(je)
 
         return je.name
 
@@ -845,8 +862,7 @@ class RecognitionEngine:
         je.append("accounts", row)
 
         apply_journal_entry_posting_header_from_job(je, self.job)
-        je.insert()
-        je.submit()
+        self._insert_and_submit_je(je)
 
         return je.name
 
@@ -914,8 +930,7 @@ class RecognitionEngine:
             je.append("accounts", row_cr)
 
         apply_journal_entry_posting_header_from_job(je, self.job)
-        je.insert()
-        je.submit()
+        self._insert_and_submit_je(je)
 
         return je.name
 
@@ -961,8 +976,7 @@ class RecognitionEngine:
         je.append("accounts", row)
 
         apply_journal_entry_posting_header_from_job(je, self.job)
-        je.insert()
-        je.submit()
+        self._insert_and_submit_je(je)
 
         return je.name
 
@@ -1187,6 +1201,7 @@ def get_recognition_settings(job):
     result = {
         "enable_wip_recognition": False,
         "enable_accrual_recognition": False,
+        "auto_recognize": False,
         "recognition_date_basis": "Job Booking Date",
         "wip_account": None,
         "revenue_liability_account": None,
@@ -1202,6 +1217,7 @@ def get_recognition_settings(job):
     if policy and policy.enabled:
         result["enable_wip_recognition"] = bool(policy.enable_wip_recognition)
         result["enable_accrual_recognition"] = bool(policy.enable_accrual_recognition)
+        result["auto_recognize"] = bool(cint(policy.get("auto_recognize")))
         result["minimum_wip_amount"] = flt(policy.minimum_wip_amount) or 0
         result["minimum_accrual_amount"] = flt(policy.minimum_accrual_amount) or 0
         result["recognition_policy_name"] = policy.name
@@ -1222,10 +1238,9 @@ def get_recognition_settings(job):
                     parts.append(f"{label}:{v}")
         result["matched_parameter_label"] = ", ".join(parts) if parts else _("Default parameters")
 
-    if hasattr(job, "wip_recognition_enabled") and job.wip_recognition_enabled is not None:
-        result["enable_wip_recognition"] = bool(job.wip_recognition_enabled)
-    if hasattr(job, "accrual_recognition_enabled") and job.accrual_recognition_enabled is not None:
-        result["enable_accrual_recognition"] = bool(job.accrual_recognition_enabled)
+    # Job Enable WIP/Accrual checkboxes are read-only policy snapshots (default 0).
+    # Do not let an unsynced 0 override an enabled company policy — that skipped
+    # auto-recognize while the form still showed the policy date as filled.
     if getattr(job, "recognition_date_basis", None):
         result["recognition_date_basis"] = job.recognition_date_basis
     elif getattr(job, "wip_recognition_date_basis", None):
@@ -1484,6 +1499,10 @@ def adjust_wip(doctype, docname, adjustment_amount, adjustment_date=None):
         str: Name of the created Journal Entry
     """
     job = frappe.get_doc(doctype, docname)
+    from logistics.utils.menu_permission import assert_perm
+
+    assert_perm(doctype, "write", doc=job)
+    assert_perm("Journal Entry", "create")
     engine = RecognitionEngine(job)
     return engine.adjust_wip(flt(adjustment_amount), adjustment_date)
 
@@ -1503,6 +1522,10 @@ def adjust_accruals(doctype, docname, adjustment_amount, adjustment_date=None):
         str: Name of the created Journal Entry
     """
     job = frappe.get_doc(doctype, docname)
+    from logistics.utils.menu_permission import assert_perm
+
+    assert_perm(doctype, "write", doc=job)
+    assert_perm("Journal Entry", "create")
     engine = RecognitionEngine(job)
     return engine.adjust_accruals(flt(adjustment_amount), adjustment_date)
 
@@ -1565,6 +1588,10 @@ def recognize(doctype, docname, recognition_date=None):
         dict: Names of created Journal Entries and status
     """
     job = frappe.get_doc(doctype, docname)
+    from logistics.utils.menu_permission import assert_perm
+
+    assert_perm(doctype, "write", doc=job)
+    assert_perm("Journal Entry", "create")
     # Allow recognition on both draft (0) and submitted (1) documents
     engine = RecognitionEngine(job)
     result = {"wip_journal_entry": None, "accrual_journal_entry": None}
@@ -1610,6 +1637,10 @@ def close_job_recognition(doctype, docname, closure_date=None):
         dict: Names of the created Journal Entries
     """
     job = frappe.get_doc(doctype, docname)
+    from logistics.utils.menu_permission import assert_perm
+
+    assert_perm(doctype, "write", doc=job)
+    assert_perm("Journal Entry", "create")
     engine = RecognitionEngine(job)
     
     wip_je = engine.close_wip(closure_date)

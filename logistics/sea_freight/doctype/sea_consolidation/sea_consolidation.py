@@ -1624,6 +1624,9 @@ def populate_routing_from_ports(docname):
 def recalculate_all_charges(docname):
     """Recalculate all charges based on current Sea Consolidation data."""
     doc = frappe.get_doc("Sea Consolidation", docname)
+    from logistics.utils.menu_permission import assert_perm
+
+    assert_perm("Sea Consolidation", "write", doc=doc)
     if not doc.consolidation_charges:
         return {"success": False, "message": _("No charges found to recalculate")}
     try:

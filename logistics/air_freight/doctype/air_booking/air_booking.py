@@ -515,6 +515,16 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 			_("Volume must be greater than 0 before submitting the Air Booking")
 		)
 		# Validate quote is not empty
+		# Exception: Air Bookings created from a MICE Project or Time Sensitive Case
+		# intentionally have no Sales Quote.
+		from logistics.mice.doctype.mice_project.mice_project_booking_creation import (
+			booking_is_linked_from_mice_project,
+		)
+
+		mice_programme_booking = booking_is_linked_from_mice_project(self.doctype, self.name)
+		from logistics.time_sensitive.propagation import is_time_sensitive_operational_doc
+
+		ts_case_leg = is_time_sensitive_operational_doc(self)
 		quote_type = getattr(self, "quote_type", None)
 		has_quote = False
 		
@@ -526,12 +536,12 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 			# If quote_type is not set, check sales_quote (backward compatibility)
 			has_quote = bool(self.sales_quote)
 		
-		if not has_quote:
+		if not has_quote and not mice_programme_booking and not ts_case_leg:
 			frappe.throw(_("Quote is required. Please select a quote before submitting the Air Booking."))
 		
 		# Validate charges is not empty
 		charges = getattr(self, 'charges', []) or []
-		if not charges:
+		if not charges and not ts_case_leg:
 			frappe.throw(_("Charges are required. Please add at least one charge before submitting the Air Booking."))
 		throw_if_missing_destination_service_charge(self)
 		
@@ -2191,6 +2201,9 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 		Returns:
 			dict: Result with created Air Shipment name and status
 		"""
+		from logistics.utils.menu_permission import assert_create_from_source
+
+		assert_create_from_source("Air Shipment", source_doc=self)
 		try:
 			# Check if Air Shipment already exists for this Air Booking (1:1 relationship)
 			existing_shipment = frappe.db.get_value("Air Shipment", {"air_booking": self.name}, "name")
@@ -2553,7 +2566,7 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 			
 			# Insert the Air Shipment
 			try:
-				air_shipment.insert(ignore_permissions=True)
+				air_shipment.insert()
 			except (frappe.ValidationError, frappe.LinkValidationError) as e:
 				# If validation fails due to invalid link fields, clear them and try again
 				if "Could not find" in str(e) or "Invalid link" in str(e) or isinstance(e, frappe.LinkValidationError):
@@ -2565,7 +2578,7 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 						if not frappe.db.exists("Release Type", air_shipment.release_type):
 							air_shipment.release_type = None
 					# Try insert again
-					air_shipment.insert(ignore_permissions=True)
+					air_shipment.insert()
 				else:
 					raise
 
@@ -2729,7 +2742,10 @@ def convert_to_shipment_api(docname=None):
 	"""Load Air Booking from DB and convert; avoids ``run_doc_method`` / ``check_if_latest``."""
 	if not docname:
 		frappe.throw(_("Document is required"))
+	from logistics.utils.menu_permission import assert_create_from_source
+
 	booking = frappe.get_doc("Air Booking", docname)
+	assert_create_from_source("Air Shipment", source_doc=booking)
 	return booking.convert_to_shipment()
 
 
@@ -2755,6 +2771,9 @@ def aggregate_volume_from_packages_api(doc=None):
 def recalculate_all_charges(docname):
 	"""Recalculate all charges based on current Air Booking data."""
 	booking = frappe.get_doc("Air Booking", docname)
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm("Air Booking", "write", doc=booking)
 	if not booking.charges:
 		return {"success": False, "message": _("No charges found to recalculate")}
 	try:

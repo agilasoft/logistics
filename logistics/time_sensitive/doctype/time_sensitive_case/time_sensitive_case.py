@@ -136,7 +136,7 @@ class TimeSensitiveCase(Document):
 				severity="informational",
 				recipients=[self.coordinator],
 			)
-		if self.status in ACTIVE_STATUSES:
+		if self.status in ACTIVE_STATUSES or self.has_value_changed("sales_quote"):
 			self.stamp_attached_documents()
 
 	def on_submit(self):
@@ -188,7 +188,7 @@ class TimeSensitiveCase(Document):
 				frappe.log_error(frappe.get_traceback(), "time_sensitive.append_event.persist")
 
 	def stamp_attached_documents(self):
-		"""Push is_time_sensitive, case link, and deadline onto linked operational docs."""
+		"""Push time-sensitive identifiers and empty Sales Quote onto linked operational docs."""
 		from logistics.time_sensitive.propagation import stamp_document_from_case
 
 		from logistics.time_sensitive.service_linking import get_case_linked_services
@@ -466,6 +466,162 @@ def create_service_document(case_name: str, linked_service: str):
 	return created
 
 
+def _case_service_choice_row(
+	linked,
+	*,
+	order_no: str,
+	job_no: str,
+	detail_idx: int | None = None,
+) -> dict:
+	"""Build one card payload for Create Service dialog."""
+	from logistics.time_sensitive.orchestration import SERVICE_TYPE_DEFAULT_DOCTYPE
+
+	service_type = (linked.service_type or "").strip()
+	job_type = SERVICE_TYPE_DEFAULT_DOCTYPE.get(service_type, "")
+	order_no = (order_no or "").strip()
+	job_no = (job_no or "").strip()
+	not_creatable_message: str | None = None
+
+	if order_no:
+		creatable = False
+		badge = order_no
+		subtitle = _("Already linked — open the document from Order No above.")
+	elif not job_type:
+		creatable = False
+		badge = _("Pending")
+		subtitle = _("No default document for service type {0}.").format(service_type or _("(unknown)"))
+		not_creatable_message = subtitle
+	elif not frappe.db.exists("DocType", job_type):
+		creatable = False
+		badge = _("Pending")
+		subtitle = _("DocType {0} is not installed.").format(job_type)
+		not_creatable_message = subtitle
+	elif not frappe.has_permission(job_type, "create"):
+		creatable = False
+		badge = _("Pending")
+		subtitle = _("You do not have permission to create {0}.").format(_(job_type))
+		not_creatable_message = subtitle
+	else:
+		creatable = True
+		badge = _("Pending")
+		subtitle = _("Creates {0}. Row parameters are applied on create.").format(_(job_type))
+
+	choice: dict = {
+		"linked_service": linked.name,
+		"service_type": service_type,
+		"job_type": job_type,
+		"order_no": order_no,
+		"job_no": job_no,
+		"creatable": creatable,
+		"header_title": _(service_type) if service_type else _("(no service type)"),
+		"header_badge": badge,
+		"header_subtitle": subtitle,
+		"internal_job": linked.name,
+	}
+	if detail_idx is not None:
+		choice["detail_idx"] = detail_idx
+	if not_creatable_message:
+		choice["not_creatable_message"] = not_creatable_message
+	return choice
+
+
+@frappe.whitelist()
+def get_case_service_creation_choices(case_name: str):
+	"""Build Create Service card options from case Linked Services."""
+	from logistics.time_sensitive.service_linking import get_case_linked_services
+	from logistics.utils.linked_service_usage import (
+		latest_satellite_job_from_usage,
+		latest_shipment_from_usage,
+	)
+
+	case = frappe.get_doc("Time Sensitive Case", case_name)
+	frappe.has_permission("Time Sensitive Case", "read", doc=case, throw=True)
+
+	choices: list[dict] = []
+	for idx, linked in enumerate(get_case_linked_services(case), start=1):
+		_jt, order_no = latest_satellite_job_from_usage(linked.name)
+		_et, job_no = latest_shipment_from_usage(linked.name)
+		choices.append(
+			_case_service_choice_row(
+				linked,
+				order_no=order_no or "",
+				job_no=job_no or "",
+				detail_idx=idx,
+			)
+		)
+
+	if not choices:
+		return {
+			"choices": [],
+			"blocked_message": _(
+				"Add linked services via the Services button before creating a booking / order."
+			),
+		}
+	return {"choices": choices}
+
+
+@frappe.whitelist()
+def get_case_service_creation_preview(case_name: str, linked_service: str):
+	"""Preview case fields and charges that will be applied on Create Service."""
+	from logistics.time_sensitive.orchestration import (
+		SERVICE_TYPE_DEFAULT_DOCTYPE,
+		get_charges_for_service,
+	)
+	from logistics.time_sensitive.service_linking import get_case_linked_services
+
+	case = frappe.get_doc("Time Sensitive Case", case_name)
+	frappe.has_permission("Time Sensitive Case", "read", doc=case, throw=True)
+	if linked_service not in {row.name for row in get_case_linked_services(case)}:
+		frappe.throw(_("Linked Service {0} is not linked to this case.").format(linked_service))
+
+	linked = frappe.get_doc("Linked Service", linked_service)
+	service_type = (linked.service_type or "").strip()
+	job_type = SERVICE_TYPE_DEFAULT_DOCTYPE.get(service_type, "")
+
+	from logistics.utils.linked_service_usage import latest_satellite_job_from_usage
+
+	_jt, order_no = latest_satellite_job_from_usage(linked.name)
+	order_no = (order_no or "").strip()
+	creatable = bool(job_type) and not order_no
+	not_creatable_message: str | None = None
+	if order_no:
+		creatable = False
+		not_creatable_message = _("Already linked — open the document from Order No above.")
+	elif not job_type:
+		creatable = False
+		not_creatable_message = _("No default document for service type {0}.").format(
+			service_type or _("(unknown)")
+		)
+
+	charges = get_charges_for_service(case, linked_service, service_type)
+	job_detail_parameters = {
+		"customer": getattr(case, "customer", None),
+		"company": getattr(case, "company", None),
+		"origin": getattr(case, "origin", None),
+		"destination": getattr(case, "destination", None),
+		"critical_deadline": getattr(case, "critical_deadline", None),
+		"priority": getattr(case, "priority", None),
+		"sales_quote": getattr(case, "sales_quote", None),
+	}
+
+	return {
+		"job_type": job_type,
+		"linked_service": linked_service,
+		"service_type": service_type,
+		"creatable": creatable,
+		"not_creatable_message": not_creatable_message,
+		"source_context": {
+			"source_doctype": case.doctype,
+			"source_name": case.name,
+			"customer": getattr(case, "customer", None),
+			"company": getattr(case, "company", None),
+			"sales_quote": getattr(case, "sales_quote", None),
+		},
+		"job_detail_parameters": {k: v for k, v in job_detail_parameters.items() if v},
+		"charges": charges,
+	}
+
+
 @frappe.whitelist()
 def add_linked_service(case_name: str, service_type: str):
 	"""Create a canonical Linked Service owned by this case."""
@@ -567,6 +723,14 @@ def remove_linked_service(case_name: str, linked_service: str):
 
 
 @frappe.whitelist()
+def create_change_request_from_case(case_name: str, reason: str | None = None, reuse_draft: int | None = None):
+	"""Create a Change Request for this case's completed main-service job."""
+	from logistics.time_sensitive.change_request import create_change_request_from_case as _create
+
+	return _create(case_name, reason=reason, reuse_draft=reuse_draft)
+
+
+@frappe.whitelist()
 def create_case_from_sales_quote(sales_quote: str, case_type: str | None = None, critical_deadline: str | None = None):
 	"""Create a Time Sensitive Case and reuse the quote's Linked Services."""
 	from logistics.time_sensitive.orchestration import build_case_from_sales_quote
@@ -579,6 +743,9 @@ def create_case_from_sales_quote(sales_quote: str, case_type: str | None = None,
 
 	sq = frappe.get_doc("Sales Quote", sales_quote)
 	frappe.has_permission("Sales Quote", "read", doc=sq, throw=True)
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm("Time Sensitive Case", "create")
 	case = build_case_from_sales_quote(sq, case_type=case_type, critical_deadline=critical_deadline)
 
 	# Seed mappable header gaps + charges (issue #1377) before insert.
@@ -599,15 +766,30 @@ def create_case_from_sales_quote(sales_quote: str, case_type: str | None = None,
 		record_case_usage(case, linked_service)
 	for service_type in case.flags.get("pending_service_types") or []:
 		create_linked_service_for_case(case, service_type)
-	if hasattr(sq, "is_time_sensitive"):
-		frappe.db.set_value("Sales Quote", sq.name, "is_time_sensitive", 1, update_modified=False)
-		if hasattr(sq, "time_sensitive_case"):
-			frappe.db.set_value("Sales Quote", sq.name, "time_sensitive_case", case.name, update_modified=False)
-		if hasattr(sq, "critical_deadline") and case.critical_deadline:
-			frappe.db.set_value(
-				"Sales Quote", sq.name, "critical_deadline", case.critical_deadline, update_modified=False
-			)
+	stamp_sales_quote_from_case(sq.name, case)
 	return {"name": case.name}
+
+
+def stamp_sales_quote_from_case(sales_quote: str, case) -> None:
+	"""Bind Sales Quote reverse fields after a case is linked (create-from-quote or GCFQ apply)."""
+	if not sales_quote or not case:
+		return
+	if not frappe.db.exists("Sales Quote", sales_quote):
+		return
+	if frappe.db.has_column("Sales Quote", "is_time_sensitive"):
+		frappe.db.set_value("Sales Quote", sales_quote, "is_time_sensitive", 1, update_modified=False)
+	if frappe.db.has_column("Sales Quote", "time_sensitive_case"):
+		frappe.db.set_value(
+			"Sales Quote", sales_quote, "time_sensitive_case", case.name, update_modified=False
+		)
+	if frappe.db.has_column("Sales Quote", "critical_deadline") and getattr(case, "critical_deadline", None):
+		frappe.db.set_value(
+			"Sales Quote",
+			sales_quote,
+			"critical_deadline",
+			case.critical_deadline,
+			update_modified=False,
+		)
 
 
 def _infer_service_type(doctype: str) -> str:

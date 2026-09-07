@@ -1011,6 +1011,7 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 	@frappe.whitelist()
 	def recalculate_all_charges(self):
 		"""Recalculate all declaration charges using each row's calculation routine."""
+		self.check_permission("write")
 		if not hasattr(self, "charges") or not self.charges:
 			return {"success": False, "message": _("No charges found to recalculate")}
 		if self.docstatus == 1:
@@ -1135,8 +1136,11 @@ def create_declaration_from_declaration_order(declaration_order_name: str) -> Di
 	"""
 	if not declaration_order_name:
 		frappe.throw(_("Declaration Order name is required."))
+	from logistics.utils.menu_permission import assert_create_from_source
+
+	order = frappe.get_doc("Declaration Order", declaration_order_name)
+	assert_create_from_source("Declaration", source_doc=order)
 	try:
-		order = frappe.get_doc("Declaration Order", declaration_order_name)
 		# Validate: Declaration Order can only be linked to one Declaration
 		existing = frappe.db.get_value("Declaration", {"declaration_order": order.name, "docstatus": ["<", 2]}, "name")
 		if existing:
@@ -1235,8 +1239,11 @@ def create_declaration_from_sales_quote(sales_quote_name: str) -> Dict[str, Any]
 	Returns:
 		dict: Result with created Declaration name and status
 	"""
+	from logistics.utils.menu_permission import assert_create_from_source
+
+	sq = frappe.get_doc("Sales Quote", sales_quote_name)
+	assert_create_from_source("Declaration", source_doc=sq)
 	try:
-		sq = frappe.get_doc("Sales Quote", sales_quote_name)
 		
 		# Check if the quote is tagged as One-Off
 		if getattr(sq, "quotation_type", None) != "One-off":
@@ -1495,6 +1502,8 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 		"mode",
 		"delivery_modes",
 		"free_time_days",
+		"demurrage_free_time_days",
+		"detention_free_time_days",
 	)
 	for row in order.get("containers") or []:
 		data = container_row_to_dict(row, _container_fields)
@@ -1539,6 +1548,8 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.inv_net_weight_uom = order.inv_net_weight_uom
 	declaration.packages = order.packages
 	declaration.packages_uom = order.packages_uom
+	declaration.number_of_line_items = getattr(order, "number_of_line_items", None)
+	declaration.number_of_line_items_manual = getattr(order, "number_of_line_items_manual", None)
 	declaration.cif = order.cif
 	declaration.fob = order.fob
 	declaration.charges_excl_from_itot = order.charges_excl_from_itot
@@ -1874,8 +1885,11 @@ def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 	"""
 	if not declaration_name:
 		frappe.throw(_("Declaration name is required."))
-	
+
+	from logistics.utils.menu_permission import assert_create_from_source
+
 	declaration = frappe.get_doc("Declaration", declaration_name)
+	assert_create_from_source("Sales Invoice", source_doc=declaration)
 	if declaration.docstatus == 2:
 		frappe.throw(_("Cannot create Sales Invoice from a cancelled Declaration."))
 	
@@ -2003,7 +2017,11 @@ def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 @frappe.whitelist()
 def post_standard_costs(docname):
 	"""Post standard costs for Declaration charges. No-op if charges do not support standard costs."""
+	from logistics.utils.menu_permission import assert_perm
+
 	declaration = frappe.get_doc("Declaration", docname)
+	assert_perm("Declaration", "write", doc=declaration)
+	assert_perm("Journal Entry", "create")
 	posted = 0
 	for ch in (declaration.charges or []):
 		if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(ch, "standard_cost_posted", False):

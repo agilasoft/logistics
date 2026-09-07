@@ -13,6 +13,7 @@
   "charge_type",
   "charge_category",
   "freight_taxes_section",
+  "category_apply_95_5_rule",
   "apply_95_5_rule",
   "taxable_freight_item",
   "taxable_freight_item_tax_template",
@@ -135,20 +136,28 @@
    "link_filters": "[[\"Charge Category\", \"disabled\", \"=\", 0]]"
   },
   {
-   "depends_on": "eval:doc.charge_category==\"Freight\"",
+   "depends_on": "eval:doc.category_apply_95_5_rule",
    "fieldname": "freight_taxes_section",
    "fieldtype": "Section Break",
    "label": "Taxes"
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.charge_category==\"Freight\"",
+   "fetch_from": "charge_category.apply_95_5_rule",
+   "fieldname": "category_apply_95_5_rule",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.category_apply_95_5_rule",
    "fieldname": "apply_95_5_rule",
    "fieldtype": "Check",
    "label": "Apply 95/5 rule"
   },
   {
-   "depends_on": "eval:doc.charge_category==\"Freight\" && doc.apply_95_5_rule",
+   "depends_on": "eval:doc.category_apply_95_5_rule && doc.apply_95_5_rule",
    "fieldname": "taxable_freight_item",
    "fieldtype": "Link",
    "label": "Taxable Freight Item",
@@ -156,7 +165,7 @@
    "options": "Item"
   },
   {
-   "depends_on": "eval:doc.charge_category==\"Freight\" && doc.apply_95_5_rule",
+   "depends_on": "eval:doc.category_apply_95_5_rule && doc.apply_95_5_rule",
    "fieldname": "taxable_freight_item_tax_template",
    "fieldtype": "Link",
    "label": "Taxable Freight Item Tax Template",

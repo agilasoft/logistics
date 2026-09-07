@@ -1,10 +1,12 @@
 # Copyright (c) 2025, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
+import math
+
 import frappe
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 
 class TransportConsolidation(Document):
@@ -236,6 +238,8 @@ class TransportConsolidation(Document):
 		self.auto_determine_load_type()
 		self.validate_consolidation_rules()
 		self.determine_consolidation_type()
+		self.sync_consolidation_legs_from_jobs()
+		self.sync_consolidation_packages_from_jobs()
 		self.calculate_totals()
 		self.validate_capacity_limits()
 		self.validate_date_alignment()
@@ -440,9 +444,9 @@ class TransportConsolidation(Document):
 			
 			job_doc = frappe.get_doc("Transport Job", job.transport_job)
 			
-			# Ensure all linked Transport Jobs are submitted
-			if job_doc.docstatus != 1:
-				frappe.throw(_("Transport Job {0} must be submitted to be included in consolidation").format(
+			# Ensure all linked Transport Jobs are Draft
+			if job_doc.docstatus != 0:
+				frappe.throw(_("Transport Job {0} must be Draft to be included in consolidation").format(
 					job_doc.name
 				))
 			
@@ -621,6 +625,240 @@ class TransportConsolidation(Document):
 			if not self.run_sheet:
 				frappe.throw(_("Cannot set status to {0} without Run Sheet").format(new_status))
 	
+	def sync_consolidation_legs_from_jobs(self):
+		"""Mirror Transport Leg records from consolidated jobs into the legs table."""
+		current_jobs = {
+			row.transport_job
+			for row in (self.transport_jobs or [])
+			if row.transport_job
+		}
+
+		if not current_jobs:
+			self.set("legs", [])
+			return
+
+		leg_fields = [
+			"name",
+			"transport_job",
+			"run_sheet",
+			"facility_type_from",
+			"facility_from",
+			"pick_mode",
+			"facility_type_to",
+			"facility_to",
+			"drop_mode",
+			"pick_address",
+			"drop_address",
+			"pick_datetime",
+			"drop_datetime",
+			"date",
+			"order",
+		]
+
+		transport_legs = frappe.get_all(
+			"Transport Leg",
+			filters={
+				"transport_job": ["in", list(current_jobs)],
+				"docstatus": ["<", 2],
+			},
+			fields=leg_fields,
+			order_by="transport_job asc, order asc, name asc",
+		)
+
+		sorted_legs = sort_legs_for_consolidation(
+			transport_legs,
+			consolidation_type=self.consolidation_type,
+		)
+
+		self.set("legs", [])
+		for leg in sorted_legs:
+			self.append(
+				"legs",
+				{
+					"transport_leg": leg.get("name"),
+					"transport_job": leg.get("transport_job"),
+					"run_sheet": leg.get("run_sheet"),
+					"facility_type_from": leg.get("facility_type_from"),
+					"facility_from": leg.get("facility_from"),
+					"pick_mode": leg.get("pick_mode"),
+					"facility_type_to": leg.get("facility_type_to"),
+					"facility_to": leg.get("facility_to"),
+					"drop_mode": leg.get("drop_mode"),
+					"pick_address": leg.get("pick_address"),
+					"drop_address": leg.get("drop_address"),
+					"pick_datetime": leg.get("pick_datetime"),
+					"drop_datetime": leg.get("drop_datetime"),
+					"scheduled_date": leg.get("date"),
+				},
+			)
+
+	def sync_consolidation_packages_from_jobs(self):
+		"""Mirror Transport Job package lines into consolidation_packages."""
+		current_jobs = {
+			row.transport_job
+			for row in (self.transport_jobs or [])
+			if row.transport_job
+		}
+
+		for pkg in list(self.get("consolidation_packages") or []):
+			job = getattr(pkg, "transport_job", None)
+			if job and job not in current_jobs:
+				self.remove(pkg)
+
+		for job_name in current_jobs:
+			self._append_consolidation_packages_from_transport_job(job_name)
+
+	def _package_references_in_use(self):
+		refs = set()
+		for row in self.get("consolidation_packages") or []:
+			ref = getattr(row, "package_reference", None)
+			if ref:
+				refs.add(ref)
+		return refs
+
+	def _allocate_consolidation_package_reference(self, transport_job, idx, line_reference_no, used_refs):
+		"""Stable unique package_reference for Transport Consolidation Packages (autoname field)."""
+
+		def _is_free(candidate):
+			if not candidate:
+				return False
+			if candidate in used_refs:
+				return False
+			return not frappe.db.exists("Transport Consolidation Packages", candidate)
+
+		raw = (line_reference_no or "").strip()
+		if _is_free(raw):
+			used_refs.add(raw)
+			return raw
+		base = "{0}-P{1}".format(transport_job, idx)
+		ref = base
+		suffix = 1
+		while not _is_free(ref):
+			suffix += 1
+			ref = "{0}-{1}".format(base, suffix)
+		used_refs.add(ref)
+		return ref
+
+	def _job_already_has_package_rows(self, transport_job):
+		for pkg in self.get("consolidation_packages") or []:
+			if getattr(pkg, "transport_job", None) == transport_job:
+				return True
+		return False
+
+	def _job_row_weight_volume(self, transport_job):
+		for row in self.transport_jobs or []:
+			if row.transport_job == transport_job:
+				weight = getattr(row, "total_weight", None) or getattr(row, "weight", None)
+				volume = getattr(row, "total_volume", None) or getattr(row, "volume", None)
+				return flt(weight), flt(volume)
+		return 0.0, 0.0
+
+	def _append_one_consolidation_package_row(self, transport_job, job_doc, **fields):
+		payload = {
+			"package_reference": fields.get("package_reference"),
+			"transport_job": transport_job,
+			"shipper": job_doc.shipper,
+			"consignee": job_doc.consignee,
+			"package_type": fields.get("package_type") or "Box",
+			"package_count": fields.get("package_count"),
+			"package_weight": fields.get("package_weight"),
+			"package_volume": fields.get("package_volume"),
+			"commodity": fields.get("commodity"),
+			"description": fields.get("description") or "",
+			"contains_dangerous_goods": 1 if fields.get("contains_dangerous_goods") else 0,
+			"dg_class": fields.get("dg_class"),
+			"un_number": fields.get("un_number"),
+			"proper_shipping_name": fields.get("proper_shipping_name"),
+			"packing_group": fields.get("packing_group"),
+			"emergency_contact": fields.get("emergency_contact"),
+			"handling_instructions": fields.get("handling_instructions"),
+			"temperature_controlled": 1 if fields.get("temperature_controlled") else 0,
+			"min_temperature": fields.get("min_temperature"),
+			"max_temperature": fields.get("max_temperature"),
+		}
+		return self.append("consolidation_packages", payload)
+
+	def _append_consolidation_packages_from_transport_job(self, transport_job):
+		"""Copy Transport Job package lines (or one summary row) onto this consolidation."""
+		if not transport_job or self._job_already_has_package_rows(transport_job):
+			return []
+
+		job_doc = frappe.get_doc("Transport Job", transport_job)
+		used_refs = self._package_references_in_use()
+		appended = []
+		pkg_lines = [r for r in (job_doc.get("packages") or []) if r is not None]
+		job_weight, job_volume = self._job_row_weight_volume(transport_job)
+		job_dg = bool(getattr(job_doc, "contains_dangerous_goods", 0))
+
+		if pkg_lines:
+			for i, sp in enumerate(pkg_lines, start=1):
+				n_packs = flt(getattr(sp, "no_of_packs", 0) or 0)
+				pack_count = max(1, cint(math.ceil(n_packs))) if n_packs > 0 else 1
+				w = flt(getattr(sp, "weight", 0) or 0)
+				v = flt(getattr(sp, "volume", 0) or 0)
+				if w <= 0 and job_weight:
+					w = job_weight / len(pkg_lines)
+				if w <= 0:
+					w = 0.01
+				line_dg = bool(
+					getattr(sp, "contains_dangerous_goods", 0)
+					or getattr(sp, "dg_substance", None)
+					or (getattr(sp, "dg_class", None) or "").strip()
+				)
+				dg_flag = line_dg or job_dg
+				temp_flag = bool(getattr(sp, "temp_controlled", 0))
+				emergency = getattr(sp, "emergency_contact_phone", None) or getattr(
+					sp, "emergency_contact_name", None
+				)
+				row = self._append_one_consolidation_package_row(
+					transport_job,
+					job_doc,
+					package_reference=self._allocate_consolidation_package_reference(
+						transport_job, i, getattr(sp, "reference_no", None), used_refs
+					),
+					package_type="Box",
+					package_count=pack_count,
+					package_weight=w,
+					package_volume=v,
+					commodity=getattr(sp, "commodity", None),
+					description=getattr(sp, "goods_description", None)
+					or getattr(sp, "description", None)
+					or "",
+					contains_dangerous_goods=1 if dg_flag else 0,
+					dg_class=(getattr(sp, "dg_class", None) or None) if dg_flag else None,
+					un_number=(getattr(sp, "un_number", None) or None) if dg_flag else None,
+					proper_shipping_name=(getattr(sp, "proper_shipping_name", None) or None)
+					if dg_flag
+					else None,
+					packing_group=(getattr(sp, "packing_group", None) or None) if dg_flag else None,
+					emergency_contact=emergency if dg_flag else None,
+					handling_instructions=getattr(sp, "handling_instructions", None),
+					temperature_controlled=1 if temp_flag else 0,
+					min_temperature=getattr(sp, "min_temperature", None) if temp_flag else None,
+					max_temperature=getattr(sp, "max_temperature", None) if temp_flag else None,
+				)
+				appended.append(row)
+		else:
+			row = self._append_one_consolidation_package_row(
+				transport_job,
+				job_doc,
+				package_reference=self._allocate_consolidation_package_reference(
+					transport_job, 1, None, used_refs
+				),
+				package_type="Box",
+				package_count=1,
+				package_weight=job_weight if job_weight > 0 else 0.01,
+				package_volume=job_volume,
+				commodity=None,
+				description="",
+				contains_dangerous_goods=1 if job_dg else 0,
+				dg_class=None,
+				temperature_controlled=0,
+			)
+			appended.append(row)
+
+		return appended
+
 	def calculate_totals(self):
 		"""Calculate total weight and volume from transport consolidation job rows"""
 		total_weight = 0
@@ -819,6 +1057,48 @@ class TransportConsolidation(Document):
 			)
 
 
+def sort_legs_for_consolidation(
+	legs,
+	consolidation_type=None,
+	*,
+	is_pick_consolidated=False,
+	is_drop_consolidated=False,
+	is_both_consolidated=False,
+):
+	"""
+	Sort Transport Leg docs/dicts for consolidation routing order.
+
+	Prefer explicit pattern flags when provided (Run Sheet creation).
+	Otherwise map from consolidation_type: Both / Pick / Drop / Route.
+	"""
+
+	def _get(leg, key, default=None):
+		if isinstance(leg, dict):
+			return leg.get(key, default)
+		return getattr(leg, key, default)
+
+	def _name(leg):
+		return _get(leg, "name") or ""
+
+	if not (is_pick_consolidated or is_drop_consolidated or is_both_consolidated):
+		ctype = (consolidation_type or "").strip()
+		is_both_consolidated = ctype == "Both"
+		is_pick_consolidated = ctype == "Pick"
+		is_drop_consolidated = ctype == "Drop"
+
+	if is_both_consolidated:
+		return sorted(legs, key=lambda l: (_get(l, "order") or 0, _name(l)))
+	if is_pick_consolidated:
+		return sorted(legs, key=lambda l: (_get(l, "drop_address") or "", _name(l)))
+	if is_drop_consolidated:
+		return sorted(legs, key=lambda l: (_get(l, "pick_address") or "", _name(l)))
+	# Route / default: milk-run order by pick then drop
+	return sorted(
+		legs,
+		key=lambda l: (_get(l, "pick_address") or "", _get(l, "drop_address") or "", _name(l)),
+	)
+
+
 @frappe.whitelist()
 def create_run_sheet_from_consolidation(consolidation_name: str):
 	"""
@@ -952,88 +1232,46 @@ def create_run_sheet_from_consolidation(consolidation_name: str):
 			}
 		
 		# Add legs to Run Sheet based on consolidation pattern
-		if is_both_consolidated:
-			# Both Consolidated: Same pick and drop for all jobs
-			# Sort legs by order or name
-			sorted_legs = sorted(available_legs, key=lambda l: (l.order or 0, l.name))
-			
-			for leg in sorted_legs:
-				run_sheet.append("legs", {
-					"transport_leg": leg.name
-				})
-				
-				# Set both flags for both consolidated using direct database update
-				# This bypasses "update after submit" validation
+		sorted_legs = sort_legs_for_consolidation(
+			available_legs,
+			is_pick_consolidated=is_pick_consolidated,
+			is_drop_consolidated=is_drop_consolidated,
+			is_both_consolidated=is_both_consolidated,
+		)
+
+		for leg in sorted_legs:
+			run_sheet.append("legs", {"transport_leg": leg.name})
+
+			# Set consolidation flags using direct database update
+			# This bypasses "update after submit" validation
+			if is_both_consolidated:
 				update_fields = {
 					"pick_consolidated": 1,
 					"drop_consolidated": 1,
-					"transport_consolidation": consolidation_name
+					"transport_consolidation": consolidation_name,
 				}
-				for field, value in update_fields.items():
-					if frappe.db.has_column("Transport Leg", field):
-						frappe.db.set_value("Transport Leg", leg.name, field, value, update_modified=False)
-		
-		elif is_pick_consolidated:
-			# Pick Consolidated: One pick, multiple drops
-			# All legs share the same pick address but have different drop addresses
-			# Sort legs by drop address for logical routing order
-			sorted_legs = sorted(available_legs, key=lambda l: (l.drop_address or "", l.name))
-			
-			# Add all legs to Run Sheet
-			for leg in sorted_legs:
-				run_sheet.append("legs", {
-					"transport_leg": leg.name
-				})
-				
-				# Set pick_consolidated checkbox on all legs using direct database update
-				# This bypasses "update after submit" validation
+			elif is_pick_consolidated:
 				update_fields = {
 					"pick_consolidated": 1,
 					"drop_consolidated": 0,
-					"transport_consolidation": consolidation_name
+					"transport_consolidation": consolidation_name,
 				}
-				for field, value in update_fields.items():
-					if frappe.db.has_column("Transport Leg", field):
-						frappe.db.set_value("Transport Leg", leg.name, field, value, update_modified=False)
-		
-		elif is_drop_consolidated:
-			# Drop Consolidated: Multiple picks, one drop
-			# All legs share the same drop address but have different pick addresses
-			# Sort legs by pick address for logical routing order
-			sorted_legs = sorted(available_legs, key=lambda l: (l.pick_address or "", l.name))
-			
-			# Add all legs to Run Sheet
-			for leg in sorted_legs:
-				run_sheet.append("legs", {
-					"transport_leg": leg.name
-				})
-				
-				# Set drop_consolidated checkbox on all legs using direct database update
-				# This bypasses "update after submit" validation
+			elif is_drop_consolidated:
 				update_fields = {
 					"drop_consolidated": 1,
 					"pick_consolidated": 0,
-					"transport_consolidation": consolidation_name
+					"transport_consolidation": consolidation_name,
 				}
-				for field, value in update_fields.items():
-					if frappe.db.has_column("Transport Leg", field):
-						frappe.db.set_value("Transport Leg", leg.name, field, value, update_modified=False)
-		
-		else:
-			# Route Consolidated: Multiple picks and drops (milk run)
-			# Sort by pick address first, then drop address for route optimization
-			sorted_legs = sorted(available_legs, key=lambda l: (l.pick_address or "", l.drop_address or "", l.name))
-			
-			for leg in sorted_legs:
-				run_sheet.append("legs", {
-					"transport_leg": leg.name
-				})
-				
+			else:
 				# Route consolidations may have mixed patterns
-				# Use direct database update to bypass "update after submit" validation
-				if frappe.db.has_column("Transport Leg", "transport_consolidation"):
-					frappe.db.set_value("Transport Leg", leg.name, "transport_consolidation", consolidation_name, update_modified=False)
-		
+				update_fields = {"transport_consolidation": consolidation_name}
+
+			for field, value in update_fields.items():
+				if frappe.db.has_column("Transport Leg", field):
+					frappe.db.set_value(
+						"Transport Leg", leg.name, field, value, update_modified=False
+					)
+
 		# Save Run Sheet
 		run_sheet.insert(ignore_permissions=True)
 		
@@ -1123,7 +1361,7 @@ def fetch_matching_jobs(consolidation_name: str):
 		
 		# Build filters based on consolidation type
 		filters = {
-			"docstatus": 1,  # Only submitted jobs
+			"docstatus": 0,  # Only Draft jobs
 			"load_type": consolidation.load_type,
 			"company": consolidation.company,
 		}
@@ -1376,7 +1614,7 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 	Returns jobs grouped by consolidation type.
 	
 	Validations performed:
-	1. Job must be submitted (docstatus = 1)
+	1. Job must be Draft (docstatus = 0)
 	2. Job must belong to specified company (if provided)
 	3. Job must have at least one Transport Leg
 	4. Transport Legs must have pick_address and drop_address
@@ -1396,7 +1634,7 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 	"""
 	try:
 		# Build filters for Transport Jobs
-		filters = {"docstatus": 1}  # Only submitted jobs
+		filters = {"docstatus": 0}  # Only Draft jobs
 		
 		if company:
 			filters["company"] = company
@@ -1405,7 +1643,7 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 		# Instead, we check it in the loop so we can track it in debug info
 		# and handle cases where the field might not exist
 		
-		# Get all submitted Transport Jobs
+		# Get all Draft Transport Jobs
 		# Include group_legs_in_one_runsheet field for filtering
 		job_fields = ["name", "customer", "company", "status", "load_type", "vehicle_type", "scheduled_date"]
 		if frappe.db.has_column("Transport Job", "group_legs_in_one_runsheet"):
@@ -1440,7 +1678,7 @@ def get_consolidatable_jobs(consolidation_type: str = None, company: str = None,
 				"consolidation_groups_found": 0,
 				"company_filter": company,
 				"consolidation_type_filter": consolidation_type,
-				"message": "No submitted Transport Jobs found matching the criteria."
+				"message": "No Draft Transport Jobs found matching the criteria."
 			}
 			return {
 				"status": "success",
@@ -2215,7 +2453,7 @@ def get_consolidatable_legs(job_names: list = None, company: str = None, fetch_a
 				# Get all job names for this company
 				company_jobs = frappe.get_all(
 					"Transport Job",
-					filters={"company": company, "docstatus": 1},
+					filters={"company": company, "docstatus": 0},
 					pluck="name"
 				)
 				if company_jobs:
@@ -2320,8 +2558,8 @@ def get_consolidatable_legs(job_names: list = None, company: str = None, fetch_a
 			if not job:
 				continue
 			
-			# Skip if job is not submitted (only for fetch_all mode)
-			if fetch_all and job.get("docstatus") != 1:
+			# Skip if job is not Draft (only for fetch_all mode)
+			if fetch_all and job.get("docstatus") != 0:
 				continue
 			
 			# Validate Load Type allows consolidation (only when fetch_all=True)
@@ -2539,9 +2777,9 @@ def add_jobs_to_consolidation(consolidation_name: str, job_names):
 				# Get Transport Job
 				job_doc = frappe.get_doc("Transport Job", job_name)
 				
-				# Validate job is submitted
-				if job_doc.docstatus != 1:
-					errors.append(_("Transport Job {0} is not submitted").format(job_name))
+				# Validate job is Draft
+				if job_doc.docstatus != 0:
+					errors.append(_("Transport Job {0} is not Draft").format(job_name))
 					continue
 				
 				# Get Transport Legs for this job

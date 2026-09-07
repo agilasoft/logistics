@@ -12,7 +12,7 @@ frappe.pages["role-permission-matrix"].on_page_load = function (wrapper) {
 		ns.page = new ns.RolePermissionMatrixPage(wrapper);
 		return;
 	}
-	frappe.require("/assets/logistics/js/role_permission_matrix_page.js?v=5", function () {
+	frappe.require("/assets/logistics/js/role_permission_matrix_page.js?v=6", function () {
 		if (!ns.page && ns.RolePermissionMatrixPage) {
 			ns.page = new ns.RolePermissionMatrixPage(wrapper);
 		}

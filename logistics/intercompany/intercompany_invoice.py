@@ -93,7 +93,12 @@ def create_intercompany_invoices_for_quote(
 	if not is_intercompany_enabled():
 		return {"success": True, "created": 0, "message": _("Intercompany invoicing is disabled.")}
 
+	from logistics.utils.menu_permission import assert_perm
+
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	assert_perm("Sales Quote", "write", doc=sales_quote)
+	assert_perm("Sales Invoice", "create")
+	assert_perm("Purchase Invoice", "create")
 	legs = getattr(sales_quote, "routing_legs", None) or []
 	if not legs:
 		return {"success": True, "created": 0, "message": _("No routing legs.")}

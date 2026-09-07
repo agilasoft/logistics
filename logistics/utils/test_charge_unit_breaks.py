@@ -22,7 +22,12 @@ from logistics.utils.charges_calculation import (
 	calculate_charge_cost,
 	calculate_charge_revenue,
 	calculate_charge_row,
+	container_type_counts_from_parent,
 	realign_charge_row_quantities_from_parent,
+)
+from logistics.pricing_center.doctype.charge_unit_break.charge_unit_break import (
+	get_unit_breaks,
+	save_unit_breaks_for_reference,
 )
 from logistics.utils.sales_quote_programme_charges import copy_charge_breaks_for_reference
 
@@ -101,9 +106,50 @@ class TestChargeUnitBreaks(FrappeTestCase):
 		self.assertEqual(charge.cost_quantity, 1.0)
 
 	def test_charge_side_uses_unit_breaks_flag(self):
-		row = frappe._dict(use_unit_breaks=1, cost_use_unit_breaks=0)
+		row = frappe._dict(
+			use_unit_breaks=1,
+			cost_use_unit_breaks=0,
+			revenue_calculation_method="Per Unit",
+			cost_calculation_method="Flat Rate",
+		)
 		self.assertTrue(_charge_side_uses_unit_breaks(row, True))
 		self.assertFalse(_charge_side_uses_unit_breaks(row, False))
+
+	def test_charge_side_uses_unit_breaks_requires_per_unit(self):
+		row = frappe._dict(use_unit_breaks=1, revenue_calculation_method="Weight Break")
+		self.assertFalse(_charge_side_uses_unit_breaks(row, True))
+		row.revenue_calculation_method = "Per Unit"
+		self.assertTrue(_charge_side_uses_unit_breaks(row, True))
+		cost = frappe._dict(cost_use_unit_breaks=1, cost_calculation_method="Qty Break")
+		self.assertFalse(_charge_side_uses_unit_breaks(cost, False))
+		cost.cost_calculation_method = "Per Unit"
+		self.assertTrue(_charge_side_uses_unit_breaks(cost, False))
+		cr = frappe._dict(use_unit_breaks=1, calculation_method="Per Unit")
+		self.assertTrue(_charge_side_uses_unit_breaks(cr, True))
+		mice = frappe._dict(cost_use_unit_breaks=1, revenue_calculation_method="Per Unit")
+		self.assertTrue(_charge_side_uses_unit_breaks(mice, False))
+
+	def test_unit_breaks_checkbox_depends_on_per_unit(self):
+		meta = frappe.get_meta("Sales Quote Charge")
+		selling = meta.get_field("use_unit_breaks")
+		self.assertIsNotNone(selling)
+		self.assertIn("Per Unit", selling.depends_on or "")
+		self.assertIn("revenue_calculation_method", selling.depends_on or "")
+		cost = meta.get_field("cost_use_unit_breaks")
+		self.assertIsNotNone(cost)
+		self.assertIn("Per Unit", cost.depends_on or "")
+		self.assertIn("cost_calculation_method", cost.depends_on or "")
+		btn = meta.get_field("selling_unit_break")
+		self.assertIn("use_unit_breaks", btn.depends_on or "")
+		self.assertIn("Per Unit", btn.depends_on or "")
+		tariff = frappe.get_meta("Tariff Charge")
+		self.assertIn("Per Unit", (tariff.get_field("use_unit_breaks").depends_on or ""))
+		self.assertIn(
+			"revenue_calculation_method",
+			tariff.get_field("use_unit_breaks").depends_on or "",
+		)
+		cr = frappe.get_meta("Change Request Charge")
+		self.assertIn("calculation_method", (cr.get_field("use_unit_breaks").depends_on or ""))
 
 	def test_resolve_unit_break_rate_picks_highest_matching_tier(self):
 		if not frappe.db.exists("DocType", "Charge Unit Break"):
@@ -127,7 +173,7 @@ class TestChargeUnitBreaks(FrappeTestCase):
 			doc.unit_break = threshold
 			doc.unit_rate = rate
 			doc.currency = "USD"
-			doc.insert(ignore_permissions=True)
+			doc.insert(ignore_permissions=True, ignore_links=True)
 
 		charge_doc = frappe._dict(doctype=ref_doctype, name=ref_no)
 		applicable = _resolve_unit_break_rate(charge_doc, 750, "Selling", unit_type="Weight")
@@ -155,12 +201,13 @@ class TestChargeUnitBreaks(FrappeTestCase):
 		doc.unit_break = 2
 		doc.unit_rate = 150
 		doc.currency = "USD"
-		doc.insert(ignore_permissions=True)
+		doc.insert(ignore_permissions=True, ignore_links=True)
 
 		charge_doc = frappe._dict(
 			doctype=ref_doctype,
 			name=ref_no,
 			use_unit_breaks=1,
+			revenue_calculation_method="Per Unit",
 			unit_type="TEU",
 			currency="USD",
 			uom="Nos",
@@ -172,6 +219,21 @@ class TestChargeUnitBreaks(FrappeTestCase):
 		)
 		self.assertTrue(prefix)
 		self.assertEqual(flt(rate_data.get("rate")), 150)
+
+	def test_apply_unit_break_skipped_when_method_is_not_per_unit(self):
+		charge_doc = frappe._dict(
+			doctype="Sales Quote Charge",
+			name="TEST-UNIT-BREAK-SKIP",
+			use_unit_breaks=1,
+			revenue_calculation_method="Weight Break",
+			unit_type="TEU",
+		)
+		rate_data = {"calculation_method": "Weight Break", "rate": 100, "unit_rate": 100, "currency": "USD"}
+		prefix = _apply_unit_break_to_rate_data(
+			charge_doc, rate_data, {"actual_teu": 4}, "TEU", "Selling", True
+		)
+		self.assertIsNone(prefix)
+		self.assertEqual(flt(rate_data.get("rate")), 100)
 
 	def test_apply_unit_break_notes_rate_adjustment(self):
 		if not frappe.db.exists("DocType", "Charge Unit Break"):
@@ -194,7 +256,7 @@ class TestChargeUnitBreaks(FrappeTestCase):
 		doc.unit_break = 500
 		doc.unit_rate = 8
 		doc.currency = "USD"
-		doc.insert(ignore_permissions=True)
+		doc.insert(ignore_permissions=True, ignore_links=True)
 
 		charge_doc = frappe._dict(
 			doctype=ref_doctype,
@@ -213,7 +275,8 @@ class TestChargeUnitBreaks(FrappeTestCase):
 			charge_doc, rate_data, actual_data, "Weight", "Selling", True
 		)
 		self.assertIn("Unit Break", prefix)
-		self.assertIn("adjusted from 10 to 8", prefix)
+		self.assertIn("adjusted from 10", prefix)
+		self.assertIn("to 8", prefix)
 		self.assertEqual(flt(charge_doc.unit_rate), 8)
 
 	def test_spread_row_qty_into_actual_data_for_teu(self):
@@ -243,7 +306,7 @@ class TestChargeUnitBreaks(FrappeTestCase):
 			doc.unit_break = threshold
 			doc.unit_rate = rate
 			doc.currency = "USD"
-			doc.insert(ignore_permissions=True)
+			doc.insert(ignore_permissions=True, ignore_links=True)
 
 		charge_doc = frappe._dict(
 			doctype=ref_doctype,
@@ -266,7 +329,223 @@ class TestChargeUnitBreaks(FrappeTestCase):
 		self.assertIn("8", notes)
 
 
+	def _ensure_container_type(self, code, teu=1):
+		if frappe.db.exists("Container Type", code):
+			return code
+		doc = frappe.get_doc(
+			{
+				"doctype": "Container Type",
+				"code": code,
+				"description": code,
+				"active": 1,
+				"teu_count": teu,
+			}
+		)
+		doc.flags.ignore_mandatory = True
+		doc.insert(ignore_permissions=True, ignore_links=True)
+		return doc.name
+
+	def test_container_type_counts_from_parent(self):
+		ct20 = self._ensure_container_type("UB-20FT", 1)
+		ct40 = self._ensure_container_type("UB-40FT", 2)
+		parent = frappe._dict(
+			doctype="Sea Booking",
+			containers=[
+				frappe._dict(type=ct20),
+				frappe._dict(type=ct20),
+				frappe._dict(type=ct40),
+			],
+		)
+		counts = container_type_counts_from_parent(parent)
+		self.assertEqual(counts.get(ct20), 2)
+		self.assertEqual(counts.get(ct40), 1)
+
+	def test_save_and_get_container_type_unit_breaks(self):
+		if not frappe.db.exists("DocType", "Charge Unit Break"):
+			self.skipTest("Charge Unit Break DocType not installed")
+		if not frappe.get_meta("Charge Unit Break").has_field("container_type"):
+			self.skipTest("container_type not on Charge Unit Break")
+
+		ct20 = self._ensure_container_type("UB-20FT", 1)
+		ct40 = self._ensure_container_type("UB-40FT", 2)
+		ref_doctype = "Tariff Charge"
+		ref_no = "TEST-UB-CT-SAVE"
+		for row in frappe.get_all(
+			"Charge Unit Break",
+			filters={"reference_doctype": ref_doctype, "reference_no": ref_no},
+			pluck="name",
+		):
+			frappe.delete_doc("Charge Unit Break", row, force=1)
+
+		saved = save_unit_breaks_for_reference(
+			ref_doctype,
+			ref_no,
+			[
+				{"container_type": ct20, "unit_rate": 100, "currency": "USD"},
+				{"container_type": ct40, "unit_rate": 180, "currency": "USD"},
+			],
+			"Selling",
+			unit_type="Container",
+		)
+		self.assertTrue(saved.get("success"))
+		loaded = get_unit_breaks(ref_doctype, ref_no, "Selling")
+		self.assertTrue(loaded.get("success"))
+		rows = loaded.get("unit_breaks") or []
+		self.assertEqual(len(rows), 2)
+		by_type = {r.get("container_type"): r for r in rows}
+		self.assertEqual(flt(by_type[ct20].get("unit_rate")), 100)
+		self.assertEqual(flt(by_type[ct40].get("unit_rate")), 180)
+		self.assertEqual(by_type[ct20].get("currency"), "USD")
+
+	def test_apply_container_type_rates_uses_count_per_type(self):
+		if not frappe.db.exists("DocType", "Charge Unit Break"):
+			self.skipTest("Charge Unit Break DocType not installed")
+		if not frappe.get_meta("Charge Unit Break").has_field("container_type"):
+			self.skipTest("container_type not on Charge Unit Break")
+
+		ct20 = self._ensure_container_type("UB-20FT", 1)
+		ct40 = self._ensure_container_type("UB-40FT", 2)
+		ref_doctype = "Sea Booking Charges"
+		ref_no = "TEST-UB-CT-CALC"
+		for row in frappe.get_all(
+			"Charge Unit Break",
+			filters={"reference_doctype": ref_doctype, "reference_no": ref_no},
+			pluck="name",
+		):
+			frappe.delete_doc("Charge Unit Break", row, force=1)
+
+		for ctype, rate in ((ct20, 100), (ct40, 180)):
+			doc = frappe.new_doc("Charge Unit Break")
+			doc.reference_doctype = ref_doctype
+			doc.reference_no = ref_no
+			doc.type = "Selling"
+			doc.unit_type = "Container"
+			doc.container_type = ctype
+			doc.unit_rate = rate
+			doc.currency = "USD"
+			doc.insert(ignore_permissions=True, ignore_links=True)
+
+		charge_doc = frappe._dict(
+			doctype=ref_doctype,
+			name=ref_no,
+			use_unit_breaks=1,
+			unit_type="Container",
+			revenue_calculation_method="Per Unit",
+			unit_rate=1,
+			quantity=3,
+			currency="USD",
+			parenttype="Sea Booking",
+			parent="SB-TEST",
+		)
+		parent = frappe._dict(
+			doctype="Sea Booking",
+			total_containers=3,
+			containers=[
+				frappe._dict(type=ct20),
+				frappe._dict(type=ct20),
+				frappe._dict(type=ct40),
+			],
+		)
+		result = calculate_charge_revenue(charge_doc, parent)
+		self.assertTrue(result.get("success"))
+		self.assertAlmostEqual(flt(result.get("amount")), 380, places=2)
+		self.assertEqual(flt(charge_doc.quantity), 3)
+		self.assertAlmostEqual(flt(charge_doc.unit_rate), 380 / 3, places=4)
+		self.assertIn("Container Type rates", result.get("calc_notes") or "")
+
+	def test_apply_container_type_rate_single_size_qty(self):
+		if not frappe.db.exists("DocType", "Charge Unit Break"):
+			self.skipTest("Charge Unit Break DocType not installed")
+		if not frappe.get_meta("Charge Unit Break").has_field("container_type"):
+			self.skipTest("container_type not on Charge Unit Break")
+
+		ct20 = self._ensure_container_type("UB-20FT", 1)
+		ct40 = self._ensure_container_type("UB-40FT", 2)
+		ref_doctype = "Sea Booking Charges"
+		ref_no = "TEST-UB-CT-ONE"
+		for row in frappe.get_all(
+			"Charge Unit Break",
+			filters={"reference_doctype": ref_doctype, "reference_no": ref_no},
+			pluck="name",
+		):
+			frappe.delete_doc("Charge Unit Break", row, force=1)
+
+		for ctype, rate in ((ct20, 100), (ct40, 180)):
+			doc = frappe.new_doc("Charge Unit Break")
+			doc.reference_doctype = ref_doctype
+			doc.reference_no = ref_no
+			doc.type = "Selling"
+			doc.unit_type = "Container"
+			doc.container_type = ctype
+			doc.unit_rate = rate
+			doc.currency = "USD"
+			doc.insert(ignore_permissions=True, ignore_links=True)
+
+		charge_doc = frappe._dict(
+			doctype=ref_doctype,
+			name=ref_no,
+			use_unit_breaks=1,
+			unit_type="Container",
+			revenue_calculation_method="Per Unit",
+			unit_rate=1,
+			quantity=1,
+			currency="USD",
+			parenttype="Sea Booking",
+			parent="SB-TEST",
+		)
+		parent = frappe._dict(
+			doctype="Sea Booking",
+			total_containers=2,
+			containers=[frappe._dict(type=ct20), frappe._dict(type=ct20)],
+		)
+		result = calculate_charge_revenue(charge_doc, parent)
+		self.assertTrue(result.get("success"))
+		self.assertEqual(flt(result.get("amount")), 200)
+		self.assertEqual(flt(charge_doc.quantity), 2)
+		self.assertEqual(flt(charge_doc.unit_rate), 100)
+
+	def test_resolve_container_type_exact_match(self):
+		if not frappe.db.exists("DocType", "Charge Unit Break"):
+			self.skipTest("Charge Unit Break DocType not installed")
+		if not frappe.get_meta("Charge Unit Break").has_field("container_type"):
+			self.skipTest("container_type not on Charge Unit Break")
+
+		ct20 = self._ensure_container_type("UB-20FT", 1)
+		ct40 = self._ensure_container_type("UB-40FT", 2)
+		ref_doctype = "Sales Quote Charge"
+		ref_no = "TEST-UB-CT-RESOLVE"
+		for row in frappe.get_all(
+			"Charge Unit Break",
+			filters={"reference_doctype": ref_doctype, "reference_no": ref_no},
+			pluck="name",
+		):
+			frappe.delete_doc("Charge Unit Break", row, force=1)
+
+		for ctype, rate in ((ct20, 100), (ct40, 180)):
+			doc = frappe.new_doc("Charge Unit Break")
+			doc.reference_doctype = ref_doctype
+			doc.reference_no = ref_no
+			doc.type = "Selling"
+			doc.unit_type = "Container"
+			doc.container_type = ctype
+			doc.unit_rate = rate
+			doc.currency = "USD"
+			doc.insert(ignore_permissions=True, ignore_links=True)
+
+		charge_doc = frappe._dict(doctype=ref_doctype, name=ref_no)
+		row = _resolve_unit_break_rate(
+			charge_doc, 3, "Selling", unit_type="Container", container_type=ct40
+		)
+		self.assertIsNotNone(row)
+		self.assertEqual(flt(row.get("unit_rate")), 180)
+
+
 def _unit_breaks_for(reference_doctype, reference_no, record_type="Selling"):
+	fields = ["unit_type", "unit_break", "unit_rate", "currency"]
+	order_by = "unit_break asc"
+	if frappe.get_meta("Charge Unit Break").has_field("container_type"):
+		fields = ["unit_type", "container_type", "unit_break", "unit_rate", "currency"]
+		order_by = "container_type asc, unit_break asc"
 	return frappe.get_all(
 		"Charge Unit Break",
 		filters={
@@ -274,8 +553,8 @@ def _unit_breaks_for(reference_doctype, reference_no, record_type="Selling"):
 			"reference_no": reference_no,
 			"type": record_type,
 		},
-		fields=["unit_type", "unit_break", "unit_rate", "currency"],
-		order_by="unit_break asc",
+		fields=fields,
+		order_by=order_by,
 	)
 
 
@@ -306,7 +585,7 @@ class TestTariffUnitBreakCopy(FrappeTestCase):
 			}
 		)
 		tariff.flags.ignore_mandatory = True
-		tariff.insert(ignore_permissions=True)
+		tariff.insert(ignore_permissions=True, ignore_links=True)
 		tariff.append(
 			"rates",
 			{
@@ -334,7 +613,7 @@ class TestTariffUnitBreakCopy(FrappeTestCase):
 			doc.unit_break = threshold
 			doc.unit_rate = rate
 			doc.currency = "USD"
-			doc.insert(ignore_permissions=True)
+			doc.insert(ignore_permissions=True, ignore_links=True)
 		for threshold, rate in cost_tiers or ():
 			doc = frappe.new_doc("Charge Unit Break")
 			doc.reference_doctype = "Tariff Charge"
@@ -344,7 +623,7 @@ class TestTariffUnitBreakCopy(FrappeTestCase):
 			doc.unit_break = threshold
 			doc.unit_rate = rate
 			doc.currency = "USD"
-			doc.insert(ignore_permissions=True)
+			doc.insert(ignore_permissions=True, ignore_links=True)
 		return tariff.name, rate_row.name
 
 	def _minimal_sales_quote(self, **charge_extra):
@@ -377,7 +656,7 @@ class TestTariffUnitBreakCopy(FrappeTestCase):
 		row.update(charge_extra)
 		sq.append("charges", row)
 		sq.flags.ignore_mandatory = True
-		sq.insert(ignore_permissions=True)
+		sq.insert(ignore_permissions=True, ignore_links=True)
 		return sq
 
 	def test_copy_charge_breaks_record_types_skips_cost(self):
@@ -535,7 +814,7 @@ class TestTariffUnitBreakCopy(FrappeTestCase):
 			},
 		)
 		order.flags.ignore_mandatory = True
-		order.insert(ignore_permissions=True)
+		order.insert(ignore_permissions=True, ignore_links=True)
 
 		charge = order.charges[0]
 		self.assertTrue(charge.name)
@@ -564,6 +843,52 @@ class TestTariffUnitBreakCopy(FrappeTestCase):
 		self.assertEqual(flt(rows[1].unit_rate), 90)
 		sq.reload()
 		self.assertEqual(cint_safe(sq.charges[0].use_unit_breaks), 1)
+
+	def test_copy_container_type_unit_breaks(self):
+		if not frappe.get_meta("Charge Unit Break").has_field("container_type"):
+			self.skipTest("container_type not on Charge Unit Break")
+		ct20 = "UB-20FT"
+		if not frappe.db.exists("Container Type", ct20):
+			doc = frappe.get_doc(
+				{
+					"doctype": "Container Type",
+					"code": ct20,
+					"description": ct20,
+					"active": 1,
+					"teu_count": 1,
+				}
+			)
+			doc.flags.ignore_mandatory = True
+			doc.insert(ignore_permissions=True, ignore_links=True)
+
+		_tariff_name, tariff_row = self._make_tariff_with_teu_breaks(
+			selling_tiers=(),
+			service_type="Sea",
+		)
+		ub = frappe.new_doc("Charge Unit Break")
+		ub.reference_doctype = "Tariff Charge"
+		ub.reference_no = tariff_row
+		ub.type = "Selling"
+		ub.unit_type = "Container"
+		ub.container_type = ct20
+		ub.unit_rate = 100
+		ub.currency = "USD"
+		ub.insert(ignore_permissions=True, ignore_links=True)
+
+		sq = self._minimal_sales_quote()
+		target = sq.charges[0].name
+		copied = copy_charge_breaks_for_reference(
+			"Tariff Charge",
+			tariff_row,
+			"Sales Quote Charge",
+			target,
+			record_types=("Selling",),
+		)
+		self.assertGreaterEqual(copied, 1)
+		rows = _unit_breaks_for("Sales Quote Charge", target, "Selling")
+		self.assertEqual(len(rows), 1)
+		self.assertEqual(rows[0].get("container_type"), ct20)
+		self.assertEqual(flt(rows[0].unit_rate), 100)
 
 
 def cint_safe(val):

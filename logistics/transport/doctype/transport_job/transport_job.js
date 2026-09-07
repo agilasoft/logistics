@@ -80,76 +80,73 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 	frm.set_df_property("charges", "allow_bulk_edit", 0);
 }
 
-// Helper function to apply load_type filters (same pattern as vehicle_type)
-function apply_load_type_filters(frm, preserve_existing_value) {
-	// Filter load types based on transport job type and boolean columns
-	// preserve_existing_value: if true, don't clear load_type even if not in filtered list (used during refresh)
+// Map transport_job_type to Load Type boolean field (mirrors server JOB_TYPE_LOAD_TYPE_FIELD).
+var JOB_TYPE_LOAD_TYPE_FIELD = {
+	"Container": "container",
+	"Non-Container": "non_container",
+	"Special": "special",
+	"Oversized": "oversized",
+	"Multimodal": "multimodal",
+	"Heavy Haul": "heavy_haul",
+};
+
+function get_load_type_link_filters(frm) {
 	if (!frm.doc.transport_job_type) {
-		// Clear filters if no job type selected
-		frm.set_df_property('load_type', 'filters', {});
+		return { transport: 1, is_active: 1 };
+	}
+
+	var filters = { transport: 1, is_active: 1 };
+	var allowed_field = JOB_TYPE_LOAD_TYPE_FIELD[frm.doc.transport_job_type];
+	if (allowed_field) {
+		filters[allowed_field] = 1;
+	}
+
+	var allowed = frm._transport_template_allowed_load_types || [];
+	if (allowed.length) {
+		filters.name = ["in", allowed];
+	}
+	return filters;
+}
+
+function setup_load_type_query(frm) {
+	if (!frm.fields_dict.load_type) {
 		return;
 	}
+	frm.set_query("load_type", function() {
+		return { filters: get_load_type_link_filters(frm) };
+	});
+}
 
-	// Build filters based on job type
-	var filters = {
-		transport: 1,
-		is_active: 1,
-	};
-	
-	// Map transport_job_type to Load Type boolean field
-	if (frm.doc.transport_job_type === "Container") {
-		filters.container = 1;
-	} else if (frm.doc.transport_job_type === "Non-Container") {
-		filters.non_container = 1;
-	} else if (frm.doc.transport_job_type === "Special") {
-		filters.special = 1;
-	} else if (frm.doc.transport_job_type === "Oversized") {
-		filters.oversized = 1;
-	} else if (frm.doc.transport_job_type === "Heavy Haul") {
-		filters.heavy_haul = 1;
-	} else if (frm.doc.transport_job_type === "Multimodal") {
-		filters.multimodal = 1;
-	}
+// Helper function to apply load_type filters (same pattern as vehicle_type)
+function apply_load_type_filters(frm, preserve_existing_value) {
+	setup_load_type_query(frm);
 
-	if (frm._transport_template_allowed_load_types && frm._transport_template_allowed_load_types.length) {
-		filters.name = ["in", frm._transport_template_allowed_load_types];
-	}
-
-	// Apply filters to load_type field
-	frm.set_df_property('load_type', 'filters', filters);
-	
-	// Only clear load_type if current selection is not in filtered list
-	// AND we're not preserving existing values (i.e., during refresh after save)
 	if (!preserve_existing_value && frm.doc.load_type) {
-		// Validate if current load_type is still allowed
+		var allowed = frm._transport_template_allowed_load_types || [];
+		if (allowed.length && allowed.indexOf(frm.doc.load_type) === -1) {
+			frm.set_value("load_type", "");
+			frm.refresh_field("load_type");
+			return;
+		}
+
 		frappe.call({
 			method: "frappe.client.get",
 			args: {
 				doctype: "Load Type",
-				name: frm.doc.load_type
+				name: frm.doc.load_type,
 			},
 			callback: function(r) {
 				if (r.message) {
-					const load_type_doc = r.message;
-					const field_map = {
-						"Container": "container",
-						"Non-Container": "non_container",
-						"Special": "special",
-						"Oversized": "oversized",
-						"Multimodal": "multimodal",
-						"Heavy Haul": "heavy_haul"
-					};
-					const allowed_field = field_map[frm.doc.transport_job_type];
-					if (allowed_field && !load_type_doc[allowed_field]) {
-						frm.set_value('load_type', '');
+					var allowed_field = JOB_TYPE_LOAD_TYPE_FIELD[frm.doc.transport_job_type];
+					if (allowed_field && !r.message[allowed_field]) {
+						frm.set_value("load_type", "");
 					}
 				}
-			}
+			},
 		});
 	}
-	
-	// Refresh the field to apply filters
-	frm.refresh_field('load_type');
+
+	frm.refresh_field("load_type");
 }
 
 function load_transport_template_constraints_job(frm, callback) {
@@ -160,13 +157,32 @@ function load_transport_template_constraints_job(frm, callback) {
 	}
 	frappe.call({
 		method: "logistics.transport.doctype.transport_template.transport_template.get_transport_template_constraints",
-		args: { template_name: frm.doc.transport_template },
+		args: {
+			template_name: frm.doc.transport_template,
+			transport_job_type: frm.doc.transport_job_type || null,
+		},
 		callback: function(r) {
 			var constraints = (r && r.message) || {};
 			frm._transport_template_allowed_load_types = constraints.allowed_load_types || [];
 			if (callback) callback(constraints);
 		},
 	});
+}
+
+function apply_transport_template_defaults_to_job(frm, constraints) {
+	constraints = constraints || {};
+	var allowed = constraints.allowed_load_types || [];
+	if (frm.doc.load_type && allowed.length && allowed.indexOf(frm.doc.load_type) === -1) {
+		frm.set_value("load_type", "");
+	}
+	if (
+		!frm.doc.load_type &&
+		constraints.default_load_type &&
+		(!allowed.length || allowed.indexOf(constraints.default_load_type) !== -1)
+	) {
+		frm.set_value("load_type", constraints.default_load_type);
+	}
+	apply_load_type_filters(frm);
 }
 
 // Helper function to update toolbar buttons: Only primary Save and Submit buttons when draft; allow Cancel when submitted
@@ -442,7 +458,11 @@ frappe.ui.form.on('Transport Job', {
 		// is reserved for workflow transitions and remains visible when the doctype has a workflow.
 		// Populate Documents from Template
 		if (!frm.is_new() && !frm.doc.__islocal) {
-			frm.add_custom_button(__('Get Milestones'), function() {
+			logistics.menu.add(frm, {
+				label: __('Get Milestones'),
+				group: __('Action'),
+				ptype: 'write',
+				action: function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_milestones_from_template',
 					args: { doctype: 'Transport Job', docname: frm.doc.name },
@@ -453,10 +473,15 @@ frappe.ui.form.on('Transport Job', {
 						}
 					}
 				});
-			}, __('Action'));
+				},
+			});
 		}
 		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
-			frm.add_custom_button(__('Get Documents'), function() {
+			logistics.menu.add(frm, {
+				label: __('Get Documents'),
+				group: __('Action'),
+				ptype: 'write',
+				action: function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_documents_from_template',
 					args: { doctype: 'Transport Job', docname: frm.doc.name },
@@ -467,12 +492,17 @@ frappe.ui.form.on('Transport Job', {
 						}
 					}
 				});
-			}, __('Action'));
+				},
+			});
 		}
 
 		// Recalculate Charges
 		if (!frm.is_new() && frm.doc.charges && frm.doc.charges.length > 0) {
-			frm.add_custom_button(__('Calculate Charges'), function() {
+			logistics.menu.add(frm, {
+				label: __('Calculate Charges'),
+				group: __('Action'),
+				ptype: 'write',
+				action: function() {
 				frappe.call({
 					method: 'logistics.transport.doctype.transport_job.transport_job.recalculate_all_charges',
 					args: { docname: frm.doc.name },
@@ -483,12 +513,18 @@ frappe.ui.form.on('Transport Job', {
 						}
 					}
 				});
-			}, __('Action'));
+				},
+			});
 		}
 		if (!frm.is_new() && !frm.doc.__islocal && typeof logistics_additional_charges_show_sales_quote_dialog === 'function') {
-			frm.add_custom_button(__('Get Additional Charges from Quote'), function() {
-				logistics_additional_charges_show_sales_quote_dialog(frm, 'Transport Job');
-			}, __('Action'));
+			logistics.menu.add(frm, {
+				label: __('Get Additional Charges from Quote'),
+				group: __('Action'),
+				ptype: 'write',
+				action: function() {
+					logistics_additional_charges_show_sales_quote_dialog(frm, 'Transport Job');
+				},
+			});
 		}
 
 		// Load dashboard HTML in Dashboard tab (only when doc is saved)
@@ -537,7 +573,11 @@ frappe.ui.form.on('Transport Job', {
 
 		// Generate from template button in Milestones section
 		if (!frm.doc.__islocal && frm.fields_dict.milestones) {
-			frm.add_custom_button(__('Generate from Template'), function() {
+			logistics.menu.add(frm, {
+				label: __('Generate from Template'),
+				group: __('Action'),
+				ptype: 'write',
+				action: function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_milestones_from_template',
 					args: { doctype: 'Transport Job', docname: frm.doc.name },
@@ -548,7 +588,8 @@ frappe.ui.form.on('Transport Job', {
 						}
 					}
 				});
-			}, __('Milestones'));
+				},
+			});
 		}
 
 		// Control toolbar buttons: Only primary Save and Submit buttons, no dropdown
@@ -741,9 +782,14 @@ frappe.ui.form.on('Transport Job', {
 		
 		// Add button to manually fetch missing leg data (works for submitted docs too)
 		if (frm.doc.legs && frm.doc.legs.length > 0) {
-			frm.add_custom_button(__('Fetch Missing Leg Data'), function() {
-				frm.events.fetch_missing_leg_data_server(frm);
-			}, __('Action'));
+			logistics.menu.add(frm, {
+				label: __('Fetch Missing Leg Data'),
+				group: __('Action'),
+				ptype: 'write',
+				action: function() {
+					frm.events.fetch_missing_leg_data_server(frm);
+				},
+			});
 		}
 		
 		// Status is automatically updated via trigger-based hooks (document lifecycle and Transport Leg changes)
@@ -753,46 +799,51 @@ frappe.ui.form.on('Transport Job', {
 			setTimeout(function() {
 				function _transport_job_add_rest_of_create_toolbar() {
 					if (!((frm.doc.service_role === "Linked" || cint(frm.doc.is_internal_job)) && (frm.doc.main_service_type || frm.doc.main_job_type) && (frm.doc.main_service || frm.doc.main_job))) {
-						frm.add_custom_button(__('Internal Job'), function() {
-							function _openInternalJobDlg() {
-								if (window.logistics_show_create_internal_job_dialog) {
-									window.logistics_show_create_internal_job_dialog(frm);
-								} else {
-									frappe.msgprint({
-										title: __('Not available'),
-										message: __(
-											'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
-										),
-										indicator: 'red',
-									});
-								}
-							}
-							if (window.logistics_show_create_internal_job_dialog) {
-								_openInternalJobDlg();
-							} else {
-								frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=20', _openInternalJobDlg);
-							}
-						}, __('Create'));
+						logistics_add_create_internal_job_button(frm, __('Internal Job'), __('Create'));
 					}
-					frm.add_custom_button(__('Sales Invoice'), function() {
+					logistics.menu.add(frm, {
+						label: __('Sales Invoice'),
+						group: __('Create'),
+						doctype: 'Sales Invoice',
+						ptype: 'create',
+						action: function() {
 						if (typeof show_create_sales_invoice_dialog === 'function') {
 							show_create_sales_invoice_dialog(frm);
 						} else {
 							_create_sales_invoice_from_transport_job(frm);
 						}
-					}, __('Create'));
+						},
+					});
 					if (typeof show_create_purchase_invoice_dialog === 'function') {
-						frm.add_custom_button(__('Purchase Invoice'), function() {
-							show_create_purchase_invoice_dialog(frm);
-						}, __('Create'));
+						logistics.menu.add(frm, {
+							label: __('Purchase Invoice'),
+							group: __('Create'),
+							doctype: 'Purchase Invoice',
+							ptype: 'create',
+							action: function() {
+								show_create_purchase_invoice_dialog(frm);
+							},
+						});
 					}
-					if (frm.doc.docstatus === 1) {
-						frm.add_custom_button(__('Create Run Sheet'), function() {
-							frm.events.create_run_sheet(frm);
-						}, __('Create'));
+					if (window.logistics && logistics.menu && logistics.menu.is_submitted
+						? logistics.menu.is_submitted(frm)
+						: frm.doc.docstatus === 1) {
+						logistics.menu.add(frm, {
+							label: __('Create Run Sheet'),
+							group: __('Create'),
+							doctype: 'Run Sheet',
+							ptype: 'create',
+							action: function() {
+								frm.events.create_run_sheet(frm);
+							},
+						});
 					}
 					if (frm.doc.use_lalamove) {
-						frm.add_custom_button(__('Lalamove'), function() {
+						logistics.menu.add(frm, {
+							label: __('Lalamove'),
+							group: __('Create'),
+							ptype: 'write',
+							action: function() {
 							if (typeof logistics === 'undefined' || !logistics.lalamove) {
 								frappe.require('/assets/logistics/lalamove/utils.js', function() {
 									frappe.require('/assets/logistics/lalamove/lalamove_form.js', function() {
@@ -802,9 +853,15 @@ frappe.ui.form.on('Transport Job', {
 							} else {
 								logistics.lalamove.form.showLalamoveDialog(frm);
 							}
-						}, __('Create'));
+							},
+						});
 					}
-					frm.add_custom_button(__('Standard Costs'), function() {
+					logistics.menu.add(frm, {
+						label: __('Standard Costs'),
+						group: __('Post'),
+						ptype: 'write',
+						also: [{ doctype: 'Journal Entry', ptype: 'create' }],
+						action: function() {
 						frappe.call({
 							method: 'logistics.transport.doctype.transport_job.transport_job.post_standard_costs',
 							args: { docname: frm.doc.name },
@@ -812,9 +869,15 @@ frappe.ui.form.on('Transport Job', {
 								if (r.message) frm.reload_doc();
 							}
 						});
-					}, __('Post'));
+						},
+					});
 					if (frm.doc.sales_quote && frm.doc.company) {
-						frm.add_custom_button(__('Intercompany Transactions'), function() {
+						logistics.menu.add(frm, {
+							label: __('Intercompany Transactions'),
+							group: __('Post'),
+							ptype: 'write',
+							also: [{ doctype: 'Journal Entry', ptype: 'create' }],
+							action: function() {
 							frappe.call({
 								method: 'logistics.intercompany.intercompany_invoice.create_intercompany_invoices_for_quote',
 								args: {
@@ -835,8 +898,14 @@ frappe.ui.form.on('Transport Job', {
 									}
 								}
 							});
-						}, __('Post'));
-						frm.add_custom_button(__('Internal Billing'), function() {
+							},
+						});
+						logistics.menu.add(frm, {
+							label: __('Internal Billing'),
+							group: __('Post'),
+							ptype: 'write',
+							also: [{ doctype: 'Journal Entry', ptype: 'create' }],
+							action: function() {
 							frappe.call({
 								method: 'logistics.billing.internal_billing.create_internal_billing_for_quote',
 								args: {
@@ -856,7 +925,8 @@ frappe.ui.form.on('Transport Job', {
 									}
 								}
 							});
-						}, __('Post'));
+							},
+						});
 					}
 					_transport_job_add_recognition_buttons(frm);
 				}
@@ -876,11 +946,7 @@ frappe.ui.form.on('Transport Job', {
 
 	transport_template: function(frm) {
 		load_transport_template_constraints_job(frm, function(constraints) {
-			var allowed = constraints.allowed_load_types || [];
-			if (frm.doc.load_type && allowed.length && allowed.indexOf(frm.doc.load_type) === -1) {
-				frm.set_value("load_type", "");
-			}
-			apply_load_type_filters(frm);
+			apply_transport_template_defaults_to_job(frm, constraints);
 		});
 	},
 
@@ -889,10 +955,15 @@ frappe.ui.form.on('Transport Job', {
 		frm.events.toggle_container_fields(frm);
 		// Update consolidate checkbox visibility when transport_job_type changes
 		frm.events.toggle_consolidate_visibility(frm);
-		// Apply load_type filters (same pattern as vehicle_type)
-		apply_load_type_filters(frm);
-		// Clear invalid value when job type changes
-		frm.set_value('load_type', null);
+		frm.set_value("load_type", null);
+		function after_job_type_load_type_update() {
+			apply_load_type_filters(frm);
+		}
+		if (frm.doc.transport_template) {
+			load_transport_template_constraints_job(frm, after_job_type_load_type_update);
+		} else {
+			after_job_type_load_type_update();
+		}
 	},
 
 	consolidate: function(frm) {
@@ -1785,7 +1856,12 @@ function _transport_job_add_recognition_buttons(frm) {
 			return flt(d.estimated_costs) > flt(d.accrual_amount);
 		})());
 	if (needs_wip || needs_accrual) {
-		frm.add_custom_button(__('WIP and Accrual'), function() {
+		logistics.menu.add(frm, {
+			label: __('WIP and Accrual'),
+			group: __('Post'),
+			ptype: 'write',
+			also: [{ doctype: 'Journal Entry', ptype: 'create' }],
+			action: function() {
 			frappe.call({
 				method: 'logistics.job_management.recognition_engine.recognize',
 				args: { doctype: d.doctype, docname: d.name },
@@ -1806,10 +1882,16 @@ function _transport_job_add_recognition_buttons(frm) {
 					}
 				}
 			});
-		}, __('Post'));
+			},
+		});
 	}
 	if (d.wip_amount > 0) {
-		frm.add_custom_button(__('Adjust WIP'), function() {
+		logistics.menu.add(frm, {
+			label: __('Adjust WIP'),
+			group: __('Recognition'),
+			ptype: 'write',
+			also: [{ doctype: 'Journal Entry', ptype: 'create' }],
+			action: function() {
 			frappe.prompt([
 				{ fieldname: 'adjustment_amount', fieldtype: 'Currency', label: __('Adjustment Amount'), description: __('Current WIP: {0}', [d.wip_amount]), reqd: 1 },
 				{ fieldname: 'adjustment_date', fieldtype: 'Date', label: __('Adjustment Date'), default: frappe.datetime.get_today(), reqd: 1 }
@@ -1822,10 +1904,16 @@ function _transport_job_add_recognition_buttons(frm) {
 					callback: function(r) { if (r.message) { frappe.show_alert({ message: __('WIP Adjustment created: {0}', [r.message]), indicator: 'green' }); frm.reload_doc(); } }
 				});
 			}, __('Adjust WIP'), __('Create'));
-		}, __('Recognition'));
+			},
+		});
 	}
 	if (d.accrual_amount > 0) {
-		frm.add_custom_button(__('Adjust Accruals'), function() {
+		logistics.menu.add(frm, {
+			label: __('Adjust Accruals'),
+			group: __('Recognition'),
+			ptype: 'write',
+			also: [{ doctype: 'Journal Entry', ptype: 'create' }],
+			action: function() {
 			frappe.prompt([
 				{ fieldname: 'adjustment_amount', fieldtype: 'Currency', label: __('Adjustment Amount'), description: __('Current Accrual: {0}', [d.accrual_amount]), reqd: 1 },
 				{ fieldname: 'adjustment_date', fieldtype: 'Date', label: __('Adjustment Date'), default: frappe.datetime.get_today(), reqd: 1 }
@@ -1838,10 +1926,16 @@ function _transport_job_add_recognition_buttons(frm) {
 					callback: function(r) { if (r.message) { frappe.show_alert({ message: __('Accrual Adjustment created: {0}', [r.message]), indicator: 'green' }); frm.reload_doc(); } }
 				});
 			}, __('Adjust Accruals'), __('Create'));
-		}, __('Recognition'));
+			},
+		});
 	}
 	if (d.wip_amount > 0 || d.accrual_amount > 0) {
-		frm.add_custom_button(__('Close Recognition'), function() {
+		logistics.menu.add(frm, {
+			label: __('Close Recognition'),
+			group: __('Recognition'),
+			ptype: 'write',
+			also: [{ doctype: 'Journal Entry', ptype: 'create' }],
+			action: function() {
 			frappe.confirm(__('This will close all remaining WIP and Accruals. Continue?'), function() {
 				frappe.prompt([
 					{ fieldname: 'closure_date', fieldtype: 'Date', label: __('Closure Date'), default: frappe.datetime.get_today(), reqd: 1 }
@@ -1863,7 +1957,8 @@ function _transport_job_add_recognition_buttons(frm) {
 					});
 				}, __('Close Recognition'), __('Close'));
 			});
-		}, __('Recognition'));
+			},
+		});
 	}
 }
 

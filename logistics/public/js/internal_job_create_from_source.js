@@ -423,20 +423,158 @@
 		});
 	}
 
+	/**
+	 * Reject missing / stringified JS values so we never ``set_route`` to
+	 * ``/desk/sea-booking/undefined`` (desk then shows "Sea Booking undefined not found"
+	 * even though insert already succeeded).
+	 */
+	function _isValidCreatedDocname(docname) {
+		if (docname == null) {
+			return false;
+		}
+		var name = String(docname).trim();
+		if (!name) {
+			return false;
+		}
+		var lower = name.toLowerCase();
+		if (lower === "undefined" || lower === "null" || lower === "none" || lower === "new") {
+			return false;
+		}
+		return true;
+	}
+
+	function _msgprintText(opts) {
+		if (opts == null) {
+			return "";
+		}
+		if (typeof opts === "string") {
+			var s = opts.trim();
+			if (s.charAt(0) === "{") {
+				try {
+					return _msgprintText(JSON.parse(s));
+				} catch (e) {
+					return s;
+				}
+			}
+			return s;
+		}
+		if (Array.isArray(opts)) {
+			return opts.map(_msgprintText).join(" ");
+		}
+		if (typeof opts === "object") {
+			return _msgprintText(opts.message);
+		}
+		return String(opts);
+	}
+
+	function _pruneCreatedNotFoundSuppress() {
+		var now = Date.now();
+		window._logistics_suppress_not_found = (window._logistics_suppress_not_found || []).filter(
+			function (p) {
+				return p && p.until > now;
+			}
+		);
+		return window._logistics_suppress_not_found;
+	}
+
+	function _rememberCreatedDocForNotFoundSuppress(doctype, docname, ms) {
+		if (!doctype || !_isValidCreatedDocname(docname)) {
+			return;
+		}
+		_pruneCreatedNotFoundSuppress();
+		window._logistics_suppress_not_found.push({
+			doctype: doctype,
+			docname: String(docname),
+			until: Date.now() + (ms || 15000),
+		});
+	}
+
+	function _isSpuriousNotFoundMessage(msg) {
+		if (!msg || typeof msg !== "string" || msg.toLowerCase().indexOf("not found") === -1) {
+			return false;
+		}
+		if (/\b(undefined|null)\b/i.test(msg)) {
+			return true;
+		}
+		var pending = _pruneCreatedNotFoundSuppress();
+		for (var i = 0; i < pending.length; i++) {
+			if (msg.indexOf(pending[i].doctype) !== -1 && msg.indexOf(pending[i].docname) !== -1) {
+				return true;
+			}
+		}
+		var route = frappe.get_route && frappe.get_route();
+		if (
+			route &&
+			route[0] === "Form" &&
+			route[1] &&
+			route[2] &&
+			msg.indexOf(route[1]) !== -1 &&
+			msg.indexOf(String(route[2])) !== -1
+		) {
+			return true;
+		}
+		if (
+			typeof cur_frm !== "undefined" &&
+			cur_frm &&
+			cur_frm.doctype &&
+			cur_frm.doc &&
+			cur_frm.doc.name &&
+			msg.indexOf(cur_frm.doctype) !== -1 &&
+			msg.indexOf(String(cur_frm.doc.name)) !== -1
+		) {
+			return true;
+		}
+		return false;
+	}
+
+	function _installNotFoundMsgprintGuard() {
+		if (window._logistics_not_found_msgprint_guard || !frappe || !frappe.msgprint) {
+			return;
+		}
+		window._logistics_not_found_msgprint_guard = true;
+		var orig = frappe.msgprint;
+		frappe.msgprint = function (opts) {
+			if (_isSpuriousNotFoundMessage(_msgprintText(opts))) {
+				return;
+			}
+			return orig.apply(this, arguments);
+		};
+	}
+
+	_installNotFoundMsgprintGuard();
+
+	function _showCreatedInternalJobAlert(msg, fallback) {
+		frappe.show_alert(
+			{
+				message: (msg && msg.message) || fallback,
+				indicator: "green",
+			},
+			5
+		);
+	}
+
 	function _routeAfterFormNavigate(doctype, routeArgs) {
+		var docname = routeArgs && routeArgs.length >= 3 ? routeArgs[routeArgs.length - 1] : null;
+		if (!_isValidCreatedDocname(docname)) {
+			return Promise.resolve();
+		}
+		if (frappe.model && frappe.model.clear_doc) {
+			frappe.model.clear_doc(doctype, docname);
+		}
 		return frappe.set_route.apply(null, routeArgs).then(function () {
 			// Defer until the target form exists — breadcrumbs.update reads cur_frm.doc and throws if null.
 			frappe.after_ajax(function () {
 				setTimeout(function () {
-					if (cur_frm && cur_frm.doctype === doctype) {
+					if (
+						cur_frm &&
+						cur_frm.doctype === doctype &&
+						String(cur_frm.docname || "") === String(docname)
+					) {
 						_syncBreadcrumbsForFormDoctype(doctype);
 					}
 				}, 0);
 			});
-			var docname = routeArgs.length >= 3 ? routeArgs[routeArgs.length - 1] : null;
-			if (docname) {
-				_reloadCreatedInternalJobTargetForm(doctype, docname);
-			}
+			_reloadCreatedInternalJobTargetForm(doctype, docname);
 		});
 	}
 
@@ -469,11 +607,15 @@
 	 * create_from_sales_quote) can share the same guarded navigation.
 	 */
 	function _whenDocExistsThenNavigate(doctype, docname, navigateFn) {
-		if (!doctype || !docname) {
-			navigateFn();
+		if (!doctype || !_isValidCreatedDocname(docname) || typeof navigateFn !== "function") {
 			return;
 		}
+		_installNotFoundMsgprintGuard();
+		_rememberCreatedDocForNotFoundSuppress(doctype, docname);
 		var api = _DOC_EXISTS_API[doctype];
+		function _existsIsTrue(val) {
+			return val === true || val === 1 || val === "1";
+		}
 		function attempt(n) {
 			if (n > 15) {
 				navigateFn();
@@ -489,7 +631,7 @@
 					method: api,
 					args: { docname: docname },
 					callback: function (res) {
-						if (res && res.message === true) {
+						if (res && _existsIsTrue(res.message)) {
 							navigateFn();
 						} else {
 							_retry();
@@ -529,18 +671,20 @@
 	}
 
 	function _reloadCreatedInternalJobTargetForm(doctype, docname) {
+		if (!_isValidCreatedDocname(docname)) {
+			return;
+		}
 		frappe.after_ajax(function () {
 			setTimeout(function () {
 				if (
 					!cur_frm ||
 					cur_frm.doctype !== doctype ||
+					!_isValidCreatedDocname(cur_frm.docname) ||
 					String(cur_frm.docname || "") !== String(docname)
 				) {
 					return;
 				}
-				cur_frm.reload_doc().then(function () {
-					_applyMsIjRulesOnForm(cur_frm);
-				});
+				_applyMsIjRulesOnForm(cur_frm);
 			}, 200);
 		});
 	}
@@ -586,6 +730,10 @@
 		_applyMsIjRulesOnForm(frm);
 		var msg = r.message || {};
 		if (msg.transport_order) {
+			_showCreatedInternalJobAlert(
+				msg,
+				__("Transport Order {0} created.", [msg.transport_order])
+			);
 			_whenDocExistsThenNavigate("Transport Order", msg.transport_order, function () {
 				_routeAfterFormNavigate("Transport Order", ["Form", "Transport Order", msg.transport_order]).then(
 					function () {
@@ -596,6 +744,10 @@
 			return;
 		}
 		if (msg.declaration_order) {
+			_showCreatedInternalJobAlert(
+				msg,
+				__("Declaration Order {0} created.", [msg.declaration_order])
+			);
 			_whenDocExistsThenNavigate("Declaration Order", msg.declaration_order, function () {
 				_routeAfterFormNavigate("Declaration Order", [
 					"Form",
@@ -608,6 +760,7 @@
 			return;
 		}
 		if (msg.air_booking) {
+			_showCreatedInternalJobAlert(msg, __("Air Booking {0} created.", [msg.air_booking]));
 			_whenDocExistsThenNavigate("Air Booking", msg.air_booking, function () {
 				_routeAfterFormNavigate("Air Booking", ["Form", "Air Booking", msg.air_booking]).then(
 					function () {
@@ -618,6 +771,7 @@
 			return;
 		}
 		if (msg.sea_booking) {
+			_showCreatedInternalJobAlert(msg, __("Sea Booking {0} created.", [msg.sea_booking]));
 			_whenDocExistsThenNavigate("Sea Booking", msg.sea_booking, function () {
 				_routeAfterFormNavigate("Sea Booking", ["Form", "Sea Booking", msg.sea_booking]).then(
 					function () {
@@ -628,27 +782,16 @@
 			return;
 		}
 		if (msg.vas_order) {
-			frappe.show_alert(
-				{
-					message: msg.message || __("VAS Order {0} created.", [msg.vas_order]),
-					indicator: "green",
-				},
-				5
-			);
+			_showCreatedInternalJobAlert(msg, __("VAS Order {0} created.", [msg.vas_order]));
 			_whenDocExistsThenNavigate("VAS Order", msg.vas_order, function () {
 				_routeAfterFormNavigate("VAS Order", ["Form", "VAS Order", msg.vas_order]);
 			});
 			return;
 		}
 		if (msg.cross_docking_order) {
-			frappe.show_alert(
-				{
-					message:
-						msg.message ||
-						__("Cross-Docking Order {0} created.", [msg.cross_docking_order]),
-					indicator: "green",
-				},
-				5
+			_showCreatedInternalJobAlert(
+				msg,
+				__("Cross-Docking Order {0} created.", [msg.cross_docking_order])
 			);
 			_whenDocExistsThenNavigate("Cross-Docking Order", msg.cross_docking_order, function () {
 				_routeAfterFormNavigate("Cross-Docking Order", [
@@ -660,16 +803,13 @@
 			return;
 		}
 		if (msg.inbound_order) {
-			frappe.show_alert(
-				{
-					message: msg.message || __("Inbound Order {0} created.", [msg.inbound_order]),
-					indicator: "green",
-				},
-				5
-			);
+			_showCreatedInternalJobAlert(msg, __("Inbound Order {0} created.", [msg.inbound_order]));
 			_whenDocExistsThenNavigate("Inbound Order", msg.inbound_order, function () {
 				_routeAfterFormNavigate("Inbound Order", ["Form", "Inbound Order", msg.inbound_order]);
 			});
+			return;
+		}
+		if (r && r.exc) {
 			return;
 		}
 		frappe.msgprint({
@@ -1106,6 +1246,17 @@
 
 	function _openCreateInternalJobChoiceDialog(frm, msg) {
 		var choices = (msg && msg.choices) || [];
+		if (window.logistics && logistics.menu) {
+			choices = choices.filter(function (c) {
+				if (!c || !c.job_type) {
+					return false;
+				}
+				if (!c.creatable) {
+					return true;
+				}
+				return logistics.menu.can(c.job_type, "create");
+			});
+		}
 		if (!choices.length) {
 			_showCreateInternalJobBlocked(msg);
 			return;
@@ -1155,6 +1306,53 @@
 		if (!frm || !frm.doc || !frm.doc.name || frm.doc.__islocal) {
 			return;
 		}
+		if (
+			window.logistics &&
+			logistics.menu &&
+			logistics.menu.INTERNAL_JOB_TYPES &&
+			!logistics.menu.can_any(logistics.menu.INTERNAL_JOB_TYPES, "create")
+		) {
+			frappe.msgprint({
+				title: __("Not Permitted"),
+				message: __("You do not have permission to create an internal job from this document."),
+				indicator: "red",
+			});
+			return;
+		}
 		_loadCreateInternalJobChoices(frm);
+	};
+
+	window.logistics_add_create_internal_job_button = function (frm, label, group) {
+		if (!frm || !frm.doc || !frm.doc.name || frm.doc.__islocal) {
+			return;
+		}
+		label = label || __("Booking / Order");
+		group = group || __("Create");
+		if (
+			window.logistics &&
+			logistics.menu &&
+			logistics.menu.INTERNAL_JOB_TYPES &&
+			!logistics.menu.can_any(logistics.menu.INTERNAL_JOB_TYPES, "create")
+		) {
+			return;
+		}
+		if (window.logistics && logistics.menu) {
+			logistics.menu.add(frm, {
+				label: label,
+				group: group,
+				ptype: false,
+				action: function () {
+					if (window.logistics_show_create_internal_job_dialog) {
+						window.logistics_show_create_internal_job_dialog(frm);
+					}
+				},
+			});
+			return;
+		}
+		frm.add_custom_button(label, function () {
+			if (window.logistics_show_create_internal_job_dialog) {
+				window.logistics_show_create_internal_job_dialog(frm);
+			}
+		}, group);
 	};
 })();

@@ -1,0 +1,138 @@
+{
+ "actions": [],
+ "creation": "2026-08-24 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "awb_number",
+  "awb_display",
+  "airline_prefix",
+  "airline",
+  "agent_code",
+  "column_break_amt",
+  "amount",
+  "currency",
+  "billing_reference",
+  "match_status",
+  "section_links",
+  "master_awb",
+  "air_shipment",
+  "iata_transaction",
+  "purchase_invoice",
+  "supplier",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "awb_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "AWB Number"
+  },
+  {
+   "fieldname": "awb_display",
+   "fieldtype": "Data",
+   "label": "AWB Display"
+  },
+  {
+   "fieldname": "airline_prefix",
+   "fieldtype": "Data",
+   "label": "Airline Prefix"
+  },
+  {
+   "fieldname": "airline",
+   "fieldtype": "Link",
+   "label": "Airline",
+   "options": "Airline"
+  },
+  {
+   "fieldname": "agent_code",
+   "fieldtype": "Data",
+   "label": "Agent Code"
+  },
+  {
+   "fieldname": "column_break_amt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount",
+   "options": "currency"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "billing_reference",
+   "fieldtype": "Data",
+   "label": "Billing Reference"
+  },
+  {
+   "default": "Unmatched",
+   "fieldname": "match_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Match Status",
+   "options": "Unmatched\nMatched\nDisputed\nInvoiced"
+  },
+  {
+   "fieldname": "section_links",
+   "fieldtype": "Section Break",
+   "label": "Links"
+  },
+  {
+   "fieldname": "master_awb",
+   "fieldtype": "Link",
+   "label": "Master Air Waybill",
+   "options": "Master Air Waybill"
+  },
+  {
+   "fieldname": "air_shipment",
+   "fieldtype": "Link",
+   "label": "Air Shipment",
+   "options": "Air Shipment"
+  },
+  {
+   "fieldname": "iata_transaction",
+   "fieldtype": "Link",
+   "label": "IATA Transaction",
+   "options": "Air Shipment IATA Transaction"
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "options": "Purchase Invoice"
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "label": "Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-24 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Air Freight",
+ "name": "CASS Billing Line",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

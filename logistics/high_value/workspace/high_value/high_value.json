@@ -1,9 +1,14 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"wlkIxIFQue\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Quick Access</b></span>\",\"col\":12}},{\"id\":\"0o3bugamR7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":4}},{\"id\":\"qTXJZsGCTV\",\"type\":\"card\",\"data\":{\"card_name\":\"Bookings and Orders\",\"col\":4}},{\"id\":\"wLxzGjg_SJ\",\"type\":\"card\",\"data\":{\"card_name\":\"Brands Management\",\"col\":4}},{\"id\":\"D7boECO5yu\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters Files and Setup</b></span>\",\"col\":12}},{\"id\":\"4jON7a-uZF\",\"type\":\"card\",\"data\":{\"card_name\":\"Sea Freight\",\"col\":4}},{\"id\":\"zH_MxuIjDw\",\"type\":\"card\",\"data\":{\"card_name\":\"Air Freight\",\"col\":4}}]",
+ "content": "[{\"id\":\"hvDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"High Value Operations Dashboard\",\"col\":12}},{\"id\":\"hvOpsHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Brand Operations</b></span>\",\"col\":12}},{\"id\":\"hvScBrands\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Brands\",\"col\":3}},{\"id\":\"hvScQuotes\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Active Quotes\",\"col\":3}},{\"id\":\"hvScLive\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Live Air\",\"col\":3}},{\"id\":\"hvScSla\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"SLA Breached\",\"col\":3}},{\"id\":\"wlkIxIFQue\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Quick Access</b></span>\",\"col\":12}},{\"id\":\"0o3bugamR7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":4}},{\"id\":\"qTXJZsGCTV\",\"type\":\"card\",\"data\":{\"card_name\":\"Bookings and Orders\",\"col\":4}},{\"id\":\"wLxzGjg_SJ\",\"type\":\"card\",\"data\":{\"card_name\":\"Brands Management\",\"col\":4}},{\"id\":\"D7boECO5yu\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters Files and Setup</b></span>\",\"col\":12}},{\"id\":\"4jON7a-uZF\",\"type\":\"card\",\"data\":{\"card_name\":\"Sea Freight\",\"col\":4}},{\"id\":\"zH_MxuIjDw\",\"type\":\"card\",\"data\":{\"card_name\":\"Air Freight\",\"col\":4}}]",
  "creation": "2026-05-19 00:00:00",
- "custom_blocks": [],
+ "custom_blocks": [
+  {
+   "custom_block_name": "High Value Operations Dashboard",
+   "label": "High Value Operations Dashboard"
+  }
+ ],
  "docstatus": 0,
  "doctype": "Workspace",
  "for_user": "",
@@ -192,7 +197,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-05-22 13:30:52.745632",
+ "modified": "2026-08-18 18:25:00.000000",
  "modified_by": "Administrator",
  "module": "High Value",
  "name": "High Value",
@@ -208,6 +213,38 @@
  ],
  "sequence_id": 0.0,
  "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Brands",
+   "link_to": "HV Brands",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "List",
+   "label": "Active Quotes",
+   "link_to": "Sales Quote",
+   "stats_filter": "[[\"Sales Quote\",\"is_high_value\",\"=\",1]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "doc_view": "List",
+   "label": "Live Air",
+   "link_to": "Air Shipment",
+   "stats_filter": "[[\"Air Shipment\",\"is_high_value\",\"=\",1],[\"Air Shipment\",\"job_status\",\"in\",[\"Submitted\",\"In Progress\",\"Reopened\"]]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Red",
+   "doc_view": "List",
+   "label": "SLA Breached",
+   "link_to": "Air Shipment",
+   "stats_filter": "[[\"Air Shipment\",\"is_high_value\",\"=\",1],[\"Air Shipment\",\"sla_status\",\"=\",\"Breached\"]]",
+   "type": "DocType"
+  },
   {
    "color": "Grey",
    "doc_view": "List",

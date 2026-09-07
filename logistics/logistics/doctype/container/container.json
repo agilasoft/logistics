@@ -118,13 +118,14 @@
    "fieldname": "current_location_type",
    "fieldtype": "Link",
    "label": "Location Type",
-   "options": "Transport Zone"
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"UNLOCO\",\"Transport Zone\"]]]",
+   "options": "DocType"
   },
   {
    "fieldname": "current_location",
-   "fieldtype": "Link",
+   "fieldtype": "Dynamic Link",
    "label": "Current Location",
-   "options": "Transport Zone"
+   "options": "current_location_type"
   },
   {
    "fieldname": "current_location_name",
@@ -234,13 +235,14 @@
    "fieldname": "return_location_type",
    "fieldtype": "Link",
    "label": "Return Location Type",
-   "options": "Transport Zone"
+   "link_filters": "[[\"DocType\",\"name\",\"in\",[\"UNLOCO\",\"Transport Zone\"]]]",
+   "options": "DocType"
   },
   {
    "fieldname": "return_location",
-   "fieldtype": "Link",
+   "fieldtype": "Dynamic Link",
    "label": "Return Location",
-   "options": "Transport Zone"
+   "options": "return_location_type"
   },
   {
    "fieldname": "section_deposit_lines",

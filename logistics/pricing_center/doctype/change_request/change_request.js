@@ -346,9 +346,11 @@ function cr_open_services_dialog(frm) {
 			allowAdd: can_manage,
 			allowRemove: can_manage,
 			allowEdit: can_manage,
-			emptyHint: __("Add a service type above to link it to this change request."),
+			emptyHint: __(
+				"Job services appear here automatically. Add a type only for a new extra leg."
+			),
 			addHint: __(
-				"Select a service type to link to this change request. You can add multiple services of the same type (e.g. international and domestic Sea)."
+				"Add a service type only when the extra charge needs a new leg that is not already on the job. Existing job services can be picked on charge rows."
 			),
 			unsavedMessage: __("Save the Change Request before managing services."),
 			removeConfirm: (ls) =>

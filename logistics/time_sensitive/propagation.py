@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import frappe
+from frappe import _
 from frappe.utils import cint
 
 
@@ -32,6 +33,14 @@ TS_FIELDS = (
 	"critical_deadline",
 )
 
+# Order → operational job. Stamp copies Sales Quote onto these children when empty.
+STAMP_CHILD_JOBS = (
+	("Transport Order", "Transport Job", "transport_order"),
+	("Air Booking", "Air Shipment", "air_booking"),
+	("Sea Booking", "Sea Shipment", "sea_booking"),
+	("Declaration Order", "Declaration", "declaration_order"),
+)
+
 
 def _meta_has(doctype: str, fieldname: str) -> bool:
 	try:
@@ -40,8 +49,92 @@ def _meta_has(doctype: str, fieldname: str) -> bool:
 		return False
 
 
-def stamp_document_from_case(doctype: str, docname: str, case) -> None:
-	"""Stamp operational document with case identifiers and deadline."""
+def _customer_matches(left: str | None, right: str | None) -> bool:
+	return (left or "").strip().lower() == (right or "").strip().lower()
+
+
+def _target_customer(doctype: str, docname: str, case=None) -> str:
+	for field in ("customer", "local_customer"):
+		if not _meta_has(doctype, field):
+			continue
+		try:
+			val = frappe.db.get_value(doctype, docname, field)
+		except Exception:
+			val = None
+		if val:
+			return (val or "").strip()
+	return (getattr(case, "customer", None) or "").strip() if case is not None else ""
+
+
+def sales_quote_to_stamp(doctype: str, docname: str, case) -> str | None:
+	"""Return the case Sales Quote to write onto *docname*, or None to skip.
+
+	Empty-only, Regular quotes, customer must match. Never throws (case save must succeed).
+	"""
+	if not _meta_has(doctype, "sales_quote"):
+		return None
+	quote_name = (getattr(case, "sales_quote", None) or "").strip()
+	if not quote_name:
+		return None
+	try:
+		existing = (frappe.db.get_value(doctype, docname, "sales_quote") or "").strip()
+	except Exception:
+		existing = ""
+	if existing:
+		return None
+	try:
+		vals = frappe.db.get_value(
+			"Sales Quote",
+			quote_name,
+			["quotation_type", "customer"],
+			as_dict=True,
+		)
+	except Exception:
+		vals = None
+	if not vals:
+		return None
+	qtype = (vals.get("quotation_type") or "").strip()
+	if qtype != "Regular":
+		frappe.msgprint(
+			_(
+				"Sales Quote {0} was not copied to {1} {2}: only Regular quotes are stamped from the case."
+			).format(quote_name, doctype, docname),
+			indicator="orange",
+			alert=True,
+		)
+		return None
+	target_customer = _target_customer(doctype, docname, case)
+	quote_customer = (vals.get("customer") or "").strip()
+	if target_customer and quote_customer and not _customer_matches(quote_customer, target_customer):
+		frappe.msgprint(
+			_(
+				"Sales Quote {0} was not copied to {1} {2}: customer does not match."
+			).format(quote_name, doctype, docname),
+			indicator="orange",
+			alert=True,
+		)
+		return None
+	return quote_name
+
+
+def _stamp_child_jobs(doctype: str, docname: str, case) -> None:
+	for parent_dt, child_dt, link_field in STAMP_CHILD_JOBS:
+		if parent_dt != doctype:
+			continue
+		if not _meta_has(child_dt, link_field):
+			continue
+		try:
+			names = frappe.get_all(child_dt, filters={link_field: docname}, pluck="name")
+		except Exception:
+			names = []
+		for child_name in names or []:
+			stamp_document_from_case(child_dt, child_name, case, _stamp_children=False)
+
+
+def stamp_document_from_case(
+	doctype: str, docname: str, case, *, _stamp_children: bool = True
+) -> None:
+	"""Stamp operational document with case identifiers, deadline, and empty Sales Quote."""
 	if not doctype or not docname or not frappe.db.exists(doctype, docname):
 		return
 	updates = {}
@@ -53,6 +146,9 @@ def stamp_document_from_case(doctype: str, docname: str, case) -> None:
 		updates["ts_case_type"] = getattr(case, "case_type", None)
 	if _meta_has(doctype, "critical_deadline") and getattr(case, "critical_deadline", None):
 		updates["critical_deadline"] = case.critical_deadline
+	quote_name = sales_quote_to_stamp(doctype, docname, case)
+	if quote_name:
+		updates["sales_quote"] = quote_name
 	for field, value in updates.items():
 		try:
 			frappe.db.set_value(doctype, docname, field, value, update_modified=False)
@@ -61,6 +157,8 @@ def stamp_document_from_case(doctype: str, docname: str, case) -> None:
 				title="stamp_document_from_case",
 				message=f"{doctype} {docname} {field}",
 			)
+	if _stamp_children:
+		_stamp_child_jobs(doctype, docname, case)
 
 
 def apply_time_sensitive_from_source(source_doc, target_doc) -> None:
@@ -154,6 +252,44 @@ def propagate_time_sensitive_from_sales_quote(sales_quote_name: str | None) -> N
 					title="propagate_time_sensitive_from_sales_quote",
 					message=f"{dt} {name}",
 				)
+
+
+def is_time_sensitive_operational_doc(doc) -> bool:
+	"""True when this operational doc is a Time Sensitive Case leg.
+
+	Desk-created bookings still require a Sales Quote and destination charges.
+	Case legs (AOG, CEF, live organ, …) often have no quote and bill later, so
+	submit must not wait on those commercial gates. Requires a case link (or a
+	Linked Service owned by a Time Sensitive Case) so the checkbox alone cannot
+	bypass controls.
+	"""
+	if not doc:
+		return False
+	if cint(getattr(doc, "is_time_sensitive", 0)) and (
+		getattr(doc, "time_sensitive_case", None) or ""
+	).strip():
+		return True
+	name = (getattr(doc, "name", None) or "").strip()
+	doctype = (getattr(doc, "doctype", None) or "").strip()
+	if not name or not doctype or name.startswith("new-"):
+		return False
+	try:
+		from logistics.utils.linked_service_usage import get_linked_services_used_by
+
+		ls_names = get_linked_services_used_by(doctype, name)
+	except Exception:
+		return False
+	if not ls_names:
+		return False
+	return bool(
+		frappe.db.exists(
+			"Linked Service",
+			{
+				"name": ("in", ls_names),
+				"parent_booking_type": "Time Sensitive Case",
+			},
+		)
+	)
 
 
 def copy_time_sensitive_fields_to_target(source_doc, target_doc) -> None:

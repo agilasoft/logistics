@@ -382,11 +382,37 @@ def latest_satellite_job_from_usage(linked_service: str) -> tuple[str, str]:
 	return "", ""
 
 
+def _linked_service_type(linked_service: str) -> str:
+	return _norm(frappe.db.get_value(linked_service_doctype(), linked_service, "service_type"))
+
+
+def _execution_matches_linked_service_type(execution_doctype: str, service_type: str) -> bool:
+	"""True when a Shipment-role Usage may fill grid Job No for this Linked Service.
+
+	Parent-shipment conversion tags every IJ-… with the main Air/Sea Shipment. Job No must
+	only show an execution document of the same service type (Sea → Sea Shipment, not the
+	parent Air Shipment). Unknown doctypes stay eligible so legacy rows are not hidden.
+	"""
+	if not service_type:
+		return True
+	from logistics.utils.charge_service_type import implied_service_type_for_doctype
+
+	implied = _norm(implied_service_type_for_doctype(execution_doctype))
+	if not implied:
+		return True
+	return implied == service_type
+
+
 def latest_shipment_from_usage(linked_service: str) -> tuple[str, str]:
-	"""Return ``(execution_doctype, job_no)`` from the latest Shipment Usage row, if any."""
+	"""Return ``(execution_doctype, job_no)`` from the latest matching Shipment Usage row.
+
+	Ignores Shipment Usage whose doctype belongs to a different service type than the
+	Linked Service (e.g. Air Shipment on a Sea leg stays out of Job No).
+	"""
 	ls = _norm(linked_service)
 	if not ls or not _usage_table_exists():
 		return "", ""
+	service_type = _linked_service_type(ls)
 	rows = get_usages_for_linked_service(ls)
 	for row in reversed(rows):
 		role = _norm(row.get("usage_role"))
@@ -394,8 +420,11 @@ def latest_shipment_from_usage(linked_service: str) -> tuple[str, str]:
 			continue
 		jt = _norm(row.get("used_on_doctype"))
 		jn = _norm(row.get("used_on_name"))
-		if jt and jn:
-			return jt, jn
+		if not jt or not jn:
+			continue
+		if not _execution_matches_linked_service_type(jt, service_type):
+			continue
+		return jt, jn
 	return "", ""
 
 

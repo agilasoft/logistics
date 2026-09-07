@@ -26,6 +26,50 @@ from logistics.utils.container_validation import (
 	get_strict_validation_setting,
 )
 
+ALLOWED_CONTAINER_LOCATION_TYPES = frozenset({"UNLOCO", "Transport Zone"})
+
+
+def normalize_container_location_pair(location_type, location):
+	"""Normalize legacy Container location type/location values for Dynamic Link."""
+	location_type = (location_type or "").strip()
+	location = (location or "").strip()
+
+	if not location_type and not location:
+		return "", ""
+
+	if location_type in ALLOWED_CONTAINER_LOCATION_TYPES:
+		return location_type, location
+
+	if location and frappe.db.exists("UNLOCO", location):
+		return "UNLOCO", location
+
+	if location and frappe.db.exists("Transport Zone", location):
+		return "Transport Zone", location
+
+	if location_type and not location:
+		if frappe.db.exists("UNLOCO", location_type):
+			return "UNLOCO", location_type
+		if frappe.db.exists("Transport Zone", location_type):
+			return "Transport Zone", location_type
+
+	if location_type and location_type not in ALLOWED_CONTAINER_LOCATION_TYPES:
+		return "", location
+
+	return location_type, location
+
+
+def resolve_container_location_display_name(location_type, location):
+	"""Return a human-readable location label for UNLOCO / Transport Zone."""
+	location_type = (location_type or "").strip()
+	location = (location or "").strip()
+	if not location_type or not location:
+		return ""
+	if location_type not in ALLOWED_CONTAINER_LOCATION_TYPES:
+		return ""
+	display_field = "location_name" if location_type == "UNLOCO" else "zone_name"
+	display = frappe.db.get_value(location_type, location, display_field)
+	return ((display or location) or "").strip()
+
 
 class Container(Document):
 	def autoname(self):
@@ -38,6 +82,7 @@ class Container(Document):
 		self.container_number = normalize_container_number(self.container_number or "")
 		self._validate_container_number_format()
 		self._validate_unique_container_number_master_bill()
+		self._validate_container_location_fields()
 		self.update_current_location_name()
 		if self.is_active:
 			self._validate_active_mbl_assignment()
@@ -129,18 +174,24 @@ class Container(Document):
 			title=_("Container already active"),
 		)
 
-	def update_current_location_name(self):
-		if self.current_location_type and self.current_location:
-			try:
-				name = frappe.db.get_value(
-					self.current_location_type,
-					self.current_location,
-					"name",
+	def _validate_container_location_fields(self):
+		for type_field, label in (
+			("current_location_type", _("Location Type")),
+			("return_location_type", _("Return Location Type")),
+		):
+			loc_type = (self.get(type_field) or "").strip()
+			if loc_type and loc_type not in ALLOWED_CONTAINER_LOCATION_TYPES:
+				frappe.throw(
+					_("{0} must be UNLOCO or Transport Zone.").format(label),
+					title=_("Invalid Location Type"),
 				)
-				if name:
-					self.current_location_name = name
-			except Exception:
-				pass
+
+	def update_current_location_name(self):
+		display = resolve_container_location_display_name(
+			self.current_location_type,
+			self.current_location,
+		)
+		self.current_location_name = display or None
 
 	def get_linked_shipments_html(self):
 		"""Virtual HTML for linked Sea Shipments."""

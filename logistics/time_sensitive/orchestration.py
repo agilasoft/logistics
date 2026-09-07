@@ -9,7 +9,7 @@ from typing import Optional
 
 import frappe
 from frappe import _
-from frappe.utils import add_to_date, now_datetime
+from frappe.utils import add_to_date, now_datetime, today
 
 
 SERVICE_TYPE_DEFAULT_DOCTYPE = {
@@ -97,6 +97,50 @@ def build_case_from_sales_quote(
 	return case
 
 
+def get_charges_for_service(case, linked_service: str, service_type: str) -> list[dict]:
+	"""Return charge rows from the case that would be copied for a linked service."""
+	if not hasattr(case, "charges") or not case.get("charges"):
+		return []
+
+	from frappe.utils import flt
+	from logistics.utils.charge_service_type import canonical_charge_service_type_for_storage
+
+	normalized_service_type = canonical_charge_service_type_for_storage(service_type)
+	rows: list[dict] = []
+
+	for case_charge in case.get("charges") or []:
+		charge_service_type = getattr(case_charge, "service_type", None)
+		charge_linked_service = getattr(case_charge, "linked_service", None)
+		charge_scope = getattr(case_charge, "charge_scope", "Main")
+
+		if charge_service_type:
+			charge_service_type = canonical_charge_service_type_for_storage(charge_service_type)
+
+		if charge_service_type and normalized_service_type:
+			if charge_service_type != normalized_service_type:
+				continue
+
+		if charge_scope == "Linked":
+			if charge_linked_service != linked_service:
+				continue
+
+		rows.append(
+			{
+				"item_code": getattr(case_charge, "item_code", None),
+				"item_name": getattr(case_charge, "description", None),
+				"description": getattr(case_charge, "description", None),
+				"qty": flt(getattr(case_charge, "qty", 1)) or 1,
+				"rate": flt(getattr(case_charge, "rate", 0)),
+				"amount": flt(getattr(case_charge, "amount", 0))
+				or (flt(getattr(case_charge, "qty", 1)) * flt(getattr(case_charge, "rate", 0))),
+				"currency": getattr(case_charge, "currency", None),
+				"service_type": charge_service_type,
+				"charge_scope": charge_scope,
+			}
+		)
+	return rows
+
+
 def _copy_charges_from_case_to_doc(doc, case, linked_service: str, service_type: str):
 	"""Copy charges from Time Sensitive Case to the operational document.
 	
@@ -110,45 +154,16 @@ def _copy_charges_from_case_to_doc(doc, case, linked_service: str, service_type:
 		return
 	
 	from frappe.utils import flt
-	from logistics.utils.charge_service_type import canonical_charge_service_type_for_storage
-	
-	# Normalize service type for comparison
-	normalized_service_type = canonical_charge_service_type_for_storage(service_type)
-	
-	for case_charge in case.get("charges") or []:
-		charge_service_type = getattr(case_charge, "service_type", None)
-		charge_linked_service = getattr(case_charge, "linked_service", None)
-		charge_scope = getattr(case_charge, "charge_scope", "Main")
-		
-		# Normalize charge service type
-		if charge_service_type:
-			charge_service_type = canonical_charge_service_type_for_storage(charge_service_type)
-		
-		# Skip charges that don't match this service type
-		if charge_service_type and normalized_service_type:
-			if charge_service_type != normalized_service_type:
-				continue
-		
-		# For Linked scope charges, only copy if they match the linked service
-		if charge_scope == "Linked":
-			if charge_linked_service != linked_service:
-				continue
-		
-		# Copy the charge to the booking/order
-		doc.append("charges", {
-			"item_code": getattr(case_charge, "item_code", None),
-			"description": getattr(case_charge, "description", None),
-			"qty": flt(getattr(case_charge, "qty", 1)) or 1,
-			"rate": flt(getattr(case_charge, "rate", 0)),
-			"amount": flt(getattr(case_charge, "amount", 0)) or (
-				flt(getattr(case_charge, "qty", 1)) * flt(getattr(case_charge, "rate", 0))
-			),
-			"currency": getattr(case_charge, "currency", None),
-			"service_type": charge_service_type,
-			"charge_scope": charge_scope,
-			"linked_service": charge_linked_service if charge_scope == "Linked" else None,
-			"charge_type": "Revenue",
-		})
+
+	for charge in get_charges_for_service(case, linked_service, service_type):
+		doc.append(
+			"charges",
+			{
+				**charge,
+				"linked_service": linked_service if charge.get("charge_scope") == "Linked" else None,
+				"charge_type": "Revenue",
+			},
+		)
 
 
 def create_operational_doc_for_service(case, linked_service: str) -> dict:
@@ -172,10 +187,30 @@ def create_operational_doc_for_service(case, linked_service: str) -> dict:
 		elif hasattr(doc, "customer") and case.customer:
 			doc.customer = case.customer
 	elif doctype == "Transport Order":
+		from logistics.utils.internal_job_from_source import (
+			apply_internal_job_detail_row_to_operational_doc,
+		)
+		from logistics.utils.service_role_rules import apply_standalone_service_flags
+		from logistics.utils.transport_job_type import (
+			apply_container_transport_context_to_order,
+			set_internal_transport_order_draft_insert_flags,
+		)
+
 		if hasattr(doc, "customer") and case.customer:
 			doc.customer = case.customer
 		if hasattr(doc, "location_type"):
 			doc.location_type = "UNLOCO"
+		# Same draft-insert pattern as Docket / Special Project / Sales Quote:
+		# default Non-Container; upgrade only when linked service has both
+		# container_type and container_no; skip container validation on insert.
+		if frappe.get_meta("Transport Order").get_field("transport_job_type"):
+			doc.transport_job_type = "Non-Container"
+		if frappe.get_meta("Transport Order").get_field("scheduled_date"):
+			doc.scheduled_date = today()
+		apply_internal_job_detail_row_to_operational_doc(doc, linked, overwrite=True)
+		apply_container_transport_context_to_order(doc, linked)
+		set_internal_transport_order_draft_insert_flags(doc)
+		apply_standalone_service_flags(doc)
 	elif doctype == "Declaration Order":
 		if hasattr(doc, "customer") and case.customer:
 			doc.customer = case.customer
@@ -194,6 +229,12 @@ def create_operational_doc_for_service(case, linked_service: str) -> dict:
 
 	# Copy charges from case to booking/order if the case has charges
 	_copy_charges_from_case_to_doc(doc, case, linked.name, linked.service_type)
+
+	from logistics.special_projects.special_project_booking_creation import _booking_date_field
+
+	bd = _booking_date_field(doc)
+	if bd:
+		doc.set(bd, today())
 
 	doc.insert(ignore_permissions=False)
 	record_operational_usage(case, linked.name, doctype, doc.name)

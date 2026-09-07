@@ -131,6 +131,8 @@ frappe.provide("logistics.time_sensitive");
 	}
 
 	function titleWithTimerIcon(value, doc) {
+		// Prefer injectListSubjectTimerIcons for list subject columns — Frappe sets
+		// subject link text via textContent, so HTML here shows as raw markup.
 		if (!cint(doc.is_time_sensitive) && doc.doctype !== "Time Sensitive Case") {
 			return value;
 		}
@@ -141,6 +143,50 @@ frappe.provide("logistics.time_sensitive");
 		return `<span title="${frappe.utils.escape_html(tip)}">${icon} ${frappe.utils.escape_html(
 			value || doc.name
 		)}</span>`;
+	}
+
+	function timerTooltip(doc) {
+		return [doc.ts_case_type || doc.case_type_name || "", doc.critical_deadline || ""]
+			.filter(Boolean)
+			.join(" · ");
+	}
+
+	/**
+	 * Prepend timer icon into list subject links after render.
+	 * Subject cells use ElementFactory textContent, so HTML formatters cannot work there.
+	 */
+	function injectListSubjectTimerIcons(listview) {
+		if (!listview || !listview.$result || !Array.isArray(listview.data)) {
+			return;
+		}
+		const byName = {};
+		const isCaseList = listview.doctype === "Time Sensitive Case";
+		listview.data.forEach((doc) => {
+			if (isCaseList || cint(doc.is_time_sensitive)) {
+				byName[doc.name] = doc;
+			}
+		});
+		listview.$result.find(".list-subject a[data-name]").each(function () {
+			const $link = $(this);
+			if ($link.find(".ts-timer-icon").length) {
+				return;
+			}
+			const doc = byName[$link.attr("data-name")];
+			if (!doc) {
+				return;
+			}
+			const tip = timerTooltip(doc);
+			$link.prepend(
+				$(
+					`<span class="ts-timer-icon" style="margin-right:4px;vertical-align:middle;" title="${frappe.utils.escape_html(
+						tip
+					)}">${frappe.utils.icon("timer", "sm")}</span>`
+				)
+			);
+			if (tip) {
+				$link.attr("title", tip);
+			}
+		});
 	}
 
 	function getListIndicator(doc) {
@@ -193,6 +239,7 @@ frappe.provide("logistics.time_sensitive");
 		mountTimer,
 		setFormIndicator,
 		titleWithTimerIcon,
+		injectListSubjectTimerIcons,
 		getListIndicator,
 		bindRealtimeToasts,
 	};

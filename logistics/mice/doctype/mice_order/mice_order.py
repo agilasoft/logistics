@@ -176,6 +176,9 @@ def action_create_mice_job(docname: str, title: Optional[str] = None):
 		frappe.throw(_("Save the MICE Order before creating a job."))
 
 	order = frappe.get_doc("MICE Order", docname)
+	from logistics.utils.menu_permission import assert_create_from_source
+
+	assert_create_from_source("MICE Job", source_doc=order)
 	frappe.has_permission("MICE Order", "write", doc=order, throw=True)
 
 	if order.docstatus != 1:

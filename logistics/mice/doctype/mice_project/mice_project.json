@@ -538,20 +538,22 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "Sum of Total Amount across all Consolidation Charges. Recomputed on save.",
+   "description": "Sum of consolidation charge amounts converted to company currency (Total Amount \u00d7 Exchange Rate). Recomputed on save.",
    "fieldname": "total_consolidation_charges",
    "fieldtype": "Currency",
    "label": "Total Charges",
    "no_copy": 1,
+   "options": "Company:company:default_currency",
    "precision": "2",
    "read_only": 1
   },
   {
-   "description": "Sum of Allocated Amount across the Cost Allocation table. Recomputed by Allocate Costs.",
+   "description": "Sum of Allocated Amount across the Cost Allocation table, in company currency. Recomputed by Allocate Costs.",
    "fieldname": "total_allocated_amount",
    "fieldtype": "Currency",
    "label": "Total Allocated",
    "no_copy": 1,
+   "options": "Company:company:default_currency",
    "precision": "2",
    "read_only": 1
   },
