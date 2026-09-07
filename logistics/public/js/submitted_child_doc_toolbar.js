@@ -64,8 +64,14 @@ logistics.submitted_child_doc_toolbar.add_create_or_view = function (frm, opts) 
 	if (opts.when && !opts.when(frm)) {
 		return;
 	}
-	if (opts.require_submitted !== false && frm.doc.docstatus !== 1) {
-		return;
+	if (opts.require_submitted !== false) {
+		if (window.logistics && logistics.menu && logistics.menu.is_submitted) {
+			if (!logistics.menu.is_submitted(frm)) {
+				return;
+			}
+		} else if (frm.doc.docstatus !== 1) {
+			return;
+		}
 	}
 	if (!frm.doc.name || frm.doc.__islocal || String(frm.doc.name).indexOf("new-") === 0) {
 		return;
@@ -79,7 +85,16 @@ logistics.submitted_child_doc_toolbar.add_create_or_view = function (frm, opts) 
 		if (!frm.doc || frm.doc.name !== parent_name) {
 			return;
 		}
-		if (r && r.name) {
+			if (r && r.name) {
+			if (opts.require_read_perm !== false) {
+				if (
+					!window.logistics ||
+					!logistics.menu ||
+					!logistics.menu.can(opts.child_doctype, "read", frm)
+				) {
+					return;
+				}
+			}
 			frm.add_custom_button(opts.view_label, function () {
 				frappe.set_route("Form", opts.child_doctype, r.name);
 			});
@@ -107,6 +122,16 @@ logistics.submitted_child_doc_toolbar.add_create_or_view = function (frm, opts) 
 					}
 				},
 			});
+		}
+
+		if (opts.require_create_perm !== false) {
+			if (
+				!window.logistics ||
+				!logistics.menu ||
+				!logistics.menu.can(opts.child_doctype, "create", frm)
+			) {
+				return;
+			}
 		}
 
 		frm.add_custom_button(opts.create_label, function () {

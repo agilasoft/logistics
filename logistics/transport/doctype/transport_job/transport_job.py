@@ -1205,6 +1205,9 @@ ACTIVE_RUNSHEET_STATUSES = ("Planned", "Dispatched", "In Progress")  # consider 
 def recalculate_all_charges(docname):
     """Recalculate all charges based on current Transport Job data using RateCalculationEngine."""
     doc = frappe.get_doc("Transport Job", docname)
+    from logistics.utils.menu_permission import assert_perm
+
+    assert_perm("Transport Job", "write", doc=doc)
     if not doc.charges:
         return {"success": False, "message": _("No charges found to recalculate")}
     try:
@@ -1875,7 +1878,11 @@ def create_sales_invoice_from_transport_job(job_name, posting_date=None, custome
 @frappe.whitelist()
 def post_standard_costs(docname):
     """Post standard costs on Transport Job charge lines (same pattern as Air Shipment)."""
+    from logistics.utils.menu_permission import assert_perm
+
     job = frappe.get_doc("Transport Job", docname)
+    assert_perm("Transport Job", "write", doc=job)
+    assert_perm("Journal Entry", "create")
     posted = 0
     for ch in job.charges or []:
         if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(

@@ -75,7 +75,11 @@ frappe.ui.form.on("Release Order", {
       }, __("Action"));
     }
 
-    if (!frm.doc.docstatus) return;
+    if (window.logistics && logistics.menu && logistics.menu.is_submitted) {
+      if (!logistics.menu.is_submitted(frm)) return;
+    } else if (!frm.doc.docstatus || frm.doc.docstatus !== 1) {
+      return;
+    }
 
     frm.add_custom_button(__("Warehouse Job"), () => {
       frappe.call({

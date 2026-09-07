@@ -150,6 +150,9 @@ def create_task_job(docname: str, title: Optional[str] = None):
 		frappe.throw(_("Save the Exhibit Order before creating a job."))
 
 	order = frappe.get_doc("Exhibit Order", docname)
+	from logistics.utils.menu_permission import assert_create_from_source
+
+	assert_create_from_source("Exhibit Job", source_doc=order)
 	frappe.has_permission("Exhibit Order", "write", doc=order, throw=True)
 	title = (title or "").strip()
 	if not title:

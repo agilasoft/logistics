@@ -2,7 +2,12 @@
 frappe.ui.form.on('Transport Plan', {
   refresh(frm) {
     if (!frm.is_new()) {
-      frm.add_custom_button(__('Run Sheets'), () => {
+      logistics.menu.add(frm, {
+        label: __('Run Sheets'),
+        group: __('Create'),
+        doctype: 'Run Sheet',
+        ptype: 'create',
+        action: () => {
         frappe.call({
           method: 'logistics.transport.doctype.transport_plan.transport_plan.auto_allocate_and_create',
           args: { plan_name: frm.doc.name },
@@ -50,7 +55,8 @@ frappe.ui.form.on('Transport Plan', {
             indicator: 'red',
           });
         });
-      }, __('Create'));
+      },
+      });
     }
   }
 });

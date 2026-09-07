@@ -148,15 +148,19 @@ function _lsd1_render_list(rows, opts, selected) {
 		.map((row) => {
 			const ls = row.linked_service || "";
 			const st = row.service_type || "";
-			const has_job = !!(row.job_no || (row.job_type && row.order_no));
+			const from_job =
+				row.owned_by_change_request === 0 || row.owned_by_change_request === "0";
 			const job_html = row.job_no
 				? `<span class="lsd1-pill lsd1-pill-job">${_lsd1_escape(row.job_no)}</span>`
 				: row.order_no
 				? `<span class="lsd1-pill lsd1-pill-job">${_lsd1_escape(row.order_no)}</span>`
 				: `<span class="lsd1-pill">${__("No Job")}</span>`;
+			const source_html = from_job
+				? `<span class="lsd1-pill">${__("From job")}</span>`
+				: "";
 
 			const edit_btn =
-				opts.allowEdit && opts.getMethod
+				opts.allowEdit && opts.getMethod && !from_job
 					? `<button type="button" class="lsd1-icon-btn lsd1-edit" title="${__(
 							"Edit"
 					  )}" aria-label="${__("Edit")}">
@@ -186,7 +190,7 @@ function _lsd1_render_list(rows, opts, selected) {
 							${_lsd1_icon("es-line-open", "xs") || _lsd1_icon("external-link", "xs")}
 						</a>
 					</div>
-					<div class="lsd1-item-meta">${job_html}</div>
+					<div class="lsd1-item-meta">${source_html}${job_html}</div>
 					<div class="lsd1-item-actions">${edit_btn}${remove_btn}</div>
 				</div>`;
 		})

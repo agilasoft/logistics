@@ -10,7 +10,15 @@ function logistics_set_site_query_project_order(frm) {
 function _logistics_project_order_add_create_or_open_job(frm) {
 	// Mirror Transport Order → Transport Job pattern: link to existing Project Job under "Action",
 	// otherwise expose the create button under the standard "Create" group.
-	if (frm.doc.__islocal || frm.is_new() || !frm.doc.name || String(frm.doc.name).startsWith("new-")) {
+	if (
+		!(window.logistics && logistics.menu && logistics.menu.is_submitted
+			? logistics.menu.is_submitted(frm)
+			: frm.doc.docstatus === 1) ||
+		frm.doc.__islocal ||
+		frm.is_new() ||
+		!frm.doc.name ||
+		String(frm.doc.name).startsWith("new-")
+	) {
 		return;
 	}
 

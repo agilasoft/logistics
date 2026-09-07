@@ -1189,6 +1189,7 @@ def build_transport_order_dashboard_config(doc):
 		"scroll_doctype": "Transport Order",
 		"map_points": map_points,
 		"map_segments": None,
+		"straight_line": False,
 	}
 
 

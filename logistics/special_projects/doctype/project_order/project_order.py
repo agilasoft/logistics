@@ -207,6 +207,9 @@ def create_project_job(docname: str, title: Optional[str] = None):
 		frappe.throw(_("Save the Project Order before creating a job."))
 
 	order = frappe.get_doc("Project Order", docname)
+	from logistics.utils.menu_permission import assert_create_from_source
+
+	assert_create_from_source("Project Job", source_doc=order)
 	frappe.has_permission("Project Order", "write", doc=order, throw=True)
 
 	job = _build_project_job_from_order(order, title=title)
@@ -225,6 +228,9 @@ def action_create_project_job(docname: str, title: Optional[str] = None):
 		frappe.throw(_("Save the Project Order before creating a job."))
 
 	order = frappe.get_doc("Project Order", docname)
+	from logistics.utils.menu_permission import assert_create_from_source
+
+	assert_create_from_source("Project Job", source_doc=order)
 	frappe.has_permission("Project Order", "write", doc=order, throw=True)
 
 	existing = frappe.db.get_value(

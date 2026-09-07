@@ -10,7 +10,9 @@ function logistics_set_site_query_exhibit_order(frm) {
 function _logistics_mice_order_add_create_or_open_job(frm) {
 	// Mirror Transport Order → Transport Job / Project Order → Project Job.
 	if (
-		frm.doc.docstatus !== 1 ||
+		!(window.logistics && logistics.menu && logistics.menu.is_submitted
+			? logistics.menu.is_submitted(frm)
+			: frm.doc.docstatus === 1) ||
 		frm.doc.__islocal ||
 		frm.is_new() ||
 		!frm.doc.name ||

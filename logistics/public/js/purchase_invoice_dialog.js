@@ -103,6 +103,14 @@
 	}
 
 	window.show_create_purchase_invoice_dialog = function(frm) {
+		if (window.logistics && logistics.menu && !logistics.menu.can("Purchase Invoice", "create")) {
+			frappe.msgprint({
+				title: __("Not Permitted"),
+				message: __("You do not have permission to create a Purchase Invoice."),
+				indicator: "red",
+			});
+			return;
+		}
 		if (!frm || !frm.doc || !frm.doc.name) {
 			frappe.msgprint({ title: __("Error"), message: __("Please save the document first."), indicator: "red" });
 			return;
@@ -590,7 +598,17 @@
 						});
 					}
 					if (consolidation_planning_submitted(frm)) {
-						frm.add_custom_button(__("Purchase Invoice"), open_consolidation_purchase_invoice, __("Create"));
+						if (window.logistics && logistics.menu) {
+							logistics.menu.add(frm, {
+								label: __("Purchase Invoice"),
+								group: __("Create"),
+								doctype: "Purchase Invoice",
+								ptype: "create",
+								action: open_consolidation_purchase_invoice,
+							});
+						} else {
+							frm.add_custom_button(__("Purchase Invoice"), open_consolidation_purchase_invoice, __("Create"));
+						}
 					}
 				}, 0);
 			},

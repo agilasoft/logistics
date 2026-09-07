@@ -112,10 +112,9 @@
             }
             
             .company-name {
-                font-size: 16pt;
-                font-weight: 900;
+                font-size: 12pt;
+                font-weight: bold;
                 margin-bottom: 0;
-                text-transform: uppercase;
             }
             
             .company-address {
@@ -125,7 +124,12 @@
             }
             
             .vat-reg {
-                font-size: 8.5pt;
+                font-size: 7pt;
+            }
+            
+            .company-contact {
+                font-size: 7pt;
+                line-height: 1.3;
             }
             
             /* Document Title */
@@ -1030,14 +1034,30 @@
 <div class="company-info">
                     <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
                     <div class="company-address">
-                        {% if company_doc.address %}
-                            {% set company_address = frappe.get_doc("Address", company_doc.address) %}
-                            {{ company_address.address_line1 if company_address.address_line1 else '' }}
-                            {% if company_address.address_line2 %}{{ company_address.address_line2 }}{% endif %}
-{% if company_address.city %}{{ company_address.city }}{% endif %}
-{% if company_address.state %}, {{ company_address.state }}{% endif %}
-{% if company_address.country %}{{ company_address.country }}{% endif %}
-{% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                        {% set company_address_name = None %}
+                        {% set addr_rows = frappe.get_all(
+                            "Address",
+                            filters=[
+                                ["Dynamic Link", "link_doctype", "=", "Company"],
+                                ["Dynamic Link", "link_name", "=", company_doc.name],
+                                ["disabled", "=", 0],
+                            ],
+                            fields=["name"],
+                            order_by="is_primary_address desc",
+                            limit_page_length=1
+                        ) %}
+                        {% if addr_rows %}{% set company_address_name = addr_rows[0].name %}{% endif %}
+                        {% if not company_address_name and company_doc.address and frappe.db.exists("Address", company_doc.address) %}
+                            {% set company_address_name = company_doc.address %}
+                        {% endif %}
+                        {% if company_address_name and frappe.db.exists("Address", company_address_name) %}
+                            {% set company_address = frappe.get_doc("Address", company_address_name) %}
+                            {{ company_address.address_line1 or '' }}
+                            {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
+                            {% if company_address.city %} {{ company_address.city }}{% endif %}
+                            {% if company_address.state %}, {{ company_address.state }}{% endif %}
+                            {% if company_address.country %} {{ company_address.country }}{% endif %}
+                            {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
                         {% elif company_doc.address_line1 %}
                             {{ company_doc.address_line1 }}<br>
                             {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
@@ -1060,6 +1080,11 @@
                         {% elif company_doc.tin %}
                             VAT Reg. TIN: {{ company_doc.tin }}
                         {% endif %}
+                    </div>
+                    <div class="company-contact">
+                        {% if company_doc.email %}Email: {{ company_doc.email }}<br>{% endif %}
+                        {% if company_doc.website %}Website: {{ company_doc.website }}<br>{% endif %}
+                        {% if company_doc.phone_no %}Phone: {{ company_doc.phone_no }}{% endif %}
                     </div>
                 </div>
                 {% else %}

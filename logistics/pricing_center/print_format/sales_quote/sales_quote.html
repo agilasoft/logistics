@@ -13,8 +13,9 @@
         .company-name { font-size: 12pt; font-weight: bold; margin-bottom: 0; }
         .company-address { font-size: 7pt; line-height: 1.3; margin-bottom: 0; }
         .vat-reg { font-size: 7pt; }
-        .details-wrap { margin-top: 35mm; margin-bottom: 0; position: relative; }
-        .main-body { display: flex; justify-content: space-between; border: 2px solid #000; padding: 1.5mm; position: relative; }
+        .company-contact { font-size: 7pt; line-height: 1.3; }
+        .details-wrap { margin-top: 40mm; margin-bottom: 0; position: relative; }
+        .main-body { display: flex; justify-content: space-between; border: 2px solid #000; padding: 2mm; position: relative; }
         .left-column { flex: 1; padding-right: 5mm; }
         .right-column { flex: 1; padding-left: 5mm; }
         .field-row { display: flex; margin-bottom: -1mm; align-items: baseline; gap: 0.3mm; }
@@ -22,11 +23,14 @@
         .left-column .field-label { text-align: right; min-width: 22mm; }
         .left-column .field-row { gap: 0.1mm; }
         .field-value { flex: 1; font-size: 8pt; line-height: 1.4; padding: 0 0.5mm; background: white; }
-        .customer-info-section { position: absolute; top: -35mm; left: 1.5mm; z-index: 10; max-width: 80mm; }
+        .customer-info-section { position: absolute; top: -40mm; left: 1.5mm; z-index: 10; max-width: 80mm; }
         .customer-label { font-weight: bold; font-size: 8pt; margin-top: 5mm; margin-bottom: 1mm; line-height: 1; }
         .customer-name-box { padding: 0.3mm 0.5mm; font-size: 12pt; font-weight: 900; margin-bottom: 0.1mm; margin-top: -1mm; line-height: 1; background: white; }
-        .customer-address-box { padding: 0.3mm 0.5mm; font-size: 8pt; background: white; width: 100mm; }
-        .qr-section { position: absolute; top: -35mm; right: 1.5mm; text-align: right; z-index: 10; margin-bottom: 30mm; }
+        .customer-address-box { padding: 0.3mm 0.5mm; font-size: 8pt; background: white; width: 100mm; line-height: 1.3; }
+        .customer-detail-row { font-size: 8pt; margin-top: 0.5mm; line-height: 1.2; padding: 0.3mm 0.5mm; }
+        .customer-detail-label { font-weight: bold; }
+        .customer-detail-value { margin-left: 0.5mm; }
+        .qr-section { position: absolute; top: -40mm; right: 1.5mm; text-align: right; z-index: 10; margin-bottom: 30mm; }
         .qr-code { width: 20mm; height: 20mm; border: 0 solid #000; }
         .order-title-qr { font-size: 16pt; font-weight: 900; margin-top: 0.11mm; margin-bottom: -1mm; text-align: right; }
         .reference-number { font-size: 8pt; font-weight: normal; margin-top: 0.1mm; }
@@ -38,13 +42,11 @@
         .packages-table .table-header th.num, .packages-table .table-row td.num { text-align: right; }
         .packages-table .table-row td { padding: 0.3mm 0.5mm; font-size: 7pt; background: white; border: none; border-bottom: 1px solid #ddd; vertical-align: top; }
         .packages-table .subheader-row td { font-weight: bold; text-decoration: underline; border: none; padding-top: 2mm; padding-bottom: 1mm; background: #e8e8e8; border-top: 1px solid #000; }
-        .packages-table .category-total-row td { font-weight: bold; border-top: 1px solid #999; background: #fafafa; page-break-inside: avoid; break-inside: avoid; }
-        .packages-table .category-total-row td.num, .packages-table .total-row td.num { text-align: right; }
+        .packages-table .total-row td.num { text-align: right; }
         .packages-table .total-row td { font-weight: bold; border-top: 2px solid #000; background: #f5f5f5; page-break-inside: avoid; break-inside: avoid; }
-        .section-title { font-size: 8pt; font-weight: bold; margin: 2mm 0 1mm 0; }
         .scope-title-block { width: 100%; margin: 0 0 1.5mm 0; }
         .scope-title-label { font-size: 7pt; color: #555; margin-bottom: 0.8mm; }
-        .scope-title-value { font-size: 8pt; color: #333; background: #f2f2f2; border-radius: 6px; padding: 1.5mm 2.5mm; }
+        .scope-title-value { font-size: 8pt; color: #333; background: #f2f2f2; border-radius: 6px; padding: 2.5mm 2.5mm; }
         .charge-section-page-break { page-break-after: always; break-after: page; }
         .charge-section-continued { page-break-before: auto; break-before: auto; }
         .charge-section-continued-break { page-break-before: always; break-before: page; }
@@ -55,16 +57,22 @@
             max-width: 210mm;
             margin: 10mm auto 0 auto;
             padding: 2mm 0 1mm 0;
-            border-top: 2px solid #000;
+            border-top: 1px solid #000;
             font-size: 7pt;
             line-height: 1.35;
             background: white;
             page-break-inside: avoid;
             break-inside: avoid;
         }
-        .footer-section table { width: 100%; border-collapse: collapse; }
-        .footer-section td { padding: 0.4mm 2mm 0.4mm 0; font-size: 7pt; vertical-align: top; }
-        .footer-section .footer-label { font-weight: bold; white-space: nowrap; width: 1%; padding-right: 1.5mm; }
+        .footer-section .footer-row {
+            margin: 0;
+            padding: 0.2mm 0;
+            font-size: 7pt;
+            line-height: 1.35;
+        }
+        .footer-section .footer-row:last-child {
+            padding-bottom: 0;
+        }
         @page { size: A4; margin: 12mm 12mm 4mm 12mm; }
         @media print {
             html, body {
@@ -81,7 +89,6 @@
                 padding-bottom: 22mm;
                 box-sizing: border-box;
             }
-            .packages-table .category-total-row,
             .packages-table .total-row { page-break-inside: avoid; break-inside: avoid; }
             .footer-section {
                 position: fixed;
@@ -92,7 +99,7 @@
                 max-width: none;
                 margin: 0;
                 padding: 0;
-                border-top: 2px solid #000;
+                border-top: 1px solid #000;
                 background: white;
                 box-sizing: border-box;
                 z-index: 1000;
@@ -194,27 +201,17 @@
 </thead>
 {% endmacro %}
 
-{% macro render_charge_rows(lines, start_row_no, category_totals, suppress_subheader_for='', suppress_subtotal_for='') %}
+{% macro render_charge_rows(lines, start_row_no, suppress_subheader_for='') %}
 {% set row_no = namespace(value=start_row_no) %}
-{% set prev_category = namespace(value='') %}
-{% set category_total = namespace(value=0) %}
+{% set prev_group = namespace(value='') %}
 {% for item in lines %}
-{% if item.category != prev_category.value %}
-{% if prev_category.value and prev_category.value != suppress_subtotal_for %}
-<tr class="category-total-row">
-    <td colspan="3">{{ prev_category.value|upper }} SUBTOTAL</td>
-    {% if show_foreign_amt %}<td></td>{% endif %}
-    <td class="num">{{ frappe.utils.fmt_money(category_totals.get(prev_category.value, category_total.value), precision=2) }}</td>
-</tr>
+{% if item.group != prev_group.value %}
+{% if item.group != suppress_subheader_for %}
+<tr class="subheader-row"><td colspan="{{ table_cols }}">{{ item.group|upper }}</td></tr>
 {% endif %}
-{% if item.category != suppress_subheader_for %}
-<tr class="subheader-row"><td colspan="{{ table_cols }}">{{ item.category|upper }}</td></tr>
-{% endif %}
-{% set category_total.value = 0 %}
-{% set prev_category.value = item.category %}
+{% set prev_group.value = item.group %}
 {% endif %}
 {% set row_no.value = row_no.value + 1 %}
-{% set category_total.value = category_total.value + item.quote_amt %}
 <tr class="table-row">
     <td>{{ row_no.value }}</td>
     <td colspan="2">{{ charge_description(item.row) }}</td>
@@ -222,13 +219,6 @@
     <td class="num">{{ frappe.utils.fmt_money(item.quote_amt, precision=2) }}</td>
 </tr>
 {% endfor %}
-{% if prev_category.value and prev_category.value != suppress_subtotal_for %}
-<tr class="category-total-row">
-    <td colspan="3">{{ prev_category.value|upper }} SUBTOTAL</td>
-    {% if show_foreign_amt %}<td></td>{% endif %}
-    <td class="num">{{ frappe.utils.fmt_money(category_totals.get(prev_category.value, category_total.value), precision=2) }}</td>
-</tr>
-{% endif %}
 {% endmacro %}
 
 {% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
@@ -345,12 +335,6 @@
 {% set v = dimension_value(doc, doc.main_service, 'volume') %}
 {% set c = dimension_value(doc, doc.main_service, 'chargeable') %}
 
-{% set footer_company = (company_doc.company_name if company_doc else '') or doc.company or '' %}
-{% set footer_branch = doc.branch or '' %}
-{% set footer_sales_rep = doc.sales_rep or '' %}
-{% if doc.sales_rep and frappe.db.exists('Employee', doc.sales_rep) %}
-{% set footer_sales_rep = frappe.db.get_value('Employee', doc.sales_rep, 'employee_name') or doc.sales_rep %}
-{% endif %}
 <div class="order-container">
     <div class="header">
         {% if company_doc %}
@@ -366,8 +350,24 @@
         <div class="company-info">
             <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
             <div class="company-address">
-                {% if company_doc.address and frappe.db.exists("Address", company_doc.address) %}
-                    {% set company_address = frappe.get_doc("Address", company_doc.address) %}
+                {% set company_address_name = None %}
+                {% set addr_rows = frappe.get_all(
+                    "Address",
+                    filters=[
+                        ["Dynamic Link", "link_doctype", "=", "Company"],
+                        ["Dynamic Link", "link_name", "=", company_doc.name],
+                        ["disabled", "=", 0],
+                    ],
+                    fields=["name"],
+                    order_by="is_primary_address desc",
+                    limit_page_length=1
+                ) %}
+                {% if addr_rows %}{% set company_address_name = addr_rows[0].name %}{% endif %}
+                {% if not company_address_name and company_doc.address and frappe.db.exists("Address", company_doc.address) %}
+                    {% set company_address_name = company_doc.address %}
+                {% endif %}
+                {% if company_address_name and frappe.db.exists("Address", company_address_name) %}
+                    {% set company_address = frappe.get_doc("Address", company_address_name) %}
                     {{ company_address.address_line1 or '' }}
                     {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
                     {% if company_address.city %} {{ company_address.city }}{% endif %}
@@ -397,6 +397,11 @@
                     VAT Reg. TIN: {{ company_doc.tin }}
                 {% endif %}
             </div>
+            <div class="company-contact">
+                {% if company_doc.email %}Email: {{ company_doc.email }}<br>{% endif %}
+                {% if company_doc.website %}Website: {{ company_doc.website }}<br>{% endif %}
+                {% if company_doc.phone_no %}Phone: {{ company_doc.phone_no }}{% endif %}
+            </div>
         </div>
         {% else %}
             <div class="logo-placeholder">company_logo</div>
@@ -410,26 +415,40 @@
         <div class="details-wrap">
             <div class="customer-info-section">
                 <div class="customer-label">CUSTOMER</div>
-                <div class="customer-name-box">
-                    {% if doc.customer %}
-                        {% set cust = frappe.get_doc("Customer", doc.customer) %}
-                        {{ cust.customer_name or doc.customer }}
-                    {% endif %}
-                </div>
-                <div class="customer-address-box">
-                    {% if doc.customer %}
-                        {% set cust = frappe.get_doc("Customer", doc.customer) %}
-                        {% if cust.customer_primary_address %}
-                            {% set addr = frappe.get_doc("Address", cust.customer_primary_address) %}
-                            {{ addr.address_line1 or '' }}
-                            {% if addr.address_line2 %} {{ addr.address_line2 }}{% endif %}
-                            {% if addr.city %} {{ addr.city }}{% endif %}
-                            {% if addr.state %}, {{ addr.state }}{% endif %}
-                            {% if addr.country %} {{ addr.country }}{% endif %}
-                            {% if addr.pincode %} {{ addr.pincode }}{% endif %}
+                {% if doc.customer and frappe.db.exists("Customer", doc.customer) %}
+                    {% set customer_doc = frappe.get_doc("Customer", doc.customer) %}
+                    <div class="customer-name-box">{{ customer_doc.customer_name or doc.customer }}</div>
+                    <div class="customer-address-box">
+                        {% set customer_address = None %}
+                        {% set primary_address_name = customer_doc.customer_primary_address %}
+                        {% if primary_address_name and frappe.db.exists("Address", primary_address_name) %}
+                            {% set customer_address = frappe.get_doc("Address", primary_address_name) %}
                         {% endif %}
-                    {% endif %}
-                </div>
+                        {% if not customer_address %}
+                            {% set linked_addresses = frappe.get_all("Dynamic Link",
+                                filters={"link_doctype": "Customer", "link_name": doc.customer, "parenttype": "Address"},
+                                fields=["parent"],
+                                order_by="creation desc",
+                                limit=1) %}
+                            {% if linked_addresses and frappe.db.exists("Address", linked_addresses[0].parent) %}
+                                {% set customer_address = frappe.get_doc("Address", linked_addresses[0].parent) %}
+                            {% endif %}
+                        {% endif %}
+                        {% if customer_address %}
+                            {{ customer_address.address_line1 or '' }}
+                            {% if customer_address.address_line2 %} {{ customer_address.address_line2 }}{% endif %}
+                            {% if customer_address.city %} {{ customer_address.city }}{% endif %}
+                            {% if customer_address.state %}, {{ customer_address.state }}{% endif %}
+                            {% if customer_address.country %} {{ customer_address.country }}{% endif %}
+                            {% if customer_address.pincode %} {{ customer_address.pincode }}{% endif %}
+                        {% elif customer_doc.primary_address %}
+                            {{ customer_doc.primary_address|replace('\n', '<br>')|safe }}
+                        {% endif %}
+                    </div>
+                    <div class="customer-detail-row"><span class="customer-detail-label">TIN:</span> <span class="customer-detail-value">{% if customer_doc.tax_id or customer_doc.tin %}{{ customer_doc.tax_id or customer_doc.tin }}{% if customer_doc.branch_code %}-{{ customer_doc.branch_code }}{% endif %}{% else %}-{% endif %}</span></div>
+                {% elif doc.customer %}
+                    <div class="customer-name-box">{{ doc.customer }}</div>
+                {% endif %}
             </div>
             <div class="qr-section">
                 {% set qr_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + doc.name|urlencode %}
@@ -469,30 +488,25 @@
             </div>
         </div>
 
-        {% set predefined_categories = ['Freight', 'Fuel Surcharge', 'Terminal Handling', 'Port Charges', 'Customs Clearance', 'Documentation', 'Insurance', 'Storage', 'Detention', 'Demurrage', 'Other'] %}
-        {% set extra_categories = namespace(items=[]) %}
+        {% set predefined_groups = ['Origin', 'Destination', 'Freight', 'Customs', 'Documentation', 'Storage', 'Insurance', 'Other'] %}
+        {% set extra_groups = namespace(items=[]) %}
         {% for row in doc.charges or [] %}
         {% if row.charge_type != 'Cost' %}
-        {% set row_category = row.charge_category or row.customs_charge_category or 'Other' %}
-        {% if row_category not in predefined_categories and row_category not in extra_categories.items %}
-        {% set _ = extra_categories.items.append(row_category) %}
+        {% set row_group = row.charge_group or 'Other' %}
+        {% if row_group not in predefined_groups and row_group not in extra_groups.items %}
+        {% set _ = extra_groups.items.append(row_group) %}
         {% endif %}
         {% endif %}
         {% endfor %}
 
         {% set charge_lines = namespace(items=[]) %}
         {% set grand_total = namespace(value=0) %}
-        {% set category_totals = namespace(items={}) %}
-        {% for category in predefined_categories + extra_categories.items %}
+        {% for group in predefined_groups + extra_groups.items %}
         {% for row in doc.charges or [] %}
-        {% if row.charge_type != 'Cost' and (row.charge_category or row.customs_charge_category or 'Other') == category %}
+        {% if row.charge_type != 'Cost' and (row.charge_group or 'Other') == group %}
         {% set quote_amt = (row.estimated_revenue or 0) * (row.bill_to_exchange_rate or 1) %}
-        {% set _ = charge_lines.items.append({'category': category, 'row': row, 'quote_amt': quote_amt}) %}
+        {% set _ = charge_lines.items.append({'group': group, 'row': row, 'quote_amt': quote_amt}) %}
         {% set grand_total.value = grand_total.value + quote_amt %}
-        {% if category not in category_totals.items %}
-        {% set _ = category_totals.items.update({category: 0}) %}
-        {% endif %}
-        {% set _ = category_totals.items.update({category: category_totals.items[category] + quote_amt}) %}
         {% endif %}
         {% endfor %}
         {% endfor %}
@@ -502,17 +516,16 @@
         {% set first_page_lines = charge_lines.items[:first_page_max_rows] %}
         {% set remaining_lines = charge_lines.items[first_page_max_rows:] %}
         {% set has_continuation_pages = remaining_lines|length > 0 %}
-        {% set split_category = first_page_lines[-1].category if has_continuation_pages and first_page_lines and remaining_lines and first_page_lines[-1].category == remaining_lines[0].category else '' %}
+        {% set split_group = first_page_lines[-1].group if has_continuation_pages and first_page_lines and remaining_lines and first_page_lines[-1].group == remaining_lines[0].group else '' %}
 
         <div class="charge-section{% if has_continuation_pages %} charge-section-page-break{% endif %}">
-        <div class="section-title">Quotation Details</div>
         <table class="packages-table first-page-charges">
             {{ table_header() }}
             <tbody>
                 {% if not charge_lines.items %}
                 <tr class="table-row"><td colspan="{{ table_cols }}" style="text-align:center;padding:4mm;">No charges</td></tr>
                 {% else %}
-                {{ render_charge_rows(first_page_lines, 0, category_totals.items, suppress_subtotal_for=split_category) }}
+                {{ render_charge_rows(first_page_lines, 0) }}
                 {% if not has_continuation_pages %}
                 <tr class="total-row">
                     <td colspan="3">GRAND TOTAL</td>
@@ -531,23 +544,17 @@
         {% set is_last_continuation_page = loop.last %}
         {% set is_first_continuation_page = loop.first %}
         {% set start_row_no = first_page_max_rows + page_start %}
-        {% set next_page_start = page_start + continuation_page_max_rows %}
         {% if is_first_continuation_page %}
-        {% set page_split_category = split_category %}
+        {% set page_split_group = split_group %}
         {% else %}
         {% set prev_line = remaining_lines[page_start - 1] %}
-        {% set page_split_category = prev_line.category if prev_line.category == page_lines[0].category else '' %}
-        {% endif %}
-        {% set page_split_subtotal = '' %}
-        {% if not is_last_continuation_page and next_page_start < remaining_lines|length and page_lines[-1].category == remaining_lines[next_page_start].category %}
-        {% set page_split_subtotal = page_lines[-1].category %}
+        {% set page_split_group = prev_line.group if prev_line.group == page_lines[0].group else '' %}
         {% endif %}
         <div class="charge-section-continued{% if not is_first_continuation_page %} charge-section-continued-break{% endif %}">
-        <div class="section-title">Quotation Details (continued)</div>
         <table class="packages-table">
             {{ table_header() }}
             <tbody>
-                {{ render_charge_rows(page_lines, start_row_no, category_totals.items, suppress_subheader_for=page_split_category, suppress_subtotal_for=page_split_subtotal) }}
+                {{ render_charge_rows(page_lines, start_row_no, suppress_subheader_for=page_split_group) }}
                 {% if is_last_continuation_page %}
                 <tr class="total-row">
                     <td colspan="3">GRAND TOTAL</td>
@@ -579,9 +586,60 @@
 
 <div class="footer-section">
     <div class="footer-inner">
-        <div>Company: {{ footer_company }}</div>
-        {% if footer_branch %}<div>Branch: {{ footer_branch }}</div>{% endif %}
-        {% if footer_sales_rep %}<div>Sales Rep: {{ footer_sales_rep }}</div>{% endif %}
+        {% set bir_name = frappe.db.get_value("BIR CAS Settings", {"company": doc.company}, "name") %}
+        {% if bir_name %}
+            {% set bir = frappe.get_doc("BIR CAS Settings", bir_name) %}
+        {% else %}
+            {% set bir = None %}
+        {% endif %}
+        {% set name = (doc.name or "") %}
+        {% set ns = namespace(start=None, end=None) %}
+        {% for i in range(name|length) %}
+            {% set ch = name[i] %}
+            {% if ch.isdigit() %}
+                {% if ns.start is none %}
+                    {% set ns.start = i %}
+                {% endif %}
+                {% set ns.end = i %}
+            {% endif %}
+        {% endfor %}
+        {% if ns.start is not none %}
+            {% set prefix = name[0:ns.start] %}
+            {% set digit_len = ns.end - ns.start + 1 %}
+            {% set seq = namespace(min_seq="", max_seq="") %}
+            {% for i in range(digit_len) %}
+                {% if i == digit_len - 1 %}
+                    {% set seq.min_seq = seq.min_seq ~ "1" %}
+                {% else %}
+                    {% set seq.min_seq = seq.min_seq ~ "0" %}
+                {% endif %}
+                {% set seq.max_seq = seq.max_seq ~ "9" %}
+            {% endfor %}
+            {% set series_start = prefix ~ seq.min_seq %}
+            {% set series_end = prefix ~ seq.max_seq %}
+        {% else %}
+            {% set series_start = name %}
+            {% set series_end = name %}
+        {% endif %}
+        <div class="footer-row">
+            BIR Acknowledgment Certificate No.
+            {% if bir and bir.ptu_no %}
+                {{ bir.ptu_no }}
+            {% else %}
+                -
+            {% endif %}
+        </div>
+        <div class="footer-row">
+            Range: {{ series_start }} - {{ series_end }}
+        </div>
+        <div class="footer-row">
+            Date Issued:
+            {% if bir and bir.ptu_date %}
+                {{ frappe.utils.formatdate(bir.ptu_date, 'MMMM dd, yyyy') }}
+            {% else %}
+                -
+            {% endif %}
+        </div>
     </div>
 </div>
 </body>

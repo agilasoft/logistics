@@ -71,7 +71,8 @@ def build_linked_services_view_for_booking(
 				continue
 			if hasattr(ls, fn):
 				row[fn] = getattr(ls, fn, None)
-		# Order No ← Satellite Job Usage (booking/order). Job No ← Shipment Usage (execution).
+		# Order No ← Satellite Job Usage (booking/order).
+		# Job No ← Shipment Usage for this service type only (not the parent main shipment).
 		ot, on = latest_satellite_job_from_usage(ls.name)
 		row["job_type"] = ot or None
 		row["order_no"] = on or None

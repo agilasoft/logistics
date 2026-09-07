@@ -12,6 +12,7 @@
   "section_flags",
   "enable_wip_recognition",
   "enable_accrual_recognition",
+  "auto_recognize",
   "column_break_flags",
   "minimum_wip_amount",
   "minimum_accrual_amount",
@@ -63,6 +64,13 @@
    "fieldname": "enable_accrual_recognition",
    "fieldtype": "Check",
    "label": "Enable Accrual Recognition"
+  },
+  {
+   "default": "0",
+   "description": "Post WIP and Accrual automatically once the recognition date is known (on submit, when ATA/ATD or charges change, and daily catch-up). Manual Post remains available.",
+   "fieldname": "auto_recognize",
+   "fieldtype": "Check",
+   "label": "Auto Recognize"
   },
   {
    "fieldname": "column_break_flags",
@@ -170,7 +178,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-03-18 10:00:00.000000",
+ "modified": "2026-08-25 14:28:00.000000",
  "modified_by": "Administrator",
  "module": "Job Management",
  "name": "Recognition Policy Settings",

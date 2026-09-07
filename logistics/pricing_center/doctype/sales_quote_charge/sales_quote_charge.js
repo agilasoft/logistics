@@ -30,7 +30,60 @@ function sales_quote_charge_fetch_pay_to_exchange_rate(frm, cdt, cdn) {
 	});
 }
 
+function sales_quote_charge_sync_category_apply_95_5(frm, cdt, cdn) {
+	const row = locals[cdt][cdn];
+	if (!row) {
+		return;
+	}
+	if (!row.charge_category) {
+		frappe.model.set_value(cdt, cdn, "category_apply_95_5_rule", 0);
+		return;
+	}
+	frappe.db.get_value("Charge Category", row.charge_category, "apply_95_5_rule", (r) => {
+		frappe.model.set_value(cdt, cdn, "category_apply_95_5_rule", cint(r && r.apply_95_5_rule));
+	});
+}
+
+function sales_quote_sync_charges_category_apply_95_5(frm) {
+	const rows = frm.doc.charges || [];
+	if (!rows.length) {
+		return;
+	}
+	const cats = [...new Set(rows.map((r) => r.charge_category).filter(Boolean))];
+	const apply_map = (map) => {
+		let changed = false;
+		rows.forEach((r) => {
+			const next = r.charge_category ? cint(map[r.charge_category]) : 0;
+			if (cint(r.category_apply_95_5_rule) !== next) {
+				r.category_apply_95_5_rule = next;
+				changed = true;
+			}
+		});
+		if (changed) {
+			frm.refresh_field("charges");
+		}
+	};
+	if (!cats.length) {
+		apply_map({});
+		return;
+	}
+	frappe.db.get_list("Charge Category", {
+		filters: { name: ["in", cats] },
+		fields: ["name", "apply_95_5_rule"],
+		limit: cats.length,
+	}).then((list) => {
+		const map = {};
+		(list || []).forEach((d) => {
+			map[d.name] = cint(d.apply_95_5_rule);
+		});
+		apply_map(map);
+	});
+}
+
 frappe.ui.form.on("Sales Quote Charge", {
+	charge_category(frm, cdt, cdn) {
+		sales_quote_charge_sync_category_apply_95_5(frm, cdt, cdn);
+	},
 	bill_to_exchange_rate_source(frm, cdt, cdn) {
 		sales_quote_charge_fetch_bill_to_exchange_rate(frm, cdt, cdn);
 	},
@@ -46,6 +99,9 @@ frappe.ui.form.on("Sales Quote Charge", {
 });
 
 frappe.ui.form.on("Sales Quote", {
+	refresh(frm) {
+		sales_quote_sync_charges_category_apply_95_5(frm);
+	},
 	date(frm) {
 		logistics.operational_exchange_rate.refresh_sales_quote_charge_exchange_rates(frm);
 	},

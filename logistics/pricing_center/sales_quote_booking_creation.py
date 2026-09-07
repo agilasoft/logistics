@@ -52,7 +52,6 @@ SALES_QUOTE_CREATABLE_JOB_TYPES: frozenset[str] = frozenset(
 		"Declaration Order",
 		"Inbound Order",
 		"Cross-Docking Order",
-		"Time Sensitive Case",
 	}
 )
 
@@ -63,7 +62,6 @@ _SERVICE_LABEL_FOR_JOB_TYPE: dict[str, str] = {
 	"Sea Booking": "Sea",
 	"Inbound Order": "Warehousing",
 	"Cross-Docking Order": "Cross-Docking",
-	"Time Sensitive Case": "Time Sensitive",
 }
 
 _MAIN_SERVICE_JOB_TYPE: dict[str, str] = {
@@ -73,7 +71,6 @@ _MAIN_SERVICE_JOB_TYPE: dict[str, str] = {
 	"Customs": "Declaration Order",
 	"Custom": "Declaration Order",
 	"Warehousing": "Inbound Order",
-	"Time Sensitive": "Time Sensitive Case",
 }
 
 _SALES_QUOTE_BOOKING_QUOTATION_TYPES: frozenset[str] = frozenset({"Regular", "Project"})
@@ -235,34 +232,8 @@ def _preview_main_service_creatability(sq_doc: Any) -> dict[str, Any]:
 			"has_params": False,
 			"has_quote_match": False,
 			"not_creatable_message": _(
-				"Main Service must be Air, Sea, Transport, Customs, Warehousing, or Time Sensitive to create a booking/order."
+				"Main Service must be Air, Sea, Transport, Customs, or Warehousing to create a booking/order."
 			),
-		}
-	# Time Sensitive Case is an umbrella: charges are operational legs (Air/Sea/…), not "Time Sensitive".
-	if ms == "Time Sensitive":
-		if getattr(sq_doc, "time_sensitive_case", None):
-			return {
-				"creatable": False,
-				"has_params": bool(getattr(sq_doc, "critical_deadline", None)),
-				"has_quote_match": False,
-				"not_creatable_message": _(
-					"This Sales Quote already has Time Sensitive Case {0}."
-				).format(sq_doc.time_sensitive_case),
-			}
-		has_charges = bool(sq_doc.get("charges") or [])
-		has_deadline = bool(getattr(sq_doc, "critical_deadline", None))
-		creatable = has_charges and has_deadline
-		if not has_deadline:
-			msg = _("Set Critical Deadline before creating a Time Sensitive Case.")
-		elif not has_charges:
-			msg = _("Add at least one charge line before creating a Time Sensitive Case.")
-		else:
-			msg = None
-		return {
-			"creatable": creatable,
-			"has_params": has_deadline,
-			"has_quote_match": has_charges,
-			"not_creatable_message": msg,
 		}
 	if not charges_exist_for_service(sq_doc.name, sq_doc, ms):
 		return {
@@ -421,7 +392,7 @@ def get_sales_quote_booking_choices(
 	if not quotation_type_supports_booking_creation(sq_doc):
 		frappe.throw(
 			_(
-				"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, Warehousing, or Time Sensitive."
+				"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, or Warehousing."
 			)
 		)
 	if cint(sq_doc.docstatus) != 1:
@@ -485,8 +456,7 @@ def get_sales_quote_booking_preview(
 		ms = _norm(getattr(sq_doc, "main_service", None))
 		for ch in sq_doc.get("charges") or []:
 			st = _norm(getattr(ch, "service_type", None))
-			# Time Sensitive Case collects operational charge legs (Air/Sea/…), not a matching "Time Sensitive" type.
-			if ms != "Time Sensitive" and not sales_quote_charge_service_types_equal(st, ms):
+			if not sales_quote_charge_service_types_equal(st, ms):
 				continue
 			charges.append(
 				{
@@ -803,35 +773,6 @@ def _create_cross_docking_order(
 	}
 
 
-def _create_time_sensitive_case(
-	sq_doc: Any, row: Any, creation_parameters: dict[str, Any] | None = None
-) -> dict[str, Any]:
-	from logistics.pricing_center.doctype.sales_quote.sales_quote import (
-		throw_if_additional_charge_sales_quote_blocks_booking_order_creation,
-		throw_if_sales_quote_expired_for_creation,
-	)
-	from logistics.time_sensitive.doctype.time_sensitive_case.time_sensitive_case import (
-		create_case_from_sales_quote,
-	)
-
-	throw_if_sales_quote_expired_for_creation(sq_doc)
-	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sq_doc)
-	if getattr(sq_doc, "time_sensitive_case", None):
-		frappe.throw(
-			_("This Sales Quote already has Time Sensitive Case {0}.").format(sq_doc.time_sensitive_case)
-		)
-	result = create_case_from_sales_quote(
-		sq_doc.name,
-		case_type=None,
-		critical_deadline=getattr(sq_doc, "critical_deadline", None),
-	)
-	case_name = (result or {}).get("name")
-	return {
-		"time_sensitive_case": case_name,
-		"message": _("Time Sensitive Case {0} created.").format(case_name),
-	}
-
-
 _CREATE_DISPATCH = {
 	"Air Booking": _create_air_booking,
 	"Sea Booking": _create_sea_booking,
@@ -839,7 +780,6 @@ _CREATE_DISPATCH = {
 	"Declaration Order": _create_declaration_order,
 	"Inbound Order": _create_inbound_order,
 	"Cross-Docking Order": _create_cross_docking_order,
-	"Time Sensitive Case": _create_time_sensitive_case,
 }
 
 
@@ -854,6 +794,8 @@ def create_booking_or_order_from_sales_quote(
 	quote_context: Any = None,
 ):
 	"""Create a booking/order from a Regular or Project Sales Quote Main Service scope."""
+	from logistics.utils.menu_permission import assert_create_from_source
+
 	if not sales_quote or not frappe.db.exists("Sales Quote", sales_quote):
 		frappe.throw(_("Invalid Sales Quote."))
 	jt = _norm(job_type)
@@ -864,7 +806,7 @@ def create_booking_or_order_from_sales_quote(
 	if not quotation_type_supports_booking_creation(sq_doc):
 		frappe.throw(
 			_(
-				"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, Warehousing, or Time Sensitive."
+				"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, or Warehousing."
 			)
 		)
 	idx = coerce_internal_job_detail_idx(detail_idx)
@@ -889,6 +831,7 @@ def create_booking_or_order_from_sales_quote(
 				title=_("Cannot create booking/order"),
 			)
 		merged_row = _merge_creation_parameters(row, parsed_params)
+		assert_create_from_source(jt, source_doc=sq_doc)
 		handler = _CREATE_DISPATCH[jt]
 		return handler(sq_doc, merged_row, parsed_params)
 
@@ -909,5 +852,6 @@ def create_booking_or_order_from_sales_quote(
 			or _("Cannot create {0} from this service line.").format(jt),
 			title=_("Cannot create booking/order"),
 		)
+	assert_create_from_source(jt, source_doc=sq_doc)
 	handler = _CREATE_DISPATCH[jt]
 	return handler(sq_doc, merged_row, parsed_params)

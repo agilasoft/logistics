@@ -74,6 +74,14 @@
 	}
 
 	window.show_create_sales_invoice_dialog = function(frm) {
+		if (window.logistics && logistics.menu && !logistics.menu.can("Sales Invoice", "create")) {
+			frappe.msgprint({
+				title: __("Not Permitted"),
+				message: __("You do not have permission to create a Sales Invoice."),
+				indicator: "red",
+			});
+			return;
+		}
 		if (!frm || !frm.doc || !frm.doc.name) {
 			frappe.msgprint({ title: __("Error"), message: __("Please save the document first."), indicator: "red" });
 			return;

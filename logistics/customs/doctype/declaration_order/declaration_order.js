@@ -798,7 +798,11 @@ frappe.ui.form.on("Declaration Order", {
 			}, __("View"));
 		}
 		// Create Declaration or View Declaration
-		if (frm.doc.name && !frm.doc.__islocal && frm.doc.docstatus === 1 && frm.doc.sales_quote) {
+		if (
+			window.logistics && logistics.menu && logistics.menu.is_submitted
+				? logistics.menu.is_submitted(frm) && frm.doc.sales_quote
+				: (frm.doc.name && !frm.doc.__islocal && frm.doc.docstatus === 1 && frm.doc.sales_quote)
+		) {
 			setTimeout(function() {
 				frappe.db.get_value("Declaration", { declaration_order: frm.doc.name, docstatus: ["<", 2] }, "name", function(r) {
 					if (r && r.name) {

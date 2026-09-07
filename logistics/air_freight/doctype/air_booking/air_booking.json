@@ -256,6 +256,7 @@
    "no_copy": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fieldname": "time_sensitive_case",
    "fieldtype": "Link",
    "label": "Time Sensitive Case",
@@ -264,6 +265,7 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fetch_from": "time_sensitive_case.case_type",
    "fieldname": "ts_case_type",
    "fieldtype": "Link",
@@ -273,6 +275,7 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fieldname": "critical_deadline",
    "fieldtype": "Datetime",
    "in_list_view": 0,
@@ -280,6 +283,7 @@
    "no_copy": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fieldname": "ts_countdown",
    "fieldtype": "HTML",
    "label": "TS Countdown"

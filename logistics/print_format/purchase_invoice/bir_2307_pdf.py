@@ -25,7 +25,7 @@ def _source_candidates() -> list[str]:
 	try:
 		candidates.append(
 			os.path.join(
-				frappe.get_app_path("bircas"),
+				frappe.get_app_path("phtax"),
 				"public",
 				"pdf",
 				"bir_form_2307_jan_2018_encs_v3.pdf",
@@ -68,17 +68,17 @@ def _find_pdf(pdf_path: str | None = None) -> str:
 
 def _get_bir_context(doc):
 	try:
-		from bircas.bir_cas_reports.utils.bir_2307_print import get_bir_2307_print_context
+		from phtax.cas.utils.bir_2307_print import get_bir_2307_print_context
 	except ImportError:
 		frappe.throw(
-			"The bircas app is required for BIR Form 2307 printing. "
-			"Install bircas and run bench migrate."
+			"The phtax app is required for BIR Form 2307 printing. "
+			"Install phtax and run bench migrate."
 		)
 	return get_bir_2307_print_context(doc)
 
 
 def _format_amount(amount, blank_if_zero: bool = False) -> str:
-	from bircas.bir_cas_reports.utils.bir_2307_print import format_money
+	from phtax.cas.utils.bir_2307_print import format_money
 
 	return format_money(amount, blank_if_zero)
 

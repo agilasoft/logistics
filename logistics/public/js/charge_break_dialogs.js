@@ -745,6 +745,10 @@
 		return unit_type;
 	};
 
+	function _is_container_unit_type(unit_type) {
+		return String(unit_type || "").trim().toLowerCase() === "container";
+	}
+
 	window.logistics_save_unit_breaks_for_reference = function(
 		reference_doctype,
 		reference_no,
@@ -842,23 +846,36 @@
 					return;
 				}
 				var unit_breaks = r.message.unit_breaks || [];
-				var break_label = __("Unit Break") + " (" + unit_type + ")";
+				var is_container = _is_container_unit_type(unit_type);
+				var break_label = is_container
+					? __("Container Type")
+					: __("Unit Break") + " (" + unit_type + ")";
 				var table_data =
 					unit_breaks.length > 0
 						? unit_breaks.map(function(ub) {
 								return {
+									container_type: ub.container_type || "",
 									unit_break: ub.unit_break,
 									unit_rate: ub.unit_rate,
 									currency: ub.currency || currency,
 								};
 						  })
-						: [{ unit_break: "", unit_rate: "", currency: currency }];
+						: [
+								{
+									container_type: "",
+									unit_break: "",
+									unit_rate: "",
+									currency: currency,
+								},
+						  ];
+
+				var help_text = is_container
+					? __("Set a unit rate and currency for each container type. Booking quantity is the number of containers of that type.")
+					: __("Tiers apply when actual {0} meets or exceeds the break threshold.", [unit_type]);
 
 				var table_html = [
 					'<div class="unit-break-dialog-table">',
-					'<p class="text-muted small">' +
-						__("Tiers apply when actual {0} meets or exceeds the break threshold.", [unit_type]) +
-						"</p>",
+					'<p class="text-muted small">' + help_text + "</p>",
 					'<table class="table table-bordered table-sm">',
 					"<thead><tr>",
 					"<th>" + frappe.utils.escape_html(break_label) + "</th>",
@@ -890,11 +907,23 @@
 						var to_save = [];
 						tbody.find("tr").each(function() {
 							var $row = $(this);
-							var unit_break = parseFloat($row.find("input.unit-break").val()) || 0;
 							var unit_rate = parseFloat($row.find("input.unit-rate").val()) || 0;
 							var curr = $row.find("input.currency-code").val() || currency;
-							if (unit_break || unit_rate) {
-								to_save.push({ unit_break: unit_break, unit_rate: unit_rate, currency: curr });
+							if (is_container) {
+								var ctrl = $row.data("container_type_ctrl");
+								var container_type = ctrl && ctrl.get_value ? ctrl.get_value() : "";
+								if (container_type || unit_rate) {
+									to_save.push({
+										container_type: container_type,
+										unit_rate: unit_rate,
+										currency: curr,
+									});
+								}
+							} else {
+								var unit_break = parseFloat($row.find("input.unit-break").val()) || 0;
+								if (unit_break || unit_rate) {
+									to_save.push({ unit_break: unit_break, unit_rate: unit_rate, currency: curr });
+								}
 							}
 						});
 						window.logistics_save_unit_breaks_for_reference(
@@ -915,30 +944,85 @@
 				_bind_break_dialog_release(dialog, dialog_key);
 				dialog.show();
 
+				var mount_container_type_link = function($td, value) {
+					var ctrl = frappe.ui.form.make_control({
+						df: {
+							fieldtype: "Link",
+							options: "Container Type",
+							fieldname: "ub_container_type_" + String(Math.random()).slice(2),
+							label: "",
+							filters: { active: 1 },
+							placeholder: __("Container Type"),
+						},
+						parent: $td.get(0),
+						render_input: true,
+						only_input: true,
+					});
+					if (ctrl.$input) {
+						ctrl.$input.addClass("form-control-sm");
+					}
+					ctrl.set_value(value || "");
+					return ctrl;
+				};
+
 				var render_row = function(ub) {
-					return (
-						"<tr>" +
-						'<td><input type="number" step="0.001" class="form-control form-control-sm unit-break" value="' +
-						(ub.unit_break != null ? frappe.utils.escape_html(ub.unit_break) : "") +
-						'"></td>' +
+					var $tr = $("<tr>");
+					if (is_container) {
+						var $tdType = $('<td class="ub-container-type-cell">');
+						$tr.append($tdType);
+						$tr.data("container_type_pending", ub.container_type || "");
+					} else {
+						$tr.append(
+							'<td><input type="number" step="0.001" class="form-control form-control-sm unit-break" value="' +
+								(ub.unit_break != null ? frappe.utils.escape_html(ub.unit_break) : "") +
+								'"></td>'
+						);
+					}
+					$tr.append(
 						'<td><input type="number" step="0.01" class="form-control form-control-sm unit-rate" value="' +
-						(ub.unit_rate != null ? frappe.utils.escape_html(ub.unit_rate) : "") +
-						'"></td>' +
-						'<td><input type="text" class="form-control form-control-sm currency-code" value="' +
-						frappe.utils.escape_html(ub.currency || currency) +
-						'" placeholder="USD"></td>' +
-						'<td><button type="button" class="btn btn-xs btn-default btn-remove-row">&times;</button></td>' +
-						"</tr>"
+							(ub.unit_rate != null ? frappe.utils.escape_html(ub.unit_rate) : "") +
+							'"></td>'
 					);
+					$tr.append(
+						'<td><input type="text" class="form-control form-control-sm currency-code" value="' +
+							frappe.utils.escape_html(ub.currency || currency) +
+							'" placeholder="USD"></td>'
+					);
+					$tr.append(
+						'<td><button type="button" class="btn btn-xs btn-default btn-remove-row">&times;</button></td>'
+					);
+					return $tr;
+				};
+
+				var init_container_type_controls = function($tr) {
+					if (!is_container) {
+						return;
+					}
+					var $td = $tr.find(".ub-container-type-cell");
+					if (!$td.length || $tr.data("container_type_ctrl")) {
+						return;
+					}
+					var ctrl = mount_container_type_link($td, $tr.data("container_type_pending") || "");
+					$tr.data("container_type_ctrl", ctrl);
+					$tr.removeData("container_type_pending");
 				};
 
 				dialog.$wrapper.one("shown.bs.modal", function() {
 					var tbody = dialog.$wrapper.find("#unit_break_tbody");
 					table_data.forEach(function(ub) {
-						tbody.append(render_row(ub));
+						var $tr = render_row(ub);
+						tbody.append($tr);
+						init_container_type_controls($tr);
 					});
 					dialog.$wrapper.find("#unit_break_add_row").on("click", function() {
-						tbody.append(render_row({ unit_break: "", unit_rate: "", currency: currency }));
+						var $tr = render_row({
+							container_type: "",
+							unit_break: "",
+							unit_rate: "",
+							currency: currency,
+						});
+						tbody.append($tr);
+						init_container_type_controls($tr);
 					});
 					dialog.$wrapper.on("click", ".btn-remove-row", function() {
 						$(this).closest("tr").remove();
@@ -972,6 +1056,7 @@
 					doctype: dt,
 					fields: [
 						"revenue_calculation_method",
+						"calculation_method",
 						"cost_calculation_method",
 						"use_unit_breaks",
 						"cost_use_unit_breaks",
@@ -983,6 +1068,7 @@
 					doctype: "Sales Quote Charge",
 					fields: [
 						"revenue_calculation_method",
+						"calculation_method",
 						"cost_calculation_method",
 						"use_unit_breaks",
 						"cost_use_unit_breaks",
@@ -1044,6 +1130,22 @@
 			}
 			fieldnames.forEach(function(fname) {
 				frappe.model.on(dt, fname, function(fieldname, value, doc) {
+					if (
+						(fieldname === "revenue_calculation_method" || fieldname === "calculation_method") &&
+						value !== "Per Unit"
+					) {
+						if (Number(doc.use_unit_breaks)) {
+							frappe.model.set_value(doc.doctype, doc.name, "use_unit_breaks", 0);
+						}
+						if (Number(doc.cost_use_unit_breaks) && !doc.cost_calculation_method) {
+							frappe.model.set_value(doc.doctype, doc.name, "cost_use_unit_breaks", 0);
+						}
+					}
+					if (fieldname === "cost_calculation_method" && value !== "Per Unit") {
+						if (Number(doc.cost_use_unit_breaks)) {
+							frappe.model.set_value(doc.doctype, doc.name, "cost_use_unit_breaks", 0);
+						}
+					}
 					deferRefreshChargeBreakDepends(doc);
 				});
 			});

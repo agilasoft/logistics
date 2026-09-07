@@ -216,6 +216,8 @@ class RateCalculationEngine:
             return flt(actual_operation_time or 0) or 1.0
         elif unit_type == "Item Count":
             return flt(ac_items or 0)
+        elif unit_type == "Value":
+            return flt(kwargs.get("actual_goods_value") or 0)
         elif unit_type == "Handling Unit":
             hu = flt(ah_units or 0)
             return hu if hu > 0 else 1.0
@@ -478,6 +480,8 @@ def get_available_unit_types() -> List[str]:
         "Trip",
         "TEU",
         "Container",
+        "Item Count",
+        "Handling Unit",
         "Operation Time",
         "Value",
     ]

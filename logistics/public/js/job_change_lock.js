@@ -297,6 +297,18 @@
 		if (!frm || !frm.doc || !frm.doc.name || frm.is_new()) return;
 		if (!LOCKED_JOB_TYPES.has(frm.doctype)) return;
 
+		if (window.logistics && logistics.menu) {
+			logistics.menu.add(frm, {
+				label: __("Change Request"),
+				doctype: "Change Request",
+				ptype: "create",
+				css_class: "btn-primary",
+				action: function () {
+					open_change_request_dialog(frm);
+				},
+			});
+			return;
+		}
 		frm.add_custom_button(__("Change Request"), function () {
 			open_change_request_dialog(frm);
 		}).addClass("btn-primary");

@@ -70,7 +70,7 @@ The Commercial Invoice tab holds invoice header data and line items used for cus
 - **Inv. Date**, **Payment Date** – Dates
 - **Inv. Importer**, **Agreed Place**, **Incoterm Place**, **Inv. Incoterm** – Invoice terms
 - **Inv. Total Amount**, **Inv. Currency**, **Inv. Exchange Rate** – Currency and totals
-- **Inv. Volume**, **Inv. Gross Weight**, **Inv. Net Weight**, **Packages** – Quantities
+- **Inv. Volume**, **Inv. Gross Weight**, **Inv. Net Weight**, **Packages**, **Number of Line Items** – Quantities. **Number of Line Items** is used for Item Count charges; it defaults to the invoice row count and can be typed (for example 100 with a 1-row summary).
 - **CIF**, **FOB**, **Charges Excl. from ITOT** – Financial breakdown
 - **Settlement Details** – Bank account, LC, payment details
 
@@ -115,6 +115,20 @@ The Commercial Invoice tab holds invoice header data and line items used for cus
 - **Charges** – Declaration Order Charges child table
 - **Populate Charges from Sales Quote** – Load charges from linked Sales Quote
 - Supports quantity breaks and weight breaks (unified calculation engine; revenue and cost calculation methods).
+
+### 7.1 Customs quantity bases (Job / Item Count / Value)
+
+| What you want | Calculation Method | Unit Type |
+|---|---|---|
+| Per entry | Per Unit (or Flat Rate) | **Job** (qty 1) |
+| Per line item | Per Unit | **Item Count** (**Number of Line Items** on the Commercial Invoice header) |
+| Based on value | **Percentage** | **Value** (CIF) |
+
+**Number of Line Items** defaults to the number of invoice rows. It stays editable: type **100** with a 1-row summary so Item Count bills 100 lines. A manual value is not reset when you save. If you later add more rows than the header, the header follows the row count.
+
+Quote quantities are estimates. After you fill invoice lines and CIF, save or Recalculate All Charges.
+
+**How to test:** three Customs charges on the quote (Job 2500 / Item Count 50 × 12 / Percentage 0.5% of 100000). Convert. Add 15 rows and CIF 120000 → 2500 / 750 / 600. Or add 1 row and type header 100 → Item Count 5000; header stays 100 after save.
 
 ## 8. Accounts Tab
 

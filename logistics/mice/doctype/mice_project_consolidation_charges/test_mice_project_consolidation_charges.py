@@ -34,7 +34,16 @@ class TestMICEProjectConsolidationCharges(FrappeTestCase):
 	def _charge_category(self):
 		return frappe.db.get_value("Charge Category", {}, "name") or "Other"
 
-	def _make_tariff_with_cost_rate(self, item_code, rate=250.0, currency=None, cost_uom=None):
+	def _make_tariff_with_cost_rate(
+		self,
+		item_code,
+		rate=250.0,
+		currency=None,
+		cost_uom=None,
+		unit_rate=None,
+		cost_quantity=None,
+		cost_unit_type="Trip",
+	):
 		currency = currency or self._default_currency()
 		tariff = frappe.get_doc(
 			{
@@ -54,7 +63,7 @@ class TestMICEProjectConsolidationCharges(FrappeTestCase):
 			"charge_type": "Cost",
 			"item_code": item_code,
 			"revenue_calculation_method": "Per Unit",
-			"unit_rate": rate,
+			"unit_rate": unit_rate if unit_rate is not None else rate,
 			"quantity": 1,
 			"currency": currency,
 			"tariff_valid_from": today(),
@@ -65,7 +74,8 @@ class TestMICEProjectConsolidationCharges(FrappeTestCase):
 			rate_row["cost_calculation_method"] = "Per Unit"
 			rate_row["unit_cost"] = rate
 			rate_row["cost_currency"] = currency
-			rate_row["cost_unit_type"] = "Trip"
+			rate_row["cost_unit_type"] = cost_unit_type
+			rate_row["cost_quantity"] = cost_quantity if cost_quantity is not None else 1
 		tariff.append("rates", rate_row)
 		tariff.flags.ignore_mandatory = True
 		tariff.save(ignore_permissions=True)
@@ -122,7 +132,13 @@ class TestMICEProjectConsolidationCharges(FrappeTestCase):
 		currency = self._default_currency()
 		cost_uom = self._ensure_uom("Trip")
 		tariff = self._make_tariff_with_cost_rate(
-			item_code, rate=tariff_rate, currency=currency, cost_uom=cost_uom
+			item_code,
+			rate=tariff_rate,
+			currency=currency,
+			cost_uom=cost_uom,
+			unit_rate=999.0,
+			cost_quantity=2,
+			cost_unit_type="Trip",
 		)
 
 		row = frappe.new_doc("MICE Project Consolidation Charges")
@@ -130,7 +146,7 @@ class TestMICEProjectConsolidationCharges(FrappeTestCase):
 		row.charge_category = self._charge_category()
 		row.revenue_calculation_method = "Per Unit"
 		row.unit_rate = 1
-		row.quantity = 2
+		row.quantity = 9
 		row.currency = currency
 		row.item_code = item_code
 		row.use_tariff_in_cost = 1
@@ -138,6 +154,9 @@ class TestMICEProjectConsolidationCharges(FrappeTestCase):
 		row.validate()
 
 		self.assertEqual(flt(row.unit_rate), tariff_rate)
+		self.assertNotEqual(flt(row.unit_rate), 999.0)
+		self.assertEqual(flt(row.quantity), 2)
+		self.assertEqual(row.unit_type, "Trip")
 		self.assertEqual(row.revenue_calculation_method, "Per Unit")
 		self.assertEqual(flt(row.total_amount), tariff_rate * 2)
 		self.assertEqual(cint(row.use_tariff_in_cost), 1)
@@ -153,12 +172,22 @@ class TestMICEProjectConsolidationCharges(FrappeTestCase):
 
 		tariff_rate = 175.0
 		cost_uom = self._ensure_uom("Container")
-		tariff = self._make_tariff_with_cost_rate(item_code, rate=tariff_rate, cost_uom=cost_uom)
+		tariff = self._make_tariff_with_cost_rate(
+			item_code,
+			rate=tariff_rate,
+			cost_uom=cost_uom,
+			unit_rate=50.0,
+			cost_quantity=4,
+			cost_unit_type="Trip",
+		)
 		rate_data = fetch_cost_tariff_rate(tariff.name, item_code)
 		self.assertIsNotNone(rate_data)
 		self.assertEqual(flt(rate_data.get("rate")), tariff_rate)
+		self.assertNotEqual(flt(rate_data.get("rate")), 50.0)
 		self.assertEqual(rate_data.get("calculation_method"), "Per Unit")
 		self.assertEqual(rate_data.get("uom"), cost_uom)
+		self.assertEqual(flt(rate_data.get("quantity")), 4)
+		self.assertEqual(rate_data.get("unit_type"), "Trip")
 		self.assertEqual(cint(rate_data.get("has_cost_unit_breaks")), 0)
 		self.assertEqual(rate_data.get("unit_breaks") or [], [])
 		self.assertIsNone(fetch_cost_tariff_rate(tariff.name, "NO-SUCH-ITEM"))
@@ -256,9 +285,11 @@ class TestMICEProjectConsolidationCharges(FrappeTestCase):
 		meta = frappe.get_meta("MICE Project Consolidation Charges")
 		self.assertTrue(meta.has_field("cost_use_unit_breaks"))
 		self.assertTrue(meta.has_field("cost_unit_break"))
-		opts = (meta.get_field("unit_type").options or "").split("\n")
-		self.assertIn("Trip", opts)
-		self.assertIn("Value", opts)
+		expected = (
+			"Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nContainer\nTEU\n"
+			"Item Count\nOperation Time\nJob\nTrip\nHandling Unit\nValue"
+		)
+		self.assertEqual(meta.get_field("unit_type").options, expected)
 
 	def test_fetch_cost_tariff_rate_returns_cost_unit_breaks(self):
 		if not frappe.db.exists("DocType", "Tariff"):
@@ -303,7 +334,7 @@ class TestMICEProjectConsolidationCharges(FrappeTestCase):
 		currency = self._default_currency()
 		cost_uom = self._ensure_uom("Trip")
 		tariff = self._make_tariff_with_cost_rate(
-			item_code, rate=50.0, currency=currency, cost_uom=cost_uom
+			item_code, rate=50.0, currency=currency, cost_uom=cost_uom, cost_quantity=15
 		)
 		self._add_cost_unit_breaks(tariff, [(10, 100), (20, 200)], currency=currency)
 
@@ -391,3 +422,91 @@ class TestMICEProjectConsolidationCharges(FrappeTestCase):
 		row.calculate_charge_amount()
 		self.assertEqual(flt(row.unit_rate), 100)
 		self.assertEqual(flt(row.total_amount), 1200)
+
+	def _ensure_charge_category(self, name, apply_95_5=0):
+		if not frappe.db.exists("DocType", "Charge Category"):
+			self.skipTest("Charge Category DocType not installed")
+		if frappe.db.exists("Charge Category", name):
+			frappe.db.set_value("Charge Category", name, "apply_95_5_rule", cint(apply_95_5))
+			return name
+		cat = frappe.get_doc(
+			{
+				"doctype": "Charge Category",
+				"category_name": name,
+				"apply_95_5_rule": cint(apply_95_5),
+			}
+		)
+		cat.insert(ignore_permissions=True)
+		return cat.name
+
+	def _new_consolidation_row(self, charge_category, **kwargs):
+		row = frappe.new_doc("MICE Project Consolidation Charges")
+		row.charge_type = "Cost"
+		row.charge_category = charge_category
+		row.revenue_calculation_method = "Fixed Amount"
+		row.unit_rate = 100
+		row.quantity = 1
+		row.currency = self._default_currency()
+		for key, value in kwargs.items():
+			row.set(key, value)
+		return row
+
+	def test_taxes_section_fields_match_sales_quote(self):
+		if not frappe.db.exists("DocType", "MICE Project Consolidation Charges"):
+			self.skipTest("MICE Project Consolidation Charges DocType not installed")
+		if not frappe.db.exists("DocType", "Sales Quote Charge"):
+			self.skipTest("Sales Quote Charge DocType not installed")
+
+		meta = frappe.get_meta("MICE Project Consolidation Charges")
+		sq_meta = frappe.get_meta("Sales Quote Charge")
+		for fieldname in (
+			"freight_taxes_section",
+			"category_apply_95_5_rule",
+			"apply_95_5_rule",
+			"taxable_freight_item",
+			"taxable_freight_item_tax_template",
+		):
+			self.assertTrue(meta.has_field(fieldname), fieldname)
+			ours = meta.get_field(fieldname)
+			theirs = sq_meta.get_field(fieldname)
+			self.assertEqual(ours.fieldtype, theirs.fieldtype, fieldname)
+			self.assertEqual(ours.label, theirs.label, fieldname)
+			self.assertEqual(ours.depends_on, theirs.depends_on, fieldname)
+		self.assertEqual(
+			meta.get_field("category_apply_95_5_rule").fetch_from,
+			"charge_category.apply_95_5_rule",
+		)
+		self.assertEqual(
+			meta.get_field("freight_taxes_section").depends_on,
+			"eval:doc.category_apply_95_5_rule",
+		)
+
+	def test_apply_95_5_requires_taxable_freight_item(self):
+		if not frappe.db.exists("DocType", "MICE Project Consolidation Charges"):
+			self.skipTest("MICE Project Consolidation Charges DocType not installed")
+
+		freight = self._ensure_charge_category(
+			f"95-5-ON-{frappe.generate_hash(length=6)}", apply_95_5=1
+		)
+		row = self._new_consolidation_row(freight, apply_95_5_rule=1)
+		with self.assertRaises(frappe.ValidationError):
+			row.validate()
+
+	def test_non_95_5_category_clears_tax_fields(self):
+		if not frappe.db.exists("DocType", "MICE Project Consolidation Charges"):
+			self.skipTest("MICE Project Consolidation Charges DocType not installed")
+
+		other = self._ensure_charge_category(
+			f"95-5-OFF-{frappe.generate_hash(length=6)}", apply_95_5=0
+		)
+		row = self._new_consolidation_row(
+			other,
+			apply_95_5_rule=1,
+			taxable_freight_item="ITEM-TAX",
+			taxable_freight_item_tax_template="TMPL",
+		)
+		row.validate()
+		self.assertEqual(cint(row.apply_95_5_rule), 0)
+		self.assertFalse(row.taxable_freight_item)
+		self.assertFalse(row.taxable_freight_item_tax_template)
+

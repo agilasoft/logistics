@@ -8,23 +8,27 @@ To access Change Request, go to:
 
 ## 1. How to Use
 
-1. Open a job (e.g., Air Shipment, Transport Job).
-2. Click **Create Change Request** (from the Additional Charges or custom button).
-3. On the **Services** tab, add only the **new** additional services you need (e.g. an extra transport leg or customs clearance). The tab starts **empty** — existing services on the shipment or job are **not** copied in.
-4. Add charge lines in the **Charges** child table (set **Service Type** to match the fee — Air, Sea, Transport, Customs, or Warehousing). Use **Scope = Linked** and pick a service from the Services tab when the charge belongs to a new linked leg.
+1. Open a job (e.g., Air Shipment, Transport Job), **or** open a Time Sensitive Case after its jobs are Completed and use **Create Change Request** on the case.
+2. Click **Create Change Request** (from the Additional Charges or custom button). From a Time Sensitive Case, Desk creates the Change Request against the case’s completed main-service job (Transport Job, Air Shipment, Sea Shipment, Declaration, or Warehouse Job) and attaches the case’s Linked Services.
+3. On the **Services** tab, the job’s existing Linked Services are already listed (same `IJ-…` IDs). Add a service only when you need a **new** extra leg (e.g. warehousing that was not on the job).
+4. Add charge lines in the **Charges** child table (set **Service Type** to match the fee — Air, Sea, Transport, Customs, or Warehousing). Use **Scope = Linked** and pick a service from the Services tab — either a job leg or a new one you added. Fees on the main job itself can stay **Scope = Main**.
 5. **Submit** the Change Request — cost rows are pushed to the linked job's **Charges** table (tagged with `change_request` and `change_request_charge`). Revenue on those rows starts at zero until a Sales Quote is submitted.
 6. Create a **Sales Quote** from the Change Request (button on the submitted Change Request).
 7. **Submit** the Additional Charge Sales Quote — revenue is merged onto the existing Change Request charge rows on the job (matched by `change_request_charge`).
 
+Quote-first Time Sensitive work: create a Sales Quote (charges may be incomplete; put Linked Services on the quote) → **Create Time Sensitive Case** → **Create Service** on the case → convert orders to jobs. When jobs are done, **Create Change Request on the case** for actual cost and revenue of the whole job. Do not start that Change Request from the original Sales Quote.
+
 Charges do **not** appear on the job until step 5 (Change Request submit). Revenue does **not** appear until step 7 (Sales Quote submit).
 
-### Services tab (new additional services only)
+### Services tab (job legs plus new extra services)
 
-When you create a Change Request from a shipment or job, the **Services** tab is **empty**. CargoNext does **not** copy the job's existing Linked Services into the Change Request.
+When you create a Change Request from a shipment or job, the **Services** tab lists the job’s existing Linked Services (same `IJ-…` IDs, attached via Usage — not cloned). Use **Scope = Linked** on a new charge row to tag one of those legs (for example an extra fee on the existing Transport delivery).
 
-Use the Services tab like a mini quotation workspace: define only the **new** subsidiary services you are adding (transport leg, customs brokerage, warehousing, and so on). Each row you add creates a Change Request–owned Linked Service. Charges that belong to one of those new legs should use **Scope = Linked** and reference the matching service row.
+Add a service on the tab only when you need a **new** subsidiary leg that is not already on the job. Each row you add creates a Change Request–owned Linked Service. Those new IJs are cloned onto the additional-charge Sales Quote; job-originated IJs are not.
 
-Charges for fees on the **main** job itself (no new subsidiary leg) can stay on **Scope = Main** without adding a Services row.
+Charges for fees on the **main** job itself (no subsidiary leg) can stay on **Scope = Main** without picking a Linked Service.
+
+Removing a job-originated service from the Change Request unlinks it from this CR only — the live job keeps that service.
 
 ### Multimodal jobs (Air Shipment / Sea Shipment)
 

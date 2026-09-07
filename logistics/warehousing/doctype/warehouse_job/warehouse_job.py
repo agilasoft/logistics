@@ -3405,6 +3405,9 @@ def fetch_charges_from_contract(warehouse_job: str, clear_existing: int = 0) -> 
 	"""Fetch and populate charges from warehouse contract for a warehouse job."""
 	try:
 		job = frappe.get_doc("Warehouse Job", warehouse_job)
+		from logistics.utils.menu_permission import assert_perm
+
+		assert_perm("Warehouse Job", "write", doc=job)
 		
 		# Get contract
 		contract = getattr(job, "warehouse_contract", None) or _find_customer_contract(getattr(job, "customer", None))
@@ -3509,6 +3512,9 @@ def calculate_charges_from_contract(warehouse_job: str) -> dict:
 	"""Recalculate existing charges for a warehouse job based on its contract."""
 	try:
 		job = frappe.get_doc("Warehouse Job", warehouse_job)
+		from logistics.utils.menu_permission import assert_perm
+
+		assert_perm("Warehouse Job", "write", doc=job)
 		
 		# Check if charges exist
 		if not getattr(job, "charges", None) or len(job.charges) == 0:
@@ -3710,6 +3716,9 @@ def update_operation_start(job_name, operation_id, start_date):
 		
 		# Get the warehouse job
 		job = frappe.get_doc('Warehouse Job', job_name)
+		from logistics.utils.menu_permission import assert_perm
+
+		assert_perm("Warehouse Job", "write", doc=job)
 		frappe.logger().info(f"Job loaded: {job.name}, operations count: {len(job.operations) if hasattr(job, 'operations') else 0}")
 		
 		# Check if operation exists
@@ -3770,6 +3779,9 @@ def update_operation_end(job_name, operation_id, end_date):
 		
 		# Get the warehouse job
 		job = frappe.get_doc('Warehouse Job', job_name)
+		from logistics.utils.menu_permission import assert_perm
+
+		assert_perm("Warehouse Job", "write", doc=job)
 		frappe.logger().info(f"Job loaded: {job.name}, operations count: {len(job.operations) if hasattr(job, 'operations') else 0}")
 		
 		# Check if operation exists
@@ -3832,6 +3844,9 @@ def allocate_items(job_name: str) -> Dict[str, Any]:
 	"""
 	try:
 		job = frappe.get_doc("Warehouse Job", job_name)
+		from logistics.utils.menu_permission import assert_perm
+
+		assert_perm("Warehouse Job", "write", doc=job)
 		
 		if not job.staging_area:
 			return {
@@ -3983,6 +3998,9 @@ def create_operations(job_name: str) -> Dict[str, Any]:
 	"""
 	try:
 		job = frappe.get_doc("Warehouse Job", job_name)
+		from logistics.utils.menu_permission import assert_perm
+
+		assert_perm("Warehouse Job", "write", doc=job)
 		
 		if not job.type:
 			return {
@@ -5132,6 +5150,10 @@ def post_standard_costs(warehouse_job: str) -> dict:
 	try:
 		# Get the warehouse job document
 		job = frappe.get_doc("Warehouse Job", warehouse_job)
+		from logistics.utils.menu_permission import assert_perm
+
+		assert_perm("Warehouse Job", "write", doc=job)
+		assert_perm("Journal Entry", "create")
 		
 		if not job.charges:
 			return {"ok": False, "message": "No charges found in warehouse job"}

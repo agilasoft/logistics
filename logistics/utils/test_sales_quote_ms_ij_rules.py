@@ -92,3 +92,19 @@ class TestSalesQuoteMsIjRules(UnitTestCase):
 		self.assertEqual(doc.service_role, SERVICE_ROLE_LINKED)
 		self.assertEqual(doc.main_service_type, "Sea Shipment")
 		self.assertEqual(doc.main_service, "SS-1")
+
+	def test_no_quote_standalone_with_linked_services_allowed(self):
+		"""Time Sensitive / standalone jobs may keep Linked Services without a Sales Quote."""
+		doc = frappe._dict(
+			doctype="Transport Job",
+			service_role="Standalone",
+			internal_job_details=[
+				frappe._dict(job_type="Transport Order", job_no="TRO-TS-001"),
+			],
+		)
+		with patch(
+			"logistics.utils.sales_quote_ms_ij_rules.get_sales_quote_quotation_type",
+			return_value=None,
+		):
+			apply_sales_quote_ms_ij_rules(doc)
+		self.assertEqual(doc.service_role, "Standalone")

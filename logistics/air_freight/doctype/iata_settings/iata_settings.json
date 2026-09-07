@@ -27,8 +27,18 @@
   "dg_autocheck_api_key",
   "cass_section",
   "cass_enabled",
+  "cass_role",
+  "cass_country",
   "cass_participant_code",
+  "cass_charge_item",
+  "cass_username",
+  "cass_password",
+  "column_break_cass_creds",
   "cass_api_endpoint",
+  "cass_iinet_host",
+  "cass_iinet_inbound_folder",
+  "cass_iinet_outbound_folder",
+  "cass_iinet_private_key",
   "column_break_2",
   "tact_section",
   "tact_subscription",
@@ -175,14 +185,84 @@
    "label": "Enable CASSLink"
   },
   {
+   "default": "Agent",
+   "depends_on": "cass_enabled",
+   "description": "Agent (freight forwarder) imports CASSLink settlement files. Airline billing-file upload is not in this release.",
+   "fieldname": "cass_role",
+   "fieldtype": "Select",
+   "label": "CASS Role",
+   "options": "Agent\nAirline"
+  },
+  {
+   "depends_on": "cass_enabled",
+   "description": "ISO country code of the CASS operation (e.g. PH, SG).",
+   "fieldname": "cass_country",
+   "fieldtype": "Data",
+   "label": "CASS Country / Operation"
+  },
+  {
+   "depends_on": "cass_enabled",
+   "description": "IATA Cargo Agent / CASS Associate numeric code assigned at accreditation.",
    "fieldname": "cass_participant_code",
    "fieldtype": "Data",
    "label": "CASS Participant Code"
   },
   {
+   "depends_on": "cass_enabled",
+   "description": "Item used on draft Purchase Invoices created from CASS billing lines.",
+   "fieldname": "cass_charge_item",
+   "fieldtype": "Link",
+   "label": "CASS Charge Item",
+   "link_filters": "[[\"Item\", \"disabled\", \"=\", 0]]",
+   "options": "Item"
+  },
+  {
+   "depends_on": "cass_enabled",
+   "fieldname": "cass_username",
+   "fieldtype": "Data",
+   "label": "CASS / iiNET Username"
+  },
+  {
+   "depends_on": "cass_enabled",
+   "fieldname": "cass_password",
+   "fieldtype": "Password",
+   "label": "CASS / iiNET Password"
+  },
+  {
+   "fieldname": "column_break_cass_creds",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "cass_enabled",
+   "description": "Optional IATA iiNET APIsec HTTPS URL for file transfer. This is not a CASS business REST API. Leave blank to attach files in Desk.",
    "fieldname": "cass_api_endpoint",
    "fieldtype": "Data",
-   "label": "CASS API Endpoint"
+   "label": "iiNET APIsec URL"
+  },
+  {
+   "depends_on": "cass_enabled",
+   "description": "Optional SFTP host. Leave blank to import files by attaching them on CASS File.",
+   "fieldname": "cass_iinet_host",
+   "fieldtype": "Data",
+   "label": "iiNET SFTP Host"
+  },
+  {
+   "depends_on": "cass_enabled",
+   "fieldname": "cass_iinet_inbound_folder",
+   "fieldtype": "Data",
+   "label": "iiNET Inbound Folder"
+  },
+  {
+   "depends_on": "cass_enabled",
+   "fieldname": "cass_iinet_outbound_folder",
+   "fieldtype": "Data",
+   "label": "iiNET Outbound Folder"
+  },
+  {
+   "depends_on": "cass_enabled",
+   "fieldname": "cass_iinet_private_key",
+   "fieldtype": "Password",
+   "label": "iiNET SSH Private Key"
   },
   {
    "fieldname": "column_break_2",

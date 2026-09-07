@@ -504,16 +504,20 @@ class TransportOrder(VirtualLinkedServicesMixin, Document):
         assert_sales_quote_customer_matches_job_before_submit(self)
 
         # Validate quote reference: either sales_quote (for Sales Quote) or quote (for One-Off Quote) must be set
+        # Exception: Time Sensitive Case legs often have no quote (bill later).
+        from logistics.time_sensitive.propagation import is_time_sensitive_operational_doc
+
+        ts_case_leg = is_time_sensitive_operational_doc(self)
         quote_type = getattr(self, "quote_type", None)
         if quote_type == "Sales Quote":
-            if not self.sales_quote:
+            if not self.sales_quote and not ts_case_leg:
                 frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Transport Order."))
         elif quote_type == "One-Off Quote":
-            if not getattr(self, "quote", None):
+            if not getattr(self, "quote", None) and not ts_case_leg:
                 frappe.throw(_("One-Off Quote is required. Please select a One-Off Quote before submitting the Transport Order."))
         else:
             # If quote_type is not set, check if sales_quote is set (backward compatibility)
-            if not self.sales_quote:
+            if not self.sales_quote and not ts_case_leg:
                 frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Transport Order."))
         
         # Validate packages is not empty
@@ -2066,6 +2070,9 @@ def append_transport_order_charges_from_sales_quote_if_empty(order):
 def recalculate_all_charges(docname):
     """Recalculate all charges based on current Transport Order data using RateCalculationEngine."""
     doc = frappe.get_doc("Transport Order", docname)
+    from logistics.utils.menu_permission import assert_perm
+
+    assert_perm("Transport Order", "write", doc=doc)
     if not doc.charges:
         return {"success": False, "message": _("No charges found to recalculate")}
     try:
@@ -2456,6 +2463,10 @@ def action_create_transport_job(docname: str):
             "air_shipment": getattr(doc, "air_shipment", None),
             "sea_shipment": getattr(doc, "sea_shipment", None),
             "is_high_value": getattr(doc, "is_high_value", None),
+            "is_time_sensitive": getattr(doc, "is_time_sensitive", None),
+            "time_sensitive_case": getattr(doc, "time_sensitive_case", None),
+            "ts_case_type": getattr(doc, "ts_case_type", None),
+            "critical_deadline": getattr(doc, "critical_deadline", None),
             "internal_notes": getattr(doc, "internal_notes", None),
             "client_notes": getattr(doc, "client_notes", None),
         }

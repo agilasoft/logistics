@@ -104,19 +104,31 @@ class AirShipmentIATATransaction(Document):
 
 	@frappe.whitelist()
 	def submit_cass_settlement(self):
-		from logistics.air_freight.utils.iata_settings_utils import get_settings
-		from logistics.air_freight.iata_cargo_xml.integrations.cass_client import submit_cass_settlement
+		frappe.throw(
+			_(
+				"CASS settlement is not submitted per shipment. "
+				"Import a CASSLink file on a CASS Settlement Period (Air Freight → CASSLink)."
+			)
+		)
 
-		company = frappe.db.get_value("Air Shipment", self.air_shipment, "company")
-		settings = get_settings(company=company, air_shipment=self.air_shipment)
-		result = submit_cass_settlement(self, settings)
-		if result.get("success"):
-			self.cass_settlement_status = "Submitted"
-			self.cass_settlement_date = today()
-			self.save()
-		else:
-			frappe.throw(result.get("error") or _("CASS submission failed"))
-		return result
+	@frappe.whitelist()
+	def get_cass_billing_for_shipment(self):
+		from logistics.air_freight.casslink.awb import normalize_awb
+
+		ship = frappe.get_doc("Air Shipment", self.air_shipment)
+		awb = normalize_awb(ship.get("master_awb") or ship.get("house_awb_no") or ship.get("house_awb"))
+		if not awb or not frappe.db.table_exists("CASS Billing Line"):
+			return {"period": None, "lines": []}
+		rows = frappe.get_all(
+			"CASS Billing Line",
+			filters={"awb_number": awb},
+			fields=["name", "parent", "match_status", "amount", "purchase_invoice"],
+			limit=20,
+		)
+		period = None
+		if rows:
+			period = frappe.db.get_value("CASS File", rows[0].parent, "settlement_period")
+		return {"period": period, "awb": awb, "lines": rows}
 
 	@frappe.whitelist()
 	def validate_dg_autocheck(self):

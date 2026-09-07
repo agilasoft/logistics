@@ -92,6 +92,8 @@
   "inv_net_weight_uom",
   "packages",
   "packages_uom",
+  "number_of_line_items",
+  "number_of_line_items_manual",
   "column_break_inv_financial",
   "cif",
   "fob",
@@ -308,6 +310,7 @@
    "no_copy": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fieldname": "time_sensitive_case",
    "fieldtype": "Link",
    "label": "Time Sensitive Case",
@@ -316,6 +319,7 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fetch_from": "time_sensitive_case.case_type",
    "fieldname": "ts_case_type",
    "fieldtype": "Link",
@@ -325,6 +329,7 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fieldname": "critical_deadline",
    "fieldtype": "Datetime",
    "in_list_view": 0,
@@ -332,6 +337,7 @@
    "no_copy": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fieldname": "ts_countdown",
    "fieldtype": "HTML",
    "label": "TS Countdown"
@@ -972,6 +978,19 @@
    "label": "Packages UOM",
    "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
    "options": "UOM"
+  },
+  {
+   "description": "Used as Item Count for charges. Defaults to the number of invoice rows. Type a larger number when using a 1-row summary (for example 100 lines, 1 row).",
+   "fieldname": "number_of_line_items",
+   "fieldtype": "Int",
+   "label": "Number of Line Items"
+  },
+  {
+   "default": "0",
+   "fieldname": "number_of_line_items_manual",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Number of Line Items Manual"
   },
   {
    "collapsible": 1,

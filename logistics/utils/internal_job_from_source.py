@@ -878,6 +878,9 @@ def get_internal_job_creation_choices(
 				if not elig.get("eligible"):
 					creatable = False
 					not_creatable_message = elig.get("message") or INTERNAL_JOB_QUOTE_PARAMETER_MISMATCH_MESSAGE
+			if creatable and jt and not frappe.has_permission(jt, "create"):
+				creatable = False
+				not_creatable_message = _("You do not have permission to create {0}.").format(jt)
 		label = _choice_label(jt, row, idx)
 		if jt and not creatable and not jn:
 			label = "{0} — {1}".format(label, _("cannot create from here"))
@@ -1452,6 +1455,9 @@ def create_internal_job_from_operational_source(
 		frappe.throw(_("Unsupported source type."))
 	_src = frappe.get_doc(source_doctype, source_name)
 	_src.check_permission("read")
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm(jt, "create")
 	ensure_operational_source_can_create_internal_job(_src)
 
 	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)

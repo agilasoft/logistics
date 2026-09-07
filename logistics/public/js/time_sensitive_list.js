@@ -3,6 +3,9 @@
 
 /**
  * Listview indicators + timer icon for Time Sensitive Case and flagged operational docs.
+ *
+ * Subject/ID cells cannot use HTML formatters — Frappe list view sets the link via
+ * textContent. Icons are injected in settings.refresh after each render.
  */
 (function () {
 	const OPERATIONAL = [
@@ -25,6 +28,7 @@
 	function enhance(settings) {
 		const prevIndicator = settings.get_indicator;
 		const prevAdd = settings.add_fields || [];
+		const prevRefresh = settings.refresh;
 		settings.add_fields = Array.from(
 			new Set(
 				prevAdd.concat([
@@ -45,16 +49,11 @@
 				return prevIndicator(doc);
 			}
 		};
-		settings.formatters = settings.formatters || {};
-		const nameFmt = settings.formatters.name;
-		settings.formatters.name = function (value, df, doc) {
-			if (cint(doc.is_time_sensitive)) {
-				return logistics.time_sensitive.timer.titleWithTimerIcon(value, doc);
+		settings.refresh = function (listview) {
+			if (typeof prevRefresh === "function") {
+				prevRefresh(listview);
 			}
-			if (typeof nameFmt === "function") {
-				return nameFmt(value, df, doc);
-			}
-			return value;
+			logistics.time_sensitive.timer.injectListSubjectTimerIcons(listview);
 		};
 	}
 

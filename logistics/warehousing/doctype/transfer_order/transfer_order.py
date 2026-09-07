@@ -25,6 +25,9 @@ def make_warehouse_job(source_name: str, target_doc=None):
     - Links back for traceability via reference fields
     - Items go into the 'Orders' table on Warehouse Job (your allocators read from Orders)
     """
+    from logistics.utils.menu_permission import assert_create_from_source
+
+    assert_create_from_source("Warehouse Job", "Transfer Order", source_name)
 
     def set_missing_values(source, target):
         # Header defaults

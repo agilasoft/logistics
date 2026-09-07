@@ -5,12 +5,19 @@ Install BIR Sales Invoice Print Format
 import frappe
 import os
 
+def _app_root():
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+
 def _sales_invoice_html_path():
-    app_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    consolidated = os.path.join(app_root, "print_format", "sales_invoice", "sales_invoice.html")
+    consolidated = os.path.join(_app_root(), "print_format", "sales_invoice", "sales_invoice.html")
     if os.path.isfile(consolidated):
         return consolidated
     return os.path.join(os.path.dirname(__file__), "sales_invoice.html")
+
+
+def _disbursement_bill_html_path():
+    return os.path.join(_app_root(), "print_format", "sales_invoice", "disbursement_bill.html")
 
 
 def _upsert_print_format(name, html_content, create_if_missing=False):
@@ -54,9 +61,16 @@ def install_sales_invoice_print_format():
     _upsert_print_format("Sales Invoice HTML", html_content)
     _upsert_print_format("BIR Sales Invoice", html_content, create_if_missing=True)
 
+    dsb_path = _disbursement_bill_html_path()
+    if os.path.isfile(dsb_path):
+        with open(dsb_path, "r", encoding="utf-8") as f:
+            dsb_html = f.read()
+        _upsert_print_format("Disbursement Bill HTML", dsb_html, create_if_missing=True)
+
     frappe.db.commit()
     print("✓ Sales Invoice print format installed successfully!")
     print("  Use Sales Invoice > Print > Sales Invoice HTML")
+    print("  Use Sales Invoice > Print > Disbursement Bill HTML")
 
 if __name__ == "__main__":
     import sys

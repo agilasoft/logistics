@@ -6,6 +6,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from logistics.utils.transport_template_rules import (
 	classify_leg_pattern,
+	filter_load_types_for_transport_job_type,
 	get_allowed_load_types_from_doc,
 	suggest_allowed_load_types_from_legs,
 	validate_against_transport_template,
@@ -70,7 +71,49 @@ class TestTransportTemplateRules(FrappeTestCase):
 		suggested = suggest_allowed_load_types_from_legs(legs)
 		self.assertIn("FTL", suggested)
 		self.assertIn("LTL", suggested)
-		self.assertNotIn("FCL", suggested)
+		self.assertIn("FCL", suggested)
+
+	def test_filter_load_types_for_transport_job_type(self):
+		ftl = self._ensure_load_type("FTL", transport=1, non_container=1)
+		ltl = self._ensure_load_type("LTL", transport=1, non_container=1)
+		fcl = self._ensure_load_type("FCL", transport=1, container=1, sea=1)
+		allowed = [fcl, ftl, ltl]
+
+		self.assertEqual(
+			filter_load_types_for_transport_job_type(allowed, "Container"),
+			[fcl],
+		)
+		self.assertEqual(
+			filter_load_types_for_transport_job_type(allowed, "Non-Container"),
+			[ftl, ltl],
+		)
+		self.assertEqual(filter_load_types_for_transport_job_type(allowed, None), allowed)
+
+	def test_land_lane_template_allows_fcl(self):
+		ftl = self._ensure_load_type("FTL", transport=1, non_container=1)
+		fcl = self._ensure_load_type("FCL", transport=1, container=1, sea=1)
+
+		doc = frappe.get_doc(
+			{
+				"doctype": "Transport Template",
+				"code": "TEST-CFS-RCVR",
+				"description": "CFS to Consignee",
+				"default_load_type": fcl,
+				"legs": [
+					{
+						"facility_type_from": "Container Freight Station",
+						"facility_type_to": "Consignee",
+					}
+				],
+				"allowed_load_types": [
+					{"load_type": fcl},
+					{"load_type": ftl},
+				],
+			}
+		)
+		validate_template_allowed_load_types_vs_legs(doc)
+		doc.insert(ignore_permissions=True)
+		self.assertEqual(doc.default_load_type, fcl)
 
 	def test_validate_against_template_rejects_disallowed_load_type(self):
 		ftl = self._ensure_load_type("FTL", transport=1, non_container=1)

@@ -19,6 +19,12 @@ BLOCKS = (
 	("Sea Freight Operations Dashboard", "sea_freight"),
 	("Customs Operations Dashboard", "customs"),
 	("Transport Operations Dashboard", "transport"),
+	("Time Sensitive Operations Dashboard", "time_sensitive"),
+	("MICE Operations Dashboard", "mice"),
+	("Special Projects Operations Dashboard", "special_projects"),
+	("High Value Operations Dashboard", "high_value"),
+	("Warehousing Operations Dashboard", "warehousing"),
+	("Job Management Operations Dashboard", "job_management"),
 )
 
 
