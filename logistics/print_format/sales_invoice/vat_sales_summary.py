@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 from typing import Any
 
 import frappe
@@ -20,12 +22,19 @@ def get_vat_sales_summary(doc) -> frappe._dict:
 	"""Classify invoice net sales from Sales Taxes and Charges (template) + Tax Category.
 
 	Returns transaction-currency amounts for the Sales Invoice HTML VAT block.
+	When any charge line has an Item Tax Template or item_tax_rate, split by
+	line Amount using those rates (VAT Exempt / Zero Rated / Vatable).
 	"""
 	net_total = flt(getattr(doc, "net_total", None) or 0)
 	rows = _classified_tax_rows(doc)
 	treatments = {treatment for treatment, _amount in rows}
 
-	if len(treatments) == 1:
+	if _has_item_tax_templates(doc):
+		default = _default_item_treatment(treatments, doc)
+		buckets = _buckets_from_items(doc, default_treatment=default)
+		if not _has_amounts(buckets):
+			buckets[default] = net_total
+	elif len(treatments) == 1:
 		buckets = _empty_buckets()
 		buckets[next(iter(treatments))] = net_total
 	elif len(treatments) > 1:
@@ -111,24 +120,136 @@ def _template_hints(template_name: str) -> list[str]:
 	return hints
 
 
-def _buckets_from_items(doc) -> dict[str, float]:
-	buckets = _empty_buckets()
+def _has_item_tax_templates(doc) -> bool:
 	for item in getattr(doc, "items", None) or []:
-		item_net = flt(_row_value(item, "net_amount") or _row_value(item, "amount"))
-		item_treatment = str(_row_value(item, "vat_treatment") or "").lower()
-		item_template = str(_row_value(item, "item_tax_template") or "").lower()
-		if (
-			"zero rated" in item_treatment
-			or "zero-rated" in item_treatment
-			or "zero rated" in item_template
-			or "zero-rated" in item_template
-		):
-			buckets[ZERO_RATED] += item_net
-		elif "exempt" in item_treatment or ("exempt" in item_template and "zero" not in item_template):
-			buckets[EXEMPT] += item_net
-		else:
-			buckets[VATABLE] += item_net
+		if _row_value(item, "item_tax_template") or _parse_item_tax_rate(_row_value(item, "item_tax_rate")):
+			return True
+	return False
+
+
+def _default_item_treatment(treatments: set[str], doc) -> str:
+	if len(treatments) == 1:
+		return next(iter(treatments))
+	if not treatments:
+		return _category_treatment(doc) or VATABLE
+	return VATABLE
+
+
+def _buckets_from_items(doc, default_treatment: str = VATABLE) -> dict[str, float]:
+	buckets = _empty_buckets()
+	cache: dict[str, str | None] = {}
+	fallback = default_treatment if default_treatment in (VATABLE, EXEMPT, ZERO_RATED) else VATABLE
+	for item in getattr(doc, "items", None) or []:
+		item_amt = flt(_row_value(item, "amount") or _row_value(item, "net_amount"))
+		buckets[_item_treatment(item, fallback, cache)] += item_amt
 	return buckets
+
+
+def _item_treatment(item, default_treatment: str, cache: dict[str, str | None]) -> str:
+	classified = _classify_text(str(_row_value(item, "vat_treatment") or ""))
+	if classified:
+		return classified
+
+	from_rate = _treatment_from_item_tax_rate(item)
+	if from_rate:
+		return from_rate
+
+	template_name = str(_row_value(item, "item_tax_template") or "").strip()
+	if template_name:
+		if template_name not in cache:
+			cache[template_name] = _treatment_from_item_tax_template(template_name)
+		if cache[template_name]:
+			return cache[template_name]
+
+	return default_treatment
+
+
+def _treatment_from_item_tax_rate(item) -> str | None:
+	found: list[str] = []
+	for account in _parse_item_tax_rate(_row_value(item, "item_tax_rate")):
+		account = str(account or "")
+		treatment = _classify_text(account) or _classify_text(_account_name(account))
+		if treatment:
+			found.append(treatment)
+	return _pick_treatment(found)
+
+
+def _parse_item_tax_rate(raw) -> dict:
+	if not raw:
+		return {}
+	if isinstance(raw, dict):
+		return raw
+	if isinstance(raw, str):
+		try:
+			parsed = json.loads(raw)
+		except Exception:
+			return {}
+		return parsed if isinstance(parsed, dict) else {}
+	return {}
+
+
+def _pick_treatment(found: list[str]) -> str | None:
+	if ZERO_RATED in found:
+		return ZERO_RATED
+	if EXEMPT in found:
+		return EXEMPT
+	if VATABLE in found:
+		return VATABLE
+	return None
+
+
+def _treatment_from_item_tax_template(template_name: str) -> str | None:
+	found: list[str] = []
+	for rate in _item_tax_template_rates(template_name):
+		if _row_value(rate, "not_applicable"):
+			continue
+		tax_type = str(_row_value(rate, "tax_type") or "")
+		parts = [tax_type]
+		if tax_type:
+			account_name = _account_name(tax_type)
+			if account_name:
+				parts.append(account_name)
+		treatment = _classify_text(" ".join(parts))
+		if treatment:
+			found.append(treatment)
+	return _pick_treatment(found) or _classify_text(template_name)
+
+
+def _item_tax_template_rates(template_name: str) -> list:
+	for parent in _item_tax_template_parents(template_name):
+		try:
+			rows = (
+				frappe.db.get_all(
+					"Item Tax Template Detail",
+					filters={"parent": parent},
+					fields=["tax_type", "tax_rate", "not_applicable"],
+				)
+				or []
+			)
+		except Exception:
+			rows = []
+		if rows:
+			return rows
+	return []
+
+
+def _item_tax_template_parents(template_name: str) -> list[str]:
+	names = [template_name]
+	try:
+		by_title = (
+			frappe.db.get_all(
+				"Item Tax Template",
+				filters={"title": template_name},
+				pluck="name",
+			)
+			or []
+		)
+	except Exception:
+		by_title = []
+	for name in by_title:
+		if name and name not in names:
+			names.append(str(name))
+	return names
 
 
 def _tax_label(tax) -> str:
@@ -164,11 +285,12 @@ def _classify_text(text: str | None) -> str | None:
 	label = (text or "").lower()
 	if not label.strip() or "withhold" in label:
 		return None
-	if "zero rated" in label or "zero-rated" in label:
+	normalized = re.sub(r"[\s\-_]+", " ", label).strip()
+	if "zero rated" in normalized:
 		return ZERO_RATED
-	if "exempt" in label:
+	if "exempt" in normalized:
 		return EXEMPT
-	if "vatable" in label or "vat" in label:
+	if "vatable" in normalized or "vat" in normalized:
 		return VATABLE
 	return None
 

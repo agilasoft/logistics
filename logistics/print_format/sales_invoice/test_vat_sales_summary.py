@@ -176,3 +176,128 @@ class TestVatSalesSummary(unittest.TestCase):
 		self.assertAlmostEqual(summary.vatable_sales, 50.0)
 		self.assertAlmostEqual(summary.exempt_sales, 0)
 		self.assertAlmostEqual(summary.zero_rated_sales, 0)
+
+	def test_mixed_invoice_splits_exempt_item_tax_template_from_vatable(self):
+		inv = _FakeInvoice(
+			net_total=600900.0,
+			tax_category="Vatable",
+			items=[
+				_Row(net_amount=550900.0),
+				_Row(net_amount=50000.0, item_tax_template="VAT Exempt"),
+			],
+			taxes=[_Row(account_head="VAT - ASL", description="VAT - ASL", rate=12, net_amount=0, tax_amount=66108)],
+		)
+
+		def rates(name):
+			if name == "VAT Exempt":
+				return [{"tax_type": "VAT - Exempt - ASL", "tax_rate": 0, "not_applicable": 0}]
+			return []
+
+		with patch(
+			"logistics.print_format.sales_invoice.vat_sales_summary._item_tax_template_rates",
+			side_effect=rates,
+		):
+			summary = get_vat_sales_summary(inv)
+		self.assertAlmostEqual(summary.vatable_sales, 550900.0)
+		self.assertAlmostEqual(summary.exempt_sales, 50000.0)
+		self.assertAlmostEqual(summary.zero_rated_sales, 0)
+		self.assertAlmostEqual(summary.total_sales, 600900.0)
+
+	def test_exempt_tax_rate_counts_when_template_title_has_no_exempt(self):
+		inv = _FakeInvoice(
+			net_total=50000.0,
+			items=[_Row(net_amount=50000.0, item_tax_template="Philippines Tax - ASL")],
+			taxes=[_Row(account_head="VAT - ASL", description="VAT - ASL", rate=12, net_amount=0, tax_amount=6000)],
+		)
+		with patch(
+			"logistics.print_format.sales_invoice.vat_sales_summary._item_tax_template_rates",
+			return_value=[{"tax_type": "VAT - Exempt - ASL", "tax_rate": 0, "not_applicable": 0}],
+		):
+			summary = get_vat_sales_summary(inv)
+		self.assertAlmostEqual(summary.exempt_sales, 50000.0)
+		self.assertAlmostEqual(summary.vatable_sales, 0)
+		self.assertAlmostEqual(summary.zero_rated_sales, 0)
+		self.assertAlmostEqual(summary.total_sales, 50000.0)
+
+	def test_mixed_invoice_splits_zero_rated_item_tax_template_from_vatable(self):
+		inv = _FakeInvoice(
+			net_total=650000.0,
+			tax_category="Vatable",
+			items=[
+				_Row(net_amount=100000.0),
+				_Row(net_amount=550000.0, item_tax_template="Zero Rated"),
+			],
+			taxes=[_Row(account_head="VAT - ASL", description="VAT - ASL", rate=12, net_amount=0, tax_amount=12000)],
+		)
+
+		def rates(name):
+			if name == "Zero Rated":
+				return [{"tax_type": "Zero - Rated - ASL", "tax_rate": 0, "not_applicable": 0}]
+			return []
+
+		with patch(
+			"logistics.print_format.sales_invoice.vat_sales_summary._item_tax_template_rates",
+			side_effect=rates,
+		):
+			summary = get_vat_sales_summary(inv)
+		self.assertAlmostEqual(summary.vatable_sales, 100000.0)
+		self.assertAlmostEqual(summary.zero_rated_sales, 550000.0)
+		self.assertAlmostEqual(summary.exempt_sales, 0)
+		self.assertAlmostEqual(summary.total_sales, 650000.0)
+
+	def test_zero_rated_tax_rate_counts_when_template_title_has_no_zero_rated(self):
+		inv = _FakeInvoice(
+			net_total=550000.0,
+			items=[_Row(net_amount=550000.0, item_tax_template="Philippines Tax - ASL")],
+			taxes=[_Row(account_head="VAT - ASL", description="VAT - ASL", rate=12, net_amount=0, tax_amount=0)],
+		)
+		with patch(
+			"logistics.print_format.sales_invoice.vat_sales_summary._item_tax_template_rates",
+			return_value=[{"tax_type": "Zero - Rated - ASL", "tax_rate": 0, "not_applicable": 0}],
+		):
+			summary = get_vat_sales_summary(inv)
+		self.assertAlmostEqual(summary.zero_rated_sales, 550000.0)
+		self.assertAlmostEqual(summary.vatable_sales, 0)
+		self.assertAlmostEqual(summary.exempt_sales, 0)
+		self.assertAlmostEqual(summary.total_sales, 550000.0)
+
+	def test_zero_rated_sales_uses_row_amount_from_item_tax_rate(self):
+		inv = _FakeInvoice(
+			net_total=550000.0,
+			items=[
+				_Row(
+					amount=550000.0,
+					item_tax_template="Zero Rated - ASL",
+					item_tax_rate='{"Zero - Rated - ASL": 0}',
+				)
+			],
+			taxes=[_Row(account_head="VAT - ASL", description="VAT - ASL", rate=12, net_amount=0)],
+		)
+		summary = get_vat_sales_summary(inv)
+		self.assertAlmostEqual(summary.zero_rated_sales, 550000.0)
+		self.assertAlmostEqual(summary.vatable_sales, 0)
+		self.assertAlmostEqual(summary.exempt_sales, 0)
+		self.assertAlmostEqual(summary.total_sales, 550000.0)
+
+	def test_mixed_exempt_and_zero_rated_row_amounts(self):
+		inv = _FakeInvoice(
+			net_total=650000.0,
+			items=[
+				_Row(
+					amount=100000.0,
+					item_tax_template="VAT Exempt",
+					item_tax_rate='{"VAT - Exempt - ASL": 0}',
+				),
+				_Row(
+					amount=550000.0,
+					item_tax_template="Zero Rated - ASL",
+					item_tax_rate='{"Zero - Rated - ASL": 0}',
+				),
+			],
+			taxes=[_Row(account_head="VAT - ASL", description="VAT - ASL", rate=12, net_amount=0)],
+		)
+		summary = get_vat_sales_summary(inv)
+		self.assertAlmostEqual(summary.exempt_sales, 100000.0)
+		self.assertAlmostEqual(summary.zero_rated_sales, 550000.0)
+		self.assertAlmostEqual(summary.vatable_sales, 0)
+		self.assertAlmostEqual(summary.total_sales, 650000.0)

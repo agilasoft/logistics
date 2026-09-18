@@ -1334,11 +1334,12 @@
                             {% set _flight_dt = job_doc.get('mawb_flight_date') or job_doc.get('etd') %}
                             <div class="field-row"><div class="field-label">FLIGHT DATE:</div><div class="field-value">{{ frappe.utils.formatdate(_flight_dt, 'MM-dd-yyyy') if _flight_dt else "-" }}</div></div>
                             {% elif job_type == "Sea Shipment" %}
-                            <div class="field-row"><div class="field-label">SHIPMENT NO.:</div><div class="field-value">{{ job_doc.name }}</div></div>
-                            <div class="field-row"><div class="field-label">STATUS:</div><div class="field-value">{{ job_doc.status or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">CUSTOMER:</div><div class="field-value">{{ job_doc.customer or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">ORIGIN PORT:</div><div class="field-value">{{ job_doc.origin_port or job_doc.get('port_of_loading') or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">DEST. PORT:</div><div class="field-value">{{ job_doc.destination_port or job_doc.get('port_of_discharge') or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">CONSIGNOR:</div><div class="field-value">{{ job_doc.shipper or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">CONSIGNEE:</div><div class="field-value">{{ job_doc.consignee or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">STATUS:</div><div class="field-value">{{ job_doc.job_status or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">ORIGIN:</div><div class="field-value">{{ job_doc.origin_port or job_doc.get('port_of_loading') or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">DESTINATION:</div><div class="field-value">{{ job_doc.destination_port or job_doc.get('port_of_discharge') or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">ETD:</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.etd, 'MM-dd-yyyy') if job_doc.get('etd') else "-" }}</div></div>
                             {% elif job_type == "Transport Job" %}
                             <div class="field-row"><div class="field-label">JOB NO.:</div><div class="field-value">{{ job_doc.name }}</div></div>
                             <div class="field-row"><div class="field-label">STATUS:</div><div class="field-value">{{ job_doc.status or "-" }}</div></div>
@@ -1375,8 +1376,12 @@
                             <div class="field-row"><div class="field-label">CHARGEABLE:</div><div class="field-value">{% if job_doc.chargeable is not none %}{{ "%.4f"|format(job_doc.chargeable|float) }}{% else %}-{% endif %}</div></div>
                             <div class="field-row"><div class="field-label">PACKAGES:</div><div class="field-value">{% if job_doc.total_packages is not none %}{{ job_doc.total_packages|int }}{% else %}-{% endif %}</div></div>
                             {% elif job_type == "Sea Shipment" %}
-                            <div class="field-row"><div class="field-label">VESSEL / VOYAGE:</div><div class="field-value">{{ job_doc.vessel or job_doc.get('voyage_no') or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">ETD / ETA:</div><div class="field-value">{{ (frappe.utils.formatdate(job_doc.etd, 'MM-dd-yyyy') if job_doc.get('etd') else "-") }} / {{ (frappe.utils.formatdate(job_doc.eta, 'MM-dd-yyyy') if job_doc.get('eta') else "-") }}</div></div>
+                            <div class="field-row"><div class="field-label">HBL:</div><div class="field-value">{{ job_doc.house_bl or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">MBL:</div><div class="field-value">{{ job_doc.master_bill or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">WEIGHT:</div><div class="field-value">{% if job_doc.total_weight is not none %}{{ "%.4f"|format(job_doc.total_weight|float) }}{% else %}-{% endif %}</div></div>
+                            <div class="field-row"><div class="field-label">VOLUME:</div><div class="field-value">{% if job_doc.total_volume is not none %}{{ "%.4f"|format(job_doc.total_volume|float) }}{% else %}-{% endif %}</div></div>
+                            <div class="field-row"><div class="field-label">CHARGEABLE:</div><div class="field-value">{% if job_doc.chargeable is not none %}{{ "%.4f"|format(job_doc.chargeable|float) }}{% else %}-{% endif %}</div></div>
+                            <div class="field-row"><div class="field-label">PACKAGES:</div><div class="field-value">{% if job_doc.total_packages is not none %}{{ job_doc.total_packages|int }}{% else %}-{% endif %}</div></div>
                             {% elif job_type == "Transport Job" %}
                             <div class="field-row"><div class="field-label">SERVICE DATE:</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.service_date, 'MM-dd-yyyy') if job_doc.get('service_date') else "-" }}</div></div>
                             {% elif job_type == "General Job" %}
