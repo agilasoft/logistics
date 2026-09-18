@@ -2457,17 +2457,10 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			
 			# Copy milestones if they exist (from Sea Booking Milestone to Sea Shipment Milestone)
 			if hasattr(self, 'milestones') and self.milestones:
+				from logistics.sea_freight.doctype.sea_shipment.sea_shipment import booking_milestone_row_values
+
 				for milestone in self.milestones:
-					sea_shipment.append("milestones", {
-						"milestone": milestone.milestone,
-						"status": milestone.status,
-						"planned_start": milestone.planned_start,
-						"planned_end": milestone.planned_end,
-						"actual_start": milestone.actual_start,
-						"actual_end": milestone.actual_end,
-						"source": milestone.source,
-						"fetched_at": milestone.fetched_at
-					})
+					sea_shipment.append("milestones", booking_milestone_row_values(milestone))
 			
 			# Copy document_list_template and documents (Job Document child table) from Sea Booking to Sea Shipment
 			if hasattr(self, 'document_list_template') and self.document_list_template:

@@ -206,6 +206,12 @@ def persist_internal_job_create_back_link(
 			usage_role=USAGE_ROLE_SATELLITE_JOB,
 		)
 
+	from logistics.sea_freight.doctype.sea_shipment.sea_shipment import (
+		refresh_service_milestones_after_internal_job_link,
+	)
+
+	refresh_service_milestones_after_internal_job_link(parent_doctype, parent_name, ls_name)
+
 	if _uses_linked_charge_internal_job_create(parent_doctype):
 		return
 	persist_internal_job_detail_job_link(

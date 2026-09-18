@@ -102,21 +102,96 @@ function _load_declaration_documents_html(frm) {
 	});
 }
 
-function _load_milestone_html(frm) {
+function _paint_milestone_html(frm, html) {
+	var field = frm.fields_dict && frm.fields_dict.milestone_html;
+	if (!field || !html) return;
+	if (field.$wrapper) {
+		field.$wrapper.html(html).removeClass("hide-control");
+	}
+	field.df.options = html;
+	var meta_df = frappe.meta.get_docfield(frm.doctype, "milestone_html", frm.doc.name);
+	if (meta_df) {
+		meta_df.options = html;
+	}
+}
+
+function _load_milestone_html(frm, force) {
+	if (frm._logistics_template_populate_busy) return;
 	if (!frm.fields_dict.milestone_html || !frm.doc.name || frm.doc.__islocal) return;
-	if (frm._milestone_html_called) return;
+	if (!force && frm._milestone_html_called) return;
 	frm._milestone_html_called = true;
 	frappe.call({
 		method: 'logistics.document_management.api.get_milestone_html',
 		args: { doctype: 'Declaration', docname: frm.doc.name },
 		callback: function(r) {
-			if (r.message && frm.fields_dict.milestone_html) {
-				frm.fields_dict.milestone_html.$wrapper.html(r.message);
+			if (r.message) {
+				_paint_milestone_html(frm, r.message);
 			}
 		}
 	}).always(function() {
 		setTimeout(function() { frm._milestone_html_called = false; }, 2000);
 	});
+}
+
+function _declaration_milestone_row_from_booking(row) {
+	return !!(row && (Number(row.from_booking) === 1 || row.from_booking === true));
+}
+
+function _lock_declaration_booking_milestone_grid_row(grid_row) {
+	if (!grid_row || !grid_row.doc || !grid_row.grid || grid_row.grid.df.fieldname !== "milestones") {
+		return;
+	}
+	if (!_declaration_milestone_row_from_booking(grid_row.doc)) {
+		return;
+	}
+	grid_row.doc.__read_only = 1;
+	if (!grid_row._booking_ms_toggle_patched) {
+		grid_row._booking_ms_toggle_patched = true;
+		var orig_toggle = grid_row.toggle_editable_row.bind(grid_row);
+		grid_row.toggle_editable_row = function(show) {
+			if (_declaration_milestone_row_from_booking(grid_row.doc)) {
+				return orig_toggle(false);
+			}
+			return orig_toggle(show);
+		};
+	}
+	["milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"].forEach(function(fn) {
+		if (grid_row.columns && grid_row.columns[fn] && grid_row.columns[fn].df && !grid_row.columns[fn].df.__from_booking_locked) {
+			grid_row.columns[fn].df = $.extend({}, grid_row.columns[fn].df, {
+				read_only: 1,
+				__from_booking_locked: 1
+			});
+		}
+		if (grid_row.on_grid_fields_dict && grid_row.on_grid_fields_dict[fn]) {
+			grid_row.toggle_editable(fn, false);
+		}
+	});
+	if (grid_row.open_form_button && typeof grid_row.open_form_button.toggle === "function") {
+		grid_row.open_form_button.toggle(false);
+	}
+	if (grid_row.wrapper) {
+		grid_row.wrapper.find(".grid-row-check").prop("disabled", true).prop("checked", false);
+		grid_row.wrapper.find(".btn-open-row").hide();
+	}
+}
+
+function _lock_declaration_booking_milestone_rows(frm) {
+	if (!frm || !frm.fields_dict.milestones || !frm.fields_dict.milestones.grid) {
+		return;
+	}
+	var grid = frm.fields_dict.milestones.grid;
+	(grid.grid_rows || []).forEach(_lock_declaration_booking_milestone_grid_row);
+}
+
+function _bind_declaration_booking_milestone_lock(frm) {
+	if (!frm || !frm.wrapper) {
+		return;
+	}
+	$(frm.wrapper)
+		.off("grid-row-render.declaration_booking_ms")
+		.on("grid-row-render.declaration_booking_ms", function(e, grid_row) {
+			_lock_declaration_booking_milestone_grid_row(grid_row);
+		});
 }
 
 /** Sales / Purchase invoice dialogs live in app assets; if the form bundle fails mid-load, lazy-require fixes missing globals. */
@@ -459,6 +534,9 @@ frappe.ui.form.on("Declaration", {
 			});
 		});
 	},
+	milestones_on_form_rendered: function(frm) {
+		_lock_declaration_booking_milestone_rows(frm);
+	},
 	onload(frm) {
 		_logistics_set_charges_cannot_add_rows(frm);
 		_declaration_apply_currency_exchange_from_order(frm);
@@ -470,6 +548,7 @@ frappe.ui.form.on("Declaration", {
 		_declaration_apply_currency_exchange_from_order(frm);
 	},
 	setup(frm) {
+		_bind_declaration_booking_milestone_lock(frm);
 		frm.set_query('milestone_template', function() {
 			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
 				.then(function(r) { return r.message || { filters: [] }; });
@@ -494,6 +573,13 @@ frappe.ui.form.on("Declaration", {
 				? locals[frm.doctype][new_name]
 				: frappe.get_doc(frm.doctype, new_name);
 		}
+		_load_milestone_html(frm, true);
+	},
+	on_tab_change(frm) {
+		var tab = frm.get_active_tab && frm.get_active_tab();
+		if (tab && tab.df && tab.df.fieldname === "milestones_tab") {
+			_load_milestone_html(frm, true);
+		}
 	},
 	notify_party(frm) {
 		// Auto-populate notify_party_address when notify_party is selected
@@ -515,6 +601,10 @@ frappe.ui.form.on("Declaration", {
 	},
 	
 	refresh(frm) {
+		_bind_declaration_booking_milestone_lock(frm);
+		setTimeout(function() {
+			_lock_declaration_booking_milestone_rows(frm);
+		}, 0);
 		if (window.logistics && logistics.job_change_lock) {
 			logistics.job_change_lock.apply(frm);
 		}
@@ -546,27 +636,46 @@ frappe.ui.form.on("Declaration", {
 			}
 			return { filters };
 		});
-		// Load dashboard HTML in Dashboard tab (only when doc is saved)
-		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal) {
+		if (frm.doc.__islocal) {
+			if (frm.fields_dict.milestone_html) {
+				frm.fields_dict.milestone_html.$wrapper.empty();
+				frm.fields_dict.milestone_html.df.options = "";
+				var local_ms_df = frappe.meta.get_docfield(frm.doctype, "milestone_html", frm.doc.name);
+				if (local_ms_df) {
+					local_ms_df.options = "";
+				}
+			}
+		}
+		// Load dashboard HTML in Dashboard tab (only when doc is saved).
+		// Use fetch_declaration_dashboard_html(docname), not frm.call(get_dashboard_html), so we do not
+		// go through run_doc_method / refresh_fields(). Otherwise layout.refresh() can wipe the
+		// Milestones tab timeline after inject.
+		if (frm.fields_dict.dashboard_html && frm.doc.name && !frm.doc.__islocal && !frm._logistics_template_populate_busy) {
 			if (!frm._dashboard_html_called) {
 				frm._dashboard_html_called = true;
-				frm.call("get_dashboard_html").then((r) => {
-					if (r.message && frm.fields_dict.dashboard_html) {
-						frm.fields_dict.dashboard_html.$wrapper.html(r.message);
-						if (window.logistics_bind_document_alert_cards) {
-							window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+				frappe.call({
+					method: "logistics.customs.doctype.declaration.declaration.fetch_declaration_dashboard_html",
+					args: { docname: frm.doc.name },
+					callback: function (r) {
+						if (r.message && frm.fields_dict.dashboard_html) {
+							frm.fields_dict.dashboard_html.$wrapper.html(r.message);
+							if (window.logistics_bind_document_alert_cards) {
+								window.logistics_bind_document_alert_cards(frm.fields_dict.dashboard_html.$wrapper);
+							}
+							_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
 						}
-						_group_and_collapse_dash_alerts(frm.fields_dict.dashboard_html.$wrapper);
-					}
-				}).catch(() => {}).always(() => {
-					setTimeout(() => { frm._dashboard_html_called = false; }, 2000);
+					},
+				}).always(function () {
+					setTimeout(function () { frm._dashboard_html_called = false; }, 2000);
 				});
 			}
 		}
-		_load_milestone_html(frm);
+		if (!frm._logistics_template_populate_busy) {
+			_load_milestone_html(frm, true);
+		}
 		if (frm.layout && frm.layout.wrapper) {
 			frm.layout.wrapper.off('click.milestone_html').on('click.milestone_html', '[data-fieldname="milestones_tab"]', function() {
-				_load_milestone_html(frm);
+				_load_milestone_html(frm, true);
 			});
 		}
 
@@ -1121,3 +1230,35 @@ function logistics_show_create_exemption_certificate_dialog(frm) {
 		dialog.show();
 	});
 }
+
+frappe.ui.form.on("Declaration Milestone", {
+	form_render: function(frm, cdt, cdn) {
+		var row = locals[cdt] && locals[cdt][cdn];
+		if (!_declaration_milestone_row_from_booking(row)) {
+			return;
+		}
+		var grid = frm.fields_dict.milestones && frm.fields_dict.milestones.grid;
+		var grid_row = grid && grid.grid_rows_by_docname && grid.grid_rows_by_docname[cdn];
+		if (!grid_row) {
+			return;
+		}
+		row.__read_only = 1;
+		if (grid_row.wrapper) {
+			grid_row.wrapper.find(".grid-delete-row, .grid-insert-row, .grid-insert-row-below, .grid-duplicate-row").hide();
+		}
+		(grid_row.docfields || []).forEach(function(df) {
+			if (!df || !df.fieldname || df.fieldtype === "Section Break" || df.fieldtype === "Column Break") {
+				return;
+			}
+			grid_row.toggle_editable(df.fieldname, false);
+		});
+		_lock_declaration_booking_milestone_rows(frm);
+	},
+	before_milestones_remove: function(frm, cdt, cdn) {
+		var row = locals[cdt] && locals[cdt][cdn];
+		if (_declaration_milestone_row_from_booking(row)) {
+			frappe.throw(__("Milestones copied from Declaration Order cannot be deleted."));
+		}
+	}
+});
+

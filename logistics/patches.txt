@@ -384,6 +384,12 @@ logistics.patches.v3_0_sync_mice_operations_dashboard
 logistics.patches.v3_0_sync_special_project_operations_dashboard
 # High Value Home: brand operations dashboard (HV Brands + HV freight SLA map)
 logistics.patches.v3_0_sync_high_value_operations_dashboard
+# High Value: script reports and report cards on workspace
+logistics.patches.v3_0_sync_high_value_reports_workspace
+# High Value: remove workspace KPI cards and charts; keep shortcuts and report cards
+logistics.patches.v3_0_strip_high_value_workspace_analytics
+# High Value: Reports and Analytics cards at the bottom of the workspace
+logistics.patches.v3_0_move_high_value_reports_to_bottom
 # Warehousing Home: job operations dashboard (jobs, owners, open orders, SLA)
 logistics.patches.v3_0_sync_warehouse_operations_dashboard
 # Job Management Home: jobs, WIP, accrual, billing monitor
@@ -480,3 +486,76 @@ logistics.patches.v3_0_mice_sales_quote_html_charge_group
 logistics.patches.v3_0_mice_sales_quote_html_destination_last
 # Tariff ALTA: fix break_header crash when unit-break key is float
 logistics.patches.v3_0_update_tariff_alta_break_header_float_fix
+# Warehouse Job: add Cross Dock print format variant
+logistics.patches.v3_0_install_warehouse_job_cross_dock_print_format
+# Air Shipment: Cargo Label HTML piece-sticker print format
+logistics.patches.v3_0_install_cargo_label_html_print_format
+# Sales / Purchase Invoice HTML: set receipt design as the standard default
+logistics.patches.v3_0_set_standard_invoice_print_formats
+# Netting Home: HTML dashboard for top orgs with AR/AP ready to net
+logistics.patches.v3_0_sync_netting_operations_dashboard
+# Netting desk tile: logistics blue SVG (same as other modules)
+logistics.patches.v3_0_sync_netting_desktop_icon
+# Netting desk tile: unhide and add to saved Desktop Layouts
+logistics.patches.v3_0_unhide_netting_desktop_icon
+# Netting desk tile: clear sidebar so DesktopIcon.get_route() runs
+logistics.patches.v3_0_fix_netting_desktop_icon_sidebar
+# Payment Voucher HTML: clear hardcoded Checked by / Approved by names
+logistics.patches.v3_0_update_payment_voucher_clear_signers
+# Payment Voucher HTML: center remittance advisory text
+logistics.patches.v3_0_center_payment_voucher_advisory
+# Payment Voucher HTML: remove party name from subtotal row
+logistics.patches.v3_0_remove_payment_voucher_subtotal_party
+# Payment Voucher HTML: match Sales Quote BIR footer design
+logistics.patches.v3_0_match_payment_voucher_bir_footer
+# Payment Voucher HTML: remove leftover subtotal amount row
+logistics.patches.v3_0_remove_payment_voucher_subtotal_amount
+# Payment Voucher HTML: pin advisory/total/signatures to page bottom
+logistics.patches.v3_0_pin_payment_voucher_bottom_section
+# Payment Voucher HTML: 3.5 inch blank header spacer above the rule
+logistics.patches.v3_0_payment_voucher_header_spacer
+# Payment Voucher HTML: header spacer 3.5in excluding 12mm page top margin
+logistics.patches.v3_0_payment_voucher_header_spacer_minus_margin
+# Settlement Entry: backfill settlement currency, rates, and base totals
+logistics.patches.v3_0_backfill_settlement_entry_currency
+# Sales Invoice HTML: company name header font size 16pt
+logistics.patches.v3_0_sales_invoice_html_company_name_16pt
+# Proof of Delivery HTML: match Sales Invoice header layout
+logistics.patches.v3_0_proof_of_delivery_html_invoice_header
+# Proof of Delivery HTML: remove header separator line
+logistics.patches.v3_0_proof_of_delivery_html_remove_separator
+# Warehouse Job HTML: match Sales Invoice header layout
+logistics.patches.v3_0_warehouse_job_html_invoice_header
+# Delivery Receipt HTML: match Sales Invoice header layout
+logistics.patches.v3_0_delivery_receipt_html_invoice_header
+# Delivery Receipt HTML: match Sales Invoice customer block (TIN)
+logistics.patches.v3_0_delivery_receipt_html_customer_block
+# Credit/debit notes: copy Job Number from original invoice (dimension is no_copy)
+logistics.patches.v3_0_backfill_return_invoice_job_number
+# Payment Voucher HTML: remove THE ACCOUNTS RECEIVABLE MANAGER
+logistics.patches.v3_0_remove_payment_voucher_ar_manager
+# Payment Voucher HTML: match Sales Invoice CUSTOMER block (keep Bank Account)
+logistics.patches.v3_0_payment_voucher_customer_block
+# Payment Voucher HTML: show party address (primary + linked Address)
+logistics.patches.v3_0_payment_voucher_party_address
+# Payment Voucher HTML: remove CUSTOMER heading
+logistics.patches.v3_0_remove_payment_voucher_customer_label
+# Payment Voucher HTML: clear PREPARED BY name
+logistics.patches.v3_0_clear_payment_voucher_prepared_by
+# Payment Voucher HTML: company name header font size 16pt
+logistics.patches.v3_0_payment_voucher_company_name_16pt
+# Gate Pass HTML 2: match Sales Invoice header layout
+logistics.patches.v3_0_gate_pass_html_2_invoice_header
+# Gate Pass HTML 2: match Sales Invoice customer block (TIN)
+logistics.patches.v3_0_gate_pass_html_2_customer_block
+# Gate Pass HTML 2: match Sales Invoice information block labels
+logistics.patches.v3_0_gate_pass_html_2_info_block
+# Cargo Label HTML: last 4 Airwaybill digits at 24pt
+logistics.patches.v3_0_update_cargo_label_html_awb_tail
+# Cargo Label HTML: Housebill Number value at 18pt
+logistics.patches.v3_0_update_cargo_label_html_housebill_18pt
+# Cargo Label HTML: Housebill Number digits at 16pt, single line
+logistics.patches.v3_0_update_cargo_label_html_housebill_16pt
+# Air Shipment: Air Manifest HTML print format
+logistics.patches.v3_0_install_air_manifest_html_print_format
+

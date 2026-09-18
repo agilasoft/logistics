@@ -74,7 +74,7 @@
         }
         
         .company-name {
-            font-size: 12pt;
+            font-size: 16pt !important;
             font-weight: bold;
             margin-bottom: 0;
         }
@@ -87,6 +87,11 @@
         
         .vat-reg {
             font-size: 7pt;
+        }
+
+        .company-contact {
+            font-size: 7pt;
+            line-height: 1.3;
         }
         
         /* Document Title */
@@ -103,63 +108,110 @@
             margin: 3mm 0;
         }
         
-        /* Main Body - Two Columns */
+        /* Invoice Information block */
+        .info-block {
+            border: 2px solid #000;
+            padding: 1mm 1.5mm;
+            font-size: 7.5pt;
+            page-break-inside: avoid;
+        }
+        .info-block .info-title {
+            font-weight: 900;
+            font-size: 8pt;
+            margin-bottom: 1mm;
+            border-bottom: 1px solid #000;
+            padding-bottom: 0.5mm;
+            letter-spacing: 0.02em;
+        }
+        .info-block .field-row {
+            display: flex;
+            margin-bottom: 0.2mm;
+            align-items: center;
+            gap: 1.5mm;
+            min-height: 3.5mm;
+        }
+        .info-block .field-label {
+            font-weight: bold;
+            font-size: 7.5pt;
+            min-width: 26mm;
+            flex-shrink: 0;
+            text-align: left;
+        }
+        .info-block .field-value {
+            flex: 1;
+            font-size: 7.5pt;
+            min-width: 0;
+        }
+
         .main-body {
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            justify-content: flex-start;
             margin-bottom: 0;
             margin-top: 35mm;
-            border: 2px solid #000;
-            padding: 1.5mm;
             position: relative;
         }
-        
-        .left-column {
-            flex: 1;
-            padding-right: 5mm;
+        .main-body .info-block {
+            margin-top: 0;
+            margin-bottom: 0;
         }
-        
-        .left-column .field-row {
-            justify-content: flex-end;
+        .main-body .info-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 6mm;
         }
-        
-        .left-column .field-label {
-            width: 25mm;
-            text-align: right;
-        }
-        
+        .left-column,
         .right-column {
-            flex: 1;
-            padding-left: 5mm;
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 0;
+            display: grid;
+            grid-template-columns: max-content 1fr;
+            column-gap: 0;
+            row-gap: 0.2mm;
+            align-items: center;
+            align-content: start;
+            grid-auto-rows: min-content;
         }
-        
-        .right-column .field-label {
-            width: 25mm;
-            text-align: right;
+        .left-column .field-row,
+        .right-column .field-row {
+            display: contents;
         }
-        
+        .main-body .info-block .field-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1.5mm;
+            width: auto;
+            min-width: 0;
+            text-align: left;
+        }
+        .main-body .info-block .field-label::after {
+            content: ": ";
+            flex-shrink: 0;
+        }
+
         .field-row {
             display: flex;
-            margin-bottom: -1mm;
+            margin-bottom: 0.2mm;
             align-items: flex-start;
-            gap: 0.3mm;
+            gap: 1.5mm;
         }
-        
         .field-label {
-            font-weight: 900;
-            min-width: 20mm;
-            font-size: 8pt;
+            font-weight: bold;
+            min-width: 22mm;
+            font-size: 7.5pt;
             flex-shrink: 0;
             text-align: right;
         }
-        
-    .field-value {
-        flex: 1;
-        font-size: 8pt;
-        min-height: 5mm;
-        padding: 0.3mm 0.5mm;
-        background: white;
-    }
+        .field-value {
+            flex: 1;
+            font-size: 7.5pt;
+            min-height: 3.5mm;
+            padding: 0.2mm 0.3mm;
+            background: white;
+        }
     
         
         /* Customer Info Section - Aligned with QR */
@@ -193,6 +245,18 @@
             font-size: 8pt;
             background: white;
             width: 100mm;
+        }
+
+        .customer-detail-row {
+            font-size: 8pt;
+            margin-top: 0.5mm;
+            line-height: 1.2;
+        }
+        .customer-detail-label {
+            font-weight: bold;
+        }
+        .customer-detail-value {
+            margin-left: 0.5mm;
         }
         
         /* QR Code Section */
@@ -420,6 +484,43 @@
             margin-top: 0.5mm;
             padding-top: 0.8mm;
         }
+
+        .vat-summary-container.dsb-total-only {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 2mm;
+            margin-top: 2mm;
+            width: 100%;
+        }
+        .vat-summary-container.dsb-total-only .vat-right-column {
+            width: 50%;
+            flex: 0 0 50%;
+            display: flex;
+            flex-direction: column;
+        }
+        .vat-summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5mm;
+            align-items: center;
+            gap: 1.5mm;
+        }
+        .vat-total-row {
+            border-top: 1px solid #000;
+            margin-top: 0.5mm;
+            padding-top: 0.8mm;
+        }
+        .vat-total-label {
+            font-size: 8pt;
+            font-weight: 900;
+            text-align: left;
+        }
+        .vat-total-value {
+            font-size: 8pt;
+            font-weight: 900;
+            text-align: right;
+            min-width: 25mm;
+        }
         
         /* Payment Info Section */
         .payment-info-section {
@@ -519,11 +620,10 @@
         
         /* Footer Section */
         .footer-section {
-            margin-top: auto;
+            margin-top: 2mm;
             padding-top: 1mm;
             border-top: 1px solid #000;
             font-size: 7pt;
-            page-break-before: always;
         }
         
         .bottom-section {
@@ -531,6 +631,8 @@
             display: flex;
             flex-direction: column;
             min-height: 0;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
         
         .footer-row {
@@ -544,6 +646,41 @@
             margin-top: 3mm;
             font-size: 10pt;
             text-transform: uppercase;
+        }
+
+        .disclaimer-container {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            gap: 3mm;
+            width: 100%;
+            margin-top: 2mm;
+            margin-bottom: 2mm;
+            border-top: 1px solid #000;
+            padding-top: 1mm;
+        }
+        .disclaimer-left-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            font-size: 7pt;
+            line-height: 1.3;
+        }
+        .disclaimer-right-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            font-size: 7pt;
+            line-height: 1.3;
+            padding-left: 10mm;
+        }
+        .disclaimer-title {
+            font-weight: bold;
+            font-size: 7pt;
+            margin-bottom: 0.5mm;
+        }
+        .disclaimer-item {
+            margin-bottom: 0.3mm;
         }
         
         /* QR Code */
@@ -565,34 +702,45 @@
         
         @page {
             size: A4;
-            margin: 12mm 12mm 25mm 12mm;
+            margin: 12mm;
         }
         
         @media print {
             body {
                 margin: 0;
                 padding: 0;
-                padding-bottom: 25mm;
             }
             .receipt-container {
                 padding: 0;
                 max-width: 100%;
-                padding-bottom: 25mm;
+                display: flex;
+                flex-direction: column;
+                min-height: 273mm;
+            }
+            .top-section,
+            .table-summary-container {
+                flex: 1 1 auto;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+            .summary-received-container {
+                margin-top: auto;
             }
             .page-break {
                 page-break-after: always;
             }
             .footer-section {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                width: 100%;
-                background: white;
-                padding: 1mm 12mm;
+                position: static;
                 border-top: 1px solid #000;
-                margin: 0;
-                page-break-before: always;
+                padding-top: 2mm;
+                margin-top: 4mm;
+            }
+            .bottom-section {
+                flex: 0 0 auto;
+                margin-top: 2mm;
+                page-break-inside: avoid;
+                break-inside: avoid;
             }
             
             .payment-info-section {
@@ -605,6 +753,10 @@
             
             .signature-section {
                 page-break-inside: avoid;
+            }
+
+            .header .company-name {
+                font-size: 16pt !important;
             }
         }
     </style>
@@ -636,14 +788,30 @@
 <div class="company-info">
                 <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
                 <div class="company-address">
-                    {% if company_doc.address %}
-                        {% set company_address = frappe.get_doc("Address", company_doc.address) %}
-                        {{ company_address.address_line1 if company_address.address_line1 else '' }}
-                        {% if company_address.address_line2 %}{{ company_address.address_line2 }}{% endif %}
-{% if company_address.city %}{{ company_address.city }}{% endif %}
-{% if company_address.state %}, {{ company_address.state }}{% endif %}
-{% if company_address.country %}{{ company_address.country }}{% endif %}
-{% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                    {% set company_address_name = None %}
+                    {% set addr_rows = frappe.get_all(
+                        "Address",
+                        filters=[
+                            ["Dynamic Link", "link_doctype", "=", "Company"],
+                            ["Dynamic Link", "link_name", "=", company_doc.name],
+                            ["disabled", "=", 0],
+                        ],
+                        fields=["name"],
+                        order_by="is_primary_address desc",
+                        limit_page_length=1
+                    ) %}
+                    {% if addr_rows %}{% set company_address_name = addr_rows[0].name %}{% endif %}
+                    {% if not company_address_name and company_doc.address and frappe.db.exists("Address", company_doc.address) %}
+                        {% set company_address_name = company_doc.address %}
+                    {% endif %}
+                    {% if company_address_name and frappe.db.exists("Address", company_address_name) %}
+                        {% set company_address = frappe.get_doc("Address", company_address_name) %}
+                        {{ company_address.address_line1 or '' }}
+                        {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
+                        {% if company_address.city %} {{ company_address.city }}{% endif %}
+                        {% if company_address.state %}, {{ company_address.state }}{% endif %}
+                        {% if company_address.country %} {{ company_address.country }}{% endif %}
+                        {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
                     {% elif company_doc.address_line1 %}
                         {{ company_doc.address_line1 }}<br>
                         {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
@@ -666,6 +834,10 @@
                     {% elif company_doc.tin %}
                         VAT Reg. TIN: {{ company_doc.tin }}
                     {% endif %}
+                </div>
+                <div class="company-contact">
+                    {% if company_doc.email %}Email: {{ company_doc.email }}<br>{% endif %}
+                    {% if company_doc.phone_no %}Phone: {{ company_doc.phone_no }}{% endif %}
                 </div>
             </div>
             {% else %}
@@ -723,6 +895,10 @@
                         {% endif %}
                     {% endif %}
                 </div>
+                    {% if doc.customer %}
+                    {% set customer_doc = frappe.get_doc("Customer", doc.customer) %}
+                    <div class="customer-detail-row"><span class="customer-detail-label">TIN:</span> <span class="customer-detail-value">{{ customer_doc.tax_id or customer_doc.tin or '-' }}</span></div>
+                    {% endif %}
             </div>
             
             <!-- QR Code Section - Positioned in top right of main body -->
@@ -732,54 +908,64 @@
                 <div class="receipt-title-qr">DISBURSEMENT BILL</div>
                 <div class="reference-number">{{ doc.name }}</div>
             </div>
-            <!-- Left Column - Invoice Information -->
-            <div class="left-column">
-                <div class="field-row">
-                    <div class="field-label">JOB NUMBER:</div>
-                    <div class="field-value">
-                        {% if doc.job_number %}
-                            {% set job_costing_doc = frappe.get_doc("Job Number", doc.job_number) %}
-                            {{ job_costing_doc.job_no if job_costing_doc.job_no else doc.job_number }}
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="field-row">
-                    <div class="field-label">BRANCH CODE:</div>
-                    <div class="field-value">
+            <!-- Invoice Information -->
+            <div class="info-block">
+                <div class="info-title">INVOICE INFORMATION</div>
+                <div class="info-content">
+                    <div class="left-column">
+                        <div class="field-row">
+                            <div class="field-label">JOB NUMBER</div>
+                            <div class="field-value">
+                                {% if doc.job_number and frappe.db.exists("Job Number", doc.job_number) %}
+                                    {% set job_costing_doc = frappe.get_doc("Job Number", doc.job_number) %}
+                                    {{ job_costing_doc.job_no if job_costing_doc.job_no else doc.job_number }}
+                                {% else %}
+                                    {{ doc.job_number or '' }}
+                                {% endif %}
+                            </div>
+                        </div>
                         {% if doc.branch %}
-                            {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
-                            {{ branch_doc.branch_code if branch_doc.branch_code else branch_doc.branch_name if branch_doc.branch_name else doc.branch }}
+                        <div class="field-row">
+                            <div class="field-label">BRANCH</div>
+                            <div class="field-value">
+                                {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
+                                {{ branch_doc.branch_name or branch_doc.branch_code or doc.branch }}
+                            </div>
+                        </div>
                         {% endif %}
+                        <div class="field-row">
+                            <div class="field-label">POSTED BY</div>
+                            <div class="field-value">
+                                {% if doc.owner and frappe.db.exists("User", doc.owner) %}
+                                    {% set owner_doc = frappe.get_doc("User", doc.owner) %}
+                                    {{ owner_doc.full_name or doc.owner }}
+                                {% else %}
+                                    {{ doc.owner or '' }}
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="field-row">
-                    <div class="field-label">TYPE:</div>
-                    <div class="field-value">
-                        {% if doc.custom_invoice_type %}
-                            {{ doc.custom_invoice_type }}
-                        {% elif doc.invoice_type %}
-                            {{ doc.invoice_type }}
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Right Column - Invoice Details -->
-            <div class="right-column">
-                <div class="field-row">
-                    <div class="field-label">INVOICE DATE:</div>
-                    <div class="field-value">
-                        {% if doc.posting_date %}
-                            {{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') }}
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="field-row">
-                    <div class="field-label">DUE DATE:</div>
-                    <div class="field-value">
-                        {% if doc.posting_date %}
-                            {{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') }}
-                        {% endif %}
+                    <div class="right-column">
+                        <div class="field-row">
+                            <div class="field-label">INVOICE DATE</div>
+                            <div class="field-value">
+                                {% if doc.posting_date %}
+                                    {{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-label">DUE DATE</div>
+                            <div class="field-value">
+                                {% if doc.due_date %}
+                                    {{ frappe.utils.formatdate(doc.due_date, 'MM-dd-yyyy') }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-label">PAYMENT TERMS</div>
+                            <div class="field-value">{{ doc.payment_terms_template or doc.payment_terms or '' }}</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -787,6 +973,8 @@
         
         <!-- Table and Summary Container -->
         <div class="table-summary-container">
+            {% set dsb = get_disbursement_bill_context(doc) %}
+            {% set currency = doc.currency or 'PHP' %}
             <!-- Invoice Table -->
             <table class="invoice-table">
                 <thead class="table-header">
@@ -797,9 +985,8 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% if doc.items %}
-                        {% set currency = doc.currency or 'PHP' %}
-                        {% for item in doc.items %}
+                    {% if dsb.line_items %}
+                        {% for item in dsb.line_items %}
                             <tr class="table-row">
                                 <td>{{ frappe.utils.fmt_money(item.qty, precision=2) }}</td>
                                 <td>{{ item.item_name or item.item_code or '' }}</td>
@@ -815,9 +1002,9 @@
             <!-- Summary and Payment Info Container -->
             <div class="summary-received-container">
                 <!-- Totals Row - Aligned with table columns -->
-                {% set total_amount = doc.net_total or doc.grand_total %}
-                {% set discount_amount = doc.discount_amount or 0 %}
-                {% set total_amount_due = total_amount - discount_amount %}
+                {% set total_amount = dsb.total %}
+                {% set discount_amount = dsb.discount_amount or 0 %}
+                {% set total_amount_due = dsb.total_amount_due %}
                 
                 {% if discount_amount > 0 %}
                 <div class="totals-row-container">
@@ -829,9 +1016,13 @@
                     <div class="totals-col-2">{{ frappe.utils.fmt_money(discount_amount, precision=2) }}</div>
                 </div>
                 {% endif %}
-<div class="totals-row-container total-row">
-                    <div class="totals-col-1">TOTAL AMOUNT DUE:</div>
-                    <div class="totals-col-2">{{ frappe.utils.fmt_money(total_amount_due, precision=2) }}</div>
+                <div class="vat-summary-container dsb-total-only">
+                    <div class="vat-right-column">
+                        <div class="vat-summary-row vat-total-row">
+                            <div class="vat-total-label">Total</div>
+                            <div class="vat-total-value">{{ currency }} {{ frappe.utils.fmt_money(total_amount_due, precision=2) }}</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -839,6 +1030,25 @@
         
         <!-- Bottom Section: Footer -->
         <div class="bottom-section">
+        <div class="disclaimer-container">
+            <div class="disclaimer-left-column">
+                <div class="disclaimer-item">
+                    Please contact us within 7 days should there be any discrepancies.
+                </div>
+                <div class="disclaimer-item">
+                    Interest of 1% & penalty of 2% per month will be charged on overdue invoice calculated from due date till date of actual payment.
+                </div>
+            </div>
+            <div class="disclaimer-right-column">
+                <div class="disclaimer-title">Applicable Withholding Taxes:</div>
+                <div class="disclaimer-item">
+                    2% Forwarding, Warehousing and Local Charges
+                </div>
+                <div class="disclaimer-item">
+                    15% Brokerage Fee
+                </div>
+            </div>
+        </div>
         <!-- Footer Section -->
         <div class="footer-section">
             {% set bir_name = frappe.db.get_value("BIR CAS Settings", {"company": doc.company}, "name") %}

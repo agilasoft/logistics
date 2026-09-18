@@ -59,6 +59,8 @@ class SettlementEntryTransaction(Document):
 			ref_doc = frappe.get_doc(self.reference_doctype, self.reference_name)
 			self.outstanding_amount = flt(ref_doc.outstanding_amount)
 			self.total_amount = flt(ref_doc.grand_total)
+			self.currency = ref_doc.currency
+			self.invoice_conversion_rate = flt(ref_doc.conversion_rate) or 1.0
 			
 			if not self.allocated_amount and self.outstanding_amount:
 				self.allocated_amount = self.outstanding_amount
@@ -67,6 +69,8 @@ class SettlementEntryTransaction(Document):
 			ref_doc = frappe.get_doc(self.reference_doctype, self.reference_name)
 			self.outstanding_amount = flt(ref_doc.outstanding_amount)
 			self.total_amount = flt(ref_doc.grand_total)
+			self.currency = ref_doc.currency
+			self.invoice_conversion_rate = flt(ref_doc.conversion_rate) or 1.0
 			
 			if not self.allocated_amount and self.outstanding_amount:
 				self.allocated_amount = self.outstanding_amount
@@ -81,6 +85,12 @@ class SettlementEntryTransaction(Document):
 			# For Journal Entry, use the absolute difference as outstanding
 			self.outstanding_amount = abs(total_debit - total_credit)
 			self.total_amount = self.outstanding_amount
+			
+			for acc in ref_doc.accounts:
+				if acc.party_type in ("Customer", "Supplier") and acc.party:
+					self.currency = acc.account_currency
+					self.invoice_conversion_rate = flt(acc.exchange_rate) or 1.0
+					break
 			
 			if not self.allocated_amount and self.outstanding_amount:
 				self.allocated_amount = self.outstanding_amount

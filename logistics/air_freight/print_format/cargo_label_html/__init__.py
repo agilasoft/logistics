@@ -1,0 +1,1 @@
+# Install: bench execute logistics.air_freight.print_format.cargo_label_html.install_print_format.install_cargo_label_html_print_format

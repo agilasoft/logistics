@@ -154,6 +154,8 @@ def create_task_job(docname: str, title: Optional[str] = None):
 
 	assert_create_from_source("Exhibit Job", source_doc=order)
 	frappe.has_permission("Exhibit Order", "write", doc=order, throw=True)
+	if order.docstatus != 1:
+		frappe.throw(_("Please submit the Exhibit Order before creating an Exhibit Job."))
 	title = (title or "").strip()
 	if not title:
 		title = order.name

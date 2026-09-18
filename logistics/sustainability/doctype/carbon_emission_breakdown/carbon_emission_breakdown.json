@@ -14,7 +14,7 @@
   "activity_data",
   "description"
  ],
- "is_child_table": 1,
+ "istable": 1,
  "fields": [
   {
    "fieldname": "parent",
