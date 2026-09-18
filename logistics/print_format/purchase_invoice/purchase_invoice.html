@@ -1041,12 +1041,16 @@
                         {% endif %}
                         {% if company_address_name and frappe.db.exists("Address", company_address_name) %}
                             {% set company_address = frappe.get_doc("Address", company_address_name) %}
+                            {% if company_address.address_title %}
+                                {{ company_address.address_title }}
+                            {% else %}
                             {{ company_address.address_line1 or '' }}
                             {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
                             {% if company_address.city %} {{ company_address.city }}{% endif %}
                             {% if company_address.state %}, {{ company_address.state }}{% endif %}
                             {% if company_address.country %} {{ company_address.country }}{% endif %}
                             {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                            {% endif %}
                         {% elif company_doc.address_line1 %}
                             {{ company_doc.address_line1 }}<br>
                             {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
@@ -1055,14 +1059,11 @@
                         {% endif %}
                     </div>
                     <div class="vat-reg">
-                        {% if doc.branch %}
+                        {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
                             {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
-                            {% if branch_doc.custom_registration_details %}
-                                {{ branch_doc.custom_registration_details }}
-                            {% elif company_doc.tax_id %}
-                                VAT Reg. TIN: {{ company_doc.tax_id }}
-                            {% elif company_doc.tin %}
-                                VAT Reg. TIN: {{ company_doc.tin }}
+                            {% set vat_tin = branch_doc.custom_tax_id or company_doc.tax_id or company_doc.tin %}
+                            {% if vat_tin %}
+                                VAT Reg. TIN: {{ vat_tin }}
                             {% endif %}
                         {% elif company_doc.tax_id %}
                             VAT Reg. TIN: {{ company_doc.tax_id }}
@@ -1072,6 +1073,7 @@
                     </div>
                     <div class="company-contact">
                         {% if company_doc.email %}Email: {{ company_doc.email }}<br>{% endif %}
+                        {% if company_doc.website %}Website: {{ company_doc.website }}<br>{% endif %}
                         {% if company_doc.phone_no %}Phone: {{ company_doc.phone_no }}{% endif %}
                     </div>
                 </div>

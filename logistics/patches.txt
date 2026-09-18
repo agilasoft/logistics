@@ -544,6 +544,14 @@ logistics.patches.v3_0_remove_payment_voucher_customer_label
 logistics.patches.v3_0_clear_payment_voucher_prepared_by
 # Payment Voucher HTML: company name header font size 16pt
 logistics.patches.v3_0_payment_voucher_company_name_16pt
+# Payment Voucher HTML: match Sales Invoice header address/TIN/contact
+logistics.patches.v3_0_payment_voucher_match_si_header
+# Payment Voucher HTML: Bank Account line from Company Bank Account
+logistics.patches.v3_0_payment_voucher_company_bank_account
+# Payment Voucher HTML: PAYMENT and TOTAL REMITTANCE as positive amounts
+logistics.patches.v3_0_payment_voucher_unsigned_amounts
+# Payment Voucher HTML: blank Bank Account/BANK CODE without Company Bank Account
+logistics.patches.v3_0_payment_voucher_blank_bank_without_company_account
 # Gate Pass HTML 2: match Sales Invoice header layout
 logistics.patches.v3_0_gate_pass_html_2_invoice_header
 # Gate Pass HTML 2: match Sales Invoice customer block (TIN)
@@ -558,4 +566,22 @@ logistics.patches.v3_0_update_cargo_label_html_housebill_18pt
 logistics.patches.v3_0_update_cargo_label_html_housebill_16pt
 # Air Shipment: Air Manifest HTML print format
 logistics.patches.v3_0_install_air_manifest_html_print_format
+# Sales Invoice HTML: VAT TIN from Branch Tax ID
+logistics.patches.v3_0_sales_invoice_html_branch_tax_id
+# Sales Invoice HTML: * on Zero Rated / VAT Exempt amounts
+logistics.patches.v3_0_sales_invoice_html_amount_asterisk
+# Sales Invoice HTML: company Address Title in header
+logistics.patches.v3_0_sales_invoice_html_address_title
+# Sales Invoice HTML: Job Information names, ports, dates, packages
+logistics.patches.v3_0_sales_invoice_html_job_info
+# Sales Invoice HTML: Sea Job Information Vessel / Voyage
+logistics.patches.v3_0_sales_invoice_html_vessel_voyage
+# Sales Invoice HTML: Vessel / Voyage above ETD
+logistics.patches.v3_0_sales_invoice_html_vessel_voyage_order
+# Sales Invoice HTML: routing-leg Vessel/Voyage and 4-decimal measures
+logistics.patches.v3_0_sales_invoice_html_routing_vessel
+# Sales Invoice HTML: stop printing * on Amounts
+logistics.patches.v3_0_sales_invoice_html_remove_amount_asterisk
+# Sales Invoice HTML: Weight/Volume/Chargeable UOM
+logistics.patches.v3_0_sales_invoice_html_measure_uom
 

@@ -23,7 +23,8 @@ def get_vat_sales_summary(doc) -> frappe._dict:
 
 	Returns transaction-currency amounts for the Sales Invoice HTML VAT block.
 	When any charge line has an Item Tax Template or item_tax_rate, split by
-	line Amount using those rates (VAT Exempt / Zero Rated / Vatable).
+	the printed Amount column (net − tax) using those rates
+	(VAT Exempt / Zero Rated / Vatable).
 	"""
 	net_total = flt(getattr(doc, "net_total", None) or 0)
 	rows = _classified_tax_rows(doc)
@@ -62,6 +63,27 @@ def get_vat_sales_summary(doc) -> frappe._dict:
 		zero_rated_sales=buckets[ZERO_RATED],
 		total_sales=buckets[VATABLE] + buckets[EXEMPT] + buckets[ZERO_RATED],
 	)
+
+
+def item_is_zero_rated_or_exempt(doc, item) -> bool:
+	"""True when a printed charge line is Zero Rated or VAT Exempt (not merely 0.00 tax)."""
+	return _item_vat_treatment(doc, item) in (ZERO_RATED, EXEMPT)
+
+
+def _item_vat_treatment(doc, item) -> str:
+	return _item_treatment(item, _invoice_default_treatment(doc), {})
+
+
+def _invoice_default_treatment(doc) -> str:
+	rows = _classified_tax_rows(doc)
+	treatments = {treatment for treatment, _amount in rows}
+	if _has_item_tax_templates(doc):
+		return _default_item_treatment(treatments, doc)
+	if len(treatments) == 1:
+		return next(iter(treatments))
+	if len(treatments) > 1:
+		return VATABLE
+	return _category_treatment(doc) or VATABLE
 
 
 def _empty_buckets() -> dict[str, float]:
@@ -135,12 +157,42 @@ def _default_item_treatment(treatments: set[str], doc) -> str:
 	return VATABLE
 
 
+def _doc_vat_rate(doc) -> float:
+	rate = 0.0
+	for tax in getattr(doc, "taxes", None) or []:
+		label = _tax_label(tax)
+		if _is_withholding(tax, label):
+			continue
+		tax_rate = flt(_row_value(tax, "rate"))
+		if tax_rate <= 0:
+			continue
+		if _classify_text(label) == VATABLE:
+			rate += tax_rate
+	return rate
+
+
+def _print_line_tax(item, net: float, vat_rate: float) -> float:
+	if _row_value(item, "item_tax_template"):
+		custom = _row_value(item, "custom_tax_amount")
+		if custom is not None:
+			return flt(custom)
+		tax_amount = _row_value(item, "tax_amount")
+		return flt(tax_amount) if tax_amount is not None else 0.0
+	return flt(net) * (flt(vat_rate) / 100)
+
+
+def _print_line_amount(item, vat_rate: float) -> float:
+	net = flt(_row_value(item, "net_amount") or _row_value(item, "amount"))
+	return net - _print_line_tax(item, net, vat_rate)
+
+
 def _buckets_from_items(doc, default_treatment: str = VATABLE) -> dict[str, float]:
 	buckets = _empty_buckets()
 	cache: dict[str, str | None] = {}
 	fallback = default_treatment if default_treatment in (VATABLE, EXEMPT, ZERO_RATED) else VATABLE
+	vat_rate = _doc_vat_rate(doc)
 	for item in getattr(doc, "items", None) or []:
-		item_amt = flt(_row_value(item, "amount") or _row_value(item, "net_amount"))
+		item_amt = _print_line_amount(item, vat_rate)
 		buckets[_item_treatment(item, fallback, cache)] += item_amt
 	return buckets
 

@@ -467,7 +467,7 @@
     {% set payment_ns.total = doc.paid_amount or 0 %}
 {% endif %}
 {% set is_pay = (doc.payment_type == "Pay") %}
-{% set signed_total = -payment_ns.total if is_pay else payment_ns.total %}
+{% set signed_total = payment_ns.total %}
 
 {% set line_type = 'PAY' %}
 {% set line_desc = 'AP PAYMENT' %}
@@ -506,25 +506,20 @@
         {% set bank_code_ns.value = ba.bank_account_no or ba.account or doc.bank_account %}
     {% endif %}
 {% endif %}
-{% if not bank_code_ns.value %}
-    {% set gl_account = doc.paid_from if is_pay else doc.paid_to %}
-    {% if not gl_account %}
-        {% set gl_account = doc.paid_from or doc.paid_to %}
-    {% endif %}
-    {% if gl_account and frappe.db.exists("Account", gl_account) %}
-        {% set account_doc = frappe.get_doc("Account", gl_account) %}
-        {% set bank_code_ns.value = account_doc.account_number or account_doc.account_name or gl_account %}
-    {% elif gl_account %}
-        {% set bank_code_ns.value = gl_account %}
-    {% endif %}
-{% endif %}
 {% set bank_code = bank_code_ns.value %}
 
-{% set party_bank_display = '' %}
-{% if doc.party_bank_account and frappe.db.exists("Bank Account", doc.party_bank_account) %}
-    {% set pba = frappe.get_doc("Bank Account", doc.party_bank_account) %}
-    {% set party_bank_display = pba.bank_account_no or pba.account or doc.party_bank_account %}
+{% set company_bank_ns = namespace(value='') %}
+{% if doc.bank_account and frappe.db.exists("Bank Account", doc.bank_account) %}
+    {% set ba = frappe.get_doc("Bank Account", doc.bank_account) %}
+    {% if ba.account_name %}
+        {% set company_bank_ns.value = ba.account_name %}
+    {% elif ba.bank or ba.bank_account_no %}
+        {% set company_bank_ns.value = ((ba.bank or '') ~ ' ' ~ (ba.bank_account_no or ''))|trim %}
+    {% else %}
+        {% set company_bank_ns.value = doc.bank_account %}
+    {% endif %}
 {% endif %}
+{% set company_bank_display = company_bank_ns.value %}
 
 <div class="receipt-container">
     <div class="top-section">
@@ -546,30 +541,29 @@
                         <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
                         <div class="company-address">
                             {% if company_address %}
+                                {% if company_address.address_title %}
+                                    {{ company_address.address_title }}
+                                {% else %}
                                 {{ company_address.address_line1 or '' }}
                                 {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
                                 {% if company_address.city %} {{ company_address.city }}{% endif %}
                                 {% if company_address.state %}, {{ company_address.state }}{% endif %}
                                 {% if company_address.country %} {{ company_address.country }}{% endif %}
                                 {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                                {% endif %}
                             {% elif company_doc.address_line1 %}
-                                {{ company_doc.address_line1 }}
-                                {% if company_doc.address_line2 %} {{ company_doc.address_line2 }}{% endif %}
-                                {% if company_doc.city %} {{ company_doc.city }}{% endif %}
-                                {% if company_doc.state %}, {{ company_doc.state }}{% endif %}
-                                {% if company_doc.country %} {{ company_doc.country }}{% endif %}
-                                {% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
+                                {{ company_doc.address_line1 }}<br>
+                                {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
+                                {{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}<br>
+                                {{ company_doc.country }}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
                             {% endif %}
                         </div>
                         <div class="vat-reg">
                             {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
                                 {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
-                                {% if branch_doc.custom_registration_details %}
-                                    {{ branch_doc.custom_registration_details }}
-                                {% elif company_doc.tax_id %}
-                                    VAT Reg. TIN: {{ company_doc.tax_id }}
-                                {% elif company_doc.tin %}
-                                    VAT Reg. TIN: {{ company_doc.tin }}
+                                {% set vat_tin = branch_doc.custom_tax_id or company_doc.tax_id or company_doc.tin %}
+                                {% if vat_tin %}
+                                    VAT Reg. TIN: {{ vat_tin }}
                                 {% endif %}
                             {% elif company_doc.tax_id %}
                                 VAT Reg. TIN: {{ company_doc.tax_id }}
@@ -577,13 +571,11 @@
                                 VAT Reg. TIN: {{ company_doc.tin }}
                             {% endif %}
                         </div>
-                        {% if company_doc.email or company_doc.website or company_doc.phone_no %}
                         <div class="company-contact">
                             {% if company_doc.email %}Email: {{ company_doc.email }}<br>{% endif %}
                             {% if company_doc.website %}Website: {{ company_doc.website }}<br>{% endif %}
                             {% if company_doc.phone_no %}Phone: {{ company_doc.phone_no }}{% endif %}
                         </div>
-                        {% endif %}
                     </div>
                 {% else %}
                     <div class="logo-placeholder">company_logo</div>
@@ -614,7 +606,7 @@
                 {% endif %}
                 <div class="payee-bank">
                     <span class="payee-bank-label">Bank Account:</span>
-                    {% if party_bank_display %} {{ party_bank_display }}{% endif %}
+                    {% if company_bank_display %} {{ company_bank_display }}{% endif %}
                 </div>
             </div>
             <div class="account-block">
@@ -643,7 +635,7 @@
             <tbody>
                 {% if doc.references %}
                     {% for ref in doc.references %}
-                        {% set line_amt = -(ref.allocated_amount or 0) if is_pay else (ref.allocated_amount or 0) %}
+                        {% set line_amt = ref.allocated_amount or 0 %}
                         {% set line_date_ns = namespace(value=doc.posting_date) %}
                         {% if ref.reference_doctype == "Purchase Invoice" and frappe.db.exists("Purchase Invoice", ref.reference_name) %}
                             {% set inv_posting = frappe.db.get_value("Purchase Invoice", ref.reference_name, "posting_date") %}

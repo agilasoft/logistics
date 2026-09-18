@@ -212,7 +212,34 @@
             padding: 0.2mm 0.3mm;
             background: white;
         }
-    
+
+        /* Job Information Section - same 2-column layout as Invoice Information */
+        .job-information-section {
+            display: block;
+            margin-top: 1.5mm;
+            page-break-inside: avoid;
+        }
+        .job-information-section .info-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 6mm;
+        }
+        .main-body .job-information-section .left-column,
+        .main-body .job-information-section .right-column {
+            justify-items: start;
+        }
+        .main-body .job-information-section .field-label {
+            justify-content: flex-start;
+            width: max-content;
+            min-width: 0;
+        }
+        .main-body .job-information-section.info-block .field-label::after {
+            content: none;
+        }
+        .main-body .job-information-section .field-value::before {
+            content: ": ";
+        }
         
         /* Customer Info Section - Aligned with QR */
         .customer-info-section {
@@ -262,11 +289,12 @@
         /* QR Code Section */
         .qr-section {
             position: absolute;
-            top: -35mm;
+            top: auto;
+            bottom: 100%;
             right: 1.5mm;
             text-align: right;
             z-index: 10;
-            margin-bottom: 3mm;
+            margin-bottom: 0;
         }
         
         .qr-placeholder {
@@ -282,6 +310,8 @@
             width: 1in;
             height: 1in;
             border: none;
+            display: block;
+            margin-left: auto;
         }
         
         .receipt-title-qr {
@@ -289,14 +319,17 @@
             font-weight: bold;
             font-weight: 900;
             margin-top: 0.11mm;
-            margin-bottom: -1mm;
+            margin-bottom: 0;
             text-align: right;
+            line-height: 1;
         }
         
         .reference-number {
             font-size: 8pt;
             font-weight: regular;
-            margin-top: 0.1mm;
+            margin: 0;
+            padding: 0;
+            line-height: 1;
         }
         
         /* Table Section */
@@ -806,12 +839,16 @@
                     {% endif %}
                     {% if company_address_name and frappe.db.exists("Address", company_address_name) %}
                         {% set company_address = frappe.get_doc("Address", company_address_name) %}
+                        {% if company_address.address_title %}
+                            {{ company_address.address_title }}
+                        {% else %}
                         {{ company_address.address_line1 or '' }}
                         {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
                         {% if company_address.city %} {{ company_address.city }}{% endif %}
                         {% if company_address.state %}, {{ company_address.state }}{% endif %}
                         {% if company_address.country %} {{ company_address.country }}{% endif %}
                         {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                        {% endif %}
                     {% elif company_doc.address_line1 %}
                         {{ company_doc.address_line1 }}<br>
                         {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
@@ -820,14 +857,11 @@
                     {% endif %}
                 </div>
                 <div class="vat-reg">
-                    {% if doc.branch %}
+                    {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
                         {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
-                        {% if branch_doc.custom_registration_details %}
-                            {{ branch_doc.custom_registration_details }}
-                        {% elif company_doc.tax_id %}
-                            VAT Reg. TIN: {{ company_doc.tax_id }}
-                        {% elif company_doc.tin %}
-                            VAT Reg. TIN: {{ company_doc.tin }}
+                        {% set vat_tin = branch_doc.custom_tax_id or company_doc.tax_id or company_doc.tin %}
+                        {% if vat_tin %}
+                            VAT Reg. TIN: {{ vat_tin }}
                         {% endif %}
                     {% elif company_doc.tax_id %}
                         VAT Reg. TIN: {{ company_doc.tax_id }}
@@ -837,6 +871,7 @@
                 </div>
                 <div class="company-contact">
                     {% if company_doc.email %}Email: {{ company_doc.email }}<br>{% endif %}
+                    {% if company_doc.website %}Website: {{ company_doc.website }}<br>{% endif %}
                     {% if company_doc.phone_no %}Phone: {{ company_doc.phone_no }}{% endif %}
                 </div>
             </div>
@@ -970,6 +1005,180 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Job Information Section -->
+        {% set job_print_number = doc.job_number %}
+        {% if not job_print_number and doc.return_against %}
+            {% set job_print_number = frappe.db.get_value(doc.doctype, doc.return_against, "job_number") %}
+        {% endif %}
+        {% if job_print_number and frappe.db.exists("Job Number", job_print_number) %}
+        {% set jcn = frappe.get_doc("Job Number", job_print_number) %}
+        {% set job_type = jcn.job_type or "" %}
+        {% set job_no = jcn.job_no or "" %}
+        {% if job_no and job_type and frappe.db.exists(job_type, job_no) %}
+        {% set job_doc = frappe.get_doc(job_type, job_no) %}
+        {% macro party_name(doctype, name, field) -%}
+        {%- if name and frappe.db.exists(doctype, name) -%}
+        {{ frappe.db.get_value(doctype, name, field) or name }}
+        {%- else -%}
+        {{ name or "-" }}
+        {%- endif -%}
+        {%- endmacro %}
+        {% macro port_line(code) -%}
+        {%- if code -%}
+        {%- set loc = frappe.db.get_value("UNLOCO", code, ["unlocode", "city", "location_name", "country"], as_dict=True) -%}
+        {%- if loc -%}
+        {{ loc.unlocode or code }}{% set place = loc.city or loc.location_name %}{% if place %} = {{ place }}{% endif %}{% if loc.country %}, {{ loc.country[:-6] if loc.country[-6:]|lower == " (the)" else loc.country }}{% endif %}
+        {%- else -%}{{ code }}{%- endif -%}
+        {%- else -%}-{%- endif -%}
+        {%- endmacro %}
+        {% macro job_date(val) -%}
+        {%- if val -%}{{ frappe.utils.formatdate(val, 'dd-MMM-yy') }}{%- else -%}-{%- endif -%}
+        {%- endmacro %}
+        {% macro packages_line(job) -%}
+        {%- if job.total_packages is not none -%}
+        {{ job.total_packages|int }}{% set ns_pkg = namespace(uom="") %}{% for p in job.packages or [] %}{% if not ns_pkg.uom and p.uom %}{% set ns_pkg.uom = p.uom %}{% endif %}{% endfor %}{% if ns_pkg.uom %} {{ ns_pkg.uom }}{% endif %}
+        {%- else -%}-{%- endif -%}
+        {%- endmacro %}
+        {% macro measure_line(job, value, parent_uom, package_uom, settings_uom, settings_uom_alt="") -%}
+        {%- if value is not none -%}
+        {{ "%.4f"|format(value|float) }}{% set ns = namespace(uom=job.get(parent_uom) or "") %}
+        {%- if not ns.uom -%}{%- for p in job.packages or [] -%}{%- if not ns.uom and p.get(package_uom) -%}{%- set ns.uom = p.get(package_uom) -%}{%- endif -%}{%- endfor -%}{%- endif -%}
+        {%- if not ns.uom -%}{%- set ns.uom = frappe.db.get_single_value("Logistics Settings", settings_uom) or "" -%}{%- endif -%}
+        {%- if not ns.uom and settings_uom_alt -%}{%- set ns.uom = frappe.db.get_single_value("Logistics Settings", settings_uom_alt) or "" -%}{%- endif -%}
+        {%- if ns.uom %} {{ ns.uom }}{% endif %}
+        {%- else -%}-{%- endif -%}
+        {%- endmacro %}
+        {% macro vessel_voyage(job) -%}
+        {%- set ns_vv = namespace(vessel="", voyage="") -%}
+        {%- for leg in job.routing_legs or [] -%}
+        {%- if not ns_vv.vessel and not ns_vv.voyage and (leg.type or "") == "Main" and (leg.vessel or leg.voyage_no or leg.vessel_master) -%}
+        {%- set ns_vv.vessel = (leg.vessel or "")|trim -%}
+        {%- if not ns_vv.vessel and leg.vessel_master and frappe.db.exists("Vessel", leg.vessel_master) -%}
+        {%- set ns_vv.vessel = (frappe.db.get_value("Vessel", leg.vessel_master, "vessel_name") or "")|trim -%}
+        {%- endif -%}
+        {%- set ns_vv.voyage = (leg.voyage_no or "")|trim -%}
+        {%- endif -%}
+        {%- endfor -%}
+        {%- if not ns_vv.vessel and not ns_vv.voyage -%}
+        {%- for leg in job.routing_legs or [] -%}
+        {%- if not ns_vv.vessel and not ns_vv.voyage and (leg.vessel or leg.voyage_no or leg.vessel_master) -%}
+        {%- set ns_vv.vessel = (leg.vessel or "")|trim -%}
+        {%- if not ns_vv.vessel and leg.vessel_master and frappe.db.exists("Vessel", leg.vessel_master) -%}
+        {%- set ns_vv.vessel = (frappe.db.get_value("Vessel", leg.vessel_master, "vessel_name") or "")|trim -%}
+        {%- endif -%}
+        {%- set ns_vv.voyage = (leg.voyage_no or "")|trim -%}
+        {%- endif -%}
+        {%- endfor -%}
+        {%- endif -%}
+        {%- if not ns_vv.vessel -%}{%- set ns_vv.vessel = (job.get('mbl_vessel') or job.get('vessel') or "")|trim -%}{%- endif -%}
+        {%- if not ns_vv.voyage -%}{%- set ns_vv.voyage = (job.get('mbl_voyage_no') or job.get('voyage_no') or "")|trim -%}{%- endif -%}
+        {%- if ns_vv.vessel and ns_vv.voyage -%}{{ ns_vv.vessel }} / {{ ns_vv.voyage }}
+        {%- elif ns_vv.vessel -%}{{ ns_vv.vessel }}
+        {%- elif ns_vv.voyage -%}{{ ns_vv.voyage }}
+        {%- else -%}-{%- endif -%}
+        {%- endmacro %}
+        <div class="job-information-section info-block">
+            <div class="info-title">JOB INFORMATION</div>
+            <div class="info-content">
+                <div class="left-column">
+                    {% if job_doc %}
+                        {% if job_type == "Warehouse Job" %}
+                        <div class="field-row"><div class="field-label">JOB NO.</div><div class="field-value">{{ job_doc.name }}</div></div>
+                        <div class="field-row"><div class="field-label">STATUS</div><div class="field-value">{{ job_doc.status or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">CUSTOMER</div><div class="field-value">{{ job_doc.customer or "-" }}</div></div>
+                        {% elif job_type == "Air Shipment" %}
+                        <div class="field-row"><div class="field-label">CONSIGNOR</div><div class="field-value">{{ party_name("Shipper", job_doc.shipper, "shipper_name") }}</div></div>
+                        <div class="field-row"><div class="field-label">CONSIGNEE</div><div class="field-value">{{ party_name("Consignee", job_doc.consignee, "consignee_name") }}</div></div>
+                        <div class="field-row"><div class="field-label">ORIGIN</div><div class="field-value">{{ port_line(job_doc.origin_port or job_doc.origin_airport or job_doc.get('origin')) }}</div></div>
+                        <div class="field-row"><div class="field-label">DESTINATION</div><div class="field-value">{{ port_line(job_doc.destination_port or job_doc.destination_airport or job_doc.get('destination')) }}</div></div>
+                        <div class="field-row"><div class="field-label">ETD</div><div class="field-value">{{ job_date(job_doc.get('etd') or job_doc.get('mawb_flight_date')) }}</div></div>
+                        <div class="field-row"><div class="field-label">ETA</div><div class="field-value">{{ job_date(job_doc.get('eta')) }}</div></div>
+                        {% elif job_type == "Sea Shipment" %}
+                        <div class="field-row"><div class="field-label">CONSIGNOR</div><div class="field-value">{{ party_name("Shipper", job_doc.shipper, "shipper_name") }}</div></div>
+                        <div class="field-row"><div class="field-label">CONSIGNEE</div><div class="field-value">{{ party_name("Consignee", job_doc.consignee, "consignee_name") }}</div></div>
+                        <div class="field-row"><div class="field-label">ORIGIN</div><div class="field-value">{{ port_line(job_doc.origin_port or job_doc.get('port_of_loading')) }}</div></div>
+                        <div class="field-row"><div class="field-label">DESTINATION</div><div class="field-value">{{ port_line(job_doc.destination_port or job_doc.get('port_of_discharge')) }}</div></div>
+                        <div class="field-row"><div class="field-label">VESSEL / VOYAGE</div><div class="field-value">{{ vessel_voyage(job_doc) }}</div></div>
+                        <div class="field-row"><div class="field-label">ETD</div><div class="field-value">{{ job_date(job_doc.get('etd')) }}</div></div>
+                        <div class="field-row"><div class="field-label">ETA</div><div class="field-value">{{ job_date(job_doc.get('eta')) }}</div></div>
+                        {% elif job_type == "Transport Job" %}
+                        <div class="field-row"><div class="field-label">JOB NO.</div><div class="field-value">{{ job_doc.name }}</div></div>
+                        <div class="field-row"><div class="field-label">STATUS</div><div class="field-value">{{ job_doc.status or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">CUSTOMER</div><div class="field-value">{{ job_doc.customer or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">PICKUP</div><div class="field-value">{{ job_doc.pickup_address or job_doc.get('pickup_address_display') or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">DELIVERY</div><div class="field-value">{{ job_doc.delivery_address or job_doc.get('delivery_address_display') or "-" }}</div></div>
+                        {% elif job_type == "General Job" %}
+                        <div class="field-row"><div class="field-label">JOB NO.</div><div class="field-value">{{ job_doc.name }}</div></div>
+                        <div class="field-row"><div class="field-label">STATUS</div><div class="field-value">{{ job_doc.status or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">CUSTOMER</div><div class="field-value">{{ job_doc.customer or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">DESCRIPTION</div><div class="field-value">{{ job_doc.description or job_doc.get('remarks') or "-" }}</div></div>
+                        {% elif job_type == "Declaration" or job_type == "Customer Declaration" %}
+                        <div class="field-row"><div class="field-label">DECLARATION NO.</div><div class="field-value">{{ job_doc.declaration_number or job_doc.name }}</div></div>
+                        <div class="field-row"><div class="field-label">DECLARATION DATE</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.declaration_date, 'MM-dd-yyyy') if job_doc.get('declaration_date') else "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">DECLARATION TYPE</div><div class="field-value">{{ job_doc.declaration_type or job_doc.get('type') or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">CUSTOMER</div><div class="field-value">{{ job_doc.customer or job_doc.get('party') or "-" }}</div></div>
+                        {% else %}
+                        <div class="field-row"><div class="field-label">JOB NO.</div><div class="field-value">{{ job_doc.name }}</div></div>
+                        <div class="field-row"><div class="field-label">STATUS</div><div class="field-value">{{ job_doc.get('status') or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">CUSTOMER</div><div class="field-value">{{ job_doc.get('customer') or "-" }}</div></div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                <div class="right-column">
+                    {% if job_doc %}
+                        {% if job_type == "Warehouse Job" %}
+                        <div class="field-row"><div class="field-label">WAREHOUSE</div><div class="field-value">{{ job_doc.warehouse or job_doc.get('warehouse_name') or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">POSTING DATE</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.posting_date, 'MM-dd-yyyy') if job_doc.posting_date else "-" }}</div></div>
+                        {% elif job_type == "Air Shipment" %}
+                        <div class="field-row"><div class="field-label">AWB</div><div class="field-value">{{ job_doc.house_awb_no or job_doc.house_awb or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">MAWB</div><div class="field-value">{{ job_doc.master_awb or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">WEIGHT</div><div class="field-value">{{ measure_line(job_doc, job_doc.total_weight, "total_weight_uom", "weight_uom", "default_weight_uom") }}</div></div>
+                        <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(job_doc, job_doc.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
+                        <div class="field-row"><div class="field-label">CHARGEABLE</div><div class="field-value">{{ measure_line(job_doc, job_doc.chargeable, "chargeable_weight_uom", "weight_uom", "default_chargeable_weight_uom", "default_weight_uom") }}</div></div>
+                        <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(job_doc) }}</div></div>
+                        {% elif job_type == "Sea Shipment" %}
+                        <div class="field-row"><div class="field-label">HBL</div><div class="field-value">{{ job_doc.house_bl or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">MBL</div><div class="field-value">{{ job_doc.master_bill or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">WEIGHT</div><div class="field-value">{{ measure_line(job_doc, job_doc.total_weight, "total_weight_uom", "weight_uom", "default_weight_uom") }}</div></div>
+                        <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(job_doc, job_doc.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
+                        <div class="field-row"><div class="field-label">CHARGEABLE</div><div class="field-value">{{ measure_line(job_doc, job_doc.chargeable, "chargeable_weight_uom", "weight_uom", "default_chargeable_weight_uom", "default_weight_uom") }}</div></div>
+                        <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(job_doc) }}</div></div>
+                        {% elif job_type == "Transport Job" %}
+                        <div class="field-row"><div class="field-label">SERVICE DATE</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.service_date, 'MM-dd-yyyy') if job_doc.get('service_date') else "-" }}</div></div>
+                        {% elif job_type == "General Job" %}
+                        <div class="field-row"><div class="field-label">DATE</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.posting_date, 'MM-dd-yyyy') if job_doc.get('posting_date') else "-" }}</div></div>
+                        {% elif job_type == "Declaration" or job_type == "Customer Declaration" %}
+                        <div class="field-row"><div class="field-label">TOTAL VALUE</div><div class="field-value">{% if job_doc.get('total_declaration_value') is not none %}{{ frappe.utils.fmt_money(job_doc.total_declaration_value, precision=2) }}{% else %}-{% endif %}</div></div>
+                        <div class="field-row">
+                            <div class="field-label">BROKER</div>
+                            <div class="field-value">
+                                {% if job_type in ["Declaration", "Customer Declaration"] %}
+                                    {{ job_doc.customs_broker or "-" }}
+                                {% elif job_doc.get('broker') %}
+                                    {{ job_doc.broker }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-label">CUSTOMS AUTHORITY</div>
+                            <div class="field-value">
+                                {% if job_type in ["Declaration", "Customer Declaration", "Declaration Order"] %}
+                                    {{ job_doc.customs_authority or "-" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
         
         <!-- Table and Summary Container -->
         <div class="table-summary-container">

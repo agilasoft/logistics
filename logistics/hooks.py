@@ -396,6 +396,7 @@ jinja = {
 	"methods": [
 		"logistics.print_format.sales_invoice.dsb_line_items.get_disbursement_bill_context",
 		"logistics.print_format.sales_invoice.vat_sales_summary.get_vat_sales_summary",
+		"logistics.print_format.sales_invoice.vat_sales_summary.item_is_zero_rated_or_exempt",
 	]
 }
 

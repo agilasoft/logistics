@@ -641,12 +641,16 @@
                     {% endif %}
                     {% if company_address_name and frappe.db.exists("Address", company_address_name) %}
                         {% set company_address = frappe.get_doc("Address", company_address_name) %}
+                        {% if company_address.address_title %}
+                            {{ company_address.address_title }}
+                        {% else %}
                         {{ company_address.address_line1 or '' }}
                         {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
                         {% if company_address.city %} {{ company_address.city }}{% endif %}
                         {% if company_address.state %}, {{ company_address.state }}{% endif %}
                         {% if company_address.country %} {{ company_address.country }}{% endif %}
                         {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                        {% endif %}
                     {% elif company_doc.address_line1 %}
                         {{ company_doc.address_line1 }}<br>
                         {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
@@ -655,14 +659,11 @@
                     {% endif %}
                 </div>
                 <div class="vat-reg">
-                    {% if doc.branch %}
+                    {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
                         {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
-                        {% if branch_doc.custom_registration_details %}
-                            {{ branch_doc.custom_registration_details }}
-                        {% elif company_doc.tax_id %}
-                            VAT Reg. TIN: {{ company_doc.tax_id }}
-                        {% elif company_doc.tin %}
-                            VAT Reg. TIN: {{ company_doc.tin }}
+                        {% set vat_tin = branch_doc.custom_tax_id or company_doc.tax_id or company_doc.tin %}
+                        {% if vat_tin %}
+                            VAT Reg. TIN: {{ vat_tin }}
                         {% endif %}
                     {% elif company_doc.tax_id %}
                         VAT Reg. TIN: {{ company_doc.tax_id }}
@@ -672,6 +673,7 @@
                 </div>
                 <div class="company-contact">
                     {% if company_doc.email %}Email: {{ company_doc.email }}<br>{% endif %}
+                    {% if company_doc.website %}Website: {{ company_doc.website }}<br>{% endif %}
                     {% if company_doc.phone_no %}Phone: {{ company_doc.phone_no }}{% endif %}
                 </div>
             </div>
@@ -745,11 +747,11 @@
                 {% if doc.payment_type == 'Pay' %}
                     {% set document_title = 'PAYMENT VOUCHER' %}
                 {% elif doc.payment_type == 'Receive' %}
-                    {% set document_title = 'CASH RECEIPT' %}
+                    {% set document_title = 'COLLECTION RECEIPT' %}
                 {% elif doc.payment_type == 'Internal Transfer' %}
                     {% set document_title = 'INTERNAL TRANSFER' %}
                 {% else %}
-                    {% set document_title = 'CASH RECEIPT' %}
+                    {% set document_title = 'COLLECTION RECEIPT' %}
                 {% endif %}
                 <div class="receipt-title-qr">{{ document_title }}</div>
                 <div class="reference-number">{{ doc.name }}</div>
@@ -777,15 +779,41 @@
                 <div class="field-row">
                     <div class="field-label">BANK / ACCOUNT</div>
                     <div class="field-value">
-                        {% if doc.paid_from_account %}
-                            {% set account_doc = frappe.get_doc("Account", doc.paid_from_account) %}
-                            {{ account_doc.account_name if account_doc else doc.paid_from_account }}
-                        {% elif doc.paid_to_account %}
-                            {% set account_doc = frappe.get_doc("Account", doc.paid_to_account) %}
-                            {{ account_doc.account_name if account_doc else doc.paid_to_account }}
-                        {% else %}
-                            -
+                        {% set bank_ns = namespace(value='', is_cash=False) %}
+                        {% if doc.mode_of_payment %}
+                            {% if (doc.mode_of_payment|string)|trim|lower == 'cash' %}
+                                {% set bank_ns.is_cash = True %}
+                            {% elif frappe.db.exists("Mode of Payment", doc.mode_of_payment) %}
+                                {% if frappe.db.get_value("Mode of Payment", doc.mode_of_payment, "type") == "Cash" %}
+                                    {% set bank_ns.is_cash = True %}
+                                {% endif %}
+                            {% endif %}
                         {% endif %}
+                        {% if not bank_ns.is_cash %}
+                            {% if doc.bank_account and frappe.db.exists("Bank Account", doc.bank_account) %}
+                                {% set ba = frappe.get_doc("Bank Account", doc.bank_account) %}
+                                {% if ba.account_name %}
+                                    {% set bank_ns.value = ba.account_name %}
+                                {% elif ba.bank or ba.bank_account_no %}
+                                    {% set bank_ns.value = ((ba.bank or '') ~ ' ' ~ (ba.bank_account_no or ''))|trim %}
+                                {% else %}
+                                    {% set bank_ns.value = doc.bank_account %}
+                                {% endif %}
+                            {% endif %}
+                            {% if not bank_ns.value %}
+                                {% set gl_account = doc.paid_to if doc.payment_type == 'Receive' else doc.paid_from %}
+                                {% if not gl_account %}
+                                    {% set gl_account = doc.paid_from or doc.paid_to %}
+                                {% endif %}
+                                {% if gl_account and frappe.db.exists("Account", gl_account) %}
+                                    {% set account_doc = frappe.get_doc("Account", gl_account) %}
+                                    {% set bank_ns.value = account_doc.account_name or gl_account %}
+                                {% elif gl_account %}
+                                    {% set bank_ns.value = gl_account %}
+                                {% endif %}
+                            {% endif %}
+                        {% endif %}
+                        {{ bank_ns.value or '-' }}
                     </div>
                 </div>
                 <div class="field-row">
