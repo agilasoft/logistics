@@ -15,6 +15,13 @@ import os
 import frappe
 from frappe.modules.utils import get_app_level_directory_path
 
+_LINK_TYPE_DOCTYPE = {
+	"DocType": "DocType",
+	"Report": "Report",
+	"Page": "Page",
+	"Workspace": "Workspace",
+}
+
 
 def execute():
 	_sync_workspace()
@@ -44,6 +51,7 @@ def _sync_sidebar():
 
 def _upsert_from_json(doctype, name, data, child_tables=()):
 	ignore = {"doctype", "name", "modified", "modified_by", "creation", "owner", "idx"}
+	data = _drop_missing_link_targets(data, child_tables)
 	if frappe.db.exists(doctype, name):
 		doc = frappe.get_doc(doctype, name)
 	else:
@@ -53,7 +61,7 @@ def _upsert_from_json(doctype, name, data, child_tables=()):
 		for table in child_tables:
 			for row in data.get(table) or []:
 				doc.append(table, row)
-		doc.insert(ignore_permissions=True)
+		_save_workspace_doc(doc, insert=True)
 		return
 
 	for key, value in data.items():
@@ -67,10 +75,61 @@ def _upsert_from_json(doctype, name, data, child_tables=()):
 		doc.set(table, [])
 		for row in data.get(table) or []:
 			doc.append(table, row)
+	_save_workspace_doc(doc, insert=False)
+
+
+def _save_workspace_doc(doc, insert):
+	# GoConnect Settings (and similar optional-app links) are not on every site.
 	doc.flags.ignore_permissions = True
+	doc.flags.ignore_links = True
+	doc.flags.ignore_validate = True
 	# Workspace.on_update exports JSON to the app folder; skip that in migrate.
 	frappe.flags.in_import = True
 	try:
-		doc.save(ignore_permissions=True)
+		if insert:
+			doc.insert(ignore_permissions=True)
+		else:
+			doc.save(ignore_permissions=True)
 	finally:
 		frappe.flags.in_import = False
+
+
+def _drop_missing_link_targets(data, child_tables):
+	"""Skip desk links whose DocType/Report/Page is not installed on this site."""
+	out = dict(data)
+	for table in child_tables:
+		rows = out.get(table) or []
+		kept = [row for row in rows if _link_target_exists(row)]
+		if table == "links":
+			kept = _recount_card_breaks(kept)
+		out[table] = kept
+	return out
+
+
+def _link_target_exists(row):
+	target = row.get("link_to")
+	if not target or row.get("type") in ("Card Break", "Section Break"):
+		return True
+	link_type = row.get("link_type") or row.get("type")
+	doctype = _LINK_TYPE_DOCTYPE.get(link_type)
+	if not doctype:
+		return True
+	return bool(frappe.db.exists(doctype, target))
+
+
+def _recount_card_breaks(rows):
+	result = []
+	i = 0
+	while i < len(rows):
+		row = dict(rows[i])
+		if row.get("type") == "Card Break":
+			count = 0
+			j = i + 1
+			while j < len(rows) and rows[j].get("type") != "Card Break":
+				if rows[j].get("type") == "Link":
+					count += 1
+				j += 1
+			row["link_count"] = count
+		result.append(row)
+		i += 1
+	return result
