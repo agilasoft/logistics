@@ -1,0 +1,116 @@
+/* Netting Home custom block — top orgs with AR and AP ready to net */
+.nt-ops-dash .nt-ops-page-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ro-text-strong);
+  margin-top: 0.15rem;
+}
+.nt-ops-dash .nt-ops-heat-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  background: var(--ro-fill-light);
+  border-bottom: 1px solid var(--ro-border-soft);
+}
+.nt-ops-dash .nt-ops-user-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--ro-label);
+}
+.nt-ops-dash .nt-ops-search {
+  min-width: 11rem;
+}
+.nt-ops-dash .nt-ops-table-wrap {
+  max-height: 420px;
+  overflow: auto;
+}
+.nt-ops-dash table.nt-ops-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.nt-ops-dash table.nt-ops-table th {
+  text-align: left;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ro-label);
+  font-weight: 700;
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--ro-border-soft);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+}
+.nt-ops-dash table.nt-ops-table td {
+  padding: 0.42rem 0.5rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+.nt-ops-dash table.nt-ops-table tr:hover td {
+  background: #f8fafc;
+}
+.nt-ops-dash table.nt-ops-table tr.nt-ops-row-click {
+  cursor: pointer;
+}
+.nt-ops-dash .nt-ops-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.nt-ops-dash .nt-ops-org {
+  font-weight: 600;
+}
+.nt-ops-dash .nt-ops-muted {
+  color: var(--ro-muted, #6c757d);
+}
+.nt-ops-dash .nt-ops-ready {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.08rem 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: #d1fae5;
+  color: #047857;
+  margin-left: 0.35rem;
+}
+.nt-ops-dash .nt-ops-empty {
+  font-size: 0.78rem;
+  color: var(--ro-muted, #6c757d);
+  padding: 0.85rem 1rem;
+}
+.nt-ops-dash .nt-ops-split {
+  display: flex;
+  height: 10px;
+  min-width: 5.5rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+.nt-ops-dash .nt-ops-split-ar {
+  background: #3b82f6;
+}
+.nt-ops-dash .nt-ops-split-ap {
+  background: #f59e0b;
+}
+.nt-ops-dash .nt-ops-settle {
+  white-space: nowrap;
+}
+.nt-ops-dash .nt-ops-net-pos {
+  color: #047857;
+}
+.nt-ops-dash .nt-ops-net-neg {
+  color: #b91c1c;
+}
+.nt-ops-dash .header-item.nt-ops-kpi-ready span {
+  color: #047857;
+}
+.nt-ops-dash .header-item.nt-ops-kpi-draft span {
+  color: #c2410c;
+}

@@ -1,0 +1,86 @@
+<div class="nt-ops-dash log-ab-dash run-sheet-dash" data-link-doctype="Settlement Group">
+  <div class="log-ab-banner alert alert-info nt-ops-banner" style="display:none;margin:0 1.5rem 0.75rem;"></div>
+  <div class="log-ab-top">
+    <div class="run-sheet-header log-ab-head ab-summary-header-card">
+      <div class="log-ab-head-stack">
+        <div class="log-ab-top-row">
+          <div class="log-ab-hero-col">
+            <img class="log-ab-logo-img nt-ops-company-logo" alt="" style="display:none;" />
+            <span class="log-ab-logo-ph nt-ops-logo-ph">Co</span>
+          </div>
+          <div class="log-ab-main-block">
+            <div class="nt-ops-page-title"></div>
+            <div class="log-ab-meta-cluster nt-ops-meta-cluster"></div>
+          </div>
+          <div class="ab-summary-aside">
+            <div class="ab-ring-wrap">
+              <div class="ab-ring ab-ring--status-submitted nt-ops-alert-ring" style="--ab-pct:0"></div>
+              <div class="ab-ring-center">
+                <span class="ab-ring-pct nt-ops-ring-pct">0</span>
+                <span class="ab-ring-cap nt-ops-ring-cap">ready</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="log-ab-body-block">
+          <div class="header-details nt-ops-kpis"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ab-tab-shell">
+    <input type="radio" name="nt_ops_tabs" id="nt_ops_orgs" class="ab-dash-tab-input" checked>
+    <div class="nt-ops-heat-toolbar">
+      <button type="button" class="btn btn-default btn-xs nt-ops-refresh" title="Refresh"><i class="fa fa-refresh"></i></button>
+      <span class="nt-ops-user-filter"><span class="nt-ops-user-filter-lbl">Show</span>
+        <select class="form-control input-xs nt-ops-filter-ready">
+          <option value="1" selected>Ready (AR and AP)</option>
+          <option value="0">All active groups</option>
+        </select>
+      </span>
+      <span class="nt-ops-user-filter"><span class="nt-ops-user-filter-lbl">Top</span>
+        <select class="form-control input-xs nt-ops-filter-limit">
+          <option value="10">10</option>
+          <option value="15" selected>15</option>
+          <option value="20">20</option>
+          <option value="50">50</option>
+        </select>
+      </span>
+      <span class="nt-ops-user-filter nt-ops-search-filter"><span class="nt-ops-user-filter-lbl">Find</span>
+        <input type="search" class="form-control input-xs nt-ops-search" placeholder="Search orgs…">
+      </span>
+    </div>
+    <div class="ab-tab-bar">
+      <label for="nt_ops_orgs" class="ab-tlabel">Top Netting Orgs</label>
+    </div>
+    <div class="ab-ro-body">
+      <div class="ab-tab-panels ab-ro-shell">
+        <div class="ab-tab-panel ab-tab-panel-route" style="display:block;">
+          <div class="log-ab-ro-card log-ab-ro-card--flush nt-ops-orgs-card">
+            <div class="nt-ops-table-wrap">
+              <table class="nt-ops-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Org</th>
+                    <th>Customer</th>
+                    <th>Supplier</th>
+                    <th class="nt-ops-num">AR ready</th>
+                    <th class="nt-ops-num">AP ready</th>
+                    <th class="nt-ops-num">Nettable</th>
+                    <th class="nt-ops-num">Net</th>
+                    <th>AR / AP</th>
+                    <th class="nt-ops-num">Drafts</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody class="nt-ops-orgs-body"></tbody>
+              </table>
+            </div>
+            <div class="nt-ops-empty nt-ops-empty-msg" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

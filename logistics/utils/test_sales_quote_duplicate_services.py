@@ -160,6 +160,46 @@ class TestSalesQuoteDuplicateServices(FrappeTestCase):
 		finally:
 			frappe.delete_doc("Sales Quote", target.name, force=True, ignore_permissions=True)
 
+	def test_copy_quotation_services_from_quote_with_stale_ancestor_marker(self):
+		"""SQU000001442-style: source still points at an empty ancestor; copy from the source itself."""
+		ancestor = self._minimal_sales_quote("SQ Dup Ancestor Empty")
+		source = self._minimal_sales_quote("SQ Dup Stale Marker Source")
+		target = self._minimal_sales_quote("SQ Dup Stale Marker Target")
+		try:
+			self._add_linked_service(source, "Customs")
+			self._add_linked_service(source, "Transport")
+			frappe.db.set_value(
+				"Sales Quote",
+				source.name,
+				"logistics_duplicate_from",
+				ancestor.name,
+				update_modified=False,
+			)
+			frappe.db.set_value(
+				"Sales Quote",
+				target.name,
+				"logistics_duplicate_from",
+				source.name,
+				update_modified=False,
+			)
+
+			result = copy_quotation_services_from_duplicate_source(target.name)
+			self.assertTrue(result["success"])
+			self.assertEqual(result["copied_count"], 2)
+			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", target.name)), 2)
+			self.assertEqual(
+				len(_linked_service_names_from_db("Sales Quote", source.name)),
+				2,
+			)
+			self.assertEqual(
+				len(_linked_service_names_from_db("Sales Quote", ancestor.name)),
+				0,
+			)
+		finally:
+			for name in (source.name, target.name, ancestor.name):
+				if frappe.db.exists("Sales Quote", name):
+					frappe.delete_doc("Sales Quote", name, force=True, ignore_permissions=True)
+
 	def test_copy_quotation_services_rejects_when_services_already_exist(self):
 		source = self._minimal_sales_quote("SQ Dup Idem Source")
 		target = self._minimal_sales_quote("SQ Dup Idem Target")

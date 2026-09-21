@@ -160,9 +160,9 @@
   "linked_services",
   "milestones_tab",
   "section_break_milestones",
-  "milestone_html",
   "milestone_template",
   "milestones",
+  "milestone_html",
   "charges_tab",
   "column_break_logistics_reps",
   "company",
@@ -1282,12 +1282,6 @@
    "label": "Milestones"
   },
   {
-   "fieldname": "milestone_html",
-   "fieldtype": "HTML",
-   "is_virtual": 1,
-   "label": "Milestone View"
-  },
-  {
    "description": "Optional. Leave blank to use default template for this product type.",
    "fieldname": "milestone_template",
    "fieldtype": "Link",
@@ -1299,6 +1293,12 @@
    "fieldtype": "Table",
    "label": "Milestones",
    "options": "Declaration Milestone"
+  },
+  {
+   "fieldname": "milestone_html",
+   "fieldtype": "HTML",
+   "is_virtual": 1,
+   "label": "Milestone View"
   },
   {
    "collapsible": 1,

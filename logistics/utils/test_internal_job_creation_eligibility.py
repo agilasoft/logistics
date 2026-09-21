@@ -336,6 +336,9 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 		sq.customer = frappe.db.get_value("Customer", {}, "name")
 		if not sq.customer:
 			self.skipTest("No Customer in system")
+		sq.company = frappe.db.get_value("Company", {}, "name")
+		if not sq.company:
+			self.skipTest("No Company in system")
 		sq.date = frappe.utils.today()
 		sq.valid_until = frappe.utils.add_days(frappe.utils.today(), 30)
 		sq.flags.ignore_mandatory = True
@@ -370,6 +373,9 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 		sq.customer = frappe.db.get_value("Customer", {}, "name")
 		if not sq.customer:
 			self.skipTest("No Customer in system")
+		sq.company = frappe.db.get_value("Company", {}, "name")
+		if not sq.company:
+			self.skipTest("No Company in system")
 		sq.date = frappe.utils.today()
 		sq.valid_until = frappe.utils.add_days(frappe.utils.today(), 30)
 		sq.flags.ignore_mandatory = True
@@ -380,6 +386,16 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 			sync_internal_job_details_to_internal_jobs(sq)
 			reloaded = frappe.get_cached_doc("Sales Quote", sq.name)
 			ls_name = reloaded.linked_services[0].get("linked_service")
+			reloaded.append(
+				"charges",
+				{
+					"service_type": "Transport",
+					"charge_scope": "Linked",
+					"linked_service": ls_name,
+				},
+			)
+			reloaded.flags.ignore_mandatory = True
+			reloaded.save(ignore_permissions=True)
 			charge_row = frappe._dict(
 				service_type="Transport",
 				linked_service=ls_name,
@@ -415,38 +431,40 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 		sq.customer = frappe.db.get_value("Customer", {}, "name")
 		if not sq.customer:
 			self.skipTest("No Customer in system")
+		sq.company = frappe.db.get_value("Company", {}, "name")
+		if not sq.company:
+			self.skipTest("No Company in system")
 		sq.date = frappe.utils.today()
 		sq.valid_until = frappe.utils.add_days(frappe.utils.today(), 30)
 		sq.flags.ignore_mandatory = True
 		sq.insert(ignore_permissions=True)
-		asp = None
 		try:
 			sq.append("linked_services", {"service_type": "Transport"})
 			sq.flags._linked_services_from_form = True
 			sync_internal_job_details_to_internal_jobs(sq)
 			reloaded_sq = frappe.get_cached_doc("Sales Quote", sq.name)
 			ls_name = reloaded_sq.linked_services[0].get("linked_service")
+			reloaded_sq.append(
+				"charges",
+				{
+					"service_type": "Transport",
+					"charge_scope": "Linked",
+					"linked_service": ls_name,
+				},
+			)
+			reloaded_sq.flags.ignore_mandatory = True
+			reloaded_sq.save(ignore_permissions=True)
 			charge_row = frappe._dict(
 				service_type="Transport",
 				linked_service=ls_name,
 				charge_scope="Linked",
 			)
-			asp = frappe.new_doc("Air Shipment")
-			asp.sales_quote = sq.name
-			asp.flags.ignore_mandatory = True
-			asp.insert(ignore_permissions=True)
-			asp.append(
-				"charges",
-				{
-					"service_type": "Transport",
-					"linked_service": ls_name,
-					"charge_scope": "Linked",
-				},
+			parent = frappe._dict(
+				doctype="Air Shipment",
+				name="ASP-ELIG-TEST",
+				sales_quote=sq.name,
+				charges=[charge_row],
 			)
-			asp.flags.ignore_mandatory = True
-			asp.save(ignore_permissions=True)
-			_require_internal_job_eligible_for_parent_row(asp, charge_row, "Transport Order")
+			_require_internal_job_eligible_for_parent_row(parent, charge_row, "Transport Order")
 		finally:
-			if asp and frappe.db.exists("Air Shipment", asp.name):
-				frappe.delete_doc("Air Shipment", asp.name, force=True, ignore_permissions=True)
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)

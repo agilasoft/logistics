@@ -19,6 +19,17 @@
 		});
 	}
 
+	function copy_job_number_from_return_against(frm) {
+		if (frm.doc.docstatus !== 0 || !frm.doc.is_return || !frm.doc.return_against || frm.doc.job_number) {
+			return;
+		}
+		frappe.db.get_value(frm.doctype, frm.doc.return_against, "job_number", function (r) {
+			if (r && r.job_number && !frm.doc.job_number) {
+				frm.set_value("job_number", r.job_number);
+			}
+		});
+	}
+
 	function bind(doctype) {
 		frappe.ui.form.on(doctype, {
 			setup: function (frm) {
@@ -32,7 +43,10 @@
 					frm.set_df_property("job_costing_number", "hidden", 1);
 					frm.set_df_property("job_costing_number", "reqd", 0);
 				}
+				copy_job_number_from_return_against(frm);
 			},
+			is_return: copy_job_number_from_return_against,
+			return_against: copy_job_number_from_return_against,
 		});
 	}
 

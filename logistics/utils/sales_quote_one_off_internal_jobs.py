@@ -168,6 +168,7 @@ def _payload_from_linked_service_doc(ls_doc: Any, ls_name: str) -> dict[str, Any
 	}
 	set_row_linked_service_link(payload, ls_name)
 	for fn in (
+		"company",
 		"location_type",
 		"air_house_type",
 		"airline",

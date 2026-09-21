@@ -2046,12 +2046,19 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 				sea_shipment.house_type = "Standard House"
 			elif sea_shipment.house_type == "Consolidation":
 				sea_shipment.house_type = "Co-load Master"
-			# Only copy release_type if it exists as a valid record
-			if self.release_type and frappe.db.exists("Release Type", self.release_type):
-				sea_shipment.release_type = self.release_type
+			# Copy Release Type from the booking when it is a valid master.
+			# Empty bookings fall back to Sea Freight Settings.default_release_type.
+			from logistics.sea_freight.sea_freight_settings_defaults import (
+				apply_release_type_default_from_sea_freight_settings,
+				valid_release_type,
+			)
+
+			copied_rt = valid_release_type(self.release_type)
+			if copied_rt:
+				sea_shipment.release_type = copied_rt
 			else:
-				# Explicitly clear the field if the record doesn't exist
 				sea_shipment.release_type = None
+				apply_release_type_default_from_sea_freight_settings(sea_shipment)
 			sea_shipment.entry_type = self.entry_type
 			sea_shipment.house_bl = self.house_bl
 			sea_shipment.packs = self.packs
@@ -2457,17 +2464,10 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			
 			# Copy milestones if they exist (from Sea Booking Milestone to Sea Shipment Milestone)
 			if hasattr(self, 'milestones') and self.milestones:
+				from logistics.sea_freight.doctype.sea_shipment.sea_shipment import booking_milestone_row_values
+
 				for milestone in self.milestones:
-					sea_shipment.append("milestones", {
-						"milestone": milestone.milestone,
-						"status": milestone.status,
-						"planned_start": milestone.planned_start,
-						"planned_end": milestone.planned_end,
-						"actual_start": milestone.actual_start,
-						"actual_end": milestone.actual_end,
-						"source": milestone.source,
-						"fetched_at": milestone.fetched_at
-					})
+					sea_shipment.append("milestones", booking_milestone_row_values(milestone))
 			
 			# Copy document_list_template and documents (Job Document child table) from Sea Booking to Sea Shipment
 			if hasattr(self, 'document_list_template') and self.document_list_template:

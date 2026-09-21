@@ -1,0 +1,24 @@
+{
+ "app": "logistics",
+ "bg_color": "blue",
+ "creation": "2026-09-10 00:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "Netting",
+ "link_to": "Netting",
+ "link_type": "Workspace Sidebar",
+ "modified": "2026-09-10 00:00:00.000000",
+ "modified_by": "Administrator",
+ "name": "Netting",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
+ "standard": 1
+}

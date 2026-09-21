@@ -37,6 +37,16 @@
    "insert_after": "cash_advance_request_limit",
    "depends_on": "eval:!doc.is_group && ['Bank', 'Cash'].includes(doc.account_type) && doc.fund_type",
    "description": "When enabled, cash advance lines for charge items marked Require Job Number must include a Job Number."
+  },
+  {
+   "dt": "Account",
+   "fieldname": "vat_category",
+   "fieldtype": "Select",
+   "label": "VAT Category",
+   "options": "\nVAT Exempt\nZero Rated",
+   "insert_after": "tax_rate",
+   "depends_on": "eval:!doc.is_group && doc.account_type=='Tax'",
+   "description": "VAT Exempt or Zero Rated classification for Tax accounts."
   }
  ],
  "custom_perms": [],

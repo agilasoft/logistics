@@ -31,7 +31,7 @@
             background: white;
             display: flex;
             flex-direction: column;
-            min-height: 250mm;
+            min-height: calc(297mm - 16mm);
             position: relative;
         }
 
@@ -55,7 +55,7 @@
 
         /* Top spacer then rule, then company block (not a page header) */
         .top-spacer {
-            height: 32mm;
+            height: calc(3.5in - 12mm);
             width: 100%;
             flex-shrink: 0;
         }
@@ -101,7 +101,7 @@
         }
 
         .company-name {
-            font-size: 12pt;
+            font-size: 16pt;
             font-weight: bold;
             margin-bottom: 0;
             color: #000;
@@ -140,24 +140,35 @@
             line-height: 1.35;
         }
 
-        .payee-attention {
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-bottom: 0.5mm;
+        .customer-name-box {
+            font-size: 11pt;
+            font-weight: 900;
+            margin-bottom: 0.1mm;
+            line-height: 1;
         }
 
-        .payee-name {
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-bottom: 0.5mm;
+        .customer-address-box {
+            font-size: 8pt;
+            width: 100mm;
         }
 
-        .payee-address {
-            margin-bottom: 1.5mm;
+        .customer-detail-row {
+            font-size: 8pt;
+            margin-top: 0.5mm;
+            line-height: 1.2;
+        }
+
+        .customer-detail-label {
+            font-weight: bold;
+        }
+
+        .customer-detail-value {
+            margin-left: 0.5mm;
         }
 
         .payee-bank {
-            margin-top: 1mm;
+            font-size: 8pt;
+            margin-top: 0.5mm;
         }
 
         .payee-bank-label {
@@ -235,31 +246,11 @@
             white-space: nowrap;
         }
 
-        .party-subtotal {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin: 3mm 0 6mm 0;
-            font-size: 10px;
-        }
-
-        .party-subtotal-name {
-            flex: 1;
-            padding-right: 4mm;
-        }
-
-        .party-subtotal-amt {
-            text-align: right;
-            border-top: 1px solid #000;
-            min-width: 40mm;
-            padding-top: 0.5mm;
-            white-space: nowrap;
-        }
-
         .advisory {
             font-weight: bold;
             font-size: 10px;
             text-transform: uppercase;
+            text-align: center;
             margin: 4mm 0 3mm 0;
         }
 
@@ -288,7 +279,7 @@
 
         /* Signature boxes */
         .signature-section {
-            margin-bottom: 6mm;
+            margin-bottom: 2mm;
             page-break-inside: avoid;
         }
 
@@ -318,39 +309,51 @@
             font-weight: normal;
         }
 
-        /* BIR footer */
+        /* BIR footer — match Sales Quote */
         .footer-section {
-            font-size: 9px;
-            line-height: 1.4;
+            width: 100%;
+            max-width: 210mm;
+            margin: 10mm auto 0 auto;
+            padding: 2mm 0 1mm 0;
+            border-top: 1px solid #000;
+            font-size: 7pt;
+            line-height: 1.35;
+            background: white;
             page-break-inside: avoid;
+            break-inside: avoid;
         }
 
-        .footer-row {
-            margin-bottom: 0.3mm;
+        .footer-section .footer-row {
+            margin: 0;
+            padding: 0.2mm 0;
+            font-size: 7pt;
+            line-height: 1.35;
         }
 
-        .disclaimer {
-            text-align: center;
-            font-weight: bold;
-            margin-top: 4mm;
-            font-size: 10px;
+        .footer-section .footer-row:last-child {
+            padding-bottom: 0;
         }
 
         @page {
             size: A4;
-            margin: 12mm 12mm 12mm 12mm;
+            margin: 12mm 12mm 4mm 12mm;
         }
 
         @media print {
-            body {
-                margin: 0;
-                padding: 0;
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                height: auto !important;
+                overflow: visible;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
             .receipt-container {
                 padding: 0;
+                padding-bottom: 22mm;
                 max-width: 100%;
+                min-height: calc(297mm - 16mm);
+                box-sizing: border-box;
             }
             .txn-header,
             .txn-header * {
@@ -360,9 +363,28 @@
                 print-color-adjust: exact;
             }
             .signature-section,
-            .footer-section,
             .total-remittance {
                 page-break-inside: avoid;
+            }
+            .footer-section {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                max-width: none;
+                margin: 0;
+                padding: 0;
+                border-top: 1px solid #000;
+                background: white;
+                box-sizing: border-box;
+                z-index: 1000;
+            }
+            .footer-section .footer-inner {
+                max-width: calc(210mm - 24mm);
+                margin: 0 auto;
+                padding: 2mm 12mm;
+                box-sizing: border-box;
             }
         }
     </style>
@@ -401,8 +423,8 @@
 {% endif %}
 
 {% set party_doc = None %}
-{% set party_address = None %}
 {% set party_code_ns = namespace(value='') %}
+{% set party_addr_ns = namespace(doc=None, name=None) %}
 {% set party_display = doc.party_name or doc.party or '' %}
 {% if doc.party and doc.party_type and frappe.db.exists(doc.party_type, doc.party) %}
     {% set party_doc = frappe.get_doc(doc.party_type, doc.party) %}
@@ -411,15 +433,29 @@
     {% else %}
         {% set party_code_ns.value = doc.party %}
     {% endif %}
-    {% if doc.party_type == "Customer" and party_doc.customer_primary_address and frappe.db.exists("Address", party_doc.customer_primary_address) %}
-        {% set party_address = frappe.get_doc("Address", party_doc.customer_primary_address) %}
-    {% elif doc.party_type == "Supplier" and party_doc.supplier_primary_address and frappe.db.exists("Address", party_doc.supplier_primary_address) %}
-        {% set party_address = frappe.get_doc("Address", party_doc.supplier_primary_address) %}
+    {% if doc.party_type == "Customer" %}
+        {% set party_addr_ns.name = party_doc.primary_address or party_doc.customer_primary_address %}
+    {% elif doc.party_type == "Supplier" %}
+        {% set party_addr_ns.name = party_doc.supplier_primary_address or party_doc.get('primary_address') %}
+    {% endif %}
+    {% if party_addr_ns.name and frappe.db.exists("Address", party_addr_ns.name) %}
+        {% set party_addr_ns.doc = frappe.get_doc("Address", party_addr_ns.name) %}
+    {% endif %}
+    {% if not party_addr_ns.doc %}
+        {% set linked_addresses = frappe.get_all("Dynamic Link",
+            filters={"link_doctype": doc.party_type, "link_name": doc.party, "parenttype": "Address"},
+            fields=["parent"],
+            order_by="creation desc",
+            limit=1) %}
+        {% if linked_addresses and frappe.db.exists("Address", linked_addresses[0].parent) %}
+            {% set party_addr_ns.doc = frappe.get_doc("Address", linked_addresses[0].parent) %}
+        {% endif %}
     {% endif %}
 {% elif doc.party %}
     {% set party_code_ns.value = doc.party %}
 {% endif %}
 {% set party_code = party_code_ns.value %}
+{% set party_address = party_addr_ns.doc %}
 
 {% set currency = doc.paid_from_account_currency or doc.paid_to_account_currency or 'PHP' %}
 {% set payment_ns = namespace(total=0) %}
@@ -431,7 +467,7 @@
     {% set payment_ns.total = doc.paid_amount or 0 %}
 {% endif %}
 {% set is_pay = (doc.payment_type == "Pay") %}
-{% set signed_total = -payment_ns.total if is_pay else payment_ns.total %}
+{% set signed_total = payment_ns.total %}
 
 {% set line_type = 'PAY' %}
 {% set line_desc = 'AP PAYMENT' %}
@@ -470,31 +506,20 @@
         {% set bank_code_ns.value = ba.bank_account_no or ba.account or doc.bank_account %}
     {% endif %}
 {% endif %}
-{% if not bank_code_ns.value %}
-    {% set gl_account = doc.paid_from if is_pay else doc.paid_to %}
-    {% if not gl_account %}
-        {% set gl_account = doc.paid_from or doc.paid_to %}
-    {% endif %}
-    {% if gl_account and frappe.db.exists("Account", gl_account) %}
-        {% set account_doc = frappe.get_doc("Account", gl_account) %}
-        {% set bank_code_ns.value = account_doc.account_number or account_doc.account_name or gl_account %}
-    {% elif gl_account %}
-        {% set bank_code_ns.value = gl_account %}
-    {% endif %}
-{% endif %}
 {% set bank_code = bank_code_ns.value %}
 
-{% set party_bank_display = '' %}
-{% if doc.party_bank_account and frappe.db.exists("Bank Account", doc.party_bank_account) %}
-    {% set pba = frappe.get_doc("Bank Account", doc.party_bank_account) %}
-    {% set party_bank_display = pba.bank_account_no or pba.account or doc.party_bank_account %}
+{% set company_bank_ns = namespace(value='') %}
+{% if doc.bank_account and frappe.db.exists("Bank Account", doc.bank_account) %}
+    {% set ba = frappe.get_doc("Bank Account", doc.bank_account) %}
+    {% if ba.account_name %}
+        {% set company_bank_ns.value = ba.account_name %}
+    {% elif ba.bank or ba.bank_account_no %}
+        {% set company_bank_ns.value = ((ba.bank or '') ~ ' ' ~ (ba.bank_account_no or ''))|trim %}
+    {% else %}
+        {% set company_bank_ns.value = doc.bank_account %}
+    {% endif %}
 {% endif %}
-
-{% set prepared_by = '' %}
-{% if doc.owner and frappe.db.exists("User", doc.owner) %}
-    {% set user_doc = frappe.get_doc("User", doc.owner) %}
-    {% set prepared_by = user_doc.full_name or user_doc.name %}
-{% endif %}
+{% set company_bank_display = company_bank_ns.value %}
 
 <div class="receipt-container">
     <div class="top-section">
@@ -516,30 +541,29 @@
                         <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
                         <div class="company-address">
                             {% if company_address %}
+                                {% if company_address.address_title %}
+                                    {{ company_address.address_title }}
+                                {% else %}
                                 {{ company_address.address_line1 or '' }}
                                 {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
                                 {% if company_address.city %} {{ company_address.city }}{% endif %}
                                 {% if company_address.state %}, {{ company_address.state }}{% endif %}
                                 {% if company_address.country %} {{ company_address.country }}{% endif %}
                                 {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                                {% endif %}
                             {% elif company_doc.address_line1 %}
-                                {{ company_doc.address_line1 }}
-                                {% if company_doc.address_line2 %} {{ company_doc.address_line2 }}{% endif %}
-                                {% if company_doc.city %} {{ company_doc.city }}{% endif %}
-                                {% if company_doc.state %}, {{ company_doc.state }}{% endif %}
-                                {% if company_doc.country %} {{ company_doc.country }}{% endif %}
-                                {% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
+                                {{ company_doc.address_line1 }}<br>
+                                {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
+                                {{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}<br>
+                                {{ company_doc.country }}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
                             {% endif %}
                         </div>
                         <div class="vat-reg">
                             {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
                                 {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
-                                {% if branch_doc.custom_registration_details %}
-                                    {{ branch_doc.custom_registration_details }}
-                                {% elif company_doc.tax_id %}
-                                    VAT Reg. TIN: {{ company_doc.tax_id }}
-                                {% elif company_doc.tin %}
-                                    VAT Reg. TIN: {{ company_doc.tin }}
+                                {% set vat_tin = branch_doc.custom_tax_id or company_doc.tax_id or company_doc.tin %}
+                                {% if vat_tin %}
+                                    VAT Reg. TIN: {{ vat_tin }}
                                 {% endif %}
                             {% elif company_doc.tax_id %}
                                 VAT Reg. TIN: {{ company_doc.tax_id }}
@@ -547,13 +571,11 @@
                                 VAT Reg. TIN: {{ company_doc.tin }}
                             {% endif %}
                         </div>
-                        {% if company_doc.email or company_doc.website or company_doc.phone_no %}
                         <div class="company-contact">
                             {% if company_doc.email %}Email: {{ company_doc.email }}<br>{% endif %}
                             {% if company_doc.website %}Website: {{ company_doc.website }}<br>{% endif %}
                             {% if company_doc.phone_no %}Phone: {{ company_doc.phone_no }}{% endif %}
                         </div>
-                        {% endif %}
                     </div>
                 {% else %}
                     <div class="logo-placeholder">company_logo</div>
@@ -568,20 +590,23 @@
 
         <div class="meta-row">
             <div class="payee-block">
-                <div class="payee-attention">THE ACCOUNTS RECEIVABLE MANAGER</div>
-                <div class="payee-name">{{ party_display }}</div>
-                <div class="payee-address">
+                <div class="customer-name-box">{{ party_display }}</div>
+                <div class="customer-address-box">
                     {% if party_address %}
-                        {% if party_address.address_line1 %}{{ party_address.address_line1 }}<br>{% endif %}
-                        {% if party_address.address_line2 %}{{ party_address.address_line2 }}<br>{% endif %}
-                        {% if party_address.city or party_address.state or party_address.country or party_address.pincode %}
-                            {% if party_address.pincode %}{{ party_address.pincode }} {% endif %}{{ party_address.city or '' }}{% if party_address.state %}{% if party_address.city %}, {% endif %}{{ party_address.state }}{% endif %}{% if party_address.country %}{% if party_address.city or party_address.state %}, {% endif %}{{ party_address.country }}{% endif %}
-                        {% endif %}
+                        {{ party_address.address_line1 or '' }}
+                        {% if party_address.address_line2 %} {{ party_address.address_line2 }}{% endif %}
+                        {% if party_address.city %} {{ party_address.city }}{% endif %}
+                        {% if party_address.state %}, {{ party_address.state }}{% endif %}
+                        {% if party_address.country %} {{ party_address.country }}{% endif %}
+                        {% if party_address.pincode %} {{ party_address.pincode }}{% endif %}
                     {% endif %}
                 </div>
+                {% if party_doc %}
+                <div class="customer-detail-row"><span class="customer-detail-label">TIN:</span> <span class="customer-detail-value">{{ party_doc.tax_id or party_doc.tin or '-' }}</span></div>
+                {% endif %}
                 <div class="payee-bank">
                     <span class="payee-bank-label">Bank Account:</span>
-                    {% if party_bank_display %} {{ party_bank_display }}{% endif %}
+                    {% if company_bank_display %} {{ company_bank_display }}{% endif %}
                 </div>
             </div>
             <div class="account-block">
@@ -610,7 +635,7 @@
             <tbody>
                 {% if doc.references %}
                     {% for ref in doc.references %}
-                        {% set line_amt = -(ref.allocated_amount or 0) if is_pay else (ref.allocated_amount or 0) %}
+                        {% set line_amt = ref.allocated_amount or 0 %}
                         {% set line_date_ns = namespace(value=doc.posting_date) %}
                         {% if ref.reference_doctype == "Purchase Invoice" and frappe.db.exists("Purchase Invoice", ref.reference_name) %}
                             {% set inv_posting = frappe.db.get_value("Purchase Invoice", ref.reference_name, "posting_date") %}
@@ -638,11 +663,6 @@
                 {% endif %}
             </tbody>
         </table>
-
-        <div class="party-subtotal">
-            <div class="party-subtotal-name">{{ party_display }}</div>
-            <div class="party-subtotal-amt">{{ frappe.utils.fmt_money(signed_total, precision=2) }} {{ currency }}</div>
-        </div>
     </div><!-- /.top-section -->
 
     <div class="bottom-section">
@@ -667,16 +687,18 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td>{{ prepared_by }}</td>
-                        <td>D. VIRTUDAZO/J. BANGQUIL</td>
-                        <td>T.T. ESTRADA/F.A. LIBERATO</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
                         <td>SIGNATURE OVER PRINTED NAME</td>
                     </tr>
                 </tbody>
             </table>
         </div>
+    </div><!-- /.bottom-section -->
 
-        <div class="footer-section">
+    <div class="footer-section">
+        <div class="footer-inner">
             {% set bir_name = frappe.db.get_value("BIR CAS Settings", {"company": doc.company}, "name") %}
             {% if bir_name %}
                 {% set bir = frappe.get_doc("BIR CAS Settings", bir_name) %}
@@ -731,9 +753,8 @@
                     -
                 {% endif %}
             </div>
-            <div class="disclaimer">"THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX"</div>
         </div>
-    </div><!-- /.bottom-section -->
+    </div>
 </div>
 </body>
 </html>

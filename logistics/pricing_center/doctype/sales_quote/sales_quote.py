@@ -341,6 +341,7 @@ class SalesQuote(Document):
 		view_fields = {
 			"linked_service",
 			"service_type",
+			"company",
 		}
 		for fn in (
 			"air_house_type",
@@ -4314,6 +4315,7 @@ def list_quote_linked_services(sales_quote: str):
 			{
 				"linked_service": linked.name,
 				"service_type": linked.service_type,
+				"company": linked.company or "",
 				"owned_by_quote": 1,
 				"job_type": job_type or "",
 				"order_no": order_no or "",
@@ -4340,6 +4342,8 @@ def add_linked_service(sales_quote: str, service_type: str):
 	linked.service_type = service_type
 	linked.parent_booking_type = "Sales Quote"
 	linked.parent_booking_name = quote.name
+	if getattr(quote, "company", None):
+		linked.company = quote.company
 	linked.insert(ignore_permissions=True)
 
 	quote.flags._linked_services_view_cached = False
@@ -4446,6 +4450,7 @@ def copy_quotation_services_from_duplicate_source(sales_quote_name: str):
 		)
 
 	mapping = _clone_sales_quote_linked_services(source_name, target.name)
+	_refresh_sales_quote_linked_services_view(target)
 	_remap_sales_quote_charges_from_duplicate_source(target, source_name, mapping)
 
 	target.logistics_duplicate_from = None
@@ -4459,6 +4464,14 @@ def copy_quotation_services_from_duplicate_source(sales_quote_name: str):
 		"mapping": mapping,
 		"message": _("Copied {0} service(s) from {1}.").format(len(mapping), source_name),
 	}
+
+
+def _refresh_sales_quote_linked_services_view(quote: Document) -> None:
+	"""Drop a stale empty Services snapshot so save sees Linked Services just cloned onto *quote*."""
+	if "linked_services" in quote.__dict__:
+		del quote.__dict__["linked_services"]
+	quote.flags._linked_services_from_form = False
+	quote.flags._linked_services_view_cached = False
 
 
 def _clone_sales_quote_linked_services(source_sq_name: str, target_sq_name: str) -> dict[str, str]:

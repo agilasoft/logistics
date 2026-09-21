@@ -31,6 +31,7 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 		doc.customer = frappe.db.get_value("Customer", {}, "name")
 		if not doc.customer:
 			self.skipTest("No Customer in system")
+		doc.company = frappe.db.get_value("Company", {}, "name")
 		doc.date = frappe.utils.today()
 		doc.valid_until = frappe.utils.add_days(frappe.utils.today(), 30)
 		doc.flags.ignore_mandatory = True
@@ -52,6 +53,7 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			self.assertEqual(ls.parent_booking_type, "Sales Quote")
 			self.assertEqual(ls.parent_booking_name, sq.name)
 			self.assertEqual(ls.service_type, "Sea")
+			self.assertEqual(ls.company, sq.company)
 		finally:
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
@@ -203,6 +205,10 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			self.assertEqual(len(listed["linked_services"]), 1)
 			self.assertEqual(listed["linked_services"][0]["linked_service"], ls_name)
 			self.assertEqual(listed["linked_services"][0]["service_type"], "Transport")
+			self.assertEqual(
+				listed["linked_services"][0].get("company") or "",
+				sq.company or "",
+			)
 
 			result = remove_linked_service(sq.name, ls_name)
 			self.assertEqual(result["action"], "removed")
@@ -229,6 +235,7 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			self.assertEqual(payload["service_type"], "Air")
 			fieldnames = [f["fieldname"] for f in payload["fields"]]
 			self.assertIn("airline", fieldnames)
+			self.assertIn("company", fieldnames)
 			self.assertIn("shipper", fieldnames)
 			self.assertIn("notes", fieldnames)
 
