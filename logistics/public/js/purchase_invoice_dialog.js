@@ -27,12 +27,13 @@
 	function set_supplier_pay_to_query(supplierField, payToSuppliers) {
 		if (!supplierField) return;
 		supplierField.get_query = function() {
-			return {
-				filters: {
-					name: ["in", payToSuppliers || []],
-					disabled: 0
-				}
-			};
+			var filters = { disabled: 0 };
+			// Restrict to Pay To only when charges actually have suppliers.
+			// Warehouse Job (and other lines without pay_to) must still list enabled suppliers.
+			if (payToSuppliers && payToSuppliers.length) {
+				filters.name = ["in", payToSuppliers];
+			}
+			return { filters: filters };
 		};
 	}
 
@@ -256,7 +257,7 @@
 						var idx = parseInt(row.attr("data-index"), 10);
 						var charge = charges[idx] || {};
 						var payTo = normalize_supplier(charge.pay_to);
-						var matches = !supplier || payTo === supplier;
+						var matches = !supplier || !payTo || payTo === supplier;
 						var checkbox = row.find("input.pi-charge-cb");
 
 						row.toggle(matches);
@@ -477,7 +478,7 @@
 						var idx = parseInt(row.attr("data-index"), 10);
 						var charge = charges[idx] || {};
 						var payTo = normalize_supplier(charge.pay_to);
-						var matches = !supplier || payTo === supplier;
+						var matches = !supplier || !payTo || payTo === supplier;
 						var checkbox = row.find("input.pi-charge-cb-c");
 						row.toggle(matches);
 						checkbox.prop("disabled", !matches);

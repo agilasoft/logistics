@@ -8,6 +8,7 @@
  "field_order": [
   "linked_service",
   "service_type",
+  "company",
   "column_break_ident",
   "job_type",
   "order_no",
@@ -70,6 +71,16 @@
    "label": "Service Type",
    "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nOn-Demand Last Mile\nSpecial Project\nMICE",
    "reqd": 1
+  },
+  {
+   "description": "Operating company for this service. Set on the Sales Quote before creating the designated booking from the main.",
+   "fetch_from": "linked_service.company",
+   "fetch_if_empty": 1,
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company"
   },
   {
    "fieldname": "column_break_ident",

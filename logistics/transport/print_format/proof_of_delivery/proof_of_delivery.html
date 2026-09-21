@@ -221,7 +221,7 @@
         .dim-sub th { font-size: 6pt; font-weight: normal; }
 
         /* Pick / Drop cards */
-        .leg-row { display: flex; gap: 2.5mm; margin-bottom: 2mm; }
+        .leg-row { display: flex; gap: 2.5mm; margin-bottom: 2mm; align-items: stretch; }
         .leg-card {
             flex: 1;
             min-width: 0;
@@ -242,7 +242,7 @@
             display: grid;
             grid-template-columns: 1fr 38mm;
             gap: 2.5mm;
-            flex: 1;
+            flex: 1 1 auto;
             align-items: start;
         }
         .loc-title {
@@ -301,10 +301,11 @@
             font-size: 6.5pt;
         }
         .leg-footer {
-            padding: 1.5mm 2mm 2mm;
+            padding: 1mm 2mm 2mm;
             font-size: 7.5pt;
             line-height: 1.4;
             border-top: 1px solid #eeeeee;
+            margin-top: auto;
         }
         .leg-footer .est-row { margin-top: 0.3mm; }
         .leg-footer .mk { font-weight: bold; }
@@ -481,7 +482,7 @@
 {% set rs = frappe.db.get_value("Run Sheet", rs_name, ["driver_name", "driver", "vehicle"], as_dict=True) if rs_name else None %}
 
 {% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") or "" %}
-{% set co = namespace(name="", row=None, address_name="") %}
+{% set co = namespace(name="", row=None, address_name="", address=None) %}
 {% if job and job.company %}{% set co.name = job.company %}{% endif %}
 {% if not co.name and sq and sq.company %}{% set co.name = sq.company %}{% endif %}
 {% if not co.name and ab and ab.company %}{% set co.name = ab.company %}{% endif %}
@@ -490,6 +491,9 @@
 {% set co.row = frappe.db.get_value("Company", co.name, ["company_name", "company_logo", "email", "website", "phone_no", "tax_id", "registration_details"], as_dict=True) %}
 {% set addr_links = frappe.get_all("Address", filters=[["Dynamic Link", "link_doctype", "=", "Company"], ["Dynamic Link", "link_name", "=", co.name], ["disabled", "=", 0]], fields=["name"], order_by="is_primary_address desc", limit_page_length=1) %}
 {% if addr_links %}{% set co.address_name = addr_links[0].name %}{% endif %}
+{% if co.address_name and frappe.db.exists("Address", co.address_name) %}
+{% set co.address = frappe.db.get_value("Address", co.address_name, ["address_title", "address_line1", "address_line2", "city", "state", "pincode", "country"], as_dict=True) %}
+{% endif %}
 {% endif %}
 {% set company_logo = co.row.company_logo if co.row else "" %}
 {% set company_display_name = (co.row.company_name or co.name) if co.row else co.name %}
@@ -498,10 +502,11 @@
 {% set company_email = co.row.email if co.row else "" %}
 {% set company_website = co.row.website if co.row else "" %}
 {% set company_tax_id = (co.row.tax_id if co.row else "") or (frappe.db.get_value("Company", co.name, "tin", ignore=True) if co.name else "") %}
-{% set branch_reg = "" %}
+{% set branch_tin = "" %}
 {% if job and job.branch and frappe.db.exists("Branch", job.branch) %}
-{% set branch_reg = frappe.db.get_value("Branch", job.branch, "custom_registration_details", ignore=True) or "" %}
+{% set branch_tin = frappe.db.get_value("Branch", job.branch, "custom_tax_id", ignore=True) or "" %}
 {% endif %}
+{% set vat_tin = branch_tin or company_tax_id %}
 {% set print_dt = frappe.utils.format_datetime(frappe.utils.now(), "dd-MMM-yy HH:mm") %}
 {% set customer_display = (frappe.db.get_value("Customer", job.customer, "customer_name") or job.customer) if job and job.customer and frappe.db.exists("Customer", job.customer) else (job.customer if job else "") %}
 {% set cust = namespace(tin="", address_name="") %}
@@ -664,22 +669,35 @@
 <div class="pod-main">
 
     <div class="header">
+        {% if co.row %}
         {% if company_logo %}
         <img src="{{ company_logo }}" alt="Company Logo" class="company-logo" />
+        {% elif co.row.logo %}
+        <img src="{{ co.row.logo }}" alt="Company Logo" class="company-logo" />
+        {% elif co.row.image %}
+        <img src="{{ co.row.image }}" alt="Company Logo" class="company-logo" />
         {% else %}
         <div class="logo-placeholder">company_logo</div>
         {% endif %}
         <div class="company-info">
-            {% if company_display_name %}<div class="company-name">{{ company_display_name }}</div>{% endif %}
+            <div class="company-name">{{ company_display_name or co.name }}</div>
             <div class="company-address">
-                {% if co.address_name %}{{ format_address_inline(co.address_name) }}
-                {% elif company_reg %}{{ company_reg|replace('\n', ', ')|safe }}{% endif %}
+                {% if co.address and co.address.address_title %}
+                    {{ co.address.address_title }}
+                {% elif co.address %}
+                    {{ co.address.address_line1 or '' }}
+                    {% if co.address.address_line2 %} {{ co.address.address_line2 }}{% endif %}
+                    {% if co.address.city %} {{ co.address.city }}{% endif %}
+                    {% if co.address.state %}, {{ co.address.state }}{% endif %}
+                    {% if co.address.country %} {{ co.address.country }}{% endif %}
+                    {% if co.address.pincode %} {{ co.address.pincode }}{% endif %}
+                {% elif company_reg %}
+                    {{ company_reg|replace('\n', ', ')|safe }}
+                {% endif %}
             </div>
             <div class="vat-reg">
-                {% if branch_reg %}
-                    {{ branch_reg }}
-                {% elif company_tax_id %}
-                    VAT Reg. TIN: {{ company_tax_id }}
+                {% if vat_tin %}
+                    VAT Reg. TIN: {{ vat_tin }}
                 {% endif %}
             </div>
             <div class="company-contact">
@@ -688,6 +706,12 @@
                 {% if company_phone %}Phone: {{ company_phone }}{% endif %}
             </div>
         </div>
+        {% else %}
+        <div class="logo-placeholder">company_logo</div>
+        <div class="company-info">
+            <div class="company-name">{{ co.name or default_company or '' }}</div>
+        </div>
+        {% endif %}
     </div>
 
     <div class="main-body">
@@ -812,7 +836,7 @@
                 <div>
                     {% if pick_facility_code or pick_address_text %}
                     <div class="loc-title"><span class="loc-pin">&#9679;</span> PICK UP{% if pick_facility_code %} — {{ pick_facility_code }}{% endif %}</div>
-                    {% if pick_address_text %}<div class="loc-address">{{ pick_address_text|replace('\n', '<br>')|safe }}</div>{% endif %}
+                    {% if pick_address_text %}<div class="loc-address">{% if '<br' in pick_address_text %}{{ pick_address_text|safe }}{% else %}{{ pick_address_text|replace('\n', '<br>')|safe }}{% endif %}</div>{% endif %}
                     {% endif %}
                 </div>
                 <div class="leg-side">
@@ -835,7 +859,7 @@
                 <div>
                     {% if drop_facility_code or drop_address_text %}
                     <div class="loc-title"><span class="loc-pin">&#9679;</span> DELIVERY{% if drop_facility_code %} — {{ drop_facility_code }}{% endif %}</div>
-                    {% if drop_address_text %}<div class="loc-address">{{ drop_address_text|replace('\n', '<br>')|safe }}</div>{% endif %}
+                    {% if drop_address_text %}<div class="loc-address">{% if '<br' in drop_address_text %}{{ drop_address_text|safe }}{% else %}{{ drop_address_text|replace('\n', '<br>')|safe }}{% endif %}</div>{% endif %}
                     {% endif %}
                 </div>
                 <div class="leg-side">

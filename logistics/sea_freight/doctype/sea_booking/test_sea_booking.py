@@ -274,6 +274,80 @@ class TestSeaBookingSealNumberValidation(FrappeTestCase):
 		booking.validate_seal_numbers_by_mode()
 
 
+class TestSeaBookingReleaseTypeToShipment(FrappeTestCase):
+	"""Sea Booking Release Type must copy onto Sea Shipment (SBK000000685 regression)."""
+
+	def test_valid_release_type_keeps_existing_master(self):
+		from logistics.sea_freight.sea_freight_settings_defaults import valid_release_type
+
+		with patch("frappe.db.exists", return_value=True):
+			self.assertEqual(valid_release_type("Prepaid"), "Prepaid")
+
+	def test_valid_release_type_rejects_missing_master(self):
+		from logistics.sea_freight.sea_freight_settings_defaults import valid_release_type
+
+		with patch("frappe.db.exists", return_value=False):
+			self.assertIsNone(valid_release_type("Telex"))
+
+	def test_shipment_copies_booking_release_type_when_empty(self):
+		from logistics.sea_freight.sea_freight_settings_defaults import apply_release_type_from_sea_booking
+
+		shipment = frappe.new_doc("Sea Shipment")
+		shipment.sea_booking = "SBK-TEST"
+		with (
+			patch("frappe.db.get_value", return_value="Prepaid"),
+			patch("frappe.db.exists", return_value=True),
+		):
+			apply_release_type_from_sea_booking(shipment)
+		self.assertEqual(shipment.release_type, "Prepaid")
+
+	def test_shipment_keeps_existing_release_type(self):
+		from logistics.sea_freight.sea_freight_settings_defaults import apply_release_type_from_sea_booking
+
+		shipment = frappe.new_doc("Sea Shipment")
+		shipment.release_type = "Prepaid"
+		shipment.sea_booking = "SBK-TEST"
+		with patch("frappe.db.get_value", return_value="Collect"):
+			apply_release_type_from_sea_booking(shipment)
+		self.assertEqual(shipment.release_type, "Prepaid")
+
+	def test_empty_booking_uses_settings_default(self):
+		from logistics.sea_freight.sea_freight_settings_defaults import apply_release_type_from_sea_booking
+
+		shipment = frappe.new_doc("Sea Shipment")
+		shipment.company = "Test Company"
+		shipment.sea_booking = "SBK-TEST"
+		settings = frappe._dict(default_release_type="Prepaid")
+		with (
+			patch("frappe.db.get_value", return_value=None),
+			patch(
+				"logistics.sea_freight.sea_freight_settings_defaults._get_sea_freight_settings_for_doc",
+				return_value=settings,
+			),
+			patch("frappe.db.exists", return_value=True),
+		):
+			apply_release_type_from_sea_booking(shipment)
+		self.assertEqual(shipment.release_type, "Prepaid")
+
+	def test_booking_defaults_release_type_from_settings(self):
+		from logistics.sea_freight.sea_freight_settings_defaults import (
+			apply_release_type_default_from_sea_freight_settings,
+		)
+
+		booking = frappe.new_doc("Sea Booking")
+		booking.company = "Test Company"
+		settings = frappe._dict(default_release_type="Prepaid")
+		with (
+			patch(
+				"logistics.sea_freight.sea_freight_settings_defaults._get_sea_freight_settings_for_doc",
+				return_value=settings,
+			),
+			patch("frappe.db.exists", return_value=True),
+		):
+			apply_release_type_default_from_sea_freight_settings(booking)
+		self.assertEqual(booking.release_type, "Prepaid")
+
+
 class IntegrationTestSeaBooking(FrappeTestCase):
 	"""
 	Integration tests for SeaBooking.

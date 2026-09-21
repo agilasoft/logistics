@@ -584,4 +584,44 @@ logistics.patches.v3_0_sales_invoice_html_routing_vessel
 logistics.patches.v3_0_sales_invoice_html_remove_amount_asterisk
 # Sales Invoice HTML: Weight/Volume/Chargeable UOM
 logistics.patches.v3_0_sales_invoice_html_measure_uom
+# Sales Invoice HTML: Transport Job Information matches Air layout
+logistics.patches.v3_0_sales_invoice_html_transport_job_info
+# Sales Invoice HTML: drop shipment fields from Transport Job Information
+logistics.patches.v3_0_sales_invoice_html_transport_job_info_trim
+# Sales Invoice HTML: MICE Job Information consignor and cargo measures
+logistics.patches.v3_0_sales_invoice_html_mice_job_info
+# Sales Invoice HTML: MICE Job Information Event Open/Close dates
+logistics.patches.v3_0_sales_invoice_html_mice_event_dates
+# Proof of Delivery HTML: match Sales Invoice header address/VAT content
+logistics.patches.v3_0_proof_of_delivery_html_si_header_content
+# Proof of Delivery HTML: tighten pick/drop address spacing above mode footer
+logistics.patches.v3_0_proof_of_delivery_html_address_spacing
+# Proof of Delivery HTML: pin pick/drop mode footers to card bottom
+logistics.patches.v3_0_proof_of_delivery_html_pin_mode_footer
+# Delivery Receipt HTML: compact letterhead header (logo + company details)
+logistics.patches.v3_0_delivery_receipt_html_letterhead_header
+# Delivery Receipt HTML: print-safe table letterhead matching mockup
+logistics.patches.v3_0_delivery_receipt_html_letterhead_table
+# Delivery Receipt HTML: restore Sales Invoice header layout
+logistics.patches.v3_0_delivery_receipt_html_match_si_header
+# Sales Quote HTML: print Warehousing child table charges
+logistics.patches.v3_0_sales_quote_html_warehousing_charges
+# Sea Booking HTML: match Sales Invoice header layout
+logistics.patches.v3_0_sea_booking_html_match_si_header
+# Sea Booking HTML: stop empty second print page
+logistics.patches.v3_0_sea_booking_html_fix_blank_page
+# Sea Freight Settings: seed default Release Type so booking → shipment copy is populated
+logistics.patches.v3_0_seed_sea_freight_default_release_type
+# Sales Quote HTML: ATN-style letterhead (logo + name/address/VAT/email/phone)
+logistics.patches.v3_0_sales_quote_html_letterhead_header
+# Journal Entry HTML: ATN-style letterhead (logo + name/address/VAT/email/phone)
+logistics.patches.v3_0_journal_entry_html_letterhead_header
+# Journal Entry HTML: match Sales Invoice printed letterhead size
+logistics.patches.v3_0_journal_entry_html_match_si_header
+# Journal Entry HTML: stop empty second print page
+logistics.patches.v3_0_journal_entry_html_fix_blank_page
+# Journal Entry HTML: pin BIR footer to bottom of printed page
+logistics.patches.v3_0_journal_entry_html_pin_footer
+# Journal Entry HTML: keep TOTAL under the last account row
+logistics.patches.v3_0_journal_entry_html_totals_under_rows
 

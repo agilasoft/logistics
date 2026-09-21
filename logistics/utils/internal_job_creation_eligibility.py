@@ -324,11 +324,22 @@ def evaluate_internal_job_creation_eligibility(
 	has_charges = charges_exist_for_service(sales_quote, parent_doc, st)
 	has_matching_ij = has_matching_internal_job_setup(sales_quote, parent_doc, ij_row, st)
 	eligible = bool(has_charges and has_matching_ij)
+	message = _eligibility_message(has_charges, has_matching_ij, st, parent_doc)
+	if eligible:
+		company_msg = _missing_linked_service_company_message(
+			sales_quote=sales_quote,
+			parent_doc=parent_doc,
+			row_or_doc=ij_row,
+			service_type_label=st,
+		)
+		if company_msg:
+			eligible = False
+			message = company_msg
 	return {
 		"eligible": eligible,
 		"has_charges": has_charges,
 		"has_matching_ij": has_matching_ij,
-		"message": _eligibility_message(has_charges, has_matching_ij, st, parent_doc),
+		"message": message,
 	}
 
 
@@ -361,6 +372,37 @@ def _quote_has_matching_linked_service_row(
 		if _quote_ij_rows_match_candidate(row, linked_service_doc, service_type_label):
 			return True
 	return False
+
+
+def _missing_linked_service_company_message(
+	*,
+	sales_quote: str | None,
+	parent_doc: Any | None,
+	row_or_doc: Any | None,
+	service_type_label: str,
+) -> str | None:
+	"""Block designated-booking create until the quote Linked Service has a company."""
+	from logistics.utils.linked_service_company import (
+		company_from_linked_service,
+		linked_service_name_from_row,
+		missing_linked_service_company_message,
+	)
+
+	sq_name = _resolve_sales_quote_name(sales_quote, parent_doc)
+	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
+		return None
+	if not row_or_doc:
+		return None
+	ls_name = linked_service_name_from_row(row_or_doc)
+	if not ls_name:
+		return None
+	if company_from_linked_service(row_or_doc):
+		return None
+	return missing_linked_service_company_message(
+		linked_service=ls_name,
+		service_type=service_type_label,
+		sales_quote=sq_name,
+	)
 
 
 def evaluate_linked_service_internal_job_eligibility(
@@ -406,6 +448,16 @@ def evaluate_linked_service_internal_job_eligibility(
 			message = _(
 				"No matching Linked Service for {0} was found on the Sales Quote."
 			).format(st or _("this service"))
+	if eligible:
+		company_msg = _missing_linked_service_company_message(
+			sales_quote=sales_quote,
+			parent_doc=parent_doc,
+			row_or_doc=linked_service_doc,
+			service_type_label=st,
+		)
+		if company_msg:
+			eligible = False
+			message = company_msg
 	return {
 		"eligible": eligible,
 		"has_charges": has_charges,

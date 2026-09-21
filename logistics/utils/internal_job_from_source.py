@@ -85,6 +85,10 @@ def _virtual_ij_row_from_linked_charge(charge: Any) -> Any:
 			"linked_service": ls,
 		}
 	)
+	if ls:
+		from logistics.utils.linked_service_company import company_from_linked_service
+
+		row.company = company_from_linked_service(row)
 	for k, v in resolve_parameters_for_charge_row(charge).items():
 		row[k] = v
 	return row
@@ -111,6 +115,12 @@ def _linked_service_doc_for_row(row: Any) -> Any | None:
 	if not ls or not frappe.db.exists(linked_service_doctype(), ls):
 		return None
 	return frappe.get_cached_doc(linked_service_doctype(), ls)
+
+
+def _preview_operating_company(doc: Any, row: Any | None = None) -> Any:
+	from logistics.utils.linked_service_company import company_from_linked_service
+
+	return company_from_linked_service(row) or getattr(doc, "company", None)
 
 
 def _job_no_for_linked_charge_row(row: Any) -> str:
@@ -500,9 +510,19 @@ def apply_internal_job_detail_row_to_operational_doc(
 		if overwrite or not cur_ls:
 			doc.set("linked_service", ij_link_val)
 
+	from logistics.utils.linked_service_company import apply_linked_service_company_to_operational_doc
 	from logistics.utils.sales_quote_charge_parameters import (
 		apply_scope_fields_to_operational_doc,
 		resolve_operational_doc_scope_parameters,
+	)
+
+	sq_name = (getattr(doc, "sales_quote", None) or "").strip()
+	apply_linked_service_company_to_operational_doc(
+		doc,
+		row,
+		overwrite=overwrite,
+		require=bool(ij_link_val and sq_name),
+		sales_quote=sq_name or None,
 	)
 
 	if not resolve_operational_doc_scope_parameters(row):
@@ -1219,7 +1239,7 @@ def _get_internal_job_creation_preview_body(
 				"source_doctype": source_doctype,
 				"source_name": source_name,
 				"customer": customer,
-				"company": getattr(doc, "company", None),
+				"company": _preview_operating_company(doc, row),
 				"sales_quote": getattr(doc, "sales_quote", None),
 				**_source_service_role_context(doc),
 				"from_main_service_shipment": False,
@@ -1422,7 +1442,7 @@ def _get_internal_job_creation_preview_body(
 			"source_doctype": source_doctype,
 			"source_name": source_name,
 			"customer": customer,
-			"company": getattr(doc, "company", None),
+			"company": _preview_operating_company(doc, ij_row),
 			"sales_quote": getattr(doc, "sales_quote", None),
 			**_source_service_role_context(doc),
 			"from_main_service_shipment": from_main,

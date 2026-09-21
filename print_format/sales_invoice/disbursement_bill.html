@@ -1078,6 +1078,65 @@
         {%- elif ns_vv.voyage -%}{{ ns_vv.voyage }}
         {%- else -%}-{%- endif -%}
         {%- endmacro %}
+        {% set tj_air = None %}
+        {% set tj_sea = None %}
+        {% set tj_ship = None %}
+        {% set tj_cargo = job_doc %}
+        {% if job_type == "Transport Job" %}
+        {% set tj_air_name = job_doc.air_shipment or (job_doc.main_service if (job_doc.main_service_type or "") == "Air Shipment" else None) %}
+        {% set tj_sea_name = job_doc.sea_shipment or (job_doc.main_service if (job_doc.main_service_type or "") == "Sea Shipment" else None) %}
+        {% set tj_air = frappe.get_doc("Air Shipment", tj_air_name) if tj_air_name and frappe.db.exists("Air Shipment", tj_air_name) else None %}
+        {% set tj_sea = frappe.get_doc("Sea Shipment", tj_sea_name) if tj_sea_name and frappe.db.exists("Sea Shipment", tj_sea_name) else None %}
+        {% set tj_ship = tj_air or tj_sea %}
+        {% set tj_cargo = job_doc if job_doc.total_weight is not none or job_doc.total_volume is not none or job_doc.total_packages is not none else (tj_ship or job_doc) %}
+        {% endif %}
+        {% set mice_job_types = ["Docket", "MICE Project", "MICE Job", "MICE Order"] %}
+        {% set mice_ns = namespace(cargo=job_doc, shipper=job_doc.get('shipper'), consignee=job_doc.get('consignee'), docket_name="", open_date=job_doc.get('show_open_date'), close_date=job_doc.get('show_close_date')) %}
+        {% if job_type in mice_job_types %}
+        {% if job_type == "Docket" %}
+        {% set mice_ns.docket_name = job_no %}
+        {% if not mice_ns.open_date %}{% set mice_ns.open_date = job_doc.get('planned_start') %}{% endif %}
+        {% if not mice_ns.close_date %}{% set mice_ns.close_date = job_doc.get('planned_end') %}{% endif %}
+        {% else %}
+        {% set mice_ns.docket_name = jcn.docket or "" %}
+        {% if not mice_ns.docket_name and job_doc.get('sales_quote') %}
+        {% set mice_ns.docket_name = frappe.db.get_value("Docket", {"sales_quote": job_doc.sales_quote, "docstatus": ["<", 2]}, "name") or "" %}
+        {% endif %}
+        {% if not mice_ns.docket_name and job_type == "MICE Project" %}
+        {% set mice_ns.docket_name = frappe.db.get_value("Docket", {"exhibit": job_no, "docstatus": ["<", 2]}, "name") or "" %}
+        {% elif not mice_ns.docket_name and job_doc.get('exhibit') %}
+        {% if job_doc.get('customer') %}
+        {% set mice_ns.docket_name = frappe.db.get_value("Docket", {"exhibit": job_doc.exhibit, "exhibitor": job_doc.customer, "docstatus": ["<", 2]}, "name") or "" %}
+        {% endif %}
+        {% if not mice_ns.docket_name %}
+        {% set mice_ns.docket_name = frappe.db.get_value("Docket", {"exhibit": job_doc.exhibit, "docstatus": ["<", 2]}, "name") or "" %}
+        {% endif %}
+        {% endif %}
+        {% if mice_ns.docket_name and frappe.db.exists("Docket", mice_ns.docket_name) %}
+        {% set mice_ns.cargo = frappe.get_doc("Docket", mice_ns.docket_name) %}
+        {% endif %}
+        {% if mice_ns.cargo and mice_ns.cargo.doctype == "Docket" %}
+        {% if not mice_ns.open_date %}{% set mice_ns.open_date = mice_ns.cargo.get('planned_start') %}{% endif %}
+        {% if not mice_ns.close_date %}{% set mice_ns.close_date = mice_ns.cargo.get('planned_end') %}{% endif %}
+        {% endif %}
+        {% endif %}
+        {% set mice_exhibit = job_no if job_type == "MICE Project" else (job_doc.get('exhibit') or mice_ns.cargo.get('exhibit')) %}
+        {% if (not mice_ns.open_date or not mice_ns.close_date) and mice_exhibit and frappe.db.exists("MICE Project", mice_exhibit) %}
+        {% set mice_ep = frappe.db.get_value("MICE Project", mice_exhibit, ["show_open_date", "show_close_date"], as_dict=True) %}
+        {% if mice_ep %}
+        {% if not mice_ns.open_date %}{% set mice_ns.open_date = mice_ep.show_open_date %}{% endif %}
+        {% if not mice_ns.close_date %}{% set mice_ns.close_date = mice_ep.show_close_date %}{% endif %}
+        {% endif %}
+        {% endif %}
+        {% set mice_sq_name = job_doc.get('sales_quote') or mice_ns.cargo.get('sales_quote') %}
+        {% if mice_sq_name and frappe.db.exists("Sales Quote", mice_sq_name) %}
+        {% set mice_sq = frappe.get_doc("Sales Quote", mice_sq_name) %}
+        {% if not mice_ns.shipper %}{% set mice_ns.shipper = mice_sq.shipper %}{% endif %}
+        {% if not mice_ns.consignee %}{% set mice_ns.consignee = mice_sq.consignee %}{% endif %}
+        {% if not mice_ns.open_date %}{% set mice_ns.open_date = mice_sq.get('exhibit_show_open_date') %}{% endif %}
+        {% if not mice_ns.close_date %}{% set mice_ns.close_date = mice_sq.get('exhibit_show_close_date') %}{% endif %}
+        {% endif %}
+        {% endif %}
         <div class="job-information-section info-block">
             <div class="info-title">JOB INFORMATION</div>
             <div class="info-content">
@@ -1085,8 +1144,8 @@
                     {% if job_doc %}
                         {% if job_type == "Warehouse Job" %}
                         <div class="field-row"><div class="field-label">JOB NO.</div><div class="field-value">{{ job_doc.name }}</div></div>
-                        <div class="field-row"><div class="field-label">STATUS</div><div class="field-value">{{ job_doc.status or "-" }}</div></div>
-                        <div class="field-row"><div class="field-label">CUSTOMER</div><div class="field-value">{{ job_doc.customer or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">SHIPPER</div><div class="field-value">{{ party_name("Shipper", job_doc.shipper, "shipper_name") }}</div></div>
+                        <div class="field-row"><div class="field-label">CONSIGNEE</div><div class="field-value">{{ party_name("Consignee", job_doc.consignee, "consignee_name") }}</div></div>
                         {% elif job_type == "Air Shipment" %}
                         <div class="field-row"><div class="field-label">CONSIGNOR</div><div class="field-value">{{ party_name("Shipper", job_doc.shipper, "shipper_name") }}</div></div>
                         <div class="field-row"><div class="field-label">CONSIGNEE</div><div class="field-value">{{ party_name("Consignee", job_doc.consignee, "consignee_name") }}</div></div>
@@ -1103,11 +1162,13 @@
                         <div class="field-row"><div class="field-label">ETD</div><div class="field-value">{{ job_date(job_doc.get('etd')) }}</div></div>
                         <div class="field-row"><div class="field-label">ETA</div><div class="field-value">{{ job_date(job_doc.get('eta')) }}</div></div>
                         {% elif job_type == "Transport Job" %}
-                        <div class="field-row"><div class="field-label">JOB NO.</div><div class="field-value">{{ job_doc.name }}</div></div>
-                        <div class="field-row"><div class="field-label">STATUS</div><div class="field-value">{{ job_doc.status or "-" }}</div></div>
-                        <div class="field-row"><div class="field-label">CUSTOMER</div><div class="field-value">{{ job_doc.customer or "-" }}</div></div>
-                        <div class="field-row"><div class="field-label">PICKUP</div><div class="field-value">{{ job_doc.pickup_address or job_doc.get('pickup_address_display') or "-" }}</div></div>
-                        <div class="field-row"><div class="field-label">DELIVERY</div><div class="field-value">{{ job_doc.delivery_address or job_doc.get('delivery_address_display') or "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">CONSIGNOR</div><div class="field-value">{{ party_name("Shipper", job_doc.shipper or (tj_ship.shipper if tj_ship else None), "shipper_name") }}</div></div>
+                        <div class="field-row"><div class="field-label">CONSIGNEE</div><div class="field-value">{{ party_name("Consignee", job_doc.consignee or (tj_ship.consignee if tj_ship else None), "consignee_name") }}</div></div>
+                        {% elif job_type in mice_job_types %}
+                        <div class="field-row"><div class="field-label">CONSIGNOR</div><div class="field-value">{{ party_name("Shipper", mice_ns.shipper, "shipper_name") }}</div></div>
+                        <div class="field-row"><div class="field-label">CONSIGNEE</div><div class="field-value">{{ party_name("Consignee", mice_ns.consignee, "consignee_name") }}</div></div>
+                        <div class="field-row"><div class="field-label">EVENT OPEN DATE</div><div class="field-value">{{ job_date(mice_ns.open_date) }}</div></div>
+                        <div class="field-row"><div class="field-label">EVENT CLOSE DATE</div><div class="field-value">{{ job_date(mice_ns.close_date) }}</div></div>
                         {% elif job_type == "General Job" %}
                         <div class="field-row"><div class="field-label">JOB NO.</div><div class="field-value">{{ job_doc.name }}</div></div>
                         <div class="field-row"><div class="field-label">STATUS</div><div class="field-value">{{ job_doc.status or "-" }}</div></div>
@@ -1145,7 +1206,14 @@
                         <div class="field-row"><div class="field-label">CHARGEABLE</div><div class="field-value">{{ measure_line(job_doc, job_doc.chargeable, "chargeable_weight_uom", "weight_uom", "default_chargeable_weight_uom", "default_weight_uom") }}</div></div>
                         <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(job_doc) }}</div></div>
                         {% elif job_type == "Transport Job" %}
-                        <div class="field-row"><div class="field-label">SERVICE DATE</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.service_date, 'MM-dd-yyyy') if job_doc.get('service_date') else "-" }}</div></div>
+                        <div class="field-row"><div class="field-label">WEIGHT</div><div class="field-value">{{ measure_line(tj_cargo, tj_cargo.total_weight, "total_weight_uom", "weight_uom", "default_weight_uom") }}</div></div>
+                        <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(tj_cargo, tj_cargo.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
+                        <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(tj_cargo) }}</div></div>
+                        {% elif job_type in mice_job_types %}
+                        <div class="field-row"><div class="field-label">WEIGHT</div><div class="field-value">{{ measure_line(mice_ns.cargo, mice_ns.cargo.total_weight, "total_weight_uom", "weight_uom", "default_weight_uom") }}</div></div>
+                        <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(mice_ns.cargo, mice_ns.cargo.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
+                        <div class="field-row"><div class="field-label">CHARGEABLE</div><div class="field-value">{{ measure_line(mice_ns.cargo, mice_ns.cargo.chargeable, "chargeable_weight_uom", "weight_uom", "default_chargeable_weight_uom", "default_weight_uom") }}</div></div>
+                        <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(mice_ns.cargo) }}</div></div>
                         {% elif job_type == "General Job" %}
                         <div class="field-row"><div class="field-label">DATE</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.posting_date, 'MM-dd-yyyy') if job_doc.get('posting_date') else "-" }}</div></div>
                         {% elif job_type == "Declaration" or job_type == "Customer Declaration" %}

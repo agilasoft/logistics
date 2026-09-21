@@ -26,8 +26,13 @@
             background: white;
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
+            min-height: 273mm;
             position: relative;
+        }
+
+        .print-format .receipt-container {
+            flex: 1 1 auto;
+            min-height: 100%;
         }
 
         .top-section {
@@ -78,7 +83,7 @@
         }
 
         .company-name {
-            font-size: 12pt;
+            font-size: 16pt;
             font-weight: bold;
             margin-bottom: 0;
         }
@@ -307,8 +312,13 @@
             display: flex;
             flex-direction: column;
             gap: 0.5mm;
-            flex: 1;
+            flex: 0 0 auto;
             min-height: 0;
+        }
+
+        .invoice-table,
+        .totals-row-container {
+            flex: 0 0 auto;
         }
 
         .invoice-table {
@@ -482,7 +492,7 @@
 
         @page {
             size: A4;
-            margin: 12mm 12mm 25mm 12mm;
+            margin: 12mm 12mm 12mm 12mm;
         }
 
         @page {
@@ -496,15 +506,40 @@
         @media print {
             html,
             body {
+                height: auto;
+                min-height: 0;
                 margin: 0;
                 padding: 0;
-                width: 210mm;
             }
 
-            .receipt-container {
-                width: 210mm;
-                padding-bottom: 25mm;
+            .receipt-container,
+            .print-format .receipt-container {
+                min-height: 273mm;
+                height: auto;
                 box-sizing: border-box;
+            }
+
+            .bottom-section {
+                margin-top: auto;
+                flex: 0 0 auto;
+            }
+
+            .header .company-name {
+                font-size: 16pt !important;
+                font-weight: bold !important;
+            }
+
+            .header .company-address,
+            .header .vat-reg,
+            .header .company-contact {
+                font-size: 7pt !important;
+                line-height: 1.3 !important;
+            }
+
+            .header .company-logo {
+                width: 60mm !important;
+                height: 30mm !important;
+                max-width: none !important;
             }
 
             .page-break {
@@ -512,14 +547,10 @@
             }
 
             .footer-section {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                background: #fff;
+                position: static;
+                margin-top: 0;
+                padding-top: 2mm;
                 border-top: 1px solid #000;
-                padding: 1mm 12mm;
-                box-sizing: border-box;
             }
         }
     </style>
@@ -588,28 +619,21 @@
                     {% endif %}
                     {% if company_address_name and frappe.db.exists("Address", company_address_name) %}
                         {% set company_address = frappe.get_doc("Address", company_address_name) %}
-                        {{ company_address.address_line1 or '' }}
-                        {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
-                        {% if company_address.city %} {{ company_address.city }}{% endif %}
-                        {% if company_address.state %}, {{ company_address.state }}{% endif %}
-                        {% if company_address.country %} {{ company_address.country }}{% endif %}
-                        {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                        {% if company_address.address_title %}
+                            {{ company_address.address_title }}
+                        {% else %}
+                            {{ company_address.address_line1 or '' }}{% if company_address.address_line2 %}, {{ company_address.address_line2 }}{% endif %}{% if company_address.city %}, {{ company_address.city }}{% endif %}{% if company_address.state %}, {{ company_address.state }}{% endif %}{% if company_address.pincode %} {{ company_address.pincode }}{% endif %}{% if company_address.country %}, {{ company_address.country }}{% endif %}
+                        {% endif %}
                     {% elif company_doc.address_line1 %}
-                        {{ company_doc.address_line1 }}<br>
-                        {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
-                        {{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}<br>
-                        {{ company_doc.country }}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
+                        {{ company_doc.address_line1 }}{% if company_doc.address_line2 %}, {{ company_doc.address_line2 }}{% endif %}{% if company_doc.city %}, {{ company_doc.city }}{% endif %}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}{% if company_doc.country %}, {{ company_doc.country }}{% endif %}
                     {% endif %}
                 </div>
                 <div class="vat-reg">
-                    {% if je_branch %}
+                    {% if je_branch and frappe.db.exists("Branch", je_branch) %}
                         {% set branch_doc = frappe.get_doc("Branch", je_branch) %}
-                        {% if branch_doc.custom_registration_details %}
-                            {{ branch_doc.custom_registration_details }}
-                        {% elif company_doc.tax_id %}
-                            VAT Reg. TIN: {{ company_doc.tax_id }}
-                        {% elif company_doc.tin %}
-                            VAT Reg. TIN: {{ company_doc.tin }}
+                        {% set vat_tin = branch_doc.custom_tax_id or company_doc.tax_id or company_doc.tin %}
+                        {% if vat_tin %}
+                            VAT Reg. TIN: {{ vat_tin }}
                         {% endif %}
                     {% elif company_doc.tax_id %}
                         VAT Reg. TIN: {{ company_doc.tax_id }}
@@ -619,7 +643,6 @@
                 </div>
                 <div class="company-contact">
                     {% if company_doc.email %}Email: {{ company_doc.email }}<br>{% endif %}
-                    {% if company_doc.website %}Website: {{ company_doc.website }}<br>{% endif %}
                     {% if company_doc.phone_no %}Phone: {{ company_doc.phone_no }}{% endif %}
                 </div>
             </div>

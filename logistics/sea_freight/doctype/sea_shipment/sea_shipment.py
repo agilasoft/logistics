@@ -192,6 +192,11 @@ class SeaShipment(VirtualLinkedServicesMixin, Document):
 
             apply_shipper_consignee_defaults(self)
             self._sync_freight_consolidator_from_sea_booking()
+            from logistics.sea_freight.sea_freight_settings_defaults import (
+                apply_release_type_from_sea_booking,
+            )
+
+            apply_release_type_from_sea_booking(self)
             self._guard_from_booking_milestone_edits()
             self.sync_milestones_from_sea_booking()
             self._guard_from_service_milestone_edits()

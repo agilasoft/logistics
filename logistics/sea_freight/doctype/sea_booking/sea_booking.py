@@ -2046,12 +2046,19 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 				sea_shipment.house_type = "Standard House"
 			elif sea_shipment.house_type == "Consolidation":
 				sea_shipment.house_type = "Co-load Master"
-			# Only copy release_type if it exists as a valid record
-			if self.release_type and frappe.db.exists("Release Type", self.release_type):
-				sea_shipment.release_type = self.release_type
+			# Copy Release Type from the booking when it is a valid master.
+			# Empty bookings fall back to Sea Freight Settings.default_release_type.
+			from logistics.sea_freight.sea_freight_settings_defaults import (
+				apply_release_type_default_from_sea_freight_settings,
+				valid_release_type,
+			)
+
+			copied_rt = valid_release_type(self.release_type)
+			if copied_rt:
+				sea_shipment.release_type = copied_rt
 			else:
-				# Explicitly clear the field if the record doesn't exist
 				sea_shipment.release_type = None
+				apply_release_type_default_from_sea_freight_settings(sea_shipment)
 			sea_shipment.entry_type = self.entry_type
 			sea_shipment.house_bl = self.house_bl
 			sea_shipment.packs = self.packs

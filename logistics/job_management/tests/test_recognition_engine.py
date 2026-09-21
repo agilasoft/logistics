@@ -212,8 +212,42 @@ class TestRecognitionJeDimensions(unittest.TestCase):
             dims = engine._je_dimension_fields_for_job()
         self.assertEqual(
             dims,
-            {"cost_center": "CC-X", "profit_center": "PC-X", "branch": "BR-X"},
+            {"cost_center": "CC-X", "profit_center": "PC-X", "branch": "BR-X", "project": None},
         )
+
+
+class TestRecognitionDateFallback(unittest.TestCase):
+    """ATA/ATD policy rows must not block jobs that have no ATA/ATD fields (e.g. Docket)."""
+
+    def _job(self, **kwargs):
+        data = {"company": "_Test Co", "creation": "2026-09-01 07:19:48"}
+        data.update(kwargs)
+        return frappe._dict(data)
+
+    def test_booking_date_uses_docket_date(self):
+        job = self._job(docket_date="2026-09-08", creation="2026-01-01")
+        self.assertEqual(str(get_booking_date(job)), "2026-09-08")
+
+    def test_atd_falls_back_when_doctype_has_no_atd_field(self):
+        job = self._job(doctype="Docket", docket_date="2026-09-08")
+        engine = RecognitionEngine(job)
+        self.assertEqual(str(engine._resolve_date("ATD")), "2026-09-08")
+        self.assertEqual(str(engine._resolve_date("ATA")), "2026-09-08")
+
+    def test_atd_does_not_fallback_when_atd_field_exists_but_empty(self):
+        job = self._job(
+            doctype="Sea Shipment",
+            atd=None,
+            booking_date="2026-09-01",
+        )
+        engine = RecognitionEngine(job)
+        self.assertIsNone(engine._resolve_date("ATD"))
+
+    def test_ensure_recognition_date_uses_docket_date_for_atd_basis(self):
+        job = self._job(doctype="Docket", docket_date="2026-09-08")
+        engine = RecognitionEngine(job)
+        engine.get_settings = lambda: {"recognition_date_basis": "ATD"}
+        self.assertEqual(str(engine._ensure_recognition_date(None)), "2026-09-08")
 
 
 class TestRecognitionAccounting(unittest.TestCase):
@@ -236,6 +270,7 @@ def run_tests():
     """Run all recognition engine tests."""
     suite = unittest.TestLoader().loadTestsFromTestCase(TestRecognitionEngine)
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TestRecognitionJeDimensions))
+    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TestRecognitionDateFallback))
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TestRecognitionAccounting))
     unittest.TextTestRunner(verbosity=2).run(suite)
 

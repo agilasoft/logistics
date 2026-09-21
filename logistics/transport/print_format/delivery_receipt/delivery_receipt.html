@@ -9,8 +9,8 @@
         .top-section { }
         .bottom-section { margin-top: 8mm; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3mm; }
-        .logo-placeholder { width: 60mm; height: 30mm; background: #e0e0e0; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 7pt; color: #666; flex-shrink: 0; }
-        .company-logo { width: 60mm; height: 30mm; object-fit: contain; flex-shrink: 0; }
+        .logo-placeholder { width: 60mm; height: 30mm; background: #e0e0e0; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 7pt; color: #666; }
+        .company-logo { width: 60mm; height: 30mm; object-fit: contain; }
         .company-info { flex: 1; text-align: left; padding-left: 3mm; }
         .company-name { font-size: 16pt; font-weight: bold; margin-bottom: 0; }
         .company-address { font-size: 7pt; line-height: 1.3; margin-bottom: 0; }
@@ -322,12 +322,16 @@
                     {% endif %}
                     {% if company_address_name and frappe.db.exists("Address", company_address_name) %}
                         {% set company_address = frappe.get_doc("Address", company_address_name) %}
-                        {{ company_address.address_line1 or '' }}
-                        {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
-                        {% if company_address.city %} {{ company_address.city }}{% endif %}
-                        {% if company_address.state %}, {{ company_address.state }}{% endif %}
-                        {% if company_address.country %} {{ company_address.country }}{% endif %}
-                        {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                        {% if company_address.address_title %}
+                            {{ company_address.address_title }}
+                        {% else %}
+                            {{ company_address.address_line1 or '' }}
+                            {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
+                            {% if company_address.city %} {{ company_address.city }}{% endif %}
+                            {% if company_address.state %}, {{ company_address.state }}{% endif %}
+                            {% if company_address.country %} {{ company_address.country }}{% endif %}
+                            {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                        {% endif %}
                     {% elif company_doc.address_line1 %}
                         {{ company_doc.address_line1 }}<br>
                         {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
@@ -338,12 +342,9 @@
                 <div class="vat-reg">
                     {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
                         {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
-                        {% if branch_doc.custom_registration_details %}
-                            {{ branch_doc.custom_registration_details }}
-                        {% elif company_doc.tax_id %}
-                            VAT Reg. TIN: {{ company_doc.tax_id }}
-                        {% elif company_doc.tin %}
-                            VAT Reg. TIN: {{ company_doc.tin }}
+                        {% set vat_tin = branch_doc.custom_tax_id or company_doc.tax_id or company_doc.tin %}
+                        {% if vat_tin %}
+                            VAT Reg. TIN: {{ vat_tin }}
                         {% endif %}
                     {% elif company_doc.tax_id %}
                         VAT Reg. TIN: {{ company_doc.tax_id }}

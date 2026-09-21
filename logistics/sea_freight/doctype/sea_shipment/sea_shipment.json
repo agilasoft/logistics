@@ -674,6 +674,8 @@
    "label": "Additional Terms"
   },
   {
+   "fetch_from": "sea_booking.release_type",
+   "fetch_if_empty": 1,
    "fieldname": "release_type",
    "fieldtype": "Link",
    "label": "Release Type",
