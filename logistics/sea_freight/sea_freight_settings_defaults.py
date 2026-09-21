@@ -1,6 +1,6 @@
 # Copyright (c) 2026, logistics.agilasoft.com and contributors
 # For license information, please see license.txt
-"""Apply Sea Freight Settings defaults to documents (branch, cost center, profit center, incoterm)."""
+"""Apply Sea Freight Settings defaults (branch, cost center, profit center, incoterm, release type)."""
 
 import frappe
 
@@ -56,6 +56,47 @@ def apply_incoterm_default_from_sea_freight_settings(doc):
 	_set_link_if_empty(doc, "incoterm", "Incoterm", getattr(settings, "default_incoterm", None))
 
 
+def valid_release_type(value):
+	"""Return ``value`` when it is a real Release Type master, otherwise None."""
+	if not value:
+		return None
+	if frappe.db.exists("Release Type", value):
+		return value
+	return None
+
+
+def apply_release_type_default_from_sea_freight_settings(doc):
+	"""Fill empty Release Type from Sea Freight Settings.
+
+	Does not overwrite a value already set on the document.
+	"""
+	if getattr(doc, "release_type", None):
+		return
+	if not doc.meta.get_field("release_type"):
+		return
+	settings = _get_sea_freight_settings_for_doc(doc)
+	if not settings:
+		return
+	_set_link_if_empty(
+		doc, "release_type", "Release Type", getattr(settings, "default_release_type", None)
+	)
+
+
+def apply_release_type_from_sea_booking(shipment):
+	"""Copy Sea Booking.release_type onto an empty Sea Shipment, then settings default."""
+	if getattr(shipment, "release_type", None):
+		return
+	booking_name = (getattr(shipment, "sea_booking", None) or "").strip()
+	if booking_name:
+		booking_rt = valid_release_type(
+			frappe.db.get_value("Sea Booking", booking_name, "release_type")
+		)
+		if booking_rt:
+			shipment.release_type = booking_rt
+			return
+	apply_release_type_default_from_sea_freight_settings(shipment)
+
+
 def _resolve_sales_quote_incoterm(doc, sales_quote=None):
 	"""Return Sales Quote.incoterm when set (from doc or linked sales_quote)."""
 	if sales_quote is not None:
@@ -74,14 +115,14 @@ def apply_sea_booking_incoterm_defaults(doc, sales_quote=None):
 	When the linked Sales Quote has an Incoterm, it always wins. Party and Settings
 	defaults only fill when the field is still empty.
 	"""
-	if not doc.meta.get_field("incoterm"):
-		return
+	if doc.meta.get_field("incoterm"):
+		sq_incoterm = _resolve_sales_quote_incoterm(doc, sales_quote=sales_quote)
+		if sq_incoterm:
+			doc.incoterm = sq_incoterm
 
-	sq_incoterm = _resolve_sales_quote_incoterm(doc, sales_quote=sales_quote)
-	if sq_incoterm:
-		doc.incoterm = sq_incoterm
+		from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
 
-	from logistics.utils.shipper_consignee_defaults import apply_shipper_consignee_defaults
+		apply_shipper_consignee_defaults(doc)
+		apply_incoterm_default_from_sea_freight_settings(doc)
 
-	apply_shipper_consignee_defaults(doc)
-	apply_incoterm_default_from_sea_freight_settings(doc)
+	apply_release_type_default_from_sea_freight_settings(doc)

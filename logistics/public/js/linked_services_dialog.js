@@ -155,6 +155,9 @@ function _lsd1_render_list(rows, opts, selected) {
 				: row.order_no
 				? `<span class="lsd1-pill lsd1-pill-job">${_lsd1_escape(row.order_no)}</span>`
 				: `<span class="lsd1-pill">${__("No Job")}</span>`;
+			const company_html = row.company
+				? `<span class="lsd1-pill">${_lsd1_escape(row.company)}</span>`
+				: "";
 			const source_html = from_job
 				? `<span class="lsd1-pill">${__("From job")}</span>`
 				: "";
@@ -190,7 +193,7 @@ function _lsd1_render_list(rows, opts, selected) {
 							${_lsd1_icon("es-line-open", "xs") || _lsd1_icon("external-link", "xs")}
 						</a>
 					</div>
-					<div class="lsd1-item-meta">${source_html}${job_html}</div>
+					<div class="lsd1-item-meta">${source_html}${company_html}${job_html}</div>
 					<div class="lsd1-item-actions">${edit_btn}${remove_btn}</div>
 				</div>`;
 		})

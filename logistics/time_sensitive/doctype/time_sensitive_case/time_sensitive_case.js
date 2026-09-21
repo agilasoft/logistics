@@ -97,7 +97,7 @@ function logistics_ts_setup_actions_menu(frm) {
 					},
 				});
 			},
-			__("Actions")
+			__("Action")
 		);
 	}
 
@@ -124,7 +124,7 @@ function logistics_ts_setup_actions_menu(frm) {
 				__("Log Exception")
 			);
 		},
-		__("Actions")
+		__("Action")
 	);
 
 	frm.add_custom_button(
@@ -165,7 +165,7 @@ function logistics_ts_setup_actions_menu(frm) {
 				__("Attach Operational Document")
 			);
 		},
-		__("Actions")
+		__("Action")
 	);
 
 	frm.add_custom_button(
@@ -201,7 +201,7 @@ function logistics_ts_setup_actions_menu(frm) {
 				__("Create Change Request")
 			);
 		},
-		__("Actions")
+		__("Action")
 	);
 }
 

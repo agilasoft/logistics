@@ -24,6 +24,14 @@
                 padding: 0;
                 background: white;
                 position: relative;
+                display: flex;
+                flex-direction: column;
+                min-height: 273mm;
+            }
+
+            .print-format .receipt-container {
+                flex: 1 1 auto;
+                min-height: 100%;
             }
             
             @media screen {
@@ -31,18 +39,20 @@
                     overflow-x: hidden;
                     overflow-y: auto;
                 }
-
-                .receipt-container.single-page-invoice {
-                    min-height: 100vh;
-                }
             }
             
             .receipt-body {
-                display: block;
+                flex: 1 1 auto;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
             }
 
             .top-section {
-                display: block;
+                flex: 1 1 auto;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
             }
 
             .last-page-push {
@@ -53,7 +63,7 @@
             .receipt-container.single-page-invoice {
                 display: flex;
                 flex-direction: column;
-                min-height: calc(100vh - 24mm);
+                min-height: 273mm;
             }
 
             .receipt-container.single-page-invoice .receipt-body {
@@ -73,10 +83,6 @@
             .receipt-container.single-page-invoice .last-page-block {
                 margin-top: auto;
                 flex-shrink: 0;
-            }
-
-            .receipt-container.single-page-invoice .last-page-push {
-                height: 0 !important;
             }
             
             /* Header Section */
@@ -112,7 +118,7 @@
             }
             
             .company-name {
-                font-size: 12pt;
+                font-size: 16pt;
                 font-weight: bold;
                 margin-bottom: 0;
             }
@@ -173,7 +179,7 @@
                 font-size: 7.5pt;
                 min-width: 26mm;
                 flex-shrink: 0;
-                text-align: right;
+                text-align: left;
             }
             .info-block .field-value {
                 flex: 1;
@@ -191,24 +197,48 @@
                 position: relative;
             }
             .main-body .info-block {
+                margin-top: 0;
                 margin-bottom: 0;
             }
             .main-body .info-content {
                 display: flex;
                 justify-content: space-between;
-                gap: 3mm;
+                align-items: flex-start;
+                gap: 6mm;
             }
-            .left-column {
-                flex: 1;
-                padding-right: 2mm;
-            }
-            .left-column .field-row { justify-content: flex-end; }
-            .left-column .field-label { width: 32mm; }
+            .left-column,
             .right-column {
-                flex: 1;
-                padding-left: 2mm;
+                flex: 1 1 0;
+                min-width: 0;
+                padding: 0;
+                display: grid;
+                grid-template-columns: max-content 1fr;
+                column-gap: 0;
+                row-gap: 0.2mm;
+                align-items: center;
+                align-content: start;
+                grid-auto-rows: min-content;
             }
-            .right-column .field-label { width: 32mm; text-align: right; }
+            .left-column .field-row,
+            .right-column .field-row {
+                display: contents;
+            }
+            .main-body .info-block .field-label {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 1.5mm;
+                width: auto;
+                min-width: 0;
+                text-align: left;
+            }
+            .main-body .info-block .field-label::after {
+                content: ": ";
+                flex-shrink: 0;
+            }
+            .main-body .info-block.note-info .left-column .field-value {
+                white-space: nowrap;
+            }
             
             .field-row {
                 display: flex;
@@ -233,13 +263,30 @@
     
             /* Job Information Section - same 2-column layout as Invoice Information */
             .job-information-section {
+                display: block;
                 margin-top: 1.5mm;
                 page-break-inside: avoid;
             }
             .job-information-section .info-content {
                 display: flex;
                 justify-content: space-between;
-                gap: 3mm;
+                align-items: flex-start;
+                gap: 6mm;
+            }
+            .main-body .job-information-section .left-column,
+            .main-body .job-information-section .right-column {
+                justify-items: start;
+            }
+            .main-body .job-information-section .field-label {
+                justify-content: flex-start;
+                width: max-content;
+                min-width: 0;
+            }
+            .main-body .job-information-section.info-block .field-label::after {
+                content: none;
+            }
+            .main-body .job-information-section .field-value::before {
+                content: ": ";
             }
         
         /* Customer Info Section - Aligned with QR */
@@ -290,11 +337,12 @@
             /* QR Code Section */
             .qr-section {
                 position: absolute;
-                top: -35mm;
+                top: auto;
+                bottom: 100%;
                 right: 1.5mm;
                 text-align: right;
                 z-index: 10;
-                margin-bottom: 3mm;
+                margin-bottom: 0;
             }
             
             .qr-placeholder {
@@ -310,6 +358,8 @@
                 width: 1in;
                 height: 1in;
                 border: none;
+                display: block;
+                margin-left: auto;
             }
             
             .receipt-title-qr {
@@ -317,15 +367,18 @@
                 font-weight: bold;
                 font-weight: 900;
                 margin-top: 0.11mm;
-                margin-bottom: -1mm;
+                margin-bottom: 0;
                 text-align: right;
                 text-transform: uppercase;
+                line-height: 1;
             }
             
             .reference-number {
                 font-size: 8pt;
                 font-weight: regular;
-                margin-top: 0.1mm;
+                margin: 0;
+                padding: 0;
+                line-height: 1;
             }
             
             /* Table Section */
@@ -340,9 +393,10 @@
             .invoice-table {
                 width: 100%;
                 border-collapse: collapse;
+                border-spacing: 0;
                 margin-top: 0;
                 border: none;
-                line-height: 1.2;
+                line-height: 1;
                 table-layout: fixed;
             }
 
@@ -428,14 +482,6 @@
                 border-right: none !important;
             }
             
-            .table-header tr:first-child th:last-child {
-                text-align: right;
-                border-top: 2px solid #000 !important;
-                border-bottom: 2px solid #000 !important;
-                border-left: none !important;
-                border-right: 2px solid #000 !important;
-            }
-            
             .table-header tr:first-child th:nth-child(2),
             .table-header tr:first-child th:nth-child(3) {
                 border-top: 2px solid #000 !important;
@@ -445,8 +491,7 @@
             }
             
             .table-header tr:first-child th:nth-child(4),
-            .table-header tr:first-child th:nth-child(5),
-            .table-header tr:first-child th:nth-child(6) {
+            .table-header tr:first-child th:nth-child(5) {
                 border-top: 2px solid #000 !important;
                 border-bottom: 2px solid #000 !important;
                 border-left: none !important;
@@ -454,19 +499,24 @@
                 text-align: right;
             }
             
+            .table-header tr:first-child th:last-child,
             .table-header tr:first-child th:nth-child(6) {
                 text-align: right;
+                border-top: 2px solid #000 !important;
+                border-bottom: 2px solid #000 !important;
                 border-left: none !important;
+                border-right: 2px solid #000 !important;
             }
             
-            .table-row td {
-                padding: 0.05mm 0.1mm;
+            .invoice-table .table-row td {
+                padding: 1mm 0.1mm !important;
                 font-size: 8pt;
                 background: white;
                 border: none;
                 text-align: left;
                 vertical-align: top;
-                line-height: 1.0;
+                line-height: 1 !important;
+                height: auto;
             }
             
             .table-row td:nth-child(1) {
@@ -786,7 +836,8 @@
             }
 
             .last-page-block {
-                margin-top: 5mm;
+                margin-top: auto;
+                flex-shrink: 0;
             }
 
             .last-page-block.footer-with-table {
@@ -890,6 +941,11 @@
             }
             
 @media print {
+            .receipt-container,
+            .print-format .receipt-container {
+                min-height: 0;
+            }
+
             .receipt-container.single-page-invoice {
                 display: flex;
                 flex-direction: column;
@@ -910,6 +966,11 @@
                 min-height: 0;
             }
 
+            .last-page-block {
+                page-break-before: avoid;
+                break-before: avoid;
+            }
+
             .receipt-container.single-page-invoice .last-page-block {
                 margin-top: auto;
                 flex-shrink: 0;
@@ -918,7 +979,8 @@
             }
 
             .receipt-container.single-page-invoice .last-page-push {
-                height: 0 !important;
+                height: var(--last-page-push-height, 0);
+                flex-shrink: 0;
             }
 
   .last-page-push {
@@ -1016,6 +1078,19 @@
                 {% endfor %}
             {% endif %}
             {% set show_tax_summary = (not is_dsb) and (not is_crd or ns_crd_tax.has_vat_exempt_zero) %}
+            {% set ns_line = namespace(tax=0, net=0, total=0) %}
+            {% set ns_rate = namespace(vat_rate=0) %}
+            {% if doc.taxes %}
+                {% for tax in doc.taxes %}
+                    {% set _rate_acc = (frappe.db.get_value("Account", tax.account_head, "account_name") or "")|lower %}
+                    {% set _rate_desc = (tax.description or "")|lower %}
+                    {% set _rate_label = _rate_acc ~ " " ~ _rate_desc %}
+                    {% set _rate = tax.rate or 0 %}
+                    {% if _rate > 0 and ("vat" in _rate_label or "vatable" in _rate_label) and "withhold" not in _rate_label and "exempt" not in _rate_label and "zero rated" not in _rate_label and "zero-rated" not in _rate_label %}
+                        {% set ns_rate.vat_rate = ns_rate.vat_rate + _rate %}
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
             <div class="receipt-body">
             <!-- Header -->
             <div class="header">
@@ -1052,12 +1127,16 @@
                         {% endif %}
                         {% if company_address_name and frappe.db.exists("Address", company_address_name) %}
                             {% set company_address = frappe.get_doc("Address", company_address_name) %}
+                            {% if company_address.address_title %}
+                                {{ company_address.address_title }}
+                            {% else %}
                             {{ company_address.address_line1 or '' }}
                             {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
                             {% if company_address.city %} {{ company_address.city }}{% endif %}
                             {% if company_address.state %}, {{ company_address.state }}{% endif %}
                             {% if company_address.country %} {{ company_address.country }}{% endif %}
                             {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                            {% endif %}
                         {% elif company_doc.address_line1 %}
                             {{ company_doc.address_line1 }}<br>
                             {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
@@ -1066,14 +1145,11 @@
                         {% endif %}
                     </div>
                     <div class="vat-reg">
-                        {% if doc.branch %}
+                        {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
                             {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
-                            {% if branch_doc.custom_registration_details %}
-                                {{ branch_doc.custom_registration_details }}
-                            {% elif company_doc.tax_id %}
-                                VAT Reg. TIN: {{ company_doc.tax_id }}
-                            {% elif company_doc.tin %}
-                                VAT Reg. TIN: {{ company_doc.tin }}
+                            {% set vat_tin = branch_doc.custom_tax_id or company_doc.tax_id or company_doc.tin %}
+                            {% if vat_tin %}
+                                VAT Reg. TIN: {{ vat_tin }}
                             {% endif %}
                         {% elif company_doc.tax_id %}
                             VAT Reg. TIN: {{ company_doc.tax_id }}
@@ -1144,7 +1220,6 @@
                     </div>
                     {% if doc.customer %}
                     <div class="customer-detail-row"><span class="customer-detail-label">TIN:</span> <span class="customer-detail-value">{{ customer_doc.tax_id or customer_doc.tin or '-' }}</span></div>
-                    <div class="customer-detail-row"><span class="customer-detail-label">Business Style:</span> <span class="customer-detail-value">{{ customer_doc.customer_name or '-' }}</span></div>
                     {% endif %}
                 </div>
                 
@@ -1167,43 +1242,56 @@
                     <div class="reference-number">{{ doc.name }}</div>
                 </div>
                 <!-- Invoice Information -->
-                <div class="info-block">
-                    <div class="info-title">INVOICE INFORMATION</div>
+                <div class="info-block{% if is_dbt or is_crd %} note-info{% endif %}">
+                    <div class="info-title">{% if is_dbt %}DEBIT NOTE{% elif is_crd %}CREDIT NOTE{% else %}INVOICE{% endif %} INFORMATION</div>
                     <div class="info-content">
                 <div class="left-column">
                     <div class="field-row">
-                        <div class="field-label">JOB NUMBER:</div>
-                        <div class="field-value">
-                            {% if doc.job_number %}
-                                {{ doc.job_number }}
-                            {% endif %}
-                        </div>
+                        <div class="field-label">JOB NUMBER</div>
+                        {% set print_job_number = doc.job_number %}
+                        {% if not print_job_number and doc.return_against %}
+                            {% set print_job_number = frappe.db.get_value(doc.doctype, doc.return_against, "job_number") %}
+                        {% endif %}
+                        <div class="field-value">{{ print_job_number or '' }}</div>
                     </div>
+                    {% if doc.branch %}
                     <div class="field-row">
-                        <div class="field-label">BRANCH CODE:</div>
+                        <div class="field-label">BRANCH</div>
                         <div class="field-value">
-                            {% if doc.branch %}
-                                {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
-                                {{ branch_doc.branch_code if branch_doc.branch_code else branch_doc.branch_name if branch_doc.branch_name else doc.branch }}
-                            {% endif %}
+                            {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
+                            {{ branch_doc.branch_name or branch_doc.branch_code or doc.branch }}
                         </div>
                     </div>
+                    {% endif %}
                     <div class="field-row">
-                        <div class="field-label">INVOICE TYPE:</div>
+                        <div class="field-label">POSTED BY</div>
                         <div class="field-value">
-                            {% if doc.custom_invoice_type %}
-                                {{ doc.custom_invoice_type }}
-                            {% elif doc.invoice_type %}
-                                {{ doc.invoice_type }}
+                            {% if doc.owner and frappe.db.exists("User", doc.owner) %}
+                                {% set owner_doc = frappe.get_doc("User", doc.owner) %}
+                                {{ owner_doc.full_name or doc.owner }}
+                            {% else %}
+                                {{ doc.owner or '' }}
                             {% endif %}
                         </div>
                     </div>
+                    {% if (is_crd or is_dbt) and doc.return_against %}
+                    <div class="field-row">
+                        <div class="field-label">RETURN AGAINST</div>
+                        <div class="field-value">{{ doc.return_against }}</div>
+                    </div>
+                    {% endif %}
+                    {% if doc.custom_invoice_type or doc.invoice_type %}
+                    <div class="field-row">
+                        <div class="field-label">INVOICE TYPE</div>
+                        <div class="field-value">{{ doc.custom_invoice_type or doc.invoice_type }}</div>
+                    </div>
+                    {% endif %}
                 </div>
                 
                 <!-- Right Column - Invoice Details -->
                 <div class="right-column">
                     <div class="field-row">
-                        <div class="field-label">INVOICE DATE:</div>
+                        <div class="field-label">INVOICE DATE</div>
                         <div class="field-value">
                             {% if doc.posting_date %}
                                 {{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') }}
@@ -1211,91 +1299,273 @@
                         </div>
                     </div>
                     <div class="field-row">
-                        <div class="field-label">DUE DATE:</div>
+                        <div class="field-label">DUE DATE</div>
                         <div class="field-value">
                             {% if doc.due_date %}
                                 {{ frappe.utils.formatdate(doc.due_date, 'MM-dd-yyyy') }}
-                            {% elif doc.posting_date %}
-                                {{ frappe.utils.formatdate(doc.posting_date, 'MM-dd-yyyy') }}
                             {% endif %}
                         </div>
+                    </div>
+                    <div class="field-row">
+                        <div class="field-label">PAYMENT TERMS</div>
+                        <div class="field-value">{{ doc.payment_terms_template or doc.payment_terms or '' }}</div>
                     </div>
                 </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Job Information Section (based on Job Number from doc.job_number) -->
-            {% if doc.job_number %}
-            {% set jcn = frappe.get_doc("Job Number", doc.job_number) %}
+            <!-- Job Information Section -->
+            {% set job_print_number = doc.job_number %}
+            {% if not job_print_number and doc.return_against %}
+                {% set job_print_number = frappe.db.get_value(doc.doctype, doc.return_against, "job_number") %}
+            {% endif %}
+            {% if job_print_number and frappe.db.exists("Job Number", job_print_number) %}
+            {% set jcn = frappe.get_doc("Job Number", job_print_number) %}
             {% set job_type = jcn.job_type or "" %}
             {% set job_no = jcn.job_no or "" %}
+            {% if job_no and job_type and frappe.db.exists(job_type, job_no) %}
+            {% set job_doc = frappe.get_doc(job_type, job_no) %}
+            {% macro party_name(doctype, name, field) -%}
+            {%- if name and frappe.db.exists(doctype, name) -%}
+            {{ frappe.db.get_value(doctype, name, field) or name }}
+            {%- else -%}
+            {{ name or "-" }}
+            {%- endif -%}
+            {%- endmacro %}
+            {% macro port_line(code) -%}
+            {%- if code -%}
+            {%- set loc = frappe.db.get_value("UNLOCO", code, ["unlocode", "city", "location_name", "country"], as_dict=True) -%}
+            {%- if loc -%}
+            {{ loc.unlocode or code }}{% set place = loc.city or loc.location_name %}{% if place %} = {{ place }}{% endif %}{% if loc.country %}, {{ loc.country[:-6] if loc.country[-6:]|lower == " (the)" else loc.country }}{% endif %}
+            {%- else -%}{{ code }}{%- endif -%}
+            {%- else -%}-{%- endif -%}
+            {%- endmacro %}
+            {% macro job_date(val) -%}
+            {%- if val -%}{{ frappe.utils.formatdate(val, 'dd-MMM-yy') }}{%- else -%}-{%- endif -%}
+            {%- endmacro %}
+            {% macro packages_line(job) -%}
+            {%- if job.total_packages is not none -%}
+            {{ job.total_packages|int }}{% set ns_pkg = namespace(uom="") %}{% for p in job.packages or [] %}{% if not ns_pkg.uom and p.uom %}{% set ns_pkg.uom = p.uom %}{% endif %}{% endfor %}{% if ns_pkg.uom %} {{ ns_pkg.uom }}{% endif %}
+            {%- else -%}-{%- endif -%}
+            {%- endmacro %}
+            {% macro warehouse_item_line(job) -%}
+            {%- set ns_it = namespace(qty=0, uom="", has_items=false, rows=job.orders if job.orders else (job.items or [])) -%}
+            {%- for row in ns_it.rows -%}
+            {%- set ns_it.has_items = true -%}
+            {%- set ns_it.qty = ns_it.qty + (row.quantity or 0) -%}
+            {%- if not ns_it.uom and row.uom -%}{%- set ns_it.uom = row.uom -%}{%- endif -%}
+            {%- endfor -%}
+            {%- if ns_it.has_items -%}
+            {{ ns_it.qty|int }}{% if ns_it.uom %} {{ ns_it.uom }}{% endif %}
+            {%- else -%}-{%- endif -%}
+            {%- endmacro %}
+            {% macro measure_line(job, value, parent_uom, package_uom, settings_uom, settings_uom_alt="") -%}
+            {%- if value is not none -%}
+            {{ "%.4f"|format(value|float) }}{% set ns = namespace(uom=job.get(parent_uom) or "") %}
+            {%- if not ns.uom -%}{%- for p in job.packages or [] -%}{%- if not ns.uom and p.get(package_uom) -%}{%- set ns.uom = p.get(package_uom) -%}{%- endif -%}{%- endfor -%}{%- endif -%}
+            {%- if not ns.uom -%}{%- for p in job.items or [] -%}{%- if not ns.uom and p.get(package_uom) -%}{%- set ns.uom = p.get(package_uom) -%}{%- endif -%}{%- endfor -%}{%- endif -%}
+            {%- if not ns.uom -%}{%- for p in job.orders or [] -%}{%- if not ns.uom and p.get(package_uom) -%}{%- set ns.uom = p.get(package_uom) -%}{%- endif -%}{%- endfor -%}{%- endif -%}
+            {%- if not ns.uom -%}{%- set ns.uom = frappe.db.get_single_value("Logistics Settings", settings_uom) or "" -%}{%- endif -%}
+            {%- if not ns.uom and settings_uom_alt -%}{%- set ns.uom = frappe.db.get_single_value("Logistics Settings", settings_uom_alt) or "" -%}{%- endif -%}
+            {%- if ns.uom %} {{ ns.uom }}{% endif %}
+            {%- else -%}-{%- endif -%}
+            {%- endmacro %}
+            {% macro vessel_voyage(job) -%}
+            {%- set ns_vv = namespace(vessel="", voyage="") -%}
+            {%- for leg in job.routing_legs or [] -%}
+            {%- if not ns_vv.vessel and not ns_vv.voyage and (leg.type or "") == "Main" and (leg.vessel or leg.voyage_no or leg.vessel_master) -%}
+            {%- set ns_vv.vessel = (leg.vessel or "")|trim -%}
+            {%- if not ns_vv.vessel and leg.vessel_master and frappe.db.exists("Vessel", leg.vessel_master) -%}
+            {%- set ns_vv.vessel = (frappe.db.get_value("Vessel", leg.vessel_master, "vessel_name") or "")|trim -%}
+            {%- endif -%}
+            {%- set ns_vv.voyage = (leg.voyage_no or "")|trim -%}
+            {%- endif -%}
+            {%- endfor -%}
+            {%- if not ns_vv.vessel and not ns_vv.voyage -%}
+            {%- for leg in job.routing_legs or [] -%}
+            {%- if not ns_vv.vessel and not ns_vv.voyage and (leg.vessel or leg.voyage_no or leg.vessel_master) -%}
+            {%- set ns_vv.vessel = (leg.vessel or "")|trim -%}
+            {%- if not ns_vv.vessel and leg.vessel_master and frappe.db.exists("Vessel", leg.vessel_master) -%}
+            {%- set ns_vv.vessel = (frappe.db.get_value("Vessel", leg.vessel_master, "vessel_name") or "")|trim -%}
+            {%- endif -%}
+            {%- set ns_vv.voyage = (leg.voyage_no or "")|trim -%}
+            {%- endif -%}
+            {%- endfor -%}
+            {%- endif -%}
+            {%- if not ns_vv.vessel -%}{%- set ns_vv.vessel = (job.get('mbl_vessel') or job.get('vessel') or "")|trim -%}{%- endif -%}
+            {%- if not ns_vv.voyage -%}{%- set ns_vv.voyage = (job.get('mbl_voyage_no') or job.get('voyage_no') or "")|trim -%}{%- endif -%}
+            {%- if ns_vv.vessel and ns_vv.voyage -%}{{ ns_vv.vessel }} / {{ ns_vv.voyage }}
+            {%- elif ns_vv.vessel -%}{{ ns_vv.vessel }}
+            {%- elif ns_vv.voyage -%}{{ ns_vv.voyage }}
+            {%- else -%}-{%- endif -%}
+            {%- endmacro %}
+            {% set tj_air = None %}
+            {% set tj_sea = None %}
+            {% set tj_ship = None %}
+            {% set tj_cargo = job_doc %}
+            {% if job_type == "Transport Job" %}
+            {% set tj_air_name = job_doc.air_shipment or (job_doc.main_service if (job_doc.main_service_type or "") == "Air Shipment" else None) %}
+            {% set tj_sea_name = job_doc.sea_shipment or (job_doc.main_service if (job_doc.main_service_type or "") == "Sea Shipment" else None) %}
+            {% set tj_air = frappe.get_doc("Air Shipment", tj_air_name) if tj_air_name and frappe.db.exists("Air Shipment", tj_air_name) else None %}
+            {% set tj_sea = frappe.get_doc("Sea Shipment", tj_sea_name) if tj_sea_name and frappe.db.exists("Sea Shipment", tj_sea_name) else None %}
+            {% set tj_ship = tj_air or tj_sea %}
+            {% set tj_cargo = job_doc if job_doc.total_weight is not none or job_doc.total_volume is not none or job_doc.total_packages is not none else (tj_ship or job_doc) %}
+            {% endif %}
+            {% set mice_job_types = ["Docket", "MICE Project", "MICE Job", "MICE Order"] %}
+            {% set mice_ns = namespace(cargo=job_doc, shipper=job_doc.get('shipper'), consignee=job_doc.get('consignee'), docket_name="", open_date=job_doc.get('show_open_date'), close_date=job_doc.get('show_close_date')) %}
+            {% if job_type in mice_job_types %}
+            {% if job_type == "Docket" %}
+            {% set mice_ns.docket_name = job_no %}
+            {% if not mice_ns.open_date %}{% set mice_ns.open_date = job_doc.get('planned_start') %}{% endif %}
+            {% if not mice_ns.close_date %}{% set mice_ns.close_date = job_doc.get('planned_end') %}{% endif %}
+            {% else %}
+            {% set mice_ns.docket_name = jcn.docket or "" %}
+            {% if not mice_ns.docket_name and job_doc.get('sales_quote') %}
+            {% set mice_ns.docket_name = frappe.db.get_value("Docket", {"sales_quote": job_doc.sales_quote, "docstatus": ["<", 2]}, "name") or "" %}
+            {% endif %}
+            {% if not mice_ns.docket_name and job_type == "MICE Project" %}
+            {% set mice_ns.docket_name = frappe.db.get_value("Docket", {"exhibit": job_no, "docstatus": ["<", 2]}, "name") or "" %}
+            {% elif not mice_ns.docket_name and job_doc.get('exhibit') %}
+            {% if job_doc.get('customer') %}
+            {% set mice_ns.docket_name = frappe.db.get_value("Docket", {"exhibit": job_doc.exhibit, "exhibitor": job_doc.customer, "docstatus": ["<", 2]}, "name") or "" %}
+            {% endif %}
+            {% if not mice_ns.docket_name %}
+            {% set mice_ns.docket_name = frappe.db.get_value("Docket", {"exhibit": job_doc.exhibit, "docstatus": ["<", 2]}, "name") or "" %}
+            {% endif %}
+            {% endif %}
+            {% if mice_ns.docket_name and frappe.db.exists("Docket", mice_ns.docket_name) %}
+            {% set mice_ns.cargo = frappe.get_doc("Docket", mice_ns.docket_name) %}
+            {% endif %}
+            {% if mice_ns.cargo and mice_ns.cargo.doctype == "Docket" %}
+            {% if not mice_ns.open_date %}{% set mice_ns.open_date = mice_ns.cargo.get('planned_start') %}{% endif %}
+            {% if not mice_ns.close_date %}{% set mice_ns.close_date = mice_ns.cargo.get('planned_end') %}{% endif %}
+            {% endif %}
+            {% endif %}
+            {% set mice_exhibit = job_no if job_type == "MICE Project" else (job_doc.get('exhibit') or mice_ns.cargo.get('exhibit')) %}
+            {% if (not mice_ns.open_date or not mice_ns.close_date) and mice_exhibit and frappe.db.exists("MICE Project", mice_exhibit) %}
+            {% set mice_ep = frappe.db.get_value("MICE Project", mice_exhibit, ["show_open_date", "show_close_date"], as_dict=True) %}
+            {% if mice_ep %}
+            {% if not mice_ns.open_date %}{% set mice_ns.open_date = mice_ep.show_open_date %}{% endif %}
+            {% if not mice_ns.close_date %}{% set mice_ns.close_date = mice_ep.show_close_date %}{% endif %}
+            {% endif %}
+            {% endif %}
+            {% set mice_sq_name = job_doc.get('sales_quote') or mice_ns.cargo.get('sales_quote') %}
+            {% if mice_sq_name and frappe.db.exists("Sales Quote", mice_sq_name) %}
+            {% set mice_sq = frappe.get_doc("Sales Quote", mice_sq_name) %}
+            {% if not mice_ns.shipper %}{% set mice_ns.shipper = mice_sq.shipper %}{% endif %}
+            {% if not mice_ns.consignee %}{% set mice_ns.consignee = mice_sq.consignee %}{% endif %}
+            {% if not mice_ns.open_date %}{% set mice_ns.open_date = mice_sq.get('exhibit_show_open_date') %}{% endif %}
+            {% if not mice_ns.close_date %}{% set mice_ns.close_date = mice_sq.get('exhibit_show_close_date') %}{% endif %}
+            {% endif %}
+            {% endif %}
+            {% set wj_ns = namespace(weight=None, volume=None, chargeable=None) %}
+            {% if job_type == "Warehouse Job" and job_doc %}
+            {% set wj_rows = job_doc.orders if job_doc.orders else (job_doc.items or []) %}
+            {% if wj_rows %}
+            {% set wj_ns.weight = 0 %}
+            {% set wj_ns.volume = 0 %}
+            {% set wj_ns.chargeable = 0 %}
+            {% for row in wj_rows %}
+            {% if (job_doc.weight_qty_type or "Per Unit") == "Total" %}
+            {% set wj_ns.weight = wj_ns.weight + (row.weight or 0) %}
+            {% set wj_ns.chargeable = wj_ns.chargeable + (row.chargeable_weight or 0) %}
+            {% else %}
+            {% set wj_ns.weight = wj_ns.weight + (row.weight or 0) * (row.quantity or 0) %}
+            {% set wj_ns.chargeable = wj_ns.chargeable + (row.chargeable_weight or 0) * (row.quantity or 0) %}
+            {% endif %}
+            {% if (job_doc.volume_qty_type or "Per Unit") == "Total" %}
+            {% set wj_ns.volume = wj_ns.volume + (row.volume or 0) %}
+            {% else %}
+            {% set wj_ns.volume = wj_ns.volume + (row.volume or 0) * (row.quantity or 0) %}
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+            {% endif %}
             <div class="job-information-section info-block">
                 <div class="info-title">JOB INFORMATION</div>
                 <div class="info-content">
                     <div class="left-column">
-                        {% if job_no and job_type %}
-                        {% set job_doc = frappe.get_doc(job_type, job_no) if frappe.db.exists(job_type, job_no) else None %}
                         {% if job_doc %}
                             {% if job_type == "Warehouse Job" %}
-                            <div class="field-row"><div class="field-label">JOB NO.:</div><div class="field-value">{{ job_doc.name }}</div></div>
-                            <div class="field-row"><div class="field-label">STATUS:</div><div class="field-value">{{ job_doc.status or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">CUSTOMER:</div><div class="field-value">{{ job_doc.customer or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">CONSIGNOR</div><div class="field-value">{{ party_name("Shipper", job_doc.shipper, "shipper_name") }}</div></div>
+                            <div class="field-row"><div class="field-label">CONSIGNEE</div><div class="field-value">{{ party_name("Consignee", job_doc.consignee, "consignee_name") }}</div></div>
                             {% elif job_type == "Air Shipment" %}
-                            <div class="field-row"><div class="field-label">SHIPMENT NO.:</div><div class="field-value">{{ job_doc.name }}</div></div>
-                            <div class="field-row"><div class="field-label">STATUS:</div><div class="field-value">{{ job_doc.status or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">CUSTOMER:</div><div class="field-value">{{ job_doc.customer or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">ORIGIN:</div><div class="field-value">{{ job_doc.origin_airport or job_doc.get('origin') or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">DESTINATION:</div><div class="field-value">{{ job_doc.destination_airport or job_doc.get('destination') or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">CONSIGNOR</div><div class="field-value">{{ party_name("Shipper", job_doc.shipper, "shipper_name") }}</div></div>
+                            <div class="field-row"><div class="field-label">CONSIGNEE</div><div class="field-value">{{ party_name("Consignee", job_doc.consignee, "consignee_name") }}</div></div>
+                            <div class="field-row"><div class="field-label">ORIGIN</div><div class="field-value">{{ port_line(job_doc.origin_port or job_doc.origin_airport or job_doc.get('origin')) }}</div></div>
+                            <div class="field-row"><div class="field-label">DESTINATION</div><div class="field-value">{{ port_line(job_doc.destination_port or job_doc.destination_airport or job_doc.get('destination')) }}</div></div>
+                            <div class="field-row"><div class="field-label">ETD</div><div class="field-value">{{ job_date(job_doc.get('etd') or job_doc.get('mawb_flight_date')) }}</div></div>
+                            <div class="field-row"><div class="field-label">ETA</div><div class="field-value">{{ job_date(job_doc.get('eta')) }}</div></div>
                             {% elif job_type == "Sea Shipment" %}
-                            <div class="field-row"><div class="field-label">SHIPMENT NO.:</div><div class="field-value">{{ job_doc.name }}</div></div>
-                            <div class="field-row"><div class="field-label">STATUS:</div><div class="field-value">{{ job_doc.status or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">CUSTOMER:</div><div class="field-value">{{ job_doc.customer or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">ORIGIN PORT:</div><div class="field-value">{{ job_doc.origin_port or job_doc.get('port_of_loading') or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">DEST. PORT:</div><div class="field-value">{{ job_doc.destination_port or job_doc.get('port_of_discharge') or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">CONSIGNOR</div><div class="field-value">{{ party_name("Shipper", job_doc.shipper, "shipper_name") }}</div></div>
+                            <div class="field-row"><div class="field-label">CONSIGNEE</div><div class="field-value">{{ party_name("Consignee", job_doc.consignee, "consignee_name") }}</div></div>
+                            <div class="field-row"><div class="field-label">ORIGIN</div><div class="field-value">{{ port_line(job_doc.origin_port or job_doc.get('port_of_loading')) }}</div></div>
+                            <div class="field-row"><div class="field-label">DESTINATION</div><div class="field-value">{{ port_line(job_doc.destination_port or job_doc.get('port_of_discharge')) }}</div></div>
+                            <div class="field-row"><div class="field-label">VESSEL / VOYAGE</div><div class="field-value">{{ vessel_voyage(job_doc) }}</div></div>
+                            <div class="field-row"><div class="field-label">ETD</div><div class="field-value">{{ job_date(job_doc.get('etd')) }}</div></div>
+                            <div class="field-row"><div class="field-label">ETA</div><div class="field-value">{{ job_date(job_doc.get('eta')) }}</div></div>
                             {% elif job_type == "Transport Job" %}
-                            <div class="field-row"><div class="field-label">JOB NO.:</div><div class="field-value">{{ job_doc.name }}</div></div>
-                            <div class="field-row"><div class="field-label">STATUS:</div><div class="field-value">{{ job_doc.status or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">CUSTOMER:</div><div class="field-value">{{ job_doc.customer or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">PICKUP:</div><div class="field-value">{{ job_doc.pickup_address or job_doc.get('pickup_address_display') or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">DELIVERY:</div><div class="field-value">{{ job_doc.delivery_address or job_doc.get('delivery_address_display') or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">CONSIGNOR</div><div class="field-value">{{ party_name("Shipper", job_doc.shipper or (tj_ship.shipper if tj_ship else None), "shipper_name") }}</div></div>
+                            <div class="field-row"><div class="field-label">CONSIGNEE</div><div class="field-value">{{ party_name("Consignee", job_doc.consignee or (tj_ship.consignee if tj_ship else None), "consignee_name") }}</div></div>
+                            {% elif job_type in mice_job_types %}
+                            <div class="field-row"><div class="field-label">CONSIGNOR</div><div class="field-value">{{ party_name("Shipper", mice_ns.shipper, "shipper_name") }}</div></div>
+                            <div class="field-row"><div class="field-label">CONSIGNEE</div><div class="field-value">{{ party_name("Consignee", mice_ns.consignee, "consignee_name") }}</div></div>
+                            <div class="field-row"><div class="field-label">EVENT OPEN DATE</div><div class="field-value">{{ job_date(mice_ns.open_date) }}</div></div>
+                            <div class="field-row"><div class="field-label">EVENT CLOSE DATE</div><div class="field-value">{{ job_date(mice_ns.close_date) }}</div></div>
                             {% elif job_type == "General Job" %}
-                            <div class="field-row"><div class="field-label">JOB NO.:</div><div class="field-value">{{ job_doc.name }}</div></div>
-                            <div class="field-row"><div class="field-label">STATUS:</div><div class="field-value">{{ job_doc.status or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">CUSTOMER:</div><div class="field-value">{{ job_doc.customer or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">DESCRIPTION:</div><div class="field-value">{{ job_doc.description or job_doc.get('remarks') or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">JOB NO.</div><div class="field-value">{{ job_doc.name }}</div></div>
+                            <div class="field-row"><div class="field-label">STATUS</div><div class="field-value">{{ job_doc.status or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">CUSTOMER</div><div class="field-value">{{ job_doc.customer or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">DESCRIPTION</div><div class="field-value">{{ job_doc.description or job_doc.get('remarks') or "-" }}</div></div>
                             {% elif job_type == "Declaration" or job_type == "Customer Declaration" %}
-                            <div class="field-row"><div class="field-label">DECLARATION NO.:</div><div class="field-value">{{ job_doc.declaration_number or job_doc.name }}</div></div>
-                            <div class="field-row"><div class="field-label">DECLARATION DATE:</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.declaration_date, 'MM-dd-yyyy') if job_doc.get('declaration_date') else "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">DECLARATION TYPE:</div><div class="field-value">{{ job_doc.declaration_type or job_doc.get('type') or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">CUSTOMER:</div><div class="field-value">{{ job_doc.customer or job_doc.get('party') or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">DECLARATION NO.</div><div class="field-value">{{ job_doc.declaration_number or job_doc.name }}</div></div>
+                            <div class="field-row"><div class="field-label">DECLARATION DATE</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.declaration_date, 'MM-dd-yyyy') if job_doc.get('declaration_date') else "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">DECLARATION TYPE</div><div class="field-value">{{ job_doc.declaration_type or job_doc.get('type') or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">CUSTOMER</div><div class="field-value">{{ job_doc.customer or job_doc.get('party') or "-" }}</div></div>
                             {% else %}
-                            <div class="field-row"><div class="field-label">JOB NO.:</div><div class="field-value">{{ job_doc.name }}</div></div>
-                            <div class="field-row"><div class="field-label">STATUS:</div><div class="field-value">{{ job_doc.get('status') or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">CUSTOMER:</div><div class="field-value">{{ job_doc.get('customer') or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">JOB NO.</div><div class="field-value">{{ job_doc.name }}</div></div>
+                            <div class="field-row"><div class="field-label">STATUS</div><div class="field-value">{{ job_doc.get('status') or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">CUSTOMER</div><div class="field-value">{{ job_doc.get('customer') or "-" }}</div></div>
                             {% endif %}
-                        {% endif %}
                         {% endif %}
                     </div>
                     <div class="right-column">
                         {% if job_doc %}
                             {% if job_type == "Warehouse Job" %}
-                            <div class="field-row"><div class="field-label">WAREHOUSE:</div><div class="field-value">{{ job_doc.warehouse or job_doc.get('warehouse_name') or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">POSTING DATE:</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.posting_date, 'MM-dd-yyyy') if job_doc.posting_date else "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">WEIGHT</div><div class="field-value">{{ measure_line(job_doc, wj_ns.weight, "total_weight_uom", "weight_uom", "default_weight_uom") }}</div></div>
+                            <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(job_doc, wj_ns.volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
+                            <div class="field-row"><div class="field-label">CHARGEABLE</div><div class="field-value">{{ measure_line(job_doc, wj_ns.chargeable, "chargeable_weight_uom", "chargeable_weight_uom", "default_chargeable_weight_uom", "default_weight_uom") }}</div></div>
+                            <div class="field-row"><div class="field-label">ITEM</div><div class="field-value">{{ warehouse_item_line(job_doc) }}</div></div>
                             {% elif job_type == "Air Shipment" %}
-                            <div class="field-row"><div class="field-label">AWB / MAWB:</div><div class="field-value">{{ job_doc.house_awb_no or job_doc.master_awb or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">FLIGHT DATE:</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.flight_date, 'MM-dd-yyyy') if job_doc.get('flight_date') else "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">AWB</div><div class="field-value">{{ job_doc.house_awb_no or job_doc.house_awb or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">MAWB</div><div class="field-value">{{ job_doc.master_awb or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">WEIGHT</div><div class="field-value">{{ measure_line(job_doc, job_doc.total_weight, "total_weight_uom", "weight_uom", "default_weight_uom") }}</div></div>
+                            <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(job_doc, job_doc.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
+                            <div class="field-row"><div class="field-label">CHARGEABLE</div><div class="field-value">{{ measure_line(job_doc, job_doc.chargeable, "chargeable_weight_uom", "weight_uom", "default_chargeable_weight_uom", "default_weight_uom") }}</div></div>
+                            <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(job_doc) }}</div></div>
                             {% elif job_type == "Sea Shipment" %}
-                            <div class="field-row"><div class="field-label">VESSEL / VOYAGE:</div><div class="field-value">{{ job_doc.vessel or job_doc.get('voyage_no') or "-" }}</div></div>
-                            <div class="field-row"><div class="field-label">ETD / ETA:</div><div class="field-value">{{ (frappe.utils.formatdate(job_doc.etd, 'MM-dd-yyyy') if job_doc.get('etd') else "-") }} / {{ (frappe.utils.formatdate(job_doc.eta, 'MM-dd-yyyy') if job_doc.get('eta') else "-") }}</div></div>
+                            <div class="field-row"><div class="field-label">HBL</div><div class="field-value">{{ job_doc.house_bl or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">MBL</div><div class="field-value">{{ job_doc.master_bill or "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">WEIGHT</div><div class="field-value">{{ measure_line(job_doc, job_doc.total_weight, "total_weight_uom", "weight_uom", "default_weight_uom") }}</div></div>
+                            <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(job_doc, job_doc.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
+                            <div class="field-row"><div class="field-label">CHARGEABLE</div><div class="field-value">{{ measure_line(job_doc, job_doc.chargeable, "chargeable_weight_uom", "weight_uom", "default_chargeable_weight_uom", "default_weight_uom") }}</div></div>
+                            <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(job_doc) }}</div></div>
                             {% elif job_type == "Transport Job" %}
-                            <div class="field-row"><div class="field-label">SERVICE DATE:</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.service_date, 'MM-dd-yyyy') if job_doc.get('service_date') else "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">WEIGHT</div><div class="field-value">{{ measure_line(tj_cargo, tj_cargo.total_weight, "total_weight_uom", "weight_uom", "default_weight_uom") }}</div></div>
+                            <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(tj_cargo, tj_cargo.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
+                            <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(tj_cargo) }}</div></div>
+                            {% elif job_type in mice_job_types %}
+                            <div class="field-row"><div class="field-label">WEIGHT</div><div class="field-value">{{ measure_line(mice_ns.cargo, mice_ns.cargo.total_weight, "total_weight_uom", "weight_uom", "default_weight_uom") }}</div></div>
+                            <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(mice_ns.cargo, mice_ns.cargo.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
+                            <div class="field-row"><div class="field-label">CHARGEABLE</div><div class="field-value">{{ measure_line(mice_ns.cargo, mice_ns.cargo.chargeable, "chargeable_weight_uom", "weight_uom", "default_chargeable_weight_uom", "default_weight_uom") }}</div></div>
+                            <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(mice_ns.cargo) }}</div></div>
                             {% elif job_type == "General Job" %}
-                            <div class="field-row"><div class="field-label">DATE:</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.posting_date, 'MM-dd-yyyy') if job_doc.get('posting_date') else "-" }}</div></div>
+                            <div class="field-row"><div class="field-label">DATE</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.posting_date, 'MM-dd-yyyy') if job_doc.get('posting_date') else "-" }}</div></div>
                             {% elif job_type == "Declaration" or job_type == "Customer Declaration" %}
-                            <div class="field-row"><div class="field-label">TOTAL VALUE:</div><div class="field-value">{% if job_doc.get('total_declaration_value') is not none %}{{ frappe.utils.fmt_money(job_doc.total_declaration_value, precision=2) }}{% else %}-{% endif %}</div></div>
+                            <div class="field-row"><div class="field-label">TOTAL VALUE</div><div class="field-value">{% if job_doc.get('total_declaration_value') is not none %}{{ frappe.utils.fmt_money(job_doc.total_declaration_value, precision=2) }}{% else %}-{% endif %}</div></div>
                             <div class="field-row">
-                                <div class="field-label">BROKER:</div>
+                                <div class="field-label">BROKER</div>
                                 <div class="field-value">
                                     {% if job_type in ["Declaration", "Customer Declaration"] %}
                                         {{ job_doc.customs_broker or "-" }}
@@ -1307,7 +1577,7 @@
                                 </div>
                             </div> 
                             <div class="field-row">
-                                <div class="field-label">CUSTOMS AUTHORITY:</div>
+                                <div class="field-label">CUSTOMS AUTHORITY</div>
                                 <div class="field-value">
                                     {% if job_type in ["Declaration", "Customer Declaration", "Declaration Order"] %}
                                         {{ job_doc.customs_authority or "-" }}
@@ -1321,6 +1591,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
             {% endif %}
             
             <!-- Table and Summary Container -->
@@ -1343,30 +1614,34 @@
                         {% if doc.items %}
                             {% set currency = doc.currency or 'PHP' %}
                             {% for item in doc.items %}
+                                {% set item_net = item.net_amount or 0 %}
+                                {% if item.item_tax_template %}
+                                    {% set item_tax_amount = item.custom_tax_amount if item.custom_tax_amount is not none else (item.tax_amount if item.tax_amount is not none else 0) %}
+                                {% else %}
+                                    {% set item_tax_amount = (item_net or 0) * ((ns_rate.vat_rate or 0) / 100) %}
+                                {% endif %}
+                                {% set item_amount = item_net - item_tax_amount %}
+                                {% set item_total = item_net %}
+                                {% set ns_line.net = ns_line.net + item_net %}
+                                {% set ns_line.tax = ns_line.tax + item_tax_amount %}
+                                {% set ns_line.total = ns_line.total + item_net + item_tax_amount %}
+                                {% set _qty = (item.qty or 0)|abs if is_crd else (item.qty or 0) %}
+                                {% set _amount = item_amount|abs if is_crd else item_amount %}
+                                {% set _tax = item_tax_amount|abs if is_crd else item_tax_amount %}
+                                {% set _total = item_total|abs if is_crd else item_total %}
                                 <tr class="table-row">
                                     <td>{{ loop.index }}</td>
-                                    <td>{{ frappe.utils.fmt_money(item.qty, precision=2) }}</td>
+                                    <td>{{ frappe.utils.fmt_money(_qty, precision=2) }}</td>
                                     <td>{{ item.item_name or item.item_code or '' }}</td>
                                     <td>
-                                        {{ frappe.utils.fmt_money(item.net_amount, precision=2) }}
+                                        {{ frappe.utils.fmt_money(_amount, precision=2) }}
                                     </td>
                                     {% if not is_dsb %}
                                     <td>
-                                        {% set item_tax_amount = 0 %}
-                                        {% if item.item_tax_template %}
-                                            {% set tax_template_exists = frappe.db.exists("Item Tax Template", item.item_tax_template) %}
-                                            {% if tax_template_exists %}
-                                                {% set tax_template = frappe.get_doc("Item Tax Template", item.item_tax_template) %}
-                                                {% for tax in tax_template.taxes %}
-                                                    {% set tax_rate = tax.tax_rate or 0 %}
-                                                    {% set item_tax_amount = item_tax_amount + (item.net_amount * tax_rate / 100) %}
-                                                {% endfor %}
-                                            {% endif %}
-                                        {% endif %}
-                                        {{ frappe.utils.fmt_money(item_tax_amount, precision=2) }}
+                                        {{ frappe.utils.fmt_money(_tax, precision=2) }}
                                     </td>
                                     {% endif %}
-                                    <td>{{ frappe.utils.fmt_money(item.amount, precision=2) }}</td>
+                                    <td>{{ frappe.utils.fmt_money(_total, precision=2) }}</td>
                                 </tr>
                             {% endfor %}
                         {% endif %}
@@ -1385,37 +1660,27 @@
                         <!-- Left Column: Sales Types -->
                         <div class="vat-left-column">
                             {% set currency = doc.currency or 'PHP' %}
-                            {% set ns = namespace(vatable_sales=0, exempt_sales=0, zero_rated_sales=0) %}
-                            {# Vatable / Exempt / Zero-rated Sales = item net amounts by VAT treatment / tax template #}
-                            {% if doc.items %}
-                                {% for item in doc.items %}
-                                    {% set item_net = item.net_amount or item.amount or 0 %}
-                                    {% set item_treatment = (item.get('vat_treatment') or '')|lower %}
-                                    {% set item_template = (item.item_tax_template or '')|lower %}
-                                    {% if 'zero rated' in item_treatment or 'zero-rated' in item_treatment or 'zero rated' in item_template or 'zero-rated' in item_template %}
-                                        {% set ns.zero_rated_sales = ns.zero_rated_sales + item_net %}
-                                    {% elif 'exempt' in item_treatment or ('exempt' in item_template and 'zero' not in item_template) %}
-                                        {% set ns.exempt_sales = ns.exempt_sales + item_net %}
-                                    {% else %}
-                                        {% set ns.vatable_sales = ns.vatable_sales + item_net %}
-                                    {% endif %}
-                                {% endfor %}
-                            {% endif %}
-                            {# Fallback: entire net_total as vatable when items carry no classification #}
-                            {% if not ns.vatable_sales and not ns.exempt_sales and not ns.zero_rated_sales %}
-                                {% set ns.vatable_sales = doc.get('net_total') or 0 %}
-                            {% endif %}
+                            {# Vatable / Exempt / Zero-rated Sales from Sales Taxes and Charges Template #}
+                            {% set vat = get_vat_sales_summary(doc) %}
+                            {% set _vatable = vat.vatable_sales|abs if is_crd else vat.vatable_sales %}
+                            {% set _exempt = vat.exempt_sales|abs if is_crd else vat.exempt_sales %}
+                            {% set _zero_rated = vat.zero_rated_sales|abs if is_crd else vat.zero_rated_sales %}
+                            {% set _total_sales = vat.total_sales|abs if is_crd else vat.total_sales %}
                             <div class="vat-summary-row">
                                 <div class="vat-summary-label">Vatable Sales :</div>
-                                <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(ns.vatable_sales, precision=2) }}</div>
+                                <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(_vatable, precision=2) }}</div>
                             </div>
                             <div class="vat-summary-row">
                                 <div class="vat-summary-label">Exempt Sales :</div>
-                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(ns.exempt_sales, precision=2) }}</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(_exempt, precision=2) }}</div>
                             </div>
                             <div class="vat-summary-row">
                                 <div class="vat-summary-label">Zero Rated Sales :</div>
-                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(ns.zero_rated_sales, precision=2) }}</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(_zero_rated, precision=2) }}</div>
+                            </div>
+                            <div class="vat-summary-row">
+                                <div class="vat-summary-label">Total Sales :</div>
+                                <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(_total_sales, precision=2) }}</div>
                             </div>
                         </div>
                         
@@ -1427,7 +1692,8 @@
                                     {% set _wh_acc = (frappe.db.get_value("Account", tax.account_head, "account_name") or "")|lower %}
                                     {% set _wh_desc = (tax.description or "")|lower %}
                                     {% set _wh_label = _wh_acc ~ " " ~ _wh_desc %}
-                                    {% set _wh_amt = tax.tax_amount if tax.tax_amount is not none else (tax.base_tax_amount if tax.base_tax_amount is not none else 0) %}
+                                    {% set _after_disc = tax.get('tax_amount_after_discount_amount') %}
+                                    {% set _wh_amt = _after_disc if _after_disc is not none else (tax.tax_amount if tax.tax_amount is not none else (tax.base_tax_amount if tax.base_tax_amount is not none else 0)) %}
                                     {% set _wh_rate = tax.rate or 0 %}
                                     {% if "withhold" in _wh_label %}
                                         {% set ns_vat.withholding_tax = ns_vat.withholding_tax + _wh_amt %}
@@ -1443,50 +1709,56 @@
                             {% endif %}
                             {% set withholding_tax_display = withholding_tax|abs %}
                             {% set net_of_vat = doc.get('net_total') or 0 %}
-                            {% set total_sales_vat_inclusive = net_of_vat + vat_amount %}
+                            {# VAT Inclusive = sum of (Net Amount + Tax); Total Amount column is Net Amount only #}
+                            {% set total_sales_vat_inclusive = ns_line.total %}
                             {% set sc_pwd_discount = (doc.get('discount_amount') or 0) %}
                             {% set amount_due = net_of_vat - sc_pwd_discount %}
-                            {% set total_amount = total_sales_vat_inclusive %}
-                            {% set final_amount_due = (doc.get('grand_total') or 0) %}
-                            {% if not final_amount_due %}
-                                {% set final_amount_due = total_amount - withholding_tax_display %}
-                            {% endif %}
+                            {# Total = Amount Due + VAT (after SC/PWD). Last Amount = Total - WHT, not grand_total. #}
+                            {% set total_amount = amount_due + vat_amount %}
+                            {% set final_amount_due = total_amount - withholding_tax_display %}
+                            {% set _inclusive = total_sales_vat_inclusive|abs if is_crd else total_sales_vat_inclusive %}
+                            {% set _vat = vat_amount|abs if is_crd else vat_amount %}
+                            {% set _net_of_vat = net_of_vat|abs if is_crd else net_of_vat %}
+                            {% set _discount = sc_pwd_discount|abs if is_crd else sc_pwd_discount %}
+                            {% set _amount_due = amount_due|abs if is_crd else amount_due %}
+                            {% set _total_amount = total_amount|abs if is_crd else total_amount %}
+                            {% set _final_due = final_amount_due|abs if is_crd else final_amount_due %}
                             
                             <div class="vat-summary-row">
                                 <div class="vat-summary-label">Total Sales (VAT Inclusive)</div>
-                                <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(total_sales_vat_inclusive, precision=2) }}</div>
+                                <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(_inclusive, precision=2) }}</div>
                             </div>
                             <div class="vat-summary-row">
                                 <div class="vat-summary-label">Less: VAT</div>
-                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(vat_amount, precision=2) }}</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(_vat, precision=2) }}</div>
                             </div>
                             <div class="vat-summary-row">
                                 <div class="vat-summary-label">Amount: Net of VAT</div>
-                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(net_of_vat, precision=2) }}</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(_net_of_vat, precision=2) }}</div>
                             </div>
                             <div class="vat-summary-row">
                                 <div class="vat-summary-label">Less: SC/PWD Discount</div>
-                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(sc_pwd_discount, precision=2) }}</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(_discount, precision=2) }}</div>
                             </div>
                             <div class="vat-summary-row">
-                                <div class="vat-summary-label">Amount Due</div>
-                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(amount_due, precision=2) }}</div>
+                                <div class="vat-summary-label">Amount</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(_amount_due, precision=2) }}</div>
                             </div>
                             <div class="vat-summary-row">
                                 <div class="vat-summary-label">Add: VAT</div>
-                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(vat_amount, precision=2) }}</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(_vat, precision=2) }}</div>
                             </div>
                             <div class="vat-summary-row vat-total-row">
                                 <div class="vat-total-label">Total</div>
-                                <div class="vat-total-value">{{ currency }} {{ frappe.utils.fmt_money(total_amount, precision=2) }}</div>
+                                <div class="vat-total-value">{{ currency }} {{ frappe.utils.fmt_money(_total_amount, precision=2) }}</div>
                             </div>
                             <div class="vat-summary-row">
                                 <div class="vat-summary-label">Less Withholding Tax</div>
                                 <div class="vat-summary-value">{{ frappe.utils.fmt_money(withholding_tax_display, precision=2) }}</div>
                             </div>
                             <div class="vat-summary-row">
-                                <div class="vat-summary-label">Amount Due</div>
-                                <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(final_amount_due, precision=2) }}</div>
+                                <div class="vat-summary-label">Amount</div>
+                                <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(_final_due, precision=2) }}</div>
                             </div>
                         </div>
                     </div>
@@ -1496,7 +1768,7 @@
                     <div class="vat-summary-container dsb-total-only">
                         <div class="vat-right-column">
                             {% set _currency = doc.currency or 'PHP' %}
-                            {% set _total_due = (doc.get('grand_total') or 0) %}
+                            {% set _total_due = (doc.get('grand_total') or 0)|abs if is_crd else (doc.get('grand_total') or 0) %}
                             <div class="vat-summary-row vat-total-row">
                                 <div class="vat-total-label">Total</div>
                                 <div class="vat-total-value">{{ _currency }} {{ frappe.utils.fmt_money(_total_due, precision=2) }}</div>
@@ -1646,10 +1918,30 @@
                 return getItemCount(container) > MULTI_PAGE_ITEM_THRESHOLD;
             }
 
+            function pinSinglePageFooter(container) {
+                var block = document.querySelector('.last-page-block');
+                var group = document.querySelector('.last-page-footer-group');
+                var push = document.querySelector('.last-page-push');
+                if (!block || !group || !push) {
+                    setPushHeight(0);
+                    return;
+                }
+
+                block.classList.remove('footer-new-page');
+                pinFooterToPageBottom(
+                    block,
+                    push,
+                    group,
+                    0,
+                    getPageHeightPx(),
+                    simulateTableLayout(container, getPageHeightPx()).blockStartOffset
+                );
+            }
+
             function applySinglePageMode(container) {
                 container.classList.add('single-page-invoice');
                 document.body.classList.add('single-page-invoice');
-                setPushHeight(0);
+                pinSinglePageFooter(container);
             }
 
             function isSinglePageInvoice(container, pageHeightPx) {
@@ -1670,11 +1962,11 @@
                     return true;
                 }
 
-                applySinglePageMode(container);
+                container.classList.add('single-page-invoice');
+                document.body.classList.add('single-page-invoice');
                 var flexHeight = container.scrollHeight;
                 container.classList.remove('single-page-invoice');
                 document.body.classList.remove('single-page-invoice');
-                setPushHeight(0);
                 return fitsSinglePageHeight(flexHeight, pageHeightPx);
             }
 
@@ -1760,10 +2052,11 @@
                 if (!push) {
                     return safePx;
                 }
+                var heightMm = pxToMm(safePx) + 'mm';
                 push.style.display = 'block';
                 push.style.flex = '';
-                push.style.height = pxToMm(safePx) + 'mm';
-                push.style.minHeight = pxToMm(safePx) + 'mm';
+                push.style.setProperty('height', heightMm, 'important');
+                push.style.setProperty('min-height', heightMm, 'important');
                 return safePx;
             }
 
@@ -1791,8 +2084,8 @@
                 if (push) {
                     push.style.display = '';
                     push.style.flex = '';
-                    push.style.height = '';
-                    push.style.minHeight = '';
+                    push.style.removeProperty('height');
+                    push.style.removeProperty('min-height');
                 }
             }
 

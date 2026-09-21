@@ -181,6 +181,7 @@ _PARAM_FIELDS: tuple[str, ...] = tuple(
 	fn for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS if fn != "charge_group"
 ) + (
 	"service_type",
+	"company",
 	"location_type",
 )
 
@@ -242,6 +243,7 @@ def _create_internal_job_from_row(
 	ij.parent_booking_name = parent_doc.name or ""
 	_copy_row_params_to_internal_job(row, ij)
 	_ensure_job_type_from_service(ij)
+	_seed_company_from_parent_if_source_blank(ij, parent_doc, row)
 	ij.flags.ignore_permissions = True
 	preferred = _norm(preferred_name)
 	if preferred and not linked_service_record_exists(preferred):
@@ -265,9 +267,31 @@ def create_internal_job_for_parent_from_source(
 	ij.parent_booking_name = parent_name or ""
 	_copy_row_params_to_internal_job(source, ij)
 	_ensure_job_type_from_service(ij)
+	if parent_name and frappe.db.exists(parent_doctype, parent_name):
+		try:
+			_seed_company_from_parent_if_source_blank(
+				ij, frappe.get_cached_doc(parent_doctype, parent_name), source
+			)
+		except Exception:
+			pass
 	ij.flags.ignore_permissions = True
 	ij.insert(ignore_permissions=True)
 	return ij.name
+
+
+def _seed_company_from_parent_if_source_blank(ij_doc: Any, parent_doc: Any, source: Any) -> None:
+	"""Use the parent quote/booking company when the source row did not set one.
+
+	``frappe.new_doc`` may already stamp the session default company; that must not
+	win over the Sales Quote company for a newly created Linked Service.
+	"""
+	if _norm(_row_value(source, "company")):
+		return
+	from logistics.utils.linked_service_company import default_company_from_parent
+
+	company = default_company_from_parent(parent_doc)
+	if company:
+		ij_doc.company = company
 
 
 def _update_internal_job_from_row(row: Any, ij_name: str) -> None:
@@ -662,6 +686,11 @@ def sync_internal_job_details_to_internal_jobs(doc: Any, *_method) -> None:
 		return
 	fieldname = internal_job_detail_fieldname(doc.doctype)
 	if not fieldname:
+		return
+	# Copy Quotation Services clones Linked Service docs then saves the quote.
+	# Skip orphan cleanup so an empty desk grid snapshot cannot delete those clones.
+	if getattr(getattr(doc, "flags", None), "_linked_services_copy_applied", False):
+		_ensure_internal_job_docs_for_detail_rows(doc)
 		return
 	prev_orphans: set[str] | None = None
 	if doc.doctype in _VIRTUAL_LINKED_SERVICE_PARENTS and doc.name:

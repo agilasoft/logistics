@@ -158,9 +158,11 @@
   "linked_services",
   "milestones_tab",
   "section_break_milestones",
-  "milestone_html",
   "milestone_template",
+  "section_break_milestone_grid",
   "milestones",
+  "section_break_milestone_view",
+  "milestone_html",
   "documents_tab",
   "document_management_section",
   "documents_html",
@@ -1252,10 +1254,20 @@
    "options": "Milestone Template"
   },
   {
+   "collapsible": 1,
+   "fieldname": "section_break_milestone_grid",
+   "fieldtype": "Section Break",
+   "label": "Milestones"
+  },
+  {
    "fieldname": "milestones",
    "fieldtype": "Table",
    "label": "Milestones",
    "options": "Air Shipment Milestone"
+  },
+  {
+   "fieldname": "section_break_milestone_view",
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "details_tab",

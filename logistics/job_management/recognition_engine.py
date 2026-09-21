@@ -209,11 +209,7 @@ class RecognitionEngine:
                 ))
                 return None
         
-        if not recognition_date:
-            recognition_date = self.get_wip_recognition_date()
-        
-        if not recognition_date:
-            frappe.throw(_("Recognition date could not be determined"))
+        recognition_date = self._ensure_recognition_date(recognition_date)
 
         unrecognized = self._get_unrecognized_wip_lines()
         if unrecognized:
@@ -336,11 +332,7 @@ class RecognitionEngine:
                 ))
                 return None
         
-        if not recognition_date:
-            recognition_date = self.get_accrual_recognition_date()
-        
-        if not recognition_date:
-            frappe.throw(_("Recognition date could not be determined"))
+        recognition_date = self._ensure_recognition_date(recognition_date)
 
         accrual_lines = self._get_unrecognized_accrual_lines()
         if not accrual_lines:
@@ -437,20 +429,50 @@ class RecognitionEngine:
 
     def get_accrual_recognition_date(self):
         return self.get_recognition_date()
-    
+
+    def _ensure_recognition_date(self, recognition_date):
+        if not recognition_date:
+            recognition_date = self.get_recognition_date()
+        if recognition_date:
+            return recognition_date
+        basis = (self.get_settings() or {}).get("recognition_date_basis") or _("(not set)")
+        frappe.throw(
+            _(
+                "Recognition date could not be determined. "
+                "Recognition Date Basis is {0}, but that date is not set on this job."
+            ).format(basis)
+        )
+
     def _resolve_date(self, basis):
-        """Resolve date based on the specified basis."""
+        """Resolve posting date for the policy basis, with a booking/creation fallback.
+
+        ATA/ATD/User Specified stay required when the job doctype actually has those
+        fields (e.g. Sea Shipment waits for departure). Jobs such as Docket have no
+        ATA/ATD fields, so an Export/ATD policy row must not block recognition.
+        """
         if basis == "ATA":
-            return get_ata_date(self.job)
-        elif basis == "ATD":
-            return get_atd_date(self.job)
-        elif basis == "Job Booking Date":
+            d = get_ata_date(self.job)
+            if d or _job_has_any_field(self.job, _ATA_DATE_FIELDS):
+                return d
             return get_booking_date(self.job)
-        elif basis == "Job Creation":
-            return getdate(self.job.creation)
-        elif basis == "User Specified":
-            return self.job.get("recognition_date")
-        return None
+        if basis == "ATD":
+            d = get_atd_date(self.job)
+            if d or _job_has_any_field(self.job, _ATD_DATE_FIELDS):
+                return d
+            return get_booking_date(self.job)
+        if basis == "Job Booking Date":
+            return get_booking_date(self.job)
+        if basis == "Job Creation":
+            creation = self.job.get("creation") if self.job else None
+            return getdate(creation) if creation else get_booking_date(self.job)
+        if basis == "User Specified":
+            d = self.job.get("recognition_date") if self.job else None
+            if d:
+                return getdate(d)
+            if _job_has_any_field(self.job, ("recognition_date",)):
+                return None
+            return get_booking_date(self.job)
+        return get_booking_date(self.job)
     
     # ==================== Calculations ====================
     
@@ -1419,10 +1441,35 @@ def sync_job_recognition_fields_from_policy(doc):
 
 # ==================== Date Resolution Helpers ====================
 
+_ATA_DATE_FIELDS = ("ata", "actual_arrival", "arrival_date", "actual_arrival_date")
+_ATD_DATE_FIELDS = ("atd", "actual_departure", "departure_date", "actual_departure_date")
+_BOOKING_DATE_FIELDS = (
+    "booking_date",
+    "job_booking_date",
+    "job_open_date",
+    "docket_date",
+    "job_date",
+)
+
+
+def _job_has_any_field(job, fieldnames):
+    """True if this job doctype (or mock) can store any of the given fields."""
+    if not job or not fieldnames:
+        return False
+    doctype = getattr(job, "doctype", None)
+    if doctype:
+        try:
+            meta = frappe.get_meta(doctype)
+        except Exception:
+            meta = None
+        if meta:
+            return any(meta.has_field(f) for f in fieldnames)
+    return any(hasattr(job, f) for f in fieldnames)
+
+
 def get_ata_date(job):
     """Get Actual Time of Arrival date from job."""
-    # Priority: ata > actual_arrival > arrival_date
-    for field in ['ata', 'actual_arrival', 'arrival_date', 'actual_arrival_date']:
+    for field in _ATA_DATE_FIELDS:
         if job.get(field):
             return getdate(job.get(field))
     return None
@@ -1430,20 +1477,19 @@ def get_ata_date(job):
 
 def get_atd_date(job):
     """Get Actual Time of Departure date from job."""
-    # Priority: atd > actual_departure > departure_date
-    for field in ['atd', 'actual_departure', 'departure_date', 'actual_departure_date']:
+    for field in _ATD_DATE_FIELDS:
         if job.get(field):
             return getdate(job.get(field))
     return None
 
 
 def get_booking_date(job):
-    """Get booking date from job."""
-    # Priority: booking_date > job_booking_date > job_open_date > creation
-    for field in ['booking_date', 'job_booking_date', 'job_open_date']:
+    """Get booking date from job (includes Docket / Project Job date fields)."""
+    for field in _BOOKING_DATE_FIELDS:
         if job.get(field):
             return getdate(job.get(field))
-    return getdate(job.creation)
+    creation = job.get("creation") if job else None
+    return getdate(creation) if creation else None
 
 
 # ==================== API Functions ====================

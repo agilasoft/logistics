@@ -346,77 +346,11 @@ def build_milestone_html(
 	html = f"""
 		{origin_dest_section}
 		<div class="milestone-container">
-			<div class="milestone-cards">
 	"""
 
-	# Build graphical timeline with dots (colored circles, no icon inside) + labels with icons
-	timeline_html = ""
-	if milestones:
-		timeline_dots = []
-		for i, m in enumerate(milestones):
-			display_status, is_delayed, severity = _compute_milestone_status(m)
-			info = milestone_details.get(_get_milestone_attr(m, "milestone"), {})
-			desc = info.get("description") or _get_milestone_attr(m, "milestone") or "—"
-			icon = info.get("icon") or "circle"
-			if not icon or str(icon).strip() == "":
-				icon = "circle"
-			icon_html = _render_icon_html(icon)
-			dot_bg, line_bg = _timeline_dot_and_line_colors(display_status, is_delayed, severity)
-			pct = 100.0 * (i + 0.5) / len(milestones) if len(milestones) > 1 else 50
-			timeline_dots.append({
-				"pct": pct,
-				"dot_bg": dot_bg,
-				"line_bg": line_bg,
-				"icon_html": icon_html,
-				"desc": desc,
-				"title": frappe.utils.escape_html(desc),
-			})
-		# Dots: colored circles only (no icon inside)
-		dots_html = "".join(
-			'<div class="milestone-timeline-dot" title="%(title)s" style="left:%(pct)s%%;background:%(dot_bg)s"></div>' % d
-			for d in timeline_dots
-		)
-		# Line segments: each segment from dot i to dot i+1, colored by next dot
-		n = len(timeline_dots)
-		line_segments = []
-		for i in range(n - 1):
-			left_pct = timeline_dots[i]["pct"]
-			right_pct = timeline_dots[i + 1]["pct"]
-			seg_color = timeline_dots[i + 1]["line_bg"]
-			line_segments.append(
-				'<div class="milestone-timeline-line" style="left:%s%%;width:%s%%;background:%s"></div>'
-				% (left_pct, right_pct - left_pct, seg_color)
-			)
-		line_html = "".join(line_segments) if line_segments else ""
-		timeline_html = (
-			'<div class="milestone-timeline">'
-			+ line_html +
-			dots_html +
-			'</div>'
-			'<div class="milestone-timeline-labels">'
-			+ "".join(
-				'<div class="milestone-timeline-label" style="left:%s%%" title="%s">'
-				'<div class="milestone-label-icon">%s</div>'
-				'<span class="milestone-label-desc">%s</span>'
-				'</div>'
-				% (d["pct"], d["title"], d["icon_html"], frappe.utils.escape_html(d["desc"][:30] + ("…" if len(d["desc"]) > 30 else "")))
-				for d in timeline_dots
-			) +
-			'</div>'
-		)
-
-	html += timeline_html
-
-	if not milestones:
-		hint = empty_hint_html or (
-			'<p class="text-muted" style="margin:0 0 16px 0;">'
-			+ frappe.utils.escape_html(_("No milestones to display."))
-			+ "</p>"
-		)
-		html += hint
+	html += _build_vertical_milestone_card(milestones, milestone_details, empty_hint_html)
 
 	html += """
-			</div>
 		</div>
 		<style>
 		.job-header { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 20px; padding: 12px 16px; }
@@ -429,21 +363,90 @@ def build_milestone_html(
 		.header-details { display: flex; gap: 20px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
 		.detail-item label { font-size: 10px; color: #6c757d; font-weight: 600; }
 		.detail-item span { font-size: 12px; color: #333; }
-		.milestone-container { display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px; }
-		.milestone-cards { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 16px; }
-		.milestone-timeline { position: relative; height: 40px; margin-bottom: 8px; }
-		.milestone-timeline-line { position: absolute; top: 50%; height: 3px; margin-top: -2px; background: #dee2e6; border-radius: 2px; }
-		.milestone-timeline-dot { position: absolute; top: 50%; width: 14px; height: 14px; margin-left: -7px; margin-top: -7px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-		.milestone-timeline-labels { position: relative; height: 56px; margin-bottom: 12px; }
-		.milestone-timeline-label { position: absolute; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; max-width: 80px; text-align: center; }
-		.milestone-label-icon { margin-bottom: 4px; color: #6c757d; }
-		.milestone-label-icon svg { width: 18px; height: 18px; stroke: currentColor; }
-		.milestone-label-desc { font-size: 10px; color: #6c757d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-		@media (max-width: 768px) {
-			.milestone-label-desc { display: none; }
-			.milestone-timeline-labels { height: 32px; }
-		}
+		.milestone-container { display: flex; flex-direction: column; margin: 16px 0 8px 0; }
+		.ms-vtl-list { display: flex; flex-direction: column; align-items: flex-start; }
+		.ms-vtl-row { display: flex; align-items: flex-start; min-height: 72px; }
+		.ms-vtl-spine { width: 18px; align-self: stretch; position: relative; flex-shrink: 0; }
+		.ms-vtl-line { position: absolute; left: 50%; width: 3px; margin-left: -1.5px; border-radius: 2px; background: #6c757d; }
+		.ms-vtl-line-above { top: 0; height: 10px; }
+		.ms-vtl-line-below { top: 10px; bottom: 0; }
+		.ms-vtl-row:first-child .ms-vtl-line-above { display: none; }
+		.ms-vtl-row:last-child .ms-vtl-line-below { display: none; }
+		.ms-vtl-dot { position: absolute; top: 10px; left: 50%; width: 14px; height: 14px; margin: 0 0 0 -7px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); z-index: 1; }
+		.ms-vtl-meta { display: flex; flex-direction: column; align-items: flex-start; padding: 2px 0 16px 12px; min-width: 0; }
+		.ms-vtl-icon { color: #6c757d; margin-bottom: 4px; line-height: 0; }
+		.ms-vtl-icon svg { width: 18px; height: 18px; stroke: currentColor; }
+		.ms-vtl-label { font-size: 11px; color: #6c757d; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.ms-vtl-empty { margin: 0; color: #6b7280; font-size: 13px; }
 		</style>
 	"""
 
 	return (doc_alerts + html) if doc_alerts else html
+
+
+def _milestone_detail_map_entry(info):
+	if not info:
+		return {}
+	if isinstance(info, dict):
+		return info
+	return {
+		"description": getattr(info, "description", None),
+		"icon": getattr(info, "icon", None),
+	}
+
+
+def _build_vertical_milestone_card(milestones, milestone_details, empty_hint_html=None):
+	if not milestones:
+		hint = empty_hint_html or (
+			'<p class="ms-vtl-empty">'
+			+ frappe.utils.escape_html(_("No milestones to display."))
+			+ "</p>"
+		)
+		return '<div class="ms-vtl-list">%s</div>' % hint
+
+	rows_meta = []
+	for m in milestones:
+		display_status, is_delayed, severity = _compute_milestone_status(m)
+		dot_bg, line_bg = _timeline_dot_and_line_colors(display_status, is_delayed, severity)
+		info = _milestone_detail_map_entry(milestone_details.get(_get_milestone_attr(m, "milestone")))
+		desc = info.get("description") or _get_milestone_attr(m, "milestone") or "—"
+		icon = info.get("icon") or "circle"
+		if not str(icon).strip():
+			icon = "circle"
+		short = desc if len(desc) <= 18 else desc[:17] + "…"
+		rows_meta.append({
+			"dot_bg": dot_bg,
+			"line_bg": line_bg,
+			"icon_html": _render_icon_html(icon),
+			"desc": desc,
+			"short": short,
+		})
+
+	parts = ['<div class="ms-vtl-list">']
+	n = len(rows_meta)
+	for i, row in enumerate(rows_meta):
+		above = rows_meta[i]["line_bg"] if i > 0 else row["line_bg"]
+		below = rows_meta[i + 1]["line_bg"] if i < n - 1 else row["line_bg"]
+		parts.append(
+			'<div class="ms-vtl-row" title="%s">'
+			'<div class="ms-vtl-spine">'
+			'<div class="ms-vtl-line ms-vtl-line-above" style="background:%s"></div>'
+			'<div class="ms-vtl-dot" style="background:%s"></div>'
+			'<div class="ms-vtl-line ms-vtl-line-below" style="background:%s"></div>'
+			"</div>"
+			'<div class="ms-vtl-meta">'
+			'<div class="ms-vtl-icon">%s</div>'
+			'<div class="ms-vtl-label">%s</div>'
+			"</div>"
+			"</div>"
+			% (
+				frappe.utils.escape_html(row["desc"]),
+				above,
+				row["dot_bg"],
+				below,
+				row["icon_html"],
+				frappe.utils.escape_html(row["short"]),
+			)
+		)
+	parts.append("</div>")
+	return "".join(parts)

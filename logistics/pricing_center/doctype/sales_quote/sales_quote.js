@@ -3333,9 +3333,8 @@ function logistics_copy_quotation_services(frm) {
 			frappe.model.clear_table(newdoc, "internal_job_details");
 		}
 		if (frappe.meta.has_field("Sales Quote", "logistics_duplicate_from")) {
-			newdoc.logistics_duplicate_from = (
-				(doc.logistics_duplicate_from || doc.name || "") + ""
-			).trim();
+			// Immediate source quote only — never a leftover ancestor marker.
+			newdoc.logistics_duplicate_from = ((doc.name || "") + "").trim();
 		}
 		for (const row of newdoc.charges || []) {
 			if (row.charge_scope === "Linked" && !row.linked_service) {

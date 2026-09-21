@@ -34,7 +34,7 @@ def _ensure_cash_advance_settings():
 	}
 
 	for company in companies:
-		if frappe.db.exists("Cash Advance Settings", company):
+		if frappe.db.exists("Cash Advance Settings", {"company": company}):
 			continue
 		doc = frappe.new_doc("Cash Advance Settings")
 		doc.company = company

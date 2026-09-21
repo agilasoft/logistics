@@ -58,7 +58,7 @@ def _upsert_from_json(doctype, name, data, child_tables=()):
 		for table in child_tables:
 			for row in data.get(table) or []:
 				doc.append(table, row)
-		doc.insert(ignore_permissions=True)
+		_save_workspace_doc(doc, insert=True)
 		return
 
 	for key, value in data.items():
@@ -72,11 +72,20 @@ def _upsert_from_json(doctype, name, data, child_tables=()):
 		doc.set(table, [])
 		for row in data.get(table) or []:
 			doc.append(table, row)
+	if doctype == "Workspace" and not doc.get("type"):
+		doc.type = "Workspace"
+	_save_workspace_doc(doc, insert=False)
+
+
+def _save_workspace_doc(doc, insert):
 	doc.flags.ignore_permissions = True
+	doc.flags.ignore_links = True
+	doc.flags.ignore_validate = True
 	frappe.flags.in_import = True
 	try:
-		if doctype == "Workspace" and not doc.get("type"):
-			doc.type = "Workspace"
-		doc.save(ignore_permissions=True)
+		if insert:
+			doc.insert(ignore_permissions=True)
+		else:
+			doc.save(ignore_permissions=True)
 	finally:
 		frappe.flags.in_import = False

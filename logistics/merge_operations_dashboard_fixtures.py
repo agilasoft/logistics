@@ -25,6 +25,7 @@ BLOCKS = (
 	("High Value Operations Dashboard", "high_value"),
 	("Warehousing Operations Dashboard", "warehousing"),
 	("Job Management Operations Dashboard", "job_management"),
+	("Netting Operations Dashboard", "netting"),
 )
 
 

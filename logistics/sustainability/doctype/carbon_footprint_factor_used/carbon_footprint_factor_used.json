@@ -1,0 +1,50 @@
+{
+ "actions": [],
+ "creation": "2026-09-16 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "emission_factor",
+  "factor_value",
+  "unit_of_measure"
+ ],
+ "fields": [
+  {
+   "fieldname": "emission_factor",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Emission Factor",
+   "options": "Emission Factor Usage",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "emission_factor.factor_value",
+   "fieldname": "factor_value",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Factor Value",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "emission_factor.unit_of_measure",
+   "fieldname": "unit_of_measure",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Unit of Measure",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-16 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sustainability",
+ "name": "Carbon Footprint Factor Used",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -177,9 +177,11 @@
   "linked_services",
   "milestones_tab",
   "section_break_milestones",
-  "milestone_html",
   "milestone_template",
+  "section_break_milestone_grid",
   "milestones",
+  "section_break_milestone_view",
+  "milestone_html",
   "documents_tab",
   "documents_section",
   "documents_html",
@@ -672,6 +674,8 @@
    "label": "Additional Terms"
   },
   {
+   "fetch_from": "sea_booking.release_type",
+   "fetch_if_empty": 1,
    "fieldname": "release_type",
    "fieldtype": "Link",
    "label": "Release Type",
@@ -1205,8 +1209,7 @@
   },
   {
    "fieldname": "section_break_milestones",
-   "fieldtype": "Section Break",
-   "label": "Milestones"
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "milestone_html",
@@ -1222,10 +1225,20 @@
    "options": "Milestone Template"
   },
   {
+   "collapsible": 1,
+   "fieldname": "section_break_milestone_grid",
+   "fieldtype": "Section Break",
+   "label": "Milestones"
+  },
+  {
    "fieldname": "milestones",
    "fieldtype": "Table",
    "label": "Milestones",
    "options": "Sea Shipment Milestone"
+  },
+  {
+   "fieldname": "section_break_milestone_view",
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "connections_tab",

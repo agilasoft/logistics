@@ -74,6 +74,10 @@ logistics.recognition_policy.sync_from_policy = function (frm) {
 		'Warehouse Job',
 		'General Job',
 		'Special Project',
+		'Project Job',
+		'MICE Job',
+		'Exhibit Job',
+		'Docket',
 	];
 	var DIM = [
 		'company',

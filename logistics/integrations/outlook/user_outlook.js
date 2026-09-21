@@ -3,7 +3,7 @@
 
 frappe.ui.form.on("User", {
 	refresh(frm) {
-		if (!frm.doc.name || frm.doc.name === "Guest") {
+		if (frm.is_new() || !frm.doc.name || frm.doc.name === "Guest") {
 			return;
 		}
 
