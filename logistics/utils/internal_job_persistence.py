@@ -673,6 +673,27 @@ def _delete_orphan_internal_jobs(parent_doc: Any, fieldname: str) -> None:
 	_delete_orphan_internal_jobs_from_sets(prev, cur, parent_doc=parent_doc)
 
 
+def _sales_quote_empty_services_grid_is_not_a_removal(doc: Any) -> bool:
+	"""True when a Sales Quote save carries an empty Services grid that must not delete services.
+
+	The desk posts ``[]`` when duplicating (the copy clears the grid) and when a workflow or
+	other save runs before the virtual rows are on the form. Linked Services are removed only
+	through Manage Services, which deletes the document itself.
+	"""
+	if not doc or getattr(doc, "doctype", None) != "Sales Quote":
+		return False
+	if getattr(getattr(doc, "flags", None), "_allow_clear_linked_services", False):
+		return False
+	if not getattr(getattr(doc, "flags", None), "_linked_services_from_form", False):
+		return False
+	if doc.__dict__.get("linked_services"):
+		return False
+	parent_name = _norm(getattr(doc, "name", None))
+	if not parent_name or getattr(doc, "__islocal", False):
+		return False
+	return bool(_linked_service_names_from_db("Sales Quote", parent_name))
+
+
 def sync_internal_job_details_to_internal_jobs(doc: Any, *_method) -> None:
 	"""`before_save` hook: keep Internal Job records in sync with the booking's IJ-detail child rows.
 
@@ -691,6 +712,11 @@ def sync_internal_job_details_to_internal_jobs(doc: Any, *_method) -> None:
 	# Skip orphan cleanup so an empty desk grid snapshot cannot delete those clones.
 	if getattr(getattr(doc, "flags", None), "_linked_services_copy_applied", False):
 		_ensure_internal_job_docs_for_detail_rows(doc)
+		return
+	# Sales Quote Services is a virtual grid. Duplicate, workflow, and other desk
+	# saves often post ``linked_services: []`` because the rows were cleared or never
+	# hydrated. That is not a request to delete the quote's Linked Services.
+	if _sales_quote_empty_services_grid_is_not_a_removal(doc):
 		return
 	prev_orphans: set[str] | None = None
 	if doc.doctype in _VIRTUAL_LINKED_SERVICE_PARENTS and doc.name:

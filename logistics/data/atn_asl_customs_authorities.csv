@@ -1,0 +1,16 @@
+Code,Customs Authority Name,Is Active,Authority Type,Postal Code,Address Line 2,Address Line 1,Email,Phone,Website,City,State/Province,Operating Hours Start,Operating Hours End,Currency
+PH-BOC-MNL,PH-BOC-MNL,1,CUSTOMS,1009,,"South Harbor, Port Area, Manila, Philippines",,,,Manila,NCR,6:00 AM,5:00 PM,PHP
+PH-BOC-MICP,PH-BOC-MICP,1,CUSTOMS,1018,,"Isla Puting Bato, Tondo, Manila, Philippines",,,,Manila,NCR,6:00 AM,5:00 PM,PHP
+PH-BOC-BTG,PH-BOC-BTG,1,CUSTOMS,4200,,"Sta. Clara, Batangas City, Batangas, Philippines",,,,Batangas City,Batangas,6:00 AM,5:00 PM,PHP
+PH-BOC-SUB,PH-BOC-SUB,1,CUSTOMS,2222,,"Subic Bay Freeport Zone, Zambales, Philippines",,,,Subic,Zambales,6:00 AM,5:00 PM,PHP
+PH-BOC-CEB,PH-BOC-CEB,1,CUSTOMS,6000,,"Cebu International Port, North Reclamation Area, Cebu City, Philippines",,,,Cebu City,Cebu,6:00 AM,5:00 PM,PHP
+PH-BOC-ILO,PH-BOC-ILO,1,CUSTOMS,5000,,"Iloilo Commercial Port Complex, Loboc, Lapuz, Iloilo City, Philippines",,,,Iloilo City,Iloilo,6:00 AM,5:00 PM,PHP
+PH-BOC-DVO,PH-BOC-DVO,1,CUSTOMS,8000,,"Sasa Wharf, Sasa, Davao City, Philippines",,,,Davao City,Davao del Sur,6:00 AM,5:00 PM,PHP
+PH-BOC-CDO,PH-BOC-CDO,1,CUSTOMS,9000,,"Macabalan Port Area, Cagayan de Oro City, Philippines",,,,Cagayan de Oro,Misamis Oriental,6:00 AM,5:00 PM,PHP
+PH-BOC-GES,PH-BOC-GES,1,CUSTOMS,9500,,"Makar Wharf, Labangal, General Santos City, Philippines",,,,General Santos,South Cotabato,6:00 AM,5:00 PM,PHP
+PH-BOC-ZAM,PH-BOC-ZAM,1,CUSTOMS,7000,,"Zamboanga Port Area, Zamboanga City, Philippines",,,,Zamboanga,Zamboanga del Sur,6:00 AM,5:00 PM,PHP
+PH-BOC-TAC,PH-BOC-TAC,1,CUSTOMS,6500,,"Tacloban Port Area, Tacloban City, Leyte, Philippines",,,,Tacloban,Leyte,6:00 AM,5:00 PM,PHP
+PH-BOC-LEG,PH-BOC-LEG,1,CUSTOMS,4500,,"Legazpi Port District, Legazpi City, Albay, Philippines",,,,Legazpi,Albay,6:00 AM,5:00 PM,PHP
+PH-BOC-PPS,PH-BOC-PPS,1,CUSTOMS,5300,,"Puerto Princesa Port Area, Puerto Princesa City, Palawan, Philippines",,,,Puerto Princesa,Palawan,6:00 AM,5:00 PM,PHP
+PH-BOC-SUG,PH-BOC-SUG,1,CUSTOMS,8400,,"Surigao Port Area, Surigao City, Philippines",,,,Surigao,Surigao del Norte,6:00 AM,5:00 PM,PHP
+PH-BOC-APR,PH-BOC-APR,1,CUSTOMS,3515,,"Aparri Port Area, Aparri, Cagayan, Philippines",,,,Aparri,Cagayan,6:00 AM,5:00 PM,PHP
