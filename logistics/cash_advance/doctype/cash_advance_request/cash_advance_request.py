@@ -16,6 +16,8 @@ from logistics.cash_advance.accounting import (
 	ensure_payee_for_party_accounts,
 )
 from logistics.cash_advance.doctype.cash_advance_settings.cash_advance_settings import (
+	compute_liquidation_due_date,
+	get_liquidation_due_date_offset_days,
 	get_max_due_date_extension_days,
 )
 from logistics.cash_advance.job_charge_items import get_item_codes_for_job_number
@@ -80,6 +82,7 @@ class CashAdvanceRequest(Document):
 		self._sync_require_job_number_from_fund_source()
 		self._validate_request_limit()
 		self._validate_items_against_job()
+		self._apply_liquidation_due_date_policy()
 
 		if self.total_requested and self.total_requested < 0:
 			frappe.throw(_("Total Requested cannot be negative"))
@@ -114,6 +117,30 @@ class CashAdvanceRequest(Document):
 		self.require_job_number = cint(
 			frappe.db.get_value("Account", self.fund_source, "require_job_number")
 		)
+
+	def _apply_liquidation_due_date_policy(self):
+		"""Enforce liquidation due date from Cash Advance Settings on draft requests."""
+		if self.docstatus != 0:
+			return
+		if not self.date or not self.company:
+			return
+
+		expected = compute_liquidation_due_date(self.date, self.company)
+		if not expected:
+			return
+
+		if not self.liquidation_due_date:
+			self.liquidation_due_date = expected
+			return
+
+		if getdate(self.liquidation_due_date) != getdate(expected):
+			offset_days = get_liquidation_due_date_offset_days(self.company)
+			frappe.throw(
+				_(
+					"Liquidation Due Date must be {0} (Request Date plus {1} day(s) per Cash Advance Settings for {2})."
+				).format(formatdate(expected), offset_days, self.company),
+				title=_("Invalid Liquidation Due Date"),
+			)
 
 	def _validate_request_limit(self):
 		if not self.fund_source:
