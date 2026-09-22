@@ -1,10 +1,21 @@
 
+# Copyright (c) 2026, AgilaSoft and contributors
+# For license information, please see license.txt
 
-Air Booking + Air Shipment only:
+"""Delete Air Booking and Air Shipment transactions.
+
+Invoices and masters are kept. Dry run first:
 
     from logistics.utils.clear_operational_transactions import clear_air_transactions
     clear_air_transactions(dry_run=True)
     clear_air_transactions(dry_run=False, confirm_site="atndemo.s.frappe.cloud")
+"""
+
+from __future__ import annotations
+
+import frappe
+from frappe.model.rename_doc import get_link_fields
+
 AIR_SUPPORTING = [
 	"Air Shipment IATA Transaction",
 	"Dangerous Goods Declaration",
@@ -171,3 +182,76 @@ def _air_internal_jobs():
 		filters={"parent_booking_type": ("in", AIR_CORE)},
 		pluck="name",
 	)
+
+
+def _safe_count(dt):
+	try:
+		return frappe.db.count(dt)
+	except Exception:
+		return 0
+
+
+def _unlink_external(targets, delete_set):
+	for dt in targets:
+		try:
+			link_fields = get_link_fields(dt)
+		except Exception:
+			continue
+		for lf in link_fields:
+			parent = lf.parent
+			field = lf.fieldname
+			if not parent or not field or parent in delete_set:
+				continue
+			if not frappe.db.table_exists(parent):
+				continue
+			try:
+				if int(lf.issingle or 0):
+					if frappe.db.get_single_value(parent, field):
+						frappe.db.set_single_value(parent, field, None)
+					continue
+				frappe.db.sql(
+					f"UPDATE `tab{parent}` SET `{field}` = NULL WHERE `{field}` IS NOT NULL AND `{field}` != ''"
+				)
+			except Exception as e:
+				print(f"  skip {parent}.{field}: {e}")
+
+	_clear_dynamic_links(targets)
+
+
+def _clear_dynamic_links(targets):
+	if frappe.db.table_exists("Purchase Invoice") and frappe.db.has_column(
+		"Purchase Invoice", "reference_doctype"
+	):
+		frappe.db.sql(
+			"""
+			UPDATE `tabPurchase Invoice`
+			SET reference_name = NULL, reference_doctype = NULL
+			WHERE reference_doctype IN %(dts)s
+			""",
+			{"dts": targets},
+		)
+
+	if frappe.db.table_exists("Dynamic Link"):
+		frappe.db.sql(
+			"""
+			UPDATE `tabDynamic Link`
+			SET link_name = NULL
+			WHERE link_doctype IN %(dts)s
+			""",
+			{"dts": targets},
+		)
+
+
+def _cancel_and_delete(dt, name):
+	doc = frappe.get_doc(dt, name)
+	if getattr(doc, "docstatus", 0) == 1:
+		doc.flags.ignore_links = True
+		doc.flags.ignore_permissions = True
+		try:
+			doc.cancel()
+		except Exception:
+			frappe.db.set_value(dt, name, "docstatus", 2, update_modified=False)
+	try:
+		frappe.delete_doc(dt, name, force=1, ignore_permissions=True)
+	except Exception:
+		frappe.delete_doc(dt, name, force=1, ignore_permissions=True, ignore_on_trash=True)

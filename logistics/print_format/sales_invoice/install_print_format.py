@@ -163,7 +163,12 @@ def install_sales_invoice_print_format():
     """Install or update Sales Invoice print formats from consolidated HTML."""
 
     html_content = read_html()
-    write_fixture_json(html_content)
+    try:
+        write_fixture_json(html_content)
+    except OSError:
+        # Frappe Cloud migrates from a read-only app tree. The Print Format
+        # documents below are what the site needs; the fixture file is not.
+        pass
 
     _upsert_print_format(PRINT_FORMAT_NAME, html_content, create_if_missing=True)
     _upsert_print_format(FIXTURE_NAME, html_content, create_if_missing=True)
