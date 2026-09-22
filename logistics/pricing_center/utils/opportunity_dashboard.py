@@ -339,7 +339,7 @@ def render_opportunity_dashboard_html(payload: dict[str, Any], metric: str | Non
 		f'<div class="{DASH_ROOT}__card"><div class="{DASH_ROOT}__kpi-label">{_("By Service")}</div>'
 		f"{bars or _empty_html(_('No service breakdown'))}"
 		f"</div></div>"
-		f'<div class="{DASH_ROOT}__services">{''.join(service_cards)}</div>'
+		f'<div class="{DASH_ROOT}__services">{"".join(service_cards)}</div>'
 		f"{scopes_table}"
 		f"</div>"
 	)
