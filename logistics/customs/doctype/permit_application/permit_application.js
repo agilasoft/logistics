@@ -9,9 +9,9 @@ function _permit_application_date_constraints(frm) {
 		if (!c || !c.datepicker) {
 			return;
 		}
-		const opts = { maxDate: moment(today) };
+		const opts = { maxDate: today };
 		if (fieldname === "rejection_date" && frm.doc.approval_date) {
-			opts.minDate = moment(frappe.datetime.str_to_obj(frm.doc.approval_date));
+			opts.minDate = frappe.datetime.str_to_obj(frm.doc.approval_date);
 		}
 		c.datepicker.update(opts);
 	});
@@ -84,7 +84,7 @@ frappe.ui.form.on("Permit Application", {
 		if (cint(frm.doc.docstatus) === 0) {
 			frm.set_intro(
 				__(
-					"Use Workflow: File, review, then Approve. Rejection and expiry follow rejection date and Valid To. Frappe Submit runs on Approve."
+					"Status follows the active workflow. Rejection and expiry still follow the rejection date and Valid To."
 				)
 			);
 		} else {

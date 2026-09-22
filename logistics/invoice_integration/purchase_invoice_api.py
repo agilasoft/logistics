@@ -63,6 +63,18 @@ _PLANNING_SUBMITTED_FOR_PI_MSG = _(
     "Submit the planned shipment list (Planning status) before creating a Purchase Invoice."
 )
 
+
+def _default_cost_supplier():
+    """Default supplier from Logistics Settings.
+
+    The field is optional until migrate has synced Logistics Settings. A missing
+    field must not abort the Create Purchase Invoice dialog.
+    """
+    if not frappe.get_meta("Logistics Settings").get_field("default_cost_supplier"):
+        return None
+    return frappe.db.get_single_value("Logistics Settings", "default_cost_supplier")
+
+
 # Child table doctype for charges (used to tag rows as Requested)
 CHARGES_CHILD_DOCTYPE = {
     "Transport Job": "Transport Job Charges",
@@ -312,7 +324,7 @@ def get_eligible_charges_for_consolidation_purchase_invoice(consolidation_doctyp
             "currency": resolve_cost_charge_currency(ch, c_doc.company, c_doc.doctype),
         })
     if not default_supplier:
-        default_supplier = frappe.db.get_single_value("Logistics Settings", "default_cost_supplier")
+        default_supplier = _default_cost_supplier()
     return {
         "eligible_charges": eligible,
         "default_supplier": default_supplier,
@@ -378,7 +390,7 @@ def create_consolidation_purchase_invoice(
             resolved_supplier = sup
             break
     if not resolved_supplier:
-        resolved_supplier = frappe.db.get_single_value("Logistics Settings", "default_cost_supplier")
+        resolved_supplier = _default_cost_supplier()
     if not resolved_supplier:
         frappe.throw(_("Supplier is required. Set pay_to on charges or pass supplier or configure default_cost_supplier in Logistics Settings."))
 
@@ -604,7 +616,7 @@ def get_eligible_charges_for_purchase_invoice(job_type: str, job_name: str) -> D
             "currency": resolve_cost_charge_currency(ch, job.company),
         })
     if not default_supplier:
-        default_supplier = frappe.db.get_single_value("Logistics Settings", "default_cost_supplier")
+        default_supplier = _default_cost_supplier()
     return {
         "eligible_charges": eligible,
         "default_supplier": default_supplier,
@@ -693,7 +705,7 @@ def create_purchase_invoice(
             resolved_supplier = sup
             break
     if not resolved_supplier:
-        resolved_supplier = frappe.db.get_single_value("Logistics Settings", "default_cost_supplier")
+        resolved_supplier = _default_cost_supplier()
     if not resolved_supplier:
         frappe.throw(_("Supplier is required. Set pay_to on charges or pass supplier or configure default_cost_supplier in Logistics Settings."))
 

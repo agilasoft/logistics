@@ -305,6 +305,11 @@
             border-right: none;
         }
         
+        .table-header th:first-child,
+        .table-row td:first-child {
+            white-space: nowrap;
+        }
+
         .table-header th:first-child {
             border-left: 2px solid #000;
         }
@@ -873,7 +878,7 @@
                     {% if doc.references %}
                         {% for ref in doc.references %}
                             <tr class="table-row">
-                                <td>{{ ref.reference_doctype or '—' }}</td>
+                                <td>{% if ref.reference_doctype == "Sales Invoice" %}Service Invoice{% else %}{{ ref.reference_doctype or '—' }}{% endif %}</td>
                                 <td>{{ ref.reference_name or '—' }}</td>
                                 <td>{% if ref.due_date %}{{ frappe.utils.formatdate(ref.due_date, 'MM-dd-yyyy') }}{% else %}—{% endif %}</td>
                                 <td>{{ frappe.utils.fmt_money(ref.total_amount|default(0), precision=2) }} {{ currency }}</td>

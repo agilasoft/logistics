@@ -227,6 +227,207 @@ function logistics_declaration_show_purchase_invoice_dialog(frm) {
 	});
 }
 
+/** Action / Create / View / Post. Re-add after toolbar rebuild; duplicate labels are ignored. */
+function _declaration_add_form_toolbar(frm) {
+	if (!frm || !frm.doc || !frm.doc.name || frm.doc.__islocal) {
+		return;
+	}
+
+	frm.add_custom_button(__("Get Documents"), function () {
+		frappe.call({
+			method: "logistics.document_management.api.populate_documents_from_template",
+			args: { doctype: "Declaration", docname: frm.doc.name },
+			callback: function (r) {
+				if (r.message && r.message.added !== undefined) {
+					frm.reload_doc();
+					frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 3);
+				}
+			},
+		});
+	}, __("Action"));
+	frm.add_custom_button(__("Get Milestones"), function () {
+		frappe.call({
+			method: "logistics.document_management.api.populate_milestones_from_template",
+			args: { doctype: "Declaration", docname: frm.doc.name },
+			callback: function (r) {
+				if (r.message && r.message.added !== undefined) {
+					frm.reload_doc();
+					frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 3);
+				}
+			},
+		});
+	}, __("Action"));
+	if (frm.doc.charges && frm.doc.charges.length > 0) {
+		frm.add_custom_button(__("Calculate Charges"), function () {
+			frm.call("recalculate_all_charges").then(function (r) {
+				if (r && r.message && r.message.success) {
+					frm.reload_doc();
+					frappe.show_alert({ message: __(r.message.message), indicator: "green" }, 3);
+				}
+			});
+		}, __("Action"));
+		frm.add_custom_button(__("Revert Charges"), function () {
+			frappe.confirm(__("Are you sure you want to revert charges to source values?"), function () {
+				frm.call("revert_charges_to_source").then(function (r) {
+					const msg = r && r.message ? r.message : null;
+					if (!msg || !msg.success) {
+						frappe.msgprint({
+							title: __("Revert Charges"),
+							message: (msg && msg.message) || __("No source charges available to revert."),
+							indicator: "orange",
+						});
+						return;
+					}
+					frm.reload_doc();
+					let source_label = __("source");
+					if (msg.source === "declaration_order") source_label = __("Declaration Order");
+					if (msg.source === "sales_quote") source_label = __("Sales Quote");
+					frappe.show_alert({
+						message: __("Charges reverted to {0} values ({1} rows)", [source_label, msg.charges_count || 0]),
+						indicator: "green",
+					}, 4);
+				});
+			});
+		}, __("Action"));
+	}
+
+	if (frm.doc.docstatus < 2) {
+		frm.add_custom_button(__("Sales Invoice"), function () {
+			logistics_declaration_show_sales_invoice_dialog(frm);
+		}, __("Create"));
+		frm.add_custom_button(__("Purchase Invoice"), function () {
+			logistics_declaration_show_purchase_invoice_dialog(frm);
+		}, __("Create"));
+	}
+	frm.add_custom_button(__("Permit Application"), function () {
+		logistics_show_create_permit_application_dialog(frm);
+	}, __("Create"));
+	frm.add_custom_button(__("Exemption Certificate"), function () {
+		logistics_show_create_exemption_certificate_dialog(frm);
+	}, __("Create"));
+	if (
+		!((frm.doc.service_role === "Linked" || cint(frm.doc.is_internal_job)) &&
+			(frm.doc.main_service_type || frm.doc.main_job_type) &&
+			(frm.doc.main_service || frm.doc.main_job))
+	) {
+		frm.add_custom_button(__("Internal Job"), function () {
+			function _openInternalJobDlg() {
+				if (window.logistics_show_create_internal_job_dialog) {
+					window.logistics_show_create_internal_job_dialog(frm);
+				} else {
+					frappe.msgprint({
+						title: __("Not available"),
+						message: __(
+							"The internal job dialog could not load. Refresh the page or contact your administrator if this continues."
+						),
+						indicator: "red",
+					});
+				}
+			}
+			if (window.logistics_show_create_internal_job_dialog) {
+				_openInternalJobDlg();
+			} else {
+				frappe.require("/assets/logistics/js/internal_job_create_from_source.js?v=20", _openInternalJobDlg);
+			}
+		}, __("Create"));
+	}
+	if (frm.doc.sales_quote && !frm.doc.declaration_order) {
+		frappe.call({
+			method: "logistics.utils.sales_quote_service_eligibility.get_quote_module_flags",
+			args: { sales_quote: frm.doc.sales_quote },
+			callback: function (r) {
+				const f = r.message || {};
+				if (!f.allow_declaration) {
+					return;
+				}
+				frm.add_custom_button(__("Declaration Order"), function () {
+					frappe.confirm(
+						__(
+							"Create a Declaration Order from the linked Sales Quote and link it to this Declaration (or link the existing order if one was already created from that quote)?"
+						),
+						function () {
+							frappe.call({
+								method:
+									"logistics.customs.doctype.declaration.declaration.link_or_create_declaration_order_for_declaration",
+								args: { declaration_name: frm.doc.name },
+								freeze: true,
+								freeze_message: __("Creating Declaration Order..."),
+								callback: function (r2) {
+									if (r2.exc) {
+										return;
+									}
+									const msg = r2.message || {};
+									if (msg.declaration_order) {
+										frappe.show_alert({
+											message: msg.message || __("Declaration Order linked."),
+											indicator: "green",
+										}, 5);
+										frm.reload_doc().then(function () {
+											frappe.set_route("Form", "Declaration Order", msg.declaration_order);
+										});
+									}
+								},
+							});
+						}
+					);
+				}, __("Create"));
+			},
+		});
+	}
+
+	if (frm.doc.docstatus < 2 && frm.doc.job_number) {
+		frappe.db.get_value("Sales Invoice", { job_number: frm.doc.job_number }, "name", function (r) {
+			if (r && r.name) {
+				frm.add_custom_button(__("View Sales Invoice"), function () {
+					frappe.set_route("Form", "Sales Invoice", r.name);
+				}, __("View"));
+			}
+		});
+	}
+	if (frm.doc.declaration_order) {
+		frm.add_custom_button(__("View Declaration Order"), function () {
+			frappe.set_route("Form", "Declaration Order", frm.doc.declaration_order);
+		}, __("View"));
+	}
+	if (frm.doc.sales_quote) {
+		frm.add_custom_button(__("View Sales Quote"), function () {
+			frappe.set_route("Form", "Sales Quote", frm.doc.sales_quote);
+		}, __("View"));
+	}
+
+	frm.add_custom_button(__("Standard Costs"), function () {
+		frappe.call({
+			method: "logistics.customs.doctype.declaration.declaration.post_standard_costs",
+			args: { docname: frm.doc.name },
+			callback: function (r) {
+				if (r.message) frm.reload_doc();
+			},
+		});
+	}, __("Post"));
+	if (frm.doc.sales_quote && frm.doc.company) {
+		frm.add_custom_button(__("Intercompany Transactions"), function () {
+			frappe.call({
+				method: "logistics.intercompany.intercompany_invoice.create_intercompany_invoices_for_quote",
+				args: {
+					sales_quote_name: frm.doc.sales_quote,
+					posting_date: frappe.datetime.get_today(),
+				},
+				callback: function (r) {
+					if (r.message) {
+						var msg = r.message.message || __("Intercompany invoices processed");
+						if (r.message.created !== undefined) {
+							msg = __("Created {0} intercompany invoice(s).", [r.message.created]);
+						}
+						frappe.show_alert({ message: msg, indicator: "green" }, 5);
+						frm.reload_doc();
+					}
+				},
+			});
+		}, __("Post"));
+	}
+	_declaration_add_recognition_buttons(frm);
+}
+
 function _to_num(value) {
 	var n = parseFloat(value);
 	return isNaN(n) ? 0 : n;
@@ -608,6 +809,14 @@ frappe.ui.form.on("Declaration", {
 		if (window.logistics && logistics.job_change_lock) {
 			logistics.job_change_lock.apply(frm);
 		}
+		if (frm.doc.name && !frm.doc.__islocal) {
+			setTimeout(function () {
+				_declaration_add_form_toolbar(frm);
+			}, 100);
+			setTimeout(function () {
+				_declaration_add_form_toolbar(frm);
+			}, 400);
+		}
 		if (window.logistics && logistics.setup_virtual_linked_services_grid) {
 			logistics.setup_virtual_linked_services_grid(frm);
 		}
@@ -685,221 +894,6 @@ frappe.ui.form.on("Declaration", {
 			frm.layout.wrapper.off("click.documents_html").on("click.documents_html", '[data-fieldname="documents_tab"]', function () {
 				_load_declaration_documents_html(frm);
 			});
-		}
-
-		// --- Actions menu ---
-		if (!frm.is_new() && !frm.doc.__islocal) {
-			frm.add_custom_button(__("Get Documents"), function() {
-				frappe.call({
-					method: "logistics.document_management.api.populate_documents_from_template",
-					args: { doctype: "Declaration", docname: frm.doc.name },
-					callback: function(r) {
-						if (r.message && r.message.added !== undefined) {
-							frm.reload_doc();
-							frappe.show_alert({ message: __(r.message.message), indicator: "blue" }, 3);
-						}
-					}
-				});
-			}, __("Action"));
-			frm.add_custom_button(__('Get Milestones'), function() {
-				frappe.call({
-					method: 'logistics.document_management.api.populate_milestones_from_template',
-					args: { doctype: 'Declaration', docname: frm.doc.name },
-					callback: function(r) {
-						if (r.message && r.message.added !== undefined) {
-							frm.reload_doc();
-							frappe.show_alert({ message: __(r.message.message), indicator: 'blue' }, 3);
-						}
-					}
-				});
-			}, __('Action'));
-			if (frm.doc.charges && frm.doc.charges.length > 0) {
-				frm.add_custom_button(__("Calculate Charges"), function() {
-					frm.call("recalculate_all_charges").then(function(r) {
-						if (r && r.message && r.message.success) {
-							frm.reload_doc();
-							frappe.show_alert({ message: __(r.message.message), indicator: "green" }, 3);
-						}
-					});
-				}, __("Action"));
-				
-				// Revert Charges - restore source charges
-				frm.add_custom_button(__("Revert Charges"), function() {
-					frappe.confirm(__("Are you sure you want to revert charges to source values?"), function() {
-						frm.call("revert_charges_to_source").then(function(r) {
-							const msg = r && r.message ? r.message : null;
-							if (!msg || !msg.success) {
-								frappe.msgprint({
-									title: __("Revert Charges"),
-									message: (msg && msg.message) || __("No source charges available to revert."),
-									indicator: "orange"
-								});
-								return;
-							}
-							frm.reload_doc();
-							let source_label = __("source");
-							if (msg.source === "declaration_order") source_label = __("Declaration Order");
-							if (msg.source === "sales_quote") source_label = __("Sales Quote");
-							frappe.show_alert({
-								message: __("Charges reverted to {0} values ({1} rows)", [source_label, msg.charges_count || 0]),
-								indicator: "green"
-							}, 4);
-						});
-					});
-				}, __("Action"));
-			}
-		}
-
-		// --- View menu ---
-		// View Sales Invoice if exists
-		if (frm.doc.docstatus < 2 && !frm.doc.__islocal && frm.doc.job_number) {
-			frappe.db.get_value("Sales Invoice", {"job_number": frm.doc.job_number}, "name", function(r) {
-				if (r && r.name) {
-					frm.add_custom_button(__("View Sales Invoice"), function() {
-						frappe.set_route("Form", "Sales Invoice", r.name);
-					}, __("View"));
-				}
-			});
-		}
-		// View Declaration Order if linked
-		if (frm.doc.declaration_order) {
-			frm.add_custom_button(__("View Declaration Order"), function() {
-				frappe.set_route("Form", "Declaration Order", frm.doc.declaration_order);
-			}, __("View"));
-		}
-		// View Sales Quote if linked
-		if (frm.doc.sales_quote) {
-			frm.add_custom_button(__("View Sales Quote"), function() {
-				frappe.set_route("Form", "Sales Quote", frm.doc.sales_quote);
-			}, __("View"));
-		}
-
-		// --- Create menu ---
-		// Create > Permit Application / Exemption Certificate (customs): link new docs to this declaration and child rows.
-		if (frm.doc.name && !frm.doc.__islocal) {
-			frm.add_custom_button(__("Permit Application"), function () {
-				logistics_show_create_permit_application_dialog(frm);
-			}, __("Create"));
-			frm.add_custom_button(__("Exemption Certificate"), function () {
-				logistics_show_create_exemption_certificate_dialog(frm);
-			}, __("Create"));
-		}
-		// Create > Declaration Order from linked Sales Quote (same eligibility as Air/Sea Shipment)
-		if (frm.doc.name && !frm.doc.__islocal && frm.doc.sales_quote && !frm.doc.declaration_order) {
-			frappe.call({
-				method: "logistics.utils.sales_quote_service_eligibility.get_quote_module_flags",
-				args: { sales_quote: frm.doc.sales_quote },
-				callback: function (r) {
-					const f = r.message || {};
-					if (!f.allow_declaration) {
-						return;
-					}
-					frm.add_custom_button(__("Declaration Order"), function () {
-						frappe.confirm(
-							__(
-								"Create a Declaration Order from the linked Sales Quote and link it to this Declaration (or link the existing order if one was already created from that quote)?"
-							),
-							function () {
-								frappe.call({
-									method:
-										"logistics.customs.doctype.declaration.declaration.link_or_create_declaration_order_for_declaration",
-									args: { declaration_name: frm.doc.name },
-									freeze: true,
-									freeze_message: __("Creating Declaration Order..."),
-									callback: function (r2) {
-										if (r2.exc) {
-											return;
-										}
-										const msg = r2.message || {};
-										if (msg.declaration_order) {
-											frappe.show_alert({
-												message: msg.message || __("Declaration Order linked."),
-												indicator: "green",
-											}, 5);
-											frm.reload_doc().then(function () {
-												frappe.set_route("Form", "Declaration Order", msg.declaration_order);
-											});
-										}
-									},
-								});
-							}
-						);
-					}, __("Create"));
-				},
-			});
-		}
-		// Create > Sales Invoice: Draft or submitted (not cancelled). Dialog or fallback creates customer invoices from charges.
-		if (frm.doc.docstatus < 2 && !frm.doc.__islocal) {
-			frm.add_custom_button(__("Sales Invoice"), function() {
-				logistics_declaration_show_sales_invoice_dialog(frm);
-			}, __("Create"));
-		}
-		// Create > Purchase Invoice: Draft or submitted (not cancelled). Select charges and supplier in the dialog.
-		if (frm.doc.docstatus < 2 && !frm.doc.__islocal) {
-			frm.add_custom_button(__("Purchase Invoice"), function() {
-				logistics_declaration_show_purchase_invoice_dialog(frm);
-			}, __("Create"));
-		}
-
-		// --- Create and Post menus - use setTimeout so they appear after form ready ---
-		if (frm.doc.name && !frm.doc.__islocal) {
-			setTimeout(function() {
-				if (!((frm.doc.service_role === "Linked" || cint(frm.doc.is_internal_job)) && (frm.doc.main_service_type || frm.doc.main_job_type) && (frm.doc.main_service || frm.doc.main_job))) {
-					frm.add_custom_button(__('Internal Job'), function() {
-						function _openInternalJobDlg() {
-							if (window.logistics_show_create_internal_job_dialog) {
-								window.logistics_show_create_internal_job_dialog(frm);
-							} else {
-								frappe.msgprint({
-									title: __('Not available'),
-									message: __(
-										'The internal job dialog could not load. Refresh the page or contact your administrator if this continues.'
-									),
-									indicator: 'red',
-								});
-							}
-						}
-						if (window.logistics_show_create_internal_job_dialog) {
-							_openInternalJobDlg();
-						} else {
-							frappe.require('/assets/logistics/js/internal_job_create_from_source.js?v=20', _openInternalJobDlg);
-						}
-					}, __('Create'));
-				}
-				// Post menu
-				frm.add_custom_button(__('Standard Costs'), function() {
-					frappe.call({
-						method: 'logistics.customs.doctype.declaration.declaration.post_standard_costs',
-						args: { docname: frm.doc.name },
-						callback: function(r) {
-							if (r.message) frm.reload_doc();
-						}
-					});
-				}, __('Post'));
-				if (frm.doc.sales_quote && frm.doc.company) {
-					frm.add_custom_button(__('Intercompany Transactions'), function() {
-						frappe.call({
-							method: 'logistics.intercompany.intercompany_invoice.create_intercompany_invoices_for_quote',
-							args: {
-								sales_quote_name: frm.doc.sales_quote,
-								posting_date: frappe.datetime.get_today()
-							},
-							callback: function(r) {
-								if (r.message) {
-									var msg = r.message.message || __('Intercompany invoices processed');
-									if (r.message.created !== undefined) {
-										msg = __('Created {0} intercompany invoice(s).', [r.message.created]);
-									}
-									frappe.show_alert({ message: msg, indicator: 'green' }, 5);
-									frm.reload_doc();
-								}
-							}
-						});
-					}, __('Post'));
-				}
-				// WIP & Accrual recognition (Post > WIP and Accrual; Recognition: adjust/close)
-				_declaration_add_recognition_buttons(frm);
-			}, 100);
 		}
 	},
 });
