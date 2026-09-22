@@ -58,6 +58,8 @@ logistics.patches.v3_0_migrate_time_sensitive_service_legs
 logistics.patches.v3_0_rename_time_sensitive_case_charge_qty_rate_amount
 # Importer Category: clear blank/duplicate codes before the unique index is added
 logistics.patches.v3_0_prepare_importer_category_unique_code
+# Commodity: widen description to TEXT before schema sync (values exceed varchar 140)
+logistics.patches.v3_0_prepare_commodity_description_text
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
