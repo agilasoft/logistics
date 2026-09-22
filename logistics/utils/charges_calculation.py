@@ -2564,8 +2564,7 @@ def calculate_charge_row(
             )
             actual_rev = actual_cst
             cq = cost.get("cost_quantity")
-            cq_f = flt(cq) if cq is not None else None
-            return {
+            out = {
                 "success": True,
                 "estimated_revenue": est_rev,
                 "estimated_cost": est_cost,
@@ -2573,11 +2572,16 @@ def calculate_charge_row(
                 "actual_cost": actual_cst,
                 "revenue_calc_notes": notes,
                 "cost_calc_notes": notes,
-                "quantity": cq_f,
-                "cost_quantity": cq_f,
                 "disbursement_mirror": disbursement_mirror,
                 "row_updates": _charge_row_sync_dict_for_client(doc),
             }
+            # Omit unset qty. A null key makes the client clear Quantity, then the
+            # disbursement mirror writes it back — the field flickers.
+            if cq is not None:
+                cq_f = flt(cq)
+                out["quantity"] = cq_f
+                out["cost_quantity"] = cq_f
+            return out
 
         rev = calculate_charge_revenue(doc, parent_doc)
         cost = calculate_charge_cost(doc, parent_doc)

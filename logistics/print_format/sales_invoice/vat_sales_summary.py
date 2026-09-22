@@ -18,28 +18,41 @@ EXEMPT = "exempt"
 ZERO_RATED = "zero_rated"
 
 
-def get_vat_sales_summary(doc) -> frappe._dict:
+def get_vat_sales_summary(doc, items=None) -> frappe._dict:
 	"""Classify invoice net sales from Sales Taxes and Charges (template) + Tax Category.
 
 	Returns transaction-currency amounts for the Sales Invoice HTML VAT block.
 	When any charge line has an Item Tax Template or item_tax_rate, split by
 	the printed Amount column (net − tax) using those rates
 	(VAT Exempt / Zero Rated / Vatable).
+	Pass `items` to classify a subset (e.g. Disbursement Bill lines) instead of
+	the full invoice; `net_total` is then the sum of those lines.
 	"""
-	net_total = flt(getattr(doc, "net_total", None) or 0)
+	print_items = list(items) if items is not None else None
+	if print_items is not None:
+		net_total = sum(
+			flt(_row_value(item, "net_amount") or _row_value(item, "amount"))
+			for item in print_items
+		)
+	else:
+		net_total = flt(getattr(doc, "net_total", None) or 0)
 	rows = _classified_tax_rows(doc)
 	treatments = {treatment for treatment, _amount in rows}
 
-	if _has_item_tax_templates(doc):
+	if _has_item_tax_templates(doc, items=print_items):
 		default = _default_item_treatment(treatments, doc)
-		buckets = _buckets_from_items(doc, default_treatment=default)
+		buckets = _buckets_from_items(doc, default_treatment=default, items=print_items)
 		if not _has_amounts(buckets):
 			buckets[default] = net_total
 	elif len(treatments) == 1:
 		buckets = _empty_buckets()
 		buckets[next(iter(treatments))] = net_total
 	elif len(treatments) > 1:
-		if any(amount for _treatment, amount in rows):
+		if print_items is not None:
+			buckets = _buckets_from_items(doc, items=print_items)
+			if not _has_amounts(buckets):
+				buckets[VATABLE] = net_total
+		elif any(amount for _treatment, amount in rows):
 			buckets = _empty_buckets()
 			for treatment, amount in rows:
 				buckets[treatment] += amount
@@ -53,7 +66,7 @@ def get_vat_sales_summary(doc) -> frappe._dict:
 		if treatment:
 			buckets[treatment] = net_total
 		else:
-			buckets = _buckets_from_items(doc)
+			buckets = _buckets_from_items(doc, items=print_items)
 			if not _has_amounts(buckets):
 				buckets[VATABLE] = net_total
 
@@ -142,8 +155,8 @@ def _template_hints(template_name: str) -> list[str]:
 	return hints
 
 
-def _has_item_tax_templates(doc) -> bool:
-	for item in getattr(doc, "items", None) or []:
+def _has_item_tax_templates(doc, items=None) -> bool:
+	for item in (items if items is not None else getattr(doc, "items", None)) or []:
 		if _row_value(item, "item_tax_template") or _parse_item_tax_rate(_row_value(item, "item_tax_rate")):
 			return True
 	return False
@@ -186,12 +199,12 @@ def _print_line_amount(item, vat_rate: float) -> float:
 	return net - _print_line_tax(item, net, vat_rate)
 
 
-def _buckets_from_items(doc, default_treatment: str = VATABLE) -> dict[str, float]:
+def _buckets_from_items(doc, default_treatment: str = VATABLE, items=None) -> dict[str, float]:
 	buckets = _empty_buckets()
 	cache: dict[str, str | None] = {}
 	fallback = default_treatment if default_treatment in (VATABLE, EXEMPT, ZERO_RATED) else VATABLE
 	vat_rate = _doc_vat_rate(doc)
-	for item in getattr(doc, "items", None) or []:
+	for item in (items if items is not None else getattr(doc, "items", None)) or []:
 		item_amt = _print_line_amount(item, vat_rate)
 		buckets[_item_treatment(item, fallback, cache)] += item_amt
 	return buckets

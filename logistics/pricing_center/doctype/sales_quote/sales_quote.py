@@ -381,8 +381,15 @@ class SalesQuote(Document):
 		)
 
 		rows = []
-		for ls in get_linked_services_for_sales_quote(self.name):
-			row = {"linked_service": ls.name}
+		for idx, ls in enumerate(get_linked_services_for_sales_quote(self.name), start=1):
+			# Stable child name so the desk round-trips the row. A nameless __islocal
+			# snapshot is dropped on the next save and orphan cleanup deletes the service.
+			row = {
+				"name": ls.name,
+				"idx": idx,
+				"doctype": "Linked Service Detail",
+				"linked_service": ls.name,
+			}
 			for fn in view_fields:
 				if fn == "linked_service":
 					continue
