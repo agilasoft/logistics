@@ -67,7 +67,7 @@
   {
    "allow_on_submit": 1,
    "default": "Draft",
-   "description": "Updated automatically from approval / rejection dates, Valid To, and renewals. Use workflow to file and review.",
+   "description": "Updated from the active workflow, and from the rejection date, Valid To, and renewals.",
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,

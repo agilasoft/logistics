@@ -630,4 +630,12 @@ logistics.patches.v3_0_journal_entry_html_fix_blank_page
 logistics.patches.v3_0_journal_entry_html_pin_footer
 # Journal Entry HTML: keep TOTAL under the last account row
 logistics.patches.v3_0_journal_entry_html_totals_under_rows
+# Milestone Template: backfill Is Active so existing templates remain selectable
+logistics.patches.v3_0_milestone_template_is_active
+# Recognition accounts (WIP Revenue, WIP Revenue Liability, Accrual Cost, Accrued Cost Liability) for each operating company
+logistics.patches.v3_0_create_recognition_accounts
+# Payment Entry HTML: TYPE column shows Service Invoice not Sales Invoice
+logistics.patches.v3_0_payment_entry_html_service_invoice_type
+# Journal Entry HTML: BIR footer disclaimer "not valid for claim of input tax"
+logistics.patches.v3_0_journal_entry_html_bir_disclaimer
 
