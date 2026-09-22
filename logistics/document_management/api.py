@@ -280,10 +280,29 @@ def _get_document_template_items_for_doc(doc, product_type, applies_to, directio
 	return []
 
 
+def _template_context_filters(doctype):
+	"""Shared product/applies-to filters for Milestone Template and Document List Template Link fields."""
+	context = DOCTYPE_CONTEXT.get(doctype)
+	if not context:
+		return None
+	product_type, applies_to = context
+	return [
+		["product_type", "=", product_type],
+		["applies_to", "in", [applies_to, "Both"]],
+		[
+			"or",
+			["applies_to_doctype", "=", ""],
+			["applies_to_doctype", "is", "not set"],
+			["applies_to_doctype", "=", doctype],
+		],
+	]
+
+
 @frappe.whitelist()
 def get_document_template_filters(doctype):
 	"""Return filters for document_list_template Link field (same rules as milestone templates)."""
-	return get_milestone_template_filters(doctype)
+	filters = _template_context_filters(doctype)
+	return {"filters": filters or []}
 
 
 @frappe.whitelist()
@@ -480,21 +499,10 @@ def _compute_date_required(doc, template_item):
 @frappe.whitelist()
 def get_milestone_template_filters(doctype):
 	"""Return filters for milestone_template Link field so only templates for this doctype are shown."""
-	context = DOCTYPE_CONTEXT.get(doctype)
-	if not context:
+	filters = _template_context_filters(doctype)
+	if not filters:
 		return {"filters": []}
-	product_type, applies_to = context
-	filters = [
-		["product_type", "=", product_type],
-		["applies_to", "in", [applies_to, "Both"]],
-	]
-	# applies_to_doctype: empty/NULL = available for all; set = only for that doctype
-	filters.append([
-		"or",
-		["applies_to_doctype", "=", ""],
-		["applies_to_doctype", "is", "not set"],
-		["applies_to_doctype", "=", doctype],
-	])
+	filters.append(["is_active", "=", 1])
 	return {"filters": filters}
 
 
@@ -525,6 +533,8 @@ def get_milestone_template_items(product_type, applies_to, direction=None, entry
 			"and",
 			["applies_to", "in", [applies_to, "Both"]],
 			"and",
+			["is_active", "=", 1],
+			"and",
 			[
 				["applies_to_doctype", "=", ""],
 				"or",
@@ -537,6 +547,7 @@ def get_milestone_template_items(product_type, applies_to, direction=None, entry
 		filters = [
 			["product_type", "=", product_type],
 			["applies_to", "in", [applies_to, "Both"]],
+			["is_active", "=", 1],
 		]
 	templates = frappe.get_all(
 		"Milestone Template",

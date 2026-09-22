@@ -59,14 +59,6 @@ class PermitApplication(Document):
 		if not any(row.get("attachment") for row in (self.attachments or [])):
 			frappe.throw(_("At least one attachment is required to file a permit application."))
 
-	def before_submit(self):
-		# Frappe submit runs only on workflow "Approve" (to Approved), not the toolbar, not filing
-		if self.get("status") != "Approved":
-			frappe.throw(
-				_("Use Workflow to file and approve. The Submit button is not used to file this form."),
-				title=_("Use Workflow to Approve"),
-			)
-
 	def _ensure_default_issuing_authority(self):
 		"""Default issuing authority from Permit Type if not set."""
 		if self.get("issuing_authority") or not self.get("permit_type"):
