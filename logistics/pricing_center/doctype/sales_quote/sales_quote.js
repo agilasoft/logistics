@@ -2503,6 +2503,10 @@ function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 	}
 	var row = locals[cdt] && locals[cdt][cdn];
 	if (!row) return;
+	var calc_token =
+		logistics.charge_type_cleanup && logistics.charge_type_cleanup.next_charge_calc_token
+			? logistics.charge_type_cleanup.next_charge_calc_token(frm, cdn)
+			: 0;
 	frappe.call({
 		method: "logistics.utils.charges_calculation.calculate_charge_row",
 		args: {
@@ -2512,6 +2516,13 @@ function _calculate_sales_quote_charge_row(frm, cdt, cdn) {
 			row_data: JSON.stringify(row)
 		},
 		callback: function(r) {
+			if (
+				calc_token &&
+				logistics.charge_type_cleanup.is_current_charge_calc &&
+				!logistics.charge_type_cleanup.is_current_charge_calc(frm, cdn, calc_token)
+			) {
+				return;
+			}
 			if (logistics.charge_type_cleanup && logistics.charge_type_cleanup.apply_calculate_charge_row_response) {
 				logistics.charge_type_cleanup.apply_calculate_charge_row_response(
 					frm,

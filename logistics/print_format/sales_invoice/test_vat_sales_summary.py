@@ -327,6 +327,31 @@ class TestVatSalesSummary(unittest.TestCase):
 		self.assertAlmostEqual(summary.zero_rated_sales, 0)
 		self.assertAlmostEqual(summary.total_sales, 430.0)
 
+	def test_items_subset_does_not_use_full_invoice_net_total(self):
+		dsb_item = _Row(item_code="FREIGHT", net_amount=1000.0, amount=1000.0)
+		other_item = _Row(item_code="SERVICE", net_amount=3837000.0, amount=3837000.0)
+		inv = _FakeInvoice(
+			net_total=3838000.0,
+			tax_category="Vatable",
+			items=[dsb_item, other_item],
+			taxes=[
+				_Row(
+					account_head="VAT - ASL",
+					description="VAT - ASL",
+					rate=12,
+					net_amount=0,
+					tax_amount=0,
+				)
+			],
+		)
+		full = get_vat_sales_summary(inv)
+		self.assertAlmostEqual(full.vatable_sales, 3838000.0)
+		subset = get_vat_sales_summary(inv, items=[dsb_item])
+		self.assertAlmostEqual(subset.vatable_sales, 1000.0)
+		self.assertAlmostEqual(subset.exempt_sales, 0)
+		self.assertAlmostEqual(subset.zero_rated_sales, 0)
+		self.assertAlmostEqual(subset.total_sales, 1000.0)
+
 
 class TestItemIsZeroRatedOrExempt(unittest.TestCase):
 	def setUp(self):
