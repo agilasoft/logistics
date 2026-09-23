@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cint
+from frappe.utils import add_days, cint, getdate
 
 
 DEFAULT_LIQUIDATION_DUE_DATE_OFFSET_DAYS = 30
@@ -55,6 +55,14 @@ class CashAdvanceSettings(Document):
 		except frappe.DoesNotExistError:
 			pass
 		return None
+
+
+def compute_liquidation_due_date(request_date, company: str | None = None):
+	"""Return liquidation due date from request date and company Cash Advance Settings."""
+	if not request_date:
+		return None
+	offset_days = get_liquidation_due_date_offset_days(company)
+	return add_days(getdate(request_date), offset_days)
 
 
 def get_liquidation_due_date_offset_days(company: str | None = None) -> int:
