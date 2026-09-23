@@ -438,8 +438,20 @@ class SalesQuote(Document):
 		self.__dict__["linked_services"] = []
 		self.flags._linked_services_from_form = True
 
+	def _normalize_logistics_duplicate_from_marker(self):
+		"""Desk duplicate sometimes inherits a stale ancestor marker instead of the immediate source quote."""
+		if not self.is_new():
+			return
+		marker = (getattr(self, "logistics_duplicate_from", None) or "").strip()
+		if not marker:
+			return
+		resolved = _resolve_sales_quote_services_copy_source_name(marker, self)
+		if resolved and resolved != marker:
+			self.logistics_duplicate_from = resolved
+
 	def validate(self):
 		"""Validate Sales Quote data"""
+		self._normalize_logistics_duplicate_from_marker()
 		self._discard_duplicate_linked_services_staging()
 		self._honour_linked_services_form_rows()
 		for ch in getattr(self, "charges", None) or []:
@@ -4419,6 +4431,118 @@ def remove_linked_service(sales_quote: str, linked_service: str):
 	}
 
 
+def _sales_quote_charge_copy_signature(doc: Document) -> tuple:
+	"""Stable charge-line fingerprint for matching a duplicate to its source quote."""
+	rows = []
+	for row in getattr(doc, "charges", None) or []:
+		rows.append(
+			(
+				int(getattr(row, "idx", 0) or 0),
+				(_sq_strip_or_none(getattr(row, "item_code", None)) or ""),
+				(_sq_strip_or_none(getattr(row, "service_type", None)) or ""),
+				(_sq_strip_or_none(getattr(row, "charge_scope", None)) or ""),
+			)
+		)
+	return tuple(rows)
+
+
+def _best_sales_quote_services_copy_source_by_charges(
+	target: Document, candidate_names: list[str]
+) -> str:
+	"""Pick the candidate whose charge lines best match *target* (desk duplicate copies charges)."""
+	if not candidate_names:
+		return ""
+	if len(candidate_names) == 1:
+		return candidate_names[0]
+
+	target_sig = _sales_quote_charge_copy_signature(target)
+	if not target_sig:
+		return candidate_names[0]
+
+	best_name = candidate_names[0]
+	best_score = -1
+	for name in candidate_names:
+		try:
+			candidate = frappe.get_doc("Sales Quote", name)
+		except Exception:
+			continue
+		candidate_sig = _sales_quote_charge_copy_signature(candidate)
+		if target_sig == candidate_sig:
+			return name
+		score = sum(1 for a, b in zip(target_sig, candidate_sig) if a == b)
+		if len(target_sig) == len(candidate_sig):
+			score += 5
+		if score > best_score:
+			best_score = score
+			best_name = name
+	return best_name
+
+
+def _find_sales_quote_services_copy_source_by_charges(target: Document) -> str | None:
+	"""When the duplicate marker is wrong, find a quote with services that matches copied charges."""
+	sig = _sales_quote_charge_copy_signature(target)
+	if not sig:
+		return None
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_sales_quote,
+	)
+
+	customer = _sq_strip_or_none(getattr(target, "customer", None))
+	filters: dict = {"name": ["!=", target.name or ""]}
+	if customer:
+		filters["customer"] = customer
+	for row in frappe.get_all(
+		"Sales Quote",
+		filters=filters,
+		fields=["name"],
+		order_by="modified desc",
+		limit=40,
+	):
+		name = row.get("name")
+		if not name or not get_linked_services_for_sales_quote(name):
+			continue
+		try:
+			candidate = frappe.get_doc("Sales Quote", name)
+		except Exception:
+			continue
+		if _sales_quote_charge_copy_signature(candidate) == sig:
+			return name
+	return None
+
+
+def _resolve_sales_quote_services_copy_source_name(marker: str, target: Document | None = None) -> str:
+	"""Resolve which Sales Quote owns the Linked Services to clone for a desk duplicate."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_sales_quote,
+	)
+
+	marker = (marker or "").strip()
+	if not marker:
+		return ""
+	if get_linked_services_for_sales_quote(marker):
+		return marker
+
+	child_names = frappe.get_all(
+		"Sales Quote",
+		filters={"logistics_duplicate_from": marker},
+		pluck="name",
+		order_by="modified desc",
+		limit=50,
+	)
+	with_services = [n for n in child_names if n and get_linked_services_for_sales_quote(n)]
+	if with_services:
+		if target is not None:
+			return _best_sales_quote_services_copy_source_by_charges(target, with_services)
+		return with_services[0]
+
+	if target is not None:
+		by_charges = _find_sales_quote_services_copy_source_by_charges(target)
+		if by_charges:
+			return by_charges
+
+	return marker
+
+
 @frappe.whitelist()
 def copy_quotation_services_from_duplicate_source(sales_quote_name: str):
 	"""Clone Linked Services from the duplicate source quote onto this draft Sales Quote."""
@@ -4447,6 +4571,10 @@ def copy_quotation_services_from_duplicate_source(sales_quote_name: str):
 	from logistics.logistics.doctype.linked_service.linked_service import (
 		get_linked_services_for_sales_quote,
 	)
+
+	source_name = _resolve_sales_quote_services_copy_source_name(source_name, target)
+	if source_name != (getattr(target, "logistics_duplicate_from", None) or "").strip():
+		target.logistics_duplicate_from = source_name
 
 	if get_linked_services_for_sales_quote(sales_quote_name):
 		frappe.throw(
