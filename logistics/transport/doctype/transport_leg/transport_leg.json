@@ -224,13 +224,11 @@
    "fieldtype": "Column Break"
   },
   {
-   "fetch_from": "pick_address.custom_pickup_window_start",
    "fieldname": "pick_window_start",
    "fieldtype": "Time",
    "label": "Pick Window Start"
   },
   {
-   "fetch_from": "pick_address.custom_pickup_window_end",
    "fieldname": "pick_window_end",
    "fieldtype": "Time",
    "label": "Pick Window End"
@@ -301,13 +299,11 @@
    "fieldtype": "Column Break"
   },
   {
-   "fetch_from": "drop_address.custom_drop_window_start",
    "fieldname": "drop_window_start",
    "fieldtype": "Time",
    "label": "Drop Window Start"
   },
   {
-   "fetch_from": "drop_address.custom_drop_windows_end",
    "fieldname": "drop_window_end",
    "fieldtype": "Time",
    "label": "Drop Window End"

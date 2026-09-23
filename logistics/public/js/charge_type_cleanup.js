@@ -102,6 +102,21 @@ frappe.provide("logistics.charge_type_cleanup");
 		return String(a) === String(b);
 	}
 
+	// Outermost guard owns the flag. set_value triggers run on a promise microtask,
+	// after a synchronous finally would already have cleared it — disbursement then
+	// re-enters calculate and rewrites Quantity (visible flicker).
+	var _handler_guard_stack = [];
+
+	function _track_set_value_promise(promise) {
+		if (!promise || typeof promise.then !== "function") {
+			return;
+		}
+		// Every open guard waits, so an outer guard is not released before an inner set_value's triggers.
+		_handler_guard_stack.forEach(function (frame) {
+			frame.promises.push(promise);
+		});
+	}
+
 	function _set_row_value_if_changed(cdt, cdn, fieldname, value) {
 		if (!frappe.meta.get_docfield(cdt, fieldname)) {
 			return false;
@@ -110,9 +125,11 @@ frappe.provide("logistics.charge_type_cleanup");
 		if (!row || _values_equal(row[fieldname], value)) {
 			return false;
 		}
-		frappe.model.set_value(cdt, cdn, fieldname, value);
+		_track_set_value_promise(frappe.model.set_value(cdt, cdn, fieldname, value));
 		return true;
 	}
+
+	logistics.charge_type_cleanup.set_row_value_if_changed = _set_row_value_if_changed;
 
 	function _clear_fields_on_row(cdt, cdn, fieldnames) {
 		fieldnames.forEach(function (fieldname) {
@@ -140,16 +157,50 @@ frappe.provide("logistics.charge_type_cleanup");
 			}
 			return;
 		}
-		var prevSync = frm._syncing_sq_charge_from_tariff;
-		var prevProfit = frm._suppress_sq_profitability_refresh;
+		var frame = {
+			prevSync: frm._syncing_sq_charge_from_tariff,
+			prevProfit: frm._suppress_sq_profitability_refresh,
+			promises: [],
+		};
+		_handler_guard_stack.push(frame);
 		frm._syncing_sq_charge_from_tariff = true;
 		frm._suppress_sq_profitability_refresh = true;
+		var is_outermost = false;
 		try {
 			fn();
 		} finally {
-			frm._syncing_sq_charge_from_tariff = prevSync;
-			frm._suppress_sq_profitability_refresh = prevProfit;
+			_handler_guard_stack.pop();
+			is_outermost = _handler_guard_stack.length === 0;
+			var release = function () {
+				if (!is_outermost || !frm || frm.is_destroyed) {
+					return;
+				}
+				frm._syncing_sq_charge_from_tariff = frame.prevSync;
+				frm._suppress_sq_profitability_refresh = frame.prevProfit;
+			};
+			if (!frame.promises.length) {
+				release();
+			} else {
+				Promise.all(frame.promises).then(release, release);
+			}
 		}
+	};
+
+	logistics.charge_type_cleanup.next_charge_calc_token = function (frm, cdn) {
+		if (!frm || !cdn) {
+			return 0;
+		}
+		frm._sq_charge_calc_seq = frm._sq_charge_calc_seq || {};
+		frm._sq_charge_calc_seq[cdn] = (frm._sq_charge_calc_seq[cdn] || 0) + 1;
+		return frm._sq_charge_calc_seq[cdn];
+	};
+
+	logistics.charge_type_cleanup.is_current_charge_calc = function (frm, cdn, token) {
+		return !!(
+			frm &&
+			frm._sq_charge_calc_seq &&
+			frm._sq_charge_calc_seq[cdn] === token
+		);
 	};
 
 	function _charge_side_has_billable_rate(row, isRevenue) {
@@ -203,7 +254,92 @@ frappe.provide("logistics.charge_type_cleanup");
 		});
 	}
 
+	function _get_open_charge_grid_row(frm, cdn, tableFieldname) {
+		if (!frm || !frm.fields_dict) {
+			return null;
+		}
+		var grid = frm.fields_dict[tableFieldname || "charges"];
+		grid = grid && grid.grid;
+		if (!grid || !grid.grid_rows_by_docname) {
+			return null;
+		}
+		return grid.grid_rows_by_docname[cdn] || null;
+	}
+
+	function _set_open_grid_form_control_value(frm, cdt, cdn, fieldname, value, tableFieldname) {
+		var grid_row = _get_open_charge_grid_row(frm, cdn, tableFieldname);
+		if (!grid_row || !grid_row.grid_form || !grid_row.grid_form.fields_dict) {
+			return;
+		}
+		var control = grid_row.grid_form.fields_dict[fieldname];
+		if (!control) {
+			return;
+		}
+		// Link/Currency inputs in an open Editing Row often stay blank after model-only set_value.
+		if (control.set_value) {
+			control.set_value(value);
+		} else if (control.set_input) {
+			control.set_input(value);
+		} else if (control.$input && control.$input.length) {
+			control.$input.val(value == null ? "" : value);
+		}
+	}
+
+	var TARIFF_LINK_FIELDS = ["uom", "cost_uom", "currency", "cost_currency"];
+
+	function _apply_tariff_link_controls_from_updates(frm, cdt, cdn, updates, tableFieldname) {
+		if (!updates || typeof updates !== "object") {
+			return;
+		}
+		TARIFF_LINK_FIELDS.forEach(function (fieldname) {
+			if (!(fieldname in updates)) {
+				return;
+			}
+			var val = updates[fieldname];
+			if (val === undefined || val === null) {
+				return;
+			}
+			_set_open_grid_form_control_value(frm, cdt, cdn, fieldname, val, tableFieldname);
+		});
+	}
+
+	function _deferred_refresh_tariff_link_controls(frm, cdt, cdn, tableFieldname) {
+		setTimeout(function () {
+			if (!frm || frm.is_destroyed) {
+				return;
+			}
+			logistics.charge_type_cleanup.run_without_charge_handlers(frm, function () {
+				_refresh_charge_row_field_controls(
+					frm,
+					cdt,
+					cdn,
+					TARIFF_LINK_FIELDS,
+					tableFieldname
+				);
+				var row = locals[cdt] && locals[cdt][cdn];
+				if (!row) {
+					return;
+				}
+				TARIFF_LINK_FIELDS.forEach(function (fieldname) {
+					if (row[fieldname] === undefined || row[fieldname] === null) {
+						return;
+					}
+					_set_open_grid_form_control_value(
+						frm,
+						cdt,
+						cdn,
+						fieldname,
+						row[fieldname],
+						tableFieldname
+					);
+				});
+			});
+		}, 0);
+	}
+
 	logistics.charge_type_cleanup.charge_row_has_billable_rate = _charge_side_has_billable_rate;
+
+	logistics.charge_type_cleanup.refresh_charge_row_field_controls = _refresh_charge_row_field_controls;
 
 	logistics.charge_type_cleanup.refresh_charge_row_estimate_controls = function (
 		frm,
@@ -220,6 +356,37 @@ frappe.provide("logistics.charge_type_cleanup");
 		);
 	};
 
+	// Pricing fields that tariff fetch may populate — refresh open Editing Row dialog.
+	var TARIFF_PRICING_REFRESH_FIELDS = [
+		"revenue_calculation_method",
+		"calculation_method",
+		"quantity",
+		"uom",
+		"currency",
+		"unit_rate",
+		"unit_type",
+		"minimum_quantity",
+		"minimum_charge",
+		"maximum_charge",
+		"base_amount",
+		"cost_calculation_method",
+		"cost_quantity",
+		"cost_uom",
+		"cost_currency",
+		"unit_cost",
+		"cost_unit_type",
+		"cost_minimum_quantity",
+		"cost_minimum_charge",
+		"cost_maximum_charge",
+		"cost_base_amount",
+		"use_tariff_in_revenue",
+		"use_tariff_in_cost",
+		"use_unit_breaks",
+		"cost_use_unit_breaks",
+		"estimated_revenue",
+		"estimated_cost",
+	];
+
 	logistics.charge_type_cleanup.apply_calculate_charge_row_response = function (
 		frm,
 		cdt,
@@ -233,13 +400,22 @@ frappe.provide("logistics.charge_type_cleanup");
 		// Keep handlers quiet for the whole apply — otherwise quantity/cost_quantity
 		// set_value re-fires calculate_charge_row and estimated_* thrash profitability HTML.
 		logistics.charge_type_cleanup.run_without_charge_handlers(frm, function () {
-			if (r.message.row_updates && typeof r.message.row_updates === "object") {
-				$.each(r.message.row_updates, function (key, v) {
+			var changed_tariff_fields = [];
+			var row_updates =
+				r.message.row_updates && typeof r.message.row_updates === "object"
+					? r.message.row_updates
+					: null;
+			if (row_updates) {
+				$.each(row_updates, function (key, v) {
 					if (v !== undefined && v !== null) {
-						_set_row_value_if_changed(cdt, cdn, key, v);
+						if (_set_row_value_if_changed(cdt, cdn, key, v)) {
+							changed_tariff_fields.push(key);
+						}
 					}
 				});
 			}
+			var row = locals[cdt] && locals[cdt][cdn];
+			var break_methods = ["Weight Break", "Qty Break", "Percentage Break"];
 			[
 				"estimated_revenue",
 				"estimated_cost",
@@ -248,8 +424,35 @@ frappe.provide("logistics.charge_type_cleanup");
 				"quantity",
 				"cost_quantity",
 			].forEach(function (fn) {
-				if (fn in r.message) {
-					_set_row_value_if_changed(cdt, cdn, fn, r.message[fn]);
+				if (!(fn in r.message)) {
+					return;
+				}
+				var val = r.message[fn];
+				// null/undefined means "not calculated" — applying it clears a qty the
+				// mirror just wrote, then the mirror writes it back (Quantity flicker).
+				if (
+					(fn === "quantity" || fn === "cost_quantity") &&
+					(val === null || val === undefined)
+				) {
+					return;
+				}
+				// Break methods: do not push 0 qty — leave blank for user estimate.
+				if (
+					(fn === "quantity" || fn === "cost_quantity") &&
+					val === 0 &&
+					row
+				) {
+					var method = (
+						fn === "quantity"
+							? row.revenue_calculation_method || row.calculation_method
+							: row.cost_calculation_method
+					);
+					if (break_methods.indexOf((method || "").trim()) !== -1) {
+						return;
+					}
+				}
+				if (_set_row_value_if_changed(cdt, cdn, fn, val)) {
+					changed_tariff_fields.push(fn);
 				}
 			});
 			_set_row_value_if_changed(
@@ -264,12 +467,39 @@ frappe.provide("logistics.charge_type_cleanup");
 				"cost_calc_notes",
 				r.message.cost_calc_notes || ""
 			);
-			logistics.charge_type_cleanup.refresh_charge_row_estimate_controls(
+			// Force Link controls in the open Editing Row (UOM often stays blank after model-only set).
+			_apply_tariff_link_controls_from_updates(
 				frm,
 				cdt,
 				cdn,
+				row_updates || row,
 				tableFieldname
 			);
+			// Quantity is already painted by set_value. A second refresh rewrites the
+			// open Float input (blank ↔ value) — disbursement mirror does this every calc.
+			var skip_extra_refresh = { quantity: 1, cost_quantity: 1 };
+			var refresh_fields = TARIFF_PRICING_REFRESH_FIELDS.filter(function (fn) {
+				return TARIFF_LINK_FIELDS.indexOf(fn) === -1 && !skip_extra_refresh[fn];
+			});
+			changed_tariff_fields.forEach(function (fn) {
+				if (skip_extra_refresh[fn]) {
+					return;
+				}
+				if (
+					refresh_fields.indexOf(fn) === -1 &&
+					TARIFF_LINK_FIELDS.indexOf(fn) === -1
+				) {
+					refresh_fields.push(fn);
+				}
+			});
+			_refresh_charge_row_field_controls(
+				frm,
+				cdt,
+				cdn,
+				refresh_fields,
+				tableFieldname
+			);
+			_deferred_refresh_tariff_link_controls(frm, cdt, cdn, tableFieldname);
 			if (
 				logistics.charges_disbursement &&
 				logistics.charges_disbursement.apply_charge_row_response
@@ -310,6 +540,7 @@ frappe.provide("logistics.charge_type_cleanup");
 		if (!row) {
 			return;
 		}
+		var calc_token = logistics.charge_type_cleanup.next_charge_calc_token(frm, cdn);
 		frappe.call({
 			method: "logistics.utils.charges_calculation.calculate_charge_row",
 			args: {
@@ -323,6 +554,9 @@ frappe.provide("logistics.charge_type_cleanup");
 						: null,
 			},
 			callback: function (r) {
+				if (!logistics.charge_type_cleanup.is_current_charge_calc(frm, cdn, calc_token)) {
+					return;
+				}
 				logistics.charge_type_cleanup.apply_calculate_charge_row_response(
 					frm,
 					cdt,

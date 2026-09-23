@@ -1189,6 +1189,7 @@ def build_transport_order_dashboard_config(doc):
 		"scroll_doctype": "Transport Order",
 		"map_points": map_points,
 		"map_segments": None,
+		"straight_line": False,
 	}
 
 
@@ -1261,8 +1262,6 @@ def _declaration_port_pair_map_points(doc):
 
 
 def build_declaration_dashboard_config(doc):
-	from logistics.document_management.api import get_milestone_html
-
 	status = "Cancelled" if doc.docstatus == 2 else (doc.status or "Draft")
 	currency = doc.inv_currency or frappe.db.get_default("currency") or "PHP"
 	amount = frappe.utils.flt(doc.declaration_value or 0)
@@ -1278,11 +1277,6 @@ def build_declaration_dashboard_config(doc):
 	]
 	hero_html = build_customs_authority_hero_html(doc, list(header_items))
 	route_supplement = _declaration_importer_classification_html(doc)
-	milestone_html = ""
-	if doc.name and not doc.is_new():
-		milestone_html = get_milestone_html("Declaration", doc.name)
-	else:
-		milestone_html = '<div class="alert alert-info">Save the document to view milestones.</div>'
 	alerts_prepend = ""
 	if doc.name and not doc.is_new():
 		try:
@@ -1313,7 +1307,6 @@ def build_declaration_dashboard_config(doc):
 		"meta_cluster_html": build_declaration_meta_cluster_html(doc),
 		"route_supplement_html": route_supplement,
 		"include_default_dg": False,
-		"milestones_tab_inner_html": f'<div class="log-ab-ro-card" style="overflow:auto;">{milestone_html}</div>',
 		"alerts_prepend_html": alerts_prepend,
 		"status_slug": status_slug,
 		"scroll_doctype": "Declaration",

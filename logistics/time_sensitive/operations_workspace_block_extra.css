@@ -1,0 +1,377 @@
+/* Time Sensitive operations custom block — tab + toolbar overrides (with Air Booking dashboard CSS) */
+#tsw_ops_heat:checked ~ .ab-tab-bar label[for="tsw_ops_heat"],
+#tsw_ops_alert:checked ~ .ab-tab-bar label[for="tsw_ops_alert"] {
+  font-weight: 600;
+  color: #212529;
+  border-bottom-color: #212529;
+}
+#tsw_ops_heat:checked ~ .ab-ro-body .ab-tab-panel-route,
+#tsw_ops_alert:checked ~ .ab-ro-body .ab-tab-panel-alerts {
+  display: block;
+}
+.tsw-ops-dash .tsw-ops-page-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ro-text-strong);
+  margin-top: 0.15rem;
+}
+.tsw-ops-dash .tsw-ops-breadcrumb {
+  font-size: 0.72rem;
+  color: var(--ro-label);
+}
+.tsw-ops-dash .tsw-ops-heat-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  background: var(--ro-fill-light);
+  border-bottom: 1px solid var(--ro-border-soft);
+}
+.tsw-ops-dash .tsw-ops-alerts-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  background: var(--ro-fill-light);
+  border-bottom: 1px solid var(--ro-border-soft);
+}
+.tsw-ops-dash .tsw-ops-alerts-booking-format {
+  padding: 0.75rem 1rem 1rem;
+}
+.tsw-ops-dash .tsw-ops-user-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--ro-label);
+}
+.tsw-ops-dash .tsw-ops-user-filter.tsw-ops-airline-filter {
+  align-items: center;
+}
+.tsw-ops-dash .tsw-ops-airline-ms {
+  position: relative;
+  min-width: 11rem;
+  max-width: 18rem;
+}
+.tsw-ops-dash .tsw-ops-airline-dd-toggle {
+  min-height: 1.85rem;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+.tsw-ops-dash .tsw-ops-airline-dd-toggle .tsw-ops-airline-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-weight: 500;
+  color: var(--ro-text, #333);
+}
+.tsw-ops-dash .tsw-ops-airline-dd-toggle::after {
+  content: "";
+  flex-shrink: 0;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--ro-muted, #6c757d);
+  margin-top: 2px;
+}
+.tsw-ops-dash .tsw-ops-airline-ms.tsw-ops-airline-dd-open .tsw-ops-airline-dd-panel {
+  display: block;
+}
+.tsw-ops-dash .tsw-ops-airline-dd-panel {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 2px);
+  z-index: 800;
+  background: #fff;
+  border: 1px solid var(--ro-border-soft, #e9ecef);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 0.25rem 0;
+}
+.tsw-ops-dash .tsw-ops-airline-cb-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.65rem;
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ro-text, #333);
+  cursor: pointer;
+}
+.tsw-ops-dash .tsw-ops-airline-cb-row:hover {
+  background: var(--ro-fill-light, #f8f9fa);
+}
+.tsw-ops-dash .tsw-ops-airline-cb-row input {
+  margin: 0;
+  flex-shrink: 0;
+}
+.tsw-ops-dash .tsw-ops-status-filter .tsw-ops-filter-status {
+  min-width: 10.5rem;
+  max-width: 14rem;
+  height: auto;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+.tsw-ops-dash .tsw-ops-user-filter-lbl {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.tsw-ops-dash .tsw-ops-filter-user {
+  min-width: 11rem;
+  max-width: 18rem;
+  height: auto;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+.tsw-ops-dash .tsw-ops-filter-alert-user {
+  min-width: 11rem;
+  max-width: 18rem;
+  height: auto;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+.tsw-ops-dash .tsw-ops-traffic-filter .tsw-ops-filter-traffic {
+  min-width: 7.5rem;
+  max-width: 10rem;
+  height: auto;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+.tsw-ops-dash .tsw-ops-sla-filter .tsw-ops-filter-sla {
+  min-width: 12rem;
+  max-width: 18rem;
+  height: auto;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+.tsw-ops-dash .tsw-ops-kpis .tsw-ops-kpi-overdue span {
+  color: #dc2626;
+  font-weight: 700;
+}
+.tsw-ops-dash .tsw-ops-kpis .tsw-ops-kpi-soon span {
+  color: #e11d48;
+  font-weight: 700;
+}
+.tsw-ops-dash .tsw-ops-kpis .tsw-ops-kpi-ongoing span {
+  color: #2563eb;
+  font-weight: 700;
+}
+.tsw-ops-dash .tsw-ops-alert-ring.tsw-ops-alert-ring--overdue {
+  background: conic-gradient(#dc2626 calc(var(--ab-pct) * 1%), #fecaca 0);
+}
+.tsw-ops-popup-overdue strong {
+  color: #dc2626;
+}
+.tsw-ops-popup-soon strong {
+  color: #e11d48;
+}
+.tsw-ops-dash .afw-hub-map-host {
+  position: relative;
+}
+.tsw-ops-dash .afw-hub-map {
+  height: 420px;
+  border-radius: 0;
+  border: none;
+}
+.tsw-ops-pri-card {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 650;
+  width: min(20.5rem, calc(100% - 24px));
+  max-height: calc(420px - 24px);
+  overflow: auto;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--ro-border-soft, #e9ecef);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+  padding: 0.65rem 0.7rem 0.55rem;
+}
+.tsw-ops-pri-h {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ro-label, #6c757d);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+}
+.tsw-ops-pri-h span {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #b91c1c;
+}
+.tsw-ops-pri-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.tsw-ops-pri-empty {
+  font-size: 0.75rem;
+  color: var(--ro-muted, #6c757d);
+  padding: 0.25rem 0 0.15rem;
+}
+.tsw-ops-pri-item {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid #f1f5f9;
+  border-left: 3px solid #fb7185;
+  border-radius: 7px;
+  padding: 0.4rem 0.5rem 0.42rem;
+  background: #fff;
+}
+.tsw-ops-pri-item:hover {
+  background: #f8fafc;
+  text-decoration: none;
+  color: inherit;
+}
+.tsw-ops-pri-item-overdue {
+  border-left-color: #dc2626;
+  background: #fff7f7;
+}
+.tsw-ops-pri-item-soon {
+  border-left-color: #e11d48;
+}
+.tsw-ops-pri-item-top {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.tsw-ops-pri-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 0.08rem 0.4rem;
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.tsw-ops-pri-badge-Urgent {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.tsw-ops-pri-badge-High {
+  background: #ffedd5;
+  color: #c2410c;
+}
+.tsw-ops-pri-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ro-text-strong, #212529);
+}
+.tsw-ops-pri-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ro-text, #333);
+  margin-top: 0.12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tsw-ops-pri-clock {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin-top: 0.18rem;
+  color: #e11d48;
+}
+.tsw-ops-pri-clock.is-overdue {
+  color: #dc2626;
+}
+.tsw-ops-pri-clock.is-soon {
+  color: #c2410c;
+}
+.tsw-ops-pri-route {
+  font-size: 0.68rem;
+  color: var(--ro-muted, #6c757d);
+  margin-top: 0.08rem;
+}
+.tsw-ops-dash .log-ab-banner.alert {
+  border-radius: 8px;
+}
+/* UNLOCO map popup: flag top-left, UNLOCO below flag, close space top-right; bold stat lines */
+.afw-hub-unloco-popup {
+  box-sizing: border-box;
+  min-width: 10.5rem;
+  max-width: 18rem;
+  padding-right: 2.6rem;
+  margin: 0;
+}
+.afw-hub-popup-head {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0 0 0.45rem 0;
+}
+.afw-hub-popup-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.afw-hub-popup-flag {
+  font-size: 2.1rem;
+  line-height: 1;
+  flex-shrink: 0;
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+}
+.afw-hub-popup-close-slot {
+  flex-shrink: 0;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2rem;
+  pointer-events: none;
+}
+.afw-hub-popup-code {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ro-text-strong, #212529);
+}
+.afw-hub-popup-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+.afw-hub-popup-stat {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--ro-text, #333);
+}
+.afw-hub-popup-stat strong {
+  font-weight: 600;
+}

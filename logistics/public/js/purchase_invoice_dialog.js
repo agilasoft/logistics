@@ -11,6 +11,32 @@
 		return frappe.datetime.obj_to_str(d);
 	}
 
+	function unique_pay_to_suppliers(charges) {
+		var seen = {};
+		var result = [];
+		(charges || []).forEach(function(c) {
+			var payTo = (c && c.pay_to ? c.pay_to : "").toString().trim();
+			if (payTo && !seen[payTo]) {
+				seen[payTo] = true;
+				result.push(payTo);
+			}
+		});
+		return result;
+	}
+
+	function set_supplier_pay_to_query(supplierField, payToSuppliers) {
+		if (!supplierField) return;
+		supplierField.get_query = function() {
+			var filters = { disabled: 0 };
+			// Restrict to Pay To only when charges actually have suppliers.
+			// Warehouse Job (and other lines without pay_to) must still list enabled suppliers.
+			if (payToSuppliers && payToSuppliers.length) {
+				filters.name = ["in", payToSuppliers];
+			}
+			return { filters: filters };
+		};
+	}
+
 	function build_pi_charges_table(charges, company) {
 		var header = [
 			'<table class="table table-bordered table-sm">',
@@ -78,6 +104,14 @@
 	}
 
 	window.show_create_purchase_invoice_dialog = function(frm) {
+		if (window.logistics && logistics.menu && !logistics.menu.can("Purchase Invoice", "create")) {
+			frappe.msgprint({
+				title: __("Not Permitted"),
+				message: __("You do not have permission to create a Purchase Invoice."),
+				indicator: "red",
+			});
+			return;
+		}
 		if (!frm || !frm.doc || !frm.doc.name) {
 			frappe.msgprint({ title: __("Error"), message: __("Please save the document first."), indicator: "red" });
 			return;
@@ -112,6 +146,7 @@
 				var default_due = default_due_date(default_posting);
 				var default_billing_currency = data.default_billing_currency || data.company_currency || data.company;
 				var table_html = build_pi_charges_table(charges, data.company);
+				var payToSuppliers = unique_pay_to_suppliers(charges);
 
 				function normalize_supplier(value) {
 					return (value || "").toString().trim();
@@ -222,7 +257,7 @@
 						var idx = parseInt(row.attr("data-index"), 10);
 						var charge = charges[idx] || {};
 						var payTo = normalize_supplier(charge.pay_to);
-						var matches = !supplier || payTo === supplier;
+						var matches = !supplier || !payTo || payTo === supplier;
 						var checkbox = row.find("input.pi-charge-cb");
 
 						row.toggle(matches);
@@ -248,6 +283,7 @@
 
 				var billingBinder = null;
 				var supplierField = dialog.get_field("supplier");
+				set_supplier_pay_to_query(supplierField, payToSuppliers);
 				if (supplierField) {
 					supplierField.df.onchange = function() {
 						var selected = dialog.get_value("supplier");
@@ -327,6 +363,7 @@
 					.replace(/pi-charge-cb/g, "pi-charge-cb-c")
 					.replace(/pi_dialog_charges_tbody/g, "pi_dialog_charges_tbody_c")
 					.replace(__("Cost"), __("Charge total"));
+				var payToSuppliers = unique_pay_to_suppliers(charges);
 
 				function normalize_supplier(value) {
 					return (value || "").toString().trim();
@@ -441,7 +478,7 @@
 						var idx = parseInt(row.attr("data-index"), 10);
 						var charge = charges[idx] || {};
 						var payTo = normalize_supplier(charge.pay_to);
-						var matches = !supplier || payTo === supplier;
+						var matches = !supplier || !payTo || payTo === supplier;
 						var checkbox = row.find("input.pi-charge-cb-c");
 						row.toggle(matches);
 						checkbox.prop("disabled", !matches);
@@ -460,6 +497,7 @@
 
 				var billingBinderC = null;
 				var supplierField = dialog.get_field("supplier");
+				set_supplier_pay_to_query(supplierField, payToSuppliers);
 				if (supplierField) {
 					supplierField.df.onchange = function() {
 						var selected = dialog.get_value("supplier");
@@ -561,7 +599,17 @@
 						});
 					}
 					if (consolidation_planning_submitted(frm)) {
-						frm.add_custom_button(__("Purchase Invoice"), open_consolidation_purchase_invoice, __("Create"));
+						if (window.logistics && logistics.menu) {
+							logistics.menu.add(frm, {
+								label: __("Purchase Invoice"),
+								group: __("Create"),
+								doctype: "Purchase Invoice",
+								ptype: "create",
+								action: open_consolidation_purchase_invoice,
+							});
+						} else {
+							frm.add_custom_button(__("Purchase Invoice"), open_consolidation_purchase_invoice, __("Create"));
+						}
 					}
 				}, 0);
 			},

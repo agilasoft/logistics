@@ -2,7 +2,7 @@
 
 **Transport Template** is a master that defines predefined transport lane patterns, allowed load types, default load/vehicle types, and leg facility types for quick order and quote setup.
 
-Use a Transport Template on **Sales Quote** (Transport main service), **Transport Order**, and **Transport Job** to auto-fill **Load Type** and **Vehicle Type** and to block incompatible combinations (for example FCL on a CFS→warehouse lane).
+Use a Transport Template on **Sales Quote** (Transport main service), **Transport Order**, and **Transport Job** to auto-fill **Load Type** and **Vehicle Type** and to block incompatible combinations.
 
 To access Transport Template, go to:
 
@@ -11,16 +11,16 @@ To access Transport Template, go to:
 ## 1. How to Create a Transport Template
 
 1. Go to the Transport Template list, click **New**.
-2. Enter **Code** and **Description** (e.g. `CFS-WHS`, "CFS to warehouse drayage").
+2. Enter **Code** and **Description** (e.g. `CFS-RCVR`, "CFS to Consignee drayage").
 3. Add **Legs** — one row per lane segment with **Facility Type From** and **Facility Type To**.
 4. Review **Allowed Load Types** — use the multiselect to pick permitted load types (suggested from legs when you add or change legs):
-   - Land lanes (CFS, warehouse, shipper, consignee) → typically **FTL** / **LTL**
+   - Land lanes (CFS, warehouse, shipper, consignee) → typically **FTL** / **LTL**, and **FCL** when the lane moves full containers (e.g. CFS → Consignee)
    - Container lanes (Terminal, Container Yard, Container Depot) → typically **FCL**
 5. Set **Default Load Type** from the allowed list.
 6. Optionally set **Default Vehicle Type** (must support the default load type).
 7. **Save** — the system blocks save if legs and allowed load types conflict.
 
-When a user selects this template on a quote or order, **Load Type** and **Vehicle Type** auto-fill if blank; dropdowns show only allowed values. **Location From/To** are still entered manually.
+When a user selects this template on a quote or order, **Load Type** and **Vehicle Type** auto-fill if blank. On **Transport Order** and **Transport Job**, the **Load Type** dropdown shows only load types that are both (a) allowed on the template and (b) compatible with the selected **Transport Job Type** (for example **Container** jobs show load types with the **Container** checkbox on the Load Type master, such as **FCL**). **Location From/To** are still entered manually.
 
 
 <!-- wiki-field-reference:start -->

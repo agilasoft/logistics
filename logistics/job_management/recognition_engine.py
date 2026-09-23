@@ -209,11 +209,7 @@ class RecognitionEngine:
                 ))
                 return None
         
-        if not recognition_date:
-            recognition_date = self.get_wip_recognition_date()
-        
-        if not recognition_date:
-            frappe.throw(_("Recognition date could not be determined"))
+        recognition_date = self._ensure_recognition_date(recognition_date)
 
         unrecognized = self._get_unrecognized_wip_lines()
         if unrecognized:
@@ -227,7 +223,7 @@ class RecognitionEngine:
 
             self.job.wip_amount = flt(self.job.get("wip_amount", 0)) + batch_total
             self.job.wip_journal_entry = je_name
-            self.job.save()
+            self._save_job()
             return je_name
 
         # No charge-level WIP left; job-level estimated revenue only (no header JE check)
@@ -243,7 +239,7 @@ class RecognitionEngine:
         je_name = self.create_wip_recognition_je(recognition_date, estimated_revenue)
         self.job.wip_amount = estimated_revenue
         self.job.wip_journal_entry = je_name
-        self.job.save()
+        self._save_job()
         return je_name
     
     def adjust_wip(self, adjustment_amount, adjustment_date=None):
@@ -276,7 +272,7 @@ class RecognitionEngine:
         # Update job
         self.job.wip_amount = current_wip - adjustment_amount
         self.job.recognized_revenue = flt(self.job.get("recognized_revenue", 0)) + adjustment_amount
-        self.job.save()
+        self._save_job()
         set_wip_adjustment_je_on_charges(self.job_type, self.job.name, je_name, item_codes=None)
         
         return je_name
@@ -304,7 +300,7 @@ class RecognitionEngine:
         self.job.wip_amount = 0
         self.job.recognized_revenue = flt(self.job.get("recognized_revenue", 0)) + wip_amount
         self.job.wip_closed = 1
-        self.job.save()
+        self._save_job()
         set_wip_adjustment_je_on_charges(self.job_type, self.job.name, je_name, item_codes=None)
         
         return je_name
@@ -336,11 +332,7 @@ class RecognitionEngine:
                 ))
                 return None
         
-        if not recognition_date:
-            recognition_date = self.get_accrual_recognition_date()
-        
-        if not recognition_date:
-            frappe.throw(_("Recognition date could not be determined"))
+        recognition_date = self._ensure_recognition_date(recognition_date)
 
         accrual_lines = self._get_unrecognized_accrual_lines()
         if not accrual_lines:
@@ -357,7 +349,7 @@ class RecognitionEngine:
                 ch.accrual_recognition_journal_entry = je_name
 
         self.job.accrual_amount = flt(self.job.get("accrual_amount", 0)) + estimated_costs
-        self.job.save()
+        self._save_job()
         
         return je_name
     
@@ -391,7 +383,7 @@ class RecognitionEngine:
         # Update job
         self.job.accrual_amount = current_accrual - adjustment_amount
         self.job.recognized_costs = flt(self.job.get("recognized_costs", 0)) + adjustment_amount
-        self.job.save()
+        self._save_job()
         set_accrual_adjustment_je_on_charges(self.job_type, self.job.name, je_name, item_codes=None)
         
         return je_name
@@ -419,7 +411,7 @@ class RecognitionEngine:
         self.job.accrual_amount = 0
         self.job.recognized_costs = flt(self.job.get("recognized_costs", 0)) + accrual_amount
         self.job.accrual_closed = 1
-        self.job.save()
+        self._save_job()
         set_accrual_adjustment_je_on_charges(self.job_type, self.job.name, je_name, item_codes=None)
         
         return je_name
@@ -437,20 +429,50 @@ class RecognitionEngine:
 
     def get_accrual_recognition_date(self):
         return self.get_recognition_date()
-    
+
+    def _ensure_recognition_date(self, recognition_date):
+        if not recognition_date:
+            recognition_date = self.get_recognition_date()
+        if recognition_date:
+            return recognition_date
+        basis = (self.get_settings() or {}).get("recognition_date_basis") or _("(not set)")
+        frappe.throw(
+            _(
+                "Recognition date could not be determined. "
+                "Recognition Date Basis is {0}, but that date is not set on this job."
+            ).format(basis)
+        )
+
     def _resolve_date(self, basis):
-        """Resolve date based on the specified basis."""
+        """Resolve posting date for the policy basis, with a booking/creation fallback.
+
+        ATA/ATD/User Specified stay required when the job doctype actually has those
+        fields (e.g. Sea Shipment waits for departure). Jobs such as Docket have no
+        ATA/ATD fields, so an Export/ATD policy row must not block recognition.
+        """
         if basis == "ATA":
-            return get_ata_date(self.job)
-        elif basis == "ATD":
-            return get_atd_date(self.job)
-        elif basis == "Job Booking Date":
+            d = get_ata_date(self.job)
+            if d or _job_has_any_field(self.job, _ATA_DATE_FIELDS):
+                return d
             return get_booking_date(self.job)
-        elif basis == "Job Creation":
-            return getdate(self.job.creation)
-        elif basis == "User Specified":
-            return self.job.get("recognition_date")
-        return None
+        if basis == "ATD":
+            d = get_atd_date(self.job)
+            if d or _job_has_any_field(self.job, _ATD_DATE_FIELDS):
+                return d
+            return get_booking_date(self.job)
+        if basis == "Job Booking Date":
+            return get_booking_date(self.job)
+        if basis == "Job Creation":
+            creation = self.job.get("creation") if self.job else None
+            return getdate(creation) if creation else get_booking_date(self.job)
+        if basis == "User Specified":
+            d = self.job.get("recognition_date") if self.job else None
+            if d:
+                return getdate(d)
+            if _job_has_any_field(self.job, ("recognition_date",)):
+                return None
+            return get_booking_date(self.job)
+        return get_booking_date(self.job)
     
     # ==================== Calculations ====================
     
@@ -692,6 +714,25 @@ class RecognitionEngine:
             return flt(self.job.get("accrual_amount", 0)) < flt(self.job.estimated_costs)
         return False
 
+    def _ignore_permissions(self):
+        return bool(getattr(frappe.flags, "in_auto_recognition", False))
+
+    def _save_job(self):
+        """Stamp header amounts / charge JE links. Auto-recognize only runs after submit."""
+        flags = getattr(self.job, "flags", None)
+        if flags is not None:
+            flags.ignore_job_change_lock = True
+            flags.ignore_validate_update_after_submit = True
+        self.job.save(ignore_permissions=self._ignore_permissions())
+
+    def _insert_and_submit_je(self, je):
+        ignore = self._ignore_permissions()
+        flags = getattr(je, "flags", None)
+        if flags is not None:
+            flags.ignore_permissions = ignore
+        je.insert(ignore_permissions=ignore)
+        je.submit()
+
     # ==================== Journal Entry Creation ====================
 
     def create_wip_recognition_je_multi(self, recognition_date, lines):
@@ -752,8 +793,7 @@ class RecognitionEngine:
             je.append("accounts", row)
 
         apply_journal_entry_posting_header_from_job(je, self.job)
-        je.insert()
-        je.submit()
+        self._insert_and_submit_je(je)
 
         return je.name
 
@@ -798,8 +838,7 @@ class RecognitionEngine:
         je.append("accounts", row)
 
         apply_journal_entry_posting_header_from_job(je, self.job)
-        je.insert()
-        je.submit()
+        self._insert_and_submit_je(je)
 
         return je.name
 
@@ -845,8 +884,7 @@ class RecognitionEngine:
         je.append("accounts", row)
 
         apply_journal_entry_posting_header_from_job(je, self.job)
-        je.insert()
-        je.submit()
+        self._insert_and_submit_je(je)
 
         return je.name
 
@@ -914,8 +952,7 @@ class RecognitionEngine:
             je.append("accounts", row_cr)
 
         apply_journal_entry_posting_header_from_job(je, self.job)
-        je.insert()
-        je.submit()
+        self._insert_and_submit_je(je)
 
         return je.name
 
@@ -961,8 +998,7 @@ class RecognitionEngine:
         je.append("accounts", row)
 
         apply_journal_entry_posting_header_from_job(je, self.job)
-        je.insert()
-        je.submit()
+        self._insert_and_submit_je(je)
 
         return je.name
 
@@ -1187,6 +1223,7 @@ def get_recognition_settings(job):
     result = {
         "enable_wip_recognition": False,
         "enable_accrual_recognition": False,
+        "auto_recognize": False,
         "recognition_date_basis": "Job Booking Date",
         "wip_account": None,
         "revenue_liability_account": None,
@@ -1202,6 +1239,7 @@ def get_recognition_settings(job):
     if policy and policy.enabled:
         result["enable_wip_recognition"] = bool(policy.enable_wip_recognition)
         result["enable_accrual_recognition"] = bool(policy.enable_accrual_recognition)
+        result["auto_recognize"] = bool(cint(policy.get("auto_recognize")))
         result["minimum_wip_amount"] = flt(policy.minimum_wip_amount) or 0
         result["minimum_accrual_amount"] = flt(policy.minimum_accrual_amount) or 0
         result["recognition_policy_name"] = policy.name
@@ -1222,10 +1260,9 @@ def get_recognition_settings(job):
                     parts.append(f"{label}:{v}")
         result["matched_parameter_label"] = ", ".join(parts) if parts else _("Default parameters")
 
-    if hasattr(job, "wip_recognition_enabled") and job.wip_recognition_enabled is not None:
-        result["enable_wip_recognition"] = bool(job.wip_recognition_enabled)
-    if hasattr(job, "accrual_recognition_enabled") and job.accrual_recognition_enabled is not None:
-        result["enable_accrual_recognition"] = bool(job.accrual_recognition_enabled)
+    # Job Enable WIP/Accrual checkboxes are read-only policy snapshots (default 0).
+    # Do not let an unsynced 0 override an enabled company policy — that skipped
+    # auto-recognize while the form still showed the policy date as filled.
     if getattr(job, "recognition_date_basis", None):
         result["recognition_date_basis"] = job.recognition_date_basis
     elif getattr(job, "wip_recognition_date_basis", None):
@@ -1404,10 +1441,35 @@ def sync_job_recognition_fields_from_policy(doc):
 
 # ==================== Date Resolution Helpers ====================
 
+_ATA_DATE_FIELDS = ("ata", "actual_arrival", "arrival_date", "actual_arrival_date")
+_ATD_DATE_FIELDS = ("atd", "actual_departure", "departure_date", "actual_departure_date")
+_BOOKING_DATE_FIELDS = (
+    "booking_date",
+    "job_booking_date",
+    "job_open_date",
+    "docket_date",
+    "job_date",
+)
+
+
+def _job_has_any_field(job, fieldnames):
+    """True if this job doctype (or mock) can store any of the given fields."""
+    if not job or not fieldnames:
+        return False
+    doctype = getattr(job, "doctype", None)
+    if doctype:
+        try:
+            meta = frappe.get_meta(doctype)
+        except Exception:
+            meta = None
+        if meta:
+            return any(meta.has_field(f) for f in fieldnames)
+    return any(hasattr(job, f) for f in fieldnames)
+
+
 def get_ata_date(job):
     """Get Actual Time of Arrival date from job."""
-    # Priority: ata > actual_arrival > arrival_date
-    for field in ['ata', 'actual_arrival', 'arrival_date', 'actual_arrival_date']:
+    for field in _ATA_DATE_FIELDS:
         if job.get(field):
             return getdate(job.get(field))
     return None
@@ -1415,20 +1477,19 @@ def get_ata_date(job):
 
 def get_atd_date(job):
     """Get Actual Time of Departure date from job."""
-    # Priority: atd > actual_departure > departure_date
-    for field in ['atd', 'actual_departure', 'departure_date', 'actual_departure_date']:
+    for field in _ATD_DATE_FIELDS:
         if job.get(field):
             return getdate(job.get(field))
     return None
 
 
 def get_booking_date(job):
-    """Get booking date from job."""
-    # Priority: booking_date > job_booking_date > job_open_date > creation
-    for field in ['booking_date', 'job_booking_date', 'job_open_date']:
+    """Get booking date from job (includes Docket / Project Job date fields)."""
+    for field in _BOOKING_DATE_FIELDS:
         if job.get(field):
             return getdate(job.get(field))
-    return getdate(job.creation)
+    creation = job.get("creation") if job else None
+    return getdate(creation) if creation else None
 
 
 # ==================== API Functions ====================
@@ -1484,6 +1545,10 @@ def adjust_wip(doctype, docname, adjustment_amount, adjustment_date=None):
         str: Name of the created Journal Entry
     """
     job = frappe.get_doc(doctype, docname)
+    from logistics.utils.menu_permission import assert_perm
+
+    assert_perm(doctype, "write", doc=job)
+    assert_perm("Journal Entry", "create")
     engine = RecognitionEngine(job)
     return engine.adjust_wip(flt(adjustment_amount), adjustment_date)
 
@@ -1503,6 +1568,10 @@ def adjust_accruals(doctype, docname, adjustment_amount, adjustment_date=None):
         str: Name of the created Journal Entry
     """
     job = frappe.get_doc(doctype, docname)
+    from logistics.utils.menu_permission import assert_perm
+
+    assert_perm(doctype, "write", doc=job)
+    assert_perm("Journal Entry", "create")
     engine = RecognitionEngine(job)
     return engine.adjust_accruals(flt(adjustment_amount), adjustment_date)
 
@@ -1565,6 +1634,10 @@ def recognize(doctype, docname, recognition_date=None):
         dict: Names of created Journal Entries and status
     """
     job = frappe.get_doc(doctype, docname)
+    from logistics.utils.menu_permission import assert_perm
+
+    assert_perm(doctype, "write", doc=job)
+    assert_perm("Journal Entry", "create")
     # Allow recognition on both draft (0) and submitted (1) documents
     engine = RecognitionEngine(job)
     result = {"wip_journal_entry": None, "accrual_journal_entry": None}
@@ -1610,6 +1683,10 @@ def close_job_recognition(doctype, docname, closure_date=None):
         dict: Names of the created Journal Entries
     """
     job = frappe.get_doc(doctype, docname)
+    from logistics.utils.menu_permission import assert_perm
+
+    assert_perm(doctype, "write", doc=job)
+    assert_perm("Journal Entry", "create")
     engine = RecognitionEngine(job)
     
     wip_je = engine.close_wip(closure_date)

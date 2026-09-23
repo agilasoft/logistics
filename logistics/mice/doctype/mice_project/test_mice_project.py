@@ -19,6 +19,11 @@ from logistics.mice.doctype.mice_project.mice_project import (
 	get_sales_quote_defaults_from_exhibit,
 	link_dockets_to_exhibit,
 )
+from logistics.mice.doctype.mice_project.mice_project_charge_copy import (
+	SOURCE_CONSOLIDATION_CHARGE_FIELD,
+	SOURCE_MICE_PROJECT_FIELD,
+	push_consolidation_charges_to_dockets,
+)
 from logistics.mice.mice_project_lifecycle import LIFECYCLE_STAGES, get_standard_exhibit_activities
 
 
@@ -76,26 +81,85 @@ class TestShow(IntegrationTestCase):
 				return currency
 		return frappe.db.get_value("Currency", {"enabled": 1}, "name")
 
+	def _foreign_currency(self, company_currency):
+		"""Return an enabled currency other than the company default."""
+		if company_currency != "USD" and frappe.db.exists("Currency", "USD"):
+			return "USD"
+		other = frappe.db.get_value(
+			"Currency", {"name": ["!=", company_currency], "enabled": 1}, "name"
+		)
+		if not other:
+			self.skipTest("No second currency in system")
+		return other
+
+	def _ensure_uom(self, name="Job"):
+		if frappe.db.exists("UOM", name):
+			return name
+		uom = frappe.get_doc({"doctype": "UOM", "uom_name": name, "enabled": 1})
+		uom.insert(ignore_permissions=True)
+		return uom.name
+
 	def _append_consolidation_charge(
-		self, doc, unit_rate=100, quantity=1, *, zero_total=False, allocation_method=None
+		self,
+		doc,
+		unit_rate=100,
+		quantity=1,
+		*,
+		zero_total=False,
+		allocation_method=None,
+		currency=None,
+		pay_to_exchange_rate=None,
+		charge_type="Cost",
+		unit_type=None,
+		unit_of_measure=None,
 	):
-		currency = self._default_currency()
+		currency = currency or self._default_currency()
 		if not currency:
 			self.skipTest("No currency in system")
 		row_data = {
-			"charge_type": "Cost",
+			"charge_type": charge_type,
 			"charge_category": "Other",
 			"revenue_calculation_method": "Per Unit",
 			"unit_rate": unit_rate,
 			"quantity": quantity,
 			"currency": currency,
 		}
+		if unit_type is not None:
+			row_data["unit_type"] = unit_type
+		if unit_of_measure is not None:
+			row_data["unit_of_measure"] = unit_of_measure
 		if allocation_method is not None:
 			row_data["allocation_method"] = allocation_method
+		if pay_to_exchange_rate is not None:
+			row_data["pay_to_exchange_rate"] = pay_to_exchange_rate
 		row = doc.append("consolidation_charges", row_data)
 		if zero_total:
 			row.total_amount = 0
 		return row
+
+	def _append_docket_charge(self, docket, unit_rate=99, quantity=1):
+		currency = self._default_currency()
+		row = docket.append(
+			"charges",
+			{
+				"charge_type": "Cost",
+				"charge_category": "Other",
+				"revenue_calculation_method": "Per Unit",
+				"unit_rate": unit_rate,
+				"quantity": quantity,
+				"currency": currency,
+				"charge_scope": "Main",
+			},
+		)
+		docket.save(ignore_permissions=True)
+		return row
+
+	def _generated_docket_charges(self, docket, project_name):
+		return [
+			row
+			for row in (docket.get("charges") or [])
+			if getattr(row, SOURCE_MICE_PROJECT_FIELD, None) == project_name
+		]
 
 	def _second_customer(self):
 		first = self._test_customer()
@@ -133,6 +197,87 @@ class TestShow(IntegrationTestCase):
 		finally:
 			dk2.delete(ignore_permissions=True)
 			dk1.delete(ignore_permissions=True)
+			project.delete(ignore_permissions=True)
+
+	def test_allocate_costs_converts_mixed_currencies_to_company(self):
+		"""USD/foreign lines convert via Pay To rate before Total Charges and allocation."""
+		if not frappe.db.exists("DocType", "MICE Project"):
+			self.skipTest("MICE Project DocType not installed")
+		project = self._minimal_exhibit("Test Allocate FX")
+		dk1 = self._minimal_docket(project.name, self._test_customer())
+		dk2 = self._minimal_docket(project.name, self._second_customer())
+		try:
+			doc = frappe.get_doc("MICE Project", project.name)
+			company_ccy = (
+				frappe.db.get_value("Company", doc.company, "default_currency")
+				if doc.company
+				else self._default_currency()
+			)
+			if not company_ccy:
+				self.skipTest("No company currency in system")
+			foreign_ccy = self._foreign_currency(company_ccy)
+
+			doc.cost_allocation_target = "Dockets"
+			doc.cost_allocation_basis = "Equal"
+			self._append_consolidation_charge(
+				doc,
+				unit_rate=100,
+				quantity=1,
+				currency=foreign_ccy,
+				pay_to_exchange_rate=50,
+			)
+			self._append_consolidation_charge(
+				doc,
+				unit_rate=20,
+				quantity=1,
+				currency=company_ccy,
+				pay_to_exchange_rate=1,
+			)
+			doc.save(ignore_permissions=True)
+
+			self.assertEqual(flt(doc.consolidation_charges[0].total_amount), 100.0)
+			self.assertEqual(flt(doc.consolidation_charges[0].base_total_amount), 5000.0)
+			self.assertEqual(flt(doc.consolidation_charges[1].total_amount), 20.0)
+			self.assertEqual(flt(doc.consolidation_charges[1].base_total_amount), 20.0)
+			self.assertEqual(flt(doc.total_consolidation_charges), 5020.0)
+
+			result = doc.allocate_costs(allocation_basis="Equal", target_type="Dockets")
+			doc.reload()
+
+			self.assertEqual(result["targets_loaded"], 2)
+			self.assertEqual(flt(doc.total_consolidation_charges), 5020.0)
+			self.assertEqual(flt(doc.total_allocated_amount), 5020.0)
+			amounts = sorted(flt(r.allocated_amount) for r in doc.cost_allocations)
+			self.assertEqual(amounts, [2510.0, 2510.0])
+		finally:
+			dk2.delete(ignore_permissions=True)
+			dk1.delete(ignore_permissions=True)
+			project.delete(ignore_permissions=True)
+
+	def test_foreign_charge_without_exchange_rate_throws(self):
+		if not frappe.db.exists("DocType", "MICE Project"):
+			self.skipTest("MICE Project DocType not installed")
+		project = self._minimal_exhibit("Test FX Missing Rate")
+		try:
+			doc = frappe.get_doc("MICE Project", project.name)
+			company_ccy = (
+				frappe.db.get_value("Company", doc.company, "default_currency")
+				if doc.company
+				else self._default_currency()
+			)
+			if not company_ccy:
+				self.skipTest("No company currency in system")
+			foreign_ccy = self._foreign_currency(company_ccy)
+			self._append_consolidation_charge(
+				doc,
+				unit_rate=100,
+				quantity=1,
+				currency=foreign_ccy,
+				pay_to_exchange_rate=0,
+			)
+			with self.assertRaises(frappe.ValidationError):
+				doc.save(ignore_permissions=True)
+		finally:
 			project.delete(ignore_permissions=True)
 
 	def test_allocate_costs_recalculates_unsaved_charge_amounts(self):
@@ -237,6 +382,167 @@ class TestShow(IntegrationTestCase):
 			by_target = {r.target: flt(r.allocated_amount) for r in doc.cost_allocations}
 			self.assertEqual(by_target[dk1.name], 100.0)
 			self.assertEqual(by_target[dk2.name], 300.0)
+		finally:
+			dk2.delete(ignore_permissions=True)
+			dk1.delete(ignore_permissions=True)
+			project.delete(ignore_permissions=True)
+
+	def test_push_consolidation_charges_to_dockets_uses_equal_split_and_preserves_rows(self):
+		if not frappe.db.exists("DocType", "MICE Project"):
+			self.skipTest("MICE Project DocType not installed")
+		project = self._minimal_exhibit("Test PI Docket Equal Split")
+		dk1 = self._minimal_docket(project.name, self._test_customer())
+		dk2 = self._minimal_docket(project.name, self._second_customer())
+		try:
+			self._append_docket_charge(dk1, unit_rate=99, quantity=1)
+			doc = frappe.get_doc("MICE Project", project.name)
+			doc.cost_allocation_target = "Dockets"
+			doc.cost_allocation_basis = "Equal"
+			currency = self._default_currency()
+			uom = self._ensure_uom("Job")
+			# unit_rate 10 × qty 2 = total_amount 20 → 10 per Docket at 50/50
+			ch = self._append_consolidation_charge(
+				doc,
+				unit_rate=10,
+				quantity=2,
+				currency=currency,
+				unit_type="Job",
+				unit_of_measure=uom,
+			)
+			doc.save(ignore_permissions=True)
+
+			inserted = push_consolidation_charges_to_dockets(
+				doc,
+				selected_charges=[ch],
+				purchase_invoice="PINV-TEST-1",
+			)
+			self.assertEqual(inserted, 2)
+
+			dk1.reload()
+			dk2.reload()
+			generated_1 = self._generated_docket_charges(dk1, project.name)
+			generated_2 = self._generated_docket_charges(dk2, project.name)
+			self.assertEqual(len(generated_1), 1)
+			self.assertEqual(len(generated_2), 1)
+			self.assertEqual(flt(generated_1[0].unit_cost), 10.0)
+			self.assertEqual(flt(generated_2[0].unit_cost), 10.0)
+			self.assertEqual(flt(generated_1[0].estimated_cost), 10.0)
+			self.assertEqual(flt(generated_2[0].estimated_cost), 10.0)
+			self.assertEqual(generated_1[0].cost_calculation_method, "Per Unit")
+			self.assertEqual(generated_1[0].cost_unit_type, "Job")
+			self.assertEqual(generated_1[0].cost_uom, uom)
+			self.assertEqual(generated_1[0].cost_currency, currency)
+			self.assertEqual(flt(generated_1[0].cost_quantity), 1.0)
+			self.assertEqual(generated_2[0].cost_calculation_method, "Per Unit")
+			self.assertEqual(generated_2[0].cost_unit_type, "Job")
+			self.assertEqual(generated_2[0].cost_uom, uom)
+			self.assertEqual(generated_2[0].cost_currency, currency)
+			self.assertEqual(flt(generated_2[0].cost_quantity), 1.0)
+			self.assertEqual(generated_1[0].purchase_invoice, "PINV-TEST-1")
+			self.assertEqual(generated_1[0].purchase_invoice_status, "Requested")
+			self.assertTrue(
+				any(
+					not getattr(row, SOURCE_MICE_PROJECT_FIELD, None) and flt(row.unit_rate) == 99.0
+					for row in (dk1.get("charges") or [])
+				)
+			)
+
+			inserted_again = push_consolidation_charges_to_dockets(
+				doc,
+				selected_charges=[ch],
+				purchase_invoice="PINV-TEST-2",
+			)
+			self.assertEqual(inserted_again, 2)
+
+			dk1.reload()
+			dk2.reload()
+			generated_1 = self._generated_docket_charges(dk1, project.name)
+			generated_2 = self._generated_docket_charges(dk2, project.name)
+			self.assertEqual(len(generated_1), 1)
+			self.assertEqual(len(generated_2), 1)
+			self.assertEqual(generated_1[0].purchase_invoice, "PINV-TEST-2")
+			self.assertEqual(
+				getattr(generated_1[0], SOURCE_CONSOLIDATION_CHARGE_FIELD, None),
+				getattr(ch, "name", None),
+			)
+		finally:
+			dk2.delete(ignore_permissions=True)
+			dk1.delete(ignore_permissions=True)
+			project.delete(ignore_permissions=True)
+
+	def test_push_consolidation_charges_to_dockets_uses_custom_percentages(self):
+		if not frappe.db.exists("DocType", "MICE Project"):
+			self.skipTest("MICE Project DocType not installed")
+		project = self._minimal_exhibit("Test PI Docket Custom Split")
+		dk1 = self._minimal_docket(project.name, self._test_customer())
+		dk2 = self._minimal_docket(project.name, self._second_customer())
+		try:
+			doc = frappe.get_doc("MICE Project", project.name)
+			doc.cost_allocation_target = "Dockets"
+			doc.cost_allocation_basis = "Custom"
+			ch = self._append_consolidation_charge(doc, unit_rate=10, quantity=1, allocation_method="Custom")
+			doc.save(ignore_permissions=True)
+			doc.refresh_cost_allocation_targets(target_type="Docket")
+			for row in doc.cost_allocations:
+				row.cost_allocation_percentage = 60 if row.target == dk1.name else 40
+			doc.save(ignore_permissions=True)
+
+			inserted = push_consolidation_charges_to_dockets(
+				doc,
+				selected_charges=[ch],
+				purchase_invoice="PINV-TEST-3",
+			)
+			self.assertEqual(inserted, 2)
+
+			dk1.reload()
+			dk2.reload()
+			generated_1 = self._generated_docket_charges(dk1, project.name)
+			generated_2 = self._generated_docket_charges(dk2, project.name)
+			self.assertEqual(flt(generated_1[0].unit_rate), 6.0)
+			self.assertEqual(flt(generated_2[0].unit_rate), 4.0)
+			self.assertEqual(flt(generated_1[0].estimated_cost), 6.0)
+			self.assertEqual(flt(generated_2[0].estimated_cost), 4.0)
+		finally:
+			dk2.delete(ignore_permissions=True)
+			dk1.delete(ignore_permissions=True)
+			project.delete(ignore_permissions=True)
+
+	def test_push_consolidation_charges_to_dockets_skips_disbursement(self):
+		if not frappe.db.exists("DocType", "MICE Project"):
+			self.skipTest("MICE Project DocType not installed")
+		project = self._minimal_exhibit("Test PI Docket Skip Disbursement")
+		dk1 = self._minimal_docket(project.name, self._test_customer())
+		dk2 = self._minimal_docket(project.name, self._second_customer())
+		try:
+			doc = frappe.get_doc("MICE Project", project.name)
+			doc.cost_allocation_target = "Dockets"
+			doc.cost_allocation_basis = "Equal"
+			cost_row = self._append_consolidation_charge(doc, unit_rate=10, quantity=1, charge_type="Cost")
+			disbursement = self._append_consolidation_charge(
+				doc,
+				unit_rate=8,
+				quantity=1,
+				charge_type="Disbursement",
+			)
+			doc.save(ignore_permissions=True)
+
+			inserted = push_consolidation_charges_to_dockets(
+				doc,
+				selected_charges=[cost_row, disbursement],
+				purchase_invoice="PINV-TEST-4",
+			)
+			self.assertEqual(inserted, 2)
+
+			dk1.reload()
+			dk2.reload()
+			generated_1 = self._generated_docket_charges(dk1, project.name)
+			generated_2 = self._generated_docket_charges(dk2, project.name)
+			self.assertEqual(len(generated_1), 1)
+			self.assertEqual(len(generated_2), 1)
+			self.assertEqual(
+				getattr(generated_1[0], SOURCE_CONSOLIDATION_CHARGE_FIELD, None),
+				getattr(cost_row, "name", None),
+			)
 		finally:
 			dk2.delete(ignore_permissions=True)
 			dk1.delete(ignore_permissions=True)

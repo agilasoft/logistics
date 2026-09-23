@@ -141,6 +141,16 @@ EXEMPT_TABLES_BY_DOCTYPE = {
 	"Run Sheet": frozenset({"legs"}),
 }
 
+# Charge-row JE links stamped by WIP/accrual posting (not a user amendment).
+RECOGNITION_CHILD_LINK_FIELDS = frozenset(
+	{
+		"wip_recognition_journal_entry",
+		"accrual_recognition_journal_entry",
+		"wip_adjustment_journal_entry",
+		"accrual_adjustment_journal_entry",
+	}
+)
+
 
 def is_job_change_locked(doc):
 	"""True when the job is submitted and must not accept direct user amendments."""
@@ -153,6 +163,8 @@ def is_job_change_locked(doc):
 	):
 		return False
 	if frappe.flags.get("from_change_request") or frappe.flags.get("in_install") or frappe.flags.get("in_migrate"):
+		return False
+	if frappe.flags.get("in_auto_recognition"):
 		return False
 	if getattr(doc, "docstatus", None) != 1:
 		return False
@@ -256,7 +268,7 @@ def _child_table_changed(old_rows, new_rows):
 		prev = old_by_name[name]
 		# Compare as dict excluding meta
 		for key, val in row.as_dict().items():
-			if key in _META_SKIP_FIELDS:
+			if key in _META_SKIP_FIELDS or key in RECOGNITION_CHILD_LINK_FIELDS:
 				continue
 			if _scalar_changed(prev.get(key), val):
 				return True

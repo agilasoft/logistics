@@ -14,6 +14,8 @@ To access: **Home > Job Management**
 
 **Revenue Recognition Policy Settings** (DocType: Recognition Policy Settings) is **one document per company**. Rules live in **Recognition Parameters** (dimensions + single **Recognition Date Basis** + four GL accounts). **Post → Recognize WIP & Accrual** uses one posting date for both WIP and accrual. Disbursement charge lines are excluded from recognition totals.
 
+When **Auto Recognize** is enabled on the company policy, submitted jobs are recognized automatically once that date is known (on submit, when ATA/ATD or charges change, and via a daily catch-up). Manual **Post → WIP and Accrual** remains available.
+
 **Detail:** [Revenue Recognition Policy — Accounts, Dates, and Charges](welcome/revenue-recognition-policy-accounts-and-dates)
 
 ### 1.3 Masters

@@ -1,9 +1,14 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"SHfdX5HVQT\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Warehousing\",\"col\":12}},{\"id\":\"Na3LMScaDW\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"6RTugEzdAZ\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"YI_RRMOoqk\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"qs1hyvvZ7d\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Contract\",\"col\":3}},{\"id\":\"1GkyMSM7v5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Inbound Order\",\"col\":3}},{\"id\":\"3tcxrO1IPF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Release Order\",\"col\":3}},{\"id\":\"cdoShortcut01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cross-Docking Order\",\"col\":3}},{\"id\":\"RLuBQLNUAf\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transfer Order\",\"col\":3}},{\"id\":\"WuAAv2AYis\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"VAS Order\",\"col\":3}},{\"id\":\"dHKnqH-zUV\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stocktake Order\",\"col\":3}},{\"id\":\"KcjoqOPobc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Job\",\"col\":3}},{\"id\":\"Ajv2Uunfaz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Periodic Billing\",\"col\":3}},{\"id\":\"iXnX-uP9sy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Gate Pass\",\"col\":3}},{\"id\":\"iUjnrb4GSs\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"r1zOFE_yc9\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Mobile Pages</b></span>\",\"col\":12}},{\"id\":\"mDzG6dd1tT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Card\",\"col\":3}},{\"id\":\"BUQlmnkGzL\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Plate Scanner\",\"col\":3}},{\"id\":\"Zb_6qdCOY-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Count Sheet\",\"col\":3}},{\"id\":\"rISdMpNTa7\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"rjH0rGHL3j\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters &amp; Settings</b></span>\",\"col\":12}},{\"id\":\"6OO2WnC8Og\",\"type\":\"card\",\"data\":{\"card_name\":\"Storage\",\"col\":4}},{\"id\":\"-QA7Op-wX1\",\"type\":\"card\",\"data\":{\"card_name\":\"Handling\",\"col\":4}},{\"id\":\"8_6l-HhLSd\",\"type\":\"card\",\"data\":{\"card_name\":\"Customer Setup\",\"col\":4}},{\"id\":\"GKdBEsgtwk\",\"type\":\"card\",\"data\":{\"card_name\":\"Warehouse Settings\",\"col\":4}},{\"id\":\"994_zTIM46\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"NfAdTJ7Mwg\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Analysis</b></span>\",\"col\":12}},{\"id\":\"repsec0\",\"type\":\"card\",\"data\":{\"card_name\":\"Inventory health & rotation\",\"col\":4}},{\"id\":\"repsec1\",\"type\":\"card\",\"data\":{\"card_name\":\"Productivity & slot capacity\",\"col\":4}},{\"id\":\"repsec2\",\"type\":\"card\",\"data\":{\"card_name\":\"Energy, waste & site metrics\",\"col\":4}},{\"id\":\"repsec3\",\"type\":\"card\",\"data\":{\"card_name\":\"Trade & multimodal flow\",\"col\":4}},{\"id\":\"repsec4\",\"type\":\"card\",\"data\":{\"card_name\":\"Commercial & route economics\",\"col\":4}},{\"id\":\"repsec5\",\"type\":\"card\",\"data\":{\"card_name\":\"Sustainability goals & trends\",\"col\":4}}]",
+ "content": "[{\"id\":\"whDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Warehousing Operations Dashboard\",\"col\":12}},{\"id\":\"whOpsHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Job Operations</b></span>\",\"col\":12}},{\"id\":\"whScActive\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Active Jobs\",\"col\":3}},{\"id\":\"whScLive\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Live Jobs\",\"col\":3}},{\"id\":\"whScSla\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"SLA Breached\",\"col\":3}},{\"id\":\"whScInbound\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Open Inbound\",\"col\":3}},{\"id\":\"SHfdX5HVQT\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Warehousing\",\"col\":12}},{\"id\":\"Na3LMScaDW\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"6RTugEzdAZ\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"YI_RRMOoqk\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"qs1hyvvZ7d\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Contract\",\"col\":3}},{\"id\":\"1GkyMSM7v5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Inbound Order\",\"col\":3}},{\"id\":\"3tcxrO1IPF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Release Order\",\"col\":3}},{\"id\":\"cdoShortcut01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cross-Docking Order\",\"col\":3}},{\"id\":\"RLuBQLNUAf\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transfer Order\",\"col\":3}},{\"id\":\"WuAAv2AYis\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"VAS Order\",\"col\":3}},{\"id\":\"dHKnqH-zUV\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stocktake Order\",\"col\":3}},{\"id\":\"KcjoqOPobc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Job\",\"col\":3}},{\"id\":\"Ajv2Uunfaz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Periodic Billing\",\"col\":3}},{\"id\":\"iXnX-uP9sy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Gate Pass\",\"col\":3}},{\"id\":\"iUjnrb4GSs\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"r1zOFE_yc9\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Mobile Pages</b></span>\",\"col\":12}},{\"id\":\"mDzG6dd1tT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Card\",\"col\":3}},{\"id\":\"BUQlmnkGzL\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Plate Scanner\",\"col\":3}},{\"id\":\"Zb_6qdCOY-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Count Sheet\",\"col\":3}},{\"id\":\"rISdMpNTa7\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"rjH0rGHL3j\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters &amp; Settings</b></span>\",\"col\":12}},{\"id\":\"6OO2WnC8Og\",\"type\":\"card\",\"data\":{\"card_name\":\"Storage\",\"col\":4}},{\"id\":\"-QA7Op-wX1\",\"type\":\"card\",\"data\":{\"card_name\":\"Handling\",\"col\":4}},{\"id\":\"8_6l-HhLSd\",\"type\":\"card\",\"data\":{\"card_name\":\"Customer Setup\",\"col\":4}},{\"id\":\"GKdBEsgtwk\",\"type\":\"card\",\"data\":{\"card_name\":\"Warehouse Settings\",\"col\":4}},{\"id\":\"994_zTIM46\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"NfAdTJ7Mwg\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Analysis</b></span>\",\"col\":12}},{\"id\":\"repsec0\",\"type\":\"card\",\"data\":{\"card_name\":\"Inventory health & rotation\",\"col\":4}},{\"id\":\"repsec1\",\"type\":\"card\",\"data\":{\"card_name\":\"Productivity & slot capacity\",\"col\":4}},{\"id\":\"repsec2\",\"type\":\"card\",\"data\":{\"card_name\":\"Energy, waste & site metrics\",\"col\":4}},{\"id\":\"repsec3\",\"type\":\"card\",\"data\":{\"card_name\":\"Trade & multimodal flow\",\"col\":4}},{\"id\":\"repsec4\",\"type\":\"card\",\"data\":{\"card_name\":\"Commercial & route economics\",\"col\":4}},{\"id\":\"repsec5\",\"type\":\"card\",\"data\":{\"card_name\":\"Sustainability goals & trends\",\"col\":4}}]",
  "creation": "2025-08-18 19:01:13.708217",
- "custom_blocks": [],
+ "custom_blocks": [
+  {
+   "custom_block_name": "Warehousing Operations Dashboard",
+   "label": "Warehousing Operations Dashboard"
+  }
+ ],
  "docstatus": 0,
  "doctype": "Workspace",
  "for_user": "",
@@ -289,7 +294,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-07-21 12:51:59.546288",
+ "modified": "2026-08-18 19:00:00.000000",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehousing",
@@ -301,6 +306,39 @@
  "roles": [],
  "sequence_id": 6.0,
  "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Active Jobs",
+   "link_to": "Warehouse Job",
+   "stats_filter": "[[\"Warehouse Job\",\"job_status\",\"not in\",[\"Completed\",\"Closed\",\"Cancelled\"]]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "doc_view": "List",
+   "label": "Live Jobs",
+   "link_to": "Warehouse Job",
+   "stats_filter": "[[\"Warehouse Job\",\"job_status\",\"in\",[\"Submitted\",\"In Progress\",\"Reopened\"]]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Red",
+   "doc_view": "List",
+   "label": "SLA Breached",
+   "link_to": "Warehouse Job",
+   "stats_filter": "[[\"Warehouse Job\",\"sla_status\",\"=\",\"Breached\"]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "List",
+   "format": "{} Open",
+   "label": "Open Inbound",
+   "link_to": "Inbound Order",
+   "stats_filter": "[[\"Inbound Order\",\"docstatus\",\"=\",\"0\",false]]",
+   "type": "DocType"
+  },
   {
    "color": "Grey",
    "doc_view": "List",

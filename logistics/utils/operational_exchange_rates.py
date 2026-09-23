@@ -112,6 +112,22 @@ def resolve_sales_quote_charge_exchange_rates(doc) -> None:
 			ch.pay_to_exchange_rate = rate if rate is not None else 0
 
 
+def resolve_mice_project_consolidation_charge_exchange_rates(doc) -> None:
+	"""Set pay-to exchange rates on MICE Project consolidation charge rows using start_date."""
+	if getattr(doc, "doctype", None) != "MICE Project":
+		return
+	as_of_date = doc.get("start_date") or doc.get("creation")
+	if not as_of_date:
+		return
+	company = doc.get("company")
+	for ch in doc.get("consolidation_charges") or []:
+		cur = getattr(ch, "currency", None)
+		p_src = getattr(ch, "pay_to_exchange_rate_source", None)
+		if p_src and cur:
+			rate = resolve_charge_side_exchange_rate(company, p_src, cur, as_of_date)
+			ch.pay_to_exchange_rate = rate if rate is not None else 0
+
+
 def _rate_explicitly_zero(rate: Any) -> bool:
 	"""True when a rate value is present but zero (None/blank are not treated as zero)."""
 	if rate is None or rate == "":

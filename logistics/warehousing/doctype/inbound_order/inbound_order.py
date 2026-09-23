@@ -29,7 +29,8 @@ class InboundOrder(Document):
 def make_warehouse_job(source_name, target_doc=None):
     try:
         import time
-        
+        from logistics.utils.menu_permission import assert_create_from_source
+
         # Check if source_name is a temporary name (starts with "new-")
         # This can happen if the function is called before the document is fully saved
         if source_name and source_name.startswith("new-"):
@@ -53,6 +54,8 @@ def make_warehouse_job(source_name, target_doc=None):
                 except frappe.DoesNotExistError:
                     # Return graceful error response for post-save fetch failures
                     frappe.throw(_("Inbound Order {0} is not ready yet. Please try again in a moment.").format(source_name))
+
+            assert_create_from_source("Warehouse Job", source_doc=source_doc)
             
             # Validate that contract is not cancelled before proceeding
             if source_doc.contract:

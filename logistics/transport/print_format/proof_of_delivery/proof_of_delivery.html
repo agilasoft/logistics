@@ -22,61 +22,123 @@
         }
         .pod-main { flex: 1 1 auto; }
 
-        /* Header */
-        .doc-header {
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            gap: 3mm;
-            align-items: start;
+        /* Header — match Sales Invoice */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 3mm;
-            position: relative;
-        }
-        .hdr-brand { display: flex; gap: 2.5mm; align-items: flex-start; min-width: 0; }
-        .company-logo {
-            width: 14mm;
-            height: 14mm;
-            object-fit: contain;
-            flex-shrink: 0;
         }
         .logo-placeholder {
-            width: 14mm;
-            height: 14mm;
+            width: 60mm;
+            height: 30mm;
+            background: #e0e0e0;
             border: 1px solid #ccc;
-            background: #6c757d;
-            color: #fff;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 11pt;
-            font-weight: bold;
+            font-size: 7pt;
+            color: #666;
             flex-shrink: 0;
         }
-        .company-name { font-size: 10pt; font-weight: bold; line-height: 1.15; }
-        .company-address { font-size: 7pt; line-height: 1.2; color: #444; margin-top: 0.5mm; }
-        .hdr-title {
+        .company-logo {
+            width: 60mm;
+            height: 30mm;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+        .company-info {
+            flex: 1;
+            text-align: left;
+            padding-left: 3mm;
+        }
+        .company-name {
             font-size: 16pt;
-            font-weight: 900;
-            letter-spacing: 0.5px;
-            color: #6c757d;
-            text-align: center;
-            align-self: center;
-            padding-top: 1mm;
+            font-weight: bold;
+            margin-bottom: 0;
         }
-        .hdr-meta {
-            text-align: right;
-            font-size: 8pt;
-            line-height: 1.35;
+        .company-address {
+            font-size: 7pt;
+            line-height: 1.3;
+            margin-bottom: 0;
+        }
+        .vat-reg { font-size: 7pt; }
+        .company-contact { font-size: 7pt; line-height: 1.3; }
+
+        .main-body {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            margin-bottom: 0;
+            margin-top: 35mm;
             position: relative;
-            padding-top: 18mm;
         }
-        .hdr-qr {
+        .customer-info-section {
             position: absolute;
-            top: 0;
-            right: 0;
-            width: 16mm;
-            height: 16mm;
+            top: -35mm;
+            left: 1.5mm;
+            z-index: 10;
+            max-width: 80mm;
         }
-        .ref-main { font-size: 13pt; font-weight: 900; margin-bottom: 0.5mm; }
+        .customer-label {
+            font-weight: bold;
+            font-size: 8pt;
+            margin-top: 5mm;
+            margin-bottom: 2mm;
+            line-height: 1;
+        }
+        .customer-name-box {
+            font-size: 11pt;
+            font-weight: 900;
+            margin-bottom: 0.1mm;
+            margin-top: -1mm;
+            line-height: 1;
+            background: white;
+        }
+        .customer-address-box {
+            font-size: 8pt;
+            background: white;
+            width: 100mm;
+        }
+        .customer-detail-row {
+            font-size: 8pt;
+            margin-top: 0.5mm;
+            line-height: 1.2;
+        }
+        .customer-detail-label { font-weight: bold; }
+        .customer-detail-value { margin-left: 0.5mm; }
+
+        .qr-section {
+            position: absolute;
+            top: -35mm;
+            right: 1.5mm;
+            text-align: right;
+            z-index: 10;
+            margin-bottom: 0;
+        }
+        .qr-code {
+            width: 1in;
+            height: 1in;
+            border: none;
+            display: block;
+            margin-left: auto;
+        }
+        .receipt-title-qr {
+            font-size: 14pt;
+            font-weight: 900;
+            margin-top: 0.11mm;
+            margin-bottom: 0;
+            text-align: right;
+            text-transform: uppercase;
+            line-height: 1;
+        }
+        .reference-number {
+            font-size: 8pt;
+            font-weight: normal;
+            margin: 0;
+            padding: 0;
+            line-height: 1;
+        }
 
         /* Sections */
         .section { margin-bottom: 2.5mm; border: 1px solid #cccccc; }
@@ -159,7 +221,7 @@
         .dim-sub th { font-size: 6pt; font-weight: normal; }
 
         /* Pick / Drop cards */
-        .leg-row { display: flex; gap: 2.5mm; margin-bottom: 2mm; }
+        .leg-row { display: flex; gap: 2.5mm; margin-bottom: 2mm; align-items: stretch; }
         .leg-card {
             flex: 1;
             min-width: 0;
@@ -180,7 +242,7 @@
             display: grid;
             grid-template-columns: 1fr 38mm;
             gap: 2.5mm;
-            flex: 1;
+            flex: 1 1 auto;
             align-items: start;
         }
         .loc-title {
@@ -239,10 +301,11 @@
             font-size: 6.5pt;
         }
         .leg-footer {
-            padding: 1.5mm 2mm 2mm;
+            padding: 1mm 2mm 2mm;
             font-size: 7.5pt;
             line-height: 1.4;
             border-top: 1px solid #eeeeee;
+            margin-top: auto;
         }
         .leg-footer .est-row { margin-top: 0.3mm; }
         .leg-footer .mk { font-weight: bold; }
@@ -306,6 +369,10 @@
             }
         
             .pod-main {
+                display: block !important;
+            }
+
+            .main-body {
                 display: block !important;
             }
         
@@ -415,15 +482,18 @@
 {% set rs = frappe.db.get_value("Run Sheet", rs_name, ["driver_name", "driver", "vehicle"], as_dict=True) if rs_name else None %}
 
 {% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") or "" %}
-{% set co = namespace(name="", row=None, address_name="") %}
+{% set co = namespace(name="", row=None, address_name="", address=None) %}
 {% if job and job.company %}{% set co.name = job.company %}{% endif %}
 {% if not co.name and sq and sq.company %}{% set co.name = sq.company %}{% endif %}
 {% if not co.name and ab and ab.company %}{% set co.name = ab.company %}{% endif %}
 {% if not co.name and default_company %}{% set co.name = default_company %}{% endif %}
 {% if co.name %}
 {% set co.row = frappe.db.get_value("Company", co.name, ["company_name", "company_logo", "email", "website", "phone_no", "tax_id", "registration_details"], as_dict=True) %}
-{% set addr_links = frappe.get_all("Dynamic Link", filters={"link_doctype": "Company", "link_name": co.name, "parenttype": "Address"}, fields=["parent"], limit_page_length=1) %}
-{% if addr_links %}{% set co.address_name = addr_links[0].parent %}{% endif %}
+{% set addr_links = frappe.get_all("Address", filters=[["Dynamic Link", "link_doctype", "=", "Company"], ["Dynamic Link", "link_name", "=", co.name], ["disabled", "=", 0]], fields=["name"], order_by="is_primary_address desc", limit_page_length=1) %}
+{% if addr_links %}{% set co.address_name = addr_links[0].name %}{% endif %}
+{% if co.address_name and frappe.db.exists("Address", co.address_name) %}
+{% set co.address = frappe.db.get_value("Address", co.address_name, ["address_title", "address_line1", "address_line2", "city", "state", "pincode", "country"], as_dict=True) %}
+{% endif %}
 {% endif %}
 {% set company_logo = co.row.company_logo if co.row else "" %}
 {% set company_display_name = (co.row.company_name or co.name) if co.row else co.name %}
@@ -431,8 +501,35 @@
 {% set company_phone = co.row.phone_no if co.row else "" %}
 {% set company_email = co.row.email if co.row else "" %}
 {% set company_website = co.row.website if co.row else "" %}
+{% set company_tax_id = (co.row.tax_id if co.row else "") or (frappe.db.get_value("Company", co.name, "tin", ignore=True) if co.name else "") %}
+{% set branch_tin = "" %}
+{% if job and job.branch and frappe.db.exists("Branch", job.branch) %}
+{% set branch_tin = frappe.db.get_value("Branch", job.branch, "custom_tax_id", ignore=True) or "" %}
+{% endif %}
+{% set vat_tin = branch_tin or company_tax_id %}
 {% set print_dt = frappe.utils.format_datetime(frappe.utils.now(), "dd-MMM-yy HH:mm") %}
 {% set customer_display = (frappe.db.get_value("Customer", job.customer, "customer_name") or job.customer) if job and job.customer and frappe.db.exists("Customer", job.customer) else (job.customer if job else "") %}
+{% set cust = namespace(tin="", address_name="") %}
+{% if job and job.customer and frappe.db.exists("Customer", job.customer) %}
+{% set cust_row = frappe.db.get_value("Customer", job.customer, ["customer_name", "tax_id", "customer_primary_address"], as_dict=True) %}
+{% if cust_row %}
+{% set customer_display = cust_row.customer_name or job.customer %}
+{% set cust.tin = cust_row.tax_id or frappe.db.get_value("Customer", job.customer, "tin", ignore=True) or "" %}
+{% set cust.address_name = cust_row.customer_primary_address or "" %}
+{% if cust.address_name and not frappe.db.exists("Address", cust.address_name) %}
+{% set cust.address_name = "" %}
+{% endif %}
+{% endif %}
+{% if not cust.address_name %}
+{% set primary_addr = frappe.db.get_value("Customer", job.customer, "primary_address", ignore=True) or "" %}
+{% if primary_addr and frappe.db.exists("Address", primary_addr) %}
+{% set cust.address_name = primary_addr %}
+{% elif job.customer %}
+{% set linked_addresses = frappe.get_all("Dynamic Link", filters={"link_doctype": "Customer", "link_name": job.customer, "parenttype": "Address"}, fields=["parent"], order_by="creation desc", limit_page_length=1) %}
+{% if linked_addresses %}{% set cust.address_name = linked_addresses[0].parent %}{% endif %}
+{% endif %}
+{% endif %}
+{% endif %}
 
 {% set shipper_name = (frappe.db.get_value("Shipper", job.shipper, "shipper_name") or job.shipper) if job and job.shipper and frappe.db.exists("Shipper", job.shipper) else "" %}
 {% set consignee_name = (frappe.db.get_value("Consignee", job.consignee, "consignee_name") or job.consignee) if job and job.consignee and frappe.db.exists("Consignee", job.consignee) else "" %}
@@ -565,37 +662,75 @@
 {% if doc.pick_notes %}{% set notes_text = doc.pick_notes %}{% endif %}
 {% if doc.drop_notes %}{% if notes_text %}{% set notes_text = notes_text ~ "\n" ~ doc.drop_notes %}{% else %}{% set notes_text = doc.drop_notes %}{% endif %}{% endif %}
 
-{% set qr_data = shipment_no %}
+{% set qr_data = doc.name %}
 {% set qr_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + qr_data|urlencode %}
 
 <div class="pod">
 <div class="pod-main">
 
-    <div class="doc-header">
-        <div class="hdr-brand">
-            {% if company_logo %}
-            <img src="{{ company_logo }}" alt="Logo" class="company-logo" />
-            {% else %}
-            <div class="logo-placeholder">C</div>
-            {% endif %}
-            <div>
-                {% if company_display_name %}<div class="company-name">{{ company_display_name }}</div>{% endif %}
-                <div class="company-address">
-                    {% if co.address_name %}{{ format_address_inline(co.address_name) }}
-                    {% elif company_reg %}{{ company_reg|replace('\n', ', ')|safe }}{% endif %}
-                </div>
+    <div class="header">
+        {% if co.row %}
+        {% if company_logo %}
+        <img src="{{ company_logo }}" alt="Company Logo" class="company-logo" />
+        {% elif co.row.logo %}
+        <img src="{{ co.row.logo }}" alt="Company Logo" class="company-logo" />
+        {% elif co.row.image %}
+        <img src="{{ co.row.image }}" alt="Company Logo" class="company-logo" />
+        {% else %}
+        <div class="logo-placeholder">company_logo</div>
+        {% endif %}
+        <div class="company-info">
+            <div class="company-name">{{ company_display_name or co.name }}</div>
+            <div class="company-address">
+                {% if co.address and co.address.address_title %}
+                    {{ co.address.address_title }}
+                {% elif co.address %}
+                    {{ co.address.address_line1 or '' }}
+                    {% if co.address.address_line2 %} {{ co.address.address_line2 }}{% endif %}
+                    {% if co.address.city %} {{ co.address.city }}{% endif %}
+                    {% if co.address.state %}, {{ co.address.state }}{% endif %}
+                    {% if co.address.country %} {{ co.address.country }}{% endif %}
+                    {% if co.address.pincode %} {{ co.address.pincode }}{% endif %}
+                {% elif company_reg %}
+                    {{ company_reg|replace('\n', ', ')|safe }}
+                {% endif %}
+            </div>
+            <div class="vat-reg">
+                {% if vat_tin %}
+                    VAT Reg. TIN: {{ vat_tin }}
+                {% endif %}
+            </div>
+            <div class="company-contact">
+                {% if company_email %}Email: {{ company_email }}<br>{% endif %}
+                {% if company_website %}Website: {{ company_website }}<br>{% endif %}
+                {% if company_phone %}Phone: {{ company_phone }}{% endif %}
             </div>
         </div>
-        <div class="hdr-title">PROOF OF DELIVERY</div>
-        <div class="hdr-meta">
-            <img src="{{ qr_url }}" alt="QR" class="hdr-qr" />
-            <div class="ref-main">{{ shipment_no }}</div>
-            {% if leg_no %}<div>Leg No.: {{ leg_no }}</div>{% endif %}
-            {% if job and job.sales_quote %}<div>{{ job.sales_quote }}</div>{% endif %}
-            {% if transport_co %}<div>{{ transport_co }}</div>{% endif %}
-            <div>Date: {{ print_dt }}</div>
+        {% else %}
+        <div class="logo-placeholder">company_logo</div>
+        <div class="company-info">
+            <div class="company-name">{{ co.name or default_company or '' }}</div>
         </div>
+        {% endif %}
     </div>
+
+    <div class="main-body">
+        <div class="customer-info-section">
+            <div class="customer-label">CUSTOMER</div>
+            <div class="customer-name-box">{{ customer_display }}</div>
+            <div class="customer-address-box">
+                {% if cust.address_name %}{{ format_address_inline(cust.address_name) }}{% endif %}
+            </div>
+            {% if customer_display %}
+            <div class="customer-detail-row"><span class="customer-detail-label">TIN:</span> <span class="customer-detail-value">{{ cust.tin or '-' }}</span></div>
+            {% endif %}
+        </div>
+
+        <div class="qr-section">
+            <img src="{{ qr_url }}" alt="QR Code" class="qr-code" />
+            <div class="receipt-title-qr">PROOF OF DELIVERY</div>
+            <div class="reference-number">{{ doc.name }}</div>
+        </div>
 
     <div class="section">
         <div class="sec-head">Vehicle</div>
@@ -701,7 +836,7 @@
                 <div>
                     {% if pick_facility_code or pick_address_text %}
                     <div class="loc-title"><span class="loc-pin">&#9679;</span> PICK UP{% if pick_facility_code %} — {{ pick_facility_code }}{% endif %}</div>
-                    {% if pick_address_text %}<div class="loc-address">{{ pick_address_text|replace('\n', '<br>')|safe }}</div>{% endif %}
+                    {% if pick_address_text %}<div class="loc-address">{% if '<br' in pick_address_text %}{{ pick_address_text|safe }}{% else %}{{ pick_address_text|replace('\n', '<br>')|safe }}{% endif %}</div>{% endif %}
                     {% endif %}
                 </div>
                 <div class="leg-side">
@@ -724,7 +859,7 @@
                 <div>
                     {% if drop_facility_code or drop_address_text %}
                     <div class="loc-title"><span class="loc-pin">&#9679;</span> DELIVERY{% if drop_facility_code %} — {{ drop_facility_code }}{% endif %}</div>
-                    {% if drop_address_text %}<div class="loc-address">{{ drop_address_text|replace('\n', '<br>')|safe }}</div>{% endif %}
+                    {% if drop_address_text %}<div class="loc-address">{% if '<br' in drop_address_text %}{{ drop_address_text|safe }}{% else %}{{ drop_address_text|replace('\n', '<br>')|safe }}{% endif %}</div>{% endif %}
                     {% endif %}
                 </div>
                 <div class="leg-side">
@@ -763,6 +898,8 @@
         <div class="sec-body">
             <div class="notes-box">{{ notes_text }}</div>
         </div>
+    </div>
+
     </div>
 
 </div>

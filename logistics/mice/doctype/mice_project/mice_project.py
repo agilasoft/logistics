@@ -6,7 +6,7 @@ import json
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import escape_html, flt, get_url_to_form
+from frappe.utils import escape_html, cint, flt, get_url_to_form
 
 from logistics.job_management.logistics_job_status import JOB_STATUS_SELECT_OPTIONS
 
@@ -162,6 +162,12 @@ class MICEProject(Document):
 			return
 		if self.__dict__.get("linked_services") is None:
 			self.__dict__["linked_services"] = []
+		rows = self.__dict__.get("linked_services") or []
+		# Append after a virtual-view load keeps rows in ``__dict__`` while
+		# ``_linked_services_view_cached`` is still set — treat local rows as form edits.
+		if any(getattr(r, "__islocal", None) for r in rows):
+			self.flags._linked_services_from_form = True
+			return
 		if not self.flags.get("_linked_services_view_cached"):
 			self.flags._linked_services_from_form = True
 
@@ -187,6 +193,11 @@ class MICEProject(Document):
 		validate_planned_date_range(self)
 		validate_internal_job_activity_codes(self, module_filter=FOR_EXHIBITS)
 		validate_lifecycle_stage_advance(self)
+		from logistics.utils.operational_exchange_rates import (
+			resolve_mice_project_consolidation_charge_exchange_rates,
+		)
+
+		resolve_mice_project_consolidation_charge_exchange_rates(self)
 		self._recalculate_consolidation_charge_rows()
 		self._recalculate_consolidation_charge_totals()
 		self._recalculate_cost_allocation_totals()
@@ -308,13 +319,13 @@ class MICEProject(Document):
 	def _recalculate_consolidation_charge_rows(self):
 		"""Recompute each consolidation charge row before summing or allocating."""
 		for row in self.get("consolidation_charges") or []:
-			row.calculate_charge_amount()
+			row.calculate_charge_amount(company=self.company)
 			row.calculate_allocated_amount()
 
 	def _recalculate_consolidation_charge_totals(self):
-		"""Sum ``total_amount`` across consolidation_charges rows into ``total_consolidation_charges``."""
+		"""Sum company-currency ``base_total_amount`` into ``total_consolidation_charges``."""
 		rows = self.get("consolidation_charges") or []
-		self.total_consolidation_charges = sum(flt(r.total_amount) for r in rows)
+		self.total_consolidation_charges = sum(flt(r.base_total_amount) for r in rows)
 
 	def _recalculate_cost_allocation_totals(self):
 		"""Sum ``allocated_amount`` across cost_allocations rows into ``total_allocated_amount``."""
@@ -348,9 +359,52 @@ class MICEProject(Document):
 
 	def after_insert(self):
 		self._drop_virtual_linked_services_rows()
+		self._sync_consolidation_cost_unit_breaks()
 
 	def on_update(self):
 		self._drop_virtual_linked_services_rows()
+		self._sync_consolidation_cost_unit_breaks()
+
+	def _sync_consolidation_cost_unit_breaks(self):
+		"""Copy Cost Unit Breaks from Cost Tariff onto consolidation charges, then re-tier rates."""
+		from logistics.mice.doctype.mice_project_consolidation_charges.mice_project_consolidation_charges import (
+			sync_tariff_cost_unit_breaks_on_consolidation_charges,
+		)
+
+		sync_tariff_cost_unit_breaks_on_consolidation_charges(self)
+		updated = False
+		for ch in self.get("consolidation_charges") or []:
+			if not cint(getattr(ch, "cost_use_unit_breaks", 0)):
+				continue
+			if not getattr(ch, "name", None) or str(ch.name).startswith("new"):
+				continue
+			ch.calculate_charge_amount(company=self.company)
+			ch.calculate_allocated_amount()
+			frappe.db.set_value(
+				ch.doctype,
+				ch.name,
+				{
+					"unit_rate": flt(ch.unit_rate),
+					"currency": ch.currency,
+					"base_amount": flt(ch.base_amount),
+					"discount_amount": flt(ch.discount_amount),
+					"total_amount": flt(ch.total_amount),
+					"base_total_amount": flt(ch.base_total_amount),
+					"allocated_amount": flt(ch.allocated_amount),
+					"cost_use_unit_breaks": 1,
+				},
+				update_modified=False,
+			)
+			updated = True
+		if updated:
+			self._recalculate_consolidation_charge_totals()
+			frappe.db.set_value(
+				self.doctype,
+				self.name,
+				"total_consolidation_charges",
+				flt(self.total_consolidation_charges),
+				update_modified=False,
+			)
 
 	def _resolve_allocation_target_type(self):
 		"""Pick the allocation target type based on the parent setting and what data is available.
@@ -496,8 +550,9 @@ class MICEProject(Document):
 	def _apply_allocation_to_targets(self):
 		"""Compute per-target ``allocated_amount`` and overall ``cost_allocation_percentage``.
 
-		For each charge row, distribute its ``total_amount`` across cost_allocations rows by
-		the row's allocation method (or the parent ``cost_allocation_basis`` fallback).
+		For each charge row, distribute its company-currency ``base_total_amount`` across
+		cost_allocations rows by the row's allocation method (or the parent
+		``cost_allocation_basis`` fallback).
 		"""
 		allocations = self.get("cost_allocations") or []
 		if not allocations:
@@ -509,12 +564,12 @@ class MICEProject(Document):
 		grand_total = 0.0
 		n = len(allocations)
 		for charge in self.get("consolidation_charges") or []:
-			amount = flt(charge.total_amount)
+			amount = flt(charge.base_total_amount)
 			if amount <= 0:
 				continue
 			factors = self._per_target_allocation_factor(charge, allocations, n)
 			row_amounts = [amount * f for f in factors]
-			# Distribute rounding so per-charge sum equals charge.total_amount.
+			# Distribute rounding so per-charge sum equals charge.base_total_amount.
 			rounded = [round(x, 2) for x in row_amounts]
 			diff = round(amount - sum(rounded), 2)
 			for i in range(len(rounded) - 1, -1, -1):
@@ -2222,3 +2277,123 @@ def get_dashboard_html(exhibit):
 	except Exception as e:
 		frappe.log_error(f"Exhibit get_dashboard_html: {str(e)}", "Exhibit Dashboard")
 		return "<div class='alert alert-warning'>Error loading dashboard.</div>"
+
+
+def _invalidate_mice_project_linked_services_view(project) -> None:
+	"""Clear cached virtual Services rows so the next load rebuilds from Linked Service docs."""
+	if hasattr(project, "_drop_virtual_linked_services_rows"):
+		project._drop_virtual_linked_services_rows()
+		return
+	project.flags._linked_services_from_form = False
+	project.flags._linked_services_view_cached = False
+	if "linked_services" in project.__dict__:
+		del project.__dict__["linked_services"]
+
+
+@frappe.whitelist()
+def list_mice_project_linked_services(mice_project: str):
+	"""Return Linked Services for the Manage Services dialog on MICE Project."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_booking,
+	)
+	from logistics.utils.linked_service_usage import (
+		latest_satellite_job_from_usage,
+		latest_shipment_from_usage,
+	)
+
+	project = frappe.get_doc("MICE Project", mice_project)
+	frappe.has_permission("MICE Project", "read", doc=project, throw=True)
+	rows = []
+	for linked in get_linked_services_for_booking(project.doctype, project.name):
+		owned = (
+			(linked.parent_booking_type or "") == project.doctype
+			and (linked.parent_booking_name or "") == project.name
+		)
+		job_type, order_no = latest_satellite_job_from_usage(linked.name)
+		_et, job_no = latest_shipment_from_usage(linked.name)
+		rows.append(
+			{
+				"linked_service": linked.name,
+				"service_type": linked.service_type,
+				"owned_by_project": 1 if owned else 0,
+				"job_type": job_type or "",
+				"order_no": order_no or "",
+				"job_no": job_no or "",
+			}
+		)
+	return {"name": project.name, "linked_services": rows}
+
+
+@frappe.whitelist()
+def add_linked_service(mice_project: str, service_type: str):
+	"""Create a Linked Service owned by this MICE Project."""
+	from logistics.time_sensitive.service_linking import validate_linked_service_type
+	from logistics.utils.linked_service_compat import linked_service_doctype
+
+	project = frappe.get_doc("MICE Project", mice_project)
+	frappe.has_permission("MICE Project", "write", doc=project, throw=True)
+	if not project.name or project.is_new():
+		frappe.throw(_("Save the MICE Project before adding a linked service."))
+	if project.docstatus != 0:
+		frappe.throw(_("Linked Services can only be added on a draft MICE Project."))
+
+	service_type = validate_linked_service_type(service_type)
+	linked = frappe.new_doc(linked_service_doctype())
+	linked.service_type = service_type
+	linked.parent_booking_type = "MICE Project"
+	linked.parent_booking_name = project.name
+	linked.insert(ignore_permissions=True)
+
+	_invalidate_mice_project_linked_services_view(project)
+
+	return {
+		"name": project.name,
+		"linked_service": linked.name,
+		"service_type": linked.service_type,
+	}
+
+
+@frappe.whitelist()
+def remove_linked_service(mice_project: str, linked_service: str):
+	"""Remove a Linked Service from the project (delete if owned, else unlink Usage)."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_booking,
+	)
+	from logistics.utils.linked_service_compat import linked_service_doctype
+	from logistics.utils.linked_service_usage import clear_linked_service_usage
+
+	project = frappe.get_doc("MICE Project", mice_project)
+	frappe.has_permission("MICE Project", "write", doc=project, throw=True)
+	if project.docstatus != 0:
+		frappe.throw(_("Linked Services can only be removed on a draft MICE Project."))
+
+	ls_dt = linked_service_doctype()
+	if not frappe.db.exists(ls_dt, linked_service):
+		frappe.throw(_("Linked Service {0} was not found.").format(linked_service))
+
+	linked_names = {row.name for row in get_linked_services_for_booking(project.doctype, project.name)}
+	if linked_service not in linked_names:
+		frappe.throw(
+			_("Linked Service {0} is not linked to this MICE Project.").format(linked_service)
+		)
+
+	parent_type = frappe.db.get_value(ls_dt, linked_service, "parent_booking_type")
+	parent_name = frappe.db.get_value(ls_dt, linked_service, "parent_booking_name")
+	owned = parent_type == project.doctype and parent_name == project.name
+
+	if owned:
+		frappe.delete_doc(ls_dt, linked_service, ignore_permissions=True, force=True)
+		action = "removed"
+	else:
+		clear_linked_service_usage(
+			project.doctype, project.name, linked_service=linked_service
+		)
+		action = "unlinked"
+
+	_invalidate_mice_project_linked_services_view(project)
+
+	return {
+		"name": project.name,
+		"linked_service": linked_service,
+		"action": action,
+	}

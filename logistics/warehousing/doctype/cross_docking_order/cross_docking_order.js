@@ -57,7 +57,9 @@ frappe.ui.form.on('Cross-Docking Order', {
       }, __('Action'));
     }
 
-    if (!frm.doc.__islocal && frm.doc.docstatus === 1) {
+    if (window.logistics && logistics.menu && logistics.menu.is_submitted
+			? logistics.menu.is_submitted(frm)
+			: (!frm.doc.__islocal && frm.doc.docstatus === 1)) {
       frm.add_custom_button(
         __('Warehouse Job'),
         function () {

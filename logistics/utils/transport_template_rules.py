@@ -25,6 +25,18 @@ LAND_FACILITY_TYPES = frozenset({
 	"Truck Park",
 })
 
+# Container load types permitted on land-lane templates (e.g. CFS → Consignee drayage).
+LAND_LANE_CONTAINER_LOAD_TYPES = frozenset({"FCL"})
+
+JOB_TYPE_LOAD_TYPE_FIELD = {
+	"Container": "container",
+	"Non-Container": "non_container",
+	"Special": "special",
+	"Oversized": "oversized",
+	"Multimodal": "multimodal",
+	"Heavy Haul": "heavy_haul",
+}
+
 
 def _row_val(row: Any, fieldname: str) -> Any:
 	if row is None:
@@ -75,16 +87,70 @@ def classify_leg_pattern(legs: list[Any]) -> str:
 def suggest_allowed_load_types_from_legs(legs: list[Any]) -> list[str]:
 	"""Convention-based load type suggestions for template authoring."""
 	pattern = classify_leg_pattern(legs)
-	filters: dict[str, Any] = {"is_active": 1, "transport": 1}
+	base_filters: dict[str, Any] = {"is_active": 1, "transport": 1}
 
 	if pattern == "container":
-		filters["container"] = 1
-	elif pattern in ("land", "unknown"):
-		filters["non_container"] = 1
-	else:
+		return frappe.get_all(
+			"Load Type",
+			filters={**base_filters, "container": 1},
+			pluck="name",
+			order_by="name",
+		)
+
+	if pattern in ("land", "unknown"):
+		suggested = frappe.get_all(
+			"Load Type",
+			filters={**base_filters, "non_container": 1},
+			pluck="name",
+			order_by="name",
+		)
+		if LAND_LANE_CONTAINER_LOAD_TYPES:
+			container_exceptions = frappe.get_all(
+				"Load Type",
+				filters={
+					**base_filters,
+					"container": 1,
+					"name": ["in", list(LAND_LANE_CONTAINER_LOAD_TYPES)],
+				},
+				pluck="name",
+				order_by="name",
+			)
+			for name in container_exceptions:
+				if name not in suggested:
+					suggested.append(name)
+		return suggested
+
+	return []
+
+
+def filter_load_types_for_transport_job_type(
+	load_type_names: list[str],
+	transport_job_type: str | None,
+) -> list[str]:
+	"""Return template-allowed load types compatible with the transport job type."""
+	if not load_type_names:
 		return []
 
-	return frappe.get_all("Load Type", filters=filters, pluck="name", order_by="name")
+	if not transport_job_type:
+		return list(load_type_names)
+
+	allowed_field = JOB_TYPE_LOAD_TYPE_FIELD.get(transport_job_type)
+	if not allowed_field:
+		return list(load_type_names)
+
+	matching = set(
+		frappe.get_all(
+			"Load Type",
+			filters={
+				"name": ["in", load_type_names],
+				"is_active": 1,
+				"transport": 1,
+				allowed_field: 1,
+			},
+			pluck="name",
+		)
+	)
+	return [name for name in load_type_names if name in matching]
 
 
 def get_allowed_load_types_from_doc(doc: Any) -> list[str]:
@@ -101,6 +167,7 @@ def get_template_constraints(template_name: str | None) -> dict[str, Any]:
 	if not template_name:
 		return {
 			"allowed_load_types": [],
+			"allowed_load_types_all": [],
 			"default_load_type": None,
 			"default_vehicle_type": None,
 			"leg_pattern": "unknown",
@@ -114,6 +181,7 @@ def get_template_constraints(template_name: str | None) -> dict[str, Any]:
 
 	return {
 		"allowed_load_types": allowed,
+		"allowed_load_types_all": list(allowed),
 		"default_load_type": getattr(doc, "default_load_type", None),
 		"default_vehicle_type": getattr(doc, "default_vehicle_type", None),
 		"leg_pattern": pattern,
@@ -150,6 +218,8 @@ def validate_template_allowed_load_types_vs_legs(doc: Any) -> None:
 				)
 			)
 		if pattern == "land" and not flags.get("non_container"):
+			if load_type in LAND_LANE_CONTAINER_LOAD_TYPES and flags.get("container"):
+				continue
 			frappe.throw(
 				_("Load Type {0} is not allowed for land-lane templates (CFS/WHS/etc.). Use FTL or LTL.").format(
 					load_type

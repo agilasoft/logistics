@@ -10,6 +10,7 @@
   "warehouse_item",
   "hs_code",
   "reference_no",
+  "container",
   "atl",
   "column_break_2",
   "description",
@@ -108,6 +109,12 @@
    "fieldname": "reference_no",
    "fieldtype": "Data",
    "label": "Reference No"
+  },
+  {
+   "fieldname": "container",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Container"
   },
   {
    "fieldname": "description",

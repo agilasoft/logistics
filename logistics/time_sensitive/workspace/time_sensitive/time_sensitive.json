@@ -1,9 +1,14 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"tsHeader\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Time Sensitive Operations</b></span>\",\"col\":12}},{\"id\":\"tsShortcut1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Time Sensitive Case\",\"col\":3}},{\"id\":\"tsShortcut2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Active Cases\",\"col\":3}},{\"id\":\"tsShortcut3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"At Risk\",\"col\":3}},{\"id\":\"tsShortcut4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"tsCardOps\",\"type\":\"card\",\"data\":{\"card_name\":\"Operations\",\"col\":4}},{\"id\":\"tsCardSetup\",\"type\":\"card\",\"data\":{\"card_name\":\"Setup\",\"col\":4}},{\"id\":\"tsCardModes\",\"type\":\"card\",\"data\":{\"card_name\":\"Service Modes\",\"col\":4}}]",
+ "content": "[{\"id\":\"tsDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Time Sensitive Operations Dashboard\",\"col\":12}},{\"id\":\"tsHeader\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Time Sensitive Operations</b></span>\",\"col\":12}},{\"id\":\"tsShortcut1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Time Sensitive Case\",\"col\":3}},{\"id\":\"tsShortcut2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Ongoing\",\"col\":3}},{\"id\":\"tsShortcut3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Nearing Due\",\"col\":3}},{\"id\":\"tsShortcut4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Overdue\",\"col\":3}},{\"id\":\"tsCardOps\",\"type\":\"card\",\"data\":{\"card_name\":\"Operations\",\"col\":4}},{\"id\":\"tsCardSetup\",\"type\":\"card\",\"data\":{\"card_name\":\"Setup\",\"col\":4}},{\"id\":\"tsCardModes\",\"type\":\"card\",\"data\":{\"card_name\":\"Service Modes\",\"col\":4}}]",
  "creation": "2026-07-30 00:00:00",
- "custom_blocks": [],
+ "custom_blocks": [
+  {
+   "custom_block_name": "Time Sensitive Operations Dashboard",
+   "label": "Time Sensitive Operations Dashboard"
+  }
+ ],
  "docstatus": 0,
  "doctype": "Workspace",
  "for_user": "",
@@ -143,7 +148,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-07-30 00:00:00.000000",
+ "modified": "2026-08-18 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Time Sensitive",
  "name": "Time Sensitive",
@@ -160,7 +165,7 @@
  "sequence_id": 0.0,
  "shortcuts": [
   {
-   "color": "Red",
+   "color": "Grey",
    "doc_view": "List",
    "label": "Time Sensitive Case",
    "link_to": "Time Sensitive Case",
@@ -170,25 +175,25 @@
   {
    "color": "Blue",
    "doc_view": "List",
-   "label": "Active Cases",
+   "label": "Ongoing",
    "link_to": "Time Sensitive Case",
-   "stats_filter": "{\"status\":[\"in\",[\"Activated\",\"In Execution\"]]}",
+   "stats_filter": "{\"status\":[\"in\",[\"Activated\",\"In Execution\",\"On Hold\"]]}",
    "type": "DocType"
   },
   {
    "color": "Orange",
    "doc_view": "List",
-   "label": "At Risk",
+   "label": "Nearing Due",
    "link_to": "Time Sensitive Case",
-   "stats_filter": "{\"sla_status\":[\"in\",[\"At Risk\",\"Breached\"]]}",
+   "stats_filter": "{\"sla_status\":[\"=\",\"At Risk\"]}",
    "type": "DocType"
   },
   {
-   "color": "Grey",
+   "color": "Red",
    "doc_view": "List",
-   "label": "Sales Quote",
-   "link_to": "Sales Quote",
-   "stats_filter": "[]",
+   "label": "Overdue",
+   "link_to": "Time Sensitive Case",
+   "stats_filter": "{\"sla_status\":[\"=\",\"Breached\"]}",
    "type": "DocType"
   }
  ],

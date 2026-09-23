@@ -15,6 +15,7 @@
   "transport",
   "customs",
   "warehousing",
+  "required_seal_number",
   "transport_tab",
   "can_be_consolidated",
   "can_handle_consolidation",
@@ -66,6 +67,13 @@
    "fieldname": "warehousing",
    "fieldtype": "Check",
    "label": "Warehousing"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, Sea Booking container rows using this Load Type must have Seal Number filled.",
+   "fieldname": "required_seal_number",
+   "fieldtype": "Check",
+   "label": "Required Seal Number"
   },
   {
    "fieldname": "load_type_name",

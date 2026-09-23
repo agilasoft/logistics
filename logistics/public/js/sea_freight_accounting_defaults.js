@@ -2,8 +2,8 @@
 // For license information, please see license.txt
 
 /**
- * Pre-fill branch, cost center, and profit center from Sea Freight Settings on new/unsaved
- * Sea Booking / Sea Shipment forms (mirrors server logic in sea_freight_settings_defaults.py).
+ * Pre-fill branch, cost center, profit center, and release type from Sea Freight Settings
+ * on new/unsaved Sea Booking / Sea Shipment forms (mirrors sea_freight_settings_defaults.py).
  */
 window.logistics_apply_sea_freight_settings_accounting_defaults = function (frm) {
 	if (!frm || (!frm.is_new() && !frm.doc.__islocal)) return;
@@ -28,6 +28,9 @@ window.logistics_apply_sea_freight_settings_accounting_defaults = function (frm)
 			}
 			if (!frm.doc.profit_center && s.default_profit_center) {
 				updates.push(["profit_center", s.default_profit_center]);
+			}
+			if (!frm.doc.release_type && s.default_release_type) {
+				updates.push(["release_type", s.default_release_type]);
 			}
 			if (!updates.length) return;
 

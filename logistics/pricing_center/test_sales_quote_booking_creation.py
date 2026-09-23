@@ -317,3 +317,51 @@ class TestSalesQuoteBookingMainService(UnitTestCase):
 		self.assertEqual(doc.airline, "PR")
 		self.assertEqual(doc.load_type, "General")
 		self.assertEqual(doc.transport_mode, "Air")
+
+
+class TestInferMainServiceFromTimeSensitiveQuote(UnitTestCase):
+	def test_first_matching_charge_wins(self):
+		from logistics.patches.v3_0_migrate_sales_quote_time_sensitive_main_service import (
+			infer_main_service_from_charge_types,
+		)
+
+		self.assertEqual(infer_main_service_from_charge_types(["Air", "Transport"]), "Air")
+		self.assertEqual(infer_main_service_from_charge_types(["transport"]), "Transport")
+		self.assertEqual(infer_main_service_from_charge_types(["Customs"]), "Customs")
+		self.assertEqual(infer_main_service_from_charge_types(["custom"]), "Customs")
+		self.assertEqual(infer_main_service_from_charge_types([]), "Air")
+		self.assertEqual(infer_main_service_from_charge_types(["Special Project"]), "Air")
+
+
+class TestSalesQuoteTimeSensitiveDeadline(UnitTestCase):
+	def test_deadline_required_when_ticked(self):
+		sq = frappe.get_doc(
+			{
+				"doctype": "Sales Quote",
+				"main_service": "Air",
+				"is_time_sensitive": 1,
+			}
+		)
+		with self.assertRaises(frappe.ValidationError):
+			sq.validate_time_sensitive_deadline()
+
+	def test_deadline_ok_when_set(self):
+		sq = frappe.get_doc(
+			{
+				"doctype": "Sales Quote",
+				"main_service": "Air",
+				"is_time_sensitive": 1,
+				"critical_deadline": "2099-01-01 12:00:00",
+			}
+		)
+		sq.validate_time_sensitive_deadline()
+
+	def test_deadline_skipped_when_unticked(self):
+		sq = frappe.get_doc(
+			{
+				"doctype": "Sales Quote",
+				"main_service": "Air",
+				"is_time_sensitive": 0,
+			}
+		)
+		sq.validate_time_sensitive_deadline()

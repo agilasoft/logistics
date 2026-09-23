@@ -11,6 +11,7 @@ PRINT_FORMATS = [
 	"Warehouse Job - Move",
 	"Warehouse Job - Stocktake",
 	"Warehouse Job - VAS",
+	"Warehouse Job - Cross Dock",
 ]
 
 

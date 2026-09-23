@@ -7,10 +7,11 @@
 the Sales Quote** document (create booking/order actions). They are **not** selectable in
 **Action → Get Charges from Quotation**; linkage is set only during that create flow.
 
-**Regular Sales Quotes**: users **create** Sea Booking, Air Booking, Transport Order, or Declaration Order first,
-then use **Action → Get Charges from Quotation** to pick a quotation and apply **charges**
-(+ **routing legs** on Sea/Air where applicable). The ``sales_quote`` link is **read-only** on
-the form and is written only by create-from-quote or by the apply step. The Action button is
+**Regular Sales Quotes**: users **create** Sea Booking, Air Booking, Transport Order, Declaration Order,
+or Time Sensitive Case first, then use **Action → Get Charges from Quotation** to pick a quotation and
+apply **charges** (+ **routing legs** on Sea/Air where applicable). Time Sensitive Case lists Regular
+submitted quotes with ``is_time_sensitive`` (any ``main_service``). The ``sales_quote`` link is
+**read-only** on the form and is written only by create-from-quote or by the apply step. The Action button is
 **hidden on the desk** when a Sales Quote is already linked, or when linked (or pending) to a
 One-off or Project Sales Quote.
 
@@ -70,6 +71,7 @@ from logistics.utils.charge_service_type import implied_service_type_for_doctype
 from logistics.utils.operational_rep_fields import copy_operational_rep_fields_from_sales_quote_doc
 from logistics.utils.sales_quote_link_query import (
 	fetch_eligible_regular_sales_quote_names,
+	fetch_eligible_time_sensitive_sales_quote_names,
 	sales_quote_matches_declaration_order_filters,
 	sales_quote_matches_job_airline_only,
 	sales_quote_matches_job_corridor,
@@ -88,10 +90,22 @@ JOB_DOCTYPES = frozenset(
 		"Special Project",
 		"Exhibit",
 		"MICE Project",
+		"Time Sensitive Case",
 	}
 )
 
 _PROGRAMME_GCFQ_DOCTYPES = frozenset({"Special Project", "Exhibit", "MICE Project"})
+_GCFQ_TIME_SENSITIVE_DOCTYPE = "Time Sensitive Case"
+
+
+def _gcfq_skip_main_service_match(doctype: str) -> bool:
+	"""Time Sensitive Case is multimodal — list/preview/apply use ``is_time_sensitive``, not main_service."""
+	return doctype == _GCFQ_TIME_SENSITIVE_DOCTYPE
+
+
+def _gcfq_skip_corridor_sql(doctype: str) -> bool:
+	"""Programme parents and Time Sensitive Case match origin/dest via header filters, not charge-row corridor SQL."""
+	return doctype in _PROGRAMME_GCFQ_DOCTYPES or doctype == _GCFQ_TIME_SENSITIVE_DOCTYPE
 
 _DECLARATION_TYPE_OPTIONS = "Import\nExport\nTransit\nBonded"
 _DIRECTION_OPTIONS = "Import\nExport\nDomestic"
@@ -438,6 +452,31 @@ GCFQ_FILTER_CATALOG: dict[str, tuple[dict, ...]] = {
 		},
 		*_ORG_DIM_ENTRIES,
 	),
+	"Time Sensitive Case": (
+		{
+			"key": "origin",
+			"label": "Origin",
+			"fieldtype": "Link",
+			"options": "UNLOCO",
+			"doc_attr": "origin",
+		},
+		{
+			"key": "destination",
+			"label": "Destination",
+			"fieldtype": "Link",
+			"options": "UNLOCO",
+			"doc_attr": "destination",
+		},
+		{
+			"key": "priority",
+			"label": "Priority",
+			"fieldtype": "Select",
+			"options": "",
+			"select_options": _PRIORITY_OPTIONS,
+			"doc_attr": "priority",
+		},
+		*_ORG_DIM_ENTRIES,
+	),
 }
 
 # Job filter_key → Sales Quote header column for blank-or-equal matching.
@@ -512,6 +551,11 @@ GCFQ_SQ_HEADER_FIELD_MAP: dict[str, dict[str, str]] = {
 	},
 	"MICE Project": {
 		"project_type": "project_type",
+		"priority": "priority",
+	},
+	"Time Sensitive Case": {
+		"origin": "origin_port",
+		"destination": "destination_port",
 		"priority": "priority",
 	},
 }
@@ -822,7 +866,13 @@ def _gcfq_readonly_party_label(doc) -> str:
 		return (
 			(getattr(doc, "local_customer_name", None) or getattr(doc, "local_customer", None) or "")
 		).strip()
-	if dt in ("Transport Order", "Declaration Order", "Special Project", "Exhibit"):
+	if dt in (
+		"Transport Order",
+		"Declaration Order",
+		"Special Project",
+		"Exhibit",
+		"Time Sensitive Case",
+	):
 		return ((getattr(doc, "customer_name", None) or getattr(doc, "customer", None) or "")).strip()
 	if dt == "MICE Project":
 		cust = _job_customer(doc) or ""
@@ -941,6 +991,10 @@ def _effective_sea_air_transport_corridor(
 		o = _pick_gcfq_field(doc, overrides, "location_from", "location_from")
 		d2 = _pick_gcfq_field(doc, overrides, "location_to", "location_to")
 		return o, d2, None, None
+	if dt == _GCFQ_TIME_SENSITIVE_DOCTYPE:
+		o = _pick_gcfq_field(doc, overrides, "origin", "origin")
+		d = _pick_gcfq_field(doc, overrides, "destination", "destination")
+		return o, d, None, None
 	return "", "", None, None
 
 
@@ -998,16 +1052,21 @@ def _gcfq_airline_only_effective(
 	return not o and not d
 
 
-def _sales_quote_row_eligible_for_gcfq_list(name: str, expected_customer: str) -> bool:
+def _sales_quote_row_eligible_for_gcfq_list(
+	name: str, expected_customer: str, *, require_time_sensitive: bool = False
+) -> bool:
 	"""Defensive check: list must match the same rules as preview/apply (Regular, submitted, customer).
 
 	Customer compare is case-insensitive so it stays aligned with typical SQL collations: otherwise the
 	main query can return rows that this step stripped away and the user sees “no quotes” despite matches.
 	"""
+	fields = ["quotation_type", "docstatus", "customer"]
+	if require_time_sensitive:
+		fields.append("is_time_sensitive")
 	row = frappe.db.get_value(
 		"Sales Quote",
 		name,
-		["quotation_type", "docstatus", "customer"],
+		fields,
 		as_dict=True,
 	)
 	if not row:
@@ -1017,6 +1076,8 @@ def _sales_quote_row_eligible_for_gcfq_list(name: str, expected_customer: str) -
 	if cint(row.get("docstatus")) != 1:
 		return False
 	if not _gcfq_customer_matches_job(row.get("customer"), expected_customer):
+		return False
+	if require_time_sensitive and not cint(row.get("is_time_sensitive")):
 		return False
 	return True
 
@@ -1073,7 +1134,13 @@ def _job_customer(doc) -> str | None:
 		if callable(getter):
 			return (getter() or "").strip() or None
 		return None
-	if doc.doctype in ("Transport Order", "Declaration Order", "Special Project", "Exhibit"):
+	if doc.doctype in (
+		"Transport Order",
+		"Declaration Order",
+		"Special Project",
+		"Exhibit",
+		"Time Sensitive Case",
+	):
 		return (getattr(doc, "customer", None) or "").strip() or None
 	return None
 
@@ -1120,6 +1187,32 @@ def _gcfq_list_filters_payload(
 	**kwargs,
 ) -> dict:
 	"""Structured labels/values + rule lines for the Get Charges from Quotation dialog."""
+	if doctype == _GCFQ_TIME_SENSITIVE_DOCTYPE:
+		return {
+			"service_type": service_type,
+			"customer_label": _("Customer"),
+			"customer": customer,
+			"origin_label": _("Origin"),
+			"origin": origin,
+			"destination_label": _("Destination"),
+			"destination": dest,
+			"rules": [
+				_("Submitted quotations only (draft quotations are excluded)"),
+				_("Regular quotations only (One-off quotations are excluded)"),
+				_("Valid until is not set or is on or after today"),
+				_("Status is not Lost or Expired"),
+				_("The quotation must be marked Time Sensitive"),
+				_(
+					"Main Service on the quotation is not required to be Time Sensitive "
+					"(Air, Sea, and other services are eligible)"
+				),
+				_(
+					"When Origin, Destination, or Priority is set on the filter, the Sales Quote header "
+					"must match or be blank on the quotation (blank = any)"
+				),
+				_("Respects your permission to read Sales Quote records"),
+			],
+		}
 	if doctype == "Transport Order":
 		return {
 			"service_type": service_type,
@@ -1270,7 +1363,7 @@ def _corridor_mismatch_message_for_preview(
 	doc, service_type: str, sales_quote: str, overrides: dict | None = None
 ) -> str | None:
 	"""Return error message if corridor does not match, else None (for API preview responses)."""
-	if getattr(doc, "doctype", None) in _PROGRAMME_GCFQ_DOCTYPES:
+	if _gcfq_skip_corridor_sql(getattr(doc, "doctype", None) or ""):
 		return None
 	ov = overrides or {}
 	origin, dest, ja_eff, jsl_eff = _effective_sea_air_transport_corridor(doc, ov)
@@ -1334,9 +1427,10 @@ def _gcfq_saved_parent_match_error(
 	doc, service_type: str, sales_quote: str, overrides: dict | None = None
 ) -> str | None:
 	"""If the quotation does not match fields saved on the document, return a message; else None."""
-	ms_err = _main_service_mismatch_message(service_type, sales_quote)
-	if ms_err:
-		return ms_err
+	if not _gcfq_skip_main_service_match(doc.doctype):
+		ms_err = _main_service_mismatch_message(service_type, sales_quote)
+		if ms_err:
+			return ms_err
 	parent = overrides if overrides is not None else {}
 	if doc.doctype == "Declaration Order":
 		ca, dt, cb, jtm, _pol, _pod = _effective_declaration_order_filter_fields(doc, parent)
@@ -1344,7 +1438,7 @@ def _gcfq_saved_parent_match_error(
 			return str(
 				_("Sales Quote {0} does not match the customs fields saved on this document.").format(sales_quote)
 			)
-	elif doc.doctype not in _PROGRAMME_GCFQ_DOCTYPES:
+	elif not _gcfq_skip_corridor_sql(doc.doctype):
 		corr_err = _corridor_mismatch_message_for_preview(doc, service_type, sales_quote, parent)
 		if corr_err:
 			return corr_err
@@ -1428,6 +1522,17 @@ def _main_service_mismatch_message(service_type: str, sales_quote: str) -> str |
 	return str(_("Sales Quote {0} main service must be {1}.").format(sales_quote, service_type))
 
 
+def _sales_quote_is_time_sensitive(sq) -> bool:
+	return bool(cint(getattr(sq, "is_time_sensitive", 0)))
+
+
+def _time_sensitive_quote_mismatch_message(sq) -> str | None:
+	if _sales_quote_is_time_sensitive(sq):
+		return None
+	name = getattr(sq, "name", None) or ""
+	return str(_("Sales Quote {0} is not marked Time Sensitive.").format(name))
+
+
 @contextmanager
 def _suppress_msgprint():
 	orig = frappe.msgprint
@@ -1471,8 +1576,10 @@ def list_sales_quotes_for_job(doctype: str, docname: str, filter_overrides=None)
 	frappe.has_permission(doctype, "read", doc=doc, throw=True)
 
 	service_type = implied_service_type_for_doctype(doctype)
-	if not service_type:
+	if not _gcfq_skip_main_service_match(doctype) and not service_type:
 		frappe.throw(_("Could not determine service type for {0}.").format(doctype))
+	if _gcfq_skip_main_service_match(doctype):
+		service_type = service_type or "Time Sensitive"
 
 	customer = _job_customer(doc)
 	if not customer:
@@ -1486,7 +1593,26 @@ def list_sales_quotes_for_job(doctype: str, docname: str, filter_overrides=None)
 	jb, jcc, jpc = _effective_org_dimension_fields(doc, ov)
 	header_filters = _effective_sq_header_filters(doc, ov)
 
-	if doctype == "Declaration Order":
+	if doctype == _GCFQ_TIME_SENSITIVE_DOCTYPE:
+		origin, dest, _ja, _jsl = _effective_sea_air_transport_corridor(doc, ov)
+		filters_payload = _gcfq_list_filters_payload(doctype, customer, origin or "", dest or "", service_type)
+		_gcfq_merge_org_dimension_display(filters_payload, jb, jcc, jpc)
+		names = fetch_eligible_time_sensitive_sales_quote_names(
+			customer=customer,
+			reference_doctype=doctype,
+			reference_name=docname,
+			limit=150,
+			job_branch=jb or None,
+			job_cost_center=jcc or None,
+			job_profit_center=jpc or None,
+			header_filters=header_filters,
+		)
+		empty_msg = (
+			_("No matching Sales Quotes for these filters.")
+			if (origin or dest or jb or jcc or jpc or header_filters)
+			else _("No matching Time Sensitive Sales Quotes found.")
+		)
+	elif doctype == "Declaration Order":
 		ca, dt, cb, jtm, pol, pod = _effective_declaration_order_filter_fields(doc, ov)
 		tm_disp = ""
 		if jtm:
@@ -1592,7 +1718,13 @@ def list_sales_quotes_for_job(doctype: str, docname: str, filter_overrides=None)
 		else:
 			empty_msg = _("No matching Sales Quotes for this corridor and filters.")
 
-	names = [n for n in names if _sales_quote_row_eligible_for_gcfq_list(n, customer)]
+	names = [
+		n
+		for n in names
+		if _sales_quote_row_eligible_for_gcfq_list(
+			n, customer, require_time_sensitive=_gcfq_skip_main_service_match(doctype)
+		)
+	]
 	if not names:
 		return {
 			"quotes": [],
@@ -1633,8 +1765,10 @@ def preview_quotation_charges_for_job(
 	frappe.has_permission(doctype, "read", doc=doc, throw=True)
 
 	service_type = implied_service_type_for_doctype(doctype)
-	if not service_type:
+	if not _gcfq_skip_main_service_match(doctype) and not service_type:
 		return {"error": _("Could not determine service type for {0}.").format(doctype)}
+	if _gcfq_skip_main_service_match(doctype):
+		service_type = service_type or "Time Sensitive"
 
 	ov = _parse_gcfq_filter_overrides(doctype, filter_overrides)
 
@@ -1651,9 +1785,14 @@ def preview_quotation_charges_for_job(
 	if not customer or not _gcfq_customer_matches_job(sq.customer, customer):
 		return {"error": _("Sales Quote customer does not match this document.")}
 
-	ms_err = _main_service_mismatch_message(service_type, sales_quote)
-	if ms_err:
-		return {"error": ms_err}
+	if _gcfq_skip_main_service_match(doctype):
+		ts_err = _time_sensitive_quote_mismatch_message(sq)
+		if ts_err:
+			return {"error": ts_err}
+	else:
+		ms_err = _main_service_mismatch_message(service_type, sales_quote)
+		if ms_err:
+			return {"error": ms_err}
 
 	if doctype == "Declaration Order":
 		ca, dt, cb, jtm, _pol, _pod = _effective_declaration_order_filter_fields(doc, ov)
@@ -1666,7 +1805,7 @@ def preview_quotation_charges_for_job(
 				),
 			}
 		corr_err = None
-	elif doctype not in _PROGRAMME_GCFQ_DOCTYPES:
+	elif not _gcfq_skip_corridor_sql(doctype):
 		corr_err = _corridor_mismatch_message_for_preview(doc, service_type, sales_quote, ov)
 		if corr_err:
 			return {"error": corr_err}
@@ -1678,6 +1817,9 @@ def preview_quotation_charges_for_job(
 	parent_err = _gcfq_saved_parent_match_error(doc, service_type, sales_quote, ov)
 	if parent_err:
 		return {"error": parent_err}
+
+	if doctype == _GCFQ_TIME_SENSITIVE_DOCTYPE:
+		return _preview_time_sensitive_case_charges_from_sales_quote(sq)
 
 	if doctype == "Special Project":
 		from logistics.utils.sales_quote_programme_charges import preview_programme_charges_from_sales_quote
@@ -1748,6 +1890,40 @@ def _gcfq_internal_job_label(ij_name: str) -> str:
 	if not bits:
 		return ij_name
 	return f"{ij_name} ({' · '.join(bits)})"
+
+
+def _preview_time_sensitive_case_charges_from_sales_quote(sq) -> dict:
+	"""Map Sales Quote charges onto the GCFQ preview table (Main / Linked, not Internal Job)."""
+	from logistics.time_sensitive.ts_sq_fetch import _quote_charge_payload
+
+	charges: list[dict] = []
+	linked_n = 0
+	for ch in sq.get("charges") or []:
+		payload = _quote_charge_payload(ch)
+		scope = (payload.get("charge_scope") or "Main").strip() or "Main"
+		ls = (payload.get("linked_service") or "").strip()
+		if scope == "Linked":
+			linked_n += 1
+		charges.append(
+			{
+				"item_code": payload.get("item_code") or "",
+				"item_name": payload.get("description") or payload.get("label") or "",
+				"service_type": payload.get("service_type") or "",
+				"unit_rate": payload.get("rate"),
+				"rate": payload.get("rate"),
+				"currency": payload.get("currency") or "",
+				"charge_scope": scope,
+				"linked_service": ls,
+				"internal_job": ls if scope == "Linked" else "",
+				"internal_job_label": ls,
+			}
+		)
+	return {
+		"charges": charges,
+		"charges_count": len(charges),
+		"linked_charge_count": linked_n,
+		"internal_job_charge_count": 0,
+	}
 
 
 def _gcfq_quote_row_to_preview_dict(row, scope: str, internal_job: str | None) -> dict:
@@ -2075,9 +2251,15 @@ def apply_quotation_charges_to_job(
 		frappe.throw(_("Sales Quote customer does not match this document."))
 
 	service_type = implied_service_type_for_doctype(doctype)
-	if not service_type:
+	if not _gcfq_skip_main_service_match(doctype) and not service_type:
 		frappe.throw(_("Could not determine service type for {0}.").format(doctype))
-	_assert_sales_quote_main_service_matches_job(service_type, sales_quote)
+	if _gcfq_skip_main_service_match(doctype):
+		service_type = service_type or "Time Sensitive"
+		ts_err = _time_sensitive_quote_mismatch_message(sq)
+		if ts_err:
+			frappe.throw(ts_err, title=_("Invalid Sales Quote"))
+	else:
+		_assert_sales_quote_main_service_matches_job(service_type, sales_quote)
 	if doctype == "Declaration Order":
 		ca, dt, cb, jtm, _pol, _pod = _effective_declaration_order_filter_fields(doc, ov)
 		if not sales_quote_matches_declaration_order_filters(sales_quote, ca, dt, cb, jtm):
@@ -2086,7 +2268,7 @@ def apply_quotation_charges_to_job(
 					sales_quote
 				)
 			)
-	elif doctype not in _PROGRAMME_GCFQ_DOCTYPES:
+	elif not _gcfq_skip_corridor_sql(doctype):
 		_assert_sales_quote_corridor_matches_job(doc, service_type, sales_quote, ov)
 
 	_assert_sales_quote_org_dimensions_match_job(doc, sales_quote, ov)
@@ -2123,6 +2305,10 @@ def apply_quotation_charges_to_job(
 			doc.populate_charges_from_sales_quote(sales_quote)
 		elif doctype in ("Exhibit", "MICE Project"):
 			doc.populate_charges_from_sales_quote(sales_quote)
+		elif doctype == _GCFQ_TIME_SENSITIVE_DOCTYPE:
+			from logistics.time_sensitive.ts_sq_fetch import copy_charges_from_sales_quote_to_case
+
+			copy_charges_from_sales_quote_to_case(doc, sq, clear_existing=True)
 
 	# Append Internal-Job-scoped Sales Quote Charge rows into the Main's charges table (no separate
 	# write to internal job documents — the Main now carries both scopes side by side).
@@ -2140,6 +2326,13 @@ def apply_quotation_charges_to_job(
 	finally:
 		doc.flags.skip_sales_quote_on_change = False
 		doc.flags.gcfq_main_service_only = 0
+
+	if doctype == _GCFQ_TIME_SENSITIVE_DOCTYPE:
+		from logistics.time_sensitive.doctype.time_sensitive_case.time_sensitive_case import (
+			stamp_sales_quote_from_case,
+		)
+
+		stamp_sales_quote_from_case(sales_quote, doc)
 
 	ij_count = scope_counts.get("internal_job", 0)
 	if ij_count:

@@ -91,7 +91,7 @@ SI_EXCLUDED_STATUSES = ("Requested", "Posted", "Paid")
 # bill_to_field and invoice_type_field used to pre-filter when customer/invoice_type provided
 SALES_CHARGE_CONFIG = {
     "Transport Job": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", "bill_to", None),
-    "Air Shipment": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", None, None),
+    "Air Shipment": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", None, "invoice_type"),
     # Sea Shipment currently uses item_code/item_name/estimated_revenue in child rows.
     # Keep downstream logic backward-compatible with legacy fields (charge_item/charge_name/selling_amount).
     "Sea Shipment": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", "bill_to", "invoice_type"),
@@ -167,6 +167,9 @@ def get_eligible_charges_for_sales_invoice(
     if not frappe.db.exists(job_type, job_name):
         frappe.throw(_("{0} {1} does not exist.").format(job_type, job_name))
     job = frappe.get_doc(job_type, job_name)
+    from logistics.utils.menu_permission import assert_create_from_source
+
+    assert_create_from_source("Sales Invoice", source_doc=job)
     config = SALES_CHARGE_CONFIG.get(job_type)
     if not config:
         frappe.throw(_("Sales Invoice creation not supported for {0}.").format(job_type))
@@ -247,11 +250,12 @@ def create_sales_invoice_from_job(
         frappe.throw(_("Customer is required."))
 
     job = frappe.get_doc(job_type, job_name)
+    from logistics.utils.menu_permission import assert_create_from_source
+
+    assert_create_from_source("Sales Invoice", source_doc=job)
     config = SALES_CHARGE_CONFIG.get(job_type)
     if not config:
         frappe.throw(_("Sales Invoice creation not supported for {0}.").format(job_type))
-
-    charges_field, revenue_field, rate_field, qty_field, item_field, item_name_field, bill_to_field, invoice_type_field = config
     cost_rows_raw = _get_eligible_revenue_rows(job, config, customer=customer, invoice_type=invoice_type)
     if not cost_rows_raw:
         frappe.throw(_("No charges with revenue found for the selected customer and invoice type."))

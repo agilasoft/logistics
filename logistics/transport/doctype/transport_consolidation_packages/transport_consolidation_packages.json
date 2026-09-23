@@ -1,0 +1,357 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:package_reference",
+ "creation": "2026-08-19 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "package_info_section",
+  "package_reference",
+  "transport_job",
+  "shipper",
+  "consignee",
+  "column_break_1",
+  "package_type",
+  "package_count",
+  "package_weight",
+  "package_volume",
+  "section_break_cargo",
+  "commodity",
+  "description",
+  "marks_and_numbers",
+  "column_break_2",
+  "value",
+  "currency",
+  "insurance_required",
+  "section_break_dangerous_goods",
+  "contains_dangerous_goods",
+  "dg_class",
+  "un_number",
+  "column_break_3",
+  "proper_shipping_name",
+  "packing_group",
+  "emergency_contact",
+  "section_break_handling",
+  "handling_instructions",
+  "special_requirements",
+  "column_break_4",
+  "temperature_controlled",
+  "min_temperature",
+  "max_temperature",
+  "section_break_status",
+  "consolidation_status",
+  "position_in_consolidation",
+  "column_break_5",
+  "check_in_time",
+  "check_out_time",
+  "section_break_charges",
+  "base_charge",
+  "weight_charge",
+  "volume_charge",
+  "column_break_6",
+  "surcharges",
+  "total_charge",
+  "cost_allocation"
+ ],
+ "fields": [
+  {
+   "fieldname": "package_info_section",
+   "fieldtype": "Section Break",
+   "label": "Package Information"
+  },
+  {
+   "fieldname": "package_reference",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Package Reference",
+   "unique": 1
+  },
+  {
+   "fieldname": "transport_job",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Transport Job",
+   "options": "Transport Job",
+   "reqd": 1
+  },
+  {
+   "fieldname": "shipper",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Shipper",
+   "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
+   "options": "Shipper",
+   "reqd": 1
+  },
+  {
+   "fieldname": "consignee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Consignee",
+   "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
+   "options": "Consignee",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Box",
+   "fieldname": "package_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Package Type",
+   "options": "Box\nPallet\nContainer\nBulk\nOther",
+   "reqd": 1
+  },
+  {
+   "fieldname": "package_count",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Package Count",
+   "reqd": 1
+  },
+  {
+   "fieldname": "package_weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Package Weight (kg)",
+   "precision": "2",
+   "reqd": 1
+  },
+  {
+   "fieldname": "package_volume",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Package Volume (m\u00b3)",
+   "precision": "3"
+  },
+  {
+   "fieldname": "section_break_cargo",
+   "fieldtype": "Section Break",
+   "label": "Cargo Details"
+  },
+  {
+   "fieldname": "commodity",
+   "fieldtype": "Link",
+   "label": "Commodity",
+   "link_filters": "[[\"Commodity\", \"active\", \"=\", 1]]",
+   "options": "Commodity"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Long Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "marks_and_numbers",
+   "fieldtype": "Long Text",
+   "label": "Marks and Numbers"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "value",
+   "fieldtype": "Currency",
+   "label": "Value",
+   "precision": "2"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "link_filters": "[[\"Currency\", \"enabled\", \"=\", 1]]",
+   "options": "Currency"
+  },
+  {
+   "default": "0",
+   "fieldname": "insurance_required",
+   "fieldtype": "Check",
+   "label": "Insurance Required"
+  },
+  {
+   "fieldname": "section_break_dangerous_goods",
+   "fieldtype": "Section Break",
+   "label": "Dangerous Goods"
+  },
+  {
+   "default": "0",
+   "fieldname": "contains_dangerous_goods",
+   "fieldtype": "Check",
+   "label": "Contains Dangerous Goods"
+  },
+  {
+   "depends_on": "eval:doc.contains_dangerous_goods",
+   "fieldname": "dg_class",
+   "fieldtype": "Data",
+   "label": "DG Class"
+  },
+  {
+   "depends_on": "eval:doc.contains_dangerous_goods",
+   "fieldname": "un_number",
+   "fieldtype": "Data",
+   "label": "UN Number"
+  },
+  {
+   "depends_on": "eval:doc.contains_dangerous_goods",
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.contains_dangerous_goods",
+   "fieldname": "proper_shipping_name",
+   "fieldtype": "Data",
+   "label": "Proper Shipping Name"
+  },
+  {
+   "depends_on": "eval:doc.contains_dangerous_goods",
+   "fieldname": "packing_group",
+   "fieldtype": "Select",
+   "label": "Packing Group",
+   "options": "I\nII\nIII"
+  },
+  {
+   "depends_on": "eval:doc.contains_dangerous_goods",
+   "fieldname": "emergency_contact",
+   "fieldtype": "Data",
+   "label": "Emergency Contact"
+  },
+  {
+   "fieldname": "section_break_handling",
+   "fieldtype": "Section Break",
+   "label": "Handling Requirements"
+  },
+  {
+   "fieldname": "handling_instructions",
+   "fieldtype": "Long Text",
+   "label": "Handling Instructions"
+  },
+  {
+   "fieldname": "special_requirements",
+   "fieldtype": "Long Text",
+   "label": "Special Requirements"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "temperature_controlled",
+   "fieldtype": "Check",
+   "label": "Temperature Controlled"
+  },
+  {
+   "depends_on": "eval:doc.temperature_controlled",
+   "fieldname": "min_temperature",
+   "fieldtype": "Float",
+   "label": "Min Temperature (\u00b0C)",
+   "precision": "1"
+  },
+  {
+   "depends_on": "eval:doc.temperature_controlled",
+   "fieldname": "max_temperature",
+   "fieldtype": "Float",
+   "label": "Max Temperature (\u00b0C)",
+   "precision": "1"
+  },
+  {
+   "fieldname": "section_break_status",
+   "fieldtype": "Section Break",
+   "label": "Consolidation Status"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "consolidation_status",
+   "fieldtype": "Select",
+   "label": "Consolidation Status",
+   "options": "Pending\nAccepted\nIn Transit\nDelivered\nException"
+  },
+  {
+   "fieldname": "position_in_consolidation",
+   "fieldtype": "Int",
+   "label": "Position in Consolidation"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "check_in_time",
+   "fieldtype": "Datetime",
+   "label": "Check-in Time"
+  },
+  {
+   "fieldname": "check_out_time",
+   "fieldtype": "Datetime",
+   "label": "Check-out Time"
+  },
+  {
+   "fieldname": "section_break_charges",
+   "fieldtype": "Section Break",
+   "label": "Charges"
+  },
+  {
+   "fieldname": "base_charge",
+   "fieldtype": "Currency",
+   "label": "Base Charge",
+   "precision": "2"
+  },
+  {
+   "fieldname": "weight_charge",
+   "fieldtype": "Currency",
+   "label": "Weight Charge",
+   "precision": "2"
+  },
+  {
+   "fieldname": "volume_charge",
+   "fieldtype": "Currency",
+   "label": "Volume Charge",
+   "precision": "2"
+  },
+  {
+   "fieldname": "column_break_6",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "surcharges",
+   "fieldtype": "Currency",
+   "label": "Surcharges",
+   "precision": "2"
+  },
+  {
+   "fieldname": "total_charge",
+   "fieldtype": "Currency",
+   "label": "Total Charge",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_allocation",
+   "fieldtype": "Percent",
+   "label": "Cost Allocation %",
+   "precision": "2",
+   "read_only": 1
+  }
+ ],
+ "hide_toolbar": 1,
+ "in_create": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-19 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Transport Consolidation Packages",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

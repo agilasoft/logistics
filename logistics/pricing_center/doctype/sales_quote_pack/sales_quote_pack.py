@@ -11,9 +11,39 @@ from frappe.utils import flt
 
 class SalesQuotePack(Document):
 	def validate(self):
+		self._validate_manual_accepted_status()
 		self._validate_unique_quotes()
+		self._validate_quote_customers()
 		self._sync_quote_pack_links()
 		self._calculate_total()
+
+	def before_submit(self):
+		self._submit_linked_sales_quotes()
+		self.status = "Accepted"
+
+	def before_cancel(self):
+		# Set before db_update so Cancelled is persisted (on_cancel runs after save).
+		self.status = "Cancelled"
+
+	def on_cancel(self):
+		# Child Sales Quotes keep sales_quote_pack; allow pack cancel despite that link.
+		self.ignore_linked_doctypes = ["Sales Quote"]
+
+	def _validate_manual_accepted_status(self):
+		"""Accepted is set on Submit; block setting it on a draft save."""
+		if (getattr(self, "status", None) or "").strip() != "Accepted":
+			return
+		# Only enforce on draft saves; submit/cancel paths set Accepted/Cancelled themselves.
+		if int(getattr(self, "docstatus", 0) or 0) != 0:
+			return
+		if getattr(self, "_action", None) == "submit":
+			return
+		if getattr(self.flags, "ignore_accepted_status_check", False):
+			return
+		frappe.throw(
+			_("Set Status to Accepted by submitting this Sales Quote Pack."),
+			title=_("Submit Required"),
+		)
 
 	def _validate_unique_quotes(self):
 		seen = set()
@@ -28,6 +58,21 @@ class SalesQuotePack(Document):
 			if other and other != self.name and not self.is_new():
 				frappe.throw(
 					_("Sales Quote {0} is already in pack {1}.").format(sq, other)
+				)
+
+	def _validate_quote_customers(self):
+		if not self.customer:
+			return
+		for row in self.get("quotations") or []:
+			sq = (row.sales_quote or "").strip()
+			if not sq:
+				continue
+			quote_customer = frappe.db.get_value("Sales Quote", sq, "customer")
+			if quote_customer and quote_customer != self.customer:
+				frappe.throw(
+					_("Sales Quote {0} belongs to customer {1}, not {2}.").format(
+						sq, quote_customer, self.customer
+					)
 				)
 
 	def _sync_quote_pack_links(self):
@@ -59,6 +104,75 @@ class SalesQuotePack(Document):
 				continue
 			total += flt(_quote_charge_total(sq))
 		self.total_amount = total
+
+	def _linked_quote_names(self):
+		names = []
+		seen = set()
+		for row in self.get("quotations") or []:
+			sq = (row.sales_quote or "").strip()
+			if not sq or sq in seen:
+				continue
+			seen.add(sq)
+			names.append(sq)
+		return names
+
+	def _submit_linked_sales_quotes(self):
+		names = self._linked_quote_names()
+		if not names:
+			frappe.throw(
+				_("Add at least one Sales Quote before submitting this pack."),
+				title=_("Quotations Required"),
+			)
+
+		errors = []
+		to_submit = []
+		for name in names:
+			row = frappe.db.get_value("Sales Quote", name, ["name", "docstatus"], as_dict=True)
+			if not row:
+				errors.append(_("Sales Quote {0} was not found.").format(name))
+				continue
+			if int(row.docstatus or 0) == 1:
+				continue
+			if int(row.docstatus or 0) == 2:
+				errors.append(_("Sales Quote {0} is cancelled; remove or replace it.").format(name))
+				continue
+			try:
+				quote = frappe.get_doc("Sales Quote", name)
+				quote.flags.submit_from_sales_quote_pack = True
+				quote.run_method("before_submit")
+				to_submit.append(name)
+			except frappe.ValidationError as e:
+				errors.append(_("Sales Quote {0}: {1}").format(name, str(e)))
+			except Exception as e:
+				errors.append(_("Sales Quote {0}: {1}").format(name, str(e)))
+
+		if errors:
+			frappe.throw(
+				"<br>".join(errors),
+				title=_("Cannot Submit Sales Quote Pack"),
+			)
+
+		submitted_now = []
+		try:
+			for name in to_submit:
+				quote = frappe.get_doc("Sales Quote", name)
+				if int(quote.docstatus or 0) == 1:
+					continue
+				quote.flags.submit_from_sales_quote_pack = True
+				quote.submit()
+				submitted_now.append(name)
+		except Exception:
+			for name in reversed(submitted_now):
+				try:
+					q = frappe.get_doc("Sales Quote", name)
+					if int(q.docstatus or 0) == 1:
+						q.cancel()
+				except Exception:
+					frappe.log_error(
+						title="Sales Quote Pack submit rollback failed",
+						message=frappe.get_traceback(),
+					)
+			raise
 
 
 def cint_row(row, field):

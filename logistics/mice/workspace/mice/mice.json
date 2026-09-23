@@ -1,9 +1,14 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"ev-hdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"RsApsOHeGm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"ev-ev\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Project\",\"col\":3}},{\"id\":\"ev-ep\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Docket\",\"col\":3}},{\"id\":\"ev-eo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Order\",\"col\":3}},{\"id\":\"ev-ej\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Job\",\"col\":3}},{\"id\":\"ev-sp\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ev-mh\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\",\"col\":12}},{\"id\":\"ev-mc\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}},{\"id\":\"ev-sc\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"ev-sp2\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ev-rh\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analytics</b></span>\",\"col\":12}},{\"id\":\"ev-rc\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational\",\"col\":4}}]",
+ "content": "[{\"id\":\"miceDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"MICE Operations Dashboard\",\"col\":12}},{\"id\":\"miceOpsHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Event Operations</b></span>\",\"col\":12}},{\"id\":\"miceScActive\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Active Projects\",\"col\":3}},{\"id\":\"miceScUpcoming\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Upcoming\",\"col\":3}},{\"id\":\"miceScOverdue\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Overdue\",\"col\":3}},{\"id\":\"miceScSla\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"SLA Breached\",\"col\":3}},{\"id\":\"ev-hdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"RsApsOHeGm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"ev-ev\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Project\",\"col\":3}},{\"id\":\"ev-ep\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Docket\",\"col\":3}},{\"id\":\"ev-eo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Order\",\"col\":3}},{\"id\":\"ev-ej\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Job\",\"col\":3}},{\"id\":\"ev-sp\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ev-mh\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\",\"col\":12}},{\"id\":\"ev-mc\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}},{\"id\":\"ev-sc\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"ev-sp2\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ev-rh\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analytics</b></span>\",\"col\":12}},{\"id\":\"ev-rc\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational\",\"col\":4}}]",
  "creation": "2026-05-18 00:00:00",
- "custom_blocks": [],
+ "custom_blocks": [
+  {
+   "custom_block_name": "MICE Operations Dashboard",
+   "label": "MICE Operations Dashboard"
+  }
+ ],
  "docstatus": 0,
  "doctype": "Workspace",
  "for_user": "",
@@ -176,7 +181,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-05-27 21:43:17.532521",
+ "modified": "2026-08-18 14:20:00.000000",
  "modified_by": "Administrator",
  "module": "MICE",
  "name": "MICE",
@@ -188,6 +193,38 @@
  "roles": [],
  "sequence_id": 0.0,
  "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Active Projects",
+   "link_to": "MICE Project",
+   "stats_filter": "[[\"MICE Project\",\"status\",\"not in\",[\"Completed\",\"Cancelled\"]]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "List",
+   "label": "Upcoming",
+   "link_to": "MICE Project",
+   "stats_filter": "[[\"MICE Project\",\"status\",\"not in\",[\"Completed\",\"Cancelled\"]],[\"MICE Project\",\"show_open_date\",\">=\",frappe.datetime.get_today()]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Red",
+   "doc_view": "List",
+   "label": "Overdue",
+   "link_to": "MICE Project",
+   "stats_filter": "[[\"MICE Project\",\"status\",\"in\",[\"Draft\",\"Booked\",\"Planning\"]],[\"MICE Project\",\"move_in_date\",\"<\",frappe.datetime.get_today()]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Red",
+   "doc_view": "List",
+   "label": "SLA Breached",
+   "link_to": "MICE Order",
+   "stats_filter": "[[\"MICE Order\",\"sla_status\",\"=\",\"Breached\"]]",
+   "type": "DocType"
+  },
   {
    "color": "Blue",
    "doc_view": "List",

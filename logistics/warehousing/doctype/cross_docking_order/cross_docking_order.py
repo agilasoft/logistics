@@ -24,6 +24,7 @@ class CrossDockingOrder(Document):
 def make_warehouse_job(source_name, target_doc=None):
 	try:
 		import time
+		from logistics.utils.menu_permission import assert_create_from_source
 
 		if source_name and source_name.startswith("new-"):
 			frappe.throw(_("Cannot create Warehouse Job for unsaved document. Please save the Cross-Docking Order first."))
@@ -41,6 +42,8 @@ def make_warehouse_job(source_name, target_doc=None):
 					source_doc = frappe.get_cached_doc("Cross-Docking Order", source_name)
 				except frappe.DoesNotExistError:
 					frappe.throw(_("Cross-Docking Order {0} is not ready yet. Please try again in a moment.").format(source_name))
+
+			assert_create_from_source("Warehouse Job", source_doc=source_doc)
 
 			if source_doc.contract:
 				contract_status = frappe.db.get_value("Warehouse Contract", source_doc.contract, "docstatus")

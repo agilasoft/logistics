@@ -38,6 +38,31 @@ def _norm(value: Any) -> str:
 	return (value or "").strip()
 
 
+# Parents that store programme/budget lines on ``consolidation_charges`` instead of ``charges``.
+_PROGRAMME_CHARGES_FIELD_BY_DOCTYPE: dict[str, str] = {
+	"MICE Project": "consolidation_charges",
+	"Exhibit": "consolidation_charges",
+}
+
+
+def programme_charges_table_field(parent_doctype: str | None) -> str:
+	"""Child-table fieldname for programme/budget charge lines on *parent_doctype*."""
+	dt = _norm(parent_doctype)
+	return _PROGRAMME_CHARGES_FIELD_BY_DOCTYPE.get(dt, "charges")
+
+
+def _charge_service_type_matches_requested(
+	charge_service_type: Any, requested_service_type: str
+) -> bool:
+	"""True when charge service_type equals *requested*, or charge has blank service_type (wildcard)."""
+	charge_st = _norm(charge_service_type)
+	if not charge_st:
+		return True
+	if not requested_service_type:
+		return True
+	return sales_quote_charge_service_types_equal(charge_st, requested_service_type)
+
+
 def _lifecycle_row_name(row: Any) -> str:
 	return persisted_special_project_service_name(row)
 
@@ -84,13 +109,18 @@ def available_charges(sp_doc: Any, service_type: str | None = None) -> list[Any]
 def programme_charges_for_service_type(
 	sp_doc: Any, service_type: str | None = None
 ) -> list[Any]:
-	"""Programme charge rows matching a lifecycle service type (budget lines, not tagged)."""
+	"""Programme charge rows matching a lifecycle service type (budget lines, not tagged).
+
+	Reads ``charges`` by default; MICE Project / Exhibit use ``consolidation_charges``.
+	Charges with a blank ``service_type`` match any requested service (consolidation rows).
+	"""
 	out: list[Any] = []
 	st = _norm(service_type)
-	for charge in sp_doc.get("charges") or []:
+	field = programme_charges_table_field(getattr(sp_doc, "doctype", None))
+	for charge in sp_doc.get(field) or []:
 		if _is_disbursement_charge(charge):
 			continue
-		if st and not sales_quote_charge_service_types_equal(
+		if st and not _charge_service_type_matches_requested(
 			getattr(charge, "service_type", None), st
 		):
 			continue

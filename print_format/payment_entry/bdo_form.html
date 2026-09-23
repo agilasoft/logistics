@@ -1,48 +1,43 @@
 <!-- BDO Telegraphic Transfer — vector PDF preview (fields stamped on source PDF) -->
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+
+		@page { size: 210mm 271.5mm; margin: 0; }
+
+		html, body {
+			margin: 0;
+			padding: 0;
+			width: 210mm;
+			height: 271.5mm;
+			overflow: hidden;
+			background: #fff;
+		}
+
+		.pdf-page {
+			width: 210mm;
+			height: 271.5mm;
+			border: 0;
+			display: block;
+		}
+
+		.missing-template {
+			padding: 20px;
+			font-family: Arial, sans-serif;
+			font-size: 12px;
+			color: #333;
+		}
+	</style>
+</head>
+<body>
 {% if doc.doctype != 'Payment Entry' %}
 <div class="missing-template">Wrong print format. Use on Payment Entry only.</div>
 {% else %}
-{% set preview = frappe.call('logistics.print_format.payment_entry.bank_forms_pdf.get_embedded_pdf', doctype=doc.doctype, name=doc.name) %}
-<style>
-	.print-format.print-format-preview {
-		max-width: none !important;
-		width: 100% !important;
-		min-height: 0 !important;
-		padding: 0 !important;
-		margin: 0 !important;
-		background: #fff;
-		overflow: visible !important;
-	}
-
-	.bdo-pdf-viewer {
-		display: block;
-		width: 100%;
-		height: {{ preview.height_mm + 14 }}mm;
-		min-height: {{ preview.height_mm + 14 }}mm;
-		border: 0;
-		margin: 0;
-		padding: 0;
-	}
-</style>
-<script>
-(function () {
-	try {
-		var frame = window.frameElement;
-		if (!frame) return;
-		frame.style.width = "100%";
-		frame.style.maxWidth = "none";
-		frame.setAttribute("scrolling", "auto");
-		var preview = frame.closest(".print-preview");
-		if (preview) {
-			preview.style.maxWidth = "none";
-			preview.style.width = "100%";
-		}
-	} catch (e) {}
-})();
-</script>
-<iframe
-	class="bdo-pdf-viewer"
-	title="BDO Telegraphic Transfer"
-	src="{{ preview.src }}"
-></iframe>
+{% set pdf_uri = frappe.call('logistics.print_format.payment_entry.bank_forms_pdf.get_embedded_pdf', doctype=doc.doctype, name=doc.name) %}
+<embed class="pdf-page" type="application/pdf" src="{{ pdf_uri }}" />
 {% endif %}
+</body>
+</html>

@@ -91,7 +91,41 @@ Each charge line (Air Freight, Sea Freight, Transport) uses a **Calculation Meth
 
 ### 4.2 Unit Types
 
-**Unit Type** defines what “quantity” means: Weight, Volume, Distance, Package, Piece, Job, Trip, TEU, or Operation Time.
+**Unit Type** defines what “quantity” means: Weight, Volume, Distance, Package, Piece, Job, Trip, TEU, Item Count, Value, or Operation Time.
+
+### 4.3 Customs fees (Job / Item Count / Value)
+
+On a Customs charge row, pick **Unit Type** — not a new calculation method.
+
+| What you want | Calculation Method | Unit Type |
+|---|---|---|
+| Per entry | Per Unit (or Flat Rate) | **Job** |
+| Per line item | Per Unit | **Item Count** |
+| Based on value | **Percentage** | **Value** |
+
+**Per entry:** Method = Per Unit, Unit Type = Job, rate 2500, qty 1. Amount = 2500. Lines, **Number of Line Items**, and CIF do not change it.
+
+**Per line item:** Method = Per Unit, Unit Type = Item Count, rate 50. On the **Sales Quote**, type estimated lines on Quantity (example: 12). Amount = 600. On **Declaration Order**, **Number of Line Items** defaults to how many invoice rows there are. If they enter 15 rows, header becomes 15, amount = 750. If they only have time for **1 summary row**, leave that 1 row for CIF and type **100** on **Number of Line Items**. Amount = 50 × 100. Header stays 100 (not reset to 1).
+
+**Based on value:** Method = Percentage, Unit Type = Value, rate 0.5%. On the quote, type estimated CIF in Base Amount. On the declaration, fill the commercial invoice so CIF is set. Amount uses real CIF. Do not use Per Unit + Value for this (that is rate × CIF, not a percent).
+
+After quote conversion, charges copy as-is. Save or Recalculate All Charges after filling lines and CIF.
+
+#### How to test
+
+Use one Sales Quote with three Customs charges:
+
+| What | Method | Unit Type | Rate | You type | Expected |
+|---|---|---|---|---|---|
+| Per entry | Per Unit | Job | 2500 | Qty 1 | **2500** |
+| Per line item | Per Unit | Item Count | 50 | Qty 12 | **600** |
+| Based on value | Percentage | Value | 0.5 | Base 100000 | **500** |
+
+Full lines: convert to Declaration Order, add 15 invoice rows (header **15**), CIF **120000**, Recalculate. Job **2500**; Item Count **750**; Percentage **600**. Change rows to 10 without overriding the header: header **10**, line fee **500**. Job unchanged.
+
+Shortcut (1 row, 100 lines): add 1 invoice row with full value, type header **100**, Recalculate. Item Count qty **100**. Save again: header must not go back to 1. Job still **2500**. Percentage uses CIF from that one row.
+
+Extra: no rows and empty header → Item Count stays at quote qty. Packages do not drive Item Count. Cost side with the same unit type behaves the same.
 
 For full details, required fields, and examples, see [Sales Quote – Calculation Method Guide](welcome/sales-quote-calculation-method).
 

@@ -638,22 +638,30 @@ function _bco_execute_create(state, dialog, selected, payloadParent) {
 				frappe.msgprint(__("Call-off creation failed."));
 				return;
 			}
-			dialog.hide();
-			frappe.show_alert({
-				message: r.message.message || __("Created."),
-				indicator: "green",
-			});
-			var dt = r.message.doctype;
-			var nm = r.message.name;
-			if (dt && nm) {
-				if (window.logistics_navigate_when_doc_exists) {
-					window.logistics_navigate_when_doc_exists(dt, nm, function () {
-						frappe.set_route("Form", dt, nm);
-					});
-				} else {
+		dialog.hide();
+		frappe.show_alert({
+			message: r.message.message || __("Created."),
+			indicator: "green",
+		});
+		var dt = r.message.doctype;
+		var nm = r.message.name;
+		if (dt && nm) {
+			if (window.logistics_navigate_when_doc_exists) {
+				window.logistics_navigate_when_doc_exists(dt, nm, function () {
+					// Clear any cached document data before navigating to ensure fresh load
+					if (frappe.model && frappe.model.clear_doc) {
+						frappe.model.clear_doc(dt, nm);
+					}
 					frappe.set_route("Form", dt, nm);
+				});
+			} else {
+				// Clear any cached document data before navigating to ensure fresh load
+				if (frappe.model && frappe.model.clear_doc) {
+					frappe.model.clear_doc(dt, nm);
 				}
+				frappe.set_route("Form", dt, nm);
 			}
+		}
 		},
 	});
 }

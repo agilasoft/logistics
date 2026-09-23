@@ -17,8 +17,23 @@ frappe.ui.form.on('Air Shipment IATA Transaction', {
 		if (frm.doc.tact_rate_lookup || frm.doc.eawb_enabled) {
 			frm.add_custom_button(__('Lookup TACT Rate'), () => run_method(frm, 'lookup_tact_rate'), __('Integrations'));
 		}
-		if (frm.doc.cass_participant_code) {
-			frm.add_custom_button(__('Submit CASS Settlement'), () => run_method(frm, 'submit_cass_settlement'), __('Integrations'));
+		if (frm.doc.cass_participant_code || frm.doc.air_shipment) {
+			frm.add_custom_button(__('View CASS Billing'), () => {
+				frm.call('get_cass_billing_for_shipment').then((r) => {
+					if (r.exc) {
+						return;
+					}
+					const data = r.message || {};
+					if (data.period) {
+						frappe.set_route('Form', 'CASS Settlement Period', data.period);
+						return;
+					}
+					frappe.msgprint(
+						__('No CASS billing lines found for this shipment. Import a CASS File on a CASS Settlement Period.')
+					);
+					frappe.set_route('List', 'CASS Settlement Period');
+				});
+			}, __('CASSLink'));
 		}
 		frm.add_custom_button(__('Validate DG (AutoCheck)'), () => run_method(frm, 'validate_dg_autocheck'), __('Integrations'));
 	},

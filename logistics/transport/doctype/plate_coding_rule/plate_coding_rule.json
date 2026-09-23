@@ -105,6 +105,7 @@
  "name": "Plate Coding Rule",
  "naming_rule": "By fieldname",
  "owner": "Administrator",
+ "description": "DEPRECATED: Use Truck Ban Constraint → Plate Coding instead. This DocType is no longer enforced.",
  "permissions": [
   {
    "create": 1,

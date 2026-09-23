@@ -132,6 +132,11 @@ CHARGE_PARENT_OVERRIDE_ALLOWLIST = frozenset(
         "sea_volume",
         "air_weight",
         "air_volume",
+        "cif",
+        "fob",
+        "inv_total_amount",
+        "number_of_line_items",
+        "item_count",
     }
 )
 
@@ -232,6 +237,40 @@ def get_charge_bill_to_customers(charge: Any) -> List[str]:
 _CUSTOMS_PARENT_DOCTYPES = frozenset({"Declaration", "Declaration Order"})
 
 
+def _customs_invoice_line_count(parent_doc: Any) -> int:
+    lines = getattr(parent_doc, "commercial_invoice_line_items", None) or []
+    try:
+        return len(lines)
+    except TypeError:
+        return 0
+
+
+def _customs_item_count(parent_doc: Any) -> float:
+    """Item Count for customs: header Number of Line Items, else invoice row count. Never packages."""
+    header = flt(
+        _get_field(parent_doc, "number_of_line_items")
+        or getattr(parent_doc, "number_of_line_items", None)
+        or getattr(parent_doc, "item_count", None)
+        or 0
+    )
+    if header > 0:
+        return header
+    return float(_customs_invoice_line_count(parent_doc))
+
+
+def _customs_goods_value(parent_doc: Any) -> float:
+    """Ad valorem base: CIF, then FOB, then invoice total."""
+    if not parent_doc:
+        return 0.0
+    return flt(
+        _get_field(parent_doc, "cif", "fob", "inv_total_amount", "goods_value", "declared_value")
+        or getattr(parent_doc, "cif", None)
+        or getattr(parent_doc, "fob", None)
+        or getattr(parent_doc, "inv_total_amount", None)
+        or 0
+    )
+
+
 def _customs_line_field(row: Any, fieldname: str) -> Any:
     if isinstance(row, dict):
         return row.get(fieldname)
@@ -290,6 +329,38 @@ def sum_customs_line_chargeable_weight(commercial_invoice_line_items=None, compa
     return _sum_customs_line_chargeable_weight(parent)
 
 
+def _child_table_rows(parent_doc: Any, fieldname: str) -> list:
+    if not parent_doc:
+        return []
+    rows = getattr(parent_doc, fieldname, None)
+    if rows is None or callable(rows):
+        return []
+    if isinstance(rows, dict):
+        return list(rows.values())
+    if isinstance(rows, (list, tuple)):
+        return list(rows)
+    return []
+
+
+def _row_container_type(row: Any) -> str:
+    if isinstance(row, dict):
+        return (row.get("type") or row.get("container_type") or "").strip()
+    return (getattr(row, "type", None) or getattr(row, "container_type", None) or "").strip()
+
+
+def container_type_counts_from_parent(parent_doc: Any) -> Dict[str, float]:
+    """Count containers on the parent by Container Type (booking/order child tables)."""
+    counts: Dict[str, float] = {}
+    if not parent_doc:
+        return counts
+    for fieldname in ("containers", "consolidation_containers"):
+        for row in _child_table_rows(parent_doc, fieldname):
+            ctype = _row_container_type(row)
+            if ctype:
+                counts[ctype] = counts.get(ctype, 0.0) + 1.0
+    return counts
+
+
 def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
     """Extract quantity data from parent document for charge calculation.
 
@@ -312,6 +383,8 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
             "actual_trips": 0,
             "actual_days": 0,
             "actual_goods_value": 0,
+            "container_type_counts": {},
+            "header_container_type": "",
         }
 
     parent_doctype = getattr(parent_doc, "doctype", None) or parent_doc.get("doctype")
@@ -387,11 +460,14 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
         pk = parent_doc.packages
         item_count = len(pk) if isinstance(pk, (list, tuple)) else (cint(pk) if pk else 0)
 
+    if parent_doctype in _CUSTOMS_PARENT_DOCTYPES:
+        item_count = _customs_item_count(parent_doc)
+
     handling_units = flt(_get_field(parent_doc, "total_handling_units") or 0)
-    if handling_units <= 0 and hasattr(parent_doc, "items") and parent_doc.items:
+    if handling_units <= 0:
         hus = set()
-        for it in parent_doc.items:
-            hu = getattr(it, "handling_unit", None)
+        for it in _child_table_rows(parent_doc, "items"):
+            hu = getattr(it, "handling_unit", None) if not isinstance(it, dict) else it.get("handling_unit")
             if hu:
                 hus.add(hu)
         handling_units = float(len(hus)) if hus else 0.0
@@ -401,6 +477,10 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
 
     calendar_days = flt(_get_field(parent_doc, "total_days", "calendar_days", "billing_days") or 0)
     goods_value = flt(_get_field(parent_doc, "goods_value", "declared_value") or 0)
+    if parent_doctype in _CUSTOMS_PARENT_DOCTYPES:
+        customs_val = _customs_goods_value(parent_doc)
+        if customs_val > 0:
+            goods_value = customs_val
 
     return {
         "actual_quantity": weight or volume or pieces or distance or teu or containers or item_count or handling_units or trip_count or goods_value or 1,
@@ -417,6 +497,8 @@ def _get_parent_actual_data(charge_doc: Any, parent_doc: Any) -> Dict:
         "actual_trips": trip_count,
         "actual_days": calendar_days if calendar_days > 0 else operation_time,
         "actual_goods_value": goods_value,
+        "container_type_counts": container_type_counts_from_parent(parent_doc),
+        "header_container_type": (_get_field(parent_doc, "container_type") or "").strip(),
     }
 
 
@@ -650,28 +732,69 @@ INTERNAL_JOB_MAIN_JOB_TYPES = (
 )
 
 
-def _tariff_rate_row_to_rate_data(rate) -> Optional[Dict]:
-    """Build uniform rate_data for _fetch_rates_from_tariff from a Tariff Charge row."""
-    d = rate.as_dict() if hasattr(rate, "as_dict") else dict(rate)
-    raw = d.get("rate")
-    if raw is None or raw == "":
-        raw = d.get("rate_value")
-    if raw is None or raw == "":
-        raw = d.get("unit_rate")
-    rate_num = flt(raw or 0)
+def _first_nonempty(*values):
+    """Return the first value that is not None or empty string (0 is kept)."""
+    for val in values:
+        if val is None or val == "":
+            continue
+        return val
+    return None
+
+
+def _tariff_rate_row_to_rate_data(rate, is_revenue: bool = True) -> Optional[Dict]:
+    """Build uniform rate_data for _fetch_rates_from_tariff from a Tariff Charge row.
+
+    When is_revenue is False, prefer dual-side cost fields (unit_cost, cost_*), falling
+    back to revenue/legacy keys so MICE-style tariffs that only fill unit_rate still work.
+    """
+    as_dict = getattr(rate, "as_dict", None)
+    d = as_dict() if callable(as_dict) else dict(rate)
+    if is_revenue:
+        raw = _first_nonempty(d.get("rate"), d.get("rate_value"), d.get("unit_rate"))
+        method = (
+            (d.get("calculation_method") or d.get("revenue_calculation_method") or "Per Unit") or ""
+        ).strip()
+        return {
+            "calculation_method": method,
+            "rate": flt(raw or 0),
+            "unit_type": d.get("unit_type") or "Weight",
+            "currency": d.get("currency") or "USD",
+            "minimum_quantity": flt(d.get("minimum_quantity", 0) or 0),
+            "minimum_charge": flt(d.get("minimum_charge", 0) or 0),
+            "maximum_charge": flt(d.get("maximum_charge", 0) or 0),
+            "base_amount": flt(d.get("base_amount", 0) or 0),
+            "uom": d.get("uom"),
+            "quantity": flt(d.get("quantity") or 0),
+        }
+
+    raw = _first_nonempty(
+        d.get("unit_cost"),
+        d.get("rate"),
+        d.get("rate_value"),
+        d.get("unit_rate"),
+    )
     method = (
-        (d.get("calculation_method") or d.get("revenue_calculation_method") or "Per Unit") or ""
+        (d.get("cost_calculation_method") or d.get("calculation_method") or "Per Unit") or ""
     ).strip()
     return {
         "calculation_method": method,
-        "rate": rate_num,
-        "unit_type": d.get("unit_type") or "Weight",
-        "currency": d.get("currency") or "USD",
-        "minimum_quantity": flt(d.get("minimum_quantity", 0) or 0),
-        "minimum_charge": flt(d.get("minimum_charge", 0) or 0),
-        "maximum_charge": flt(d.get("maximum_charge", 0) or 0),
-        "base_amount": flt(d.get("base_amount", 0) or 0),
-        "uom": d.get("uom"),
+        "rate": flt(raw or 0),
+        "unit_type": d.get("cost_unit_type") or d.get("unit_type") or "Weight",
+        "currency": d.get("cost_currency") or d.get("currency") or "USD",
+        "minimum_quantity": flt(
+            _first_nonempty(d.get("cost_minimum_quantity"), d.get("minimum_quantity"), 0) or 0
+        ),
+        "minimum_charge": flt(
+            _first_nonempty(d.get("cost_minimum_charge"), d.get("minimum_charge"), 0) or 0
+        ),
+        "maximum_charge": flt(
+            _first_nonempty(d.get("cost_maximum_charge"), d.get("maximum_charge"), 0) or 0
+        ),
+        "base_amount": flt(
+            _first_nonempty(d.get("cost_base_amount"), d.get("base_amount"), 0) or 0
+        ),
+        "uom": d.get("cost_uom") or d.get("uom"),
+        "quantity": flt(d.get("cost_quantity") or 0),
     }
 
 
@@ -679,10 +802,12 @@ def _find_tariff_rate_match(
     tariff_name: str,
     item_code: str,
     service_type: Optional[str] = None,
+    is_revenue: bool = True,
 ) -> Optional[Tuple[Dict, Any, str]]:
     """
     Find matching Tariff Charge row by item_code and optional service type.
     Returns (normalized rate_data dict, raw child row, parentfield name).
+    Pass is_revenue=False to normalize cost-side pricing fields.
     """
     if not tariff_name or not item_code:
         return None
@@ -702,7 +827,7 @@ def _find_tariff_rate_match(
             continue
         if want and canonical_charge_service_type_for_storage(getattr(rate, "service_type", "") or "") != want:
             continue
-        return (_tariff_rate_row_to_rate_data(rate), rate, "rates")
+        return (_tariff_rate_row_to_rate_data(rate, is_revenue=is_revenue), rate, "rates")
     return None
 
 
@@ -741,6 +866,13 @@ TARIFF_CONTEXT_COPY_SKIP = frozenset(
         "cost_calculation_method",
         "unit_rate",
         "unit_cost",
+        "cost_uom",
+        "cost_unit_type",
+        "cost_currency",
+        "cost_minimum_quantity",
+        "cost_minimum_charge",
+        "cost_maximum_charge",
+        "cost_base_amount",
         "quantity",
         "cost_quantity",
         "tariff_valid_from",
@@ -819,6 +951,8 @@ CHARGE_ROW_CLIENT_EXPORT_FIELDS = (
     "cost_base_amount",
     "use_tariff_in_revenue",
     "use_tariff_in_cost",
+    "use_unit_breaks",
+    "cost_use_unit_breaks",
     "load_type",
     "vehicle_type",
     "container_type",
@@ -876,35 +1010,201 @@ def _apply_tariff_rate_data_revenue(charge_doc: Any, rate_data: Dict) -> None:
         charge_doc.base_amount = rate_data.get("base_amount", 0)
     if hasattr(charge_doc, "uom"):
         charge_doc.uom = rate_data.get("uom")
+    if hasattr(charge_doc, "quantity") and "quantity" in rate_data:
+        charge_doc.quantity = rate_data.get("quantity", 0)
+
+
+def _charge_doc_has_field(charge_doc: Any, fieldname: str) -> bool:
+    """True when field exists on the charge doctype meta (or key on plain/_dict test objects)."""
+    meta = getattr(charge_doc, "meta", None)
+    if meta is not None and getattr(meta, "has_field", None):
+        return bool(meta.has_field(fieldname))
+    if isinstance(charge_doc, dict):
+        return fieldname in charge_doc
+    try:
+        from frappe import _dict as _frappe_dict
+    except Exception:
+        _frappe_dict = None
+    if _frappe_dict is not None and isinstance(charge_doc, _frappe_dict):
+        return fieldname in charge_doc
+    return fieldname in getattr(charge_doc, "__dict__", {})
+
+
+_CONSOLIDATION_STYLE_CALC_METHODS = frozenset(
+	{
+		"Per Unit",
+		"Fixed Amount",
+		"Flat Rate",
+		"Base Plus Additional",
+		"First Plus Additional",
+		"Percentage",
+		"Location-based",
+		"Weight Break",
+		"Qty Break",
+		"Percentage Break",
+	}
+)
 
 
 def _apply_tariff_rate_data_cost(charge_doc: Any, rate_data: Dict) -> None:
     method = rate_data.get("calculation_method") or "Per Unit"
-    if hasattr(charge_doc, "cost_calculation_method"):
-        charge_doc.cost_calculation_method = method
-    if hasattr(charge_doc, "unit_cost"):
-        charge_doc.unit_cost = rate_data.get("rate", 0)
-    if hasattr(charge_doc, "cost_unit_type"):
-        charge_doc.cost_unit_type = rate_data.get("unit_type")
-    if hasattr(charge_doc, "cost_currency"):
-        charge_doc.cost_currency = rate_data.get("currency") or "USD"
-    if hasattr(charge_doc, "cost_minimum_quantity"):
-        charge_doc.cost_minimum_quantity = rate_data.get("minimum_quantity", 0)
-    if hasattr(charge_doc, "cost_minimum_charge"):
-        charge_doc.cost_minimum_charge = rate_data.get("minimum_charge", 0)
-    if hasattr(charge_doc, "cost_maximum_charge"):
-        charge_doc.cost_maximum_charge = rate_data.get("maximum_charge", 0)
-    if hasattr(charge_doc, "cost_base_amount"):
-        charge_doc.cost_base_amount = rate_data.get("base_amount", 0)
-    if hasattr(charge_doc, "cost_uom"):
-        charge_doc.cost_uom = rate_data.get("uom")
+    # Dual-side charge tables (unit_cost / cost_*) — prefer those when present.
+    if _charge_doc_has_field(charge_doc, "unit_cost") or _charge_doc_has_field(
+        charge_doc, "cost_calculation_method"
+    ):
+        if hasattr(charge_doc, "cost_calculation_method"):
+            charge_doc.cost_calculation_method = method
+        if hasattr(charge_doc, "unit_cost"):
+            charge_doc.unit_cost = rate_data.get("rate", 0)
+        if hasattr(charge_doc, "cost_unit_type"):
+            charge_doc.cost_unit_type = rate_data.get("unit_type")
+        if hasattr(charge_doc, "cost_currency"):
+            charge_doc.cost_currency = rate_data.get("currency") or "USD"
+        if hasattr(charge_doc, "cost_minimum_quantity"):
+            charge_doc.cost_minimum_quantity = rate_data.get("minimum_quantity", 0)
+        if hasattr(charge_doc, "cost_minimum_charge"):
+            charge_doc.cost_minimum_charge = rate_data.get("minimum_charge", 0)
+        if hasattr(charge_doc, "cost_maximum_charge"):
+            charge_doc.cost_maximum_charge = rate_data.get("maximum_charge", 0)
+        if hasattr(charge_doc, "cost_base_amount"):
+            charge_doc.cost_base_amount = rate_data.get("base_amount", 0)
+        if hasattr(charge_doc, "cost_uom"):
+            charge_doc.cost_uom = rate_data.get("uom")
+        if hasattr(charge_doc, "cost_quantity") and "quantity" in rate_data:
+            charge_doc.cost_quantity = rate_data.get("quantity", 0)
+        return
+
+    # Single-side cost tables (e.g. MICE Project Consolidation Charges): map onto unit_rate.
+    if not _charge_doc_has_field(charge_doc, "unit_rate"):
+        return
+    if (
+        _charge_doc_has_field(charge_doc, "revenue_calculation_method")
+        and method in _CONSOLIDATION_STYLE_CALC_METHODS
+    ):
+        charge_doc.revenue_calculation_method = method
+    charge_doc.unit_rate = rate_data.get("rate", 0)
+    unit_type = rate_data.get("unit_type")
+    if unit_type and _charge_doc_has_field(charge_doc, "unit_type"):
+        df = charge_doc.meta.get_field("unit_type") if getattr(charge_doc, "meta", None) else None
+        options = (getattr(df, "options", None) or "").split("\n") if df else []
+        if not options or unit_type in options:
+            charge_doc.unit_type = unit_type
+    if _charge_doc_has_field(charge_doc, "currency"):
+        charge_doc.currency = rate_data.get("currency") or "USD"
+    uom = rate_data.get("uom")
+    if uom and _charge_doc_has_field(charge_doc, "unit_of_measure"):
+        df = charge_doc.meta.get_field("unit_of_measure") if getattr(charge_doc, "meta", None) else None
+        # Select fields gate on option membership; Link→UOM always accepts tariff UOM.
+        if df and getattr(df, "fieldtype", None) == "Select":
+            options = (getattr(df, "options", None) or "").split("\n")
+            if options and uom not in options:
+                uom = None
+        if uom:
+            charge_doc.unit_of_measure = uom
+    elif uom and _charge_doc_has_field(charge_doc, "uom"):
+        charge_doc.uom = uom
+    if _charge_doc_has_field(charge_doc, "quantity") and "quantity" in rate_data:
+        charge_doc.quantity = rate_data.get("quantity", 0)
+    if _charge_doc_has_field(charge_doc, "base_amount") and "base_amount" in rate_data:
+        charge_doc.base_amount = rate_data.get("base_amount", 0)
+
+
+def _charge_reference_is_persistable(charge_doc: Any) -> bool:
+    """True when charge row has a saved name that Dynamic Link break rows can reference.
+
+    Mid-insert child rows get hash names (not ``new-*``) before ``db_insert``; those must
+    not be treated as persistable or Charge Unit Break Dynamic Links fail validation.
+    """
+    name = getattr(charge_doc, "name", None)
+    doctype = getattr(charge_doc, "doctype", None)
+    if not name or not doctype or str(name).startswith("new"):
+        return False
+    return bool(frappe.db.exists(doctype, name))
+
+
+def sync_tariff_rates_and_breaks_on_charges(parent_doc: Any) -> None:
+    """Fetch tariff rates/Unit Breaks onto charge rows after children are in the DB.
+
+    Parent validate often runs charge calc before child ``db_insert``, so Unit Break
+    Dynamic Links cannot resolve yet. Call this from ``after_insert`` / ``on_update``.
+    """
+    for ch in parent_doc.get("charges") or []:
+        if not (
+            getattr(ch, "revenue_tariff", None)
+            or getattr(ch, "cost_tariff", None)
+            or getattr(ch, "tariff", None)
+        ):
+            continue
+        try:
+            ch._logistics_tariff_fetch_applied = False
+        except Exception:
+            pass
+        _fetch_rates_from_tariff_if_needed(ch)
+
+
+def _tariff_rate_has_unit_breaks(tariff_rate_name: str, record_type: str) -> bool:
+    if not tariff_rate_name or not frappe.db.exists("DocType", "Charge Unit Break"):
+        return False
+    return bool(
+        frappe.db.exists(
+            "Charge Unit Break",
+            {
+                "reference_doctype": "Tariff Charge",
+                "reference_no": tariff_rate_name,
+                "type": record_type,
+            },
+        )
+    )
+
+
+def _copy_tariff_unit_breaks_to_charge(
+    charge_doc: Any, rate_row: Any, record_type: str
+) -> None:
+    """Copy Unit Break tiers from a Tariff Charge line onto the charge; enable the checkbox.
+
+    Unsaved / mid-insert charge names only get the checkbox — tiers need a DB-backed reference_no.
+    """
+    rate_name = getattr(rate_row, "name", None) if rate_row else None
+    if not rate_name:
+        return
+    if not _tariff_rate_has_unit_breaks(rate_name, record_type):
+        return
+
+    flag_field = "use_unit_breaks" if record_type == "Selling" else "cost_use_unit_breaks"
+    if hasattr(charge_doc, flag_field):
+        setattr(charge_doc, flag_field, 1)
+
+    if not _charge_reference_is_persistable(charge_doc):
+        return
+
+    to_dt = getattr(charge_doc, "doctype", None) or ""
+    to_no = getattr(charge_doc, "name", None)
+    if not to_dt or not to_no:
+        return
+
+    # Persist checkbox — after_insert/on_update mutations are not re-saved to the child row.
+    try:
+        frappe.db.set_value(to_dt, to_no, flag_field, 1, update_modified=False)
+    except Exception:
+        pass
+
+    from logistics.utils.sales_quote_programme_charges import copy_charge_breaks_for_reference
+
+    copy_charge_breaks_for_reference(
+        "Tariff Charge",
+        rate_name,
+        to_dt,
+        to_no,
+        record_types=(record_type,),
+    )
 
 
 def _fetch_rates_from_tariff_if_needed(charge_doc: Any) -> None:
     """
     When item_code and revenue_tariff and/or cost_tariff are set, load the matching line from the
     Tariff doctype: fill revenue/cost rate fields, route & equipment from the line where applicable,
-    and turn on the corresponding Use Tariff checkboxes. (use_tariff_in_* is not required to fetch.)
+    copy Unit Breaks when present, and turn on the corresponding Use Tariff checkboxes.
+    (use_tariff_in_* is not required to fetch.)
     """
     if getattr(charge_doc, "_logistics_tariff_fetch_applied", False):
         return
@@ -921,11 +1221,12 @@ def _fetch_rates_from_tariff_if_needed(charge_doc: Any) -> None:
     # Revenue: revenue_tariff (legacy: generic tariff) + item
     rev_tariff = getattr(charge_doc, "revenue_tariff", None) or getattr(charge_doc, "tariff", None)
     if rev_tariff:
-        match = _find_tariff_rate_match(rev_tariff, item_code, st)
+        match = _find_tariff_rate_match(rev_tariff, item_code, st, is_revenue=True)
         if match:
             rate_data, rate_row, _tname = match
             _apply_tariff_rate_data_revenue(charge_doc, rate_data)
             _copy_tariff_line_context_to_charge(charge_doc, rate_row)
+            _copy_tariff_unit_breaks_to_charge(charge_doc, rate_row, "Selling")
             if hasattr(charge_doc, "use_tariff_in_revenue"):
                 charge_doc.use_tariff_in_revenue = 1
             # Keep user-entered revenue currency unless they opted into tariff rates
@@ -935,11 +1236,12 @@ def _fetch_rates_from_tariff_if_needed(charge_doc: Any) -> None:
     # Cost: cost_tariff (legacy: generic tariff) + item
     cost_tariff = getattr(charge_doc, "cost_tariff", None) or getattr(charge_doc, "tariff", None)
     if cost_tariff:
-        match = _find_tariff_rate_match(cost_tariff, item_code, st)
+        match = _find_tariff_rate_match(cost_tariff, item_code, st, is_revenue=False)
         if match:
             rate_data, rate_row, _tname = match
             _apply_tariff_rate_data_cost(charge_doc, rate_data)
             _copy_tariff_line_context_to_charge(charge_doc, rate_row)
+            _copy_tariff_unit_breaks_to_charge(charge_doc, rate_row, "Cost")
             if hasattr(charge_doc, "use_tariff_in_cost"):
                 charge_doc.use_tariff_in_cost = 1
             # Keep user-entered cost currency unless they opted into tariff rates
@@ -1132,25 +1434,42 @@ def _resolve_percentage_break_rate(
     return sorted(percentage_breaks, key=lambda x: flt(x.get("value_break", 0)))[0]
 
 
-def _charge_side_uses_unit_breaks(charge_doc: Any, is_revenue: bool) -> bool:
+def _charge_calculation_method(charge_doc: Any, is_revenue: bool) -> str:
     if is_revenue:
-        return cint(getattr(charge_doc, "use_unit_breaks", 0))
-    return cint(getattr(charge_doc, "cost_use_unit_breaks", 0))
+        return (_get_field(charge_doc, *REVENUE_METHOD_FIELDS) or "").strip()
+    method = (_get_field(charge_doc, *COST_METHOD_FIELDS) or "").strip()
+    if method:
+        return method
+    # Single-method rows (e.g. MICE consolidation) reuse the revenue method field.
+    return (_get_field(charge_doc, *REVENUE_METHOD_FIELDS) or "").strip()
 
 
-def _resolve_unit_break_rate(
-    charge_doc: Any,
-    comparison_qty: float,
-    record_type: str = "Selling",
-    unit_type: Optional[str] = None,
-) -> Optional[Dict]:
-    """Resolve applicable unit rate from Charge Unit Break tiers."""
-    ref_name = getattr(charge_doc, "name", None)
-    if not ref_name or ref_name == "new":
-        return None
+def _charge_side_uses_unit_breaks(charge_doc: Any, is_revenue: bool) -> bool:
+    flag = "use_unit_breaks" if is_revenue else "cost_use_unit_breaks"
+    if not cint(getattr(charge_doc, flag, 0)):
+        return False
+    return _charge_calculation_method(charge_doc, is_revenue) == "Per Unit"
+
+
+def _charge_unit_break_query_fields() -> List[str]:
     if not frappe.db.exists("DocType", "Charge Unit Break"):
-        return None
+        return []
+    meta = frappe.get_meta("Charge Unit Break")
+    wanted = ["unit_type", "container_type", "unit_break", "unit_rate", "currency"]
+    return [f for f in wanted if meta.has_field(f)]
 
+
+def _fetch_charge_unit_breaks(
+    charge_doc: Any,
+    record_type: str,
+    unit_type: Optional[str] = None,
+) -> List[Dict]:
+    ref_name = getattr(charge_doc, "name", None)
+    if not ref_name or ref_name == "new" or str(ref_name).startswith("new-"):
+        return []
+    fields = _charge_unit_break_query_fields()
+    if not fields:
+        return []
     filters = {
         "reference_doctype": charge_doc.doctype,
         "reference_no": ref_name,
@@ -1158,36 +1477,132 @@ def _resolve_unit_break_rate(
     }
     if unit_type:
         filters["unit_type"] = unit_type
-
-    unit_breaks = frappe.get_all(
+    order_by = "unit_break asc"
+    if "container_type" in fields:
+        order_by = "container_type asc, unit_break asc"
+    rows = frappe.get_all(
         "Charge Unit Break",
         filters=filters,
-        fields=["unit_type", "unit_break", "unit_rate", "currency"],
-        order_by="unit_break asc",
+        fields=fields,
+        order_by=order_by,
     )
-    if not unit_breaks and unit_type:
-        unit_breaks = frappe.get_all(
+    if not rows and unit_type:
+        rows = frappe.get_all(
             "Charge Unit Break",
             filters={
                 "reference_doctype": charge_doc.doctype,
                 "reference_no": ref_name,
                 "type": record_type,
             },
-            fields=["unit_type", "unit_break", "unit_rate", "currency"],
-            order_by="unit_break asc",
+            fields=fields,
+            order_by=order_by,
         )
+    return rows or []
+
+
+def _unit_break_rows_by_container_type(unit_breaks: List[Dict]) -> List[Dict]:
+    return [r for r in unit_breaks if (r.get("container_type") or "").strip()]
+
+
+def _numeric_unit_break_rows(unit_breaks: List[Dict]) -> List[Dict]:
+    return [r for r in unit_breaks if not (r.get("container_type") or "").strip()]
+
+
+def _container_type_qty_map(actual_data: Dict) -> Dict[str, float]:
+    counts = dict(actual_data.get("container_type_counts") or {})
+    if counts:
+        return {str(k): flt(v) for k, v in counts.items() if k}
+    header = (actual_data.get("header_container_type") or "").strip()
+    if header:
+        qty = flt(actual_data.get("actual_containers") or 0)
+        return {header: qty if qty > 0 else 1.0}
+    return {}
+
+
+def _resolve_unit_break_rate(
+    charge_doc: Any,
+    comparison_qty: float,
+    record_type: str = "Selling",
+    unit_type: Optional[str] = None,
+    container_type: Optional[str] = None,
+) -> Optional[Dict]:
+    """Resolve applicable unit rate from Charge Unit Break tiers."""
+    unit_breaks = _fetch_charge_unit_breaks(charge_doc, record_type, unit_type=unit_type)
     if not unit_breaks:
         return None
 
+    ctype = (container_type or "").strip()
+    if ctype:
+        for row in _unit_break_rows_by_container_type(unit_breaks):
+            if (row.get("container_type") or "").strip() == ctype:
+                return row
+
+    numeric = _numeric_unit_break_rows(unit_breaks)
+    if not numeric:
+        return None
+
     sorted_breaks = sorted(
-        unit_breaks,
+        numeric,
         key=lambda x: flt(x.get("unit_break", 0)),
         reverse=True,
     )
     for row in sorted_breaks:
         if flt(comparison_qty) >= flt(row.get("unit_break", 0)):
             return row
-    return sorted(unit_breaks, key=lambda x: flt(x.get("unit_break", 0)))[0]
+    return sorted(numeric, key=lambda x: flt(x.get("unit_break", 0)))[0]
+
+
+def _apply_container_type_unit_breaks(
+    charge_doc: Any,
+    rate_data: Dict,
+    actual_data: Dict,
+    typed_rows: List[Dict],
+    is_revenue: bool,
+) -> Optional[str]:
+    """Match Container Type rates; qty is the count of that type on the job."""
+    counts = _container_type_qty_map(actual_data)
+    if not counts:
+        return None
+
+    parts = []
+    total_qty = 0.0
+    total_amt = 0.0
+    currency = rate_data.get("currency") or "USD"
+    for row in typed_rows:
+        ctype = (row.get("container_type") or "").strip()
+        qty = flt(counts.get(ctype) or 0)
+        if qty <= 0:
+            continue
+        rate = flt(row.get("unit_rate", 0))
+        currency = row.get("currency") or currency
+        parts.append(f"{ctype} × {qty:g} @ {rate:g}")
+        total_qty += qty
+        total_amt += qty * rate
+
+    if total_qty <= 0:
+        return None
+
+    blended = flt(total_amt / total_qty) if total_qty else 0.0
+    rate_data["rate"] = blended
+    rate_data["unit_rate"] = blended
+    if is_revenue and hasattr(charge_doc, "unit_rate"):
+        charge_doc.unit_rate = blended
+        if hasattr(charge_doc, "quantity"):
+            charge_doc.quantity = total_qty
+        if currency and hasattr(charge_doc, "currency"):
+            charge_doc.currency = currency
+    elif not is_revenue and hasattr(charge_doc, "unit_cost"):
+        charge_doc.unit_cost = blended
+        if hasattr(charge_doc, "cost_quantity"):
+            charge_doc.cost_quantity = total_qty
+        if currency and hasattr(charge_doc, "cost_currency"):
+            charge_doc.cost_currency = currency
+    actual_data["actual_containers"] = total_qty
+    if currency:
+        rate_data["currency"] = currency
+    return (
+        f"Container Type rates: {'; '.join(parts)} → {total_amt} {currency}"
+    )
 
 
 def _unit_break_uom_label(unit_type: str, charge_doc: Any, is_revenue: bool) -> str:
@@ -1208,6 +1623,16 @@ def _unit_break_uom_label(unit_type: str, charge_doc: Any, is_revenue: bool) -> 
     return getattr(charge_doc, f"{prefix}uom", None) or getattr(charge_doc, "uom", None) or ut
 
 
+def _sync_break_tier_rate_to_charge_row(
+    charge_doc: Any, rate: float, is_revenue: bool
+) -> None:
+    """Copy matched Weight/Qty/Percentage Break tier rate onto the charge row for display."""
+    if is_revenue and hasattr(charge_doc, "unit_rate"):
+        charge_doc.unit_rate = rate
+    elif not is_revenue and hasattr(charge_doc, "unit_cost"):
+        charge_doc.unit_cost = rate
+
+
 def _apply_unit_break_to_rate_data(
     charge_doc: Any,
     rate_data: Dict,
@@ -1219,6 +1644,13 @@ def _apply_unit_break_to_rate_data(
     """When Unit Breaks is enabled, resolve tier rate and override rate_data. Returns detail prefix or None."""
     if not _charge_side_uses_unit_breaks(charge_doc, is_revenue):
         return None
+
+    unit_breaks = _fetch_charge_unit_breaks(charge_doc, record_type, unit_type=unit_type)
+    typed_rows = _unit_break_rows_by_container_type(unit_breaks)
+    if typed_rows:
+        return _apply_container_type_unit_breaks(
+            charge_doc, rate_data, actual_data, typed_rows, is_revenue
+        )
 
     comparison_qty = _get_quantity_for_calculation_method(
         actual_data, "Per Unit", unit_type, is_revenue=is_revenue
@@ -1384,6 +1816,22 @@ def _calculate_charge_amount(
         (parent_doc and getattr(parent_doc, "doctype", None) == "Special Project")
         or getattr(charge_doc, "parenttype", None) == "Special Project"
     )
+    parent_is_customs = (
+        (parent_doc and getattr(parent_doc, "doctype", None) in _CUSTOMS_PARENT_DOCTYPES)
+        or getattr(charge_doc, "parenttype", None) in _CUSTOMS_PARENT_DOCTYPES
+    )
+    if (
+        parent_is_customs
+        and not parent_is_sales_quote
+        and (unit_type or "").strip() == "Item Count"
+        and flt(derived_qty) <= 0
+    ):
+        existing = flt(
+            _get_field(charge_doc, "quantity") if is_revenue else _get_field(charge_doc, "cost_quantity")
+        )
+        if existing > 0:
+            derived_qty = existing
+            actual_data["actual_item_count"] = existing
     if parent_is_sales_quote or parent_is_special_project:
         row_qty = flt(
             _get_field(charge_doc, "quantity") if is_revenue else _get_field(charge_doc, "cost_quantity")
@@ -1392,7 +1840,10 @@ def _calculate_charge_amount(
             derived_qty = row_qty
             ut = (unit_type or "Weight").strip().lower()
             actual_data["actual_quantity"] = row_qty
-            if ut == "weight":
+            # Weight Break always uses row qty as estimated weight on quote/programme rows.
+            if method == "Weight Break":
+                actual_data["actual_weight"] = row_qty
+            elif ut == "weight":
                 actual_data["actual_weight"] = row_qty
             elif ut == "chargeable weight":
                 actual_data["actual_chargeable_weight"] = row_qty
@@ -1424,29 +1875,42 @@ def _calculate_charge_amount(
             _spread_row_qty_into_actual_data(actual_data, unit_type, row_qty)
 
     if is_revenue:
-        # Sales Quote / Special Project: keep non-zero row quantity; other operational parents follow actuals.
+        # Sales Quote / Special Project: keep non-zero row quantity; never push derived 0
+        # (parent weight is often missing on quotes — leave qty blank for the user to enter).
         if parent_is_sales_quote or parent_is_special_project:
-            if getattr(charge_doc, "quantity", None) is None or (
-                isinstance(getattr(charge_doc, "quantity", None), (int, float))
-                and flt(charge_doc.quantity) == 0
+            if flt(derived_qty) > 0 and (
+                getattr(charge_doc, "quantity", None) is None
+                or (
+                    isinstance(getattr(charge_doc, "quantity", None), (int, float))
+                    and flt(charge_doc.quantity) == 0
+                )
             ):
                 charge_doc.quantity = derived_qty
+            row_qty_final = flt(getattr(charge_doc, "quantity", None) or 0)
+            if row_qty_final > 0:
+                result["quantity"] = row_qty_final
         else:
             charge_doc.quantity = derived_qty
-        result["quantity"] = flt(getattr(charge_doc, "quantity", None) or derived_qty)
+            result["quantity"] = flt(getattr(charge_doc, "quantity", None) or derived_qty)
     else:
-        # Sales Quote / Special Project: keep row cost_quantity when already set.
+        # Sales Quote / Special Project: keep row cost_quantity when already set; never push 0.
         if parent_is_sales_quote or parent_is_special_project:
-            if getattr(charge_doc, "cost_quantity", None) is None or (
-                isinstance(getattr(charge_doc, "cost_quantity", None), (int, float))
-                and flt(charge_doc.cost_quantity) == 0
+            if flt(derived_qty) > 0 and (
+                getattr(charge_doc, "cost_quantity", None) is None
+                or (
+                    isinstance(getattr(charge_doc, "cost_quantity", None), (int, float))
+                    and flt(charge_doc.cost_quantity) == 0
+                )
             ):
                 charge_doc.cost_quantity = derived_qty
+            row_cost_qty_final = flt(getattr(charge_doc, "cost_quantity", None) or 0)
+            if row_cost_qty_final > 0:
+                result["cost_quantity"] = row_cost_qty_final
         else:
             charge_doc.cost_quantity = derived_qty
-        result["cost_quantity"] = flt(
-            getattr(charge_doc, "cost_quantity", None) or derived_qty
-        )
+            result["cost_quantity"] = flt(
+                getattr(charge_doc, "cost_quantity", None) or derived_qty
+            )
 
     # Weight Break
     if method == "Weight Break":
@@ -1459,6 +1923,7 @@ def _calculate_charge_amount(
             result["calc_notes"] = "Weight Break: No weight break rates defined for this charge"
             return result
         rate = flt(applicable.get("unit_rate", 0))
+        _sync_break_tier_rate_to_charge_row(charge_doc, rate, is_revenue)
         weight = actual_data["actual_weight"]
         calc_base = rate * weight
         min_charge = flt(_get_field(charge_doc, "minimum_charge") or 0) if is_revenue else flt(_get_field(charge_doc, "cost_minimum_charge") or 0)
@@ -1501,6 +1966,7 @@ def _calculate_charge_amount(
             result["calc_notes"] = "Qty Break: No qty break rates defined for this charge"
             return result
         rate = flt(applicable.get("unit_rate", 0))
+        _sync_break_tier_rate_to_charge_row(charge_doc, rate, is_revenue)
         calc_base = rate * qty
         min_charge = flt(_get_field(charge_doc, "minimum_charge") or 0) if is_revenue else flt(_get_field(charge_doc, "cost_minimum_charge") or 0)
         max_charge = flt(_get_field(charge_doc, "maximum_charge") or 0) if is_revenue else flt(_get_field(charge_doc, "cost_maximum_charge") or 0)
@@ -1550,14 +2016,19 @@ def _calculate_charge_amount(
             result["calc_notes"] = "Percentage Break: No percentage break rates defined for this charge"
             return result
         percentage_rate = flt(applicable.get("percentage_rate", 0))
-        # Prefer parent goods/declared value; fall back to Quantity (also used for tier).
+        _sync_break_tier_rate_to_charge_row(charge_doc, percentage_rate, is_revenue)
+        # Prefer parent goods/declared value; customs uses CIF. Fall back to Quantity (also used for tier).
         goods_value = 0.0
         if parent_doc:
-            goods_value = flt(
-                getattr(parent_doc, "goods_value", None)
-                or getattr(parent_doc, "declared_value", None)
-                or 0
-            )
+            parent_dt = getattr(parent_doc, "doctype", None)
+            if parent_dt in _CUSTOMS_PARENT_DOCTYPES:
+                goods_value = _customs_goods_value(parent_doc)
+            else:
+                goods_value = flt(
+                    getattr(parent_doc, "goods_value", None)
+                    or getattr(parent_doc, "declared_value", None)
+                    or 0
+                )
         if not goods_value:
             goods_value = qty
         pct_amount = goods_value * (percentage_rate / 100.0)
@@ -1612,21 +2083,42 @@ def _calculate_charge_amount(
         line_qty = _get_field(charge_doc, "quantity")
     else:
         line_qty = _get_field(charge_doc, "cost_quantity")
-    if line_qty is not None and flt(line_qty) > 0:
+    if (
+        line_qty is not None
+        and flt(line_qty) > 0
+        and method not in ("Percentage", "Flat Rate", "Fixed Amount")
+    ):
         _spread_row_qty_into_actual_data(actual_data, unit_type, flt(line_qty))
 
     unit_break_prefix = _apply_unit_break_to_rate_data(
         charge_doc, rate_data, actual_data, unit_type, record_type, is_revenue
     )
+    if unit_break_prefix:
+        if is_revenue and hasattr(charge_doc, "quantity"):
+            result["quantity"] = flt(getattr(charge_doc, "quantity", None) or 0)
+        elif not is_revenue and hasattr(charge_doc, "cost_quantity"):
+            result["cost_quantity"] = flt(getattr(charge_doc, "cost_quantity", None) or 0)
     rate = flt(rate_data.get("rate", 0))
     if not rate and not unit_break_prefix:
         result["calc_notes"] = "Charge calculation: No unit rate specified. Enter rate for this charge."
         return result
 
     if rate_data.get("calculation_method") == "Percentage":
+        parent_val = 0.0
+        if parent_is_customs and parent_doc:
+            parent_val = _customs_goods_value(parent_doc)
+        if not parent_val:
+            parent_val = flt(actual_data.get("actual_goods_value") or 0)
+        ut_l = (unit_type or "").strip().lower()
+        if parent_is_customs and ut_l == "value" and parent_val > 0:
+            rate_data["base_amount"] = parent_val
+            if is_revenue and hasattr(charge_doc, "base_amount"):
+                charge_doc.base_amount = parent_val
+            elif not is_revenue and hasattr(charge_doc, "cost_base_amount"):
+                charge_doc.cost_base_amount = parent_val
         base = flt(rate_data.get("base_amount", 0))
-        if not base and (unit_type or "").strip().lower() == "value":
-            base = flt(actual_data.get("actual_goods_value") or 0)
+        if not base and ut_l == "value":
+            base = parent_val
             if base:
                 rate_data["base_amount"] = base
         if not base:
@@ -1699,6 +2191,7 @@ CHARGE_DOCTYPES = (
     "Special Project Charges",
     "Declaration Charges",
     "Declaration Order Charges",
+    "Time Sensitive Case Charge",
 )
 
 # Disbursement: copy cost-side inputs to revenue-side (pass-through billing).
@@ -2071,8 +2564,7 @@ def calculate_charge_row(
             )
             actual_rev = actual_cst
             cq = cost.get("cost_quantity")
-            cq_f = flt(cq) if cq is not None else None
-            return {
+            out = {
                 "success": True,
                 "estimated_revenue": est_rev,
                 "estimated_cost": est_cost,
@@ -2080,11 +2572,16 @@ def calculate_charge_row(
                 "actual_cost": actual_cst,
                 "revenue_calc_notes": notes,
                 "cost_calc_notes": notes,
-                "quantity": cq_f,
-                "cost_quantity": cq_f,
                 "disbursement_mirror": disbursement_mirror,
                 "row_updates": _charge_row_sync_dict_for_client(doc),
             }
+            # Omit unset qty. A null key makes the client clear Quantity, then the
+            # disbursement mirror writes it back — the field flickers.
+            if cq is not None:
+                cq_f = flt(cq)
+                out["quantity"] = cq_f
+                out["cost_quantity"] = cq_f
+            return out
 
         rev = calculate_charge_revenue(doc, parent_doc)
         cost = calculate_charge_cost(doc, parent_doc)
@@ -2094,7 +2591,7 @@ def calculate_charge_row(
         actual_rev = flt(row_dict.get("actual_revenue")) if row_dict.get("actual_revenue") is not None else est_rev
         actual_cst = flt(row_dict.get("actual_cost")) if row_dict.get("actual_cost") is not None else est_cost
 
-        return {
+        out = {
             "success": True,
             "estimated_revenue": est_rev,
             "estimated_cost": est_cost,
@@ -2102,11 +2599,15 @@ def calculate_charge_row(
             "actual_cost": actual_cst,
             "revenue_calc_notes": rev.get("calc_notes", ""),
             "cost_calc_notes": cost.get("calc_notes", ""),
-            "quantity": rev.get("quantity"),
-            "cost_quantity": cost.get("cost_quantity"),
             "disbursement_mirror": None,
             "row_updates": _charge_row_sync_dict_for_client(doc),
         }
+        # Omit qty keys when unset so the client does not clear blank estimate fields.
+        if rev.get("quantity") is not None:
+            out["quantity"] = rev.get("quantity")
+        if cost.get("cost_quantity") is not None:
+            out["cost_quantity"] = cost.get("cost_quantity")
+        return out
     except Exception as e:
         frappe.log_error(f"Charge row calculation error: {str(e)}")
         return {"success": False, "error": str(e)}

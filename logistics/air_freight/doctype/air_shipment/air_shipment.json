@@ -158,9 +158,11 @@
   "linked_services",
   "milestones_tab",
   "section_break_milestones",
-  "milestone_html",
   "milestone_template",
+  "section_break_milestone_grid",
   "milestones",
+  "section_break_milestone_view",
+  "milestone_html",
   "documents_tab",
   "document_management_section",
   "documents_html",
@@ -843,6 +845,7 @@
    "no_copy": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fieldname": "time_sensitive_case",
    "fieldtype": "Link",
    "label": "Time Sensitive Case",
@@ -852,6 +855,7 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fetch_from": "time_sensitive_case.case_type",
    "fieldname": "ts_case_type",
    "fieldtype": "Link",
@@ -862,6 +866,7 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fieldname": "critical_deadline",
    "fieldtype": "Datetime",
    "in_list_view": 0,
@@ -869,6 +874,7 @@
    "no_copy": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fieldname": "ts_countdown",
    "fieldtype": "HTML",
    "label": "TS Countdown"
@@ -1248,10 +1254,20 @@
    "options": "Milestone Template"
   },
   {
+   "collapsible": 1,
+   "fieldname": "section_break_milestone_grid",
+   "fieldtype": "Section Break",
+   "label": "Milestones"
+  },
+  {
    "fieldname": "milestones",
    "fieldtype": "Table",
    "label": "Milestones",
    "options": "Air Shipment Milestone"
+  },
+  {
+   "fieldname": "section_break_milestone_view",
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "details_tab",
@@ -1442,6 +1458,33 @@
  "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Air Freight Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Air Freight User",
+   "select": 1,
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
   {
    "create": 1,
    "delete": 1,

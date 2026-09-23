@@ -4,7 +4,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import today, getdate, flt, cint, nowdate
+from frappe.utils import today, getdate, flt, cint, nowdate, get_datetime
 from typing import Dict, Any, Optional
 
 from logistics.utils.charge_service_type import (
@@ -22,6 +22,76 @@ ORDER_CURRENCY_EXCHANGE_FIELDS = (
 	"inv_currency",
 	"inv_exchange_rate",
 )
+
+ORDER_MILESTONE_COPY_FIELDS = (
+	"milestone",
+	"status",
+	"planned_start",
+	"planned_end",
+	"actual_start",
+	"actual_end",
+	"source",
+	"fetched_at",
+	"automation_planned_date_basis",
+	"automation_update_trigger_type",
+	"automation_sync_parent_date_field",
+	"automation_sync_direction",
+	"automation_trigger_field",
+	"automation_trigger_condition",
+	"automation_trigger_value",
+	"automation_trigger_action",
+)
+
+_ORDER_MILESTONE_GUARD_FIELDS = (
+	"milestone",
+	"planned_start",
+	"planned_end",
+	"actual_start",
+	"actual_end",
+)
+
+
+def order_milestone_row_values(src):
+	"""Child-row dict copied from a Declaration Order milestone onto Declaration."""
+	values = {fn: getattr(src, fn, None) for fn in ORDER_MILESTONE_COPY_FIELDS}
+	values["from_booking"] = 1
+	return values
+
+
+def _apply_order_milestone_values(dest, src):
+	for fn in ORDER_MILESTONE_COPY_FIELDS:
+		dest.set(fn, getattr(src, fn, None))
+	dest.from_booking = 1
+
+
+def _normalize_milestone_compare_value(fieldname, value):
+	if value in (None, ""):
+		return None
+	if fieldname in {"planned_start", "planned_end", "actual_start", "actual_end"}:
+		try:
+			dt = get_datetime(value)
+			return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else None
+		except Exception:
+			return str(value)
+	return str(value)
+
+
+def _milestone_guard_fields_changed(old_row, incoming_row):
+	for fn in _ORDER_MILESTONE_GUARD_FIELDS:
+		old_val = _normalize_milestone_compare_value(
+			fn, old_row.get(fn) if isinstance(old_row, dict) else getattr(old_row, fn, None)
+		)
+		new_val = _normalize_milestone_compare_value(fn, getattr(incoming_row, fn, None))
+		if old_val != new_val:
+			return True
+	return False
+
+
+def _order_milestone_fields_changed(old_row, incoming_row):
+	if _milestone_guard_fields_changed(old_row, incoming_row):
+		return True
+	return cint(getattr(incoming_row, "from_booking", 0)) != 1
+
 
 
 def apply_currency_and_exchange_rates_from_declaration_order(
@@ -136,6 +206,8 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 
 			validate_internal_job_main_link_unchanged(self)
 			self._validate_declaration_order_unique()
+			self._guard_from_booking_milestone_edits()
+			self.sync_milestones_from_declaration_order()
 			self._validate_etd_eta()
 			self._validate_processing_event_dates()
 			self.update_payment_status()
@@ -237,6 +309,80 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 			),
 			title=_("Duplicate Declaration Order Reference"),
 		)
+
+	def _get_linked_declaration_order(self):
+		order_name = (getattr(self, "declaration_order", None) or "").strip()
+		if not order_name or not frappe.db.exists("Declaration Order", order_name):
+			return None
+		return frappe.get_doc("Declaration Order", order_name)
+
+	def _guard_from_booking_milestone_edits(self):
+		"""Reject client edits/deletes of order-copied milestone rows still on the order."""
+		if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+			return
+		if self.is_new() or not self.name:
+			return
+		order = self._get_linked_declaration_order()
+		order_milestones = {
+			(row.milestone or "").strip()
+			for row in ((order.get("milestones") if order else None) or [])
+			if (row.milestone or "").strip()
+		}
+		persisted = frappe.get_all(
+			"Declaration Milestone",
+			filters={"parent": self.name, "parenttype": "Declaration", "from_booking": 1},
+			fields=["name", "milestone", "planned_start", "planned_end", "actual_start", "actual_end"],
+		)
+		incoming_by_name = {row.name: row for row in (self.get("milestones") or []) if row.name}
+		for old in persisted:
+			still_on_order = (old.milestone or "").strip() in order_milestones
+			incoming = incoming_by_name.get(old.name)
+			if not incoming:
+				if still_on_order:
+					frappe.throw(_("Milestones copied from Declaration Order cannot be deleted."))
+				continue
+			if still_on_order and _order_milestone_fields_changed(old, incoming):
+				frappe.throw(_("Milestones copied from Declaration Order cannot be edited."))
+
+	def sync_milestones_from_declaration_order(self):
+		"""Populate and refresh Declaration Order milestone rows; leave declaration-only rows editable."""
+		if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+			return
+		if getattr(self.flags, "ignore_booking_milestone_sync", False):
+			return
+		order = self._get_linked_declaration_order()
+		if not order:
+			return
+
+		existing_rows = list(self.get("milestones") or [])
+		claimed = set()
+		for order_row in order.get("milestones") or []:
+			milestone = (getattr(order_row, "milestone", None) or "").strip()
+			if not milestone:
+				continue
+			dest = None
+			unclaimed = [
+				row
+				for row in existing_rows
+				if id(row) not in claimed and (row.milestone or "").strip() == milestone
+			]
+			for row in unclaimed:
+				if cint(row.from_booking):
+					dest = row
+					break
+			if dest is None:
+				for row in unclaimed:
+					dest = row
+					break
+			if dest is None:
+				dest = self.append("milestones", {})
+				existing_rows.append(dest)
+			_apply_order_milestone_values(dest, order_row)
+			claimed.add(id(dest))
+
+		for row in list(self.get("milestones") or []):
+			if cint(row.from_booking) and id(row) not in claimed:
+				self.remove(row)
 
 	def before_save(self):
 		"""Calculate values and metrics before saving"""
@@ -1011,6 +1157,7 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 	@frappe.whitelist()
 	def recalculate_all_charges(self):
 		"""Recalculate all declaration charges using each row's calculation routine."""
+		self.check_permission("write")
 		if not hasattr(self, "charges") or not self.charges:
 			return {"success": False, "message": _("No charges found to recalculate")}
 		if self.docstatus == 1:
@@ -1123,6 +1270,26 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 		return processing_factor
 
 
+@frappe.whitelist()
+def fetch_declaration_dashboard_html(docname):
+	"""
+	Return Dashboard tab HTML for a saved Declaration.
+
+	Uses a standalone whitelisted method instead of frm.call(get_dashboard_html) so we do not
+	go through run_doc_method / check_if_latest. That avoids TimestampMismatchError and a
+	follow-up layout.refresh() that wipes the Milestones tab timeline after inject.
+	"""
+	if not docname or str(docname).startswith("new-"):
+		return ""
+	if not frappe.db.exists("Declaration", docname):
+		return ""
+	from logistics.utils.menu_permission import assert_perm
+
+	doc = frappe.get_doc("Declaration", docname)
+	assert_perm("Declaration", "read", doc=doc)
+	return doc.get_dashboard_html()
+
+
 # -------------------------------------------------------------------
 # ACTION: Create Declaration from Declaration Order
 # -------------------------------------------------------------------
@@ -1135,8 +1302,11 @@ def create_declaration_from_declaration_order(declaration_order_name: str) -> Di
 	"""
 	if not declaration_order_name:
 		frappe.throw(_("Declaration Order name is required."))
+	from logistics.utils.menu_permission import assert_create_from_source
+
+	order = frappe.get_doc("Declaration Order", declaration_order_name)
+	assert_create_from_source("Declaration", source_doc=order)
 	try:
-		order = frappe.get_doc("Declaration Order", declaration_order_name)
 		# Validate: Declaration Order can only be linked to one Declaration
 		existing = frappe.db.get_value("Declaration", {"declaration_order": order.name, "docstatus": ["<", 2]}, "name")
 		if existing:
@@ -1235,8 +1405,11 @@ def create_declaration_from_sales_quote(sales_quote_name: str) -> Dict[str, Any]
 	Returns:
 		dict: Result with created Declaration name and status
 	"""
+	from logistics.utils.menu_permission import assert_create_from_source
+
+	sq = frappe.get_doc("Sales Quote", sales_quote_name)
+	assert_create_from_source("Declaration", source_doc=sq)
 	try:
-		sq = frappe.get_doc("Sales Quote", sales_quote_name)
 		
 		# Check if the quote is tagged as One-Off
 		if getattr(sq, "quotation_type", None) != "One-off":
@@ -1495,6 +1668,8 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 		"mode",
 		"delivery_modes",
 		"free_time_days",
+		"demurrage_free_time_days",
+		"detention_free_time_days",
 	)
 	for row in order.get("containers") or []:
 		data = container_row_to_dict(row, _container_fields)
@@ -1539,6 +1714,8 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 	declaration.inv_net_weight_uom = order.inv_net_weight_uom
 	declaration.packages = order.packages
 	declaration.packages_uom = order.packages_uom
+	declaration.number_of_line_items = getattr(order, "number_of_line_items", None)
+	declaration.number_of_line_items_manual = getattr(order, "number_of_line_items_manual", None)
 	declaration.cif = order.cif
 	declaration.fob = order.fob
 	declaration.charges_excl_from_itot = order.charges_excl_from_itot
@@ -1874,8 +2051,11 @@ def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 	"""
 	if not declaration_name:
 		frappe.throw(_("Declaration name is required."))
-	
+
+	from logistics.utils.menu_permission import assert_create_from_source
+
 	declaration = frappe.get_doc("Declaration", declaration_name)
+	assert_create_from_source("Sales Invoice", source_doc=declaration)
 	if declaration.docstatus == 2:
 		frappe.throw(_("Cannot create Sales Invoice from a cancelled Declaration."))
 	
@@ -2003,7 +2183,11 @@ def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 @frappe.whitelist()
 def post_standard_costs(docname):
 	"""Post standard costs for Declaration charges. No-op if charges do not support standard costs."""
+	from logistics.utils.menu_permission import assert_perm
+
 	declaration = frappe.get_doc("Declaration", docname)
+	assert_perm("Declaration", "write", doc=declaration)
+	assert_perm("Journal Entry", "create")
 	posted = 0
 	for ch in (declaration.charges or []):
 		if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(ch, "standard_cost_posted", False):

@@ -16,6 +16,8 @@
   "mode",
   "delivery_modes",
   "free_time_days",
+  "demurrage_free_time_days",
+  "detention_free_time_days",
   "section_break_cargo",
   "packages_in_container",
   "weight_in_container",
@@ -55,8 +57,7 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Seal Number",
-   "reqd": 1
+   "label": "Seal Number"
   },
   {
    "fieldname": "column_break_1",
@@ -90,6 +91,20 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Free Time (Days)"
+  },
+  {
+   "description": "Commercial demurrage free time (days) for this container; copied from Sales Quote.",
+   "fieldname": "demurrage_free_time_days",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Demurrage Free Time"
+  },
+  {
+   "description": "Commercial detention free time (days) for this container; copied from Sales Quote.",
+   "fieldname": "detention_free_time_days",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Detention Free Time"
   },
   {
    "fieldname": "section_break_cargo",

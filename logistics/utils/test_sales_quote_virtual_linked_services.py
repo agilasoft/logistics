@@ -31,6 +31,7 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 		doc.customer = frappe.db.get_value("Customer", {}, "name")
 		if not doc.customer:
 			self.skipTest("No Customer in system")
+		doc.company = frappe.db.get_value("Company", {}, "name")
 		doc.date = frappe.utils.today()
 		doc.valid_until = frappe.utils.add_days(frappe.utils.today(), 30)
 		doc.flags.ignore_mandatory = True
@@ -52,6 +53,7 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			self.assertEqual(ls.parent_booking_type, "Sales Quote")
 			self.assertEqual(ls.parent_booking_name, sq.name)
 			self.assertEqual(ls.service_type, "Sea")
+			self.assertEqual(ls.company, sq.company)
 		finally:
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
@@ -107,24 +109,25 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 		finally:
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
-	def test_delete_last_linked_service_row_on_full_save(self):
-		"""Deleting the only Services row and saving must remove the backing Linked Service."""
-		sq = self._minimal_sales_quote("SQ Virtual LS Delete Last")
+	def test_empty_services_grid_save_keeps_linked_services(self):
+		"""Desk saves often post an empty Services grid. That must not delete Linked Services."""
+		sq = self._minimal_sales_quote("SQ Virtual LS Keep On Empty Grid")
 		try:
 			doc = frappe.get_doc("Sales Quote", sq.name)
 			doc.append("linked_services", {"service_type": "Sea"})
 			doc.flags.ignore_mandatory = True
 			doc.save(ignore_permissions=True)
-			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 1)
+			kept = _linked_service_names_from_db("Sales Quote", sq.name)
+			self.assertEqual(len(kept), 1)
 
 			doc2 = frappe.get_doc("Sales Quote", sq.name)
 			doc2.__dict__["linked_services"] = []
 			doc2.flags.ignore_mandatory = True
 			doc2.save(ignore_permissions=True)
 
-			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", sq.name)), 0)
+			self.assertEqual(_linked_service_names_from_db("Sales Quote", sq.name), kept)
 			reloaded = frappe.get_doc("Sales Quote", sq.name)
-			self.assertEqual(len(reloaded.linked_services), 0)
+			self.assertEqual({row.name for row in reloaded.linked_services}, kept)
 		finally:
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
@@ -203,6 +206,10 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			self.assertEqual(len(listed["linked_services"]), 1)
 			self.assertEqual(listed["linked_services"][0]["linked_service"], ls_name)
 			self.assertEqual(listed["linked_services"][0]["service_type"], "Transport")
+			self.assertEqual(
+				listed["linked_services"][0].get("company") or "",
+				sq.company or "",
+			)
 
 			result = remove_linked_service(sq.name, ls_name)
 			self.assertEqual(result["action"], "removed")
@@ -229,6 +236,7 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			self.assertEqual(payload["service_type"], "Air")
 			fieldnames = [f["fieldname"] for f in payload["fields"]]
 			self.assertIn("airline", fieldnames)
+			self.assertIn("company", fieldnames)
 			self.assertIn("shipper", fieldnames)
 			self.assertIn("notes", fieldnames)
 

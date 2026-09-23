@@ -131,6 +131,75 @@ class TestChargesCalculationEstimated(UnitTestCase):
 		self.assertIsNone(out.get("estimated_revenue"))
 		self.assertIsNone(out.get("estimated_cost"))
 
+	def test_disbursement_omits_unset_quantity(self):
+		"""Null qty keys clear Quantity on the client, then the mirror writes it back."""
+		import json
+		from types import SimpleNamespace
+		from unittest.mock import MagicMock, patch
+
+		from logistics.utils.charges_calculation import calculate_charge_row
+
+		class _Doc(dict):
+			def __init__(self, doctype):
+				super().__init__()
+				self.doctype = doctype
+
+			def update(self, row_dict):
+				for key, val in row_dict.items():
+					setattr(self, key, val)
+
+		def _call(row):
+			with patch(
+				"logistics.utils.charges_calculation._fetch_rates_from_tariff_if_needed",
+				return_value=None,
+			), patch(
+				"logistics.utils.charges_calculation.frappe.new_doc",
+				side_effect=lambda dt: _Doc(dt),
+			), patch(
+				"logistics.utils.charges_calculation.frappe.get_meta",
+				return_value=MagicMock(
+					has_field=lambda _n: True,
+					get_field=lambda _n: SimpleNamespace(fieldtype="Data"),
+				),
+			):
+				return calculate_charge_row(
+					"Sales Quote Charge",
+					"Sales Quote",
+					"new-OOQ-TEST",
+					json.dumps(row),
+				)
+
+		blank_method = dict(
+			name="sqc-test",
+			doctype="Sales Quote Charge",
+			parenttype="Sales Quote",
+			parent="new-OOQ-TEST",
+			charge_type="Disbursement",
+			quantity=5,
+			cost_quantity=5,
+			revenue_calculation_method="Per Unit",
+			cost_calculation_method="",
+			unit_rate=10,
+			unit_cost=10,
+			currency="PHP",
+			cost_currency="PHP",
+		)
+		out = _call(blank_method)
+		self.assertTrue(out.get("success"))
+		self.assertNotIn("quantity", out)
+		self.assertNotIn("cost_quantity", out)
+		self.assertEqual(flt(out.get("row_updates", {}).get("quantity")), 5)
+		self.assertEqual(flt(out.get("disbursement_mirror", {}).get("quantity")), 5)
+
+		with_qty = dict(blank_method)
+		with_qty["cost_calculation_method"] = "Per Unit"
+		with_qty["cost_unit_type"] = "Job"
+		with_qty["unit_type"] = "Job"
+		priced = _call(with_qty)
+		self.assertTrue(priced.get("success"))
+		self.assertEqual(flt(priced.get("quantity")), 5)
+		self.assertEqual(flt(priced.get("cost_quantity")), 5)
+
 	def test_per_unit_with_rate_shows_calculated_amount(self):
 		charge = self._flat_rate_charge(
 			revenue_calculation_method="Per Unit",

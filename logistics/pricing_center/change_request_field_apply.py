@@ -52,12 +52,6 @@ PLACES_DATES_FIELDS = (
 	"transport_job_type",
 	"container_type",
 	"container_no",
-	"cargo_cut_off",
-	"document_cut_off",
-	"vgm_cut_off",
-	"gate_in_cut_off",
-	"empty_return_cut_off",
-	"other_cut_off",
 	# Run Sheet
 	"run_date",
 	"run_type",
@@ -130,15 +124,6 @@ _AIR_SEA_PLACES = (
 	"load_type",
 )
 
-_SEA_CUTOFFS = (
-	"cargo_cut_off",
-	"document_cut_off",
-	"vgm_cut_off",
-	"gate_in_cut_off",
-	"empty_return_cut_off",
-	"other_cut_off",
-)
-
 _AIR_SEA_NOTES = (
 	"internal_notes",
 	"client_notes",
@@ -208,7 +193,7 @@ JOB_TYPE_HEADER_FIELDS = {
 	"Air Shipment": frozenset(_AIR_SEA_PARTIES + _AIR_SEA_PLACES + _AIR_SEA_NOTES),
 	"Air Booking": frozenset(_AIR_SEA_PARTIES + _AIR_SEA_PLACES + _AIR_SEA_NOTES),
 	"Sea Shipment": frozenset(
-		_AIR_SEA_PARTIES + _AIR_SEA_PLACES + _SEA_CUTOFFS + ("internal_notes",)
+		_AIR_SEA_PARTIES + _AIR_SEA_PLACES + ("internal_notes",)
 		+ (
 			"sales_rep",
 			"operations_rep",
@@ -217,7 +202,7 @@ JOB_TYPE_HEADER_FIELDS = {
 			"marks_and_nos",
 		)
 	),
-	"Sea Booking": frozenset(_AIR_SEA_PARTIES + _AIR_SEA_PLACES + _SEA_CUTOFFS + _AIR_SEA_NOTES),
+	"Sea Booking": frozenset(_AIR_SEA_PARTIES + _AIR_SEA_PLACES + _AIR_SEA_NOTES),
 	"Transport Job": frozenset(
 		("customer", "shipper", "consignee", "shipper_address", "consignee_address",
 		 "shipper_contact", "consignee_contact", "logistics_service_level")

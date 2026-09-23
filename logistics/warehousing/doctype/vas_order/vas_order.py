@@ -33,6 +33,9 @@ def make_warehouse_job(source_name, target_doc=None):
       - VAS Order Item    -> Warehouse Job Order Items
       - VAS Order Charges -> Warehouse Job Charges
     """
+    from logistics.utils.menu_permission import assert_create_from_source
+
+    assert_create_from_source("Warehouse Job", "VAS Order", source_name)
 
     def set_missing_values(source, target):
         # Reference back to the originating VAS Order

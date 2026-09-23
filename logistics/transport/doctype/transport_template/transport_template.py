@@ -7,6 +7,7 @@ from frappe.model.document import Document
 from logistics.utils.transport_template_rules import (
 	apply_transport_template_defaults,
 	clear_incompatible_load_vehicle_for_template,
+	filter_load_types_for_transport_job_type,
 	get_template_constraints,
 	suggest_allowed_load_types_from_legs,
 	validate_against_transport_template,
@@ -22,8 +23,17 @@ class TransportTemplate(Document):
 
 
 @frappe.whitelist()
-def get_transport_template_constraints(template_name: str) -> dict:
-	return get_template_constraints(template_name)
+def get_transport_template_constraints(
+	template_name: str,
+	transport_job_type: str | None = None,
+) -> dict:
+	constraints = get_template_constraints(template_name)
+	if transport_job_type:
+		constraints["allowed_load_types"] = filter_load_types_for_transport_job_type(
+			constraints.get("allowed_load_types") or [],
+			transport_job_type,
+		)
+	return constraints
 
 
 @frappe.whitelist()

@@ -85,6 +85,10 @@ def _virtual_ij_row_from_linked_charge(charge: Any) -> Any:
 			"linked_service": ls,
 		}
 	)
+	if ls:
+		from logistics.utils.linked_service_company import company_from_linked_service
+
+		row.company = company_from_linked_service(row)
 	for k, v in resolve_parameters_for_charge_row(charge).items():
 		row[k] = v
 	return row
@@ -113,32 +117,26 @@ def _linked_service_doc_for_row(row: Any) -> Any | None:
 	return frappe.get_cached_doc(linked_service_doctype(), ls)
 
 
+def _preview_operating_company(doc: Any, row: Any | None = None) -> Any:
+	from logistics.utils.linked_service_company import company_from_linked_service
+
+	return company_from_linked_service(row) or getattr(doc, "company", None)
+
+
 def _job_no_for_linked_charge_row(row: Any) -> str:
+	"""Resolve satellite Job No from Linked Service Usage, not legacy header fields."""
 	from logistics.utils.linked_service_compat import (
-		linked_service_doctype,
 		linked_service_record_exists,
 		row_linked_service_link,
 	)
+	from logistics.utils.linked_service_usage import linked_service_has_satellite_job
 
 	ls = row_linked_service_link(row)
 	jt = effective_internal_job_detail_job_type(row)
-	if not ls or not linked_service_record_exists(ls):
+	if not ls or not jt or not linked_service_record_exists(ls):
 		return ""
-	info = frappe.db.get_value(
-		linked_service_doctype(),
-		ls,
-		("job_type", "job_no"),
-		as_dict=True,
-	)
-	if not info:
-		return ""
-	job_no = (info.get("job_no") or "").strip()
-	job_type = (info.get("job_type") or "").strip()
-	if not job_no:
-		return ""
-	if jt and job_type and job_type != jt:
-		return ""
-	return job_no
+	result = linked_service_has_satellite_job(ls, jt)
+	return result if isinstance(result, str) else ""
 
 
 def _resolve_linked_charge_row_for_create(
@@ -217,6 +215,12 @@ def persist_internal_job_create_back_link(
 			job_no,
 			usage_role=USAGE_ROLE_SATELLITE_JOB,
 		)
+
+	from logistics.sea_freight.doctype.sea_shipment.sea_shipment import (
+		refresh_service_milestones_after_internal_job_link,
+	)
+
+	refresh_service_milestones_after_internal_job_link(parent_doctype, parent_name, ls_name)
 
 	if _uses_linked_charge_internal_job_create(parent_doctype):
 		return
@@ -506,9 +510,19 @@ def apply_internal_job_detail_row_to_operational_doc(
 		if overwrite or not cur_ls:
 			doc.set("linked_service", ij_link_val)
 
+	from logistics.utils.linked_service_company import apply_linked_service_company_to_operational_doc
 	from logistics.utils.sales_quote_charge_parameters import (
 		apply_scope_fields_to_operational_doc,
 		resolve_operational_doc_scope_parameters,
+	)
+
+	sq_name = (getattr(doc, "sales_quote", None) or "").strip()
+	apply_linked_service_company_to_operational_doc(
+		doc,
+		row,
+		overwrite=overwrite,
+		require=bool(ij_link_val and sq_name),
+		sales_quote=sq_name or None,
 	)
 
 	if not resolve_operational_doc_scope_parameters(row):
@@ -890,6 +904,9 @@ def get_internal_job_creation_choices(
 				if not elig.get("eligible"):
 					creatable = False
 					not_creatable_message = elig.get("message") or INTERNAL_JOB_QUOTE_PARAMETER_MISMATCH_MESSAGE
+			if creatable and jt and not frappe.has_permission(jt, "create"):
+				creatable = False
+				not_creatable_message = _("You do not have permission to create {0}.").format(jt)
 		label = _choice_label(jt, row, idx)
 		if jt and not creatable and not jn:
 			label = "{0} — {1}".format(label, _("cannot create from here"))
@@ -1222,7 +1239,7 @@ def _get_internal_job_creation_preview_body(
 				"source_doctype": source_doctype,
 				"source_name": source_name,
 				"customer": customer,
-				"company": getattr(doc, "company", None),
+				"company": _preview_operating_company(doc, row),
 				"sales_quote": getattr(doc, "sales_quote", None),
 				**_source_service_role_context(doc),
 				"from_main_service_shipment": False,
@@ -1425,7 +1442,7 @@ def _get_internal_job_creation_preview_body(
 			"source_doctype": source_doctype,
 			"source_name": source_name,
 			"customer": customer,
-			"company": getattr(doc, "company", None),
+			"company": _preview_operating_company(doc, ij_row),
 			"sales_quote": getattr(doc, "sales_quote", None),
 			**_source_service_role_context(doc),
 			"from_main_service_shipment": from_main,
@@ -1464,6 +1481,9 @@ def create_internal_job_from_operational_source(
 		frappe.throw(_("Unsupported source type."))
 	_src = frappe.get_doc(source_doctype, source_name)
 	_src.check_permission("read")
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm(jt, "create")
 	ensure_operational_source_can_create_internal_job(_src)
 
 	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)

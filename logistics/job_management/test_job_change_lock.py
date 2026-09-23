@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import frappe
 
 from logistics.job_management.job_change_lock import (
+	_child_table_changed,
 	_scalar_changed,
 	is_job_change_locked,
 	validate_job_locked_against_user_edits,
@@ -47,6 +48,35 @@ class TestJobChangeLock(unittest.TestCase):
 		doc.is_new.return_value = False
 		doc.flags = {"from_change_request": True}
 		self.assertFalse(is_job_change_locked(doc))
+
+	def test_in_auto_recognition_bypasses_lock(self):
+		doc = MagicMock()
+		doc.doctype = "Air Shipment"
+		doc.docstatus = 1
+		doc.is_new.return_value = False
+		doc.flags = {}
+		frappe.flags.in_auto_recognition = True
+		try:
+			self.assertFalse(is_job_change_locked(doc))
+		finally:
+			frappe.flags.in_auto_recognition = False
+
+	def test_charge_recognition_je_link_is_not_a_locked_change(self):
+		class Row:
+			def __init__(self, **kwargs):
+				self.__dict__.update(kwargs)
+
+			def as_dict(self):
+				return dict(self.__dict__)
+
+			def get(self, key, default=None):
+				return getattr(self, key, default)
+
+		old = [Row(name="row-1", item_code="FREIGHT", wip_recognition_journal_entry=None)]
+		new = [Row(name="row-1", item_code="FREIGHT", wip_recognition_journal_entry="JE-WIP-1")]
+		self.assertFalse(_child_table_changed(old, new))
+		changed = [Row(name="row-1", item_code="OTHER", wip_recognition_journal_entry="JE-WIP-1")]
+		self.assertTrue(_child_table_changed(old, changed))
 
 	@patch("logistics.job_management.job_change_lock.frappe.throw")
 	def test_validate_allows_first_submit_from_draft(self, mock_throw):

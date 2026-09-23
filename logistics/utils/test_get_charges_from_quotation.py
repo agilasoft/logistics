@@ -617,6 +617,114 @@ class TestGcfqFilterSettingsCatalog(FrappeTestCase):
 		self.assertNotIn("airline", keys)
 
 
+class TestGcfqTimeSensitiveCaseHelpers(FrappeTestCase):
+	"""Catalog, customer, and corridor skip for Time Sensitive Case (no DB)."""
+
+	def tearDown(self):
+		import frappe
+
+		frappe.db.rollback()
+
+	def test_catalog_keys_for_time_sensitive(self):
+		keys = get_gcfq_catalog_keys_for_doctype("Time Sensitive Case")
+		self.assertIn("origin", keys)
+		self.assertIn("destination", keys)
+		self.assertIn("priority", keys)
+		self.assertIn("branch", keys)
+		self.assertIn("cost_center", keys)
+		self.assertNotIn("origin_port", keys)
+		self.assertNotIn("airline", keys)
+
+	@patch(
+		"logistics.utils.get_charges_from_quotation._gcfq_settings_rows_for_doctype",
+		return_value=[],
+	)
+	def test_overridable_keys_include_origin_destination_priority(self, _mock_rows):
+		keys = _gcfq_overridable_filter_keys("Time Sensitive Case")
+		self.assertIn("origin", keys)
+		self.assertIn("destination", keys)
+		self.assertIn("priority", keys)
+		self.assertIn("branch", keys)
+
+	def test_header_map_origin_destination_priority(self):
+		from logistics.utils.get_charges_from_quotation import GCFQ_SQ_HEADER_FIELD_MAP
+
+		mapping = GCFQ_SQ_HEADER_FIELD_MAP["Time Sensitive Case"]
+		self.assertEqual(mapping["origin"], "origin_port")
+		self.assertEqual(mapping["destination"], "destination_port")
+		self.assertEqual(mapping["priority"], "priority")
+
+	def test_job_customer_from_customer_field(self):
+		from logistics.utils.get_charges_from_quotation import _job_customer
+
+		d = MagicMock()
+		d.doctype = "Time Sensitive Case"
+		d.customer = "CUST-TS"
+		self.assertEqual(_job_customer(d), "CUST-TS")
+
+	def test_implied_service_type_display_only(self):
+		from logistics.utils.charge_service_type import implied_service_type_for_doctype
+		from logistics.utils.get_charges_from_quotation import _gcfq_skip_main_service_match
+
+		self.assertEqual(implied_service_type_for_doctype("Time Sensitive Case"), "Time Sensitive")
+		self.assertTrue(_gcfq_skip_main_service_match("Time Sensitive Case"))
+		self.assertFalse(_gcfq_skip_main_service_match("Air Booking"))
+
+	def test_corridor_sql_skipped(self):
+		d = MagicMock()
+		d.doctype = "Time Sensitive Case"
+		self.assertIsNone(_corridor_mismatch_message_for_preview(d, "Time Sensitive", "SQ-X"))
+
+	def test_effective_origin_destination_from_case_fields(self):
+		d = MagicMock()
+		d.doctype = "Time Sensitive Case"
+		d.origin = "USNYC"
+		d.destination = "LHR"
+		self.assertEqual(
+			_effective_sea_air_transport_corridor(d, {}),
+			("USNYC", "LHR", None, None),
+		)
+
+	def test_preview_maps_main_and_linked_scopes(self):
+		from logistics.utils.get_charges_from_quotation import (
+			_preview_time_sensitive_case_charges_from_sales_quote,
+		)
+
+		ch_main = MagicMock()
+		ch_main.name = "r1"
+		ch_main.item_code = "OB-COURIER"
+		ch_main.description = "Onboard Courier"
+		ch_main.quantity = 1
+		ch_main.unit_rate = 2400
+		ch_main.base_amount = 2400
+		ch_main.currency = "SGD"
+		ch_main.service_type = "Air"
+		ch_main.charge_scope = "Main"
+		ch_main.linked_service = None
+
+		ch_link = MagicMock()
+		ch_link.name = "r2"
+		ch_link.item_code = "LAST-MILE"
+		ch_link.description = "Airport Collection"
+		ch_link.quantity = 1
+		ch_link.unit_rate = 180
+		ch_link.base_amount = 180
+		ch_link.currency = "SGD"
+		ch_link.service_type = "Transport"
+		ch_link.charge_scope = "Linked"
+		ch_link.linked_service = "LS-TRN-0018"
+
+		sq = MagicMock()
+		sq.get.side_effect = lambda key, default=None: [ch_main, ch_link] if key == "charges" else default
+
+		out = _preview_time_sensitive_case_charges_from_sales_quote(sq)
+		self.assertEqual(out["charges_count"], 2)
+		self.assertEqual(out["linked_charge_count"], 1)
+		self.assertEqual(out["charges"][0]["charge_scope"], "Main")
+		self.assertEqual(out["charges"][1]["charge_scope"], "Linked")
+		self.assertEqual(out["charges"][1]["internal_job_label"], "LS-TRN-0018")
+
+
 def run():
 	"""Smoke-test helpers on a live site (no DB writes)."""
 	from unittest.mock import MagicMock

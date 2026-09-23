@@ -1,6 +1,6 @@
 # Lifecycle Templates
 
-**Lifecycle Templates** are reusable sets of lifecycle activities. Apply a template to a [Special Project](welcome/special-projects-module) or a [MICE Project](welcome/mice-module) and the system seeds its **Lifecycle Jobs** grid in one click — no more typing the same Pre-Show / Logistics / On-Site / Post-Show / Closed rows on every new programme.
+**Lifecycle Templates** are reusable sets of lifecycle activities. Apply a template to a [Special Project](welcome/special-projects-module) and the system seeds its **Lifecycle Jobs** grid in one click — no more typing the same Pre-Show / Logistics / On-Site / Post-Show / Closed rows on every new programme. New [MICE Project](welcome/mice-module) records still receive standard lifecycle jobs automatically on create.
 
 To open the master: **Awesome Bar** → **Lifecycle Template**.
 
@@ -42,11 +42,11 @@ Rules enforced on save:
 - Each activity row needs a **Lifecycle Stage** and a **Service Type**.
 - If you also pick an **Activity Code**, the system verifies its `lifecycle_stage` matches the row's stage.
 
-## 3. Applying a template to a Special Project or MICE Project
+## 3. Applying a template to a Special Project
 
-1. Open the **Special Project** or **MICE Project** form (must be saved).
-2. Click **Lifecycle → Apply Lifecycle Template** in the toolbar.
-3. Pick a template (only templates whose applicability flag matches the parent type are listed).
+1. Open the **Special Project** form (must be saved).
+2. Click **Action → Apply Lifecycle Template** in the toolbar.
+3. Pick a template (only templates with **For Special Project** enabled are listed).
 4. (Optional) Tick **Replace existing lifecycle rows (without job)** to clear out rows that have not yet generated a booking/order. Rows that already have a `job_no` set are always preserved.
 5. Click **Apply**.
 
@@ -90,8 +90,8 @@ Applying this to a fresh **Special Project**:
 
 ## 6. Tips and troubleshooting
 
-- **Picker is empty** — the template you want either is **disabled**, or its applicability flag does not match the parent (e.g. you opened the dialog on a MICE Project but the template is `For Special Project` only).
-- **"Skipped N activity row(s)..." appears in orange** — an activity row references a Lifecycle Stage that is not flagged for the parent type. Open the stage master and tick the relevant box, or edit the template to use a stage that is flagged.
+- **Picker is empty** — the template you want either is **disabled**, or **For Special Project** is not ticked.
+- **"Skipped N activity row(s)..." appears in orange** — an activity row references a Lifecycle Stage that is not flagged for Special Project. Open the stage master and tick the relevant box, or edit the template to use a stage that is flagged.
 - **Replace mode wiped fewer rows than expected** — rows with a `job_no` (already linked to a booking/order) are always preserved. Cancel the booking/order first if you want the row removed.
 - **Reorder rows on the target** — drag rows in the Lifecycle Jobs grid; templates only seed the initial order via **Sort Order**.
 

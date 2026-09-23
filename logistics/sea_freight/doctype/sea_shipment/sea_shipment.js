@@ -60,11 +60,80 @@ function _is_milestone_tracking_enabled(frm) {
 function _apply_milestone_tracking_visibility(frm, enabled) {
 	var show = !!enabled;
 	var hidden = show ? 0 : 1;
-	["milestones_tab", "section_break_milestones", "milestone_html", "milestone_template", "milestones"].forEach(function(fieldname) {
+	["milestones_tab", "section_break_milestones", "section_break_milestone_grid", "section_break_milestone_view", "milestone_html", "milestone_template", "milestones"].forEach(function(fieldname) {
 		if (frm.fields_dict[fieldname]) {
 			frm.set_df_property(fieldname, "hidden", hidden);
 		}
 	});
+}
+
+function _sea_shipment_milestone_row_from_booking(row) {
+	return !!(row && (Number(row.from_booking) === 1 || row.from_booking === true));
+}
+
+function _sea_shipment_milestone_row_from_service(row) {
+	return !!(row && (Number(row.from_service) === 1 || row.from_service === true));
+}
+
+function _sea_shipment_milestone_row_locked(row) {
+	return _sea_shipment_milestone_row_from_booking(row) || _sea_shipment_milestone_row_from_service(row);
+}
+
+function _lock_sea_shipment_booking_milestone_grid_row(grid_row) {
+	if (!grid_row || !grid_row.doc || !grid_row.grid || grid_row.grid.df.fieldname !== "milestones") {
+		return;
+	}
+	if (!_sea_shipment_milestone_row_locked(grid_row.doc)) {
+		return;
+	}
+	grid_row.doc.__read_only = 1;
+	if (!grid_row._booking_ms_toggle_patched) {
+		grid_row._booking_ms_toggle_patched = true;
+		var orig_toggle = grid_row.toggle_editable_row.bind(grid_row);
+		grid_row.toggle_editable_row = function(show) {
+			if (_sea_shipment_milestone_row_locked(grid_row.doc)) {
+				return orig_toggle(false);
+			}
+			return orig_toggle(show);
+		};
+	}
+	["milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"].forEach(function(fn) {
+		if (grid_row.columns && grid_row.columns[fn] && grid_row.columns[fn].df && !grid_row.columns[fn].df.__from_booking_locked) {
+			grid_row.columns[fn].df = $.extend({}, grid_row.columns[fn].df, {
+				read_only: 1,
+				__from_booking_locked: 1
+			});
+		}
+		if (grid_row.on_grid_fields_dict && grid_row.on_grid_fields_dict[fn]) {
+			grid_row.toggle_editable(fn, false);
+		}
+	});
+	if (grid_row.open_form_button && typeof grid_row.open_form_button.toggle === "function") {
+		grid_row.open_form_button.toggle(false);
+	}
+	if (grid_row.wrapper) {
+		grid_row.wrapper.find(".grid-row-check").prop("disabled", true).prop("checked", false);
+		grid_row.wrapper.find(".btn-open-row").hide();
+	}
+}
+
+function _lock_sea_shipment_booking_milestone_rows(frm) {
+	if (!frm || !frm.fields_dict.milestones || !frm.fields_dict.milestones.grid) {
+		return;
+	}
+	var grid = frm.fields_dict.milestones.grid;
+	(grid.grid_rows || []).forEach(_lock_sea_shipment_booking_milestone_grid_row);
+}
+
+function _bind_sea_shipment_booking_milestone_lock(frm) {
+	if (!frm || !frm.wrapper) {
+		return;
+	}
+	$(frm.wrapper)
+		.off("grid-row-render.sea_shipment_booking_ms")
+		.on("grid-row-render.sea_shipment_booking_ms", function(e, grid_row) {
+			_lock_sea_shipment_booking_milestone_grid_row(grid_row);
+		});
 }
 
 function _load_documents_html(frm) {
@@ -229,6 +298,9 @@ frappe.ui.form.on('Sea Shipment', {
 	containers_remove: function(frm) {
 		_sea_shipment_refresh_package_container_options(frm);
 	},
+	milestones_on_form_rendered: function(frm) {
+		_lock_sea_shipment_booking_milestone_rows(frm);
+	},
 	document_list_template: function (frm) {
 		_sea_shipment_save_then_populate_template(
 			frm,
@@ -244,9 +316,13 @@ frappe.ui.form.on('Sea Shipment', {
 		);
 	},
 	setup: function(frm) {
+		_bind_sea_shipment_booking_milestone_lock(frm);
 		frm.set_query('milestone_template', function() {
 			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
 				.then(function(r) { return r.message || { filters: [] }; });
+		});
+		frm.set_query('cut_off', 'cut_offs', function() {
+			return { filters: { is_active: 1 } };
 		});
 		frm.set_query('shipper', function() {
 			return { filters: { is_active: 1 } };
@@ -433,6 +509,10 @@ frappe.ui.form.on('Sea Shipment', {
 	},
 
 	refresh: function(frm) {
+		_bind_sea_shipment_booking_milestone_lock(frm);
+		setTimeout(function() {
+			_lock_sea_shipment_booking_milestone_rows(frm);
+		}, 0);
 		if (window.logistics && logistics.job_change_lock) {
 			logistics.job_change_lock.apply(frm);
 		}
@@ -1018,6 +1098,40 @@ frappe.ui.form.on('Sea Freight Containers', {
 		_refresh_container_cargo_debounced(frm);
 		if (!_is_grid_dialog_open()) {
 			_refresh_packing_summary_debounced(frm);
+		}
+	}
+});
+
+frappe.ui.form.on("Sea Shipment Milestone", {
+	form_render: function(frm, cdt, cdn) {
+		var row = locals[cdt] && locals[cdt][cdn];
+		if (!_sea_shipment_milestone_row_locked(row)) {
+			return;
+		}
+		var grid = frm.fields_dict.milestones && frm.fields_dict.milestones.grid;
+		var grid_row = grid && grid.grid_rows_by_docname && grid.grid_rows_by_docname[cdn];
+		if (!grid_row) {
+			return;
+		}
+		row.__read_only = 1;
+		if (grid_row.wrapper) {
+			grid_row.wrapper.find(".grid-delete-row, .grid-insert-row, .grid-insert-row-below, .grid-duplicate-row").hide();
+		}
+		(grid_row.docfields || []).forEach(function(df) {
+			if (!df || !df.fieldname || df.fieldtype === "Section Break" || df.fieldtype === "Column Break") {
+				return;
+			}
+			grid_row.toggle_editable(df.fieldname, false);
+		});
+		_lock_sea_shipment_booking_milestone_rows(frm);
+	},
+	before_milestones_remove: function(frm, cdt, cdn) {
+		var row = locals[cdt] && locals[cdt][cdn];
+		if (_sea_shipment_milestone_row_from_booking(row)) {
+			frappe.throw(__("Milestones copied from Sea Booking cannot be deleted."));
+		}
+		if (_sea_shipment_milestone_row_from_service(row)) {
+			frappe.throw(__("Milestones copied from linked Services cannot be deleted."));
 		}
 	}
 });

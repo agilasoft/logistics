@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body {
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 10pt;
+			color: #000;
+			background: #fff;
+			-webkit-print-color-adjust: exact;
+			print-color-adjust: exact;
+		}
+		.label-page {
+			width: 4in;
+			min-height: 6in;
+			margin: 0 auto;
+			padding: 3mm 3.5mm 2.5mm;
+			page-break-after: always;
+			page-break-inside: avoid;
+		}
+		.label-page:last-child { page-break-after: auto; }
+		.lbl {
+			font-size: 8pt;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.02em;
+			line-height: 1.1;
+		}
+		.rule { border-bottom: 1px solid #000; }
+		.header {
+			text-align: center;
+			font-size: 16pt;
+			font-weight: 800;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			padding: 1mm 0 2mm;
+			line-height: 1.1;
+		}
+		.barcode-block {
+			text-align: center;
+			padding: 3.5mm 0 2mm;
+		}
+		.barcode-block img {
+			display: block;
+			width: 100%;
+			max-width: 100%;
+			height: 22mm;
+			object-fit: contain;
+			object-position: center;
+		}
+		.barcode-block.small { padding: 3mm 0 1.5mm; }
+		.barcode-block.small img { height: 16mm; }
+		.barcode-text {
+			font-size: 11pt;
+			font-weight: 600;
+			letter-spacing: 0.04em;
+			margin-top: 1.2mm;
+			word-break: break-all;
+		}
+		.barcode-block.small .barcode-text {
+			font-size: 9pt;
+			font-weight: 500;
+			letter-spacing: 0.01em;
+		}
+		.awb-box {
+			border: 1px solid #000;
+			margin-top: 1mm;
+		}
+		.awb-box .cell { padding: 1.4mm 2mm 2.2mm; }
+		.awb-no {
+			text-align: center;
+			font-size: 22pt;
+			font-weight: 800;
+			letter-spacing: 0.04em;
+			padding: 1.5mm 0 2mm;
+			line-height: 1;
+		}
+		.awb-no-tail {
+			font-size: 24pt;
+			font-weight: 800;
+		}
+		.split {
+			width: 100%;
+			border-collapse: collapse;
+			table-layout: fixed;
+		}
+		.split td {
+			width: 50%;
+			vertical-align: top;
+			padding: 1.4mm 2mm 2.4mm;
+		}
+		.split td + td { border-left: 1px solid #000; }
+		.awb-box .split { border-top: 1px solid #000; }
+		.big {
+			display: block;
+			text-align: center;
+			font-size: 24pt;
+			font-weight: 800;
+			line-height: 1.05;
+			padding-top: 1.5mm;
+		}
+		.company-block {
+			padding: 2.2mm 1mm 2.4mm;
+		}
+		.company-name {
+			text-align: center;
+			font-size: 14pt;
+			font-weight: 800;
+			text-transform: uppercase;
+			letter-spacing: 0.02em;
+			padding: 1.5mm 0 0.5mm;
+			line-height: 1.15;
+		}
+		.house-row {
+			width: 100%;
+			border-collapse: collapse;
+			table-layout: fixed;
+			margin-top: 1.5mm;
+		}
+		.house-row td {
+			width: 50%;
+			vertical-align: top;
+			padding: 0 1mm 1mm;
+		}
+		.house-row .val {
+			display: block;
+			font-size: 16pt;
+			font-weight: 800;
+			padding-top: 1.2mm;
+			line-height: 1.1;
+			word-break: break-word;
+		}
+		.house-row td:first-child .val {
+			word-break: normal;
+			white-space: nowrap;
+		}
+		.house-row td:last-child {
+			text-align: right;
+		}
+		.house-row td:last-child .lbl,
+		.house-row td:last-child .val { text-align: right; }
+		.footer-rule { margin-top: 0.5mm; }
+		@page { size: 4in 6in; margin: 0; }
+		@media print {
+			html, body { width: 4in; background: #fff; }
+			.label-page { width: 4in; min-height: 6in; }
+		}
+	</style>
+</head>
+<body>
+{% set ns = namespace(company_doc=None, mawb_doc=None, airline_name="", dest_iata="", awb_display="", awb_prefix="", awb_tail="") %}
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% if doc.company and frappe.db.exists("Company", doc.company) %}
+	{% set ns.company_doc = frappe.get_doc("Company", doc.company) %}
+{% elif default_company and frappe.db.exists("Company", default_company) %}
+	{% set ns.company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
+{% set company_name = (ns.company_doc.company_name if ns.company_doc else (doc.company or default_company or "")) or "" %}
+
+{% if doc.master_awb and frappe.db.exists("Master Air Waybill", doc.master_awb) %}
+	{% set ns.mawb_doc = frappe.get_doc("Master Air Waybill", doc.master_awb) %}
+{% endif %}
+{% set mawb_no = (ns.mawb_doc.master_awb_no if ns.mawb_doc else "") or "" %}
+{% set awb_digits = (mawb_no|string)|replace(" ", "")|replace("-", "") %}
+{% set ns.awb_display = mawb_no %}
+{% if awb_digits|length == 11 %}
+	{% set ns.awb_prefix = awb_digits[0:3] ~ "-" ~ awb_digits[3:7] ~ " " %}
+	{% set ns.awb_tail = awb_digits[7:11] %}
+	{% set ns.awb_display = ns.awb_prefix ~ ns.awb_tail %}
+{% elif awb_digits|length >= 4 %}
+	{% set ns.awb_prefix = awb_digits[:-4] %}
+	{% set ns.awb_tail = awb_digits[-4:] %}
+	{% set ns.awb_display = ns.awb_prefix ~ ns.awb_tail %}
+{% endif %}
+
+{% if doc.airline and frappe.db.exists("Airline", doc.airline) %}
+	{% set ns.airline_name = frappe.db.get_value("Airline", doc.airline, "airline_name") or doc.airline %}
+{% elif ns.mawb_doc and ns.mawb_doc.airline and frappe.db.exists("Airline", ns.mawb_doc.airline) %}
+	{% set ns.airline_name = frappe.db.get_value("Airline", ns.mawb_doc.airline, "airline_name") or ns.mawb_doc.airline %}
+{% elif doc.airline %}
+	{% set ns.airline_name = doc.airline %}
+{% endif %}
+
+{% if doc.destination_port and frappe.db.exists("UNLOCO", doc.destination_port) %}
+	{% set dest_row = frappe.db.get_value("UNLOCO", doc.destination_port, ["iata_code", "unlocode"], as_dict=True) %}
+	{% if dest_row and dest_row.iata_code %}
+		{% set ns.dest_iata = dest_row.iata_code %}
+	{% elif dest_row and dest_row.unlocode %}
+		{% set ns.dest_iata = (dest_row.unlocode|string)[-3:] %}
+	{% endif %}
+{% endif %}
+{% if not ns.dest_iata and ns.mawb_doc and ns.mawb_doc.destination_airport_iata %}
+	{% set ns.dest_iata = ns.mawb_doc.destination_airport_iata %}
+{% endif %}
+{% set dest_iata = (ns.dest_iata or "")|upper %}
+
+{% set housebill = (doc.house_awb or doc.house_awb_no or "")|string %}
+{% set piece_count = (doc.packs|int) if (doc.packs|int) > 0 else ((doc.total_packages|int) if (doc.total_packages|int) > 0 else 1) %}
+
+{% for piece_n in range(1, piece_count + 1) %}
+{% set top_code = (awb_digits ~ ("%06d"|format(piece_n))) if awb_digits else "" %}
+{% set bottom_code = ("H" ~ housebill ~ "+S" ~ ("%04d"|format(piece_n)) ~ "+Y" ~ ("%04d"|format(piece_count))) if housebill else "" %}
+<div class="label-page">
+	<div class="header rule">{{ ns.airline_name|upper }}</div>
+
+	<div class="barcode-block">
+		{% if top_code %}
+		<img src="https://bwipjs-api.metafloor.com/?bcid=code128&amp;text={{ top_code|urlencode }}&amp;scale=3&amp;height=14&amp;includetext=false" alt="{{ top_code }}" />
+		<div class="barcode-text">{{ top_code }}</div>
+		{% endif %}
+	</div>
+
+	<div class="awb-box">
+		<div class="cell">
+			<div class="lbl">Airwaybill No.</div>
+			<div class="awb-no">{% if ns.awb_tail %}{{ ns.awb_prefix }}<span class="awb-no-tail">{{ ns.awb_tail }}</span>{% else %}{{ ns.awb_display }}{% endif %}</div>
+		</div>
+		<table class="split">
+			<tr>
+				<td>
+					<div class="lbl">Destination</div>
+					<span class="big">{{ dest_iata }}</span>
+				</td>
+				<td>
+					<div class="lbl">Total No. of Pieces</div>
+					<span class="big">{{ piece_count }}</span>
+				</td>
+			</tr>
+		</table>
+	</div>
+
+	<div class="company-block rule">
+		<div class="lbl">Company</div>
+		<div class="company-name">{{ company_name|upper }}</div>
+	</div>
+
+	<table class="house-row">
+		<tr>
+			<td>
+				<div class="lbl">Housebill Number</div>
+				<span class="val">{{ housebill }}</span>
+			</td>
+			<td>
+				<div class="lbl">Piece Count</div>
+				<span class="val">{{ piece_n }} of {{ piece_count }}</span>
+			</td>
+		</tr>
+	</table>
+
+	<div class="barcode-block small">
+		{% if bottom_code %}
+		<img src="https://bwipjs-api.metafloor.com/?bcid=code128&amp;text={{ bottom_code|urlencode }}&amp;scale=3&amp;height=10&amp;includetext=false" alt="{{ bottom_code }}" />
+		<div class="barcode-text">{{ bottom_code }}</div>
+		{% endif %}
+	</div>
+	<div class="rule footer-rule"></div>
+</div>
+{% endfor %}
+</body>
+</html>

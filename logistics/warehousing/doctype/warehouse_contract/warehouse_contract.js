@@ -43,7 +43,9 @@ frappe.ui.form.on("Warehouse Contract", {
 
 		// Add Create menu buttons for linked doctypes (only when submitted),
 		// filtered by charge types present on contract items.
-		if (!frm.is_new() && frm.doc.name && frm.doc.docstatus === 1) {
+		if (window.logistics && logistics.menu && logistics.menu.is_submitted
+			? logistics.menu.is_submitted(frm)
+			: (!frm.is_new() && frm.doc.name && frm.doc.docstatus === 1)) {
 			const hasCharge = (flag) => (frm.doc.items || []).some((row) => row[flag]);
 
 			if (hasCharge("inbound_charge")) {

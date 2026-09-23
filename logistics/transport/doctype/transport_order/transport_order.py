@@ -398,6 +398,16 @@ class TransportOrder(VirtualLinkedServicesMixin, Document):
                 if not getattr(frappe.flags, "skip_container_sync", False):
                     frappe.log_error("Transport Order container sync error: {0}".format(str(e)), "Container Management")
 
+    def after_insert(self):
+        from logistics.utils.charges_calculation import sync_tariff_rates_and_breaks_on_charges
+
+        sync_tariff_rates_and_breaks_on_charges(self)
+
+    def on_update(self):
+        from logistics.utils.charges_calculation import sync_tariff_rates_and_breaks_on_charges
+
+        sync_tariff_rates_and_breaks_on_charges(self)
+
     def aggregate_volume_from_packages(self):
         """Set header volume from sum of package volumes, converted to base/default volume UOM."""
         packages = getattr(self, "packages", []) or []
@@ -494,16 +504,20 @@ class TransportOrder(VirtualLinkedServicesMixin, Document):
         assert_sales_quote_customer_matches_job_before_submit(self)
 
         # Validate quote reference: either sales_quote (for Sales Quote) or quote (for One-Off Quote) must be set
+        # Exception: Time Sensitive Case legs often have no quote (bill later).
+        from logistics.time_sensitive.propagation import is_time_sensitive_operational_doc
+
+        ts_case_leg = is_time_sensitive_operational_doc(self)
         quote_type = getattr(self, "quote_type", None)
         if quote_type == "Sales Quote":
-            if not self.sales_quote:
+            if not self.sales_quote and not ts_case_leg:
                 frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Transport Order."))
         elif quote_type == "One-Off Quote":
-            if not getattr(self, "quote", None):
+            if not getattr(self, "quote", None) and not ts_case_leg:
                 frappe.throw(_("One-Off Quote is required. Please select a One-Off Quote before submitting the Transport Order."))
         else:
             # If quote_type is not set, check if sales_quote is set (backward compatibility)
-            if not self.sales_quote:
+            if not self.sales_quote and not ts_case_leg:
                 frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Transport Order."))
         
         # Validate packages is not empty
@@ -516,6 +530,7 @@ class TransportOrder(VirtualLinkedServicesMixin, Document):
         self._validate_vehicle_type_required()
         
         self._validate_transport_legs()
+        self._validate_truck_ban_constraints()
 
         from logistics.utils.charge_service_type import (
             assert_destination_service_charges_on_submit_unless_internal_job,
@@ -669,6 +684,93 @@ class TransportOrder(VirtualLinkedServicesMixin, Document):
             
             # Auto-fill addresses from facilities if not set
             self._auto_fill_leg_addresses(leg, i)
+
+    def _validate_truck_ban_constraints(self):
+        """Block or warn on submit when a leg violates an active truck ban."""
+        from datetime import datetime
+
+        from frappe.utils import get_datetime, get_time
+
+        from logistics.transport.constraint_validator import evaluate_truck_ban_for_planned_leg
+
+        legs_field = _find_child_table_fieldname(
+            "Transport Order", "Transport Order Legs", ORDER_LEGS_FIELDNAME_FALLBACKS
+        )
+        legs = self.get(legs_field) or []
+        if not legs:
+            return
+
+        order_vehicle_type = self.vehicle_type
+        capacity_by_type: Dict[str, float] = {}
+
+        def _capacity_for(vehicle_type: Optional[str]) -> float:
+            if not vehicle_type:
+                return 0.0
+            if vehicle_type in capacity_by_type:
+                return capacity_by_type[vehicle_type]
+            weight = 0.0
+            if frappe.db.exists("DocType", "Vehicle Type") and frappe.db.exists("Vehicle Type", vehicle_type):
+                meta = frappe.get_meta("Vehicle Type")
+                for fieldname in ("capacity_weight", "max_weight", "weight_capacity"):
+                    if meta.has_field(fieldname):
+                        weight = flt(frappe.db.get_value("Vehicle Type", vehicle_type, fieldname) or 0)
+                        break
+            capacity_by_type[vehicle_type] = weight
+            return weight
+
+        for i, leg in enumerate(legs, 1):
+            vehicle_type = leg.get("vehicle_type") or order_vehicle_type
+            pick_address = leg.get("pick_address")
+            drop_address = leg.get("drop_address")
+            if not vehicle_type or (not pick_address and not drop_address):
+                continue
+
+            scheduled_datetime = None
+            for candidate in (
+                leg.get("pick_datetime"),
+                leg.get("drop_datetime"),
+                leg.get("scheduled_date"),
+                self.scheduled_date,
+                self.booking_date,
+            ):
+                if not candidate:
+                    continue
+                try:
+                    scheduled_datetime = get_datetime(candidate)
+                    # Date-only values become midnight; use midday so time-window bans still apply
+                    if (
+                        scheduled_datetime
+                        and scheduled_datetime.hour == 0
+                        and scheduled_datetime.minute == 0
+                        and scheduled_datetime.second == 0
+                        and not leg.get("pick_datetime")
+                        and not leg.get("drop_datetime")
+                    ):
+                        t = get_time("12:00:00")
+                        scheduled_datetime = datetime.combine(getdate(candidate), t)
+                    break
+                except Exception:
+                    continue
+
+            if not scheduled_datetime:
+                continue
+
+            action, reason = evaluate_truck_ban_for_planned_leg(
+                vehicle_type=vehicle_type,
+                pick_address=pick_address,
+                drop_address=drop_address,
+                scheduled_datetime=scheduled_datetime,
+                capacity_weight=_capacity_for(vehicle_type),
+            )
+            if action == "block":
+                frappe.throw(_("Row {0}: {1}").format(i, reason))
+            if action == "warn" and reason:
+                frappe.msgprint(
+                    _("Row {0}: {1}").format(i, reason),
+                    indicator="orange",
+                    alert=True,
+                    title=_("Truck Ban Warning"),
+                )
 
     def _validate_peza_addresses(self, leg, leg_index):
         """Validate that addresses have PEZA/non-PEZA classification set."""
@@ -1968,6 +2070,9 @@ def append_transport_order_charges_from_sales_quote_if_empty(order):
 def recalculate_all_charges(docname):
     """Recalculate all charges based on current Transport Order data using RateCalculationEngine."""
     doc = frappe.get_doc("Transport Order", docname)
+    from logistics.utils.menu_permission import assert_perm
+
+    assert_perm("Transport Order", "write", doc=doc)
     if not doc.charges:
         return {"success": False, "message": _("No charges found to recalculate")}
     try:
@@ -2358,6 +2463,10 @@ def action_create_transport_job(docname: str):
             "air_shipment": getattr(doc, "air_shipment", None),
             "sea_shipment": getattr(doc, "sea_shipment", None),
             "is_high_value": getattr(doc, "is_high_value", None),
+            "is_time_sensitive": getattr(doc, "is_time_sensitive", None),
+            "time_sensitive_case": getattr(doc, "time_sensitive_case", None),
+            "ts_case_type": getattr(doc, "ts_case_type", None),
+            "critical_deadline": getattr(doc, "critical_deadline", None),
             "internal_notes": getattr(doc, "internal_notes", None),
             "client_notes": getattr(doc, "client_notes", None),
         }

@@ -1,7 +1,8 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2026-01-08 11:14:25.685999",
+ "autoname": "field:constraint_name",
+ "creation": "2026-07-30 10:59:33.877802",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -101,8 +102,8 @@
    "fieldname": "vehicle_type",
    "fieldtype": "Link",
    "label": "Vehicle Type",
-   "options": "Vehicle Type",
-   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Vehicle Type\", \"is_active\", \"=\", 1]]",
+   "options": "Vehicle Type"
   },
   {
    "fieldname": "weight_limit",
@@ -298,10 +299,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-09 15:09:19.135069",
+ "modified": "2026-08-10 09:36:05.466595",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Scheduling Constraint",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {

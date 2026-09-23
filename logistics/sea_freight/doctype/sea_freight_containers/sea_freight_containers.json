@@ -16,6 +16,8 @@
   "mode",
   "delivery_modes",
   "free_time_days",
+  "demurrage_free_time_days",
+  "detention_free_time_days",
   "section_break_cargo",
   "packages_in_container",
   "weight_in_container",
@@ -95,6 +97,20 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Free Time (Days)"
+  },
+  {
+   "description": "Commercial demurrage free time (days) for this container; copied from Booking.",
+   "fieldname": "demurrage_free_time_days",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Demurrage Free Time"
+  },
+  {
+   "description": "Commercial detention free time (days) for this container; copied from Booking.",
+   "fieldname": "detention_free_time_days",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Detention Free Time"
   },
   {
    "fieldname": "section_break_cargo",

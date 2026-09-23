@@ -1127,3 +1127,61 @@ def fetch_eligible_regular_sales_quote_names(
 	params["limit"] = limit
 	rows = frappe.db.sql(sql, params)
 	return [r[0] for r in rows] if rows else []
+
+
+def fetch_eligible_time_sensitive_sales_quote_names(
+	customer: str | None = None,
+	reference_doctype: str | None = None,
+	reference_name: str | None = None,
+	limit: int = 100,
+	job_branch: str | None = None,
+	job_cost_center: str | None = None,
+	job_profit_center: str | None = None,
+	header_filters: dict[str, str] | None = None,
+) -> list[str]:
+	"""Regular submitted Sales Quotes flagged Time Sensitive (any ``main_service``).
+
+	Used by Action → Get Charges from Quotation on Time Sensitive Case. Does **not** require
+	``sq.main_service`` to be Time Sensitive. Origin / Destination / Priority are applied via
+	``header_filters`` (blank-or-equal on the quote header).
+	"""
+	_ = (reference_doctype, reference_name)
+	if not frappe.db.has_column("Sales Quote", "is_time_sensitive"):
+		return []
+
+	limit = cint(limit) or 100
+	params: dict[str, Any] = {"limit": limit}
+	params["job_branch"] = (job_branch or "").strip()
+	params["job_cost_center"] = (job_cost_center or "").strip()
+	params["job_profit_center"] = (job_profit_center or "").strip()
+	org_sql = _org_dimensions_header_match_sql()
+	hdr_sql, hdr_params = _header_fields_match_sql(header_filters)
+	params.update(hdr_params)
+	regular_only_where = "TRIM(IFNULL(sq.quotation_type,'')) = 'Regular'"
+
+	customer_cond = ""
+	if (customer or "").strip():
+		params["customer"] = customer.strip()
+		customer_cond = (
+			"AND LOWER(TRIM(IFNULL(sq.customer,''))) = LOWER(TRIM(%(customer)s))"
+		)
+
+	match_cond = _sales_quote_match_cond()
+	sql = f"""
+		SELECT sq.name
+		FROM `tabSales Quote` sq
+		WHERE IFNULL(sq.is_time_sensitive, 0) = 1
+		AND {regular_only_where}
+		{customer_cond}
+		AND IFNULL(sq.status,'') NOT IN ('Lost','Expired')
+		AND (sq.valid_until IS NULL OR sq.valid_until >= CURDATE())
+		AND sq.docstatus = 1
+		{org_sql}
+		{hdr_sql}
+		{match_cond}
+		ORDER BY sq.modified DESC
+		LIMIT %(limit)s
+	"""
+	params["limit"] = limit
+	rows = frappe.db.sql(sql, params)
+	return [r[0] for r in rows] if rows else []

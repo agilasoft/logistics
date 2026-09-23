@@ -374,6 +374,9 @@ def create_job_number_for_docket(
 def recalculate_all_charges(docname):
 	"""Recalculate charge lines on this Docket."""
 	doc = frappe.get_doc("Docket", docname)
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm("Docket", "write", doc=doc)
 	if not doc.get("charges"):
 		return {"success": False, "message": _("No charges found to recalculate")}
 	try:
@@ -405,8 +408,11 @@ def post_standard_costs(docname):
 	requiring users to know which job types support standard costs.
 	"""
 	from frappe.utils import flt
+	from logistics.utils.menu_permission import assert_perm
 
 	docket = frappe.get_doc("Docket", docname)
+	assert_perm("Docket", "write", doc=docket)
+	assert_perm("Journal Entry", "create")
 	posted = 0
 	for ch in (docket.charges or []):
 		total_std = getattr(ch, "total_standard_cost", None)

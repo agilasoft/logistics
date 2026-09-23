@@ -47,12 +47,13 @@ class TestSalesQuoteDuplicateServices(FrappeTestCase):
 		return doc
 
 	def _add_linked_service(self, sq, service_type: str):
+		before = _linked_service_names_from_db("Sales Quote", sq.name)
 		sq.append("linked_services", {"service_type": service_type})
 		sq.flags._linked_services_from_form = True
 		sync_internal_job_details_to_internal_jobs(sq)
-		names = _linked_service_names_from_db("Sales Quote", sq.name)
-		self.assertTrue(names)
-		return names[0]
+		added = _linked_service_names_from_db("Sales Quote", sq.name) - before
+		self.assertEqual(len(added), 1)
+		return next(iter(added))
 
 	def test_clone_sales_quote_linked_services_creates_new_docs(self):
 		source = self._minimal_sales_quote("SQ Dup Services Source")
@@ -140,13 +141,30 @@ class TestSalesQuoteDuplicateServices(FrappeTestCase):
 				update_modified=False,
 			)
 
+			source_before = set(_linked_service_names_from_db("Sales Quote", source.name))
+			# Desk duplicate / workflow posts an empty Services grid on the source too.
+			wiped = frappe.get_doc("Sales Quote", source.name)
+			wiped.__dict__["linked_services"] = []
+			wiped.flags.ignore_mandatory = True
+			wiped.save(ignore_permissions=True)
+			self.assertEqual(
+				set(_linked_service_names_from_db("Sales Quote", source.name)),
+				source_before,
+			)
+
 			result = copy_quotation_services_from_duplicate_source(target.name)
 			self.assertTrue(result["success"])
 			self.assertEqual(result["copied_count"], 2)
 			self.assertFalse(
 				frappe.db.get_value("Sales Quote", target.name, "logistics_duplicate_from")
 			)
-			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", target.name)), 2)
+			target_names = set(_linked_service_names_from_db("Sales Quote", target.name))
+			self.assertEqual(len(target_names), 2)
+			self.assertTrue(target_names.isdisjoint(source_before))
+			self.assertEqual(
+				set(_linked_service_names_from_db("Sales Quote", source.name)),
+				source_before,
+			)
 		finally:
 			for name in (source.name, target.name):
 				if frappe.db.exists("Sales Quote", name):
@@ -159,6 +177,46 @@ class TestSalesQuoteDuplicateServices(FrappeTestCase):
 				copy_quotation_services_from_duplicate_source(target.name)
 		finally:
 			frappe.delete_doc("Sales Quote", target.name, force=True, ignore_permissions=True)
+
+	def test_copy_quotation_services_from_quote_with_stale_ancestor_marker(self):
+		"""SQU000001442-style: source still points at an empty ancestor; copy from the source itself."""
+		ancestor = self._minimal_sales_quote("SQ Dup Ancestor Empty")
+		source = self._minimal_sales_quote("SQ Dup Stale Marker Source")
+		target = self._minimal_sales_quote("SQ Dup Stale Marker Target")
+		try:
+			self._add_linked_service(source, "Customs")
+			self._add_linked_service(source, "Transport")
+			frappe.db.set_value(
+				"Sales Quote",
+				source.name,
+				"logistics_duplicate_from",
+				ancestor.name,
+				update_modified=False,
+			)
+			frappe.db.set_value(
+				"Sales Quote",
+				target.name,
+				"logistics_duplicate_from",
+				source.name,
+				update_modified=False,
+			)
+
+			result = copy_quotation_services_from_duplicate_source(target.name)
+			self.assertTrue(result["success"])
+			self.assertEqual(result["copied_count"], 2)
+			self.assertEqual(len(_linked_service_names_from_db("Sales Quote", target.name)), 2)
+			self.assertEqual(
+				len(_linked_service_names_from_db("Sales Quote", source.name)),
+				2,
+			)
+			self.assertEqual(
+				len(_linked_service_names_from_db("Sales Quote", ancestor.name)),
+				0,
+			)
+		finally:
+			for name in (source.name, target.name, ancestor.name):
+				if frappe.db.exists("Sales Quote", name):
+					frappe.delete_doc("Sales Quote", name, force=True, ignore_permissions=True)
 
 	def test_copy_quotation_services_rejects_when_services_already_exist(self):
 		source = self._minimal_sales_quote("SQ Dup Idem Source")

@@ -720,9 +720,9 @@ def matching_programme_charge_rows(
 ) -> list[Any]:
 	"""Programme charge rows on the parent doc matching service type and parameters."""
 	from logistics.special_projects.special_project_charge_lifecycle import (
+		_charge_service_type_matches_requested,
 		programme_charges_for_service_type,
 	)
-	from logistics.utils.charge_service_type import sales_quote_charge_service_types_equal
 
 	scoped = extract_service_scoped_params_dict(params, service_type_label)
 	if not scoped:
@@ -731,7 +731,7 @@ def matching_programme_charge_rows(
 	return [
 		ch
 		for ch in pool
-		if sales_quote_charge_service_types_equal(getattr(ch, "service_type", None), service_type_label)
+		if _charge_service_type_matches_requested(getattr(ch, "service_type", None), service_type_label)
 		and sales_quote_charge_row_matches_internal_job_detail_params(
 			_effective_programme_charge_row(ch, service_type_label), scoped
 		)

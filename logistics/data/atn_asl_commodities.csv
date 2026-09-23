@@ -1,0 +1,98 @@
+Code,Description,IATA Commodity Code,Universal Commodity Code,Default HS Code
+AHTN001,Live animals,AVI,UC-01,0101–0106
+AHTN002,Meat and edible meat offal,PEM,UC-02,0201–0210
+AHTN003,"Fish and crustaceans, molluscs and other aquatic invertebrates",PES,UC-03,0301–0308
+AHTN004,"Dairy produce; birds' eggs; natural honey; edible products of animal origin, not elsewhere specified or included",EAT,UC-04,0401–0409
+AHTN005,"Products of animal origin, not elsewhere specified or included",GEN,UC-05,0501–0511
+AHTN006,"Live trees and other plants; bulbs, roots and the like; cut flowers and ornamental foliage",PEF,UC-06,0601–0604
+AHTN007,Edible vegetables and certain roots and tubers,PEP,UC-07,0701–0714
+AHTN008,Edible fruit and nuts; peel of citrus fruit or melons,PEP,UC-08,0801–0814
+AHTN009,"Coffee, tea, maté and spices",EAT,UC-09,0901–0910
+AHTN010,Cereals,EAT,UC-10,1001–1008
+AHTN011,Products of the milling industry; malt; starches; inulin; wheat gluten,EAT,UC-11,1101–1109
+AHTN012,"Oil seeds and oleaginous fruits; miscellaneous grains, seeds and fruit; industrial or medicinal plants; straw and fodder",EAT,UC-12,1201–1214
+AHTN013,"Lac; gums, resins and other vegetable saps and extracts",GEN,UC-13,1301–1302
+AHTN014,Vegetable plaiting materials; vegetable products not elsewhere specified or included,GEN,UC-14,1401–1404
+AHTN015,"Animal, vegetable or microbial fats and oils and their cleavage products; prepared edible fats; animal or vegetable waxe",EAT,UC-15,1501–1522
+AHTN016,"Preparations of meat, of fish, of crustaceans, molluscs or other aquatic invertebrates, or of insects.",PEM/PES,UC-16,1601–1605
+AHTN017,Sugars and sugar confectionery,EAT,UC-17,1701–1704
+AHTN018,Cocoa and cocoa preparations,EAT,UC-18,1801–1806
+AHTN019,"Preparations of cereals, flour, starch or milk; pastrycooks' products",EAT,UC-19,1901–1905
+AHTN020,"Preparations of vegetables, fruit, nuts or other parts of plants",PEP,UC-20,2001–2009
+AHTN021,Miscellaneous edible preparations,EAT,UC-21,2101–2106
+AHTN022,"Beverages, spirits and vinegar",EAT,UC-22,2201–2209
+AHTN023,Residues and waste from the food industries; prepared animal fodder,EAT,UC-23,2301–2309
+AHTN024,"Tobacco and manufactured tobacco substitutes; products, whether or not containing nicotine, intended for inhalation without combustion; other nicotine containing products intended for the intake of nicotine into the human body",EAT,UC-24,2401–2404
+AHTN025,"Salt, sulphur; earths and stone; plastering materials, lime and cement",GEN,UC-25,2501–2530
+AHTN026,"Ores, slag and ash",GEN,UC-26,2601–2621
+AHTN027,"Mineral fuels, mineral oils and products of their distillation; bituminous substances;mineral waxes",GEN,UC-27,2701–2716
+AHTN028,"Inorganic chemicals; organic or inorganic compounds of precious metals, of rare-earth metals, of radio-active elements or of isotopes",GEN,UC-28,2801–2853
+AHTN029,Organic chemicals,GEN,UC-29,2901–2942
+AHTN030,Pharmaceutical products,PIL,UC-30,3001–3006
+AHTN031,Fertilisers,GEN,UC-31,3101–3105
+AHTN032,"Tanning or dyeing extracts; tannins and their derivatives; dyes, pigments and other colouring matter; paints and varnishes; putty and other mastics; inks",GEN,UC-32,3201–3215
+AHTN033,"Essential oils and resinoids; perfumery, cosmetic or toilet preparations",GEN,UC-33,3301–3307
+AHTN034,"Soap, organic surface-active agents, washing preparations, lubricating preparations, artificial waxes, prepared waxes, polishing or scouring preparations, candles and similar articles, modelling pastes, ""dental waxes"" and dental preparations with a basis of plaster",GEN,UC-34,3401–3407
+AHTN035,Albuminoidal substances; modified starches; glues; enzymes,GEN,UC-35,3501–3507
+AHTN036,Explosives; pyrotechnic products; matches; pyrophoric alloys; certain combustible preparations,DGR,UC-36,3601–3606
+AHTN037,Photographic or cinematographic goods,GEN,UC-37,3701–3707
+AHTN038,Miscellaneous chemical products,GEN,UC-38,3801–3827
+AHTN039,Plastics and articles thereof,GEN,UC-39,3901–3926
+AHTN040,Rubber and articles thereof,GEN,UC-40,4001–4017
+AHTN041,Raw hides and skins (other than furskins) and leather,GEN,UC-41,4101–4103
+AHTN042,"Articles of leather; saddlery and harness; travel goods, handbags and similar containers; articles of animal gut (other than silk-worm gut)",GEN,UC-42,4201–4206
+AHTN043,Furskins and artificial fur; manufactures thereof,GEN,UC-43,4301–4304
+AHTN044,Wood and articles of wood; wood charcoal,GEN,UC-44,4401–4421
+AHTN045,Cork and articles of cork,GEN,UC-45,4501–4504
+AHTN046,"Manufactures of straw, of esparto or of other plaiting materials; basketware and wickerwork",GEN,UC-46,4601–4602
+AHTN047,Pulp of wood or of other fibrous cellulosic material; recovered (waste and scrap) paper or paperboard,GEN,UC-47,4701–4707
+AHTN048,"Paper and paperboard; articles of paper pulp, of paper or of paperboard",GEN,UC-48,4801–4823
+AHTN049,"Printed books, newspapers, pictures and other products of the printing industry; manuscripts, typescripts and plans",GEN,UC-49,4901–4911
+AHTN050,Silk,GEN,UC-50,5001–5007
+AHTN051,"Wool, fine or coarse animal hair; horsehair yarn and woven fabric",GEN,UC-51,5101–5113
+AHTN052,Cotton,GEN,UC-52,5201–5212
+AHTN053,Other vegetable textile fibres; paper yarn and woven fabrics of paper yarn,GEN,UC-53,5301–5311
+AHTN054,Man-made filaments; strip and the like of man-made textile materials,GEN,UC-54,5401–5408
+AHTN055,Man-made staple fibres,GEN,UC-55,5501–5516
+AHTN056,"Wadding, felt and nonwovens; special yarns; twine, cordage, ropes and cables and articles thereof",GEN,UC-56,5601–5609
+AHTN057,Carpets and other textile floor coverings,GEN,UC-57,5701–5705
+AHTN058,"Special woven fabrics; tufted textile fabrics; lace; tapestries; trimmings, embroidery",GEN,UC-58,5801–5811
+AHTN059,"Impregnated, coated, covered or laminated textile fabrics; textile articles of a kind suitable for industrial use",GEN,UC-59,5901–5911
+AHTN060,Knitted or crocheted fabrics,GEN,UC-60,6001–6006
+AHTN061,"Articles of apparel and clothing accessories, knitted or crocheted",GEN,UC-61,6101–6117
+AHTN062,"Articles of apparel and clothing accessories, not knitted or crocheted",GEN,UC-62,6201–6217
+AHTN063,Other made up textile articles; sets; worn clothing and worn textile articles; rags,GEN,UC-63,6301–6310
+AHTN064,"Footwear, gaiters and the like; parts of such articles",GEN,UC-64,6401–6406
+AHTN065,Headgear and parts thereof,GEN,UC-65,6501–6507
+AHTN066,"Umbrellas, sun umbrellas, walking-sticks, seat-sticks, whips, riding-crops and parts thereof",GEN,UC-66,6601–6603
+AHTN067,Prepared feathers and down and articles made of feathers or of down; artificial flowers; articles of human hair,GEN,UC-67,6701–6704
+AHTN068,"Articles of stone, plaster, cement, asbestos, mica or similar materials",GEN,UC-68,6801–6815
+AHTN069,Ceramic products,GEN,UC-69,6901–6914
+AHTN070,Glass and glassware,GEN,UC-70,7001–7020
+AHTN071,"Natural or cultured pearls, precious or semi-precious stones, precious metals, metals clad with precious metal and articles thereof; imitation jewellery; coin",VAL,UC-71,7101–7118
+AHTN072,Iron and steel,GEN,UC-72,7201–7229
+AHTN073,Articles of iron or steel,GEN,UC-73,7301–7326
+AHTN074,Copper and articles thereof,GEN,UC-74,7401–7419
+AHTN075,Nickel and articles thereof,GEN,UC-75,7501–7508
+AHTN076,Aluminium and articles thereof,GEN,UC-76,7601–7616
+AHTN077,(Reserved for possible future use in the Harmonized System),GEN,UC-77,
+AHTN078,Lead and articles thereof,GEN,UC-78,7801–7806
+AHTN079,Zinc and articles thereof,GEN,UC-79,7901–7907
+AHTN080,Tin and articles thereof,GEN,UC-80,8001–8007
+AHTN081,Other base metals; cermets; articles thereof,GEN,UC-81,8101–8113
+AHTN082,"Tools, implements, cutlery, spoons and forks, of base metal; parts thereof of base metal",GEN,UC-82,8201–8215
+AHTN083,Miscellaneous articles of base metal,GEN,UC-83,8301–8311
+AHTN084,"Nuclear reactors, boilers, machinery and mechanical appliances; parts thereof",GEN,UC-84,8401–8487
+AHTN085,"Electrical machinery and equipment and parts thereof; sound recorders and reproducers, television image and sound recorders and reproducers and parts and accessories of such articles",GEN,UC-85,8501–8548
+AHTN086,"Railway or tramway locomotives, rolling-stock and parts thereof; railway or tramway track fixtures and fittings and parts thereof; mechanical (including electro-mechanical) traffic signalling equipment of all kinds",GEN,UC-86,8601–8609
+AHTN087,"Vehicles other than railway or tramway rolling-stock, and parts and accessories thereof",GEN,UC-87,8701–8716
+AHTN088,"Aircraft, spacecraft, and parts thereof",AOG,UC-88,8801–8806
+AHTN089,"Ships, boats and floating structures",GEN,UC-89,8901–8908
+AHTN090,"Optical, photographic, cinematographic, measuring, checking, precision, medical or surgical instruments and apparatus; parts and accessories thereof",PIL,UC-90,9001–9033
+AHTN091,Clocks and watches and parts thereof,VAL,UC-91,9101–9114
+AHTN092,Musical instruments; parts and accessories of such articles,GEN,UC-92,9201–9209
+AHTN093,Arms and ammunition; parts and accessories thereof,DGR,UC-93,9301–9307
+AHTN094,"Furniture; bedding, mattresses, mattress supports, cushions and similar stuffed furnishings; luminaires and lighting fittings, not elsewhere specified or included; illuminated signs, illuminated name-plates and the like; prefabricated buildings",GEN,UC-94,9401–9406
+AHTN095,"Toys, games and sports requisites; parts and accessories thereof",GEN,UC-95,9501–9508
+AHTN096,Miscellaneous manufactured articles,GEN,UC-96,9601–9619
+AHTN097,"Works of art, collectors' pieces and antiques",VAL,UC-97,9701–9706

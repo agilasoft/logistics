@@ -255,75 +255,73 @@ function update_vehicle_type_filter_description(frm) {
 	frm.fields_dict.vehicle_type.df.filter_description = __("Filtered by: {0}.", [frappe.utils.comma_and(parts)]);
 }
 
-// Helper function to apply load_type filters
-function apply_load_type_filters(frm, preserve_existing_value) {
-	// Filter load types based on transport job type and boolean columns
-	// preserve_existing_value: if true, don't clear load_type even if not in filtered list (used during refresh)
+// Map transport_job_type to Load Type boolean field (mirrors server JOB_TYPE_LOAD_TYPE_FIELD).
+var JOB_TYPE_LOAD_TYPE_FIELD = {
+	"Container": "container",
+	"Non-Container": "non_container",
+	"Special": "special",
+	"Oversized": "oversized",
+	"Multimodal": "multimodal",
+	"Heavy Haul": "heavy_haul",
+};
+
+function get_load_type_link_filters(frm) {
 	if (!frm.doc.transport_job_type) {
-		// Clear filters if no job type selected
-		frm.set_df_property('load_type', 'filters', {});
+		return { transport: 1, is_active: 1 };
+	}
+
+	var filters = { transport: 1, is_active: 1 };
+	var allowed_field = JOB_TYPE_LOAD_TYPE_FIELD[frm.doc.transport_job_type];
+	if (allowed_field) {
+		filters[allowed_field] = 1;
+	}
+
+	var allowed = frm._transport_template_allowed_load_types || [];
+	if (allowed.length) {
+		filters.name = ["in", allowed];
+	}
+	return filters;
+}
+
+function setup_load_type_query(frm) {
+	if (!frm.fields_dict.load_type) {
 		return;
 	}
+	frm.set_query("load_type", function() {
+		return { filters: get_load_type_link_filters(frm) };
+	});
+}
 
-	// Build filters based on job type
-	var filters = {
-		transport: 1
-	};
-	
-	// Map transport_job_type to Load Type boolean field
-	if (frm.doc.transport_job_type === "Container") {
-		filters.container = 1;
-	} else if (frm.doc.transport_job_type === "Non-Container") {
-		filters.non_container = 1;
-	} else if (frm.doc.transport_job_type === "Special") {
-		filters.special = 1;
-	} else if (frm.doc.transport_job_type === "Oversized") {
-		filters.oversized = 1;
-	} else if (frm.doc.transport_job_type === "Heavy Haul") {
-		filters.heavy_haul = 1;
-	} else if (frm.doc.transport_job_type === "Multimodal") {
-		filters.multimodal = 1;
-	}
+// Helper function to apply load_type filters
+function apply_load_type_filters(frm, preserve_existing_value) {
+	setup_load_type_query(frm);
 
-	if (frm._transport_template_allowed_load_types && frm._transport_template_allowed_load_types.length) {
-		filters.name = ["in", frm._transport_template_allowed_load_types];
-	}
-
-	// Apply filters to load_type field
-	frm.set_df_property('load_type', 'filters', filters);
-	
-	// Only clear load_type if current selection is not in filtered list
-	// AND we're not preserving existing values (i.e., during refresh after save)
 	if (!preserve_existing_value && frm.doc.load_type) {
-		// Validate if current load_type is still allowed
+		var allowed = frm._transport_template_allowed_load_types || [];
+		if (allowed.length && allowed.indexOf(frm.doc.load_type) === -1) {
+			frm.set_value("load_type", "");
+			frm.refresh_field("load_type");
+			return;
+		}
+
 		frappe.call({
 			method: "frappe.client.get",
 			args: {
 				doctype: "Load Type",
-				name: frm.doc.load_type
+				name: frm.doc.load_type,
 			},
 			callback: function(r) {
 				if (r.message) {
-					const load_type_doc = r.message;
-					const field_map = {
-						"Container": "container",
-						"Non-Container": "non_container",
-						"Special": "special",
-						"Oversized": "oversized",
-						"Multimodal": "multimodal",
-						"Heavy Haul": "heavy_haul"
-					};
-					const allowed_field = field_map[frm.doc.transport_job_type];
-					if (allowed_field && !load_type_doc[allowed_field]) {
-						frm.set_value('load_type', '');
+					var allowed_field = JOB_TYPE_LOAD_TYPE_FIELD[frm.doc.transport_job_type];
+					if (allowed_field && !r.message[allowed_field]) {
+						frm.set_value("load_type", "");
 					}
 				}
-			}
+			},
 		});
 	}
-	
-	// Refresh the field to apply filters
-	frm.refresh_field('load_type');
+
+	frm.refresh_field("load_type");
 }
 
 function load_transport_template_constraints(frm, callback) {
@@ -334,7 +332,10 @@ function load_transport_template_constraints(frm, callback) {
 	}
 	frappe.call({
 		method: "logistics.transport.doctype.transport_template.transport_template.get_transport_template_constraints",
-		args: { template_name: frm.doc.transport_template },
+		args: {
+			template_name: frm.doc.transport_template,
+			transport_job_type: frm.doc.transport_job_type || null,
+		},
 		callback: function(r) {
 			var constraints = (r && r.message) || {};
 			frm._transport_template_allowed_load_types = constraints.allowed_load_types || [];
@@ -349,7 +350,11 @@ function apply_transport_template_defaults_to_order(frm, constraints) {
 	if (frm.doc.load_type && allowed.length && allowed.indexOf(frm.doc.load_type) === -1) {
 		frm.set_value("load_type", "");
 	}
-	if (!frm.doc.load_type && constraints.default_load_type) {
+	if (
+		!frm.doc.load_type &&
+		constraints.default_load_type &&
+		(!allowed.length || allowed.indexOf(constraints.default_load_type) !== -1)
+	) {
 		frm.set_value("load_type", constraints.default_load_type);
 	}
 	if (!frm.doc.vehicle_type && constraints.default_vehicle_type) {
@@ -445,29 +450,7 @@ frappe.ui.form.on("Transport Order", {
 			});
 		}
 
-		// Set get_query for Load Type so filter is applied and "Filtered by" is shown (transport_job_type based)
-		if (frm.fields_dict.load_type) {
-			frm.fields_dict.load_type.get_query = function() {
-				if (!frm.doc.transport_job_type) {
-					return { filters: { transport: 1 } };
-				}
-				var filters = { transport: 1 };
-				if (frm.doc.transport_job_type === "Container") {
-					filters.container = 1;
-				} else if (frm.doc.transport_job_type === "Non-Container") {
-					filters.non_container = 1;
-				} else if (frm.doc.transport_job_type === "Special") {
-					filters.special = 1;
-				} else if (frm.doc.transport_job_type === "Oversized") {
-					filters.oversized = 1;
-				} else if (frm.doc.transport_job_type === "Heavy Haul") {
-					filters.heavy_haul = 1;
-				} else if (frm.doc.transport_job_type === "Multimodal") {
-					filters.multimodal = 1;
-				}
-				return { filters: filters };
-			};
-		}
+		setup_load_type_query(frm);
 
 		setup_vehicle_type_get_query(frm);
 
@@ -536,7 +519,11 @@ frappe.ui.form.on("Transport Order", {
 
 		// Populate Documents from Template
 		if (!frm.is_new() && !frm.doc.__islocal && frm.fields_dict.documents) {
-			frm.add_custom_button(__('Get Documents'), function() {
+			logistics.menu.add(frm, {
+				label: __('Get Documents'),
+				group: __('Action'),
+				ptype: 'write',
+				action: function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_documents_from_template',
 					args: { doctype: 'Transport Order', docname: frm.doc.name },
@@ -547,12 +534,17 @@ frappe.ui.form.on("Transport Order", {
 						}
 					}
 				});
-			}, __('Action'));
+				},
+			});
 		}
 
 		// Get Milestones (populate from template)
 		if (!frm.doc.__islocal && frm.fields_dict.milestones) {
-			frm.add_custom_button(__('Get Milestones'), function() {
+			logistics.menu.add(frm, {
+				label: __('Get Milestones'),
+				group: __('Action'),
+				ptype: 'write',
+				action: function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_milestones_from_template',
 					args: { doctype: 'Transport Order', docname: frm.doc.name },
@@ -563,12 +555,17 @@ frappe.ui.form.on("Transport Order", {
 						}
 					}
 				});
-			}, __('Action'));
+				},
+			});
 		}
 
 		// Recalculate Charges
 		if (!frm.is_new() && frm.doc.charges && frm.doc.charges.length > 0) {
-			frm.add_custom_button(__('Calculate Charges'), function() {
+			logistics.menu.add(frm, {
+				label: __('Calculate Charges'),
+				group: __('Action'),
+				ptype: 'write',
+				action: function() {
 				frappe.call({
 					method: 'logistics.transport.doctype.transport_order.transport_order.recalculate_all_charges',
 					args: { docname: frm.doc.name },
@@ -579,7 +576,8 @@ frappe.ui.form.on("Transport Order", {
 						}
 					}
 				});
-			}, __('Action'));
+				},
+			});
 		}
 
 		// Dashboard HTML is loaded lazily via _bind_transport_order_lazy_tabs
@@ -613,7 +611,11 @@ frappe.ui.form.on("Transport Order", {
 		if (!frm.is_new() && frm.doc.transport_template && frm.doc.docstatus !== 1 && 
 		    frm.doc.name && !frm.doc.name.startsWith('new-')) {
 			const has_legs = (frm.doc.legs || []).length > 0;
-			frm.add_custom_button(__(has_legs ? "Refresh Leg Plan" : "Create Leg Plan"), function() {
+			logistics.menu.add(frm, {
+				label: __(has_legs ? "Refresh Leg Plan" : "Create Leg Plan"),
+				group: __("Action"),
+				ptype: 'write',
+				action: function() {
 				// Ensure document is saved before creating leg plan
 				if (frm.is_dirty()) {
 					frm.save().then(function() {
@@ -622,12 +624,17 @@ frappe.ui.form.on("Transport Order", {
 				} else {
 					_create_leg_plan(frm);
 				}
-			}, __("Action"));
+				},
+			});
 		}
 		
 		// Lalamove Integration
 		if (frm.doc.use_lalamove && !frm.is_new() && !skip_db_queries) {
-			frm.add_custom_button(__('Lalamove'), function() {
+			logistics.menu.add(frm, {
+				label: __('Lalamove'),
+				group: __('Action'),
+				ptype: 'write',
+				action: function() {
 				// Load Lalamove utilities if not already loaded
 				if (typeof logistics === 'undefined' || !logistics.lalamove) {
 					frappe.require('/assets/logistics/lalamove/utils.js', function() {
@@ -638,7 +645,8 @@ frappe.ui.form.on("Transport Order", {
 				} else {
 					logistics.lalamove.form.showLalamoveDialog(frm);
 				}
-			}, __('Action'));
+				},
+			});
 			
 			// Event order status indicator if order exists
 			// Delay query to avoid "not found" errors immediately after save
@@ -657,21 +665,40 @@ frappe.ui.form.on("Transport Order", {
 		// Add Create Transport Job button if document is submitted
 		// Check if Transport Job already exists first
 		// Only check if document is saved (not new) and has a real name (not temporary)
-		if (frm.doc.docstatus === 1 && !frm.is_new() && frm.doc.name && !frm.doc.name.startsWith('new-') && !skip_db_queries) {
+		if (
+			(window.logistics && logistics.menu && logistics.menu.is_submitted
+				? logistics.menu.is_submitted(frm)
+				: frm.doc.docstatus === 1) &&
+			!frm.is_new() &&
+			frm.doc.name &&
+			!frm.doc.name.startsWith("new-") &&
+			!skip_db_queries
+		) {
 			// Delay query to avoid "not found" errors immediately after save
 			setTimeout(function() {
 				// Check if a Transport Job already exists for this Transport Order
 				frappe.db.get_value('Transport Job', { transport_order: frm.doc.name }, 'name', function(r) {
 				if (r && r.name) {
 					// Transport Job already exists - show link to existing job
-					frm.add_custom_button(__("Transport Job"), function() {
-						frappe.set_route("Form", "Transport Job", r.name);
-					}, __("Action"));
+					logistics.menu.add(frm, {
+						label: __("Transport Job"),
+						group: __("Action"),
+						doctype: "Transport Job",
+						ptype: "read",
+						action: function() {
+							frappe.set_route("Form", "Transport Job", r.name);
+						},
+					});
 					// Event indicator that Transport Job exists
 					frm.dashboard.add_indicator(__('Transport Job: {0}', [r.name]), 'blue');
 				} else {
 					// No Transport Job exists - show create button
-					frm.add_custom_button(__("Transport Job"), function() {
+					logistics.menu.add(frm, {
+						label: __("Transport Job"),
+						group: __("Create"),
+						doctype: "Transport Job",
+						ptype: "create",
+						action: function() {
 						frappe.call({
 							method: "logistics.transport.doctype.transport_order.transport_order.action_create_transport_job",
 							args: {
@@ -725,7 +752,8 @@ frappe.ui.form.on("Transport Order", {
 								}
 							}
 						});
-					}, __("Create"));
+						},
+					});
 				}
 				});
 			}, 300);
@@ -859,18 +887,25 @@ frappe.ui.form.on("Transport Order", {
 	transport_job_type: function(frm) {
 		frm.events.apply_transport_job_type_filters(frm);
 		populate_legs_transport_job_type_from_parent(frm);
-		apply_load_type_filters(frm);
-		frm.set_value('load_type', null);
+		frm.set_value("load_type", null);
 		invalidate_vehicle_type_cache(frm);
 		if (frm.doc.vehicle_type) {
-			frm.set_value('vehicle_type', '');
+			frm.set_value("vehicle_type", "");
 		}
 		clear_incompatible_leg_vehicle_types(frm);
-		reload_allowed_vehicle_types(frm, function() {
-			update_vehicle_type_filter_description(frm);
-			frm.refresh_field('vehicle_type');
-			frm.refresh_field('legs');
-		});
+		function after_job_type_load_type_update() {
+			apply_load_type_filters(frm);
+			reload_allowed_vehicle_types(frm, function() {
+				update_vehicle_type_filter_description(frm);
+				frm.refresh_field("vehicle_type");
+				frm.refresh_field("legs");
+			});
+		}
+		if (frm.doc.transport_template) {
+			load_transport_template_constraints(frm, after_job_type_load_type_update);
+		} else {
+			after_job_type_load_type_update();
+		}
 	},
 
 	contains_dangerous_goods: function(frm) {

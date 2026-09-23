@@ -46,6 +46,18 @@ function logistics_replace_quotation_create_button(frm) {
 	if (!logistics_should_show_crm_sales_quote_button(frm)) {
 		return;
 	}
+	if (window.logistics && logistics.menu) {
+		logistics.menu.add(frm, {
+			label: __("Sales Quote"),
+			group: __("Create"),
+			doctype: "Sales Quote",
+			ptype: "create",
+			action: function () {
+				logistics_open_sales_quote_from_crm(frm);
+			},
+		});
+		return;
+	}
 	frm.add_custom_button(__("Sales Quote"), () => logistics_open_sales_quote_from_crm(frm), __("Create"));
 }
 

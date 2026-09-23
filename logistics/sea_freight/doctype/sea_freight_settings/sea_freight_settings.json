@@ -16,6 +16,7 @@
   "default_currency",
   "default_incoterm",
   "default_service_level",
+  "default_release_type",
   "location_settings_section",
   "default_origin_location",
   "default_destination_location",
@@ -116,6 +117,14 @@
    "fieldtype": "Link",
    "label": "Default Service Level",
    "options": "Logistics Service Level"
+  },
+  {
+   "description": "Used on new Sea Bookings and copied to Sea Shipment when Release Type is empty.",
+   "fieldname": "default_release_type",
+   "fieldtype": "Link",
+   "label": "Default Release Type",
+   "link_filters": "[[\"Release Type\", \"is_active\", \"=\", 1]]",
+   "options": "Release Type"
   },
   {
    "collapsible": 1,

@@ -6,20 +6,35 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "charge_info_section",
+  "service_type",
   "charge_type",
   "charge_category",
-  "description",
+  "item_code",
+  "use_tariff_in_cost",
+  "cost_tariff",
   "column_break_1",
+  "description",
+  "freight_taxes_section",
+  "category_apply_95_5_rule",
+  "apply_95_5_rule",
+  "taxable_freight_item",
+  "taxable_freight_item_tax_template",
+  "charge_info_section",
+  "pay_to",
+  "pay_to_exchange_rate_source",
+  "column_break_currency",
+  "currency",
+  "pay_to_exchange_rate",
+  "section_break_calculation",
   "revenue_calculation_method",
   "unit_type",
-  "unit_rate",
-  "currency",
-  "section_break_calculation",
-  "quantity",
   "unit_of_measure",
   "column_break_2",
+  "quantity",
+  "unit_rate",
   "discount_percentage",
+  "cost_use_unit_breaks",
+  "cost_unit_break",
   "section_break_amounts",
   "base_amount",
   "discount_amount",
@@ -27,15 +42,15 @@
   "column_break_3",
   "surcharge_amount",
   "total_amount",
+  "base_total_amount",
   "section_break_allocation",
   "allocation_method",
   "allocation_percentage",
   "column_break_4",
   "allocated_amount",
   "section_break_purchase_pi",
-  "item_code",
-  "pay_to",
   "purchase_invoice_status",
+  "column_break_pi",
   "purchase_invoice",
   "section_break_status",
   "charge_status",
@@ -46,9 +61,12 @@
  ],
  "fields": [
   {
-   "fieldname": "charge_info_section",
-   "fieldtype": "Section Break",
-   "label": "Charge Information"
+   "columns": 1,
+   "fieldname": "service_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Service Type",
+   "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nSpecial Project\nMICE"
   },
   {
    "fieldname": "charge_type",
@@ -56,6 +74,7 @@
    "in_list_view": 1,
    "label": "Charge Type",
    "options": "Margin\nDisbursement\nRevenue\nCost",
+   "default": "Cost",
    "reqd": 1
   },
   {
@@ -68,36 +87,95 @@
    "link_filters": "[[\"Charge Category\", \"disabled\", \"=\", 0]]"
   },
   {
-   "fetch_from": "item_code.description",
-   "fieldname": "description",
-   "fieldtype": "Text Editor",
-   "label": "Description"
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "link_filters": "[[\"Item\", \"disabled\", \"=\", 0]]",
+   "options": "Item"
+  },
+  {
+   "default": "0",
+   "fieldname": "use_tariff_in_cost",
+   "fieldtype": "Check",
+   "label": "Use Tariff in Cost"
+  },
+  {
+   "depends_on": "eval:doc.use_tariff_in_cost",
+   "fieldname": "cost_tariff",
+   "fieldtype": "Link",
+   "label": "Cost Tariff",
+   "link_filters": "[[\"Tariff\", \"is_active\", \"=\", 1]]",
+   "options": "Tariff"
   },
   {
    "fieldname": "column_break_1",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "revenue_calculation_method",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Revenue Calculation Method",
-   "options": "Per Unit\nFlat Rate\nPercentage",
-   "reqd": 1
+   "fetch_from": "item_code.description",
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Charge Description"
   },
   {
-   "fieldname": "unit_type",
-   "fieldtype": "Select",
-   "label": "Unit Type",
-   "options": "Docket\nMICE Job\nBooth\nSquare Meter\nDay\nPiece\nPackage"
+   "depends_on": "eval:doc.category_apply_95_5_rule",
+   "fieldname": "freight_taxes_section",
+   "fieldtype": "Section Break",
+   "label": "Taxes"
   },
   {
-   "fieldname": "unit_rate",
-   "fieldtype": "Currency",
+   "default": "0",
+   "fetch_from": "charge_category.apply_95_5_rule",
+   "fieldname": "category_apply_95_5_rule",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.category_apply_95_5_rule",
+   "fieldname": "apply_95_5_rule",
+   "fieldtype": "Check",
+   "label": "Apply 95/5 rule"
+  },
+  {
+   "depends_on": "eval:doc.category_apply_95_5_rule && doc.apply_95_5_rule",
+   "fieldname": "taxable_freight_item",
+   "fieldtype": "Link",
+   "label": "Taxable Freight Item",
+   "link_filters": "[[\"Item\", \"disabled\", \"=\", 0], [\"Item\", \"custom_charge_category\", \"=\", \"Freight\"]]",
+   "options": "Item"
+  },
+  {
+   "depends_on": "eval:doc.category_apply_95_5_rule && doc.apply_95_5_rule",
+   "fieldname": "taxable_freight_item_tax_template",
+   "fieldtype": "Link",
+   "label": "Taxable Freight Item Tax Template",
+   "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]",
+   "options": "Item Tax Template"
+  },
+  {
+   "fieldname": "charge_info_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "pay_to",
+   "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Unit Rate",
-   "precision": "2",
-   "reqd": 1
+   "label": "Pay To",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "pay_to_exchange_rate_source",
+   "fieldtype": "Link",
+   "label": "Exchange Rate Source (Pay To)",
+   "options": "Exchange Rate Source"
+  },
+  {
+   "fieldname": "column_break_currency",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "currency",
@@ -108,9 +186,41 @@
    "reqd": 1
   },
   {
+   "default": "1",
+   "fieldname": "pay_to_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Pay To)",
+   "precision": "9"
+  },
+  {
    "fieldname": "section_break_calculation",
    "fieldtype": "Section Break",
    "label": "Calculation Details"
+  },
+  {
+   "fieldname": "revenue_calculation_method",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Calculation Method",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break",
+   "reqd": 1
+  },
+  {
+   "fieldname": "unit_type",
+   "fieldtype": "Select",
+   "label": "Unit Type",
+   "options": "Distance\nWeight\nChargeable Weight\nVolume\nPackage\nPiece\nContainer\nTEU\nItem Count\nOperation Time\nJob\nTrip\nHandling Unit\nValue"
+  },
+  {
+   "fieldname": "unit_of_measure",
+   "fieldtype": "Link",
+   "label": "Unit of Measure",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "quantity",
@@ -119,20 +229,33 @@
    "precision": "2"
   },
   {
-   "fieldname": "unit_of_measure",
-   "fieldtype": "Select",
-   "label": "Unit of Measure",
-   "options": "docket\nexhibit\nbooth\nm²\nday\npackage\npiece\nhour"
-  },
-  {
-   "fieldname": "column_break_2",
-   "fieldtype": "Column Break"
+   "fieldname": "unit_rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Unit Rate",
+   "options": "currency",
+   "precision": "2",
+   "read_only_depends_on": "eval:doc.use_tariff_in_cost",
+   "reqd": 1
   },
   {
    "fieldname": "discount_percentage",
    "fieldtype": "Percent",
    "label": "Discount %",
    "precision": "2"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.revenue_calculation_method=='Per Unit'",
+   "fieldname": "cost_use_unit_breaks",
+   "fieldtype": "Check",
+   "label": "Unit Breaks"
+  },
+  {
+   "depends_on": "eval:doc.cost_use_unit_breaks && doc.revenue_calculation_method=='Per Unit'",
+   "fieldname": "cost_unit_break",
+   "fieldtype": "Button",
+   "label": "Manage Unit Breaks"
   },
   {
    "fieldname": "section_break_amounts",
@@ -143,6 +266,7 @@
    "fieldname": "base_amount",
    "fieldtype": "Currency",
    "label": "Base Amount",
+   "options": "currency",
    "precision": "2",
    "read_only": 1
   },
@@ -150,6 +274,7 @@
    "fieldname": "discount_amount",
    "fieldtype": "Currency",
    "label": "Discount Amount",
+   "options": "currency",
    "precision": "2",
    "read_only": 1
   },
@@ -157,6 +282,7 @@
    "fieldname": "tax_amount",
    "fieldtype": "Currency",
    "label": "Tax Amount",
+   "options": "currency",
    "precision": "2",
    "read_only": 1
   },
@@ -168,12 +294,23 @@
    "fieldname": "surcharge_amount",
    "fieldtype": "Currency",
    "label": "Surcharge Amount",
+   "options": "currency",
    "precision": "2"
   },
   {
    "fieldname": "total_amount",
    "fieldtype": "Currency",
    "label": "Total Amount",
+   "options": "currency",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "description": "Total Amount converted to company currency using Exchange Rate (Pay To). Recomputed on save.",
+   "fieldname": "base_total_amount",
+   "fieldtype": "Currency",
+   "label": "Total Amount (Company Currency)",
+   "options": "Company:company:default_currency",
    "precision": "2",
    "read_only": 1
   },
@@ -204,6 +341,7 @@
    "fieldname": "allocated_amount",
    "fieldtype": "Currency",
    "label": "Allocated Amount",
+   "options": "currency",
    "precision": "2",
    "read_only": 1
   },
@@ -213,22 +351,6 @@
    "label": "Purchase Invoice"
   },
   {
-   "fieldname": "item_code",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Item",
-   "link_filters": "[[\"Item\", \"custom_logistics_charge_item\", \"=\", 1], [\"Item\", \"disabled\", \"=\", 0]]",
-   "options": "Item"
-  },
-  {
-   "fieldname": "pay_to",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Pay To",
-   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
-   "options": "Supplier"
-  },
-  {
    "default": "Not Requested",
    "description": "Set when included in a Purchase Invoice request; row becomes read-only.",
    "fieldname": "purchase_invoice_status",
@@ -236,6 +358,10 @@
    "label": "Cost Invoice Status",
    "options": "Not Requested\nRequested\nPosted\nPaid",
    "read_only": 1
+  },
+  {
+   "fieldname": "column_break_pi",
+   "fieldtype": "Column Break"
   },
   {
    "description": "Purchase Invoice this charge was requested in.",
@@ -285,7 +411,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-05-29 00:00:00",
+ "modified": "2026-08-18 14:20:00",
  "modified_by": "Administrator",
  "module": "MICE",
  "name": "MICE Project Consolidation Charges",

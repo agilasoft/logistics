@@ -1670,7 +1670,7 @@ def build_capacity_metrics_html(
 			</div>
 			<div class="rs-cap-metric">
 				<span class="rs-cap-metric-label">Capacity</span>
-				<div class="rs-cap-metric-value">{_capacity_pair_html(used_volume, max_volume, "m\u00b3", 3)}</div>
+				<div class="rs-cap-metric-value">{_capacity_pair_html(used_volume, max_volume, "m³", 3)}</div>
 			</div>
 		</div>
 		<div class="rs-cap-used-row">

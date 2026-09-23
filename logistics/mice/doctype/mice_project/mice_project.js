@@ -276,85 +276,68 @@ function logistics_set_internal_job_site_query(frm) {
 	frm.set_query("sp_site", "lifecycle_jobs", site_query);
 }
 
-function _mice_linked_services_fieldname(frm) {
-	if (frm.fields_dict.linked_services) return "linked_services";
-	return null;
-}
-
-function _mice_enable_linked_services_grid_add_row(frm) {
-	if (!frm || !frm.doc || frm.doc.docstatus !== 0) return;
-	var fieldname = _mice_linked_services_fieldname(frm);
-	if (!fieldname || !frm.fields_dict[fieldname]) return;
-	var grid = frm.fields_dict[fieldname].grid;
-	if (!grid || !grid.wrapper) return;
-
-	grid.display_status = "Write";
-	grid.wrapper.find(".grid-footer").removeClass("hidden");
-	grid.wrapper
-		.find(".grid-add-row, .grid-add-multiple-rows")
-		.removeClass("hidden d-none");
-	if (typeof grid.setup_toolbar === "function") {
-		grid.setup_toolbar();
-	}
-}
-
-function _mice_activate_linked_services_grid_row(frm, cdn, attempt) {
-	if (!frm || !cdn) return;
-	var fieldname = _mice_linked_services_fieldname(frm);
-	var grid = fieldname && frm.fields_dict[fieldname] && frm.fields_dict[fieldname].grid;
-	if (!grid) return;
-	var row = (grid.grid_rows_by_docname && grid.grid_rows_by_docname[cdn]) || null;
-	if (!row) {
-		if ((attempt || 0) < 10) {
-			setTimeout(function () {
-				_mice_activate_linked_services_grid_row(frm, cdn, (attempt || 0) + 1);
-			}, 50);
-		}
-		return;
-	}
-	_mice_enable_linked_services_grid_add_row(frm);
-	if (typeof grid.allow_on_grid_editing === "function" && grid.allow_on_grid_editing()) {
-		row.toggle_editable_row(true);
-		return;
-	}
-	row.toggle_view(true);
-}
-
-function _mice_patch_linked_services_grid_add_row(frm) {
-	var fieldname = _mice_linked_services_fieldname(frm);
-	if (!fieldname || !frm.fields_dict[fieldname]) return false;
-	var grid = frm.fields_dict[fieldname].grid;
-	if (!grid || typeof grid.add_new_row !== "function") return false;
-	if (grid._logistics_mice_ls_add_patched) return true;
-
-	var orig_add_new_row = grid.add_new_row.bind(grid);
-	grid.add_new_row = function (idx, callback, show, copy_doc, go_to_last_page, go_to_first_page) {
-		var row_doc = orig_add_new_row(
-			idx,
-			callback,
-			show,
-			copy_doc,
-			go_to_last_page,
-			go_to_first_page
-		);
-		if (row_doc && row_doc.name) {
-			_mice_activate_linked_services_grid_row(frm, row_doc.name);
-		}
-		return row_doc;
-	};
-	grid._logistics_mice_ls_add_patched = true;
-	return true;
-}
-
+/** Services tab is a read-only mirror; manage via toolbar Services dialog. */
 function _mice_setup_linked_services_grid(frm) {
-	if (!_mice_patch_linked_services_grid_add_row(frm) && !frm._logistics_mice_ls_patch_retry) {
-		frm._logistics_mice_ls_patch_retry = true;
-		setTimeout(function () {
-			_mice_setup_linked_services_grid(frm);
-		}, 300);
+	if (window.logistics && logistics.setup_virtual_linked_services_grid) {
+		logistics.setup_virtual_linked_services_grid(frm);
 		return;
 	}
-	_mice_enable_linked_services_grid_add_row(frm);
+	if (!frm.get_docfield || !frm.get_docfield("linked_services")) return;
+	frm.set_df_property("linked_services", "read_only", 1);
+	frm.set_df_property("linked_services", "cannot_add_rows", 1);
+	frm.set_df_property("linked_services", "cannot_delete_rows", 1);
+}
+
+const MICE_SERVICES_API = "logistics.mice.doctype.mice_project.mice_project";
+
+function _mice_can_manage_linked_services(frm) {
+	return !!(frm && frm.doc && !frm.is_new() && frm.doc.docstatus === 0);
+}
+
+function _mice_open_services_dialog(frm) {
+	function open() {
+		if (!logistics.show_linked_services_dialog) {
+			frappe.msgprint({
+				message: __(
+					"Services dialog failed to load. Hard-refresh the page (Ctrl+Shift+R)."
+				),
+				indicator: "orange",
+			});
+			return;
+		}
+		const can_manage = _mice_can_manage_linked_services(frm);
+		logistics.show_linked_services_dialog(frm, {
+			listMethod: MICE_SERVICES_API + ".list_mice_project_linked_services",
+			addMethod: can_manage ? MICE_SERVICES_API + ".add_linked_service" : null,
+			removeMethod: can_manage ? MICE_SERVICES_API + ".remove_linked_service" : null,
+			parentField: "mice_project",
+			parentLabel: __("Project"),
+			allowAdd: can_manage,
+			allowRemove: can_manage,
+			allowEdit: can_manage,
+			emptyHint: __("Add a service type below to link it to this project."),
+			addHint: __(
+				"Select a service type to link to this project. You can add multiple services of the same type (e.g. three Transport legs)."
+			),
+			unsavedMessage: __("Save the MICE Project before managing services."),
+			removeConfirm: (ls) =>
+				__("Remove linked service {0} from this project?", [
+					`<strong>${frappe.utils.escape_html(ls)}</strong>`,
+				]),
+		});
+	}
+	if (logistics.show_linked_services_dialog) {
+		open();
+		return;
+	}
+	frappe.require("/assets/logistics/js/linked_services_dialog.js", open);
+}
+
+function _mice_setup_services_button(frm) {
+	if (frm.is_new()) return;
+	frm.add_custom_button(__("Services"), () => {
+		_mice_open_services_dialog(frm);
+	});
 }
 
 function _cache_organizer_customer(frm) {
@@ -383,6 +366,7 @@ frappe.ui.form.on("MICE Project", {
 			logistics.lifecycle.setup_queries(frm);
 		}
 		_mice_setup_linked_services_grid(frm);
+		_mice_setup_consolidation_charges_item_query(frm);
 		frm.set_query("milestone_template", function () {
 			return frappe
 				.call("logistics.document_management.api.get_milestone_template_filters", { doctype: frm.doctype })
@@ -402,6 +386,8 @@ frappe.ui.form.on("MICE Project", {
 		_cache_organizer_customer(frm);
 		logistics_set_internal_job_site_query(frm);
 		_mice_setup_linked_services_grid(frm);
+		_mice_strip_consolidation_item_code_link_filters(frm);
+		_mice_setup_services_button(frm);
 		_setup_dockets_grid_buttons(frm);
 		setTimeout(function () {
 			_setup_dockets_grid_buttons(frm);
@@ -410,32 +396,6 @@ frappe.ui.form.on("MICE Project", {
 		_setup_lifecycle_jobs_duplicate_fix(frm);
 		if (!frm.fields_dict.lifecycle_jobs?.grid?._logistics_lifecycle_duplicate_patched) {
 			setTimeout(() => _setup_lifecycle_jobs_duplicate_fix(frm), 300);
-		}
-
-		if (!frm.is_new() && !frm.doc.__islocal) {
-			frm.add_custom_button(__("Load Standard Lifecycle Jobs"), function () {
-				frappe.call({
-					method: "logistics.mice.doctype.mice_project.mice_project.reload_standard_service_activities",
-					args: { show: frm.doc.name },
-					callback: function () {
-						frm.reload_doc();
-						frappe.show_alert({ message: __("Standard lifecycle jobs loaded"), indicator: "green" });
-					},
-				});
-			}, __("Lifecycle"));
-
-			frm.add_custom_button(__("Apply Lifecycle Template"), function () {
-				if (window.logistics_open_apply_lifecycle_template_dialog) {
-					window.logistics_open_apply_lifecycle_template_dialog(frm, "MICE Project");
-				} else {
-					frappe.require(
-						"/assets/logistics/js/apply_lifecycle_template_dialog.js",
-						function () {
-							window.logistics_open_apply_lifecycle_template_dialog(frm, "MICE Project");
-						}
-					);
-				}
-			}, __("Lifecycle"));
 		}
 
 		if (frm.fields_dict.milestone_html && frm.doc.name && !frm.doc.__islocal) {
@@ -663,3 +623,59 @@ frappe.ui.form.on("MICE Project Cost Allocation", {
 		});
 	},
 });
+
+/** Item Logistics checkbox for consolidation charge service_type. */
+function _mice_consolidation_item_charge_field_for_service_type(service_type) {
+	const map = {
+		Air: "custom_air_forwarding_charge",
+		Sea: "custom_sea_forwarding_charge",
+		Transport: "custom_land_transport_charge",
+		Customs: "custom_customs_charge",
+		Warehousing: "custom_warehousing_charge",
+		"Cross-Docking": "custom_cross_dock_charge",
+		"Special Project": "custom_special_project_charge",
+		MICE: "custom_mice_charge",
+	};
+	return map[service_type] || null;
+}
+
+function _mice_consolidation_item_code_filters(row) {
+	const filters = { disabled: 0 };
+	if (!row) return filters;
+	const field = _mice_consolidation_item_charge_field_for_service_type(row.service_type);
+	if (field) {
+		filters[field] = 1;
+	}
+	return filters;
+}
+
+/**
+ * Static link_filters on item_code override get_query on every Link search.
+ * Strip so Service Type → Item logistics checkbox filters apply.
+ */
+function _mice_strip_consolidation_item_code_link_filters(frm) {
+	const df = frappe.meta.get_docfield("MICE Project Consolidation Charges", "item_code");
+	if (df && df.link_filters) {
+		df.link_filters = null;
+	}
+	if (
+		frm &&
+		frm.fields_dict &&
+		frm.fields_dict.consolidation_charges &&
+		frm.fields_dict.consolidation_charges.grid
+	) {
+		const gdf = frm.fields_dict.consolidation_charges.grid.get_docfield("item_code");
+		if (gdf && gdf.link_filters) {
+			gdf.link_filters = null;
+		}
+	}
+}
+
+function _mice_setup_consolidation_charges_item_query(frm) {
+	_mice_strip_consolidation_item_code_link_filters(frm);
+	frm.set_query("item_code", "consolidation_charges", function (doc, cdt, cdn) {
+		_mice_strip_consolidation_item_code_link_filters(frm);
+		const row = locals[cdt] && locals[cdt][cdn];
+		return { filters: _mice_consolidation_item_code_filters(row) };
+	});
+}

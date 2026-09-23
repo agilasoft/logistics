@@ -1,8 +1,13 @@
 {
  "charts": [],
- "content": "[{\"id\": \"Fhw0Wv1KaN\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Shortcuts</span>\", \"col\": 12}}, {\"id\": \"IgVKg6MeaQ\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Job Number\", \"col\": 3}}, {\"id\": \"Y5hjYWjEJH\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"jiqzPTDUlc\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\", \"col\": 12}}, {\"id\": \"Pzjs7LNlZQ\", \"type\": \"card\", \"data\": {\"card_name\": \"Masters\", \"col\": 4}}, {\"id\": \"YjSG51XOEx\", \"type\": \"card\", \"data\": {\"card_name\": \"Settings\", \"col\": 4}}, {\"id\": \"mYMZf4EgeW\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"gRz1Gdlv2C\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\", \"col\": 12}}, {\"id\": \"repsec0\", \"type\": \"card\", \"data\": {\"card_name\": \"Recognition & accruals\", \"col\": 4}}, {\"id\": \"repsec1\", \"type\": \"card\", \"data\": {\"card_name\": \"Multimode revenue & cost\", \"col\": 4}}, {\"id\": \"repsec2\", \"type\": \"card\", \"data\": {\"card_name\": \"Billing & dashboards\", \"col\": 4}}, {\"id\": \"repsec3\", \"type\": \"card\", \"data\": {\"card_name\": \"OTIF & productivity\", \"col\": 4}}, {\"id\": \"repsec4\", \"type\": \"card\", \"data\": {\"card_name\": \"Customs & security\", \"col\": 4}}, {\"id\": \"repsec5\", \"type\": \"card\", \"data\": {\"card_name\": \"Projects, inventory & ESG\", \"col\": 4}}]",
+ "content": "[{\"id\":\"jmDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Job Management Operations Dashboard\",\"col\":12}},{\"id\":\"jmOpsHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Job Operations</b></span>\",\"col\":12}},{\"id\":\"jmScRec\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Recognition Status\",\"col\":3}},{\"id\":\"jmScAge\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Recognition Aging\",\"col\":3}},{\"id\":\"jmScAr\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Receivables Aging\",\"col\":3}},{\"id\":\"jmScMargin\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Profit Margin Watchlist\",\"col\":3}},{\"id\":\"jmOpsSp\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"Fhw0Wv1KaN\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Shortcuts</span>\",\"col\":12}},{\"id\":\"IgVKg6MeaQ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Number\",\"col\":3}},{\"id\":\"Y5hjYWjEJH\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"jiqzPTDUlc\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\",\"col\":12}},{\"id\":\"Pzjs7LNlZQ\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}},{\"id\":\"YjSG51XOEx\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"mYMZf4EgeW\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"gRz1Gdlv2C\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\",\"col\":12}},{\"id\":\"repsec0\",\"type\":\"card\",\"data\":{\"card_name\":\"Recognition & accruals\",\"col\":4}},{\"id\":\"repsec1\",\"type\":\"card\",\"data\":{\"card_name\":\"Multimode revenue & cost\",\"col\":4}},{\"id\":\"repsec2\",\"type\":\"card\",\"data\":{\"card_name\":\"Billing & dashboards\",\"col\":4}},{\"id\":\"repsec3\",\"type\":\"card\",\"data\":{\"card_name\":\"OTIF & productivity\",\"col\":4}},{\"id\":\"repsec4\",\"type\":\"card\",\"data\":{\"card_name\":\"Customs & security\",\"col\":4}},{\"id\":\"repsec5\",\"type\":\"card\",\"data\":{\"card_name\":\"Projects, inventory & ESG\",\"col\":4}}]",
  "creation": "2026-01-15 15:39:25.269822",
- "custom_blocks": [],
+ "custom_blocks": [
+  {
+   "custom_block_name": "Job Management Operations Dashboard",
+   "label": "Job Management Operations Dashboard"
+  }
+ ],
  "docstatus": 0,
  "doctype": "Workspace",
  "for_user": "",
@@ -465,6 +470,42 @@
  "sequence_id": 31.0,
  "shortcuts": [
   {
+   "color": "Orange",
+   "doc_view": "",
+   "label": "Recognition Status",
+   "link_to": "Recognition Status",
+   "report_ref_doctype": "Journal Entry",
+   "stats_filter": "[]",
+   "type": "Report"
+  },
+  {
+   "color": "Red",
+   "doc_view": "",
+   "label": "Job Recognition Aging",
+   "link_to": "Job Recognition Aging",
+   "report_ref_doctype": "Job Number",
+   "stats_filter": "[]",
+   "type": "Report"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Job Receivables Aging",
+   "link_to": "Job Receivables Aging",
+   "report_ref_doctype": "Job Number",
+   "stats_filter": "[]",
+   "type": "Report"
+  },
+  {
+   "color": "Yellow",
+   "doc_view": "",
+   "label": "Job Profit Margin Watchlist",
+   "link_to": "Job Profit Margin Watchlist",
+   "report_ref_doctype": "Job Number",
+   "stats_filter": "[]",
+   "type": "Report"
+  },
+  {
    "color": "Grey",
    "doc_view": "List",
    "label": "Job Number",
@@ -473,5 +514,7 @@
    "type": "DocType"
   }
  ],
- "title": "Job Management"
+ "title": "Job Management",
+ "type": "Workspace",
+ "app": "logistics"
 }

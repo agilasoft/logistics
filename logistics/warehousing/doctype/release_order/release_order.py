@@ -33,6 +33,9 @@ def make_warehouse_job(source_name, target_doc=None):
           • Release Order Charges -> Warehouse Job Charges       (parentfield: table_dxtc)
           • Release Order Dock    -> Warehouse Job Dock          (parentfield: docks)
     """
+    from logistics.utils.menu_permission import assert_create_from_source
+
+    assert_create_from_source("Warehouse Job", "Release Order", source_name)
 
     def _get(obj, field, default=None):
         return getattr(obj, field, default)

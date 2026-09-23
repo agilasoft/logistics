@@ -15,7 +15,6 @@
 		Customs: "Declaration Order",
 		Custom: "Declaration Order",
 		Warehousing: "Inbound Order",
-		"Time Sensitive": "Time Sensitive Case",
 	};
 	const SQ_SCOPE_FIELDS = [
 		"transport_mode",
@@ -429,6 +428,10 @@
 	function _routeAfterCreate(msg) {
 		function _go(doctype, docname) {
 			function navigate() {
+				// Clear any cached document data before navigating to ensure fresh load
+				if (frappe.model && frappe.model.clear_doc) {
+					frappe.model.clear_doc(doctype, docname);
+				}
 				frappe.set_route("Form", doctype, docname);
 			}
 			if (window.logistics_navigate_when_doc_exists) {
@@ -449,8 +452,6 @@
 			_go("Inbound Order", msg.inbound_order);
 		} else if (msg.cross_docking_order) {
 			_go("Cross-Docking Order", msg.cross_docking_order);
-		} else if (msg.time_sensitive_case) {
-			_go("Time Sensitive Case", msg.time_sensitive_case);
 		}
 	}
 
@@ -548,7 +549,7 @@
 				return true;
 			}
 			if (qt === "Project") {
-				return ["Air", "Sea", "Transport", "Customs", "Custom", "Warehousing", "Time Sensitive"].includes(
+				return ["Air", "Sea", "Transport", "Customs", "Custom", "Warehousing"].includes(
 					doc.main_service
 				);
 			}
@@ -576,7 +577,7 @@
 			frappe.msgprint({
 				title: __("Not available"),
 				message: __(
-					"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, Warehousing, or Time Sensitive."
+					"Create Booking/Order is only available for Regular Sales Quotes, or Project quotes with Main Service Air, Sea, Transport, Customs, or Warehousing."
 				),
 				indicator: "orange",
 			});
@@ -598,7 +599,7 @@
 					frappe.msgprint({
 						title: __("Create Booking / Order"),
 						message: __(
-							"No booking or order can be created from this Sales Quote. Set Main Service to Air, Sea, Transport, Customs, Warehousing, or Time Sensitive with matching charges, or add Services lines."
+							"No booking or order can be created from this Sales Quote. Set Main Service to Air, Sea, Transport, Customs, or Warehousing with matching charges, or add Services lines."
 						),
 						indicator: "orange",
 					});

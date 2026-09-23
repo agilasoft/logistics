@@ -10,6 +10,95 @@ from frappe.utils import nowdate, flt, getdate, get_datetime, add_days, cint
 
 from logistics.utils.virtual_linked_services_view import VirtualLinkedServicesMixin
 
+ORDER_MILESTONE_COPY_FIELDS = (
+    "milestone",
+    "status",
+    "planned_start",
+    "planned_end",
+    "actual_start",
+    "actual_end",
+    "source",
+    "fetched_at",
+    "automation_planned_date_basis",
+    "automation_update_trigger_type",
+    "automation_sync_parent_date_field",
+    "automation_sync_direction",
+    "automation_trigger_field",
+    "automation_trigger_condition",
+    "automation_trigger_value",
+    "automation_trigger_action",
+)
+
+_ORDER_MILESTONE_GUARD_FIELDS = (
+    "milestone",
+    "planned_start",
+    "planned_end",
+    "actual_start",
+    "actual_end",
+)
+
+
+def order_milestone_row_values(src):
+    """Child-row dict copied from a Transport Order milestone onto Transport Job."""
+    values = {fn: getattr(src, fn, None) for fn in ORDER_MILESTONE_COPY_FIELDS}
+    values["from_booking"] = 1
+    return values
+
+
+def _apply_order_milestone_values(dest, src):
+    for fn in ORDER_MILESTONE_COPY_FIELDS:
+        dest.set(fn, getattr(src, fn, None))
+    dest.from_booking = 1
+
+
+def _normalize_milestone_compare_value(fieldname, value):
+    if value in (None, ""):
+        return None
+    if fieldname in {"planned_start", "planned_end", "actual_start", "actual_end"}:
+        try:
+            dt = get_datetime(value)
+            return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else None
+        except Exception:
+            return str(value)
+    return str(value)
+
+
+def _milestone_guard_fields_changed(old_row, incoming_row):
+    for fn in _ORDER_MILESTONE_GUARD_FIELDS:
+        old_val = _normalize_milestone_compare_value(
+            fn, old_row.get(fn) if isinstance(old_row, dict) else getattr(old_row, fn, None)
+        )
+        new_val = _normalize_milestone_compare_value(fn, getattr(incoming_row, fn, None))
+        if old_val != new_val:
+            return True
+    return False
+
+
+def _order_milestone_fields_changed(old_row, incoming_row):
+    if _milestone_guard_fields_changed(old_row, incoming_row):
+        return True
+    return cint(getattr(incoming_row, "from_booking", 0)) != 1
+
+
+def _service_milestone_fields_changed(old_row, incoming_row):
+    if _milestone_guard_fields_changed(old_row, incoming_row):
+        return True
+    if cint(getattr(incoming_row, "from_service", 0)) != 1:
+        return True
+    old_dt = (old_row.get("service_source_doctype") if isinstance(old_row, dict) else getattr(old_row, "service_source_doctype", None)) or ""
+    old_name = (old_row.get("service_source_name") if isinstance(old_row, dict) else getattr(old_row, "service_source_name", None)) or ""
+    new_dt = getattr(incoming_row, "service_source_doctype", None) or ""
+    new_name = getattr(incoming_row, "service_source_name", None) or ""
+    return (old_dt.strip(), old_name.strip()) != (new_dt.strip(), new_name.strip())
+
+
+def _apply_service_milestone_values(dest, src, source_doctype, source_name):
+    for fn in ORDER_MILESTONE_COPY_FIELDS:
+        dest.set(fn, getattr(src, fn, None))
+    dest.from_service = 1
+    dest.service_source_doctype = source_doctype
+    dest.service_source_name = source_name
+
 
 class TransportJob(VirtualLinkedServicesMixin, Document):
     def validate(self):
@@ -65,6 +154,10 @@ class TransportJob(VirtualLinkedServicesMixin, Document):
         
             # Copy service level from Transport Order when transport_order is set
             self._copy_service_level_from_order()
+            self._guard_from_booking_milestone_edits()
+            self.sync_milestones_from_transport_order()
+            self._guard_from_service_milestone_edits()
+            self.sync_milestones_from_linked_services()
         
             # Capacity validation
             self.validate_vehicle_type_capacity()
@@ -546,6 +639,222 @@ class TransportJob(VirtualLinkedServicesMixin, Document):
         order_service_level = frappe.db.get_value("Transport Order", self.transport_order, "service_level")
         if order_service_level and not self.get("logistics_service_level"):
             self.logistics_service_level = order_service_level
+
+    def _get_linked_transport_order(self):
+        order_name = (getattr(self, "transport_order", None) or "").strip()
+        if not order_name or not frappe.db.exists("Transport Order", order_name):
+            return None
+        return frappe.get_doc("Transport Order", order_name)
+
+    def _guard_from_booking_milestone_edits(self):
+        """Reject client edits/deletes of order-copied milestone rows that are still on the order."""
+        if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+            return
+        if self.is_new() or not self.name:
+            return
+        order = self._get_linked_transport_order()
+        order_milestones = {
+            (row.milestone or "").strip()
+            for row in ((order.get("milestones") if order else None) or [])
+            if (row.milestone or "").strip()
+        }
+        persisted = frappe.get_all(
+            "Transport Job Milestone",
+            filters={"parent": self.name, "parenttype": "Transport Job", "from_booking": 1},
+            fields=["name", "milestone", "planned_start", "planned_end", "actual_start", "actual_end"],
+        )
+        incoming_by_name = {row.name: row for row in (self.get("milestones") or []) if row.name}
+        for old in persisted:
+            still_on_order = (old.milestone or "").strip() in order_milestones
+            incoming = incoming_by_name.get(old.name)
+            if not incoming:
+                if still_on_order:
+                    frappe.throw(_("Milestones copied from Transport Order cannot be deleted."))
+                continue
+            if still_on_order and _order_milestone_fields_changed(old, incoming):
+                frappe.throw(_("Milestones copied from Transport Order cannot be edited."))
+
+    def sync_milestones_from_transport_order(self):
+        """Populate and refresh Transport Order milestone rows; leave job-only rows editable."""
+        if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+            return
+        if getattr(self.flags, "ignore_booking_milestone_sync", False):
+            return
+        order = self._get_linked_transport_order()
+        if not order:
+            return
+
+        existing_rows = list(self.get("milestones") or [])
+        claimed = set()
+        for order_row in order.get("milestones") or []:
+            milestone = (getattr(order_row, "milestone", None) or "").strip()
+            if not milestone:
+                continue
+            dest = None
+            unclaimed = [
+                row
+                for row in existing_rows
+                if id(row) not in claimed and (row.milestone or "").strip() == milestone
+            ]
+            for row in unclaimed:
+                if cint(row.from_booking):
+                    dest = row
+                    break
+            if dest is None:
+                for row in unclaimed:
+                    if not cint(getattr(row, "from_service", 0)):
+                        dest = row
+                        break
+            if dest is None:
+                dest = self.append("milestones", {})
+                existing_rows.append(dest)
+            _apply_order_milestone_values(dest, order_row)
+            claimed.add(id(dest))
+
+        for row in list(self.get("milestones") or []):
+            if cint(row.from_booking) and id(row) not in claimed:
+                self.remove(row)
+
+    def _linked_service_milestone_sources(self):
+        return self._iter_linked_service_milestone_sources()
+
+    def _iter_linked_service_milestone_sources(self):
+        """Order and Job docs for Linked Services on this job (and its Transport Order)."""
+        from logistics.document_management.api import MILESTONE_DOCTYPES
+        from logistics.logistics.doctype.linked_service.linked_service import get_linked_services_for_booking
+        from logistics.utils.linked_service_usage import (
+            latest_satellite_job_from_usage,
+            latest_shipment_from_usage,
+        )
+
+        skip_docs = {("Transport Job", (self.name or "").strip())}
+        order_name = (getattr(self, "transport_order", None) or "").strip()
+        if order_name:
+            skip_docs.add(("Transport Order", order_name))
+
+        ls_names = []
+        seen_ls = set()
+        parents = [("Transport Job", self.name)]
+        if order_name:
+            parents.append(("Transport Order", order_name))
+        for parent_dt, parent_name in parents:
+            if not parent_name:
+                continue
+            for ls in get_linked_services_for_booking(parent_dt, parent_name):
+                if ls.name not in seen_ls:
+                    seen_ls.add(ls.name)
+                    ls_names.append(ls.name)
+
+        seen_docs = set()
+        sources = []
+        for ls_name in ls_names:
+            for dt, name in (
+                latest_satellite_job_from_usage(ls_name),
+                latest_shipment_from_usage(ls_name),
+            ):
+                dt = (dt or "").strip()
+                name = (name or "").strip()
+                if not dt or not name:
+                    continue
+                if dt not in MILESTONE_DOCTYPES:
+                    continue
+                key = (dt, name)
+                if key in skip_docs or key in seen_docs:
+                    continue
+                if not frappe.db.exists(dt, name):
+                    continue
+                seen_docs.add(key)
+                sources.append((dt, name, frappe.get_doc(dt, name)))
+        return sources
+
+    def _live_service_milestone_keys(self):
+        live = set()
+        for source_dt, source_name, source_doc in self._linked_service_milestone_sources():
+            for row in source_doc.get("milestones") or []:
+                milestone = (getattr(row, "milestone", None) or "").strip()
+                if milestone:
+                    live.add((source_dt, source_name, milestone))
+        return live
+
+    def _guard_from_service_milestone_edits(self):
+        """Reject client edits/deletes of service-copied rows still present on a live source."""
+        if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+            return
+        if self.is_new() or not self.name:
+            return
+        live = self._live_service_milestone_keys()
+        persisted = frappe.get_all(
+            "Transport Job Milestone",
+            filters={"parent": self.name, "parenttype": "Transport Job", "from_service": 1},
+            fields=[
+                "name",
+                "milestone",
+                "planned_start",
+                "planned_end",
+                "actual_start",
+                "actual_end",
+                "service_source_doctype",
+                "service_source_name",
+            ],
+        )
+        incoming_by_name = {row.name: row for row in (self.get("milestones") or []) if row.name}
+        for old in persisted:
+            key = (
+                (old.service_source_doctype or "").strip(),
+                (old.service_source_name or "").strip(),
+                (old.milestone or "").strip(),
+            )
+            still_on_source = key in live
+            incoming = incoming_by_name.get(old.name)
+            if not incoming:
+                if still_on_source:
+                    frappe.throw(_("Milestones copied from linked Services cannot be deleted."))
+                continue
+            if still_on_source and _service_milestone_fields_changed(old, incoming):
+                frappe.throw(_("Milestones copied from linked Services cannot be edited."))
+
+    def sync_milestones_from_linked_services(self):
+        """Populate and refresh linked-service Order/Job milestone rows; leave job-only rows editable."""
+        if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
+            return
+        if getattr(self.flags, "ignore_service_milestone_sync", False):
+            return
+
+        existing_rows = list(self.get("milestones") or [])
+        claimed = set()
+        for source_dt, source_name, source_doc in self._linked_service_milestone_sources():
+            for source_row in source_doc.get("milestones") or []:
+                milestone = (getattr(source_row, "milestone", None) or "").strip()
+                if not milestone:
+                    continue
+                dest = None
+                unclaimed = [
+                    row
+                    for row in existing_rows
+                    if id(row) not in claimed and (row.milestone or "").strip() == milestone
+                ]
+                for row in unclaimed:
+                    if (
+                        cint(getattr(row, "from_service", 0))
+                        and (row.service_source_doctype or "").strip() == source_dt
+                        and (row.service_source_name or "").strip() == source_name
+                    ):
+                        dest = row
+                        break
+                if dest is None:
+                    for row in unclaimed:
+                        if not cint(row.from_booking) and not cint(getattr(row, "from_service", 0)):
+                            dest = row
+                            break
+                if dest is None:
+                    dest = self.append("milestones", {})
+                    existing_rows.append(dest)
+                _apply_service_milestone_values(dest, source_row, source_dt, source_name)
+                claimed.add(id(dest))
+
+        for row in list(self.get("milestones") or []):
+            if cint(getattr(row, "from_service", 0)) and id(row) not in claimed:
+                self.remove(row)
 
     def _derive_sla_target_from_service_level(self):
         """Derive sla_target_date from Logistics Service Level module row (Transport)."""
@@ -1205,6 +1514,9 @@ ACTIVE_RUNSHEET_STATUSES = ("Planned", "Dispatched", "In Progress")  # consider 
 def recalculate_all_charges(docname):
     """Recalculate all charges based on current Transport Job data using RateCalculationEngine."""
     doc = frappe.get_doc("Transport Job", docname)
+    from logistics.utils.menu_permission import assert_perm
+
+    assert_perm("Transport Job", "write", doc=doc)
     if not doc.charges:
         return {"success": False, "message": _("No charges found to recalculate")}
     try:
@@ -1875,7 +2187,11 @@ def create_sales_invoice_from_transport_job(job_name, posting_date=None, custome
 @frappe.whitelist()
 def post_standard_costs(docname):
     """Post standard costs on Transport Job charge lines (same pattern as Air Shipment)."""
+    from logistics.utils.menu_permission import assert_perm
+
     job = frappe.get_doc("Transport Job", docname)
+    assert_perm("Transport Job", "write", doc=job)
+    assert_perm("Journal Entry", "create")
     posted = 0
     for ch in job.charges or []:
         if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(

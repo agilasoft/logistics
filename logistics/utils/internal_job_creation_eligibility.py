@@ -274,9 +274,14 @@ def _eligibility_message(
 	parent_dt = getattr(parent_doc, "doctype", None) or ""
 	uses_lifecycle = _parent_uses_lifecycle_jobs(parent_doc)
 	uses_services_tab = parent_dt in ("Special Project", "MICE Project")
+	uses_project_charges_tab = parent_dt == "MICE Project"
 	if has_charges and has_matching_ij:
 		return None
 	if not has_charges and not has_matching_ij:
+		if uses_project_charges_tab:
+			return _(
+				"Add charge lines on the Charges tab and define a matching Services row on the Services tab before creating."
+			)
 		if uses_services_tab:
 			return _(
 				"Add charge lines for {0} on the Sales Quote (or programme) and define a matching Services row on the Services tab before creating."
@@ -289,6 +294,8 @@ def _eligibility_message(
 			"Add charge lines for {0} on the Sales Quote (or programme) and define a matching Internal Job on the Internal Jobs tab before creating."
 		).format(st)
 	if not has_charges:
+		if uses_project_charges_tab:
+			return _("Add charge lines on the Charges tab before creating.")
 		return _("Add charge lines for {0} on the Sales Quote before creating this internal job.").format(
 			st
 		)
@@ -317,11 +324,22 @@ def evaluate_internal_job_creation_eligibility(
 	has_charges = charges_exist_for_service(sales_quote, parent_doc, st)
 	has_matching_ij = has_matching_internal_job_setup(sales_quote, parent_doc, ij_row, st)
 	eligible = bool(has_charges and has_matching_ij)
+	message = _eligibility_message(has_charges, has_matching_ij, st, parent_doc)
+	if eligible:
+		company_msg = _missing_linked_service_company_message(
+			sales_quote=sales_quote,
+			parent_doc=parent_doc,
+			row_or_doc=ij_row,
+			service_type_label=st,
+		)
+		if company_msg:
+			eligible = False
+			message = company_msg
 	return {
 		"eligible": eligible,
 		"has_charges": has_charges,
 		"has_matching_ij": has_matching_ij,
-		"message": _eligibility_message(has_charges, has_matching_ij, st, parent_doc),
+		"message": message,
 	}
 
 
@@ -354,6 +372,37 @@ def _quote_has_matching_linked_service_row(
 		if _quote_ij_rows_match_candidate(row, linked_service_doc, service_type_label):
 			return True
 	return False
+
+
+def _missing_linked_service_company_message(
+	*,
+	sales_quote: str | None,
+	parent_doc: Any | None,
+	row_or_doc: Any | None,
+	service_type_label: str,
+) -> str | None:
+	"""Block designated-booking create until the quote Linked Service has a company."""
+	from logistics.utils.linked_service_company import (
+		company_from_linked_service,
+		linked_service_name_from_row,
+		missing_linked_service_company_message,
+	)
+
+	sq_name = _resolve_sales_quote_name(sales_quote, parent_doc)
+	if not sq_name or not frappe.db.exists("Sales Quote", sq_name):
+		return None
+	if not row_or_doc:
+		return None
+	ls_name = linked_service_name_from_row(row_or_doc)
+	if not ls_name:
+		return None
+	if company_from_linked_service(row_or_doc):
+		return None
+	return missing_linked_service_company_message(
+		linked_service=ls_name,
+		service_type=service_type_label,
+		sales_quote=sq_name,
+	)
 
 
 def evaluate_linked_service_internal_job_eligibility(
@@ -399,6 +448,16 @@ def evaluate_linked_service_internal_job_eligibility(
 			message = _(
 				"No matching Linked Service for {0} was found on the Sales Quote."
 			).format(st or _("this service"))
+	if eligible:
+		company_msg = _missing_linked_service_company_message(
+			sales_quote=sales_quote,
+			parent_doc=parent_doc,
+			row_or_doc=linked_service_doc,
+			service_type_label=st,
+		)
+		if company_msg:
+			eligible = False
+			message = company_msg
 	return {
 		"eligible": eligible,
 		"has_charges": has_charges,

@@ -101,6 +101,72 @@
 				frm.set_value(fieldname, value);
 			}
 		});
+		_sync_number_of_line_items_on_form(frm);
+	}
+
+	function _invoice_line_row_count(doc) {
+		return (doc.commercial_invoice_line_items || []).length;
+	}
+
+	function _charge_item_count_qty(charge) {
+		let qty = 0;
+		if ((charge.unit_type || "") === "Item Count") {
+			qty = Math.max(qty, flt(charge.quantity));
+		}
+		if ((charge.cost_unit_type || "") === "Item Count") {
+			qty = Math.max(qty, flt(charge.cost_quantity));
+		}
+		return qty;
+	}
+
+	function _seed_number_of_line_items_from_charges(frm) {
+		if (cint(frm.doc.number_of_line_items) > 0) {
+			return;
+		}
+		let qty = 0;
+		(frm.doc.charges || []).forEach(function (ch) {
+			qty = Math.max(qty, _charge_item_count_qty(ch));
+		});
+		qty = cint(qty);
+		if (qty > 0) {
+			frm.doc.number_of_line_items_manual = 1;
+			frm.set_value("number_of_line_items", qty);
+		}
+	}
+
+	function _sync_number_of_line_items_on_form(frm) {
+		if (!frm || !frm.doc) {
+			return;
+		}
+		if (frm.doctype !== "Declaration" && frm.doctype !== "Declaration Order") {
+			return;
+		}
+		if (!frm.fields_dict.number_of_line_items) {
+			return;
+		}
+		_seed_number_of_line_items_from_charges(frm);
+		const rowCount = _invoice_line_row_count(frm.doc);
+		const current = cint(frm.doc.number_of_line_items);
+		const manual = cint(frm.doc.number_of_line_items_manual);
+		if (manual) {
+			if (rowCount > current) {
+				frm.doc.number_of_line_items_manual = 0;
+				frm.set_value("number_of_line_items", rowCount);
+			}
+			return;
+		}
+		if (rowCount > 0 && current !== rowCount) {
+			frm.set_value("number_of_line_items", rowCount);
+		}
+	}
+
+	function _mark_number_of_line_items_manual(frm) {
+		if (!frm || !frm.doc) {
+			return;
+		}
+		const rowCount = _invoice_line_row_count(frm.doc);
+		const value = cint(frm.doc.number_of_line_items);
+		frm.doc.number_of_line_items_manual = value === rowCount ? 0 : 1;
 	}
 
 	const timers = {};
@@ -123,4 +189,22 @@
 	logistics.calculate_commercial_invoice_totals = calculateCommercialInvoiceTotals;
 	logistics.schedule_commercial_invoice_totals_recalc = scheduleCommercialInvoiceTotalsRecalc;
 	logistics.apply_commercial_invoice_totals_to_form = _apply_totals_to_form;
+	logistics.sync_number_of_line_items_on_form = _sync_number_of_line_items_on_form;
+
+	["Declaration", "Declaration Order"].forEach(function (dt) {
+		frappe.ui.form.on(dt, {
+			number_of_line_items: function (frm) {
+				_mark_number_of_line_items_manual(frm);
+				if (window.logistics && logistics.schedule_customs_line_charge_recalc) {
+					logistics.schedule_customs_line_charge_recalc(frm);
+				}
+			},
+			commercial_invoice_line_items_add: function (frm) {
+				_sync_number_of_line_items_on_form(frm);
+			},
+			commercial_invoice_line_items_remove: function (frm) {
+				_sync_number_of_line_items_on_form(frm);
+			},
+		});
+	});
 })();

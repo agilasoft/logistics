@@ -8,8 +8,36 @@ from frappe.model.document import Document
 from frappe.utils import flt
 
 
+UNIT_BREAK_LIST_FIELDS = (
+	"unit_type",
+	"container_type",
+	"unit_break",
+	"unit_rate",
+	"currency",
+)
+
+
 class ChargeUnitBreak(Document):
-	pass
+	def before_insert(self):
+		# Dynamic Link to charge child names; skip strict link checks (unsaved/hash names).
+		self.flags.ignore_links = True
+
+	def before_save(self):
+		self.flags.ignore_links = True
+
+
+def is_container_unit_type(unit_type) -> bool:
+	return (unit_type or "").strip().lower() == "container"
+
+
+def _row_is_empty(row) -> bool:
+	if (row.get("container_type") or "").strip():
+		return False
+	if flt(row.get("unit_break")):
+		return False
+	if flt(row.get("unit_rate")):
+		return False
+	return True
 
 
 @frappe.whitelist()
@@ -38,18 +66,18 @@ def save_unit_breaks_for_reference(
 			},
 		)
 		for row in unit_breaks or []:
-			if not flt(row.get("unit_break")) and not flt(row.get("unit_rate")):
+			if not isinstance(row, dict) or _row_is_empty(row):
 				continue
 			doc = frappe.new_doc("Charge Unit Break")
 			doc.reference_doctype = reference_doctype
 			doc.reference_no = reference_no
 			doc.type = record_type
 			doc.unit_type = unit_type or row.get("unit_type") or ""
+			doc.container_type = (row.get("container_type") or "").strip() or None
 			doc.unit_break = flt(row.get("unit_break", 0))
 			doc.unit_rate = flt(row.get("unit_rate", 0))
 			doc.currency = row.get("currency") or "USD"
-			doc.insert(ignore_permissions=True)
-		frappe.db.commit()
+			doc.insert(ignore_permissions=True, ignore_links=True)
 		return {"success": True}
 	except Exception as e:
 		frappe.log_error(f"Error saving unit breaks: {str(e)}")
@@ -62,6 +90,8 @@ def get_unit_breaks(reference_doctype, reference_no, record_type="Selling"):
 	try:
 		if not reference_doctype or not reference_no:
 			return {"success": False, "unit_breaks": []}
+		meta = frappe.get_meta("Charge Unit Break")
+		fields = [f for f in UNIT_BREAK_LIST_FIELDS if meta.has_field(f)]
 		unit_breaks = frappe.get_all(
 			"Charge Unit Break",
 			filters={
@@ -69,8 +99,8 @@ def get_unit_breaks(reference_doctype, reference_no, record_type="Selling"):
 				"reference_no": reference_no,
 				"type": record_type,
 			},
-			fields=["unit_type", "unit_break", "unit_rate", "currency"],
-			order_by="unit_break asc",
+			fields=fields,
+			order_by="container_type asc, unit_break asc" if meta.has_field("container_type") else "unit_break asc",
 		)
 		return {"success": True, "unit_breaks": unit_breaks or []}
 	except Exception as e:

@@ -49,6 +49,15 @@ function _load_docket_milestone_html(frm) {
 	});
 }
 
+/** Table flags for charges: `cannot_add_rows` / `allow_bulk_edit` may not match client meta; set on the docfield so the grid hides Add / Upload / Download as intended. */
+function _logistics_set_charges_cannot_add_rows(frm) {
+	if (!frm.get_docfield || !frm.get_docfield("charges")) {
+		return;
+	}
+	frm.set_df_property("charges", "cannot_add_rows", 1);
+	frm.set_df_property("charges", "allow_bulk_edit", 0);
+}
+
 function _logistics_docket_set_linked_services_read_only(frm) {
 	if (window.logistics && logistics.setup_virtual_linked_services_grid) {
 		logistics.setup_virtual_linked_services_grid(frm);
@@ -63,7 +72,9 @@ frappe.ui.form.on("Docket", {
 		logistics_strip_docket_customer_link_filters(frm);
 		logistics_docket_set_exhibitor_query(frm);
 		logistics_docket_set_site_query(frm);
+		_logistics_set_charges_cannot_add_rows(frm);
 		_logistics_docket_set_linked_services_read_only(frm);
+		_docket_update_measurement_fields_readonly(frm);
 	},
 	setup(frm) {
 		frm.set_query("milestone_template", function () {
@@ -87,7 +98,14 @@ frappe.ui.form.on("Docket", {
 		logistics_strip_docket_customer_link_filters(frm);
 		logistics_docket_set_exhibitor_query(frm);
 		logistics_docket_set_site_query(frm);
+		_logistics_set_charges_cannot_add_rows(frm);
 		_logistics_docket_set_linked_services_read_only(frm);
+		setTimeout(function () {
+			if (window.logistics_hide_cannot_add_rows_buttons) {
+				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");
+				window.logistics_hide_cannot_add_rows_buttons(frm, "linked_services");
+			}
+		}, 0);
 		_load_docket_milestone_html(frm);
 
 		if (window.logistics_load_documents_html) {
@@ -380,6 +398,7 @@ frappe.ui.form.on("Docket", {
 	},
 	aggregate_volume_from_packages(frm) {
 		if (frm.is_new() || frm.doc.__islocal) return;
+		if (frm.doc.override_volume_weight) return;
 		if (!frm.doc.packages || frm.doc.packages.length === 0) {
 			return;
 		}
@@ -402,12 +421,24 @@ frappe.ui.form.on("Docket", {
 					if (r.message.total_packages !== undefined && frm.fields_dict.total_packages) {
 						frm.set_value("total_packages", r.message.total_packages);
 					}
+					if (r.message.total_containers !== undefined && frm.fields_dict.total_containers) {
+						frm.set_value("total_containers", r.message.total_containers);
+					}
+					if (r.message.total_teus !== undefined && frm.fields_dict.total_teus) {
+						frm.set_value("total_teus", r.message.total_teus);
+					}
 					if (r.message.chargeable !== undefined && frm.fields_dict.chargeable) {
 						frm.set_value("chargeable", r.message.chargeable);
 					}
 				}
 			},
 		});
+	},
+	containers_add(frm) {
+		_docket_refresh_package_container_options(frm);
+	},
+	containers_remove(frm) {
+		_docket_refresh_package_container_options(frm);
 	},
 	packages_on_form_rendered(frm) {
 		if (window.logistics_attach_packages_change_listener) {
@@ -419,6 +450,9 @@ frappe.ui.form.on("Docket", {
 			);
 		}
 	},
+	override_volume_weight(frm) {
+		_docket_update_measurement_fields_readonly(frm);
+	},
 });
 
 function _docket_volume_fallback(frm, cdt, cdn, grid_row) {
@@ -426,10 +460,168 @@ function _docket_volume_fallback(frm, cdt, cdn, grid_row) {
 	if (typeof fn === "function") fn(frm, cdt, cdn, grid_row, "packages");
 }
 
+function _docket_is_grid_dialog_open() {
+	if (typeof cur_dialog !== "undefined" && cur_dialog && cur_dialog.display) return true;
+	if ($(".grid-row-open").length > 0) return true;
+	if ($(".grid-form-dialog:visible").length > 0) return true;
+	if ($(".grid-row-form:visible, .grid-form-body:visible").length > 0) return true;
+	if ($(".modal:visible .grid-row-form, .form-dialog:visible .grid-row-form").length > 0)
+		return true;
+	return false;
+}
+
+function _docket_update_measurement_fields_readonly(frm) {
+	var readonly = !frm.doc.override_volume_weight;
+	if (frm.fields_dict.total_volume) frm.set_df_property("total_volume", "read_only", readonly);
+	if (frm.fields_dict.total_weight) frm.set_df_property("total_weight", "read_only", readonly);
+	if (frm.fields_dict.chargeable) frm.set_df_property("chargeable", "read_only", readonly);
+}
+
+function _docket_apply_container_cargo_to_form(frm, container_cargo) {
+	if (!container_cargo || !container_cargo.length || !frm.doc.containers) return;
+	container_cargo.forEach(function (item) {
+		var row = (frm.doc.containers || []).find(function (c) {
+			return (item.idx && c.idx === item.idx) || (item.name && c.name === item.name);
+		});
+		if (!row) return;
+		row.packages_in_container = item.packages_in_container;
+		row.weight_in_container = item.weight_in_container;
+		row.volume_in_container = item.volume_in_container;
+		row.max_weight = item.max_weight;
+		row.max_volume = item.max_volume;
+		row.utilization_percentage = item.utilization_percentage;
+	});
+	frm.refresh_field("containers");
+	var grid = frm.fields_dict.containers && frm.fields_dict.containers.grid;
+	if (grid && grid.grid_form && grid.grid_form.doc) {
+		var gd = grid.grid_form.doc;
+		var match = container_cargo.find(function (item) {
+			return item.idx === gd.idx;
+		});
+		if (match) {
+			[
+				"packages_in_container",
+				"weight_in_container",
+				"volume_in_container",
+				"max_weight",
+				"max_volume",
+				"utilization_percentage",
+			].forEach(function (f) {
+				if (match[f] !== undefined) grid.grid_form.set_value(f, match[f]);
+			});
+		}
+	}
+}
+
+function _docket_refresh_container_cargo_metrics(frm) {
+	frappe.call({
+		method: "logistics.sea_freight.container_row_metrics.compute_container_cargo_metrics",
+		args: { doc: frm.doc },
+		freeze: false,
+		callback: function (r) {
+			if (r && !r.exc && r.message && r.message.container_cargo) {
+				_docket_apply_container_cargo_to_form(frm, r.message.container_cargo);
+			}
+		},
+	});
+}
+
+function _docket_refresh_container_cargo_debounced(frm) {
+	if (frm._docket_container_cargo_timer) clearTimeout(frm._docket_container_cargo_timer);
+	frm._docket_container_cargo_timer = setTimeout(function () {
+		frm._docket_container_cargo_timer = null;
+		_docket_refresh_container_cargo_metrics(frm);
+	}, 300);
+}
+
+function _docket_update_packing_summary_client_side(frm) {
+	var containers = frm.doc.containers || [];
+	var packages = frm.doc.packages || [];
+	var totalPackages = 0;
+	packages.forEach(function (p) {
+		totalPackages += parseFloat(p.no_of_packs) || parseFloat(p.quantity) || 0;
+	});
+	frm.set_value("total_containers", containers.length);
+	frm.set_value("total_packages", totalPackages);
+}
+
+function _docket_refresh_packing_summary_debounced(frm) {
+	if (_docket_is_grid_dialog_open()) return;
+	if (frm.doc.override_volume_weight) return;
+	if (frm._docket_packing_summary_timer) clearTimeout(frm._docket_packing_summary_timer);
+	frm._docket_packing_summary_timer = setTimeout(function () {
+		frm._docket_packing_summary_timer = null;
+		if (_docket_is_grid_dialog_open()) return;
+		if (frm.is_new() || frm.doc.__islocal) {
+			_docket_update_packing_summary_client_side(frm);
+		} else {
+			frm.trigger("aggregate_volume_from_packages");
+		}
+	}, 300);
+}
+
+function _docket_package_or_container_changed(frm) {
+	_docket_refresh_container_cargo_debounced(frm);
+	_docket_refresh_packing_summary_debounced(frm);
+}
+
+function _docket_refresh_package_container_options(frm) {
+	if (!frm || !frm.fields_dict || !frm.fields_dict.packages || !frm.fields_dict.packages.grid) {
+		return;
+	}
+	var grid = frm.fields_dict.packages.grid;
+	var names = (frm.doc.containers || [])
+		.map(function (c) {
+			return c.container_no;
+		})
+		.filter(Boolean);
+
+	function apply_options(numbers) {
+		var unique = [];
+		var seen = {};
+		(numbers || []).forEach(function (n) {
+			var key = String(n || "").trim();
+			if (!key || seen[key]) return;
+			seen[key] = true;
+			unique.push(key);
+		});
+		grid.update_docfield_property("container", "options", "\n" + unique.join("\n"));
+	}
+
+	if (!names.length) {
+		apply_options([]);
+		return;
+	}
+
+	frappe.db
+		.get_list("Container", {
+			filters: { name: ["in", names] },
+			fields: ["name", "container_number"],
+			limit: names.length,
+		})
+		.then(function (rows) {
+			var map = {};
+			(rows || []).forEach(function (r) {
+				if (r && r.name) {
+					map[r.name] = r.container_number || r.name;
+				}
+			});
+			apply_options(
+				names.map(function (n) {
+					return map[n] || n;
+				})
+			);
+		})
+		.catch(function () {
+			apply_options(names);
+		});
+}
+
 frappe.ui.form.on("Docket Package", {
 	form_render(frm, cdt, cdn) {
 		if (!cdt || !cdn) return;
 		frm.trigger("packages_on_form_rendered");
+		_docket_refresh_package_container_options(frm);
 		setTimeout(function () {
 			var fn_immediate = window.logistics_calculate_volume_from_dimensions_immediate;
 			var fn_debounced = window.logistics_calculate_volume_from_dimensions;
@@ -461,10 +653,18 @@ frappe.ui.form.on("Docket Package", {
 	volume(frm, cdt, cdn) {
 		if (frm.is_new() || frm.doc.__islocal) return;
 		frm.trigger("aggregate_volume_from_packages");
+		_docket_package_or_container_changed(frm);
 	},
 	weight(frm, cdt, cdn) {
 		if (frm.is_new() || frm.doc.__islocal) return;
 		frm.trigger("aggregate_volume_from_packages");
+		_docket_package_or_container_changed(frm);
+	},
+	container(frm) {
+		_docket_package_or_container_changed(frm);
+	},
+	no_of_packs(frm) {
+		_docket_package_or_container_changed(frm);
 	},
 	weight_uom(frm, cdt, cdn) {
 		if (frm.is_new() || frm.doc.__islocal) return;
@@ -550,6 +750,25 @@ frappe.ui.form.on("Docket Package", {
 			setTimeout(function () {
 				frm.trigger("aggregate_volume_from_packages");
 			}, 100);
+		}
+	},
+});
+
+frappe.ui.form.on("Docket Containers", {
+	form_render(frm) {
+		_docket_refresh_package_container_options(frm);
+		_docket_refresh_container_cargo_debounced(frm);
+		if (!_docket_is_grid_dialog_open()) {
+			_docket_refresh_packing_summary_debounced(frm);
+		}
+	},
+	container_no(frm) {
+		_docket_refresh_package_container_options(frm);
+	},
+	type(frm) {
+		_docket_refresh_container_cargo_debounced(frm);
+		if (!_docket_is_grid_dialog_open()) {
+			_docket_refresh_packing_summary_debounced(frm);
 		}
 	},
 });

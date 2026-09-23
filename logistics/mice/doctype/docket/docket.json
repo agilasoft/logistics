@@ -39,13 +39,25 @@
   "packing_tab",
   "section_break_ofjt",
   "packages",
+  "containers_section",
+  "shipping_status",
+  "containers",
   "section_break_summary",
+  "total_containers",
+  "total_teus",
   "total_packages",
+  "override_volume_weight",
+  "column_break_summary",
   "total_volume",
   "total_weight",
   "chargeable",
-  "column_break_summary",
+  "column_break_summary_uom",
+  "total_volume_uom",
+  "total_weight_uom",
+  "chargeable_weight_uom",
+  "column_break_summary_density",
   "density_factor_html",
+  "excess_weight_volume",
   "services_tab",
   "linked_services_section",
   "linked_services",
@@ -70,13 +82,22 @@
   "profitability_section_break",
   "profitability_section_html",
   "recognition_section",
+  "wip_recognition_enabled",
+  "accrual_recognition_enabled",
+  "recognition_policy_reference",
+  "recognition_date_basis",
+  "recognition_date",
+  "column_break_recognition",
   "estimated_revenue",
   "wip_amount",
   "recognized_revenue",
-  "column_break_recognition",
+  "wip_journal_entry",
+  "wip_closed",
+  "column_break_accrual",
   "estimated_costs",
   "accrual_amount",
   "recognized_costs",
+  "accrual_closed",
   "invoice_section",
   "sales_invoice",
   "date_sales_invoice_requested",
@@ -94,9 +115,9 @@
   "date_costs_fully_paid",
   "milestones_tab",
   "section_milestones",
-  "milestone_html",
   "milestone_template",
   "milestones",
+  "milestone_html",
   "documents_tab",
   "section_documents",
   "documents_html",
@@ -447,6 +468,46 @@
    "label": "Revenue & Cost Recognition"
   },
   {
+   "default": "0",
+   "fieldname": "wip_recognition_enabled",
+   "fieldtype": "Check",
+   "label": "Enable WIP Recognition",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "accrual_recognition_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Accrual Recognition",
+   "read_only": 1
+  },
+  {
+   "description": "Matched policy + parameter row for this job.",
+   "fieldname": "recognition_policy_reference",
+   "fieldtype": "Small Text",
+   "label": "Applicable Recognition Policy",
+   "read_only": 1
+  },
+  {
+   "description": "From policy (single basis for WIP and accrual).",
+   "fieldname": "recognition_date_basis",
+   "fieldtype": "Select",
+   "label": "Recognition Date Basis",
+   "options": "\nATA\nATD\nJob Booking Date\nJob Creation\nUser Specified",
+   "read_only": 1
+  },
+  {
+   "description": "Posting date for WIP and accrual. Editable when basis is User Specified.",
+   "fieldname": "recognition_date",
+   "fieldtype": "Date",
+   "label": "Recognition Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_recognition",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "estimated_revenue",
    "fieldtype": "Currency",
    "label": "Estimated Revenue",
@@ -465,7 +526,21 @@
    "read_only": 1
   },
   {
-   "fieldname": "column_break_recognition",
+   "fieldname": "wip_journal_entry",
+   "fieldtype": "Link",
+   "label": "WIP Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "wip_closed",
+   "fieldtype": "Check",
+   "label": "WIP Closed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_accrual",
    "fieldtype": "Column Break"
   },
   {
@@ -484,6 +559,13 @@
    "fieldname": "recognized_costs",
    "fieldtype": "Currency",
    "label": "Recognized Costs",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "accrual_closed",
+   "fieldtype": "Check",
+   "label": "Accrual Closed",
    "read_only": 1
   },
   {
@@ -716,9 +798,39 @@
    "options": "Docket Package"
   },
   {
+   "fieldname": "containers_section",
+   "fieldtype": "Section Break",
+   "label": "Containers"
+  },
+  {
+   "default": "Booking Received",
+   "fieldname": "shipping_status",
+   "fieldtype": "Select",
+   "label": "Shipping Status",
+   "options": "Booking Received\nBooking Confirmed\nCargo Not Ready\nPick-Up Scheduled\nGate-In at Port / CY\nCustoms Clearance (Export)\nLoaded on Vessel\nDeparted\nIn-Transit\nArrived\nDischarged from Vessel\nCustoms Clearance (Import)\nAvailable for Pick-Up\nOut for Delivery\nDelivered\nEmpty Container Returned\nDelayed\nCustoms Hold\nDocument Issue\nDetention / Demurrage Ongoing\nClosed\nReopened"
+  },
+  {
+   "fieldname": "containers",
+   "fieldtype": "Table",
+   "label": "Containers",
+   "options": "Docket Containers"
+  },
+  {
    "fieldname": "section_break_summary",
    "fieldtype": "Section Break",
    "label": "Summary"
+  },
+  {
+   "fieldname": "total_containers",
+   "fieldtype": "Float",
+   "label": "Total Containers",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_teus",
+   "fieldtype": "Float",
+   "label": "Total TEUs",
+   "read_only": 1
   },
   {
    "fieldname": "total_packages",
@@ -727,25 +839,59 @@
    "read_only": 1
   },
   {
+   "default": "0",
+   "description": "When checked, Total Volume and Total Weight are manual and will not be updated from package totals.",
+   "fieldname": "override_volume_weight",
+   "fieldtype": "Check",
+   "label": "Override Volume & Weight"
+  },
+  {
+   "fieldname": "column_break_summary",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "total_volume",
    "fieldtype": "Float",
-   "label": "Total Volume",
-   "read_only": 1
+   "label": "Total Volume"
   },
   {
    "fieldname": "total_weight",
-   "fieldtype": "Float",
-   "label": "Total Weight",
-   "read_only": 1
+   "fieldtype": "Data",
+   "label": "Total Weight"
   },
   {
    "fieldname": "chargeable",
    "fieldtype": "Float",
-   "label": "Chargeable Weight (kg)",
+   "label": "Chargeable Weight",
    "read_only": 1
   },
   {
-   "fieldname": "column_break_summary",
+   "fieldname": "column_break_summary_uom",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_volume_uom",
+   "fieldtype": "Link",
+   "label": "Volume UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "total_weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "chargeable_weight_uom",
+   "fieldtype": "Link",
+   "label": "Chargeable Wt. UOM",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_summary_density",
    "fieldtype": "Column Break"
   },
   {
@@ -753,6 +899,11 @@
    "fieldtype": "HTML",
    "label": "Density Factor",
    "options": "<div class=\"density-factor-container\"><div class=\"density-factor-header\"><span class=\"density-factor-title\">Density Factor</span><span class=\"density-factor-classification\" data-zone=\"\"></span></div><div class=\"density-factor-meta\"><span class=\"density-factor-value is-empty\" data-doc-value=\"\"></span><span class=\"density-factor-unit\">cm\u00b3/kg</span></div><div class=\"density-factor-track\" role=\"progressbar\" aria-valuemin=\"0\" aria-valuemax=\"6000\" aria-valuenow=\"\"><div class=\"density-factor-fill\"></div><div class=\"density-factor-indicator\"></div></div><div class=\"density-factor-scale\"><span class=\"dfs-pos\" data-tier=\"dense\" style=\"left: 0%\"><span class=\"dfs-num\">0</span><span class=\"dfs-lbl\">Dense</span></span><span class=\"dfs-pos\" style=\"left: 25%\"><span class=\"dfs-num\">1500</span></span><span class=\"dfs-pos\" style=\"left: 50%\"><span class=\"dfs-num\">3000</span></span><span class=\"dfs-pos\" style=\"left: 75%\"><span class=\"dfs-num\">4500</span></span><span class=\"dfs-pos\" data-tier=\"volumetric\" style=\"left: 100%\"><span class=\"dfs-num\">6000</span><span class=\"dfs-lbl\">Volumetric</span></span></div><div class=\"density-factor-error\"></div></div>"
+  },
+  {
+   "fieldname": "excess_weight_volume",
+   "fieldtype": "Float",
+   "label": "Excess Weight Volume (M³)"
   },
   {
    "fieldname": "connections_tab",
@@ -770,7 +921,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-07-08 08:55:53.487491",
+ "modified": "2026-09-21 11:10:00.000000",
  "modified_by": "dee.sambrano@agilasoft.com",
  "module": "MICE",
  "name": "Docket",

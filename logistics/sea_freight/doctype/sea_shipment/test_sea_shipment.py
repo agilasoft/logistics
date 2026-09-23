@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
-from frappe.utils import today
+from frappe.utils import today, cint
 from logistics.air_freight.tests.test_helpers import (
 	setup_basic_master_data,
 	create_test_shipper,
@@ -12,6 +12,12 @@ from logistics.air_freight.tests.test_helpers import (
 	create_test_branch,
 	create_test_cost_center,
 	create_test_profit_center,
+)
+from logistics.utils.linked_service_compat import linked_service_doctype
+from logistics.utils.linked_service_usage import (
+	USAGE_ROLE_SATELLITE_JOB,
+	USAGE_ROLE_SHIPMENT,
+	record_linked_service_usage,
 )
 
 
@@ -496,3 +502,564 @@ class TestSeaShipment(FrappeTestCase):
 		self.assertEqual(normalize_container_number(to.container_no), normalize_container_number(cn_b))
 		self.assertEqual(len(to.packages), 1)
 		self.assertEqual(to.packages[0].commodity, comms[1])
+
+	def test_transport_order_from_sea_shipment_copies_unassigned_packages_for_single_container(self):
+		"""FCL: one container on the shipment and blank package Container still copies cargo."""
+		from logistics.utils.container_validation import calculate_iso6346_check_digit, normalize_container_number
+		from logistics.utils.module_integration import create_transport_order_from_sea_shipment
+
+		def _iso_container(serial6: str) -> str:
+			base = "MSCU" + serial6
+			return base + str(calculate_iso6346_check_digit(base + "0"))
+
+		cn = _iso_container(f"{abs(hash(frappe.generate_hash())) % 1000000:06d}")
+
+		ct = frappe.db.get_value("Container Type", {"active": 1}, "name")
+		if not ct:
+			ct = frappe.get_doc(
+				{
+					"doctype": "Container Type",
+					"code": "TST-TO-FCL-CT",
+					"description": "Test container type for FCL unassigned cargo",
+					"active": 1,
+				}
+			).insert(ignore_permissions=True).name
+
+		uom = frappe.db.get_value("UOM", {"enabled": 1}, "name")
+		self.assertTrue(uom)
+
+		comms = frappe.get_all("Commodity", filters={"active": 1}, limit=2, pluck="name")
+		while len(comms) < 2:
+			sfx = frappe.generate_hash(length=4)
+			frappe.get_doc(
+				{"doctype": "Commodity", "commodity_name": f"TST-FCL {sfx}", "active": 1}
+			).insert(ignore_permissions=True)
+			comms = frappe.get_all("Commodity", filters={"active": 1}, limit=2, pluck="name")
+
+		booking = frappe.get_doc(
+			{
+				"doctype": "Sea Booking",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"direction": "Export",
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+			}
+		)
+		booking.insert()
+
+		shipment = frappe.get_doc(
+			{
+				"doctype": "Sea Shipment",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+				"sea_booking": booking.name,
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+				"container_type": ct,
+			}
+		)
+		shipment.append(
+			"routing_legs",
+			{"type": "Pre-carriage", "status": "Planned", "load_port": "USLAX", "discharge_port": "USJFK"},
+		)
+		shipment.append("containers", {"container_no": cn, "type": ct})
+		shipment.append(
+			"packages",
+			{"commodity": comms[0], "no_of_packs": 1, "uom": uom, "weight_uom": uom},
+		)
+		shipment.append(
+			"packages",
+			{"commodity": comms[1], "no_of_packs": 2, "uom": uom, "weight_uom": uom},
+		)
+		shipment.flags.ignore_links = True
+		shipment.insert(ignore_permissions=True, ignore_links=True)
+
+		res = create_transport_order_from_sea_shipment(shipment.name, container_no=cn)
+		to = frappe.get_doc("Transport Order", res["transport_order"])
+		self.assertEqual(normalize_container_number(to.container_no), normalize_container_number(cn))
+		self.assertEqual(len(to.packages), 2)
+		copied = {p.commodity for p in to.packages}
+		self.assertEqual(copied, {comms[0], comms[1]})
+
+	def test_transport_order_from_sea_shipment_unassigned_packages_fail_when_multiple_containers(self):
+		"""Multi-container: blank package Container does not copy; create throws an assign-Container error."""
+		from logistics.utils.container_validation import calculate_iso6346_check_digit
+		from logistics.utils.module_integration import create_transport_order_from_sea_shipment
+
+		def _iso_container(serial6: str) -> str:
+			base = "MSCU" + serial6
+			return base + str(calculate_iso6346_check_digit(base + "0"))
+
+		cn_a = _iso_container(f"{abs(hash(frappe.generate_hash())) % 1000000:06d}")
+		cn_b = _iso_container(f"{abs(hash(frappe.generate_hash())) % 1000000:06d}")
+		if cn_a == cn_b:
+			cn_b = _iso_container(f"{(abs(hash(frappe.generate_hash())) + 1) % 1000000:06d}")
+
+		ct = frappe.db.get_value("Container Type", {"active": 1}, "name")
+		if not ct:
+			ct = frappe.get_doc(
+				{
+					"doctype": "Container Type",
+					"code": "TST-TO-MC-CT",
+					"description": "Test container type for multi-container blank cargo",
+					"active": 1,
+				}
+			).insert(ignore_permissions=True).name
+
+		uom = frappe.db.get_value("UOM", {"enabled": 1}, "name")
+		self.assertTrue(uom)
+
+		comms = frappe.get_all("Commodity", filters={"active": 1}, limit=2, pluck="name")
+		while len(comms) < 2:
+			sfx = frappe.generate_hash(length=4)
+			frappe.get_doc(
+				{"doctype": "Commodity", "commodity_name": f"TST-MC {sfx}", "active": 1}
+			).insert(ignore_permissions=True)
+			comms = frappe.get_all("Commodity", filters={"active": 1}, limit=2, pluck="name")
+
+		booking = frappe.get_doc(
+			{
+				"doctype": "Sea Booking",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"direction": "Export",
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+			}
+		)
+		booking.insert()
+
+		shipment = frappe.get_doc(
+			{
+				"doctype": "Sea Shipment",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+				"sea_booking": booking.name,
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+				"container_type": ct,
+			}
+		)
+		shipment.append(
+			"routing_legs",
+			{"type": "Pre-carriage", "status": "Planned", "load_port": "USLAX", "discharge_port": "USJFK"},
+		)
+		shipment.append("containers", {"container_no": cn_a, "type": ct})
+		shipment.append("containers", {"container_no": cn_b, "type": ct})
+		shipment.append(
+			"packages",
+			{"commodity": comms[0], "no_of_packs": 1, "uom": uom, "weight_uom": uom},
+		)
+		shipment.append(
+			"packages",
+			{"commodity": comms[1], "no_of_packs": 2, "uom": uom, "weight_uom": uom},
+		)
+		shipment.flags.ignore_links = True
+		shipment.insert(ignore_permissions=True, ignore_links=True)
+
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			create_transport_order_from_sea_shipment(shipment.name, container_no=cn_a)
+		self.assertIn("Set Container on the Packages table", str(ctx.exception))
+
+	def _ensure_logistics_milestone(self, code):
+		existing = frappe.db.get_value("Logistics Milestone", {"code": code}, "name")
+		if existing:
+			return existing
+		return frappe.get_doc(
+			{
+				"doctype": "Logistics Milestone",
+				"code": code,
+				"description": code,
+				"sea_freight": 1,
+				"transport": 1,
+			}
+		).insert(ignore_permissions=True).name
+
+	def _booking_with_milestones(self, milestone_names, planned_end="2026-10-01 12:00:00"):
+		booking = frappe.get_doc(
+			{
+				"doctype": "Sea Booking",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"direction": "Export",
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+			}
+		)
+		for milestone in milestone_names:
+			booking.append(
+				"milestones",
+				{
+					"milestone": milestone,
+					"status": "Planned",
+					"planned_end": planned_end,
+					"source": "Fetched",
+					"automation_planned_date_basis": "Booking Date",
+				},
+			)
+		booking.flags.ignore_documents_milestones_populate = True
+		booking.insert()
+		return booking
+
+	def _linked_shipment(self, booking):
+		shipment = frappe.get_doc(
+			{
+				"doctype": "Sea Shipment",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+				"sea_booking": booking.name,
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+			}
+		)
+		shipment.flags.ignore_documents_milestones_populate = True
+		shipment.insert()
+		return shipment
+
+	def _plain_shipment(self):
+		shipment = frappe.get_doc(
+			{
+				"doctype": "Sea Shipment",
+				"booking_date": today(),
+				"company": self.company,
+				"local_customer": self.customer,
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+			}
+		)
+		shipment.flags.ignore_documents_milestones_populate = True
+		shipment.insert()
+		return shipment
+
+	def _transport_order_with_milestones(self, milestone_names, planned_end="2026-10-05 08:00:00"):
+		order = frappe.get_doc(
+			{
+				"doctype": "Transport Order",
+				"company": self.company,
+				"customer": self.customer,
+				"booking_date": today(),
+				"scheduled_date": today(),
+				"location_type": "UNLOCO",
+				"location_from": "USLAX",
+				"location_to": "USJFK",
+				"transport_job_type": "Non-Container",
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+			}
+		)
+		for milestone in milestone_names:
+			order.append(
+				"milestones",
+				{
+					"milestone": milestone,
+					"status": "Planned",
+					"planned_end": planned_end,
+					"source": "Fetched",
+					"automation_planned_date_basis": "Booking Date",
+				},
+			)
+		order.flags.ignore_documents_milestones_populate = True
+		order.flags.ignore_mandatory = True
+		order.insert(ignore_permissions=True)
+		return order
+
+	def _transport_job_with_milestones(self, milestone_names, planned_end="2026-10-06 09:00:00"):
+		job = frappe.get_doc(
+			{
+				"doctype": "Transport Job",
+				"company": self.company,
+				"customer": self.customer,
+				"booking_date": today(),
+				"scheduled_date": today(),
+				"transport_job_type": "Non-Container",
+				"consolidate": 1,
+				"branch": self.branch,
+				"cost_center": self.cost_center,
+				"profit_center": self.profit_center,
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+			}
+		)
+		for milestone in milestone_names:
+			job.append(
+				"milestones",
+				{
+					"milestone": milestone,
+					"status": "Planned",
+					"planned_end": planned_end,
+					"source": "Fetched",
+					"automation_planned_date_basis": "Booking Date",
+				},
+			)
+		job.flags.ignore_documents_milestones_populate = True
+		job.flags.ignore_mandatory = True
+		job.flags.ignore_validate = True
+		job.insert(ignore_permissions=True)
+		return job
+
+	def _linked_service_for_shipment(self, shipment, service_type="Transport"):
+		ls = frappe.new_doc(linked_service_doctype())
+		ls.service_type = service_type
+		ls.parent_booking_type = "Sea Shipment"
+		ls.parent_booking_name = shipment.name
+		ls.flags.ignore_mandatory = True
+		ls.insert(ignore_permissions=True)
+		return ls
+
+	def test_booking_milestone_row_values_marks_from_booking(self):
+		from logistics.sea_freight.doctype.sea_shipment.sea_shipment import booking_milestone_row_values
+
+		src = frappe._dict(
+			{
+				"milestone": "MS-A",
+				"status": "Planned",
+				"planned_start": None,
+				"planned_end": "2026-10-01 12:00:00",
+				"actual_start": None,
+				"actual_end": None,
+				"source": "Fetched",
+				"fetched_at": "2026-09-01 08:00:00",
+				"automation_planned_date_basis": "Booking Date",
+				"automation_update_trigger_type": "Date Based",
+			}
+		)
+		values = booking_milestone_row_values(src)
+		self.assertEqual(values["from_booking"], 1)
+		self.assertEqual(values["milestone"], "MS-A")
+		self.assertEqual(values["planned_end"], "2026-10-01 12:00:00")
+		self.assertEqual(values["automation_planned_date_basis"], "Booking Date")
+		self.assertEqual(values["automation_update_trigger_type"], "Date Based")
+
+	def test_sea_shipment_populates_booking_milestones_as_from_booking(self):
+		sfx = frappe.generate_hash(length=6)
+		ms_booking = self._ensure_logistics_milestone(f"TST-BK-MS-{sfx}")
+		booking = self._booking_with_milestones([ms_booking])
+		shipment = self._linked_shipment(booking)
+
+		self.assertEqual(len(shipment.milestones), 1)
+		self.assertEqual(shipment.milestones[0].milestone, ms_booking)
+		self.assertEqual(cint(shipment.milestones[0].from_booking), 1)
+		self.assertEqual(str(shipment.milestones[0].planned_end), "2026-10-01 12:00:00")
+		self.assertEqual(shipment.milestones[0].automation_planned_date_basis, "Booking Date")
+
+	def test_sea_shipment_allows_extra_milestone_without_flagging_from_booking(self):
+		sfx = frappe.generate_hash(length=6)
+		ms_booking = self._ensure_logistics_milestone(f"TST-BK-MS-{sfx}")
+		ms_extra = self._ensure_logistics_milestone(f"TST-SH-MS-{sfx}")
+		booking = self._booking_with_milestones([ms_booking])
+		shipment = self._linked_shipment(booking)
+
+		shipment.append("milestones", {"milestone": ms_extra, "status": "Planned", "source": "Manual"})
+		shipment.flags.ignore_documents_milestones_populate = True
+		shipment.save()
+
+		by_ms = {row.milestone: row for row in shipment.milestones}
+		self.assertIn(ms_booking, by_ms)
+		self.assertIn(ms_extra, by_ms)
+		self.assertEqual(cint(by_ms[ms_booking].from_booking), 1)
+		self.assertEqual(cint(by_ms[ms_extra].from_booking), 0)
+
+	def test_sea_shipment_adds_missing_booking_milestone_on_later_save(self):
+		sfx = frappe.generate_hash(length=6)
+		ms1 = self._ensure_logistics_milestone(f"TST-BK-MS1-{sfx}")
+		ms2 = self._ensure_logistics_milestone(f"TST-BK-MS2-{sfx}")
+		booking = self._booking_with_milestones([ms1])
+		shipment = self._linked_shipment(booking)
+		self.assertEqual([row.milestone for row in shipment.milestones], [ms1])
+
+		booking.append(
+			"milestones",
+			{"milestone": ms2, "status": "Planned", "planned_end": "2026-11-01 09:00:00", "source": "Fetched"},
+		)
+		booking.flags.ignore_documents_milestones_populate = True
+		booking.save()
+
+		shipment.reload()
+		shipment.flags.ignore_documents_milestones_populate = True
+		shipment.save()
+
+		names = {row.milestone for row in shipment.milestones}
+		self.assertEqual(names, {ms1, ms2})
+		self.assertTrue(all(cint(row.from_booking) for row in shipment.milestones))
+
+	def test_sea_shipment_rejects_edit_and_delete_of_booking_milestones(self):
+		sfx = frappe.generate_hash(length=6)
+		ms_booking = self._ensure_logistics_milestone(f"TST-BK-MS-{sfx}")
+		booking = self._booking_with_milestones([ms_booking])
+		shipment = self._linked_shipment(booking)
+
+		shipment.milestones[0].planned_end = "2026-12-31 00:00:00"
+		shipment.flags.ignore_documents_milestones_populate = True
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			shipment.save()
+		self.assertIn("cannot be edited", str(ctx.exception))
+
+		shipment.reload()
+		shipment.remove(shipment.milestones[0])
+		shipment.flags.ignore_documents_milestones_populate = True
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			shipment.save()
+		self.assertIn("cannot be deleted", str(ctx.exception))
+
+	def test_sea_shipment_copies_service_milestones_from_order_and_job(self):
+		sfx = frappe.generate_hash(length=6)
+		ms_svc = self._ensure_logistics_milestone(f"TST-SVC-MS-{sfx}")
+		ms_extra = self._ensure_logistics_milestone(f"TST-SH-SVC-{sfx}")
+		order = self._transport_order_with_milestones([ms_svc], planned_end="2026-10-05 08:00:00")
+		job = self._transport_job_with_milestones([ms_svc], planned_end="2026-10-06 09:00:00")
+		shipment = self._plain_shipment()
+		ls = self._linked_service_for_shipment(shipment)
+		record_linked_service_usage(
+			ls.name, order.doctype, order.name, usage_role=USAGE_ROLE_SATELLITE_JOB
+		)
+		record_linked_service_usage(
+			ls.name, job.doctype, job.name, usage_role=USAGE_ROLE_SHIPMENT
+		)
+
+		shipment.reload()
+		shipment.append("milestones", {"milestone": ms_extra, "status": "Planned", "source": "Manual"})
+		shipment.flags.ignore_documents_milestones_populate = True
+		shipment.save()
+
+		service_rows = [row for row in shipment.milestones if cint(row.from_service)]
+		self.assertEqual(len(service_rows), 2)
+		sources = {(row.service_source_doctype, row.service_source_name) for row in service_rows}
+		self.assertEqual(sources, {("Transport Order", order.name), ("Transport Job", job.name)})
+		self.assertTrue(all(row.milestone == ms_svc for row in service_rows))
+		self.assertTrue(all(cint(row.from_booking) == 0 for row in service_rows))
+
+		extra = [row for row in shipment.milestones if row.milestone == ms_extra]
+		self.assertEqual(len(extra), 1)
+		self.assertEqual(cint(extra[0].from_service), 0)
+		self.assertEqual(cint(extra[0].from_booking), 0)
+
+	def test_sea_shipment_booking_and_service_milestones_coexist(self):
+		sfx = frappe.generate_hash(length=6)
+		ms_booking = self._ensure_logistics_milestone(f"TST-BK-CO-{sfx}")
+		ms_svc = self._ensure_logistics_milestone(f"TST-SVC-CO-{sfx}")
+		booking = self._booking_with_milestones([ms_booking])
+		shipment = self._linked_shipment(booking)
+		order = self._transport_order_with_milestones([ms_svc])
+		ls = self._linked_service_for_shipment(shipment)
+		record_linked_service_usage(
+			ls.name, order.doctype, order.name, usage_role=USAGE_ROLE_SATELLITE_JOB
+		)
+
+		shipment.reload()
+		shipment.flags.ignore_documents_milestones_populate = True
+		shipment.save()
+
+		by_ms = {row.milestone: row for row in shipment.milestones}
+		self.assertIn(ms_booking, by_ms)
+		self.assertIn(ms_svc, by_ms)
+		self.assertEqual(cint(by_ms[ms_booking].from_booking), 1)
+		self.assertEqual(cint(by_ms[ms_booking].from_service), 0)
+		self.assertEqual(cint(by_ms[ms_svc].from_service), 1)
+		self.assertEqual(cint(by_ms[ms_svc].from_booking), 0)
+		self.assertEqual(by_ms[ms_svc].service_source_doctype, "Transport Order")
+		self.assertEqual(by_ms[ms_svc].service_source_name, order.name)
+
+	def test_sea_shipment_rejects_edit_and_delete_of_service_milestones(self):
+		sfx = frappe.generate_hash(length=6)
+		ms_svc = self._ensure_logistics_milestone(f"TST-SVC-ED-{sfx}")
+		order = self._transport_order_with_milestones([ms_svc])
+		shipment = self._plain_shipment()
+		ls = self._linked_service_for_shipment(shipment)
+		record_linked_service_usage(
+			ls.name, order.doctype, order.name, usage_role=USAGE_ROLE_SATELLITE_JOB
+		)
+
+		shipment.reload()
+		shipment.flags.ignore_documents_milestones_populate = True
+		shipment.save()
+		self.assertEqual(len(shipment.milestones), 1)
+		self.assertEqual(cint(shipment.milestones[0].from_service), 1)
+
+		shipment.milestones[0].planned_end = "2026-12-31 00:00:00"
+		shipment.flags.ignore_documents_milestones_populate = True
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			shipment.save()
+		self.assertIn("cannot be edited", str(ctx.exception))
+
+		shipment.reload()
+		shipment.remove(shipment.milestones[0])
+		shipment.flags.ignore_documents_milestones_populate = True
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			shipment.save()
+		self.assertIn("cannot be deleted", str(ctx.exception))
+
+	def test_persist_internal_job_link_copies_service_milestones_without_extra_save(self):
+		from logistics.utils.internal_job_from_source import persist_internal_job_create_back_link
+
+		sfx = frappe.generate_hash(length=6)
+		ms_pickup = self._ensure_logistics_milestone(f"TST-TR-PU-{sfx}")
+		ms_transit = self._ensure_logistics_milestone(f"TST-TR-IT-{sfx}")
+		order = self._transport_order_with_milestones(
+			[ms_pickup, ms_transit], planned_end="2026-10-05 08:00:00"
+		)
+		shipment = self._plain_shipment()
+		ls = self._linked_service_for_shipment(shipment)
+
+		persist_internal_job_create_back_link(
+			"Sea Shipment",
+			shipment.name,
+			"Transport Order",
+			order.name,
+			ij_row=frappe._dict(linked_service=ls.name),
+		)
+
+		shipment.reload()
+		service_rows = [row for row in shipment.milestones if cint(row.from_service)]
+		self.assertEqual({row.milestone for row in service_rows}, {ms_pickup, ms_transit})
+		self.assertTrue(all(row.service_source_doctype == "Transport Order" for row in service_rows))
+		self.assertTrue(all(row.service_source_name == order.name for row in service_rows))
+

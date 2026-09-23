@@ -1,0 +1,155 @@
+<div class="jm-ops-dash log-ab-dash run-sheet-dash" data-link-doctype="Air Shipment">
+  <div class="log-ab-banner alert alert-warning jm-ops-banner" style="display:none;margin:0 1.5rem 0.75rem;"></div>
+  <div class="log-ab-top">
+    <div class="run-sheet-header log-ab-head ab-summary-header-card">
+      <div class="log-ab-head-stack">
+        <div class="log-ab-top-row">
+          <div class="log-ab-hero-col">
+            <img class="log-ab-logo-img jm-ops-company-logo" alt="" style="display:none;" />
+            <span class="log-ab-logo-ph jm-ops-logo-ph">Co</span>
+          </div>
+          <div class="log-ab-main-block">
+            <div class="jm-ops-page-title"></div>
+            <div class="log-ab-meta-cluster jm-ops-meta-cluster"></div>
+          </div>
+          <div class="ab-summary-aside">
+            <div class="ab-ring-wrap">
+              <div class="ab-ring ab-ring--status-submitted jm-ops-alert-ring" style="--ab-pct:0"></div>
+              <div class="ab-ring-center">
+                <span class="ab-ring-pct jm-ops-ring-pct">0</span>
+                <span class="ab-ring-cap jm-ops-ring-cap">jobs</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="log-ab-body-block">
+          <div class="header-details jm-ops-kpis"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ab-tab-shell">
+    <input type="radio" name="jm_ops_tabs" id="jm_ops_heat" class="ab-dash-tab-input" checked>
+    <input type="radio" name="jm_ops_tabs" id="jm_ops_list" class="ab-dash-tab-input">
+    <input type="radio" name="jm_ops_tabs" id="jm_ops_alert" class="ab-dash-tab-input">
+    <div class="jm-ops-heat-toolbar">
+      <button type="button" class="btn btn-default btn-xs afw-hub-refresh" title="Refresh"><i class="fa fa-refresh"></i></button>
+      <span class="jm-ops-user-filter jm-ops-status-filter"><span class="jm-ops-user-filter-lbl">Work</span>
+      <select class="form-control input-xs jm-ops-filter-status">
+        <option value="open" selected>Open jobs (incl. draft)</option>
+        <option value="ongoing">Ongoing (excl. draft)</option>
+        <option value="Draft">Draft</option>
+        <option value="Submitted">Submitted</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Reopened">Reopened</option>
+        <option value="Completed">Completed</option>
+        <option value="Closed">Closed</option>
+        <option value="Cancelled">Cancelled</option>
+      </select></span>
+      <span class="jm-ops-user-filter jm-ops-sla-filter"><span class="jm-ops-user-filter-lbl">Attention</span>
+      <select class="form-control input-xs jm-ops-filter-sla">
+        <option value="all" selected>All jobs</option>
+        <option value="alerts">Alerts (WIP / accrual / billing)</option>
+        <option value="wip">Open WIP</option>
+        <option value="accrual">Open Accrual</option>
+        <option value="billing">Billing issues</option>
+        <option value="overdue">Overdue</option>
+        <option value="live">Live</option>
+        <option value="active">Active</option>
+      </select></span>
+      <span class="jm-ops-user-filter"><span class="jm-ops-user-filter-lbl">Owner</span>
+      <select class="form-control input-xs jm-ops-filter-user"></select></span>
+      <span class="jm-ops-user-filter jm-ops-airline-filter"><span class="jm-ops-user-filter-lbl">Job types</span>
+      <div class="jm-ops-airline-ms">
+        <button type="button" class="btn btn-default btn-xs form-control text-left jm-ops-airline-dd-toggle" aria-expanded="false" aria-haspopup="listbox">
+          <span class="jm-ops-airline-summary"></span>
+        </button>
+        <div class="jm-ops-airline-dd-panel" role="listbox">
+          <div class="jm-ops-airline-checkboxes"></div>
+        </div>
+      </div></span>
+    </div>
+    <div class="ab-tab-bar">
+      <label for="jm_ops_heat" class="ab-tlabel">Monitor</label>
+      <label for="jm_ops_list" class="ab-tlabel">Lists</label>
+      <label for="jm_ops_alert" class="ab-tlabel">Alerts and Notifications <span class="ab-tab-count jm-ops-alerts-tab-count">(0)</span></label>
+    </div>
+    <div class="ab-ro-body">
+      <div class="ab-tab-panels ab-ro-shell">
+        <div class="ab-tab-panel ab-tab-panel-route">
+          <div class="log-ab-ro-card log-ab-ro-card--flush jm-ops-heat-card">
+            <div class="jm-ops-overview">
+              <div class="jm-ops-overview-top">
+                <div class="jm-ops-panel">
+                  <div class="jm-ops-panel-h">Pipeline</div>
+                  <div class="jm-ops-stackbar"></div>
+                  <div class="jm-ops-pipeline"></div>
+                  <div class="jm-ops-mix"></div>
+                </div>
+                <div class="jm-ops-panel">
+                  <div class="jm-ops-panel-h">Needs attention</div>
+                  <div class="jm-ops-attention"></div>
+                </div>
+              </div>
+              <div class="jm-ops-acct-row">
+                <div class="jm-ops-panel">
+                  <div class="jm-ops-panel-h">WIP <span class="jm-ops-wip-count"></span></div>
+                  <div class="jm-ops-stackbar jm-ops-wip-stackbar"></div>
+                  <div class="jm-ops-pipeline jm-ops-wip-pipeline"></div>
+                  <div class="jm-ops-mix jm-ops-wip-mix"></div>
+                </div>
+                <div class="jm-ops-panel">
+                  <div class="jm-ops-panel-h">Accrual <span class="jm-ops-accrual-count"></span></div>
+                  <div class="jm-ops-stackbar jm-ops-accrual-stackbar"></div>
+                  <div class="jm-ops-pipeline jm-ops-accrual-pipeline"></div>
+                  <div class="jm-ops-mix jm-ops-accrual-mix"></div>
+                </div>
+              </div>
+              <div class="jm-ops-panel">
+                <div class="jm-ops-panel-h">By user <span class="jm-ops-users-count"></span></div>
+                <div class="jm-ops-userbars"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ab-tab-panel ab-tab-panel-list">
+          <div class="log-ab-ro-card log-ab-ro-card--flush jm-ops-list-card">
+            <div class="jm-ops-list-toolbar">
+              <span class="jm-ops-user-filter jm-ops-search-filter"><span class="jm-ops-user-filter-lbl">Find</span>
+              <input type="search" class="form-control input-xs jm-ops-search" placeholder="Search lists…"></span>
+            </div>
+            <div class="jm-ops-overview">
+              <div class="jm-ops-panel">
+                <div class="jm-ops-panel-h">By user <span class="jm-ops-users-count-list"></span></div>
+                <div class="jm-ops-table-wrap jm-ops-users-wrap"></div>
+              </div>
+              <div class="jm-ops-panel jm-ops-unassigned-panel" style="display:none;">
+                <div class="jm-ops-panel-h">Accounting exceptions</div>
+                <div class="jm-ops-table-wrap jm-ops-unassigned-wrap"></div>
+              </div>
+              <div class="jm-ops-panel">
+                <div class="jm-ops-panel-h">Job board <span class="jm-ops-work-count"></span></div>
+                <div class="jm-ops-table-wrap jm-ops-work-wrap"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ab-tab-panel ab-tab-panel-alerts">
+          <div class="log-ab-ro-card log-ab-ro-card--flush jm-ops-alerts-card">
+            <div class="jm-ops-alerts-toolbar">
+              <button type="button" class="btn btn-default btn-xs jm-ops-alerts-refresh" title="Refresh"><i class="fa fa-refresh"></i></button>
+              <span class="jm-ops-user-filter"><span class="jm-ops-user-filter-lbl">User</span>
+              <select class="form-control input-xs jm-ops-filter-alert-user"></select></span>
+            </div>
+            <div class="jm-ops-alerts-booking-format">
+              <div class="dash-alerts-section jm-ops-dash-alerts-section"></div>
+              <div class="doc-alerts-cards-wrapper jm-ops-ops-alert-cards-wrap" style="margin-bottom: 0;">
+                <div class="doc-alerts-cards jm-ops-ops-alert-cards"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

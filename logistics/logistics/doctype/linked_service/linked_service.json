@@ -9,6 +9,7 @@
  "field_order": [
   "naming_series",
   "service_type",
+  "company",
   "section_break_parent",
   "parent_booking_type",
   "column_break_parent",
@@ -73,6 +74,15 @@
    "label": "Service Type",
    "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nOn-Demand Last Mile\nSpecial Project\nMICE",
    "reqd": 1
+  },
+  {
+   "description": "Operating company for this service. Set on the Sales Quote before creating the designated booking from the main.",
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company"
   },
   {
    "fieldname": "section_break_parent",

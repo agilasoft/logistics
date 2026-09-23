@@ -1,0 +1,1 @@
+# Install: bench execute logistics.pricing_center.print_format.tariff_alta.install_print_format.install_tariff_alta_print_format

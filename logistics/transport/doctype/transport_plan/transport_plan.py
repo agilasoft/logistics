@@ -206,6 +206,9 @@ def auto_allocate_and_create(plan_name: str, consolidate_legs: bool = False) -> 
     and append legs (we link only the Transport Leg, then prefill child fields
     from the leg so validations don't complain about facility types).
     """
+    from logistics.utils.menu_permission import assert_create_from_source
+
+    assert_create_from_source("Run Sheet", "Transport Plan", plan_name)
     _ensure_controller_class()
 
     result: Dict[str, Any] = {

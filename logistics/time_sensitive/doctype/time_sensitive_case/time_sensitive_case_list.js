@@ -13,9 +13,7 @@ frappe.listview_settings["Time Sensitive Case"] = {
 	get_indicator(doc) {
 		return logistics.time_sensitive.timer.getListIndicator(doc);
 	},
-	formatters: {
-		case_title(value, df, doc) {
-			return logistics.time_sensitive.timer.titleWithTimerIcon(value, doc);
-		},
+	refresh(listview) {
+		logistics.time_sensitive.timer.injectListSubjectTimerIcons(listview);
 	},
 };

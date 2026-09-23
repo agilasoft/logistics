@@ -337,7 +337,7 @@
             border-bottom: 1px solid #bbb;
         }
         
-        /* Page breaks: 8 rows on page 1, then 19 rows per continuation page */
+        /* Page breaks: 7 rows on page 1, then 16 rows per continuation page */
         .items-table tbody tr.table-row.page-break-before {
             page-break-before: always;
             break-before: page;
@@ -374,12 +374,12 @@
             line-height: 1.2;
         }
         
-        /* Company footer — repeats on every page via position:fixed in print */
+        /* BIR footer — repeats on every page via position:fixed in print */
         .footer-section {
             margin: 0;
             padding: 2mm 0 1mm 0;
             border: none;
-            border-top: 2px solid #000;
+            border-top: 1px solid #000;
             font-size: 7pt;
             line-height: 1.35;
             background: white;
@@ -458,7 +458,7 @@
                 width: 100%;
                 margin: 0;
                 padding: 2mm 12mm;
-                border-top: 2px solid #000;
+                border-top: 1px solid #000;
                 background: white;
                 box-sizing: border-box;
                 z-index: 1000;
@@ -748,8 +748,8 @@
                         {% if item.item and frappe.db.exists("Warehouse Item", item.item) %}
                             {% set storage_type = frappe.db.get_value("Warehouse Item", item.item, "preferred_storage_type") or '' %}
                         {% endif %}
-                        {% set first_page_rows = 8 %}
-                        {% set cont_page_rows = 19 %}
+                        {% set first_page_rows = 7 %}
+                        {% set cont_page_rows = 16 %}
                         {% set page_break = loop.index == (first_page_rows + 1) or (loop.index > (first_page_rows + 1) and (loop.index - first_page_rows - 1) % cont_page_rows == 0) %}
                         {% set chunk_end = loop.index == first_page_rows or (loop.index > first_page_rows and (loop.index - first_page_rows) % cont_page_rows == 0) %}
                         <tr class="table-row{% if page_break %} page-break-before{% endif %}{% if chunk_end %} page-chunk-end{% endif %}">
@@ -781,18 +781,63 @@
         </table>
         </div>
         
-        <!-- Footer repeats on every printed page (position:fixed) -->
+        <!-- BIR footer repeats on every printed page (position:fixed) -->
         <div class="bottom-section">
             <div class="footer-section">
-                {% set sales_rep_name = '' %}
-                {% if doc.get('sales_rep') %}
-                    {% set sales_rep_name = frappe.db.get_value('Employee', doc.sales_rep, 'employee_name') or doc.sales_rep %}
+                {% set bir_name = frappe.db.get_value("BIR CAS Settings", {"company": doc.company}, "name") %}
+                {% if bir_name %}
+                    {% set bir = frappe.get_doc("BIR CAS Settings", bir_name) %}
+                {% else %}
+                    {% set bir = None %}
                 {% endif %}
-                <div class="footer-row">Company: {{ (company_doc.company_name if company_doc else None) or doc.company or '' }}</div>
-                <div class="footer-row">Branch: {{ doc.branch or '' }}</div>
-                <div class="footer-row">Sales Rep: {{ sales_rep_name }}</div>
-                <div class="footer-row">Cost Center: {{ doc.cost_center or '' }}</div>
-                <div class="footer-row">Profit Center: {{ doc.profit_center or '' }}</div>
+                {% set name = (doc.name or "") %}
+                {% set ns = namespace(start=None, end=None) %}
+                {% for i in range(name|length) %}
+                    {% set ch = name[i] %}
+                    {% if ch.isdigit() %}
+                        {% if ns.start is none %}
+                            {% set ns.start = i %}
+                        {% endif %}
+                        {% set ns.end = i %}
+                    {% endif %}
+                {% endfor %}
+                {% if ns.start is not none %}
+                    {% set prefix = name[0:ns.start] %}
+                    {% set digit_len = ns.end - ns.start + 1 %}
+                    {% set seq = namespace(min_seq="", max_seq="") %}
+                    {% for i in range(digit_len) %}
+                        {% if i == digit_len - 1 %}
+                            {% set seq.min_seq = seq.min_seq ~ "1" %}
+                        {% else %}
+                            {% set seq.min_seq = seq.min_seq ~ "0" %}
+                        {% endif %}
+                        {% set seq.max_seq = seq.max_seq ~ "9" %}
+                    {% endfor %}
+                    {% set series_start = prefix ~ seq.min_seq %}
+                    {% set series_end = prefix ~ seq.max_seq %}
+                {% else %}
+                    {% set series_start = name %}
+                    {% set series_end = name %}
+                {% endif %}
+                <div class="footer-row">
+                    BIR Acknowledgment Certificate No.
+                    {% if bir and bir.ptu_no %}
+                        {{ bir.ptu_no }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+                <div class="footer-row">
+                    Range: {{ series_start }} - {{ series_end }}
+                </div>
+                <div class="footer-row">
+                    Date Issued:
+                    {% if bir and bir.ptu_date %}
+                        {{ frappe.utils.formatdate(bir.ptu_date, 'MMMM dd, yyyy') }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>

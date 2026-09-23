@@ -266,6 +266,61 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 		self.assertIn("services", msg)
 		self.assertNotIn("lifecycle", msg)
 
+	def test_mice_project_consolidation_charges_without_sq_eligible(self):
+		"""Project Charges tab unlocks create; Sales Quote charges are not required."""
+		ij_row = frappe._dict(service_type="MICE", name="ij-mice-1")
+		parent = frappe._dict(
+			doctype="MICE Project",
+			name="PROJ-TEST-MICE",
+			sales_quote=None,
+			consolidation_charges=[
+				frappe._dict(charge_type="Margin", item_code="MICE-BOOTH"),
+			],
+			linked_services=[ij_row],
+		)
+		result = evaluate_internal_job_creation_eligibility(
+			parent_doc=parent,
+			ij_row=ij_row,
+			service_type_label="MICE",
+		)
+		self.assertTrue(result["has_charges"], result)
+		self.assertTrue(result["has_matching_ij"], result)
+		self.assertTrue(result["eligible"], result)
+		self.assertIsNone(result["message"])
+
+	def test_mice_project_empty_consolidation_charges_blocks_create(self):
+		"""Empty Charges tab blocks create; message points at Charges tab, not Sales Quote."""
+		ij_row = frappe._dict(service_type="MICE", name="ij-mice-1")
+		parent = frappe._dict(
+			doctype="MICE Project",
+			name="PROJ-TEST-MICE-EMPTY",
+			sales_quote=None,
+			consolidation_charges=[],
+			linked_services=[ij_row],
+		)
+		result = evaluate_internal_job_creation_eligibility(
+			parent_doc=parent,
+			ij_row=ij_row,
+			service_type_label="MICE",
+		)
+		self.assertFalse(result["eligible"])
+		self.assertFalse(result["has_charges"])
+		msg = (result.get("message") or "").lower()
+		self.assertIn("charges", msg)
+		self.assertNotIn("sales quote", msg)
+
+	def test_mice_project_disbursement_only_does_not_count_as_charges(self):
+		ij_row = frappe._dict(service_type="MICE", name="ij-mice-1")
+		parent = frappe._dict(
+			doctype="MICE Project",
+			sales_quote=None,
+			consolidation_charges=[
+				frappe._dict(charge_type="Disbursement", item_code="EXPENSE"),
+			],
+			linked_services=[ij_row],
+		)
+		self.assertFalse(charges_exist_for_service(None, parent, "MICE"))
+
 	def test_quote_has_matching_linked_service_row_uses_virtual_grid(self):
 		"""Regression: eligibility must not read ``sq_doc.get('linked_services')`` (always empty after save)."""
 		if not frappe.db.exists("DocType", "Sales Quote"):
@@ -281,6 +336,9 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 		sq.customer = frappe.db.get_value("Customer", {}, "name")
 		if not sq.customer:
 			self.skipTest("No Customer in system")
+		sq.company = frappe.db.get_value("Company", {}, "name")
+		if not sq.company:
+			self.skipTest("No Company in system")
 		sq.date = frappe.utils.today()
 		sq.valid_until = frappe.utils.add_days(frappe.utils.today(), 30)
 		sq.flags.ignore_mandatory = True
@@ -315,6 +373,9 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 		sq.customer = frappe.db.get_value("Customer", {}, "name")
 		if not sq.customer:
 			self.skipTest("No Customer in system")
+		sq.company = frappe.db.get_value("Company", {}, "name")
+		if not sq.company:
+			self.skipTest("No Company in system")
 		sq.date = frappe.utils.today()
 		sq.valid_until = frappe.utils.add_days(frappe.utils.today(), 30)
 		sq.flags.ignore_mandatory = True
@@ -325,6 +386,16 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 			sync_internal_job_details_to_internal_jobs(sq)
 			reloaded = frappe.get_cached_doc("Sales Quote", sq.name)
 			ls_name = reloaded.linked_services[0].get("linked_service")
+			reloaded.append(
+				"charges",
+				{
+					"service_type": "Transport",
+					"charge_scope": "Linked",
+					"linked_service": ls_name,
+				},
+			)
+			reloaded.flags.ignore_mandatory = True
+			reloaded.save(ignore_permissions=True)
 			charge_row = frappe._dict(
 				service_type="Transport",
 				linked_service=ls_name,
@@ -360,38 +431,40 @@ class TestInternalJobCreationEligibility(FrappeTestCase):
 		sq.customer = frappe.db.get_value("Customer", {}, "name")
 		if not sq.customer:
 			self.skipTest("No Customer in system")
+		sq.company = frappe.db.get_value("Company", {}, "name")
+		if not sq.company:
+			self.skipTest("No Company in system")
 		sq.date = frappe.utils.today()
 		sq.valid_until = frappe.utils.add_days(frappe.utils.today(), 30)
 		sq.flags.ignore_mandatory = True
 		sq.insert(ignore_permissions=True)
-		asp = None
 		try:
 			sq.append("linked_services", {"service_type": "Transport"})
 			sq.flags._linked_services_from_form = True
 			sync_internal_job_details_to_internal_jobs(sq)
 			reloaded_sq = frappe.get_cached_doc("Sales Quote", sq.name)
 			ls_name = reloaded_sq.linked_services[0].get("linked_service")
+			reloaded_sq.append(
+				"charges",
+				{
+					"service_type": "Transport",
+					"charge_scope": "Linked",
+					"linked_service": ls_name,
+				},
+			)
+			reloaded_sq.flags.ignore_mandatory = True
+			reloaded_sq.save(ignore_permissions=True)
 			charge_row = frappe._dict(
 				service_type="Transport",
 				linked_service=ls_name,
 				charge_scope="Linked",
 			)
-			asp = frappe.new_doc("Air Shipment")
-			asp.sales_quote = sq.name
-			asp.flags.ignore_mandatory = True
-			asp.insert(ignore_permissions=True)
-			asp.append(
-				"charges",
-				{
-					"service_type": "Transport",
-					"linked_service": ls_name,
-					"charge_scope": "Linked",
-				},
+			parent = frappe._dict(
+				doctype="Air Shipment",
+				name="ASP-ELIG-TEST",
+				sales_quote=sq.name,
+				charges=[charge_row],
 			)
-			asp.flags.ignore_mandatory = True
-			asp.save(ignore_permissions=True)
-			_require_internal_job_eligible_for_parent_row(asp, charge_row, "Transport Order")
+			_require_internal_job_eligible_for_parent_row(parent, charge_row, "Transport Order")
 		finally:
-			if asp and frappe.db.exists("Air Shipment", asp.name):
-				frappe.delete_doc("Air Shipment", asp.name, force=True, ignore_permissions=True)
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)

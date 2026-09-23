@@ -91,19 +91,13 @@ def get_linked_services_for_sales_quote(sales_quote_name: str) -> list[Document]
 
 
 def get_linked_services_for_change_request(change_request_name: str) -> list[Document]:
-	"""Linked Service rows parented directly to a Change Request."""
-	if not change_request_name:
-		return []
-	names = frappe.get_all(
-		"Linked Service",
-		filters={
-			"parent_booking_type": "Change Request",
-			"parent_booking_name": change_request_name,
-		},
-		pluck="name",
-		order_by="creation asc",
-	)
-	return [frappe.get_doc("Linked Service", n) for n in names]
+	"""Linked Services owned by this Change Request or reused via Usage (job legs).
+
+	Job-originated ``IJ-…`` records stay on the job/quote; the Change Request lists them
+	through Linked Service Usage so charge rows can tag the same IDs. CR-created extra
+	legs are parented directly (``parent_booking_type = Change Request``).
+	"""
+	return get_linked_services_for_booking("Change Request", change_request_name)
 
 
 # Fieldsets for Manage Linked Services in-dialog edit (linked_services_dialog_1).
@@ -120,6 +114,7 @@ _DIALOG_EDIT_LABELS = {
 _DIALOG_EDIT_FIELDS = {
 	"Air": [
 		"service_type",
+		"company",
 		"airline",
 		"origin_port",
 		"destination_port",
@@ -130,6 +125,7 @@ _DIALOG_EDIT_FIELDS = {
 	],
 	"Sea": [
 		"service_type",
+		"company",
 		"shipping_line",
 		"origin_port",
 		"destination_port",
@@ -140,6 +136,7 @@ _DIALOG_EDIT_FIELDS = {
 	],
 	"Transport": [
 		"service_type",
+		"company",
 		"location_type",
 		"location_from",
 		"location_to",
@@ -151,6 +148,7 @@ _DIALOG_EDIT_FIELDS = {
 	],
 	"Customs": [
 		"service_type",
+		"company",
 		"customs_authority",
 		"declaration_type",
 		"customs_broker",
@@ -160,7 +158,7 @@ _DIALOG_EDIT_FIELDS = {
 	],
 }
 
-_DIALOG_EDIT_DEFAULT_FIELDS = ["service_type", "reference_no", "notes"]
+_DIALOG_EDIT_DEFAULT_FIELDS = ["service_type", "company", "reference_no", "notes"]
 
 
 def _dialog_edit_fieldnames(service_type: str) -> list[str]:
@@ -250,6 +248,16 @@ def update_dialog_edit(
 	_parent, doc = _load_linked_service_for_dialog(
 		linked_service, parent_doctype, parent_name, write=True
 	)
+	if parent_doctype == "Change Request":
+		owned = (doc.parent_booking_type or "") == "Change Request" and (
+			doc.parent_booking_name or ""
+		) == parent_name
+		if not owned:
+			frappe.throw(
+				_(
+					"Linked Service {0} is from the job and cannot be edited on this Change Request."
+				).format(linked_service)
+			)
 	if isinstance(values, str):
 		values = json.loads(values or "{}")
 	values = values or {}

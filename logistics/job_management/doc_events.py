@@ -5,8 +5,7 @@ These handlers integrate the recognition engine with job document lifecycle even
 """
 
 import frappe
-from frappe import _
-from frappe.utils import flt
+from frappe.utils import flt, cint
 
 from logistics.job_management.recognition_engine import (
     get_charge_row_cost_amount,
@@ -17,6 +16,16 @@ from logistics.job_management.recognition_engine import (
 def on_job_validate_estimates(doc, method=None):
     """Persist header estimated revenue/costs from charge lines (validate runs before DB write)."""
     update_estimates_from_charges(doc)
+    # Draft only: after submit these fields are not allow_on_submit. Auto-recognize
+    # syncs in-memory and stamps via _save_job (ignore_validate_update_after_submit).
+    if cint(getattr(doc, "docstatus", 0)) != 0:
+        return
+    try:
+        from logistics.job_management.recognition_engine import sync_job_recognition_fields_from_policy
+
+        sync_job_recognition_fields_from_policy(doc)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "sync_job_recognition_fields_from_policy")
 
 
 def on_job_update(doc, method):
@@ -33,41 +42,16 @@ def on_job_update(doc, method):
     handle_job_closure(doc)
 
 
-def on_job_submit(doc, method):
+def on_job_submit(doc, method=None):
     """
     Handle job submission.
-    
-    Auto-recognize WIP and accruals based on Recognition Policy Settings.
-    Runs when enable_wip_recognition or enable_accrual_recognition is enabled.
+
+    Enqueue auto-recognition when Recognition Policy Settings has Auto Recognize
+    enabled. Does not post inline (missing ATA/ATD must not block submit).
     """
-    from logistics.job_management.recognition_engine import RecognitionEngine, get_recognition_settings
+    from logistics.job_management.auto_recognition import enqueue_auto_recognize
 
-    settings = get_recognition_settings(doc)
-    if not settings.get("enable_wip_recognition") and not settings.get("enable_accrual_recognition"):
-        return
-
-    engine = RecognitionEngine(doc)
-    recognition_date = None
-
-    if settings.get("enable_wip_recognition"):
-        try:
-            wip_je = engine.recognize_wip(recognition_date)
-            if wip_je:
-                frappe.msgprint(_("WIP recognized: {0}").format(wip_je), indicator="green")
-        except Exception as e:
-            frappe.log_error(str(e), "Recognition - WIP on Submit")
-            frappe.throw(_("WIP recognition failed: {0}").format(str(e)))
-
-    if settings.get("enable_accrual_recognition"):
-        doc.reload()
-        engine = RecognitionEngine(doc)
-        try:
-            accrual_je = engine.recognize_accruals(recognition_date)
-            if accrual_je:
-                frappe.msgprint(_("Accruals recognized: {0}").format(accrual_je), indicator="green")
-        except Exception as e:
-            frappe.log_error(str(e), "Recognition - Accrual on Submit")
-            frappe.throw(_("Accrual recognition failed: {0}").format(str(e)))
+    enqueue_auto_recognize(doc, method)
 
 
 def update_estimates_from_charges(doc):

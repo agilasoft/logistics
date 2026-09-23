@@ -314,15 +314,15 @@
   {
    "default": "0",
    "depends_on": "eval:doc.enable_constraint_system",
-   "description": "Check license plate coding restrictions (odd/even days, last digit rules)",
+   "description": "DEPRECATED: No longer enforced. Configure plate coding on Truck Ban Constraint and enable Truck Ban Constraints instead.",
    "fieldname": "enable_plate_coding_constraints",
    "fieldtype": "Check",
-   "label": "Enable Plate Number Coding Constraints"
+   "label": "Enable Plate Number Coding Constraints (Deprecated)"
   },
   {
    "default": "0",
    "depends_on": "eval:doc.enable_constraint_system",
-   "description": "Check area and time-based truck ban restrictions",
+   "description": "Check area, time, and plate-coding truck ban restrictions",
    "fieldname": "enable_truck_ban_constraints",
    "fieldtype": "Check",
    "label": "Enable Truck Ban Constraints"

@@ -335,3 +335,46 @@ class TestLinkedChargeInternalJobCreate(FrappeTestCase):
 			"linked service",
 			(result["choices"][0].get("not_creatable_message") or "").lower(),
 		)
+
+
+class TestJobNoFromLinkedServiceUsage(FrappeTestCase):
+	@patch(
+		"logistics.utils.linked_service_usage.linked_service_has_satellite_job",
+		return_value="SBK000000630",
+	)
+	@patch(
+		"logistics.utils.linked_service_compat.linked_service_record_exists",
+		return_value=True,
+	)
+	def test_job_no_reads_satellite_usage_not_linked_service_header(
+		self, _mock_ls_exists, mock_has_satellite
+	):
+		from logistics.utils.internal_job_from_source import _job_no_for_linked_charge_row
+
+		row = frappe._dict(
+			service_type="Sea",
+			job_type="Sea Booking",
+			linked_service="LS-SEA-1",
+		)
+
+		self.assertEqual(_job_no_for_linked_charge_row(row), "SBK000000630")
+		mock_has_satellite.assert_called_once_with("LS-SEA-1", "Sea Booking")
+
+	@patch(
+		"logistics.utils.linked_service_usage.linked_service_has_satellite_job",
+		return_value=False,
+	)
+	@patch(
+		"logistics.utils.linked_service_compat.linked_service_record_exists",
+		return_value=True,
+	)
+	def test_job_no_empty_when_usage_has_no_satellite(self, _mock_ls_exists, _mock_has_satellite):
+		from logistics.utils.internal_job_from_source import _job_no_for_linked_charge_row
+
+		row = frappe._dict(
+			service_type="Sea",
+			job_type="Sea Booking",
+			linked_service="LS-SEA-1",
+		)
+
+		self.assertEqual(_job_no_for_linked_charge_row(row), "")

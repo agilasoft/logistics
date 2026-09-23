@@ -141,8 +141,10 @@ def apply_sales_quote_ms_ij_rules(doc: Any, method=None) -> None:
 		_resolve_and_set_linked_service_link(doc)
 		return
 
-	# Regular (and quotes without sales_quote / unknown type)
-	if has_created_internal_job_children(doc):
+	# Regular Sales Quote: Linked Services imply this document is Main and cannot be cleared.
+	# Do not treat "no Sales Quote" as Regular — Time Sensitive Case legs and other standalone
+	# jobs can carry Linked Services without being Main on a quote.
+	if quotation_type == "Regular" and has_created_internal_job_children(doc):
 		role = get_service_role(doc)
 		if role != SERVICE_ROLE_MAIN and not cint(getattr(doc, "is_main_service", 0)):
 			frappe.throw(

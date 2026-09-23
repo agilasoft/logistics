@@ -107,7 +107,7 @@ class SettlementGroup(Document):
 					"docstatus": 1,
 					"outstanding_amount": [">", 0]
 				},
-				fields=["name", "customer", "posting_date", "due_date", "outstanding_amount", "grand_total"]
+				fields=["name", "customer", "posting_date", "due_date", "outstanding_amount", "grand_total", "currency", "conversion_rate"]
 			)
 			for si in sales_invoices:
 				all_transactions.append({
@@ -118,7 +118,9 @@ class SettlementGroup(Document):
 					"outstanding_amount": si.outstanding_amount,
 					"total_amount": si.grand_total,
 					"reference_date": si.posting_date,
-					"due_date": si.due_date
+					"due_date": si.due_date,
+					"currency": si.currency,
+					"conversion_rate": si.conversion_rate or 1.0,
 				})
 		
 		# Get outstanding Purchase Invoices
@@ -130,7 +132,7 @@ class SettlementGroup(Document):
 					"docstatus": 1,
 					"outstanding_amount": [">", 0]
 				},
-				fields=["name", "supplier", "posting_date", "due_date", "outstanding_amount", "grand_total"]
+				fields=["name", "supplier", "posting_date", "due_date", "outstanding_amount", "grand_total", "currency", "conversion_rate"]
 			)
 			for pi in purchase_invoices:
 				all_transactions.append({
@@ -141,7 +143,9 @@ class SettlementGroup(Document):
 					"outstanding_amount": pi.outstanding_amount,
 					"total_amount": pi.grand_total,
 					"reference_date": pi.posting_date,
-					"due_date": pi.due_date
+					"due_date": pi.due_date,
+					"currency": pi.currency,
+					"conversion_rate": pi.conversion_rate or 1.0,
 				})
 		
 		# Get Journal Entries with party (Customer or Supplier)
@@ -164,11 +168,15 @@ class SettlementGroup(Document):
 				# Get debit and credit amounts
 				je_accounts = frappe.get_all("Journal Entry Account",
 					filters={"parent": je.name},
-					fields=["debit_in_account_currency", "credit_in_account_currency"]
+					fields=["debit_in_account_currency", "credit_in_account_currency", "account_currency", "exchange_rate", "party_type", "party"]
 				)
 				total_debit = sum([flt(acc.debit_in_account_currency) for acc in je_accounts])
 				total_credit = sum([flt(acc.credit_in_account_currency) for acc in je_accounts])
 				je_amount = abs(total_debit - total_credit)
+				party_line = next(
+					(acc for acc in je_accounts if acc.party_type == "Customer" and acc.party == je.party),
+					None,
+				)
 				
 				if je_amount > 0:
 					all_transactions.append({
@@ -179,7 +187,9 @@ class SettlementGroup(Document):
 						"outstanding_amount": je_amount,
 						"total_amount": je_amount,
 						"reference_date": je.posting_date,
-						"due_date": je.posting_date
+						"due_date": je.posting_date,
+						"currency": party_line.account_currency if party_line else None,
+						"conversion_rate": (party_line.exchange_rate if party_line else None) or 1.0,
 					})
 		
 		if suppliers:
@@ -201,11 +211,15 @@ class SettlementGroup(Document):
 				# Get debit and credit amounts
 				je_accounts = frappe.get_all("Journal Entry Account",
 					filters={"parent": je.name},
-					fields=["debit_in_account_currency", "credit_in_account_currency"]
+					fields=["debit_in_account_currency", "credit_in_account_currency", "account_currency", "exchange_rate", "party_type", "party"]
 				)
 				total_debit = sum([flt(acc.debit_in_account_currency) for acc in je_accounts])
 				total_credit = sum([flt(acc.credit_in_account_currency) for acc in je_accounts])
 				je_amount = abs(total_debit - total_credit)
+				party_line = next(
+					(acc for acc in je_accounts if acc.party_type == "Supplier" and acc.party == je.party),
+					None,
+				)
 				
 				if je_amount > 0:
 					all_transactions.append({
@@ -216,7 +230,9 @@ class SettlementGroup(Document):
 						"outstanding_amount": je_amount,
 						"total_amount": je_amount,
 						"reference_date": je.posting_date,
-						"due_date": je.posting_date
+						"due_date": je.posting_date,
+						"currency": party_line.account_currency if party_line else None,
+						"conversion_rate": (party_line.exchange_rate if party_line else None) or 1.0,
 					})
 		
 		return all_transactions

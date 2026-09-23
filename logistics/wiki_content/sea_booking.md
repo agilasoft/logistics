@@ -27,10 +27,12 @@ When the booking is created from a [Sales Quote](welcome/sales-quote), charge li
 
 ## 3. Workflow
 
-1. Create Sea Booking from [Sales Quote](welcome/sales-quote) or manually.
+1. Create Sea Booking from [Sales Quote](welcome/sales-quote), from a Time Sensitive Case, or manually.
 2. Add packages, charges, cutoffs.
-3. Submit when ready.
+3. Submit when ready. A **Time Sensitive Case** leg (Time Sensitive ticked **and** a case linked) may submit without a Sales Quote and without charge lines; shipment readiness fields are still required.
 4. Create [Sea Shipment](welcome/sea-shipment) from the booking.
+
+A Time Sensitive Case leg created from a Sales Quote already carries that quote. If the booking ran first with no quote, set Sales Quote on the **case** and Save — empty legs pick it up. After the shipment is done, **Create Change Request** on the Time Sensitive Case to enter actual cost and revenue.
 
 
 <!-- wiki-field-reference:start -->
@@ -94,13 +96,7 @@ _All fields from DocType **Sea Booking** and nested child tables, in form order 
 | `column_break_aogu` | Column Break | **Purpose:** Continues the current row in a second column (standard ERP two-column layout). **What to enter:** No data — layout only. |
 | Marks and Nos (`marks_and_nos`) | Small Text | **Purpose:** Short note or identifier where a full **Text** field is not needed. **What to enter:** One line of text; keep it brief for list views. |
 | Cut-offs (`section_break_cutoffs`) | Section Break | **Purpose:** Visual grouping and optional heading for the fields that follow (improves long freight forms). **What to enter:** No data — informational layout only. |
-| Cargo Cut-off (`cargo_cut_off`) | Datetime | **Purpose:** Exact timestamp for events, SLAs, or audit (more precise than **Date** alone). **What to enter:** Pick date and time; use the time zone your process expects (often local site). |
-| Document Cut-off (`document_cut_off`) | Datetime | **Purpose:** Exact timestamp for events, SLAs, or audit (more precise than **Date** alone). **What to enter:** Pick date and time; use the time zone your process expects (often local site). |
-| VGM Cut-off (`vgm_cut_off`) | Datetime | **Purpose:** Exact timestamp for events, SLAs, or audit (more precise than **Date** alone). **What to enter:** Pick date and time; use the time zone your process expects (often local site). |
-| `column_break_cutoffs` | Column Break | **Purpose:** Continues the current row in a second column (standard ERP two-column layout). **What to enter:** No data — layout only. |
-| Gate-In Cut-off (`gate_in_cut_off`) | Datetime | **Purpose:** Exact timestamp for events, SLAs, or audit (more precise than **Date** alone). **What to enter:** Pick date and time; use the time zone your process expects (often local site). |
-| Other Cut-off (`other_cut_off`) | Datetime | **Purpose:** Exact timestamp for events, SLAs, or audit (more precise than **Date** alone). **What to enter:** Pick date and time; use the time zone your process expects (often local site). |
-| Empty Return Cut-off (`empty_return_cut_off`) | Datetime | **Purpose:** Exact timestamp for events, SLAs, or audit (more precise than **Date** alone). **What to enter:** Pick date and time; use the time zone your process expects (often local site). |
+| Cut-offs (`cut_offs`) | Table | **Purpose:** Stores repeating **Sea Freight Cut Off** lines. Each row links to a **Sea Cut Off** master (Cargo Cut-offs, Documents Cut-offs, VGM Cut-offs, or Other Cut-offs) and a date/time. **What to enter:** Use **Add row**, select the cut-off type, set **Date and Time**, and remove rows you do not need. Save the parent to persist child rows. |
 | Reference Numbers (`section_break_reference_numbers`) | Section Break | **Purpose:** Visual grouping and optional heading for the fields that follow (improves long freight forms). **What to enter:** No data — informational layout only. |
 | Reference Numbers (`reference_numbers`) | Table | **Purpose:** Stores repeating **Sea Freight Reference Number** lines (child records) such as packages, charges, legs, or documents. **What to enter:** Use **Add row**, fill each line, and remove rows you do not need. Save the parent to persist child rows. |
 | Packing & Routing (`packing_tab`) | Tab Break | **Purpose:** Organises the form into tabs so related fields are easier to scan and edit. **What to enter:** No data — click the tab to show or hide its fields. |

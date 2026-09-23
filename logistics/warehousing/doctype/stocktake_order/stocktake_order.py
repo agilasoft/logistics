@@ -71,7 +71,10 @@ def stocktake_get_count_items(
     if not stocktake_order:
         frappe.throw(_("Stocktake Order is required."))
 
+    from logistics.utils.menu_permission import assert_perm
+
     doc = frappe.get_doc("Stocktake Order", stocktake_order)
+    assert_perm("Stocktake Order", "write", doc=doc)
 
     warnings: List[str] = []
     wi_fields = _safe_meta_fieldnames("Warehouse Item")
@@ -202,6 +205,9 @@ def make_warehouse_job(source_name: str, target_doc=None):
       - Reference fields for traceability
     """
     source = frappe.get_doc("Stocktake Order", source_name)
+    from logistics.utils.menu_permission import assert_create_from_source
+
+    assert_create_from_source("Warehouse Job", source_doc=source)
     if int(source.docstatus or 0) != 1:
         frappe.throw("Create Warehouse Job is allowed only after submitting the Stocktake Order.")
 

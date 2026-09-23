@@ -22,6 +22,72 @@ class IntegrationTestContainer(IntegrationTestCase):
 	pass
 
 
+class UnitTestContainerLocationFields(UnitTestCase):
+	def test_normalize_location_pair_unloco_from_legacy_zone_type(self):
+		from logistics.logistics.doctype.container.container import normalize_container_location_pair
+
+		with patch("logistics.logistics.doctype.container.container.frappe.db.exists") as exists:
+			exists.side_effect = lambda doctype, name: doctype == "UNLOCO" and name == "MQMPT"
+			result = normalize_container_location_pair("LZN-NRTS", "MQMPT")
+		self.assertEqual(result, ("UNLOCO", "MQMPT"))
+
+	def test_normalize_location_pair_transport_zone_when_type_empty(self):
+		from logistics.logistics.doctype.container.container import normalize_container_location_pair
+
+		with patch("logistics.logistics.doctype.container.container.frappe.db.exists") as exists:
+			exists.side_effect = lambda doctype, name: doctype == "Transport Zone" and name == "LZN-NRTS"
+			result = normalize_container_location_pair("", "LZN-NRTS")
+		self.assertEqual(result, ("Transport Zone", "LZN-NRTS"))
+
+	def test_normalize_location_pair_moves_zone_from_type_when_location_empty(self):
+		from logistics.logistics.doctype.container.container import normalize_container_location_pair
+
+		with patch("logistics.logistics.doctype.container.container.frappe.db.exists") as exists:
+			exists.side_effect = lambda doctype, name: doctype == "Transport Zone" and name == "LZN-NRTS"
+			result = normalize_container_location_pair("LZN-NRTS", "")
+		self.assertEqual(result, ("Transport Zone", "LZN-NRTS"))
+
+	def test_normalize_location_pair_clears_invalid_type(self):
+		from logistics.logistics.doctype.container.container import normalize_container_location_pair
+
+		with patch("logistics.logistics.doctype.container.container.frappe.db.exists", return_value=False):
+			result = normalize_container_location_pair("LZN-NRTS", "UNKNOWN")
+		self.assertEqual(result, ("", "UNKNOWN"))
+
+	def test_resolve_display_name_for_unloco(self):
+		from logistics.logistics.doctype.container.container import resolve_container_location_display_name
+
+		with patch(
+			"logistics.logistics.doctype.container.container.frappe.db.get_value",
+			return_value="Manzanillo",
+		):
+			display = resolve_container_location_display_name("UNLOCO", "MQMPT")
+		self.assertEqual(display, "Manzanillo")
+
+	def test_resolve_display_name_for_transport_zone(self):
+		from logistics.logistics.doctype.container.container import resolve_container_location_display_name
+
+		with patch(
+			"logistics.logistics.doctype.container.container.frappe.db.get_value",
+			return_value="North RTS Zone",
+		):
+			display = resolve_container_location_display_name("Transport Zone", "LZN-NRTS")
+		self.assertEqual(display, "North RTS Zone")
+
+	def test_update_current_location_name_uses_display_helper(self):
+		from logistics.logistics.doctype.container.container import Container
+
+		container = Container({"doctype": "Container"})
+		container.current_location_type = "UNLOCO"
+		container.current_location = "MQMPT"
+		with patch(
+			"logistics.logistics.doctype.container.container.resolve_container_location_display_name",
+			return_value="Manzanillo",
+		):
+			container.update_current_location_name()
+		self.assertEqual(container.current_location_name, "Manzanillo")
+
+
 class UnitTestContainerDepositRow(UnitTestCase):
 	def test_sync_deposit_header_from_child_rows(self):
 		from logistics.logistics.deposit_processing.container_deposit_gl import sync_deposit_header_from_child_rows

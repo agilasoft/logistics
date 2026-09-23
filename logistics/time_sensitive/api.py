@@ -25,6 +25,9 @@ def create_case_from_document(
 	"""Create a Time Sensitive Case linked to an operational document."""
 	src = frappe.get_doc(doctype, docname)
 	frappe.has_permission(doctype, "write", doc=src, throw=True)
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm("Time Sensitive Case", "create")
 
 	deadline = critical_deadline or getattr(src, "critical_deadline", None)
 	if not deadline:

@@ -14,6 +14,7 @@
   "direction",
   "entry_type",
   "is_default",
+  "is_active",
   "section_break_desc",
   "description",
   "milestones_section",
@@ -74,6 +75,13 @@
    "label": "Default Template"
   },
   {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
+  },
+  {
    "fieldname": "section_break_desc",
    "fieldtype": "Section Break",
    "label": "Description"
@@ -97,7 +105,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-26 15:08:44.743686",
+ "modified": "2026-09-22 15:09:00.000000",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Milestone Template",

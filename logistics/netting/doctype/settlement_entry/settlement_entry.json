@@ -14,6 +14,9 @@
   "settlement_supplier",
   "column_break_info",
   "company",
+  "company_currency",
+  "settlement_currency",
+  "conversion_rate",
   "section_break_filters",
   "include_receivables",
   "include_payables",
@@ -23,7 +26,12 @@
   "total_receivable",
   "total_payable",
   "net_amount",
-  "column_break_accounting",
+  "column_break_base_amounts",
+  "base_total_receivable",
+  "base_total_payable",
+  "base_net_amount",
+  "total_exchange_gain_loss",
+  "section_break_accounting",
   "receivable_account",
   "payable_account",
   "cost_center",
@@ -93,6 +101,29 @@
    "reqd": 1
   },
   {
+   "fetch_from": "company.default_currency",
+   "fieldname": "company_currency",
+   "fieldtype": "Link",
+   "label": "Company Currency",
+   "options": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "settlement_currency",
+   "fieldtype": "Link",
+   "label": "Settlement Currency",
+   "options": "Currency",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "description": "1 Settlement Currency = [rate] Company Currency",
+   "fieldname": "conversion_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate (Settlement to Company)",
+   "precision": "9"
+  },
+  {
    "fieldname": "section_break_filters",
    "fieldtype": "Section Break",
    "label": "Transaction Filters"
@@ -133,6 +164,7 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Total Receivable",
+   "options": "settlement_currency",
    "read_only": 1
   },
   {
@@ -140,6 +172,7 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Total Payable",
+   "options": "settlement_currency",
    "read_only": 1
   },
   {
@@ -147,11 +180,45 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Net Amount",
+   "options": "settlement_currency",
    "read_only": 1
   },
   {
-   "fieldname": "column_break_accounting",
+   "fieldname": "column_break_base_amounts",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "base_total_receivable",
+   "fieldtype": "Currency",
+   "label": "Total Receivable (Company Currency)",
+   "options": "company_currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "base_total_payable",
+   "fieldtype": "Currency",
+   "label": "Total Payable (Company Currency)",
+   "options": "company_currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "base_net_amount",
+   "fieldtype": "Currency",
+   "label": "Net Amount (Company Currency)",
+   "options": "company_currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_exchange_gain_loss",
+   "fieldtype": "Currency",
+   "label": "Exchange Gain/Loss",
+   "options": "company_currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_accounting",
+   "fieldtype": "Section Break",
+   "label": "Accounting"
   },
   {
    "fieldname": "receivable_account",
@@ -207,8 +274,9 @@
   }
  ],
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [],
- "modified": "2025-01-27 10:00:00.000000",
+ "modified": "2026-09-12 15:54:00.000000",
  "modified_by": "Administrator",
  "module": "Netting",
  "name": "Settlement Entry",
@@ -245,6 +313,5 @@
  "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": [],
- "is_submittable": 1
+ "states": []
 }

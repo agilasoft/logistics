@@ -47,12 +47,6 @@ frappe.provide("logistics.change_request_visibility");
 			"transport_job_type",
 			"container_type",
 			"container_no",
-			"cargo_cut_off",
-			"document_cut_off",
-			"vgm_cut_off",
-			"gate_in_cut_off",
-			"empty_return_cut_off",
-			"other_cut_off",
 			"run_date",
 			"run_type",
 			"route_name",
@@ -115,15 +109,6 @@ frappe.provide("logistics.change_request_visibility");
 		"load_type",
 	];
 
-	const SEA_CUTOFFS = [
-		"cargo_cut_off",
-		"document_cut_off",
-		"vgm_cut_off",
-		"gate_in_cut_off",
-		"empty_return_cut_off",
-		"other_cut_off",
-	];
-
 	const AIR_SEA_NOTES = [
 		"internal_notes",
 		"client_notes",
@@ -184,7 +169,7 @@ frappe.provide("logistics.change_request_visibility");
 		"Air Shipment": set_of(AIR_SEA_PARTIES.concat(AIR_SEA_PLACES, AIR_SEA_NOTES)),
 		"Air Booking": set_of(AIR_SEA_PARTIES.concat(AIR_SEA_PLACES, AIR_SEA_NOTES)),
 		"Sea Shipment": set_of(
-			AIR_SEA_PARTIES.concat(AIR_SEA_PLACES, SEA_CUTOFFS, [
+			AIR_SEA_PARTIES.concat(AIR_SEA_PLACES, [
 				"internal_notes",
 				"sales_rep",
 				"operations_rep",
@@ -193,7 +178,7 @@ frappe.provide("logistics.change_request_visibility");
 				"marks_and_nos",
 			])
 		),
-		"Sea Booking": set_of(AIR_SEA_PARTIES.concat(AIR_SEA_PLACES, SEA_CUTOFFS, AIR_SEA_NOTES)),
+		"Sea Booking": set_of(AIR_SEA_PARTIES.concat(AIR_SEA_PLACES, AIR_SEA_NOTES)),
 		"Transport Job": set_of(
 			[
 				"customer",
@@ -392,12 +377,6 @@ frappe.provide("logistics.change_request_visibility");
 				"estimated_dispatch_datetime",
 				"estimated_return_datetime",
 				"estimated_completion_time",
-				"cargo_cut_off",
-				"document_cut_off",
-				"vgm_cut_off",
-				"gate_in_cut_off",
-				"empty_return_cut_off",
-				"other_cut_off",
 			],
 		},
 		{

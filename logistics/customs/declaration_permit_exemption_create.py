@@ -92,6 +92,9 @@ def create_linked_permit_application(
 		frappe.throw(_("Permit Type is required."), title=_("Permit Application"))
 
 	doc.check_permission("write")
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm("Permit Application", "create")
 
 	pa = frappe.new_doc("Permit Application")
 	pa.permit_type = permit_type
@@ -184,6 +187,9 @@ def create_linked_exemption_certificate(
 		)
 
 	doc.check_permission("write")
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm("Exemption Certificate", "create")
 
 	# Exemption Certificate issued_to only supports Customer/Supplier (not Consignee).
 	if not getattr(doc, "customer", None):

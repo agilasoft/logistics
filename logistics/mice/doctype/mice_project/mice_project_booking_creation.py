@@ -491,8 +491,15 @@ def get_exhibit_booking_preview(
 		routing_params = extract_sales_quote_charge_parameters(row) if row else {}
 		preview_params = {k: v for k, v in (routing_params or {}).items() if k != "charge_group"}
 
+		from logistics.mice.doctype.mice_project.mice_project_charge_copy import (
+			consolidation_charges_preview_rows,
+		)
 		from logistics.utils.internal_job_creation_eligibility import (
 			apply_eligibility_to_preview_flags,
+		)
+
+		charges_preview = consolidation_charges_preview_rows(
+			doc, jt, row, params=preview_params
 		)
 
 		return apply_eligibility_to_preview_flags(
@@ -504,13 +511,45 @@ def get_exhibit_booking_preview(
 				"source_context": source_context,
 				"target_internal_job": None,
 				"job_detail_parameters": preview_params,
-				"charges": [],
+				"charges": charges_preview,
 			},
 			sales_quote=getattr(doc, "sales_quote", None),
 			parent_doc=doc,
 			ij_row=row,
 			service_type_label=(getattr(row, "service_type", None) or "").strip() if row else None,
 		)
+
+
+_AIR_SEA_BOOKING_DOCTYPES = frozenset({"Air Booking", "Sea Booking"})
+
+
+def booking_is_linked_from_mice_project(doctype: str, name: str | None) -> bool:
+	"""True when *name* is used by a Linked Service owned by a MICE Project.
+
+	Used so Sea/Air Bookings created from MICE (no programme Sales Quote) can submit
+	without a Sales Quote while desk-created bookings still require one.
+	"""
+	dt = (doctype or "").strip()
+	nm = (name or "").strip()
+	if not dt or not nm:
+		return False
+	try:
+		from logistics.utils.linked_service_usage import get_linked_services_used_by
+
+		ls_names = get_linked_services_used_by(dt, nm)
+	except Exception:
+		return False
+	if not ls_names:
+		return False
+	return bool(
+		frappe.db.exists(
+			"Linked Service",
+			{
+				"name": ("in", ls_names),
+				"parent_booking_type": "MICE Project",
+			},
+		)
+	)
 
 
 def _apply_exhibit_context(target_doc: Any, ep_doc: Any) -> None:
@@ -530,8 +569,12 @@ def _apply_exhibit_context(target_doc: Any, ep_doc: Any) -> None:
 	_set_if_field("cost_center", org.get("cost_center"))
 	_set_if_field("profit_center", org.get("profit_center"))
 	_set_if_field("project", org.get("project"))
-	sq_name = (getattr(ep_doc, "sales_quote", None) or "").strip() or _resolve_sales_quote_for_exhibit(ep_doc)
-	_set_if_field("sales_quote", sq_name)
+	# Sea/Air Booking from MICE: Local Customer = Organizer; do not link the programme Sales Quote.
+	if target_doc.doctype not in _AIR_SEA_BOOKING_DOCTYPES:
+		sq_name = (getattr(ep_doc, "sales_quote", None) or "").strip() or _resolve_sales_quote_for_exhibit(
+			ep_doc
+		)
+		_set_if_field("sales_quote", sq_name)
 
 	cust = _resolve_organizer_customer(ep_doc)
 	if cust:
@@ -606,22 +649,39 @@ def _populate_charges_from_linked_sales_quote(target_doc: Any) -> None:
 
 
 def _prepare_operational_charges_before_insert(ep_doc: Any, target_doc: Any, row: Any | None) -> None:
-	"""Load Sales Quote charges onto the new booking/order and scope them to the Internal Job row."""
+	"""Load consolidation charges (preferred) or Sales Quote charges onto the new booking/order.
+
+	Sea/Air Booking from MICE: consolidation only — never attach or fall back to the programme
+	Sales Quote (Local Customer is the Organizer; SQ customer may differ).
+	"""
 	target_meta = frappe.get_meta(target_doc.doctype)
 	charges_df = target_meta.get_field("charges")
 	if not charges_df or charges_df.fieldtype != "Table":
 		return
 
-	if target_meta.get_field("sales_quote") and not (getattr(target_doc, "sales_quote", None) or "").strip():
-		sq_name = (getattr(ep_doc, "sales_quote", None) or "").strip() or _resolve_sales_quote_for_exhibit(ep_doc)
+	is_air_sea = target_doc.doctype in _AIR_SEA_BOOKING_DOCTYPES
+	if (
+		not is_air_sea
+		and target_meta.get_field("sales_quote")
+		and not (getattr(target_doc, "sales_quote", None) or "").strip()
+	):
+		sq_name = (getattr(ep_doc, "sales_quote", None) or "").strip() or _resolve_sales_quote_for_exhibit(
+			ep_doc
+		)
 		if sq_name:
 			target_doc.sales_quote = sq_name
 
-	_populate_charges_from_linked_sales_quote(target_doc)
+	from logistics.mice.doctype.mice_project.mice_project_charge_copy import (
+		populate_operational_charges_from_mice_consolidation,
+	)
 	from logistics.utils.charge_service_type import filter_operational_doc_charges_for_internal_job_row
 	from logistics.utils.sales_quote_charge_copy import SCOPE_INTERNAL_JOB, stamp_scope_fields_on_charge_row
 
-	filter_operational_doc_charges_for_internal_job_row(target_doc, row)
+	populated = populate_operational_charges_from_mice_consolidation(ep_doc, target_doc, row)
+	if not populated and not is_air_sea:
+		_populate_charges_from_linked_sales_quote(target_doc)
+		filter_operational_doc_charges_for_internal_job_row(target_doc, row)
+
 	row_ij = (
 		(getattr(row, "internal_job", None) or getattr(row, "linked_service", None) or "").strip()
 		if row

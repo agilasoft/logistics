@@ -15,9 +15,14 @@
   "party",
   "reference_date",
   "due_date",
+  "currency",
+  "invoice_conversion_rate",
   "total_amount",
   "outstanding_amount",
-  "allocated_amount"
+  "allocated_amount",
+  "exchange_rate",
+  "allocated_amount_in_settlement_currency",
+  "exchange_gain_loss"
  ],
  "fields": [
   {
@@ -63,7 +68,6 @@
   {
    "fieldname": "party_type",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Party Type",
    "options": "DocType",
    "read_only": 1
@@ -89,9 +93,26 @@
    "read_only": 1
   },
   {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Currency",
+   "options": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "invoice_conversion_rate",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "label": "Invoice Conversion Rate",
+   "precision": "9",
+   "read_only": 1
+  },
+  {
    "fieldname": "total_amount",
    "fieldtype": "Currency",
    "label": "Total Amount",
+   "options": "currency",
    "read_only": 1
   },
   {
@@ -99,6 +120,7 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Outstanding Amount",
+   "options": "currency",
    "read_only": 1
   },
   {
@@ -106,12 +128,36 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Allocated Amount",
+   "options": "currency",
    "reqd": 1
+  },
+  {
+   "description": "Invoice Currency to Settlement Currency",
+   "fieldname": "exchange_rate",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Exchange Rate",
+   "precision": "9"
+  },
+  {
+   "fieldname": "allocated_amount_in_settlement_currency",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Allocated (Settlement)",
+   "options": "settlement_currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "exchange_gain_loss",
+   "fieldtype": "Currency",
+   "label": "Exchange Gain/Loss",
+   "options": "company_currency",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2025-01-27 10:00:00.000000",
+ "modified": "2026-09-12 15:54:00.000000",
  "modified_by": "Administrator",
  "module": "Netting",
  "name": "Settlement Entry Transaction",
@@ -137,4 +183,3 @@
  "states": [],
  "title_field": "reference_name"
 }
-

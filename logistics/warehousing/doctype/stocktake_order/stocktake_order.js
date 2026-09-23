@@ -230,7 +230,9 @@ frappe.ui.form.on("Stocktake Order Charges", {
         frm.add_custom_button(__("Get Count Items"), () => openGetItemsDialog(frm), __("Action"));
 
         // 2) Create Warehouse Job — allowed ONLY when submitted
-        if ((frm.doc.docstatus || 0) === 1) {
+        if (window.logistics && logistics.menu && logistics.menu.is_submitted
+					? logistics.menu.is_submitted(frm)
+					: (frm.doc.docstatus || 0) === 1) {
           frm.add_custom_button(__("Create Warehouse Job"), () => {
             frappe.model.open_mapped_doc({
               method: "logistics.warehousing.doctype.stocktake_order.stocktake_order.make_warehouse_job",

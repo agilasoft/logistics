@@ -35,7 +35,7 @@ def get_consolidatable_jobs(load_type: str, date: str = None) -> Dict[str, Any]:
 		filters={
 			"load_type": load_type,
 			"booking_date": date,
-			"docstatus": 1  # Only submitted jobs
+			"docstatus": 0  # Only Draft jobs
 		},
 		fields=["name", "customer", "vehicle_type", "booking_date", "load_type"],
 		order_by="creation asc"

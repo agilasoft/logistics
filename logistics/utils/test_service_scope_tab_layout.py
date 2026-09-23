@@ -80,6 +80,13 @@ class TestServiceScopeTabLayout(IntegrationTestCase):
 			self.assertIn(svc, load.depends_on)
 		self.assertNotIn("Warehousing", load.depends_on)
 		self.assertNotIn("Special Project", load.depends_on)
+		containers = meta.get_field("containers")
+		self.assertIn("Sea", containers.depends_on)
+		self.assertIn("MICE", containers.depends_on)
+		self.assertIn("Regular", containers.depends_on)
+		containers_section = meta.get_field("containers_section")
+		self.assertIn("Sea", containers_section.depends_on)
+		self.assertIn("MICE", containers_section.depends_on)
 
 	def test_sales_quote_charge_linked_scope_options(self):
 		meta = frappe.get_meta("Sales Quote Charge")

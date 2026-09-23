@@ -101,9 +101,11 @@ logistics.job_charge_reopen.setup = function (frm, opts) {
 		return;
 	}
 	if (locked) {
-		frm.add_custom_button(
-			__("Reopen Job"),
-			function () {
+		logistics.menu.add(frm, {
+			label: __("Reopen Job"),
+			group: __("Action"),
+			ptype: "write",
+			action: function () {
 				frappe.call({
 					method: "logistics.job_management.charge_reopen.reopen_job_for_charges",
 					args: { doctype: frm.doctype, name: frm.doc.name },
@@ -115,13 +117,14 @@ logistics.job_charge_reopen.setup = function (frm, opts) {
 					},
 				});
 			},
-			__("Action")
-		);
+		});
 	}
 	if (logistics.job_charge_reopen.can_close_job(frm)) {
-		frm.add_custom_button(
-			__("Close Job"),
-			function () {
+		logistics.menu.add(frm, {
+			label: __("Close Job"),
+			group: __("Action"),
+			ptype: "write",
+			action: function () {
 				frappe.call({
 					method: "logistics.job_management.charge_reopen.close_job_for_charges",
 					args: { doctype: frm.doctype, name: frm.doc.name },
@@ -133,8 +136,7 @@ logistics.job_charge_reopen.setup = function (frm, opts) {
 					},
 				});
 			},
-			__("Action")
-		);
+		});
 	}
 };
 

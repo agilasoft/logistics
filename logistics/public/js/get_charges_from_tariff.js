@@ -266,6 +266,19 @@ logistics.add_get_charges_from_tariff_button_if_allowed = function (frm) {
 	) {
 		return;
 	}
+	if (window.logistics && logistics.menu) {
+		logistics.menu.add(frm, {
+			label: __("Get Charges from Tariff"),
+			group: __("Action"),
+			ptype: "write",
+			action: function () {
+				if (logistics.open_get_charges_from_tariff_dialog) {
+					logistics.open_get_charges_from_tariff_dialog(frm);
+				}
+			},
+		});
+		return;
+	}
 	frm.add_custom_button(__("Get Charges from Tariff"), function () {
 		if (logistics.open_get_charges_from_tariff_dialog) {
 			logistics.open_get_charges_from_tariff_dialog(frm);

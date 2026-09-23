@@ -421,6 +421,10 @@ def create_internal_billing_for_quote(
     """
     if not frappe.db.exists("Sales Quote", sales_quote_name):
         frappe.throw(_("Sales Quote {0} not found.").format(sales_quote_name))
+    from logistics.utils.menu_permission import assert_perm
+
+    assert_perm("Sales Quote", "write", doc=sales_quote_name)
+    assert_perm("Journal Entry", "create")
     return create_internal_billing_journal_entries_for_quote(
         sales_quote_name=sales_quote_name,
         trigger_si=None,

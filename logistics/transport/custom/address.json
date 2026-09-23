@@ -1,5 +1,47 @@
 {
- "custom_fields": [],
+ "custom_fields": [
+  {
+   "dt": "Address",
+   "fieldname": "custom_eza",
+   "fieldtype": "Check",
+   "insert_after": "custom_column_break_audyr",
+   "label": "EZA",
+   "module": "Transport",
+   "name": "Address-custom_eza"
+  },
+  {
+   "dt": "Address",
+   "fieldname": "custom_economic_zone",
+   "fieldtype": "Link",
+   "options": "Economic Zone",
+   "insert_after": "custom_eza",
+   "label": "Economic Zone",
+   "depends_on": "eval:doc.custom_eza",
+   "mandatory_depends_on": "eval:doc.custom_eza",
+   "module": "Transport",
+   "name": "Address-custom_economic_zone"
+  },
+  {
+   "dt": "Address",
+   "fieldname": "custom_window_schedule_section",
+   "fieldtype": "Section Break",
+   "insert_after": "custom_address_map",
+   "label": "Pick / Drop Windows",
+   "description": "Add one row per allowed day and operation. A row means that day/operation is available with those times. No row means not available.",
+   "module": "Transport",
+   "name": "Address-custom_window_schedule_section"
+  },
+  {
+   "dt": "Address",
+   "fieldname": "custom_window_schedule",
+   "fieldtype": "Table",
+   "insert_after": "custom_window_schedule_section",
+   "label": "Pick / Drop Windows",
+   "options": "Address Window Schedule",
+   "module": "Transport",
+   "name": "Address-custom_window_schedule"
+  }
+ ],
  "custom_perms": [
   {
    "_assign": null,

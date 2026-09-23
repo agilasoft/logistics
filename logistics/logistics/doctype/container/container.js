@@ -79,29 +79,36 @@ frappe.ui.form.on("Container", {
 	refresh: function (frm) {
 		_schedule_container_number_iso_check(frm);
 		if (!frm.is_new()) {
-			frm.page.add_action_item(__("Request Deposit Refund"), function () {
-				if (!_container_eligible_for_cd_refund_request(frm)) {
-					frappe.msgprint(
-						__(
-							"Container must be returned (Empty Returned / Closed or Return status Returned) before requesting a deposit refund."
-						)
-					);
-					return;
-				}
-				_prompt_cd_refund_purchase_invoice(frm, __("Request Deposit Refund"), function (purchase_invoice) {
-					frappe.call({
-						method:
-							"logistics.logistics.deposit_processing.container_deposit_gl.create_request_cd_refund_journal_entry",
-						args: { container_name: frm.doc.name, purchase_invoice: purchase_invoice },
-						callback: function (r) {
-							if (!r.exc) {
-								frm.reload_doc();
-								frappe.show_alert({ message: __("Journal Entry {0}", [r.message]), indicator: "green" });
-							}
-						},
+			if (
+				!window.logistics ||
+				!logistics.menu ||
+				(logistics.menu.can(frm.doctype, "write", frm) &&
+					logistics.menu.can("Journal Entry", "create"))
+			) {
+				frm.page.add_action_item(__("Request Deposit Refund"), function () {
+					if (!_container_eligible_for_cd_refund_request(frm)) {
+						frappe.msgprint(
+							__(
+								"Container must be returned (Empty Returned / Closed or Return status Returned) before requesting a deposit refund."
+							)
+						);
+						return;
+					}
+					_prompt_cd_refund_purchase_invoice(frm, __("Request Deposit Refund"), function (purchase_invoice) {
+						frappe.call({
+							method:
+								"logistics.logistics.deposit_processing.container_deposit_gl.create_request_cd_refund_journal_entry",
+							args: { container_name: frm.doc.name, purchase_invoice: purchase_invoice },
+							callback: function (r) {
+								if (!r.exc) {
+									frm.reload_doc();
+									frappe.show_alert({ message: __("Journal Entry {0}", [r.message]), indicator: "green" });
+								}
+							},
+						});
 					});
 				});
-			});
+			}
 			frm.add_custom_button(__("Refresh refund checklist"), function () {
 				frappe.call({
 					method: "logistics.logistics.deposit_processing.container_deposit_gl.materialize_refund_readiness",

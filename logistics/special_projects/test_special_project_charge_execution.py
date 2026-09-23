@@ -130,6 +130,7 @@ class TestChargeExecutionHelpers(UnitTestCase):
 
 	def test_programme_charges_for_service_type(self):
 		sp = frappe._dict(
+			doctype="Special Project",
 			charges=[
 				_mock_charge(service_type="Air", item_code="A"),
 				_mock_charge(service_type="Transport", item_code="B"),
@@ -138,6 +139,30 @@ class TestChargeExecutionHelpers(UnitTestCase):
 		out = programme_charges_for_service_type(sp, "Air")
 		self.assertEqual(len(out), 1)
 		self.assertEqual(out[0].item_code, "A")
+
+	def test_programme_charges_table_field_mice_uses_consolidation(self):
+		from logistics.special_projects.special_project_charge_lifecycle import (
+			programme_charges_table_field,
+		)
+
+		self.assertEqual(programme_charges_table_field("MICE Project"), "consolidation_charges")
+		self.assertEqual(programme_charges_table_field("Exhibit"), "consolidation_charges")
+		self.assertEqual(programme_charges_table_field("Special Project"), "charges")
+
+	def test_programme_charges_for_mice_consolidation_blank_service_type(self):
+		"""Consolidation rows without service_type match any requested service."""
+		mice = frappe._dict(
+			doctype="MICE Project",
+			consolidation_charges=[
+				_mock_charge(charge_type="Margin", item_code="MICE-BOOTH"),
+			],
+			charges=[],
+		)
+		out = programme_charges_for_service_type(mice, "MICE")
+		self.assertEqual(len(out), 1)
+		self.assertEqual(out[0].item_code, "MICE-BOOTH")
+		out_air = programme_charges_for_service_type(mice, "Air")
+		self.assertEqual(len(out_air), 1)
 
 	def test_resolve_lifecycle_planning_row_by_order(self):
 		sp = frappe._dict(

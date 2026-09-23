@@ -42,26 +42,30 @@ app_include_css = [
 	"/assets/logistics/css/change_request_summary.css?v=4",
 	"/assets/logistics/css/linked_services_dialog.css?v=9",
 	"/assets/logistics/css/ts_sq_fetch_dialog.css?v=6",
+	"/assets/logistics/css/role_permission_matrix.css?v=6",
 ]
 app_include_js = [
 	"/assets/logistics/js/address_link_query.js?v=1",
 	"/assets/logistics/js/party_address_contact.js?v=1",
 	"/assets/logistics/js/linked_service_link_query.js?v=2",
-	"/assets/logistics/js/virtual_linked_services_grid.js?v=1",
-	"/assets/logistics/js/linked_services_dialog.js?v=5",
+	"/assets/logistics/js/virtual_linked_services_grid.js?v=2",
+	"/assets/logistics/js/linked_services_dialog.js?v=6",
 	"/assets/logistics/js/ts_sq_fetch_dialog.js?v=6",
 	"/assets/logistics/js/freight_agent_service.js?v=4",
 	"/assets/logistics/js/charge_bill_to.js?v=2",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
-	"/assets/logistics/js/form_desk_title_route_guard.js?v=3",
+	"/assets/logistics/js/form_desk_title_route_guard.js?v=4",
+	"/assets/logistics/js/user_quick_entry.js?v=1",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
-	"/assets/logistics/js/internal_job_create_from_source.js?v=20",
+	"/assets/logistics/js/menu_permission.js?v=9",
+	"/assets/logistics/js/submitted_child_doc_toolbar.js?v=1",
+	"/assets/logistics/js/internal_job_create_from_source.js?v=22",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js?v=2",
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
 	"/assets/logistics/js/service_role.js?v=3",
 	"/assets/logistics/js/internal_job_detail_grid_delete_fix.js",
-	"/assets/logistics/js/get_charges_from_quotation.js?v=19",
+	"/assets/logistics/js/get_charges_from_quotation.js?v=21",
 	"/assets/logistics/js/gcfq_settings_dashboard.js?v=1",
 	"/assets/logistics/js/get_charges_from_tariff.js?v=1",
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=3",
@@ -84,9 +88,9 @@ app_include_js = [
 	"/assets/logistics/js/job_change_lock.js?v=3",
 	"/assets/logistics/js/change_request_visibility.js?v=2",
 	"/assets/logistics/js/change_request_summary.js?v=5",
-	"/assets/logistics/js/time_sensitive_timer.js?v=1",
-	"/assets/logistics/js/time_sensitive_form.js?v=2",
-	"/assets/logistics/js/time_sensitive_list.js?v=1",
+	"/assets/logistics/js/time_sensitive_timer.js?v=2",
+	"/assets/logistics/js/time_sensitive_form.js?v=3",
+	"/assets/logistics/js/time_sensitive_list.js?v=2",
 ]
 
 # include js, css files in header of web template
@@ -98,14 +102,21 @@ page_js = {
 	"workflow-center": "public/js/workflow_center.js",
 	"air-freight-control-tower": "public/js/air_freight_control_tower_page.js",
 	"sea-freight-control-tower": "public/js/sea_freight_control_tower_page.js",
+	"role-permission-matrix": "public/js/role_permission_matrix_page.js",
 }
 
 # include js in doctype views
 doctype_js = {
+	"Address": "public/js/address_eza.js",
 	"Time Sensitive Case": [
 		"public/js/time_sensitive_timer.js",
 		"public/js/time_sensitive_services_dialog.js",
+		"public/js/time_sensitive_create_service_dialog.js",
 		"public/js/ts_sq_fetch_dialog.js",
+		"public/js/operational_exchange_rate_grid.js",
+		"public/js/charge_break_dialogs.js",
+		"time_sensitive/doctype/time_sensitive_case_charge/time_sensitive_case_charge.js",
+		"public/js/charge_break_buttons.js",
 		"time_sensitive/doctype/time_sensitive_case/time_sensitive_case.js",
 	],
 	"Internal Job Detail": "logistics/logistics/doctype/internal_job_detail/internal_job_detail.js",
@@ -328,6 +339,11 @@ doctype_js = {
 	"MICE Project": [
 		"public/js/profitability_project_form.js",
 		"public/js/purchase_invoice_dialog.js",
+		"public/js/charge_break_dialogs.js",
+		"public/js/charge_break_buttons.js",
+		"public/js/operational_exchange_rate_grid.js",
+		# istable DocTypes do not load their own .js via FormMeta; attach child handlers here.
+		"mice/doctype/mice_project_consolidation_charges/mice_project_consolidation_charges.js",
 	],
 	"Docket": [
 		"logistics/public/js/sales_invoice_dialog.js",
@@ -348,7 +364,10 @@ doctype_js = {
 	"Cash Advance Settings": "logistics/cash_advance/doctype/cash_advance_settings/cash_advance_settings.js",
 	"Cash Acknowledgment": "logistics/cash_advance/doctype/cash_acknowledgment/cash_acknowledgment.js",
 	"Outlook Calendar Settings": "logistics/logistics/doctype/outlook_calendar_settings/outlook_calendar_settings.js",
-	"User": "logistics/integrations/outlook/user_outlook.js",
+	"User": [
+		"public/js/user.js",
+		"integrations/outlook/user_outlook.js",
+	],
 }
 doctype_list_js = {
 	"Time Sensitive Case": "time_sensitive/doctype/time_sensitive_case/time_sensitive_case_list.js",
@@ -372,6 +391,14 @@ doctype_list_js = {
 
 # automatically create page for each record of this doctype
 # website_generators = ["Web Page"]
+
+jinja = {
+	"methods": [
+		"logistics.print_format.sales_invoice.dsb_line_items.get_disbursement_bill_context",
+		"logistics.print_format.sales_invoice.vat_sales_summary.get_vat_sales_summary",
+		"logistics.print_format.sales_invoice.vat_sales_summary.item_is_zero_rated_or_exempt",
+	]
+}
 
 # Installation
 # ------------
@@ -438,6 +465,12 @@ doc_events = {
 	"Supplier": {
 		"validate": "logistics.utils.party_code.validate_customer_supplier_party_code",
 	},
+	"Address": {
+		"validate": [
+			"logistics.transport.address_windows.validate_address_window_schedule",
+			"logistics.transport.address_eza.validate_address_eza",
+		],
+	},
 	"Accounting Dimension": {
 		"after_insert": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
 		"on_update": "logistics.job_management.gl_item_dimension.on_accounting_dimension_changed",
@@ -468,8 +501,14 @@ doc_events = {
 		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_purchase_invoice_cancel",
 	},
 	"Sales Invoice": {
-		"validate": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
-		"before_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
+		"validate": [
+			"logistics.invoice_integration.job_number_dimension_sync.sync_job_number_dimension_on_sales_invoice_items",
+			"logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
+		],
+		"before_submit": [
+			"logistics.invoice_integration.job_number_dimension_sync.sync_job_number_dimension_on_sales_invoice_items",
+			"logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
+		],
 		"before_update_after_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
 		"on_submit": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_submit",
 		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_cancel",
@@ -548,6 +587,32 @@ for _dt in (
 			doc_events[_dt]["validate"] = list(_v) + [_JOB_HEADER_ESTIMATE_FROM_CHARGES]
 	elif _v != _JOB_HEADER_ESTIMATE_FROM_CHARGES:
 		doc_events[_dt]["validate"] = [_v, _JOB_HEADER_ESTIMATE_FROM_CHARGES]
+
+# Auto WIP / Accrual: enqueue after submit and after-submit updates (ATA/ATD, charges).
+_AUTO_RECOGNIZE_HANDLER = "logistics.job_management.auto_recognition.enqueue_auto_recognize"
+_AUTO_RECOGNIZE_EVENTS = ("on_submit", "on_update_after_submit")
+for _dt in (
+	"Air Shipment",
+	"Sea Shipment",
+	"Transport Job",
+	"Warehouse Job",
+	"Declaration",
+	"General Job",
+	"Project Job",
+	"Special Project",
+	"Docket",
+):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	for _event in _AUTO_RECOGNIZE_EVENTS:
+		_existing = doc_events[_dt].get(_event)
+		if not _existing:
+			doc_events[_dt][_event] = _AUTO_RECOGNIZE_HANDLER
+		elif isinstance(_existing, list):
+			if _AUTO_RECOGNIZE_HANDLER not in _existing:
+				doc_events[_dt][_event] = list(_existing) + [_AUTO_RECOGNIZE_HANDLER]
+		elif _existing != _AUTO_RECOGNIZE_HANDLER:
+			doc_events[_dt][_event] = [_existing, _AUTO_RECOGNIZE_HANDLER]
 
 # Block charge grid edits when job/shipment is in a closing status (Reopen Job unlocks)
 _CHARGE_REOPEN_VALIDATE = "logistics.job_management.charge_reopen.validate_submitted_charges_not_locked"
@@ -887,6 +952,8 @@ scheduler_events = {
 		"logistics.container_management.api.reconcile_containers_from_terminal_sea_shipments",
 		"logistics.air_freight.flight_schedules.tasks.cleanup_old_schedules",
 		"logistics.air_freight.flight_schedules.tasks.cleanup_old_sync_logs",
+		"logistics.air_freight.casslink.sftp_client.pull_configured_companies",
+		"logistics.job_management.auto_recognition.process_auto_recognition",
 	],
 }
 
@@ -901,6 +968,12 @@ scheduler_events = {
 override_whitelisted_methods = {
 	"frappe.utils.print_format.download_pdf": (
 		"logistics.print_format.payment_entry.bank_forms_pdf.download_pdf"
+	),
+}
+
+override_doctype_class = {
+	"Transaction Deletion Record": (
+		"logistics.overrides.transaction_deletion_record.LogisticsTransactionDeletionRecord"
 	),
 }
 
@@ -947,6 +1020,34 @@ user_data_fields = [
 	}
 ]
 
+# Company → Delete Transactions: keep company-scoped setup/masters.
+# Do not list issingle DocTypes: ERPNext already excludes them, and missing
+# names (not yet migrated) fail Transaction Deletion Record link validation.
+company_data_to_be_ignored = [
+	"Air Freight Settings",
+	"Cash Advance Settings",
+	"Customs Settings",
+	"IATA Settings",
+	"Manifest Settings",
+	"Pricing Center Settings",
+	"Recognition Policy Settings",
+	"Sea Freight Settings",
+	"Sustainability Settings",
+	"Warehouse Settings",
+	"CASS Settlement Period",
+	"Client Credit Line",
+	"Dock Door",
+	"Handling Unit",
+	"MAWB Stock Range",
+	"Profit Center",
+	"Settlement Group",
+	"Storage Location",
+	"Sustainability Compliance",
+	"Sustainability Goals",
+	"Sustainability Metrics",
+	"Transport Vehicle",
+]
+
 # Database migrations (after schema sync)
 # ---------------------------------------
 after_migrate = [
@@ -954,6 +1055,7 @@ after_migrate = [
 	"logistics.analytics_reports.sync_cnx_reports.after_migrate",
 	"logistics.cash_advance.install.after_migrate",
 	"logistics.control_tower.install.after_migrate",
+	"logistics.sea_freight.install.after_migrate",
 ]
 
 after_install = "logistics.control_tower.install.after_install"

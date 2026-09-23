@@ -149,14 +149,17 @@ class TransportConsolidationJob(Document):
 @frappe.whitelist()
 def get_transport_job_filter():
 	"""
-	Get filter query for transport_job field to exclude jobs with run_sheets.
+	Get filter query for transport_job field to show only Draft jobs
+	and exclude jobs with run_sheets.
 	This is used in frm.set_query to filter the transport_job dropdown.
 	
 	Returns:
-		Dictionary with filters to exclude jobs that have any leg with run_sheet assigned
+		Dictionary with filters for Draft jobs, excluding any that have
+		a leg with run_sheet assigned
 	"""
 	filters = {
-		"docstatus": 1  # Only submitted jobs
+		"status": "Draft",
+		"docstatus": 0,
 	}
 	
 	# Check if Transport Leg table has run_sheet field

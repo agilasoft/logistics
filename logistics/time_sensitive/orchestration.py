@@ -9,7 +9,7 @@ from typing import Optional
 
 import frappe
 from frappe import _
-from frappe.utils import add_to_date, now_datetime
+from frappe.utils import add_to_date, now_datetime, today
 
 
 SERVICE_TYPE_DEFAULT_DOCTYPE = {
@@ -179,6 +179,73 @@ def _apply_ts_service_scope(doc, case, sq, linked, scope_row) -> None:
 
 	if hasattr(doc, "linked_service"):
 		doc.linked_service = linked.name
+def get_charges_for_service(case, linked_service: str, service_type: str) -> list[dict]:
+	"""Return charge rows from the case that would be copied for a linked service."""
+	if not hasattr(case, "charges") or not case.get("charges"):
+		return []
+
+	from frappe.utils import flt
+	from logistics.utils.charge_service_type import canonical_charge_service_type_for_storage
+
+	normalized_service_type = canonical_charge_service_type_for_storage(service_type)
+	rows: list[dict] = []
+
+	for case_charge in case.get("charges") or []:
+		charge_service_type = getattr(case_charge, "service_type", None)
+		charge_linked_service = getattr(case_charge, "linked_service", None)
+		charge_scope = getattr(case_charge, "charge_scope", "Main")
+
+		if charge_service_type:
+			charge_service_type = canonical_charge_service_type_for_storage(charge_service_type)
+
+		if charge_service_type and normalized_service_type:
+			if charge_service_type != normalized_service_type:
+				continue
+
+		if charge_scope == "Linked":
+			if charge_linked_service != linked_service:
+				continue
+
+		rows.append(
+			{
+				"item_code": getattr(case_charge, "item_code", None),
+				"item_name": getattr(case_charge, "description", None),
+				"description": getattr(case_charge, "description", None),
+				"qty": flt(getattr(case_charge, "qty", 1)) or 1,
+				"rate": flt(getattr(case_charge, "rate", 0)),
+				"amount": flt(getattr(case_charge, "amount", 0))
+				or (flt(getattr(case_charge, "qty", 1)) * flt(getattr(case_charge, "rate", 0))),
+				"currency": getattr(case_charge, "currency", None),
+				"service_type": charge_service_type,
+				"charge_scope": charge_scope,
+			}
+		)
+	return rows
+
+
+def _copy_charges_from_case_to_doc(doc, case, linked_service: str, service_type: str):
+	"""Copy charges from Time Sensitive Case to the operational document.
+	
+	Filters charges by service_type and linked_service to ensure only relevant
+	charges are copied to the booking/order.
+	"""
+	if not hasattr(case, "charges") or not case.get("charges"):
+		return
+	
+	if not hasattr(doc, "charges"):
+		return
+	
+	from frappe.utils import flt
+
+	for charge in get_charges_for_service(case, linked_service, service_type):
+		doc.append(
+			"charges",
+			{
+				**charge,
+				"linked_service": linked_service if charge.get("charge_scope") == "Linked" else None,
+				"charge_type": "Revenue",
+			},
+		)
 
 
 def create_operational_doc_for_service(case, linked_service: str) -> dict:
@@ -202,8 +269,30 @@ def create_operational_doc_for_service(case, linked_service: str) -> dict:
 		elif hasattr(doc, "customer") and case.customer:
 			doc.customer = case.customer
 	elif doctype == "Transport Order":
+		from logistics.utils.internal_job_from_source import (
+			apply_internal_job_detail_row_to_operational_doc,
+		)
+		from logistics.utils.service_role_rules import apply_standalone_service_flags
+		from logistics.utils.transport_job_type import (
+			apply_container_transport_context_to_order,
+			set_internal_transport_order_draft_insert_flags,
+		)
+
 		if hasattr(doc, "customer") and case.customer:
 			doc.customer = case.customer
+		if hasattr(doc, "location_type"):
+			doc.location_type = "UNLOCO"
+		# Same draft-insert pattern as Docket / Special Project / Sales Quote:
+		# default Non-Container; upgrade only when linked service has both
+		# container_type and container_no; skip container validation on insert.
+		if frappe.get_meta("Transport Order").get_field("transport_job_type"):
+			doc.transport_job_type = "Non-Container"
+		if frappe.get_meta("Transport Order").get_field("scheduled_date"):
+			doc.scheduled_date = today()
+		apply_internal_job_detail_row_to_operational_doc(doc, linked, overwrite=True)
+		apply_container_transport_context_to_order(doc, linked)
+		set_internal_transport_order_draft_insert_flags(doc)
+		apply_standalone_service_flags(doc)
 	elif doctype == "Declaration Order":
 		if hasattr(doc, "customer") and case.customer:
 			doc.customer = case.customer
@@ -230,6 +319,14 @@ def create_operational_doc_for_service(case, linked_service: str) -> dict:
 			doc._normalize_charges_before_save()
 		elif doc.doctype == "Sea Booking" and hasattr(doc, "_normalize_charges_before_save"):
 			doc._normalize_charges_before_save()
+	# Copy charges from case to booking/order if the case has charges
+	_copy_charges_from_case_to_doc(doc, case, linked.name, linked.service_type)
+
+	from logistics.special_projects.special_project_booking_creation import _booking_date_field
+
+	bd = _booking_date_field(doc)
+	if bd:
+		doc.set(bd, today())
 
 	doc.insert(ignore_permissions=False)
 	record_operational_usage(case, linked.name, doctype, doc.name)
@@ -241,8 +338,69 @@ def create_operational_doc_for_service(case, linked_service: str) -> dict:
 
 
 def _apply_common_headers(doc, case):
+	"""Apply Time Sensitive Case parameters to the operational document.
+	
+	Maps case fields to booking/order fields, ensuring all required parameters
+	are copied for complete booking creation.
+	"""
+	# Basic organizational fields
 	for fn in ("sales_quote", "company", "branch", "cost_center", "profit_center", "customer"):
 		if hasattr(doc, fn) and getattr(case, fn, None):
 			setattr(doc, fn, getattr(case, fn))
 	if hasattr(doc, "customer") and case.customer and not doc.customer:
 		doc.customer = case.customer
+	
+	# Map origin/destination from case to booking port fields
+	case_origin = getattr(case, "origin", None)
+	case_destination = getattr(case, "destination", None)
+	
+	if case_origin:
+		if hasattr(doc, "origin_port"):
+			doc.origin_port = case_origin
+		elif hasattr(doc, "location_from"):
+			doc.location_from = case_origin
+	
+	if case_destination:
+		if hasattr(doc, "destination_port"):
+			doc.destination_port = case_destination
+		elif hasattr(doc, "location_to"):
+			doc.location_to = case_destination
+	
+	# Critical deadline and priority
+	if hasattr(doc, "critical_deadline") and getattr(case, "critical_deadline", None):
+		doc.critical_deadline = case.critical_deadline
+	
+	if hasattr(doc, "priority") and getattr(case, "priority", None):
+		doc.priority = case.priority
+	
+	# Cargo and handling information
+	cargo_summary = getattr(case, "cargo_summary", None)
+	if cargo_summary:
+		# Map to appropriate fields based on doctype
+		if hasattr(doc, "special_handling_instructions"):
+			doc.special_handling_instructions = cargo_summary
+		elif hasattr(doc, "cargo_description"):
+			doc.cargo_description = cargo_summary
+		elif hasattr(doc, "description"):
+			if not doc.description:
+				doc.description = cargo_summary
+	
+	# Notes
+	case_notes = getattr(case, "notes", None)
+	if case_notes:
+		if hasattr(doc, "internal_notes"):
+			doc.internal_notes = case_notes
+		elif hasattr(doc, "notes"):
+			doc.notes = case_notes
+	
+	# Contact information for 24/7 support
+	contact_24x7_name = getattr(case, "contact_24x7_name", None)
+	contact_24x7_phone = getattr(case, "contact_24x7_phone", None)
+	contact_24x7_email = getattr(case, "contact_24x7_email", None)
+	
+	if contact_24x7_name and hasattr(doc, "emergency_contact_name"):
+		doc.emergency_contact_name = contact_24x7_name
+	if contact_24x7_phone and hasattr(doc, "emergency_contact_phone"):
+		doc.emergency_contact_phone = contact_24x7_phone
+	if contact_24x7_email and hasattr(doc, "emergency_contact_email"):
+		doc.emergency_contact_email = contact_24x7_email

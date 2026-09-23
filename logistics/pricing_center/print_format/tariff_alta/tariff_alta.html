@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; line-height: 1.4; color: #000; background: white; }
+        .order-container { width: 100%; max-width: 210mm; margin: 0 auto; padding: 0; background: white; position: relative; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3mm; }
+        .logo-placeholder { width: 60mm; height: 30mm; background: #e0e0e0; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 7pt; color: #666; }
+        .company-logo { width: 60mm; height: 30mm; object-fit: contain; }
+        .company-info { flex: 1; text-align: left; padding-left: 3mm; }
+        .company-name { font-size: 12pt; font-weight: bold; margin-bottom: 0; }
+        .company-address { font-size: 7pt; line-height: 1.3; margin-bottom: 0; }
+        .vat-reg { font-size: 7pt; }
+        .details-wrap { margin-top: 35mm; margin-bottom: 0; position: relative; }
+        .main-body { display: flex; justify-content: space-between; border: 2px solid #000; padding: 1.5mm; position: relative; }
+        .left-column { flex: 1; padding-right: 5mm; }
+        .right-column { flex: 1; padding-left: 5mm; }
+        .field-row { display: flex; margin-bottom: -1mm; align-items: baseline; gap: 0.3mm; }
+        .field-label { font-weight: 900; min-width: 28mm; font-size: 8pt; flex-shrink: 0; text-align: right; line-height: 1.4; }
+        .left-column .field-label { text-align: right; min-width: 28mm; }
+        .field-value { flex: 1; font-size: 8pt; line-height: 1.4; padding: 0 0.5mm; background: white; }
+        .customer-info-section { position: absolute; top: -35mm; left: 1.5mm; z-index: 10; max-width: 80mm; }
+        .customer-label { font-weight: bold; font-size: 8pt; margin-top: 5mm; margin-bottom: 1mm; line-height: 1; }
+        .customer-name-box { padding: 0.3mm 0.5mm; font-size: 12pt; font-weight: 900; margin-bottom: 0.1mm; margin-top: -1mm; line-height: 1; background: white; }
+        .customer-address-box { padding: 0.3mm 0.5mm; font-size: 8pt; background: white; width: 100mm; }
+        .qr-section { position: absolute; top: -35mm; right: 1.5mm; text-align: right; z-index: 10; margin-bottom: 30mm; }
+        .qr-code { width: 20mm; height: 20mm; border: 0 solid #000; }
+        .order-title-qr { font-size: 16pt; font-weight: 900; margin-top: 0.11mm; margin-bottom: -1mm; text-align: right; }
+        .reference-number { font-size: 8pt; font-weight: normal; margin-top: 0.1mm; }
+        .packages-table { width: 100%; border-collapse: collapse; margin-top: 0; margin-bottom: 2mm; }
+        .packages-table thead { display: table-header-group; }
+        .packages-table .table-header { background: #e0e0e0; border: 2px solid #000; width:100%;}
+        .packages-table .table-header th { padding: 2.4mm 1.5mm; text-align: left; font-size: 7pt; font-weight: bold; color: #000; border-top: 2px solid #000; border-bottom: 2px solid #000; border-left: none; border-right: none; vertical-align: middle; }
+        .packages-table .table-header th:first-child { border-left: 2px solid #000; }
+        .packages-table .table-header th:last-child { border-right: 2px solid #000; }
+        .packages-table .table-header th.num, .packages-table .table-row td.num { text-align: right; }
+        .packages-table .table-row,
+        .packages-table .table-row td {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        .packages-table .table-row td { padding: 2.4mm 1.5mm; font-size: 7pt; line-height: 1.25; background: white; border: none; border-bottom: 1px solid #ddd; vertical-align: middle; }
+        .packages-table .subheader-row {
+            page-break-inside: avoid;
+            break-inside: avoid;
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+        .packages-table .subheader-row td { font-weight: bold; border: none; padding: 2.4mm 1.5mm; background: #e8e8e8; border-top: 1px solid #000; vertical-align: middle; }
+        .packages-table tr.page-break-before {
+            page-break-before: always;
+            break-before: page;
+        }
+        .packages-table.unit-break-matrix { border: 1px solid #000; }
+        .packages-table.unit-break-matrix .table-header th,
+        .packages-table.unit-break-matrix .table-row td,
+        .packages-table.unit-break-matrix .subheader-row td { border: 1px solid #000; }
+        .packages-table.unit-break-matrix .table-header th { text-align: center; }
+        .packages-table.unit-break-matrix .table-header th:first-child { text-align: left; }
+        .packages-table.unit-break-matrix td.break-rate { text-align: center; vertical-align: middle; }
+        .rate-meta { font-size: 6.5pt; color: #444; margin-top: 0.3mm; }
+        .section-title { font-size: 8pt; font-weight: bold; margin: 2mm 0 1mm 0; }
+        .terms-section { margin-top: 3mm; font-size: 7pt; line-height: 1.4; page-break-inside: avoid; }
+        .terms-title { font-weight: bold; margin-bottom: 1mm; }
+        .footer-section {
+            width: 100%;
+            max-width: 210mm;
+            margin: 10mm auto 0 auto;
+            padding: 2mm 0 1mm 0;
+            border-top: 2px solid #000;
+            font-size: 7pt;
+            line-height: 1.35;
+            background: white;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        @page { size: A4; margin: 12mm 12mm 18mm 12mm; }
+        @media print {
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .order-container {
+                max-width: 100%;
+                padding-bottom: 20mm;
+                box-sizing: border-box;
+            }
+            .footer-section {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                max-width: none;
+                margin: 0;
+                padding: 0;
+                border-top: 2px solid #000;
+                background: white;
+                box-sizing: border-box;
+                z-index: 1000;
+            }
+            .footer-section .footer-inner {
+                max-width: calc(210mm - 24mm);
+                margin: 0 auto;
+                padding: 2mm 12mm;
+                box-sizing: border-box;
+            }
+        }
+    </style>
+</head>
+<body>
+
+{% macro format_address_inline(addr_name) %}
+{% if addr_name and frappe.db.exists("Address", addr_name) %}
+{% set addr = frappe.get_doc("Address", addr_name) %}
+{{ addr.address_line1 or '' }}{% if addr.address_line2 %}, {{ addr.address_line2 }}{% endif %}{% if addr.city %}, {{ addr.city }}{% endif %}{% if addr.state %}, {{ addr.state }}{% endif %}{% if addr.pincode %} {{ addr.pincode }}{% endif %}{% if addr.country %}, {{ addr.country }}{% endif %}
+{% endif %}
+{% endmacro %}
+
+{% macro rate_title(row) -%}
+{%- set ns = namespace(name=row.item_name or '') -%}
+{%- if not ns.name and row.item_code -%}
+{%- set ns.name = frappe.db.get_value("Item", row.item_code, "item_name") or '' -%}
+{%- endif -%}
+{{ (ns.name or row.item_code or row.description or 'Charge')|striptags|upper }}
+{%- endmacro %}
+
+{% macro break_header(v) -%}
+{%- if v is string and v and frappe.db.exists("Container Type", v) -%}
+{{ frappe.db.get_value("Container Type", v, "description") or v }}
+{%- else -%}
+{%- set n = v|float -%}
+{%- if n == 20 -%}1x20'{%- elif n == 40 -%}1x40'{%- elif n == 45 -%}1x40' HC{%- else -%}{{ v }}{%- endif -%}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro rate_description(row) -%}
+{{ rate_title(row) }}
+{%- endmacro %}
+
+{% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
+{% set company_doc = None %}
+{% if default_company and frappe.db.exists("Company", default_company) %}
+{% set company_doc = frappe.get_doc("Company", default_company) %}
+{% endif %}
+
+{% set party_label = 'CUSTOMER' %}
+{% set party_name = '' %}
+{% set party_address = '' %}
+{% if doc.tariff_type == 'Customer' and doc.customer %}
+{% set party_name = frappe.db.get_value("Customer", doc.customer, "customer_name") if frappe.db.exists("Customer", doc.customer) else doc.customer %}
+{% if frappe.db.exists("Customer", doc.customer) %}
+{% set cust = frappe.get_doc("Customer", doc.customer) %}
+{% if cust.customer_primary_address %}{% set party_address = format_address_inline(cust.customer_primary_address)|trim %}{% endif %}
+{% endif %}
+{% elif doc.tariff_type == 'Customer Group' %}
+{% set party_label = 'CUSTOMER GROUP' %}
+{% set party_name = doc.customer_group or '' %}
+{% elif doc.tariff_type == 'Territory' %}
+{% set party_label = 'TERRITORY' %}
+{% set party_name = doc.territory or '' %}
+{% elif doc.tariff_type == 'Agent' and doc.agent %}
+{% set party_label = 'AGENT' %}
+{% set party_name = frappe.db.get_value("Freight Agent", doc.agent, "freight_agent_name") if frappe.db.exists("Freight Agent", doc.agent) else doc.agent %}
+{% elif doc.tariff_type == 'Specific Customers' %}
+{% set party_label = 'CUSTOMERS' %}
+{% set names = [] %}
+{% for row in doc.customers or [] %}
+{% if row.customer %}
+{% set cname = frappe.db.get_value("Customer", row.customer, "customer_name") if frappe.db.exists("Customer", row.customer) else row.customer %}
+{% set _ = names.append(cname) %}
+{% endif %}
+{% endfor %}
+{% set party_name = names|join(', ') %}
+{% else %}
+{% set party_label = 'APPLICABILITY' %}
+{% set party_name = doc.tariff_type or 'All Customers' %}
+{% endif %}
+
+{% set predefined_categories = ['Freight', 'Fuel Surcharge', 'Terminal Handling', 'Port Charges', 'Customs Clearance', 'Documentation', 'Insurance', 'Storage', 'Detention', 'Demurrage', 'Other'] %}
+{% set selling_rows = [] %}
+{% for row in doc.rates or [] %}
+{% if row.tariff_rate_active != 0 and row.charge_type != 'Cost' %}
+{% set _ = selling_rows.append(row) %}
+{% endif %}
+{% endfor %}
+{% if not selling_rows %}
+{% for row in doc.rates or [] %}
+{% if row.tariff_rate_active != 0 %}
+{% set _ = selling_rows.append(row) %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% set extra_categories = [] %}
+{% for row in selling_rows %}
+{% set row_category = row.charge_category or row.customs_charge_category or 'Other' %}
+{% if row_category not in predefined_categories and row_category not in extra_categories %}
+{% set _ = extra_categories.append(row_category) %}
+{% endif %}
+{% endfor %}
+{% set grouped_categories = predefined_categories + extra_categories %}
+
+{% set break_ns = namespace(all=[], cols=[]) %}
+{% set row_names = [] %}
+{% for row in selling_rows %}
+{% if row.name %}{% set _ = row_names.append(row.name) %}{% endif %}
+{% endfor %}
+{% if row_names and frappe.db.exists("DocType", "Charge Unit Break") %}
+{% set break_ns.all = frappe.get_all("Charge Unit Break", filters={"reference_doctype": "Tariff Charge", "reference_no": ["in", row_names], "type": "Selling"}, fields=["reference_no", "unit_type", "container_type", "unit_break", "unit_rate", "currency"], order_by="container_type asc, unit_break asc") %}
+{% endif %}
+{% for ub in break_ns.all %}
+{% set key = ub.container_type or frappe.utils.flt(ub.unit_break) %}
+{% if key not in break_ns.cols %}
+{% set _ = break_ns.cols.append(key) %}
+{% endif %}
+{% endfor %}
+{% set table_cols = (1 + break_ns.cols|length) if break_ns.cols else 3 %}
+
+{% set footer_company = (company_doc.company_name if company_doc else '') or default_company or '' %}
+
+<div class="order-container">
+    <div class="header">
+        {% if company_doc %}
+        {% if company_doc.company_logo %}
+            <img src="{{ company_doc.company_logo }}" alt="Company Logo" class="company-logo" />
+        {% elif company_doc.logo %}
+            <img src="{{ company_doc.logo }}" alt="Company Logo" class="company-logo" />
+        {% elif company_doc.image %}
+            <img src="{{ company_doc.image }}" alt="Company Logo" class="company-logo" />
+        {% else %}
+            <div class="logo-placeholder">company_logo</div>
+        {% endif %}
+        <div class="company-info">
+            <div class="company-name">{{ company_doc.company_name or default_company }}</div>
+            <div class="company-address">
+                {% if company_doc.address and frappe.db.exists("Address", company_doc.address) %}
+                    {% set company_address = frappe.get_doc("Address", company_doc.address) %}
+                    {{ company_address.address_line1 or '' }}
+                    {% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
+                    {% if company_address.city %} {{ company_address.city }}{% endif %}
+                    {% if company_address.state %}, {{ company_address.state }}{% endif %}
+                    {% if company_address.country %} {{ company_address.country }}{% endif %}
+                    {% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
+                {% elif company_doc.address_line1 %}
+                    {{ company_doc.address_line1 }}<br>
+                    {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
+                    {{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}<br>
+                    {{ company_doc.country }}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
+                {% endif %}
+            </div>
+            <div class="vat-reg">
+                {% if company_doc.tax_id %}
+                    VAT Reg. TIN: {{ company_doc.tax_id }}
+                {% elif company_doc.tin %}
+                    VAT Reg. TIN: {{ company_doc.tin }}
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+            <div class="logo-placeholder">company_logo</div>
+            <div class="company-info">
+                <div class="company-name">{{ default_company or '' }}</div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="details-wrap">
+        <div class="customer-info-section">
+            <div class="customer-label">{{ party_label }}</div>
+            <div class="customer-name-box">{{ party_name }}</div>
+            {% if party_address %}
+            <div class="customer-address-box">{{ party_address }}</div>
+            {% endif %}
+        </div>
+        <div class="qr-section">
+            {% set qr_url = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + doc.name|urlencode %}
+            <img src="{{ qr_url }}" alt="QR Code" class="qr-code" />
+            <div class="order-title-qr">TARIFF</div>
+            <div class="reference-number">{{ doc.name }}</div>
+        </div>
+        <div class="main-body">
+            <div class="left-column">
+                <div class="field-row"><div class="field-label">TARIFF:</div><div class="field-value">{{ doc.tariff_name or doc.name }}</div></div>
+                <div class="field-row"><div class="field-label">TYPE:</div><div class="field-value">{{ doc.tariff_type or '' }}</div></div>
+                {% if doc.description %}
+                <div class="field-row"><div class="field-label">DESCRIPTION:</div><div class="field-value">{{ doc.description }}</div></div>
+                {% endif %}
+            </div>
+            <div class="right-column">
+                <div class="field-row"><div class="field-label">VALID FROM:</div><div class="field-value">{% if doc.valid_from %}{{ frappe.utils.formatdate(doc.valid_from, 'MM-dd-yyyy') }}{% endif %}</div></div>
+                <div class="field-row"><div class="field-label">VALID TO:</div><div class="field-value">{% if doc.valid_to %}{{ frappe.utils.formatdate(doc.valid_to, 'MM-dd-yyyy') }}{% else %}Open{% endif %}</div></div>
+                <div class="field-row"><div class="field-label">CURRENCY:</div><div class="field-value">{{ doc.currency or '' }}</div></div>
+                <div class="field-row"><div class="field-label">STATUS:</div><div class="field-value">{{ 'Active' if doc.is_active else 'Inactive' }}</div></div>
+            </div>
+        </div>
+    </div>
+
+    <table class="packages-table{% if break_ns.cols %} unit-break-matrix{% endif %}">
+        <thead class="table-header">
+            {% if break_ns.cols %}
+            <tr>
+                <th>DESCRIPTION</th>
+                {% for col in break_ns.cols %}
+                <th>{{ break_header(col) }}</th>
+                {% endfor %}
+            </tr>
+            {% else %}
+            <tr>
+                <th>DESCRIPTION</th>
+                <th>BASIS</th>
+                <th class="num">RATE</th>
+            </tr>
+            {% endif %}
+        </thead>
+        <tbody>
+            {% if not selling_rows %}
+            <tr class="table-row"><td colspan="{{ table_cols }}" style="text-align:center;padding:4mm;">No rates</td></tr>
+            {% else %}
+            {% set page_ns = namespace(n=0, header_broke=0) %}
+            {% for category in grouped_categories %}
+            {% set category_rows = [] %}
+            {% for row in selling_rows %}
+            {% if (row.charge_category or row.customs_charge_category or 'Other') == category %}
+            {% set _ = category_rows.append(row) %}
+            {% endif %}
+            {% endfor %}
+            {% if category_rows %}
+            {% if page_ns.n > 0 and page_ns.n % 15 == 0 %}
+            {% set page_ns.header_broke = 1 %}
+            {% else %}
+            {% set page_ns.header_broke = 0 %}
+            {% endif %}
+            <tr class="subheader-row{% if page_ns.header_broke %} page-break-before{% endif %}"><td colspan="{{ table_cols }}">{{ category|upper }}</td></tr>
+            {% for row in category_rows %}
+            {% set page_ns.n = page_ns.n + 1 %}
+            {% set rate_currency = row.currency or doc.currency or '' %}
+            <tr class="table-row{% if page_ns.n > 1 and page_ns.n % 15 == 1 and not page_ns.header_broke %} page-break-before{% endif %}">
+            {% set page_ns.header_broke = 0 %}
+                <td>{{ rate_description(row) }}</td>
+                {% if break_ns.cols %}
+                {% set row_rates = namespace(map={}) %}
+                {% for ub in break_ns.all %}
+                {% if ub.reference_no == row.name %}
+                {% set _ = row_rates.map.update({(ub.container_type or frappe.utils.flt(ub.unit_break)): ub}) %}
+                {% endif %}
+                {% endfor %}
+                {% if row_rates.map %}
+                {% for col in break_ns.cols %}
+                {% set ub = row_rates.map.get(col) %}
+                <td class="break-rate">{% if ub %}{{ ub.currency or rate_currency }} {{ frappe.utils.fmt_money(ub.unit_rate, precision=2) }}{% endif %}</td>
+                {% endfor %}
+                {% else %}
+                <td class="break-rate" colspan="{{ break_ns.cols|length }}">{% if row.unit_rate is not none %}{{ rate_currency }} {{ frappe.utils.fmt_money(row.unit_rate, precision=2) }}{% endif %}</td>
+                {% endif %}
+                {% else %}
+                <td>
+                    {{ row.revenue_calculation_method or '' }}
+                    {% if row.uom or row.unit_type %}
+                    <div class="rate-meta">{{ row.uom or row.unit_type }}</div>
+                    {% endif %}
+                </td>
+                <td class="num">
+                    {% if row.unit_rate is not none %}{{ rate_currency }} {{ frappe.utils.fmt_money(row.unit_rate, precision=2) }}{% endif %}
+                    {% if row.minimum_charge %}
+                    <div class="rate-meta">Min {{ frappe.utils.fmt_money(row.minimum_charge, precision=2) }}</div>
+                    {% endif %}
+                    {% if row.maximum_charge %}
+                    <div class="rate-meta">Max {{ frappe.utils.fmt_money(row.maximum_charge, precision=2) }}</div>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+        </tbody>
+    </table>
+
+    {% if doc.notes %}
+    <div class="terms-section">
+        <div class="terms-title">Notes</div>
+        {{ doc.notes }}
+    </div>
+    {% endif %}
+</div>
+
+<div class="footer-section">
+    <div class="footer-inner">
+        <div>Company: {{ footer_company }}</div>
+        <div>Tariff: {{ doc.name }}{% if doc.currency %} · {{ doc.currency }}{% endif %}</div>
+    </div>
+</div>
+</body>
+</html>

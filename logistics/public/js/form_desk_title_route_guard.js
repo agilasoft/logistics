@@ -89,20 +89,27 @@
 		};
 	}
 
-	var orig_reload_doc = frappe.ui.form.Form.prototype.reload_doc;
 	frappe.ui.form.Form.prototype.reload_doc = function () {
-		this.check_doctype_conflict(this.docname);
+		var reload_name = this.docname;
+		if (
+			!reload_name ||
+			String(reload_name).toLowerCase() === "undefined" ||
+			String(reload_name).toLowerCase() === "null"
+		) {
+			return Promise.resolve();
+		}
 
-		if (this.doc.__islocal) {
-			return;
+		this.check_doctype_conflict(reload_name);
+
+		if (this.doc && this.doc.__islocal) {
+			return Promise.resolve();
 		}
 
 		var me = this;
 		var reload_doctype = this.doctype;
-		var reload_name = this.docname;
 
-		frappe.model.remove_from_locals(this.doctype, this.docname);
-		return frappe.model.with_doc(this.doctype, this.docname, function () {
+		frappe.model.remove_from_locals(this.doctype, reload_name);
+		return frappe.model.with_doc(this.doctype, reload_name, function () {
 			if (!_route_still_form_doctype_name(reload_doctype, reload_name)) {
 				return;
 			}

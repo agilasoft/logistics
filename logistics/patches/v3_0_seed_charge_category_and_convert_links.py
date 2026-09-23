@@ -51,18 +51,24 @@ def execute():
 
 
 def _seed_categories():
+	has_95_5 = frappe.db.has_column("Charge Category", "apply_95_5_rule")
 	for name in DEFAULT_CATEGORIES:
 		if frappe.db.exists("Charge Category", name):
+			values = {"disabled": 0}
+			if name == "Freight" and has_95_5:
+				values["apply_95_5_rule"] = 1
 			frappe.db.set_value(
 				"Charge Category",
 				name,
-				{"disabled": 0},
+				values,
 				update_modified=False,
 			)
 			continue
 		doc = frappe.new_doc("Charge Category")
 		doc.category_name = name
 		doc.disabled = 0
+		if name == "Freight" and has_95_5:
+			doc.apply_95_5_rule = 1
 		doc.insert(ignore_permissions=True)
 
 

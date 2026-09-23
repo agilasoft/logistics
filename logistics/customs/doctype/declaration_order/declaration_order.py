@@ -318,11 +318,14 @@ class DeclarationOrder(VirtualLinkedServicesMixin, Document):
 
 	def before_submit(self):
 		"""Prevent submission if no Sales Quote is linked to this Declaration Order.
-		
-		This ensures every submitted Declaration Order is connected to a Sales Quote,
-		which is necessary for proper tracking and billing.
+
+		Time Sensitive Case legs may submit without a quote (billing happens later).
+		Otherwise every submitted Declaration Order must be connected to a Sales Quote
+		for tracking and billing.
 		"""
-		if not self.sales_quote:
+		from logistics.time_sensitive.propagation import is_time_sensitive_operational_doc
+
+		if not self.sales_quote and not is_time_sensitive_operational_doc(self):
 			frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Declaration Order."))
 		from logistics.utils.get_charges_from_quotation import (
 			assert_sales_quote_customer_matches_job_before_submit,
@@ -394,6 +397,7 @@ class DeclarationOrder(VirtualLinkedServicesMixin, Document):
 	@frappe.whitelist()
 	def recalculate_all_charges(self):
 		"""Recalculate all charges using centralized charge calculation."""
+		self.check_permission("write")
 		if not hasattr(self, "charges") or not self.charges:
 			return {"success": False, "message": "No charges found to recalculate"}
 		try:
@@ -423,6 +427,7 @@ class DeclarationOrder(VirtualLinkedServicesMixin, Document):
 	@frappe.whitelist()
 	def revert_charges_to_source(self):
 		"""Revert charges to their source baseline (Main Job overlay or Sales Quote)."""
+		self.check_permission("write")
 		if self.docstatus == 1:
 			frappe.throw(
 				_("Cannot revert charges after submission. Please cancel/amend the document or use a Draft Declaration Order."),
@@ -731,6 +736,10 @@ def populate_charges_from_sales_quote(
 			if docname and frappe.db.exists("Declaration Order", docname)
 			else frappe._dict(doctype="Declaration Order", name=docname)
 		)
+		if isinstance(parent, Document):
+			from logistics.utils.menu_permission import assert_perm
+
+			assert_perm("Declaration Order", "write", doc=parent)
 		# API param names kept for client compat; stamp service_role as source of truth.
 		if is_internal_job is not None and cint(is_internal_job):
 			apply_linked_service_satellite_flags(parent, main_job_type or "", main_job or "")
@@ -863,7 +872,10 @@ def fetch_declaration_order_dashboard_html(docname):
 		return ""
 	if not frappe.db.exists("Declaration Order", docname):
 		return ""
+	from logistics.utils.menu_permission import assert_perm
+
 	doc = frappe.get_doc("Declaration Order", docname)
+	assert_perm("Declaration Order", "read", doc=doc)
 	return doc.get_dashboard_html()
 
 
@@ -886,6 +898,7 @@ def create_declaration_order_from_sales_quote(
 	"""
 	if not sales_quote_name:
 		frappe.throw(_("A Sales Quote must be selected to create a Declaration Order."))
+	from logistics.utils.menu_permission import assert_create_from_source
 	from logistics.utils.sales_quote_validity import throw_if_sales_quote_expired_for_creation
 
 	from logistics.pricing_center.doctype.sales_quote.sales_quote import (
@@ -893,6 +906,7 @@ def create_declaration_order_from_sales_quote(
 	)
 
 	sq = frappe.get_doc("Sales Quote", sales_quote_name)
+	assert_create_from_source("Declaration Order", source_doc=sq)
 	throw_if_sales_quote_expired_for_creation(sq)
 	throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sq)
 	quotation_type = (getattr(sq, "quotation_type", None) or "").strip()

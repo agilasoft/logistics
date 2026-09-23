@@ -33,11 +33,13 @@ Each **Transport Order Leg** has **Pick Date and Time** (`pick_datetime`) and **
 
 ## 3. Workflow
 
-1. Create Transport Order from [Sales Quote](welcome/sales-quote) or manually.
-2. Add packages, charges.
+1. Create Transport Order from [Sales Quote](welcome/sales-quote), from a Time Sensitive Case, or manually.
+2. Add packages. Add charges when this is a priced job.
 3. On each leg, set pick/drop date and time (required to submit).
-4. Submit when ready.
+4. Submit when ready. A **Time Sensitive Case** leg (Time Sensitive ticked **and** a case linked) may submit without a Sales Quote and without charge lines; packages, legs, and vehicle type are still required. Ticking Time Sensitive with no case does not skip quote or charges.
 5. Create [Transport Job](welcome/transport-job) from the order.
+
+After execute-first, set **Sales Quote** on the **Time Sensitive Case** (same customer, Regular quote) and Save. The read-only Sales Quote on this order and the Transport Job fill when those fields are still empty. Do not type the quote on the Transport Order. Charges still come later: **Get Charges from Quotation** if the order is draft, or **Create Change Request** on the Time Sensitive Case after the job is Completed.
 
 
 <!-- wiki-field-reference:start -->

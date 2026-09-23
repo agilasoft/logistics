@@ -108,11 +108,111 @@ def calculate_commercial_invoice_totals(doc: Any) -> dict[str, float | str]:
 	}
 
 
+def invoice_line_row_count(doc: Any) -> int:
+	"""Number of commercial invoice line rows on *doc*."""
+	if isinstance(doc, dict):
+		rows = doc.get("commercial_invoice_line_items") or []
+	else:
+		rows = getattr(doc, "commercial_invoice_line_items", None) or []
+		if not rows and hasattr(doc, "get"):
+			rows = doc.get("commercial_invoice_line_items") or []
+	return len(rows or [])
+
+
+def _charge_item_count_qty(charge: Any) -> float:
+	ut = (_row_value(charge, "unit_type") or "").strip()
+	cut = (_row_value(charge, "cost_unit_type") or "").strip()
+	qty = 0.0
+	if ut == "Item Count":
+		qty = max(qty, flt(_row_value(charge, "quantity") or 0))
+	if cut == "Item Count":
+		qty = max(qty, flt(_row_value(charge, "cost_quantity") or 0))
+	return qty
+
+
+def seed_number_of_line_items_from_item_count_charges(doc: Any) -> None:
+	"""If the header is empty, copy Item Count charge qty from the quote/charges grid.
+
+	Marks the value as manual so a later 1-row summary does not reset a quoted line count
+	(for example quote qty 100). If the user later adds more invoice rows than the header,
+	``sync_number_of_line_items`` raises the header to the row count.
+	"""
+	if isinstance(doc, dict):
+		current = cint(doc.get("number_of_line_items") or 0)
+	else:
+		current = cint(getattr(doc, "number_of_line_items", None) or 0)
+	if current > 0:
+		return
+
+	qty = 0.0
+	if isinstance(doc, dict):
+		charges = doc.get("charges") or []
+	elif hasattr(doc, "get"):
+		charges = doc.get("charges") or getattr(doc, "charges", None) or []
+	else:
+		charges = getattr(doc, "charges", None) or []
+	for charge in charges or []:
+		qty = max(qty, _charge_item_count_qty(charge))
+	qty_i = cint(qty)
+	if qty_i <= 0:
+		return
+	if isinstance(doc, dict):
+		doc["number_of_line_items"] = qty_i
+		doc["number_of_line_items_manual"] = 1
+	else:
+		doc.number_of_line_items = qty_i
+		doc.number_of_line_items_manual = 1
+
+
+def sync_number_of_line_items(doc: Any) -> None:
+	"""Default Number of Line Items from row count without wiping a user override.
+
+	Auto-fill when empty or not manual. Keep a manual value (for example 100 with 1 row)
+	unless the invoice table grows past that number, in which case follow the rows.
+	"""
+	row_count = invoice_line_row_count(doc)
+	if isinstance(doc, dict):
+		current = cint(doc.get("number_of_line_items") or 0)
+		manual = cint(doc.get("number_of_line_items_manual") or 0)
+	else:
+		current = cint(getattr(doc, "number_of_line_items", None) or 0)
+		manual = cint(getattr(doc, "number_of_line_items_manual", None) or 0)
+
+	if manual:
+		if row_count > current:
+			if isinstance(doc, dict):
+				doc["number_of_line_items"] = row_count
+				doc["number_of_line_items_manual"] = 0
+			else:
+				doc.number_of_line_items = row_count
+				doc.number_of_line_items_manual = 0
+		return
+
+	if row_count > 0:
+		if isinstance(doc, dict):
+			doc["number_of_line_items"] = row_count
+		else:
+			doc.number_of_line_items = row_count
+
+
+def apply_number_of_line_items_user_edit(doc: Any) -> None:
+	"""Set or clear the manual flag from a user-typed header value."""
+	row_count = invoice_line_row_count(doc)
+	if isinstance(doc, dict):
+		value = cint(doc.get("number_of_line_items") or 0)
+		doc["number_of_line_items_manual"] = 0 if value == row_count else 1
+	else:
+		value = cint(getattr(doc, "number_of_line_items", None) or 0)
+		doc.number_of_line_items_manual = 0 if value == row_count else 1
+
+
 def apply_commercial_invoice_totals(doc: Any) -> None:
 	"""Persist derived commercial-invoice totals on *doc*."""
 	totals = calculate_commercial_invoice_totals(doc)
 	for fieldname, value in totals.items():
 		doc.set(fieldname, value)
+	seed_number_of_line_items_from_item_count_charges(doc)
+	sync_number_of_line_items(doc)
 
 
 @frappe.whitelist()

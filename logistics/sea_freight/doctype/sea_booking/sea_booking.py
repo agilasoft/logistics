@@ -231,6 +231,7 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			self.validate_accounts()
 			self.validate_main_routing_legs_by_entry_type()
 			self.validate_house_bl_unique_among_sea_shipments()
+			self.validate_seal_numbers_by_mode()
 			self._prepare_header_totals_for_charge_calculation()
 			self._sync_charges_with_parent_actuals()
 			self._update_packing_summary()
@@ -508,6 +509,48 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			"container_cargo": container_cargo_payload_from_doc(self),
 		}
 	
+	def validate_seal_numbers_by_mode(self):
+		"""Seal Number is required when the row Mode (Load Type) has Required Seal Number."""
+		# Create-from-quote sets ignore_mandatory; quote containers have no seal field.
+		if getattr(self.flags, "ignore_mandatory", False):
+			return
+		if not hasattr(self, "containers") or not self.containers:
+			return
+
+		modes = sorted(
+			{
+				(getattr(row, "mode", None) or "").strip()
+				for row in self.containers
+				if (getattr(row, "mode", None) or "").strip()
+			}
+		)
+		required_by_mode = {}
+		if modes:
+			for lt in frappe.get_all(
+				"Load Type",
+				filters={"name": ["in", modes]},
+				fields=["name", "required_seal_number"],
+			):
+				required_by_mode[lt.name] = int(lt.required_seal_number or 0)
+
+		missing_rows = []
+		for row in self.containers:
+			mode = (getattr(row, "mode", None) or "").strip()
+			if not mode or not required_by_mode.get(mode):
+				continue
+			if (getattr(row, "seal_no", None) or "").strip():
+				continue
+			missing_rows.append(getattr(row, "idx", None) or "?")
+
+		if missing_rows:
+			frappe.throw(
+				_(
+					"Seal Number is mandatory for this Load Type (Required Seal Number). "
+					"Fill Seal Number in row(s): {0}."
+				).format(", ".join(str(r) for r in missing_rows)),
+				title=_("Missing Seal Number"),
+			)
+
 	def validate_container_numbers(self):
 		"""Check for duplicate container numbers in submitted Sea Bookings and Sea Shipments."""
 		if not hasattr(self, "containers") or not self.containers:
@@ -752,16 +795,26 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 		assert_tariff_customer_matches_job_before_submit(self)
 
 		# Validate quote reference: either sales_quote (for Sales Quote) or quote (for One-Off Quote) must be set
+		# Exception: Sea Bookings created from a MICE Project or Time Sensitive Case
+		# intentionally have no Sales Quote.
+		from logistics.mice.doctype.mice_project.mice_project_booking_creation import (
+			booking_is_linked_from_mice_project,
+		)
+
+		mice_programme_booking = booking_is_linked_from_mice_project(self.doctype, self.name)
+		from logistics.time_sensitive.propagation import is_time_sensitive_operational_doc
+
+		ts_case_leg = is_time_sensitive_operational_doc(self)
 		quote_type = getattr(self, "quote_type", None)
 		if quote_type == "Sales Quote":
-			if not self.sales_quote:
+			if not self.sales_quote and not mice_programme_booking and not ts_case_leg:
 				frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Sea Booking."))
 		elif quote_type == "One-Off Quote":
-			if not getattr(self, "quote", None):
+			if not getattr(self, "quote", None) and not mice_programme_booking and not ts_case_leg:
 				frappe.throw(_("One-Off Quote is required. Please select a One-Off Quote before submitting the Sea Booking."))
 		else:
 			# If quote_type is not set, check if sales_quote is set (backward compatibility)
-			if not self.sales_quote:
+			if not self.sales_quote and not mice_programme_booking and not ts_case_leg:
 				frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Sea Booking."))
 
 		throw_if_missing_destination_service_charge(self)
@@ -1908,6 +1961,9 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 		Returns:
 			dict: Result with created Sea Shipment name and status
 		"""
+		from logistics.utils.menu_permission import assert_create_from_source
+
+		assert_create_from_source("Sea Shipment", source_doc=self)
 		try:
 			# Check if Sea Shipment already exists for this Sea Booking (1:1 relationship)
 			existing_shipment = frappe.db.get_value("Sea Shipment", {"sea_booking": self.name}, "name")
@@ -1990,12 +2046,19 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 				sea_shipment.house_type = "Standard House"
 			elif sea_shipment.house_type == "Consolidation":
 				sea_shipment.house_type = "Co-load Master"
-			# Only copy release_type if it exists as a valid record
-			if self.release_type and frappe.db.exists("Release Type", self.release_type):
-				sea_shipment.release_type = self.release_type
+			# Copy Release Type from the booking when it is a valid master.
+			# Empty bookings fall back to Sea Freight Settings.default_release_type.
+			from logistics.sea_freight.sea_freight_settings_defaults import (
+				apply_release_type_default_from_sea_freight_settings,
+				valid_release_type,
+			)
+
+			copied_rt = valid_release_type(self.release_type)
+			if copied_rt:
+				sea_shipment.release_type = copied_rt
 			else:
-				# Explicitly clear the field if the record doesn't exist
 				sea_shipment.release_type = None
+				apply_release_type_default_from_sea_freight_settings(sea_shipment)
 			sea_shipment.entry_type = self.entry_type
 			sea_shipment.house_bl = self.house_bl
 			sea_shipment.packs = self.packs
@@ -2068,13 +2131,6 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 				sea_shipment.notify_party = self.notify_party
 			if hasattr(self, "notify_party_address") and self.notify_party_address:
 				sea_shipment.notify_party_address = self.notify_party_address
-			# Copy Cut-offs from Sea Booking to Sea Shipment
-			for field in (
-				"cargo_cut_off", "document_cut_off", "vgm_cut_off",
-				"gate_in_cut_off", "empty_return_cut_off", "other_cut_off",
-			):
-				if hasattr(self, field) and getattr(self, field, None):
-					setattr(sea_shipment, field, getattr(self, field))
 			# Copy CTOs from Sea Booking to Sea Shipment
 			if hasattr(self, "origin_cto") and self.origin_cto:
 				sea_shipment.origin_cto = self.origin_cto
@@ -2087,6 +2143,13 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 						"country_region_of_issue": getattr(ref, "country_region_of_issue", None),
 						"reference_type": getattr(ref, "reference_type", None),
 						"reference_number": getattr(ref, "reference_number", None),
+					})
+			# Copy Cut-offs (child table) from Sea Booking to Sea Shipment
+			if getattr(self, "cut_offs", None):
+				for row in self.cut_offs:
+					sea_shipment.append("cut_offs", {
+						"cut_off": row.cut_off,
+						"cut_off_datetime": row.cut_off_datetime,
 					})
 			# Populate addresses and contacts from Shipper/Consignee primary if not set on Booking
 			if self.shipper and (not sea_shipment.shipper_address or not sea_shipment.shipper_contact):
@@ -2401,17 +2464,10 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			
 			# Copy milestones if they exist (from Sea Booking Milestone to Sea Shipment Milestone)
 			if hasattr(self, 'milestones') and self.milestones:
+				from logistics.sea_freight.doctype.sea_shipment.sea_shipment import booking_milestone_row_values
+
 				for milestone in self.milestones:
-					sea_shipment.append("milestones", {
-						"milestone": milestone.milestone,
-						"status": milestone.status,
-						"planned_start": milestone.planned_start,
-						"planned_end": milestone.planned_end,
-						"actual_start": milestone.actual_start,
-						"actual_end": milestone.actual_end,
-						"source": milestone.source,
-						"fetched_at": milestone.fetched_at
-					})
+					sea_shipment.append("milestones", booking_milestone_row_values(milestone))
 			
 			# Copy document_list_template and documents (Job Document child table) from Sea Booking to Sea Shipment
 			if hasattr(self, 'document_list_template') and self.document_list_template:
@@ -2447,7 +2503,7 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			
 			# Insert the Sea Shipment
 			try:
-				sea_shipment.insert(ignore_permissions=True)
+				sea_shipment.insert()
 			except (frappe.ValidationError, frappe.LinkValidationError) as e:
 				# If validation fails due to invalid link fields, clear them and try again
 				if "Could not find" in str(e) or "Invalid link" in str(e) or isinstance(e, frappe.LinkValidationError):
@@ -2459,7 +2515,7 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 						if not frappe.db.exists("Release Type", sea_shipment.release_type):
 							sea_shipment.release_type = None
 					# Try insert again
-					sea_shipment.insert(ignore_permissions=True)
+					sea_shipment.insert()
 				else:
 					raise
 			
@@ -2675,6 +2731,14 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 
 
 @frappe.whitelist()
+def sea_booking_exists(docname):
+	"""Return True if the Sea Booking exists. Used by client to poll before navigating so form load does not show 'not found'."""
+	if not docname or docname == "new":
+		return False
+	return bool(frappe.db.exists("Sea Booking", docname))
+
+
+@frappe.whitelist()
 def fetch_sea_booking_dashboard_html(docname):
 	"""Return Dashboard tab HTML without run_doc_method / check_if_latest (avoids TimestampMismatchError)."""
 	if not docname or str(docname).startswith("new-"):
@@ -2718,7 +2782,10 @@ def convert_to_shipment_api(docname=None):
 	"""Load Sea Booking from DB and convert; avoids run_doc_method / check_if_latest."""
 	if not docname:
 		frappe.throw(_("Document is required"))
+	from logistics.utils.menu_permission import assert_create_from_source
+
 	booking = frappe.get_doc("Sea Booking", docname)
+	assert_create_from_source("Sea Shipment", source_doc=booking)
 	return booking.convert_to_shipment()
 
 
@@ -2726,6 +2793,9 @@ def convert_to_shipment_api(docname=None):
 def recalculate_all_charges(docname):
 	"""Recalculate all charges based on current Sea Booking data."""
 	booking = frappe.get_doc("Sea Booking", docname)
+	from logistics.utils.menu_permission import assert_perm
+
+	assert_perm("Sea Booking", "write", doc=booking)
 	if not booking.charges:
 		return {"success": False, "message": _("No charges found to recalculate")}
 	try:

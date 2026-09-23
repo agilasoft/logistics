@@ -52,6 +52,7 @@
   "supports_oversized",
   "ccs_routing_section",
   "ccs_pima_code",
+  "supplier",
   "eawb_enabled",
   "eawb_message_types",
   "cargo_xml_endpoint",
@@ -322,6 +323,14 @@
    "fieldname": "ccs_pima_code",
    "fieldtype": "Data",
    "label": "CCS PIMA Code"
+  },
+  {
+   "description": "Payable vendor used when creating draft Purchase Invoices from CASS airline bills.",
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "label": "Supplier",
+   "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]",
+   "options": "Supplier"
   },
   {
    "default": "0",

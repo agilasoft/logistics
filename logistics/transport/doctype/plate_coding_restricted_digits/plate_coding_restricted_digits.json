@@ -33,6 +33,7 @@
  "name": "Plate Coding Restricted Digits",
  "naming_rule": "By fieldname",
  "owner": "Administrator",
+ "description": "DEPRECATED: Child of Plate Coding Rule. Use Truck Ban Plate Coding on Truck Ban Constraint instead.",
  "permissions": [
   {
    "create": 1,

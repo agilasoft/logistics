@@ -50,6 +50,7 @@
   "column_break_scope_hdr",
   "separate_billings_per_service_type",
   "is_high_value",
+  "hv_brand",
   "is_time_sensitive",
   "time_sensitive_case",
   "ts_case_type",
@@ -368,7 +369,7 @@
    "options": "Incoterm"
   },
   {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && [\"Air\", \"Sea\", \"Transport\", \"Customs\", \"Warehousing\", \"Time Sensitive\", \"Special Project\", \"MICE\"].includes(doc.main_service)",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && [\"Air\", \"Sea\", \"Transport\", \"Customs\", \"Warehousing\", \"Special Project\", \"MICE\"].includes(doc.main_service)",
    "fieldname": "one_off_params_section",
    "fieldtype": "Section Break",
    "label": "Main Service Parameters"
@@ -628,13 +629,13 @@
    "options": "Pick and Drop Mode"
   },
   {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && [\"Sea\", \"MICE\"].includes(doc.main_service)",
    "fieldname": "containers_section",
    "fieldtype": "Section Break",
    "label": "Containers"
   },
   {
-   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Sea\"",
+   "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && [\"Sea\", \"MICE\"].includes(doc.main_service)",
    "fieldname": "containers",
    "fieldtype": "Table",
    "label": "Containers",
@@ -855,7 +856,7 @@
    "fieldname": "main_service",
    "fieldtype": "Select",
    "label": "Primary Service Type",
-   "options": "\nAir\nSea\nTransport\nCustoms\nWarehousing\nTime Sensitive\nSpecial Project\nMICE",
+   "options": "\nAir\nSea\nTransport\nCustoms\nWarehousing\nSpecial Project\nMICE",
    "reqd": 1
   },
   {
@@ -891,6 +892,15 @@
    "label": "High Value"
   },
   {
+   "depends_on": "eval:doc.is_high_value",
+   "description": "High Value brand this quote belongs to. Used on the High Value Home dashboard.",
+   "fieldname": "hv_brand",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "HV Brand",
+   "options": "HV Brands"
+  },
+  {
    "default": "0",
    "description": "Mark this record for urgent / time-sensitive processing (AOG, live organ, line-stop, etc.).",
    "fieldname": "is_time_sensitive",
@@ -900,6 +910,7 @@
    "no_copy": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fieldname": "time_sensitive_case",
    "fieldtype": "Link",
    "label": "Time Sensitive Case",
@@ -908,6 +919,7 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fetch_from": "time_sensitive_case.case_type",
    "fieldname": "ts_case_type",
    "fieldtype": "Link",
@@ -917,14 +929,16 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fieldname": "critical_deadline",
    "fieldtype": "Datetime",
    "in_list_view": 0,
    "label": "Critical Deadline",
-   "mandatory_depends_on": "eval:doc.main_service == \"Time Sensitive\"",
+   "mandatory_depends_on": "eval:doc.is_time_sensitive",
    "no_copy": 1
   },
   {
+   "depends_on": "eval:doc.is_time_sensitive",
    "fieldname": "ts_countdown",
    "fieldtype": "HTML",
    "label": "TS Countdown"
@@ -1204,7 +1218,7 @@
    "link_fieldname": "sales_quote"
   }
  ],
- "modified": "2026-07-03 09:24:27.772165",
+ "modified": "2026-08-26 14:10:00.000000",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Sales Quote",

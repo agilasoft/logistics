@@ -1738,6 +1738,8 @@ def _copy_sea_shipment_containers_to_declaration_order(order, shipment):
 		"mode",
 		"delivery_modes",
 		"free_time_days",
+		"demurrage_free_time_days",
+		"detention_free_time_days",
 	)
 	for row in getattr(shipment, "containers", None) or []:
 		data = container_row_to_dict(row, _fields)
@@ -1896,7 +1898,9 @@ def _copy_shipment_packages_to_transport_order(shipment, order):
 def _copy_sea_packages_to_transport_order(shipment, order):
 	"""Copy packages from Sea Shipment to Transport Order.
 
-	For container moves with a container number on the order, only copy lines whose package container matches.
+	For container moves with a container number on the order, copy lines whose
+	package container matches. When the shipment has no other container numbers,
+	also copy unassigned (blank) package lines as belonging to that box.
 	"""
 	from frappe import _
 
@@ -1904,21 +1908,35 @@ def _copy_sea_packages_to_transport_order(shipment, order):
 	target_key = None
 	if getattr(order, "container_no", None):
 		target_key = normalize_container_number(order.container_no)
+	include_unassigned = True
+	if target_key:
+		distinct = _collect_distinct_container_numbers_sea_shipment(shipment)
+		other_boxes = [d for d in distinct if normalize_container_number(d) != target_key]
+		include_unassigned = not other_boxes
 	copied = 0
 	for pkg in packages:
 		if target_key:
 			pc = getattr(pkg, "container", None)
-			if not pc or not str(pc).strip():
-				continue
-			if normalize_container_number(pc) != target_key:
+			blank = not pc or not str(pc).strip()
+			if blank:
+				if not include_unassigned:
+					continue
+			elif normalize_container_number(pc) != target_key:
 				continue
 		row = transport_order_package_row_from_shipment_pkg(shipment, pkg)
 		if row:
 			order.append("packages", row)
 			copied += 1
 	if target_key and copied == 0:
+		if not packages:
+			frappe.throw(
+				_("This shipment has no cargo lines to copy onto the Transport Order."),
+				title=_("No matching cargo"),
+			)
 		frappe.throw(
-			_("No cargo lines on this shipment match container {0}.").format(order.container_no),
+			_(
+				"None of the cargo lines are assigned to container {0}. Set Container on the Packages table and try again."
+			).format(order.container_no),
 			title=_("No matching cargo"),
 		)
 

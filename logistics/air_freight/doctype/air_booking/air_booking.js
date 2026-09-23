@@ -336,6 +336,126 @@ function _ensure_air_booking_milestone_actual_end_editable_meta(frm) {
 	});
 }
 
+function _air_booking_can_convert_to_shipment(frm) {
+	if (window.logistics && logistics.menu && logistics.menu.is_submitted) {
+		return logistics.menu.is_submitted(frm);
+	}
+	return !!(
+		frm.doc &&
+		frm.doc.name &&
+		!frm.doc.__islocal &&
+		(frm.doc.docstatus === 1 || frm.doc.docstatus === "1")
+	);
+}
+
+function _air_booking_navigate_to_shipment(air_shipment_name) {
+	function try_navigate(attempt) {
+		var max_attempts = 15;
+		if (attempt > max_attempts) {
+			frappe.set_route("Form", "Air Shipment", air_shipment_name);
+			return;
+		}
+		frappe.call({
+			method: "logistics.air_freight.doctype.air_shipment.air_shipment.air_shipment_exists",
+			args: { docname: air_shipment_name },
+			callback: function(res) {
+				if (res.message === true) {
+					frappe.set_route("Form", "Air Shipment", air_shipment_name);
+				} else {
+					setTimeout(function() {
+						try_navigate(attempt + 1);
+					}, 300);
+				}
+			},
+			error: function() {
+				setTimeout(function() {
+					try_navigate(attempt + 1);
+				}, 300);
+			},
+		});
+	}
+	try_navigate(1);
+}
+
+function _air_booking_run_convert_to_shipment(frm, opts) {
+	opts = opts || {};
+	return new Promise(function(resolve, reject) {
+		if (!opts.skip_charge_warning) {
+			_warn_if_missing_service_charges(frm, "Air");
+		}
+		frappe.call({
+			method: "logistics.air_freight.doctype.air_booking.air_booking.convert_to_shipment_api",
+			args: { docname: frm.doc.name },
+			freeze: true,
+			freeze_message: __("Creating Air Shipment..."),
+			callback: function(r) {
+				if (r.exc || !r.message || !r.message.success || !r.message.air_shipment) {
+					reject();
+					return;
+				}
+				resolve(r.message.air_shipment);
+			},
+			error: function() {
+				reject();
+			},
+		});
+	});
+}
+
+function _air_booking_add_shipment_buttons(frm) {
+	if (!_air_booking_can_convert_to_shipment(frm)) {
+		return;
+	}
+	var parent_name = frm.doc.name;
+	if (typeof frm.remove_custom_button === "function") {
+		frm.remove_custom_button(__("Shipment"), __("Create"));
+		frm.remove_custom_button(__("View Air Shipment"), __("Create"));
+	}
+	frappe.db.get_value("Air Shipment", { air_booking: parent_name }, "name", function(r) {
+		if (!frm.doc || frm.doc.name !== parent_name) {
+			return;
+		}
+		if (r && r.name) {
+			logistics.menu.add(frm, {
+				label: __("View Air Shipment"),
+				group: __("Create"),
+				doctype: "Air Shipment",
+				ptype: "read",
+				action: function() {
+					frappe.set_route("Form", "Air Shipment", r.name);
+				},
+			});
+			return;
+		}
+		var convert_action = function() {
+			frappe.confirm(
+				__("Are you sure you want to convert this Air Booking to an Air Shipment?"),
+				function() {
+					_air_booking_run_convert_to_shipment(frm).then(function(air_shipment_name) {
+						frm.reload_doc().then(function() {
+							frappe.show_alert(
+								{
+									message: __("Air Shipment {0} created", [air_shipment_name]),
+									indicator: "green",
+								},
+								3
+							);
+							_air_booking_navigate_to_shipment(air_shipment_name);
+						});
+					});
+				}
+			);
+		};
+		logistics.menu.add(frm, {
+			label: __("Shipment"),
+			group: __("Create"),
+			doctype: "Air Shipment",
+			ptype: "create",
+			action: convert_action,
+		});
+	});
+}
+
 frappe.ui.form.on('Air Booking', {
 	onload: function(frm) {
 		if (window.logistics && logistics.apply_one_off_route_options_onload) {
@@ -406,17 +526,43 @@ frappe.ui.form.on('Air Booking', {
 			return frappe.call('logistics.document_management.api.get_milestone_template_filters', { doctype: frm.doctype })
 				.then(function(r) { return r.message || { filters: [] }; });
 		});
-		// Suppress "Air Booking ... not found" when it refers to this form's doc (race after create/save)
+		// Suppress "Air Booking ... not found" after create/save races (including a missing name).
 		if (!window._air_booking_msgprint_suppress_patched) {
 			window._air_booking_msgprint_suppress_patched = true;
 			var _msgprint = frappe.msgprint;
+			function _airBookingMsgText(opts) {
+				if (opts == null) return "";
+				if (typeof opts === "string") {
+					var s = opts.trim();
+					if (s.charAt(0) === "{") {
+						try {
+							return _airBookingMsgText(JSON.parse(s));
+						} catch (e) {
+							return s;
+						}
+					}
+					return s;
+				}
+				if (Array.isArray(opts)) {
+					return opts.map(_airBookingMsgText).join(" ");
+				}
+				if (typeof opts === "object") {
+					return _airBookingMsgText(opts.message);
+				}
+				return String(opts);
+			}
 			frappe.msgprint = function(opts) {
-				var msg = (opts && (typeof opts === 'string' ? opts : opts.message)) || '';
-				var cur = cur_frm;
-				if (msg && msg.indexOf('Air Booking') !== -1 && msg.indexOf('not found') !== -1 &&
-						cur && cur.doctype === 'Air Booking' && cur.doc && cur.doc.name &&
-						msg.indexOf(cur.doc.name) !== -1) {
-					return;
+				var msg = _airBookingMsgText(opts);
+				if (msg.indexOf('Air Booking') !== -1 && msg.indexOf('not found') !== -1) {
+					var cur = cur_frm;
+					var bogus = /\b(undefined|null)\b/i.test(msg);
+					var isAir = cur && cur.doctype === 'Air Booking' && cur.doc;
+					var matchesCurrent =
+						isAir && cur.doc.name && msg.indexOf(cur.doc.name) !== -1;
+					var isNew = isAir && (cur.is_new() || cur.doc.__islocal);
+					if (bogus || matchesCurrent || isNew) {
+						return;
+					}
 				}
 				return _msgprint.apply(this, arguments);
 			};
@@ -806,7 +952,11 @@ frappe.ui.form.on('Air Booking', {
 			if (window.logistics && logistics.add_get_charges_from_tariff_button_if_allowed) {
 				logistics.add_get_charges_from_tariff_button_if_allowed(frm);
 			}
-			frm.add_custom_button(__('Get Milestones'), function() {
+			logistics.menu.add(frm, {
+				label: __('Get Milestones'),
+				group: __('Action'),
+				ptype: 'write',
+				action: function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_milestones_from_template',
 					args: { doctype: 'Air Booking', docname: frm.doc.name },
@@ -817,8 +967,13 @@ frappe.ui.form.on('Air Booking', {
 						}
 					}
 				});
-			}, __('Action'));
-			frm.add_custom_button(__('Get Documents'), function() {
+				},
+			});
+			logistics.menu.add(frm, {
+				label: __('Get Documents'),
+				group: __('Action'),
+				ptype: 'write',
+				action: function() {
 				frappe.call({
 					method: 'logistics.document_management.api.populate_documents_from_template',
 					args: { doctype: 'Air Booking', docname: frm.doc.name },
@@ -829,9 +984,14 @@ frappe.ui.form.on('Air Booking', {
 						}
 					}
 				});
-			}, __('Action'));
+				},
+			});
 			if (frm.doc.charges && frm.doc.charges.length > 0) {
-				frm.add_custom_button(__('Calculate Charges'), function() {
+				logistics.menu.add(frm, {
+					label: __('Calculate Charges'),
+					group: __('Action'),
+					ptype: 'write',
+					action: function() {
 					frappe.call({
 						method: 'logistics.air_freight.doctype.air_booking.air_booking.recalculate_all_charges',
 						args: { docname: frm.doc.name },
@@ -842,71 +1002,16 @@ frappe.ui.form.on('Air Booking', {
 							}
 						}
 					});
-				}, __('Action'));
+					},
+				});
 			}
 		}
 
-		// --- Create menu ---
-		if (frm.doc.name && !frm.doc.__islocal && frm.doc.docstatus === 1) {
-			setTimeout(function() {
-				// Check if Air Shipment already exists
-				frappe.db.get_value("Air Shipment", {"air_booking": frm.doc.name}, "name", function(r) {
-					if (r && r.name) {
-						// Air Shipment exists - show view button
-						frm.add_custom_button(__('View Air Shipment'), function() {
-							frappe.set_route('Form', 'Air Shipment', r.name);
-						}, __('Create'));
-					} else {
-						// No Air Shipment exists - show convert button
-						frm.add_custom_button(__('Shipment'), function() {
-							_warn_if_missing_service_charges(frm, "Air");
-							frappe.confirm(
-								__('Are you sure you want to convert this Air Booking to an Air Shipment?'),
-								function() {
-									frappe.call({
-										method: 'logistics.air_freight.doctype.air_booking.air_booking.convert_to_shipment_api',
-										args: { docname: frm.doc.name },
-										callback: function(r) {
-											if (r.exc) return;
-											if (r.message && r.message.success && r.message.air_shipment) {
-												var air_shipment_name = r.message.air_shipment;
-												frm.reload_doc().then(function() {
-													frappe.show_alert({
-														message: __('Air Shipment {0} created', [air_shipment_name]),
-														indicator: 'green'
-													}, 3);
-													function try_navigate(attempt) {
-														var max_attempts = 15;
-														if (attempt > max_attempts) {
-															frappe.set_route('Form', 'Air Shipment', air_shipment_name);
-															return;
-														}
-														frappe.call({
-															method: "logistics.air_freight.doctype.air_shipment.air_shipment.air_shipment_exists",
-															args: { docname: air_shipment_name },
-															callback: function(res) {
-																if (res.message === true) {
-																	frappe.set_route('Form', 'Air Shipment', air_shipment_name);
-																} else {
-																	setTimeout(function() { try_navigate(attempt + 1); }, 300);
-																}
-															},
-															error: function() {
-																setTimeout(function() { try_navigate(attempt + 1); }, 300);
-															}
-														});
-													}
-													try_navigate(1);
-												});
-											}
-										}
-									});
-								}
-							);
-						}, __('Create'));
-					}
-				});
-			}, 100);
+		// Create → Shipment whenever the booking is submitted (docstatus = 1).
+		if (window.logistics && logistics.menu && logistics.menu.when_submitted) {
+			logistics.menu.when_submitted(frm, _air_booking_add_shipment_buttons);
+		} else {
+			_air_booking_add_shipment_buttons(frm);
 		}
 	}
 });

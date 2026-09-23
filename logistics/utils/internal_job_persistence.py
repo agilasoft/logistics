@@ -140,7 +140,7 @@ def internal_job_detail_rows_for_parent(parent_doc: Any) -> list[Any]:
 
 
 def sync_internal_job_doc_job_link(row: Any, job_type: str, job_no: str) -> None:
-	"""Record Usage for the satellite job; Linked Service no longer stores job_type/job_no."""
+	"""Record Usage for order (Satellite Job) or execution (Shipment); LS header has no job fields."""
 	ij_name = _linked_service_name_from_row(row) if row is not None else ""
 	jn = _norm(job_no)
 	jt = _norm(job_type)
@@ -151,14 +151,21 @@ def sync_internal_job_doc_job_link(row: Any, job_type: str, job_no: str) -> None
 	try:
 		from logistics.utils.linked_service_usage import (
 			USAGE_ROLE_SATELLITE_JOB,
+			USAGE_ROLE_SHIPMENT,
+			is_linked_service_execution_type,
 			record_linked_service_usage,
 		)
 
+		role = (
+			USAGE_ROLE_SHIPMENT
+			if is_linked_service_execution_type(jt)
+			else USAGE_ROLE_SATELLITE_JOB
+		)
 		record_linked_service_usage(
 			ij_name,
 			jt,
 			jn,
-			usage_role=USAGE_ROLE_SATELLITE_JOB,
+			usage_role=role,
 		)
 	except Exception:
 		frappe.log_error(
@@ -174,6 +181,7 @@ _PARAM_FIELDS: tuple[str, ...] = tuple(
 	fn for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS if fn != "charge_group"
 ) + (
 	"service_type",
+	"company",
 	"location_type",
 )
 
@@ -235,6 +243,7 @@ def _create_internal_job_from_row(
 	ij.parent_booking_name = parent_doc.name or ""
 	_copy_row_params_to_internal_job(row, ij)
 	_ensure_job_type_from_service(ij)
+	_seed_company_from_parent_if_source_blank(ij, parent_doc, row)
 	ij.flags.ignore_permissions = True
 	preferred = _norm(preferred_name)
 	if preferred and not linked_service_record_exists(preferred):
@@ -258,9 +267,31 @@ def create_internal_job_for_parent_from_source(
 	ij.parent_booking_name = parent_name or ""
 	_copy_row_params_to_internal_job(source, ij)
 	_ensure_job_type_from_service(ij)
+	if parent_name and frappe.db.exists(parent_doctype, parent_name):
+		try:
+			_seed_company_from_parent_if_source_blank(
+				ij, frappe.get_cached_doc(parent_doctype, parent_name), source
+			)
+		except Exception:
+			pass
 	ij.flags.ignore_permissions = True
 	ij.insert(ignore_permissions=True)
 	return ij.name
+
+
+def _seed_company_from_parent_if_source_blank(ij_doc: Any, parent_doc: Any, source: Any) -> None:
+	"""Use the parent quote/booking company when the source row did not set one.
+
+	``frappe.new_doc`` may already stamp the session default company; that must not
+	win over the Sales Quote company for a newly created Linked Service.
+	"""
+	if _norm(_row_value(source, "company")):
+		return
+	from logistics.utils.linked_service_company import default_company_from_parent
+
+	company = default_company_from_parent(parent_doc)
+	if company:
+		ij_doc.company = company
 
 
 def _update_internal_job_from_row(row: Any, ij_name: str) -> None:
@@ -642,6 +673,27 @@ def _delete_orphan_internal_jobs(parent_doc: Any, fieldname: str) -> None:
 	_delete_orphan_internal_jobs_from_sets(prev, cur, parent_doc=parent_doc)
 
 
+def _sales_quote_empty_services_grid_is_not_a_removal(doc: Any) -> bool:
+	"""True when a Sales Quote save carries an empty Services grid that must not delete services.
+
+	The desk posts ``[]`` when duplicating (the copy clears the grid) and when a workflow or
+	other save runs before the virtual rows are on the form. Linked Services are removed only
+	through Manage Services, which deletes the document itself.
+	"""
+	if not doc or getattr(doc, "doctype", None) != "Sales Quote":
+		return False
+	if getattr(getattr(doc, "flags", None), "_allow_clear_linked_services", False):
+		return False
+	if not getattr(getattr(doc, "flags", None), "_linked_services_from_form", False):
+		return False
+	if doc.__dict__.get("linked_services"):
+		return False
+	parent_name = _norm(getattr(doc, "name", None))
+	if not parent_name or getattr(doc, "__islocal", False):
+		return False
+	return bool(_linked_service_names_from_db("Sales Quote", parent_name))
+
+
 def sync_internal_job_details_to_internal_jobs(doc: Any, *_method) -> None:
 	"""`before_save` hook: keep Internal Job records in sync with the booking's IJ-detail child rows.
 
@@ -655,6 +707,16 @@ def sync_internal_job_details_to_internal_jobs(doc: Any, *_method) -> None:
 		return
 	fieldname = internal_job_detail_fieldname(doc.doctype)
 	if not fieldname:
+		return
+	# Copy Quotation Services clones Linked Service docs then saves the quote.
+	# Skip orphan cleanup so an empty desk grid snapshot cannot delete those clones.
+	if getattr(getattr(doc, "flags", None), "_linked_services_copy_applied", False):
+		_ensure_internal_job_docs_for_detail_rows(doc)
+		return
+	# Sales Quote Services is a virtual grid. Duplicate, workflow, and other desk
+	# saves often post ``linked_services: []`` because the rows were cleared or never
+	# hydrated. That is not a request to delete the quote's Linked Services.
+	if _sales_quote_empty_services_grid_is_not_a_removal(doc):
 		return
 	prev_orphans: set[str] | None = None
 	if doc.doctype in _VIRTUAL_LINKED_SERVICE_PARENTS and doc.name:

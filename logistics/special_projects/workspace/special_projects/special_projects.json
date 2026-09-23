@@ -1,9 +1,14 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"Epcgo8syf-\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"OJckNEOQxF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"3UR6TgyJ4n\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project\",\"col\":3}},{\"id\":\"V9-d61oTwq\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Order\",\"col\":3}},{\"id\":\"M8rSH3agYI\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Job\",\"col\":3}},{\"id\":\"Eq5yEe_zeF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"ymlKuKw_Ww\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"6OwmEj07WP\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\",\"col\":12}},{\"id\":\"yd6DR7WF-p\",\"type\":\"card\",\"data\":{\"card_name\":\"Master Files\",\"col\":4}},{\"id\":\"HHXyJg2Fhb\",\"type\":\"card\",\"data\":{\"card_name\":\"Reference Files\",\"col\":4}},{\"id\":\"wLq7sIACjj\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"p1S1n8Hdvu\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"pfateLk1FL\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Report and Analytics</b></span>\",\"col\":12}},{\"id\":\"b8VydJRTS-\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational\",\"col\":4}}]",
+ "content": "[{\"id\":\"spDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Special Projects Operations Dashboard\",\"col\":12}},{\"id\":\"spOpsHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Project Operations</b></span>\",\"col\":12}},{\"id\":\"spScActive\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Active Projects\",\"col\":3}},{\"id\":\"spScUpcoming\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Upcoming\",\"col\":3}},{\"id\":\"spScOverdue\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Overdue\",\"col\":3}},{\"id\":\"spScSla\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"SLA Breached\",\"col\":3}},{\"id\":\"Epcgo8syf-\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"OJckNEOQxF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"3UR6TgyJ4n\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project\",\"col\":3}},{\"id\":\"V9-d61oTwq\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Order\",\"col\":3}},{\"id\":\"M8rSH3agYI\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project Job\",\"col\":3}},{\"id\":\"Eq5yEe_zeF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"ymlKuKw_Ww\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"6OwmEj07WP\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\",\"col\":12}},{\"id\":\"yd6DR7WF-p\",\"type\":\"card\",\"data\":{\"card_name\":\"Master Files\",\"col\":4}},{\"id\":\"HHXyJg2Fhb\",\"type\":\"card\",\"data\":{\"card_name\":\"Reference Files\",\"col\":4}},{\"id\":\"wLq7sIACjj\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"p1S1n8Hdvu\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"pfateLk1FL\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Report and Analytics</b></span>\",\"col\":12}},{\"id\":\"b8VydJRTS-\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational\",\"col\":4}}]",
  "creation": "2026-02-12 07:47:18.360199",
- "custom_blocks": [],
+ "custom_blocks": [
+  {
+   "custom_block_name": "Special Projects Operations Dashboard",
+   "label": "Special Projects Operations Dashboard"
+  }
+ ],
  "docstatus": 0,
  "doctype": "Workspace",
  "for_user": "",
@@ -244,7 +249,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-05-20 13:11:48.766064",
+ "modified": "2026-08-18 17:55:00.000000",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Special Projects",
@@ -256,6 +261,38 @@
  "roles": [],
  "sequence_id": 33.0,
  "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Active Projects",
+   "link_to": "Special Project",
+   "stats_filter": "[[\"Special Project\",\"status\",\"not in\",[\"Completed\",\"Cancelled\"]]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "List",
+   "label": "Upcoming",
+   "link_to": "Special Project",
+   "stats_filter": "[[\"Special Project\",\"status\",\"not in\",[\"Completed\",\"Cancelled\"]],[\"Special Project\",\"planned_start\",\">=\",frappe.datetime.get_today()]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Red",
+   "doc_view": "List",
+   "label": "Overdue",
+   "link_to": "Special Project",
+   "stats_filter": "[[\"Special Project\",\"status\",\"in\",[\"Draft\",\"Scoping\",\"Booked\",\"Planning\"]],[\"Special Project\",\"planned_start\",\"<\",frappe.datetime.get_today()]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Red",
+   "doc_view": "List",
+   "label": "SLA Breached",
+   "link_to": "Project Job",
+   "stats_filter": "[[\"Project Job\",\"sla_status\",\"=\",\"Breached\"]]",
+   "type": "DocType"
+  },
   {
    "color": "Grey",
    "doc_view": "List",

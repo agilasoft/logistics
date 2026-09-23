@@ -12,6 +12,8 @@ SALES_QUOTE_TO_BOOKING_CONTAINER_FIELDS = (
 	"mode",
 	"delivery_modes",
 	"free_time_days",
+	"demurrage_free_time_days",
+	"detention_free_time_days",
 )
 
 # Fields copied from Sea Booking Containers to Sea Freight Containers on convert.
@@ -31,6 +33,8 @@ BOOKING_TO_SHIPMENT_CONTAINER_FIELDS = (
 	"max_volume",
 	"utilization_percentage",
 	"free_time_days",
+	"demurrage_free_time_days",
+	"detention_free_time_days",
 )
 
 

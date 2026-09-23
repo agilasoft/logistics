@@ -1,0 +1,68 @@
+{
+ "actions": [],
+ "creation": "2026-08-06 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "day",
+  "operation",
+  "window_start",
+  "window_end",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "day",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Day",
+   "options": "Monday\nTuesday\nWednesday\nThursday\nFriday\nSaturday\nSunday",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "operation",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Operation",
+   "options": "Pick\nDrop",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "window_start",
+   "fieldtype": "Time",
+   "in_list_view": 1,
+   "label": "Start",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "window_end",
+   "fieldtype": "Time",
+   "in_list_view": 1,
+   "label": "End",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Remarks"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-06 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport",
+ "name": "Address Window Schedule",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

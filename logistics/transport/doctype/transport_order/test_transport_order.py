@@ -274,6 +274,34 @@ class TestTransportOrderChargeSubmitGate(FrappeTestCase):
 		order = frappe.get_doc({"doctype": "Transport Order", "is_internal_job": 1})
 		assert_destination_service_charges_on_submit_unless_internal_job(order)
 
+	def test_before_submit_allowed_time_sensitive_without_charges(self):
+		"""Time Sensitive Case legs may submit without Transport charge rows."""
+		from logistics.utils.charge_service_type import (
+			assert_destination_service_charges_on_submit_unless_internal_job,
+			throw_if_missing_destination_service_charge,
+		)
+
+		order = frappe.get_doc(
+			{
+				"doctype": "Transport Order",
+				"is_time_sensitive": 1,
+				"time_sensitive_case": "TSC-00008",
+			}
+		)
+		assert_destination_service_charges_on_submit_unless_internal_job(order)
+		throw_if_missing_destination_service_charge(order)
+
+	def test_before_submit_blocked_time_sensitive_checkbox_without_case(self):
+		"""Ticking is_time_sensitive without a case still requires Transport charges."""
+		from logistics.utils.charge_service_type import (
+			assert_destination_service_charges_on_submit_unless_internal_job,
+		)
+
+		order = frappe.get_doc({"doctype": "Transport Order", "is_time_sensitive": 1})
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			assert_destination_service_charges_on_submit_unless_internal_job(order)
+		self.assertIn("Transport", str(ctx.exception))
+
 
 class TestTransportOrderVehicleTypeFilter(FrappeTestCase):
 	def tearDown(self):
