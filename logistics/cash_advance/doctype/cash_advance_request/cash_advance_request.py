@@ -22,6 +22,7 @@ from logistics.cash_advance.doctype.cash_advance_settings.cash_advance_settings 
 )
 from logistics.cash_advance.job_charge_items import get_item_codes_for_job_number
 from logistics.cash_advance.job_number_rules import row_requires_job_number
+from logistics.cash_advance.doc_event_shadows import clear_doc_event_method_shadows
 from logistics.cash_advance.totals_sync import (
 	compute_unliquidated,
 	get_cash_advance_request_totals,
@@ -75,6 +76,7 @@ class CashAdvanceRequest(Document):
 		return getattr(self, cache_key)
 
 	def validate(self):
+		clear_doc_event_method_shadows(self)
 		self._validate_no_overdue_advance_for_payee()
 		self._validate_accounting_dimensions()
 		self._validate_fund_source_company()
