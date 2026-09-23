@@ -14,6 +14,8 @@ frappe.ui.form.on('Settlement Entry', {
 			frm.set_value('conversion_rate', 1);
 		}
 
+		recalculate_all_rows(frm);
+
 		if (frm.doc.settlement_group && frm.doc.company) {
 			frm.add_custom_button(__('Get Outstanding Transactions'), function() {
 				frappe.confirm(
@@ -80,10 +82,23 @@ frappe.ui.form.on('Settlement Entry', {
 
 	conversion_rate: function(frm) {
 		recalculate_totals(frm);
+	},
+
+	validate: function(frm) {
+		recalculate_all_rows(frm);
 	}
 });
 
 frappe.ui.form.on('Settlement Entry Transaction', {
+	reference_name: function(frm, cdt, cdn) {
+		let row = locals[cdt][cdn];
+		set_row_party_from_reference(row).then(function() {
+			return fetch_row_exchange_rate(frm, row);
+		}).then(function() {
+			recalculate_row(frm, cdt, cdn);
+		});
+	},
+
 	allocated_amount: function(frm, cdt, cdn) {
 		recalculate_row(frm, cdt, cdn);
 	},
@@ -126,7 +141,9 @@ function call_get_outstanding_transactions(frm) {
 						indicator: 'green'
 					}, 5);
 				}
-				frm.reload_doc();
+				frm.reload_doc().then(function() {
+					recalculate_all_rows(frm);
+				});
 			}
 		}
 	});
@@ -200,19 +217,90 @@ function refresh_row_exchange_rates(frm) {
 	});
 }
 
-function recalculate_row(frm, cdt, cdn) {
+function get_row_party_type(row) {
+	if (row.party_type) {
+		return row.party_type;
+	}
+	if (row.reference_doctype === 'Sales Invoice') {
+		return 'Customer';
+	}
+	if (row.reference_doctype === 'Purchase Invoice') {
+		return 'Supplier';
+	}
+	return row.party_type;
+}
+
+function get_row_settlement_amount(row) {
+	let amount = flt(row.allocated_amount_in_settlement_currency);
+	if (!amount && flt(row.allocated_amount)) {
+		amount = flt(row.allocated_amount) * flt(row.exchange_rate || 1);
+	}
+	return amount;
+}
+
+function set_row_party_from_reference(row) {
+	if (!row.reference_doctype || !row.reference_name) {
+		return Promise.resolve();
+	}
+	if (row.reference_doctype === 'Sales Invoice') {
+		return frappe.db.get_value('Sales Invoice', row.reference_name, ['customer', 'currency', 'conversion_rate'])
+			.then(function(r) {
+				if (!r || !r.message) {
+					return;
+				}
+				frappe.model.set_value(row.doctype, row.name, 'party_type', 'Customer');
+				frappe.model.set_value(row.doctype, row.name, 'party', r.message.customer);
+				if (!row.currency) {
+					frappe.model.set_value(row.doctype, row.name, 'currency', r.message.currency);
+				}
+				if (!flt(row.invoice_conversion_rate)) {
+					frappe.model.set_value(row.doctype, row.name, 'invoice_conversion_rate', r.message.conversion_rate || 1);
+				}
+			});
+	}
+	if (row.reference_doctype === 'Purchase Invoice') {
+		return frappe.db.get_value('Purchase Invoice', row.reference_name, ['supplier', 'currency', 'conversion_rate'])
+			.then(function(r) {
+				if (!r || !r.message) {
+					return;
+				}
+				frappe.model.set_value(row.doctype, row.name, 'party_type', 'Supplier');
+				frappe.model.set_value(row.doctype, row.name, 'party', r.message.supplier);
+				if (!row.currency) {
+					frappe.model.set_value(row.doctype, row.name, 'currency', r.message.currency);
+				}
+				if (!flt(row.invoice_conversion_rate)) {
+					frappe.model.set_value(row.doctype, row.name, 'invoice_conversion_rate', r.message.conversion_rate || 1);
+				}
+			});
+	}
+	return Promise.resolve();
+}
+
+function recalculate_all_rows(frm) {
+	(frm.doc.references || []).forEach(function(row) {
+		recalculate_row(frm, row.doctype, row.name, true);
+	});
+	recalculate_totals(frm);
+}
+
+function recalculate_row(frm, cdt, cdn, skip_totals) {
 	let row = locals[cdt][cdn];
-	let allocated_settlement = flt(row.allocated_amount) * flt(row.exchange_rate);
-	frappe.model.set_value(cdt, cdn, 'allocated_amount_in_settlement_currency', allocated_settlement);
+	let allocated_settlement = flt(row.allocated_amount) * flt(row.exchange_rate || 1);
+	if (flt(row.allocated_amount)) {
+		frappe.model.set_value(cdt, cdn, 'allocated_amount_in_settlement_currency', allocated_settlement);
+	}
 
 	let book = flt(row.allocated_amount) * flt(row.invoice_conversion_rate || 1);
 	let settled_base = allocated_settlement * flt(frm.doc.conversion_rate || 1);
 	let fx = settled_base - book;
-	if (row.party_type === 'Supplier') {
+	if (get_row_party_type(row) === 'Supplier') {
 		fx = book - settled_base;
 	}
 	frappe.model.set_value(cdt, cdn, 'exchange_gain_loss', fx);
-	recalculate_totals(frm);
+	if (!skip_totals) {
+		recalculate_totals(frm);
+	}
 }
 
 function recalculate_totals(frm) {
@@ -223,10 +311,11 @@ function recalculate_totals(frm) {
 		if (!flt(row.allocated_amount)) {
 			return;
 		}
-		let amount = flt(row.allocated_amount_in_settlement_currency);
-		if (row.party_type === 'Customer') {
+		let amount = get_row_settlement_amount(row);
+		let party_type = get_row_party_type(row);
+		if (party_type === 'Customer') {
 			total_receivable += amount;
-		} else if (row.party_type === 'Supplier') {
+		} else if (party_type === 'Supplier') {
 			total_payable += amount;
 		}
 		total_fx += flt(row.exchange_gain_loss);
