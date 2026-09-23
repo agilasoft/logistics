@@ -12,7 +12,6 @@ from frappe import _
 from frappe.utils import cint, flt
 
 from logistics.cash_advance.totals_sync import _sum_submitted_acknowledgments, get_release_journal_entry
-from logistics.job_management.recognition_engine import apply_journal_entry_posting_header_from_job
 from logistics.utils.item_accounts import get_expense_account_for_item  # re-export
 
 
@@ -184,18 +183,33 @@ def _first_line_job_number(source_doc) -> Optional[str]:
 
 def _posting_header_context(source_doc):
 	"""Resolve company/branch/job_number for mandatory Journal Entry posting header fields."""
-	if getattr(source_doc, "branch", None) or getattr(source_doc, "job_number", None):
-		return source_doc
-	jn = _first_line_job_number(source_doc)
-	if not jn:
-		return source_doc
-	ctx = frappe._dict(source_doc.as_dict())
-	ctx.job_number = jn
-	return ctx
+	company = getattr(source_doc, "company", None)
+	branch = getattr(source_doc, "branch", None)
+	if not branch and company:
+		try:
+			from logistics.api import get_default_branch
+
+			branch = get_default_branch(company=company)
+		except Exception:
+			pass
+	job_number = getattr(source_doc, "job_number", None) or _first_line_job_number(source_doc)
+	return frappe._dict(
+		{
+			"company": company,
+			"branch": branch,
+			"cost_center": getattr(source_doc, "cost_center", None),
+			"profit_center": getattr(source_doc, "profit_center", None),
+			"job_number": job_number,
+		}
+	)
 
 
 def _apply_je_posting_header(je, source_doc) -> None:
-	"""Populate site-specific mandatory Journal Entry header fields (e.g. Posting Company/Branch)."""
+	"""Populate site-specific mandatory Journal Entry posting header fields (e.g. Posting Company/Branch)."""
+	from logistics.job_management.recognition_engine import apply_journal_entry_posting_header_from_job
+
+	if not callable(apply_journal_entry_posting_header_from_job):
+		frappe.throw(_("Journal Entry posting header helper is not available."))
 	apply_journal_entry_posting_header_from_job(je, _posting_header_context(source_doc))
 
 
