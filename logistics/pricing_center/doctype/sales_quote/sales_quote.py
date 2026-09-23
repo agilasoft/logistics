@@ -2346,6 +2346,11 @@ def _create_transport_order_from_sales_quote(
 		blanket_call_off=blanket_call_off,
 		selected_charge_row_names=selected_charge_row_names,
 	)
+	from logistics.utils.sales_quote_charge_copy import (
+		sync_operational_charges_scope_from_sales_quote,
+	)
+
+	sync_operational_charges_scope_from_sales_quote(transport_order, sales_quote)
 	if not blanket_call_off:
 		record_one_off_quote_conversion(sales_quote.name, "Transport Order", transport_order.name)
 

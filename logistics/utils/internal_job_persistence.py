@@ -629,6 +629,11 @@ def reconcile_orphan_charge_internal_job_links(
 						setattr(row, "charge_scope", CHARGE_SCOPE_MAIN)
 			continue
 		if linked_service_record_exists(cur):
+			if has_scope_field and not is_linked_charge_scope(scope):
+				if isinstance(row, dict):
+					row["charge_scope"] = CHARGE_SCOPE_LINKED
+				else:
+					setattr(row, "charge_scope", CHARGE_SCOPE_LINKED)
 			continue
 		replacement = remap.get(cur)
 		if not replacement:
