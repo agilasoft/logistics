@@ -115,7 +115,6 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Profit Center",
-   "link_filters": "[[\"Profit Center\", \"company\", \"=\", \"eval:doc.company\"]]",
    "options": "Profit Center"
   },
   {

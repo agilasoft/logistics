@@ -610,6 +610,8 @@ logistics.patches.v3_0_delivery_receipt_html_letterhead_header
 logistics.patches.v3_0_delivery_receipt_html_letterhead_table
 # Delivery Receipt HTML: restore Sales Invoice header layout
 logistics.patches.v3_0_delivery_receipt_html_match_si_header
+# Delivery Receipt HTML: omit shipper and consignee address lines
+logistics.patches.v3_0_delivery_receipt_html_no_party_addresses
 # Sales Quote HTML: print Warehousing child table charges
 logistics.patches.v3_0_sales_quote_html_warehousing_charges
 # Sea Booking HTML: match Sales Invoice header layout
@@ -680,4 +682,12 @@ logistics.patches.v3_0_sea_manifest_html_master_content
 logistics.patches.v3_0_sea_manifest_html_layout
 # Sea Manifest HTML: Master Shipment Manifest fields
 logistics.patches.v3_0_sea_manifest_html_master_fields
+# MICE Project: MICE Project Manifest print format
+logistics.patches.v3_0_install_mice_project_manifest_print_format
+# MICE Project Manifest HTML: landscape PDF and print preview width
+logistics.patches.v3_0_mice_project_manifest_html_landscape
+# MICE Project Manifest HTML: gray header bar without vertical dividers
+logistics.patches.v3_0_mice_project_manifest_table_header_style
+# MICE Project Manifest HTML: open body rows with horizontal dividers only
+logistics.patches.v3_0_mice_project_manifest_table_body_style
 
