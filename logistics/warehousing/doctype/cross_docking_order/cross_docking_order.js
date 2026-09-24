@@ -95,9 +95,9 @@ frappe.ui.form.on('Cross-Docking Order', {
         const row = locals[cdt][cdn] || {};
         const filters = [];
         if (row.direction === "Outbound") {
-          filters.push(["Dock Door", "outbound", "=", 1]);
+          filters.push(["outbound", "=", 1]);
         } else {
-          filters.push(["Dock Door", "inbound", "=", 1]);
+          filters.push(["inbound", "=", 1]);
         }
         return { filters };
       });

@@ -672,7 +672,7 @@ def _create_sea_booking(
 	if hasattr(doc, "_normalize_charges_before_save"):
 		doc._normalize_charges_before_save()
 	doc.flags.ignore_mandatory = True
-	doc.save(ignore_permissions=True, ignore_mandatory=True)
+	doc.save(ignore_permissions=True)
 	_propagate_subsidiary_linked_services(sq_doc, doc)
 	frappe.db.commit()
 	return {"sea_booking": doc.name, "message": _("Sea Booking {0} created.").format(doc.name)}

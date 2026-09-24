@@ -400,6 +400,7 @@ jinja = {
 		"logistics.print_format.sales_invoice.dsb_line_items.get_sales_invoice_print_items",
 		"logistics.print_format.sales_invoice.vat_sales_summary.get_vat_sales_summary",
 		"logistics.print_format.sales_invoice.vat_sales_summary.item_is_zero_rated_or_exempt",
+		"logistics.mice.print_format.mice_project_manifest.mice_project_manifest.get_mice_project_manifest_rows",
 	]
 }
 
