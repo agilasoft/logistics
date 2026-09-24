@@ -638,4 +638,46 @@ logistics.patches.v3_0_create_recognition_accounts
 logistics.patches.v3_0_payment_entry_html_service_invoice_type
 # Journal Entry HTML: BIR footer disclaimer "not valid for claim of input tax"
 logistics.patches.v3_0_journal_entry_html_bir_disclaimer
+# Sales Invoice HTML: omit Disbursement charge lines from the item table
+logistics.patches.v3_0_sales_invoice_html_hide_disbursement_lines
+# Sales Invoice HTML: omit 95/5 Taxable Freight Item lines from the item table
+logistics.patches.v3_0_sales_invoice_html_hide_taxable_freight_item
+# Disbursement Bill HTML: pin VAT summary and footer to the page bottom
+logistics.patches.v3_0_disbursement_bill_html_pin_footer
+# Disbursement Bill HTML: keep VAT summary and footer under the item table
+logistics.patches.v3_0_disbursement_bill_html_footer_under_table
+# Disbursement Bill HTML: close the gap between the item table and VAT summary
+logistics.patches.v3_0_disbursement_bill_html_close_vat_gap
+# Disbursement Bill HTML: pin VAT summary and footer to the bottom of the same page
+logistics.patches.v3_0_disbursement_bill_html_pin_footer_same_page
+# Sales Invoice HTML: show the exchange rate under Packages
+logistics.patches.v3_0_sales_invoice_html_exchange_rate
+# Sea Shipment: Arrival Notice HTML print format
+logistics.patches.v3_0_install_arrival_notice_html_print_format
+# Arrival Notice HTML: match the Sales Invoice letterhead
+logistics.patches.v3_0_arrival_notice_html_letterhead
+# Arrival Notice HTML: Job Information block for shipment details
+logistics.patches.v3_0_arrival_notice_html_job_information
+# Arrival Notice HTML: customer and QR block under the letterhead
+logistics.patches.v3_0_arrival_notice_html_customer_block
+# Arrival Notice HTML: shipment-details label grid
+logistics.patches.v3_0_arrival_notice_html_detail_grid
+# Arrival Notice HTML: one Shipment Details section for every detail
+logistics.patches.v3_0_arrival_notice_html_shipment_details
+# Arrival Notice HTML: Shipment Details uses the Invoice Information layout
+logistics.patches.v3_0_arrival_notice_html_info_block
+# Arrival Notice HTML: routing, containers, marks, and sign-off
+logistics.patches.v3_0_arrival_notice_html_routing
+# Arrival Notice HTML: Routing Information shows only the Main leg
+logistics.patches.v3_0_arrival_notice_html_main_leg
+# Sea Shipment: Sea Manifest HTML print format
+logistics.patches.v3_0_install_sea_manifest_html_print_format
+# Sea Manifest HTML: landscape Air Freight Manifest layout
+logistics.patches.v3_0_sea_manifest_html_air_layout
+# Sea Manifest HTML: Master Shipment Manifest content
+logistics.patches.v3_0_sea_manifest_html_master_content
+# Sea Manifest HTML: landscape Air Freight Manifest layout
+logistics.patches.v3_0_sea_manifest_html_layout
+# Sea Manifest HTML: Master Shipment Manifest fields
+logistics.patches.v3_0_sea_manifest_html_master_fields
 

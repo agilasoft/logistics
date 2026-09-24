@@ -1,0 +1,1 @@
+# Install: bench execute logistics.sea_freight.print_format.arrival_notice_html.install_print_format.install_arrival_notice_html_print_format

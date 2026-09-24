@@ -1055,9 +1055,11 @@
             <strong>Wrong print format.</strong> This format is for <strong>Sales Invoice</strong> only. Use the Payment Entry print format for Payment Entry.
         </div>
         {% else %}
-        <div class="receipt-container" data-item-count="{{ doc.items|length if doc.items else 0 }}">
             {% set invoice_type_val = (doc.custom_invoice_type or doc.invoice_type or '')|upper|trim %}
             {% set is_dsb = (invoice_type_val == 'DSB' or invoice_type_val == 'DISBURSEMENT BILL' or 'DSB' in invoice_type_val) %}
+            {% set print_items = (doc.items or []) if is_dsb else get_sales_invoice_print_items(doc) %}
+            {% set use_visible_line_totals = (not is_dsb) and (print_items|length < (doc.items|length if doc.items else 0)) %}
+        <div class="receipt-container" data-item-count="{{ print_items|length if print_items else 0 }}">
             {% set is_crd = (invoice_type_val == 'CRD' or invoice_type_val == 'CREDIT NOTE' or 'CRD' in invoice_type_val or doc.is_return) %}
             {% set is_dbt = (doc.is_debit_note or invoice_type_val == 'DBT' or invoice_type_val == 'DEBIT NOTE' or 'DBT' in invoice_type_val) %}
             {# CRD: tax summary when taxes include VAT / Vatable / Zero-rated / Exempt #}
@@ -1349,6 +1351,13 @@
             {{ job.total_packages|int }}{% set ns_pkg = namespace(uom="") %}{% for p in job.packages or [] %}{% if not ns_pkg.uom and p.uom %}{% set ns_pkg.uom = p.uom %}{% endif %}{% endfor %}{% if ns_pkg.uom %} {{ ns_pkg.uom }}{% endif %}
             {%- else -%}-{%- endif -%}
             {%- endmacro %}
+            {% macro exchange_rate_line() -%}
+            {%- set rate = doc.get('conversion_rate') -%}
+            {%- if rate is not none and rate != '' -%}
+            {%- set rate_text = '%f'|format(rate|float) -%}
+            {{ rate_text.rstrip('0').rstrip('.') }}
+            {%- else -%}-{%- endif -%}
+            {%- endmacro %}
             {% macro warehouse_item_line(job) -%}
             {%- set ns_it = namespace(qty=0, uom="", has_items=false, rows=job.orders if job.orders else (job.items or [])) -%}
             {%- for row in ns_it.rows -%}
@@ -1544,6 +1553,7 @@
                             <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(job_doc, job_doc.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
                             <div class="field-row"><div class="field-label">CHARGEABLE</div><div class="field-value">{{ measure_line(job_doc, job_doc.chargeable, "chargeable_weight_uom", "weight_uom", "default_chargeable_weight_uom", "default_weight_uom") }}</div></div>
                             <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(job_doc) }}</div></div>
+                            <div class="field-row"><div class="field-label">EXCHANGE RATE</div><div class="field-value">{{ exchange_rate_line() }}</div></div>
                             {% elif job_type == "Sea Shipment" %}
                             <div class="field-row"><div class="field-label">HBL</div><div class="field-value">{{ job_doc.house_bl or "-" }}</div></div>
                             <div class="field-row"><div class="field-label">MBL</div><div class="field-value">{{ job_doc.master_bill or "-" }}</div></div>
@@ -1551,15 +1561,18 @@
                             <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(job_doc, job_doc.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
                             <div class="field-row"><div class="field-label">CHARGEABLE</div><div class="field-value">{{ measure_line(job_doc, job_doc.chargeable, "chargeable_weight_uom", "weight_uom", "default_chargeable_weight_uom", "default_weight_uom") }}</div></div>
                             <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(job_doc) }}</div></div>
+                            <div class="field-row"><div class="field-label">EXCHANGE RATE</div><div class="field-value">{{ exchange_rate_line() }}</div></div>
                             {% elif job_type == "Transport Job" %}
                             <div class="field-row"><div class="field-label">WEIGHT</div><div class="field-value">{{ measure_line(tj_cargo, tj_cargo.total_weight, "total_weight_uom", "weight_uom", "default_weight_uom") }}</div></div>
                             <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(tj_cargo, tj_cargo.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
                             <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(tj_cargo) }}</div></div>
+                            <div class="field-row"><div class="field-label">EXCHANGE RATE</div><div class="field-value">{{ exchange_rate_line() }}</div></div>
                             {% elif job_type in mice_job_types %}
                             <div class="field-row"><div class="field-label">WEIGHT</div><div class="field-value">{{ measure_line(mice_ns.cargo, mice_ns.cargo.total_weight, "total_weight_uom", "weight_uom", "default_weight_uom") }}</div></div>
                             <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(mice_ns.cargo, mice_ns.cargo.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
                             <div class="field-row"><div class="field-label">CHARGEABLE</div><div class="field-value">{{ measure_line(mice_ns.cargo, mice_ns.cargo.chargeable, "chargeable_weight_uom", "weight_uom", "default_chargeable_weight_uom", "default_weight_uom") }}</div></div>
                             <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(mice_ns.cargo) }}</div></div>
+                            <div class="field-row"><div class="field-label">EXCHANGE RATE</div><div class="field-value">{{ exchange_rate_line() }}</div></div>
                             {% elif job_type == "General Job" %}
                             <div class="field-row"><div class="field-label">DATE</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.posting_date, 'MM-dd-yyyy') if job_doc.get('posting_date') else "-" }}</div></div>
                             {% elif job_type == "Declaration" or job_type == "Customer Declaration" %}
@@ -1611,9 +1624,9 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% if doc.items %}
+                        {% if print_items %}
                             {% set currency = doc.currency or 'PHP' %}
-                            {% for item in doc.items %}
+                            {% for item in print_items %}
                                 {% set item_net = item.net_amount or 0 %}
                                 {% if item.item_tax_template %}
                                     {% set item_tax_amount = item.custom_tax_amount if item.custom_tax_amount is not none else (item.tax_amount if item.tax_amount is not none else 0) %}
@@ -1661,7 +1674,7 @@
                         <div class="vat-left-column">
                             {% set currency = doc.currency or 'PHP' %}
                             {# Vatable / Exempt / Zero-rated Sales from Sales Taxes and Charges Template #}
-                            {% set vat = get_vat_sales_summary(doc) %}
+                            {% set vat = get_vat_sales_summary(doc, print_items) if use_visible_line_totals else get_vat_sales_summary(doc) %}
                             {% set _vatable = vat.vatable_sales|abs if is_crd else vat.vatable_sales %}
                             {% set _exempt = vat.exempt_sales|abs if is_crd else vat.exempt_sales %}
                             {% set _zero_rated = vat.zero_rated_sales|abs if is_crd else vat.zero_rated_sales %}
@@ -1702,16 +1715,16 @@
                                     {% endif %}
                                 {% endfor %}
                             {% endif %}
-                            {% set vat_amount = ns_vat.vat_amount %}
+                            {% set vat_amount = ns_line.tax if use_visible_line_totals else ns_vat.vat_amount %}
                             {% set withholding_tax = ns_vat.withholding_tax %}
-                            {% if not vat_amount %}
+                            {% if not use_visible_line_totals and not vat_amount %}
                                 {% set vat_amount = (doc.get('total_taxes_and_charges') or 0) - withholding_tax %}
                             {% endif %}
                             {% set withholding_tax_display = withholding_tax|abs %}
-                            {% set net_of_vat = doc.get('net_total') or 0 %}
+                            {% set net_of_vat = ns_line.net if use_visible_line_totals else (doc.get('net_total') or 0) %}
                             {# VAT Inclusive = sum of (Net Amount + Tax); Total Amount column is Net Amount only #}
                             {% set total_sales_vat_inclusive = ns_line.total %}
-                            {% set sc_pwd_discount = (doc.get('discount_amount') or 0) %}
+                            {% set sc_pwd_discount = 0 if use_visible_line_totals else (doc.get('discount_amount') or 0) %}
                             {% set amount_due = net_of_vat - sc_pwd_discount %}
                             {# Total = Amount Due + VAT (after SC/PWD). Last Amount = Total - WHT, not grand_total. #}
                             {% set total_amount = amount_due + vat_amount %}

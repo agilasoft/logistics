@@ -469,6 +469,7 @@
   },
   {
    "fieldname": "branch",
+   "link_filters": "[[\"Branch\", \"custom_company\", \"=\", \"eval:doc.company\"]]",
    "fieldtype": "Link",
    "label": "Branch",
    "options": "Branch"

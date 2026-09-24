@@ -132,10 +132,11 @@ def _merge_creation_parameters(row: Any, creation_parameters: Any) -> Any:
 			base = {k: getattr(row, k, None) for k in _LIFECYCLE_JOB_COPY_FIELDS if hasattr(row, k)}
 	merged = frappe._dict(base)
 	for k, v in (_parse_creation_parameters(creation_parameters) or {}).items():
-		if k in _LIFECYCLE_JOB_COPY_FIELDS or k in parameter_fields_for_service_type(
-			(getattr(row, "service_type", None) or "").strip()
-		):
-			merged[k] = v
+		if k == "charge_group":
+			continue
+		if v is None or (isinstance(v, str) and not v.strip()):
+			continue
+		merged[k] = v
 	return merged
 
 
@@ -157,6 +158,8 @@ def _resolve_scoped_creation_params(
 	scoped = extract_service_scoped_params_dict(parsed, service_label)
 	if not scoped and parsed_params is None:
 		scoped = suggested_parameters_from_programme_charges(sp_doc, service_label)
+	if scoped:
+		merged_row = _merge_creation_parameters(merged_row or row, scoped)
 	return service_label, scoped, merged_row or row
 
 
@@ -1404,6 +1407,7 @@ def _create_air_booking(
 	shipment_lines: Any = None,
 	creation_parameters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+	row = _merge_creation_parameters(row, creation_parameters)
 	doc = frappe.new_doc("Air Booking")
 	_apply_special_project_context(
 		doc, sp_doc, lifecycle_row=row, job_type="Air Booking", creation_parameters=creation_parameters
@@ -1431,6 +1435,7 @@ def _create_sea_booking(
 	shipment_lines: Any = None,
 	creation_parameters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+	row = _merge_creation_parameters(row, creation_parameters)
 	doc = frappe.new_doc("Sea Booking")
 	_apply_special_project_context(
 		doc, sp_doc, lifecycle_row=row, job_type="Sea Booking", creation_parameters=creation_parameters
@@ -1463,6 +1468,7 @@ def _create_transport_order(
 		set_internal_transport_order_draft_insert_flags,
 	)
 
+	row = _merge_creation_parameters(row, creation_parameters)
 	order = frappe.new_doc("Transport Order")
 	_apply_special_project_context(
 		order,
@@ -1499,6 +1505,7 @@ def _create_declaration_order(
 	shipment_lines: Any = None,
 	creation_parameters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+	row = _merge_creation_parameters(row, creation_parameters)
 	order = frappe.new_doc("Declaration Order")
 	_apply_special_project_context(
 		order,
@@ -1533,6 +1540,7 @@ def _create_inbound_order(
 	shipment_lines: Any = None,
 	creation_parameters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+	row = _merge_creation_parameters(row, creation_parameters)
 	order = frappe.new_doc("Inbound Order")
 	_apply_special_project_context(
 		order,
@@ -1560,6 +1568,7 @@ def _create_cross_docking_order(
 	shipment_lines: Any = None,
 	creation_parameters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+	row = _merge_creation_parameters(row, creation_parameters)
 	order = frappe.new_doc("Cross-Docking Order")
 	_apply_special_project_context(
 		order,

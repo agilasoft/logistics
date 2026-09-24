@@ -241,7 +241,7 @@
    "fieldtype": "Link",
    "label": "Cost Center",
    "options": "Cost Center",
-   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0], [\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"]]"
   },
   {
    "fieldname": "section_break_journal",
