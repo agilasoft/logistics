@@ -342,6 +342,9 @@ class SalesQuote(Document):
 			"linked_service",
 			"service_type",
 			"company",
+			"branch",
+			"cost_center",
+			"profit_center",
 		}
 		for fn in (
 			"air_house_type",

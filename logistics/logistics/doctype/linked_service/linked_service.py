@@ -115,6 +115,9 @@ _DIALOG_EDIT_FIELDS = {
 	"Air": [
 		"service_type",
 		"company",
+		"branch",
+		"cost_center",
+		"profit_center",
 		"airline",
 		"origin_port",
 		"destination_port",
@@ -126,6 +129,9 @@ _DIALOG_EDIT_FIELDS = {
 	"Sea": [
 		"service_type",
 		"company",
+		"branch",
+		"cost_center",
+		"profit_center",
 		"shipping_line",
 		"origin_port",
 		"destination_port",
@@ -137,6 +143,9 @@ _DIALOG_EDIT_FIELDS = {
 	"Transport": [
 		"service_type",
 		"company",
+		"branch",
+		"cost_center",
+		"profit_center",
 		"location_type",
 		"location_from",
 		"location_to",
@@ -149,6 +158,9 @@ _DIALOG_EDIT_FIELDS = {
 	"Customs": [
 		"service_type",
 		"company",
+		"branch",
+		"cost_center",
+		"profit_center",
 		"customs_authority",
 		"declaration_type",
 		"customs_broker",
@@ -158,7 +170,15 @@ _DIALOG_EDIT_FIELDS = {
 	],
 }
 
-_DIALOG_EDIT_DEFAULT_FIELDS = ["service_type", "company", "reference_no", "notes"]
+_DIALOG_EDIT_DEFAULT_FIELDS = [
+	"service_type",
+	"company",
+	"branch",
+	"cost_center",
+	"profit_center",
+	"reference_no",
+	"notes",
+]
 
 
 def _dialog_edit_fieldnames(service_type: str) -> list[str]:

@@ -77,6 +77,30 @@ class TestLinkedServiceCompany(unittest.TestCase):
 		self.assertEqual(doc.branch, "BR-1")
 		sync.assert_called_once_with(doc, "Op Co")
 
+	def test_apply_copies_scoped_fields_from_linked_service(self):
+		meta = _meta_with_fields("company", "branch", "cost_center", "profit_center")
+		doc = _doc(company="Main Co", branch="BR-MAIN", cost_center="CC-MAIN", profit_center="PC-MAIN")
+		row = frappe._dict(
+			doctype="Linked Service",
+			name="LS-1",
+			company="Op Co",
+			branch="BR-OP",
+			cost_center="CC-OP",
+			profit_center="PC-OP",
+		)
+		with patch("logistics.utils.linked_service_company.frappe.get_meta", return_value=meta):
+			with patch(
+				"logistics.utils.linked_service_company._link_belongs_to_company",
+				return_value=True,
+			):
+				with patch(
+					"logistics.utils.linked_service_company.sync_company_scoped_fields_on_operational_doc"
+				):
+					apply_linked_service_company_to_operational_doc(doc, row, overwrite=True)
+		self.assertEqual(doc.branch, "BR-OP")
+		self.assertEqual(doc.cost_center, "CC-OP")
+		self.assertEqual(doc.profit_center, "PC-OP")
+
 	def test_apply_requires_company_when_quote_linked_service_has_none(self):
 		meta = _meta_with_fields("company")
 		doc = _doc(company="Main Co", sales_quote="SQU-1")

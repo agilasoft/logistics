@@ -10,6 +10,9 @@
   "naming_series",
   "service_type",
   "company",
+  "branch",
+  "cost_center",
+  "profit_center",
   "section_break_parent",
   "parent_booking_type",
   "column_break_parent",
@@ -83,6 +86,30 @@
    "in_standard_filter": 1,
    "label": "Company",
    "options": "Company"
+  },
+  {
+   "description": "Branch for this service's operating company. Copied onto the booking created from this Linked Service.",
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "link_filters": "[[\"Branch\", \"custom_company\", \"=\", \"eval:doc.company\"]]",
+   "options": "Branch"
+  },
+  {
+   "description": "Cost Center for this service's operating company. Copied onto the booking created from this Linked Service.",
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "options": "Cost Center"
+  },
+  {
+   "description": "Profit Center for this service's operating company. Copied onto the booking created from this Linked Service.",
+   "fieldname": "profit_center",
+   "fieldtype": "Link",
+   "label": "Profit Center",
+   "link_filters": "[[\"Profit Center\", \"company\", \"=\", \"eval:doc.company\"]]",
+   "options": "Profit Center"
   },
   {
    "fieldname": "section_break_parent",
@@ -413,7 +440,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-10 00:00:00.000000",
+ "modified": "2026-09-24 11:40:00.000000",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Linked Service",
