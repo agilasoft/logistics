@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 import frappe
+from frappe.utils import flt
 
 
 def extend_charge_fields_with_scope_and_internal_job(fields: list[str]) -> list[str]:
@@ -30,8 +31,13 @@ def apply_scope_tagging_to_mapped_charge(source_row: Any, target_dict: dict) -> 
 	``source_row`` may be a dict (from ``frappe.get_all``) or a document-like object. The
 	linked-service name on the source is the Sales-Quote-side record; the booking-side conversion
 	runs ``remap_internal_job_links_on_booking_charges`` later to keep scope in sync on the booking.
+
+	When ``linked_service`` / ``internal_job`` is set on the source but ``charge_scope`` is blank
+	or ``Main`` (legacy rows), scope is treated as ``Linked`` so conversion does not drop the link.
 	"""
 	from logistics.utils.linked_service_compat import (
+		CHARGE_SCOPE_LINKED,
+		CHARGE_SCOPE_MAIN,
 		charge_row_linked_service_link,
 		is_linked_charge_scope,
 		normalize_charge_scope,
@@ -42,16 +48,17 @@ def apply_scope_tagging_to_mapped_charge(source_row: Any, target_dict: dict) -> 
 			return source_row.get(key, default)
 		return getattr(source_row, key, default)
 
-	scope = normalize_charge_scope(_get("charge_scope"))
-	target_dict["charge_scope"] = scope
-	if not is_linked_charge_scope(_get("charge_scope")):
-		return
+	raw_scope = _get("charge_scope")
 	ls = charge_row_linked_service_link(source_row)
-	if not ls:
+	if is_linked_charge_scope(raw_scope) or ls:
+		target_dict["charge_scope"] = CHARGE_SCOPE_LINKED
+		if ls:
+			target_dict["linked_service"] = ls
+			if "internal_job" not in target_dict:
+				target_dict["internal_job"] = ls
 		return
-	target_dict["linked_service"] = ls
-	if "internal_job" not in target_dict:
-		target_dict["internal_job"] = ls
+
+	target_dict["charge_scope"] = normalize_charge_scope(raw_scope) or CHARGE_SCOPE_MAIN
 
 
 def filter_charge_rows_by_names(rows, charge_row_names: list[str] | None):
@@ -541,3 +548,82 @@ def stamp_main_or_internal_job_scope_on_booking_charges(parent_doc: Any) -> None
 			continue
 		if has_scope_field and not current_scope:
 			setattr(row, "charge_scope", CHARGE_SCOPE_MAIN)
+
+
+def _charge_row_match_key(row: Any) -> tuple:
+	"""Stable match key for aligning Sales Quote charges with operational charge rows."""
+	item = (_row_field(row, "item_code") or "").strip()
+	service = (_row_field(row, "service_type") or "").strip()
+	rate = flt(_row_field(row, "unit_rate"))
+	return (item, service, rate)
+
+
+def sync_operational_charges_scope_from_sales_quote(
+	operational_doc: Any, sales_quote_doc: Any
+) -> bool:
+	"""Re-apply ``charge_scope`` / ``linked_service`` from Sales Quote Charge onto *operational_doc*.
+
+	Used after Sales Quote → booking/order conversion once Linked Services are attached, so charge
+	rows are not left as ``Main`` when the quote tagged them to a Linked Service.
+	"""
+	if not operational_doc or not sales_quote_doc:
+		return False
+	op_rows = list(getattr(operational_doc, "charges", None) or [])
+	if not op_rows:
+		return False
+
+	sq_name = getattr(sales_quote_doc, "name", None) or sales_quote_doc
+	if isinstance(sq_name, str) and not frappe.db.exists("Sales Quote", sq_name):
+		return False
+	if isinstance(sq_name, str):
+		sq_doc = frappe.get_doc("Sales Quote", sq_name)
+	else:
+		sq_doc = sales_quote_doc
+
+	sq_rows = list(getattr(sq_doc, "charges", None) or [])
+	if not sq_rows:
+		return False
+
+	from logistics.utils.linked_service_compat import charge_row_linked_service_link
+
+	available: dict[tuple, list[Any]] = {}
+	for sq_row in sq_rows:
+		key = _charge_row_match_key(sq_row)
+		available.setdefault(key, []).append(sq_row)
+
+	changed = False
+	for op_row in op_rows:
+		key = _charge_row_match_key(op_row)
+		candidates = available.get(key) or []
+		if not candidates:
+			continue
+		sq_row = candidates.pop(0)
+		before_scope = getattr(op_row, "charge_scope", None)
+		before_ls = charge_row_linked_service_link(op_row)
+		payload: dict = {}
+		apply_scope_tagging_to_mapped_charge(sq_row, payload)
+		if not payload:
+			continue
+		if payload.get("charge_scope") and getattr(op_row, "charge_scope", None) != payload.get(
+			"charge_scope"
+		):
+			op_row.charge_scope = payload["charge_scope"]
+			changed = True
+		for fn in ("linked_service", "internal_job"):
+			if fn in payload and getattr(op_row, fn, None) != payload.get(fn):
+				setattr(op_row, fn, payload.get(fn))
+				changed = True
+		if (
+			getattr(op_row, "charge_scope", None) != before_scope
+			or charge_row_linked_service_link(op_row) != before_ls
+		):
+			changed = True
+
+	if not changed:
+		return False
+
+	operational_doc.flags.ignore_links = True
+	operational_doc.flags.ignore_validate_update_after_submit = True
+	operational_doc.save(ignore_permissions=True)
+	operational_doc.reload()
+	return True

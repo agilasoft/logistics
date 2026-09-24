@@ -1,4 +1,8 @@
 frappe.ui.form.on('Cash Advance Request', {
+	onload: function(frm) {
+		logistics_cash_advance_configure_liquidation_due_date_field(frm);
+	},
+
 	refresh: function(frm) {
 		logistics_cash_advance_set_fund_source_query(frm);
 		logistics_cash_advance_set_employee_advance_query(frm);
@@ -8,6 +12,7 @@ frappe.ui.form.on('Cash Advance Request', {
 			logistics_cash_advance_toggle_item_job_number(frm);
 		});
 
+		logistics_cash_advance_configure_liquidation_due_date_field(frm);
 		if (frm.doc.docstatus === 0 && frm.doc.date && frm.doc.company) {
 			logistics_cash_advance_set_default_liquidation_due_date(frm);
 		}
@@ -282,8 +287,16 @@ function logistics_cash_advance_clear_invalid_items(frm) {
 	});
 }
 
+function logistics_cash_advance_configure_liquidation_due_date_field(frm) {
+	if (!frm.fields_dict.liquidation_due_date) {
+		return;
+	}
+	var read_only = frm.doc.docstatus === 0;
+	frm.set_df_property('liquidation_due_date', 'read_only', read_only ? 1 : 0);
+}
+
 function logistics_cash_advance_set_default_liquidation_due_date(frm) {
-	if (!frm.doc || frm.doc.docstatus !== 0 || !frm.doc.date) {
+	if (!frm.doc || frm.doc.docstatus !== 0 || !frm.doc.date || !frm.doc.company) {
 		return;
 	}
 

@@ -7,6 +7,7 @@ from datetime import timedelta
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
+from frappe.tests import UnitTestCase
 from frappe.utils import now_datetime
 
 from logistics.time_sensitive.notifications import notify_case_event
@@ -50,6 +51,32 @@ class TestTimeSensitiveSLA(FrappeTestCase):
 		over = seconds_until_deadline(now - timedelta(minutes=5), now=now)
 		self.assertLess(over, 0)
 		self.assertTrue(format_countdown(over).startswith("OVERDUE"))
+
+
+class TestTimeSensitiveOrchestration(UnitTestCase):
+	def test_scope_row_for_ts_service_merges_quote_charge_parameters(self):
+		from logistics.time_sensitive.orchestration import _scope_row_for_ts_service
+
+		sq = frappe._dict(
+			name="SQ-TS-1",
+			origin_port="HKHKG",
+			destination_port="USLAX",
+			direction="Export",
+			charges=[
+				frappe._dict(
+					service_type="Air",
+					origin_port="SGSIN",
+					destination_port="USJFK",
+					air_house_type="Consol",
+				)
+			],
+		)
+		case = frappe._dict(origin="HKHKG", destination="USLAX")
+		row = _scope_row_for_ts_service(sq, "Air", case)
+		self.assertEqual(row.service_type, "Air")
+		self.assertEqual(row.origin_port, "SGSIN")
+		self.assertEqual(row.destination_port, "USJFK")
+		self.assertEqual(row.air_house_type, "Consol")
 
 
 class TestTimeSensitiveCaseLifecycle(FrappeTestCase):

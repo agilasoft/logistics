@@ -493,6 +493,7 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	setup(frm) {
+		logistics_sq_set_company_dimension_queries(frm);
 		if (logistics.lifecycle && logistics.lifecycle.setup_queries) {
 			logistics.lifecycle.setup_queries(frm);
 		}
@@ -527,6 +528,8 @@ frappe.ui.form.on("Sales Quote", {
 		if (frm.doc.date) {
 			_set_valid_until_from_settings(frm);
 		}
+		logistics_sq_set_company_dimension_queries(frm);
+		logistics_sq_clear_mismatched_company_dimensions(frm);
 		frm.events._check_direction_port_alignment(frm);
 		frm.events.refresh_estimated_profitability(frm);
 	},
@@ -1130,6 +1133,7 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	refresh(frm) {
+		logistics_sq_set_company_dimension_queries(frm);
 		setTimeout(function () {
 			try {
 				logistics_sq_add_convert_buttons(frm);
@@ -2605,7 +2609,77 @@ function show_precreate_review_dialog(frm, config) {
 	dialog.fields_dict.review_info_html.$wrapper.html(
 		`<div class="text-muted">${intro}</div>`
 	);
+	logistics_sq_bind_dialog_dimension_queries(dialog, frm);
 	dialog.show();
+}
+
+/** Company field on Branch / Cost Center used to scope link searches. Profit Center is not company-scoped. */
+function logistics_sq_linked_company_field(doctype) {
+	if (frappe.meta.has_field(doctype, "company")) return "company";
+	if (frappe.meta.has_field(doctype, "custom_company")) return "custom_company";
+	return null;
+}
+
+function logistics_sq_company_dimension_query(doctype, get_company, extra_filters) {
+	return function () {
+		const filters = Object.assign({}, extra_filters || {});
+		const company = (typeof get_company === "function" ? get_company() : get_company) || "";
+		const company_field = logistics_sq_linked_company_field(doctype);
+		if (company && company_field) {
+			filters[company_field] = company;
+		}
+		return { filters };
+	};
+}
+
+function logistics_sq_set_company_dimension_queries(frm) {
+	const company = function () {
+		return frm.doc.company;
+	};
+	frm.set_query("branch", logistics_sq_company_dimension_query("Branch", company));
+	frm.set_query(
+		"cost_center",
+		logistics_sq_company_dimension_query("Cost Center", company, { is_group: 0, disabled: 0 })
+	);
+}
+
+function logistics_sq_clear_mismatched_company_dimensions(frm) {
+	const company = frm.doc.company;
+	if (!company) return;
+	[
+		["branch", "Branch"],
+		["cost_center", "Cost Center"],
+	].forEach(function (pair) {
+		const fieldname = pair[0];
+		const doctype = pair[1];
+		const value = frm.doc[fieldname];
+		if (!value) return;
+		const company_field = logistics_sq_linked_company_field(doctype);
+		if (!company_field) return;
+		frappe.db.get_value(doctype, value, company_field, function (r) {
+			const linked_company = r && r[company_field];
+			if (linked_company && linked_company !== company && frm.doc.company === company) {
+				frm.set_value(fieldname, "");
+			}
+		});
+	});
+}
+
+function logistics_sq_bind_dialog_dimension_queries(dialog, frm) {
+	const get_company = function () {
+		if (dialog.fields_dict && dialog.fields_dict.company) {
+			return dialog.get_value("company") || (frm.doc && frm.doc.company) || "";
+		}
+		return (frm.doc && frm.doc.company) || "";
+	};
+	[
+		["branch", "Branch", null],
+		["cost_center", "Cost Center", { is_group: 0, disabled: 0 }],
+	].forEach(function (spec) {
+		const ctrl = dialog.fields_dict && dialog.fields_dict[spec[0]];
+		if (!ctrl) return;
+		ctrl.get_query = logistics_sq_company_dimension_query(spec[1], get_company, spec[2]);
+	});
 }
 
 function show_transport_order_confirmation(frm) {
@@ -2617,7 +2691,7 @@ function show_transport_order_confirmation(frm) {
 			{ fieldname: "company", fieldtype: "Link", label: __("Company"), options: "Company", default: frm.doc.company || "" },
 			{ fieldname: "branch", fieldtype: "Link", label: __("Branch"), options: "Branch", default: frm.doc.branch || "" },
 			{ fieldname: "cost_center", fieldtype: "Link", label: __("Cost Center"), options: "Cost Center", default: frm.doc.cost_center || "" },
-			{ fieldname: "profit_center", fieldtype: "Link", label: __("Profit Center"), options: "Cost Center", default: frm.doc.profit_center || "" },
+			{ fieldname: "profit_center", fieldtype: "Link", label: __("Profit Center"), options: "Profit Center", default: frm.doc.profit_center || "" },
 			{
 				fieldname: "location_type",
 				fieldtype: "Link",
@@ -3105,7 +3179,7 @@ function show_declaration_order_confirmation(frm) {
 					{ fieldname: "company", fieldtype: "Link", label: __("Company"), options: "Company", default: defaults.company },
 					{ fieldname: "branch", fieldtype: "Link", label: __("Branch"), options: "Branch", default: defaults.branch },
 					{ fieldname: "cost_center", fieldtype: "Link", label: __("Cost Center"), options: "Cost Center", default: defaults.cost_center },
-					{ fieldname: "profit_center", fieldtype: "Link", label: __("Profit Center"), options: "Cost Center", default: defaults.profit_center },
+					{ fieldname: "profit_center", fieldtype: "Link", label: __("Profit Center"), options: "Profit Center", default: defaults.profit_center },
 					{ fieldname: "customs_authority", fieldtype: "Link", label: __("Customs Authority"), options: "Customs Authority", default: defaults.customs_authority },
 					{
 						fieldname: "declaration_type",

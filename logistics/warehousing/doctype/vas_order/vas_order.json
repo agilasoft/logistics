@@ -316,6 +316,7 @@
   {
    "default": "Manila",
    "fieldname": "branch",
+   "link_filters": "[[\"Branch\", \"custom_company\", \"=\", \"eval:doc.company\"]]",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Branch",

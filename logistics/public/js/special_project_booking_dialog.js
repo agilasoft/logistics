@@ -171,8 +171,20 @@
 	}
 
 	function _creationParametersArg($card, creationParameters) {
+		const params = creationParameters || {};
 		if ($card && $card.data("sp-params-mounted")) {
-			return JSON.stringify(creationParameters || {});
+			if (Object.keys(params).length) {
+				return JSON.stringify(params);
+			}
+		}
+		const preview = ($card && $card.data("sp-preview")) || {};
+		const choice = ($card && $card.data("sp-choice")) || {};
+		const fallback = preview.job_detail_parameters || choice.suggested_parameters || {};
+		if (fallback && typeof fallback === "object" && Object.keys(fallback).length) {
+			return JSON.stringify(fallback);
+		}
+		if ($card && $card.data("sp-params-mounted")) {
+			return JSON.stringify(params);
 		}
 		return null;
 	}
@@ -186,6 +198,21 @@
 				out[c.key] = v;
 			}
 		});
+		if (Object.keys(out).length) {
+			return out;
+		}
+		const preview = ($card && $card.data("sp-preview")) || {};
+		const choice = ($card && $card.data("sp-choice")) || {};
+		const fallback = preview.job_detail_parameters || choice.suggested_parameters || {};
+		if (fallback && typeof fallback === "object") {
+			Object.keys(fallback).forEach(function (k) {
+				if (k === "charge_group") return;
+				const v = fallback[k];
+				if (v != null && String(v).trim() !== "") {
+					out[k] = v;
+				}
+			});
+		}
 		return out;
 	}
 

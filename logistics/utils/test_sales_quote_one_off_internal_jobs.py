@@ -73,6 +73,15 @@ class TestApplyScopeTaggingToMappedCharge(FrappeTestCase):
 		self.assertNotIn("internal_job", target)
 		self.assertNotIn("linked_service", target)
 
+	def test_linked_service_without_scope_still_tags_linked(self):
+		target = {}
+		apply_scope_tagging_to_mapped_charge(
+			{"linked_service": "LS-TRANSPORT", "service_type": "Transport"},
+			target,
+		)
+		self.assertEqual(target["charge_scope"], "Linked")
+		self.assertEqual(target["linked_service"], "LS-TRANSPORT")
+
 	def test_object_source_attribute_access(self):
 		src = MagicMock(charge_scope="Internal Job", internal_job="IJ-XYZ")
 		target = {}

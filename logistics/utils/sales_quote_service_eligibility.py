@@ -26,6 +26,8 @@ SERVICE_LEGACY_TABLE: dict[str, str] = {
 	"Customs": "Sales Quote Customs",
 	"Custom": "Sales Quote Customs",
 	"Warehousing": "Sales Quote Warehouse",
+	# Unified Sales Quote Charge only; no legacy child table.
+	"Cross-Docking": "",
 	"MICE": "",
 	"Events": "",
 }

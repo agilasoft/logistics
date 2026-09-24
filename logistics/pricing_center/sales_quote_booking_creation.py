@@ -572,8 +572,12 @@ def _propagate_subsidiary_linked_services(sq_doc: Any, booking_doc: Any) -> None
 	from logistics.pricing_center.doctype.sales_quote.sales_quote import (
 		_propagate_linked_services_to_created_booking,
 	)
+	from logistics.utils.sales_quote_charge_copy import (
+		sync_operational_charges_scope_from_sales_quote,
+	)
 
 	_propagate_linked_services_to_created_booking(sq_doc, booking_doc)
+	sync_operational_charges_scope_from_sales_quote(booking_doc, sq_doc)
 
 
 def _create_air_booking(
@@ -608,13 +612,17 @@ def _create_air_booking(
 	apply_party_address_contact_from_source_or_masters(doc, sq_doc)
 	apply_shipper_consignee_defaults(doc)
 	_validate_air_sea_corridor_ports_before_insert(doc)
-	# Charges populate also copies Sales Quote routing_legs onto the booking (#1135)
 	doc.flags.skip_sales_quote_on_change = True
 	try:
-		_populate_charges_on_target(sq_doc, doc)
-		if hasattr(doc, "_normalize_charges_before_save"):
-			doc._normalize_charges_before_save()
 		doc.insert(ignore_permissions=True)
+	finally:
+		doc.flags.skip_sales_quote_on_change = False
+	_populate_charges_on_target(sq_doc, doc)
+	if hasattr(doc, "_normalize_charges_before_save"):
+		doc._normalize_charges_before_save()
+	doc.flags.skip_sales_quote_on_change = True
+	try:
+		doc.save(ignore_permissions=True)
 	finally:
 		doc.flags.skip_sales_quote_on_change = False
 	_propagate_subsidiary_linked_services(sq_doc, doc)
@@ -654,15 +662,17 @@ def _create_sea_booking(
 	apply_party_address_contact_from_source_or_masters(doc, sq_doc)
 	apply_shipper_consignee_defaults(doc)
 	_validate_air_sea_corridor_ports_before_insert(doc)
-	_populate_charges_on_target(sq_doc, doc)
-	if hasattr(doc, "_normalize_charges_before_save"):
-		doc._normalize_charges_before_save()
 	from logistics.sea_freight.sea_container_row_utils import copy_sales_quote_containers_to_booking
 
 	copy_sales_quote_containers_to_booking(sq_doc, doc)
 	# Quote containers have no seal; Seal Number stays reqd on Sea Booking form.
 	doc.flags.ignore_mandatory = True
 	doc.insert(ignore_permissions=True, ignore_mandatory=True)
+	_populate_charges_on_target(sq_doc, doc)
+	if hasattr(doc, "_normalize_charges_before_save"):
+		doc._normalize_charges_before_save()
+	doc.flags.ignore_mandatory = True
+	doc.save(ignore_permissions=True, ignore_mandatory=True)
 	_propagate_subsidiary_linked_services(sq_doc, doc)
 	frappe.db.commit()
 	return {"sea_booking": doc.name, "message": _("Sea Booking {0} created.").format(doc.name)}
@@ -714,8 +724,9 @@ def _create_declaration_order(
 	from logistics.utils.service_role_rules import apply_standalone_service_flags
 
 	apply_standalone_service_flags(order)
-	_populate_charges_on_target(sq_doc, order)
 	order.insert(ignore_permissions=True)
+	_populate_charges_on_target(sq_doc, order)
+	order.save(ignore_permissions=True)
 	_propagate_subsidiary_linked_services(sq_doc, order)
 	frappe.db.commit()
 	return {
@@ -740,8 +751,9 @@ def _create_inbound_order(
 	if frappe.get_meta("Inbound Order").get_field("order_date"):
 		order.order_date = today()
 	apply_internal_job_detail_row_to_operational_doc(order, merged, overwrite=True)
-	_populate_charges_on_target(sq_doc, order)
 	order.insert(ignore_permissions=True)
+	_populate_charges_on_target(sq_doc, order)
+	order.save(ignore_permissions=True)
 	_propagate_subsidiary_linked_services(sq_doc, order)
 	frappe.db.commit()
 	return {"inbound_order": order.name, "message": _("Inbound Order {0} created.").format(order.name)}
@@ -763,8 +775,9 @@ def _create_cross_docking_order(
 	if frappe.get_meta("Cross-Docking Order").get_field("order_date"):
 		order.order_date = today()
 	apply_internal_job_detail_row_to_operational_doc(order, merged, overwrite=True)
-	_populate_charges_on_target(sq_doc, order)
 	order.insert(ignore_permissions=True)
+	_populate_charges_on_target(sq_doc, order)
+	order.save(ignore_permissions=True)
 	_propagate_subsidiary_linked_services(sq_doc, order)
 	frappe.db.commit()
 	return {

@@ -722,6 +722,27 @@ frappe.ui.form.on('Sea Shipment', {
 							}
 						});
 					}, __('Post'));
+					frm.add_custom_button(__('Internal Billing'), function() {
+						frappe.call({
+							method: 'logistics.billing.internal_billing.create_internal_billing_for_quote',
+							args: {
+								sales_quote_name: frm.doc.sales_quote,
+								posting_date: frappe.datetime.get_today()
+							},
+							callback: function(r) {
+								if (r.message) {
+									var msg = r.message.message || __('Internal billing processed');
+									if (r.message.journal_entries && r.message.journal_entries.length) {
+										msg = __('Created Journal Entries: {0}.', [r.message.journal_entries.join(', ')]);
+									} else if (r.message.journal_entry) {
+										msg = __('Created Journal Entry {0}.', [r.message.journal_entry]);
+									}
+									frappe.show_alert({ message: msg, indicator: 'blue' }, 5);
+									frm.reload_doc();
+								}
+							}
+						});
+					}, __('Post'));
 				}
 				// WIP & Accrual recognition (Post > WIP and Accrual; Recognition: adjust/close)
 				_sea_shipment_add_recognition_buttons(frm);
