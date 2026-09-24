@@ -182,6 +182,9 @@ _PARAM_FIELDS: tuple[str, ...] = tuple(
 ) + (
 	"service_type",
 	"company",
+	"branch",
+	"cost_center",
+	"profit_center",
 	"location_type",
 )
 

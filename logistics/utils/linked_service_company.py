@@ -178,10 +178,51 @@ def sync_company_scoped_fields_on_operational_doc(doc: Any, company: str) -> Non
 		frappe.throw(
 			_(
 				"Cannot create {0} for company {1}: missing {2}. "
-				"Add a Branch, Cost Center, and Profit Center for that company, then try again."
+				"Set Branch, Cost Center, and Profit Center on the Linked Service, "
+				"or add them for that company, then try again."
 			).format(doc.doctype, company, ", ".join(missing_labels)),
 			title=_("Company defaults required"),
 		)
+
+
+def _scoped_values_from_linked_service(row: Any) -> dict[str, str]:
+	"""Branch / cost center / profit center stored on the row or its Linked Service."""
+	values = {fn: _norm(_row_val(row, fn)) for fn in _COMPANY_SCOPED_FIELDS}
+	if all(values.values()) or _doctype_of(row) in ("Linked Service", "Internal Job"):
+		return values
+	ls_name = linked_service_name_from_row(row)
+	if not ls_name:
+		return values
+	from logistics.utils.linked_service_compat import linked_service_doctype, linked_service_record_exists
+
+	if not linked_service_record_exists(ls_name):
+		return values
+	try:
+		stored = (
+			frappe.db.get_value(
+				linked_service_doctype(),
+				ls_name,
+				list(_COMPANY_SCOPED_FIELDS),
+				as_dict=True,
+			)
+			or {}
+		)
+	except Exception:
+		return values
+	for fn in _COMPANY_SCOPED_FIELDS:
+		if not values[fn]:
+			values[fn] = _norm(stored.get(fn) if isinstance(stored, dict) else None)
+	return values
+
+
+def _apply_scoped_values_from_linked_service(doc: Any, row: Any, company: str) -> None:
+	"""Copy Linked Service branch / cost center / profit center when they belong to *company*."""
+	meta = frappe.get_meta(doc.doctype)
+	for fn, value in _scoped_values_from_linked_service(row).items():
+		if not value or not meta.get_field(fn):
+			continue
+		if _link_belongs_to_company(_SCOPED_FIELD_DOCTYPES[fn], value, company):
+			doc.set(fn, value)
 
 
 def apply_linked_service_company_to_operational_doc(
@@ -226,5 +267,6 @@ def apply_linked_service_company_to_operational_doc(
 		doc.set("company", company)
 	elif not current:
 		doc.set("company", company)
+	_apply_scoped_values_from_linked_service(doc, row, company)
 	sync_company_scoped_fields_on_operational_doc(doc, company)
 	return company
