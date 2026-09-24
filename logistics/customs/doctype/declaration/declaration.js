@@ -227,7 +227,46 @@ function logistics_declaration_show_purchase_invoice_dialog(frm) {
 	});
 }
 
-/** Action / Create / View / Post. Re-add after toolbar rebuild; duplicate labels are ignored. */
+/**
+ * Action / Create / View / Post.
+ * refresh_header() empties the inner toolbar, and that clear is queued after the
+ * refresh script (frappe.run_serially). A later reload — permit create, doc_update,
+ * or returning to this form — can clear buttons after the short timeouts below.
+ * Re-apply on every Declaration refresh_header so the menu comes back without a full reload.
+ */
+function _declaration_schedule_form_toolbar(frm) {
+	if (!frm || frm.doctype !== "Declaration") {
+		return;
+	}
+	var generation = (frm._declaration_toolbar_generation || 0) + 1;
+	frm._declaration_toolbar_generation = generation;
+	setTimeout(function () {
+		if (frm._declaration_toolbar_generation !== generation) {
+			return;
+		}
+		_declaration_add_form_toolbar(frm);
+	}, 0);
+}
+
+(function _install_declaration_toolbar_after_header_clear() {
+	if (!frappe.ui || !frappe.ui.form || !frappe.ui.form.Form) {
+		return;
+	}
+	var proto = frappe.ui.form.Form.prototype;
+	if (proto._declaration_toolbar_after_header) {
+		return;
+	}
+	proto._declaration_toolbar_after_header = true;
+	var orig = proto.refresh_header;
+	proto.refresh_header = function (switched) {
+		var ret = orig.apply(this, arguments);
+		if (this.doctype === "Declaration") {
+			_declaration_schedule_form_toolbar(this);
+		}
+		return ret;
+	};
+})();
+
 function _declaration_add_form_toolbar(frm) {
 	if (!frm || !frm.doc || !frm.doc.name || frm.doc.__islocal) {
 		return;
@@ -419,6 +458,27 @@ function _declaration_add_form_toolbar(frm) {
 							msg = __("Created {0} intercompany invoice(s).", [r.message.created]);
 						}
 						frappe.show_alert({ message: msg, indicator: "green" }, 5);
+						frm.reload_doc();
+					}
+				},
+			});
+		}, __("Post"));
+		frm.add_custom_button(__("Internal Billing"), function () {
+			frappe.call({
+				method: "logistics.billing.internal_billing.create_internal_billing_for_quote",
+				args: {
+					sales_quote_name: frm.doc.sales_quote,
+					posting_date: frappe.datetime.get_today(),
+				},
+				callback: function (r) {
+					if (r.message) {
+						var msg = r.message.message || __("Internal billing processed");
+						if (r.message.journal_entries && r.message.journal_entries.length) {
+							msg = __("Created Journal Entries: {0}.", [r.message.journal_entries.join(", ")]);
+						} else if (r.message.journal_entry) {
+							msg = __("Created Journal Entry {0}.", [r.message.journal_entry]);
+						}
+						frappe.show_alert({ message: msg, indicator: "blue" }, 5);
 						frm.reload_doc();
 					}
 				},
@@ -810,12 +870,13 @@ frappe.ui.form.on("Declaration", {
 			logistics.job_change_lock.apply(frm);
 		}
 		if (frm.doc.name && !frm.doc.__islocal) {
-			setTimeout(function () {
-				_declaration_add_form_toolbar(frm);
-			}, 100);
-			setTimeout(function () {
-				_declaration_add_form_toolbar(frm);
-			}, 400);
+			if (frm.wrapper && !frm._declaration_toolbar_show_bound) {
+				frm._declaration_toolbar_show_bound = true;
+				$(frm.wrapper).on("show.declaration_toolbar", function () {
+					_declaration_schedule_form_toolbar(frm);
+				});
+			}
+			_declaration_schedule_form_toolbar(frm);
 		}
 		if (window.logistics && logistics.setup_virtual_linked_services_grid) {
 			logistics.setup_virtual_linked_services_grid(frm);

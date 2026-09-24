@@ -120,7 +120,7 @@
    "hidden": 1,
    "label": "Cost Center",
    "options": "Cost Center",
-   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0], [\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"]]"
   },
   {
    "fieldname": "profit_center",
@@ -131,6 +131,7 @@
   },
   {
    "fieldname": "branch",
+   "link_filters": "[[\"Branch\", \"custom_company\", \"=\", \"eval:doc.company\"]]",
    "fieldtype": "Link",
    "hidden": 1,
    "label": "Branch",

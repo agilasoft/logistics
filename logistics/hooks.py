@@ -45,6 +45,7 @@ app_include_css = [
 	"/assets/logistics/css/role_permission_matrix.css?v=6",
 ]
 app_include_js = [
+	"/assets/logistics/js/company_dimension_filters.js?v=1",
 	"/assets/logistics/js/address_link_query.js?v=1",
 	"/assets/logistics/js/party_address_contact.js?v=1",
 	"/assets/logistics/js/linked_service_link_query.js?v=2",
@@ -395,6 +396,8 @@ doctype_list_js = {
 jinja = {
 	"methods": [
 		"logistics.print_format.sales_invoice.dsb_line_items.get_disbursement_bill_context",
+		"logistics.print_format.sales_invoice.dsb_line_items.get_non_disbursement_line_items",
+		"logistics.print_format.sales_invoice.dsb_line_items.get_sales_invoice_print_items",
 		"logistics.print_format.sales_invoice.vat_sales_summary.get_vat_sales_summary",
 		"logistics.print_format.sales_invoice.vat_sales_summary.item_is_zero_rated_or_exempt",
 	]

@@ -20,6 +20,25 @@ from logistics.utils.linked_service_compat import linked_service_doctype
 
 
 class TestInternalJobCreationEligibility(FrappeTestCase):
+	def test_cross_docking_sales_quote_charge_is_recognized(self):
+		"""Cross-Docking lines live on Sales Quote Charge and must count toward create eligibility."""
+		from logistics.utils.sales_quote_service_eligibility import sales_quote_has_service_charges
+
+		with patch(
+			"logistics.utils.sales_quote_service_eligibility.frappe.db.exists",
+			return_value=True,
+		), patch(
+			"logistics.utils.sales_quote_service_eligibility.frappe.db.count",
+			return_value=1,
+		) as count, patch(
+			"logistics.utils.internal_job_creation_eligibility.frappe.db.exists",
+			return_value=True,
+		):
+			self.assertTrue(sales_quote_has_service_charges("SQU000000002", "Cross-Docking"))
+			self.assertTrue(charges_exist_for_service("SQU000000002", None, "Cross-Docking"))
+		filters = count.call_args[0][1]
+		self.assertIn("Cross-Docking", filters["service_type"][1])
+
 	def test_charges_exist_from_sales_quote(self):
 		with patch(
 			"logistics.utils.internal_job_creation_eligibility.frappe.db.exists",

@@ -310,6 +310,7 @@
   },
   {
    "fieldname": "branch",
+   "link_filters": "[[\"Branch\", \"custom_company\", \"=\", \"eval:doc.company\"]]",
    "fieldtype": "Link",
    "label": "Branch",
    "options": "Branch"
@@ -320,6 +321,7 @@
   },
   {
    "fieldname": "cost_center",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "fieldtype": "Link",
    "label": "Cost Center",
    "options": "Cost Center"

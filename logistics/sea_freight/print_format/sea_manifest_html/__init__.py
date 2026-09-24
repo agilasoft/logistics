@@ -1,0 +1,1 @@
+# Install: bench execute logistics.sea_freight.print_format.sea_manifest_html.install_print_format.install_sea_manifest_html_print_format

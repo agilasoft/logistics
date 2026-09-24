@@ -25,19 +25,18 @@
             background: white;
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
+            min-height: 273mm;
             position: relative;
         }
         
         .top-section {
-            flex: 1;
+            flex: 1 1 auto;
             display: flex;
             flex-direction: column;
-            min-height: 0;
         }
         
         .bottom-section {
-            margin-top: auto;
+            margin-top: 0;
             flex: 0 0 auto;
         }
         
@@ -337,8 +336,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.5mm;
-            flex: 1;
-            min-height: 0;
+            flex: 0 0 auto;
         }
         
         .invoice-table {
@@ -734,7 +732,7 @@
         }
         
         .bottom-section {
-            margin-top: auto;
+            margin-top: 0;
             display: flex;
             flex-direction: column;
             min-height: 0;
@@ -824,12 +822,15 @@
                 flex-direction: column;
                 min-height: 273mm;
             }
-            .top-section,
-            .table-summary-container {
+            .top-section {
                 flex: 1 1 auto;
                 display: flex;
                 flex-direction: column;
-                min-height: 0;
+            }
+            .table-summary-container {
+                flex: 0 0 auto;
+                display: flex;
+                flex-direction: column;
             }
             .summary-received-container {
                 margin-top: auto;
@@ -845,7 +846,7 @@
             }
             .bottom-section {
                 flex: 0 0 auto;
-                margin-top: 2mm;
+                margin-top: 0;
                 page-break-inside: avoid;
                 break-inside: avoid;
             }
@@ -1377,7 +1378,8 @@
                     {% endif %}
                 </tbody>
             </table>
-            
+        </div>
+
             <!-- Summary and Payment Info Container -->
             <div class="summary-received-container">
                 {% set vat = get_vat_sales_summary(doc, dsb.line_items) %}
@@ -1461,8 +1463,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-        </div>
         
         <!-- Bottom Section: Footer -->
         <div class="bottom-section">
@@ -1542,6 +1542,7 @@
                 {% endif %}
             </div>
             <div class="footer-disclaimer">"THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX"</div>
+        </div>
         </div>
         </div>
     </div>
