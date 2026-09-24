@@ -20,7 +20,7 @@
         .main-details-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
         .main-details-table td { vertical-align: top; }
         .party-shared-header { border-bottom: 2px solid #000; background: #e0e0e0; color: #000; width: 50%; padding: 0.4mm 0.6mm; font-size: 8pt; font-weight: 900; text-transform: uppercase; letter-spacing: 0.2px; line-height: 1.1; text-align: left; vertical-align: middle; }
-        .party-content-row td.party-address-box { width: 50%; padding: 0.3mm 0.6mm; font-size: 7.5pt; line-height: 1.2; text-transform: uppercase; word-wrap: break-word; min-height: 18mm; border-bottom: 2px solid #000; vertical-align: top; }
+        .party-content-row td.party-address-box { width: 50%; padding: 0.3mm 0.6mm; font-size: 7.5pt; line-height: 1.2; text-transform: uppercase; word-wrap: break-word; min-height: 6mm; border-bottom: 2px solid #000; vertical-align: top; }
         .details-row td { width: 50%; padding: 0.3mm 0.6mm; vertical-align: top; }
         .details-row .left-column { padding-right: 2mm; }
         .details-row .right-column { padding-left: 2mm; }
@@ -125,19 +125,6 @@
     </style>
 </head>
 <body>
-
-{% macro format_address_multiline(addr_name) %}
-{% if addr_name and frappe.db.exists("Address", addr_name) %}
-{% set addr = frappe.db.get_value("Address", addr_name, ["address_line1", "address_line2", "city", "state", "pincode", "country"], as_dict=True) %}
-{% if addr %}
-{% if addr.address_line1 %}{{ addr.address_line1 }}<br>{% endif %}
-{% if addr.address_line2 %}{{ addr.address_line2 }}<br>{% endif %}
-{% set city_line = ((addr.city or '') ~ (' ' ~ addr.state if addr.state else '') ~ (' ' ~ addr.pincode if addr.pincode else ''))|trim %}
-{% if city_line %}{{ city_line }}<br>{% endif %}
-{% if addr.country %}{{ addr.country }}{% endif %}
-{% endif %}
-{% endif %}
-{% endmacro %}
 
 {% macro port_display(port_code) -%}
 {%- if port_code -%}
@@ -422,41 +409,17 @@
                     <td class="party-address-box">
                         {% if doc.shipper and frappe.db.exists("Shipper", doc.shipper) %}
                             {% set sh = frappe.get_doc("Shipper", doc.shipper) %}
-                            {{ sh.shipper_name or doc.shipper }}<br>
+                            {{ sh.shipper_name or doc.shipper }}
                         {% elif doc.shipper %}
-                            {{ doc.shipper }}<br>
-                        {% endif %}
-                        {% if doc.shipper_address_display %}
-                            {{ doc.shipper_address_display|replace('\n', '<br>')|safe }}
-                        {% elif doc.shipper_address %}
-                            {{ format_address_multiline(doc.shipper_address) }}
-                        {% elif doc.shipper and frappe.db.exists("Shipper", doc.shipper) %}
-                            {% set sh_addr_name = sh.pick_address or sh.shipper_primary_address %}
-                            {% if sh_addr_name %}
-                                {{ format_address_multiline(sh_addr_name) }}
-                            {% elif sh.primary_address %}
-                                {{ sh.primary_address|replace('\n', '<br>')|safe }}
-                            {% endif %}
+                            {{ doc.shipper }}
                         {% endif %}
                     </td>
                     <td class="party-address-box">
                         {% if doc.consignee and frappe.db.exists("Consignee", doc.consignee) %}
                             {% set cn = frappe.get_doc("Consignee", doc.consignee) %}
-                            {{ cn.consignee_name or doc.consignee }}<br>
+                            {{ cn.consignee_name or doc.consignee }}
                         {% elif doc.consignee %}
-                            {{ doc.consignee }}<br>
-                        {% endif %}
-                        {% if doc.consignee_address_display %}
-                            {{ doc.consignee_address_display|replace('\n', '<br>')|safe }}
-                        {% elif doc.consignee_address %}
-                            {{ format_address_multiline(doc.consignee_address) }}
-                        {% elif doc.consignee and frappe.db.exists("Consignee", doc.consignee) %}
-                            {% set cn_addr_name = cn.delivery_address or cn.consignee_primary_address %}
-                            {% if cn_addr_name %}
-                                {{ format_address_multiline(cn_addr_name) }}
-                            {% elif cn.primary_address %}
-                                {{ cn.primary_address|replace('\n', '<br>')|safe }}
-                            {% endif %}
+                            {{ doc.consignee }}
                         {% endif %}
                     </td>
                 </tr>

@@ -91,6 +91,7 @@
    "description": "Branch for this service's operating company. Copied onto the booking created from this Linked Service.",
    "fieldname": "branch",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Branch",
    "link_filters": "[[\"Branch\", \"custom_company\", \"=\", \"eval:doc.company\"]]",
    "options": "Branch"
@@ -99,6 +100,7 @@
    "description": "Cost Center for this service's operating company. Copied onto the booking created from this Linked Service.",
    "fieldname": "cost_center",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Cost Center",
    "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center"
@@ -107,8 +109,8 @@
    "description": "Profit Center for this service's operating company. Copied onto the booking created from this Linked Service.",
    "fieldname": "profit_center",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Profit Center",
-   "link_filters": "[[\"Profit Center\", \"company\", \"=\", \"eval:doc.company\"]]",
    "options": "Profit Center"
   },
   {

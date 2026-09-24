@@ -1,0 +1,1 @@
+# Install: bench execute logistics.mice.print_format.mice_project_manifest.install_print_format.install_mice_project_manifest_print_format
