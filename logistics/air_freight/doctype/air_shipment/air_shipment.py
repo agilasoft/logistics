@@ -1611,6 +1611,7 @@ class AirShipment(VirtualLinkedServicesMixin, Document):
 			self._prepare_header_totals_for_charge_calculation()
 			self._sync_charges_with_parent_actuals()
 			self._update_packing_summary()
+			self._apply_uom_defaults()
 			self.validate_weight_volume()
 			self.validate_packages()
 			self.validate_awb()
@@ -1786,6 +1787,50 @@ class AirShipment(VirtualLinkedServicesMixin, Document):
 			self.total_weight = 0
 		self.total_volume = flt(self.total_volume or 0)
 		self.total_weight = flt(self.total_weight or 0)
+		self._apply_uom_defaults()
+
+	def _apply_uom_defaults(self):
+		"""Apply UOM defaults from Logistics Settings when summary UOM fields are not set."""
+		try:
+			from logistics.utils.measurements import get_aggregation_volume_uom, get_default_uoms
+
+			defaults = get_default_uoms(company=getattr(self, "company", None))
+			if not getattr(self, "total_volume_uom", None):
+				vol_uom = get_aggregation_volume_uom(company=getattr(self, "company", None)) or defaults.get(
+					"volume"
+				)
+				if vol_uom:
+					self.total_volume_uom = vol_uom
+			if not getattr(self, "total_weight_uom", None) and defaults.get("weight"):
+				self.total_weight_uom = defaults["weight"]
+			if not getattr(self, "chargeable_weight_uom", None):
+				self.chargeable_weight_uom = defaults.get("chargeable_weight") or defaults.get("weight")
+		except Exception:
+			pass
+
+	def _sync_chargeable_weight_from_totals(self):
+		"""Update chargeable from header volume/weight without validation throws (for desk refresh APIs)."""
+		settings = self.get_air_freight_settings()
+		from logistics.utils.measurements import IATA_VOLUMETRIC_DENSITY_KG_M3
+
+		volume_to_weight_factor = IATA_VOLUMETRIC_DENSITY_KG_M3
+		chargeable_weight_calculation = "Higher of Both"
+		if settings:
+			volume_to_weight_factor = settings.volume_to_weight_factor or IATA_VOLUMETRIC_DENSITY_KG_M3
+			chargeable_weight_calculation = settings.chargeable_weight_calculation or "Higher of Both"
+
+		if self.total_weight and self.total_volume:
+			volume_weight = flt(self.total_volume) * volume_to_weight_factor
+			if chargeable_weight_calculation == "Actual Weight":
+				chargeable_weight = flt(self.total_weight)
+			elif chargeable_weight_calculation == "Volume Weight":
+				chargeable_weight = volume_weight
+			else:
+				chargeable_weight = max(flt(self.total_weight), volume_weight)
+			if not self.chargeable or abs(flt(self.chargeable) - chargeable_weight) > 0.01:
+				self.chargeable = chargeable_weight
+		elif self.total_weight and not self.chargeable:
+			self.chargeable = self.total_weight
 
 	@frappe.whitelist()
 	def aggregate_volume_from_packages_api(self):
@@ -1793,7 +1838,30 @@ class AirShipment(VirtualLinkedServicesMixin, Document):
 		if not getattr(self, "override_volume_weight", False):
 			self.aggregate_volume_from_packages()
 			self.aggregate_weight_from_packages()
-		return {"total_volume": getattr(self, "total_volume", 0), "total_weight": getattr(self, "total_weight", 0)}
+		self._update_packing_summary()
+		self._sync_chargeable_weight_from_totals()
+		return {
+			"total_volume": getattr(self, "total_volume", 0),
+			"total_weight": getattr(self, "total_weight", 0),
+			"total_packages": getattr(self, "total_packages", 0),
+			"chargeable": getattr(self, "chargeable", 0),
+			"total_volume_uom": getattr(self, "total_volume_uom", None),
+			"total_weight_uom": getattr(self, "total_weight_uom", None),
+			"chargeable_weight_uom": getattr(self, "chargeable_weight_uom", None),
+		}
+
+	@frappe.whitelist()
+	def fetch_header_measurement_defaults(company=None):
+		"""Return default summary UOMs for the desk when header UOM links are empty."""
+		doc = frappe.new_doc("Air Shipment")
+		if company:
+			doc.company = company
+		doc._apply_uom_defaults()
+		return {
+			"total_volume_uom": doc.total_volume_uom,
+			"total_weight_uom": doc.total_weight_uom,
+			"chargeable_weight_uom": doc.chargeable_weight_uom,
+		}
 	
 	def on_update(self):
 		"""Called after document is updated"""
@@ -2937,66 +3005,52 @@ class AirShipment(VirtualLinkedServicesMixin, Document):
 			return
 		
 		settings = self.get_air_freight_settings()
-		if not settings:
-			return
-		
-		# Apply general settings
-		if not self.branch and settings.default_branch:
-			self.branch = settings.default_branch
-		if not self.cost_center and settings.default_cost_center:
-			self.cost_center = settings.default_cost_center
-		if not self.profit_center and settings.default_profit_center:
-			self.profit_center = settings.default_profit_center
-		if not self.incoterm and settings.default_incoterm:
-			self.incoterm = settings.default_incoterm
-		# Only set service_level if default_service_level exists as a valid Logistics Service Level record
-		if not self.service_level and settings.default_service_level:
-			# Check if the default_service_level value exists as a Logistics Service Level record
-			if frappe.db.exists("Logistics Service Level", settings.default_service_level):
-				self.service_level = settings.default_service_level
-			# Otherwise, don't set it (leave it empty)
-		
-		# Apply location settings
-		if not self.origin_port and settings.default_origin_port:
-			self.origin_port = settings.default_origin_port
-		if not self.destination_port and settings.default_destination_port:
-			self.destination_port = settings.default_destination_port
-		
-		# Apply business settings
-		if not self.airline and settings.default_airline:
-			self.airline = settings.default_airline
-		if not self.freight_agent and settings.default_freight_agent:
-			self.freight_agent = settings.default_freight_agent
-		if not self.house_type and settings.default_house_type:
-			self.house_type = settings.default_house_type
-		# Normalize legacy house_type values after setting from defaults
-		self._normalize_house_type()
-		if not self.direction and settings.default_direction:
-			self.direction = settings.default_direction
-		if not self.release_type and settings.default_release_type:
-			self.release_type = settings.default_release_type
-		if not self.entry_type and settings.default_entry_type:
-			self.entry_type = settings.default_entry_type
-		
-		# Apply document settings (legacy field only if still on the form)
-		if self.meta.has_field("uld_type"):
-			if not self.get("uld_type") and getattr(settings, "default_uld_type", None):
-				self.uld_type = settings.default_uld_type
+		if settings:
+			# Apply general settings
+			if not self.branch and settings.default_branch:
+				self.branch = settings.default_branch
+			if not self.cost_center and settings.default_cost_center:
+				self.cost_center = settings.default_cost_center
+			if not self.profit_center and settings.default_profit_center:
+				self.profit_center = settings.default_profit_center
+			if not self.incoterm and settings.default_incoterm:
+				self.incoterm = settings.default_incoterm
+			# Only set service_level if default_service_level exists as a valid Logistics Service Level record
+			if not self.service_level and settings.default_service_level:
+				# Check if the default_service_level value exists as a Logistics Service Level record
+				if frappe.db.exists("Logistics Service Level", settings.default_service_level):
+					self.service_level = settings.default_service_level
+				# Otherwise, don't set it (leave it empty)
 
-		# Apply UOM defaults from Logistics Settings
-		try:
-			from logistics.utils.measurements import get_default_uoms, get_aggregation_volume_uom
-			defaults = get_default_uoms(company=getattr(self, "company", None))
-			vol_uom = get_aggregation_volume_uom(company=getattr(self, "company", None)) or defaults.get("volume")
-			if not getattr(self, "total_volume_uom", None) and vol_uom:
-				self.total_volume_uom = vol_uom
-			if not getattr(self, "total_weight_uom", None) and defaults.get("weight"):
-				self.total_weight_uom = defaults["weight"]
-			if not getattr(self, "chargeable_weight_uom", None):
-				self.chargeable_weight_uom = defaults.get("chargeable_weight") or defaults.get("weight")
-		except Exception:
-			pass
-		
+			# Apply location settings
+			if not self.origin_port and settings.default_origin_port:
+				self.origin_port = settings.default_origin_port
+			if not self.destination_port and settings.default_destination_port:
+				self.destination_port = settings.default_destination_port
+
+			# Apply business settings
+			if not self.airline and settings.default_airline:
+				self.airline = settings.default_airline
+			if not self.freight_agent and settings.default_freight_agent:
+				self.freight_agent = settings.default_freight_agent
+			if not self.house_type and settings.default_house_type:
+				self.house_type = settings.default_house_type
+			# Normalize legacy house_type values after setting from defaults
+			self._normalize_house_type()
+			if not self.direction and settings.default_direction:
+				self.direction = settings.default_direction
+			if not self.release_type and settings.default_release_type:
+				self.release_type = settings.default_release_type
+			if not self.entry_type and settings.default_entry_type:
+				self.entry_type = settings.default_entry_type
+
+			# Apply document settings (legacy field only if still on the form)
+			if self.meta.has_field("uld_type"):
+				if not self.get("uld_type") and getattr(settings, "default_uld_type", None):
+					self.uld_type = settings.default_uld_type
+
+		self._apply_uom_defaults()
+
 		# Mark as applied
 		self._settings_applied = True
 	
