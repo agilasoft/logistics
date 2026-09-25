@@ -201,7 +201,7 @@ function logistics_ts_setup_actions_menu(frm) {
 				__("Create Change Request")
 			);
 		},
-		__("Action")
+		__("Create")
 	);
 }
 
