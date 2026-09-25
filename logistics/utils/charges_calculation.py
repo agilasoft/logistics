@@ -11,6 +11,7 @@ Uses calculation_method and unit_type for engine; legacy values (e.g. Per kg) ar
 """
 
 import json
+from contextvars import ContextVar
 
 import frappe
 from frappe import _
@@ -19,6 +20,33 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from logistics.utils.charge_service_type import canonical_charge_service_type_for_storage
 from logistics.utils.rate_calculation_engine import RateCalculationEngine
+
+_specified_charges_visiting: ContextVar[Optional[set]] = ContextVar(
+    "_specified_charges_visiting", default=None
+)
+_charge_calc_depth: ContextVar[int] = ContextVar("_charge_calc_depth", default=0)
+
+
+def _specified_charges_visiting_set() -> set:
+    visiting = _specified_charges_visiting.get()
+    if visiting is None:
+        visiting = set()
+        _specified_charges_visiting.set(visiting)
+    return visiting
+
+
+def _begin_charge_calculation_scope():
+    depth = _charge_calc_depth.get()
+    _charge_calc_depth.set(depth + 1)
+    if depth == 0:
+        _specified_charges_visiting.set(set())
+    return depth
+
+
+def _end_charge_calculation_scope(depth: int) -> None:
+    _charge_calc_depth.set(depth)
+    if depth == 0:
+        _specified_charges_visiting.set(None)
 from logistics.utils.service_role_rules import (
     get_main_service_name,
     get_main_service_type,
@@ -515,7 +543,7 @@ def _get_quantity_for_calculation_method(
     method = (method or "").strip()
     if method in ("Flat Rate", "Fixed Amount"):
         return 1.0
-    if method == "Percentage":
+    if method in ("Percentage", "Specified Charges", "Based on Specified Charge Group"):
         return 1.0
     if method == "Weight Break":
         return flt(actual_data.get("actual_weight") or 0)
@@ -1038,6 +1066,8 @@ _CONSOLIDATION_STYLE_CALC_METHODS = frozenset(
 		"Base Plus Additional",
 		"First Plus Additional",
 		"Percentage",
+		"Specified Charges",
+		"Based on Specified Charge Group",
 		"Location-based",
 		"Weight Break",
 		"Qty Break",
@@ -1120,6 +1150,36 @@ def _charge_reference_is_persistable(charge_doc: Any) -> bool:
     if not name or not doctype or str(name).startswith("new"):
         return False
     return bool(frappe.db.exists(doctype, name))
+
+
+def _parent_charge_table_rows(parent_doc: Any, charge_doc: Any) -> List[Any]:
+    """Return sibling charge rows on the parent document (same child DocType table)."""
+    if not parent_doc or not charge_doc:
+        return []
+    charge_dt = getattr(charge_doc, "doctype", None)
+    if not charge_dt:
+        return []
+    parent_dt = getattr(parent_doc, "doctype", None)
+    if not parent_dt and isinstance(parent_doc, dict):
+        parent_dt = parent_doc.get("doctype")
+    if parent_dt:
+        try:
+            meta = frappe.get_meta(parent_dt)
+            for df in meta.get_table_fields():
+                if df.options == charge_dt:
+                    if isinstance(parent_doc, dict):
+                        return list(parent_doc.get(df.fieldname) or [])
+                    return list(getattr(parent_doc, df.fieldname, None) or [])
+        except Exception:
+            pass
+    for fieldname in ("charges", "consolidation_charges"):
+        if isinstance(parent_doc, dict):
+            rows = parent_doc.get(fieldname)
+        else:
+            rows = getattr(parent_doc, fieldname, None)
+        if rows:
+            return list(rows)
+    return []
 
 
 def sync_tariff_rates_and_breaks_on_charges(parent_doc: Any) -> None:
@@ -1273,6 +1333,16 @@ def _has_billable_rate_input(charge_doc: Any, is_revenue: bool = True) -> bool:
     if method == "Percentage":
         base = flt(getattr(charge_doc, f"{prefix}base_amount", None) or 0)
         return rate > 0 and base > 0
+    if method == "Specified Charges":
+        if rate <= 0:
+            return False
+        record_type = "Selling" if is_revenue else "Cost"
+        return bool(_resolve_specified_charge_items(charge_doc, record_type))
+    if method == "Based on Specified Charge Group":
+        if rate <= 0:
+            return False
+        record_type = "Selling" if is_revenue else "Cost"
+        return bool(_resolve_specified_charge_groups(charge_doc, record_type))
     return rate > 0
 
 
@@ -1432,6 +1502,209 @@ def _resolve_percentage_break_rate(
         if flt(comparison_qty) >= flt(pb.get("value_break", 0)):
             return pb
     return sorted(percentage_breaks, key=lambda x: flt(x.get("value_break", 0)))[0]
+
+
+def _table_multiselect_values(charge_doc: Any, fieldname: str, value_field: str) -> List[str]:
+    """Read distinct values from a Table MultiSelect field on a charge row."""
+    if isinstance(charge_doc, dict):
+        rows = charge_doc.get(fieldname) or []
+    else:
+        rows = getattr(charge_doc, fieldname, None) or []
+    values: List[str] = []
+    seen = set()
+    for row in rows or []:
+        if isinstance(row, dict):
+            val = (row.get(value_field) or "").strip()
+        else:
+            val = (getattr(row, value_field, None) or "").strip()
+        if val and val not in seen:
+            values.append(val)
+            seen.add(val)
+    return values
+
+
+def _resolve_specified_charge_items(charge_doc: Any, record_type: str) -> List[str]:
+    """Item codes selected for Specified Charges (JSON on row; legacy multiselect / reference)."""
+    from logistics.utils.specified_charges_codes import codes_from_charge_row
+
+    json_field = (
+        "selling_specified_item_codes"
+        if record_type == "Selling"
+        else "cost_specified_item_codes"
+    )
+    from_json = codes_from_charge_row(charge_doc, json_field)
+    if from_json:
+        return from_json
+    ms_field = (
+        "selling_specified_items" if record_type == "Selling" else "cost_specified_items"
+    )
+    from_row = _table_multiselect_values(charge_doc, ms_field, "item_code")
+    if from_row:
+        return from_row
+    if not _charge_reference_is_persistable(charge_doc):
+        return []
+    ref_name = getattr(charge_doc, "name", None)
+    rows = frappe.get_all(
+        "Sales Quote Specified Charge",
+        filters={
+            "reference_doctype": charge_doc.doctype,
+            "reference_no": ref_name,
+            "type": record_type,
+            "selection_kind": "Item",
+        },
+        fields=["item_code"],
+        order_by="creation asc",
+    )
+    items: List[str] = []
+    seen = set()
+    for row in rows or []:
+        code = (row.get("item_code") or "").strip()
+        if code and code not in seen:
+            items.append(code)
+            seen.add(code)
+    return items
+
+
+def _resolve_specified_charge_groups(charge_doc: Any, record_type: str) -> List[str]:
+    """Charge groups selected for Based on Specified Charge Group."""
+    from logistics.utils.specified_charges_codes import codes_from_charge_row
+
+    json_field = (
+        "selling_specified_charge_group_codes"
+        if record_type == "Selling"
+        else "cost_specified_charge_group_codes"
+    )
+    from_json = codes_from_charge_row(charge_doc, json_field)
+    if from_json:
+        return from_json
+    ms_field = (
+        "selling_specified_charge_groups"
+        if record_type == "Selling"
+        else "cost_specified_charge_groups"
+    )
+    from_row = _table_multiselect_values(charge_doc, ms_field, "charge_group")
+    if from_row:
+        return from_row
+    if not _charge_reference_is_persistable(charge_doc):
+        return []
+    from logistics.utils.specified_charges_persistence import load_specified_charge_groups
+
+    ref_name = getattr(charge_doc, "name", None)
+    return load_specified_charge_groups(charge_doc.doctype, ref_name, record_type)
+
+
+def _resolve_sibling_estimated_amount(
+    ch: Any,
+    parent_doc: Any,
+    is_revenue: bool,
+    visiting: Optional[set] = None,
+) -> Tuple[float, Optional[str]]:
+    """Estimated amount for a sibling charge row; recalculates when needed."""
+    if visiting is None:
+        visiting = _specified_charges_visiting_set()
+    row_name = getattr(ch, "name", None)
+    if row_name and row_name in visiting:
+        return (
+            0.0,
+            "Specified Charges: Circular dependency between charge rows. Adjust item selection.",
+        )
+    if row_name:
+        visiting.add(row_name)
+    if is_revenue:
+        res = calculate_charge_revenue(ch, parent_doc)
+    else:
+        res = calculate_charge_cost(ch, parent_doc)
+    calc_notes = str(res.get("calc_notes") or "")
+    if res.get("error") and "Circular" in str(res.get("error") or calc_notes):
+        return 0.0, res.get("calc_notes") or res.get("error")
+    if "Circular" in calc_notes:
+        return 0.0, calc_notes
+    return flt(res.get("amount", 0)), None
+
+
+def _sum_specified_charges_total(
+    charge_doc: Any,
+    parent_doc: Any,
+    is_revenue: bool,
+    record_type: str,
+    visiting: Optional[set] = None,
+) -> Tuple[float, Optional[str]]:
+    """Sum same-side estimated amounts for sibling rows matching selected item codes."""
+    item_codes = set(_resolve_specified_charge_items(charge_doc, record_type))
+    if not item_codes:
+        return (
+            0.0,
+            "Specified Charges: No charge items selected. Add rows in Specified Items.",
+        )
+    if not parent_doc:
+        return 0.0, "Specified Charges: Parent document required to total sibling charges."
+
+    current_name = getattr(charge_doc, "name", None)
+    visiting_ctx = _specified_charges_visiting_set()
+    if visiting is not None:
+        visiting_ctx.update(visiting)
+    visiting = visiting_ctx
+    if current_name and current_name not in visiting:
+        visiting.add(current_name)
+
+    total = 0.0
+    sibling_rows = _parent_charge_table_rows(parent_doc, charge_doc)
+    for ch in sibling_rows:
+        ch_name = getattr(ch, "name", None)
+        if current_name and ch_name == current_name:
+            continue
+        row_item = _get_item_code_from_charge(ch)
+        if not row_item or row_item not in item_codes:
+            continue
+        amount, err = _resolve_sibling_estimated_amount(ch, parent_doc, is_revenue, visiting)
+        if err:
+            return 0.0, err
+        total += amount
+    return total, None
+
+
+def _sum_specified_charge_groups_total(
+    charge_doc: Any,
+    parent_doc: Any,
+    is_revenue: bool,
+    record_type: str,
+    visiting: Optional[set] = None,
+) -> Tuple[float, Optional[str]]:
+    """Sum same-side estimated amounts for siblings whose charge_group is selected."""
+    groups = set(_resolve_specified_charge_groups(charge_doc, record_type))
+    if not groups:
+        return (
+            0.0,
+            "Based on Specified Charge Group: No charge groups selected. Add rows in Specified Charge Groups.",
+        )
+    if not parent_doc:
+        return (
+            0.0,
+            "Based on Specified Charge Group: Parent document required to total sibling charges.",
+        )
+
+    current_name = getattr(charge_doc, "name", None)
+    visiting_ctx = _specified_charges_visiting_set()
+    if visiting is not None:
+        visiting_ctx.update(visiting)
+    visiting = visiting_ctx
+    if current_name and current_name not in visiting:
+        visiting.add(current_name)
+
+    total = 0.0
+    sibling_rows = _parent_charge_table_rows(parent_doc, charge_doc)
+    for ch in sibling_rows:
+        ch_name = getattr(ch, "name", None)
+        if current_name and ch_name == current_name:
+            continue
+        row_group = (_get_field(ch, "charge_group") or "").strip()
+        if not row_group or row_group not in groups:
+            continue
+        amount, err = _resolve_sibling_estimated_amount(ch, parent_doc, is_revenue, visiting)
+        if err:
+            return 0.0, err
+        total += amount
+    return total, None
 
 
 def _charge_calculation_method(charge_doc: Any, is_revenue: bool) -> str:
@@ -1706,7 +1979,11 @@ def calculate_charge_revenue(charge_doc: Any, parent_doc: Optional[Any] = None) 
     Returns:
         Dict with keys: amount, calc_notes, success, error
     """
-    return _calculate_charge_amount(charge_doc, parent_doc, is_revenue=True)
+    depth = _begin_charge_calculation_scope()
+    try:
+        return _calculate_charge_amount(charge_doc, parent_doc, is_revenue=True)
+    finally:
+        _end_charge_calculation_scope(depth)
 
 
 def calculate_charge_cost(charge_doc: Any, parent_doc: Optional[Any] = None) -> Dict:
@@ -1720,7 +1997,11 @@ def calculate_charge_cost(charge_doc: Any, parent_doc: Optional[Any] = None) -> 
     Returns:
         Dict with keys: amount, calc_notes, success, error
     """
-    return _calculate_charge_amount(charge_doc, parent_doc, is_revenue=False)
+    depth = _begin_charge_calculation_scope()
+    try:
+        return _calculate_charge_amount(charge_doc, parent_doc, is_revenue=False)
+    finally:
+        _end_charge_calculation_scope(depth)
 
 
 def _calculate_charge_amount(
@@ -2086,7 +2367,14 @@ def _calculate_charge_amount(
     if (
         line_qty is not None
         and flt(line_qty) > 0
-        and method not in ("Percentage", "Flat Rate", "Fixed Amount")
+        and method
+        not in (
+            "Percentage",
+            "Specified Charges",
+            "Based on Specified Charge Group",
+            "Flat Rate",
+            "Fixed Amount",
+        )
     ):
         _spread_row_qty_into_actual_data(actual_data, unit_type, flt(line_qty))
 
@@ -2124,6 +2412,38 @@ def _calculate_charge_amount(
         if not base:
             result["calc_notes"] = "Charge calculation: Base Amount is required for Percentage method. Enter base amount."
             return result
+
+    if rate_data.get("calculation_method") == "Specified Charges":
+        charge_total, spec_err = _sum_specified_charges_total(
+            charge_doc,
+            parent_doc,
+            is_revenue,
+            record_type,
+        )
+        if spec_err:
+            result["calc_notes"] = spec_err
+            return result
+        rate_data["base_amount"] = charge_total
+        if is_revenue and hasattr(charge_doc, "base_amount"):
+            charge_doc.base_amount = charge_total
+        elif not is_revenue and hasattr(charge_doc, "cost_base_amount"):
+            charge_doc.cost_base_amount = charge_total
+
+    if rate_data.get("calculation_method") == "Based on Specified Charge Group":
+        charge_total, spec_err = _sum_specified_charge_groups_total(
+            charge_doc,
+            parent_doc,
+            is_revenue,
+            record_type,
+        )
+        if spec_err:
+            result["calc_notes"] = spec_err
+            return result
+        rate_data["base_amount"] = charge_total
+        if is_revenue and hasattr(charge_doc, "base_amount"):
+            charge_doc.base_amount = charge_total
+        elif not is_revenue and hasattr(charge_doc, "cost_base_amount"):
+            charge_doc.cost_base_amount = charge_total
 
     try:
         engine = RateCalculationEngine()
@@ -2189,6 +2509,9 @@ CHARGE_DOCTYPES = (
     "Sea Consolidation Charges",
     "Air Consolidation Charges",
     "Special Project Charges",
+    "Exhibit Charges",
+    "MICE Project Charges",
+    "MICE Project Consolidation Charges",
     "Declaration Charges",
     "Declaration Order Charges",
     "Time Sensitive Case Charge",

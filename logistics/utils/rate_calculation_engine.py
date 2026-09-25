@@ -36,6 +36,8 @@ class RateCalculationEngine:
             "Base Plus Additional": self._calculate_base_plus_additional,
             "First Plus Additional": self._calculate_first_plus_additional,
             "Percentage": self._calculate_percentage,
+            "Specified Charges": self._calculate_specified_charges,
+            "Based on Specified Charge Group": self._calculate_specified_charges,
             "Location-based": self._calculate_location_based,
         }
 
@@ -366,6 +368,12 @@ class RateCalculationEngine:
         percentage = flt(rate_data.get("rate", 0) or rate_data.get("unit_rate", 0))
         return base_amount * (percentage / 100), 0
 
+    def _calculate_specified_charges(self, rate_data: Dict, **kwargs) -> tuple:
+        """Calculate rate using Specified Charges: sum of selected charges × unit rate."""
+        base_amount = flt(rate_data.get("base_amount", 0))
+        rate = flt(rate_data.get("rate", 0) or rate_data.get("unit_rate", 0))
+        return base_amount * rate, 0
+
     def _calculate_location_based(self, rate_data: Dict, **kwargs) -> tuple:
         """Calculate rate using Location-based method. Falls back to Per Unit."""
         return self._calculate_per_unit(rate_data, **kwargs)
@@ -430,6 +438,16 @@ class RateCalculationEngine:
         elif method == "Percentage":
             base_amt = flt(rate_data.get("base_amount", 0))
             detail = f"Percentage: Base {base_amt} {currency} × {rate}% = {calc_base} {currency}"
+        elif method == "Specified Charges":
+            base_amt = flt(rate_data.get("base_amount", 0))
+            detail = (
+                f"Specified Charges: Total {base_amt} {currency} × {rate} = {calc_base} {currency}"
+            )
+        elif method == "Based on Specified Charge Group":
+            base_amt = flt(rate_data.get("base_amount", 0))
+            detail = (
+                f"Based on Specified Charge Group: Total {base_amt} {currency} × {rate} = {calc_base} {currency}"
+            )
         else:
             detail = f"Calculated: {amount} {currency}"
 
@@ -464,6 +482,8 @@ def get_available_calculation_methods() -> List[str]:
         "Base Plus Additional",
         "First Plus Additional",
         "Percentage",
+        "Specified Charges",
+        "Based on Specified Charge Group",
         "Location-based",
     ]
 
@@ -507,6 +527,10 @@ def validate_rate_data(rate_data: Dict) -> Dict:
         errors.append("Minimum quantity is required for First Plus Additional method")
     if method == "Percentage" and not rate_data.get("base_amount"):
         errors.append("Base amount is required for Percentage method")
+    if method in ("Specified Charges", "Based on Specified Charge Group") and not rate_data.get(
+        "base_amount"
+    ):
+        errors.append(f"Base amount is required for {method} method")
     return {"valid": len(errors) == 0, "errors": errors}
 
 

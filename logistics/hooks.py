@@ -73,7 +73,8 @@ app_include_js = [
 	"/assets/logistics/js/air_consolidation_matching_shipments.js?v=5",
 	"/assets/logistics/js/charges_disbursement_sync.js",
 	"/assets/logistics/js/charge_type_cleanup.js",
-	"/assets/logistics/js/charge_break_dialogs.js",
+	"/assets/logistics/js/charge_break_dialogs.js?v=10",
+	"/assets/logistics/js/specified_charges_html.js?v=3",
 	"/assets/logistics/js/volume_from_dimensions.js",
 	"/assets/logistics/js/density_factor.js?v=2",
 	"/assets/logistics/js/document_alerts_dialog.js?v=2",
@@ -450,6 +451,10 @@ _doc_milestone_doctypes = [
 	# (parent date field <-> milestone actual_end) and status auto-update
 	# (Planned / Started / Completed / Delayed) never run on save.
 	"MICE Project", "Docket", "MICE Order", "MICE Job",
+]
+
+boot_session = [
+	"logistics.utils.specified_charges_meta.extend_bootinfo_with_specified_charges_meta",
 ]
 
 doc_events = {
@@ -1080,5 +1085,7 @@ after_install = "logistics.control_tower.install.after_install"
 # translated_search_doctypes = []
 
 from logistics.utils.internal_job_link_validation import apply_internal_job_link_validation_patch
+from logistics.utils.specified_charges_meta import apply_recursive_meta_bundle_patch
 
 apply_internal_job_link_validation_patch()
+apply_recursive_meta_bundle_patch()

@@ -30,6 +30,8 @@ _CONSOLIDATION_CALC_METHODS = frozenset(
 		"Weight Break",
 		"Qty Break",
 		"Percentage Break",
+		"Specified Charges",
+		"Based on Specified Charge Group",
 	}
 )
 

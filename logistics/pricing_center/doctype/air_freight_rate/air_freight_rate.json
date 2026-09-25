@@ -14,6 +14,10 @@
   "valid_to",
   "section_break_5",
   "calculation_method",
+  "selling_specified_charge_groups_html",
+  "selling_specified_charge_group_codes",
+  "selling_specified_items_html",
+  "selling_specified_item_codes",
   "rate_value",
   "currency",
   "minimum_charge",
@@ -79,7 +83,7 @@
    "fieldname": "calculation_method",
    "fieldtype": "Select",
    "label": "Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break\nSpecified Charges\nBased on Specified Charge Group",
    "reqd": 1
   },
   {
@@ -159,7 +163,7 @@
   {
    "fieldname": "volume_m3",
    "fieldtype": "Float",
-   "label": "Volume (m³)"
+   "label": "Volume (m\u00b3)"
   },
   {
    "fieldname": "packages",
@@ -214,6 +218,32 @@
    "label": "Item Group",
    "options": "Item Group",
    "read_only": 1
+  },
+  {
+   "depends_on": "eval:['Specified Charges'].includes(doc.revenue_calculation_method||doc.calculation_method||'')",
+   "fieldname": "selling_specified_item_codes",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Specified Item Codes",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "selling_specified_items_html",
+   "fieldtype": "HTML",
+   "label": "Specified Items"
+  },
+  {
+   "depends_on": "eval:['Based on Specified Charge Group'].includes(doc.revenue_calculation_method||doc.calculation_method||'')",
+   "fieldname": "selling_specified_charge_group_codes",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Specified Charge Group Codes",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "selling_specified_charge_groups_html",
+   "fieldtype": "HTML",
+   "label": "Specified Charge Groups"
   }
  ],
  "index_web_pages_for_search": 1,
