@@ -224,6 +224,9 @@ frappe.provide("logistics.charge_type_cleanup");
 			var rateField = isRevenue ? "unit_rate" : "unit_cost";
 			return flt(row[rateField]) > 0 && flt(row[baseField]) > 0;
 		}
+		if (method === "Specified Charges") {
+			return flt(isRevenue ? row.unit_rate : row.unit_cost) > 0;
+		}
 		return flt(isRevenue ? row.unit_rate : row.unit_cost) > 0;
 	}
 

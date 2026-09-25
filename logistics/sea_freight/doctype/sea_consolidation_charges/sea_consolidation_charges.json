@@ -26,6 +26,10 @@
   "cost_percentage_break",
   "section_break_calc",
   "cost_calculation_method",
+  "cost_specified_charge_groups_html",
+  "cost_specified_charge_group_codes",
+  "cost_specified_items_html",
+  "cost_specified_item_codes",
   "cost_quantity",
   "cost_uom",
   "cost_currency",
@@ -172,7 +176,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break"
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break\nSpecified Charges\nBased on Specified Charge Group"
   },
   {
    "fieldname": "cost_quantity",
@@ -252,7 +256,7 @@
    "label": "Cost Allocation"
   },
   {
-   "description": "How this charge splits across planned shipments for Purchase Invoice. For Custom, set Cost Allocation % on each row in Shipments → Planned shipments.",
+   "description": "How this charge splits across planned shipments for Purchase Invoice. For Custom, set Cost Allocation % on each row in Shipments \u2192 Planned shipments.",
    "fieldname": "allocation_method",
    "fieldtype": "Select",
    "label": "Allocation Method",
@@ -298,6 +302,34 @@
    "options": "Purchase Invoice",
    "read_only": 1,
    "description": "Purchase Invoice this charge was requested in."
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method=='Specified Charges'",
+   "fieldname": "cost_specified_item_codes",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Specified Item Codes",
+   "print_hide": 1
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method=='Specified Charges'",
+   "fieldname": "cost_specified_items_html",
+   "fieldtype": "HTML",
+   "label": "Specified Items"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method=='Based on Specified Charge Group'",
+   "fieldname": "cost_specified_charge_group_codes",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Specified Charge Group Codes",
+   "print_hide": 1
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method=='Based on Specified Charge Group'",
+   "fieldname": "cost_specified_charge_groups_html",
+   "fieldtype": "HTML",
+   "label": "Specified Charge Groups"
   }
  ],
  "grid_page_length": 50,

@@ -690,4 +690,10 @@ logistics.patches.v3_0_mice_project_manifest_html_landscape
 logistics.patches.v3_0_mice_project_manifest_table_header_style
 # MICE Project Manifest HTML: open body rows with horizontal dividers only
 logistics.patches.v3_0_mice_project_manifest_table_body_style
+# Charge calculation methods: Specified Charges (sum of selected items × unit rate)
+logistics.patches.v3_0_add_specified_charges_option
+# Charge calculation: Based on Specified Charge Group method + HTML JSON pickers on charge rows
+logistics.patches.v3_0_add_specified_charge_group_method
+# Logistics Charge Group master rows (Origin, Destination, …)
+logistics.patches.v3_0_seed_logistics_charge_groups
 
