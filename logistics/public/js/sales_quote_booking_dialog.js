@@ -17,6 +17,8 @@
 		Warehousing: "Inbound Order",
 	};
 	const SQ_SCOPE_FIELDS = [
+		"incoterm",
+		"incoterm_place",
 		"transport_mode",
 		"load_type",
 		"direction",
