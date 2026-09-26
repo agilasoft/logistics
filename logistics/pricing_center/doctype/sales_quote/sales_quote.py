@@ -2677,7 +2677,7 @@ def _create_sea_booking_from_sales_quote(
 
 	# Quote containers have no seal; Seal Number stays reqd on Sea Booking form.
 	sea_booking.flags.ignore_mandatory = True
-	sea_booking.insert(ignore_permissions=True, ignore_mandatory=True)
+	sea_booking.insert(ignore_permissions=True)
 
 	_propagate_linked_services_to_created_booking(
 		sales_quote,
