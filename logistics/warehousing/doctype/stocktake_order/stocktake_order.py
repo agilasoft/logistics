@@ -83,6 +83,9 @@ def stocktake_get_count_items(
     wi_filters: Dict[str, Any] = {}
 
     customer = (customer or "").strip() or None
+    order_customer = (getattr(doc, "customer", None) or "").strip() or None
+    if order_customer:
+        customer = order_customer
     company = (company or "").strip() or None
     branch = (branch or "").strip() or None
     storage_type = (storage_type or "").strip() or None
