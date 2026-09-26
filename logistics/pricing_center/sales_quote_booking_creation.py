@@ -41,6 +41,15 @@ from logistics.utils.sales_quote_charge_parameters import (
 	resolve_parameters_from_sales_quote_scope,
 	SALES_QUOTE_CHARGE_PARAMETER_FIELDS,
 )
+from logistics.utils.sales_quote_booking_commercial import (
+	apply_sales_quote_commercial_fields_to_operational_doc,
+)
+
+# Scope tab header fields overlaid from unsaved desk form (quote_context JSON).
+_SALES_QUOTE_BOOKING_QUOTE_CONTEXT_HEADER_FIELDS: tuple[str, ...] = (
+	"incoterm",
+	"incoterm_place",
+)
 
 _LOGISTICS_SQ_CLIENT_LINKED_SERVICES = "_logistics_sq_client_linked_services"
 
@@ -194,7 +203,7 @@ def _apply_client_quote_context(sq_doc: Any, quote_context: Any) -> None:
 	ms = _norm(ctx.get("main_service"))
 	if ms:
 		sq_doc.main_service = ms
-	for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS:
+	for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS + _SALES_QUOTE_BOOKING_QUOTE_CONTEXT_HEADER_FIELDS:
 		if fn not in ctx:
 			continue
 		val = ctx.get(fn)
@@ -611,6 +620,9 @@ def _create_air_booking(
 	_apply_air_sea_settings_defaults_before_insert(doc)
 	apply_party_address_contact_from_source_or_masters(doc, sq_doc)
 	apply_shipper_consignee_defaults(doc)
+	apply_sales_quote_commercial_fields_to_operational_doc(
+		doc, sq_doc, scope_row=merged, overwrite_incoterm=True
+	)
 	_validate_air_sea_corridor_ports_before_insert(doc)
 	doc.flags.skip_sales_quote_on_change = True
 	try:
@@ -661,6 +673,9 @@ def _create_sea_booking(
 	_apply_air_sea_settings_defaults_before_insert(doc)
 	apply_party_address_contact_from_source_or_masters(doc, sq_doc)
 	apply_shipper_consignee_defaults(doc)
+	apply_sales_quote_commercial_fields_to_operational_doc(
+		doc, sq_doc, scope_row=merged, overwrite_incoterm=True
+	)
 	_validate_air_sea_corridor_ports_before_insert(doc)
 	from logistics.sea_freight.sea_container_row_utils import copy_sales_quote_containers_to_booking
 
@@ -721,6 +736,9 @@ def _create_declaration_order(
 	if frappe.get_meta("Declaration Order").get_field("order_date"):
 		order.order_date = today()
 	apply_internal_job_detail_row_to_operational_doc(order, merged, overwrite=True)
+	apply_sales_quote_commercial_fields_to_operational_doc(
+		order, sq_doc, scope_row=merged, overwrite_incoterm=True
+	)
 	from logistics.utils.service_role_rules import apply_standalone_service_flags
 
 	apply_standalone_service_flags(order)
