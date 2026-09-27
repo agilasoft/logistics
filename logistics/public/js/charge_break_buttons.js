@@ -12,7 +12,8 @@ var CHARGE_DOCTYPES_WITH_BREAKS =
 		["Transport Order Charges", "Transport Job Charges"],
 		["Special Project Charges"],
 		["Sales Quote Charge", "Tariff Charge"],
-		["MICE Project Charges", "Exhibit Charges"],
+		["MICE Project Charges", "MICE Project Consolidation Charges", "Exhibit Charges"],
+		["Time Sensitive Case Charge"],
 		["Change Request Charge"]
 	);
 
@@ -120,6 +121,36 @@ function _register_break_handlers(doctype) {
 				});
 			}
 		},
+		selling_specified_charges: function(frm, cdt, cdn) {
+			var row = cdn && cdt ? frappe.get_doc(cdt, cdn) : frm && frm.selected_doc ? frm.selected_doc : null;
+			if (!row) {
+				return;
+			}
+			if (typeof window.open_specified_charges_dialog === "function") {
+				window.open_specified_charges_dialog(frm, row, "Selling");
+			} else {
+				frappe.msgprint({
+					title: __("Error"),
+					message: __("Specified Charges dialog is not loaded. Please refresh the page."),
+					indicator: "red",
+				});
+			}
+		},
+		cost_specified_charges: function(frm, cdt, cdn) {
+			var row = cdn && cdt ? frappe.get_doc(cdt, cdn) : frm && frm.selected_doc ? frm.selected_doc : null;
+			if (!row) {
+				return;
+			}
+			if (typeof window.open_specified_charges_dialog === "function") {
+				window.open_specified_charges_dialog(frm, row, "Cost");
+			} else {
+				frappe.msgprint({
+					title: __("Error"),
+					message: __("Specified Charges dialog is not loaded. Please refresh the page."),
+					indicator: "red",
+				});
+			}
+		},
 		selling_unit_break: function(frm, cdt, cdn) {
 			var row = cdn && cdt ? frappe.get_doc(cdt, cdn) : frm && frm.selected_doc ? frm.selected_doc : null;
 			if (!row) {
@@ -176,7 +207,42 @@ CHARGE_DOCTYPES_WITH_BREAKS.forEach(function(doctype) {
 			}
 		},
 	};
+	var specifiedBasisRecalcEvents = {
+		selling_specified_item_codes: function(frm, cdt, cdn) {
+			if (
+				logistics.charge_type_cleanup &&
+				logistics.charge_type_cleanup.recalculate_charge_row
+			) {
+				logistics.charge_type_cleanup.recalculate_charge_row(frm, cdt, cdn);
+			}
+		},
+		cost_specified_item_codes: function(frm, cdt, cdn) {
+			if (
+				logistics.charge_type_cleanup &&
+				logistics.charge_type_cleanup.recalculate_charge_row
+			) {
+				logistics.charge_type_cleanup.recalculate_charge_row(frm, cdt, cdn);
+			}
+		},
+		selling_specified_charge_group_codes: function(frm, cdt, cdn) {
+			if (
+				logistics.charge_type_cleanup &&
+				logistics.charge_type_cleanup.recalculate_charge_row
+			) {
+				logistics.charge_type_cleanup.recalculate_charge_row(frm, cdt, cdn);
+			}
+		},
+		cost_specified_charge_group_codes: function(frm, cdt, cdn) {
+			if (
+				logistics.charge_type_cleanup &&
+				logistics.charge_type_cleanup.recalculate_charge_row
+			) {
+				logistics.charge_type_cleanup.recalculate_charge_row(frm, cdt, cdn);
+			}
+		},
+	};
 	frappe.ui.form.on(doctype, unitBreakRecalcEvents);
+	frappe.ui.form.on(doctype, specifiedBasisRecalcEvents);
 });
 
 CHARGE_PARENT_DOCTYPES.forEach(function(doctype) {
@@ -269,6 +335,12 @@ function _grid_is_logistics_charge_breaks_table(grid) {
 	if (
 		window.logistics_charge_child_doctype_has_unit_break_buttons &&
 		window.logistics_charge_child_doctype_has_unit_break_buttons(dt)
+	) {
+		return true;
+	}
+	if (
+		window.logistics_charge_child_doctype_has_specified_charges_buttons &&
+		window.logistics_charge_child_doctype_has_specified_charges_buttons(dt)
 	) {
 		return true;
 	}

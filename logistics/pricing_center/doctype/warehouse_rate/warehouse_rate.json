@@ -24,6 +24,10 @@
   "handling_unit_type",
   "storage_type",
   "calculation_method",
+  "selling_specified_charge_groups_html",
+  "selling_specified_charge_group_codes",
+  "selling_specified_items_html",
+  "selling_specified_item_codes",
   "unit_type",
   "volume_calculation_method",
   "column_break_zaxi",
@@ -153,7 +157,7 @@
    "fieldname": "calculation_method",
    "fieldtype": "Select",
    "label": "Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break\nSpecified Charges\nBased on Specified Charge Group",
    "reqd": 1
   },
   {
@@ -253,6 +257,32 @@
   {
    "fieldname": "column_break_qpzc",
    "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:['Specified Charges'].includes(doc.revenue_calculation_method||doc.calculation_method||'')",
+   "fieldname": "selling_specified_item_codes",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Specified Item Codes",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "selling_specified_items_html",
+   "fieldtype": "HTML",
+   "label": "Specified Items"
+  },
+  {
+   "depends_on": "eval:['Based on Specified Charge Group'].includes(doc.revenue_calculation_method||doc.calculation_method||'')",
+   "fieldname": "selling_specified_charge_group_codes",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Specified Charge Group Codes",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "selling_specified_charge_groups_html",
+   "fieldtype": "HTML",
+   "label": "Specified Charge Groups"
   }
  ],
  "index_web_pages_for_search": 1,

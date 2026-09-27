@@ -1,5 +1,7 @@
 {
  "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:code",
  "creation": "2026-05-18 10:38:57.073266",
@@ -25,7 +27,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-18 10:39:49.299234",
+ "modified": "2026-09-27 18:47:48.196829",
  "modified_by": "Administrator",
  "module": "Special Projects",
  "name": "Scoping Type",

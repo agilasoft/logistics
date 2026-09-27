@@ -1611,7 +1611,7 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			sqsf_calc_method = _quote_rev_method()
 			valid_calc_methods = [
 				"Per Unit", "Fixed Amount", "Flat Rate", "Base Plus Additional",
-				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break", "Percentage Break"
+				"First Plus Additional", "Percentage", "Location-based", "Weight Break", "Qty Break", "Percentage Break", "Specified Charges", "Based on Specified Charge Group"
 			]
 			
 			# Invalid calculation methods that should be converted

@@ -399,6 +399,7 @@ frappe.ui.form.on('Air Shipment', {
 			}
 		}, 0);
 		_update_measurement_fields_readonly(frm);
+		_apply_air_shipment_header_uom_defaults(frm);
 		_refresh_mawb_virtuals(frm);
 		// Load dashboard HTML via module API (not frm.call) to avoid run_doc_method / check_if_latest races.
 		if (
@@ -669,6 +670,30 @@ function _update_measurement_fields_readonly(frm) {
 	if (frm.fields_dict.total_volume) frm.set_df_property('total_volume', 'read_only', readonly);
 	if (frm.fields_dict.total_weight) frm.set_df_property('total_weight', 'read_only', readonly);
 	if (frm.fields_dict.chargeable) frm.set_df_property('chargeable', 'read_only', readonly);
+}
+
+function _apply_air_shipment_header_uom_defaults(frm) {
+	if (!frm || !frm.doc) return;
+	var needs_uom = !frm.doc.total_volume_uom || !frm.doc.total_weight_uom || !frm.doc.chargeable_weight_uom;
+	if (!needs_uom) return;
+	frappe.call({
+		method: 'logistics.air_freight.doctype.air_shipment.air_shipment.fetch_header_measurement_defaults',
+		args: { company: frm.doc.company || null },
+		freeze: false,
+		callback: function(r) {
+			if (!r || r.exc || !r.message) return;
+			var msg = r.message;
+			if (!frm.doc.total_volume_uom && msg.total_volume_uom) {
+				frm.set_value('total_volume_uom', msg.total_volume_uom);
+			}
+			if (!frm.doc.total_weight_uom && msg.total_weight_uom) {
+				frm.set_value('total_weight_uom', msg.total_weight_uom);
+			}
+			if (!frm.doc.chargeable_weight_uom && msg.chargeable_weight_uom) {
+				frm.set_value('chargeable_weight_uom', msg.chargeable_weight_uom);
+			}
+		}
+	});
 }
 
 /**

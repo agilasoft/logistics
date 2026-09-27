@@ -40,6 +40,10 @@
   "section_break_revenue_cost",
   "revenue_column",
   "revenue_calculation_method",
+  "selling_specified_charge_groups_html",
+  "selling_specified_charge_group_codes",
+  "selling_specified_items_html",
+  "selling_specified_item_codes",
   "quantity",
   "uom",
   "currency",
@@ -53,6 +57,10 @@
   "base_quantity",
   "column_break_cost_calc",
   "cost_calculation_method",
+  "cost_specified_charge_groups_html",
+  "cost_specified_charge_group_codes",
+  "cost_specified_items_html",
+  "cost_specified_item_codes",
   "cost_quantity",
   "cost_uom",
   "cost_currency",
@@ -405,7 +413,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Revenue Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break\nSpecified Charges\nBased on Specified Charge Group",
    "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
@@ -503,7 +511,7 @@
    "fieldname": "cost_calculation_method",
    "fieldtype": "Select",
    "label": "Calculation Method",
-   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break",
+   "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break\nSpecified Charges\nBased on Specified Charge Group",
    "read_only_depends_on": "eval:doc.charge_type == 'Revenue'"
   },
   {
@@ -655,6 +663,62 @@
    "options": "Linked Service",
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "depends_on": "eval:['Specified Charges'].includes(doc.revenue_calculation_method||doc.calculation_method||'')",
+   "fieldname": "selling_specified_item_codes",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Specified Item Codes",
+   "print_hide": 1
+  },
+  {
+   "depends_on": "eval:['Specified Charges'].includes(doc.revenue_calculation_method||doc.calculation_method||'')",
+   "fieldname": "selling_specified_items_html",
+   "fieldtype": "HTML",
+   "label": "Specified Items"
+  },
+  {
+   "depends_on": "eval:['Based on Specified Charge Group'].includes(doc.revenue_calculation_method||doc.calculation_method||'')",
+   "fieldname": "selling_specified_charge_group_codes",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Specified Charge Group Codes",
+   "print_hide": 1
+  },
+  {
+   "depends_on": "eval:['Based on Specified Charge Group'].includes(doc.revenue_calculation_method||doc.calculation_method||'')",
+   "fieldname": "selling_specified_charge_groups_html",
+   "fieldtype": "HTML",
+   "label": "Specified Charge Groups"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method=='Specified Charges'",
+   "fieldname": "cost_specified_item_codes",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Specified Item Codes",
+   "print_hide": 1
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method=='Specified Charges'",
+   "fieldname": "cost_specified_items_html",
+   "fieldtype": "HTML",
+   "label": "Specified Items"
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method=='Based on Specified Charge Group'",
+   "fieldname": "cost_specified_charge_group_codes",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "label": "Specified Charge Group Codes",
+   "print_hide": 1
+  },
+  {
+   "depends_on": "eval:doc.cost_calculation_method=='Based on Specified Charge Group'",
+   "fieldname": "cost_specified_charge_groups_html",
+   "fieldtype": "HTML",
+   "label": "Specified Charge Groups"
   }
  ],
  "grid_page_length": 50,

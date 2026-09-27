@@ -24,6 +24,16 @@
   "tab_2_tab",
   "customer",
   "supplier",
+  "addresses_tab",
+  "addresses_and_contacts",
+  "address_html",
+  "column_break_fa_addr",
+  "contact_html",
+  "section_break_fa_primary",
+  "freightagent_primary_address",
+  "primary_address",
+  "column_break_fa_contact",
+  "freightagent_primary_contact",
   "related_parties_tab",
   "ar_netting_group",
   "ap_netting_group"
@@ -128,6 +138,54 @@
    "label": "Supplier",
    "options": "Supplier",
    "link_filters": "[[\"Supplier\", \"disabled\", \"=\", 0]]"
+  },
+  {
+   "fieldname": "addresses_tab",
+   "fieldtype": "Tab Break",
+   "label": "Addresses and Contacts"
+  },
+  {
+   "fieldname": "addresses_and_contacts",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "address_html",
+   "fieldtype": "HTML",
+   "label": "Addresses"
+  },
+  {
+   "fieldname": "column_break_fa_addr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "contact_html",
+   "fieldtype": "HTML",
+   "label": "Contacts"
+  },
+  {
+   "fieldname": "section_break_fa_primary",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "freightagent_primary_address",
+   "fieldtype": "Link",
+   "label": "Primary Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "primary_address",
+   "fieldtype": "Text",
+   "label": "Primary Address"
+  },
+  {
+   "fieldname": "column_break_fa_contact",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "freightagent_primary_contact",
+   "fieldtype": "Link",
+   "label": "Primary Contact",
+   "options": "Contact"
   },
   {
    "fieldname": "related_parties_tab",

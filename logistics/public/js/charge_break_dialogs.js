@@ -5,6 +5,90 @@
 (function() {
 	"use strict";
 
+	function logistics_table_multiselect_target_doc(control) {
+		if (control.doc && control.frm && control.doc.doctype !== control.frm.doctype) {
+			return control.doc;
+		}
+		if (control.frm) {
+			return control.frm.doc;
+		}
+		return control.doc;
+	}
+
+	// Charge-row Table MultiSelect: nested meta + grid-row doc ownership (Frappe assumes parent form doc).
+	(function patch_table_multiselect_for_charge_grid_rows() {
+		var Ctrl = frappe.ui.form.ControlTableMultiSelect;
+		if (!Ctrl || Ctrl._logistics_charge_grid_patch) {
+			return;
+		}
+		var orig_make = Ctrl.prototype.make;
+		Ctrl.prototype.make = function () {
+			var opt = this.df && this.df.options;
+			if (opt && !frappe.get_meta(opt)) {
+				var me = this;
+				frappe.model.with_doctype(opt, function () {
+					me._link_field = undefined;
+					orig_make.call(me);
+				});
+				return;
+			}
+			orig_make.call(this);
+		};
+
+		var orig_make_input = Ctrl.prototype.make_input;
+		Ctrl.prototype.make_input = function () {
+			if (this.doc && this.df && this.df.fieldname && this.doc[this.df.fieldname] == null) {
+				this.doc[this.df.fieldname] = [];
+			}
+			return orig_make_input.apply(this, arguments);
+		};
+
+		var orig_parse = Ctrl.prototype.parse;
+		Ctrl.prototype.parse = function (value) {
+			var target_doc = logistics_table_multiselect_target_doc(this);
+			var on_grid_row = this.frm && target_doc && target_doc !== this.frm.doc;
+
+			if (on_grid_row) {
+				var rows = (this._get_rows() || []).slice();
+				if (typeof value === "object") {
+					return value;
+				}
+				var link_field = this.get_link_field();
+				value = cstr(value).trim();
+				if (!value) {
+					return rows;
+				}
+				this.set_input_value("");
+				var new_row = frappe.model.get_new_doc(this.df.options, null, null);
+				new_row[link_field.fieldname] = value;
+				new_row.parent = target_doc.name;
+				new_row.parentfield = this.df.fieldname;
+				new_row.parenttype = target_doc.doctype;
+				new_row.idx = rows.length + 1;
+				// New array reference so set_value runs and pills refresh (avoid add_child + same ref).
+				return rows.concat([new_row]);
+			}
+
+			return orig_parse.call(this, value);
+		};
+
+		var orig_set_model_value = Ctrl.prototype.set_model_value;
+		Ctrl.prototype.set_model_value = async function (value) {
+			var target_doc = logistics_table_multiselect_target_doc(this);
+			var on_grid_row = this.frm && target_doc && target_doc !== this.frm.doc;
+			var result = await orig_set_model_value.apply(this, arguments);
+			if (on_grid_row) {
+				var rows = value || this.get_model_value() || [];
+				this._update_rows(rows);
+				this.set_formatted_input(rows);
+				this.frm && this.frm.dirty();
+			}
+			return result;
+		};
+
+		Ctrl._logistics_charge_grid_patch = true;
+	})();
+
 	/** Sea Freight — booking / shipment / consolidation charge child tables (Weight Break & Qty Break row buttons). */
 	window.LOGISTICS_SEA_FREIGHT_CHARGE_DOCTYPES = [
 		"Sea Booking Charges",
@@ -23,6 +107,7 @@
 	window.LOGISTICS_PRICING_CHARGE_DOCTYPES = ["Sales Quote Charge", "Tariff Charge"];
 	window.LOGISTICS_MICE_CHARGE_DOCTYPES = ["MICE Project Charges", "MICE Project Consolidation Charges"];
 	window.LOGISTICS_EXHIBIT_CHARGE_DOCTYPES = ["Exhibit Charges"];
+	window.LOGISTICS_TIME_SENSITIVE_CHARGE_DOCTYPES = ["Time Sensitive Case Charge"];
 	window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS = [].concat(
 		window.LOGISTICS_SEA_FREIGHT_CHARGE_DOCTYPES,
 		window.LOGISTICS_AIR_FREIGHT_CHARGE_DOCTYPES,
@@ -32,6 +117,7 @@
 		window.LOGISTICS_PRICING_CHARGE_DOCTYPES,
 		window.LOGISTICS_MICE_CHARGE_DOCTYPES,
 		window.LOGISTICS_EXHIBIT_CHARGE_DOCTYPES,
+		window.LOGISTICS_TIME_SENSITIVE_CHARGE_DOCTYPES,
 		["Change Request Charge"]
 	);
 	/** Warehousing charge child tables (linked_service scope). */
@@ -77,6 +163,16 @@
 		var sp = m.selling_percentage_break;
 		var cp = m.cost_percentage_break;
 		return (sp && sp.fieldtype === "Button") || (cp && cp.fieldtype === "Button");
+	};
+
+	window.logistics_charge_child_doctype_has_specified_charges_buttons = function(dt) {
+		if (!dt || !frappe.meta.docfield_map || !frappe.meta.docfield_map[dt]) {
+			return false;
+		}
+		var m = frappe.meta.docfield_map[dt];
+		var ss = m.selling_specified_items_html || m.selling_specified_charge_groups_html;
+		var cs = m.cost_specified_items_html || m.cost_specified_charge_groups_html;
+		return (ss && ss.fieldtype === "HTML") || (cs && cs.fieldtype === "HTML");
 	};
 
 	/** Unit-break row buttons (checkbox-driven). */
@@ -737,6 +833,159 @@
 		});
 	};
 
+	window.open_specified_charges_dialog = function(frm, row, record_type) {
+		record_type = record_type || "Selling";
+		var reference_doctype = _pricing_charge_reference_doctype_from_row(row);
+		var reference_no = row.name;
+		if (!reference_no || reference_no === "new" || String(reference_no).startsWith("new-")) {
+			frappe.msgprint({
+				title: __("Save Required"),
+				message: __("Please save the document first before managing specified charges."),
+				indicator: "orange",
+			});
+			return;
+		}
+		var dialog_key = _break_dialog_key("specified", reference_doctype, reference_no, record_type);
+		if (!_begin_break_dialog(dialog_key)) {
+			return;
+		}
+		frappe.call({
+			method:
+				"logistics.pricing_center.doctype.sales_quote_specified_charge.sales_quote_specified_charge.get_specified_charges",
+			args: { reference_doctype: reference_doctype, reference_no: reference_no, record_type: record_type },
+			callback: function(r) {
+				if (!r.message || !r.message.success) {
+					_end_break_dialog(dialog_key);
+					frappe.msgprint({
+						title: __("Error"),
+						message: __("Could not load specified charges."),
+						indicator: "red",
+					});
+					return;
+				}
+				var specified_charges = r.message.specified_charges || [];
+				var table_data =
+					specified_charges.length > 0
+						? specified_charges.map(function(sc) {
+								return { item_code: sc.item_code || "" };
+						  })
+						: [{ item_code: "" }];
+
+				var table_html = [
+					'<div class="specified-charges-dialog-table">',
+					'<table class="table table-bordered table-sm">',
+					"<thead><tr>",
+					"<th>" + __("Item Code") + "</th>",
+					'<th style="width:40px"></th>',
+					"</tr></thead>",
+					'<tbody id="specified_charges_tbody"></tbody>',
+					"</table>",
+					'<button type="button" class="btn btn-xs btn-secondary mt-2" id="specified_charges_add_row">' +
+						__("Add row") +
+						"</button>",
+					"</div>",
+				].join("");
+
+				var dialog = new frappe.ui.Dialog({
+					title:
+						record_type === "Cost"
+							? __("Manage Cost Specified Charges")
+							: __("Manage Selling Specified Charges"),
+					size: "large",
+					fields: [
+						{
+							fieldname: "specified_charges_section",
+							fieldtype: "Section Break",
+							label: __("Specified Charges"),
+						},
+						{ fieldname: "specified_charges_html", fieldtype: "HTML", options: table_html },
+					],
+					primary_action_label: __("Save"),
+					primary_action: function() {
+						var tbody = dialog.$wrapper.find("#specified_charges_tbody");
+						var to_save = [];
+						tbody.find("tr").each(function() {
+							var $row = $(this);
+							var item_code = ($row.find("input.item-code").val() || "").trim();
+							if (item_code) {
+								to_save.push({ item_code: item_code });
+							}
+						});
+						frappe.call({
+							method:
+								"logistics.pricing_center.doctype.sales_quote_specified_charge.sales_quote_specified_charge.save_specified_charges_for_reference",
+							args: {
+								reference_doctype: reference_doctype,
+								reference_no: reference_no,
+								specified_charges: to_save,
+								record_type: record_type,
+							},
+							callback: function(save_r) {
+								if (save_r.message && save_r.message.success) {
+									frappe.show_alert({ message: __("Specified charges saved"), indicator: "green" });
+									dialog.hide();
+									if (frm && frm.doc) {
+										_refresh_charge_grids_on_parent(frm);
+									}
+								} else {
+									frappe.msgprint({
+										title: __("Error"),
+										message:
+											(save_r.message && save_r.message.error) ||
+											__("Failed to save specified charges"),
+										indicator: "red",
+									});
+								}
+							},
+						});
+					},
+				});
+				_bind_break_dialog_release(dialog, dialog_key);
+
+				var render_row = function(sc) {
+					return (
+						"<tr>" +
+						'<td><input type="text" class="form-control form-control-sm item-code" data-fieldtype="Link" data-options="Item" value="' +
+						frappe.utils.escape_html(sc.item_code || "") +
+						'"></td>' +
+						'<td><button type="button" class="btn btn-xs btn-default btn-remove-row">&times;</button></td>' +
+						"</tr>"
+					);
+				};
+
+				var populate_specified_charges_table = function() {
+					var tbody = dialog.$wrapper.find("#specified_charges_tbody");
+					if (!tbody.length) {
+						return;
+					}
+					tbody.empty();
+					table_data.forEach(function(sc) {
+						tbody.append(render_row(sc));
+					});
+					dialog.$wrapper.find("#specified_charges_add_row").off("click").on("click", function() {
+						tbody.append(render_row({ item_code: "" }));
+					});
+					dialog.$wrapper.find(".specified-charges-dialog-table").off("click", ".btn-remove-row");
+					dialog.$wrapper.find(".specified-charges-dialog-table").on("click", ".btn-remove-row", function() {
+						$(this).closest("tr").remove();
+					});
+				};
+
+				dialog.show();
+				dialog.$wrapper.one("shown.bs.modal", populate_specified_charges_table);
+				setTimeout(populate_specified_charges_table, 0);
+			},
+			error: function() {
+				_end_break_dialog(dialog_key);
+				frappe.msgprint({
+					title: __("Error"),
+					message: __("Could not load specified charges."),
+					indicator: "red",
+				});
+			},
+		});
+	};
+
 	window.logistics_unit_break_label_for_row = function(row, record_type) {
 		var unit_type =
 			record_type === "Cost"
@@ -1242,6 +1491,27 @@
 						fo.frm,
 						row,
 						fn === "cost_percentage_break" ? "Cost" : "Selling"
+					);
+					return;
+				}
+				if (fn === "selling_specified_charges" || fn === "cost_specified_charges") {
+					var known_sc = (window.LOGISTICS_CHARGE_DOCTYPES_WITH_BREAKS || []).indexOf(fo.doctype) !== -1;
+					var meta_sc =
+						window.logistics_charge_child_doctype_has_specified_charges_buttons &&
+						window.logistics_charge_child_doctype_has_specified_charges_buttons(fo.doctype);
+					if (!known_sc && !meta_sc) {
+						return;
+					}
+					if (typeof window.open_specified_charges_dialog !== "function") {
+						return;
+					}
+					ev.preventDefault();
+					ev.stopPropagation();
+					ev.stopImmediatePropagation();
+					window.open_specified_charges_dialog(
+						fo.frm,
+						row,
+						fn === "cost_specified_charges" ? "Cost" : "Selling"
 					);
 					return;
 				}

@@ -650,3 +650,20 @@ class TestAirShipmentMilestones(FrappeTestCase):
 			shipment.save()
 		self.assertIn("cannot be deleted", str(ctx.exception))
 
+	def test_apply_uom_defaults_populates_summary_uoms(self):
+		"""Summary UOM links should default from Logistics Settings (issue #1428)."""
+		from logistics.utils.measurements import get_default_uoms
+
+		defaults = get_default_uoms(company=self.company)
+		if not defaults.get("volume") and not defaults.get("weight"):
+			self.skipTest("Logistics UOM defaults not configured")
+
+		shipment = frappe.new_doc("Air Shipment")
+		shipment.company = self.company
+		shipment._apply_uom_defaults()
+		if defaults.get("volume"):
+			self.assertTrue(shipment.total_volume_uom)
+		if defaults.get("weight"):
+			self.assertTrue(shipment.total_weight_uom)
+			self.assertTrue(shipment.chargeable_weight_uom)
+

@@ -274,7 +274,7 @@ class TestMICEProjectConsolidationCharges(FrappeTestCase):
 		self.assertEqual(df.label, "Calculation Method")
 		expected = (
 			"Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\n"
-			"Percentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break"
+			"Percentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break\nSpecified Charges"
 		)
 		self.assertEqual(df.options, expected)
 

@@ -302,16 +302,20 @@
 				label: __("Change Request"),
 				doctype: "Change Request",
 				ptype: "create",
-				css_class: "btn-primary",
+				group: __("Create"),
 				action: function () {
 					open_change_request_dialog(frm);
 				},
 			});
 			return;
 		}
-		frm.add_custom_button(__("Change Request"), function () {
-			open_change_request_dialog(frm);
-		}).addClass("btn-primary");
+		frm.add_custom_button(
+			__("Change Request"),
+			function () {
+				open_change_request_dialog(frm);
+			},
+			__("Create")
+		);
 	}
 
 	/**

@@ -117,6 +117,11 @@ _CHARGE_BREAK_SPECS = (
 		("unit_type", "container_type", "unit_break", "unit_rate", "currency"),
 		None,
 	),
+	(
+		"Sales Quote Specified Charge",
+		("item_code",),
+		None,
+	),
 )
 
 

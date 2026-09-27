@@ -144,9 +144,10 @@ frappe.ui.form.on("Stocktake Order Charges", {
         { fieldname: "company",  label: __("Company"),  fieldtype: "Link", options: "Company", default: frm.doc.company || "" },
         { fieldname: "branch",   label: __("Branch"),   fieldtype: "Link", options: "Branch",  default: frm.doc.branch  || "" },
 
-        // Customer defaults BLANK (leave empty for all customers)
         { fieldname: "customer", label: __("Customer"), fieldtype: "Link", options: "Customer",
-          description: __("Leave blank to fetch items for all customers") },
+          default: frm.doc.customer || "",
+          read_only: frm.doc.customer ? 1 : 0,
+          description: __("Warehouse items are filtered by the Stocktake Order customer") },
 
         { fieldtype: "Section Break", label: __("Location Filter") },
         { fieldname: "storage_type", label: __("Storage Type"), fieldtype: "Link", options: "Storage Type",
@@ -173,7 +174,7 @@ frappe.ui.form.on("Stocktake Order Charges", {
           freeze_message: __("Fetching items…"),
           args: {
             stocktake_order: frm.doc.name,
-            customer: (values.customer || "").trim() || null, // blank = all
+            customer: (values.customer || frm.doc.customer || "").trim() || null,
             company: (values.company || "").trim() || null,
             branch: (values.branch || "").trim() || null,
             storage_type: (values.storage_type || "").trim() || null,

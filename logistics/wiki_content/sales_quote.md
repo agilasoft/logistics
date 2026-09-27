@@ -87,6 +87,8 @@ Each charge line (Air Freight, Sea Freight, Transport) uses a **Calculation Meth
 | Weight Break | `weight × unit_rate` (tier from weight break table) |
 | Qty Break | `quantity × unit_rate` (tier from qty break table) |
 | Percentage Break | `(goods_value × percentage / 100) + minimum_charge` (tier % from percentage break table by Quantity; goods value from parent or Quantity) |
+| Specified Charges | `(sum of same-side estimated amounts for sibling rows whose item is in **Specified Items**) × unit_rate` (direct multiplier) |
+| Based on Specified Charge Group | `(sum of same-side estimated amounts for sibling rows whose **Charge Group** is in **Specified Charge Groups**) × unit_rate` (direct multiplier) |
 | Location-based | Same as Per Unit |
 
 ### 4.2 Unit Types

@@ -100,3 +100,16 @@ class TestRateCalculationEngine(FrappeTestCase):
 		result = engine.calculate_rate(rate_data=rate_data, actual_weight=0)
 		self.assertTrue(result["success"])
 		self.assertEqual(result["amount"], 0)
+
+	def test_specified_charges_multiplies_base_total_by_rate(self):
+		engine = RateCalculationEngine()
+		rate_data = {
+			"calculation_method": "Specified Charges",
+			"unit_rate": 0.05,
+			"base_amount": 2000,
+			"currency": "USD",
+		}
+		result = engine.calculate_rate(rate_data=rate_data)
+		self.assertTrue(result["success"])
+		self.assertEqual(result["amount"], 100)
+		self.assertIn("Specified Charges: Total 2000", result["calculation_details"])

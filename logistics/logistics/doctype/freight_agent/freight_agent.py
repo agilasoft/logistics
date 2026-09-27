@@ -6,6 +6,7 @@ from typing import Any
 
 import frappe
 from frappe import _
+from frappe.contacts.address_and_contact import load_address_and_contact
 from frappe.model.document import Document
 from frappe.utils import cint
 
@@ -27,6 +28,9 @@ def _parse_filters(filters: Any) -> dict:
 
 
 class FreightAgent(Document):
+	def onload(self):
+		load_address_and_contact(self)
+
 	def validate(self):
 		maybe_set_party_code(
 			self,

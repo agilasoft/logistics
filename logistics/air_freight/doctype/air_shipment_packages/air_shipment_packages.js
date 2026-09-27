@@ -12,6 +12,17 @@ function _recalc_package_volume(frm, cdt, cdn) {
 	else _air_shipment_packages_volume_fallback(frm, cdt, cdn);
 }
 
+function _apply_air_shipment_aggregate_message(frm, message) {
+	if (!frm || !message) return;
+	if (message.total_volume !== undefined) frm.set_value('total_volume', message.total_volume);
+	if (message.total_weight !== undefined) frm.set_value('total_weight', message.total_weight);
+	if (message.total_packages !== undefined) frm.set_value('total_packages', message.total_packages);
+	if (message.chargeable !== undefined) frm.set_value('chargeable', message.chargeable);
+	if (message.total_volume_uom) frm.set_value('total_volume_uom', message.total_volume_uom);
+	if (message.total_weight_uom) frm.set_value('total_weight_uom', message.total_weight_uom);
+	if (message.chargeable_weight_uom) frm.set_value('chargeable_weight_uom', message.chargeable_weight_uom);
+}
+
 function _trigger_air_shipment_parent_totals(frm) {
 	if (!frm || frm.doctype !== 'Air Shipment' || !frm.doc) return;
 	if (frm.doc.override_volume_weight) return;
@@ -21,8 +32,7 @@ function _trigger_air_shipment_parent_totals(frm) {
 		freeze: false,
 		callback: function(r) {
 			if (r && !r.exc && r.message) {
-				if (r.message.total_volume !== undefined) frm.set_value('total_volume', r.message.total_volume);
-				if (r.message.total_weight !== undefined) frm.set_value('total_weight', r.message.total_weight);
+				_apply_air_shipment_aggregate_message(frm, r.message);
 			}
 		}
 	});
@@ -65,8 +75,12 @@ frappe.ui.form.on('Air Shipment Packages', {
 	},
 	no_of_packs: function(frm, cdt, cdn) {
 		_recalc_package_volume(frm, cdt, cdn);
+		_trigger_air_shipment_parent_totals(frm);
 	},
 	volume: function(frm, cdt, cdn) {
+		_trigger_air_shipment_parent_totals(frm);
+	},
+	weight: function(frm, cdt, cdn) {
 		_trigger_air_shipment_parent_totals(frm);
 	}
 });
