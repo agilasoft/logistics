@@ -6,6 +6,7 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "charge_type",
   "service_type",
   "tariff_valid_from",
   "tariff_valid_to",
@@ -16,7 +17,6 @@
   "item_name",
   "description",
   "change_request_charge",
-  "charge_type",
   "charge_category",
   "freight_taxes_section",
   "category_apply_95_5_rule",
@@ -160,6 +160,7 @@
   },
   {
    "fetch_from": "item_code.description",
+   "fetch_if_empty": 1,
    "fieldname": "description",
    "fieldtype": "Text Editor",
    "label": "Description"
@@ -172,7 +173,7 @@
    "read_only": 1
   },
   {
-   "default": "Revenue",
+   "default": "Margin",
    "fieldname": "charge_type",
    "fieldtype": "Select",
    "label": "Charge Type",
@@ -499,9 +500,9 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Unit Rate",
+   "mandatory_depends_on": "eval:!['Cost','Disbursement'].includes(doc.charge_type) && !['Weight Break','Qty Break','Percentage Break'].includes(doc.revenue_calculation_method)",
    "options": "currency",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "reqd": 1
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type) || ['Weight Break','Qty Break','Percentage Break'].includes(doc.revenue_calculation_method)"
   },
   {
    "fieldname": "unit_type",
@@ -523,8 +524,8 @@
    "fieldname": "quantity",
    "fieldtype": "Float",
    "label": "Quantity",
-   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)",
-   "reqd": 1
+   "mandatory_depends_on": "eval:!['Cost','Disbursement'].includes(doc.charge_type)",
+   "read_only_depends_on": "eval:['Cost','Disbursement'].includes(doc.charge_type)"
   },
   {
    "fieldname": "minimum_quantity",
@@ -594,7 +595,8 @@
   {
    "fieldname": "cost_calculation_method",
    "fieldtype": "Select",
-   "label": "Calculation Method",
+   "in_list_view": 1,
+   "label": "Cost Calculation Method",
    "options": "Per Unit\nFixed Amount\nFlat Rate\nBase Plus Additional\nFirst Plus Additional\nPercentage\nLocation-based\nWeight Break\nQty Break\nPercentage Break\nSpecified Charges\nBased on Specified Charge Group",
    "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
   },
@@ -602,9 +604,9 @@
    "fieldname": "unit_cost",
    "fieldtype": "Currency",
    "label": "Unit Cost",
+   "mandatory_depends_on": "eval:doc.charge_type != \"Revenue\" && !['Weight Break','Qty Break','Percentage Break'].includes(doc.cost_calculation_method)",
    "options": "cost_currency",
-   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\"",
-   "reqd": 1
+   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\" || ['Weight Break','Qty Break','Percentage Break'].includes(doc.cost_calculation_method)"
   },
   {
    "fieldname": "cost_unit_type",
@@ -625,8 +627,8 @@
    "fieldname": "cost_quantity",
    "fieldtype": "Float",
    "label": "Quantity",
-   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\"",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.charge_type != \"Revenue\"",
+   "read_only_depends_on": "eval:doc.charge_type == \"Revenue\""
   },
   {
    "fieldname": "cost_minimum_quantity",
@@ -691,7 +693,7 @@
   {
    "fieldname": "section_break_weight_breaks",
    "fieldtype": "Section Break",
-   "label": "Weight Breaks"
+   "label": "Breaks"
   },
   {
    "depends_on": "eval:doc.revenue_calculation_method=='Weight Break'",
@@ -819,7 +821,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-08-25 18:15:00.000000",
+ "modified": "2026-09-27 22:30:00.000000",
  "modified_by": "Administrator",
  "module": "Pricing Center",
  "name": "Tariff Charge",

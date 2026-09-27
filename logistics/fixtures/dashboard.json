@@ -1,0 +1,974 @@
+[
+ {
+  "cards": [
+   {
+    "card": "Gross Profit (YTD) - ATN Sales - Luzon"
+   },
+   {
+    "card": "GP (Prior YTD) - ATN Sales - Luzon"
+   },
+   {
+    "card": "GP Target - ATN Sales - Luzon"
+   },
+   {
+    "card": "GP vs Target % - ATN Sales - Luzon"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ATN Sales - Luzon - Gross Profit 3-Year Compare",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - Luzon - Top 10 Clients (GP)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - Luzon - Top 5 Agents - Sea FCL (TEU)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - Luzon - Top 5 Agents - Sea LCL (CBM)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - Luzon - Top 5 Agents - Air (CHW)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - Luzon - Top 5 Carriers - Sea FCL (TEU)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - Luzon - Top 5 Carriers - Sea LCL (CBM)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - Luzon - Top 5 Carriers - Air (CHW)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - Luzon - Pipeline",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - Luzon - Risk Register",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ATN Sales - Luzon",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.000164",
+  "module": "Control Tower",
+  "name": "Control Tower - ATN Sales - Luzon"
+ },
+ {
+  "cards": [
+   {
+    "card": "Gross Profit (YTD) - ATN Sales - VisMin"
+   },
+   {
+    "card": "GP (Prior YTD) - ATN Sales - VisMin"
+   },
+   {
+    "card": "GP Target - ATN Sales - VisMin"
+   },
+   {
+    "card": "GP vs Target % - ATN Sales - VisMin"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ATN Sales - VisMin - Gross Profit 3-Year Compare",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - VisMin - Top 10 Clients (GP)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - VisMin - Top 5 Agents - Sea FCL (TEU)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - VisMin - Top 5 Agents - Sea LCL (CBM)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - VisMin - Top 5 Agents - Air (CHW)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - VisMin - Top 5 Carriers - Sea FCL (TEU)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - VisMin - Top 5 Carriers - Sea LCL (CBM)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - VisMin - Top 5 Carriers - Air (CHW)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - VisMin - Pipeline",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Sales - VisMin - Risk Register",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ATN Sales - VisMin",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.093269",
+  "module": "Control Tower",
+  "name": "Control Tower - ATN Sales - VisMin"
+ },
+ {
+  "cards": [
+   {
+    "card": "Gross Profit (YTD) - ATN Overseas Business Development"
+   },
+   {
+    "card": "GP (Prior YTD) - ATN Overseas Business Development"
+   },
+   {
+    "card": "GP Target - ATN Overseas Business Development"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ATN Overseas Business Development - Gross Profit 3-Year Compare",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Overseas Business Development - Top 10 Clients (GP)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Overseas Business Development - Top 5 Carriers - Sea FCL (TEU)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Overseas Business Development - Top 5 Carriers - Sea LCL (CBM)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Overseas Business Development - Top 5 Airlines",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Overseas Business Development - GP Metro Manila vs Luzon",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Overseas Business Development - GP per Agent Network",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ATN Overseas Business Development",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.129126",
+  "module": "Control Tower",
+  "name": "Control Tower - ATN Overseas Business Development"
+ },
+ {
+  "cards": [
+   {
+    "card": "Gross Profit (YTD) - ALTA Fairs & Exhibits"
+   },
+   {
+    "card": "GP (Prior YTD) - ALTA Fairs & Exhibits"
+   },
+   {
+    "card": "GP Target - ALTA Fairs & Exhibits"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ALTA Fairs & Exhibits - Gross Profit 3-Year Compare",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ALTA Fairs & Exhibits - Exhibits Pipeline",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ALTA Fairs & Exhibits - Top 10 Clients (GP)",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ALTA Fairs & Exhibits",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.152274",
+  "module": "Control Tower",
+  "name": "Control Tower - ALTA Fairs & Exhibits"
+ },
+ {
+  "cards": [
+   {
+    "card": "Gross Profit (YTD) - ATN Special Projects 1"
+   },
+   {
+    "card": "GP (Prior YTD) - ATN Special Projects 1"
+   },
+   {
+    "card": "GP Target - ATN Special Projects 1"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ATN Special Projects 1 - Gross Profit 3-Year Compare",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Special Projects 1 - Projects Pipeline",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Special Projects 1 - Top 5 Clients (GP)",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ATN Special Projects 1",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.172725",
+  "module": "Control Tower",
+  "name": "Control Tower - ATN Special Projects 1"
+ },
+ {
+  "cards": [
+   {
+    "card": "Gross Profit (YTD) - ATN Special Projects 2"
+   },
+   {
+    "card": "GP (Prior YTD) - ATN Special Projects 2"
+   },
+   {
+    "card": "GP Target - ATN Special Projects 2"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ATN Special Projects 2 - Gross Profit 3-Year Compare",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Special Projects 2 - Projects Pipeline",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Special Projects 2 - Top 5 Clients (GP)",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ATN Special Projects 2",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.191525",
+  "module": "Control Tower",
+  "name": "Control Tower - ATN Special Projects 2"
+ },
+ {
+  "cards": [
+   {
+    "card": "Gross Profit (YTD) - ASL Sales"
+   },
+   {
+    "card": "GP (Prior YTD) - ASL Sales"
+   },
+   {
+    "card": "GP Target - ASL Sales"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ASL Sales - Gross Profit 3-Year Compare",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Sales - Top 10 Clients (GP)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Sales - Top 5 Agents - Sea FCL (TEU)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Sales - Top 5 Agents - Sea LCL (CBM)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Sales - Top 5 Agents - Air (CHW)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Sales - Top 5 Carriers - Sea FCL (TEU)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Sales - Top 5 Carriers - Sea LCL (CBM)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Sales - Top 5 Carriers - Air (CHW)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Sales - GP Metro Manila vs Luzon",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Sales - Pipeline",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ASL Sales",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.216110",
+  "module": "Control Tower",
+  "name": "Control Tower - ASL Sales"
+ },
+ {
+  "cards": [
+   {
+    "card": "Gross Profit (YTD) - ASL Overseas Business Development"
+   },
+   {
+    "card": "GP (Prior YTD) - ASL Overseas Business Development"
+   },
+   {
+    "card": "GP Target - ASL Overseas Business Development"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ASL Overseas Business Development - Gross Profit 3-Year Compare",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Overseas Business Development - Top 10 Clients (GP)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Overseas Business Development - Top 5 Carriers - Sea FCL (TEU)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Overseas Business Development - Top 5 Carriers - Sea LCL (CBM)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Overseas Business Development - Top 5 Airlines",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Overseas Business Development - GP Metro Manila vs Luzon",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Overseas Business Development - GP per Agent Network",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ASL Overseas Business Development",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.248233",
+  "module": "Control Tower",
+  "name": "Control Tower - ASL Overseas Business Development"
+ },
+ {
+  "cards": [
+   {
+    "card": "Gross Profit (YTD) - Luxury"
+   },
+   {
+    "card": "GP (Prior YTD) - Luxury"
+   },
+   {
+    "card": "GP Target - Luxury"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - Luxury - Gross Profit 3-Year Compare",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - Luxury - Top 10 Clients (GP)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - Luxury - Luxury Pipeline",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - Luxury",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.276557",
+  "module": "Control Tower",
+  "name": "Control Tower - Luxury"
+ },
+ {
+  "cards": [
+   {
+    "card": "Open Job Files (#) - ATN Head Office Seafreight"
+   },
+   {
+    "card": "Avg Age (days) - ATN Head Office Seafreight"
+   },
+   {
+    "card": "Jobs Handled - ATN Head Office Seafreight"
+   },
+   {
+    "card": "Avg Lead Time (days) - ATN Head Office Seafreight"
+   },
+   {
+    "card": "Returned Billings (#) - ATN Head Office Seafreight"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ATN Head Office Seafreight - Headline",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ATN Head Office Seafreight",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.301030",
+  "module": "Control Tower",
+  "name": "Control Tower - ATN Head Office Seafreight"
+ },
+ {
+  "cards": [
+   {
+    "card": "Open Job Files (#) - ATN Airfreight"
+   },
+   {
+    "card": "Avg Age (days) - ATN Airfreight"
+   },
+   {
+    "card": "Jobs Handled - ATN Airfreight"
+   },
+   {
+    "card": "Avg Lead Time (days) - ATN Airfreight"
+   },
+   {
+    "card": "Returned Billings (#) - ATN Airfreight"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ATN Airfreight - Top 5 Airlines",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ATN Airfreight",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.324339",
+  "module": "Control Tower",
+  "name": "Control Tower - ATN Airfreight"
+ },
+ {
+  "cards": [
+   {
+    "card": "Open Job Files (#) - ATN Brokerage"
+   },
+   {
+    "card": "Avg Age (days) - ATN Brokerage"
+   },
+   {
+    "card": "Jobs Handled - ATN Brokerage"
+   },
+   {
+    "card": "Avg Lead Time (days) - ATN Brokerage"
+   },
+   {
+    "card": "Returned Billings (#) - ATN Brokerage"
+   },
+   {
+    "card": "Outsourced Jobs (#) - ATN Brokerage"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ATN Brokerage - Top 5 Outsourced Brokers",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ATN Brokerage",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.358374",
+  "module": "Control Tower",
+  "name": "Control Tower - ATN Brokerage"
+ },
+ {
+  "cards": [
+   {
+    "card": "Avg Lead Time (days) - ATN Haulage"
+   },
+   {
+    "card": "Returned Billings (#) - ATN Haulage"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ATN Haulage - Trips per Month",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Haulage - Top 5 Outsourced Truckers",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Haulage - Monthly Haulage Charge to File",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Haulage - Monthly Haulage Charge to ASL",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Haulage - Vehicle Maintenance Due",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ATN Haulage",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.384613",
+  "module": "Control Tower",
+  "name": "Control Tower - ATN Haulage"
+ },
+ {
+  "cards": [
+   {
+    "card": "Open Job Files (#) - ATN Domestic Sea"
+   },
+   {
+    "card": "Avg Age (days) - ATN Domestic Sea"
+   },
+   {
+    "card": "Jobs Handled - ATN Domestic Sea"
+   },
+   {
+    "card": "Avg Lead Time (days) - ATN Domestic Sea"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ATN Domestic Sea - Top 5 Suppliers",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ATN Domestic Sea",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.411886",
+  "module": "Control Tower",
+  "name": "Control Tower - ATN Domestic Sea"
+ },
+ {
+  "cards": [
+   {
+    "card": "Avg Lead Time (days) - ATN Warehouse"
+   },
+   {
+    "card": "Returned Billings (#) - ATN Warehouse"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ATN Warehouse - Facility Occupancy %",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ATN Warehouse - Handling In and Out",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ATN Warehouse",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.433208",
+  "module": "Control Tower",
+  "name": "Control Tower - ATN Warehouse"
+ },
+ {
+  "cards": [
+   {
+    "card": "Open Job Files (#) - Vis-Min Branches"
+   },
+   {
+    "card": "Avg Age (days) - Vis-Min Branches"
+   },
+   {
+    "card": "Jobs Handled - Vis-Min Branches"
+   },
+   {
+    "card": "Avg Lead Time (days) - Vis-Min Branches"
+   },
+   {
+    "card": "Returned Billings (#) - Vis-Min Branches"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - Vis-Min Branches - Trips per Month",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - Vis-Min Branches - Top 5 Outsourced Truckers",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - Vis-Min Branches - Top 5 Agents - Sea FCL (TEU)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - Vis-Min Branches - Top 5 Agents - Sea LCL (CBM)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - Vis-Min Branches - Top 5 Agents - Air (CHW)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - Vis-Min Branches - Top 5 Carriers - Sea FCL (TEU)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - Vis-Min Branches - Top 5 Carriers - Sea LCL (CBM)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - Vis-Min Branches - Top 5 Carriers - Air (CHW)",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - Vis-Min Branches",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.463396",
+  "module": "Control Tower",
+  "name": "Control Tower - Vis-Min Branches"
+ },
+ {
+  "cards": [
+   {
+    "card": "Open Job Files (#) - North Luzon Branches"
+   },
+   {
+    "card": "Avg Age (days) - North Luzon Branches"
+   },
+   {
+    "card": "Jobs Handled - North Luzon Branches"
+   },
+   {
+    "card": "Avg Lead Time (days) - North Luzon Branches"
+   },
+   {
+    "card": "Returned Billings (#) - North Luzon Branches"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - North Luzon Branches - Trips per Month",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - North Luzon Branches - Top 5 Outsourced Truckers",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - North Luzon Branches - Top 5 Agents - Sea FCL (TEU)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - North Luzon Branches - Top 5 Agents - Sea LCL (CBM)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - North Luzon Branches - Top 5 Agents - Air (CHW)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - North Luzon Branches - Top 5 Carriers - Sea FCL (TEU)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - North Luzon Branches - Top 5 Carriers - Sea LCL (CBM)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - North Luzon Branches - Top 5 Carriers - Air (CHW)",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - North Luzon Branches",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.511415",
+  "module": "Control Tower",
+  "name": "Control Tower - North Luzon Branches"
+ },
+ {
+  "cards": [
+   {
+    "card": "Gross Profit (YTD) - ALTA Fairs & Exhibits (Cost Center)"
+   },
+   {
+    "card": "GP (Prior YTD) - ALTA Fairs & Exhibits (Cost Center)"
+   },
+   {
+    "card": "GP Target - ALTA Fairs & Exhibits (Cost Center)"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ALTA Fairs & Exhibits (Cost Center) - Gross Profit 3-Year Compare",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ALTA Fairs & Exhibits (Cost Center) - Top 10 Clients (GP)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ALTA Fairs & Exhibits (Cost Center) - Exhibits Pipeline",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ALTA Fairs & Exhibits (Cost Center)",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.560618",
+  "module": "Control Tower",
+  "name": "Control Tower - ALTA Fairs & Exhibits (Cost Center)"
+ },
+ {
+  "cards": [
+   {
+    "card": "Open Job Files (#) - ASL Operations"
+   },
+   {
+    "card": "Avg Age (days) - ASL Operations"
+   },
+   {
+    "card": "Jobs Handled - ASL Operations"
+   },
+   {
+    "card": "Avg Lead Time (days) - ASL Operations"
+   },
+   {
+    "card": "Returned Billings (#) - ASL Operations"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - ASL Operations - Top 5 Agents - Sea FCL (TEU)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Operations - Top 5 Agents - Sea LCL (CBM)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Operations - Top 5 Agents - Air (CHW)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Operations - Top 5 Carriers - Sea FCL (TEU)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Operations - Top 5 Carriers - Sea LCL (CBM)",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - ASL Operations - Top 5 Carriers - Air (CHW)",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - ASL Operations",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.593759",
+  "module": "Control Tower",
+  "name": "Control Tower - ASL Operations"
+ },
+ {
+  "cards": [
+   {
+    "card": "Turnover Rate %"
+   },
+   {
+    "card": "Open Vacancies"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - Human Resources - Labor Cost YTD vs Budget",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - Human Resources - Tardiness & OT",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - Human Resources",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.622403",
+  "module": "Control Tower",
+  "name": "Control Tower - Human Resources"
+ },
+ {
+  "cards": [
+   {
+    "card": "Tickets YTD"
+   },
+   {
+    "card": "Avg Ticket TAT (h)"
+   },
+   {
+    "card": "Security Incidents YTD"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - Information Technology - System / Network Uptime",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - Information Technology",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.641413",
+  "module": "Control Tower",
+  "name": "Control Tower - Information Technology"
+ },
+ {
+  "cards": [
+   {
+    "card": "Bad Accounts (PHP)"
+   },
+   {
+    "card": "Unbilled Shipments (#)"
+   },
+   {
+    "card": "Credit Exposure (PHP)"
+   },
+   {
+    "card": "Investments (PHP)"
+   },
+   {
+    "card": "Bank Recon Discrepancies"
+   },
+   {
+    "card": "Supplier Cash Bond (PHP)"
+   }
+  ],
+  "chart_options": null,
+  "charts": [
+   {
+    "chart": "CT - Accounting & Finance - Collections 60+ Aging",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - Accounting & Finance - Cash Advances",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - Accounting & Finance - Container Deposit",
+    "width": "Half"
+   },
+   {
+    "chart": "CT - Accounting & Finance - Payables",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Control Tower - Accounting & Finance",
+  "docstatus": 0,
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 0,
+  "modified": "2026-09-24 11:16:08.671324",
+  "module": "Control Tower",
+  "name": "Control Tower - Accounting & Finance"
+ }
+]
