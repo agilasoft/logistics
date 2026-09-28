@@ -1850,19 +1850,6 @@ class AirShipment(VirtualLinkedServicesMixin, Document):
 			"chargeable_weight_uom": getattr(self, "chargeable_weight_uom", None),
 		}
 
-	@frappe.whitelist()
-	def fetch_header_measurement_defaults(company=None):
-		"""Return default summary UOMs for the desk when header UOM links are empty."""
-		doc = frappe.new_doc("Air Shipment")
-		if company:
-			doc.company = company
-		doc._apply_uom_defaults()
-		return {
-			"total_volume_uom": doc.total_volume_uom,
-			"total_weight_uom": doc.total_weight_uom,
-			"chargeable_weight_uom": doc.chargeable_weight_uom,
-		}
-	
 	def on_update(self):
 		"""Called after document is updated"""
 		# Update DG compliance status when document is updated
@@ -3461,6 +3448,20 @@ for _fname, _src in _MAWB_VIRTUAL_FIELD_SOURCES:
 		_fname,
 		property(lambda self, s=_src: (self._get_mawb_row() or {}).get(s)),
 	)
+
+
+@frappe.whitelist()
+def fetch_header_measurement_defaults(company=None):
+	"""Return default summary UOMs for the desk when header UOM links are empty."""
+	doc = frappe.new_doc("Air Shipment")
+	if company:
+		doc.company = company
+	doc._apply_uom_defaults()
+	return {
+		"total_volume_uom": doc.total_volume_uom,
+		"total_weight_uom": doc.total_weight_uom,
+		"chargeable_weight_uom": doc.chargeable_weight_uom,
+	}
 
 
 @frappe.whitelist()
