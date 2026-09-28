@@ -297,6 +297,13 @@ doctype_js = {
 	"Warehouse Contract": [
 		"public/js/charge_break_dialogs.js",
 	],
+	"Inbound Order": "warehousing/warehouse_order_contract_accounts.js",
+	"Release Order": "warehousing/warehouse_order_contract_accounts.js",
+	"Cross-Docking Order": "warehousing/warehouse_order_contract_accounts.js",
+	"Transfer Order": "warehousing/warehouse_order_contract_accounts.js",
+	"VAS Order": "warehousing/warehouse_order_contract_accounts.js",
+	"Stocktake Order": "warehousing/warehouse_order_contract_accounts.js",
+	"Warehouse Job": "warehousing/warehouse_order_contract_accounts.js",
 	"General Job": [
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",

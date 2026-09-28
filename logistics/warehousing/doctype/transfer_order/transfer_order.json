@@ -172,6 +172,7 @@
    "label": "Accounts"
   },
   {
+   "fetch_from": "contract.company",
    "fieldname": "company",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -180,6 +181,7 @@
    "reqd": 1
   },
   {
+   "fetch_from": "contract.branch",
    "fieldname": "branch",
    "link_filters": "[[\"Branch\", \"custom_company\", \"=\", \"eval:doc.company\"]]",
    "fieldtype": "Link",
@@ -224,6 +226,7 @@
    "options": "Job Document"
   },
   {
+   "fetch_from": "contract.cost_center",
    "fieldname": "cost_center",
    "fieldtype": "Link",
    "label": "Cost Center",
@@ -232,6 +235,7 @@
    "reqd": 1
   },
   {
+   "fetch_from": "contract.profit_center",
    "fieldname": "profit_center",
    "fieldtype": "Link",
    "label": "Profit Center",
