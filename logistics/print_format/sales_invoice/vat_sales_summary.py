@@ -38,37 +38,46 @@ def get_vat_sales_summary(doc, items=None) -> frappe._dict:
 		net_total = flt(getattr(doc, "net_total", None) or 0)
 	rows = _classified_tax_rows(doc)
 	treatments = {treatment for treatment, _amount in rows}
+	freight_95_ids = _freight_95_main_ids(doc)
+	classified_items = print_items if print_items is not None else list(getattr(doc, "items", None) or [])
+	has_freight_95 = any(id(item) in freight_95_ids for item in classified_items)
+	sales_net = _net_excluding_freight_95(net_total, classified_items, freight_95_ids)
 
-	if _has_item_tax_templates(doc, items=print_items):
+	if _has_item_tax_templates(doc, items=print_items) or has_freight_95:
 		default = _default_item_treatment(treatments, doc)
-		buckets = _buckets_from_items(doc, default_treatment=default, items=print_items)
+		buckets = _buckets_from_items(
+			doc,
+			default_treatment=default,
+			items=print_items,
+			freight_95_ids=freight_95_ids,
+		)
 		if not _has_amounts(buckets):
-			buckets[default] = net_total
+			buckets[default] = sales_net
 	elif len(treatments) == 1:
 		buckets = _empty_buckets()
-		buckets[next(iter(treatments))] = net_total
+		buckets[next(iter(treatments))] = sales_net
 	elif len(treatments) > 1:
 		if print_items is not None:
-			buckets = _buckets_from_items(doc, items=print_items)
+			buckets = _buckets_from_items(doc, items=print_items, freight_95_ids=freight_95_ids)
 			if not _has_amounts(buckets):
-				buckets[VATABLE] = net_total
+				buckets[VATABLE] = sales_net
 		elif any(amount for _treatment, amount in rows):
 			buckets = _empty_buckets()
 			for treatment, amount in rows:
 				buckets[treatment] += amount
 		else:
-			buckets = _buckets_from_items(doc)
+			buckets = _buckets_from_items(doc, freight_95_ids=freight_95_ids)
 			if not _has_amounts(buckets):
-				buckets[VATABLE] = net_total
+				buckets[VATABLE] = sales_net
 	else:
 		treatment = _category_treatment(doc)
 		buckets = _empty_buckets()
 		if treatment:
-			buckets[treatment] = net_total
+			buckets[treatment] = sales_net
 		else:
-			buckets = _buckets_from_items(doc, items=print_items)
+			buckets = _buckets_from_items(doc, items=print_items, freight_95_ids=freight_95_ids)
 			if not _has_amounts(buckets):
-				buckets[VATABLE] = net_total
+				buckets[VATABLE] = sales_net
 
 	return frappe._dict(
 		vatable_sales=buckets[VATABLE],
@@ -85,6 +94,26 @@ def item_is_zero_rated_or_exempt(doc, item) -> bool:
 
 def _item_vat_treatment(doc, item) -> str:
 	return _item_treatment(item, _invoice_default_treatment(doc), {})
+
+
+def _net_excluding_freight_95(net_total: float, items, freight_95_ids: set[int]) -> float:
+	"""Drop Apply 95/5 charge nets so a bucket fallback cannot add them back."""
+	if not freight_95_ids:
+		return net_total
+	excluded = 0.0
+	for item in items or []:
+		if id(item) in freight_95_ids:
+			excluded += flt(_row_value(item, "net_amount") or _row_value(item, "amount"))
+	return net_total - excluded
+
+
+def _freight_95_main_ids(doc) -> set[int]:
+	"""Row ids for the 95% charge lines. Invoices without a name are not looked up."""
+	if not getattr(doc, "name", None):
+		return set()
+	from logistics.print_format.sales_invoice.dsb_line_items import get_freight_95_main_line_items
+
+	return {id(row) for row in get_freight_95_main_line_items(doc)}
 
 
 def _invoice_default_treatment(doc) -> str:
@@ -184,7 +213,9 @@ def _doc_vat_rate(doc) -> float:
 	return rate
 
 
-def _print_line_tax(item, net: float, vat_rate: float) -> float:
+def _print_line_tax(item, net: float, vat_rate: float, freight_95_ids: set[int] | None = None) -> float:
+	if freight_95_ids and id(item) in freight_95_ids:
+		return 0.0
 	if _row_value(item, "item_tax_template"):
 		custom = _row_value(item, "custom_tax_amount")
 		if custom is not None:
@@ -194,23 +225,34 @@ def _print_line_tax(item, net: float, vat_rate: float) -> float:
 	return flt(net) * (flt(vat_rate) / 100)
 
 
-def _print_line_amount(item, vat_rate: float) -> float:
+def _print_line_amount(item, vat_rate: float, freight_95_ids: set[int] | None = None) -> float:
 	net = flt(_row_value(item, "net_amount") or _row_value(item, "amount"))
-	return net - _print_line_tax(item, net, vat_rate)
+	return net - _print_line_tax(item, net, vat_rate, freight_95_ids)
 
 
-def _buckets_from_items(doc, default_treatment: str = VATABLE, items=None) -> dict[str, float]:
+def _buckets_from_items(
+	doc,
+	default_treatment: str = VATABLE,
+	items=None,
+	freight_95_ids: set[int] | None = None,
+) -> dict[str, float]:
 	buckets = _empty_buckets()
 	cache: dict[str, str | None] = {}
 	fallback = default_treatment if default_treatment in (VATABLE, EXEMPT, ZERO_RATED) else VATABLE
 	vat_rate = _doc_vat_rate(doc)
 	for item in (items if items is not None else getattr(doc, "items", None)) or []:
-		item_amt = _print_line_amount(item, vat_rate)
+		if freight_95_ids and id(item) in freight_95_ids:
+			continue
+		item_amt = _print_line_amount(item, vat_rate, freight_95_ids)
 		buckets[_item_treatment(item, fallback, cache)] += item_amt
 	return buckets
 
 
-def _item_treatment(item, default_treatment: str, cache: dict[str, str | None]) -> str:
+def _item_treatment(
+	item,
+	default_treatment: str,
+	cache: dict[str, str | None],
+) -> str:
 	classified = _classify_text(str(_row_value(item, "vat_treatment") or ""))
 	if classified:
 		return classified

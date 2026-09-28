@@ -518,6 +518,16 @@
                 line-height: 1 !important;
                 height: auto;
             }
+
+            .invoice-table .subheader-row td {
+                font-weight: bold;
+                text-transform: uppercase;
+                text-align: left !important;
+                border: none;
+                padding: 2mm 0.1mm 1mm !important;
+                font-size: 8pt;
+                background: white;
+            }
             
             .table-row td:nth-child(1) {
                 text-align: center;
@@ -910,6 +920,14 @@
             .footer-row:last-child {
                 margin-bottom: 0;
             }
+
+            .footer-disclaimer {
+                text-align: center;
+                font-weight: 900;
+                margin-top: 3mm;
+                font-size: 10pt;
+                text-transform: uppercase;
+            }
             
             /* QR Code */
             .qr-code {
@@ -1079,8 +1097,8 @@
                     {% endif %}
                 {% endfor %}
             {% endif %}
-            {% set show_tax_summary = (not is_dsb) and (not is_crd or ns_crd_tax.has_vat_exempt_zero) %}
-            {% set ns_line = namespace(tax=0, net=0, total=0) %}
+            {% set show_tax_summary = not is_dsb %}
+            {% set ns_line = namespace(tax=0, net=0, total=0, inclusive=0, non_vatable=0) %}
             {% set ns_rate = namespace(vat_rate=0) %}
             {% if doc.taxes %}
                 {% for tax in doc.taxes %}
@@ -1626,6 +1644,7 @@
                     <tbody>
                         {% if print_items %}
                             {% set currency = doc.currency or 'PHP' %}
+                            {% if is_dsb %}
                             {% for item in print_items %}
                                 {% set item_net = item.net_amount or 0 %}
                                 {% if item.item_tax_template %}
@@ -1649,14 +1668,85 @@
                                     <td>
                                         {{ frappe.utils.fmt_money(_amount, precision=2) }}
                                     </td>
-                                    {% if not is_dsb %}
-                                    <td>
-                                        {{ frappe.utils.fmt_money(_tax, precision=2) }}
-                                    </td>
-                                    {% endif %}
                                     <td>{{ frappe.utils.fmt_money(_total, precision=2) }}</td>
                                 </tr>
                             {% endfor %}
+                            {% else %}
+                            {% set ns_idx = namespace(n=0) %}
+                            {% set ns_reimb = namespace(any=false) %}
+                            {% for item in print_items %}
+                                {% if is_freight_95_main_line(doc, item) %}
+                                    {% set ns_reimb.any = true %}
+                                {% endif %}
+                            {% endfor %}
+                            {% for item in print_items %}
+                                {% if not is_freight_95_main_line(doc, item) %}
+                                {% set ns_idx.n = ns_idx.n + 1 %}
+                                {% set item_net = item.net_amount or 0 %}
+                                {% if item.item_tax_template %}
+                                    {% set item_tax_amount = item.custom_tax_amount if item.custom_tax_amount is not none else (item.tax_amount if item.tax_amount is not none else 0) %}
+                                {% else %}
+                                    {% set item_tax_amount = (item_net or 0) * ((ns_rate.vat_rate or 0) / 100) %}
+                                {% endif %}
+                                {% set item_amount = item_net - item_tax_amount %}
+                                {% set item_total = item_net %}
+                                {% set ns_line.net = ns_line.net + item_net %}
+                                {% set ns_line.tax = ns_line.tax + item_tax_amount %}
+                                {% set ns_line.total = ns_line.total + item_net + item_tax_amount %}
+                                {% set ns_line.inclusive = ns_line.inclusive + item_total %}
+                                {% set _qty = (item.qty or 0)|abs if is_crd else (item.qty or 0) %}
+                                {% set _amount = item_amount|abs if is_crd else item_amount %}
+                                {% set _tax = item_tax_amount|abs if is_crd else item_tax_amount %}
+                                {% set _total = item_total|abs if is_crd else item_total %}
+                                <tr class="table-row">
+                                    <td>{{ ns_idx.n }}</td>
+                                    <td>{{ frappe.utils.fmt_money(_qty, precision=2) }}</td>
+                                    <td>{{ item.item_name or item.item_code or '' }}</td>
+                                    <td>
+                                        {{ frappe.utils.fmt_money(_amount, precision=2) }}
+                                    </td>
+                                    <td>
+                                        {{ frappe.utils.fmt_money(_tax, precision=2) }}
+                                    </td>
+                                    <td>{{ frappe.utils.fmt_money(_total, precision=2) }}</td>
+                                </tr>
+                                {% endif %}
+                            {% endfor %}
+                            {% if ns_reimb.any %}
+                                <tr class="subheader-row">
+                                    <td colspan="6">REIMBURSABLE CHARGES</td>
+                                </tr>
+                                {% for item in print_items %}
+                                    {% if is_freight_95_main_line(doc, item) %}
+                                    {% set ns_idx.n = ns_idx.n + 1 %}
+                                    {% set item_net = item.net_amount or 0 %}
+                                    {% set item_tax_amount = 0 %}
+                                    {% set item_amount = item_net - item_tax_amount %}
+                                    {% set item_total = item_net %}
+                                    {% set ns_line.non_vatable = ns_line.non_vatable + item_amount %}
+                                    {% set ns_line.net = ns_line.net + item_net %}
+                                    {% set ns_line.tax = ns_line.tax + item_tax_amount %}
+                                    {% set ns_line.total = ns_line.total + item_net + item_tax_amount %}
+                                    {% set _qty = (item.qty or 0)|abs if is_crd else (item.qty or 0) %}
+                                    {% set _amount = item_amount|abs if is_crd else item_amount %}
+                                    {% set _tax = item_tax_amount|abs if is_crd else item_tax_amount %}
+                                    {% set _total = item_total|abs if is_crd else item_total %}
+                                    <tr class="table-row">
+                                        <td>{{ ns_idx.n }}</td>
+                                        <td>{{ frappe.utils.fmt_money(_qty, precision=2) }}</td>
+                                        <td>{{ item.item_name or item.item_code or '' }}</td>
+                                        <td>
+                                            {{ frappe.utils.fmt_money(_amount, precision=2) }}
+                                        </td>
+                                        <td>
+                                            {{ frappe.utils.fmt_money(_tax, precision=2) }}
+                                        </td>
+                                        <td>{{ frappe.utils.fmt_money(_total, precision=2) }}</td>
+                                    </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                            {% endif %}
                         {% endif %}
                     </tbody>
                 </table>
@@ -1715,26 +1805,29 @@
                                     {% endif %}
                                 {% endfor %}
                             {% endif %}
-                            {% set vat_amount = ns_line.tax if use_visible_line_totals else ns_vat.vat_amount %}
+                            {# Less: VAT and Add: VAT are the sum of the printed Tax column. Credit notes use absolute amounts. #}
+                            {% set vat_amount = (ns_line.tax|abs) if is_crd else ns_line.tax %}
                             {% set withholding_tax = ns_vat.withholding_tax %}
-                            {% if not use_visible_line_totals and not vat_amount %}
-                                {% set vat_amount = (doc.get('total_taxes_and_charges') or 0) - withholding_tax %}
-                            {% endif %}
                             {% set withholding_tax_display = withholding_tax|abs %}
-                            {% set net_of_vat = ns_line.net if use_visible_line_totals else (doc.get('net_total') or 0) %}
-                            {# VAT Inclusive = sum of (Net Amount + Tax); Total Amount column is Net Amount only #}
-                            {% set total_sales_vat_inclusive = ns_line.total %}
+                            {# VAT Inclusive = sum of Total Amount, excluding Apply 95/5 reimbursable rows #}
+                            {% set total_sales_vat_inclusive = (ns_line.inclusive|abs) if is_crd else ns_line.inclusive %}
+                            {% set non_vatable = (ns_line.non_vatable|abs) if is_crd else ns_line.non_vatable %}
                             {% set sc_pwd_discount = 0 if use_visible_line_totals else (doc.get('discount_amount') or 0) %}
+                            {% set sc_pwd_discount = (sc_pwd_discount|abs) if is_crd else sc_pwd_discount %}
+                            {% set net_of_vat = total_sales_vat_inclusive - vat_amount %}
                             {% set amount_due = net_of_vat - sc_pwd_discount %}
-                            {# Total = Amount Due + VAT (after SC/PWD). Last Amount = Total - WHT, not grand_total. #}
+                            {# First Total = Amount Due + VAT. Second Total adds Non-Vatable. Last Amount = second Total - WHT. #}
                             {% set total_amount = amount_due + vat_amount %}
-                            {% set final_amount_due = total_amount - withholding_tax_display %}
+                            {% set total_with_non_vatable = total_amount + non_vatable %}
+                            {% set final_amount_due = total_with_non_vatable - withholding_tax_display %}
                             {% set _inclusive = total_sales_vat_inclusive|abs if is_crd else total_sales_vat_inclusive %}
                             {% set _vat = vat_amount|abs if is_crd else vat_amount %}
                             {% set _net_of_vat = net_of_vat|abs if is_crd else net_of_vat %}
                             {% set _discount = sc_pwd_discount|abs if is_crd else sc_pwd_discount %}
                             {% set _amount_due = amount_due|abs if is_crd else amount_due %}
                             {% set _total_amount = total_amount|abs if is_crd else total_amount %}
+                            {% set _non_vatable = non_vatable|abs if is_crd else non_vatable %}
+                            {% set _total_with_non_vatable = total_with_non_vatable|abs if is_crd else total_with_non_vatable %}
                             {% set _final_due = final_amount_due|abs if is_crd else final_amount_due %}
                             
                             <div class="vat-summary-row">
@@ -1764,6 +1857,14 @@
                             <div class="vat-summary-row vat-total-row">
                                 <div class="vat-total-label">Total</div>
                                 <div class="vat-total-value">{{ currency }} {{ frappe.utils.fmt_money(_total_amount, precision=2) }}</div>
+                            </div>
+                            <div class="vat-summary-row">
+                                <div class="vat-summary-label">Add: Non-Vatable</div>
+                                <div class="vat-summary-value">{{ frappe.utils.fmt_money(_non_vatable, precision=2) }}</div>
+                            </div>
+                            <div class="vat-summary-row vat-total-row">
+                                <div class="vat-total-label">Total</div>
+                                <div class="vat-total-value">{{ currency }} {{ frappe.utils.fmt_money(_total_with_non_vatable, precision=2) }}</div>
                             </div>
                             <div class="vat-summary-row">
                                 <div class="vat-summary-label">Less Withholding Tax</div>
@@ -1876,6 +1977,9 @@
                             -
                         {% endif %}
                     </div>
+                    {% if is_crd %}
+                    <div class="footer-disclaimer">"THIS IS A CREDIT NOTE, NO PAYMENT REQUIRED"</div>
+                    {% endif %}
                 </div>
                 </div>
             </div>
