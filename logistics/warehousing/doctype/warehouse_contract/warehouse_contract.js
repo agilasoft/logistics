@@ -47,39 +47,58 @@ frappe.ui.form.on("Warehouse Contract", {
 			? logistics.menu.is_submitted(frm)
 			: (!frm.is_new() && frm.doc.name && frm.doc.docstatus === 1)) {
 			const hasCharge = (flag) => (frm.doc.items || []).some((row) => row[flag]);
+			const orderDefaults = () =>
+				(logistics.warehousing && logistics.warehousing.warehouse_order_defaults_from_contract
+					? logistics.warehousing.warehouse_order_defaults_from_contract(frm.doc)
+					: {
+						contract: frm.doc.name,
+						customer: frm.doc.customer,
+						company: frm.doc.company,
+						branch: frm.doc.branch,
+						cost_center: frm.doc.cost_center,
+						profit_center: frm.doc.profit_center,
+					});
 
 			if (hasCharge("inbound_charge")) {
 				frm.add_custom_button(__("Inbound Order"), function() {
-					frappe.new_doc("Inbound Order", { contract: frm.doc.name, customer: frm.doc.customer });
+					frappe.new_doc("Inbound Order", orderDefaults());
 				}, __("Create"));
 			}
 			if (hasCharge("outbound_charge")) {
 				frm.add_custom_button(__("Release Order"), function() {
-					frappe.new_doc("Release Order", { contract: frm.doc.name, customer: frm.doc.customer });
+					frappe.new_doc("Release Order", orderDefaults());
 				}, __("Create"));
 			}
 			if (hasCharge("cross_dock_charge")) {
 				frm.add_custom_button(__("Cross-Docking Order"), function() {
-					frappe.new_doc("Cross-Docking Order", { contract: frm.doc.name, customer: frm.doc.customer });
+					frappe.new_doc("Cross-Docking Order", orderDefaults());
 				}, __("Create"));
 			}
 			if (hasCharge("transfer_charge")) {
 				frm.add_custom_button(__("Transfer Order"), function() {
-					frappe.new_doc("Transfer Order", { contract: frm.doc.name, customer: frm.doc.customer });
+					frappe.new_doc("Transfer Order", orderDefaults());
 				}, __("Create"));
 			}
 			if (hasCharge("vas_charge")) {
 				frm.add_custom_button(__("VAS Order"), function() {
-					frappe.new_doc("VAS Order", { contract: frm.doc.name, customer: frm.doc.customer });
+					frappe.new_doc("VAS Order", orderDefaults());
 				}, __("Create"));
 			}
 			if (hasCharge("stocktake_charge")) {
 				frm.add_custom_button(__("Stocktake Order"), function() {
-					frappe.new_doc("Stocktake Order", { contract: frm.doc.name, customer: frm.doc.customer });
+					frappe.new_doc("Stocktake Order", orderDefaults());
 				}, __("Create"));
 			}
 			frm.add_custom_button(__("Warehouse Job"), function() {
-				frappe.new_doc("Warehouse Job", { warehouse_contract: frm.doc.name, customer: frm.doc.customer });
+				const defaults = orderDefaults();
+				frappe.new_doc("Warehouse Job", {
+					warehouse_contract: defaults.contract,
+					customer: defaults.customer,
+					company: defaults.company,
+					branch: defaults.branch,
+					cost_center: defaults.cost_center,
+					profit_center: defaults.profit_center,
+				});
 			}, __("Create"));
 		}
 	},

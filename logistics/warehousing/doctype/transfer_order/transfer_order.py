@@ -9,6 +9,9 @@ from frappe.utils import nowdate
 
 class TransferOrder(Document):
 	def validate(self):
+		from logistics.utils.module_integration import propagate_from_warehouse_contract
+
+		propagate_from_warehouse_contract(self)
 		try:
 			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
 			apply_measurement_uom_conversion_to_children(self, "items", company=getattr(self, "company", None))
