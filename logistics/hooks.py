@@ -986,6 +986,9 @@ override_whitelisted_methods = {
 	"frappe.utils.print_format.download_pdf": (
 		"logistics.print_format.payment_entry.bank_forms_pdf.download_pdf"
 	),
+	"frappe.desk.query_report.export_query": (
+		"logistics.bir_cas.export_query.export_query"
+	),
 }
 
 override_doctype_class = {
