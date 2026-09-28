@@ -352,6 +352,44 @@ class TestVatSalesSummary(unittest.TestCase):
 		self.assertAlmostEqual(subset.zero_rated_sales, 0)
 		self.assertAlmostEqual(subset.total_sales, 1000.0)
 
+	def test_freight_95_main_line_is_excluded_from_sales_buckets(self):
+		freight = _Row(item_code="FREIGHT", qty=1, net_amount=380.0, amount=380.0)
+		taxable = _Row(
+			item_code="TEST-AIR-FREIGHT",
+			qty=1,
+			net_amount=20.0,
+			amount=20.0,
+			item_tax_template="Philippines Tax - ATID",
+			custom_tax_amount=2.40,
+		)
+		inv = _FakeInvoice(
+			name="ACC-SINV-0001",
+			net_total=400.0,
+			items=[freight, taxable],
+			taxes=[
+				_Row(
+					account_head="VAT - ASL",
+					description="VAT 12%",
+					rate=12,
+					net_amount=2.40,
+					tax_amount=2.40,
+				)
+			],
+		)
+		with patch(
+			"logistics.print_format.sales_invoice.dsb_line_items._collect_freight_95_main_item_keys",
+			return_value=[("FREIGHT", 1.0)],
+		), patch(
+			"logistics.print_format.sales_invoice.vat_sales_summary._item_tax_template_rates",
+			return_value=[{"tax_type": "VAT - ASL", "tax_rate": 12, "not_applicable": 0}],
+		):
+			summary = get_vat_sales_summary(inv)
+
+		self.assertAlmostEqual(summary.zero_rated_sales, 0)
+		self.assertAlmostEqual(summary.vatable_sales, 17.6)
+		self.assertAlmostEqual(summary.exempt_sales, 0)
+		self.assertAlmostEqual(summary.total_sales, 17.6)
+
 
 class TestItemIsZeroRatedOrExempt(unittest.TestCase):
 	def setUp(self):

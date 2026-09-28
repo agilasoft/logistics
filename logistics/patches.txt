@@ -696,4 +696,26 @@ logistics.patches.v3_0_add_specified_charges_option
 logistics.patches.v3_0_add_specified_charge_group_method
 # Logistics Charge Group master rows (Origin, Destination, …)
 logistics.patches.v3_0_seed_logistics_charge_groups
+# Sales Invoice HTML: drop the removed regular-print-items helper
+logistics.patches.v3_0_sales_invoice_html_drop_regular_print_items
+# Sales Invoice HTML: print 95/5 charges with tax 0
+logistics.patches.v3_0_sales_invoice_html_show_95_5_charge
+# Sales Invoice HTML: group 95/5 charges under REIMBURSABLE CHARGES
+logistics.patches.v3_0_sales_invoice_html_reimbursable_charges
+# Sales Invoice HTML: exclude 95/5 rows from Total Sales (VAT Inclusive)
+logistics.patches.v3_0_sales_invoice_html_vat_inclusive_exclude_95_5
+# Sales Invoice HTML: Less/Add VAT from the printed Tax column
+logistics.patches.v3_0_sales_invoice_html_vat_from_tax_column
+# Sales Invoice HTML: add Non-Vatable after the first VAT total
+logistics.patches.v3_0_sales_invoice_html_add_non_vatable
+# Sales Invoice HTML: Net of VAT is VAT Inclusive minus VAT
+logistics.patches.v3_0_sales_invoice_html_net_of_vat
+# Sales Invoice HTML: credit notes use the positive VAT summary layout
+logistics.patches.v3_0_sales_invoice_html_credit_note_vat_layout
+# Disbursement Bill HTML: add Non-Vatable after the first VAT total
+logistics.patches.v3_0_disbursement_bill_html_add_non_vatable
+# Disbursement Bill HTML: VAT Inclusive is the sum of Total Amount
+logistics.patches.v3_0_disbursement_bill_html_vat_inclusive_from_total
+# Disbursement Bill HTML: Net of VAT is VAT Inclusive minus VAT
+logistics.patches.v3_0_disbursement_bill_html_net_of_vat
 

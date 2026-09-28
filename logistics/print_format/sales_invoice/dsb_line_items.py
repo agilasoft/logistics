@@ -53,37 +53,74 @@ def get_taxable_freight_line_items(doc) -> List[Any]:
 	return _match_items_to_charge_keys(items, keys)
 
 
+def _charge_source_invoice_name(doc) -> str | None:
+	"""Invoice whose sales charges identify 95/5 rows.
+
+	A credit note copies the original lines with negative qty. Those charges
+	stay on the source invoice in return_against.
+	"""
+	if getattr(doc, "is_return", None):
+		source = getattr(doc, "return_against", None)
+		if source:
+			return source
+	return getattr(doc, "name", None)
+
+
 def get_freight_95_main_line_items(doc) -> List[Any]:
 	"""Return the 95% Sales Invoice rows for charges with Apply 95/5 rule checked."""
 	items = list(doc.items or [])
 	if not items:
 		return []
-	keys = _collect_freight_95_main_item_keys(getattr(doc, "name", None))
+	keys = _collect_freight_95_main_item_keys(_charge_source_invoice_name(doc))
 	if not keys:
 		return []
 	return _match_items_to_charge_keys(items, keys)
 
 
-def get_sales_invoice_print_items(doc) -> List[Any]:
-	"""Service-invoice rows: omit Disbursement charges and the 95% freight line.
+def is_freight_95_main_line(doc, item) -> bool:
+	"""True when this Sales Invoice row is the 95% charge for Apply 95/5 rule."""
+	cache = getattr(is_freight_95_main_line, "_cache", None)
+	if cache is None or cache[0] is not doc:
+		ids = {id(row) for row in get_freight_95_main_line_items(doc)}
+		is_freight_95_main_line._cache = (doc, ids)
+		cache = is_freight_95_main_line._cache
+	return id(item) in cache[1]
 
-	The 5% Taxable Freight Item line stays on this print.
+
+def get_sales_invoice_print_items(doc) -> List[Any]:
+	"""Service-invoice rows: omit Disbursement charges.
+
+	The 95% charge (Apply 95/5 rule) stays on this print, including when that
+	charge was also matched as a disbursement. The 5% Taxable Freight Item
+	line stays too.
 	"""
-	items = get_non_disbursement_line_items(doc)
+	items = list(doc.items or [])
 	if not items:
 		return []
-	excluded = {id(item) for item in get_freight_95_main_line_items(doc)}
-	return [item for item in items if id(item) not in excluded]
+	disbursement_ids = {id(item) for item in get_disbursement_line_items(doc)}
+	freight_95_ids = {id(item) for item in get_freight_95_main_line_items(doc)}
+	return [
+		item
+		for item in items
+		if id(item) not in disbursement_ids or id(item) in freight_95_ids
+	]
 
 
 def _disbursement_bill_line_items(doc) -> List[Any]:
-	"""Disbursement charges and the 95% freight line, in document order."""
+	"""Disbursement charges only, in document order.
+
+	The 95% freight line prints on the Sales Invoice, not this bill.
+	"""
 	items = list(doc.items or [])
 	if not items:
 		return []
 	included = {id(item) for item in get_disbursement_line_items(doc)}
-	included.update(id(item) for item in get_freight_95_main_line_items(doc))
-	return [item for item in items if id(item) in included]
+	freight_95_ids = {id(item) for item in get_freight_95_main_line_items(doc)}
+	return [
+		item
+		for item in items
+		if id(item) in included and id(item) not in freight_95_ids
+	]
 
 
 def get_disbursement_bill_context(doc) -> frappe._dict:
@@ -202,7 +239,7 @@ def _match_items_to_charge_keys(items: Sequence[Any], keys: List[Tuple[str, floa
 		code = getattr(item, "item_code", None)
 		if not code:
 			continue
-		qty = flt(getattr(item, "qty", 0))
+		qty = abs(flt(getattr(item, "qty", 0)))
 		match_idx = None
 		for i, (charge_code, charge_qty) in enumerate(remaining):
 			if charge_code == code and abs(charge_qty - qty) <= _QTY_TOLERANCE:

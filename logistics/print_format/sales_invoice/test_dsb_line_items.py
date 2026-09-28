@@ -12,6 +12,7 @@ from unittest.mock import patch
 from logistics.print_format.sales_invoice.dsb_line_items import (
 	get_disbursement_bill_context,
 	get_disbursement_line_items,
+	get_freight_95_main_line_items,
 	get_non_disbursement_line_items,
 	get_sales_invoice_print_items,
 	get_taxable_freight_line_items,
@@ -123,7 +124,7 @@ class TestSalesInvoicePrintItems(unittest.TestCase):
 			["FREIGHT", "TEST-AIR-FREIGHT", "OCEAN"],
 		)
 
-	def test_freight_95_main_line_is_on_bill_and_off_sales_invoice(self):
+	def test_freight_95_main_line_on_sales_invoice_not_on_disbursement_bill(self):
 		doc = self._invoice()
 		with patch(
 			"logistics.print_format.sales_invoice.dsb_line_items._collect_disbursement_charge_keys",
@@ -140,12 +141,33 @@ class TestSalesInvoicePrintItems(unittest.TestCase):
 
 		self.assertEqual(
 			[item.item_code for item in visible],
-			["TEST-AIR-FREIGHT", "OCEAN"],
+			["FREIGHT", "TEST-AIR-FREIGHT", "OCEAN"],
 		)
 		self.assertEqual(
 			[item.item_code for item in ctx.line_items],
-			["FREIGHT", "PERMITS"],
+			["PERMITS"],
 		)
+
+	def test_freight_95_stays_on_sales_invoice_when_also_disbursement(self):
+		doc = self._invoice()
+		with patch(
+			"logistics.print_format.sales_invoice.dsb_line_items._collect_disbursement_charge_keys",
+			return_value=[("FREIGHT", 1.0), ("PERMITS", 1.0)],
+		), patch(
+			"logistics.print_format.sales_invoice.dsb_line_items._collect_freight_95_main_item_keys",
+			return_value=[("FREIGHT", 1.0)],
+		), patch(
+			"logistics.print_format.sales_invoice.dsb_line_items._collect_taxable_freight_item_keys",
+			return_value=[("TEST-AIR-FREIGHT", 1.0)],
+		):
+			visible = get_sales_invoice_print_items(doc)
+			ctx = get_disbursement_bill_context(doc)
+
+		self.assertEqual(
+			[item.item_code for item in visible],
+			["FREIGHT", "TEST-AIR-FREIGHT", "OCEAN"],
+		)
+		self.assertEqual([item.item_code for item in ctx.line_items], ["PERMITS"])
 
 	def test_bill_omits_taxable_freight_item(self):
 		doc = self._invoice()
@@ -162,3 +184,22 @@ class TestSalesInvoicePrintItems(unittest.TestCase):
 			ctx = get_disbursement_bill_context(doc)
 
 		self.assertEqual([item.item_code for item in ctx.line_items], ["PERMITS"])
+
+	def test_credit_note_freight_95_uses_return_against_and_absolute_qty(self):
+		doc = _Invoice(
+			[
+				_Item("TEST-AIR-FREIGHT", -1),
+				_Item("FREIGHT", -1),
+			]
+		)
+		doc.name = "ATN-PPA-CRN-0000000003"
+		doc.is_return = 1
+		doc.return_against = "ATN-PPA-INV-0000000001"
+		with patch(
+			"logistics.print_format.sales_invoice.dsb_line_items._collect_freight_95_main_item_keys",
+			return_value=[("FREIGHT", 1.0)],
+		) as collect:
+			matched = get_freight_95_main_line_items(doc)
+
+		collect.assert_called_once_with("ATN-PPA-INV-0000000001")
+		self.assertEqual([item.item_code for item in matched], ["FREIGHT"])

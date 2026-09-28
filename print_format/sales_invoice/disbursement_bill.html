@@ -1327,7 +1327,7 @@
         <div class="table-summary-container">
             {% set dsb = get_disbursement_bill_context(doc) %}
             {% set currency = doc.currency or 'PHP' %}
-            {% set ns_line = namespace(tax=0, net=0, total=0) %}
+            {% set ns_line = namespace(tax=0, net=0, total=0, inclusive=0) %}
             {% set ns_rate = namespace(vat_rate=0) %}
             {% if doc.taxes %}
                 {% for tax in doc.taxes %}
@@ -1366,6 +1366,7 @@
                             {% set ns_line.net = ns_line.net + item_net %}
                             {% set ns_line.tax = ns_line.tax + item_tax_amount %}
                             {% set ns_line.total = ns_line.total + item_net + item_tax_amount %}
+                            {% set ns_line.inclusive = ns_line.inclusive + item_total %}
                             <tr class="table-row">
                                 <td>{{ loop.index }}</td>
                                 <td>{{ frappe.utils.fmt_money(item.qty, precision=2) }}</td>
@@ -1398,12 +1399,17 @@
                 {% endif %}
                 {% set withholding_tax_display = ns_vat.withholding_tax|abs %}
                 {% set vat_amount = ns_line.tax %}
-                {% set net_of_vat = ns_line.net %}
-                {% set total_sales_vat_inclusive = ns_line.total %}
+                {# Total Sales (VAT Inclusive) is the sum of the printed Total Amount column. #}
+                {% set total_sales_vat_inclusive = ns_line.inclusive %}
+                {# Amount: Net of VAT is Total Sales (VAT Inclusive) minus Less: VAT. #}
+                {% set net_of_vat = total_sales_vat_inclusive - vat_amount %}
                 {% set sc_pwd_discount = dsb.discount_amount or 0 %}
                 {% set amount_due = net_of_vat - sc_pwd_discount %}
                 {% set total_amount = amount_due + vat_amount %}
-                {% set final_amount_due = total_amount - withholding_tax_display %}
+                {# 95/5 reimbursable lines stay on the Sales Invoice, so Non-Vatable is 0 on this bill. #}
+                {% set non_vatable = 0 %}
+                {% set total_with_non_vatable = total_amount + non_vatable %}
+                {% set final_amount_due = total_with_non_vatable - withholding_tax_display %}
                 <div class="vat-summary-container">
                     <div class="vat-left-column">
                         <div class="vat-summary-row">
@@ -1451,6 +1457,14 @@
                         <div class="vat-summary-row vat-total-row">
                             <div class="vat-total-label">Total</div>
                             <div class="vat-total-value">{{ currency }} {{ frappe.utils.fmt_money(total_amount, precision=2) }}</div>
+                        </div>
+                        <div class="vat-summary-row">
+                            <div class="vat-summary-label">Add: Non-Vatable</div>
+                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(non_vatable, precision=2) }}</div>
+                        </div>
+                        <div class="vat-summary-row vat-total-row">
+                            <div class="vat-total-label">Total</div>
+                            <div class="vat-total-value">{{ currency }} {{ frappe.utils.fmt_money(total_with_non_vatable, precision=2) }}</div>
                         </div>
                         <div class="vat-summary-row">
                             <div class="vat-summary-label">Less Withholding Tax</div>
