@@ -21,6 +21,7 @@
   "column_break_general",
   "default_service_level",
   "default_incoterm",
+  "country",
   "default_currency",
   "default_payment_terms",
   "air_freight_tab",
@@ -150,6 +151,13 @@
    "fieldtype": "Link",
    "label": "Default Incoterm",
    "options": "Incoterm"
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Country",
+   "options": "Country"
   },
   {
    "fieldname": "default_currency",

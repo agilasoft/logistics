@@ -10,6 +10,7 @@
   "code",
   "freight_agent_name",
   "default_unloco",
+  "country",
   "is_active",
   "column_break_pbzu",
   "applicable_services_section",
@@ -57,6 +58,13 @@
    "label": "Default UNLOCO",
    "link_filters": "[[\"UNLOCO\", \"is_active\", \"=\", 1]]",
    "options": "UNLOCO"
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Country",
+   "options": "Country"
   },
   {
    "default": "1",
