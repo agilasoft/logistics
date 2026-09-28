@@ -309,6 +309,37 @@
             font-weight: normal;
         }
 
+        .signature-table td.signature-received-cell {
+            height: 14mm;
+            padding: 0;
+            vertical-align: top;
+        }
+
+        .signature-received-inner {
+            height: 100%;
+            min-height: 14mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 0 1mm 1mm;
+            box-sizing: border-box;
+        }
+
+        .signature-received-caption {
+            white-space: nowrap;
+            font-size: 8px;
+            line-height: 1.1;
+        }
+
+        .footer-section .footer-disclaimer {
+            text-align: center;
+            font-weight: 900;
+            margin-top: 3mm;
+            font-size: 10pt;
+            text-transform: uppercase;
+        }
+
         /* BIR footer — match Sales Quote */
         .footer-section {
             width: 100%;
@@ -637,9 +668,13 @@
                     {% for ref in doc.references %}
                         {% set line_amt = ref.allocated_amount or 0 %}
                         {% set line_date_ns = namespace(value=doc.posting_date) %}
+                        {% set line_desc_ns = namespace(value=line_desc) %}
+                        {% set line_ref_ns = namespace(value=ref.reference_name) %}
                         {% if ref.reference_doctype == "Purchase Invoice" and frappe.db.exists("Purchase Invoice", ref.reference_name) %}
-                            {% set inv_posting = frappe.db.get_value("Purchase Invoice", ref.reference_name, "posting_date") %}
-                            {% if inv_posting %}{% set line_date_ns.value = inv_posting %}{% endif %}
+                            {% set pi_row = frappe.db.get_value("Purchase Invoice", ref.reference_name, ["posting_date", "remarks", "bill_no"], as_dict=True) %}
+                            {% if pi_row and pi_row.posting_date %}{% set line_date_ns.value = pi_row.posting_date %}{% endif %}
+                            {% if pi_row and pi_row.remarks %}{% set line_desc_ns.value = pi_row.remarks %}{% else %}{% set line_desc_ns.value = '' %}{% endif %}
+                            {% set line_ref_ns.value = (pi_row.bill_no if pi_row and pi_row.bill_no else '') %}
                         {% elif ref.reference_doctype == "Sales Invoice" and frappe.db.exists("Sales Invoice", ref.reference_name) %}
                             {% set inv_posting = frappe.db.get_value("Sales Invoice", ref.reference_name, "posting_date") %}
                             {% if inv_posting %}{% set line_date_ns.value = inv_posting %}{% endif %}
@@ -647,8 +682,8 @@
                         <tr>
                             <td class="col-type">{{ line_type }}</td>
                             <td class="col-date">{% if line_date_ns.value %}{{ frappe.utils.formatdate(line_date_ns.value, 'dd-MMM-yy') }}{% endif %}</td>
-                            <td class="col-ref">{{ ref.reference_name }}</td>
-                            <td class="col-desc">{{ line_desc }}</td>
+                            <td class="col-ref">{{ line_ref_ns.value }}</td>
+                            <td class="col-desc">{{ line_desc_ns.value }}</td>
                             <td class="col-amt">{{ frappe.utils.fmt_money(line_amt, precision=2) }} {{ currency }}</td>
                         </tr>
                     {% endfor %}
@@ -690,7 +725,11 @@
                         <td></td>
                         <td></td>
                         <td></td>
-                        <td>SIGNATURE OVER PRINTED NAME</td>
+                        <td class="signature-received-cell">
+                            <div class="signature-received-inner">
+                                <span class="signature-received-caption">SIGNATURE OVER PRINTED NAME</span>
+                            </div>
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -753,6 +792,7 @@
                     -
                 {% endif %}
             </div>
+            <div class="footer-disclaimer">"THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX"</div>
         </div>
     </div>
 </div>

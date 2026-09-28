@@ -718,4 +718,40 @@ logistics.patches.v3_0_disbursement_bill_html_add_non_vatable
 logistics.patches.v3_0_disbursement_bill_html_vat_inclusive_from_total
 # Disbursement Bill HTML: Net of VAT is VAT Inclusive minus VAT
 logistics.patches.v3_0_disbursement_bill_html_net_of_vat
+# MICE Sales Quote HTML: print charge rates per UOM
+logistics.patches.v3_0_mice_sales_quote_html_rate_uom
+# MICE Sales Quote HTML: print minimum charge ahead of unit rate
+logistics.patches.v3_0_mice_sales_quote_html_minimum_charge
+# MICE Sales Quote HTML: unit rate plus a Minimum line
+logistics.patches.v3_0_mice_sales_quote_html_minimum_line
+# MICE Sales Quote HTML: align MINIMUM under the charge name
+logistics.patches.v3_0_mice_sales_quote_html_minimum_align
+# MICE Sales Quote HTML: no gap between the charge name and MINIMUM
+logistics.patches.v3_0_mice_sales_quote_html_minimum_gap
+# MICE Sales Quote HTML: MINIMUM under the end of the charge name
+logistics.patches.v3_0_mice_sales_quote_html_minimum_right
+# MICE Sales Quote HTML: Disbursement rates say AS PER RECEIPT
+logistics.patches.v3_0_mice_sales_quote_html_disbursement_receipt
+# MICE Sales Quote HTML: Disbursement prints only AS PER RECEIPT
+logistics.patches.v3_0_mice_sales_quote_html_disbursement_receipt_only
+# MICE Sales Quote HTML: small gap between charge rows
+logistics.patches.v3_0_mice_sales_quote_html_row_spacing
+# MICE Sales Quote HTML: border-spacing between charge rows
+logistics.patches.v3_0_mice_sales_quote_html_row_gap
+# MICE Sales Quote HTML: no gap between charge rows
+logistics.patches.v3_0_mice_sales_quote_html_no_row_gap
+# MICE Sales Quote HTML: Specified Charges print as a percent of selected items
+logistics.patches.v3_0_mice_sales_quote_html_specified_charges
+# MICE Sales Quote HTML: left-aligned rates and 1mm gap between charge rows
+logistics.patches.v3_0_mice_sales_quote_html_row_align
+# MICE Sales Quote HTML: Specified Charges print as a percent of OTHER RECEIPTED
+logistics.patches.v3_0_mice_sales_quote_html_other_receipted
+# MICE Sales Quote HTML: no gap between charge rows
+logistics.patches.v3_0_mice_sales_quote_html_no_row_gap_again
+# MICE Sales Quote HTML: 16pt company name and VAT Reg. TIN
+logistics.patches.v3_0_mice_sales_quote_html_header_name
+# MICE Sales Quote HTML: charge group subheaders are not underlined
+logistics.patches.v3_0_mice_sales_quote_html_subheader_plain
+# Payment Voucher HTML: Supplier Invoice No in payable line reference column
+logistics.patches.v3_0_payment_voucher_supplier_invoice_no
 

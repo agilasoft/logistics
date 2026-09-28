@@ -502,13 +502,6 @@
             border-bottom: none;
         }
         
-        /* Summary and Received Container */
-        .summary-received-container {
-            display: flex;
-            flex-direction: column;
-            margin-top: auto;
-        }
-        
         .totals-row-container {
             display: flex;
             width: 100%;
@@ -539,94 +532,6 @@
             padding-top: 0.8mm;
         }
 
-        .vat-summary-container {
-            display: flex;
-            flex-direction: row;
-            justify-content: space-between;
-            gap: 3mm;
-            width: 100%;
-            margin-top: 2mm;
-            margin-bottom: 2mm;
-        }
-        
-        .vat-left-column {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-        }
-        
-        .vat-left-column .vat-summary-row {
-            display: flex !important;
-            justify-content: flex-start !important;
-            width: 100% !important;
-            margin-bottom: 0.5mm !important;
-            align-items: center !important;
-            gap: 2mm !important;
-        }
-        
-        .vat-left-column .vat-summary-label {
-            text-align: right !important;
-            font-size: 8pt !important;
-            font-weight: bold !important;
-            flex: 0 0 auto !important;
-            margin-left: 30mm !important;
-            min-width: 35mm !important;
-        }
-        
-        .vat-left-column .vat-summary-value {
-            text-align: right !important;
-            font-size: 8pt !important;
-            min-width: 25mm !important;
-            flex: 0 0 auto !important;
-            margin-left: auto !important;
-        }
-        
-        .vat-right-column {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .vat-summary-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.5mm;
-            align-items: center;
-            gap: 1.5mm;
-        }
-        
-        .vat-summary-label {
-            font-size: 8pt;
-            font-weight: bold;
-            text-align: left;
-        }
-        
-        .vat-summary-value {
-            font-size: 8pt;
-            text-align: right;
-            min-width: 25mm;
-        }
-        
-        .vat-total-row {
-            border-top: 1px solid #000;
-            margin-top: 0.5mm;
-            padding-top: 0.8mm;
-        }
-        
-        .vat-total-label {
-            font-size: 8pt;
-            font-weight: 900;
-            text-align: left;
-        }
-        
-        .vat-total-value {
-            font-size: 8pt;
-            font-weight: 900;
-            text-align: right;
-            min-width: 25mm;
-        }
-        
         /* Payment Info Section */
         .payment-info-section {
             padding: 1.5mm;
@@ -727,12 +632,63 @@
         .footer-section {
             margin-top: 2mm;
             padding-top: 1mm;
-            border-top: 1px solid #000;
             font-size: 7pt;
+        }
+
+        .footer-bir {
+            border-top: 1px solid #000;
+            padding-top: 1mm;
+            margin-top: 2mm;
+        }
+
+        .footer-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8mm;
+            margin-bottom: 4mm;
+            border-top: 1px solid #000;
+            padding-top: 1mm;
+        }
+
+        .footer-top-left {
+            flex: 1 1 auto;
+            max-width: 95mm;
+            font-size: 8pt;
+            line-height: 1.3;
+        }
+
+        .footer-pay-note {
+            margin-bottom: 6mm;
+        }
+
+        .footer-created-by {
+            font-size: 8pt;
+        }
+
+        .footer-total-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex: 0 0 auto;
+            border: 1px solid #000;
+            min-width: 75mm;
+            font-size: 9pt;
+        }
+
+        .footer-total-label {
+            padding: 1.2mm 3mm;
+            white-space: nowrap;
+        }
+
+        .footer-total-value {
+            padding: 1.2mm 3mm;
+            text-align: right;
+            min-width: 32mm;
         }
         
         .bottom-section {
-            margin-top: 0;
+            margin-top: auto;
             display: flex;
             flex-direction: column;
             min-height: 0;
@@ -753,41 +709,6 @@
             text-transform: uppercase;
         }
 
-        .disclaimer-container {
-            display: flex;
-            flex-direction: row;
-            justify-content: space-between;
-            gap: 3mm;
-            width: 100%;
-            margin-top: 2mm;
-            margin-bottom: 2mm;
-            border-top: 1px solid #000;
-            padding-top: 1mm;
-        }
-        .disclaimer-left-column {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            font-size: 7pt;
-            line-height: 1.3;
-        }
-        .disclaimer-right-column {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            font-size: 7pt;
-            line-height: 1.3;
-            padding-left: 10mm;
-        }
-        .disclaimer-title {
-            font-weight: bold;
-            font-size: 7pt;
-            margin-bottom: 0.5mm;
-        }
-        .disclaimer-item {
-            margin-bottom: 0.3mm;
-        }
-        
         /* QR Code */
         .qr-code {
             width: 20mm;
@@ -832,21 +753,17 @@
                 display: flex;
                 flex-direction: column;
             }
-            .summary-received-container {
-                margin-top: auto;
-            }
             .page-break {
                 page-break-after: always;
             }
             .footer-section {
                 position: static;
-                border-top: 1px solid #000;
                 padding-top: 2mm;
                 margin-top: 4mm;
             }
             .bottom-section {
                 flex: 0 0 auto;
-                margin-top: 0;
+                margin-top: auto;
                 page-break-inside: avoid;
                 break-inside: avoid;
             }
@@ -1326,8 +1243,6 @@
         <!-- Table and Summary Container -->
         <div class="table-summary-container">
             {% set dsb = get_disbursement_bill_context(doc) %}
-            {% set currency = doc.currency or 'PHP' %}
-            {% set ns_line = namespace(tax=0, net=0, total=0, inclusive=0) %}
             {% set ns_rate = namespace(vat_rate=0) %}
             {% if doc.taxes %}
                 {% for tax in doc.taxes %}
@@ -1363,10 +1278,6 @@
                             {% endif %}
                             {% set item_amount = item_net - item_tax_amount %}
                             {% set item_total = item_net %}
-                            {% set ns_line.net = ns_line.net + item_net %}
-                            {% set ns_line.tax = ns_line.tax + item_tax_amount %}
-                            {% set ns_line.total = ns_line.total + item_net + item_tax_amount %}
-                            {% set ns_line.inclusive = ns_line.inclusive + item_total %}
                             <tr class="table-row">
                                 <td>{{ loop.index }}</td>
                                 <td>{{ frappe.utils.fmt_money(item.qty, precision=2) }}</td>
@@ -1381,126 +1292,32 @@
             </table>
         </div>
 
-            <!-- Summary and Payment Info Container -->
-            <div class="summary-received-container">
-                {% set vat = get_vat_sales_summary(doc, dsb.line_items) %}
-                {% set ns_vat = namespace(withholding_tax=0) %}
-                {% if doc.taxes %}
-                    {% for tax in doc.taxes %}
-                        {% set _wh_acc = (frappe.db.get_value("Account", tax.account_head, "account_name") or "")|lower %}
-                        {% set _wh_desc = (tax.description or "")|lower %}
-                        {% set _wh_label = _wh_acc ~ " " ~ _wh_desc %}
-                        {% set _after_disc = tax.get('tax_amount_after_discount_amount') %}
-                        {% set _wh_amt = _after_disc if _after_disc is not none else (tax.tax_amount if tax.tax_amount is not none else (tax.base_tax_amount if tax.base_tax_amount is not none else 0)) %}
-                        {% if "withhold" in _wh_label %}
-                            {% set ns_vat.withholding_tax = ns_vat.withholding_tax + _wh_amt %}
-                        {% endif %}
-                    {% endfor %}
-                {% endif %}
-                {% set withholding_tax_display = ns_vat.withholding_tax|abs %}
-                {% set vat_amount = ns_line.tax %}
-                {# Total Sales (VAT Inclusive) is the sum of the printed Total Amount column. #}
-                {% set total_sales_vat_inclusive = ns_line.inclusive %}
-                {# Amount: Net of VAT is Total Sales (VAT Inclusive) minus Less: VAT. #}
-                {% set net_of_vat = total_sales_vat_inclusive - vat_amount %}
-                {% set sc_pwd_discount = dsb.discount_amount or 0 %}
-                {% set amount_due = net_of_vat - sc_pwd_discount %}
-                {% set total_amount = amount_due + vat_amount %}
-                {# 95/5 reimbursable lines stay on the Sales Invoice, so Non-Vatable is 0 on this bill. #}
-                {% set non_vatable = 0 %}
-                {% set total_with_non_vatable = total_amount + non_vatable %}
-                {% set final_amount_due = total_with_non_vatable - withholding_tax_display %}
-                <div class="vat-summary-container">
-                    <div class="vat-left-column">
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Vatable Sales :</div>
-                            <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(vat.vatable_sales, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Exempt Sales :</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(vat.exempt_sales, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Zero Rated Sales :</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(vat.zero_rated_sales, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Total Sales :</div>
-                            <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(vat.total_sales, precision=2) }}</div>
-                        </div>
-                    </div>
-                    <div class="vat-right-column">
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Total Sales (VAT Inclusive)</div>
-                            <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(total_sales_vat_inclusive, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Less: VAT</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(vat_amount, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Amount: Net of VAT</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(net_of_vat, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Less: SC/PWD Discount</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(sc_pwd_discount, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Amount</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(amount_due, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Add: VAT</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(vat_amount, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row vat-total-row">
-                            <div class="vat-total-label">Total</div>
-                            <div class="vat-total-value">{{ currency }} {{ frappe.utils.fmt_money(total_amount, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Add: Non-Vatable</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(non_vatable, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row vat-total-row">
-                            <div class="vat-total-label">Total</div>
-                            <div class="vat-total-value">{{ currency }} {{ frappe.utils.fmt_money(total_with_non_vatable, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Less Withholding Tax</div>
-                            <div class="vat-summary-value">{{ frappe.utils.fmt_money(withholding_tax_display, precision=2) }}</div>
-                        </div>
-                        <div class="vat-summary-row">
-                            <div class="vat-summary-label">Amount</div>
-                            <div class="vat-summary-value">{{ currency }} {{ frappe.utils.fmt_money(final_amount_due, precision=2) }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        
         <!-- Bottom Section: Footer -->
         <div class="bottom-section">
-        <div class="disclaimer-container">
-            <div class="disclaimer-left-column">
-                <div class="disclaimer-item">
-                    Please contact us within 7 days should there be any discrepancies.
-                </div>
-                <div class="disclaimer-item">
-                    Interest of 1% & penalty of 2% per month will be charged on overdue invoice calculated from due date till date of actual payment.
-                </div>
-            </div>
-            <div class="disclaimer-right-column">
-                <div class="disclaimer-title">Applicable Withholding Taxes:</div>
-                <div class="disclaimer-item">
-                    2% Forwarding, Warehousing and Local Charges
-                </div>
-                <div class="disclaimer-item">
-                    15% Brokerage Fee
-                </div>
-            </div>
-        </div>
         <!-- Footer Section -->
         <div class="footer-section">
+            {% set currency = doc.currency or 'PHP' %}
+            {% if doc.owner and frappe.db.exists("User", doc.owner) %}
+                {% set owner_doc = frappe.get_doc("User", doc.owner) %}
+                {% set created_by = owner_doc.full_name or doc.owner %}
+            {% else %}
+                {% set created_by = doc.owner or '' %}
+            {% endif %}
+            {% if doc.creation %}
+                {% set created_on = frappe.utils.get_datetime(doc.creation).strftime('%d-%b-%y %H:%M') %}
+            {% else %}
+                {% set created_on = '' %}
+            {% endif %}
+            <div class="footer-top">
+                <div class="footer-top-left">
+                    <div class="footer-pay-note">This Invoice include payment made on your behalf, please pay immediately</div>
+                    <div class="footer-created-by">Created by {{ created_by }} on {{ created_on }}</div>
+                </div>
+                <div class="footer-total-box">
+                    <div class="footer-total-label">TOTAL {{ currency }}</div>
+                    <div class="footer-total-value">{{ frappe.utils.fmt_money(dsb.total_amount_due or 0, precision=2) }}</div>
+                </div>
+            </div>
             {% set bir_name = frappe.db.get_value("BIR CAS Settings", {"company": doc.company}, "name") %}
             {% if bir_name %}
                 {% set bir = frappe.get_doc("BIR CAS Settings", bir_name) %}
@@ -1536,24 +1353,26 @@
                 {% set series_start = name %}
                 {% set series_end = name %}
             {% endif %}
-<div class="footer-row">
-                BIR Acknowledgment Certificate No. 
-                {% if bir and bir.ptu_no %}
-                    {{ bir.ptu_no }}
-                {% else %}
-                    -
-                {% endif %}
-            </div>
-            <div class="footer-row">
-                Range: {{ series_start }} - {{ series_end }}
-            </div>
-            <div class="footer-row">
-                Date Issued: 
-                {% if bir and bir.ptu_date %}
-                    {{ frappe.utils.formatdate(bir.ptu_date, 'MMMM dd, yyyy') }}
-                {% else %}
-                    -
-                {% endif %}
+            <div class="footer-bir">
+                <div class="footer-row">
+                    BIR Acknowledgment Certificate No. 
+                    {% if bir and bir.ptu_no %}
+                        {{ bir.ptu_no }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+                <div class="footer-row">
+                    Range: {{ series_start }} - {{ series_end }}
+                </div>
+                <div class="footer-row">
+                    Date Issued: 
+                    {% if bir and bir.ptu_date %}
+                        {{ frappe.utils.formatdate(bir.ptu_date, 'MMMM dd, yyyy') }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
             </div>
             <div class="footer-disclaimer">"THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX"</div>
         </div>
