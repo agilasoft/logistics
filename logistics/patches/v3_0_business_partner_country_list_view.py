@@ -37,8 +37,15 @@ def execute():
 		frappe.clear_cache(doctype=doctype)
 
 
+def _has_country_column(doctype):
+	# has_column() takes a DocType name and prefixes "tab" itself.
+	if not frappe.db.table_exists(doctype):
+		return False
+	return frappe.db.has_column(doctype, "country")
+
+
 def _ensure_country_in_list_view(doctype):
-	if not frappe.db.has_column(f"tab{doctype}", "country"):
+	if not _has_country_column(doctype):
 		return
 	row_name = frappe.db.get_value(
 		"DocField",
@@ -51,7 +58,7 @@ def _ensure_country_in_list_view(doctype):
 
 
 def _backfill_country_from_unloco(doctype):
-	if not frappe.db.has_column(f"tab{doctype}", "country"):
+	if not _has_country_column(doctype):
 		return
 	table = f"tab{doctype}"
 	frappe.db.sql(
@@ -66,7 +73,7 @@ def _backfill_country_from_unloco(doctype):
 
 
 def _backfill_customer_country_from_primary_address():
-	if not frappe.db.has_column("tabCustomer", "country"):
+	if not _has_country_column("Customer"):
 		return
 	frappe.db.sql(
 		"""
