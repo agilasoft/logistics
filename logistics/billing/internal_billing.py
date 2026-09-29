@@ -173,6 +173,8 @@ def _submit_internal_billing_journal_entry(
 
     je.flags.ignore_permissions = True
     je.flags.ignore_links = True
+    # Internal billing posts its own WIP / accrual reversal after submit.
+    je.flags.skip_logistics_recognition_reversal = True
     je.insert()
     je.submit()
 

@@ -730,6 +730,8 @@ class RecognitionEngine:
         flags = getattr(je, "flags", None)
         if flags is not None:
             flags.ignore_permissions = ignore
+            # Recognition / adjustment JEs must not re-enter the cost/revenue reversal hook.
+            flags.skip_logistics_recognition_reversal = True
         je.insert(ignore_permissions=ignore)
         je.submit()
 
