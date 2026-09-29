@@ -1243,6 +1243,10 @@ frappe.ui.form.on("Sales Quote", {
 			}, __("Action"));
 		}
 
+		if (window.logistics && logistics.add_get_charges_from_tariff_button_if_allowed) {
+			logistics.add_get_charges_from_tariff_button_if_allowed(frm);
+		}
+
 		// Recalculate Charges - show when quote has any charge lines
 		const has_charges = frm.doc.charges && frm.doc.charges.length > 0;
 		if (has_charges && !frm.is_new()) {

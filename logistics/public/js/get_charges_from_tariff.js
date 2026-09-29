@@ -4,6 +4,7 @@
 frappe.provide("logistics");
 
 var GET_CHARGES_TITLE_TARIFF = __("Get Charges from Tariff");
+var GET_CHARGES_TITLE_TARIFF_SQ = __("Initialize Tariff Schedule");
 var GCFT_FILTER_GRID_SLOTS = 8;
 
 function _gcft_readonly_party_label(frm) {
@@ -43,6 +44,46 @@ function _gcft_filter_specs(frm) {
 				options: "Shipping Line",
 				label: __("Shipping Line"),
 				value: frm.doc.shipping_line || "",
+			},
+		];
+	}
+	if (frm.doctype === "Sales Quote") {
+		var ms = (frm.doc.main_service || "").trim();
+		return [
+			{ key: "_svc", readonly: true, label: __("Main Service"), value: ms || __("All") },
+			{
+				key: "_cust",
+				readonly: true,
+				label: __("Customer"),
+				value: (frm.doc.customer_name || frm.doc.customer || "").trim(),
+			},
+			{
+				key: "origin_port",
+				fieldtype: "Link",
+				options: "UNLOCO",
+				label: __("Origin Port"),
+				value: frm.doc.origin_port || "",
+			},
+			{
+				key: "destination_port",
+				fieldtype: "Link",
+				options: "UNLOCO",
+				label: __("Destination Port"),
+				value: frm.doc.destination_port || "",
+			},
+			{
+				key: "shipping_line",
+				fieldtype: "Link",
+				options: "Shipping Line",
+				label: __("Shipping Line"),
+				value: frm.doc.shipping_line || "",
+			},
+			{
+				key: "airline",
+				fieldtype: "Link",
+				options: "Airline",
+				label: __("Airline"),
+				value: frm.doc.airline || "",
 			},
 		];
 	}
@@ -223,15 +264,24 @@ logistics.should_show_get_charges_from_tariff = function (frm) {
 	if (!frm || !frm.doc) {
 		return false;
 	}
-	if (frm.doctype !== "Sea Booking" && frm.doctype !== "Air Booking") {
-		return false;
-	}
 	var as_int =
 		typeof cint === "function"
 			? cint
 			: function (v) {
 					return parseInt(v, 10) || 0;
 				};
+	if (frm.doctype !== "Sea Booking" && frm.doctype !== "Air Booking" && frm.doctype !== "Sales Quote") {
+		return false;
+	}
+	if (frm.doctype === "Sales Quote") {
+		if (frm.doc.__islocal) {
+			return false;
+		}
+		if (as_int(frm.doc.docstatus) !== 0) {
+			return false;
+		}
+		return true;
+	}
 	if (frm.doc.__islocal) {
 		return false;
 	}
@@ -266,9 +316,11 @@ logistics.add_get_charges_from_tariff_button_if_allowed = function (frm) {
 	) {
 		return;
 	}
+	var actionLabel =
+		frm.doctype === "Sales Quote" ? GET_CHARGES_TITLE_TARIFF_SQ : GET_CHARGES_TITLE_TARIFF;
 	if (window.logistics && logistics.menu) {
 		logistics.menu.add(frm, {
-			label: __("Get Charges from Tariff"),
+			label: actionLabel,
 			group: __("Action"),
 			ptype: "write",
 			action: function () {
@@ -279,7 +331,7 @@ logistics.add_get_charges_from_tariff_button_if_allowed = function (frm) {
 		});
 		return;
 	}
-	frm.add_custom_button(__("Get Charges from Tariff"), function () {
+	frm.add_custom_button(actionLabel, function () {
 		if (logistics.open_get_charges_from_tariff_dialog) {
 			logistics.open_get_charges_from_tariff_dialog(frm);
 		}
@@ -387,11 +439,18 @@ function _gcft_load_card_preview($pv, frm, tariff_name, dialog, onDone) {
 }
 
 function _gcft_apply_tariff(frm, tariff_name, dialog) {
+	var confirmMsg =
+		frm.doctype === "Sales Quote"
+			? __(
+					"Add charge lines from Tariff {0}? Matching tariff rates will be applied; existing charge lines are kept.",
+					[tariff_name]
+			  )
+			: __(
+					"Apply charges from Tariff {0}? Existing charge lines will be replaced.",
+					[tariff_name]
+			  );
 	frappe.confirm(
-		__(
-			"Apply charges from Tariff {0}? Existing charge lines will be replaced.",
-			[tariff_name]
-		),
+		confirmMsg,
 		function () {
 			frappe.call({
 				method: "logistics.utils.get_charges_from_tariff.apply_tariff_charges_to_job",
@@ -540,12 +599,19 @@ logistics.open_get_charges_from_tariff_dialog = function (frm) {
 		);
 		return;
 	}
-	if (!frm.doc.local_customer) {
+	if (frm.doctype === "Sales Quote") {
+		if (!frm.doc.customer) {
+			frappe.msgprint(__("Set Customer first."));
+			return;
+		}
+	} else if (!frm.doc.local_customer) {
 		frappe.msgprint(__("Set Local Customer first."));
 		return;
 	}
+	var dialogTitle =
+		frm.doctype === "Sales Quote" ? GET_CHARGES_TITLE_TARIFF_SQ : GET_CHARGES_TITLE_TARIFF;
 	var d = new frappe.ui.Dialog({
-		title: GET_CHARGES_TITLE_TARIFF,
+		title: dialogTitle,
 		size: "large",
 		fields: [{ fieldtype: "HTML", fieldname: "tariff_area", options: '<div class="tariff-list"></div>' }],
 		secondary_action_label: __("Close"),
