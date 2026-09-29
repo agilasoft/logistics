@@ -530,6 +530,9 @@ doc_events = {
 		"on_submit": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_submit",
 		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_cancel",
 	},
+	"Journal Entry": {
+		"on_submit": "logistics.invoice_integration.journal_entry_recognition_reversal.on_journal_entry_submit",
+	},
 	"Task": {
 		"after_insert": "logistics.integrations.outlook.task_sync.on_task_change",
 		"on_update": "logistics.integrations.outlook.task_sync.on_task_change",

@@ -348,7 +348,9 @@ def build_milestone_html(
 		<div class="milestone-container">
 	"""
 
-	html += _build_vertical_milestone_card(milestones, milestone_details, empty_hint_html)
+	html += _build_vertical_milestone_card(
+		milestones, milestone_details, empty_hint_html, format_datetime_fn
+	)
 
 	html += """
 		</div>
@@ -364,8 +366,8 @@ def build_milestone_html(
 		.detail-item label { font-size: 10px; color: #6c757d; font-weight: 600; }
 		.detail-item span { font-size: 12px; color: #333; }
 		.milestone-container { display: flex; flex-direction: column; margin: 16px 0 8px 0; }
-		.ms-vtl-list { display: flex; flex-direction: column; align-items: flex-start; }
-		.ms-vtl-row { display: flex; align-items: flex-start; min-height: 72px; }
+		.ms-vtl-list { display: flex; flex-direction: column; align-items: stretch; width: 100%; }
+		.ms-vtl-row { display: flex; align-items: flex-start; min-height: 72px; width: 100%; }
 		.ms-vtl-spine { width: 18px; align-self: stretch; position: relative; flex-shrink: 0; }
 		.ms-vtl-line { position: absolute; left: 50%; width: 3px; margin-left: -1.5px; border-radius: 2px; background: #6c757d; }
 		.ms-vtl-line-above { top: 0; height: 10px; }
@@ -373,10 +375,18 @@ def build_milestone_html(
 		.ms-vtl-row:first-child .ms-vtl-line-above { display: none; }
 		.ms-vtl-row:last-child .ms-vtl-line-below { display: none; }
 		.ms-vtl-dot { position: absolute; top: 10px; left: 50%; width: 14px; height: 14px; margin: 0 0 0 -7px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); z-index: 1; }
-		.ms-vtl-meta { display: flex; flex-direction: column; align-items: flex-start; padding: 2px 0 16px 12px; min-width: 0; }
-		.ms-vtl-icon { color: #6c757d; margin-bottom: 4px; line-height: 0; }
+		.ms-vtl-meta { display: flex; flex-direction: column; align-items: flex-start; padding: 2px 8px 18px 12px; min-width: 0; flex: 1; }
+		.ms-vtl-icon { color: inherit; margin-bottom: 4px; line-height: 0; }
 		.ms-vtl-icon svg { width: 18px; height: 18px; stroke: currentColor; }
-		.ms-vtl-label { font-size: 11px; color: #6c757d; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.ms-vtl-label { font-size: 13px; font-weight: 600; line-height: 1.35; color: inherit; max-width: none; white-space: normal; overflow: visible; text-overflow: unset; word-break: break-word; }
+		.ms-vtl-details { margin-top: 3px; }
+		.ms-vtl-detail { font-size: 11px; font-weight: 500; line-height: 1.45; color: inherit; white-space: normal; }
+		.ms-vtl-tone-finished { color: #9ca3af; }
+		.ms-vtl-tone-finished .ms-vtl-meta { opacity: 0.85; }
+		.ms-vtl-tone-active { color: #28a745; }
+		.ms-vtl-tone-delayed { color: #dc3545; }
+		.ms-vtl-tone-planned { color: #374151; }
+		.ms-vtl-tone-planned .ms-vtl-detail { color: #6b7280; }
 		.ms-vtl-empty { margin: 0; color: #6b7280; font-size: 13px; }
 		</style>
 	"""
@@ -395,7 +405,82 @@ def _milestone_detail_map_entry(info):
 	}
 
 
-def _build_vertical_milestone_card(milestones, milestone_details, empty_hint_html=None):
+_VERTICAL_TONE_COLOR = {
+	"finished": "#9ca3af",
+	"active": "#28a745",
+	"delayed": "#dc3545",
+	"planned": "#cbd5e1",
+}
+
+
+def _format_milestone_dt(value, format_datetime_fn):
+	if not value:
+		return ""
+	if format_datetime_fn:
+		formatted = format_datetime_fn(value)
+		return formatted or ""
+	return frappe.utils.format_datetime(value) or ""
+
+
+def _vertical_milestone_tone(m, now=None):
+	"""Tone for the vertical milestone list.
+
+	Finished (completed on time) is gray, the active step is green, and delays are red.
+	A milestone still open after Planned End, or finished after Planned End, is delayed.
+	"""
+	display_status, is_delayed, _severity = _compute_milestone_status(m)
+	status = (_get_milestone_attr(m, "status") or "").strip().lower()
+	actual_end = _get_milestone_attr(m, "actual_end")
+	planned_end = _get_milestone_attr(m, "planned_end")
+
+	overdue_open = False
+	if planned_end and not actual_end:
+		if now is None:
+			now = frappe.utils.now_datetime()
+		try:
+			overdue_open = frappe.utils.get_datetime(planned_end) < now
+		except Exception:
+			overdue_open = status == "delayed"
+
+	if is_delayed or overdue_open or (status == "delayed" and not actual_end):
+		return "delayed"
+	if display_status == "completed" or status in ("completed", "finished", "done"):
+		return "finished"
+	if display_status == "started" or status in ("started", "in progress", "in_progress"):
+		return "active"
+	return "planned"
+
+
+def _vertical_milestone_detail_lines(m, tone, format_datetime_fn):
+	"""Status plus planned and actual dates. Empty dates are omitted."""
+	status = (_get_milestone_attr(m, "status") or "").strip()
+	if tone == "delayed":
+		status_label = _("Delayed")
+	elif status:
+		status_label = _(status)
+	else:
+		status_label = {
+			"finished": _("Completed"),
+			"active": _("Started"),
+			"planned": _("Planned"),
+		}.get(tone, _("Planned"))
+
+	lines = [status_label]
+	for label, key in (
+		(_("Planned start"), "planned_start"),
+		(_("Planned end"), "planned_end"),
+		(_("Actual start"), "actual_start"),
+		(_("Actual end"), "actual_end"),
+	):
+		formatted = _format_milestone_dt(_get_milestone_attr(m, key), format_datetime_fn)
+		if formatted:
+			lines.append("%s: %s" % (label, formatted))
+	return lines
+
+
+def _build_vertical_milestone_card(
+	milestones, milestone_details, empty_hint_html=None, format_datetime_fn=None
+):
 	if not milestones:
 		hint = empty_hint_html or (
 			'<p class="ms-vtl-empty">'
@@ -406,29 +491,33 @@ def _build_vertical_milestone_card(milestones, milestone_details, empty_hint_htm
 
 	rows_meta = []
 	for m in milestones:
-		display_status, is_delayed, severity = _compute_milestone_status(m)
-		dot_bg, line_bg = _timeline_dot_and_line_colors(display_status, is_delayed, severity)
+		tone = _vertical_milestone_tone(m)
+		color = _VERTICAL_TONE_COLOR[tone]
 		info = _milestone_detail_map_entry(milestone_details.get(_get_milestone_attr(m, "milestone")))
-		desc = info.get("description") or _get_milestone_attr(m, "milestone") or "—"
+		desc = (info.get("description") or _get_milestone_attr(m, "milestone") or "—")
+		desc = str(desc).strip() or "—"
 		icon = info.get("icon") or "circle"
 		if not str(icon).strip():
 			icon = "circle"
-		short = desc if len(desc) <= 18 else desc[:17] + "…"
+		detail_html = "".join(
+			'<div class="ms-vtl-detail">%s</div>' % frappe.utils.escape_html(line)
+			for line in _vertical_milestone_detail_lines(m, tone, format_datetime_fn)
+		)
 		rows_meta.append({
-			"dot_bg": dot_bg,
-			"line_bg": line_bg,
+			"tone": tone,
+			"color": color,
 			"icon_html": _render_icon_html(icon),
 			"desc": desc,
-			"short": short,
+			"detail_html": detail_html,
 		})
 
 	parts = ['<div class="ms-vtl-list">']
 	n = len(rows_meta)
 	for i, row in enumerate(rows_meta):
-		above = rows_meta[i]["line_bg"] if i > 0 else row["line_bg"]
-		below = rows_meta[i + 1]["line_bg"] if i < n - 1 else row["line_bg"]
+		above = rows_meta[i]["color"] if i > 0 else row["color"]
+		below = rows_meta[i + 1]["color"] if i < n - 1 else row["color"]
 		parts.append(
-			'<div class="ms-vtl-row" title="%s">'
+			'<div class="ms-vtl-row ms-vtl-tone-%s">'
 			'<div class="ms-vtl-spine">'
 			'<div class="ms-vtl-line ms-vtl-line-above" style="background:%s"></div>'
 			'<div class="ms-vtl-dot" style="background:%s"></div>'
@@ -437,15 +526,17 @@ def _build_vertical_milestone_card(milestones, milestone_details, empty_hint_htm
 			'<div class="ms-vtl-meta">'
 			'<div class="ms-vtl-icon">%s</div>'
 			'<div class="ms-vtl-label">%s</div>'
+			'<div class="ms-vtl-details">%s</div>'
 			"</div>"
 			"</div>"
 			% (
-				frappe.utils.escape_html(row["desc"]),
+				row["tone"],
 				above,
-				row["dot_bg"],
+				row["color"],
 				below,
 				row["icon_html"],
-				frappe.utils.escape_html(row["short"]),
+				frappe.utils.escape_html(row["desc"]),
+				row["detail_html"],
 			)
 		)
 	parts.append("</div>")

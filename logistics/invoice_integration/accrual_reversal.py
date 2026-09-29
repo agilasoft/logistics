@@ -165,6 +165,7 @@ def post_cost_accrual_reversal_journal_multi(
 	if header_job:
 		apply_journal_entry_posting_header_from_job(je, header_job)
 
+	je.flags.skip_logistics_recognition_reversal = True
 	je.insert()
 	je.submit()
 
