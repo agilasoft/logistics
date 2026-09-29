@@ -23,6 +23,26 @@ from logistics.utils.charge_service_type import (
 )
 
 BOOKING_DOCTYPES = frozenset({"Sea Booking", "Air Booking"})
+SALES_QUOTE_DOCTYPE = "Sales Quote"
+
+_ORG_SCOPE_KEYS = frozenset({"branch", "cost_center", "profit_center"})
+_GCFTS_ALLOWED_KEYS: frozenset[str] | None = None
+
+_TARIFF_CHILD_META = frozenset(
+	{
+		"name",
+		"idx",
+		"owner",
+		"creation",
+		"modified",
+		"modified_by",
+		"docstatus",
+		"parent",
+		"parentfield",
+		"parenttype",
+		"doctype",
+	}
+)
 
 GCFT_FILTER_KEYS: dict[str, frozenset[str]] = {
 	"Sea Booking": frozenset({"origin_port", "destination_port", "shipping_line"}),
@@ -372,3 +392,211 @@ def booking_customer(doc) -> str | None:
 
 def implied_service_for_booking(doctype: str) -> str | None:
 	return implied_service_type_for_doctype(doctype)
+
+
+def _gcfts_allowed_filter_keys() -> frozenset[str]:
+	global _GCFTS_ALLOWED_KEYS
+	if _GCFTS_ALLOWED_KEYS is None:
+		from logistics.utils.sales_quote_charge_parameters import (
+			SALES_QUOTE_CHARGE_PARAMETER_FIELDS,
+			filter_fields_existing_in_doctype,
+		)
+
+		keys = set(
+			filter_fields_existing_in_doctype(
+				SALES_QUOTE_DOCTYPE, list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
+			)
+		)
+		keys |= _ORG_SCOPE_KEYS
+		_GCFTS_ALLOWED_KEYS = frozenset(keys)
+	return _GCFTS_ALLOWED_KEYS
+
+
+def parse_gcfts_filter_overrides(filter_overrides) -> dict[str, str]:
+	if not filter_overrides:
+		return {}
+	if isinstance(filter_overrides, str):
+		try:
+			filter_overrides = frappe.parse_json(filter_overrides)
+		except Exception:
+			return {}
+	if not isinstance(filter_overrides, dict):
+		return {}
+	allowed = _gcfts_allowed_filter_keys()
+	out: dict[str, str] = {}
+	for k, v in filter_overrides.items():
+		if k not in allowed:
+			continue
+		out[k] = "" if v is None else str(v).strip()
+	return out
+
+
+def effective_sales_quote_scope_for_tariff(doc, filter_overrides) -> dict[str, str]:
+	"""Scope parameters used to pick tariff charge lines (header + org dims; GCFQ-style overrides)."""
+	from logistics.utils.sales_quote_charge_parameters import resolve_parameters_from_sales_quote_scope
+
+	ov = parse_gcfts_filter_overrides(filter_overrides)
+	if not ov:
+		scope = dict(resolve_parameters_from_sales_quote_scope(doc))
+		for fn in _ORG_SCOPE_KEYS:
+			val = getattr(doc, fn, None)
+			if val is not None and str(val).strip():
+				scope[fn] = val
+		return {k: str(v).strip() for k, v in scope.items() if v is not None and str(v).strip()}
+	return {k: (ov.get(k) or "").strip() for k in ov}
+
+
+def tariff_charge_row_matches_sales_quote_scope(row, scope_filters: dict[str, str]) -> bool:
+	"""Blank-or-equal match on Sales Quote scope fields (blank tariff line = wildcard)."""
+
+	def _g(fn):
+		return getattr(row, fn, None) if not isinstance(row, dict) else row.get(fn)
+
+	for fn, filter_val in (scope_filters or {}).items():
+		fv = (filter_val or "").strip()
+		if not fv:
+			continue
+		if not _wildcard_link_match(_g(fn), fv):
+			return False
+	return True
+
+
+def tariff_charge_row_matches_charge_scope(tariff_row, charge_doc, quote_doc=None) -> bool:
+	"""Match a tariff line to a Sales Quote Charge using resolved routing parameters."""
+	from logistics.utils.sales_quote_charge_parameters import extract_sales_quote_charge_parameters
+
+	params = extract_sales_quote_charge_parameters(charge_doc, quote_doc)
+	if not params:
+		return True
+	filters = {
+		k: str(v).strip() for k, v in params.items() if v is not None and str(v).strip()
+	}
+	return tariff_charge_row_matches_sales_quote_scope(tariff_row, filters)
+
+
+def allowed_service_types_for_sales_quote(doc) -> set[str]:
+	types: set[str] = set()
+	ms = canonical_charge_service_type_for_storage(getattr(doc, "main_service", None) or "")
+	if ms:
+		types.add(ms)
+	sq_name = getattr(doc, "name", None)
+	if sq_name:
+		from logistics.logistics.doctype.linked_service.linked_service import (
+			get_linked_services_for_sales_quote,
+		)
+
+		for ls in get_linked_services_for_sales_quote(sq_name):
+			st = canonical_charge_service_type_for_storage(getattr(ls, "service_type", None) or "")
+			if st:
+				types.add(st)
+	return types
+
+
+def iter_all_tariff_charge_rows(tariff_doc):
+	for row in getattr(tariff_doc, "rates", None) or []:
+		yield row
+
+
+def filter_tariff_charge_rows_for_sales_quote(
+	doc,
+	tariff_doc,
+	filter_overrides=None,
+) -> list[Any]:
+	"""Tariff Charge rows matching Sales Quote scope parameters and service types on the quote."""
+	scope = effective_sales_quote_scope_for_tariff(doc, filter_overrides)
+	allowed_st = allowed_service_types_for_sales_quote(doc)
+	out: list[Any] = []
+	for row in iter_all_tariff_charge_rows(tariff_doc):
+		if not _row_is_active_on_date(row):
+			continue
+		row_st = canonical_charge_service_type_for_storage(getattr(row, "service_type", None) or "")
+		if allowed_st and row_st and row_st not in allowed_st:
+			continue
+		if not tariff_charge_row_matches_sales_quote_scope(row, scope):
+			continue
+		if not (getattr(row, "item_code", None) or "").strip():
+			continue
+		out.append(row)
+	return out
+
+
+def tariff_has_matching_charge_rows_for_sales_quote(
+	doc,
+	tariff_doc,
+	filter_overrides=None,
+) -> bool:
+	return bool(filter_tariff_charge_rows_for_sales_quote(doc, tariff_doc, filter_overrides))
+
+
+def fetch_eligible_tariff_names_for_sales_quote(
+	doc,
+	*,
+	filter_overrides=None,
+	limit: int = 150,
+) -> list[str]:
+	"""Active tariffs with at least one charge line matching this Sales Quote's scope."""
+	customer = sales_quote_customer(doc)
+	if not customer:
+		return []
+	names = frappe.get_all(
+		"Tariff",
+		filters={"is_active": 1},
+		fields=["name"],
+		order_by="modified desc",
+		limit_page_length=limit * 3,
+	)
+	eligible: list[str] = []
+	for row in names:
+		name = row.name
+		try:
+			tariff_doc = frappe.get_doc("Tariff", name)
+		except Exception:
+			continue
+		if not _tariff_is_valid_on_date(tariff_doc):
+			continue
+		if not _tariff_matches_job_customer(tariff_doc, customer):
+			continue
+		if not tariff_has_matching_charge_rows_for_sales_quote(doc, tariff_doc, filter_overrides):
+			continue
+		eligible.append(name)
+		if len(eligible) >= limit:
+			break
+	return eligible
+
+
+def tariff_charge_row_as_sales_quote_charge_dict(row, tariff_name: str) -> dict:
+	"""Map a Tariff Charge row to a new Sales Quote Charge child dict."""
+	charge = tariff_charge_row_as_quote_like_dict(row, tariff_name)
+	for k in _TARIFF_CHILD_META:
+		charge.pop(k, None)
+	charge["use_tariff_in_revenue"] = 1
+	charge["use_tariff_in_cost"] = 1
+	charge.setdefault("charge_scope", "Main")
+	return charge
+
+
+def sales_quote_customer(doc) -> str | None:
+	if getattr(doc, "doctype", None) == SALES_QUOTE_DOCTYPE:
+		return (getattr(doc, "customer", None) or "").strip() or None
+	return None
+
+
+def gcfts_list_filters_payload(doc, scope: dict[str, str]) -> dict:
+	"""Structured labels for Initialize Tariff Schedule on Sales Quote."""
+	rules = [
+		_("Active tariffs only"),
+		_("Tariff validity must include today"),
+		_("Customer must match the tariff type rules (Customer, Group, Territory, etc.)"),
+		_(
+			"Each tariff charge line must match the Sales Quote scope parameters "
+			"(origin, destination, carrier, customs, etc.; blank on the line matches any value)"
+		),
+		_("Only charge lines for the quote Main Service and Linked Services are included"),
+	]
+	return {
+		"customer_label": _("Customer"),
+		"customer": (getattr(doc, "customer", None) or "").strip(),
+		"main_service": (getattr(doc, "main_service", None) or "").strip(),
+		"scope": scope,
+		"rules": rules,
+	}

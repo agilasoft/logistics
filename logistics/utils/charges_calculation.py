@@ -831,9 +831,12 @@ def _find_tariff_rate_match(
     item_code: str,
     service_type: Optional[str] = None,
     is_revenue: bool = True,
+    charge_doc: Any = None,
 ) -> Optional[Tuple[Dict, Any, str]]:
     """
     Find matching Tariff Charge row by item_code and optional service type.
+    When ``charge_doc`` is a Sales Quote Charge, also match routing parameters
+    (same blank-or-equal rules as Initialize Tariff Schedule).
     Returns (normalized rate_data dict, raw child row, parentfield name).
     Pass is_revenue=False to normalize cost-side pricing fields.
     """
@@ -843,6 +846,15 @@ def _find_tariff_rate_match(
         tariff_doc = frappe.get_doc("Tariff", tariff_name)
     except Exception:
         return None
+
+    quote_doc = None
+    if charge_doc is not None and getattr(charge_doc, "parenttype", None) == "Sales Quote":
+        parent_name = getattr(charge_doc, "parent", None)
+        if parent_name:
+            try:
+                quote_doc = frappe.get_cached_doc("Sales Quote", parent_name)
+            except Exception:
+                quote_doc = None
 
     want = canonical_charge_service_type_for_storage((service_type or "").strip())
     rows: List[Any] = list(getattr(tariff_doc, "rates", None) or [])
@@ -855,6 +867,11 @@ def _find_tariff_rate_match(
             continue
         if want and canonical_charge_service_type_for_storage(getattr(rate, "service_type", "") or "") != want:
             continue
+        if charge_doc is not None and quote_doc is not None:
+            from logistics.utils.tariff_charge_copy import tariff_charge_row_matches_charge_scope
+
+            if not tariff_charge_row_matches_charge_scope(rate, charge_doc, quote_doc):
+                continue
         return (_tariff_rate_row_to_rate_data(rate, is_revenue=is_revenue), rate, "rates")
     return None
 
@@ -1281,7 +1298,9 @@ def _fetch_rates_from_tariff_if_needed(charge_doc: Any) -> None:
     # Revenue: revenue_tariff (legacy: generic tariff) + item
     rev_tariff = getattr(charge_doc, "revenue_tariff", None) or getattr(charge_doc, "tariff", None)
     if rev_tariff:
-        match = _find_tariff_rate_match(rev_tariff, item_code, st, is_revenue=True)
+        match = _find_tariff_rate_match(
+            rev_tariff, item_code, st, is_revenue=True, charge_doc=charge_doc
+        )
         if match:
             rate_data, rate_row, _tname = match
             _apply_tariff_rate_data_revenue(charge_doc, rate_data)
@@ -1296,7 +1315,9 @@ def _fetch_rates_from_tariff_if_needed(charge_doc: Any) -> None:
     # Cost: cost_tariff (legacy: generic tariff) + item
     cost_tariff = getattr(charge_doc, "cost_tariff", None) or getattr(charge_doc, "tariff", None)
     if cost_tariff:
-        match = _find_tariff_rate_match(cost_tariff, item_code, st, is_revenue=False)
+        match = _find_tariff_rate_match(
+            cost_tariff, item_code, st, is_revenue=False, charge_doc=charge_doc
+        )
         if match:
             rate_data, rate_row, _tname = match
             _apply_tariff_rate_data_cost(charge_doc, rate_data)
