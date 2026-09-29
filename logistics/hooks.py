@@ -18,6 +18,9 @@ app_color = "grey"
 app_email = "info@agilasoft.com"
 app_license = "AGPL-3.0-or-later"
 
+# bench migrate imports every fixtures/*.json, not only this list.
+# Do not add Custom DocPerm here or as fixtures/custom_docperm.json:
+# that import overwrites Role Permission Manager changes on every migrate.
 fixtures = [
 	"role.json",
 	"custom_html_block.json",
