@@ -754,6 +754,8 @@ logistics.patches.v3_0_mice_sales_quote_html_header_name
 logistics.patches.v3_0_mice_sales_quote_html_subheader_plain
 # Payment Voucher HTML: Supplier Invoice No in payable line reference column
 logistics.patches.v3_0_payment_voucher_supplier_invoice_no
+# Business partners: Country column on Consignee, Customer, and Freight Agent lists (#1458)
+logistics.patches.v3_0_business_partner_country_list_view
 # Cash Advance desk tile: logistics blue wallet SVG (same as other modules)
 logistics.patches.v3_0_sync_cash_advance_desktop_icon
 
