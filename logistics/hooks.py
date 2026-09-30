@@ -18,6 +18,9 @@ app_color = "grey"
 app_email = "info@agilasoft.com"
 app_license = "AGPL-3.0-or-later"
 
+# bench migrate imports every fixtures/*.json, not only this list.
+# Do not add Custom DocPerm here or as fixtures/custom_docperm.json:
+# that import overwrites Role Permission Manager changes on every migrate.
 fixtures = [
 	"role.json",
 	"custom_html_block.json",
@@ -55,6 +58,7 @@ app_include_js = [
 	"/assets/logistics/js/freight_agent_service.js?v=4",
 	"/assets/logistics/js/charge_bill_to.js?v=2",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
+	"/assets/logistics/js/mice_project_manifest_print_preview.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=4",
 	"/assets/logistics/js/user_quick_entry.js?v=1",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
@@ -297,6 +301,13 @@ doctype_js = {
 	"Warehouse Contract": [
 		"public/js/charge_break_dialogs.js",
 	],
+	"Inbound Order": "warehousing/warehouse_order_contract_accounts.js",
+	"Release Order": "warehousing/warehouse_order_contract_accounts.js",
+	"Cross-Docking Order": "warehousing/warehouse_order_contract_accounts.js",
+	"Transfer Order": "warehousing/warehouse_order_contract_accounts.js",
+	"VAS Order": "warehousing/warehouse_order_contract_accounts.js",
+	"Stocktake Order": "warehousing/warehouse_order_contract_accounts.js",
+	"Warehouse Job": "warehousing/warehouse_order_contract_accounts.js",
 	"General Job": [
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
@@ -403,6 +414,11 @@ jinja = {
 		"logistics.print_format.sales_invoice.vat_sales_summary.get_vat_sales_summary",
 		"logistics.print_format.sales_invoice.vat_sales_summary.item_is_zero_rated_or_exempt",
 		"logistics.mice.print_format.mice_project_manifest.mice_project_manifest.get_mice_project_manifest_rows",
+		"logistics.mice.print_format.mice_project_manifest.mice_project_manifest.format_mice_manifest_show_dates",
+		"logistics.mice.print_format.consol_job_profit_html.consol_job_profit_html.get_consol_job_profit_context",
+		"logistics.mice.print_format.consol_job_profit_html.consol_job_profit_html.format_consol_job_profit_amount",
+		"logistics.print_format.purchase_invoice.header_address.header_address_from_registration",
+		"logistics.print_format.purchase_invoice.tax_amount.printed_tax_amount",
 	]
 }
 
@@ -489,6 +505,9 @@ doc_events = {
 	"Cost Center": {
 		"validate": "logistics.job_management.cost_center_defaults.set_cost_center_branch_default",
 	},
+	"Branch": {
+		"before_insert": "logistics.job_management.cost_center_defaults.set_branch_document_name",
+	},
 	"Account": {
 		"validate": "logistics.logistics.account_job_profit.validate_account_job_profit",
 	},
@@ -522,6 +541,10 @@ doc_events = {
 		"before_update_after_submit": "logistics.invoice_integration.gl_item_dimension_sync.sync_item_accounting_dimension_from_invoice_items",
 		"on_submit": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_submit",
 		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_cancel",
+	},
+	"Journal Entry": {
+		"before_validate": "logistics.job_management.recognition_engine.ensure_journal_entry_posting_header",
+		"on_submit": "logistics.invoice_integration.journal_entry_recognition_reversal.on_journal_entry_submit",
 	},
 	"Task": {
 		"after_insert": "logistics.integrations.outlook.task_sync.on_task_change",
@@ -978,6 +1001,9 @@ scheduler_events = {
 override_whitelisted_methods = {
 	"frappe.utils.print_format.download_pdf": (
 		"logistics.print_format.payment_entry.bank_forms_pdf.download_pdf"
+	),
+	"frappe.desk.query_report.export_query": (
+		"logistics.bir_cas.export_query.export_query"
 	),
 }
 

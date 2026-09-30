@@ -17,7 +17,7 @@ from __future__ import unicode_literals
 
 import frappe
 from frappe import _
-from frappe.utils import flt, today
+from frappe.utils import cint, flt, today
 from typing import Dict, Any, Optional, List
 
 from logistics.job_management.gl_item_dimension import item_row_dict
@@ -105,6 +105,49 @@ def _append_revenue_transfer_rows(
     )
 
 
+def _apply_internal_billing_posting_header(je, billing_main_job) -> None:
+    """Copy Company and Branch onto mandatory Posting Company / Posting Branch fields."""
+    from logistics.job_management.recognition_engine import (
+        _resolve_posting_company_branch,
+        apply_journal_entry_posting_header_from_job,
+    )
+
+    if billing_main_job and not je.get("branch"):
+        job_branch = getattr(billing_main_job, "branch", None)
+        if job_branch:
+            je.branch = job_branch
+
+    company, branch = _resolve_posting_company_branch(je, billing_main_job)
+    if branch and not je.get("branch"):
+        je.branch = branch
+
+    meta = frappe.get_meta("Journal Entry")
+    missing = []
+    for fieldname, value in (
+        ("custom_posting_company", company),
+        ("posting_company", company),
+        ("custom_posting_branch", branch),
+        ("posting_branch", branch),
+    ):
+        df = meta.get_field(fieldname)
+        if not df:
+            continue
+        if value and not je.get(fieldname):
+            je.set(fieldname, value)
+        if cint(df.reqd) and not je.get(fieldname):
+            missing.append(df.label or fieldname)
+
+    if missing:
+        frappe.throw(
+            _(
+                "Cannot create internal billing Journal Entry. Set {0} on the main job or Sales Quote."
+            ).format(", ".join(missing)),
+            title=_("Journal Entry"),
+        )
+
+    apply_journal_entry_posting_header_from_job(je, billing_main_job)
+
+
 def _submit_internal_billing_journal_entry(
     entries: List[Dict[str, Any]],
     company: str,
@@ -171,8 +214,12 @@ def _submit_internal_billing_journal_entry(
             if je_acc_meta.get_field(k):
                 setattr(row, k, v)
 
+    _apply_internal_billing_posting_header(je, billing_main_job)
+
     je.flags.ignore_permissions = True
     je.flags.ignore_links = True
+    # Internal billing posts its own WIP / accrual reversal after submit.
+    je.flags.skip_logistics_recognition_reversal = True
     je.insert()
     je.submit()
 

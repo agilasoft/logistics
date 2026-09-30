@@ -93,15 +93,26 @@ def default_company_from_parent(parent_doc: Any) -> str:
 	return _norm(_row_val(parent_doc, "company"))
 
 
-def _company_field_for(doctype: str) -> str | None:
+def _company_fields_for(doctype: str) -> list[str]:
 	try:
 		meta = frappe.get_meta(doctype)
 	except Exception:
-		return None
-	for fieldname in ("company", "custom_company"):
-		if meta.has_field(fieldname):
-			return fieldname
-	return None
+		return []
+	return [fn for fn in ("company", "custom_company") if meta.has_field(fn)]
+
+
+def _company_field_for(doctype: str) -> str | None:
+	fields = _company_fields_for(doctype)
+	return fields[0] if fields else None
+
+
+def _master_company(link_doctype: str, name: str) -> str:
+	"""Company on a Branch / Cost Center / Profit Center, including Branch.custom_company."""
+	for fieldname in _company_fields_for(link_doctype):
+		actual = _norm(frappe.db.get_value(link_doctype, name, fieldname))
+		if actual:
+			return actual
+	return ""
 
 
 def _link_belongs_to_company(link_doctype: str, name: str, company: str) -> bool:
@@ -115,10 +126,9 @@ def _link_belongs_to_company(link_doctype: str, name: str, company: str) -> bool
 			return False
 	except Exception:
 		return False
-	company_fn = _company_field_for(link_doctype)
-	if not company_fn:
+	if not _company_fields_for(link_doctype):
 		return True
-	actual = _norm(frappe.db.get_value(link_doctype, name, company_fn))
+	actual = _master_company(link_doctype, name)
 	return not actual or actual == company
 
 
@@ -150,22 +160,33 @@ def _default_scoped_value(fieldname: str, link_doctype: str, company: str) -> st
 	return _first_link_for_company(link_doctype, company, extra)
 
 
+def _preserved_scoped_fields(doc: Any) -> set[str]:
+	flags = getattr(doc, "flags", None)
+	if not flags:
+		return set()
+	return {fn for fn in (getattr(flags, "linked_service_scoped_fields", None) or ()) if fn}
+
+
 def sync_company_scoped_fields_on_operational_doc(doc: Any, company: str) -> None:
 	"""Keep or refill branch / cost center / profit center for *company*.
 
-	Values that already belong to the operating company are kept. Values that belong
-	to another company (or are empty) are replaced from that company's masters so
-	mandatory fields on Transport Order, Declaration Order, and similar bookings
-	are populated when Linked Service company differs from the main shipment.
+	Values copied from the Linked Service are kept. Other values that already belong
+	to the operating company are kept. Values that belong to another company (or are
+	empty) are replaced from that company's masters so mandatory fields on Transport
+	Order, Declaration Order, and similar bookings are populated when Linked Service
+	company differs from the main shipment.
 	"""
 	company = _norm(company)
 	if not doc or not company:
 		return
 	meta = frappe.get_meta(doc.doctype)
+	preserved = _preserved_scoped_fields(doc)
 	missing_labels: list[str] = []
 	for fn, link_dt in _SCOPED_FIELD_DOCTYPES.items():
 		df = meta.get_field(fn)
 		if not df:
+			continue
+		if fn in preserved and _norm(_row_val(doc, fn)):
 			continue
 		current = _norm(_row_val(doc, fn))
 		if current and _link_belongs_to_company(link_dt, current, company):
@@ -188,7 +209,7 @@ def sync_company_scoped_fields_on_operational_doc(doc: Any, company: str) -> Non
 def _scoped_values_from_linked_service(row: Any) -> dict[str, str]:
 	"""Branch / cost center / profit center stored on the row or its Linked Service."""
 	values = {fn: _norm(_row_val(row, fn)) for fn in _COMPANY_SCOPED_FIELDS}
-	if all(values.values()) or _doctype_of(row) in ("Linked Service", "Internal Job"):
+	if all(values.values()):
 		return values
 	ls_name = linked_service_name_from_row(row)
 	if not ls_name:
@@ -198,31 +219,42 @@ def _scoped_values_from_linked_service(row: Any) -> dict[str, str]:
 	if not linked_service_record_exists(ls_name):
 		return values
 	try:
-		stored = (
-			frappe.db.get_value(
-				linked_service_doctype(),
-				ls_name,
-				list(_COMPANY_SCOPED_FIELDS),
-				as_dict=True,
-			)
-			or {}
-		)
+		stored = frappe.get_cached_doc(linked_service_doctype(), ls_name)
 	except Exception:
 		return values
 	for fn in _COMPANY_SCOPED_FIELDS:
 		if not values[fn]:
-			values[fn] = _norm(stored.get(fn) if isinstance(stored, dict) else None)
+			values[fn] = _norm(getattr(stored, fn, None))
 	return values
 
 
-def _apply_scoped_values_from_linked_service(doc: Any, row: Any, company: str) -> None:
-	"""Copy Linked Service branch / cost center / profit center when they belong to *company*."""
+def accounting_dimensions_from_linked_service(row: Any) -> dict[str, str]:
+	"""Company, branch, cost center, and profit center configured on the Linked Service."""
+	dims = {"company": company_from_linked_service(row)}
+	dims.update(_scoped_values_from_linked_service(row))
+	return dims
+
+
+def _apply_scoped_values_from_linked_service(doc: Any, row: Any, company: str) -> set[str]:
+	"""Copy Linked Service branch / cost center / profit center onto *doc*.
+
+	Values set on the Linked Service replace whatever was copied from the main job.
+	They are kept even when a generic company default would otherwise be chosen.
+	"""
 	meta = frappe.get_meta(doc.doctype)
+	applied: set[str] = set()
 	for fn, value in _scoped_values_from_linked_service(row).items():
 		if not value or not meta.get_field(fn):
 			continue
-		if _link_belongs_to_company(_SCOPED_FIELD_DOCTYPES[fn], value, company):
-			doc.set(fn, value)
+		link_dt = _SCOPED_FIELD_DOCTYPES[fn]
+		if not _link_belongs_to_company(link_dt, value, company):
+			continue
+		doc.set(fn, value)
+		applied.add(fn)
+	flags = getattr(doc, "flags", None)
+	if flags is not None:
+		flags.linked_service_scoped_fields = tuple(applied)
+	return applied
 
 
 def apply_linked_service_company_to_operational_doc(
@@ -238,9 +270,9 @@ def apply_linked_service_company_to_operational_doc(
 	When *require* is True and the row points at a Linked Service with no company,
 	raises so users set it on the Sales Quote before creating from the main.
 
-	When the Linked Service company differs from the source booking, company-scoped
-	fields (branch, cost center, profit center) are refilled for the new company
-	instead of being left blank.
+	Branch, cost center, and profit center are taken from that Linked Service when
+	they are set up there. Values copied from the main job are replaced. Empty
+	dimensions are filled from the operating company's masters.
 	"""
 	if not doc or not row:
 		return ""

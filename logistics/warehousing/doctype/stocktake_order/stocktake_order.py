@@ -33,6 +33,9 @@ def _get_item_uom(item: Optional[str]) -> Optional[str]:
 # -----------------------------------------------------------------------------
 class StocktakeOrder(Document):
 	def validate(self):
+		from logistics.utils.module_integration import propagate_from_warehouse_contract
+
+		propagate_from_warehouse_contract(self)
 		try:
 			from logistics.utils.measurements import apply_measurement_uom_conversion_to_children
 			apply_measurement_uom_conversion_to_children(self, "items", company=getattr(self, "company", None))

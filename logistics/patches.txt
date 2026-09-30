@@ -690,6 +690,14 @@ logistics.patches.v3_0_mice_project_manifest_html_landscape
 logistics.patches.v3_0_mice_project_manifest_table_header_style
 # MICE Project Manifest HTML: open body rows with horizontal dividers only
 logistics.patches.v3_0_mice_project_manifest_table_body_style
+# MICE Project Manifest HTML: logo and inward-manifest header
+logistics.patches.v3_0_mice_project_manifest_header_layout
+# MICE Project Manifest HTML: full-width A4 landscape PDF
+logistics.patches.v3_0_mice_project_manifest_pdf_layout
+# MICE Project Manifest HTML: table header row for PDF
+logistics.patches.v3_0_mice_project_manifest_header_row
+# MICE Project Manifest HTML: keep the preview table inside the sheet
+logistics.patches.v3_0_mice_project_manifest_table_fit
 # Charge calculation methods: Specified Charges (sum of selected items × unit rate)
 logistics.patches.v3_0_add_specified_charges_option
 # Charge calculation: Based on Specified Charge Group method + HTML JSON pickers on charge rows
@@ -718,4 +726,128 @@ logistics.patches.v3_0_disbursement_bill_html_add_non_vatable
 logistics.patches.v3_0_disbursement_bill_html_vat_inclusive_from_total
 # Disbursement Bill HTML: Net of VAT is VAT Inclusive minus VAT
 logistics.patches.v3_0_disbursement_bill_html_net_of_vat
+# MICE Sales Quote HTML: print charge rates per UOM
+logistics.patches.v3_0_mice_sales_quote_html_rate_uom
+# MICE Sales Quote HTML: print minimum charge ahead of unit rate
+logistics.patches.v3_0_mice_sales_quote_html_minimum_charge
+# MICE Sales Quote HTML: unit rate plus a Minimum line
+logistics.patches.v3_0_mice_sales_quote_html_minimum_line
+# MICE Sales Quote HTML: align MINIMUM under the charge name
+logistics.patches.v3_0_mice_sales_quote_html_minimum_align
+# MICE Sales Quote HTML: no gap between the charge name and MINIMUM
+logistics.patches.v3_0_mice_sales_quote_html_minimum_gap
+# MICE Sales Quote HTML: MINIMUM under the end of the charge name
+logistics.patches.v3_0_mice_sales_quote_html_minimum_right
+# MICE Sales Quote HTML: Disbursement rates say AS PER RECEIPT
+logistics.patches.v3_0_mice_sales_quote_html_disbursement_receipt
+# MICE Sales Quote HTML: Disbursement prints only AS PER RECEIPT
+logistics.patches.v3_0_mice_sales_quote_html_disbursement_receipt_only
+# MICE Sales Quote HTML: small gap between charge rows
+logistics.patches.v3_0_mice_sales_quote_html_row_spacing
+# MICE Sales Quote HTML: border-spacing between charge rows
+logistics.patches.v3_0_mice_sales_quote_html_row_gap
+# MICE Sales Quote HTML: no gap between charge rows
+logistics.patches.v3_0_mice_sales_quote_html_no_row_gap
+# MICE Sales Quote HTML: Specified Charges print as a percent of selected items
+logistics.patches.v3_0_mice_sales_quote_html_specified_charges
+# MICE Sales Quote HTML: left-aligned rates and 1mm gap between charge rows
+logistics.patches.v3_0_mice_sales_quote_html_row_align
+# MICE Sales Quote HTML: Specified Charges print as a percent of OTHER RECEIPTED
+logistics.patches.v3_0_mice_sales_quote_html_other_receipted
+# MICE Sales Quote HTML: no gap between charge rows
+logistics.patches.v3_0_mice_sales_quote_html_no_row_gap_again
+# MICE Sales Quote HTML: 16pt company name and VAT Reg. TIN
+logistics.patches.v3_0_mice_sales_quote_html_header_name
+# MICE Sales Quote HTML: charge group subheaders are not underlined
+logistics.patches.v3_0_mice_sales_quote_html_subheader_plain
+# Payment Voucher HTML: Supplier Invoice No in payable line reference column
+logistics.patches.v3_0_payment_voucher_supplier_invoice_no
+# Business partners: Country column on Consignee, Customer, and Freight Agent lists (#1458)
+logistics.patches.v3_0_business_partner_country_list_view
+# Cash Advance desk tile: logistics blue wallet SVG (same as other modules)
+logistics.patches.v3_0_sync_cash_advance_desktop_icon
+# MICE Project Manifest HTML: on-screen sheet matches the landscape PDF
+logistics.patches.v3_0_mice_project_manifest_screen_sheet
+# MICE Project Manifest HTML: center qty, weight, and volume headers
+logistics.patches.v3_0_mice_project_manifest_measure_headers
+# MICE Project Manifest HTML: center qty, weight, and volume values
+logistics.patches.v3_0_mice_project_manifest_measure_values
+# MICE Project Manifest HTML: drop the black table outline
+logistics.patches.v3_0_mice_project_manifest_no_table_border
+# Purchase Invoice HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_purchase_invoice_html_branch_address
+# Sales Invoice HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_sales_invoice_html_branch_address
+# Payment Entry HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_payment_entry_html_branch_address
+# Payment Voucher HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_payment_voucher_html_branch_address
+# Journal Entry HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_journal_entry_html_branch_address
+# Journal Entry HTML: pin the BIR footer to the bottom of the last page
+logistics.patches.v3_0_journal_entry_html_last_page_footer
+# Journal Entry HTML: keep the BIR footer together on the last page
+logistics.patches.v3_0_journal_entry_html_footer_same_page
+# Journal Entry HTML: keep the BIR footer on page 2
+logistics.patches.v3_0_journal_entry_html_footer_on_page_two
+# Journal Entry HTML: keep the input-tax disclaimer with the footer on page 2
+logistics.patches.v3_0_journal_entry_html_footer_disclaimer
+# Disbursement Bill HTML: show the exchange rate under Packages
+logistics.patches.v3_0_disbursement_bill_html_exchange_rate
+# Disbursement Bill HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_disbursement_bill_html_branch_address
+# MICE Project Manifest HTML: remove the Amount column
+logistics.patches.v3_0_mice_project_manifest_no_amount
+# MICE Sales Quote HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_mice_sales_quote_html_branch_address
+# MICE Sales Quote HTML: line up the unit rate with the minimum amount
+logistics.patches.v3_0_mice_sales_quote_html_rate_align
+# MICE Sales Quote HTML: gap between charge rows matches the header field spacing
+logistics.patches.v3_0_mice_sales_quote_html_charge_row_gap
+# MICE Sales Quote HTML: Specified Charges print as a percent of SPECIFIED CHARGES
+logistics.patches.v3_0_mice_sales_quote_html_specified_charges
+# MICE Sales Quote HTML: remove the BIR acknowledgment footer
+logistics.patches.v3_0_mice_sales_quote_html_no_footer
+# MICE Sales Quote HTML: charge row spacing matches Sales Invoice
+logistics.patches.v3_0_mice_sales_quote_html_invoice_row_spacing
+# MICE Sales Quote HTML: print charge description beside the item name
+logistics.patches.v3_0_mice_sales_quote_html_charge_description
+# MICE Project: Consol Job Profit HTML print format
+logistics.patches.v3_0_install_consol_job_profit_html_print_format
+# Consol Job Profit HTML: header, consol summary, and shipment list
+logistics.patches.v3_0_consol_job_profit_html_page_layout
+# Consol Job Profit HTML: tighten page margins and line spacing
+logistics.patches.v3_0_consol_job_profit_html_spacing
+# Docket: Return Shipping Instruction HTML print format
+logistics.patches.v3_0_install_return_shipping_instruction_html_print_format
+# Consol Job Profit HTML: single 5mm page margin
+logistics.patches.v3_0_consol_job_profit_html_page_margin
+# MICE Sales Quote HTML: gap between the charge name and MINIMUM
+logistics.patches.v3_0_mice_sales_quote_html_minimum_spacing
+# Consol Job Profit HTML: 8mm page margin
+logistics.patches.v3_0_consol_job_profit_html_margin_8mm
+# Return Shipping Instruction HTML: 8mm page margin
+logistics.patches.v3_0_return_shipping_instruction_html_margin
+# Consol Job Profit HTML: same column layout in the preview and the PDF
+logistics.patches.v3_0_consol_job_profit_html_preview_pdf
+# Return Shipping Instruction HTML: company letterhead
+logistics.patches.v3_0_return_shipping_instruction_html_letterhead
+# Consol Job Profit HTML: drop the routing block and the charge-code table
+logistics.patches.v3_0_consol_job_profit_html_drop_blocks
+# Consol Job Profit HTML: cargo lines on the left of the consol summary
+logistics.patches.v3_0_consol_job_profit_html_cargo_left
+# Consol Job Profit HTML: stack the cargo lines in one column
+logistics.patches.v3_0_consol_job_profit_html_cargo_column
+# Consol Job Profit HTML: a little more space in the shipment and charge tables
+logistics.patches.v3_0_consol_job_profit_html_row_spacing
+# Consol Job Profit HTML: draw the charge total line the full width
+logistics.patches.v3_0_consol_job_profit_html_total_line
+# Consol Job Profit HTML: one full-width line above the charge totals
+logistics.patches.v3_0_consol_job_profit_html_total_rule
+# Consol Job Profit HTML: exhibitor, agent, and AWB/BL on the shipment row
+logistics.patches.v3_0_consol_job_profit_html_shipment_columns
+# Return Shipping Instruction HTML: title left, logo and contact block right
+logistics.patches.v3_0_return_shipping_instruction_html_header
+# Return Shipping Instruction HTML: fit the form on one page
+logistics.patches.v3_0_return_shipping_instruction_html_one_page
 

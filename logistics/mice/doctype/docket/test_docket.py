@@ -345,7 +345,7 @@ class IntegrationTestDocket(IntegrationTestCase):
 
 		ct = self._test_container_type_with_teu(1.0)
 		dk = frappe.new_doc("Docket")
-		dk.shipping_status = "Booking Confirmed"
+		dk.shipping_status = "Booking Received"
 		dk.append(
 			"containers",
 			{
@@ -358,8 +358,18 @@ class IntegrationTestDocket(IntegrationTestCase):
 		)
 		booking = frappe.new_doc("Sea Booking")
 		_copy_docket_containers_to_target(dk, booking)
-		self.assertEqual(booking.shipping_status, "Booking Confirmed")
+		self.assertEqual(booking.shipping_status, "Draft")
 		self.assertEqual(len(booking.containers or []), 1)
 		self.assertEqual(booking.containers[0].type, ct)
 		self.assertEqual(booking.containers[0].size, "20ft")
 		self.assertAlmostEqual(flt(booking.containers[0].free_time_days), 5.0, places=2)
+
+		dk.shipping_status = "Booking Confirmed"
+		booking_confirmed = frappe.new_doc("Sea Booking")
+		_copy_docket_containers_to_target(dk, booking_confirmed)
+		self.assertEqual(booking_confirmed.shipping_status, "Draft")
+
+		dk.shipping_status = "Delivered"
+		booking_delivered = frappe.new_doc("Sea Booking")
+		_copy_docket_containers_to_target(dk, booking_delivered)
+		self.assertEqual(booking_delivered.shipping_status, "Delivered")

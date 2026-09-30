@@ -13,6 +13,7 @@ from frappe.utils import flt
 
 from logistics.billing.internal_billing import (
     _append_revenue_transfer_rows,
+    _apply_internal_billing_posting_header,
     _internal_billing_jv_user_remark,
     create_internal_billing_journal_entries_for_quote,
 )
@@ -23,6 +24,68 @@ from logistics.utils.item_accounts import (
 )
 
 _REAL_GET_DOC = frappe.get_doc
+
+
+class TestInternalBillingPostingHeader(FrappeTestCase):
+    def _posting_meta(self):
+        real_meta = frappe.get_meta("Journal Entry")
+        extra = {
+            "custom_posting_company": SimpleNamespace(
+                fieldname="custom_posting_company",
+                label="Posting Company",
+                reqd=1,
+                fieldtype="Data",
+                options=None,
+            ),
+            "custom_posting_branch": SimpleNamespace(
+                fieldname="custom_posting_branch",
+                label="Posting Branch",
+                reqd=1,
+                fieldtype="Data",
+                options=None,
+            ),
+        }
+
+        class _Meta:
+            def get_field(self, fieldname):
+                return extra.get(fieldname) or real_meta.get_field(fieldname)
+
+            def __getattr__(self, name):
+                return getattr(real_meta, name)
+
+        return _Meta()
+
+    def test_sets_posting_company_and_branch(self):
+        je = frappe.new_doc("Journal Entry")
+        je.company = "Test Co"
+        job = frappe._dict(company="Test Co", branch="BR-1", job_number=None, cost_center=None)
+
+        with (
+            patch(
+                "logistics.job_management.recognition_engine._resolve_posting_company_branch",
+                return_value=("Test Co", "BR-1"),
+            ),
+            patch("logistics.billing.internal_billing.frappe.get_meta", return_value=self._posting_meta()),
+        ):
+            _apply_internal_billing_posting_header(je, job)
+
+        self.assertEqual(je.custom_posting_company, "Test Co")
+        self.assertEqual(je.custom_posting_branch, "BR-1")
+        self.assertEqual(je.branch, "BR-1")
+
+    def test_missing_branch_is_rejected(self):
+        je = frappe.new_doc("Journal Entry")
+        je.company = "Test Co"
+
+        with (
+            patch(
+                "logistics.job_management.recognition_engine._resolve_posting_company_branch",
+                return_value=("Test Co", None),
+            ),
+            patch("logistics.billing.internal_billing.frappe.get_meta", return_value=self._posting_meta()),
+            self.assertRaises(frappe.ValidationError),
+        ):
+            _apply_internal_billing_posting_header(je, frappe._dict(company="Test Co"))
 
 
 class TestItemAccounts(FrappeTestCase):

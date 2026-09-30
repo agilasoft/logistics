@@ -360,10 +360,40 @@ def propagate_from_transport_order(doc, fieldname="transport_order"):
 		pass
 
 
+WAREHOUSE_ORDER_CONTRACT_FIELD = {
+	"Inbound Order": "contract",
+	"Release Order": "contract",
+	"Cross-Docking Order": "contract",
+	"Transfer Order": "contract",
+	"VAS Order": "contract",
+	"Stocktake Order": "contract",
+	"Warehouse Job": "warehouse_contract",
+}
+
+WAREHOUSE_CONTRACT_ACCOUNT_FIELDS = ("company", "branch", "cost_center", "profit_center")
+
+
+def propagate_from_warehouse_contract(doc):
+	"""Fill account fields from linked Warehouse Contract when still empty."""
+	contract_field = WAREHOUSE_ORDER_CONTRACT_FIELD.get(doc.doctype)
+	if not contract_field:
+		return
+	contract_name = doc.get(contract_field)
+	if not contract_name:
+		return
+	try:
+		contract = frappe.get_cached_doc("Warehouse Contract", contract_name)
+	except Exception:
+		return
+	for fieldname in WAREHOUSE_CONTRACT_ACCOUNT_FIELDS:
+		_set_if_empty(doc, fieldname, getattr(contract, fieldname, None))
+
+
 def run_propagate_on_link(doc):
 	"""Call from before_save to propagate from any set link fields."""
 	if doc.flags.ignore_propagate:
 		return
+	propagate_from_warehouse_contract(doc)
 	if getattr(doc, "air_shipment", None):
 		propagate_from_air_shipment(doc)
 	if getattr(doc, "sea_shipment", None):

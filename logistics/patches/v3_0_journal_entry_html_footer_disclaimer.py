@@ -1,0 +1,9 @@
+"""Journal Entry HTML: keep the input-tax disclaimer with the footer on page 2."""
+
+from logistics.print_format.journal_entry.install_print_format import (
+	install_journal_entry_print_format,
+)
+
+
+def execute():
+	install_journal_entry_print_format()

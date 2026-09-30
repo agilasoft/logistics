@@ -63,35 +63,64 @@ def get_default_company():
 
 
 def get_default_branch(company=None, branch=None):
-    """Get default branch for company"""
+    """Get default branch for company, creating one when that company has none.
+
+    Branch naming is "Set by user", so a new Branch must be given a document
+    name. Filling only the Branch label makes Frappe throw
+    "Please set the document name".
+    """
     if branch:
         return branch
-    
+
     if not company:
         company = get_default_company()
-    
-    # Get first available branch for company
-    branches = frappe.get_all(
-        "Branch",
-        filters={"company": company},
-        fields=["name"],
-        limit=1
-    )
-    
-    if branches:
-        return branches[0].name
-    
-    # If no branch found, create a default one
+
+    from logistics.job_management.cost_center_defaults import _company_fieldname
+
+    company_field = _company_fieldname("Branch")
+    if company and company_field:
+        existing = frappe.db.get_value(
+            "Branch", {company_field: company}, "name", order_by="creation asc"
+        )
+        if existing:
+            return existing
+    else:
+        existing = frappe.db.get_value("Branch", {}, "name", order_by="creation asc")
+        if existing:
+            return existing
+
+    branch_name = _unused_branch_name(company)
+    messages_before = len(getattr(frappe.local, "message_log", None) or [])
     try:
         default_branch = frappe.new_doc("Branch")
-        default_branch.branch = "Main Branch"
-        default_branch.company = company
-        default_branch.insert(ignore_permissions=True)
+        default_branch.branch = branch_name
+        if company and company_field:
+            default_branch.set(company_field, company)
+        default_branch.insert(ignore_permissions=True, set_name=branch_name)
         frappe.db.commit()
         return default_branch.name
     except Exception as e:
+        log = getattr(frappe.local, "message_log", None)
+        if log is not None and len(log) > messages_before:
+            del log[messages_before:]
         frappe.log_error(f"Error creating default branch: {str(e)}", "Default Branch Creation")
         return None
+
+
+def _unused_branch_name(company=None):
+    """A Branch document name that is not already used."""
+    abbr = ""
+    if company and frappe.db.exists("Company", company):
+        abbr = (frappe.db.get_value("Company", company, "abbr") or "").strip()
+    base = abbr or "Main"
+    candidate = base
+    suffix = 1
+    while frappe.db.exists("Branch", candidate) or frappe.db.get_value(
+        "Branch", {"branch": candidate}, "name"
+    ):
+        suffix += 1
+        candidate = f"{base}-{suffix}"
+    return candidate
 
 
 def get_default_cost_center(company=None):

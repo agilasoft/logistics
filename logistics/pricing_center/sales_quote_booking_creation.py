@@ -682,7 +682,7 @@ def _create_sea_booking(
 	copy_sales_quote_containers_to_booking(sq_doc, doc)
 	# Quote containers have no seal; Seal Number stays reqd on Sea Booking form.
 	doc.flags.ignore_mandatory = True
-	doc.insert(ignore_permissions=True, ignore_mandatory=True)
+	doc.insert(ignore_permissions=True)
 	_populate_charges_on_target(sq_doc, doc)
 	if hasattr(doc, "_normalize_charges_before_save"):
 		doc._normalize_charges_before_save()
@@ -712,7 +712,7 @@ def _create_transport_order(
 			if v is not None and str(v).strip() != "":
 				sq_doc.set(k, v)
 
-	result = _create_transport_order_from_sales_quote(sq_doc)
+	result = _create_transport_order_from_sales_quote(sq_doc, linked_service_row=row)
 	return {
 		"transport_order": result.get("transport_order"),
 		"message": result.get("message")

@@ -48,3 +48,20 @@ def set_cost_center_branch_default(doc, method=None):
 			return
 
 	doc.custom_branch = default_branch_for_company(doc.get("company"))
+
+
+def set_branch_document_name(doc, method=None):
+	"""Name a Branch from its label when the document name was left blank.
+
+	Branch naming is "Set by user". Code that only fills the Branch field then
+	saves it, and Frappe throws "Please set the document name".
+	"""
+	if (doc.get("name") or "").strip() or (doc.get("__newname") or "").strip():
+		return
+	label = (doc.get("branch") or "").strip()
+	if not label:
+		return
+	autoname = (getattr(doc.meta, "autoname", None) or "").strip().lower()
+	if autoname != "prompt":
+		return
+	doc.__newname = label

@@ -276,6 +276,7 @@
    "label": "Accounts"
   },
   {
+   "fetch_from": "contract.company",
    "fieldname": "company",
    "fieldtype": "Link",
    "label": "Company",

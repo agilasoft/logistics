@@ -77,6 +77,80 @@ class TestLinkedServiceCompany(unittest.TestCase):
 		self.assertEqual(doc.branch, "BR-1")
 		sync.assert_called_once_with(doc, "Op Co")
 
+	def test_virtual_charge_row_copies_linked_service_dimensions(self):
+		from logistics.utils.internal_job_from_source import _virtual_ij_row_from_linked_charge
+
+		charge = frappe._dict(
+			service_type="Transport",
+			linked_service="LS-1",
+			charge_scope="Linked",
+		)
+		dims = {
+			"company": "Op Co",
+			"branch": "BR-OP",
+			"cost_center": "CC-OP",
+			"profit_center": "PC-OP",
+		}
+		with patch(
+			"logistics.utils.sales_quote_charge_parameters.resolve_parameters_for_charge_row",
+			return_value={"location_from": "A", "company": "Main Co", "branch": "BR-MAIN"},
+		):
+			with patch(
+				"logistics.utils.linked_service_company.accounting_dimensions_from_linked_service",
+				return_value=dims,
+			):
+				row = _virtual_ij_row_from_linked_charge(charge)
+		self.assertEqual(row.company, "Op Co")
+		self.assertEqual(row.branch, "BR-OP")
+		self.assertEqual(row.cost_center, "CC-OP")
+		self.assertEqual(row.profit_center, "PC-OP")
+		self.assertEqual(row.location_from, "A")
+
+	def test_apply_loads_scoped_fields_from_linked_service_record(self):
+		meta = _meta_with_fields("company", "branch", "cost_center", "profit_center")
+		doc = _doc(company="Main Co", branch="BR-MAIN", cost_center="CC-MAIN", profit_center="PC-MAIN")
+		doc.flags = frappe._dict()
+		row = frappe._dict(linked_service="LS-1", company="Op Co", service_type="Transport")
+		stored = frappe._dict(branch="BR-OP", cost_center="CC-OP", profit_center="PC-OP")
+		with patch("logistics.utils.linked_service_company.frappe.get_meta", return_value=meta):
+			with patch(
+				"logistics.utils.linked_service_compat.linked_service_record_exists",
+				return_value=True,
+			):
+				with patch(
+					"logistics.utils.linked_service_company.frappe.get_cached_doc",
+					return_value=stored,
+				):
+					with patch(
+						"logistics.utils.linked_service_company._link_belongs_to_company",
+						return_value=True,
+					):
+						apply_linked_service_company_to_operational_doc(doc, row, overwrite=True)
+		self.assertEqual(doc.company, "Op Co")
+		self.assertEqual(doc.branch, "BR-OP")
+		self.assertEqual(doc.cost_center, "CC-OP")
+		self.assertEqual(doc.profit_center, "PC-OP")
+
+	def test_sync_keeps_values_copied_from_linked_service(self):
+		meta = _meta_with_fields("branch", "cost_center", "profit_center", reqd=True)
+		doc = _doc(branch="BR-OP", cost_center="CC-OP", profit_center="PC-OP")
+		doc.flags = frappe._dict(
+			linked_service_scoped_fields=("branch", "cost_center", "profit_center")
+		)
+		with patch("logistics.utils.linked_service_company.frappe.get_meta", return_value=meta):
+			with patch(
+				"logistics.utils.linked_service_company._link_belongs_to_company",
+				return_value=False,
+			):
+				with patch(
+					"logistics.utils.linked_service_company._default_scoped_value",
+					return_value="DEFAULT",
+				):
+					sync_company_scoped_fields_on_operational_doc(doc, "Op Co")
+		self.assertEqual(doc.branch, "BR-OP")
+		self.assertEqual(doc.cost_center, "CC-OP")
+		self.assertEqual(doc.profit_center, "PC-OP")
+
 	def test_apply_copies_scoped_fields_from_linked_service(self):
 		meta = _meta_with_fields("company", "branch", "cost_center", "profit_center")
 		doc = _doc(company="Main Co", branch="BR-MAIN", cost_center="CC-MAIN", profit_center="PC-MAIN")

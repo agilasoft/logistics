@@ -766,13 +766,24 @@ def _copy_docket_packages_to_target(dk_doc: Any, target_doc: Any) -> None:
 			target_doc.append("items", row_dict)
 
 
+def _select_field_options(df: Any) -> set[str]:
+	raw = getattr(df, "options", None) or ""
+	return {line.strip() for line in str(raw).split("\n") if line.strip()}
+
+
 def _copy_docket_containers_to_target(dk_doc: Any, target_doc: Any) -> None:
-	"""Copy Docket container rows and shipping_status onto a newly created booking/order."""
+	"""Copy Docket container rows and shipping_status onto a newly created booking/order.
+
+	Docket shipping milestones (for example "Booking Received") are not the same list as
+	Sea Booking Shipping Status. Copy the value only when the target Select accepts it.
+	"""
 	containers = getattr(dk_doc, "containers", None) or []
 	target_meta = frappe.get_meta(target_doc.doctype)
 
-	if target_meta.get_field("shipping_status") and getattr(dk_doc, "shipping_status", None):
-		target_doc.shipping_status = dk_doc.shipping_status
+	status_df = target_meta.get_field("shipping_status")
+	status = (getattr(dk_doc, "shipping_status", None) or "").strip()
+	if status_df and status and status in _select_field_options(status_df):
+		target_doc.shipping_status = status
 
 	if not containers:
 		return

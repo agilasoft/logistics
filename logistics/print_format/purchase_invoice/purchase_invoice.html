@@ -1025,7 +1025,18 @@
                 {% endif %}
 <div class="company-info">
                     <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
+                    {% set header_branch = None %}
+                    {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
+                        {% set header_branch = frappe.get_doc("Branch", doc.branch) %}
+                    {% endif %}
+                    {% set branch_address = "" %}
+                    {% if header_branch and header_branch.custom_registration_details %}
+                        {% set branch_address = header_address_from_registration(header_branch.custom_registration_details, company_doc.company_name or doc.company) %}
+                    {% endif %}
                     <div class="company-address">
+                        {% if branch_address %}
+                            {{ branch_address }}
+                        {% else %}
                         {% set company_address_name = None %}
                         {% set addr_rows = frappe.get_all(
                             "Address",
@@ -1060,11 +1071,11 @@
                             {{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}<br>
                             {{ company_doc.country }}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
                         {% endif %}
+                        {% endif %}
                     </div>
                     <div class="vat-reg">
-                        {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
-                            {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
-                            {% set vat_tin = branch_doc.custom_tax_id or company_doc.tax_id or company_doc.tin %}
+                        {% if header_branch %}
+                            {% set vat_tin = header_branch.custom_tax_id or company_doc.tax_id or company_doc.tin %}
                             {% if vat_tin %}
                                 VAT Reg. TIN: {{ vat_tin }}
                             {% endif %}
@@ -1459,12 +1470,13 @@
                             {% if tax.category != 'Valuation' %}
                                 {% set _raw_tax = tax.tax_amount if tax.tax_amount is not none else (tax.base_tax_amount or 0) %}
                                 {% set _signed_tax = -(_raw_tax or 0) if tax.add_deduct_tax == 'Deduct' else (_raw_tax or 0) %}
+                                {% set _tax_label = (tax.account_head or '') ~ ' ' ~ (tax.description or '') %}
                                 <tr class="table-row">
                                     <td></td>
                                     <td>{{ tax.account_head or tax.description or '' }}</td>
                                     <td>{{ tax.job_number or '' }}</td>
                                     <td></td>
-                                    <td>{{ frappe.utils.fmt_money(_signed_tax|abs if (is_dbt or is_crd) else _signed_tax, precision=2) }}</td>
+                                    <td>{{ frappe.utils.fmt_money(printed_tax_amount(_signed_tax, is_dbt, is_crd, _tax_label), precision=2) }}</td>
                                 </tr>
                             {% endif %}
                         {% endfor %}

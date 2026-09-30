@@ -1,8 +1,9 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:permit_code",
- "creation": "2025-01-27 00:00:00",
+ "creation": "2026-07-30 11:00:18.848215",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -93,8 +94,8 @@
    "fieldname": "issuing_authority",
    "fieldtype": "Link",
    "label": "Issuing Authority",
-   "options": "Issuing Authority",
-   "link_filters": "[[\"Issuing Authority\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Issuing Authority\", \"is_active\", \"=\", 1]]",
+   "options": "Issuing Authority"
   },
   {
    "fieldname": "column_break_authority",
@@ -186,7 +187,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-25 13:05:10.677198",
+ "modified": "2026-09-30 07:52:59.748529",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Permit Type",
@@ -213,6 +214,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "description",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
