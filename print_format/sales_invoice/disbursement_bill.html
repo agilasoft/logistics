@@ -812,7 +812,18 @@
             {% endif %}
 <div class="company-info">
                 <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
+                {% set header_branch = None %}
+                {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
+                    {% set header_branch = frappe.get_doc("Branch", doc.branch) %}
+                {% endif %}
+                {% set branch_address = "" %}
+                {% if header_branch and header_branch.custom_registration_details %}
+                    {% set branch_address = header_address_from_registration(header_branch.custom_registration_details, company_doc.company_name or doc.company) %}
+                {% endif %}
                 <div class="company-address">
+                    {% if branch_address %}
+                        {{ branch_address }}
+                    {% else %}
                     {% set company_address_name = None %}
                     {% set addr_rows = frappe.get_all(
                         "Address",
@@ -846,6 +857,7 @@
                         {% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
                         {{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}<br>
                         {{ company_doc.country }}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
+                    {% endif %}
                     {% endif %}
                 </div>
                 <div class="vat-reg">
@@ -1032,6 +1044,13 @@
         {{ job.total_packages|int }}{% set ns_pkg = namespace(uom="") %}{% for p in job.packages or [] %}{% if not ns_pkg.uom and p.uom %}{% set ns_pkg.uom = p.uom %}{% endif %}{% endfor %}{% if ns_pkg.uom %} {{ ns_pkg.uom }}{% endif %}
         {%- else -%}-{%- endif -%}
         {%- endmacro %}
+        {% macro exchange_rate_line() -%}
+        {%- set rate = doc.get('conversion_rate') -%}
+        {%- if rate is not none and rate != '' -%}
+        {%- set rate_text = '%f'|format(rate|float) -%}
+        {{ rate_text.rstrip('0').rstrip('.') }}
+        {%- else -%}-{%- endif -%}
+        {%- endmacro %}
         {% macro measure_line(job, value, parent_uom, package_uom, settings_uom, settings_uom_alt="") -%}
         {%- if value is not none -%}
         {{ "%.4f"|format(value|float) }}{% set ns = namespace(uom=job.get(parent_uom) or "") %}
@@ -1190,6 +1209,7 @@
                         <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(job_doc, job_doc.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
                         <div class="field-row"><div class="field-label">CHARGEABLE</div><div class="field-value">{{ measure_line(job_doc, job_doc.chargeable, "chargeable_weight_uom", "weight_uom", "default_chargeable_weight_uom", "default_weight_uom") }}</div></div>
                         <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(job_doc) }}</div></div>
+                        <div class="field-row"><div class="field-label">EXCHANGE RATE</div><div class="field-value">{{ exchange_rate_line() }}</div></div>
                         {% elif job_type == "Sea Shipment" %}
                         <div class="field-row"><div class="field-label">HBL</div><div class="field-value">{{ job_doc.house_bl or "-" }}</div></div>
                         <div class="field-row"><div class="field-label">MBL</div><div class="field-value">{{ job_doc.master_bill or "-" }}</div></div>
@@ -1197,15 +1217,18 @@
                         <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(job_doc, job_doc.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
                         <div class="field-row"><div class="field-label">CHARGEABLE</div><div class="field-value">{{ measure_line(job_doc, job_doc.chargeable, "chargeable_weight_uom", "weight_uom", "default_chargeable_weight_uom", "default_weight_uom") }}</div></div>
                         <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(job_doc) }}</div></div>
+                        <div class="field-row"><div class="field-label">EXCHANGE RATE</div><div class="field-value">{{ exchange_rate_line() }}</div></div>
                         {% elif job_type == "Transport Job" %}
                         <div class="field-row"><div class="field-label">WEIGHT</div><div class="field-value">{{ measure_line(tj_cargo, tj_cargo.total_weight, "total_weight_uom", "weight_uom", "default_weight_uom") }}</div></div>
                         <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(tj_cargo, tj_cargo.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
                         <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(tj_cargo) }}</div></div>
+                        <div class="field-row"><div class="field-label">EXCHANGE RATE</div><div class="field-value">{{ exchange_rate_line() }}</div></div>
                         {% elif job_type in mice_job_types %}
                         <div class="field-row"><div class="field-label">WEIGHT</div><div class="field-value">{{ measure_line(mice_ns.cargo, mice_ns.cargo.total_weight, "total_weight_uom", "weight_uom", "default_weight_uom") }}</div></div>
                         <div class="field-row"><div class="field-label">VOLUME</div><div class="field-value">{{ measure_line(mice_ns.cargo, mice_ns.cargo.total_volume, "total_volume_uom", "volume_uom", "default_volume_uom") }}</div></div>
                         <div class="field-row"><div class="field-label">CHARGEABLE</div><div class="field-value">{{ measure_line(mice_ns.cargo, mice_ns.cargo.chargeable, "chargeable_weight_uom", "weight_uom", "default_chargeable_weight_uom", "default_weight_uom") }}</div></div>
                         <div class="field-row"><div class="field-label">PACKAGES</div><div class="field-value">{{ packages_line(mice_ns.cargo) }}</div></div>
+                        <div class="field-row"><div class="field-label">EXCHANGE RATE</div><div class="field-value">{{ exchange_rate_line() }}</div></div>
                         {% elif job_type == "General Job" %}
                         <div class="field-row"><div class="field-label">DATE</div><div class="field-value">{{ frappe.utils.formatdate(job_doc.posting_date, 'MM-dd-yyyy') if job_doc.get('posting_date') else "-" }}</div></div>
                         {% elif job_type == "Declaration" or job_type == "Customer Declaration" %}

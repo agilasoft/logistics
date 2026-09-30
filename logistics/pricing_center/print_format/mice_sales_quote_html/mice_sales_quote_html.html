@@ -37,7 +37,7 @@
         .packages-table col.col-item { width: 55%; }
         .packages-table col.col-rate { width: 45%; }
         .packages-table .table-row td.num { text-align: right; }
-        .packages-table .table-row td { padding: 0 0.5mm; font-size: 7pt; line-height: 1; background: white; border: none; vertical-align: middle; }
+        .packages-table .table-row td { padding: 1mm 0.5mm !important; font-size: 8pt; line-height: 1 !important; background: white; border: none; vertical-align: middle; }
         .item-name-cell .item-label { display: inline; padding-left: 4mm; }
         .packages-table .charge-line { display: block; margin: 0; padding: 0; line-height: 1; }
         .packages-table .charge-name-block { display: inline-block; margin-left: 4mm; max-width: 100%; }
@@ -52,28 +52,7 @@
         .charge-section-continued-break { page-break-before: always; break-before: page; }
         .terms-section { margin-top: 3mm; font-size: 7pt; line-height: 1.4; page-break-inside: avoid; }
         .terms-title { font-weight: bold; margin-bottom: 1mm; }
-        .footer-section {
-            width: 100%;
-            max-width: 210mm;
-            margin: 10mm auto 0 auto;
-            padding: 2mm 0 1mm 0;
-            border-top: 1px solid #000;
-            font-size: 7pt;
-            line-height: 1.35;
-            background: white;
-            page-break-inside: avoid;
-            break-inside: avoid;
-        }
-        .footer-section .footer-row {
-            margin: 0;
-            padding: 0.2mm 0;
-            font-size: 7pt;
-            line-height: 1.35;
-        }
-        .footer-section .footer-row:last-child {
-            padding-bottom: 0;
-        }
-        @page { size: A4; margin: 12mm 12mm 4mm 12mm; }
+        @page { size: A4; margin: 12mm; }
         @media print {
             html, body {
                 margin: 0 !important;
@@ -83,31 +62,6 @@
                 overflow: visible;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
-            }
-            .order-container {
-                max-width: 100%;
-                padding-bottom: 22mm;
-                box-sizing: border-box;
-            }
-            .footer-section {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                width: 100%;
-                max-width: none;
-                margin: 0;
-                padding: 0;
-                border-top: 1px solid #000;
-                background: white;
-                box-sizing: border-box;
-                z-index: 1000;
-            }
-            .footer-section .footer-inner {
-                max-width: calc(210mm - 24mm);
-                margin: 0 auto;
-                padding: 2mm 12mm;
-                box-sizing: border-box;
             }
         }
     </style>
@@ -186,16 +140,18 @@
 
 {% macro rate_detail_label(row) -%}
 {%- if (row.revenue_calculation_method or '') == 'Specified Charges' -%}
-{{- frappe.utils.fmt_money(frappe.utils.flt(row.unit_rate) * 100, precision=2) -}}% of OTHER RECEIPTED
+{{- frappe.utils.fmt_money(frappe.utils.flt(row.unit_rate) * 100, precision=2) -}}% of SPECIFIED CHARGES
 {%- elif row.charge_type == 'Disbursement' -%}AS PER RECEIPT
 {%- elif not row.currency and row.unit_rate is none and not row.uom -%}—{%- else -%}
-<span class="rate-currency">{{ row.currency or '' }}</span>
-<span class="rate-amount">{% if row.unit_rate is not none %}{{ frappe.utils.fmt_money(row.unit_rate, precision=2) }}{% endif %}{% if row.uom %}{% if row.unit_rate is not none %} {% endif %}per {{ row.uom }}{% endif %}</span>
+<span class="rate-currency">{{ row.currency or '' }}</span><span class="rate-amount">{% if row.unit_rate is not none %}{{ frappe.utils.fmt_money(row.unit_rate, precision=2) }}{% endif %}{% if row.uom %}{% if row.unit_rate is not none %} {% endif %}per {{ row.uom }}{% endif %}</span>
 {%- endif -%}
 {%- endmacro %}
 
 {% macro item_name_cell(row) -%}
-<span class="item-label">{{ strip_desc(row.item_name or row.item_code or '') }}</span>
+{%- set name = strip_desc(row.item_name or row.item_code or '') -%}
+{%- set desc = strip_desc(row.description or '')|replace('\r\n', ' ')|replace('\n', ' ')|replace('\r', ' ') -%}
+{%- set desc = desc.split()|join(' ') -%}
+<span class="item-label">{{ name }}{% if desc and desc != name %} {{ desc }}{% endif %}</span>
 {%- endmacro %}
 
 {% macro table_colgroup() %}
@@ -328,7 +284,18 @@
         {% endif %}
         <div class="company-info">
             <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
+            {% set header_branch = None %}
+            {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
+                {% set header_branch = frappe.get_doc("Branch", doc.branch) %}
+            {% endif %}
+            {% set branch_address = "" %}
+            {% if header_branch and header_branch.custom_registration_details %}
+                {% set branch_address = header_address_from_registration(header_branch.custom_registration_details, company_doc.company_name or doc.company) %}
+            {% endif %}
             <div class="company-address">
+                {% if branch_address %}
+                    {{ branch_address }}
+                {% else %}
                 {% set company_address_name = None %}
                 {% set addr_rows = frappe.get_all(
                     "Address",
@@ -359,11 +326,11 @@
                     {{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}<br>
                     {{ company_doc.country }}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
                 {% endif %}
+                {% endif %}
             </div>
             <div class="vat-reg">
-                {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
-                    {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
-                    {% set vat_tin = branch_doc.custom_tax_id or company_doc.tax_id or company_doc.tin %}
+                {% if header_branch %}
+                    {% set vat_tin = header_branch.custom_tax_id or company_doc.tax_id or company_doc.tin %}
                     {% if vat_tin %}
                         VAT Reg. TIN: {{ vat_tin }}
                     {% endif %}
@@ -531,65 +498,6 @@
             {{ doc.terms }}
         </div>
         {% endif %}
-    </div>
-</div>
-
-<div class="footer-section">
-    <div class="footer-inner">
-        {% set bir_name = frappe.db.get_value("BIR CAS Settings", {"company": doc.company}, "name") %}
-        {% if bir_name %}
-            {% set bir = frappe.get_doc("BIR CAS Settings", bir_name) %}
-        {% else %}
-            {% set bir = None %}
-        {% endif %}
-        {% set name = (doc.name or "") %}
-        {% set ns = namespace(start=None, end=None) %}
-        {% for i in range(name|length) %}
-            {% set ch = name[i] %}
-            {% if ch.isdigit() %}
-                {% if ns.start is none %}
-                    {% set ns.start = i %}
-                {% endif %}
-                {% set ns.end = i %}
-            {% endif %}
-        {% endfor %}
-        {% if ns.start is not none %}
-            {% set prefix = name[0:ns.start] %}
-            {% set digit_len = ns.end - ns.start + 1 %}
-            {% set seq = namespace(min_seq="", max_seq="") %}
-            {% for i in range(digit_len) %}
-                {% if i == digit_len - 1 %}
-                    {% set seq.min_seq = seq.min_seq ~ "1" %}
-                {% else %}
-                    {% set seq.min_seq = seq.min_seq ~ "0" %}
-                {% endif %}
-                {% set seq.max_seq = seq.max_seq ~ "9" %}
-            {% endfor %}
-            {% set series_start = prefix ~ seq.min_seq %}
-            {% set series_end = prefix ~ seq.max_seq %}
-        {% else %}
-            {% set series_start = name %}
-            {% set series_end = name %}
-        {% endif %}
-        <div class="footer-row">
-            BIR Acknowledgment Certificate No.
-            {% if bir and bir.ptu_no %}
-                {{ bir.ptu_no }}
-            {% else %}
-                -
-            {% endif %}
-        </div>
-        <div class="footer-row">
-            Range: {{ series_start }} - {{ series_end }}
-        </div>
-        <div class="footer-row">
-            Date Issued:
-            {% if bir and bir.ptu_date %}
-                {{ frappe.utils.formatdate(bir.ptu_date, 'MMMM dd, yyyy') }}
-            {% else %}
-                -
-            {% endif %}
-        </div>
     </div>
 </div>
 </body>

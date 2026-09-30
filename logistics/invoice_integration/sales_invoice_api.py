@@ -107,6 +107,7 @@ SALES_CHARGE_CONFIG = {
 def _get_eligible_revenue_rows(job, config, customer=None, invoice_type=None):
     """Return list of (idx, ch, revenue, item_code, item_name, ...) for charges with revenue > 0, item set, not already requested/posted/paid.
     For Sea Shipment, filter by customer (bill_to) and invoice_type when provided.
+    A charge with a blank invoice type is included for any selected invoice type.
     """
     charges_field, revenue_field, rate_field, qty_field, item_field, item_name_field, bill_to_field, invoice_type_field = config
     charges = list(job.get(charges_field) or [])
@@ -142,9 +143,10 @@ def _get_eligible_revenue_rows(job, config, customer=None, invoice_type=None):
             # Empty bill_to: charge is not scoped to a customer (include for any selected customer)
             if bill_to and bill_to != customer:
                 continue
-        if invoice_type is not None and invoice_type_field:
-            ch_inv_type = getattr(ch, invoice_type_field, None)
-            if ch_inv_type != invoice_type:
+        if invoice_type and invoice_type_field:
+            ch_inv_type = (getattr(ch, invoice_type_field, None) or "").strip()
+            # Blank invoice type: charge is not scoped (include for any selected invoice type).
+            if ch_inv_type and ch_inv_type != invoice_type:
                 continue
         item_name = getattr(ch, item_name_field, None) or getattr(ch, "charge_name", None) or item_code
         rows.append((idx, ch, revenue, item_code, item_name))

@@ -690,6 +690,14 @@ logistics.patches.v3_0_mice_project_manifest_html_landscape
 logistics.patches.v3_0_mice_project_manifest_table_header_style
 # MICE Project Manifest HTML: open body rows with horizontal dividers only
 logistics.patches.v3_0_mice_project_manifest_table_body_style
+# MICE Project Manifest HTML: logo and inward-manifest header
+logistics.patches.v3_0_mice_project_manifest_header_layout
+# MICE Project Manifest HTML: full-width A4 landscape PDF
+logistics.patches.v3_0_mice_project_manifest_pdf_layout
+# MICE Project Manifest HTML: table header row for PDF
+logistics.patches.v3_0_mice_project_manifest_header_row
+# MICE Project Manifest HTML: keep the preview table inside the sheet
+logistics.patches.v3_0_mice_project_manifest_table_fit
 # Charge calculation methods: Specified Charges (sum of selected items × unit rate)
 logistics.patches.v3_0_add_specified_charges_option
 # Charge calculation: Based on Specified Charge Group method + HTML JSON pickers on charge rows
@@ -758,4 +766,50 @@ logistics.patches.v3_0_payment_voucher_supplier_invoice_no
 logistics.patches.v3_0_business_partner_country_list_view
 # Cash Advance desk tile: logistics blue wallet SVG (same as other modules)
 logistics.patches.v3_0_sync_cash_advance_desktop_icon
+# MICE Project Manifest HTML: on-screen sheet matches the landscape PDF
+logistics.patches.v3_0_mice_project_manifest_screen_sheet
+# MICE Project Manifest HTML: center qty, weight, and volume headers
+logistics.patches.v3_0_mice_project_manifest_measure_headers
+# MICE Project Manifest HTML: center qty, weight, and volume values
+logistics.patches.v3_0_mice_project_manifest_measure_values
+# MICE Project Manifest HTML: drop the black table outline
+logistics.patches.v3_0_mice_project_manifest_no_table_border
+# Purchase Invoice HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_purchase_invoice_html_branch_address
+# Sales Invoice HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_sales_invoice_html_branch_address
+# Payment Entry HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_payment_entry_html_branch_address
+# Payment Voucher HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_payment_voucher_html_branch_address
+# Journal Entry HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_journal_entry_html_branch_address
+# Journal Entry HTML: pin the BIR footer to the bottom of the last page
+logistics.patches.v3_0_journal_entry_html_last_page_footer
+# Journal Entry HTML: keep the BIR footer together on the last page
+logistics.patches.v3_0_journal_entry_html_footer_same_page
+# Journal Entry HTML: keep the BIR footer on page 2
+logistics.patches.v3_0_journal_entry_html_footer_on_page_two
+# Journal Entry HTML: keep the input-tax disclaimer with the footer on page 2
+logistics.patches.v3_0_journal_entry_html_footer_disclaimer
+# Disbursement Bill HTML: show the exchange rate under Packages
+logistics.patches.v3_0_disbursement_bill_html_exchange_rate
+# Disbursement Bill HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_disbursement_bill_html_branch_address
+# MICE Project Manifest HTML: remove the Amount column
+logistics.patches.v3_0_mice_project_manifest_no_amount
+# MICE Sales Quote HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_mice_sales_quote_html_branch_address
+# MICE Sales Quote HTML: line up the unit rate with the minimum amount
+logistics.patches.v3_0_mice_sales_quote_html_rate_align
+# MICE Sales Quote HTML: gap between charge rows matches the header field spacing
+logistics.patches.v3_0_mice_sales_quote_html_charge_row_gap
+# MICE Sales Quote HTML: Specified Charges print as a percent of SPECIFIED CHARGES
+logistics.patches.v3_0_mice_sales_quote_html_specified_charges
+# MICE Sales Quote HTML: remove the BIR acknowledgment footer
+logistics.patches.v3_0_mice_sales_quote_html_no_footer
+# MICE Sales Quote HTML: charge row spacing matches Sales Invoice
+logistics.patches.v3_0_mice_sales_quote_html_invoice_row_spacing
+# MICE Sales Quote HTML: print charge description beside the item name
+logistics.patches.v3_0_mice_sales_quote_html_charge_description
 

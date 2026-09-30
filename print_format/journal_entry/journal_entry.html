@@ -42,6 +42,11 @@
             min-height: 0;
         }
 
+        .footer-push {
+            flex: 0 0 auto;
+            height: 0;
+        }
+
         .bottom-section {
             margin-top: auto;
             flex: 0 0 auto;
@@ -585,7 +590,22 @@
         {% set document_title = 'JOURNAL VOUCHER' %}
     {% endif %}
     {% set currency = doc.company_currency or doc.currency or 'PHP' %}
-    {% set je_branch = doc.custom_posting_branch or doc.get('posting_branch') or doc.get('branch') %}
+    {% set je_branch_ns = namespace(value=doc.custom_posting_branch or doc.get('posting_branch') or doc.get('branch')) %}
+    {% if not je_branch_ns.value and doc.accounts %}
+        {% for account in doc.accounts %}
+            {% if not je_branch_ns.value and account.get('branch') %}
+                {% set je_branch_ns.value = account.branch %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    {% if not je_branch_ns.value and doc.accounts %}
+        {% for account in doc.accounts %}
+            {% if not je_branch_ns.value and account.get('job_number') and frappe.db.exists("Job Number", account.job_number) %}
+                {% set je_branch_ns.value = frappe.db.get_value("Job Number", account.job_number, "branch") %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    {% set je_branch = je_branch_ns.value %}
     {% set default_company = frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_default("company") %}
     {% set company_doc = None %}
     {% if doc.company and frappe.db.exists("Company", doc.company) %}
@@ -609,7 +629,18 @@
             {% endif %}
             <div class="company-info">
                 <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
+                {% set header_branch = None %}
+                {% if je_branch and frappe.db.exists("Branch", je_branch) %}
+                    {% set header_branch = frappe.get_doc("Branch", je_branch) %}
+                {% endif %}
+                {% set branch_address = "" %}
+                {% if header_branch and header_branch.custom_registration_details %}
+                    {% set branch_address = header_address_from_registration(header_branch.custom_registration_details, company_doc.company_name or doc.company) %}
+                {% endif %}
                 <div class="company-address">
+                    {% if branch_address %}
+                        {{ branch_address }}
+                    {% else %}
                     {% set company_address_name = None %}
                     {% set addr_rows = frappe.get_all(
                         "Address",
@@ -635,6 +666,7 @@
                         {% endif %}
                     {% elif company_doc.address_line1 %}
                         {{ company_doc.address_line1 }}{% if company_doc.address_line2 %}, {{ company_doc.address_line2 }}{% endif %}{% if company_doc.city %}, {{ company_doc.city }}{% endif %}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}{% if company_doc.country %}, {{ company_doc.country }}{% endif %}
+                    {% endif %}
                     {% endif %}
                 </div>
                 <div class="vat-reg">
@@ -978,6 +1010,7 @@
         </div>
 
         <!-- BIR Footer -->
+        <div class="footer-push"></div>
         <div class="bottom-section">
         <div class="footer-section">
             {% set bir_name = frappe.db.get_value("BIR CAS Settings", {"company": doc.company}, "name") %}
@@ -1037,5 +1070,89 @@
         </div>
     </div>
     {% endif %}
+    <script>
+    (function () {
+        var PAGE_MM = 273;
+
+        function pageHeightPx() {
+            var probe = document.createElement("div");
+            probe.style.cssText = "position:absolute;visibility:hidden;height:" + PAGE_MM + "mm;width:0;";
+            document.body.appendChild(probe);
+            var height = probe.offsetHeight;
+            probe.remove();
+            return height;
+        }
+
+        function pinLastPageFooter() {
+            var container = document.querySelector(".receipt-container");
+            var bottom = document.querySelector(".bottom-section");
+            var top = document.querySelector(".top-section");
+            var push = document.querySelector(".footer-push");
+            if (!container || !bottom || !push) {
+                return;
+            }
+            var pagePx = pageHeightPx();
+            if (!pagePx) {
+                return;
+            }
+
+            container.style.minHeight = "";
+            push.style.height = "0";
+            push.style.minHeight = "0";
+            bottom.style.marginTop = "";
+            if (top) {
+                top.style.flex = "";
+            }
+
+            var footerHeight = bottom.offsetHeight;
+            var contentAbove = Math.max(0, container.scrollHeight - footerHeight);
+            if (contentAbove + footerHeight <= pagePx + 8) {
+                push.style.height = "";
+                push.style.minHeight = "";
+                return;
+            }
+
+            var safetyPx = pagePx * (6 / PAGE_MM);
+            var disclaimer = bottom.querySelector(".footer-disclaimer");
+            var disclaimerHeight = 0;
+            if (disclaimer) {
+                var disclaimerStyle = window.getComputedStyle(disclaimer);
+                disclaimerHeight = disclaimer.offsetHeight
+                    + (parseFloat(disclaimerStyle.marginTop) || 0)
+                    + (parseFloat(disclaimerStyle.marginBottom) || 0);
+            }
+            var contentPages = Math.ceil(contentAbove / pagePx);
+            if (contentPages < 2) {
+                contentPages = 2;
+            }
+            var spacer = (contentPages * pagePx) - contentAbove - footerHeight - disclaimerHeight - safetyPx;
+            if (spacer < 0) {
+                spacer = 0;
+            }
+
+            if (top) {
+                top.style.flex = "0 0 auto";
+            }
+            bottom.style.marginTop = "0";
+            push.style.height = spacer + "px";
+            push.style.minHeight = spacer + "px";
+        }
+
+        function schedulePin() {
+            pinLastPageFooter();
+            window.requestAnimationFrame(pinLastPageFooter);
+            window.setTimeout(pinLastPageFooter, 50);
+            window.setTimeout(pinLastPageFooter, 300);
+        }
+
+        window.addEventListener("beforeprint", pinLastPageFooter);
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", schedulePin);
+        } else {
+            schedulePin();
+        }
+        window.addEventListener("load", pinLastPageFooter);
+    })();
+    </script>
 </body>
 </html>

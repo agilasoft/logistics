@@ -58,6 +58,7 @@ app_include_js = [
 	"/assets/logistics/js/freight_agent_service.js?v=4",
 	"/assets/logistics/js/charge_bill_to.js?v=2",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
+	"/assets/logistics/js/mice_project_manifest_print_preview.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=4",
 	"/assets/logistics/js/user_quick_entry.js?v=1",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
@@ -413,6 +414,9 @@ jinja = {
 		"logistics.print_format.sales_invoice.vat_sales_summary.get_vat_sales_summary",
 		"logistics.print_format.sales_invoice.vat_sales_summary.item_is_zero_rated_or_exempt",
 		"logistics.mice.print_format.mice_project_manifest.mice_project_manifest.get_mice_project_manifest_rows",
+		"logistics.mice.print_format.mice_project_manifest.mice_project_manifest.format_mice_manifest_show_dates",
+		"logistics.print_format.purchase_invoice.header_address.header_address_from_registration",
+		"logistics.print_format.purchase_invoice.tax_amount.printed_tax_amount",
 	]
 }
 
