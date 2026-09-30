@@ -812,4 +812,42 @@ logistics.patches.v3_0_mice_sales_quote_html_no_footer
 logistics.patches.v3_0_mice_sales_quote_html_invoice_row_spacing
 # MICE Sales Quote HTML: print charge description beside the item name
 logistics.patches.v3_0_mice_sales_quote_html_charge_description
+# MICE Project: Consol Job Profit HTML print format
+logistics.patches.v3_0_install_consol_job_profit_html_print_format
+# Consol Job Profit HTML: header, consol summary, and shipment list
+logistics.patches.v3_0_consol_job_profit_html_page_layout
+# Consol Job Profit HTML: tighten page margins and line spacing
+logistics.patches.v3_0_consol_job_profit_html_spacing
+# Docket: Return Shipping Instruction HTML print format
+logistics.patches.v3_0_install_return_shipping_instruction_html_print_format
+# Consol Job Profit HTML: single 5mm page margin
+logistics.patches.v3_0_consol_job_profit_html_page_margin
+# MICE Sales Quote HTML: gap between the charge name and MINIMUM
+logistics.patches.v3_0_mice_sales_quote_html_minimum_spacing
+# Consol Job Profit HTML: 8mm page margin
+logistics.patches.v3_0_consol_job_profit_html_margin_8mm
+# Return Shipping Instruction HTML: 8mm page margin
+logistics.patches.v3_0_return_shipping_instruction_html_margin
+# Consol Job Profit HTML: same column layout in the preview and the PDF
+logistics.patches.v3_0_consol_job_profit_html_preview_pdf
+# Return Shipping Instruction HTML: company letterhead
+logistics.patches.v3_0_return_shipping_instruction_html_letterhead
+# Consol Job Profit HTML: drop the routing block and the charge-code table
+logistics.patches.v3_0_consol_job_profit_html_drop_blocks
+# Consol Job Profit HTML: cargo lines on the left of the consol summary
+logistics.patches.v3_0_consol_job_profit_html_cargo_left
+# Consol Job Profit HTML: stack the cargo lines in one column
+logistics.patches.v3_0_consol_job_profit_html_cargo_column
+# Consol Job Profit HTML: a little more space in the shipment and charge tables
+logistics.patches.v3_0_consol_job_profit_html_row_spacing
+# Consol Job Profit HTML: draw the charge total line the full width
+logistics.patches.v3_0_consol_job_profit_html_total_line
+# Consol Job Profit HTML: one full-width line above the charge totals
+logistics.patches.v3_0_consol_job_profit_html_total_rule
+# Consol Job Profit HTML: exhibitor, agent, and AWB/BL on the shipment row
+logistics.patches.v3_0_consol_job_profit_html_shipment_columns
+# Return Shipping Instruction HTML: title left, logo and contact block right
+logistics.patches.v3_0_return_shipping_instruction_html_header
+# Return Shipping Instruction HTML: fit the form on one page
+logistics.patches.v3_0_return_shipping_instruction_html_one_page
 

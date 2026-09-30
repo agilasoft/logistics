@@ -6,10 +6,28 @@ import io
 from typing import Iterable
 
 from openpyxl import load_workbook
+from openpyxl.styles import Alignment, Font
 from openpyxl.workbook import Workbook
 
 from logistics.bir_cas.company_info import get_cas_header_context
-from logistics.bir_cas.header_rows import build_cas_header_rows
+from logistics.bir_cas.header_rows import (
+	CASH_RECEIPTS_BOOK_REPORT,
+	GL_TRANSACTION_REPORT_TITLE,
+	JOURNAL_BOOK_REPORT,
+	PURCHASE_BOOK_REPORT,
+	SALES_BOOK_REPORT,
+	build_cas_header_rows,
+	build_cash_receipts_book_letterhead_rows,
+	build_gl_letterhead_rows,
+	build_journal_book_letterhead_rows,
+	build_purchases_book_letterhead_rows,
+	build_sales_book_letterhead_rows,
+	is_cas_general_ledger,
+	is_cash_receipts_book,
+	is_journal_book,
+	is_purchases_book,
+	is_sales_book,
+)
 
 
 def prepend_cas_header_to_row_matrix(
@@ -76,6 +94,103 @@ def _write_header_block(sheet, header_rows: list[list], data_start_row: int) -> 
 			sheet.cell(row=idx, column=1, value=row[0])
 
 
+def _unmerge_row(sheet, row_idx: int) -> None:
+	to_unmerge = [
+		str(merged)
+		for merged in sheet.merged_cells.ranges
+		if merged.min_row == row_idx and merged.max_row == row_idx
+	]
+	for ref in to_unmerge:
+		sheet.unmerge_cells(ref)
+
+
+def apply_gl_letterhead_styles(sheet, column_count: int | None = None) -> None:
+	"""Center the company block across the sheet and leave period and printed-by on the left."""
+	last_col = max(int(column_count or sheet.max_column or 1), 1)
+	center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+	left = Alignment(horizontal="left", vertical="center", wrap_text=False)
+	styles = {
+		1: (Font(name="Calibri", size=18, bold=True), center, 24),
+		2: (Font(name="Calibri", size=11), center, 18),
+		3: (Font(name="Calibri", size=11), center, 18),
+		4: (Font(name="Calibri", size=14, bold=True), center, 22),
+		5: (Font(name="Calibri", size=11), left, 18),
+		6: (Font(name="Calibri", size=11), left, 18),
+	}
+	for row_idx, (font, alignment, height) in styles.items():
+		_unmerge_row(sheet, row_idx)
+		cell = sheet.cell(row=row_idx, column=1)
+		cell.font = font
+		cell.alignment = alignment
+		sheet.row_dimensions[row_idx].height = height
+		if row_idx <= 4 and last_col > 1:
+			sheet.merge_cells(
+				start_row=row_idx,
+				start_column=1,
+				end_row=row_idx,
+				end_column=last_col,
+			)
+
+
+def _sheet_has_letterhead(sheet, title: str) -> bool:
+	cell = sheet.cell(row=4, column=1).value
+	return str(cell or "").strip() == title
+
+
+def _delete_leading_label_rows(sheet) -> None:
+	if not _parse_label_row(sheet.cell(row=1, column=1).value):
+		return
+	data_start = 1
+	for idx, row in enumerate(sheet.iter_rows(max_row=20, values_only=True), start=1):
+		if not row or not row[0]:
+			data_start = idx + 1
+			break
+		if not _parse_label_row(row[0]):
+			data_start = idx
+			break
+	else:
+		data_start = 21
+	if data_start > 1:
+		sheet.delete_rows(1, data_start - 1)
+
+
+def _replace_with_letterhead(sheet, header_rows: list[list], title: str) -> None:
+	if _sheet_has_letterhead(sheet, title):
+		apply_gl_letterhead_styles(sheet, sheet.max_column or 1)
+		return
+	_delete_leading_label_rows(sheet)
+	column_count = max(sheet.max_column or 1, 1)
+	sheet.insert_rows(1, amount=len(header_rows))
+	for idx, row in enumerate(header_rows, start=1):
+		if row:
+			sheet.cell(row=idx, column=1, value=row[0])
+	apply_gl_letterhead_styles(sheet, column_count)
+
+
+def _replace_with_gl_letterhead(sheet, context: dict[str, str]) -> None:
+	_replace_with_letterhead(sheet, build_gl_letterhead_rows(context), GL_TRANSACTION_REPORT_TITLE)
+
+
+def _replace_with_journal_book_letterhead(sheet, context: dict[str, str]) -> None:
+	_replace_with_letterhead(sheet, build_journal_book_letterhead_rows(context), JOURNAL_BOOK_REPORT)
+
+
+def _replace_with_cash_receipts_book_letterhead(sheet, context: dict[str, str]) -> None:
+	_replace_with_letterhead(
+		sheet, build_cash_receipts_book_letterhead_rows(context), CASH_RECEIPTS_BOOK_REPORT
+	)
+
+
+def _replace_with_sales_book_letterhead(sheet, context: dict[str, str]) -> None:
+	_replace_with_letterhead(sheet, build_sales_book_letterhead_rows(context), SALES_BOOK_REPORT)
+
+
+def _replace_with_purchases_book_letterhead(sheet, context: dict[str, str]) -> None:
+	_replace_with_letterhead(
+		sheet, build_purchases_book_letterhead_rows(context), PURCHASE_BOOK_REPORT
+	)
+
+
 def ensure_bir_cas_excel_header(
 	xlsx_bytes: bytes,
 	*,
@@ -94,6 +209,36 @@ def ensure_bir_cas_excel_header(
 
 	workbook = load_workbook(io.BytesIO(xlsx_bytes))
 	sheet = workbook.active
+
+	if is_cas_general_ledger(report_title):
+		_replace_with_gl_letterhead(sheet, context)
+		out = io.BytesIO()
+		workbook.save(out)
+		return out.getvalue()
+
+	if is_journal_book(report_title):
+		_replace_with_journal_book_letterhead(sheet, context)
+		out = io.BytesIO()
+		workbook.save(out)
+		return out.getvalue()
+
+	if is_cash_receipts_book(report_title):
+		_replace_with_cash_receipts_book_letterhead(sheet, context)
+		out = io.BytesIO()
+		workbook.save(out)
+		return out.getvalue()
+
+	if is_sales_book(report_title):
+		_replace_with_sales_book_letterhead(sheet, context)
+		out = io.BytesIO()
+		workbook.save(out)
+		return out.getvalue()
+
+	if is_purchases_book(report_title):
+		_replace_with_purchases_book_letterhead(sheet, context)
+		out = io.BytesIO()
+		workbook.save(out)
+		return out.getvalue()
 
 	existing = _scan_existing_header(sheet)
 	if existing:

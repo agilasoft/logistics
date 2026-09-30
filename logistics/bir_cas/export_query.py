@@ -10,7 +10,20 @@ from frappe.desk.query_report import clean_params, parse_json
 
 from logistics.bir_cas.company_info import resolve_company_from_filters
 from logistics.bir_cas.excel_header import ensure_bir_cas_excel_header
-from logistics.bir_cas.report_utils import is_bir_cas_report, period_label_from_filters
+from logistics.bir_cas.header_rows import (
+	is_cas_general_ledger,
+	is_cash_receipts_book,
+	is_journal_book,
+	is_purchases_book,
+	is_sales_book,
+)
+from logistics.bir_cas.report_utils import (
+	cash_book_period_label_from_filters,
+	gl_period_label_from_filters,
+	is_bir_cas_report,
+	period_label_from_filters,
+	sales_book_period_label_from_filters,
+)
 
 
 @frappe.whitelist()
@@ -75,8 +88,26 @@ def _export_with_cas_header(form_params, csv_params, populate_response=True):
 		filters = frappe.parse_json(filters)
 
 	company = resolve_company_from_filters(filters)
-	period_label = period_label_from_filters(filters)
 	display_name = frappe.get_cached_value("Report", form_params.report_name, "report_name") or report_name
+	cash_receipts_book = is_cash_receipts_book(form_params.report_name) or is_cash_receipts_book(
+		display_name
+	)
+	sales_book = is_sales_book(form_params.report_name) or is_sales_book(display_name)
+	purchases_book = is_purchases_book(form_params.report_name) or is_purchases_book(display_name)
+	letterhead_report = (
+		is_cas_general_ledger(form_params.report_name)
+		or is_cas_general_ledger(display_name)
+		or is_journal_book(form_params.report_name)
+		or is_journal_book(display_name)
+	)
+	if cash_receipts_book:
+		period_label = cash_book_period_label_from_filters(filters)
+	elif sales_book or purchases_book:
+		period_label = sales_book_period_label_from_filters(filters)
+	elif letterhead_report:
+		period_label = gl_period_label_from_filters(filters)
+	else:
+		period_label = period_label_from_filters(filters)
 
 	content = ensure_bir_cas_excel_header(
 		content,

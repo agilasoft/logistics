@@ -43,6 +43,8 @@
         .packages-table .charge-name-block { display: inline-block; margin-left: 4mm; max-width: 100%; }
         .packages-table .charge-name-block .item-label { padding-left: 0; }
         .packages-table .minimum-label { text-align: right; }
+        .packages-table .minimum-label,
+        .packages-table .minimum-amount { margin-top: 1mm; }
         .packages-table .table-row td.item-name-cell { vertical-align: middle; }
         .packages-table .table-row td.value-cell { vertical-align: middle; white-space: nowrap; }
         .packages-table .table-row td.value-cell .rate-currency { padding-right: 8mm; }
@@ -186,7 +188,7 @@
     <td class="value-cell{% if is_specified %} specified-rate{% endif %}">
         <div class="charge-line">{{ rate_detail_label(item.row) }}</div>
         {% if show_minimum %}
-        <div class="charge-line"><span class="rate-currency">{{ item.row.currency or '' }}</span><span class="rate-amount">{{ frappe.utils.fmt_money(item.row.minimum_charge, precision=2) }}</span></div>
+        <div class="charge-line minimum-amount"><span class="rate-currency">{{ item.row.currency or '' }}</span><span class="rate-amount">{{ frappe.utils.fmt_money(item.row.minimum_charge, precision=2) }}</span></div>
         {% endif %}
     </td>
 </tr>

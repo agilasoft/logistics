@@ -415,6 +415,8 @@ jinja = {
 		"logistics.print_format.sales_invoice.vat_sales_summary.item_is_zero_rated_or_exempt",
 		"logistics.mice.print_format.mice_project_manifest.mice_project_manifest.get_mice_project_manifest_rows",
 		"logistics.mice.print_format.mice_project_manifest.mice_project_manifest.format_mice_manifest_show_dates",
+		"logistics.mice.print_format.consol_job_profit_html.consol_job_profit_html.get_consol_job_profit_context",
+		"logistics.mice.print_format.consol_job_profit_html.consol_job_profit_html.format_consol_job_profit_amount",
 		"logistics.print_format.purchase_invoice.header_address.header_address_from_registration",
 		"logistics.print_format.purchase_invoice.tax_amount.printed_tax_amount",
 	]
@@ -503,6 +505,9 @@ doc_events = {
 	"Cost Center": {
 		"validate": "logistics.job_management.cost_center_defaults.set_cost_center_branch_default",
 	},
+	"Branch": {
+		"before_insert": "logistics.job_management.cost_center_defaults.set_branch_document_name",
+	},
 	"Account": {
 		"validate": "logistics.logistics.account_job_profit.validate_account_job_profit",
 	},
@@ -538,6 +543,7 @@ doc_events = {
 		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_cancel",
 	},
 	"Journal Entry": {
+		"before_validate": "logistics.job_management.recognition_engine.ensure_journal_entry_posting_header",
 		"on_submit": "logistics.invoice_integration.journal_entry_recognition_reversal.on_journal_entry_submit",
 	},
 	"Task": {

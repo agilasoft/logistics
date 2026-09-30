@@ -1051,69 +1051,137 @@ def _job_dimensions_for_match(job):
     return cc, pc, br, direction, mode
 
 
-def apply_journal_entry_posting_header_from_job(je, job):
+def _posting_header_field_kind(df):
+    """Return ``company`` or ``branch`` when this Journal Entry field is a posting header link."""
+    if not df.fieldname or df.fieldtype != "Link":
+        return None
+    opts = (df.options or "").strip()
+    fn = df.fieldname
+    label = ((df.label or "") + "").strip().lower()
+    if opts == "Company" and (
+        fn in ("posting_company", "custom_posting_company") or "posting company" in label
+    ):
+        return "company"
+    if opts == "Branch" and (
+        fn in ("posting_branch", "custom_posting_branch") or "posting branch" in label
+    ):
+        return "branch"
+    return None
+
+
+def _first_branch_for_company(company):
+    """Branch to use when the journal has none of its own.
+
+    Prefers the oldest Branch linked to ``company``. When Branch has no company
+    field, uses the Branch only if the site has exactly one.
     """
-    Set site-specific mandatory Journal Entry header fields (e.g. Posting Company, Posting Branch)
-    from the logistics job. Some sites add required Link fields on Journal Entry; programmatic JEs
-    must populate them or validation fails with "Value missing for Journal Entry: …".
+    from logistics.job_management.cost_center_defaults import _company_fieldname
+
+    company_field = _company_fieldname("Branch")
+    if company and company_field:
+        branch = frappe.db.get_value(
+            "Branch", {company_field: company}, "name", order_by="creation asc"
+        )
+        if branch:
+            return branch
+
+    names = frappe.get_all("Branch", pluck="name", order_by="creation asc", limit=2)
+    if len(names) == 1:
+        return names[0]
+    return None
+
+
+def _resolve_posting_company_branch(je, job=None):
+    """Company and branch to copy onto mandatory Journal Entry posting header fields."""
+    company = (job.get("company") if job else None) or je.get("company")
+    branch = None
+    job_number = None
+    cost_center = je.get("cost_center")
+    if job:
+        _, _, branch, _, _ = _job_dimensions_for_match(job)
+        job_number = job.get("job_number")
+        cost_center = cost_center or job.get("cost_center")
+    branch = branch or je.get("branch")
+    job_number = job_number or je.get("job_number")
+
+    for row in je.get("accounts") or []:
+        if not branch and row.get("branch"):
+            branch = row.branch
+        if not job_number and row.get("job_number"):
+            job_number = row.job_number
+        if not cost_center and row.get("cost_center"):
+            cost_center = row.cost_center
+
+    if not branch and job_number and frappe.db.exists("Job Number", job_number):
+        branch = frappe.db.get_value("Job Number", job_number, "branch")
+
+    if (
+        not branch
+        and cost_center
+        and frappe.db.exists("Cost Center", cost_center)
+        and frappe.get_meta("Cost Center").has_field("custom_branch")
+    ):
+        branch = frappe.db.get_value("Cost Center", cost_center, "custom_branch")
+
+    if not branch:
+        branch = _first_branch_for_company(company)
+
+    return company, branch
+
+
+def apply_journal_entry_posting_header_from_job(je, job, throw_if_missing=True):
     """
-    if not job:
+    Set site-specific mandatory Journal Entry header fields (e.g. Posting Company, Posting Branch).
+
+    Some sites add required Link fields on Journal Entry. Programmatic journals must populate
+    them or validation fails with "Value missing for Journal Entry: …".
+
+    Company comes from the job or the Journal Entry. Branch comes from the job, its Job Number,
+    the journal lines, the cost center, or the company's first Branch.
+    """
+    if not je:
         return
 
+    company, branch = _resolve_posting_company_branch(je, job)
     meta = frappe.get_meta("Journal Entry")
-    company = job.get("company") or getattr(je, "company", None)
-    _, _, branch, _, _ = _job_dimensions_for_match(job)
 
     to_set = {}
+    missing_labels = []
     for df in meta.fields:
-        if not df.fieldname or df.fieldtype != "Link":
+        kind = _posting_header_field_kind(df)
+        if not kind or je.get(df.fieldname):
             continue
-        opts = (df.options or "").strip()
-        fn = df.fieldname
-        label = ((df.label or "") + "").strip().lower()
-
-        if opts == "Company" and company:
-            if fn in ("posting_company", "custom_posting_company") or label == "posting company":
-                to_set[fn] = company
-
-        if opts == "Branch" and branch:
-            if fn in ("posting_branch", "custom_posting_branch") or label == "posting branch":
-                to_set[fn] = branch
+        value = company if kind == "company" else branch
+        if value:
+            to_set[df.fieldname] = value
+        elif cint(df.reqd):
+            missing_labels.append(df.label or df.fieldname)
 
     if to_set:
         je.update(to_set)
 
-    missing_labels = []
-    for df in meta.fields:
-        if not df.fieldname or not cint(df.reqd) or df.fieldtype != "Link":
-            continue
-        fn = df.fieldname
-        opts = (df.options or "").strip()
-        label = ((df.label or "") + "").strip().lower()
-        is_posting_company = opts == "Company" and (
-            fn in ("posting_company", "custom_posting_company") or label == "posting company"
-        )
-        is_posting_branch = opts == "Branch" and (
-            fn in ("posting_branch", "custom_posting_branch") or label == "posting branch"
-        )
-        if not (is_posting_company or is_posting_branch):
-            continue
-        if not je.get(fn):
-            missing_labels.append(df.label or fn)
+    if not missing_labels or not throw_if_missing:
+        return
+    if getattr(getattr(je, "flags", None), "ignore_mandatory", None):
+        return
 
-    if missing_labels:
-        hints = []
-        if any("company" in (x or "").lower() for x in missing_labels):
-            hints.append(_("company on the job"))
-        if any("branch" in (x or "").lower() for x in missing_labels):
-            hints.append(_("branch on the job or linked Job Number"))
-        frappe.throw(
-            _("Cannot create Journal Entry: required fields {0} are not set. Set {1}.").format(
-                ", ".join(missing_labels),
-                " / ".join(hints) if hints else _("posting dimensions on the job"),
-            ),
-            title=_("Journal Entry"),
-        )
+    hints = []
+    if any("company" in (x or "").lower() for x in missing_labels):
+        hints.append(_("Company on the Journal Entry"))
+    if any("branch" in (x or "").lower() for x in missing_labels):
+        hints.append(_("a Branch for this company, or Branch on the job / Job Number"))
+    frappe.throw(
+        _("Cannot create Journal Entry: required fields {0} are not set. Set {1}.").format(
+            ", ".join(missing_labels),
+            " and ".join(hints) if hints else _("posting company and branch"),
+        ),
+        title=_("Journal Entry"),
+    )
+
+
+def ensure_journal_entry_posting_header(doc, method=None):
+    """Fill Posting Company / Posting Branch on every Journal Entry save, before mandatory checks."""
+    apply_journal_entry_posting_header_from_job(doc, None)
 
 
 def _parameter_row_specificity(row):
