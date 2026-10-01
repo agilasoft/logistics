@@ -8,7 +8,7 @@ authors = [
     {name = "Agilasoft Cloud Technologies Inc.", email = "info@agilasoft.com"}
 ]
 description = "CargoNext - Comprehensive Logistics Management System"
-requires-python = ">=3.14,<3.15"
+requires-python = ">=3.11,<3.12"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = [
@@ -21,7 +21,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.11",
 ]
 
 [project.urls]
