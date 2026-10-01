@@ -7,7 +7,7 @@
 		body {
 			font-family: Arial, Helvetica, sans-serif;
 			font-size: 8pt;
-			line-height: 1.15;
+			line-height: 1.05;
 			color: #000;
 			background: #fff;
 			-webkit-print-color-adjust: exact;
@@ -30,8 +30,17 @@
 			border: none;
 			border-collapse: collapse;
 			padding: 0;
-			vertical-align: top;
+			padding-top: 0 !important;
+			padding-bottom: 0 !important;
+			line-height: 1;
+			vertical-align: bottom;
 			background: transparent;
+		}
+		table.rsi td[style*="height:18px"] {
+			padding: 1px 4px !important;
+		}
+		table.rsi.fields > tbody > tr > td {
+			padding-bottom: 8px !important;
 		}
 		.rsi-sheet {
 			width: 100%;
@@ -43,20 +52,20 @@
 			color: #fff;
 			font-weight: 700;
 			letter-spacing: 0.15px;
-			padding: 2px 6px 1px;
+			padding: 1px 6px 0;
 			line-height: 1.25;
 			-webkit-print-color-adjust: exact;
 			print-color-adjust: exact;
 		}
 		.title-bar {
 			font-size: 11pt;
-			padding: 3px 8px 2px;
+			padding: 2px 8px 1px;
 			display: block;
 		}
 		.event-bar {
 			font-size: 8pt;
 			display: block;
-			margin-top: 4px;
+			margin-top: 8px;
 		}
 		table.rsi.masthead td {
 			vertical-align: top;
@@ -92,41 +101,82 @@
 		}
 		.event-box {
 			border: 1px solid #000;
-			height: 22px;
+			height: 28px;
 			width: 100%;
 			margin-top: 0;
 			background: #fff;
 		}
 		.section-bar {
 			font-size: 8pt;
-			margin-top: 4px;
+			margin-top: 8px;
 			text-transform: uppercase;
 		}
 		.fields {
 			width: 100%;
-			margin-top: 2px;
+			margin-top: 4px;
+		}
+		table.rsi.fields.stack {
+			margin-top: 10px;
+		}
+		table.rsi.fields.exhibitor {
+			margin-top: 10px;
+		}
+		table.rsi.eq3 {
+			width: 100%;
+			table-layout: fixed;
+			margin-top: 10px;
+			margin-bottom: 8px;
+		}
+		table.rsi.eq3 td,
+		table.rsi.fields.exhibitor-rest > tbody > tr > td,
+		table.rsi.fields.stack > tbody > tr > td {
+			padding-bottom: 0 !important;
+			vertical-align: bottom;
+		}
+		table.rsi.eq3 td.lbl,
+		table.rsi.fields.exhibitor-rest > tbody > tr > td.lbl,
+		table.rsi.fields.stack > tbody > tr > td.lbl {
+			width: 1%;
+			padding-right: 6px !important;
+		}
+		table.rsi.fields.exhibitor-rest > tbody > tr + tr > td,
+		table.rsi.fields.stack > tbody > tr + tr > td {
+			padding-top: 8px !important;
+		}
+		table.rsi.fields.exhibitor-rest {
+			margin-top: 0;
+			margin-bottom: 8px;
+		}
+		table.rsi td.line {
+			border-bottom: 1px solid #000;
+			padding-bottom: 0 !important;
+			vertical-align: bottom;
 		}
 		.lbl {
 			white-space: nowrap;
-			padding: 2px 4px 0 2px;
+			padding: 0 4px 0 2px;
 			font-size: 8pt;
 			vertical-align: bottom;
 		}
 		.ul {
 			border-bottom: 1px solid #000;
-			height: 11px;
+			height: 12px;
 			width: 100%;
-			line-height: 11px;
+			font-size: 0;
+			line-height: 0;
+			overflow: hidden;
 		}
 		.ul-short {
 			border-bottom: 1px solid #000;
-			height: 14px;
+			height: 0;
+			font-size: 0;
+			line-height: 0;
+			overflow: hidden;
 		}
-		.stack .ul { height: 12px; }
 		.pad-r { padding-right: 10px; }
 		.center-note {
 			text-align: center;
-			padding: 3px 0 1px;
+			padding: 4px 0;
 			font-size: 8pt;
 		}
 		.chk {
@@ -139,7 +189,7 @@
 			margin: 0 4px 0 10px;
 		}
 		.mode-row {
-			padding: 4px 2px 3px;
+			padding: 1px 2px;
 			font-size: 8pt;
 		}
 		.tick-note {
@@ -186,22 +236,25 @@
 			text-align: center;
 			font-weight: 700;
 			font-size: 7.5pt;
-			padding: 2px 4px 3px;
+			padding: 1px 4px 2px;
 		}
 		.blank-box {
 			border: 1px solid #000;
-			height: 22px;
+			height: 28px;
 			width: 100%;
 			background: #fff;
 		}
 		.footer-note {
 			text-align: center;
 			font-size: 7.5pt;
-			padding: 4px 8px 3px;
+			padding: 1px 8px 0;
+		}
+		.closing {
+			page-break-inside: avoid;
 		}
 		table.rsi.sign {
 			width: 100%;
-			margin-top: 2px;
+			margin-top: 8px;
 		}
 		table.rsi.sign td {
 			width: 46%;
@@ -211,11 +264,11 @@
 		.form-code {
 			text-align: right;
 			font-size: 7.5pt;
-			margin-top: 2px;
+			margin-top: 0;
 		}
 		.sign-box {
 			border: 1px solid #000;
-			height: 26px;
+			height: 32px;
 			width: 100%;
 		}
 		.sign-cap {
@@ -223,12 +276,122 @@
 			padding-top: 1px;
 		}
 		.hall-lbl {
-			white-space: normal;
-			line-height: 1.05;
-			width: 62px;
+			white-space: nowrap;
+			line-height: 1;
 			vertical-align: bottom;
 		}
-		.gap-top { margin-top: 2px; }
+		.gap-top { margin-top: 8px; }
+		table.rsi.mode-ship {
+			margin-top: 4px;
+			margin-bottom: 4px;
+		}
+		table.rsi.mode-ship td {
+			padding-top: 2px !important;
+			padding-bottom: 4px !important;
+		}
+		table.rsi.dest td {
+			height: 18px;
+			padding-top: 0 !important;
+			padding-bottom: 0 !important;
+			vertical-align: middle;
+		}
+		table.rsi.dest td.lbl {
+			white-space: nowrap;
+			width: 1%;
+			padding-right: 6px !important;
+		}
+		table.rsi.dest td.line {
+			border: 1px solid #000;
+			height: 18px;
+			width: 99%;
+		}
+		table.rsi.local-fields td.box {
+			border: 1px solid #000;
+			height: 16px;
+			vertical-align: middle;
+		}
+		table.rsi.local-fields tr:first-child td.lbl {
+			vertical-align: middle;
+		}
+		table.rsi.local-fields td.line {
+			border-bottom: 1px solid #000;
+			vertical-align: bottom;
+		}
+		table.rsi.pay-rows {
+			width: 100%;
+			margin-top: 10px;
+		}
+		table.rsi.pay-rows td {
+			padding-top: 4px !important;
+			padding-bottom: 0 !important;
+			vertical-align: bottom;
+		}
+		table.rsi.pay-rows tr + tr td {
+			padding-top: 8px !important;
+		}
+		table.rsi.pay-rows td.lbl {
+			white-space: nowrap;
+			width: 1%;
+		}
+		table.rsi.pay-rows td.line {
+			border-bottom: 1px solid #000;
+		}
+		table.rsi.addr-line {
+			width: 100%;
+			margin-top: 10px;
+		}
+		table.rsi.addr-line td {
+			padding-top: 0 !important;
+			padding-bottom: 0 !important;
+			vertical-align: bottom;
+		}
+		table.rsi.addr-line td.lbl {
+			white-space: nowrap;
+			width: 1%;
+			padding-right: 6px !important;
+		}
+		table.rsi.addr-line td.line {
+			border-bottom: 1px solid #000;
+		}
+		table.rsi.addr-line tr + tr td.line {
+			padding-top: 10px !important;
+		}
+		.under {
+			border-bottom: 1px solid #000;
+			height: 2px;
+			margin-top: 1px;
+		}
+		.under.pair {
+			height: 16px;
+			margin-top: 4px;
+		}
+		td.party {
+			padding-top: 6px !important;
+		}
+		table.rsi.pkg {
+			border-collapse: collapse;
+			width: auto;
+		}
+		table.rsi.pkg td {
+			height: 18px;
+			padding: 2px 4px !important;
+			vertical-align: middle;
+			white-space: nowrap;
+			border: none;
+		}
+		table.rsi.pkg td.lbl {
+			width: 1%;
+			padding-right: 6px !important;
+		}
+		table.rsi.pkg td.val {
+			border: 1px solid #000;
+			height: 18px;
+			width: 90px;
+		}
+		table.rsi.pkg td.unit {
+			width: 26px;
+			padding-left: 4px !important;
+		}
 	</style>
 </head>
 <body>
@@ -268,60 +431,73 @@
 	</table>
 
 	<div class="bar section-bar">Exhibitor / Customer Details</div>
-	<table class="rsi fields">
+	<table class="rsi eq3">
+		<col style="width:12%">
+		<col style="width:20%">
+		<col style="width:9%">
+		<col style="width:20%">
+		<col style="width:19%">
+		<col style="width:20%">
 		<tr>
-			<td class="lbl" style="width:62px;">Exhibitor:</td>
-			<td style="width:28%;"><div class="ul">&nbsp;</div></td>
-			<td class="lbl" style="width:46px; padding-left:8px;">Agent:</td>
-			<td style="width:24%;"><div class="ul">&nbsp;</div></td>
-			<td class="lbl hall-lbl" style="padding-left:8px;">Hall / Booth<br>No.:</td>
-			<td><div class="ul">&nbsp;</div></td>
+			<td class="lbl">Exhibitor:</td>
+			<td class="line"></td>
+			<td class="lbl" style="padding-left:8px;">Agent:</td>
+			<td class="line"></td>
+			<td class="lbl hall-lbl" style="padding-left:8px;">Hall / Booth No.:</td>
+			<td class="line"></td>
 		</tr>
+	</table>
+	<table class="rsi fields exhibitor-rest">
 		<tr>
 			<td class="lbl">Address:</td>
-			<td colspan="5"><div class="ul">&nbsp;</div></td>
+			<td class="line" colspan="3"></td>
 		</tr>
 		<tr>
 			<td class="lbl">Tel:</td>
-			<td><div class="ul">&nbsp;</div></td>
+			<td class="line" style="width:20%;"></td>
 			<td class="lbl" style="padding-left:8px;">Fax:</td>
-			<td colspan="3"><div class="ul">&nbsp;</div></td>
+			<td class="line"></td>
 		</tr>
 	</table>
-	<div class="center-note">Contact person at the venue / cellphone: <span class="ul" style="display:inline-block; width:42%; vertical-align:bottom;">&nbsp;</span></div>
+	<table class="rsi fields exhibitor-rest">
+		<tr>
+			<td class="lbl">Contact person at the venue / cellphone:</td>
+			<td class="line"></td>
+		</tr>
+	</table>
 
 	<div class="bar section-bar">Inbound Details</div>
 	<table class="rsi fields stack">
 		<tr>
-			<td class="lbl" style="width:118px;">No. of packages:</td>
-			<td class="pad-r" style="width:32%;"><div class="ul">&nbsp;</div></td>
-			<td class="lbl" style="width:138px;">Vessel/Flight:</td>
-			<td><div class="ul">&nbsp;</div></td>
+			<td class="lbl">No. of packages:</td>
+			<td class="line pad-r" style="width:32%;"></td>
+			<td class="lbl">Vessel/Flight:</td>
+			<td class="line"></td>
 		</tr>
 		<tr>
 			<td class="lbl">Volume:</td>
-			<td class="pad-r"><div class="ul">&nbsp;</div></td>
+			<td class="line pad-r" style="width:32%;"></td>
 			<td class="lbl">Port/ Airport of loading:</td>
-			<td><div class="ul">&nbsp;</div></td>
+			<td class="line"></td>
 		</tr>
 		<tr>
 			<td class="lbl">Actual/Vol. weight:</td>
-			<td class="pad-r"><div class="ul">&nbsp;</div></td>
+			<td class="line pad-r" style="width:32%;"></td>
 			<td class="lbl">Reference No.:</td>
-			<td><div class="ul">&nbsp;</div></td>
+			<td class="line"></td>
 		</tr>
 		<tr>
 			<td class="lbl">Container No./size:</td>
-			<td class="pad-r"><div class="ul">&nbsp;</div></td>
+			<td class="line pad-r" style="width:32%;"></td>
 			<td class="lbl">BL/AWB/Ref No.:</td>
-			<td><div class="ul">&nbsp;</div></td>
+			<td class="line"></td>
 		</tr>
 	</table>
 
 	<div class="bar section-bar">Outbound Details - Re Export</div>
-	<table class="rsi" style="width:100%; margin-top:3px;">
+	<table class="rsi mode-ship" style="width:100%;">
 		<tr>
-			<td style="font-size:8pt; padding:3px 2px; white-space:nowrap;">
+			<td style="font-size:8pt; padding:0 2px; white-space:nowrap;">
 				Mode of shipment:
 				<span class="chk"></span>AIR
 				<span class="chk"></span>SEA
@@ -335,111 +511,127 @@
 	</table>
 	<table class="rsi fields">
 		<tr>
-			<td style="width:48%; padding-right:10px;">
-				<table class="rsi" style="width:100%; border-collapse:collapse;">
+			<td style="width:48%; padding-right:10px; vertical-align:top;">
+				<table class="rsi pkg">
 					<tr>
-						<td style="width:124px; height:18px; padding:1px 4px; border:1px solid #000;">No. of packages</td>
-						<td style="border:1px solid #000; border-left:none;">&nbsp;</td>
-						<td style="width:26px; border:none;">&nbsp;</td>
+						<td class="lbl">No. of packages</td>
+						<td class="val"></td>
+						<td class="unit"></td>
 					</tr>
 					<tr>
-						<td style="height:18px; padding:1px 4px; border:1px solid #000; border-top:none;">Volume:</td>
-						<td style="border:1px solid #000; border-top:none; border-left:none;">&nbsp;</td>
-						<td style="border:none; padding-left:3px; vertical-align:middle;">m<sup>3</sup></td>
+						<td class="lbl">Volume:</td>
+						<td class="val"></td>
+						<td class="unit">m<sup>3</sup></td>
 					</tr>
 					<tr>
-						<td style="height:18px; padding:1px 4px; border:1px solid #000; border-top:none;">Actual/Vol. weight:</td>
-						<td style="border:1px solid #000; border-top:none; border-left:none;">&nbsp;</td>
-						<td style="border:none; padding-left:3px; vertical-align:middle;">kgs</td>
+						<td class="lbl">Actual/Vol. weight:</td>
+						<td class="val"></td>
+						<td class="unit">kgs</td>
 					</tr>
 				</table>
 			</td>
-			<td style="padding-left:8px;">
-				<table class="rsi" style="width:100%;">
+			<td style="padding-left:8px; vertical-align:top;">
+				<table class="rsi dest" style="width:100%;">
 					<tr>
-						<td class="lbl" style="width:148px;">Container size:</td>
-						<td><div class="ul">&nbsp;</div></td>
+						<td class="lbl">Container size:</td>
+						<td class="line"></td>
 					</tr>
 					<tr>
 						<td class="lbl">Final destination:</td>
-						<td><div class="ul">&nbsp;</div></td>
+						<td class="line"></td>
 					</tr>
 					<tr>
 						<td class="lbl">Port/ Airport of destination:</td>
-						<td><div class="ul">&nbsp;</div></td>
+						<td class="line"></td>
 					</tr>
 				</table>
 			</td>
 		</tr>
 		<tr>
-			<td style="padding-top:4px; padding-right:8px;">
-				<div class="lbl" style="padding-left:0;">Consignee:</div>
-				<div class="ul">&nbsp;</div>
+			<td class="party" style="padding-right:8px;">
+				<table class="rsi addr-line" style="margin-top:0;">
+					<tr>
+						<td class="lbl">Consignee:</td>
+						<td class="line"></td>
+					</tr>
+				</table>
 			</td>
-			<td style="padding-top:4px; padding-left:8px;">
-				<div class="lbl" style="padding-left:0;">Notify party:</div>
-				<div class="ul">&nbsp;</div>
+			<td class="party" style="padding-left:8px;">
+				<table class="rsi addr-line" style="margin-top:0;">
+					<tr>
+						<td class="lbl">Notify party:</td>
+						<td class="line"></td>
+					</tr>
+				</table>
 			</td>
 		</tr>
 	</table>
-	<table class="rsi" style="width:100%; margin-top:4px;">
+	<table class="rsi pay-rows">
 		<tr>
-			<td class="lbl" style="white-space:nowrap;">Charges incurred for the outward/return shipping will be paid by:</td>
-			<td><div class="ul">&nbsp;</div></td>
+			<td class="lbl">Charges incurred for the outward/return shipping will be paid by:</td>
+			<td class="line"></td>
 		</tr>
 	</table>
 
 	<div class="bar section-bar">Outbound Details - Local Delivery / Release at Site</div>
 	<table class="rsi fields">
 		<tr>
-			<td style="width:44%; padding-right:8px;">
-				<table class="rsi" style="width:100%; border-collapse:collapse;">
+			<td style="width:50%; padding-right:8px; vertical-align:top;">
+				<table class="rsi pkg">
 					<tr>
-						<td style="width:124px; height:18px; padding:1px 4px; border:1px solid #000;">No. of packages</td>
-						<td style="border:1px solid #000; border-left:none;">&nbsp;</td>
-						<td style="width:26px; border:none;">&nbsp;</td>
+						<td class="lbl">No. of packages</td>
+						<td class="val"></td>
+						<td class="unit"></td>
 					</tr>
 					<tr>
-						<td style="height:18px; padding:1px 4px; border:1px solid #000; border-top:none;">Volume:</td>
-						<td style="border:1px solid #000; border-top:none; border-left:none;">&nbsp;</td>
-						<td style="border:none; padding-left:3px; vertical-align:middle;">m<sup>3</sup></td>
+						<td class="lbl">Volume:</td>
+						<td class="val"></td>
+						<td class="unit">m<sup>3</sup></td>
 					</tr>
 					<tr>
-						<td style="height:18px; padding:1px 4px; border:1px solid #000; border-top:none;">Actual/Vol. weight:</td>
-						<td style="border:1px solid #000; border-top:none; border-left:none;">&nbsp;</td>
-						<td style="border:none; padding-left:3px; vertical-align:middle;">kgs</td>
+						<td class="lbl">Actual/Vol. weight:</td>
+						<td class="val"></td>
+						<td class="unit">kgs</td>
 					</tr>
 				</table>
 			</td>
-			<td style="padding-left:10px;">
-				<div class="lbl" style="padding-left:0;">Special instruction :</div>
-				<div class="ul">&nbsp;</div>
-				<div class="ul">&nbsp;</div>
+			<td style="width:50%; padding-left:10px; vertical-align:top;">
+				<table class="rsi addr-line" style="margin-top:0;">
+					<tr>
+						<td class="lbl">Special instruction :</td>
+						<td class="line"></td>
+					</tr>
+					<tr>
+						<td class="line" colspan="2"></td>
+					</tr>
+				</table>
 			</td>
 		</tr>
 	</table>
-	<table class="rsi fields gap-top">
+	<table class="rsi fields gap-top local-fields">
 		<tr>
 			<td class="lbl">Company</td>
-			<td style="width:34%;"><div class="ul">&nbsp;</div></td>
+			<td class="box" style="width:34%;"></td>
 			<td class="lbl" style="width:52px; padding-left:8px;">Contact</td>
-			<td style="width:28%;"><div class="ul">&nbsp;</div></td>
+			<td class="box" style="width:28%;"></td>
 			<td class="lbl" style="width:28px; padding-left:8px;">Tel:</td>
-			<td><div class="ul">&nbsp;</div></td>
-		</tr>
-		<tr>
-			<td class="lbl">Delivery address:</td>
-			<td colspan="5"><div class="ul">&nbsp;</div></td>
+			<td class="box"></td>
 		</tr>
 	</table>
-	<table class="rsi" style="width:100%; margin-top:4px;">
+	<table class="rsi addr-line">
 		<tr>
-			<td class="lbl" style="white-space:nowrap;">Charges incurred for local delivery/release at show site will be paid by:</td>
-			<td><div class="ul">&nbsp;</div></td>
+			<td class="lbl">Delivery address:</td>
+			<td class="line"></td>
+		</tr>
+	</table>
+	<table class="rsi pay-rows">
+		<tr>
+			<td class="lbl">Charges incurred for local delivery/release at show site will be paid by:</td>
+			<td class="line"></td>
 		</tr>
 		<tr>
-			<td class="lbl" style="white-space:nowrap; padding-top:3px;">Pay Duties/Taxes and Hand over to (if applicable):</td>
-			<td style="padding-top:3px;"><div class="ul">&nbsp;</div></td>
+			<td class="lbl">Pay Duties/Taxes and Hand over to (if applicable):</td>
+			<td class="line"></td>
 		</tr>
 	</table>
 
@@ -449,17 +641,18 @@
 		<span class="chk"></span>EXHIBITOR
 		<span class="chk" style="margin-left:36px;"></span>ALTA
 	</div>
-	<div class="important">IMPORTANT: ALL REPACKING MUST BE DONE STRICTLY UNDER THE SUPERVISION OF THE EXHIBITOR</div>
-	<div class="blank-box"></div>
-
-	<div class="footer-note">All business is transacted only in accordance with our Standard Trading Conditions. A copy is available upon request.</div>
-	<table class="rsi sign">
-		<tr>
-			<td><div class="sign-box">&nbsp;</div><div class="sign-cap">Print name, designation</div></td>
-			<td><div class="sign-box">&nbsp;</div><div class="sign-cap">Signature, date</div></td>
-		</tr>
-	</table>
-	<div class="form-code">FM-ALTA-02</div>
+	<div class="closing">
+		<div class="important">IMPORTANT: ALL REPACKING MUST BE DONE STRICTLY UNDER THE SUPERVISION OF THE EXHIBITOR</div>
+		<div class="blank-box"></div>
+		<div class="footer-note">All business is transacted only in accordance with our Standard Trading Conditions. A copy is available upon request.</div>
+		<table class="rsi sign">
+			<tr>
+				<td><div class="sign-box">&nbsp;</div><div class="sign-cap">Print name, designation</div></td>
+				<td><div class="sign-box">&nbsp;</div><div class="sign-cap">Signature, date</div></td>
+			</tr>
+		</table>
+		<div class="form-code">FM-ALTA-02</div>
+	</div>
 </div>
 </body>
 </html>

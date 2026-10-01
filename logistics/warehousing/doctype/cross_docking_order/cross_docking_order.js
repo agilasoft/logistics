@@ -57,20 +57,7 @@ frappe.ui.form.on('Cross-Docking Order', {
       }, __('Action'));
     }
 
-    if (window.logistics && logistics.menu && logistics.menu.is_submitted
-			? logistics.menu.is_submitted(frm)
-			: (!frm.doc.__islocal && frm.doc.docstatus === 1)) {
-      frm.add_custom_button(
-        __('Warehouse Job'),
-        function () {
-          frappe.model.open_mapped_doc({
-            method: "logistics.warehousing.doctype.cross_docking_order.cross_docking_order.make_warehouse_job",
-            frm: frm
-          });
-        },
-        __('Create')
-      );
-    }
+    _cross_docking_order_add_warehouse_job_button(frm);
 
     if (frm.doc.contract && frm.doc.docstatus === 0) {
       frm.add_custom_button(__("Get Charges from Contract"), function () {
@@ -143,6 +130,83 @@ frappe.ui.form.on('Cross-Docking Order', {
     }
   }
 });
+
+function _cross_docking_order_add_warehouse_job_button(frm) {
+  const submitted = window.logistics && logistics.menu && logistics.menu.is_submitted
+    ? logistics.menu.is_submitted(frm)
+    : (!frm.doc.__islocal && frm.doc.docstatus === 1);
+  if (!submitted || !frm.doc.name || String(frm.doc.name).indexOf("new-") === 0) {
+    return;
+  }
+
+  const parent_name = frm.doc.name;
+  if (typeof frm.remove_custom_button === "function") {
+    frm.remove_custom_button(__("Warehouse Job"), __("Create"));
+    frm.remove_custom_button(__("View Warehouse Job"), __("Create"));
+  }
+
+  frm._cdo_warehouse_job_lookup = (frm._cdo_warehouse_job_lookup || 0) + 1;
+  const lookup_id = frm._cdo_warehouse_job_lookup;
+
+  frappe.db.get_list("Warehouse Job", {
+    filters: {
+      reference_order_type: "Cross-Docking Order",
+      reference_order: parent_name,
+      docstatus: ["<", 2],
+    },
+    fields: ["name"],
+    order_by: "creation desc",
+    limit: 1,
+  }).then(function (rows) {
+    if (!frm.doc || frm.doc.name !== parent_name || frm._cdo_warehouse_job_lookup !== lookup_id) {
+      return;
+    }
+    const job_name = rows && rows.length ? rows[0].name : null;
+    if (job_name) {
+      _cross_docking_order_add_job_menu(frm, {
+        label: __("View Warehouse Job"),
+        ptype: "read",
+        action: function () {
+          frappe.set_route("Form", "Warehouse Job", job_name);
+        },
+      });
+      return;
+    }
+    _cross_docking_order_add_create_warehouse_job_button(frm);
+  }).catch(function () {
+    if (!frm.doc || frm.doc.name !== parent_name || frm._cdo_warehouse_job_lookup !== lookup_id) {
+      return;
+    }
+    _cross_docking_order_add_create_warehouse_job_button(frm);
+  });
+}
+
+function _cross_docking_order_add_create_warehouse_job_button(frm) {
+  _cross_docking_order_add_job_menu(frm, {
+    label: __("Warehouse Job"),
+    ptype: "create",
+    action: function () {
+      frappe.model.open_mapped_doc({
+        method: "logistics.warehousing.doctype.cross_docking_order.cross_docking_order.make_warehouse_job",
+        frm: frm,
+      });
+    },
+  });
+}
+
+function _cross_docking_order_add_job_menu(frm, opts) {
+  if (window.logistics && logistics.menu && logistics.menu.add) {
+    logistics.menu.add(frm, {
+      label: opts.label,
+      group: __("Create"),
+      doctype: "Warehouse Job",
+      ptype: opts.ptype,
+      action: opts.action,
+    });
+    return;
+  }
+  frm.add_custom_button(opts.label, opts.action, __("Create"));
+}
 
 function _resolve_item(row) {
   return row.charge_item || row.item_code || row.item || row.item_charge;

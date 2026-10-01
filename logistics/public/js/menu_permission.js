@@ -315,6 +315,7 @@ function _create_target_from_label(frm, label) {
 function _view_target_from_label(label) {
 	var pairs = [
 		[__("View Air Shipment"), "Air Shipment"],
+		[__("View Warehouse Job"), "Warehouse Job"],
 		[__("View Declaration"), "Declaration"],
 		[__("View Declaration Order"), "Declaration Order"],
 		[__("View Sales Quote"), "Sales Quote"],

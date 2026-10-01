@@ -157,7 +157,9 @@ def clone_linked_services_between_parents(
 		get_linked_services_for_booking,
 	)
 	from logistics.utils.linked_service_usage import (
+		USAGE_ROLE_PARENT_BOOKING,
 		USAGE_ROLE_SHIPMENT,
+		is_linked_service_execution_type,
 		record_usages_for_linked_services,
 	)
 
@@ -171,13 +173,15 @@ def clone_linked_services_between_parents(
 			ls_names.append(ls_name)
 	if not ls_names:
 		return mapping
-	# Prefer Shipment role when destination looks like a shipment; else Parent Booking.
-	role = USAGE_ROLE_SHIPMENT
+	# Job/shipment destinations (including Declaration) are Shipment usage → grid Job No.
+	role = USAGE_ROLE_PARENT_BOOKING
 	dest_l = (dest_doctype or "").lower()
-	if "shipment" not in dest_l and "job" not in dest_l:
-		from logistics.utils.linked_service_usage import USAGE_ROLE_PARENT_BOOKING
-
-		role = USAGE_ROLE_PARENT_BOOKING
+	if (
+		is_linked_service_execution_type(dest_doctype)
+		or "shipment" in dest_l
+		or "job" in dest_l
+	):
+		role = USAGE_ROLE_SHIPMENT
 	return record_usages_for_linked_services(
 		ls_names,
 		dest_doctype,
