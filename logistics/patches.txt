@@ -805,7 +805,7 @@ logistics.patches.v3_0_mice_sales_quote_html_rate_align
 # MICE Sales Quote HTML: gap between charge rows matches the header field spacing
 logistics.patches.v3_0_mice_sales_quote_html_charge_row_gap
 # MICE Sales Quote HTML: Specified Charges print as a percent of SPECIFIED CHARGES
-logistics.patches.v3_0_mice_sales_quote_html_specified_charges
+logistics.patches.v3_0_mice_sales_quote_html_specified_charges_percent
 # MICE Sales Quote HTML: remove the BIR acknowledgment footer
 logistics.patches.v3_0_mice_sales_quote_html_no_footer
 # MICE Sales Quote HTML: charge row spacing matches Sales Invoice
@@ -850,4 +850,58 @@ logistics.patches.v3_0_consol_job_profit_html_shipment_columns
 logistics.patches.v3_0_return_shipping_instruction_html_header
 # Return Shipping Instruction HTML: fit the form on one page
 logistics.patches.v3_0_return_shipping_instruction_html_one_page
+# Return Shipping Instruction HTML: tighter vertical spacing
+logistics.patches.v3_0_return_shipping_instruction_html_spacing
+# Return Shipping Instruction HTML: smaller gaps between rows and section bars
+logistics.patches.v3_0_return_shipping_instruction_html_tight_spacing
+# Return Shipping Instruction HTML: no gap between field rows
+logistics.patches.v3_0_return_shipping_instruction_html_no_spacing
+# Return Shipping Instruction HTML: a little space between field rows
+logistics.patches.v3_0_return_shipping_instruction_html_slight_spacing
+# Return Shipping Instruction HTML: more space between field rows
+logistics.patches.v3_0_return_shipping_instruction_html_more_spacing
+# Return Shipping Instruction HTML: wider space between field rows
+logistics.patches.v3_0_return_shipping_instruction_html_wider_spacing
+# Return Shipping Instruction HTML: space around the mode-of-shipment row
+logistics.patches.v3_0_return_shipping_instruction_html_mode_spacing
+# Return Shipping Instruction HTML: aligned destination underlines
+logistics.patches.v3_0_return_shipping_instruction_html_dest_lines
+# Return Shipping Instruction HTML: local delivery company and charge lines
+logistics.patches.v3_0_return_shipping_instruction_html_local_fields
+# Return Shipping Instruction HTML: destination rows aligned with the package grid
+logistics.patches.v3_0_return_shipping_instruction_html_align_dest
+# Return Shipping Instruction HTML: thin consignee and special-instruction lines
+logistics.patches.v3_0_return_shipping_instruction_html_lower_lines
+# Return Shipping Instruction HTML: compact package grid with units outside
+logistics.patches.v3_0_return_shipping_instruction_html_package_grid
+# Return Shipping Instruction HTML: drop the package-grid label divider
+logistics.patches.v3_0_return_shipping_instruction_html_package_border
+# Return Shipping Instruction HTML: restore the package-grid label divider
+logistics.patches.v3_0_return_shipping_instruction_html_package_divider
+# Return Shipping Instruction HTML: package values as separate boxes
+logistics.patches.v3_0_return_shipping_instruction_html_package_boxes
+# Return Shipping Instruction HTML: join the package value cells into one box
+logistics.patches.v3_0_return_shipping_instruction_html_package_joined
+# Return Shipping Instruction HTML: local delivery row split 50/50
+logistics.patches.v3_0_return_shipping_instruction_html_local_columns
+# Return Shipping Instruction HTML: delivery address on one baseline
+logistics.patches.v3_0_return_shipping_instruction_html_delivery_line
+# Return Shipping Instruction HTML: space between Company and Delivery address
+logistics.patches.v3_0_return_shipping_instruction_html_delivery_gap
+# Return Shipping Instruction HTML: space between Inbound Details and No. of packages
+logistics.patches.v3_0_return_shipping_instruction_html_inbound_gap
+# Return Shipping Instruction HTML: space between Exhibitor / Customer Details and Exhibitor
+logistics.patches.v3_0_return_shipping_instruction_html_exhibitor_gap
+# Return Shipping Instruction HTML: shorten the Hall / Booth No. line
+logistics.patches.v3_0_return_shipping_instruction_html_hall_line
+# Return Shipping Instruction HTML: equal Exhibitor, Agent, and Hall / Booth No. lines
+logistics.patches.v3_0_return_shipping_instruction_html_equal_lines
+# Return Shipping Instruction HTML: full-width Exhibitor block lines
+logistics.patches.v3_0_return_shipping_instruction_html_full_lines
+# Return Shipping Instruction HTML: writing lines on the label baseline
+logistics.patches.v3_0_return_shipping_instruction_html_baseline_lines
+# Return Shipping Instruction HTML: full-width second Special instruction line
+logistics.patches.v3_0_return_shipping_instruction_html_special_lines
+# Return Shipping Instruction HTML: space under the Special instruction label line
+logistics.patches.v3_0_return_shipping_instruction_html_special_gap
 

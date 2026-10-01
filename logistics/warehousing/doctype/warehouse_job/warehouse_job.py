@@ -218,9 +218,32 @@ class WarehouseJob(Document):
 	def after_insert(self):
 		"""Create Job Number after document is inserted"""
 		self.create_job_number_if_needed()
+		self._record_cross_dock_shipment_usage()
 		# Save the document to persist the job_number field
 		if self.job_number:
 			self.save(ignore_permissions=True)
+
+	def _record_cross_dock_shipment_usage(self):
+		"""Tag a Cross Dock Warehouse Job as Job No on Linked Services of its Cross-Docking Order."""
+		if (getattr(self, "type", None) or "").strip() != "Cross Dock":
+			return
+		if (getattr(self, "reference_order_type", None) or "").strip() != "Cross-Docking Order":
+			return
+		order_name = (getattr(self, "reference_order", None) or "").strip()
+		job_name = (getattr(self, "name", None) or "").strip()
+		if not order_name or not job_name:
+			return
+		try:
+			from logistics.utils.internal_job_detail_copy import clone_linked_services_between_parents
+
+			clone_linked_services_between_parents(
+				"Cross-Docking Order", order_name, "Warehouse Job", job_name
+			)
+		except Exception:
+			frappe.log_error(
+				title="Cross Dock linked service job link failed",
+				message=frappe.get_traceback(),
+			)
 
 	def after_submit(self):
 		"""Record sustainability metrics after job submission"""

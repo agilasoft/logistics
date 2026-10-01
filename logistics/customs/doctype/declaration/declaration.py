@@ -448,6 +448,7 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 		# Store original job_number to check if it was created
 		original_jcn = self.job_number
 		self.create_job_number_if_needed()
+		self._record_declaration_shipment_usage()
 		
 		# Save the document if Job Number was created
 		if self.job_number and self.job_number != original_jcn:
@@ -470,6 +471,24 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 			)
 			self.flags.reparent_linked_services_from_order = None
 		self.sync_internal_job_details_to_declaration_order()
+
+	def _record_declaration_shipment_usage(self):
+		"""Tag this Declaration as Job No on Linked Services that already point at its order."""
+		order_name = (getattr(self, "declaration_order", None) or "").strip()
+		dec_name = (getattr(self, "name", None) or "").strip()
+		if not order_name or not dec_name:
+			return
+		try:
+			from logistics.utils.internal_job_detail_copy import clone_linked_services_between_parents
+
+			clone_linked_services_between_parents(
+				"Declaration Order", order_name, "Declaration", dec_name
+			)
+		except Exception:
+			frappe.log_error(
+				title="Declaration linked service job link failed",
+				message=frappe.get_traceback(),
+			)
 
 	def sync_internal_job_details_to_declaration_order(self):
 		"""Keep linked Declaration Order Internal Jobs in sync when this Declaration's table changes."""
