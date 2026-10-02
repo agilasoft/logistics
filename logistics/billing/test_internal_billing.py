@@ -26,6 +26,16 @@ from logistics.utils.item_accounts import (
 _REAL_GET_DOC = frappe.get_doc
 
 
+def _with_mapping_get(obj):
+    """Let a SimpleNamespace answer Document-style ``.get`` used by posting helpers."""
+
+    def _get(key, default=None):
+        return getattr(obj, key, default) if isinstance(key, str) else default
+
+    obj.get = _get
+    return obj
+
+
 class TestInternalBillingPostingHeader(FrappeTestCase):
     def _posting_meta(self):
         real_meta = frappe.get_meta("Journal Entry")
@@ -158,7 +168,7 @@ class TestItemAccounts(FrappeTestCase):
         doc.job_type = job_type
         doc.job_no = job_no
         doc.company = cls.company
-        doc.insert(ignore_permissions=True)
+        doc.insert(ignore_permissions=True, ignore_links=True)
 
     def _ensure_jv_job_numbers(self, *job_docs):
         for job in job_docs:
@@ -250,7 +260,18 @@ class TestCreateInternalBillingJV(TestItemAccounts):
             profit_center=None,
             job_number="JCN-IB-LINK",
         )
+        self.linked_job_2 = SimpleNamespace(
+            doctype="Transport Job",
+            name="TJ-IB-LINK-2",
+            company=self.company,
+            cost_center=None,
+            profit_center=None,
+            job_number="TJ-IB-LINK-2",
+        )
         self.splits = [{"revenue": 200.0, "cost": 50.0, "item_code": self.item_code}]
+        for job in (self.main_job, self.linked_job, self.linked_job_2):
+            _with_mapping_get(job)
+        self._ensure_jv_job_numbers(self.main_job, self.linked_job, self.linked_job_2)
 
     def _quote_doc(self):
         return SimpleNamespace(
@@ -271,6 +292,8 @@ class TestCreateInternalBillingJV(TestItemAccounts):
             return self.main_job
         if name == self.linked_job.name:
             return self.linked_job
+        if name == self.linked_job_2.name:
+            return self.linked_job_2
         return _REAL_GET_DOC(doctype, name)
 
     def tearDown(self):
@@ -407,6 +430,74 @@ class TestCreateInternalBillingJV(TestItemAccounts):
 
         self.assertEqual(first.get("created"), 1)
         self.assertEqual(second.get("created"), 0)
+        self.assertIn(self.linked_job.name, second.get("message") or "")
+
+    @patch(
+        "logistics.invoice_integration.internal_billing_recognition_reversal.reverse_recognition_for_internal_billing_je"
+    )
+    @patch("logistics.billing.internal_billing.frappe.get_doc")
+    @patch("logistics.billing.cross_module_billing.iter_internal_job_charge_splits")
+    @patch("logistics.billing.cross_module_billing.get_all_billing_jobs_from_sales_quote")
+    @patch(
+        "logistics.pricing_center.doctype.sales_quote.sales_quote._resolve_main_job_for_sales_quote"
+    )
+    def test_posts_unbilled_linked_job_when_another_already_billed(
+        self,
+        mock_resolve_main,
+        mock_all_jobs,
+        mock_splits,
+        mock_get_doc,
+        _mock_reversal,
+    ):
+        mock_resolve_main.return_value = ("Transport Job", self.main_job.name)
+        mock_splits.return_value = self.splits
+        mock_get_doc.side_effect = self._mock_get_doc
+        jobs = {"current": [("Transport Job", self.linked_job.name)]}
+
+        def _all_jobs(_quote):
+            return list(jobs["current"])
+
+        mock_all_jobs.side_effect = _all_jobs
+
+        original_exists = frappe.db.exists
+        with patch.object(frappe.db, "exists") as mock_exists:
+
+            def _exists(dt, name=None, **kwargs):
+                if dt == "Sales Quote":
+                    return True
+                if dt == "Transport Job":
+                    return True
+                return original_exists(dt, name, **kwargs)
+
+            mock_exists.side_effect = _exists
+            with patch(
+                "logistics.billing.cross_module_billing.resolve_internal_job_main_job",
+                return_value=("Transport Job", self.main_job.name),
+            ):
+                with patch(
+                    "logistics.billing.cross_module_billing.get_main_job_company",
+                    return_value=self.company,
+                ):
+                    first = create_internal_billing_journal_entries_for_quote(self.quote_name)
+                    jobs["current"] = [
+                        ("Transport Job", self.linked_job.name),
+                        ("Transport Job", self.linked_job_2.name),
+                    ]
+                    second = create_internal_billing_journal_entries_for_quote(self.quote_name)
+
+        self.assertEqual(first.get("created"), 1)
+        self.assertEqual(second.get("created"), 1)
+        self.assertNotEqual(first.get("journal_entry"), second.get("journal_entry"))
+        je = frappe.get_doc("Journal Entry", second.get("journal_entry"))
+        cr_rows = [r for r in je.accounts if flt(r.credit_in_account_currency) > 0]
+        self.assertEqual(len(cr_rows), 1)
+        self.assertEqual(flt(cr_rows[0].credit_in_account_currency), 200.0)
+        if frappe.get_meta("Journal Entry Account").get_field("job_number"):
+            self.assertEqual(cr_rows[0].job_number, self.linked_job_2.job_number)
+            self.assertNotEqual(cr_rows[0].job_number, self.linked_job.job_number)
+        else:
+            self.assertIn(self.linked_job_2.name, cr_rows[0].user_remark or "")
+            self.assertNotIn(self.linked_job.name, cr_rows[0].user_remark or "")
 
     def test_missing_item_code_returns_error(self):
         with patch.object(frappe.db, "exists", return_value=True):
@@ -470,6 +561,9 @@ class TestMainJobLinkedScopeBilling(TestItemAccounts):
             profit_center=None,
             job_number="JCN-ASP-LINK",
         )
+        for job in (self.main_job, self.linked_job):
+            _with_mapping_get(job)
+        self._ensure_jv_job_numbers(self.main_job, self.linked_job)
 
     def tearDown(self):
         remark = _internal_billing_jv_user_remark(self.quote_name, None)
@@ -567,6 +661,9 @@ class TestBookingOperationalMainMismatch(TestItemAccounts):
             job_number="JCN-TRJ-LINK",
         )
         self.splits = [{"revenue": 270000.0, "cost": 0, "item_code": self.item_code}]
+        for job in (self.main_job, self.linked_job):
+            _with_mapping_get(job)
+        self._ensure_jv_job_numbers(self.main_job, self.linked_job)
 
     def tearDown(self):
         remark = _internal_billing_jv_user_remark(self.quote_name, None)
