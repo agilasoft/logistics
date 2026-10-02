@@ -1,0 +1,43 @@
+{
+ "actions": [],
+ "creation": "2026-10-02 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "entity_type",
+  "entity_name"
+ ],
+ "fields": [
+  {
+   "fieldname": "entity_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Entity Type",
+   "options": "Consignee\nShipper\nFreight Agent\nCustomer\nCompany\nCommodity\nAir Shipment\nSea Shipment\nTransport Job\nWarehouse Job\nJob Number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "entity_name",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Entity",
+   "options": "entity_type",
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-02 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "Permit Application Tag",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

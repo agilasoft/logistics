@@ -18,3 +18,11 @@ class PermitType(Document):
 		if self.processing_time_days and self.processing_time_days < 0:
 			frappe.throw(_("Processing Time cannot be negative."))
 
+		from logistics.customs.permit_matching import PERMIT_TYPE_FLAGS
+
+		if not any(self.get(fieldname) for fieldname in PERMIT_TYPE_FLAGS):
+			frappe.throw(
+				_("Select at least one Tag Target. Importer is Consignee, Exporter is Shipper, and items are Commodities."),
+				title=_("Tag Targets"),
+			)
+

@@ -79,8 +79,34 @@ function _permit_application_apply_preview_status(frm) {
 	});
 }
 
+function _sync_permit_tag_options(frm) {
+	if (!frm.doc.permit_type) {
+		return;
+	}
+	frappe.call({
+		method: "logistics.customs.permit_matching.allowed_tag_entity_types",
+		args: { permit_type: frm.doc.permit_type },
+		callback(r) {
+			const allowed = r.message || [];
+			const grid = frm.fields_dict.tags && frm.fields_dict.tags.grid;
+			if (!grid) {
+				return;
+			}
+			grid.update_docfield_property("entity_type", "options", allowed.join("\n"));
+			(frm.doc.tags || []).forEach((row) => {
+				if (row.entity_type && allowed.indexOf(row.entity_type) === -1) {
+					frappe.model.set_value(row.doctype, row.name, "entity_type", "");
+					frappe.model.set_value(row.doctype, row.name, "entity_name", "");
+				}
+			});
+			frm.refresh_field("tags");
+		},
+	});
+}
+
 frappe.ui.form.on("Permit Application", {
 	refresh(frm) {
+		_sync_permit_tag_options(frm);
 		if (cint(frm.doc.docstatus) === 0) {
 			frm.set_intro(
 				__(
@@ -112,6 +138,9 @@ frappe.ui.form.on("Permit Application", {
 	},
 	renewal_of(frm) {
 		_schedule_permit_status_preview(frm);
+	},
+	permit_type(frm) {
+		_sync_permit_tag_options(frm);
 	},
 	status(frm) {
 		// Workflow actions update status; re-derive from dates when applicable

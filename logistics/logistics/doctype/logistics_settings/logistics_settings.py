@@ -13,6 +13,7 @@ class LogisticsSettings(Document):
 		self.validate_temperature_limits()
 		self.validate_credit_control_rules()
 		self.validate_container_deposit_accounts()
+		self.validate_permit_alert_rules()
 	
 	def validate_temperature_limits(self):
 		"""Validate that min_temp < max_temp if both are set"""
@@ -38,6 +39,16 @@ class LogisticsSettings(Document):
 			if dt in seen:
 				frappe.throw(_("Duplicate credit rule for DocType {0}.").format(dt))
 			seen.add(dt)
+
+	def validate_permit_alert_rules(self):
+		seen = set()
+		for row in self.get("permit_alert_rules") or []:
+			doctype = row.get("reference_doctype")
+			if not doctype:
+				continue
+			if doctype in seen:
+				frappe.throw(_("Duplicate permit alert rule for {0}.").format(doctype))
+			seen.add(doctype)
 
 	def validate_container_deposit_accounts(self):
 		for fname, label in (

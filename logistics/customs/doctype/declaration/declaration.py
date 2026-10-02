@@ -704,11 +704,18 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 		if not s.block_submit_if_required_permit_not_obtained:
 			return
 		
+		from logistics.customs.permit_matching import best_permit_for_type
+
 		missing_permits = []
 		for permit_req in self.permit_requirements:
-			if permit_req.is_required and not permit_req.is_obtained:
-				permit_type_name = permit_req.permit_type or permit_req.get("planned_permit_type") or "Unknown"
-				missing_permits.append(permit_type_name)
+			if not permit_req.is_required or permit_req.is_obtained:
+				continue
+			ptype = permit_req.permit_type or permit_req.get("planned_permit_type")
+			matched = best_permit_for_type(self, ptype) if ptype else None
+			if matched and matched.get("condition") in ("valid", "expiring", "expired"):
+				# valid/expiring covers the requirement; expired is reported by validate_permit_expiry
+				continue
+			missing_permits.append(ptype or "Unknown")
 		
 		if missing_permits:
 			frappe.throw(
@@ -730,19 +737,32 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 		block_days = s.block_submit_if_permit_expires_within_days
 		warn_days = s.permit_expiring_warn_days
 
+		from logistics.customs.permit_matching import best_permit_for_type
+
 		for permit_req in self.permit_requirements:
-			if not permit_req.is_obtained or not permit_req.expiry_date:
+			ptype = permit_req.permit_type or permit_req.get("planned_permit_type")
+			obtained = bool(permit_req.is_obtained)
+			expiry_date = permit_req.expiry_date if obtained else None
+			if ptype and not (obtained and expiry_date):
+				matched = best_permit_for_type(self, ptype)
+				if matched and matched.get("condition") in ("valid", "expiring", "expired"):
+					obtained = True
+					expiry_date = expiry_date or matched.get("valid_to")
+					if matched.get("condition") == "expired" and not expiry_date and s.block_submit_if_permit_expired:
+						expired.append((ptype or "Unknown", "—"))
+						continue
+			if not obtained or not expiry_date:
 				continue
-			exp_date = getdate(permit_req.expiry_date)
-			ptn = permit_req.permit_type or permit_req.get("planned_permit_type") or "Unknown"
+			exp_date = getdate(expiry_date)
+			ptn = ptype or "Unknown"
 			days_left = date_diff(exp_date, today_date)
 			if days_left < 0:
 				if s.block_submit_if_permit_expired:
-					expired.append((ptn, permit_req.expiry_date))
+					expired.append((ptn, expiry_date))
 			elif block_days > 0 and days_left <= block_days:
-				expiring_blocked.append((ptn, permit_req.expiry_date, days_left))
+				expiring_blocked.append((ptn, expiry_date, days_left))
 			elif warn_days > 0 and days_left <= warn_days:
-				expiring_soon.append((ptn, permit_req.expiry_date, days_left))
+				expiring_soon.append((ptn, expiry_date, days_left))
 
 		if expired:
 			frappe.throw(

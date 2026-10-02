@@ -950,6 +950,15 @@ def get_dashboard_alerts(doctype, docname):
 				"msg": _("{0} ({1}) was {2} day(s) ago.").format(label, val, days_past),
 			})
 
+	# 4. Permits tagged to parties, commodities, or this shipment/job
+	try:
+		from logistics.customs.permit_matching import visible_permit_alerts
+
+		for permit_alert in visible_permit_alerts(doc):
+			alerts.append({"level": permit_alert.get("level") or "warning", "msg": permit_alert.get("msg")})
+	except Exception:
+		frappe.log_error(frappe.get_traceback(), "Permit Alert Dashboard")
+
 	return alerts
 
 

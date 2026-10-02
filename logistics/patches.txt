@@ -948,4 +948,6 @@ logistics.patches.v3_0_consol_job_profit_html_summary_spacing
 logistics.patches.v3_0_consol_job_profit_html_summary_gap
 # Consol Job Profit HTML: gap between PROFIT and SHIPMENT / HOUSE
 logistics.patches.v3_0_consol_job_profit_html_shipment_gap
+# Permit tags: customer applicant and declaration job number, plus a shipment target on existing types
+logistics.patches.v3_0_backfill_permit_application_tags
 

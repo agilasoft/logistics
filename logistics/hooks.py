@@ -56,7 +56,7 @@ app_include_js = [
 	"/assets/logistics/js/linked_services_dialog.js?v=6",
 	"/assets/logistics/js/ts_sq_fetch_dialog.js?v=6",
 	"/assets/logistics/js/freight_agent_service.js?v=4",
-	"/assets/logistics/js/charge_bill_to.js?v=2",
+	"/assets/logistics/js/charge_bill_to.js?v=3",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
 	"/assets/logistics/js/mice_project_manifest_print_preview.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=4",
@@ -382,9 +382,11 @@ doctype_js = {
 		"public/js/user.js",
 		"integrations/outlook/user_outlook.js",
 	],
+	"Lead": "public/js/lead_prospect.js",
 }
 doctype_list_js = {
 	"Time Sensitive Case": "time_sensitive/doctype/time_sensitive_case/time_sensitive_case_list.js",
+	"Lead": "public/js/lead_list.js",
 }
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -485,6 +487,7 @@ doc_events = {
 	},
 	"Prospect": {
 		"onload": "logistics.pricing_center.crm_sales_quote_onload.prospect_onload",
+		"validate": "logistics.pricing_center.lead_prospect.populate_annual_revenue_from_leads",
 	},
 	"Customer": {
 		"validate": "logistics.utils.party_code.validate_customer_supplier_party_code",
@@ -721,6 +724,31 @@ elif isinstance(_wj_bs, list):
 		doc_events["Warehouse Job"]["before_submit"] = list(_wj_bs) + [_WAREHOUSE_JOB_BEFORE_SUBMIT]
 elif _wj_bs != _WAREHOUSE_JOB_BEFORE_SUBMIT:
 	doc_events["Warehouse Job"]["before_submit"] = [_wj_bs, _WAREHOUSE_JOB_BEFORE_SUBMIT]
+
+# Permit tags: block submit when Logistics Settings Permit Alert Rule says Block.
+_PERMIT_ALERT_BEFORE_SUBMIT = "logistics.customs.permit_matching.enforce_permit_alerts_before_submit"
+for _dt in (
+	"Sales Quote",
+	"Air Booking",
+	"Sea Booking",
+	"Transport Order",
+	"Air Shipment",
+	"Sea Shipment",
+	"Transport Job",
+	"Warehouse Job",
+	"Declaration Order",
+	"Declaration",
+):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	_bs = doc_events[_dt].get("before_submit")
+	if not _bs:
+		doc_events[_dt]["before_submit"] = _PERMIT_ALERT_BEFORE_SUBMIT
+	elif isinstance(_bs, list):
+		if _PERMIT_ALERT_BEFORE_SUBMIT not in _bs:
+			doc_events[_dt]["before_submit"] = list(_bs) + [_PERMIT_ALERT_BEFORE_SUBMIT]
+	elif _bs != _PERMIT_ALERT_BEFORE_SUBMIT:
+		doc_events[_dt]["before_submit"] = [_bs, _PERMIT_ALERT_BEFORE_SUBMIT]
 
 append_hook(
 	doc_events,

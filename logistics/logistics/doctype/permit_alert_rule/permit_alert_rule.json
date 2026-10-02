@@ -1,0 +1,70 @@
+{
+ "actions": [],
+ "creation": "2026-10-02 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "reference_doctype",
+  "missing_permit",
+  "pending_permit",
+  "expiring_permit",
+  "expired_permit"
+ ],
+ "fields": [
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Document Type",
+   "options": "Sales Quote\nAir Booking\nSea Booking\nTransport Order\nAir Shipment\nSea Shipment\nTransport Job\nWarehouse Job\nDeclaration Order\nDeclaration",
+   "reqd": 1
+  },
+  {
+   "default": "Ignore",
+   "fieldname": "missing_permit",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Missing",
+   "options": "Ignore\nWarn\nBlock"
+  },
+  {
+   "default": "Ignore",
+   "fieldname": "pending_permit",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Pending",
+   "options": "Ignore\nWarn\nBlock"
+  },
+  {
+   "default": "Ignore",
+   "fieldname": "expiring_permit",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Expiring",
+   "options": "Ignore\nWarn\nBlock"
+  },
+  {
+   "default": "Ignore",
+   "fieldname": "expired_permit",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Expired",
+   "options": "Ignore\nWarn\nBlock"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-02 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Permit Alert Rule",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

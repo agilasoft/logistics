@@ -19,6 +19,8 @@
   "applicant_type",
   "column_break_parties",
   "issuing_authority",
+  "tags_tab",
+  "tags",
   "section_break_dates",
   "valid_from",
   "valid_to",
@@ -130,6 +132,19 @@
    "label": "Issuing Authority",
    "link_filters": "[[\"Issuing Authority\", \"is_active\", \"=\", 1]]",
    "options": "Issuing Authority"
+  },
+  {
+   "fieldname": "tags_tab",
+   "fieldtype": "Tab Break",
+   "label": "Tags"
+  },
+  {
+   "allow_on_submit": 1,
+   "description": "Who or what this permit covers. A permit with no shipment tag is still checked on quotes, bookings, and shipments that share these parties or commodities. Importer = Consignee. Exporter = Shipper. Items = Commodity.",
+   "fieldname": "tags",
+   "fieldtype": "Table",
+   "label": "Tags",
+   "options": "Permit Application Tag"
   },
   {
    "fieldname": "section_break_dates",

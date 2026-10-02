@@ -484,6 +484,29 @@ function logistics_open_sales_quote_booking_dialog(frm) {
 	frappe.require("/assets/logistics/js/sales_quote_booking_dialog.js", _openDlg);
 }
 
+function logistics_show_sales_quote_permit_alerts(frm) {
+	if (!frm || frm.is_new() || !frm.doc.name || !frm.dashboard) {
+		return;
+	}
+	frappe.call({
+		method: "logistics.customs.permit_matching.get_permit_alerts_html",
+		args: { doctype: frm.doctype, docname: frm.doc.name },
+		callback(r) {
+			if (!frm.dashboard || !frm.dashboard.wrapper) {
+				return;
+			}
+			const $host = frm.dashboard.wrapper.find(".permit-entity-alerts");
+			$host.remove();
+			if (!r.message) {
+				return;
+			}
+			frm.dashboard.wrapper.prepend(
+				`<div class="permit-entity-alerts" style="margin-bottom: 8px;">${r.message}</div>`
+			);
+		},
+	});
+}
+
 frappe.ui.form.on("Sales Quote", {
 	_lock_naming_series(frm) {
 		// Keep naming series non-editable in UI; it is controlled by quotation_type logic.
@@ -1133,6 +1156,7 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	refresh(frm) {
+		logistics_show_sales_quote_permit_alerts(frm);
 		logistics_sq_set_company_dimension_queries(frm);
 		setTimeout(function () {
 			try {
