@@ -21,6 +21,12 @@
 			margin-left: 8mm;
 			margin-right: 8mm;
 		}
+		@media screen {
+			.print-format {
+				margin-left: auto;
+				margin-right: auto;
+			}
+		}
 		.print-format table,
 		.print-format table td,
 		.print-format table th,
@@ -121,6 +127,9 @@
 		table.rsi.fields.exhibitor {
 			margin-top: 10px;
 		}
+		table.rsi.fields.local {
+			margin-top: 10px;
+		}
 		table.rsi.eq3 {
 			width: 100%;
 			table-layout: fixed;
@@ -190,6 +199,7 @@
 		}
 		.mode-row {
 			padding: 1px 2px;
+			margin-top: 10px;
 			font-size: 8pt;
 		}
 		.tick-note {
@@ -237,35 +247,33 @@
 			font-weight: 700;
 			font-size: 7.5pt;
 			padding: 1px 4px 2px;
+			margin-top: 10px;
 		}
 		.blank-box {
 			border: 1px solid #000;
 			height: 28px;
 			width: 100%;
 			background: #fff;
+			margin-top: 10px;
 		}
 		.footer-note {
 			text-align: center;
 			font-size: 7.5pt;
 			padding: 1px 8px 0;
+			margin-top: 10px;
 		}
 		.closing {
 			page-break-inside: avoid;
 		}
 		table.rsi.sign {
 			width: 100%;
-			margin-top: 8px;
+			margin-top: 10px;
 		}
 		table.rsi.sign td {
 			width: 46%;
 			padding-right: 16px;
 		}
 		table.rsi.sign td:last-child { padding-right: 0; }
-		.form-code {
-			text-align: right;
-			font-size: 7.5pt;
-			margin-top: 0;
-		}
 		.sign-box {
 			border: 1px solid #000;
 			height: 32px;
@@ -307,10 +315,17 @@
 		}
 		table.rsi.local-fields td.box {
 			border: 1px solid #000;
-			height: 16px;
+			height: 18px;
 			vertical-align: middle;
 		}
-		table.rsi.local-fields tr:first-child td.lbl {
+		table.rsi.fields.local-fields > tbody > tr > td {
+			padding-top: 0 !important;
+			padding-bottom: 0 !important;
+			vertical-align: middle;
+		}
+		table.rsi.fields.local-fields td.lbl {
+			width: 1%;
+			padding-right: 6px !important;
 			vertical-align: middle;
 		}
 		table.rsi.local-fields td.line {
@@ -354,7 +369,7 @@
 			border-bottom: 1px solid #000;
 		}
 		table.rsi.addr-line tr + tr td.line {
-			padding-top: 10px !important;
+			padding-top: 18px !important;
 		}
 		.under {
 			border-bottom: 1px solid #000;
@@ -391,6 +406,7 @@
 		table.rsi.pkg td.unit {
 			width: 26px;
 			padding-left: 4px !important;
+			vertical-align: middle;
 		}
 	</style>
 </head>
@@ -424,12 +440,32 @@
 					No. 3 Sta. Agueda Ave., Pascor Drive<br>
 					Paranaque City, Philippines 1700<br>
 					T +632 551 4646 | F +632 831 7408<br>
-					Email: altafairs@atn.com.ph
+					Email: alta@atn.com.ph
 				</div>
 			</td>
 		</tr>
 	</table>
 
+	{% set rsi = namespace(agent_name="", address_line="", phone="", fax="", contact_person="") %}
+	{% if doc.customer %}
+		{% set rsi.agent_name = frappe.db.get_value("Customer", doc.customer, "customer_name") or "" %}
+	{% endif %}
+	{% set exhibitor_customer = frappe.db.get_value("Customer", doc.exhibitor, ["customer_primary_address", "customer_primary_contact"], as_dict=1) if doc.exhibitor else none %}
+	{% if exhibitor_customer and exhibitor_customer.customer_primary_address %}
+		{% set exhibitor_address = frappe.db.get_value("Address", exhibitor_customer.customer_primary_address, ["address_line1", "address_line2", "city", "state", "country", "pincode", "phone", "fax"], as_dict=1) %}
+		{% if exhibitor_address %}
+			{% set rsi.address_line = ", ".join([exhibitor_address.address_line1, exhibitor_address.address_line2, exhibitor_address.city, exhibitor_address.state, exhibitor_address.country, exhibitor_address.pincode] | select | map("string")) %}
+			{% set rsi.phone = exhibitor_address.phone or "" %}
+			{% set rsi.fax = exhibitor_address.fax or "" %}
+		{% endif %}
+	{% endif %}
+	{% if exhibitor_customer and exhibitor_customer.customer_primary_contact %}
+		{% set exhibitor_contact = frappe.db.get_value("Contact", exhibitor_customer.customer_primary_contact, ["first_name", "last_name", "mobile_no"], as_dict=1) %}
+		{% if exhibitor_contact %}
+			{% set contact_name = " ".join([exhibitor_contact.first_name or "", exhibitor_contact.last_name or ""]) | trim %}
+			{% set rsi.contact_person = contact_name ~ ((" / " ~ exhibitor_contact.mobile_no) if contact_name and exhibitor_contact.mobile_no else (exhibitor_contact.mobile_no or "")) %}
+		{% endif %}
+	{% endif %}
 	<div class="bar section-bar">Exhibitor / Customer Details</div>
 	<table class="rsi eq3">
 		<col style="width:12%">
@@ -440,57 +476,111 @@
 		<col style="width:20%">
 		<tr>
 			<td class="lbl">Exhibitor:</td>
-			<td class="line"></td>
+			<td class="line">{{ doc.exhibitor_name or "" }}</td>
 			<td class="lbl" style="padding-left:8px;">Agent:</td>
-			<td class="line"></td>
+			<td class="line">{{ rsi.agent_name }}</td>
 			<td class="lbl hall-lbl" style="padding-left:8px;">Hall / Booth No.:</td>
-			<td class="line"></td>
+			<td class="line">{{ doc.booth_no or "" }}</td>
 		</tr>
 	</table>
 	<table class="rsi fields exhibitor-rest">
 		<tr>
 			<td class="lbl">Address:</td>
-			<td class="line" colspan="3"></td>
+			<td class="line" colspan="3">{{ rsi.address_line }}</td>
 		</tr>
 		<tr>
 			<td class="lbl">Tel:</td>
-			<td class="line" style="width:20%;"></td>
+			<td class="line" style="width:20%;">{{ rsi.phone }}</td>
 			<td class="lbl" style="padding-left:8px;">Fax:</td>
-			<td class="line"></td>
+			<td class="line">{{ rsi.fax }}</td>
 		</tr>
 	</table>
 	<table class="rsi fields exhibitor-rest">
 		<tr>
 			<td class="lbl">Contact person at the venue / cellphone:</td>
-			<td class="line"></td>
+			<td class="line">{{ rsi.contact_person }}</td>
 		</tr>
 	</table>
 
+	{% macro rsi_amount(value, uom="") -%}
+	{%- set n = frappe.utils.flt(value) -%}
+	{%- if n -%}{{ "%g" | format(n) }}{% if uom %} {{ uom }}{% endif %}{%- endif -%}
+	{%- endmacro %}
+	{% set container_bits = namespace(items=[]) %}
+	{% for row in doc.containers or [] %}
+		{% set container_no = row.container_no or "" %}
+		{% set container_size = row.size or "" %}
+		{% set container_bit = (container_no ~ " / " ~ container_size) if container_no and container_size else (container_no or container_size) %}
+		{% if container_bit and container_bit not in container_bits.items %}
+			{% set container_bits.items = container_bits.items + [container_bit] %}
+		{% endif %}
+	{% endfor %}
+	{% set package_refs = namespace(items=[]) %}
+	{% for row in doc.packages or [] %}
+		{% if row.reference_no and row.reference_no not in package_refs.items %}
+			{% set package_refs.items = package_refs.items + [row.reference_no] %}
+		{% endif %}
+	{% endfor %}
+	{% set linked = namespace(items=[]) %}
+	{% if doc.name %}
+		{% set linked.items = frappe.get_all("Linked Service", filters={"parent_booking_type": "Docket", "parent_booking_name": doc.name}, fields=["name", "airline", "shipping_line", "origin_port", "reference_no"], order_by="creation asc") %}
+		{% set seen_services = namespace(names=[]) %}
+		{% for service in linked.items %}
+			{% set seen_services.names = seen_services.names + [service.name] %}
+		{% endfor %}
+		{% if frappe.db.exists("DocType", "Linked Service Usage") %}
+			{% set usage_rows = frappe.get_all("Linked Service Usage", filters={"used_on_doctype": "Docket", "used_on_name": doc.name}, fields=["parent"], order_by="creation asc") %}
+			{% for usage in usage_rows %}
+				{% if usage.parent and usage.parent not in seen_services.names %}
+					{% set seen_services.names = seen_services.names + [usage.parent] %}
+					{% set extra_services = frappe.get_all("Linked Service", filters={"name": usage.parent}, fields=["name", "airline", "shipping_line", "origin_port", "reference_no"]) %}
+					{% if extra_services %}
+						{% set linked.items = linked.items + extra_services %}
+					{% endif %}
+				{% endif %}
+			{% endfor %}
+		{% endif %}
+	{% endif %}
+	{% set vessel_bits = namespace(items=[]) %}
+	{% set port_bits = namespace(items=[]) %}
+	{% set bl_bits = namespace(items=[]) %}
+	{% for service in linked.items %}
+		{% set carrier = service.airline or service.shipping_line or "" %}
+		{% if carrier and carrier not in vessel_bits.items %}
+			{% set vessel_bits.items = vessel_bits.items + [carrier] %}
+		{% endif %}
+		{% if service.origin_port and service.origin_port not in port_bits.items %}
+			{% set port_bits.items = port_bits.items + [service.origin_port] %}
+		{% endif %}
+		{% if service.reference_no and service.reference_no not in bl_bits.items %}
+			{% set bl_bits.items = bl_bits.items + [service.reference_no] %}
+		{% endif %}
+	{% endfor %}
 	<div class="bar section-bar">Inbound Details</div>
 	<table class="rsi fields stack">
 		<tr>
 			<td class="lbl">No. of packages:</td>
-			<td class="line pad-r" style="width:32%;"></td>
+			<td class="line pad-r" style="width:32%;">{{ rsi_amount(doc.total_packages) }}</td>
 			<td class="lbl">Vessel/Flight:</td>
-			<td class="line"></td>
+			<td class="line">{{ vessel_bits.items | join(", ") }}</td>
 		</tr>
 		<tr>
 			<td class="lbl">Volume:</td>
-			<td class="line pad-r" style="width:32%;"></td>
+			<td class="line pad-r" style="width:32%;">{{ rsi_amount(doc.total_volume, doc.total_volume_uom) }}</td>
 			<td class="lbl">Port/ Airport of loading:</td>
-			<td class="line"></td>
+			<td class="line">{{ port_bits.items | join(", ") }}</td>
 		</tr>
 		<tr>
 			<td class="lbl">Actual/Vol. weight:</td>
-			<td class="line pad-r" style="width:32%;"></td>
+			<td class="line pad-r" style="width:32%;">{{ rsi_amount(doc.chargeable, doc.chargeable_weight_uom) }}</td>
 			<td class="lbl">Reference No.:</td>
-			<td class="line"></td>
+			<td class="line">{{ package_refs.items | join(", ") }}</td>
 		</tr>
 		<tr>
 			<td class="lbl">Container No./size:</td>
-			<td class="line pad-r" style="width:32%;"></td>
+			<td class="line pad-r" style="width:32%;">{{ container_bits.items | join(", ") }}</td>
 			<td class="lbl">BL/AWB/Ref No.:</td>
-			<td class="line"></td>
+			<td class="line">{{ bl_bits.items | join(", ") }}</td>
 		</tr>
 	</table>
 
@@ -548,15 +638,15 @@
 			</td>
 		</tr>
 		<tr>
-			<td class="party" style="padding-right:8px;">
-				<table class="rsi addr-line" style="margin-top:0;">
+			<td style="width:48%; padding-right:10px; vertical-align:bottom;">
+				<table class="rsi addr-line" style="margin-top:0; width:auto;">
 					<tr>
-						<td class="lbl">Consignee:</td>
-						<td class="line"></td>
+						<td class="lbl" style="padding-left:0;">Consignee:</td>
+						<td class="line" style="width:90px;"></td>
 					</tr>
 				</table>
 			</td>
-			<td class="party" style="padding-left:8px;">
+			<td style="padding-left:8px; vertical-align:bottom;">
 				<table class="rsi addr-line" style="margin-top:0;">
 					<tr>
 						<td class="lbl">Notify party:</td>
@@ -574,7 +664,7 @@
 	</table>
 
 	<div class="bar section-bar">Outbound Details - Local Delivery / Release at Site</div>
-	<table class="rsi fields">
+	<table class="rsi fields local">
 		<tr>
 			<td style="width:50%; padding-right:8px; vertical-align:top;">
 				<table class="rsi pkg">
@@ -611,10 +701,10 @@
 	<table class="rsi fields gap-top local-fields">
 		<tr>
 			<td class="lbl">Company</td>
-			<td class="box" style="width:34%;"></td>
-			<td class="lbl" style="width:52px; padding-left:8px;">Contact</td>
-			<td class="box" style="width:28%;"></td>
-			<td class="lbl" style="width:28px; padding-left:8px;">Tel:</td>
+			<td class="box" style="width:31%;"></td>
+			<td class="lbl" style="padding-left:8px;">Contact</td>
+			<td class="box" style="width:25%;"></td>
+			<td class="lbl" style="padding-left:8px;">Tel:</td>
 			<td class="box"></td>
 		</tr>
 	</table>
@@ -629,6 +719,8 @@
 			<td class="lbl">Charges incurred for local delivery/release at show site will be paid by:</td>
 			<td class="line"></td>
 		</tr>
+	</table>
+	<table class="rsi addr-line">
 		<tr>
 			<td class="lbl">Pay Duties/Taxes and Hand over to (if applicable):</td>
 			<td class="line"></td>
@@ -651,7 +743,6 @@
 				<td><div class="sign-box">&nbsp;</div><div class="sign-cap">Signature, date</div></td>
 			</tr>
 		</table>
-		<div class="form-code">FM-ALTA-02</div>
 	</div>
 </div>
 </body>

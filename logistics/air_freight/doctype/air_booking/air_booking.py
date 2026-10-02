@@ -1378,8 +1378,10 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 				)
 
 			from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
+			from logistics.utils.linked_service_charge_parties import apply_linked_service_charge_parties
 
 			sync_operational_exchange_rates_from_charge_rows(self, self.charges)
+			apply_linked_service_charge_parties(self)
 			
 			# Return count of charges added (don't show message here, let fetch_quotations handle it)
 			return charges_added

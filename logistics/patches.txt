@@ -904,4 +904,48 @@ logistics.patches.v3_0_return_shipping_instruction_html_baseline_lines
 logistics.patches.v3_0_return_shipping_instruction_html_special_lines
 # Return Shipping Instruction HTML: space under the Special instruction label line
 logistics.patches.v3_0_return_shipping_instruction_html_special_gap
+# Return Shipping Instruction HTML: space the Special Requirement closing block
+logistics.patches.v3_0_return_shipping_instruction_html_closing_gap
+# Return Shipping Instruction HTML: fill Exhibitor details from the Docket
+logistics.patches.v3_0_return_shipping_instruction_html_exhibitor_values
+# Return Shipping Instruction HTML: fill Inbound Details from the Docket
+logistics.patches.v3_0_return_shipping_instruction_html_inbound_values
+# Return Shipping Instruction HTML: load linked services without get_attr
+logistics.patches.v3_0_return_shipping_instruction_html_inbound_fix
+# Return Shipping Instruction HTML: header email alta@atn.com.ph
+logistics.patches.v3_0_return_shipping_instruction_html_header_email
+# Return Shipping Instruction HTML: center Company, Contact, and Tel on their boxes
+logistics.patches.v3_0_return_shipping_instruction_html_company_boxes
+# Return Shipping Instruction HTML: wider gap under Special instruction
+logistics.patches.v3_0_return_shipping_instruction_html_special_gap_wide
+# Return Shipping Instruction HTML: a little more width on the Tel box
+logistics.patches.v3_0_return_shipping_instruction_html_tel_width
+# Return Shipping Instruction HTML: align Consignee with Actual/Vol. weight
+logistics.patches.v3_0_return_shipping_instruction_html_consignee_align
+# Return Shipping Instruction HTML: align the package grid and Consignee
+logistics.patches.v3_0_return_shipping_instruction_html_pkg_align
+# Return Shipping Instruction HTML: align Consignee and Notify party
+logistics.patches.v3_0_return_shipping_instruction_html_party_align
+# Return Shipping Instruction HTML: match Pay Duties to Delivery address
+logistics.patches.v3_0_return_shipping_instruction_html_pay_duties_line
+# Return Shipping Instruction HTML: space No. of packages below Local Delivery
+logistics.patches.v3_0_return_shipping_instruction_html_local_gap
+# Return Shipping Instruction HTML: remove the FM-ALTA-02 form code
+logistics.patches.v3_0_return_shipping_instruction_html_remove_form_code
+# Return Shipping Instruction HTML: center the print preview page
+logistics.patches.v3_0_return_shipping_instruction_html_center_page
+# Consol Job Profit HTML: cargo, revenue, and profit margins in three columns
+logistics.patches.v3_0_consol_job_profit_html_summary_columns
+# Consol Job Profit HTML: center Profit Margins in its column
+logistics.patches.v3_0_consol_job_profit_html_margins_center
+# Consol Job Profit HTML: 8mm margin on the screen preview
+logistics.patches.v3_0_consol_job_profit_html_preview_margin
+# Consol Job Profit HTML: CHARGE SUMMARY on the same line as the amount titles
+logistics.patches.v3_0_consol_job_profit_html_charge_header
+# Consol Job Profit HTML: space around the consol summary block
+logistics.patches.v3_0_consol_job_profit_html_summary_spacing
+# Consol Job Profit HTML: gap under the CONSOL SUMMARY bar
+logistics.patches.v3_0_consol_job_profit_html_summary_gap
+# Consol Job Profit HTML: gap between PROFIT and SHIPMENT / HOUSE
+logistics.patches.v3_0_consol_job_profit_html_shipment_gap
 

@@ -10,6 +10,10 @@ from typing import Any
 import frappe
 from frappe.utils import flt, strip_html
 
+from logistics.mice.print_format.consol_job_profit_html.consol_job_profit_html import (
+	_linked_service_rows,
+)
+
 
 def get_mice_project_manifest_rows(mice_project) -> list[dict[str, Any]]:
 	"""Return one manifest row dict per non-cancelled Docket on the MICE Project."""
@@ -47,16 +51,17 @@ def _build_row(dk: dict[str, Any], org_name: str) -> dict[str, str]:
 	exhibitor_label = (dk.get("exhibitor_name") or "").strip()
 	description = _docket_description(dk)
 	billing_invoice = (dk.get("sales_invoice") or "").strip()
+	freight = _freight_columns(dk)
 
 	return {
 		"job_no": (dk.get("job_number") or "").strip() or "-",
 		"exhibitor": exhibitor_label or "-",
-		"agent": "-",
+		"agent": freight["agent"] or "-",
 		"org": org_name or "-",
-		"eta_mnl": "-",
-		"clearance_date": "-",
-		"awb_bl": "-",
-		"vsl_flight": "-",
+		"eta_mnl": freight["eta_mnl"] or "-",
+		"clearance_date": freight["clearance_date"] or "-",
+		"awb_bl": freight["awb_bl"] or "-",
+		"vsl_flight": freight["vsl_flight"] or "-",
 		"qty_pkgs": _format_qty(dk.get("total_packages")),
 		"g_weight_kg": _format_weight(dk),
 		"volume_cbm": _format_volume(dk),
@@ -65,6 +70,193 @@ def _build_row(dk: dict[str, Any], org_name: str) -> dict[str, str]:
 		"contact": "",
 		"billing_invoice": billing_invoice or "-",
 	}
+
+
+def _freight_columns(dk: dict[str, Any]) -> dict[str, str]:
+	"""Agent, ETA, clearance, house document, and vessel or flight for one Docket."""
+	docket_name = (dk.get("name") or "").strip()
+	services = _linked_service_rows("Docket", docket_name) if docket_name else []
+	service_names = [name for name in ((row.get("name") or "").strip() for row in services) if name]
+	shipment = _primary_shipment(service_names)
+	declarations = _declaration_rows(service_names, dk.get("job_number"))
+
+	awb_bl = _house_number(shipment) or _first_text(declarations, "transport_document_number")
+	eta = (shipment or {}).get("eta") or _first_value(declarations, "eta")
+	vsl_flight = _vessel_flight(shipment) or _first_text(declarations, "vessel_flight_number")
+
+	return {
+		"agent": _agent_label(services),
+		"eta_mnl": _format_manifest_date(eta),
+		"clearance_date": _clearance_date(declarations),
+		"awb_bl": awb_bl,
+		"vsl_flight": vsl_flight,
+	}
+
+
+def _agent_label(services: list[dict[str, Any]]) -> str:
+	agent_id = ""
+	for service in services:
+		agent_id = (service.get("freight_agent") or service.get("freight_agent_sea") or "").strip()
+		if agent_id:
+			break
+	if not agent_id:
+		return ""
+	if not frappe.db.exists("DocType", "Freight Agent"):
+		return agent_id
+	name = frappe.db.get_value("Freight Agent", agent_id, "freight_agent_name")
+	return (name or "").strip() or agent_id
+
+
+def _primary_shipment(service_names: list[str]) -> dict[str, Any] | None:
+	"""First non-cancelled Air Shipment on these services, else the first Sea Shipment."""
+	if not service_names:
+		return None
+	air = _first_shipment(
+		"Air Shipment",
+		service_names,
+		["name", "house_awb_no", "house_awb", "eta"],
+	)
+	if air:
+		air["mode"] = "air"
+		return air
+	sea = _first_shipment(
+		"Sea Shipment",
+		service_names,
+		["name", "house_bl", "eta", "master_bill"],
+	)
+	if sea:
+		sea["mode"] = "sea"
+		return sea
+	return None
+
+
+def _first_shipment(doctype: str, service_names: list[str], fields: list[str]) -> dict[str, Any] | None:
+	if not frappe.db.exists("DocType", doctype):
+		return None
+	rows = frappe.get_all(
+		doctype,
+		filters={"linked_service": ["in", service_names], "docstatus": ["<", 2]},
+		fields=fields,
+		order_by="creation asc",
+		limit=1,
+	)
+	return rows[0] if rows else None
+
+
+def _house_number(shipment: dict[str, Any] | None) -> str:
+	if not shipment:
+		return ""
+	if shipment.get("mode") == "air":
+		return (shipment.get("house_awb_no") or shipment.get("house_awb") or "").strip()
+	return (shipment.get("house_bl") or "").strip()
+
+
+def _vessel_flight(shipment: dict[str, Any] | None) -> str:
+	if not shipment:
+		return ""
+	parent = (shipment.get("name") or "").strip()
+	if shipment.get("mode") == "air":
+		for leg in _routing_legs("Air Shipment Routing Leg", "Air Shipment", parent):
+			flight = (leg.get("flight_no") or "").strip()
+			if flight:
+				return flight
+		return ""
+	for leg in _routing_legs("Sea Shipment Routing Leg", "Sea Shipment", parent):
+		label = _vessel_label(leg.get("vessel"), leg.get("voyage_no"))
+		if label:
+			return label
+	return _master_bill_vessel(shipment.get("master_bill"))
+
+
+def _routing_legs(doctype: str, parenttype: str, parent: str) -> list[dict[str, Any]]:
+	if not parent or not frappe.db.exists("DocType", doctype):
+		return []
+	return frappe.get_all(
+		doctype,
+		filters={"parent": parent, "parenttype": parenttype, "parentfield": "routing_legs"},
+		fields=["flight_no", "vessel", "voyage_no"],
+		order_by="idx asc",
+	)
+
+
+def _master_bill_vessel(master_bill: str | None) -> str:
+	name = (master_bill or "").strip()
+	if not name or not frappe.db.exists("DocType", "Master Bill"):
+		return ""
+	row = frappe.db.get_value("Master Bill", name, ["vessel", "voyage_no"], as_dict=True)
+	if not row:
+		return ""
+	return _vessel_label(row.get("vessel"), row.get("voyage_no"))
+
+
+def _vessel_label(vessel, voyage) -> str:
+	vessel_text = (vessel or "").strip()
+	voyage_text = (voyage or "").strip()
+	if vessel_text and voyage_text:
+		return f"{vessel_text} / {voyage_text}"
+	return vessel_text or voyage_text
+
+
+def _declaration_rows(service_names: list[str], job_number: str | None) -> list[dict[str, Any]]:
+	if not frappe.db.exists("DocType", "Declaration"):
+		return []
+	fields = [
+		"name",
+		"eta",
+		"actual_clearance_date",
+		"expected_clearance_date",
+		"transport_document_number",
+		"vessel_flight_number",
+	]
+	rows: list[dict[str, Any]] = []
+	if service_names:
+		rows = frappe.get_all(
+			"Declaration",
+			filters={"linked_service": ["in", service_names], "docstatus": ["<", 2]},
+			fields=fields,
+			order_by="creation asc",
+		)
+	job = (job_number or "").strip()
+	if not rows and job:
+		rows = frappe.get_all(
+			"Declaration",
+			filters={"job_number": job, "docstatus": ["<", 2]},
+			fields=fields,
+			order_by="creation asc",
+		)
+	return rows
+
+
+def _clearance_date(declarations: list[dict[str, Any]]) -> str:
+	for row in declarations:
+		value = row.get("actual_clearance_date") or row.get("expected_clearance_date")
+		if value:
+			return _format_manifest_date(value)
+	return ""
+
+
+def _first_text(rows: list[dict[str, Any]], fieldname: str) -> str:
+	for row in rows:
+		text = (row.get(fieldname) or "").strip()
+		if text:
+			return text
+	return ""
+
+
+def _first_value(rows: list[dict[str, Any]], fieldname: str):
+	for row in rows:
+		value = row.get(fieldname)
+		if value:
+			return value
+	return None
+
+
+def _format_manifest_date(value) -> str:
+	"""Column date as ``30-SEP-2026``."""
+	day = _as_date(value)
+	if not day:
+		return ""
+	return f"{day.day:02d}-{_MONTHS[day.month - 1][:3]}-{day.year}"
 
 
 def _project_name(mice_project) -> str:
