@@ -746,6 +746,23 @@ for _dt in ("Air Booking", "Sea Booking", "Air Shipment", "Sea Shipment", "Proje
 	elif _bs != _OER_BEFORE_SAVE:
 		doc_events[_dt]["before_save"] = [_bs, _OER_BEFORE_SAVE]
 
+# Linked Service bookings/orders: Bill To = Main company, empty Pay To = Linked Service company.
+# First save only (see on_before_save_linked_service_charge_parties).
+_LS_CHARGE_PARTIES_BEFORE_SAVE = (
+	"logistics.utils.linked_service_charge_parties.on_before_save_linked_service_charge_parties"
+)
+for _dt in ("Air Booking", "Sea Booking", "Transport Order", "Declaration Order"):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	_bs = doc_events[_dt].get("before_save")
+	if not _bs:
+		doc_events[_dt]["before_save"] = _LS_CHARGE_PARTIES_BEFORE_SAVE
+	elif isinstance(_bs, list):
+		if _LS_CHARGE_PARTIES_BEFORE_SAVE not in _bs:
+			doc_events[_dt]["before_save"] = list(_bs) + [_LS_CHARGE_PARTIES_BEFORE_SAVE]
+	elif _bs != _LS_CHARGE_PARTIES_BEFORE_SAVE:
+		doc_events[_dt]["before_save"] = [_bs, _LS_CHARGE_PARTIES_BEFORE_SAVE]
+
 # Internal job → Main Service rollup: push planned / actual cost & revenue from an internal job's
 # charges onto its Main Service's Internal Jobs row. Covers every operational doctype that can be
 # flagged ``is_internal_job=1`` with a ``main_job_type`` + ``main_job`` link.

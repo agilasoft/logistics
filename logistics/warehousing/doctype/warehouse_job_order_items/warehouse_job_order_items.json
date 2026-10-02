@@ -104,7 +104,7 @@
    "label": "Batch Expiry"
   },
   {
-   "depends_on": "eval:parent.type=='Pick' || parent.type=='Putaway'",
+   "depends_on": "eval:parent.type=='Pick' || parent.type=='Putaway' || parent.type=='Cross Dock'",
    "fieldname": "handling_unit",
    "fieldtype": "Link",
    "in_list_view": 1,

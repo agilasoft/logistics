@@ -47,17 +47,22 @@ def _ports_to_validate_for_direction(
 	origin_port: str | None,
 	destination_port: str | None,
 ) -> list[tuple[str, str]]:
+	"""Return the ports that must fall inside freight-agent coverage.
+
+	Import checks Origin Port only. Export checks Destination Port only.
+	Domestic, blank, and unknown directions check origin, then destination.
+	"""
 	direction = _strip(direction)
 	origin_port = _strip(origin_port)
 	destination_port = _strip(destination_port)
 	ports: list[tuple[str, str]] = []
 
 	if direction == "Import":
-		if destination_port:
-			ports.append((_("Destination Port"), destination_port))
-	elif direction == "Export":
 		if origin_port:
 			ports.append((_("Origin Port"), origin_port))
+	elif direction == "Export":
+		if destination_port:
+			ports.append((_("Destination Port"), destination_port))
 	elif direction == "Domestic":
 		if origin_port:
 			ports.append((_("Origin Port"), origin_port))

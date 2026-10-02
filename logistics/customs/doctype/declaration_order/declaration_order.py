@@ -583,6 +583,9 @@ class DeclarationOrder(VirtualLinkedServicesMixin, Document):
 				for fn, val in scope_vals.items():
 					if fn in charge_fields and val is not None:
 						row.set(fn, val)
+			from logistics.utils.linked_service_charge_parties import apply_linked_service_charge_parties
+
+			apply_linked_service_charge_parties(self)
 		except Exception as e:
 			frappe.log_error(f"Error populating Declaration Order charges from Sales Quote: {str(e)}")
 

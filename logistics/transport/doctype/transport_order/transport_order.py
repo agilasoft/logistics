@@ -1534,6 +1534,10 @@ class TransportOrder(VirtualLinkedServicesMixin, Document):
                     self.append("charges", charge_row)
                     charges_added += 1
 
+            from logistics.utils.linked_service_charge_parties import apply_linked_service_charge_parties
+
+            apply_linked_service_charge_parties(self)
+
             if charges_added > 0:
                 frappe.msgprint(
                     f"Successfully populated {charges_added} charges from Sales Quote: {self.sales_quote}",

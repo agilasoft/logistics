@@ -1226,8 +1226,10 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 					charges_added += 1
 
 			from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
+			from logistics.utils.linked_service_charge_parties import apply_linked_service_charge_parties
 
 			sync_operational_exchange_rates_from_charge_rows(self, self.charges)
+			apply_linked_service_charge_parties(self)
 
 			# Don't show success message here - it's called automatically during validation
 			# The frontend will show a user-friendly message when the user explicitly selects a quote
@@ -1341,8 +1343,10 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 					charges_added += 1
 
 			from logistics.utils.operational_exchange_rates import sync_operational_exchange_rates_from_charge_rows
+			from logistics.utils.linked_service_charge_parties import apply_linked_service_charge_parties
 
 			sync_operational_exchange_rates_from_charge_rows(self, self.charges)
+			apply_linked_service_charge_parties(self)
 			
 			# Don't show success message here - it's called automatically during validation
 			# The frontend will show a user-friendly message when the user explicitly selects a quote

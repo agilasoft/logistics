@@ -9,7 +9,6 @@
 		font-size: 11px;
 		line-height: 1.05;
 	}
-	.print-format { padding: 0 !important; }
 	.profit-wrap .company { font-size: 15px; font-weight: 700; line-height: 1.05; }
 	.profit-wrap .doc-title { font-size: 18px; font-weight: 700; line-height: 1.05; }
 	.profit-wrap .project-name { font-size: 13px; line-height: 1.05; }
@@ -30,11 +29,11 @@
 		line-height: 1.05;
 		letter-spacing: 0.02em;
 		padding: 1px 3px !important;
-		margin: 2px 0 0 0;
+		margin: 2px 0 8px 0;
 		-webkit-print-color-adjust: exact;
 		print-color-adjust: exact;
 	}
-	.profit-wrap table.summary { margin-top: 1px; }
+	.profit-wrap table.summary { margin-top: 6px; }
 	.profit-wrap table.summary td.lbl { font-weight: 700; white-space: nowrap; }
 	.profit-wrap table.summary td.val { white-space: nowrap; }
 	.profit-wrap table.summary td.num {
@@ -50,12 +49,12 @@
 		line-height: 1;
 		padding-bottom: 0 !important;
 	}
-	.profit-wrap .margins { font-weight: 700; text-align: right; }
+	.profit-wrap .margins { font-weight: 700; text-align: center; }
 	.profit-wrap .margins.pct { font-weight: 400; }
 	.profit-wrap table.cargo { margin-top: 0; }
 	.profit-wrap table.cargo td { white-space: nowrap; }
 	.profit-wrap table.cargo td.lbl { font-weight: 700; }
-	.profit-wrap table.ships { margin-top: 3px; }
+	.profit-wrap > table.sheet.ships { margin-top: 8px; }
 	.profit-wrap table.ships td.job { font-weight: 700; }
 	.profit-wrap table.ships tr.ship-gap td { padding-top: 2px !important; }
 	.profit-wrap table.charges { margin-top: 6px; }
@@ -81,8 +80,13 @@
 		font-weight: 700;
 		padding-top: 4px !important;
 	}
+	.profit-wrap table.charges thead th,
+	.print-format table.charges thead th {
+		vertical-align: middle !important;
+	}
 </style>
 <style media="screen">
+	.print-format { padding: 8mm !important; }
 	.profit-wrap table.sheet {
 		width: 100% !important;
 		border-collapse: collapse !important;
@@ -146,6 +150,7 @@
 	.profit-wrap table.summary td.side { vertical-align: top !important; padding: 0 !important; }
 </style>
 <style media="print">
+	.print-format { padding: 0 !important; }
 	.profit-wrap table.sheet {
 		width: 100% !important;
 		border-collapse: collapse !important;
@@ -237,8 +242,9 @@
 	<div class="bar">CONSOL SUMMARY</div>
 	<table class="sheet summary">
 		<colgroup>
-			<col style="width: 62%;">
-			<col style="width: 38%;">
+			<col style="width: 42%;">
+			<col style="width: 33%;">
+			<col style="width: 25%;">
 		</colgroup>
 		<tr>
 			<td class="side">
@@ -276,69 +282,63 @@
 			<td class="side">
 				<table class="sheet summary">
 					<colgroup>
-						<col style="width: 28%;">
-						<col style="width: 32%;">
-						<col style="width: 20%;">
-						<col style="width: 20%;">
+						<col style="width: 48%;">
+						<col style="width: 52%;">
 					</colgroup>
 					<tr>
 						<td class="lbl">Revenue</td>
 						<td class="num">{{ format_consol_job_profit_amount(summary.revenue) }}</td>
-						<td></td>
-						<td></td>
 					</tr>
 					<tr>
 						<td class="lbl">WIP</td>
 						<td class="num">{{ format_consol_job_profit_amount(summary.wip) }}</td>
-						<td></td>
-						<td></td>
 					</tr>
 					<tr>
 						<td class="lbl">INCOME</td>
 						<td class="rule">{{ format_consol_job_profit_amount(summary.income) }}</td>
-						<td></td>
-						<td></td>
 					</tr>
 					<tr>
 						<td class="lbl">Cost</td>
 						<td class="num">{{ format_consol_job_profit_amount(summary.cost) }}</td>
-						<td></td>
-						<td></td>
 					</tr>
 					<tr>
 						<td class="lbl">Accrual</td>
 						<td class="num">{{ format_consol_job_profit_amount(summary.accrual) }}</td>
-						<td></td>
-						<td></td>
 					</tr>
 					<tr>
 						<td class="lbl">EXPENSE</td>
 						<td class="rule">{{ format_consol_job_profit_amount(summary.expense) }}</td>
-						<td></td>
-						<td></td>
-					</tr>
-					<tr>
-						<td></td>
-						<td></td>
-						<td class="margins" colspan="2">Profit Margins</td>
 					</tr>
 					<tr>
 						<td class="lbl">REV - CST</td>
 						<td class="num">{{ format_consol_job_profit_amount(summary.rev_cst) }}</td>
-						<td class="margins pct">Profit/Cost</td>
-						<td class="margins pct">Profit/Rev</td>
 					</tr>
 					<tr>
 						<td class="lbl">WIP - ACR</td>
 						<td class="num">{{ format_consol_job_profit_amount(summary.wip_acr) }}</td>
-						<td class="margins pct">{{ summary.profit_cost_pct }}</td>
-						<td class="margins pct">{{ summary.profit_rev_pct }}</td>
 					</tr>
 					<tr>
 						<td class="lbl">PROFIT</td>
 						<td class="rule">{{ format_consol_job_profit_amount(summary.profit) }}</td>
-						<td></td>
-						<td></td>
+					</tr>
+				</table>
+			</td>
+			<td class="side">
+				<table class="sheet summary">
+					<colgroup>
+						<col style="width: 50%;">
+						<col style="width: 50%;">
+					</colgroup>
+					<tr>
+						<td class="margins" colspan="2">Profit Margins</td>
+					</tr>
+					<tr>
+						<td class="margins pct">Profit/Cost</td>
+						<td class="margins pct">Profit/Rev</td>
+					</tr>
+					<tr>
+						<td class="margins pct">{{ summary.profit_cost_pct }}</td>
+						<td class="margins pct">{{ summary.profit_rev_pct }}</td>
 					</tr>
 				</table>
 			</td>
