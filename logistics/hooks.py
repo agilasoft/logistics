@@ -64,6 +64,7 @@ app_include_js = [
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
 	"/assets/logistics/js/menu_permission.js?v=10",
+	"/assets/logistics/js/linked_posting_actions.js?v=1",
 	"/assets/logistics/js/submitted_child_doc_toolbar.js?v=1",
 	"/assets/logistics/js/internal_job_create_from_source.js?v=22",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js?v=2",

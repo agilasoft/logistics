@@ -546,3 +546,91 @@ def create_internal_billing_for_quote(
         trigger_si=None,
         posting_date=posting_date or today(),
     )
+
+
+LINKED_POSTING_ACTION_DOCTYPES = (
+    "Transport Job",
+    "Air Shipment",
+    "Sea Shipment",
+    "Declaration",
+    "Docket",
+)
+
+
+def _charge_value(row, fieldname: str):
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return row.get(fieldname)
+    return getattr(row, fieldname, None)
+
+
+def non_cost_bill_tos(doc) -> List[str]:
+    """Distinct Bill To customers on non-Cost charge rows, first-seen order."""
+    charges = doc.get("charges") if hasattr(doc, "get") else getattr(doc, "charges", None)
+    names: List[str] = []
+    seen = set()
+    for row in charges or []:
+        if (_charge_value(row, "charge_type") or "").strip() == "Cost":
+            continue
+        bill_to = (_charge_value(row, "bill_to") or "").strip()
+        if not bill_to or bill_to in seen:
+            continue
+        seen.add(bill_to)
+        names.append(bill_to)
+    return names
+
+
+def classify_linked_posting_actions(doc, customer_rows: Dict[str, Dict[str, Any]]) -> Dict[str, bool]:
+    """Which Post buttons a Linked service should show.
+
+    Internal Billing: a Bill To customer's Represents Company equals this document's company.
+    Intercompany Transactions: a Bill To does not represent this company (a blank Represents
+    Company counts as different) and Is Internal Customer is unchecked.
+    A Bill To that represents a different company and is marked internal shows neither button.
+    Main and standalone documents show neither.
+    """
+    from logistics.utils.service_role_rules import SERVICE_ROLE_LINKED, get_service_role
+
+    hidden = {"internal_billing": False, "intercompany": False}
+    if get_service_role(doc) != SERVICE_ROLE_LINKED:
+        return hidden
+
+    company = (getattr(doc, "company", None) or "").strip()
+    internal_billing = False
+    intercompany = False
+    for bill_to in non_cost_bill_tos(doc):
+        row = customer_rows.get(bill_to) or {}
+        if not row:
+            continue
+        represents = (row.get("represents_company") or "").strip()
+        if represents and represents == company:
+            internal_billing = True
+        elif cint(row.get("is_internal_customer")) == 0:
+            intercompany = True
+    return {"internal_billing": internal_billing, "intercompany": intercompany}
+
+
+def _customer_rows_for_bill_tos(bill_tos: List[str]) -> Dict[str, Dict[str, Any]]:
+    if not bill_tos:
+        return {}
+    rows = frappe.get_all(
+        "Customer",
+        filters={"name": ["in", bill_tos]},
+        fields=["name", "represents_company", "is_internal_customer"],
+        ignore_permissions=True,
+    )
+    return {row.name: row for row in rows}
+
+
+@frappe.whitelist()
+def get_linked_posting_actions(doctype: str, name: str) -> Dict[str, bool]:
+    """Return which linked posting buttons to show for this operational document."""
+    if doctype not in LINKED_POSTING_ACTION_DOCTYPES:
+        frappe.throw(_("Invalid document type: {0}").format(doctype))
+    if not name or not frappe.db.exists(doctype, name):
+        frappe.throw(_("{0} {1} does not exist.").format(doctype, name))
+    from logistics.utils.menu_permission import assert_source_read
+
+    doc = assert_source_read(doctype, name)
+    return classify_linked_posting_actions(doc, _customer_rows_for_bill_tos(non_cost_bill_tos(doc)))

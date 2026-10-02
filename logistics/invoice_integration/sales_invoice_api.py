@@ -4,7 +4,7 @@
 
 """
 Create Sales Invoice from logistics job/shipment with dialog: header details and charge selection.
-Charges are pre-filtered by header (e.g. customer/bill_to, invoice_type).
+Charges are pre-filtered by invoice type when the charge row sets one. Bill To does not hide charges.
 """
 
 import frappe
@@ -88,15 +88,15 @@ SALES_CHARGES_CHILD_DOCTYPE = {
 SI_EXCLUDED_STATUSES = ("Requested", "Posted", "Paid")
 
 # (charges_field, revenue_field, rate_field, qty_field, item_field, item_name_field, bill_to_field, invoice_type_field)
-# bill_to_field and invoice_type_field used to pre-filter when customer/invoice_type provided
+# invoice_type_field pre-filters when invoice_type is provided. bill_to_field is not used to hide charges.
 SALES_CHARGE_CONFIG = {
     "Transport Job": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", "bill_to", None),
-    "Air Shipment": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", None, "invoice_type"),
+    "Air Shipment": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", "bill_to", "invoice_type"),
     # Sea Shipment currently uses item_code/item_name/estimated_revenue in child rows.
     # Keep downstream logic backward-compatible with legacy fields (charge_item/charge_name/selling_amount).
     "Sea Shipment": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", "bill_to", "invoice_type"),
     "Warehouse Job": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", None, None),
-    "Declaration": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", None, None),
+    "Declaration": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", "bill_to", None),
     # Special Project Charges mirror the operational doc shape (item_code, estimated_revenue, unit_rate, quantity, bill_to, invoice_type).
     "Special Project": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", "bill_to", "invoice_type"),
     # MICE Project Charges (used by Docket) share the same shape as Sea Shipment / Special Project.
@@ -104,12 +104,65 @@ SALES_CHARGE_CONFIG = {
 }
 
 
+def _charge_field(row, fieldname):
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return row.get(fieldname)
+    return getattr(row, fieldname, None)
+
+
+def _header_invoice_customer(job):
+    """Customer on the job header. Docket prefers exhibitor when local_customer is empty."""
+    return (
+        getattr(job, "local_customer", None)
+        or getattr(job, "exhibitor", None)
+        or getattr(job, "customer", None)
+    )
+
+
+def _default_invoice_customer(job):
+    """Customer for a Sales Invoice created from this job.
+
+    A Linked Service satellite bills the charge Bill To (the Main company as a
+    customer). One distinct Bill To is used as-is. Several use the most common,
+    then the first seen. Cost-only rows are ignored. With no Bill To, and for
+    Main or standalone jobs, the header customer is kept.
+    """
+    header = _header_invoice_customer(job)
+    from logistics.utils.service_role_rules import is_linked_service_satellite
+
+    if not job or not is_linked_service_satellite(job):
+        return header
+
+    charges = job.get("charges") if hasattr(job, "get") else getattr(job, "charges", None)
+    bill_tos = []
+    for row in charges or []:
+        if (_charge_field(row, "charge_type") or "").strip() == "Cost":
+            continue
+        bill_to = (_charge_field(row, "bill_to") or "").strip()
+        if bill_to:
+            bill_tos.append(bill_to)
+    if not bill_tos:
+        return header
+
+    counts = {}
+    for name in bill_tos:
+        counts[name] = counts.get(name, 0) + 1
+    top = max(counts.values())
+    for name in bill_tos:
+        if counts[name] == top:
+            return name
+    return header
+
+
 def _get_eligible_revenue_rows(job, config, customer=None, invoice_type=None):
     """Return list of (idx, ch, revenue, item_code, item_name, ...) for charges with revenue > 0, item set, not already requested/posted/paid.
-    For Sea Shipment, filter by customer (bill_to) and invoice_type when provided.
-    A charge with a blank invoice type is included for any selected invoice type.
+
+    Bill To does not exclude a charge. A charge with a blank invoice type is included for any selected invoice type.
+    ``customer`` is accepted for callers that still pass the dialog customer; it does not filter rows.
     """
-    charges_field, revenue_field, rate_field, qty_field, item_field, item_name_field, bill_to_field, invoice_type_field = config
+    charges_field, revenue_field, rate_field, qty_field, item_field, item_name_field, _bill_to_field, invoice_type_field = config
     charges = list(job.get(charges_field) or [])
     rows = []
     for idx, ch in enumerate(charges):
@@ -137,12 +190,6 @@ def _get_eligible_revenue_rows(job, config, customer=None, invoice_type=None):
         item_code = getattr(ch, item_field, None) or getattr(ch, "charge_item", None)
         if not item_code:
             continue
-        # Pre-filter by header details (Sea Shipment: bill_to, invoice_type)
-        if customer and bill_to_field:
-            bill_to = getattr(ch, bill_to_field, None)
-            # Empty bill_to: charge is not scoped to a customer (include for any selected customer)
-            if bill_to and bill_to != customer:
-                continue
         if invoice_type and invoice_type_field:
             ch_inv_type = (getattr(ch, invoice_type_field, None) or "").strip()
             # Blank invoice type: charge is not scoped (include for any selected invoice type).
@@ -161,7 +208,8 @@ def get_eligible_charges_for_sales_invoice(
     invoice_type: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Return list of eligible revenue charges for SI creation, optionally pre-filtered by customer and invoice_type.
+    Return list of eligible revenue charges for SI creation, optionally pre-filtered by invoice_type.
+    Bill To does not hide charges. ``customer`` still selects the default invoice customer.
     Used by the Create Sales Invoice dialog.
     """
     if job_type not in SALES_JOB_DOCTYPES:
@@ -176,13 +224,9 @@ def get_eligible_charges_for_sales_invoice(
     if not config:
         frappe.throw(_("Sales Invoice creation not supported for {0}.").format(job_type))
 
-    # Default customer from job/shipment
     # Docket bills the exhibitor by default (the `customer` field on Docket is the account customer fetched from Exhibit).
-    default_customer = (
-        getattr(job, "local_customer", None)
-        or getattr(job, "exhibitor", None)
-        or getattr(job, "customer", None)
-    )
+    # Linked Service satellites bill the charge Bill To instead of the Main's customer copied onto the header.
+    default_customer = _default_invoice_customer(job)
     if not customer:
         customer = default_customer
 

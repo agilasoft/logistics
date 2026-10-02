@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import frappe
+from frappe.tests import UnitTestCase
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import flt
 
@@ -15,7 +16,9 @@ from logistics.billing.internal_billing import (
     _append_revenue_transfer_rows,
     _apply_internal_billing_posting_header,
     _internal_billing_jv_user_remark,
+    classify_linked_posting_actions,
     create_internal_billing_journal_entries_for_quote,
+    non_cost_bill_tos,
 )
 from logistics.utils.item_accounts import (
     get_expense_account_for_item,
@@ -239,6 +242,14 @@ class TestRevenueTransferRows(FrappeTestCase):
         self.assertEqual(cr["account"], "Inc-ACC")
         self.assertEqual(flt(cr["credit_in_account_currency"]), 150.0)
         self.assertEqual(cr["job_number"], "JCN-LINK")
+
+    def test_sea_shipment_reads_item_code_before_legacy_charge_item(self):
+        from logistics.billing.cross_module_billing import _charge_row_item_code
+
+        current = SimpleNamespace(item_code="SEA-ITEM", charge_item=None)
+        self.assertEqual(_charge_row_item_code(current, "Sea Shipment"), "SEA-ITEM")
+        legacy = SimpleNamespace(charge_item="LEGACY-ITEM")
+        self.assertEqual(_charge_row_item_code(legacy, "Sea Shipment"), "LEGACY-ITEM")
 
 
 class TestCreateInternalBillingJV(TestItemAccounts):
@@ -744,3 +755,82 @@ class TestBookingOperationalMainMismatch(TestItemAccounts):
         je = frappe.get_doc("Journal Entry", result.get("journal_entry"))
         self.assertEqual(len(je.accounts), 2)
         self.assertEqual(flt(je.accounts[0].debit_in_account_currency), 270000.0)
+
+
+class TestLinkedPostingActions(UnitTestCase):
+    def test_non_cost_bill_tos_skip_cost_and_duplicates(self):
+        doc = frappe._dict(
+            charges=[
+                frappe._dict(charge_type="Revenue", bill_to="ATN"),
+                frappe._dict(charge_type="Cost", bill_to="Brand X"),
+                frappe._dict(charge_type="Margin", bill_to="ATN"),
+                frappe._dict(charge_type="Disbursement", bill_to="Harbor"),
+                frappe._dict(charge_type="Revenue", bill_to=""),
+            ]
+        )
+        self.assertEqual(non_cost_bill_tos(doc), ["ATN", "Harbor"])
+
+    def test_main_service_hides_both_buttons(self):
+        doc = frappe._dict(service_role="Main", company="Op Co", charges=[])
+        flags = classify_linked_posting_actions(
+            doc,
+            {"ATN": {"represents_company": "Op Co", "is_internal_customer": 1}},
+        )
+        self.assertEqual(flags, {"internal_billing": False, "intercompany": False})
+
+    def test_same_company_shows_internal_billing(self):
+        doc = frappe._dict(
+            service_role="Linked",
+            company="Op Co",
+            charges=[frappe._dict(charge_type="Revenue", bill_to="ATN")],
+        )
+        flags = classify_linked_posting_actions(
+            doc,
+            {"ATN": {"represents_company": "Op Co", "is_internal_customer": 1}},
+        )
+        self.assertTrue(flags["internal_billing"])
+        self.assertFalse(flags["intercompany"])
+
+    def test_external_different_company_shows_intercompany(self):
+        doc = frappe._dict(
+            service_role="Linked",
+            company="Op Co",
+            charges=[frappe._dict(charge_type="Revenue", bill_to="Harbor")],
+        )
+        flags = classify_linked_posting_actions(
+            doc,
+            {"Harbor": {"represents_company": "", "is_internal_customer": 0}},
+        )
+        self.assertFalse(flags["internal_billing"])
+        self.assertTrue(flags["intercompany"])
+
+    def test_internal_customer_of_another_company_shows_neither(self):
+        doc = frappe._dict(
+            service_role="Linked",
+            company="Op Co",
+            charges=[frappe._dict(charge_type="Revenue", bill_to="Main Internal")],
+        )
+        flags = classify_linked_posting_actions(
+            doc,
+            {"Main Internal": {"represents_company": "Main Co", "is_internal_customer": 1}},
+        )
+        self.assertEqual(flags, {"internal_billing": False, "intercompany": False})
+
+    def test_mixed_bill_to_shows_both(self):
+        doc = frappe._dict(
+            service_role="Linked",
+            company="Op Co",
+            charges=[
+                frappe._dict(charge_type="Revenue", bill_to="ATN"),
+                frappe._dict(charge_type="Margin", bill_to="Harbor"),
+            ],
+        )
+        flags = classify_linked_posting_actions(
+            doc,
+            {
+                "ATN": {"represents_company": "Op Co", "is_internal_customer": 1},
+                "Harbor": {"represents_company": None, "is_internal_customer": 0},
+            },
+        )
+        self.assertTrue(flags["internal_billing"])
+        self.assertTrue(flags["intercompany"])

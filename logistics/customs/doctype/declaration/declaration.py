@@ -202,8 +202,10 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 
 		register_charge_resolution_parent(self)
 		try:
+			from logistics.utils.commercial_invoice_totals import throw_if_invoice_qty_is_zero
 			from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 
+			throw_if_invoice_qty_is_zero(self)
 			validate_internal_job_main_link_unchanged(self)
 			self._validate_declaration_order_unique()
 			self._guard_from_booking_milestone_edits()
@@ -410,10 +412,10 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 		# Exemptions first: total_payable uses get_total_exempted_amount() (row total_exempted).
 		self.calculate_exemptions()
 		self.calculate_total_payable()
-		self.calculate_declaration_value()
 		from logistics.utils.commercial_invoice_totals import apply_commercial_invoice_totals
 
 		apply_commercial_invoice_totals(self)
+		self.calculate_declaration_value()
 		self.calculate_sustainability_metrics()
 		self._enforce_mutually_exclusive_processing_dates()
 		self.update_processing_dates()
@@ -990,8 +992,10 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 			return
 		total_value = 0
 		if self.commercial_invoice_line_items:
+			from logistics.utils.commercial_invoice_totals import positive_invoice_qty
+
 			for row in self.commercial_invoice_line_items:
-				qty = flt(row.invoice_qty or row.customs_qty or 1)
+				qty = positive_invoice_qty(row)
 				price = flt(row.price or 0)
 				total_value += qty * price
 		self.declaration_value = self._invoice_amount_to_declaration_currency(total_value)
@@ -2083,9 +2087,11 @@ def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 	if existing_invoice and declaration.job_number:
 		frappe.throw(_("Sales Invoice {0} already exists for this Declaration.").format(existing_invoice))
 	
-	# Create Sales Invoice
+	# Create Sales Invoice. Linked Service satellites bill the charge Bill To.
+	from logistics.invoice_integration.sales_invoice_api import _default_invoice_customer
+
 	si = frappe.new_doc("Sales Invoice")
-	si.customer = declaration.customer
+	si.customer = _default_invoice_customer(declaration)
 	si.company = declaration.company
 	si.posting_date = today()
 	

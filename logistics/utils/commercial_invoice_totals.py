@@ -9,6 +9,7 @@ import json
 from typing import Any
 
 import frappe
+from frappe import _
 from frappe.utils import cint, flt, today
 
 DEDUCTION_CHARGE_CODES = frozenset({"DIS", "DED"})
@@ -40,10 +41,52 @@ def _charge_row_amount_in_inv_currency(row: Any, inv_currency: str, posting_date
 	return amount * rate if rate else amount
 
 
+def positive_invoice_qty(row: Any) -> float:
+	"""Invoice qty when greater than 0, otherwise customs qty when that is greater than 0.
+
+	A qty of 0 is not treated as missing, so it is not replaced by 1.
+	"""
+	invoice_qty = flt(_row_value(row, "invoice_qty"))
+	if invoice_qty > 0:
+		return invoice_qty
+	customs_qty = flt(_row_value(row, "customs_qty"))
+	if customs_qty > 0:
+		return customs_qty
+	return 0.0
+
+
+def invoice_qty_is_explicit_zero(row: Any) -> bool:
+	"""True when invoice qty was set to 0. Blank (None or empty) stays allowed."""
+	if isinstance(row, dict):
+		if "invoice_qty" not in row:
+			return False
+		raw = row.get("invoice_qty")
+	else:
+		raw = _row_value(row, "invoice_qty", None)
+		if raw is None and hasattr(row, "__dict__") and "invoice_qty" not in row.__dict__:
+			return False
+	if raw is None or (isinstance(raw, str) and not raw.strip()):
+		return False
+	return flt(raw) == 0
+
+
+def throw_if_invoice_qty_is_zero(doc: Any) -> None:
+	"""Reject a commercial invoice line whose invoice qty is 0."""
+	rows = doc.get("commercial_invoice_line_items") if hasattr(doc, "get") else None
+	if rows is None:
+		rows = getattr(doc, "commercial_invoice_line_items", None) or []
+	for idx, row in enumerate(rows or [], start=1):
+		if invoice_qty_is_explicit_zero(row):
+			frappe.throw(
+				_("Row {0}: Invoice Qty must be greater than 0.").format(idx),
+				title=_("Invalid Invoice Qty"),
+			)
+
+
 def calculate_expected_invoice_line_total(doc: Any) -> float:
 	total = 0.0
 	for row in doc.get("commercial_invoice_line_items") or []:
-		qty = flt(_row_value(row, "invoice_qty") or _row_value(row, "customs_qty") or 1)
+		qty = positive_invoice_qty(row)
 		price = flt(_row_value(row, "price"))
 		total += qty * price
 	return total
@@ -85,27 +128,35 @@ def calculate_commercial_invoice_totals(doc: Any) -> dict[str, float | str]:
 		else:
 			post_fob_additions += amount
 
+	has_lines = invoice_line_row_count(doc) > 0
+	typed_inv_total = flt(
+		_row_value(doc, "inv_total_amount") if not isinstance(doc, dict) else doc.get("inv_total_amount")
+	)
+	inv_total = line_total if has_lines else typed_inv_total
+
 	if line_total:
 		base = line_total
 	else:
-		base = flt(_row_value(doc, "inv_total_amount") if not isinstance(doc, dict) else doc.get("inv_total_amount"))
+		base = inv_total
 
 	fob = max(base + fob_additions - deductions, 0)
 	cif = max(fob + post_fob_additions, 0)
 
-	inv_total = flt(_row_value(doc, "inv_total_amount") if not isinstance(doc, dict) else doc.get("inv_total_amount"))
 	if inv_total:
 		allocated = line_total + charges_for_itot
 		balance = f"{inv_total - allocated:.2f}"
 	else:
 		balance = ""
 
-	return {
+	totals = {
 		"expected_invoice_line_total": line_total,
 		"fob": fob,
 		"cif": cif,
 		"balance": balance,
 	}
+	if has_lines:
+		totals["inv_total_amount"] = line_total
+	return totals
 
 
 def invoice_line_row_count(doc: Any) -> int:

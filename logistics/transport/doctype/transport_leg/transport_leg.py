@@ -213,7 +213,8 @@ class TransportLeg(Document):
                 "Container Yard": "containeryard_primary_address",
                 "Container Depot": "containerdepot_primary_address",
                 "Container Freight Station": "cfs_primary_address",
-                "Transport Terminal": "transportterminal_primary_address"
+                "Transport Terminal": "transportterminal_primary_address",
+                "Storage Facility": "storagefacility_primary_address",
             }
             
             # Get the primary address field name for this facility type
@@ -227,7 +228,7 @@ class TransportLeg(Document):
                 if primary_address:
                     return primary_address
             
-            # Fallback: For facility types without primary address fields (Storage Facility, Truck Park)
+            # Fallback: For facility types without primary address fields (Truck Park)
             # or if primary address is not set, get addresses linked to this facility
             addresses = frappe.get_all("Address",
                 filters={
@@ -855,7 +856,8 @@ def get_primary_address(facility_type: str, facility_name: str):
             "Consignee": "consignee_primary_address", 
             "Container Yard": "containeryard_primary_address",
             "Container Depot": "containerdepot_primary_address",
-            "Container Freight Station": "cfs_primary_address"
+            "Container Freight Station": "cfs_primary_address",
+            "Storage Facility": "storagefacility_primary_address",
         }
         
         # Get the primary address field name for this facility type
@@ -869,7 +871,7 @@ def get_primary_address(facility_type: str, facility_name: str):
             if primary_address:
                 return primary_address
         
-        # Fallback: For facility types without primary address fields (Storage Facility, Truck Park)
+        # Fallback: For facility types without primary address fields (Truck Park)
         # or if primary address is not set, get addresses linked to this facility
         addresses = frappe.get_all("Address",
             filters={

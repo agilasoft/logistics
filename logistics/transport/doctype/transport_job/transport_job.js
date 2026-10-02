@@ -930,62 +930,8 @@ frappe.ui.form.on('Transport Job', {
 						});
 						},
 					});
-					if (frm.doc.sales_quote && frm.doc.company) {
-						logistics.menu.add(frm, {
-							label: __('Intercompany Transactions'),
-							group: __('Post'),
-							ptype: 'write',
-							also: [{ doctype: 'Journal Entry', ptype: 'create' }],
-							action: function() {
-							frappe.call({
-								method: 'logistics.intercompany.intercompany_invoice.create_intercompany_invoices_for_quote',
-								args: {
-									sales_quote_name: frm.doc.sales_quote,
-									posting_date: frappe.datetime.get_today()
-								},
-								callback: function(r) {
-									if (r.message) {
-										var msg = r.message.message || __('Intercompany invoices processed');
-										if (r.message.created > 0) {
-											msg = __('Created {0} intercompany invoice(s).', [r.message.created]);
-										} else if (r.message.errors && r.message.errors.length) {
-											msg = r.message.errors[0];
-										}
-										var indicator = (r.message.created > 0) ? 'green' : (r.message.errors && r.message.errors.length ? 'orange' : 'blue');
-										frappe.show_alert({ message: msg, indicator: indicator }, 8);
-										frm.reload_doc();
-									}
-								}
-							});
-							},
-						});
-						logistics.menu.add(frm, {
-							label: __('Internal Billing'),
-							group: __('Post'),
-							ptype: 'write',
-							also: [{ doctype: 'Journal Entry', ptype: 'create' }],
-							action: function() {
-							frappe.call({
-								method: 'logistics.billing.internal_billing.create_internal_billing_for_quote',
-								args: {
-									sales_quote_name: frm.doc.sales_quote,
-									posting_date: frappe.datetime.get_today()
-								},
-								callback: function(r) {
-									if (r.message) {
-										var msg = r.message.message || __('Internal billing processed');
-										if (r.message.journal_entries && r.message.journal_entries.length) {
-											msg = __('Created Journal Entries: {0}.', [r.message.journal_entries.join(', ')]);
-										} else if (r.message.journal_entry) {
-											msg = __('Created Journal Entry {0}.', [r.message.journal_entry]);
-										}
-										frappe.show_alert({ message: msg, indicator: 'blue' }, 5);
-										frm.reload_doc();
-									}
-								}
-							});
-							},
-						});
+					if (window.logistics && logistics.posting && logistics.posting.add_linked_buttons) {
+						logistics.posting.add_linked_buttons(frm);
 					}
 					_transport_job_add_recognition_buttons(frm);
 				}
