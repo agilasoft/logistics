@@ -8,7 +8,17 @@
  "field_order": [
   "code",
   "facility_name",
-  "is_active"
+  "is_active",
+  "addresses_and_contacts_tab",
+  "addresses_and_contacts",
+  "address_html",
+  "column_break_addr",
+  "contact_html",
+  "section_break_primary",
+  "storagefacility_primary_address",
+  "primary_address",
+  "column_break_contact",
+  "storagefacility_primary_contact"
  ],
  "fields": [
   {
@@ -28,12 +38,60 @@
    "fieldtype": "Check",
    "in_standard_filter": 1,
    "label": "Is Active"
+  },
+  {
+   "fieldname": "addresses_and_contacts_tab",
+   "fieldtype": "Tab Break",
+   "label": "Addresses & Contacts"
+  },
+  {
+   "fieldname": "addresses_and_contacts",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "address_html",
+   "fieldtype": "HTML",
+   "label": "Addresses"
+  },
+  {
+   "fieldname": "column_break_addr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "contact_html",
+   "fieldtype": "HTML",
+   "label": "Contacts"
+  },
+  {
+   "fieldname": "section_break_primary",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "storagefacility_primary_address",
+   "fieldtype": "Link",
+   "label": "Primary Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "primary_address",
+   "fieldtype": "Long Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_contact",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "storagefacility_primary_contact",
+   "fieldtype": "Link",
+   "label": "Primary Contact",
+   "options": "Contact"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-30 05:14:52.504503",
+ "modified": "2026-10-02 15:11:00.000000",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Storage Facility",
@@ -54,6 +112,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "facility_name",
  "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",

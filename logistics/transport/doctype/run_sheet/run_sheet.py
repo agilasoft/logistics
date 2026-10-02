@@ -1001,7 +1001,8 @@ def _get_primary_address(facility_type, facility_name):
 			"Container Yard": "containeryard_primary_address",
 			"Container Depot": "containerdepot_primary_address",
 			"Container Freight Station": "cfs_primary_address",
-			"Transport Terminal": "transportterminal_primary_address"
+			"Transport Terminal": "transportterminal_primary_address",
+			"Storage Facility": "storagefacility_primary_address",
 		}
 		
 		# Get the primary address field name for this facility type

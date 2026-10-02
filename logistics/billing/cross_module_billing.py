@@ -253,9 +253,10 @@ def resolve_operational_job_for_linked_service(
 
 
 def _charge_row_item_code(ch, job_type: str) -> Optional[str]:
+    # Sea Shipment Charges use item_code. Older rows may still have charge_item.
     if job_type == "Sea Shipment":
-        return getattr(ch, "charge_item", None)
-    return getattr(ch, "item_code", None) or getattr(ch, "item", None)
+        return getattr(ch, "item_code", None) or getattr(ch, "charge_item", None)
+    return getattr(ch, "item_code", None) or getattr(ch, "item", None) or getattr(ch, "charge_item", None)
 
 
 def _charge_row_revenue(ch, job_type: str, *, include_estimated: bool = False) -> float:
@@ -376,11 +377,11 @@ def iter_internal_job_charge_splits(
 
     When ``prefer_actual`` is True (internal billing JV), only posted actual revenue/cost
     amounts are used — estimated booking amounts are excluded.
+    ``customer`` is kept for callers and does not exclude charge rows.
     """
     if not job_type or not job_name or not frappe.db.exists(job_type, job_name):
         return
     doc = frappe.get_doc(job_type, job_name)
-    customer = customer or getattr(doc, "customer", None) or getattr(doc, "local_customer", None)
     include_estimated = not prefer_actual
 
     if job_type == "Transport Job":
@@ -402,12 +403,8 @@ def iter_internal_job_charge_splits(
             yield {"revenue": rev, "cost": cost, "item_code": item_code}
 
     elif job_type == "Sea Shipment":
-        from logistics.utils.charges_calculation import get_charge_bill_to_customers
-
         for ch in doc.get("charges") or []:
-            if customer and customer not in get_charge_bill_to_customers(ch):
-                continue
-            item_code = getattr(ch, "charge_item", None)
+            item_code = _charge_row_item_code(ch, job_type)
             rev = _charge_row_revenue(ch, job_type, include_estimated=include_estimated)
             cost = _charge_row_cost(ch, job_type, include_estimated=include_estimated)
             if rev <= 0 and cost <= 0:
@@ -451,13 +448,13 @@ def get_invoice_items_from_job(
     Extract invoice line items from any job/shipment/declaration (selling/revenue side).
     Single implementation for Sales Quote billing and intercompany.
     Returns list of dicts with item_code, item_name, qty, rate, uom, description (optional).
+    ``customer`` is kept for callers and does not exclude charge rows.
     """
     if not job_type or not job_name or not frappe.db.exists(job_type, job_name):
         return []
 
     items = []
     doc = frappe.get_doc(job_type, job_name)
-    customer = customer or getattr(doc, "customer", None) or getattr(doc, "local_customer", None)
 
     if job_type == "Transport Job":
         charges = doc.get("charges") or []
@@ -498,14 +495,11 @@ def get_invoice_items_from_job(
             })
 
     elif job_type == "Sea Shipment":
-        from logistics.utils.charges_calculation import get_charge_bill_to_customers
         charges = doc.get("charges") or []
         for ch in charges:
-            if customer and customer not in get_charge_bill_to_customers(ch):
-                continue
             rev = flt(getattr(ch, "actual_revenue", 0)) or flt(getattr(ch, "selling_amount", 0))
             items.append({
-                "item_code": getattr(ch, "charge_item", None) or getattr(ch, "item_code", None),
+                "item_code": _charge_row_item_code(ch, job_type),
                 "item_name": getattr(ch, "charge_name", None) or getattr(ch, "item_name", None),
                 "qty": 1,
                 "rate": rev,

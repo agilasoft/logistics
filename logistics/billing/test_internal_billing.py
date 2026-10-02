@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import frappe
+from frappe.tests import UnitTestCase
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import flt
 
@@ -15,7 +16,9 @@ from logistics.billing.internal_billing import (
     _append_revenue_transfer_rows,
     _apply_internal_billing_posting_header,
     _internal_billing_jv_user_remark,
+    classify_linked_posting_actions,
     create_internal_billing_journal_entries_for_quote,
+    non_cost_bill_tos,
 )
 from logistics.utils.item_accounts import (
     get_expense_account_for_item,
@@ -24,6 +27,16 @@ from logistics.utils.item_accounts import (
 )
 
 _REAL_GET_DOC = frappe.get_doc
+
+
+def _with_mapping_get(obj):
+    """Let a SimpleNamespace answer Document-style ``.get`` used by posting helpers."""
+
+    def _get(key, default=None):
+        return getattr(obj, key, default) if isinstance(key, str) else default
+
+    obj.get = _get
+    return obj
 
 
 class TestInternalBillingPostingHeader(FrappeTestCase):
@@ -158,7 +171,7 @@ class TestItemAccounts(FrappeTestCase):
         doc.job_type = job_type
         doc.job_no = job_no
         doc.company = cls.company
-        doc.insert(ignore_permissions=True)
+        doc.insert(ignore_permissions=True, ignore_links=True)
 
     def _ensure_jv_job_numbers(self, *job_docs):
         for job in job_docs:
@@ -230,6 +243,14 @@ class TestRevenueTransferRows(FrappeTestCase):
         self.assertEqual(flt(cr["credit_in_account_currency"]), 150.0)
         self.assertEqual(cr["job_number"], "JCN-LINK")
 
+    def test_sea_shipment_reads_item_code_before_legacy_charge_item(self):
+        from logistics.billing.cross_module_billing import _charge_row_item_code
+
+        current = SimpleNamespace(item_code="SEA-ITEM", charge_item=None)
+        self.assertEqual(_charge_row_item_code(current, "Sea Shipment"), "SEA-ITEM")
+        legacy = SimpleNamespace(charge_item="LEGACY-ITEM")
+        self.assertEqual(_charge_row_item_code(legacy, "Sea Shipment"), "LEGACY-ITEM")
+
 
 class TestCreateInternalBillingJV(TestItemAccounts):
     def setUp(self):
@@ -250,7 +271,18 @@ class TestCreateInternalBillingJV(TestItemAccounts):
             profit_center=None,
             job_number="JCN-IB-LINK",
         )
+        self.linked_job_2 = SimpleNamespace(
+            doctype="Transport Job",
+            name="TJ-IB-LINK-2",
+            company=self.company,
+            cost_center=None,
+            profit_center=None,
+            job_number="TJ-IB-LINK-2",
+        )
         self.splits = [{"revenue": 200.0, "cost": 50.0, "item_code": self.item_code}]
+        for job in (self.main_job, self.linked_job, self.linked_job_2):
+            _with_mapping_get(job)
+        self._ensure_jv_job_numbers(self.main_job, self.linked_job, self.linked_job_2)
 
     def _quote_doc(self):
         return SimpleNamespace(
@@ -271,6 +303,8 @@ class TestCreateInternalBillingJV(TestItemAccounts):
             return self.main_job
         if name == self.linked_job.name:
             return self.linked_job
+        if name == self.linked_job_2.name:
+            return self.linked_job_2
         return _REAL_GET_DOC(doctype, name)
 
     def tearDown(self):
@@ -407,6 +441,74 @@ class TestCreateInternalBillingJV(TestItemAccounts):
 
         self.assertEqual(first.get("created"), 1)
         self.assertEqual(second.get("created"), 0)
+        self.assertIn(self.linked_job.name, second.get("message") or "")
+
+    @patch(
+        "logistics.invoice_integration.internal_billing_recognition_reversal.reverse_recognition_for_internal_billing_je"
+    )
+    @patch("logistics.billing.internal_billing.frappe.get_doc")
+    @patch("logistics.billing.cross_module_billing.iter_internal_job_charge_splits")
+    @patch("logistics.billing.cross_module_billing.get_all_billing_jobs_from_sales_quote")
+    @patch(
+        "logistics.pricing_center.doctype.sales_quote.sales_quote._resolve_main_job_for_sales_quote"
+    )
+    def test_posts_unbilled_linked_job_when_another_already_billed(
+        self,
+        mock_resolve_main,
+        mock_all_jobs,
+        mock_splits,
+        mock_get_doc,
+        _mock_reversal,
+    ):
+        mock_resolve_main.return_value = ("Transport Job", self.main_job.name)
+        mock_splits.return_value = self.splits
+        mock_get_doc.side_effect = self._mock_get_doc
+        jobs = {"current": [("Transport Job", self.linked_job.name)]}
+
+        def _all_jobs(_quote):
+            return list(jobs["current"])
+
+        mock_all_jobs.side_effect = _all_jobs
+
+        original_exists = frappe.db.exists
+        with patch.object(frappe.db, "exists") as mock_exists:
+
+            def _exists(dt, name=None, **kwargs):
+                if dt == "Sales Quote":
+                    return True
+                if dt == "Transport Job":
+                    return True
+                return original_exists(dt, name, **kwargs)
+
+            mock_exists.side_effect = _exists
+            with patch(
+                "logistics.billing.cross_module_billing.resolve_internal_job_main_job",
+                return_value=("Transport Job", self.main_job.name),
+            ):
+                with patch(
+                    "logistics.billing.cross_module_billing.get_main_job_company",
+                    return_value=self.company,
+                ):
+                    first = create_internal_billing_journal_entries_for_quote(self.quote_name)
+                    jobs["current"] = [
+                        ("Transport Job", self.linked_job.name),
+                        ("Transport Job", self.linked_job_2.name),
+                    ]
+                    second = create_internal_billing_journal_entries_for_quote(self.quote_name)
+
+        self.assertEqual(first.get("created"), 1)
+        self.assertEqual(second.get("created"), 1)
+        self.assertNotEqual(first.get("journal_entry"), second.get("journal_entry"))
+        je = frappe.get_doc("Journal Entry", second.get("journal_entry"))
+        cr_rows = [r for r in je.accounts if flt(r.credit_in_account_currency) > 0]
+        self.assertEqual(len(cr_rows), 1)
+        self.assertEqual(flt(cr_rows[0].credit_in_account_currency), 200.0)
+        if frappe.get_meta("Journal Entry Account").get_field("job_number"):
+            self.assertEqual(cr_rows[0].job_number, self.linked_job_2.job_number)
+            self.assertNotEqual(cr_rows[0].job_number, self.linked_job.job_number)
+        else:
+            self.assertIn(self.linked_job_2.name, cr_rows[0].user_remark or "")
+            self.assertNotIn(self.linked_job.name, cr_rows[0].user_remark or "")
 
     def test_missing_item_code_returns_error(self):
         with patch.object(frappe.db, "exists", return_value=True):
@@ -470,6 +572,9 @@ class TestMainJobLinkedScopeBilling(TestItemAccounts):
             profit_center=None,
             job_number="JCN-ASP-LINK",
         )
+        for job in (self.main_job, self.linked_job):
+            _with_mapping_get(job)
+        self._ensure_jv_job_numbers(self.main_job, self.linked_job)
 
     def tearDown(self):
         remark = _internal_billing_jv_user_remark(self.quote_name, None)
@@ -567,6 +672,9 @@ class TestBookingOperationalMainMismatch(TestItemAccounts):
             job_number="JCN-TRJ-LINK",
         )
         self.splits = [{"revenue": 270000.0, "cost": 0, "item_code": self.item_code}]
+        for job in (self.main_job, self.linked_job):
+            _with_mapping_get(job)
+        self._ensure_jv_job_numbers(self.main_job, self.linked_job)
 
     def tearDown(self):
         remark = _internal_billing_jv_user_remark(self.quote_name, None)
@@ -647,3 +755,82 @@ class TestBookingOperationalMainMismatch(TestItemAccounts):
         je = frappe.get_doc("Journal Entry", result.get("journal_entry"))
         self.assertEqual(len(je.accounts), 2)
         self.assertEqual(flt(je.accounts[0].debit_in_account_currency), 270000.0)
+
+
+class TestLinkedPostingActions(UnitTestCase):
+    def test_non_cost_bill_tos_skip_cost_and_duplicates(self):
+        doc = frappe._dict(
+            charges=[
+                frappe._dict(charge_type="Revenue", bill_to="ATN"),
+                frappe._dict(charge_type="Cost", bill_to="Brand X"),
+                frappe._dict(charge_type="Margin", bill_to="ATN"),
+                frappe._dict(charge_type="Disbursement", bill_to="Harbor"),
+                frappe._dict(charge_type="Revenue", bill_to=""),
+            ]
+        )
+        self.assertEqual(non_cost_bill_tos(doc), ["ATN", "Harbor"])
+
+    def test_main_service_hides_both_buttons(self):
+        doc = frappe._dict(service_role="Main", company="Op Co", charges=[])
+        flags = classify_linked_posting_actions(
+            doc,
+            {"ATN": {"represents_company": "Op Co", "is_internal_customer": 1}},
+        )
+        self.assertEqual(flags, {"internal_billing": False, "intercompany": False})
+
+    def test_same_company_shows_internal_billing(self):
+        doc = frappe._dict(
+            service_role="Linked",
+            company="Op Co",
+            charges=[frappe._dict(charge_type="Revenue", bill_to="ATN")],
+        )
+        flags = classify_linked_posting_actions(
+            doc,
+            {"ATN": {"represents_company": "Op Co", "is_internal_customer": 1}},
+        )
+        self.assertTrue(flags["internal_billing"])
+        self.assertFalse(flags["intercompany"])
+
+    def test_external_different_company_shows_intercompany(self):
+        doc = frappe._dict(
+            service_role="Linked",
+            company="Op Co",
+            charges=[frappe._dict(charge_type="Revenue", bill_to="Harbor")],
+        )
+        flags = classify_linked_posting_actions(
+            doc,
+            {"Harbor": {"represents_company": "", "is_internal_customer": 0}},
+        )
+        self.assertFalse(flags["internal_billing"])
+        self.assertTrue(flags["intercompany"])
+
+    def test_internal_customer_of_another_company_shows_neither(self):
+        doc = frappe._dict(
+            service_role="Linked",
+            company="Op Co",
+            charges=[frappe._dict(charge_type="Revenue", bill_to="Main Internal")],
+        )
+        flags = classify_linked_posting_actions(
+            doc,
+            {"Main Internal": {"represents_company": "Main Co", "is_internal_customer": 1}},
+        )
+        self.assertEqual(flags, {"internal_billing": False, "intercompany": False})
+
+    def test_mixed_bill_to_shows_both(self):
+        doc = frappe._dict(
+            service_role="Linked",
+            company="Op Co",
+            charges=[
+                frappe._dict(charge_type="Revenue", bill_to="ATN"),
+                frappe._dict(charge_type="Margin", bill_to="Harbor"),
+            ],
+        )
+        flags = classify_linked_posting_actions(
+            doc,
+            {
+                "ATN": {"represents_company": "Op Co", "is_internal_customer": 1},
+                "Harbor": {"represents_company": None, "is_internal_customer": 0},
+            },
+        )
+        self.assertTrue(flags["internal_billing"])
+        self.assertTrue(flags["intercompany"])

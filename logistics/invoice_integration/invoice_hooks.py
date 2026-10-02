@@ -21,6 +21,13 @@ def on_sales_invoice_submit(doc, method=None):
     """Update linked jobs when SI is submitted; create intercompany invoices if from Sales Quote."""
     if doc.docstatus != 1:
         return
+    # The intercompany Sales Invoice is submitted while invoices are being created.
+    # Running this hook on that invoice starts another creation pass and never
+    # finishes the Sales Invoice, Purchase Invoice, or Intercompany Invoice Log.
+    from logistics.intercompany.intercompany_invoice import sales_invoice_is_intercompany_leg
+
+    if getattr(frappe.flags, "creating_intercompany_invoices", None) or sales_invoice_is_intercompany_leg(doc):
+        return
     update_job_on_sales_invoice_submit(doc)
     # Intercompany: when customer SI is from a Sales Quote, create intercompany SI/PI where internal job company != Main Job company
     try:

@@ -129,8 +129,10 @@ class DeclarationOrder(VirtualLinkedServicesMixin, Document):
 
 		register_charge_resolution_parent(self)
 		try:
+			from logistics.utils.commercial_invoice_totals import throw_if_invoice_qty_is_zero
 			from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 
+			throw_if_invoice_qty_is_zero(self)
 			validate_internal_job_main_link_unchanged(self)
 			original_sales_quote = None
 			if not self.is_new():

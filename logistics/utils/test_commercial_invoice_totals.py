@@ -86,7 +86,7 @@ class UnitTestCommercialInvoiceTotals(UnitTestCase):
 		)
 		self.assertEqual(totals["cif"], 1000)
 
-	def test_balance_matches_header_total_minus_allocated_amounts(self):
+	def test_balance_uses_line_total_as_invoice_total_when_lines_exist(self):
 		totals = calculate_commercial_invoice_totals(
 			_doc(
 				inv_total_amount=1300,
@@ -94,7 +94,8 @@ class UnitTestCommercialInvoiceTotals(UnitTestCase):
 				commercial_invoice_charges=[{"charge_code": "OFT", "amount": 200, "currency": "USD"}],
 			)
 		)
-		self.assertEqual(totals["balance"], "100.00")
+		self.assertEqual(totals["inv_total_amount"], 1000)
+		self.assertEqual(totals["balance"], "-200.00")
 
 	def test_charges_excl_from_itot_omits_charges_from_balance(self):
 		totals = calculate_commercial_invoice_totals(
@@ -105,5 +106,48 @@ class UnitTestCommercialInvoiceTotals(UnitTestCase):
 				commercial_invoice_charges=[{"charge_code": "OFT", "amount": 200, "currency": "USD"}],
 			)
 		)
+		self.assertEqual(totals["inv_total_amount"], 1000)
 		self.assertEqual(totals["balance"], "0.00")
 		self.assertEqual(totals["cif"], 1200)
+
+	def test_invoice_total_equals_line_sum(self):
+		totals = calculate_commercial_invoice_totals(
+			_doc(
+				inv_total_amount=999,
+				commercial_invoice_line_items=[
+					{"invoice_qty": 2, "price": 100},
+					{"invoice_qty": 1, "price": 50},
+				],
+			)
+		)
+		self.assertEqual(totals["inv_total_amount"], 250)
+		self.assertEqual(totals["expected_invoice_line_total"], 250)
+
+	def test_zero_invoice_qty_is_not_counted_as_one(self):
+		totals = calculate_commercial_invoice_totals(
+			_doc(
+				commercial_invoice_line_items=[
+					{"invoice_qty": 0, "customs_qty": 4, "price": 10},
+					{"invoice_qty": 0, "price": 25},
+				]
+			)
+		)
+		self.assertEqual(totals["expected_invoice_line_total"], 40)
+		self.assertEqual(totals["inv_total_amount"], 40)
+
+	def test_typed_invoice_total_kept_when_there_are_no_lines(self):
+		totals = calculate_commercial_invoice_totals(_doc(inv_total_amount=1300))
+		self.assertNotIn("inv_total_amount", totals)
+		self.assertEqual(totals["fob"], 1300)
+
+	def test_blank_invoice_qty_is_allowed_and_zero_is_rejected(self):
+		from logistics.utils.commercial_invoice_totals import throw_if_invoice_qty_is_zero
+
+		throw_if_invoice_qty_is_zero(_doc(commercial_invoice_line_items=[{"goods_description": "A"}]))
+		throw_if_invoice_qty_is_zero(
+			_doc(commercial_invoice_line_items=[{"invoice_qty": None, "goods_description": "A"}])
+		)
+		with self.assertRaises(frappe.ValidationError):
+			throw_if_invoice_qty_is_zero(
+				_doc(commercial_invoice_line_items=[{"invoice_qty": 0, "goods_description": "A"}])
+			)

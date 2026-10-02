@@ -36,7 +36,8 @@ class TransportOrderLegs(Document):
 				"Container Yard": ("containeryard_primary_address",),
 				"Container Depot": ("containerdepot_primary_address",),
 				"Container Freight Station": ("cfs_primary_address",),
-				"Transport Terminal": ("transportterminal_primary_address",)
+				"Transport Terminal": ("transportterminal_primary_address",),
+				"Storage Facility": ("storagefacility_primary_address",),
 			}
 			
 			fields_to_try = primary_address_fields.get(facility_type)
@@ -47,7 +48,7 @@ class TransportOrderLegs(Document):
 					if addr:
 						return addr
 			
-			# Fallback: For facility types without primary address fields (Storage Facility, Truck Park, Sorting Hub, Terminal)
+			# Fallback: For facility types without primary address fields (Truck Park, Sorting Hub, Terminal)
 			# or if primary address is not set, get addresses linked to this facility
 			addresses = frappe.get_all("Address",
 				filters={
@@ -138,7 +139,8 @@ def get_primary_address(facility_type: str, facility_name: str):
 			"Container Yard": ("containeryard_primary_address",),
 			"Container Depot": ("containerdepot_primary_address",),
 			"Container Freight Station": ("cfs_primary_address",),
-			"Transport Terminal": ("transportterminal_primary_address",)
+			"Transport Terminal": ("transportterminal_primary_address",),
+			"Storage Facility": ("storagefacility_primary_address",),
 		}
 		
 		fields_to_try = primary_address_fields.get(facility_type)
@@ -149,7 +151,7 @@ def get_primary_address(facility_type: str, facility_name: str):
 				if addr:
 					return addr
 		
-		# Fallback: For facility types without primary address fields (Storage Facility, Truck Park, Sorting Hub, Terminal)
+		# Fallback: For facility types without primary address fields (Truck Park, Sorting Hub, Terminal)
 		# or if primary address is not set, get addresses linked to this facility
 		addresses = frappe.get_all("Address",
 			filters={
