@@ -45,5 +45,473 @@ class TestLegacyHeaderRowCount(unittest.TestCase):
 		self.assertEqual(rows[-1], [])
 
 
+class TestGlLetterheadRows(unittest.TestCase):
+	def test_letterhead_wording_period_and_printed_by(self):
+		from logistics.bir_cas.header_rows import build_gl_letterhead_rows
+
+		context = {
+			"company_name": "All Transport Network Inc",
+			"company_address": "Unit 126B, Charlie Bldg. Subic Int'l. Hotel Complex",
+			"tin": "000-414-368-00000",
+			"period_label": "202401 to 202402",
+			"generated_by": "Willy Morales",
+			"printed_at": "28-Jun-24 16:40",
+		}
+		rows = build_gl_letterhead_rows(context)
+		self.assertEqual(len(rows), 7)
+		self.assertEqual(rows[0], ["All Transport Network Inc"])
+		self.assertEqual(rows[1], ["Unit 126B, Charlie Bldg. Subic Int'l. Hotel Complex"])
+		self.assertEqual(rows[2], ["VAT REG. TIN 000-414-368-00000"])
+		self.assertEqual(rows[3], ["General Ledger Transaction Report"])
+		self.assertEqual(rows[4], ["Period: 202401 to 202402"])
+		self.assertEqual(rows[5], ["Printed by Willy Morales 28-Jun-24 16:40"])
+		self.assertEqual(rows[6], [])
+
+
+class TestJournalBookLetterheadRows(unittest.TestCase):
+	def test_letterhead_wording_period_and_printed_by(self):
+		from logistics.bir_cas.header_rows import build_journal_book_letterhead_rows, is_journal_book
+
+		self.assertTrue(is_journal_book("Journal Book"))
+		self.assertFalse(is_journal_book("General Journal Report"))
+
+		context = {
+			"company_name": "All Transport Network Inc",
+			"company_address": "Unit 126B, Charlie Bldg. Subic Int'l. Hotel Complex",
+			"tin": "000-414-368-00000",
+			"period_label": "202401 to 202401",
+			"generated_by": "Willy Morales",
+			"printed_at": "28-Jun-24 15:59",
+		}
+		rows = build_journal_book_letterhead_rows(context)
+		self.assertEqual(len(rows), 7)
+		self.assertEqual(rows[0], ["All Transport Network Inc"])
+		self.assertEqual(rows[1], ["Unit 126B, Charlie Bldg. Subic Int'l. Hotel Complex"])
+		self.assertEqual(rows[2], ["VAT REG. TIN 000-414-368-00000"])
+		self.assertEqual(rows[3], ["Journal Book"])
+		self.assertEqual(rows[4], ["Period: 202401 to 202401"])
+		self.assertEqual(rows[5], ["Printed by Willy Morales 28-Jun-24 15:59"])
+		self.assertEqual(rows[6], [])
+
+
+class TestJournalBookLetterheadStyles(unittest.TestCase):
+	def test_replaces_labeled_header_before_column_row(self):
+		from openpyxl import Workbook
+
+		from logistics.bir_cas.excel_header import _replace_with_journal_book_letterhead
+
+		context = {
+			"company_name": "All Transport Network Inc",
+			"company_address": "Unit 126B, Charlie Bldg.",
+			"tin": "000-414-368-00000",
+			"period_label": "202401 to 202401",
+			"generated_by": "Willy Morales",
+			"printed_at": "28-Jun-24 15:59",
+		}
+		wb = Workbook()
+		ws = wb.active
+		for line in (
+			"COMPANY: Old Co",
+			"ADDRESS: Old",
+			"TIN: 1",
+			"REPORT: JOURNAL BOOK",
+			"PERIOD: 01-01-2024 TO 01-31-2024",
+		):
+			ws.append([line])
+		ws.append([])
+		ws.append(["Date", "Journal Entry", "Debit", "Credit", "Party", "Cost Center"])
+
+		_replace_with_journal_book_letterhead(ws, context)
+
+		self.assertEqual(ws.cell(row=1, column=1).value, "All Transport Network Inc")
+		self.assertEqual(ws.cell(row=3, column=1).value, "VAT REG. TIN 000-414-368-00000")
+		self.assertEqual(ws.cell(row=4, column=1).value, "Journal Book")
+		self.assertEqual(ws.cell(row=5, column=1).value, "Period: 202401 to 202401")
+		self.assertEqual(ws.cell(row=6, column=1).value, "Printed by Willy Morales 28-Jun-24 15:59")
+		self.assertEqual(ws.cell(row=8, column=1).value, "Date")
+		merged = {str(cell_range) for cell_range in ws.merged_cells.ranges}
+		self.assertIn("A1:F1", merged)
+		self.assertIn("A4:F4", merged)
+		self.assertEqual(ws.cell(row=1, column=1).alignment.horizontal, "center")
+		self.assertEqual(ws.cell(row=4, column=1).font.bold, True)
+		self.assertEqual(ws.cell(row=4, column=1).font.size, 14)
+		self.assertEqual(ws.cell(row=5, column=1).alignment.horizontal, "left")
+		self.assertEqual(ws.cell(row=6, column=1).alignment.horizontal, "left")
+		self.assertNotIn("A5:F5", merged)
+		self.assertNotIn("A6:F6", merged)
+
+
+class TestCashReceiptsBookLetterheadRows(unittest.TestCase):
+	def test_letterhead_wording_batch_dates_and_printed_by(self):
+		from logistics.bir_cas.header_rows import (
+			build_cash_receipts_book_letterhead_rows,
+			is_cash_receipts_book,
+		)
+
+		self.assertTrue(is_cash_receipts_book("Cash Receipts Book"))
+		self.assertFalse(is_cash_receipts_book("Cash Book"))
+
+		context = {
+			"company_name": "All Transport Network Inc",
+			"company_address": "Unit 126B, Charlie Bldg. Subic Int'l. Hotel Complex",
+			"tin": "000-414-368-00000",
+			"period_label": (
+				"Batch Date From:1/1/2024 12:00:00 AM Batch Date To:29/2/2024 12:00:00 AM"
+			),
+			"generated_by": "Willy Morales",
+			"printed_at": "28-Jun-24 13:59",
+			"printed_at_ampm": "28-Jun-24 01:59 PM",
+		}
+		rows = build_cash_receipts_book_letterhead_rows(context)
+		self.assertEqual(len(rows), 7)
+		self.assertEqual(rows[0], ["All Transport Network Inc"])
+		self.assertEqual(rows[1], ["Unit 126B, Charlie Bldg. Subic Int'l. Hotel Complex"])
+		self.assertEqual(rows[2], ["VAT REG. TIN 000-414-368-00000"])
+		self.assertEqual(rows[3], ["Cash Receipts Book"])
+		self.assertEqual(
+			rows[4],
+			["Batch Date From:1/1/2024 12:00:00 AM Batch Date To:29/2/2024 12:00:00 AM"],
+		)
+		self.assertEqual(rows[5], ["Printed by Willy Morales 28-Jun-24 01:59 PM"])
+		self.assertEqual(rows[6], [])
+
+
+class TestCashBookPeriodLabel(unittest.TestCase):
+	def test_batch_date_from_to_midnight(self):
+		from logistics.bir_cas.report_utils import cash_book_period_label_from_filters
+
+		filters = {"from_date": "2024-01-01", "to_date": "2024-02-29"}
+		self.assertEqual(
+			cash_book_period_label_from_filters(filters),
+			"Batch Date From:1/1/2024 12:00:00 AM Batch Date To:29/2/2024 12:00:00 AM",
+		)
+
+
+class TestCashReceiptsBookLetterheadStyles(unittest.TestCase):
+	def test_replaces_labeled_header_before_column_row(self):
+		from openpyxl import Workbook
+
+		from logistics.bir_cas.excel_header import _replace_with_cash_receipts_book_letterhead
+
+		context = {
+			"company_name": "All Transport Network Inc",
+			"company_address": "Unit 126B, Charlie Bldg.",
+			"tin": "000-414-368-00000",
+			"period_label": (
+				"Batch Date From:1/1/2024 12:00:00 AM Batch Date To:29/2/2024 12:00:00 AM"
+			),
+			"generated_by": "Willy Morales",
+			"printed_at_ampm": "28-Jun-24 01:59 PM",
+		}
+		wb = Workbook()
+		ws = wb.active
+		for line in (
+			"COMPANY: Old Co",
+			"ADDRESS: Old",
+			"TIN: 1",
+			"REPORT: CASH RECEIPTS BOOK",
+			"PERIOD: 01-01-2024 TO 02-29-2024",
+		):
+			ws.append([line])
+		ws.append([])
+		ws.append(["Date", "Reference No", "Customer", "Amount", "Discount", "Net Amount"])
+
+		_replace_with_cash_receipts_book_letterhead(ws, context)
+
+		self.assertEqual(ws.cell(row=1, column=1).value, "All Transport Network Inc")
+		self.assertEqual(ws.cell(row=3, column=1).value, "VAT REG. TIN 000-414-368-00000")
+		self.assertEqual(ws.cell(row=4, column=1).value, "Cash Receipts Book")
+		self.assertEqual(
+			ws.cell(row=5, column=1).value,
+			"Batch Date From:1/1/2024 12:00:00 AM Batch Date To:29/2/2024 12:00:00 AM",
+		)
+		self.assertEqual(ws.cell(row=6, column=1).value, "Printed by Willy Morales 28-Jun-24 01:59 PM")
+		self.assertEqual(ws.cell(row=8, column=1).value, "Date")
+		merged = {str(cell_range) for cell_range in ws.merged_cells.ranges}
+		self.assertIn("A1:F1", merged)
+		self.assertIn("A4:F4", merged)
+		self.assertEqual(ws.cell(row=1, column=1).alignment.horizontal, "center")
+		self.assertEqual(ws.cell(row=4, column=1).font.bold, True)
+		self.assertEqual(ws.cell(row=4, column=1).font.size, 14)
+		self.assertEqual(ws.cell(row=5, column=1).alignment.horizontal, "left")
+		self.assertEqual(ws.cell(row=6, column=1).alignment.horizontal, "left")
+		self.assertNotIn("A5:F5", merged)
+		self.assertNotIn("A6:F6", merged)
+
+
+class TestSalesBookLetterheadRows(unittest.TestCase):
+	def test_letterhead_wording_dates_and_printed_by(self):
+		from logistics.bir_cas.header_rows import build_sales_book_letterhead_rows, is_sales_book
+
+		self.assertTrue(is_sales_book("Sales Book"))
+		self.assertTrue(is_sales_book("BIR Sales Book"))
+		self.assertTrue(is_sales_book("Subsidiary Sales Book"))
+		self.assertFalse(is_sales_book("Purchases Book"))
+
+		context = {
+			"company_name": "All Transport Network Inc",
+			"company_address": "Unit 126B, Charlie Bldg. Subic Int'l. Hotel Complex",
+			"tin": "000-414-368-00000",
+			"period_label": "Date From: 1/1/2024 12:00:00 AM Date To: 2/29/2024 12:00:00 AM",
+			"generated_by": "Willy Morales",
+			"printed_at": "28-Jun-24 16:55",
+			"printed_at_day_mon": "28 Jun 24 16:55",
+		}
+		rows = build_sales_book_letterhead_rows(context)
+		self.assertEqual(len(rows), 7)
+		self.assertEqual(rows[0], ["All Transport Network Inc"])
+		self.assertEqual(rows[1], ["Unit 126B, Charlie Bldg. Subic Int'l. Hotel Complex"])
+		self.assertEqual(rows[2], ["VAT REG. TIN 000-414-368-00000"])
+		self.assertEqual(rows[3], ["Sales Book"])
+		self.assertEqual(rows[4], ["Date From: 1/1/2024 12:00:00 AM Date To: 2/29/2024 12:00:00 AM"])
+		self.assertEqual(rows[5], ["Printed by Willy Morales 28 Jun 24 16:55"])
+		self.assertEqual(rows[6], [])
+
+
+class TestSalesBookPeriodLabel(unittest.TestCase):
+	def test_date_from_to_midnight(self):
+		from logistics.bir_cas.report_utils import sales_book_period_label_from_filters
+
+		filters = {"from_date": "2024-01-01", "to_date": "2024-02-29"}
+		self.assertEqual(
+			sales_book_period_label_from_filters(filters),
+			"Date From: 1/1/2024 12:00:00 AM Date To: 2/29/2024 12:00:00 AM",
+		)
+
+
+class TestSalesBookLetterheadStyles(unittest.TestCase):
+	def test_replaces_labeled_header_before_column_row(self):
+		from openpyxl import Workbook
+
+		from logistics.bir_cas.excel_header import _replace_with_sales_book_letterhead
+
+		context = {
+			"company_name": "All Transport Network Inc",
+			"company_address": "Unit 126B, Charlie Bldg.",
+			"tin": "000-414-368-00000",
+			"period_label": "Date From: 1/1/2024 12:00:00 AM Date To: 2/29/2024 12:00:00 AM",
+			"generated_by": "Willy Morales",
+			"printed_at_day_mon": "28 Jun 24 16:55",
+		}
+		wb = Workbook()
+		ws = wb.active
+		for line in (
+			"COMPANY: Old Co",
+			"ADDRESS: Old",
+			"TIN: 1",
+			"REPORT: SALES BOOK",
+			"PERIOD: 01-01-2024 TO 02-29-2024",
+		):
+			ws.append([line])
+		ws.append([])
+		ws.append(["Date", "Sales Invoice", "Customer", "Vatable Sales", "Output VAT", "Gross Amount"])
+
+		_replace_with_sales_book_letterhead(ws, context)
+
+		self.assertEqual(ws.cell(row=1, column=1).value, "All Transport Network Inc")
+		self.assertEqual(ws.cell(row=3, column=1).value, "VAT REG. TIN 000-414-368-00000")
+		self.assertEqual(ws.cell(row=4, column=1).value, "Sales Book")
+		self.assertEqual(
+			ws.cell(row=5, column=1).value,
+			"Date From: 1/1/2024 12:00:00 AM Date To: 2/29/2024 12:00:00 AM",
+		)
+		self.assertEqual(ws.cell(row=6, column=1).value, "Printed by Willy Morales 28 Jun 24 16:55")
+		self.assertEqual(ws.cell(row=8, column=1).value, "Date")
+		merged = {str(cell_range) for cell_range in ws.merged_cells.ranges}
+		self.assertIn("A1:F1", merged)
+		self.assertIn("A2:F2", merged)
+		self.assertIn("A3:F3", merged)
+		self.assertIn("A4:F4", merged)
+		self.assertEqual(ws.cell(row=1, column=1).alignment.horizontal, "center")
+		self.assertEqual(ws.cell(row=1, column=1).font.bold, True)
+		self.assertEqual(ws.cell(row=1, column=1).font.size, 18)
+		self.assertEqual(ws.cell(row=2, column=1).alignment.horizontal, "center")
+		self.assertEqual(ws.cell(row=3, column=1).alignment.horizontal, "center")
+		self.assertEqual(ws.cell(row=4, column=1).alignment.horizontal, "center")
+		self.assertEqual(ws.cell(row=4, column=1).font.bold, True)
+		self.assertEqual(ws.cell(row=4, column=1).font.size, 14)
+		self.assertEqual(ws.cell(row=5, column=1).alignment.horizontal, "left")
+		self.assertEqual(ws.cell(row=6, column=1).alignment.horizontal, "left")
+		self.assertNotIn("A5:F5", merged)
+		self.assertNotIn("A6:F6", merged)
+
+
+class TestPurchasesBookLetterheadRows(unittest.TestCase):
+	def test_letterhead_wording_dates_and_printed_by(self):
+		from logistics.bir_cas.header_rows import (
+			build_purchases_book_letterhead_rows,
+			is_purchases_book,
+			is_sales_book,
+		)
+
+		self.assertTrue(is_purchases_book("Purchases Book"))
+		self.assertTrue(is_purchases_book("Purchase Book"))
+		self.assertTrue(is_purchases_book("BIR Purchases Book"))
+		self.assertTrue(is_purchases_book("Subsidiary Purchases Book"))
+		self.assertFalse(is_purchases_book("Sales Book"))
+		self.assertFalse(is_sales_book("Purchases Book"))
+
+		context = {
+			"company_name": "All Transport Network Inc",
+			"company_address": "Unit 126B, Charlie Bldg. Subic Int'l. Hotel Complex",
+			"tin": "000-414-368-00000",
+			"period_label": "Date From: 1/1/2024 12:00:00 AM Date To: 3/29/2024 12:00:00 AM",
+			"generated_by": "Willy Morales",
+			"printed_at": "29-Jun-24 16:15",
+			"printed_at_day_mon": "29 Jun 24 16:15",
+		}
+		rows = build_purchases_book_letterhead_rows(context)
+		self.assertEqual(len(rows), 7)
+		self.assertEqual(rows[0], ["All Transport Network Inc"])
+		self.assertEqual(rows[1], ["Unit 126B, Charlie Bldg. Subic Int'l. Hotel Complex"])
+		self.assertEqual(rows[2], ["VAT REG. TIN 000-414-368-00000"])
+		self.assertEqual(rows[3], ["Purchase Book"])
+		self.assertEqual(rows[4], ["Date From: 1/1/2024 12:00:00 AM Date To: 3/29/2024 12:00:00 AM"])
+		self.assertEqual(rows[5], ["Printed by Willy Morales 29-Jun-24 16:15"])
+		self.assertEqual(rows[6], [])
+
+
+class TestPurchasesBookLetterheadStyles(unittest.TestCase):
+	def test_replaces_labeled_header_before_column_row(self):
+		from openpyxl import Workbook
+
+		from logistics.bir_cas.excel_header import _replace_with_purchases_book_letterhead
+
+		context = {
+			"company_name": "All Transport Network Inc",
+			"company_address": "Unit 126B, Charlie Bldg.",
+			"tin": "000-414-368-00000",
+			"period_label": "Date From: 1/1/2024 12:00:00 AM Date To: 3/29/2024 12:00:00 AM",
+			"generated_by": "Willy Morales",
+			"printed_at": "29-Jun-24 16:15",
+		}
+		wb = Workbook()
+		ws = wb.active
+		for line in (
+			"COMPANY: Old Co",
+			"ADDRESS: Old",
+			"TIN: 1",
+			"REPORT: PURCHASES BOOK",
+			"PERIOD: 01-01-2024 TO 03-29-2024",
+		):
+			ws.append([line])
+		ws.append([])
+		ws.append(["Date", "Purchase Invoice", "Supplier", "Vatable Purchases", "Input VAT", "Grand Total"])
+
+		_replace_with_purchases_book_letterhead(ws, context)
+
+		self.assertEqual(ws.cell(row=1, column=1).value, "All Transport Network Inc")
+		self.assertEqual(ws.cell(row=3, column=1).value, "VAT REG. TIN 000-414-368-00000")
+		self.assertEqual(ws.cell(row=4, column=1).value, "Purchase Book")
+		self.assertEqual(
+			ws.cell(row=5, column=1).value,
+			"Date From: 1/1/2024 12:00:00 AM Date To: 3/29/2024 12:00:00 AM",
+		)
+		self.assertEqual(ws.cell(row=6, column=1).value, "Printed by Willy Morales 29-Jun-24 16:15")
+		self.assertEqual(ws.cell(row=8, column=1).value, "Date")
+		merged = {str(cell_range) for cell_range in ws.merged_cells.ranges}
+		self.assertIn("A1:F1", merged)
+		self.assertIn("A2:F2", merged)
+		self.assertIn("A3:F3", merged)
+		self.assertIn("A4:F4", merged)
+		self.assertEqual(ws.cell(row=1, column=1).alignment.horizontal, "center")
+		self.assertEqual(ws.cell(row=1, column=1).font.bold, True)
+		self.assertEqual(ws.cell(row=1, column=1).font.size, 18)
+		self.assertEqual(ws.cell(row=2, column=1).alignment.horizontal, "center")
+		self.assertEqual(ws.cell(row=3, column=1).alignment.horizontal, "center")
+		self.assertEqual(ws.cell(row=4, column=1).alignment.horizontal, "center")
+		self.assertEqual(ws.cell(row=4, column=1).font.bold, True)
+		self.assertEqual(ws.cell(row=4, column=1).font.size, 14)
+		self.assertEqual(ws.cell(row=5, column=1).alignment.horizontal, "left")
+		self.assertEqual(ws.cell(row=6, column=1).alignment.horizontal, "left")
+		self.assertNotIn("A5:F5", merged)
+		self.assertNotIn("A6:F6", merged)
+
+
+class TestGlPeriodLabel(unittest.TestCase):
+	def test_yyyy_mm_period(self):
+		from logistics.bir_cas.report_utils import gl_period_label_from_filters
+
+		filters = {"from_date": "2024-01-15", "to_date": "2024-02-29"}
+		self.assertEqual(gl_period_label_from_filters(filters), "202401 to 202402")
+
+
+class TestGlLetterheadStyles(unittest.TestCase):
+	def test_centered_merges_and_left_meta_rows(self):
+		from openpyxl import Workbook
+
+		from logistics.bir_cas.excel_header import apply_gl_letterhead_styles
+		from logistics.bir_cas.header_rows import build_gl_letterhead_rows
+
+		context = {
+			"company_name": "All Transport Network Inc",
+			"company_address": "Unit 126B, Charlie Bldg.",
+			"tin": "000-414-368-00000",
+			"period_label": "202401 to 202402",
+			"generated_by": "Willy Morales",
+			"printed_at": "28-Jun-24 16:40",
+		}
+		wb = Workbook()
+		ws = wb.active
+		for idx, row in enumerate(build_gl_letterhead_rows(context), start=1):
+			if row:
+				ws.cell(row=idx, column=1, value=row[0])
+		for col in range(1, 7):
+			ws.cell(row=8, column=col, value=f"Col {col}")
+
+		apply_gl_letterhead_styles(ws, 6)
+
+		merged = {str(cell_range) for cell_range in ws.merged_cells.ranges}
+		for row_idx in range(1, 5):
+			self.assertIn(f"A{row_idx}:F{row_idx}", merged)
+			self.assertEqual(ws.cell(row=row_idx, column=1).alignment.horizontal, "center")
+		self.assertEqual(ws.cell(row=1, column=1).font.bold, True)
+		self.assertEqual(ws.cell(row=1, column=1).font.size, 18)
+		self.assertEqual(ws.cell(row=2, column=1).alignment.wrap_text, True)
+		self.assertEqual(ws.cell(row=4, column=1).font.bold, True)
+		self.assertEqual(ws.cell(row=4, column=1).font.size, 14)
+		self.assertEqual(ws.cell(row=5, column=1).alignment.horizontal, "left")
+		self.assertEqual(ws.cell(row=6, column=1).alignment.horizontal, "left")
+		self.assertNotIn("A5:F5", merged)
+		self.assertNotIn("A6:F6", merged)
+
+	def test_replaces_labeled_header_before_column_row(self):
+		from openpyxl import Workbook
+
+		from logistics.bir_cas.excel_header import _replace_with_gl_letterhead
+
+		context = {
+			"company_name": "All Transport Network Inc",
+			"company_address": "Unit 126B, Charlie Bldg.",
+			"tin": "000-414-368-00000",
+			"period_label": "202401 to 202402",
+			"generated_by": "Willy Morales",
+			"printed_at": "28-Jun-24 16:40",
+		}
+		wb = Workbook()
+		ws = wb.active
+		for line in (
+			"COMPANY: Old Co",
+			"ADDRESS: Old",
+			"TIN: 1",
+			"REPORT: GENERAL LEDGER",
+			"PERIOD: 01-01-2024 TO 02-29-2024",
+		):
+			ws.append([line])
+		ws.append([])
+		ws.append(["Date", "Account", "Debit", "Credit", "Balance", "Party"])
+
+		_replace_with_gl_letterhead(ws, context)
+
+		self.assertEqual(ws.cell(row=1, column=1).value, "All Transport Network Inc")
+		self.assertEqual(ws.cell(row=3, column=1).value, "VAT REG. TIN 000-414-368-00000")
+		self.assertEqual(ws.cell(row=4, column=1).value, "General Ledger Transaction Report")
+		self.assertEqual(ws.cell(row=5, column=1).value, "Period: 202401 to 202402")
+		self.assertEqual(ws.cell(row=8, column=1).value, "Date")
+		merged = {str(cell_range) for cell_range in ws.merged_cells.ranges}
+		self.assertIn("A1:F1", merged)
+		self.assertEqual(ws.cell(row=5, column=1).alignment.horizontal, "left")
+
+
 if __name__ == "__main__":
 	unittest.main()

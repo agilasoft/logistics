@@ -1,0 +1,437 @@
+<style>
+	.profit-wrap {
+		width: 100%;
+		margin: 0;
+		padding: 0;
+		background: #fff;
+		color: #000;
+		font-family: Arial, Helvetica, sans-serif;
+		font-size: 11px;
+		line-height: 1.05;
+	}
+	.profit-wrap .company { font-size: 15px; font-weight: 700; line-height: 1.05; }
+	.profit-wrap .doc-title { font-size: 18px; font-weight: 700; line-height: 1.05; }
+	.profit-wrap .project-name { font-size: 13px; line-height: 1.05; }
+	.profit-wrap td.meta {
+		text-align: right;
+		font-size: 11px;
+		line-height: 1.05;
+		padding-top: 14px !important;
+	}
+	.profit-wrap td.meta .k,
+	.profit-wrap td.meta .v { font-weight: 700; }
+	.profit-wrap .bar {
+		background: #000 !important;
+		background-color: #000 !important;
+		color: #fff !important;
+		font-weight: 700;
+		font-size: 11px;
+		line-height: 1.05;
+		letter-spacing: 0.02em;
+		padding: 1px 3px !important;
+		margin: 2px 0 8px 0;
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+	}
+	.profit-wrap table.summary { margin-top: 6px; }
+	.profit-wrap table.summary td.lbl { font-weight: 700; white-space: nowrap; }
+	.profit-wrap table.summary td.val { white-space: nowrap; }
+	.profit-wrap table.summary td.num {
+		text-align: right;
+		white-space: nowrap;
+		font-variant-numeric: tabular-nums;
+	}
+	.profit-wrap table.summary td.rule {
+		border-bottom: 3px double #000 !important;
+		font-weight: 700;
+		text-align: right;
+		white-space: nowrap;
+		line-height: 1;
+		padding-bottom: 0 !important;
+	}
+	.profit-wrap .margins { font-weight: 700; text-align: center; }
+	.profit-wrap .margins.pct { font-weight: 400; }
+	.profit-wrap table.cargo { margin-top: 0; }
+	.profit-wrap table.cargo td { white-space: nowrap; }
+	.profit-wrap table.cargo td.lbl { font-weight: 700; }
+	.profit-wrap > table.sheet.ships { margin-top: 8px; }
+	.profit-wrap table.ships td.job { font-weight: 700; }
+	.profit-wrap table.ships tr.ship-gap td { padding-top: 2px !important; }
+	.profit-wrap table.charges { margin-top: 6px; }
+	.profit-wrap table.charges th.amt,
+	.profit-wrap table.charges td.amt {
+		text-align: right;
+		white-space: nowrap;
+		font-variant-numeric: tabular-nums;
+	}
+	.profit-wrap table.charges th.label,
+	.profit-wrap table.charges td.label { text-align: left; }
+	.profit-wrap table.charges tr.section td { font-weight: 700; padding-top: 5px !important; }
+	.profit-wrap table.charges tr.job-no td { font-weight: 700; padding-top: 6px !important; }
+	.profit-wrap table.charges td.mode { padding-left: 12px !important; }
+	.profit-wrap table.charges tr.total-rule td {
+		border-top: 1px solid #000 !important;
+		padding: 0 !important;
+		height: 1px;
+		line-height: 0;
+		font-size: 1px;
+	}
+	.profit-wrap table.charges tr.total td {
+		font-weight: 700;
+		padding-top: 4px !important;
+	}
+	.profit-wrap table.charges thead th,
+	.print-format table.charges thead th {
+		vertical-align: middle !important;
+	}
+</style>
+<style media="screen">
+	.print-format { padding: 8mm !important; }
+	.profit-wrap table.sheet {
+		width: 100% !important;
+		border-collapse: collapse !important;
+		table-layout: fixed !important;
+		margin: 0;
+	}
+	.profit-wrap table.sheet th,
+	.profit-wrap table.sheet td,
+	.print-format table.sheet th,
+	.print-format table.sheet td {
+		border: none !important;
+		background: transparent;
+		vertical-align: baseline;
+		padding: 0 2px !important;
+		line-height: 1.05;
+	}
+	.profit-wrap table.ships thead tr,
+	.profit-wrap table.ships thead th,
+	.profit-wrap table.charges thead tr,
+	.profit-wrap table.charges thead th,
+	.print-format table.ships thead tr,
+	.print-format table.ships thead th,
+	.print-format table.charges thead tr,
+	.print-format table.charges thead th {
+		background: #000 !important;
+		background-color: #000 !important;
+		color: #fff !important;
+		font-weight: 700;
+		text-align: left;
+		white-space: nowrap !important;
+		line-height: 1.05;
+		padding: 2px 4px !important;
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+	}
+	.profit-wrap table.charges thead th.amt,
+	.print-format table.charges thead th.amt { text-align: right !important; }
+	.profit-wrap table.ships td,
+	.profit-wrap table.charges td,
+	.print-format table.ships td,
+	.print-format table.charges td { padding: 2px 4px !important; }
+	.profit-wrap table.charges tr.section td,
+	.print-format table.charges tr.section td { padding-top: 5px !important; }
+	.profit-wrap table.charges tr.job-no td,
+	.print-format table.charges tr.job-no td { padding-top: 6px !important; }
+	.profit-wrap table.charges tr.total-rule td,
+	.print-format table.charges tr.total-rule td {
+		border-top: 1px solid #000 !important;
+		border-right: none !important;
+		border-bottom: none !important;
+		border-left: none !important;
+		padding: 0 !important;
+		height: 1px;
+		line-height: 0;
+		font-size: 1px;
+	}
+	.profit-wrap table.charges tr.total td,
+	.print-format table.charges tr.total td { padding-top: 4px !important; }
+	.profit-wrap table.charges td.mode,
+	.print-format table.charges td.mode { padding-left: 12px !important; }
+	.profit-wrap table.summary td.side { vertical-align: top !important; padding: 0 !important; }
+</style>
+<style media="print">
+	.print-format { padding: 0 !important; }
+	.profit-wrap table.sheet {
+		width: 100% !important;
+		border-collapse: collapse !important;
+		table-layout: fixed !important;
+		margin: 0;
+	}
+	.profit-wrap table.sheet th,
+	.profit-wrap table.sheet td,
+	.print-format table.sheet th,
+	.print-format table.sheet td {
+		border: none !important;
+		background: transparent;
+		vertical-align: baseline;
+		padding: 0 2px !important;
+		line-height: 1.05;
+	}
+	.profit-wrap table.ships thead tr,
+	.profit-wrap table.ships thead th,
+	.profit-wrap table.charges thead tr,
+	.profit-wrap table.charges thead th,
+	.print-format table.ships thead tr,
+	.print-format table.ships thead th,
+	.print-format table.charges thead tr,
+	.print-format table.charges thead th {
+		background: #000 !important;
+		background-color: #000 !important;
+		color: #fff !important;
+		font-weight: 700;
+		text-align: left;
+		white-space: nowrap !important;
+		line-height: 1.05;
+		padding: 2px 4px !important;
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+	}
+	.profit-wrap table.charges thead th.amt,
+	.print-format table.charges thead th.amt { text-align: right !important; }
+	.profit-wrap table.ships td,
+	.profit-wrap table.charges td,
+	.print-format table.ships td,
+	.print-format table.charges td { padding: 2px 4px !important; }
+	.profit-wrap table.charges tr.section td,
+	.print-format table.charges tr.section td { padding-top: 5px !important; }
+	.profit-wrap table.charges tr.job-no td,
+	.print-format table.charges tr.job-no td { padding-top: 6px !important; }
+	.profit-wrap table.charges tr.total-rule td,
+	.print-format table.charges tr.total-rule td {
+		border-top: 1px solid #000 !important;
+		border-right: none !important;
+		border-bottom: none !important;
+		border-left: none !important;
+		padding: 0 !important;
+		height: 1px;
+		line-height: 0;
+		font-size: 1px;
+	}
+	.profit-wrap table.charges tr.total td,
+	.print-format table.charges tr.total td { padding-top: 4px !important; }
+	.profit-wrap table.charges td.mode,
+	.print-format table.charges td.mode { padding-left: 12px !important; }
+	.profit-wrap table.summary td.side { vertical-align: top !important; padding: 0 !important; }
+</style>
+<div class="profit-wrap">
+	{% set report = get_consol_job_profit_context(doc) %}
+	{% set header = report.header %}
+	{% set summary = report.summary %}
+	{% set cargo = report.cargo %}
+
+	<table class="sheet">
+		<colgroup>
+			<col style="width: 58%;">
+			<col style="width: 42%;">
+		</colgroup>
+		<tr>
+			<td>
+				<div class="company">{{ header.company_name }}</div>
+				<div class="doc-title">{{ header.title }}</div>
+				<div class="project-name">{{ header.project_name }}</div>
+			</td>
+			<td class="meta">
+				<div><span class="k">CONSOL:</span> <span class="v">{{ header.consol }}</span></div>
+				<div><span class="k">PAGE:</span> {{ header.page }}</div>
+				<div><span class="k">PRINTED:</span> {{ header.printed }}</div>
+				<div><span class="k">MASTER:</span> <span class="v">{{ header.master }}</span></div>
+			</td>
+		</tr>
+	</table>
+
+	<div class="bar">CONSOL SUMMARY</div>
+	<table class="sheet summary">
+		<colgroup>
+			<col style="width: 42%;">
+			<col style="width: 33%;">
+			<col style="width: 25%;">
+		</colgroup>
+		<tr>
+			<td class="side">
+				<table class="sheet cargo">
+					<colgroup>
+						<col style="width: 42%;">
+						<col style="width: 58%;">
+					</colgroup>
+					<tr>
+						<td class="lbl"># CONTAINERS</td>
+						<td>{{ cargo.containers }}</td>
+					</tr>
+					<tr>
+						<td class="lbl">TEU</td>
+						<td>{{ cargo.teu }}</td>
+					</tr>
+					<tr>
+						<td class="lbl">WEIGHT</td>
+						<td>{{ cargo.weight }}</td>
+					</tr>
+					<tr>
+						<td class="lbl">VOLUME</td>
+						<td>{{ cargo.volume }}</td>
+					</tr>
+					<tr>
+						<td class="lbl">CHARGEABLE</td>
+						<td>{{ cargo.chargeable }}</td>
+					</tr>
+					<tr>
+						<td class="lbl">PACKAGES</td>
+						<td>{{ cargo.packages }}</td>
+					</tr>
+				</table>
+			</td>
+			<td class="side">
+				<table class="sheet summary">
+					<colgroup>
+						<col style="width: 48%;">
+						<col style="width: 52%;">
+					</colgroup>
+					<tr>
+						<td class="lbl">Revenue</td>
+						<td class="num">{{ format_consol_job_profit_amount(summary.revenue) }}</td>
+					</tr>
+					<tr>
+						<td class="lbl">WIP</td>
+						<td class="num">{{ format_consol_job_profit_amount(summary.wip) }}</td>
+					</tr>
+					<tr>
+						<td class="lbl">INCOME</td>
+						<td class="rule">{{ format_consol_job_profit_amount(summary.income) }}</td>
+					</tr>
+					<tr>
+						<td class="lbl">Cost</td>
+						<td class="num">{{ format_consol_job_profit_amount(summary.cost) }}</td>
+					</tr>
+					<tr>
+						<td class="lbl">Accrual</td>
+						<td class="num">{{ format_consol_job_profit_amount(summary.accrual) }}</td>
+					</tr>
+					<tr>
+						<td class="lbl">EXPENSE</td>
+						<td class="rule">{{ format_consol_job_profit_amount(summary.expense) }}</td>
+					</tr>
+					<tr>
+						<td class="lbl">REV - CST</td>
+						<td class="num">{{ format_consol_job_profit_amount(summary.rev_cst) }}</td>
+					</tr>
+					<tr>
+						<td class="lbl">WIP - ACR</td>
+						<td class="num">{{ format_consol_job_profit_amount(summary.wip_acr) }}</td>
+					</tr>
+					<tr>
+						<td class="lbl">PROFIT</td>
+						<td class="rule">{{ format_consol_job_profit_amount(summary.profit) }}</td>
+					</tr>
+				</table>
+			</td>
+			<td class="side">
+				<table class="sheet summary">
+					<colgroup>
+						<col style="width: 50%;">
+						<col style="width: 50%;">
+					</colgroup>
+					<tr>
+						<td class="margins" colspan="2">Profit Margins</td>
+					</tr>
+					<tr>
+						<td class="margins pct">Profit/Cost</td>
+						<td class="margins pct">Profit/Rev</td>
+					</tr>
+					<tr>
+						<td class="margins pct">{{ summary.profit_cost_pct }}</td>
+						<td class="margins pct">{{ summary.profit_rev_pct }}</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</table>
+
+	<table class="sheet ships">
+		<colgroup>
+			<col style="width: 18%;">
+			<col style="width: 8%;">
+			<col style="width: 22%;">
+			<col style="width: 16%;">
+			<col style="width: 16%;">
+			<col style="width: 10%;">
+			<col style="width: 10%;">
+		</colgroup>
+		<thead>
+			<tr>
+				<th>SHIPMENT / HOUSE</th>
+				<th>MODE</th>
+				<th>EXHIBITOR</th>
+				<th>AGENT</th>
+				<th>AWB/BL</th>
+				<th>OPENED</th>
+				<th>CLOSED</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for ship in report.shipments %}
+			<tr class="{% if not loop.first %}ship-gap{% endif %}">
+				<td class="job">{{ ship.job_number }}</td>
+				<td>{{ ship.mode }}</td>
+				<td>{{ ship.exhibitor }}</td>
+				<td>{{ ship.agent }}</td>
+				<td>{{ ship.awb_bl }}</td>
+				<td>{{ ship.opened }}</td>
+				<td>{{ ship.closed }}</td>
+			</tr>
+			<tr>
+				<td></td>
+				<td class="house" colspan="6">House: {{ ship.house }}</td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+
+	<table class="sheet charges">
+		<colgroup>
+			<col style="width: 38%;">
+			<col style="width: 12.4%;">
+			<col style="width: 12.4%;">
+			<col style="width: 12.4%;">
+			<col style="width: 12.4%;">
+			<col style="width: 12.4%;">
+		</colgroup>
+		<thead>
+			<tr>
+				<th class="label">CHARGE SUMMARY</th>
+				<th class="amt">Revenue</th>
+				<th class="amt">WIP</th>
+				<th class="amt">Cost</th>
+				<th class="amt">Accrual</th>
+				<th class="amt">Profit</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr class="section">
+				<td class="label" colspan="6">BY JOB (nb. only shipments with jobs are listed)</td>
+			</tr>
+			{% for job in report.jobs %}
+			<tr class="job-no">
+				<td class="label" colspan="6">{{ job.job_number }}</td>
+			</tr>
+			<tr>
+				<td class="label mode">{{ job.mode }}</td>
+				<td class="amt">{{ format_consol_job_profit_amount(job.revenue) }}</td>
+				<td class="amt">{{ format_consol_job_profit_amount(job.wip) }}</td>
+				<td class="amt">{{ format_consol_job_profit_amount(job.cost) }}</td>
+				<td class="amt">{{ format_consol_job_profit_amount(job.accrual) }}</td>
+				<td class="amt">{{ format_consol_job_profit_amount(job.profit) }}</td>
+			</tr>
+			{% endfor %}
+			<tr class="total-rule">
+				<td colspan="6">&nbsp;</td>
+			</tr>
+			<tr class="total">
+				<td class="label"></td>
+				<td class="amt">{{ format_consol_job_profit_amount(report.totals.revenue) }}</td>
+				<td class="amt">{{ format_consol_job_profit_amount(report.totals.wip) }}</td>
+				<td class="amt">{{ format_consol_job_profit_amount(report.totals.cost) }}</td>
+				<td class="amt">{{ format_consol_job_profit_amount(report.totals.accrual) }}</td>
+				<td class="amt">{{ format_consol_job_profit_amount(report.totals.profit) }}</td>
+			</tr>
+		</tbody>
+	</table>
+</div>

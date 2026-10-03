@@ -69,15 +69,16 @@ def get_cas_header_context(
 	if not company:
 		company = frappe.defaults.get_user_default("Company") or ""
 
-	company_name = company
+	company_name = ""
 	tin = ""
 	address = ""
 
 	bir = _bir_cas_settings(company) if company else None
 	if bir:
-		company_name = bir.get("company_name") or company_name
-		tin = bir.get("tin") or ""
-		address = (bir.get("business_address") or "").strip()
+		company_name = (bir.get("registered_name") or bir.get("company_name") or "").strip()
+		tin = (bir.get("tin") or "").strip()
+		address = (bir.get("registered_address") or bir.get("business_address") or "").strip()
+		address = " ".join(address.split())
 		if not address:
 			city_bits = ", ".join(
 				p
@@ -100,9 +101,16 @@ def get_cas_header_context(
 	if not address and company:
 		address = _company_address_text(company)
 
+	if not company_name:
+		company_name = company or ""
+
 	user = frappe.session.user if frappe.session else "Guest"
 	full_name = frappe.db.get_value("User", user, "full_name") or user
-	generated_at = format_datetime(now_datetime(), "MM-dd-yyyy HH:mm:ss")
+	generated_on = now_datetime()
+	generated_at = format_datetime(generated_on, "MM-dd-yyyy HH:mm:ss")
+	printed_at = format_datetime(generated_on, "dd-MMM-yy HH:mm")
+	printed_at_ampm = generated_on.strftime("%d-%b-%y %I:%M %p")
+	printed_at_day_mon = format_datetime(generated_on, "dd MMM yy HH:mm")
 
 	return {
 		"company_name": company_name or "",
@@ -112,4 +120,7 @@ def get_cas_header_context(
 		"period_label": (period_label or "").strip(),
 		"generated_by": full_name,
 		"generated_at": generated_at,
+		"printed_at": printed_at,
+		"printed_at_ampm": printed_at_ampm,
+		"printed_at_day_mon": printed_at_day_mon,
 	}

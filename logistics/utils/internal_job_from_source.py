@@ -85,12 +85,15 @@ def _virtual_ij_row_from_linked_charge(charge: Any) -> Any:
 			"linked_service": ls,
 		}
 	)
-	if ls:
-		from logistics.utils.linked_service_company import company_from_linked_service
-
-		row.company = company_from_linked_service(row)
 	for k, v in resolve_parameters_for_charge_row(charge).items():
-		row[k] = v
+		if k not in ("company", "branch", "cost_center", "profit_center"):
+			row[k] = v
+	if ls:
+		from logistics.utils.linked_service_company import accounting_dimensions_from_linked_service
+
+		for fn, val in accounting_dimensions_from_linked_service(row).items():
+			if val:
+				row[fn] = val
 	return row
 
 

@@ -16,86 +16,79 @@
 		.manifest-wrap {
 			width: 100%;
 			max-width: 100%;
+			min-width: 0;
 			margin: 0 auto;
 			padding: 0;
 			background: #fff;
 		}
 		.print-format {
+			page-size: A4;
 			orientation: Landscape;
-			max-width: 11.69in !important;
-			min-height: 8.27in !important;
-			padding: 6mm !important;
+			margin-top: 6mm;
+			margin-bottom: 6mm;
+			margin-left: 6mm;
+			margin-right: 6mm;
 		}
-		.header {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			margin-bottom: 3mm;
+		table.header-table {
+			width: 100%;
+			max-width: 100%;
+			min-width: 0;
+			border-collapse: collapse;
+			border: none;
+			margin: 0 0 4mm 0;
 		}
-		.logo-placeholder {
-			width: 60mm;
-			height: 30mm;
-			background: #e0e0e0;
-			border: 1px solid #ccc;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			font-size: 7pt;
-			color: #666;
-			flex-shrink: 0;
+		.print-format table.header-table td {
+			border: none !important;
+			background: transparent !important;
+			padding: 0 !important;
+			vertical-align: middle !important;
 		}
-		.company-logo {
-			width: 60mm;
-			height: 30mm;
-			object-fit: contain;
-			flex-shrink: 0;
+		.print-format table.header-table td.header-logo {
+			width: 32mm;
+			padding-right: 4mm !important;
+			white-space: nowrap;
 		}
-		.company-info {
-			flex: 1;
+		.print-format table.header-table td.header-titles {
 			text-align: left;
-			padding-left: 3mm;
 		}
-		.company-name {
+		.print-format table.header-table td img.company-logo,
+		body:last-child .print-format table.header-table td img.company-logo {
+			width: 28mm !important;
+			max-width: 28mm !important;
+			height: auto !important;
+		}
+		.manifest-title {
 			font-size: 16pt;
-			font-weight: bold;
-			margin-bottom: 0;
+			font-weight: 700;
+			line-height: 1.1;
+			letter-spacing: 0.01em;
+			text-transform: uppercase;
 		}
-		.company-address,
-		.vat-reg,
-		.company-contact {
-			font-size: 7pt;
-			line-height: 1.3;
-			margin-bottom: 0;
-		}
-		.document-title {
-			text-align: center;
-			font-size: 14pt;
-			font-weight: 900;
-			margin: 2mm 0 1mm;
-			letter-spacing: 0.04em;
-		}
-		.project-meta {
-			text-align: center;
-			font-size: 7.5pt;
-			margin-bottom: 2.5mm;
-			line-height: 1.35;
+		.manifest-subtitle {
+			font-size: 10pt;
+			font-weight: 400;
+			line-height: 1.15;
+			margin-top: 0.4mm;
+			text-transform: uppercase;
 		}
 		table.data-table {
-			width: 100%;
+			width: 100% !important;
+			max-width: 100%;
+			min-width: 0;
 			border-collapse: collapse;
-			table-layout: fixed;
+			table-layout: fixed !important;
 			font-size: 6.5pt;
-			border-left: 2px solid #000;
-			border-right: 2px solid #000;
+			border: none;
 		}
 		table.data-table tbody td {
 			background: #fff;
 			border: none;
 			border-bottom: 1px solid #d0d0d0;
-			padding: 1.2mm 1.2mm;
+			padding: 1.2mm 1.2mm !important;
 			vertical-align: top;
-			word-wrap: break-word;
-			overflow-wrap: anywhere;
+			white-space: normal !important;
+			word-wrap: break-word !important;
+			overflow-wrap: anywhere !important;
 		}
 		table.data-table thead th {
 			background: #e6e6e6;
@@ -104,21 +97,12 @@
 			text-transform: uppercase;
 			font-size: 6pt;
 			line-height: 1.15;
-			white-space: normal;
+			white-space: normal !important;
 			vertical-align: middle;
-			padding: 1.5mm 1.2mm;
-			word-wrap: break-word;
-			overflow-wrap: anywhere;
-			border-top: 2px solid #000;
-			border-bottom: 2px solid #000;
-			border-left: none;
-			border-right: none;
-		}
-		table.data-table thead th:first-child {
-			border-left: 2px solid #000;
-		}
-		table.data-table thead th:last-child {
-			border-right: 2px solid #000;
+			padding: 1.5mm 1.2mm !important;
+			word-wrap: break-word !important;
+			overflow-wrap: anywhere !important;
+			border: none;
 		}
 		table.data-table .col-left {
 			text-align: left;
@@ -141,31 +125,43 @@
 			margin: 6mm;
 		}
 		@media screen {
+			.print-format,
 			.print-preview {
+				width: 11.69in !important;
 				max-width: 11.69in !important;
+				min-width: 0 !important;
 				min-height: 8.27in !important;
+				margin-left: auto !important;
+				margin-right: auto !important;
+				padding: 6mm !important;
+				background: #fff !important;
+				box-sizing: border-box !important;
 			}
 		}
 		@media print {
-			html, body {
+			html, body,
+			.print-format,
+			.print-format-gutter,
+			.manifest-wrap {
+				width: 100% !important;
+				max-width: none !important;
+				min-height: 0 !important;
 				margin: 0 !important;
 				padding: 0 !important;
 				-webkit-print-color-adjust: exact;
 				print-color-adjust: exact;
 			}
-			.manifest-wrap { max-width: 100%; }
+			table.data-table thead th {
+				padding: 1.5mm 1.2mm !important;
+			}
+			table.data-table tbody td {
+				padding: 1.2mm 1.2mm !important;
+			}
 			table.data-table thead th {
 				background: #e6e6e6 !important;
-				border-top: 2px solid #000 !important;
-				border-bottom: 2px solid #000 !important;
+				border: none !important;
 				-webkit-print-color-adjust: exact;
 				print-color-adjust: exact;
-			}
-			table.data-table thead th:first-child {
-				border-left: 2px solid #000 !important;
-			}
-			table.data-table thead th:last-child {
-				border-right: 2px solid #000 !important;
 			}
 		}
 	</style>
@@ -180,101 +176,35 @@
 {% set company_doc = frappe.get_doc("Company", default_company) %}
 {% endif %}
 
-{% macro fmt_date(val) -%}
-{%- if val -%}{{ frappe.utils.formatdate(val, 'MM-dd-yyyy') }}{%- endif -%}
-{%- endmacro %}
-
 <div class="manifest-wrap">
-	<div class="header">
-		{% if company_doc %}
-		{% if company_doc.company_logo %}
-			<img src="{{ company_doc.company_logo }}" alt="Company Logo" class="company-logo" />
-		{% elif company_doc.logo %}
-			<img src="{{ company_doc.logo }}" alt="Company Logo" class="company-logo" />
-		{% elif company_doc.image %}
-			<img src="{{ company_doc.image }}" alt="Company Logo" class="company-logo" />
-		{% else %}
-			<div class="logo-placeholder">company_logo</div>
-		{% endif %}
-		<div class="company-info">
-			<div class="company-name">{{ company_doc.company_name or doc.company }}</div>
-			<div class="company-address">
-				{% set company_address_name = None %}
-				{% set addr_rows = frappe.get_all(
-					"Address",
-					filters=[
-						["Dynamic Link", "link_doctype", "=", "Company"],
-						["Dynamic Link", "link_name", "=", company_doc.name],
-						["disabled", "=", 0],
-					],
-					fields=["name"],
-					order_by="is_primary_address desc",
-					limit_page_length=1
-				) %}
-				{% if addr_rows %}{% set company_address_name = addr_rows[0].name %}{% endif %}
-				{% if not company_address_name and company_doc.address and frappe.db.exists("Address", company_doc.address) %}
-					{% set company_address_name = company_doc.address %}
+	{% set logo_src = (company_doc.company_logo or company_doc.logo or company_doc.image or '') if company_doc else '' %}
+	<table class="header-table">
+		<tr>
+			{% if logo_src %}
+			<td class="header-logo">
+				<img src="{{ logo_src }}" alt="" class="company-logo" />
+			</td>
+			{% endif %}
+			<td class="header-titles">
+				{% set company_label = ((company_doc.company_name if company_doc else '') or doc.company or default_company or '') %}
+				<div class="manifest-title">{{ company_label }} INWARD MANIFEST</div>
+				{% set subtitle_parts = [] %}
+				{% if doc.project_name %}
+					{% set _ = subtitle_parts.append(doc.project_name) %}
 				{% endif %}
-				{% if company_address_name and frappe.db.exists("Address", company_address_name) %}
-					{% set company_address = frappe.get_doc("Address", company_address_name) %}
-					{% if company_address.address_title %}
-						{{ company_address.address_title }}
-					{% else %}
-						{{ company_address.address_line1 or '' }}
-						{% if company_address.address_line2 %} {{ company_address.address_line2 }}{% endif %}
-						{% if company_address.city %} {{ company_address.city }}{% endif %}
-						{% if company_address.state %}, {{ company_address.state }}{% endif %}
-						{% if company_address.country %} {{ company_address.country }}{% endif %}
-						{% if company_address.pincode %} {{ company_address.pincode }}{% endif %}
-					{% endif %}
-				{% elif company_doc.address_line1 %}
-					{{ company_doc.address_line1 }}<br>
-					{% if company_doc.address_line2 %}{{ company_doc.address_line2 }}<br>{% endif %}
-					{{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}<br>
-					{{ company_doc.country }}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
+				{% set show_dates = format_mice_manifest_show_dates(doc.show_open_date, doc.show_close_date) %}
+				{% if show_dates %}
+					{% set _ = subtitle_parts.append(show_dates) %}
 				{% endif %}
-			</div>
-			<div class="vat-reg">
-				{% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
-					{% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
-					{% set vat_tin = branch_doc.custom_tax_id or company_doc.tax_id or company_doc.tin %}
-					{% if vat_tin %}
-						VAT Reg. TIN: {{ vat_tin }}
-					{% endif %}
-				{% elif company_doc.tax_id %}
-					VAT Reg. TIN: {{ company_doc.tax_id }}
-				{% elif company_doc.tin %}
-					VAT Reg. TIN: {{ company_doc.tin }}
+				{% if doc.venue_name %}
+					{% set _ = subtitle_parts.append(doc.venue_name) %}
 				{% endif %}
-			</div>
-			<div class="company-contact">
-				{% if company_doc.email %}Email: {{ company_doc.email }}<br>{% endif %}
-				{% if company_doc.website %}Website: {{ company_doc.website }}<br>{% endif %}
-				{% if company_doc.phone_no %}Phone: {{ company_doc.phone_no }}{% endif %}
-			</div>
-		</div>
-		{% else %}
-			<div class="logo-placeholder">company_logo</div>
-			<div class="company-info">
-				<div class="company-name">{{ doc.company or default_company or '' }}</div>
-			</div>
-		{% endif %}
-	</div>
-
-	<div class="document-title">MICE PROJECT MANIFEST</div>
-	<div class="project-meta">
-		<strong>{{ doc.project_name or doc.name }}</strong>
-		{% if doc.project %} &mdash; {{ doc.project }}{% endif %}
-		{% if doc.show_open_date or doc.show_close_date %}
-			<br>
-			{% if doc.show_open_date %}Show Open: {{ fmt_date(doc.show_open_date) }}{% endif %}
-			{% if doc.show_open_date and doc.show_close_date %} &nbsp;|&nbsp; {% endif %}
-			{% if doc.show_close_date %}Show Close: {{ fmt_date(doc.show_close_date) }}{% endif %}
-		{% endif %}
-		{% if doc.venue_name %}
-			<br>Venue: {{ doc.venue_name }}
-		{% endif %}
-	</div>
+				{% if subtitle_parts %}
+				<div class="manifest-subtitle">{{ subtitle_parts | join(' | ') }}</div>
+				{% endif %}
+			</td>
+		</tr>
+	</table>
 
 	{% set manifest_rows = get_mice_project_manifest_rows(doc) %}
 	{% if manifest_rows %}
@@ -291,11 +221,10 @@
 			<col style="width: 4%;">
 			<col style="width: 5%;">
 			<col style="width: 5%;">
-			<col style="width: 8%;">
+			<col style="width: 13%;">
 			<col style="width: 6%;">
 			<col style="width: 7%;">
 			<col style="width: 6%;">
-			<col style="width: 5%;">
 		</colgroup>
 		<thead>
 			<tr>
@@ -307,14 +236,13 @@
 				<th class="col-center">Clearance Date</th>
 				<th class="col-left">AWB/BL</th>
 				<th class="col-left">Vsl / Flight</th>
-				<th class="col-right">Qty (Pkgs)</th>
-				<th class="col-right">G.Weight KG</th>
-				<th class="col-right">Volume (CBM)</th>
+				<th class="col-center">Qty (Pkgs)</th>
+				<th class="col-center">G.Weight KG</th>
+				<th class="col-center">Volume (CBM)</th>
 				<th class="col-left">Description</th>
 				<th class="col-center">Ingress Schedule</th>
 				<th class="col-left">Contact</th>
 				<th class="col-left">Billing Invoice</th>
-				<th class="col-right">Amount</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -328,14 +256,13 @@
 				<td class="col-center">{{ row.clearance_date }}</td>
 				<td class="col-left">{{ row.awb_bl }}</td>
 				<td class="col-left">{{ row.vsl_flight }}</td>
-				<td class="col-right">{{ row.qty_pkgs }}</td>
-				<td class="col-right">{{ row.g_weight_kg }}</td>
-				<td class="col-right">{{ row.volume_cbm }}</td>
+				<td class="col-center">{{ row.qty_pkgs }}</td>
+				<td class="col-center">{{ row.g_weight_kg }}</td>
+				<td class="col-center">{{ row.volume_cbm }}</td>
 				<td class="col-left">{{ row.description }}</td>
 				<td class="col-center">{{ row.ingress_schedule }}</td>
 				<td class="col-left">{{ row.contact }}</td>
 				<td class="col-left">{{ row.billing_invoice }}</td>
-				<td class="col-right">{{ row.amount }}</td>
 			</tr>
 			{% endfor %}
 		</tbody>

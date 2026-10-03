@@ -202,8 +202,10 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 
 		register_charge_resolution_parent(self)
 		try:
+			from logistics.utils.commercial_invoice_totals import throw_if_invoice_qty_is_zero
 			from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 
+			throw_if_invoice_qty_is_zero(self)
 			validate_internal_job_main_link_unchanged(self)
 			self._validate_declaration_order_unique()
 			self._guard_from_booking_milestone_edits()
@@ -410,10 +412,10 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 		# Exemptions first: total_payable uses get_total_exempted_amount() (row total_exempted).
 		self.calculate_exemptions()
 		self.calculate_total_payable()
-		self.calculate_declaration_value()
 		from logistics.utils.commercial_invoice_totals import apply_commercial_invoice_totals
 
 		apply_commercial_invoice_totals(self)
+		self.calculate_declaration_value()
 		self.calculate_sustainability_metrics()
 		self._enforce_mutually_exclusive_processing_dates()
 		self.update_processing_dates()
@@ -448,6 +450,7 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 		# Store original job_number to check if it was created
 		original_jcn = self.job_number
 		self.create_job_number_if_needed()
+		self._record_declaration_shipment_usage()
 		
 		# Save the document if Job Number was created
 		if self.job_number and self.job_number != original_jcn:
@@ -470,6 +473,24 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 			)
 			self.flags.reparent_linked_services_from_order = None
 		self.sync_internal_job_details_to_declaration_order()
+
+	def _record_declaration_shipment_usage(self):
+		"""Tag this Declaration as Job No on Linked Services that already point at its order."""
+		order_name = (getattr(self, "declaration_order", None) or "").strip()
+		dec_name = (getattr(self, "name", None) or "").strip()
+		if not order_name or not dec_name:
+			return
+		try:
+			from logistics.utils.internal_job_detail_copy import clone_linked_services_between_parents
+
+			clone_linked_services_between_parents(
+				"Declaration Order", order_name, "Declaration", dec_name
+			)
+		except Exception:
+			frappe.log_error(
+				title="Declaration linked service job link failed",
+				message=frappe.get_traceback(),
+			)
 
 	def sync_internal_job_details_to_declaration_order(self):
 		"""Keep linked Declaration Order Internal Jobs in sync when this Declaration's table changes."""
@@ -683,11 +704,18 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 		if not s.block_submit_if_required_permit_not_obtained:
 			return
 		
+		from logistics.customs.permit_matching import best_permit_for_type
+
 		missing_permits = []
 		for permit_req in self.permit_requirements:
-			if permit_req.is_required and not permit_req.is_obtained:
-				permit_type_name = permit_req.permit_type or permit_req.get("planned_permit_type") or "Unknown"
-				missing_permits.append(permit_type_name)
+			if not permit_req.is_required or permit_req.is_obtained:
+				continue
+			ptype = permit_req.permit_type or permit_req.get("planned_permit_type")
+			matched = best_permit_for_type(self, ptype) if ptype else None
+			if matched and matched.get("condition") in ("valid", "expiring", "expired"):
+				# valid/expiring covers the requirement; expired is reported by validate_permit_expiry
+				continue
+			missing_permits.append(ptype or "Unknown")
 		
 		if missing_permits:
 			frappe.throw(
@@ -709,19 +737,32 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 		block_days = s.block_submit_if_permit_expires_within_days
 		warn_days = s.permit_expiring_warn_days
 
+		from logistics.customs.permit_matching import best_permit_for_type
+
 		for permit_req in self.permit_requirements:
-			if not permit_req.is_obtained or not permit_req.expiry_date:
+			ptype = permit_req.permit_type or permit_req.get("planned_permit_type")
+			obtained = bool(permit_req.is_obtained)
+			expiry_date = permit_req.expiry_date if obtained else None
+			if ptype and not (obtained and expiry_date):
+				matched = best_permit_for_type(self, ptype)
+				if matched and matched.get("condition") in ("valid", "expiring", "expired"):
+					obtained = True
+					expiry_date = expiry_date or matched.get("valid_to")
+					if matched.get("condition") == "expired" and not expiry_date and s.block_submit_if_permit_expired:
+						expired.append((ptype or "Unknown", "—"))
+						continue
+			if not obtained or not expiry_date:
 				continue
-			exp_date = getdate(permit_req.expiry_date)
-			ptn = permit_req.permit_type or permit_req.get("planned_permit_type") or "Unknown"
+			exp_date = getdate(expiry_date)
+			ptn = ptype or "Unknown"
 			days_left = date_diff(exp_date, today_date)
 			if days_left < 0:
 				if s.block_submit_if_permit_expired:
-					expired.append((ptn, permit_req.expiry_date))
+					expired.append((ptn, expiry_date))
 			elif block_days > 0 and days_left <= block_days:
-				expiring_blocked.append((ptn, permit_req.expiry_date, days_left))
+				expiring_blocked.append((ptn, expiry_date, days_left))
 			elif warn_days > 0 and days_left <= warn_days:
-				expiring_soon.append((ptn, permit_req.expiry_date, days_left))
+				expiring_soon.append((ptn, expiry_date, days_left))
 
 		if expired:
 			frappe.throw(
@@ -971,8 +1012,10 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 			return
 		total_value = 0
 		if self.commercial_invoice_line_items:
+			from logistics.utils.commercial_invoice_totals import positive_invoice_qty
+
 			for row in self.commercial_invoice_line_items:
-				qty = flt(row.invoice_qty or row.customs_qty or 1)
+				qty = positive_invoice_qty(row)
 				price = flt(row.price or 0)
 				total_value += qty * price
 		self.declaration_value = self._invoice_amount_to_declaration_currency(total_value)
@@ -2064,9 +2107,11 @@ def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 	if existing_invoice and declaration.job_number:
 		frappe.throw(_("Sales Invoice {0} already exists for this Declaration.").format(existing_invoice))
 	
-	# Create Sales Invoice
+	# Create Sales Invoice. Linked Service satellites bill the charge Bill To.
+	from logistics.invoice_integration.sales_invoice_api import _default_invoice_customer
+
 	si = frappe.new_doc("Sales Invoice")
-	si.customer = declaration.customer
+	si.customer = _default_invoice_customer(declaration)
 	si.company = declaration.company
 	si.posting_date = today()
 	

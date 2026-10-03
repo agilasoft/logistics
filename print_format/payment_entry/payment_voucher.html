@@ -430,29 +430,6 @@
 {% set company_doc = frappe.get_doc("Company", default_company) %}
 {% endif %}
 
-{% set company_address = None %}
-{% if company_doc %}
-    {% set company_address_name = None %}
-    {% set addr_rows = frappe.get_all(
-        "Address",
-        filters=[
-            ["Dynamic Link", "link_doctype", "=", "Company"],
-            ["Dynamic Link", "link_name", "=", company_doc.name],
-            ["disabled", "=", 0],
-        ],
-        fields=["name"],
-        order_by="is_primary_address desc",
-        limit_page_length=1
-    ) %}
-    {% if addr_rows %}{% set company_address_name = addr_rows[0].name %}{% endif %}
-    {% if not company_address_name and company_doc.address and frappe.db.exists("Address", company_doc.address) %}
-        {% set company_address_name = company_doc.address %}
-    {% endif %}
-    {% if company_address_name and frappe.db.exists("Address", company_address_name) %}
-        {% set company_address = frappe.get_doc("Address", company_address_name) %}
-    {% endif %}
-{% endif %}
-
 {% set party_doc = None %}
 {% set party_code_ns = namespace(value='') %}
 {% set party_addr_ns = namespace(doc=None, name=None) %}
@@ -570,8 +547,36 @@
                     {% endif %}
                     <div class="company-info">
                         <div class="company-name">{{ company_doc.company_name or doc.company }}</div>
+                        {% set header_branch = None %}
+                        {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
+                            {% set header_branch = frappe.get_doc("Branch", doc.branch) %}
+                        {% endif %}
+                        {% set branch_address = "" %}
+                        {% if header_branch and header_branch.custom_registration_details %}
+                            {% set branch_address = header_address_from_registration(header_branch.custom_registration_details, company_doc.company_name or doc.company) %}
+                        {% endif %}
                         <div class="company-address">
-                            {% if company_address %}
+                            {% if branch_address %}
+                                {{ branch_address }}
+                            {% else %}
+                            {% set company_address_name = None %}
+                            {% set addr_rows = frappe.get_all(
+                                "Address",
+                                filters=[
+                                    ["Dynamic Link", "link_doctype", "=", "Company"],
+                                    ["Dynamic Link", "link_name", "=", company_doc.name],
+                                    ["disabled", "=", 0],
+                                ],
+                                fields=["name"],
+                                order_by="is_primary_address desc",
+                                limit_page_length=1
+                            ) %}
+                            {% if addr_rows %}{% set company_address_name = addr_rows[0].name %}{% endif %}
+                            {% if not company_address_name and company_doc.address and frappe.db.exists("Address", company_doc.address) %}
+                                {% set company_address_name = company_doc.address %}
+                            {% endif %}
+                            {% if company_address_name and frappe.db.exists("Address", company_address_name) %}
+                                {% set company_address = frappe.get_doc("Address", company_address_name) %}
                                 {% if company_address.address_title %}
                                     {{ company_address.address_title }}
                                 {% else %}
@@ -588,11 +593,11 @@
                                 {{ company_doc.city }}{% if company_doc.state %}, {{ company_doc.state }}{% endif %}<br>
                                 {{ company_doc.country }}{% if company_doc.pincode %} {{ company_doc.pincode }}{% endif %}
                             {% endif %}
+                            {% endif %}
                         </div>
                         <div class="vat-reg">
-                            {% if doc.branch and frappe.db.exists("Branch", doc.branch) %}
-                                {% set branch_doc = frappe.get_doc("Branch", doc.branch) %}
-                                {% set vat_tin = branch_doc.custom_tax_id or company_doc.tax_id or company_doc.tin %}
+                            {% if header_branch %}
+                                {% set vat_tin = header_branch.custom_tax_id or company_doc.tax_id or company_doc.tin %}
                                 {% if vat_tin %}
                                     VAT Reg. TIN: {{ vat_tin }}
                                 {% endif %}

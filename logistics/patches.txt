@@ -690,6 +690,14 @@ logistics.patches.v3_0_mice_project_manifest_html_landscape
 logistics.patches.v3_0_mice_project_manifest_table_header_style
 # MICE Project Manifest HTML: open body rows with horizontal dividers only
 logistics.patches.v3_0_mice_project_manifest_table_body_style
+# MICE Project Manifest HTML: logo and inward-manifest header
+logistics.patches.v3_0_mice_project_manifest_header_layout
+# MICE Project Manifest HTML: full-width A4 landscape PDF
+logistics.patches.v3_0_mice_project_manifest_pdf_layout
+# MICE Project Manifest HTML: table header row for PDF
+logistics.patches.v3_0_mice_project_manifest_header_row
+# MICE Project Manifest HTML: keep the preview table inside the sheet
+logistics.patches.v3_0_mice_project_manifest_table_fit
 # Charge calculation methods: Specified Charges (sum of selected items × unit rate)
 logistics.patches.v3_0_add_specified_charges_option
 # Charge calculation: Based on Specified Charge Group method + HTML JSON pickers on charge rows
@@ -758,4 +766,188 @@ logistics.patches.v3_0_payment_voucher_supplier_invoice_no
 logistics.patches.v3_0_business_partner_country_list_view
 # Cash Advance desk tile: logistics blue wallet SVG (same as other modules)
 logistics.patches.v3_0_sync_cash_advance_desktop_icon
+# MICE Project Manifest HTML: on-screen sheet matches the landscape PDF
+logistics.patches.v3_0_mice_project_manifest_screen_sheet
+# MICE Project Manifest HTML: center qty, weight, and volume headers
+logistics.patches.v3_0_mice_project_manifest_measure_headers
+# MICE Project Manifest HTML: center qty, weight, and volume values
+logistics.patches.v3_0_mice_project_manifest_measure_values
+# MICE Project Manifest HTML: drop the black table outline
+logistics.patches.v3_0_mice_project_manifest_no_table_border
+# Purchase Invoice HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_purchase_invoice_html_branch_address
+# Sales Invoice HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_sales_invoice_html_branch_address
+# Payment Entry HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_payment_entry_html_branch_address
+# Payment Voucher HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_payment_voucher_html_branch_address
+# Journal Entry HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_journal_entry_html_branch_address
+# Journal Entry HTML: pin the BIR footer to the bottom of the last page
+logistics.patches.v3_0_journal_entry_html_last_page_footer
+# Journal Entry HTML: keep the BIR footer together on the last page
+logistics.patches.v3_0_journal_entry_html_footer_same_page
+# Journal Entry HTML: keep the BIR footer on page 2
+logistics.patches.v3_0_journal_entry_html_footer_on_page_two
+# Journal Entry HTML: keep the input-tax disclaimer with the footer on page 2
+logistics.patches.v3_0_journal_entry_html_footer_disclaimer
+# Disbursement Bill HTML: show the exchange rate under Packages
+logistics.patches.v3_0_disbursement_bill_html_exchange_rate
+# Disbursement Bill HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_disbursement_bill_html_branch_address
+# MICE Project Manifest HTML: remove the Amount column
+logistics.patches.v3_0_mice_project_manifest_no_amount
+# MICE Sales Quote HTML: header address follows Branch Registration Details
+logistics.patches.v3_0_mice_sales_quote_html_branch_address
+# MICE Sales Quote HTML: line up the unit rate with the minimum amount
+logistics.patches.v3_0_mice_sales_quote_html_rate_align
+# MICE Sales Quote HTML: gap between charge rows matches the header field spacing
+logistics.patches.v3_0_mice_sales_quote_html_charge_row_gap
+# MICE Sales Quote HTML: Specified Charges print as a percent of SPECIFIED CHARGES
+logistics.patches.v3_0_mice_sales_quote_html_specified_charges_percent
+# MICE Sales Quote HTML: remove the BIR acknowledgment footer
+logistics.patches.v3_0_mice_sales_quote_html_no_footer
+# MICE Sales Quote HTML: charge row spacing matches Sales Invoice
+logistics.patches.v3_0_mice_sales_quote_html_invoice_row_spacing
+# MICE Sales Quote HTML: print charge description beside the item name
+logistics.patches.v3_0_mice_sales_quote_html_charge_description
+# MICE Project: Consol Job Profit HTML print format
+logistics.patches.v3_0_install_consol_job_profit_html_print_format
+# Consol Job Profit HTML: header, consol summary, and shipment list
+logistics.patches.v3_0_consol_job_profit_html_page_layout
+# Consol Job Profit HTML: tighten page margins and line spacing
+logistics.patches.v3_0_consol_job_profit_html_spacing
+# Docket: Return Shipping Instruction HTML print format
+logistics.patches.v3_0_install_return_shipping_instruction_html_print_format
+# Consol Job Profit HTML: single 5mm page margin
+logistics.patches.v3_0_consol_job_profit_html_page_margin
+# MICE Sales Quote HTML: gap between the charge name and MINIMUM
+logistics.patches.v3_0_mice_sales_quote_html_minimum_spacing
+# Consol Job Profit HTML: 8mm page margin
+logistics.patches.v3_0_consol_job_profit_html_margin_8mm
+# Return Shipping Instruction HTML: 8mm page margin
+logistics.patches.v3_0_return_shipping_instruction_html_margin
+# Consol Job Profit HTML: same column layout in the preview and the PDF
+logistics.patches.v3_0_consol_job_profit_html_preview_pdf
+# Return Shipping Instruction HTML: company letterhead
+logistics.patches.v3_0_return_shipping_instruction_html_letterhead
+# Consol Job Profit HTML: drop the routing block and the charge-code table
+logistics.patches.v3_0_consol_job_profit_html_drop_blocks
+# Consol Job Profit HTML: cargo lines on the left of the consol summary
+logistics.patches.v3_0_consol_job_profit_html_cargo_left
+# Consol Job Profit HTML: stack the cargo lines in one column
+logistics.patches.v3_0_consol_job_profit_html_cargo_column
+# Consol Job Profit HTML: a little more space in the shipment and charge tables
+logistics.patches.v3_0_consol_job_profit_html_row_spacing
+# Consol Job Profit HTML: draw the charge total line the full width
+logistics.patches.v3_0_consol_job_profit_html_total_line
+# Consol Job Profit HTML: one full-width line above the charge totals
+logistics.patches.v3_0_consol_job_profit_html_total_rule
+# Consol Job Profit HTML: exhibitor, agent, and AWB/BL on the shipment row
+logistics.patches.v3_0_consol_job_profit_html_shipment_columns
+# Return Shipping Instruction HTML: title left, logo and contact block right
+logistics.patches.v3_0_return_shipping_instruction_html_header
+# Return Shipping Instruction HTML: fit the form on one page
+logistics.patches.v3_0_return_shipping_instruction_html_one_page
+# Return Shipping Instruction HTML: tighter vertical spacing
+logistics.patches.v3_0_return_shipping_instruction_html_spacing
+# Return Shipping Instruction HTML: smaller gaps between rows and section bars
+logistics.patches.v3_0_return_shipping_instruction_html_tight_spacing
+# Return Shipping Instruction HTML: no gap between field rows
+logistics.patches.v3_0_return_shipping_instruction_html_no_spacing
+# Return Shipping Instruction HTML: a little space between field rows
+logistics.patches.v3_0_return_shipping_instruction_html_slight_spacing
+# Return Shipping Instruction HTML: more space between field rows
+logistics.patches.v3_0_return_shipping_instruction_html_more_spacing
+# Return Shipping Instruction HTML: wider space between field rows
+logistics.patches.v3_0_return_shipping_instruction_html_wider_spacing
+# Return Shipping Instruction HTML: space around the mode-of-shipment row
+logistics.patches.v3_0_return_shipping_instruction_html_mode_spacing
+# Return Shipping Instruction HTML: aligned destination underlines
+logistics.patches.v3_0_return_shipping_instruction_html_dest_lines
+# Return Shipping Instruction HTML: local delivery company and charge lines
+logistics.patches.v3_0_return_shipping_instruction_html_local_fields
+# Return Shipping Instruction HTML: destination rows aligned with the package grid
+logistics.patches.v3_0_return_shipping_instruction_html_align_dest
+# Return Shipping Instruction HTML: thin consignee and special-instruction lines
+logistics.patches.v3_0_return_shipping_instruction_html_lower_lines
+# Return Shipping Instruction HTML: compact package grid with units outside
+logistics.patches.v3_0_return_shipping_instruction_html_package_grid
+# Return Shipping Instruction HTML: drop the package-grid label divider
+logistics.patches.v3_0_return_shipping_instruction_html_package_border
+# Return Shipping Instruction HTML: restore the package-grid label divider
+logistics.patches.v3_0_return_shipping_instruction_html_package_divider
+# Return Shipping Instruction HTML: package values as separate boxes
+logistics.patches.v3_0_return_shipping_instruction_html_package_boxes
+# Return Shipping Instruction HTML: join the package value cells into one box
+logistics.patches.v3_0_return_shipping_instruction_html_package_joined
+# Return Shipping Instruction HTML: local delivery row split 50/50
+logistics.patches.v3_0_return_shipping_instruction_html_local_columns
+# Return Shipping Instruction HTML: delivery address on one baseline
+logistics.patches.v3_0_return_shipping_instruction_html_delivery_line
+# Return Shipping Instruction HTML: space between Company and Delivery address
+logistics.patches.v3_0_return_shipping_instruction_html_delivery_gap
+# Return Shipping Instruction HTML: space between Inbound Details and No. of packages
+logistics.patches.v3_0_return_shipping_instruction_html_inbound_gap
+# Return Shipping Instruction HTML: space between Exhibitor / Customer Details and Exhibitor
+logistics.patches.v3_0_return_shipping_instruction_html_exhibitor_gap
+# Return Shipping Instruction HTML: shorten the Hall / Booth No. line
+logistics.patches.v3_0_return_shipping_instruction_html_hall_line
+# Return Shipping Instruction HTML: equal Exhibitor, Agent, and Hall / Booth No. lines
+logistics.patches.v3_0_return_shipping_instruction_html_equal_lines
+# Return Shipping Instruction HTML: full-width Exhibitor block lines
+logistics.patches.v3_0_return_shipping_instruction_html_full_lines
+# Return Shipping Instruction HTML: writing lines on the label baseline
+logistics.patches.v3_0_return_shipping_instruction_html_baseline_lines
+# Return Shipping Instruction HTML: full-width second Special instruction line
+logistics.patches.v3_0_return_shipping_instruction_html_special_lines
+# Return Shipping Instruction HTML: space under the Special instruction label line
+logistics.patches.v3_0_return_shipping_instruction_html_special_gap
+# Return Shipping Instruction HTML: space the Special Requirement closing block
+logistics.patches.v3_0_return_shipping_instruction_html_closing_gap
+# Return Shipping Instruction HTML: fill Exhibitor details from the Docket
+logistics.patches.v3_0_return_shipping_instruction_html_exhibitor_values
+# Return Shipping Instruction HTML: fill Inbound Details from the Docket
+logistics.patches.v3_0_return_shipping_instruction_html_inbound_values
+# Return Shipping Instruction HTML: load linked services without get_attr
+logistics.patches.v3_0_return_shipping_instruction_html_inbound_fix
+# Return Shipping Instruction HTML: header email alta@atn.com.ph
+logistics.patches.v3_0_return_shipping_instruction_html_header_email
+# Return Shipping Instruction HTML: center Company, Contact, and Tel on their boxes
+logistics.patches.v3_0_return_shipping_instruction_html_company_boxes
+# Return Shipping Instruction HTML: wider gap under Special instruction
+logistics.patches.v3_0_return_shipping_instruction_html_special_gap_wide
+# Return Shipping Instruction HTML: a little more width on the Tel box
+logistics.patches.v3_0_return_shipping_instruction_html_tel_width
+# Return Shipping Instruction HTML: align Consignee with Actual/Vol. weight
+logistics.patches.v3_0_return_shipping_instruction_html_consignee_align
+# Return Shipping Instruction HTML: align the package grid and Consignee
+logistics.patches.v3_0_return_shipping_instruction_html_pkg_align
+# Return Shipping Instruction HTML: align Consignee and Notify party
+logistics.patches.v3_0_return_shipping_instruction_html_party_align
+# Return Shipping Instruction HTML: match Pay Duties to Delivery address
+logistics.patches.v3_0_return_shipping_instruction_html_pay_duties_line
+# Return Shipping Instruction HTML: space No. of packages below Local Delivery
+logistics.patches.v3_0_return_shipping_instruction_html_local_gap
+# Return Shipping Instruction HTML: remove the FM-ALTA-02 form code
+logistics.patches.v3_0_return_shipping_instruction_html_remove_form_code
+# Return Shipping Instruction HTML: center the print preview page
+logistics.patches.v3_0_return_shipping_instruction_html_center_page
+# Consol Job Profit HTML: cargo, revenue, and profit margins in three columns
+logistics.patches.v3_0_consol_job_profit_html_summary_columns
+# Consol Job Profit HTML: center Profit Margins in its column
+logistics.patches.v3_0_consol_job_profit_html_margins_center
+# Consol Job Profit HTML: 8mm margin on the screen preview
+logistics.patches.v3_0_consol_job_profit_html_preview_margin
+# Consol Job Profit HTML: CHARGE SUMMARY on the same line as the amount titles
+logistics.patches.v3_0_consol_job_profit_html_charge_header
+# Consol Job Profit HTML: space around the consol summary block
+logistics.patches.v3_0_consol_job_profit_html_summary_spacing
+# Consol Job Profit HTML: gap under the CONSOL SUMMARY bar
+logistics.patches.v3_0_consol_job_profit_html_summary_gap
+# Consol Job Profit HTML: gap between PROFIT and SHIPMENT / HOUSE
+logistics.patches.v3_0_consol_job_profit_html_shipment_gap
+# Permit tags: customer applicant and declaration job number, plus a shipment target on existing types
+logistics.patches.v3_0_backfill_permit_application_tags
 

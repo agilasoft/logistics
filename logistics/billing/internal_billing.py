@@ -9,7 +9,8 @@ the Main Job company. Linked job is identified by service_role=Linked + Main Ser
 companies differ (see intercompany_invoice).
 
 Transfers linked-job charge revenue to main-job cost via Dr expense / Cr income per Item.
-One Journal Entry per billing event (Sales Quote + optional trigger SI).
+Each post creates one Journal Entry for linked jobs that do not already have a
+submitted internal billing credit. The Sales Quote is not the uniqueness key.
 JE rows carry Job Number and Item accounting dimensions when configured.
 """
 
@@ -17,7 +18,7 @@ from __future__ import unicode_literals
 
 import frappe
 from frappe import _
-from frappe.utils import flt, today
+from frappe.utils import cint, flt, today
 from typing import Dict, Any, Optional, List
 
 from logistics.job_management.gl_item_dimension import item_row_dict
@@ -42,15 +43,60 @@ def _internal_billing_jv_user_remark(sales_quote_name: str, trigger_si: Optional
     return remark
 
 
-def _internal_billing_jv_already_created(sales_quote_name: str, trigger_si: Optional[str]) -> bool:
-    """Return True if we already created an internal billing JV for this quote and trigger SI."""
-    remark = _internal_billing_jv_user_remark(sales_quote_name, trigger_si)
-    return bool(
-        frappe.db.exists(
-            "Journal Entry",
-            {"user_remark": remark, "docstatus": 1},
-        )
+def _internal_billing_remark_prefix() -> str:
+    """Start of an internal billing Journal Entry remark, before the Sales Quote name."""
+    marker = "\x00"
+    rendered = _("Internal Billing - Sales Quote {0}").format(marker)
+    return rendered.split(marker, 1)[0]
+
+
+def _linked_revenue_transfer_remark(linked_job_doc) -> str:
+    return _("{0} {1} - Internal revenue transfer").format(
+        getattr(linked_job_doc, "doctype", None),
+        getattr(linked_job_doc, "name", None),
     )
+
+
+def _linked_job_label(linked_job_doc) -> str:
+    return "{0} {1}".format(
+        getattr(linked_job_doc, "doctype", None) or "",
+        getattr(linked_job_doc, "name", None) or "",
+    ).strip()
+
+
+def _linked_job_internal_billing_already_posted(linked_job_doc, je_row_has_jcn: bool) -> bool:
+    """True when a submitted internal billing JE already credits this linked job.
+
+    Cancelled journals (docstatus 2) do not count. Matching uses the linked job's
+    Job Number when that row field is present, otherwise the revenue-transfer row remark.
+    """
+    prefix = _internal_billing_remark_prefix()
+    if not prefix:
+        return False
+
+    jcn = getattr(linked_job_doc, "job_number", None)
+    params: Dict[str, Any] = {"prefix": prefix}
+    if je_row_has_jcn and jcn:
+        line_match = "jea.job_number = %(job_number)s"
+        params["job_number"] = jcn
+    else:
+        line_match = "jea.user_remark = %(row_remark)s"
+        params["row_remark"] = _linked_revenue_transfer_remark(linked_job_doc)
+
+    found = frappe.db.sql(
+        """
+        SELECT jea.name
+        FROM `tabJournal Entry Account` jea
+        INNER JOIN `tabJournal Entry` je ON je.name = jea.parent
+        WHERE je.docstatus = 1
+          AND LOCATE(%(prefix)s, IFNULL(je.user_remark, '')) = 1
+          AND IFNULL(jea.credit_in_account_currency, 0) > 0
+          AND {line_match}
+        LIMIT 1
+        """.format(line_match=line_match),
+        params,
+    )
+    return bool(found)
 
 
 def _job_row_base(job_doc, item_code: Optional[str], je_row_has_jcn: bool) -> Dict[str, Any]:
@@ -103,6 +149,49 @@ def _append_revenue_transfer_rows(
             "credit_in_account_currency": amount,
         }
     )
+
+
+def _apply_internal_billing_posting_header(je, billing_main_job) -> None:
+    """Copy Company and Branch onto mandatory Posting Company / Posting Branch fields."""
+    from logistics.job_management.recognition_engine import (
+        _resolve_posting_company_branch,
+        apply_journal_entry_posting_header_from_job,
+    )
+
+    if billing_main_job and not je.get("branch"):
+        job_branch = getattr(billing_main_job, "branch", None)
+        if job_branch:
+            je.branch = job_branch
+
+    company, branch = _resolve_posting_company_branch(je, billing_main_job)
+    if branch and not je.get("branch"):
+        je.branch = branch
+
+    meta = frappe.get_meta("Journal Entry")
+    missing = []
+    for fieldname, value in (
+        ("custom_posting_company", company),
+        ("posting_company", company),
+        ("custom_posting_branch", branch),
+        ("posting_branch", branch),
+    ):
+        df = meta.get_field(fieldname)
+        if not df:
+            continue
+        if value and not je.get(fieldname):
+            je.set(fieldname, value)
+        if cint(df.reqd) and not je.get(fieldname):
+            missing.append(df.label or fieldname)
+
+    if missing:
+        frappe.throw(
+            _(
+                "Cannot create internal billing Journal Entry. Set {0} on the main job or Sales Quote."
+            ).format(", ".join(missing)),
+            title=_("Journal Entry"),
+        )
+
+    apply_journal_entry_posting_header_from_job(je, billing_main_job)
 
 
 def _submit_internal_billing_journal_entry(
@@ -171,6 +260,8 @@ def _submit_internal_billing_journal_entry(
             if je_acc_meta.get_field(k):
                 setattr(row, k, v)
 
+    _apply_internal_billing_posting_header(je, billing_main_job)
+
     je.flags.ignore_permissions = True
     je.flags.ignore_links = True
     # Internal billing posts its own WIP / accrual reversal after submit.
@@ -217,7 +308,10 @@ def create_internal_billing_journal_entries_for_quote(
 ) -> Dict[str, Any]:
     """
     For each linked job on the quote where job.company == Main Job company, build one Journal Entry
-    transferring charge revenue to main job cost (per item accounts). One JE per billing event.
+    transferring charge revenue to main job cost (per item accounts).
+
+    Linked jobs that already have a submitted internal billing credit are skipped.
+    A later post still creates a Journal Entry for linked jobs that have not been billed.
     """
     if not frappe.db.exists("Sales Quote", sales_quote_name):
         return {"success": True, "created": 0, "message": _("Sales Quote not found.")}
@@ -264,8 +358,17 @@ def create_internal_billing_journal_entries_for_quote(
 
     entries: List[Dict[str, Any]] = []
     missing_item_codes: List[str] = []
+    already_billed: List[str] = []
+    already_billed_keys = set()
     linked_services_billed_via_operational_job: set = set()
     linked_job_doc_cache: Dict[str, Any] = {}
+
+    def _note_already_billed(linked_job_doc) -> None:
+        key = (getattr(linked_job_doc, "doctype", None), getattr(linked_job_doc, "name", None))
+        if key in already_billed_keys:
+            return
+        already_billed_keys.add(key)
+        already_billed.append(_linked_job_label(linked_job_doc))
 
     for job_type, job_no in all_jobs:
         if job_type not in INTERNAL_BILLING_JOB_TYPES:
@@ -295,6 +398,13 @@ def create_internal_billing_journal_entries_for_quote(
             continue
         op_co = getattr(linked_job_doc, "company", None)
         if not op_co or op_co != main_co_check:
+            continue
+        if _linked_job_internal_billing_already_posted(linked_job_doc, je_row_has_jcn):
+            _note_already_billed(linked_job_doc)
+            ls_name = resolve_internal_job_for_internal_job_booking(linked_job_doc)
+            if ls_name:
+                linked_services_billed_via_operational_job.add(ls_name)
+            linked_services_billed_via_operational_job.add((job_type, job_no))
             continue
 
         splits = list(
@@ -351,6 +461,9 @@ def create_internal_billing_journal_entries_for_quote(
         op_co = getattr(linked_job_doc, "company", None)
         if not op_co or op_co != main_co:
             continue
+        if _linked_job_internal_billing_already_posted(linked_job_doc, je_row_has_jcn):
+            _note_already_billed(linked_job_doc)
+            continue
         rev = flt(split.get("revenue"))
         if rev <= 0:
             continue
@@ -380,17 +493,18 @@ def create_internal_billing_journal_entries_for_quote(
         }
 
     if not entries:
+        if already_billed:
+            return {
+                "success": True,
+                "created": 0,
+                "message": _("Internal billing already posted for linked jobs: {0}.").format(
+                    ", ".join(already_billed)
+                ),
+            }
         return {
             "success": True,
             "created": 0,
             "message": _("No same-company linked jobs with revenue to bill."),
-        }
-
-    if _internal_billing_jv_already_created(sales_quote_name, trigger_si):
-        return {
-            "success": True,
-            "created": 0,
-            "message": _("Internal billing Journal Entry already created for this Sales Quote."),
         }
 
     user_remark = _internal_billing_jv_user_remark(sales_quote_name, trigger_si)
@@ -432,3 +546,91 @@ def create_internal_billing_for_quote(
         trigger_si=None,
         posting_date=posting_date or today(),
     )
+
+
+LINKED_POSTING_ACTION_DOCTYPES = (
+    "Transport Job",
+    "Air Shipment",
+    "Sea Shipment",
+    "Declaration",
+    "Docket",
+)
+
+
+def _charge_value(row, fieldname: str):
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return row.get(fieldname)
+    return getattr(row, fieldname, None)
+
+
+def non_cost_bill_tos(doc) -> List[str]:
+    """Distinct Bill To customers on non-Cost charge rows, first-seen order."""
+    charges = doc.get("charges") if hasattr(doc, "get") else getattr(doc, "charges", None)
+    names: List[str] = []
+    seen = set()
+    for row in charges or []:
+        if (_charge_value(row, "charge_type") or "").strip() == "Cost":
+            continue
+        bill_to = (_charge_value(row, "bill_to") or "").strip()
+        if not bill_to or bill_to in seen:
+            continue
+        seen.add(bill_to)
+        names.append(bill_to)
+    return names
+
+
+def classify_linked_posting_actions(doc, customer_rows: Dict[str, Dict[str, Any]]) -> Dict[str, bool]:
+    """Which Post buttons a Linked service should show.
+
+    Internal Billing: a Bill To customer's Represents Company equals this document's company.
+    Intercompany Transactions: a Bill To does not represent this company (a blank Represents
+    Company counts as different) and Is Internal Customer is unchecked.
+    A Bill To that represents a different company and is marked internal shows neither button.
+    Main and standalone documents show neither.
+    """
+    from logistics.utils.service_role_rules import SERVICE_ROLE_LINKED, get_service_role
+
+    hidden = {"internal_billing": False, "intercompany": False}
+    if get_service_role(doc) != SERVICE_ROLE_LINKED:
+        return hidden
+
+    company = (getattr(doc, "company", None) or "").strip()
+    internal_billing = False
+    intercompany = False
+    for bill_to in non_cost_bill_tos(doc):
+        row = customer_rows.get(bill_to) or {}
+        if not row:
+            continue
+        represents = (row.get("represents_company") or "").strip()
+        if represents and represents == company:
+            internal_billing = True
+        elif cint(row.get("is_internal_customer")) == 0:
+            intercompany = True
+    return {"internal_billing": internal_billing, "intercompany": intercompany}
+
+
+def _customer_rows_for_bill_tos(bill_tos: List[str]) -> Dict[str, Dict[str, Any]]:
+    if not bill_tos:
+        return {}
+    rows = frappe.get_all(
+        "Customer",
+        filters={"name": ["in", bill_tos]},
+        fields=["name", "represents_company", "is_internal_customer"],
+        ignore_permissions=True,
+    )
+    return {row.name: row for row in rows}
+
+
+@frappe.whitelist()
+def get_linked_posting_actions(doctype: str, name: str) -> Dict[str, bool]:
+    """Return which linked posting buttons to show for this operational document."""
+    if doctype not in LINKED_POSTING_ACTION_DOCTYPES:
+        frappe.throw(_("Invalid document type: {0}").format(doctype))
+    if not name or not frappe.db.exists(doctype, name):
+        frappe.throw(_("{0} {1} does not exist.").format(doctype, name))
+    from logistics.utils.menu_permission import assert_source_read
+
+    doc = assert_source_read(doctype, name)
+    return classify_linked_posting_actions(doc, _customer_rows_for_bill_tos(non_cost_bill_tos(doc)))

@@ -299,6 +299,9 @@ def populate_internal_job_charges_from_main_service(doc):
 	for row in dicts:
 		doc.append("charges", row)
 	apply_internal_job_main_charge_overlay(doc)
+	from logistics.utils.linked_service_charge_parties import apply_linked_service_charge_parties
+
+	apply_linked_service_charge_parties(doc)
 	return (len(dicts), st_label)
 
 

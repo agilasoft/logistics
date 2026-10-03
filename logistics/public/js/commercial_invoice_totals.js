@@ -25,14 +25,25 @@
 		return amount;
 	}
 
+	function _positive_qty(value) {
+		const n = parseFloat(value);
+		return Number.isFinite(n) && n > 0 ? n : 0;
+	}
+
+	function _line_qty(row) {
+		const invoiceQty = _positive_qty(row.invoice_qty);
+		if (invoiceQty > 0) {
+			return invoiceQty;
+		}
+		return _positive_qty(row.customs_qty);
+	}
+
 	function _line_total(doc) {
 		let total = 0;
 		const rows = doc.commercial_invoice_line_items || [];
 		for (let i = 0; i < rows.length; i++) {
 			const row = rows[i];
-			const qty = _to_num(row.invoice_qty || row.customs_qty || 1);
-			const price = _to_num(row.price);
-			total += qty * price;
+			total += _line_qty(row) * _to_num(row.price);
 		}
 		return total;
 	}
@@ -71,19 +82,25 @@
 			}
 		}
 
-		const base = line_total > 0 ? line_total : _to_num(doc.inv_total_amount);
+		const hasLines = (doc.commercial_invoice_line_items || []).length > 0;
+		const typedInvTotal = _to_num(doc.inv_total_amount);
+		const inv_total = hasLines ? line_total : typedInvTotal;
+		const base = line_total > 0 ? line_total : inv_total;
 		const fob = Math.max(base + fob_additions - deductions, 0);
 		const cif = Math.max(fob + post_fob_additions, 0);
-		const inv_total = _to_num(doc.inv_total_amount);
 		const balance =
 			inv_total > 0 ? (inv_total - (line_total + charges_for_itot)).toFixed(2) : "";
 
-		return {
+		const totals = {
 			expected_invoice_line_total: line_total,
 			fob: fob,
 			cif: cif,
 			balance: balance,
 		};
+		if (hasLines) {
+			totals.inv_total_amount = line_total;
+		}
+		return totals;
 	}
 
 	function _apply_totals_to_form(frm) {
@@ -94,6 +111,9 @@
 			["cif", totals.cif],
 			["balance", totals.balance],
 		];
+		if (Object.prototype.hasOwnProperty.call(totals, "inv_total_amount")) {
+			updates.push(["inv_total_amount", totals.inv_total_amount]);
+		}
 		updates.forEach(function (entry) {
 			const fieldname = entry[0];
 			const value = entry[1];

@@ -1945,9 +1945,11 @@ def create_sales_invoice(job_name: str) -> Dict[str, Any]:
                 indicator="blue"
             )
     
-    # Create Sales Invoice
+    # Create Sales Invoice. Linked Service satellites bill the charge Bill To.
+    from logistics.invoice_integration.sales_invoice_api import _default_invoice_customer
+
     si = frappe.new_doc("Sales Invoice")
-    si.customer = job.customer
+    si.customer = _default_invoice_customer(job)
     si.company = job.company
     si.posting_date = frappe.utils.today()
     
@@ -2113,7 +2115,9 @@ def create_sales_invoice_from_transport_job(job_name, posting_date=None, custome
     job = frappe.get_doc("Transport Job", job_name)
     if job.docstatus != 1:
         frappe.throw(_("Transport Job must be submitted to create Sales Invoice."))
-    customer = customer or job.customer
+    from logistics.invoice_integration.sales_invoice_api import _default_invoice_customer
+
+    customer = customer or _default_invoice_customer(job)
     if not customer:
         frappe.throw(_("Customer is required to create Sales Invoice."))
     if not job.charges:

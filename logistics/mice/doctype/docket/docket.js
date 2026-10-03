@@ -271,70 +271,8 @@ frappe.ui.form.on("Docket", {
 					__("Post")
 				);
 
-				if (frm.doc.sales_quote && frm.doc.company) {
-					frm.add_custom_button(
-						__("Intercompany Transactions"),
-						function () {
-							frappe.call({
-								method:
-									"logistics.intercompany.intercompany_invoice.create_intercompany_invoices_for_quote",
-								args: {
-									sales_quote_name: frm.doc.sales_quote,
-									posting_date: frappe.datetime.get_today(),
-								},
-								callback: function (r) {
-									if (r.message) {
-										var msg =
-											r.message.message ||
-											__("Intercompany invoices processed");
-										if (r.message.created !== undefined) {
-											msg = __("Created {0} intercompany invoice(s).", [
-												r.message.created,
-											]);
-										}
-										frappe.show_alert({ message: msg, indicator: "green" }, 5);
-										frm.reload_doc();
-									}
-								},
-							});
-						},
-						__("Post")
-					);
-
-					frm.add_custom_button(
-						__("Internal Billing"),
-						function () {
-							frappe.call({
-								method:
-									"logistics.billing.internal_billing.create_internal_billing_for_quote",
-								args: {
-									sales_quote_name: frm.doc.sales_quote,
-									posting_date: frappe.datetime.get_today(),
-								},
-								callback: function (r) {
-									if (r.message) {
-										var msg =
-											r.message.message || __("Internal billing processed");
-										if (
-											r.message.journal_entries &&
-											r.message.journal_entries.length
-										) {
-											msg = __("Created Journal Entries: {0}.", [
-												r.message.journal_entries.join(", "),
-											]);
-										} else if (r.message.journal_entry) {
-											msg = __("Created Journal Entry {0}.", [
-												r.message.journal_entry,
-											]);
-										}
-										frappe.show_alert({ message: msg, indicator: "blue" }, 5);
-										frm.reload_doc();
-									}
-								},
-							});
-						},
-						__("Post")
-					);
+				if (window.logistics && logistics.posting && logistics.posting.add_linked_buttons) {
+					logistics.posting.add_linked_buttons(frm);
 				}
 
 				_docket_add_recognition_buttons(frm);

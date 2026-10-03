@@ -1757,6 +1757,75 @@ def _existing_declaration_order_for_freight_shipment(shipment, shipment_name: st
 	)
 
 
+def _apply_shipment_incoterm_to_declaration_order(order, shipment):
+	"""Shipment incoterm wins over the Sales Quote value already copied onto the order."""
+	if getattr(shipment, "incoterm", None):
+		order.incoterm = shipment.incoterm
+	if not getattr(order, "inv_incoterm", None) and getattr(order, "incoterm", None):
+		order.inv_incoterm = order.incoterm
+
+
+def _positive_package_qty(value):
+	"""Return a package quantity only when it is greater than zero."""
+	from frappe.utils import flt
+
+	if value is None or value == "":
+		return None
+	number = flt(value)
+	if number > 0:
+		return number
+	return None
+
+
+def _set_line_value(row, fieldname, value):
+	if value is None or value == "":
+		return
+	row.set(fieldname, value)
+
+
+def _copy_shipment_packages_to_declaration_order_line_items(order, shipment):
+	"""One commercial invoice line per Air/Sea shipment package.
+
+	Package quantity of 0 is not written as invoice qty. When quantity is 0 and
+	``no_of_packs`` is greater than 0, that pack count is used for invoice qty.
+	"""
+	for pkg in getattr(shipment, "packages", None) or []:
+		row = order.append("commercial_invoice_line_items", {})
+		_set_line_value(row, "goods_description", getattr(pkg, "goods_description", None))
+		_set_line_value(row, "commodity_code", getattr(pkg, "commodity", None))
+		_set_line_value(row, "tariff", getattr(pkg, "hs_code", None))
+		raw_qty = getattr(pkg, "quantity", None)
+		qty = _positive_package_qty(raw_qty)
+		if qty is not None:
+			row.invoice_qty = qty
+			row.customs_qty = qty
+		elif raw_qty not in (None, ""):
+			packs_as_qty = _positive_package_qty(getattr(pkg, "no_of_packs", None))
+			if packs_as_qty is not None:
+				row.invoice_qty = packs_as_qty
+		_set_line_value(row, "invoice_qty_uom", getattr(pkg, "uom", None))
+		_set_line_value(row, "customs_qty_uom", getattr(pkg, "uom", None))
+		_set_line_value(row, "no_of_packs", getattr(pkg, "no_of_packs", None))
+		_set_line_value(row, "gross_weight", getattr(pkg, "weight", None))
+		_set_line_value(row, "gross_weight_uom", getattr(pkg, "weight_uom", None))
+		_set_line_value(row, "volume", getattr(pkg, "volume", None))
+		_set_line_value(row, "volume_uom", getattr(pkg, "volume_uom", None))
+		for fieldname in ("length", "width", "height", "dimension_uom", "reference_no"):
+			_set_line_value(row, fieldname, getattr(pkg, fieldname, None))
+
+
+def _fill_declaration_order_countries_from_ports(order):
+	"""Fill blank origin/destination countries from the order's own UNLOCO ports."""
+	from logistics.utils.customs_country_defaults import country_from_unloco
+
+	_set_if_empty(order, "country_of_origin", country_from_unloco(getattr(order, "port_of_loading", None)))
+	_set_if_empty(
+		order,
+		"country_of_destination",
+		country_from_unloco(getattr(order, "port_of_discharge", None)),
+	)
+
+
 def _copy_sea_shipment_containers_to_declaration_order(order, shipment):
 	"""Copy Sea Shipment container rows onto a Declaration Order containers table."""
 	from logistics.sea_freight.sea_container_row_utils import container_row_to_dict
@@ -1818,6 +1887,8 @@ def _create_declaration_order_from_freight_shipment(
 		if details.get(key) is not None:
 			order.set(key, details[key])
 
+	_apply_shipment_incoterm_to_declaration_order(order, shipment)
+
 	if getattr(shipment, "company", None):
 		order.company = shipment.company
 	if getattr(shipment, "branch", None):
@@ -1835,6 +1906,7 @@ def _create_declaration_order_from_freight_shipment(
 	order.eta = getattr(shipment, "eta", None)
 	if shipment_doctype == "Sea Shipment":
 		_copy_sea_shipment_containers_to_declaration_order(order, shipment)
+	_copy_shipment_packages_to_declaration_order_line_items(order, shipment)
 	copy_sales_quote_fields_to_target(shipment, order)
 	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
 	ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
@@ -1854,6 +1926,7 @@ def _create_declaration_order_from_freight_shipment(
 	)
 
 	apply_internal_job_customs_country_defaults(order)
+	_fill_declaration_order_countries_from_ports(order)
 
 	_copy_customs_charges_from_shipment_to_declaration_order(order, shipment, ij_row=ij_row)
 

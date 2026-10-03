@@ -712,7 +712,7 @@ def _create_transport_order(
 			if v is not None and str(v).strip() != "":
 				sq_doc.set(k, v)
 
-	result = _create_transport_order_from_sales_quote(sq_doc)
+	result = _create_transport_order_from_sales_quote(sq_doc, linked_service_row=row)
 	return {
 		"transport_order": result.get("transport_order"),
 		"message": result.get("message")

@@ -2281,6 +2281,7 @@ def _create_transport_order_from_sales_quote(
 	parent_overrides=None,
 	selected_charge_row_names=None,
 	blanket_call_off=False,
+	linked_service_row=None,
 ):
 	"""Create Transport Order from Sales Quote."""
 	throw_if_sales_quote_expired_for_creation(sales_quote)
@@ -2341,6 +2342,18 @@ def _create_transport_order_from_sales_quote(
 	transport_order.branch = sales_quote.branch
 	transport_order.cost_center = sales_quote.cost_center
 	transport_order.profit_center = sales_quote.profit_center
+	if linked_service_row:
+		from logistics.utils.linked_service_company import (
+			apply_linked_service_company_to_operational_doc,
+		)
+
+		apply_linked_service_company_to_operational_doc(
+			transport_order,
+			linked_service_row,
+			overwrite=True,
+			require=False,
+			sales_quote=sales_quote.name,
+		)
 
 	transport_order.transport_job_type = sales_quote._determine_transport_job_type(
 		current_job_type=None,

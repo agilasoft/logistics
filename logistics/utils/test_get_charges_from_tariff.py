@@ -13,8 +13,10 @@ from logistics.utils.tariff_charge_copy import (
 	_customer_matches_job,
 	_tariff_matches_job_customer,
 	tariff_charge_row_as_quote_like_dict,
+	tariff_charge_row_as_sales_quote_charge_dict,
 	tariff_charge_row_matches_booking_corridor,
 	tariff_charge_row_matches_sales_quote_context,
+	tariff_charge_row_matches_sales_quote_scope,
 )
 
 
@@ -128,3 +130,36 @@ class TestTariffChargeCopyHelpers(FrappeTestCase):
 			setattr(sq, fn, "")
 		row = {"service_type": "Sea", "origin_port": "SGSIN", "destination_port": "USLAX"}
 		self.assertFalse(tariff_charge_row_matches_sales_quote_context(sq, row))
+	def test_sales_quote_scope_blank_tariff_line_is_wildcard(self):
+		row = {"origin_port": "", "destination_port": "USLAX", "shipping_line": ""}
+		self.assertTrue(
+			tariff_charge_row_matches_sales_quote_scope(
+				row, {"origin_port": "SGSIN", "destination_port": "USLAX", "shipping_line": "MAEU"}
+			)
+		)
+
+	def test_sales_quote_scope_requires_match_when_tariff_line_is_set(self):
+		row = {"origin_port": "SGSIN", "destination_port": "USLAX"}
+		self.assertTrue(
+			tariff_charge_row_matches_sales_quote_scope(
+				row, {"origin_port": "SGSIN", "destination_port": "USLAX"}
+			)
+		)
+		self.assertFalse(
+			tariff_charge_row_matches_sales_quote_scope(
+				row, {"origin_port": "HKHKG", "destination_port": "USLAX"}
+			)
+		)
+
+	def test_sales_quote_charge_dict_enables_tariff_flags(self):
+		row = MagicMock()
+		row.as_dict.return_value = {
+			"item_code": "FRT-AIR",
+			"service_type": "Air",
+			"revenue_calculation_method": "Per Unit",
+			"unit_rate": 50,
+		}
+		out = tariff_charge_row_as_sales_quote_charge_dict(row, "TAR-002")
+		self.assertEqual(out["use_tariff_in_revenue"], 1)
+		self.assertEqual(out["use_tariff_in_cost"], 1)
+		self.assertEqual(out["charge_scope"], "Main")

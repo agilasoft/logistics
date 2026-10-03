@@ -1,6 +1,6 @@
 // Copyright (c) 2026, www.agilasoft.com and contributors
 // Create Sales Invoice dialog: header (date, customer, invoice type, etc.) and charge selection.
-// Charges are pre-filtered based on header details (e.g. customer/bill_to, invoice type).
+// Charges are pre-filtered by invoice type when a charge row sets one. Bill To does not hide charges.
 
 (function() {
 	"use strict";

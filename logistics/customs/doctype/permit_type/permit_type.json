@@ -1,8 +1,9 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:permit_code",
- "creation": "2025-01-27 00:00:00",
+ "creation": "2026-07-30 11:00:18.848215",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -27,6 +28,15 @@
   "is_mandatory",
   "column_break_requirements",
   "fee_structure",
+  "tag_targets_tab",
+  "applies_to_importer",
+  "applies_to_exporter",
+  "applies_to_freight_agent",
+  "column_break_tag_targets",
+  "applies_to_customer",
+  "applies_to_company",
+  "applies_to_commodity",
+  "applies_to_shipment",
   "required_for_commodities_tab",
   "required_for_commodities",
   "required_for_countries_tab",
@@ -93,8 +103,8 @@
    "fieldname": "issuing_authority",
    "fieldtype": "Link",
    "label": "Issuing Authority",
-   "options": "Issuing Authority",
-   "link_filters": "[[\"Issuing Authority\", \"is_active\", \"=\", 1]]"
+   "link_filters": "[[\"Issuing Authority\", \"is_active\", \"=\", 1]]",
+   "options": "Issuing Authority"
   },
   {
    "fieldname": "column_break_authority",
@@ -152,6 +162,58 @@
    "label": "Fee Structure"
   },
   {
+   "fieldname": "tag_targets_tab",
+   "fieldtype": "Tab Break",
+   "label": "Tag Targets",
+   "description": "Which records an application of this type may be tagged to. At least one is required. Importer is Consignee. Exporter is Shipper. Items are Commodities."
+  },
+  {
+   "default": "0",
+   "fieldname": "applies_to_importer",
+   "fieldtype": "Check",
+   "label": "Importer"
+  },
+  {
+   "default": "0",
+   "fieldname": "applies_to_exporter",
+   "fieldtype": "Check",
+   "label": "Exporter"
+  },
+  {
+   "default": "0",
+   "fieldname": "applies_to_freight_agent",
+   "fieldtype": "Check",
+   "label": "Freight Agent"
+  },
+  {
+   "fieldname": "column_break_tag_targets",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "applies_to_customer",
+   "fieldtype": "Check",
+   "label": "Customer"
+  },
+  {
+   "default": "0",
+   "fieldname": "applies_to_company",
+   "fieldtype": "Check",
+   "label": "Company"
+  },
+  {
+   "default": "0",
+   "fieldname": "applies_to_commodity",
+   "fieldtype": "Check",
+   "label": "Commodity"
+  },
+  {
+   "default": "0",
+   "fieldname": "applies_to_shipment",
+   "fieldtype": "Check",
+   "label": "Shipment / Job"
+  },
+  {
    "fieldname": "required_for_commodities_tab",
    "fieldtype": "Tab Break",
    "label": "Required For Commodities"
@@ -186,7 +248,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-25 13:05:10.677198",
+ "modified": "2026-09-30 07:52:59.748529",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Permit Type",
@@ -213,6 +275,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "description",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

@@ -24,7 +24,25 @@ function _schedule_commercial_invoice_totals_recalc_from_grid(frm) {
 }
 
 frappe.ui.form.on("Commercial Invoice Line Item", {
-	invoice_qty(frm) {
+	invoice_qty(frm, cdt, cdn) {
+		const row = locals[cdt] && locals[cdt][cdn];
+		if (row && row._clearing_zero_invoice_qty) {
+			return;
+		}
+		if (row && (row.invoice_qty === 0 || row.invoice_qty === "0")) {
+			row._clearing_zero_invoice_qty = 1;
+			row.invoice_qty = null;
+			frm.dirty();
+			frappe.show_alert({
+				message: __("Invoice Qty must be greater than 0."),
+				indicator: "orange",
+			});
+			if (frm.fields_dict.commercial_invoice_line_items) {
+				frm.refresh_field("commercial_invoice_line_items");
+			}
+			row._clearing_zero_invoice_qty = 0;
+			return;
+		}
 		_schedule_commercial_invoice_totals_recalc_from_grid(frm);
 		_schedule_customs_line_charge_recalc_from_grid(frm);
 	},

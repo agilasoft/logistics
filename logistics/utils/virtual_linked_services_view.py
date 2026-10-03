@@ -61,6 +61,7 @@ def build_linked_services_view_for_booking(
 		get_linked_services_for_booking,
 	)
 	from logistics.utils.linked_service_usage import (
+		execution_job_no_for_linked_order,
 		latest_satellite_job_from_usage,
 		latest_shipment_from_usage,
 	)
@@ -77,10 +78,14 @@ def build_linked_services_view_for_booking(
 				row[fn] = getattr(ls, fn, None)
 		# Order No ← Satellite Job Usage (booking/order).
 		# Job No ← Shipment Usage for this service type only (not the parent main shipment).
+		# Existing Declaration / Cross Dock jobs created before Usage was recorded still resolve
+		# from the order (Declaration.declaration_order, Warehouse Job.reference_order).
 		ot, on = latest_satellite_job_from_usage(ls.name)
 		row["job_type"] = ot or None
 		row["order_no"] = on or None
 		_et, en = latest_shipment_from_usage(ls.name)
+		if not en and ot and on:
+			en = execution_job_no_for_linked_order(ot, on)
 		row["job_no"] = en or None
 		row["job_description"] = None
 		rows.append(row)

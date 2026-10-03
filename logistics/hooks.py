@@ -56,13 +56,15 @@ app_include_js = [
 	"/assets/logistics/js/linked_services_dialog.js?v=6",
 	"/assets/logistics/js/ts_sq_fetch_dialog.js?v=6",
 	"/assets/logistics/js/freight_agent_service.js?v=4",
-	"/assets/logistics/js/charge_bill_to.js?v=2",
+	"/assets/logistics/js/charge_bill_to.js?v=3",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
+	"/assets/logistics/js/mice_project_manifest_print_preview.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=4",
 	"/assets/logistics/js/user_quick_entry.js?v=1",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
-	"/assets/logistics/js/menu_permission.js?v=9",
+	"/assets/logistics/js/menu_permission.js?v=10",
+	"/assets/logistics/js/linked_posting_actions.js?v=1",
 	"/assets/logistics/js/submitted_child_doc_toolbar.js?v=1",
 	"/assets/logistics/js/internal_job_create_from_source.js?v=22",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js?v=2",
@@ -144,6 +146,7 @@ doctype_js = {
 		"pricing_center/doctype/sales_quote_air_freight/sales_quote_air_freight.js",
 		"pricing_center/doctype/sales_quote_sea_freight/sales_quote_sea_freight.js",
 		"public/js/sales_quote_booking_dialog.js",
+		"public/js/initialize_tariff_schedule.js",
 	],
 	"Sales Quote Pack": "logistics/pricing_center/doctype/sales_quote_pack/sales_quote_pack.js",
 	"Opportunity": [
@@ -380,9 +383,11 @@ doctype_js = {
 		"public/js/user.js",
 		"integrations/outlook/user_outlook.js",
 	],
+	"Lead": "public/js/lead_prospect.js",
 }
 doctype_list_js = {
 	"Time Sensitive Case": "time_sensitive/doctype/time_sensitive_case/time_sensitive_case_list.js",
+	"Lead": "public/js/lead_list.js",
 }
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -413,6 +418,11 @@ jinja = {
 		"logistics.print_format.sales_invoice.vat_sales_summary.get_vat_sales_summary",
 		"logistics.print_format.sales_invoice.vat_sales_summary.item_is_zero_rated_or_exempt",
 		"logistics.mice.print_format.mice_project_manifest.mice_project_manifest.get_mice_project_manifest_rows",
+		"logistics.mice.print_format.mice_project_manifest.mice_project_manifest.format_mice_manifest_show_dates",
+		"logistics.mice.print_format.consol_job_profit_html.consol_job_profit_html.get_consol_job_profit_context",
+		"logistics.mice.print_format.consol_job_profit_html.consol_job_profit_html.format_consol_job_profit_amount",
+		"logistics.print_format.purchase_invoice.header_address.header_address_from_registration",
+		"logistics.print_format.purchase_invoice.tax_amount.printed_tax_amount",
 	]
 }
 
@@ -478,6 +488,7 @@ doc_events = {
 	},
 	"Prospect": {
 		"onload": "logistics.pricing_center.crm_sales_quote_onload.prospect_onload",
+		"validate": "logistics.pricing_center.lead_prospect.populate_annual_revenue_from_leads",
 	},
 	"Customer": {
 		"validate": "logistics.utils.party_code.validate_customer_supplier_party_code",
@@ -498,6 +509,9 @@ doc_events = {
 	},
 	"Cost Center": {
 		"validate": "logistics.job_management.cost_center_defaults.set_cost_center_branch_default",
+	},
+	"Branch": {
+		"before_insert": "logistics.job_management.cost_center_defaults.set_branch_document_name",
 	},
 	"Account": {
 		"validate": "logistics.logistics.account_job_profit.validate_account_job_profit",
@@ -534,6 +548,7 @@ doc_events = {
 		"on_cancel": "logistics.invoice_integration.invoice_hooks.on_sales_invoice_cancel",
 	},
 	"Journal Entry": {
+		"before_validate": "logistics.job_management.recognition_engine.ensure_journal_entry_posting_header",
 		"on_submit": "logistics.invoice_integration.journal_entry_recognition_reversal.on_journal_entry_submit",
 	},
 	"Task": {
@@ -711,6 +726,31 @@ elif isinstance(_wj_bs, list):
 elif _wj_bs != _WAREHOUSE_JOB_BEFORE_SUBMIT:
 	doc_events["Warehouse Job"]["before_submit"] = [_wj_bs, _WAREHOUSE_JOB_BEFORE_SUBMIT]
 
+# Permit tags: block submit when Logistics Settings Permit Alert Rule says Block.
+_PERMIT_ALERT_BEFORE_SUBMIT = "logistics.customs.permit_matching.enforce_permit_alerts_before_submit"
+for _dt in (
+	"Sales Quote",
+	"Air Booking",
+	"Sea Booking",
+	"Transport Order",
+	"Air Shipment",
+	"Sea Shipment",
+	"Transport Job",
+	"Warehouse Job",
+	"Declaration Order",
+	"Declaration",
+):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	_bs = doc_events[_dt].get("before_submit")
+	if not _bs:
+		doc_events[_dt]["before_submit"] = _PERMIT_ALERT_BEFORE_SUBMIT
+	elif isinstance(_bs, list):
+		if _PERMIT_ALERT_BEFORE_SUBMIT not in _bs:
+			doc_events[_dt]["before_submit"] = list(_bs) + [_PERMIT_ALERT_BEFORE_SUBMIT]
+	elif _bs != _PERMIT_ALERT_BEFORE_SUBMIT:
+		doc_events[_dt]["before_submit"] = [_bs, _PERMIT_ALERT_BEFORE_SUBMIT]
+
 append_hook(
 	doc_events,
 	"*",
@@ -735,6 +775,23 @@ for _dt in ("Air Booking", "Sea Booking", "Air Shipment", "Sea Shipment", "Proje
 			doc_events[_dt]["before_save"] = list(_bs) + [_OER_BEFORE_SAVE]
 	elif _bs != _OER_BEFORE_SAVE:
 		doc_events[_dt]["before_save"] = [_bs, _OER_BEFORE_SAVE]
+
+# Linked Service bookings/orders: Bill To = Main company, empty Pay To = Linked Service company.
+# First save only (see on_before_save_linked_service_charge_parties).
+_LS_CHARGE_PARTIES_BEFORE_SAVE = (
+	"logistics.utils.linked_service_charge_parties.on_before_save_linked_service_charge_parties"
+)
+for _dt in ("Air Booking", "Sea Booking", "Transport Order", "Declaration Order"):
+	if _dt not in doc_events:
+		doc_events[_dt] = {}
+	_bs = doc_events[_dt].get("before_save")
+	if not _bs:
+		doc_events[_dt]["before_save"] = _LS_CHARGE_PARTIES_BEFORE_SAVE
+	elif isinstance(_bs, list):
+		if _LS_CHARGE_PARTIES_BEFORE_SAVE not in _bs:
+			doc_events[_dt]["before_save"] = list(_bs) + [_LS_CHARGE_PARTIES_BEFORE_SAVE]
+	elif _bs != _LS_CHARGE_PARTIES_BEFORE_SAVE:
+		doc_events[_dt]["before_save"] = [_bs, _LS_CHARGE_PARTIES_BEFORE_SAVE]
 
 # Internal job → Main Service rollup: push planned / actual cost & revenue from an internal job's
 # charges onto its Main Service's Internal Jobs row. Covers every operational doctype that can be

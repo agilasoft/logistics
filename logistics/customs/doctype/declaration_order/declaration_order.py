@@ -129,8 +129,10 @@ class DeclarationOrder(VirtualLinkedServicesMixin, Document):
 
 		register_charge_resolution_parent(self)
 		try:
+			from logistics.utils.commercial_invoice_totals import throw_if_invoice_qty_is_zero
 			from logistics.utils.internal_job_main_link import validate_internal_job_main_link_unchanged
 
+			throw_if_invoice_qty_is_zero(self)
 			validate_internal_job_main_link_unchanged(self)
 			original_sales_quote = None
 			if not self.is_new():
@@ -583,6 +585,9 @@ class DeclarationOrder(VirtualLinkedServicesMixin, Document):
 				for fn, val in scope_vals.items():
 					if fn in charge_fields and val is not None:
 						row.set(fn, val)
+			from logistics.utils.linked_service_charge_parties import apply_linked_service_charge_parties
+
+			apply_linked_service_charge_parties(self)
 		except Exception as e:
 			frappe.log_error(f"Error populating Declaration Order charges from Sales Quote: {str(e)}")
 

@@ -3665,7 +3665,9 @@ def create_sales_invoice_from_air_shipment(shipment_name, posting_date, customer
 	shipment = frappe.get_doc("Air Shipment", shipment_name)
 	if shipment.docstatus != 1:
 		frappe.throw(_("Air Shipment must be submitted to create Sales Invoice."))
-	customer = customer or shipment.local_customer
+	from logistics.invoice_integration.sales_invoice_api import _default_invoice_customer
+
+	customer = customer or _default_invoice_customer(shipment)
 	if not customer:
 		frappe.throw(_("Local Customer is required to create Sales Invoice."))
 	if not shipment.charges:

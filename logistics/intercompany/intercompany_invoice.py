@@ -21,6 +21,10 @@ from typing import Dict, Any, Optional, List, Tuple
 # Job types that can be intercompany legs (must have company and charges)
 INTERCOMPANY_JOB_TYPES = ("Transport Job", "Air Shipment", "Sea Shipment", "Warehouse Job", "Declaration", "Declaration Order")
 
+# Stable prefix on the operating-company Sales Invoice. Kept untranslated so the
+# submit hook can tell this invoice apart from the customer invoice.
+INTERCOMPANY_SI_REMARKS_PREFIX = "Intercompany:"
+
 
 def is_intercompany_enabled() -> bool:
 	"""Return True if Intercompany Settings has enable_intercompany_invoicing checked."""
@@ -28,6 +32,19 @@ def is_intercompany_enabled() -> bool:
 		return bool(frappe.db.get_single_value("Intercompany Settings", "enable_intercompany_invoicing"))
 	except Exception:
 		return False
+
+
+def sales_invoice_is_intercompany_leg(doc) -> bool:
+	"""True when this Sales Invoice is the operating-company intercompany leg.
+
+	Submitting that invoice must not start another intercompany run. The customer
+	invoice is the document that should trigger creation.
+	"""
+	flags = getattr(doc, "flags", None)
+	if flags and flags.get("is_intercompany_invoice"):
+		return True
+	remarks = (getattr(doc, "remarks", None) or "").strip()
+	return remarks.startswith(INTERCOMPANY_SI_REMARKS_PREFIX)
 
 
 def get_relationship(main_job_company: str, operating_company: str) -> Optional[Dict[str, str]]:
@@ -90,9 +107,35 @@ def create_intercompany_invoices_for_quote(
 	The Main Job company is resolved from each job's Main Service link
 	(``main_service_type`` / ``main_service``), not from a document ``billing_company`` field.
 	"""
+	if getattr(frappe.flags, "creating_intercompany_invoices", None):
+		return {
+			"success": True,
+			"created": 0,
+			"message": _("Skipped nested intercompany invoice creation."),
+		}
+
 	if not is_intercompany_enabled():
 		return {"success": True, "created": 0, "message": _("Intercompany invoicing is disabled.")}
 
+	# The operating-company Sales Invoice is submitted inside this function and
+	# carries the same Sales Quote. Without this guard, its submit hook calls
+	# this function again until the stack overflows and no invoices are saved.
+	frappe.flags.creating_intercompany_invoices = True
+	try:
+		return _create_intercompany_invoices_for_quote(
+			sales_quote_name,
+			trigger_si=trigger_si,
+			posting_date=posting_date,
+		)
+	finally:
+		frappe.flags.creating_intercompany_invoices = False
+
+
+def _create_intercompany_invoices_for_quote(
+	sales_quote_name: str,
+	trigger_si: Optional[str] = None,
+	posting_date: Optional[str] = None,
+) -> Dict[str, Any]:
 	from logistics.utils.menu_permission import assert_perm
 
 	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
@@ -318,7 +361,11 @@ def _create_intercompany_pair(
 	si.customer = internal_customer
 	si.posting_date = posting_date
 	si.quotation_no = sales_quote_name
-	si.remarks = _("Intercompany: from Sales Quote {0}. Trigger SI: {1}").format(sales_quote_name, trigger_si or "-")
+	si.remarks = "{0} {1}".format(
+		INTERCOMPANY_SI_REMARKS_PREFIX,
+		_("from Sales Quote {0}. Trigger SI: {1}").format(sales_quote_name, trigger_si or "-"),
+	)
+	si.flags.is_intercompany_invoice = True
 	if getattr(job_doc, "branch", None):
 		si.branch = job_doc.branch
 	if getattr(job_doc, "cost_center", None):

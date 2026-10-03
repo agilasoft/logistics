@@ -386,21 +386,83 @@ def _linked_service_type(linked_service: str) -> str:
 	return _norm(frappe.db.get_value(linked_service_doctype(), linked_service, "service_type"))
 
 
-def _execution_matches_linked_service_type(execution_doctype: str, service_type: str) -> bool:
+def _warehouse_job_grid_service_type(execution_name: str) -> str:
+	"""Service type a Warehouse Job may fill on the Services grid.
+
+	Cross Dock jobs belong on Cross-Docking rows. Other warehouse jobs belong on Warehousing.
+	"""
+	name = _norm(execution_name)
+	if not name or not frappe.db.exists("DocType", "Warehouse Job"):
+		return ""
+	if not frappe.db.exists("Warehouse Job", name):
+		return ""
+	job_type = _norm(frappe.db.get_value("Warehouse Job", name, "type"))
+	if job_type == "Cross Dock":
+		return "Cross-Docking"
+	if job_type:
+		return "Warehousing"
+	return ""
+
+
+def _execution_matches_linked_service_type(
+	execution_doctype: str, service_type: str, execution_name: str = ""
+) -> bool:
 	"""True when a Shipment-role Usage may fill grid Job No for this Linked Service.
 
 	Parent-shipment conversion tags every IJ-… with the main Air/Sea Shipment. Job No must
 	only show an execution document of the same service type (Sea → Sea Shipment, not the
-	parent Air Shipment). Unknown doctypes stay eligible so legacy rows are not hidden.
+	parent Air Shipment). A Cross Dock Warehouse Job fills Cross-Docking, not Warehousing.
+	Unknown doctypes stay eligible so legacy rows are not hidden.
 	"""
 	if not service_type:
 		return True
+	if _norm(execution_doctype) == "Warehouse Job":
+		specific = _warehouse_job_grid_service_type(execution_name)
+		if specific:
+			return specific == service_type
+		if service_type == "Cross-Docking":
+			return False
 	from logistics.utils.charge_service_type import implied_service_type_for_doctype
 
 	implied = _norm(implied_service_type_for_doctype(execution_doctype))
 	if not implied:
 		return True
 	return implied == service_type
+
+
+def execution_job_no_for_linked_order(order_type: str, order_name: str) -> str:
+	"""Return the job/shipment for an order when Shipment Usage was never recorded.
+
+	Declaration Order → Declaration. Cross-Docking Order → Cross Dock Warehouse Job.
+	"""
+	ot = _norm(order_type)
+	on = _norm(order_name)
+	if not ot or not on:
+		return ""
+	if ot == "Declaration Order" and frappe.db.exists("DocType", "Declaration"):
+		rows = frappe.get_all(
+			"Declaration",
+			filters={"declaration_order": on, "docstatus": ["<", 2]},
+			pluck="name",
+			order_by="creation desc",
+			limit=1,
+		)
+		return rows[0] if rows else ""
+	if ot == "Cross-Docking Order" and frappe.db.exists("DocType", "Warehouse Job"):
+		rows = frappe.get_all(
+			"Warehouse Job",
+			filters={
+				"reference_order_type": "Cross-Docking Order",
+				"reference_order": on,
+				"type": "Cross Dock",
+				"docstatus": ["<", 2],
+			},
+			pluck="name",
+			order_by="creation desc",
+			limit=1,
+		)
+		return rows[0] if rows else ""
+	return ""
 
 
 def latest_shipment_from_usage(linked_service: str) -> tuple[str, str]:
@@ -422,7 +484,7 @@ def latest_shipment_from_usage(linked_service: str) -> tuple[str, str]:
 		jn = _norm(row.get("used_on_name"))
 		if not jt or not jn:
 			continue
-		if not _execution_matches_linked_service_type(jt, service_type):
+		if not _execution_matches_linked_service_type(jt, service_type, jn):
 			continue
 		return jt, jn
 	return "", ""

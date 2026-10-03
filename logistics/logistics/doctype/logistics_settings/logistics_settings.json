@@ -60,6 +60,10 @@
   "document_expiring_soon_days",
   "document_informational_days",
   "block_submit_if_required_documents_pending",
+  "permits_section",
+  "permit_expiring_soon_days",
+  "permit_notify_role",
+  "permit_alert_rules",
   "job_readiness_section",
   "block_complete_if_required_documents_pending",
   "block_complete_if_milestones_incomplete",
@@ -427,6 +431,32 @@
    "fieldtype": "Check",
    "label": "Prevent submit if required document incomplete",
    "description": "When enabled, submit is blocked on logistics forms that use the Documents table until every required row reaches Received, Verified, or Done (Pending, Uploaded, Overdue, Expired, and Rejected count as incomplete)."
+  },
+  {
+   "fieldname": "permits_section",
+   "fieldtype": "Section Break",
+   "label": "Permits",
+   "description": "Checks permits tagged to the document's importer, exporter, freight agent, customer, company, commodities, or shipment/job. No row means that document is not checked. Declaration permit-requirement rows still follow Customs Settings."
+  },
+  {
+   "default": "30",
+   "fieldname": "permit_expiring_soon_days",
+   "fieldtype": "Int",
+   "label": "Permit Expiring Soon (Days)",
+   "description": "Approved permits with Valid To inside this window are Expiring. Separate from document warning days."
+  },
+  {
+   "fieldname": "permit_notify_role",
+   "fieldtype": "Link",
+   "label": "Permit Notification Role",
+   "options": "Role",
+   "description": "Daily desk notification for expiring and expired Permit Applications. Leave empty to skip desk notifications."
+  },
+  {
+   "fieldname": "permit_alert_rules",
+   "fieldtype": "Table",
+   "label": "Permit Alert Rules",
+   "options": "Permit Alert Rule"
   },
   {
    "fieldname": "job_readiness_section",

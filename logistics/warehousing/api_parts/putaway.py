@@ -1153,11 +1153,18 @@ def _allocate_hu_to_orders(
     company: Optional[str],
     branch: Optional[str],
     capacity_manager: Any,
-    used_hus: Set[str]
+    used_hus: Set[str],
+    allowed_hu_names: Optional[Set[str]] = None,
 ) -> Tuple[List[Tuple[str, Dict[str, Any], float, str]], List[str]]:
     """
     Allocate handling units to orders without HU, splitting quantities when capacity overflows.
-    
+
+    allowed_hu_names: when set, only these handling units may be chosen (for example
+    units whose type is allowed at the staging storage type). None means no extra filter.
+
+    A handling unit with max volume or max weight of 0 has that limit unset and does not
+    block allocation.
+
     Returns:
         Tuple of (allocations, warnings) where allocations is list of (hu_name, order_row, qty, allocation_note)
     """
@@ -1175,7 +1182,9 @@ def _allocate_hu_to_orders(
     
     # Find all available handling units once
     all_available_hus = _find_available_handling_units(company, branch, exclude_hus=used_hus)
-    
+    if allowed_hu_names is not None:
+        all_available_hus = [hu for hu in all_available_hus if hu.get("name") in allowed_hu_names]
+
     if not all_available_hus:
         warnings.append(_("No available handling units found for allocation. Orders without HU will be skipped."))
         return allocations, warnings
@@ -1328,15 +1337,21 @@ def _allocate_hu_to_orders(
                 
                 hu_cap = hu_capacity_map.get(hu["name"], {})
                 
-                if has_capacity_constraints:
-                    # Calculate available capacity in HU
-                    available_volume = max(0, hu_cap["max_volume"] - hu_cap["current_volume"])
-                    available_weight = max(0, hu_cap["max_weight"] - hu_cap["current_weight"])
-                    
-                    # Calculate max quantity that can fit based on volume and weight constraints
-                    max_qty_by_volume = available_volume / per_unit_volume if per_unit_volume > 0 else float('inf')
-                    max_qty_by_weight = available_weight / per_unit_weight if per_unit_weight > 0 else float('inf')
-                    
+                # Max volume/weight of 0 means that limit is not configured.
+                max_volume = flt(hu_cap.get("max_volume") or 0)
+                max_weight = flt(hu_cap.get("max_weight") or 0)
+                volume_limited = has_capacity_constraints and max_volume > 0 and per_unit_volume > 0
+                weight_limited = has_capacity_constraints and max_weight > 0 and per_unit_weight > 0
+                hu_is_limited = volume_limited or weight_limited
+
+                if hu_is_limited:
+                    # Calculate available capacity in HU. An unset max does not constrain quantity.
+                    available_volume = max(0, max_volume - flt(hu_cap.get("current_volume") or 0))
+                    available_weight = max(0, max_weight - flt(hu_cap.get("current_weight") or 0))
+
+                    max_qty_by_volume = available_volume / per_unit_volume if volume_limited else float("inf")
+                    max_qty_by_weight = available_weight / per_unit_weight if weight_limited else float("inf")
+
                     # Take the minimum (most restrictive constraint)
                     max_fitting_qty = min(max_qty_by_volume, max_qty_by_weight)
                     
@@ -1397,7 +1412,7 @@ def _allocate_hu_to_orders(
                         # Generate narrative log for HU allocation
                         allocation_note = _generate_hu_allocation_note(
                             order_row, hu["name"], qty_to_allocate, 
-                            max_fitting_qty, remaining_qty, has_capacity_constraints,
+                            max_fitting_qty, remaining_qty, hu_is_limited,
                             hu_cap, per_unit_volume, per_unit_weight,
                             allocation_method=allocation_method,
                             policy=policy,
