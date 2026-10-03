@@ -8,7 +8,7 @@ authors = [
     {name = "Agilasoft Cloud Technologies Inc.", email = "info@agilasoft.com"}
 ]
 description = "Workflow Center — unified cockpit for pending workflow actions across all doctypes"
-requires-python = ">=3.14,<3.15"
+requires-python = ">=3.10,<3.13"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = []
