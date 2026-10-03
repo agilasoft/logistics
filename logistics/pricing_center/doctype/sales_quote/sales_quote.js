@@ -1218,6 +1218,10 @@ frappe.ui.form.on("Sales Quote", {
 
 		logistics_sq_add_programme_create_buttons(frm);
 
+		if (window.logistics && logistics.add_initialize_tariff_schedule_button) {
+			logistics.add_initialize_tariff_schedule_button(frm);
+		}
+
 		// Extend Validity — update Valid Until (draft via save; submitted via server db update)
 		if (!frm.is_new() && !frm.doc.__islocal && frm.doc.name && frm.doc.docstatus !== 2 && frm.has_perm("write")) {
 			frm.add_custom_button(__("Extend Validity"), function() {

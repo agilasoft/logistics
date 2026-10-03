@@ -146,6 +146,7 @@ doctype_js = {
 		"pricing_center/doctype/sales_quote_air_freight/sales_quote_air_freight.js",
 		"pricing_center/doctype/sales_quote_sea_freight/sales_quote_sea_freight.js",
 		"public/js/sales_quote_booking_dialog.js",
+		"public/js/initialize_tariff_schedule.js",
 	],
 	"Sales Quote Pack": "logistics/pricing_center/doctype/sales_quote_pack/sales_quote_pack.js",
 	"Opportunity": [
