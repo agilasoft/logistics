@@ -1,0 +1,7 @@
+include *.txt
+recursive-include ordermgt *.json
+recursive-include ordermgt *.html
+recursive-include ordermgt *.js
+recursive-include ordermgt *.css
+recursive-include ordermgt *.py
+recursive-include ordermgt *.md
