@@ -15,6 +15,7 @@ from logistics.utils.tariff_charge_copy import (
 	tariff_charge_row_as_quote_like_dict,
 	tariff_charge_row_as_sales_quote_charge_dict,
 	tariff_charge_row_matches_booking_corridor,
+	tariff_charge_row_matches_sales_quote_context,
 	tariff_charge_row_matches_sales_quote_scope,
 )
 
@@ -79,6 +80,56 @@ class TestTariffChargeCopyHelpers(FrappeTestCase):
 		self.assertEqual(out["cost_tariff"], "TAR-001")
 		self.assertEqual(out["use_tariff_in_revenue"], 0)
 
+	def test_tariff_row_matches_sales_quote_when_params_align(self):
+		sq = MagicMock()
+		sq.doctype = "Sales Quote"
+		sq.origin_port = "SGSIN"
+		sq.destination_port = "USLAX"
+		sq.shipping_line = ""
+		sq.airline = ""
+		sq.location_from = ""
+		sq.location_to = ""
+		for fn in (
+			"load_type",
+			"direction",
+			"transport_mode",
+			"air_house_type",
+			"sea_house_type",
+			"freight_agent",
+			"freight_agent_sea",
+			"vehicle_type",
+		):
+			setattr(sq, fn, "")
+		row = {
+			"service_type": "Sea",
+			"origin_port": "SGSIN",
+			"destination_port": "USLAX",
+			"shipping_line": "",
+		}
+		self.assertTrue(tariff_charge_row_matches_sales_quote_context(sq, row))
+
+	def test_tariff_row_rejects_mismatch_on_sales_quote_origin(self):
+		sq = MagicMock()
+		sq.doctype = "Sales Quote"
+		sq.origin_port = "HKHKG"
+		sq.destination_port = "USLAX"
+		sq.shipping_line = ""
+		sq.airline = ""
+		sq.location_from = ""
+		sq.location_to = ""
+		for fn in (
+			"load_type",
+			"direction",
+			"transport_mode",
+			"air_house_type",
+			"sea_house_type",
+			"freight_agent",
+			"freight_agent_sea",
+			"vehicle_type",
+		):
+			setattr(sq, fn, "")
+		row = {"service_type": "Sea", "origin_port": "SGSIN", "destination_port": "USLAX"}
+		self.assertFalse(tariff_charge_row_matches_sales_quote_context(sq, row))
 	def test_sales_quote_scope_blank_tariff_line_is_wildcard(self):
 		row = {"origin_port": "", "destination_port": "USLAX", "shipping_line": ""}
 		self.assertTrue(

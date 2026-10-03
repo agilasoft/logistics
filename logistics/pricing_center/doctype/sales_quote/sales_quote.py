@@ -1422,6 +1422,26 @@ class SalesQuote(Document):
 		"""Wrapper method that calls the module-level mapping function"""
 		return map_sales_quote_entry_type_to_air_booking(sales_quote_entry_type)
 
+	def build_charge_dicts_from_tariff(self, tariff_name, filter_overrides=None):
+		"""Map matching Tariff Charge rows to Sales Quote Charge dicts (preview / apply)."""
+		from logistics.utils.tariff_charge_copy import (
+			filter_tariff_charge_rows_for_sales_quote,
+			parse_gcft_filter_overrides,
+			tariff_charge_row_to_sales_quote_charge_dict,
+		)
+
+		if not tariff_name:
+			return []
+		tariff_doc = frappe.get_doc("Tariff", tariff_name)
+		ov = parse_gcft_filter_overrides(self.doctype, filter_overrides)
+		rows = filter_tariff_charge_rows_for_sales_quote(self, tariff_doc, ov)
+		charges = []
+		for row in rows:
+			charge_dict = tariff_charge_row_to_sales_quote_charge_dict(row, tariff_name)
+			if charge_dict:
+				charges.append(charge_dict)
+		return charges
+
 
 def _create_special_project_from_sales_quote(sales_quote):
 	if sales_quote.docstatus != 1:
@@ -4911,6 +4931,43 @@ def get_estimated_profitability_html(doc=None):
 	else:
 		data = get_sales_quote_estimated_profitability(doc)
 	return build_sales_quote_profitability_html(data)
+
+
+@frappe.whitelist()
+def populate_charges_from_tariff_for_sales_quote(
+	docname: str = None, tariff_name: str = None, filter_overrides=None
+):
+	"""Preview Sales Quote charge lines from a tariff without saving."""
+	if not tariff_name:
+		return {"charges": []}
+	try:
+		if not frappe.db.exists("Tariff", tariff_name):
+			return {"error": _("Tariff {0} does not exist").format(tariff_name), "charges": []}
+		doc = None
+		if docname:
+			try:
+				doc = frappe.get_doc("Sales Quote", docname)
+			except Exception:
+				pass
+		temp_doc = doc if doc else frappe.new_doc("Sales Quote")
+		charges = temp_doc.build_charge_dicts_from_tariff(tariff_name, filter_overrides)
+		if not charges:
+			return {
+				"charges": [],
+				"message": _("No matching charge lines on tariff {0}.").format(tariff_name),
+				"tariff": tariff_name,
+			}
+		return {
+			"charges": charges,
+			"charges_count": len(charges),
+			"tariff": tariff_name,
+		}
+	except Exception as e:
+		frappe.log_error(
+			f"Error populating Sales Quote charges from tariff {tariff_name}: {str(e)}",
+			"Sales Quote Tariff Charges Population Error",
+		)
+		return {"error": _("Error populating charges: {0}").format(str(e)), "charges": []}
 
 
 @frappe.whitelist()

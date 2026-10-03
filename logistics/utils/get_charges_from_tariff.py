@@ -1,11 +1,14 @@
 # Copyright (c) 2026, AgilaSoft and contributors
 # For license information, please see license.txt
 
-"""Tariff → booking charge flow (Sea Booking, Air Booking).
+"""Tariff → booking / Sales Quote charge flow (Sea Booking, Air Booking, Sales Quote).
 
 **Regular bookings**: create Sea Booking or Air Booking first, then use
 **Action → Get Charges from Tariff** to pick an active tariff and apply charge lines.
 This is the tariff counterpart to **Action → Get Charges from Quotation**.
+
+**Sales Quote**: use **Action → Initialize Tariff Schedule** on a draft quote to append
+all matching Tariff Charge lines (filtered by quote customer, date, and routing parameters).
 
 **Customer match**: tariffs are listed when their type rules match the booking's
 ``local_customer`` (Customer, Customer Group, Territory, Specific Customers, All Customers, Agent).
@@ -28,14 +31,19 @@ from frappe.utils import cint
 from logistics.utils.charge_service_type import implied_service_type_for_doctype
 from logistics.utils.tariff_charge_copy import (
 	BOOKING_DOCTYPES,
+	SALES_QUOTE_DOCTYPE,
 	booking_customer,
 	effective_booking_corridor,
 	fetch_eligible_tariff_names,
 	filter_tariff_charge_rows_for_booking,
+	filter_tariff_charge_rows_for_sales_quote,
 	gcft_list_filters_payload,
 	parse_gcft_filter_overrides,
 	tariff_charge_row_as_quote_like_dict,
+	tariff_charge_row_to_sales_quote_charge_dict,
 )
+
+TARIFF_JOB_DOCTYPES = BOOKING_DOCTYPES | frozenset({SALES_QUOTE_DOCTYPE})
 
 
 @contextmanager
@@ -73,27 +81,41 @@ def _tariff_preview_rows(doc, tariff_name: str, overrides: dict | None = None) -
 		from logistics.air_freight.doctype.air_booking.air_booking import populate_charges_from_tariff
 
 		return populate_charges_from_tariff(doc.name, tariff_name, filter_overrides=ov)
+	if doc.doctype == SALES_QUOTE_DOCTYPE:
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+			populate_charges_from_tariff_for_sales_quote,
+		)
+
+		return populate_charges_from_tariff_for_sales_quote(doc.name, tariff_name, filter_overrides=ov)
 	return {"error": _("Unsupported document type."), "charges": []}
 
 
 @frappe.whitelist()
 def list_tariffs_for_job(doctype: str, docname: str, filter_overrides=None):
 	"""Return active tariffs eligible for Get Charges from Tariff."""
-	if doctype not in BOOKING_DOCTYPES:
+	if doctype not in TARIFF_JOB_DOCTYPES:
 		frappe.throw(_("Unsupported document type."))
 
 	doc = frappe.get_doc(doctype, docname)
 	frappe.has_permission(doctype, "read", doc=doc, throw=True)
 
-	service_type = implied_service_type_for_doctype(doctype)
-	if not service_type:
-		frappe.throw(_("Could not determine service type for {0}.").format(doctype))
+	if doctype == SALES_QUOTE_DOCTYPE:
+		service_type = (getattr(doc, "main_service", None) or "").strip() or _("All")
+	else:
+		service_type = implied_service_type_for_doctype(doctype)
+		if not service_type:
+			frappe.throw(_("Could not determine service type for {0}.").format(doctype))
 
 	customer = booking_customer(doc)
 	if not customer:
+		msg = (
+			_("Set Customer before loading charges from a tariff.")
+			if doctype == SALES_QUOTE_DOCTYPE
+			else _("Set Local Customer before loading charges from a tariff.")
+		)
 		return {
 			"tariffs": [],
-			"message": _("Set Local Customer before loading charges from a tariff."),
+			"message": msg,
 			"filters": None,
 		}
 
@@ -113,7 +135,7 @@ def list_tariffs_for_job(doctype: str, docname: str, filter_overrides=None):
 		doctype,
 		doc,
 		customer,
-		service_type,
+		service_type if doctype != SALES_QUOTE_DOCTYPE else "",
 		origin=origin,
 		destination=dest,
 		airline=airline,
@@ -154,7 +176,7 @@ def preview_tariff_charges_for_job(
 	doctype: str, docname: str, tariff_name: str, filter_overrides=None
 ):
 	"""Preview tariff charge lines without saving."""
-	if doctype not in BOOKING_DOCTYPES or not tariff_name:
+	if doctype not in TARIFF_JOB_DOCTYPES or not tariff_name:
 		return {"error": _("Invalid arguments.")}
 
 	doc = frappe.get_doc(doctype, docname)
@@ -165,17 +187,35 @@ def preview_tariff_charges_for_job(
 
 	customer = booking_customer(doc)
 	if not customer:
-		return {"error": _("Set Local Customer on this document first.")}
+		return {
+			"error": (
+				_("Set Customer on this document first.")
+				if doctype == SALES_QUOTE_DOCTYPE
+				else _("Set Local Customer on this document first.")
+			)
+		}
 
 	tariff_doc = frappe.get_doc("Tariff", tariff_name)
 	from logistics.utils.tariff_charge_copy import _tariff_is_valid_on_date, _tariff_matches_job_customer
 
-	if not _tariff_is_valid_on_date(tariff_doc):
+	ref_date = getattr(doc, "date", None) if doctype == SALES_QUOTE_DOCTYPE else None
+	if not _tariff_is_valid_on_date(tariff_doc, on_date=ref_date):
 		return {"error": _("Tariff {0} is not active or is outside its validity period.").format(tariff_name)}
 	if not _tariff_matches_job_customer(tariff_doc, customer):
-		return {"error": _("Tariff {0} does not match this booking's customer.").format(tariff_name)}
+		label = _("quote") if doctype == SALES_QUOTE_DOCTYPE else _("booking")
+		return {"error": _("Tariff {0} does not match this {1}'s customer.").format(tariff_name, label)}
 
 	ov = parse_gcft_filter_overrides(doctype, filter_overrides)
+	if doctype == SALES_QUOTE_DOCTYPE:
+		rows = filter_tariff_charge_rows_for_sales_quote(doc, tariff_doc, ov)
+		if not rows:
+			return {
+				"error": _(
+					"Tariff {0} has no charge lines matching this Sales Quote's parameters."
+				).format(tariff_name),
+			}
+		return _tariff_preview_rows(doc, tariff_name, ov)
+
 	service_type = implied_service_type_for_doctype(doctype)
 	origin, dest, airline, shipping_line = effective_booking_corridor(doc, ov)
 	rows = filter_tariff_charge_rows_for_booking(
@@ -199,8 +239,8 @@ def preview_tariff_charges_for_job(
 def apply_tariff_charges_to_job(
 	doctype: str, docname: str, tariff_name: str, filter_overrides=None
 ):
-	"""Replace booking charge lines from a tariff and save."""
-	if doctype not in BOOKING_DOCTYPES or not tariff_name:
+	"""Replace booking charge lines from a tariff and save (append on Sales Quote)."""
+	if doctype not in TARIFF_JOB_DOCTYPES or not tariff_name:
 		frappe.throw(_("Invalid arguments."))
 
 	doc = frappe.get_doc(doctype, docname)
@@ -211,20 +251,56 @@ def apply_tariff_charges_to_job(
 
 	customer = booking_customer(doc)
 	if not customer:
-		frappe.throw(_("Set Local Customer on this document first."))
+		frappe.throw(
+			_("Set Customer on this document first.")
+			if doctype == SALES_QUOTE_DOCTYPE
+			else _("Set Local Customer on this document first.")
+		)
 
-	_assert_no_sales_quote_linked(doc)
+	if doctype in BOOKING_DOCTYPES:
+		_assert_no_sales_quote_linked(doc)
 
 	tariff_doc = frappe.get_doc("Tariff", tariff_name)
 	from logistics.utils.tariff_charge_copy import _tariff_is_valid_on_date, _tariff_matches_job_customer
 
-	if not _tariff_is_valid_on_date(tariff_doc):
+	ref_date = getattr(doc, "date", None) if doctype == SALES_QUOTE_DOCTYPE else None
+	if not _tariff_is_valid_on_date(tariff_doc, on_date=ref_date):
 		frappe.throw(_("Tariff {0} is not active or is outside its validity period.").format(tariff_name))
 	if not _tariff_matches_job_customer(tariff_doc, customer):
-		frappe.throw(_("Tariff {0} does not match this booking's customer.").format(tariff_name))
+		frappe.throw(
+			_("Tariff {0} does not match this {1}'s customer.").format(
+				tariff_name, _("quote") if doctype == SALES_QUOTE_DOCTYPE else _("booking")
+			)
+		)
+
+	ov = parse_gcft_filter_overrides(doctype, filter_overrides)
+	if doctype == SALES_QUOTE_DOCTYPE:
+		rows = filter_tariff_charge_rows_for_sales_quote(doc, tariff_doc, ov)
+		if not rows:
+			frappe.throw(
+				_("Tariff {0} has no charge lines matching this Sales Quote's parameters.").format(
+					tariff_name
+				),
+				title=_("Cannot apply tariff"),
+			)
+		added = 0
+		for row in rows:
+			charge_dict = tariff_charge_row_to_sales_quote_charge_dict(row, tariff_name)
+			if charge_dict:
+				doc.append("charges", charge_dict)
+				added += 1
+		if not added:
+			frappe.throw(_("No charge lines could be created from Tariff {0}.").format(tariff_name))
+		doc.save()
+		return {
+			"success": True,
+			"message": _("Added {0} charge line(s) from Tariff {1}.").format(added, tariff_name),
+			"name": doc.name,
+			"charges_count": len(doc.get("charges") or []),
+			"added": added,
+		}
 
 	service_type = implied_service_type_for_doctype(doctype)
-	ov = parse_gcft_filter_overrides(doctype, filter_overrides)
 	origin, dest, airline, shipping_line = effective_booking_corridor(doc, ov)
 	rows = filter_tariff_charge_rows_for_booking(
 		doc,

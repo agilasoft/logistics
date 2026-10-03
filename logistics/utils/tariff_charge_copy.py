@@ -47,6 +47,9 @@ _TARIFF_CHILD_META = frozenset(
 GCFT_FILTER_KEYS: dict[str, frozenset[str]] = {
 	"Sea Booking": frozenset({"origin_port", "destination_port", "shipping_line"}),
 	"Air Booking": frozenset({"origin_port", "destination_port", "airline"}),
+	SALES_QUOTE_DOCTYPE: frozenset(
+		{"origin_port", "destination_port", "shipping_line", "airline"}
+	),
 }
 
 
@@ -89,12 +92,20 @@ def _effective_booking_corridor(doc, overrides: dict) -> tuple[str, str, str | N
 		d = _pick_gcft_field(doc, overrides, "destination_port", "destination_port")
 		al = _pick_gcft_field(doc, overrides, "airline", "airline")
 		return o, d, (al or None), None
+	if doc.doctype == SALES_QUOTE_DOCTYPE:
+		o = _pick_gcft_field(doc, overrides, "origin_port", "origin_port")
+		d = _pick_gcft_field(doc, overrides, "destination_port", "destination_port")
+		al = _pick_gcft_field(doc, overrides, "airline", "airline")
+		sl = _pick_gcft_field(doc, overrides, "shipping_line", "shipping_line")
+		return o, d, (al or None), (sl or None)
 	return "", "", None, None
 
 
 def _booking_customer(doc) -> str | None:
 	if doc.doctype in BOOKING_DOCTYPES:
 		return (getattr(doc, "local_customer", None) or "").strip() or None
+	if doc.doctype == SALES_QUOTE_DOCTYPE:
+		return (getattr(doc, "customer", None) or "").strip() or None
 	return None
 
 
@@ -226,6 +237,132 @@ def filter_tariff_charge_rows_for_booking(
 	return out
 
 
+def _tariff_row_field(row, fieldname: str):
+	if isinstance(row, dict):
+		return row.get(fieldname)
+	return getattr(row, fieldname, None)
+
+
+def _corridor_doctype_for_tariff_row(row) -> str:
+	st = canonical_charge_service_type_for_storage(_tariff_row_field(row, "service_type") or "")
+	if st == "air":
+		return "Air Booking"
+	if st == "sea":
+		return "Sea Booking"
+	return SALES_QUOTE_DOCTYPE
+
+
+def _sq_context_value(sq_doc, overrides: dict | None, fieldname: str) -> str:
+	ov = overrides or {}
+	if fieldname in ov:
+		return (ov.get(fieldname) or "").strip()
+	return (getattr(sq_doc, fieldname, None) or "").strip()
+
+
+def tariff_charge_row_matches_sales_quote_context(
+	sq_doc,
+	row,
+	overrides: dict | None = None,
+) -> bool:
+	"""True when a Tariff Charge line matches the Sales Quote header (blank tariff field = wildcard)."""
+	from logistics.utils.sales_quote_charge_parameters import SALES_QUOTE_CHARGE_PARAMETER_FIELDS
+
+	ov = overrides or {}
+	origin, dest, airline, shipping_line = _effective_booking_corridor(sq_doc, ov)
+	corridor_dt = _corridor_doctype_for_tariff_row(row)
+	if not tariff_charge_row_matches_booking_corridor(
+		row,
+		doctype=corridor_dt,
+		origin=origin,
+		destination=dest,
+		airline=airline,
+		shipping_line=shipping_line,
+	):
+		return False
+
+	st = canonical_charge_service_type_for_storage(_tariff_row_field(row, "service_type") or "")
+	if st == "transport":
+		plf = _sq_context_value(sq_doc, ov, "location_from")
+		plt = _sq_context_value(sq_doc, ov, "location_to")
+		rlf = (_tariff_row_field(row, "location_from") or "").strip()
+		rlt = (_tariff_row_field(row, "location_to") or "").strip()
+		if rlf and plf and rlf.lower() != plf.lower():
+			return False
+		if rlt and plt and rlt.lower() != plt.lower():
+			return False
+
+	for fn in SALES_QUOTE_CHARGE_PARAMETER_FIELDS:
+		if fn in (
+			"origin_port",
+			"destination_port",
+			"airline",
+			"shipping_line",
+			"location_from",
+			"location_to",
+		):
+			continue
+		sq_val = _sq_context_value(sq_doc, ov, fn)
+		row_val = (_tariff_row_field(row, fn) or "").strip()
+		if sq_val and row_val and sq_val.lower() != row_val.lower():
+			return False
+	return True
+
+
+def filter_tariff_charge_rows_for_sales_quote(
+	sq_doc,
+	tariff_doc,
+	filter_overrides: dict | None = None,
+) -> list[Any]:
+	"""Tariff Charge rows on *tariff_doc* that match the Sales Quote routing/parameters."""
+	ov = _parse_gcft_filter_overrides(SALES_QUOTE_DOCTYPE, filter_overrides)
+	ref_date = getattr(sq_doc, "date", None) or today()
+	out: list[Any] = []
+	for row in getattr(tariff_doc, "rates", None) or []:
+		if not _row_is_active_on_date(row, on_date=ref_date):
+			continue
+		if not tariff_charge_row_matches_sales_quote_context(sq_doc, row, ov):
+			continue
+		if not (_tariff_row_field(row, "item_code") or "").strip():
+			continue
+		out.append(row)
+	return out
+
+
+def tariff_charge_row_to_sales_quote_charge_dict(row, tariff_name: str) -> dict:
+	"""Map a Tariff Charge row to a new Sales Quote Charge child dict."""
+	from logistics.utils.get_charges_from_quotation import _SQ_CHARGE_COPY_FIELDS
+
+	quote_like = tariff_charge_row_as_quote_like_dict(row, tariff_name)
+	try:
+		valid = {f.fieldname for f in frappe.get_meta("Sales Quote Charge").fields}
+	except Exception:
+		valid = set(quote_like.keys())
+
+	out: dict[str, Any] = {}
+	for fn in _SQ_CHARGE_COPY_FIELDS:
+		if fn not in valid:
+			continue
+		val = quote_like.get(fn)
+		if val is None or val == "":
+			continue
+		out[fn] = val
+
+	for fn, val in quote_like.items():
+		if fn in out or fn not in valid:
+			continue
+		if val is None or val == "":
+			continue
+		out[fn] = val
+
+	out["revenue_tariff"] = tariff_name
+	out["cost_tariff"] = tariff_name
+	if not out.get("revenue_calculation_method") and quote_like.get("calculation_method"):
+		out["revenue_calculation_method"] = quote_like["calculation_method"]
+	if not out.get("item_code"):
+		return {}
+	return out
+
+
 def tariff_has_matching_charge_rows(
 	parent_doc,
 	tariff_doc,
@@ -261,7 +398,11 @@ def fetch_eligible_tariff_names(
 	shipping_line: str | None = None,
 	limit: int = 150,
 ) -> list[str]:
-	"""Active tariffs with at least one matching charge line for this booking."""
+	"""Active tariffs with at least one matching charge line for this booking or Sales Quote."""
+	ref_date = today()
+	if doctype == SALES_QUOTE_DOCTYPE and parent_doc is not None:
+		ref_date = getattr(parent_doc, "date", None) or today()
+
 	names = frappe.get_all(
 		"Tariff",
 		filters={"is_active": 1},
@@ -276,11 +417,14 @@ def fetch_eligible_tariff_names(
 			tariff_doc = frappe.get_doc("Tariff", name)
 		except Exception:
 			continue
-		if not _tariff_is_valid_on_date(tariff_doc):
+		if not _tariff_is_valid_on_date(tariff_doc, on_date=ref_date):
 			continue
 		if not _tariff_matches_job_customer(tariff_doc, job_customer):
 			continue
-		if not tariff_has_matching_charge_rows(
+		if doctype == SALES_QUOTE_DOCTYPE:
+			if not filter_tariff_charge_rows_for_sales_quote(parent_doc, tariff_doc):
+				continue
+		elif not tariff_has_matching_charge_rows(
 			parent_doc,
 			tariff_doc,
 			service_type,
@@ -331,6 +475,34 @@ def gcft_list_filters_payload(
 	**kwargs,
 ) -> dict:
 	"""Structured labels for the Get Charges from Tariff dialog."""
+	if doctype == SALES_QUOTE_DOCTYPE:
+		extra = []
+		sl = (kwargs.get("shipping_line") or "").strip()
+		al = (kwargs.get("airline") or "").strip()
+		if sl:
+			extra.append({"label": _("Shipping Line"), "value": sl})
+		if al:
+			extra.append({"label": _("Airline"), "value": al})
+		rules = [
+			_("Active tariffs only"),
+			_("Tariff validity must include the quote date"),
+			_("Customer must match the tariff type rules (Customer, Group, Territory, etc.)"),
+			_("Tariff charge lines must match Sales Quote routing and parameter fields"),
+			_("Blank values on a tariff line match any value on the quote"),
+		]
+		out = {
+			"service_type": service_type or _("All"),
+			"customer_label": _("Customer"),
+			"customer": customer,
+			"origin_label": _("Origin Port"),
+			"origin": origin,
+			"destination_label": _("Destination Port"),
+			"destination": dest,
+			"rules": rules,
+		}
+		if extra:
+			out["extra_criteria"] = extra
+		return out
 	if service_type == "Sea":
 		sl = (kwargs.get("shipping_line") or "").strip()
 		extra = [{"label": _("Shipping Line"), "value": sl}] if sl else []
