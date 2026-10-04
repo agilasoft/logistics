@@ -2,8 +2,11 @@
 # For license information, please see license.txt
 
 """
-CA eManifest (Canada Border Services Agency) API Integration
-Stub implementation - returns mock responses
+CA eManifest (Canada Border Services Agency) API Integration.
+
+Filing actions do not write a mock status. They refuse unless Manifest Settings
+has a live CBSA endpoint, and they still leave the document unchanged because
+this client does not call that endpoint yet.
 """
 
 import frappe
@@ -18,14 +21,9 @@ class CAeManifestAPI(BaseCustomsAPI):
 	def __init__(self, company: str = None):
 		super().__init__(company)
 		self.api_name = "CA eManifest"
-		self.endpoint = self._get_endpoint()
+		self.endpoint_field = "cbsa_api_endpoint"
+		self.endpoint = self.configured_endpoint()
 		self.credentials = self._get_credentials()
-	
-	def _get_endpoint(self) -> str:
-		"""Get API endpoint from settings"""
-		if self.settings and hasattr(self.settings, 'cbsa_api_endpoint') and self.settings.cbsa_api_endpoint:
-			return self.settings.cbsa_api_endpoint
-		return "https://api.cbsa-asfc.gc.ca/emanifest/v1"  # Mock endpoint
 	
 	def _get_credentials(self) -> Dict[str, str]:
 		"""Get API credentials from settings"""
@@ -58,18 +56,7 @@ class CAeManifestAPI(BaseCustomsAPI):
 					"message": _("Only Draft eManifest can be submitted.")
 				}
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("submit", success=True)
-			mock_response["cbsa_transaction_number"] = mock_response["transaction_number"]
-			
-			# Update document with response
-			emanifest_doc.status = mock_response["status"]
-			emanifest_doc.cbsa_transaction_number = mock_response["cbsa_transaction_number"]
-			emanifest_doc.submission_date = mock_response["submission_date"]
-			emanifest_doc.submission_time = mock_response["submission_time"]
-			emanifest_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
@@ -96,17 +83,7 @@ class CAeManifestAPI(BaseCustomsAPI):
 		try:
 			emanifest_doc = frappe.get_doc("CA eManifest Forwarder", filing_doc)
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("status", success=True)
-			mock_response["status"] = emanifest_doc.status
-			mock_response["cbsa_transaction_number"] = emanifest_doc.cbsa_transaction_number
-			
-			# Update document if status changed
-			if mock_response.get("status") != emanifest_doc.status:
-				emanifest_doc.status = mock_response["status"]
-				emanifest_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
@@ -141,14 +118,7 @@ class CAeManifestAPI(BaseCustomsAPI):
 					"message": _("Submission type must be 'Amendment' for amendments.")
 				}
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("amend", success=True)
-			
-			# Update document
-			emanifest_doc.status = "Amended"
-			emanifest_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
@@ -183,16 +153,7 @@ class CAeManifestAPI(BaseCustomsAPI):
 					"message": _("Submission type must be 'Cancellation' for cancellation.")
 				}
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("cancel", success=True)
-			
-			# Update document
-			emanifest_doc.status = "Cancelled"
-			if reason:
-				emanifest_doc.notes = f"Cancelled: {reason}"
-			emanifest_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
