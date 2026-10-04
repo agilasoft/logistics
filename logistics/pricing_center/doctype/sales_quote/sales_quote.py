@@ -21,6 +21,7 @@ from logistics.utils.charge_service_type import (
 	sales_quote_charge_service_types_equal,
 )
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
+from logistics.pricing_center.sales_quote_blanket import blanket_quotation_block
 from logistics.utils.sales_quote_routing_defaults import apply_sales_quote_routing_defaults
 from logistics.utils.service_role_rules import (
 	SERVICE_ROLE_MAIN,
@@ -740,20 +741,24 @@ class SalesQuote(Document):
 
 	def validate_blanket_quotation(self):
 		"""Blanket Quotation is allowed only on Regular quotes."""
-		if not cint(getattr(self, "blanket_quotation", 0)):
-			return
-		qt = (getattr(self, "quotation_type", None) or "").strip()
-		if qt != "Regular":
+		block = blanket_quotation_block(
+			cint(getattr(self, "blanket_quotation", 0)),
+			getattr(self, "quotation_type", None),
+			cint(getattr(self, "additional_charge", 0)),
+			self.docstatus,
+			bool(getattr(self, "charges", None) or []),
+		)
+		if block == "not_regular":
 			frappe.throw(
 				_("Blanket Quotation is only allowed when Quotation Type is Regular."),
 				title=_("Blanket Quotation"),
 			)
-		if cint(getattr(self, "additional_charge", 0)):
+		if block == "additional_charge":
 			frappe.throw(
 				_("Additional-charge Sales Quotes cannot be marked as Blanket Quotation."),
 				title=_("Blanket Quotation"),
 			)
-		if self.docstatus == 1 and not (getattr(self, "charges", None) or []):
+		if block == "missing_charges":
 			frappe.throw(
 				_("Submitted Blanket Quotation must have at least one charge line."),
 				title=_("Blanket Quotation"),
