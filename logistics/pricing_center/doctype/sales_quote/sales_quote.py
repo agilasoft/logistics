@@ -22,7 +22,6 @@ from logistics.utils.charge_service_type import (
 )
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
 from logistics.utils.sales_quote_routing_defaults import apply_sales_quote_routing_defaults
-from logistics.pricing_center.sales_quote_naming_series import naming_series_mismatch
 from logistics.utils.service_role_rules import (
 	SERVICE_ROLE_MAIN,
 	apply_main_service_flags,
@@ -460,7 +459,6 @@ class SalesQuote(Document):
 		self._honour_linked_services_form_rows()
 		for ch in getattr(self, "charges", None) or []:
 			_sync_sales_quote_charge_load_type_filter_flags_for_row(ch)
-		self.validate_naming_series_quotation_type()
 		self.validate_blanket_quotation()
 		self.clear_hidden_one_off_fields_for_non_one_off()
 		self.ensure_one_off_status()
@@ -705,21 +703,6 @@ class SalesQuote(Document):
 		from logistics.pricing_center.additional_charge_to_job import remove_additional_charge_sales_quote_from_job
 
 		remove_additional_charge_sales_quote_from_job(self)
-
-	def validate_naming_series_quotation_type(self):
-		"""Validate that naming_series matches quotation_type."""
-		mismatch = naming_series_mismatch(self.quotation_type, self.naming_series)
-		if not mismatch:
-			return
-		frappe.throw(
-			_("Naming Series '{0}' does not match Quotation Type '{1}'. Expected series starting with '{2}' (e.g., {3}).").format(
-				self.naming_series,
-				self.quotation_type,
-				mismatch["expected_display"],
-				mismatch["expected_example"],
-			),
-			title=_("Naming Series Mismatch"),
-		)
 
 	def validate_blanket_quotation(self):
 		"""Blanket Quotation is allowed only on Regular quotes."""
