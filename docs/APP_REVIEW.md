@@ -187,10 +187,7 @@ Invoice submit updates the job and the charge-row invoice status in `logistics/i
 
 `special_project_service_persistence.py` syncs the virtual services grid to Special Project Service documents on save and deletes them when the project is trashed.
 
-Two DocType folders are broken symlinks:
-
-- `logistics/special_projects/doctype/special_project_job/special_project_job.json` points at `../project_task_job/project_task_job.json`, and that folder is absent. `special_project_job.py` is a shim that subclasses `ProjectJob` for databases that still reference the old name.
-- `logistics/special_projects/doctype/special_project_order_job/special_project_order_job.json` points at a missing `project_task_order_job` folder.
+The live execution DocTypes are Project Job and Project Order. `special_project_job.py` remains as a shim that subclasses `ProjectJob` so an old import path still loads. The JSON files that pointed at the removed `project_task_job` and `project_task_order_job` folders are gone.
 
 ## MICE
 
@@ -325,13 +322,13 @@ Website pages are Frappe `www` files, not `website_route_rules`. Customer-facing
 
 ### Other integrations
 
-- **Lalamove.** `logistics/lalamove/` is a client, mapper, and `LalamoveService`. It is not registered in `hooks.py`.
+- **Lalamove.** `logistics/lalamove/` is a client, mapper, and `LalamoveService`. `hooks.py` does not register it. `sea_shipment_lalamove.js` and ODDS Settings already reference Lalamove, and that script is not in `doctype_js`, so the Sea Shipment form does not load the button.
 - **Outlook.** `integrations/outlook/tasks.py` reconciles failed syncs and pulls recent task changes hourly.
 - **GoConnect.** Vessel tracking and land telematics call into that package instead of keeping provider clients in this app.
 
 ## Code findings
 
-These are observations from the files named. They are not a defect list from a running site.
+These are observations from the files named. They are not a defect list from a running site. Prioritized next steps are in [docs/FIXES_AND_RECOMMENDATIONS.md](FIXES_AND_RECOMMENDATIONS.md).
 
 1. **Controllers concentrate too much behavior.** Warehouse Job is about 5,370 lines, Sales Quote about 5,160, Air Shipment about 3,960, Transport Order about 3,250, Air Booking and Sea Booking about 3,200 each, Transport Job about 2,590, Declaration about 2,300. Air and sea booking-to-shipment conversion follow the same structure in two files.
 
@@ -341,13 +338,13 @@ These are observations from the files named. They are not a defect list from a r
 
 4. **Customs filing clients are stubs.** `customs/api/us_ams_api.py` documents itself as a mock implementation. The sibling clients for US ISF, CA eManifest, and JP AFR follow the same pattern. Filing DocTypes and compliance reports exist; a live customs endpoint does not.
 
-5. **Broken DocType symlinks in Special Projects.** `special_project_job.json` and `special_project_order_job.json` point at `project_task_job` and `project_task_order_job` folders that are not in the tree. The Python shim for Special Project Job remains so old names keep loading.
+5. **Special Project JSON symlinks were removed.** `special_project_job.json` and `special_project_order_job.json` pointed at `project_task_job` and `project_task_order_job` folders that are not in the tree. Those links are gone. `special_project_job.py` still subclasses `ProjectJob`. Project Job and Project Order are the live DocTypes.
 
 6. **Portal and debug leftovers are in the app tree.** Transport has several one-off menu scripts (`add_portal_items.py`, `add_portal_items_to_settings.py`, `add_to_portal_settings.py`, `create_portal_items.py`, `check_and_create_pages.py`, `check_portal_structure.py`). `api_telematics_debug.py` is a whitelisted device listing. `www/` includes `transport_debug.html`, `warehousing_debug.html`, `test_portal.html`, `simple_test.html`, and `transport_portal_old.html`. A second portal package exists at `transport/www/`. `api_backup.py` duplicates portal APIs.
 
 7. **Empty and deprecated DocTypes are still installed.** `ODDSOrder` and `ProofofDelivery` do nothing. Plate Coding Rule’s own description says it is deprecated and no longer enforced.
 
-8. **`user_data_fields` in `hooks.py` is still the framework placeholder.** The entries use `{doctype_1}`, `{filter_by}`, and `{field_1}`. Frappe’s user-data redaction will not redact logistics personal data until those tokens are replaced with real DocTypes.
+8. **`user_data_fields` in `hooks.py` is an empty list.** The framework placeholders `{doctype_1}` and `{field_1}` were removed so Frappe does not look up those names. Personal data is not redacted until a privacy pass names real DocTypes.
 
 9. **`hooks.py` merges document events at import time.** Credit, special-project financials, freight-shipment receipts, and transport-job receipts append handlers onto `doc_events` with list-merging loops. The final handler list for a DocType is not visible in the original dictionary.
 
@@ -355,7 +352,7 @@ These are observations from the files named. They are not a defect list from a r
 
 11. **Global `app_include_js` is long.** Charge dialogs, linked services, profitability, invoice dialogs, and the time-sensitive timer load on every desk page. Many of those scripts are also listed again under `doctype_js`.
 
-12. **Lalamove is not hooked.** The client and service exist. `hooks.py` does not reference them, so quotation and webhook behavior depends on some other call site being wired at runtime.
+12. **The Lalamove desk button is not loaded.** The client and service exist, and `sea_shipment_lalamove.js` plus ODDS Settings reference them. `hooks.py` does not list that script under `doctype_js`, so Sea Shipment does not show the button.
 
 ## Test coverage
 
