@@ -18,12 +18,12 @@ from frappe import _
 from frappe.utils import flt, today
 from typing import Dict, Any, Optional, List, Tuple
 
-# Job types that can be intercompany legs (must have company and charges)
-INTERCOMPANY_JOB_TYPES = ("Transport Job", "Air Shipment", "Sea Shipment", "Warehouse Job", "Declaration", "Declaration Order")
-
-# Stable prefix on the operating-company Sales Invoice. Kept untranslated so the
-# submit hook can tell this invoice apart from the customer invoice.
-INTERCOMPANY_SI_REMARKS_PREFIX = "Intercompany:"
+from logistics.intercompany.invoice_guard import (
+	INTERCOMPANY_JOB_TYPES,
+	INTERCOMPANY_SI_REMARKS_PREFIX,
+	intercompany_sales_invoice_marked,
+	relationship_for_companies,
+)
 
 
 def is_intercompany_enabled() -> bool:
@@ -41,10 +41,8 @@ def sales_invoice_is_intercompany_leg(doc) -> bool:
 	invoice is the document that should trigger creation.
 	"""
 	flags = getattr(doc, "flags", None)
-	if flags and flags.get("is_intercompany_invoice"):
-		return True
-	remarks = (getattr(doc, "remarks", None) or "").strip()
-	return remarks.startswith(INTERCOMPANY_SI_REMARKS_PREFIX)
+	marked = bool(flags and flags.get("is_intercompany_invoice"))
+	return intercompany_sales_invoice_marked(marked, getattr(doc, "remarks", None))
 
 
 def get_relationship(main_job_company: str, operating_company: str) -> Optional[Dict[str, str]]:
@@ -53,13 +51,11 @@ def get_relationship(main_job_company: str, operating_company: str) -> Optional[
 	``main_job_company`` matches the relationship row's **Billing Company** (customer-invoicing entity).
 	"""
 	settings = frappe.get_single("Intercompany Settings")
-	for row in settings.get("relationships") or []:
-		if row.get("billing_company") == main_job_company and row.get("operating_company") == operating_company:
-			return {
-				"internal_customer": row.get("internal_customer"),
-				"internal_supplier": row.get("internal_supplier"),
-			}
-	return None
+	return relationship_for_companies(
+		settings.get("relationships") or [],
+		main_job_company,
+		operating_company,
+	)
 
 
 def _find_routing_leg_for_job(sales_quote, legs, job_type: str, job_no: str):
