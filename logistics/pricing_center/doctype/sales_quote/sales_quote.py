@@ -478,7 +478,6 @@ class SalesQuote(Document):
 		self._honour_linked_services_form_rows()
 		for ch in getattr(self, "charges", None) or []:
 			_sync_sales_quote_charge_load_type_filter_flags_for_row(ch)
-		self.validate_naming_series_quotation_type()
 		self.validate_blanket_quotation()
 		self.clear_hidden_one_off_fields_for_non_one_off()
 		self.ensure_one_off_status()
@@ -723,39 +722,6 @@ class SalesQuote(Document):
 		from logistics.pricing_center.additional_charge_to_job import remove_additional_charge_sales_quote_from_job
 
 		remove_additional_charge_sales_quote_from_job(self)
-
-	def validate_naming_series_quotation_type(self):
-		"""Validate that naming_series matches quotation_type"""
-		if not self.quotation_type or not self.naming_series:
-			return  # Skip validation if either field is empty
-		
-		# Mapping of quotation_type to allowed naming_series prefixes (dot and hyphen both accepted)
-		allowed_prefixes_mapping = {
-			"Regular": ("SQU.", "SQU-"),
-			"One-off": ("OOQ.", "OOQ-"),
-			"Project": ("PQ.", "PQ-"),
-		}
-		
-		allowed_prefixes = allowed_prefixes_mapping.get(self.quotation_type)
-		if not allowed_prefixes:
-			return  # Unknown quotation_type, skip validation
-		
-		if not any(self.naming_series.startswith(p) for p in allowed_prefixes):
-			expected_example = {
-				"Regular": "SQU.#########",
-				"One-off": "OOQ.#####",
-				"Project": "PQ.#####",
-			}.get(self.quotation_type, "")
-			expected_display = " / ".join(allowed_prefixes)
-			frappe.throw(
-				_("Naming Series '{0}' does not match Quotation Type '{1}'. Expected series starting with '{2}' (e.g., {3}).").format(
-					self.naming_series,
-					self.quotation_type,
-					expected_display,
-					expected_example,
-				),
-				title=_("Naming Series Mismatch"),
-			)
 
 	def validate_blanket_quotation(self):
 		"""Blanket Quotation is allowed only on Regular quotes."""
