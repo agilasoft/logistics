@@ -15,6 +15,8 @@ from abc import ABC, abstractmethod
 from frappe import _
 from frappe.utils import now_datetime
 
+from logistics.customs.api.filing_endpoint import filing_block_reason, is_configured_filing_endpoint
+
 
 class BaseCustomsAPI(ABC):
 	"""Base class for all customs API integrations"""
@@ -37,6 +39,27 @@ class BaseCustomsAPI(ABC):
 		self.api_calls_count = 0
 		self.max_retries = 3
 		self.retry_delay = 1  # seconds
+		self.endpoint_field = None
+
+	def settings_endpoint(self) -> str:
+		"""Return the Manifest Settings endpoint for this client, or an empty string."""
+		if not self.settings or not self.endpoint_field:
+			return ""
+		return getattr(self.settings, self.endpoint_field, None) or ""
+
+	def block_filing(self) -> Dict[str, Any]:
+		"""Refuse a filing action without writing a mock status onto the document."""
+		return {
+			"success": False,
+			"message": _(filing_block_reason(getattr(self, "api_name", "Customs"), self.settings_endpoint())),
+		}
+
+	def configured_endpoint(self) -> str:
+		"""Live endpoint from settings. Placeholder URLs count as not configured."""
+		value = self.settings_endpoint()
+		if not is_configured_filing_endpoint(value):
+			return ""
+		return value.strip()
 		
 	def _get_settings(self) -> Optional[Dict]:
 		"""Get manifest settings for the company"""

@@ -8,6 +8,7 @@ from frappe.utils import flt, now_datetime
 from frappe import _
 from logistics.warehousing.api_parts.common import _get_default_currency
 from logistics.warehousing.ledger_balance import ledger_balance_after_post
+from logistics.warehousing.ledger_delta import ledger_delta
 
 # ---------------------------------------------------------------------------
 # Meta helpers
@@ -3227,17 +3228,11 @@ class WarehouseJob(Document):
 				frappe.throw(_("Row #{0}: Item is required.").format(ji.idx))
 
 			qty = flt(getattr(ji, "quantity", 0))
-
-			if job_type in ("Putaway", "Pick"):
-				if qty <= 0:
-					frappe.throw(_("Row #{0}: Quantity must be greater than zero for {1}.").format(ji.idx, job_type))
-				sign  = 1 if job_type == "Putaway" else -1
-				delta = sign * qty
-			else:
-				# Move / Others: accept signed quantities (negative for source, positive for destination)
-				if qty == 0 and job_type != "Stocktake":
-					frappe.throw(_("Row #{0}: Quantity cannot be zero.").format(ji.idx))
-				delta = qty
+			delta, delta_error = ledger_delta(job_type, qty)
+			if delta_error == "positive_required":
+				frappe.throw(_("Row #{0}: Quantity must be greater than zero for {1}.").format(ji.idx, job_type))
+			if delta_error == "nonzero_required":
+				frappe.throw(_("Row #{0}: Quantity cannot be zero.").format(ji.idx))
 
 			# Scope for snapshot (company/branch)
 			row_company, row_branch = _resolve_row_scope(self, ji)

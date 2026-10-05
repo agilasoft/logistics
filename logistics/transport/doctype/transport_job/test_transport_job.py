@@ -39,6 +39,34 @@ class TestTransportJobChargeSubmitGate(FrappeTestCase):
 		job = frappe.get_doc({"doctype": "Transport Job", "is_internal_job": 1})
 		assert_destination_service_charges_on_submit_unless_internal_job(job)
 
+	def test_before_submit_sets_submitted_status_without_commit(self):
+		"""Submit writes status on the document and does not commit mid-request."""
+		import traceback
+
+		job = frappe.get_doc({
+			"doctype": "Transport Job",
+			"is_internal_job": 1,
+			"status": "Draft",
+		})
+		commits = []
+		original_commit = frappe.db.commit
+
+		def spy(*args, **kwargs):
+			stack = "".join(traceback.format_stack())
+			if "transport/doctype/transport_job/transport_job.py" in stack:
+				commits.append(stack)
+			return original_commit(*args, **kwargs)
+
+		frappe.db.commit = spy
+		try:
+			job.before_submit()
+		finally:
+			frappe.db.commit = original_commit
+
+		self.assertEqual(job.status, "Submitted")
+		self.assertTrue(job._submitting)
+		self.assertEqual(commits, [])
+
 
 class TestTransportJob(FrappeTestCase):
 	"""Test Transport Job status workflow"""
@@ -198,7 +226,45 @@ class TestTransportJob(FrappeTestCase):
 		# Verify job status changed to Completed
 		job.reload()
 		self.assertEqual(job.status, "Completed", "Job should be in Completed status when all legs are Completed")
-	
+
+	def test_submit_leaves_submitted_status_without_controller_commit(self):
+		"""Submit persists Submitted and does not commit from the job controller."""
+		import traceback
+
+		job = frappe.new_doc("Transport Job")
+		job.customer = "Test Customer"
+		job.company = "Test Company"
+		job.transport_job_type = "Non-Container"
+		job.vehicle_type = "Test Truck"
+		job.booking_date = today()
+		job.insert(ignore_permissions=True)
+		job.append("charges", {"service_type": "Transport"})
+		job.save(ignore_permissions=True)
+
+		commits = []
+		original_commit = frappe.db.commit
+
+		def spy(*args, **kwargs):
+			stack = "".join(traceback.format_stack())
+			if "transport/doctype/transport_job/transport_job.py" in stack:
+				commits.append(stack)
+			return original_commit(*args, **kwargs)
+
+		frappe.db.commit = spy
+		try:
+			job.submit()
+		finally:
+			frappe.db.commit = original_commit
+
+		job.reload()
+		self.assertEqual(job.docstatus, 1)
+		self.assertEqual(job.status, "Submitted")
+		self.assertEqual(
+			frappe.db.get_value("Transport Job", job.name, "status"),
+			"Submitted",
+		)
+		self.assertEqual(commits, [])
+
 	def test_job_status_with_multiple_legs(self):
 		"""
 		Test job status workflow with multiple legs:

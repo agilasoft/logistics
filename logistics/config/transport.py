@@ -66,11 +66,6 @@ def get_data():
                             "name": "Sales Invoice",
                             "label": _("Billing"),
                     },
-                    {
-                            "type": "doctype",
-                            "name": "Proof of Delivery",
-                            "label": _("Proof of Delivery"),
-                    },
                 ]
             },
             {

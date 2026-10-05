@@ -1,0 +1,188 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-10-03 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "sales_channel",
+  "warehouse_item",
+  "seller_sku",
+  "channel_sku",
+  "column_break_item",
+  "platform_item_id",
+  "variant_id",
+  "platform_category_id",
+  "listing_title",
+  "section_listing",
+  "selling_price",
+  "barcode",
+  "weight",
+  "image_url",
+  "column_break_listing",
+  "sync_status",
+  "last_stock_qty",
+  "last_synced"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "CIM-.######"
+  },
+  {
+   "fieldname": "sales_channel",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Sales Channel",
+   "options": "Sales Channel",
+   "reqd": 1
+  },
+  {
+   "fieldname": "warehouse_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Warehouse Item",
+   "options": "Warehouse Item"
+  },
+  {
+   "fieldname": "seller_sku",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Seller SKU",
+   "reqd": 1
+  },
+  {
+   "fieldname": "channel_sku",
+   "fieldtype": "Data",
+   "label": "Channel SKU Key",
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_item",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "platform_item_id",
+   "fieldtype": "Data",
+   "label": "Platform Item ID"
+  },
+  {
+   "fieldname": "variant_id",
+   "fieldtype": "Data",
+   "label": "Variant ID"
+  },
+  {
+   "description": "Required by Shopee, Lazada, and TikTok before a new listing can be created.",
+   "fieldname": "platform_category_id",
+   "fieldtype": "Data",
+   "label": "Platform Category ID"
+  },
+  {
+   "fieldname": "listing_title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Listing Title"
+  },
+  {
+   "fieldname": "section_listing",
+   "fieldtype": "Section Break",
+   "label": "Listing"
+  },
+  {
+   "fieldname": "selling_price",
+   "fieldtype": "Float",
+   "label": "Selling Price"
+  },
+  {
+   "fieldname": "barcode",
+   "fieldtype": "Data",
+   "label": "Barcode"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight"
+  },
+  {
+   "fieldname": "image_url",
+   "fieldtype": "Data",
+   "label": "Image URL"
+  },
+  {
+   "fieldname": "column_break_listing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "sync_status",
+   "fieldtype": "Select",
+   "label": "Sync Status",
+   "options": "Pending\nSynced\nError"
+  },
+  {
+   "fieldname": "last_stock_qty",
+   "fieldtype": "Float",
+   "label": "Last Stock Qty",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_synced",
+   "fieldtype": "Datetime",
+   "label": "Last Synced",
+   "read_only": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-03 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Order Management",
+ "name": "Channel Item",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Order Management Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Order Management User",
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "seller_sku"
+}
