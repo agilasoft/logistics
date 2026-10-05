@@ -21,6 +21,7 @@ from logistics.utils.charge_service_type import (
 	sales_quote_charge_service_types_equal,
 )
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
+from logistics.pricing_center.sales_quote_charge_ports import air_sea_corridor_incomplete
 from logistics.pricing_center.sales_quote_customs_units import (
 	customs_unit_type_problem,
 	customs_allowed_unit_types_text,
@@ -633,21 +634,16 @@ class SalesQuote(Document):
 		if _is_special_project_programme_quote(self):
 			return
 		doc_origin, doc_dest = self._document_level_origin_destination_for_charges()
-		has_air_or_sea = False
-		has_complete_corridor = False
+		charge_ports = []
 		for row in getattr(self, "charges", None) or []:
 			st = _sq_strip_or_none(getattr(row, "service_type", None))
 			if canonical_charge_service_type_for_storage(st) not in ("air", "sea"):
 				continue
-			has_air_or_sea = True
-			row_o = _sq_strip_or_none(getattr(row, "origin_port", None))
-			row_d = _sq_strip_or_none(getattr(row, "destination_port", None))
-			eff_o = row_o or doc_origin
-			eff_d = row_d or doc_dest
-			if eff_o and eff_d:
-				has_complete_corridor = True
-				break
-		if has_air_or_sea and not has_complete_corridor:
+			charge_ports.append((
+				_sq_strip_or_none(getattr(row, "origin_port", None)),
+				_sq_strip_or_none(getattr(row, "destination_port", None)),
+			))
+		if air_sea_corridor_incomplete(charge_ports, doc_origin, doc_dest):
 			frappe.throw(
 				_(
 					"At least one Air or Sea charge line must have Origin Port and Destination Port "
