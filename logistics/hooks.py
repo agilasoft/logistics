@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 
 from frappe import append_hook
 
+from logistics.sea_freight.alert_schedule import DAILY_SEA_ALERT_TASKS, HOURLY_SEA_ALERT_TASKS
 from logistics.utils.credit_management import merge_credit_hooks
 from logistics.utils.invoice_dispute import merge_invoice_dispute_hooks
 
@@ -1027,6 +1028,7 @@ scheduler_events = {
 		"logistics.integrations.outlook.tasks.reconcile_failed_syncs",
 		"logistics.integrations.outlook.tasks.sync_recent_task_changes",
 		"logistics.transport.tasks.update_sla_statuses",
+		*HOURLY_SEA_ALERT_TASKS,
 	],
 	"daily": [
 		"logistics.status_update.tasks.update_document_statuses",
@@ -1037,6 +1039,7 @@ scheduler_events = {
 		"logistics.air_freight.flight_schedules.tasks.cleanup_old_sync_logs",
 		"logistics.air_freight.casslink.sftp_client.pull_configured_companies",
 		"logistics.job_management.auto_recognition.process_auto_recognition",
+		*DAILY_SEA_ALERT_TASKS,
 	],
 }
 
