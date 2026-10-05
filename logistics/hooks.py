@@ -22,6 +22,12 @@ app_color = "grey"
 app_email = "info@agilasoft.com"
 app_license = "AGPL-3.0-or-later"
 
+# The dock entry for this programme is MICE. Exhibits keeps its DocTypes, and the desk
+# resolves them through MICE instead of drawing a second icon labelled Exhibits.
+code_only_modules = {
+	"Exhibits": ["MICE"],
+}
+
 # bench migrate imports every fixtures/*.json, not only this list.
 # Do not add Custom DocPerm here or as fixtures/custom_docperm.json:
 # that import overwrites Role Permission Manager changes on every migrate.

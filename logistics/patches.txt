@@ -968,4 +968,6 @@ logistics.patches.v3_0_drop_transport_job_service_milestones
 logistics.patches.v3_0_drop_declaration_booking_milestones
 # Transport Job grid no longer stores Transport Order milestones; the timeline reads them live
 logistics.patches.v3_0_drop_transport_job_order_milestones
+# Desk: the programme icon is MICE. Drop the Exhibits tile and saved layout copies.
+logistics.patches.v3_0_mice_desk_icon
 
