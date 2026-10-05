@@ -220,6 +220,35 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 		finally:
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
+	def test_add_linked_service_quantity(self):
+		"""Qty on Add creates that many services and rejects 0 or more than 50."""
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+			add_linked_service,
+			list_quote_linked_services,
+		)
+
+		sq = self._minimal_sales_quote("SQ Add Qty")
+		try:
+			created = add_linked_service(sq.name, "Transport", quantity=3)
+			self.assertEqual(len(created["linked_services"]), 3)
+			self.assertEqual(created["linked_service"], created["linked_services"][-1])
+			listed = list_quote_linked_services(sq.name)
+			self.assertEqual(len(listed["linked_services"]), 3)
+			self.assertTrue(all(row["service_type"] == "Transport" for row in listed["linked_services"]))
+			with self.assertRaises(frappe.ValidationError):
+				add_linked_service(sq.name, "Air", quantity=51)
+			with self.assertRaises(frappe.ValidationError):
+				add_linked_service(sq.name, "Air", quantity=0)
+			self.assertEqual(len(list_quote_linked_services(sq.name)["linked_services"]), 3)
+		finally:
+			for name in frappe.get_all(
+				linked_service_doctype(),
+				filters={"parent_booking_type": "Sales Quote", "parent_booking_name": sq.name},
+				pluck="name",
+			):
+				frappe.delete_doc(linked_service_doctype(), name, force=True, ignore_permissions=True)
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+
 	def test_dialog_edit_get_and_update_air_fields(self):
 		"""In-dialog edit APIs load Air fieldset and persist quick fields."""
 		from logistics.logistics.doctype.linked_service.linked_service import (

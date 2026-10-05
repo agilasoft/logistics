@@ -4332,9 +4332,12 @@ def list_quote_linked_services(sales_quote: str):
 
 
 @frappe.whitelist()
-def add_linked_service(sales_quote: str, service_type: str):
-	"""Create a Linked Service owned by this Sales Quote."""
-	from logistics.time_sensitive.service_linking import validate_linked_service_type
+def add_linked_service(sales_quote: str, service_type: str, quantity=1):
+	"""Create one or more Linked Services of the same type owned by this Sales Quote."""
+	from logistics.time_sensitive.service_linking import (
+		normalize_linked_service_quantity,
+		validate_linked_service_type,
+	)
 	from logistics.utils.linked_service_compat import linked_service_doctype
 
 	quote = frappe.get_doc("Sales Quote", sales_quote)
@@ -4344,13 +4347,17 @@ def add_linked_service(sales_quote: str, service_type: str):
 		frappe.throw(_("Save the Sales Quote before adding a linked service."))
 
 	service_type = validate_linked_service_type(service_type)
-	linked = frappe.new_doc(linked_service_doctype())
-	linked.service_type = service_type
-	linked.parent_booking_type = "Sales Quote"
-	linked.parent_booking_name = quote.name
-	if getattr(quote, "company", None):
-		linked.company = quote.company
-	linked.insert(ignore_permissions=True)
+	quantity = normalize_linked_service_quantity(quantity)
+	names = []
+	for _idx in range(quantity):
+		linked = frappe.new_doc(linked_service_doctype())
+		linked.service_type = service_type
+		linked.parent_booking_type = "Sales Quote"
+		linked.parent_booking_name = quote.name
+		if getattr(quote, "company", None):
+			linked.company = quote.company
+		linked.insert(ignore_permissions=True)
+		names.append(linked.name)
 
 	quote.flags._linked_services_view_cached = False
 	if "linked_services" in quote.__dict__:
@@ -4358,9 +4365,44 @@ def add_linked_service(sales_quote: str, service_type: str):
 
 	return {
 		"name": quote.name,
-		"linked_service": linked.name,
-		"service_type": linked.service_type,
+		"linked_service": names[-1],
+		"linked_services": names,
+		"service_type": service_type,
 	}
+
+
+def _load_quote_for_linked_service_manage(sales_quote: str, *, write: bool):
+	"""Load a saved draft quote the caller may manage linked services on."""
+	quote = frappe.get_doc("Sales Quote", sales_quote)
+	frappe.has_permission(
+		"Sales Quote", "write" if write else "read", doc=quote, throw=True
+	)
+	_assert_sales_quote_can_manage_linked_services(quote)
+	if not quote.name or quote.is_new():
+		frappe.throw(_("Save the Sales Quote before adding a linked service."))
+	return quote
+
+
+@frappe.whitelist()
+def preview_linked_services_from_main(sales_quote: str):
+	"""Propose Transport and Customs linked services from main scope and containers."""
+	from logistics.pricing_center.sales_quote_linked_service_generate import (
+		preview_linked_services_from_quote,
+	)
+
+	quote = _load_quote_for_linked_service_manage(sales_quote, write=False)
+	return preview_linked_services_from_quote(quote)
+
+
+@frappe.whitelist()
+def create_linked_services_from_main(sales_quote: str, proposals=None):
+	"""Create the selected proposals. Field values are recomputed on the server."""
+	from logistics.pricing_center.sales_quote_linked_service_generate import (
+		create_linked_services_from_quote,
+	)
+
+	quote = _load_quote_for_linked_service_manage(sales_quote, write=True)
+	return create_linked_services_from_quote(quote, proposals)
 
 
 @frappe.whitelist()

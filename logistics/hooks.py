@@ -22,6 +22,12 @@ app_color = "grey"
 app_email = "info@agilasoft.com"
 app_license = "AGPL-3.0-or-later"
 
+# The dock entry for this programme is MICE. Exhibits keeps its DocTypes, and the desk
+# resolves them through MICE instead of drawing a second icon labelled Exhibits.
+code_only_modules = {
+	"Exhibits": ["MICE"],
+}
+
 # bench migrate imports every fixtures/*.json, not only this list.
 # Do not add Custom DocPerm here or as fixtures/custom_docperm.json:
 # that import overwrites Role Permission Manager changes on every migrate.
@@ -47,7 +53,7 @@ app_include_css = [
 	"/assets/logistics/css/density_factor.css?v=1",
 	"/assets/logistics/css/workflow_center.css?v=1",
 	"/assets/logistics/css/change_request_summary.css?v=4",
-	"/assets/logistics/css/linked_services_dialog.css?v=9",
+	"/assets/logistics/css/linked_services_dialog.css?v=11",
 	"/assets/logistics/css/ts_sq_fetch_dialog.css?v=6",
 	"/assets/logistics/css/role_permission_matrix.css?v=6",
 ]
@@ -57,7 +63,7 @@ app_include_js = [
 	"/assets/logistics/js/party_address_contact.js?v=1",
 	"/assets/logistics/js/linked_service_link_query.js?v=2",
 	"/assets/logistics/js/virtual_linked_services_grid.js?v=2",
-	"/assets/logistics/js/linked_services_dialog.js?v=6",
+	"/assets/logistics/js/linked_services_dialog.js?v=8",
 	"/assets/logistics/js/ts_sq_fetch_dialog.js?v=6",
 	"/assets/logistics/js/freight_agent_service.js?v=4",
 	"/assets/logistics/js/charge_bill_to.js?v=4",
