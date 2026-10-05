@@ -137,7 +137,10 @@ function select_platform(frm, dialog, name) {
 			}
 		}
 	});
-	dialog.set_primary_action_label(platform.login ? __("Log in to {0}", [platform.name]) : __("Find shops"));
+	dialog.set_primary_action(
+		platform.login ? __("Log in to {0}", [platform.name]) : __("Find shops"),
+		(values) => begin_connect(frm, dialog, values)
+	);
 }
 
 function begin_connect(frm, dialog, values) {
