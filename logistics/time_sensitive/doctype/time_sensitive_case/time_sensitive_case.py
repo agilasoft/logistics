@@ -623,20 +623,26 @@ def get_case_service_creation_preview(case_name: str, linked_service: str):
 
 
 @frappe.whitelist()
-def add_linked_service(case_name: str, service_type: str, quantity=1):
+def add_linked_service(case_name: str, service_type: str, quantity=1, values=None):
 	"""Create one or more canonical Linked Services owned by this case."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		prepare_dialog_create_values,
+	)
 	from logistics.time_sensitive.service_linking import (
 		create_linked_service_for_case,
 		normalize_linked_service_quantity,
+		validate_linked_service_type,
 	)
 
 	case = frappe.get_doc("Time Sensitive Case", case_name)
 	frappe.has_permission("Time Sensitive Case", "write", doc=case, throw=True)
+	service_type = validate_linked_service_type(service_type)
 	quantity = normalize_linked_service_quantity(quantity)
+	cleaned = prepare_dialog_create_values(service_type, values)
 	names = []
 	service_type_created = service_type
 	for _idx in range(quantity):
-		linked = create_linked_service_for_case(case, service_type)
+		linked = create_linked_service_for_case(case, service_type, values=cleaned)
 		names.append(linked.name)
 		service_type_created = linked.service_type
 		case.append_event(

@@ -249,6 +249,81 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 				frappe.delete_doc(linked_service_doctype(), name, force=True, ignore_permissions=True)
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
+	def test_add_linked_service_copies_details_before_create(self):
+		"""Qty create copies the details form onto every row and rejects a blank form."""
+		from logistics.logistics.doctype.linked_service.linked_service import (
+			get_dialog_create_payload,
+		)
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+			add_linked_service,
+		)
+
+		container_type = "LSDET1"
+		if not frappe.db.exists("Container Type", container_type):
+			row = frappe.new_doc("Container Type")
+			row.code = container_type
+			row.description = container_type
+			row.active = 1
+			row.insert(ignore_permissions=True)
+
+		sq = self._minimal_sales_quote("SQ Add Details First")
+		try:
+			payload = get_dialog_create_payload("Transport", "Sales Quote", sq.name)
+			self.assertEqual(payload["service_type"], "Transport")
+			self.assertIn("container_type", payload["detail_fields"])
+			self.assertEqual(payload["values"].get("company") or "", sq.company or "")
+			self.assertEqual(payload["values"].get("service_type"), "Transport")
+
+			with self.assertRaises(frappe.ValidationError):
+				add_linked_service(
+					sq.name,
+					"Transport",
+					quantity=2,
+					values={"reference_no": "NOT-A-DETAIL", "service_type": "Air"},
+				)
+			self.assertEqual(
+				len(
+					frappe.get_all(
+						linked_service_doctype(),
+						filters={
+							"parent_booking_type": "Sales Quote",
+							"parent_booking_name": sq.name,
+						},
+						pluck="name",
+					)
+				),
+				0,
+			)
+
+			created = add_linked_service(
+				sq.name,
+				"Transport",
+				quantity=3,
+				values={
+					"container_type": container_type,
+					"reference_no": "LEG-1",
+					"service_type": "Customs",
+					"not_a_field": "ignored",
+				},
+			)
+			self.assertEqual(len(created["linked_services"]), 3)
+			for name in created["linked_services"]:
+				linked = frappe.get_doc(linked_service_doctype(), name)
+				self.assertEqual(linked.service_type, "Transport")
+				self.assertEqual(linked.container_type, container_type)
+				self.assertEqual(linked.reference_no, "LEG-1")
+				self.assertEqual(linked.company, sq.company)
+		finally:
+			for name in frappe.get_all(
+				linked_service_doctype(),
+				filters={"parent_booking_type": "Sales Quote", "parent_booking_name": sq.name},
+				pluck="name",
+			):
+				frappe.delete_doc(linked_service_doctype(), name, force=True, ignore_permissions=True)
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+			if frappe.db.exists("Container Type", container_type):
+				frappe.delete_doc("Container Type", container_type, force=True, ignore_permissions=True)
+
 	def test_dialog_edit_get_and_update_air_fields(self):
 		"""In-dialog edit APIs load Air fieldset and persist quick fields."""
 		from logistics.logistics.doctype.linked_service.linked_service import (

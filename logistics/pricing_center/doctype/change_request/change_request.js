@@ -350,7 +350,7 @@ function cr_open_services_dialog(frm) {
 				"Job services appear here automatically. Add a type only for a new extra leg."
 			),
 			addHint: __(
-				"Add a service type only when the extra charge needs a new leg that is not already on the job. Existing job services can be picked on charge rows."
+				"Add a service type only when the extra charge needs a new leg that is not already on the job. Fill in the service details first. Qty creates that many services with those details."
 			),
 			unsavedMessage: __("Save the Change Request before managing services."),
 			removeConfirm: (ls) =>

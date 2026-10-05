@@ -431,7 +431,7 @@ function logistics_sq_open_services_dialog(frm) {
 			allowEdit: can_manage,
 			emptyHint: __("Add a service type below to link it to this quote."),
 			addHint: __(
-				"Select a service type and quantity. Qty creates that many services of the same type in one step."
+				"Choose a service type and quantity, fill in the service details, then Add Service. Qty creates that many services with those details."
 			),
 			unsavedMessage: __("Save the Sales Quote before managing services."),
 			removeConfirm: (ls) =>

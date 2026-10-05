@@ -57,8 +57,12 @@ def normalize_linked_service_quantity(quantity=1) -> int:
 	return qty
 
 
-def create_linked_service_for_case(case, service_type: str):
+def create_linked_service_for_case(case, service_type: str, values=None):
 	"""Create a canonical service owned by the case."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		apply_dialog_create_values,
+	)
+
 	service_type = validate_linked_service_type(service_type)
 	if not case.name or case.is_new():
 		frappe.throw(_("Save the Time Sensitive Case before adding a linked service."))
@@ -67,6 +71,7 @@ def create_linked_service_for_case(case, service_type: str):
 	linked.service_type = service_type
 	linked.parent_booking_type = case.doctype
 	linked.parent_booking_name = case.name
+	apply_dialog_create_values(linked, values or {})
 	linked.insert()
 	record_case_usage(case, linked.name)
 	return linked

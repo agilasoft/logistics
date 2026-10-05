@@ -4332,8 +4332,16 @@ def list_quote_linked_services(sales_quote: str):
 
 
 @frappe.whitelist()
-def add_linked_service(sales_quote: str, service_type: str, quantity=1):
-	"""Create one or more Linked Services of the same type owned by this Sales Quote."""
+def add_linked_service(sales_quote: str, service_type: str, quantity=1, values=None):
+	"""Create one or more Linked Services of the same type owned by this Sales Quote.
+
+	When ``values`` is sent (the Add Service form), type-specific details are required
+	and copied onto every new row. Omitting ``values`` keeps the previous blank create.
+	"""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		apply_dialog_create_values,
+		prepare_dialog_create_values,
+	)
 	from logistics.time_sensitive.service_linking import (
 		normalize_linked_service_quantity,
 		validate_linked_service_type,
@@ -4348,6 +4356,7 @@ def add_linked_service(sales_quote: str, service_type: str, quantity=1):
 
 	service_type = validate_linked_service_type(service_type)
 	quantity = normalize_linked_service_quantity(quantity)
+	cleaned = prepare_dialog_create_values(service_type, values)
 	names = []
 	for _idx in range(quantity):
 		linked = frappe.new_doc(linked_service_doctype())
@@ -4356,6 +4365,7 @@ def add_linked_service(sales_quote: str, service_type: str, quantity=1):
 		linked.parent_booking_name = quote.name
 		if getattr(quote, "company", None):
 			linked.company = quote.company
+		apply_dialog_create_values(linked, cleaned)
 		linked.insert(ignore_permissions=True)
 		names.append(linked.name)
 

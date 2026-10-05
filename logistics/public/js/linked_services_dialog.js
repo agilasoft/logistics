@@ -93,8 +93,10 @@ function _lsd1_normalize_options(options) {
 		addHint:
 			opts.addHint ||
 			__(
-				"Select a service type to link. You can add multiple services of the same type."
+				"Choose a service type and quantity, fill in the service details, then Add Service. Qty creates that many services with those details."
 			),
+		createPayloadMethod:
+			opts.createPayloadMethod || LSD1_LS_API + ".get_dialog_create_payload",
 		unsavedMessage:
 			opts.unsavedMessage ||
 			__("Save the document before managing services."),
@@ -246,6 +248,7 @@ function _lsd1_shell_html(frm, opts) {
 						${generate_btn}
 					</div>
 					<p class="lsd1-hint">${_lsd1_escape(opts.addHint)}</p>
+					${_lsd1_compose_panel_html()}
 					${_lsd1_generate_panel_html(opts)}
 				</section>`
 		: "";
@@ -303,6 +306,22 @@ function _lsd1_shell_html(frm, opts) {
 				</section>
 				${edit_panel}
 			</div>
+		</div>`;
+}
+
+function _lsd1_compose_panel_html() {
+	return `
+		<div class="lsd1-compose-panel" hidden>
+			<div class="lsd1-edit-head">
+				<div class="lsd1-edit-head-text">
+					<span class="lsd1-panel-title">${__("Service details")}</span>
+					<span class="lsd1-compose-meta"></span>
+				</div>
+			</div>
+			<p class="lsd1-hint lsd1-compose-note">${__(
+				"These details are copied onto every service created for this quantity."
+			)}</p>
+			<div class="lsd1-edit-grid lsd1-compose-grid"></div>
 		</div>`;
 }
 
@@ -532,8 +551,9 @@ function _lsd1_mount_edit_field($grid, field, value, state) {
 
 	if (df.fieldtype === "Dynamic Link" && df.options) {
 		const options_field = df.options;
+		const controls = state._mountControls || state.editControls;
 		df.get_options = function () {
-			const sibling = (state.editControls || []).find(
+			const sibling = (controls || []).find(
 				(c) => c && c.fieldname === options_field
 			);
 			return (sibling && sibling.get_value && sibling.get_value()) || "UNLOCO";
@@ -558,19 +578,106 @@ function _lsd1_mount_edit_field($grid, field, value, state) {
 	};
 }
 
-function _lsd1_collect_edit_values(state) {
+function _lsd1_collect_control_values(controls) {
 	const values = {};
-	(state.editControls || []).forEach((c) => {
+	(controls || []).forEach((c) => {
 		if (!c || c.read_only) return;
 		values[c.fieldname] = c.get_value();
 	});
 	return values;
 }
 
+function _lsd1_collect_edit_values(state) {
+	return _lsd1_collect_control_values(state.editControls);
+}
+
 function _lsd1_edit_is_dirty(state) {
 	if (!state.editValuesBaseline) return false;
 	const current = _lsd1_collect_edit_values(state);
 	return JSON.stringify(current) !== JSON.stringify(state.editValuesBaseline);
+}
+
+function _lsd1_clear_compose_controls(state) {
+	(state.composeControls || []).forEach((ctrl) => {
+		try {
+			if (ctrl && ctrl.control && ctrl.control.$wrapper) {
+				ctrl.control.$wrapper.remove();
+			}
+		} catch (e) {
+			/* ignore */
+		}
+	});
+	state.composeControls = [];
+	state.composeDetailFields = [];
+	state.composeServiceType = "";
+	state.composeReady = false;
+	state.composeRequest = (state.composeRequest || 0) + 1;
+}
+
+function _lsd1_close_compose(dialog, state) {
+	_lsd1_clear_compose_controls(state);
+	const $panel = dialog.$wrapper.find(".lsd1-compose-panel");
+	$panel.attr("hidden", true);
+	$panel.find(".lsd1-compose-grid").empty();
+	$panel.find(".lsd1-compose-meta").text("");
+}
+
+function _lsd1_compose_has_details(state) {
+	const required = state.composeDetailFields || [];
+	if (!required.length) return true;
+	const values = _lsd1_collect_control_values(state.composeControls);
+	return required.some((name) => {
+		const value = values[name];
+		return value != null && String(value).trim() !== "";
+	});
+}
+
+function _lsd1_open_compose(dialog, frm, opts, state, service_type) {
+	if (!service_type || !opts.createPayloadMethod) return;
+	if (state.composeServiceType === service_type && state.composeReady) {
+		return;
+	}
+
+	const $panel = dialog.$wrapper.find(".lsd1-compose-panel");
+	const $grid = $panel.find(".lsd1-compose-grid");
+	_lsd1_clear_compose_controls(state);
+	state.composeServiceType = service_type;
+	const request_id = state.composeRequest;
+	$grid.empty();
+	$panel.find(".lsd1-compose-meta").text(service_type);
+	$panel.removeAttr("hidden");
+
+	frappe.call({
+		method: opts.createPayloadMethod,
+		args: Object.assign(_lsd1_parent_context(frm), {
+			service_type,
+		}),
+		callback(r) {
+			if (state.composeRequest !== request_id) return;
+			const payload = (r && r.message) || {};
+			const fields = payload.fields || [];
+			const values = payload.values || {};
+			state.composeDetailFields = payload.detail_fields || [];
+			const mountState = {
+				editControls: state.composeControls,
+				_mountControls: state.composeControls,
+			};
+			fields.forEach((field) => {
+				const mounted = _lsd1_mount_edit_field(
+					$grid,
+					field,
+					values[field.fieldname],
+					mountState
+				);
+				state.composeControls.push(mounted);
+			});
+			state.composeReady = true;
+			const el = $panel.get(0);
+			if (el && typeof el.scrollIntoView === "function") {
+				el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+			}
+		},
+	});
 }
 
 function _lsd1_open_edit(dialog, frm, opts, state, linked_service) {
@@ -768,6 +875,15 @@ function _lsd1_bind(dialog, frm, opts, state) {
 	}
 
 	if (opts.allowAdd && opts.addMethod) {
+		$wrap.on("change.lsd1", ".lsd1-service-type", () => {
+			const service_type = ($wrap.find(".lsd1-service-type").val() || "").trim();
+			if (!service_type) {
+				_lsd1_close_compose(dialog, state);
+				return;
+			}
+			_lsd1_open_compose(dialog, frm, opts, state, service_type);
+		});
+
 		$wrap.on("click.lsd1", "button.lsd1-add", () => {
 			const service_type = ($wrap.find(".lsd1-service-type").val() || "").trim();
 			if (!service_type) {
@@ -785,34 +901,56 @@ function _lsd1_bind(dialog, frm, opts, state) {
 				});
 				return;
 			}
+			if (state.composeServiceType !== service_type || !state.composeReady) {
+				_lsd1_open_compose(dialog, frm, opts, state, service_type);
+				frappe.msgprint({
+					message: __(
+						"Service details are still loading. Enter them, then Add Service."
+					),
+					indicator: "orange",
+				});
+				return;
+			}
+			if (!_lsd1_compose_has_details(state)) {
+				frappe.msgprint({
+					message: __("Enter the linked service details before creating them."),
+					indicator: "orange",
+				});
+				return;
+			}
 			const args = _lsd1_parent_args(frm, opts);
 			args.service_type = service_type;
 			args.quantity = quantity;
+			args.values = _lsd1_collect_control_values(state.composeControls);
+			const $add = $wrap.find("button.lsd1-add");
+			$add.prop("disabled", true);
 			frappe.call({
 				method: opts.addMethod,
 				args,
 				freeze: true,
 				freeze_message: __("Adding linked service..."),
 				callback(r) {
+					$add.prop("disabled", false);
 					$wrap.find(".lsd1-service-type").val("");
 					$wrap.find(".lsd1-add-qty").val(1);
+					_lsd1_close_compose(dialog, state);
 					_lsd1_reload(dialog, frm, opts, state);
 					frm.reload_doc();
 					const message = (r && r.message) || {};
 					const names = message.linked_services || [];
-					const created = names.length
-						? names[names.length - 1]
-						: message.linked_service || null;
-					if (names.length > 1) {
+					const count = names.length || (message.linked_service ? 1 : 0);
+					if (count) {
 						frappe.show_alert({
-							message: __("{0} linked services created", [names.length]),
+							message:
+								count === 1
+									? __("Linked service created")
+									: __("{0} linked services created", [count]),
 							indicator: "green",
 						});
-						return;
 					}
-					if (created && opts.allowEdit && opts.getMethod) {
-						_lsd1_open_edit(dialog, frm, opts, state, created);
-					}
+				},
+				error() {
+					$add.prop("disabled", false);
 				},
 			});
 		});
@@ -861,6 +999,10 @@ logistics.show_linked_services_dialog = function (frm, options) {
 		editControls: [],
 		editValuesBaseline: null,
 		editServiceType: "",
+		composeControls: [],
+		composeDetailFields: [],
+		composeServiceType: "",
+		composeReady: false,
 		generateProposals: [],
 	};
 
