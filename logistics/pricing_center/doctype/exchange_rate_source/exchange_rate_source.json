@@ -11,6 +11,7 @@
   "source_name",
   "column_break_ers",
   "is_active",
+  "allow_rate_override",
   "sort_order"
  ],
  "fields": [
@@ -42,6 +43,14 @@
   },
   {
    "default": "0",
+   "description": "When ticked, users can edit the exchange rate on charges that use this source. Otherwise the rate is filled from Source Exchange Rate and cannot be changed.",
+   "fieldname": "allow_rate_override",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Allow Override"
+  },
+  {
+   "default": "0",
    "fieldname": "sort_order",
    "fieldtype": "Int",
    "label": "Sort Order"
@@ -54,7 +63,7 @@
    "link_fieldname": "exchange_rate_source"
   }
  ],
- "modified": "2026-04-29 00:00:00",
+ "modified": "2026-10-05 09:30:00.000000",
  "module": "Pricing Center",
  "name": "Exchange Rate Source",
  "naming_rule": "By fieldname",

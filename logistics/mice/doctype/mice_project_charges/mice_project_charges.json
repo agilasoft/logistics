@@ -33,6 +33,7 @@
   "bill_to",
   "bill_to_exchange_rate",
   "bill_to_exchange_rate_source",
+  "bill_to_allow_rate_override",
   "bill_to_exchange_rate_date",
   "selling_currency",
   "estimated_revenue",
@@ -43,6 +44,7 @@
   "pay_to",
   "pay_to_exchange_rate",
   "pay_to_exchange_rate_source",
+  "pay_to_allow_rate_override",
   "pay_to_exchange_rate_date",
   "buying_currency",
   "estimated_cost",
@@ -292,13 +294,22 @@
    "fieldname": "bill_to_exchange_rate",
    "fieldtype": "Float",
    "label": "Exchange Rate (Bill To)",
-   "precision": "9"
+   "precision": "9",
+   "read_only_depends_on": "eval:!cint(doc.bill_to_allow_rate_override)"
   },
   {
    "fieldname": "bill_to_exchange_rate_source",
    "fieldtype": "Link",
    "label": "Exchange Rate Source (Bill To)",
    "options": "Exchange Rate Source"
+  },
+  {
+   "fetch_from": "bill_to_exchange_rate_source.allow_rate_override",
+   "fieldname": "bill_to_allow_rate_override",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Allow Bill To Rate Override",
+   "read_only": 1
   },
   {
    "fieldname": "bill_to_exchange_rate_date",
@@ -346,13 +357,22 @@
    "fieldname": "pay_to_exchange_rate",
    "fieldtype": "Float",
    "label": "Exchange Rate (Pay To)",
-   "precision": "9"
+   "precision": "9",
+   "read_only_depends_on": "eval:!cint(doc.pay_to_allow_rate_override)"
   },
   {
    "fieldname": "pay_to_exchange_rate_source",
    "fieldtype": "Link",
    "label": "Exchange Rate Source (Pay To)",
    "options": "Exchange Rate Source"
+  },
+  {
+   "fetch_from": "pay_to_exchange_rate_source.allow_rate_override",
+   "fieldname": "pay_to_allow_rate_override",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Allow Pay To Rate Override",
+   "read_only": 1
   },
   {
    "fieldname": "pay_to_exchange_rate_date",
@@ -936,7 +956,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-08-25 18:15:00.000000",
+ "modified": "2026-10-05 09:30:00.000000",
  "modified_by": "Administrator",
  "module": "MICE",
  "name": "MICE Project Charges",

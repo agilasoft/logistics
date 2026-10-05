@@ -158,6 +158,7 @@ doctype_js = {
 		"public/js/opportunity_services.js",
 	],
 	"Tariff": [
+		"public/js/operational_exchange_rate_grid.js",
 		"public/js/charge_break_dialogs.js",
 		"public/js/charge_break_buttons.js",
 		"pricing_center/doctype/tariff_charge/tariff_charge.js",
@@ -298,6 +299,7 @@ doctype_js = {
 	# silently fails to load (no error). See get_code_files_via_hooks in
 	# apps/frappe/frappe/desk/form/meta.py.
 	"Special Project": [
+		"public/js/operational_exchange_rate_grid.js",
 		"public/js/profitability_project_form.js",
 		# Module-relative paths only (no leading logistics/ — see comment above Docket entry).
 		"job_management/recognition_client.js",
@@ -316,9 +318,13 @@ doctype_js = {
 		"mice/doctype/mice_project_consolidation_charges/mice_project_consolidation_charges.js",
 	],
 	"Docket": [
+		"public/js/operational_exchange_rate_grid.js",
 		"job_management/recognition_client.js",
 		"job_management/recognition_policy_fields.js",
 	],
+	"Project Order": "public/js/operational_exchange_rate_grid.js",
+	"Exhibit Order": "public/js/operational_exchange_rate_grid.js",
+	"MICE Order": "public/js/operational_exchange_rate_grid.js",
 	"Account": "public/js/account_job_profit.js",
 	"Recognition Policy Settings": "job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
 	"Purchase Invoice": "public/js/purchase_invoice_container_deposit.js",

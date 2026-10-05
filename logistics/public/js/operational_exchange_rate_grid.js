@@ -97,6 +97,163 @@ logistics.operational_exchange_rate.refresh_sales_quote_charge_exchange_rates = 
 	}
 };
 
+const EXCHANGE_RATE_OVERRIDE_SIDES = [
+	{ source_field: 'bill_to_exchange_rate_source', flag_field: 'bill_to_allow_rate_override' },
+	{ source_field: 'pay_to_exchange_rate_source', flag_field: 'pay_to_allow_rate_override' },
+	{ source_field: 'exchange_rate_source', flag_field: 'allow_rate_override' },
+];
+
+logistics.operational_exchange_rate.sync_allow_rate_override_flag = function (cdt, cdn, source_field, flag_field) {
+	const row = locals[cdt] && locals[cdt][cdn];
+	if (!row || !frappe.meta.has_field(cdt, flag_field)) {
+		return;
+	}
+	const source = row[source_field];
+	if (!source) {
+		frappe.model.set_value(cdt, cdn, flag_field, 0);
+		return;
+	}
+	frappe.db.get_value('Exchange Rate Source', source, 'allow_rate_override', (r) => {
+		frappe.model.set_value(cdt, cdn, flag_field, cint(r && r.allow_rate_override));
+	});
+};
+
+logistics.operational_exchange_rate.refresh_allow_rate_override_flags = function (frm) {
+	if (!frm || !frm.doc || !frm.meta) {
+		return;
+	}
+	const pending = [];
+	const grids = [];
+	let changed = false;
+	(frm.meta.fields || []).forEach((df) => {
+		if (df.fieldtype !== 'Table' || !df.options) {
+			return;
+		}
+		const rows = frm.doc[df.fieldname] || [];
+		let used = false;
+		rows.forEach((row) => {
+			EXCHANGE_RATE_OVERRIDE_SIDES.forEach((side) => {
+				if (!frappe.meta.has_field(df.options, side.source_field)) {
+					return;
+				}
+				if (!frappe.meta.has_field(df.options, side.flag_field)) {
+					return;
+				}
+				used = true;
+				const source = row[side.source_field];
+				if (!source) {
+					if (cint(row[side.flag_field])) {
+						row[side.flag_field] = 0;
+						changed = true;
+					}
+					return;
+				}
+				pending.push({ row, source, flag_field: side.flag_field });
+			});
+		});
+		if (used) {
+			grids.push(df.fieldname);
+		}
+	});
+	const refresh_grids = () => {
+		grids.forEach((fieldname) => frm.refresh_field(fieldname));
+	};
+	const sources = [...new Set(pending.map((item) => item.source))];
+	if (!sources.length) {
+		if (changed) {
+			refresh_grids();
+		}
+		return;
+	}
+	frappe.db.get_list('Exchange Rate Source', {
+		filters: { name: ['in', sources] },
+		fields: ['name', 'allow_rate_override'],
+		limit: sources.length,
+	}).then((list) => {
+		const map = {};
+		(list || []).forEach((doc) => {
+			map[doc.name] = cint(doc.allow_rate_override);
+		});
+		pending.forEach((item) => {
+			const next = cint(map[item.source]);
+			if (cint(item.row[item.flag_field]) !== next) {
+				item.row[item.flag_field] = next;
+				changed = true;
+			}
+		});
+		if (changed) {
+			refresh_grids();
+		}
+	});
+};
+
+if (!logistics.operational_exchange_rate._allow_override_bound) {
+	logistics.operational_exchange_rate._allow_override_bound = true;
+	[
+		'Time Sensitive Case',
+		'Sales Quote',
+		'Air Booking',
+		'Air Shipment',
+		'Sea Booking',
+		'Sea Shipment',
+		'Project Job',
+		'MICE Project',
+		'Tariff',
+		'Special Project',
+		'Project Order',
+		'Exhibit Order',
+		'MICE Order',
+		'Docket',
+	].forEach((doctype) => {
+		frappe.ui.form.on(doctype, {
+			refresh(frm) {
+				logistics.operational_exchange_rate.refresh_allow_rate_override_flags(frm);
+			},
+		});
+	});
+	[
+		'Sales Quote Charge',
+		'Tariff Charge',
+		'Air Booking Charges',
+		'Air Shipment Charges',
+		'Sea Booking Charges',
+		'Sea Shipment Charges',
+		'Special Project Charges',
+		'Time Sensitive Case Charge',
+		'MICE Project Charges',
+		'Exhibit Charges',
+		'MICE Project Consolidation Charges',
+		'Operational Exchange Rate',
+	].forEach((doctype) => {
+		frappe.ui.form.on(doctype, {
+			bill_to_exchange_rate_source(frm, cdt, cdn) {
+				logistics.operational_exchange_rate.sync_allow_rate_override_flag(
+					cdt,
+					cdn,
+					'bill_to_exchange_rate_source',
+					'bill_to_allow_rate_override'
+				);
+			},
+			pay_to_exchange_rate_source(frm, cdt, cdn) {
+				logistics.operational_exchange_rate.sync_allow_rate_override_flag(
+					cdt,
+					cdn,
+					'pay_to_exchange_rate_source',
+					'pay_to_allow_rate_override'
+				);
+			},
+			exchange_rate_source(frm, cdt, cdn) {
+				logistics.operational_exchange_rate.sync_allow_rate_override_flag(
+					cdt,
+					cdn,
+					'exchange_rate_source',
+					'allow_rate_override'
+				);
+			},
+		});
+	});
+}
+
 frappe.ui.form.on('Operational Exchange Rate', {
 	entity_type(frm, cdt, cdn) {
 		frappe.model.set_value(cdt, cdn, 'entity', null);
