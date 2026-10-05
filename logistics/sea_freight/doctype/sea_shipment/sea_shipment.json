@@ -3,7 +3,6 @@
  "allow_rename": 1,
  "autoname": "naming_series:",
  "creation": "2025-05-22 19:48:10.656371",
- "description": "DEV Notes:\n\n1. Impending Penalties Alert.  Develop a features that alerts user of upcoming penalties to minimize costs.\n2. Delay Alerts.  Develop a feature that alerts upcoming milestones that a delay has happened.",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [

@@ -952,4 +952,6 @@ logistics.patches.v3_0_consol_job_profit_html_shipment_gap
 logistics.patches.v3_0_backfill_permit_application_tags
 # Drop empty Proof of Delivery and Plate Coding Rule DocTypes. Rows block the drop.
 logistics.patches.v3_0_drop_empty_proof_of_delivery_and_plate_coding_rule
+# Transport portal template: point stored pages at the customer portal under logistics/www
+logistics.patches.v3_0_retarget_transport_portal_template
 
