@@ -16,5 +16,17 @@
   "doctype": "Role",
   "name": "Control Tower Viewer",
   "role_name": "Control Tower Viewer"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "name": "Order Management Manager",
+  "role_name": "Order Management Manager"
+ },
+ {
+  "desk_access": 1,
+  "doctype": "Role",
+  "name": "Order Management User",
+  "role_name": "Order Management User"
  }
 ]

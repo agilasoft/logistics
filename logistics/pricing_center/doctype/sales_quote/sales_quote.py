@@ -22,7 +22,12 @@ from logistics.utils.charge_service_type import (
 )
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
 from logistics.pricing_center.sales_quote_main_job import multimodal_main_job_missing
+from logistics.pricing_center.sales_quote_scope_title import default_scope_title
 from logistics.utils.sales_quote_routing_defaults import apply_sales_quote_routing_defaults
+from logistics.pricing_center.sales_quote_required_parameters import (
+	missing_one_off_scope_fields,
+	missing_programme_scope_fields,
+)
 from logistics.utils.service_role_rules import (
 	SERVICE_ROLE_MAIN,
 	apply_main_service_flags,
@@ -31,6 +36,17 @@ from logistics.utils.service_role_rules import (
 	is_linked_service_satellite,
 	is_main_service_doc,
 )
+
+_SCOPE_FIELD_LABELS = {
+	"origin_port": "Origin Port",
+	"destination_port": "Destination Port",
+	"location_type": "Location Type",
+	"location_from": "Location From",
+	"location_to": "Location To",
+	"exhibit": "MICE Project",
+	"exhibit_show_open_date": "Exhibit Open Date",
+	"exhibit_show_close_date": "Exhibit Close Date",
+}
 
 
 def map_sales_quote_entry_type_to_air_booking(sales_quote_entry_type):
@@ -75,6 +91,10 @@ def _sq_strip_or_none(val):
 		return None
 	s = str(val).strip()
 	return s or None
+
+
+def _scope_values(sales_quote):
+	return {name: getattr(sales_quote, name, None) for name in _SCOPE_FIELD_LABELS}
 
 
 def _sq_charge_row_matches_service(row, service_type_label):
@@ -460,7 +480,6 @@ class SalesQuote(Document):
 		self._honour_linked_services_form_rows()
 		for ch in getattr(self, "charges", None) or []:
 			_sync_sales_quote_charge_load_type_filter_flags_for_row(ch)
-		self.validate_naming_series_quotation_type()
 		self.validate_blanket_quotation()
 		self.clear_hidden_one_off_fields_for_non_one_off()
 		self.ensure_one_off_status()
@@ -706,39 +725,6 @@ class SalesQuote(Document):
 
 		remove_additional_charge_sales_quote_from_job(self)
 
-	def validate_naming_series_quotation_type(self):
-		"""Validate that naming_series matches quotation_type"""
-		if not self.quotation_type or not self.naming_series:
-			return  # Skip validation if either field is empty
-		
-		# Mapping of quotation_type to allowed naming_series prefixes (dot and hyphen both accepted)
-		allowed_prefixes_mapping = {
-			"Regular": ("SQU.", "SQU-"),
-			"One-off": ("OOQ.", "OOQ-"),
-			"Project": ("PQ.", "PQ-"),
-		}
-		
-		allowed_prefixes = allowed_prefixes_mapping.get(self.quotation_type)
-		if not allowed_prefixes:
-			return  # Unknown quotation_type, skip validation
-		
-		if not any(self.naming_series.startswith(p) for p in allowed_prefixes):
-			expected_example = {
-				"Regular": "SQU.#########",
-				"One-off": "OOQ.#####",
-				"Project": "PQ.#####",
-			}.get(self.quotation_type, "")
-			expected_display = " / ".join(allowed_prefixes)
-			frappe.throw(
-				_("Naming Series '{0}' does not match Quotation Type '{1}'. Expected series starting with '{2}' (e.g., {3}).").format(
-					self.naming_series,
-					self.quotation_type,
-					expected_display,
-					expected_example,
-				),
-				title=_("Naming Series Mismatch"),
-			)
-
 	def validate_blanket_quotation(self):
 		"""Blanket Quotation is allowed only on Regular quotes."""
 		if not cint(getattr(self, "blanket_quotation", 0)):
@@ -769,64 +755,38 @@ class SalesQuote(Document):
 	def validate_one_off_required_parameters(self):
 		"""Require core scope parameters for Regular and One-off quotes based on service."""
 		quotation_type = getattr(self, "quotation_type", None)
-		if quotation_type not in ("One-off", "Regular"):
-			return
-
-		# Additional-charge quotes are linked to an existing job and should not
-		# require full one-off routing parameters to be created.
-		if getattr(self, "additional_charge", 0):
-			return
-
 		main_service = getattr(self, "main_service", None)
-
-		# Air and Sea flows depend on origin/destination ports.
+		missing = missing_one_off_scope_fields(
+			quotation_type,
+			main_service,
+			getattr(self, "additional_charge", 0),
+			_scope_values(self),
+		)
+		if not missing:
+			return
+		labels = ", ".join(_(_SCOPE_FIELD_LABELS[name]) for name in missing)
 		if main_service in ("Air", "Sea"):
-			missing_fields = []
-			if not getattr(self, "origin_port", None):
-				missing_fields.append(_("Origin Port"))
-			if not getattr(self, "destination_port", None):
-				missing_fields.append(_("Destination Port"))
-			if missing_fields:
-				frappe.throw(
-					_("For {0} {1} quotes, these fields are required: {2}.").format(
-						quotation_type,
-						main_service,
-						", ".join(missing_fields),
-					)
+			frappe.throw(
+				_("For {0} {1} quotes, these fields are required: {2}.").format(
+					quotation_type,
+					main_service,
+					labels,
 				)
-
-		# Transport flow depends on concrete pickup/drop details.
+			)
 		if main_service == "Transport":
-			missing_fields = []
-			if not getattr(self, "location_type", None):
-				missing_fields.append(_("Location Type"))
-			if not getattr(self, "location_from", None):
-				missing_fields.append(_("Location From"))
-			if not getattr(self, "location_to", None):
-				missing_fields.append(_("Location To"))
-			if missing_fields:
-				frappe.throw(
-					_("For {0} Transport quotes, these fields are required: {1}.").format(
-						quotation_type,
-						", ".join(missing_fields),
-					)
+			frappe.throw(
+				_("For {0} Transport quotes, these fields are required: {1}.").format(
+					quotation_type,
+					labels,
 				)
-
+			)
 		if main_service == "MICE":
-			missing_fields = []
-			if not _sq_strip_or_none(getattr(self, "exhibit", None)):
-				missing_fields.append(_("MICE Project"))
-			if not getattr(self, "exhibit_show_open_date", None):
-				missing_fields.append(_("Exhibit Open Date"))
-			if not getattr(self, "exhibit_show_close_date", None):
-				missing_fields.append(_("Exhibit Close Date"))
-			if missing_fields:
-				frappe.throw(
-					_("For {0} Exhibits quotes, these fields are required: {1}.").format(
-						quotation_type,
-						", ".join(missing_fields),
-					)
+			frappe.throw(
+				_("For {0} Exhibits quotes, these fields are required: {1}.").format(
+					quotation_type,
+					labels,
 				)
+			)
 
 	def validate_direction_ports(self):
 		"""Direction must align with origin/destination ports for the quote company country."""
@@ -844,42 +804,30 @@ class SalesQuote(Document):
 
 	def validate_programme_required_parameters(self):
 		"""Require programme header links and exhibit show fields based on main_service / quotation_type."""
-		if getattr(self, "additional_charge", 0):
+		missing = missing_programme_scope_fields(
+			getattr(self, "main_service", None),
+			getattr(self, "additional_charge", 0),
+			_scope_values(self),
+		)
+		if not missing:
 			return
-
-		main_service = getattr(self, "main_service", None)
-
-		if main_service == "MICE":
-			missing_fields = []
-			if not _sq_strip_or_none(getattr(self, "exhibit", None)):
-				missing_fields.append(_("MICE Project"))
-			if not getattr(self, "exhibit_show_open_date", None):
-				missing_fields.append(_("Exhibit Open Date"))
-			if not getattr(self, "exhibit_show_close_date", None):
-				missing_fields.append(_("Exhibit Close Date"))
-			if missing_fields:
-				frappe.throw(
-					_("For Exhibits quotes, these fields are required: {0}.").format(", ".join(missing_fields)),
-					title=_("Exhibit Details Required"),
-				)
+		frappe.throw(
+			_("For Exhibits quotes, these fields are required: {0}.").format(
+				", ".join(_(_SCOPE_FIELD_LABELS[name]) for name in missing)
+			),
+			title=_("Exhibit Details Required"),
+		)
 
 	def auto_scope_title(self):
 		"""Default scope_title from corridor + incoterm when blank."""
-		if (getattr(self, "scope_title", None) or "").strip():
-			return
-		parts = []
-		origin = _sq_strip_or_none(getattr(self, "origin_port", None))
-		dest = _sq_strip_or_none(getattr(self, "destination_port", None))
-		if not (origin and dest):
-			origin = _sq_strip_or_none(getattr(self, "location_from", None))
-			dest = _sq_strip_or_none(getattr(self, "location_to", None))
-		if origin and dest:
-			parts.append(f"{origin} → {dest}")
-		inc = _sq_strip_or_none(getattr(self, "incoterm", None))
-		if inc:
-			parts.append(f"({inc})")
-		if parts:
-			self.scope_title = " ".join(parts)
+		self.scope_title = default_scope_title(
+			getattr(self, "scope_title", None),
+			getattr(self, "origin_port", None),
+			getattr(self, "destination_port", None),
+			getattr(self, "location_from", None),
+			getattr(self, "location_to", None),
+			getattr(self, "incoterm", None),
+		)
 
 	def validate_linked_service_charge_tagging(self):
 		"""Validate per-charge Linked Service tagging on Sales Quote."""

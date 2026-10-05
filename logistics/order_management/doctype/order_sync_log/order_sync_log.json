@@ -1,0 +1,146 @@
+{
+ "actions": [],
+ "autoname": "format:OMSL-{YYYY}-{MM}-{DD}-{####}",
+ "creation": "2026-10-03 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "sales_channel",
+  "operation",
+  "direction",
+  "status",
+  "column_break_log",
+  "started",
+  "finished",
+  "created_count",
+  "updated_count",
+  "skipped_count",
+  "failed_count",
+  "section_error",
+  "error_message"
+ ],
+ "fields": [
+  {
+   "fieldname": "sales_channel",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Sales Channel",
+   "options": "Sales Channel"
+  },
+  {
+   "fieldname": "operation",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Operation",
+   "options": "Pull Orders\nPush Stock\nPush Items\nPush Fulfillment\nWebhook"
+  },
+  {
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "In\nOut"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending\nRunning\nSuccess\nPartial Success\nFailed"
+  },
+  {
+   "fieldname": "column_break_log",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "started",
+   "fieldtype": "Datetime",
+   "label": "Started"
+  },
+  {
+   "fieldname": "finished",
+   "fieldtype": "Datetime",
+   "label": "Finished"
+  },
+  {
+   "default": "0",
+   "fieldname": "created_count",
+   "fieldtype": "Int",
+   "label": "Created"
+  },
+  {
+   "default": "0",
+   "fieldname": "updated_count",
+   "fieldtype": "Int",
+   "label": "Updated"
+  },
+  {
+   "default": "0",
+   "fieldname": "skipped_count",
+   "fieldtype": "Int",
+   "label": "Skipped"
+  },
+  {
+   "default": "0",
+   "fieldname": "failed_count",
+   "fieldtype": "Int",
+   "label": "Failed"
+  },
+  {
+   "fieldname": "section_error",
+   "fieldtype": "Section Break",
+   "label": "Error"
+  },
+  {
+   "fieldname": "error_message",
+   "fieldtype": "Text",
+   "label": "Error Message"
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-03 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Order Management",
+ "name": "Order Sync Log",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Order Management Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Order Management User"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
