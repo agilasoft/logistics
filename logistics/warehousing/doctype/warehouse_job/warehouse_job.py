@@ -7,6 +7,7 @@ from frappe.model.document import Document
 from frappe.utils import flt, now_datetime
 from frappe import _
 from logistics.warehousing.api_parts.common import _get_default_currency
+from logistics.warehousing.ledger_balance import ledger_balance_after_post
 from logistics.warehousing.ledger_delta import ledger_delta
 
 # ---------------------------------------------------------------------------
@@ -3245,11 +3246,11 @@ class WarehouseJob(Document):
 				company=row_company,
 				branch=row_branch,
 			)
-			end = beg + delta
+			end, balance_blocked = ledger_balance_after_post(beg, delta)
 
 			# Prevent negative ending balances only for outbound operations (negative delta)
 			# Allow inbound operations (positive delta) even if beginning qty is 0
-			if delta < 0 and end < 0:
+			if balance_blocked:
 				# Build detailed error message with search parameters
 				search_params = []
 				search_params.append(_("Location: {0}").format(ji.location))
