@@ -72,7 +72,7 @@
    "fieldname": "template_path",
    "fieldtype": "Data",
    "label": "Template Path",
-   "default": "logistics/transport/www/transport_portal.html",
+   "default": "logistics/www/transport_portal.html",
    "depends_on": "content_type",
    "mandatory_depends_on": "eval:doc.content_type=='Jinja'"
   },
