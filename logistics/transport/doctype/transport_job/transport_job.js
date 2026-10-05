@@ -860,30 +860,6 @@ frappe.ui.form.on('Transport Job', {
 					if (!((frm.doc.service_role === "Linked" || cint(frm.doc.is_internal_job)) && (frm.doc.main_service_type || frm.doc.main_job_type) && (frm.doc.main_service || frm.doc.main_job))) {
 						logistics_add_create_internal_job_button(frm, __('Internal Job'), __('Create'));
 					}
-					logistics.menu.add(frm, {
-						label: __('Sales Invoice'),
-						group: __('Create'),
-						doctype: 'Sales Invoice',
-						ptype: 'create',
-						action: function() {
-						if (typeof show_create_sales_invoice_dialog === 'function') {
-							show_create_sales_invoice_dialog(frm);
-						} else {
-							_create_sales_invoice_from_transport_job(frm);
-						}
-						},
-					});
-					if (typeof show_create_purchase_invoice_dialog === 'function') {
-						logistics.menu.add(frm, {
-							label: __('Purchase Invoice'),
-							group: __('Create'),
-							doctype: 'Purchase Invoice',
-							ptype: 'create',
-							action: function() {
-								show_create_purchase_invoice_dialog(frm);
-							},
-						});
-					}
 					if (window.logistics && logistics.menu && logistics.menu.is_submitted
 						? logistics.menu.is_submitted(frm)
 						: frm.doc.docstatus === 1) {
@@ -2004,9 +1980,6 @@ frappe.ui.form.on("Transport Job Milestone", {
 	},
 	before_milestones_remove: function(frm, cdt, cdn) {
 		var row = locals[cdt] && locals[cdt][cdn];
-		if (_transport_job_milestone_row_from_booking(row)) {
-			frappe.throw(__("Milestones copied from Transport Order cannot be deleted."));
-		}
 		if (_transport_job_milestone_row_from_service(row)) {
 			frappe.throw(__("Milestones copied from linked Services cannot be deleted."));
 		}

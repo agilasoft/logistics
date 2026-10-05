@@ -1,0 +1,548 @@
+{% extends "templates/base.html" %}
+{% block title %}Driver · CargoNext{% endblock %}
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block head_include %}
+<style>
+	:root {
+		--bg: #eef3f8;
+		--card: #ffffff;
+		--ink: #1b2433;
+		--muted: #6d7889;
+		--line: #e6edf5;
+		--blue: #2f6fed;
+		--blue-dark: #1d4ed8;
+		--green: #e8f8ef;
+		--green-ink: #157a3a;
+		--green-line: #b7ebc9;
+		--amber: #fff6e8;
+		--amber-ink: #b45309;
+		--shadow: 0 10px 30px rgba(22, 42, 76, 0.06);
+	}
+	html, body { background: var(--bg); }
+	[hidden] { display: none !important; }
+	body { margin: 0; color: var(--ink); font-family: Inter, "Segoe UI", Helvetica, Arial, sans-serif; }
+	button, input, select, textarea { font-family: inherit; }
+	.driver-app { max-width: 1180px; margin: 0 auto; padding: 22px 22px 48px; }
+	.topbar, .profile, .tabs, .panel, .side-card, .action-bar, .map-card {
+		background: var(--card);
+		border-radius: 18px;
+		box-shadow: var(--shadow);
+	}
+	.topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; }
+	.brand { display: flex; align-items: center; gap: 12px; }
+	.brand-mark {
+		width: 42px; height: 42px; border-radius: 12px; background: #e8f0ff; color: var(--blue);
+		display: grid; place-items: center;
+	}
+	.brand-name { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; }
+	.brand-name span { color: var(--muted); font-weight: 600; }
+	.top-actions { display: flex; align-items: center; gap: 8px; }
+	.icon-btn, .logout-btn {
+		border: 0; background: #f4f7fb; color: var(--ink); border-radius: 12px; height: 40px;
+		display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+	}
+	.icon-btn { width: 40px; justify-content: center; position: relative; }
+	.logout-btn { padding: 0 14px; font-weight: 600; }
+	.badge-count {
+		position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px;
+		border-radius: 99px; background: #ef4444; color: white; font-size: 11px; line-height: 18px; font-weight: 700;
+	}
+	.profile { margin-top: 16px; padding: 18px; display: grid; grid-template-columns: minmax(340px, 1.5fr) repeat(3, 1fr); gap: 12px; }
+	.who { display: flex; gap: 14px; align-items: center; }
+	.avatar, .avatar-fallback {
+		width: 72px; height: 72px; border-radius: 50%; object-fit: cover; background: #dbe7ff; flex: none;
+	}
+	.avatar-fallback { display: grid; place-items: center; font-weight: 800; color: var(--blue-dark); font-size: 22px; }
+	.who h1 { margin: 0; font-size: 24px; letter-spacing: -0.03em; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; line-height: 1.15; }
+	.pill { font-size: 12px; font-weight: 700; border-radius: 99px; padding: 4px 10px; }
+	.pill.on { background: #e8f8ef; color: var(--green-ink); }
+	.pill.off { background: #f3f4f6; color: #4b5563; }
+	.who p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+	.cred {
+		border-radius: 14px; background: #f7f9fc; padding: 14px; display: flex; gap: 12px; align-items: center; min-height: 74px;
+	}
+	.cred-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none; }
+	.cred strong { display: block; font-size: 14px; }
+	.cred span { color: var(--muted); font-size: 13px; }
+	.tabs { margin-top: 16px; padding: 6px 10px; display: flex; gap: 6px; }
+	.tab {
+		border: 0; background: transparent; color: var(--muted); font-weight: 700; padding: 12px 16px; border-radius: 12px; cursor: pointer;
+		display: inline-flex; align-items: center; gap: 8px;
+	}
+	.tab.active { color: var(--blue); box-shadow: inset 0 -2px 0 var(--blue); border-radius: 0; }
+	.layout { margin-top: 16px; display: grid; grid-template-columns: minmax(0, 1.7fr) 320px; gap: 16px; }
+	#map-view,
+	#history-view { margin-top: 16px; }
+	.panel, .side-card { padding: 18px; }
+	.panel-head, .side-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+	.panel h2, .side-card h2, .map-head h2 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
+	.sub { color: var(--muted); margin-top: 4px; font-size: 14px; }
+	.run-chip { background: #f4f7fb; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: 13px; }
+	.progress { margin: 14px 0 6px; height: 8px; background: #e8eef6; border-radius: 99px; overflow: hidden; }
+	.progress > div { height: 100%; background: linear-gradient(90deg, #60a5fa, var(--blue)); border-radius: 99px; }
+	.progress-label { text-align: right; color: var(--muted); font-size: 13px; font-weight: 600; }
+	.stops { margin-top: 8px; position: relative; }
+	.stop { display: grid; grid-template-columns: 36px 1fr; gap: 12px; }
+	.rail { display: flex; flex-direction: column; align-items: center; }
+	.num {
+		width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800;
+		background: #e8eef6; color: #64748b; z-index: 1;
+	}
+	.stop.done .num { background: #22c55e; color: white; }
+	.stop.next .num { background: var(--blue); color: white; }
+	.stem { width: 2px; flex: 1; background: #e5e7eb; min-height: 16px; }
+	.stop-card { border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; background: #f8fafc; border: 1px solid transparent; }
+	.stop.done .stop-card { background: var(--green); border-color: var(--green-line); }
+	.stop.next .stop-card { background: white; border-color: #dbe7ff; box-shadow: 0 8px 20px rgba(47, 111, 237, 0.08); }
+	.stop-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+	.stop-title { font-weight: 800; }
+	.stop.done .stop-title { color: var(--green-ink); }
+	.meta { color: var(--muted); font-size: 13px; margin-top: 4px; line-height: 1.45; }
+	.pending { display: inline-flex; align-items: center; gap: 6px; background: var(--amber); color: var(--amber-ink); border-radius: 99px; padding: 4px 8px; font-size: 12px; font-weight: 700; }
+	.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+	.btn {
+		border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+	}
+	.btn.primary { background: var(--blue); color: white; }
+	.btn.primary:hover { background: var(--blue-dark); }
+	.btn.ghost { background: white; color: var(--ink); border: 1px solid #d7e0ea; }
+	.linkish { background: none; border: 0; color: var(--blue); font-weight: 700; cursor: pointer; padding: 0; }
+	.action-bar { margin-top: 14px; padding: 12px; display: flex; gap: 10px; }
+	.action-bar .btn { flex: 1; justify-content: center; background: white; border: 1px solid #d7e0ea; }
+	.side-card .stat { display: flex; gap: 10px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--line); }
+	.side-card .stat:first-of-type { border-top: 0; }
+	.stat b { display: block; }
+	.stat span { color: var(--muted); font-size: 13px; }
+	.map-card { padding: 0; overflow: hidden; }
+	.map-head { padding: 18px 18px 0; }
+	#route-map { height: 560px; background: #e8eef6; }
+	.map-note { height: 560px; display: grid; place-items: center; color: var(--muted); padding: 24px; text-align: center; }
+	#map-dock {
+		margin-top: 16px; background: var(--card); border-radius: 18px; box-shadow: var(--shadow);
+		display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 16px 18px;
+	}
+	.empty { padding: 28px 8px; color: var(--muted); }
+	.history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+	.history-row {
+		display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 14px; border-radius: 14px; background: #f8fafc; align-items: center;
+	}
+	.status-tag { font-size: 12px; font-weight: 800; border-radius: 99px; padding: 4px 8px; background: #e8eef6; }
+	.status-tag.Completed { background: var(--green); color: var(--green-ink); }
+	.status-tag.Cancelled, .status-tag.Hold { background: #fee2e2; color: #b91c1c; }
+	.modal-back {
+		position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;
+	}
+	.modal-back.open { display: flex; }
+	.modal { width: min(460px, 100%); background: white; border-radius: 18px; padding: 18px; box-shadow: var(--shadow); }
+	.modal h3 { margin: 0 0 8px; }
+	.modal label { display: block; font-size: 13px; font-weight: 700; margin: 12px 0 6px; }
+	.modal select, .modal textarea { width: 100%; border: 1px solid #d7e0ea; border-radius: 12px; padding: 10px; }
+	.modal textarea { min-height: 90px; resize: vertical; }
+	.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+	.notice { display: none; margin-top: 10px; background: #e8f8ef; color: var(--green-ink); border-radius: 10px; padding: 8px 10px; font-weight: 700; }
+	@media (max-width: 980px) {
+		.profile, .layout { grid-template-columns: 1fr; }
+		#route-map { height: 68vh; }
+		.who h1 { font-size: 24px; }
+	}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="driver-app" id="driver-app">
+	<header class="topbar">
+		<div class="brand">
+			<div class="brand-mark" aria-hidden="true">
+				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+			</div>
+			<div class="brand-name">CargoNext <span>/ Driver</span></div>
+		</div>
+		<div class="top-actions">
+			<button class="icon-btn" id="notice-btn" type="button" aria-label="Pending signatures">
+				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9"/><path d="M10 21h4"/></svg>
+				<span class="badge-count" id="notice-count" hidden>0</span>
+			</button>
+			<button class="logout-btn" id="logout-btn" type="button">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6H5v12h4"/><path d="M10 12h10"/><path d="M16 8l4 4-4 4"/></svg>
+				Log out
+			</button>
+		</div>
+	</header>
+
+	<section class="profile">
+		<div class="who">
+			<img class="avatar" id="avatar" alt="" hidden>
+			<div class="avatar-fallback" id="avatar-fallback">D</div>
+			<div>
+				<h1 id="driver-name">Driver <span class="pill off" id="driver-badge">Available</span></h1>
+				<p id="driver-company"></p>
+				<p id="driver-phone"></p>
+				<p id="driver-vehicle"></p>
+			</div>
+		</div>
+		<div class="cred" id="cred-license"></div>
+		<div class="cred" id="cred-medical"></div>
+		<div class="cred" id="cred-hazmat"></div>
+	</section>
+
+	<nav class="tabs" role="tablist">
+		<button class="tab active" data-tab="today" type="button">Today</button>
+		<button class="tab" data-tab="map" type="button">Map</button>
+		<button class="tab" data-tab="history" type="button">History</button>
+	</nav>
+
+	<div id="today-view" class="layout">
+		<div>
+			<section class="panel">
+				<div class="panel-head">
+					<div>
+						<h2>My trips today</h2>
+						<div class="sub" id="today-label"></div>
+					</div>
+					<div class="run-chip" id="run-chip" hidden></div>
+				</div>
+				<div class="progress" aria-hidden="true"><div id="progress-bar"></div></div>
+				<div class="progress-label" id="progress-label"></div>
+				<div class="stops" id="stop-list"></div>
+			</section>
+			<div class="action-bar">
+				<button class="btn" id="call-dispatcher" type="button">Call dispatcher</button>
+				<button class="btn" id="report-problem" type="button">Report a problem</button>
+			</div>
+		</div>
+		<aside class="side-card">
+			<div class="side-head"><h2>Recent activity</h2></div>
+			<div id="activity"></div>
+			<button class="linkish" id="open-history" type="button">View history →</button>
+		</aside>
+	</div>
+
+	<div id="map-view" class="map-card" hidden>
+		<div class="map-head">
+			<h2>My route</h2>
+			<div class="sub" id="map-route-name"></div>
+		</div>
+		<div id="route-map"></div>
+	</div>
+
+	<div id="map-dock" hidden>
+		<div>
+			<strong id="dock-title">No active stop</strong>
+			<div class="sub" id="dock-meta"></div>
+			<div class="meta" id="dock-address"></div>
+		</div>
+		<button class="btn primary" id="dock-nav" type="button">Start navigation</button>
+	</div>
+
+	<section id="history-view" class="panel" hidden>
+		<h2>Past runs</h2>
+		<div class="sub">Completed and earlier run sheets assigned to you.</div>
+		<div class="history-list" id="history-list"></div>
+	</section>
+</div>
+
+<div class="modal-back" id="problem-modal">
+	<div class="modal" role="dialog" aria-modal="true" aria-labelledby="problem-title">
+		<h3 id="problem-title">Report a problem</h3>
+		<p class="sub">This is saved on the current stop for dispatch.</p>
+		<label for="problem-reason">Reason</label>
+		<select id="problem-reason">
+			<option>Traffic delay</option>
+			<option>Site closed</option>
+			<option>Customer not available</option>
+			<option>Vehicle issue</option>
+			<option>Address problem</option>
+			<option>Cargo issue</option>
+			<option>Other</option>
+		</select>
+		<label for="problem-note">Note</label>
+		<textarea id="problem-note" placeholder="What should dispatch know?"></textarea>
+		<div class="notice" id="problem-notice">Sent to dispatch.</div>
+		<div class="modal-actions">
+			<button class="btn ghost" id="problem-cancel" type="button">Cancel</button>
+			<button class="btn primary" id="problem-send" type="button">Send</button>
+		</div>
+	</div>
+</div>
+
+<script type="application/json" id="driver-data">{{ driver_payload_json | safe }}</script>
+<script>
+(function () {
+	const data = JSON.parse(document.getElementById("driver-data").textContent);
+	const $ = (id) => document.getElementById(id);
+
+	function text(id, value) { $(id).textContent = value || ""; }
+	function initials(name) {
+		const parts = (name || "D").trim().split(/\s+/).slice(0, 2);
+		return parts.map((part) => part[0]).join("").toUpperCase();
+	}
+	function cred(id, item, icon, tint) {
+		$(id).innerHTML = `<div class="cred-icon" style="background:${tint}">${icon}</div><div><strong>${item.label}</strong><span>${item.detail}</span></div>`;
+	}
+
+	text("driver-name", data.full_name);
+	$("driver-name").insertAdjacentHTML("beforeend", ` <span class="pill ${data.on_run ? "on" : "off"}" id="driver-badge">${data.badge}</span>`);
+	text("driver-company", data.company_line);
+	text("driver-phone", data.phone);
+	text("driver-vehicle", data.vehicle_line ? "Default vehicle: " + data.vehicle_line : "");
+	text("today-label", data.today_label);
+	if (data.image) {
+		$("avatar").src = data.image;
+		$("avatar").hidden = false;
+		$("avatar-fallback").hidden = true;
+	} else {
+		text("avatar-fallback", initials(data.full_name));
+	}
+	cred("cred-license", data.license, "ID", "#e8f8ef");
+	cred("cred-medical", data.medical, "+", "#fff6e8");
+	cred("cred-hazmat", data.hazmat, "✓", data.hazmat.ok ? "#e8f8ef" : "#f3f4f6");
+
+	const pending = data.stops.filter((stop) => stop.signature_pending).length;
+	if (pending) {
+		$("notice-count").hidden = false;
+		text("notice-count", String(pending));
+	}
+	if (data.run_sheet) {
+		$("run-chip").hidden = false;
+		text("run-chip", data.run_sheet);
+	}
+	$("progress-bar").style.width = (data.progress || 0) + "%";
+	text("progress-label", data.total ? `${data.completed} of ${data.total} stops complete` : "No stops yet");
+
+	const list = $("stop-list");
+	if (!data.linked) {
+		list.innerHTML = `<div class="empty">This login is not linked to a Driver. Ask dispatch to set your User on the Driver record, then open this page again.</div>`;
+	} else if (!data.stops.length) {
+		list.innerHTML = `<div class="empty">No trips are assigned for today. When dispatch puts you on a run sheet, the stops will show up here.</div>`;
+	} else {
+		list.innerHTML = data.stops.map((stop, index) => {
+			const last = index === data.stops.length - 1;
+			const proof = stop.signed
+				? `<button class="linkish" data-pod="${stop.pod_url}" type="button">Signed · View proof</button>`
+				: (stop.signature_pending ? `<span class="pending">Signature pending</span>` : "");
+			const nextActions = stop.state === "next" ? `
+				<div class="actions">
+					<button class="btn primary" data-nav="${stop.id}" type="button">Navigate</button>
+					<button class="btn ghost" data-pod="${stop.pod_url}" type="button">Open proof of delivery</button>
+				</div>` : "";
+			const detail = [
+				stop.state === "next" ? `Leg ${stop.leg_index} · ${stop.place}` : stop.place,
+				stop.address,
+				stop.window,
+				stop.cargo
+			].filter(Boolean);
+			return `<article class="stop ${stop.state}">
+				<div class="rail"><div class="num">${stop.number}</div>${last ? "" : `<div class="stem"></div>`}</div>
+				<div class="stop-card">
+					<div class="stop-top"><div class="stop-title">${stop.title}</div>${proof}</div>
+					${detail.map((line) => `<div class="meta">${line}</div>`).join("")}
+					${nextActions}
+				</div>
+			</article>`;
+		}).join("");
+	}
+
+	const activity = $("activity");
+	const gate = data.activity.gate_pass;
+	const onTime = data.activity.on_time_percent === null ? "—" : data.activity.on_time_percent + "%";
+	activity.innerHTML = [
+		["Completed runs", data.activity.completed_runs + " this month"],
+		["On time", onTime + " this month"],
+		["Open exceptions", data.activity.open_exceptions ? data.activity.open_exceptions + " to clear" : "All clear"],
+		[gate ? gate.name : "Gate pass", gate ? gate.detail : "None issued today"]
+	].map(([title, detail]) => `<div class="stat"><div><b>${title}</b><span>${detail}</span></div></div>`).join("");
+
+	const history = $("history-list");
+	history.innerHTML = data.history.length ? data.history.map((run) => `
+		<div class="history-row">
+			<div><b>${run.route_name}</b><div class="meta">${run.date} · ${run.name} · ${run.stops} stops${run.vehicle ? " · " + run.vehicle : ""}</div></div>
+			<span class="status-tag ${run.status}">${run.status}</span>
+		</div>`).join("") : `<div class="empty">Past runs will appear here after you finish a trip.</div>`;
+
+	function show(tab) {
+		$("today-view").hidden = tab !== "today";
+		$("map-view").hidden = tab !== "map";
+		$("map-dock").hidden = tab !== "map";
+		$("history-view").hidden = tab !== "history";
+		document.querySelectorAll(".tab").forEach((button) => button.classList.toggle("active", button.dataset.tab === tab));
+		if (tab === "map") renderMap();
+	}
+	document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => show(button.dataset.tab)));
+	$("open-history").addEventListener("click", () => show("history"));
+	$("notice-btn").addEventListener("click", () => show("today"));
+
+	function mapsUrl(stop) {
+		if (!stop) return "https://www.google.com/maps";
+		if (stop.lat && stop.lng) return `https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`;
+		return "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(stop.address || stop.place || "");
+	}
+	function nextStop() { return data.stops.find((stop) => stop.state === "next") || null; }
+	document.body.addEventListener("click", (event) => {
+		const nav = event.target.closest("[data-nav]");
+		const pod = event.target.closest("[data-pod]");
+		if (nav) {
+			const stop = data.stops.find((item) => item.id === nav.dataset.nav);
+			window.open(mapsUrl(stop), "_blank", "noopener");
+		}
+		if (pod) window.open(pod.dataset.pod, "_blank", "noopener");
+	});
+
+	const upcoming = nextStop();
+	text("map-route-name", data.route_name || data.run_sheet || "Today's route");
+	text("dock-title", upcoming ? upcoming.headline : "No active stop");
+	const dockBits = [];
+	if (upcoming && upcoming.eta_min) dockBits.push(upcoming.eta_min + " min");
+	if (upcoming && upcoming.eta_km) dockBits.push(upcoming.eta_km + " km");
+	text("dock-meta", dockBits.join(" · "));
+	text("dock-address", upcoming ? upcoming.address : "");
+	$("dock-nav").addEventListener("click", () => window.open(mapsUrl(upcoming), "_blank", "noopener"));
+	$("dock-nav").disabled = !upcoming;
+
+	const phone = (data.dispatcher_phone || "").replace(/[^\d+]/g, "");
+	$("call-dispatcher").addEventListener("click", () => {
+		if (phone) window.location.href = "tel:" + phone;
+		else window.alert(data.dispatcher_name ? data.dispatcher_name + " has no phone on file." : "No dispatcher is assigned on today's run.");
+	});
+	$("logout-btn").addEventListener("click", () => {
+		const token = (window.frappe && (frappe.csrf_token || (frappe.boot && frappe.boot.csrf_token))) || "";
+		fetch("/api/method/logout", {
+			method: "POST",
+			headers: {"X-Frappe-CSRF-Token": token, "Accept": "application/json"}
+		}).finally(() => { window.location.href = "/login"; });
+	});
+
+	$("report-problem").addEventListener("click", () => {
+		if (!upcoming) {
+			window.alert("There is no open stop to attach this note to.");
+			return;
+		}
+		$("problem-modal").classList.add("open");
+	});
+	$("problem-cancel").addEventListener("click", () => $("problem-modal").classList.remove("open"));
+	function postMethod(method, args) {
+		const token = (window.frappe && frappe.csrf_token) || "";
+		return fetch("/api/method/" + method, {
+			method: "POST",
+			credentials: "same-origin",
+			headers: {
+				"Content-Type": "application/json",
+				"Accept": "application/json",
+				"X-Frappe-CSRF-Token": token
+			},
+			body: JSON.stringify(args || {})
+		}).then((response) => response.json().then((body) => {
+			if (!response.ok) throw new Error("Request failed");
+			return body.message;
+		}));
+	}
+	$("problem-send").addEventListener("click", () => {
+		if (!upcoming) return;
+		$("problem-send").disabled = true;
+		postMethod("logistics.www.driver.report_problem", {
+			leg: upcoming.leg,
+			reason: $("problem-reason").value,
+			note: $("problem-note").value
+		}).then((message) => {
+			$("problem-send").disabled = false;
+			if (message && message.ok) {
+				$("problem-notice").style.display = "block";
+				setTimeout(() => $("problem-modal").classList.remove("open"), 700);
+			}
+		}).catch(() => { $("problem-send").disabled = false; });
+	});
+
+	let map;
+	let mapsPromise;
+	function loadGoogleMaps() {
+		if (window.google && window.google.maps) return Promise.resolve();
+		if (mapsPromise) return mapsPromise;
+		const key = data.google_maps_key;
+		if (!key) {
+			return Promise.reject(new Error("Google Maps is not configured. Add the API key in Logistics Settings."));
+		}
+		mapsPromise = new Promise((resolve, reject) => {
+			const script = document.createElement("script");
+			script.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(key);
+			script.async = true;
+			script.onload = () => resolve();
+			script.onerror = () => reject(new Error("Google Maps could not be loaded."));
+			document.head.appendChild(script);
+		}).catch((error) => {
+			mapsPromise = null;
+			throw error;
+		});
+		return mapsPromise;
+	}
+	function pinIcon(color, label) {
+		const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="13" fill="${color}" stroke="white" stroke-width="2"/><text x="16" y="21" text-anchor="middle" font-size="13" font-weight="700" fill="white" font-family="Arial,sans-serif">${label}</text></svg>`;
+		return {
+			url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+			scaledSize: new google.maps.Size(32, 32),
+			anchor: new google.maps.Point(16, 16)
+		};
+	}
+	function drawRoute() {
+		const bounds = new google.maps.LatLngBounds();
+		let hasPoint = false;
+		const add = (lat, lng) => {
+			const point = new google.maps.LatLng(lat, lng);
+			bounds.extend(point);
+			hasPoint = true;
+			return point;
+		};
+		if (data.polyline && data.polyline.length) {
+			const path = data.polyline.map(([lat, lng]) => add(lat, lng));
+			new google.maps.Polyline({ path, strokeColor: "#2f6fed", strokeWeight: 5, map });
+		}
+		const info = new google.maps.InfoWindow();
+		data.stops.forEach((stop) => {
+			if (!stop.lat || !stop.lng) return;
+			const color = stop.done ? "#22c55e" : (stop.state === "next" ? "#2f6fed" : "#64748b");
+			const marker = new google.maps.Marker({
+				position: add(stop.lat, stop.lng),
+				map,
+				icon: pinIcon(color, stop.number),
+				title: stop.headline,
+				zIndex: stop.state === "next" ? 3 : 1
+			});
+			marker.addListener("click", () => {
+				info.setContent(`<b>${stop.headline}</b><br>${stop.address || ""}`);
+				info.open({ map, anchor: marker });
+			});
+		});
+		if (data.driver_position) {
+			new google.maps.Marker({
+				position: add(data.driver_position.lat, data.driver_position.lng),
+				map,
+				icon: pinIcon("#0ea5e9", ""),
+				title: "Your last reported position",
+				zIndex: 4
+			});
+		}
+		if (hasPoint) map.fitBounds(bounds, 48);
+		else map.setCenter({ lat: 14.55, lng: 121.02 });
+	}
+	function renderMap() {
+		if (map) {
+			google.maps.event.trigger(map, "resize");
+			return;
+		}
+		const box = $("route-map");
+		loadGoogleMaps().then(() => {
+			map = new google.maps.Map(box, {
+				center: { lat: 14.55, lng: 121.02 },
+				zoom: 11,
+				mapTypeControl: false,
+				streetViewControl: false,
+				fullscreenControl: true
+			});
+			drawRoute();
+		}).catch((error) => {
+			box.innerHTML = `<div class="map-note">${error.message || "Google Maps could not be loaded."}</div>`;
+		});
+	}
+})();
+</script>
+{% endblock %}

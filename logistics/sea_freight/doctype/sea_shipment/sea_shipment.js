@@ -67,16 +67,12 @@ function _apply_milestone_tracking_visibility(frm, enabled) {
 	});
 }
 
-function _sea_shipment_milestone_row_from_booking(row) {
-	return !!(row && (Number(row.from_booking) === 1 || row.from_booking === true));
-}
-
 function _sea_shipment_milestone_row_from_service(row) {
 	return !!(row && (Number(row.from_service) === 1 || row.from_service === true));
 }
 
 function _sea_shipment_milestone_row_locked(row) {
-	return _sea_shipment_milestone_row_from_booking(row) || _sea_shipment_milestone_row_from_service(row);
+	return _sea_shipment_milestone_row_from_service(row);
 }
 
 function _lock_sea_shipment_booking_milestone_grid_row(grid_row) {
@@ -648,21 +644,6 @@ frappe.ui.form.on('Sea Shipment', {
 		// --- Create and Post menus - use setTimeout so they appear after form ready ---
 		if (frm.doc.name && !frm.doc.__islocal) {
 			setTimeout(function() {
-				// Create menu - Sales Invoice always shown to allow multiple invoices (by bill_to, invoice_type, etc.)
-				frm.add_custom_button(__('Sales Invoice'), function() {
-					if (typeof show_create_sales_invoice_dialog === 'function') {
-						show_create_sales_invoice_dialog(frm);
-					} else {
-						_create_sales_invoice_from_sea_shipment(frm);
-					}
-				}, __('Create'));
-				frm.add_custom_button(__('Purchase Invoice'), function() {
-					if (typeof show_create_purchase_invoice_dialog === 'function') {
-						show_create_purchase_invoice_dialog(frm);
-					} else {
-						frappe.msgprint({ title: __('Error'), message: __('Purchase Invoice feature is not loaded. Please refresh the page.'), indicator: 'red' });
-					}
-				}, __('Create'));
 				if (!((frm.doc.service_role === "Linked" || cint(frm.doc.is_internal_job)) && (frm.doc.main_service_type || frm.doc.main_job_type) && (frm.doc.main_service || frm.doc.main_job))) {
 					frm.add_custom_button(__('Booking / Order'), function() {
 						function _openInternalJobDlg() {
@@ -1106,9 +1087,6 @@ frappe.ui.form.on("Sea Shipment Milestone", {
 	},
 	before_milestones_remove: function(frm, cdt, cdn) {
 		var row = locals[cdt] && locals[cdt][cdn];
-		if (_sea_shipment_milestone_row_from_booking(row)) {
-			frappe.throw(__("Milestones copied from Sea Booking cannot be deleted."));
-		}
 		if (_sea_shipment_milestone_row_from_service(row)) {
 			frappe.throw(__("Milestones copied from linked Services cannot be deleted."));
 		}

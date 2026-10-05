@@ -302,6 +302,10 @@ def _create_log_entry(
 	intercompany_purchase_invoice: Optional[str] = None,
 ) -> None:
 	log = frappe.new_doc("Intercompany Invoice Log")
+	if not log.get("naming_series"):
+		from frappe.model.naming import get_default_naming_series
+
+		log.naming_series = get_default_naming_series("Intercompany Invoice Log") or "ICL-.YYYY.-"
 	log.sales_quote = sales_quote_name
 	log.customer_sales_invoice = trigger_si or ""
 	log.leg_order = getattr(leg, "idx", None)
@@ -314,6 +318,9 @@ def _create_log_entry(
 		log.intercompany_sales_invoice = intercompany_sales_invoice
 	if intercompany_purchase_invoice:
 		log.intercompany_purchase_invoice = intercompany_purchase_invoice
+	from logistics.invoice_integration.sales_invoice_api import ensure_invoice_name_for_server_insert
+
+	ensure_invoice_name_for_server_insert(log)
 	log.insert(ignore_permissions=True)
 
 
@@ -332,6 +339,8 @@ def _create_intercompany_pair(
 	main_job_name: str,
 ) -> Tuple[str, str]:
 	"""Create one intercompany Sales Invoice (operating co) and one Purchase Invoice (Main Job co). Returns (si_name, pi_name)."""
+	from logistics.invoice_integration.sales_invoice_api import ensure_invoice_name_for_server_insert
+
 	leg_order = getattr(leg, "idx", "")
 	job_type = job_doc.doctype
 	job_no = job_doc.name
@@ -388,6 +397,7 @@ def _create_intercompany_pair(
 			row.reference_name = job_no
 
 	si.set_missing_values()
+	ensure_invoice_name_for_server_insert(si)
 	si.insert(ignore_permissions=True)
 	si.submit()
 
@@ -428,6 +438,7 @@ def _create_intercompany_pair(
 			row.reference_name = job_no
 
 	pi.set_missing_values()
+	ensure_invoice_name_for_server_insert(pi)
 	pi.insert(ignore_permissions=True)
 	pi.submit()
 

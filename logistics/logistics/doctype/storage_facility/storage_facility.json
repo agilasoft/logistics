@@ -6,10 +6,12 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "details_tab",
   "code",
   "facility_name",
+  "column_break_details",
   "is_active",
-  "addresses_and_contacts_tab",
+  "addresses_tab",
   "addresses_and_contacts",
   "address_html",
   "column_break_addr",
@@ -22,6 +24,11 @@
  ],
  "fields": [
   {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  },
+  {
    "fieldname": "code",
    "fieldtype": "Data",
    "label": "Code",
@@ -33,6 +40,10 @@
    "label": "Facility Name"
   },
   {
+   "fieldname": "column_break_details",
+   "fieldtype": "Column Break"
+  },
+  {
    "default": "1",
    "fieldname": "is_active",
    "fieldtype": "Check",
@@ -40,9 +51,9 @@
    "label": "Is Active"
   },
   {
-   "fieldname": "addresses_and_contacts_tab",
+   "fieldname": "addresses_tab",
    "fieldtype": "Tab Break",
-   "label": "Addresses & Contacts"
+   "label": "Addresses and Contacts"
   },
   {
    "fieldname": "addresses_and_contacts",
@@ -74,7 +85,8 @@
   },
   {
    "fieldname": "primary_address",
-   "fieldtype": "Long Text",
+   "fieldtype": "Text",
+   "label": "Primary Address",
    "read_only": 1
   },
   {
@@ -91,7 +103,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-02 15:11:00.000000",
+ "modified": "2026-10-02 18:30:00.000000",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Storage Facility",

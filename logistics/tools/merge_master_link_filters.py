@@ -55,7 +55,7 @@ CTO_CLIENT_QUERY_FIELDS = {
 }
 
 # Charge Bill To fields — Customer.disabled link_filters cause PermissionError (Customer.0).
-# Filtering is handled by logistics/public/js/charge_bill_to.js and charge_bill_to.py.
+# Bill To is an unrestricted Customer link. Do not restore link_filters or a header-customer query.
 CHARGE_BILL_TO_FIELDS = {
     ("Air Booking Charges", "bill_to"),
     ("Air Shipment Charges", "bill_to"),

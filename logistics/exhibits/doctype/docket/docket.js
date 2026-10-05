@@ -130,60 +130,6 @@ frappe.ui.form.on("Docket", {
 				__("Create")
 			);
 
-			frm.add_custom_button(
-				__("Sales Invoice"),
-				function () {
-					if (typeof window.show_create_sales_invoice_dialog === "function") {
-						window.show_create_sales_invoice_dialog(frm);
-					} else {
-						frappe.require(
-							"/assets/logistics/js/sales_invoice_dialog.js",
-							function () {
-								if (typeof window.show_create_sales_invoice_dialog === "function") {
-									window.show_create_sales_invoice_dialog(frm);
-								} else {
-									frappe.msgprint({
-										title: __("Not available"),
-										message: __(
-											"The Sales Invoice dialog could not load. Refresh the page or contact your administrator."
-										),
-										indicator: "red",
-									});
-								}
-							}
-						);
-					}
-				},
-				__("Create")
-			);
-
-			frm.add_custom_button(
-				__("Purchase Invoice"),
-				function () {
-					if (typeof window.show_create_purchase_invoice_dialog === "function") {
-						window.show_create_purchase_invoice_dialog(frm);
-					} else {
-						frappe.require(
-							"/assets/logistics/js/purchase_invoice_dialog.js",
-							function () {
-								if (typeof window.show_create_purchase_invoice_dialog === "function") {
-									window.show_create_purchase_invoice_dialog(frm);
-								} else {
-									frappe.msgprint({
-										title: __("Not available"),
-										message: __(
-											"The Purchase Invoice dialog could not load. Refresh the page or contact your administrator."
-										),
-										indicator: "red",
-									});
-								}
-							}
-						);
-					}
-				},
-				__("Create")
-			);
-
 			// Post menu — same set as Air / Sea Shipment. Dockets are main Services
 			// (the Internal Jobs they spawn carry their own Post buttons), so the
 			// posting surface lives on the Docket itself.

@@ -565,67 +565,178 @@ def _charge_value(row, fieldname: str):
     return getattr(row, fieldname, None)
 
 
-def non_cost_bill_tos(doc) -> List[str]:
-    """Distinct Bill To customers on non-Cost charge rows, first-seen order."""
+def _doc_charges(doc) -> List[Any]:
     charges = doc.get("charges") if hasattr(doc, "get") else getattr(doc, "charges", None)
-    names: List[str] = []
-    seen = set()
-    for row in charges or []:
-        if (_charge_value(row, "charge_type") or "").strip() == "Cost":
-            continue
-        bill_to = (_charge_value(row, "bill_to") or "").strip()
-        if not bill_to or bill_to in seen:
-            continue
-        seen.add(bill_to)
-        names.append(bill_to)
-    return names
+    return list(charges or [])
 
 
-def classify_linked_posting_actions(doc, customer_rows: Dict[str, Dict[str, Any]]) -> Dict[str, bool]:
-    """Which Post buttons a Linked service should show.
-
-    Internal Billing: a Bill To customer's Represents Company equals this document's company.
-    Intercompany Transactions: a Bill To does not represent this company (a blank Represents
-    Company counts as different) and Is Internal Customer is unchecked.
-    A Bill To that represents a different company and is marked internal shows neither button.
-    Main and standalone documents show neither.
-    """
-    from logistics.utils.service_role_rules import SERVICE_ROLE_LINKED, get_service_role
-
-    hidden = {"internal_billing": False, "intercompany": False}
-    if get_service_role(doc) != SERVICE_ROLE_LINKED:
-        return hidden
-
-    company = (getattr(doc, "company", None) or "").strip()
-    internal_billing = False
-    intercompany = False
-    for bill_to in non_cost_bill_tos(doc):
-        row = customer_rows.get(bill_to) or {}
-        if not row:
-            continue
-        represents = (row.get("represents_company") or "").strip()
-        if represents and represents == company:
-            internal_billing = True
-        elif cint(row.get("is_internal_customer")) == 0:
-            intercompany = True
-    return {"internal_billing": internal_billing, "intercompany": intercompany}
+def _party_text(row: Any, fieldname: str) -> str:
+    if not row:
+        return ""
+    if isinstance(row, dict):
+        return (row.get(fieldname) or "").strip()
+    return (getattr(row, fieldname, None) or "").strip()
 
 
-def _customer_rows_for_bill_tos(bill_tos: List[str]) -> Dict[str, Dict[str, Any]]:
-    if not bill_tos:
+def _represents_company(row: Any) -> str:
+    return _party_text(row, "represents_company")
+
+
+def _flag(row: Any, fieldname: str) -> int:
+    if isinstance(row, dict):
+        return cint(row.get(fieldname))
+    return cint(getattr(row, fieldname, 0))
+
+
+def _customer_kind(row: Any, company: str) -> str:
+    """external, linked (another group company), or this_company."""
+    if not row:
+        return ""
+    represents = _represents_company(row)
+    internal = _flag(row, "is_internal_customer")
+    if represents and company and represents == company:
+        return "this_company"
+    if internal and represents and represents != company:
+        return "linked"
+    if not internal:
+        return "external"
+    return ""
+
+
+def _supplier_kind(row: Any, company: str) -> str:
+    """outside, this_company, or other_company (internal supplier of another company)."""
+    if not row:
+        return ""
+    represents = _represents_company(row)
+    internal = _flag(row, "is_internal_supplier")
+    if represents and company and represents == company:
+        return "this_company"
+    if internal and represents and represents != company:
+        return "other_company"
+    if not internal and not represents:
+        return "outside"
+    return ""
+
+
+def _charge_parties(doc) -> tuple:
+    """Distinct Bill To customers and Pay To suppliers. Cost rows have no Bill To."""
+    bill_tos: List[str] = []
+    pay_tos: List[str] = []
+    seen_bill = set()
+    seen_pay = set()
+    for row in _doc_charges(doc):
+        charge_type = (_charge_value(row, "charge_type") or "").strip()
+        if charge_type != "Cost":
+            bill_to = (_charge_value(row, "bill_to") or "").strip()
+            if bill_to and bill_to not in seen_bill:
+                seen_bill.add(bill_to)
+                bill_tos.append(bill_to)
+        pay_to = (_charge_value(row, "pay_to") or "").strip()
+        if pay_to and pay_to not in seen_pay:
+            seen_pay.add(pay_to)
+            pay_tos.append(pay_to)
+    return bill_tos, pay_tos
+
+
+def _party_rows(doctype: str, names: List[str], fields: List[str]) -> Dict[str, Dict[str, Any]]:
+    if not names:
         return {}
     rows = frappe.get_all(
-        "Customer",
-        filters={"name": ["in", bill_tos]},
-        fields=["name", "represents_company", "is_internal_customer"],
+        doctype,
+        filters={"name": ["in", names]},
+        fields=fields,
         ignore_permissions=True,
     )
     return {row.name: row for row in rows}
 
 
+def _main_company_for_doc(doc) -> str:
+    from logistics.billing.cross_module_billing import get_main_job_company
+    from logistics.utils.service_role_rules import get_main_service_name, get_main_service_type
+
+    company = get_main_job_company(get_main_service_type(doc), get_main_service_name(doc))
+    return (company or "").strip()
+
+
+def classify_linked_posting_actions(
+    doc,
+    customer_rows: Dict[str, Dict[str, Any]],
+    supplier_rows: Optional[Dict[str, Dict[str, Any]]] = None,
+    main_company: Optional[str] = None,
+) -> Dict[str, bool]:
+    """Which Create and Post invoice buttons this job should show.
+
+    A button is on when any charge matches. Standalone jobs show Sales Invoice and
+    Purchase Invoice. Main jobs follow Bill To and Pay To. Linked jobs show Purchase
+    Invoice for an outside supplier, and Intercompany or Internal Billing when Bill To
+    and Pay To represent group companies (an empty Pay To on that row counts as the
+    group payee). The Linked split compares this job's company with the Main Job company.
+    """
+    from logistics.utils.service_role_rules import (
+        SERVICE_ROLE_LINKED,
+        SERVICE_ROLE_MAIN,
+        SERVICE_ROLE_STANDALONE,
+        get_service_role,
+    )
+
+    flags = {
+        "sales_invoice": False,
+        "purchase_invoice": False,
+        "intercompany": False,
+        "internal_billing": False,
+    }
+    role = get_service_role(doc)
+    if role == SERVICE_ROLE_STANDALONE:
+        flags["sales_invoice"] = True
+        flags["purchase_invoice"] = True
+        return flags
+    if role not in (SERVICE_ROLE_MAIN, SERVICE_ROLE_LINKED):
+        return flags
+
+    supplier_rows = supplier_rows or {}
+    company = (getattr(doc, "company", None) or "").strip()
+    main_company = (main_company or "").strip()
+
+    for row in _doc_charges(doc):
+        charge_type = (_charge_value(row, "charge_type") or "").strip()
+        bill_to = "" if charge_type == "Cost" else (_charge_value(row, "bill_to") or "").strip()
+        pay_to = (_charge_value(row, "pay_to") or "").strip()
+        customer = customer_rows.get(bill_to) if bill_to else None
+        supplier = supplier_rows.get(pay_to) if pay_to else None
+
+        if role == SERVICE_ROLE_MAIN:
+            customer_kind = _customer_kind(customer, company)
+            supplier_kind = _supplier_kind(supplier, company)
+            if customer_kind == "linked":
+                flags["intercompany"] = True
+            if customer_kind == "external":
+                flags["sales_invoice"] = True
+            if supplier_kind == "outside":
+                flags["purchase_invoice"] = True
+            if supplier_kind == "other_company":
+                flags["intercompany"] = True
+            if supplier_kind == "this_company":
+                flags["internal_billing"] = True
+            continue
+
+        supplier_kind = _supplier_kind(supplier, company)
+        if supplier_kind == "outside":
+            flags["purchase_invoice"] = True
+            continue
+        bill_is_group = bool(customer) and bool(_represents_company(customer))
+        pay_is_group = (not pay_to) or bool(supplier and _represents_company(supplier))
+        if not bill_is_group or not pay_is_group or not company or not main_company:
+            continue
+        if company != main_company:
+            flags["intercompany"] = True
+        else:
+            flags["internal_billing"] = True
+    return flags
+
+
 @frappe.whitelist()
 def get_linked_posting_actions(doctype: str, name: str) -> Dict[str, bool]:
-    """Return which linked posting buttons to show for this operational document."""
+    """Return which invoice buttons to show for this operational document."""
     if doctype not in LINKED_POSTING_ACTION_DOCTYPES:
         frappe.throw(_("Invalid document type: {0}").format(doctype))
     if not name or not frappe.db.exists(doctype, name):
@@ -633,4 +744,10 @@ def get_linked_posting_actions(doctype: str, name: str) -> Dict[str, bool]:
     from logistics.utils.menu_permission import assert_source_read
 
     doc = assert_source_read(doctype, name)
-    return classify_linked_posting_actions(doc, _customer_rows_for_bill_tos(non_cost_bill_tos(doc)))
+    bill_tos, pay_tos = _charge_parties(doc)
+    return classify_linked_posting_actions(
+        doc,
+        _party_rows("Customer", bill_tos, ["name", "represents_company", "is_internal_customer"]),
+        _party_rows("Supplier", pay_tos, ["name", "represents_company", "is_internal_supplier"]),
+        _main_company_for_doc(doc),
+    )

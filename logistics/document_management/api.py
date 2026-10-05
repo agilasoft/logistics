@@ -117,10 +117,162 @@ def _milestone_row_field(row, fieldname):
 	return getattr(row, fieldname, None)
 
 
+def _milestone_display_dict(row):
+	return {
+		"name": _milestone_row_field(row, "name"),
+		"milestone": _milestone_row_field(row, "milestone"),
+		"status": (_milestone_row_field(row, "status") or "Planned"),
+		"planned_start": _milestone_row_field(row, "planned_start"),
+		"planned_end": _milestone_row_field(row, "planned_end"),
+		"actual_start": _milestone_row_field(row, "actual_start"),
+		"actual_end": _milestone_row_field(row, "actual_end"),
+	}
+
+
+def _linked_air_booking_name(doc):
+	if not doc or getattr(doc, "doctype", None) != "Air Shipment":
+		return ""
+	return (getattr(doc, "air_booking", None) or "").strip()
+
+
+def _air_booking_milestone_rows(booking_name):
+	booking_name = (booking_name or "").strip()
+	if not booking_name or not frappe.db.exists("Air Booking", booking_name):
+		return []
+	return frappe.get_all(
+		"Air Booking Milestone",
+		filters={"parent": booking_name, "parenttype": "Air Booking"},
+		fields=["name", "milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"],
+		order_by="idx asc",
+	)
+
+
+def _air_booking_milestone_codes_for_shipment(doc):
+	"""Milestone codes that stay on the linked Air Booking and must not enter the shipment grid."""
+	return {
+		(row.milestone or "").strip()
+		for row in _air_booking_milestone_rows(_linked_air_booking_name(doc))
+		if (row.milestone or "").strip()
+	}
+
+
+def _linked_sea_booking_name(doc):
+	if not doc or getattr(doc, "doctype", None) != "Sea Shipment":
+		return ""
+	return (getattr(doc, "sea_booking", None) or "").strip()
+
+
+def _sea_booking_milestone_rows(booking_name):
+	booking_name = (booking_name or "").strip()
+	if not booking_name or not frappe.db.exists("Sea Booking", booking_name):
+		return []
+	return frappe.get_all(
+		"Sea Booking Milestone",
+		filters={"parent": booking_name, "parenttype": "Sea Booking"},
+		fields=["name", "milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"],
+		order_by="idx asc",
+	)
+
+
+def _sea_booking_milestone_codes_for_shipment(doc):
+	"""Milestone codes that stay on the linked Sea Booking and must not enter the shipment grid."""
+	return {
+		(row.milestone or "").strip()
+		for row in _sea_booking_milestone_rows(_linked_sea_booking_name(doc))
+		if (row.milestone or "").strip()
+	}
+
+
+def _linked_declaration_order_name(doc):
+	if not doc or getattr(doc, "doctype", None) != "Declaration":
+		return ""
+	return (getattr(doc, "declaration_order", None) or "").strip()
+
+
+def _declaration_order_milestone_rows(order_name):
+	order_name = (order_name or "").strip()
+	if not order_name or not frappe.db.exists("Declaration Order", order_name):
+		return []
+	return frappe.get_all(
+		"Declaration Order Milestone",
+		filters={"parent": order_name, "parenttype": "Declaration Order"},
+		fields=["name", "milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"],
+		order_by="idx asc",
+	)
+
+
+def _declaration_order_milestone_codes_for_declaration(doc):
+	"""Milestone codes that stay on the linked Declaration Order and must not enter the declaration grid."""
+	return {
+		(row.milestone or "").strip()
+		for row in _declaration_order_milestone_rows(_linked_declaration_order_name(doc))
+		if (row.milestone or "").strip()
+	}
+
+
+def _linked_transport_order_name(doc):
+	if not doc or getattr(doc, "doctype", None) != "Transport Job":
+		return ""
+	return (getattr(doc, "transport_order", None) or "").strip()
+
+
+def _transport_order_milestone_rows(order_name):
+	order_name = (order_name or "").strip()
+	if not order_name or not frappe.db.exists("Transport Order", order_name):
+		return []
+	return frappe.get_all(
+		"Transport Order Milestone",
+		filters={"parent": order_name, "parenttype": "Transport Order"},
+		fields=["name", "milestone", "status", "planned_start", "planned_end", "actual_start", "actual_end"],
+		order_by="idx asc",
+	)
+
+
+def _transport_order_milestone_codes_for_job(doc):
+	"""Milestone codes that stay on the linked Transport Order and must not enter the job grid."""
+	return {
+		(row.milestone or "").strip()
+		for row in _transport_order_milestone_rows(_linked_transport_order_name(doc))
+		if (row.milestone or "").strip()
+	}
+
+
+def _live_parent_milestone_rows(doc):
+	"""Booking/order milestone rows shown on the timeline and kept out of the child grid."""
+	doctype = getattr(doc, "doctype", None)
+	if doctype == "Air Shipment":
+		return _air_booking_milestone_rows(_linked_air_booking_name(doc))
+	if doctype == "Sea Shipment":
+		return _sea_booking_milestone_rows(_linked_sea_booking_name(doc))
+	if doctype == "Declaration":
+		return _declaration_order_milestone_rows(_linked_declaration_order_name(doc))
+	if doctype == "Transport Job":
+		return _transport_order_milestone_rows(_linked_transport_order_name(doc))
+	return []
+
+
+def _live_parent_milestone_codes(doc):
+	if getattr(doc, "doctype", None) == "Air Shipment":
+		return _air_booking_milestone_codes_for_shipment(doc)
+	if getattr(doc, "doctype", None) == "Sea Shipment":
+		return _sea_booking_milestone_codes_for_shipment(doc)
+	if getattr(doc, "doctype", None) == "Declaration":
+		return _declaration_order_milestone_codes_for_declaration(doc)
+	if getattr(doc, "doctype", None) == "Transport Job":
+		return _transport_order_milestone_codes_for_job(doc)
+	return set()
+
+
 def get_milestone_display_rows_and_editor_doctype(doc):
 	"""
 	Milestone rows for HTML timeline: prefer parent child table; if empty, use legacy Job Milestone
 	(job_type = parent doctype, job_number = parent name). Returns (list of dicts, doctype for edit prompts).
+
+	Air Shipment prepends the linked Air Booking milestones. Sea Shipment prepends the linked
+	Sea Booking milestones. Declaration prepends the linked Declaration Order milestones.
+	Transport Job prepends the linked Transport Order milestones.
+	Those rows are display-only and are not stored on the child document. A child row with
+	the same milestone code is omitted.
 	"""
 	if not doc or not getattr(doc, "doctype", None):
 		return [], "Job Milestone"
@@ -139,17 +291,18 @@ def get_milestone_display_rows_and_editor_doctype(doc):
 		if jm:
 			source_rows = jm
 			editor_dt = "Job Milestone"
-	milestones = []
+	booking_rows = _live_parent_milestone_rows(doc)
+	booking_codes = {
+		(row.milestone or "").strip()
+		for row in booking_rows
+		if (row.milestone or "").strip()
+	}
+	milestones = [_milestone_display_dict(row) for row in booking_rows]
 	for row in source_rows:
-		milestones.append({
-			"name": _milestone_row_field(row, "name"),
-			"milestone": _milestone_row_field(row, "milestone"),
-			"status": (_milestone_row_field(row, "status") or "Planned"),
-			"planned_start": _milestone_row_field(row, "planned_start"),
-			"planned_end": _milestone_row_field(row, "planned_end"),
-			"actual_start": _milestone_row_field(row, "actual_start"),
-			"actual_end": _milestone_row_field(row, "actual_end"),
-		})
+		code = (_milestone_row_field(row, "milestone") or "").strip()
+		if code and code in booking_codes:
+			continue
+		milestones.append(_milestone_display_dict(row))
 	return milestones, editor_dt
 
 
@@ -651,11 +804,12 @@ def populate_milestones_from_template(doctype, docname, doc=None):
 		items = get_milestone_template_items(product_type, applies_to, direction, entry_type, doctype=doctype)
 
 	existing_milestones = {row.milestone for row in (doc.get("milestones") or [])}
+	booking_milestones = _live_parent_milestone_codes(doc)
 	added = 0
 	now_dt = frappe.utils.now()
 	for item in items:
 		milestone = item.get("milestone")
-		if not milestone or milestone in existing_milestones:
+		if not milestone or milestone in existing_milestones or milestone in booking_milestones:
 			continue
 		planned_start, planned_end = _compute_milestone_planned_dates(doc, item)
 		row_data = {

@@ -354,14 +354,6 @@ function _declaration_add_form_toolbar(frm) {
 		}, __("Action"));
 	}
 
-	if (frm.doc.docstatus < 2) {
-		frm.add_custom_button(__("Sales Invoice"), function () {
-			logistics_declaration_show_sales_invoice_dialog(frm);
-		}, __("Create"));
-		frm.add_custom_button(__("Purchase Invoice"), function () {
-			logistics_declaration_show_purchase_invoice_dialog(frm);
-		}, __("Create"));
-	}
 	frm.add_custom_button(__("Permit Application"), function () {
 		logistics_show_create_permit_application_dialog(frm);
 	}, __("Create"));

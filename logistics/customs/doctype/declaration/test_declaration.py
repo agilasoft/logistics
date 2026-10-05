@@ -270,7 +270,7 @@ class UnitTestDeclarationPaymentStatus(UnitTestCase):
 
 
 class TestDeclarationMilestones(FrappeTestCase):
-	"""Declaration Order milestones copy onto Declaration like Sea Booking → Sea Shipment."""
+	"""Declaration Order milestones stay on the order. The timeline reads them live."""
 
 	def setUp(self):
 		from logistics.air_freight.tests.test_helpers import (
@@ -366,43 +366,23 @@ class TestDeclarationMilestones(FrappeTestCase):
 		declaration.insert(ignore_permissions=True)
 		return declaration
 
-	def test_order_milestone_row_values_marks_from_booking(self):
-		from logistics.customs.doctype.declaration.declaration import order_milestone_row_values
+	def _timeline_milestone_names(self, declaration):
+		from logistics.document_management.api import get_milestone_display_rows_and_editor_doctype
 
-		src = frappe._dict(
-			{
-				"milestone": "MS-A",
-				"status": "Planned",
-				"planned_start": None,
-				"planned_end": "2026-10-01 12:00:00",
-				"actual_start": None,
-				"actual_end": None,
-				"source": "Fetched",
-				"fetched_at": "2026-09-01 08:00:00",
-				"automation_planned_date_basis": "Booking Date",
-				"automation_update_trigger_type": "Date Based",
-			}
-		)
-		values = order_milestone_row_values(src)
-		self.assertEqual(values["from_booking"], 1)
-		self.assertEqual(values["milestone"], "MS-A")
-		self.assertEqual(values["planned_end"], "2026-10-01 12:00:00")
-		self.assertEqual(values["automation_planned_date_basis"], "Booking Date")
-		self.assertEqual(values["automation_update_trigger_type"], "Date Based")
+		rows, editor_dt = get_milestone_display_rows_and_editor_doctype(declaration)
+		self.assertEqual(editor_dt, "Declaration Milestone")
+		return [row["milestone"] for row in rows]
 
-	def test_declaration_populates_order_milestones_as_from_booking(self):
+	def test_declaration_does_not_store_order_milestones(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_order = self._ensure_logistics_milestone(f"TST-DO-MS-{sfx}")
 		order = self._order_with_milestones([ms_order])
 		declaration = self._declaration_for_order(order)
 
-		self.assertEqual(len(declaration.milestones), 1)
-		self.assertEqual(declaration.milestones[0].milestone, ms_order)
-		self.assertEqual(cint(declaration.milestones[0].from_booking), 1)
-		self.assertEqual(str(declaration.milestones[0].planned_end), "2026-10-01 12:00:00")
-		self.assertEqual(declaration.milestones[0].automation_planned_date_basis, "Booking Date")
+		self.assertFalse(any(row.milestone == ms_order for row in declaration.milestones))
+		self.assertEqual(self._timeline_milestone_names(declaration), [ms_order])
 
-	def test_declaration_allows_extra_milestone_without_flagging_from_booking(self):
+	def test_declaration_keeps_manual_milestone_and_shows_order_on_timeline(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_order = self._ensure_logistics_milestone(f"TST-DO-MS-{sfx}")
 		ms_extra = self._ensure_logistics_milestone(f"TST-DEC-MS-{sfx}")
@@ -413,19 +393,32 @@ class TestDeclarationMilestones(FrappeTestCase):
 		declaration.flags.ignore_documents_milestones_populate = True
 		declaration.save()
 
-		by_ms = {row.milestone: row for row in declaration.milestones}
-		self.assertIn(ms_order, by_ms)
-		self.assertIn(ms_extra, by_ms)
-		self.assertEqual(cint(by_ms[ms_order].from_booking), 1)
-		self.assertEqual(cint(by_ms[ms_extra].from_booking), 0)
+		self.assertEqual([row.milestone for row in declaration.milestones], [ms_extra])
+		self.assertEqual(cint(declaration.milestones[0].from_booking), 0)
+		self.assertEqual(self._timeline_milestone_names(declaration), [ms_order, ms_extra])
 
-	def test_declaration_adds_missing_order_milestone_on_later_save(self):
+	def test_declaration_timeline_omits_grid_row_that_duplicates_order_milestone(self):
+		sfx = frappe.generate_hash(length=6)
+		ms_order = self._ensure_logistics_milestone(f"TST-DO-MS-{sfx}")
+		ms_extra = self._ensure_logistics_milestone(f"TST-DEC-MS-{sfx}")
+		order = self._order_with_milestones([ms_order])
+		declaration = self._declaration_for_order(order)
+
+		declaration.append("milestones", {"milestone": ms_order, "status": "Planned", "source": "Manual"})
+		declaration.append("milestones", {"milestone": ms_extra, "status": "Planned", "source": "Manual"})
+		declaration.flags.ignore_documents_milestones_populate = True
+		declaration.save()
+
+		self.assertEqual([row.milestone for row in declaration.milestones], [ms_order, ms_extra])
+		self.assertEqual(self._timeline_milestone_names(declaration), [ms_order, ms_extra])
+
+	def test_declaration_does_not_add_later_order_milestone_to_grid(self):
 		sfx = frappe.generate_hash(length=6)
 		ms1 = self._ensure_logistics_milestone(f"TST-DO-MS1-{sfx}")
 		ms2 = self._ensure_logistics_milestone(f"TST-DO-MS2-{sfx}")
 		order = self._order_with_milestones([ms1])
 		declaration = self._declaration_for_order(order)
-		self.assertEqual([row.milestone for row in declaration.milestones], [ms1])
+		self.assertFalse(any(row.milestone == ms1 for row in declaration.milestones))
 
 		order.reload()
 		order.append(
@@ -439,25 +432,60 @@ class TestDeclarationMilestones(FrappeTestCase):
 		declaration.flags.ignore_documents_milestones_populate = True
 		declaration.save()
 
-		names = {row.milestone for row in declaration.milestones}
-		self.assertEqual(names, {ms1, ms2})
-		self.assertTrue(all(cint(row.from_booking) for row in declaration.milestones))
+		self.assertFalse(any(row.milestone in {ms1, ms2} for row in declaration.milestones))
+		self.assertEqual(self._timeline_milestone_names(declaration), [ms1, ms2])
 
-	def test_declaration_rejects_edit_and_delete_of_order_milestones(self):
+	def test_declaration_drops_existing_booking_milestone_on_save(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_order = self._ensure_logistics_milestone(f"TST-DO-MS-{sfx}")
+		ms_extra = self._ensure_logistics_milestone(f"TST-DEC-MS-{sfx}")
 		order = self._order_with_milestones([ms_order])
 		declaration = self._declaration_for_order(order)
-
-		declaration.milestones[0].planned_end = "2026-12-31 00:00:00"
+		declaration.append(
+			"milestones",
+			{
+				"milestone": ms_order,
+				"status": "Planned",
+				"from_booking": 1,
+				"planned_end": "2026-10-01 12:00:00",
+				"source": "Fetched",
+			},
+		)
+		declaration.append("milestones", {"milestone": ms_extra, "status": "Planned", "source": "Manual"})
 		declaration.flags.ignore_documents_milestones_populate = True
-		with self.assertRaises(frappe.ValidationError) as ctx:
-			declaration.save()
-		self.assertIn("cannot be edited", str(ctx.exception))
+		declaration.save()
+
+		self.assertEqual([row.milestone for row in declaration.milestones], [ms_extra])
+		self.assertEqual(self._timeline_milestone_names(declaration), [ms_order, ms_extra])
+
+	def test_declaration_template_skips_order_milestone_codes(self):
+		from logistics.document_management.api import populate_milestones_from_template
+
+		sfx = frappe.generate_hash(length=6)
+		ms_order = self._ensure_logistics_milestone(f"TST-DO-TPL-{sfx}")
+		ms_decl = self._ensure_logistics_milestone(f"TST-DEC-TPL-{sfx}")
+		order = self._order_with_milestones([ms_order])
+		template = frappe.get_doc(
+			{
+				"doctype": "Milestone Template",
+				"template_name": f"TST Declaration {sfx}",
+				"product_type": "Customs",
+				"applies_to": "Shipment/Job",
+				"is_default": 0,
+				"is_active": 1,
+				"items": [
+					{"milestone": ms_order},
+					{"milestone": ms_decl},
+				],
+			}
+		)
+		template.insert(ignore_permissions=True)
+
+		declaration = self._declaration_for_order(order)
+		declaration.milestone_template = template.name
+		declaration.flags.ignore_documents_milestones_populate = True
+		populate_milestones_from_template("Declaration", declaration.name, doc=declaration)
 
 		declaration.reload()
-		declaration.remove(declaration.milestones[0])
-		declaration.flags.ignore_documents_milestones_populate = True
-		with self.assertRaises(frappe.ValidationError) as ctx:
-			declaration.save()
-		self.assertIn("cannot be deleted", str(ctx.exception))
+		self.assertEqual([row.milestone for row in declaration.milestones], [ms_decl])
+		self.assertEqual(self._timeline_milestone_names(declaration), [ms_order, ms_decl])
