@@ -75,20 +75,22 @@ function _gcfts_filter_specs(frm) {
 			}
 		);
 	} else if (ms === "Air") {
-		specs.push({
-			key: "airline",
-			fieldtype: "Link",
-			options: "Airline",
-			label: __("Airline"),
-			value: frm.doc.airline || "",
-		},
-		specs.push({
-			key: "freight_agent",
-			fieldtype: "Link",
-			options: "Freight Agent",
-			label: __("Freight Agent"),
-			value: frm.doc.freight_agent || "",
-		});
+		specs.push(
+			{
+				key: "airline",
+				fieldtype: "Link",
+				options: "Airline",
+				label: __("Airline"),
+				value: frm.doc.airline || "",
+			},
+			{
+				key: "freight_agent",
+				fieldtype: "Link",
+				options: "Freight Agent",
+				label: __("Freight Agent"),
+				value: frm.doc.freight_agent || "",
+			}
+		);
 	} else if (ms === "Transport") {
 		specs.push(
 			{
