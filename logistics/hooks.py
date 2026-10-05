@@ -230,6 +230,7 @@ doctype_js = {
 		"logistics/job_management/recognition_policy_fields.js",
 		"logistics/job_management/job_charge_reopen.js",
 		"logistics/job_management/job_readiness.js",
+		"sea_freight/doctype/sea_shipment/sea_shipment_lalamove.js",
 	],
 	"Sea Consolidation": [
 		"public/js/charge_break_dialogs.js",
