@@ -7,6 +7,7 @@ from frappe.model.document import Document
 from frappe.utils import flt, now_datetime
 from frappe import _
 from logistics.warehousing.api_parts.common import _get_default_currency
+from logistics.warehousing.ledger_row import ledger_row_gap
 from logistics.warehousing.ledger_items import empty_ledger_items_reason
 from logistics.warehousing.ledger_balance import ledger_balance_after_post
 from logistics.warehousing.ledger_delta import ledger_delta
@@ -3225,9 +3226,10 @@ class WarehouseJob(Document):
 		posting_dt = now_datetime()
 
 		for ji in self.items:
-			if not getattr(ji, "location", None):
+			row_gap = ledger_row_gap(getattr(ji, "location", None), getattr(ji, "item", None))
+			if row_gap == "location":
 				frappe.throw(_("Row #{0}: Location is required.").format(ji.idx))
-			if not getattr(ji, "item", None):
+			if row_gap == "item":
 				frappe.throw(_("Row #{0}: Item is required.").format(ji.idx))
 
 			qty = flt(getattr(ji, "quantity", 0))
