@@ -199,7 +199,7 @@ def _html_response(html: str):
 	frappe.response["type"] = "download"
 	frappe.response["filename"] = "connect.html"
 	frappe.response["filecontent"] = html.encode("utf-8")
-	frappe.response["content_type"] = "text/html; charset=utf-8"
+	frappe.response["content_type"] = "text/html"
 	frappe.response["display_content_as"] = "inline"
 
 
