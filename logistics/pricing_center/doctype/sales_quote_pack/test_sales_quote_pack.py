@@ -196,6 +196,21 @@ class TestSalesQuotePack(FrappeTestCase):
 		self.assertNotEqual(pack.status, "Accepted")
 		self.assertEqual(sq.docstatus, 0)
 
+	def test_create_sales_quote_from_pack_uses_one_off_series(self):
+		from logistics.pricing_center.doctype.sales_quote_pack.sales_quote_pack import (
+			create_sales_quote_from_pack,
+		)
+
+		sq = self._make_air_quote()
+		pack = self._make_pack([sq.name])
+		name = create_sales_quote_from_pack(pack.name)
+		created = frappe.get_doc("Sales Quote", name)
+		self.assertEqual(created.quotation_type, "One-off")
+		self.assertEqual(created.naming_series, "OOQ.#####")
+		self.assertTrue(created.name.startswith("OOQ"))
+		self.assertEqual(created.sales_quote_pack, pack.name)
+		self.assertEqual(created.customer, pack.customer)
+
 	def test_free_sales_quote_still_submits(self):
 		sq = self._make_air_quote()
 		self.assertFalse(sq.sales_quote_pack)
