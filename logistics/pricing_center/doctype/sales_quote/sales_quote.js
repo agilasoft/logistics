@@ -418,6 +418,12 @@ function logistics_sq_open_services_dialog(frm) {
 			listMethod: SQ_SERVICES_API + ".list_quote_linked_services",
 			addMethod: can_manage ? SQ_SERVICES_API + ".add_linked_service" : null,
 			removeMethod: can_manage ? SQ_SERVICES_API + ".remove_linked_service" : null,
+			previewMethod: can_manage
+				? SQ_SERVICES_API + ".preview_linked_services_from_main"
+				: null,
+			createMethod: can_manage
+				? SQ_SERVICES_API + ".create_linked_services_from_main"
+				: null,
 			parentField: "sales_quote",
 			parentLabel: __("Quote"),
 			allowAdd: can_manage,
@@ -425,7 +431,7 @@ function logistics_sq_open_services_dialog(frm) {
 			allowEdit: can_manage,
 			emptyHint: __("Add a service type below to link it to this quote."),
 			addHint: __(
-				"Select a service type to link to this quote. You can add multiple services of the same type (e.g. three Transport legs)."
+				"Select a service type and quantity. Qty creates that many services of the same type in one step."
 			),
 			unsavedMessage: __("Save the Sales Quote before managing services."),
 			removeConfirm: (ls) =>
