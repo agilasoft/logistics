@@ -418,6 +418,12 @@ function logistics_sq_open_services_dialog(frm) {
 			listMethod: SQ_SERVICES_API + ".list_quote_linked_services",
 			addMethod: can_manage ? SQ_SERVICES_API + ".add_linked_service" : null,
 			removeMethod: can_manage ? SQ_SERVICES_API + ".remove_linked_service" : null,
+			previewMethod: can_manage
+				? SQ_SERVICES_API + ".preview_linked_services_from_main"
+				: null,
+			createMethod: can_manage
+				? SQ_SERVICES_API + ".create_linked_services_from_main"
+				: null,
 			parentField: "sales_quote",
 			parentLabel: __("Quote"),
 			allowAdd: can_manage,
