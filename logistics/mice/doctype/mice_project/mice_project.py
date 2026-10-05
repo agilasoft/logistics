@@ -2325,9 +2325,12 @@ def list_mice_project_linked_services(mice_project: str):
 
 
 @frappe.whitelist()
-def add_linked_service(mice_project: str, service_type: str):
-	"""Create a Linked Service owned by this MICE Project."""
-	from logistics.time_sensitive.service_linking import validate_linked_service_type
+def add_linked_service(mice_project: str, service_type: str, quantity=1):
+	"""Create one or more Linked Services of the same type owned by this MICE Project."""
+	from logistics.time_sensitive.service_linking import (
+		normalize_linked_service_quantity,
+		validate_linked_service_type,
+	)
 	from logistics.utils.linked_service_compat import linked_service_doctype
 
 	project = frappe.get_doc("MICE Project", mice_project)
@@ -2338,18 +2341,23 @@ def add_linked_service(mice_project: str, service_type: str):
 		frappe.throw(_("Linked Services can only be added on a draft MICE Project."))
 
 	service_type = validate_linked_service_type(service_type)
-	linked = frappe.new_doc(linked_service_doctype())
-	linked.service_type = service_type
-	linked.parent_booking_type = "MICE Project"
-	linked.parent_booking_name = project.name
-	linked.insert(ignore_permissions=True)
+	quantity = normalize_linked_service_quantity(quantity)
+	names = []
+	for _idx in range(quantity):
+		linked = frappe.new_doc(linked_service_doctype())
+		linked.service_type = service_type
+		linked.parent_booking_type = "MICE Project"
+		linked.parent_booking_name = project.name
+		linked.insert(ignore_permissions=True)
+		names.append(linked.name)
 
 	_invalidate_mice_project_linked_services_view(project)
 
 	return {
 		"name": project.name,
-		"linked_service": linked.name,
-		"service_type": linked.service_type,
+		"linked_service": names[-1],
+		"linked_services": names,
+		"service_type": service_type,
 	}
 
 

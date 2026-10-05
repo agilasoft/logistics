@@ -927,9 +927,12 @@ def list_change_request_linked_services(change_request: str):
 
 
 @frappe.whitelist()
-def add_linked_service(change_request: str, service_type: str):
-	"""Create a Linked Service owned by this Change Request."""
-	from logistics.time_sensitive.service_linking import validate_linked_service_type
+def add_linked_service(change_request: str, service_type: str, quantity=1):
+	"""Create one or more Linked Services of the same type owned by this Change Request."""
+	from logistics.time_sensitive.service_linking import (
+		normalize_linked_service_quantity,
+		validate_linked_service_type,
+	)
 
 	cr = frappe.get_doc("Change Request", change_request)
 	frappe.has_permission("Change Request", "write", doc=cr, throw=True)
@@ -938,11 +941,15 @@ def add_linked_service(change_request: str, service_type: str):
 		frappe.throw(_("Save the Change Request before adding a linked service."))
 
 	service_type = validate_linked_service_type(service_type)
-	linked = frappe.new_doc(linked_service_doctype())
-	linked.service_type = service_type
-	linked.parent_booking_type = "Change Request"
-	linked.parent_booking_name = cr.name
-	linked.insert(ignore_permissions=True)
+	quantity = normalize_linked_service_quantity(quantity)
+	names = []
+	for _idx in range(quantity):
+		linked = frappe.new_doc(linked_service_doctype())
+		linked.service_type = service_type
+		linked.parent_booking_type = "Change Request"
+		linked.parent_booking_name = cr.name
+		linked.insert(ignore_permissions=True)
+		names.append(linked.name)
 
 	cr.flags._linked_services_view_cached = False
 	if "linked_services" in cr.__dict__:
@@ -950,8 +957,9 @@ def add_linked_service(change_request: str, service_type: str):
 
 	return {
 		"name": cr.name,
-		"linked_service": linked.name,
-		"service_type": linked.service_type,
+		"linked_service": names[-1],
+		"linked_services": names,
+		"service_type": service_type,
 	}
 
 

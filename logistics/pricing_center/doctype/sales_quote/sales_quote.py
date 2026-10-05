@@ -4332,9 +4332,12 @@ def list_quote_linked_services(sales_quote: str):
 
 
 @frappe.whitelist()
-def add_linked_service(sales_quote: str, service_type: str):
-	"""Create a Linked Service owned by this Sales Quote."""
-	from logistics.time_sensitive.service_linking import validate_linked_service_type
+def add_linked_service(sales_quote: str, service_type: str, quantity=1):
+	"""Create one or more Linked Services of the same type owned by this Sales Quote."""
+	from logistics.time_sensitive.service_linking import (
+		normalize_linked_service_quantity,
+		validate_linked_service_type,
+	)
 	from logistics.utils.linked_service_compat import linked_service_doctype
 
 	quote = frappe.get_doc("Sales Quote", sales_quote)
@@ -4344,13 +4347,17 @@ def add_linked_service(sales_quote: str, service_type: str):
 		frappe.throw(_("Save the Sales Quote before adding a linked service."))
 
 	service_type = validate_linked_service_type(service_type)
-	linked = frappe.new_doc(linked_service_doctype())
-	linked.service_type = service_type
-	linked.parent_booking_type = "Sales Quote"
-	linked.parent_booking_name = quote.name
-	if getattr(quote, "company", None):
-		linked.company = quote.company
-	linked.insert(ignore_permissions=True)
+	quantity = normalize_linked_service_quantity(quantity)
+	names = []
+	for _idx in range(quantity):
+		linked = frappe.new_doc(linked_service_doctype())
+		linked.service_type = service_type
+		linked.parent_booking_type = "Sales Quote"
+		linked.parent_booking_name = quote.name
+		if getattr(quote, "company", None):
+			linked.company = quote.company
+		linked.insert(ignore_permissions=True)
+		names.append(linked.name)
 
 	quote.flags._linked_services_view_cached = False
 	if "linked_services" in quote.__dict__:
@@ -4358,8 +4365,9 @@ def add_linked_service(sales_quote: str, service_type: str):
 
 	return {
 		"name": quote.name,
-		"linked_service": linked.name,
-		"service_type": linked.service_type,
+		"linked_service": names[-1],
+		"linked_services": names,
+		"service_type": service_type,
 	}
 
 

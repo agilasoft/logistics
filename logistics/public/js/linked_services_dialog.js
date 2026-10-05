@@ -216,6 +216,14 @@ function _lsd1_shell_html(frm, opts) {
 		)
 		.join("");
 
+	const generate_btn = opts.allowGenerate
+		? `
+						<button type="button" class="lsd1-add-btn lsd1-generate-open">
+							${_lsd1_icon("add", "xs") || "+"}
+							<span>${__("Generate from main")}</span>
+						</button>`
+		: "";
+
 	const add_panel = opts.allowAdd
 		? `
 				<section class="lsd1-panel">
@@ -226,13 +234,19 @@ function _lsd1_shell_html(frm, opts) {
 						<select class="lsd1-select lsd1-service-type" aria-label="${__(
 							"Service Type"
 						)}">${options}</select>
+						<label class="lsd1-add-qty-wrap">
+							<span>${__("Qty")}</span>
+							<input type="number" class="lsd1-add-qty" min="1" max="50" step="1" value="1"
+								aria-label="${__("Quantity")}">
+						</label>
 						<button type="button" class="lsd1-add-btn lsd1-add">
 							${_lsd1_icon("add", "xs") || "+"}
 							<span>${__("Add Service")}</span>
 						</button>
+						${generate_btn}
 					</div>
 					<p class="lsd1-hint">${_lsd1_escape(opts.addHint)}</p>
-					${_lsd1_generate_html(opts)}
+					${_lsd1_generate_panel_html(opts)}
 				</section>`
 		: "";
 
@@ -292,27 +306,21 @@ function _lsd1_shell_html(frm, opts) {
 		</div>`;
 }
 
-function _lsd1_generate_html(opts) {
+function _lsd1_generate_panel_html(opts) {
 	if (!opts.allowGenerate) return "";
 	return `
-		<div class="lsd1-generate">
-			<button type="button" class="lsd1-add-btn lsd1-generate-open">
-				${_lsd1_icon("add", "xs") || "+"}
-				<span>${__("Generate from main")}</span>
-			</button>
-			<div class="lsd1-generate-panel" hidden>
-				<p class="lsd1-hint lsd1-generate-note">${__(
-					"Adds new services from the quote. Existing services stay as they are."
-				)}</p>
-				<div class="lsd1-generate-list"></div>
-				<div class="lsd1-generate-actions">
-					<button type="button" class="lsd1-btn-secondary lsd1-generate-cancel">${__(
-						"Cancel"
-					)}</button>
-					<button type="button" class="lsd1-btn-primary lsd1-generate-create">${__(
-						"Create selected"
-					)}</button>
-				</div>
+		<div class="lsd1-generate-panel" hidden>
+			<p class="lsd1-hint lsd1-generate-note">${__(
+				"Adds new services from the quote. Existing services stay as they are."
+			)}</p>
+			<div class="lsd1-generate-list"></div>
+			<div class="lsd1-generate-actions">
+				<button type="button" class="lsd1-btn-secondary lsd1-generate-cancel">${__(
+					"Cancel"
+				)}</button>
+				<button type="button" class="lsd1-btn-primary lsd1-generate-create">${__(
+					"Create selected"
+				)}</button>
 			</div>
 		</div>`;
 }
@@ -769,8 +777,17 @@ function _lsd1_bind(dialog, frm, opts, state) {
 				});
 				return;
 			}
+			const quantity = cint($wrap.find(".lsd1-add-qty").val());
+			if (quantity < 1 || quantity > 50) {
+				frappe.msgprint({
+					message: __("Enter a quantity from 1 to 50."),
+					indicator: "orange",
+				});
+				return;
+			}
 			const args = _lsd1_parent_args(frm, opts);
 			args.service_type = service_type;
+			args.quantity = quantity;
 			frappe.call({
 				method: opts.addMethod,
 				args,
@@ -778,12 +795,21 @@ function _lsd1_bind(dialog, frm, opts, state) {
 				freeze_message: __("Adding linked service..."),
 				callback(r) {
 					$wrap.find(".lsd1-service-type").val("");
+					$wrap.find(".lsd1-add-qty").val(1);
 					_lsd1_reload(dialog, frm, opts, state);
 					frm.reload_doc();
-					const created =
-						r && r.message && r.message.linked_service
-							? r.message.linked_service
-							: null;
+					const message = (r && r.message) || {};
+					const names = message.linked_services || [];
+					const created = names.length
+						? names[names.length - 1]
+						: message.linked_service || null;
+					if (names.length > 1) {
+						frappe.show_alert({
+							message: __("{0} linked services created", [names.length]),
+							indicator: "green",
+						});
+						return;
+					}
 					if (created && opts.allowEdit && opts.getMethod) {
 						_lsd1_open_edit(dialog, frm, opts, state, created);
 					}

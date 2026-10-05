@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import frappe
 from frappe import _
+from frappe.utils import cint
 from logistics.utils.linked_service_usage import (
 	USAGE_ROLE_PARENT_BOOKING,
 	USAGE_ROLE_SATELLITE_JOB,
@@ -37,6 +38,23 @@ def validate_linked_service_type(service_type: str) -> str:
 			title=_("Linked Service"),
 		)
 	return value
+
+
+MAX_LINKED_SERVICE_ADD_QUANTITY = 50
+
+
+def normalize_linked_service_quantity(quantity=1) -> int:
+	"""How many identical linked services one Add action should create."""
+	if quantity in (None, ""):
+		quantity = 1
+	qty = cint(quantity)
+	if qty < 1:
+		frappe.throw(_("Quantity must be at least 1."))
+	if qty > MAX_LINKED_SERVICE_ADD_QUANTITY:
+		frappe.throw(
+			_("Quantity cannot exceed {0}.").format(MAX_LINKED_SERVICE_ADD_QUANTITY)
+		)
+	return qty
 
 
 def create_linked_service_for_case(case, service_type: str):
