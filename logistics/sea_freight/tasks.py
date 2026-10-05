@@ -9,8 +9,14 @@ Scheduled Tasks for Sea Freight Delay and Penalty Alerts
 from __future__ import unicode_literals
 import frappe
 
+from logistics.sea_freight.alert_schedule import alerts_enabled, log_check_completed
 from logistics.sea_freight.doctype.sea_freight_settings.sea_freight_settings import SeaFreightSettings
 from logistics.utils.alert_utils import get_penalty_impending_days as _get_penalty_impending_days
+
+
+def _log_check_completed(title, message):
+	"""Record a normal finish. Error Log is reserved for failures."""
+	log_check_completed(frappe.logger("sea_freight"), title, message)
 
 
 def check_sea_shipment_delays():
@@ -41,7 +47,7 @@ def check_sea_shipment_delays():
 			try:
 				doc = frappe.get_doc("Sea Shipment", shipment.name)
 				s = SeaFreightSettings.get_settings(doc.company)
-				if s is not None and not getattr(s, "enable_delay_alerts", 1):
+				if not alerts_enabled(s, "enable_delay_alerts"):
 					continue
 
 				# Check delays
@@ -60,9 +66,9 @@ def check_sea_shipment_delays():
 		frappe.db.commit()
 
 		if updated_count > 0:
-			frappe.log_error(
-				title="Sea Shipment Delay Check Completed",
-				message=f"Checked {updated_count} shipments, {alert_count} alerts sent"
+			_log_check_completed(
+				"Sea Shipment Delay Check Completed",
+				f"Checked {updated_count} shipments, {alert_count} alerts sent",
 			)
 
 	except Exception as e:
@@ -102,7 +108,7 @@ def check_sea_shipment_penalties():
 			try:
 				doc = frappe.get_doc("Sea Shipment", shipment.name)
 				s = SeaFreightSettings.get_settings(doc.company)
-				if s is not None and not getattr(s, "enable_penalty_alerts", 1):
+				if not alerts_enabled(s, "enable_penalty_alerts"):
 					continue
 
 				# Calculate penalties
@@ -121,9 +127,9 @@ def check_sea_shipment_penalties():
 		frappe.db.commit()
 
 		if updated_count > 0:
-			frappe.log_error(
-				title="Sea Shipment Penalty Check Completed",
-				message=f"Checked {updated_count} shipments, {penalty_count} penalties detected"
+			_log_check_completed(
+				"Sea Shipment Penalty Check Completed",
+				f"Checked {updated_count} shipments, {penalty_count} penalties detected",
 			)
 
 	except Exception as e:
@@ -168,7 +174,7 @@ def check_impending_penalties():
 			try:
 				doc = frappe.get_doc("Sea Shipment", shipment.name)
 				settings = SeaFreightSettings.get_settings(doc.company)
-				if settings is not None and not getattr(settings, "enable_penalty_alerts", 1):
+				if not alerts_enabled(settings, "enable_penalty_alerts"):
 					continue
 
 				ref_date = get_detention_reference_date(doc)
@@ -190,9 +196,9 @@ def check_impending_penalties():
 		frappe.db.commit()
 
 		if impending_count > 0:
-			frappe.log_error(
-				title="Impending Penalty Check Completed",
-				message=f"Checked {len(shipments)} shipments, {impending_count} impending penalties alerted"
+			_log_check_completed(
+				"Impending Penalty Check Completed",
+				f"Checked {len(shipments)} shipments, {impending_count} impending penalties alerted",
 			)
 
 	except Exception as e:
