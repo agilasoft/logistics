@@ -102,8 +102,12 @@ class TestSalesQuotePack(FrappeTestCase):
 			defaults["customer_service_rep"] = self.employee
 		return defaults
 
-	def _make_air_quote(self, sales_quote_pack=None, with_charges=True):
-		sq = frappe.get_doc(self._quote_defaults(sales_quote_pack))
+	def _make_air_quote(self, sales_quote_pack=None, with_charges=True, quotation_type="Regular"):
+		defaults = self._quote_defaults(sales_quote_pack)
+		defaults["quotation_type"] = quotation_type
+		if quotation_type == "One-off":
+			defaults["naming_series"] = "OOQ.#####"
+		sq = frappe.get_doc(defaults)
 		if with_charges:
 			sq.append(
 				"charges",
@@ -201,8 +205,8 @@ class TestSalesQuotePack(FrappeTestCase):
 			create_sales_quote_from_pack,
 		)
 
-		sq = self._make_air_quote()
-		pack = self._make_pack([sq.name])
+		one_off = self._make_air_quote(quotation_type="One-off")
+		pack = self._make_pack([one_off.name])
 		name = create_sales_quote_from_pack(pack.name)
 		created = frappe.get_doc("Sales Quote", name)
 		self.assertEqual(created.quotation_type, "One-off")
@@ -216,6 +220,30 @@ class TestSalesQuotePack(FrappeTestCase):
 		self.assertFalse(sq.sales_quote_pack)
 		sq.submit()
 		self.assertEqual(sq.docstatus, 1)
+
+	def test_pack_rejects_regular_and_one_off_together(self):
+		regular = self._make_air_quote()
+		one_off = self._make_air_quote(quotation_type="One-off")
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			self._make_pack([regular.name, one_off.name])
+		self.assertIn("one quotation type", str(ctx.exception).lower())
+
+	def test_create_one_off_blocked_when_pack_has_regular_quote(self):
+		from logistics.pricing_center.doctype.sales_quote_pack.sales_quote_pack import (
+			create_sales_quote_from_pack,
+		)
+
+		regular = self._make_air_quote()
+		pack = self._make_pack([regular.name])
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			create_sales_quote_from_pack(pack.name)
+		self.assertIn("One-off", str(ctx.exception))
+
+	def test_pack_allows_two_one_off_quotes(self):
+		first = self._make_air_quote(quotation_type="One-off")
+		second = self._make_air_quote(quotation_type="One-off")
+		pack = self._make_pack([first.name, second.name])
+		self.assertEqual(len(pack.quotations), 2)
 
 	def test_pack_cancel_sets_cancelled_without_cancelling_quotes(self):
 		sq = self._make_air_quote()
