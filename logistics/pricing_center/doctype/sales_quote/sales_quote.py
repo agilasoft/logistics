@@ -21,6 +21,7 @@ from logistics.utils.charge_service_type import (
 	sales_quote_charge_service_types_equal,
 )
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
+from logistics.pricing_center.sales_quote_scope_title import default_scope_title
 from logistics.utils.sales_quote_routing_defaults import apply_sales_quote_routing_defaults
 from logistics.pricing_center.sales_quote_required_parameters import (
 	missing_one_off_scope_fields,
@@ -818,21 +819,14 @@ class SalesQuote(Document):
 
 	def auto_scope_title(self):
 		"""Default scope_title from corridor + incoterm when blank."""
-		if (getattr(self, "scope_title", None) or "").strip():
-			return
-		parts = []
-		origin = _sq_strip_or_none(getattr(self, "origin_port", None))
-		dest = _sq_strip_or_none(getattr(self, "destination_port", None))
-		if not (origin and dest):
-			origin = _sq_strip_or_none(getattr(self, "location_from", None))
-			dest = _sq_strip_or_none(getattr(self, "location_to", None))
-		if origin and dest:
-			parts.append(f"{origin} → {dest}")
-		inc = _sq_strip_or_none(getattr(self, "incoterm", None))
-		if inc:
-			parts.append(f"({inc})")
-		if parts:
-			self.scope_title = " ".join(parts)
+		self.scope_title = default_scope_title(
+			getattr(self, "scope_title", None),
+			getattr(self, "origin_port", None),
+			getattr(self, "destination_port", None),
+			getattr(self, "location_from", None),
+			getattr(self, "location_to", None),
+			getattr(self, "incoterm", None),
+		)
 
 	def validate_linked_service_charge_tagging(self):
 		"""Validate per-charge Linked Service tagging on Sales Quote."""
