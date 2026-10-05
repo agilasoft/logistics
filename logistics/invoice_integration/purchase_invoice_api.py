@@ -141,12 +141,16 @@ def _air_consolidation_charge_cost(ch) -> float:
 
 def _get_eligible_cost_rows(job, config):
     """Build list of (index, ch, cost, item_code, pay_to) for charges with cost > 0, item set, and not already requested/posted/paid."""
+    from logistics.job_management.standard_cost_posting import is_internal_tariff_cost_charge
+
     charges_field, cost_field, rate_field, qty_field, item_field, supplier_field = config
     charges = list(job.get(charges_field) or [])
     rows = []
     for idx, ch in enumerate(charges):
         status = getattr(ch, "purchase_invoice_status", None)
         if status in PI_EXCLUDED_STATUSES or getattr(ch, "purchase_invoice", None):
+            continue
+        if is_internal_tariff_cost_charge(ch):
             continue
         if job.doctype in ("Sea Shipment", "Special Project", "Docket"):
             cost = _sea_shipment_row_cost(ch)
@@ -204,11 +208,15 @@ def _get_eligible_consolidation_cost_rows(c_doc) -> List[Tuple[int, Any, float, 
     if not count_attached_jobs(c_doc):
         return []
 
+    from logistics.job_management.standard_cost_posting import is_internal_tariff_cost_charge
+
     attached_list = _consolidation_attached_rows(c_doc)
     rows = []
     for idx, ch in enumerate(charges):
         status = getattr(ch, "purchase_invoice_status", None)
         if status in PI_EXCLUDED_STATUSES or getattr(ch, "purchase_invoice", None):
+            continue
+        if is_internal_tariff_cost_charge(ch):
             continue
         cost = _consolidation_charge_cost(c_doc.doctype, ch)
         if cost <= 0:

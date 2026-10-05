@@ -3446,23 +3446,11 @@ def create_sales_invoice_from_air_shipment(shipment_name, posting_date, customer
 
 @frappe.whitelist()
 def post_standard_costs(docname):
-	"""Post standard costs for Air Shipment charges. No-op if charges do not support standard costs."""
-	from logistics.utils.menu_permission import assert_perm
+	"""Post internal tariff standard costs for Air Shipment charges."""
+	from logistics.job_management.standard_cost_posting import post_internal_tariff_standard_costs
 
 	shipment = frappe.get_doc("Air Shipment", docname)
-	assert_perm("Air Shipment", "write", doc=shipment)
-	assert_perm("Journal Entry", "create")
-	posted = 0
-	for ch in (shipment.charges or []):
-		if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(ch, "standard_cost_posted", False):
-			# If the charge has the field, post it (same pattern as Warehouse Job)
-			if frappe.get_meta(ch.doctype).get_field("standard_cost_posted"):
-				ch.standard_cost_posted = 1
-				ch.standard_cost_posted_at = frappe.utils.now()
-				posted += 1
-	if posted > 0:
-		shipment.save()
-	return {"message": _("Posted {0} standard cost(s).").format(posted) if posted else _("No standard costs to post.")}
+	return post_internal_tariff_standard_costs(shipment)
 
 
 @frappe.whitelist()

@@ -1756,26 +1756,11 @@ def create_sales_invoice_from_transport_job(job_name, posting_date=None, custome
 
 @frappe.whitelist()
 def post_standard_costs(docname):
-    """Post standard costs on Transport Job charge lines (same pattern as Air Shipment)."""
-    from logistics.utils.menu_permission import assert_perm
+    """Post internal tariff standard costs on Transport Job charge lines."""
+    from logistics.job_management.standard_cost_posting import post_internal_tariff_standard_costs
 
     job = frappe.get_doc("Transport Job", docname)
-    assert_perm("Transport Job", "write", doc=job)
-    assert_perm("Journal Entry", "create")
-    posted = 0
-    for ch in job.charges or []:
-        if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(
-            ch, "standard_cost_posted", False
-        ):
-            if frappe.get_meta(ch.doctype).get_field("standard_cost_posted"):
-                ch.standard_cost_posted = 1
-                ch.standard_cost_posted_at = frappe.utils.now()
-                posted += 1
-    if posted > 0:
-        job.save()
-    return {
-        "message": _("Posted {0} standard cost(s).").format(posted) if posted else _("No standard costs to post.")
-    }
+    return post_internal_tariff_standard_costs(job)
 
 
 def _validate_all_legs_completed(job: Document) -> None:

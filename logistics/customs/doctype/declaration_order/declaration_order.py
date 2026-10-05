@@ -534,7 +534,7 @@ class DeclarationOrder(VirtualLinkedServicesMixin, Document):
 				"cost_unit_type", "cost_minimum_quantity", "cost_minimum_unit_rate", "cost_minimum_charge",
 				"cost_maximum_charge", "cost_base_amount", "cost_base_quantity", "estimated_cost",
 				"revenue_calc_notes", "cost_calc_notes",
-				"use_tariff_in_revenue", "revenue_tariff", "use_tariff_in_cost", "cost_tariff",
+				"use_tariff_in_revenue", "revenue_tariff", "use_tariff_in_cost", "cost_internal", "cost_tariff",
 				"bill_to", "bill_to_exchange_rate", "pay_to", "pay_to_exchange_rate",
 			]
 			from logistics.utils.sales_quote_charge_copy import apply_scope_tagging_to_mapped_charge
@@ -791,7 +791,7 @@ def populate_charges_from_sales_quote(
 			"cost_unit_type", "cost_minimum_quantity", "cost_minimum_unit_rate", "cost_minimum_charge",
 			"cost_maximum_charge", "cost_base_amount", "cost_base_quantity", "estimated_cost",
 			"revenue_calc_notes", "cost_calc_notes",
-			"use_tariff_in_revenue", "revenue_tariff", "use_tariff_in_cost", "cost_tariff",
+			"use_tariff_in_revenue", "revenue_tariff", "use_tariff_in_cost", "cost_internal", "cost_tariff",
 			"bill_to", "bill_to_exchange_rate", "pay_to", "pay_to_exchange_rate",
 		]
 		def _ch_has(ch, fn):

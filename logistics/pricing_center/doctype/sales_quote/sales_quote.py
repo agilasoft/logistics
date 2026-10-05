@@ -2772,7 +2772,7 @@ def _populate_charges_from_sales_quote_air_freight(air_shipment, sales_quote):
 				"maximum_charge", "base_amount", "estimated_revenue",
 				"charge_type", "charge_category",
 				"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
-				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
+				"use_tariff_in_revenue", "use_tariff_in_cost", "cost_internal", "tariff",
 				"revenue_tariff", "cost_tariff", "bill_to_exchange_rate", "pay_to_exchange_rate",
 				"bill_to_exchange_rate_source", "pay_to_exchange_rate_source", "service_type",
 			]
@@ -3001,6 +3001,7 @@ def _map_sales_quote_air_freight_to_charge(sqaf_record, air_shipment):
 			"pay_to": getattr(sqaf_record, "pay_to", None),
 			"use_tariff_in_revenue": getattr(sqaf_record, "use_tariff_in_revenue", False),
 			"use_tariff_in_cost": getattr(sqaf_record, "use_tariff_in_cost", False),
+			"cost_internal": getattr(sqaf_record, "cost_internal", False),
 			"tariff": getattr(sqaf_record, "tariff", None),
 			"revenue_tariff": getattr(sqaf_record, "revenue_tariff", None),
 			"cost_tariff": getattr(sqaf_record, "cost_tariff", None),
@@ -3073,7 +3074,7 @@ def _populate_charges_from_sales_quote_sea_freight(sea_shipment, sales_quote):
 			"maximum_charge", "base_amount", "estimated_revenue",
 			"charge_type", "charge_category",
 			"apply_95_5_rule", "taxable_freight_item", "taxable_freight_item_tax_template",
-			"use_tariff_in_revenue", "use_tariff_in_cost", "tariff",
+			"use_tariff_in_revenue", "use_tariff_in_cost", "cost_internal", "tariff",
 			"revenue_tariff", "cost_tariff", "bill_to_exchange_rate", "pay_to_exchange_rate",
 			"bill_to_exchange_rate_source", "pay_to_exchange_rate_source", "service_type",
 		] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
@@ -3250,6 +3251,7 @@ def _map_sales_quote_sea_freight_to_charge(sqsf_record, sea_shipment):
 			"base_amount": _sf_r("base_amount") or 0,
 			"use_tariff_in_revenue": getattr(sqsf_record, "use_tariff_in_revenue", False),
 			"use_tariff_in_cost": getattr(sqsf_record, "use_tariff_in_cost", False),
+			"cost_internal": getattr(sqsf_record, "cost_internal", False),
 			"tariff": getattr(sqsf_record, "tariff", None),
 			"revenue_tariff": getattr(sqsf_record, "revenue_tariff", None),
 			"cost_tariff": getattr(sqsf_record, "cost_tariff", None),

@@ -2397,3 +2397,12 @@ def remove_linked_service(mice_project: str, linked_service: str):
 		"linked_service": linked_service,
 		"action": action,
 	}
+
+
+@frappe.whitelist()
+def post_standard_costs(docname):
+	"""Post internal tariff standard costs for MICE Project charges."""
+	from logistics.job_management.standard_cost_posting import post_internal_tariff_standard_costs
+
+	project = frappe.get_doc("MICE Project", docname)
+	return post_internal_tariff_standard_costs(project)

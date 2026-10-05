@@ -1775,6 +1775,7 @@ def _append_declaration_charges_from_do_style_dicts(declaration: Document, charg
 		"cost_calc_notes",
 		"use_tariff_in_revenue",
 		"use_tariff_in_cost",
+		"cost_internal",
 		"revenue_tariff",
 		"cost_tariff",
 		"bill_to",
@@ -1854,6 +1855,7 @@ def _populate_charges_from_declaration_order(declaration: Document, order: Docum
 			"cost_calc_notes",
 			"use_tariff_in_revenue",
 		"use_tariff_in_cost",
+		"cost_internal",
 		"revenue_tariff",
 		"cost_tariff",
 		"bill_to",
@@ -1920,7 +1922,7 @@ def _populate_charges_from_sales_quote(declaration: Document, sales_quote: Docum
 				'cost_quantity', 'cost_uom', 'cost_currency', 'unit_cost', 'cost_unit_type',
 				'cost_minimum_quantity', 'cost_minimum_charge', 'cost_maximum_charge',
 				'cost_base_amount', 'estimated_cost', 'revenue_calc_notes', 'cost_calc_notes',
-				'use_tariff_in_revenue', 'use_tariff_in_cost', 'tariff',
+				'use_tariff_in_revenue', 'use_tariff_in_cost', 'cost_internal', 'tariff',
 				'revenue_tariff', 'cost_tariff', 'bill_to', 'pay_to',
 				'bill_to_exchange_rate', 'pay_to_exchange_rate'
 			]
@@ -2085,22 +2087,11 @@ def create_sales_invoice(declaration_name: str) -> Dict[str, Any]:
 
 @frappe.whitelist()
 def post_standard_costs(docname):
-	"""Post standard costs for Declaration charges. No-op if charges do not support standard costs."""
-	from logistics.utils.menu_permission import assert_perm
+	"""Post internal tariff standard costs for Declaration charges."""
+	from logistics.job_management.standard_cost_posting import post_internal_tariff_standard_costs
 
 	declaration = frappe.get_doc("Declaration", docname)
-	assert_perm("Declaration", "write", doc=declaration)
-	assert_perm("Journal Entry", "create")
-	posted = 0
-	for ch in (declaration.charges or []):
-		if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(ch, "standard_cost_posted", False):
-			if frappe.get_meta(ch.doctype).get_field("standard_cost_posted"):
-				ch.standard_cost_posted = 1
-				ch.standard_cost_posted_at = frappe.utils.now()
-				posted += 1
-	if posted > 0:
-		declaration.save()
-	return {"message": _("Posted {0} standard cost(s).").format(posted) if posted else _("No standard costs to post.")}
+	return post_internal_tariff_standard_costs(declaration)
 
 
 @frappe.whitelist()

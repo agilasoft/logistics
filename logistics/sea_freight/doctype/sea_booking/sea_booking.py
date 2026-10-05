@@ -1179,7 +1179,7 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 				"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
 				"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge",
 				"cost_maximum_charge", "cost_base_amount", "cost_uom", "estimated_cost",
-				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
+				"use_tariff_in_revenue", "use_tariff_in_cost", "cost_internal", "tariff", "revenue_tariff", "cost_tariff",
 				"bill_to_exchange_rate",
 				"pay_to_exchange_rate",
 				"bill_to_exchange_rate_source",
@@ -1297,7 +1297,7 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 				"cost_calculation_method", "unit_cost", "cost_unit_type", "cost_currency",
 				"cost_quantity", "cost_minimum_quantity", "cost_minimum_charge",
 				"cost_maximum_charge", "cost_base_amount", "cost_uom", "estimated_cost",
-				"use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
+				"use_tariff_in_revenue", "use_tariff_in_cost", "cost_internal", "tariff", "revenue_tariff", "cost_tariff",
 				"bill_to_exchange_rate",
 				"pay_to_exchange_rate",
 				"bill_to_exchange_rate_source",
@@ -1774,6 +1774,8 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 				charge_data["use_tariff_in_revenue"] = getattr(sqsf_record, "use_tariff_in_revenue", False)
 			if hasattr(sqsf_record, "use_tariff_in_cost"):
 				charge_data["use_tariff_in_cost"] = getattr(sqsf_record, "use_tariff_in_cost", False)
+			if hasattr(sqsf_record, "cost_internal"):
+				charge_data["cost_internal"] = getattr(sqsf_record, "cost_internal", False)
 			if hasattr(sqsf_record, "tariff") and sqsf_record.tariff:
 				charge_data["tariff"] = sqsf_record.tariff
 			if hasattr(sqsf_record, "revenue_tariff") and sqsf_record.revenue_tariff:
@@ -2342,6 +2344,8 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 						new_charge_row.estimated_cost = charge.estimated_cost
 					if hasattr(charge, 'use_tariff_in_cost'):
 						new_charge_row.use_tariff_in_cost = charge.use_tariff_in_cost
+					if hasattr(charge, 'cost_internal'):
+						new_charge_row.cost_internal = charge.cost_internal
 					if hasattr(charge, 'cost_tariff'):
 						new_charge_row.cost_tariff = charge.cost_tariff
 					
@@ -2987,6 +2991,7 @@ def populate_charges_from_sales_quote(
 			"estimated_cost",
 			"use_tariff_in_revenue",
 			"use_tariff_in_cost",
+			"cost_internal",
 			"tariff",
 			"revenue_tariff",
 			"cost_tariff",

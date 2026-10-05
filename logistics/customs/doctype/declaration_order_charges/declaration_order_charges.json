@@ -36,6 +36,7 @@
   "pay_to_exchange_rate",
   "estimated_cost",
   "use_tariff_in_cost",
+  "cost_internal",
   "cost_tariff",
   "section_break_revenue_cost",
   "revenue_column",
@@ -317,6 +318,12 @@
    "fieldname": "use_tariff_in_cost",
    "fieldtype": "Check",
    "label": "Use Tariff in Cost"
+  },
+  {
+   "default": "0",
+   "fieldname": "cost_internal",
+   "fieldtype": "Check",
+   "label": "Internal"
   },
   {
    "depends_on": "eval:doc.use_tariff_in_cost",
