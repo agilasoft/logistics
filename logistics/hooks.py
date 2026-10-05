@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 from frappe import append_hook
 
 from logistics.utils.credit_management import merge_credit_hooks
+from logistics.utils.invoice_dispute import merge_invoice_dispute_hooks
 
 # App dependencies
 app_dependencies = ["erpnext"]
@@ -374,6 +375,7 @@ doctype_js = {
 	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
 	"Purchase Invoice": "logistics/public/js/purchase_invoice_container_deposit.js",
 	"Credit Hold Lift Request": "logistics/logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
+	"Dispute": "logistics/logistics/doctype/dispute/dispute.js",
 	"Cash Advance Request": "logistics/cash_advance/doctype/cash_advance_request/cash_advance_request.js",
 	"Cash Advance Liquidation": "logistics/cash_advance/doctype/cash_advance_liquidation/cash_advance_liquidation.js",
 	"Cash Advance Settings": "logistics/cash_advance/doctype/cash_advance_settings/cash_advance_settings.js",
@@ -1002,6 +1004,7 @@ for _event, _handler in _TRANSPORT_JOB_RECEIPT_HANDLERS:
 		doc_events["Transport Job"][_event] = [_existing, _handler]
 
 merge_credit_hooks(doc_events)
+merge_invoice_dispute_hooks(doc_events)
 
 # Scheduled Tasks
 # ---------------
