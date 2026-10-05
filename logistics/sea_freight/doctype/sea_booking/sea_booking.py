@@ -2462,16 +2462,10 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 						"ata": leg.ata
 					})
 
-			# Copy milestone_template if it exists
+			# Copy milestone_template if it exists.
+			# Sea Booking milestone rows stay on the booking. The shipment timeline reads them live.
 			if hasattr(self, 'milestone_template') and self.milestone_template:
 				sea_shipment.milestone_template = self.milestone_template
-			
-			# Copy milestones if they exist (from Sea Booking Milestone to Sea Shipment Milestone)
-			if hasattr(self, 'milestones') and self.milestones:
-				from logistics.sea_freight.doctype.sea_shipment.sea_shipment import booking_milestone_row_values
-
-				for milestone in self.milestones:
-					sea_shipment.append("milestones", booking_milestone_row_values(milestone))
 			
 			# Copy document_list_template and documents (Job Document child table) from Sea Booking to Sea Shipment
 			if hasattr(self, 'document_list_template') and self.document_list_template:

@@ -33,22 +33,35 @@ from logistics.invoice_integration.billing_currency import (
 )
 
 
-def ensure_sales_invoice_name_for_server_insert(si) -> None:
+def ensure_invoice_name_for_server_insert(doc) -> None:
     """
-    Sales Invoice may use autoname 'prompt', which requires a name before insert.
-    When creating from the server, derive the name from naming_series (including
-    Invoice Type / DocType default) or fall back to a hash id if no series exists.
+    Some invoices use autoname 'prompt' ("Set by user"), which throws
+    "Please set the document name" unless a name exists before insert.
+
+    Server-side creation cannot ask for a name. Prefer a matching Document
+    Naming Rule, then the default naming series, then a hash id.
     """
-    if getattr(si, "name", None):
+    if getattr(doc, "name", None):
         return
-    meta = frappe.get_meta("Sales Invoice")
+    doctype = doc.doctype
+    meta = frappe.get_meta(doctype)
     autoname = (meta.autoname or "").lower()
     if not autoname.startswith("prompt"):
         return
-    if si.naming_series or get_default_naming_series("Sales Invoice"):
-        set_name_by_naming_series(si)
+    from frappe.model.naming import set_naming_from_document_naming_rule
+
+    set_naming_from_document_naming_rule(doc)
+    if doc.name:
+        return
+    if doc.get("naming_series") or get_default_naming_series(doctype):
+        set_name_by_naming_series(doc)
     else:
-        si.name = make_autoname("hash", "Sales Invoice")
+        doc.name = make_autoname("hash", doctype)
+
+
+def ensure_sales_invoice_name_for_server_insert(si) -> None:
+    """Name a Sales Invoice created on the server when autoname is prompt."""
+    ensure_invoice_name_for_server_insert(si)
 
 
 def job_dimension_link_field_writable(field) -> bool:

@@ -3,8 +3,7 @@
 
 Static link_filters on bill_to (Customer.disabled) trigger a permlevel-0 field
 permission check (Customer.0) for roles that can edit jobs but cannot read base
-Customer fields. Bill To filtering is handled by charge_bill_to.js set_query and
-get_eligible_bill_to_customers on the server instead.
+Customer fields. Leave bill_to without link_filters.
 """
 
 import frappe

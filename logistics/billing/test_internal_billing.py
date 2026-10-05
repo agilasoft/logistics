@@ -18,7 +18,6 @@ from logistics.billing.internal_billing import (
     _internal_billing_jv_user_remark,
     classify_linked_posting_actions,
     create_internal_billing_journal_entries_for_quote,
-    non_cost_bill_tos,
 )
 from logistics.utils.item_accounts import (
     get_expense_account_for_item,
@@ -758,79 +757,166 @@ class TestBookingOperationalMainMismatch(TestItemAccounts):
 
 
 class TestLinkedPostingActions(UnitTestCase):
-    def test_non_cost_bill_tos_skip_cost_and_duplicates(self):
-        doc = frappe._dict(
-            charges=[
-                frappe._dict(charge_type="Revenue", bill_to="ATN"),
-                frappe._dict(charge_type="Cost", bill_to="Brand X"),
-                frappe._dict(charge_type="Margin", bill_to="ATN"),
-                frappe._dict(charge_type="Disbursement", bill_to="Harbor"),
-                frappe._dict(charge_type="Revenue", bill_to=""),
-            ]
-        )
-        self.assertEqual(non_cost_bill_tos(doc), ["ATN", "Harbor"])
+    def _flags(self, doc, customers=None, suppliers=None, main_company=None):
+        return classify_linked_posting_actions(doc, customers or {}, suppliers or {}, main_company)
 
-    def test_main_service_hides_both_buttons(self):
-        doc = frappe._dict(service_role="Main", company="Op Co", charges=[])
-        flags = classify_linked_posting_actions(
-            doc,
-            {"ATN": {"represents_company": "Op Co", "is_internal_customer": 1}},
-        )
-        self.assertEqual(flags, {"internal_billing": False, "intercompany": False})
-
-    def test_same_company_shows_internal_billing(self):
-        doc = frappe._dict(
-            service_role="Linked",
-            company="Op Co",
-            charges=[frappe._dict(charge_type="Revenue", bill_to="ATN")],
-        )
-        flags = classify_linked_posting_actions(
-            doc,
-            {"ATN": {"represents_company": "Op Co", "is_internal_customer": 1}},
-        )
-        self.assertTrue(flags["internal_billing"])
-        self.assertFalse(flags["intercompany"])
-
-    def test_external_different_company_shows_intercompany(self):
-        doc = frappe._dict(
-            service_role="Linked",
-            company="Op Co",
-            charges=[frappe._dict(charge_type="Revenue", bill_to="Harbor")],
-        )
-        flags = classify_linked_posting_actions(
-            doc,
-            {"Harbor": {"represents_company": "", "is_internal_customer": 0}},
-        )
-        self.assertFalse(flags["internal_billing"])
-        self.assertTrue(flags["intercompany"])
-
-    def test_internal_customer_of_another_company_shows_neither(self):
-        doc = frappe._dict(
-            service_role="Linked",
-            company="Op Co",
-            charges=[frappe._dict(charge_type="Revenue", bill_to="Main Internal")],
-        )
-        flags = classify_linked_posting_actions(
-            doc,
-            {"Main Internal": {"represents_company": "Main Co", "is_internal_customer": 1}},
-        )
-        self.assertEqual(flags, {"internal_billing": False, "intercompany": False})
-
-    def test_mixed_bill_to_shows_both(self):
-        doc = frappe._dict(
-            service_role="Linked",
-            company="Op Co",
-            charges=[
-                frappe._dict(charge_type="Revenue", bill_to="ATN"),
-                frappe._dict(charge_type="Margin", bill_to="Harbor"),
-            ],
-        )
-        flags = classify_linked_posting_actions(
-            doc,
+    def _assert_buttons(self, flags, sales_invoice=False, purchase_invoice=False, intercompany=False, internal_billing=False):
+        self.assertEqual(
+            flags,
             {
-                "ATN": {"represents_company": "Op Co", "is_internal_customer": 1},
-                "Harbor": {"represents_company": None, "is_internal_customer": 0},
+                "sales_invoice": sales_invoice,
+                "purchase_invoice": purchase_invoice,
+                "intercompany": intercompany,
+                "internal_billing": internal_billing,
             },
         )
-        self.assertTrue(flags["internal_billing"])
-        self.assertTrue(flags["intercompany"])
+
+    def test_standalone_keeps_customer_and_supplier_invoices(self):
+        doc = frappe._dict(service_role="Standalone", company="Op Co", charges=[])
+        self._assert_buttons(self._flags(doc), sales_invoice=True, purchase_invoice=True)
+
+    def test_main_linked_customer_shows_intercompany(self):
+        doc = frappe._dict(
+            service_role="Main",
+            company="Main Co",
+            charges=[frappe._dict(charge_type="Revenue", bill_to="Sister")],
+        )
+        flags = self._flags(
+            doc,
+            {"Sister": {"represents_company": "Op Co", "is_internal_customer": 1}},
+        )
+        self._assert_buttons(flags, intercompany=True)
+
+    def test_main_external_customer_shows_sales_invoice(self):
+        doc = frappe._dict(
+            service_role="Main",
+            company="Main Co",
+            charges=[frappe._dict(charge_type="Revenue", bill_to="Harbor")],
+        )
+        flags = self._flags(doc, {"Harbor": {"represents_company": "", "is_internal_customer": 0}})
+        self._assert_buttons(flags, sales_invoice=True)
+
+    def test_main_outside_supplier_shows_purchase_invoice(self):
+        doc = frappe._dict(
+            service_role="Main",
+            company="Main Co",
+            charges=[frappe._dict(charge_type="Cost", pay_to="Trucker")],
+        )
+        flags = self._flags(doc, suppliers={"Trucker": {"represents_company": "", "is_internal_supplier": 0}})
+        self._assert_buttons(flags, purchase_invoice=True)
+
+    def test_main_internal_supplier_of_another_company_shows_intercompany(self):
+        doc = frappe._dict(
+            service_role="Main",
+            company="Main Co",
+            charges=[frappe._dict(charge_type="Cost", pay_to="Op Supplier")],
+        )
+        flags = self._flags(
+            doc,
+            suppliers={"Op Supplier": {"represents_company": "Op Co", "is_internal_supplier": 1}},
+        )
+        self._assert_buttons(flags, intercompany=True)
+
+    def test_main_supplier_of_this_company_shows_internal_billing(self):
+        doc = frappe._dict(
+            service_role="Main",
+            company="Main Co",
+            charges=[frappe._dict(charge_type="Cost", pay_to="Self")],
+        )
+        flags = self._flags(
+            doc,
+            suppliers={"Self": {"represents_company": "Main Co", "is_internal_supplier": 1}},
+        )
+        self._assert_buttons(flags, internal_billing=True)
+
+    def test_main_external_customer_and_outside_supplier_shows_both_invoices(self):
+        doc = frappe._dict(
+            service_role="Main",
+            company="Main Co",
+            charges=[
+                frappe._dict(charge_type="Revenue", bill_to="Harbor"),
+                frappe._dict(charge_type="Cost", pay_to="Trucker"),
+            ],
+        )
+        flags = self._flags(
+            doc,
+            {"Harbor": {"represents_company": None, "is_internal_customer": 0}},
+            {"Trucker": {"represents_company": "", "is_internal_supplier": 0}},
+        )
+        self._assert_buttons(flags, sales_invoice=True, purchase_invoice=True)
+
+    def test_linked_outside_supplier_shows_only_purchase_invoice(self):
+        doc = frappe._dict(
+            service_role="Linked",
+            company="Op Co",
+            charges=[frappe._dict(charge_type="Margin", bill_to="Main Cust", pay_to="Trucker")],
+        )
+        flags = self._flags(
+            doc,
+            {"Main Cust": {"represents_company": "Main Co", "is_internal_customer": 1}},
+            {"Trucker": {"represents_company": "", "is_internal_supplier": 0}},
+            main_company="Main Co",
+        )
+        self._assert_buttons(flags, purchase_invoice=True)
+
+    def test_linked_group_companies_differ_shows_intercompany(self):
+        doc = frappe._dict(
+            service_role="Linked",
+            company="Op Co",
+            charges=[frappe._dict(charge_type="Margin", bill_to="Main Cust", pay_to="Op Supplier")],
+        )
+        flags = self._flags(
+            doc,
+            {"Main Cust": {"represents_company": "Main Co", "is_internal_customer": 1}},
+            {"Op Supplier": {"represents_company": "Op Co", "is_internal_supplier": 1}},
+            main_company="Main Co",
+        )
+        self._assert_buttons(flags, intercompany=True)
+
+    def test_linked_group_companies_same_shows_internal_billing(self):
+        doc = frappe._dict(
+            service_role="Linked",
+            company="Main Co",
+            charges=[frappe._dict(charge_type="Margin", bill_to="Main Cust", pay_to="Self")],
+        )
+        flags = self._flags(
+            doc,
+            {"Main Cust": {"represents_company": "Main Co", "is_internal_customer": 1}},
+            {"Self": {"represents_company": "Main Co", "is_internal_supplier": 1}},
+            main_company="Main Co",
+        )
+        self._assert_buttons(flags, internal_billing=True)
+
+    def test_linked_revenue_with_empty_pay_to_follows_company_comparison(self):
+        doc = frappe._dict(
+            service_role="Linked",
+            company="Op Co",
+            charges=[frappe._dict(charge_type="Revenue", bill_to="Main Cust", pay_to="")],
+        )
+        flags = self._flags(
+            doc,
+            {"Main Cust": {"represents_company": "Main Co", "is_internal_customer": 1}},
+            main_company="Main Co",
+        )
+        self._assert_buttons(flags, intercompany=True)
+
+    def test_linked_without_main_company_hides_posting_buttons(self):
+        doc = frappe._dict(
+            service_role="Linked",
+            company="Op Co",
+            charges=[frappe._dict(charge_type="Revenue", bill_to="Main Cust")],
+        )
+        flags = self._flags(
+            doc,
+            {"Main Cust": {"represents_company": "Main Co", "is_internal_customer": 1}},
+        )
+        self._assert_buttons(flags)
+
+    def test_cost_bill_to_does_not_show_sales_invoice(self):
+        doc = frappe._dict(
+            service_role="Main",
+            company="Main Co",
+            charges=[frappe._dict(charge_type="Cost", bill_to="Harbor", pay_to="")],
+        )
+        flags = self._flags(doc, {"Harbor": {"represents_company": "", "is_internal_customer": 0}})
+        self._assert_buttons(flags)

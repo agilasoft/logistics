@@ -1,7 +1,7 @@
 // Copyright (c) 2026, www.agilasoft.com and contributors
 // For license information, please see license.txt
 //
-// Internal Billing and Intercompany Transactions on Linked services.
+// Sales Invoice, Purchase Invoice, Internal Billing, and Intercompany Transactions.
 
 frappe.provide("logistics.posting");
 
@@ -81,6 +81,44 @@ function _show_intercompany_dialog(message) {
 	});
 }
 
+function _open_sales_invoice(frm) {
+	function openDialog() {
+		if (typeof show_create_sales_invoice_dialog === "function") {
+			show_create_sales_invoice_dialog(frm);
+			return;
+		}
+		frappe.msgprint({
+			title: __("Error"),
+			message: __("Sales Invoice dialog is not loaded. Please refresh the page."),
+			indicator: "red",
+		});
+	}
+	if (typeof show_create_sales_invoice_dialog === "function") {
+		openDialog();
+	} else {
+		frappe.require("/assets/logistics/js/sales_invoice_dialog.js", openDialog);
+	}
+}
+
+function _open_purchase_invoice(frm) {
+	function openDialog() {
+		if (typeof show_create_purchase_invoice_dialog === "function") {
+			show_create_purchase_invoice_dialog(frm);
+			return;
+		}
+		frappe.msgprint({
+			title: __("Error"),
+			message: __("Purchase Invoice dialog is not loaded. Please refresh the page."),
+			indicator: "red",
+		});
+	}
+	if (typeof show_create_purchase_invoice_dialog === "function") {
+		openDialog();
+	} else {
+		frappe.require("/assets/logistics/js/purchase_invoice_dialog.js", openDialog);
+	}
+}
+
 function _run_internal_billing(frm) {
 	frappe.call({
 		method: "logistics.billing.internal_billing.create_internal_billing_for_quote",
@@ -122,11 +160,18 @@ function _run_intercompany(frm) {
 }
 
 /**
- * Add Internal Billing and Intercompany Transactions when this Linked service qualifies.
- * Safe to call from a form refresh. Buttons are added after the server returns the flags.
+ * Add Sales Invoice, Purchase Invoice, Internal Billing, and Intercompany Transactions
+ * from the charge-party flags. Safe to call from a form refresh.
  */
 logistics.posting.add_linked_buttons = function (frm) {
-	if (!frm || !frm.doc || !frm.doc.name || frm.doc.__islocal || !frm.doc.sales_quote) {
+	if (
+		!frm ||
+		!frm.doc ||
+		!frm.doc.name ||
+		frm.doc.__islocal ||
+		frm.doc.docstatus === 2 ||
+		frm.doc.docstatus === "2"
+	) {
 		return;
 	}
 	var docname = frm.doc.name;
@@ -141,7 +186,29 @@ logistics.posting.add_linked_buttons = function (frm) {
 				return;
 			}
 			var flags = r.message || {};
-			if (flags.intercompany) {
+			if (flags.sales_invoice) {
+				_posting_add(frm, {
+					label: __("Sales Invoice"),
+					group: __("Create"),
+					doctype: "Sales Invoice",
+					ptype: "create",
+					action: function () {
+						_open_sales_invoice(frm);
+					},
+				});
+			}
+			if (flags.purchase_invoice) {
+				_posting_add(frm, {
+					label: __("Purchase Invoice"),
+					group: __("Create"),
+					doctype: "Purchase Invoice",
+					ptype: "create",
+					action: function () {
+						_open_purchase_invoice(frm);
+					},
+				});
+			}
+			if (flags.intercompany && frm.doc.sales_quote) {
 				_posting_add(frm, {
 					label: __("Intercompany Transactions"),
 					group: __("Post"),
@@ -155,7 +222,7 @@ logistics.posting.add_linked_buttons = function (frm) {
 					},
 				});
 			}
-			if (flags.internal_billing) {
+			if (flags.internal_billing && frm.doc.sales_quote) {
 				_posting_add(frm, {
 					label: __("Internal Billing"),
 					group: __("Post"),

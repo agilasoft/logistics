@@ -39,6 +39,34 @@ class TestTransportJobChargeSubmitGate(FrappeTestCase):
 		job = frappe.get_doc({"doctype": "Transport Job", "is_internal_job": 1})
 		assert_destination_service_charges_on_submit_unless_internal_job(job)
 
+	def test_before_submit_sets_submitted_status_without_commit(self):
+		"""Submit writes status on the document and does not commit mid-request."""
+		import traceback
+
+		job = frappe.get_doc({
+			"doctype": "Transport Job",
+			"is_internal_job": 1,
+			"status": "Draft",
+		})
+		commits = []
+		original_commit = frappe.db.commit
+
+		def spy(*args, **kwargs):
+			stack = "".join(traceback.format_stack())
+			if "transport/doctype/transport_job/transport_job.py" in stack:
+				commits.append(stack)
+			return original_commit(*args, **kwargs)
+
+		frappe.db.commit = spy
+		try:
+			job.before_submit()
+		finally:
+			frappe.db.commit = original_commit
+
+		self.assertEqual(job.status, "Submitted")
+		self.assertTrue(job._submitting)
+		self.assertEqual(commits, [])
+
 
 class TestTransportJob(FrappeTestCase):
 	"""Test Transport Job status workflow"""
@@ -198,7 +226,45 @@ class TestTransportJob(FrappeTestCase):
 		# Verify job status changed to Completed
 		job.reload()
 		self.assertEqual(job.status, "Completed", "Job should be in Completed status when all legs are Completed")
-	
+
+	def test_submit_leaves_submitted_status_without_controller_commit(self):
+		"""Submit persists Submitted and does not commit from the job controller."""
+		import traceback
+
+		job = frappe.new_doc("Transport Job")
+		job.customer = "Test Customer"
+		job.company = "Test Company"
+		job.transport_job_type = "Non-Container"
+		job.vehicle_type = "Test Truck"
+		job.booking_date = today()
+		job.insert(ignore_permissions=True)
+		job.append("charges", {"service_type": "Transport"})
+		job.save(ignore_permissions=True)
+
+		commits = []
+		original_commit = frappe.db.commit
+
+		def spy(*args, **kwargs):
+			stack = "".join(traceback.format_stack())
+			if "transport/doctype/transport_job/transport_job.py" in stack:
+				commits.append(stack)
+			return original_commit(*args, **kwargs)
+
+		frappe.db.commit = spy
+		try:
+			job.submit()
+		finally:
+			frappe.db.commit = original_commit
+
+		job.reload()
+		self.assertEqual(job.docstatus, 1)
+		self.assertEqual(job.status, "Submitted")
+		self.assertEqual(
+			frappe.db.get_value("Transport Job", job.name, "status"),
+			"Submitted",
+		)
+		self.assertEqual(commits, [])
+
 	def test_job_status_with_multiple_legs(self):
 		"""
 		Test job status workflow with multiple legs:
@@ -294,7 +360,7 @@ class TestTransportJob(FrappeTestCase):
 
 
 class TestTransportJobMilestones(FrappeTestCase):
-	"""Transport Order milestones copy onto Transport Job like Sea Booking → Sea Shipment."""
+	"""Transport Order milestones stay on the order. The timeline reads them live."""
 
 	def setUp(self):
 		from logistics.air_freight.tests.test_helpers import (
@@ -500,43 +566,23 @@ class TestTransportJobMilestones(FrappeTestCase):
 		ls.insert(ignore_permissions=True)
 		return ls
 
-	def test_order_milestone_row_values_marks_from_booking(self):
-		from logistics.transport.doctype.transport_job.transport_job import order_milestone_row_values
+	def _timeline_milestone_names(self, job):
+		from logistics.document_management.api import get_milestone_display_rows_and_editor_doctype
 
-		src = frappe._dict(
-			{
-				"milestone": "MS-A",
-				"status": "Planned",
-				"planned_start": None,
-				"planned_end": "2026-10-01 12:00:00",
-				"actual_start": None,
-				"actual_end": None,
-				"source": "Fetched",
-				"fetched_at": "2026-09-01 08:00:00",
-				"automation_planned_date_basis": "Booking Date",
-				"automation_update_trigger_type": "Date Based",
-			}
-		)
-		values = order_milestone_row_values(src)
-		self.assertEqual(values["from_booking"], 1)
-		self.assertEqual(values["milestone"], "MS-A")
-		self.assertEqual(values["planned_end"], "2026-10-01 12:00:00")
-		self.assertEqual(values["automation_planned_date_basis"], "Booking Date")
-		self.assertEqual(values["automation_update_trigger_type"], "Date Based")
+		rows, editor_dt = get_milestone_display_rows_and_editor_doctype(job)
+		self.assertEqual(editor_dt, "Transport Job Milestone")
+		return [row["milestone"] for row in rows]
 
-	def test_transport_job_populates_order_milestones_as_from_booking(self):
+	def test_transport_job_does_not_store_order_milestones(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_order = self._ensure_logistics_milestone(f"TST-TO-MS-{sfx}")
 		order = self._order_with_milestones([ms_order])
 		job = self._job_for_order(order)
 
-		self.assertEqual(len(job.milestones), 1)
-		self.assertEqual(job.milestones[0].milestone, ms_order)
-		self.assertEqual(cint(job.milestones[0].from_booking), 1)
-		self.assertEqual(str(job.milestones[0].planned_end), "2026-10-01 12:00:00")
-		self.assertEqual(job.milestones[0].automation_planned_date_basis, "Booking Date")
+		self.assertFalse(any(row.milestone == ms_order for row in job.milestones))
+		self.assertEqual(self._timeline_milestone_names(job), [ms_order])
 
-	def test_transport_job_allows_extra_milestone_without_flagging_from_booking(self):
+	def test_transport_job_keeps_manual_milestone_and_shows_order_on_timeline(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_order = self._ensure_logistics_milestone(f"TST-TO-MS-{sfx}")
 		ms_extra = self._ensure_logistics_milestone(f"TST-TJ-MS-{sfx}")
@@ -547,19 +593,32 @@ class TestTransportJobMilestones(FrappeTestCase):
 		job.flags.ignore_documents_milestones_populate = True
 		job.save()
 
-		by_ms = {row.milestone: row for row in job.milestones}
-		self.assertIn(ms_order, by_ms)
-		self.assertIn(ms_extra, by_ms)
-		self.assertEqual(cint(by_ms[ms_order].from_booking), 1)
-		self.assertEqual(cint(by_ms[ms_extra].from_booking), 0)
+		self.assertEqual([row.milestone for row in job.milestones], [ms_extra])
+		self.assertEqual(cint(job.milestones[0].from_booking), 0)
+		self.assertEqual(self._timeline_milestone_names(job), [ms_order, ms_extra])
 
-	def test_transport_job_adds_missing_order_milestone_on_later_save(self):
+	def test_transport_job_timeline_omits_grid_row_that_duplicates_order_milestone(self):
+		sfx = frappe.generate_hash(length=6)
+		ms_order = self._ensure_logistics_milestone(f"TST-TO-MS-{sfx}")
+		ms_extra = self._ensure_logistics_milestone(f"TST-TJ-MS-{sfx}")
+		order = self._order_with_milestones([ms_order])
+		job = self._job_for_order(order)
+
+		job.append("milestones", {"milestone": ms_order, "status": "Planned", "source": "Manual"})
+		job.append("milestones", {"milestone": ms_extra, "status": "Planned", "source": "Manual"})
+		job.flags.ignore_documents_milestones_populate = True
+		job.save()
+
+		self.assertEqual([row.milestone for row in job.milestones], [ms_order, ms_extra])
+		self.assertEqual(self._timeline_milestone_names(job), [ms_order, ms_extra])
+
+	def test_transport_job_does_not_add_later_order_milestone_to_grid(self):
 		sfx = frappe.generate_hash(length=6)
 		ms1 = self._ensure_logistics_milestone(f"TST-TO-MS1-{sfx}")
 		ms2 = self._ensure_logistics_milestone(f"TST-TO-MS2-{sfx}")
 		order = self._order_with_milestones([ms1])
 		job = self._job_for_order(order)
-		self.assertEqual([row.milestone for row in job.milestones], [ms1])
+		self.assertFalse(any(row.milestone == ms1 for row in job.milestones))
 
 		frappe.get_doc(
 			{
@@ -567,6 +626,7 @@ class TestTransportJobMilestones(FrappeTestCase):
 				"parent": order.name,
 				"parenttype": "Transport Order",
 				"parentfield": "milestones",
+				"idx": 2,
 				"milestone": ms2,
 				"status": "Planned",
 				"planned_end": "2026-11-01 09:00:00",
@@ -578,30 +638,65 @@ class TestTransportJobMilestones(FrappeTestCase):
 		job.flags.ignore_documents_milestones_populate = True
 		job.save()
 
-		names = {row.milestone for row in job.milestones}
-		self.assertEqual(names, {ms1, ms2})
-		self.assertTrue(all(cint(row.from_booking) for row in job.milestones))
+		self.assertFalse(any(row.milestone in {ms1, ms2} for row in job.milestones))
+		self.assertEqual(self._timeline_milestone_names(job), [ms1, ms2])
 
-	def test_transport_job_rejects_edit_and_delete_of_order_milestones(self):
+	def test_transport_job_drops_existing_order_milestone_on_save(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_order = self._ensure_logistics_milestone(f"TST-TO-MS-{sfx}")
+		ms_extra = self._ensure_logistics_milestone(f"TST-TJ-MS-{sfx}")
 		order = self._order_with_milestones([ms_order])
 		job = self._job_for_order(order)
-
-		job.milestones[0].planned_end = "2026-12-31 00:00:00"
+		job.append(
+			"milestones",
+			{
+				"milestone": ms_order,
+				"status": "Planned",
+				"from_booking": 1,
+				"planned_end": "2026-10-01 12:00:00",
+				"source": "Fetched",
+			},
+		)
+		job.append("milestones", {"milestone": ms_extra, "status": "Planned", "source": "Manual"})
 		job.flags.ignore_documents_milestones_populate = True
-		with self.assertRaises(frappe.ValidationError) as ctx:
-			job.save()
-		self.assertIn("cannot be edited", str(ctx.exception))
+		job.save()
+
+		self.assertEqual([row.milestone for row in job.milestones], [ms_extra])
+		self.assertEqual(self._timeline_milestone_names(job), [ms_order, ms_extra])
+
+	def test_transport_job_template_skips_order_milestone_codes(self):
+		from logistics.document_management.api import populate_milestones_from_template
+
+		sfx = frappe.generate_hash(length=6)
+		ms_order = self._ensure_logistics_milestone(f"TST-TO-TPL-{sfx}")
+		ms_job = self._ensure_logistics_milestone(f"TST-TJ-TPL-{sfx}")
+		order = self._order_with_milestones([ms_order])
+		template = frappe.get_doc(
+			{
+				"doctype": "Milestone Template",
+				"template_name": f"TST Transport Job {sfx}",
+				"product_type": "Transport",
+				"applies_to": "Shipment/Job",
+				"is_default": 0,
+				"is_active": 1,
+				"items": [
+					{"milestone": ms_order},
+					{"milestone": ms_job},
+				],
+			}
+		)
+		template.insert(ignore_permissions=True)
+
+		job = self._job_for_order(order)
+		job.milestone_template = template.name
+		job.flags.ignore_documents_milestones_populate = True
+		populate_milestones_from_template("Transport Job", job.name, doc=job)
 
 		job.reload()
-		job.remove(job.milestones[0])
-		job.flags.ignore_documents_milestones_populate = True
-		with self.assertRaises(frappe.ValidationError) as ctx:
-			job.save()
-		self.assertIn("cannot be deleted", str(ctx.exception))
+		self.assertEqual([row.milestone for row in job.milestones], [ms_job])
+		self.assertEqual(self._timeline_milestone_names(job), [ms_order, ms_job])
 
-	def test_transport_job_copies_service_milestones_from_order_and_job(self):
+	def test_transport_job_does_not_copy_service_milestones_from_order_and_job(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_svc = self._ensure_logistics_milestone(f"TST-SVC-MS-{sfx}")
 		ms_extra = self._ensure_logistics_milestone(f"TST-TJ-SVC-{sfx}")
@@ -621,19 +716,15 @@ class TestTransportJobMilestones(FrappeTestCase):
 		job.flags.ignore_documents_milestones_populate = True
 		job.save()
 
-		service_rows = [row for row in job.milestones if cint(row.from_service)]
-		self.assertEqual(len(service_rows), 2)
-		sources = {(row.service_source_doctype, row.service_source_name) for row in service_rows}
-		self.assertEqual(sources, {("Sea Booking", booking.name), ("Sea Shipment", shipment.name)})
-		self.assertTrue(all(row.milestone == ms_svc for row in service_rows))
-		self.assertTrue(all(cint(row.from_booking) == 0 for row in service_rows))
-
+		self.assertFalse(any(row.milestone == ms_svc for row in job.milestones))
+		self.assertFalse(any(cint(row.from_service) for row in job.milestones))
 		extra = [row for row in job.milestones if row.milestone == ms_extra]
 		self.assertEqual(len(extra), 1)
 		self.assertEqual(cint(extra[0].from_service), 0)
 		self.assertEqual(cint(extra[0].from_booking), 0)
+		self.assertEqual(self._timeline_milestone_names(job), [ms_extra])
 
-	def test_transport_job_booking_and_service_milestones_coexist(self):
+	def test_transport_job_order_timeline_omits_service_milestones(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_order = self._ensure_logistics_milestone(f"TST-TO-CO-{sfx}")
 		ms_svc = self._ensure_logistics_milestone(f"TST-SVC-CO-{sfx}")
@@ -649,42 +740,31 @@ class TestTransportJobMilestones(FrappeTestCase):
 		job.flags.ignore_documents_milestones_populate = True
 		job.save()
 
-		by_ms = {row.milestone: row for row in job.milestones}
-		self.assertIn(ms_order, by_ms)
-		self.assertIn(ms_svc, by_ms)
-		self.assertEqual(cint(by_ms[ms_order].from_booking), 1)
-		self.assertEqual(cint(by_ms[ms_order].from_service), 0)
-		self.assertEqual(cint(by_ms[ms_svc].from_service), 1)
-		self.assertEqual(cint(by_ms[ms_svc].from_booking), 0)
-		self.assertEqual(by_ms[ms_svc].service_source_doctype, "Sea Booking")
-		self.assertEqual(by_ms[ms_svc].service_source_name, booking.name)
+		self.assertFalse(any(row.milestone in {ms_order, ms_svc} for row in job.milestones))
+		self.assertEqual(self._timeline_milestone_names(job), [ms_order])
 
-	def test_transport_job_rejects_edit_and_delete_of_service_milestones(self):
+	def test_transport_job_drops_service_milestones_on_save(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_svc = self._ensure_logistics_milestone(f"TST-SVC-ED-{sfx}")
-		booking = self._sea_booking_with_milestones([ms_svc])
+		ms_extra = self._ensure_logistics_milestone(f"TST-TJ-ED-{sfx}")
 		job = self._plain_job()
-		ls = self._linked_service_for_job(job)
-		record_linked_service_usage(
-			ls.name, booking.doctype, booking.name, usage_role=USAGE_ROLE_SATELLITE_JOB
+		job.append(
+			"milestones",
+			{
+				"milestone": ms_svc,
+				"status": "Planned",
+				"planned_end": "2026-12-31 00:00:00",
+				"source": "Fetched",
+				"from_service": 1,
+				"service_source_doctype": "Sea Booking",
+				"service_source_name": "SB-DROP",
+			},
 		)
-
-		job.reload()
+		job.append("milestones", {"milestone": ms_extra, "status": "Planned", "source": "Manual"})
 		job.flags.ignore_documents_milestones_populate = True
 		job.save()
-		self.assertEqual(len(job.milestones), 1)
-		self.assertEqual(cint(job.milestones[0].from_service), 1)
-
-		job.milestones[0].planned_end = "2026-12-31 00:00:00"
-		job.flags.ignore_documents_milestones_populate = True
-		with self.assertRaises(frappe.ValidationError) as ctx:
-			job.save()
-		self.assertIn("cannot be edited", str(ctx.exception))
 
 		job.reload()
-		job.remove(job.milestones[0])
-		job.flags.ignore_documents_milestones_populate = True
-		with self.assertRaises(frappe.ValidationError) as ctx:
-			job.save()
-		self.assertIn("cannot be deleted", str(ctx.exception))
+		self.assertEqual([row.milestone for row in job.milestones], [ms_extra])
+		self.assertEqual(cint(job.milestones[0].from_service), 0)
 

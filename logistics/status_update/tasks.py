@@ -189,6 +189,9 @@ def update_permit_statuses():
 				)
 		if updated:
 			frappe.db.commit()
+		from logistics.customs.permit_matching import notify_permit_expiry_alerts
+
+		notify_permit_expiry_alerts()
 	except Exception as e:
 		frappe.log_error(
 			f"Error in update_permit_statuses: {e}",

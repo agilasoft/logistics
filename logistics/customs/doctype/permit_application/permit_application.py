@@ -28,6 +28,7 @@ class PermitApplication(Document):
 		self.sync_status_from_permit_triggers()
 		self.apply_expired_status()
 		self._require_filing_data_after_draft()
+		self._validate_tags()
 
 	def _validate_permit_event_dates(self):
 		"""Approval / rejection dates cannot be in the future; rejection cannot precede approval."""
@@ -58,6 +59,36 @@ class PermitApplication(Document):
 			return
 		if not any(row.get("attachment") for row in (self.attachments or [])):
 			frappe.throw(_("At least one attachment is required to file a permit application."))
+
+	def _validate_tags(self):
+		"""Tags must be allowed by the Permit Type and point at a real record."""
+		from logistics.customs.permit_matching import ENTITY_KIND, PERMIT_TYPE_FLAG_BY_KIND
+
+		rows = self.get("tags") or []
+		if not rows:
+			return
+		if not self.permit_type:
+			frappe.throw(_("Set a Permit Type before tagging this application."))
+		permit_type = frappe.get_cached_doc("Permit Type", self.permit_type)
+		seen = set()
+		for row in rows:
+			entity_type = row.get("entity_type")
+			entity_name = row.get("entity_name")
+			if not entity_type or not entity_name:
+				frappe.throw(_("Each tag needs a type and a record."))
+			kind = ENTITY_KIND.get(entity_type)
+			flag = PERMIT_TYPE_FLAG_BY_KIND.get(kind)
+			if not flag or not permit_type.get(flag):
+				frappe.throw(
+					_("Permit Type {0} cannot be tagged to {1}.").format(self.permit_type, entity_type),
+					title=_("Tag Not Allowed"),
+				)
+			key = (entity_type, entity_name)
+			if key in seen:
+				frappe.throw(_("Duplicate tag {0} {1}.").format(entity_type, entity_name))
+			seen.add(key)
+			if not frappe.db.exists(entity_type, entity_name):
+				frappe.throw(_("{0} {1} does not exist.").format(entity_type, entity_name))
 
 	def _ensure_default_issuing_authority(self):
 		"""Default issuing authority from Permit Type if not set."""

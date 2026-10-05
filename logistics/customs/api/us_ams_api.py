@@ -2,8 +2,11 @@
 # For license information, please see license.txt
 
 """
-US AMS (Automated Manifest System) API Integration
-Stub implementation - returns mock responses
+US AMS (Automated Manifest System) API Integration.
+
+Filing actions do not write a mock status. They refuse unless Manifest Settings
+has a live CBP endpoint, and they still leave the document unchanged because
+this client does not call that endpoint yet.
 """
 
 import frappe
@@ -18,14 +21,9 @@ class USAMSAPI(BaseCustomsAPI):
 	def __init__(self, company: str = None):
 		super().__init__(company)
 		self.api_name = "US AMS"
-		self.endpoint = self._get_endpoint()
+		self.endpoint_field = "cbp_api_endpoint"
+		self.endpoint = self.configured_endpoint()
 		self.credentials = self._get_credentials()
-	
-	def _get_endpoint(self) -> str:
-		"""Get API endpoint from settings"""
-		if self.settings and hasattr(self.settings, 'cbp_api_endpoint') and self.settings.cbp_api_endpoint:
-			return self.settings.cbp_api_endpoint
-		return "https://api.cbp.gov/ams/v1"  # Mock endpoint
 	
 	def _get_credentials(self) -> Dict[str, str]:
 		"""Get API credentials from settings"""
@@ -58,18 +56,7 @@ class USAMSAPI(BaseCustomsAPI):
 					"message": _("Only Draft AMS can be submitted.")
 				}
 			
-			# API integration: configure Manifest Settings with CBP/AMS endpoint for production.
-			mock_response = self.get_mock_response("submit", success=True)
-			mock_response["ams_transaction_number"] = mock_response["transaction_number"]
-			
-			# Update document with response
-			ams_doc.status = mock_response["status"]
-			ams_doc.ams_transaction_number = mock_response["ams_transaction_number"]
-			ams_doc.submission_date = mock_response["submission_date"]
-			ams_doc.submission_time = mock_response["submission_time"]
-			ams_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
@@ -96,17 +83,7 @@ class USAMSAPI(BaseCustomsAPI):
 		try:
 			ams_doc = frappe.get_doc("US AMS", filing_doc)
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("status", success=True)
-			mock_response["status"] = ams_doc.status
-			mock_response["ams_transaction_number"] = ams_doc.ams_transaction_number
-			
-			# Update document if status changed
-			if mock_response.get("status") != ams_doc.status:
-				ams_doc.status = mock_response["status"]
-				ams_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
@@ -141,14 +118,7 @@ class USAMSAPI(BaseCustomsAPI):
 					"message": _("Submission type must be 'Update' for amendments.")
 				}
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("amend", success=True)
-			
-			# Update document
-			ams_doc.status = "Amended"
-			ams_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
@@ -183,16 +153,7 @@ class USAMSAPI(BaseCustomsAPI):
 					"message": _("Submission type must be 'Cancel' for cancellation.")
 				}
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("cancel", success=True)
-			
-			# Update document
-			ams_doc.status = "Cancelled"
-			if reason:
-				ams_doc.notes = f"Cancelled: {reason}"
-			ams_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {

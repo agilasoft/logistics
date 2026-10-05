@@ -484,6 +484,29 @@ function logistics_open_sales_quote_booking_dialog(frm) {
 	frappe.require("/assets/logistics/js/sales_quote_booking_dialog.js", _openDlg);
 }
 
+function logistics_show_sales_quote_permit_alerts(frm) {
+	if (!frm || frm.is_new() || !frm.doc.name || !frm.dashboard) {
+		return;
+	}
+	frappe.call({
+		method: "logistics.customs.permit_matching.get_permit_alerts_html",
+		args: { doctype: frm.doctype, docname: frm.doc.name },
+		callback(r) {
+			if (!frm.dashboard || !frm.dashboard.wrapper) {
+				return;
+			}
+			const $host = frm.dashboard.wrapper.find(".permit-entity-alerts");
+			$host.remove();
+			if (!r.message) {
+				return;
+			}
+			frm.dashboard.wrapper.prepend(
+				`<div class="permit-entity-alerts" style="margin-bottom: 8px;">${r.message}</div>`
+			);
+		},
+	});
+}
+
 frappe.ui.form.on("Sales Quote", {
 	_lock_naming_series(frm) {
 		// Keep naming series non-editable in UI; it is controlled by quotation_type logic.
@@ -710,12 +733,6 @@ frappe.ui.form.on("Sales Quote", {
 			if (frm.doc.status) {
 				frm.set_value("status", "");
 			}
-			// Validate and auto-correct naming_series on initial load for new documents
-			if (frm.doc.quotation_type && frm.doc.naming_series) {
-				setTimeout(() => {
-					frm.events._validate_naming_series_quotation_type(frm);
-				}, 200);
-			}
 		}
 		
 		// Keep naming_series locked in all states.
@@ -808,20 +825,10 @@ frappe.ui.form.on("Sales Quote", {
 			frm.set_value("blanket_quotation", 0);
 		}
 		
-		// For new documents, always set the correct naming_series
-		// For existing documents, validate and warn if mismatch
+		// New quotes take the series for this quotation type. Frappe names the
+		// document from that naming series. Saved quotes keep their name.
 		if (frm.is_new() && correct_series) {
 			frm.set_value("naming_series", correct_series);
-			// Validate after a short delay to ensure value is set
-			setTimeout(() => {
-				frm.events._validate_naming_series_quotation_type(frm);
-			}, 150);
-		} else {
-			// For existing documents or when quotation_type is cleared, just validate
-			// Use setTimeout to ensure doc values are updated
-			setTimeout(() => {
-				frm.events._validate_naming_series_quotation_type(frm);
-			}, 100);
 		}
 		frm.events._refresh_main_service_param_visibility(frm);
 		
@@ -834,59 +841,6 @@ frappe.ui.form.on("Sales Quote", {
 		frm.events._sync_quotation_type_to_children(frm);
 		frm.refresh_field("charges");
 		frm.events._apply_one_off_routing_leg_main_job_readonly(frm);
-	},
-
-	naming_series(frm) {
-		// Validate naming_series matches quotation_type when user manually changes it
-		frm.events._validate_naming_series_quotation_type(frm);
-	},
-
-	_validate_naming_series_quotation_type(frm) {
-		// Mapping of quotation_type to allowed naming_series prefixes (dot and hyphen both accepted)
-		const allowed_prefixes_mapping = {
-			"Regular": ["SQU.", "SQU-"],
-			"One-off": ["OOQ.", "OOQ-"],
-			"Project": ["PQ.", "PQ-"]
-		};
-
-		if (!frm.doc.quotation_type || !frm.doc.naming_series) {
-			return; // Skip validation if either field is empty
-		}
-
-		const allowed_prefixes = allowed_prefixes_mapping[frm.doc.quotation_type];
-		if (!allowed_prefixes) {
-			return; // Unknown quotation_type, skip validation
-		}
-
-		const is_valid = allowed_prefixes.some(p => frm.doc.naming_series.startsWith(p));
-		if (!is_valid) {
-			const quotation_type = frm.doc.quotation_type;
-			const correct_series = quotation_type === "Regular" ? "SQU.#########"
-				: quotation_type === "One-off" ? "OOQ.#####"
-				: "PQ.#####";
-			const expected_display = allowed_prefixes.join(" / ");
-
-			// Auto-correct for new documents immediately
-			if (frm.is_new()) {
-				frm.set_value("naming_series", correct_series);
-				frappe.show_alert({
-					message: __("Naming Series automatically updated to match Quotation Type '{0}'.", [quotation_type]),
-					indicator: "blue"
-				}, 3);
-			} else {
-				// For existing documents, show warning but don't auto-correct
-				frappe.msgprint({
-					title: __("Naming Series Mismatch"),
-					message: __("Naming Series '{0}' does not match Quotation Type '{1}'. Expected series starting with '{2}' (e.g., {3}).", [
-						frm.doc.naming_series,
-						quotation_type,
-						expected_display,
-						correct_series
-					]),
-					indicator: "orange"
-				});
-			}
-		}
 	},
 
 	_set_child_param_readonly(frm) {
@@ -1133,6 +1087,7 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	refresh(frm) {
+		logistics_show_sales_quote_permit_alerts(frm);
 		logistics_sq_set_company_dimension_queries(frm);
 		setTimeout(function () {
 			try {
@@ -1194,6 +1149,10 @@ frappe.ui.form.on("Sales Quote", {
 
 		logistics_sq_add_programme_create_buttons(frm);
 
+		if (window.logistics && logistics.add_initialize_tariff_schedule_button) {
+			logistics.add_initialize_tariff_schedule_button(frm);
+		}
+
 		// Extend Validity — update Valid Until (draft via save; submitted via server db update)
 		if (!frm.is_new() && !frm.doc.__islocal && frm.doc.name && frm.doc.docstatus !== 2 && frm.has_perm("write")) {
 			frm.add_custom_button(__("Extend Validity"), function() {
@@ -1241,6 +1200,10 @@ frappe.ui.form.on("Sales Quote", {
 			frm.add_custom_button(__("Copy Quotation Services"), function () {
 				logistics_copy_quotation_services(frm);
 			}, __("Action"));
+		}
+
+		if (window.logistics && logistics.add_get_charges_from_tariff_button_if_allowed) {
+			logistics.add_get_charges_from_tariff_button_if_allowed(frm);
 		}
 
 		// Recalculate Charges - show when quote has any charge lines

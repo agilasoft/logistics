@@ -111,6 +111,9 @@ def create_linked_permit_application(
 	else:
 		frappe.throw(_("Declaration must have a Customer to create a Permit Application."), title=_("Missing Customer"))
 
+	from logistics.customs.permit_matching import append_source_tags
+
+	append_source_tags(pa, doc)
 	pa.insert()
 
 	decl = frappe.get_doc("Declaration", doc.name)

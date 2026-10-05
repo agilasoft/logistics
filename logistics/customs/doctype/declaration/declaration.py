@@ -4,7 +4,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import today, getdate, flt, cint, nowdate, get_datetime
+from frappe.utils import today, getdate, flt, cint, nowdate
 from typing import Dict, Any, Optional
 
 from logistics.utils.charge_service_type import (
@@ -22,76 +22,6 @@ ORDER_CURRENCY_EXCHANGE_FIELDS = (
 	"inv_currency",
 	"inv_exchange_rate",
 )
-
-ORDER_MILESTONE_COPY_FIELDS = (
-	"milestone",
-	"status",
-	"planned_start",
-	"planned_end",
-	"actual_start",
-	"actual_end",
-	"source",
-	"fetched_at",
-	"automation_planned_date_basis",
-	"automation_update_trigger_type",
-	"automation_sync_parent_date_field",
-	"automation_sync_direction",
-	"automation_trigger_field",
-	"automation_trigger_condition",
-	"automation_trigger_value",
-	"automation_trigger_action",
-)
-
-_ORDER_MILESTONE_GUARD_FIELDS = (
-	"milestone",
-	"planned_start",
-	"planned_end",
-	"actual_start",
-	"actual_end",
-)
-
-
-def order_milestone_row_values(src):
-	"""Child-row dict copied from a Declaration Order milestone onto Declaration."""
-	values = {fn: getattr(src, fn, None) for fn in ORDER_MILESTONE_COPY_FIELDS}
-	values["from_booking"] = 1
-	return values
-
-
-def _apply_order_milestone_values(dest, src):
-	for fn in ORDER_MILESTONE_COPY_FIELDS:
-		dest.set(fn, getattr(src, fn, None))
-	dest.from_booking = 1
-
-
-def _normalize_milestone_compare_value(fieldname, value):
-	if value in (None, ""):
-		return None
-	if fieldname in {"planned_start", "planned_end", "actual_start", "actual_end"}:
-		try:
-			dt = get_datetime(value)
-			return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else None
-		except Exception:
-			return str(value)
-	return str(value)
-
-
-def _milestone_guard_fields_changed(old_row, incoming_row):
-	for fn in _ORDER_MILESTONE_GUARD_FIELDS:
-		old_val = _normalize_milestone_compare_value(
-			fn, old_row.get(fn) if isinstance(old_row, dict) else getattr(old_row, fn, None)
-		)
-		new_val = _normalize_milestone_compare_value(fn, getattr(incoming_row, fn, None))
-		if old_val != new_val:
-			return True
-	return False
-
-
-def _order_milestone_fields_changed(old_row, incoming_row):
-	if _milestone_guard_fields_changed(old_row, incoming_row):
-		return True
-	return cint(getattr(incoming_row, "from_booking", 0)) != 1
-
 
 
 def apply_currency_and_exchange_rates_from_declaration_order(
@@ -208,7 +138,6 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 			throw_if_invoice_qty_is_zero(self)
 			validate_internal_job_main_link_unchanged(self)
 			self._validate_declaration_order_unique()
-			self._guard_from_booking_milestone_edits()
 			self.sync_milestones_from_declaration_order()
 			self._validate_etd_eta()
 			self._validate_processing_event_dates()
@@ -312,78 +241,14 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 			title=_("Duplicate Declaration Order Reference"),
 		)
 
-	def _get_linked_declaration_order(self):
-		order_name = (getattr(self, "declaration_order", None) or "").strip()
-		if not order_name or not frappe.db.exists("Declaration Order", order_name):
-			return None
-		return frappe.get_doc("Declaration Order", order_name)
-
-	def _guard_from_booking_milestone_edits(self):
-		"""Reject client edits/deletes of order-copied milestone rows still on the order."""
-		if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
-			return
-		if self.is_new() or not self.name:
-			return
-		order = self._get_linked_declaration_order()
-		order_milestones = {
-			(row.milestone or "").strip()
-			for row in ((order.get("milestones") if order else None) or [])
-			if (row.milestone or "").strip()
-		}
-		persisted = frappe.get_all(
-			"Declaration Milestone",
-			filters={"parent": self.name, "parenttype": "Declaration", "from_booking": 1},
-			fields=["name", "milestone", "planned_start", "planned_end", "actual_start", "actual_end"],
-		)
-		incoming_by_name = {row.name: row for row in (self.get("milestones") or []) if row.name}
-		for old in persisted:
-			still_on_order = (old.milestone or "").strip() in order_milestones
-			incoming = incoming_by_name.get(old.name)
-			if not incoming:
-				if still_on_order:
-					frappe.throw(_("Milestones copied from Declaration Order cannot be deleted."))
-				continue
-			if still_on_order and _order_milestone_fields_changed(old, incoming):
-				frappe.throw(_("Milestones copied from Declaration Order cannot be edited."))
-
 	def sync_milestones_from_declaration_order(self):
-		"""Populate and refresh Declaration Order milestone rows; leave declaration-only rows editable."""
+		"""Drop order-copied milestone rows. The timeline reads Declaration Order milestones live."""
 		if getattr(frappe.flags, "in_import", False) or getattr(frappe.flags, "in_migrate", False):
 			return
 		if getattr(self.flags, "ignore_booking_milestone_sync", False):
 			return
-		order = self._get_linked_declaration_order()
-		if not order:
-			return
-
-		existing_rows = list(self.get("milestones") or [])
-		claimed = set()
-		for order_row in order.get("milestones") or []:
-			milestone = (getattr(order_row, "milestone", None) or "").strip()
-			if not milestone:
-				continue
-			dest = None
-			unclaimed = [
-				row
-				for row in existing_rows
-				if id(row) not in claimed and (row.milestone or "").strip() == milestone
-			]
-			for row in unclaimed:
-				if cint(row.from_booking):
-					dest = row
-					break
-			if dest is None:
-				for row in unclaimed:
-					dest = row
-					break
-			if dest is None:
-				dest = self.append("milestones", {})
-				existing_rows.append(dest)
-			_apply_order_milestone_values(dest, order_row)
-			claimed.add(id(dest))
-
 		for row in list(self.get("milestones") or []):
-			if cint(row.from_booking) and id(row) not in claimed:
+			if cint(getattr(row, "from_booking", 0)):
 				self.remove(row)
 
 	def before_save(self):
@@ -704,11 +569,18 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 		if not s.block_submit_if_required_permit_not_obtained:
 			return
 		
+		from logistics.customs.permit_matching import best_permit_for_type
+
 		missing_permits = []
 		for permit_req in self.permit_requirements:
-			if permit_req.is_required and not permit_req.is_obtained:
-				permit_type_name = permit_req.permit_type or permit_req.get("planned_permit_type") or "Unknown"
-				missing_permits.append(permit_type_name)
+			if not permit_req.is_required or permit_req.is_obtained:
+				continue
+			ptype = permit_req.permit_type or permit_req.get("planned_permit_type")
+			matched = best_permit_for_type(self, ptype) if ptype else None
+			if matched and matched.get("condition") in ("valid", "expiring", "expired"):
+				# valid/expiring covers the requirement; expired is reported by validate_permit_expiry
+				continue
+			missing_permits.append(ptype or "Unknown")
 		
 		if missing_permits:
 			frappe.throw(
@@ -730,19 +602,32 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 		block_days = s.block_submit_if_permit_expires_within_days
 		warn_days = s.permit_expiring_warn_days
 
+		from logistics.customs.permit_matching import best_permit_for_type
+
 		for permit_req in self.permit_requirements:
-			if not permit_req.is_obtained or not permit_req.expiry_date:
+			ptype = permit_req.permit_type or permit_req.get("planned_permit_type")
+			obtained = bool(permit_req.is_obtained)
+			expiry_date = permit_req.expiry_date if obtained else None
+			if ptype and not (obtained and expiry_date):
+				matched = best_permit_for_type(self, ptype)
+				if matched and matched.get("condition") in ("valid", "expiring", "expired"):
+					obtained = True
+					expiry_date = expiry_date or matched.get("valid_to")
+					if matched.get("condition") == "expired" and not expiry_date and s.block_submit_if_permit_expired:
+						expired.append((ptype or "Unknown", "—"))
+						continue
+			if not obtained or not expiry_date:
 				continue
-			exp_date = getdate(permit_req.expiry_date)
-			ptn = permit_req.permit_type or permit_req.get("planned_permit_type") or "Unknown"
+			exp_date = getdate(expiry_date)
+			ptn = ptype or "Unknown"
 			days_left = date_diff(exp_date, today_date)
 			if days_left < 0:
 				if s.block_submit_if_permit_expired:
-					expired.append((ptn, permit_req.expiry_date))
+					expired.append((ptn, expiry_date))
 			elif block_days > 0 and days_left <= block_days:
-				expiring_blocked.append((ptn, permit_req.expiry_date, days_left))
+				expiring_blocked.append((ptn, expiry_date, days_left))
 			elif warn_days > 0 and days_left <= warn_days:
-				expiring_soon.append((ptn, permit_req.expiry_date, days_left))
+				expiring_soon.append((ptn, expiry_date, days_left))
 
 		if expired:
 			frappe.throw(
@@ -1819,14 +1704,7 @@ def _copy_order_to_declaration(declaration: Document, order: Document, sales_quo
 			child = declaration.append("exemptions", {})
 			_copy_child_row(row, child, exempt_fields)
 
-	# Child tables: milestones (Declaration Order Milestone -> Declaration Milestone, same fields)
-	if order.get("milestones"):
-		declaration.set("milestones", [])
-		ms_meta = frappe.get_meta("Declaration Milestone")
-		ms_fields = {f.fieldname for f in ms_meta.fields if f.fieldtype not in ("Section Break", "Column Break", "Tab Break")}
-		for row in order.milestones:
-			child = declaration.append("milestones", {})
-			_copy_child_row(row, child, ms_fields)
+	# Milestones stay on Declaration Order. The Declaration timeline reads them live.
 
 	# Child tables: documents (Job Document - same structure for both)
 	if order.get("documents"):

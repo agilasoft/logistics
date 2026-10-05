@@ -855,43 +855,23 @@ class TestSeaShipment(FrappeTestCase):
 		ls.insert(ignore_permissions=True)
 		return ls
 
-	def test_booking_milestone_row_values_marks_from_booking(self):
-		from logistics.sea_freight.doctype.sea_shipment.sea_shipment import booking_milestone_row_values
+	def _timeline_milestone_names(self, shipment):
+		from logistics.document_management.api import get_milestone_display_rows_and_editor_doctype
 
-		src = frappe._dict(
-			{
-				"milestone": "MS-A",
-				"status": "Planned",
-				"planned_start": None,
-				"planned_end": "2026-10-01 12:00:00",
-				"actual_start": None,
-				"actual_end": None,
-				"source": "Fetched",
-				"fetched_at": "2026-09-01 08:00:00",
-				"automation_planned_date_basis": "Booking Date",
-				"automation_update_trigger_type": "Date Based",
-			}
-		)
-		values = booking_milestone_row_values(src)
-		self.assertEqual(values["from_booking"], 1)
-		self.assertEqual(values["milestone"], "MS-A")
-		self.assertEqual(values["planned_end"], "2026-10-01 12:00:00")
-		self.assertEqual(values["automation_planned_date_basis"], "Booking Date")
-		self.assertEqual(values["automation_update_trigger_type"], "Date Based")
+		rows, editor_dt = get_milestone_display_rows_and_editor_doctype(shipment)
+		self.assertEqual(editor_dt, "Sea Shipment Milestone")
+		return [row["milestone"] for row in rows]
 
-	def test_sea_shipment_populates_booking_milestones_as_from_booking(self):
+	def test_sea_shipment_does_not_store_booking_milestones(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_booking = self._ensure_logistics_milestone(f"TST-BK-MS-{sfx}")
 		booking = self._booking_with_milestones([ms_booking])
 		shipment = self._linked_shipment(booking)
 
-		self.assertEqual(len(shipment.milestones), 1)
-		self.assertEqual(shipment.milestones[0].milestone, ms_booking)
-		self.assertEqual(cint(shipment.milestones[0].from_booking), 1)
-		self.assertEqual(str(shipment.milestones[0].planned_end), "2026-10-01 12:00:00")
-		self.assertEqual(shipment.milestones[0].automation_planned_date_basis, "Booking Date")
+		self.assertFalse(any(row.milestone == ms_booking for row in shipment.milestones))
+		self.assertEqual(self._timeline_milestone_names(shipment), [ms_booking])
 
-	def test_sea_shipment_allows_extra_milestone_without_flagging_from_booking(self):
+	def test_sea_shipment_keeps_manual_milestone_and_shows_booking_on_timeline(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_booking = self._ensure_logistics_milestone(f"TST-BK-MS-{sfx}")
 		ms_extra = self._ensure_logistics_milestone(f"TST-SH-MS-{sfx}")
@@ -902,19 +882,32 @@ class TestSeaShipment(FrappeTestCase):
 		shipment.flags.ignore_documents_milestones_populate = True
 		shipment.save()
 
-		by_ms = {row.milestone: row for row in shipment.milestones}
-		self.assertIn(ms_booking, by_ms)
-		self.assertIn(ms_extra, by_ms)
-		self.assertEqual(cint(by_ms[ms_booking].from_booking), 1)
-		self.assertEqual(cint(by_ms[ms_extra].from_booking), 0)
+		self.assertEqual([row.milestone for row in shipment.milestones], [ms_extra])
+		self.assertEqual(cint(shipment.milestones[0].from_booking), 0)
+		self.assertEqual(self._timeline_milestone_names(shipment), [ms_booking, ms_extra])
 
-	def test_sea_shipment_adds_missing_booking_milestone_on_later_save(self):
+	def test_sea_shipment_timeline_omits_grid_row_that_duplicates_booking_milestone(self):
+		sfx = frappe.generate_hash(length=6)
+		ms_booking = self._ensure_logistics_milestone(f"TST-BK-MS-{sfx}")
+		ms_extra = self._ensure_logistics_milestone(f"TST-SH-MS-{sfx}")
+		booking = self._booking_with_milestones([ms_booking])
+		shipment = self._linked_shipment(booking)
+
+		shipment.append("milestones", {"milestone": ms_booking, "status": "Planned", "source": "Manual"})
+		shipment.append("milestones", {"milestone": ms_extra, "status": "Planned", "source": "Manual"})
+		shipment.flags.ignore_documents_milestones_populate = True
+		shipment.save()
+
+		self.assertEqual([row.milestone for row in shipment.milestones], [ms_booking, ms_extra])
+		self.assertEqual(self._timeline_milestone_names(shipment), [ms_booking, ms_extra])
+
+	def test_sea_shipment_does_not_add_later_booking_milestone_to_grid(self):
 		sfx = frappe.generate_hash(length=6)
 		ms1 = self._ensure_logistics_milestone(f"TST-BK-MS1-{sfx}")
 		ms2 = self._ensure_logistics_milestone(f"TST-BK-MS2-{sfx}")
 		booking = self._booking_with_milestones([ms1])
 		shipment = self._linked_shipment(booking)
-		self.assertEqual([row.milestone for row in shipment.milestones], [ms1])
+		self.assertFalse(any(row.milestone == ms1 for row in shipment.milestones))
 
 		booking.append(
 			"milestones",
@@ -927,30 +920,65 @@ class TestSeaShipment(FrappeTestCase):
 		shipment.flags.ignore_documents_milestones_populate = True
 		shipment.save()
 
-		names = {row.milestone for row in shipment.milestones}
-		self.assertEqual(names, {ms1, ms2})
-		self.assertTrue(all(cint(row.from_booking) for row in shipment.milestones))
+		self.assertFalse(any(row.milestone in {ms1, ms2} for row in shipment.milestones))
+		self.assertEqual(self._timeline_milestone_names(shipment), [ms1, ms2])
 
-	def test_sea_shipment_rejects_edit_and_delete_of_booking_milestones(self):
+	def test_sea_shipment_drops_existing_booking_milestone_on_save(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_booking = self._ensure_logistics_milestone(f"TST-BK-MS-{sfx}")
+		ms_extra = self._ensure_logistics_milestone(f"TST-SH-MS-{sfx}")
 		booking = self._booking_with_milestones([ms_booking])
 		shipment = self._linked_shipment(booking)
-
-		shipment.milestones[0].planned_end = "2026-12-31 00:00:00"
+		shipment.append(
+			"milestones",
+			{
+				"milestone": ms_booking,
+				"status": "Planned",
+				"from_booking": 1,
+				"planned_end": "2026-10-01 12:00:00",
+				"source": "Fetched",
+			},
+		)
+		shipment.append("milestones", {"milestone": ms_extra, "status": "Planned", "source": "Manual"})
 		shipment.flags.ignore_documents_milestones_populate = True
-		with self.assertRaises(frappe.ValidationError) as ctx:
-			shipment.save()
-		self.assertIn("cannot be edited", str(ctx.exception))
+		shipment.save()
+
+		self.assertEqual([row.milestone for row in shipment.milestones], [ms_extra])
+		self.assertEqual(self._timeline_milestone_names(shipment), [ms_booking, ms_extra])
+
+	def test_sea_shipment_template_skips_booking_milestone_codes(self):
+		from logistics.document_management.api import populate_milestones_from_template
+
+		sfx = frappe.generate_hash(length=6)
+		ms_booking = self._ensure_logistics_milestone(f"TST-BK-TPL-{sfx}")
+		ms_ship = self._ensure_logistics_milestone(f"TST-SH-TPL-{sfx}")
+		booking = self._booking_with_milestones([ms_booking])
+		template = frappe.get_doc(
+			{
+				"doctype": "Milestone Template",
+				"template_name": f"TST Sea Shipment {sfx}",
+				"product_type": "Sea Freight",
+				"applies_to": "Shipment/Job",
+				"is_default": 0,
+				"is_active": 1,
+				"items": [
+					{"milestone": ms_booking},
+					{"milestone": ms_ship},
+				],
+			}
+		)
+		template.insert(ignore_permissions=True)
+
+		shipment = self._linked_shipment(booking)
+		shipment.milestone_template = template.name
+		shipment.flags.ignore_documents_milestones_populate = True
+		populate_milestones_from_template("Sea Shipment", shipment.name, doc=shipment)
 
 		shipment.reload()
-		shipment.remove(shipment.milestones[0])
-		shipment.flags.ignore_documents_milestones_populate = True
-		with self.assertRaises(frappe.ValidationError) as ctx:
-			shipment.save()
-		self.assertIn("cannot be deleted", str(ctx.exception))
+		self.assertEqual([row.milestone for row in shipment.milestones], [ms_ship])
+		self.assertEqual(self._timeline_milestone_names(shipment), [ms_booking, ms_ship])
 
-	def test_sea_shipment_copies_service_milestones_from_order_and_job(self):
+	def test_sea_shipment_does_not_copy_service_milestones_from_order_and_job(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_svc = self._ensure_logistics_milestone(f"TST-SVC-MS-{sfx}")
 		ms_extra = self._ensure_logistics_milestone(f"TST-SH-SVC-{sfx}")
@@ -970,19 +998,15 @@ class TestSeaShipment(FrappeTestCase):
 		shipment.flags.ignore_documents_milestones_populate = True
 		shipment.save()
 
-		service_rows = [row for row in shipment.milestones if cint(row.from_service)]
-		self.assertEqual(len(service_rows), 2)
-		sources = {(row.service_source_doctype, row.service_source_name) for row in service_rows}
-		self.assertEqual(sources, {("Transport Order", order.name), ("Transport Job", job.name)})
-		self.assertTrue(all(row.milestone == ms_svc for row in service_rows))
-		self.assertTrue(all(cint(row.from_booking) == 0 for row in service_rows))
-
+		self.assertFalse(any(row.milestone == ms_svc for row in shipment.milestones))
+		self.assertFalse(any(cint(row.from_service) for row in shipment.milestones))
 		extra = [row for row in shipment.milestones if row.milestone == ms_extra]
 		self.assertEqual(len(extra), 1)
 		self.assertEqual(cint(extra[0].from_service), 0)
 		self.assertEqual(cint(extra[0].from_booking), 0)
+		self.assertEqual(self._timeline_milestone_names(shipment), [ms_extra])
 
-	def test_sea_shipment_booking_and_service_milestones_coexist(self):
+	def test_sea_shipment_booking_timeline_omits_service_milestones(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_booking = self._ensure_logistics_milestone(f"TST-BK-CO-{sfx}")
 		ms_svc = self._ensure_logistics_milestone(f"TST-SVC-CO-{sfx}")
@@ -998,46 +1022,35 @@ class TestSeaShipment(FrappeTestCase):
 		shipment.flags.ignore_documents_milestones_populate = True
 		shipment.save()
 
-		by_ms = {row.milestone: row for row in shipment.milestones}
-		self.assertIn(ms_booking, by_ms)
-		self.assertIn(ms_svc, by_ms)
-		self.assertEqual(cint(by_ms[ms_booking].from_booking), 1)
-		self.assertEqual(cint(by_ms[ms_booking].from_service), 0)
-		self.assertEqual(cint(by_ms[ms_svc].from_service), 1)
-		self.assertEqual(cint(by_ms[ms_svc].from_booking), 0)
-		self.assertEqual(by_ms[ms_svc].service_source_doctype, "Transport Order")
-		self.assertEqual(by_ms[ms_svc].service_source_name, order.name)
+		self.assertFalse(any(row.milestone in {ms_booking, ms_svc} for row in shipment.milestones))
+		self.assertEqual(self._timeline_milestone_names(shipment), [ms_booking])
 
-	def test_sea_shipment_rejects_edit_and_delete_of_service_milestones(self):
+	def test_sea_shipment_drops_service_milestones_on_save(self):
 		sfx = frappe.generate_hash(length=6)
 		ms_svc = self._ensure_logistics_milestone(f"TST-SVC-ED-{sfx}")
-		order = self._transport_order_with_milestones([ms_svc])
+		ms_extra = self._ensure_logistics_milestone(f"TST-SH-ED-{sfx}")
 		shipment = self._plain_shipment()
-		ls = self._linked_service_for_shipment(shipment)
-		record_linked_service_usage(
-			ls.name, order.doctype, order.name, usage_role=USAGE_ROLE_SATELLITE_JOB
+		shipment.append(
+			"milestones",
+			{
+				"milestone": ms_svc,
+				"status": "Planned",
+				"planned_end": "2026-12-31 00:00:00",
+				"source": "Fetched",
+				"from_service": 1,
+				"service_source_doctype": "Transport Order",
+				"service_source_name": "TRO-DROP",
+			},
 		)
-
-		shipment.reload()
+		shipment.append("milestones", {"milestone": ms_extra, "status": "Planned", "source": "Manual"})
 		shipment.flags.ignore_documents_milestones_populate = True
 		shipment.save()
-		self.assertEqual(len(shipment.milestones), 1)
-		self.assertEqual(cint(shipment.milestones[0].from_service), 1)
-
-		shipment.milestones[0].planned_end = "2026-12-31 00:00:00"
-		shipment.flags.ignore_documents_milestones_populate = True
-		with self.assertRaises(frappe.ValidationError) as ctx:
-			shipment.save()
-		self.assertIn("cannot be edited", str(ctx.exception))
 
 		shipment.reload()
-		shipment.remove(shipment.milestones[0])
-		shipment.flags.ignore_documents_milestones_populate = True
-		with self.assertRaises(frappe.ValidationError) as ctx:
-			shipment.save()
-		self.assertIn("cannot be deleted", str(ctx.exception))
+		self.assertEqual([row.milestone for row in shipment.milestones], [ms_extra])
+		self.assertEqual(cint(shipment.milestones[0].from_service), 0)
 
-	def test_persist_internal_job_link_copies_service_milestones_without_extra_save(self):
+	def test_persist_internal_job_link_does_not_copy_service_milestones(self):
 		from logistics.utils.internal_job_from_source import persist_internal_job_create_back_link
 
 		sfx = frappe.generate_hash(length=6)
@@ -1058,8 +1071,8 @@ class TestSeaShipment(FrappeTestCase):
 		)
 
 		shipment.reload()
-		service_rows = [row for row in shipment.milestones if cint(row.from_service)]
-		self.assertEqual({row.milestone for row in service_rows}, {ms_pickup, ms_transit})
-		self.assertTrue(all(row.service_source_doctype == "Transport Order" for row in service_rows))
-		self.assertTrue(all(row.service_source_name == order.name for row in service_rows))
+		self.assertFalse(any(cint(row.from_service) for row in shipment.milestones))
+		self.assertFalse(
+			any(row.milestone in {ms_pickup, ms_transit} for row in shipment.milestones)
+		)
 

@@ -349,7 +349,7 @@ def build_milestone_html(
 	"""
 
 	html += _build_vertical_milestone_card(
-		milestones, milestone_details, empty_hint_html, format_datetime_fn
+		milestones, milestone_details, empty_hint_html
 	)
 
 	html += """
@@ -381,12 +381,10 @@ def build_milestone_html(
 		.ms-vtl-label { font-size: 13px; font-weight: 600; line-height: 1.35; color: inherit; max-width: none; white-space: normal; overflow: visible; text-overflow: unset; word-break: break-word; }
 		.ms-vtl-details { margin-top: 3px; }
 		.ms-vtl-detail { font-size: 11px; font-weight: 500; line-height: 1.45; color: inherit; white-space: normal; }
-		.ms-vtl-tone-finished { color: #9ca3af; }
-		.ms-vtl-tone-finished .ms-vtl-meta { opacity: 0.85; }
-		.ms-vtl-tone-active { color: #28a745; }
+		.ms-vtl-tone-finished { color: #28a745; }
+		.ms-vtl-tone-active { color: #fd7e14; }
 		.ms-vtl-tone-delayed { color: #dc3545; }
-		.ms-vtl-tone-planned { color: #374151; }
-		.ms-vtl-tone-planned .ms-vtl-detail { color: #6b7280; }
+		.ms-vtl-tone-planned { color: #007bff; }
 		.ms-vtl-empty { margin: 0; color: #6b7280; font-size: 13px; }
 		</style>
 	"""
@@ -406,27 +404,18 @@ def _milestone_detail_map_entry(info):
 
 
 _VERTICAL_TONE_COLOR = {
-	"finished": "#9ca3af",
-	"active": "#28a745",
+	"finished": "#28a745",
+	"active": "#fd7e14",
 	"delayed": "#dc3545",
-	"planned": "#cbd5e1",
+	"planned": "#007bff",
 }
-
-
-def _format_milestone_dt(value, format_datetime_fn):
-	if not value:
-		return ""
-	if format_datetime_fn:
-		formatted = format_datetime_fn(value)
-		return formatted or ""
-	return frappe.utils.format_datetime(value) or ""
 
 
 def _vertical_milestone_tone(m, now=None):
 	"""Tone for the vertical milestone list.
 
-	Finished (completed on time) is gray, the active step is green, and delays are red.
-	A milestone still open after Planned End, or finished after Planned End, is delayed.
+	Finished (completed on time) is green, the active step is orange, and planned steps are blue.
+	A milestone still open after Planned End, or finished after Planned End, is delayed (red).
 	"""
 	display_status, is_delayed, _severity = _compute_milestone_status(m)
 	status = (_get_milestone_attr(m, "status") or "").strip().lower()
@@ -451,8 +440,8 @@ def _vertical_milestone_tone(m, now=None):
 	return "planned"
 
 
-def _vertical_milestone_detail_lines(m, tone, format_datetime_fn):
-	"""Status plus planned and actual dates. Empty dates are omitted."""
+def _vertical_milestone_detail_lines(m, tone):
+	"""Status only. Planned and actual dates stay on the milestone grid."""
 	status = (_get_milestone_attr(m, "status") or "").strip()
 	if tone == "delayed":
 		status_label = _("Delayed")
@@ -464,22 +453,11 @@ def _vertical_milestone_detail_lines(m, tone, format_datetime_fn):
 			"active": _("Started"),
 			"planned": _("Planned"),
 		}.get(tone, _("Planned"))
-
-	lines = [status_label]
-	for label, key in (
-		(_("Planned start"), "planned_start"),
-		(_("Planned end"), "planned_end"),
-		(_("Actual start"), "actual_start"),
-		(_("Actual end"), "actual_end"),
-	):
-		formatted = _format_milestone_dt(_get_milestone_attr(m, key), format_datetime_fn)
-		if formatted:
-			lines.append("%s: %s" % (label, formatted))
-	return lines
+	return [status_label]
 
 
 def _build_vertical_milestone_card(
-	milestones, milestone_details, empty_hint_html=None, format_datetime_fn=None
+	milestones, milestone_details, empty_hint_html=None
 ):
 	if not milestones:
 		hint = empty_hint_html or (
@@ -501,7 +479,7 @@ def _build_vertical_milestone_card(
 			icon = "circle"
 		detail_html = "".join(
 			'<div class="ms-vtl-detail">%s</div>' % frappe.utils.escape_html(line)
-			for line in _vertical_milestone_detail_lines(m, tone, format_datetime_fn)
+			for line in _vertical_milestone_detail_lines(m, tone)
 		)
 		rows_meta.append({
 			"tone": tone,

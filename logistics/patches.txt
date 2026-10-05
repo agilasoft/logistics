@@ -948,4 +948,24 @@ logistics.patches.v3_0_consol_job_profit_html_summary_spacing
 logistics.patches.v3_0_consol_job_profit_html_summary_gap
 # Consol Job Profit HTML: gap between PROFIT and SHIPMENT / HOUSE
 logistics.patches.v3_0_consol_job_profit_html_shipment_gap
+# Permit tags: customer applicant and declaration job number, plus a shipment target on existing types
+logistics.patches.v3_0_backfill_permit_application_tags
+# Drop empty Proof of Delivery and Plate Coding Rule DocTypes. Rows block the drop.
+logistics.patches.v3_0_drop_empty_proof_of_delivery_and_plate_coding_rule
+# Transport portal template: point stored pages at the customer portal under logistics/www
+logistics.patches.v3_0_retarget_transport_portal_template
+# Order Management: own desk tile and sidebar, not nested under CargoNext
+logistics.patches.v3_0_add_order_management_desk
+# Sea Shipment grid no longer stores Sea Booking milestones; the timeline reads them live
+logistics.patches.v3_0_drop_sea_shipment_booking_milestones
+# Sea Shipment grid no longer stores linked-service milestones
+logistics.patches.v3_0_drop_sea_shipment_service_milestones
+# Air Shipment grid no longer stores linked-service milestones
+logistics.patches.v3_0_drop_air_shipment_service_milestones
+# Transport Job grid no longer stores linked-service milestones
+logistics.patches.v3_0_drop_transport_job_service_milestones
+# Declaration grid no longer stores Declaration Order milestones; the timeline reads them live
+logistics.patches.v3_0_drop_declaration_booking_milestones
+# Transport Job grid no longer stores Transport Order milestones; the timeline reads them live
+logistics.patches.v3_0_drop_transport_job_order_milestones
 
