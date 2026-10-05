@@ -4363,6 +4363,40 @@ def add_linked_service(sales_quote: str, service_type: str):
 	}
 
 
+def _load_quote_for_linked_service_manage(sales_quote: str, *, write: bool):
+	"""Load a saved draft quote the caller may manage linked services on."""
+	quote = frappe.get_doc("Sales Quote", sales_quote)
+	frappe.has_permission(
+		"Sales Quote", "write" if write else "read", doc=quote, throw=True
+	)
+	_assert_sales_quote_can_manage_linked_services(quote)
+	if not quote.name or quote.is_new():
+		frappe.throw(_("Save the Sales Quote before adding a linked service."))
+	return quote
+
+
+@frappe.whitelist()
+def preview_linked_services_from_main(sales_quote: str):
+	"""Propose Transport and Customs linked services from main scope and containers."""
+	from logistics.pricing_center.sales_quote_linked_service_generate import (
+		preview_linked_services_from_quote,
+	)
+
+	quote = _load_quote_for_linked_service_manage(sales_quote, write=False)
+	return preview_linked_services_from_quote(quote)
+
+
+@frappe.whitelist()
+def create_linked_services_from_main(sales_quote: str, proposals=None):
+	"""Create the selected proposals. Field values are recomputed on the server."""
+	from logistics.pricing_center.sales_quote_linked_service_generate import (
+		create_linked_services_from_quote,
+	)
+
+	quote = _load_quote_for_linked_service_manage(sales_quote, write=True)
+	return create_linked_services_from_quote(quote, proposals)
+
+
 @frappe.whitelist()
 def remove_linked_service(sales_quote: str, linked_service: str):
 	"""Delete a Sales Quote–owned Linked Service and clear charge tags to it."""
