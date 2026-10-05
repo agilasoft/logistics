@@ -2068,6 +2068,7 @@ _SQ_CHARGE_COPY_FIELDS: tuple[str, ...] = (
 	"estimated_cost",
 	"use_tariff_in_revenue",
 	"use_tariff_in_cost",
+	"cost_internal",
 	"tariff",
 	"revenue_tariff",
 	"cost_tariff",

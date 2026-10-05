@@ -575,6 +575,7 @@ class SalesQuoteSeaFreight(Document):
             'cost_calculation_method': self.cost_calculation_method,
             'use_tariff_in_revenue': self.use_tariff_in_revenue,
             'use_tariff_in_cost': self.use_tariff_in_cost,
+            'cost_internal': self.cost_internal,
             'tariff': getattr(self, 'tariff', None),
             'revenue_tariff': getattr(self, 'revenue_tariff', None),
             'cost_tariff': getattr(self, 'cost_tariff', None)

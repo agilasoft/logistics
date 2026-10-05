@@ -398,36 +398,11 @@ def recalculate_all_charges(docname):
 
 @frappe.whitelist()
 def post_standard_costs(docname):
-	"""Post standard costs for Docket charges.
-
-	Mirrors ``logistics.air_freight.doctype.air_shipment.air_shipment.post_standard_costs``:
-	flags charge rows whose total standard cost is positive and not yet posted.
-	Exhibit Charges does not currently expose ``standard_cost_posted`` /
-	``total_standard_cost`` columns, so this is effectively a no-op today, but
-	keeping the same surface lets the same Post menu work on Docket without
-	requiring users to know which job types support standard costs.
-	"""
-	from frappe.utils import flt
-	from logistics.utils.menu_permission import assert_perm
+	"""Post internal tariff standard costs for Docket charges."""
+	from logistics.job_management.standard_cost_posting import post_internal_tariff_standard_costs
 
 	docket = frappe.get_doc("Docket", docname)
-	assert_perm("Docket", "write", doc=docket)
-	assert_perm("Journal Entry", "create")
-	posted = 0
-	for ch in (docket.charges or []):
-		total_std = getattr(ch, "total_standard_cost", None)
-		if total_std and flt(total_std) > 0 and not getattr(ch, "standard_cost_posted", False):
-			if frappe.get_meta(ch.doctype).get_field("standard_cost_posted"):
-				ch.standard_cost_posted = 1
-				ch.standard_cost_posted_at = frappe.utils.now()
-				posted += 1
-	if posted > 0:
-		docket.save()
-	return {
-		"message": _("Posted {0} standard cost(s).").format(posted)
-		if posted
-		else _("No standard costs to post.")
-	}
+	return post_internal_tariff_standard_costs(docket)
 
 
 @frappe.whitelist()

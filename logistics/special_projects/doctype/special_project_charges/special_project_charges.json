@@ -50,6 +50,10 @@
   "estimated_cost",
   "actual_cost",
   "use_tariff_in_cost",
+  "cost_internal",
+  "standard_cost_posted",
+  "standard_cost_posted_at",
+  "journal_entry_reference",
   "cost_tariff",
   "section_break_calc",
   "revenue_column",
@@ -413,6 +417,35 @@
    "fieldname": "use_tariff_in_cost",
    "fieldtype": "Check",
    "label": "Use Tariff in Cost"
+  },
+  {
+   "default": "0",
+   "fieldname": "cost_internal",
+   "fieldtype": "Check",
+   "label": "Internal"
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "0",
+   "fieldname": "standard_cost_posted",
+   "fieldtype": "Check",
+   "label": "Standard Cost Posted",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "standard_cost_posted_at",
+   "fieldtype": "Datetime",
+   "label": "Standard Cost Posted At",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "journal_entry_reference",
+   "fieldtype": "Link",
+   "label": "Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.use_tariff_in_cost",

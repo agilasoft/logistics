@@ -664,6 +664,8 @@ class RecognitionEngine:
         Charge rows still needing accrual recognition.
         Also supports job-level estimated_costs when no charge row carries cost (legacy).
         """
+        from logistics.job_management.standard_cost_posting import is_internal_tariff_cost_charge
+
         lines = []
         ct = self._get_charges_table_name()
         has_positive_cost_row = False
@@ -675,6 +677,8 @@ class RecognitionEngine:
                 if amt <= 0:
                     continue
                 has_positive_cost_row = True
+                if is_internal_tariff_cost_charge(charge):
+                    continue
                 if getattr(charge, "accrual_recognition_journal_entry", None):
                     continue
                 lines.append(

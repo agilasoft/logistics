@@ -473,6 +473,27 @@ frappe.ui.form.on("MICE Project", {
 				},
 				__("Create")
 			);
+			frm.add_custom_button(
+				__("Standard Costs"),
+				function () {
+					frappe.call({
+						method: "logistics.mice.doctype.mice_project.mice_project.post_standard_costs",
+						args: { docname: frm.doc.name },
+						callback: function (r) {
+							var res = r.message || {};
+							if (res.message) {
+								frappe.msgprint({
+									title: __("Standard Costs"),
+									message: res.message,
+									indicator: res.ok ? "green" : "orange",
+								});
+							}
+							if (res.ok) frm.reload_doc();
+						},
+					});
+				},
+				__("Post")
+			);
 		}
 
 		if (!frm.is_new() && !frm.doc.__islocal) {

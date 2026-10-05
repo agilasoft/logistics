@@ -16,6 +16,7 @@
   "cost_tariff",
   "use_tariff_in_revenue",
   "use_tariff_in_cost",
+  "cost_internal",
   "bill_to",
   "bill_to_exchange_rate",
   "pay_to",
@@ -270,6 +271,12 @@
    "fieldname": "use_tariff_in_cost",
    "fieldtype": "Check",
    "label": "Use Tariff in Cost"
+  },
+  {
+   "default": "0",
+   "fieldname": "cost_internal",
+   "fieldtype": "Check",
+   "label": "Internal"
   },
   {
    "fieldname": "bill_to",
