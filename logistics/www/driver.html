@@ -20,36 +20,120 @@
 		--amber-ink: #b45309;
 		--shadow: 0 10px 30px rgba(22, 42, 76, 0.06);
 	}
-	html, body { background: var(--bg); }
+	html, body { height: 100%; background: var(--bg); }
 	[hidden] { display: none !important; }
-	body { margin: 0; color: var(--ink); font-family: Inter, "Segoe UI", Helvetica, Arial, sans-serif; }
+	body { margin: 0; color: var(--ink); font-family: Inter, "Segoe UI", Helvetica, Arial, sans-serif; overflow: hidden; }
 	button, input, select, textarea { font-family: inherit; }
-	.driver-app { max-width: 1180px; margin: 0 auto; padding: 22px 22px 48px; }
-	.topbar, .profile, .tabs, .panel, .side-card, .action-bar, .map-card {
+	.driver-app {
+		height: 100dvh;
+		box-sizing: border-box;
+		padding: 12px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+	.topbar, .profile, .panel, .side-card, .route-sheet, .map-stage, .action-bar {
 		background: var(--card);
 		border-radius: 18px;
 		box-shadow: var(--shadow);
 	}
-	.topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; }
-	.brand { display: flex; align-items: center; gap: 12px; }
+	.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; flex: none; }
+	.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
 	.brand-mark {
 		width: 42px; height: 42px; border-radius: 12px; background: #e8f0ff; color: var(--blue);
-		display: grid; place-items: center;
+		display: grid; place-items: center; flex: none;
 	}
 	.brand-name { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; }
-	.brand-name span { color: var(--muted); font-weight: 600; }
+	.brand-name span, .header-driver { color: var(--muted); font-weight: 650; font-size: 14px; }
+	.header-driver { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.screen-switch { display: flex; gap: 4px; }
+	.tab {
+		border: 0; background: transparent; color: var(--muted); font-weight: 700; padding: 10px 14px; border-radius: 12px; cursor: pointer;
+	}
+	.tab.active { color: var(--blue); background: #eef4ff; }
 	.top-actions { display: flex; align-items: center; gap: 8px; }
-	.icon-btn, .logout-btn {
+	.icon-btn, .logout-btn, .recenter, .voice-btn {
 		border: 0; background: #f4f7fb; color: var(--ink); border-radius: 12px; height: 40px;
 		display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
 	}
 	.icon-btn { width: 40px; justify-content: center; position: relative; }
-	.logout-btn { padding: 0 14px; font-weight: 600; }
+	.logout-btn, .voice-btn { padding: 0 14px; font-weight: 700; }
 	.badge-count {
 		position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px;
 		border-radius: 99px; background: #ef4444; color: white; font-size: 11px; line-height: 18px; font-weight: 700;
 	}
-	.profile { margin-top: 16px; padding: 18px; display: grid; grid-template-columns: minmax(340px, 1.5fr) repeat(3, 1fr); gap: 12px; }
+	.nav-shell { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px; }
+	.map-stage { min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+	.map-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
+	#route-map { flex: 1; min-height: 280px; background: #d7e2ee; }
+	.map-note { height: 100%; min-height: 280px; display: grid; place-items: center; color: var(--muted); padding: 24px; text-align: center; }
+	.maneuver {
+		position: absolute; z-index: 2; top: 12px; left: 12px; right: 12px;
+		display: flex; gap: 12px; align-items: center;
+		background: var(--blue-dark); color: white; border-radius: 16px; padding: 12px 14px;
+		box-shadow: 0 12px 28px rgba(29, 78, 216, 0.28);
+	}
+	.maneuver-arrow { width: 46px; height: 46px; display: grid; place-items: center; flex: none; transition: transform 160ms linear; }
+	.maneuver-copy { min-width: 0; flex: 1; }
+	.maneuver-dist { font-size: 13px; font-weight: 700; opacity: 0.85; }
+	.maneuver-text { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.2; }
+	.maneuver-next { margin-top: 2px; font-size: 13px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.voice-btn { background: rgba(255, 255, 255, 0.16); color: white; flex: none; }
+	.recenter {
+		position: absolute; z-index: 2; right: 12px; bottom: 12px; padding: 0 12px; font-weight: 800;
+		box-shadow: var(--shadow);
+	}
+	.map-dock {
+		display: flex; justify-content: space-between; gap: 16px; align-items: center;
+		padding: 14px 16px; border-top: 1px solid var(--line); background: white;
+	}
+	#dock-title { display: block; font-size: 16px; }
+	.dock-meta { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; margin-top: 2px; }
+	.traffic-flag { color: var(--green-ink); font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+	.map-status { color: var(--amber-ink); font-size: 13px; font-weight: 700; margin-top: 4px; }
+	.route-sheet { min-height: 0; overflow: auto; padding: 16px; }
+	.panel, .side-card { padding: 18px; }
+	.scroll-screen { flex: 1; min-height: 0; overflow: auto; }
+	.panel-head, .side-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+	.panel h2, .side-card h2, .route-sheet h2 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
+	.sub { color: var(--muted); margin-top: 4px; font-size: 14px; }
+	.run-chip { background: #f4f7fb; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: 13px; }
+	.progress { margin: 14px 0 6px; height: 8px; background: #e8eef6; border-radius: 99px; overflow: hidden; }
+	.progress > div { height: 100%; background: linear-gradient(90deg, #60a5fa, var(--blue)); border-radius: 99px; }
+	.progress-label { text-align: right; color: var(--muted); font-size: 13px; font-weight: 600; }
+	.route-note { margin-top: 10px; background: var(--amber); color: var(--amber-ink); border-radius: 10px; padding: 8px 10px; font-size: 13px; font-weight: 700; }
+	.stops { margin-top: 8px; }
+	.stop { display: grid; grid-template-columns: 36px 1fr; gap: 12px; cursor: pointer; }
+	.rail { display: flex; flex-direction: column; align-items: center; }
+	.num {
+		width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800;
+		background: #e8eef6; color: #64748b; z-index: 1;
+	}
+	.stop.done .num { background: #22c55e; color: white; }
+	.stop.next .num { background: var(--blue); color: white; }
+	.stem { width: 2px; flex: 1; background: #e5e7eb; min-height: 16px; }
+	.stop-card { border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; background: #f8fafc; border: 1px solid transparent; }
+	.stop.done .stop-card { background: var(--green); border-color: var(--green-line); }
+	.stop.next .stop-card { background: white; border-color: #dbe7ff; box-shadow: 0 8px 20px rgba(47, 111, 237, 0.08); }
+	.stop-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+	.stop-title { font-weight: 800; }
+	.stop.done .stop-title { color: var(--green-ink); }
+	.meta { color: var(--muted); font-size: 13px; margin-top: 4px; line-height: 1.45; }
+	.live-eta { color: var(--blue-dark); font-weight: 800; }
+	.live-eta:empty { display: none; }
+	.pending { display: inline-flex; align-items: center; gap: 6px; background: var(--amber); color: var(--amber-ink); border-radius: 99px; padding: 4px 8px; font-size: 12px; font-weight: 700; }
+	.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+	.btn {
+		border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+	}
+	.btn.primary { background: var(--blue); color: white; }
+	.btn.primary:hover { background: var(--blue-dark); }
+	.btn.primary:disabled { background: #cbd5e1; cursor: default; }
+	.btn.ghost { background: white; color: var(--ink); border: 1px solid #d7e0ea; }
+	.linkish { background: none; border: 0; color: var(--blue); font-weight: 700; cursor: pointer; padding: 0; }
+	.action-bar { margin-top: 14px; padding: 12px; display: flex; gap: 10px; box-shadow: none; }
+	.action-bar .btn { flex: 1; justify-content: center; background: white; border: 1px solid #d7e0ea; }
+	.profile { padding: 18px; display: grid; grid-template-columns: minmax(280px, 1.5fr) repeat(3, 1fr); gap: 12px; }
 	.who { display: flex; gap: 14px; align-items: center; }
 	.avatar, .avatar-fallback {
 		width: 72px; height: 72px; border-radius: 50%; object-fit: cover; background: #dbe7ff; flex: none;
@@ -66,63 +150,11 @@
 	.cred-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none; }
 	.cred strong { display: block; font-size: 14px; }
 	.cred span { color: var(--muted); font-size: 13px; }
-	.tabs { margin-top: 16px; padding: 6px 10px; display: flex; gap: 6px; }
-	.tab {
-		border: 0; background: transparent; color: var(--muted); font-weight: 700; padding: 12px 16px; border-radius: 12px; cursor: pointer;
-		display: inline-flex; align-items: center; gap: 8px;
-	}
-	.tab.active { color: var(--blue); box-shadow: inset 0 -2px 0 var(--blue); border-radius: 0; }
-	.layout { margin-top: 16px; display: grid; grid-template-columns: minmax(0, 1.7fr) 320px; gap: 16px; }
-	#map-view,
-	#history-view { margin-top: 16px; }
-	.panel, .side-card { padding: 18px; }
-	.panel-head, .side-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-	.panel h2, .side-card h2, .map-head h2 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
-	.sub { color: var(--muted); margin-top: 4px; font-size: 14px; }
-	.run-chip { background: #f4f7fb; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: 13px; }
-	.progress { margin: 14px 0 6px; height: 8px; background: #e8eef6; border-radius: 99px; overflow: hidden; }
-	.progress > div { height: 100%; background: linear-gradient(90deg, #60a5fa, var(--blue)); border-radius: 99px; }
-	.progress-label { text-align: right; color: var(--muted); font-size: 13px; font-weight: 600; }
-	.stops { margin-top: 8px; position: relative; }
-	.stop { display: grid; grid-template-columns: 36px 1fr; gap: 12px; }
-	.rail { display: flex; flex-direction: column; align-items: center; }
-	.num {
-		width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800;
-		background: #e8eef6; color: #64748b; z-index: 1;
-	}
-	.stop.done .num { background: #22c55e; color: white; }
-	.stop.next .num { background: var(--blue); color: white; }
-	.stem { width: 2px; flex: 1; background: #e5e7eb; min-height: 16px; }
-	.stop-card { border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; background: #f8fafc; border: 1px solid transparent; }
-	.stop.done .stop-card { background: var(--green); border-color: var(--green-line); }
-	.stop.next .stop-card { background: white; border-color: #dbe7ff; box-shadow: 0 8px 20px rgba(47, 111, 237, 0.08); }
-	.stop-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-	.stop-title { font-weight: 800; }
-	.stop.done .stop-title { color: var(--green-ink); }
-	.meta { color: var(--muted); font-size: 13px; margin-top: 4px; line-height: 1.45; }
-	.pending { display: inline-flex; align-items: center; gap: 6px; background: var(--amber); color: var(--amber-ink); border-radius: 99px; padding: 4px 8px; font-size: 12px; font-weight: 700; }
-	.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-	.btn {
-		border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
-	}
-	.btn.primary { background: var(--blue); color: white; }
-	.btn.primary:hover { background: var(--blue-dark); }
-	.btn.ghost { background: white; color: var(--ink); border: 1px solid #d7e0ea; }
-	.linkish { background: none; border: 0; color: var(--blue); font-weight: 700; cursor: pointer; padding: 0; }
-	.action-bar { margin-top: 14px; padding: 12px; display: flex; gap: 10px; }
-	.action-bar .btn { flex: 1; justify-content: center; background: white; border: 1px solid #d7e0ea; }
+	.side-card { margin-top: 12px; }
 	.side-card .stat { display: flex; gap: 10px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--line); }
 	.side-card .stat:first-of-type { border-top: 0; }
 	.stat b { display: block; }
 	.stat span { color: var(--muted); font-size: 13px; }
-	.map-card { padding: 0; overflow: hidden; }
-	.map-head { padding: 18px 18px 0; }
-	#route-map { height: 560px; background: #e8eef6; }
-	.map-note { height: 560px; display: grid; place-items: center; color: var(--muted); padding: 24px; text-align: center; }
-	#map-dock {
-		margin-top: 16px; background: var(--card); border-radius: 18px; box-shadow: var(--shadow);
-		display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 16px 18px;
-	}
 	.empty { padding: 28px 8px; color: var(--muted); }
 	.history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
 	.history-row {
@@ -138,14 +170,20 @@
 	.modal { width: min(460px, 100%); background: white; border-radius: 18px; padding: 18px; box-shadow: var(--shadow); }
 	.modal h3 { margin: 0 0 8px; }
 	.modal label { display: block; font-size: 13px; font-weight: 700; margin: 12px 0 6px; }
-	.modal select, .modal textarea { width: 100%; border: 1px solid #d7e0ea; border-radius: 12px; padding: 10px; }
+	.modal select, .modal textarea { width: 100%; border: 1px solid #d7e0ea; border-radius: 12px; padding: 10px; box-sizing: border-box; }
 	.modal textarea { min-height: 90px; resize: vertical; }
 	.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 	.notice { display: none; margin-top: 10px; background: #e8f8ef; color: var(--green-ink); border-radius: 10px; padding: 8px 10px; font-weight: 700; }
-	@media (max-width: 980px) {
-		.profile, .layout { grid-template-columns: 1fr; }
-		#route-map { height: 68vh; }
-		.who h1 { font-size: 24px; }
+	@media (max-width: 900px) {
+		body { overflow: hidden; }
+		.driver-app { padding: 8px; }
+		.topbar { flex-wrap: wrap; }
+		.nav-shell { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1.4fr) minmax(168px, 0.75fr); }
+		.profile { grid-template-columns: 1fr; }
+		.map-dock { align-items: stretch; flex-direction: column; }
+		.map-dock .btn { justify-content: center; }
+		.maneuver-text { font-size: 18px; }
+		.who h1 { font-size: 22px; }
 	}
 </style>
 {% endblock %}
@@ -157,86 +195,102 @@
 			<div class="brand-mark" aria-hidden="true">
 				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
 			</div>
-			<div class="brand-name">CargoNext <span>/ Driver</span></div>
+			<div>
+				<div class="brand-name">CargoNext <span>/ Driver</span></div>
+				<div class="header-driver" id="header-driver"></div>
+			</div>
 		</div>
+		<nav class="screen-switch" role="tablist" aria-label="Driver">
+			<button class="tab active" data-screen="route" type="button">Route</button>
+			<button class="tab" data-screen="me" type="button">Me</button>
+			<button class="tab" data-screen="history" type="button">History</button>
+		</nav>
 		<div class="top-actions">
 			<button class="icon-btn" id="notice-btn" type="button" aria-label="Pending signatures">
 				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9"/><path d="M10 21h4"/></svg>
 				<span class="badge-count" id="notice-count" hidden>0</span>
 			</button>
-			<button class="logout-btn" id="logout-btn" type="button">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6H5v12h4"/><path d="M10 12h10"/><path d="M16 8l4 4-4 4"/></svg>
-				Log out
-			</button>
+			<button class="logout-btn" id="logout-btn" type="button">Log out</button>
 		</div>
 	</header>
 
-	<section class="profile">
-		<div class="who">
-			<img class="avatar" id="avatar" alt="" hidden>
-			<div class="avatar-fallback" id="avatar-fallback">D</div>
-			<div>
-				<h1 id="driver-name">Driver <span class="pill off" id="driver-badge">Available</span></h1>
-				<p id="driver-company"></p>
-				<p id="driver-phone"></p>
-				<p id="driver-vehicle"></p>
-			</div>
-		</div>
-		<div class="cred" id="cred-license"></div>
-		<div class="cred" id="cred-medical"></div>
-		<div class="cred" id="cred-hazmat"></div>
-	</section>
-
-	<nav class="tabs" role="tablist">
-		<button class="tab active" data-tab="today" type="button">Today</button>
-		<button class="tab" data-tab="map" type="button">Map</button>
-		<button class="tab" data-tab="history" type="button">History</button>
-	</nav>
-
-	<div id="today-view" class="layout">
-		<div>
-			<section class="panel">
-				<div class="panel-head">
-					<div>
-						<h2>My trips today</h2>
-						<div class="sub" id="today-label"></div>
+	<div id="nav-shell" class="nav-shell">
+		<section class="map-stage" aria-label="Navigation">
+			<div class="map-wrap">
+				<div id="route-map"></div>
+				<div class="maneuver" id="maneuver" hidden>
+					<div class="maneuver-arrow" id="maneuver-arrow" aria-hidden="true">
+						<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6"/><path d="M6 11l6-6 6 6"/></svg>
 					</div>
-					<div class="run-chip" id="run-chip" hidden></div>
+					<div class="maneuver-copy">
+						<div class="maneuver-dist" id="maneuver-dist"></div>
+						<div class="maneuver-text" id="maneuver-text" aria-live="polite"></div>
+						<div class="maneuver-next" id="maneuver-next"></div>
+					</div>
+					<button class="voice-btn" id="voice-toggle" type="button" aria-pressed="true">Voice on</button>
 				</div>
-				<div class="progress" aria-hidden="true"><div id="progress-bar"></div></div>
-				<div class="progress-label" id="progress-label"></div>
-				<div class="stops" id="stop-list"></div>
-			</section>
+				<button class="recenter" id="recenter" type="button" hidden>Re-center</button>
+			</div>
+			<div class="map-dock" id="map-dock">
+				<div>
+					<div class="traffic-flag" id="traffic-flag" hidden>Live traffic</div>
+					<strong id="dock-title">No active stop</strong>
+					<div class="dock-meta" id="dock-meta" aria-live="polite"></div>
+					<div class="meta" id="dock-address"></div>
+					<div class="map-status" id="map-status" hidden></div>
+				</div>
+				<button class="btn primary" id="dock-nav" type="button">Start navigation</button>
+			</div>
+		</section>
+
+		<aside class="route-sheet" id="route-sheet">
+			<div class="panel-head">
+				<div>
+					<h2 id="map-route-name">Today's route</h2>
+					<div class="sub" id="today-label"></div>
+				</div>
+				<div class="run-chip" id="run-chip" hidden></div>
+			</div>
+			<div class="progress" aria-hidden="true"><div id="progress-bar"></div></div>
+			<div class="progress-label" id="progress-label"></div>
+			<div class="route-note" id="route-note" hidden></div>
+			<div class="stops" id="stop-list"></div>
 			<div class="action-bar">
 				<button class="btn" id="call-dispatcher" type="button">Call dispatcher</button>
 				<button class="btn" id="report-problem" type="button">Report a problem</button>
 			</div>
+		</aside>
+	</div>
+
+	<section id="empty-view" class="panel scroll-screen" hidden>
+		<h2>My trips today</h2>
+		<div class="sub" id="empty-date"></div>
+		<div id="empty-copy" class="empty"></div>
+	</section>
+
+	<section id="me-view" class="scroll-screen" hidden>
+		<div class="profile">
+			<div class="who">
+				<img class="avatar" id="avatar" alt="" hidden>
+				<div class="avatar-fallback" id="avatar-fallback">D</div>
+				<div>
+					<h1 id="driver-name">Driver <span class="pill off" id="driver-badge">Available</span></h1>
+					<p id="driver-company"></p>
+					<p id="driver-phone"></p>
+					<p id="driver-vehicle"></p>
+				</div>
+			</div>
+			<div class="cred" id="cred-license"></div>
+			<div class="cred" id="cred-medical"></div>
+			<div class="cred" id="cred-hazmat"></div>
 		</div>
 		<aside class="side-card">
 			<div class="side-head"><h2>Recent activity</h2></div>
 			<div id="activity"></div>
-			<button class="linkish" id="open-history" type="button">View history →</button>
 		</aside>
-	</div>
+	</section>
 
-	<div id="map-view" class="map-card" hidden>
-		<div class="map-head">
-			<h2>My route</h2>
-			<div class="sub" id="map-route-name"></div>
-		</div>
-		<div id="route-map"></div>
-	</div>
-
-	<div id="map-dock" hidden>
-		<div>
-			<strong id="dock-title">No active stop</strong>
-			<div class="sub" id="dock-meta"></div>
-			<div class="meta" id="dock-address"></div>
-		</div>
-		<button class="btn primary" id="dock-nav" type="button">Start navigation</button>
-	</div>
-
-	<section id="history-view" class="panel" hidden>
+	<section id="history-view" class="panel scroll-screen" hidden>
 		<h2>Past runs</h2>
 		<div class="sub">Completed and earlier run sheets assigned to you.</div>
 		<div class="history-list" id="history-list"></div>
@@ -268,26 +322,64 @@
 </div>
 
 <script type="application/json" id="driver-data">{{ driver_payload_json | safe }}</script>
+<script>{{ driver_nav_script | safe }}</script>
 <script>
 (function () {
 	const data = JSON.parse(document.getElementById("driver-data").textContent);
+	const navApi = window.DriverNav;
 	const $ = (id) => document.getElementById(id);
+	const state = {
+		map: null,
+		renderer: null,
+		driverMarker: null,
+		stopMarkers: [],
+		info: null,
+		navigating: false,
+		voice: window.sessionStorage.getItem("driver-nav-voice") !== "off",
+		follow: true,
+		watchId: null,
+		fix: null,
+		steps: [],
+		spokenStep: -1,
+		eta: null,
+		routedAt: 0,
+		routedFix: null,
+		routing: false,
+		persistAt: 0,
+		mapsFailed: false
+	};
 
-	function text(id, value) { $(id).textContent = value || ""; }
+	function text(id, value) {
+		const node = $(id);
+		if (node) node.textContent = value || "";
+	}
+	function escapeHtml(value) {
+		return String(value == null ? "" : value).replace(/[&<>"']/g, (ch) => ({
+			"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+		}[ch]));
+	}
 	function initials(name) {
-		const parts = (name || "D").trim().split(/\s+/).slice(0, 2);
-		return parts.map((part) => part[0]).join("").toUpperCase();
+		return (name || "D").trim().split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase();
 	}
 	function cred(id, item, icon, tint) {
-		$(id).innerHTML = `<div class="cred-icon" style="background:${tint}">${icon}</div><div><strong>${item.label}</strong><span>${item.detail}</span></div>`;
+		$(id).innerHTML = `<div class="cred-icon" style="background:${tint}">${icon}</div><div><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.detail)}</span></div>`;
+	}
+	function nextStop() {
+		return data.stops.find((stop) => stop.state === "next") || null;
+	}
+	function originNow() {
+		return state.fix || data.driver_position || null;
 	}
 
+	text("header-driver", data.full_name);
 	text("driver-name", data.full_name);
-	$("driver-name").insertAdjacentHTML("beforeend", ` <span class="pill ${data.on_run ? "on" : "off"}" id="driver-badge">${data.badge}</span>`);
+	$("driver-name").insertAdjacentHTML("beforeend", ` <span class="pill ${data.on_run ? "on" : "off"}" id="driver-badge">${escapeHtml(data.badge)}</span>`);
 	text("driver-company", data.company_line);
 	text("driver-phone", data.phone);
 	text("driver-vehicle", data.vehicle_line ? "Default vehicle: " + data.vehicle_line : "");
 	text("today-label", data.today_label);
+	text("empty-date", data.today_label);
+	text("map-route-name", data.route_name || "Today's route");
 	if (data.image) {
 		$("avatar").src = data.image;
 		$("avatar").hidden = false;
@@ -312,33 +404,27 @@
 	text("progress-label", data.total ? `${data.completed} of ${data.total} stops complete` : "No stops yet");
 
 	const list = $("stop-list");
-	if (!data.linked) {
-		list.innerHTML = `<div class="empty">This login is not linked to a Driver. Ask dispatch to set your User on the Driver record, then open this page again.</div>`;
-	} else if (!data.stops.length) {
-		list.innerHTML = `<div class="empty">No trips are assigned for today. When dispatch puts you on a run sheet, the stops will show up here.</div>`;
+	if (!data.stops.length) {
+		$("empty-copy").textContent = data.linked
+			? "No trips are assigned for today. When dispatch puts you on a run sheet, the route opens on the map."
+			: "This login is not linked to a Driver. Ask dispatch to set your User on the Driver record, then open this page again.";
 	} else {
 		list.innerHTML = data.stops.map((stop, index) => {
 			const last = index === data.stops.length - 1;
 			const proof = stop.signed
-				? `<button class="linkish" data-pod="${stop.pod_url}" type="button">Signed · View proof</button>`
+				? `<button class="linkish" data-pod="${escapeHtml(stop.pod_url)}" type="button">Signed · View proof</button>`
 				: (stop.signature_pending ? `<span class="pending">Signature pending</span>` : "");
-			const nextActions = stop.state === "next" ? `
-				<div class="actions">
-					<button class="btn primary" data-nav="${stop.id}" type="button">Navigate</button>
-					<button class="btn ghost" data-pod="${stop.pod_url}" type="button">Open proof of delivery</button>
-				</div>` : "";
-			const detail = [
-				stop.state === "next" ? `Leg ${stop.leg_index} · ${stop.place}` : stop.place,
-				stop.address,
-				stop.window,
-				stop.cargo
-			].filter(Boolean);
-			return `<article class="stop ${stop.state}">
-				<div class="rail"><div class="num">${stop.number}</div>${last ? "" : `<div class="stem"></div>`}</div>
+			const podAction = stop.state === "next"
+				? `<div class="actions"><button class="btn ghost" data-pod="${escapeHtml(stop.pod_url)}" type="button">Open proof of delivery</button></div>`
+				: "";
+			const detail = [stop.place, stop.address, stop.window, stop.cargo].filter(Boolean);
+			return `<article class="stop ${escapeHtml(stop.state)}" data-focus="${escapeHtml(stop.id)}">
+				<div class="rail"><div class="num">${escapeHtml(stop.number)}</div>${last ? "" : `<div class="stem"></div>`}</div>
 				<div class="stop-card">
-					<div class="stop-top"><div class="stop-title">${stop.title}</div>${proof}</div>
-					${detail.map((line) => `<div class="meta">${line}</div>`).join("")}
-					${nextActions}
+					<div class="stop-top"><div class="stop-title">${escapeHtml(stop.title)}</div>${proof}</div>
+					<div class="meta live-eta" data-eta-for="${escapeHtml(stop.id)}"></div>
+					${detail.map((line) => `<div class="meta">${escapeHtml(line)}</div>`).join("")}
+					${podAction}
 				</div>
 			</article>`;
 		}).join("");
@@ -352,53 +438,429 @@
 		["On time", onTime + " this month"],
 		["Open exceptions", data.activity.open_exceptions ? data.activity.open_exceptions + " to clear" : "All clear"],
 		[gate ? gate.name : "Gate pass", gate ? gate.detail : "None issued today"]
-	].map(([title, detail]) => `<div class="stat"><div><b>${title}</b><span>${detail}</span></div></div>`).join("");
+	].map(([title, detail]) => `<div class="stat"><div><b>${escapeHtml(title)}</b><span>${escapeHtml(detail)}</span></div></div>`).join("");
 
 	const history = $("history-list");
 	history.innerHTML = data.history.length ? data.history.map((run) => `
 		<div class="history-row">
-			<div><b>${run.route_name}</b><div class="meta">${run.date} · ${run.name} · ${run.stops} stops${run.vehicle ? " · " + run.vehicle : ""}</div></div>
-			<span class="status-tag ${run.status}">${run.status}</span>
+			<div><b>${escapeHtml(run.route_name)}</b><div class="meta">${escapeHtml(run.date)} · ${escapeHtml(run.name)} · ${escapeHtml(run.stops)} stops${run.vehicle ? " · " + escapeHtml(run.vehicle) : ""}</div></div>
+			<span class="status-tag ${escapeHtml(run.status)}">${escapeHtml(run.status)}</span>
 		</div>`).join("") : `<div class="empty">Past runs will appear here after you finish a trip.</div>`;
 
-	function show(tab) {
-		$("today-view").hidden = tab !== "today";
-		$("map-view").hidden = tab !== "map";
-		$("map-dock").hidden = tab !== "map";
-		$("history-view").hidden = tab !== "history";
-		document.querySelectorAll(".tab").forEach((button) => button.classList.toggle("active", button.dataset.tab === tab));
-		if (tab === "map") renderMap();
+	function showScreen(screen) {
+		const hasStops = data.stops.length > 0;
+		$("nav-shell").hidden = screen !== "route" || !hasStops;
+		$("empty-view").hidden = screen !== "route" || hasStops;
+		$("me-view").hidden = screen !== "me";
+		$("history-view").hidden = screen !== "history";
+		document.querySelectorAll("[data-screen]").forEach((button) => {
+			button.classList.toggle("active", button.dataset.screen === screen);
+		});
+		if (screen === "route" && hasStops) renderMap();
 	}
-	document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => show(button.dataset.tab)));
-	$("open-history").addEventListener("click", () => show("history"));
-	$("notice-btn").addEventListener("click", () => show("today"));
-
-	function mapsUrl(stop) {
-		if (!stop) return "https://www.google.com/maps";
-		if (stop.lat && stop.lng) return `https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`;
-		return "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(stop.address || stop.place || "");
-	}
-	function nextStop() { return data.stops.find((stop) => stop.state === "next") || null; }
-	document.body.addEventListener("click", (event) => {
-		const nav = event.target.closest("[data-nav]");
-		const pod = event.target.closest("[data-pod]");
-		if (nav) {
-			const stop = data.stops.find((item) => item.id === nav.dataset.nav);
-			window.open(mapsUrl(stop), "_blank", "noopener");
-		}
-		if (pod) window.open(pod.dataset.pod, "_blank", "noopener");
+	document.querySelectorAll("[data-screen]").forEach((button) => {
+		button.addEventListener("click", () => showScreen(button.dataset.screen));
+	});
+	$("notice-btn").addEventListener("click", () => {
+		showScreen("route");
+		const pendingStop = document.querySelector(".stop .pending");
+		if (pendingStop) pendingStop.closest(".stop").scrollIntoView({ block: "center" });
 	});
 
-	const upcoming = nextStop();
-	text("map-route-name", data.route_name || data.run_sheet || "Today's route");
-	text("dock-title", upcoming ? upcoming.headline : "No active stop");
-	const dockBits = [];
-	if (upcoming && upcoming.eta_min) dockBits.push(upcoming.eta_min + " min");
-	if (upcoming && upcoming.eta_km) dockBits.push(upcoming.eta_km + " km");
-	text("dock-meta", dockBits.join(" · "));
-	text("dock-address", upcoming ? upcoming.address : "");
-	$("dock-nav").addEventListener("click", () => window.open(mapsUrl(upcoming), "_blank", "noopener"));
-	$("dock-nav").disabled = !upcoming;
+	function paintStoredDock() {
+		const upcoming = nextStop();
+		const bits = [];
+		if (upcoming && upcoming.eta_min) bits.push(upcoming.eta_min + " min");
+		if (upcoming && upcoming.eta_km) bits.push(upcoming.eta_km + " km");
+		text("dock-meta", bits.join(" · "));
+	}
+	function paintDock() {
+		const upcoming = nextStop();
+		text("dock-title", upcoming ? upcoming.headline : (data.stops.length ? "Run complete" : "No active stop"));
+		text("dock-address", upcoming ? upcoming.address : "");
+		$("dock-nav").disabled = !upcoming;
+		$("dock-nav").textContent = state.navigating ? "End navigation" : "Start navigation";
+		if (!upcoming) {
+			if (data.stops.length) text("dock-meta", "Every stop on this run is done.");
+			return;
+		}
+		if (!state.eta) {
+			paintStoredDock();
+			return;
+		}
+		const seconds = navApi.liveSeconds(state.eta, Date.now());
+		text("dock-meta", navApi.formatEtaLabel(seconds, state.eta.km, Date.now()));
+		$("traffic-flag").hidden = !state.eta.traffic;
+	}
+	function paintStopEtas(rows) {
+		const byId = {};
+		(rows || []).forEach((row) => { byId[row.id] = row; });
+		document.querySelectorAll("[data-eta-for]").forEach((el) => {
+			const row = byId[el.dataset.etaFor];
+			el.textContent = row ? `${row.minutes} min · ${row.km} km` : "";
+		});
+	}
+	paintDock();
+	window.setInterval(paintDock, 1000);
+
+	function focusStop(id) {
+		const stop = data.stops.find((item) => item.id === id);
+		if (!stop || !state.map || stop.lat == null || stop.lng == null) return;
+		state.follow = false;
+		state.map.panTo({ lat: Number(stop.lat), lng: Number(stop.lng) });
+		if (state.map.getZoom() < 14) state.map.setZoom(15);
+	}
+	document.body.addEventListener("click", (event) => {
+		const pod = event.target.closest("[data-pod]");
+		if (pod) {
+			window.open(pod.dataset.pod, "_blank", "noopener");
+			return;
+		}
+		const focus = event.target.closest("[data-focus]");
+		if (focus) focusStop(focus.dataset.focus);
+	});
+
+	function paintVoice() {
+		$("voice-toggle").textContent = state.voice ? "Voice on" : "Voice off";
+		$("voice-toggle").setAttribute("aria-pressed", state.voice ? "true" : "false");
+	}
+	paintVoice();
+	$("voice-toggle").addEventListener("click", () => {
+		state.voice = !state.voice;
+		window.sessionStorage.setItem("driver-nav-voice", state.voice ? "on" : "off");
+		if (!state.voice && window.speechSynthesis) window.speechSynthesis.cancel();
+		paintVoice();
+	});
+	function speak(phrase) {
+		if (!state.voice || !phrase || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== "function") return;
+		const utter = new SpeechSynthesisUtterance(phrase);
+		window.speechSynthesis.cancel();
+		window.speechSynthesis.speak(utter);
+	}
+
+	function pinIcon(color, label) {
+		const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="13" fill="${color}" stroke="white" stroke-width="2"/><text x="16" y="21" text-anchor="middle" font-size="13" font-weight="700" fill="white" font-family="Arial,sans-serif">${label}</text></svg>`;
+		return {
+			url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+			scaledSize: new google.maps.Size(32, 32),
+			anchor: new google.maps.Point(16, 16)
+		};
+	}
+	function driverIcon(heading) {
+		const rotation = Number.isFinite(Number(heading)) ? Number(heading) : 0;
+		const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><g transform="rotate(${rotation} 18 18)"><circle cx="18" cy="18" r="14" fill="#0ea5e9" stroke="white" stroke-width="2"/><path d="M18 8l7 16-7-4-7 4z" fill="white"/></g></svg>`;
+		return {
+			url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+			scaledSize: new google.maps.Size(36, 36),
+			anchor: new google.maps.Point(18, 18)
+		};
+	}
+	function placeDriver(fix) {
+		if (!state.map || !fix) return;
+		const icon = driverIcon(fix.heading);
+		if (!state.driverMarker) {
+			state.driverMarker = new google.maps.Marker({
+				position: fix,
+				map: state.map,
+				icon: icon,
+				title: "You",
+				zIndex: 5
+			});
+		} else {
+			state.driverMarker.setPosition(fix);
+			state.driverMarker.setIcon(icon);
+		}
+	}
+	function drawMarkers() {
+		state.stopMarkers.forEach((marker) => marker.setMap(null));
+		state.stopMarkers = [];
+		if (!state.info) state.info = new google.maps.InfoWindow();
+		data.stops.forEach((stop) => {
+			if (stop.lat == null || stop.lng == null) return;
+			const color = stop.done ? "#22c55e" : (stop.state === "next" ? "#2f6fed" : "#64748b");
+			const marker = new google.maps.Marker({
+				position: { lat: Number(stop.lat), lng: Number(stop.lng) },
+				map: state.map,
+				icon: pinIcon(color, String(stop.number)),
+				title: stop.headline,
+				zIndex: stop.state === "next" ? 3 : 1
+			});
+			marker.addListener("click", () => {
+				state.info.setContent(`<b>${escapeHtml(stop.headline)}</b><br>${escapeHtml(stop.address || "")}`);
+				state.info.open({ map: state.map, anchor: marker });
+			});
+			state.stopMarkers.push(marker);
+		});
+	}
+	function fitStops() {
+		if (!state.map || (state.navigating && state.follow)) return;
+		const bounds = new google.maps.LatLngBounds();
+		let any = false;
+		const add = (point) => {
+			if (!point || point.lat == null || point.lng == null) return;
+			bounds.extend(point);
+			any = true;
+		};
+		add(originNow());
+		data.stops.forEach((stop) => add(stop.lat == null ? null : { lat: Number(stop.lat), lng: Number(stop.lng) }));
+		if (any) state.map.fitBounds(bounds, 64);
+	}
+
+	let mapsPromise;
+	function loadGoogleMaps() {
+		if (window.google && window.google.maps && window.google.maps.DirectionsService) return Promise.resolve();
+		if (mapsPromise) return mapsPromise;
+		const key = data.google_maps_key;
+		if (!key) return Promise.reject(new Error("Google Maps is not configured. Add the API key in Logistics Settings."));
+		mapsPromise = new Promise((resolve, reject) => {
+			const script = document.createElement("script");
+			script.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(key) + "&libraries=geometry&v=weekly";
+			script.async = true;
+			script.onload = () => resolve();
+			script.onerror = () => reject(new Error("Google Maps could not be loaded."));
+			document.head.appendChild(script);
+		}).catch((error) => {
+			mapsPromise = null;
+			throw error;
+		});
+		return mapsPromise;
+	}
+	function routeOnce(service, request) {
+		return new Promise((resolve, reject) => {
+			service.route(request, (result, status) => {
+				if (status === "OK" && result) resolve(result);
+				else reject(new Error(status || "Route unavailable"));
+			});
+		});
+	}
+	function requestDirections(plan) {
+		const service = new google.maps.DirectionsService();
+		const base = {
+			origin: plan.origin,
+			destination: plan.destination,
+			waypoints: plan.waypoints,
+			travelMode: google.maps.TravelMode.DRIVING,
+			optimizeWaypoints: false,
+			provideRouteAlternatives: false
+		};
+		const withTraffic = Object.assign({}, base, {
+			drivingOptions: {
+				departureTime: new Date(),
+				trafficModel: google.maps.TrafficModel.BEST_GUESS
+			}
+		});
+		return routeOnce(service, withTraffic).catch(() => routeOnce(service, base));
+	}
+	function setStatus(message) {
+		const note = $("map-status");
+		if (!message) {
+			note.hidden = true;
+			note.textContent = "";
+			return;
+		}
+		note.hidden = false;
+		note.textContent = message;
+	}
+	function applyDirections(result, plan) {
+		if (!state.renderer) {
+			state.renderer = new google.maps.DirectionsRenderer({
+				map: state.map,
+				suppressMarkers: true,
+				preserveViewport: false,
+				polylineOptions: { strokeColor: "#2f6fed", strokeWeight: 6 }
+			});
+		}
+		state.renderer.setOptions({ preserveViewport: Boolean(state.navigating && state.fix) });
+		state.renderer.setDirections(result);
+		const route = navApi.readRoute(result);
+		state.steps = (route.legs[0] && route.legs[0].steps) || [];
+		const eta = navApi.etasFromLegs(route.legs, plan.included, plan.originIsDriver);
+		if (eta.dock) {
+			state.eta = {
+				seconds: eta.dock.seconds,
+				km: eta.dock.km,
+				fetchedAt: Date.now(),
+				traffic: route.traffic
+			};
+		}
+		paintStopEtas(eta.stops);
+		paintDock();
+		drawMarkers();
+		placeDriver(state.fix || data.driver_position);
+		if (!state.navigating || !state.fix) fitStops();
+		if (state.navigating) followStep(state.fix);
+		if (plan.omitted) {
+			$("route-note").hidden = false;
+			text("route-note", plan.omitted + (plan.omitted === 1 ? " later stop joins" : " later stops join") + " this route as you finish these.");
+		} else {
+			$("route-note").hidden = true;
+		}
+		maybePersist(eta.deliveries);
+		setStatus("");
+	}
+	function refreshRoute() {
+		if (state.routing || !state.map) return;
+		const plan = navApi.buildRoutePlan(data.stops, originNow());
+		if (!plan || !plan.origin) {
+			drawMarkers();
+			placeDriver(originNow());
+			fitStops();
+			return;
+		}
+		state.routing = true;
+		state.routedAt = Date.now();
+		state.routedFix = originNow();
+		requestDirections(plan).then((result) => {
+			state.routing = false;
+			applyDirections(result, plan);
+		}).catch((error) => {
+			state.routing = false;
+			const status = error && error.message;
+			setStatus(status === "REQUEST_DENIED"
+				? "Traffic routing was refused. The stops stay on the map."
+				: "The live route could not be refreshed. The last ETA stays until the next fix.");
+			drawMarkers();
+			fitStops();
+		});
+	}
+	function followStep(fix) {
+		if (!state.navigating || !state.steps.length) return;
+		const index = navApi.pickStepIndex(state.steps, fix);
+		const step = state.steps[index];
+		const meters = fix && step.end ? navApi.distanceMeters(fix, step.end) : step.meters;
+		$("maneuver").hidden = false;
+		text("maneuver-text", step.instruction || "Continue");
+		text("maneuver-dist", navApi.formatMeters(meters));
+		$("maneuver-arrow").style.transform = "rotate(" + navApi.maneuverHeading(step.maneuver) + "deg)";
+		const upcoming = state.steps[index + 1];
+		text("maneuver-next", upcoming && upcoming.instruction ? "Then " + upcoming.instruction : "");
+		const signature = index + ":" + (step.instruction || "");
+		if (signature !== state.spokenStep) {
+			state.spokenStep = signature;
+			const lead = meters > 40 ? "In " + navApi.formatMeters(meters) + ", " : "";
+			speak(lead + (step.instruction || "Continue"));
+		}
+	}
+	function onFix(position) {
+		const fix = {
+			lat: position.coords.latitude,
+			lng: position.coords.longitude,
+			heading: position.coords.heading
+		};
+		state.fix = fix;
+		setStatus("");
+		placeDriver(fix);
+		if (state.navigating && state.follow && state.map) {
+			state.map.panTo(fix);
+			if (state.map.getZoom() < 15) state.map.setZoom(16);
+		}
+		followStep(fix);
+		const moved = state.routedFix ? navApi.distanceMeters(state.routedFix, fix) : Infinity;
+		if (!state.routing && navApi.shouldRefreshRoute({ lastAt: state.routedAt, movedMeters: moved }, Date.now())) {
+			refreshRoute();
+		}
+	}
+	function onFixError(error) {
+		if (state.fix) return;
+		setStatus(error && error.code === 1
+			? "Location is blocked, so the ETA cannot follow the truck. Allow location for this site, then start navigation again."
+			: "Waiting for a GPS fix. The ETA updates once the truck position comes in.");
+	}
+	function ensureWatch() {
+		if (state.watchId != null || !navigator.geolocation) {
+			if (!navigator.geolocation) setStatus("This device does not share location, so the ETA stays on the planned route.");
+			return;
+		}
+		state.watchId = navigator.geolocation.watchPosition(onFix, onFixError, {
+			enableHighAccuracy: true,
+			maximumAge: 4000,
+			timeout: 20000
+		});
+	}
+	function maybePersist(deliveries) {
+		if (data.preview || !state.fix || !deliveries || !deliveries.length) return;
+		const now = Date.now();
+		if (now - state.persistAt < 30000) return;
+		state.persistAt = now;
+		postMethod("logistics.www.driver.update_live_etas", {
+			updates: JSON.stringify(deliveries),
+			latitude: state.fix.lat,
+			longitude: state.fix.lng
+		}).catch(() => { state.persistAt = 0; });
+	}
+	function renderMap() {
+		if (state.map) {
+			google.maps.event.trigger(state.map, "resize");
+			return;
+		}
+		const box = $("route-map");
+		loadGoogleMaps().then(() => {
+			const center = data.driver_position || { lat: 14.55, lng: 121.02 };
+			state.map = new google.maps.Map(box, {
+				center: center,
+				zoom: 12,
+				mapTypeControl: false,
+				streetViewControl: false,
+				fullscreenControl: false,
+				clickableIcons: false,
+				gestureHandling: "greedy",
+				zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_CENTER }
+			});
+			const traffic = new google.maps.TrafficLayer();
+			traffic.setMap(state.map);
+			state.map.addListener("dragstart", () => {
+				if (state.navigating) state.follow = false;
+			});
+			ensureWatch();
+			refreshRoute();
+		}).catch((error) => {
+			state.mapsFailed = true;
+			box.innerHTML = `<div class="map-note">${escapeHtml(error.message || "Google Maps could not be loaded.")}</div>`;
+		});
+	}
+	function stopGuidance() {
+		state.navigating = false;
+		state.follow = false;
+		$("maneuver").hidden = true;
+		$("recenter").hidden = true;
+		if (window.speechSynthesis) window.speechSynthesis.cancel();
+		paintDock();
+	}
+	function startGuidance() {
+		state.navigating = true;
+		state.follow = true;
+		state.spokenStep = -1;
+		$("maneuver").hidden = false;
+		$("recenter").hidden = false;
+		text("maneuver-text", "Starting navigation");
+		text("maneuver-dist", "");
+		text("maneuver-next", "");
+		ensureWatch();
+		if (state.map) refreshRoute();
+		else renderMap();
+		speak("Navigation started");
+		paintDock();
+	}
+	$("dock-nav").addEventListener("click", () => {
+		if (!nextStop()) return;
+		if (state.navigating) {
+			stopGuidance();
+			return;
+		}
+		if (state.mapsFailed || (!data.google_maps_key && !(window.google && window.google.maps))) {
+			window.open(navApi.mapsFallbackUrl(data.stops, originNow()), "_blank", "noopener");
+			setStatus("In-app maps are unavailable, so the whole run opened in Google Maps.");
+			return;
+		}
+		startGuidance();
+	});
+	$("recenter").addEventListener("click", () => {
+		state.follow = true;
+		if (state.fix && state.map) {
+			state.map.panTo(state.fix);
+			state.map.setZoom(16);
+		}
+	});
 
 	const phone = (data.dispatcher_phone || "").replace(/[^\d+]/g, "");
 	$("call-dispatcher").addEventListener("click", () => {
@@ -412,9 +874,8 @@
 			headers: {"X-Frappe-CSRF-Token": token, "Accept": "application/json"}
 		}).finally(() => { window.location.href = "/login"; });
 	});
-
 	$("report-problem").addEventListener("click", () => {
-		if (!upcoming) {
+		if (!nextStop()) {
 			window.alert("There is no open stop to attach this note to.");
 			return;
 		}
@@ -433,11 +894,12 @@
 			},
 			body: JSON.stringify(args || {})
 		}).then((response) => response.json().then((body) => {
-			if (!response.ok) throw new Error("Request failed");
+			if (!response.ok) throw new Error((body.exception || body.message || "Request failed"));
 			return body.message;
 		}));
 	}
 	$("problem-send").addEventListener("click", () => {
+		const upcoming = nextStop();
 		if (!upcoming) return;
 		$("problem-send").disabled = true;
 		postMethod("logistics.www.driver.report_problem", {
@@ -453,96 +915,7 @@
 		}).catch(() => { $("problem-send").disabled = false; });
 	});
 
-	let map;
-	let mapsPromise;
-	function loadGoogleMaps() {
-		if (window.google && window.google.maps) return Promise.resolve();
-		if (mapsPromise) return mapsPromise;
-		const key = data.google_maps_key;
-		if (!key) {
-			return Promise.reject(new Error("Google Maps is not configured. Add the API key in Logistics Settings."));
-		}
-		mapsPromise = new Promise((resolve, reject) => {
-			const script = document.createElement("script");
-			script.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(key);
-			script.async = true;
-			script.onload = () => resolve();
-			script.onerror = () => reject(new Error("Google Maps could not be loaded."));
-			document.head.appendChild(script);
-		}).catch((error) => {
-			mapsPromise = null;
-			throw error;
-		});
-		return mapsPromise;
-	}
-	function pinIcon(color, label) {
-		const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="13" fill="${color}" stroke="white" stroke-width="2"/><text x="16" y="21" text-anchor="middle" font-size="13" font-weight="700" fill="white" font-family="Arial,sans-serif">${label}</text></svg>`;
-		return {
-			url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
-			scaledSize: new google.maps.Size(32, 32),
-			anchor: new google.maps.Point(16, 16)
-		};
-	}
-	function drawRoute() {
-		const bounds = new google.maps.LatLngBounds();
-		let hasPoint = false;
-		const add = (lat, lng) => {
-			const point = new google.maps.LatLng(lat, lng);
-			bounds.extend(point);
-			hasPoint = true;
-			return point;
-		};
-		if (data.polyline && data.polyline.length) {
-			const path = data.polyline.map(([lat, lng]) => add(lat, lng));
-			new google.maps.Polyline({ path, strokeColor: "#2f6fed", strokeWeight: 5, map });
-		}
-		const info = new google.maps.InfoWindow();
-		data.stops.forEach((stop) => {
-			if (!stop.lat || !stop.lng) return;
-			const color = stop.done ? "#22c55e" : (stop.state === "next" ? "#2f6fed" : "#64748b");
-			const marker = new google.maps.Marker({
-				position: add(stop.lat, stop.lng),
-				map,
-				icon: pinIcon(color, stop.number),
-				title: stop.headline,
-				zIndex: stop.state === "next" ? 3 : 1
-			});
-			marker.addListener("click", () => {
-				info.setContent(`<b>${stop.headline}</b><br>${stop.address || ""}`);
-				info.open({ map, anchor: marker });
-			});
-		});
-		if (data.driver_position) {
-			new google.maps.Marker({
-				position: add(data.driver_position.lat, data.driver_position.lng),
-				map,
-				icon: pinIcon("#0ea5e9", ""),
-				title: "Your last reported position",
-				zIndex: 4
-			});
-		}
-		if (hasPoint) map.fitBounds(bounds, 48);
-		else map.setCenter({ lat: 14.55, lng: 121.02 });
-	}
-	function renderMap() {
-		if (map) {
-			google.maps.event.trigger(map, "resize");
-			return;
-		}
-		const box = $("route-map");
-		loadGoogleMaps().then(() => {
-			map = new google.maps.Map(box, {
-				center: { lat: 14.55, lng: 121.02 },
-				zoom: 11,
-				mapTypeControl: false,
-				streetViewControl: false,
-				fullscreenControl: true
-			});
-			drawRoute();
-		}).catch((error) => {
-			box.innerHTML = `<div class="map-note">${error.message || "Google Maps could not be loaded."}</div>`;
-		});
-	}
+	showScreen("route");
 })();
 </script>
 {% endblock %}

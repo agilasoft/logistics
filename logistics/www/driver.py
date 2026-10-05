@@ -8,11 +8,12 @@ Redirect a logged-in driver here after login, or open it directly.
 """
 
 import json
+import os
 from urllib.parse import quote
 
 import frappe
 from frappe import _
-from frappe.utils import cint, flt, format_time, formatdate, get_datetime, getdate, now_datetime, today
+from frappe.utils import add_to_date, cint, flt, format_time, formatdate, get_datetime, getdate, now_datetime, today
 
 no_cache = 1
 sitemap = 0
@@ -28,6 +29,7 @@ def get_context(context):
 	driver_name, preview = _resolve_driver()
 	payload = _build_payload(driver_name, preview)
 	context.driver_payload_json = json.dumps(payload, default=str).replace("<", "\\u003c")
+	context.driver_nav_script = _nav_script()
 	context.title = "Driver"
 	context.no_cache = 1
 	return context
@@ -43,6 +45,12 @@ def _resolve_driver():
 			frappe.throw(_("Driver {0} was not found.").format(requested), frappe.DoesNotExistError)
 		return requested, True
 	return session_driver, False
+
+
+def _nav_script():
+	path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "public", "js", "driver_nav.js")
+	with open(path, encoding="utf-8") as handle:
+		return handle.read()
 
 
 def _google_maps_key():
@@ -674,3 +682,81 @@ def report_problem(leg, reason, note=""):
 		update_modified=True,
 	)
 	return {"ok": True}
+
+
+@frappe.whitelist()
+def update_live_etas(updates=None, latitude=None, longitude=None):
+	"""Save traffic ETAs for this driver's drops, and the latest GPS fix.
+
+	The driver page counts the dock ETA down locally. This keeps the leg's
+	remaining time and drop ETA in step with the truck while the run is moving.
+	"""
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Please log in."), frappe.PermissionError)
+	driver_name, preview = _resolve_driver()
+	if preview or not driver_name:
+		return {"ok": False, "saved": 0}
+
+	rows = _eta_rows(updates)
+	saved = 0
+	now = now_datetime()
+	for row in rows:
+		leg_name = (row.get("leg") or "").strip()
+		if not leg_name or not frappe.db.exists("Transport Leg", leg_name):
+			continue
+		run_sheet, status = frappe.db.get_value("Transport Leg", leg_name, ["run_sheet", "status"]) or (None, None)
+		owner = frappe.db.get_value("Run Sheet", run_sheet, "driver") if run_sheet else None
+		if owner != driver_name or status in ("Completed", "Cancelled"):
+			continue
+		eta_min = flt(row.get("eta_min"))
+		eta_km = flt(row.get("eta_km"))
+		if eta_min <= 0 or eta_min > 24 * 60 or eta_km < 0 or eta_km > 5000:
+			continue
+		frappe.db.set_value(
+			"Transport Leg",
+			leg_name,
+			{
+				"remaining_min": round(eta_min, 1),
+				"remaining_km": round(eta_km, 3),
+				"eta_at_drop": add_to_date(now, minutes=eta_min),
+			},
+			update_modified=False,
+		)
+		saved += 1
+
+	if latitude not in (None, "") and longitude not in (None, ""):
+		_save_driver_fix(driver_name, flt(latitude), flt(longitude))
+
+	if saved or latitude not in (None, ""):
+		frappe.db.commit()
+	return {"ok": True, "saved": saved}
+
+
+def _eta_rows(updates):
+	if not updates:
+		return []
+	if isinstance(updates, str):
+		try:
+			updates = json.loads(updates)
+		except Exception:
+			return []
+	if isinstance(updates, dict):
+		updates = [updates]
+	if not isinstance(updates, list):
+		return []
+	return [row for row in updates[:40] if isinstance(row, dict)]
+
+
+def _save_driver_fix(driver_name, lat, lng):
+	if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
+		return
+	meta = frappe.get_meta("Driver")
+	values = {}
+	if meta.has_field("custom_last_known_latitude"):
+		values["custom_last_known_latitude"] = lat
+	if meta.has_field("custom_last_known_longitude"):
+		values["custom_last_known_longitude"] = lng
+	if meta.has_field("custom_last_location_time"):
+		values["custom_last_location_time"] = now_datetime()
+	if values:
+		frappe.db.set_value("Driver", driver_name, values, update_modified=False)
