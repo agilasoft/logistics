@@ -927,8 +927,12 @@ def list_change_request_linked_services(change_request: str):
 
 
 @frappe.whitelist()
-def add_linked_service(change_request: str, service_type: str, quantity=1):
+def add_linked_service(change_request: str, service_type: str, quantity=1, values=None):
 	"""Create one or more Linked Services of the same type owned by this Change Request."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		apply_dialog_create_values,
+		prepare_dialog_create_values,
+	)
 	from logistics.time_sensitive.service_linking import (
 		normalize_linked_service_quantity,
 		validate_linked_service_type,
@@ -942,12 +946,14 @@ def add_linked_service(change_request: str, service_type: str, quantity=1):
 
 	service_type = validate_linked_service_type(service_type)
 	quantity = normalize_linked_service_quantity(quantity)
+	cleaned = prepare_dialog_create_values(service_type, values)
 	names = []
 	for _idx in range(quantity):
 		linked = frappe.new_doc(linked_service_doctype())
 		linked.service_type = service_type
 		linked.parent_booking_type = "Change Request"
 		linked.parent_booking_name = cr.name
+		apply_dialog_create_values(linked, cleaned)
 		linked.insert(ignore_permissions=True)
 		names.append(linked.name)
 
