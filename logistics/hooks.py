@@ -1003,6 +1003,18 @@ for _event, _handler in _TRANSPORT_JOB_RECEIPT_HANDLERS:
 
 merge_credit_hooks(doc_events)
 
+# Order Management: after a Pick Warehouse Job submits, push fulfillment and stock.
+_ORDER_MANAGEMENT_ON_PICK = "logistics.order_management.tasks.on_warehouse_job_submit"
+_wj_events = doc_events.setdefault("Warehouse Job", {})
+_wj_on_submit = _wj_events.get("on_submit")
+if not _wj_on_submit:
+	_wj_events["on_submit"] = _ORDER_MANAGEMENT_ON_PICK
+elif isinstance(_wj_on_submit, list):
+	if _ORDER_MANAGEMENT_ON_PICK not in _wj_on_submit:
+		_wj_events["on_submit"] = list(_wj_on_submit) + [_ORDER_MANAGEMENT_ON_PICK]
+elif _wj_on_submit != _ORDER_MANAGEMENT_ON_PICK:
+	_wj_events["on_submit"] = [_wj_on_submit, _ORDER_MANAGEMENT_ON_PICK]
+
 # Scheduled Tasks
 # ---------------
 
@@ -1012,6 +1024,7 @@ scheduler_events = {
 		# well under the free anonymous quota of ~400 req/day).
 		"*/10 * * * *": [
 			"logistics.air_freight.flight_schedules.tasks.sync_active_flights",
+			"logistics.order_management.tasks.pull_orders",
 		],
 		# Time Sensitive: deadline / checkpoint / unacked monitoring every 5 minutes.
 		"*/5 * * * *": [
@@ -1024,6 +1037,7 @@ scheduler_events = {
 		"logistics.integrations.outlook.tasks.reconcile_failed_syncs",
 		"logistics.integrations.outlook.tasks.sync_recent_task_changes",
 		"logistics.transport.tasks.update_sla_statuses",
+		"logistics.order_management.tasks.push_stock",
 	],
 	"daily": [
 		"logistics.status_update.tasks.update_document_statuses",
@@ -1034,6 +1048,7 @@ scheduler_events = {
 		"logistics.air_freight.flight_schedules.tasks.cleanup_old_sync_logs",
 		"logistics.air_freight.casslink.sftp_client.pull_configured_companies",
 		"logistics.job_management.auto_recognition.process_auto_recognition",
+		"logistics.order_management.tasks.cleanup_sync_logs",
 	],
 }
 
