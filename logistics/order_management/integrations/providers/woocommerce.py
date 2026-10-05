@@ -68,6 +68,39 @@ def parse_woo_orders(payload) -> list:
 	return [parse_woo_order(row) for row in as_list(payload) if isinstance(row, dict)]
 
 
+def woo_store_url(value: str) -> str:
+	raw = str(value or "").strip().rstrip("/")
+	if raw and not raw.startswith("http://") and not raw.startswith("https://"):
+		raw = "https://" + raw
+	return raw
+
+
+def woo_authorize_url(store_url, return_url, callback_url, state, app_name="CargoNext") -> str:
+	params = {
+		"app_name": app_name,
+		"scope": "read_write",
+		"user_id": state,
+		"return_url": return_url,
+		"callback_url": callback_url,
+	}
+	return f"{woo_store_url(store_url)}/wc-auth/v1/authorize?{urlencode(params)}"
+
+
+def map_woo_account(credentials, payload) -> dict:
+	body = payload or {}
+	return {
+		"ok": True,
+		"platform": "WooCommerce",
+		"fields": {
+			"platform": "WooCommerce",
+			"api_url": woo_store_url(credentials.get("api_url") or body.get("api_url")),
+			"app_key": body.get("consumer_key") or "",
+			"app_secret": body.get("consumer_secret") or "",
+		},
+		"choices": [],
+	}
+
+
 def woo_stock_body(qty) -> dict:
 	return {"manage_stock": True, "stock_quantity": int(qty)}
 

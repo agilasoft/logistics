@@ -110,6 +110,40 @@ def parse_pancake_orders(payload) -> list:
 	return [parse_pancake_order(row) for row in rows if isinstance(row, dict)]
 
 
+def parse_pancake_shops(payload) -> list:
+	if isinstance(payload, list):
+		rows = payload
+	elif isinstance(payload, dict):
+		rows = payload.get("data") or payload.get("shops") or payload.get("shop") or []
+		if isinstance(rows, dict):
+			rows = [rows]
+	else:
+		rows = []
+	shops = []
+	for row in as_list(rows):
+		if not isinstance(row, dict):
+			continue
+		shop_id = row.get("id") or row.get("shop_id")
+		if not shop_id:
+			continue
+		name = row.get("name") or row.get("shop_name") or ""
+		label = f"{name} ({shop_id})" if name else str(shop_id)
+		choice_fields = {"shop_id": str(shop_id)}
+		if name:
+			choice_fields["channel_name"] = name
+		shops.append({"id": str(shop_id), "label": label, "fields": choice_fields})
+	return shops
+
+
+def map_pancake_account(api_key, payload) -> dict:
+	choices = parse_pancake_shops(payload)
+	fields = {"platform": "Pancake", "api_key": api_key or ""}
+	if len(choices) == 1:
+		fields.update(choices[0]["fields"])
+		choices = []
+	return {"ok": True, "platform": "Pancake", "fields": fields, "choices": choices}
+
+
 def pancake_stock_body(variant_id, qty, warehouse_id=None) -> dict:
 	body = {"variation_id": variant_id, "stock": int(qty)}
 	if warehouse_id:
