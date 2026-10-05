@@ -522,27 +522,11 @@ override_doctype_dashboards = {
 
 # User Data Protection
 # --------------------
+# Empty until a privacy pass names real DocTypes (customer contacts, driver
+# phone, portal users). Do not restore the framework placeholders
+# ({doctype_1}, {field_1}); Frappe would look those names up literally.
 
-user_data_fields = [
-	{
-		"doctype": "{doctype_1}",
-		"filter_by": "{filter_by}",
-		"redact_fields": ["{field_1}", "{field_2}"],
-		"partial": 1,
-	},
-	{
-		"doctype": "{doctype_2}",
-		"filter_by": "{filter_by}",
-		"partial": 1,
-	},
-	{
-		"doctype": "{doctype_3}",
-		"strict": False,
-	},
-	{
-		"doctype": "{doctype_4}"
-	}
-]
+user_data_fields = []
 
 # Company → Delete Transactions: keep company-scoped setup/masters.
 # Do not list issingle DocTypes: ERPNext already excludes them, and missing
