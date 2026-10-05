@@ -2,8 +2,11 @@
 # For license information, please see license.txt
 
 """
-JP AFR (Japan Advance Filing Rules) API Integration
-Stub implementation - returns mock responses
+JP AFR (Japan Advance Filing Rules) API Integration.
+
+Filing actions do not write a mock status. They refuse unless Manifest Settings
+has a live Japan Customs endpoint, and they still leave the document unchanged
+because this client does not call that endpoint yet.
 """
 
 import frappe
@@ -18,14 +21,9 @@ class JPAFRAPI(BaseCustomsAPI):
 	def __init__(self, company: str = None):
 		super().__init__(company)
 		self.api_name = "JP AFR"
-		self.endpoint = self._get_endpoint()
+		self.endpoint_field = "japan_customs_api_endpoint"
+		self.endpoint = self.configured_endpoint()
 		self.credentials = self._get_credentials()
-	
-	def _get_endpoint(self) -> str:
-		"""Get API endpoint from settings"""
-		if self.settings and hasattr(self.settings, 'japan_customs_api_endpoint') and self.settings.japan_customs_api_endpoint:
-			return self.settings.japan_customs_api_endpoint
-		return "https://api.customs.go.jp/afr/v1"  # Mock endpoint
 	
 	def _get_credentials(self) -> Dict[str, str]:
 		"""Get API credentials from settings"""
@@ -56,18 +54,7 @@ class JPAFRAPI(BaseCustomsAPI):
 					"message": _("Only Draft AFR can be submitted.")
 				}
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("submit", success=True)
-			mock_response["japan_customs_number"] = mock_response["transaction_number"]
-			
-			# Update document with response
-			afr_doc.status = mock_response["status"]
-			afr_doc.japan_customs_number = mock_response["japan_customs_number"]
-			afr_doc.submission_date = mock_response["submission_date"]
-			afr_doc.submission_time = mock_response["submission_time"]
-			afr_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
@@ -94,17 +81,7 @@ class JPAFRAPI(BaseCustomsAPI):
 		try:
 			afr_doc = frappe.get_doc("JP AFR", filing_doc)
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("status", success=True)
-			mock_response["status"] = afr_doc.status
-			mock_response["japan_customs_number"] = afr_doc.japan_customs_number
-			
-			# Update document if status changed
-			if mock_response.get("status") != afr_doc.status:
-				afr_doc.status = mock_response["status"]
-				afr_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
@@ -139,14 +116,7 @@ class JPAFRAPI(BaseCustomsAPI):
 					"message": _("Submission type must be 'Amendment' for amendments.")
 				}
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("amend", success=True)
-			
-			# Update document
-			afr_doc.status = "Amended"
-			afr_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
@@ -181,16 +151,7 @@ class JPAFRAPI(BaseCustomsAPI):
 					"message": _("Submission type must be 'Cancellation' for cancellation.")
 				}
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("cancel", success=True)
-			
-			# Update document
-			afr_doc.status = "Cancelled"
-			if reason:
-				afr_doc.notes = f"Cancelled: {reason}"
-			afr_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
