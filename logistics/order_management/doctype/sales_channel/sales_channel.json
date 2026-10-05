@@ -1,0 +1,331 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-10-03 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "channel_name",
+  "enabled",
+  "platform",
+  "column_break_main",
+  "customer",
+  "company",
+  "branch",
+  "contract",
+  "section_credentials",
+  "region",
+  "shop_id",
+  "catalog_id",
+  "location_id",
+  "api_url",
+  "column_break_credentials",
+  "partner_id",
+  "app_key",
+  "app_secret",
+  "api_key",
+  "access_token",
+  "refresh_token",
+  "webhook_secret",
+  "section_sync",
+  "sync_orders",
+  "sync_items",
+  "sync_stock",
+  "push_fulfillment",
+  "commerce_orders_enabled",
+  "column_break_sync",
+  "import_on_status",
+  "safety_stock_qty",
+  "auto_submit_release_order",
+  "auto_create_warehouse_job",
+  "section_status",
+  "last_order_sync",
+  "last_item_sync",
+  "last_stock_sync",
+  "webhook_url"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "SCN-.#####"
+  },
+  {
+   "fieldname": "channel_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Channel Name",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Platform",
+   "options": "Shopee\nLazada\nTikTok Shop\nPancake\nFacebook\nWooCommerce\nShopify",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fieldname": "contract",
+   "fieldtype": "Link",
+   "label": "Warehouse Contract",
+   "options": "Warehouse Contract"
+  },
+  {
+   "fieldname": "section_credentials",
+   "fieldtype": "Section Break",
+   "label": "Connection"
+  },
+  {
+   "description": "Marketplace region code, for example vn, th, sg, my, ph, id.",
+   "fieldname": "region",
+   "fieldtype": "Data",
+   "label": "Region"
+  },
+  {
+   "description": "Shopee shop id, Lazada seller, TikTok shop cipher, Pancake shop id, or Facebook catalog id when Catalog ID is empty.",
+   "fieldname": "shop_id",
+   "fieldtype": "Data",
+   "label": "Shop ID"
+  },
+  {
+   "description": "Facebook product catalog id.",
+   "fieldname": "catalog_id",
+   "fieldtype": "Data",
+   "label": "Catalog ID"
+  },
+  {
+   "description": "Shopify inventory location id, or Pancake warehouse id used when pushing stock.",
+   "fieldname": "location_id",
+   "fieldtype": "Data",
+   "label": "Location or Warehouse ID"
+  },
+  {
+   "description": "Store URL for Shopify or WooCommerce, or an override host for the other platforms.",
+   "fieldname": "api_url",
+   "fieldtype": "Data",
+   "label": "API URL"
+  },
+  {
+   "fieldname": "column_break_credentials",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Shopee partner id.",
+   "fieldname": "partner_id",
+   "fieldtype": "Data",
+   "label": "Partner ID"
+  },
+  {
+   "description": "Lazada or TikTok app key. WooCommerce consumer key.",
+   "fieldname": "app_key",
+   "fieldtype": "Data",
+   "label": "App Key"
+  },
+  {
+   "description": "Shopee partner key, Lazada or TikTok app secret, WooCommerce consumer secret.",
+   "fieldname": "app_secret",
+   "fieldtype": "Password",
+   "label": "App Secret"
+  },
+  {
+   "description": "Pancake API key.",
+   "fieldname": "api_key",
+   "fieldtype": "Password",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "access_token",
+   "fieldtype": "Password",
+   "label": "Access Token"
+  },
+  {
+   "fieldname": "refresh_token",
+   "fieldtype": "Password",
+   "label": "Refresh Token"
+  },
+  {
+   "fieldname": "webhook_secret",
+   "fieldtype": "Password",
+   "label": "Webhook Secret"
+  },
+  {
+   "fieldname": "section_sync",
+   "fieldtype": "Section Break",
+   "label": "Sync"
+  },
+  {
+   "default": "1",
+   "fieldname": "sync_orders",
+   "fieldtype": "Check",
+   "label": "Sync Orders"
+  },
+  {
+   "default": "0",
+   "fieldname": "sync_items",
+   "fieldtype": "Check",
+   "label": "Sync Items"
+  },
+  {
+   "default": "1",
+   "fieldname": "sync_stock",
+   "fieldtype": "Check",
+   "label": "Sync Stock"
+  },
+  {
+   "default": "1",
+   "fieldname": "push_fulfillment",
+   "fieldtype": "Check",
+   "label": "Push Fulfillment"
+  },
+  {
+   "default": "0",
+   "description": "Facebook and Instagram checkout orders. Leave off and use Pancake unless the Commerce order API is enabled for this catalog.",
+   "fieldname": "commerce_orders_enabled",
+   "fieldtype": "Check",
+   "label": "Commerce Orders Enabled"
+  },
+  {
+   "fieldname": "column_break_sync",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Ready to Ship",
+   "fieldname": "import_on_status",
+   "fieldtype": "Select",
+   "label": "Import On Status",
+   "options": "Paid\nReady to Ship"
+  },
+  {
+   "default": "0",
+   "fieldname": "safety_stock_qty",
+   "fieldtype": "Float",
+   "label": "Safety Stock Qty"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_submit_release_order",
+   "fieldtype": "Check",
+   "label": "Submit Release Order"
+  },
+  {
+   "default": "0",
+   "description": "Also create the Pick Warehouse Job. Allocation stays manual.",
+   "fieldname": "auto_create_warehouse_job",
+   "fieldtype": "Check",
+   "label": "Create Warehouse Job"
+  },
+  {
+   "fieldname": "section_status",
+   "fieldtype": "Section Break",
+   "label": "Status"
+  },
+  {
+   "fieldname": "last_order_sync",
+   "fieldtype": "Datetime",
+   "label": "Last Order Sync",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_item_sync",
+   "fieldtype": "Datetime",
+   "label": "Last Item Sync",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_stock_sync",
+   "fieldtype": "Datetime",
+   "label": "Last Stock Sync",
+   "read_only": 1
+  },
+  {
+   "fieldname": "webhook_url",
+   "fieldtype": "Data",
+   "label": "Webhook URL",
+   "read_only": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-03 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Order Management",
+ "name": "Sales Channel",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Order Management Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Order Management User",
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "channel_name",
+ "track_changes": 1
+}

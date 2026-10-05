@@ -3,6 +3,11 @@ from __future__ import unicode_literals
 
 from logistics.doc_event_hooks import DOC_EVENTS
 from logistics.utils.credit_management import _ensure_print_validation_patch
+from frappe import append_hook
+
+from logistics.sea_freight.alert_schedule import DAILY_SEA_ALERT_TASKS, HOURLY_SEA_ALERT_TASKS
+from logistics.utils.credit_management import merge_credit_hooks
+from logistics.utils.invoice_dispute import merge_invoice_dispute_hooks
 
 # App dependencies
 app_dependencies = ["erpnext"]
@@ -125,12 +130,12 @@ doctype_js = {
 		"public/js/charge_break_buttons.js",
 		"time_sensitive/doctype/time_sensitive_case/time_sensitive_case.js",
 	],
-	"Internal Job Detail": "logistics/logistics/doctype/internal_job_detail/internal_job_detail.js",
-	"Linked Service Detail": "logistics/logistics/doctype/linked_service_detail/linked_service_detail.js",
-	"Container": "logistics/logistics/doctype/container/container.js",
+	"Internal Job Detail": "logistics/doctype/internal_job_detail/internal_job_detail.js",
+	"Linked Service Detail": "logistics/doctype/linked_service_detail/linked_service_detail.js",
+	"Container": "logistics/doctype/container/container.js",
 	"UNLOCO": [
-		"logistics/logistics/doctype/unloco/unloco.js",
-		"logistics/logistics/doctype/unloco/unloco_list.js",
+		"logistics/doctype/unloco/unloco.js",
+		"logistics/doctype/unloco/unloco_list.js",
 	],
 	# Sales Quote: dialogs first, break row/grid handlers, then air/sea freight scripts.
 	# Paths are module-relative (no leading "logistics/") — see NOTE below for Special Project.
@@ -147,7 +152,7 @@ doctype_js = {
 		"public/js/sales_quote_booking_dialog.js",
 		"public/js/initialize_tariff_schedule.js",
 	],
-	"Sales Quote Pack": "logistics/pricing_center/doctype/sales_quote_pack/sales_quote_pack.js",
+	"Sales Quote Pack": "pricing_center/doctype/sales_quote_pack/sales_quote_pack.js",
 	"Opportunity": [
 		"pricing_center/doctype/opportunity_service_scope/opportunity_service_scope.js",
 		"public/js/opportunity_services.js",
@@ -155,149 +160,115 @@ doctype_js = {
 	"Tariff": [
 		"public/js/charge_break_dialogs.js",
 		"public/js/charge_break_buttons.js",
-		"logistics/pricing_center/doctype/tariff_charge/tariff_charge.js",
-		"logistics/pricing_center/doctype/tariff/tariff.js",
+		"pricing_center/doctype/tariff_charge/tariff_charge.js",
+		"pricing_center/doctype/tariff/tariff.js",
 	],
 	# Charge parent doctypes: dialogs first, then charge script + handlers
 	# Air Booking Packages script first so logistics_calculate_volume_from_dimensions is defined before form handlers run
 	"Air Booking": [
-		"logistics/public/js/operational_exchange_rate_grid.js",
-		"logistics/public/js/routing_leg_transport_mode_flags.js",
-		"logistics/public/js/shipper_consignee_defaults.js",
-		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
+		"public/js/operational_exchange_rate_grid.js",
+		"public/js/routing_leg_transport_mode_flags.js",
+		"public/js/shipper_consignee_defaults.js",
+		"air_freight/doctype/air_booking_packages/air_booking_packages.js",
 		"public/js/charge_break_dialogs.js",
-		"logistics/public/js/document_alerts_dialog.js",
-		"logistics/air_freight/doctype/air_booking_charges/air_booking_charges.js",
+		"air_freight/doctype/air_booking_charges/air_booking_charges.js",
 		"public/js/charge_break_buttons.js",
-		# Same Get Charges from Quotation UI as Sea Booking / Transport Order (list criteria, search, cards, Apply).
-		"logistics/public/js/get_charges_from_quotation.js",
-		"logistics/public/js/get_charges_from_tariff.js",
 	],
 	"Air Shipment": [
-		"logistics/public/js/operational_exchange_rate_grid.js",
-		"logistics/public/js/routing_leg_transport_mode_flags.js",
-		"logistics/public/js/internal_job_create_from_source.js",
-		"logistics/public/js/shipper_consignee_defaults.js",
-		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
+		"public/js/operational_exchange_rate_grid.js",
+		"public/js/routing_leg_transport_mode_flags.js",
+		"public/js/shipper_consignee_defaults.js",
+		"air_freight/doctype/air_booking_packages/air_booking_packages.js",
 		"public/js/charge_break_dialogs.js",
-		"logistics/public/js/document_alerts_dialog.js",
-		"logistics/air_freight/doctype/air_shipment_charges/air_shipment_charges.js",
+		"air_freight/doctype/air_shipment_charges/air_shipment_charges.js",
 		"public/js/charge_break_buttons.js",
-		"logistics/public/js/profitability_form.js",
-		"logistics/public/js/sales_invoice_dialog.js",
-		"logistics/public/js/purchase_invoice_dialog.js",
-		"logistics/job_management/recognition_client.js",
-		"logistics/job_management/recognition_policy_fields.js",
-		"logistics/job_management/job_charge_reopen.js",
-		"logistics/job_management/job_readiness.js",
+		"job_management/recognition_client.js",
+		"job_management/recognition_policy_fields.js",
+		"job_management/job_charge_reopen.js",
+		"job_management/job_readiness.js",
 	],
 	"Air Consolidation": [
 		"public/js/charge_break_dialogs.js",
-		"logistics/public/js/document_alerts_dialog.js",
-		"logistics/public/js/air_consolidation_matching_shipments.js",
 		"public/js/charge_break_buttons.js",
-		"logistics/public/js/purchase_invoice_dialog.js",
 	],
 	"Sea Booking": [
-		"logistics/public/js/operational_exchange_rate_grid.js",
-		"logistics/public/js/routing_leg_transport_mode_flags.js",
-		"logistics/public/js/sea_freight_accounting_defaults.js",
-		"logistics/public/js/shipper_consignee_defaults.js",
-		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
+		"public/js/operational_exchange_rate_grid.js",
+		"public/js/routing_leg_transport_mode_flags.js",
+		"public/js/sea_freight_accounting_defaults.js",
+		"public/js/shipper_consignee_defaults.js",
+		"air_freight/doctype/air_booking_packages/air_booking_packages.js",
 		"public/js/charge_break_dialogs.js",
-		"logistics/public/js/document_alerts_dialog.js",
-		"logistics/sea_freight/doctype/sea_booking_charges/sea_booking_charges.js",
+		"sea_freight/doctype/sea_booking_charges/sea_booking_charges.js",
 		"public/js/charge_break_buttons.js",
 	],
 	"Sea Shipment": [
-		"logistics/public/js/operational_exchange_rate_grid.js",
-		"logistics/public/js/routing_leg_transport_mode_flags.js",
-		"logistics/public/js/internal_job_create_from_source.js",
-		"logistics/public/js/sea_freight_accounting_defaults.js",
-		"logistics/public/js/shipper_consignee_defaults.js",
-		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
-		"logistics/public/js/sales_invoice_dialog.js",
-		"logistics/public/js/purchase_invoice_dialog.js",
+		"public/js/operational_exchange_rate_grid.js",
+		"public/js/routing_leg_transport_mode_flags.js",
+		"public/js/sea_freight_accounting_defaults.js",
+		"public/js/shipper_consignee_defaults.js",
+		"air_freight/doctype/air_booking_packages/air_booking_packages.js",
 		"public/js/charge_break_dialogs.js",
-		"logistics/public/js/document_alerts_dialog.js",
-		"logistics/sea_freight/doctype/sea_shipment_charges/sea_shipment_charges.js",
+		"sea_freight/doctype/sea_shipment_charges/sea_shipment_charges.js",
 		"public/js/charge_break_buttons.js",
+		"job_management/recognition_client.js",
+		"job_management/recognition_policy_fields.js",
+		"job_management/job_charge_reopen.js",
+		"job_management/job_readiness.js",
 		"logistics/public/js/profitability_form.js",
 		"logistics/job_management/recognition_client.js",
 		"logistics/job_management/recognition_policy_fields.js",
 		"logistics/job_management/job_charge_reopen.js",
 		"logistics/job_management/job_readiness.js",
+		"sea_freight/doctype/sea_shipment/sea_shipment_lalamove.js",
 	],
 	"Sea Consolidation": [
 		"public/js/charge_break_dialogs.js",
-		"logistics/public/js/document_alerts_dialog.js",
-		"logistics/public/js/sea_consolidation_matching_shipments.js",
 		"public/js/charge_break_buttons.js",
-		"logistics/public/js/purchase_invoice_dialog.js",
 	],
 	"Declaration": [
-		"logistics/public/js/internal_job_create_from_source.js",
-		"logistics/public/js/transport_mode_default_document_type.js",
-		"logistics/public/js/shipper_consignee_defaults.js",
-		"logistics/public/js/sales_invoice_dialog.js",
-		"logistics/public/js/purchase_invoice_dialog.js",
-		"logistics/public/js/commercial_invoice_totals.js",
+		"public/js/transport_mode_default_document_type.js",
+		"public/js/shipper_consignee_defaults.js",
+		"public/js/commercial_invoice_totals.js",
 		"public/js/charge_break_dialogs.js",
-		"logistics/public/js/document_alerts_dialog.js",
-		"logistics/customs/doctype/declaration_charges/declaration_charges.js",
+		"customs/doctype/declaration_charges/declaration_charges.js",
 		"public/js/charge_break_buttons.js",
-		"logistics/public/js/profitability_form.js",
-		"logistics/job_management/recognition_client.js",
-		"logistics/job_management/recognition_policy_fields.js",
-		"logistics/job_management/job_charge_reopen.js",
-		"logistics/job_management/job_readiness.js",
+		"job_management/recognition_client.js",
+		"job_management/recognition_policy_fields.js",
+		"job_management/job_charge_reopen.js",
+		"job_management/job_readiness.js",
 	],
 	"Declaration Order": [
-		"logistics/public/js/transport_mode_default_document_type.js",
-		"logistics/public/js/shipper_consignee_defaults.js",
-		"logistics/public/js/commercial_invoice_totals.js",
+		"public/js/transport_mode_default_document_type.js",
+		"public/js/shipper_consignee_defaults.js",
+		"public/js/commercial_invoice_totals.js",
 		"public/js/charge_break_dialogs.js",
-		"logistics/public/js/document_alerts_dialog.js",
-		"logistics/customs/doctype/declaration_order_charges/declaration_order_charges.js",
+		"customs/doctype/declaration_order_charges/declaration_order_charges.js",
 		"public/js/charge_break_buttons.js",
-		# Same Get Charges from Quotation UI as Air / Sea / Transport (list, preview, Apply).
-		"logistics/public/js/get_charges_from_quotation.js",
 	],
 	"Transport Order": [
-		"logistics/public/js/shipper_consignee_defaults.js",
-		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
+		"public/js/shipper_consignee_defaults.js",
+		"air_freight/doctype/air_booking_packages/air_booking_packages.js",
 		"public/js/charge_break_dialogs.js",
-		"logistics/public/js/document_alerts_dialog.js",
-		"logistics/pricing_center/doctype/transport_order_charges/transport_order_charges.js",
+		"pricing_center/doctype/transport_order_charges/transport_order_charges.js",
 		"public/js/charge_break_buttons.js",
 	],
 	"Transport Job": [
-		"logistics/public/js/internal_job_create_from_source.js",
-		"logistics/public/js/shipper_consignee_defaults.js",
-		"logistics/air_freight/doctype/air_booking_packages/air_booking_packages.js",
+		"public/js/shipper_consignee_defaults.js",
+		"air_freight/doctype/air_booking_packages/air_booking_packages.js",
 		"public/js/charge_break_dialogs.js",
-		"logistics/public/js/document_alerts_dialog.js",
-		"logistics/public/js/sales_invoice_dialog.js",
-		"logistics/public/js/purchase_invoice_dialog.js",
-		"logistics/pricing_center/doctype/transport_job_charges/transport_job_charges.js",
+		"pricing_center/doctype/transport_job_charges/transport_job_charges.js",
 		"public/js/charge_break_buttons.js",
-		"logistics/public/js/profitability_form.js",
-		"logistics/job_management/recognition_client.js",
-		"logistics/job_management/recognition_policy_fields.js",
-		"logistics/job_management/job_charge_reopen.js",
-		"logistics/job_management/job_readiness.js",
-	],
-	"Transport Consolidation": [
-		"logistics/public/js/document_alerts_dialog.js",
+		"job_management/recognition_client.js",
+		"job_management/recognition_policy_fields.js",
+		"job_management/job_charge_reopen.js",
+		"job_management/job_readiness.js",
 	],
 	"Warehouse Job": [
-		"logistics/public/js/sales_invoice_dialog.js",
-		"logistics/public/js/purchase_invoice_dialog.js",
-		"logistics/public/js/profitability_form.js",
-		"logistics/job_management/recognition_client.js",
-		"logistics/job_management/recognition_policy_fields.js",
-		"logistics/job_management/job_charge_reopen.js",
-		"logistics/job_management/job_readiness.js",
+		"warehousing/warehouse_order_contract_accounts.js",
+		"job_management/recognition_client.js",
+		"job_management/recognition_policy_fields.js",
+		"job_management/job_charge_reopen.js",
+		"job_management/job_readiness.js",
 	],
 	"Warehouse Contract": [
 		"public/js/charge_break_dialogs.js",
@@ -308,31 +279,18 @@ doctype_js = {
 	"Transfer Order": "warehousing/warehouse_order_contract_accounts.js",
 	"VAS Order": "warehousing/warehouse_order_contract_accounts.js",
 	"Stocktake Order": "warehousing/warehouse_order_contract_accounts.js",
-	"Warehouse Job": "warehousing/warehouse_order_contract_accounts.js",
 	"General Job": [
-		"logistics/public/js/profitability_form.js",
-		"logistics/job_management/recognition_client.js",
-		"logistics/job_management/recognition_policy_fields.js",
-	],
-	"Project Task Order": [
-		"logistics/special_projects/doctype/project_task_order/project_task_order.js",
-		"logistics/special_projects/doctype/project_task_job_resource/project_task_job_resource.js",
-		"logistics/public/js/document_alerts_dialog.js",
-		"public/js/charge_break_dialogs.js",
-		"logistics/pricing_center/doctype/transport_job_charges/transport_job_charges.js",
-		"public/js/charge_break_buttons.js",
+		"job_management/recognition_client.js",
+		"job_management/recognition_policy_fields.js",
 	],
 	"Project Job": [
-		"logistics/special_projects/doctype/project_task_job_resource/project_task_job_resource.js",
-		"logistics/public/js/document_alerts_dialog.js",
+		"special_projects/doctype/project_task_job_resource/project_task_job_resource.js",
 		"public/js/charge_break_dialogs.js",
-		"logistics/pricing_center/doctype/transport_job_charges/transport_job_charges.js",
+		"pricing_center/doctype/transport_job_charges/transport_job_charges.js",
 		"public/js/charge_break_buttons.js",
-		"logistics/public/js/purchase_invoice_dialog.js",
-		"logistics/public/js/operational_exchange_rate_grid.js",
-		"logistics/public/js/profitability_form.js",
-		"logistics/job_management/recognition_client.js",
-		"logistics/job_management/recognition_policy_fields.js",
+		"public/js/operational_exchange_rate_grid.js",
+		"job_management/recognition_client.js",
+		"job_management/recognition_policy_fields.js",
 	],
 	# NOTE: doctype_js paths are MODULE-relative (resolved via frappe.get_app_path(app, *parts)).
 	# For this app, that means paths must start with "public/..." or "<sub_module>/...", NOT
@@ -341,8 +299,6 @@ doctype_js = {
 	# apps/frappe/frappe/desk/form/meta.py.
 	"Special Project": [
 		"public/js/profitability_project_form.js",
-		"logistics/public/js/sales_invoice_dialog.js",
-		"logistics/public/js/purchase_invoice_dialog.js",
 		# Module-relative paths only (no leading logistics/ — see comment above Docket entry).
 		"job_management/recognition_client.js",
 		"job_management/recognition_policy_fields.js",
@@ -360,19 +316,23 @@ doctype_js = {
 		"mice/doctype/mice_project_consolidation_charges/mice_project_consolidation_charges.js",
 	],
 	"Docket": [
-		"logistics/public/js/sales_invoice_dialog.js",
-		"logistics/public/js/purchase_invoice_dialog.js",
-		"logistics/public/js/profitability_form.js",
-		"logistics/job_management/recognition_client.js",
-		"logistics/job_management/recognition_policy_fields.js",
+		"job_management/recognition_client.js",
+		"job_management/recognition_policy_fields.js",
 	],
-	"MICE Job": [
-		"logistics/public/js/profitability_form.js",
-	],
+	"Account": "public/js/account_job_profit.js",
+	"Recognition Policy Settings": "job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
+	"Purchase Invoice": "public/js/purchase_invoice_container_deposit.js",
+	"Credit Hold Lift Request": "logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
+	"Cash Advance Request": "cash_advance/doctype/cash_advance_request/cash_advance_request.js",
+	"Cash Advance Liquidation": "cash_advance/doctype/cash_advance_liquidation/cash_advance_liquidation.js",
+	"Cash Advance Settings": "cash_advance/doctype/cash_advance_settings/cash_advance_settings.js",
+	"Cash Acknowledgment": "cash_advance/doctype/cash_acknowledgment/cash_acknowledgment.js",
+	"Outlook Calendar Settings": "logistics/doctype/outlook_calendar_settings/outlook_calendar_settings.js",
 	"Account": "logistics/public/js/account_job_profit.js",
 	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
 	"Purchase Invoice": "logistics/public/js/purchase_invoice_container_deposit.js",
 	"Credit Hold Lift Request": "logistics/logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
+	"Dispute": "logistics/logistics/doctype/dispute/dispute.js",
 	"Cash Advance Request": "logistics/cash_advance/doctype/cash_advance_request/cash_advance_request.js",
 	"Cash Advance Liquidation": "logistics/cash_advance/doctype/cash_advance_liquidation/cash_advance_liquidation.js",
 	"Cash Advance Settings": "logistics/cash_advance/doctype/cash_advance_settings/cash_advance_settings.js",
@@ -382,11 +342,9 @@ doctype_js = {
 		"public/js/user.js",
 		"integrations/outlook/user_outlook.js",
 	],
-	"Lead": "public/js/lead_prospect.js",
 }
 doctype_list_js = {
 	"Time Sensitive Case": "time_sensitive/doctype/time_sensitive_case/time_sensitive_case_list.js",
-	"Lead": "public/js/lead_list.js",
 }
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -466,6 +424,20 @@ boot_session = [
 doc_events = DOC_EVENTS
 _ensure_print_validation_patch()
 
+merge_credit_hooks(doc_events)
+merge_invoice_dispute_hooks(doc_events)
+
+# Order Management: after a Pick Warehouse Job submits, push fulfillment and stock.
+_ORDER_MANAGEMENT_ON_PICK = "logistics.order_management.tasks.on_warehouse_job_submit"
+_wj_events = doc_events.setdefault("Warehouse Job", {})
+_wj_on_submit = _wj_events.get("on_submit")
+if not _wj_on_submit:
+	_wj_events["on_submit"] = _ORDER_MANAGEMENT_ON_PICK
+elif isinstance(_wj_on_submit, list):
+	if _ORDER_MANAGEMENT_ON_PICK not in _wj_on_submit:
+		_wj_events["on_submit"] = list(_wj_on_submit) + [_ORDER_MANAGEMENT_ON_PICK]
+elif _wj_on_submit != _ORDER_MANAGEMENT_ON_PICK:
+	_wj_events["on_submit"] = [_wj_on_submit, _ORDER_MANAGEMENT_ON_PICK]
 
 # Scheduled Tasks
 # ---------------
@@ -476,6 +448,7 @@ scheduler_events = {
 		# well under the free anonymous quota of ~400 req/day).
 		"*/10 * * * *": [
 			"logistics.air_freight.flight_schedules.tasks.sync_active_flights",
+			"logistics.order_management.tasks.pull_orders",
 		],
 		# Time Sensitive: deadline / checkpoint / unacked monitoring every 5 minutes.
 		"*/5 * * * *": [
@@ -488,6 +461,8 @@ scheduler_events = {
 		"logistics.integrations.outlook.tasks.reconcile_failed_syncs",
 		"logistics.integrations.outlook.tasks.sync_recent_task_changes",
 		"logistics.transport.tasks.update_sla_statuses",
+		"logistics.order_management.tasks.push_stock",
+		*HOURLY_SEA_ALERT_TASKS,
 	],
 	"daily": [
 		"logistics.status_update.tasks.update_document_statuses",
@@ -498,6 +473,8 @@ scheduler_events = {
 		"logistics.air_freight.flight_schedules.tasks.cleanup_old_sync_logs",
 		"logistics.air_freight.casslink.sftp_client.pull_configured_companies",
 		"logistics.job_management.auto_recognition.process_auto_recognition",
+		"logistics.order_management.tasks.cleanup_sync_logs",
+		*DAILY_SEA_ALERT_TASKS,
 	],
 }
 
