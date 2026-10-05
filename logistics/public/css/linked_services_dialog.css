@@ -365,8 +365,38 @@
 /* —— Add controls —— */
 .lsd1-add-controls {
 	display: flex;
-	align-items: stretch;
+	align-items: center;
+	flex-wrap: wrap;
 	gap: var(--lsd1-space);
+}
+
+.lsd1-add-qty-wrap {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	flex: 0 0 auto;
+	margin: 0;
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--lsd1-muted);
+}
+
+.lsd1-add-qty {
+	width: 64px;
+	height: 36px;
+	border: 1px solid var(--lsd1-border);
+	border-radius: var(--lsd1-radius-sm);
+	padding: 0 8px;
+	font-size: 13px;
+	color: var(--lsd1-heading);
+	background: var(--lsd1-surface);
+	box-sizing: border-box;
+}
+
+.lsd1-add-qty:focus {
+	outline: none;
+	border-color: var(--lsd1-primary);
+	box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
 .lsd1-select {
@@ -426,14 +456,14 @@
 }
 
 /* —— Generate from main —— */
-.lsd1-generate {
+.lsd1-generate-panel[hidden] {
+	display: none !important;
+}
+
+.lsd1-generate-panel {
 	margin-top: calc(var(--lsd1-space) * 2);
 	padding-top: calc(var(--lsd1-space) * 2);
 	border-top: 1px solid var(--lsd1-border);
-}
-
-.lsd1-generate-panel[hidden] {
-	display: none !important;
 }
 
 .lsd1-generate-note {

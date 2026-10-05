@@ -53,7 +53,7 @@ app_include_css = [
 	"/assets/logistics/css/density_factor.css?v=1",
 	"/assets/logistics/css/workflow_center.css?v=1",
 	"/assets/logistics/css/change_request_summary.css?v=4",
-	"/assets/logistics/css/linked_services_dialog.css?v=10",
+	"/assets/logistics/css/linked_services_dialog.css?v=11",
 	"/assets/logistics/css/ts_sq_fetch_dialog.css?v=6",
 	"/assets/logistics/css/role_permission_matrix.css?v=6",
 ]
@@ -63,7 +63,7 @@ app_include_js = [
 	"/assets/logistics/js/party_address_contact.js?v=1",
 	"/assets/logistics/js/linked_service_link_query.js?v=2",
 	"/assets/logistics/js/virtual_linked_services_grid.js?v=2",
-	"/assets/logistics/js/linked_services_dialog.js?v=7",
+	"/assets/logistics/js/linked_services_dialog.js?v=8",
 	"/assets/logistics/js/ts_sq_fetch_dialog.js?v=6",
 	"/assets/logistics/js/freight_agent_service.js?v=4",
 	"/assets/logistics/js/charge_bill_to.js?v=4",

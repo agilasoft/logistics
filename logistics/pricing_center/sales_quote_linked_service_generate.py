@@ -11,11 +11,11 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
+from logistics.time_sensitive.service_linking import MAX_LINKED_SERVICE_ADD_QUANTITY
+
 RECIPE_TRANSPORT_CONTAINER = "transport_container"
 RECIPE_TRANSPORT_MAIN = "transport_main"
 RECIPE_CUSTOMS_MAIN = "customs_main"
-
-MAX_LINKED_SERVICES_PER_ROW = 50
 
 _SHARED_FIELDS = (
 	"company",
@@ -220,9 +220,11 @@ def _proposal_quantity(item: dict, *, editable: bool) -> int:
 	quantity = cint(raw)
 	if quantity < 0:
 		frappe.throw(_("Quantity cannot be negative."))
-	if quantity > MAX_LINKED_SERVICES_PER_ROW:
+	if quantity > MAX_LINKED_SERVICE_ADD_QUANTITY:
 		frappe.throw(
-			_("Quantity cannot exceed {0} per container row.").format(MAX_LINKED_SERVICES_PER_ROW)
+			_("Quantity cannot exceed {0} per container row.").format(
+				MAX_LINKED_SERVICE_ADD_QUANTITY
+			)
 		)
 	return quantity
 
