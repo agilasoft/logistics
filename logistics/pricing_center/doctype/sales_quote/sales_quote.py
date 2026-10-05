@@ -21,6 +21,7 @@ from logistics.utils.charge_service_type import (
 	sales_quote_charge_service_types_equal,
 )
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
+from logistics.pricing_center.sales_quote_main_job import multimodal_main_job_missing
 from logistics.pricing_center.sales_quote_scope_title import default_scope_title
 from logistics.utils.sales_quote_routing_defaults import apply_sales_quote_routing_defaults
 from logistics.pricing_center.sales_quote_required_parameters import (
@@ -900,10 +901,7 @@ class SalesQuote(Document):
 	def validate_multimodal_main_job(self):
 		"""When multimodal routing legs exist, require at least one Main Job."""
 		legs = getattr(self, "routing_legs", None) or []
-		if not legs:
-			return
-		main_count = sum(1 for r in legs if getattr(r, "is_main_job", 0))
-		if main_count == 0:
+		if multimodal_main_job_missing(getattr(row, "is_main_job", 0) for row in legs):
 			frappe.throw(_("Multimodal routing requires at least one Main Job. Please check 'Main Job' on one or more legs."))
 
 	def validate_routing_leg_dates(self):
