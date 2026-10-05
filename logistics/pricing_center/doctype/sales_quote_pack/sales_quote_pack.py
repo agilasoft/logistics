@@ -204,6 +204,10 @@ def create_sales_quote_from_pack(pack_name: str):
 	quote.operations_rep = pack.operations_rep
 	quote.customer_service_rep = pack.customer_service_rep
 	quote.quotation_type = "One-off"
+	# DocType default series is SQU (Regular). One-off quotes must use OOQ.
+	quote.naming_series = "OOQ.#####"
 	quote.sales_quote_pack = pack.name
+	# Shell quote: Primary Service Type and other scope fields are filled on the form.
+	quote.flags.ignore_mandatory = True
 	quote.insert()
 	return quote.name
