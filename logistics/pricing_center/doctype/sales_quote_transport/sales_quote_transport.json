@@ -30,6 +30,7 @@
   "column_break_rev",
   "use_tariff_in_revenue",
   "use_tariff_in_cost",
+  "cost_internal",
   "tariff",
   "revenue_cost_section",
   "revenue_column",
@@ -351,6 +352,12 @@
    "fieldname": "use_tariff_in_cost",
    "fieldtype": "Check",
    "label": "Use Tariff in Cost"
+  },
+  {
+   "default": "0",
+   "fieldname": "cost_internal",
+   "fieldtype": "Check",
+   "label": "Internal"
   },
   {
    "fieldname": "bill_to",

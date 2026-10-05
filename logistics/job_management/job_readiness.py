@@ -90,6 +90,8 @@ def _charge_item_code(ch):
 
 def check_charges_posted(doc):
 	"""Return issues for billable/cost charges not posted to a submitted SI/PI."""
+	from logistics.job_management.standard_cost_posting import is_internal_tariff_cost_charge
+
 	issues = []
 	charges = list(doc.get("charges") or [])
 	for idx, ch in enumerate(charges):
@@ -120,6 +122,21 @@ def check_charges_posted(doc):
 
 		cost = flt(resolve_charge_row_cost(ch, prefer_actual=True))
 		if cost > 0 and item_code:
+			if is_internal_tariff_cost_charge(ch):
+				je = getattr(ch, "journal_entry_reference", None)
+				je_ok = bool(je) and _invoice_submitted("Journal Entry", je)
+				if not je_ok:
+					issues.append(
+						_issue(
+							"charge_not_posted_standard_cost",
+							_(
+								"Cost charge {0} is an internal tariff cost and is not posted to a submitted standard cost journal."
+							).format(label),
+							charge_idx=idx + 1,
+							journal_entry_reference=je,
+						)
+					)
+				continue
 			pi = getattr(ch, "purchase_invoice", None)
 			pi_status = (getattr(ch, "purchase_invoice_status", None) or "").strip()
 			pi_ok = (

@@ -142,13 +142,15 @@ frappe.ui.form.on("Docket", {
 								"logistics.exhibits.doctype.docket.docket.post_standard_costs",
 							args: { docname: frm.doc.name },
 							callback: function (r) {
-								if (r.message) {
-									frappe.show_alert({
-										message: r.message.message,
-										indicator: "blue",
+								var res = r.message || {};
+								if (res.message) {
+									frappe.msgprint({
+										title: __("Standard Costs"),
+										message: res.message,
+										indicator: res.ok ? "green" : "orange",
 									});
-									frm.reload_doc();
 								}
+								if (res.ok) frm.reload_doc();
 							},
 						});
 					},

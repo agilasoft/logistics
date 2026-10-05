@@ -456,7 +456,15 @@ function _declaration_add_form_toolbar(frm) {
 			method: "logistics.customs.doctype.declaration.declaration.post_standard_costs",
 			args: { docname: frm.doc.name },
 			callback: function (r) {
-				if (r.message) frm.reload_doc();
+				var res = r.message || {};
+				if (res.message) {
+					frappe.msgprint({
+						title: __("Standard Costs"),
+						message: res.message,
+						indicator: res.ok ? "green" : "orange",
+					});
+				}
+				if (res.ok) frm.reload_doc();
 			},
 		});
 	}, __("Post"));

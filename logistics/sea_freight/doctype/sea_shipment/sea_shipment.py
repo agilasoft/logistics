@@ -1407,7 +1407,7 @@ class SeaShipment(VirtualLinkedServicesMixin, Document):
                 "charge_type", "charge_category", "bill_to", "pay_to",
                 "bill_to_exchange_rate", "pay_to_exchange_rate",
                 "bill_to_exchange_rate_source", "pay_to_exchange_rate_source",
-                "use_tariff_in_revenue", "use_tariff_in_cost", "tariff", "revenue_tariff", "cost_tariff",
+                "use_tariff_in_revenue", "use_tariff_in_cost", "cost_internal", "tariff", "revenue_tariff", "cost_tariff",
             ] + list(SALES_QUOTE_CHARGE_PARAMETER_FIELDS)
             sqc_fields = filter_fields_existing_in_doctype("Sales Quote Charge", charge_fields)
             sales_quote_sea_freight_records = frappe.get_all(
@@ -1562,22 +1562,11 @@ def recalculate_all_charges(docname):
 
 @frappe.whitelist()
 def post_standard_costs(docname):
-	"""Post standard costs for Sea Shipment charges. No-op if charges do not support standard costs."""
-	from logistics.utils.menu_permission import assert_perm
+	"""Post internal tariff standard costs for Sea Shipment charges."""
+	from logistics.job_management.standard_cost_posting import post_internal_tariff_standard_costs
 
 	shipment = frappe.get_doc("Sea Shipment", docname)
-	assert_perm("Sea Shipment", "write", doc=shipment)
-	assert_perm("Journal Entry", "create")
-	posted = 0
-	for ch in (shipment.charges or []):
-		if getattr(ch, "total_standard_cost", None) and flt(ch.total_standard_cost) > 0 and not getattr(ch, "standard_cost_posted", False):
-			if frappe.get_meta(ch.doctype).get_field("standard_cost_posted"):
-				ch.standard_cost_posted = 1
-				ch.standard_cost_posted_at = frappe.utils.now()
-				posted += 1
-	if posted > 0:
-		shipment.save()
-	return {"message": _("Posted {0} standard cost(s).").format(posted) if posted else _("No standard costs to post.")}
+	return post_internal_tariff_standard_costs(shipment)
 
 
 @frappe.whitelist()

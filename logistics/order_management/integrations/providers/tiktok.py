@@ -29,6 +29,7 @@ TIKTOK_STATUS = {
 }
 
 DEFAULT_HOST = "https://open-api.tiktokglobalshop.com"
+TIKTOK_AUTH_HOST = "https://auth.tiktok-shops.com"
 
 
 def tiktok_sign(secret, path, params, body="") -> str:
@@ -75,6 +76,76 @@ def parse_tiktok_order(raw: dict) -> dict:
 		items=items,
 		raw=raw,
 	)
+
+
+def tiktok_authorize_url(app_key, state) -> str:
+	return f"{TIKTOK_AUTH_HOST}/oauth/authorize?{urlencode({'app_key': app_key, 'state': state})}"
+
+
+def tiktok_token_url(app_key, app_secret, code) -> str:
+	params = {
+		"app_key": app_key,
+		"app_secret": app_secret,
+		"auth_code": code,
+		"grant_type": "authorized_code",
+	}
+	return f"{TIKTOK_AUTH_HOST}/api/v2/token/get?{urlencode(params)}"
+
+
+def tiktok_shops_url(app_key, app_secret, timestamp, host=DEFAULT_HOST) -> str:
+	path = "/authorization/202309/shops"
+	params = {"app_key": app_key, "timestamp": int(timestamp)}
+	params["sign"] = tiktok_sign(app_secret, path, params, "")
+	return f"{str(host).rstrip('/')}{path}?{urlencode(params)}"
+
+
+def map_tiktok_account(credentials, token_payload, shops_payload) -> dict:
+	data = (token_payload or {}).get("data") or token_payload or {}
+	shop_rows = []
+	if isinstance(shops_payload, dict):
+		shop_rows = as_list((shops_payload.get("data") or {}).get("shops"))
+	choices = []
+	for shop in shop_rows:
+		cipher = str(shop.get("cipher") or shop.get("shop_cipher") or "")
+		if not cipher:
+			continue
+		name = shop.get("name") or shop.get("shop_name") or ""
+		label = f"{name} ({cipher})" if name else cipher
+		choice_fields = {"shop_id": cipher, "region": str(shop.get("region") or "").lower()}
+		if name:
+			choice_fields["channel_name"] = name
+		choices.append({"id": cipher, "label": label, "fields": choice_fields})
+	fields = {
+		"platform": "TikTok Shop",
+		"app_key": credentials.get("app_key") or "",
+		"app_secret": credentials.get("app_secret") or "",
+		"access_token": data.get("access_token") or "",
+		"refresh_token": data.get("refresh_token") or "",
+	}
+	if len(choices) == 1:
+		fields.update(choices[0]["fields"])
+		choices = []
+	return {"ok": True, "platform": "TikTok Shop", "fields": fields, "choices": choices}
+
+
+def connect_tiktok(credentials, query, http, timestamp=None) -> dict:
+	code = (query or {}).get("code") or (query or {}).get("auth_code")
+	if not code:
+		raise ValueError("TikTok Shop did not return a login code")
+	token_payload = http(
+		"GET",
+		tiktok_token_url(credentials.get("app_key"), credentials.get("app_secret"), code),
+	)
+	access_token = ((token_payload or {}).get("data") or token_payload or {}).get("access_token")
+	if not access_token:
+		raise ValueError("TikTok Shop did not return an access token")
+	timestamp = int(time.time()) if timestamp is None else int(timestamp)
+	shops_payload = http(
+		"GET",
+		tiktok_shops_url(credentials.get("app_key"), credentials.get("app_secret"), timestamp, credentials.get("api_url") or DEFAULT_HOST),
+		headers={"x-tts-access-token": access_token, "content-type": "application/json"},
+	)
+	return map_tiktok_account(credentials, token_payload, shops_payload)
 
 
 def tiktok_stock_body(variant_id, qty) -> dict:

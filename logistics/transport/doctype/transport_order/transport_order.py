@@ -42,6 +42,7 @@ SALES_QUOTE_CHARGE_FIELDS = [
     "pay_to",  # Added: pay_to
     "use_tariff_in_revenue",
     "use_tariff_in_cost",
+    "cost_internal",
     "tariff",
     "revenue_tariff",
     "cost_tariff",

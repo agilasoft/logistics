@@ -36,6 +36,93 @@ def shopee_sign(partner_id, path, timestamp, access_token, shop_id, partner_key)
 	return hmac.new(str(partner_key).encode("utf-8"), base.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
+def shopee_auth_sign(partner_id, path, timestamp, partner_key) -> str:
+	base = f"{partner_id}{path}{timestamp}"
+	return hmac.new(str(partner_key).encode("utf-8"), base.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def shopee_authorize_url(partner_id, partner_key, redirect_url, host=DEFAULT_HOST, timestamp=None) -> str:
+	timestamp = int(time.time()) if timestamp is None else int(timestamp)
+	path = "/api/v2/shop/auth_partner"
+	params = {
+		"partner_id": partner_id,
+		"timestamp": timestamp,
+		"sign": shopee_auth_sign(partner_id, path, timestamp, partner_key),
+		"redirect": redirect_url,
+	}
+	return f"{str(host).rstrip('/')}{path}?{urlencode(params)}"
+
+
+def shopee_token_url(partner_id, partner_key, host=DEFAULT_HOST, timestamp=None) -> str:
+	timestamp = int(time.time()) if timestamp is None else int(timestamp)
+	path = "/api/v2/auth/token/get"
+	params = {
+		"partner_id": partner_id,
+		"timestamp": timestamp,
+		"sign": shopee_auth_sign(partner_id, path, timestamp, partner_key),
+	}
+	return f"{str(host).rstrip('/')}{path}?{urlencode(params)}"
+
+
+def shopee_shop_info_url(partner_id, partner_key, access_token, shop_id, host=DEFAULT_HOST, timestamp=None) -> str:
+	timestamp = int(time.time()) if timestamp is None else int(timestamp)
+	path = "/api/v2/shop/get_shop_info"
+	params = {
+		"partner_id": partner_id,
+		"timestamp": timestamp,
+		"access_token": access_token,
+		"shop_id": shop_id,
+		"sign": shopee_sign(partner_id, path, timestamp, access_token, shop_id, partner_key),
+	}
+	return f"{str(host).rstrip('/')}{path}?{urlencode(params)}"
+
+
+def map_shopee_account(credentials, token_payload, shop_info, shop_id) -> dict:
+	response = (token_payload or {}).get("response") or token_payload or {}
+	info = (shop_info or {}).get("response") or shop_info or {}
+	region = str(info.get("region") or credentials.get("region") or "").lower()
+	fields = {
+		"platform": "Shopee",
+		"partner_id": credentials.get("partner_id") or "",
+		"app_secret": credentials.get("app_secret") or "",
+		"shop_id": str(shop_id or info.get("shop_id") or ""),
+		"region": region,
+		"access_token": response.get("access_token") or "",
+		"refresh_token": response.get("refresh_token") or "",
+	}
+	if info.get("shop_name"):
+		fields["channel_name"] = info.get("shop_name")
+	return {"ok": True, "platform": "Shopee", "fields": fields, "choices": []}
+
+
+def connect_shopee(credentials, query, http, timestamp=None) -> dict:
+	code = (query or {}).get("code")
+	shop_id = (query or {}).get("shop_id")
+	if not code or not shop_id:
+		raise ValueError("Shopee did not return a shop")
+	partner_id = credentials.get("partner_id")
+	partner_key = credentials.get("app_secret")
+	host = credentials.get("api_url") or DEFAULT_HOST
+	token_payload = http(
+		"POST",
+		shopee_token_url(partner_id, partner_key, host, timestamp),
+		json={
+			"code": code,
+			"shop_id": int(shop_id) if str(shop_id).isdigit() else shop_id,
+			"partner_id": int(partner_id) if str(partner_id).isdigit() else partner_id,
+		},
+	)
+	response = (token_payload or {}).get("response") or {}
+	access_token = response.get("access_token")
+	if not access_token:
+		raise ValueError("Shopee did not return an access token")
+	shop_info = http(
+		"GET",
+		shopee_shop_info_url(partner_id, partner_key, access_token, shop_id, host, timestamp),
+	)
+	return map_shopee_account(credentials, token_payload, shop_info, shop_id)
+
+
 def parse_shopee_order(raw: dict) -> dict:
 	address = raw.get("recipient_address") or {}
 	items = []

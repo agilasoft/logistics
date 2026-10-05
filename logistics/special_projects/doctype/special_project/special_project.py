@@ -4158,6 +4158,15 @@ def _build_dashboard_required_materials_tab_html(doc: Any, ctx: dict[str, Any] |
 	)
 
 
+@frappe.whitelist()
+def post_standard_costs(docname):
+	"""Post internal tariff standard costs for Special Project charges."""
+	from logistics.job_management.standard_cost_posting import post_internal_tariff_standard_costs
+
+	project = frappe.get_doc("Special Project", docname)
+	return post_internal_tariff_standard_costs(project)
+
+
 def _build_fulfillment_tab_html(doc: Any, ctx: dict[str, Any] | None) -> str:
 	"""Fulfillment tab HTML — dispatches to the active named design variant.
 

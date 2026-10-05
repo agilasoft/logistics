@@ -79,6 +79,7 @@ _SQC_TO_PROGRAMME_CHARGE_FIELDS = (
 	"pay_to_exchange_rate_source",
 	"use_tariff_in_revenue",
 	"use_tariff_in_cost",
+	"cost_internal",
 	"revenue_tariff",
 	"cost_tariff",
 	"apply_95_5_rule",

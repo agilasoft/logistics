@@ -82,6 +82,7 @@
   "revenue_calc_notes",
   "use_unit_breaks",
   "cost_column",
+  "cost_internal",
   "cost_calculation_method",
   "cost_specified_charge_groups_html",
   "cost_specified_charge_group_codes",
@@ -591,6 +592,12 @@
    "fieldname": "cost_column",
    "fieldtype": "Column Break",
    "label": "Cost"
+  },
+  {
+   "default": "0",
+   "fieldname": "cost_internal",
+   "fieldtype": "Check",
+   "label": "Internal"
   },
   {
    "fieldname": "cost_calculation_method",

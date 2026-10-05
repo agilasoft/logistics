@@ -25,6 +25,7 @@
   "column_break_jbbp",
   "use_tariff_in_revenue",
   "use_tariff_in_cost",
+  "cost_internal",
   "tariff",
   "revenue_cost_section",
   "revenue_column",
@@ -172,6 +173,12 @@
    "fieldname": "use_tariff_in_cost",
    "fieldtype": "Check",
    "label": "Use Tariff in Cost"
+  },
+  {
+   "default": "0",
+   "fieldname": "cost_internal",
+   "fieldtype": "Check",
+   "label": "Internal"
   },
   {
    "depends_on": "eval:doc.use_tariff_in_revenue || doc.use_tariff_in_cost",
