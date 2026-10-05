@@ -5,11 +5,14 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlencode
+
 from logistics.order_management.integrations.base import ChannelAdapter
 from logistics.order_management.integrations.common import as_list, blank_order, first, map_status
 from logistics.order_management.integrations.registry import register
 
 GRAPH = "https://graph.facebook.com/v21.0"
+FACEBOOK_SCOPES = "catalog_management,business_management"
 
 FB_STATUS = {
 	"created": "ready",
@@ -20,6 +23,73 @@ FB_STATUS = {
 	"cancelled": "cancelled",
 	"refunded": "return",
 }
+
+
+def facebook_authorize_url(app_id, redirect_url, state) -> str:
+	params = {
+		"client_id": app_id,
+		"redirect_uri": redirect_url,
+		"state": state,
+		"scope": FACEBOOK_SCOPES,
+	}
+	return f"https://www.facebook.com/v21.0/dialog/oauth?{urlencode(params)}"
+
+
+def map_facebook_account(credentials, token_payload, catalogs_payload) -> dict:
+	token = (token_payload or {}).get("access_token") or ""
+	rows = as_list((catalogs_payload or {}).get("data") if isinstance(catalogs_payload, dict) else catalogs_payload)
+	choices = []
+	for row in rows:
+		if not isinstance(row, dict) or not row.get("id"):
+			continue
+		name = row.get("name") or ""
+		catalog_id = str(row["id"])
+		choice_fields = {"catalog_id": catalog_id, "shop_id": catalog_id}
+		if name:
+			choice_fields["channel_name"] = name
+		choices.append(
+			{
+				"id": catalog_id,
+				"label": f"{name} ({catalog_id})" if name else catalog_id,
+				"fields": choice_fields,
+			}
+		)
+	fields = {
+		"platform": "Facebook",
+		"app_key": credentials.get("app_key") or "",
+		"app_secret": credentials.get("app_secret") or "",
+		"access_token": token,
+		"commerce_orders_enabled": 0,
+	}
+	if len(choices) == 1:
+		fields.update(choices[0]["fields"])
+		choices = []
+	return {"ok": True, "platform": "Facebook", "fields": fields, "choices": choices}
+
+
+def connect_facebook(credentials, query, http, redirect_url) -> dict:
+	code = (query or {}).get("code")
+	if not code:
+		raise ValueError("Facebook did not return a login code")
+	token_payload = http(
+		"GET",
+		f"{GRAPH}/oauth/access_token",
+		params={
+			"client_id": credentials.get("app_key"),
+			"client_secret": credentials.get("app_secret"),
+			"redirect_uri": redirect_url,
+			"code": code,
+		},
+	)
+	token = (token_payload or {}).get("access_token")
+	if not token:
+		raise ValueError("Facebook did not return an access token")
+	catalogs_payload = http(
+		"GET",
+		f"{GRAPH}/me/assigned_product_catalogs",
+		params={"access_token": token, "limit": 50},
+	)
+	return map_facebook_account(credentials, token_payload, catalogs_payload)
 
 
 def facebook_stock_batch(updates: list) -> dict:

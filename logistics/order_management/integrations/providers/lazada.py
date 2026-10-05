@@ -41,6 +41,69 @@ LAZADA_STATUS = {
 }
 
 
+LAZADA_AUTH_URL = "https://auth.lazada.com/oauth/authorize"
+LAZADA_TOKEN_URL = "https://auth.lazada.com/rest/auth/token/create"
+
+
+def lazada_authorize_url(app_key, redirect_url) -> str:
+	params = {
+		"response_type": "code",
+		"force_auth": "true",
+		"redirect_uri": redirect_url,
+		"client_id": app_key,
+	}
+	return f"{LAZADA_AUTH_URL}?{urlencode(params)}"
+
+
+def lazada_token_params(app_key, app_secret, code, timestamp_ms) -> dict:
+	params = {
+		"app_key": app_key,
+		"timestamp": str(timestamp_ms),
+		"sign_method": "sha256",
+		"code": code,
+	}
+	params["sign"] = lazada_sign("/auth/token/create", params, app_secret)
+	return params
+
+
+def map_lazada_account(credentials, token_payload) -> dict:
+	payload = token_payload or {}
+	users = payload.get("country_user_info") or payload.get("country_user_info_list") or []
+	seller = ""
+	country = payload.get("country") or ""
+	if users and isinstance(users, list):
+		seller = str(users[0].get("seller_id") or users[0].get("user_id") or "")
+		country = country or users[0].get("country") or ""
+	if not seller:
+		account = payload.get("account") or payload.get("seller_id") or ""
+		seller = str(account)
+	region = str(country or credentials.get("region") or "").lower()
+	fields = {
+		"platform": "Lazada",
+		"app_key": credentials.get("app_key") or "",
+		"app_secret": credentials.get("app_secret") or "",
+		"access_token": payload.get("access_token") or "",
+		"refresh_token": payload.get("refresh_token") or "",
+		"shop_id": seller,
+		"region": region,
+	}
+	if region in LAZADA_HOSTS:
+		fields["api_url"] = LAZADA_HOSTS[region]
+	return {"ok": True, "platform": "Lazada", "fields": fields, "choices": []}
+
+
+def connect_lazada(credentials, query, http, timestamp_ms=None) -> dict:
+	code = (query or {}).get("code")
+	if not code:
+		raise ValueError("Lazada did not return a login code")
+	timestamp_ms = int(time.time() * 1000) if timestamp_ms is None else int(timestamp_ms)
+	params = lazada_token_params(credentials.get("app_key"), credentials.get("app_secret"), code, timestamp_ms)
+	payload = http("POST", LAZADA_TOKEN_URL, data=params)
+	if not (payload or {}).get("access_token"):
+		raise ValueError("Lazada did not return an access token")
+	return map_lazada_account(credentials, payload)
+
+
 def lazada_sign(path: str, params: dict, app_secret: str) -> str:
 	pieces = "".join(f"{key}{params[key]}" for key in sorted(params) if key != "sign")
 	base = f"{path}{pieces}"

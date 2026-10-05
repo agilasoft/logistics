@@ -5,11 +5,91 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlencode
+
 from logistics.order_management.integrations.base import ChannelAdapter
 from logistics.order_management.integrations.common import as_list, blank_order, first
 from logistics.order_management.integrations.registry import register
 
 API_VERSION = "2024-10"
+SHOPIFY_SCOPES = "read_orders,write_orders,read_products,write_products,read_inventory,write_inventory,read_locations"
+
+
+def shopify_shop_host(value: str) -> str:
+	raw = str(value or "").strip()
+	raw = raw.replace("https://", "").replace("http://", "").strip("/")
+	if not raw:
+		return ""
+	host = raw.split("/")[0]
+	if "." not in host:
+		host = host + ".myshopify.com"
+	return "https://" + host
+
+
+def shopify_authorize_url(shop, client_id, redirect_url, state) -> str:
+	params = {
+		"client_id": client_id,
+		"scope": SHOPIFY_SCOPES,
+		"redirect_uri": redirect_url,
+		"state": state,
+	}
+	return f"{shopify_shop_host(shop)}/admin/oauth/authorize?{urlencode(params)}"
+
+
+def map_shopify_account(credentials, token_payload, locations_payload, shop_payload=None) -> dict:
+	token = (token_payload or {}).get("access_token") or ""
+	locations = as_list((locations_payload or {}).get("locations"))
+	choices = []
+	for loc in locations:
+		if not loc.get("id"):
+			continue
+		name = loc.get("name") or str(loc["id"])
+		choices.append(
+			{
+				"id": str(loc["id"]),
+				"label": f"{name} ({loc['id']})",
+				"fields": {"location_id": str(loc["id"])},
+			}
+		)
+	fields = {
+		"platform": "Shopify",
+		"api_url": shopify_shop_host(credentials.get("api_url")),
+		"app_key": credentials.get("app_key") or "",
+		"app_secret": credentials.get("app_secret") or "",
+		"access_token": token,
+	}
+	shop_name = ""
+	if isinstance(shop_payload, dict):
+		shop_name = ((shop_payload.get("shop") or {}) if isinstance(shop_payload.get("shop"), dict) else {}).get("name") or ""
+	if shop_name:
+		fields["channel_name"] = shop_name
+	if len(choices) == 1:
+		fields["location_id"] = choices[0]["id"]
+		choices = []
+	return {"ok": True, "platform": "Shopify", "fields": fields, "choices": choices}
+
+
+def connect_shopify(credentials, query, http) -> dict:
+	code = (query or {}).get("code")
+	if not code:
+		raise ValueError("Shopify did not return a login code")
+	host = shopify_shop_host(credentials.get("api_url"))
+	token_payload = http(
+		"POST",
+		f"{host}/admin/oauth/access_token",
+		json={
+			"client_id": credentials.get("app_key"),
+			"client_secret": credentials.get("app_secret"),
+			"code": code,
+		},
+	)
+	token = (token_payload or {}).get("access_token")
+	if not token:
+		raise ValueError("Shopify did not return an access token")
+	headers = {"X-Shopify-Access-Token": token, "Content-Type": "application/json"}
+	locations_payload = http("GET", f"{host}/admin/api/{API_VERSION}/locations.json", headers=headers)
+	shop_payload = http("GET", f"{host}/admin/api/{API_VERSION}/shop.json", headers=headers)
+	return map_shopify_account(credentials, token_payload, locations_payload, shop_payload)
 
 
 def shopify_status(raw: dict) -> str:
