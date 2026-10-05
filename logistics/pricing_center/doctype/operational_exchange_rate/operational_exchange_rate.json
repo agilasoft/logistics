@@ -8,6 +8,7 @@
   "entity_type",
   "entity",
   "exchange_rate_source",
+  "allow_rate_override",
   "currency",
   "exchange_rate_date",
   "rate",
@@ -40,6 +41,14 @@
    "options": "Exchange Rate Source"
   },
   {
+   "fetch_from": "exchange_rate_source.allow_rate_override",
+   "fieldname": "allow_rate_override",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Allow Rate Override",
+   "read_only": 1
+  },
+  {
    "fieldname": "currency",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -60,7 +69,8 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Rate (to company base)",
-   "precision": "9"
+   "precision": "9",
+   "read_only_depends_on": "eval:!cint(doc.allow_rate_override)"
   },
   {
    "fieldname": "column_break_oer",
@@ -75,7 +85,7 @@
   },
   {
    "depends_on": "eval:doc.alternate_currency",
-   "description": "Amount in Alternate Currency equals amount in Currency × Alternate Rate.",
+   "description": "Amount in Alternate Currency equals amount in Currency \u00d7 Alternate Rate.",
    "fieldname": "alternate_rate",
    "fieldtype": "Float",
    "label": "Alternate Rate",
@@ -85,7 +95,7 @@
  "index_web_pages_for_search": 0,
  "istable": 1,
  "links": [],
- "modified": "2026-05-04 00:00:00",
+ "modified": "2026-10-05 09:30:00.000000",
  "module": "Pricing Center",
  "name": "Operational Exchange Rate",
  "owner": "Administrator",
