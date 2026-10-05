@@ -1209,6 +1209,7 @@
 		if (state.mapLoading) return;
 		state.mapLoading = true;
 		const box = $("route-map");
+		showGoogleEmbed();
 		loadGoogleMaps().then(() => {
 			if (state.map) return;
 			const center = data.driver_position || { lat: 14.55, lng: 121.02 };
@@ -1216,7 +1217,8 @@
 				center: center,
 				zoom: 12,
 				mapTypeId: google.maps.MapTypeId ? google.maps.MapTypeId.ROADMAP : "roadmap",
-				mapTypeControl: false,				streetViewControl: false,
+				mapTypeControl: false,
+				streetViewControl: false,
 				fullscreenControl: false,
 				clickableIcons: false,
 				gestureHandling: "greedy"
@@ -1238,30 +1240,17 @@
 			showGoogleEmbed();
 		});
 	}
-	function formatMapPoint(point) {
-		if (!point) return "";
-		if (typeof point === "string") return point;
-		if (point.lat == null || point.lng == null) return "";
-		return point.lat + "," + point.lng;
-	}
 	function googleEmbedUrl() {
-		const plan = navApi.buildRoutePlan(data.stops, originNow());
 		const points = [];
-		if (plan && plan.origin) points.push(formatMapPoint(plan.origin));
-		if (plan) {
-			(plan.waypoints || []).forEach((waypoint) => points.push(formatMapPoint(waypoint.location)));
-			if (plan.destination) points.push(formatMapPoint(plan.destination));
-		}
-		const clean = points.filter(Boolean);
-		if (clean.length >= 2) {
-			const destination = clean[clean.length - 1];
-			const via = clean.slice(1, -1);
-			let url = "https://maps.google.com/maps?saddr=" + encodeURIComponent(clean[0]) + "&daddr=" + encodeURIComponent(destination);
-			if (via.length) url += "+to:" + via.map((point) => encodeURIComponent(point)).join("+to:");
-			return url + "&output=embed";
-		}
-		const query = clean[0] || "14.55,121.02";
-		return "https://maps.google.com/maps?q=" + encodeURIComponent(query) + "&z=12&output=embed";
+		const origin = originNow();
+		if (origin && origin.lat != null && origin.lng != null) points.push(origin);
+		data.stops.forEach((stop) => {
+			if (stop.lat != null && stop.lng != null) points.push(stop);
+		});
+		if (!points.length) points.push({ lat: 14.55, lng: 121.02 });
+		const lat = points.reduce((sum, point) => sum + Number(point.lat), 0) / points.length;
+		const lng = points.reduce((sum, point) => sum + Number(point.lng), 0) / points.length;
+		return "https://maps.google.com/maps?ll=" + encodeURIComponent(lat + "," + lng) + "&z=12&t=m&output=embed";
 	}
 	function showGoogleEmbed() {
 		const box = $("route-map");
