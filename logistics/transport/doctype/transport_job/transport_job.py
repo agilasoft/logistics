@@ -232,52 +232,19 @@ class TransportJob(VirtualLinkedServicesMixin, Document):
         
         # Derive SLA target date from Logistics Service Level when applicable
         self._derive_sla_target_from_service_level()
-        
-        # Update status - but be careful during submission
-        # Check database directly to see if document is actually submitted (more reliable than self.docstatus)
-        if not self.is_new():
-            db_docstatus = frappe.db.get_value(self.doctype, self.name, "docstatus")
-            db_status = frappe.db.get_value(self.doctype, self.name, "status")
-            
-            # If document is submitted in database but status is Draft, fix it immediately using SQL
-            # This bypasses any hooks that might interfere
-            if db_docstatus == 1 and db_status == "Draft":
-                frappe.db.sql(
-                    f"UPDATE `tab{self.doctype}` SET `status` = 'Submitted' WHERE `name` = %s",
-                    (self.name,)
-                )
-                frappe.db.commit()
-                # Reload to get updated status
-                self.reload()
-                return  # Don't call update_status, status is already fixed
-            
-            # If document is submitted, ensure docstatus is set correctly in object
-            if db_docstatus == 1:
-                self.docstatus = 1
-                # Also ensure status is not Draft (safeguard)
-                if db_status == "Draft":
-                    frappe.db.sql(
-                        f"UPDATE `tab{self.doctype}` SET `status` = 'Submitted' WHERE `name` = %s",
-                        (self.name,)
-                    )
-                    frappe.db.commit()
-                    self.reload()
-                    return
-        
-        # Skip status update if document is being submitted (flagged with _submitting)
-        if not getattr(self, '_submitting', False):
-            old_status = self.status
-            self.update_status()
-            new_status = self.status
-            
-            # For submitted documents, update status if it changed (but never to Draft)
+
+        # Draft saves only. Submit sets status in before_submit and persists it
+        # with the document update. Do not commit from this hook.
+        if getattr(self, "_submitting", False) or self.docstatus == 1:
+            if not self.status or self.status == "Draft":
+                self.status = "Submitted"
             if self.docstatus == 1:
-                if new_status and new_status != "Draft" and old_status != new_status:
-                    self.db_set("status", new_status, update_modified=False)
-                elif new_status == "Draft":
-                    # This should never happen, but force to Submitted as safeguard
-                    self.db_set("status", "Submitted", update_modified=False)
-    
+                self.update_status()
+                if not self.status or self.status == "Draft":
+                    self.status = "Submitted"
+        else:
+            self.update_status()
+   
     def after_insert(self):
         """Create job costing number for new documents"""
         self.create_job_number_if_needed()
@@ -290,106 +257,49 @@ class TransportJob(VirtualLinkedServicesMixin, Document):
 
         assert_destination_service_charges_on_submit_unless_internal_job(self)
 
-        # Set flag to prevent before_save from calling update_status during submission
+        # Frappe persists field changes from before_submit in the same UPDATE as
+        # docstatus. Do not commit here; that would store a partial submit.
         self._submitting = True
-        
-        # CRITICAL: Set status to "Submitted" BEFORE submission completes
-        # This ensures status is set even if after_submit doesn't run
-        # Use direct SQL to bypass any hooks
-        if not self.is_new():
-            frappe.db.sql(
-                f"UPDATE `tab{self.doctype}` SET `status` = 'Submitted' WHERE `name` = %s",
-                (self.name,)
-            )
-            frappe.db.commit()
-            # Also set in the object
-            self.status = "Submitted"
-    
+        self.status = "Submitted"
+
+    def on_submit(self):
+        """Frappe calls on_submit. after_submit is not a document hook."""
+        self._finalize_submitted_job()
+
     def after_submit(self):
-        """Record sustainability metrics and update status after job submission"""
-        # IMPORTANT: Ensure docstatus is 1 (sometimes it's not set in the object yet)
-        # Reload from database to get the actual docstatus
-        current_docstatus = frappe.db.get_value(self.doctype, self.name, "docstatus")
-        if current_docstatus != 1:
-            # If not submitted, something went wrong - log and return
-            frappe.log_error(
-                f"Transport Job {self.name} after_submit called but docstatus is {current_docstatus}, not 1",
-                "Transport Job After Submit Error"
-            )
+        """Legacy entry point. Submit goes through on_submit."""
+        self._finalize_submitted_job()
+
+    def _finalize_submitted_job(self):
+        """Set status from leg state and run submit side effects once, without committing."""
+        if getattr(self.flags, "transport_job_submit_finalized", False):
             return
-        
-        # Ensure docstatus is set in the object for update_status to work
+        self.flags.transport_job_submit_finalized = True
+
         self.docstatus = 1
-        
-        # Clear submitting flag
-        if hasattr(self, '_submitting'):
-            delattr(self, '_submitting')
-        
-        # CRITICAL: Set status to "Submitted" IMMEDIATELY using direct SQL to bypass any hooks
-        # This ensures status is set even if something tries to reset it
-        frappe.db.sql(
-            f"UPDATE `tab{self.doctype}` SET `status` = 'Submitted' WHERE `name` = %s",
-            (self.name,)
-        )
-        frappe.db.commit()
-        
-        # Verify status was saved correctly
-        db_status = frappe.db.get_value(self.doctype, self.name, "status")
-        if db_status != "Submitted":
-            # If status wasn't saved correctly, try again with db_set
-            frappe.log_error(
-                f"Transport Job {self.name} status not set to Submitted after SQL update. Current status: {db_status}. Retrying with db_set.",
-                "Transport Job Status Update Error"
-            )
-            self.db_set("status", "Submitted", update_modified=False)
-            frappe.db.commit()
-        
-        # Reload the document to get the latest state
-        self.reload()
-        
-        # Update status based on leg statuses (this may change status to "In Progress" or "Completed" if legs are already in those states)
-        # This allows status to be updated based on current leg statuses after initial submission
+        if hasattr(self, "_submitting"):
+            delattr(self, "_submitting")
+
+        if not self.status or self.status == "Draft":
+            self.status = "Submitted"
+
+        previous_status = frappe.db.get_value(self.doctype, self.name, "status") or "Draft"
         self.update_status()
-        new_status = self.status
-        
-        # Ensure status is never "Draft" for a submitted document
-        if not new_status or new_status == "Draft":
-            new_status = "Submitted"
-        
-        # Update status in database if it changed from "Submitted"
-        # Always ensure it's set correctly (never Draft for submitted documents)
-        if new_status != "Draft" and new_status != db_status:
-            frappe.db.sql(
-                f"UPDATE `tab{self.doctype}` SET `status` = %s WHERE `name` = %s",
-                (new_status, self.name)
-            )
-            frappe.db.commit()
-            # Publish realtime event for status change
+        new_status = self.status if self.status and self.status != "Draft" else "Submitted"
+        if new_status != previous_status:
+            self.db_set("status", new_status, update_modified=False)
             frappe.publish_realtime(
-                'transport_job_status_changed',
+                "transport_job_status_changed",
                 {
-                    'job_name': self.name,
-                    'status': new_status,
-                    'previous_status': db_status,
-                    'docstatus': 1
+                    "job_name": self.name,
+                    "status": new_status,
+                    "previous_status": previous_status,
+                    "docstatus": 1,
                 },
-                user=frappe.session.user
+                user=frappe.session.user,
             )
-        
-        # Final verification - ensure status is never Draft for submitted documents
-        final_status = frappe.db.get_value(self.doctype, self.name, "status")
-        if final_status == "Draft":
-            frappe.log_error(
-                f"Transport Job {self.name} status is still Draft after after_submit. Forcing to Submitted via SQL.",
-                "Transport Job Status Update Error"
-            )
-            frappe.db.sql(
-                f"UPDATE `tab{self.doctype}` SET `status` = 'Submitted' WHERE `name` = %s",
-                (self.name,)
-            )
-            frappe.db.commit()
-        
-        self.reload()
+        self.status = new_status
+
         try:
             from logistics.container_management.api import sync_transport_job_container
 
@@ -402,109 +312,52 @@ class TransportJob(VirtualLinkedServicesMixin, Document):
                 )
 
         self.record_sustainability_metrics()
-        
-        # Reserve capacity if vehicle is assigned
         self.reserve_capacity()
-    
+
     def after_save(self):
-        """Ensure status is correct after save, especially for submitted documents"""
-        # This hook runs after every save, including after submission
-        # Check database directly to see if document is actually submitted
-        if not self.is_new():
-            db_docstatus = frappe.db.get_value(self.doctype, self.name, "docstatus")
-            db_status = frappe.db.get_value(self.doctype, self.name, "status")
-            
-            # CRITICAL: If document is submitted but status is Draft, fix it immediately
-            # This catches cases where after_submit didn't run or status was reset
-            if db_docstatus == 1 and db_status == "Draft":
-                # Use direct SQL to bypass any hooks and ensure it's saved
-                frappe.db.sql(
-                    f"UPDATE `tab{self.doctype}` SET `status` = 'Submitted' WHERE `name` = %s",
-                    (self.name,)
-                )
-                frappe.db.commit()
-                frappe.log_error(
-                    f"Transport Job {self.name} status was Draft after save for submitted document (docstatus=1). Fixed to Submitted in after_save hook.",
-                    "Transport Job Status Fix in after_save"
-                )
-                # Reload to reflect the change
-                self.reload()
-                # After fixing, update based on leg statuses
-                self.docstatus = 1
-                self.update_status()
-                new_status = self.status
-                if new_status and new_status != "Draft" and new_status != "Submitted":
-                    frappe.db.sql(
-                        f"UPDATE `tab{self.doctype}` SET `status` = %s WHERE `name` = %s",
-                        (new_status, self.name)
-                    )
-                    frappe.db.commit()
-                return
-            
-            # For submitted documents, ensure status is correct based on leg statuses
-            if db_docstatus == 1:
-                # Ensure docstatus is set in object
-                self.docstatus = 1
-                
-                # Reload to get latest leg data
-                self.reload()
-                
-                # Update status based on leg statuses (may change to "In Progress" or "Completed")
-                self.update_status()
-                new_status = self.status
-                
-                # Ensure status is never "Draft" for a submitted document
-                if not new_status or new_status == "Draft":
-                    new_status = "Submitted"
-                
-                # Update if status needs to change (always update to ensure it's current)
-                if new_status != "Draft" and new_status != db_status:
-                    frappe.db.sql(
-                        f"UPDATE `tab{self.doctype}` SET `status` = %s WHERE `name` = %s",
-                        (new_status, self.name)
-                    )
-                    frappe.db.commit()
-                    # Log the update for debugging
-                    if new_status != "Submitted":
-                        frappe.log_error(
-                            f"Transport Job {self.name} status updated from '{db_status}' to '{new_status}' in after_save hook based on leg statuses.",
-                            "Transport Job Status Update in after_save"
-                        )
-                    # Publish realtime event for status change
-                    frappe.publish_realtime(
-                        'transport_job_status_changed',
-                        {
-                            'job_name': self.name,
-                            'status': new_status,
-                            'previous_status': db_status,
-                            'docstatus': db_docstatus
-                        },
-                        user=frappe.session.user
-                    )
-    
+        """Keep a submitted job off Draft. Frappe does not call this hook; callers must not commit."""
+        if self.is_new():
+            return
+        db_docstatus = frappe.db.get_value(self.doctype, self.name, "docstatus")
+        db_status = frappe.db.get_value(self.doctype, self.name, "status")
+        if db_docstatus != 1:
+            return
+
+        self.docstatus = 1
+        self.update_status()
+        new_status = self.status if self.status and self.status != "Draft" else "Submitted"
+        if new_status == db_status:
+            return
+        self.db_set("status", new_status, update_modified=False)
+        self.status = new_status
+        frappe.publish_realtime(
+            "transport_job_status_changed",
+            {
+                "job_name": self.name,
+                "status": new_status,
+                "previous_status": db_status,
+                "docstatus": db_docstatus,
+            },
+            user=frappe.session.user,
+        )
+
     def on_cancel(self):
         """Handle cancellation - set status to Cancelled and release capacity"""
-        # Get previous status before cancellation
         previous_status = frappe.db.get_value(self.doctype, self.name, "status") or "Draft"
-        
-        # Set status to Cancelled when document is cancelled
-        # Use db_set to update directly in database (bypasses validation)
         self.db_set("status", "Cancelled", update_modified=False)
-        frappe.db.commit()
-        
-        # Publish realtime event for status change
+        self.status = "Cancelled"
+
         frappe.publish_realtime(
-            'transport_job_status_changed',
+            "transport_job_status_changed",
             {
-                'job_name': self.name,
-                'status': 'Cancelled',
-                'previous_status': previous_status,
-                'docstatus': 2
+                "job_name": self.name,
+                "status": "Cancelled",
+                "previous_status": previous_status,
+                "docstatus": 2,
             },
-            user=frappe.session.user
+            user=frappe.session.user,
         )
-        
-        # Release capacity if vehicle was assigned
+
         self.release_capacity()
     
     def calculate_sustainability_metrics(self):

@@ -2,8 +2,11 @@
 # For license information, please see license.txt
 
 """
-US ISF (Importer Security Filing) API Integration
-Stub implementation - returns mock responses
+US ISF (Importer Security Filing) API Integration.
+
+Filing actions do not write a mock status. They refuse unless Manifest Settings
+has a live CBP endpoint, and they still leave the document unchanged because
+this client does not call that endpoint yet.
 """
 
 import frappe
@@ -18,14 +21,16 @@ class USISFAPI(BaseCustomsAPI):
 	def __init__(self, company: str = None):
 		super().__init__(company)
 		self.api_name = "US ISF"
+		self.endpoint_field = "cbp_api_endpoint"
 		self.endpoint = self._get_endpoint()
 		self.credentials = self._get_credentials()
 	
 	def _get_endpoint(self) -> str:
-		"""Get API endpoint from settings"""
-		if self.settings and hasattr(self.settings, 'cbp_api_endpoint') and self.settings.cbp_api_endpoint:
-			return self.settings.cbp_api_endpoint.replace("/ams/", "/isf/")  # ISF endpoint
-		return "https://api.cbp.gov/isf/v1"  # Mock endpoint
+		"""Derive the ISF URL from a live CBP endpoint on Manifest Settings."""
+		value = self.configured_endpoint()
+		if not value:
+			return ""
+		return value.replace("/ams/", "/isf/")
 	
 	def _get_credentials(self) -> Dict[str, str]:
 		"""Get API credentials from settings"""
@@ -58,17 +63,7 @@ class USISFAPI(BaseCustomsAPI):
 					"message": _("Only Draft ISF can be submitted.")
 				}
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("submit", success=True)
-			mock_response["isf_number"] = mock_response["transaction_number"]
-			
-			# Update document with response
-			isf_doc.status = mock_response["status"]
-			isf_doc.submission_date = mock_response["submission_date"]
-			isf_doc.submission_time = mock_response["submission_time"]
-			isf_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
@@ -95,17 +90,7 @@ class USISFAPI(BaseCustomsAPI):
 		try:
 			isf_doc = frappe.get_doc("US ISF", filing_doc)
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("status", success=True)
-			mock_response["status"] = isf_doc.status
-			mock_response["isf_number"] = isf_doc.isf_number
-			
-			# Update document if status changed
-			if mock_response.get("status") != isf_doc.status:
-				isf_doc.status = mock_response["status"]
-				isf_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
@@ -133,14 +118,7 @@ class USISFAPI(BaseCustomsAPI):
 		try:
 			isf_doc = frappe.get_doc("US ISF", filing_doc)
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("amend", success=True)
-			
-			# Update document
-			isf_doc.status = "Amended"
-			isf_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
@@ -168,16 +146,7 @@ class USISFAPI(BaseCustomsAPI):
 		try:
 			isf_doc = frappe.get_doc("US ISF", filing_doc)
 			
-			# API integration: configure Manifest Settings for production.
-			mock_response = self.get_mock_response("cancel", success=True)
-			
-			# Update document
-			isf_doc.status = "Cancelled"
-			if reason:
-				isf_doc.notes = f"Cancelled: {reason}"
-			isf_doc.save(ignore_permissions=True)
-			
-			return mock_response
+			return self.block_filing()
 			
 		except frappe.DoesNotExistError:
 			return {
