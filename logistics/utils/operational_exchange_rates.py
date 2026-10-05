@@ -9,7 +9,7 @@ from typing import Any, Iterable, Mapping, Optional, Union
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate
+from frappe.utils import cint, flt, getdate
 
 Row = Union[Mapping[str, Any], Any]
 
@@ -62,6 +62,25 @@ def get_exchange_rate_for_source_currency_date(
 	return None
 
 
+def source_allows_rate_override(exchange_rate_source: Optional[str]) -> bool:
+	"""True when this Exchange Rate Source lets users edit the rate on charges."""
+	if not exchange_rate_source:
+		return False
+	cache = getattr(frappe.local, "_exchange_rate_source_allow_override", None)
+	if cache is None:
+		cache = {}
+		frappe.local._exchange_rate_source_allow_override = cache
+	if exchange_rate_source not in cache:
+		cache[exchange_rate_source] = bool(
+			cint(
+				frappe.db.get_value(
+					"Exchange Rate Source", exchange_rate_source, "allow_rate_override"
+				)
+			)
+		)
+	return cache[exchange_rate_source]
+
+
 def resolve_charge_side_exchange_rate(
 	company: Optional[str],
 	exchange_rate_source: Optional[str],
@@ -101,13 +120,13 @@ def resolve_sales_quote_charge_exchange_rates(doc) -> None:
 	for ch in doc.get("charges") or []:
 		cur = getattr(ch, "currency", None)
 		b_src = getattr(ch, "bill_to_exchange_rate_source", None)
-		if b_src and cur:
+		if b_src and cur and not source_allows_rate_override(b_src):
 			rate = resolve_charge_side_exchange_rate(company, b_src, cur, as_of_date)
 			ch.bill_to_exchange_rate = rate if rate is not None else 0
 
 		cc = getattr(ch, "cost_currency", None)
 		p_src = getattr(ch, "pay_to_exchange_rate_source", None)
-		if p_src and cc:
+		if p_src and cc and not source_allows_rate_override(p_src):
 			rate = resolve_charge_side_exchange_rate(company, p_src, cc, as_of_date)
 			ch.pay_to_exchange_rate = rate if rate is not None else 0
 
@@ -123,7 +142,7 @@ def resolve_mice_project_consolidation_charge_exchange_rates(doc) -> None:
 	for ch in doc.get("consolidation_charges") or []:
 		cur = getattr(ch, "currency", None)
 		p_src = getattr(ch, "pay_to_exchange_rate_source", None)
-		if p_src and cur:
+		if p_src and cur and not source_allows_rate_override(p_src):
 			rate = resolve_charge_side_exchange_rate(company, p_src, cur, as_of_date)
 			ch.pay_to_exchange_rate = rate if rate is not None else 0
 
@@ -159,6 +178,14 @@ def _ensure_charge_side_exchange_rate(
 	company = doc.get("company")
 	as_of_date = doc.get("date") or doc.get("creation")
 	source = _get(row, source_field)
+	if source_allows_rate_override(source):
+		frappe.throw(
+			_(
+				"Charge {0} ({1}): set Exchange Rate manually, or set Exchange Rate Source "
+				"so the rate can be loaded from Source Exchange Rate for {2} on the quote date."
+			).format(row_label, side_label, currency),
+			title=_("Missing exchange rate"),
+		)
 	fetched = resolve_charge_side_exchange_rate(company, source, currency, as_of_date)
 	if fetched is not None and flt(fetched) != 0:
 		if isinstance(row, Mapping):
@@ -215,7 +242,7 @@ def resolve_single_operational_exchange_rate_row(row: Row) -> None:
 	src = _get(row, "exchange_rate_source")
 	cur = _get(row, "currency")
 	dt = _get(row, "exchange_rate_date")
-	if src and cur and dt:
+	if src and cur and dt and not source_allows_rate_override(src):
 		fetched = get_exchange_rate_for_source_currency_date(src, cur, dt)
 		if fetched is not None:
 			if isinstance(row, Mapping):
@@ -238,8 +265,71 @@ def resolve_operational_exchange_rate_rows(parent_doc) -> None:
 		resolve_single_operational_exchange_rate_row(row)
 
 
+def _set_row_value(row: Row, key: str, value) -> None:
+	if isinstance(row, Mapping):
+		row[key] = value
+	else:
+		setattr(row, key, value)
+
+
+def _copy_charge_rate_onto_operational_row(ox, charge_rate) -> None:
+	if charge_rate is None or charge_rate == "":
+		return
+	_set_row_value(ox, "rate", flt(charge_rate))
+
+
+def _operational_row_matches_charge_side(ox, ch, *, entity_type: str, entity, cur, src) -> bool:
+	if entity_type == "Customer":
+		return (
+			getattr(ch, "bill_to", None) == entity
+			and getattr(ch, "currency", None) == cur
+			and (getattr(ch, "bill_to_exchange_rate_source", None) or "") == src
+		)
+	if entity_type == "Supplier":
+		return (
+			getattr(ch, "pay_to", None) == entity
+			and getattr(ch, "cost_currency", None) == cur
+			and (getattr(ch, "pay_to_exchange_rate_source", None) or "") == src
+		)
+	return False
+
+
+def _charge_side_rate(ch, entity_type: str):
+	if entity_type == "Customer":
+		return getattr(ch, "bill_to_exchange_rate", None)
+	if entity_type == "Supplier":
+		return getattr(ch, "pay_to_exchange_rate", None)
+	return None
+
+
+def copy_override_charge_rates_to_operational_rows(parent_doc) -> None:
+	"""When the source allows override, keep the charge rate on the matching operational row."""
+	if not parent_doc.meta.get_field("charges"):
+		return
+	for ox in parent_doc.get("operational_exchange_rates") or []:
+		entity_type = getattr(ox, "entity_type", None)
+		entity = getattr(ox, "entity", None)
+		cur = getattr(ox, "currency", None)
+		src = getattr(ox, "exchange_rate_source", None) or ""
+		if not entity_type or not entity or not cur or not source_allows_rate_override(src):
+			continue
+		for ch in parent_doc.get("charges") or []:
+			if not _operational_row_matches_charge_side(
+				ox, ch, entity_type=entity_type, entity=entity, cur=cur, src=src
+			):
+				continue
+			charge_rate = _charge_side_rate(ch, entity_type)
+			if charge_rate is None or charge_rate == "":
+				continue
+			_copy_charge_rate_onto_operational_row(ox, charge_rate)
+			break
+
+
 def apply_operational_exchange_rates_to_charge_rows(parent_doc) -> None:
-	"""Copy resolved operational rates (and date) onto matching charge lines for the same entity."""
+	"""Copy resolved operational rates (and date) onto matching charge lines for the same entity.
+
+	When the source allows override, the charge rate is left as entered and copied onto the operational row.
+	"""
 	if not parent_doc.meta.get_field("charges"):
 		return
 	for ox in parent_doc.get("operational_exchange_rates") or []:
@@ -249,27 +339,28 @@ def apply_operational_exchange_rates_to_charge_rows(parent_doc) -> None:
 		src = getattr(ox, "exchange_rate_source", None) or ""
 		r = getattr(ox, "rate", None)
 		dt = getattr(ox, "exchange_rate_date", None)
-		if not entity_type or not entity or not cur or r is None:
+		if not entity_type or not entity or not cur:
 			continue
+		allows_override = source_allows_rate_override(src)
+		if r is None and not allows_override:
+			continue
+		copied_override = False
 		for ch in parent_doc.get("charges") or []:
+			if not _operational_row_matches_charge_side(
+				ox, ch, entity_type=entity_type, entity=entity, cur=cur, src=src
+			):
+				continue
+			if allows_override:
+				charge_rate = _charge_side_rate(ch, entity_type)
+				if not copied_override and charge_rate not in (None, ""):
+					_copy_charge_rate_onto_operational_row(ox, charge_rate)
+					copied_override = True
+				continue
 			if entity_type == "Customer":
-				if getattr(ch, "bill_to", None) != entity:
-					continue
-				if getattr(ch, "currency", None) != cur:
-					continue
-				if (getattr(ch, "bill_to_exchange_rate_source", None) or "") != src:
-					continue
 				ch.bill_to_exchange_rate = r
 				if frappe.get_meta(ch.doctype).has_field("bill_to_exchange_rate_date"):
 					ch.bill_to_exchange_rate_date = dt
 			elif entity_type == "Supplier":
-				if getattr(ch, "pay_to", None) != entity:
-					continue
-				cost_cur = getattr(ch, "cost_currency", None)
-				if cost_cur != cur:
-					continue
-				if (getattr(ch, "pay_to_exchange_rate_source", None) or "") != src:
-					continue
 				ch.pay_to_exchange_rate = r
 				if frappe.get_meta(ch.doctype).has_field("pay_to_exchange_rate_date"):
 					ch.pay_to_exchange_rate_date = dt
@@ -278,6 +369,8 @@ def apply_operational_exchange_rates_to_charge_rows(parent_doc) -> None:
 def on_before_save_operational_exchange_rates(doc, method=None) -> None:
 	if not doc.meta.get_field("operational_exchange_rates"):
 		return
+	if doc.meta.get_field("charges"):
+		copy_override_charge_rates_to_operational_rows(doc)
 	resolve_operational_exchange_rate_rows(doc)
 	if doc.meta.get_field("charges"):
 		apply_operational_exchange_rates_to_charge_rows(doc)
