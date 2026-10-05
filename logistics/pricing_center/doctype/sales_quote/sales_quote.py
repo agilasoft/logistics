@@ -21,6 +21,10 @@ from logistics.utils.charge_service_type import (
 	sales_quote_charge_service_types_equal,
 )
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
+from logistics.pricing_center.sales_quote_customs_units import (
+	customs_unit_type_problem,
+	customs_allowed_unit_types_text,
+)
 from logistics.pricing_center.sales_quote_deadline import critical_deadline_missing
 from logistics.pricing_center.sales_quote_blanket import blanket_quotation_block
 from logistics.pricing_center.sales_quote_main_job import multimodal_main_job_missing
@@ -76,16 +80,6 @@ def map_sales_quote_entry_type_to_air_booking(sales_quote_entry_type):
 		"Sales Quote - Entry Type"
 	)
 	return None
-
-
-# Unit types allowed when Sales Quote customs charges are synced to Declaration Order / Declaration Charges.
-# Aligned with Declaration Charges (includes Value for Percentage Break; Job/Trip supported).
-CUSTOMS_ALLOWED_UNIT_TYPES = frozenset({
-	"Weight", "Volume", "Distance", "Package", "Piece", "TEU", "Container", "Operation Time", "Job", "Trip", "Value",
-})
-CUSTOMS_ALLOWED_UNIT_TYPES_DISPLAY = (
-	"Weight", "Volume", "Distance", "Package", "Piece", "TEU", "Container", "Operation Time", "Job", "Trip", "Value"
-)
 
 
 def _sq_strip_or_none(val):
@@ -1001,23 +995,25 @@ class SalesQuote(Document):
 		if not sales_quote_charge_service_types_equal(getattr(self, "main_service", None) or "", "Customs") or not customs_rows:
 			return
 		for idx, row in enumerate(customs_rows, start=1):
-			unit_type = getattr(row, "unit_type", None)
-			if unit_type and unit_type not in CUSTOMS_ALLOWED_UNIT_TYPES:
+			problem = customs_unit_type_problem(
+				getattr(row, "unit_type", None),
+				getattr(row, "cost_unit_type", None),
+			)
+			if problem == "unit_type":
 				frappe.throw(
 					_("Row #{0} (Customs): Unit Type cannot be \"{1}\". It should be one of: {2}.").format(
 						idx,
-						unit_type,
-						", ".join(f'"{u}"' for u in CUSTOMS_ALLOWED_UNIT_TYPES_DISPLAY),
+						row.unit_type,
+						customs_allowed_unit_types_text(),
 					),
 					title=_("Invalid Unit Type"),
 				)
-			cost_unit_type = getattr(row, "cost_unit_type", None)
-			if cost_unit_type and cost_unit_type not in CUSTOMS_ALLOWED_UNIT_TYPES:
+			if problem == "cost_unit_type":
 				frappe.throw(
 					_("Row #{0} (Customs): Cost Unit Type cannot be \"{1}\". It should be one of: {2}.").format(
 						idx,
-						cost_unit_type,
-						", ".join(f'"{u}"' for u in CUSTOMS_ALLOWED_UNIT_TYPES_DISPLAY),
+						row.cost_unit_type,
+						customs_allowed_unit_types_text(),
 					),
 					title=_("Invalid Cost Unit Type"),
 				)
