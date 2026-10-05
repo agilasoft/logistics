@@ -8,6 +8,9 @@ from frappe.utils import flt, now_datetime
 from frappe import _
 from logistics.warehousing.api_parts.common import _get_default_currency
 from logistics.warehousing.ledger_row import ledger_row_gap
+from logistics.warehousing.ledger_items import empty_ledger_items_reason
+from logistics.warehousing.ledger_balance import ledger_balance_after_post
+from logistics.warehousing.ledger_delta import ledger_delta
 
 # ---------------------------------------------------------------------------
 # Meta helpers
@@ -3209,14 +3212,16 @@ class WarehouseJob(Document):
 		
 		job_type = (getattr(self, "type", "") or "").strip()
 
-		if not getattr(self, "items", None):
-			# For Stocktake jobs, allow empty items if populate adjustment has been triggered
-			if job_type == "Stocktake":
-				populate_triggered = getattr(self, "populate_adjustment_triggered", False)
-				if not populate_triggered:
-					frappe.throw(_("No items to post to the Warehouse Stock Ledger. Either add items manually or use 'Populate Adjustments' button."))
-			else:
-				frappe.throw(_("No items to post to the Warehouse Stock Ledger."))
+		# Stocktake may post with no rows after Populate Adjustments. Every other empty job is blocked.
+		items_reason = empty_ledger_items_reason(
+			job_type,
+			bool(getattr(self, "items", None)),
+			getattr(self, "populate_adjustment_triggered", False),
+		)
+		if items_reason == "populate_or_add":
+			frappe.throw(_("No items to post to the Warehouse Stock Ledger. Either add items manually or use 'Populate Adjustments' button."))
+		if items_reason == "items_required":
+			frappe.throw(_("No items to post to the Warehouse Stock Ledger."))
 
 		posting_dt = now_datetime()
 
@@ -3228,17 +3233,11 @@ class WarehouseJob(Document):
 				frappe.throw(_("Row #{0}: Item is required.").format(ji.idx))
 
 			qty = flt(getattr(ji, "quantity", 0))
-
-			if job_type in ("Putaway", "Pick"):
-				if qty <= 0:
-					frappe.throw(_("Row #{0}: Quantity must be greater than zero for {1}.").format(ji.idx, job_type))
-				sign  = 1 if job_type == "Putaway" else -1
-				delta = sign * qty
-			else:
-				# Move / Others: accept signed quantities (negative for source, positive for destination)
-				if qty == 0 and job_type != "Stocktake":
-					frappe.throw(_("Row #{0}: Quantity cannot be zero.").format(ji.idx))
-				delta = qty
+			delta, delta_error = ledger_delta(job_type, qty)
+			if delta_error == "positive_required":
+				frappe.throw(_("Row #{0}: Quantity must be greater than zero for {1}.").format(ji.idx, job_type))
+			if delta_error == "nonzero_required":
+				frappe.throw(_("Row #{0}: Quantity cannot be zero.").format(ji.idx))
 
 			# Scope for snapshot (company/branch)
 			row_company, row_branch = _resolve_row_scope(self, ji)
@@ -3252,11 +3251,11 @@ class WarehouseJob(Document):
 				company=row_company,
 				branch=row_branch,
 			)
-			end = beg + delta
+			end, balance_blocked = ledger_balance_after_post(beg, delta)
 
 			# Prevent negative ending balances only for outbound operations (negative delta)
 			# Allow inbound operations (positive delta) even if beginning qty is 0
-			if delta < 0 and end < 0:
+			if balance_blocked:
 				# Build detailed error message with search parameters
 				search_params = []
 				search_params.append(_("Location: {0}").format(ji.location))

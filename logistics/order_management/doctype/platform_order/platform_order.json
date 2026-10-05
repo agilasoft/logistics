@@ -1,0 +1,274 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-10-03 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "sales_channel",
+  "external_order_id",
+  "channel_order_key",
+  "origin_platform",
+  "status",
+  "platform_status",
+  "hold_reason",
+  "column_break_order",
+  "buyer_name",
+  "phone",
+  "address_line",
+  "city",
+  "state",
+  "country",
+  "postal_code",
+  "section_money",
+  "currency",
+  "grand_total",
+  "payment_method",
+  "is_cod",
+  "column_break_money",
+  "ordered_at",
+  "ship_by",
+  "tracking_no",
+  "carrier",
+  "release_order",
+  "inbound_order",
+  "section_items",
+  "items",
+  "section_raw",
+  "raw_payload"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "EOM.#########"
+  },
+  {
+   "fieldname": "sales_channel",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Sales Channel",
+   "options": "Sales Channel",
+   "reqd": 1
+  },
+  {
+   "fieldname": "external_order_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "External Order ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "channel_order_key",
+   "fieldtype": "Data",
+   "label": "Channel Order Key",
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "origin_platform",
+   "fieldtype": "Data",
+   "label": "Origin Platform"
+  },
+  {
+   "default": "New",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "New\nReady\nOn Hold\nReleased\nPicking\nShipped\nDelivered\nCancelled\nReturned"
+  },
+  {
+   "fieldname": "platform_status",
+   "fieldtype": "Data",
+   "label": "Platform Status"
+  },
+  {
+   "fieldname": "hold_reason",
+   "fieldtype": "Small Text",
+   "label": "Hold Reason"
+  },
+  {
+   "fieldname": "column_break_order",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "buyer_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Buyer Name"
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Phone"
+  },
+  {
+   "fieldname": "address_line",
+   "fieldtype": "Small Text",
+   "label": "Address"
+  },
+  {
+   "fieldname": "city",
+   "fieldtype": "Data",
+   "label": "City"
+  },
+  {
+   "fieldname": "state",
+   "fieldtype": "Data",
+   "label": "State"
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Data",
+   "label": "Country"
+  },
+  {
+   "fieldname": "postal_code",
+   "fieldtype": "Data",
+   "label": "Postal Code"
+  },
+  {
+   "fieldname": "section_money",
+   "fieldtype": "Section Break",
+   "label": "Payment and Fulfillment"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "grand_total",
+   "fieldtype": "Float",
+   "label": "Grand Total"
+  },
+  {
+   "fieldname": "payment_method",
+   "fieldtype": "Data",
+   "label": "Payment Method"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_cod",
+   "fieldtype": "Check",
+   "label": "COD"
+  },
+  {
+   "fieldname": "column_break_money",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ordered_at",
+   "fieldtype": "Datetime",
+   "label": "Ordered At"
+  },
+  {
+   "fieldname": "ship_by",
+   "fieldtype": "Datetime",
+   "label": "Ship By"
+  },
+  {
+   "fieldname": "tracking_no",
+   "fieldtype": "Data",
+   "label": "Tracking No"
+  },
+  {
+   "fieldname": "carrier",
+   "fieldtype": "Data",
+   "label": "Carrier"
+  },
+  {
+   "fieldname": "release_order",
+   "fieldtype": "Link",
+   "label": "Release Order",
+   "options": "Release Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "inbound_order",
+   "fieldtype": "Link",
+   "label": "Inbound Order",
+   "options": "Inbound Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_items",
+   "fieldtype": "Section Break",
+   "label": "Items"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "Platform Order Item"
+  },
+  {
+   "fieldname": "section_raw",
+   "fieldtype": "Section Break",
+   "collapsible": 1,
+   "label": "Payload"
+  },
+  {
+   "fieldname": "raw_payload",
+   "fieldtype": "JSON",
+   "label": "Raw Payload",
+   "read_only": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-03 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Order Management",
+ "name": "Platform Order",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Order Management Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Order Management User",
+   "write": 1
+  }
+ ],
+ "search_fields": "external_order_id,buyer_name,status",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "external_order_id",
+ "track_changes": 1
+}
