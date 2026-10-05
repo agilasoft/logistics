@@ -10,6 +10,7 @@
   "code",
   "license_plate_number",
   "vehicle_name",
+  "image",
   "is_active",
   "company_owned",
   "company",
@@ -74,6 +75,12 @@
    "in_list_view": 1,
    "label": "Vehicle Name",
    "reqd": 1
+  },
+  {
+   "fieldname": "image",
+   "fieldtype": "Attach Image",
+   "label": "Photo",
+   "description": "Shown in the center of the driver dashboard. If empty, the transport company logo is used."
   },
   {
    "default": "1",

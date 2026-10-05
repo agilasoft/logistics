@@ -82,6 +82,7 @@ def _build_payload(driver_name, preview):
 		"email": (user.email if user else "") or "",
 		"image": (user.user_image if user else "") or "",
 		"company_name": "",
+		"company_logo": "",
 		"company_line": "",
 		"vehicle_line": "",
 		"vehicle": _empty_vehicle(),
@@ -129,11 +130,15 @@ def _build_payload(driver_name, preview):
 			payload["email"] = email
 
 	company = ""
-	if driver.custom_transport_company:
-		company = (
-			frappe.db.get_value("Transport Company", driver.custom_transport_company, "company_name")
-			or driver.custom_transport_company
-		)
+	if driver.custom_transport_company and frappe.db.exists("Transport Company", driver.custom_transport_company):
+		company_fields = ["company_name"]
+		if frappe.get_meta("Transport Company").has_field("logo"):
+			company_fields.append("logo")
+		company_row = frappe.db.get_value(
+			"Transport Company", driver.custom_transport_company, company_fields, as_dict=True
+		) or {}
+		company = company_row.get("company_name") or driver.custom_transport_company
+		payload["company_logo"] = company_row.get("logo") or ""
 	payload["company_name"] = company or ""
 	if cint(driver.custom_is_internal):
 		payload["company_line"] = "Internal" + (f" · {company}" if company else "")
@@ -236,6 +241,7 @@ def _empty_vehicle():
 		"speed_kph": None,
 		"capacity": None,
 		"capacity_uom": "",
+		"image": "",
 		"line": "",
 	}
 
@@ -255,6 +261,7 @@ def _vehicle_profile(vehicle_name):
 		"last_speed_kph",
 		"capacity_weight",
 		"capacity_weight_uom",
+		"image",
 	]
 	meta = frappe.get_meta("Transport Vehicle")
 	fields = [field for field in wanted if meta.has_field(field)]
@@ -263,6 +270,7 @@ def _vehicle_profile(vehicle_name):
 	profile["plate"] = row.get("license_plate_number") or row.get("vehicle_name") or vehicle_name
 	profile["make"] = row.get("make") or ""
 	profile["model"] = row.get("model") or ""
+	profile["image"] = row.get("image") or ""
 	if row.get("last_fuel_level") not in (None, ""):
 		profile["fuel_l"] = flt(row.get("last_fuel_level"))
 	if row.get("last_speed_kph") not in (None, ""):
