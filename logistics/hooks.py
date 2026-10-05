@@ -3,7 +3,9 @@ from __future__ import unicode_literals
 
 from frappe import append_hook
 
+from logistics.sea_freight.alert_schedule import DAILY_SEA_ALERT_TASKS, HOURLY_SEA_ALERT_TASKS
 from logistics.utils.credit_management import merge_credit_hooks
+from logistics.utils.invoice_dispute import merge_invoice_dispute_hooks
 
 # App dependencies
 app_dependencies = ["erpnext"]
@@ -228,6 +230,7 @@ doctype_js = {
 		"logistics/job_management/recognition_policy_fields.js",
 		"logistics/job_management/job_charge_reopen.js",
 		"logistics/job_management/job_readiness.js",
+		"sea_freight/doctype/sea_shipment/sea_shipment_lalamove.js",
 	],
 	"Sea Consolidation": [
 		"public/js/charge_break_dialogs.js",
@@ -374,6 +377,7 @@ doctype_js = {
 	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
 	"Purchase Invoice": "logistics/public/js/purchase_invoice_container_deposit.js",
 	"Credit Hold Lift Request": "logistics/logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
+	"Dispute": "logistics/logistics/doctype/dispute/dispute.js",
 	"Cash Advance Request": "logistics/cash_advance/doctype/cash_advance_request/cash_advance_request.js",
 	"Cash Advance Liquidation": "logistics/cash_advance/doctype/cash_advance_liquidation/cash_advance_liquidation.js",
 	"Cash Advance Settings": "logistics/cash_advance/doctype/cash_advance_settings/cash_advance_settings.js",
@@ -1002,6 +1006,7 @@ for _event, _handler in _TRANSPORT_JOB_RECEIPT_HANDLERS:
 		doc_events["Transport Job"][_event] = [_existing, _handler]
 
 merge_credit_hooks(doc_events)
+merge_invoice_dispute_hooks(doc_events)
 
 # Order Management: after a Pick Warehouse Job submits, push fulfillment and stock.
 _ORDER_MANAGEMENT_ON_PICK = "logistics.order_management.tasks.on_warehouse_job_submit"
@@ -1038,6 +1043,7 @@ scheduler_events = {
 		"logistics.integrations.outlook.tasks.sync_recent_task_changes",
 		"logistics.transport.tasks.update_sla_statuses",
 		"logistics.order_management.tasks.push_stock",
+		*HOURLY_SEA_ALERT_TASKS,
 	],
 	"daily": [
 		"logistics.status_update.tasks.update_document_statuses",
@@ -1049,6 +1055,7 @@ scheduler_events = {
 		"logistics.air_freight.casslink.sftp_client.pull_configured_companies",
 		"logistics.job_management.auto_recognition.process_auto_recognition",
 		"logistics.order_management.tasks.cleanup_sync_logs",
+		*DAILY_SEA_ALERT_TASKS,
 	],
 }
 

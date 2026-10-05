@@ -325,3 +325,136 @@ def create_from_transport_order(transport_order_name: str) -> dict:
 		frappe.log_error(f"Error creating Global Manifest from Transport Order: {str(e)}", "Global Manifest Creation Error")
 		frappe.throw(_("Error creating Global Manifest: {0}").format(str(e)))
 
+
+def _filing_result(doctype, name, result):
+	"""Normalize one client response. A missing success flag is a failure."""
+	result = result or {}
+	return {
+		"doctype": doctype,
+		"name": name,
+		"success": bool(result.get("success")),
+		"message": result.get("message") or "",
+		"status": result.get("status") or "",
+	}
+
+
+def _ensure_named(doctype, filters, creator, name_key):
+	"""Reuse a filing for this manifest, or create one and return its name."""
+	existing = frappe.db.get_value(doctype, filters, "name")
+	if existing:
+		return existing
+	created = creator()
+	name = (created or {}).get(name_key)
+	if name:
+		return name
+	frappe.throw((created or {}).get("message") or _("Could not create {0}.").format(doctype))
+
+
+@frappe.whitelist()
+def file_manifest(global_manifest_name: str) -> dict:
+	"""Create the country filing for this manifest and submit it.
+
+	Manifest Settings is read for the manifest company. The endpoint, username,
+	password, and filer code already on that document are what the country
+	client uses. This action does not add settings and does not invent a
+	customs payload. Until a provider API document is implemented in the
+	client, submit refuses and leaves the filing status unchanged.
+	"""
+	from logistics.customs.filing_route import plan_filings
+
+	manifest = frappe.get_doc("Global Manifest", global_manifest_name)
+	try:
+		settings = frappe.get_doc("Manifest Settings", manifest.company)
+	except frappe.DoesNotExistError:
+		return {
+			"success": False,
+			"message": _(
+				"Manifest Settings not found for company {0}. The document was left unchanged."
+			).format(manifest.company),
+			"filings": [],
+		}
+
+	country_code = ""
+	if manifest.country:
+		country_code = frappe.db.get_value("Country", manifest.country, "code") or ""
+	plan = plan_filings(manifest.country, country_code, settings)
+	if not plan["filings"]:
+		if plan["reason"] == "disabled":
+			message = _(
+				"Enable the filing for {0} on Manifest Settings before filing. The document was left unchanged."
+			).format(manifest.country)
+		else:
+			message = _(
+				"No manifest filing is set up for {0}. The document was left unchanged."
+			).format(manifest.country or _("this country"))
+		return {"success": False, "message": message, "filings": []}
+
+	if plan["country_key"] == "US" and manifest.country != "United States":
+		return {
+			"success": False,
+			"message": _("Global Manifest country must be United States to create US AMS."),
+			"filings": [],
+		}
+
+	filings = []
+	ams_name = None
+	for doctype in plan["filings"]:
+		if doctype == "US AMS":
+			from logistics.customs.api.us_ams_api import USAMSAPI
+			from logistics.customs.doctype.us_ams.us_ams import create_from_global_manifest as create_ams
+
+			ams_name = _ensure_named(
+				"US AMS",
+				{"global_manifest": manifest.name},
+				lambda: create_ams(manifest.name),
+				"us_ams",
+			)
+			filings.append(_filing_result("US AMS", ams_name, USAMSAPI(manifest.company).submit(ams_name)))
+		elif doctype == "US ISF":
+			from logistics.customs.api.us_isf_api import USISFAPI
+			from logistics.customs.doctype.us_isf.us_isf import create_from_ams
+
+			isf_name = _ensure_named(
+				"US ISF",
+				{"ams": ams_name},
+				lambda: create_from_ams(ams_name),
+				"us_isf",
+			)
+			filings.append(_filing_result("US ISF", isf_name, USISFAPI(manifest.company).submit(isf_name)))
+		elif doctype == "CA eManifest Forwarder":
+			from logistics.customs.api.ca_emanifest_api import CAeManifestAPI
+			from logistics.customs.doctype.ca_emanifest_forwarder.ca_emanifest_forwarder import (
+				create_from_global_manifest as create_ca,
+			)
+
+			ca_name = _ensure_named(
+				"CA eManifest Forwarder",
+				{"global_manifest": manifest.name},
+				lambda: create_ca(manifest.name),
+				"ca_emanifest_forwarder",
+			)
+			filings.append(
+				_filing_result("CA eManifest Forwarder", ca_name, CAeManifestAPI(manifest.company).submit(ca_name))
+			)
+		elif doctype == "JP AFR":
+			from logistics.customs.api.jp_afr_api import JPAFRAPI
+			from logistics.customs.doctype.jp_afr.jp_afr import create_from_global_manifest as create_jp
+
+			jp_name = _ensure_named(
+				"JP AFR",
+				{"global_manifest": manifest.name},
+				lambda: create_jp(manifest.name),
+				"jp_afr",
+			)
+			filings.append(_filing_result("JP AFR", jp_name, JPAFRAPI(manifest.company).submit(jp_name)))
+
+	success = bool(filings) and all(item["success"] for item in filings)
+	message = " ".join(item["message"] for item in filings if item["message"])
+	primary = filings[0] if filings else None
+	return {
+		"success": success,
+		"message": message,
+		"filings": filings,
+		"filing": {"doctype": primary["doctype"], "name": primary["name"]} if primary else None,
+	}
+
