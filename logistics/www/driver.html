@@ -6,67 +6,194 @@
 {% block head_include %}
 <style>
 	:root {
-		--bg: #eef3f8;
+		--bg: #f4f7fb;
 		--card: #ffffff;
 		--ink: #1b2433;
 		--muted: #6d7889;
 		--line: #e6edf5;
-		--blue: #2f6fed;
+		--blue: #2f6bff;
 		--blue-dark: #1d4ed8;
-		--green: #e8f8ef;
+		--blue-soft: #e8f1ff;
+		--green: #e7f8ee;
 		--green-ink: #157a3a;
 		--green-line: #b7ebc9;
 		--amber: #fff6e8;
 		--amber-ink: #b45309;
 		--shadow: 0 10px 30px rgba(22, 42, 76, 0.06);
+		--radius: 22px;
 	}
-	html, body { height: 100%; background: var(--bg); }
+	* { box-sizing: border-box; }
+	html, body { background: var(--bg); }
 	[hidden] { display: none !important; }
-	body { margin: 0; color: var(--ink); font-family: Inter, "Segoe UI", Helvetica, Arial, sans-serif; overflow: hidden; }
-	button, input, select, textarea { font-family: inherit; }
+	body {
+		margin: 0;
+		color: var(--ink);
+		font-family: Inter, "Segoe UI", Helvetica, Arial, sans-serif;
+		overflow: auto;
+	}
+	button, input, select, textarea, a { font-family: inherit; }
+	.navbar, .web-footer, .page-breadcrumbs { display: none !important; }
+	.page-content-wrapper, .page_content { padding: 0 !important; margin: 0 !important; background: transparent; max-width: none; }
 	.driver-app {
-		height: 100dvh;
-		box-sizing: border-box;
-		padding: 12px;
+		max-width: 1240px;
+		margin: 0 auto;
+		padding: 18px 20px 32px;
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
+		gap: 16px;
+		min-height: 100dvh;
 	}
-	.topbar, .profile, .panel, .side-card, .route-sheet, .map-stage, .action-bar {
+	.topbar, .card, .stat-card, .company-card {
 		background: var(--card);
-		border-radius: 18px;
+		border-radius: var(--radius);
 		box-shadow: var(--shadow);
 	}
-	.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; flex: none; }
+	.topbar {
+		display: grid;
+		grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr);
+		align-items: center;
+		gap: 12px;
+		padding: 10px 14px;
+	}
 	.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-	.brand-mark {
-		width: 42px; height: 42px; border-radius: 12px; background: #e8f0ff; color: var(--blue);
+	.brand-mark, .company-mark {
+		width: 42px; height: 42px; border-radius: 14px; background: var(--blue-soft); color: var(--blue);
 		display: grid; place-items: center; flex: none;
 	}
-	.brand-name { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; }
-	.brand-name span, .header-driver { color: var(--muted); font-weight: 650; font-size: 14px; }
-	.header-driver { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.screen-switch { display: flex; gap: 4px; }
+	.brand-name { font-weight: 800; font-size: 18px; letter-spacing: -0.03em; }
+	.brand-name span { color: var(--muted); font-weight: 650; }
+	.screen-switch {
+		display: flex; gap: 4px; background: #f6f8fc; border-radius: 999px; padding: 4px;
+	}
 	.tab {
-		border: 0; background: transparent; color: var(--muted); font-weight: 700; padding: 10px 14px; border-radius: 12px; cursor: pointer;
+		border: 0; background: transparent; color: var(--muted); font-weight: 700; font-size: 14px;
+		padding: 8px 14px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
 	}
-	.tab.active { color: var(--blue); background: #eef4ff; }
-	.top-actions { display: flex; align-items: center; gap: 8px; }
-	.icon-btn, .logout-btn, .recenter, .voice-btn {
-		border: 0; background: #f4f7fb; color: var(--ink); border-radius: 12px; height: 40px;
-		display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+	.tab svg { flex: none; }
+	.tab.active { color: var(--blue); background: white; box-shadow: 0 4px 14px rgba(47, 107, 255, 0.12); }
+	.top-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+	.icon-btn {
+		border: 0; background: #f4f7fb; color: var(--ink); border-radius: 999px; width: 40px; height: 40px;
+		display: inline-flex; align-items: center; justify-content: center; cursor: pointer; position: relative; text-decoration: none;
 	}
-	.icon-btn { width: 40px; justify-content: center; position: relative; }
-	.logout-btn, .voice-btn { padding: 0 14px; font-weight: 700; }
+	.icon-btn:hover, .tab:hover { color: var(--blue); }
 	.badge-count {
 		position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px;
 		border-radius: 99px; background: #ef4444; color: white; font-size: 11px; line-height: 18px; font-weight: 700;
 	}
-	.nav-shell { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px; }
-	.map-stage { min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-	.map-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
-	#route-map { flex: 1; min-height: 280px; background: #d7e2ee; }
-	.map-note { height: 100%; min-height: 280px; display: grid; place-items: center; color: var(--muted); padding: 24px; text-align: center; }
+	.user-wrap { position: relative; }
+	.user-toggle {
+		border: 0; background: #f6f8fc; border-radius: 999px; padding: 4px 10px 4px 4px; cursor: pointer;
+		display: flex; align-items: center; gap: 10px; color: inherit;
+	}
+	.user-copy { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; min-width: 0; }
+	.user-copy strong { font-size: 14px; }
+	.user-copy span, .driver-role, .company-sub { color: var(--muted); font-size: 12px; font-weight: 650; }
+	.avatar, .avatar-fallback {
+		width: 52px; height: 52px; border-radius: 50%; object-fit: cover; background: #dbe7ff; flex: none;
+	}
+	.avatar.sm, .avatar-fallback.sm { width: 36px; height: 36px; font-size: 13px; }
+	.avatar-fallback { display: grid; place-items: center; font-weight: 800; color: var(--blue-dark); }
+	.user-panel {
+		position: absolute; right: 0; top: calc(100% + 8px); width: 320px; z-index: 30;
+		background: white; border-radius: 18px; box-shadow: 0 18px 50px rgba(22, 42, 76, 0.16); padding: 12px;
+	}
+	.hero {
+		display: grid;
+		grid-template-columns: minmax(280px, 1.05fr) minmax(200px, 0.82fr) minmax(280px, 1.05fr);
+		gap: 16px;
+		align-items: stretch;
+	}
+	.company-card { padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 14px; }
+	.company-top, .who, .chip-row, .hero-metrics, .panel-head, .stop-top, .map-head {
+		display: flex; align-items: center; justify-content: space-between; gap: 10px;
+	}
+	.company-id { display: flex; align-items: center; gap: 10px; min-width: 0; }
+	.company-id strong { display: block; font-size: 18px; letter-spacing: -0.03em; }
+	.company-sub { letter-spacing: 0.08em; text-transform: uppercase; font-size: 10px; }
+	.pill { font-size: 12px; font-weight: 800; border-radius: 99px; padding: 5px 10px; white-space: nowrap; }
+	.pill.on { background: var(--green); color: var(--green-ink); }
+	.pill.off { background: #f3f4f6; color: #4b5563; }
+	.pill.warn { background: var(--amber); color: var(--amber-ink); }
+	.who { justify-content: flex-start; }
+	.driver-name { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; }
+	.contact { margin-left: auto; display: flex; gap: 8px; }
+	.chip-row { justify-content: space-between; }
+	.run-chip, .today-chip {
+		background: #f4f7fb; border-radius: 12px; padding: 8px 12px; font-weight: 800; font-size: 13px;
+		display: inline-flex; align-items: center; gap: 8px;
+	}
+	.today-chip { color: var(--blue); background: var(--blue-soft); font-weight: 700; }
+	.track { position: relative; height: 8px; background: #e7eef8; border-radius: 99px; margin: 4px 18px 0 4px; }
+	.track-fill { height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, #8eb6ff, var(--blue)); }
+	.track-truck { position: absolute; top: 50%; left: 0; transform: translate(-40%, -58%); filter: drop-shadow(0 4px 6px rgba(47, 107, 255, 0.25)); }
+	.hero-metrics { color: var(--muted); font-size: 13px; font-weight: 700; }
+	.hero-metrics b { color: var(--ink); font-size: 14px; }
+	.truck-stage { display: grid; place-items: center; min-height: 220px; }
+	.truck-art { width: min(100%, 420px); height: auto; }
+	.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+	.stat-card { padding: 14px 16px 16px; min-height: 112px; display: flex; flex-direction: column; justify-content: space-between; }
+	.stat-card.tall { min-height: 156px; }
+	.stat-fuel { background: linear-gradient(180deg, #e5f8ee 0%, #f7fffa 70%); border: 1px solid #d7f3e3; position: relative; overflow: hidden; }
+	.fuel-wave { position: absolute; left: 0; right: 0; top: 0; height: 42px; }
+	.stat-label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; font-weight: 700; position: relative; }
+	.stat-icon {
+		width: 28px; height: 28px; border-radius: 9px; background: #f4f7fb; color: var(--blue);
+		display: grid; place-items: center; flex: none;
+	}
+	.stat-fuel .stat-icon { background: white; color: var(--green-ink); }
+	.stat-value, .fuel-value, .speed-value { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; position: relative; }
+	.fuel-value { font-size: 28px; }
+	.stat-hint, .metric-sub, .side-label { color: var(--muted); font-size: 12px; font-weight: 650; }
+	.speed-gauge { width: 100%; height: 74px; }
+	.speed-readout { display: flex; align-items: baseline; justify-content: center; gap: 4px; margin-top: -8px; }
+	.speed-value { font-size: 26px; }
+	.load-track { height: 8px; background: #e7eef8; border-radius: 99px; overflow: hidden; margin-top: 8px; }
+	.load-track > div { height: 100%; width: 0; background: var(--blue); border-radius: 99px; }
+	.workspace { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 16px; align-items: start; }
+	.card { padding: 16px 16px 14px; }
+	.panel-head h2, .map-head h2, .history-panel h2 { margin: 0; font-size: 18px; letter-spacing: -0.03em; display: flex; align-items: center; gap: 8px; }
+	.sub, .meta { color: var(--muted); font-size: 13px; line-height: 1.45; }
+	.linkish { background: none; border: 0; color: var(--blue); font-weight: 800; cursor: pointer; padding: 8px 10px; border-radius: 999px; }
+	.linkish:hover { background: var(--blue-soft); }
+	.route-note { margin: 10px 0; background: var(--amber); color: var(--amber-ink); border-radius: 12px; padding: 8px 10px; font-size: 13px; font-weight: 700; }
+	.stops { margin-top: 8px; }
+	.stop { display: grid; grid-template-columns: 32px 1fr; gap: 10px; cursor: pointer; }
+	.rail { display: flex; flex-direction: column; align-items: center; }
+	.num {
+		width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800;
+		background: #e8eef6; color: #64748b; z-index: 1;
+	}
+	.stop.done .num { background: #22c55e; color: white; }
+	.stop.next .num { background: var(--blue); color: white; }
+	.stem { width: 2px; flex: 1; background: #e5e7eb; min-height: 18px; }
+	.stop.done .stem { background: #b7ebc9; }
+	.stop-card {
+		display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center;
+		border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; background: #f8fafc; border: 1px solid transparent;
+	}
+	.stop.done .stop-card { background: #eefbf4; }
+	.stop.next .stop-card { background: #f3f7ff; border-color: #d9e6ff; }
+	.stop-title { font-weight: 800; }
+	.status-pill { font-size: 12px; font-weight: 800; border-radius: 99px; padding: 3px 8px; background: #eef2f6; color: #64748b; }
+	.stop.done .status-pill { background: #d9f5e5; color: var(--green-ink); }
+	.stop.next .status-pill { background: #e5efff; color: var(--blue); }
+	.stop-side { text-align: right; }
+	.side-value { font-weight: 800; font-size: 14px; }
+	.chevron { color: #94a3b8; display: grid; place-items: center; }
+	.live-eta { color: var(--blue-dark); font-weight: 800; }
+	.live-eta:empty { display: none; }
+	.pending { display: inline-flex; margin-top: 6px; background: var(--amber); color: var(--amber-ink); border-radius: 99px; padding: 3px 8px; font-size: 12px; font-weight: 800; }
+	.map-panel { display: flex; flex-direction: column; gap: 12px; }
+	.map-wrap { position: relative; height: 320px; border-radius: 16px; overflow: hidden; background: #d7e3ee; }
+	#route-map, .map-note { height: 100%; }
+	.map-note { display: grid; place-items: center; color: var(--muted); padding: 24px; text-align: center; }
+	.map-chip, .recenter {
+		position: absolute; z-index: 2; bottom: 12px; background: white; border-radius: 999px;
+		box-shadow: var(--shadow); font-weight: 800; display: inline-flex; align-items: center; gap: 8px;
+	}
+	.map-chip { left: 12px; padding: 8px 12px; font-size: 13px; }
+	.recenter { right: 12px; border: 0; height: 36px; padding: 0 12px; cursor: pointer; }
 	.maneuver {
 		position: absolute; z-index: 2; top: 12px; left: 12px; right: 12px;
 		display: flex; gap: 12px; align-items: center;
@@ -76,85 +203,38 @@
 	.maneuver-arrow { width: 46px; height: 46px; display: grid; place-items: center; flex: none; transition: transform 160ms linear; }
 	.maneuver-copy { min-width: 0; flex: 1; }
 	.maneuver-dist { font-size: 13px; font-weight: 700; opacity: 0.85; }
-	.maneuver-text { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.2; }
+	.maneuver-text { font-size: 18px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.2; }
 	.maneuver-next { margin-top: 2px; font-size: 13px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.voice-btn { background: rgba(255, 255, 255, 0.16); color: white; flex: none; }
-	.recenter {
-		position: absolute; z-index: 2; right: 12px; bottom: 12px; padding: 0 12px; font-weight: 800;
-		box-shadow: var(--shadow);
-	}
+	.voice-btn { border: 0; background: rgba(255, 255, 255, 0.16); color: white; border-radius: 12px; height: 36px; padding: 0 12px; font-weight: 800; cursor: pointer; flex: none; }
+	.metric-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+	.metric { background: #f7f9fc; border-radius: 16px; padding: 12px; }
+	.metric-label { color: var(--muted); font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+	.metric-value { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; margin-top: 4px; }
 	.map-dock {
-		display: flex; justify-content: space-between; gap: 16px; align-items: center;
-		padding: 14px 16px; border-top: 1px solid var(--line); background: white;
+		display: flex; justify-content: space-between; gap: 12px; align-items: center;
+		padding-top: 2px;
 	}
-	#dock-title { display: block; font-size: 16px; }
-	.dock-meta { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; margin-top: 2px; }
+	#dock-title { display: block; font-size: 15px; }
+	.dock-meta { font-size: 15px; font-weight: 800; letter-spacing: -0.03em; margin-top: 2px; }
 	.traffic-flag { color: var(--green-ink); font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
 	.map-status { color: var(--amber-ink); font-size: 13px; font-weight: 700; margin-top: 4px; }
-	.route-sheet { min-height: 0; overflow: auto; padding: 16px; }
-	.panel, .side-card { padding: 18px; }
-	.scroll-screen { flex: 1; min-height: 0; overflow: auto; }
-	.panel-head, .side-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-	.panel h2, .side-card h2, .route-sheet h2 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
-	.sub { color: var(--muted); margin-top: 4px; font-size: 14px; }
-	.run-chip { background: #f4f7fb; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: 13px; }
-	.progress { margin: 14px 0 6px; height: 8px; background: #e8eef6; border-radius: 99px; overflow: hidden; }
-	.progress > div { height: 100%; background: linear-gradient(90deg, #60a5fa, var(--blue)); border-radius: 99px; }
-	.progress-label { text-align: right; color: var(--muted); font-size: 13px; font-weight: 600; }
-	.route-note { margin-top: 10px; background: var(--amber); color: var(--amber-ink); border-radius: 10px; padding: 8px 10px; font-size: 13px; font-weight: 700; }
-	.stops { margin-top: 8px; }
-	.stop { display: grid; grid-template-columns: 36px 1fr; gap: 12px; cursor: pointer; }
-	.rail { display: flex; flex-direction: column; align-items: center; }
-	.num {
-		width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800;
-		background: #e8eef6; color: #64748b; z-index: 1;
+	.quick-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+	.cn-btn {
+		border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 800; cursor: pointer;
+		display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: white; color: var(--ink);
+		border: 1px solid #d7e0ea;
 	}
-	.stop.done .num { background: #22c55e; color: white; }
-	.stop.next .num { background: var(--blue); color: white; }
-	.stem { width: 2px; flex: 1; background: #e5e7eb; min-height: 16px; }
-	.stop-card { border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; background: #f8fafc; border: 1px solid transparent; }
-	.stop.done .stop-card { background: var(--green); border-color: var(--green-line); }
-	.stop.next .stop-card { background: white; border-color: #dbe7ff; box-shadow: 0 8px 20px rgba(47, 111, 237, 0.08); }
-	.stop-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-	.stop-title { font-weight: 800; }
-	.stop.done .stop-title { color: var(--green-ink); }
-	.meta { color: var(--muted); font-size: 13px; margin-top: 4px; line-height: 1.45; }
-	.live-eta { color: var(--blue-dark); font-weight: 800; }
-	.live-eta:empty { display: none; }
-	.pending { display: inline-flex; align-items: center; gap: 6px; background: var(--amber); color: var(--amber-ink); border-radius: 99px; padding: 4px 8px; font-size: 12px; font-weight: 700; }
-	.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-	.btn {
-		border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
-	}
-	.btn.primary { background: var(--blue); color: white; }
-	.btn.primary:hover { background: var(--blue-dark); }
-	.btn.primary:disabled { background: #cbd5e1; cursor: default; }
-	.btn.ghost { background: white; color: var(--ink); border: 1px solid #d7e0ea; }
-	.linkish { background: none; border: 0; color: var(--blue); font-weight: 700; cursor: pointer; padding: 0; }
-	.action-bar { margin-top: 14px; padding: 12px; display: flex; gap: 10px; box-shadow: none; }
-	.action-bar .btn { flex: 1; justify-content: center; background: white; border: 1px solid #d7e0ea; }
-	.profile { padding: 18px; display: grid; grid-template-columns: minmax(280px, 1.5fr) repeat(3, 1fr); gap: 12px; }
-	.who { display: flex; gap: 14px; align-items: center; }
-	.avatar, .avatar-fallback {
-		width: 72px; height: 72px; border-radius: 50%; object-fit: cover; background: #dbe7ff; flex: none;
-	}
-	.avatar-fallback { display: grid; place-items: center; font-weight: 800; color: var(--blue-dark); font-size: 22px; }
-	.who h1 { margin: 0; font-size: 24px; letter-spacing: -0.03em; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; line-height: 1.15; }
-	.pill { font-size: 12px; font-weight: 700; border-radius: 99px; padding: 4px 10px; }
-	.pill.on { background: #e8f8ef; color: var(--green-ink); }
-	.pill.off { background: #f3f4f6; color: #4b5563; }
-	.who p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
-	.cred {
-		border-radius: 14px; background: #f7f9fc; padding: 14px; display: flex; gap: 12px; align-items: center; min-height: 74px;
-	}
-	.cred-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none; }
+	.cn-btn.primary { background: var(--blue); color: white; border-color: transparent; }
+	.cn-btn.primary:hover { background: var(--blue-dark); }
+	.cn-btn.primary:disabled { background: #cbd5e1; cursor: default; }
+	.logout-btn { width: 100%; margin-top: 8px; }
+	.cred { border-radius: 14px; background: #f7f9fc; padding: 12px; display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+	.cred-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none; font-weight: 800; }
 	.cred strong { display: block; font-size: 14px; }
 	.cred span { color: var(--muted); font-size: 13px; }
-	.side-card { margin-top: 12px; }
-	.side-card .stat { display: flex; gap: 10px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--line); }
-	.side-card .stat:first-of-type { border-top: 0; }
-	.stat b { display: block; }
-	.stat span { color: var(--muted); font-size: 13px; }
+	.activity .stat { padding: 8px 0; border-top: 1px solid var(--line); }
+	.activity .stat b { display: block; }
+	.activity .stat span { color: var(--muted); font-size: 13px; }
 	.empty { padding: 28px 8px; color: var(--muted); }
 	.history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
 	.history-row {
@@ -163,61 +243,254 @@
 	.status-tag { font-size: 12px; font-weight: 800; border-radius: 99px; padding: 4px 8px; background: #e8eef6; }
 	.status-tag.Completed { background: var(--green); color: var(--green-ink); }
 	.status-tag.Cancelled, .status-tag.Hold { background: #fee2e2; color: #b91c1c; }
+	.driver-app[data-screen="trips"] .hero,
+	.driver-app[data-screen="map"] .hero,
+	.driver-app[data-screen="history"] .hero,
+	.driver-app[data-screen="history"] .workspace,
+	.driver-app[data-screen="trips"] .map-panel,
+	.driver-app[data-screen="map"] .run-panel,
+	.driver-app:not([data-screen="history"]) .history-panel,
+	.driver-app:not([data-screen="trips"]) #back-dashboard { display: none; }
+	.driver-app[data-screen="trips"] .workspace,
+	.driver-app[data-screen="map"] .workspace { grid-template-columns: 1fr; }
+	.driver-app[data-screen="map"] .map-wrap { height: min(68vh, 760px); }
+	.driver-app[data-screen="trips"] #view-all-stops,
+	.driver-app[data-screen="history"] #quick-actions { display: none; }
 	.modal-back {
 		position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;
 	}
 	.modal-back.open { display: flex; }
-	.modal { width: min(460px, 100%); background: white; border-radius: 18px; padding: 18px; box-shadow: var(--shadow); }
-	.modal h3 { margin: 0 0 8px; }
-	.modal label { display: block; font-size: 13px; font-weight: 700; margin: 12px 0 6px; }
-	.modal select, .modal textarea { width: 100%; border: 1px solid #d7e0ea; border-radius: 12px; padding: 10px; box-sizing: border-box; }
-	.modal textarea { min-height: 90px; resize: vertical; }
+	.cn-modal { width: min(460px, 100%); background: white; border-radius: 18px; padding: 18px; box-shadow: var(--shadow); }
+	.cn-modal h3 { margin: 0 0 8px; }
+	.cn-modal label { display: block; font-size: 13px; font-weight: 700; margin: 12px 0 6px; }
+	.cn-modal select, .cn-modal textarea { width: 100%; border: 1px solid #d7e0ea; border-radius: 12px; padding: 10px; }
+	.cn-modal textarea { min-height: 90px; resize: vertical; }
 	.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
-	.notice { display: none; margin-top: 10px; background: #e8f8ef; color: var(--green-ink); border-radius: 10px; padding: 8px 10px; font-weight: 700; }
-	@media (max-width: 900px) {
-		body { overflow: hidden; }
-		.driver-app { padding: 8px; }
-		.topbar { flex-wrap: wrap; }
-		.nav-shell { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1.4fr) minmax(168px, 0.75fr); }
-		.profile { grid-template-columns: 1fr; }
-		.map-dock { align-items: stretch; flex-direction: column; }
-		.map-dock .btn { justify-content: center; }
-		.maneuver-text { font-size: 18px; }
-		.who h1 { font-size: 22px; }
+	.notice { display: none; margin-top: 10px; background: var(--green); color: var(--green-ink); border-radius: 10px; padding: 8px 10px; font-weight: 700; }
+	@media (max-width: 1100px) {
+		.hero, .workspace { grid-template-columns: 1fr; }
+		.truck-stage { min-height: 180px; }
+		.topbar { grid-template-columns: 1fr; }
+		.top-actions { justify-content: space-between; }
+		.screen-switch { overflow: auto; }
+	}
+	@media (max-width: 720px) {
+		.driver-app { padding: 10px; }
+		.user-copy { display: none; }
+		.stats, .metric-row, .stop-card { grid-template-columns: 1fr 1fr; }
+		.stop-card { grid-template-columns: 1fr auto; }
+		.chevron { display: none; }
+		.map-wrap { height: 280px; }
+		.map-dock { flex-direction: column; align-items: stretch; }
+		.hero-metrics { align-items: flex-start; flex-direction: column; }
+		.maneuver-text { font-size: 16px; }
 	}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="driver-app" id="driver-app">
+<div class="driver-app" id="driver-app" data-screen="dashboard">
 	<header class="topbar">
 		<div class="brand">
 			<div class="brand-mark" aria-hidden="true">
 				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
 			</div>
-			<div>
-				<div class="brand-name">CargoNext <span>/ Driver</span></div>
-				<div class="header-driver" id="header-driver"></div>
-			</div>
+			<div class="brand-name">CargoNext <span>/ Driver</span></div>
 		</div>
 		<nav class="screen-switch" role="tablist" aria-label="Driver">
-			<button class="tab active" data-screen="route" type="button">Route</button>
-			<button class="tab" data-screen="me" type="button">Me</button>
-			<button class="tab" data-screen="history" type="button">History</button>
+			<button class="tab active" data-screen="dashboard" type="button">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+				Dashboard
+			</button>
+			<button class="tab" data-screen="trips" type="button">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+				Trips
+			</button>
+			<button class="tab" data-screen="map" type="button">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z"/><path d="M9 3v15M15 6v15"/></svg>
+				Map
+			</button>
+			<button class="tab" data-screen="history" type="button">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg>
+				History
+			</button>
 		</nav>
 		<div class="top-actions">
 			<button class="icon-btn" id="notice-btn" type="button" aria-label="Pending signatures">
 				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9"/><path d="M10 21h4"/></svg>
 				<span class="badge-count" id="notice-count" hidden>0</span>
 			</button>
-			<button class="logout-btn" id="logout-btn" type="button">Log out</button>
+			<div class="user-wrap">
+				<button class="user-toggle" id="user-toggle" type="button" aria-haspopup="true" aria-expanded="false">
+					<img class="avatar sm" id="header-avatar" alt="" hidden>
+					<div class="avatar-fallback sm" id="header-avatar-fallback">D</div>
+					<span class="user-copy"><strong id="header-driver"></strong><span>Driver</span></span>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+				</button>
+				<div class="user-panel" id="user-panel" hidden>
+					<div class="cred" id="cred-license"></div>
+					<div class="cred" id="cred-medical"></div>
+					<div class="cred" id="cred-hazmat"></div>
+					<div class="activity" id="activity"></div>
+					<button class="cn-btn logout-btn" id="logout-btn" type="button">Log out</button>
+				</div>
+			</div>
 		</div>
 	</header>
 
-	<div id="nav-shell" class="nav-shell">
-		<section class="map-stage" aria-label="Navigation">
+	<section class="hero" id="hero" aria-label="Today">
+		<article class="company-card">
+			<div class="company-top">
+				<div class="company-id">
+					<div class="company-mark" aria-hidden="true">
+						<svg width="22" height="22" viewBox="0 0 32 32"><path d="M16 4l12 22H4z" fill="#2f6bff"/><path d="M16 12l6 12H10z" fill="white"/></svg>
+					</div>
+					<div>
+						<strong id="company-name">CargoNext</strong>
+						<div class="company-sub" id="company-sub">Logistics</div>
+					</div>
+				</div>
+				<span class="pill off" id="driver-badge">Available</span>
+			</div>
+			<div class="who">
+				<img class="avatar" id="avatar" alt="" hidden>
+				<div class="avatar-fallback" id="avatar-fallback">D</div>
+				<div>
+					<div class="driver-name" id="driver-name">Driver</div>
+					<div class="driver-role">Driver</div>
+				</div>
+				<div class="contact">
+					<a class="icon-btn" id="driver-phone" href="#" aria-label="Call" hidden>
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h4l2 5-3 2a12 12 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 4 5a2 2 0 0 1 2-2z"/></svg>
+					</a>
+					<a class="icon-btn" id="driver-email" href="#" aria-label="Email" hidden>
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 7 9-7"/></svg>
+					</a>
+				</div>
+			</div>
+			<div class="chip-row">
+				<span class="run-chip" id="run-chip" hidden></span>
+				<span class="today-chip">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+					<span id="today-label"></span>
+				</span>
+			</div>
+			<div class="track" aria-hidden="true">
+				<div class="track-fill" id="progress-bar"></div>
+				<div class="track-truck" id="progress-truck">
+					<svg width="28" height="16" viewBox="0 0 28 16" fill="none"><rect x="1" y="3" width="14" height="8" rx="1.5" fill="#2f6bff"/><path d="M15 6h5l3 3v2h-8V6z" fill="#1d4ed8"/><circle cx="7" cy="13" r="2" fill="#1b2433"/><circle cx="20" cy="13" r="2" fill="#1b2433"/></svg>
+				</div>
+			</div>
+			<div class="hero-metrics">
+				<span id="stops-count"></span>
+				<span id="hero-km"></span>
+				<span>ETA <b id="hero-eta">—</b></span>
+			</div>
+		</article>
+
+		<div class="truck-stage" aria-hidden="true">
+			<svg class="truck-art" viewBox="0 0 520 280">
+				<g fill="#d5e2f0">
+					<rect x="36" y="118" width="22" height="70" rx="2"/>
+					<rect x="66" y="96" width="18" height="92"/>
+					<rect x="92" y="132" width="28" height="56" rx="2"/>
+					<rect x="400" y="108" width="26" height="80"/>
+					<rect x="432" y="128" width="18" height="60"/>
+					<rect x="456" y="96" width="30" height="92" rx="2"/>
+				</g>
+				<ellipse cx="270" cy="232" rx="190" ry="12" fill="#d7e3f0"/>
+				<rect x="188" y="78" width="230" height="112" rx="10" fill="#f8fafc" stroke="#d5dee8" stroke-width="2"/>
+				<path d="M286 108l22 40h-44z" fill="#2f6bff"/>
+				<path d="M286 118l12 22h-24z" fill="white"/>
+				<path d="M188 118h-62l-36 42v30h98z" fill="#f4f7fb" stroke="#d5dee8" stroke-width="2"/>
+				<path d="M168 126h-34l-18 22h52z" fill="#c5d4e6"/>
+				<rect x="118" y="156" width="22" height="16" rx="2" fill="#c5d4e6"/>
+				<circle cx="132" cy="204" r="20" fill="#1f2937"/>
+				<circle cx="132" cy="204" r="8" fill="#e5e7eb"/>
+				<circle cx="250" cy="204" r="20" fill="#1f2937"/>
+				<circle cx="250" cy="204" r="8" fill="#e5e7eb"/>
+				<circle cx="360" cy="204" r="20" fill="#1f2937"/>
+				<circle cx="360" cy="204" r="8" fill="#e5e7eb"/>
+			</svg>
+		</div>
+
+		<div class="stats">
+			<article class="stat-card stat-fuel tall">
+				<svg class="fuel-wave" viewBox="0 0 200 42" preserveAspectRatio="none" aria-hidden="true"><path d="M0 24c20-12 30 10 50 4s30-18 50-8 30 16 50 6 30-16 50-6v22H0z" fill="#cfeedd"/></svg>
+				<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V6a2 2 0 0 1 2-2h7v16H4zM13 10h3l3 3v7h-6"/><path d="M7 20v2M10 20v2"/></svg></span> Fuel level</div>
+				<div>
+					<div class="fuel-value" id="fuel-value">No reading</div>
+					<div class="stat-hint" id="fuel-sub">Last reading</div>
+				</div>
+			</article>
+			<article class="stat-card tall">
+				<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4-5"/></svg></span> Speed</div>
+				<svg class="speed-gauge" viewBox="0 0 124 78" aria-hidden="true">
+					<path d="M12 64 A 50 50 0 0 1 112 64" fill="none" stroke="#e7eef8" stroke-width="10" stroke-linecap="round"/>
+					<path id="speed-arc" d="M12 64 A 50 50 0 0 1 112 64" fill="none" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" stroke-dasharray="157" stroke-dashoffset="157"/>
+				</svg>
+				<div class="speed-readout">
+					<div class="speed-value" id="speed-value">—</div>
+					<span class="stat-hint" id="speed-unit"></span>
+				</div>
+				<div class="stat-hint" id="speed-sub">No reading</div>
+			</article>
+			<article class="stat-card">
+				<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg></span> Vehicle type</div>
+				<div class="stat-value" id="vehicle-type">—</div>
+				<div class="stat-hint">Assigned vehicle</div>
+			</article>
+			<article class="stat-card">
+				<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 12h4"/></svg></span> Plate number</div>
+				<div class="stat-value" id="vehicle-plate">—</div>
+				<div class="stat-hint">Registration</div>
+			</article>
+			<article class="stat-card">
+				<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v10l-8 4-8-4V7z"/></svg></span> Payload capacity</div>
+				<div class="stat-value" id="payload-value">—</div>
+				<div class="stat-hint" id="payload-sub">Max capacity</div>
+			</article>
+			<article class="stat-card">
+				<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l9-4 9 4-9 4z"/><path d="M3 12l9 4 9-4M3 16l9 4 9-4"/></svg></span> Current load</div>
+				<div class="stat-value" id="load-value">—</div>
+				<div class="stat-hint" id="load-util"></div>
+				<div class="load-track" id="load-track" hidden><div id="load-bar"></div></div>
+			</article>
+		</div>
+	</section>
+
+	<div class="workspace" id="workspace">
+		<section class="card run-panel" id="run-panel">
+			<div class="panel-head">
+				<div>
+					<h2>
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+						Today's Run
+					</h2>
+					<div class="sub" id="run-date"></div>
+					<div class="sub" id="map-route-name"></div>
+				</div>
+				<button class="linkish" id="view-all-stops" type="button">View all stops →</button>
+				<button class="linkish" id="back-dashboard" type="button">Back to dashboard</button>
+			</div>
+			<div class="route-note" id="route-note" hidden></div>
+			<div class="stops" id="stop-list"></div>
+			<div class="quick-actions" id="quick-actions">
+				<button class="cn-btn" id="call-dispatcher" type="button">Call dispatcher</button>
+				<button class="cn-btn" id="report-problem" type="button">Report a problem</button>
+			</div>
+		</section>
+
+		<section class="card map-panel" id="map-panel" aria-label="Navigation">
+			<div class="map-head">
+				<h2>
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z"/></svg>
+					Route Map
+				</h2>
+			</div>
 			<div class="map-wrap">
 				<div id="route-map"></div>
+				<div class="map-note" id="map-empty" hidden>The route map appears when a run is assigned.</div>
 				<div class="maneuver" id="maneuver" hidden>
 					<div class="maneuver-arrow" id="maneuver-arrow" aria-hidden="true">
 						<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6"/><path d="M6 11l6-6 6 6"/></svg>
@@ -229,7 +502,36 @@
 					</div>
 					<button class="voice-btn" id="voice-toggle" type="button" aria-pressed="true">Voice on</button>
 				</div>
+				<div class="map-chip" id="map-km-chip" hidden>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+					<span id="map-km-text"></span>
+				</div>
 				<button class="recenter" id="recenter" type="button" hidden>Re-center</button>
+			</div>
+			<div class="metric-row">
+				<div class="metric">
+					<div class="metric-label">
+						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><path d="M12 21s7-6 7-11a7 7 0 1 0-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2"/></svg>
+						Distance remaining
+					</div>
+					<div class="metric-value" id="distance-remaining">—</div>
+				</div>
+				<div class="metric">
+					<div class="metric-label">
+						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg>
+						ETA (final stop)
+					</div>
+					<div class="metric-value" id="eta-final">—</div>
+					<div class="metric-sub" id="eta-final-sub"></div>
+				</div>
+				<div class="metric">
+					<div class="metric-label">
+						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><path d="M4 15l8-12 8 12"/><path d="M4 20h16"/></svg>
+						Stops left
+					</div>
+					<div class="metric-value" id="stops-left">0</div>
+					<div class="metric-sub" id="stops-left-sub"></div>
+				</div>
 			</div>
 			<div class="map-dock" id="map-dock">
 				<div>
@@ -239,58 +541,12 @@
 					<div class="meta" id="dock-address"></div>
 					<div class="map-status" id="map-status" hidden></div>
 				</div>
-				<button class="btn primary" id="dock-nav" type="button">Start navigation</button>
+				<button class="cn-btn primary" id="dock-nav" type="button">Start navigation</button>
 			</div>
 		</section>
-
-		<aside class="route-sheet" id="route-sheet">
-			<div class="panel-head">
-				<div>
-					<h2 id="map-route-name">Today's route</h2>
-					<div class="sub" id="today-label"></div>
-				</div>
-				<div class="run-chip" id="run-chip" hidden></div>
-			</div>
-			<div class="progress" aria-hidden="true"><div id="progress-bar"></div></div>
-			<div class="progress-label" id="progress-label"></div>
-			<div class="route-note" id="route-note" hidden></div>
-			<div class="stops" id="stop-list"></div>
-			<div class="action-bar">
-				<button class="btn" id="call-dispatcher" type="button">Call dispatcher</button>
-				<button class="btn" id="report-problem" type="button">Report a problem</button>
-			</div>
-		</aside>
 	</div>
 
-	<section id="empty-view" class="panel scroll-screen" hidden>
-		<h2>My trips today</h2>
-		<div class="sub" id="empty-date"></div>
-		<div id="empty-copy" class="empty"></div>
-	</section>
-
-	<section id="me-view" class="scroll-screen" hidden>
-		<div class="profile">
-			<div class="who">
-				<img class="avatar" id="avatar" alt="" hidden>
-				<div class="avatar-fallback" id="avatar-fallback">D</div>
-				<div>
-					<h1 id="driver-name">Driver <span class="pill off" id="driver-badge">Available</span></h1>
-					<p id="driver-company"></p>
-					<p id="driver-phone"></p>
-					<p id="driver-vehicle"></p>
-				</div>
-			</div>
-			<div class="cred" id="cred-license"></div>
-			<div class="cred" id="cred-medical"></div>
-			<div class="cred" id="cred-hazmat"></div>
-		</div>
-		<aside class="side-card">
-			<div class="side-head"><h2>Recent activity</h2></div>
-			<div id="activity"></div>
-		</aside>
-	</section>
-
-	<section id="history-view" class="panel scroll-screen" hidden>
+	<section class="card history-panel" id="history-view">
 		<h2>Past runs</h2>
 		<div class="sub">Completed and earlier run sheets assigned to you.</div>
 		<div class="history-list" id="history-list"></div>
@@ -298,7 +554,7 @@
 </div>
 
 <div class="modal-back" id="problem-modal">
-	<div class="modal" role="dialog" aria-modal="true" aria-labelledby="problem-title">
+	<div class="cn-modal" role="dialog" aria-modal="true" aria-labelledby="problem-title">
 		<h3 id="problem-title">Report a problem</h3>
 		<p class="sub">This is saved on the current stop for dispatch.</p>
 		<label for="problem-reason">Reason</label>
@@ -315,8 +571,8 @@
 		<textarea id="problem-note" placeholder="What should dispatch know?"></textarea>
 		<div class="notice" id="problem-notice">Sent to dispatch.</div>
 		<div class="modal-actions">
-			<button class="btn ghost" id="problem-cancel" type="button">Cancel</button>
-			<button class="btn primary" id="problem-send" type="button">Send</button>
+			<button class="cn-btn" id="problem-cancel" type="button">Cancel</button>
+			<button class="cn-btn primary" id="problem-send" type="button">Send</button>
 		</div>
 	</div>
 </div>
@@ -330,6 +586,7 @@
 	const $ = (id) => document.getElementById(id);
 	const state = {
 		map: null,
+		mapLoading: false,
 		renderer: null,
 		driverMarker: null,
 		stopMarkers: [],
@@ -342,6 +599,7 @@
 		steps: [],
 		spokenStep: -1,
 		eta: null,
+		runEta: null,
 		routedAt: 0,
 		routedFix: null,
 		routing: false,
@@ -351,7 +609,26 @@
 
 	function text(id, value) {
 		const node = $(id);
-		if (node) node.textContent = value || "";
+		if (node) node.textContent = value == null ? "" : String(value);
+	}
+	function formatKm(km) {
+		const value = Number(km);
+		if (!Number.isFinite(value)) return "—";
+		const rounded = Math.round(value * 10) / 10;
+		return (rounded >= 10 ? Math.round(rounded) : rounded) + " km";
+	}
+	function formatAmount(value) {
+		const number = Number(value);
+		if (!Number.isFinite(number)) return "—";
+		return Math.round(number).toLocaleString();
+	}
+	function formatClock(date) {
+		let hours = date.getHours();
+		const minutes = date.getMinutes();
+		const suffix = hours >= 12 ? "PM" : "AM";
+		hours = hours % 12 || 12;
+		const mm = minutes < 10 ? "0" + minutes : String(minutes);
+		return hours + ":" + mm + " " + suffix;
 	}
 	function escapeHtml(value) {
 		return String(value == null ? "" : value).replace(/[&<>"']/g, (ch) => ({
@@ -370,23 +647,88 @@
 	function originNow() {
 		return state.fix || data.driver_position || null;
 	}
+	function fallbackKm() {
+		const values = data.stops
+			.filter((stop) => !stop.done && stop.eta_km != null)
+			.map((stop) => Number(stop.eta_km))
+			.filter((value) => Number.isFinite(value));
+		if (!values.length) return null;
+		return Math.max.apply(null, values);
+	}
+	function paintAvatar(imgId, fallbackId) {
+		const image = $(imgId);
+		const fallback = $(fallbackId);
+		if (data.image) {
+			image.src = data.image;
+			image.hidden = false;
+			fallback.hidden = true;
+		} else {
+			text(fallbackId, initials(data.full_name));
+		}
+	}
+	function paintVehicle() {
+		const vehicle = data.vehicle || {};
+		const load = data.load;
+		text("vehicle-type", vehicle.type || "—");
+		text("vehicle-plate", vehicle.plate || "—");
+		const uom = vehicle.capacity_uom || (load && load.uom) || "";
+		text("payload-value", vehicle.capacity != null ? formatAmount(vehicle.capacity) + (uom ? " " + uom : "") : "—");
+		if (load && load.value != null) {
+			text("load-value", formatAmount(load.value) + (load.uom ? " " + load.uom : ""));
+		} else {
+			text("load-value", "—");
+		}
+		const track = $("load-track");
+		if (load && load.value != null && vehicle.capacity) {
+			const pct = Math.max(0, Math.min(100, Math.round((Number(load.value) / Number(vehicle.capacity)) * 100)));
+			$("load-bar").style.width = pct + "%";
+			track.hidden = false;
+			text("load-util", pct + "% utilized");
+		} else {
+			track.hidden = true;
+			text("load-util", load && load.value != null ? "" : "No cargo weight");
+		}
+		if (vehicle.fuel_l != null && vehicle.fuel_l !== "") {
+			const liters = Number(vehicle.fuel_l);
+			text("fuel-value", (Number.isFinite(liters) ? (Math.round(liters * 10) / 10) : formatAmount(vehicle.fuel_l)) + " L");
+			text("fuel-sub", "Last reading");
+		} else {
+			text("fuel-value", "No reading");
+			text("fuel-sub", "Fuel level");
+		}
+		const speed = Number(vehicle.speed_kph);
+		const known = vehicle.speed_kph != null && vehicle.speed_kph !== "" && Number.isFinite(speed);
+		text("speed-value", known ? formatAmount(speed) : "—");
+		text("speed-unit", known ? "km/h" : "");
+		text("speed-sub", known ? "Last reading" : "No reading");
+		const arc = $("speed-arc");
+		const length = 157;
+		const ratio = known ? Math.max(0, Math.min(1, speed / 120)) : 0;
+		arc.style.strokeDasharray = String(length);
+		arc.style.strokeDashoffset = String(length * (1 - ratio));
+	}
 
 	text("header-driver", data.full_name);
 	text("driver-name", data.full_name);
-	$("driver-name").insertAdjacentHTML("beforeend", ` <span class="pill ${data.on_run ? "on" : "off"}" id="driver-badge">${escapeHtml(data.badge)}</span>`);
-	text("driver-company", data.company_line);
-	text("driver-phone", data.phone);
-	text("driver-vehicle", data.vehicle_line ? "Default vehicle: " + data.vehicle_line : "");
+	text("company-name", data.company_name || data.company_line || "CargoNext");
+	text("company-sub", "Logistics");
+	text("driver-badge", data.badge);
+	$("driver-badge").className = "pill " + (data.badge === "Suspended" || data.badge === "Left" ? "warn" : (data.on_run ? "on" : "off"));
 	text("today-label", data.today_label);
-	text("empty-date", data.today_label);
-	text("map-route-name", data.route_name || "Today's route");
-	if (data.image) {
-		$("avatar").src = data.image;
-		$("avatar").hidden = false;
-		$("avatar-fallback").hidden = true;
-	} else {
-		text("avatar-fallback", initials(data.full_name));
+	text("run-date", data.today_label);
+	text("map-route-name", data.route_name || "");
+	paintAvatar("avatar", "avatar-fallback");
+	paintAvatar("header-avatar", "header-avatar-fallback");
+	const phoneHref = String(data.phone || "").replace(/[^\d+]/g, "");
+	if (phoneHref) {
+		$("driver-phone").hidden = false;
+		$("driver-phone").href = "tel:" + phoneHref;
 	}
+	if (data.email) {
+		$("driver-email").hidden = false;
+		$("driver-email").href = "mailto:" + data.email;
+	}
+	paintVehicle();
 	cred("cred-license", data.license, "ID", "#e8f8ef");
 	cred("cred-medical", data.medical, "+", "#fff6e8");
 	cred("cred-hazmat", data.hazmat, "✓", data.hazmat.ok ? "#e8f8ef" : "#f3f4f6");
@@ -400,31 +742,53 @@
 		$("run-chip").hidden = false;
 		text("run-chip", data.run_sheet);
 	}
-	$("progress-bar").style.width = (data.progress || 0) + "%";
-	text("progress-label", data.total ? `${data.completed} of ${data.total} stops complete` : "No stops yet");
+	const progress = data.progress || 0;
+	$("progress-bar").style.width = progress + "%";
+	$("progress-truck").style.left = progress + "%";
+	text("stops-count", data.total ? data.completed + " / " + data.total + " stops" : "No stops");
 
 	const list = $("stop-list");
 	if (!data.stops.length) {
-		$("empty-copy").textContent = data.linked
-			? "No trips are assigned for today. When dispatch puts you on a run sheet, the route opens on the map."
-			: "This login is not linked to a Driver. Ask dispatch to set your User on the Driver record, then open this page again.";
+		$("view-all-stops").hidden = true;
+		$("map-empty").hidden = false;
+		$("route-map").hidden = true;
+		list.innerHTML = `<div class="empty">${data.linked
+			? "No trips are assigned for today. When dispatch puts you on a run sheet, the route opens here."
+			: "This login is not linked to a Driver. Ask dispatch to set your User on the Driver record, then open this page again."}</div>`;
 	} else {
 		list.innerHTML = data.stops.map((stop, index) => {
 			const last = index === data.stops.length - 1;
+			const title = stop.place && stop.place !== "Pickup" && stop.place !== "Delivery" ? stop.place : stop.headline;
+			const kind = stop.kind === "pickup" ? "Pickup" : "Delivery";
+			const address = [kind, stop.address].filter(Boolean).join(" · ");
+			const status = stop.done ? "Completed" : (stop.state === "next" ? "On going" : "Pending");
+			const mark = stop.done
+				? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>`
+				: escapeHtml(stop.number);
 			const proof = stop.signed
 				? `<button class="linkish" data-pod="${escapeHtml(stop.pod_url)}" type="button">Signed · View proof</button>`
 				: (stop.signature_pending ? `<span class="pending">Signature pending</span>` : "");
-			const podAction = stop.state === "next"
-				? `<div class="actions"><button class="btn ghost" data-pod="${escapeHtml(stop.pod_url)}" type="button">Open proof of delivery</button></div>`
+			const podAction = !stop.signed && stop.state === "next"
+				? `<button class="linkish" data-pod="${escapeHtml(stop.pod_url)}" type="button">Proof of delivery</button>`
 				: "";
-			const detail = [stop.place, stop.address, stop.window, stop.cargo].filter(Boolean);
+			const sideLabel = stop.window ? "Time window" : (stop.done ? "Done" : "Time window");
+			const sideValue = stop.window || (stop.done ? "Done" : "Open");
+			const live = stop.done ? "" : `<div class="meta live-eta" data-eta-for="${escapeHtml(stop.id)}"></div>`;
 			return `<article class="stop ${escapeHtml(stop.state)}" data-focus="${escapeHtml(stop.id)}">
-				<div class="rail"><div class="num">${escapeHtml(stop.number)}</div>${last ? "" : `<div class="stem"></div>`}</div>
+				<div class="rail"><div class="num">${mark}</div>${last ? "" : `<div class="stem"></div>`}</div>
 				<div class="stop-card">
-					<div class="stop-top"><div class="stop-title">${escapeHtml(stop.title)}</div>${proof}</div>
-					<div class="meta live-eta" data-eta-for="${escapeHtml(stop.id)}"></div>
-					${detail.map((line) => `<div class="meta">${escapeHtml(line)}</div>`).join("")}
-					${podAction}
+					<div class="stop-main">
+						<div class="stop-top"><div class="stop-title">${escapeHtml(title)}</div><span class="status-pill">${status}</span></div>
+						<div class="meta">${escapeHtml(address)}</div>
+						${stop.cargo ? `<div class="meta">${escapeHtml(stop.cargo)}</div>` : ""}
+						${proof}${podAction}
+					</div>
+					<div class="stop-side">
+						<div class="side-label">${sideLabel}</div>
+						<div class="side-value">${escapeHtml(sideValue)}</div>
+						${live}
+					</div>
+					<div class="chevron" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></div>
 				</div>
 			</article>`;
 		}).join("");
@@ -448,23 +812,36 @@
 		</div>`).join("") : `<div class="empty">Past runs will appear here after you finish a trip.</div>`;
 
 	function showScreen(screen) {
-		const hasStops = data.stops.length > 0;
-		$("nav-shell").hidden = screen !== "route" || !hasStops;
-		$("empty-view").hidden = screen !== "route" || hasStops;
-		$("me-view").hidden = screen !== "me";
-		$("history-view").hidden = screen !== "history";
-		document.querySelectorAll("[data-screen]").forEach((button) => {
+		const allowed = { dashboard: 1, trips: 1, map: 1, history: 1 };
+		if (!allowed[screen]) screen = "dashboard";
+		$("driver-app").dataset.screen = screen;
+		document.querySelectorAll(".tab").forEach((button) => {
 			button.classList.toggle("active", button.dataset.screen === screen);
 		});
-		if (screen === "route" && hasStops) renderMap();
+		const actions = $("quick-actions");
+		if (actions) (screen === "map" ? $("map-panel") : $("run-panel")).appendChild(actions);
+		if ((screen === "dashboard" || screen === "map") && data.stops.length) renderMap();
 	}
-	document.querySelectorAll("[data-screen]").forEach((button) => {
+	document.querySelectorAll(".tab").forEach((button) => {
 		button.addEventListener("click", () => showScreen(button.dataset.screen));
 	});
+	$("view-all-stops").addEventListener("click", () => showScreen("trips"));
+	$("back-dashboard").addEventListener("click", () => showScreen("dashboard"));
 	$("notice-btn").addEventListener("click", () => {
-		showScreen("route");
+		showScreen("trips");
 		const pendingStop = document.querySelector(".stop .pending");
 		if (pendingStop) pendingStop.closest(".stop").scrollIntoView({ block: "center" });
+	});
+	$("user-toggle").addEventListener("click", (event) => {
+		event.stopPropagation();
+		const panel = $("user-panel");
+		panel.hidden = !panel.hidden;
+		$("user-toggle").setAttribute("aria-expanded", panel.hidden ? "false" : "true");
+	});
+	document.addEventListener("click", (event) => {
+		if (event.target.closest("#user-panel") || event.target.closest("#user-toggle")) return;
+		$("user-panel").hidden = true;
+		$("user-toggle").setAttribute("aria-expanded", "false");
 	});
 
 	function paintStoredDock() {
@@ -476,16 +853,38 @@
 	}
 	function paintDock() {
 		const upcoming = nextStop();
+		const remaining = data.stops.filter((stop) => !stop.done).length;
 		text("dock-title", upcoming ? upcoming.headline : (data.stops.length ? "Run complete" : "No active stop"));
 		text("dock-address", upcoming ? upcoming.address : "");
 		$("dock-nav").disabled = !upcoming;
 		$("dock-nav").textContent = state.navigating ? "End navigation" : "Start navigation";
+		text("stops-left", String(remaining));
+		text("stops-left-sub", "of " + data.total + " stops");
+		const km = state.runEta ? state.runEta.km : fallbackKm();
+		const kmLabel = formatKm(km);
+		text("distance-remaining", kmLabel);
+		text("hero-km", kmLabel === "—" ? "—" : kmLabel + " remaining");
+		if (kmLabel === "—") {
+			$("map-km-chip").hidden = true;
+		} else {
+			$("map-km-chip").hidden = false;
+			text("map-km-text", kmLabel + " remaining");
+		}
+		if (state.runEta) {
+			const seconds = navApi.liveSeconds(state.runEta, Date.now());
+			const clock = formatClock(new Date(Date.now() + seconds * 1000));
+			text("eta-final", clock);
+			text("hero-eta", clock);
+			text("eta-final-sub", state.runEta.traffic ? "Based on current traffic" : "Estimated");
+		}
 		if (!upcoming) {
 			if (data.stops.length) text("dock-meta", "Every stop on this run is done.");
+			$("traffic-flag").hidden = true;
 			return;
 		}
 		if (!state.eta) {
 			paintStoredDock();
+			$("traffic-flag").hidden = true;
 			return;
 		}
 		const seconds = navApi.liveSeconds(state.eta, Date.now());
@@ -497,7 +896,8 @@
 		(rows || []).forEach((row) => { byId[row.id] = row; });
 		document.querySelectorAll("[data-eta-for]").forEach((el) => {
 			const row = byId[el.dataset.etaFor];
-			el.textContent = row ? `${row.minutes} min · ${row.km} km` : "";
+			if (!row) return;
+			el.textContent = row.minutes + " min · " + row.km + " km";
 		});
 	}
 	paintDock();
@@ -505,7 +905,9 @@
 
 	function focusStop(id) {
 		const stop = data.stops.find((item) => item.id === id);
-		if (!stop || !state.map || stop.lat == null || stop.lng == null) return;
+		if (!stop || stop.lat == null || stop.lng == null) return;
+		if ($("driver-app").dataset.screen === "trips" || $("driver-app").dataset.screen === "history") showScreen("map");
+		if (!state.map) return;
 		state.follow = false;
 		state.map.panTo({ lat: Number(stop.lat), lng: Number(stop.lng) });
 		if (state.map.getZoom() < 14) state.map.setZoom(15);
@@ -513,6 +915,7 @@
 	document.body.addEventListener("click", (event) => {
 		const pod = event.target.closest("[data-pod]");
 		if (pod) {
+			event.stopPropagation();
 			window.open(pod.dataset.pod, "_blank", "noopener");
 			return;
 		}
@@ -577,7 +980,7 @@
 		if (!state.info) state.info = new google.maps.InfoWindow();
 		data.stops.forEach((stop) => {
 			if (stop.lat == null || stop.lng == null) return;
-			const color = stop.done ? "#22c55e" : (stop.state === "next" ? "#2f6fed" : "#64748b");
+			const color = stop.done ? "#22c55e" : (stop.state === "next" ? "#2f6bff" : "#64748b");
 			const marker = new google.maps.Marker({
 				position: { lat: Number(stop.lat), lng: Number(stop.lng) },
 				map: state.map,
@@ -667,7 +1070,7 @@
 				map: state.map,
 				suppressMarkers: true,
 				preserveViewport: false,
-				polylineOptions: { strokeColor: "#2f6fed", strokeWeight: 6 }
+				polylineOptions: { strokeColor: "#2f6bff", strokeWeight: 6 }
 			});
 		}
 		state.renderer.setOptions({ preserveViewport: Boolean(state.navigating && state.fix) });
@@ -675,11 +1078,21 @@
 		const route = navApi.readRoute(result);
 		state.steps = (route.legs[0] && route.legs[0].steps) || [];
 		const eta = navApi.etasFromLegs(route.legs, plan.included, plan.originIsDriver);
+		const now = Date.now();
 		if (eta.dock) {
 			state.eta = {
 				seconds: eta.dock.seconds,
 				km: eta.dock.km,
-				fetchedAt: Date.now(),
+				fetchedAt: now,
+				traffic: route.traffic
+			};
+		}
+		const lastStop = eta.stops.length ? eta.stops[eta.stops.length - 1] : null;
+		if (lastStop) {
+			state.runEta = {
+				seconds: lastStop.seconds,
+				km: lastStop.km,
+				fetchedAt: now,
 				traffic: route.traffic
 			};
 		}
@@ -790,22 +1203,30 @@
 	}
 	function renderMap() {
 		if (state.map) {
-			google.maps.event.trigger(state.map, "resize");
+			if (window.google && google.maps.event && google.maps.event.trigger) {
+				google.maps.event.trigger(state.map, "resize");
+			}
 			return;
 		}
+		if (state.mapLoading) return;
+		state.mapLoading = true;
 		const box = $("route-map");
 		loadGoogleMaps().then(() => {
+			if (state.map) return;
 			const center = data.driver_position || { lat: 14.55, lng: 121.02 };
-			state.map = new google.maps.Map(box, {
+			const options = {
 				center: center,
 				zoom: 12,
 				mapTypeControl: false,
 				streetViewControl: false,
 				fullscreenControl: false,
 				clickableIcons: false,
-				gestureHandling: "greedy",
-				zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_CENTER }
-			});
+				gestureHandling: "greedy"
+			};
+			if (google.maps.ControlPosition) {
+				options.zoomControlOptions = { position: google.maps.ControlPosition.RIGHT_CENTER };
+			}
+			state.map = new google.maps.Map(box, options);
 			const traffic = new google.maps.TrafficLayer();
 			traffic.setMap(state.map);
 			state.map.addListener("dragstart", () => {
@@ -814,6 +1235,7 @@
 			ensureWatch();
 			refreshRoute();
 		}).catch((error) => {
+			state.mapLoading = false;
 			state.mapsFailed = true;
 			box.innerHTML = `<div class="map-note">${escapeHtml(error.message || "Google Maps could not be loaded.")}</div>`;
 		});
@@ -825,6 +1247,7 @@
 		$("recenter").hidden = true;
 		if (window.speechSynthesis) window.speechSynthesis.cancel();
 		paintDock();
+		showScreen("dashboard");
 	}
 	function startGuidance() {
 		state.navigating = true;
@@ -835,9 +1258,9 @@
 		text("maneuver-text", "Starting navigation");
 		text("maneuver-dist", "");
 		text("maneuver-next", "");
+		showScreen("map");
 		ensureWatch();
 		if (state.map) refreshRoute();
-		else renderMap();
 		speak("Navigation started");
 		paintDock();
 	}
@@ -915,7 +1338,7 @@
 		}).catch(() => { $("problem-send").disabled = false; });
 	});
 
-	showScreen("route");
+	showScreen("dashboard");
 })();
 </script>
 {% endblock %}

@@ -79,9 +79,13 @@ def _build_payload(driver_name, preview):
 		"driver": driver_name,
 		"full_name": (user.full_name if user else "") or frappe.session.user,
 		"phone": "",
+		"email": (user.email if user else "") or "",
 		"image": (user.user_image if user else "") or "",
+		"company_name": "",
 		"company_line": "",
 		"vehicle_line": "",
+		"vehicle": _empty_vehicle(),
+		"load": None,
 		"badge": "Available",
 		"on_run": False,
 		"license": {"label": "License", "detail": "Not on file", "ok": False},
@@ -118,9 +122,11 @@ def _build_payload(driver_name, preview):
 	payload["full_name"] = driver.full_name or payload["full_name"]
 	payload["phone"] = driver.cell_number or ""
 	if driver.user:
-		image = frappe.db.get_value("User", driver.user, "user_image")
+		image, email = frappe.db.get_value("User", driver.user, ["user_image", "email"]) or ("", "")
 		if image:
 			payload["image"] = image
+		if email:
+			payload["email"] = email
 
 	company = ""
 	if driver.custom_transport_company:
@@ -128,13 +134,15 @@ def _build_payload(driver_name, preview):
 			frappe.db.get_value("Transport Company", driver.custom_transport_company, "company_name")
 			or driver.custom_transport_company
 		)
+	payload["company_name"] = company or ""
 	if cint(driver.custom_is_internal):
 		payload["company_line"] = "Internal" + (f" · {company}" if company else "")
 	else:
 		payload["company_line"] = company or "External driver"
 
 	vehicle_name = driver.custom_default_vehicle
-	payload["vehicle_line"] = _vehicle_line(vehicle_name)
+	payload["vehicle"] = _vehicle_profile(vehicle_name)
+	payload["vehicle_line"] = payload["vehicle"]["line"]
 	payload["license"] = _license_card(driver)
 	payload["medical"] = _medical_card(driver)
 	payload["hazmat"] = {
@@ -163,7 +171,7 @@ def _build_payload(driver_name, preview):
 	if driver.status == "Suspended":
 		payload["badge"] = "Suspended"
 	elif payload["on_run"]:
-		payload["badge"] = "On a run"
+		payload["badge"] = "On Route"
 	elif driver.status == "Left":
 		payload["badge"] = "Left"
 	else:
@@ -171,7 +179,9 @@ def _build_payload(driver_name, preview):
 
 	if current:
 		if current.vehicle:
-			payload["vehicle_line"] = _vehicle_line(current.vehicle) or payload["vehicle_line"]
+			payload["vehicle"] = _vehicle_profile(current.vehicle)
+			payload["vehicle_line"] = payload["vehicle"]["line"] or payload["vehicle_line"]
+		payload["load"] = _cargo_weight(current.name)
 		payload["run_sheet"] = current.name
 		payload["route_name"] = current.route_name or current.name
 		payload["stops"] = _stops_for_run(current)
@@ -215,20 +225,86 @@ def _driver_row(driver_name):
 	return row
 
 
-def _vehicle_line(vehicle_name):
+def _empty_vehicle():
+	return {
+		"name": "",
+		"type": "",
+		"plate": "",
+		"make": "",
+		"model": "",
+		"fuel_l": None,
+		"speed_kph": None,
+		"capacity": None,
+		"capacity_uom": "",
+		"line": "",
+	}
+
+
+def _vehicle_profile(vehicle_name):
+	profile = _empty_vehicle()
 	if not vehicle_name or not frappe.db.exists("Transport Vehicle", vehicle_name):
-		return ""
-	row = frappe.db.get_value(
-		"Transport Vehicle",
-		vehicle_name,
-		["license_plate_number", "vehicle_name", "vehicle_type"],
-		as_dict=True,
+		return profile
+	profile["name"] = vehicle_name
+	wanted = [
+		"license_plate_number",
+		"vehicle_name",
+		"vehicle_type",
+		"make",
+		"model",
+		"last_fuel_level",
+		"last_speed_kph",
+		"capacity_weight",
+		"capacity_weight_uom",
+	]
+	meta = frappe.get_meta("Transport Vehicle")
+	fields = [field for field in wanted if meta.has_field(field)]
+	row = frappe.db.get_value("Transport Vehicle", vehicle_name, fields, as_dict=True) or {}
+	profile["type"] = row.get("vehicle_type") or ""
+	profile["plate"] = row.get("license_plate_number") or row.get("vehicle_name") or vehicle_name
+	profile["make"] = row.get("make") or ""
+	profile["model"] = row.get("model") or ""
+	if row.get("last_fuel_level") not in (None, ""):
+		profile["fuel_l"] = flt(row.get("last_fuel_level"))
+	if row.get("last_speed_kph") not in (None, ""):
+		profile["speed_kph"] = flt(row.get("last_speed_kph"))
+	if row.get("capacity_weight") not in (None, ""):
+		profile["capacity"] = flt(row.get("capacity_weight"))
+		profile["capacity_uom"] = row.get("capacity_weight_uom") or ""
+	kind = profile["type"]
+	profile["line"] = f"{profile['plate']} · {kind}" if kind else profile["plate"]
+	return profile
+
+
+def _vehicle_line(vehicle_name):
+	return _vehicle_profile(vehicle_name)["line"]
+
+
+def _cargo_weight(run_name):
+	if not run_name or not frappe.get_meta("Transport Job Package").has_field("weight"):
+		return None
+	jobs = frappe.get_all(
+		"Transport Leg",
+		filters={"run_sheet": run_name, "docstatus": ["<", 2]},
+		pluck="transport_job",
+		ignore_permissions=True,
 	)
-	if not row:
-		return vehicle_name
-	plate = row.license_plate_number or row.vehicle_name or vehicle_name
-	kind = row.vehicle_type or ""
-	return f"{plate} · {kind}" if kind else plate
+	jobs = [job for job in jobs if job]
+	if not jobs:
+		return None
+	fields = ["weight"]
+	if frappe.get_meta("Transport Job Package").has_field("weight_uom"):
+		fields.append("weight_uom")
+	rows = frappe.get_all(
+		"Transport Job Package",
+		filters={"parent": ["in", jobs], "parenttype": "Transport Job"},
+		fields=fields,
+		ignore_permissions=True,
+	)
+	total = sum(flt(row.weight) for row in rows)
+	if not total:
+		return None
+	uom = next((row.get("weight_uom") for row in rows if row.get("weight_uom")), "") or "kg"
+	return {"value": round(total, 1), "uom": uom}
 
 
 def _license_card(driver):
