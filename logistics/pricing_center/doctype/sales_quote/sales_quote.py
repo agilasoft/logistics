@@ -21,6 +21,7 @@ from logistics.utils.charge_service_type import (
 	sales_quote_charge_service_types_equal,
 )
 from logistics.utils.sales_quote_routing import apply_sales_quote_routing_to_booking
+from logistics.pricing_center.sales_quote_deadline import critical_deadline_missing
 from logistics.pricing_center.sales_quote_blanket import blanket_quotation_block
 from logistics.pricing_center.sales_quote_main_job import multimodal_main_job_missing
 from logistics.pricing_center.sales_quote_scope_title import default_scope_title
@@ -705,14 +706,14 @@ class SalesQuote(Document):
 
 	def validate_time_sensitive_deadline(self):
 		"""Critical Deadline is required whenever the Time Sensitive checkbox is on."""
-		if not cint(getattr(self, "is_time_sensitive", 0)):
-			return
-		if getattr(self, "critical_deadline", None):
-			return
-		frappe.throw(
-			_("Critical Deadline is required when Time Sensitive is ticked."),
-			title=_("Critical Deadline Required"),
-		)
+		if critical_deadline_missing(
+			cint(getattr(self, "is_time_sensitive", 0)),
+			getattr(self, "critical_deadline", None),
+		):
+			frappe.throw(
+				_("Critical Deadline is required when Time Sensitive is ticked."),
+				title=_("Critical Deadline Required"),
+			)
 
 	def on_submit(self):
 		"""Additional-charge quotes: push charge lines to the linked job with sales_quote_link."""
