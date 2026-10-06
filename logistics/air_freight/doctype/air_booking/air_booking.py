@@ -258,6 +258,11 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 
 			self.validate_dates()
 			self.validate_accounts()
+			from logistics.logistics.doctype.turnover_charges_template.turnover_charges_template import (
+				sync_turnover_shipment_charges,
+			)
+
+			sync_turnover_shipment_charges(self)
 			self._prepare_header_totals_for_charge_calculation()
 			# Align charge quantity/cost_quantity and amounts with header actuals (not Sales Quote copy)
 			self._sync_charges_with_parent_actuals()
@@ -515,8 +520,8 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 			_("Volume must be greater than 0 before submitting the Air Booking")
 		)
 		# Validate quote is not empty
-		# Exception: Air Bookings created from a MICE Project or Time Sensitive Case
-		# intentionally have no Sales Quote.
+		# Exception: Air Bookings created from a MICE Project, a Time Sensitive Case,
+		# or marked Turnover Shipment intentionally have no Sales Quote.
 		from logistics.mice.doctype.mice_project.mice_project_booking_creation import (
 			booking_is_linked_from_mice_project,
 		)
@@ -536,7 +541,15 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 			# If quote_type is not set, check sales_quote (backward compatibility)
 			has_quote = bool(self.sales_quote)
 		
-		if not has_quote and not mice_programme_booking and not ts_case_leg:
+		from logistics.logistics.doctype.turnover_charges_template.turnover_charges_template import (
+			assert_turnover_template_ready,
+			turnover_shipment_skips_sales_quote,
+		)
+
+		turnover_shipment = turnover_shipment_skips_sales_quote(self)
+		if turnover_shipment:
+			assert_turnover_template_ready(self)
+		if not has_quote and not mice_programme_booking and not ts_case_leg and not turnover_shipment:
 			frappe.throw(_("Quote is required. Please select a quote before submitting the Air Booking."))
 		
 		# Validate charges is not empty
@@ -2184,8 +2197,15 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 			has_quote = bool(self.sales_quote)
 		
 		has_charges = bool(hasattr(self, 'charges') and self.charges and len(self.charges) > 0)
-		
-		if not has_quote and not has_charges:
+
+		from logistics.logistics.doctype.turnover_charges_template.turnover_charges_template import (
+			assert_turnover_template_ready,
+			turnover_shipment_skips_sales_quote,
+		)
+
+		if turnover_shipment_skips_sales_quote(self):
+			assert_turnover_template_ready(self)
+		elif not has_quote and not has_charges:
 			frappe.throw(_("Cannot convert to Air Shipment. Either a Quote or Charges must be present."))
 		
 		readiness = self.check_conversion_readiness()
@@ -2231,6 +2251,11 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 			air_shipment.booking_date = self.booking_date or today()
 			air_shipment.air_booking = self.name
 			copy_sales_quote_fields_to_target(self, air_shipment)
+			from logistics.logistics.doctype.turnover_charges_template.turnover_charges_template import (
+				copy_turnover_shipment_fields,
+			)
+
+			copy_turnover_shipment_fields(self, air_shipment)
 			if getattr(self, "transport_mode", None):
 				air_shipment.transport_mode = self.transport_mode
 			if getattr(self, "load_type", None):

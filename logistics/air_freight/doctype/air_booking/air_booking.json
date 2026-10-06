@@ -10,6 +10,8 @@
   "dashboard_html",
   "details_tab",
   "section_break_main",
+  "is_turnover_shipment",
+  "turnover_charges_template",
   "naming_series",
   "booking_date",
   "house_type",
@@ -214,6 +216,21 @@
    "fieldname": "section_break_main",
    "fieldtype": "Section Break",
    "label": "Booking Details"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_turnover_shipment",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Turnover Shipment"
+  },
+  {
+   "depends_on": "eval:doc.is_turnover_shipment",
+   "fieldname": "turnover_charges_template",
+   "fieldtype": "Link",
+   "label": "Turnover Charges Template",
+   "mandatory_depends_on": "eval:doc.is_turnover_shipment",
+   "options": "Turnover Charges Template"
   },
   {
    "fieldname": "naming_series",
