@@ -80,7 +80,7 @@ app_include_js = [
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
 	"/assets/logistics/js/service_role.js?v=3",
 	"/assets/logistics/js/internal_job_detail_grid_delete_fix.js",
-	"/assets/logistics/js/get_charges_from_quotation.js?v=21",
+	"/assets/logistics/js/get_charges_from_quotation.js?v=22",
 	"/assets/logistics/js/gcfq_settings_dashboard.js?v=1",
 	"/assets/logistics/js/get_charges_from_tariff.js?v=1",
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=3",
@@ -447,6 +447,20 @@ elif isinstance(_wj_on_submit, list):
 		_wj_events["on_submit"] = list(_wj_on_submit) + [_ORDER_MANAGEMENT_ON_PICK]
 elif _wj_on_submit != _ORDER_MANAGEMENT_ON_PICK:
 	_wj_events["on_submit"] = [_wj_on_submit, _ORDER_MANAGEMENT_ON_PICK]
+
+# Employee role checkboxes add the same role on Logistics Staff. They do not clear it.
+_LOGISTICS_STAFF_FROM_EMPLOYEE = (
+	"logistics.logistics.doctype.logistics_staff.logistics_staff.sync_logistics_staff_from_employee"
+)
+_employee_events = doc_events.setdefault("Employee", {})
+_employee_on_update = _employee_events.get("on_update")
+if not _employee_on_update:
+	_employee_events["on_update"] = _LOGISTICS_STAFF_FROM_EMPLOYEE
+elif isinstance(_employee_on_update, list):
+	if _LOGISTICS_STAFF_FROM_EMPLOYEE not in _employee_on_update:
+		_employee_events["on_update"] = list(_employee_on_update) + [_LOGISTICS_STAFF_FROM_EMPLOYEE]
+elif _employee_on_update != _LOGISTICS_STAFF_FROM_EMPLOYEE:
+	_employee_events["on_update"] = [_employee_on_update, _LOGISTICS_STAFF_FROM_EMPLOYEE]
 
 # Scheduled Tasks
 # ---------------

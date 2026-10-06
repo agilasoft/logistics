@@ -58,7 +58,9 @@ class TestSalesQuoteProgrammeCharges(FrappeTestCase):
 			self.consignee = (
 				frappe.db.get_value("Consignee", {}, "name") or create_test_consignee()
 			)
-			rep = frappe.db.get_value("Employee", {}, "name")
+			from logistics.logistics.doctype.logistics_staff.logistics_staff import ensure_logistics_staff
+
+			rep = ensure_logistics_staff(frappe.db.get_value("Employee", {}, "name"))
 			self._sq_defaults = {
 				"branch": frappe.db.get_value("Branch", {"custom_company": self.company}, "name"),
 				"cost_center": frappe.db.get_value("Cost Center", {"company": self.company}, "name"),

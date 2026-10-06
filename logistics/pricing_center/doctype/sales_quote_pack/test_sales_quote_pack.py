@@ -30,9 +30,13 @@ class TestSalesQuotePack(FrappeTestCase):
 		self.branch = create_test_branch(self.company)
 		self.cost_center = create_test_cost_center(self.company)
 		self.profit_center = create_test_profit_center(self.company)
+		from logistics.logistics.doctype.logistics_staff.logistics_staff import ensure_logistics_staff
+
 		self.employee = frappe.db.get_value("Employee", {"status": "Active"}, "name")
 		if not self.employee:
 			self.employee = frappe.db.get_value("Employee", {}, "name")
+		if self.employee:
+			self.employee = ensure_logistics_staff(self.employee)
 		create_test_unloco("USLAX", "Los Angeles", "LAX", "US", "Airport")
 		create_test_unloco("USJFK", "New York JFK", "JFK", "US", "Airport")
 

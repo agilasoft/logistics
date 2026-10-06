@@ -617,7 +617,9 @@ class TestSalesQuote(FrappeTestCase):
 		sq.quotation_type = "Project"
 		sq.naming_series = "PQ.#####"
 		sq.project_name = f"SQ Test Project Air {uuid.uuid4().hex[:8]}"
-		rep = frappe.db.get_value("Employee", {}, "name")
+		from logistics.logistics.doctype.logistics_staff.logistics_staff import ensure_logistics_staff
+
+		rep = ensure_logistics_staff(frappe.db.get_value("Employee", {}, "name"))
 		sq.branch = frappe.db.get_value("Branch", {"custom_company": self.company}, "name")
 		sq.cost_center = frappe.db.get_value("Cost Center", {"company": self.company}, "name")
 		sq.profit_center = frappe.db.get_value("Profit Center", {}, "name")
