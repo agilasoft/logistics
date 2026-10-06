@@ -804,6 +804,39 @@ def _create_cross_docking_order(
 	}
 
 
+def _order_name_from_create_result(result: Any) -> str:
+	if not isinstance(result, dict):
+		return ""
+	for key in (
+		"air_booking",
+		"sea_booking",
+		"transport_order",
+		"declaration_order",
+		"inbound_order",
+		"cross_docking_order",
+		"name",
+	):
+		value = result.get(key)
+		if value:
+			return str(value)
+	return ""
+
+
+def _create_within_linked_service_quantity(sq_doc: Any, job_type: str, create):
+	"""Create the order only while a matching linked service still has quantity left."""
+	from logistics.utils.linked_service_usage import (
+		claim_sales_quote_linked_service_for_order,
+		record_satellite_order,
+	)
+
+	claimed = claim_sales_quote_linked_service_for_order(sq_doc.name, job_type)
+	result = create()
+	order_name = _order_name_from_create_result(result)
+	if claimed and order_name:
+		record_satellite_order(claimed, job_type, order_name, sq_doc.name)
+	return result
+
+
 _CREATE_DISPATCH = {
 	"Air Booking": _create_air_booking,
 	"Sea Booking": _create_sea_booking,
@@ -864,7 +897,9 @@ def create_booking_or_order_from_sales_quote(
 		merged_row = _merge_creation_parameters(row, parsed_params)
 		assert_create_from_source(jt, source_doc=sq_doc)
 		handler = _CREATE_DISPATCH[jt]
-		return handler(sq_doc, merged_row, parsed_params)
+		return _create_within_linked_service_quantity(
+			sq_doc, jt, lambda: handler(sq_doc, merged_row, parsed_params)
+		)
 
 	with _client_linked_services_context(linked_services):
 		row = _row_by_idx(sq_doc, idx)
@@ -885,4 +920,6 @@ def create_booking_or_order_from_sales_quote(
 		)
 	assert_create_from_source(jt, source_doc=sq_doc)
 	handler = _CREATE_DISPATCH[jt]
-	return handler(sq_doc, merged_row, parsed_params)
+	return _create_within_linked_service_quantity(
+		sq_doc, jt, lambda: handler(sq_doc, merged_row, parsed_params)
+	)

@@ -169,12 +169,13 @@ class TestSalesQuoteGenerateLinkedServices(FrappeTestCase):
 					"parent_booking_name": sq.name,
 					"service_type": "Transport",
 				},
-				fields=["name", "container_type", "company"],
+				fields=["name", "container_type", "company", "quantity"],
 				order_by="creation asc",
 			)
-			self.assertEqual(len(rows), 3)
-			self.assertEqual([row.container_type for row in rows].count(type_a), 2)
-			self.assertEqual([row.container_type for row in rows].count(type_b), 1)
+			self.assertEqual(len(rows), 2)
+			by_type = {row.container_type: row.quantity for row in rows}
+			self.assertEqual(by_type[type_a], 2)
+			self.assertEqual(by_type[type_b], 1)
 			self.assertTrue(all(row.company == sq.company for row in rows))
 			self.assertTrue(all(row.container_type != "NOT-A-TYPE" for row in rows))
 

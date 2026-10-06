@@ -93,7 +93,7 @@ function _lsd1_normalize_options(options) {
 		addHint:
 			opts.addHint ||
 			__(
-				"Choose a service type and quantity, fill in the service details, then Add Service. Qty creates that many services with those details."
+				"Choose a service type and quantity, fill in the service details, then Add Service. Qty is stored on that one service."
 			),
 		createPayloadMethod:
 			opts.createPayloadMethod || LSD1_LS_API + ".get_dialog_create_payload",
@@ -167,6 +167,9 @@ function _lsd1_render_list(rows, opts, selected) {
 			const company_html = row.company
 				? `<span class="lsd1-pill">${_lsd1_escape(row.company)}</span>`
 				: "";
+			const qty_html = `<span class="lsd1-pill">${__("Qty {0}", [
+				cint(row.quantity) || 1,
+			])}</span>`;
 			const source_html = from_job
 				? `<span class="lsd1-pill">${__("From job")}</span>`
 				: "";
@@ -202,7 +205,7 @@ function _lsd1_render_list(rows, opts, selected) {
 							${_lsd1_icon("es-line-open", "xs") || _lsd1_icon("external-link", "xs")}
 						</a>
 					</div>
-					<div class="lsd1-item-meta">${source_html}${company_html}${job_html}</div>
+					<div class="lsd1-item-meta">${source_html}${qty_html}${company_html}${job_html}</div>
 					<div class="lsd1-item-actions">${edit_btn}${remove_btn}</div>
 				</div>`;
 		})
@@ -319,7 +322,7 @@ function _lsd1_compose_panel_html() {
 				</div>
 			</div>
 			<p class="lsd1-hint lsd1-compose-note">${__(
-				"These details are copied onto every service created for this quantity."
+				"Qty is stored on this one service. Orders created for it cannot exceed that quantity."
 			)}</p>
 			<div class="lsd1-edit-grid lsd1-compose-grid"></div>
 		</div>`;
@@ -330,7 +333,7 @@ function _lsd1_generate_panel_html(opts) {
 	return `
 		<div class="lsd1-generate-panel" hidden>
 			<p class="lsd1-hint lsd1-generate-note">${__(
-				"Adds new services from the quote. Existing services stay as they are."
+				"Each selected row creates one service. How many is stored as that service's quantity."
 			)}</p>
 			<div class="lsd1-generate-list"></div>
 			<div class="lsd1-generate-actions">
@@ -918,10 +921,16 @@ function _lsd1_bind(dialog, frm, opts, state) {
 				});
 				return;
 			}
+			const values = _lsd1_collect_control_values(state.composeControls);
+			const form_qty = cint(values.quantity);
+			if (form_qty >= 1 && form_qty <= 50) {
+				quantity = form_qty;
+			}
+			delete values.quantity;
 			const args = _lsd1_parent_args(frm, opts);
 			args.service_type = service_type;
 			args.quantity = quantity;
-			args.values = _lsd1_collect_control_values(state.composeControls);
+			args.values = values;
 			const $add = $wrap.find("button.lsd1-add");
 			$add.prop("disabled", true);
 			frappe.call({
@@ -942,9 +951,9 @@ function _lsd1_bind(dialog, frm, opts, state) {
 					if (count) {
 						frappe.show_alert({
 							message:
-								count === 1
-									? __("Linked service created")
-									: __("{0} linked services created", [count]),
+								quantity > 1
+									? __("Linked service created with quantity {0}", [quantity])
+									: __("Linked service created"),
 							indicator: "green",
 						});
 					}
