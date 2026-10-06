@@ -970,4 +970,6 @@ logistics.patches.v3_0_drop_declaration_booking_milestones
 logistics.patches.v3_0_drop_transport_job_order_milestones
 # Desk: the programme icon is MICE. Drop the Exhibits tile and saved layout copies.
 logistics.patches.v3_0_mice_desk_icon
+# Logistics Staff: copy Employee role flags and existing rep links onto the new master.
+logistics.patches.v3_0_seed_logistics_staff
 

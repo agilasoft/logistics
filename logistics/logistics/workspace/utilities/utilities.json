@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"util-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Utilities</span>\",\"col\":12}},{\"id\":\"util-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Role Permission Matrix\",\"col\":4}}]",
+ "content": "[{\"id\":\"util-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Utilities</span>\",\"col\":12}},{\"id\":\"util-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Role Permission Matrix\",\"col\":4}},{\"id\":\"logistics-staff-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Logistics Staff\",\"col\":4}}]",
  "creation": "2026-08-15 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -31,6 +31,16 @@
    "link_count": 0,
    "link_to": "permission-manager",
    "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Logistics Staff",
+   "link_count": 0,
+   "link_to": "Logistics Staff",
+   "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
   }
@@ -64,6 +74,13 @@
    "label": "Role Permissions Manager",
    "link_to": "permission-manager",
    "type": "Page"
+  },
+  {
+   "color": "Green",
+   "doc_view": "List",
+   "label": "Logistics Staff",
+   "link_to": "Logistics Staff",
+   "type": "DocType"
   }
  ],
  "title": "Utilities",
