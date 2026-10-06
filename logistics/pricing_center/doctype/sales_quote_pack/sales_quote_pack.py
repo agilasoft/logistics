@@ -14,6 +14,7 @@ class SalesQuotePack(Document):
 		self._validate_manual_accepted_status()
 		self._validate_unique_quotes()
 		self._validate_quote_customers()
+		self._validate_single_quotation_type()
 		self._sync_quote_pack_links()
 		self._calculate_total()
 
@@ -74,6 +75,10 @@ class SalesQuotePack(Document):
 						sq, quote_customer, self.customer
 					)
 				)
+
+	def _validate_single_quotation_type(self):
+		"""A pack holds one quotation type. One-off and Regular quotes stay in separate packs."""
+		assert_single_quotation_type(self._linked_quote_names())
 
 	def _sync_quote_pack_links(self):
 		if self.is_new():
@@ -189,9 +194,53 @@ def _quote_charge_total(sales_quote_name: str) -> float:
 	return sum(flt(r.estimated_revenue) for r in rows)
 
 
+def quotation_types_for_quotes(names):
+	if not names:
+		return {}
+	rows = frappe.get_all(
+		"Sales Quote",
+		filters={"name": ["in", list(names)]},
+		fields=["name", "quotation_type"],
+	)
+	return {r.name: (r.quotation_type or "").strip() for r in rows}
+
+
+def assert_single_quotation_type(names):
+	"""Return the shared quotation type, or None when the pack has no quotes.
+
+	One-off quotes and other Sales Quotes cannot share a pack.
+	"""
+	types_by_name = quotation_types_for_quotes(names)
+	distinct = []
+	for name in names:
+		quotation_type = types_by_name.get(name) or ""
+		if quotation_type and quotation_type not in distinct:
+			distinct.append(quotation_type)
+	if len(distinct) > 1:
+		detail = ", ".join(
+			_("{0} ({1})").format(name, types_by_name.get(name) or _("Unknown")) for name in names
+		)
+		frappe.throw(
+			_(
+				"A Sales Quote Pack can include only one quotation type. "
+				"One-off quotes and other Sales Quotes must be packed separately. Quotes: {0}."
+			).format(detail),
+			title=_("Cannot Mix Quotation Types"),
+		)
+	return distinct[0] if distinct else None
+
+
 @frappe.whitelist()
 def create_sales_quote_from_pack(pack_name: str):
 	pack = frappe.get_doc("Sales Quote Pack", pack_name)
+	existing_type = assert_single_quotation_type(pack._linked_quote_names())
+	if existing_type and existing_type != "One-off":
+		frappe.throw(
+			_(
+				"This pack already includes {0} quotes. Add Sales Quote creates a One-off quote, which cannot be added to this pack."
+			).format(existing_type),
+			title=_("Cannot Mix Quotation Types"),
+		)
 	quote = frappe.new_doc("Sales Quote")
 	quote.customer = pack.customer
 	quote.consignee = pack.consignee or pack.customer
