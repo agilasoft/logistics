@@ -317,7 +317,7 @@ function _mice_open_services_dialog(frm) {
 			allowEdit: can_manage,
 			emptyHint: __("Add a service type below to link it to this project."),
 			addHint: __(
-				"Choose a service type and quantity, fill in the service details, then Add Service. Qty creates that many services with those details."
+				"Choose a service type and quantity, fill in the service details, then Add Service. Qty is stored on that one service."
 			),
 			unsavedMessage: __("Save the MICE Project before managing services."),
 			removeConfirm: (ls) =>

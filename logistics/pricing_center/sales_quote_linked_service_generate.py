@@ -153,7 +153,7 @@ def _create_transport_from_container(quote, item: dict) -> list[str]:
 	if container_type and _linked_service_has_field("container_type"):
 		fields["container_type"] = container_type
 
-	return [_insert_linked_service(quote, "Transport", fields) for _idx in range(quantity)]
+	return [_insert_linked_service(quote, "Transport", fields, quantity=quantity)]
 
 
 def _create_transport_from_main(quote) -> str:
@@ -176,8 +176,13 @@ def _create_customs_from_main(quote) -> str:
 	return _insert_linked_service(quote, "Customs", fields)
 
 
-def _insert_linked_service(quote, service_type: str, fields: dict[str, str]) -> str:
-	from logistics.time_sensitive.service_linking import validate_linked_service_type
+def _insert_linked_service(
+	quote, service_type: str, fields: dict[str, str], quantity: int = 1
+) -> str:
+	from logistics.time_sensitive.service_linking import (
+		apply_linked_service_quantity,
+		validate_linked_service_type,
+	)
 	from logistics.utils.linked_service_compat import linked_service_doctype
 
 	service_type = validate_linked_service_type(service_type)
@@ -187,8 +192,9 @@ def _insert_linked_service(quote, service_type: str, fields: dict[str, str]) -> 
 	linked.parent_booking_name = quote.name
 	allowed = _linked_service_fieldnames()
 	for fieldname, value in fields.items():
-		if fieldname in allowed and fieldname not in ("service_type", "name"):
+		if fieldname in allowed and fieldname not in ("service_type", "name", "quantity"):
 			setattr(linked, fieldname, value)
+	apply_linked_service_quantity(linked, quantity)
 	linked.insert(ignore_permissions=True)
 	return linked.name
 

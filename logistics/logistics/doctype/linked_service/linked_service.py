@@ -114,6 +114,7 @@ _DIALOG_EDIT_LABELS = {
 _DIALOG_EDIT_FIELDS = {
 	"Air": [
 		"service_type",
+		"quantity",
 		"company",
 		"branch",
 		"cost_center",
@@ -128,6 +129,7 @@ _DIALOG_EDIT_FIELDS = {
 	],
 	"Sea": [
 		"service_type",
+		"quantity",
 		"company",
 		"branch",
 		"cost_center",
@@ -142,6 +144,7 @@ _DIALOG_EDIT_FIELDS = {
 	],
 	"Transport": [
 		"service_type",
+		"quantity",
 		"company",
 		"branch",
 		"cost_center",
@@ -157,6 +160,7 @@ _DIALOG_EDIT_FIELDS = {
 	],
 	"Customs": [
 		"service_type",
+		"quantity",
 		"company",
 		"branch",
 		"cost_center",
@@ -172,6 +176,7 @@ _DIALOG_EDIT_FIELDS = {
 
 _DIALOG_EDIT_DEFAULT_FIELDS = [
 	"service_type",
+	"quantity",
 	"company",
 	"branch",
 	"cost_center",
@@ -280,6 +285,21 @@ def assert_dialog_create_details(service_type: str, cleaned: dict[str, Any]) -> 
 	if any(cleaned.get(name) for name in names):
 		return
 	frappe.throw(_("Enter the linked service details before creating them."))
+
+
+def copy_linked_service_quantity_to_charge(row, linked_service: str) -> None:
+	"""Set charge quantity fields from the linked service quantity."""
+	from frappe.utils import cint
+
+	if not linked_service or not frappe.db.exists("Linked Service", linked_service):
+		return
+	qty = cint(frappe.db.get_value("Linked Service", linked_service, "quantity") or 1)
+	if qty < 1:
+		qty = 1
+	if hasattr(row, "quantity"):
+		row.quantity = qty
+	if hasattr(row, "cost_quantity"):
+		row.cost_quantity = qty
 
 
 def apply_dialog_create_values(doc, cleaned: dict[str, Any]) -> None:

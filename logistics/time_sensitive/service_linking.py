@@ -44,7 +44,7 @@ MAX_LINKED_SERVICE_ADD_QUANTITY = 50
 
 
 def normalize_linked_service_quantity(quantity=1) -> int:
-	"""How many identical linked services one Add action should create."""
+	"""Quantity stored on one Linked Service. Orders for that service cannot exceed it."""
 	if quantity in (None, ""):
 		quantity = 1
 	qty = cint(quantity)
@@ -57,7 +57,15 @@ def normalize_linked_service_quantity(quantity=1) -> int:
 	return qty
 
 
-def create_linked_service_for_case(case, service_type: str, values=None):
+def apply_linked_service_quantity(linked, quantity) -> int:
+	"""Store quantity on the Linked Service when the field exists."""
+	qty = normalize_linked_service_quantity(quantity)
+	if linked.meta.has_field("quantity"):
+		linked.quantity = qty
+	return qty
+
+
+def create_linked_service_for_case(case, service_type: str, values=None, quantity=1):
 	"""Create a canonical service owned by the case."""
 	from logistics.logistics.doctype.linked_service.linked_service import (
 		apply_dialog_create_values,
@@ -72,6 +80,7 @@ def create_linked_service_for_case(case, service_type: str, values=None):
 	linked.parent_booking_type = case.doctype
 	linked.parent_booking_name = case.name
 	apply_dialog_create_values(linked, values or {})
+	apply_linked_service_quantity(linked, quantity)
 	linked.insert()
 	record_case_usage(case, linked.name)
 	return linked

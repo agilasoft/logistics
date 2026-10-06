@@ -12,6 +12,7 @@ import frappe
 LINKED_SERVICE_VIEW_FIELDS = (
 	"linked_service",
 	"service_type",
+	"quantity",
 	"company",
 	"branch",
 	"cost_center",

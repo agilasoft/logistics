@@ -30,7 +30,7 @@ logistics.time_sensitive.show_services_dialog = function (frm) {
 			allowEdit: true,
 			emptyHint: __("Add a service type above to link it to this case."),
 			addHint: __(
-				"Choose a service type and quantity, fill in the service details, then Add Service. Qty creates that many services with those details."
+				"Choose a service type and quantity, fill in the service details, then Add Service. Qty is stored on that one service."
 			),
 			unsavedMessage: __(
 				"Save the Time Sensitive Case before managing services."

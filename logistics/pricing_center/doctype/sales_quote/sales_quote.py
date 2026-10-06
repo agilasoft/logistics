@@ -889,6 +889,11 @@ class SalesQuote(Document):
 					),
 					title=_("Linked Service Type Mismatch"),
 				)
+			from logistics.logistics.doctype.linked_service.linked_service import (
+				copy_linked_service_quantity_to_charge,
+			)
+
+			copy_linked_service_quantity_to_charge(row, ls_link)
 
 	def validate_internal_job_charge_tagging(self):
 		"""Backward-compatible alias."""
@@ -4322,6 +4327,7 @@ def list_quote_linked_services(sales_quote: str):
 				"linked_service": linked.name,
 				"service_type": linked.service_type,
 				"company": linked.company or "",
+				"quantity": cint(getattr(linked, "quantity", None) or 1),
 				"owned_by_quote": 1,
 				"job_type": job_type or "",
 				"order_no": order_no or "",
@@ -4333,17 +4339,17 @@ def list_quote_linked_services(sales_quote: str):
 
 @frappe.whitelist()
 def add_linked_service(sales_quote: str, service_type: str, quantity=1, values=None):
-	"""Create one or more Linked Services of the same type owned by this Sales Quote.
+	"""Create one Linked Service owned by this Sales Quote and store ``quantity`` on it.
 
-	When ``values`` is sent (the Add Service form), type-specific details are required
-	and copied onto every new row. Omitting ``values`` keeps the previous blank create.
+	When ``values`` is sent (the Add Service form), type-specific details are required.
+	Omitting ``values`` keeps a blank create. Quantity is never turned into extra rows.
 	"""
 	from logistics.logistics.doctype.linked_service.linked_service import (
 		apply_dialog_create_values,
 		prepare_dialog_create_values,
 	)
 	from logistics.time_sensitive.service_linking import (
-		normalize_linked_service_quantity,
+		apply_linked_service_quantity,
 		validate_linked_service_type,
 	)
 	from logistics.utils.linked_service_compat import linked_service_doctype
@@ -4355,19 +4361,16 @@ def add_linked_service(sales_quote: str, service_type: str, quantity=1, values=N
 		frappe.throw(_("Save the Sales Quote before adding a linked service."))
 
 	service_type = validate_linked_service_type(service_type)
-	quantity = normalize_linked_service_quantity(quantity)
 	cleaned = prepare_dialog_create_values(service_type, values)
-	names = []
-	for _idx in range(quantity):
-		linked = frappe.new_doc(linked_service_doctype())
-		linked.service_type = service_type
-		linked.parent_booking_type = "Sales Quote"
-		linked.parent_booking_name = quote.name
-		if getattr(quote, "company", None):
-			linked.company = quote.company
-		apply_dialog_create_values(linked, cleaned)
-		linked.insert(ignore_permissions=True)
-		names.append(linked.name)
+	linked = frappe.new_doc(linked_service_doctype())
+	linked.service_type = service_type
+	linked.parent_booking_type = "Sales Quote"
+	linked.parent_booking_name = quote.name
+	if getattr(quote, "company", None):
+		linked.company = quote.company
+	apply_dialog_create_values(linked, cleaned)
+	stored_quantity = apply_linked_service_quantity(linked, quantity)
+	linked.insert(ignore_permissions=True)
 
 	quote.flags._linked_services_view_cached = False
 	if "linked_services" in quote.__dict__:
@@ -4375,9 +4378,10 @@ def add_linked_service(sales_quote: str, service_type: str, quantity=1, values=N
 
 	return {
 		"name": quote.name,
-		"linked_service": names[-1],
-		"linked_services": names,
+		"linked_service": linked.name,
+		"linked_services": [linked.name],
 		"service_type": service_type,
+		"quantity": stored_quantity,
 	}
 
 

@@ -118,6 +118,12 @@ function cr_resolved_change_request_charge_row(frm, doc, cdt, cdn) {
 }
 
 frappe.ui.form.on("Change Request Charge", {
+	linked_service: function (frm, cdt, cdn) {
+		if (logistics.linked_service_link_query) {
+			logistics.linked_service_link_query.applyQuantityFromLinkedService(frm, cdt, cdn);
+		}
+	},
+
 	service_type: function (frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);
 		if (row.item_code) {
@@ -350,7 +356,7 @@ function cr_open_services_dialog(frm) {
 				"Job services appear here automatically. Add a type only for a new extra leg."
 			),
 			addHint: __(
-				"Add a service type only when the extra charge needs a new leg that is not already on the job. Fill in the service details first. Qty creates that many services with those details."
+				"Add a service type only when the extra charge needs a new leg that is not already on the job. Fill in the service details first. Qty is stored on that one service."
 			),
 			unsavedMessage: __("Save the Change Request before managing services."),
 			removeConfirm: (ls) =>

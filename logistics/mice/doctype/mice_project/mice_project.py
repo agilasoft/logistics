@@ -2332,7 +2332,7 @@ def add_linked_service(mice_project: str, service_type: str, quantity=1, values=
 		prepare_dialog_create_values,
 	)
 	from logistics.time_sensitive.service_linking import (
-		normalize_linked_service_quantity,
+		apply_linked_service_quantity,
 		validate_linked_service_type,
 	)
 	from logistics.utils.linked_service_compat import linked_service_doctype
@@ -2345,17 +2345,15 @@ def add_linked_service(mice_project: str, service_type: str, quantity=1, values=
 		frappe.throw(_("Linked Services can only be added on a draft MICE Project."))
 
 	service_type = validate_linked_service_type(service_type)
-	quantity = normalize_linked_service_quantity(quantity)
 	cleaned = prepare_dialog_create_values(service_type, values)
-	names = []
-	for _idx in range(quantity):
-		linked = frappe.new_doc(linked_service_doctype())
-		linked.service_type = service_type
-		linked.parent_booking_type = "MICE Project"
-		linked.parent_booking_name = project.name
-		apply_dialog_create_values(linked, cleaned)
-		linked.insert(ignore_permissions=True)
-		names.append(linked.name)
+	linked = frappe.new_doc(linked_service_doctype())
+	linked.service_type = service_type
+	linked.parent_booking_type = "MICE Project"
+	linked.parent_booking_name = project.name
+	apply_dialog_create_values(linked, cleaned)
+	apply_linked_service_quantity(linked, quantity)
+	linked.insert(ignore_permissions=True)
+	names = [linked.name]
 
 	_invalidate_mice_project_linked_services_view(project)
 

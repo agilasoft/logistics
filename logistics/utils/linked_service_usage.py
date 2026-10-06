@@ -14,7 +14,8 @@ from __future__ import annotations
 from typing import Any
 
 import frappe
-from frappe.utils import flt
+from frappe import _
+from frappe.utils import cint, flt
 
 from logistics.utils.linked_service_compat import linked_service_doctype
 
@@ -359,6 +360,83 @@ def is_linked_service_order_type(doctype: str) -> bool:
 
 def is_linked_service_execution_type(doctype: str) -> bool:
 	return _norm(doctype) in LINKED_SERVICE_EXECUTION_TYPES
+
+
+def count_satellite_orders(linked_service: str, order_doctype: str) -> int:
+	"""How many orders of ``order_doctype`` are already recorded for this service."""
+	ls = _norm(linked_service)
+	dt = _norm(order_doctype)
+	if not ls or not dt or not _usage_table_exists():
+		return 0
+	return frappe.db.count(
+		_USAGE_CHILD,
+		{
+			"parent": ls,
+			"parenttype": linked_service_doctype(),
+			"usage_role": USAGE_ROLE_SATELLITE_JOB,
+			"used_on_doctype": dt,
+		},
+	)
+
+
+def linked_service_order_capacity(linked) -> int:
+	"""Orders allowed for this service. Blank or zero is treated as 1."""
+	raw = getattr(linked, "quantity", None)
+	if raw in (None, ""):
+		raw = 1
+	qty = cint(raw)
+	return qty if qty >= 1 else 1
+
+
+def claim_sales_quote_linked_service_for_order(sales_quote: str, order_doctype: str) -> str | None:
+	"""Pick a quote service that can still take another order of this type.
+
+	Returns None when the quote has no linked service for ``order_doctype``.
+	Throws when every matching service is already at its quantity.
+	"""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_sales_quote,
+	)
+	from logistics.utils.charge_service_type import default_job_type_for_internal_job_service_type
+
+	order_doctype = _norm(order_doctype)
+	matches = [
+		ls
+		for ls in get_linked_services_for_sales_quote(sales_quote)
+		if default_job_type_for_internal_job_service_type(ls.service_type) == order_doctype
+	]
+	if not matches:
+		return None
+	for ls in matches:
+		used = count_satellite_orders(ls.name, order_doctype)
+		capacity = linked_service_order_capacity(ls)
+		if used < capacity:
+			return ls.name
+	sample = matches[0]
+	used = count_satellite_orders(sample.name, order_doctype)
+	capacity = linked_service_order_capacity(sample)
+	frappe.throw(
+		_(
+			"{0} already has {1} of {2} orders on {3}. Raise Quantity on the linked service before creating another."
+		).format(order_doctype, used, capacity, sample.name),
+		title=_("Quantity reached"),
+	)
+
+
+def record_satellite_order(
+	linked_service: str,
+	order_doctype: str,
+	order_name: str,
+	sales_quote: str | None = None,
+) -> str | None:
+	"""Count a created order against the linked service quantity."""
+	return record_linked_service_usage(
+		linked_service,
+		order_doctype,
+		order_name,
+		usage_role=USAGE_ROLE_SATELLITE_JOB,
+		sales_quote=sales_quote,
+	)
 
 
 def latest_satellite_job_from_usage(linked_service: str) -> tuple[str, str]:
