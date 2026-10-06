@@ -23,13 +23,12 @@
 		--radius: 22px;
 	}
 	* { box-sizing: border-box; }
-	html, body { background: var(--bg); }
+	html, body { height: 100%; background: var(--bg); overflow: hidden; }
 	[hidden] { display: none !important; }
 	body {
 		margin: 0;
 		color: var(--ink);
 		font-family: Inter, "Segoe UI", Helvetica, Arial, sans-serif;
-		overflow: auto;
 	}
 	button, input, select, textarea, a { font-family: inherit; }
 	.navbar, .web-footer, .page-breadcrumbs { display: none !important; }
@@ -41,8 +40,12 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
-		min-height: 100dvh;
+		height: 100dvh;
+		overflow: hidden;
 	}
+	.driver-app[data-screen="dashboard"],
+	.driver-app[data-screen="history"] { overflow: auto; }
+	.driver-app[data-screen="route"] { max-width: none; padding: 10px 12px 12px; }
 	.topbar, .card, .stat-card, .company-card {
 		background: var(--card);
 		border-radius: var(--radius);
@@ -189,9 +192,11 @@
 	.map-panel { display: flex; flex-direction: column; gap: 12px; }
 	.map-wrap { position: relative; height: 320px; border-radius: 16px; overflow: hidden; background: #d7e3ee; }
 	#route-map { position: absolute; inset: 0; }
-	.google-map-frame { width: 100%; height: 100%; border: 0; }
-	.map-note { height: 100%; }
-	.map-note { display: grid; place-items: center; color: var(--muted); padding: 24px; text-align: center; }
+	.map-note {
+		position: absolute; inset: 0; z-index: 1;
+		display: grid; place-items: center; color: var(--muted); padding: 24px; text-align: center;
+		background: #d7e3ee;
+	}
 	.map-chip, .recenter {
 		position: absolute; z-index: 2; bottom: 12px; background: white; border-radius: 999px;
 		box-shadow: var(--shadow); font-weight: 800; display: inline-flex; align-items: center; gap: 8px;
@@ -247,19 +252,30 @@
 	.status-tag { font-size: 12px; font-weight: 800; border-radius: 99px; padding: 4px 8px; background: #e8eef6; }
 	.status-tag.Completed { background: var(--green); color: var(--green-ink); }
 	.status-tag.Cancelled, .status-tag.Hold { background: #fee2e2; color: #b91c1c; }
-	.driver-app[data-screen="trips"] .hero,
-	.driver-app[data-screen="map"] .hero,
+	.driver-app[data-screen="route"] .hero,
 	.driver-app[data-screen="history"] .hero,
 	.driver-app[data-screen="history"] .workspace,
-	.driver-app[data-screen="trips"] .map-panel,
-	.driver-app[data-screen="map"] .run-panel,
+	.driver-app[data-screen="dashboard"] .workspace,
 	.driver-app:not([data-screen="history"]) .history-panel,
-	.driver-app:not([data-screen="trips"]) #back-dashboard { display: none; }
-	.driver-app[data-screen="trips"] .workspace,
-	.driver-app[data-screen="map"] .workspace { grid-template-columns: 1fr; }
-	.driver-app[data-screen="map"] .map-wrap { height: min(68vh, 760px); }
-	.driver-app[data-screen="trips"] #view-all-stops,
+	.driver-app[data-screen="route"] .map-head,
+	#view-all-stops,
+	#back-dashboard { display: none; }
 	.driver-app[data-screen="history"] #quick-actions { display: none; }
+	.driver-app[data-screen="route"] .workspace {
+		flex: 1;
+		min-height: 0;
+		grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.72fr);
+		grid-template-rows: minmax(0, 1fr);
+		align-items: stretch;
+	}
+	.driver-app[data-screen="route"] .map-panel {
+		order: -1;
+		height: 100%;
+		min-height: 0;
+		overflow: hidden;
+	}
+	.driver-app[data-screen="route"] .map-wrap { flex: 1; height: auto; min-height: 0; }
+	.driver-app[data-screen="route"] .run-panel { height: 100%; min-height: 0; overflow: auto; }
 	.modal-back {
 		position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;
 	}
@@ -285,15 +301,24 @@
 		.stop-card { grid-template-columns: 1fr auto; }
 		.chevron { display: none; }
 		.map-wrap { height: 280px; }
+		.driver-app[data-screen="route"] .map-wrap { flex: 1 1 auto; height: auto; min-height: 220px; }
+		.driver-app[data-screen="route"] .metric-row { display: none; }
 		.map-dock { flex-direction: column; align-items: stretch; }
 		.hero-metrics { align-items: flex-start; flex-direction: column; }
 		.maneuver-text { font-size: 16px; }
+	}
+	@media (max-width: 1100px) {
+		.driver-app[data-screen="route"] .workspace {
+			grid-template-columns: 1fr;
+			grid-template-rows: minmax(0, 1.55fr) minmax(150px, 0.7fr);
+		}
+		.driver-app[data-screen="route"] .map-wrap { min-height: 240px; }
 	}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="driver-app no-vehicle-image" id="driver-app" data-screen="dashboard">
+<div class="driver-app no-vehicle-image" id="driver-app" data-screen="route">
 	<header class="topbar">
 		<div class="brand">
 			<div class="brand-mark" aria-hidden="true">
@@ -302,17 +327,13 @@
 			<div class="brand-name">CargoNext <span>/ Driver</span></div>
 		</div>
 		<nav class="screen-switch" role="tablist" aria-label="Driver">
-			<button class="tab active" data-screen="dashboard" type="button">
+			<button class="tab active" data-screen="route" type="button">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z"/><path d="M9 3v15M15 6v15"/></svg>
+				Navigate
+			</button>
+			<button class="tab" data-screen="dashboard" type="button">
 				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
 				Dashboard
-			</button>
-			<button class="tab" data-screen="trips" type="button">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
-				Trips
-			</button>
-			<button class="tab" data-screen="map" type="button">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z"/><path d="M9 3v15M15 6v15"/></svg>
-				Map
 			</button>
 			<button class="tab" data-screen="history" type="button">
 				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg>
@@ -581,7 +602,15 @@
 		steps: [],
 		spokenStep: -1,
 		eta: null,
+		etaFix: null,
 		runEta: null,
+		runAnchorMeters: null,
+		legEtas: null,
+		legEtasAt: 0,
+		seededEta: null,
+		seededFix: null,
+		speedKph: null,
+		fallbackLine: null,
 		routedAt: 0,
 		routedFix: null,
 		routing: false,
@@ -810,23 +839,21 @@
 		</div>`).join("") : `<div class="empty">Past runs will appear here after you finish a trip.</div>`;
 
 	function showScreen(screen) {
-		const allowed = { dashboard: 1, trips: 1, map: 1, history: 1 };
-		if (!allowed[screen]) screen = "dashboard";
+		const allowed = { route: 1, dashboard: 1, history: 1 };
+		if (!allowed[screen]) screen = "route";
 		$("driver-app").dataset.screen = screen;
 		document.querySelectorAll(".tab").forEach((button) => {
 			button.classList.toggle("active", button.dataset.screen === screen);
 		});
 		const actions = $("quick-actions");
-		if (actions) (screen === "map" ? $("map-panel") : $("run-panel")).appendChild(actions);
-		if ((screen === "dashboard" || screen === "map") && data.stops.length) renderMap();
+		if (actions && $("run-panel")) $("run-panel").appendChild(actions);
+		if (screen === "route" && (data.stops.length || data.driver_position)) renderMap();
 	}
 	document.querySelectorAll(".tab").forEach((button) => {
 		button.addEventListener("click", () => showScreen(button.dataset.screen));
 	});
-	$("view-all-stops").addEventListener("click", () => showScreen("trips"));
-	$("back-dashboard").addEventListener("click", () => showScreen("dashboard"));
 	$("notice-btn").addEventListener("click", () => {
-		showScreen("trips");
+		showScreen("route");
 		const pendingStop = document.querySelector(".stop .pending");
 		if (pendingStop) pendingStop.closest(".stop").scrollIntoView({ block: "center" });
 	});
@@ -842,15 +869,66 @@
 		$("user-toggle").setAttribute("aria-expanded", "false");
 	});
 
-	function paintStoredDock() {
-		const upcoming = nextStop();
-		const bits = [];
-		if (upcoming && upcoming.eta_min) bits.push(upcoming.eta_min + " min");
-		if (upcoming && upcoming.eta_km) bits.push(upcoming.eta_km + " km");
-		text("dock-meta", bits.join(" · "));
+	function pointOf(stop) {
+		const point = stop && navApi.stopPoint(stop);
+		return point && typeof point === "object" ? point : null;
+	}
+	function seededDock(upcoming, origin, now) {
+		if (!upcoming || !upcoming.eta_min) return null;
+		if (!state.seededEta || state.seededEta.id !== upcoming.id) {
+			state.seededEta = {
+				id: upcoming.id,
+				seconds: upcoming.eta_min * 60,
+				km: upcoming.eta_km || 0,
+				fetchedAt: now,
+				traffic: false
+			};
+			state.seededFix = origin ? { lat: Number(origin.lat), lng: Number(origin.lng) } : null;
+		} else if (!state.seededFix && origin) {
+			state.seededFix = { lat: Number(origin.lat), lng: Number(origin.lng) };
+		}
+		return state.seededEta;
+	}
+	function movingDock(upcoming, origin, now) {
+		const target = pointOf(upcoming);
+		if (state.eta) {
+			const base = state.etaFix && target ? navApi.distanceMeters(state.etaFix, target) : null;
+			const current = origin && target ? navApi.distanceMeters(origin, target) : null;
+			return navApi.followEta(state.eta, base, current, now);
+		}
+		const seed = seededDock(upcoming, origin, now);
+		if (seed && seed.km > 0) {
+			const base = state.seededFix && target ? navApi.distanceMeters(state.seededFix, target) : null;
+			const current = origin && target ? navApi.distanceMeters(origin, target) : null;
+			return navApi.followEta(seed, base, current, now);
+		}
+		if (origin && target) return navApi.geometricEta(navApi.distanceMeters(origin, target), state.speedKph);
+		if (!seed) return null;
+		return navApi.followEta(seed, null, null, now);
+	}
+	function movingRun(origin, now) {
+		const pending = data.stops.filter((stop) => !stop.done && stop.lat != null && stop.lng != null);
+		const current = origin ? navApi.routeMeters(data.stops, origin) : null;
+		if (state.runEta) return navApi.followEta(state.runEta, state.runAnchorMeters, current, now);
+		if (origin && pending.length) return navApi.geometricEta(current || 0, state.speedKph);
+		const km = fallbackKm();
+		if (km == null) return null;
+		return { seconds: null, km: km, traffic: false };
+	}
+	function paintLiveStops(origin, now) {
+		if (state.legEtas && state.legEtas.length) {
+			const current = origin ? navApi.routeMeters(data.stops, origin) : state.runAnchorMeters;
+			paintStopEtas(navApi.tickStops(state.legEtas, state.legEtasAt, now, state.runAnchorMeters, current));
+			return;
+		}
+		if (!origin) return;
+		const pace = state.speedKph >= 8 ? 3600 / state.speedKph : 90;
+		paintStopEtas(navApi.progressEtas(data.stops, origin, pace));
 	}
 	function paintDock() {
+		const now = Date.now();
 		const upcoming = nextStop();
+		const origin = originNow();
 		const remaining = data.stops.filter((stop) => !stop.done).length;
 		text("dock-title", upcoming ? upcoming.headline : (data.stops.length ? "Run complete" : "No active stop"));
 		text("dock-address", upcoming ? upcoming.address : "");
@@ -858,8 +936,8 @@
 		$("dock-nav").textContent = state.navigating ? "End navigation" : "Start navigation";
 		text("stops-left", String(remaining));
 		text("stops-left-sub", "of " + data.total + " stops");
-		const km = state.runEta ? state.runEta.km : fallbackKm();
-		const kmLabel = formatKm(km);
+		const run = movingRun(origin, now);
+		const kmLabel = formatKm(run ? run.km : null);
 		text("distance-remaining", kmLabel);
 		text("hero-km", kmLabel === "—" ? "—" : kmLabel + " remaining");
 		if (kmLabel === "—") {
@@ -868,26 +946,26 @@
 			$("map-km-chip").hidden = false;
 			text("map-km-text", kmLabel + " remaining");
 		}
-		if (state.runEta) {
-			const seconds = navApi.liveSeconds(state.runEta, Date.now());
-			const clock = formatClock(new Date(Date.now() + seconds * 1000));
+		if (run && run.seconds != null) {
+			const clock = formatClock(new Date(now + run.seconds * 1000));
 			text("eta-final", clock);
 			text("hero-eta", clock);
-			text("eta-final-sub", state.runEta.traffic ? "Based on current traffic" : "Estimated");
+			text("eta-final-sub", run.traffic ? "Based on current traffic" : "Estimated");
 		}
+		paintLiveStops(origin, now);
 		if (!upcoming) {
 			if (data.stops.length) text("dock-meta", "Every stop on this run is done.");
 			$("traffic-flag").hidden = true;
 			return;
 		}
-		if (!state.eta) {
-			paintStoredDock();
+		const dock = movingDock(upcoming, origin, now);
+		if (!dock) {
+			text("dock-meta", "");
 			$("traffic-flag").hidden = true;
 			return;
 		}
-		const seconds = navApi.liveSeconds(state.eta, Date.now());
-		text("dock-meta", navApi.formatEtaLabel(seconds, state.eta.km, Date.now()));
-		$("traffic-flag").hidden = !state.eta.traffic;
+		text("dock-meta", navApi.formatEtaLabel(dock.seconds, dock.km, now));
+		$("traffic-flag").hidden = !dock.traffic;
 	}
 	function paintStopEtas(rows) {
 		const byId = {};
@@ -899,12 +977,15 @@
 		});
 	}
 	paintDock();
-	window.setInterval(paintDock, 1000);
+	window.setInterval(() => {
+		paintDock();
+		if (state.navigating) showGuidance(state.fix);
+	}, 1000);
 
 	function focusStop(id) {
 		const stop = data.stops.find((item) => item.id === id);
 		if (!stop || stop.lat == null || stop.lng == null) return;
-		if ($("driver-app").dataset.screen === "trips" || $("driver-app").dataset.screen === "history") showScreen("map");
+		if ($("driver-app").dataset.screen !== "route") showScreen("route");
 		if (!state.map) return;
 		state.follow = false;
 		state.map.panTo({ lat: Number(stop.lat), lng: Number(stop.lng) });
@@ -1013,6 +1094,10 @@
 		if (mapsPromise) return mapsPromise;
 		const key = data.google_maps_key;
 		if (!key) return Promise.reject(new Error("Google Maps is not configured. Add the API key in Logistics Settings."));
+		window.gm_authFailure = function () {
+			state.mapsFailed = true;
+			setStatus("Google Maps rejected the API key. Navigation stays on this page, and the ETA still follows the truck.");
+		};
 		mapsPromise = new Promise((resolve, reject) => {
 			const script = document.createElement("script");
 			script.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(key) + "&libraries=geometry&v=weekly";
@@ -1073,10 +1158,19 @@
 		}
 		state.renderer.setOptions({ preserveViewport: Boolean(state.navigating && state.fix) });
 		state.renderer.setDirections(result);
+		if (state.fallbackLine) {
+			state.fallbackLine.setMap(null);
+			state.fallbackLine = null;
+		}
 		const route = navApi.readRoute(result);
-		state.steps = (route.legs[0] && route.legs[0].steps) || [];
+		state.steps = navApi.routeSteps(route.legs);
 		const eta = navApi.etasFromLegs(route.legs, plan.included, plan.originIsDriver);
 		const now = Date.now();
+		const anchor = state.routedFix && state.routedFix.lat != null
+			? { lat: Number(state.routedFix.lat), lng: Number(state.routedFix.lng) }
+			: null;
+		state.etaFix = anchor;
+		state.runAnchorMeters = navApi.routeMeters(data.stops, anchor);
 		if (eta.dock) {
 			state.eta = {
 				seconds: eta.dock.seconds,
@@ -1094,12 +1188,13 @@
 				traffic: route.traffic
 			};
 		}
-		paintStopEtas(eta.stops);
+		state.legEtas = eta.stops;
+		state.legEtasAt = now;
 		paintDock();
 		drawMarkers();
 		placeDriver(state.fix || data.driver_position);
 		if (!state.navigating || !state.fix) fitStops();
-		if (state.navigating) followStep(state.fix);
+		if (state.navigating) showGuidance(state.fix);
 		if (plan.omitted) {
 			$("route-note").hidden = false;
 			text("route-note", plan.omitted + (plan.omitted === 1 ? " later stop joins" : " later stops join") + " this route as you finish these.");
@@ -1119,20 +1214,105 @@
 			return;
 		}
 		state.routing = true;
-		state.routedAt = Date.now();
 		state.routedFix = originNow();
 		requestDirections(plan).then((result) => {
 			state.routing = false;
+			state.routedAt = Date.now();
 			applyDirections(result, plan);
 		}).catch((error) => {
 			state.routing = false;
+			state.routedAt = Date.now() - 30000;
 			const status = error && error.message;
 			setStatus(status === "REQUEST_DENIED"
-				? "Traffic routing was refused. The stops stay on the map."
-				: "The live route could not be refreshed. The last ETA stays until the next fix.");
+				? "Traffic routing was refused. The stops stay on the map, and the ETA still follows the truck."
+				: "The road route could not be refreshed. The ETA keeps following the truck.");
+			if (!state.renderer) drawFallbackPath();
 			drawMarkers();
 			fitStops();
 		});
+	}
+	function drawFallbackPath() {
+		if (!state.map || !window.google || !google.maps) return;
+		const path = [];
+		const origin = originNow();
+		if (origin && origin.lat != null && origin.lng != null) {
+			path.push({ lat: Number(origin.lat), lng: Number(origin.lng) });
+		}
+		data.stops.forEach((stop) => {
+			if (stop.done || stop.lat == null || stop.lng == null) return;
+			path.push({ lat: Number(stop.lat), lng: Number(stop.lng) });
+		});
+		if (state.fallbackLine) state.fallbackLine.setMap(null);
+		if (path.length < 2) {
+			state.fallbackLine = null;
+			return;
+		}
+		state.fallbackLine = new google.maps.Polyline({
+			path: path,
+			map: state.map,
+			strokeColor: "#2f6bff",
+			strokeWeight: 5,
+			geodesic: true
+		});
+	}
+	function paintRouteBoard() {
+		if (state.map) return;
+		const box = $("route-map");
+		if (!box) return;
+		box.hidden = false;
+		const note = $("map-empty");
+		if (note) note.hidden = true;
+		const spots = [];
+		const origin = originNow();
+		if (origin && origin.lat != null && origin.lng != null) {
+			spots.push({ lat: Number(origin.lat), lng: Number(origin.lng), role: "driver" });
+		}
+		data.stops.forEach((stop) => {
+			if (stop.lat == null || stop.lng == null) return;
+			spots.push({
+				lat: Number(stop.lat),
+				lng: Number(stop.lng),
+				role: stop.done ? "done" : (stop.state === "next" ? "next" : "stop"),
+				label: String(stop.number)
+			});
+		});
+		if (!spots.length) return;
+		let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+		spots.forEach((spot) => {
+			minLat = Math.min(minLat, spot.lat);
+			maxLat = Math.max(maxLat, spot.lat);
+			minLng = Math.min(minLng, spot.lng);
+			maxLng = Math.max(maxLng, spot.lng);
+		});
+		const latSpan = Math.max(0.01, maxLat - minLat);
+		const lngSpan = Math.max(0.01, maxLng - minLng);
+		minLat -= latSpan * 0.28;
+		maxLat += latSpan * 0.28;
+		minLng -= lngSpan * 0.28;
+		maxLng += lngSpan * 0.28;
+		const width = 1000;
+		const height = 700;
+		const px = (lng) => ((lng - minLng) / (maxLng - minLng)) * width;
+		const py = (lat) => (1 - (lat - minLat) / (maxLat - minLat)) * height;
+		const line = spots
+			.filter((spot) => spot.role !== "done")
+			.map((spot) => px(spot.lng).toFixed(1) + "," + py(spot.lat).toFixed(1))
+			.join(" ");
+		const marks = spots.filter((spot) => spot.role !== "driver").concat(spots.filter((spot) => spot.role === "driver")).map((spot) => {
+			const cx = px(spot.lng);
+			const cy = py(spot.lat);
+			if (spot.role === "driver") {
+				return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="16" fill="#0ea5e9" stroke="white" stroke-width="4"/>`;
+			}
+			const fill = spot.role === "done" ? "#22c55e" : (spot.role === "next" ? "#2f6bff" : "#64748b");
+			return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="18" fill="${fill}" stroke="white" stroke-width="4"/><text x="${cx.toFixed(1)}" y="${(cy + 6).toFixed(1)}" text-anchor="middle" font-size="18" font-weight="700" fill="white" font-family="Arial,sans-serif">${spot.label}</text>`;
+		}).join("");
+		box.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" role="img" aria-label="Route of remaining stops"><rect width="${width}" height="${height}" fill="#d7e6f2"/><polyline points="${line}" fill="none" stroke="#2f6bff" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>${marks}</svg>`;
+	}
+	function showMapFailure() {
+		state.mapsFailed = true;
+		paintRouteBoard();
+		setStatus("Road guidance needs the Maps key. The line is every remaining stop, and the ETA follows the truck.");
 	}
 	function followStep(fix) {
 		if (!state.navigating || !state.steps.length) return;
@@ -1152,22 +1332,52 @@
 			speak(lead + (step.instruction || "Continue"));
 		}
 	}
+	function showGuidance(fix) {
+		if (!state.navigating) return;
+		if (state.steps.length) {
+			followStep(fix);
+			return;
+		}
+		const upcoming = nextStop();
+		if (!upcoming) return;
+		const target = pointOf(upcoming);
+		const meters = fix && target ? navApi.distanceMeters(fix, target) : null;
+		const heading = fix && target ? navApi.compass(fix, target) : "";
+		const place = upcoming.place || upcoming.headline;
+		const instruction = heading ? "Head " + heading + " toward " + place : "Head toward " + place;
+		$("maneuver").hidden = false;
+		text("maneuver-text", instruction);
+		text("maneuver-dist", meters != null && Number.isFinite(meters) ? navApi.formatMeters(meters) : "");
+		const later = data.stops.filter((stop) => !stop.done).length - 1;
+		text("maneuver-next", later > 0 ? later + (later === 1 ? " stop" : " stops") + " after this" : "");
+		const bearing = fix && target ? navApi.bearingDegrees(fix, target) : 0;
+		$("maneuver-arrow").style.transform = "rotate(" + (bearing || 0) + "deg)";
+		if (instruction !== state.spokenStep) {
+			state.spokenStep = instruction;
+			const lead = meters > 40 ? "In " + navApi.formatMeters(meters) + ", " : "";
+			speak(lead + instruction);
+		}
+	}
 	function onFix(position) {
 		const fix = {
 			lat: position.coords.latitude,
 			lng: position.coords.longitude,
 			heading: position.coords.heading
 		};
+		const speed = position.coords.speed;
+		if (Number.isFinite(speed) && speed >= 0) state.speedKph = speed * 3.6;
 		state.fix = fix;
-		setStatus("");
+		if (!state.mapsFailed) setStatus("");
 		placeDriver(fix);
 		if (state.navigating && state.follow && state.map) {
 			state.map.panTo(fix);
 			if (state.map.getZoom() < 15) state.map.setZoom(16);
 		}
-		followStep(fix);
+		showGuidance(fix);
+		paintDock();
+		if (!state.map) paintRouteBoard();
 		const moved = state.routedFix ? navApi.distanceMeters(state.routedFix, fix) : Infinity;
-		if (!state.routing && navApi.shouldRefreshRoute({ lastAt: state.routedAt, movedMeters: moved }, Date.now())) {
+		if (!state.routing && state.map && navApi.shouldRefreshRoute({ lastAt: state.routedAt, movedMeters: moved }, Date.now())) {
 			refreshRoute();
 		}
 	}
@@ -1184,7 +1394,7 @@
 		}
 		state.watchId = navigator.geolocation.watchPosition(onFix, onFixError, {
 			enableHighAccuracy: true,
-			maximumAge: 4000,
+			maximumAge: 1000,
 			timeout: 20000
 		});
 	}
@@ -1209,7 +1419,8 @@
 		if (state.mapLoading) return;
 		state.mapLoading = true;
 		const box = $("route-map");
-		showGoogleEmbed();
+		box.hidden = false;
+		paintRouteBoard();
 		loadGoogleMaps().then(() => {
 			if (state.map) return;
 			const center = data.driver_position || { lat: 14.55, lng: 121.02 };
@@ -1227,42 +1438,22 @@
 				options.zoomControlOptions = { position: google.maps.ControlPosition.RIGHT_CENTER };
 			}
 			state.map = new google.maps.Map(box, options);
+			$("map-empty").hidden = true;
 			const traffic = new google.maps.TrafficLayer();
 			traffic.setMap(state.map);
 			state.map.addListener("dragstart", () => {
 				if (state.navigating) state.follow = false;
 			});
+			drawMarkers();
+			placeDriver(originNow());
+			drawFallbackPath();
+			fitStops();
 			ensureWatch();
 			refreshRoute();
 		}).catch(() => {
 			state.mapLoading = false;
-			state.mapsFailed = true;
-			showGoogleEmbed();
+			showMapFailure();
 		});
-	}
-	function googleEmbedUrl() {
-		const points = [];
-		const origin = originNow();
-		if (origin && origin.lat != null && origin.lng != null) points.push(origin);
-		data.stops.forEach((stop) => {
-			if (stop.lat != null && stop.lng != null) points.push(stop);
-		});
-		if (!points.length) points.push({ lat: 14.55, lng: 121.02 });
-		const lat = points.reduce((sum, point) => sum + Number(point.lat), 0) / points.length;
-		const lng = points.reduce((sum, point) => sum + Number(point.lng), 0) / points.length;
-		return "https://maps.google.com/maps?ll=" + encodeURIComponent(lat + "," + lng) + "&z=12&t=m&output=embed";
-	}
-	function showGoogleEmbed() {
-		const box = $("route-map");
-		if (!box || !data.stops.length) return;
-		box.hidden = false;
-		const frame = document.createElement("iframe");
-		frame.className = "google-map-frame";
-		frame.title = "Google Map";
-		frame.loading = "lazy";
-		frame.referrerPolicy = "no-referrer-when-downgrade";
-		frame.src = googleEmbedUrl();
-		box.replaceChildren(frame);
 	}
 	function stopGuidance() {
 		state.navigating = false;
@@ -1271,7 +1462,6 @@
 		$("recenter").hidden = true;
 		if (window.speechSynthesis) window.speechSynthesis.cancel();
 		paintDock();
-		showScreen("dashboard");
 	}
 	function startGuidance() {
 		state.navigating = true;
@@ -1282,24 +1472,18 @@
 		text("maneuver-text", "Starting navigation");
 		text("maneuver-dist", "");
 		text("maneuver-next", "");
-		showScreen("map");
+		showScreen("route");
 		ensureWatch();
 		if (state.map) refreshRoute();
+		else renderMap();
 		speak("Navigation started");
 		paintDock();
+		showGuidance(state.fix);
 	}
 	$("dock-nav").addEventListener("click", () => {
 		if (!nextStop()) return;
-		if (state.navigating) {
-			stopGuidance();
-			return;
-		}
-		if (state.mapsFailed || (!data.google_maps_key && !(window.google && window.google.maps))) {
-			window.open(navApi.mapsFallbackUrl(data.stops, originNow()), "_blank", "noopener");
-			setStatus("In-app maps are unavailable, so the whole run opened in Google Maps.");
-			return;
-		}
-		startGuidance();
+		if (state.navigating) stopGuidance();
+		else startGuidance();
 	});
 	$("recenter").addEventListener("click", () => {
 		state.follow = true;
@@ -1362,7 +1546,8 @@
 		}).catch(() => { $("problem-send").disabled = false; });
 	});
 
-	showScreen("dashboard");
+	showScreen("route");
+	ensureWatch();
 })();
 </script>
 {% endblock %}
