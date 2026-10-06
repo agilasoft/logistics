@@ -7,6 +7,35 @@
 		"Sea Shipment": { service: "Sea", child: "Sea Shipment Charges" },
 	};
 
+	function paint_turnover_fields(frm, enabled) {
+		if (!frm.fields_dict.is_turnover_shipment) {
+			return;
+		}
+		var show_template = !!enabled && cint(frm.doc.is_turnover_shipment);
+		frm.toggle_display("is_turnover_shipment", !!enabled);
+		frm.toggle_display("turnover_charges_template", show_template);
+		frm.toggle_reqd("turnover_charges_template", show_template && !frm.doc.docstatus);
+	}
+
+	function apply_turnover_visibility(frm) {
+		if (!frm.fields_dict.is_turnover_shipment) {
+			return;
+		}
+		paint_turnover_fields(frm, false);
+		frappe.call({
+			method:
+				"logistics.logistics.doctype.turnover_charges_template.turnover_charges_template.is_turnover_feature_enabled",
+			args: {
+				parent_doctype: frm.doctype,
+				company: frm.doc.company || "",
+			},
+			callback: function (r) {
+				frm._turnover_feature_enabled = !!(r && r.message);
+				paint_turnover_fields(frm, frm._turnover_feature_enabled);
+			},
+		});
+	}
+
 	function set_template_query(frm) {
 		var spec = PARENTS[frm.doctype];
 		if (!spec || !frm.fields_dict.turnover_charges_template) {
@@ -125,8 +154,17 @@
 		frappe.ui.form.on(doctype, {
 			refresh: function (frm) {
 				set_template_query(frm);
+				apply_turnover_visibility(frm);
+			},
+			company: function (frm) {
+				apply_turnover_visibility(frm);
 			},
 			is_turnover_shipment: function (frm) {
+				if (frm._turnover_feature_enabled === undefined) {
+					apply_turnover_visibility(frm);
+				} else {
+					paint_turnover_fields(frm, frm._turnover_feature_enabled);
+				}
 				if (frm.doc.docstatus) {
 					return;
 				}

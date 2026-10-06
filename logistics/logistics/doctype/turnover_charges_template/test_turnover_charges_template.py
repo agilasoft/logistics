@@ -1,6 +1,8 @@
 # Copyright (c) 2026, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
+from unittest.mock import patch
+
 import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import today
@@ -9,6 +11,7 @@ from logistics.logistics.doctype.turnover_charges_template.turnover_charges_temp
 	charge_rows_from_template,
 	copy_turnover_shipment_fields,
 	sync_turnover_shipment_charges,
+	turnover_feature_enabled,
 )
 
 
@@ -28,6 +31,15 @@ class IntegrationTestTurnoverChargesTemplate(IntegrationTestCase):
 		self.item_code = self._ensure_item()
 		self.air_template = self._make_template("Air Turnover Test", "Air", 25)
 		self.sea_template = self._make_template("Sea Turnover Test", "Sea", 40)
+		self._enabled = patch(
+			"logistics.logistics.doctype.turnover_charges_template.turnover_charges_template.turnover_enabled_for_doc",
+			return_value=True,
+		)
+		self._enabled.start()
+
+	def tearDown(self):
+		self._enabled.stop()
+		super().tearDown()
 
 	def _ensure_item(self):
 		item_code = "_Test Turnover Freight"
@@ -113,6 +125,58 @@ class IntegrationTestTurnoverChargesTemplate(IntegrationTestCase):
 		sync_turnover_shipment_charges(booking)
 		self.assertFalse(booking.turnover_charges_template)
 		self.assertEqual(len(booking.charges), 1)
+
+	def test_booking_and_shipment_settings_are_separate(self):
+		stored = {
+			("Air Freight Settings", "enable_turnover_booking"): 1,
+			("Air Freight Settings", "enable_turnover_shipment"): 0,
+			("Sea Freight Settings", "enable_turnover_booking"): 0,
+			("Sea Freight Settings", "enable_turnover_shipment"): 1,
+		}
+
+		def fake_get_value(doctype, name, fieldname=None, *args, **kwargs):
+			if isinstance(name, dict):
+				return "SETTINGS" if name.get("company") == "Co" else None
+			return stored.get((doctype, fieldname), 0)
+
+		with patch("frappe.db.get_value", side_effect=fake_get_value):
+			self.assertTrue(turnover_feature_enabled("Air Booking", "Co"))
+			self.assertFalse(turnover_feature_enabled("Air Shipment", "Co"))
+			self.assertFalse(turnover_feature_enabled("Sea Booking", "Co"))
+			self.assertTrue(turnover_feature_enabled("Sea Shipment", "Co"))
+			self.assertFalse(turnover_feature_enabled("Air Booking", ""))
+
+	def test_disabled_setting_does_not_skip_sales_quote(self):
+		self._enabled.stop()
+		try:
+			with patch(
+				"logistics.logistics.doctype.turnover_charges_template.turnover_charges_template.turnover_enabled_for_doc",
+				return_value=False,
+			):
+				booking = self._booking_ready_for_quote_check()
+				booking.is_turnover_shipment = 1
+				booking.turnover_charges_template = self.air_template.name
+				booking.append(
+					"charges",
+					{
+						"item_code": self.item_code,
+						"service_type": "Air",
+						"charge_type": "Revenue",
+						"unit_rate": 25,
+					},
+				)
+				with self.assertRaises(frappe.ValidationError) as ctx:
+					booking.before_submit()
+				self.assertIn("Quote is required", str(ctx.exception))
+
+				empty = frappe.new_doc("Air Booking")
+				empty.is_turnover_shipment = 1
+				empty.turnover_charges_template = self.air_template.name
+				sync_turnover_shipment_charges(empty)
+				self.assertEqual(len(empty.charges), 0)
+				self.assertEqual(empty.turnover_charges_template, self.air_template.name)
+		finally:
+			self._enabled.start()
 
 	def test_turnover_submit_skips_sales_quote(self):
 		booking = self._booking_ready_for_quote_check()

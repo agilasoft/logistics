@@ -251,11 +251,9 @@
    "label": "Turnover Shipment"
   },
   {
-   "depends_on": "eval:doc.is_turnover_shipment",
    "fieldname": "turnover_charges_template",
    "fieldtype": "Link",
    "label": "Turnover Charges Template",
-   "mandatory_depends_on": "eval:doc.is_turnover_shipment",
    "options": "Turnover Charges Template"
   },
   {

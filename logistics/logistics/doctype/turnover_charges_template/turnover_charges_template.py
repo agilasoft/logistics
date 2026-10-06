@@ -15,6 +15,14 @@ PARENT_SERVICE = {
 	"Sea Shipment": "Sea",
 }
 
+# Company settings that turn the feature on for each document.
+_TURNOVER_SETTING = {
+	"Air Booking": ("Air Freight Settings", "enable_turnover_booking"),
+	"Air Shipment": ("Air Freight Settings", "enable_turnover_shipment"),
+	"Sea Booking": ("Sea Freight Settings", "enable_turnover_booking"),
+	"Sea Shipment": ("Sea Freight Settings", "enable_turnover_shipment"),
+}
+
 CHARGE_CHILD = {
 	"Air Booking": "Air Booking Charges",
 	"Air Shipment": "Air Shipment Charges",
@@ -71,9 +79,38 @@ class TurnoverChargesTemplate(Document):
 				frappe.throw(_("Each Turnover Charges Template row needs an Item."))
 
 
+def turnover_feature_enabled(parent_doctype: str | None, company: str | None = None) -> bool:
+	"""True when Air or Sea Freight Settings enables Turnover for this document."""
+	spec = _TURNOVER_SETTING.get((parent_doctype or "").strip())
+	company = (company or "").strip()
+	if not spec or not company:
+		return False
+	settings_doctype, fieldname = spec
+	settings_name = frappe.db.get_value(settings_doctype, {"company": company}, "name")
+	if not settings_name:
+		return False
+	return bool(cint(frappe.db.get_value(settings_doctype, settings_name, fieldname)))
+
+
+def turnover_enabled_for_doc(doc) -> bool:
+	return turnover_feature_enabled(getattr(doc, "doctype", None), getattr(doc, "company", None))
+
+
+@frappe.whitelist()
+def is_turnover_feature_enabled(parent_doctype: str, company: str | None = None):
+	"""Form helper: whether Turnover Shipment fields should show for this company."""
+	parent_doctype = (parent_doctype or "").strip()
+	if parent_doctype not in PARENT_SERVICE:
+		return 0
+	frappe.has_permission(parent_doctype, "read", throw=True)
+	return 1 if turnover_feature_enabled(parent_doctype, company) else 0
+
+
 def turnover_shipment_skips_sales_quote(doc) -> bool:
-	"""Turnover bookings and shipments do not need a Sales Quote."""
-	return bool(cint(getattr(doc, "is_turnover_shipment", 0)))
+	"""Turnover bookings and shipments do not need a Sales Quote when the setting is on."""
+	if not cint(getattr(doc, "is_turnover_shipment", 0)):
+		return False
+	return turnover_enabled_for_doc(doc)
 
 
 def copy_turnover_shipment_fields(source, target) -> None:
@@ -123,8 +160,10 @@ def sync_turnover_shipment_charges(doc) -> None:
 		return
 	if doc.docstatus == 1:
 		return
+	if not turnover_enabled_for_doc(doc):
+		return
 
-	if not turnover_shipment_skips_sales_quote(doc):
+	if not cint(getattr(doc, "is_turnover_shipment", 0)):
 		if getattr(doc, "turnover_charges_template", None):
 			doc.turnover_charges_template = None
 		return

@@ -59,7 +59,11 @@
   "container_deposit_gl_section",
   "container_deposit_pending_refund_account",
   "column_break_cd_gl",
-  "container_deposit_ar_shipping_lines_account"
+  "container_deposit_ar_shipping_lines_account",
+  "turnover_shipment_section",
+  "enable_turnover_booking",
+  "column_break_turnover",
+  "enable_turnover_shipment"
  ],
  "fields": [
   {
@@ -373,6 +377,30 @@
    "fieldname": "alerts_and_penalties_tab",
    "fieldtype": "Tab Break",
    "label": "Alerts and Penalties"
+  },
+  {
+   "fieldname": "turnover_shipment_section",
+   "fieldtype": "Section Break",
+   "label": "Turnover Shipment",
+   "description": "When enabled, that document can be created without a Sales Quote. Charges are loaded from a Turnover Charges Template."
+  },
+  {
+   "default": "0",
+   "description": "Show Turnover Shipment on Sea Booking.",
+   "fieldname": "enable_turnover_booking",
+   "fieldtype": "Check",
+   "label": "Enable for Booking"
+  },
+  {
+   "fieldname": "column_break_turnover",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Show Turnover Shipment on Sea Shipment.",
+   "fieldname": "enable_turnover_shipment",
+   "fieldtype": "Check",
+   "label": "Enable for Shipment"
   }
  ],
  "grid_page_length": 50,
