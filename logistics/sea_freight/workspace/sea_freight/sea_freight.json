@@ -131,7 +131,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Settings",
-   "link_count": 5,
+   "link_count": 6,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -182,6 +182,16 @@
    "label": "Exporter Category",
    "link_count": 0,
    "link_to": "Exporter Category",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Turnover Charges Template",
+   "link_count": 0,
+   "link_to": "Turnover Charges Template",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"

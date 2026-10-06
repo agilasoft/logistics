@@ -123,6 +123,11 @@ class SeaShipment(VirtualLinkedServicesMixin, Document):
             update_parent_dg_compliance_status(self)
             self.validate_accounts()
             self.validate_dates()
+            from logistics.logistics.doctype.turnover_charges_template.turnover_charges_template import (
+                sync_turnover_shipment_charges,
+            )
+
+            sync_turnover_shipment_charges(self)
             self.validate_duplicates()
             self._prepare_header_totals_for_charge_calculation()
             self._sync_charges_with_parent_actuals()
@@ -259,6 +264,11 @@ class SeaShipment(VirtualLinkedServicesMixin, Document):
     def before_submit(self):
         """Validate required data before submit; block DG non-compliance."""
         self.validate_required_fields_for_submit()
+        from logistics.logistics.doctype.turnover_charges_template.turnover_charges_template import (
+            assert_turnover_template_ready,
+        )
+
+        assert_turnover_template_ready(self)
         validate_fcl_container_numbers_required(self)
         from logistics.utils.charge_service_type import (
             assert_destination_service_charges_on_submit_unless_internal_job,

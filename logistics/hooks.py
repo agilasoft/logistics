@@ -179,6 +179,7 @@ doctype_js = {
 		"public/js/charge_break_dialogs.js",
 		"air_freight/doctype/air_booking_charges/air_booking_charges.js",
 		"public/js/charge_break_buttons.js",
+		"public/js/turnover_charges_template.js",
 	],
 	"Air Shipment": [
 		"public/js/operational_exchange_rate_grid.js",
@@ -188,6 +189,7 @@ doctype_js = {
 		"public/js/charge_break_dialogs.js",
 		"air_freight/doctype/air_shipment_charges/air_shipment_charges.js",
 		"public/js/charge_break_buttons.js",
+		"public/js/turnover_charges_template.js",
 		"job_management/recognition_client.js",
 		"job_management/recognition_policy_fields.js",
 		"job_management/job_charge_reopen.js",
@@ -206,6 +208,7 @@ doctype_js = {
 		"public/js/charge_break_dialogs.js",
 		"sea_freight/doctype/sea_booking_charges/sea_booking_charges.js",
 		"public/js/charge_break_buttons.js",
+		"public/js/turnover_charges_template.js",
 	],
 	"Sea Shipment": [
 		"public/js/operational_exchange_rate_grid.js",
@@ -216,6 +219,7 @@ doctype_js = {
 		"public/js/charge_break_dialogs.js",
 		"sea_freight/doctype/sea_shipment_charges/sea_shipment_charges.js",
 		"public/js/charge_break_buttons.js",
+		"public/js/turnover_charges_template.js",
 		"job_management/recognition_client.js",
 		"job_management/recognition_policy_fields.js",
 		"job_management/job_charge_reopen.js",

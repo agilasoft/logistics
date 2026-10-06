@@ -10,6 +10,8 @@
   "dashboard_html",
   "details_tab",
   "section_break_main",
+  "is_turnover_shipment",
+  "turnover_charges_template",
   "transport_mode_column",
   "amended_from",
   "naming_series",
@@ -217,6 +219,19 @@
    "fieldname": "section_break_main",
    "fieldtype": "Section Break",
    "label": "Shipment Details"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_turnover_shipment",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Turnover Shipment"
+  },
+  {
+   "fieldname": "turnover_charges_template",
+   "fieldtype": "Link",
+   "label": "Turnover Charges Template",
+   "options": "Turnover Charges Template"
   },
   {
    "fieldname": "amended_from",
