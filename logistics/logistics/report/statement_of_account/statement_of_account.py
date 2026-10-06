@@ -3,13 +3,11 @@
 
 from __future__ import unicode_literals
 
+import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import flt, getdate
 
-from logistics.utils.invoice_dispute import (
-	get_outstanding_invoices_for_party,
-	partition_invoices_by_dispute,
-)
+INVOICE_REFERENCE_DOCTYPES = ("Sales Invoice", "Purchase Invoice")
 
 
 def execute(filters=None):
@@ -21,17 +19,10 @@ def execute(filters=None):
 		company=filters.get("company"),
 		as_on_date=filters.get("as_on_date"),
 	)
-	regular, disputed = partition_invoices_by_dispute(reference_doctype, invoices)
 
 	columns = _columns(reference_doctype)
-	data = []
-	data.extend(_section_header(_("Outstanding Invoices")))
-	data.extend(_invoice_rows(regular))
-	data.append({})
-	data.extend(_section_header(_("Disputed Invoices")))
-	data.extend(_invoice_rows(disputed, include_dispute=True))
-
-	report_summary = _summary(regular, disputed)
+	data = _invoice_rows(invoices)
+	report_summary = _summary(invoices)
 	return columns, data, None, None, report_summary
 
 
@@ -42,50 +33,83 @@ def _columns(reference_doctype):
 		{"label": _("Due Date"), "fieldname": "due_date", "fieldtype": "Date", "width": 100},
 		{"label": _("Outstanding"), "fieldname": "outstanding_amount", "fieldtype": "Currency", "width": 120},
 		{"label": _("Currency"), "fieldname": "currency", "fieldtype": "Link", "options": "Currency", "width": 80},
-		{"label": _("Dispute"), "fieldname": "dispute", "fieldtype": "Link", "options": "Dispute", "width": 120},
-		{"label": _("Dispute Status"), "fieldname": "dispute_status", "fieldtype": "Data", "width": 110},
-		{"label": _("Remarks"), "fieldname": "dispute_remarks", "fieldtype": "Data", "width": 220},
 	]
 
 
-def _section_header(label):
-	return [{"invoice": label, "bold": 1}]
-
-
-def _invoice_rows(rows, include_dispute=False):
+def _invoice_rows(rows):
 	out = []
 	for inv in rows:
-		row = {
-			"invoice": inv.get("name"),
-			"posting_date": inv.get("posting_date"),
-			"due_date": inv.get("due_date"),
-			"outstanding_amount": flt(inv.get("outstanding_amount")),
-			"currency": inv.get("currency"),
-		}
-		if include_dispute:
-			row["dispute"] = inv.get("dispute")
-			row["dispute_status"] = inv.get("dispute_status")
-			row["dispute_remarks"] = inv.get("dispute_remarks")
-		out.append(row)
+		out.append(
+			{
+				"invoice": inv.get("name"),
+				"posting_date": inv.get("posting_date"),
+				"due_date": inv.get("due_date"),
+				"outstanding_amount": flt(inv.get("outstanding_amount")),
+				"currency": inv.get("currency"),
+			}
+		)
 	return out
 
 
-def _summary(regular, disputed):
-	reg_total = sum(flt(r.get("outstanding_amount")) for r in regular)
-	disp_total = sum(flt(r.get("outstanding_amount")) for r in disputed)
+def _summary(invoices):
+	total = sum(flt(r.get("outstanding_amount")) for r in invoices)
 	return [
-		{"label": _("Outstanding Invoices"), "value": len(regular), "indicator": "blue"},
+		{"label": _("Outstanding Invoices"), "value": len(invoices), "indicator": "blue"},
 		{
 			"label": _("Outstanding Balance"),
-			"value": flt(reg_total, 2),
+			"value": flt(total, 2),
 			"datatype": "Currency",
 			"indicator": "green",
 		},
-		{"label": _("Disputed Invoices"), "value": len(disputed), "indicator": "orange"},
-		{
-			"label": _("Disputed Balance"),
-			"value": flt(disp_total, 2),
-			"datatype": "Currency",
-			"indicator": "red",
-		},
 	]
+
+
+def _party_column(reference_doctype):
+	if reference_doctype == "Sales Invoice":
+		return "customer", "customer_name"
+	return "supplier", "supplier_name"
+
+
+def get_outstanding_invoices_for_party(reference_doctype, party, company=None, as_on_date=None):
+	"""Outstanding submitted invoices for a customer or supplier."""
+	if reference_doctype not in INVOICE_REFERENCE_DOCTYPES or not party:
+		return []
+
+	party_field, party_name_field = _party_column(reference_doctype)
+	where = [
+		"docstatus = 1",
+		"outstanding_amount > 0",
+		f"`{party_field}` = %(party)s",
+	]
+	values = {"party": party}
+	if company:
+		where.append("company = %(company)s")
+		values["company"] = company
+	if as_on_date:
+		where.append("posting_date <= %(as_on_date)s")
+		values["as_on_date"] = getdate(as_on_date)
+
+	return frappe.db.sql(
+		"""
+		SELECT
+			name,
+			posting_date,
+			due_date,
+			grand_total,
+			outstanding_amount,
+			currency,
+			company,
+			{party_field} AS party,
+			{party_name_field} AS party_name
+		FROM `tab{reference_doctype}`
+		WHERE {where_sql}
+		ORDER BY posting_date, name
+		""".format(
+			party_field=party_field,
+			party_name_field=party_name_field,
+			reference_doctype=reference_doctype,
+			where_sql=" AND ".join(where),
+		),
+		values,
+		as_dict=True,
+	)

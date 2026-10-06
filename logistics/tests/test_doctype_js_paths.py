@@ -54,8 +54,41 @@ class TestDoctypeJsPaths(unittest.TestCase):
 	def test_removed_doctype_names_are_not_hook_keys(self):
 		doctype_js = _hook_map("doctype_js")
 		self.assertNotIn("Project Task Order", doctype_js)
+		self.assertNotIn("Dispute", doctype_js)
 		self.assertNotIn("Lead", doctype_js)
 		self.assertNotIn("Lead", _hook_map("doctype_list_js"))
+
+	def test_hooks_do_not_load_invoice_dispute(self):
+		text = HOOKS.read_text()
+		self.assertNotIn("invoice_dispute", text)
+		self.assertNotIn("validate_payment_entry_against_disputes", text)
+		self.assertNotIn("validate_settlement_entry_against_disputes", text)
+
+	def test_app_does_not_query_dispute_doctype(self):
+		needles = (
+			"tabDispute",
+			'get_value("Dispute"',
+			"get_value('Dispute'",
+			'get_all("Dispute"',
+			"get_all('Dispute'",
+			'get_doc("Dispute"',
+			"get_doc('Dispute'",
+			"invoice_dispute",
+			"get_active_dispute",
+		)
+		hits = []
+		for path in PACKAGE.rglob("*"):
+			if not path.is_file() or path.suffix not in {".py", ".js", ".json"}:
+				continue
+			if path.name == "test_doctype_js_paths.py":
+				continue
+			text = path.read_text(errors="ignore")
+			for needle in needles:
+				if needle in text:
+					hits.append(f"{path.relative_to(PACKAGE)}: {needle}")
+			if '"Dispute"' in text or "'Dispute'" in text:
+				hits.append(f"{path.relative_to(PACKAGE)}: Dispute DocType literal")
+		self.assertEqual(hits, [])
 
 
 if __name__ == "__main__":
