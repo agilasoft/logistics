@@ -124,12 +124,14 @@ For an **Internal Job**:
 
 - **Charges**: Add applicable charges as **internal billing** (e.g. internal transfer / intercompany or internal cost allocation, not customer-facing).
 - **Revenue**: Revenue of the Internal Job is set equal to the **Cost of the Main Job** (the cost allocated to or incurred by the main job for this service).
-- **Cost**: Cost is as per **tariff** (or cost tariff) for the internal job’s service.
+- **Cost**: Cost is as per **tariff** (or cost tariff) for the internal job’s service. When the charge is marked **Internal** and **Use Tariff in Cost**, post it with **Post → Standard Costs** (standard-cost journal). It is not a supplier Purchase Invoice. Other cost still uses a Purchase Invoice.
 
 So:
 
 - **Revenue (Internal Job)** = Cost of Main Job (allocated to this internal service).
-- **Cost (Internal Job)** = As per tariff.
+- **Cost (Internal Job)** = As per tariff, posted as a standard-cost journal when the cost is an internal tariff.
+
+How to post, and how this differs from the intercompany Sales Invoice / Purchase Invoice: [Internal and Intercompany Billing](welcome/internal-and-intercompany-billing).
 
 This keeps internal jobs at cost-neutral or at transfer price relative to the main job.
 
