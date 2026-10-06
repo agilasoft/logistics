@@ -131,6 +131,50 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 		finally:
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
+	def test_workflow_reload_keeps_linked_services_on_submit(self):
+		"""Active workflow submits via apply_workflow, which load_from_db()s the quote.
+
+		That reload pops the virtual Services grid and used to leave
+		``_linked_services_from_form`` set, so submit returned an empty grid and a
+		later save could delete the Linked Service documents.
+		"""
+		sq = self._minimal_sales_quote("SQ Virtual LS Workflow Submit")
+		try:
+			doc = frappe.get_doc("Sales Quote", sq.name)
+			doc.append("linked_services", {"service_type": "Sea"})
+			doc.flags.ignore_mandatory = True
+			doc.save(ignore_permissions=True)
+			kept = _linked_service_names_from_db("Sales Quote", sq.name)
+			self.assertEqual(len(kept), 1)
+
+			# Same sequence as frappe.model.workflow.apply_workflow.
+			payload = frappe.get_doc("Sales Quote", sq.name).as_dict()
+			self.assertTrue(payload.get("linked_services"))
+			reloaded = frappe.get_doc(payload)
+			reloaded.load_from_db()
+
+			from logistics.utils.linked_service_compat import linked_service_rows
+
+			self.assertEqual(len(linked_service_rows(reloaded)), 1)
+			self.assertEqual(len(reloaded.linked_services), 1)
+			self.assertEqual(reloaded.linked_services[0].get("service_type"), "Sea")
+
+			reloaded.flags.ignore_mandatory = True
+			reloaded.flags.ignore_validate = True
+			reloaded.docstatus = 1
+			reloaded.save(ignore_permissions=True)
+
+			self.assertEqual(_linked_service_names_from_db("Sales Quote", sq.name), kept)
+			self.assertEqual(len(reloaded.linked_services), 1)
+			self.assertEqual(
+				{row.get("linked_service") or row.get("name") for row in reloaded.as_dict().get("linked_services") or []},
+				kept,
+			)
+			fresh = frappe.get_doc("Sales Quote", sq.name)
+			self.assertEqual({row.name for row in fresh.linked_services}, kept)
+		finally:
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+
 	def test_unrelated_save_keeps_linked_services(self):
 		"""Saving another field must not drop Services loaded from Linked Service documents."""
 		sq = self._minimal_sales_quote("SQ Virtual LS Unrelated Save")
