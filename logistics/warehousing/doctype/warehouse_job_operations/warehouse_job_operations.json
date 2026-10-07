@@ -138,10 +138,6 @@
   {
    "fieldname": "employee",
    "fieldtype": "Link",
-   "ignore_user_permissions": 1,
-   "label": "Employee",
-   "link_filters": "[[\"Employee\",\"custom_warehouseman\",\"=\",1]]",
-   "options": "Employee"
    "label": "Warehouseman",
    "link_filters": "[[\"Logistics Staff\",\"warehouseman\",\"=\",1],[\"Logistics Staff\",\"is_active\",\"=\",1]]",
    "options": "Logistics Staff"
