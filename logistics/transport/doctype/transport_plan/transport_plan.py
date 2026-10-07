@@ -1063,7 +1063,8 @@ def _find_vehicle_for_trip(trip_legs: List[Dict[str, Any]], debug: Optional[List
 # ------------------------ Vehicle & Driver ------------------------
 
 def _find_candidate_vehicle(leg: Dict[str, Any], debug: Optional[List[str]] = None, vehicle_to_runsheet: Optional[Dict[str, str]] = None, target_runsheet: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    debug = debug or []
+    if debug is None:
+        debug = []
     if vehicle_to_runsheet is None:
         vehicle_to_runsheet = {}
     
