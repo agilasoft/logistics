@@ -984,6 +984,8 @@ logistics.patches.v3_0_sales_quote_html_subheader_no_underline
 logistics.patches.v3_0_payment_voucher_signature_header_color
 # Desk: the programme icon is MICE. Drop the Exhibits tile and saved layout copies.
 logistics.patches.v3_0_mice_desk_icon
+# Desk: Exhibits can be recreated without an app, which draws the letter E. Show MICE.
+logistics.patches.v3_0_show_mice_desk_icon
 # Logistics Staff: copy Employee role flags and existing rep links onto the new master.
 logistics.patches.v3_0_seed_logistics_staff
 
