@@ -31,6 +31,7 @@ class IntegrationTestVehiclePermits(IntegrationTestCase):
 	def setUp(self):
 		super().setUp()
 		self.suffix = frappe.generate_hash(length=6)
+		self._ensure_uoms()
 		self.company = frappe.db.get_value("Company", {}, "name") or self._make_company()
 		self.vehicle_type = self._make_vehicle_type()
 		self.permit_type = self._make_permit_type()
@@ -260,7 +261,14 @@ class IntegrationTestVehiclePermits(IntegrationTestCase):
 				)
 			frappe.db.set_single_value("Transport Settings", "permit_notify_role", role)
 
+	def _ensure_uoms(self):
+		for uom_name in ("KG", "CBM"):
+			if not frappe.db.exists("UOM", uom_name):
+				frappe.get_doc({"doctype": "UOM", "uom_name": uom_name}).insert(ignore_permissions=True)
+
 	def _make_company(self):
+		if not frappe.db.exists("Warehouse Type", "Transit"):
+			frappe.get_doc({"doctype": "Warehouse Type", "name": "Transit"}).insert(ignore_permissions=True)
 		company = frappe.get_doc(
 			{
 				"doctype": "Company",
