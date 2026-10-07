@@ -100,7 +100,7 @@ app_include_js = [
 	"/assets/logistics/js/purchase_invoice_dialog.js",
 	"/assets/logistics/js/invoice_billing_currency.js",
 	"/assets/logistics/js/sales_invoice_dialog.js",
-	"/assets/logistics/js/sales_invoice_job_dimension_cleanup.js",
+	"/assets/logistics/js/sales_invoice_job_dimension_cleanup.js?v=2",
 	"/assets/logistics/js/job_change_lock.js?v=4",
 	"/assets/logistics/js/change_request_visibility.js?v=2",
 	"/assets/logistics/js/change_request_summary.js?v=5",
@@ -519,6 +519,12 @@ override_whitelisted_methods = {
 	),
 	"frappe.desk.query_report.export_query": (
 		"logistics.bir_cas.export_query.export_query"
+	),
+	"frappe.desk.form.linked_with.get_submitted_linked_docs": (
+		"logistics.invoice_integration.cancel_linked_docs.get_submitted_linked_docs"
+	),
+	"frappe.desk.form.linked_with.cancel_all_linked_docs": (
+		"logistics.invoice_integration.cancel_linked_docs.cancel_all_linked_docs"
 	),
 }
 

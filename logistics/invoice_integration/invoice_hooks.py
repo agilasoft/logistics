@@ -10,6 +10,7 @@ linked logistics jobs/shipments (lifecycle and cancellation).
 import frappe
 from frappe import _
 from .lifecycle import (
+    extend_invoice_ignore_linked_doctypes,
     update_job_on_sales_invoice_submit,
     update_job_on_sales_invoice_cancel,
     update_job_on_purchase_invoice_submit,
@@ -81,6 +82,8 @@ def on_sales_invoice_cancel(doc, method=None):
     """Clear links and reset statuses when SI is cancelled."""
     if doc.docstatus != 2:
         return
+    # After ERPNext's on_cancel, so a submitted job link does not block this cancel.
+    extend_invoice_ignore_linked_doctypes(doc)
     update_job_on_sales_invoice_cancel(doc)
 
 
@@ -110,6 +113,7 @@ def on_purchase_invoice_cancel(doc, method=None):
     """Clear links and reset statuses when PI is cancelled."""
     if doc.docstatus != 2:
         return
+    extend_invoice_ignore_linked_doctypes(doc)
     try:
         from logistics.invoice_integration.container_deposit_sync import (
             clear_container_deposits_on_purchase_invoice_cancel,
