@@ -14,11 +14,19 @@ from logistics.utils.test_internal_job_transport_order_container import (
 	_existing_logistics_master,
 	_ensure_transport_template,
 )
+from logistics.logistics.doctype.logistics_staff.logistics_staff import ensure_logistics_staff
 from logistics.utils.internal_job_from_source import (
 	_create_air_booking_from_sea_shipment,
 	_create_air_booking_from_transport_job,
 	_create_sea_booking_from_air_shipment,
 )
+
+
+def _rep_staff():
+	return ensure_logistics_staff(
+		frappe.db.get_value("Employee", {"custom_sales_rep": 1}, "name")
+		or frappe.db.get_value("Employee", {}, "name")
+	)
 
 
 def _ensure_sea_transport_mode():
@@ -130,9 +138,7 @@ def _sales_quote_with_air_routing(
 	sea_mode=None,
 ):
 	"""Sales Quote with one Air routing leg and air+sea charges (multimodal-style)."""
-	rep = frappe.db.get_value("Employee", {"custom_sales_rep": 1}, "name") or frappe.db.get_value(
-		"Employee", {}, "name"
-	)
+	rep = _rep_staff()
 	sq = frappe.get_doc(
 		{
 			"doctype": "Sales Quote",
@@ -434,9 +440,7 @@ class TestInternalJobBookingRouting(FrappeTestCase):
 			tm.insert(ignore_permissions=True)
 			sea_mode = tm.name
 
-		rep = frappe.db.get_value("Employee", {"custom_sales_rep": 1}, "name") or frappe.db.get_value(
-			"Employee", {}, "name"
-		)
+		rep = _rep_staff()
 		sq = frappe.get_doc(
 			{
 				"doctype": "Sales Quote",

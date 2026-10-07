@@ -256,13 +256,150 @@
 	function formatEtaLabel(seconds, km, now) {
 		const remain = Math.max(0, Number(seconds) || 0);
 		const distance = formatKm(km);
-		if (remain < 20) return "Arriving · " + distance;
+		if (remain < 20) {
+			if (!distance || Number(km) < 0.05) return "Arriving";
+			return "Arriving · " + distance;
+		}
 		const total = Math.round(remain);
 		const mins = Math.floor(total / 60);
 		const secs = total % 60;
 		const time = mins <= 0 ? secs + " sec" : mins + " min " + String(secs).padStart(2, "0") + " sec";
 		const clock = formatClock(new Date(now + remain * 1000));
-		return time + " · " + distance + " · arrive " + clock;
+		const parts = [time];
+		if (distance) parts.push(distance);
+		parts.push("arrive " + clock);
+		return parts.join(" · ");
+	}
+
+	function routeSteps(legs) {
+		const steps = [];
+		(legs || []).forEach(function (leg) {
+			(leg.steps || []).forEach(function (step) {
+				steps.push(step);
+			});
+		});
+		return steps;
+	}
+
+	function routeMeters(stops, origin) {
+		const pending = remainingStops(stops);
+		let cursor = asDriverOrigin(origin);
+		let meters = 0;
+		pending.forEach(function (stop) {
+			const point = stopPoint(stop);
+			if (!point || typeof point !== "object") return;
+			if (cursor) {
+				const segment = distanceMeters(cursor, point);
+				if (Number.isFinite(segment)) meters += segment;
+			}
+			cursor = point;
+		});
+		return meters;
+	}
+
+	function followEta(snapshot, anchorMeters, currentMeters, now) {
+		if (!snapshot) return null;
+		const moment = now == null ? snapshot.fetchedAt : now;
+		const elapsed = Math.max(0, (moment - (snapshot.fetchedAt || moment)) / 1000);
+		let seconds = Math.max(0, (Number(snapshot.seconds) || 0) - elapsed);
+		let km = Number(snapshot.km);
+		if (!Number.isFinite(km)) km = 0;
+		const anchor = Number(anchorMeters);
+		const current = Number(currentMeters);
+		if (km > 0 && Number.isFinite(anchor) && Number.isFinite(current) && anchor > 0 && current < anchor) {
+			const ratio = Math.max(0, current / anchor);
+			const nextKm = km * ratio;
+			const paced = (Number(snapshot.seconds) || 0) * ratio;
+			seconds = Math.min(seconds, Math.max(0, paced));
+			km = nextKm;
+		}
+		return {
+			seconds: seconds,
+			km: Math.round(km * 10) / 10,
+			traffic: Boolean(snapshot.traffic),
+		};
+	}
+
+	function geometricEta(meters, speedKph) {
+		const distance = Number(meters);
+		if (!Number.isFinite(distance)) return null;
+		const km = Math.round((Math.max(0, distance) / 1000) * 10) / 10;
+		const speed = Number(speedKph);
+		const pace = Number.isFinite(speed) && speed >= 8 ? speed : 40;
+		const seconds = km <= 0 ? 0 : (km / pace) * 3600;
+		return { seconds: seconds, km: km, traffic: false };
+	}
+
+	function tickStops(rows, fetchedAt, now, anchorMeters, currentMeters) {
+		const elapsed = Math.max(0, (now - (fetchedAt || now)) / 1000);
+		const anchor = Number(anchorMeters);
+		const current = Number(currentMeters);
+		const moved = Number.isFinite(anchor) && Number.isFinite(current) && anchor > 0 && current < anchor - 30;
+		const ratio = moved ? Math.max(0, current / anchor) : 1;
+		return (rows || []).map(function (row) {
+			const base = Number(row.seconds);
+			const baseSeconds = Number.isFinite(base) ? base : (Number(row.minutes) || 0) * 60;
+			const ticked = Math.max(0, baseSeconds - elapsed);
+			const scaled = baseSeconds * ratio;
+			const seconds = moved ? Math.min(ticked, scaled) : ticked;
+			const kmFactor = baseSeconds > 0 ? seconds / baseSeconds : ratio;
+			return {
+				id: row.id,
+				seconds: seconds,
+				minutes: seconds <= 0 ? 0 : Math.max(1, Math.round(seconds / 60)),
+				km: Math.round((Number(row.km) || 0) * kmFactor * 10) / 10,
+			};
+		});
+	}
+
+	function progressEtas(stops, origin, secPerKm) {
+		const pace = Number(secPerKm);
+		const perKm = Number.isFinite(pace) && pace > 0 ? pace : 90;
+		const pending = remainingStops(stops);
+		let cursor = asDriverOrigin(origin);
+		let seconds = 0;
+		let meters = 0;
+		const rows = [];
+		pending.forEach(function (stop) {
+			const point = stopPoint(stop);
+			if (!point || typeof point !== "object") return;
+			if (!cursor) {
+				cursor = point;
+				return;
+			}
+			const segment = distanceMeters(cursor, point);
+			if (!Number.isFinite(segment)) return;
+			meters += segment;
+			seconds += (segment / 1000) * perKm;
+			rows.push({
+				id: stop.id,
+				leg: stop.leg,
+				kind: stop.kind,
+				seconds: seconds,
+				minutes: Math.max(1, Math.round(seconds / 60)),
+				km: Math.round((meters / 1000) * 10) / 10,
+			});
+			cursor = point;
+		});
+		return rows;
+	}
+
+	function bearingDegrees(from, to) {
+		if (!from || !to || from.lat == null || to.lat == null) return null;
+		const lat1 = (Number(from.lat) * Math.PI) / 180;
+		const lat2 = (Number(to.lat) * Math.PI) / 180;
+		const dLng = ((Number(to.lng) - Number(from.lng)) * Math.PI) / 180;
+		const y = Math.sin(dLng) * Math.cos(lat2);
+		const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+		const deg = (Math.atan2(y, x) * 180) / Math.PI;
+		return Number.isFinite(deg) ? deg : null;
+	}
+
+	function compass(from, to) {
+		const deg = bearingDegrees(from, to);
+		if (deg == null) return "";
+		const names = ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"];
+		return names[Math.round(((deg + 360) % 360) / 45) % 8];
 	}
 
 	function maneuverHeading(maneuver) {
@@ -302,6 +439,14 @@
 		liveSeconds: liveSeconds,
 		formatMeters: formatMeters,
 		formatEtaLabel: formatEtaLabel,
+		routeSteps: routeSteps,
+		routeMeters: routeMeters,
+		followEta: followEta,
+		geometricEta: geometricEta,
+		tickStops: tickStops,
+		progressEtas: progressEtas,
+		bearingDegrees: bearingDegrees,
+		compass: compass,
 		stripHtml: stripHtml,
 		maneuverHeading: maneuverHeading,
 	};

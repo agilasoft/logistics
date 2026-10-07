@@ -431,7 +431,7 @@ function logistics_sq_open_services_dialog(frm) {
 			allowEdit: can_manage,
 			emptyHint: __("Add a service type below to link it to this quote."),
 			addHint: __(
-				"Select a service type and quantity. Qty creates that many services of the same type in one step."
+				"Choose a service type and quantity, fill in the service details, then Add Service. Qty is stored on that one service. Orders cannot exceed it, and linked charges use the same quantity."
 			),
 			unsavedMessage: __("Save the Sales Quote before managing services."),
 			removeConfirm: (ls) =>
@@ -2356,6 +2356,12 @@ frappe.ui.form.on('Sales Quote Charge', {
 	cost_base_amount: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	use_unit_breaks: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_use_unit_breaks: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+
+	linked_service: function (frm, cdt, cdn) {
+		if (logistics.linked_service_link_query) {
+			logistics.linked_service_link_query.applyQuantityFromLinkedService(frm, cdt, cdn);
+		}
+	},
 
 	charge_scope: function(frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);

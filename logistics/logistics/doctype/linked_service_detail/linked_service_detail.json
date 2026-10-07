@@ -8,6 +8,7 @@
  "field_order": [
   "linked_service",
   "service_type",
+  "quantity",
   "company",
   "branch",
   "cost_center",
@@ -74,6 +75,15 @@
    "label": "Service Type",
    "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nOn-Demand Last Mile\nSpecial Project\nMICE",
    "reqd": 1
+  },
+  {
+   "fetch_from": "linked_service.quantity",
+   "fetch_if_empty": 1,
+   "fieldname": "quantity",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Quantity",
+   "read_only": 1
   },
   {
    "description": "Operating company for this service. Set on the Sales Quote before creating the designated booking from the main.",

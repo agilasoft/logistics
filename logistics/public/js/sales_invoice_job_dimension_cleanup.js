@@ -30,6 +30,37 @@
 		});
 	}
 
+	// Submittable jobs that link back to the invoice. Must match
+	// INVOICE_CANCEL_PRESERVED_JOBS in invoice_integration/lifecycle.py.
+	// Appended on refresh, after ERPNext's onload replaces the ignore list.
+	var PRESERVED_JOBS = [
+		"Transport Job",
+		"Air Shipment",
+		"Sea Shipment",
+		"Warehouse Job",
+		"Declaration",
+		"Special Project",
+		"Docket",
+		"MICE Project",
+		"Air Consolidation",
+		"Sea Consolidation",
+		"Transport Leg",
+		"Periodic Billing",
+		"Exhibit",
+		"General Job",
+		"Project Job",
+	];
+
+	function preserve_jobs_on_invoice_cancel(frm) {
+		var current = frm.ignore_doctypes_on_cancel_all || [];
+		PRESERVED_JOBS.forEach(function (dt) {
+			if (current.indexOf(dt) === -1) {
+				current.push(dt);
+			}
+		});
+		frm.ignore_doctypes_on_cancel_all = current;
+	}
+
 	function bind(doctype) {
 		frappe.ui.form.on(doctype, {
 			setup: function (frm) {
@@ -39,6 +70,7 @@
 				}
 			},
 			refresh: function (frm) {
+				preserve_jobs_on_invoice_cancel(frm);
 				if (frm.fields_dict.job_number && frm.fields_dict.job_costing_number) {
 					frm.set_df_property("job_costing_number", "hidden", 1);
 					frm.set_df_property("job_costing_number", "reqd", 0);

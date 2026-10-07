@@ -1,7 +1,7 @@
 # Copyright (c) 2025, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
-"""Sales Rep / Operations Rep / Customer Service Rep — shared with Sales Quote (Employee links)."""
+"""Sales Rep / Operations Rep / Customer Service Rep — shared with Sales Quote (Logistics Staff links)."""
 
 import frappe
 

@@ -23,17 +23,35 @@
 		--radius: 22px;
 	}
 	* { box-sizing: border-box; }
-	html, body { background: var(--bg); }
+	html, body { height: 100%; background: var(--bg); overflow: hidden; }
 	[hidden] { display: none !important; }
 	body {
 		margin: 0;
 		color: var(--ink);
 		font-family: Inter, "Segoe UI", Helvetica, Arial, sans-serif;
-		overflow: auto;
 	}
 	button, input, select, textarea, a { font-family: inherit; }
 	.navbar, .web-footer, .page-breadcrumbs { display: none !important; }
 	.page-content-wrapper, .page_content { padding: 0 !important; margin: 0 !important; background: transparent; max-width: none; }
+	.page-content-wrapper, .page_content {
+		height: 100dvh !important;
+		min-height: 0 !important;
+		display: flex !important;
+		flex-direction: column !important;
+	}
+	.driver-app {
+		max-width: none;
+		margin: 0;
+		padding: 10px 12px 12px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		flex: 1 1 auto;
+		height: 100dvh;
+		min-height: 0;
+		overflow: hidden;
+		background: var(--bg);
+	}
 	.driver-app {
 		max-width: 1240px;
 		margin: 0 auto;
@@ -41,8 +59,12 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
-		min-height: 100dvh;
+		height: 100dvh;
+		overflow: hidden;
 	}
+	.driver-app[data-screen="dashboard"],
+	.driver-app[data-screen="history"] { overflow: auto; }
+	.driver-app[data-screen="route"] { max-width: none; padding: 10px 12px 12px; }
 	.topbar, .card, .stat-card, .company-card {
 		background: var(--card);
 		border-radius: var(--radius);
@@ -129,6 +151,22 @@
 	.track-truck { position: absolute; top: 50%; left: 0; transform: translate(-40%, -58%); filter: drop-shadow(0 4px 6px rgba(47, 107, 255, 0.25)); }
 	.hero-metrics { color: var(--muted); font-size: 13px; font-weight: 700; }
 	.hero-metrics b { color: var(--ink); font-size: 14px; }
+	.truck-stage {
+		flex: 1 1 auto; min-height: 0; display: grid; place-items: center; position: relative;
+		border-radius: 16px; overflow: hidden; background: #d7e3ee;
+	}
+	.truck-stage .track { position: absolute; left: 16px; right: 16px; bottom: 14px; margin: 0; z-index: 1; }
+	.truck-art { width: min(86%, 520px); height: auto; max-height: 78%; object-fit: contain; position: relative; z-index: 1; }
+	.dash-empty {
+		color: var(--muted); font-weight: 650; text-align: center; padding: 16px;
+		max-width: 320px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+	}
+	.dash-empty strong { color: var(--ink); font-size: 18px; letter-spacing: -0.03em; }
+	.dash-empty span { font-size: 13px; line-height: 1.35; }
+	.photo-art { width: min(280px, 86%); height: auto; display: block; }
+	.tile-art { width: 52px; height: 52px; display: block; flex: none; object-fit: contain; }
+	.tile-art.sm { width: 40px; height: 40px; }
+	#speed-needle { transform-origin: 32px 42px; transform: rotate(-58deg); transition: transform 180ms linear; }
 	.truck-stage { display: grid; place-items: center; min-height: 220px; }
 	.truck-art { width: min(100%, 420px); height: auto; max-height: 280px; object-fit: contain; }
 	.driver-app.no-vehicle-image .hero { grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr); }
@@ -138,6 +176,7 @@
 	.stat-card.tall { min-height: 156px; }
 	.stat-fuel { background: linear-gradient(180deg, #e5f8ee 0%, #f7fffa 70%); border: 1px solid #d7f3e3; position: relative; overflow: hidden; }
 	.fuel-wave { position: absolute; left: 0; right: 0; top: 0; height: 42px; }
+	.stat-label { display: block; color: var(--ink); font-size: 13px; font-weight: 800; position: relative; margin-top: 8px; }
 	.stat-label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; font-weight: 700; position: relative; }
 	.stat-icon {
 		width: 28px; height: 28px; border-radius: 9px; background: #f4f7fb; color: var(--blue);
@@ -189,9 +228,35 @@
 	.map-panel { display: flex; flex-direction: column; gap: 12px; }
 	.map-wrap { position: relative; height: 320px; border-radius: 16px; overflow: hidden; background: #d7e3ee; }
 	#route-map { position: absolute; inset: 0; }
-	.google-map-frame { width: 100%; height: 100%; border: 0; }
-	.map-note { height: 100%; }
-	.map-note { display: grid; place-items: center; color: var(--muted); padding: 24px; text-align: center; }
+	.map-note {
+		position: absolute; inset: 0; z-index: 1;
+		display: grid; place-items: center; color: var(--muted); padding: 24px; text-align: center;
+		background: #d7e3ee;
+	}
+	.map-chip, .recenter, .map-max {
+		position: absolute; z-index: 2; background: white; border-radius: 999px;
+		box-shadow: var(--shadow); font-weight: 800; display: inline-flex; align-items: center; gap: 8px;
+	}
+	.map-chip, .recenter { bottom: 12px; }
+	.map-chip { left: 12px; padding: 8px 12px; font-size: 13px; }
+	.recenter { right: 12px; border: 0; height: 36px; padding: 0 12px; cursor: pointer; }
+	.map-max {
+		top: 12px; right: 12px; z-index: 3; width: 40px; height: 40px; border: 0; padding: 0;
+		justify-content: center; cursor: pointer; color: var(--ink);
+	}
+	.map-max:hover, .map-compass:hover { color: var(--blue); }
+	.map-compass {
+		position: absolute; z-index: 3; top: 60px; right: 12px; width: 40px; height: 40px;
+		border: 0; padding: 0; border-radius: 999px; background: white; box-shadow: var(--shadow);
+		display: grid; place-items: center; cursor: pointer; color: var(--ink);
+	}
+	.compass-dial { display: grid; place-items: center; transition: transform 180ms linear; }
+	.map-wrap:fullscreen, .map-wrap:-webkit-full-screen { border-radius: 0; height: 100%; }
+	.map-wrap.is-max {
+		position: fixed; inset: 0; z-index: 3000; width: 100vw; height: 100vh; border-radius: 0;
+	}
+	.maneuver {
+		position: absolute; z-index: 2; top: 12px; left: 12px; right: 64px;
 	.map-chip, .recenter {
 		position: absolute; z-index: 2; bottom: 12px; background: white; border-radius: 999px;
 		box-shadow: var(--shadow); font-weight: 800; display: inline-flex; align-items: center; gap: 8px;
@@ -240,26 +305,68 @@
 	.activity .stat b { display: block; }
 	.activity .stat span { color: var(--muted); font-size: 13px; }
 	.empty { padding: 28px 8px; color: var(--muted); }
-	.history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+	.history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 0; flex: 1; min-height: 0; overflow: auto; }
+	.dash-stage, .history-stage, .dash-side, .history-side { display: flex; flex-direction: column; gap: 12px; min-height: 0; height: 100%; overflow: hidden; }
+	.dash-stage .company-top, .dash-stage .who, .dash-stage .chip-row, .dash-stage .metric-row, .dash-stage .map-dock { flex: none; }
+	.dash-side .stats {
+		flex: 1; min-height: 0; align-content: stretch;
+		grid-template-rows: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr);
+	}
+	.dash-side .stat-card, .dash-side .stat-card.tall { box-shadow: none; background: #f7f9fc; min-height: 0; height: auto; }
+	.dash-side .stat-fuel { background: linear-gradient(180deg, #e5f8ee 0%, #f7fffa 70%); }
+	.history-metrics {
+		flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 12px;
+	}
+	.history-tile { display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; }
+	.history-tile .metric-value { font-size: 28px; overflow-wrap: anywhere; }
+	.history-shell { background: transparent; box-shadow: none; padding: 0; border-radius: 0; }
 	.history-row {
 		display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 14px; border-radius: 14px; background: #f8fafc; align-items: center;
 	}
 	.status-tag { font-size: 12px; font-weight: 800; border-radius: 99px; padding: 4px 8px; background: #e8eef6; }
 	.status-tag.Completed { background: var(--green); color: var(--green-ink); }
 	.status-tag.Cancelled, .status-tag.Hold { background: #fee2e2; color: #b91c1c; }
-	.driver-app[data-screen="trips"] .hero,
-	.driver-app[data-screen="map"] .hero,
+	.driver-app[data-screen="route"] .hero,
 	.driver-app[data-screen="history"] .hero,
 	.driver-app[data-screen="history"] .workspace,
-	.driver-app[data-screen="trips"] .map-panel,
-	.driver-app[data-screen="map"] .run-panel,
+	.driver-app[data-screen="dashboard"] .workspace,
 	.driver-app:not([data-screen="history"]) .history-panel,
-	.driver-app:not([data-screen="trips"]) #back-dashboard { display: none; }
-	.driver-app[data-screen="trips"] .workspace,
-	.driver-app[data-screen="map"] .workspace { grid-template-columns: 1fr; }
-	.driver-app[data-screen="map"] .map-wrap { height: min(68vh, 760px); }
-	.driver-app[data-screen="trips"] #view-all-stops,
+	.driver-app[data-screen="route"] .map-head,
+	#view-all-stops,
+	#back-dashboard { display: none; }
 	.driver-app[data-screen="history"] #quick-actions { display: none; }
+	.driver-app[data-screen="dashboard"] .hero,
+	.driver-app[data-screen="history"] .history-shell,
+	.driver-app[data-screen="route"] .workspace {
+		display: grid;
+		flex: 1 1 auto;
+		height: auto;
+		min-height: 0;
+		gap: 12px;
+	.driver-app[data-screen="route"] .workspace {
+		flex: 1;
+		min-height: 0;
+		grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.72fr);
+		grid-template-rows: minmax(0, 1fr);
+		align-items: stretch;
+	}
+	.driver-app[data-screen="route"] .map-panel,
+	.driver-app[data-screen="dashboard"] .dash-stage,
+	.driver-app[data-screen="history"] .history-stage {
+	.driver-app[data-screen="route"] .map-panel {
+		order: -1;
+		height: 100%;
+		min-height: 0;
+		overflow: hidden;
+	}
+	.driver-app[data-screen="route"] .map-wrap,
+	.driver-app[data-screen="dashboard"] .truck-stage,
+	.driver-app[data-screen="history"] .history-metrics { flex: 1 1 auto; height: auto; min-height: 0; }
+	.driver-app[data-screen="route"] .run-panel,
+	.driver-app[data-screen="dashboard"] .dash-side,
+	.driver-app[data-screen="history"] .history-side { height: 100%; min-height: 0; overflow: hidden; }
+	.driver-app[data-screen="route"] .map-wrap { flex: 1; height: auto; min-height: 0; }
+	.driver-app[data-screen="route"] .run-panel { height: 100%; min-height: 0; overflow: auto; }
 	.modal-back {
 		position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;
 	}
@@ -284,16 +391,36 @@
 		.stats, .metric-row, .stop-card { grid-template-columns: 1fr 1fr; }
 		.stop-card { grid-template-columns: 1fr auto; }
 		.chevron { display: none; }
+		.map-wrap, .truck-stage { min-height: 180px; }
+		.driver-app[data-screen="route"] .map-wrap,
+		.driver-app[data-screen="dashboard"] .truck-stage { flex: 1 1 auto; height: auto; min-height: 180px; }
 		.map-wrap { height: 280px; }
+		.driver-app[data-screen="route"] .map-wrap { flex: 1 1 auto; height: auto; min-height: 220px; }
+		.driver-app[data-screen="route"] .metric-row { display: none; }
 		.map-dock { flex-direction: column; align-items: stretch; }
 		.hero-metrics { align-items: flex-start; flex-direction: column; }
 		.maneuver-text { font-size: 16px; }
+	}
+	@media (max-width: 1100px) {
+		.driver-app[data-screen="dashboard"] .hero,
+		.driver-app[data-screen="history"] .history-shell,
+		.driver-app[data-screen="route"] .workspace {
+			grid-template-columns: 1fr;
+			grid-template-rows: minmax(0, 1.55fr) minmax(180px, 0.7fr);
+		}
+		.driver-app[data-screen="route"] .map-wrap,
+		.driver-app[data-screen="dashboard"] .truck-stage { min-height: 180px; }
+		.driver-app[data-screen="route"] .workspace {
+			grid-template-columns: 1fr;
+			grid-template-rows: minmax(0, 1.55fr) minmax(150px, 0.7fr);
+		}
+		.driver-app[data-screen="route"] .map-wrap { min-height: 240px; }
 	}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="driver-app no-vehicle-image" id="driver-app" data-screen="dashboard">
+<div class="driver-app no-vehicle-image" id="driver-app" data-screen="route">
 	<header class="topbar">
 		<div class="brand">
 			<div class="brand-mark" aria-hidden="true">
@@ -302,17 +429,13 @@
 			<div class="brand-name">CargoNext <span>/ Driver</span></div>
 		</div>
 		<nav class="screen-switch" role="tablist" aria-label="Driver">
-			<button class="tab active" data-screen="dashboard" type="button">
+			<button class="tab active" data-screen="route" type="button">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z"/><path d="M9 3v15M15 6v15"/></svg>
+				Navigate
+			</button>
+			<button class="tab" data-screen="dashboard" type="button">
 				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
 				Dashboard
-			</button>
-			<button class="tab" data-screen="trips" type="button">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
-				Trips
-			</button>
-			<button class="tab" data-screen="map" type="button">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z"/><path d="M9 3v15M15 6v15"/></svg>
-				Map
 			</button>
 			<button class="tab" data-screen="history" type="button">
 				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg>
@@ -343,6 +466,7 @@
 	</header>
 
 	<section class="hero" id="hero" aria-label="Today">
+		<article class="card dash-stage">
 		<article class="company-card">
 			<div class="company-top">
 				<div class="company-id">
@@ -355,6 +479,149 @@
 					</div>
 				</div>
 				<span class="pill off" id="driver-badge">Available</span>
+			</div>
+			<div class="who">
+				<img class="avatar" id="avatar" alt="" hidden>
+				<div class="avatar-fallback" id="avatar-fallback">D</div>
+				<div>
+					<div class="driver-name" id="driver-name">Driver</div>
+					<div class="driver-role">Driver</div>
+				</div>
+				<div class="contact">
+					<a class="icon-btn" id="driver-phone" href="#" aria-label="Call" hidden>
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h4l2 5-3 2a12 12 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 4 5a2 2 0 0 1 2-2z"/></svg>
+					</a>
+					<a class="icon-btn" id="driver-email" href="#" aria-label="Email" hidden>
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 7 9-7"/></svg>
+					</a>
+				</div>
+			</div>
+			<div class="chip-row">
+				<span class="run-chip" id="run-chip" hidden></span>
+				<span class="today-chip">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+					<span id="today-label"></span>
+				</span>
+			</div>
+			<div class="truck-stage" id="truck-stage">
+				<img class="truck-art" id="vehicle-image" alt="" hidden>
+				<div class="dash-empty" id="dash-empty">
+					<img class="photo-art" src="/assets/logistics/images/vehicle-photo-icon.png?v=2" alt="">
+					<strong>Vehicle photo</strong>
+					<span>Vehicle photo appears here when one is on file.</span>
+				</div>
+				<div class="track" aria-hidden="true">
+					<div class="track-fill" id="progress-bar"></div>
+					<div class="track-truck" id="progress-truck">
+						<svg width="28" height="16" viewBox="0 0 28 16" fill="none"><rect x="1" y="3" width="14" height="8" rx="1.5" fill="#2f6bff"/><path d="M15 6h5l3 3v2h-8V6z" fill="#1d4ed8"/><circle cx="7" cy="13" r="2" fill="#1b2433"/><circle cx="20" cy="13" r="2" fill="#1b2433"/></svg>
+					</div>
+				</div>
+			</div>
+			<div class="metric-row">
+				<div class="metric">
+					<img class="tile-art sm" src="/assets/logistics/images/stops-icon.png" alt="">
+					<div class="metric-label">Stops</div>
+					<div class="metric-value" id="stops-count">No stops</div>
+				</div>
+				<div class="metric">
+					<img class="tile-art sm" src="/assets/logistics/images/distance-icon.png" alt="">
+					<div class="metric-label">Distance</div>
+					<div class="metric-value" id="hero-km">—</div>
+				</div>
+				<div class="metric">
+					<img class="tile-art sm" src="/assets/logistics/images/eta-icon.png" alt="">
+					<div class="metric-label">ETA</div>
+					<div class="metric-value" id="hero-eta">—</div>
+				</div>
+			</div>
+			<div class="map-dock">
+				<div>
+					<strong id="dash-dock-title">No active run</strong>
+					<div class="dock-meta" id="dash-dock-meta"></div>
+				</div>
+				<button class="cn-btn primary" id="open-navigate" type="button">Open navigation</button>
+			</div>
+		</article>
+		<aside class="card dash-side" aria-label="Vehicle">
+			<div class="panel-head">
+				<div>
+					<h2>
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+						Vehicle
+					</h2>
+					<div class="sub" id="vehicle-line"></div>
+				</div>
+			</div>
+			<div class="stats">
+
+			<article class="stat-card stat-fuel tall">
+				<img class="tile-art" src="/assets/logistics/images/fuel-level-icon.png" alt="">
+				<div class="stat-label">Fuel level</div>
+				<div>
+					<div class="fuel-value" id="fuel-value">No reading</div>
+					<div class="stat-hint" id="fuel-sub">Last reading</div>
+				</div>
+			</article>
+			<article class="stat-card tall">
+				<img class="tile-art" src="/assets/logistics/images/speed-icon.png" alt="">
+				<div class="stat-label">Speed</div>
+				<div class="speed-readout">
+					<div class="speed-value" id="speed-value">—</div>
+					<span class="stat-hint" id="speed-unit"></span>
+				</div>
+				<div class="stat-hint" id="speed-sub">No reading</div>
+			</article>
+			<article class="stat-card">
+				<img class="tile-art" src="/assets/logistics/images/vehicle-type-icon.png" alt="">
+				<div class="stat-label">Vehicle type</div>
+				<div class="stat-value" id="vehicle-type">—</div>
+				<div class="stat-hint">Assigned vehicle</div>
+			</article>
+			<article class="stat-card">
+				<img class="tile-art" src="/assets/logistics/images/plate-number-icon.png" alt="">
+				<div class="stat-label">Plate number</div>
+				<div class="stat-value" id="vehicle-plate">—</div>
+				<div class="stat-hint">Registration</div>
+			</article>
+			<article class="stat-card">
+				<img class="tile-art" src="/assets/logistics/images/payload-icon.png" alt="">
+				<div class="stat-label">Payload capacity</div>
+				<div class="stat-value" id="payload-value">—</div>
+				<div class="stat-hint" id="payload-sub">Max capacity</div>
+			</article>
+			<article class="stat-card">
+				<img class="tile-art" src="/assets/logistics/images/load-icon.png" alt="">
+				<div class="stat-label">Current load</div>
+				<div class="stat-value" id="load-value">—</div>
+				<div class="stat-hint" id="load-util"></div>
+				<div class="load-track" id="load-track" hidden><div id="load-bar"></div></div>
+			</article>
+			</div>
+		</aside>
+	</section>
+
+	<div class="workspace" id="workspace">
+		<section class="card run-panel" id="run-panel">
+			<div class="panel-head">
+				<div>
+					<h2>
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+						Today's Run
+					</h2>
+					<div class="sub" id="run-date"></div>
+					<div class="sub" id="map-route-name"></div>
+				</div>
+				<button class="linkish" id="view-all-stops" type="button">View all stops →</button>
+				<button class="linkish" id="back-dashboard" type="button">Back to dashboard</button>
+			</div>
+			<div class="route-note" id="route-note" hidden></div>
+			<div class="stops" id="stop-list"></div>
+			<div class="quick-actions" id="quick-actions">
+				<button class="cn-btn" id="call-dispatcher" type="button">Call dispatcher</button>
+				<button class="cn-btn" id="report-problem" type="button">Report a problem</button>
+			</div>
+		</section>
+
 			</div>
 			<div class="who">
 				<img class="avatar" id="avatar" alt="" hidden>
@@ -470,6 +737,7 @@
 					Route Map
 				</h2>
 			</div>
+			<div class="map-wrap" id="map-wrap">
 			<div class="map-wrap">
 				<div id="route-map"></div>
 				<div class="map-note" id="map-empty" hidden>The route map appears when a run is assigned.</div>
@@ -489,6 +757,15 @@
 					<span id="map-km-text"></span>
 				</div>
 				<button class="recenter" id="recenter" type="button" hidden>Re-center</button>
+				<button class="map-compass" id="map-compass" type="button" aria-pressed="true" aria-label="Back to your location" title="Back to your location">
+					<span class="compass-dial" id="compass-dial" aria-hidden="true">
+						<svg width="22" height="22" viewBox="0 0 24 24"><polygon points="12,2.5 16,12 12,10 8,12" fill="#e11d48"/><polygon points="12,21.5 8,12 12,14 16,12" fill="#cbd5e1"/></svg>
+					</span>
+				</button>
+				<button class="map-max" id="map-max" type="button" aria-pressed="false" aria-label="Maximize map">
+					<svg class="icon-expand" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+					<svg class="icon-restore" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M16 3v3a2 2 0 0 0 2 2h3"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/></svg>
+				</button>
 			</div>
 			<div class="metric-row">
 				<div class="metric">
@@ -528,6 +805,31 @@
 		</section>
 	</div>
 
+	<section class="history-panel history-shell" id="history-view">
+		<article class="card history-stage">
+			<div class="panel-head">
+				<div>
+					<h2>
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg>
+						This month
+					</h2>
+					<div class="sub">Runs, on-time rate, and exceptions assigned to you.</div>
+				</div>
+			</div>
+			<div class="history-metrics" id="history-metrics"></div>
+		</article>
+		<aside class="card history-side" aria-label="Past runs">
+			<div class="panel-head">
+				<div>
+					<h2>
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+						Past runs
+					</h2>
+					<div class="sub">Completed and earlier run sheets.</div>
+				</div>
+			</div>
+			<div class="history-list" id="history-list"></div>
+		</aside>
 	<section class="card history-panel" id="history-view">
 		<h2>Past runs</h2>
 		<div class="sub">Completed and earlier run sheets assigned to you.</div>
@@ -576,12 +878,24 @@
 		navigating: false,
 		voice: window.sessionStorage.getItem("driver-nav-voice") !== "off",
 		follow: true,
+		cameraHeld: false,
+		zoomArmed: false,
+		northLocked: false,
+		applyingHeading: 0,
 		watchId: null,
 		fix: null,
 		steps: [],
 		spokenStep: -1,
 		eta: null,
+		etaFix: null,
 		runEta: null,
+		runAnchorMeters: null,
+		legEtas: null,
+		legEtasAt: 0,
+		seededEta: null,
+		seededFix: null,
+		speedKph: null,
+		fallbackLine: null,
 		routedAt: 0,
 		routedFix: null,
 		routing: false,
@@ -594,6 +908,7 @@
 		if (node) node.textContent = value == null ? "" : String(value);
 	}
 	function formatKm(km) {
+		if (km == null || km === "") return "—";
 		const value = Number(km);
 		if (!Number.isFinite(value)) return "—";
 		const rounded = Math.round(value * 10) / 10;
@@ -683,6 +998,15 @@
 		text("speed-value", known ? formatAmount(speed) : "—");
 		text("speed-unit", known ? "km/h" : "");
 		text("speed-sub", known ? "Last reading" : "No reading");
+		const ratio = known ? Math.max(0, Math.min(1, speed / 120)) : 0;
+		const arc = $("speed-arc");
+		if (arc) {
+			const length = 157;
+			arc.style.strokeDasharray = String(length);
+			arc.style.strokeDashoffset = String(length * (1 - ratio));
+		}
+		const needle = $("speed-needle");
+		if (needle) needle.style.transform = "rotate(" + (-58 + ratio * 116) + "deg)";
 		const arc = $("speed-arc");
 		const length = 157;
 		const ratio = known ? Math.max(0, Math.min(1, speed / 120)) : 0;
@@ -692,6 +1016,11 @@
 	function paintHeroImage() {
 		const vehicle = data.vehicle || {};
 		const photo = vehicle.image || data.company_logo || "";
+		const image = $("vehicle-image");
+		const empty = $("dash-empty");
+		if (!photo) {
+			image.hidden = true;
+			if (empty) empty.hidden = false;
 		const stage = $("truck-stage");
 		const image = $("vehicle-image");
 		if (!photo) {
@@ -701,6 +1030,8 @@
 		}
 		image.src = photo;
 		image.alt = vehicle.plate || data.company_name || "Vehicle";
+		image.hidden = false;
+		if (empty) empty.hidden = true;
 		stage.hidden = false;
 		$("driver-app").classList.remove("no-vehicle-image");
 	}
@@ -726,6 +1057,9 @@
 		$("driver-email").href = "mailto:" + data.email;
 	}
 	paintVehicle();
+	text("vehicle-line", (data.vehicle && data.vehicle.line) || "");
+	text("dash-dock-title", data.route_name || (data.linked ? "No active run" : "Driver not linked"));
+	text("dash-dock-meta", data.run_sheet || data.today_label || "");
 	paintHeroImage();
 	cred("cred-license", data.license, "ID", "#e8f8ef");
 	cred("cred-medical", data.medical, "+", "#fff6e8");
@@ -802,6 +1136,21 @@
 		[gate ? gate.name : "Gate pass", gate ? gate.detail : "None issued today"]
 	].map(([title, detail]) => `<div class="stat"><div><b>${escapeHtml(title)}</b><span>${escapeHtml(detail)}</span></div></div>`).join("");
 
+	const historyMetrics = $("history-metrics");
+	if (historyMetrics) {
+		const tiles = [
+			["Completed runs", String(data.activity.completed_runs), "This month"],
+			["On time", onTime, "This month"],
+			["Open exceptions", String(data.activity.open_exceptions), data.activity.open_exceptions ? "To clear" : "All clear"],
+			["Gate pass", gate ? (gate.status || gate.name) : "None", gate ? gate.detail : "None issued today"]
+		];
+		historyMetrics.innerHTML = tiles.map(([label, value, hint]) => `
+			<article class="metric history-tile">
+				<div class="metric-label">${escapeHtml(label)}</div>
+				<div class="metric-value">${escapeHtml(value)}</div>
+				<div class="metric-sub">${escapeHtml(hint)}</div>
+			</article>`).join("");
+	}
 	const history = $("history-list");
 	history.innerHTML = data.history.length ? data.history.map((run) => `
 		<div class="history-row">
@@ -810,23 +1159,24 @@
 		</div>`).join("") : `<div class="empty">Past runs will appear here after you finish a trip.</div>`;
 
 	function showScreen(screen) {
-		const allowed = { dashboard: 1, trips: 1, map: 1, history: 1 };
-		if (!allowed[screen]) screen = "dashboard";
+		const allowed = { route: 1, dashboard: 1, history: 1 };
+		if (!allowed[screen]) screen = "route";
 		$("driver-app").dataset.screen = screen;
 		document.querySelectorAll(".tab").forEach((button) => {
 			button.classList.toggle("active", button.dataset.screen === screen);
 		});
 		const actions = $("quick-actions");
-		if (actions) (screen === "map" ? $("map-panel") : $("run-panel")).appendChild(actions);
-		if ((screen === "dashboard" || screen === "map") && data.stops.length) renderMap();
+		if (actions && $("run-panel")) $("run-panel").appendChild(actions);
+		if (screen === "route") renderMap();
+		if (screen === "route" && (data.stops.length || data.driver_position)) renderMap();
 	}
 	document.querySelectorAll(".tab").forEach((button) => {
 		button.addEventListener("click", () => showScreen(button.dataset.screen));
 	});
-	$("view-all-stops").addEventListener("click", () => showScreen("trips"));
-	$("back-dashboard").addEventListener("click", () => showScreen("dashboard"));
+	const openNav = $("open-navigate");
+	if (openNav) openNav.addEventListener("click", () => showScreen("route"));
 	$("notice-btn").addEventListener("click", () => {
-		showScreen("trips");
+		showScreen("route");
 		const pendingStop = document.querySelector(".stop .pending");
 		if (pendingStop) pendingStop.closest(".stop").scrollIntoView({ block: "center" });
 	});
@@ -842,15 +1192,66 @@
 		$("user-toggle").setAttribute("aria-expanded", "false");
 	});
 
-	function paintStoredDock() {
-		const upcoming = nextStop();
-		const bits = [];
-		if (upcoming && upcoming.eta_min) bits.push(upcoming.eta_min + " min");
-		if (upcoming && upcoming.eta_km) bits.push(upcoming.eta_km + " km");
-		text("dock-meta", bits.join(" · "));
+	function pointOf(stop) {
+		const point = stop && navApi.stopPoint(stop);
+		return point && typeof point === "object" ? point : null;
+	}
+	function seededDock(upcoming, origin, now) {
+		if (!upcoming || !upcoming.eta_min) return null;
+		if (!state.seededEta || state.seededEta.id !== upcoming.id) {
+			state.seededEta = {
+				id: upcoming.id,
+				seconds: upcoming.eta_min * 60,
+				km: upcoming.eta_km || 0,
+				fetchedAt: now,
+				traffic: false
+			};
+			state.seededFix = origin ? { lat: Number(origin.lat), lng: Number(origin.lng) } : null;
+		} else if (!state.seededFix && origin) {
+			state.seededFix = { lat: Number(origin.lat), lng: Number(origin.lng) };
+		}
+		return state.seededEta;
+	}
+	function movingDock(upcoming, origin, now) {
+		const target = pointOf(upcoming);
+		if (state.eta) {
+			const base = state.etaFix && target ? navApi.distanceMeters(state.etaFix, target) : null;
+			const current = origin && target ? navApi.distanceMeters(origin, target) : null;
+			return navApi.followEta(state.eta, base, current, now);
+		}
+		const seed = seededDock(upcoming, origin, now);
+		if (seed && seed.km > 0) {
+			const base = state.seededFix && target ? navApi.distanceMeters(state.seededFix, target) : null;
+			const current = origin && target ? navApi.distanceMeters(origin, target) : null;
+			return navApi.followEta(seed, base, current, now);
+		}
+		if (origin && target) return navApi.geometricEta(navApi.distanceMeters(origin, target), state.speedKph);
+		if (!seed) return null;
+		return navApi.followEta(seed, null, null, now);
+	}
+	function movingRun(origin, now) {
+		const pending = data.stops.filter((stop) => !stop.done && stop.lat != null && stop.lng != null);
+		const current = origin ? navApi.routeMeters(data.stops, origin) : null;
+		if (state.runEta) return navApi.followEta(state.runEta, state.runAnchorMeters, current, now);
+		if (origin && pending.length) return navApi.geometricEta(current || 0, state.speedKph);
+		const km = fallbackKm();
+		if (km == null) return null;
+		return { seconds: null, km: km, traffic: false };
+	}
+	function paintLiveStops(origin, now) {
+		if (state.legEtas && state.legEtas.length) {
+			const current = origin ? navApi.routeMeters(data.stops, origin) : state.runAnchorMeters;
+			paintStopEtas(navApi.tickStops(state.legEtas, state.legEtasAt, now, state.runAnchorMeters, current));
+			return;
+		}
+		if (!origin) return;
+		const pace = state.speedKph >= 8 ? 3600 / state.speedKph : 90;
+		paintStopEtas(navApi.progressEtas(data.stops, origin, pace));
 	}
 	function paintDock() {
+		const now = Date.now();
 		const upcoming = nextStop();
+		const origin = originNow();
 		const remaining = data.stops.filter((stop) => !stop.done).length;
 		text("dock-title", upcoming ? upcoming.headline : (data.stops.length ? "Run complete" : "No active stop"));
 		text("dock-address", upcoming ? upcoming.address : "");
@@ -858,8 +1259,8 @@
 		$("dock-nav").textContent = state.navigating ? "End navigation" : "Start navigation";
 		text("stops-left", String(remaining));
 		text("stops-left-sub", "of " + data.total + " stops");
-		const km = state.runEta ? state.runEta.km : fallbackKm();
-		const kmLabel = formatKm(km);
+		const run = movingRun(origin, now);
+		const kmLabel = formatKm(run ? run.km : null);
 		text("distance-remaining", kmLabel);
 		text("hero-km", kmLabel === "—" ? "—" : kmLabel + " remaining");
 		if (kmLabel === "—") {
@@ -868,26 +1269,26 @@
 			$("map-km-chip").hidden = false;
 			text("map-km-text", kmLabel + " remaining");
 		}
-		if (state.runEta) {
-			const seconds = navApi.liveSeconds(state.runEta, Date.now());
-			const clock = formatClock(new Date(Date.now() + seconds * 1000));
+		if (run && run.seconds != null) {
+			const clock = formatClock(new Date(now + run.seconds * 1000));
 			text("eta-final", clock);
 			text("hero-eta", clock);
-			text("eta-final-sub", state.runEta.traffic ? "Based on current traffic" : "Estimated");
+			text("eta-final-sub", run.traffic ? "Based on current traffic" : "Estimated");
 		}
+		paintLiveStops(origin, now);
 		if (!upcoming) {
 			if (data.stops.length) text("dock-meta", "Every stop on this run is done.");
 			$("traffic-flag").hidden = true;
 			return;
 		}
-		if (!state.eta) {
-			paintStoredDock();
+		const dock = movingDock(upcoming, origin, now);
+		if (!dock) {
+			text("dock-meta", "");
 			$("traffic-flag").hidden = true;
 			return;
 		}
-		const seconds = navApi.liveSeconds(state.eta, Date.now());
-		text("dock-meta", navApi.formatEtaLabel(seconds, state.eta.km, Date.now()));
-		$("traffic-flag").hidden = !state.eta.traffic;
+		text("dock-meta", navApi.formatEtaLabel(dock.seconds, dock.km, now));
+		$("traffic-flag").hidden = !dock.traffic;
 	}
 	function paintStopEtas(rows) {
 		const byId = {};
@@ -899,14 +1300,133 @@
 		});
 	}
 	paintDock();
-	window.setInterval(paintDock, 1000);
+	window.setInterval(() => {
+		paintDock();
+		if (state.navigating) showGuidance(state.fix);
+	}, 1000);
+
+
+	function pointOf(stop) {
+		const point = stop && navApi.stopPoint(stop);
+		return point && typeof point === "object" ? point : null;
+	}
+	function seededDock(upcoming, origin, now) {
+		if (!upcoming || !upcoming.eta_min) return null;
+		if (!state.seededEta || state.seededEta.id !== upcoming.id) {
+			state.seededEta = {
+				id: upcoming.id,
+				seconds: upcoming.eta_min * 60,
+				km: upcoming.eta_km || 0,
+				fetchedAt: now,
+				traffic: false
+			};
+			state.seededFix = origin ? { lat: Number(origin.lat), lng: Number(origin.lng) } : null;
+		} else if (!state.seededFix && origin) {
+			state.seededFix = { lat: Number(origin.lat), lng: Number(origin.lng) };
+		}
+		return state.seededEta;
+	}
+	function movingDock(upcoming, origin, now) {
+		const target = pointOf(upcoming);
+		if (state.eta) {
+			const base = state.etaFix && target ? navApi.distanceMeters(state.etaFix, target) : null;
+			const current = origin && target ? navApi.distanceMeters(origin, target) : null;
+			return navApi.followEta(state.eta, base, current, now);
+		}
+		const seed = seededDock(upcoming, origin, now);
+		if (seed && seed.km > 0) {
+			const base = state.seededFix && target ? navApi.distanceMeters(state.seededFix, target) : null;
+			const current = origin && target ? navApi.distanceMeters(origin, target) : null;
+			return navApi.followEta(seed, base, current, now);
+		}
+		if (origin && target) return navApi.geometricEta(navApi.distanceMeters(origin, target), state.speedKph);
+		if (!seed) return null;
+		return navApi.followEta(seed, null, null, now);
+	}
+	function movingRun(origin, now) {
+		const pending = data.stops.filter((stop) => !stop.done && stop.lat != null && stop.lng != null);
+		const current = origin ? navApi.routeMeters(data.stops, origin) : null;
+		if (state.runEta) return navApi.followEta(state.runEta, state.runAnchorMeters, current, now);
+		if (origin && pending.length) return navApi.geometricEta(current || 0, state.speedKph);
+		const km = fallbackKm();
+		if (km == null) return null;
+		return { seconds: null, km: km, traffic: false };
+	}
+	function paintLiveStops(origin, now) {
+		if (state.legEtas && state.legEtas.length) {
+			const current = origin ? navApi.routeMeters(data.stops, origin) : state.runAnchorMeters;
+			paintStopEtas(navApi.tickStops(state.legEtas, state.legEtasAt, now, state.runAnchorMeters, current));
+			return;
+		}
+		if (!origin) return;
+		const pace = state.speedKph >= 8 ? 3600 / state.speedKph : 90;
+		paintStopEtas(navApi.progressEtas(data.stops, origin, pace));
+	}
+	function paintDock() {
+		const now = Date.now();
+		const upcoming = nextStop();
+		const origin = originNow();
+		const remaining = data.stops.filter((stop) => !stop.done).length;
+		text("dock-title", upcoming ? upcoming.headline : (data.stops.length ? "Run complete" : "No active stop"));
+		text("dock-address", upcoming ? upcoming.address : "");
+		$("dock-nav").disabled = !upcoming;
+		$("dock-nav").textContent = state.navigating ? "End navigation" : "Start navigation";
+		text("stops-left", String(remaining));
+		text("stops-left-sub", "of " + data.total + " stops");
+		const run = movingRun(origin, now);
+		const kmLabel = formatKm(run ? run.km : null);
+		text("distance-remaining", kmLabel);
+		text("hero-km", kmLabel === "—" ? "—" : kmLabel + " remaining");
+		if (kmLabel === "—") {
+			$("map-km-chip").hidden = true;
+		} else {
+			$("map-km-chip").hidden = false;
+			text("map-km-text", kmLabel + " remaining");
+		}
+		if (run && run.seconds != null) {
+			const clock = formatClock(new Date(now + run.seconds * 1000));
+			text("eta-final", clock);
+			text("hero-eta", clock);
+			text("eta-final-sub", run.traffic ? "Based on current traffic" : "Estimated");
+		}
+		paintLiveStops(origin, now);
+		if (!upcoming) {
+			if (data.stops.length) text("dock-meta", "Every stop on this run is done.");
+			$("traffic-flag").hidden = true;
+			return;
+		}
+		const dock = movingDock(upcoming, origin, now);
+		if (!dock) {
+			text("dock-meta", "");
+			$("traffic-flag").hidden = true;
+			return;
+		}
+		text("dock-meta", navApi.formatEtaLabel(dock.seconds, dock.km, now));
+		$("traffic-flag").hidden = !dock.traffic;
+	}
+	function paintStopEtas(rows) {
+		const byId = {};
+		(rows || []).forEach((row) => { byId[row.id] = row; });
+		document.querySelectorAll("[data-eta-for]").forEach((el) => {
+			const row = byId[el.dataset.etaFor];
+			if (!row) return;
+			el.textContent = row.minutes + " min · " + row.km + " km";
+		});
+	}
+	paintDock();
+	window.setInterval(() => {
+		paintDock();
+		if (state.navigating) showGuidance(state.fix);
+	}, 1000);
 
 	function focusStop(id) {
 		const stop = data.stops.find((item) => item.id === id);
 		if (!stop || stop.lat == null || stop.lng == null) return;
-		if ($("driver-app").dataset.screen === "trips" || $("driver-app").dataset.screen === "history") showScreen("map");
+		if ($("driver-app").dataset.screen !== "route") showScreen("route");
 		if (!state.map) return;
 		state.follow = false;
+		state.cameraHeld = true;
+		state.zoomArmed = false;
 		state.map.panTo({ lat: Number(stop.lat), lng: Number(stop.lng) });
 		if (state.map.getZoom() < 14) state.map.setZoom(15);
 	}
@@ -994,6 +1514,49 @@
 		});
 	}
 	function fitStops() {
+		if (!state.map || state.cameraHeld || (state.navigating && state.follow)) return;
+		const bounds = new google.maps.LatLngBounds();
+		const points = [];
+		const add = (point) => {
+			if (!point || point.lat == null || point.lng == null) return;
+			const spot = { lat: Number(point.lat), lng: Number(point.lng) };
+			if (!Number.isFinite(spot.lat) || !Number.isFinite(spot.lng)) return;
+			bounds.extend(spot);
+			points.push(spot);
+		};
+		add(originNow());
+		data.stops.forEach((stop) => add(stop.lat == null ? null : stop));
+		if (points.length < 2) return;
+		state.map.fitBounds(bounds, 64);
+	}
+	function holdCamera() {
+		state.cameraHeld = true;
+	}
+	function watchCamera(map) {
+		const node = map.getDiv();
+		const arm = () => { state.zoomArmed = true; };
+		node.addEventListener("wheel", arm, { capture: true, passive: true });
+		node.addEventListener("dblclick", arm, true);
+		node.addEventListener("gesturestart", arm, true);
+		node.addEventListener("touchstart", (event) => {
+			if (event.touches && event.touches.length > 1) arm();
+		}, { capture: true, passive: true });
+		node.addEventListener("keydown", (event) => {
+			if (event.key === "+" || event.key === "-" || event.key === "=" || event.key === "_") arm();
+		}, true);
+		node.addEventListener("pointerdown", (event) => {
+			const target = event.target;
+			if (target && target.closest && target.closest(".gm-bundled-control, .gmnoprint, button")) arm();
+		}, true);
+		map.addListener("zoom_changed", () => {
+			if (!state.zoomArmed) return;
+			state.zoomArmed = false;
+			holdCamera();
+		});
+		map.addListener("dragstart", () => {
+			holdCamera();
+			if (state.navigating) state.follow = false;
+		});
 		if (!state.map || (state.navigating && state.follow)) return;
 		const bounds = new google.maps.LatLngBounds();
 		let any = false;
@@ -1013,6 +1576,10 @@
 		if (mapsPromise) return mapsPromise;
 		const key = data.google_maps_key;
 		if (!key) return Promise.reject(new Error("Google Maps is not configured. Add the API key in Logistics Settings."));
+		window.gm_authFailure = function () {
+			state.mapsFailed = true;
+			setStatus("Google Maps rejected the API key. Navigation stays on this page, and the ETA still follows the truck.");
+		};
 		mapsPromise = new Promise((resolve, reject) => {
 			const script = document.createElement("script");
 			script.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(key) + "&libraries=geometry&v=weekly";
@@ -1071,12 +1638,22 @@
 				polylineOptions: { strokeColor: "#2f6bff", strokeWeight: 6 }
 			});
 		}
+		state.renderer.setOptions({ preserveViewport: state.cameraHeld || Boolean(state.navigating && state.fix) });
 		state.renderer.setOptions({ preserveViewport: Boolean(state.navigating && state.fix) });
 		state.renderer.setDirections(result);
+		if (state.fallbackLine) {
+			state.fallbackLine.setMap(null);
+			state.fallbackLine = null;
+		}
 		const route = navApi.readRoute(result);
-		state.steps = (route.legs[0] && route.legs[0].steps) || [];
+		state.steps = navApi.routeSteps(route.legs);
 		const eta = navApi.etasFromLegs(route.legs, plan.included, plan.originIsDriver);
 		const now = Date.now();
+		const anchor = state.routedFix && state.routedFix.lat != null
+			? { lat: Number(state.routedFix.lat), lng: Number(state.routedFix.lng) }
+			: null;
+		state.etaFix = anchor;
+		state.runAnchorMeters = navApi.routeMeters(data.stops, anchor);
 		if (eta.dock) {
 			state.eta = {
 				seconds: eta.dock.seconds,
@@ -1094,12 +1671,14 @@
 				traffic: route.traffic
 			};
 		}
-		paintStopEtas(eta.stops);
+		state.legEtas = eta.stops;
+		state.legEtasAt = now;
 		paintDock();
 		drawMarkers();
 		placeDriver(state.fix || data.driver_position);
+		if (!state.cameraHeld && (!state.navigating || !state.fix)) fitStops();
 		if (!state.navigating || !state.fix) fitStops();
-		if (state.navigating) followStep(state.fix);
+		if (state.navigating) showGuidance(state.fix);
 		if (plan.omitted) {
 			$("route-note").hidden = false;
 			text("route-note", plan.omitted + (plan.omitted === 1 ? " later stop joins" : " later stops join") + " this route as you finish these.");
@@ -1116,23 +1695,109 @@
 			drawMarkers();
 			placeDriver(originNow());
 			fitStops();
+			state.routedAt = Date.now();
 			return;
 		}
 		state.routing = true;
-		state.routedAt = Date.now();
 		state.routedFix = originNow();
 		requestDirections(plan).then((result) => {
 			state.routing = false;
+			state.routedAt = Date.now();
 			applyDirections(result, plan);
 		}).catch((error) => {
 			state.routing = false;
+			state.routedAt = Date.now() - 30000;
 			const status = error && error.message;
 			setStatus(status === "REQUEST_DENIED"
-				? "Traffic routing was refused. The stops stay on the map."
-				: "The live route could not be refreshed. The last ETA stays until the next fix.");
+				? "Traffic routing was refused. The stops stay on the map, and the ETA still follows the truck."
+				: "The road route could not be refreshed. The ETA keeps following the truck.");
+			if (!state.renderer) drawFallbackPath();
 			drawMarkers();
 			fitStops();
 		});
+	}
+	function drawFallbackPath() {
+		if (!state.map || !window.google || !google.maps) return;
+		const path = [];
+		const origin = originNow();
+		if (origin && origin.lat != null && origin.lng != null) {
+			path.push({ lat: Number(origin.lat), lng: Number(origin.lng) });
+		}
+		data.stops.forEach((stop) => {
+			if (stop.done || stop.lat == null || stop.lng == null) return;
+			path.push({ lat: Number(stop.lat), lng: Number(stop.lng) });
+		});
+		if (state.fallbackLine) state.fallbackLine.setMap(null);
+		if (path.length < 2) {
+			state.fallbackLine = null;
+			return;
+		}
+		state.fallbackLine = new google.maps.Polyline({
+			path: path,
+			map: state.map,
+			strokeColor: "#2f6bff",
+			strokeWeight: 5,
+			geodesic: true
+		});
+	}
+	function paintRouteBoard() {
+		if (state.map) return;
+		const box = $("route-map");
+		if (!box) return;
+		box.hidden = false;
+		const note = $("map-empty");
+		if (note) note.hidden = true;
+		const spots = [];
+		const origin = originNow();
+		if (origin && origin.lat != null && origin.lng != null) {
+			spots.push({ lat: Number(origin.lat), lng: Number(origin.lng), role: "driver" });
+		}
+		data.stops.forEach((stop) => {
+			if (stop.lat == null || stop.lng == null) return;
+			spots.push({
+				lat: Number(stop.lat),
+				lng: Number(stop.lng),
+				role: stop.done ? "done" : (stop.state === "next" ? "next" : "stop"),
+				label: String(stop.number)
+			});
+		});
+		if (!spots.length) return;
+		let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+		spots.forEach((spot) => {
+			minLat = Math.min(minLat, spot.lat);
+			maxLat = Math.max(maxLat, spot.lat);
+			minLng = Math.min(minLng, spot.lng);
+			maxLng = Math.max(maxLng, spot.lng);
+		});
+		const latSpan = Math.max(0.01, maxLat - minLat);
+		const lngSpan = Math.max(0.01, maxLng - minLng);
+		minLat -= latSpan * 0.28;
+		maxLat += latSpan * 0.28;
+		minLng -= lngSpan * 0.28;
+		maxLng += lngSpan * 0.28;
+		const width = 1000;
+		const height = 700;
+		const px = (lng) => ((lng - minLng) / (maxLng - minLng)) * width;
+		const py = (lat) => (1 - (lat - minLat) / (maxLat - minLat)) * height;
+		const line = spots
+			.filter((spot) => spot.role !== "done")
+			.map((spot) => px(spot.lng).toFixed(1) + "," + py(spot.lat).toFixed(1))
+			.join(" ");
+		const marks = spots.filter((spot) => spot.role !== "driver").concat(spots.filter((spot) => spot.role === "driver")).map((spot) => {
+			const cx = px(spot.lng);
+			const cy = py(spot.lat);
+			if (spot.role === "driver") {
+				return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="16" fill="#0ea5e9" stroke="white" stroke-width="4"/>`;
+			}
+			const fill = spot.role === "done" ? "#22c55e" : (spot.role === "next" ? "#2f6bff" : "#64748b");
+			return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="18" fill="${fill}" stroke="white" stroke-width="4"/><text x="${cx.toFixed(1)}" y="${(cy + 6).toFixed(1)}" text-anchor="middle" font-size="18" font-weight="700" fill="white" font-family="Arial,sans-serif">${spot.label}</text>`;
+		}).join("");
+		box.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" role="img" aria-label="Route of remaining stops"><rect width="${width}" height="${height}" fill="#d7e6f2"/><polyline points="${line}" fill="none" stroke="#2f6bff" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>${marks}</svg>`;
+	}
+	function showMapFailure() {
+		state.mapsFailed = true;
+		paintRouteBoard();
+		setStatus("Road guidance needs the Maps key. The line is every remaining stop, and the ETA follows the truck.");
 	}
 	function followStep(fix) {
 		if (!state.navigating || !state.steps.length) return;
@@ -1152,22 +1817,54 @@
 			speak(lead + (step.instruction || "Continue"));
 		}
 	}
+	function showGuidance(fix) {
+		if (!state.navigating) return;
+		if (state.steps.length) {
+			followStep(fix);
+			return;
+		}
+		const upcoming = nextStop();
+		if (!upcoming) return;
+		const target = pointOf(upcoming);
+		const meters = fix && target ? navApi.distanceMeters(fix, target) : null;
+		const heading = fix && target ? navApi.compass(fix, target) : "";
+		const place = upcoming.place || upcoming.headline;
+		const instruction = heading ? "Head " + heading + " toward " + place : "Head toward " + place;
+		$("maneuver").hidden = false;
+		text("maneuver-text", instruction);
+		text("maneuver-dist", meters != null && Number.isFinite(meters) ? navApi.formatMeters(meters) : "");
+		const later = data.stops.filter((stop) => !stop.done).length - 1;
+		text("maneuver-next", later > 0 ? later + (later === 1 ? " stop" : " stops") + " after this" : "");
+		const bearing = fix && target ? navApi.bearingDegrees(fix, target) : 0;
+		$("maneuver-arrow").style.transform = "rotate(" + (bearing || 0) + "deg)";
+		if (instruction !== state.spokenStep) {
+			state.spokenStep = instruction;
+			const lead = meters > 40 ? "In " + navApi.formatMeters(meters) + ", " : "";
+			speak(lead + instruction);
+		}
+	}
 	function onFix(position) {
 		const fix = {
 			lat: position.coords.latitude,
 			lng: position.coords.longitude,
 			heading: position.coords.heading
 		};
+		const speed = position.coords.speed;
+		if (Number.isFinite(speed) && speed >= 0) state.speedKph = speed * 3.6;
 		state.fix = fix;
-		setStatus("");
+		if (!state.mapsFailed) setStatus("");
 		placeDriver(fix);
 		if (state.navigating && state.follow && state.map) {
 			state.map.panTo(fix);
+			if (!state.cameraHeld && state.map.getZoom() < 15) state.map.setZoom(16);
+			faceTravel(fix.heading);
 			if (state.map.getZoom() < 15) state.map.setZoom(16);
 		}
-		followStep(fix);
+		showGuidance(fix);
+		paintDock();
+		if (!state.map) paintRouteBoard();
 		const moved = state.routedFix ? navApi.distanceMeters(state.routedFix, fix) : Infinity;
-		if (!state.routing && navApi.shouldRefreshRoute({ lastAt: state.routedAt, movedMeters: moved }, Date.now())) {
+		if (!state.routing && state.map && navApi.shouldRefreshRoute({ lastAt: state.routedAt, movedMeters: moved }, Date.now())) {
 			refreshRoute();
 		}
 	}
@@ -1184,7 +1881,7 @@
 		}
 		state.watchId = navigator.geolocation.watchPosition(onFix, onFixError, {
 			enableHighAccuracy: true,
-			maximumAge: 4000,
+			maximumAge: 1000,
 			timeout: 20000
 		});
 	}
@@ -1209,9 +1906,12 @@
 		if (state.mapLoading) return;
 		state.mapLoading = true;
 		const box = $("route-map");
-		showGoogleEmbed();
+		box.hidden = false;
+		paintRouteBoard();
 		loadGoogleMaps().then(() => {
 			if (state.map) return;
+			const here = originNow();
+			const center = here || data.driver_position || { lat: 14.55, lng: 121.02 };
 			const center = data.driver_position || { lat: 14.55, lng: 121.02 };
 			const options = {
 				center: center,
@@ -1220,6 +1920,17 @@
 				mapTypeControl: false,
 				streetViewControl: false,
 				fullscreenControl: false,
+				rotateControl: false,
+				clickableIcons: false,
+				gestureHandling: "greedy",
+				heading: 0,
+				tilt: 0,
+				headingInteractionEnabled: true,
+				tiltInteractionEnabled: false
+			};
+			if (google.maps.RenderingType && google.maps.RenderingType.VECTOR) {
+				options.renderingType = google.maps.RenderingType.VECTOR;
+			}
 				clickableIcons: false,
 				gestureHandling: "greedy"
 			};
@@ -1227,42 +1938,35 @@
 				options.zoomControlOptions = { position: google.maps.ControlPosition.RIGHT_CENTER };
 			}
 			state.map = new google.maps.Map(box, options);
+			watchCamera(state.map);
+			if (typeof state.map.setHeadingInteractionEnabled === "function") state.map.setHeadingInteractionEnabled(true);
+			if (typeof state.map.setTiltInteractionEnabled === "function") state.map.setTiltInteractionEnabled(false);
+			state.map.addListener("heading_changed", () => {
+				if (!state.applyingHeading) state.northLocked = true;
+				paintCompass();
+			});
+			paintCompass();
+			$("map-empty").hidden = true;
 			const traffic = new google.maps.TrafficLayer();
 			traffic.setMap(state.map);
 			state.map.addListener("dragstart", () => {
 				if (state.navigating) state.follow = false;
 			});
+			drawMarkers();
+			placeDriver(originNow());
+			drawFallbackPath();
+			if (data.stops.length) fitStops();
+			else if (here) {
+				state.map.setCenter(here);
+				state.map.setZoom(14);
+			}
+			fitStops();
 			ensureWatch();
 			refreshRoute();
 		}).catch(() => {
 			state.mapLoading = false;
-			state.mapsFailed = true;
-			showGoogleEmbed();
+			showMapFailure();
 		});
-	}
-	function googleEmbedUrl() {
-		const points = [];
-		const origin = originNow();
-		if (origin && origin.lat != null && origin.lng != null) points.push(origin);
-		data.stops.forEach((stop) => {
-			if (stop.lat != null && stop.lng != null) points.push(stop);
-		});
-		if (!points.length) points.push({ lat: 14.55, lng: 121.02 });
-		const lat = points.reduce((sum, point) => sum + Number(point.lat), 0) / points.length;
-		const lng = points.reduce((sum, point) => sum + Number(point.lng), 0) / points.length;
-		return "https://maps.google.com/maps?ll=" + encodeURIComponent(lat + "," + lng) + "&z=12&t=m&output=embed";
-	}
-	function showGoogleEmbed() {
-		const box = $("route-map");
-		if (!box || !data.stops.length) return;
-		box.hidden = false;
-		const frame = document.createElement("iframe");
-		frame.className = "google-map-frame";
-		frame.title = "Google Map";
-		frame.loading = "lazy";
-		frame.referrerPolicy = "no-referrer-when-downgrade";
-		frame.src = googleEmbedUrl();
-		box.replaceChildren(frame);
 	}
 	function stopGuidance() {
 		state.navigating = false;
@@ -1270,39 +1974,154 @@
 		$("maneuver").hidden = true;
 		$("recenter").hidden = true;
 		if (window.speechSynthesis) window.speechSynthesis.cancel();
+		pointNorth();
 		paintDock();
-		showScreen("dashboard");
 	}
 	function startGuidance() {
 		state.navigating = true;
 		state.follow = true;
+		state.cameraHeld = false;
+		state.northLocked = false;
 		state.spokenStep = -1;
 		$("maneuver").hidden = false;
 		$("recenter").hidden = false;
 		text("maneuver-text", "Starting navigation");
 		text("maneuver-dist", "");
 		text("maneuver-next", "");
-		showScreen("map");
+		showScreen("route");
 		ensureWatch();
 		if (state.map) refreshRoute();
+		else renderMap();
 		speak("Navigation started");
 		paintDock();
+		showGuidance(state.fix);
 	}
 	$("dock-nav").addEventListener("click", () => {
 		if (!nextStop()) return;
-		if (state.navigating) {
-			stopGuidance();
-			return;
-		}
-		if (state.mapsFailed || (!data.google_maps_key && !(window.google && window.google.maps))) {
-			window.open(navApi.mapsFallbackUrl(data.stops, originNow()), "_blank", "noopener");
-			setStatus("In-app maps are unavailable, so the whole run opened in Google Maps.");
-			return;
-		}
-		startGuidance();
+		if (state.navigating) stopGuidance();
+		else startGuidance();
 	});
 	$("recenter").addEventListener("click", () => {
 		state.follow = true;
+		state.cameraHeld = false;
+		state.zoomArmed = false;
+		const point = userLocation();
+		if (point && state.map) {
+			state.map.panTo(point);
+			state.map.setZoom(16);
+		}
+	});
+	function mapIsMax() {
+		const box = $("map-wrap");
+		const active = document.fullscreenElement || document.webkitFullscreenElement;
+		return active === box || box.classList.contains("is-max");
+	}
+	function syncMapMax() {
+		const on = mapIsMax();
+		const button = $("map-max");
+		button.setAttribute("aria-pressed", on ? "true" : "false");
+		button.setAttribute("aria-label", on ? "Restore map" : "Maximize map");
+		button.querySelector(".icon-expand").hidden = on;
+		button.querySelector(".icon-restore").hidden = !on;
+		if (state.map && window.google && google.maps.event) {
+			google.maps.event.trigger(state.map, "resize");
+			const focus = state.fix || originNow();
+			if (focus) state.map.panTo(focus);
+		}
+	}
+	function toggleMapMax() {
+		const box = $("map-wrap");
+		const active = document.fullscreenElement || document.webkitFullscreenElement;
+		if (active || box.classList.contains("is-max")) {
+			box.classList.remove("is-max");
+			if (active) {
+				const exit = document.exitFullscreen || document.webkitExitFullscreen;
+				if (exit) exit.call(document);
+			}
+			syncMapMax();
+			return;
+		}
+		const request = box.requestFullscreen || box.webkitRequestFullscreen;
+		if (!request) {
+			box.classList.toggle("is-max");
+			syncMapMax();
+			return;
+		}
+		Promise.resolve(request.call(box)).catch(() => {
+			box.classList.add("is-max");
+			syncMapMax();
+		});
+	}
+	function mapHeading() {
+		if (!state.map || typeof state.map.getHeading !== "function") return 0;
+		const heading = Number(state.map.getHeading());
+		if (!Number.isFinite(heading)) return 0;
+		return ((heading % 360) + 360) % 360;
+	}
+	function paintCompass() {
+		const heading = mapHeading();
+		const north = heading < 1 || heading > 359;
+		const dial = $("compass-dial");
+		if (dial) dial.style.transform = "rotate(" + (-heading) + "deg)";
+		const button = $("map-compass");
+		const label = north ? "Back to your location" : "Back to your location, north up";
+		button.setAttribute("aria-pressed", north ? "true" : "false");
+		button.setAttribute("aria-label", label);
+		button.title = label;
+	}
+	function setMapHeading(heading) {
+		if (!state.map || typeof state.map.setHeading !== "function") {
+			paintCompass();
+			return;
+		}
+		const value = ((Number(heading) % 360) + 360) % 360;
+		state.applyingHeading += 1;
+		try {
+			state.map.setHeading(value);
+			if (value === 0 && typeof state.map.setTilt === "function") state.map.setTilt(0);
+		} catch (error) {
+			state.applyingHeading = Math.max(0, state.applyingHeading - 1);
+		}
+		window.setTimeout(() => {
+			state.applyingHeading = Math.max(0, state.applyingHeading - 1);
+			paintCompass();
+		}, 80);
+	}
+	function userLocation() {
+		if (state.driverMarker && typeof state.driverMarker.getPosition === "function") {
+			const pos = state.driverMarker.getPosition();
+			if (pos) {
+				const lat = typeof pos.lat === "function" ? pos.lat() : pos.lat;
+				const lng = typeof pos.lng === "function" ? pos.lng() : pos.lng;
+				if (Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
+					return { lat: Number(lat), lng: Number(lng) };
+				}
+			}
+		}
+		const origin = originNow();
+		if (origin && origin.lat != null && origin.lng != null) {
+			return { lat: Number(origin.lat), lng: Number(origin.lng) };
+		}
+		return null;
+	}
+	function pointNorth() {
+		state.northLocked = true;
+		setMapHeading(0);
+		const point = userLocation();
+		if (!state.map || !point) return;
+		state.follow = true;
+		state.map.panTo(point);
+	}
+	function faceTravel(heading) {
+		if (state.northLocked || !state.navigating || !state.follow) return;
+		const value = Number(heading);
+		if (!Number.isFinite(value)) return;
+		setMapHeading(value);
+	}
+	$("map-compass").addEventListener("click", pointNorth);
+	$("map-max").addEventListener("click", toggleMapMax);
+	document.addEventListener("fullscreenchange", syncMapMax);
+	document.addEventListener("webkitfullscreenchange", syncMapMax);
 		if (state.fix && state.map) {
 			state.map.panTo(state.fix);
 			state.map.setZoom(16);
@@ -1362,7 +2181,8 @@
 		}).catch(() => { $("problem-send").disabled = false; });
 	});
 
-	showScreen("dashboard");
+	showScreen("route");
+	ensureWatch();
 })();
 </script>
 {% endblock %}

@@ -968,6 +968,22 @@ logistics.patches.v3_0_drop_transport_job_service_milestones
 logistics.patches.v3_0_drop_declaration_booking_milestones
 # Transport Job grid no longer stores Transport Order milestones; the timeline reads them live
 logistics.patches.v3_0_drop_transport_job_order_milestones
+# Sales Invoice HTML: keep a short credit note VAT summary on page 1
+logistics.patches.v3_0_sales_invoice_html_credit_note_footer_page
+# Sales Quote HTML: route title sits under the quote number
+logistics.patches.v3_0_sales_quote_html_scope_title_spacing
+# Sales Quote HTML: shipper border meets the quote number
+logistics.patches.v3_0_sales_quote_html_quote_number_border
+# Sales Quote HTML: drop the charge row number column
+logistics.patches.v3_0_sales_quote_html_no_row_number
+# Sales Quote HTML: keep the charge rate on the same line as the item
+logistics.patches.v3_0_sales_quote_html_freight_rate_line
+# Sales Quote HTML: charge group labels are not underlined
+logistics.patches.v3_0_sales_quote_html_subheader_no_underline
+# Payment Voucher HTML: signature headers print in black
+logistics.patches.v3_0_payment_voucher_signature_header_color
 # Desk: the programme icon is MICE. Drop the Exhibits tile and saved layout copies.
 logistics.patches.v3_0_mice_desk_icon
+# Logistics Staff: copy Employee role flags and existing rep links onto the new master.
+logistics.patches.v3_0_seed_logistics_staff
 

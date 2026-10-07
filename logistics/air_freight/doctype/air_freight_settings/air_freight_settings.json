@@ -75,7 +75,11 @@
   "default_billing_currency",
   "column_break_billing",
   "billing_check_interval_hours",
-  "enable_billing_alerts"
+  "enable_billing_alerts",
+  "turnover_shipment_section",
+  "enable_turnover_booking",
+  "column_break_turnover",
+  "enable_turnover_shipment"
  ],
  "fields": [
   {
@@ -490,6 +494,30 @@
    "fieldname": "enable_billing_alerts",
    "fieldtype": "Check",
    "label": "Enable Billing Alerts"
+  },
+  {
+   "fieldname": "turnover_shipment_section",
+   "fieldtype": "Section Break",
+   "label": "Turnover Shipment",
+   "description": "When enabled, that document can be created without a Sales Quote. Charges are loaded from a Turnover Charges Template."
+  },
+  {
+   "default": "0",
+   "description": "Show Turnover Shipment on Air Booking.",
+   "fieldname": "enable_turnover_booking",
+   "fieldtype": "Check",
+   "label": "Enable for Booking"
+  },
+  {
+   "fieldname": "column_break_turnover",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Show Turnover Shipment on Air Shipment.",
+   "fieldname": "enable_turnover_shipment",
+   "fieldtype": "Check",
+   "label": "Enable for Shipment"
   }
  ],
  "index_web_pages_for_search": 1,

@@ -14,6 +14,14 @@ To access: **Home > Intercompany**
 
 **Intercompany Invoice Log** – Log of intercompany invoices created and their status. Tracks invoices between group companies for reconciliation.
 
+### 1.3 Operating company cost vs intercompany invoice
+
+The intercompany **Sales Invoice** / **Purchase Invoice** pair is the charge between the operating company and the Main Job’s company. It does not post the operating company’s own internal tariff.
+
+On the operating company’s job, a charge with **Internal** and **Use Tariff in Cost** is posted with **Post → Standard Costs**: one Journal Entry, debit the item **Standard Cost Account**, credit **Applied Standard Cost Account**. That line is left off the supplier Purchase Invoice. Supplier costs on the same job still use a Purchase Invoice.
+
+Full rules, documents, and the same-company case: [Internal and Intercompany Billing](welcome/internal-and-intercompany-billing).
+
 
 <!-- wiki-field-reference:start -->
 

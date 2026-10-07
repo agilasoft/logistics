@@ -212,7 +212,7 @@ class TestSeaBookingExists(FrappeTestCase):
 
 
 class TestSeaBookingSealNumberValidation(FrappeTestCase):
-	"""Seal Number required by Load Type; create-from-quote may skip via ignore_mandatory."""
+	"""Seal Number required for Import + FCL; Export and Domestic skip it."""
 
 	def tearDown(self):
 		frappe.db.rollback()
@@ -272,6 +272,45 @@ class TestSeaBookingSealNumberValidation(FrappeTestCase):
 
 		# Must not throw — same path as create-from-quote insert.
 		booking.validate_seal_numbers_by_mode()
+
+	def test_export_skips_seal_validation(self):
+		mode = self._ensure_load_type(
+			"TEST-SEAL-REQ",
+			sea=1,
+			container=1,
+			required_seal_number=1,
+		)
+		booking = self._booking_with_container(mode)
+		booking.direction = "Export"
+
+		booking.validate_seal_numbers_by_mode()
+
+	def test_domestic_skips_seal_validation(self):
+		mode = self._ensure_load_type(
+			"TEST-SEAL-REQ",
+			sea=1,
+			container=1,
+			required_seal_number=1,
+		)
+		booking = self._booking_with_container(mode)
+		booking.direction = "Domestic"
+
+		booking.validate_seal_numbers_by_mode()
+
+	def test_import_fcl_requires_seal(self):
+		mode = self._ensure_load_type(
+			"TEST-SEAL-REQ",
+			sea=1,
+			container=1,
+			required_seal_number=1,
+		)
+		booking = self._booking_with_container(mode)
+		booking.direction = "Import"
+
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			booking.validate_seal_numbers_by_mode()
+
+		self.assertIn("Seal Number", str(ctx.exception))
 
 
 class TestSeaBookingReleaseTypeToShipment(FrappeTestCase):

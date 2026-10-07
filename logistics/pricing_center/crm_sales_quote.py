@@ -182,7 +182,13 @@ def make_sales_quote_from_opportunity(source_name, target_doc=None):
 				"name",
 			)
 			if employee:
-				target.sales_rep = employee
+				staff = frappe.db.get_value(
+					"Logistics Staff",
+					{"employee": employee, "sales_rep": 1, "is_active": 1},
+					"name",
+				)
+				if staff:
+					target.sales_rep = staff
 
 	return get_mapped_doc(
 		"Opportunity",
