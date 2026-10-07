@@ -46,7 +46,7 @@
  "name": "Statement of Account",
  "owner": "Administrator",
  "prepared_report": 0,
- "ref_doctype": "Dispute",
+ "ref_doctype": "Sales Invoice",
  "report_name": "Statement of Account",
  "report_type": "Script Report",
  "roles": [

@@ -24,10 +24,17 @@ Details and troubleshooting: [Linked Services on Operational Documents](welcome/
 
 ## 2. Internal and intercompany billing
 
-**Unified rules** apply: the **Main Job** holds customer-facing charges; **Internal Jobs** hold service-specific charges with revenue tied to the main job’s cost allocation. The only difference is the document: **Journal Entry** (same company) vs **Sales Invoice / Purchase Invoice** (intercompany).
+**Unified rules** apply: the **Main Job** holds customer-facing charges; **Internal Jobs** hold service-specific charges with revenue tied to the main job’s cost allocation. The only difference in how that revenue is billed is the document: **Journal Entry** (same company) vs **Sales Invoice / Purchase Invoice** (intercompany).
+
+**Internal tariff cost** is posted on the job that owns the charge, in that job’s company, for both same-company and intercompany jobs:
+
+- The charge qualifies when **Internal** and **Use Tariff in Cost** are both ticked, and the line is not a disbursement.
+- **Post → Standard Costs** submits one Journal Entry: debit the item **Standard Cost Account**, credit **Applied Standard Cost Account**, in company currency.
+- Those lines are omitted from **Create Purchase Invoice** and from accrual recognition. Job readiness expects a submitted standard-cost journal.
+- The intercompany Sales Invoice / Purchase Invoice pair is unchanged. It is the transfer to the Main Job’s company, not this cost journal.
 
 - User guide: [Internal and Intercompany Billing](welcome/internal-and-intercompany-billing)
-- Code layer: `cross_module_billing.py` (invoice line extraction, anchor + contributor jobs).
+- Code layer: `cross_module_billing.py` (invoice line extraction, anchor + contributor jobs); `job_management/standard_cost_posting.py` (internal tariff journal).
 
 ## 3. Revenue recognition and GL
 

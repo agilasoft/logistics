@@ -52,6 +52,9 @@ function _gcfq_mount_filter_cell($grid, spec, frm, dialog, idx) {
 	if (spec.fieldtype === "Dynamic Link" && spec.get_options) {
 		df.get_options = spec.get_options;
 	}
+	if (spec.link_filters) {
+		df.link_filters = typeof spec.link_filters === "string" ? spec.link_filters : JSON.stringify(spec.link_filters);
+	}
 	var ctrl = frappe.ui.form.make_control({
 		df: df,
 		parent: $cell,

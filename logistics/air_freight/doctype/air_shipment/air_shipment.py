@@ -49,6 +49,11 @@ class AirShipment(VirtualLinkedServicesMixin, Document):
 	def before_submit(self):
 		"""Validate required data and destination service charges before submit."""
 		self.validate_required_fields_for_submit()
+		from logistics.logistics.doctype.turnover_charges_template.turnover_charges_template import (
+			assert_turnover_template_ready,
+		)
+
+		assert_turnover_template_ready(self)
 		from logistics.utils.charge_service_type import (
 			assert_destination_service_charges_on_submit_unless_internal_job,
 		)
@@ -1514,6 +1519,11 @@ class AirShipment(VirtualLinkedServicesMixin, Document):
 			# Normalize legacy house_type values
 			self._normalize_house_type()
 			self.validate_dates()
+			from logistics.logistics.doctype.turnover_charges_template.turnover_charges_template import (
+				sync_turnover_shipment_charges,
+			)
+
+			sync_turnover_shipment_charges(self)
 			self.validate_air_booking_uniqueness()
 			self.sync_milestones_from_air_booking()
 			self.sync_milestones_from_linked_services()

@@ -707,8 +707,11 @@ class TestTimeSensitiveGcfq(FrappeTestCase):
 		create_test_unloco("USLAX", "Los Angeles", "LAX", "US", "Airport")
 		create_test_unloco("USJFK", "New York JFK", "JFK", "US", "Airport")
 		create_test_unloco("USORD", "Chicago", "ORD", "US", "Airport")
-		rep = frappe.db.get_value("Employee", {"custom_sales_rep": 1}, "name") or frappe.db.get_value(
-			"Employee", {}, "name"
+		from logistics.logistics.doctype.logistics_staff.logistics_staff import ensure_logistics_staff
+
+		rep = ensure_logistics_staff(
+			frappe.db.get_value("Employee", {"custom_sales_rep": 1}, "name")
+			or frappe.db.get_value("Employee", {}, "name")
 		)
 		self._sq_defaults = {
 			"branch": frappe.db.get_value("Branch", {"custom_company": self.company}, "name"),

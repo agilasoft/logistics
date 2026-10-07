@@ -418,6 +418,12 @@ function logistics_sq_open_services_dialog(frm) {
 			listMethod: SQ_SERVICES_API + ".list_quote_linked_services",
 			addMethod: can_manage ? SQ_SERVICES_API + ".add_linked_service" : null,
 			removeMethod: can_manage ? SQ_SERVICES_API + ".remove_linked_service" : null,
+			previewMethod: can_manage
+				? SQ_SERVICES_API + ".preview_linked_services_from_main"
+				: null,
+			createMethod: can_manage
+				? SQ_SERVICES_API + ".create_linked_services_from_main"
+				: null,
 			parentField: "sales_quote",
 			parentLabel: __("Quote"),
 			allowAdd: can_manage,
@@ -425,7 +431,7 @@ function logistics_sq_open_services_dialog(frm) {
 			allowEdit: can_manage,
 			emptyHint: __("Add a service type below to link it to this quote."),
 			addHint: __(
-				"Select a service type to link to this quote. You can add multiple services of the same type (e.g. three Transport legs)."
+				"Choose a service type and quantity, fill in the service details, then Add Service. Qty is stored on that one service. Orders cannot exceed it, and linked charges use the same quantity."
 			),
 			unsavedMessage: __("Save the Sales Quote before managing services."),
 			removeConfirm: (ls) =>
@@ -2350,6 +2356,12 @@ frappe.ui.form.on('Sales Quote Charge', {
 	cost_base_amount: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	use_unit_breaks: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
 	cost_use_unit_breaks: function(frm, cdt, cdn) { _calculate_sales_quote_charge_row(frm, cdt, cdn); },
+
+	linked_service: function (frm, cdt, cdn) {
+		if (logistics.linked_service_link_query) {
+			logistics.linked_service_link_query.applyQuantityFromLinkedService(frm, cdt, cdn);
+		}
+	},
 
 	charge_scope: function(frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);

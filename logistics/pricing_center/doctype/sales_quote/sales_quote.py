@@ -321,6 +321,22 @@ class SalesQuote(Document):
 		"""Keep virtual ``linked_services`` initialised; honour desk grid rows on save."""
 		self._stage_linked_services_from_form()
 
+	def _empty_linked_services_snapshot_is_not_authoritative(self) -> bool:
+		"""True when a missing or empty Services grid must be rebuilt from Linked Service docs.
+
+		``apply_workflow`` reloads the quote with ``load_from_db()``, which pops this
+		virtual table. The client payload has already set ``_linked_services_from_form``,
+		so the flag survives and every reader sees ``[]``. Submit does not run
+		``before_save``, and the desk then syncs that empty list — the Services grid
+		disappears. An empty snapshot is not a removal; Manage Services deletes the
+		Linked Service document itself.
+		"""
+		if self.flags.get("_allow_clear_linked_services"):
+			return False
+		if not getattr(self, "name", None) or getattr(self, "__islocal", False):
+			return False
+		return True
+
 	@property
 	def linked_services(self):
 		"""Live view of Linked Service documents owned by this Sales Quote.
@@ -329,7 +345,11 @@ class SalesQuote(Document):
 		``LazyDocument.append`` (full-page printview) does not RecursionError.
 		"""
 		if self.flags.get("_linked_services_from_form"):
-			return self.__dict__.get("linked_services") or []
+			rows = self.__dict__.get("linked_services") or []
+			if rows or not self._empty_linked_services_snapshot_is_not_authoritative():
+				return rows
+			# Workflow reload / desk submit posted no rows. Rebuild from documents.
+			self.flags._linked_services_from_form = False
 		if "linked_services" in self.__dict__:
 			rows = self.__dict__["linked_services"]
 			if rows and any(getattr(r, "__islocal", None) for r in rows):
@@ -337,11 +357,15 @@ class SalesQuote(Document):
 				return rows
 			# Empty or synced snapshot left by ``_drop_virtual_linked_services_rows``:
 			# rebuild from Linked Service documents when the quote is saved.
-			if not rows and getattr(self, "name", None) and not getattr(self, "__islocal", False):
+			if not rows and self._empty_linked_services_snapshot_is_not_authoritative():
 				del self.__dict__["linked_services"]
 			else:
 				return rows
 		if self.flags.get("_linked_services_view_cached"):
+			if self._empty_linked_services_snapshot_is_not_authoritative():
+				value = self._build_linked_services_view()
+				self.__dict__["linked_services"] = value
+				return value
 			return []
 		value = self._build_linked_services_view()
 		self.__dict__["linked_services"] = value
@@ -427,16 +451,31 @@ class SalesQuote(Document):
 		return rows
 
 	def _drop_virtual_linked_services_rows(self):
-		"""Clear desk grid rows after sync; source of truth is ``Linked Service`` documents."""
+		"""Drop the staged Services snapshot and reload it from Linked Service documents.
+
+		An empty list left in ``__dict__`` is what the desk syncs after submit. Workflow
+		``apply_workflow`` already discarded the virtual rows; the response must show
+		the documents that still exist.
+		"""
 		self.flags._linked_services_from_form = False
 		self.flags._linked_services_view_cached = False
+		self.__dict__.pop("linked_services", None)
+		if getattr(self, "name", None) and not getattr(self, "__islocal", False):
+			# Property (and Frappe's virtual-table wrapper) caches the live rows.
+			self.linked_services
+			return
 		# Keep an empty list so Document.get / global_search never iterates ``None``.
-		# Fresh ``frappe.get_doc`` rebuilds from Linked Service documents via the property.
 		self.__dict__["linked_services"] = []
 
 	def _stage_linked_services_from_form(self):
-		"""Honour desk/API grid rows on save, including an intentional empty grid."""
+		"""Honour desk/API grid rows on save, including an intentional empty grid.
+
+		``load_from_db`` (workflow ``apply_workflow``) pops the virtual table after the
+		client payload has already staged ``_linked_services_from_form``. A missing key
+		is that reload, not a request to clear Services.
+		"""
 		if "linked_services" not in self.__dict__:
+			self.flags._linked_services_from_form = False
 			return
 		if self.__dict__.get("linked_services") is None:
 			self.__dict__["linked_services"] = []
@@ -889,6 +928,11 @@ class SalesQuote(Document):
 					),
 					title=_("Linked Service Type Mismatch"),
 				)
+			from logistics.logistics.doctype.linked_service.linked_service import (
+				copy_linked_service_quantity_to_charge,
+			)
+
+			copy_linked_service_quantity_to_charge(row, ls_link)
 
 	def validate_internal_job_charge_tagging(self):
 		"""Backward-compatible alias."""
@@ -4322,6 +4366,7 @@ def list_quote_linked_services(sales_quote: str):
 				"linked_service": linked.name,
 				"service_type": linked.service_type,
 				"company": linked.company or "",
+				"quantity": cint(getattr(linked, "quantity", None) or 1),
 				"owned_by_quote": 1,
 				"job_type": job_type or "",
 				"order_no": order_no or "",
@@ -4332,9 +4377,20 @@ def list_quote_linked_services(sales_quote: str):
 
 
 @frappe.whitelist()
-def add_linked_service(sales_quote: str, service_type: str):
-	"""Create a Linked Service owned by this Sales Quote."""
-	from logistics.time_sensitive.service_linking import validate_linked_service_type
+def add_linked_service(sales_quote: str, service_type: str, quantity=1, values=None):
+	"""Create one Linked Service owned by this Sales Quote and store ``quantity`` on it.
+
+	When ``values`` is sent (the Add Service form), type-specific details are required.
+	Omitting ``values`` keeps a blank create. Quantity is never turned into extra rows.
+	"""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		apply_dialog_create_values,
+		prepare_dialog_create_values,
+	)
+	from logistics.time_sensitive.service_linking import (
+		apply_linked_service_quantity,
+		validate_linked_service_type,
+	)
 	from logistics.utils.linked_service_compat import linked_service_doctype
 
 	quote = frappe.get_doc("Sales Quote", sales_quote)
@@ -4344,12 +4400,15 @@ def add_linked_service(sales_quote: str, service_type: str):
 		frappe.throw(_("Save the Sales Quote before adding a linked service."))
 
 	service_type = validate_linked_service_type(service_type)
+	cleaned = prepare_dialog_create_values(service_type, values)
 	linked = frappe.new_doc(linked_service_doctype())
 	linked.service_type = service_type
 	linked.parent_booking_type = "Sales Quote"
 	linked.parent_booking_name = quote.name
 	if getattr(quote, "company", None):
 		linked.company = quote.company
+	apply_dialog_create_values(linked, cleaned)
+	stored_quantity = apply_linked_service_quantity(linked, quantity)
 	linked.insert(ignore_permissions=True)
 
 	quote.flags._linked_services_view_cached = False
@@ -4359,8 +4418,44 @@ def add_linked_service(sales_quote: str, service_type: str):
 	return {
 		"name": quote.name,
 		"linked_service": linked.name,
-		"service_type": linked.service_type,
+		"linked_services": [linked.name],
+		"service_type": service_type,
+		"quantity": stored_quantity,
 	}
+
+
+def _load_quote_for_linked_service_manage(sales_quote: str, *, write: bool):
+	"""Load a saved draft quote the caller may manage linked services on."""
+	quote = frappe.get_doc("Sales Quote", sales_quote)
+	frappe.has_permission(
+		"Sales Quote", "write" if write else "read", doc=quote, throw=True
+	)
+	_assert_sales_quote_can_manage_linked_services(quote)
+	if not quote.name or quote.is_new():
+		frappe.throw(_("Save the Sales Quote before adding a linked service."))
+	return quote
+
+
+@frappe.whitelist()
+def preview_linked_services_from_main(sales_quote: str):
+	"""Propose Transport and Customs linked services from main scope and containers."""
+	from logistics.pricing_center.sales_quote_linked_service_generate import (
+		preview_linked_services_from_quote,
+	)
+
+	quote = _load_quote_for_linked_service_manage(sales_quote, write=False)
+	return preview_linked_services_from_quote(quote)
+
+
+@frappe.whitelist()
+def create_linked_services_from_main(sales_quote: str, proposals=None):
+	"""Create the selected proposals. Field values are recomputed on the server."""
+	from logistics.pricing_center.sales_quote_linked_service_generate import (
+		create_linked_services_from_quote,
+	)
+
+	quote = _load_quote_for_linked_service_manage(sales_quote, write=True)
+	return create_linked_services_from_quote(quote, proposals)
 
 
 @frappe.whitelist()

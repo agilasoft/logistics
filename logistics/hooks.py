@@ -7,7 +7,6 @@ from frappe import append_hook
 
 from logistics.sea_freight.alert_schedule import DAILY_SEA_ALERT_TASKS, HOURLY_SEA_ALERT_TASKS
 from logistics.utils.credit_management import merge_credit_hooks
-from logistics.utils.invoice_dispute import merge_invoice_dispute_hooks
 
 # App dependencies
 app_dependencies = ["erpnext"]
@@ -21,6 +20,12 @@ app_icon = "octicon octicon-file-directory"
 app_color = "grey"
 app_email = "info@agilasoft.com"
 app_license = "AGPL-3.0-or-later"
+
+# The dock entry for this programme is MICE. Exhibits keeps its DocTypes, and the desk
+# resolves them through MICE instead of drawing a second icon labelled Exhibits.
+code_only_modules = {
+	"Exhibits": ["MICE"],
+}
 
 # bench migrate imports every fixtures/*.json, not only this list.
 # Do not add Custom DocPerm here or as fixtures/custom_docperm.json:
@@ -47,7 +52,7 @@ app_include_css = [
 	"/assets/logistics/css/density_factor.css?v=1",
 	"/assets/logistics/css/workflow_center.css?v=1",
 	"/assets/logistics/css/change_request_summary.css?v=4",
-	"/assets/logistics/css/linked_services_dialog.css?v=9",
+	"/assets/logistics/css/linked_services_dialog.css?v=12",
 	"/assets/logistics/css/ts_sq_fetch_dialog.css?v=6",
 	"/assets/logistics/css/role_permission_matrix.css?v=6",
 ]
@@ -55,9 +60,9 @@ app_include_js = [
 	"/assets/logistics/js/company_dimension_filters.js?v=1",
 	"/assets/logistics/js/address_link_query.js?v=1",
 	"/assets/logistics/js/party_address_contact.js?v=1",
-	"/assets/logistics/js/linked_service_link_query.js?v=2",
+	"/assets/logistics/js/linked_service_link_query.js?v=3",
 	"/assets/logistics/js/virtual_linked_services_grid.js?v=2",
-	"/assets/logistics/js/linked_services_dialog.js?v=6",
+	"/assets/logistics/js/linked_services_dialog.js?v=10",
 	"/assets/logistics/js/ts_sq_fetch_dialog.js?v=6",
 	"/assets/logistics/js/freight_agent_service.js?v=4",
 	"/assets/logistics/js/charge_bill_to.js?v=4",
@@ -75,7 +80,7 @@ app_include_js = [
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
 	"/assets/logistics/js/service_role.js?v=3",
 	"/assets/logistics/js/internal_job_detail_grid_delete_fix.js",
-	"/assets/logistics/js/get_charges_from_quotation.js?v=21",
+	"/assets/logistics/js/get_charges_from_quotation.js?v=22",
 	"/assets/logistics/js/gcfq_settings_dashboard.js?v=1",
 	"/assets/logistics/js/get_charges_from_tariff.js?v=1",
 	"/assets/logistics/js/sea_consolidation_matching_shipments.js?v=3",
@@ -95,7 +100,7 @@ app_include_js = [
 	"/assets/logistics/js/purchase_invoice_dialog.js",
 	"/assets/logistics/js/invoice_billing_currency.js",
 	"/assets/logistics/js/sales_invoice_dialog.js",
-	"/assets/logistics/js/sales_invoice_job_dimension_cleanup.js",
+	"/assets/logistics/js/sales_invoice_job_dimension_cleanup.js?v=2",
 	"/assets/logistics/js/job_change_lock.js?v=4",
 	"/assets/logistics/js/change_request_visibility.js?v=2",
 	"/assets/logistics/js/change_request_summary.js?v=5",
@@ -158,6 +163,7 @@ doctype_js = {
 		"public/js/opportunity_services.js",
 	],
 	"Tariff": [
+		"public/js/operational_exchange_rate_grid.js",
 		"public/js/charge_break_dialogs.js",
 		"public/js/charge_break_buttons.js",
 		"pricing_center/doctype/tariff_charge/tariff_charge.js",
@@ -173,6 +179,7 @@ doctype_js = {
 		"public/js/charge_break_dialogs.js",
 		"air_freight/doctype/air_booking_charges/air_booking_charges.js",
 		"public/js/charge_break_buttons.js",
+		"public/js/turnover_charges_template.js",
 	],
 	"Air Shipment": [
 		"public/js/operational_exchange_rate_grid.js",
@@ -182,6 +189,7 @@ doctype_js = {
 		"public/js/charge_break_dialogs.js",
 		"air_freight/doctype/air_shipment_charges/air_shipment_charges.js",
 		"public/js/charge_break_buttons.js",
+		"public/js/turnover_charges_template.js",
 		"job_management/recognition_client.js",
 		"job_management/recognition_policy_fields.js",
 		"job_management/job_charge_reopen.js",
@@ -200,6 +208,7 @@ doctype_js = {
 		"public/js/charge_break_dialogs.js",
 		"sea_freight/doctype/sea_booking_charges/sea_booking_charges.js",
 		"public/js/charge_break_buttons.js",
+		"public/js/turnover_charges_template.js",
 	],
 	"Sea Shipment": [
 		"public/js/operational_exchange_rate_grid.js",
@@ -210,6 +219,7 @@ doctype_js = {
 		"public/js/charge_break_dialogs.js",
 		"sea_freight/doctype/sea_shipment_charges/sea_shipment_charges.js",
 		"public/js/charge_break_buttons.js",
+		"public/js/turnover_charges_template.js",
 		"job_management/recognition_client.js",
 		"job_management/recognition_policy_fields.js",
 		"job_management/job_charge_reopen.js",
@@ -298,6 +308,7 @@ doctype_js = {
 	# silently fails to load (no error). See get_code_files_via_hooks in
 	# apps/frappe/frappe/desk/form/meta.py.
 	"Special Project": [
+		"public/js/operational_exchange_rate_grid.js",
 		"public/js/profitability_project_form.js",
 		# Module-relative paths only (no leading logistics/ — see comment above Docket entry).
 		"job_management/recognition_client.js",
@@ -316,9 +327,13 @@ doctype_js = {
 		"mice/doctype/mice_project_consolidation_charges/mice_project_consolidation_charges.js",
 	],
 	"Docket": [
+		"public/js/operational_exchange_rate_grid.js",
 		"job_management/recognition_client.js",
 		"job_management/recognition_policy_fields.js",
 	],
+	"Project Order": "public/js/operational_exchange_rate_grid.js",
+	"Exhibit Order": "public/js/operational_exchange_rate_grid.js",
+	"MICE Order": "public/js/operational_exchange_rate_grid.js",
 	"Account": "public/js/account_job_profit.js",
 	"Recognition Policy Settings": "job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
 	"Purchase Invoice": "public/js/purchase_invoice_container_deposit.js",
@@ -332,7 +347,6 @@ doctype_js = {
 	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
 	"Purchase Invoice": "logistics/public/js/purchase_invoice_container_deposit.js",
 	"Credit Hold Lift Request": "logistics/logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
-	"Dispute": "logistics/logistics/doctype/dispute/dispute.js",
 	"Cash Advance Request": "logistics/cash_advance/doctype/cash_advance_request/cash_advance_request.js",
 	"Cash Advance Liquidation": "logistics/cash_advance/doctype/cash_advance_liquidation/cash_advance_liquidation.js",
 	"Cash Advance Settings": "logistics/cash_advance/doctype/cash_advance_settings/cash_advance_settings.js",
@@ -425,7 +439,6 @@ doc_events = DOC_EVENTS
 _ensure_print_validation_patch()
 
 merge_credit_hooks(doc_events)
-merge_invoice_dispute_hooks(doc_events)
 
 # Order Management: after a Pick Warehouse Job submits, push fulfillment and stock.
 _ORDER_MANAGEMENT_ON_PICK = "logistics.order_management.tasks.on_warehouse_job_submit"
@@ -438,6 +451,20 @@ elif isinstance(_wj_on_submit, list):
 		_wj_events["on_submit"] = list(_wj_on_submit) + [_ORDER_MANAGEMENT_ON_PICK]
 elif _wj_on_submit != _ORDER_MANAGEMENT_ON_PICK:
 	_wj_events["on_submit"] = [_wj_on_submit, _ORDER_MANAGEMENT_ON_PICK]
+
+# Employee role checkboxes add the same role on Logistics Staff. They do not clear it.
+_LOGISTICS_STAFF_FROM_EMPLOYEE = (
+	"logistics.logistics.doctype.logistics_staff.logistics_staff.sync_logistics_staff_from_employee"
+)
+_employee_events = doc_events.setdefault("Employee", {})
+_employee_on_update = _employee_events.get("on_update")
+if not _employee_on_update:
+	_employee_events["on_update"] = _LOGISTICS_STAFF_FROM_EMPLOYEE
+elif isinstance(_employee_on_update, list):
+	if _LOGISTICS_STAFF_FROM_EMPLOYEE not in _employee_on_update:
+		_employee_events["on_update"] = list(_employee_on_update) + [_LOGISTICS_STAFF_FROM_EMPLOYEE]
+elif _employee_on_update != _LOGISTICS_STAFF_FROM_EMPLOYEE:
+	_employee_events["on_update"] = [_employee_on_update, _LOGISTICS_STAFF_FROM_EMPLOYEE]
 
 # Scheduled Tasks
 # ---------------
@@ -492,6 +519,12 @@ override_whitelisted_methods = {
 	),
 	"frappe.desk.query_report.export_query": (
 		"logistics.bir_cas.export_query.export_query"
+	),
+	"frappe.desk.form.linked_with.get_submitted_linked_docs": (
+		"logistics.invoice_integration.cancel_linked_docs.get_submitted_linked_docs"
+	),
+	"frappe.desk.form.linked_with.cancel_all_linked_docs": (
+		"logistics.invoice_integration.cancel_linked_docs.cancel_all_linked_docs"
 	),
 }
 

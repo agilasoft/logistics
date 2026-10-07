@@ -55,6 +55,69 @@ PI_LIFECYCLE_FIELDS = (
     "date_purchase_invoice_submitted",
 )
 
+# Submittable jobs that point back at an invoice (header field or charge row).
+# Desk Cancel All must leave these submitted when the invoice is cancelled.
+# Keep in sync with PRESERVED_JOBS in public/js/sales_invoice_job_dimension_cleanup.js.
+INVOICE_CANCEL_PRESERVED_JOBS = (
+    "Transport Job",
+    "Air Shipment",
+    "Sea Shipment",
+    "Warehouse Job",
+    "Declaration",
+    "Special Project",
+    "Docket",
+    "MICE Project",
+    "Air Consolidation",
+    "Sea Consolidation",
+    "Transport Leg",
+    "Periodic Billing",
+    "Exhibit",
+    "General Job",
+    "Project Job",
+)
+
+INVOICE_DOCTYPES = ("Sales Invoice", "Purchase Invoice")
+
+
+def _as_doctype_list(value) -> list:
+    """Normalize a cancel-all ignore list from a list or a JSON string."""
+    if value is None or value == "":
+        return []
+    if isinstance(value, str):
+        parsed = frappe.parse_json(value)
+        if isinstance(parsed, str):
+            return [parsed]
+        return list(parsed or [])
+    return list(value)
+
+
+def merge_invoice_cancel_ignore_doctypes(root_doctype, ignore_doctypes=None) -> list:
+    """Add preserved jobs when the document being cancelled is an invoice.
+
+    Other doctypes keep the list they were given, including an empty list.
+    Existing entries such as Journal Entry stay at the front.
+    """
+    existing = _as_doctype_list(ignore_doctypes)
+    if root_doctype not in INVOICE_DOCTYPES:
+        return existing
+    for dt in INVOICE_CANCEL_PRESERVED_JOBS:
+        if dt not in existing:
+            existing.append(dt)
+    return existing
+
+
+def extend_invoice_ignore_linked_doctypes(doc) -> None:
+    """Let invoice cancel ignore back-links from submitted jobs.
+
+    ERPNext assigns ``ignore_linked_doctypes`` in its own ``on_cancel``.
+    Doc events run after that, so this extends the list already on the doc.
+    """
+    current = list(getattr(doc, "ignore_linked_doctypes", None) or [])
+    for dt in INVOICE_CANCEL_PRESERVED_JOBS:
+        if dt not in current:
+            current.append(dt)
+    doc.ignore_linked_doctypes = current
+
 
 def get_jobs_linked_to_sales_invoice(si_name: str) -> list:
     """Get jobs/shipments linked to this Sales Invoice."""

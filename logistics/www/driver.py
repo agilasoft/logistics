@@ -147,6 +147,13 @@ def _build_payload(driver_name, preview):
 			else {}
 		) or {}
 		company = (company_row.get(name_field) if name_field else "") or driver.custom_transport_company
+		company_fields = ["company_name"]
+		if frappe.get_meta("Transport Company").has_field("logo"):
+			company_fields.append("logo")
+		company_row = frappe.db.get_value(
+			"Transport Company", driver.custom_transport_company, company_fields, as_dict=True
+		) or {}
+		company = company_row.get("company_name") or driver.custom_transport_company
 		payload["company_logo"] = company_row.get("logo") or ""
 	payload["company_name"] = company or ""
 	if cint(driver.custom_is_internal):

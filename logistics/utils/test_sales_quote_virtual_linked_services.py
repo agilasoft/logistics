@@ -131,6 +131,50 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 		finally:
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
+	def test_workflow_reload_keeps_linked_services_on_submit(self):
+		"""Active workflow submits via apply_workflow, which load_from_db()s the quote.
+
+		That reload pops the virtual Services grid and used to leave
+		``_linked_services_from_form`` set, so submit returned an empty grid and a
+		later save could delete the Linked Service documents.
+		"""
+		sq = self._minimal_sales_quote("SQ Virtual LS Workflow Submit")
+		try:
+			doc = frappe.get_doc("Sales Quote", sq.name)
+			doc.append("linked_services", {"service_type": "Sea"})
+			doc.flags.ignore_mandatory = True
+			doc.save(ignore_permissions=True)
+			kept = _linked_service_names_from_db("Sales Quote", sq.name)
+			self.assertEqual(len(kept), 1)
+
+			# Same sequence as frappe.model.workflow.apply_workflow.
+			payload = frappe.get_doc("Sales Quote", sq.name).as_dict()
+			self.assertTrue(payload.get("linked_services"))
+			reloaded = frappe.get_doc(payload)
+			reloaded.load_from_db()
+
+			from logistics.utils.linked_service_compat import linked_service_rows
+
+			self.assertEqual(len(linked_service_rows(reloaded)), 1)
+			self.assertEqual(len(reloaded.linked_services), 1)
+			self.assertEqual(reloaded.linked_services[0].get("service_type"), "Sea")
+
+			reloaded.flags.ignore_mandatory = True
+			reloaded.flags.ignore_validate = True
+			reloaded.docstatus = 1
+			reloaded.save(ignore_permissions=True)
+
+			self.assertEqual(_linked_service_names_from_db("Sales Quote", sq.name), kept)
+			self.assertEqual(len(reloaded.linked_services), 1)
+			self.assertEqual(
+				{row.get("linked_service") or row.get("name") for row in reloaded.as_dict().get("linked_services") or []},
+				kept,
+			)
+			fresh = frappe.get_doc("Sales Quote", sq.name)
+			self.assertEqual({row.name for row in fresh.linked_services}, kept)
+		finally:
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+
 	def test_unrelated_save_keeps_linked_services(self):
 		"""Saving another field must not drop Services loaded from Linked Service documents."""
 		sq = self._minimal_sales_quote("SQ Virtual LS Unrelated Save")
@@ -218,6 +262,169 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			reloaded = frappe.get_doc("Sales Quote", sq.name)
 			self.assertEqual(len(reloaded.linked_services), 0)
 		finally:
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+
+	def test_add_linked_service_quantity(self):
+		"""Qty is stored on one service and rejects 0 or more than 50."""
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+			add_linked_service,
+			list_quote_linked_services,
+		)
+
+		sq = self._minimal_sales_quote("SQ Add Qty")
+		try:
+			created = add_linked_service(sq.name, "Transport", quantity=3)
+			self.assertEqual(created["linked_services"], [created["linked_service"]])
+			self.assertEqual(created["quantity"], 3)
+			listed = list_quote_linked_services(sq.name)
+			self.assertEqual(len(listed["linked_services"]), 1)
+			self.assertEqual(listed["linked_services"][0]["quantity"], 3)
+			self.assertEqual(listed["linked_services"][0]["service_type"], "Transport")
+			linked = frappe.get_doc(linked_service_doctype(), created["linked_service"])
+			self.assertEqual(linked.quantity, 3)
+			with self.assertRaises(frappe.ValidationError):
+				add_linked_service(sq.name, "Air", quantity=51)
+			with self.assertRaises(frappe.ValidationError):
+				add_linked_service(sq.name, "Air", quantity=0)
+			self.assertEqual(len(list_quote_linked_services(sq.name)["linked_services"]), 1)
+		finally:
+			for name in frappe.get_all(
+				linked_service_doctype(),
+				filters={"parent_booking_type": "Sales Quote", "parent_booking_name": sq.name},
+				pluck="name",
+			):
+				frappe.delete_doc(linked_service_doctype(), name, force=True, ignore_permissions=True)
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+
+	def test_add_linked_service_copies_details_before_create(self):
+		"""Qty create copies the details form onto every row and rejects a blank form."""
+		from logistics.logistics.doctype.linked_service.linked_service import (
+			get_dialog_create_payload,
+		)
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+			add_linked_service,
+		)
+
+		container_type = "LSDET1"
+		if not frappe.db.exists("Container Type", container_type):
+			row = frappe.new_doc("Container Type")
+			row.code = container_type
+			row.description = container_type
+			row.active = 1
+			row.insert(ignore_permissions=True)
+
+		sq = self._minimal_sales_quote("SQ Add Details First")
+		try:
+			payload = get_dialog_create_payload("Transport", "Sales Quote", sq.name)
+			self.assertEqual(payload["service_type"], "Transport")
+			self.assertIn("container_type", payload["detail_fields"])
+			self.assertEqual(payload["values"].get("company") or "", sq.company or "")
+			self.assertEqual(payload["values"].get("service_type"), "Transport")
+
+			with self.assertRaises(frappe.ValidationError):
+				add_linked_service(
+					sq.name,
+					"Transport",
+					quantity=2,
+					values={"reference_no": "NOT-A-DETAIL", "service_type": "Air"},
+				)
+			self.assertEqual(
+				len(
+					frappe.get_all(
+						linked_service_doctype(),
+						filters={
+							"parent_booking_type": "Sales Quote",
+							"parent_booking_name": sq.name,
+						},
+						pluck="name",
+					)
+				),
+				0,
+			)
+
+			created = add_linked_service(
+				sq.name,
+				"Transport",
+				quantity=3,
+				values={
+					"container_type": container_type,
+					"reference_no": "LEG-1",
+					"service_type": "Customs",
+					"not_a_field": "ignored",
+				},
+			)
+			self.assertEqual(created["linked_services"], [created["linked_service"]])
+			linked = frappe.get_doc(linked_service_doctype(), created["linked_service"])
+			self.assertEqual(linked.service_type, "Transport")
+			self.assertEqual(linked.quantity, 3)
+			self.assertEqual(linked.container_type, container_type)
+			self.assertEqual(linked.reference_no, "LEG-1")
+			self.assertEqual(linked.company, sq.company)
+		finally:
+			for name in frappe.get_all(
+				linked_service_doctype(),
+				filters={"parent_booking_type": "Sales Quote", "parent_booking_name": sq.name},
+				pluck="name",
+			):
+				frappe.delete_doc(linked_service_doctype(), name, force=True, ignore_permissions=True)
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+			if frappe.db.exists("Container Type", container_type):
+				frappe.delete_doc("Container Type", container_type, force=True, ignore_permissions=True)
+
+	def test_linked_charge_uses_service_quantity_and_orders_stop_at_it(self):
+		"""A linked charge takes the service quantity, and a further order is refused."""
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import add_linked_service
+		from logistics.utils.linked_service_usage import (
+			USAGE_ROLE_SATELLITE_JOB,
+			claim_sales_quote_linked_service_for_order,
+			record_satellite_order,
+		)
+
+		sq = self._minimal_sales_quote("SQ Qty Orders")
+		try:
+			created = add_linked_service(sq.name, "Transport", quantity=2)
+			ls_name = created["linked_service"]
+			sq.append(
+				"charges",
+				{
+					"service_type": "Transport",
+					"charge_scope": "Linked",
+					"linked_service": ls_name,
+					"charge_type": "Margin",
+					"quantity": 1,
+					"cost_quantity": 1,
+				},
+			)
+			sq.validate_linked_service_charge_tagging()
+			self.assertEqual(sq.charges[-1].quantity, 2)
+			self.assertEqual(sq.charges[-1].cost_quantity, 2)
+
+			first = claim_sales_quote_linked_service_for_order(sq.name, "Transport Order")
+			self.assertEqual(first, ls_name)
+			record_satellite_order(ls_name, "Transport Order", "TO-QTY-1", sq.name)
+			second = claim_sales_quote_linked_service_for_order(sq.name, "Transport Order")
+			self.assertEqual(second, ls_name)
+			record_satellite_order(ls_name, "Transport Order", "TO-QTY-2", sq.name)
+			with self.assertRaises(frappe.ValidationError):
+				claim_sales_quote_linked_service_for_order(sq.name, "Transport Order")
+			self.assertEqual(
+				frappe.db.count(
+					"Linked Service Usage",
+					{
+						"parent": ls_name,
+						"usage_role": USAGE_ROLE_SATELLITE_JOB,
+						"used_on_doctype": "Transport Order",
+					},
+				),
+				2,
+			)
+		finally:
+			for name in frappe.get_all(
+				linked_service_doctype(),
+				filters={"parent_booking_type": "Sales Quote", "parent_booking_name": sq.name},
+				pluck="name",
+			):
+				frappe.delete_doc(linked_service_doctype(), name, force=True, ignore_permissions=True)
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
 	def test_dialog_edit_get_and_update_air_fields(self):

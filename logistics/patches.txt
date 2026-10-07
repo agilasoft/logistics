@@ -982,4 +982,8 @@ logistics.patches.v3_0_sales_quote_html_freight_rate_line
 logistics.patches.v3_0_sales_quote_html_subheader_no_underline
 # Payment Voucher HTML: signature headers print in black
 logistics.patches.v3_0_payment_voucher_signature_header_color
+# Desk: the programme icon is MICE. Drop the Exhibits tile and saved layout copies.
+logistics.patches.v3_0_mice_desk_icon
+# Logistics Staff: copy Employee role flags and existing rep links onto the new master.
+logistics.patches.v3_0_seed_logistics_staff
 

@@ -93,8 +93,10 @@ function _lsd1_normalize_options(options) {
 		addHint:
 			opts.addHint ||
 			__(
-				"Select a service type to link. You can add multiple services of the same type."
+				"Choose a service type and quantity, fill in the service details, then Add Service. Qty is stored on that one service."
 			),
+		createPayloadMethod:
+			opts.createPayloadMethod || LSD1_LS_API + ".get_dialog_create_payload",
 		unsavedMessage:
 			opts.unsavedMessage ||
 			__("Save the document before managing services."),
@@ -108,6 +110,13 @@ function _lsd1_normalize_options(options) {
 		allowAdd: opts.allowAdd !== false,
 		allowRemove: opts.allowRemove !== false,
 		allowEdit: opts.allowEdit !== false,
+		previewMethod: opts.previewMethod || null,
+		createMethod: opts.createMethod || null,
+		allowGenerate: !!(
+			opts.previewMethod &&
+			opts.createMethod &&
+			opts.allowAdd !== false
+		),
 	};
 }
 
@@ -158,6 +167,9 @@ function _lsd1_render_list(rows, opts, selected) {
 			const company_html = row.company
 				? `<span class="lsd1-pill">${_lsd1_escape(row.company)}</span>`
 				: "";
+			const qty_html = `<span class="lsd1-pill">${__("Qty {0}", [
+				cint(row.quantity) || 1,
+			])}</span>`;
 			const source_html = from_job
 				? `<span class="lsd1-pill">${__("From job")}</span>`
 				: "";
@@ -193,7 +205,7 @@ function _lsd1_render_list(rows, opts, selected) {
 							${_lsd1_icon("es-line-open", "xs") || _lsd1_icon("external-link", "xs")}
 						</a>
 					</div>
-					<div class="lsd1-item-meta">${source_html}${company_html}${job_html}</div>
+					<div class="lsd1-item-meta">${source_html}${qty_html}${company_html}${job_html}</div>
 					<div class="lsd1-item-actions">${edit_btn}${remove_btn}</div>
 				</div>`;
 		})
@@ -209,6 +221,14 @@ function _lsd1_shell_html(frm, opts) {
 		)
 		.join("");
 
+	const generate_btn = opts.allowGenerate
+		? `
+						<button type="button" class="lsd1-add-btn lsd1-generate-open">
+							${_lsd1_icon("add", "xs") || "+"}
+							<span>${__("Generate from main")}</span>
+						</button>`
+		: "";
+
 	const add_panel = opts.allowAdd
 		? `
 				<section class="lsd1-panel">
@@ -219,12 +239,20 @@ function _lsd1_shell_html(frm, opts) {
 						<select class="lsd1-select lsd1-service-type" aria-label="${__(
 							"Service Type"
 						)}">${options}</select>
+						<label class="lsd1-add-qty-wrap">
+							<span>${__("Qty")}</span>
+							<input type="number" class="lsd1-add-qty" min="1" max="50" step="1" value="1"
+								aria-label="${__("Quantity")}">
+						</label>
 						<button type="button" class="lsd1-add-btn lsd1-add">
 							${_lsd1_icon("add", "xs") || "+"}
 							<span>${__("Add Service")}</span>
 						</button>
+						${generate_btn}
 					</div>
 					<p class="lsd1-hint">${_lsd1_escape(opts.addHint)}</p>
+					${_lsd1_compose_panel_html()}
+					${_lsd1_generate_panel_html(opts)}
 				</section>`
 		: "";
 
@@ -282,6 +310,166 @@ function _lsd1_shell_html(frm, opts) {
 				${edit_panel}
 			</div>
 		</div>`;
+}
+
+function _lsd1_compose_panel_html() {
+	return `
+		<div class="lsd1-compose-panel" hidden>
+			<div class="lsd1-edit-head">
+				<div class="lsd1-edit-head-text">
+					<span class="lsd1-panel-title">${__("Service details")}</span>
+					<span class="lsd1-compose-meta"></span>
+				</div>
+			</div>
+			<p class="lsd1-hint lsd1-compose-note">${__(
+				"Qty is stored on this one service. Orders created for it cannot exceed that quantity."
+			)}</p>
+			<div class="lsd1-edit-grid lsd1-compose-grid"></div>
+		</div>`;
+}
+
+function _lsd1_generate_panel_html(opts) {
+	if (!opts.allowGenerate) return "";
+	return `
+		<div class="lsd1-generate-panel" hidden>
+			<p class="lsd1-hint lsd1-generate-note">${__(
+				"Each selected row creates one service. How many is stored as that service's quantity."
+			)}</p>
+			<div class="lsd1-generate-list"></div>
+			<div class="lsd1-generate-actions">
+				<button type="button" class="lsd1-btn-secondary lsd1-generate-cancel">${__(
+					"Cancel"
+				)}</button>
+				<button type="button" class="lsd1-btn-primary lsd1-generate-create">${__(
+					"Create selected"
+				)}</button>
+			</div>
+		</div>`;
+}
+
+function _lsd1_render_generate_list(proposals) {
+	if (!proposals.length) {
+		return `<p class="lsd1-generate-empty">${__(
+			"Fill main service parameters or container rows first."
+		)}</p>`;
+	}
+	return proposals
+		.map((proposal, index) => {
+			const detail = proposal.detail
+				? `<span class="lsd1-generate-detail">${_lsd1_escape(proposal.detail)}</span>`
+				: "";
+			const qty =
+				proposal.key === "transport_container"
+					? `<label class="lsd1-generate-qty-wrap">
+						<span>${__("How many")}</span>
+						<input type="number" class="lsd1-generate-qty" min="0" max="50" step="1"
+							value="${cint(proposal.quantity) || 1}" data-index="${index}"
+							aria-label="${__("How many")}">
+					</label>`
+					: "";
+			return `
+				<div class="lsd1-generate-row">
+					<label class="lsd1-generate-check-wrap">
+						<input type="checkbox" class="lsd1-generate-check" checked data-index="${index}">
+						<span class="lsd1-generate-copy">
+							<span class="lsd1-generate-label">${_lsd1_escape(proposal.label || "")}</span>
+							${detail}
+						</span>
+					</label>
+					${qty}
+				</div>`;
+		})
+		.join("");
+}
+
+function _lsd1_close_generate(dialog) {
+	const $panel = dialog.$wrapper.find(".lsd1-generate-panel");
+	$panel.attr("hidden", true);
+	$panel.find(".lsd1-generate-list").empty();
+}
+
+function _lsd1_open_generate(dialog, frm, opts, state) {
+	const $panel = dialog.$wrapper.find(".lsd1-generate-panel");
+	const $list = $panel.find(".lsd1-generate-list");
+	frappe.call({
+		method: opts.previewMethod,
+		args: _lsd1_parent_args(frm, opts),
+		freeze: true,
+		freeze_message: __("Preparing linked services..."),
+		callback(r) {
+			const proposals = (r && r.message && r.message.proposals) || [];
+			state.generateProposals = proposals;
+			$list.html(_lsd1_render_generate_list(proposals));
+			$panel.find(".lsd1-generate-create").prop("disabled", !proposals.length);
+			$panel.removeAttr("hidden");
+		},
+	});
+}
+
+function _lsd1_create_generated(dialog, frm, opts, state) {
+	const proposals = state.generateProposals || [];
+	const $wrap = dialog.$wrapper;
+	const selected = [];
+	$wrap.find(".lsd1-generate-check:checked").each(function () {
+		const index = cint($(this).attr("data-index"));
+		const proposal = proposals[index];
+		if (!proposal) return;
+		let quantity = 1;
+		if (proposal.key === "transport_container") {
+			quantity = cint($wrap.find(`.lsd1-generate-qty[data-index="${index}"]`).val());
+		}
+		selected.push({
+			key: proposal.key,
+			container_row: proposal.container_row || null,
+			quantity,
+		});
+	});
+	if (!selected.length) {
+		frappe.msgprint({
+			message: __("Select at least one service to create."),
+			indicator: "orange",
+		});
+		return;
+	}
+
+	const $create = $wrap.find(".lsd1-generate-create");
+	$create.prop("disabled", true);
+	frappe.call({
+		method: opts.createMethod,
+		args: Object.assign(_lsd1_parent_args(frm, opts), {
+			proposals: selected,
+		}),
+		freeze: true,
+		freeze_message: __("Creating linked services..."),
+		callback(r) {
+			$create.prop("disabled", false);
+			const created =
+				(r && r.message && r.message.linked_services) || [];
+			_lsd1_close_generate(dialog);
+			_lsd1_reload(dialog, frm, opts, state);
+			frm.reload_doc();
+			if (!created.length) {
+				frappe.msgprint({
+					message: __("No linked services were created."),
+					indicator: "orange",
+				});
+				return;
+			}
+			frappe.show_alert({
+				message:
+					created.length === 1
+						? __("Linked service created")
+						: __("{0} linked services created", [created.length]),
+				indicator: "green",
+			});
+			if (created.length === 1 && opts.allowEdit && opts.getMethod) {
+				_lsd1_open_edit(dialog, frm, opts, state, created[0]);
+			}
+		},
+		error() {
+			$create.prop("disabled", false);
+		},
+	});
 }
 
 function _lsd1_update_counts($root, count) {
@@ -366,8 +554,9 @@ function _lsd1_mount_edit_field($grid, field, value, state) {
 
 	if (df.fieldtype === "Dynamic Link" && df.options) {
 		const options_field = df.options;
+		const controls = state._mountControls || state.editControls;
 		df.get_options = function () {
-			const sibling = (state.editControls || []).find(
+			const sibling = (controls || []).find(
 				(c) => c && c.fieldname === options_field
 			);
 			return (sibling && sibling.get_value && sibling.get_value()) || "UNLOCO";
@@ -392,19 +581,106 @@ function _lsd1_mount_edit_field($grid, field, value, state) {
 	};
 }
 
-function _lsd1_collect_edit_values(state) {
+function _lsd1_collect_control_values(controls) {
 	const values = {};
-	(state.editControls || []).forEach((c) => {
+	(controls || []).forEach((c) => {
 		if (!c || c.read_only) return;
 		values[c.fieldname] = c.get_value();
 	});
 	return values;
 }
 
+function _lsd1_collect_edit_values(state) {
+	return _lsd1_collect_control_values(state.editControls);
+}
+
 function _lsd1_edit_is_dirty(state) {
 	if (!state.editValuesBaseline) return false;
 	const current = _lsd1_collect_edit_values(state);
 	return JSON.stringify(current) !== JSON.stringify(state.editValuesBaseline);
+}
+
+function _lsd1_clear_compose_controls(state) {
+	(state.composeControls || []).forEach((ctrl) => {
+		try {
+			if (ctrl && ctrl.control && ctrl.control.$wrapper) {
+				ctrl.control.$wrapper.remove();
+			}
+		} catch (e) {
+			/* ignore */
+		}
+	});
+	state.composeControls = [];
+	state.composeDetailFields = [];
+	state.composeServiceType = "";
+	state.composeReady = false;
+	state.composeRequest = (state.composeRequest || 0) + 1;
+}
+
+function _lsd1_close_compose(dialog, state) {
+	_lsd1_clear_compose_controls(state);
+	const $panel = dialog.$wrapper.find(".lsd1-compose-panel");
+	$panel.attr("hidden", true);
+	$panel.find(".lsd1-compose-grid").empty();
+	$panel.find(".lsd1-compose-meta").text("");
+}
+
+function _lsd1_compose_has_details(state) {
+	const required = state.composeDetailFields || [];
+	if (!required.length) return true;
+	const values = _lsd1_collect_control_values(state.composeControls);
+	return required.some((name) => {
+		const value = values[name];
+		return value != null && String(value).trim() !== "";
+	});
+}
+
+function _lsd1_open_compose(dialog, frm, opts, state, service_type) {
+	if (!service_type || !opts.createPayloadMethod) return;
+	if (state.composeServiceType === service_type && state.composeReady) {
+		return;
+	}
+
+	const $panel = dialog.$wrapper.find(".lsd1-compose-panel");
+	const $grid = $panel.find(".lsd1-compose-grid");
+	_lsd1_clear_compose_controls(state);
+	state.composeServiceType = service_type;
+	const request_id = state.composeRequest;
+	$grid.empty();
+	$panel.find(".lsd1-compose-meta").text(service_type);
+	$panel.removeAttr("hidden");
+
+	frappe.call({
+		method: opts.createPayloadMethod,
+		args: Object.assign(_lsd1_parent_context(frm), {
+			service_type,
+		}),
+		callback(r) {
+			if (state.composeRequest !== request_id) return;
+			const payload = (r && r.message) || {};
+			const fields = payload.fields || [];
+			const values = payload.values || {};
+			state.composeDetailFields = payload.detail_fields || [];
+			const mountState = {
+				editControls: state.composeControls,
+				_mountControls: state.composeControls,
+			};
+			fields.forEach((field) => {
+				const mounted = _lsd1_mount_edit_field(
+					$grid,
+					field,
+					values[field.fieldname],
+					mountState
+				);
+				state.composeControls.push(mounted);
+			});
+			state.composeReady = true;
+			const el = $panel.get(0);
+			if (el && typeof el.scrollIntoView === "function") {
+				el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+			}
+		},
+	});
 }
 
 function _lsd1_open_edit(dialog, frm, opts, state, linked_service) {
@@ -589,7 +865,28 @@ function _lsd1_bind(dialog, frm, opts, state) {
 		});
 	}
 
+	if (opts.allowGenerate) {
+		$wrap.on("click.lsd1", "button.lsd1-generate-open", () => {
+			_lsd1_open_generate(dialog, frm, opts, state);
+		});
+		$wrap.on("click.lsd1", ".lsd1-generate-cancel", () => {
+			_lsd1_close_generate(dialog);
+		});
+		$wrap.on("click.lsd1", ".lsd1-generate-create", () => {
+			_lsd1_create_generated(dialog, frm, opts, state);
+		});
+	}
+
 	if (opts.allowAdd && opts.addMethod) {
+		$wrap.on("change.lsd1", ".lsd1-service-type", () => {
+			const service_type = ($wrap.find(".lsd1-service-type").val() || "").trim();
+			if (!service_type) {
+				_lsd1_close_compose(dialog, state);
+				return;
+			}
+			_lsd1_open_compose(dialog, frm, opts, state, service_type);
+		});
+
 		$wrap.on("click.lsd1", "button.lsd1-add", () => {
 			const service_type = ($wrap.find(".lsd1-service-type").val() || "").trim();
 			if (!service_type) {
@@ -599,24 +896,70 @@ function _lsd1_bind(dialog, frm, opts, state) {
 				});
 				return;
 			}
+			const quantity = cint($wrap.find(".lsd1-add-qty").val());
+			if (quantity < 1 || quantity > 50) {
+				frappe.msgprint({
+					message: __("Enter a quantity from 1 to 50."),
+					indicator: "orange",
+				});
+				return;
+			}
+			if (state.composeServiceType !== service_type || !state.composeReady) {
+				_lsd1_open_compose(dialog, frm, opts, state, service_type);
+				frappe.msgprint({
+					message: __(
+						"Service details are still loading. Enter them, then Add Service."
+					),
+					indicator: "orange",
+				});
+				return;
+			}
+			if (!_lsd1_compose_has_details(state)) {
+				frappe.msgprint({
+					message: __("Enter the linked service details before creating them."),
+					indicator: "orange",
+				});
+				return;
+			}
+			const values = _lsd1_collect_control_values(state.composeControls);
+			const form_qty = cint(values.quantity);
+			if (form_qty >= 1 && form_qty <= 50) {
+				quantity = form_qty;
+			}
+			delete values.quantity;
 			const args = _lsd1_parent_args(frm, opts);
 			args.service_type = service_type;
+			args.quantity = quantity;
+			args.values = values;
+			const $add = $wrap.find("button.lsd1-add");
+			$add.prop("disabled", true);
 			frappe.call({
 				method: opts.addMethod,
 				args,
 				freeze: true,
 				freeze_message: __("Adding linked service..."),
 				callback(r) {
+					$add.prop("disabled", false);
 					$wrap.find(".lsd1-service-type").val("");
+					$wrap.find(".lsd1-add-qty").val(1);
+					_lsd1_close_compose(dialog, state);
 					_lsd1_reload(dialog, frm, opts, state);
 					frm.reload_doc();
-					const created =
-						r && r.message && r.message.linked_service
-							? r.message.linked_service
-							: null;
-					if (created && opts.allowEdit && opts.getMethod) {
-						_lsd1_open_edit(dialog, frm, opts, state, created);
+					const message = (r && r.message) || {};
+					const names = message.linked_services || [];
+					const count = names.length || (message.linked_service ? 1 : 0);
+					if (count) {
+						frappe.show_alert({
+							message:
+								quantity > 1
+									? __("Linked service created with quantity {0}", [quantity])
+									: __("Linked service created"),
+							indicator: "green",
+						});
 					}
+				},
+				error() {
+					$add.prop("disabled", false);
 				},
 			});
 		});
@@ -638,6 +981,8 @@ function _lsd1_bind(dialog, frm, opts, state) {
  * @param {boolean} [options.allowAdd]
  * @param {boolean} [options.allowRemove]
  * @param {boolean} [options.allowEdit]
+ * @param {string} [options.previewMethod] - Sales Quote generate preview
+ * @param {string} [options.createMethod] - Sales Quote generate create
  */
 logistics.show_linked_services_dialog = function (frm, options) {
 	const opts = _lsd1_normalize_options(options);
@@ -663,6 +1008,11 @@ logistics.show_linked_services_dialog = function (frm, options) {
 		editControls: [],
 		editValuesBaseline: null,
 		editServiceType: "",
+		composeControls: [],
+		composeDetailFields: [],
+		composeServiceType: "",
+		composeReady: false,
+		generateProposals: [],
 	};
 
 	const dialog = new frappe.ui.Dialog({

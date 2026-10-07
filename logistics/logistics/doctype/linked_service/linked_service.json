@@ -9,6 +9,7 @@
  "field_order": [
   "naming_series",
   "service_type",
+  "quantity",
   "company",
   "branch",
   "cost_center",
@@ -77,6 +78,15 @@
    "label": "Service Type",
    "options": "Air\nSea\nTransport\nCustoms\nWarehousing\nCross-Docking\nOn-Demand Last Mile\nSpecial Project\nMICE",
    "reqd": 1
+  },
+  {
+   "default": "1",
+   "description": "How many orders may be created for this service. Charges linked to this service use the same quantity.",
+   "fieldname": "quantity",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Quantity",
+   "non_negative": 1
   },
   {
    "description": "Operating company for this service. Set on the Sales Quote before creating the designated booking from the main.",

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import frappe
 from frappe import _
+from frappe.utils import cint
 from logistics.utils.linked_service_usage import (
 	USAGE_ROLE_PARENT_BOOKING,
 	USAGE_ROLE_SATELLITE_JOB,
@@ -39,8 +40,37 @@ def validate_linked_service_type(service_type: str) -> str:
 	return value
 
 
-def create_linked_service_for_case(case, service_type: str):
+MAX_LINKED_SERVICE_ADD_QUANTITY = 50
+
+
+def normalize_linked_service_quantity(quantity=1) -> int:
+	"""Quantity stored on one Linked Service. Orders for that service cannot exceed it."""
+	if quantity in (None, ""):
+		quantity = 1
+	qty = cint(quantity)
+	if qty < 1:
+		frappe.throw(_("Quantity must be at least 1."))
+	if qty > MAX_LINKED_SERVICE_ADD_QUANTITY:
+		frappe.throw(
+			_("Quantity cannot exceed {0}.").format(MAX_LINKED_SERVICE_ADD_QUANTITY)
+		)
+	return qty
+
+
+def apply_linked_service_quantity(linked, quantity) -> int:
+	"""Store quantity on the Linked Service when the field exists."""
+	qty = normalize_linked_service_quantity(quantity)
+	if linked.meta.has_field("quantity"):
+		linked.quantity = qty
+	return qty
+
+
+def create_linked_service_for_case(case, service_type: str, values=None, quantity=1):
 	"""Create a canonical service owned by the case."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		apply_dialog_create_values,
+	)
+
 	service_type = validate_linked_service_type(service_type)
 	if not case.name or case.is_new():
 		frappe.throw(_("Save the Time Sensitive Case before adding a linked service."))
@@ -49,6 +79,8 @@ def create_linked_service_for_case(case, service_type: str):
 	linked.service_type = service_type
 	linked.parent_booking_type = case.doctype
 	linked.parent_booking_name = case.name
+	apply_dialog_create_values(linked, values or {})
+	apply_linked_service_quantity(linked, quantity)
 	linked.insert()
 	record_case_usage(case, linked.name)
 	return linked
