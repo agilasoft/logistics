@@ -52,19 +52,6 @@
 		overflow: hidden;
 		background: var(--bg);
 	}
-	.driver-app {
-		max-width: 1240px;
-		margin: 0 auto;
-		padding: 18px 20px 32px;
-		display: flex;
-		flex-direction: column;
-		gap: 16px;
-		height: 100dvh;
-		overflow: hidden;
-	}
-	.driver-app[data-screen="dashboard"],
-	.driver-app[data-screen="history"] { overflow: auto; }
-	.driver-app[data-screen="route"] { max-width: none; padding: 10px 12px 12px; }
 	.topbar, .card, .stat-card, .company-card {
 		background: var(--card);
 		border-radius: var(--radius);
@@ -167,22 +154,12 @@
 	.tile-art { width: 52px; height: 52px; display: block; flex: none; object-fit: contain; }
 	.tile-art.sm { width: 40px; height: 40px; }
 	#speed-needle { transform-origin: 32px 42px; transform: rotate(-58deg); transition: transform 180ms linear; }
-	.truck-stage { display: grid; place-items: center; min-height: 220px; }
-	.truck-art { width: min(100%, 420px); height: auto; max-height: 280px; object-fit: contain; }
-	.driver-app.no-vehicle-image .hero { grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr); }
-	.driver-app.no-vehicle-image .truck-stage { display: none; }
 	.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 	.stat-card { padding: 14px 16px 16px; min-height: 112px; display: flex; flex-direction: column; justify-content: space-between; }
 	.stat-card.tall { min-height: 156px; }
 	.stat-fuel { background: linear-gradient(180deg, #e5f8ee 0%, #f7fffa 70%); border: 1px solid #d7f3e3; position: relative; overflow: hidden; }
 	.fuel-wave { position: absolute; left: 0; right: 0; top: 0; height: 42px; }
 	.stat-label { display: block; color: var(--ink); font-size: 13px; font-weight: 800; position: relative; margin-top: 8px; }
-	.stat-label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; font-weight: 700; position: relative; }
-	.stat-icon {
-		width: 28px; height: 28px; border-radius: 9px; background: #f4f7fb; color: var(--blue);
-		display: grid; place-items: center; flex: none;
-	}
-	.stat-fuel .stat-icon { background: white; color: var(--green-ink); }
 	.stat-value, .fuel-value, .speed-value { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; position: relative; }
 	.fuel-value { font-size: 28px; }
 	.stat-hint, .metric-sub, .side-label { color: var(--muted); font-size: 12px; font-weight: 650; }
@@ -257,14 +234,6 @@
 	}
 	.maneuver {
 		position: absolute; z-index: 2; top: 12px; left: 12px; right: 64px;
-	.map-chip, .recenter {
-		position: absolute; z-index: 2; bottom: 12px; background: white; border-radius: 999px;
-		box-shadow: var(--shadow); font-weight: 800; display: inline-flex; align-items: center; gap: 8px;
-	}
-	.map-chip { left: 12px; padding: 8px 12px; font-size: 13px; }
-	.recenter { right: 12px; border: 0; height: 36px; padding: 0 12px; cursor: pointer; }
-	.maneuver {
-		position: absolute; z-index: 2; top: 12px; left: 12px; right: 12px;
 		display: flex; gap: 12px; align-items: center;
 		background: var(--blue-dark); color: white; border-radius: 16px; padding: 12px 14px;
 		box-shadow: 0 12px 28px rgba(29, 78, 216, 0.28);
@@ -343,9 +312,6 @@
 		height: auto;
 		min-height: 0;
 		gap: 12px;
-	.driver-app[data-screen="route"] .workspace {
-		flex: 1;
-		min-height: 0;
 		grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.72fr);
 		grid-template-rows: minmax(0, 1fr);
 		align-items: stretch;
@@ -353,7 +319,6 @@
 	.driver-app[data-screen="route"] .map-panel,
 	.driver-app[data-screen="dashboard"] .dash-stage,
 	.driver-app[data-screen="history"] .history-stage {
-	.driver-app[data-screen="route"] .map-panel {
 		order: -1;
 		height: 100%;
 		min-height: 0;
@@ -365,8 +330,6 @@
 	.driver-app[data-screen="route"] .run-panel,
 	.driver-app[data-screen="dashboard"] .dash-side,
 	.driver-app[data-screen="history"] .history-side { height: 100%; min-height: 0; overflow: hidden; }
-	.driver-app[data-screen="route"] .map-wrap { flex: 1; height: auto; min-height: 0; }
-	.driver-app[data-screen="route"] .run-panel { height: 100%; min-height: 0; overflow: auto; }
 	.modal-back {
 		position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;
 	}
@@ -379,8 +342,6 @@
 	.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 	.notice { display: none; margin-top: 10px; background: var(--green); color: var(--green-ink); border-radius: 10px; padding: 8px 10px; font-weight: 700; }
 	@media (max-width: 1100px) {
-		.hero, .workspace, .driver-app.no-vehicle-image .hero { grid-template-columns: 1fr; }
-		.truck-stage { min-height: 180px; }
 		.topbar { grid-template-columns: 1fr; }
 		.top-actions { justify-content: space-between; }
 		.screen-switch { overflow: auto; }
@@ -394,8 +355,6 @@
 		.map-wrap, .truck-stage { min-height: 180px; }
 		.driver-app[data-screen="route"] .map-wrap,
 		.driver-app[data-screen="dashboard"] .truck-stage { flex: 1 1 auto; height: auto; min-height: 180px; }
-		.map-wrap { height: 280px; }
-		.driver-app[data-screen="route"] .map-wrap { flex: 1 1 auto; height: auto; min-height: 220px; }
 		.driver-app[data-screen="route"] .metric-row { display: none; }
 		.map-dock { flex-direction: column; align-items: stretch; }
 		.hero-metrics { align-items: flex-start; flex-direction: column; }
@@ -410,11 +369,6 @@
 		}
 		.driver-app[data-screen="route"] .map-wrap,
 		.driver-app[data-screen="dashboard"] .truck-stage { min-height: 180px; }
-		.driver-app[data-screen="route"] .workspace {
-			grid-template-columns: 1fr;
-			grid-template-rows: minmax(0, 1.55fr) minmax(150px, 0.7fr);
-		}
-		.driver-app[data-screen="route"] .map-wrap { min-height: 240px; }
 	}
 </style>
 {% endblock %}
@@ -467,7 +421,6 @@
 
 	<section class="hero" id="hero" aria-label="Today">
 		<article class="card dash-stage">
-		<article class="company-card">
 			<div class="company-top">
 				<div class="company-id">
 					<div class="company-mark" aria-hidden="true">
@@ -622,114 +575,6 @@
 			</div>
 		</section>
 
-			</div>
-			<div class="who">
-				<img class="avatar" id="avatar" alt="" hidden>
-				<div class="avatar-fallback" id="avatar-fallback">D</div>
-				<div>
-					<div class="driver-name" id="driver-name">Driver</div>
-					<div class="driver-role">Driver</div>
-				</div>
-				<div class="contact">
-					<a class="icon-btn" id="driver-phone" href="#" aria-label="Call" hidden>
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h4l2 5-3 2a12 12 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 4 5a2 2 0 0 1 2-2z"/></svg>
-					</a>
-					<a class="icon-btn" id="driver-email" href="#" aria-label="Email" hidden>
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 7 9-7"/></svg>
-					</a>
-				</div>
-			</div>
-			<div class="chip-row">
-				<span class="run-chip" id="run-chip" hidden></span>
-				<span class="today-chip">
-					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-					<span id="today-label"></span>
-				</span>
-			</div>
-			<div class="track" aria-hidden="true">
-				<div class="track-fill" id="progress-bar"></div>
-				<div class="track-truck" id="progress-truck">
-					<svg width="28" height="16" viewBox="0 0 28 16" fill="none"><rect x="1" y="3" width="14" height="8" rx="1.5" fill="#2f6bff"/><path d="M15 6h5l3 3v2h-8V6z" fill="#1d4ed8"/><circle cx="7" cy="13" r="2" fill="#1b2433"/><circle cx="20" cy="13" r="2" fill="#1b2433"/></svg>
-				</div>
-			</div>
-			<div class="hero-metrics">
-				<span id="stops-count"></span>
-				<span id="hero-km"></span>
-				<span>ETA <b id="hero-eta">—</b></span>
-			</div>
-		</article>
-
-		<div class="truck-stage" id="truck-stage">
-			<img class="truck-art" id="vehicle-image" alt="">
-		</div>
-
-		<div class="stats">
-			<article class="stat-card stat-fuel tall">
-				<svg class="fuel-wave" viewBox="0 0 200 42" preserveAspectRatio="none" aria-hidden="true"><path d="M0 24c20-12 30 10 50 4s30-18 50-8 30 16 50 6 30-16 50-6v22H0z" fill="#cfeedd"/></svg>
-				<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V6a2 2 0 0 1 2-2h7v16H4zM13 10h3l3 3v7h-6"/><path d="M7 20v2M10 20v2"/></svg></span> Fuel level</div>
-				<div>
-					<div class="fuel-value" id="fuel-value">No reading</div>
-					<div class="stat-hint" id="fuel-sub">Last reading</div>
-				</div>
-			</article>
-			<article class="stat-card tall">
-				<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4-5"/></svg></span> Speed</div>
-				<svg class="speed-gauge" viewBox="0 0 124 78" aria-hidden="true">
-					<path d="M12 64 A 50 50 0 0 1 112 64" fill="none" stroke="#e7eef8" stroke-width="10" stroke-linecap="round"/>
-					<path id="speed-arc" d="M12 64 A 50 50 0 0 1 112 64" fill="none" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" stroke-dasharray="157" stroke-dashoffset="157"/>
-				</svg>
-				<div class="speed-readout">
-					<div class="speed-value" id="speed-value">—</div>
-					<span class="stat-hint" id="speed-unit"></span>
-				</div>
-				<div class="stat-hint" id="speed-sub">No reading</div>
-			</article>
-			<article class="stat-card">
-				<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg></span> Vehicle type</div>
-				<div class="stat-value" id="vehicle-type">—</div>
-				<div class="stat-hint">Assigned vehicle</div>
-			</article>
-			<article class="stat-card">
-				<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 12h4"/></svg></span> Plate number</div>
-				<div class="stat-value" id="vehicle-plate">—</div>
-				<div class="stat-hint">Registration</div>
-			</article>
-			<article class="stat-card">
-				<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v10l-8 4-8-4V7z"/></svg></span> Payload capacity</div>
-				<div class="stat-value" id="payload-value">—</div>
-				<div class="stat-hint" id="payload-sub">Max capacity</div>
-			</article>
-			<article class="stat-card">
-				<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l9-4 9 4-9 4z"/><path d="M3 12l9 4 9-4M3 16l9 4 9-4"/></svg></span> Current load</div>
-				<div class="stat-value" id="load-value">—</div>
-				<div class="stat-hint" id="load-util"></div>
-				<div class="load-track" id="load-track" hidden><div id="load-bar"></div></div>
-			</article>
-		</div>
-	</section>
-
-	<div class="workspace" id="workspace">
-		<section class="card run-panel" id="run-panel">
-			<div class="panel-head">
-				<div>
-					<h2>
-						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-						Today's Run
-					</h2>
-					<div class="sub" id="run-date"></div>
-					<div class="sub" id="map-route-name"></div>
-				</div>
-				<button class="linkish" id="view-all-stops" type="button">View all stops →</button>
-				<button class="linkish" id="back-dashboard" type="button">Back to dashboard</button>
-			</div>
-			<div class="route-note" id="route-note" hidden></div>
-			<div class="stops" id="stop-list"></div>
-			<div class="quick-actions" id="quick-actions">
-				<button class="cn-btn" id="call-dispatcher" type="button">Call dispatcher</button>
-				<button class="cn-btn" id="report-problem" type="button">Report a problem</button>
-			</div>
-		</section>
-
 		<section class="card map-panel" id="map-panel" aria-label="Navigation">
 			<div class="map-head">
 				<h2>
@@ -738,7 +583,6 @@
 				</h2>
 			</div>
 			<div class="map-wrap" id="map-wrap">
-			<div class="map-wrap">
 				<div id="route-map"></div>
 				<div class="map-note" id="map-empty" hidden>The route map appears when a run is assigned.</div>
 				<div class="maneuver" id="maneuver" hidden>
@@ -830,10 +674,6 @@
 			</div>
 			<div class="history-list" id="history-list"></div>
 		</aside>
-	<section class="card history-panel" id="history-view">
-		<h2>Past runs</h2>
-		<div class="sub">Completed and earlier run sheets assigned to you.</div>
-		<div class="history-list" id="history-list"></div>
 	</section>
 </div>
 
@@ -1007,11 +847,6 @@
 		}
 		const needle = $("speed-needle");
 		if (needle) needle.style.transform = "rotate(" + (-58 + ratio * 116) + "deg)";
-		const arc = $("speed-arc");
-		const length = 157;
-		const ratio = known ? Math.max(0, Math.min(1, speed / 120)) : 0;
-		arc.style.strokeDasharray = String(length);
-		arc.style.strokeDashoffset = String(length * (1 - ratio));
 	}
 	function paintHeroImage() {
 		const vehicle = data.vehicle || {};
@@ -1021,19 +856,12 @@
 		if (!photo) {
 			image.hidden = true;
 			if (empty) empty.hidden = false;
-		const stage = $("truck-stage");
-		const image = $("vehicle-image");
-		if (!photo) {
-			stage.hidden = true;
-			$("driver-app").classList.add("no-vehicle-image");
 			return;
 		}
 		image.src = photo;
 		image.alt = vehicle.plate || data.company_name || "Vehicle";
 		image.hidden = false;
 		if (empty) empty.hidden = true;
-		stage.hidden = false;
-		$("driver-app").classList.remove("no-vehicle-image");
 	}
 
 	text("header-driver", data.full_name);
@@ -1082,8 +910,6 @@
 	const list = $("stop-list");
 	if (!data.stops.length) {
 		$("view-all-stops").hidden = true;
-		$("map-empty").hidden = false;
-		$("route-map").hidden = true;
 		list.innerHTML = `<div class="empty">${data.linked
 			? "No trips are assigned for today. When dispatch puts you on a run sheet, the route opens here."
 			: "This login is not linked to a Driver. Ask dispatch to set your User on the Driver record, then open this page again."}</div>`;
@@ -1168,7 +994,6 @@
 		const actions = $("quick-actions");
 		if (actions && $("run-panel")) $("run-panel").appendChild(actions);
 		if (screen === "route") renderMap();
-		if (screen === "route" && (data.stops.length || data.driver_position)) renderMap();
 	}
 	document.querySelectorAll(".tab").forEach((button) => {
 		button.addEventListener("click", () => showScreen(button.dataset.screen));
@@ -1191,120 +1016,6 @@
 		$("user-panel").hidden = true;
 		$("user-toggle").setAttribute("aria-expanded", "false");
 	});
-
-	function pointOf(stop) {
-		const point = stop && navApi.stopPoint(stop);
-		return point && typeof point === "object" ? point : null;
-	}
-	function seededDock(upcoming, origin, now) {
-		if (!upcoming || !upcoming.eta_min) return null;
-		if (!state.seededEta || state.seededEta.id !== upcoming.id) {
-			state.seededEta = {
-				id: upcoming.id,
-				seconds: upcoming.eta_min * 60,
-				km: upcoming.eta_km || 0,
-				fetchedAt: now,
-				traffic: false
-			};
-			state.seededFix = origin ? { lat: Number(origin.lat), lng: Number(origin.lng) } : null;
-		} else if (!state.seededFix && origin) {
-			state.seededFix = { lat: Number(origin.lat), lng: Number(origin.lng) };
-		}
-		return state.seededEta;
-	}
-	function movingDock(upcoming, origin, now) {
-		const target = pointOf(upcoming);
-		if (state.eta) {
-			const base = state.etaFix && target ? navApi.distanceMeters(state.etaFix, target) : null;
-			const current = origin && target ? navApi.distanceMeters(origin, target) : null;
-			return navApi.followEta(state.eta, base, current, now);
-		}
-		const seed = seededDock(upcoming, origin, now);
-		if (seed && seed.km > 0) {
-			const base = state.seededFix && target ? navApi.distanceMeters(state.seededFix, target) : null;
-			const current = origin && target ? navApi.distanceMeters(origin, target) : null;
-			return navApi.followEta(seed, base, current, now);
-		}
-		if (origin && target) return navApi.geometricEta(navApi.distanceMeters(origin, target), state.speedKph);
-		if (!seed) return null;
-		return navApi.followEta(seed, null, null, now);
-	}
-	function movingRun(origin, now) {
-		const pending = data.stops.filter((stop) => !stop.done && stop.lat != null && stop.lng != null);
-		const current = origin ? navApi.routeMeters(data.stops, origin) : null;
-		if (state.runEta) return navApi.followEta(state.runEta, state.runAnchorMeters, current, now);
-		if (origin && pending.length) return navApi.geometricEta(current || 0, state.speedKph);
-		const km = fallbackKm();
-		if (km == null) return null;
-		return { seconds: null, km: km, traffic: false };
-	}
-	function paintLiveStops(origin, now) {
-		if (state.legEtas && state.legEtas.length) {
-			const current = origin ? navApi.routeMeters(data.stops, origin) : state.runAnchorMeters;
-			paintStopEtas(navApi.tickStops(state.legEtas, state.legEtasAt, now, state.runAnchorMeters, current));
-			return;
-		}
-		if (!origin) return;
-		const pace = state.speedKph >= 8 ? 3600 / state.speedKph : 90;
-		paintStopEtas(navApi.progressEtas(data.stops, origin, pace));
-	}
-	function paintDock() {
-		const now = Date.now();
-		const upcoming = nextStop();
-		const origin = originNow();
-		const remaining = data.stops.filter((stop) => !stop.done).length;
-		text("dock-title", upcoming ? upcoming.headline : (data.stops.length ? "Run complete" : "No active stop"));
-		text("dock-address", upcoming ? upcoming.address : "");
-		$("dock-nav").disabled = !upcoming;
-		$("dock-nav").textContent = state.navigating ? "End navigation" : "Start navigation";
-		text("stops-left", String(remaining));
-		text("stops-left-sub", "of " + data.total + " stops");
-		const run = movingRun(origin, now);
-		const kmLabel = formatKm(run ? run.km : null);
-		text("distance-remaining", kmLabel);
-		text("hero-km", kmLabel === "—" ? "—" : kmLabel + " remaining");
-		if (kmLabel === "—") {
-			$("map-km-chip").hidden = true;
-		} else {
-			$("map-km-chip").hidden = false;
-			text("map-km-text", kmLabel + " remaining");
-		}
-		if (run && run.seconds != null) {
-			const clock = formatClock(new Date(now + run.seconds * 1000));
-			text("eta-final", clock);
-			text("hero-eta", clock);
-			text("eta-final-sub", run.traffic ? "Based on current traffic" : "Estimated");
-		}
-		paintLiveStops(origin, now);
-		if (!upcoming) {
-			if (data.stops.length) text("dock-meta", "Every stop on this run is done.");
-			$("traffic-flag").hidden = true;
-			return;
-		}
-		const dock = movingDock(upcoming, origin, now);
-		if (!dock) {
-			text("dock-meta", "");
-			$("traffic-flag").hidden = true;
-			return;
-		}
-		text("dock-meta", navApi.formatEtaLabel(dock.seconds, dock.km, now));
-		$("traffic-flag").hidden = !dock.traffic;
-	}
-	function paintStopEtas(rows) {
-		const byId = {};
-		(rows || []).forEach((row) => { byId[row.id] = row; });
-		document.querySelectorAll("[data-eta-for]").forEach((el) => {
-			const row = byId[el.dataset.etaFor];
-			if (!row) return;
-			el.textContent = row.minutes + " min · " + row.km + " km";
-		});
-	}
-	paintDock();
-	window.setInterval(() => {
-		paintDock();
-		if (state.navigating) showGuidance(state.fix);
-	}, 1000);
-
 
 	function pointOf(stop) {
 		const point = stop && navApi.stopPoint(stop);
@@ -1557,17 +1268,6 @@
 			holdCamera();
 			if (state.navigating) state.follow = false;
 		});
-		if (!state.map || (state.navigating && state.follow)) return;
-		const bounds = new google.maps.LatLngBounds();
-		let any = false;
-		const add = (point) => {
-			if (!point || point.lat == null || point.lng == null) return;
-			bounds.extend(point);
-			any = true;
-		};
-		add(originNow());
-		data.stops.forEach((stop) => add(stop.lat == null ? null : { lat: Number(stop.lat), lng: Number(stop.lng) }));
-		if (any) state.map.fitBounds(bounds, 64);
 	}
 
 	let mapsPromise;
@@ -1639,7 +1339,6 @@
 			});
 		}
 		state.renderer.setOptions({ preserveViewport: state.cameraHeld || Boolean(state.navigating && state.fix) });
-		state.renderer.setOptions({ preserveViewport: Boolean(state.navigating && state.fix) });
 		state.renderer.setDirections(result);
 		if (state.fallbackLine) {
 			state.fallbackLine.setMap(null);
@@ -1677,7 +1376,6 @@
 		drawMarkers();
 		placeDriver(state.fix || data.driver_position);
 		if (!state.cameraHeld && (!state.navigating || !state.fix)) fitStops();
-		if (!state.navigating || !state.fix) fitStops();
 		if (state.navigating) showGuidance(state.fix);
 		if (plan.omitted) {
 			$("route-note").hidden = false;
@@ -1858,7 +1556,6 @@
 			state.map.panTo(fix);
 			if (!state.cameraHeld && state.map.getZoom() < 15) state.map.setZoom(16);
 			faceTravel(fix.heading);
-			if (state.map.getZoom() < 15) state.map.setZoom(16);
 		}
 		showGuidance(fix);
 		paintDock();
@@ -1912,7 +1609,6 @@
 			if (state.map) return;
 			const here = originNow();
 			const center = here || data.driver_position || { lat: 14.55, lng: 121.02 };
-			const center = data.driver_position || { lat: 14.55, lng: 121.02 };
 			const options = {
 				center: center,
 				zoom: 12,
@@ -1931,9 +1627,6 @@
 			if (google.maps.RenderingType && google.maps.RenderingType.VECTOR) {
 				options.renderingType = google.maps.RenderingType.VECTOR;
 			}
-				clickableIcons: false,
-				gestureHandling: "greedy"
-			};
 			if (google.maps.ControlPosition) {
 				options.zoomControlOptions = { position: google.maps.ControlPosition.RIGHT_CENTER };
 			}
@@ -1960,7 +1653,6 @@
 				state.map.setCenter(here);
 				state.map.setZoom(14);
 			}
-			fitStops();
 			ensureWatch();
 			refreshRoute();
 		}).catch(() => {
@@ -2122,11 +1814,6 @@
 	$("map-max").addEventListener("click", toggleMapMax);
 	document.addEventListener("fullscreenchange", syncMapMax);
 	document.addEventListener("webkitfullscreenchange", syncMapMax);
-		if (state.fix && state.map) {
-			state.map.panTo(state.fix);
-			state.map.setZoom(16);
-		}
-	});
 
 	const phone = (data.dispatcher_phone || "").replace(/[^\d+]/g, "");
 	$("call-dispatcher").addEventListener("click", () => {
