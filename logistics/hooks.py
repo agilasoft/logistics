@@ -68,6 +68,7 @@ app_include_js = [
 	"/assets/logistics/js/freight_agent_service.js?v=4",
 	"/assets/logistics/js/charge_bill_to.js?v=4",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
+	"/assets/logistics/js/mice_desk_icon.js?v=1",
 	"/assets/logistics/js/mice_project_manifest_print_preview.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=4",
 	"/assets/logistics/js/user_quick_entry.js?v=1",
@@ -435,6 +436,7 @@ permission_query_conditions = {
 
 boot_session = [
 	"logistics.utils.specified_charges_meta.extend_bootinfo_with_specified_charges_meta",
+	"logistics.mice.desk_icon.extend_bootinfo",
 ]
 
 doc_events = DOC_EVENTS
@@ -595,6 +597,7 @@ company_data_to_be_ignored = [
 # Database migrations (after schema sync)
 # ---------------------------------------
 after_migrate = [
+	"logistics.mice.desk_icon.after_migrate",
 	"logistics.job_management.recognition_migrate.after_migrate",
 	"logistics.analytics_reports.sync_cnx_reports.after_migrate",
 	"logistics.cash_advance.install.after_migrate",
