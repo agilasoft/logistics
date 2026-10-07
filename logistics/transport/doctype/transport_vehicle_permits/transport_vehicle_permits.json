@@ -11,7 +11,8 @@
   "column_break_etmv",
   "reference_no",
   "date_issued",
-  "valid_until"
+  "valid_until",
+  "required"
  ],
  "fields": [
   {
@@ -53,13 +54,21 @@
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "Valid Until"
+  },
+  {
+   "default": "1",
+   "description": "Required permits block dispatch once Valid Until is reached, when vehicle permit validation is enforced. Optional permits never block or warn.",
+   "fieldname": "required",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Required"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-09-22 22:11:00.000000",
+ "modified": "2026-10-07 05:40:00.000000",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Vehicle Permits",

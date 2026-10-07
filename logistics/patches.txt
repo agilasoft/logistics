@@ -986,4 +986,6 @@ logistics.patches.v3_0_payment_voucher_signature_header_color
 logistics.patches.v3_0_mice_desk_icon
 # Logistics Staff: copy Employee role flags and existing rep links onto the new master.
 logistics.patches.v3_0_seed_logistics_staff
+# Transport Vehicle permits that existed before the Required checkbox are required.
+logistics.patches.v3_0_set_transport_vehicle_permits_required
 

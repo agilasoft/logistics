@@ -55,6 +55,7 @@ app_include_css = [
 	"/assets/logistics/css/linked_services_dialog.css?v=12",
 	"/assets/logistics/css/ts_sq_fetch_dialog.css?v=6",
 	"/assets/logistics/css/role_permission_matrix.css?v=6",
+	"/assets/logistics/css/vehicle_permit_banner.css?v=1",
 ]
 app_include_js = [
 	"/assets/logistics/js/company_dimension_filters.js?v=1",
@@ -107,6 +108,7 @@ app_include_js = [
 	"/assets/logistics/js/time_sensitive_timer.js?v=2",
 	"/assets/logistics/js/time_sensitive_form.js?v=3",
 	"/assets/logistics/js/time_sensitive_list.js?v=2",
+	"/assets/logistics/js/vehicle_permit_banner.js?v=1",
 ]
 
 # include js, css files in header of web template
@@ -492,6 +494,7 @@ scheduler_events = {
 		*HOURLY_SEA_ALERT_TASKS,
 	],
 	"daily": [
+		"logistics.transport.vehicle_permits.notify_vehicle_permit_alerts",
 		"logistics.status_update.tasks.update_document_statuses",
 		"logistics.status_update.tasks.update_permit_statuses",
 		"logistics.status_update.tasks.update_exemption_statuses",

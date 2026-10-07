@@ -9,6 +9,22 @@ frappe.ui.form.on("Transport Vehicle", {
 	refresh(frm) {
 		// Set initial visibility of company field based on company_owned
 		frm.toggle_display("company", frm.doc.company_owned == 1);
+		if (frm.doc.name && !frm.is_new()) {
+			frappe.call({
+				method: "logistics.transport.vehicle_permits.get_vehicle_form_permit_status",
+				args: { vehicle: frm.doc.name },
+				callback(r) {
+					if (!r || !r.message || !frm.dashboard) {
+						return;
+					}
+					if (r.message.status === "Expired") {
+						frm.dashboard.set_headline_alert(__("Not Eligible for Dispatch"), "red");
+					} else if (r.message.status === "Expiring Soon") {
+						frm.dashboard.set_headline_alert(__("Permit Expiring Soon"), "orange");
+					}
+				},
+			});
+		}
 		// Add button to fetch latest position
 		if (frm.doc.telematics_external_id) {
 			frm.add_custom_button(__("Get Latest Position"), function() {

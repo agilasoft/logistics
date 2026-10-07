@@ -1124,7 +1124,14 @@ def _find_candidate_vehicle(leg: Dict[str, Any], debug: Optional[List[str]] = No
         except Exception:
             scheduled_datetime = get_datetime(f"{sched} 00:00:00")
 
+    from logistics.transport.vehicle_permits import expired_permit_reason
+
     for v in available_vehicles:
+        permit_reason = expired_permit_reason(v["name"])
+        if permit_reason:
+            debug.append(permit_reason)
+            continue
+
         if not _vehicle_free_on_date(v["name"], sched):
             debug.append(f"Internal vehicle busy on {sched}: {v.get('vehicle_name') or v['name']}")
             continue
