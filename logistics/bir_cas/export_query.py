@@ -102,10 +102,10 @@ def _export_with_cas_header(form_params, csv_params, populate_response=True):
 	)
 	if cash_receipts_book:
 		period_label = cash_book_period_label_from_filters(filters)
-	elif sales_book or purchases_book:
-		period_label = sales_book_period_label_from_filters(filters)
-	elif letterhead_report:
+	elif sales_book or letterhead_report:
 		period_label = gl_period_label_from_filters(filters)
+	elif purchases_book:
+		period_label = sales_book_period_label_from_filters(filters)
 	else:
 		period_label = period_label_from_filters(filters)
 

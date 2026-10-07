@@ -131,6 +131,7 @@ class SeaShipment(VirtualLinkedServicesMixin, Document):
             self.validate_weight_volume()
             self.validate_packages()
             self.validate_containers()
+            self.validate_seal_numbers_by_mode()
             self.validate_master_bill()
             self.validate_main_routing_legs_by_entry_type()
             try:
@@ -857,7 +858,54 @@ class SeaShipment(VirtualLinkedServicesMixin, Document):
                             title=_("Duplicate Container Numbers"),
                         )
                     seen[equip] = i
-    
+
+    def validate_seal_numbers_by_mode(self):
+        """Seal Number is required on Import when the row Mode has Required Seal Number.
+
+        Export and Domestic do not require Seal Number, even for FCL.
+        """
+        if getattr(self.flags, "ignore_mandatory", False):
+            return
+        direction = (getattr(self, "direction", None) or "").strip()
+        if direction in ("Export", "Domestic"):
+            return
+        if not hasattr(self, "containers") or not self.containers:
+            return
+
+        modes = sorted(
+            {
+                (getattr(row, "mode", None) or "").strip()
+                for row in self.containers
+                if (getattr(row, "mode", None) or "").strip()
+            }
+        )
+        required_by_mode = {}
+        if modes:
+            for lt in frappe.get_all(
+                "Load Type",
+                filters={"name": ["in", modes]},
+                fields=["name", "required_seal_number"],
+            ):
+                required_by_mode[lt.name] = int(lt.required_seal_number or 0)
+
+        missing_rows = []
+        for row in self.containers:
+            mode = (getattr(row, "mode", None) or "").strip()
+            if not mode or not required_by_mode.get(mode):
+                continue
+            if (getattr(row, "seal_no", None) or "").strip():
+                continue
+            missing_rows.append(getattr(row, "idx", None) or "?")
+
+        if missing_rows:
+            frappe.throw(
+                _(
+                    "Seal Number is mandatory for this Load Type (Required Seal Number). "
+                    "Fill Seal Number in row(s): {0}."
+                ).format(", ".join(str(r) for r in missing_rows)),
+                title=_("Missing Seal Number"),
+            )
+
     def validate_duplicates(self):
         """Check for duplicate Sea Shipments based on identifying fields"""
         # Build filter to exclude current document (works for both new and existing)

@@ -1,9 +1,5 @@
-{% extends "templates/base.html" %}
-{% block title %}Driver · CargoNext{% endblock %}
-{% block navbar %}{% endblock %}
-{% block footer %}{% endblock %}
-
-{% block head_include %}
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Driver preview</title>
 <style>
 	:root {
 		--bg: #f4f7fb;
@@ -33,12 +29,6 @@
 	button, input, select, textarea, a { font-family: inherit; }
 	.navbar, .web-footer, .page-breadcrumbs { display: none !important; }
 	.page-content-wrapper, .page_content { padding: 0 !important; margin: 0 !important; background: transparent; max-width: none; }
-	.page-content-wrapper, .page_content {
-		height: 100dvh !important;
-		min-height: 0 !important;
-		display: flex !important;
-		flex-direction: column !important;
-	}
 	.driver-app {
 		max-width: none;
 		margin: 0;
@@ -46,11 +36,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-		flex: 1 1 auto;
 		height: 100dvh;
-		min-height: 0;
 		overflow: hidden;
-		background: var(--bg);
 	}
 	.topbar, .card, .stat-card, .company-card {
 		background: var(--card);
@@ -109,7 +96,7 @@
 	}
 	.hero {
 		display: grid;
-		grid-template-columns: minmax(280px, 1.05fr) minmax(200px, 0.82fr) minmax(280px, 1.05fr);
+		grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.72fr);
 		gap: 16px;
 		align-items: stretch;
 	}
@@ -139,27 +126,22 @@
 	.hero-metrics { color: var(--muted); font-size: 13px; font-weight: 700; }
 	.hero-metrics b { color: var(--ink); font-size: 14px; }
 	.truck-stage {
-		flex: 1 1 auto; min-height: 0; display: grid; place-items: center; position: relative;
+		flex: 1 1 auto; min-height: 160px; display: grid; place-items: center; position: relative;
 		border-radius: 16px; overflow: hidden; background: #d7e3ee;
 	}
-	.truck-stage .track { position: absolute; left: 16px; right: 16px; bottom: 14px; margin: 0; z-index: 1; }
 	.truck-art { width: min(86%, 520px); height: auto; max-height: 78%; object-fit: contain; position: relative; z-index: 1; }
-	.dash-empty {
-		color: var(--muted); font-weight: 650; text-align: center; padding: 16px;
-		max-width: 320px; display: flex; flex-direction: column; align-items: center; gap: 6px;
-	}
-	.dash-empty strong { color: var(--ink); font-size: 18px; letter-spacing: -0.03em; }
-	.dash-empty span { font-size: 13px; line-height: 1.35; }
-	.photo-art { width: min(280px, 86%); height: auto; display: block; }
-	.tile-art { width: 52px; height: 52px; display: block; flex: none; object-fit: contain; }
-	.tile-art.sm { width: 40px; height: 40px; }
-	#speed-needle { transform-origin: 32px 42px; transform: rotate(-58deg); transition: transform 180ms linear; }
-	.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+	.dash-empty { color: var(--muted); font-weight: 700; text-align: center; padding: 24px; max-width: 280px; }
+	.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start; }
 	.stat-card { padding: 14px 16px 16px; min-height: 112px; display: flex; flex-direction: column; justify-content: space-between; }
 	.stat-card.tall { min-height: 156px; }
 	.stat-fuel { background: linear-gradient(180deg, #e5f8ee 0%, #f7fffa 70%); border: 1px solid #d7f3e3; position: relative; overflow: hidden; }
 	.fuel-wave { position: absolute; left: 0; right: 0; top: 0; height: 42px; }
-	.stat-label { display: block; color: var(--ink); font-size: 13px; font-weight: 800; position: relative; margin-top: 8px; }
+	.stat-label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; font-weight: 700; position: relative; }
+	.stat-icon {
+		width: 28px; height: 28px; border-radius: 9px; background: #f4f7fb; color: var(--blue);
+		display: grid; place-items: center; flex: none;
+	}
+	.stat-fuel .stat-icon { background: white; color: var(--green-ink); }
 	.stat-value, .fuel-value, .speed-value { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; position: relative; }
 	.fuel-value { font-size: 28px; }
 	.stat-hint, .metric-sub, .side-label { color: var(--muted); font-size: 12px; font-weight: 650; }
@@ -196,6 +178,9 @@
 	.status-pill { font-size: 12px; font-weight: 800; border-radius: 99px; padding: 3px 8px; background: #eef2f6; color: #64748b; }
 	.stop.done .status-pill { background: #d9f5e5; color: var(--green-ink); }
 	.stop.next .status-pill { background: #e5efff; color: var(--blue); }
+	.stop.warn .num { background: #fee2e2; color: #b91c1c; }
+	.stop.warn .stop-card { background: #fff5f5; }
+	.stop.warn .status-pill { background: #fee2e2; color: #b91c1c; }
 	.stop-side { text-align: right; }
 	.side-value { font-weight: 800; font-size: 14px; }
 	.chevron { color: #94a3b8; display: grid; place-items: center; }
@@ -217,17 +202,14 @@
 	.map-chip, .recenter { bottom: 12px; }
 	.map-chip { left: 12px; padding: 8px 12px; font-size: 13px; }
 	.recenter { right: 12px; border: 0; height: 36px; padding: 0 12px; cursor: pointer; }
-	.map-max {
-		top: 12px; right: 12px; z-index: 3; width: 40px; height: 40px; border: 0; padding: 0;
+	.map-max, .map-compass {
+		position: absolute; right: 12px; z-index: 3; width: 40px; height: 40px; border: 0; padding: 0;
 		justify-content: center; cursor: pointer; color: var(--ink);
 	}
+	.map-max { top: 60px; }
+	.map-compass { top: 12px; border-radius: 50%; background: white; box-shadow: var(--shadow); display: grid; place-items: center; }
 	.map-max:hover, .map-compass:hover { color: var(--blue); }
-	.map-compass {
-		position: absolute; z-index: 3; top: 60px; right: 12px; width: 40px; height: 40px;
-		border: 0; padding: 0; border-radius: 999px; background: white; box-shadow: var(--shadow);
-		display: grid; place-items: center; cursor: pointer; color: var(--ink);
-	}
-	.compass-dial { display: grid; place-items: center; transition: transform 180ms linear; }
+	.compass-rose { display: grid; transition: transform 180ms linear; }
 	.map-wrap:fullscreen, .map-wrap:-webkit-full-screen { border-radius: 0; height: 100%; }
 	.map-wrap.is-max {
 		position: fixed; inset: 0; z-index: 3000; width: 100vw; height: 100vh; border-radius: 0;
@@ -274,27 +256,27 @@
 	.activity .stat b { display: block; }
 	.activity .stat span { color: var(--muted); font-size: 13px; }
 	.empty { padding: 28px 8px; color: var(--muted); }
-	.history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 0; flex: 1; min-height: 0; overflow: auto; }
-	.dash-stage, .history-stage, .dash-side, .history-side { display: flex; flex-direction: column; gap: 12px; min-height: 0; height: 100%; overflow: hidden; }
-	.dash-stage .company-top, .dash-stage .who, .dash-stage .chip-row, .dash-stage .metric-row, .dash-stage .map-dock { flex: none; }
-	.dash-side .stats {
-		flex: 1; min-height: 0; align-content: stretch;
-		grid-template-rows: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr);
+	.history-list .stop { cursor: default; }
+	.history-panel {
+		display: grid;
+		gap: 16px;
+		background: transparent;
+		box-shadow: none;
+		padding: 0;
+		border-radius: 0;
 	}
-	.dash-side .stat-card, .dash-side .stat-card.tall { box-shadow: none; background: #f7f9fc; min-height: 0; height: auto; }
+	.dash-stage, .history-stage, .dash-side, .history-side { height: 100%; min-height: 0; }
+	.dash-stage, .history-stage { display: flex; flex-direction: column; gap: 12px; }
+	.dash-stage, .dash-side, .history-side { overflow: auto; }
+	.history-stage { overflow: hidden; }
+	.dash-side .stat-card { box-shadow: none; background: #f7f9fc; min-height: 0; }
+	.dash-side .stat-card.tall { min-height: 132px; }
 	.dash-side .stat-fuel { background: linear-gradient(180deg, #e5f8ee 0%, #f7fffa 70%); }
 	.history-metrics {
-		flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 12px;
+		flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 12px;
 	}
 	.history-tile { display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; }
 	.history-tile .metric-value { font-size: 28px; overflow-wrap: anywhere; }
-	.history-shell { background: transparent; box-shadow: none; padding: 0; border-radius: 0; }
-	.history-row {
-		display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 14px; border-radius: 14px; background: #f8fafc; align-items: center;
-	}
-	.status-tag { font-size: 12px; font-weight: 800; border-radius: 99px; padding: 4px 8px; background: #e8eef6; }
-	.status-tag.Completed { background: var(--green); color: var(--green-ink); }
-	.status-tag.Cancelled, .status-tag.Hold { background: #fee2e2; color: #b91c1c; }
 	.driver-app[data-screen="route"] .hero,
 	.driver-app[data-screen="history"] .hero,
 	.driver-app[data-screen="history"] .workspace,
@@ -305,31 +287,22 @@
 	#back-dashboard { display: none; }
 	.driver-app[data-screen="history"] #quick-actions { display: none; }
 	.driver-app[data-screen="dashboard"] .hero,
-	.driver-app[data-screen="history"] .history-shell,
+	.driver-app[data-screen="history"] .history-panel,
 	.driver-app[data-screen="route"] .workspace {
-		display: grid;
-		flex: 1 1 auto;
-		height: auto;
+		flex: 1;
 		min-height: 0;
-		gap: 12px;
 		grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.72fr);
 		grid-template-rows: minmax(0, 1fr);
 		align-items: stretch;
 	}
-	.driver-app[data-screen="route"] .map-panel,
-	.driver-app[data-screen="dashboard"] .dash-stage,
-	.driver-app[data-screen="history"] .history-stage {
+	.driver-app[data-screen="route"] .map-panel {
 		order: -1;
 		height: 100%;
 		min-height: 0;
 		overflow: hidden;
 	}
-	.driver-app[data-screen="route"] .map-wrap,
-	.driver-app[data-screen="dashboard"] .truck-stage,
-	.driver-app[data-screen="history"] .history-metrics { flex: 1 1 auto; height: auto; min-height: 0; }
-	.driver-app[data-screen="route"] .run-panel,
-	.driver-app[data-screen="dashboard"] .dash-side,
-	.driver-app[data-screen="history"] .history-side { height: 100%; min-height: 0; overflow: hidden; }
+	.driver-app[data-screen="route"] .map-wrap { flex: 1; height: auto; min-height: 0; }
+	.driver-app[data-screen="route"] .run-panel { height: 100%; min-height: 0; overflow: auto; }
 	.modal-back {
 		position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;
 	}
@@ -352,9 +325,8 @@
 		.stats, .metric-row, .stop-card { grid-template-columns: 1fr 1fr; }
 		.stop-card { grid-template-columns: 1fr auto; }
 		.chevron { display: none; }
-		.map-wrap, .truck-stage { min-height: 180px; }
-		.driver-app[data-screen="route"] .map-wrap,
-		.driver-app[data-screen="dashboard"] .truck-stage { flex: 1 1 auto; height: auto; min-height: 180px; }
+		.map-wrap { height: 280px; }
+		.driver-app[data-screen="route"] .map-wrap { flex: 1 1 auto; height: auto; min-height: 220px; }
 		.driver-app[data-screen="route"] .metric-row { display: none; }
 		.map-dock { flex-direction: column; align-items: stretch; }
 		.hero-metrics { align-items: flex-start; flex-direction: column; }
@@ -362,18 +334,17 @@
 	}
 	@media (max-width: 1100px) {
 		.driver-app[data-screen="dashboard"] .hero,
-		.driver-app[data-screen="history"] .history-shell,
+		.driver-app[data-screen="history"] .history-panel,
 		.driver-app[data-screen="route"] .workspace {
 			grid-template-columns: 1fr;
 			grid-template-rows: minmax(0, 1.55fr) minmax(180px, 0.7fr);
 		}
 		.driver-app[data-screen="route"] .map-wrap,
 		.driver-app[data-screen="dashboard"] .truck-stage { min-height: 180px; }
+		.history-metrics { grid-template-rows: auto; }
 	}
 </style>
-{% endblock %}
-
-{% block content %}
+</head><body>
 <div class="driver-app no-vehicle-image" id="driver-app" data-screen="route">
 	<header class="topbar">
 		<div class="brand">
@@ -421,7 +392,7 @@
 
 	<section class="hero" id="hero" aria-label="Today">
 		<article class="card dash-stage">
-			<div class="company-top">
+			<div class="panel-head">
 				<div class="company-id">
 					<div class="company-mark" aria-hidden="true">
 						<svg width="22" height="22" viewBox="0 0 32 32"><path d="M16 4l12 22H4z" fill="#2f6bff"/><path d="M16 12l6 12H10z" fill="white"/></svg>
@@ -449,6 +420,10 @@
 					</a>
 				</div>
 			</div>
+			<div class="truck-stage" id="truck-stage">
+				<img class="truck-art" id="vehicle-image" alt="" hidden>
+				<div class="dash-empty" id="dash-empty">Vehicle photo appears here when one is on file.</div>
+			</div>
 			<div class="chip-row">
 				<span class="run-chip" id="run-chip" hidden></span>
 				<span class="today-chip">
@@ -456,33 +431,22 @@
 					<span id="today-label"></span>
 				</span>
 			</div>
-			<div class="truck-stage" id="truck-stage">
-				<img class="truck-art" id="vehicle-image" alt="" hidden>
-				<div class="dash-empty" id="dash-empty">
-					<img class="photo-art" src="/assets/logistics/images/vehicle-photo-icon.png?v=2" alt="">
-					<strong>Vehicle photo</strong>
-					<span>Vehicle photo appears here when one is on file.</span>
-				</div>
-				<div class="track" aria-hidden="true">
-					<div class="track-fill" id="progress-bar"></div>
-					<div class="track-truck" id="progress-truck">
-						<svg width="28" height="16" viewBox="0 0 28 16" fill="none"><rect x="1" y="3" width="14" height="8" rx="1.5" fill="#2f6bff"/><path d="M15 6h5l3 3v2h-8V6z" fill="#1d4ed8"/><circle cx="7" cy="13" r="2" fill="#1b2433"/><circle cx="20" cy="13" r="2" fill="#1b2433"/></svg>
-					</div>
+			<div class="track" aria-hidden="true">
+				<div class="track-fill" id="progress-bar"></div>
+				<div class="track-truck" id="progress-truck">
+					<svg width="28" height="16" viewBox="0 0 28 16" fill="none"><rect x="1" y="3" width="14" height="8" rx="1.5" fill="#2f6bff"/><path d="M15 6h5l3 3v2h-8V6z" fill="#1d4ed8"/><circle cx="7" cy="13" r="2" fill="#1b2433"/><circle cx="20" cy="13" r="2" fill="#1b2433"/></svg>
 				</div>
 			</div>
 			<div class="metric-row">
 				<div class="metric">
-					<svg class="tile-art sm" viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="16" fill="#e8f1ff"/><path d="M32 14c-7 0-12 5.4-12 12.2C20 36 32 50 32 50s12-14 12-23.8C44 19.4 39 14 32 14z" fill="#2f6bff"/><circle cx="32" cy="26" r="5" fill="#f59e0b"/></svg>
 					<div class="metric-label">Stops</div>
-					<div class="metric-value" id="stops-count">No stops</div>
+					<div class="metric-value" id="stops-count"></div>
 				</div>
 				<div class="metric">
-					<svg class="tile-art sm" viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="16" fill="#e8f1ff"/><path d="M22 40c6-10 8-14 14-14" fill="none" stroke="#93c5fd" stroke-width="2.4" stroke-dasharray="3 3" stroke-linecap="round"/><path d="M24 22c-4.2 0-7 3.2-7 7.2C17 36 24 44 24 44s7-8 7-14.8c0-4-2.8-7.2-7-7.2z" fill="#2f6bff"/><circle cx="24" cy="29" r="2.4" fill="#fff"/><path d="M42 18c-3.4 0-5.6 2.6-5.6 5.8C36.4 29 42 36 42 36s5.6-7 5.6-12.2c0-3.2-2.2-5.8-5.6-5.8z" fill="#f59e0b"/><circle cx="42" cy="23.6" r="1.8" fill="#fff"/></svg>
 					<div class="metric-label">Distance</div>
 					<div class="metric-value" id="hero-km">—</div>
 				</div>
 				<div class="metric">
-					<svg class="tile-art sm" viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="16" fill="#e8f1ff"/><path d="M20 44c4-12 8-8 12-16s8-2 14-8" fill="none" stroke="#2f6bff" stroke-width="4" stroke-linecap="round"/><path d="M18 30v14" stroke="#1d4ed8" stroke-width="3" stroke-linecap="round"/><path d="M14 30h8l-4-7z" fill="#2f6bff"/><path d="M44 18v10" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/><path d="M44 18h7l-3.5 5z" fill="#f59e0b"/></svg>
 					<div class="metric-label">ETA</div>
 					<div class="metric-value" id="hero-eta">—</div>
 				</div>
@@ -495,6 +459,7 @@
 				<button class="cn-btn primary" id="open-navigate" type="button">Open navigation</button>
 			</div>
 		</article>
+
 		<aside class="card dash-side" aria-label="Vehicle">
 			<div class="panel-head">
 				<div>
@@ -506,49 +471,47 @@
 				</div>
 			</div>
 			<div class="stats">
-
-			<article class="stat-card stat-fuel tall">
-				<img class="tile-art" src="/assets/logistics/images/fuel-level-icon.png" alt="">
-				<div class="stat-label">Fuel level</div>
-				<div>
-					<div class="fuel-value" id="fuel-value">No reading</div>
-					<div class="stat-hint" id="fuel-sub">Last reading</div>
-				</div>
-			</article>
-			<article class="stat-card tall">
-				<svg class="tile-art" viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="16" fill="#e8f1ff"/><path d="M16 42a16 16 0 1 1 32 0" fill="none" stroke="#2f6bff" stroke-width="5" stroke-linecap="round"/><circle cx="32" cy="42" r="3.2" fill="#1d4ed8"/><g id="speed-needle"><line x1="32" y1="42" x2="32" y2="24" stroke="#f59e0b" stroke-width="3.2" stroke-linecap="round"/></g></svg>
-				<div class="stat-label">Speed</div>
-				<div class="speed-readout">
-					<div class="speed-value" id="speed-value">—</div>
-					<span class="stat-hint" id="speed-unit"></span>
-				</div>
-				<div class="stat-hint" id="speed-sub">No reading</div>
-			</article>
-			<article class="stat-card">
-				<img class="tile-art" src="/assets/logistics/images/vehicle-type-icon.png" alt="">
-				<div class="stat-label">Vehicle type</div>
-				<div class="stat-value" id="vehicle-type">—</div>
-				<div class="stat-hint">Assigned vehicle</div>
-			</article>
-			<article class="stat-card">
-				<img class="tile-art" src="/assets/logistics/images/plate-number-icon.png" alt="">
-				<div class="stat-label">Plate number</div>
-				<div class="stat-value" id="vehicle-plate">—</div>
-				<div class="stat-hint">Registration</div>
-			</article>
-			<article class="stat-card">
-				<svg class="tile-art" viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="16" fill="#e8f1ff"/><path d="M18 28l14-8 14 8v16l-14 8-14-8z" fill="#2f6bff"/><path d="M18 28l14 8 14-8" fill="none" stroke="#dbeafe" stroke-width="2"/><path d="M32 36v16" stroke="#dbeafe" stroke-width="2"/><path d="M22 26l10-6 10 6-4 2-6-4-6 4z" fill="#f59e0b"/></svg>
-				<div class="stat-label">Payload capacity</div>
-				<div class="stat-value" id="payload-value">—</div>
-				<div class="stat-hint" id="payload-sub">Max capacity</div>
-			</article>
-			<article class="stat-card">
-				<svg class="tile-art" viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="16" fill="#e8f1ff"/><path d="M22 22h20a8 8 0 0 1 8 8v2H14v-2a8 8 0 0 1 8-8z" fill="#2f6bff"/><rect x="24" y="16" width="16" height="8" rx="3" fill="#1d4ed8"/><rect x="16" y="32" width="32" height="14" rx="4" fill="#2f6bff"/><text x="32" y="43" text-anchor="middle" font-size="11" font-weight="800" fill="#fff" font-family="Inter, sans-serif">KG</text><rect x="20" y="48" width="24" height="4" rx="2" fill="#f59e0b"/></svg>
-				<div class="stat-label">Current load</div>
-				<div class="stat-value" id="load-value">—</div>
-				<div class="stat-hint" id="load-util"></div>
-				<div class="load-track" id="load-track" hidden><div id="load-bar"></div></div>
-			</article>
+				<article class="stat-card stat-fuel tall">
+					<svg class="fuel-wave" viewBox="0 0 200 42" preserveAspectRatio="none" aria-hidden="true"><path d="M0 24c20-12 30 10 50 4s30-18 50-8 30 16 50 6 30-16 50-6v22H0z" fill="#cfeedd"/></svg>
+					<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V6a2 2 0 0 1 2-2h7v16H4zM13 10h3l3 3v7h-6"/><path d="M7 20v2M10 20v2"/></svg></span> Fuel level</div>
+					<div>
+						<div class="fuel-value" id="fuel-value">No reading</div>
+						<div class="stat-hint" id="fuel-sub">Last reading</div>
+					</div>
+				</article>
+				<article class="stat-card tall">
+					<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4-5"/></svg></span> Speed</div>
+					<svg class="speed-gauge" viewBox="0 0 124 78" aria-hidden="true">
+						<path d="M12 64 A 50 50 0 0 1 112 64" fill="none" stroke="#e7eef8" stroke-width="10" stroke-linecap="round"/>
+						<path id="speed-arc" d="M12 64 A 50 50 0 0 1 112 64" fill="none" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" stroke-dasharray="157" stroke-dashoffset="157"/>
+					</svg>
+					<div class="speed-readout">
+						<div class="speed-value" id="speed-value">—</div>
+						<span class="stat-hint" id="speed-unit"></span>
+					</div>
+					<div class="stat-hint" id="speed-sub">No reading</div>
+				</article>
+				<article class="stat-card">
+					<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg></span> Vehicle type</div>
+					<div class="stat-value" id="vehicle-type">—</div>
+					<div class="stat-hint">Assigned vehicle</div>
+				</article>
+				<article class="stat-card">
+					<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 12h4"/></svg></span> Plate number</div>
+					<div class="stat-value" id="vehicle-plate">—</div>
+					<div class="stat-hint">Registration</div>
+				</article>
+				<article class="stat-card">
+					<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v10l-8 4-8-4V7z"/></svg></span> Payload capacity</div>
+					<div class="stat-value" id="payload-value">—</div>
+					<div class="stat-hint" id="payload-sub">Max capacity</div>
+				</article>
+				<article class="stat-card">
+					<div class="stat-label"><span class="stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l9-4 9 4-9 4z"/><path d="M3 12l9 4 9-4M3 16l9 4 9-4"/></svg></span> Current load</div>
+					<div class="stat-value" id="load-value">—</div>
+					<div class="stat-hint" id="load-util"></div>
+					<div class="load-track" id="load-track" hidden><div id="load-bar"></div></div>
+				</article>
 			</div>
 		</aside>
 	</section>
@@ -601,9 +564,12 @@
 					<span id="map-km-text"></span>
 				</div>
 				<button class="recenter" id="recenter" type="button" hidden>Re-center</button>
-				<button class="map-compass" id="map-compass" type="button" aria-pressed="true" aria-label="Back to your location" title="Back to your location">
-					<span class="compass-dial" id="compass-dial" aria-hidden="true">
-						<svg width="22" height="22" viewBox="0 0 24 24"><polygon points="12,2.5 16,12 12,10 8,12" fill="#e11d48"/><polygon points="12,21.5 8,12 12,14 16,12" fill="#cbd5e1"/></svg>
+				<button class="map-compass" id="map-compass" type="button" aria-label="Reset map to north">
+					<span class="compass-rose" id="compass-rose">
+						<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M12 2.2 L14.4 11.1 L12 10 L9.6 11.1 Z" fill="#e53935"/>
+							<path d="M12 21.8 L9.6 12.9 L12 14 L14.4 12.9 Z" fill="#b0b6bf"/>
+						</svg>
 					</span>
 				</button>
 				<button class="map-max" id="map-max" type="button" aria-pressed="false" aria-label="Maximize map">
@@ -649,7 +615,7 @@
 		</section>
 	</div>
 
-	<section class="history-panel history-shell" id="history-view">
+	<section class="history-panel" id="history-view">
 		<article class="card history-stage">
 			<div class="panel-head">
 				<div>
@@ -672,7 +638,7 @@
 					<div class="sub">Completed and earlier run sheets.</div>
 				</div>
 			</div>
-			<div class="history-list" id="history-list"></div>
+			<div class="stops history-list" id="history-list"></div>
 		</aside>
 	</section>
 </div>
@@ -701,8 +667,461 @@
 	</div>
 </div>
 
-<script type="application/json" id="driver-data">{{ driver_payload_json | safe }}</script>
-<script>{{ driver_nav_script | safe }}</script>
+<script type="application/json" id="driver-data">{"linked": true, "full_name": "Alex Rivera", "company_name": "CargoNext", "company_line": "Internal", "badge": "Available", "on_run": false, "phone": "+639170000000", "email": "alex@cargonext.io", "image": "", "today_label": "October 6, 2026", "route_name": "", "run_sheet": "", "vehicle": {"type": "Van", "plate": "ABC 1234", "line": "ABC 1234 \u00b7 Van", "capacity": 2500, "capacity_uom": "kg", "fuel_l": null, "speed_kph": null, "image": ""}, "load": null, "stops": [], "progress": 0, "completed": 0, "total": 0, "license": {"label": "License C", "detail": "Mar 12, 2027", "ok": true}, "medical": {"label": "Medical", "detail": "Not on file", "ok": false}, "hazmat": {"label": "HazMat", "detail": "None", "ok": false}, "activity": {"completed_runs": 4, "on_time_percent": 92, "open_exceptions": 1, "gate_pass": {"name": "GP-0012", "detail": "Issued today, 6:10 AM", "status": "Issued"}}, "history": [{"route_name": "North loop", "date": "Oct 5, 2026", "name": "RS-1044", "stops": 6, "vehicle": "ABC 1234 \u00b7 Van", "status": "Completed"}, {"route_name": "City drop", "date": "Oct 4, 2026", "name": "RS-1038", "stops": 4, "vehicle": "ABC 1234 \u00b7 Van", "status": "Cancelled"}, {"route_name": "Port shuttle", "date": "Oct 2, 2026", "name": "RS-1021", "stops": 2, "vehicle": "", "status": "Completed"}], "driver_position": null, "google_maps_key": "", "dispatcher_phone": "", "preview": true}</script>
+<script>/* Driver run navigation.
+ * The route is every remaining stop, in order. The next pin is only the first
+ * arrival on that route.
+ */
+(function (root, factory) {
+	const api = factory();
+	if (typeof module === "object" && module.exports) {
+		module.exports = api;
+	}
+	root.DriverNav = api;
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+	const MAX_WAYPOINTS = 25;
+	const URL_WAYPOINTS = 9;
+	const STEP_ADVANCE_METERS = 35;
+
+	function stopPoint(stop) {
+		if (!stop) return null;
+		const lat = Number(stop.lat);
+		const lng = Number(stop.lng);
+		if (Number.isFinite(lat) && Number.isFinite(lng)) {
+			return { lat: lat, lng: lng };
+		}
+		const address = String(stop.address || stop.place || "").trim();
+		return address || null;
+	}
+
+	function remainingStops(stops) {
+		return (stops || []).filter(function (stop) {
+			return stop && !stop.done && stopPoint(stop);
+		});
+	}
+
+	function asDriverOrigin(origin) {
+		if (!origin) return null;
+		const lat = Number(origin.lat);
+		const lng = Number(origin.lng);
+		if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+		return { lat: lat, lng: lng };
+	}
+
+	function buildRoutePlan(stops, origin, maxWaypoints) {
+		const max = maxWaypoints == null ? MAX_WAYPOINTS : maxWaypoints;
+		const pending = remainingStops(stops);
+		if (!pending.length) return null;
+		const driver = asDriverOrigin(origin);
+
+		if (driver) {
+			const included = pending.slice(0, Math.min(pending.length, max + 1));
+			return {
+				origin: driver,
+				originIsDriver: true,
+				destination: stopPoint(included[included.length - 1]),
+				waypoints: included.slice(0, -1).map(function (stop) {
+					return { location: stopPoint(stop), stopover: true };
+				}),
+				included: included,
+				omitted: pending.length - included.length,
+			};
+		}
+
+		if (pending.length === 1) {
+			return {
+				origin: null,
+				originIsDriver: false,
+				destination: stopPoint(pending[0]),
+				waypoints: [],
+				included: pending.slice(),
+				omitted: 0,
+			};
+		}
+
+		const included = pending.slice(0, Math.min(pending.length, max + 2));
+		return {
+			origin: stopPoint(included[0]),
+			originIsDriver: false,
+			destination: stopPoint(included[included.length - 1]),
+			waypoints: included.slice(1, -1).map(function (stop) {
+				return { location: stopPoint(stop), stopover: true };
+			}),
+			included: included,
+			omitted: pending.length - included.length,
+		};
+	}
+
+	function formatPoint(point) {
+		if (point && typeof point === "object") return point.lat + "," + point.lng;
+		return String(point || "");
+	}
+
+	function mapsFallbackUrl(stops, origin) {
+		const plan = buildRoutePlan(stops, origin, URL_WAYPOINTS);
+		if (!plan || !plan.destination) return "https://www.google.com/maps";
+		const params = new URLSearchParams();
+		params.set("api", "1");
+		params.set("travelmode", "driving");
+		if (plan.origin) params.set("origin", formatPoint(plan.origin));
+		params.set("destination", formatPoint(plan.destination));
+		if (plan.waypoints.length) {
+			params.set(
+				"waypoints",
+				plan.waypoints
+					.map(function (waypoint) {
+						return formatPoint(waypoint.location);
+					})
+					.join("|")
+			);
+		}
+		return "https://www.google.com/maps/dir/?" + params.toString();
+	}
+
+	function latLng(value) {
+		if (!value) return null;
+		if (typeof value.lat === "function" && typeof value.lng === "function") {
+			return { lat: Number(value.lat()), lng: Number(value.lng()) };
+		}
+		const lat = Number(value.lat);
+		const lng = Number(value.lng != null ? value.lng : value.lon);
+		if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+		return { lat: lat, lng: lng };
+	}
+
+	function stripHtml(value) {
+		return String(value || "")
+			.replace(/<[^>]*>/g, " ")
+			.replace(/&nbsp;/g, " ")
+			.replace(/&amp;/g, "&")
+			.replace(/\s+/g, " ")
+			.trim();
+	}
+
+	function readStep(step) {
+		const distance = step.distance || {};
+		return {
+			end: step.end || latLng(step.end_location),
+			start: step.start || latLng(step.start_location),
+			instruction: step.instruction || stripHtml(step.instructions || step.html_instructions || ""),
+			maneuver: step.maneuver || "",
+			meters: distance.value || step.meters || 0,
+		};
+	}
+
+	function readLeg(leg) {
+		const duration = leg.duration_in_traffic || leg.duration || {};
+		const distance = leg.distance || {};
+		return {
+			seconds: duration.value || 0,
+			meters: distance.value || 0,
+			traffic: Boolean(leg.duration_in_traffic && leg.duration_in_traffic.value),
+			steps: (leg.steps || []).map(readStep),
+		};
+	}
+
+	function readRoute(result) {
+		const route = result && result.routes ? result.routes[0] : result || {};
+		const legs = (route.legs || []).map(readLeg);
+		return {
+			legs: legs,
+			traffic: legs.some(function (leg) {
+				return leg.traffic;
+			}),
+		};
+	}
+
+	function etasFromLegs(legs, included, originIsDriver) {
+		const arrivals = originIsDriver ? included || [] : (included || []).slice(1);
+		let seconds = 0;
+		let meters = 0;
+		const stops = [];
+		const deliveries = [];
+		arrivals.forEach(function (stop, index) {
+			const leg = legs[index] || {};
+			seconds += leg.seconds || 0;
+			meters += leg.meters || 0;
+			const row = {
+				id: stop.id,
+				leg: stop.leg,
+				kind: stop.kind,
+				seconds: seconds,
+				minutes: Math.max(1, Math.round(seconds / 60)),
+				km: Math.round((meters / 1000) * 10) / 10,
+			};
+			stops.push(row);
+			if (stop.kind === "delivery" && stop.leg) {
+				deliveries.push({ leg: stop.leg, eta_min: row.minutes, eta_km: row.km });
+			}
+		});
+		return { stops: stops, deliveries: deliveries, dock: stops[0] || null };
+	}
+
+	function distanceMeters(a, b) {
+		if (!a || !b || a.lat == null || b.lat == null) return Infinity;
+		const earth = 6371000;
+		const p1 = (a.lat * Math.PI) / 180;
+		const p2 = (b.lat * Math.PI) / 180;
+		const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+		const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+		const h =
+			Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+			Math.cos(p1) * Math.cos(p2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+		return 2 * earth * Math.asin(Math.min(1, Math.sqrt(h)));
+	}
+
+	function pickStepIndex(steps, position, threshold) {
+		const limit = threshold == null ? STEP_ADVANCE_METERS : threshold;
+		if (!steps || !steps.length || !position) return 0;
+		for (let index = 0; index < steps.length; index += 1) {
+			const end = steps[index].end;
+			if (!end) return index;
+			if (distanceMeters(position, end) > limit) return index;
+		}
+		return steps.length - 1;
+	}
+
+	function shouldRefreshRoute(state, now, minMoveMeters, maxIntervalMs) {
+		const move = minMoveMeters == null ? 80 : minMoveMeters;
+		const interval = maxIntervalMs == null ? 45000 : maxIntervalMs;
+		if (!state || state.lastAt == null) return true;
+		const elapsed = now - state.lastAt;
+		if (elapsed >= interval) return true;
+		return (state.movedMeters || 0) >= move;
+	}
+
+	function liveSeconds(snapshot, now) {
+		if (!snapshot) return null;
+		return Math.max(0, snapshot.seconds - (now - snapshot.fetchedAt) / 1000);
+	}
+
+	function formatMeters(meters) {
+		const value = Number(meters);
+		if (!Number.isFinite(value)) return "";
+		if (value >= 1000) {
+			const km = Math.round((value / 1000) * 10) / 10;
+			return (km >= 10 ? Math.round(km) : km) + " km";
+		}
+		if (value < 30) return Math.max(0, Math.round(value)) + " m";
+		return Math.round(value / 10) * 10 + " m";
+	}
+
+	function formatClock(date) {
+		let hours = date.getHours();
+		const minutes = date.getMinutes();
+		const suffix = hours >= 12 ? "PM" : "AM";
+		hours = hours % 12 || 12;
+		const mm = minutes < 10 ? "0" + minutes : String(minutes);
+		return hours + ":" + mm + " " + suffix;
+	}
+
+	function formatKm(km) {
+		const value = Number(km);
+		if (!Number.isFinite(value)) return "";
+		if (value >= 10) return Math.round(value) + " km";
+		const rounded = Math.round(value * 10) / 10;
+		return rounded.toFixed(1).replace(/\.0$/, "") + " km";
+	}
+
+	function formatEtaLabel(seconds, km, now) {
+		const remain = Math.max(0, Number(seconds) || 0);
+		const distance = formatKm(km);
+		if (remain < 20) {
+			if (!distance || Number(km) < 0.05) return "Arriving";
+			return "Arriving · " + distance;
+		}
+		const total = Math.round(remain);
+		const mins = Math.floor(total / 60);
+		const secs = total % 60;
+		const time = mins <= 0 ? secs + " sec" : mins + " min " + String(secs).padStart(2, "0") + " sec";
+		const clock = formatClock(new Date(now + remain * 1000));
+		const parts = [time];
+		if (distance) parts.push(distance);
+		parts.push("arrive " + clock);
+		return parts.join(" · ");
+	}
+
+	function routeSteps(legs) {
+		const steps = [];
+		(legs || []).forEach(function (leg) {
+			(leg.steps || []).forEach(function (step) {
+				steps.push(step);
+			});
+		});
+		return steps;
+	}
+
+	function routeMeters(stops, origin) {
+		const pending = remainingStops(stops);
+		let cursor = asDriverOrigin(origin);
+		let meters = 0;
+		pending.forEach(function (stop) {
+			const point = stopPoint(stop);
+			if (!point || typeof point !== "object") return;
+			if (cursor) {
+				const segment = distanceMeters(cursor, point);
+				if (Number.isFinite(segment)) meters += segment;
+			}
+			cursor = point;
+		});
+		return meters;
+	}
+
+	function followEta(snapshot, anchorMeters, currentMeters, now) {
+		if (!snapshot) return null;
+		const moment = now == null ? snapshot.fetchedAt : now;
+		const elapsed = Math.max(0, (moment - (snapshot.fetchedAt || moment)) / 1000);
+		let seconds = Math.max(0, (Number(snapshot.seconds) || 0) - elapsed);
+		let km = Number(snapshot.km);
+		if (!Number.isFinite(km)) km = 0;
+		const anchor = Number(anchorMeters);
+		const current = Number(currentMeters);
+		if (km > 0 && Number.isFinite(anchor) && Number.isFinite(current) && anchor > 0 && current < anchor) {
+			const ratio = Math.max(0, current / anchor);
+			const nextKm = km * ratio;
+			const paced = (Number(snapshot.seconds) || 0) * ratio;
+			seconds = Math.min(seconds, Math.max(0, paced));
+			km = nextKm;
+		}
+		return {
+			seconds: seconds,
+			km: Math.round(km * 10) / 10,
+			traffic: Boolean(snapshot.traffic),
+		};
+	}
+
+	function geometricEta(meters, speedKph) {
+		const distance = Number(meters);
+		if (!Number.isFinite(distance)) return null;
+		const km = Math.round((Math.max(0, distance) / 1000) * 10) / 10;
+		const speed = Number(speedKph);
+		const pace = Number.isFinite(speed) && speed >= 8 ? speed : 40;
+		const seconds = km <= 0 ? 0 : (km / pace) * 3600;
+		return { seconds: seconds, km: km, traffic: false };
+	}
+
+	function tickStops(rows, fetchedAt, now, anchorMeters, currentMeters) {
+		const elapsed = Math.max(0, (now - (fetchedAt || now)) / 1000);
+		const anchor = Number(anchorMeters);
+		const current = Number(currentMeters);
+		const moved = Number.isFinite(anchor) && Number.isFinite(current) && anchor > 0 && current < anchor - 30;
+		const ratio = moved ? Math.max(0, current / anchor) : 1;
+		return (rows || []).map(function (row) {
+			const base = Number(row.seconds);
+			const baseSeconds = Number.isFinite(base) ? base : (Number(row.minutes) || 0) * 60;
+			const ticked = Math.max(0, baseSeconds - elapsed);
+			const scaled = baseSeconds * ratio;
+			const seconds = moved ? Math.min(ticked, scaled) : ticked;
+			const kmFactor = baseSeconds > 0 ? seconds / baseSeconds : ratio;
+			return {
+				id: row.id,
+				seconds: seconds,
+				minutes: seconds <= 0 ? 0 : Math.max(1, Math.round(seconds / 60)),
+				km: Math.round((Number(row.km) || 0) * kmFactor * 10) / 10,
+			};
+		});
+	}
+
+	function progressEtas(stops, origin, secPerKm) {
+		const pace = Number(secPerKm);
+		const perKm = Number.isFinite(pace) && pace > 0 ? pace : 90;
+		const pending = remainingStops(stops);
+		let cursor = asDriverOrigin(origin);
+		let seconds = 0;
+		let meters = 0;
+		const rows = [];
+		pending.forEach(function (stop) {
+			const point = stopPoint(stop);
+			if (!point || typeof point !== "object") return;
+			if (!cursor) {
+				cursor = point;
+				return;
+			}
+			const segment = distanceMeters(cursor, point);
+			if (!Number.isFinite(segment)) return;
+			meters += segment;
+			seconds += (segment / 1000) * perKm;
+			rows.push({
+				id: stop.id,
+				leg: stop.leg,
+				kind: stop.kind,
+				seconds: seconds,
+				minutes: Math.max(1, Math.round(seconds / 60)),
+				km: Math.round((meters / 1000) * 10) / 10,
+			});
+			cursor = point;
+		});
+		return rows;
+	}
+
+	function bearingDegrees(from, to) {
+		if (!from || !to || from.lat == null || to.lat == null) return null;
+		const lat1 = (Number(from.lat) * Math.PI) / 180;
+		const lat2 = (Number(to.lat) * Math.PI) / 180;
+		const dLng = ((Number(to.lng) - Number(from.lng)) * Math.PI) / 180;
+		const y = Math.sin(dLng) * Math.cos(lat2);
+		const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+		const deg = (Math.atan2(y, x) * 180) / Math.PI;
+		return Number.isFinite(deg) ? deg : null;
+	}
+
+	function compass(from, to) {
+		const deg = bearingDegrees(from, to);
+		if (deg == null) return "";
+		const names = ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"];
+		return names[Math.round(((deg + 360) % 360) / 45) % 8];
+	}
+
+	function maneuverHeading(maneuver) {
+		const headings = {
+			"turn-left": -90,
+			"turn-sharp-left": -135,
+			"turn-slight-left": -45,
+			"turn-right": 90,
+			"turn-sharp-right": 135,
+			"turn-slight-right": 45,
+			"uturn-left": 180,
+			"uturn-right": 180,
+			straight: 0,
+			"ramp-left": -45,
+			"ramp-right": 45,
+			"fork-left": -30,
+			"fork-right": 30,
+			merge: 0,
+			"roundabout-left": -90,
+			"roundabout-right": 90,
+		};
+		return Object.prototype.hasOwnProperty.call(headings, maneuver) ? headings[maneuver] : 0;
+	}
+
+	return {
+		MAX_WAYPOINTS: MAX_WAYPOINTS,
+		URL_WAYPOINTS: URL_WAYPOINTS,
+		stopPoint: stopPoint,
+		remainingStops: remainingStops,
+		buildRoutePlan: buildRoutePlan,
+		mapsFallbackUrl: mapsFallbackUrl,
+		readRoute: readRoute,
+		etasFromLegs: etasFromLegs,
+		distanceMeters: distanceMeters,
+		pickStepIndex: pickStepIndex,
+		shouldRefreshRoute: shouldRefreshRoute,
+		liveSeconds: liveSeconds,
+		formatMeters: formatMeters,
+		formatEtaLabel: formatEtaLabel,
+		routeSteps: routeSteps,
+		routeMeters: routeMeters,
+		followEta: followEta,
+		geometricEta: geometricEta,
+		tickStops: tickStops,
+		progressEtas: progressEtas,
+		bearingDegrees: bearingDegrees,
+		compass: compass,
+		stripHtml: stripHtml,
+		maneuverHeading: maneuverHeading,
+	};
+});
+</script>
 <script>
 (function () {
 	const data = JSON.parse(document.getElementById("driver-data").textContent);
@@ -720,7 +1139,7 @@
 		follow: true,
 		cameraHeld: false,
 		zoomArmed: false,
-		northLocked: false,
+		northHeld: true,
 		applyingHeading: 0,
 		watchId: null,
 		fix: null,
@@ -838,15 +1257,11 @@
 		text("speed-value", known ? formatAmount(speed) : "—");
 		text("speed-unit", known ? "km/h" : "");
 		text("speed-sub", known ? "Last reading" : "No reading");
-		const ratio = known ? Math.max(0, Math.min(1, speed / 120)) : 0;
 		const arc = $("speed-arc");
-		if (arc) {
-			const length = 157;
-			arc.style.strokeDasharray = String(length);
-			arc.style.strokeDashoffset = String(length * (1 - ratio));
-		}
-		const needle = $("speed-needle");
-		if (needle) needle.style.transform = "rotate(" + (-58 + ratio * 116) + "deg)";
+		const length = 157;
+		const ratio = known ? Math.max(0, Math.min(1, speed / 120)) : 0;
+		arc.style.strokeDasharray = String(length);
+		arc.style.strokeDashoffset = String(length * (1 - ratio));
 	}
 	function paintHeroImage() {
 		const vehicle = data.vehicle || {};
@@ -856,12 +1271,14 @@
 		if (!photo) {
 			image.hidden = true;
 			if (empty) empty.hidden = false;
+			$("driver-app").classList.add("no-vehicle-image");
 			return;
 		}
 		image.src = photo;
 		image.alt = vehicle.plate || data.company_name || "Vehicle";
 		image.hidden = false;
 		if (empty) empty.hidden = true;
+		$("driver-app").classList.remove("no-vehicle-image");
 	}
 
 	text("header-driver", data.full_name);
@@ -978,11 +1395,27 @@
 			</article>`).join("");
 	}
 	const history = $("history-list");
-	history.innerHTML = data.history.length ? data.history.map((run) => `
-		<div class="history-row">
-			<div><b>${escapeHtml(run.route_name)}</b><div class="meta">${escapeHtml(run.date)} · ${escapeHtml(run.name)} · ${escapeHtml(run.stops)} stops${run.vehicle ? " · " + escapeHtml(run.vehicle) : ""}</div></div>
-			<span class="status-tag ${escapeHtml(run.status)}">${escapeHtml(run.status)}</span>
-		</div>`).join("") : `<div class="empty">Past runs will appear here after you finish a trip.</div>`;
+	history.innerHTML = data.history.length ? data.history.map((run, index) => {
+		const last = index === data.history.length - 1;
+		const tone = run.status === "Completed" ? "done" : ((run.status === "Cancelled" || run.status === "Hold") ? "warn" : "");
+		const mark = run.status === "Completed"
+			? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>`
+			: String(index + 1);
+		return `<article class="stop ${tone}">
+			<div class="rail"><div class="num">${mark}</div>${last ? "" : `<div class="stem"></div>`}</div>
+			<div class="stop-card">
+				<div class="stop-main">
+					<div class="stop-top"><div class="stop-title">${escapeHtml(run.route_name)}</div><span class="status-pill">${escapeHtml(run.status)}</span></div>
+					<div class="meta">${escapeHtml(run.date)} · ${escapeHtml(run.name)}</div>
+					${run.vehicle ? `<div class="meta">${escapeHtml(run.vehicle)}</div>` : ""}
+				</div>
+				<div class="stop-side">
+					<div class="side-label">Stops</div>
+					<div class="side-value">${escapeHtml(run.stops)}</div>
+				</div>
+			</div>
+		</article>`;
+	}).join("") : `<div class="empty">Past runs will appear here after you finish a trip.</div>`;
 
 	function showScreen(screen) {
 		const allowed = { route: 1, dashboard: 1, history: 1 };
@@ -1555,7 +1988,8 @@
 		if (state.navigating && state.follow && state.map) {
 			state.map.panTo(fix);
 			if (!state.cameraHeld && state.map.getZoom() < 15) state.map.setZoom(16);
-			faceTravel(fix.heading);
+			const course = Number(fix.heading);
+			if (!state.northHeld && fix.heading != null && Number.isFinite(course)) applyHeading(course);
 		}
 		showGuidance(fix);
 		paintDock();
@@ -1624,19 +2058,15 @@
 				headingInteractionEnabled: true,
 				tiltInteractionEnabled: false
 			};
-			if (google.maps.RenderingType && google.maps.RenderingType.VECTOR) {
-				options.renderingType = google.maps.RenderingType.VECTOR;
-			}
+			if (google.maps.RenderingType) options.renderingType = google.maps.RenderingType.VECTOR;
 			if (google.maps.ControlPosition) {
 				options.zoomControlOptions = { position: google.maps.ControlPosition.RIGHT_CENTER };
 			}
 			state.map = new google.maps.Map(box, options);
 			watchCamera(state.map);
-			if (typeof state.map.setHeadingInteractionEnabled === "function") state.map.setHeadingInteractionEnabled(true);
-			if (typeof state.map.setTiltInteractionEnabled === "function") state.map.setTiltInteractionEnabled(false);
 			state.map.addListener("heading_changed", () => {
-				if (!state.applyingHeading) state.northLocked = true;
 				paintCompass();
+				if (!state.applyingHeading) state.northHeld = false;
 			});
 			paintCompass();
 			$("map-empty").hidden = true;
@@ -1660,20 +2090,52 @@
 			showMapFailure();
 		});
 	}
+	function mapHeading() {
+		if (!state.map || typeof state.map.getHeading !== "function") return 0;
+		const value = Number(state.map.getHeading());
+		return Number.isFinite(value) ? value : 0;
+	}
+	function paintCompass() {
+		const rose = $("compass-rose");
+		if (!rose) return;
+		const heading = mapHeading();
+		rose.style.transform = "rotate(" + (-heading) + "deg)";
+		const button = $("map-compass");
+		if (button) button.setAttribute("aria-label", Math.abs(heading) < 1 ? "North is up" : "Reset map to north");
+	}
+	function applyHeading(degrees) {
+		if (!state.map || typeof state.map.setHeading !== "function") {
+			paintCompass();
+			return;
+		}
+		const heading = ((Number(degrees) % 360) + 360) % 360;
+		state.applyingHeading += 1;
+		state.map.setHeading(heading);
+		if (heading === 0 && typeof state.map.setTilt === "function") state.map.setTilt(0);
+		const release = () => { state.applyingHeading = Math.max(0, state.applyingHeading - 1); };
+		if (window.google && google.maps.event) google.maps.event.addListenerOnce(state.map, "idle", release);
+		else release();
+		paintCompass();
+	}
+	function faceNorth() {
+		state.northHeld = true;
+		applyHeading(0);
+	}
 	function stopGuidance() {
 		state.navigating = false;
 		state.follow = false;
+		state.northHeld = true;
 		$("maneuver").hidden = true;
 		$("recenter").hidden = true;
 		if (window.speechSynthesis) window.speechSynthesis.cancel();
-		pointNorth();
+		applyHeading(0);
 		paintDock();
 	}
 	function startGuidance() {
 		state.navigating = true;
 		state.follow = true;
 		state.cameraHeld = false;
-		state.northLocked = false;
+		state.northHeld = false;
 		state.spokenStep = -1;
 		$("maneuver").hidden = false;
 		$("recenter").hidden = false;
@@ -1696,10 +2158,10 @@
 	$("recenter").addEventListener("click", () => {
 		state.follow = true;
 		state.cameraHeld = false;
+		state.northHeld = false;
 		state.zoomArmed = false;
-		const point = userLocation();
-		if (point && state.map) {
-			state.map.panTo(point);
+		if (state.fix && state.map) {
+			state.map.panTo(state.fix);
 			state.map.setZoom(16);
 		}
 	});
@@ -1744,74 +2206,8 @@
 			syncMapMax();
 		});
 	}
-	function mapHeading() {
-		if (!state.map || typeof state.map.getHeading !== "function") return 0;
-		const heading = Number(state.map.getHeading());
-		if (!Number.isFinite(heading)) return 0;
-		return ((heading % 360) + 360) % 360;
-	}
-	function paintCompass() {
-		const heading = mapHeading();
-		const north = heading < 1 || heading > 359;
-		const dial = $("compass-dial");
-		if (dial) dial.style.transform = "rotate(" + (-heading) + "deg)";
-		const button = $("map-compass");
-		const label = north ? "Back to your location" : "Back to your location, north up";
-		button.setAttribute("aria-pressed", north ? "true" : "false");
-		button.setAttribute("aria-label", label);
-		button.title = label;
-	}
-	function setMapHeading(heading) {
-		if (!state.map || typeof state.map.setHeading !== "function") {
-			paintCompass();
-			return;
-		}
-		const value = ((Number(heading) % 360) + 360) % 360;
-		state.applyingHeading += 1;
-		try {
-			state.map.setHeading(value);
-			if (value === 0 && typeof state.map.setTilt === "function") state.map.setTilt(0);
-		} catch (error) {
-			state.applyingHeading = Math.max(0, state.applyingHeading - 1);
-		}
-		window.setTimeout(() => {
-			state.applyingHeading = Math.max(0, state.applyingHeading - 1);
-			paintCompass();
-		}, 80);
-	}
-	function userLocation() {
-		if (state.driverMarker && typeof state.driverMarker.getPosition === "function") {
-			const pos = state.driverMarker.getPosition();
-			if (pos) {
-				const lat = typeof pos.lat === "function" ? pos.lat() : pos.lat;
-				const lng = typeof pos.lng === "function" ? pos.lng() : pos.lng;
-				if (Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
-					return { lat: Number(lat), lng: Number(lng) };
-				}
-			}
-		}
-		const origin = originNow();
-		if (origin && origin.lat != null && origin.lng != null) {
-			return { lat: Number(origin.lat), lng: Number(origin.lng) };
-		}
-		return null;
-	}
-	function pointNorth() {
-		state.northLocked = true;
-		setMapHeading(0);
-		const point = userLocation();
-		if (!state.map || !point) return;
-		state.follow = true;
-		state.map.panTo(point);
-	}
-	function faceTravel(heading) {
-		if (state.northLocked || !state.navigating || !state.follow) return;
-		const value = Number(heading);
-		if (!Number.isFinite(value)) return;
-		setMapHeading(value);
-	}
-	$("map-compass").addEventListener("click", pointNorth);
 	$("map-max").addEventListener("click", toggleMapMax);
+	$("map-compass").addEventListener("click", faceNorth);
 	document.addEventListener("fullscreenchange", syncMapMax);
 	document.addEventListener("webkitfullscreenchange", syncMapMax);
 
@@ -1872,4 +2268,4 @@
 	ensureWatch();
 })();
 </script>
-{% endblock %}
+</body></html>

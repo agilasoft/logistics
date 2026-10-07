@@ -450,6 +450,7 @@
   {
    "fieldname": "sales_rep",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Sales Rep",
    "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
    "options": "Employee"
@@ -457,6 +458,7 @@
   {
    "fieldname": "operations_rep",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Operations Rep",
    "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
    "options": "Employee"
@@ -464,6 +466,7 @@
   {
    "fieldname": "customer_service_rep",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Customer Service Rep",
    "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
    "options": "Employee"

@@ -134,18 +134,21 @@
   {
    "fieldname": "sales_rep",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Sales Rep",
    "options": "Employee"
   },
   {
    "fieldname": "operations_rep",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Operations Rep",
    "options": "Employee"
   },
   {
    "fieldname": "customer_service_rep",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Customer Service Rep",
    "options": "Employee"
   },
