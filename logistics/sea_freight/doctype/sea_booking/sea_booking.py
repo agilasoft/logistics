@@ -515,9 +515,15 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 		}
 	
 	def validate_seal_numbers_by_mode(self):
-		"""Seal Number is required when the row Mode (Load Type) has Required Seal Number."""
+		"""Seal Number is required on Import when the row Mode has Required Seal Number.
+
+		Export and Domestic do not require Seal Number, even for FCL.
+		"""
 		# Create-from-quote sets ignore_mandatory; quote containers have no seal field.
 		if getattr(self.flags, "ignore_mandatory", False):
+			return
+		direction = (getattr(self, "direction", None) or "").strip()
+		if direction in ("Export", "Domestic"):
 			return
 		if not hasattr(self, "containers") or not self.containers:
 			return

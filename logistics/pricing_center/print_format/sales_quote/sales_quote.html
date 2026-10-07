@@ -14,8 +14,8 @@
         .company-address { font-size: 7pt; line-height: 1.3; margin-bottom: 0; }
         .vat-reg { font-size: 7pt; }
         .company-contact { font-size: 7pt; line-height: 1.3; }
-        .details-wrap { margin-top: 40mm; margin-bottom: 0; position: relative; }
-        .main-body { display: flex; justify-content: space-between; border: 2px solid #000; padding: 2mm; position: relative; }
+        .details-wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "customer qr" "scope qr" "body body"; align-items: start; margin-top: 0; margin-bottom: 0; position: relative; }
+        .main-body { display: flex; justify-content: space-between; border: 2px solid #000; padding: 2mm; position: relative; width: 100%; grid-area: body; margin-top: 0; }
         .left-column { flex: 1; padding-right: 5mm; }
         .right-column { flex: 1; padding-left: 5mm; }
         .field-row { display: flex; margin-bottom: -1mm; align-items: baseline; gap: 0.3mm; }
@@ -23,17 +23,17 @@
         .left-column .field-label { text-align: right; min-width: 22mm; }
         .left-column .field-row { gap: 0.1mm; }
         .field-value { flex: 1; font-size: 8pt; line-height: 1.4; padding: 0 0.5mm; background: white; }
-        .customer-info-section { position: absolute; top: -40mm; left: 1.5mm; z-index: 10; max-width: 80mm; }
+        .customer-info-section { grid-area: customer; position: static; z-index: 10; max-width: 80mm; }
         .customer-label { font-weight: bold; font-size: 8pt; margin-top: 5mm; margin-bottom: 1mm; line-height: 1; }
         .customer-name-box { padding: 0.3mm 0.5mm; font-size: 12pt; font-weight: 900; margin-bottom: 0.1mm; margin-top: -1mm; line-height: 1; background: white; }
         .customer-address-box { padding: 0.3mm 0.5mm; font-size: 8pt; background: white; width: 100mm; line-height: 1.3; }
         .customer-detail-row { font-size: 8pt; margin-top: 0.5mm; line-height: 1.2; padding: 0.3mm 0.5mm; }
         .customer-detail-label { font-weight: bold; }
         .customer-detail-value { margin-left: 0.5mm; }
-        .qr-section { position: absolute; top: -40mm; right: 1.5mm; text-align: right; z-index: 10; margin-bottom: 30mm; }
+        .qr-section { grid-area: qr; position: static; text-align: right; z-index: 10; margin: 0; align-self: start; }
         .qr-code { width: 20mm; height: 20mm; border: 0 solid #000; }
         .order-title-qr { font-size: 16pt; font-weight: 900; margin-top: 0.11mm; margin-bottom: -1mm; text-align: right; }
-        .reference-number { font-size: 8pt; font-weight: normal; margin-top: 0.1mm; }
+        .reference-number { font-size: 8pt; font-weight: normal; margin: 0; line-height: 1; }
         .packages-table { width: 100%; border-collapse: collapse; margin-top: 0; margin-bottom: 2mm; }
         .packages-table .table-header { background: #e0e0e0; border: 2px solid #000; width:100%;}
         .packages-table .table-header th { padding: 0.3mm 0.5mm; text-align: left; font-size: 7pt; font-weight: bold; color: #000; border-top: 2px solid #000; border-bottom: 2px solid #000; border-left: none; border-right: none; }
@@ -41,12 +41,13 @@
         .packages-table .table-header th:last-child { border-right: 2px solid #000; }
         .packages-table .table-header th.num, .packages-table .table-row td.num { text-align: right; }
         .packages-table .table-row td { padding: 0.3mm 0.5mm; font-size: 7pt; background: white; border: none; border-bottom: 1px solid #ddd; vertical-align: top; }
-        .packages-table .subheader-row td { font-weight: bold; text-decoration: underline; border: none; padding-top: 2mm; padding-bottom: 1mm; background: #e8e8e8; border-top: 1px solid #000; }
+        .packages-table .subheader-row td { font-weight: bold; border: none; padding-top: 2mm; padding-bottom: 1mm; background: #e8e8e8; border-top: 1px solid #000; }
         .packages-table .total-row td.num { text-align: right; }
         .packages-table .total-row td { font-weight: bold; border-top: 2px solid #000; background: #f5f5f5; page-break-inside: avoid; break-inside: avoid; }
-        .scope-title-block { width: 100%; margin: 0 0 1.5mm 0; }
+        .scope-title-block { grid-area: scope; width: auto; margin: 0; align-self: end; }
         .scope-title-label { font-size: 7pt; color: #555; margin-bottom: 0.8mm; }
         .scope-title-value { font-size: 8pt; color: #333; background: #f2f2f2; border-radius: 6px; padding: 2.5mm 2.5mm; }
+        .scope-title-block .scope-title-value { padding: 0; line-height: 1; }
         .charge-section-page-break { page-break-after: always; break-after: page; }
         .charge-section-continued { page-break-before: auto; break-before: auto; }
         .charge-section-continued-break { page-break-before: always; break-before: page; }
@@ -190,7 +191,9 @@
 {%- endmacro %}
 
 {% macro charge_description(row) %}
-{% set label = (row.description or row.item_name or row.item_code or row.item or '')|upper %}
+{% set raw = row.description or row.item_name or row.item_code or row.item or '' %}
+{% set label = frappe.utils.strip_html(raw)|replace('\r\n', ' ')|replace('\n', ' ')|replace('\r', ' ') %}
+{% set label = label.split()|join(' ')|trim|upper %}
 {% set curr = row.currency or row.selling_currency %}
 {% if row.quantity and row.unit_rate and curr %}
 {{ label }} - {{ frappe.utils.fmt_money(row.quantity, precision=3) }} {{ row.uom or '' }} @ {{ curr }} {{ frappe.utils.fmt_money(row.unit_rate, precision=2) }}/{{ row.uom or 'UNIT' }}
@@ -206,7 +209,6 @@
 {% macro table_header() %}
 <thead class="table-header" style="width:100%">
     <tr>
-        <th>No.</th>
         <th colspan="2">DESCRIPTION</th>
         {% if show_foreign_amt %}<th class="num">FOREIGN AMT</th>{% endif %}
         <th class="num">TOTAL ({{ quote_currency }})</th>
@@ -215,7 +217,6 @@
 {% endmacro %}
 
 {% macro render_charge_rows(lines, start_row_no, suppress_subheader_for='') %}
-{% set row_no = namespace(value=start_row_no) %}
 {% set prev_group = namespace(value='') %}
 {% for item in lines %}
 {% if item.group != prev_group.value %}
@@ -224,9 +225,7 @@
 {% endif %}
 {% set prev_group.value = item.group %}
 {% endif %}
-{% set row_no.value = row_no.value + 1 %}
 <tr class="table-row">
-    <td>{{ row_no.value }}</td>
     <td colspan="2">{{ charge_description(item.row) }}</td>
     {% if show_foreign_amt %}<td class="num">{% set foreign_amt = item.row.estimated_revenue or item.row.unit_rate %}{% if foreign_amt is not none %}{{ frappe.utils.fmt_money(foreign_amt, precision=2) }} {{ item.row.currency or item.row.selling_currency or quote_currency }}{% endif %}</td>{% endif %}
     <td class="num">{{ frappe.utils.fmt_money(item.quote_amt, precision=2) }}</td>
@@ -278,7 +277,7 @@
 {% endif %}
 {% endfor %}
 {% set show_foreign_amt = foreign_ns.show %}
-{% set table_cols = 5 if show_foreign_amt else 4 %}
+{% set table_cols = 4 if show_foreign_amt else 3 %}
 
 {% set service_level_name = '' %}
 {% if doc.service_code and frappe.db.exists("Logistics Service Level", doc.service_code) %}
@@ -563,7 +562,7 @@
                 {{ render_charge_rows(first_page_lines, 0) }}
                 {% if not has_continuation_pages %}
                 <tr class="total-row">
-                    <td colspan="3">GRAND TOTAL</td>
+                    <td colspan="2">GRAND TOTAL</td>
                     {% if show_foreign_amt %}<td></td>{% endif %}
                     <td class="num">{{ frappe.utils.fmt_money(grand_total.value, precision=2) }}</td>
                 </tr>
@@ -592,7 +591,7 @@
                 {{ render_charge_rows(page_lines, start_row_no, suppress_subheader_for=page_split_group) }}
                 {% if is_last_continuation_page %}
                 <tr class="total-row">
-                    <td colspan="3">GRAND TOTAL</td>
+                    <td colspan="2">GRAND TOTAL</td>
                     {% if show_foreign_amt %}<td></td>{% endif %}
                     <td class="num">{{ frappe.utils.fmt_money(grand_total.value, precision=2) }}</td>
                 </tr>

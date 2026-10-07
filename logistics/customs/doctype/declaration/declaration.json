@@ -1082,6 +1082,7 @@
    "fetch_from": "declaration_order.sales_rep",
    "fieldname": "sales_rep",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Sales Rep",
    "link_filters": "[[\"Logistics Staff\",\"sales_rep\",\"=\",1],[\"Logistics Staff\",\"is_active\",\"=\",1]]",
    "options": "Logistics Staff"
@@ -1090,6 +1091,7 @@
    "fetch_from": "declaration_order.operations_rep",
    "fieldname": "operations_rep",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Operations Rep",
    "link_filters": "[[\"Logistics Staff\",\"operations_rep\",\"=\",1],[\"Logistics Staff\",\"is_active\",\"=\",1]]",
    "options": "Logistics Staff"
@@ -1098,6 +1100,7 @@
    "fetch_from": "declaration_order.customer_service_rep",
    "fieldname": "customer_service_rep",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Customer Service Rep",
    "link_filters": "[[\"Logistics Staff\",\"customer_service_rep\",\"=\",1],[\"Logistics Staff\",\"is_active\",\"=\",1]]",
    "options": "Logistics Staff"

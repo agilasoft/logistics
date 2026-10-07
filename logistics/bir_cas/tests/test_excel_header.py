@@ -252,7 +252,7 @@ class TestSalesBookLetterheadRows(unittest.TestCase):
 			"company_name": "All Transport Network Inc",
 			"company_address": "Unit 126B, Charlie Bldg. Subic Int'l. Hotel Complex",
 			"tin": "000-414-368-00000",
-			"period_label": "Date From: 1/1/2024 12:00:00 AM Date To: 2/29/2024 12:00:00 AM",
+			"period_label": "202401 to 202402",
 			"generated_by": "Willy Morales",
 			"printed_at": "28-Jun-24 16:55",
 			"printed_at_day_mon": "28 Jun 24 16:55",
@@ -263,8 +263,8 @@ class TestSalesBookLetterheadRows(unittest.TestCase):
 		self.assertEqual(rows[1], ["Unit 126B, Charlie Bldg. Subic Int'l. Hotel Complex"])
 		self.assertEqual(rows[2], ["VAT REG. TIN 000-414-368-00000"])
 		self.assertEqual(rows[3], ["Sales Book"])
-		self.assertEqual(rows[4], ["Date From: 1/1/2024 12:00:00 AM Date To: 2/29/2024 12:00:00 AM"])
-		self.assertEqual(rows[5], ["Printed by Willy Morales 28 Jun 24 16:55"])
+		self.assertEqual(rows[4], ["Period: 202401 to 202402"])
+		self.assertEqual(rows[5], ["Printed by Willy Morales 28-Jun-24 16:55"])
 		self.assertEqual(rows[6], [])
 
 
@@ -289,9 +289,9 @@ class TestSalesBookLetterheadStyles(unittest.TestCase):
 			"company_name": "All Transport Network Inc",
 			"company_address": "Unit 126B, Charlie Bldg.",
 			"tin": "000-414-368-00000",
-			"period_label": "Date From: 1/1/2024 12:00:00 AM Date To: 2/29/2024 12:00:00 AM",
+			"period_label": "202401 to 202402",
 			"generated_by": "Willy Morales",
-			"printed_at_day_mon": "28 Jun 24 16:55",
+			"printed_at": "28-Jun-24 16:55",
 		}
 		wb = Workbook()
 		ws = wb.active
@@ -311,11 +311,8 @@ class TestSalesBookLetterheadStyles(unittest.TestCase):
 		self.assertEqual(ws.cell(row=1, column=1).value, "All Transport Network Inc")
 		self.assertEqual(ws.cell(row=3, column=1).value, "VAT REG. TIN 000-414-368-00000")
 		self.assertEqual(ws.cell(row=4, column=1).value, "Sales Book")
-		self.assertEqual(
-			ws.cell(row=5, column=1).value,
-			"Date From: 1/1/2024 12:00:00 AM Date To: 2/29/2024 12:00:00 AM",
-		)
-		self.assertEqual(ws.cell(row=6, column=1).value, "Printed by Willy Morales 28 Jun 24 16:55")
+		self.assertEqual(ws.cell(row=5, column=1).value, "Period: 202401 to 202402")
+		self.assertEqual(ws.cell(row=6, column=1).value, "Printed by Willy Morales 28-Jun-24 16:55")
 		self.assertEqual(ws.cell(row=8, column=1).value, "Date")
 		merged = {str(cell_range) for cell_range in ws.merged_cells.ranges}
 		self.assertIn("A1:F1", merged)
