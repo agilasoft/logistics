@@ -724,7 +724,17 @@ def sync_internal_job_details_to_internal_jobs(doc: Any, *_method) -> None:
 	# Sales Quote Services is a virtual grid. Duplicate, workflow, and other desk
 	# saves often post ``linked_services: []`` because the rows were cleared or never
 	# hydrated. That is not a request to delete the quote's Linked Services.
+	# Submit goes through ``apply_workflow`` → ``load_from_db``, which drops the
+	# virtual rows while leaving ``_linked_services_from_form`` set. Frappe does not
+	# run ``before_save`` on submit, but a workflow action that stays draft does, and
+	# a partial snapshot must not orphan-delete the quote's Linked Services either.
+	# Removal is only ``remove_linked_service``, which deletes the document itself.
 	if _sales_quote_empty_services_grid_is_not_a_removal(doc):
+		return
+	if doc.doctype == "Sales Quote" and not getattr(
+		getattr(doc, "flags", None), "_allow_clear_linked_services", False
+	):
+		_ensure_internal_job_docs_for_detail_rows(doc)
 		return
 	prev_orphans: set[str] | None = None
 	if doc.doctype in _VIRTUAL_LINKED_SERVICE_PARENTS and doc.name:

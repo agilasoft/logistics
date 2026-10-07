@@ -169,8 +169,15 @@ def linked_service_rows(parent_doc: Any) -> list[Any]:
 		if hasattr(parent_doc, "_build_special_project_services_view"):
 			return parent_doc._build_special_project_services_view()
 	if doctype == "Sales Quote":
-		if getattr(getattr(parent_doc, "flags", None), "_linked_services_from_form", False):
-			return list(parent_doc.__dict__.get(fieldname) or [])
+		flags = getattr(parent_doc, "flags", None)
+		if getattr(flags, "_linked_services_from_form", False):
+			rows = list(parent_doc.__dict__.get(fieldname) or [])
+			# Workflow submit reloads via load_from_db and leaves the form flag set
+			# with no rows. That snapshot must not hide or delete Linked Services.
+			if rows or getattr(flags, "_allow_clear_linked_services", False):
+				return rows
+			if not getattr(parent_doc, "name", None) or getattr(parent_doc, "__islocal", False):
+				return rows
 		if hasattr(parent_doc, "_build_linked_services_view"):
 			return parent_doc._build_linked_services_view()
 	if doctype == "Change Request":

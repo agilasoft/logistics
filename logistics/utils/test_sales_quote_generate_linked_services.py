@@ -23,11 +23,19 @@ class TestSalesQuoteGenerateLinkedServices(FrappeTestCase):
 		if not frappe.db.exists("DocType", linked_service_doctype()):
 			self.skipTest("Linked Service not installed")
 		self._created_container_types = []
+		self._created_unlocos = []
+		self._created_vehicle_types = []
 
 	def tearDown(self):
 		for name in self._created_container_types:
 			if frappe.db.exists("Container Type", name):
 				frappe.delete_doc("Container Type", name, force=True, ignore_permissions=True)
+		for name in self._created_vehicle_types:
+			if frappe.db.exists("Vehicle Type", name):
+				frappe.delete_doc("Vehicle Type", name, force=True, ignore_permissions=True)
+		for name in self._created_unlocos:
+			if frappe.db.exists("UNLOCO", name):
+				frappe.delete_doc("UNLOCO", name, force=True, ignore_permissions=True)
 
 	def _base_quote(self, title: str, *, quotation_type="Regular", main_service="Sea"):
 		doc = frappe.new_doc("Sales Quote")
@@ -161,12 +169,13 @@ class TestSalesQuoteGenerateLinkedServices(FrappeTestCase):
 					"parent_booking_name": sq.name,
 					"service_type": "Transport",
 				},
-				fields=["name", "container_type", "company"],
+				fields=["name", "container_type", "company", "quantity"],
 				order_by="creation asc",
 			)
-			self.assertEqual(len(rows), 3)
-			self.assertEqual([row.container_type for row in rows].count(type_a), 2)
-			self.assertEqual([row.container_type for row in rows].count(type_b), 1)
+			self.assertEqual(len(rows), 2)
+			by_type = {row.container_type: row.quantity for row in rows}
+			self.assertEqual(by_type[type_a], 2)
+			self.assertEqual(by_type[type_b], 1)
 			self.assertTrue(all(row.company == sq.company for row in rows))
 			self.assertTrue(all(row.container_type != "NOT-A-TYPE" for row in rows))
 
@@ -302,19 +311,33 @@ class TestSalesQuoteGenerateLinkedServices(FrappeTestCase):
 		finally:
 			self._cleanup_quote(quote_name)
 
+	def _ensure_unloco(self, code: str):
+		if frappe.db.exists("UNLOCO", code):
+			return code
+		row = frappe.new_doc("UNLOCO")
+		row.unlocode = code
+		row.location_name = code
+		row.is_active = 1
+		row.insert(ignore_permissions=True)
+		self._created_unlocos.append(row.name)
+		return row.name
+
+	def _ensure_vehicle_type(self, code: str):
+		if frappe.db.exists("Vehicle Type", code):
+			return code
+		row = frappe.new_doc("Vehicle Type")
+		row.code = code
+		row.description = code
+		row.is_active = 1
+		row.insert(ignore_permissions=True)
+		self._created_vehicle_types.append(row.name)
+		return row.name
+
 	def test_transport_from_main_copies_header_fields(self):
-		origin = self._link("UNLOCO", {"is_active": 1}) or self._link("UNLOCO")
-		destination = frappe.db.get_value(
-			"UNLOCO",
-			{"name": ("!=", origin)} if origin else {},
-			"name",
-		)
-		if not origin or not destination:
-			self.skipTest("Need two UNLOCO records")
-		vehicle = self._link("Vehicle Type")
-		container_type = self._link("Container Type")
-		if not vehicle or not container_type:
-			self.skipTest("Need Vehicle Type and Container Type")
+		origin = self._ensure_unloco("LSGO1")
+		destination = self._ensure_unloco("LSGD1")
+		vehicle = self._ensure_vehicle_type("LSGV1")
+		container_type, _other = self._two_container_types()
 		pick_mode = self._link("Pick and Drop Mode")
 		drop_mode = pick_mode
 		load_type = self._link("Load Type")

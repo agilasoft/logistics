@@ -317,7 +317,7 @@ function _mice_open_services_dialog(frm) {
 			allowEdit: can_manage,
 			emptyHint: __("Add a service type below to link it to this project."),
 			addHint: __(
-				"Select a service type to link to this project. You can add multiple services of the same type (e.g. three Transport legs)."
+				"Choose a service type and quantity, fill in the service details, then Add Service. Qty is stored on that one service."
 			),
 			unsavedMessage: __("Save the MICE Project before managing services."),
 			removeConfirm: (ls) =>

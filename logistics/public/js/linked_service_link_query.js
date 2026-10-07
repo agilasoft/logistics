@@ -118,6 +118,24 @@ frappe.provide("logistics.linked_service_link_query");
 		});
 	};
 
+	/** Copy the linked service quantity onto the charge row. */
+	logistics.linked_service_link_query.applyQuantityFromLinkedService = function (frm, cdt, cdn) {
+		const row = frappe.get_doc(cdt, cdn);
+		if (!row) return;
+		const linkField = row.linked_service !== undefined ? "linked_service" : "internal_job";
+		const lsName = (row[linkField] || "").trim();
+		if (!lsName) return;
+		frappe.db.get_value("Linked Service", lsName, "quantity").then(function (r) {
+			const qty = cint((r && r.message && r.message.quantity) || 1) || 1;
+			if (row.quantity !== undefined) {
+				frappe.model.set_value(cdt, cdn, "quantity", qty);
+			}
+			if (row.cost_quantity !== undefined) {
+				frappe.model.set_value(cdt, cdn, "cost_quantity", qty);
+			}
+		});
+	};
+
 	/** Clear linked_service when charge service_type no longer matches the linked document. */
 	logistics.linked_service_link_query.clearLinkIfServiceTypeMismatch = function (frm, cdt, cdn) {
 		const row = frappe.get_doc(cdt, cdn);

@@ -230,6 +230,11 @@ class ChangeRequest(Document):
 					),
 					title=_("Linked Service Type Mismatch"),
 				)
+			from logistics.logistics.doctype.linked_service.linked_service import (
+				copy_linked_service_quantity_to_charge,
+			)
+
+			copy_linked_service_quantity_to_charge(row, ls_link)
 
 	def after_insert(self):
 		self._drop_virtual_linked_services_rows()
@@ -927,10 +932,14 @@ def list_change_request_linked_services(change_request: str):
 
 
 @frappe.whitelist()
-def add_linked_service(change_request: str, service_type: str, quantity=1):
+def add_linked_service(change_request: str, service_type: str, quantity=1, values=None):
 	"""Create one or more Linked Services of the same type owned by this Change Request."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		apply_dialog_create_values,
+		prepare_dialog_create_values,
+	)
 	from logistics.time_sensitive.service_linking import (
-		normalize_linked_service_quantity,
+		apply_linked_service_quantity,
 		validate_linked_service_type,
 	)
 
@@ -941,15 +950,15 @@ def add_linked_service(change_request: str, service_type: str, quantity=1):
 		frappe.throw(_("Save the Change Request before adding a linked service."))
 
 	service_type = validate_linked_service_type(service_type)
-	quantity = normalize_linked_service_quantity(quantity)
-	names = []
-	for _idx in range(quantity):
-		linked = frappe.new_doc(linked_service_doctype())
-		linked.service_type = service_type
-		linked.parent_booking_type = "Change Request"
-		linked.parent_booking_name = cr.name
-		linked.insert(ignore_permissions=True)
-		names.append(linked.name)
+	cleaned = prepare_dialog_create_values(service_type, values)
+	linked = frappe.new_doc(linked_service_doctype())
+	linked.service_type = service_type
+	linked.parent_booking_type = "Change Request"
+	linked.parent_booking_name = cr.name
+	apply_dialog_create_values(linked, cleaned)
+	apply_linked_service_quantity(linked, quantity)
+	linked.insert(ignore_permissions=True)
+	names = [linked.name]
 
 	cr.flags._linked_services_view_cached = False
 	if "linked_services" in cr.__dict__:

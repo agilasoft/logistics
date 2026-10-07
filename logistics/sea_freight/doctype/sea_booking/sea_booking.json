@@ -10,6 +10,8 @@
   "dashboard_html",
   "details_tab",
   "section_break_main",
+  "is_turnover_shipment",
+  "turnover_charges_template",
   "naming_series",
   "booking_date",
   "shipping_status",
@@ -756,26 +758,29 @@
   {
    "fieldname": "sales_rep",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Sales Rep",
-   "link_filters": "[[\"Employee\",\"custom_sales_rep\",\"=\",1]]",
+   "link_filters": "[[\"Logistics Staff\",\"sales_rep\",\"=\",1],[\"Logistics Staff\",\"is_active\",\"=\",1]]",
    "no_copy": 1,
-   "options": "Employee"
+   "options": "Logistics Staff"
   },
   {
    "fieldname": "operations_rep",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Operations Rep",
-   "link_filters": "[[\"Employee\",\"custom_operations_rep\",\"=\",1]]",
+   "link_filters": "[[\"Logistics Staff\",\"operations_rep\",\"=\",1],[\"Logistics Staff\",\"is_active\",\"=\",1]]",
    "no_copy": 1,
-   "options": "Employee"
+   "options": "Logistics Staff"
   },
   {
    "fieldname": "customer_service_rep",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Customer Service Rep",
-   "link_filters": "[[\"Employee\",\"custom_customer_service_rep\",\"=\",1]]",
+   "link_filters": "[[\"Logistics Staff\",\"customer_service_rep\",\"=\",1],[\"Logistics Staff\",\"is_active\",\"=\",1]]",
    "no_copy": 1,
-   "options": "Employee"
+   "options": "Logistics Staff"
   },
   {
    "fieldname": "column_break_logistics_reps",
@@ -1014,6 +1019,19 @@
    "fieldname": "section_break_main",
    "fieldtype": "Section Break",
    "label": "Booking Details"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_turnover_shipment",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Turnover Shipment"
+  },
+  {
+   "fieldname": "turnover_charges_template",
+   "fieldtype": "Link",
+   "label": "Turnover Charges Template",
+   "options": "Turnover Charges Template"
   },
   {
    "fieldname": "contacts_addresses",

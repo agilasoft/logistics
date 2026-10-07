@@ -131,6 +131,22 @@ def _build_payload(driver_name, preview):
 
 	company = ""
 	if driver.custom_transport_company and frappe.db.exists("Transport Company", driver.custom_transport_company):
+		company_meta = frappe.get_meta("Transport Company")
+		name_field = next(
+			(field for field in ("company_name", "full_name") if company_meta.has_field(field)),
+			None,
+		)
+		company_fields = [name_field] if name_field else []
+		if company_meta.has_field("logo"):
+			company_fields.append("logo")
+		company_row = (
+			frappe.db.get_value(
+				"Transport Company", driver.custom_transport_company, company_fields, as_dict=True
+			)
+			if company_fields
+			else {}
+		) or {}
+		company = (company_row.get(name_field) if name_field else "") or driver.custom_transport_company
 		company_fields = ["company_name"]
 		if frappe.get_meta("Transport Company").has_field("logo"):
 			company_fields.append("logo")

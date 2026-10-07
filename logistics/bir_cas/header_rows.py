@@ -113,20 +113,7 @@ def build_cash_receipts_book_letterhead_rows(context: dict[str, str]) -> list[li
 
 def build_sales_book_letterhead_rows(context: dict[str, str]) -> list[list]:
 	"""Centered company letterhead used by the Sales Book Excel export."""
-	tin = (context.get("tin") or "").strip()
-	period = (context.get("period_label") or "").strip()
-	printed_by = (context.get("generated_by") or "").strip()
-	printed_at = (context.get("printed_at_day_mon") or context.get("printed_at") or "").strip()
-	printed_line = f"Printed by {printed_by} {printed_at}".strip()
-	return [
-		[context.get("company_name") or ""],
-		[context.get("company_address") or ""],
-		[f"VAT REG. TIN {tin}".strip()],
-		[SALES_BOOK_REPORT],
-		[period],
-		[printed_line],
-		[],
-	]
+	return build_company_letterhead_rows(context, SALES_BOOK_REPORT)
 
 
 def build_purchases_book_letterhead_rows(context: dict[str, str]) -> list[list]:

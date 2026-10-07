@@ -84,6 +84,10 @@
                 margin-top: auto;
                 flex-shrink: 0;
             }
+
+            .receipt-container.single-page-invoice .last-page-block.footer-with-table {
+                margin-top: 0;
+            }
             
             /* Header Section */
             .header {
@@ -994,6 +998,10 @@
                 flex-shrink: 0;
                 page-break-before: avoid;
                 break-before: avoid;
+            }
+
+            .receipt-container.single-page-invoice .last-page-block.footer-with-table {
+                margin-top: 0;
             }
 
             .receipt-container.single-page-invoice .last-page-push {
@@ -2144,9 +2152,18 @@
                     used = addAvoidBreakSegment(used, getOuterHeight(thead), pageHeightPx);
                 }
 
-                var rows = table.querySelectorAll('tbody .table-row');
+                var rows = table.querySelectorAll('tbody tr');
                 for (var i = 0; i < rows.length; i++) {
                     used = addAvoidBreakSegment(used, getOuterHeight(rows[i]), pageHeightPx);
+                }
+
+                var renderedBottom = Math.max(
+                    0,
+                    (getDocTop(table) + table.offsetHeight) - getDocTop(container)
+                );
+                var renderedOnPage = wrapSplittableHeight(0, renderedBottom, pageHeightPx);
+                if (renderedOnPage > used) {
+                    used = renderedOnPage;
                 }
 
                 result.usedAfterRows = used;
@@ -2247,17 +2264,36 @@
             }
 
             function pinFooterToPageBottom(block, push, group, anchorPageIndex, pageHeightPx, contentStartOffset) {
-                var maxBottom = pageHeightPx - (PAGE_BOTTOM_MARGIN_MM * MM_TO_PX);
+                var maxBottom = pageHeightPx - SAFETY_PX;
                 var groupHeight = group.offsetHeight || 0;
-                var safeStartOffset = Math.max(0, Math.min(contentStartOffset, maxBottom - groupHeight - SAFETY_PX));
-                var blockMinHeightPx = Math.max(groupHeight, maxBottom - safeStartOffset);
-                block.classList.add('footer-with-table');
-                applyFlexBottomPin(block, push, blockMinHeightPx);
+                var container = block.closest('.receipt-container');
+                var startOffset = Math.max(0, contentStartOffset || 0);
+                if (container) {
+                    var layout = simulateTableLayout(container, pageHeightPx);
+                    if (layout.blockStartOffset < layout.usedAfterRows) {
+                        startOffset = layout.usedAfterRows;
+                    } else if (layout.blockStartOffset > startOffset) {
+                        startOffset = layout.blockStartOffset;
+                    }
+                }
+                var spacerPx = Math.max(0, maxBottom - startOffset - groupHeight - SAFETY_PX);
 
-                var spacerPx = Math.max(0, maxBottom - safeStartOffset - groupHeight - SAFETY_PX);
+                block.classList.remove('footer-new-page');
+                block.classList.add('footer-with-table');
+                block.style.paddingTop = '';
+                block.style.minHeight = '';
+
                 if (spacerPx > 0) {
                     applyPushSize(push, spacerPx);
                     push.style.flex = '0 0 auto';
+                } else {
+                    setPushHeight(0);
+                    if (push) {
+                        push.style.display = 'block';
+                        push.style.flex = '0 0 auto';
+                        push.style.height = '0px';
+                        push.style.minHeight = '0px';
+                    }
                 }
             }
 
@@ -2269,7 +2305,7 @@
                     return;
                 }
 
-                var maxBottom = pageHeightPx - (PAGE_BOTTOM_MARGIN_MM * MM_TO_PX);
+                var maxBottom = pageHeightPx - SAFETY_PX;
                 var groupHeight = group.offsetHeight;
                 var layout = simulateTableLayout(container, pageHeightPx);
                 var remainingAfterTable = Math.max(0, maxBottom - layout.usedAfterRows);

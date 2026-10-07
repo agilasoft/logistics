@@ -173,19 +173,37 @@ _PARTY_ENTRIES = (
 )
 
 _REP_ENTRIES = (
-	{"key": "sales_rep", "label": "Sales Rep", "fieldtype": "Link", "options": "Employee", "doc_attr": "sales_rep"},
+	{
+		"key": "sales_rep",
+		"label": "Sales Rep",
+		"fieldtype": "Link",
+		"options": "Logistics Staff",
+		"link_filters": [
+			["Logistics Staff", "sales_rep", "=", 1],
+			["Logistics Staff", "is_active", "=", 1],
+		],
+		"doc_attr": "sales_rep",
+	},
 	{
 		"key": "operations_rep",
 		"label": "Operations Rep",
 		"fieldtype": "Link",
-		"options": "Employee",
+		"options": "Logistics Staff",
+		"link_filters": [
+			["Logistics Staff", "operations_rep", "=", 1],
+			["Logistics Staff", "is_active", "=", 1],
+		],
 		"doc_attr": "operations_rep",
 	},
 	{
 		"key": "customer_service_rep",
 		"label": "Customer Service Rep",
 		"fieldtype": "Link",
-		"options": "Employee",
+		"options": "Logistics Staff",
+		"link_filters": [
+			["Logistics Staff", "customer_service_rep", "=", 1],
+			["Logistics Staff", "is_active", "=", 1],
+		],
 		"doc_attr": "customer_service_rep",
 	},
 )

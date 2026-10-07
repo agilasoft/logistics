@@ -406,6 +406,9 @@ frappe.ui.form.on('Sea Booking', {
 		_sea_booking_setup_linked_service_query(frm);
 	},
 
+	direction: function(frm) {
+		_sea_booking_toggle_seal_no_reqd(frm);
+	},
 	shipping_line: function(frm) {
 		frm.set_value("origin_cto", "");
 		frm.set_value("destination_cto", "");
@@ -1223,8 +1226,8 @@ function _refresh_packing_summary_api(frm) {
 }
 
 /**
- * Seal Number is required when any container row Mode (Load Type) has Required Seal Number.
- * Grid reqd is document-wide; per-row enforcement is on the server.
+ * Seal Number is required on Import when any container row Mode (Load Type) has Required Seal Number.
+ * Export and Domestic never require it. Grid reqd is document-wide; per-row enforcement is on the server.
  */
 function _sea_booking_toggle_seal_no_reqd(frm) {
 	if (!frm || !frm.fields_dict || !frm.fields_dict.containers || !frm.fields_dict.containers.grid) {
@@ -1237,6 +1240,12 @@ function _sea_booking_toggle_seal_no_reqd(frm) {
 
 	function apply_reqd(require_seal) {
 		grid.update_docfield_property("seal_no", "reqd", require_seal ? 1 : 0);
+	}
+
+	var direction = String((frm.doc && frm.doc.direction) || "").trim();
+	if (direction === "Export" || direction === "Domestic") {
+		apply_reqd(false);
+		return;
 	}
 
 	var modes = [];

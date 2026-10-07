@@ -1076,3 +1076,103 @@ class TestSeaShipment(FrappeTestCase):
 			any(row.milestone in {ms_pickup, ms_transit} for row in shipment.milestones)
 		)
 
+
+class TestSeaShipmentSealNumberValidation(FrappeTestCase):
+	"""Seal Number required for Import + FCL; Export and Domestic skip it."""
+
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def _ensure_load_type(self, name: str, **flags):
+		if frappe.db.exists("Load Type", name):
+			doc = frappe.get_doc("Load Type", name)
+			for key, value in flags.items():
+				doc.set(key, value)
+			doc.save(ignore_permissions=True)
+			return doc.name
+
+		doc = frappe.new_doc("Load Type")
+		doc.load_type_name = name
+		doc.description = name
+		doc.is_active = 1
+		for key, value in flags.items():
+			doc.set(key, value)
+		doc.insert(ignore_permissions=True)
+		return doc.name
+
+	def _shipment_with_container(self, mode: str, seal_no: str | None = None):
+		shipment = frappe.new_doc("Sea Shipment")
+		shipment.append(
+			"containers",
+			{
+				"mode": mode,
+				"seal_no": seal_no or "",
+			},
+		)
+		return shipment
+
+	def test_export_skips_seal_validation(self):
+		mode = self._ensure_load_type(
+			"TEST-SEAL-REQ",
+			sea=1,
+			container=1,
+			required_seal_number=1,
+		)
+		shipment = self._shipment_with_container(mode)
+		shipment.direction = "Export"
+
+		shipment.validate_seal_numbers_by_mode()
+
+	def test_domestic_skips_seal_validation(self):
+		mode = self._ensure_load_type(
+			"TEST-SEAL-REQ",
+			sea=1,
+			container=1,
+			required_seal_number=1,
+		)
+		shipment = self._shipment_with_container(mode)
+		shipment.direction = "Domestic"
+
+		shipment.validate_seal_numbers_by_mode()
+
+	def test_import_fcl_requires_seal(self):
+		mode = self._ensure_load_type(
+			"TEST-SEAL-REQ",
+			sea=1,
+			container=1,
+			required_seal_number=1,
+		)
+		shipment = self._shipment_with_container(mode)
+		shipment.direction = "Import"
+
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			shipment.validate_seal_numbers_by_mode()
+
+		self.assertIn("Seal Number", str(ctx.exception))
+
+	def test_import_without_required_flag_skips_seal(self):
+		mode = self._ensure_load_type(
+			"TEST-SEAL-OPT",
+			sea=1,
+			container=1,
+			required_seal_number=0,
+		)
+		shipment = self._shipment_with_container(mode)
+		shipment.direction = "Import"
+
+		shipment.validate_seal_numbers_by_mode()
+
+	def test_blank_direction_requires_seal_when_flag_set(self):
+		mode = self._ensure_load_type(
+			"TEST-SEAL-REQ",
+			sea=1,
+			container=1,
+			required_seal_number=1,
+		)
+		shipment = self._shipment_with_container(mode)
+
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			shipment.validate_seal_numbers_by_mode()
+
+		self.assertIn("Seal Number", str(ctx.exception))
+

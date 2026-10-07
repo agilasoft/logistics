@@ -229,6 +229,11 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 
 			self.validate_dates()
 			self.validate_accounts()
+			from logistics.logistics.doctype.turnover_charges_template.turnover_charges_template import (
+				sync_turnover_shipment_charges,
+			)
+
+			sync_turnover_shipment_charges(self)
 			self.validate_main_routing_legs_by_entry_type()
 			self.validate_house_bl_unique_among_sea_shipments()
 			self.validate_seal_numbers_by_mode()
@@ -510,9 +515,15 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 		}
 	
 	def validate_seal_numbers_by_mode(self):
-		"""Seal Number is required when the row Mode (Load Type) has Required Seal Number."""
+		"""Seal Number is required on Import when the row Mode has Required Seal Number.
+
+		Export and Domestic do not require Seal Number, even for FCL.
+		"""
 		# Create-from-quote sets ignore_mandatory; quote containers have no seal field.
 		if getattr(self.flags, "ignore_mandatory", False):
+			return
+		direction = (getattr(self, "direction", None) or "").strip()
+		if direction in ("Export", "Domestic"):
 			return
 		if not hasattr(self, "containers") or not self.containers:
 			return
@@ -795,8 +806,8 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 		assert_tariff_customer_matches_job_before_submit(self)
 
 		# Validate quote reference: either sales_quote (for Sales Quote) or quote (for One-Off Quote) must be set
-		# Exception: Sea Bookings created from a MICE Project or Time Sensitive Case
-		# intentionally have no Sales Quote.
+		# Exception: Sea Bookings created from a MICE Project, a Time Sensitive Case,
+		# or marked Turnover Shipment intentionally have no Sales Quote.
 		from logistics.mice.doctype.mice_project.mice_project_booking_creation import (
 			booking_is_linked_from_mice_project,
 		)
@@ -805,16 +816,24 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 		from logistics.time_sensitive.propagation import is_time_sensitive_operational_doc
 
 		ts_case_leg = is_time_sensitive_operational_doc(self)
+		from logistics.logistics.doctype.turnover_charges_template.turnover_charges_template import (
+			assert_turnover_template_ready,
+			turnover_shipment_skips_sales_quote,
+		)
+
+		turnover_shipment = turnover_shipment_skips_sales_quote(self)
+		if turnover_shipment:
+			assert_turnover_template_ready(self)
 		quote_type = getattr(self, "quote_type", None)
 		if quote_type == "Sales Quote":
-			if not self.sales_quote and not mice_programme_booking and not ts_case_leg:
+			if not self.sales_quote and not mice_programme_booking and not ts_case_leg and not turnover_shipment:
 				frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Sea Booking."))
 		elif quote_type == "One-Off Quote":
-			if not getattr(self, "quote", None) and not mice_programme_booking and not ts_case_leg:
+			if not getattr(self, "quote", None) and not mice_programme_booking and not ts_case_leg and not turnover_shipment:
 				frappe.throw(_("One-Off Quote is required. Please select a One-Off Quote before submitting the Sea Booking."))
 		else:
 			# If quote_type is not set, check if sales_quote is set (backward compatibility)
-			if not self.sales_quote and not mice_programme_booking and not ts_case_leg:
+			if not self.sales_quote and not mice_programme_booking and not ts_case_leg and not turnover_shipment:
 				frappe.throw(_("Sales Quote is required. Please select a Sales Quote before submitting the Sea Booking."))
 
 		throw_if_missing_destination_service_charge(self)
@@ -1944,8 +1963,15 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			has_quote = bool(self.sales_quote)
 		
 		has_charges = bool(hasattr(self, 'charges') and self.charges and len(self.charges) > 0)
-		
-		if not has_quote and not has_charges:
+
+		from logistics.logistics.doctype.turnover_charges_template.turnover_charges_template import (
+			assert_turnover_template_ready,
+			turnover_shipment_skips_sales_quote,
+		)
+
+		if turnover_shipment_skips_sales_quote(self):
+			assert_turnover_template_ready(self)
+		elif not has_quote and not has_charges:
 			frappe.throw(_("Cannot convert to Sea Shipment. Either a Quote or Charges must be present."))
 		
 		readiness = self.check_conversion_readiness()
@@ -1990,6 +2016,11 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 			sea_shipment.booking_date = self.booking_date or today()
 			sea_shipment.sea_booking = self.name
 			copy_sales_quote_fields_to_target(self, sea_shipment)
+			from logistics.logistics.doctype.turnover_charges_template.turnover_charges_template import (
+				copy_turnover_shipment_fields,
+			)
+
+			copy_turnover_shipment_fields(self, sea_shipment)
 			from logistics.utils.service_role_rules import (
 				SERVICE_ROLE_LINKED,
 				SERVICE_ROLE_MAIN,

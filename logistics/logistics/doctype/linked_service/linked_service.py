@@ -114,6 +114,7 @@ _DIALOG_EDIT_LABELS = {
 _DIALOG_EDIT_FIELDS = {
 	"Air": [
 		"service_type",
+		"quantity",
 		"company",
 		"branch",
 		"cost_center",
@@ -128,6 +129,7 @@ _DIALOG_EDIT_FIELDS = {
 	],
 	"Sea": [
 		"service_type",
+		"quantity",
 		"company",
 		"branch",
 		"cost_center",
@@ -142,6 +144,7 @@ _DIALOG_EDIT_FIELDS = {
 	],
 	"Transport": [
 		"service_type",
+		"quantity",
 		"company",
 		"branch",
 		"cost_center",
@@ -157,6 +160,7 @@ _DIALOG_EDIT_FIELDS = {
 	],
 	"Customs": [
 		"service_type",
+		"quantity",
 		"company",
 		"branch",
 		"cost_center",
@@ -172,6 +176,7 @@ _DIALOG_EDIT_FIELDS = {
 
 _DIALOG_EDIT_DEFAULT_FIELDS = [
 	"service_type",
+	"quantity",
 	"company",
 	"branch",
 	"cost_center",
@@ -179,6 +184,39 @@ _DIALOG_EDIT_DEFAULT_FIELDS = [
 	"reference_no",
 	"notes",
 ]
+
+
+# At least one of these must be filled before a quantity create of that type.
+# Shared accounting fields and free-text notes do not count as the service details.
+_DIALOG_CREATE_DETAIL_FIELDS = {
+	"Air": [
+		"airline",
+		"origin_port",
+		"destination_port",
+		"shipper",
+		"consignee",
+	],
+	"Sea": [
+		"shipping_line",
+		"origin_port",
+		"destination_port",
+		"shipper",
+		"consignee",
+	],
+	"Transport": [
+		"location_from",
+		"location_to",
+		"vehicle_type",
+		"container_type",
+		"transport_template",
+	],
+	"Customs": [
+		"customs_authority",
+		"declaration_type",
+		"customs_broker",
+		"customs_charge_category",
+	],
+}
 
 
 def _dialog_edit_fieldnames(service_type: str) -> list[str]:
@@ -204,6 +242,107 @@ def _dialog_edit_field_defs(service_type: str) -> list[dict[str, Any]]:
 			item["link_filters"] = link_filters
 		defs.append(item)
 	return defs
+
+
+def dialog_create_detail_fieldnames(service_type: str) -> list[str]:
+	"""Fields that count as the service details for a create-before-insert form."""
+	return list(_DIALOG_CREATE_DETAIL_FIELDS.get(service_type or "", []))
+
+
+def parse_dialog_create_values(service_type: str, values) -> dict[str, Any]:
+	"""Keep only editable dialog fields. Unknown keys, including service_type, are dropped."""
+	import json
+
+	if values is None:
+		return {}
+	if isinstance(values, str):
+		values = json.loads(values or "{}")
+	if not isinstance(values, dict):
+		frappe.throw(_("Linked service details must be a set of fields."))
+
+	allowed = {
+		field["fieldname"]
+		for field in _dialog_edit_field_defs(service_type)
+		if not field.get("read_only")
+	}
+	cleaned: dict[str, Any] = {}
+	for fieldname, value in values.items():
+		if fieldname not in allowed:
+			continue
+		if isinstance(value, str):
+			value = value.strip()
+		if value in (None, ""):
+			continue
+		cleaned[fieldname] = value
+	return cleaned
+
+
+def assert_dialog_create_details(service_type: str, cleaned: dict[str, Any]) -> None:
+	"""Reject a create that has no type-specific details."""
+	names = dialog_create_detail_fieldnames(service_type)
+	if not names:
+		return
+	if any(cleaned.get(name) for name in names):
+		return
+	frappe.throw(_("Enter the linked service details before creating them."))
+
+
+def copy_linked_service_quantity_to_charge(row, linked_service: str) -> None:
+	"""Set charge quantity fields from the linked service quantity."""
+	from frappe.utils import cint
+
+	if not linked_service or not frappe.db.exists("Linked Service", linked_service):
+		return
+	qty = cint(frappe.db.get_value("Linked Service", linked_service, "quantity") or 1)
+	if qty < 1:
+		qty = 1
+	if hasattr(row, "quantity"):
+		row.quantity = qty
+	if hasattr(row, "cost_quantity"):
+		row.cost_quantity = qty
+
+
+def apply_dialog_create_values(doc, cleaned: dict[str, Any]) -> None:
+	for fieldname, value in (cleaned or {}).items():
+		doc.set(fieldname, value)
+
+
+def prepare_dialog_create_values(service_type: str, values) -> dict[str, Any]:
+	"""Parse create-form values. Details are required only when the caller sent a form."""
+	cleaned = parse_dialog_create_values(service_type, values)
+	if values is not None:
+		assert_dialog_create_details(service_type, cleaned)
+	return cleaned
+
+
+@frappe.whitelist()
+def get_dialog_create_payload(service_type: str, parent_doctype: str | None = None, parent_name: str | None = None):
+	"""Field defs for a new Linked Service, with defaults copied from the parent when set."""
+	from logistics.time_sensitive.service_linking import validate_linked_service_type
+
+	service_type = validate_linked_service_type(service_type)
+	parent = None
+	if parent_doctype and parent_name:
+		parent = frappe.get_doc(parent_doctype, parent_name)
+		frappe.has_permission(parent_doctype, "write", doc=parent, throw=True)
+
+	fields = _dialog_edit_field_defs(service_type)
+	values: dict[str, Any] = {}
+	for field in fields:
+		fieldname = field["fieldname"]
+		if fieldname == "service_type":
+			values[fieldname] = service_type
+			continue
+		if parent is not None and parent.meta.has_field(fieldname):
+			values[fieldname] = parent.get(fieldname) or ""
+		else:
+			values[fieldname] = ""
+	return {
+		"service_type": service_type,
+		"fields": fields,
+		"values": values,
+		"detail_fields": dialog_create_detail_fieldnames(service_type),
+	}
 
 
 def _linked_service_names_for_parent(parent_doctype: str, parent_name: str) -> set[str]:

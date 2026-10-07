@@ -290,9 +290,14 @@ frappe.ui.form.on('Sea Shipment', {
 	},
 	containers_add: function(frm) {
 		_sea_shipment_refresh_package_container_options(frm);
+		_sea_shipment_toggle_seal_no_reqd(frm);
 	},
 	containers_remove: function(frm) {
 		_sea_shipment_refresh_package_container_options(frm);
+		_sea_shipment_toggle_seal_no_reqd(frm);
+	},
+	direction: function(frm) {
+		_sea_shipment_toggle_seal_no_reqd(frm);
 	},
 	milestones_on_form_rendered: function(frm) {
 		_lock_sea_shipment_booking_milestone_rows(frm);
@@ -505,6 +510,7 @@ frappe.ui.form.on('Sea Shipment', {
 	},
 
 	refresh: function(frm) {
+		_sea_shipment_toggle_seal_no_reqd(frm);
 		_bind_sea_shipment_booking_milestone_lock(frm);
 		setTimeout(function() {
 			_lock_sea_shipment_booking_milestone_rows(frm);
@@ -1050,14 +1056,72 @@ frappe.ui.form.on('Sea Freight Packages', {
 	}
 });
 
+/**
+ * Seal Number is required on Import when any container row Mode (Load Type) has Required Seal Number.
+ * Export and Domestic never require it. Grid reqd is document-wide; per-row enforcement is on the server.
+ */
+function _sea_shipment_toggle_seal_no_reqd(frm) {
+	if (!frm || !frm.fields_dict || !frm.fields_dict.containers || !frm.fields_dict.containers.grid) {
+		return;
+	}
+	var grid = frm.fields_dict.containers.grid;
+	if (typeof grid.update_docfield_property !== "function") {
+		return;
+	}
+
+	function apply_reqd(require_seal) {
+		grid.update_docfield_property("seal_no", "reqd", require_seal ? 1 : 0);
+	}
+
+	var direction = String((frm.doc && frm.doc.direction) || "").trim();
+	if (direction === "Export" || direction === "Domestic") {
+		apply_reqd(false);
+		return;
+	}
+
+	var modes = [];
+	var seen = {};
+	(frm.doc.containers || []).forEach(function (row) {
+		var mode = String((row && row.mode) || "").trim();
+		if (!mode || seen[mode]) return;
+		seen[mode] = true;
+		modes.push(mode);
+	});
+
+	if (!modes.length) {
+		apply_reqd(false);
+		return;
+	}
+
+	frappe.db
+		.get_list("Load Type", {
+			filters: { name: ["in", modes] },
+			fields: ["name", "required_seal_number"],
+			limit: modes.length,
+		})
+		.then(function (rows) {
+			var require_seal = (rows || []).some(function (r) {
+				return cint(r && r.required_seal_number);
+			});
+			apply_reqd(require_seal);
+		})
+		.catch(function () {
+			apply_reqd(false);
+		});
+}
+
 // Sea Freight Containers: refresh capacity metrics when container type changes
 frappe.ui.form.on('Sea Freight Containers', {
 	form_render: function(frm) {
 		_sea_shipment_refresh_package_container_options(frm);
+		_sea_shipment_toggle_seal_no_reqd(frm);
 		_refresh_container_cargo_debounced(frm);
 		if (!_is_grid_dialog_open()) {
 			_refresh_packing_summary_debounced(frm);
 		}
+	},
+	mode: function(frm) {
+		_sea_shipment_toggle_seal_no_reqd(frm);
 	},
 	container_no: function(frm) {
 		_sea_shipment_refresh_package_container_options(frm);

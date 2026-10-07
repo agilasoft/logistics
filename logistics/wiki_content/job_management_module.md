@@ -34,6 +34,8 @@ On charge child tables (Air Shipment Charges, Sea Shipment Charges, Transport Jo
 
 **Recalculate All Charges** on the parent document updates only Actual Revenue and Actual Cost; estimated amounts are left unchanged. This keeps WIP and accrual on estimates while invoicing can use confirmed actual amounts.
 
+A charge with **Internal** and **Use Tariff in Cost** is an internal tariff cost. Accrual recognition skips it, and it is not eligible for a supplier Purchase Invoice. Post it with **Post → Standard Costs**. See [Internal and Intercompany Billing](welcome/internal-and-intercompany-billing).
+
 ## 3. Profitability (from GL)
 
 Job Management provides a **Profitability** section on job and shipment forms. When a document has **Job Number** and **Company** set, the section loads revenue, cost, gross profit, profit margin, WIP amount, and accrual amount from the General Ledger (GL Entry by job_number). It also shows a table of related GL entries with links to view the source vouchers (Sales Invoice, Purchase Invoice, Journal Entry, etc.).
