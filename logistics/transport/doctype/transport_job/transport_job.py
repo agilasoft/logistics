@@ -1259,6 +1259,9 @@ def action_create_run_sheet(jobname: str, vehicle: Optional[str] = None, driver:
 
     # Validate chosen vehicle availability (if provided)
     if vehicle:
+        from logistics.transport.vehicle_permits import assert_vehicle_dispatch_eligible
+
+        assert_vehicle_dispatch_eligible(vehicle)
         exists = frappe.db.exists("Run Sheet", {
             "vehicle": vehicle,
             "status": ["in", list(ACTIVE_RUNSHEET_STATUSES)]

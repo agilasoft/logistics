@@ -12,6 +12,10 @@
   "automation_section",
   "enable_auto_billing",
   "enable_auto_vehicle_assignment",
+  "vehicle_permits_section",
+  "enforce_vehicle_permit_validation",
+  "permit_expiry_advance_warning",
+  "permit_notify_role",
   "routing_tab",
   "routing_provider",
   "osrm_base_url",
@@ -114,6 +118,32 @@
    "fieldname": "enable_auto_vehicle_assignment",
    "fieldtype": "Check",
    "label": "Enable Auto Vehicle Assignment"
+  },
+  {
+   "fieldname": "vehicle_permits_section",
+   "fieldtype": "Section Break",
+   "label": "Vehicle Permits"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, a vehicle with an expired required permit cannot be selected, assigned, or dispatched. Permits that are only expiring soon still warn, and the vehicle stays available.",
+   "fieldname": "enforce_vehicle_permit_validation",
+   "fieldtype": "Check",
+   "label": "Enforce Vehicle Permit Validation"
+  },
+  {
+   "default": "1",
+   "description": "Days before a required permit's Valid Until date to start the advance warning. 1 warns from the day before expiration. Typical values are 1, 3, 7, 15, or 30. 0 disables the advance warning and leaves only the expired-permit behavior.",
+   "fieldname": "permit_expiry_advance_warning",
+   "fieldtype": "Int",
+   "label": "Permit Expiry Advance Warning"
+  },
+  {
+   "description": "Users with this role receive permit expiry notifications. If empty, Transport Manager and Land Transport Manager are notified.",
+   "fieldname": "permit_notify_role",
+   "fieldtype": "Link",
+   "label": "Permit Notify Role",
+   "options": "Role"
   },
   {
    "default": "OSRM",
@@ -559,7 +589,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-07-23 11:22:25.171198",
+ "modified": "2026-10-07 05:40:00.000000",
  "modified_by": "Administrator",
  "module": "Transport",
  "name": "Transport Settings",

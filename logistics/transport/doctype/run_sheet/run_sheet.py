@@ -15,6 +15,7 @@ class RunSheet(Document):
 	def validate(self):
 		"""Validate Run Sheet data and ensure bidirectional sync"""
 		self.validate_vehicle_availability()
+		self.validate_vehicle_permits()
 		self.validate_capacity()
 		self.validate_legs_compatibility()
 		self.validate_vehicle_economic_zone_accreditation()
@@ -31,6 +32,10 @@ class RunSheet(Document):
 	def before_submit(self):
 		"""Validate required fields before submission and mark as submitting"""
 		self.validate_vehicle_required()
+		if self.vehicle:
+			from logistics.transport.vehicle_permits import assert_vehicle_dispatch_eligible
+
+			assert_vehicle_dispatch_eligible(self.vehicle)
 		# Set flag to prevent before_save from calling update_status during submission
 		self._submitting = True
 	
@@ -186,6 +191,27 @@ class RunSheet(Document):
 		"""Validate that vehicle is required before submission"""
 		if not self.vehicle:
 			frappe.throw(_("Vehicle is required. Please select a vehicle before submitting the document."))
+
+	def validate_vehicle_permits(self):
+		"""Block a new or changed vehicle, and a return to Dispatched, when a required permit has expired."""
+		if not self._vehicle_permit_check_applies():
+			return
+		from logistics.transport.vehicle_permits import assert_vehicle_dispatch_eligible
+
+		assert_vehicle_dispatch_eligible(self.vehicle)
+
+	def _vehicle_permit_check_applies(self) -> bool:
+		if not self.vehicle:
+			return False
+		previous = self.get_doc_before_save()
+		staying_closed = self.status in ("Completed", "Cancelled") and (
+			not previous or previous.status == self.status
+		)
+		if staying_closed:
+			return False
+		vehicle_changed = (not previous) or ((previous.vehicle or None) != (self.vehicle or None))
+		dispatching = self.status == "Dispatched" and (not previous or previous.status != "Dispatched")
+		return bool(vehicle_changed or dispatching)
 	
 	def validate_vehicle_availability(self):
 		"""Validate that the assigned vehicle is not already on another active Run Sheet.

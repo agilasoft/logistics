@@ -55,6 +55,7 @@ app_include_css = [
 	"/assets/logistics/css/linked_services_dialog.css?v=12",
 	"/assets/logistics/css/ts_sq_fetch_dialog.css?v=6",
 	"/assets/logistics/css/role_permission_matrix.css?v=6",
+	"/assets/logistics/css/vehicle_permit_banner.css?v=1",
 ]
 app_include_js = [
 	"/assets/logistics/js/company_dimension_filters.js?v=1",
@@ -67,6 +68,7 @@ app_include_js = [
 	"/assets/logistics/js/freight_agent_service.js?v=4",
 	"/assets/logistics/js/charge_bill_to.js?v=4",
 	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
+	"/assets/logistics/js/mice_desk_icon.js?v=1",
 	"/assets/logistics/js/mice_project_manifest_print_preview.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=4",
 	"/assets/logistics/js/user_quick_entry.js?v=1",
@@ -107,6 +109,7 @@ app_include_js = [
 	"/assets/logistics/js/time_sensitive_timer.js?v=2",
 	"/assets/logistics/js/time_sensitive_form.js?v=3",
 	"/assets/logistics/js/time_sensitive_list.js?v=2",
+	"/assets/logistics/js/vehicle_permit_banner.js?v=1",
 ]
 
 # include js, css files in header of web template
@@ -433,6 +436,7 @@ permission_query_conditions = {
 
 boot_session = [
 	"logistics.utils.specified_charges_meta.extend_bootinfo_with_specified_charges_meta",
+	"logistics.mice.desk_icon.extend_bootinfo",
 ]
 
 doc_events = DOC_EVENTS
@@ -492,6 +496,7 @@ scheduler_events = {
 		*HOURLY_SEA_ALERT_TASKS,
 	],
 	"daily": [
+		"logistics.transport.vehicle_permits.notify_vehicle_permit_alerts",
 		"logistics.status_update.tasks.update_document_statuses",
 		"logistics.status_update.tasks.update_permit_statuses",
 		"logistics.status_update.tasks.update_exemption_statuses",
@@ -592,6 +597,7 @@ company_data_to_be_ignored = [
 # Database migrations (after schema sync)
 # ---------------------------------------
 after_migrate = [
+	"logistics.mice.desk_icon.after_migrate",
 	"logistics.job_management.recognition_migrate.after_migrate",
 	"logistics.analytics_reports.sync_cnx_reports.after_migrate",
 	"logistics.cash_advance.install.after_migrate",
