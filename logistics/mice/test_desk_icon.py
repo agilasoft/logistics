@@ -10,7 +10,7 @@ import json
 import unittest
 from pathlib import Path
 
-from logistics.mice.desk_icon import relabel_desk_layout
+from logistics.mice.desk_icon import extend_bootinfo, relabel_desk_layout
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -51,7 +51,53 @@ class TestMiceDeskIcon(unittest.TestCase):
 
 	def test_saved_layout_renames_a_lone_exhibits_tile(self):
 		layout = relabel_desk_layout([{"label": "Exhibits", "link_to": "Exhibits", "name": "Exhibits"}])
-		self.assertEqual(layout, [{"label": "MICE", "link_to": "MICE", "name": "MICE"}])
+		self.assertEqual(
+			layout,
+			[{"label": "MICE", "link_to": "MICE", "name": "MICE", "app": "logistics"}],
+		)
+
+	def test_folder_exhibits_tile_is_renamed(self):
+		layout = relabel_desk_layout(
+			[
+				{
+					"label": "Logistics",
+					"icon_type": "Folder",
+					"child_icons": [
+						{"label": "Exhibits", "link_to": "Exhibits", "name": "Exhibits"},
+					],
+				}
+			]
+		)
+		self.assertEqual(layout[0]["child_icons"][0]["label"], "MICE")
+		self.assertEqual(layout[0]["child_icons"][0]["app"], "logistics")
+
+	def test_mice_tile_without_an_app_uses_the_logistics_svg(self):
+		layout = relabel_desk_layout([{"label": "MICE", "link_to": "MICE", "name": "MICE"}])
+		self.assertEqual(layout[0]["app"], "logistics")
+
+	def test_boot_keeps_exhibits_route_until_mice_shell_exists(self):
+		class Boot(dict):
+			pass
+
+		boot = Boot(
+			desktop_icons=[{"label": "Exhibits", "name": "Exhibits", "link_to": "Exhibits", "module": "Exhibits"}],
+			module_sidebars={"Exhibits": {"module": "Exhibits", "title": "Exhibits"}},
+		)
+		extend_bootinfo(boot)
+		self.assertEqual(boot.desktop_icons[0]["label"], "MICE")
+		self.assertEqual(boot.desktop_icons[0]["module"], "Exhibits")
+		self.assertEqual(boot.desktop_icons[0]["app"], "logistics")
+
+	def test_boot_payload_drops_exhibits_when_mice_is_present(self):
+		class Boot(dict):
+			pass
+
+		boot = Boot(desktop_icons=[
+			{"label": "Exhibits", "name": "Exhibits", "link_to": "Exhibits"},
+			{"label": "MICE", "name": "MICE", "link_to": "MICE", "app": "logistics"},
+		])
+		extend_bootinfo(boot)
+		self.assertEqual([icon["label"] for icon in boot.desktop_icons], ["MICE"])
 
 
 if __name__ == "__main__":

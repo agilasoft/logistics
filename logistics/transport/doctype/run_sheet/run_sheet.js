@@ -5104,6 +5104,15 @@ window.viewTransportLeg = function(transportLegName) {
 // ---------- form bindings ----------
 frappe.ui.form.on('Run Sheet', {
   refresh(frm) {
+    frm.set_query('vehicle', function () {
+      return {
+        query: 'logistics.transport.vehicle_permits.transport_vehicle_query',
+        filters: {
+          vehicle_type: frm.doc.vehicle_type || '',
+          is_active: 1,
+        },
+      };
+    });
     if (window.logistics && logistics.job_change_lock) {
       logistics.job_change_lock.apply(frm);
     }

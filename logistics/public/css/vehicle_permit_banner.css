@@ -1,0 +1,40 @@
+.vehicle-permit-banner {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	margin: 0 0 12px;
+	padding: 10px 12px;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	font-size: 13px;
+	line-height: 1.45;
+}
+
+.vehicle-permit-banner--expired {
+	background: #fde8e8;
+	border-color: #e11d48;
+	color: #7f1d1d;
+}
+
+.vehicle-permit-banner--expiring {
+	background: #fff7ed;
+	border-color: #ea580c;
+	color: #9a3412;
+}
+
+.vehicle-permit-banner__text {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.vehicle-permit-banner__close {
+	flex: 0 0 auto;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font-size: 20px;
+	line-height: 1;
+	padding: 0 4px;
+	cursor: pointer;
+}
