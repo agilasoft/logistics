@@ -8,6 +8,8 @@ import frappe
 from frappe import _
 from frappe.utils import flt, nowdate
 
+from logistics.control_tower.customer_credit import customer_credit_totals
+
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
@@ -18,11 +20,10 @@ def execute(filters=None):
 	)
 	bad_total = flt(bad_total[0][0]) if bad_total and bad_total[0] and bad_total[0][0] is not None else 0.0
 
-	credit_exposure = frappe.db.sql(
-		"SELECT SUM(exposure_amount), SUM(credit_limit) FROM `tabClient Credit Line`"
-	)
-	exposure = flt(credit_exposure[0][0]) if credit_exposure and credit_exposure[0] and credit_exposure[0][0] is not None else 0.0
-	limit_total = flt(credit_exposure[0][1]) if credit_exposure and credit_exposure[0] and credit_exposure[0][1] is not None else 0.0
+	# Customer Credit Limit rows, with exposure from the customer ledger.
+	credit_totals = customer_credit_totals()
+	exposure = flt(credit_totals.get("exposure"))
+	limit_total = flt(credit_totals.get("limit"))
 
 	investments = frappe.db.sql(
 		"SELECT SUM(principal) FROM `tabInvestment Holding`"
@@ -80,8 +81,8 @@ def execute(filters=None):
 		{"metric": _("Collections 60+ days outstanding"), "value": collections_60_plus},
 		{"metric": _("Bad Accounts (active)"), "value": bad_total},
 		{"metric": _("Unbilled Shipments (count)"), "value": unbilled_count},
-		{"metric": _("Credit Lines - Total Exposure"), "value": exposure},
-		{"metric": _("Credit Lines - Total Limit"), "value": limit_total},
+		{"metric": _("Customer Credit Exposure"), "value": exposure},
+		{"metric": _("Customer Credit Limit"), "value": limit_total},
 		{"metric": _("Investment Holdings (principal)"), "value": investments_total},
 		{"metric": _("Bank Recon Discrepancies (open count)"), "value": bank_recon_count},
 		{"metric": _("Bank Recon Discrepancies (amount)"), "value": bank_recon_amount},

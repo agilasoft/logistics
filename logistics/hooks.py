@@ -597,7 +597,6 @@ company_data_to_be_ignored = [
 	"Sustainability Settings",
 	"Warehouse Settings",
 	"CASS Settlement Period",
-	"Client Credit Line",
 	"Dock Door",
 	"Handling Unit",
 	"MAWB Stock Range",
