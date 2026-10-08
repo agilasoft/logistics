@@ -5,10 +5,26 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "logistics",
-   "link_to": "Logistics",
+   "icon": "air_freight",
+   "link_to": "Air Freight",
    "link_type": "Sidebar",
-   "title": "Logistics"
+   "title": "Air Freight"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "sea_freight",
+   "link_to": "Sea Freight",
+   "link_type": "Sidebar",
+   "title": "Sea Freight"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "customs",
+   "link_to": "Customs",
+   "link_type": "Sidebar",
+   "title": "Customs"
   },
   {
    "added": 0,
@@ -29,90 +45,10 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "customs",
-   "link_to": "Customs",
-   "link_type": "Sidebar",
-   "title": "Customs"
-  },
-  {
-   "added": 0,
-   "hidden": 0,
-   "icon": "global_customs",
-   "link_to": "Global Customs",
-   "link_type": "Sidebar",
-   "title": "Global Customs"
-  },
-  {
-   "added": 0,
-   "hidden": 0,
-   "icon": "sea_freight",
-   "link_to": "Sea Freight",
-   "link_type": "Sidebar",
-   "title": "Sea Freight"
-  },
-  {
-   "added": 0,
-   "hidden": 0,
-   "icon": "air_freight",
-   "link_to": "Air Freight",
-   "link_type": "Sidebar",
-   "title": "Air Freight"
-  },
-  {
-   "added": 0,
-   "hidden": 0,
-   "icon": "job_management",
-   "link_to": "Job Management",
-   "link_type": "Sidebar",
-   "title": "Job Management"
-  },
-  {
-   "added": 0,
-   "hidden": 0,
-   "icon": "pricing",
-   "link_to": "Pricing Center",
-   "link_type": "Sidebar",
-   "title": "Pricing Center"
-  },
-  {
-   "added": 0,
-   "hidden": 0,
-   "icon": "sustainability",
-   "link_to": "Sustainability",
-   "link_type": "Sidebar",
-   "title": "Sustainability"
-  },
-  {
-   "added": 0,
-   "hidden": 0,
-   "icon": "netting",
-   "link_to": "Netting",
-   "link_type": "Sidebar",
-   "title": "Netting"
-  },
-  {
-   "added": 0,
-   "hidden": 0,
    "icon": "special_projects",
    "link_to": "Special Projects",
    "link_type": "Sidebar",
    "title": "Special Projects"
-  },
-  {
-   "added": 0,
-   "hidden": 0,
-   "icon": "intercompany",
-   "link_to": "Intercompany",
-   "link_type": "Sidebar",
-   "title": "Intercompany"
-  },
-  {
-   "added": 0,
-   "hidden": 0,
-   "icon": "cash_advance",
-   "link_to": "Cash Advance",
-   "link_type": "Sidebar",
-   "title": "Cash Advance"
   },
   {
    "added": 0,
@@ -141,18 +77,18 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "control_tower",
-   "link_to": "Control Tower",
+   "icon": "sustainability",
+   "link_to": "Sustainability",
    "link_type": "Sidebar",
-   "title": "Control Tower"
+   "title": "Sustainability"
   },
   {
    "added": 0,
    "hidden": 0,
-   "icon": "order_management",
-   "link_to": "Order Management",
+   "icon": "pricing",
+   "link_to": "Pricing Center",
    "link_type": "Sidebar",
-   "title": "Order Management"
+   "title": "Pricing Center"
   }
  ],
  "name": "logistics",

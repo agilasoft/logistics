@@ -986,6 +986,8 @@ logistics.patches.v3_0_payment_voucher_signature_header_color
 logistics.patches.v3_0_mice_desk_icon
 # Desk: a saved dock arrangement was hiding the modules this app ships.
 logistics.patches.v3_0_reset_logistics_dock_arrangement
+# Desk: the rail is the shipped module order, not an older saved arrangement.
+logistics.patches.v3_0_order_logistics_dock
 # Desk: Exhibits can be recreated without an app, which draws the letter E. Show MICE.
 logistics.patches.v3_0_show_mice_desk_icon
 # Logistics Staff: copy Employee role flags and existing rep links onto the new master.

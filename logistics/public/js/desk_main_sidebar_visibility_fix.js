@@ -52,16 +52,21 @@
 		}, 0);
 	}
 
-	// A saved site or user dock is the whole rail: Frappe drops any module that
-	// layer does not name. CargoNext's modules still have to appear, after that
-	// arrangement, unless the layer explicitly hid them.
-	function dock_key(entry) {
-		return ["link_type", "link_to", "url"]
-			.map(function (field) {
-				return (entry && entry[field]) || "";
-			})
-			.join("|");
-	}
+	// The CargoNext rail, top to bottom. A saved arrangement must not put the
+	// old line icons ahead of these, or bring back modules that are not listed.
+	var DOCK_ORDER = [
+		"Air Freight",
+		"Sea Freight",
+		"Customs",
+		"Transport",
+		"Warehousing",
+		"Special Projects",
+		"MICE",
+		"High Value",
+		"Time Sensitive",
+		"Sustainability",
+		"Pricing Center",
+	];
 
 	function install_dock_merge() {
 		var Sidebar = frappe.ui && frappe.ui.Sidebar;
@@ -71,38 +76,16 @@
 		if (Sidebar.prototype.__logistics_dock_merge__) {
 			return true;
 		}
-		var original = Sidebar.prototype.apply_dock_arrangement;
-		Sidebar.prototype.apply_dock_arrangement = function (entries, app) {
-			var arranged = original.call(this, entries, app) || [];
-			var app_name = app && app.app_name;
-			var arrangement = (frappe.boot.dock || {})[app_name];
-			if (!arrangement) {
-				return arranged;
-			}
-			var hidden = {};
-			arrangement.forEach(function (row) {
-				if (row && row.hidden) {
-					hidden[dock_key(row)] = true;
-				}
-			});
-			var seen = {};
-			arranged.forEach(function (entry) {
-				if (entry) {
-					seen[dock_key(entry)] = true;
-				}
-			});
+		Sidebar.prototype.apply_dock_arrangement = function (entries) {
+			var by_module = {};
 			(entries || []).forEach(function (entry) {
-				if (!entry) {
-					return;
+				if (entry && entry.link_type === "Sidebar" && entry.link_to) {
+					by_module[entry.link_to] = entry;
 				}
-				var key = dock_key(entry);
-				if (seen[key] || hidden[key]) {
-					return;
-				}
-				seen[key] = true;
-				arranged.push(entry);
 			});
-			return arranged;
+			return DOCK_ORDER.map(function (name) {
+				return by_module[name];
+			}).filter(Boolean);
 		};
 		Sidebar.prototype.__logistics_dock_merge__ = true;
 		var sb = get_sidebar();
