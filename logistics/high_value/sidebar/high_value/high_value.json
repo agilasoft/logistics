@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "doctype": "Sidebar",
- "header_icon": "gem",
+ "header_icon": "high_value",
  "items": [
   {
    "child": 0,

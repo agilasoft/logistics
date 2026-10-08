@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "doctype": "Sidebar",
- "header_icon": "timer",
+ "header_icon": "time_sensitive",
  "items": [
   {
    "child": 0,

@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "doctype": "Sidebar",
- "header_icon": "coins",
+ "header_icon": "pricing",
  "items": [
   {
    "child": 0,
@@ -415,7 +415,7 @@
   }
  ],
  "module": "Pricing Center",
- "name": "Pricing",
+ "name": "Pricing Center",
  "standard": 1,
- "title": "Pricing"
+ "title": "Pricing Center"
 }

@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "doctype": "Sidebar",
- "header_icon": "ship",
+ "header_icon": "sea_freight",
  "items": [
   {
    "child": 0,

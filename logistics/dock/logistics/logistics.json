@@ -5,7 +5,14 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "truck",
+   "link_to": "Logistics",
+   "link_type": "Sidebar",
+   "title": "Logistics"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "transport",
    "link_to": "Transport",
    "link_type": "Sidebar",
    "title": "Transport"
@@ -13,7 +20,7 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "warehouse",
+   "icon": "warehousing",
    "link_to": "Warehousing",
    "link_type": "Sidebar",
    "title": "Warehousing"
@@ -21,7 +28,7 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "landmark",
+   "icon": "customs",
    "link_to": "Customs",
    "link_type": "Sidebar",
    "title": "Customs"
@@ -29,7 +36,6 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "globe",
    "link_to": "Global Customs",
    "link_type": "Sidebar",
    "title": "Global Customs"
@@ -37,7 +43,7 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "ship",
+   "icon": "sea_freight",
    "link_to": "Sea Freight",
    "link_type": "Sidebar",
    "title": "Sea Freight"
@@ -45,7 +51,7 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "plane",
+   "icon": "air_freight",
    "link_to": "Air Freight",
    "link_type": "Sidebar",
    "title": "Air Freight"
@@ -53,7 +59,7 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "clipboard-list",
+   "icon": "job_management",
    "link_to": "Job Management",
    "link_type": "Sidebar",
    "title": "Job Management"
@@ -61,15 +67,15 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "coins",
-   "link_to": "Pricing",
+   "icon": "pricing",
+   "link_to": "Pricing Center",
    "link_type": "Sidebar",
-   "title": "Pricing"
+   "title": "Pricing Center"
   },
   {
    "added": 0,
    "hidden": 0,
-   "icon": "sprout",
+   "icon": "sustainability",
    "link_to": "Sustainability",
    "link_type": "Sidebar",
    "title": "Sustainability"
@@ -77,7 +83,7 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "scale",
+   "icon": "netting",
    "link_to": "Netting",
    "link_type": "Sidebar",
    "title": "Netting"
@@ -85,7 +91,7 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "folder",
+   "icon": "special_projects",
    "link_to": "Special Projects",
    "link_type": "Sidebar",
    "title": "Special Projects"
@@ -93,7 +99,6 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "git-compare",
    "link_to": "Intercompany",
    "link_type": "Sidebar",
    "title": "Intercompany"
@@ -101,7 +106,7 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "wallet",
+   "icon": "cash_advance",
    "link_to": "Cash Advance",
    "link_type": "Sidebar",
    "title": "Cash Advance"
@@ -109,7 +114,7 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "ticket",
+   "icon": "mice",
    "link_to": "MICE",
    "link_type": "Sidebar",
    "title": "MICE"
@@ -117,7 +122,7 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "gem",
+   "icon": "high_value",
    "link_to": "High Value",
    "link_type": "Sidebar",
    "title": "High Value"
@@ -125,7 +130,7 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "timer",
+   "icon": "time_sensitive",
    "link_to": "Time Sensitive",
    "link_type": "Sidebar",
    "title": "Time Sensitive"
@@ -133,7 +138,6 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "tower-control",
    "link_to": "Control Tower",
    "link_type": "Sidebar",
    "title": "Control Tower"
@@ -141,18 +145,10 @@
   {
    "added": 0,
    "hidden": 0,
-   "icon": "package",
+   "icon": "order_management",
    "link_to": "Order Management",
    "link_type": "Sidebar",
    "title": "Order Management"
-  },
-  {
-   "added": 0,
-   "hidden": 0,
-   "icon": "wrench",
-   "link_to": "Utilities",
-   "link_type": "Sidebar",
-   "title": "Utilities"
   }
  ],
  "name": "logistics",
