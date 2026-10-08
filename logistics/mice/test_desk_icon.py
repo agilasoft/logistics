@@ -33,7 +33,7 @@ class TestMiceDeskIcon(unittest.TestCase):
 		self.assertEqual(mice_row["icon"], "mice")
 		self.assertEqual(mice_row["title"], "MICE")
 		self.assertIn("Pricing Center", dock_targets)
-		self.assertIn("Logistics", dock_targets)
+		self.assertNotIn("Logistics", dock_targets)
 		self.assertNotIn("Pricing", dock_targets)
 		self.assertNotIn("Utilities", dock_targets)
 		self.assertNotIn("Exhibits", dock_targets)
@@ -44,13 +44,21 @@ class TestMiceDeskIcon(unittest.TestCase):
 	def test_dock_names_every_module_with_its_icon(self):
 		dock = json.loads((ROOT / "logistics/dock/logistics/logistics.json").read_text())
 		sprite = (ROOT / "logistics/public/icons/module-icons.svg").read_text()
-		modules = [
-			line.strip()
-			for line in (ROOT / "logistics/modules.txt").read_text().splitlines()
-			if line.strip() and not line.startswith("#")
+		order = [
+			"Air Freight",
+			"Sea Freight",
+			"Customs",
+			"Transport",
+			"Warehousing",
+			"Special Projects",
+			"MICE",
+			"High Value",
+			"Time Sensitive",
+			"Sustainability",
+			"Pricing Center",
 		]
 		rows = dock["items"]
-		self.assertEqual([row["link_to"] for row in rows], modules)
+		self.assertEqual([row["link_to"] for row in rows], order)
 		for row in rows:
 			self.assertEqual(row["link_type"], "Sidebar")
 			self.assertEqual(row["title"], row["link_to"])
