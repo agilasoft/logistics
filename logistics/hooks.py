@@ -62,6 +62,7 @@ app_include_icons = [
 	"/assets/logistics/icons/module-icons.svg",
 ]
 app_include_css = [
+	"/assets/logistics/css/module_dock.css?v=1",
 	"/assets/logistics/css/print_footer_fix.css",
 	"/assets/logistics/css/get_charges_from_quotation.css?v=9",
 	"/assets/logistics/css/gcfq_settings_dashboard.css?v=2",
@@ -84,7 +85,7 @@ app_include_js = [
 	"/assets/logistics/js/ts_sq_fetch_dialog.js?v=6",
 	"/assets/logistics/js/freight_agent_service.js?v=4",
 	"/assets/logistics/js/charge_bill_to.js?v=4",
-	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=3",
+	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=4",
 	"/assets/logistics/js/mice_desk_icon.js?v=1",
 	"/assets/logistics/js/mice_project_manifest_print_preview.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=4",
