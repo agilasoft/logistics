@@ -789,6 +789,11 @@ def kpi_card_value(filters=None):
 			)
 			value = (row and row[0][0]) or 0
 			fieldtype = "Float"
+		elif metric == "credit_lines_exposure":
+			from logistics.control_tower.customer_credit import customer_credit_totals
+
+			value = (customer_credit_totals() or {}).get("exposure") or 0
+			fieldtype = "Currency"
 		elif metric == "unbilled_shipment_count":
 			# Heuristic: jobs with no Sales Invoice linked.
 			row = frappe.db.sql(

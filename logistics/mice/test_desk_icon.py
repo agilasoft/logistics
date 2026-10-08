@@ -50,6 +50,7 @@ class TestMiceDeskIcon(unittest.TestCase):
 			"Customs",
 			"Transport",
 			"Warehousing",
+			"Job Management",
 			"Special Projects",
 			"MICE",
 			"High Value",
