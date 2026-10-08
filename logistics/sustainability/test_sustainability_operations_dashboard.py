@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import unittest
 
+from logistics.sustainability import sustainability_operations_dashboard as dashboard
 from logistics.sustainability.sustainability_operations_dashboard import (
 	build_lanes,
 	emission_band,
@@ -123,6 +124,54 @@ class TestSustainabilityOperationsDashboard(unittest.TestCase):
 		self.assertEqual(kpis["records"], 2)
 		self.assertEqual(kpis["emissions"], 2600)
 		self.assertAlmostEqual(kpis["high_share"], round(2500 / 2600 * 100, 1))
+
+	def test_sum_totals_uses_aggregate_dict_fields(self):
+		captured = {}
+
+		class FakeFrappe:
+			def get_all(self, doctype, filters=None, fields=None, **kwargs):
+				captured["doctype"] = doctype
+				captured["filters"] = filters
+				captured["fields"] = fields
+				captured["kwargs"] = kwargs
+				return [{"records": 3, "emissions": 10.5, "net": 8, "offset": 2.5}]
+
+		original = dashboard._frappe
+		dashboard._frappe = lambda: FakeFrappe()
+		try:
+			totals = dashboard._sum_totals({"company": "ACME", "date": [">=", "2026-01-01"]})
+		finally:
+			dashboard._frappe = original
+
+		self.assertEqual(captured["doctype"], "Carbon Footprint")
+		self.assertEqual(captured["filters"]["company"], "ACME")
+		self.assertEqual(
+			captured["fields"],
+			[
+				{"COUNT": "name", "as": "records"},
+				{"SUM": "total_emissions", "as": "emissions"},
+				{"SUM": "net_emissions", "as": "net"},
+				{"SUM": "carbon_offset", "as": "offset"},
+			],
+		)
+		self.assertIsNone(captured["kwargs"].get("order_by"))
+		for field in captured["fields"]:
+			self.assertNotIsInstance(field, str)
+		self.assertEqual(totals, {"records": 3, "emissions": 10.5, "net": 8.0, "offset": 2.5})
+
+	def test_sum_totals_returns_zeros_when_the_query_is_empty(self):
+		class FakeFrappe:
+			def get_all(self, *args, **kwargs):
+				return []
+
+		original = dashboard._frappe
+		dashboard._frappe = lambda: FakeFrappe()
+		try:
+			totals = dashboard._sum_totals({})
+		finally:
+			dashboard._frappe = original
+
+		self.assertEqual(totals, {"records": 0, "emissions": 0.0, "net": 0.0, "offset": 0.0})
 
 	def test_period_and_choice_parsers(self):
 		self.assertEqual(parse_period(None), 90)
