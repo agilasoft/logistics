@@ -1008,4 +1008,6 @@ logistics.patches.v3_0_sync_job_management_sidebar
 logistics.patches.v3_0_sync_high_value_sidebar
 # Warehousing: file existing reports under the Reports & Analysis cards
 logistics.patches.v3_0_sync_warehousing_reports_workspace
+# Customs Control Tower: native dashboard, workspace shortcut, and sidebar link.
+logistics.patches.v3_0_sync_customs_control_tower
 

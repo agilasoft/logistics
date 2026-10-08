@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"1AkPPekmRW\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Customs Operations Dashboard\",\"col\":12}},{\"id\":\"V7mVnGcUvD\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"r5ls3QYtex\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"xQAOS3w6ic\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Declaration Order\",\"col\":3}},{\"id\":\"3qsC2I3W0H\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Declaration\",\"col\":3}},{\"id\":\"2tDCwDpjF1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Permit Application\",\"col\":3}},{\"id\":\"u3zXE-nmub\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Exemption Certificate\",\"col\":3}},{\"id\":\"1I3Fy0fjfj\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"X7yGOv6S8N\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"GxN38APLJD\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files &amp; Setup</b></span>\",\"col\":12}},{\"id\":\"8V7FWXDdkd\",\"type\":\"card\",\"data\":{\"card_name\":\"Master Data\",\"col\":4}},{\"id\":\"9V1fPOH_1l\",\"type\":\"card\",\"data\":{\"card_name\":\"Global Customs\",\"col\":4}},{\"id\":\"Gs49r4wtAe\",\"type\":\"card\",\"data\":{\"card_name\":\"Documentation\",\"col\":4}},{\"id\":\"4vKgf_tbYp\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"44ffXtoNZ6\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"BQGcuSx3vf\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\",\"col\":12}},{\"id\":\"ZVjvu15N-B\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational Reports\",\"col\":4}},{\"id\":\"TwjXt1me4K\",\"type\":\"card\",\"data\":{\"card_name\":\"Compliance Reports\",\"col\":4}},{\"id\":\"4zTKH_oZGI\",\"type\":\"card\",\"data\":{\"card_name\":\"Analytics & Insights\",\"col\":4}}]",
+ "content": "[{\"id\":\"1AkPPekmRW\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Customs Operations Dashboard\",\"col\":12}},{\"id\":\"V7mVnGcUvD\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"cctQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Control Tower\",\"col\":3}},{\"id\":\"r5ls3QYtex\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"xQAOS3w6ic\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Declaration Order\",\"col\":3}},{\"id\":\"3qsC2I3W0H\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Declaration\",\"col\":3}},{\"id\":\"2tDCwDpjF1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Permit Application\",\"col\":3}},{\"id\":\"u3zXE-nmub\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Exemption Certificate\",\"col\":3}},{\"id\":\"1I3Fy0fjfj\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"X7yGOv6S8N\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"GxN38APLJD\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Master Files &amp; Setup</b></span>\",\"col\":12}},{\"id\":\"8V7FWXDdkd\",\"type\":\"card\",\"data\":{\"card_name\":\"Master Data\",\"col\":4}},{\"id\":\"9V1fPOH_1l\",\"type\":\"card\",\"data\":{\"card_name\":\"Global Customs\",\"col\":4}},{\"id\":\"Gs49r4wtAe\",\"type\":\"card\",\"data\":{\"card_name\":\"Documentation\",\"col\":4}},{\"id\":\"4vKgf_tbYp\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"44ffXtoNZ6\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"BQGcuSx3vf\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analysis</b></span>\",\"col\":12}},{\"id\":\"ZVjvu15N-B\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational Reports\",\"col\":4}},{\"id\":\"TwjXt1me4K\",\"type\":\"card\",\"data\":{\"card_name\":\"Compliance Reports\",\"col\":4}},{\"id\":\"4zTKH_oZGI\",\"type\":\"card\",\"data\":{\"card_name\":\"Analytics & Insights\",\"col\":4}}]",
  "creation": "2026-05-06 10:40:52.644374",
  "custom_blocks": [
   {
@@ -469,6 +469,13 @@
  "roles": [],
  "sequence_id": 8.0,
  "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Control Tower",
+   "link_to": "Customs Control Tower",
+   "type": "Dashboard"
+  },
   {
    "color": "Grey",
    "doc_view": "List",

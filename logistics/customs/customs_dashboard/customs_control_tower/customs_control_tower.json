@@ -1,0 +1,36 @@
+{
+ "cards": [
+  {
+   "card": "Open Job Files (Customs)"
+  },
+  {
+   "card": "Avg Age of Open Jobs (Customs)"
+  },
+  {
+   "card": "Job Files Handled (Customs)"
+  },
+  {
+   "card": "Avg Lead Time per Milestone (Customs)"
+  },
+  {
+   "card": "Returned Billings (Customs)"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "Top Customs Authorities",
+   "width": "Half"
+  },
+  {
+   "chart": "Customs Module Snapshot",
+   "width": "Half"
+  }
+ ],
+ "dashboard_name": "Customs Control Tower",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "is_default": 0,
+ "is_standard": 1,
+ "module": "Customs",
+ "name": "Customs Control Tower"
+}
