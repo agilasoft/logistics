@@ -29,6 +29,11 @@
   "capacity_volume",
   "capacity_volume_uom",
   "capacity_pallets",
+  "internal_dimensions_section",
+  "internal_length",
+  "internal_width",
+  "internal_height",
+  "internal_dimension_uom",
   "column_break_kckw",
   "can_carry_container",
   "max_container_count",
@@ -166,6 +171,34 @@
    "fieldname": "capacity_pallets",
    "fieldtype": "Float",
    "label": "Capacity Pallets"
+  },
+  {
+   "fieldname": "internal_dimensions_section",
+   "fieldtype": "Section Break",
+   "label": "Internal Dimensions"
+  },
+  {
+   "fieldname": "internal_length",
+   "fieldtype": "Float",
+   "label": "Internal Length"
+  },
+  {
+   "fieldname": "internal_width",
+   "fieldtype": "Float",
+   "label": "Internal Width"
+  },
+  {
+   "fieldname": "internal_height",
+   "fieldtype": "Float",
+   "label": "Internal Height"
+  },
+  {
+   "description": "Unit of measure for internal length, width, and height",
+   "fieldname": "internal_dimension_uom",
+   "fieldtype": "Link",
+   "label": "Unit of Measure",
+   "link_filters": "[[\"UOM\", \"enabled\", \"=\", 1]]",
+   "options": "UOM"
   },
   {
    "fieldname": "column_break_kckw",
