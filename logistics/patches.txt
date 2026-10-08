@@ -1000,4 +1000,6 @@ logistics.patches.v3_0_sync_sustainability_operations_dashboard
 logistics.patches.v3_0_native_freight_control_tower_dashboards
 # Control Tower credit lines live on Customer Credit Limit. Copy limits, then drop the register.
 logistics.patches.v3_0_remove_client_credit_line
+# High Value sidebar follows the workspace groups (operations, bookings, masters, reports).
+logistics.patches.v3_0_sync_high_value_sidebar
 
