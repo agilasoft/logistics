@@ -366,26 +366,24 @@ function _declaration_add_form_toolbar(frm) {
 			(frm.doc.main_service_type || frm.doc.main_job_type) &&
 			(frm.doc.main_service || frm.doc.main_job))
 	) {
-		frm.add_custom_button(__("Internal Job"), function () {
-			function _openInternalJobDlg() {
-				if (window.logistics_show_create_internal_job_dialog) {
-					window.logistics_show_create_internal_job_dialog(frm);
-				} else {
-					frappe.msgprint({
-						title: __("Not available"),
-						message: __(
-							"The internal job dialog could not load. Refresh the page or contact your administrator if this continues."
-						),
-						indicator: "red",
-					});
-				}
+		function _addBookingOrderButton() {
+			if (window.logistics_add_create_internal_job_button) {
+				window.logistics_add_create_internal_job_button(frm, __("Booking / Order"), __("Create"));
+				return;
 			}
-			if (window.logistics_show_create_internal_job_dialog) {
-				_openInternalJobDlg();
-			} else {
-				frappe.require("/assets/logistics/js/internal_job_create_from_source.js?v=20", _openInternalJobDlg);
-			}
-		}, __("Create"));
+			frappe.msgprint({
+				title: __("Not available"),
+				message: __(
+					"The internal job dialog could not load. Refresh the page or contact your administrator if this continues."
+				),
+				indicator: "red",
+			});
+		}
+		if (window.logistics_add_create_internal_job_button) {
+			_addBookingOrderButton();
+		} else {
+			frappe.require("/assets/logistics/js/internal_job_create_from_source.js?v=22", _addBookingOrderButton);
+		}
 	}
 	if (frm.doc.sales_quote && !frm.doc.declaration_order) {
 		frappe.call({
