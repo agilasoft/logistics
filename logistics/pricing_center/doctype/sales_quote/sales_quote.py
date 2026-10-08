@@ -383,6 +383,7 @@ class SalesQuote(Document):
 		view_fields = {
 			"linked_service",
 			"service_type",
+			"quantity",
 			"company",
 			"branch",
 			"cost_center",

@@ -282,6 +282,8 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			self.assertEqual(listed["linked_services"][0]["service_type"], "Transport")
 			linked = frappe.get_doc(linked_service_doctype(), created["linked_service"])
 			self.assertEqual(linked.quantity, 3)
+			reloaded = frappe.get_doc("Sales Quote", sq.name)
+			self.assertEqual(reloaded.linked_services[0].get("quantity"), 3)
 			with self.assertRaises(frappe.ValidationError):
 				add_linked_service(sq.name, "Air", quantity=51)
 			with self.assertRaises(frappe.ValidationError):
@@ -318,6 +320,9 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			payload = get_dialog_create_payload("Transport", "Sales Quote", sq.name)
 			self.assertEqual(payload["service_type"], "Transport")
 			self.assertIn("container_type", payload["detail_fields"])
+			create_fields = [field["fieldname"] for field in payload["fields"]]
+			self.assertNotIn("quantity", create_fields)
+			self.assertNotIn("quantity", payload["values"])
 			self.assertEqual(payload["values"].get("company") or "", sq.company or "")
 			self.assertEqual(payload["values"].get("service_type"), "Transport")
 
@@ -443,6 +448,7 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			self.assertEqual(payload["service_type"], "Air")
 			fieldnames = [f["fieldname"] for f in payload["fields"]]
 			self.assertIn("airline", fieldnames)
+			self.assertIn("quantity", fieldnames)
 			self.assertIn("company", fieldnames)
 			self.assertIn("shipper", fieldnames)
 			self.assertIn("notes", fieldnames)
