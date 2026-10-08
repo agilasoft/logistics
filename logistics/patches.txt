@@ -984,10 +984,26 @@ logistics.patches.v3_0_sales_quote_html_subheader_no_underline
 logistics.patches.v3_0_payment_voucher_signature_header_color
 # Desk: the programme icon is MICE. Drop the Exhibits tile and saved layout copies.
 logistics.patches.v3_0_mice_desk_icon
+# Desk: a saved dock arrangement was hiding the modules this app ships.
+logistics.patches.v3_0_reset_logistics_dock_arrangement
+# Desk: the rail is the shipped module order, not an older saved arrangement.
+logistics.patches.v3_0_order_logistics_dock
 # Desk: Exhibits can be recreated without an app, which draws the letter E. Show MICE.
 logistics.patches.v3_0_show_mice_desk_icon
 # Logistics Staff: copy Employee role flags and existing rep links onto the new master.
 logistics.patches.v3_0_seed_logistics_staff
 # Transport Vehicle permits that existed before the Required checkbox are required.
 logistics.patches.v3_0_set_transport_vehicle_permits_required
+# Sustainability Home: carbon footprint lanes and an organized sidebar
+logistics.patches.v3_0_sync_sustainability_operations_dashboard
+# Air and Sea Control Towers: native Dashboard pages, keep the old page routes as redirects.
+logistics.patches.v3_0_native_freight_control_tower_dashboards
+# Control Tower credit lines live on Customer Credit Limit. Copy limits, then drop the register.
+logistics.patches.v3_0_remove_client_credit_line
+# Job Management sidebar: same groups as the workspace (operations, masters, reports).
+logistics.patches.v3_0_sync_job_management_sidebar
+# High Value sidebar follows the workspace groups (operations, bookings, masters, reports).
+logistics.patches.v3_0_sync_high_value_sidebar
+# Warehousing: file existing reports under the Reports & Analysis cards
+logistics.patches.v3_0_sync_warehousing_reports_workspace
 

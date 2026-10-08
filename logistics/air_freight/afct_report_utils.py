@@ -36,8 +36,15 @@ def date_bounds(filters):
 
 def normalize_filters(filters=None):
 	filters = frappe._dict(filters or {})
+	# A missing company means the viewer's default Company (dashboard charts
+	# omit the key). An explicit blank company stays blank so a cleared
+	# report filter still means every company.
+	if "company" not in filters:
+		company = (frappe.defaults.get_user_default("Company") or "").strip()
+	else:
+		company = (filters.get("company") or "").strip()
 	out = frappe._dict({
-		"company": (filters.get("company") or "").strip(),
+		"company": company,
 		"branch": (filters.get("branch") or "").strip(),
 		"cost_center": (filters.get("cost_center") or "").strip(),
 		"profit_center": (filters.get("profit_center") or "").strip(),

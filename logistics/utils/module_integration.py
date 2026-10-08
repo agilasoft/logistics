@@ -2416,14 +2416,6 @@ def create_transport_order_from_declaration(
 	# Align linked Declaration Order child rows before resolving / persisting Internal Job Detail index.
 	sync_internal_job_details_from_declaration_to_declaration_order(dec)
 
-	role = get_service_role(dec)
-	is_ij = role == SERVICE_ROLE_LINKED
-	is_main = role == SERVICE_ROLE_MAIN
-	if not (is_main or is_ij):
-		frappe.throw(
-			_("Transport Order can only be created from a Main Service declaration or an Internal Job declaration.")
-		)
-
 	ij_row, resolved_idx, persist_doctype, persist_name, do_doc, do_name = (
 		_resolve_transport_ij_for_declaration_to_order(dec, internal_job_detail_idx)
 	)
@@ -2452,11 +2444,9 @@ def create_transport_order_from_declaration(
 	order.location_to = getattr(header_src, "port_of_discharge", None)
 	order.transport_job_type = "Non-Container"
 	copy_sales_quote_fields_to_target(header_src, order)
-	# Internal job on the TO when the declaration is an internal job, or when this TO
-	# is created from a Main Service declaration via an Internal Job Detail line.
-	# main_job_type Select only allows "Declaration" (not DocType "Declaration Order"); link to this Declaration.
-	if is_ij or ij_row:
-		apply_linked_service_satellite_flags(order, "Declaration", dec.name)
+	# The new Transport Order is a linked service of this Declaration (Main or Standalone).
+	# main_job_type Select only allows "Declaration" (not DocType "Declaration Order").
+	apply_linked_service_satellite_flags(order, "Declaration", dec.name)
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 	from logistics.utils.transport_job_type import (
@@ -3233,16 +3223,14 @@ def create_cross_docking_order_from_declaration(
 		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 			dec, "Cross-Docking Order", detail_idx
 		)
-	if not getattr(dec, "sales_quote", None):
-		frappe.throw(_("Link a Sales Quote on this Declaration before creating a Cross-Docking Order."))
 	flags = get_quote_module_flags(
-		dec.sales_quote, source_doctype="Declaration", source_name=declaration_name
+		getattr(dec, "sales_quote", None), source_doctype="Declaration", source_name=declaration_name
 	)
 	if not flags.get("allow_cross_docking") and not any(
 		(getattr(r, "service_type", None) or "").strip().lower() in ("cross-docking", "cross docking")
 		for r in (getattr(dec, "charges", None) or [])
 	):
-		frappe.throw(_("Cross-Docking is not allowed for this Sales Quote."))
+		frappe.throw(_("Cross-Docking is not allowed for this Declaration."))
 
 	customer = dec.customer
 	if not customer:

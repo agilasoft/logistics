@@ -71,35 +71,6 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Productivity",
-   "link_count": 2,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Labor Productivity Report",
-   "link_count": 0,
-   "link_to": "Labor Productivity Report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Machine Productivity Report",
-   "link_count": 0,
-   "link_to": "Machine Productivity Report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Handling",
    "link_count": 4,
    "link_type": "DocType",
@@ -207,8 +178,8 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Stock Reports",
-   "link_count": 3,
+   "label": "Inventory health & rotation",
+   "link_count": 4,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -245,12 +216,42 @@
   },
   {
    "hidden": 0,
+   "is_query_report": 1,
+   "label": "ABC Report",
+   "link_count": 0,
+   "link_to": "ABC Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
    "is_query_report": 0,
-   "label": "Capacity Management",
-   "link_count": 4,
+   "label": "Productivity & slot capacity",
+   "link_count": 5,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Labor Productivity Report",
+   "link_count": 0,
+   "link_to": "Labor Productivity Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Machine Productivity Report",
+   "link_count": 0,
+   "link_to": "Machine Productivity Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
   },
   {
    "hidden": 0,
@@ -263,7 +264,6 @@
    "type": "Link"
   },
   {
-   "dependencies": "Energy Consumption",
    "hidden": 0,
    "is_query_report": 1,
    "label": "Handling Unit Capacity",
@@ -285,16 +285,282 @@
   },
   {
    "hidden": 0,
+   "is_query_report": 0,
+   "label": "Energy, waste & site metrics",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
    "is_query_report": 1,
-   "label": "ABC Report",
+   "label": "Energy Efficiency Report",
    "link_count": 0,
-   "link_to": "ABC Report",
+   "link_to": "Energy Efficiency Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Waste Management Report",
+   "link_count": 0,
+   "link_to": "Waste Management Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Trade & multimodal flow",
+   "link_count": 16,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Weekly Volume And Value Trend",
+   "link_count": 0,
+   "link_to": "Inbound Weekly Volume And Value Trend",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Monthly Volume And Value Trend",
+   "link_count": 0,
+   "link_to": "Inbound Monthly Volume And Value Trend",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Priority Pipeline Mix",
+   "link_count": 0,
+   "link_to": "Inbound Priority Pipeline Mix",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Branch Performance View",
+   "link_count": 0,
+   "link_to": "Inbound Branch Performance View",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Overdue And Due Date Pressure",
+   "link_count": 0,
+   "link_to": "Inbound Overdue And Due Date Pressure",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Open Draft Aging Backlog",
+   "link_count": 0,
+   "link_to": "Inbound Open Draft Aging Backlog",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Owner Workload Review",
+   "link_count": 0,
+   "link_to": "Inbound Owner Workload Review",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Submission Health Ratio",
+   "link_count": 0,
+   "link_to": "Inbound Submission Health Ratio",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Weekly Volume And Value Trend",
+   "link_count": 0,
+   "link_to": "Release Weekly Volume And Value Trend",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Monthly Volume And Value Trend",
+   "link_count": 0,
+   "link_to": "Release Monthly Volume And Value Trend",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Priority Pipeline Mix",
+   "link_count": 0,
+   "link_to": "Release Priority Pipeline Mix",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Branch Performance View",
+   "link_count": 0,
+   "link_to": "Release Branch Performance View",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Overdue And Due Date Pressure",
+   "link_count": 0,
+   "link_to": "Release Overdue And Due Date Pressure",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Open Draft Aging Backlog",
+   "link_count": 0,
+   "link_to": "Release Open Draft Aging Backlog",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Owner Workload Review",
+   "link_count": 0,
+   "link_to": "Release Owner Workload Review",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Submission Health Ratio",
+   "link_count": 0,
+   "link_to": "Release Submission Health Ratio",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Commercial & route economics",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Customer Demand Concentration",
+   "link_count": 0,
+   "link_to": "Inbound Customer Demand Concentration",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Customer Fulfillment Concentration",
+   "link_count": 0,
+   "link_to": "Release Customer Fulfillment Concentration",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Order Executive Control Snapshot",
+   "link_count": 0,
+   "link_to": "Inbound Order Executive Control Snapshot",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Order Executive Control Snapshot",
+   "link_count": 0,
+   "link_to": "Release Order Executive Control Snapshot",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sustainability goals & trends",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sustainability Report",
+   "link_count": 0,
+   "link_to": "Sustainability Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Carbon Footprint Dashboard",
+   "link_count": 0,
+   "link_to": "Carbon Footprint Dashboard",
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
   }
  ],
- "modified": "2026-08-18 19:00:00.000000",
+ "modified": "2026-10-08 08:14:00.000000",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehousing",
