@@ -19,15 +19,53 @@ ROOT = Path(__file__).resolve().parents[2]
 class TestMiceDeskIcon(unittest.TestCase):
 	def test_shipped_tile_is_named_mice(self):
 		icon = json.loads((ROOT / "logistics/desktop_icon/mice.json").read_text())
-		sidebar = json.loads((ROOT / "logistics/workspace_sidebar/mice.json").read_text())
+		sidebar = json.loads((ROOT / "logistics/mice/sidebar/mice/mice.json").read_text())
 		workspace = json.loads((ROOT / "logistics/mice/workspace/mice/mice.json").read_text())
+		dock = json.loads((ROOT / "logistics/dock/logistics/logistics.json").read_text())
+		dock_targets = [item.get("link_to") for item in dock["items"]]
+		mice_row = next(item for item in dock["items"] if item.get("link_to") == "MICE")
 		self.assertEqual(icon["label"], "MICE")
 		self.assertEqual(icon["link_to"], "MICE")
+		self.assertEqual(sidebar["doctype"], "Sidebar")
 		self.assertEqual(sidebar["title"], "MICE")
+		self.assertEqual(sidebar["header_icon"], "mice")
 		self.assertEqual(workspace["title"], "MICE")
+		self.assertEqual(mice_row["icon"], "mice")
+		self.assertEqual(mice_row["title"], "MICE")
+		self.assertIn("Pricing Center", dock_targets)
+		self.assertNotIn("Logistics", dock_targets)
+		self.assertNotIn("Pricing", dock_targets)
+		self.assertNotIn("Utilities", dock_targets)
+		self.assertNotIn("Exhibits", dock_targets)
 		self.assertFalse((ROOT / "logistics/desktop_icon/exhibits.json").exists())
-		self.assertFalse((ROOT / "logistics/workspace_sidebar/exhibits.json").exists())
+		self.assertFalse((ROOT / "logistics/workspace_sidebar").exists())
 		self.assertFalse((ROOT / "logistics/exhibits/workspace/exhibits/exhibits.json").exists())
+
+	def test_dock_names_every_module_with_its_icon(self):
+		dock = json.loads((ROOT / "logistics/dock/logistics/logistics.json").read_text())
+		sprite = (ROOT / "logistics/public/icons/module-icons.svg").read_text()
+		order = [
+			"Air Freight",
+			"Sea Freight",
+			"Customs",
+			"Transport",
+			"Warehousing",
+			"Job Management",
+			"Special Projects",
+			"MICE",
+			"High Value",
+			"Time Sensitive",
+			"Sustainability",
+			"Pricing Center",
+		]
+		rows = dock["items"]
+		self.assertEqual([row["link_to"] for row in rows], order)
+		for row in rows:
+			self.assertEqual(row["link_type"], "Sidebar")
+			self.assertEqual(row["title"], row["link_to"])
+			self.assertTrue(row.get("icon"))
+			self.assertEqual(row.get("hidden"), 0)
+			self.assertIn(f'id="icon-{row["icon"]}"', sprite)
 
 	def test_exhibits_module_is_not_its_own_dock_entry(self):
 		hooks = ast.parse((ROOT / "logistics/hooks.py").read_text())

@@ -11,9 +11,12 @@ the invoice line that still points back at the job. The job stays submitted;
 invoice cancel clears the charge link afterwards.
 """
 
+import frappe
+
 from logistics.invoice_integration.lifecycle import merge_invoice_cancel_ignore_doctypes
 
 
+@frappe.whitelist()
 def get_submitted_linked_docs(doctype, name, ignore_doctypes_on_cancel_all=None):
     from frappe.desk.form.linked_with import get_submitted_linked_docs as original
 
@@ -21,6 +24,7 @@ def get_submitted_linked_docs(doctype, name, ignore_doctypes_on_cancel_all=None)
     return original(doctype, name, ignore)
 
 
+@frappe.whitelist()
 def cancel_all_linked_docs(
     docs=None,
     ignore_doctypes_on_cancel_all=None,
