@@ -45,6 +45,14 @@
   {
    "added": 0,
    "hidden": 0,
+   "icon": "job_management",
+   "link_to": "Job Management",
+   "link_type": "Sidebar",
+   "title": "Job Management"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
    "icon": "special_projects",
    "link_to": "Special Projects",
    "link_type": "Sidebar",
