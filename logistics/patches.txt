@@ -1004,4 +1004,6 @@ logistics.patches.v3_0_remove_client_credit_line
 logistics.patches.v3_0_sync_job_management_sidebar
 # High Value sidebar follows the workspace groups (operations, bookings, masters, reports).
 logistics.patches.v3_0_sync_high_value_sidebar
+# Warehousing: file existing reports under the Reports & Analysis cards
+logistics.patches.v3_0_sync_warehousing_reports_workspace
 
