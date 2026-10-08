@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "doctype": "Sidebar",
- "header_icon": "landmark",
+ "header_icon": "customs",
  "items": [
   {
    "child": 0,

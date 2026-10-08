@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "doctype": "Sidebar",
- "header_icon": "scale",
+ "header_icon": "netting",
  "items": [
   {
    "child": 0,

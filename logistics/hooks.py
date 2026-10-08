@@ -57,6 +57,10 @@ fixtures = [
 # ------------------
 
 # include js, css files in header of desk.html
+# Module artwork for the dock and sidebar header. Symbol ids match the dock icon names.
+app_include_icons = [
+	"/assets/logistics/icons/module-icons.svg",
+]
 app_include_css = [
 	"/assets/logistics/css/print_footer_fix.css",
 	"/assets/logistics/css/get_charges_from_quotation.css?v=9",

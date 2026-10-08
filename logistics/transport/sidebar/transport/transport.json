@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "doctype": "Sidebar",
- "header_icon": "truck",
+ "header_icon": "transport",
  "items": [
   {
    "child": 0,

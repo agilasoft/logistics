@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "doctype": "Sidebar",
- "header_icon": "warehouse",
+ "header_icon": "warehousing",
  "items": [
   {
    "child": 0,

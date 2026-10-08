@@ -1,7 +1,6 @@
 {
  "app": "logistics",
  "doctype": "Sidebar",
- "header_icon": "wrench",
  "items": [
   {
    "child": 0,
@@ -132,7 +131,7 @@
   }
  ],
  "module": "Logistics",
- "name": "Utilities",
+ "name": "Logistics",
  "standard": 1,
- "title": "Utilities"
+ "title": "Logistics"
 }

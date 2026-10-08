@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "doctype": "Sidebar",
- "header_icon": "package",
+ "header_icon": "order_management",
  "items": [
   {
    "child": 0,
