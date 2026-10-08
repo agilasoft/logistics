@@ -326,7 +326,12 @@ def get_dialog_create_payload(service_type: str, parent_doctype: str | None = No
 		parent = frappe.get_doc(parent_doctype, parent_name)
 		frappe.has_permission(parent_doctype, "write", doc=parent, throw=True)
 
-	fields = _dialog_edit_field_defs(service_type)
+	# Quantity is the add-bar Qty control, not a second field in the details form.
+	fields = [
+		field
+		for field in _dialog_edit_field_defs(service_type)
+		if field["fieldname"] != "quantity"
+	]
 	values: dict[str, Any] = {}
 	for field in fields:
 		fieldname = field["fieldname"]

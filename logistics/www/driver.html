@@ -6,689 +6,1466 @@
 {% block head_include %}
 <style>
 	:root {
-		--bg: #f4f7fb;
+		--bg: #eef2f7;
 		--card: #ffffff;
-		--ink: #1b2433;
-		--muted: #6d7889;
+		--ink: #1c2434;
+		--muted: #6b778c;
 		--line: #e6edf5;
-		--blue: #2f6bff;
+		--blue: #2563eb;
 		--blue-dark: #1d4ed8;
-		--blue-soft: #e8f1ff;
-		--green: #e7f8ee;
-		--green-ink: #157a3a;
-		--green-line: #b7ebc9;
-		--amber: #fff6e8;
-		--amber-ink: #b45309;
-		--shadow: 0 10px 30px rgba(22, 42, 76, 0.06);
-		--radius: 22px;
+		--blue-soft: #e8f0ff;
+		--green: #e8f8ef;
+		--green-ink: #15803d;
+		--amber: #fff4e5;
+		--amber-ink: #c2410c;
+		--red: #ef4444;
+		--shadow: 0 8px 24px rgba(28, 45, 78, 0.05);
+		--radius: 16px;
+		--nav: 228px;
 	}
 	* { box-sizing: border-box; }
-	html, body { height: 100%; background: var(--bg); overflow: hidden; }
+	html, body { height: 100%; background: var(--bg); }
 	[hidden] { display: none !important; }
-	body {
-		margin: 0;
-		color: var(--ink);
-		font-family: Inter, "Segoe UI", Helvetica, Arial, sans-serif;
-	}
+	body { margin: 0; color: var(--ink); font-family: Inter, "Segoe UI", Helvetica, Arial, sans-serif; }
 	button, input, select, textarea, a { font-family: inherit; }
 	.navbar, .web-footer, .page-breadcrumbs { display: none !important; }
-	.page-content-wrapper, .page_content { padding: 0 !important; margin: 0 !important; background: transparent; max-width: none; }
 	.page-content-wrapper, .page_content {
-		height: 100dvh !important;
-		min-height: 0 !important;
-		display: flex !important;
-		flex-direction: column !important;
+		padding: 0 !important; margin: 0 !important; background: transparent; max-width: none;
+		height: 100dvh !important; min-height: 0 !important; display: flex !important; flex-direction: column !important;
 	}
 	.driver-app {
-		max-width: none;
-		margin: 0;
-		padding: 10px 12px 12px;
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-		flex: 1 1 auto;
-		height: 100dvh;
-		min-height: 0;
+		display: flex; height: 100dvh; min-height: 0; background: var(--bg); color: var(--ink); overflow: hidden;
+	}
+	.sidenav {
+		width: var(--nav); flex: 0 0 var(--nav); background: #f7f9fc; border-right: 1px solid var(--line);
+		display: flex; flex-direction: column; padding: 18px 14px 14px; gap: 6px;
 		overflow: hidden;
-		background: var(--bg);
 	}
-	.topbar, .card, .stat-card, .company-card {
-		background: var(--card);
-		border-radius: var(--radius);
-		box-shadow: var(--shadow);
+	.logo { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; font-weight: 800; font-size: 18px; letter-spacing: -0.03em; }
+	.logo span, .tab span, .logout-btn span { white-space: nowrap; }
+	.nav-toggle {
+		margin-left: auto; border: 0; background: transparent; color: #3e4c63; width: 32px; height: 32px;
+		border-radius: 8px; display: grid; place-items: center; cursor: pointer; flex: none;
 	}
-	.topbar {
-		display: grid;
-		grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr);
-		align-items: center;
-		gap: 12px;
-		padding: 10px 14px;
-	}
-	.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-	.brand-mark, .company-mark {
-		width: 42px; height: 42px; border-radius: 14px; background: var(--blue-soft); color: var(--blue);
+	.nav-toggle:hover { background: #eef3f9; }
+	.nav-toggle svg { transition: transform 0.18s ease; }
+	.driver-app[data-nav="collapsed"] .sidenav { width: 76px; flex: 0 0 76px; padding-inline: 10px; }
+	.driver-app[data-nav="collapsed"] .logo { flex-direction: column; align-items: center; padding-inline: 0; gap: 8px; }
+	.driver-app[data-nav="collapsed"] .logo span,
+	.driver-app[data-nav="collapsed"] .tab span,
+	.driver-app[data-nav="collapsed"] .logout-btn span,
+	.driver-app[data-nav="collapsed"] .tab .badge-count { display: none; }
+	.driver-app[data-nav="collapsed"] .nav-toggle { margin-left: 0; }
+	.driver-app[data-nav="collapsed"] .nav-toggle svg { transform: rotate(180deg); }
+	.driver-app[data-nav="collapsed"] .tab,
+	.driver-app[data-nav="collapsed"] .logout-btn { justify-content: center; padding: 0; }
+	.logo-mark {
+		width: 34px; height: 34px; border-radius: 10px; background: var(--blue); color: white;
 		display: grid; place-items: center; flex: none;
 	}
-	.brand-name { font-weight: 800; font-size: 18px; letter-spacing: -0.03em; }
-	.brand-name span { color: var(--muted); font-weight: 650; }
-	.screen-switch {
-		display: flex; gap: 4px; background: #f6f8fc; border-radius: 999px; padding: 4px;
-	}
 	.tab {
-		border: 0; background: transparent; color: var(--muted); font-weight: 700; font-size: 14px;
-		padding: 8px 14px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+		border: 0; background: transparent; color: #3e4c63; border-radius: 12px; min-height: 44px;
+		display: flex; align-items: center; gap: 12px; padding: 0 12px; font-weight: 700; font-size: 14px;
+		cursor: pointer; text-align: left; position: relative;
 	}
 	.tab svg { flex: none; }
-	.tab.active { color: var(--blue); background: white; box-shadow: 0 4px 14px rgba(47, 107, 255, 0.12); }
-	.top-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+	.tab:hover { background: #eef3f9; }
+	.tab.active { background: var(--blue); color: white; }
+	.tab .badge-count { position: static; margin-left: auto; }
+	.nav-spacer { flex: 1; }
+	.logout-btn {
+		border: 0; background: transparent; color: #3e4c63; border-radius: 12px; min-height: 44px;
+		display: flex; align-items: center; gap: 12px; padding: 0 12px; font-weight: 700; cursor: pointer;
+	}
+	.logout-btn:hover { background: #eef3f9; color: var(--red); }
+	.main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+	.topbar {
+		height: 68px; flex: none; background: white; border-bottom: 1px solid var(--line);
+		display: flex; align-items: center; gap: 16px; padding: 0 20px;
+	}
+	.search {
+		flex: 1; max-width: 560px; display: flex; align-items: center; gap: 8px;
+		background: #f3f6fa; border-radius: 999px; padding: 0 14px; height: 40px; color: var(--muted);
+	}
+	.search input {
+		border: 0; background: transparent; outline: none; width: 100%; font-size: 14px; color: var(--ink);
+	}
+	.top-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 	.icon-btn {
-		border: 0; background: #f4f7fb; color: var(--ink); border-radius: 999px; width: 40px; height: 40px;
+		border: 0; background: #f3f6fa; color: var(--ink); width: 40px; height: 40px; border-radius: 999px;
 		display: inline-flex; align-items: center; justify-content: center; cursor: pointer; position: relative; text-decoration: none;
 	}
-	.icon-btn:hover, .tab:hover { color: var(--blue); }
 	.badge-count {
-		position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px;
-		border-radius: 99px; background: #ef4444; color: white; font-size: 11px; line-height: 18px; font-weight: 700;
+		min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--red); color: white;
+		font-size: 11px; line-height: 18px; font-weight: 800; text-align: center;
 	}
-	.user-wrap { position: relative; }
 	.user-toggle {
-		border: 0; background: #f6f8fc; border-radius: 999px; padding: 4px 10px 4px 4px; cursor: pointer;
-		display: flex; align-items: center; gap: 10px; color: inherit;
+		border: 0; background: transparent; display: flex; align-items: center; gap: 10px; cursor: pointer; color: inherit; padding: 0;
 	}
-	.user-copy { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; min-width: 0; }
+	.user-copy { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
 	.user-copy strong { font-size: 14px; }
-	.user-copy span, .driver-role, .company-sub { color: var(--muted); font-size: 12px; font-weight: 650; }
+	.user-copy span { color: var(--muted); font-size: 12px; font-weight: 650; }
 	.avatar, .avatar-fallback {
-		width: 52px; height: 52px; border-radius: 50%; object-fit: cover; background: #dbe7ff; flex: none;
+		width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #dbe7ff; flex: none;
 	}
-	.avatar.sm, .avatar-fallback.sm { width: 36px; height: 36px; font-size: 13px; }
 	.avatar-fallback { display: grid; place-items: center; font-weight: 800; color: var(--blue-dark); }
-	.user-panel {
-		position: absolute; right: 0; top: calc(100% + 8px); width: 320px; z-index: 30;
-		background: white; border-radius: 18px; box-shadow: 0 18px 50px rgba(22, 42, 76, 0.16); padding: 12px;
+	.stage { flex: 1; min-height: 0; overflow: auto; padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+	.run-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+	.run-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+	.run-title h1 { margin: 0; font-size: 26px; letter-spacing: -0.04em; }
+	.run-chip {
+		background: #eef2f7; color: #334155; border-radius: 8px; padding: 4px 8px; font-weight: 800; font-size: 13px;
 	}
-	.hero {
-		display: grid;
-		grid-template-columns: minmax(280px, 1.05fr) minmax(200px, 0.82fr) minmax(280px, 1.05fr);
-		gap: 16px;
+	.pill { font-size: 12px; font-weight: 800; border-radius: 99px; padding: 4px 10px; white-space: nowrap; }
+	.pill.on { background: var(--green); color: var(--green-ink); }
+	.pill.off { background: #eef2f6; color: #64748b; }
+	.pill.warn { background: var(--amber); color: var(--amber-ink); }
+	.pill.live { background: var(--amber); color: var(--amber-ink); }
+	.pill.soon { background: var(--green); color: var(--green-ink); }
+	.run-meta span + span:not(:empty)::before { content: "·"; margin: 0 6px 0 2px; color: #9aa6b8; }
+	.head-cards { display: flex; gap: 12px; flex: none; }
+	.mini {
+		background: white; border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
+		display: flex; align-items: center; gap: 12px; padding: 10px 14px; min-width: 210px;
+	}
+	.veh-photo, .company-mark {
+		width: 64px; height: 44px; border-radius: 10px; background: #f3f6fa; display: grid; place-items: center;
+		overflow: hidden; flex: none; color: var(--blue);
+	}
+	.veh-photo img { width: 100%; height: 100%; object-fit: cover; }
+	.mini strong { display: block; font-size: 14px; }
+	.mini span { display: block; color: var(--muted); font-size: 12px; font-weight: 650; }
+	.board {
+		flex: 1; min-height: 520px; display: grid; gap: 14px;
+		grid-template-columns: minmax(260px, 300px) minmax(0, 1.45fr) minmax(240px, 270px);
 		align-items: stretch;
 	}
-	.company-card { padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 14px; }
-	.company-top, .who, .chip-row, .hero-metrics, .panel-head, .stop-top, .map-head {
-		display: flex; align-items: center; justify-content: space-between; gap: 10px;
+	.card {
+		background: white; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
 	}
-	.company-id { display: flex; align-items: center; gap: 10px; min-width: 0; }
-	.company-id strong { display: block; font-size: 18px; letter-spacing: -0.03em; }
-	.company-sub { letter-spacing: 0.08em; text-transform: uppercase; font-size: 10px; }
-	.pill { font-size: 12px; font-weight: 800; border-radius: 99px; padding: 5px 10px; white-space: nowrap; }
-	.pill.on { background: var(--green); color: var(--green-ink); }
-	.pill.off { background: #f3f4f6; color: #4b5563; }
-	.pill.warn { background: var(--amber); color: var(--amber-ink); }
-	.who { justify-content: flex-start; }
-	.driver-name { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; }
-	.contact { margin-left: auto; display: flex; gap: 8px; }
-	.chip-row { justify-content: space-between; }
-	.run-chip, .today-chip {
-		background: #f4f7fb; border-radius: 12px; padding: 8px 12px; font-weight: 800; font-size: 13px;
-		display: inline-flex; align-items: center; gap: 8px;
+	.journey { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+	.journey-card { padding: 12px; display: flex; flex-direction: column; min-height: 280px; flex: 1; }
+	.seg { display: flex; gap: 6px; background: #f4f7fb; border-radius: 12px; padding: 4px; margin-bottom: 8px; }
+	.seg button {
+		flex: 1; border: 0; background: transparent; border-radius: 10px; height: 36px; font-weight: 800; color: var(--muted); cursor: pointer;
 	}
-	.today-chip { color: var(--blue); background: var(--blue-soft); font-weight: 700; }
-	.track { position: relative; height: 8px; background: #e7eef8; border-radius: 99px; margin: 4px 18px 0 4px; }
-	.track-fill { height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, #8eb6ff, var(--blue)); }
-	.track-truck { position: absolute; top: 50%; left: 0; transform: translate(-40%, -58%); filter: drop-shadow(0 4px 6px rgba(47, 107, 255, 0.25)); }
-	.hero-metrics { color: var(--muted); font-size: 13px; font-weight: 700; }
-	.hero-metrics b { color: var(--ink); font-size: 14px; }
-	.truck-stage {
-		flex: 1 1 auto; min-height: 0; display: grid; place-items: center; position: relative;
-		border-radius: 16px; overflow: hidden; background: #d7e3ee;
+	.seg button.active { background: white; color: var(--blue); box-shadow: 0 2px 8px rgba(28, 45, 78, 0.06); }
+	.stops { overflow: auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+	.j-stop {
+		display: grid; grid-template-columns: 28px minmax(0, 1fr) 16px; gap: 10px; align-items: start;
+		border: 1px solid transparent; border-radius: 14px; padding: 10px; cursor: pointer; background: #f8fafc;
 	}
-	.truck-stage .track { position: absolute; left: 16px; right: 16px; bottom: 14px; margin: 0; z-index: 1; }
-	.truck-art { width: min(86%, 520px); height: auto; max-height: 78%; object-fit: contain; position: relative; z-index: 1; }
-	.dash-empty {
-		color: var(--muted); font-weight: 650; text-align: center; padding: 16px;
-		max-width: 320px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+	.j-stop.selected { background: #f3f7ff; border-color: #d7e4ff; }
+	.j-num {
+		width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+		background: #16a34a; color: white; font-size: 13px; font-weight: 800;
 	}
-	.dash-empty strong { color: var(--ink); font-size: 18px; letter-spacing: -0.03em; }
-	.dash-empty span { font-size: 13px; line-height: 1.35; }
-	.photo-art { width: min(280px, 86%); height: auto; display: block; }
-	.tile-art { width: 52px; height: 52px; display: block; flex: none; object-fit: contain; }
-	.tile-art.sm { width: 40px; height: 40px; }
-	#speed-needle { transform-origin: 32px 42px; transform: rotate(-58deg); transition: transform 180ms linear; }
-	.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-	.stat-card { padding: 14px 16px 16px; min-height: 112px; display: flex; flex-direction: column; justify-content: space-between; }
-	.stat-card.tall { min-height: 156px; }
-	.stat-fuel { background: linear-gradient(180deg, #e5f8ee 0%, #f7fffa 70%); border: 1px solid #d7f3e3; position: relative; overflow: hidden; }
-	.fuel-wave { position: absolute; left: 0; right: 0; top: 0; height: 42px; }
-	.stat-label { display: block; color: var(--ink); font-size: 13px; font-weight: 800; position: relative; margin-top: 8px; }
-	.stat-value, .fuel-value, .speed-value { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; position: relative; }
-	.fuel-value { font-size: 28px; }
-	.stat-hint, .metric-sub, .side-label { color: var(--muted); font-size: 12px; font-weight: 650; }
-	.speed-gauge { width: 100%; height: 74px; }
-	.speed-readout { display: flex; align-items: baseline; justify-content: center; gap: 4px; margin-top: -8px; }
-	.speed-value { font-size: 26px; }
-	.load-track { height: 8px; background: #e7eef8; border-radius: 99px; overflow: hidden; margin-top: 8px; }
-	.load-track > div { height: 100%; width: 0; background: var(--blue); border-radius: 99px; }
-	.workspace { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 16px; align-items: start; }
-	.card { padding: 16px 16px 14px; }
-	.panel-head h2, .map-head h2, .history-panel h2 { margin: 0; font-size: 18px; letter-spacing: -0.03em; display: flex; align-items: center; gap: 8px; }
-	.sub, .meta { color: var(--muted); font-size: 13px; line-height: 1.45; }
-	.linkish { background: none; border: 0; color: var(--blue); font-weight: 800; cursor: pointer; padding: 8px 10px; border-radius: 999px; }
-	.linkish:hover { background: var(--blue-soft); }
-	.route-note { margin: 10px 0; background: var(--amber); color: var(--amber-ink); border-radius: 12px; padding: 8px 10px; font-size: 13px; font-weight: 700; }
-	.stops { margin-top: 8px; }
-	.stop { display: grid; grid-template-columns: 32px 1fr; gap: 10px; cursor: pointer; }
-	.rail { display: flex; flex-direction: column; align-items: center; }
-	.num {
-		width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800;
-		background: #e8eef6; color: #64748b; z-index: 1;
+	.j-stop.next .j-num { background: var(--blue); }
+	.j-stop.done .j-num { background: #16a34a; }
+	.j-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+	.j-title { font-weight: 800; font-size: 14px; }
+	.j-time { color: var(--blue); font-size: 12px; font-weight: 800; margin-top: 2px; }
+	.j-line { color: var(--muted); font-size: 12px; font-weight: 650; margin-top: 3px; display: flex; gap: 6px; align-items: flex-start; }
+	.j-chev { color: #94a3b8; padding-top: 4px; }
+	.summary, .box-card { padding: 14px; }
+	.summary h2, .box-card h2, .panel-label {
+		margin: 0 0 10px; font-size: 15px; display: flex; align-items: center; justify-content: space-between;
 	}
-	.stop.done .num { background: #22c55e; color: white; }
-	.stop.next .num { background: var(--blue); color: white; }
-	.stem { width: 2px; flex: 1; background: #e5e7eb; min-height: 18px; }
-	.stop.done .stem { background: #b7ebc9; }
-	.stop-card {
-		display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center;
-		border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; background: #f8fafc; border: 1px solid transparent;
-	}
-	.stop.done .stop-card { background: #eefbf4; }
-	.stop.next .stop-card { background: #f3f7ff; border-color: #d9e6ff; }
-	.stop-title { font-weight: 800; }
-	.status-pill { font-size: 12px; font-weight: 800; border-radius: 99px; padding: 3px 8px; background: #eef2f6; color: #64748b; }
-	.stop.done .status-pill { background: #d9f5e5; color: var(--green-ink); }
-	.stop.next .status-pill { background: #e5efff; color: var(--blue); }
-	.stop-side { text-align: right; }
-	.side-value { font-weight: 800; font-size: 14px; }
-	.chevron { color: #94a3b8; display: grid; place-items: center; }
-	.live-eta { color: var(--blue-dark); font-weight: 800; }
-	.live-eta:empty { display: none; }
-	.pending { display: inline-flex; margin-top: 6px; background: var(--amber); color: var(--amber-ink); border-radius: 99px; padding: 3px 8px; font-size: 12px; font-weight: 800; }
-	.map-panel { display: flex; flex-direction: column; gap: 12px; }
-	.map-wrap { position: relative; height: 320px; border-radius: 16px; overflow: hidden; background: #d7e3ee; }
+	.sum-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+	.sum { background: #f7f9fc; border-radius: 12px; padding: 10px; text-align: center; }
+	.sum b { display: block; font-size: 16px; }
+	.sum span { color: var(--muted); font-size: 11px; font-weight: 700; }
+	.kv { width: 100%; border-collapse: collapse; font-size: 13px; }
+	.kv th { text-align: left; color: var(--muted); font-weight: 700; padding: 6px 8px 6px 0; width: 42%; }
+	.kv td { font-weight: 750; padding: 6px 0; }
+	.linkish { background: none; border: 0; color: var(--blue); font-weight: 800; cursor: pointer; padding: 0; }
+	.center-col, .rail { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
+	.map-wrap { position: relative; height: 280px; border-radius: var(--radius); overflow: hidden; background: #d7e3ee; border: 1px solid var(--line); flex: none; }
 	#route-map { position: absolute; inset: 0; }
-	.map-note {
-		position: absolute; inset: 0; z-index: 1;
-		display: grid; place-items: center; color: var(--muted); padding: 24px; text-align: center;
-		background: #d7e3ee;
+	.map-note { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--muted); padding: 20px; background: #d7e3ee; }
+	.map-empty-card {
+		position: absolute; z-index: 1; left: 50%; top: 46%; transform: translate(-50%, -50%);
+		width: min(440px, calc(100% - 40px)); background: white; border-radius: 18px;
+		box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18); padding: 28px 28px 22px; text-align: center;
 	}
-	.map-chip, .recenter, .map-max {
-		position: absolute; z-index: 2; background: white; border-radius: 999px;
-		box-shadow: var(--shadow); font-weight: 800; display: inline-flex; align-items: center; gap: 8px;
+	.map-empty-art {
+		width: 88px; height: 88px; margin: 0 auto 6px; border-radius: 50%; background: #e8f1fb;
+		display: grid; place-items: center; color: #60a5fa;
 	}
-	.map-chip, .recenter { bottom: 12px; }
-	.map-chip { left: 12px; padding: 8px 12px; font-size: 13px; }
-	.recenter { right: 12px; border: 0; height: 36px; padding: 0 12px; cursor: pointer; }
-	.map-max {
-		top: 12px; right: 12px; z-index: 3; width: 40px; height: 40px; border: 0; padding: 0;
-		justify-content: center; cursor: pointer; color: var(--ink);
-	}
-	.map-max:hover, .map-compass:hover { color: var(--blue); }
-	.map-compass {
-		position: absolute; z-index: 3; top: 60px; right: 12px; width: 40px; height: 40px;
-		border: 0; padding: 0; border-radius: 999px; background: white; box-shadow: var(--shadow);
+	.map-empty-card h3 { margin: 6px 0 8px; font-size: 20px; letter-spacing: -0.03em; }
+	.map-empty-card p { margin: 0 0 16px; color: #64748b; font-size: 14px; line-height: 1.45; }
+	.driver-app:not([data-screen="map"]) .map-empty-card { display: none !important; }
+	.map-tools { position: absolute; z-index: 2; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 8px; }
+	.map-tools button, .recenter, .map-max, .map-compass {
+		width: 36px; height: 36px; border: 0; border-radius: 10px; background: white; box-shadow: var(--shadow);
 		display: grid; place-items: center; cursor: pointer; color: var(--ink);
 	}
-	.compass-dial { display: grid; place-items: center; transition: transform 180ms linear; }
-	.map-wrap:fullscreen, .map-wrap:-webkit-full-screen { border-radius: 0; height: 100%; }
-	.map-wrap.is-max {
-		position: fixed; inset: 0; z-index: 3000; width: 100vw; height: 100vh; border-radius: 0;
+	.live-switch {
+		position: absolute; z-index: 2; top: 12px; right: 56px; background: white; border-radius: 999px;
+		box-shadow: var(--shadow); display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 12px; font-weight: 800;
 	}
+	.switch { position: relative; width: 36px; height: 20px; }
+	.switch input { opacity: 0; width: 0; height: 0; }
+	.slider { position: absolute; inset: 0; background: #d5deea; border-radius: 99px; cursor: pointer; }
+	.slider:before {
+		content: ""; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px; background: white; border-radius: 50%; transition: 160ms;
+	}
+	.switch input:checked + .slider { background: var(--blue); }
+	.switch input:checked + .slider:before { transform: translateX(16px); }
+	.map-chip, .recenter { position: absolute; z-index: 2; bottom: 12px; }
+	.map-chip { left: 12px; background: white; border-radius: 999px; padding: 8px 12px; font-size: 13px; font-weight: 800; box-shadow: var(--shadow); display: inline-flex; gap: 8px; align-items: center; }
+	.recenter { right: 12px; width: auto; padding: 0 12px; font-weight: 800; }
+	.map-max, .map-compass {
+		position: absolute; z-index: 3; right: 12px;
+	}
+	.map-max { top: 12px; }
+	.map-compass { top: 56px; }
+	.map-wrap:fullscreen, .map-wrap:-webkit-full-screen { height: 100%; border-radius: 0; }
+	.map-wrap.is-max { position: fixed; inset: 0; z-index: 3000; width: 100vw; height: 100vh; border-radius: 0; }
 	.maneuver {
-		position: absolute; z-index: 2; top: 12px; left: 12px; right: 64px;
-		display: flex; gap: 12px; align-items: center;
-		background: var(--blue-dark); color: white; border-radius: 16px; padding: 12px 14px;
-		box-shadow: 0 12px 28px rgba(29, 78, 216, 0.28);
+		position: absolute; z-index: 2; top: 12px; left: 12px; right: 210px; display: flex; gap: 10px; align-items: center;
+		background: var(--blue-dark); color: white; border-radius: 14px; padding: 10px 12px;
 	}
-	.maneuver-arrow { width: 46px; height: 46px; display: grid; place-items: center; flex: none; transition: transform 160ms linear; }
+	.maneuver-arrow { width: 36px; height: 36px; display: grid; place-items: center; flex: none; }
 	.maneuver-copy { min-width: 0; flex: 1; }
-	.maneuver-dist { font-size: 13px; font-weight: 700; opacity: 0.85; }
-	.maneuver-text { font-size: 18px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.2; }
-	.maneuver-next { margin-top: 2px; font-size: 13px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.voice-btn { border: 0; background: rgba(255, 255, 255, 0.16); color: white; border-radius: 12px; height: 36px; padding: 0 12px; font-weight: 800; cursor: pointer; flex: none; }
-	.metric-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-	.metric { background: #f7f9fc; border-radius: 16px; padding: 12px; }
-	.metric-label { color: var(--muted); font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
-	.metric-value { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; margin-top: 4px; }
-	.map-dock {
-		display: flex; justify-content: space-between; gap: 12px; align-items: center;
-		padding-top: 2px;
+	.maneuver-dist { font-size: 12px; opacity: 0.85; }
+	.maneuver-text { font-weight: 800; }
+	.maneuver-next { font-size: 12px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.voice-btn { border: 0; background: rgba(255,255,255,0.16); color: white; border-radius: 10px; height: 32px; padding: 0 10px; font-weight: 800; cursor: pointer; }
+	.stop-detail { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: auto; }
+	.detail-head { display: flex; align-items: center; gap: 10px; }
+	.detail-title-wrap { display: flex; align-items: center; gap: 8px; min-width: 0; }
+	.detail-head h2 { margin: 0; font-size: 16px; }
+	.detail-head .j-time { margin-left: auto; }
+	.detail-tabs {
+		display: flex; justify-content: flex-start; gap: 28px; overflow: visible;
+		border-bottom: 1px solid #e7eef6; padding: 2px 4px 0;
 	}
-	#dock-title { display: block; font-size: 15px; }
-	.dock-meta { font-size: 15px; font-weight: 800; letter-spacing: -0.03em; margin-top: 2px; }
-	.traffic-flag { color: var(--green-ink); font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
-	.map-status { color: var(--amber-ink); font-size: 13px; font-weight: 700; margin-top: 4px; }
-	.quick-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+	.detail-tab {
+		border: 0; background: transparent; padding: 10px 0 12px; margin-bottom: -1px; font-size: 14px; font-weight: 650;
+		color: #8b97a8; cursor: pointer; white-space: nowrap; border-bottom: 3px solid transparent;
+	}
+	.detail-tab.active { color: #2563eb; font-weight: 750; border-bottom-color: #2563eb; }
+	#detail-num { background: var(--blue); flex: none; }
+	#detail-head-window { color: #64748b; font-weight: 700; font-size: 13px; }
+	#stop-detail .detail-grid { grid-template-columns: minmax(240px, 1.15fr) minmax(176px, 210px) minmax(220px, 0.95fr); gap: 14px; align-items: start; }
+	#stop-detail .fact-row { grid-template-columns: 18px minmax(0, 1fr); gap: 8px; margin-bottom: 10px; align-items: start; }
+	#stop-detail .fact-row > svg { margin-top: 1px; color: #64748b; }
+	#stop-detail .loc-row { grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; }
+	#stop-detail .view-map { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; color: #2563eb; font-weight: 750; }
+	#stop-detail .note-box { margin-top: 4px; background: #f4f7fb; border-radius: 10px; padding: 8px 10px; color: #334155; font-size: 12px; font-weight: 650; line-height: 1.45; }
+	#stop-detail .actions { border: 1px solid #e6edf5; border-radius: 14px; padding: 12px; gap: 8px; }
+	#stop-detail .actions .panel-label { margin: 0 0 4px; font-size: 15px; }
+	#stop-detail .actions .cn-btn { justify-content: center; min-height: 40px; border-radius: 10px; white-space: nowrap; }
+	#stop-detail .actions .cn-btn svg { color: #2563eb; }
+	#stop-detail .actions .cn-btn.go, #stop-detail .actions .cn-btn.go svg { color: white; }
+	#stop-detail .actions .cn-btn.danger { color: #ef4444; border-color: #fca5a5; }
+	#stop-detail .proof-col { gap: 8px; }
+	#stop-detail .proof-head { font-size: 14px; }
+	#stop-detail .proof-head span:last-child { color: #64748b; font-weight: 700; }
+	#stop-detail .photo-add {
+		width: 84px; height: 74px; border-radius: 12px; border: 1.5px dashed #d5deea; background: #f8fafc; color: #64748b;
+		display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+		font-size: 11px; font-weight: 700; cursor: pointer;
+	}
+	#stop-detail .sign-box {
+		height: 68px; border: 1px solid #e6edf5; border-radius: 12px; background: white;
+		display: flex; align-items: center; justify-content: center; padding: 8px 12px;
+		color: #1e293b; font-family: "Segoe Script", "Brush Script MT", cursive; font-size: 26px;
+	}
+	#stop-detail .sign-field { border: 1px solid #e6edf5; border-radius: 10px; padding: 6px 8px; min-width: 0; }
+	#stop-detail .sign-field span { display: block; color: #94a3b8; font-size: 11px; font-weight: 650; }
+	#stop-detail .sign-field b { display: block; margin-top: 2px; font-size: 13px; font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	#stop-detail .proof-col .cn-btn.green { justify-content: center; min-height: 42px; margin-top: 4px; }
+	.detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 148px 168px; gap: 12px; align-items: start; }
+	.fact-row { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; margin-bottom: 8px; color: #64748b; }
+	.fact-row b { display: block; color: var(--ink); font-size: 13px; }
+	.fact-row span, .muted { color: var(--muted); font-size: 12px; font-weight: 650; }
+	.view-map { border: 0; background: none; color: var(--blue); font-weight: 800; font-size: 12px; cursor: pointer; padding: 0; }
+	.actions { display: flex; flex-direction: column; gap: 8px; }
+	.actions .cn-btn { justify-content: flex-start; }
+	.cn-btn.go { background: #16a34a; color: white; border-color: transparent; }
+	.proof-col { display: flex; flex-direction: column; gap: 8px; }
+	.proof-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 800; }
+	.sign-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+	.sign-fields span { color: var(--muted); font-size: 11px; font-weight: 700; }
+	.sign-fields b { display: block; font-size: 13px; margin-top: 2px; }
 	.cn-btn {
-		border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 800; cursor: pointer;
-		display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: white; color: var(--ink);
-		border: 1px solid #d7e0ea;
+		border: 1px solid #d7e0ea; background: white; color: var(--ink); border-radius: 10px; min-height: 40px; padding: 8px 12px;
+		font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
 	}
 	.cn-btn.primary { background: var(--blue); color: white; border-color: transparent; }
-	.cn-btn.primary:hover { background: var(--blue-dark); }
-	.cn-btn.primary:disabled { background: #cbd5e1; cursor: default; }
-	.logout-btn { width: 100%; margin-top: 8px; }
-	.cred { border-radius: 14px; background: #f7f9fc; padding: 12px; display: flex; gap: 12px; align-items: center; margin-top: 8px; }
-	.cred-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none; font-weight: 800; }
-	.cred strong { display: block; font-size: 14px; }
-	.cred span { color: var(--muted); font-size: 13px; }
-	.activity .stat { padding: 8px 0; border-top: 1px solid var(--line); }
-	.activity .stat b { display: block; }
-	.activity .stat span { color: var(--muted); font-size: 13px; }
-	.empty { padding: 28px 8px; color: var(--muted); }
-	.history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 0; flex: 1; min-height: 0; overflow: auto; }
-	.dash-stage, .history-stage, .dash-side, .history-side { display: flex; flex-direction: column; gap: 12px; min-height: 0; height: 100%; overflow: hidden; }
-	.dash-stage .company-top, .dash-stage .who, .dash-stage .chip-row, .dash-stage .metric-row, .dash-stage .map-dock { flex: none; }
-	.dash-side .stats {
-		flex: 1; min-height: 0; align-content: stretch;
-		grid-template-rows: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr);
+	.cn-btn.green { background: #16a34a; color: white; border-color: transparent; width: 100%; margin-top: 4px; white-space: nowrap; font-size: 13px; }
+	.cn-btn.danger { color: #dc2626; border-color: #fecaca; background: #fff; }
+	.cn-btn:disabled { opacity: 0.55; cursor: default; }
+	.photo-row { display: flex; gap: 8px; }
+	.photo-slot {
+		width: 72px; height: 56px; border-radius: 10px; border: 1px dashed #d5deea; display: grid; place-items: center;
+		color: var(--muted); font-size: 11px; font-weight: 700; background: #f8fafc; cursor: pointer;
 	}
-	.dash-side .stat-card, .dash-side .stat-card.tall { box-shadow: none; background: #f7f9fc; min-height: 0; height: auto; }
-	.dash-side .stat-fuel { background: linear-gradient(180deg, #e5f8ee 0%, #f7fffa 70%); }
-	.history-metrics {
-		flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 12px;
+	.sign-box { height: 48px; border-bottom: 1px solid var(--line); color: var(--muted); display: flex; align-items: flex-end; padding-bottom: 6px; font-family: "Segoe Script", cursive; }
+	.sign-meta { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; }
+	.rail-card { padding: 14px; }
+	.rail-card h2 { margin: 0; font-size: 16px; display: flex; align-items: center; justify-content: space-between; }
+	.stop-kicker { display: flex; gap: 8px; margin-top: 12px; }
+	.stop-kicker .mark {
+		width: 36px; height: 36px; border-radius: 12px; background: var(--blue-soft); color: var(--blue); display: grid; place-items: center; flex: none;
 	}
-	.history-tile { display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; }
-	.history-tile .metric-value { font-size: 28px; overflow-wrap: anywhere; }
-	.history-shell { background: transparent; box-shadow: none; padding: 0; border-radius: 0; }
-	.history-row {
-		display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 14px; border-radius: 14px; background: #f8fafc; align-items: center;
+	.rail-card .name { font-weight: 800; }
+	.rail-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+	.bar { height: 8px; background: #e7eef8; border-radius: 99px; overflow: hidden; margin-top: 10px; }
+	.bar > div { height: 100%; width: 0; background: #16a34a; border-radius: 99px; }
+	.bar-meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; font-weight: 700; margin-top: 6px; }
+	.screen-completed, .screen-messages, .screen-profile { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+	.completed-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+	.completed-head h2 { margin: 0; font-size: 22px; letter-spacing: -0.03em; }
+	.completed-head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+	.history-range, .history-search {
+		border: 1px solid var(--line); background: white; border-radius: 12px; height: 40px; padding: 0 12px; font-weight: 700;
+	}
+	.history-search { width: min(320px, 100%); }
+	.completed-tools { display: flex; justify-content: flex-end; }
+	.completed-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-height: 0; align-items: start; }
+	.completed-layout.open { grid-template-columns: minmax(0, 1fr) minmax(320px, 440px); }
+	.completed-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+	.history-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+	.metric { background: white; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: flex; gap: 10px; align-items: center; }
+	.metric-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none; background: #eef4ff; color: var(--blue); }
+	.metric-label { color: var(--muted); font-size: 12px; font-weight: 700; }
+	.metric-value { font-size: 22px; font-weight: 800; margin-top: 2px; }
+	.history-table-wrap { background: white; border: 1px solid var(--line); border-radius: 16px; overflow: auto; }
+	.history-table { width: 100%; border-collapse: collapse; }
+	.history-table th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 750; padding: 12px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+	.history-table td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+	.history-table tbody tr { cursor: pointer; }
+	.history-table tbody tr.selected { background: #f3f7ff; }
+	.history-table .run-id { color: var(--blue); font-weight: 800; }
+	.history-pager { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; font-weight: 700; }
+	.pager-btns { display: flex; gap: 6px; }
+	.pager-btns button { border: 1px solid var(--line); background: white; border-radius: 8px; min-width: 32px; height: 32px; font-weight: 800; cursor: pointer; }
+	.pager-btns button.on { background: var(--blue); color: white; border-color: transparent; }
+	.history-panel { background: white; border: 1px solid var(--line); border-radius: 16px; padding: 14px; max-height: calc(100dvh - 160px); overflow: auto; }
+	.history-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+	.history-panel-head h2 { margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+	.history-close { border: 0; background: transparent; font-size: 22px; cursor: pointer; color: #64748b; }
+	.history-meta { display: flex; flex-wrap: wrap; gap: 10px; color: var(--muted); font-size: 12px; font-weight: 700; margin: 8px 0 12px; }
+	.hist-map { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(120px, 0.8fr); gap: 8px; margin-bottom: 12px; }
+	.hist-sketch { background: #e7f0fb; border-radius: 12px; min-height: 140px; position: relative; overflow: hidden; }
+	.hist-sketch svg { width: 100%; height: 140px; display: block; }
+	.hist-stops { display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+	.hist-stop { display: flex; gap: 8px; align-items: flex-start; }
+	.hist-tabs { display: flex; gap: 14px; overflow: visible; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+	.hist-tab { border: 0; background: transparent; padding: 8px 0; font-weight: 700; color: #8b97a8; cursor: pointer; border-bottom: 3px solid transparent; }
+	.hist-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+	.hist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+	.hist-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+	.hist-card h3 { margin: 0 0 8px; font-size: 14px; }
+	.hist-card p { margin: 4px 0; font-size: 13px; }
+	.message-list { display: flex; flex-direction: column; gap: 10px; }
+	.history-row, .message-row {
+		display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
+		background: white; border: 1px solid var(--line); border-radius: 14px; padding: 14px;
 	}
 	.status-tag { font-size: 12px; font-weight: 800; border-radius: 99px; padding: 4px 8px; background: #e8eef6; }
 	.status-tag.Completed { background: var(--green); color: var(--green-ink); }
 	.status-tag.Cancelled, .status-tag.Hold { background: #fee2e2; color: #b91c1c; }
-	.driver-app[data-screen="route"] .hero,
-	.driver-app[data-screen="history"] .hero,
-	.driver-app[data-screen="history"] .workspace,
-	.driver-app[data-screen="dashboard"] .workspace,
-	.driver-app:not([data-screen="history"]) .history-panel,
-	.driver-app[data-screen="route"] .map-head,
-	#view-all-stops,
-	#back-dashboard { display: none; }
-	.driver-app[data-screen="history"] #quick-actions { display: none; }
-	.driver-app[data-screen="dashboard"] .hero,
-	.driver-app[data-screen="history"] .history-shell,
-	.driver-app[data-screen="route"] .workspace {
-		display: grid;
-		flex: 1 1 auto;
-		height: auto;
-		min-height: 0;
-		gap: 12px;
-		grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.72fr);
-		grid-template-rows: minmax(0, 1fr);
-		align-items: stretch;
+	#profile-view { display: flex; flex-direction: column; gap: 18px; }
+	.profile-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+	.profile-head h2 { margin: 0; font-size: 22px; letter-spacing: -0.03em; }
+	.profile-head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+	.edit-head { display: flex; align-items: flex-start; gap: 10px; }
+	.edit-back {
+		border: 0; background: transparent; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; color: #334155;
+		display: grid; place-items: center; flex: none;
 	}
-	.driver-app[data-screen="route"] .map-panel,
-	.driver-app[data-screen="dashboard"] .dash-stage,
-	.driver-app[data-screen="history"] .history-stage {
-		order: -1;
-		height: 100%;
-		min-height: 0;
-		overflow: hidden;
+	.edit-back:hover { background: #eef3f9; }
+	.edit-tabs { display: flex; gap: 18px; border-bottom: 1px solid var(--line); margin: 4px 0 14px; overflow: auto; }
+	.edit-tab {
+		border: 0; background: transparent; padding: 10px 0; font-size: 13px; font-weight: 750; color: #8b97a8; cursor: pointer;
+		border-bottom: 3px solid transparent; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
 	}
-	.driver-app[data-screen="route"] .map-wrap,
-	.driver-app[data-screen="dashboard"] .truck-stage,
-	.driver-app[data-screen="history"] .history-metrics { flex: 1 1 auto; height: auto; min-height: 0; }
-	.driver-app[data-screen="route"] .run-panel,
-	.driver-app[data-screen="dashboard"] .dash-side,
-	.driver-app[data-screen="history"] .history-side { height: 100%; min-height: 0; overflow: hidden; }
-	.modal-back {
-		position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;
+	.edit-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+	.edit-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.85fr); gap: 18px; align-items: start; }
+	.edit-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+	.edit-person { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; }
+	.edit-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+	.edit-fields label, .edit-span { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 750; color: #64748b; }
+	.edit-fields .wide { grid-column: 1 / -1; }
+	.edit-fields input, .edit-fields select {
+		border: 1px solid #d7e0ea; border-radius: 10px; min-height: 40px; padding: 8px 12px;
+		font: inherit; font-size: 14px; font-weight: 650; color: var(--ink); background: white; width: 100%;
 	}
+	.edit-fields input[readonly] { background: #f8fafc; }
+	.req { color: #ef4444; }
+	.doc-list { display: flex; flex-direction: column; }
+	.doc-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 0; border-top: 1px solid var(--line); }
+	.doc-row:first-child { border-top: 0; padding-top: 0; }
+	.doc-row b { display: block; }
+	.doc-row p { margin: 2px 0 0; color: var(--muted); font-size: 12px; font-weight: 650; }
+	.edit-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+	.edit-note { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+	.screen-profile:not([data-mode="edit"]) .profile-editor { display: none; }
+	.screen-profile[data-mode="edit"] #profile-view { display: none; }
+	.profile-editor[data-edit="compliance"] .edit-layout,
+	.profile-editor[data-edit="vehicle"] .edit-layout,
+	.profile-editor[data-edit="emergency"] .edit-layout,
+	.profile-editor[data-edit="settings"] .edit-layout { display: block; }
+	.profile-editor[data-edit="personal"] [data-edit-section]:not([data-edit-section~="personal"]),
+	.profile-editor[data-edit="compliance"] [data-edit-section]:not([data-edit-section~="compliance"]),
+	.profile-editor[data-edit="vehicle"] [data-edit-section]:not([data-edit-section~="vehicle"]),
+	.profile-editor[data-edit="emergency"] [data-edit-section]:not([data-edit-section~="emergency"]),
+	.profile-editor[data-edit="settings"] [data-edit-section]:not([data-edit-section~="settings"]) { display: none; }
+	.profile-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr); gap: 18px; }
+	.profile-card { background: white; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+	.who { display: flex; gap: 14px; align-items: flex-start; }
+	.who .avatar, .who .avatar-fallback { width: 72px; height: 72px; font-size: 22px; }
+	.who .name { font-size: 20px; font-weight: 800; }
+	.who-lines { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; color: #334155; font-size: 13px; font-weight: 650; }
+	.who-lines a { color: inherit; text-decoration: none; }
+	.who-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+	.compliance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+	.compliance article { border-radius: 12px; padding: 12px; min-width: 0; }
+	.compliance b { display: block; margin-bottom: 4px; font-size: 13px; }
+	.compliance .sub, .compliance .extra { display: block; color: var(--muted); font-size: 12px; font-weight: 650; }
+	.compliance .pill { margin: 6px 0; }
+	.profile-mid, .profile-bottom { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.75fr); gap: 18px; }
+	.vehicle-row { display: flex; gap: 14px; align-items: center; }
+	.vehicle-row img { width: 140px; height: 88px; object-fit: contain; background: #f8fafc; border-radius: 12px; }
+	.vehicle-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin-top: 10px; font-size: 13px; }
+	.vehicle-facts span { display: block; color: var(--muted); font-size: 12px; font-weight: 700; }
+	.vehicle-facts b { display: block; margin-top: 2px; }
+	.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+	.stat-grid article { background: #f8fafc; border-radius: 12px; padding: 10px; }
+	.stat-grid b { display: block; font-size: 18px; }
+	.stat-grid span { color: var(--muted); font-size: 12px; font-weight: 700; }
+	.profile-tabs { display: flex; gap: 16px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+	.profile-tab { border: 0; background: transparent; padding: 8px 0; font-weight: 700; color: #8b97a8; cursor: pointer; border-bottom: 3px solid transparent; }
+	.profile-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+	.info-table { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+	.info-table span { display: block; color: var(--muted); font-size: 12px; font-weight: 700; }
+	.info-table b { display: block; margin-top: 2px; }
+	.activity-list { display: flex; flex-direction: column; gap: 10px; }
+	.activity-list article { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+	.activity-list span { color: var(--muted); font-size: 12px; white-space: nowrap; }
+	.cred { border-radius: 14px; background: #f7f9fc; padding: 12px; display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+	.cred-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; flex: none; }
+	.cred strong, .activity .stat b { display: block; }
+	.cred span, .activity .stat span, .meta, .sub { color: var(--muted); font-size: 13px; }
+	.activity .stat { padding: 8px 0; border-top: 1px solid var(--line); }
+	.empty { padding: 20px 8px; color: var(--muted); }
+	.pending { display: inline-flex; margin-top: 6px; background: var(--amber); color: var(--amber-ink); border-radius: 99px; padding: 3px 8px; font-size: 12px; font-weight: 800; }
+	.live-eta { color: var(--blue-dark); font-size: 12px; font-weight: 800; }
+	.live-eta:empty { display: none; }
+	.modal-back { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
 	.modal-back.open { display: flex; }
-	.cn-modal { width: min(460px, 100%); background: white; border-radius: 18px; padding: 18px; box-shadow: var(--shadow); }
+	.cn-modal { width: min(460px, 100%); background: white; border-radius: 18px; padding: 18px; }
 	.cn-modal h3 { margin: 0 0 8px; }
 	.cn-modal label { display: block; font-size: 13px; font-weight: 700; margin: 12px 0 6px; }
 	.cn-modal select, .cn-modal textarea { width: 100%; border: 1px solid #d7e0ea; border-radius: 12px; padding: 10px; }
 	.cn-modal textarea { min-height: 90px; resize: vertical; }
 	.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 	.notice { display: none; margin-top: 10px; background: var(--green); color: var(--green-ink); border-radius: 10px; padding: 8px 10px; font-weight: 700; }
-	@media (max-width: 1100px) {
-		.topbar { grid-template-columns: 1fr; }
-		.top-actions { justify-content: space-between; }
-		.screen-switch { overflow: auto; }
+	.map-toolbar, .map-next, .map-rail { display: none; }
+	.map-toolbar {
+		position: absolute; z-index: 2; top: 12px; left: 12px; right: 56px;
+		justify-content: space-between; gap: 8px; align-items: flex-start; pointer-events: none;
+	}
+	.map-toolbar > * { pointer-events: auto; }
+	.map-type, .map-filters {
+		display: flex; gap: 4px; align-items: center; background: white; border-radius: 12px; padding: 4px;
+		box-shadow: var(--shadow);
+	}
+	.map-type button, .map-filters button {
+		border: 0; background: transparent; border-radius: 8px; height: 32px; padding: 0 10px;
+		font-weight: 800; font-size: 12px; color: #52627a; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+	}
+	.map-type button.active, .map-filters button.on { background: var(--blue-soft); color: var(--blue); }
+	.map-next {
+		grid-template-columns: 96px minmax(0, 1.3fr) minmax(160px, 0.8fr) auto;
+		gap: 14px; align-items: center; padding: 12px 14px;
+	}
+	.map-next-photo {
+		width: 96px; height: 72px; border-radius: 12px; background: linear-gradient(160deg, #dbeafe, #eff6ff);
+		display: grid; place-items: center; color: var(--blue);
+	}
+	.map-next-top { display: flex; align-items: center; gap: 8px; }
+	.map-next-top strong { font-size: 16px; }
+	.map-next-facts { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+	.map-next-facts span { color: var(--muted); font-weight: 700; margin-right: 6px; }
+	.map-rail { flex-direction: column; gap: 12px; min-height: 0; overflow: auto; }
+	.route-stops { display: flex; flex-direction: column; }
+	.route-stop { display: grid; grid-template-columns: 28px minmax(0, 1fr) 14px; gap: 8px; cursor: pointer; padding: 4px 0; }
+	.route-rail { display: flex; flex-direction: column; align-items: center; }
+	.route-stem { width: 2px; flex: 1; min-height: 18px; background: #d7e2f0; }
+	.route-stop:last-child .route-stem { display: none; }
+	.route-stop.selected .j-title { color: var(--blue); }
+	.map-vehicle .mini { border: 0; box-shadow: none; padding: 0; min-width: 0; background: transparent; }
+	.map-nav { width: 100%; min-height: 48px; font-size: 15px; border-radius: 12px; }
+	.driver-app[data-screen="map"] .journey,
+	.driver-app[data-screen="map"] .rail,
+	.driver-app[data-screen="map"] .stop-detail { display: none; }
+	.driver-app[data-screen="map"] .map-toolbar,
+	.driver-app[data-screen="map"] .map-rail { display: flex; }
+	.driver-app[data-screen="map"] .map-next { display: grid; }
+	.driver-app[data-screen="map"] .board { grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); }
+	.driver-app[data-screen="map"] .map-wrap { flex: 1 1 auto; height: auto; min-height: 420px; }
+	.driver-app[data-screen="map"] .live-switch { top: auto; right: auto; left: 14px; bottom: 14px; }
+	.driver-app[data-screen="map"] .map-compass,
+	.driver-app[data-screen="map"] .map-max,
+	.driver-app[data-screen="map"] .map-chip { display: none; }
+	.driver-app[data-screen="map"] .maneuver { top: 60px; }
+	.journey-actions, .split-tools, .map-legend, .route-sheet { display: none; }
+	.driver-app[data-screen="today"][data-pane="journey"] .center-col { display: contents; }
+	.driver-app[data-screen="today"][data-pane="journey"] .board { grid-template-rows: max-content max-content; align-items: start; }
+	.driver-app[data-screen="today"][data-pane="journey"] .journey { grid-column: 1; grid-row: 1 / span 2; align-self: stretch; min-height: 0; overflow: auto; }
+	.driver-app[data-screen="today"][data-pane="journey"] #map-wrap { grid-column: 2; grid-row: 1; height: 100%; min-height: 260px; align-self: stretch; }
+	.driver-app[data-screen="today"][data-pane="journey"] .rail { grid-column: 3; grid-row: 1; height: max-content; min-height: max-content; overflow: visible; }
+	.driver-app[data-screen="today"][data-pane="journey"] #stop-detail { grid-column: 2 / span 2; grid-row: 2; height: max-content; overflow: visible; min-height: unset; }
+	.driver-app[data-screen="today"][data-pane="split"] .box-card,
+	.driver-app[data-screen="today"][data-pane="split"] .stop-detail,
+	.driver-app[data-screen="today"][data-pane="split"] .rail,
+	.driver-app[data-screen="today"][data-pane="split"] .map-toolbar,
+	.driver-app[data-screen="today"][data-pane="split"] .live-switch,
+	.driver-app[data-screen="today"][data-pane="split"] .map-compass,
+	.driver-app[data-screen="today"][data-pane="split"] .map-max,
+	.driver-app[data-screen="today"][data-pane="split"] .map-chip { display: none; }
+	.driver-app[data-screen="today"][data-pane="split"] .board { grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); }
+	.driver-app[data-screen="today"][data-pane="split"] .map-wrap { flex: 1 1 auto; height: auto; min-height: 480px; }
+	.driver-app[data-screen="today"][data-pane="split"] .journey-actions,
+	.driver-app[data-screen="today"][data-pane="split"] .split-tools,
+	.driver-app[data-screen="today"][data-pane="split"] .map-legend,
+	.driver-app[data-screen="today"][data-pane="split"] .route-sheet { display: flex; }
+	.journey-actions { flex-direction: column; gap: 8px; }
+	.split-tools {
+		position: absolute; z-index: 2; top: 12px; right: 12px; gap: 8px; align-items: center;
+	}
+	.split-tools button, .split-tools label {
+		border: 0; background: white; border-radius: 12px; height: 36px; padding: 0 12px;
+		box-shadow: var(--shadow); font-weight: 800; font-size: 13px; cursor: pointer;
+		display: inline-flex; align-items: center; gap: 8px; color: var(--ink);
+	}
+	.split-tools button.on { color: var(--blue); }
+	.map-legend {
+		position: absolute; z-index: 2; top: 58px; right: 12px; width: 180px;
+		background: white; border-radius: 14px; box-shadow: var(--shadow); padding: 10px 12px;
+		flex-direction: column; gap: 7px; font-size: 12px; font-weight: 700; color: #334155;
+	}
+	.legend-row { display: flex; align-items: center; gap: 8px; }
+	.swatch { width: 22px; height: 8px; border-radius: 99px; background: var(--blue); flex: none; }
+	.swatch.dash { background: repeating-linear-gradient(90deg, #93c5fd 0 6px, transparent 6px 10px); }
+	.swatch.alt { background: repeating-linear-gradient(90deg, #94a3b8 0 4px, transparent 4px 8px); }
+	.pin { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+	.route-sheet {
+		position: absolute; z-index: 2; left: 12px; right: 12px; bottom: 12px;
+		background: white; border-radius: 16px; box-shadow: var(--shadow); padding: 12px 14px;
+		flex-direction: column; gap: 10px;
+	}
+	.route-sheet-head { border: 0; background: transparent; display: flex; justify-content: space-between; width: 100%; font-weight: 800; cursor: pointer; padding: 0; }
+	.route-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+	.route-metrics article { background: #f7f9fc; border-radius: 12px; padding: 10px; }
+	.route-metrics b { display: block; font-size: 16px; }
+	.route-metrics span { color: var(--muted); font-size: 12px; font-weight: 700; }
+	.stop-drawer {
+		position: fixed; inset: 0; z-index: 80; display: flex; justify-content: flex-end;
+		background: rgba(15, 23, 42, 0.38);
+	}
+	.drawer-panel {
+		width: min(640px, 100%); height: 100%; background: #f4f7fb; display: flex; flex-direction: column;
+		box-shadow: -16px 0 40px rgba(15, 23, 42, 0.16);
+	}
+	.drawer-head, .drawer-foot { background: white; padding: 16px 18px; display: flex; align-items: flex-start; gap: 12px; }
+	.drawer-foot { align-items: center; justify-content: space-between; border-top: 1px solid var(--line); position: relative; }
+	.drawer-head { border-bottom: 1px solid var(--line); }
+	.drawer-head h2 { margin: 0; font-size: 20px; letter-spacing: -0.03em; }
+	.drawer-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+	.drawer-close {
+		margin-left: auto; border: 0; background: transparent; width: 36px; height: 36px; border-radius: 10px;
+		font-size: 22px; cursor: pointer; color: #64748b;
+	}
+	.drawer-place { padding: 14px 18px 0; display: flex; gap: 10px; align-items: flex-start; }
+	.drawer-place strong { display: block; }
+	.drawer-tabs { margin: 12px 18px 0; }
+	.drawer-body { flex: 1; overflow: auto; padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+	.drawer-card { background: white; border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+	.drawer-card h3 { margin: 0 0 12px; font-size: 15px; }
+	.loc-grid { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+	.loc-art {
+		height: 84px; border-radius: 12px; background: linear-gradient(160deg, #dbeafe, #eff6ff);
+		display: grid; place-items: center; color: var(--blue);
+	}
+	.info-grid, .veh-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+	.veh-grid { grid-template-columns: 1.3fr 1fr 1fr; }
+	.info-grid span, .veh-grid span, .loc-copy span { display: block; color: var(--muted); font-size: 12px; font-weight: 700; }
+	.info-grid b, .veh-grid b, .loc-copy b { display: block; font-size: 14px; margin-top: 2px; }
+	.loc-copy { display: flex; flex-direction: column; gap: 8px; }
+	.status-steps { display: flex; align-items: flex-start; }
+	.step { flex: 1; text-align: center; font-size: 12px; font-weight: 800; color: #94a3b8; position: relative; }
+	.step .dot {
+		width: 28px; height: 28px; border-radius: 50%; margin: 0 auto 6px; display: grid; place-items: center;
+		background: #e8eef6; position: relative; z-index: 1;
+	}
+	.step:not(:last-child)::before {
+		content: ""; position: absolute; top: 13px; left: 50%; width: 100%; height: 3px; background: #e8eef6; z-index: 0;
+	}
+	.step.done::before { background: #93c5fd; }
+	.step.done .dot, .step.current .dot { background: var(--blue); color: white; }
+	.step.done, .step.current { color: var(--blue); }
+	.step-note { margin-top: 14px; background: #f4f7fb; border-radius: 10px; padding: 10px 12px; color: #475569; font-size: 13px; font-weight: 650; }
+	.update-menu {
+		position: absolute; right: 18px; bottom: 62px; background: white; border: 1px solid var(--line);
+		border-radius: 12px; box-shadow: var(--shadow); min-width: 220px; padding: 6px; display: flex; flex-direction: column;
+	}
+	.update-menu button { border: 0; background: transparent; text-align: left; padding: 10px 12px; border-radius: 8px; font-weight: 750; cursor: pointer; }
+	.update-menu button:hover { background: #f4f7fb; }
+	.drawer-empty { margin: auto; max-width: 460px; text-align: center; padding: 12px 8px 8px; }
+	.drawer-empty-art {
+		width: 132px; height: 132px; margin: 0 auto; border-radius: 50%;
+		background: radial-gradient(circle, #e7f0fb 0 62%, transparent 63%);
+		display: grid; place-items: center;
+	}
+	.drawer-empty h3 { margin: 8px 0 8px; font-size: 22px; letter-spacing: -0.03em; }
+	.drawer-empty > p { margin: 0; color: #64748b; font-size: 14px; line-height: 1.5; }
+	.drawer-next { margin-top: 22px; text-align: left; background: #eef5ff; border-radius: 14px; padding: 14px 16px; }
+	.drawer-next-title { display: flex; align-items: center; gap: 8px; font-weight: 800; color: #1e3a5f; margin-bottom: 8px; }
+	.drawer-next ul { margin: 0; padding-left: 18px; color: #475569; font-size: 14px; line-height: 1.55; }
+	.info-dot {
+		width: 18px; height: 18px; border-radius: 50%; background: var(--blue); color: white;
+		display: grid; place-items: center; font-size: 12px; font-weight: 800; flex: none;
+	}
+	.stop-drawer[data-empty="true"] .drawer-place,
+	.stop-drawer[data-empty="true"] .drawer-pane,
+	.stop-drawer[data-empty="true"] #drawer-update { display: none !important; }
+	.stop-drawer[data-empty="true"] #drawer-num { background: var(--blue); width: 32px; height: 32px; }
+	.stop-drawer[data-empty="true"] #drawer-window { color: #64748b; font-weight: 650; }
+	.stop-drawer[data-empty="true"] .drawer-body { justify-content: center; }
+	.driver-app[data-screen="completed"] .run-head,
+	.driver-app[data-screen="completed"] .board,
+	.driver-app[data-screen="messages"] .run-head,
+	.driver-app[data-screen="messages"] .board,
+	.driver-app[data-screen="profile"] .run-head,
+	.driver-app[data-screen="profile"] .board,
+	.driver-app:not([data-screen="completed"]) .screen-completed,
+	.driver-app:not([data-screen="messages"]) .screen-messages,
+	.driver-app:not([data-screen="profile"]) .screen-profile { display: none; }
+	@media (max-width: 1180px) {
+		.board, .driver-app[data-screen="map"] .board,
+		.driver-app[data-screen="today"][data-pane="split"] .board { grid-template-columns: 1fr; min-height: 0; }
+		.driver-app[data-screen="today"][data-pane="journey"] .center-col { display: flex; }
+		.driver-app[data-screen="today"][data-pane="journey"] .board { grid-template-rows: none; align-items: stretch; }
+		.driver-app[data-screen="today"][data-pane="journey"] .journey,
+		.driver-app[data-screen="today"][data-pane="journey"] .rail,
+		.driver-app[data-screen="today"][data-pane="journey"] #map-wrap,
+		.driver-app[data-screen="today"][data-pane="journey"] #stop-detail { grid-column: auto; grid-row: auto; height: auto; min-height: 0; overflow: visible; }
+		.driver-app[data-screen="today"][data-pane="journey"] #map-wrap { height: 280px; }
+		.run-head, .head-cards { flex-direction: column; }
+		.completed-layout.open { grid-template-columns: 1fr; }
+		.history-metrics { grid-template-columns: 1fr 1fr; }
+		.profile-grid, .profile-mid, .profile-bottom, .compliance, .info-table, .edit-layout, .edit-fields, .edit-person { grid-template-columns: 1fr; }
+		.driver-app:not([data-nav="open"]) .sidenav { width: 76px; flex: 0 0 76px; padding-inline: 10px; }
+		.driver-app:not([data-nav="open"]) .logo { flex-direction: column; align-items: center; padding-inline: 0; gap: 8px; }
+		.driver-app:not([data-nav="open"]) .logo span,
+		.driver-app:not([data-nav="open"]) .tab span,
+		.driver-app:not([data-nav="open"]) .logout-btn span,
+		.driver-app:not([data-nav="open"]) .tab .badge-count { display: none; }
+		.driver-app:not([data-nav="open"]) .nav-toggle { margin-left: 0; }
+		.driver-app:not([data-nav="open"]) .nav-toggle svg { transform: rotate(180deg); }
+		.driver-app:not([data-nav="open"]) .tab,
+		.driver-app:not([data-nav="open"]) .logout-btn { justify-content: center; padding: 0; }
 	}
 	@media (max-width: 720px) {
-		.driver-app { padding: 10px; }
+		.driver-app[data-screen="map"] .map-next, .detail-grid, .sum-row { grid-template-columns: 1fr; }
 		.user-copy { display: none; }
-		.stats, .metric-row, .stop-card { grid-template-columns: 1fr 1fr; }
-		.stop-card { grid-template-columns: 1fr auto; }
-		.chevron { display: none; }
-		.map-wrap, .truck-stage { min-height: 180px; }
-		.driver-app[data-screen="route"] .map-wrap,
-		.driver-app[data-screen="dashboard"] .truck-stage { flex: 1 1 auto; height: auto; min-height: 180px; }
-		.driver-app[data-screen="route"] .metric-row { display: none; }
-		.map-dock { flex-direction: column; align-items: stretch; }
-		.hero-metrics { align-items: flex-start; flex-direction: column; }
-		.maneuver-text { font-size: 16px; }
-	}
-	@media (max-width: 1100px) {
-		.driver-app[data-screen="dashboard"] .hero,
-		.driver-app[data-screen="history"] .history-shell,
-		.driver-app[data-screen="route"] .workspace {
-			grid-template-columns: 1fr;
-			grid-template-rows: minmax(0, 1.55fr) minmax(180px, 0.7fr);
-		}
-		.driver-app[data-screen="route"] .map-wrap,
-		.driver-app[data-screen="dashboard"] .truck-stage { min-height: 180px; }
+		.maneuver { right: 12px; }
+		.live-switch { display: none; }
 	}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="driver-app no-vehicle-image" id="driver-app" data-screen="route">
-	<header class="topbar">
-		<div class="brand">
-			<div class="brand-mark" aria-hidden="true">
-				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+<div class="driver-app" id="driver-app" data-screen="today" data-pane="journey">
+	<aside class="sidenav">
+		<div class="logo">
+			<div class="logo-mark" aria-hidden="true">
+				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
 			</div>
-			<div class="brand-name">CargoNext <span>/ Driver</span></div>
+			<span>CargoNEXT</span>
+			<button class="nav-toggle" id="nav-toggle" type="button" aria-expanded="true" aria-label="Collapse sidebar">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg>
+			</button>
 		</div>
-		<nav class="screen-switch" role="tablist" aria-label="Driver">
-			<button class="tab active" data-screen="route" type="button">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z"/><path d="M9 3v15M15 6v15"/></svg>
-				Navigate
-			</button>
-			<button class="tab" data-screen="dashboard" type="button">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-				Dashboard
-			</button>
-			<button class="tab" data-screen="history" type="button">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg>
-				History
-			</button>
-		</nav>
-		<div class="top-actions">
-			<button class="icon-btn" id="notice-btn" type="button" aria-label="Pending signatures">
-				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9"/><path d="M10 21h4"/></svg>
-				<span class="badge-count" id="notice-count" hidden>0</span>
-			</button>
-			<div class="user-wrap">
-				<button class="user-toggle" id="user-toggle" type="button" aria-haspopup="true" aria-expanded="false">
-					<img class="avatar sm" id="header-avatar" alt="" hidden>
-					<div class="avatar-fallback sm" id="header-avatar-fallback">D</div>
+		<button class="tab active" data-screen="today" type="button" title="Today's Run">
+			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+			<span>Today's Run</span>
+		</button>
+		<button class="tab" data-screen="map" type="button" title="Map">
+			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z"/><path d="M9 3v15M15 6v15"/></svg>
+			<span>Map</span>
+		</button>
+		<button class="tab" data-screen="completed" type="button" title="Completed">
+			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>
+			<span>Completed</span>
+		</button>
+		<button class="tab" data-screen="profile" type="button" title="Profile">
+			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5"/></svg>
+			<span>Profile</span>
+		</button>
+		<div class="nav-spacer"></div>
+		<button class="logout-btn" id="logout-btn" type="button" title="Log Out">
+			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6H5v12h4"/><path d="M9 12h11"/><path d="M16 8l4 4-4 4"/></svg>
+			<span>Log Out</span>
+		</button>
+	</aside>
+<script>
+(function () {
+	var screen = "today";
+	var pane = "journey";
+	try {
+		screen = localStorage.getItem("cargonext-driver-screen") || screen;
+		pane = localStorage.getItem("cargonext-driver-pane") || pane;
+	} catch (error) {}
+	var params = new URLSearchParams(window.location.search);
+	if (params.get("screen")) screen = params.get("screen");
+	if (params.get("pane")) pane = params.get("pane");
+	if (screen === "route" || screen === "dashboard") screen = "today";
+	if (screen === "history") screen = "completed";
+	var allowed = { today: 1, map: 1, completed: 1, messages: 1, profile: 1 };
+	if (!allowed[screen]) screen = "today";
+	if (pane !== "split") pane = "journey";
+	window.__driverPlace = { screen: screen, pane: pane };
+	var app = document.getElementById("driver-app");
+	if (!app) return;
+	app.dataset.screen = screen;
+	if (screen === "today") app.dataset.pane = pane;
+	app.querySelectorAll(".tab").forEach(function (button) {
+		button.classList.toggle("active", button.dataset.screen === screen);
+	});
+})();
+</script>
+	<div class="main">
+		<header class="topbar">
+			<label class="search">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+				<input id="run-search" type="search" placeholder="Search run, container, address..." autocomplete="off">
+			</label>
+			<div class="top-actions">
+				<button class="icon-btn" id="notice-btn" type="button" aria-label="Messages">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9"/><path d="M10 21h4"/></svg>
+				</button>
+				<button class="user-toggle" id="user-toggle" type="button">
+					<img class="avatar" id="header-avatar" alt="" hidden>
+					<div class="avatar-fallback" id="header-avatar-fallback">D</div>
 					<span class="user-copy"><strong id="header-driver"></strong><span>Driver</span></span>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
 				</button>
-				<div class="user-panel" id="user-panel" hidden>
-					<div class="cred" id="cred-license"></div>
-					<div class="cred" id="cred-medical"></div>
-					<div class="cred" id="cred-hazmat"></div>
-					<div class="activity" id="activity"></div>
-					<button class="cn-btn logout-btn" id="logout-btn" type="button">Log out</button>
+			</div>
+		</header>
+		<div class="stage">
+			<div class="run-head">
+				<div>
+					<div class="run-title">
+						<h1>Run Sheet</h1>
+						<span class="run-chip" id="run-chip" hidden></span>
+						<span class="pill off" id="driver-badge">Available</span>
+					</div>
+					<div class="run-meta">
+						<span id="today-label"></span>
+						<span id="run-stops-meta"></span>
+						<span id="run-km-meta"></span>
+						<span id="run-eta-meta"></span>
+					</div>
 				</div>
+				<div class="head-cards">
+					<div class="mini">
+						<div class="veh-photo">
+							<img id="vehicle-image" alt="" hidden>
+							<img id="dash-empty" src="/assets/logistics/images/vehicle-type-icon.png" alt="">
+						</div>
+						<div>
+							<strong id="vehicle-plate">—</strong>
+							<span id="vehicle-type">Vehicle</span>
+							<span id="vehicle-line"></span>
+						</div>
+					</div>
+					<div class="mini">
+						<div class="company-mark" aria-hidden="true">
+							<img id="company-logo" alt="" hidden>
+							<svg id="company-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V6l8-3 8 3v14"/><path d="M9 20v-6h6v6"/><path d="M9 9h.01M15 9h.01M9 13h.01M15 13h.01"/></svg>
+						</div>
+						<div>
+							<strong id="company-name">CargoNext</strong>
+							<span id="company-sub">Transport Company</span>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="board">
+				<div class="journey">
+					<section class="card journey-card">
+						<div class="seg" role="tablist">
+							<button class="active" data-pane="journey" type="button">Journey</button>
+							<button data-pane="map" type="button">Map</button>
+						</div>
+						<div class="stops" id="stop-list"></div>
+					</section>
+					<section class="card summary">
+						<h2 id="journey-summary-title">Run Summary</h2>
+						<div class="sum-row">
+							<div class="sum"><b id="stops-count">0</b><span>Total Stops</span></div>
+							<div class="sum"><b id="distance-remaining">—</b><span>Total Distance</span></div>
+							<div class="sum"><b id="eta-final">—</b><span id="eta-final-sub">Estimated Time</span></div>
+						</div>
+					</section>
+					<div class="journey-actions">
+						<button class="cn-btn primary map-nav" id="split-nav" type="button">Start Navigation</button>
+						<button class="cn-btn" id="turn-by-turn" type="button">View Turn by Turn Directions</button>
+					</div>
+					<section class="card box-card">
+						<h2>Container Details <button class="linkish" id="view-container" type="button">View Details</button></h2>
+						<table class="kv" id="container-table"></table>
+					</section>
+				</div>
+				<div class="center-col">
+					<div class="map-wrap" id="map-wrap">
+						<div id="route-map"></div>
+						<div class="map-note" id="map-empty" hidden>The route map appears when a run is assigned.</div>
+						<div class="map-empty-card" id="map-no-run" hidden>
+							<div class="map-empty-art" aria-hidden="true">
+								<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+									<path d="M8 14l12-6 12 6v16l-12 6-12-6V14z" fill="#dbeafe" stroke="#93c5fd" stroke-width="1.6"/>
+									<path d="M20 8v28M8 14l12 6 12-6" stroke="#93c5fd" stroke-width="1.6"/>
+									<path d="M24 20c3.2 0 5.5 2.2 5.5 5.2 0 3.8-5.5 8.8-5.5 8.8s-5.5-5-5.5-8.8C18.5 22.2 20.8 20 24 20z" fill="#3b82f6"/>
+									<circle cx="24" cy="25" r="1.8" fill="white"/>
+								</svg>
+							</div>
+							<h3>No Run Sheet Yet</h3>
+							<p>There are no assigned run sheets for today.<br>Once a run sheet is assigned, it will appear here and you can start your deliveries.</p>
+							<button class="cn-btn primary" id="view-all-runs" type="button">View All Run Sheets</button>
+						</div>
+						<div class="map-toolbar">
+							<div class="map-type" role="group" aria-label="Map type">
+								<button type="button" class="active" data-map-type="roadmap">Route</button>
+								<button type="button" data-map-type="satellite">Satellite</button>
+							</div>
+							<div class="map-filters">
+								<button type="button" id="traffic-toggle" class="on" aria-pressed="true">Show Traffic</button>
+								<button type="button" id="geofence-toggle" aria-pressed="false">Geofences</button>
+								<button type="button" id="facility-toggle" aria-pressed="false">Facilities</button>
+							</div>
+						</div>
+						<label class="live-switch"><span>Live Location</span><span class="switch"><input id="live-toggle" type="checkbox" checked><span class="slider"></span></span></label>
+						<div class="maneuver" id="maneuver" hidden>
+							<div class="maneuver-arrow" id="maneuver-arrow" aria-hidden="true">
+								<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></svg>
+							</div>
+							<div class="maneuver-copy">
+								<div class="maneuver-dist" id="maneuver-dist"></div>
+								<div class="maneuver-text" id="maneuver-text" aria-live="polite"></div>
+								<div class="maneuver-next" id="maneuver-next"></div>
+							</div>
+							<button class="voice-btn" id="voice-toggle" type="button" aria-pressed="true">Voice on</button>
+						</div>
+						<div class="map-chip" id="map-km-chip" hidden><span id="map-km-text"></span></div>
+						<button class="recenter" id="recenter" type="button" hidden>Re-center</button>
+						<button class="map-compass" id="map-compass" type="button" aria-label="Back to your location">
+							<span class="compass-dial" id="compass-dial" aria-hidden="true">
+								<svg width="18" height="18" viewBox="0 0 24 24"><polygon points="12,3 15,12 12,10.5 9,12" fill="#e11d48"/><polygon points="12,21 9,12 12,13.5 15,12" fill="#cbd5e1"/></svg>
+							</span>
+						</button>
+						<button class="map-max" id="map-max" type="button" aria-pressed="false" aria-label="Maximize map">
+							<svg class="icon-expand" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+							<svg class="icon-restore" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M16 3v3a2 2 0 0 0 2 2h3"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/></svg>
+						</button>
+						<div class="split-tools">
+							<button id="fit-route" type="button">Fit Route</button>
+							<label>Traffic <span class="switch"><input id="split-traffic" type="checkbox" checked><span class="slider"></span></span></label>
+							<button id="split-satellite" type="button">Satellite</button>
+						</div>
+						<div class="map-legend" aria-hidden="true">
+							<div class="legend-row"><span class="swatch"></span>Route</div>
+							<div class="legend-row"><span class="swatch dash"></span>Upcoming Route</div>
+							<div class="legend-row"><span class="swatch alt"></span>Alternative Route</div>
+							<div class="legend-row"><span class="pin" style="background:#2563eb"></span>Pick up</div>
+							<div class="legend-row"><span class="pin" style="background:#16a34a"></span>Drop off</div>
+							<div class="legend-row"><span class="pin" style="background:#64748b"></span>Return</div>
+							<div class="legend-row"><span class="pin" style="background:#0ea5e9"></span>Current Location</div>
+						</div>
+						<section class="route-sheet" id="route-sheet">
+							<button class="route-sheet-head" id="route-sheet-toggle" type="button">Route Details <span aria-hidden="true">⌃</span></button>
+							<div class="route-metrics" id="route-sheet-body">
+								<article><b id="split-km">—</b><span>Total Distance</span></article>
+								<article><b id="split-eta">—</b><span>Estimated Time</span></article>
+								<article><b id="split-traffic">Estimated</b><span>Traffic</span></article>
+							</div>
+						</section>
+					</div>
+					<section class="card stop-detail" id="stop-detail">
+						<div class="detail-head">
+							<div class="j-num" id="detail-num">1</div>
+							<div class="detail-title-wrap">
+								<h2 id="detail-title">Stop details</h2>
+								<span class="pill off" id="detail-status">—</span>
+							</div>
+							<div class="j-time" id="detail-head-window"></div>
+						</div>
+						<div class="detail-tabs">
+							<button class="detail-tab active" data-detail="details" type="button">Details</button>
+							<button class="detail-tab" data-detail="instructions" type="button">Instructions</button>
+							<button class="detail-tab" data-detail="proof" type="button">Photos &amp; Signature</button>
+							<button class="detail-tab" data-detail="remarks" type="button">Remarks</button>
+						</div>
+						<div class="detail-pane" data-pane="details">
+							<div class="detail-grid">
+								<div>
+									<div class="fact-row loc-row">
+										<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s7-6 7-11a7 7 0 1 0-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.2"/></svg>
+										<div>
+											<span>Location</span>
+											<b id="detail-place">—</b>
+											<span id="detail-address"></span>
+										</div>
+										<button class="view-map" id="detail-view-map" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6 7-11a7 7 0 1 0-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2"/></svg>View on Map</button>
+									</div>
+									<div class="fact-row">
+										<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
+										<div><span>Operation Type</span><b id="detail-kind">—</b></div>
+									</div>
+									<div class="fact-row">
+										<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg>
+										<div><span>Appointment Window</span><b id="detail-window">—</b></div>
+									</div>
+									<div class="fact-row">
+										<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h8l5 5v13H7z"/><path d="M15 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+										<div><span>Reference</span><b id="detail-ref">—</b></div>
+									</div>
+									<div class="fact-row">
+										<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>
+										<div><span>Cargo</span><b id="detail-cargo">—</b></div>
+									</div>
+									<div class="fact-row">
+										<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 6h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H9l-4 3v-3H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z"/></svg>
+										<div><span>Special Instructions</span><div class="note-box" id="detail-notes">—</div></div>
+									</div>
+								</div>
+								<div class="actions">
+									<div class="panel-label">Actions</div>
+									<button class="cn-btn go" id="start-action" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span class="btn-label">Start Pickup</span></button>
+									<button class="cn-btn" id="take-photo" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3"/></svg>Take Photo</button>
+									<button class="cn-btn" id="get-signature" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4l11-11-4-4L4 16z"/><path d="M13 7l4 4"/></svg>Get Signature</button>
+									<button class="cn-btn" data-report type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l5 5v13H6z"/><path d="M15 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>Add Remarks</button>
+									<button class="cn-btn danger" id="report-problem" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="#ef4444"/><path d="M12 7.5v5.5" stroke="white" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16.2" r="1" fill="white"/></svg>Report Issue</button>
+								</div>
+								<div class="proof-col">
+									<div class="proof-head"><span>Photos</span><span id="photo-count">0/4</span></div>
+									<div class="photo-row">
+										<button class="photo-add" id="add-photo" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3"/></svg><span>Add Photo</span></button>
+									</div>
+									<div class="proof-head"><span>Customer Signature</span><button class="view-map" id="clear-sign" type="button">Clear</button></div>
+									<div class="sign-box" id="sign-preview"></div>
+									<div class="sign-fields">
+										<div class="sign-field"><span>Signer Name</span><b id="signer-name">—</b></div>
+										<div class="sign-field"><span>Date &amp; Time</span><b id="sign-state">Not signed</b></div>
+									</div>
+									<button class="cn-btn green" id="mark-complete" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg><span class="btn-label">Mark as Completed</span></button>
+								</div>
+							</div>
+						</div>
+						<div class="detail-pane" data-pane="instructions" hidden>
+							<p id="detail-instructions" class="meta">No special instructions.</p>
+						</div>
+						<div class="detail-pane" data-pane="proof" hidden>
+							<p class="meta">Use Take Photo and Get Signature on the Details tab. Proof opens the delivery record.</p>
+						</div>
+						<div class="detail-pane" data-pane="remarks" hidden>
+							<p id="detail-remarks" class="meta">No remarks yet.</p>
+						</div>
+					</section>
+					<section class="card map-next" id="map-next">
+						<div class="map-next-photo" aria-hidden="true">
+							<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s7-6 7-11a7 7 0 1 0-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+						</div>
+						<div>
+							<div class="map-next-top">
+								<strong id="map-next-title">No active stop</strong>
+								<span class="pill off" id="map-next-status">—</span>
+							</div>
+							<div class="j-time" id="map-next-window"></div>
+							<div class="meta" id="map-next-place"></div>
+							<div class="meta" id="map-next-address"></div>
+						</div>
+						<div class="map-next-facts" id="map-next-facts"></div>
+						<button class="cn-btn" id="map-view-details" type="button">View Details</button>
+					</section>
+				</div>
+				<aside class="rail">
+					<section class="card rail-card">
+						<h2>Current Stop <span class="pill on" id="dock-status">In Progress</span></h2>
+						<div class="stop-kicker">
+							<div class="mark" aria-hidden="true">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>
+							</div>
+							<div>
+								<div class="name" id="dock-title">No active stop</div>
+								<div class="meta" id="dock-address"></div>
+								<div class="meta" id="dock-window"></div>
+								<div class="traffic-flag" id="traffic-flag" hidden>Live traffic</div>
+								<div class="dock-meta" id="dock-meta"></div>
+								<div class="map-status" id="map-status" hidden></div>
+							</div>
+						</div>
+						<div class="rail-actions">
+							<button class="cn-btn primary" id="dock-nav" type="button">Navigate</button>
+							<button class="cn-btn" id="call-dispatcher" data-call type="button">Call Contact</button>
+						</div>
+					</section>
+					<section class="card rail-card" id="next-card">
+						<h2>Next Stop <span class="pill soon" id="next-status">Upcoming</span></h2>
+						<div class="stop-kicker">
+							<div class="mark" aria-hidden="true">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V6l8-3 8 3v14"/><path d="M9 20v-6h6v6"/></svg>
+							</div>
+							<div>
+								<div class="name" id="next-title">No further stop</div>
+								<div class="meta" id="next-address"></div>
+								<div class="meta" id="next-window"></div>
+							</div>
+						</div>
+					</section>
+					<section class="card rail-card">
+						<h2>Run Progress <span id="stops-left-sub"></span></h2>
+						<div class="bar"><div id="progress-bar"></div></div>
+						<div class="bar-meta"><span id="progress-fraction">0 / 0 completed</span><span id="progress-pct">0%</span></div>
+						<div id="stops-left" hidden>0</div>
+						<span id="progress-truck" hidden></span>
+					</section>
+				</aside>
+				<aside class="map-rail">
+					<section class="card rail-card">
+						<h2>Route Stops <span class="meta" id="map-stop-count"></span></h2>
+						<div class="route-stops" id="map-stop-list"></div>
+					</section>
+					<section class="card summary">
+						<h2>Route Summary <span class="meta" id="map-run-id"></span></h2>
+						<div class="sum-row">
+							<div class="sum"><b id="map-sum-stops">0</b><span>Total Stops</span></div>
+							<div class="sum"><b id="map-sum-km">—</b><span>Total Distance</span></div>
+							<div class="sum"><b id="map-sum-eta">—</b><span>Estimated Time</span></div>
+						</div>
+					</section>
+					<section class="card rail-card map-vehicle">
+						<h2>Vehicle Details</h2>
+						<div class="mini">
+							<div class="veh-photo">
+								<img id="map-vehicle-image" alt="" hidden>
+								<img id="map-vehicle-fallback" src="/assets/logistics/images/vehicle-type-icon.png" alt="">
+							</div>
+							<div>
+								<strong id="map-vehicle-plate">—</strong>
+								<span id="map-vehicle-type"></span>
+							</div>
+						</div>
+					</section>
+					<button class="cn-btn primary map-nav" id="map-start-nav" type="button">Start Navigation</button>
+				</aside>
+			</div>
+			<section class="screen-completed">
+				<div class="completed-head">
+					<div>
+						<h2>Completed Runs</h2>
+						<p>Your finished deliveries and container moves</p>
+					</div>
+					<select id="history-range" class="history-range" aria-label="Date range"></select>
+				</div>
+				<div class="completed-layout" id="completed-layout">
+					<div class="completed-main">
+						<div class="completed-tools">
+							<input id="history-search" class="history-search" type="search" placeholder="Search completed runs..." aria-label="Search completed runs">
+						</div>
+						<div class="history-metrics" id="history-metrics"></div>
+						<div class="history-table-wrap">
+							<table class="history-table">
+								<thead>
+									<tr>
+										<th>Run Sheet</th>
+										<th>Date</th>
+										<th>Stops</th>
+										<th>Distance</th>
+										<th>Duration</th>
+										<th>Status</th>
+										<th></th>
+									</tr>
+								</thead>
+								<tbody id="history-list"></tbody>
+							</table>
+						</div>
+						<div class="history-pager" id="history-pager"></div>
+					</div>
+					<aside class="history-panel" id="history-panel" hidden>
+						<div class="history-panel-head">
+							<h2 id="history-panel-title">Run</h2>
+							<button class="history-close" id="history-close" type="button" aria-label="Close">×</button>
+						</div>
+						<div class="history-meta" id="history-panel-meta"></div>
+						<div class="hist-map">
+							<div class="hist-sketch" id="history-sketch"></div>
+							<div class="hist-stops" id="history-stop-rail"></div>
+						</div>
+						<div class="hist-tabs">
+							<button class="hist-tab active" data-hist="details" type="button">Details</button>
+							<button class="hist-tab" data-hist="stops" type="button">Stops</button>
+							<button class="hist-tab" data-hist="container" type="button">Container</button>
+							<button class="hist-tab" data-hist="proof" type="button">Photos &amp; Signatures</button>
+							<button class="hist-tab" data-hist="remarks" type="button">Remarks</button>
+						</div>
+						<div class="hist-pane" data-hist-pane="details" id="history-details"></div>
+						<div class="hist-pane" data-hist-pane="stops" id="history-stops" hidden></div>
+						<div class="hist-pane" data-hist-pane="container" id="history-container" hidden></div>
+						<div class="hist-pane" data-hist-pane="proof" id="history-proof" hidden></div>
+						<div class="hist-pane" data-hist-pane="remarks" id="history-remarks" hidden></div>
+					</aside>
+				</div>
+			</section>
+			<section class="screen-messages">
+				<h2 style="margin:0">Messages</h2>
+				<div class="message-list" id="message-list"></div>
+			</section>
+			<section class="screen-profile">
+				<div id="profile-view">
+				<div class="profile-head">
+					<div>
+						<h2>Driver Profile</h2>
+						<p>Your personal information, documents, and vehicle details</p>
+					</div>
+					<button class="cn-btn primary" id="edit-profile" type="button">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5z"/></svg>
+						Edit Profile
+					</button>
+				</div>
+				<div class="profile-grid">
+					<section class="profile-card">
+						<div class="who">
+							<img class="avatar" id="avatar" alt="" hidden>
+							<div class="avatar-fallback" id="avatar-fallback">D</div>
+							<div>
+								<div class="name" id="driver-name">Driver</div>
+								<span class="pill off" id="profile-badge">Available</span>
+								<div class="who-lines">
+									<a id="driver-phone" href="#" hidden></a>
+									<a id="driver-email" href="#" hidden></a>
+									<div class="who-pills">
+										<span class="pill off" id="profile-company" hidden></span>
+										<span class="pill off" id="profile-employment" hidden></span>
+									</div>
+									<span id="profile-address" hidden></span>
+								</div>
+							</div>
+						</div>
+					</section>
+					<section class="profile-card">
+						<h3 style="margin:0 0 10px">Compliance</h3>
+						<div class="compliance" id="profile-compliance"></div>
+					</section>
+				</div>
+				<div class="profile-mid">
+					<section class="profile-card">
+						<h3 style="margin:0 0 12px">Default Vehicle</h3>
+						<div class="vehicle-row">
+							<img id="profile-vehicle-image" alt="" src="/assets/logistics/images/vehicle-type-icon.png">
+							<div>
+								<strong id="profile-plate">—</strong>
+								<div class="meta" id="profile-vehicle-type"></div>
+								<div class="vehicle-facts" id="profile-vehicle-facts"></div>
+							</div>
+						</div>
+					</section>
+					<section class="profile-card">
+						<h3 style="margin:0 0 12px">Statistics <span class="meta">This month</span></h3>
+						<div class="stat-grid" id="profile-stats"></div>
+					</section>
+				</div>
+				<div class="profile-bottom">
+					<section class="profile-card">
+						<div class="profile-tabs">
+							<button class="profile-tab active" data-profile="personal" type="button">Personal Information</button>
+							<button class="profile-tab" data-profile="emergency" type="button">Emergency Contact</button>
+							<button class="profile-tab" data-profile="settings" type="button">Settings</button>
+						</div>
+						<div id="profile-personal"></div>
+						<div id="profile-emergency" hidden><p class="empty">No emergency contact is on file.</p></div>
+						<div id="profile-settings" hidden><p class="empty">Account settings are managed by dispatch.</p></div>
+					</section>
+					<section class="profile-card">
+						<h3 style="margin:0 0 12px">Recent Activity</h3>
+						<div class="activity-list" id="profile-activity"></div>
+					</section>
+				</div>
+				</div>
+				<div class="profile-editor" id="profile-editor" data-edit="personal">
+					<div class="edit-head">
+						<button class="edit-back" id="edit-back" type="button" aria-label="Back to profile">
+							<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg>
+						</button>
+						<div>
+							<h2 style="margin:0">Edit Driver Profile</h2>
+							<p class="edit-note">Update your personal information, documents, and vehicle details</p>
+						</div>
+					</div>
+					<div class="edit-tabs">
+						<button class="edit-tab active" data-edit="personal" type="button">Personal Information</button>
+						<button class="edit-tab" data-edit="compliance" type="button">Compliance Documents</button>
+						<button class="edit-tab" data-edit="vehicle" type="button">Vehicle Assignment</button>
+						<button class="edit-tab" data-edit="emergency" type="button">Emergency Contact</button>
+						<button class="edit-tab" data-edit="settings" type="button">Settings</button>
+					</div>
+					<div class="edit-layout">
+						<div class="edit-col">
+							<section class="profile-card" data-edit-section="personal">
+								<h3 style="margin:0 0 14px">Personal Information</h3>
+								<div class="edit-person">
+									<div>
+										<img class="avatar" id="edit-avatar" alt="" hidden>
+										<div class="avatar-fallback" id="edit-avatar-fallback">D</div>
+									</div>
+									<div class="edit-fields">
+										<label>Full Name <span class="req">*</span><input id="edit-name" type="text" required></label>
+										<label>Employee ID<input id="edit-employee" type="text" readonly></label>
+										<label>Date of Birth<input id="edit-birth" type="date"></label>
+										<label>Gender<select id="edit-gender"></select></label>
+										<label>Phone Number <span class="req">*</span><input id="edit-phone" type="tel"></label>
+										<label>Email Address<input id="edit-email" type="email" readonly></label>
+										<label>Transport Company<input id="edit-company" type="text" readonly></label>
+										<label>Employment Type
+											<select id="edit-employment">
+												<option>Internal Driver</option>
+												<option>External Driver</option>
+											</select>
+										</label>
+										<label class="wide">Address<input id="edit-address" type="text"></label>
+									</div>
+								</div>
+							</section>
+							<section class="profile-card" data-edit-section="personal">
+								<h3 style="margin:0 0 14px">Additional Information</h3>
+								<div class="edit-fields">
+									<label>Employment Type
+										<select id="edit-employment-extra" aria-label="Employment type">
+											<option>Internal Driver</option>
+											<option>External Driver</option>
+										</select>
+									</label>
+									<label>Status
+										<select id="edit-status">
+											<option>Active</option>
+											<option>Suspended</option>
+											<option>Left</option>
+										</select>
+									</label>
+									<label>Hire Date<input id="edit-hired" type="date"></label>
+								</div>
+							</section>
+						</div>
+						<div class="edit-col">
+							<section class="profile-card" data-edit-section="personal compliance">
+								<h3 style="margin:0 0 8px">Compliance Documents</h3>
+								<div class="doc-list">
+									<div class="doc-row">
+										<div>
+											<b>Driver's License</b>
+											<p id="edit-license-summary">Not on file</p>
+											<div class="edit-fields" style="margin-top:8px">
+												<label>License No<input id="edit-license-number" type="text"></label>
+												<label>Expires<input id="edit-license-expiry" type="date"></label>
+											</div>
+										</div>
+										<span class="pill off" id="edit-license-state">Not on file</span>
+									</div>
+									<div class="doc-row">
+										<div>
+											<b>Medical Clearance</b>
+											<p id="edit-medical-summary">Not on file</p>
+											<div class="edit-fields" style="margin-top:8px">
+												<label>Expires<input id="edit-medical-expiry" type="date"></label>
+											</div>
+										</div>
+										<span class="pill off" id="edit-medical-state">Not on file</span>
+									</div>
+									<div class="doc-row">
+										<div>
+											<b>HazMat Endorsement</b>
+											<p id="edit-hazmat-summary">None</p>
+										</div>
+										<span class="pill off" id="edit-hazmat-state">None</span>
+									</div>
+								</div>
+							</section>
+							<section class="profile-card" data-edit-section="personal vehicle">
+								<h3 style="margin:0 0 12px">Default Vehicle</h3>
+								<div class="vehicle-row">
+									<img id="edit-vehicle-image" alt="" src="/assets/logistics/images/vehicle-type-icon.png">
+									<div>
+										<strong id="edit-plate">No default vehicle</strong>
+										<div class="meta" id="edit-vehicle-type"></div>
+										<div class="vehicle-facts" id="edit-vehicle-facts"></div>
+									</div>
+								</div>
+							</section>
+							<section class="profile-card" data-edit-section="personal emergency">
+								<h3 style="margin:0 0 8px">Emergency Contact</h3>
+								<p class="empty">No emergency contact is on file.</p>
+							</section>
+							<section class="profile-card" data-edit-section="settings">
+								<h3 style="margin:0 0 8px">Settings</h3>
+								<p class="empty">Account settings are managed by dispatch.</p>
+							</section>
+						</div>
+					</div>
+					<p class="edit-note" id="edit-notice" hidden></p>
+					<div class="edit-foot">
+						<button class="cn-btn" id="edit-cancel" type="button">Cancel</button>
+						<button class="cn-btn primary" id="edit-save" type="button">Save Changes</button>
+					</div>
+				</div>
+			</section>
+		</div>
+	</div>
+</div>
+<button id="view-all-stops" type="button" hidden></button>
+<div id="load-track" hidden><div id="load-bar"></div></div>
+<div class="stop-drawer" id="stop-drawer" hidden>
+	<aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+		<div class="drawer-head">
+			<div class="j-num" id="drawer-num">1</div>
+			<div>
+				<div class="drawer-title-row">
+					<h2 id="drawer-title">Stop details</h2>
+					<span class="pill off" id="drawer-status">—</span>
+				</div>
+				<div class="j-time" id="drawer-window"></div>
+			</div>
+			<button class="drawer-close" id="drawer-close" type="button" aria-label="Close">×</button>
+		</div>
+		<div class="drawer-place">
+			<div class="mark" aria-hidden="true">
+				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v5"/></svg>
+			</div>
+			<div>
+				<strong id="drawer-place">—</strong>
+				<div class="meta" id="drawer-address"></div>
 			</div>
 		</div>
-	</header>
-
-	<section class="hero" id="hero" aria-label="Today">
-		<article class="card dash-stage">
-			<div class="company-top">
-				<div class="company-id">
-					<div class="company-mark" aria-hidden="true">
-						<svg width="22" height="22" viewBox="0 0 32 32"><path d="M16 4l12 22H4z" fill="#2f6bff"/><path d="M16 12l6 12H10z" fill="white"/></svg>
+		<div class="detail-tabs drawer-tabs">
+			<button class="detail-tab active" data-drawer="details" type="button">Details</button>
+			<button class="detail-tab" data-drawer="instructions" type="button">Instructions</button>
+			<button class="detail-tab" data-drawer="proof" type="button">Photos &amp; Signature</button>
+			<button class="detail-tab" data-drawer="remarks" type="button">Remarks</button>
+		</div>
+		<div class="drawer-body">
+			<div class="drawer-empty" id="drawer-empty" hidden>
+				<div class="drawer-empty-art" aria-hidden="true">
+					<svg width="78" height="78" viewBox="0 0 78 78" fill="none">
+						<rect x="22" y="16" width="30" height="40" rx="4" fill="white" stroke="#93c5fd" stroke-width="1.8"/>
+						<rect x="30" y="12" width="14" height="8" rx="2" fill="#dbeafe" stroke="#93c5fd" stroke-width="1.6"/>
+						<circle cx="30" cy="30" r="2" fill="#93c5fd"/>
+						<circle cx="30" cy="38" r="2" fill="#93c5fd"/>
+						<circle cx="30" cy="46" r="2" fill="#93c5fd"/>
+						<path d="M36 30h10M36 38h10M36 46h8" stroke="#bfdbfe" stroke-width="2" stroke-linecap="round"/>
+						<rect x="40" y="46" width="22" height="12" rx="2" fill="#3b82f6"/>
+						<rect x="44" y="42" width="10" height="6" rx="1.5" fill="#60a5fa"/>
+						<circle cx="46" cy="58" r="2.2" fill="#1e3a8a"/>
+						<circle cx="56" cy="58" r="2.2" fill="#1e3a8a"/>
+					</svg>
+				</div>
+				<h3>No Run Sheet Assigned</h3>
+				<p id="drawer-empty-copy">This driver does not have an assigned run sheet yet. Once a run sheet is created and assigned, the stop details, container information, instructions, and other details will appear here.</p>
+				<div class="drawer-next">
+					<div class="drawer-next-title"><span class="info-dot">i</span> What to do next?</div>
+					<ul>
+						<li>Assign a run sheet to this driver.</li>
+						<li>You can create a new run sheet from the dispatch module.</li>
+						<li>After assignment, the details will automatically appear here.</li>
+					</ul>
+				</div>
+			</div>
+			<div class="drawer-pane" data-drawer-pane="details">
+				<section class="drawer-card">
+					<h3>Location Information</h3>
+					<div class="loc-grid">
+						<div class="loc-art" aria-hidden="true">
+							<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s7-6 7-11a7 7 0 1 0-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+						</div>
+						<div class="loc-copy">
+							<div><span>Location</span><b id="drawer-loc-name">—</b><span id="drawer-loc-address"></span></div>
+							<div><span id="drawer-date"></span><b id="drawer-loc-window"></b></div>
+						</div>
+						<button class="cn-btn" id="drawer-maps" type="button">Open in Maps</button>
 					</div>
-					<div>
-						<strong id="company-name">CargoNext</strong>
-						<div class="company-sub" id="company-sub">Logistics</div>
+				</section>
+				<section class="drawer-card">
+					<h3>Container Information</h3>
+					<div class="info-grid" id="drawer-container"></div>
+				</section>
+				<section class="drawer-card">
+					<h3>Vehicle Information</h3>
+					<div class="veh-grid">
+						<div><span>Vehicle</span><b id="drawer-vehicle">—</b><span id="drawer-vehicle-sub"></span></div>
+						<div><span>Driver</span><b id="drawer-driver">—</b><span id="drawer-phone"></span></div>
+						<div><span>Transport Company</span><b id="drawer-company">—</b></div>
 					</div>
-				</div>
-				<span class="pill off" id="driver-badge">Available</span>
-			</div>
-			<div class="who">
-				<img class="avatar" id="avatar" alt="" hidden>
-				<div class="avatar-fallback" id="avatar-fallback">D</div>
-				<div>
-					<div class="driver-name" id="driver-name">Driver</div>
-					<div class="driver-role">Driver</div>
-				</div>
-				<div class="contact">
-					<a class="icon-btn" id="driver-phone" href="#" aria-label="Call" hidden>
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h4l2 5-3 2a12 12 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 4 5a2 2 0 0 1 2-2z"/></svg>
-					</a>
-					<a class="icon-btn" id="driver-email" href="#" aria-label="Email" hidden>
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 7 9-7"/></svg>
-					</a>
-				</div>
-			</div>
-			<div class="chip-row">
-				<span class="run-chip" id="run-chip" hidden></span>
-				<span class="today-chip">
-					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-					<span id="today-label"></span>
-				</span>
-			</div>
-			<div class="truck-stage" id="truck-stage">
-				<img class="truck-art" id="vehicle-image" alt="" hidden>
-				<div class="dash-empty" id="dash-empty">
-					<img class="photo-art" src="/assets/logistics/images/vehicle-photo-icon.png?v=2" alt="">
-					<strong>Vehicle photo</strong>
-					<span>Vehicle photo appears here when one is on file.</span>
-				</div>
-				<div class="track" aria-hidden="true">
-					<div class="track-fill" id="progress-bar"></div>
-					<div class="track-truck" id="progress-truck">
-						<svg width="28" height="16" viewBox="0 0 28 16" fill="none"><rect x="1" y="3" width="14" height="8" rx="1.5" fill="#2f6bff"/><path d="M15 6h5l3 3v2h-8V6z" fill="#1d4ed8"/><circle cx="7" cy="13" r="2" fill="#1b2433"/><circle cx="20" cy="13" r="2" fill="#1b2433"/></svg>
+				</section>
+				<section class="drawer-card">
+					<h3>Stop Status</h3>
+					<div class="status-steps" id="drawer-steps">
+						<div class="step" data-step="0"><div class="dot">1</div>En Route</div>
+						<div class="step" data-step="1"><div class="dot">2</div>Arrived</div>
+						<div class="step" data-step="2"><div class="dot">3</div>Loading</div>
+						<div class="step" data-step="3"><div class="dot">4</div>Completed</div>
 					</div>
-				</div>
+					<div class="step-note" id="drawer-note"></div>
+				</section>
 			</div>
-			<div class="metric-row">
-				<div class="metric">
-					<img class="tile-art sm" src="/assets/logistics/images/stops-icon.png" alt="">
-					<div class="metric-label">Stops</div>
-					<div class="metric-value" id="stops-count">No stops</div>
-				</div>
-				<div class="metric">
-					<img class="tile-art sm" src="/assets/logistics/images/distance-icon.png" alt="">
-					<div class="metric-label">Distance</div>
-					<div class="metric-value" id="hero-km">—</div>
-				</div>
-				<div class="metric">
-					<img class="tile-art sm" src="/assets/logistics/images/eta-icon.png" alt="">
-					<div class="metric-label">ETA</div>
-					<div class="metric-value" id="hero-eta">—</div>
-				</div>
+			<div class="drawer-pane" data-drawer-pane="container" hidden>
+				<section class="drawer-card"><div class="info-grid" id="drawer-container-tab"></div></section>
 			</div>
-			<div class="map-dock">
-				<div>
-					<strong id="dash-dock-title">No active run</strong>
-					<div class="dock-meta" id="dash-dock-meta"></div>
-				</div>
-				<button class="cn-btn primary" id="open-navigate" type="button">Open navigation</button>
+			<div class="drawer-pane" data-drawer-pane="instructions" hidden>
+				<section class="drawer-card"><p class="meta" id="drawer-instructions">No special instructions.</p></section>
 			</div>
-		</article>
-		<aside class="card dash-side" aria-label="Vehicle">
-			<div class="panel-head">
-				<div>
-					<h2>
-						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
-						Vehicle
-					</h2>
-					<div class="sub" id="vehicle-line"></div>
-				</div>
-			</div>
-			<div class="stats">
-
-			<article class="stat-card stat-fuel tall">
-				<img class="tile-art" src="/assets/logistics/images/fuel-level-icon.png" alt="">
-				<div class="stat-label">Fuel level</div>
-				<div>
-					<div class="fuel-value" id="fuel-value">No reading</div>
-					<div class="stat-hint" id="fuel-sub">Last reading</div>
-				</div>
-			</article>
-			<article class="stat-card tall">
-				<img class="tile-art" src="/assets/logistics/images/speed-icon.png" alt="">
-				<div class="stat-label">Speed</div>
-				<div class="speed-readout">
-					<div class="speed-value" id="speed-value">—</div>
-					<span class="stat-hint" id="speed-unit"></span>
-				</div>
-				<div class="stat-hint" id="speed-sub">No reading</div>
-			</article>
-			<article class="stat-card">
-				<img class="tile-art" src="/assets/logistics/images/vehicle-type-icon.png" alt="">
-				<div class="stat-label">Vehicle type</div>
-				<div class="stat-value" id="vehicle-type">—</div>
-				<div class="stat-hint">Assigned vehicle</div>
-			</article>
-			<article class="stat-card">
-				<img class="tile-art" src="/assets/logistics/images/plate-number-icon.png" alt="">
-				<div class="stat-label">Plate number</div>
-				<div class="stat-value" id="vehicle-plate">—</div>
-				<div class="stat-hint">Registration</div>
-			</article>
-			<article class="stat-card">
-				<img class="tile-art" src="/assets/logistics/images/payload-icon.png" alt="">
-				<div class="stat-label">Payload capacity</div>
-				<div class="stat-value" id="payload-value">—</div>
-				<div class="stat-hint" id="payload-sub">Max capacity</div>
-			</article>
-			<article class="stat-card">
-				<img class="tile-art" src="/assets/logistics/images/load-icon.png" alt="">
-				<div class="stat-label">Current load</div>
-				<div class="stat-value" id="load-value">—</div>
-				<div class="stat-hint" id="load-util"></div>
-				<div class="load-track" id="load-track" hidden><div id="load-bar"></div></div>
-			</article>
-			</div>
-		</aside>
-	</section>
-
-	<div class="workspace" id="workspace">
-		<section class="card run-panel" id="run-panel">
-			<div class="panel-head">
-				<div>
-					<h2>
-						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-						Today's Run
-					</h2>
-					<div class="sub" id="run-date"></div>
-					<div class="sub" id="map-route-name"></div>
-				</div>
-				<button class="linkish" id="view-all-stops" type="button">View all stops →</button>
-				<button class="linkish" id="back-dashboard" type="button">Back to dashboard</button>
-			</div>
-			<div class="route-note" id="route-note" hidden></div>
-			<div class="stops" id="stop-list"></div>
-			<div class="quick-actions" id="quick-actions">
-				<button class="cn-btn" id="call-dispatcher" type="button">Call dispatcher</button>
-				<button class="cn-btn" id="report-problem" type="button">Report a problem</button>
-			</div>
-		</section>
-
-		<section class="card map-panel" id="map-panel" aria-label="Navigation">
-			<div class="map-head">
-				<h2>
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z"/></svg>
-					Route Map
-				</h2>
-			</div>
-			<div class="map-wrap" id="map-wrap">
-				<div id="route-map"></div>
-				<div class="map-note" id="map-empty" hidden>The route map appears when a run is assigned.</div>
-				<div class="maneuver" id="maneuver" hidden>
-					<div class="maneuver-arrow" id="maneuver-arrow" aria-hidden="true">
-						<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6"/><path d="M6 11l6-6 6 6"/></svg>
+			<div class="drawer-pane" data-drawer-pane="contacts" hidden>
+				<section class="drawer-card">
+					<div class="veh-grid">
+						<div><span>Dispatcher</span><b id="drawer-dispatcher">—</b></div>
+						<div><span>Driver</span><b id="drawer-driver-2">—</b></div>
 					</div>
-					<div class="maneuver-copy">
-						<div class="maneuver-dist" id="maneuver-dist"></div>
-						<div class="maneuver-text" id="maneuver-text" aria-live="polite"></div>
-						<div class="maneuver-next" id="maneuver-next"></div>
-					</div>
-					<button class="voice-btn" id="voice-toggle" type="button" aria-pressed="true">Voice on</button>
-				</div>
-				<div class="map-chip" id="map-km-chip" hidden>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
-					<span id="map-km-text"></span>
-				</div>
-				<button class="recenter" id="recenter" type="button" hidden>Re-center</button>
-				<button class="map-compass" id="map-compass" type="button" aria-pressed="true" aria-label="Back to your location" title="Back to your location">
-					<span class="compass-dial" id="compass-dial" aria-hidden="true">
-						<svg width="22" height="22" viewBox="0 0 24 24"><polygon points="12,2.5 16,12 12,10 8,12" fill="#e11d48"/><polygon points="12,21.5 8,12 12,14 16,12" fill="#cbd5e1"/></svg>
-					</span>
-				</button>
-				<button class="map-max" id="map-max" type="button" aria-pressed="false" aria-label="Maximize map">
-					<svg class="icon-expand" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-					<svg class="icon-restore" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M16 3v3a2 2 0 0 0 2 2h3"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/></svg>
-				</button>
+					<button class="cn-btn" data-call type="button" style="margin-top:12px">Call Contact</button>
+				</section>
 			</div>
-			<div class="metric-row">
-				<div class="metric">
-					<div class="metric-label">
-						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><path d="M12 21s7-6 7-11a7 7 0 1 0-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2"/></svg>
-						Distance remaining
-					</div>
-					<div class="metric-value" id="distance-remaining">—</div>
-				</div>
-				<div class="metric">
-					<div class="metric-label">
-						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg>
-						ETA (final stop)
-					</div>
-					<div class="metric-value" id="eta-final">—</div>
-					<div class="metric-sub" id="eta-final-sub"></div>
-				</div>
-				<div class="metric">
-					<div class="metric-label">
-						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><path d="M4 15l8-12 8 12"/><path d="M4 20h16"/></svg>
-						Stops left
-					</div>
-					<div class="metric-value" id="stops-left">0</div>
-					<div class="metric-sub" id="stops-left-sub"></div>
-				</div>
+			<div class="drawer-pane" data-drawer-pane="proof" hidden>
+				<section class="drawer-card">
+					<p class="meta" id="drawer-proof">Signature appears after proof of delivery.</p>
+					<button class="cn-btn" id="drawer-proof-btn" type="button">Open proof of delivery</button>
+				</section>
 			</div>
-			<div class="map-dock" id="map-dock">
-				<div>
-					<div class="traffic-flag" id="traffic-flag" hidden>Live traffic</div>
-					<strong id="dock-title">No active stop</strong>
-					<div class="dock-meta" id="dock-meta" aria-live="polite"></div>
-					<div class="meta" id="dock-address"></div>
-					<div class="map-status" id="map-status" hidden></div>
-				</div>
-				<button class="cn-btn primary" id="dock-nav" type="button">Start navigation</button>
+			<div class="drawer-pane" data-drawer-pane="remarks" hidden>
+				<section class="drawer-card"><p class="meta" id="drawer-remarks">No remarks yet.</p></section>
 			</div>
-		</section>
-	</div>
-
-	<section class="history-panel history-shell" id="history-view">
-		<article class="card history-stage">
-			<div class="panel-head">
-				<div>
-					<h2>
-						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg>
-						This month
-					</h2>
-					<div class="sub">Runs, on-time rate, and exceptions assigned to you.</div>
-				</div>
+		</div>
+		<div class="drawer-foot">
+			<button class="cn-btn" id="drawer-back" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg>Back to Map</button>
+			<button class="cn-btn primary" id="drawer-update" type="button" aria-expanded="false">Update Status</button>
+			<div class="update-menu" id="drawer-menu" hidden>
+				<button type="button" id="drawer-nav">Start navigation</button>
+				<button type="button" id="drawer-proof-action">Open proof of delivery</button>
+				<button type="button" data-report>Report an issue</button>
 			</div>
-			<div class="history-metrics" id="history-metrics"></div>
-		</article>
-		<aside class="card history-side" aria-label="Past runs">
-			<div class="panel-head">
-				<div>
-					<h2>
-						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2f6bff" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-						Past runs
-					</h2>
-					<div class="sub">Completed and earlier run sheets.</div>
-				</div>
-			</div>
-			<div class="history-list" id="history-list"></div>
-		</aside>
-	</section>
+		</div>
+	</aside>
 </div>
-
 <div class="modal-back" id="problem-modal">
-	<div class="cn-modal" role="dialog" aria-modal="true" aria-labelledby="problem-title">
-		<h3 id="problem-title">Report a problem</h3>
-		<p class="sub">This is saved on the current stop for dispatch.</p>
+	<div class="cn-modal">
+		<h3 id="problem-title">Report an issue</h3>
 		<label for="problem-reason">Reason</label>
 		<select id="problem-reason">
-			<option>Traffic delay</option>
-			<option>Site closed</option>
-			<option>Customer not available</option>
-			<option>Vehicle issue</option>
-			<option>Address problem</option>
+			<option>Delay</option>
+			<option>Access problem</option>
 			<option>Cargo issue</option>
+			<option>Vehicle issue</option>
 			<option>Other</option>
 		</select>
 		<label for="problem-note">Note</label>
@@ -740,7 +1517,8 @@
 		routedFix: null,
 		routing: false,
 		persistAt: 0,
-		mapsFailed: false
+		mapsFailed: false,
+		selectedId: null
 	};
 
 	function text(id, value) {
@@ -776,7 +1554,9 @@
 		return (name || "D").trim().split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase();
 	}
 	function cred(id, item, icon, tint) {
-		$(id).innerHTML = `<div class="cred-icon" style="background:${tint}">${icon}</div><div><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.detail)}</span></div>`;
+		const node = $(id);
+		if (!node || !item) return;
+		node.innerHTML = `<div class="cred-icon" style="background:${tint}">${icon}</div><div><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.detail)}</span></div>`;
 	}
 	function nextStop() {
 		return data.stops.find((stop) => stop.state === "next") || null;
@@ -816,14 +1596,12 @@
 			text("load-value", "—");
 		}
 		const track = $("load-track");
-		if (load && load.value != null && vehicle.capacity) {
+		if (track && load && load.value != null && vehicle.capacity) {
 			const pct = Math.max(0, Math.min(100, Math.round((Number(load.value) / Number(vehicle.capacity)) * 100)));
 			$("load-bar").style.width = pct + "%";
 			track.hidden = false;
-			text("load-util", pct + "% utilized");
-		} else {
+		} else if (track) {
 			track.hidden = true;
-			text("load-util", load && load.value != null ? "" : "No cargo weight");
 		}
 		if (vehicle.fuel_l != null && vehicle.fuel_l !== "") {
 			const liters = Number(vehicle.fuel_l);
@@ -867,25 +1645,46 @@
 	text("header-driver", data.full_name);
 	text("driver-name", data.full_name);
 	text("company-name", data.company_name || data.company_line || "CargoNext");
-	text("company-sub", "Logistics");
-	text("driver-badge", data.badge);
+	text("company-sub", "Transport Company");
+	text("driver-badge", data.on_run ? "On Duty" : data.badge);
 	$("driver-badge").className = "pill " + (data.badge === "Suspended" || data.badge === "Left" ? "warn" : (data.on_run ? "on" : "off"));
+	const companyLogo = $("company-logo");
+	if (companyLogo && data.company_logo) {
+		companyLogo.src = data.company_logo;
+		companyLogo.hidden = false;
+		const companyIcon = $("company-icon");
+		if (companyIcon) companyIcon.hidden = true;
+	}
 	text("today-label", data.today_label);
 	text("run-date", data.today_label);
 	text("map-route-name", data.route_name || "");
 	paintAvatar("avatar", "avatar-fallback");
+	paintAvatar("edit-avatar", "edit-avatar-fallback");
 	paintAvatar("header-avatar", "header-avatar-fallback");
 	const phoneHref = String(data.phone || "").replace(/[^\d+]/g, "");
 	if (phoneHref) {
 		$("driver-phone").hidden = false;
+		$("driver-phone").textContent = data.phone;
 		$("driver-phone").href = "tel:" + phoneHref;
 	}
 	if (data.email) {
 		$("driver-email").hidden = false;
+		$("driver-email").textContent = data.email;
 		$("driver-email").href = "mailto:" + data.email;
 	}
 	paintVehicle();
-	text("vehicle-line", (data.vehicle && data.vehicle.line) || "");
+	const vehicleBits = data.vehicle || {};
+	const vehicleExtra = [vehicleBits.make, vehicleBits.model].filter(Boolean).join(" ");
+		text("vehicle-line", vehicleExtra || (vehicleBits.capacity != null ? formatAmount(vehicleBits.capacity) + (vehicleBits.capacity_uom ? " " + vehicleBits.capacity_uom : "") : ""));
+	text("map-vehicle-plate", vehicleBits.plate || "—");
+	text("map-vehicle-type", [vehicleBits.type, vehicleExtra].filter(Boolean).join(" · "));
+	const mapPhoto = $("map-vehicle-image");
+	const mapFallback = $("map-vehicle-fallback");
+	if (mapPhoto && vehicleBits.image) {
+		mapPhoto.src = vehicleBits.image;
+		mapPhoto.hidden = false;
+		if (mapFallback) mapFallback.hidden = true;
+	}
 	text("dash-dock-title", data.route_name || (data.linked ? "No active run" : "Driver not linked"));
 	text("dash-dock-meta", data.run_sheet || data.today_label || "");
 	paintHeroImage();
@@ -894,8 +1693,9 @@
 	cred("cred-hazmat", data.hazmat, "✓", data.hazmat.ok ? "#e8f8ef" : "#f3f4f6");
 
 	const pending = data.stops.filter((stop) => stop.signature_pending).length;
-	if (pending) {
-		$("notice-count").hidden = false;
+	const notice = $("notice-count");
+	if (pending && notice) {
+		notice.hidden = false;
 		text("notice-count", String(pending));
 	}
 	if (data.run_sheet) {
@@ -904,118 +1704,977 @@
 	}
 	const progress = data.progress || 0;
 	$("progress-bar").style.width = progress + "%";
-	$("progress-truck").style.left = progress + "%";
-	text("stops-count", data.total ? data.completed + " / " + data.total + " stops" : "No stops");
+	if ($("progress-truck")) $("progress-truck").style.left = progress + "%";
+	text("stops-count", data.total ? String(data.total) : "0");
+	text("run-stops-meta", data.total ? data.total + (data.total === 1 ? " Stop" : " Stops") : "No stops");
+	text("progress-fraction", data.total ? data.completed + " / " + data.total + " completed" : "No stops");
+	text("progress-pct", progress + "%");
+
+	function stopTitle(stop) {
+		const place = stop.place && stop.place !== "Pickup" && stop.place !== "Delivery" ? stop.place : "";
+		if (!place) return stop.headline || stop.title || "Stop";
+		return (stop.kind === "pickup" ? "Pick up at " : "Deliver to ") + place;
+	}
+	function containerRows(stop) {
+		const load = data.load;
+		const rows = [
+			["Cargo", stop && stop.cargo],
+			["Reference", stop && stop.leg],
+			["Window", stop && stop.window],
+			["Notes", stop && stop.notes],
+			["Weight", load && load.value != null ? formatAmount(load.value) + (load.uom ? " " + load.uom : "") : ""]
+		].filter((row) => row[1]);
+		if (!rows.length) return `<tr><td colspan="2">Container details appear with the assigned job.</td></tr>`;
+		return rows.map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`).join("");
+	}
+	function paintDetail(stop) {
+		text("detail-title", stop ? "Stop " + stop.number + " Details" : "Stop details");
+		text("detail-num", stop ? (stop.done ? "✓" : String(stop.number || "")) : "");
+		const detailNum = $("detail-num");
+		if (detailNum) detailNum.style.background = stop && stop.done ? "#16a34a" : "#2563eb";
+		text("detail-head-window", stop && stop.window ? stop.window : "");
+		const status = $("detail-status");
+		if (status) {
+			if (!stop) {
+				status.textContent = "—";
+				status.className = "pill off";
+			} else if (stop.done) {
+				status.textContent = "Completed";
+				status.className = "pill on";
+			} else if (stop.state === "next") {
+				status.textContent = "In Progress";
+				status.className = "pill live";
+			} else {
+				status.textContent = "Upcoming";
+				status.className = "pill soon";
+			}
+		}
+		text("detail-place", stop ? (stop.place || stop.headline || "—") : "—");
+		text("detail-address", stop ? (stop.address || "") : "");
+		text("detail-kind", stop ? (stop.kind === "pickup" ? "Pick Up" : "Delivery") : "—");
+		text("detail-window", stop && stop.window ? stop.window : "Open");
+		text("detail-ref", stop && stop.leg ? stop.leg : "—");
+		text("detail-cargo", stop && stop.cargo ? stop.cargo : "—");
+		text("detail-notes", stop && stop.notes ? stop.notes : "None");
+		text("detail-instructions", stop && stop.notes ? stop.notes : "No special instructions.");
+		text("detail-remarks", stop && stop.notes ? stop.notes : "No remarks yet.");
+		const table = $("container-table");
+		if (table) table.innerHTML = containerRows(stop);
+		text("photo-count", stop && stop.signed ? "Signed" : "0/4");
+		text("signer-name", stop && stop.signed_by ? stop.signed_by : "—");
+		text("sign-state", stop && stop.signed ? "Signed" : "Not signed");
+		text("sign-preview", stop && stop.signed ? (stop.signed_by || "Signed") : "");
+		const start = $("start-action");
+		if (start) {
+			const upcoming = nextStop();
+			const isNext = !!(stop && upcoming && stop.id === upcoming.id && !stop.done);
+			start.disabled = !isNext;
+			const startLabel = start.querySelector(".btn-label");
+			const startText = !stop || stop.done ? "Completed" : (stop.kind === "pickup" ? "Start Pickup" : "Start Delivery");
+			if (startLabel) startLabel.textContent = startText;
+			else start.textContent = startText;
+		}
+		const doneBtn = $("mark-complete");
+		if (doneBtn) {
+			doneBtn.disabled = !stop || stop.done;
+			const doneLabel = doneBtn.querySelector(".btn-label");
+			const doneText = stop && stop.done ? "Completed" : "Mark as Completed";
+			if (doneLabel) doneLabel.textContent = doneText;
+			else doneBtn.textContent = doneText;
+		}
+	}
+	function selectStop(id) {
+		state.selectedId = id;
+		document.querySelectorAll(".j-stop, .route-stop").forEach((row) => {
+			row.classList.toggle("selected", row.dataset.focus === id);
+		});
+		paintDetail(data.stops.find((stop) => stop.id === id) || null);
+	}
+	function paintRail() {
+		const upcoming = nextStop();
+		const index = upcoming ? data.stops.findIndex((stop) => stop.id === upcoming.id) : -1;
+		const following = index >= 0 ? data.stops[index + 1] : null;
+		text("next-title", following ? stopTitle(following) : "No further stop");
+		text("next-address", following ? (following.address || following.place || "") : "");
+		text("next-window", following && following.window ? following.window : "");
+		const nextStatus = $("next-status");
+		if (nextStatus) {
+			nextStatus.textContent = following ? "Upcoming" : "—";
+			nextStatus.className = "pill " + (following ? "soon" : "off");
+		}
+		const active = nextStop();
+		text("map-next-title", active ? (active.place || stopTitle(active)) : "No active stop");
+		text("map-next-window", active && active.window ? active.window : "");
+		text("map-next-place", active ? (active.facility || "") : "");
+		text("map-next-address", active ? (active.address || "") : "");
+		const facts = $("map-next-facts");
+		if (facts) {
+			const rows = [["Cargo", active && active.cargo]].filter((row) => row[1]);
+			facts.innerHTML = rows.length
+				? rows.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join("")
+				: "";
+		}
+		const mapStatus = $("map-next-status");
+		if (mapStatus) {
+			if (!active) {
+				mapStatus.textContent = data.stops.length ? "Completed" : "—";
+				mapStatus.className = "pill off";
+			} else if (active.state === "next") {
+				mapStatus.textContent = "In Progress";
+				mapStatus.className = "pill live";
+			} else if (active.done) {
+				mapStatus.textContent = "Completed";
+				mapStatus.className = "pill on";
+			} else {
+				mapStatus.textContent = "Upcoming";
+				mapStatus.className = "pill soon";
+			}
+		}
+	}
 
 	const list = $("stop-list");
 	if (!data.stops.length) {
-		$("view-all-stops").hidden = true;
+		const viewAll = $("view-all-stops");
+		if (viewAll) viewAll.hidden = true;
 		list.innerHTML = `<div class="empty">${data.linked
 			? "No trips are assigned for today. When dispatch puts you on a run sheet, the route opens here."
 			: "This login is not linked to a Driver. Ask dispatch to set your User on the Driver record, then open this page again."}</div>`;
+		paintDetail(null);
 	} else {
-		list.innerHTML = data.stops.map((stop, index) => {
-			const last = index === data.stops.length - 1;
-			const title = stop.place && stop.place !== "Pickup" && stop.place !== "Delivery" ? stop.place : stop.headline;
-			const kind = stop.kind === "pickup" ? "Pickup" : "Delivery";
-			const address = [kind, stop.address].filter(Boolean).join(" · ");
-			const status = stop.done ? "Completed" : (stop.state === "next" ? "On going" : "Pending");
+		list.innerHTML = data.stops.map((stop) => {
+			const title = stopTitle(stop);
+			const status = stop.done ? "Completed" : (stop.state === "next" ? "In Progress" : "Upcoming");
+			const pill = stop.done ? "on" : (stop.state === "next" ? "live" : "soon");
 			const mark = stop.done
 				? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>`
 				: escapeHtml(stop.number);
-			const proof = stop.signed
-				? `<button class="linkish" data-pod="${escapeHtml(stop.pod_url)}" type="button">Signed · View proof</button>`
-				: (stop.signature_pending ? `<span class="pending">Signature pending</span>` : "");
-			const podAction = !stop.signed && stop.state === "next"
-				? `<button class="linkish" data-pod="${escapeHtml(stop.pod_url)}" type="button">Proof of delivery</button>`
-				: "";
-			const sideLabel = stop.window ? "Time window" : (stop.done ? "Done" : "Time window");
-			const sideValue = stop.window || (stop.done ? "Done" : "Open");
-			const live = stop.done ? "" : `<div class="meta live-eta" data-eta-for="${escapeHtml(stop.id)}"></div>`;
-			return `<article class="stop ${escapeHtml(stop.state)}" data-focus="${escapeHtml(stop.id)}">
-				<div class="rail"><div class="num">${mark}</div>${last ? "" : `<div class="stem"></div>`}</div>
-				<div class="stop-card">
-					<div class="stop-main">
-						<div class="stop-top"><div class="stop-title">${escapeHtml(title)}</div><span class="status-pill">${status}</span></div>
-						<div class="meta">${escapeHtml(address)}</div>
-						${stop.cargo ? `<div class="meta">${escapeHtml(stop.cargo)}</div>` : ""}
-						${proof}${podAction}
-					</div>
-					<div class="stop-side">
-						<div class="side-label">${sideLabel}</div>
-						<div class="side-value">${escapeHtml(sideValue)}</div>
-						${live}
-					</div>
-					<div class="chevron" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></div>
+			const live = stop.done ? "" : `<div class="live-eta" data-eta-for="${escapeHtml(stop.id)}"></div>`;
+			return `<article class="j-stop ${escapeHtml(stop.state)}" data-focus="${escapeHtml(stop.id)}">
+				<div class="j-num">${mark}</div>
+				<div>
+					<div class="j-top"><div class="j-title">${escapeHtml(title)}</div><span class="pill ${pill}">${status}</span></div>
+					<div class="j-time">${escapeHtml(stop.window || "Open")}</div>
+					<div class="j-line">${escapeHtml(stop.place || "")}</div>
+					${stop.address ? `<div class="j-line">${escapeHtml(stop.address)}</div>` : ""}
+					${stop.cargo ? `<div class="j-line">${escapeHtml(stop.cargo)}</div>` : ""}
+					${live}
 				</div>
+				<div class="j-chev" aria-hidden="true">›</div>
 			</article>`;
 		}).join("");
+		const initial = data.stops.find((stop) => stop.state === "next") || data.stops[0];
+		selectStop(initial.id);
+	}
+	paintRail();
+	const mapList = $("map-stop-list");
+	if (mapList) {
+		text("map-stop-count", data.total ? data.total + (data.total === 1 ? " Stop" : " Stops") : "");
+		text("map-sum-stops", data.total ? String(data.total) : "0");
+		text("map-run-id", data.run_sheet || "");
+		mapList.innerHTML = data.stops.length ? data.stops.map((stop) => {
+			const status = stop.done ? "Completed" : (stop.state === "next" ? "In Progress" : "Upcoming");
+			const pill = stop.done ? "on" : (stop.state === "next" ? "live" : "soon");
+			const mark = stop.done ? "✓" : escapeHtml(stop.number);
+			return `<article class="route-stop ${escapeHtml(stop.state)}" data-focus="${escapeHtml(stop.id)}">
+				<div class="route-rail"><div class="j-num">${mark}</div><div class="route-stem"></div></div>
+				<div>
+					<div class="j-top"><div class="j-title">${escapeHtml(stop.place || stopTitle(stop))}</div><span class="pill ${pill}">${status}</span></div>
+					<div class="j-time">${escapeHtml(stop.window || "")}</div>
+					<div class="meta">${escapeHtml(stop.address || stop.facility || "")}</div>
+				</div>
+				<div class="j-chev" aria-hidden="true">›</div>
+			</article>`;
+		}).join("") : `<div class="empty">No stops on this run.</div>`;
+		const chosen = data.stops.find((stop) => stop.state === "next") || data.stops[0];
+		if (chosen) {
+			document.querySelectorAll(".route-stop").forEach((row) => {
+				row.classList.toggle("selected", row.dataset.focus === chosen.id);
+			});
+		}
+	}
+	const messageList = $("message-list");
+	if (messageList) {
+		const notes = data.stops.filter((stop) => stop.signature_pending).map((stop) => `
+			<div class="message-row"><div><b>Signature pending</b><div class="meta">${escapeHtml(stopTitle(stop))}</div></div><span class="status-tag">Open</span></div>`);
+		if (data.activity.open_exceptions) {
+			notes.push(`<div class="message-row"><div><b>Open exceptions</b><div class="meta">${escapeHtml(String(data.activity.open_exceptions))} to clear</div></div></div>`);
+		}
+		messageList.innerHTML = notes.length ? notes.join("") : `<div class="empty">No messages. Pending signatures and exceptions show up here.</div>`;
 	}
 
 	const activity = $("activity");
 	const gate = data.activity.gate_pass;
 	const onTime = data.activity.on_time_percent === null ? "—" : data.activity.on_time_percent + "%";
-	activity.innerHTML = [
-		["Completed runs", data.activity.completed_runs + " this month"],
-		["On time", onTime + " this month"],
-		["Open exceptions", data.activity.open_exceptions ? data.activity.open_exceptions + " to clear" : "All clear"],
-		[gate ? gate.name : "Gate pass", gate ? gate.detail : "None issued today"]
-	].map(([title, detail]) => `<div class="stat"><div><b>${escapeHtml(title)}</b><span>${escapeHtml(detail)}</span></div></div>`).join("");
+	if (activity) {
+		activity.innerHTML = [
+			["Completed runs", data.activity.completed_runs + " this month"],
+			["On time", onTime + " this month"],
+			["Open exceptions", data.activity.open_exceptions ? data.activity.open_exceptions + " to clear" : "All clear"],
+			[gate ? gate.name : "Gate pass", gate ? gate.detail : "None issued today"]
+		].map(([title, detail]) => `<div class="stat"><div><b>${escapeHtml(title)}</b><span>${escapeHtml(detail)}</span></div></div>`).join("");
+	}
+	const profileBadge = $("profile-badge");
+	if (profileBadge) {
+		profileBadge.textContent = data.on_run ? "On Duty" : (data.badge || "Available");
+		profileBadge.className = "pill " + (data.on_run ? "on" : "off");
+	}
+	["profile-company", "profile-employment", "profile-address"].forEach((id, index) => {
+		const node = $(id);
+		const value = [data.company_name, data.employment, data.address][index];
+		if (!node) return;
+		node.hidden = !value;
+		node.textContent = value || "";
+	});
+	const compliance = $("profile-compliance");
+	if (compliance) {
+		const license = data.license || {};
+		const medical = data.medical || {};
+		const hazmat = data.hazmat || {};
+		const cards = [
+			["Driver's License", license.classes ? "Category " + license.classes : (license.number || "Not on file"), license.ok ? "Valid" : (license.detail && license.detail !== "No expiry" ? "Expired" : "Not on file"), license.ok ? "on" : "off", license.detail && license.detail !== "No expiry" ? "Expires " + license.detail : "", license.ok ? "#e8f8ef" : "#f8fafc"],
+			["Medical Clearance", medical.detail && medical.detail !== "Not on file" ? medical.detail.replace(/^Due /, "Expires ") : "Not on file", medical.ok ? "Valid" : (medical.detail && medical.detail !== "Not on file" ? "Expired" : "Not on file"), medical.ok ? "on" : "off", "", medical.ok ? "#e8f8ef" : "#f8fafc"],
+			["HazMat Endorsement", "Endorsement", hazmat.ok ? "Valid" : "None", hazmat.ok ? "on" : "off", "", hazmat.ok ? "#fff6e8" : "#f8fafc"]
+		];
+		compliance.innerHTML = cards.map(([title, sub, state, tone, extra, tint]) => `
+			<article style="background:${tint}"><b>${escapeHtml(title)}</b><span class="sub">${escapeHtml(sub)}</span><span class="pill ${tone}">${escapeHtml(state)}</span>${extra ? `<span class="extra">${escapeHtml(extra)}</span>` : ""}</article>`).join("");
+	}
+	const vehicle = data.vehicle || {};
+	text("profile-plate", vehicle.plate || "No default vehicle");
+	text("profile-vehicle-type", vehicle.type || "");
+	const profilePhoto = $("profile-vehicle-image");
+	if (profilePhoto && vehicle.image) profilePhoto.src = vehicle.image;
+	const vehicleFacts = $("profile-vehicle-facts");
+	if (vehicleFacts) {
+		const facts = [
+			["Make / Model", [vehicle.make, vehicle.model].filter(Boolean).join(" ") || "—"],
+			["Vehicle Type", vehicle.type || "—"],
+			["Payload Capacity", vehicle.capacity != null ? formatAmount(vehicle.capacity) + (vehicle.capacity_uom ? " " + vehicle.capacity_uom : "") : "—"]
+		];
+		vehicleFacts.innerHTML = facts.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join("");
+	}
+	const profileStats = $("profile-stats");
+	if (profileStats) {
+		const month = monthKey(new Date());
+		const monthRuns = (data.history || []).filter((run) => (run.date_iso || "").startsWith(month));
+		const km = monthRuns.reduce((sum, run) => sum + (Number(run.distance_km) || 0), 0);
+		const minutes = monthRuns.reduce((sum, run) => sum + (Number(run.duration_min) || 0), 0);
+		const hasKm = monthRuns.some((run) => run.distance_km != null);
+		const hasTime = monthRuns.some((run) => run.duration_min != null);
+		const tiles = [
+			[String(data.activity.completed_runs || 0), "Completed Runs"],
+			[onTime, "On-Time Rate"],
+			[hasKm ? formatKm(km) : "—", "Total Distance"],
+			[hasTime ? formatDuration(minutes) : "—", "Total Driving Time"]
+		];
+		profileStats.innerHTML = tiles.map(([value, label]) => `<article><b>${escapeHtml(value)}</b><span>${escapeHtml(label)}</span></article>`).join("");
+	}
+	const personal = $("profile-personal");
+	if (personal) {
+		const rows = [
+			["Full Name", data.full_name || "—"],
+			["Phone Number", data.phone || "—"],
+			["Driver", data.driver_id || data.driver || "—"],
+			["Email Address", data.email || "—"],
+			["Date of Birth", data.birth_date || "—"],
+			["Employment Type", data.employment || "—"],
+			["Address", data.address || "—"],
+			["Transport Company", data.company_name || "—"],
+			["Date Hired", data.hired_date || "—"]
+		];
+		personal.innerHTML = `<h3 style="margin:4px 0 12px">Personal Information</h3><div class="info-table">` + rows.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join("") + `</div>`;
+	}
+	const profileActivity = $("profile-activity");
+	if (profileActivity) {
+		const recent = (data.history || []).slice(0, 6);
+		profileActivity.innerHTML = recent.length ? recent.map((run) => `
+			<article><div><b>Completed Run</b><div class="meta">${escapeHtml(run.name)}</div></div><span>${escapeHtml(run.completed_at || run.date || "")}</span></article>`).join("") : `<p class="empty">Finished runs will show up here.</p>`;
+	}
+	document.querySelectorAll(".profile-tab").forEach((button) => {
+		button.addEventListener("click", () => {
+			document.querySelectorAll(".profile-tab").forEach((tab) => tab.classList.toggle("active", tab === button));
+			["personal", "emergency", "settings"].forEach((name) => {
+				const pane = $("profile-" + name);
+				if (pane) pane.hidden = name !== button.dataset.profile;
+			});
+		});
+	});
+	function setProfileMode(editing) {
+		const screen = document.querySelector(".screen-profile");
+		if (!screen) return;
+		if (editing) {
+			fillEditor();
+			showScreen("profile");
+		}
+		screen.dataset.mode = editing ? "edit" : "view";
+	}
+	function setEditTab(name) {
+		const editor = $("profile-editor");
+		if (editor) editor.dataset.edit = name;
+		document.querySelectorAll(".edit-tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.edit === name));
+	}
+	function fillEditor() {
+		const setValue = (id, value) => { const node = $(id); if (node) node.value = value == null ? "" : String(value); };
+		setValue("edit-name", data.full_name || "");
+		setValue("edit-employee", data.employee || data.driver_id || data.driver || "");
+		setValue("edit-birth", (data.birth_iso || "").slice(0, 10));
+		setValue("edit-phone", data.phone || "");
+		setValue("edit-email", data.email || "");
+		setValue("edit-company", data.company_name || "");
+		setValue("edit-address", data.address || "");
+		setValue("edit-hired", (data.hired_iso || "").slice(0, 10));
+		setValue("edit-license-number", (data.license && data.license.number) || "");
+		setValue("edit-license-expiry", (data.license && data.license.expiry || "").slice(0, 10));
+		setValue("edit-medical-expiry", (data.medical && data.medical.expiry || "").slice(0, 10));
+		const employment = data.employment === "External Driver" ? "External Driver" : "Internal Driver";
+		setValue("edit-employment", employment);
+		setValue("edit-employment-extra", employment);
+		const status = $("edit-status");
+		if (status) status.value = ["Active", "Suspended", "Left"].indexOf(data.driver_status) >= 0 ? data.driver_status : "Active";
+		const gender = $("edit-gender");
+		if (gender) {
+			const names = [""].concat(data.genders || []);
+			if (data.gender && names.indexOf(data.gender) < 0) names.push(data.gender);
+			gender.innerHTML = names.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name || "—")}</option>`).join("");
+			gender.value = data.gender || "";
+		}
+		const license = data.license || {};
+		const medical = data.medical || {};
+		const hazmat = data.hazmat || {};
+		text("edit-license-summary", license.classes ? "Category " + license.classes : (license.number || "Not on file"));
+		text("edit-license-state", license.expiry ? (license.ok ? "Valid" : "Expired") : "Not on file");
+		const licenseState = $("edit-license-state");
+		if (licenseState) licenseState.className = "pill " + (license.ok ? "on" : "off");
+		text("edit-medical-summary", medical.detail && medical.detail !== "Not on file" ? medical.detail.replace(/^Due /, "Expires ") : "Not on file");
+		text("edit-medical-state", medical.expiry ? (medical.ok ? "Valid" : "Expired") : "Not on file");
+		const medicalState = $("edit-medical-state");
+		if (medicalState) medicalState.className = "pill " + (medical.ok ? "on" : "off");
+		text("edit-hazmat-summary", hazmat.ok ? "Endorsement on file" : "None");
+		text("edit-hazmat-state", hazmat.ok ? "Valid" : "None");
+		const hazmatState = $("edit-hazmat-state");
+		if (hazmatState) hazmatState.className = "pill " + (hazmat.ok ? "on" : "off");
+		const vehicle = data.vehicle || {};
+		text("edit-plate", vehicle.plate || "No default vehicle");
+		text("edit-vehicle-type", vehicle.type || "");
+		const editPhoto = $("edit-vehicle-image");
+		if (editPhoto && vehicle.image) editPhoto.src = vehicle.image;
+		const editFacts = $("edit-vehicle-facts");
+		if (editFacts) {
+			const facts = [
+				["Make / Model", [vehicle.make, vehicle.model].filter(Boolean).join(" ") || "—"],
+				["Vehicle Type", vehicle.type || "—"],
+				["Payload Capacity", vehicle.capacity != null ? formatAmount(vehicle.capacity) + (vehicle.capacity_uom ? " " + vehicle.capacity_uom : "") : "—"]
+			];
+			editFacts.innerHTML = facts.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join("");
+		}
+		const notice = $("edit-notice");
+		if (notice) { notice.hidden = true; notice.textContent = ""; }
+	}
+	["edit-employment", "edit-employment-extra"].forEach((id) => {
+		const node = $(id);
+		if (!node) return;
+		node.addEventListener("change", () => {
+			["edit-employment", "edit-employment-extra"].forEach((other) => {
+				const field = $(other);
+				if (field) field.value = node.value;
+			});
+		});
+	});
+	document.querySelectorAll(".edit-tab").forEach((button) => {
+		button.addEventListener("click", () => setEditTab(button.dataset.edit));
+	});
+	const editProfile = $("edit-profile");
+	if (editProfile) editProfile.addEventListener("click", () => setProfileMode(true));
+	["edit-back", "edit-cancel"].forEach((id) => {
+		const button = $(id);
+		if (button) button.addEventListener("click", () => setProfileMode(false));
+	});
+	const editSave = $("edit-save");
+	if (editSave) {
+		editSave.addEventListener("click", () => {
+			const notice = $("edit-notice");
+			editSave.disabled = true;
+			postMethod("logistics.www.driver.save_driver_profile", {
+				full_name: $("edit-name") ? $("edit-name").value : "",
+				phone: $("edit-phone") ? $("edit-phone").value : "",
+				address: $("edit-address") ? $("edit-address").value : "",
+				gender: $("edit-gender") ? $("edit-gender").value : "",
+				birth_date: $("edit-birth") ? $("edit-birth").value : "",
+				hired_date: $("edit-hired") ? $("edit-hired").value : "",
+				employment: $("edit-employment") ? $("edit-employment").value : "",
+				status: $("edit-status") ? $("edit-status").value : "",
+				license_number: $("edit-license-number") ? $("edit-license-number").value : "",
+				license_expiry: $("edit-license-expiry") ? $("edit-license-expiry").value : "",
+				medical_expiry: $("edit-medical-expiry") ? $("edit-medical-expiry").value : ""
+			}).then((message) => {
+				editSave.disabled = false;
+				if (!message || !message.ok) return;
+				data.full_name = message.full_name;
+				data.phone = message.phone;
+				data.address = message.address;
+				data.employment = message.employment;
+				data.driver_status = message.driver_status;
+				data.gender = message.gender;
+				data.birth_date = message.birth_date;
+				data.birth_iso = message.birth_iso;
+				data.hired_date = message.hired_date;
+				data.hired_iso = message.hired_iso;
+				data.license = message.license || data.license;
+				data.medical = message.medical || data.medical;
+				text("driver-name", data.full_name);
+				text("header-driver", data.full_name);
+				text("profile-employment", data.employment || "");
+				text("profile-address", data.address || "");
+				const phoneLink = $("driver-phone");
+				if (phoneLink && data.phone) {
+					phoneLink.hidden = false;
+					phoneLink.textContent = data.phone;
+					phoneLink.href = "tel:" + String(data.phone).replace(/[^\d+]/g, "");
+				}
+				setProfileMode(false);
+				if (!message.address_saved && notice) {
+					notice.hidden = false;
+					notice.textContent = "Saved. Address is not linked on this driver, so that line was left unchanged.";
+					document.querySelector(".screen-profile").dataset.mode = "edit";
+				}
+			}).catch((error) => {
+				editSave.disabled = false;
+				if (notice) {
+					notice.hidden = false;
+					notice.textContent = (error && error.message) ? String(error.message).replace(/<[^>]+>/g, "") : "Could not save the profile.";
+				}
+			});
+		});
+	}
 
 	const historyMetrics = $("history-metrics");
-	if (historyMetrics) {
-		const tiles = [
-			["Completed runs", String(data.activity.completed_runs), "This month"],
-			["On time", onTime, "This month"],
-			["Open exceptions", String(data.activity.open_exceptions), data.activity.open_exceptions ? "To clear" : "All clear"],
-			["Gate pass", gate ? (gate.status || gate.name) : "None", gate ? gate.detail : "None issued today"]
-		];
-		historyMetrics.innerHTML = tiles.map(([label, value, hint]) => `
-			<article class="metric history-tile">
-				<div class="metric-label">${escapeHtml(label)}</div>
-				<div class="metric-value">${escapeHtml(value)}</div>
-				<div class="metric-sub">${escapeHtml(hint)}</div>
-			</article>`).join("");
-	}
 	const history = $("history-list");
-	history.innerHTML = data.history.length ? data.history.map((run) => `
-		<div class="history-row">
-			<div><b>${escapeHtml(run.route_name)}</b><div class="meta">${escapeHtml(run.date)} · ${escapeHtml(run.name)} · ${escapeHtml(run.stops)} stops${run.vehicle ? " · " + escapeHtml(run.vehicle) : ""}</div></div>
-			<span class="status-tag ${escapeHtml(run.status)}">${escapeHtml(run.status)}</span>
-		</div>`).join("") : `<div class="empty">Past runs will appear here after you finish a trip.</div>`;
+	const historyState = { query: "", range: "month", page: 1, selected: null };
+	function formatDuration(minutes) {
+		if (minutes == null || minutes === "") return "—";
+		const total = Number(minutes);
+		if (!Number.isFinite(total)) return "—";
+		const hours = Math.floor(total / 60);
+		const mins = total % 60;
+		if (hours && mins) return hours + "h " + mins + "m";
+		if (hours) return hours + "h";
+		return mins + "m";
+	}
+	function monthKey(date) {
+		return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0");
+	}
+	const rangeSelect = $("history-range");
+	if (rangeSelect) {
+		const now = new Date();
+		const start = new Date(now.getFullYear(), now.getMonth(), 1);
+		const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+		const label = start.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+			+ " - " + end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+		rangeSelect.innerHTML = `<option value="month">${escapeHtml(label)}</option><option value="all">All runs</option>`;
+	}
+	function filteredHistory() {
+		const month = monthKey(new Date());
+		const query = historyState.query.trim().toLowerCase();
+		return (data.history || []).filter((run) => {
+			if (historyState.range === "month" && !(run.date_iso || "").startsWith(month)) return false;
+			if (!query) return true;
+			return [run.name, run.route_name, run.vehicle, run.date, run.status].join(" ").toLowerCase().indexOf(query) !== -1;
+		});
+	}
+	function paintHistory() {
+		const rows = filteredHistory();
+		const pageSize = 10;
+		const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+		if (historyState.page > pages) historyState.page = pages;
+		const start = (historyState.page - 1) * pageSize;
+		const pageRows = rows.slice(start, start + pageSize);
+		const completed = rows.filter((run) => run.status === "Completed").length;
+		const stops = rows.reduce((sum, run) => sum + (Number(run.stops) || 0), 0);
+		const km = rows.reduce((sum, run) => sum + (Number(run.distance_km) || 0), 0);
+		const hasKm = rows.some((run) => run.distance_km != null);
+		if (historyMetrics) {
+			const tiles = [
+				["Completed Runs", String(completed || rows.length), "#e8f8ef", "#15803d"],
+				["Stops", String(stops), "#eef4ff", "#2563eb"],
+				["On-Time Rate", onTime, "#fff6e8", "#c2410c"],
+				["Total Distance", hasKm ? formatKm(km) : "—", "#eef2ff", "#4f46e5"]
+			];
+			historyMetrics.innerHTML = tiles.map(([label, value]) => `
+				<article class="metric">
+					<div><div class="metric-label">${escapeHtml(label)}</div><div class="metric-value">${escapeHtml(value)}</div></div>
+				</article>`).join("");
+		}
+		if (history) {
+			history.innerHTML = pageRows.length ? pageRows.map((run) => `
+				<tr data-run="${escapeHtml(run.name)}" class="${historyState.selected === run.name ? "selected" : ""}">
+					<td class="run-id">${escapeHtml(run.name)}</td>
+					<td>${escapeHtml(run.date || "—")}</td>
+					<td>${escapeHtml(String(run.stops || 0))}</td>
+					<td>${escapeHtml(run.distance_km != null ? formatKm(run.distance_km) : "—")}</td>
+					<td>${escapeHtml(formatDuration(run.duration_min))}</td>
+					<td><span class="status-tag ${escapeHtml(run.status)}">${escapeHtml(run.status)}</span></td>
+					<td>›</td>
+				</tr>`).join("") : `<tr><td colspan="7"><div class="empty">Past runs will appear here after you finish a trip.</div></td></tr>`;
+		}
+		const pager = $("history-pager");
+		if (pager) {
+			const from = rows.length ? start + 1 : 0;
+			const to = Math.min(start + pageSize, rows.length);
+			const buttons = [];
+			for (let page = 1; page <= pages; page += 1) buttons.push(`<button type="button" data-page="${page}" class="${page === historyState.page ? "on" : ""}">${page}</button>`);
+			pager.innerHTML = `<span>Showing ${from} to ${to} of ${rows.length} runs</span><div class="pager-btns">${buttons.join("")}</div>`;
+		}
+	}
+	function routeSketch(points) {
+		const coords = (points || []).filter((point) => point.lat != null && point.lng != null);
+		if (coords.length < 2) return `<div class="empty">Route map appears when stop coordinates are on file.</div>`;
+		const lats = coords.map((point) => point.lat);
+		const lngs = coords.map((point) => point.lng);
+		const minLat = Math.min.apply(null, lats);
+		const maxLat = Math.max.apply(null, lats);
+		const minLng = Math.min.apply(null, lngs);
+		const maxLng = Math.max.apply(null, lngs);
+		const spanLat = maxLat - minLat || 0.01;
+		const spanLng = maxLng - minLng || 0.01;
+		const xy = coords.map((point) => {
+			const x = 16 + ((point.lng - minLng) / spanLng) * 200;
+			const y = 124 - ((point.lat - minLat) / spanLat) * 100;
+			return [x, y, point.number];
+		});
+		const line = xy.map((pair) => pair[0] + "," + pair[1]).join(" ");
+		const dots = xy.map((pair) => `<circle cx="${pair[0]}" cy="${pair[1]}" r="9" fill="#2563eb"></circle><text x="${pair[0]}" y="${pair[1] + 3}" text-anchor="middle" font-size="9" fill="white" font-weight="700">${pair[2]}</text>`).join("");
+		return `<svg viewBox="0 0 232 140" aria-hidden="true"><polyline points="${line}" fill="none" stroke="#2563eb" stroke-width="3"></polyline>${dots}</svg>`;
+	}
+	function paintHistoryPanel(run) {
+		const panel = $("history-panel");
+		const layout = $("completed-layout");
+		if (!panel || !layout) return;
+		if (!run) {
+			panel.hidden = true;
+			layout.classList.remove("open");
+			return;
+		}
+		panel.hidden = false;
+		layout.classList.add("open");
+		const title = $("history-panel-title");
+		if (title) title.innerHTML = `${escapeHtml(run.name)} <span class="status-tag ${escapeHtml(run.status)}">${escapeHtml(run.status)}</span>`;
+		text("history-panel-meta", "");
+		const meta = $("history-panel-meta");
+		if (meta) {
+			meta.innerHTML = [run.date, (run.stops || 0) + " Stops", run.distance_km != null ? formatKm(run.distance_km) : "", formatDuration(run.duration_min)]
+				.filter((part) => part && part !== "—")
+				.map((part) => `<span>${escapeHtml(part)}</span>`).join("");
+		}
+		const sketch = $("history-sketch");
+		if (sketch) sketch.innerHTML = routeSketch(run.points);
+		const rail = $("history-stop-rail");
+		if (rail) {
+			rail.innerHTML = (run.points || []).map((point) => `
+				<div class="hist-stop"><span class="j-num">${escapeHtml(point.number)}</span><div><b>${escapeHtml(point.place)}</b><div class="meta">${escapeHtml(point.window || "")}</div></div></div>`).join("");
+		}
+		const details = $("history-details");
+		if (details) {
+			const delivery = (run.points || []).filter((point) => point.kind === "delivery").slice(-1)[0];
+			details.innerHTML = `<div class="hist-grid">
+				<section class="hist-card"><h3>Driver</h3><p><b>${escapeHtml(data.full_name || "Driver")}</b></p><p>${escapeHtml(run.vehicle || "Vehicle not on file")}</p><p>${escapeHtml(data.company_name || "")}</p></section>
+				<section class="hist-card"><h3>Run Summary</h3>
+					<p>Total Stops <b>${escapeHtml(String(run.stops || 0))}</b></p>
+					<p>Total Distance <b>${escapeHtml(run.distance_km != null ? formatKm(run.distance_km) : "—")}</b></p>
+					<p>Total Duration <b>${escapeHtml(formatDuration(run.duration_min))}</b></p>
+					<p>Started <b>${escapeHtml(run.started || "—")}</b></p>
+					<p>Completed At <b>${escapeHtml(run.completed_at || "—")}</b></p>
+					<p>Status <span class="status-tag ${escapeHtml(run.status)}">${escapeHtml(run.status)}</span></p>
+				</section>
+				<section class="hist-card"><h3>Cargo</h3>${(run.points || []).filter((point) => point.cargo).slice(0, 4).map((point) => `<p>${escapeHtml(point.cargo)}</p>`).join("") || `<p>No cargo details on this run.</p>`}</section>
+				<section class="hist-card"><h3>Proof of Delivery</h3>${(run.points || []).filter((point) => point.signed_by).map((point) => `<p>Signed by ${escapeHtml(point.signed_by)}</p>`).join("") || `<p>No signature on file.</p>`}</section>
+				${delivery ? `<section class="hist-card"><h3>Customer</h3><p><b>${escapeHtml(delivery.place)}</b></p><p>${escapeHtml(delivery.address || "")}</p></section>` : ""}
+			</div>`;
+		}
+		const stops = $("history-stops");
+		if (stops) {
+			stops.innerHTML = (run.points || []).map((point) => `<div class="hist-stop"><span class="j-num">${escapeHtml(point.number)}</span><div><b>${escapeHtml(point.place)}</b><div class="meta">${escapeHtml([point.kind === "pickup" ? "Pick up" : "Delivery", point.window, point.address].filter(Boolean).join(" · "))}</div></div></div>`).join("") || `<p class="empty">No stops on this run.</p>`;
+		}
+		const container = $("history-container");
+		if (container) {
+			const cargo = (run.points || []).filter((point) => point.cargo);
+			container.innerHTML = cargo.length ? cargo.map((point) => `<p><b>${escapeHtml(point.place)}</b> ${escapeHtml(point.cargo)}</p>`).join("") : `<p class="empty">No container details on this run.</p>`;
+		}
+		const proof = $("history-proof");
+		if (proof) {
+			const signed = (run.points || []).filter((point) => point.signed_by);
+			proof.innerHTML = signed.length ? signed.map((point) => `<p>${escapeHtml(point.place)} · ${escapeHtml(point.signed_by)}</p>`).join("") : `<p class="empty">No photos or signatures on file.</p>`;
+		}
+		const remarks = $("history-remarks");
+		if (remarks) {
+			const notes = (run.points || []).filter((point) => point.notes);
+			remarks.innerHTML = notes.length ? notes.map((point) => `<p><b>${escapeHtml(point.place)}</b> ${escapeHtml(point.notes)}</p>`).join("") : `<p class="empty">No remarks.</p>`;
+		}
+	}
+	function selectHistory(name) {
+		historyState.selected = name;
+		paintHistory();
+		paintHistoryPanel((data.history || []).find((run) => run.name === name) || null);
+	}
+	if (history) history.addEventListener("click", (event) => {
+		const row = event.target.closest("tr[data-run]");
+		if (row) selectHistory(row.dataset.run);
+	});
+	const historySearch = $("history-search");
+	if (historySearch) historySearch.addEventListener("input", () => { historyState.query = historySearch.value; historyState.page = 1; paintHistory(); });
+	if (rangeSelect) rangeSelect.addEventListener("change", () => { historyState.range = rangeSelect.value; historyState.page = 1; paintHistory(); });
+	const pager = $("history-pager");
+	if (pager) pager.addEventListener("click", (event) => {
+		const button = event.target.closest("[data-page]");
+		if (!button) return;
+		historyState.page = Number(button.dataset.page) || 1;
+		paintHistory();
+	});
+	const historyClose = $("history-close");
+	if (historyClose) historyClose.addEventListener("click", () => { historyState.selected = null; paintHistory(); paintHistoryPanel(null); });
+	document.querySelectorAll(".hist-tab").forEach((button) => {
+		button.addEventListener("click", () => {
+			document.querySelectorAll(".hist-tab").forEach((tab) => tab.classList.toggle("active", tab === button));
+			document.querySelectorAll(".hist-pane").forEach((pane) => { pane.hidden = pane.dataset.histPane !== button.dataset.hist; });
+		});
+	});
+	paintHistory();
 
 	function showScreen(screen) {
-		const allowed = { route: 1, dashboard: 1, history: 1 };
-		if (!allowed[screen]) screen = "route";
+		if (screen === "route" || screen === "dashboard") screen = "today";
+		if (screen === "history") screen = "completed";
+		const allowed = { today: 1, map: 1, completed: 1, messages: 1, profile: 1 };
+		if (!allowed[screen]) screen = "today";
 		$("driver-app").dataset.screen = screen;
 		document.querySelectorAll(".tab").forEach((button) => {
 			button.classList.toggle("active", button.dataset.screen === screen);
 		});
-		const actions = $("quick-actions");
-		if (actions && $("run-panel")) $("run-panel").appendChild(actions);
-		if (screen === "route") renderMap();
+		rememberPlace(screen, $("driver-app").dataset.pane || "journey");
+		paintNoRun();
+		if (screen === "today" || screen === "map") renderMap();
+	}
+	function rememberPlace(screen, pane) {
+		const split = pane === "split" ? "split" : "journey";
+		try {
+			localStorage.setItem("cargonext-driver-screen", screen);
+			localStorage.setItem("cargonext-driver-pane", split);
+		} catch (error) { /* storage can be blocked */ }
+		const params = new URLSearchParams(window.location.search);
+		if (screen && screen !== "today") params.set("screen", screen);
+		else params.delete("screen");
+		if (screen === "today" && split === "split") params.set("pane", "split");
+		else params.delete("pane");
+		const query = params.toString();
+		const next = window.location.pathname + (query ? "?" + query : "") + window.location.hash;
+		const current = window.location.pathname + window.location.search + window.location.hash;
+		if (next === current) return;
+		try { history.replaceState(null, "", next); } catch (error) { /* the screen still changes if the address cannot be updated */ }
+	}
+	function paintNoRun() {
+		const card = $("map-no-run");
+		if (!card) return;
+		card.hidden = !!data.run_sheet || $("driver-app").dataset.screen !== "map";
+	}
+	function setPane(pane) {
+		const split = pane === "split";
+		$("driver-app").dataset.pane = split ? "split" : "journey";
+		rememberPlace($("driver-app").dataset.screen || "today", split ? "split" : "journey");
+		document.querySelectorAll(".seg button").forEach((button) => {
+			button.classList.toggle("active", split ? button.dataset.pane === "map" : button.dataset.pane === "journey");
+		});
+		text("journey-summary-title", split ? "Route Summary" : "Run Summary");
+		if (split) {
+			if ($("driver-app").dataset.screen !== "today") showScreen("today");
+			renderMap();
+			window.setTimeout(() => {
+				if (state.map && window.google && google.maps.event) google.maps.event.trigger(state.map, "resize");
+				fitStops();
+			}, 80);
+		}
 	}
 	document.querySelectorAll(".tab").forEach((button) => {
-		button.addEventListener("click", () => showScreen(button.dataset.screen));
+		button.addEventListener("click", () => {
+			showScreen(button.dataset.screen);
+			if (button.dataset.screen === "today") setPane("journey");
+		});
 	});
-	const openNav = $("open-navigate");
-	if (openNav) openNav.addEventListener("click", () => showScreen("route"));
-	$("notice-btn").addEventListener("click", () => {
-		showScreen("route");
-		const pendingStop = document.querySelector(".stop .pending");
-		if (pendingStop) pendingStop.closest(".stop").scrollIntoView({ block: "center" });
+	function setNav(collapsed) {
+		const app = $("driver-app");
+		app.dataset.nav = collapsed ? "collapsed" : "open";
+		const toggle = $("nav-toggle");
+		if (toggle) {
+			toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+			toggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+		}
+		try { localStorage.setItem("cargonext-driver-nav", collapsed ? "collapsed" : "open"); } catch (error) { /* storage can be blocked */ }
+	}
+	const navToggle = $("nav-toggle");
+	if (navToggle) {
+		let savedNav = "";
+		try { savedNav = localStorage.getItem("cargonext-driver-nav") || ""; } catch (error) { savedNav = ""; }
+		setNav(savedNav ? savedNav === "collapsed" : window.innerWidth <= 1180);
+		navToggle.addEventListener("click", () => setNav($("driver-app").dataset.nav !== "collapsed"));
+	}
+	document.querySelectorAll(".seg button").forEach((button) => {
+		button.addEventListener("click", () => setPane(button.dataset.pane === "map" ? "split" : "journey"));
 	});
-	$("user-toggle").addEventListener("click", (event) => {
-		event.stopPropagation();
-		const panel = $("user-panel");
-		panel.hidden = !panel.hidden;
-		$("user-toggle").setAttribute("aria-expanded", panel.hidden ? "false" : "true");
+	$("notice-btn").addEventListener("click", () => showScreen("messages"));
+	$("user-toggle").addEventListener("click", () => showScreen("profile"));
+	const search = $("run-search");
+	if (search) {
+		search.addEventListener("input", () => {
+			const query = search.value.trim().toLowerCase();
+			document.querySelectorAll(".j-stop").forEach((row) => {
+				row.hidden = !!(query && row.textContent.toLowerCase().indexOf(query) === -1);
+			});
+		});
+	}
+	document.querySelectorAll(".detail-tab").forEach((button) => {
+		button.addEventListener("click", () => {
+			document.querySelectorAll(".detail-tab").forEach((tab) => tab.classList.toggle("active", tab === button));
+			document.querySelectorAll(".detail-pane").forEach((pane) => {
+				pane.hidden = pane.dataset.pane !== button.dataset.detail;
+			});
+		});
 	});
-	document.addEventListener("click", (event) => {
-		if (event.target.closest("#user-panel") || event.target.closest("#user-toggle")) return;
-		$("user-panel").hidden = true;
-		$("user-toggle").setAttribute("aria-expanded", "false");
+	const viewContainer = $("view-container");
+	if (viewContainer) {
+		viewContainer.addEventListener("click", () => {
+			const tab = document.querySelector('.detail-tab[data-detail="details"]');
+			if (tab) tab.click();
+			const detail = $("stop-detail");
+			if (detail) detail.scrollIntoView({ block: "nearest" });
+		});
+	}
+	function openProof() {
+		const stop = data.stops.find((item) => item.id === state.selectedId) || nextStop();
+		if (stop && stop.pod_url) window.open(stop.pod_url, "_blank", "noopener");
+	}
+	["take-photo", "get-signature", "mark-complete"].forEach((id) => {
+		const button = $(id);
+		if (button) button.addEventListener("click", openProof);
 	});
+	const viewMap = $("detail-view-map");
+	if (viewMap) viewMap.addEventListener("click", () => { if (state.selectedId) focusStop(state.selectedId); });
+	const addPhoto = $("add-photo");
+	if (addPhoto) addPhoto.addEventListener("click", () => { const photo = $("take-photo"); if (photo) photo.click(); });
+	const clearSign = $("clear-sign");
+	if (clearSign) clearSign.addEventListener("click", () => { text("sign-preview", ""); text("signer-name", "—"); text("sign-state", "Not signed"); });
+	const startAction = $("start-action");
+	if (startAction) startAction.addEventListener("click", () => $("dock-nav").click());
+	const mapStart = $("map-start-nav");
+	if (mapStart) mapStart.addEventListener("click", () => $("dock-nav").click());
+	const splitNav = $("split-nav");
+	if (splitNav) splitNav.addEventListener("click", () => $("dock-nav").click());
+	const turnByTurn = $("turn-by-turn");
+	if (turnByTurn) turnByTurn.addEventListener("click", () => { if (!state.navigating) $("dock-nav").click(); });
+	const fitRoute = $("fit-route");
+	if (fitRoute) fitRoute.addEventListener("click", () => fitStops());
+	const routeSheetToggle = $("route-sheet-toggle");
+	if (routeSheetToggle) {
+		routeSheetToggle.addEventListener("click", () => {
+			const body = $("route-sheet-body");
+			if (body) body.hidden = !body.hidden;
+		});
+	}
+	const splitTraffic = $("split-traffic");
+	if (splitTraffic) {
+		splitTraffic.addEventListener("change", () => {
+			const on = splitTraffic.checked;
+			const toggle = $("traffic-toggle");
+			if (toggle) {
+				toggle.setAttribute("aria-pressed", on ? "true" : "false");
+				toggle.classList.toggle("on", on);
+			}
+			if (state.trafficLayer) state.trafficLayer.setMap(on && state.map ? state.map : null);
+		});
+	}
+	const splitSatellite = $("split-satellite");
+	if (splitSatellite) {
+		splitSatellite.addEventListener("click", () => {
+			const on = !splitSatellite.classList.contains("on");
+			splitSatellite.classList.toggle("on", on);
+			document.querySelectorAll("[data-map-type]").forEach((item) => {
+				item.classList.toggle("active", item.dataset.mapType === (on ? "satellite" : "roadmap"));
+			});
+			if (state.map && window.google && google.maps.MapTypeId) {
+				state.map.setMapTypeId(on ? google.maps.MapTypeId.HYBRID : google.maps.MapTypeId.ROADMAP);
+			}
+		});
+	}
+	const mapDetails = $("map-view-details");
+	if (mapDetails) mapDetails.addEventListener("click", () => {
+		const stop = nextStop() || (data.stops || [])[0];
+		if (data.run_sheet && stop) openStopDrawer(stop);
+		else openEmptyDrawer();
+	});
+	const viewAllRuns = $("view-all-runs");
+	if (viewAllRuns) viewAllRuns.addEventListener("click", () => { closeStopDrawer(); showScreen("completed"); });
+	function closeStopDrawer() {
+		const drawer = $("stop-drawer");
+		if (drawer) drawer.hidden = true;
+		const menu = $("drawer-menu");
+		if (menu) menu.hidden = true;
+		const update = $("drawer-update");
+		if (update) update.setAttribute("aria-expanded", "false");
+	}
+	function openEmptyDrawer() {
+		const drawer = $("stop-drawer");
+		if (!drawer) return;
+		drawer.dataset.empty = "true";
+		text("drawer-num", "1");
+		text("drawer-title", "Run Sheet");
+		text("drawer-window", data.run_sheet ? "No stops on this run sheet yet" : "No run sheet assigned for today");
+		const status = $("drawer-status");
+		if (status) {
+			status.textContent = "Not Assigned";
+			status.className = "pill off";
+		}
+		text("drawer-empty-copy", data.run_sheet
+			? "This run sheet does not have any stops yet. Stop details will appear here once dispatch adds them."
+			: "This driver does not have an assigned run sheet yet. Once a run sheet is created and assigned, the stop details, container information, instructions, and other details will appear here.");
+		const empty = $("drawer-empty");
+		if (empty) empty.hidden = false;
+		const update = $("drawer-update");
+		if (update) update.hidden = true;
+		const menu = $("drawer-menu");
+		if (menu) menu.hidden = true;
+		document.querySelectorAll("[data-drawer]").forEach((tab) => tab.classList.toggle("active", tab.dataset.drawer === "details"));
+		document.querySelectorAll("[data-drawer-pane]").forEach((pane) => { pane.hidden = pane.dataset.drawerPane !== "details"; });
+		drawer.hidden = false;
+	}
+	function openStopDrawer(stop) {
+		const drawer = $("stop-drawer");
+		if (!drawer || !stop) return;
+		drawer.dataset.empty = "false";
+		const empty = $("drawer-empty");
+		if (empty) empty.hidden = true;
+		const update = $("drawer-update");
+		if (update) update.hidden = false;
+		state.selectedId = stop.id;
+		text("drawer-num", stop.done ? "✓" : String(stop.number || ""));
+		text("drawer-title", "Stop " + (stop.number || "") + " Details");
+		text("drawer-window", stop.window || "");
+		text("drawer-place", stop.place || stopTitle(stop));
+		text("drawer-address", [stop.facility, stop.address].filter((part, index, list) => part && list.indexOf(part) === index).join(", "));
+		text("drawer-loc-name", stop.place || "—");
+		text("drawer-loc-address", [stop.facility, stop.address].filter(Boolean).join(", "));
+		text("drawer-date", data.today_label || "");
+		text("drawer-loc-window", stop.window || "Open");
+		const status = $("drawer-status");
+		if (status) {
+			status.textContent = stop.done ? "Completed" : (stop.state === "next" ? "In Progress" : "Upcoming");
+			status.className = "pill " + (stop.done ? "on" : (stop.state === "next" ? "live" : "soon"));
+		}
+		const cargoBits = [
+			["Cargo", stop.cargo || "—"],
+			["Reference", stop.leg || "—"]
+		];
+		const cargoHtml = cargoBits.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join("");
+		const box = $("drawer-container");
+		const boxTab = $("drawer-container-tab");
+		if (box) box.innerHTML = cargoHtml;
+		if (boxTab) boxTab.innerHTML = cargoHtml;
+		const vehicle = data.vehicle || {};
+		text("drawer-vehicle", vehicle.plate || "—");
+		text("drawer-vehicle-sub", [vehicle.type, vehicle.model].filter(Boolean).join(" · "));
+		text("drawer-driver", data.full_name || "—");
+		text("drawer-driver-2", data.full_name || "—");
+		text("drawer-phone", data.phone || "");
+		text("drawer-company", data.company_name || "—");
+		text("drawer-dispatcher", data.dispatcher_name || "Dispatch");
+		text("drawer-instructions", stop.notes || "No special instructions.");
+		text("drawer-remarks", stop.notes || "No remarks yet.");
+		text("drawer-proof", stop.signed ? ("Signed" + (stop.signed_by ? " by " + stop.signed_by : "")) : "Signature appears after proof of delivery.");
+		const current = stop.done ? 3 : (stop.state === "next" ? 0 : -1);
+		document.querySelectorAll("#drawer-steps .step").forEach((step) => {
+			const index = Number(step.dataset.step);
+			step.classList.toggle("done", current > index);
+			step.classList.toggle("current", current === index);
+		});
+		text("drawer-note", stop.notes || (stop.done
+			? "This stop is completed."
+			: (stop.state === "next" ? "Head to the location and follow the stop instructions." : "This stop is still upcoming.")));
+		document.querySelectorAll("[data-drawer]").forEach((tab) => tab.classList.toggle("active", tab.dataset.drawer === "details"));
+		document.querySelectorAll("[data-drawer-pane]").forEach((pane) => { pane.hidden = pane.dataset.drawerPane !== "details"; });
+		drawer.hidden = false;
+	}
+	["drawer-close", "drawer-back"].forEach((id) => {
+		const button = $(id);
+		if (button) button.addEventListener("click", closeStopDrawer);
+	});
+	const drawerRoot = $("stop-drawer");
+	if (drawerRoot) {
+		drawerRoot.addEventListener("click", (event) => {
+			if (event.target === drawerRoot) closeStopDrawer();
+		});
+	}
+	document.querySelectorAll("[data-drawer]").forEach((tab) => {
+		tab.addEventListener("click", () => {
+			document.querySelectorAll("[data-drawer]").forEach((item) => item.classList.toggle("active", item === tab));
+			document.querySelectorAll("[data-drawer-pane]").forEach((pane) => {
+				pane.hidden = pane.dataset.drawerPane !== tab.dataset.drawer;
+			});
+		});
+	});
+	const drawerMaps = $("drawer-maps");
+	if (drawerMaps) {
+		drawerMaps.addEventListener("click", () => {
+			const stop = data.stops.find((item) => item.id === state.selectedId);
+			if (!stop) return;
+			const query = stop.lat != null && stop.lng != null ? stop.lat + "," + stop.lng : (stop.address || stop.place || "");
+			if (query) window.open("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(query), "_blank", "noopener");
+		});
+	}
+	const drawerUpdate = $("drawer-update");
+	const drawerMenu = $("drawer-menu");
+	if (drawerUpdate && drawerMenu) {
+		drawerUpdate.addEventListener("click", () => {
+			drawerMenu.hidden = !drawerMenu.hidden;
+			drawerUpdate.setAttribute("aria-expanded", drawerMenu.hidden ? "false" : "true");
+		});
+	}
+	const drawerNav = $("drawer-nav");
+	if (drawerNav) drawerNav.addEventListener("click", () => { closeStopDrawer(); $("dock-nav").click(); });
+	["drawer-proof-btn", "drawer-proof-action"].forEach((id) => {
+		const button = $(id);
+		if (button) button.addEventListener("click", () => { closeStopDrawer(); openProof(); });
+	});
+	document.querySelectorAll("[data-map-type]").forEach((button) => {
+		button.addEventListener("click", () => {
+			document.querySelectorAll("[data-map-type]").forEach((item) => item.classList.toggle("active", item === button));
+			if (!state.map || !window.google || !google.maps.MapTypeId) return;
+			const type = button.dataset.mapType === "satellite" ? google.maps.MapTypeId.HYBRID : google.maps.MapTypeId.ROADMAP;
+			state.map.setMapTypeId(type);
+		});
+	});
+	const trafficToggle = $("traffic-toggle");
+	if (trafficToggle) {
+		trafficToggle.addEventListener("click", () => {
+			const on = trafficToggle.getAttribute("aria-pressed") !== "true";
+			trafficToggle.setAttribute("aria-pressed", on ? "true" : "false");
+			trafficToggle.classList.toggle("on", on);
+			if (state.trafficLayer) state.trafficLayer.setMap(on && state.map ? state.map : null);
+		});
+	}
+	["geofence-toggle", "facility-toggle"].forEach((id) => {
+		const button = $(id);
+		if (!button) return;
+		button.addEventListener("click", () => {
+			const on = button.getAttribute("aria-pressed") !== "true";
+			button.setAttribute("aria-pressed", on ? "true" : "false");
+			button.classList.toggle("on", on);
+		});
+	});
+	const liveToggle = $("live-toggle");
+	if (liveToggle) {
+		liveToggle.addEventListener("change", () => {
+			state.follow = liveToggle.checked;
+			state.cameraHeld = !liveToggle.checked;
+			if (state.follow) {
+				const point = userLocation();
+				if (point && state.map) state.map.panTo(point);
+			}
+		});
+	}
 
 	function pointOf(stop) {
 		const point = stop && navApi.stopPoint(stop);
@@ -1078,16 +2737,35 @@
 		const upcoming = nextStop();
 		const origin = originNow();
 		const remaining = data.stops.filter((stop) => !stop.done).length;
-		text("dock-title", upcoming ? upcoming.headline : (data.stops.length ? "Run complete" : "No active stop"));
+		const currentTitle = upcoming ? stopTitle(upcoming) : (data.stops.length ? "Run complete" : "No active stop");
+		text("dock-title", currentTitle);
 		text("dock-address", upcoming ? upcoming.address : "");
+		text("dock-window", upcoming && upcoming.window ? upcoming.window : "");
+		const dockStatus = $("dock-status");
+		if (dockStatus) {
+			dockStatus.textContent = upcoming ? "In Progress" : (data.stops.length ? "Completed" : "Idle");
+			dockStatus.className = "pill " + (upcoming ? "on" : "off");
+		}
 		$("dock-nav").disabled = !upcoming;
-		$("dock-nav").textContent = state.navigating ? "End navigation" : "Start navigation";
+		$("dock-nav").textContent = state.navigating ? "End navigation" : "Navigate";
+		const mapNav = $("map-start-nav");
+		if (mapNav) {
+			mapNav.disabled = !upcoming;
+			mapNav.textContent = state.navigating ? "End Navigation" : "Start Navigation";
+		}
+		const splitNav = $("split-nav");
+		if (splitNav) {
+			splitNav.disabled = !upcoming;
+			splitNav.textContent = state.navigating ? "End Navigation" : "Start Navigation";
+		}
 		text("stops-left", String(remaining));
-		text("stops-left-sub", "of " + data.total + " stops");
+		text("stops-left-sub", "");
 		const run = movingRun(origin, now);
 		const kmLabel = formatKm(run ? run.km : null);
 		text("distance-remaining", kmLabel);
-		text("hero-km", kmLabel === "—" ? "—" : kmLabel + " remaining");
+		text("map-sum-km", kmLabel);
+		text("split-km", kmLabel);
+		text("run-km-meta", kmLabel === "—" ? "" : kmLabel);
 		if (kmLabel === "—") {
 			$("map-km-chip").hidden = true;
 		} else {
@@ -1097,8 +2775,11 @@
 		if (run && run.seconds != null) {
 			const clock = formatClock(new Date(now + run.seconds * 1000));
 			text("eta-final", clock);
-			text("hero-eta", clock);
-			text("eta-final-sub", run.traffic ? "Based on current traffic" : "Estimated");
+			text("map-sum-eta", clock);
+			text("split-eta", clock);
+			text("run-eta-meta", "Est. " + clock);
+			text("eta-final-sub", run.traffic ? "Live traffic" : "Estimated Time");
+			text("split-traffic", run.traffic ? "Live traffic" : "Estimated");
 		}
 		paintLiveStops(origin, now);
 		if (!upcoming) {
@@ -1131,11 +2812,14 @@
 	}, 1000);
 
 	function focusStop(id) {
+		selectStop(id);
 		const stop = data.stops.find((item) => item.id === id);
-		if (!stop || stop.lat == null || stop.lng == null) return;
-		if ($("driver-app").dataset.screen !== "route") showScreen("route");
-		if (!state.map) return;
+		const screen = $("driver-app").dataset.screen;
+		if (screen !== "today" && screen !== "map") showScreen("today");
+		if (!stop || stop.lat == null || stop.lng == null || !state.map) return;
 		state.follow = false;
+		const live = $("live-toggle");
+		if (live) live.checked = false;
 		state.cameraHeld = true;
 		state.zoomArmed = false;
 		state.map.panTo({ lat: Number(stop.lat), lng: Number(stop.lng) });
@@ -1641,6 +3325,7 @@
 			paintCompass();
 			$("map-empty").hidden = true;
 			const traffic = new google.maps.TrafficLayer();
+			state.trafficLayer = traffic;
 			traffic.setMap(state.map);
 			state.map.addListener("dragstart", () => {
 				if (state.navigating) state.follow = false;
@@ -1680,7 +3365,8 @@
 		text("maneuver-text", "Starting navigation");
 		text("maneuver-dist", "");
 		text("maneuver-next", "");
-		showScreen("route");
+		const screen = $("driver-app").dataset.screen;
+		if (screen !== "today" && screen !== "map") showScreen("today");
 		ensureWatch();
 		if (state.map) refreshRoute();
 		else renderMap();
@@ -1816,9 +3502,11 @@
 	document.addEventListener("webkitfullscreenchange", syncMapMax);
 
 	const phone = (data.dispatcher_phone || "").replace(/[^\d+]/g, "");
-	$("call-dispatcher").addEventListener("click", () => {
-		if (phone) window.location.href = "tel:" + phone;
-		else window.alert(data.dispatcher_name ? data.dispatcher_name + " has no phone on file." : "No dispatcher is assigned on today's run.");
+	document.querySelectorAll("[data-call]").forEach((button) => {
+		button.addEventListener("click", () => {
+			if (phone) window.location.href = "tel:" + phone;
+			else window.alert(data.dispatcher_name ? data.dispatcher_name + " has no phone on file." : "No dispatcher is assigned on today's run.");
+		});
 	});
 	$("logout-btn").addEventListener("click", () => {
 		const token = (window.frappe && (frappe.csrf_token || (frappe.boot && frappe.boot.csrf_token))) || "";
@@ -1827,12 +3515,14 @@
 			headers: {"X-Frappe-CSRF-Token": token, "Accept": "application/json"}
 		}).finally(() => { window.location.href = "/login"; });
 	});
-	$("report-problem").addEventListener("click", () => {
-		if (!nextStop()) {
-			window.alert("There is no open stop to attach this note to.");
-			return;
-		}
-		$("problem-modal").classList.add("open");
+	document.querySelectorAll("[data-report], #report-problem").forEach((button) => {
+		button.addEventListener("click", () => {
+			if (!nextStop()) {
+				window.alert("There is no open stop to attach this note to.");
+				return;
+			}
+			$("problem-modal").classList.add("open");
+		});
 	});
 	$("problem-cancel").addEventListener("click", () => $("problem-modal").classList.remove("open"));
 	function postMethod(method, args) {
@@ -1868,7 +3558,14 @@
 		}).catch(() => { $("problem-send").disabled = false; });
 	});
 
-	showScreen("route");
+	const place = window.__driverPlace || { screen: "today", pane: "journey" };
+	showScreen(place.screen);
+	if (place.pane === "split" && $("driver-app").dataset.screen === "today") setPane("split");
+	window.addEventListener("pagehide", () => {
+		const app = $("driver-app");
+		if (!app) return;
+		rememberPlace(app.dataset.screen || "today", app.dataset.pane || "journey");
+	});
 	ensureWatch();
 })();
 </script>
