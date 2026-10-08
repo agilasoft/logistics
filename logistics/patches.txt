@@ -990,4 +990,6 @@ logistics.patches.v3_0_show_mice_desk_icon
 logistics.patches.v3_0_seed_logistics_staff
 # Transport Vehicle permits that existed before the Required checkbox are required.
 logistics.patches.v3_0_set_transport_vehicle_permits_required
+# Control Tower credit lines live on Customer Credit Limit. Copy limits, then drop the register.
+logistics.patches.v3_0_remove_client_credit_line
 

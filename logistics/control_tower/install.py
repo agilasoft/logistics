@@ -470,10 +470,8 @@ METRIC_SPECS = {
 	},
 	"credit_lines_exposure": {
 		"kind": "number_card",
-		"document_type": "Client Credit Line",
 		"card_label": "Credit Exposure (PHP)",
-		"card_function": "Sum",
-		"card_value_field": "exposure_amount",
+		"currency": "PHP",
 		"global": True,
 	},
 	"investment_holdings_summary": {
@@ -670,6 +668,32 @@ def _ensure_headline_chart(org, spec):
 	return chart_name
 
 
+def _retarget_credit_exposure_card(label, org, metric_key, ms):
+	"""Point a leftover Client Credit Line card at the customer-credit KPI."""
+	current = frappe.db.get_value("Number Card", label, "document_type")
+	if current != "Client Credit Line":
+		return
+	frappe.db.set_value(
+		"Number Card",
+		label,
+		{
+			"type": "Custom",
+			"document_type": "Control Tower Organization",
+			"method": "logistics.control_tower.api.kpi_card_value",
+			"function": "Count",
+			"aggregate_function_based_on": "",
+			"currency": ms.get("currency") or "PHP",
+			"filters_json": json.dumps({
+				"organization": org,
+				"metric": metric_key,
+				"report_name": ms.get("report_name") or "",
+			}),
+			"is_standard": 0,
+		},
+		update_modified=False,
+	)
+
+
 def _ensure_number_card(org, metric_key, ms):
 	"""Create / reuse a Number Card.
 
@@ -683,6 +707,8 @@ def _ensure_number_card(org, metric_key, ms):
 	"""
 	label = _card_label(org, metric_key, ms)
 	if frappe.db.exists("Number Card", label):
+		if metric_key == "credit_lines_exposure":
+			_retarget_credit_exposure_card(label, org, metric_key, ms)
 		frappe.db.set_value("Number Card", label, "is_standard", 0, update_modified=False)
 		return label
 	# Skip when underlying source is missing.
@@ -722,6 +748,8 @@ def _ensure_number_card(org, metric_key, ms):
 			}),
 			"dynamic_filters_json": "[]",
 		}
+		if ms.get("currency"):
+			doc_data["currency"] = ms["currency"]
 	try:
 		frappe.get_doc(doc_data).insert(ignore_permissions=True)
 	except Exception:
