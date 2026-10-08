@@ -222,6 +222,30 @@ def _build_payload(driver_name, preview):
 	payload["progress"] = int(round((done / total) * 100)) if total else 0
 	payload["activity"] = _activity(driver, runs)
 	payload["history"] = _history(runs)
+	payload["employment"] = "Internal Driver" if cint(driver.custom_is_internal) else "External Driver"
+	payload["driver_id"] = driver.name
+	payload["employee"] = driver.employee or ""
+	payload["address"] = _plain_address_doc(driver.address) if driver.address else ""
+	payload["birth_date"] = ""
+	payload["hired_date"] = ""
+	payload["birth_iso"] = ""
+	payload["hired_iso"] = ""
+	payload["gender"] = ""
+	payload["driver_status"] = driver.status or "Active"
+	payload["genders"] = (
+		frappe.get_all("Gender", pluck="name", limit=20) if frappe.db.exists("DocType", "Gender") else []
+	)
+	if driver.employee and frappe.db.exists("Employee", driver.employee):
+		employee = frappe.db.get_value(
+			"Employee", driver.employee, ["date_of_birth", "date_of_joining", "gender"], as_dict=True
+		) or {}
+		if employee.get("date_of_birth"):
+			payload["birth_date"] = formatdate(employee.date_of_birth, "MMM d, yyyy")
+			payload["birth_iso"] = str(employee.date_of_birth)
+		if employee.get("date_of_joining"):
+			payload["hired_date"] = formatdate(employee.date_of_joining, "MMM d, yyyy")
+			payload["hired_iso"] = str(employee.date_of_joining)
+		payload["gender"] = employee.get("gender") or ""
 	return payload
 
 
@@ -236,12 +260,13 @@ def _driver_row(driver_name):
 		"custom_last_known_latitude",
 		"custom_last_known_longitude",
 	]
+	optional = ["employee", "address", "license_number"]
 	meta = frappe.get_meta("Driver")
-	fields = core + [field for field in custom if meta.has_field(field)]
+	fields = core + [field for field in custom + optional if meta.has_field(field)]
 	row = frappe.db.get_value("Driver", driver_name, fields, as_dict=True)
 	if not row:
 		return None
-	for field in custom:
+	for field in custom + optional:
 		row.setdefault(field, None)
 	return row
 
@@ -346,15 +371,27 @@ def _license_card(driver):
 	else:
 		detail = "No expiry"
 		ok = bool(classes)
-	return {"label": label, "detail": detail, "ok": ok}
+	return {
+		"label": label,
+		"detail": detail,
+		"ok": ok,
+		"classes": ", ".join(classes),
+		"number": driver.license_number or "",
+		"expiry": str(driver.expiry_date) if driver.expiry_date else "",
+	}
 
 
 def _medical_card(driver):
 	expiry = driver.custom_medical_clearance_expiry
 	if not expiry:
-		return {"label": "Medical", "detail": "Not on file", "ok": False}
+		return {"label": "Medical", "detail": "Not on file", "ok": False, "expiry": ""}
 	ok = getdate(expiry) >= getdate(today())
-	return {"label": "Medical", "detail": "Due " + formatdate(expiry, "MMM d, yyyy"), "ok": ok}
+	return {
+		"label": "Medical",
+		"detail": "Due " + formatdate(expiry, "MMM d, yyyy"),
+		"ok": ok,
+		"expiry": str(expiry),
+	}
 
 
 def _runs_for(driver_name):
@@ -751,6 +788,88 @@ def _same_day(value, day):
 		return getdate(value) == getdate(day)
 	except Exception:
 		return False
+
+
+@frappe.whitelist()
+def save_driver_profile(
+	full_name=None,
+	phone=None,
+	address=None,
+	gender=None,
+	birth_date=None,
+	hired_date=None,
+	employment=None,
+	status=None,
+	license_number=None,
+	license_expiry=None,
+	medical_expiry=None,
+):
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Please log in."), frappe.PermissionError)
+	driver_name, preview = _resolve_driver()
+	session_driver = frappe.db.get_value("Driver", {"user": frappe.session.user}, "name")
+	if preview or not driver_name or session_driver != driver_name:
+		frappe.throw(_("Open your own driver profile to save changes."), frappe.PermissionError)
+	driver = _driver_row(driver_name)
+	if not driver:
+		frappe.throw(_("Your user is not linked to a Driver."), frappe.PermissionError)
+
+	name = (full_name or "").strip()[:140]
+	if not name:
+		frappe.throw(_("Full name is required."))
+	meta = frappe.get_meta("Driver")
+	values = {"full_name": name, "cell_number": (phone or "").strip()[:140]}
+	chosen_status = (status or "").strip()
+	if chosen_status in ("Active", "Suspended", "Left"):
+		values["status"] = chosen_status
+	if meta.has_field("license_number"):
+		values["license_number"] = (license_number or "").strip()[:140]
+	if meta.has_field("expiry_date"):
+		values["expiry_date"] = getdate(license_expiry) if license_expiry else None
+	if meta.has_field("custom_is_internal") and employment in ("Internal Driver", "External Driver"):
+		values["custom_is_internal"] = 1 if employment == "Internal Driver" else 0
+	if meta.has_field("custom_medical_clearance_expiry"):
+		values["custom_medical_clearance_expiry"] = getdate(medical_expiry) if medical_expiry else None
+	frappe.db.set_value("Driver", driver_name, values, update_modified=True)
+
+	if driver.address and address is not None and frappe.db.exists("Address", driver.address):
+		frappe.db.set_value(
+			"Address",
+			driver.address,
+			{"address_line1": (address or "").strip()[:240], "address_line2": "", "city": "", "state": ""},
+			update_modified=True,
+		)
+
+	if driver.employee and frappe.db.exists("Employee", driver.employee):
+		employee_values = {}
+		if birth_date:
+			employee_values["date_of_birth"] = getdate(birth_date)
+		if hired_date:
+			employee_values["date_of_joining"] = getdate(hired_date)
+		chosen_gender = (gender or "").strip()
+		allowed = frappe.get_all("Gender", pluck="name") if frappe.db.exists("DocType", "Gender") else []
+		if chosen_gender and chosen_gender in allowed:
+			employee_values["gender"] = chosen_gender
+		if employee_values:
+			frappe.db.set_value("Employee", driver.employee, employee_values, update_modified=True)
+
+	fresh = _driver_row(driver_name)
+	return {
+		"ok": True,
+		"address_saved": not (address or "").strip() or bool(driver.address),
+		"full_name": fresh.full_name or "",
+		"phone": fresh.cell_number or "",
+		"address": _plain_address_doc(fresh.address) if fresh.address else "",
+		"employment": "Internal Driver" if cint(fresh.custom_is_internal) else "External Driver",
+		"driver_status": fresh.status or "Active",
+		"license": _license_card(fresh),
+		"medical": _medical_card(fresh),
+		"birth_date": formatdate(birth_date, "MMM d, yyyy") if birth_date else "",
+		"birth_iso": str(getdate(birth_date)) if birth_date else "",
+		"hired_date": formatdate(hired_date, "MMM d, yyyy") if hired_date else "",
+		"hired_iso": str(getdate(hired_date)) if hired_date else "",
+		"gender": (gender or "").strip(),
+	}
 
 
 @frappe.whitelist()

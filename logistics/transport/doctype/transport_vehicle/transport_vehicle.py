@@ -4,10 +4,34 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
+from frappe.utils import flt
 import datetime as dt
 
 
 class TransportVehicle(Document):
+	def validate(self):
+		self._apply_default_internal_dimension_uom()
+		self._validate_internal_dimensions()
+
+	def _apply_default_internal_dimension_uom(self):
+		if self.internal_dimension_uom:
+			return
+		if not any(
+			flt(getattr(self, field, 0)) > 0
+			for field in ("internal_length", "internal_width", "internal_height")
+		):
+			return
+		from logistics.utils.measurements import get_default_uoms
+
+		company = self.company if self.get("company_owned") else None
+		defaults = get_default_uoms(company=company)
+		self.internal_dimension_uom = defaults.get("dimension")
+
+	def _validate_internal_dimensions(self):
+		for field in ("internal_length", "internal_width", "internal_height"):
+			if flt(getattr(self, field, 0)) < 0:
+				frappe.throw(_("{0} cannot be negative").format(self.meta.get_label(field)))
+
 	@frappe.whitelist()
 	def get_latest_position(self):
 		"""Fetch the latest position from the telematics provider"""
