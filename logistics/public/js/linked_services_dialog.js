@@ -922,10 +922,7 @@ function _lsd1_bind(dialog, frm, opts, state) {
 				return;
 			}
 			const values = _lsd1_collect_control_values(state.composeControls);
-			const form_qty = cint(values.quantity);
-			if (form_qty >= 1 && form_qty <= 50) {
-				quantity = form_qty;
-			}
+			// Qty on the add bar is the only quantity. Ignore a leftover details field.
 			delete values.quantity;
 			const args = _lsd1_parent_args(frm, opts);
 			args.service_type = service_type;
