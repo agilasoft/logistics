@@ -137,8 +137,6 @@ app_include_js = [
 # include js in page
 page_js = {
 	"workflow-center": "public/js/workflow_center.js",
-	"air-freight-control-tower": "public/js/air_freight_control_tower_page.js",
-	"sea-freight-control-tower": "public/js/sea_freight_control_tower_page.js",
 	"role-permission-matrix": "public/js/role_permission_matrix_page.js",
 }
 

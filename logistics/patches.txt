@@ -996,6 +996,8 @@ logistics.patches.v3_0_seed_logistics_staff
 logistics.patches.v3_0_set_transport_vehicle_permits_required
 # Sustainability Home: carbon footprint lanes and an organized sidebar
 logistics.patches.v3_0_sync_sustainability_operations_dashboard
+# Air and Sea Control Towers: native Dashboard pages, keep the old page routes as redirects.
+logistics.patches.v3_0_native_freight_control_tower_dashboards
 # Control Tower credit lines live on Customer Credit Limit. Copy limits, then drop the register.
 logistics.patches.v3_0_remove_client_credit_line
 
