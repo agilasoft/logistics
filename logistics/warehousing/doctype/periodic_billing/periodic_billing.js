@@ -125,31 +125,194 @@ frappe.ui.form.on('Periodic Billing', {
       }, __('Action'));
     }
 
-    // Create → Sales Invoice
-    frm.add_custom_button(__('Sales Invoice'), () => {
-      frappe.call({
-        method: 'logistics.warehousing.api.create_sales_invoice_from_periodic_billing',
-        args: {
-          periodic_billing: frm.doc.name,
-          posting_date: frm.doc.date || undefined
-          // you can also pass company / cost_center here if you have those fields on PB:
-          // company: frm.doc.company,
-          // cost_center: frm.doc.cost_center,
-        },
-        freeze: true,
-        freeze_message: __('Creating Sales Invoice…'),
-      }).then(r => {
-        const si = r?.message?.sales_invoice;
-        if (si) {
-          frappe.show_alert({ message: __('Sales Invoice {0} created', [si]), indicator: 'green' });
-          frappe.set_route('Form', 'Sales Invoice', si);
-        } else {
-          frappe.msgprint(__('No Sales Invoice returned.'));
-        }
-      }).catch(e => {
-        frappe.msgprint(__('Failed to create Sales Invoice.'));
-        // Optional: console.error(e);
-      });
-    }, __('Action'));
+    // Customer invoice, and optional internal billing or intercompany, in one window.
+    if (frm.doc.docstatus !== 2) {
+      frm.add_custom_button(__('Create Billing'), () => {
+        open_periodic_billing_dialog(frm);
+      }, __('Action'));
+    }
   },
 });
+
+function periodic_billing_charge_table(charges) {
+  var header = [
+    '<table class="table table-bordered table-sm">',
+    '<thead><tr>',
+    '<th style="width:32px"><input type="checkbox" id="pb_billing_select_all" checked /></th>',
+    '<th>' + __('Item') + '</th>',
+    '<th>' + __('Warehouse Job') + '</th>',
+    '<th class="text-right">' + __('Qty') + '</th>',
+    '<th class="text-right">' + __('Amount') + '</th>',
+    '</tr></thead><tbody>'
+  ].join('');
+  var rows = (charges || []).map(function (charge) {
+    var posting = '';
+    if (charge.posting === 'internal') {
+      posting = '<div class="text-muted">' + __('Internal') + '</div>';
+    } else if (charge.posting === 'intercompany') {
+      posting = '<div class="text-muted">' + __('Intercompany') + '</div>';
+    }
+    return [
+      '<tr>',
+      '<td><input type="checkbox" class="pb-billing-cb" data-idx="' + charge.idx + '" checked /></td>',
+      '<td>' + frappe.utils.escape_html(charge.item_name || charge.item_code || '') + posting + '</td>',
+      '<td>' + frappe.utils.escape_html(charge.warehouse_job || '') + '</td>',
+      '<td class="text-right">' + (charge.quantity != null ? charge.quantity : '') + '</td>',
+      '<td class="text-right">' + frappe.format(charge.amount || 0, { fieldtype: 'Currency' }) + '</td>',
+      '</tr>'
+    ].join('');
+  });
+  return header + rows.join('') + '</tbody></table>';
+}
+
+function periodic_billing_doc_link(doctype, name) {
+  if (!name) {
+    return '';
+  }
+  var label = frappe.utils.escape_html(name);
+  if (typeof frappe.utils.get_form_link === 'function') {
+    return frappe.utils.get_form_link(doctype, name, true, label);
+  }
+  return label;
+}
+
+function open_periodic_billing_dialog(frm) {
+  if (window.logistics && logistics.menu && !logistics.menu.can('Sales Invoice', 'create')) {
+    frappe.msgprint({
+      title: __('Not Permitted'),
+      message: __('You do not have permission to create a Sales Invoice.'),
+      indicator: 'red',
+    });
+    return;
+  }
+  frappe.call({
+    method: 'logistics.warehousing.periodic_billing_posting.get_periodic_billing_posting_options',
+    args: { periodic_billing: frm.doc.name },
+    freeze: true,
+    freeze_message: __('Loading charges...'),
+  }).then(function (r) {
+    var data = r.message || {};
+    if (!data.charges || !data.charges.length) {
+      frappe.msgprint({
+        title: __('Create Billing'),
+        message: __('No charges to bill. Use Get Charges first.'),
+        indicator: 'orange',
+      });
+      return;
+    }
+    var fields = [
+      { fieldname: 'posting_date', fieldtype: 'Date', label: __('Invoice Date'), default: data.default_posting_date, reqd: 1 },
+      { fieldname: 'customer', fieldtype: 'Link', label: __('Customer'), options: 'Customer', default: data.customer, reqd: 1 },
+      { fieldname: 'charges_section', fieldtype: 'Section Break', label: __('Charges to Include') },
+      { fieldname: 'charges_html', fieldtype: 'HTML', options: periodic_billing_charge_table(data.charges) },
+      { fieldname: 'posting_section', fieldtype: 'Section Break', label: __('Also post') },
+    ];
+    if (data.show_internal_billing) {
+      fields.push({
+        fieldname: 'internal_billing',
+        fieldtype: 'Check',
+        label: __('Internal Billing'),
+        description: __('Journal entry for linked warehouse jobs in the same company as the main job. Uses the selected charge amounts.'),
+      });
+    }
+    if (data.show_intercompany) {
+      fields.push({
+        fieldname: 'intercompany',
+        fieldtype: 'Check',
+        label: __('Intercompany Transactions'),
+        description: __('Sales invoice and purchase invoice for linked warehouse jobs in another company. Uses the selected charge amounts.'),
+      });
+    }
+    if (data.intercompany_disabled) {
+      fields.push({
+        fieldname: 'intercompany_note',
+        fieldtype: 'HTML',
+        options: '<p class="text-muted">' + __('Intercompany invoicing is turned off in Intercompany Settings.') + '</p>',
+      });
+    }
+    if (!data.show_internal_billing && !data.show_intercompany && !data.intercompany_disabled) {
+      fields.push({
+        fieldname: 'posting_note',
+        fieldtype: 'HTML',
+        options: '<p class="text-muted">' + __('Internal billing and intercompany transactions appear when a charge is linked to a warehouse job in the same company or another company.') + '</p>',
+      });
+    }
+
+    var dialog = new frappe.ui.Dialog({
+      title: __('Create Billing'),
+      size: 'large',
+      fields: fields,
+      primary_action_label: __('Create Billing'),
+      primary_action: function (values) {
+        var idxs = [];
+        dialog.$wrapper.find('input.pb-billing-cb:checked').each(function () {
+          idxs.push(parseInt($(this).attr('data-idx'), 10));
+        });
+        if (!idxs.length) {
+          frappe.msgprint({
+            title: __('Select Charges'),
+            message: __('Select at least one charge to include.'),
+            indicator: 'orange',
+          });
+          return;
+        }
+        dialog.hide();
+        frappe.call({
+          method: 'logistics.warehousing.periodic_billing_posting.create_billing',
+          args: {
+            periodic_billing: frm.doc.name,
+            posting_date: values.posting_date,
+            customer: values.customer,
+            selected_charge_idxs: JSON.stringify(idxs),
+            internal_billing: values.internal_billing ? 1 : 0,
+            intercompany: values.intercompany ? 1 : 0,
+          },
+          freeze: true,
+          freeze_message: __('Creating billing...'),
+        }).then(function (create_r) {
+          show_periodic_billing_result(create_r.message || {});
+          frm.reload_doc();
+        });
+      },
+    });
+    dialog.show();
+    dialog.$wrapper.find('#pb_billing_select_all').on('change', function () {
+      dialog.$wrapper.find('input.pb-billing-cb').prop('checked', $(this).prop('checked'));
+    });
+  });
+}
+
+function show_periodic_billing_result(message) {
+  var parts = [];
+  if (message.sales_invoice) {
+    parts.push('<p>' + __('Customer Sales Invoice') + ': ' + periodic_billing_doc_link('Sales Invoice', message.sales_invoice) + '</p>');
+  }
+  (message.journal_entries || []).forEach(function (row) {
+    parts.push('<p>' + __('Internal Billing') + ' ' + frappe.utils.escape_html(row.job || '') + ': ' + periodic_billing_doc_link('Journal Entry', row.journal_entry) + '</p>');
+  });
+  (message.intercompany || []).forEach(function (row) {
+    parts.push(
+      '<p>' + __('Intercompany') + ' ' + frappe.utils.escape_html(row.job || '') + ': ' +
+      periodic_billing_doc_link('Sales Invoice', row.sales_invoice) + ' / ' +
+      periodic_billing_doc_link('Purchase Invoice', row.purchase_invoice) + '</p>'
+    );
+  });
+  if ((message.errors || []).length) {
+    parts.push('<p><strong>' + __('Errors') + '</strong></p><ul>');
+    message.errors.forEach(function (err) {
+      parts.push('<li>' + frappe.utils.escape_html(err) + '</li>');
+    });
+    parts.push('</ul>');
+  }
+  var indicator = 'green';
+  if ((message.errors || []).length && (message.journal_entries || []).length + (message.intercompany || []).length) {
+    indicator = 'orange';
+  } else if ((message.errors || []).length) {
+    indicator = 'orange';
+  }
+  frappe.msgprint({
+    title: __('Create Billing'),
+    message: parts.join('') || message.message || __('Billing created.'),
+    indicator: indicator,
+  });
+}
