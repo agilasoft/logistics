@@ -261,15 +261,19 @@ def _filters(company, module, scope, since):
 
 
 def _sum_totals(filters):
+	# Frappe rejects SQL functions written as SELECT strings. Dict fields
+	# compile to COUNT/SUM, and order_by=None keeps the DocType sort off an
+	# aggregate-only query.
 	rows = _frappe().get_all(
 		"Carbon Footprint",
 		filters=filters,
 		fields=[
-			"count(name) as records",
-			"sum(total_emissions) as emissions",
-			"sum(net_emissions) as net",
-			"sum(carbon_offset) as offset",
+			{"COUNT": "name", "as": "records"},
+			{"SUM": "total_emissions", "as": "emissions"},
+			{"SUM": "net_emissions", "as": "net"},
+			{"SUM": "carbon_offset", "as": "offset"},
 		],
+		order_by=None,
 	)
 	row = rows[0] if rows else {}
 	return {
