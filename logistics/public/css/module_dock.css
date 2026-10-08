@@ -1,0 +1,48 @@
+/* Module tiles are filled artwork. The desk icon rule strokes every svg.icon,
+   which draws a grey outline over the blue plate. These symbols opt out. */
+.dock-item-icon svg.icon:is(
+		:has(use[href="#icon-logistics"]),
+		:has(use[href="#icon-transport"]),
+		:has(use[href="#icon-warehousing"]),
+		:has(use[href="#icon-customs"]),
+		:has(use[href="#icon-global_customs"]),
+		:has(use[href="#icon-sea_freight"]),
+		:has(use[href="#icon-air_freight"]),
+		:has(use[href="#icon-job_management"]),
+		:has(use[href="#icon-pricing"]),
+		:has(use[href="#icon-sustainability"]),
+		:has(use[href="#icon-netting"]),
+		:has(use[href="#icon-special_projects"]),
+		:has(use[href="#icon-intercompany"]),
+		:has(use[href="#icon-cash_advance"]),
+		:has(use[href="#icon-mice"]),
+		:has(use[href="#icon-high_value"]),
+		:has(use[href="#icon-time_sensitive"]),
+		:has(use[href="#icon-control_tower"]),
+		:has(use[href="#icon-order_management"])
+	),
+.header-logo svg.icon:is(
+		:has(use[href="#icon-logistics"]),
+		:has(use[href="#icon-transport"]),
+		:has(use[href="#icon-warehousing"]),
+		:has(use[href="#icon-customs"]),
+		:has(use[href="#icon-global_customs"]),
+		:has(use[href="#icon-sea_freight"]),
+		:has(use[href="#icon-air_freight"]),
+		:has(use[href="#icon-job_management"]),
+		:has(use[href="#icon-pricing"]),
+		:has(use[href="#icon-sustainability"]),
+		:has(use[href="#icon-netting"]),
+		:has(use[href="#icon-special_projects"]),
+		:has(use[href="#icon-intercompany"]),
+		:has(use[href="#icon-cash_advance"]),
+		:has(use[href="#icon-mice"]),
+		:has(use[href="#icon-high_value"]),
+		:has(use[href="#icon-time_sensitive"]),
+		:has(use[href="#icon-control_tower"]),
+		:has(use[href="#icon-order_management"])
+	) {
+	stroke: none;
+	width: 28px;
+	height: 28px;
+}

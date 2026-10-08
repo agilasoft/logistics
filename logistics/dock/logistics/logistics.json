@@ -5,6 +5,7 @@
   {
    "added": 0,
    "hidden": 0,
+   "icon": "logistics",
    "link_to": "Logistics",
    "link_type": "Sidebar",
    "title": "Logistics"
@@ -36,6 +37,7 @@
   {
    "added": 0,
    "hidden": 0,
+   "icon": "global_customs",
    "link_to": "Global Customs",
    "link_type": "Sidebar",
    "title": "Global Customs"
@@ -99,6 +101,7 @@
   {
    "added": 0,
    "hidden": 0,
+   "icon": "intercompany",
    "link_to": "Intercompany",
    "link_type": "Sidebar",
    "title": "Intercompany"
@@ -138,6 +141,7 @@
   {
    "added": 0,
    "hidden": 0,
+   "icon": "control_tower",
    "link_to": "Control Tower",
    "link_type": "Sidebar",
    "title": "Control Tower"

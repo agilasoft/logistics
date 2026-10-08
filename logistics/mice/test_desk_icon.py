@@ -41,6 +41,23 @@ class TestMiceDeskIcon(unittest.TestCase):
 		self.assertFalse((ROOT / "logistics/workspace_sidebar").exists())
 		self.assertFalse((ROOT / "logistics/exhibits/workspace/exhibits/exhibits.json").exists())
 
+	def test_dock_names_every_module_with_its_icon(self):
+		dock = json.loads((ROOT / "logistics/dock/logistics/logistics.json").read_text())
+		sprite = (ROOT / "logistics/public/icons/module-icons.svg").read_text()
+		modules = [
+			line.strip()
+			for line in (ROOT / "logistics/modules.txt").read_text().splitlines()
+			if line.strip() and not line.startswith("#")
+		]
+		rows = dock["items"]
+		self.assertEqual([row["link_to"] for row in rows], modules)
+		for row in rows:
+			self.assertEqual(row["link_type"], "Sidebar")
+			self.assertEqual(row["title"], row["link_to"])
+			self.assertTrue(row.get("icon"))
+			self.assertEqual(row.get("hidden"), 0)
+			self.assertIn(f'id="icon-{row["icon"]}"', sprite)
+
 	def test_exhibits_module_is_not_its_own_dock_entry(self):
 		hooks = ast.parse((ROOT / "logistics/hooks.py").read_text())
 		mapping = None

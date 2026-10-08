@@ -52,12 +52,87 @@
 		}, 0);
 	}
 
+	// A saved site or user dock is the whole rail: Frappe drops any module that
+	// layer does not name. CargoNext's modules still have to appear, after that
+	// arrangement, unless the layer explicitly hid them.
+	function dock_key(entry) {
+		return ["link_type", "link_to", "url"]
+			.map(function (field) {
+				return (entry && entry[field]) || "";
+			})
+			.join("|");
+	}
+
+	function install_dock_merge() {
+		var Sidebar = frappe.ui && frappe.ui.Sidebar;
+		if (!Sidebar || !Sidebar.prototype || typeof Sidebar.prototype.apply_dock_arrangement !== "function") {
+			return false;
+		}
+		if (Sidebar.prototype.__logistics_dock_merge__) {
+			return true;
+		}
+		var original = Sidebar.prototype.apply_dock_arrangement;
+		Sidebar.prototype.apply_dock_arrangement = function (entries, app) {
+			var arranged = original.call(this, entries, app) || [];
+			var app_name = app && app.app_name;
+			var arrangement = (frappe.boot.dock || {})[app_name];
+			if (!arrangement) {
+				return arranged;
+			}
+			var hidden = {};
+			arrangement.forEach(function (row) {
+				if (row && row.hidden) {
+					hidden[dock_key(row)] = true;
+				}
+			});
+			var seen = {};
+			arranged.forEach(function (entry) {
+				if (entry) {
+					seen[dock_key(entry)] = true;
+				}
+			});
+			(entries || []).forEach(function (entry) {
+				if (!entry) {
+					return;
+				}
+				var key = dock_key(entry);
+				if (seen[key] || hidden[key]) {
+					return;
+				}
+				seen[key] = true;
+				arranged.push(entry);
+			});
+			return arranged;
+		};
+		Sidebar.prototype.__logistics_dock_merge__ = true;
+		var sb = get_sidebar();
+		if (sb && sb.dock) {
+			sb.dock.rendered = null;
+			if (typeof sb.refresh_dock === "function") {
+				sb.refresh_dock();
+			}
+		}
+		return true;
+	}
+
 	function bind_when_ready() {
 		if (typeof frappe === "undefined" || !frappe.router || !frappe.router.on) {
 			setTimeout(bind_when_ready, 50);
 			return;
 		}
-		frappe.router.on("change", schedule_sync);
+		var tries = 0;
+		function merge_until_ready() {
+			if (install_dock_merge() || tries > 200) {
+				return;
+			}
+			tries += 1;
+			setTimeout(merge_until_ready, 50);
+		}
+		merge_until_ready();
+		frappe.router.on("change", function () {
+			install_dock_merge();
+			schedule_sync();
+		});
 		$(document).on("page-change", schedule_sync);
 		schedule_sync();
 	}
