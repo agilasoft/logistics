@@ -994,4 +994,6 @@ logistics.patches.v3_0_show_mice_desk_icon
 logistics.patches.v3_0_seed_logistics_staff
 # Transport Vehicle permits that existed before the Required checkbox are required.
 logistics.patches.v3_0_set_transport_vehicle_permits_required
+# Warehousing: file existing reports under the Reports & Analysis cards
+logistics.patches.v3_0_sync_warehousing_reports_workspace
 
