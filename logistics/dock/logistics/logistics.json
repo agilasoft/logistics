@@ -1,0 +1,160 @@
+{
+ "app": "logistics",
+ "doctype": "Dock",
+ "items": [
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "truck",
+   "link_to": "Transport",
+   "link_type": "Sidebar",
+   "title": "Transport"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "warehouse",
+   "link_to": "Warehousing",
+   "link_type": "Sidebar",
+   "title": "Warehousing"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "landmark",
+   "link_to": "Customs",
+   "link_type": "Sidebar",
+   "title": "Customs"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "globe",
+   "link_to": "Global Customs",
+   "link_type": "Sidebar",
+   "title": "Global Customs"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "ship",
+   "link_to": "Sea Freight",
+   "link_type": "Sidebar",
+   "title": "Sea Freight"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "plane",
+   "link_to": "Air Freight",
+   "link_type": "Sidebar",
+   "title": "Air Freight"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "clipboard-list",
+   "link_to": "Job Management",
+   "link_type": "Sidebar",
+   "title": "Job Management"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "coins",
+   "link_to": "Pricing",
+   "link_type": "Sidebar",
+   "title": "Pricing"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "sprout",
+   "link_to": "Sustainability",
+   "link_type": "Sidebar",
+   "title": "Sustainability"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "scale",
+   "link_to": "Netting",
+   "link_type": "Sidebar",
+   "title": "Netting"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "folder",
+   "link_to": "Special Projects",
+   "link_type": "Sidebar",
+   "title": "Special Projects"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "git-compare",
+   "link_to": "Intercompany",
+   "link_type": "Sidebar",
+   "title": "Intercompany"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "wallet",
+   "link_to": "Cash Advance",
+   "link_type": "Sidebar",
+   "title": "Cash Advance"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "ticket",
+   "link_to": "MICE",
+   "link_type": "Sidebar",
+   "title": "MICE"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "gem",
+   "link_to": "High Value",
+   "link_type": "Sidebar",
+   "title": "High Value"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "timer",
+   "link_to": "Time Sensitive",
+   "link_type": "Sidebar",
+   "title": "Time Sensitive"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "tower-control",
+   "link_to": "Control Tower",
+   "link_type": "Sidebar",
+   "title": "Control Tower"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "package",
+   "link_to": "Order Management",
+   "link_type": "Sidebar",
+   "title": "Order Management"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "wrench",
+   "link_to": "Utilities",
+   "link_type": "Sidebar",
+   "title": "Utilities"
+  }
+ ],
+ "name": "logistics",
+ "standard": 1
+}

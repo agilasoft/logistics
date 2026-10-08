@@ -19,14 +19,19 @@ ROOT = Path(__file__).resolve().parents[2]
 class TestMiceDeskIcon(unittest.TestCase):
 	def test_shipped_tile_is_named_mice(self):
 		icon = json.loads((ROOT / "logistics/desktop_icon/mice.json").read_text())
-		sidebar = json.loads((ROOT / "logistics/workspace_sidebar/mice.json").read_text())
+		sidebar = json.loads((ROOT / "logistics/mice/sidebar/mice/mice.json").read_text())
 		workspace = json.loads((ROOT / "logistics/mice/workspace/mice/mice.json").read_text())
+		dock = json.loads((ROOT / "logistics/dock/logistics/logistics.json").read_text())
+		dock_targets = [item.get("link_to") for item in dock["items"]]
 		self.assertEqual(icon["label"], "MICE")
 		self.assertEqual(icon["link_to"], "MICE")
+		self.assertEqual(sidebar["doctype"], "Sidebar")
 		self.assertEqual(sidebar["title"], "MICE")
 		self.assertEqual(workspace["title"], "MICE")
+		self.assertIn("MICE", dock_targets)
+		self.assertNotIn("Exhibits", dock_targets)
 		self.assertFalse((ROOT / "logistics/desktop_icon/exhibits.json").exists())
-		self.assertFalse((ROOT / "logistics/workspace_sidebar/exhibits.json").exists())
+		self.assertFalse((ROOT / "logistics/workspace_sidebar").exists())
 		self.assertFalse((ROOT / "logistics/exhibits/workspace/exhibits/exhibits.json").exists())
 
 	def test_exhibits_module_is_not_its_own_dock_entry(self):
