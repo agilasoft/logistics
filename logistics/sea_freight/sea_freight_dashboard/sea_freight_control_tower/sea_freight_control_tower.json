@@ -1,0 +1,36 @@
+{
+ "cards": [
+  {
+   "card": "Open Job Files (Sea)"
+  },
+  {
+   "card": "Avg Age of Open Jobs (Sea)"
+  },
+  {
+   "card": "Job Files Handled (Sea)"
+  },
+  {
+   "card": "Avg Lead Time per Milestone (Sea)"
+  },
+  {
+   "card": "Returned Billings (Sea)"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "Top Shipping Lines",
+   "width": "Half"
+  },
+  {
+   "chart": "Sea Module Snapshot",
+   "width": "Half"
+  }
+ ],
+ "dashboard_name": "Sea Freight Control Tower",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "is_default": 0,
+ "is_standard": 1,
+ "module": "Sea Freight",
+ "name": "Sea Freight Control Tower"
+}

@@ -458,10 +458,10 @@
  "shortcuts": [
   {
    "color": "Blue",
-   "doc_view": "List",
+   "doc_view": "",
    "label": "Control Tower",
-   "link_to": "air-freight-control-tower",
-   "type": "Page"
+   "link_to": "Air Freight Control Tower",
+   "type": "Dashboard"
   },
   {
    "color": "Green",
