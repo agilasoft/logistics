@@ -1,0 +1,36 @@
+{
+ "cards": [
+  {
+   "card": "Open Job Files (High Value)"
+  },
+  {
+   "card": "Avg Age of Open Jobs (High Value)"
+  },
+  {
+   "card": "Job Files Handled (High Value)"
+  },
+  {
+   "card": "Avg Lead Time per Milestone (High Value)"
+  },
+  {
+   "card": "Returned Billings (High Value)"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "High Value by Modality",
+   "width": "Half"
+  },
+  {
+   "chart": "High Value Module Snapshot",
+   "width": "Half"
+  }
+ ],
+ "dashboard_name": "High Value Control Tower",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "is_default": 0,
+ "is_standard": 1,
+ "module": "High Value",
+ "name": "High Value Control Tower"
+}

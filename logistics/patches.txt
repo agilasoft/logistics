@@ -1013,3 +1013,5 @@ logistics.patches.v3_0_sync_customs_control_tower
 # Transport Control Tower: native dashboard, workspace shortcut, and sidebar link.
 logistics.patches.v3_0_sync_transport_control_tower
 
+# Module Control Towers: Warehousing, Special Projects, MICE, High Value, Time Sensitive, Sustainability, and Pricing Center.
+logistics.patches.v3_0_sync_module_control_towers
