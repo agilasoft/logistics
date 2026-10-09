@@ -1010,4 +1010,6 @@ logistics.patches.v3_0_sync_high_value_sidebar
 logistics.patches.v3_0_sync_warehousing_reports_workspace
 # Customs Control Tower: native dashboard, workspace shortcut, and sidebar link.
 logistics.patches.v3_0_sync_customs_control_tower
+# Workflow Center: same desk entry on every logistics module workspace and sidebar.
+logistics.patches.v3_0_add_workflow_center_to_module_workspaces
 
