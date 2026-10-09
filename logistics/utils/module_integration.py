@@ -2393,6 +2393,29 @@ def _resolve_transport_ij_for_declaration_to_order(dec, internal_job_detail_idx)
 	return ij_row, resolved_idx, persist_doctype, persist_name, do_doc, do_name
 
 
+def _copy_declaration_line_items_to_transport_order(order, dec, declaration_order=None) -> int:
+	"""Copy customs line-item goods onto the Transport Order Packing tab.
+
+	Uses the Declaration's commercial invoice lines. When those lines have no
+	goods, the linked Declaration Order is used instead.
+	"""
+	from logistics.utils.customs_line_to_transport_package import (
+		customs_lines_for_transport,
+		transport_package_from_customs_line,
+	)
+	from logistics.utils.dg_fields import ensure_transport_order_package_description
+
+	copied = 0
+	for idx, line in enumerate(customs_lines_for_transport(dec, declaration_order), start=1):
+		row = transport_package_from_customs_line(line, idx)
+		if not row:
+			continue
+		ensure_transport_order_package_description(row, line)
+		order.append("packages", row)
+		copied += 1
+	return copied
+
+
 @frappe.whitelist()
 def create_transport_order_from_declaration(
 	declaration_name: str, internal_job_detail_idx: int | None = None
@@ -2468,6 +2491,7 @@ def create_transport_order_from_declaration(
 			},
 		)
 	copy_parent_dg_header(dec, order)
+	_copy_declaration_line_items_to_transport_order(order, dec, declaration_order=do_doc)
 	_copy_transport_charges_from_declaration_to_transport_order(order, dec, ij_row=ij_row)
 	# Internal-job Declarations only hold Customs lines when separate billings per service type is on,
 	# so there are no Transport rows to copy; pull Transport lines from the Sales Quote like Air/Sea flows.
