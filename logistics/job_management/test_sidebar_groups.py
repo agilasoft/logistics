@@ -49,10 +49,15 @@ def _workspace_outline():
 			cards[current].append(link)
 
 	outline = [("link", "Home", "Workspace", "Job Management", "house")]
+	if "Workflow Center" in shortcuts:
+		row = shortcuts["Workflow Center"]
+		outline.append(("link", row["label"], row["type"], row["link_to"], "workflow"))
 	mode = None
 	for block in content:
 		kind = block.get("type")
 		data = block.get("data") or {}
+		if kind == "shortcut" and data.get("shortcut_name") == "Workflow Center":
+			continue
 		if kind == "header":
 			mode = _plain(data.get("text"))
 			if mode == "Job Operations":
