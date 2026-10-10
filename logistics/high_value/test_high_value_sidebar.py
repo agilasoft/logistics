@@ -48,6 +48,8 @@ def _workspace_groups(workspace: dict) -> list[dict]:
 			header = {"name": _header_label(data.get("text")), "shortcuts": [], "cards": []}
 			headers.append(header)
 		elif kind == "shortcut" and header is not None:
+			if data.get("shortcut_name") in ("Control Tower", "Workflow Center"):
+				continue
 			header["shortcuts"].append(shortcuts[data["shortcut_name"]])
 		elif kind == "card" and header is not None:
 			header["cards"].append(data["card_name"])
@@ -61,6 +63,10 @@ def _workspace_groups(workspace: dict) -> list[dict]:
 			"link_type": "Workspace",
 		}
 	]
+	for name in ("Control Tower", "Workflow Center"):
+		pinned = shortcuts.get(name)
+		if pinned:
+			expected.append(_shortcut_item(pinned, child=0))
 	for group in headers:
 		if group["cards"]:
 			for shortcut in group["shortcuts"]:

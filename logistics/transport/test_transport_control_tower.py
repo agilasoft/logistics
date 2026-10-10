@@ -34,7 +34,9 @@ class TestTransportControlTowerWorkspace(unittest.TestCase):
 		self.assertEqual(tower["link_to"], "Transport Control Tower")
 		self.assertEqual(tower["link_type"], "Dashboard")
 		self.assertEqual(tower["icon"], "tower-control")
-		self.assertEqual(items[2]["label"], "Dashboard")
+		self.assertEqual(items[2]["label"], "Workflow Center")
+		self.assertEqual(items[2]["link_to"], "workflow-center")
+		self.assertEqual(items[3]["label"], "Dashboard")
 		self.assertEqual([item["idx"] for item in items], list(range(1, len(items) + 1)))
 
 	def test_workspace_shortcut_matches_the_sidebar(self):

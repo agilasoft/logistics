@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\": \"tsDash\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Time Sensitive Operations Dashboard\", \"col\": 12}}, {\"id\": \"tsHeader\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Time Sensitive Operations</b></span>\", \"col\": 12}}, {\"id\": \"tsctQuick01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Control Tower\", \"col\": 3}}, {\"id\": \"tsShortcut1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Time Sensitive Case\", \"col\": 3}}, {\"id\": \"tsShortcut2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Ongoing\", \"col\": 3}}, {\"id\": \"tsShortcut3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Nearing Due\", \"col\": 3}}, {\"id\": \"tsShortcut4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Overdue\", \"col\": 3}}, {\"id\": \"tsCardOps\", \"type\": \"card\", \"data\": {\"card_name\": \"Operations\", \"col\": 4}}, {\"id\": \"tsCardSetup\", \"type\": \"card\", \"data\": {\"card_name\": \"Setup\", \"col\": 4}}, {\"id\": \"tsCardModes\", \"type\": \"card\", \"data\": {\"card_name\": \"Service Modes\", \"col\": 4}}]",
+ "content": "[{\"id\":\"tsDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Time Sensitive Operations Dashboard\",\"col\":12}},{\"id\":\"tsHeader\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Time Sensitive Operations</b></span>\",\"col\":12}},{\"id\":\"tsctQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Control Tower\",\"col\":3}},{\"id\":\"wfcQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workflow Center\",\"col\":3}},{\"id\":\"tsShortcut1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Time Sensitive Case\",\"col\":3}},{\"id\":\"tsShortcut2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Ongoing\",\"col\":3}},{\"id\":\"tsShortcut3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Nearing Due\",\"col\":3}},{\"id\":\"tsShortcut4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Overdue\",\"col\":3}},{\"id\":\"tsCardOps\",\"type\":\"card\",\"data\":{\"card_name\":\"Operations\",\"col\":4}},{\"id\":\"tsCardSetup\",\"type\":\"card\",\"data\":{\"card_name\":\"Setup\",\"col\":4}},{\"id\":\"tsCardModes\",\"type\":\"card\",\"data\":{\"card_name\":\"Service Modes\",\"col\":4}}]",
  "creation": "2026-07-30 00:00:00",
  "custom_blocks": [
   {
@@ -236,6 +236,13 @@
    "label": "Control Tower",
    "link_to": "Time Sensitive Control Tower",
    "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Workflow Center",
+   "link_to": "workflow-center",
+   "type": "Page"
   },
   {
    "color": "Grey",
