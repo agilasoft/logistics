@@ -298,6 +298,62 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 				frappe.delete_doc(linked_service_doctype(), name, force=True, ignore_permissions=True)
 			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
 
+	def test_services_grid_follows_linked_service_quantity(self):
+		"""Changing Quantity on the service updates the quote Services row, even a stale 0."""
+		from frappe.utils import cint
+
+		from logistics.pricing_center.doctype.sales_quote.sales_quote import (
+			add_linked_service,
+			get_linked_service_quantities,
+		)
+
+		sq = self._minimal_sales_quote("SQ Service Qty Mirror")
+		try:
+			created = add_linked_service(sq.name, "Transport", quantity=1)
+			ls_name = created["linked_service"]
+			linked = frappe.get_doc(linked_service_doctype(), ls_name)
+			linked.quantity = 5
+			linked.save(ignore_permissions=True)
+			frappe.clear_document_cache("Sales Quote", sq.name)
+			frappe.clear_document_cache(linked_service_doctype(), ls_name)
+
+			reloaded = frappe.get_doc("Sales Quote", sq.name)
+			self.assertEqual(cint(reloaded.linked_services[0].get("quantity")), 5)
+			self.assertEqual(get_linked_service_quantities(sq.name)[ls_name], 5)
+
+			linked.quantity = 0
+			linked.save(ignore_permissions=True)
+			frappe.clear_document_cache("Sales Quote", sq.name)
+			frappe.clear_document_cache(linked_service_doctype(), ls_name)
+			blank = frappe.get_doc("Sales Quote", sq.name)
+			self.assertEqual(cint(blank.linked_services[0].get("quantity")), 1)
+
+			linked.quantity = 5
+			linked.save(ignore_permissions=True)
+			frappe.clear_document_cache(linked_service_doctype(), ls_name)
+
+			# The desk can post the grid it last painted (0) after the service was set to 5.
+			reloaded.flags._linked_services_from_form = True
+			reloaded.flags._linked_services_view_cached = False
+			reloaded.__dict__["linked_services"] = [
+				{
+					"name": ls_name,
+					"doctype": "Linked Service Detail",
+					"linked_service": ls_name,
+					"service_type": "Transport",
+					"quantity": 0,
+				}
+			]
+			self.assertEqual(cint(reloaded.linked_services[0].get("quantity")), 5)
+		finally:
+			for name in frappe.get_all(
+				linked_service_doctype(),
+				filters={"parent_booking_type": "Sales Quote", "parent_booking_name": sq.name},
+				pluck="name",
+			):
+				frappe.delete_doc(linked_service_doctype(), name, force=True, ignore_permissions=True)
+			frappe.delete_doc("Sales Quote", sq.name, force=True, ignore_permissions=True)
+
 	def test_add_linked_service_copies_details_before_create(self):
 		"""Qty create copies the details form onto every row and rejects a blank form."""
 		from logistics.logistics.doctype.linked_service.linked_service import (
