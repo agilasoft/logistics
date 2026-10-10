@@ -66,6 +66,12 @@ class TestSessionDefaults(IntegrationTestCase):
 		with self.assertRaises(frappe.PermissionError):
 			get_context()
 
+	def test_incomplete_setup_skips_page(self):
+		user = self._system_user()
+		self._company("Wizard")
+		with patch("frappe.is_setup_complete", return_value=False):
+			self.assertFalse(user_needs_session_defaults(user))
+
 	def test_no_permitted_company_skips(self):
 		user = self._system_user()
 		with patch(

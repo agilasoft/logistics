@@ -25,7 +25,15 @@
 	}
 
 	function is_setup_route(route) {
-		return !!(route && route[0] === PAGE);
+		const path = window.location.pathname || "";
+		// The setup wizard owns the desk until the site is ready. Sending the
+		// user to Session Defaults from there makes the two redirects chase
+		// each other and the page never finishes loading.
+		if (path.indexOf("/" + PAGE) !== -1 || path.indexOf("/setup-wizard") !== -1) {
+			return true;
+		}
+		const head = route && route[0];
+		return head === PAGE || head === "setup-wizard";
 	}
 
 	// Store the desk path, not frappe.get_route(). Workspace routes such as
@@ -37,6 +45,9 @@
 			}
 			const path = (window.location.pathname || "") + (window.location.search || "");
 			if (!path.startsWith("/desk") || path.indexOf("/" + PAGE) !== -1) {
+				return;
+			}
+			if (path.indexOf("/setup-wizard") !== -1) {
 				return;
 			}
 			if (path === "/desk" || path === "/desk/") {

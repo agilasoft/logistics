@@ -35,6 +35,10 @@ def user_needs_session_defaults(user: str | None = None) -> bool:
 	user = user or frappe.session.user
 	if not user or user == "Guest":
 		return False
+	# The desk itself will not leave the setup wizard until the site is set up.
+	# Redirecting away from that wizard loops the two routes.
+	if not frappe.is_setup_complete():
+		return False
 	if frappe.db.get_value("User", user, "user_type") != "System User":
 		return False
 	if get_personal_company(user):
