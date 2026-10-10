@@ -1,0 +1,36 @@
+{
+ "cards": [
+  {
+   "card": "Open Job Files (MICE)"
+  },
+  {
+   "card": "Avg Age of Open Jobs (MICE)"
+  },
+  {
+   "card": "Job Files Handled (MICE)"
+  },
+  {
+   "card": "Avg Lead Time per Milestone (MICE)"
+  },
+  {
+   "card": "Returned Billings (MICE)"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "Top MICE Types",
+   "width": "Half"
+  },
+  {
+   "chart": "MICE Module Snapshot",
+   "width": "Half"
+  }
+ ],
+ "dashboard_name": "MICE Control Tower",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "is_default": 0,
+ "is_standard": 1,
+ "module": "MICE",
+ "name": "MICE Control Tower"
+}

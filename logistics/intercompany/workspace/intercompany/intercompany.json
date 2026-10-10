@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\": \"header1\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Intercompany</span>\", \"col\": 12}}, {\"id\": \"s1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Intercompany Settings\", \"col\": 4}}, {\"id\": \"s2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Intercompany Invoice Log\", \"col\": 4}}, {\"id\": \"sp1\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"hdrRep\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports &amp; analysis</b></span>\", \"col\": 12}}, {\"id\": \"repsec0\", \"type\": \"card\", \"data\": {\"card_name\": \"Shipment & consolidation status\", \"col\": 4}}, {\"id\": \"repsec1\", \"type\": \"card\", \"data\": {\"card_name\": \"Revenue & cost visibility\", \"col\": 4}}, {\"id\": \"repsec2\", \"type\": \"card\", \"data\": {\"card_name\": \"Billing & accruals context\", \"col\": 4}}, {\"id\": \"repsec3\", \"type\": \"card\", \"data\": {\"card_name\": \"Customs & compliance\", \"col\": 4}}, {\"id\": \"repsec4\", \"type\": \"card\", \"data\": {\"card_name\": \"Warehouse & productivity\", \"col\": 4}}, {\"id\": \"repsec5\", \"type\": \"card\", \"data\": {\"card_name\": \"Performance & ESG analytics\", \"col\": 4}}]",
+ "content": "[{\"id\": \"header1\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Intercompany</span>\", \"col\": 12}}, {\"id\": \"wfcQuick01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Workflow Center\", \"col\": 3}}, {\"id\": \"s1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Intercompany Settings\", \"col\": 4}}, {\"id\": \"s2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Intercompany Invoice Log\", \"col\": 4}}, {\"id\": \"sp1\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"hdrRep\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports &amp; analysis</b></span>\", \"col\": 12}}, {\"id\": \"repsec0\", \"type\": \"card\", \"data\": {\"card_name\": \"Shipment & consolidation status\", \"col\": 4}}, {\"id\": \"repsec1\", \"type\": \"card\", \"data\": {\"card_name\": \"Revenue & cost visibility\", \"col\": 4}}, {\"id\": \"repsec2\", \"type\": \"card\", \"data\": {\"card_name\": \"Billing & accruals context\", \"col\": 4}}, {\"id\": \"repsec3\", \"type\": \"card\", \"data\": {\"card_name\": \"Customs & compliance\", \"col\": 4}}, {\"id\": \"repsec4\", \"type\": \"card\", \"data\": {\"card_name\": \"Warehouse & productivity\", \"col\": 4}}, {\"id\": \"repsec5\", \"type\": \"card\", \"data\": {\"card_name\": \"Performance & ESG analytics\", \"col\": 4}}]",
  "creation": "2026-02-25 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -411,6 +411,13 @@
  "quick_lists": [],
  "roles": [],
  "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Workflow Center",
+   "link_to": "workflow-center",
+   "type": "Page"
+  },
   {
    "color": "Blue",
    "doc_view": "Form",

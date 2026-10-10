@@ -1,0 +1,22 @@
+{
+ "chart_name": "Top Warehouse Job Types",
+ "chart_type": "Report",
+ "docstatus": 0,
+ "doctype": "Dashboard Chart",
+ "dynamic_filters_json": "[]",
+ "filters_json": "{\"limit\": 10}",
+ "group_by_type": "Count",
+ "idx": 0,
+ "is_public": 1,
+ "is_standard": 1,
+ "module": "Warehousing",
+ "name": "Top Warehouse Job Types",
+ "number_of_groups": 0,
+ "report_name": "WHCT Job Type Volumes",
+ "time_interval": "Monthly",
+ "timeseries": 0,
+ "timespan": "Last Year",
+ "type": "Bar",
+ "use_report_chart": 1,
+ "y_axis": []
+}
