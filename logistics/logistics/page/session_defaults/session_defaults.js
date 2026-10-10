@@ -189,10 +189,11 @@ logistics.session_defaults.SessionDefaultsPage = class SessionDefaultsPage {
 			}
 			control.set_value(next || "");
 			const required = names.length > 0;
+			const company = this.fields.company.get_value();
 			$field.find(".reqd").toggleClass("hide", !required);
 			$field
 				.find(".logistics-session-defaults-note")
-				.toggleClass("hide", required)
+				.toggleClass("hide", !company || required)
 				.text(
 					__("No {0} is available for this company. You can continue without one.", [
 						spec.label,
