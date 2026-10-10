@@ -43,6 +43,7 @@ logistics.session_defaults.SessionDefaultsPage = class SessionDefaultsPage {
 		const page = this;
 		this.company_field = frappe.ui.form.make_control({
 			parent: this.$body.find(".logistics-session-defaults-field"),
+			only_input: true,
 			df: {
 				fieldtype: "Link",
 				fieldname: "company",
@@ -60,7 +61,11 @@ logistics.session_defaults.SessionDefaultsPage = class SessionDefaultsPage {
 		});
 
 		this.$continue = this.$body.find(".logistics-session-defaults-continue");
-		this.$continue.on("click", () => this.save());
+		this.$continue.on("click", (event) => {
+			event.preventDefault();
+			event.stopPropagation();
+			this.save();
+		});
 	}
 
 	refresh() {

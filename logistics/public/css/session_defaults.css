@@ -18,6 +18,11 @@
 	margin-top: 8px;
 }
 
+.logistics-session-defaults .tooltip-content,
+.logistics-session-defaults .link-btn {
+	display: none;
+}
+
 body.logistics-needs-session-defaults .sidebar-items a.item-anchor {
 	opacity: 0.45;
 	pointer-events: none;
