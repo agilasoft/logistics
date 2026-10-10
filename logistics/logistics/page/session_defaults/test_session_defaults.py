@@ -107,6 +107,85 @@ class TestSessionDefaults(IntegrationTestCase):
 		self.assertEqual(restore_persistent_company(user), company)
 		self.assertEqual(frappe.defaults.get_user_default("Company"), company)
 
+	def test_save_writes_branch_cost_center_and_profit_center(self):
+		user = self._dimension_user()
+		company = self._company("Dims")
+		other = self._company("DimsOther")
+		branch = self._branch(company)
+		cost_center = self._leaf_cost_center(company)
+		other_cost_center = self._leaf_cost_center(other)
+		profit_center = self._profit_center(company)
+		other_profit_center = self._profit_center(other)
+		frappe.set_user(user)
+
+		frappe.defaults.set_user_default("company", company, user=user)
+		frappe.defaults.set_user_default("logistics_session_company", company, user=user)
+		self.assertTrue(user_needs_session_defaults(user))
+
+		with self.assertRaises(frappe.ValidationError):
+			save_session_defaults(company, branch=branch, cost_center=cost_center, profit_center="")
+		with self.assertRaises(frappe.PermissionError):
+			save_session_defaults(
+				company,
+				branch=branch,
+				cost_center=other_cost_center,
+				profit_center=profit_center,
+			)
+		with self.assertRaises(frappe.PermissionError):
+			save_session_defaults(
+				company,
+				branch=branch,
+				cost_center=cost_center,
+				profit_center=other_profit_center,
+			)
+
+		result = save_session_defaults(
+			company,
+			branch=branch,
+			cost_center=cost_center,
+			profit_center=profit_center,
+		)
+		self.assertEqual(result["branch"], branch)
+		self.assertEqual(result["cost_center"], cost_center)
+		self.assertEqual(result["profit_center"], profit_center)
+		self.assertEqual(frappe.defaults.get_user_default("branch"), branch)
+		self.assertEqual(frappe.defaults.get_user_default("Branch"), branch)
+		self.assertEqual(frappe.defaults.get_user_default("cost_center"), cost_center)
+		self.assertEqual(frappe.defaults.get_user_default("Cost Center"), cost_center)
+		self.assertEqual(frappe.defaults.get_user_default("profit_center"), profit_center)
+		self.assertEqual(frappe.defaults.get_user_default("Profit Center"), profit_center)
+		self.assertFalse(user_needs_session_defaults(user))
+
+		context = get_context()
+		self.assertEqual(context["branch"], branch)
+		self.assertEqual(context["cost_center"], cost_center)
+		self.assertEqual(context["profit_center"], profit_center)
+		self.assertIn(branch, [row["name"] for row in context["branches"]])
+		self.assertIn(cost_center, [row["name"] for row in context["cost_centers"]])
+		self.assertIn(profit_center, [row["name"] for row in context["profit_centers"]])
+
+	def test_logout_keeps_dimension_defaults(self):
+		user = self._dimension_user()
+		company = self._company("KeepDims")
+		branch = self._branch(company)
+		cost_center = self._leaf_cost_center(company)
+		profit_center = self._profit_center(company)
+		frappe.set_user(user)
+		save_session_defaults(
+			company,
+			branch=branch,
+			cost_center=cost_center,
+			profit_center=profit_center,
+		)
+		for key in ("branch", "Branch", "cost_center", "Cost Center", "profit_center", "Profit Center"):
+			frappe.defaults.clear_user_default(key, user)
+		self.assertFalse(user_needs_session_defaults(user))
+		restored = restore_persistent_company(user)
+		self.assertEqual(restored, company)
+		self.assertEqual(frappe.defaults.get_user_default("branch"), branch)
+		self.assertEqual(frappe.defaults.get_user_default("cost_center"), cost_center)
+		self.assertEqual(frappe.defaults.get_user_default("profit_center"), profit_center)
+
 	def test_save_rejects_empty_and_unpermitted_company(self):
 		user = self._system_user()
 		allowed = self._company("Allowed")
@@ -155,6 +234,45 @@ class TestSessionDefaults(IntegrationTestCase):
 			}
 		).insert(ignore_permissions=True)
 		return name
+
+	def _dimension_user(self) -> str:
+		return self._user(
+			user_type="System User",
+			roles=["System Manager", "Accounts Manager", "HR Manager"],
+		)
+
+	def _branch(self, company: str) -> str:
+		label = f"SDB{frappe.generate_hash(length=6)}"
+		data = {"doctype": "Branch", "branch": label}
+		meta = frappe.get_meta("Branch")
+		if meta.has_field("custom_company"):
+			data["custom_company"] = company
+		elif meta.has_field("company"):
+			data["company"] = company
+		doc = frappe.get_doc(data)
+		doc.insert(ignore_permissions=True)
+		return doc.name
+
+	def _leaf_cost_center(self, company: str) -> str:
+		name = frappe.db.get_value(
+			"Cost Center",
+			{"company": company, "is_group": 0, "disabled": 0},
+			"name",
+		)
+		self.assertTrue(name)
+		return name
+
+	def _profit_center(self, company: str) -> str:
+		code = frappe.generate_hash(length=8).upper()
+		frappe.get_doc(
+			{
+				"doctype": "Profit Center",
+				"code": code,
+				"description": code,
+				"company": company,
+			}
+		).insert(ignore_permissions=True)
+		return code
 
 	def _permit_only(self, user: str, company: str) -> None:
 		frappe.get_doc(

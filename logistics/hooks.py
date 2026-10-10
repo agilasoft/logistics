@@ -74,7 +74,7 @@ app_include_css = [
 	"/assets/logistics/css/ts_sq_fetch_dialog.css?v=6",
 	"/assets/logistics/css/role_permission_matrix.css?v=6",
 	"/assets/logistics/css/vehicle_permit_banner.css?v=1",
-	"/assets/logistics/css/session_defaults.css?v=2",
+	"/assets/logistics/css/session_defaults.css?v=3",
 ]
 app_include_js = [
 	"/assets/logistics/js/session_defaults_guard.js?v=1",

@@ -14,6 +14,24 @@
 	margin-bottom: 16px;
 }
 
+.logistics-session-defaults-field {
+	margin-bottom: 14px;
+}
+
+.logistics-session-defaults-field .control-label {
+	display: block;
+	margin-bottom: 4px;
+	font-size: var(--text-sm, 12px);
+}
+
+.logistics-session-defaults-field .reqd {
+	color: var(--red-500, #e03636);
+}
+
+.logistics-session-defaults-note {
+	margin: 4px 0 0;
+}
+
 .logistics-session-defaults-continue {
 	margin-top: 8px;
 }
