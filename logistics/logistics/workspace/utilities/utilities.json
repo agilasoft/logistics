@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"util-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Utilities</span>\",\"col\":12}},{\"id\":\"util-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Role Permission Matrix\",\"col\":4}},{\"id\":\"logistics-staff-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Logistics Staff\",\"col\":4}}]",
+ "content": "[{\"id\":\"util-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Utilities</span>\",\"col\":12}},{\"id\":\"wfcQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workflow Center\",\"col\":3}},{\"id\":\"util-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Role Permission Matrix\",\"col\":4}},{\"id\":\"logistics-staff-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Logistics Staff\",\"col\":4}}]",
  "creation": "2026-08-15 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -61,6 +61,13 @@
  ],
  "sequence_id": 99.0,
  "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Workflow Center",
+   "link_to": "workflow-center",
+   "type": "Page"
+  },
   {
    "color": "Blue",
    "doc_view": "",

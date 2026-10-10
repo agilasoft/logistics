@@ -382,6 +382,8 @@ logistics.patches.v1_0_ensure_time_sensitive_module_def
 logistics.patches.v1_0_add_time_sensitive_module
 # Time Sensitive Home: operations dashboard (SLA KPIs + alert map)
 logistics.patches.v3_0_sync_time_sensitive_operations_dashboard
+# Time Sensitive: section reports on the workspace cards and matching sidebar
+logistics.patches.v3_0_sync_time_sensitive_reports
 # MICE Home: event operations dashboard (pipeline clocks + venue map)
 logistics.patches.v3_0_sync_mice_operations_dashboard
 # Special Projects Home: project operations dashboard (pipeline clocks + site map)
@@ -1006,4 +1008,12 @@ logistics.patches.v3_0_sync_job_management_sidebar
 logistics.patches.v3_0_sync_high_value_sidebar
 # Warehousing: file existing reports under the Reports & Analysis cards
 logistics.patches.v3_0_sync_warehousing_reports_workspace
+# Customs Control Tower: native dashboard, workspace shortcut, and sidebar link.
+logistics.patches.v3_0_sync_customs_control_tower
+# Workflow Center: same desk entry on every logistics module workspace and sidebar.
+logistics.patches.v3_0_add_workflow_center_to_module_workspaces
+# Transport Control Tower: native dashboard, workspace shortcut, and sidebar link.
+logistics.patches.v3_0_sync_transport_control_tower
 
+# Module Control Towers: Warehousing, Special Projects, MICE, High Value, Time Sensitive, Sustainability, and Pricing Center.
+logistics.patches.v3_0_sync_module_control_towers

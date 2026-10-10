@@ -1,0 +1,36 @@
+{
+ "cards": [
+  {
+   "card": "Open Job Files (Transport)"
+  },
+  {
+   "card": "Avg Age of Open Jobs (Transport)"
+  },
+  {
+   "card": "Job Files Handled (Transport)"
+  },
+  {
+   "card": "Avg Lead Time per Milestone (Transport)"
+  },
+  {
+   "card": "Returned Billings (Transport)"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "Top Vehicle Types",
+   "width": "Half"
+  },
+  {
+   "chart": "Transport Module Snapshot",
+   "width": "Half"
+  }
+ ],
+ "dashboard_name": "Transport Control Tower",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "is_default": 0,
+ "is_standard": 1,
+ "module": "Transport",
+ "name": "Transport Control Tower"
+}
