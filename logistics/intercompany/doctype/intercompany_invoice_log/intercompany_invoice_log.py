@@ -5,8 +5,11 @@
 from __future__ import unicode_literals
 
 import frappe
+from frappe import _
 from frappe.model.document import Document
 
 
 class IntercompanyInvoiceLog(Document):
-	pass
+	def validate(self):
+		if not self.sales_quote and not self.get("periodic_billing"):
+			frappe.throw(_("Sales Quote or Periodic Billing is required."))

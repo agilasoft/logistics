@@ -112,7 +112,10 @@ class TestLinkedChargeInternalJobCreate(FrappeTestCase):
 			doctype="Air Shipment",
 			name="ASP-315",
 			sales_quote="SQ-1",
+			service_role="Standalone",
 			is_internal_job=0,
+			main_service_type=None,
+			main_service=None,
 			main_job_type=None,
 			main_job=None,
 			internal_job_details=[],
@@ -155,7 +158,10 @@ class TestLinkedChargeInternalJobCreate(FrappeTestCase):
 			doctype="Air Shipment",
 			name="ASP-EMPTY",
 			sales_quote="SQ-1",
+			service_role="Standalone",
 			is_internal_job=0,
+			main_service_type=None,
+			main_service=None,
 			main_job_type=None,
 			main_job=None,
 			internal_job_details=[],
@@ -174,17 +180,21 @@ class TestLinkedChargeInternalJobCreate(FrappeTestCase):
 		self.assertIn("linked-service charges", (result.get("blocked_message") or "").lower())
 
 	def _mock_choices_doc(self, doctype, name, charges, **extra):
-		doc = MagicMock(
-			doctype=doctype,
-			name=name,
-			sales_quote="SQ-1",
-			is_internal_job=0,
-			main_job_type=None,
-			main_job=None,
-			internal_job_details=[],
-			charges=charges,
-			**extra,
-		)
+		fields = {
+			"doctype": doctype,
+			"name": name,
+			"sales_quote": "SQ-1",
+			"service_role": "Standalone",
+			"is_internal_job": 0,
+			"main_service_type": None,
+			"main_service": None,
+			"main_job_type": None,
+			"main_job": None,
+			"internal_job_details": [],
+			"charges": charges,
+		}
+		fields.update(extra)
+		doc = MagicMock(**fields)
 		doc.check_permission = MagicMock()
 		return doc
 
@@ -275,6 +285,107 @@ class TestLinkedChargeInternalJobCreate(FrappeTestCase):
 		self.assertEqual(len(result["choices"]), 1)
 		self.assertEqual(result["choices"][0]["job_type"], "Transport Order")
 		self.assertTrue(result["choices"][0]["creatable"])
+
+	@patch("logistics.utils.internal_job_from_source._linked_service_doc_for_row")
+	@patch("logistics.utils.internal_job_from_source.frappe.db.exists", return_value=True)
+	@patch("logistics.utils.internal_job_from_source.frappe.get_doc")
+	def test_standalone_declaration_can_create_transport_order(
+		self, mock_get_doc, _mock_exists, mock_ls_doc
+	):
+		from logistics.utils.internal_job_from_source import get_internal_job_creation_choices
+
+		doc = self._mock_choices_doc(
+			"Declaration",
+			"DEC-STANDALONE",
+			[
+				frappe._dict(
+					service_type="Transport",
+					charge_scope="Linked",
+					linked_service="LS-TR-1",
+				),
+			],
+			service_role="Standalone",
+			is_main_service=0,
+			transport_order=None,
+		)
+		mock_get_doc.return_value = doc
+		mock_ls_doc.return_value = frappe._dict(service_type="Transport", name="LS-TR-1")
+
+		with patch(
+			"logistics.utils.sales_quote_service_eligibility.get_quote_module_flags",
+			return_value={},
+		):
+			with patch(
+				"logistics.utils.internal_job_from_source._job_no_for_linked_charge_row",
+				return_value="",
+			):
+				with patch(
+					"logistics.utils.internal_job_creation_eligibility.evaluate_linked_service_internal_job_eligibility",
+					return_value={"eligible": True, "message": None},
+				):
+					result = get_internal_job_creation_choices("Declaration", "DEC-STANDALONE")
+
+		self.assertEqual(len(result["choices"]), 1)
+		choice = result["choices"][0]
+		self.assertEqual(choice["job_type"], "Transport Order")
+		self.assertTrue(choice["creatable"])
+
+	@patch("logistics.utils.internal_job_from_source._linked_service_doc_for_row")
+	@patch("logistics.utils.internal_job_from_source.frappe.db.exists", return_value=True)
+	@patch("logistics.utils.internal_job_from_source.frappe.get_doc")
+	def test_declaration_skips_second_transport_order_and_freight_bookings(
+		self, mock_get_doc, _mock_exists, mock_ls_doc
+	):
+		from logistics.utils.internal_job_from_source import get_internal_job_creation_choices
+
+		doc = self._mock_choices_doc(
+			"Declaration",
+			"DEC-FREIGHT",
+			[
+				frappe._dict(
+					service_type="Transport",
+					charge_scope="Linked",
+					linked_service="LS-TR-1",
+				),
+				frappe._dict(
+					service_type="Air",
+					charge_scope="Linked",
+					linked_service="LS-AIR-1",
+				),
+				frappe._dict(
+					service_type="Sea",
+					charge_scope="Linked",
+					linked_service="LS-SEA-1",
+				),
+			],
+			service_role="Standalone",
+			is_main_service=0,
+			transport_order="TO-EXISTING",
+		)
+		mock_get_doc.return_value = doc
+		mock_ls_doc.return_value = frappe._dict(service_type="Transport", name="LS-TR-1")
+
+		with patch(
+			"logistics.utils.sales_quote_service_eligibility.get_quote_module_flags",
+			return_value={},
+		):
+			with patch(
+				"logistics.utils.internal_job_from_source._job_no_for_linked_charge_row",
+				return_value="",
+			):
+				with patch(
+					"logistics.utils.internal_job_creation_eligibility.evaluate_linked_service_internal_job_eligibility",
+					return_value={"eligible": True, "message": None},
+				):
+					result = get_internal_job_creation_choices("Declaration", "DEC-FREIGHT")
+
+		by_type = {c["job_type"]: c for c in result["choices"]}
+		self.assertIn("Transport Order", by_type)
+		self.assertIn("Air Booking", by_type)
+		self.assertIn("Sea Booking", by_type)
+		self.assertFalse(by_type["Transport Order"]["creatable"])
+		self.assertFalse(by_type["Air Booking"]["creatable"])
+		self.assertFalse(by_type["Sea Booking"]["creatable"])
 
 	@patch("logistics.utils.internal_job_from_source.frappe.db.exists", return_value=True)
 	@patch("logistics.utils.internal_job_from_source.frappe.get_doc")

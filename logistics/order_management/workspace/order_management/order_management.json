@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"omHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Order Management</b></span>\",\"col\":12}},{\"id\":\"omSc1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Channel\",\"col\":3}},{\"id\":\"omSc2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Platform Order\",\"col\":3}},{\"id\":\"omSc3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Channel Item\",\"col\":3}},{\"id\":\"omSc4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sync Log\",\"col\":3}},{\"id\":\"omCard1\",\"type\":\"card\",\"data\":{\"card_name\":\"Channels\",\"col\":6}},{\"id\":\"omCard2\",\"type\":\"card\",\"data\":{\"card_name\":\"Warehouse\",\"col\":6}}]",
+ "content": "[{\"id\":\"omHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Order Management</b></span>\",\"col\":12}},{\"id\":\"wfcQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workflow Center\",\"col\":3}},{\"id\":\"omSc1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Channel\",\"col\":3}},{\"id\":\"omSc2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Platform Order\",\"col\":3}},{\"id\":\"omSc3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Channel Item\",\"col\":3}},{\"id\":\"omSc4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sync Log\",\"col\":3}},{\"id\":\"omCard1\",\"type\":\"card\",\"data\":{\"card_name\":\"Channels\",\"col\":6}},{\"id\":\"omCard2\",\"type\":\"card\",\"data\":{\"card_name\":\"Warehouse\",\"col\":6}}]",
  "creation": "2026-10-03 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -104,6 +104,13 @@
  ],
  "sequence_id": 15.0,
  "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Workflow Center",
+   "link_to": "workflow-center",
+   "type": "Page"
+  },
   {
    "color": "Grey",
    "doc_view": "List",
