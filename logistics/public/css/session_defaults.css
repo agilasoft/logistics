@@ -1,0 +1,29 @@
+.logistics-session-defaults {
+	max-width: 520px;
+	margin: 48px auto 24px;
+}
+
+.logistics-session-defaults-card {
+	background: var(--card-bg, var(--fg-color));
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md, 8px);
+	padding: 24px;
+}
+
+.logistics-session-defaults-lead {
+	margin-bottom: 16px;
+}
+
+.logistics-session-defaults-continue {
+	margin-top: 8px;
+}
+
+.logistics-session-defaults .tooltip-content,
+.logistics-session-defaults .link-btn {
+	display: none;
+}
+
+body.logistics-needs-session-defaults .sidebar-items a.item-anchor {
+	opacity: 0.45;
+	pointer-events: none;
+}
