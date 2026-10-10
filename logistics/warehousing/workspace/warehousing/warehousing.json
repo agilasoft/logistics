@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"whDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Warehousing Operations Dashboard\",\"col\":12}},{\"id\":\"whOpsHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Job Operations</b></span>\",\"col\":12}},{\"id\":\"whScActive\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Active Jobs\",\"col\":3}},{\"id\":\"whScLive\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Live Jobs\",\"col\":3}},{\"id\":\"whScSla\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"SLA Breached\",\"col\":3}},{\"id\":\"whScInbound\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Open Inbound\",\"col\":3}},{\"id\":\"SHfdX5HVQT\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Warehousing\",\"col\":12}},{\"id\":\"Na3LMScaDW\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"6RTugEzdAZ\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"YI_RRMOoqk\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"qs1hyvvZ7d\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Contract\",\"col\":3}},{\"id\":\"1GkyMSM7v5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Inbound Order\",\"col\":3}},{\"id\":\"3tcxrO1IPF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Release Order\",\"col\":3}},{\"id\":\"cdoShortcut01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cross-Docking Order\",\"col\":3}},{\"id\":\"RLuBQLNUAf\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transfer Order\",\"col\":3}},{\"id\":\"WuAAv2AYis\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"VAS Order\",\"col\":3}},{\"id\":\"dHKnqH-zUV\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stocktake Order\",\"col\":3}},{\"id\":\"KcjoqOPobc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Job\",\"col\":3}},{\"id\":\"Ajv2Uunfaz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Periodic Billing\",\"col\":3}},{\"id\":\"iXnX-uP9sy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Gate Pass\",\"col\":3}},{\"id\":\"iUjnrb4GSs\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"r1zOFE_yc9\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Mobile Pages</b></span>\",\"col\":12}},{\"id\":\"mDzG6dd1tT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Card\",\"col\":3}},{\"id\":\"BUQlmnkGzL\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Plate Scanner\",\"col\":3}},{\"id\":\"Zb_6qdCOY-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Count Sheet\",\"col\":3}},{\"id\":\"rISdMpNTa7\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"rjH0rGHL3j\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters &amp; Settings</b></span>\",\"col\":12}},{\"id\":\"6OO2WnC8Og\",\"type\":\"card\",\"data\":{\"card_name\":\"Storage\",\"col\":4}},{\"id\":\"-QA7Op-wX1\",\"type\":\"card\",\"data\":{\"card_name\":\"Handling\",\"col\":4}},{\"id\":\"8_6l-HhLSd\",\"type\":\"card\",\"data\":{\"card_name\":\"Customer Setup\",\"col\":4}},{\"id\":\"GKdBEsgtwk\",\"type\":\"card\",\"data\":{\"card_name\":\"Warehouse Settings\",\"col\":4}},{\"id\":\"994_zTIM46\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"NfAdTJ7Mwg\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Analysis</b></span>\",\"col\":12}},{\"id\":\"repsec0\",\"type\":\"card\",\"data\":{\"card_name\":\"Inventory health & rotation\",\"col\":4}},{\"id\":\"repsec1\",\"type\":\"card\",\"data\":{\"card_name\":\"Productivity & slot capacity\",\"col\":4}},{\"id\":\"repsec2\",\"type\":\"card\",\"data\":{\"card_name\":\"Energy, waste & site metrics\",\"col\":4}},{\"id\":\"repsec3\",\"type\":\"card\",\"data\":{\"card_name\":\"Trade & multimodal flow\",\"col\":4}},{\"id\":\"repsec4\",\"type\":\"card\",\"data\":{\"card_name\":\"Commercial & route economics\",\"col\":4}},{\"id\":\"repsec5\",\"type\":\"card\",\"data\":{\"card_name\":\"Sustainability goals & trends\",\"col\":4}}]",
+ "content": "[{\"id\":\"whDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Warehousing Operations Dashboard\",\"col\":12}},{\"id\":\"whOpsHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Job Operations</b></span>\",\"col\":12}},{\"id\":\"whctQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Control Tower\",\"col\":3}},{\"id\":\"wfcQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workflow Center\",\"col\":3}},{\"id\":\"whScActive\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Active Jobs\",\"col\":3}},{\"id\":\"whScLive\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Live Jobs\",\"col\":3}},{\"id\":\"whScSla\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"SLA Breached\",\"col\":3}},{\"id\":\"whScInbound\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Open Inbound\",\"col\":3}},{\"id\":\"SHfdX5HVQT\",\"type\":\"onboarding\",\"data\":{\"onboarding_name\":\"Warehousing\",\"col\":12}},{\"id\":\"Na3LMScaDW\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"6RTugEzdAZ\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"YI_RRMOoqk\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"qs1hyvvZ7d\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Contract\",\"col\":3}},{\"id\":\"1GkyMSM7v5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Inbound Order\",\"col\":3}},{\"id\":\"3tcxrO1IPF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Release Order\",\"col\":3}},{\"id\":\"cdoShortcut01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cross-Docking Order\",\"col\":3}},{\"id\":\"RLuBQLNUAf\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Transfer Order\",\"col\":3}},{\"id\":\"WuAAv2AYis\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"VAS Order\",\"col\":3}},{\"id\":\"dHKnqH-zUV\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stocktake Order\",\"col\":3}},{\"id\":\"KcjoqOPobc\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Warehouse Job\",\"col\":3}},{\"id\":\"Ajv2Uunfaz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Periodic Billing\",\"col\":3}},{\"id\":\"iXnX-uP9sy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Gate Pass\",\"col\":3}},{\"id\":\"iUjnrb4GSs\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"r1zOFE_yc9\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Mobile Pages</b></span>\",\"col\":12}},{\"id\":\"mDzG6dd1tT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Card\",\"col\":3}},{\"id\":\"BUQlmnkGzL\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Plate Scanner\",\"col\":3}},{\"id\":\"Zb_6qdCOY-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Count Sheet\",\"col\":3}},{\"id\":\"rISdMpNTa7\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"rjH0rGHL3j\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters &amp; Settings</b></span>\",\"col\":12}},{\"id\":\"6OO2WnC8Og\",\"type\":\"card\",\"data\":{\"card_name\":\"Storage\",\"col\":4}},{\"id\":\"-QA7Op-wX1\",\"type\":\"card\",\"data\":{\"card_name\":\"Handling\",\"col\":4}},{\"id\":\"8_6l-HhLSd\",\"type\":\"card\",\"data\":{\"card_name\":\"Customer Setup\",\"col\":4}},{\"id\":\"GKdBEsgtwk\",\"type\":\"card\",\"data\":{\"card_name\":\"Warehouse Settings\",\"col\":4}},{\"id\":\"994_zTIM46\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"NfAdTJ7Mwg\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Analysis</b></span>\",\"col\":12}},{\"id\":\"repsec0\",\"type\":\"card\",\"data\":{\"card_name\":\"Inventory health & rotation\",\"col\":4}},{\"id\":\"repsec1\",\"type\":\"card\",\"data\":{\"card_name\":\"Productivity & slot capacity\",\"col\":4}},{\"id\":\"repsec2\",\"type\":\"card\",\"data\":{\"card_name\":\"Energy, waste & site metrics\",\"col\":4}},{\"id\":\"repsec3\",\"type\":\"card\",\"data\":{\"card_name\":\"Trade & multimodal flow\",\"col\":4}},{\"id\":\"repsec4\",\"type\":\"card\",\"data\":{\"card_name\":\"Commercial & route economics\",\"col\":4}},{\"id\":\"repsec5\",\"type\":\"card\",\"data\":{\"card_name\":\"Sustainability goals & trends\",\"col\":4}}]",
  "creation": "2025-08-18 19:01:13.708217",
  "custom_blocks": [
   {
@@ -65,35 +65,6 @@
    "link_count": 0,
    "link_to": "Storage Location",
    "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Productivity",
-   "link_count": 2,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Labor Productivity Report",
-   "link_count": 0,
-   "link_to": "Labor Productivity Report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Machine Productivity Report",
-   "link_count": 0,
-   "link_to": "Machine Productivity Report",
-   "link_type": "Report",
    "onboard": 0,
    "type": "Link"
   },
@@ -207,8 +178,8 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Stock Reports",
-   "link_count": 3,
+   "label": "Inventory health & rotation",
+   "link_count": 4,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -245,12 +216,42 @@
   },
   {
    "hidden": 0,
+   "is_query_report": 1,
+   "label": "ABC Report",
+   "link_count": 0,
+   "link_to": "ABC Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
    "is_query_report": 0,
-   "label": "Capacity Management",
-   "link_count": 4,
+   "label": "Productivity & slot capacity",
+   "link_count": 5,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Labor Productivity Report",
+   "link_count": 0,
+   "link_to": "Labor Productivity Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Machine Productivity Report",
+   "link_count": 0,
+   "link_to": "Machine Productivity Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
   },
   {
    "hidden": 0,
@@ -263,7 +264,6 @@
    "type": "Link"
   },
   {
-   "dependencies": "Energy Consumption",
    "hidden": 0,
    "is_query_report": 1,
    "label": "Handling Unit Capacity",
@@ -285,16 +285,282 @@
   },
   {
    "hidden": 0,
+   "is_query_report": 0,
+   "label": "Energy, waste & site metrics",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
    "is_query_report": 1,
-   "label": "ABC Report",
+   "label": "Energy Efficiency Report",
    "link_count": 0,
-   "link_to": "ABC Report",
+   "link_to": "Energy Efficiency Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Waste Management Report",
+   "link_count": 0,
+   "link_to": "Waste Management Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Trade & multimodal flow",
+   "link_count": 16,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Weekly Volume And Value Trend",
+   "link_count": 0,
+   "link_to": "Inbound Weekly Volume And Value Trend",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Monthly Volume And Value Trend",
+   "link_count": 0,
+   "link_to": "Inbound Monthly Volume And Value Trend",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Priority Pipeline Mix",
+   "link_count": 0,
+   "link_to": "Inbound Priority Pipeline Mix",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Branch Performance View",
+   "link_count": 0,
+   "link_to": "Inbound Branch Performance View",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Overdue And Due Date Pressure",
+   "link_count": 0,
+   "link_to": "Inbound Overdue And Due Date Pressure",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Open Draft Aging Backlog",
+   "link_count": 0,
+   "link_to": "Inbound Open Draft Aging Backlog",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Owner Workload Review",
+   "link_count": 0,
+   "link_to": "Inbound Owner Workload Review",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Submission Health Ratio",
+   "link_count": 0,
+   "link_to": "Inbound Submission Health Ratio",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Weekly Volume And Value Trend",
+   "link_count": 0,
+   "link_to": "Release Weekly Volume And Value Trend",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Monthly Volume And Value Trend",
+   "link_count": 0,
+   "link_to": "Release Monthly Volume And Value Trend",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Priority Pipeline Mix",
+   "link_count": 0,
+   "link_to": "Release Priority Pipeline Mix",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Branch Performance View",
+   "link_count": 0,
+   "link_to": "Release Branch Performance View",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Overdue And Due Date Pressure",
+   "link_count": 0,
+   "link_to": "Release Overdue And Due Date Pressure",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Open Draft Aging Backlog",
+   "link_count": 0,
+   "link_to": "Release Open Draft Aging Backlog",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Owner Workload Review",
+   "link_count": 0,
+   "link_to": "Release Owner Workload Review",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Submission Health Ratio",
+   "link_count": 0,
+   "link_to": "Release Submission Health Ratio",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Commercial & route economics",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Customer Demand Concentration",
+   "link_count": 0,
+   "link_to": "Inbound Customer Demand Concentration",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Customer Fulfillment Concentration",
+   "link_count": 0,
+   "link_to": "Release Customer Fulfillment Concentration",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Inbound Order Executive Control Snapshot",
+   "link_count": 0,
+   "link_to": "Inbound Order Executive Control Snapshot",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Release Order Executive Control Snapshot",
+   "link_count": 0,
+   "link_to": "Release Order Executive Control Snapshot",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sustainability goals & trends",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sustainability Report",
+   "link_count": 0,
+   "link_to": "Sustainability Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Carbon Footprint Dashboard",
+   "link_count": 0,
+   "link_to": "Carbon Footprint Dashboard",
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
   }
  ],
- "modified": "2026-08-18 19:00:00.000000",
+ "modified": "2026-10-08 08:14:00.000000",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehousing",
@@ -306,6 +572,20 @@
  "roles": [],
  "sequence_id": 6.0,
  "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Control Tower",
+   "link_to": "Warehousing Control Tower",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Workflow Center",
+   "link_to": "workflow-center",
+   "type": "Page"
+  },
   {
    "color": "Blue",
    "doc_view": "List",

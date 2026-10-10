@@ -1,0 +1,22 @@
+{
+ "chart_name": "Pricing Center Module Snapshot",
+ "chart_type": "Report",
+ "docstatus": 0,
+ "doctype": "Dashboard Chart",
+ "dynamic_filters_json": "[]",
+ "filters_json": "{}",
+ "group_by_type": "Count",
+ "idx": 0,
+ "is_public": 1,
+ "is_standard": 1,
+ "module": "Pricing Center",
+ "name": "Pricing Center Module Snapshot",
+ "number_of_groups": 0,
+ "report_name": "PCCT Module Snapshot",
+ "time_interval": "Monthly",
+ "timeseries": 0,
+ "timespan": "Last Year",
+ "type": "Bar",
+ "use_report_chart": 1,
+ "y_axis": []
+}

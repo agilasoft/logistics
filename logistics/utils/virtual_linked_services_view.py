@@ -65,6 +65,7 @@ def build_linked_services_view_for_booking(
 		execution_job_no_for_linked_order,
 		latest_satellite_job_from_usage,
 		latest_shipment_from_usage,
+		linked_service_order_capacity,
 	)
 
 	rows: list[dict[str, Any]] = []
@@ -81,6 +82,8 @@ def build_linked_services_view_for_booking(
 		# Job No ← Shipment Usage for this service type only (not the parent main shipment).
 		# Existing Declaration / Cross Dock jobs created before Usage was recorded still resolve
 		# from the order (Declaration.declaration_order, Warehouse Job.reference_order).
+		# Blank or 0 on the service is shown as 1. A saved quantity such as 5 stays 5.
+		row["quantity"] = linked_service_order_capacity(ls)
 		ot, on = latest_satellite_job_from_usage(ls.name)
 		row["job_type"] = ot or None
 		row["order_no"] = on or None

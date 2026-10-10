@@ -1,0 +1,36 @@
+{
+ "cards": [
+  {
+   "card": "Open Job Files (Special Projects)"
+  },
+  {
+   "card": "Avg Age of Open Jobs (Special Projects)"
+  },
+  {
+   "card": "Job Files Handled (Special Projects)"
+  },
+  {
+   "card": "Avg Lead Time per Milestone (Special Projects)"
+  },
+  {
+   "card": "Returned Billings (Special Projects)"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "Top Project Types",
+   "width": "Half"
+  },
+  {
+   "chart": "Special Projects Module Snapshot",
+   "width": "Half"
+  }
+ ],
+ "dashboard_name": "Special Projects Control Tower",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "is_default": 0,
+ "is_standard": 1,
+ "module": "Special Projects",
+ "name": "Special Projects Control Tower"
+}

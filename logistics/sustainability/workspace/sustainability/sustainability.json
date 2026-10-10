@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"suDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Sustainability Operations Dashboard\",\"col\":12}},{\"id\":\"suSp0\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"suQa\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"suSc0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Carbon Footprint\",\"col\":3}},{\"id\":\"suSc1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Energy Consumption\",\"col\":3}},{\"id\":\"suSc2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Emission Factors\",\"col\":3}},{\"id\":\"suSc3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Goals\",\"col\":3}},{\"id\":\"suSc4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Compliance\",\"col\":3}},{\"id\":\"suSc5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Metrics\",\"col\":3}},{\"id\":\"suSc6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Settings\",\"col\":3}},{\"id\":\"suSp1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"suRep\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; analysis</b></span>\",\"col\":12}},{\"id\":\"suC1\",\"type\":\"card\",\"data\":{\"card_name\":\"Carbon footprint\",\"col\":4}},{\"id\":\"suC2\",\"type\":\"card\",\"data\":{\"card_name\":\"Energy & waste\",\"col\":4}},{\"id\":\"suC3\",\"type\":\"card\",\"data\":{\"card_name\":\"Goals & compliance\",\"col\":4}},{\"id\":\"suC4\",\"type\":\"card\",\"data\":{\"card_name\":\"Metrics & trends\",\"col\":4}},{\"id\":\"suSp2\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"suMas\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters &amp; sources</b></span>\",\"col\":12}},{\"id\":\"suC5\",\"type\":\"card\",\"data\":{\"card_name\":\"Setup\",\"col\":4}},{\"id\":\"suC6\",\"type\":\"card\",\"data\":{\"card_name\":\"Source documents\",\"col\":4}}]",
+ "content": "[{\"id\":\"suDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Sustainability Operations Dashboard\",\"col\":12}},{\"id\":\"suSp0\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"suQa\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"suctQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Control Tower\",\"col\":3}},{\"id\":\"wfcQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workflow Center\",\"col\":3}},{\"id\":\"suSc0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Carbon Footprint\",\"col\":3}},{\"id\":\"suSc1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Energy Consumption\",\"col\":3}},{\"id\":\"suSc2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Emission Factors\",\"col\":3}},{\"id\":\"suSc3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Goals\",\"col\":3}},{\"id\":\"suSc4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Compliance\",\"col\":3}},{\"id\":\"suSc5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Metrics\",\"col\":3}},{\"id\":\"suSc6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sustainability Settings\",\"col\":3}},{\"id\":\"suSp1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"suRep\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; analysis</b></span>\",\"col\":12}},{\"id\":\"suC1\",\"type\":\"card\",\"data\":{\"card_name\":\"Carbon footprint\",\"col\":4}},{\"id\":\"suC2\",\"type\":\"card\",\"data\":{\"card_name\":\"Energy & waste\",\"col\":4}},{\"id\":\"suC3\",\"type\":\"card\",\"data\":{\"card_name\":\"Goals & compliance\",\"col\":4}},{\"id\":\"suC4\",\"type\":\"card\",\"data\":{\"card_name\":\"Metrics & trends\",\"col\":4}},{\"id\":\"suSp2\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"suMas\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters &amp; sources</b></span>\",\"col\":12}},{\"id\":\"suC5\",\"type\":\"card\",\"data\":{\"card_name\":\"Setup\",\"col\":4}},{\"id\":\"suC6\",\"type\":\"card\",\"data\":{\"card_name\":\"Source documents\",\"col\":4}}]",
  "creation": "2025-10-30 10:13:01.738302",
  "custom_blocks": [
   {
@@ -432,6 +432,20 @@
  ],
  "sequence_id": 9.0,
  "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Control Tower",
+   "link_to": "Sustainability Control Tower",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Workflow Center",
+   "link_to": "workflow-center",
+   "type": "Page"
+  },
   {
    "color": "Green",
    "doc_view": "List",
