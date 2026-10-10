@@ -1,0 +1,36 @@
+{
+ "cards": [
+  {
+   "card": "Open Job Files (Sustainability)"
+  },
+  {
+   "card": "Avg Age of Open Jobs (Sustainability)"
+  },
+  {
+   "card": "Job Files Handled (Sustainability)"
+  },
+  {
+   "card": "Avg Lead Time per Milestone (Sustainability)"
+  },
+  {
+   "card": "Returned Billings (Sustainability)"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "Carbon Footprint by Module",
+   "width": "Half"
+  },
+  {
+   "chart": "Sustainability Module Snapshot",
+   "width": "Half"
+  }
+ ],
+ "dashboard_name": "Sustainability Control Tower",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "is_default": 0,
+ "is_standard": 1,
+ "module": "Sustainability",
+ "name": "Sustainability Control Tower"
+}

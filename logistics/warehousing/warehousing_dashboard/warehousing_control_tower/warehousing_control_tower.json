@@ -1,0 +1,36 @@
+{
+ "cards": [
+  {
+   "card": "Open Job Files (Warehousing)"
+  },
+  {
+   "card": "Avg Age of Open Jobs (Warehousing)"
+  },
+  {
+   "card": "Job Files Handled (Warehousing)"
+  },
+  {
+   "card": "Avg Lead Time per Milestone (Warehousing)"
+  },
+  {
+   "card": "Returned Billings (Warehousing)"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "Top Warehouse Job Types",
+   "width": "Half"
+  },
+  {
+   "chart": "Warehousing Module Snapshot",
+   "width": "Half"
+  }
+ ],
+ "dashboard_name": "Warehousing Control Tower",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "is_default": 0,
+ "is_standard": 1,
+ "module": "Warehousing",
+ "name": "Warehousing Control Tower"
+}

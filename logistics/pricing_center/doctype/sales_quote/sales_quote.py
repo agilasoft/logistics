@@ -316,6 +316,21 @@ def throw_if_additional_charge_sales_quote_blocks_booking_order_creation(sales_q
 	frappe.throw(msg, title=_("Additional-Charge Quote"))
 
 
+def _linked_service_name_on_row(row) -> str:
+	if row is None:
+		return ""
+	if isinstance(row, dict):
+		return (row.get("linked_service") or "").strip()
+	return (getattr(row, "linked_service", None) or "").strip()
+
+
+def _assign_row_quantity(row, qty: int) -> None:
+	if isinstance(row, dict):
+		row["quantity"] = qty
+		return
+	row.quantity = qty
+
+
 class SalesQuote(Document):
 	def __setup__(self):
 		"""Keep virtual ``linked_services`` initialised; honour desk grid rows on save."""
@@ -347,6 +362,9 @@ class SalesQuote(Document):
 		if self.flags.get("_linked_services_from_form"):
 			rows = self.__dict__.get("linked_services") or []
 			if rows or not self._empty_linked_services_snapshot_is_not_authoritative():
+				# Desk saves post the grid the browser last painted. That copy can
+				# still say 0 after Quantity was changed on the Linked Service.
+				self._overlay_live_service_quantities(rows)
 				return rows
 			# Workflow reload / desk submit posted no rows. Rebuild from documents.
 			self.flags._linked_services_from_form = False
@@ -354,6 +372,7 @@ class SalesQuote(Document):
 			rows = self.__dict__["linked_services"]
 			if rows and any(getattr(r, "__islocal", None) for r in rows):
 				self.flags._linked_services_from_form = True
+				self._overlay_live_service_quantities(rows)
 				return rows
 			# Empty or synced snapshot left by ``_drop_virtual_linked_services_rows``:
 			# rebuild from Linked Service documents when the quote is saved.
@@ -424,6 +443,7 @@ class SalesQuote(Document):
 		from logistics.utils.linked_service_usage import (
 			latest_satellite_job_from_usage,
 			latest_shipment_from_usage,
+			linked_service_order_capacity,
 		)
 
 		rows = []
@@ -443,6 +463,8 @@ class SalesQuote(Document):
 					continue
 				if hasattr(ls, fn):
 					row[fn] = getattr(ls, fn, None)
+			# Always the live service quantity. A missing or 0 value is 1, same as orders.
+			row["quantity"] = linked_service_order_capacity(ls)
 			jt, on = latest_satellite_job_from_usage(ls.name)
 			_et, jn = latest_shipment_from_usage(ls.name)
 			row["job_type"] = jt or None
@@ -450,6 +472,32 @@ class SalesQuote(Document):
 			row["job_no"] = jn or None
 			rows.append(row)
 		return rows
+
+	def _overlay_live_service_quantities(self, rows) -> None:
+		"""Replace grid quantities with the quantity stored on each Linked Service."""
+		if not rows:
+			return
+		from logistics.utils.linked_service_usage import linked_service_order_capacity
+
+		names = []
+		for row in rows:
+			name = _linked_service_name_on_row(row)
+			if name:
+				names.append(name)
+		if not names:
+			return
+		records = frappe.get_all(
+			"Linked Service",
+			filters={"name": ["in", list(dict.fromkeys(names))]},
+			fields=["name", "quantity"],
+		)
+		by_name = {rec.name: linked_service_order_capacity(rec) for rec in records}
+		for row in rows:
+			name = _linked_service_name_on_row(row)
+			qty = by_name.get(name)
+			if qty is None:
+				continue
+			_assign_row_quantity(row, qty)
 
 	def _drop_virtual_linked_services_rows(self):
 		"""Drop the staged Services snapshot and reload it from Linked Service documents.
@@ -4375,6 +4423,26 @@ def list_quote_linked_services(sales_quote: str):
 			}
 		)
 	return {"name": quote.name, "linked_services": rows}
+
+
+@frappe.whitelist()
+def get_linked_service_quantities(sales_quote: str):
+	"""Live quantity for each service on this quote, for the Services grid.
+
+	The grid is a mirror. Opening the quote after Quantity is changed on the
+	Linked Service must show that number, not a leftover 0.
+	"""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_sales_quote,
+	)
+	from logistics.utils.linked_service_usage import linked_service_order_capacity
+
+	quote = frappe.get_doc("Sales Quote", sales_quote)
+	frappe.has_permission("Sales Quote", "read", doc=quote, throw=True)
+	return {
+		linked.name: linked_service_order_capacity(linked)
+		for linked in get_linked_services_for_sales_quote(quote.name)
+	}
 
 
 @frappe.whitelist()

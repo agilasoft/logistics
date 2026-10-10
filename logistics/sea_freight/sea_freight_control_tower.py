@@ -4,8 +4,8 @@
 
 """Sea Freight Control Tower dashboard API.
 
-Aggregates sea-freight operational KPIs for the ``sea-freight-control-tower``
-desk page, filtered by Company / Branch / Cost Center / Profit Center / UNLOCO:
+Aggregates sea-freight operational KPIs for the Sea Freight Control Tower
+dashboard, filtered by Company / Branch / Cost Center / Profit Center / UNLOCO:
 
 - Number of open job files
 - Average age of open job files
@@ -504,4 +504,108 @@ def get_filter_options(company=None):
 		"cost_centers": cost_centers,
 		"profit_centers": profit_centers,
 		"unlocos": unloco_values,
+	}
+
+
+_CARD_SPECS = {
+	"open_job_files_count": {
+		"report": "SFCT Job Files Detail",
+		"fieldtype": "Int",
+		"extra": {"scope": "Open"},
+	},
+	"avg_age_open_jobs": {
+		"report": "SFCT Job Files Detail",
+		"fieldtype": "Float",
+		"extra": {"scope": "Open"},
+	},
+	"jobs_handled_count": {
+		"report": "SFCT Job Files Detail",
+		"fieldtype": "Int",
+		"extra": {"scope": "Handled"},
+	},
+	"avg_lead_time_per_milestone": {
+		"report": "SFCT Milestone Lead Time",
+		"fieldtype": "Float",
+		"extra": {},
+	},
+	"returned_billings_count": {
+		"report": "SFCT Returned Billings",
+		"fieldtype": "Int",
+		"extra": {},
+	},
+}
+
+
+def _card_filters(filters):
+	"""Split the Number Card metric out of the filter payload."""
+	if isinstance(filters, str):
+		filters = frappe.parse_json(filters) or {}
+	if not isinstance(filters, dict):
+		filters = {}
+	filters = dict(filters)
+	metric = (filters.pop("metric", None) or "").strip()
+	if not (filters.get("company") or "").strip():
+		filters["company"] = frappe.defaults.get_user_default("Company") or ""
+	return metric, filters
+
+
+def _route_options(parsed, extra=None):
+	options = {
+		"fiscal_year": parsed.get("fiscal_year"),
+		"from_date": parsed.get("from_date"),
+		"to_date": parsed.get("to_date"),
+	}
+	if parsed.get("company"):
+		options["company"] = parsed.get("company")
+	for key in ("branch", "cost_center", "profit_center", "unloco"):
+		if parsed.get(key):
+			options[key] = parsed.get(key)
+	options.update(extra or {})
+	return options
+
+
+def module_snapshot_rows(filters=None):
+	"""Module, open, average age, and handled rows for the snapshot chart."""
+	parsed = _parse_filters(filters)
+	rows = []
+	for row in _sea_shipment_kpis(parsed).get("by_module") or []:
+		rows.append({
+			"module": row.get("module") or SEA_SHIPMENT,
+			"open": int(row.get("open") or 0),
+			"open_avg_age": round(flt(row.get("open_avg_age") or 0), 1),
+			"handled": int(row.get("handled") or 0),
+		})
+	return rows
+
+
+@frappe.whitelist()
+def number_card_value(filters=None):
+	"""Custom Number Card value for the Sea Freight Control Tower dashboard.
+
+	``filters.metric`` selects the KPI. Clicking the card opens the matching
+	detail report with the same company and date range.
+	"""
+	metric, raw = _card_filters(filters)
+	spec = _CARD_SPECS.get(metric)
+	if not spec:
+		return {"value": 0, "fieldtype": "Int"}
+
+	parsed = _parse_filters(raw)
+	if metric in ("open_job_files_count", "avg_age_open_jobs", "jobs_handled_count"):
+		value = (_sea_shipment_kpis(parsed) or {}).get(metric) or 0
+	elif metric == "avg_lead_time_per_milestone":
+		value = _avg_lead_time(parsed)
+	else:
+		value = _returned_billings_count(parsed)
+
+	if spec["fieldtype"] == "Int":
+		value = int(value or 0)
+	else:
+		value = round(flt(value or 0), 1)
+
+	return {
+		"value": value,
+		"fieldtype": spec["fieldtype"],
+		"route": ["query-report", spec["report"]],
+		"route_options": _route_options(parsed, spec.get("extra")),
 	}

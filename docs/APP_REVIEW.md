@@ -209,7 +209,7 @@ The only parent DocType is **HV Brands**. The rest of `logistics/high_value/` is
 
 ## Control Tower
 
-Control Tower is an executive register plus read-only SQL. Seeded documents include Control Tower Organization, GP Target, Pipeline Entry, Risk Register Entry, Returned Billing, Client Credit Line, and HR, IT, and asset logs. `control_tower/api.py` aggregates jobs and milestones across sea, air, transport, declaration, warehouse, project, exhibit, and MICE sources. The module docstring states that cross-currency amounts are summed with no foreign-exchange conversion. GP uses both estimated and recognized fields.
+Control Tower is an executive register plus read-only SQL. Seeded documents include Control Tower Organization, GP Target, Pipeline Entry, Risk Register Entry, Returned Billing, and HR, IT, and asset logs. Customer credit limits stay on the Customer. `control_tower/api.py` aggregates jobs and milestones across sea, air, transport, declaration, warehouse, project, exhibit, and MICE sources. The module docstring states that cross-currency amounts are summed with no foreign-exchange conversion. GP uses both estimated and recognized fields.
 
 `permission_query_conditions` in `hooks.py` scopes Organization, GP Target, Pipeline Entry, Risk Register Entry, and Returned Billing through `control_tower/permissions.py`. `control_tower/install.py` runs on install and migrate and rebuilds dashboards, charts, and number cards from `seed_data.py`.
 
