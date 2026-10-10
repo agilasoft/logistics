@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"hvDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"High Value Operations Dashboard\",\"col\":12}},{\"id\":\"hvOpsHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Brand Operations</b></span>\",\"col\":12}},{\"id\":\"hvScBrands\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Brands\",\"col\":3}},{\"id\":\"hvScQuotes\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Active Quotes\",\"col\":3}},{\"id\":\"hvScLive\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Live Air\",\"col\":3}},{\"id\":\"hvScSla\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"SLA Breached\",\"col\":3}},{\"id\":\"hvScLiveSea\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Live Sea\",\"col\":3}},{\"id\":\"hvScLiveTrn\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Live Transport\",\"col\":3}},{\"id\":\"wlkIxIFQue\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Quick Access</b></span>\",\"col\":12}},{\"id\":\"0o3bugamR7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":4}},{\"id\":\"qTXJZsGCTV\",\"type\":\"card\",\"data\":{\"card_name\":\"Bookings and Orders\",\"col\":4}},{\"id\":\"wLxzGjg_SJ\",\"type\":\"card\",\"data\":{\"card_name\":\"Brands Management\",\"col\":4}},{\"id\":\"D7boECO5yu\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters Files and Setup</b></span>\",\"col\":12}},{\"id\":\"4jON7a-uZF\",\"type\":\"card\",\"data\":{\"card_name\":\"Sea Freight\",\"col\":4}},{\"id\":\"zH_MxuIjDw\",\"type\":\"card\",\"data\":{\"card_name\":\"Air Freight\",\"col\":4}},{\"id\":\"hvRptHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analytics</b></span>\",\"col\":12}},{\"id\":\"hvCardOps\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational Reports\",\"col\":4}},{\"id\":\"hvCardAn\",\"type\":\"card\",\"data\":{\"card_name\":\"Analytics & Insights\",\"col\":4}}]",
+ "content": "[{\"id\":\"hvDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"High Value Operations Dashboard\",\"col\":12}},{\"id\":\"hvOpsHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Brand Operations</b></span>\",\"col\":12}},{\"id\":\"hvctQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Control Tower\",\"col\":3}},{\"id\":\"wfcQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workflow Center\",\"col\":3}},{\"id\":\"hvScBrands\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Brands\",\"col\":3}},{\"id\":\"hvScQuotes\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Active Quotes\",\"col\":3}},{\"id\":\"hvScLive\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Live Air\",\"col\":3}},{\"id\":\"hvScSla\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"SLA Breached\",\"col\":3}},{\"id\":\"hvScLiveSea\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Live Sea\",\"col\":3}},{\"id\":\"hvScLiveTrn\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Live Transport\",\"col\":3}},{\"id\":\"wlkIxIFQue\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Quick Access</b></span>\",\"col\":12}},{\"id\":\"0o3bugamR7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":4}},{\"id\":\"qTXJZsGCTV\",\"type\":\"card\",\"data\":{\"card_name\":\"Bookings and Orders\",\"col\":4}},{\"id\":\"wLxzGjg_SJ\",\"type\":\"card\",\"data\":{\"card_name\":\"Brands Management\",\"col\":4}},{\"id\":\"D7boECO5yu\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters Files and Setup</b></span>\",\"col\":12}},{\"id\":\"4jON7a-uZF\",\"type\":\"card\",\"data\":{\"card_name\":\"Sea Freight\",\"col\":4}},{\"id\":\"zH_MxuIjDw\",\"type\":\"card\",\"data\":{\"card_name\":\"Air Freight\",\"col\":4}},{\"id\":\"hvRptHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analytics</b></span>\",\"col\":12}},{\"id\":\"hvCardOps\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational Reports\",\"col\":4}},{\"id\":\"hvCardAn\",\"type\":\"card\",\"data\":{\"card_name\":\"Analytics & Insights\",\"col\":4}}]",
  "creation": "2026-05-19 00:00:00",
  "custom_blocks": [
   {
@@ -286,6 +286,20 @@
  ],
  "sequence_id": 0.0,
  "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Control Tower",
+   "link_to": "High Value Control Tower",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Workflow Center",
+   "link_to": "workflow-center",
+   "type": "Page"
+  },
   {
    "color": "Blue",
    "doc_view": "List",

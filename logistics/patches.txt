@@ -1002,4 +1002,18 @@ logistics.patches.v3_0_sync_sustainability_operations_dashboard
 logistics.patches.v3_0_native_freight_control_tower_dashboards
 # Control Tower credit lines live on Customer Credit Limit. Copy limits, then drop the register.
 logistics.patches.v3_0_remove_client_credit_line
+# Job Management sidebar: same groups as the workspace (operations, masters, reports).
+logistics.patches.v3_0_sync_job_management_sidebar
+# High Value sidebar follows the workspace groups (operations, bookings, masters, reports).
+logistics.patches.v3_0_sync_high_value_sidebar
+# Warehousing: file existing reports under the Reports & Analysis cards
+logistics.patches.v3_0_sync_warehousing_reports_workspace
+# Customs Control Tower: native dashboard, workspace shortcut, and sidebar link.
+logistics.patches.v3_0_sync_customs_control_tower
+# Workflow Center: same desk entry on every logistics module workspace and sidebar.
+logistics.patches.v3_0_add_workflow_center_to_module_workspaces
+# Transport Control Tower: native dashboard, workspace shortcut, and sidebar link.
+logistics.patches.v3_0_sync_transport_control_tower
 
+# Module Control Towers: Warehousing, Special Projects, MICE, High Value, Time Sensitive, Sustainability, and Pricing Center.
+logistics.patches.v3_0_sync_module_control_towers
