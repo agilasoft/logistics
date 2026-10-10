@@ -8,10 +8,12 @@ from __future__ import annotations
 import frappe
 from frappe import _
 
-# Forms and reports call get_user_default("Company"). On the server that lookup
-# ignores a string stored under "Company" and reads the scrubbed key "company".
-# Keep both so the personal choice is what the rest of the app reads.
+# Forms and reports call get_user_default("Company"). That server lookup ignores
+# a plain string stored under "Company" and reads the scrubbed key "company".
+# MariaDB's collation also treats those two keys as one row, so the value has
+# to be stored as "company". Reading still accepts either spelling.
 COMPANY_DEFAULT_KEYS = ("Company", "company")
+COMPANY_DEFAULT_KEY = "company"
 
 
 def extend_bootinfo(bootinfo) -> None:
@@ -103,8 +105,10 @@ def save_session_defaults(company: str | None = None):
 		frappe.throw(_("You cannot use Company {0}").format(company), frappe.PermissionError)
 
 	user = frappe.session.user
-	for key in COMPANY_DEFAULT_KEYS:
-		frappe.defaults.set_user_default(key, company, user=user)
+	# Drop a title-case row first. If it already holds this company, set_default
+	# would keep the old key and get_user_default("Company") would stay empty.
+	frappe.defaults.clear_user_default("Company", user)
+	frappe.defaults.set_user_default(COMPANY_DEFAULT_KEY, company, user=user)
 	return {"company": company}
 
 

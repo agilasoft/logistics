@@ -47,7 +47,9 @@ class TestSessionDefaults(IntegrationTestCase):
 	def test_global_default_still_requires_page(self):
 		user = self._system_user()
 		company = self._company("Global")
-		frappe.defaults.set_global_default("Company", company)
+		# The site-wide value is stored under the scrubbed key. A title-case
+		# "Company" row is the same database key and is invisible to get_user_default.
+		frappe.defaults.clear_default("Company", parent="__default")
 		frappe.defaults.set_global_default("company", company)
 		frappe.set_user(user)
 		self.assertEqual(frappe.defaults.get_user_default("Company"), company)
