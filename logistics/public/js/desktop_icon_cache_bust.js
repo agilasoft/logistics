@@ -1,6 +1,7 @@
-// Force logistics desktop icons and workspace sidebars to use SVGs from
-// public/icons/desktop_icons/ (same location as other logistics modules).
-// Does NOT use frappe.ready (not available in desk app context).
+// Logistics desktop SVGs under public/icons/desktop_icons/ still back the
+// fallback icon grid. The apps-screen dock and sidebar header draw Lucide
+// marks from the Dock and Sidebar fixtures, so this does not replace
+// SidebarHeader.set_header_icon.
 (function () {
 	function run() {
 		if (typeof frappe === "undefined" || !frappe.utils) return;
@@ -24,26 +25,8 @@
 				return _get_desktop_icon.apply(this, arguments);
 			};
 		}
-
-		// Sidebar header: use logistics SVG for workspace icon even when not on desktop
-		if (frappe.ui?.SidebarHeader?.prototype?.set_header_icon) {
-			const _set_header_icon = frappe.ui.SidebarHeader.prototype.set_header_icon;
-			frappe.ui.SidebarHeader.prototype.set_header_icon = function () {
-				const sidebar_data = this.sidebar?.sidebar_data;
-				const title = this.sidebar?.sidebar_title;
-				if (sidebar_data?.app === "logistics" && title) {
-					const icon_url = frappe.utils.get_desktop_icon(title, "solid");
-					if (icon_url) {
-						this.header_icon = `<img src=${icon_url}></img>`;
-						return;
-					}
-				}
-				return _set_header_icon.apply(this, arguments);
-			};
-		}
 	}
 
-	// Defer until frappe is available; never call frappe.ready (not in desk app)
 	function tryRun() {
 		if (typeof frappe !== "undefined" && frappe.utils) {
 			run();

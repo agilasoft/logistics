@@ -1,0 +1,166 @@
+/* Sustainability Home — carbon footprint lanes colored by emission */
+.su-ops-dash .su-ops-page-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ro-text-strong);
+  margin-top: 0.15rem;
+}
+.su-ops-dash .su-ops-heat-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  background: var(--ro-fill-light);
+  border-bottom: 1px solid var(--ro-border-soft);
+}
+.su-ops-dash .su-ops-user-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--ro-label);
+}
+.su-ops-dash .su-ops-legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.7rem;
+  margin-left: auto;
+  align-items: center;
+}
+.su-ops-dash .su-ops-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: 0.68rem;
+  color: var(--ro-label);
+  font-weight: 600;
+}
+.su-ops-dash .su-ops-swatch {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  display: inline-block;
+}
+.su-ops-dash .su-ops-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.75rem 0.9rem 0.9rem;
+  max-height: 520px;
+  overflow: auto;
+}
+.su-ops-dash .su-ops-lane {
+  border: 1px solid var(--ro-border-soft, #e5e7eb);
+  border-left: 4px solid var(--su-lane, #15803d);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.55rem 0.7rem 0.6rem;
+}
+.su-ops-dash .su-ops-lane-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.su-ops-dash .su-ops-lane-title {
+  font-weight: 700;
+  font-size: 0.86rem;
+  color: var(--ro-text-strong);
+}
+.su-ops-dash .su-ops-lane-meta {
+  margin-top: 0.12rem;
+  font-size: 0.7rem;
+  color: var(--ro-label);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  align-items: center;
+}
+.su-ops-dash .su-ops-pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  background: var(--su-tint, #dcfce7);
+  color: var(--su-lane, #15803d);
+}
+.su-ops-dash .su-ops-module {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #334155;
+}
+.su-ops-dash .su-ops-kg {
+  text-align: right;
+  white-space: nowrap;
+}
+.su-ops-dash .su-ops-kg-value {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--su-lane, #15803d);
+  font-variant-numeric: tabular-nums;
+}
+.su-ops-dash .su-ops-kg-unit {
+  display: block;
+  font-size: 0.64rem;
+  color: var(--ro-label);
+  font-weight: 600;
+}
+.su-ops-dash .su-ops-bar {
+  margin-top: 0.4rem;
+  height: 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  overflow: hidden;
+}
+.su-ops-dash .su-ops-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--su-lane, #15803d);
+  width: 0;
+  min-width: 6px;
+}
+.su-ops-dash .su-ops-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+.su-ops-dash .su-ops-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  padding: 0.12rem 0.5rem;
+  font-size: 0.68rem;
+  background: var(--su-chip-tint, #f8fafc);
+  color: #1f2937;
+  border: 1px solid transparent;
+}
+.su-ops-dash .su-ops-chip a {
+  color: inherit;
+  font-weight: 600;
+}
+.su-ops-dash .su-ops-chip-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--su-chip, #15803d);
+}
+.su-ops-dash .su-ops-empty {
+  font-size: 0.78rem;
+  color: var(--ro-muted, #6c757d);
+  padding: 0.85rem 1rem;
+}
+.su-ops-dash .header-item.su-ops-kpi-high span {
+  color: #b91c1c;
+}
+.su-ops-dash .header-item.su-ops-kpi-net span {
+  color: #15803d;
+}

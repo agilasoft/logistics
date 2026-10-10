@@ -86,7 +86,7 @@ METRICS = {
     "unbilled_shipment_count": "Unbilled Shipment Monitoring",
     "cash_advances_summary": "Cash Advances",
     "container_deposit_summary": "Container Deposit",
-    "credit_lines_exposure": "Credit Lines & Exposure",
+    "credit_lines_exposure": "Customer Credit Exposure",
     "investment_holdings_summary": "Investment Holdings",
     "payables_aging": "Payables",
     "bank_recon_discrepancies_total": "Bank Recon Discrepancies",

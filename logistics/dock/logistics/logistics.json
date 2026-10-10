@@ -1,0 +1,104 @@
+{
+ "app": "logistics",
+ "doctype": "Dock",
+ "items": [
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "air_freight",
+   "link_to": "Air Freight",
+   "link_type": "Sidebar",
+   "title": "Air Freight"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "sea_freight",
+   "link_to": "Sea Freight",
+   "link_type": "Sidebar",
+   "title": "Sea Freight"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "customs",
+   "link_to": "Customs",
+   "link_type": "Sidebar",
+   "title": "Customs"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "transport",
+   "link_to": "Transport",
+   "link_type": "Sidebar",
+   "title": "Transport"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "warehousing",
+   "link_to": "Warehousing",
+   "link_type": "Sidebar",
+   "title": "Warehousing"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "job_management",
+   "link_to": "Job Management",
+   "link_type": "Sidebar",
+   "title": "Job Management"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "special_projects",
+   "link_to": "Special Projects",
+   "link_type": "Sidebar",
+   "title": "Special Projects"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "mice",
+   "link_to": "MICE",
+   "link_type": "Sidebar",
+   "title": "MICE"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "high_value",
+   "link_to": "High Value",
+   "link_type": "Sidebar",
+   "title": "High Value"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "time_sensitive",
+   "link_to": "Time Sensitive",
+   "link_type": "Sidebar",
+   "title": "Time Sensitive"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "sustainability",
+   "link_to": "Sustainability",
+   "link_type": "Sidebar",
+   "title": "Sustainability"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "pricing",
+   "link_to": "Pricing Center",
+   "link_type": "Sidebar",
+   "title": "Pricing Center"
+  }
+ ],
+ "name": "logistics",
+ "standard": 1
+}

@@ -1,0 +1,36 @@
+{
+ "cards": [
+  {
+   "card": "Open Job Files"
+  },
+  {
+   "card": "Avg Age of Open Jobs"
+  },
+  {
+   "card": "Job Files Handled"
+  },
+  {
+   "card": "Avg Lead Time per Milestone"
+  },
+  {
+   "card": "Returned Billings"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "Top Airlines",
+   "width": "Half"
+  },
+  {
+   "chart": "Air Module Snapshot",
+   "width": "Half"
+  }
+ ],
+ "dashboard_name": "Air Freight Control Tower",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "is_default": 0,
+ "is_standard": 1,
+ "module": "Air Freight",
+ "name": "Air Freight Control Tower"
+}

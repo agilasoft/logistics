@@ -20,6 +20,19 @@ app_icon = "octicon octicon-file-directory"
 app_color = "grey"
 app_email = "info@agilasoft.com"
 app_license = "AGPL-3.0-or-later"
+app_logo_url = "/assets/logistics/icons/icon-192.png"
+app_home = "/desk/transport"
+
+# One icon on the apps screen. Module icons live on the dock, not the desktop grid.
+add_to_apps_screen = [
+	{
+		"name": app_name,
+		"logo": app_logo_url,
+		"title": app_title,
+		"route": app_home,
+		"sequence_id": 10,
+	}
+]
 
 # The dock entry for this programme is MICE. Exhibits keeps its DocTypes, and the desk
 # resolves them through MICE instead of drawing a second icon labelled Exhibits.
@@ -44,7 +57,12 @@ fixtures = [
 # ------------------
 
 # include js, css files in header of desk.html
+# Module artwork for the dock and sidebar header. Symbol ids match the dock icon names.
+app_include_icons = [
+	"/assets/logistics/icons/module-icons.svg",
+]
 app_include_css = [
+	"/assets/logistics/css/module_dock.css?v=1",
 	"/assets/logistics/css/print_footer_fix.css",
 	"/assets/logistics/css/get_charges_from_quotation.css?v=9",
 	"/assets/logistics/css/gcfq_settings_dashboard.css?v=2",
@@ -56,8 +74,10 @@ app_include_css = [
 	"/assets/logistics/css/ts_sq_fetch_dialog.css?v=6",
 	"/assets/logistics/css/role_permission_matrix.css?v=6",
 	"/assets/logistics/css/vehicle_permit_banner.css?v=1",
+	"/assets/logistics/css/session_defaults.css?v=3",
 ]
 app_include_js = [
+	"/assets/logistics/js/session_defaults_guard.js?v=1",
 	"/assets/logistics/js/company_dimension_filters.js?v=1",
 	"/assets/logistics/js/address_link_query.js?v=1",
 	"/assets/logistics/js/party_address_contact.js?v=1",
@@ -67,7 +87,7 @@ app_include_js = [
 	"/assets/logistics/js/ts_sq_fetch_dialog.js?v=6",
 	"/assets/logistics/js/freight_agent_service.js?v=4",
 	"/assets/logistics/js/charge_bill_to.js?v=4",
-	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=2",
+	"/assets/logistics/js/desk_main_sidebar_visibility_fix.js?v=7",
 	"/assets/logistics/js/mice_desk_icon.js?v=1",
 	"/assets/logistics/js/mice_project_manifest_print_preview.js?v=2",
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=4",
@@ -119,8 +139,6 @@ app_include_js = [
 # include js in page
 page_js = {
 	"workflow-center": "public/js/workflow_center.js",
-	"air-freight-control-tower": "public/js/air_freight_control_tower_page.js",
-	"sea-freight-control-tower": "public/js/sea_freight_control_tower_page.js",
 	"role-permission-matrix": "public/js/role_permission_matrix_page.js",
 }
 
@@ -404,6 +422,9 @@ jinja = {
 # ------------
 
 before_install = "logistics.integrations.outlook.install.before_install"
+
+# Runs after Frappe clears Session Default Settings, and writes the company back.
+on_logout = "logistics.logistics.page.session_defaults.session_defaults.restore_persistent_company"
 # after_install = "logistics.install.after_install"
 
 # Desk Notifications
@@ -437,6 +458,7 @@ permission_query_conditions = {
 boot_session = [
 	"logistics.utils.specified_charges_meta.extend_bootinfo_with_specified_charges_meta",
 	"logistics.mice.desk_icon.extend_bootinfo",
+	"logistics.logistics.page.session_defaults.session_defaults.extend_bootinfo",
 ]
 
 doc_events = DOC_EVENTS
@@ -581,7 +603,6 @@ company_data_to_be_ignored = [
 	"Sustainability Settings",
 	"Warehouse Settings",
 	"CASS Settlement Period",
-	"Client Credit Line",
 	"Dock Door",
 	"Handling Unit",
 	"MAWB Stock Range",
