@@ -374,6 +374,45 @@ function logistics_sq_linked_services_fieldname(frm) {
 	return null;
 }
 
+/** Paint the Services grid with the quantity stored on each Linked Service. */
+function logistics_sq_sync_service_quantities(frm) {
+	if (!frm || frm.is_new() || !frm.doc || !frm.doc.name || frm._sq_qty_sync) {
+		return;
+	}
+	const fieldname = logistics_sq_linked_services_fieldname(frm);
+	if (!fieldname || !(frm.doc[fieldname] || []).length) {
+		return;
+	}
+	frm._sq_qty_sync = true;
+	frappe.call({
+		method: SQ_SERVICES_API + ".get_linked_service_quantities",
+		args: { sales_quote: frm.doc.name },
+		callback(r) {
+			frm._sq_qty_sync = false;
+			const qtyByName = (r && r.message) || {};
+			const rows = frm.doc[fieldname] || [];
+			let changed = false;
+			rows.forEach(function (row) {
+				const name = row.linked_service;
+				if (!name || qtyByName[name] == null) {
+					return;
+				}
+				const qty = cint(qtyByName[name]) || 1;
+				if (cint(row.quantity) !== qty) {
+					row.quantity = qty;
+					changed = true;
+				}
+			});
+			if (changed) {
+				frm.refresh_field(fieldname);
+			}
+		},
+		error() {
+			frm._sq_qty_sync = false;
+		},
+	});
+}
+
 /** Services tab is a read-only mirror; manage via toolbar Services dialog. */
 function logistics_setup_linked_services_grid(frm) {
 	if (window.logistics && logistics.setup_virtual_linked_services_grid) {
@@ -1148,6 +1187,7 @@ frappe.ui.form.on("Sales Quote", {
 		frm.events.setup_item_code_query(frm);
 		frm.events.setup_internal_job_query(frm);
 		logistics_setup_linked_services_grid(frm);
+		logistics_sq_sync_service_quantities(frm);
 		logistics_sq_setup_services_button(frm);
 		frm.events.refresh_estimated_profitability(frm);
 
