@@ -14,6 +14,7 @@ from logistics.logistics.page.session_defaults.session_defaults import (
 	get_context,
 	get_personal_company,
 	get_permitted_companies,
+	restore_persistent_company,
 	save_session_defaults,
 	user_needs_session_defaults,
 )
@@ -92,6 +93,19 @@ class TestSessionDefaults(IntegrationTestCase):
 		self.assertEqual(context["company"], company)
 		self.assertIn(company, context["companies"])
 		self.assertFalse(context["required"])
+
+	def test_logout_keeps_personal_company(self):
+		user = self._system_user()
+		company = self._company("Keep")
+		frappe.set_user(user)
+		save_session_defaults(company)
+		# Session Default Settings clears the company key on logout.
+		frappe.defaults.clear_user_default("company", user)
+		frappe.defaults.clear_user_default("Company", user)
+		self.assertEqual(get_personal_company(user), company)
+		self.assertFalse(user_needs_session_defaults(user))
+		self.assertEqual(restore_persistent_company(user), company)
+		self.assertEqual(frappe.defaults.get_user_default("Company"), company)
 
 	def test_save_rejects_empty_and_unpermitted_company(self):
 		user = self._system_user()

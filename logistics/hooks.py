@@ -422,6 +422,9 @@ jinja = {
 # ------------
 
 before_install = "logistics.integrations.outlook.install.before_install"
+
+# Runs after Frappe clears Session Default Settings, and writes the company back.
+on_logout = "logistics.logistics.page.session_defaults.session_defaults.restore_persistent_company"
 # after_install = "logistics.install.after_install"
 
 # Desk Notifications

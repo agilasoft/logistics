@@ -14,12 +14,24 @@ from frappe import _
 # to be stored as "company". Reading still accepts either spelling.
 COMPANY_DEFAULT_KEYS = ("Company", "company")
 COMPANY_DEFAULT_KEY = "company"
+# Logout clears every Company default listed in Session Default Settings.
+# This extra key is not one of those, so the user's choice survives logout.
+PERSISTENT_COMPANY_KEY = "logistics_session_company"
 
 
 def extend_bootinfo(bootinfo) -> None:
 	"""Tell the desk whether this user still has to choose a Company."""
 	if bootinfo is None or getattr(frappe.flags, "in_install", False):
 		return
+	try:
+		saved = restore_persistent_company()
+		user = getattr(bootinfo, "user", None)
+		defaults = getattr(user, "defaults", None) if user is not None else None
+		if saved and isinstance(defaults, dict):
+			defaults["company"] = saved
+			defaults["Company"] = saved
+	except Exception:
+		pass
 	try:
 		bootinfo.logistics_needs_session_defaults = 1 if user_needs_session_defaults() else 0
 	except Exception:
@@ -50,7 +62,7 @@ def get_personal_company(user: str | None = None) -> str | None:
 	"""Return the Company this user saved, ignoring Global Defaults."""
 	user = user or frappe.session.user
 	defaults = frappe.defaults.get_defaults_for(user) or {}
-	for key in COMPANY_DEFAULT_KEYS:
+	for key in (*COMPANY_DEFAULT_KEYS, PERSISTENT_COMPANY_KEY):
 		value = defaults.get(key)
 		if isinstance(value, (list, tuple)):
 			value = value[0] if value else None
@@ -113,7 +125,28 @@ def save_session_defaults(company: str | None = None):
 	# would keep the old key and get_user_default("Company") would stay empty.
 	frappe.defaults.clear_user_default("Company", user)
 	frappe.defaults.set_user_default(COMPANY_DEFAULT_KEY, company, user=user)
+	frappe.defaults.set_user_default(PERSISTENT_COMPANY_KEY, company, user=user)
 	return {"company": company}
+
+
+def restore_persistent_company(user: str | None = None) -> str | None:
+	"""Put the saved company back after logout clears the session default."""
+	user = user or frappe.session.user
+	if not user or user == "Guest":
+		return None
+	defaults = frappe.defaults.get_defaults_for(user) or {}
+	saved = defaults.get(PERSISTENT_COMPANY_KEY)
+	if isinstance(saved, (list, tuple)):
+		saved = saved[0] if saved else None
+	if not saved:
+		return None
+	current = defaults.get(COMPANY_DEFAULT_KEY) or defaults.get("Company")
+	if isinstance(current, (list, tuple)):
+		current = current[0] if current else None
+	if current != saved:
+		frappe.defaults.clear_user_default("Company", user)
+		frappe.defaults.set_user_default(COMPANY_DEFAULT_KEY, saved, user=user)
+	return saved
 
 
 def _require_system_user() -> None:
