@@ -1,0 +1,36 @@
+{
+ "cards": [
+  {
+   "card": "Open Job Files (Time Sensitive)"
+  },
+  {
+   "card": "Avg Age of Open Jobs (Time Sensitive)"
+  },
+  {
+   "card": "Job Files Handled (Time Sensitive)"
+  },
+  {
+   "card": "Avg Lead Time per Milestone (Time Sensitive)"
+  },
+  {
+   "card": "Returned Billings (Time Sensitive)"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "Top Case Types",
+   "width": "Half"
+  },
+  {
+   "chart": "Time Sensitive Module Snapshot",
+   "width": "Half"
+  }
+ ],
+ "dashboard_name": "Time Sensitive Control Tower",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "is_default": 0,
+ "is_standard": 1,
+ "module": "Time Sensitive",
+ "name": "Time Sensitive Control Tower"
+}

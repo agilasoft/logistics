@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"ntDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Netting Operations Dashboard\",\"col\":12}},{\"id\":\"ntQaHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"ntScGroup\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Settlement Group\",\"col\":3}},{\"id\":\"ntScEntry\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Settlement Entry\",\"col\":3}},{\"id\":\"ntScDraft\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Draft Settlements\",\"col\":3}},{\"id\":\"ntScSnap\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Settlement Entry Executive Snapshot\",\"col\":3}},{\"id\":\"ntSp1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ntRepHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; analysis</b></span>\",\"col\":12}},{\"id\":\"ntC1\",\"type\":\"card\",\"data\":{\"card_name\":\"Pipeline & volume\",\"col\":4}},{\"id\":\"ntC2\",\"type\":\"card\",\"data\":{\"card_name\":\"Operations & health\",\"col\":4}},{\"id\":\"ntC3\",\"type\":\"card\",\"data\":{\"card_name\":\"Concentration & workload\",\"col\":4}}]",
+ "content": "[{\"id\":\"ntDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Netting Operations Dashboard\",\"col\":12}},{\"id\":\"ntQaHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"wfcQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workflow Center\",\"col\":3}},{\"id\":\"ntScGroup\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Settlement Group\",\"col\":3}},{\"id\":\"ntScEntry\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Settlement Entry\",\"col\":3}},{\"id\":\"ntScDraft\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Draft Settlements\",\"col\":3}},{\"id\":\"ntScSnap\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Settlement Entry Executive Snapshot\",\"col\":3}},{\"id\":\"ntSp1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ntRepHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; analysis</b></span>\",\"col\":12}},{\"id\":\"ntC1\",\"type\":\"card\",\"data\":{\"card_name\":\"Pipeline & volume\",\"col\":4}},{\"id\":\"ntC2\",\"type\":\"card\",\"data\":{\"card_name\":\"Operations & health\",\"col\":4}},{\"id\":\"ntC3\",\"type\":\"card\",\"data\":{\"card_name\":\"Concentration & workload\",\"col\":4}}]",
  "creation": "2026-04-14 00:00:00.000000",
  "custom_blocks": [
   {
@@ -257,6 +257,13 @@
  "quick_lists": [],
  "roles": [],
  "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Workflow Center",
+   "link_to": "workflow-center",
+   "type": "Page"
+  },
   {
    "color": "Blue",
    "doc_view": "List",

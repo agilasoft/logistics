@@ -747,25 +747,17 @@ def _job_type_allowed_for_source(
 			)
 		return False
 	if source_doctype == "Declaration":
-		sq = getattr(parent_doc, "sales_quote", None)
+		# Same non-freight targets as Air Shipment. Standalone is allowed; a second
+		# Transport Order is not. Air Booking, Sea Booking, and Declaration Order stay off this menu.
 		if jt == "Transport Order":
-			if not sq:
+			if not getattr(parent_doc, "sales_quote", None):
 				return False
-			if (getattr(parent_doc, "transport_order", None) or "").strip():
-				return False
-			from logistics.utils.service_role_rules import (
-				SERVICE_ROLE_LINKED,
-				SERVICE_ROLE_MAIN,
-				get_service_role,
-			)
-
-			return get_service_role(parent_doc) in (SERVICE_ROLE_MAIN, SERVICE_ROLE_LINKED)
+			return not (getattr(parent_doc, "transport_order", None) or "").strip()
 		if jt == "VAS Order":
-			return bool(flags.get("allow_inbound")) and bool(sq)
+			return bool(flags.get("allow_inbound"))
 		if jt == "Cross-Docking Order":
-			return bool(sq) and (
-				bool(flags.get("allow_cross_docking"))
-				or _shipment_charge_matches_service(parent_doc, "cross-docking")
+			return bool(flags.get("allow_cross_docking")) or _shipment_charge_matches_service(
+				parent_doc, "cross-docking"
 			)
 		return False
 	return False
@@ -1389,15 +1381,7 @@ def _get_internal_job_creation_preview_body(
 				"main_job": doc.name,
 			}
 	elif source_doctype == "Declaration":
-		if jt == "Transport Order" and (
-			get_service_role(doc) == SERVICE_ROLE_LINKED or ij_row is not None
-		):
-			target_internal = {
-				"is_internal_job": True,
-				"main_job_type": "Declaration",
-				"main_job": doc.name,
-			}
-		elif jt in ("VAS Order", "Cross-Docking Order"):
+		if jt in ("Transport Order", "VAS Order", "Cross-Docking Order"):
 			target_internal = {
 				"is_internal_job": True,
 				"main_job_type": "Declaration",

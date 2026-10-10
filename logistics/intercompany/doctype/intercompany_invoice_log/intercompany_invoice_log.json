@@ -8,6 +8,7 @@
  "field_order": [
   "naming_series",
   "sales_quote",
+  "periodic_billing",
   "customer_sales_invoice",
   "leg_order",
   "job_type",
@@ -34,8 +35,15 @@
    "in_list_view": 1,
    "label": "Sales Quote",
    "options": "Sales Quote",
-   "read_only": 1,
-   "reqd": 1
+   "read_only": 1
+  },
+  {
+   "fieldname": "periodic_billing",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Periodic Billing",
+   "options": "Periodic Billing",
+   "read_only": 1
   },
   {
    "fieldname": "customer_sales_invoice",
