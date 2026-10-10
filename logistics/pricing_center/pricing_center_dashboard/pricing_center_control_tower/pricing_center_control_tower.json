@@ -1,0 +1,36 @@
+{
+ "cards": [
+  {
+   "card": "Open Job Files (Pricing Center)"
+  },
+  {
+   "card": "Avg Age of Open Jobs (Pricing Center)"
+  },
+  {
+   "card": "Job Files Handled (Pricing Center)"
+  },
+  {
+   "card": "Avg Lead Time per Milestone (Pricing Center)"
+  },
+  {
+   "card": "Returned Billings (Pricing Center)"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "Quotes by Service",
+   "width": "Half"
+  },
+  {
+   "chart": "Pricing Center Module Snapshot",
+   "width": "Half"
+  }
+ ],
+ "dashboard_name": "Pricing Center Control Tower",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "is_default": 0,
+ "is_standard": 1,
+ "module": "Pricing Center",
+ "name": "Pricing Center Control Tower"
+}

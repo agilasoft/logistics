@@ -1,0 +1,38 @@
+{
+ "add_total_row": 0,
+ "columns": [],
+ "creation": "2026-10-08 00:00:00.000000",
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [],
+ "idx": 0,
+ "is_standard": "Yes",
+ "modified": "2026-10-08 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Customs",
+ "name": "CCT Job Files Detail",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "ref_doctype": "Declaration",
+ "report_name": "CCT Job Files Detail",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Customs Manager"
+  },
+  {
+   "role": "Customs User"
+  },
+  {
+   "role": "Control Tower Manager"
+  },
+  {
+   "role": "Control Tower Viewer"
+  }
+ ],
+ "timeout": 0
+}

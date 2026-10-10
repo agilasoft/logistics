@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"miceDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"MICE Operations Dashboard\",\"col\":12}},{\"id\":\"miceOpsHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Event Operations</b></span>\",\"col\":12}},{\"id\":\"miceScActive\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Active Projects\",\"col\":3}},{\"id\":\"miceScUpcoming\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Upcoming\",\"col\":3}},{\"id\":\"miceScOverdue\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Overdue\",\"col\":3}},{\"id\":\"miceScSla\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"SLA Breached\",\"col\":3}},{\"id\":\"ev-hdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"RsApsOHeGm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"ev-ev\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Project\",\"col\":3}},{\"id\":\"ev-ep\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Docket\",\"col\":3}},{\"id\":\"ev-eo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Order\",\"col\":3}},{\"id\":\"ev-ej\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Job\",\"col\":3}},{\"id\":\"ev-sp\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ev-mh\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\",\"col\":12}},{\"id\":\"ev-mc\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}},{\"id\":\"ev-sc\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"ev-sp2\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ev-rh\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analytics</b></span>\",\"col\":12}},{\"id\":\"ev-rc\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational\",\"col\":4}}]",
+ "content": "[{\"id\":\"miceDash\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"MICE Operations Dashboard\",\"col\":12}},{\"id\":\"miceOpsHdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Event Operations</b></span>\",\"col\":12}},{\"id\":\"mictQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Control Tower\",\"col\":3}},{\"id\":\"wfcQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workflow Center\",\"col\":3}},{\"id\":\"miceScActive\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Active Projects\",\"col\":3}},{\"id\":\"miceScUpcoming\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Upcoming\",\"col\":3}},{\"id\":\"miceScOverdue\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Overdue\",\"col\":3}},{\"id\":\"miceScSla\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"SLA Breached\",\"col\":3}},{\"id\":\"ev-hdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Quick Access</span>\",\"col\":12}},{\"id\":\"RsApsOHeGm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Quote\",\"col\":3}},{\"id\":\"ev-ev\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Project\",\"col\":3}},{\"id\":\"ev-ep\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Docket\",\"col\":3}},{\"id\":\"ev-eo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Order\",\"col\":3}},{\"id\":\"ev-ej\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"MICE Job\",\"col\":3}},{\"id\":\"ev-sp\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ev-mh\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters and Settings</b></span>\",\"col\":12}},{\"id\":\"ev-mc\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}},{\"id\":\"ev-sc\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}},{\"id\":\"ev-sp2\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ev-rh\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports and Analytics</b></span>\",\"col\":12}},{\"id\":\"ev-rc\",\"type\":\"card\",\"data\":{\"card_name\":\"Operational\",\"col\":4}}]",
  "creation": "2026-05-18 00:00:00",
  "custom_blocks": [
   {
@@ -193,6 +193,20 @@
  "roles": [],
  "sequence_id": 0.0,
  "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Control Tower",
+   "link_to": "MICE Control Tower",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Workflow Center",
+   "link_to": "workflow-center",
+   "type": "Page"
+  },
   {
    "color": "Blue",
    "doc_view": "List",

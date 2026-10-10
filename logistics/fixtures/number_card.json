@@ -2184,21 +2184,21 @@
   "type": "Custom"
  },
  {
-  "aggregate_function_based_on": "exposure_amount",
+  "aggregate_function_based_on": null,
   "background_color": null,
   "color": null,
   "currency": "PHP",
   "docstatus": 0,
   "doctype": "Number Card",
-  "document_type": "Client Credit Line",
+  "document_type": "Control Tower Organization",
   "dynamic_filters_json": "[]",
   "filters_config": null,
-  "filters_json": "[]",
-  "function": "Sum",
+  "filters_json": "{\"organization\": \"Accounting & Finance\", \"metric\": \"credit_lines_exposure\", \"report_name\": \"\"}",
+  "function": "Count",
   "is_public": 1,
   "is_standard": 0,
   "label": "Credit Exposure (PHP)",
-  "method": null,
+  "method": "logistics.control_tower.api.kpi_card_value",
   "modified": "2026-06-11 11:30:02.485101",
   "module": "Control Tower",
   "name": "Credit Exposure (PHP)",
@@ -2209,7 +2209,7 @@
   "show_full_number": 0,
   "show_percentage_stats": 1,
   "stats_time_interval": "Daily",
-  "type": "Document Type"
+  "type": "Custom"
  },
  {
   "aggregate_function_based_on": "principal",

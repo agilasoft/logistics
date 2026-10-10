@@ -1,0 +1,20 @@
+{
+ "docstatus": 0,
+ "doctype": "Number Card",
+ "document_type": "Time Sensitive Case",
+ "dynamic_filters_json": "[]",
+ "filters_json": "{\"metric\": \"returned_billings_count\"}",
+ "function": "Count",
+ "idx": 0,
+ "is_public": 1,
+ "is_standard": 1,
+ "label": "Returned Billings (Time Sensitive)",
+ "method": "logistics.time_sensitive.time_sensitive_control_tower.number_card_value",
+ "module": "Time Sensitive",
+ "name": "Returned Billings (Time Sensitive)",
+ "report_function": "Sum",
+ "show_full_number": 0,
+ "show_percentage_stats": 0,
+ "stats_time_interval": "Daily",
+ "type": "Custom"
+}

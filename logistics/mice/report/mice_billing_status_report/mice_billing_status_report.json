@@ -10,7 +10,7 @@
    "fieldname": "billing_status",
    "fieldtype": "Select",
    "label": "Billing Status",
-   "options": "Not Billed\nPending\nPartially Billed\nBilled\nTo Bill\nPaid\nOverdue\nCancelled"
+   "options": "Not Billed\nPending\nPartially Billed\nBilled\nPaid\nCancelled"
   }
  ],
  "is_standard": "Yes",
