@@ -1,0 +1,80 @@
+<div class="su-ops-dash log-ab-dash run-sheet-dash" data-link-doctype="Carbon Footprint">
+  <div class="log-ab-banner alert alert-warning su-ops-banner" style="display:none;margin:0 1.5rem 0.75rem;"></div>
+  <div class="log-ab-top">
+    <div class="run-sheet-header log-ab-head ab-summary-header-card">
+      <div class="log-ab-head-stack">
+        <div class="log-ab-top-row">
+          <div class="log-ab-hero-col">
+            <img class="log-ab-logo-img su-ops-company-logo" alt="" style="display:none;" />
+            <span class="log-ab-logo-ph su-ops-logo-ph">Co</span>
+          </div>
+          <div class="log-ab-main-block">
+            <div class="su-ops-page-title"></div>
+            <div class="log-ab-meta-cluster su-ops-meta-cluster"></div>
+          </div>
+          <div class="ab-summary-aside">
+            <div class="ab-ring-wrap">
+              <div class="ab-ring su-ops-alert-ring" style="--ab-pct:0;--ro-ring-fill:#15803d"></div>
+              <div class="ab-ring-center">
+                <span class="ab-ring-pct su-ops-ring-pct">0%</span>
+                <span class="ab-ring-cap su-ops-ring-cap">high emission</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="log-ab-body-block">
+          <div class="header-details su-ops-kpis"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ab-tab-shell">
+    <input type="radio" name="su_ops_tabs" id="su_ops_lanes" class="ab-dash-tab-input" checked>
+    <div class="su-ops-heat-toolbar">
+      <button type="button" class="btn btn-default btn-xs su-ops-refresh" title="Refresh"><i class="fa fa-refresh"></i></button>
+      <span class="su-ops-user-filter"><span class="su-ops-user-filter-lbl">Period</span>
+        <select class="form-control input-xs su-ops-filter-period">
+          <option value="30">Last 30 days</option>
+          <option value="90" selected>Last 90 days</option>
+          <option value="365">Last 12 months</option>
+          <option value="0">All dates</option>
+        </select>
+      </span>
+      <span class="su-ops-user-filter"><span class="su-ops-user-filter-lbl">Module</span>
+        <select class="form-control input-xs su-ops-filter-module">
+          <option value="all">All</option>
+          <option value="Air Freight">Air Freight</option>
+          <option value="Sea Freight">Sea Freight</option>
+          <option value="Transport">Transport</option>
+          <option value="Warehousing">Warehousing</option>
+          <option value="Customs">Customs</option>
+          <option value="Job Management">Job Management</option>
+          <option value="Pricing Center">Pricing Center</option>
+        </select>
+      </span>
+      <span class="su-ops-user-filter"><span class="su-ops-user-filter-lbl">Scope</span>
+        <select class="form-control input-xs su-ops-filter-scope">
+          <option value="all">All</option>
+          <option value="Scope 1">Scope 1</option>
+          <option value="Scope 2">Scope 2</option>
+          <option value="Scope 3">Scope 3</option>
+          <option value="Combined">Combined</option>
+        </select>
+      </span>
+      <span class="su-ops-legend"></span>
+    </div>
+    <div class="ab-tab-bar">
+      <label for="su_ops_lanes" class="ab-tlabel">Carbon Footprint Lanes <span class="ab-tab-count su-ops-lane-count">(0)</span></label>
+    </div>
+    <div class="ab-ro-body">
+      <div class="ab-tab-panels ab-ro-shell">
+        <div class="ab-tab-panel ab-tab-panel-route" style="display:block;">
+          <div class="log-ab-ro-card log-ab-ro-card--flush su-ops-lanes-card">
+            <div class="su-ops-lanes"></div>
+            <div class="su-ops-empty" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
