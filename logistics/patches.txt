@@ -1021,3 +1021,5 @@ logistics.patches.v3_0_sync_transport_control_tower
 logistics.patches.v3_0_sync_module_control_towers
 # Time Sensitive sidebar: pin the case and Sales Quote, then the same indented groups as other modules.
 logistics.patches.v3_0_sync_time_sensitive_sidebar
+# Transport sidebar: Transport Order sits directly under Sales Quote.
+logistics.patches.v3_0_place_transport_order_below_sales_quote
