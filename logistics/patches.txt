@@ -1019,3 +1019,5 @@ logistics.patches.v3_0_sync_transport_control_tower
 
 # Module Control Towers: Warehousing, Special Projects, MICE, High Value, Time Sensitive, Sustainability, and Pricing Center.
 logistics.patches.v3_0_sync_module_control_towers
+# Time Sensitive sidebar: pin the case and Sales Quote, then the same indented groups as other modules.
+logistics.patches.v3_0_sync_time_sensitive_sidebar
