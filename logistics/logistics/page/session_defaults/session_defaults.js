@@ -56,15 +56,16 @@ logistics.session_defaults.SessionDefaultsPage = class SessionDefaultsPage {
 	}
 
 	make() {
-		const fields_html = SESSION_DEFAULT_FIELDS.map(
-			(spec) => `
+		const fields_html = SESSION_DEFAULT_FIELDS.map((spec) => {
+			const mark = spec.fieldname === "company" ? ' <span class="reqd">*</span>' : "";
+			return `
 				<div class="logistics-session-defaults-field" data-field="${spec.fieldname}">
-					<label class="control-label">${spec.label} <span class="reqd">*</span></label>
+					<label class="control-label">${spec.label}${mark}</label>
 					<div class="logistics-session-defaults-input"></div>
 					<p class="logistics-session-defaults-note text-muted small hide"></p>
 				</div>
-			`
-		).join("");
+			`;
+		}).join("");
 		this.$body = $(`
 			<div class="logistics-session-defaults">
 				<div class="logistics-session-defaults-card">
@@ -89,7 +90,7 @@ logistics.session_defaults.SessionDefaultsPage = class SessionDefaultsPage {
 					fieldname: spec.fieldname,
 					options: spec.doctype,
 					label: spec.label,
-					reqd: 1,
+					reqd: spec.fieldname === "company" ? 1 : 0,
 					get_query() {
 						const names = page.names_for(spec);
 						return {
@@ -128,10 +129,10 @@ logistics.session_defaults.SessionDefaultsPage = class SessionDefaultsPage {
 		this.data = data || {};
 		const lead = data.required
 			? __(
-					"Choose the company, branch, cost center, and profit center you will work in. Workdesks open after you continue."
+					"Choose the company you will work in. Branch, cost center, and profit center are optional. Workdesks open after you continue."
 				)
 			: __(
-					"Choose the company, branch, cost center, and profit center you will work in. New documents use these values."
+					"Choose the company you will work in. Branch, cost center, and profit center are optional."
 				);
 		this.$body.find(".logistics-session-defaults-lead").text(lead);
 
@@ -188,12 +189,10 @@ logistics.session_defaults.SessionDefaultsPage = class SessionDefaultsPage {
 				next = names[0];
 			}
 			control.set_value(next || "");
-			const required = names.length > 0;
 			const company = this.fields.company.get_value();
-			$field.find(".reqd").toggleClass("hide", !required);
 			$field
 				.find(".logistics-session-defaults-note")
-				.toggleClass("hide", !company || required)
+				.toggleClass("hide", !company || names.length > 0)
 				.text(
 					__("No {0} is available for this company. You can continue without one.", [
 						spec.label,
@@ -213,13 +212,7 @@ logistics.session_defaults.SessionDefaultsPage = class SessionDefaultsPage {
 			if (spec.fieldname === "company") {
 				continue;
 			}
-			const names = this.names_for(spec);
-			const value = this.fields[spec.fieldname].get_value();
-			if (names.length && !value) {
-				frappe.msgprint(__("{0} is required", [spec.label]));
-				return;
-			}
-			args[spec.fieldname] = value || "";
+			args[spec.fieldname] = this.fields[spec.fieldname].get_value() || "";
 		}
 		frappe.call({
 			method: "logistics.logistics.page.session_defaults.session_defaults.save_session_defaults",
