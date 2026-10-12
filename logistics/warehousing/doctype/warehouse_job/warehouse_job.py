@@ -4790,6 +4790,7 @@ def _create_charge_from_contract_item(job, contract_item: dict) -> dict:
 		# Get item name and description from item master if available
 		item_name = None
 		item_description = contract_item.get("description")
+		invoice_type = None
 		item_code = contract_item.get("item_code")
 		if item_code:
 			try:
@@ -4797,6 +4798,7 @@ def _create_charge_from_contract_item(job, contract_item: dict) -> dict:
 				item_name = item_doc.item_name
 				if not item_description:
 					item_description = item_doc.description
+				invoice_type = getattr(item_doc, "invoice_type", None)
 			except Exception:
 				pass
 		
@@ -4810,6 +4812,7 @@ def _create_charge_from_contract_item(job, contract_item: dict) -> dict:
 			"unit_rate": display_rate,
 			"total": total,
 			"currency": contract_item.get("currency", _get_default_currency(getattr(job, 'company', None))),
+			"invoice_type": invoice_type,
 			"calculation_notes": _generate_comprehensive_calculation_notes_for_contract_charge(
 				job, contract_item, billing_method, billing_qty
 			)
