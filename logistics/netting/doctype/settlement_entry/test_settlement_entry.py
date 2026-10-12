@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from frappe.tests import UnitTestCase
 from frappe.utils import flt
 
@@ -49,6 +52,18 @@ def _totals(rows, conversion_rate):
 		"base_net_amount": settlement_in_base(total_receivable - total_payable, conversion_rate),
 		"total_exchange_gain_loss": flt(total_fx, 2),
 	}
+
+
+class TestSettlementEntryPermissions(UnitTestCase):
+	def test_roles_can_submit_cancel_and_amend(self):
+		data = json.loads(Path(__file__).with_name("settlement_entry.json").read_text())
+		self.assertEqual(data["is_submittable"], 1)
+		roles = {perm["role"]: perm for perm in data["permissions"]}
+		for role in ("System Manager", "Accounts User"):
+			perm = roles[role]
+			self.assertEqual(perm.get("submit"), 1, role)
+			self.assertEqual(perm.get("cancel"), 1, role)
+			self.assertEqual(perm.get("amend"), 1, role)
 
 
 class TestSettlementEntryCurrency(UnitTestCase):
