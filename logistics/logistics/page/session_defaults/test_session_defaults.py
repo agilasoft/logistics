@@ -123,7 +123,15 @@ class TestSessionDefaults(IntegrationTestCase):
 		self.assertTrue(user_needs_session_defaults(user))
 
 		with self.assertRaises(frappe.ValidationError):
-			save_session_defaults(company, branch=branch, cost_center=cost_center, profit_center="")
+			save_session_defaults(company)
+
+		optional = save_session_defaults(company, branch=branch)
+		self.assertEqual(optional["company"], company)
+		self.assertEqual(optional["branch"], branch)
+		self.assertIsNone(optional["cost_center"])
+		self.assertIsNone(optional["profit_center"])
+		self.assertFalse(user_needs_session_defaults(user))
+
 		with self.assertRaises(frappe.PermissionError):
 			save_session_defaults(
 				company,
