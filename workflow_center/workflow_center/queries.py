@@ -10,6 +10,8 @@ import frappe
 from frappe.model.workflow import get_workflow_name, get_workflow_state_field
 from frappe.utils import cint, flt, get_datetime, getdate, now_datetime, time_diff_in_seconds
 
+from workflow_center.sla import load_sla_config
+
 
 def _parse_filters(filters: dict | str | None) -> dict[str, Any]:
 	if not filters:
@@ -140,19 +142,7 @@ def _get_transition_actions(doctype: str, workflow_state: str, permitted_roles: 
 
 
 def _get_sla_config(workflow_state: str) -> dict[str, Any]:
-	row = frappe.db.get_value(
-		"Workflow State",
-		workflow_state,
-		["wc_sla_enabled", "wc_sla_unit", "wc_sla_value"],
-		as_dict=True,
-	)
-	if not row or not row.get("wc_sla_enabled"):
-		return {"enabled": False}
-	return {
-		"enabled": True,
-		"unit": row.get("wc_sla_unit") or "Hours",
-		"value": flt(row.get("wc_sla_value")),
-	}
+	return load_sla_config(workflow_state, frappe.db.has_column, frappe.db.get_value)
 
 
 def _allowed_seconds(sla: dict[str, Any]) -> int | None:
