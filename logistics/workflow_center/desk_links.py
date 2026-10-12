@@ -19,6 +19,49 @@ PAGE = "workflow-center"
 ICON = "workflow"
 ACCESS_HEADERS = {"Quick Access", "Shortcuts"}
 
+# Workspace Shortcut.doc_view on current Frappe. "Form" and "Report" were removed.
+DOC_VIEW_OPTIONS = frozenset(
+	{
+		"",
+		"List",
+		"Report Builder",
+		"Dashboard",
+		"Tree",
+		"New",
+		"Calendar",
+		"Kanban",
+		"Image",
+	}
+)
+
+
+def coerce_doc_view(row: dict, allowed: set[str] | frozenset[str] | None = None) -> str:
+	"""Return a DocType View Frappe will accept for this shortcut.
+
+	Single DocTypes open their form with a blank view, which is what "Form"
+	used to request. Report shortcuts ignore the field, so a leftover "Report"
+	is cleared. A DocType shortcut that still says "Report" opens Report Builder.
+	"""
+	options = DOC_VIEW_OPTIONS if allowed is None else allowed
+	value = row.get("doc_view") or ""
+	if value in options:
+		return value
+	if value == "Report" and row.get("type") == "DocType" and "Report Builder" in options:
+		return "Report Builder"
+	return ""
+
+
+def coerce_shortcut_views(shortcuts: list, allowed: set[str] | frozenset[str] | None = None) -> bool:
+	"""Rewrite retired DocType View values in place. Returns True when a row changed."""
+	changed = False
+	for row in shortcuts:
+		current = row.get("doc_view") or ""
+		updated = coerce_doc_view(row, allowed)
+		if updated != current:
+			row["doc_view"] = updated
+			changed = True
+	return changed
+
 
 def apply_workspace(workspace: dict) -> bool:
 	"""Insert the Workflow Center shortcut. Returns True when the document changed."""

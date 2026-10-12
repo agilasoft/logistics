@@ -420,7 +420,7 @@
   },
   {
    "color": "Blue",
-   "doc_view": "Form",
+   "doc_view": "",
    "label": "Intercompany Settings",
    "link_to": "Intercompany Settings",
    "stats_filter": "[]",

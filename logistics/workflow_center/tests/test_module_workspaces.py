@@ -11,11 +11,14 @@ from pathlib import Path
 
 from logistics.workflow_center.desk_links import (
 	ACCESS_HEADERS,
+	DOC_VIEW_OPTIONS,
 	ICON,
 	LABEL,
 	PAGE,
 	apply_sidebar,
 	apply_workspace,
+	coerce_doc_view,
+	coerce_shortcut_views,
 	_header_text,
 )
 
@@ -90,6 +93,49 @@ class TestWorkflowCenterModuleLinks(unittest.TestCase):
 				self.assertEqual(labels[labels.index("Home") + 1], LABEL, path)
 			again = json.loads(json.dumps(sidebar))
 			self.assertFalse(apply_sidebar(again), path)
+
+	def test_shipped_shortcuts_use_current_doc_views(self):
+		paths = sorted((ROOT / "logistics").glob("**/workspace/**/*.json"))
+		for path in paths:
+			workspace = _load(path)
+			for row in workspace.get("shortcuts") or []:
+				self.assertIn(row.get("doc_view") or "", DOC_VIEW_OPTIONS, (path.name, row.get("label")))
+
+	def test_retired_form_view_is_cleared_before_save(self):
+		workspace = {
+			"content": "[]",
+			"shortcuts": [
+				{
+					"label": "Intercompany Settings",
+					"link_to": "Intercompany Settings",
+					"type": "DocType",
+					"doc_view": "Form",
+				},
+				{
+					"label": "Intercompany Invoice Log",
+					"link_to": "Intercompany Invoice Log",
+					"type": "DocType",
+					"doc_view": "List",
+				},
+			],
+		}
+		self.assertTrue(apply_workspace(workspace))
+		self.assertTrue(coerce_shortcut_views(workspace["shortcuts"]))
+		self.assertEqual(
+			[row["label"] for row in workspace["shortcuts"][:2]],
+			[LABEL, "Intercompany Settings"],
+		)
+		self.assertEqual(workspace["shortcuts"][1]["doc_view"], "")
+		self.assertEqual(workspace["shortcuts"][2]["doc_view"], "List")
+		self.assertFalse(coerce_shortcut_views(workspace["shortcuts"]))
+
+	def test_retired_report_view_follows_shortcut_type(self):
+		self.assertEqual(coerce_doc_view({"type": "Report", "doc_view": "Report"}), "")
+		self.assertEqual(coerce_doc_view({"type": "DocType", "doc_view": "Report"}), "Report Builder")
+		self.assertEqual(coerce_doc_view({"type": "DocType", "doc_view": "List"}), "List")
+		kept = [{"type": "DocType", "doc_view": "Form"}]
+		self.assertFalse(coerce_shortcut_views(kept, allowed={"", "List", "Form"}))
+		self.assertEqual(kept[0]["doc_view"], "Form")
 
 	def test_insert_places_the_link_after_control_tower(self):
 		workspace = {
