@@ -77,6 +77,8 @@ app_include_css = [
 	"/assets/logistics/css/session_defaults.css?v=3",
 ]
 app_include_js = [
+	"/assets/logistics/js/number_card_report_fn.js?v=1",
+	"/assets/logistics/js/google_maps_loader.js?v=1",
 	"/assets/logistics/js/session_defaults_guard.js?v=1",
 	"/assets/logistics/js/company_dimension_filters.js?v=1",
 	"/assets/logistics/js/address_link_query.js?v=1",

@@ -441,25 +441,43 @@ frappe.pages["sea-freight-operations"].on_page_load = function (wrapper) {
     }
 
     _ensure_google_maps(apiKey, done) {
-      if (window.google && window.google.maps) {
+      if (window.logistics && typeof window.logistics.load_google_maps === "function") {
+        window.logistics.load_google_maps(apiKey, done);
+        return;
+      }
+      if (window.google && window.google.maps && window.google.maps.Map) {
         done();
         return;
       }
-      const id = "af-ops-gmaps-js";
-      if (document.getElementById(id)) {
-        const check = () => {
-          if (window.google && window.google.maps) done();
-          else setTimeout(check, 50);
-        };
-        check();
+      const queue = window.__afOpsGoogleMapsQueue || (window.__afOpsGoogleMapsQueue = []);
+      queue.push(done);
+      if (window.__afOpsGoogleMapsLoading) {
         return;
       }
+      window.__afOpsGoogleMapsLoading = true;
+      window.__afOpsGoogleMapsLoaded = function () {
+        window.__afOpsGoogleMapsLoading = false;
+        const waiters = queue.splice(0, queue.length);
+        waiters.forEach((fn) => {
+          try {
+            fn();
+          } catch (e) {
+            console.error(e);
+          }
+        });
+      };
       const s = document.createElement("script");
-      s.id = id;
       s.async = true;
-      s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(apiKey) + "&libraries=geometry";
-      s.onload = () => done();
-      s.onerror = () => done(new Error("gmaps_load"));
+      s.src =
+        "https://maps.googleapis.com/maps/api/js?key=" +
+        encodeURIComponent(apiKey) +
+        "&libraries=geometry&loading=async&callback=__afOpsGoogleMapsLoaded";
+      s.onerror = () => {
+        window.__afOpsGoogleMapsLoading = false;
+        const err = new Error("gmaps_load");
+        const waiters = queue.splice(0, queue.length);
+        waiters.forEach((fn) => fn(err));
+      };
       document.head.appendChild(s);
     }
 

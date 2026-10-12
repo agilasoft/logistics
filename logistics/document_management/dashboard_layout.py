@@ -935,10 +935,19 @@ def render_route_map_html(
 				frappe.call({{ method: 'logistics.document_management.api.get_google_maps_api_key' }}).then(function(r) {{
 					const apiKey = r.message && r.message.api_key;
 					if (!apiKey || apiKey.length < 10) {{ initLeaflet(); return; }}
+					var startGoogle = function(err) {{
+						if (err || !(window.google && window.google.maps)) {{ initLeaflet(); return; }}
+						doGoogleMap(apiKey);
+					}};
+					if (window.logistics && window.logistics.load_google_maps) {{
+						window.logistics.load_google_maps(apiKey, startGoogle);
+						return;
+					}}
 					if (window.google && window.google.maps) {{ doGoogleMap(apiKey); return; }}
+					window.__logisticsDashGoogleMaps = function() {{ startGoogle(); }};
 					const s = document.createElement('script');
-					s.src = 'https://maps.googleapis.com/maps/api/js?key=' + apiKey + '&libraries=geometry';
-					s.async = true; s.onload = function() {{ doGoogleMap(apiKey); }};
+					s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) + '&libraries=geometry&loading=async&callback=__logisticsDashGoogleMaps';
+					s.async = true;
 					s.onerror = function() {{ initLeaflet(); }};
 					document.head.appendChild(s);
 				}}).catch(function() {{ initLeaflet(); }});
@@ -1427,10 +1436,19 @@ def render_special_project_interactive_route_tab_html(
 		frappe.call({{ method: 'logistics.document_management.api.get_google_maps_api_key' }}).then(function(r) {{
 			const apiKey = r.message && r.message.api_key;
 			if (!apiKey || apiKey.length < 10) {{ initLeaflet(); return; }}
+			var startGoogle = function(err) {{
+				if (err || !(window.google && window.google.maps)) {{ initLeaflet(); return; }}
+				doGoogleMap();
+			}};
+			if (window.logistics && window.logistics.load_google_maps) {{
+				window.logistics.load_google_maps(apiKey, startGoogle);
+				return;
+			}}
 			if (window.google && window.google.maps) {{ doGoogleMap(); return; }}
+			window.__logisticsDashGoogleMaps = function() {{ startGoogle(); }};
 			const s = document.createElement('script');
-			s.src = 'https://maps.googleapis.com/maps/api/js?key=' + apiKey + '&libraries=geometry';
-			s.async = true; s.onload = function() {{ doGoogleMap(); }};
+			s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) + '&libraries=geometry&loading=async&callback=__logisticsDashGoogleMaps';
+			s.async = true;
 			s.onerror = function() {{ initLeaflet(); }};
 			document.head.appendChild(s);
 		}}).catch(function() {{ initLeaflet(); }});
