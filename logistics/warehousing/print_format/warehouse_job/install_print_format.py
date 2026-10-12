@@ -1,17 +1,11 @@
 #!/usr/bin/env python3
-"""Install or update Warehouse Job print formats (shared HTML, one per job type)."""
+"""Install or update the Warehouse Job print format."""
 import os
 
 import frappe
 
 PRINT_FORMATS = [
 	"Warehouse Job",
-	"Warehouse Job - Putaway",
-	"Warehouse Job - Pick",
-	"Warehouse Job - Move",
-	"Warehouse Job - Stocktake",
-	"Warehouse Job - VAS",
-	"Warehouse Job - Cross Dock",
 ]
 
 
@@ -59,10 +53,7 @@ def install_warehouse_job_print_formats():
 		_upsert_print_format(name, html_content)
 
 	frappe.db.commit()
-	print(
-		"Warehouse Job print formats installed. "
-		"Use Print on Warehouse Job and select the matching format."
-	)
+	print("Warehouse Job print format installed. Use Print on Warehouse Job.")
 
 
 if __name__ == "__main__":

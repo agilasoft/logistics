@@ -1,7 +1,5 @@
-"""Refresh Master Air Waybill print formats (guarded Company lookup)."""
-
-from logistics.air_freight.print_format.mawb.install_print_format import install_mawb_print_formats
+"""Retired. The print format this patch installed was removed from the app."""
 
 
 def execute():
-	install_mawb_print_formats()
+	return
