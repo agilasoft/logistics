@@ -7,8 +7,10 @@ Create intercompany Sales and Purchase Invoices when a customer Sales Invoice
 (from a Sales Quote) is submitted. For each **Internal Job** (service_role=Linked +
 Main Service link on the job or parent booking/order) where the job's operating
 company differs from the Main Job's company, the operating company invoices the
-Main Job company (intercompany SI + PI). Item and Job Number dimensions
-are set on SI (internal job) and PI (main job).
+Main Job company (intercompany SI + PI). Item and Job Number dimensions are set on the SI for the operating company
+(linked service) and on the PI for the main job when that dimension belongs
+to the main company. A main-job profit center that belongs to another company
+is not copied onto the operating company's invoice.
 """
 
 from __future__ import unicode_literals
@@ -339,6 +341,12 @@ def _create_intercompany_pair(
 	main_job_name: str,
 ) -> Tuple[str, str]:
 	"""Create one intercompany Sales Invoice (operating co) and one Purchase Invoice (Main Job co). Returns (si_name, pi_name)."""
+	from logistics.invoice_integration.purchase_invoice_dimensions import (
+		dimensions_belonging_to_company,
+		dimensions_for_operational_job,
+		linked_service_dimension_source,
+		stamp_dimensions,
+	)
 	from logistics.invoice_integration.sales_invoice_api import ensure_invoice_name_for_server_insert
 
 	leg_order = getattr(leg, "idx", "")
@@ -350,6 +358,7 @@ def _create_intercompany_pair(
 	main_branch = None
 	main_cc = None
 	main_pc = None
+	main_project = None
 	if main_job_type and main_job_name and frappe.db.exists(main_job_type, main_job_name):
 		main_jcn = frappe.db.get_value(main_job_type, main_job_name, "job_number")
 		try:
@@ -357,6 +366,7 @@ def _create_intercompany_pair(
 			main_branch = getattr(main_doc, "branch", None)
 			main_cc = getattr(main_doc, "cost_center", None)
 			main_pc = getattr(main_doc, "profit_center", None)
+			main_project = getattr(main_doc, "project", None)
 		except Exception:
 			pass
 
@@ -371,12 +381,8 @@ def _create_intercompany_pair(
 		_("from Sales Quote {0}. Trigger SI: {1}").format(sales_quote_name, trigger_si or "-"),
 	)
 	si.flags.is_intercompany_invoice = True
-	if getattr(job_doc, "branch", None):
-		si.branch = job_doc.branch
-	if getattr(job_doc, "cost_center", None):
-		si.cost_center = job_doc.cost_center
-	if getattr(job_doc, "profit_center", None):
-		si.profit_center = job_doc.profit_center
+	si_dims = dimensions_for_operational_job(job_doc, operating_company)
+	stamp_dimensions(si, si_dims, include_children=False)
 	si_meta = frappe.get_meta("Sales Invoice")
 	if si_meta.get_field("job_number") and getattr(job_doc, "job_number", None):
 		si.job_number = job_doc.job_number
@@ -396,7 +402,9 @@ def _create_intercompany_pair(
 			row.reference_doctype = job_type
 			row.reference_name = job_no
 
+	stamp_dimensions(si, si_dims)
 	si.set_missing_values()
+	stamp_dimensions(si, si_dims)
 	ensure_invoice_name_for_server_insert(si)
 	si.insert(ignore_permissions=True)
 	si.submit()
@@ -411,18 +419,23 @@ def _create_intercompany_pair(
 	pi_meta = frappe.get_meta("Purchase Invoice")
 	if pi_meta.get_field("job_number") and main_jcn:
 		pi.job_number = main_jcn
-	if main_branch and pi_meta.get_field("branch"):
-		pi.branch = main_branch
-	elif getattr(sales_quote, "branch", None):
-		pi.branch = sales_quote.branch
-	if main_cc and pi_meta.get_field("cost_center"):
-		pi.cost_center = main_cc
-	elif getattr(sales_quote, "cost_center", None):
-		pi.cost_center = sales_quote.cost_center
-	if main_pc and pi_meta.get_field("profit_center"):
-		pi.profit_center = main_pc
-	elif getattr(sales_quote, "profit_center", None):
-		pi.profit_center = sales_quote.profit_center
+	main_source = {}
+	if main_branch:
+		main_source["branch"] = main_branch
+	if main_cc:
+		main_source["cost_center"] = main_cc
+	if main_pc:
+		main_source["profit_center"] = main_pc
+	if main_project:
+		main_source["project"] = main_project
+	pi_dims = dimensions_belonging_to_company(
+		main_job_company,
+		main_source,
+		linked_service_dimension_source(job_doc),
+		job_doc,
+		sales_quote,
+	)
+	stamp_dimensions(pi, pi_dims, include_children=False)
 
 	for it in items:
 		row = pi.append("items", {
@@ -437,7 +450,9 @@ def _create_intercompany_pair(
 			row.reference_doctype = job_type
 			row.reference_name = job_no
 
+	stamp_dimensions(pi, pi_dims)
 	pi.set_missing_values()
+	stamp_dimensions(pi, pi_dims)
 	ensure_invoice_name_for_server_insert(pi)
 	pi.insert(ignore_permissions=True)
 	pi.submit()

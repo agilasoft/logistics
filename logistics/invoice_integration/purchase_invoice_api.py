@@ -32,6 +32,10 @@ from logistics.invoice_integration.billing_currency import (
     resolve_cost_charge_currency,
     supplier_default_billing_currency,
 )
+from logistics.invoice_integration.purchase_invoice_dimensions import (
+    dimensions_for_operational_job,
+    stamp_dimensions,
+)
 from logistics.mice.doctype.mice_project.mice_project_charge_copy import (
     push_consolidation_charges_to_dockets,
 )
@@ -444,9 +448,10 @@ def create_consolidation_purchase_invoice(
         pi.bill_date = bill_date
 
     pi_meta = frappe.get_meta("Purchase Invoice")
-    for dim in ("branch", "cost_center", "profit_center", "project"):
-        if pi_meta.get_field(dim) and getattr(c_doc, dim, None):
-            setattr(pi, dim, getattr(c_doc, dim))
+    consolidation_dims = dimensions_for_operational_job(c_doc)
+    # Project stays per shipment line. Header dimensions that belong to this company
+    # are stamped onto cost lines so a session default from another company cannot land there.
+    stamp_dimensions(pi, consolidation_dims, include_children=False)
 
     if pi_meta.get_field("reference_doctype"):
         pi.reference_doctype = consolidation_doctype
@@ -535,7 +540,17 @@ def create_consolidation_purchase_invoice(
     if not pi.items:
         frappe.throw(_("No Purchase Invoice lines could be built. Check allocation factors and consolidation packages."))
 
+    stamp_dimensions(
+        pi,
+        consolidation_dims,
+        child_fields=("branch", "cost_center", "profit_center"),
+    )
     pi.set_missing_values()
+    stamp_dimensions(
+        pi,
+        consolidation_dims,
+        child_fields=("branch", "cost_center", "profit_center"),
+    )
 
     insert_kw: Dict[str, Any] = {"ignore_permissions": True}
     if pi_naming["needs_purchase_invoice_name"]:
@@ -759,11 +774,11 @@ def create_purchase_invoice(
     if bill_date:
         pi.bill_date = bill_date
 
-    # Copy accounting dimensions only when both job and PI have the field (design §4.2)
+    # Linked services post in the operating company. Use that company's dimensions
+    # (Linked Service record ahead of a main-job value that belongs elsewhere).
     pi_meta = frappe.get_meta("Purchase Invoice")
-    for dim in ("branch", "cost_center", "profit_center", "project"):
-        if pi_meta.get_field(dim) and getattr(job, dim, None):
-            setattr(pi, dim, getattr(job, dim))
+    job_dims = dimensions_for_operational_job(job)
+    stamp_dimensions(pi, job_dims, include_children=False)
 
     # Set reference to job (custom fields)
     if pi_meta.get_field("reference_doctype"):
@@ -817,7 +832,9 @@ def create_purchase_invoice(
             row.reference_doctype = job_type
             row.reference_name = job_name
 
+    stamp_dimensions(pi, job_dims)
     pi.set_missing_values()
+    stamp_dimensions(pi, job_dims)
 
     insert_kw: Dict[str, Any] = {"ignore_permissions": True}
     if pi_naming["needs_purchase_invoice_name"]:

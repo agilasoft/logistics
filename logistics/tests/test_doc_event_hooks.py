@@ -38,7 +38,7 @@ def _handlers(value):
 class TestDocEventHooks(unittest.TestCase):
 	def test_map_size_is_unchanged(self):
 		self.assertEqual(len(DOC_EVENTS), 52)
-		self.assertEqual(sum(_handlers(events) for events in DOC_EVENTS.values()), 221)
+		self.assertEqual(sum(_handlers(events) for events in DOC_EVENTS.values()), 223)
 
 	def test_air_shipment_handler_order(self):
 		air = DOC_EVENTS["Air Shipment"]
