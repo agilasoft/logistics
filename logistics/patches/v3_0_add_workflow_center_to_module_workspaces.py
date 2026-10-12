@@ -5,7 +5,12 @@ from __future__ import annotations
 
 import frappe
 
-from logistics.workflow_center.desk_links import apply_sidebar, apply_workspace
+from logistics.workflow_center.desk_links import (
+	DOC_VIEW_OPTIONS,
+	apply_sidebar,
+	apply_workspace,
+	coerce_shortcut_views,
+)
 
 
 _CHILD_SKIP = {
@@ -33,6 +38,7 @@ def execute():
 
 
 def _sync_workspaces():
+	doc_views = _doc_view_options()
 	for name in _logistics_workspace_names():
 		if not frappe.db.exists("Workspace", name):
 			continue
@@ -41,7 +47,12 @@ def _sync_workspaces():
 			"content": doc.content or "[]",
 			"shortcuts": [_child_payload(row) for row in doc.shortcuts],
 		}
-		if not apply_workspace(payload):
+		changed = apply_workspace(payload)
+		# Saving revalidates every shortcut. Retired views such as "Form" fail
+		# that check even when this patch did not add them.
+		if coerce_shortcut_views(payload["shortcuts"], doc_views):
+			changed = True
+		if not changed:
 			continue
 		doc.content = payload["content"]
 		_replace_children(doc, "shortcuts", payload["shortcuts"])
@@ -78,6 +89,14 @@ def _module_names():
 			return [line.strip() for line in handle if line.strip()]
 	except OSError:
 		return []
+
+
+def _doc_view_options():
+	meta = frappe.get_meta("Workspace Shortcut")
+	field = meta.get_field("doc_view") if meta else None
+	if not field or not field.options:
+		return DOC_VIEW_OPTIONS
+	return {option.strip() for option in field.options.split("\n")}
 
 
 def _child_payload(row):

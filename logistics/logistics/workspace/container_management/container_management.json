@@ -435,21 +435,21 @@
   },
   {
    "color": "Grey",
-   "doc_view": "Report",
+   "doc_view": "",
    "label": "Container Status Report",
    "link_to": "Container Status Report",
    "type": "Report"
   },
   {
    "color": "Orange",
-   "doc_view": "Report",
+   "doc_view": "",
    "label": "Container Penalty Report",
    "link_to": "Container Penalty Report",
    "type": "Report"
   },
   {
    "color": "Orange",
-   "doc_view": "Report",
+   "doc_view": "",
    "label": "Container Deposit Report",
    "link_to": "Container Deposit Report",
    "type": "Report"
