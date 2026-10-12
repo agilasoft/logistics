@@ -99,6 +99,30 @@ class TestSalesInvoiceEligibleChargeFilters(UnitTestCase):
 		)
 		self.assertEqual(_default_invoice_customer(job), "Brand X")
 
+	def test_warehouse_job_invoice_type_matches_air_shipment_dialog(self):
+		self.assertEqual(SALES_CHARGE_CONFIG["Air Shipment"][7], "invoice_type")
+		self.assertEqual(SALES_CHARGE_CONFIG["Warehouse Job"][7], "invoice_type")
+		ch = frappe._dict(
+			item_code="STORAGE",
+			estimated_revenue=80,
+			invoice_type="Storage",
+			sales_invoice_status=None,
+			sales_invoice=None,
+		)
+		blank = frappe._dict(
+			item_code="HANDLING",
+			estimated_revenue=20,
+			invoice_type=None,
+			sales_invoice_status=None,
+			sales_invoice=None,
+		)
+		job = frappe._dict(charges=[ch, blank])
+		config = SALES_CHARGE_CONFIG["Warehouse Job"]
+		matched = _get_eligible_revenue_rows(job, config, customer=None, invoice_type="Storage")
+		self.assertEqual([row[3] for row in matched], ["STORAGE", "HANDLING"])
+		other = _get_eligible_revenue_rows(job, config, customer=None, invoice_type="Handling")
+		self.assertEqual([row[3] for row in other], ["HANDLING"])
+
 	def test_air_shipment_bill_to_does_not_filter_charges(self):
 		config = SALES_CHARGE_CONFIG["Air Shipment"]
 		job = frappe._dict(
