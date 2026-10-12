@@ -7,10 +7,41 @@ import frappe
 
 
 def after_migrate():
+	# Runs after orphan cleanup, which drops a standard DocType whose controller
+	# did not import. Cash Advance Liquidation is a parent; if that row is gone
+	# the desk route /desk/cash-advance-liquidation is a missing Page.
+	ensure_cash_advance_liquidation_doctype()
 	if frappe.flags.in_install:
 		return
 	_ensure_cash_advance_settings()
 	_backfill_account_require_job_number_for_revolving_fund()
+
+
+def ensure_cash_advance_liquidation_doctype():
+	"""Reimport the parent DocType when it is missing or still the old child table.
+
+	The pre-sync rename only moves the child when Cash Advance Request Item does
+	not exist yet. Sites that already had that child kept the name Cash Advance
+	Liquidation on an istable DocType, or lost the parent row entirely. Either
+	way the list route cannot resolve.
+	"""
+	if frappe.db.exists("DocType", "Cash Advance Liquidation"):
+		istable = frappe.db.get_value("DocType", "Cash Advance Liquidation", "istable")
+		table_ok = frappe.db.table_exists("tabCash Advance Liquidation")
+		if not istable and table_ok:
+			return
+		if istable and not frappe.db.exists("DocType", "Cash Advance Request Item"):
+			frappe.rename_doc(
+				"DocType",
+				"Cash Advance Liquidation",
+				"Cash Advance Request Item",
+				force=True,
+			)
+
+	if not frappe.db.exists("DocType", "Cash Advance Liquidation Item"):
+		frappe.reload_doc("cash_advance", "doctype", "cash_advance_liquidation_item", force=True)
+	frappe.reload_doc("cash_advance", "doctype", "cash_advance_liquidation", force=True)
+	frappe.clear_cache(doctype="Cash Advance Liquidation")
 
 
 def _ensure_cash_advance_settings():
