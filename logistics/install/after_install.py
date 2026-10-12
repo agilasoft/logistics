@@ -189,17 +189,12 @@ def create_default_permissions(doctype):
         frappe.log_error(f"Error creating permissions for {doctype}: {str(e)}", "Logistics Install Error")
 
 def install_default_print_formats():
-    """Install default print formats for Sales Invoice and Purchase Invoice"""
+    """Install the Sales Invoice HTML print format."""
     try:
         from logistics.print_format.sales_invoice.install_print_format import install_sales_invoice_print_format
-        from logistics.print_format.purchase_invoice.install_print_format import install_purchase_invoice_print_format
-        
-        # Install Sales Invoice print format
+
         install_sales_invoice_print_format()
-        
-        # Install Purchase Invoice print format
-        install_purchase_invoice_print_format()
-        
+
         frappe.log_error("Default print formats installed successfully", "Logistics Install")
         
     except Exception as e:

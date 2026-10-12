@@ -1,1 +1,0 @@
-# Install: bench execute logistics.transport.print_format.delivery_receipt.install_print_format.install_delivery_receipt_print_format

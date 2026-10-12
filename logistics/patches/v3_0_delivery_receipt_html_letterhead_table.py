@@ -1,9 +1,5 @@
-"""Delivery Receipt HTML: print-safe table letterhead matching mockup."""
-
-from logistics.transport.print_format.delivery_receipt.install_print_format import (
-	install_delivery_receipt_print_format,
-)
+"""Retired. The print format this patch installed was removed from the app."""
 
 
 def execute():
-	install_delivery_receipt_print_format()
+	return
