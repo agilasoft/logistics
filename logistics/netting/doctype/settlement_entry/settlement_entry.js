@@ -230,12 +230,20 @@ function get_row_party_type(row) {
 	return row.party_type;
 }
 
+function round_money(value) {
+	return flt(value, 2);
+}
+
+function money_differs(current, next) {
+	return Math.abs(flt(current) - round_money(next)) >= 0.005;
+}
+
 function get_row_settlement_amount(row) {
 	let amount = flt(row.allocated_amount_in_settlement_currency);
 	if (!amount && flt(row.allocated_amount)) {
-		amount = flt(row.allocated_amount) * flt(row.exchange_rate || 1);
+		amount = round_money(flt(row.allocated_amount) * flt(row.exchange_rate || 1));
 	}
-	return amount;
+	return round_money(amount);
 }
 
 function set_row_party_from_reference(row) {
@@ -284,20 +292,35 @@ function recalculate_all_rows(frm) {
 	recalculate_totals(frm);
 }
 
+function set_row_money(cdt, cdn, fieldname, value) {
+	let row = locals[cdt][cdn];
+	value = round_money(value);
+	if (row && money_differs(row[fieldname], value)) {
+		frappe.model.set_value(cdt, cdn, fieldname, value);
+	}
+}
+
+function set_doc_money(frm, fieldname, value) {
+	value = round_money(value);
+	if (money_differs(frm.doc[fieldname], value)) {
+		frm.set_value(fieldname, value);
+	}
+}
+
 function recalculate_row(frm, cdt, cdn, skip_totals) {
 	let row = locals[cdt][cdn];
-	let allocated_settlement = flt(row.allocated_amount) * flt(row.exchange_rate || 1);
+	let allocated_settlement = round_money(flt(row.allocated_amount) * flt(row.exchange_rate || 1));
 	if (flt(row.allocated_amount)) {
-		frappe.model.set_value(cdt, cdn, 'allocated_amount_in_settlement_currency', allocated_settlement);
+		set_row_money(cdt, cdn, 'allocated_amount_in_settlement_currency', allocated_settlement);
 	}
 
-	let book = flt(row.allocated_amount) * flt(row.invoice_conversion_rate || 1);
-	let settled_base = allocated_settlement * flt(frm.doc.conversion_rate || 1);
-	let fx = settled_base - book;
+	let book = round_money(flt(row.allocated_amount) * flt(row.invoice_conversion_rate || 1));
+	let settled_base = round_money(allocated_settlement * flt(frm.doc.conversion_rate || 1));
+	let fx = round_money(settled_base - book);
 	if (get_row_party_type(row) === 'Supplier') {
-		fx = book - settled_base;
+		fx = round_money(book - settled_base);
 	}
-	frappe.model.set_value(cdt, cdn, 'exchange_gain_loss', fx);
+	set_row_money(cdt, cdn, 'exchange_gain_loss', fx);
 	if (!skip_totals) {
 		recalculate_totals(frm);
 	}
@@ -321,11 +344,14 @@ function recalculate_totals(frm) {
 		total_fx += flt(row.exchange_gain_loss);
 	});
 	let conversion_rate = flt(frm.doc.conversion_rate) || 1;
-	frm.set_value('total_receivable', total_receivable);
-	frm.set_value('total_payable', total_payable);
-	frm.set_value('net_amount', total_receivable - total_payable);
-	frm.set_value('base_total_receivable', total_receivable * conversion_rate);
-	frm.set_value('base_total_payable', total_payable * conversion_rate);
-	frm.set_value('base_net_amount', (total_receivable - total_payable) * conversion_rate);
-	frm.set_value('total_exchange_gain_loss', total_fx);
+	total_receivable = round_money(total_receivable);
+	total_payable = round_money(total_payable);
+	let net_amount = round_money(total_receivable - total_payable);
+	set_doc_money(frm, 'total_receivable', total_receivable);
+	set_doc_money(frm, 'total_payable', total_payable);
+	set_doc_money(frm, 'net_amount', net_amount);
+	set_doc_money(frm, 'base_total_receivable', total_receivable * conversion_rate);
+	set_doc_money(frm, 'base_total_payable', total_payable * conversion_rate);
+	set_doc_money(frm, 'base_net_amount', net_amount * conversion_rate);
+	set_doc_money(frm, 'total_exchange_gain_loss', total_fx);
 }
