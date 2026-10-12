@@ -363,11 +363,15 @@ def _create_intercompany_pair(pb, group, *, posting_date: str) -> tuple[str, str
 		_("from Periodic Billing {0}.").format(pb.name),
 	)
 	si.flags.is_intercompany_invoice = True
-	_copy_dimensions(si, job)
+	si_dims = _invoice_dimensions(job, group["operating_company"])
+	_copy_job_number(si, job)
+	_stamp_invoice_dimensions(si, si_dims, include_children=False)
 	for line in group["lines"]:
 		row = si.append("items", _invoice_item_payload(line, desc))
 		_link_invoice_row(row, "Warehouse Job", job_name)
+	_stamp_invoice_dimensions(si, si_dims)
 	si.set_missing_values()
+	_stamp_invoice_dimensions(si, si_dims)
 	ensure_invoice_name_for_server_insert(si)
 	si.insert(ignore_permissions=True)
 	si.submit()
@@ -378,23 +382,54 @@ def _create_intercompany_pair(pb, group, *, posting_date: str) -> tuple[str, str
 	pi.posting_date = posting_date
 	pi.remarks = _("Intercompany: from Periodic Billing {0}.").format(pb.name)
 	if main_job:
-		_copy_dimensions(pi, main_job)
+		_copy_job_number(pi, main_job)
+	pi_dims = _dimensions_for_main_company(group["main_company"], main_job, job)
+	_stamp_invoice_dimensions(pi, pi_dims, include_children=False)
 	for line in group["lines"]:
 		row = pi.append("items", _invoice_item_payload(line, desc))
 		_link_invoice_row(row, "Warehouse Job", job_name)
+	_stamp_invoice_dimensions(pi, pi_dims)
 	pi.set_missing_values()
+	_stamp_invoice_dimensions(pi, pi_dims)
 	ensure_invoice_name_for_server_insert(pi)
 	pi.insert(ignore_permissions=True)
 	pi.submit()
 	return si.name, pi.name
 
 
-def _copy_dimensions(doc, source) -> None:
+def _copy_job_number(doc, source) -> None:
+	value = getattr(source, "job_number", None)
+	if not value:
+		return
 	meta = frappe.get_meta(doc.doctype)
-	for fieldname in ("branch", "cost_center", "profit_center", "job_number"):
-		value = getattr(source, fieldname, None)
-		if value and meta.get_field(fieldname):
-			setattr(doc, fieldname, value)
+	if meta.get_field("job_number"):
+		doc.job_number = value
+
+
+def _invoice_dimensions(job, company: str) -> dict:
+	from logistics.invoice_integration.purchase_invoice_dimensions import dimensions_for_operational_job
+
+	return dimensions_for_operational_job(job, company)
+
+
+def _dimensions_for_main_company(company: str, main_job, linked_job) -> dict:
+	from logistics.invoice_integration.purchase_invoice_dimensions import (
+		dimensions_belonging_to_company,
+		linked_service_dimension_source,
+	)
+
+	return dimensions_belonging_to_company(
+		company,
+		main_job,
+		linked_service_dimension_source(linked_job),
+		linked_job,
+	)
+
+
+def _stamp_invoice_dimensions(doc, dims: dict, *, include_children: bool = True) -> None:
+	from logistics.invoice_integration.purchase_invoice_dimensions import stamp_dimensions
+
+	stamp_dimensions(doc, dims, include_children=include_children)
 
 
 def _invoice_item_payload(line, description: str) -> dict:
