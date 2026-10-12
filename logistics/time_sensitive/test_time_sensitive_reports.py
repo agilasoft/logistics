@@ -241,5 +241,12 @@ class TestTimeSensitiveReportHelpers(FrappeTestCase):
 	def test_sidebar_matches_workspace_sections(self):
 		workspace = _workspace_sections()
 		sidebar = _sidebar_sections()
+		promoted = {"Time Sensitive Case", "Sales Quote"}
 		self.assertEqual(list(sidebar), ["Operations", "Setup", "Service Modes"])
-		self.assertEqual(sidebar, workspace)
+		self.assertEqual(
+			sidebar["Operations"],
+			["Ongoing", "Nearing Due", "Overdue"]
+			+ [label for label in workspace["Operations"] if label not in promoted],
+		)
+		self.assertEqual(sidebar["Setup"], workspace["Setup"])
+		self.assertEqual(sidebar["Service Modes"], workspace["Service Modes"])
