@@ -360,6 +360,13 @@ class TestCountryMasterName(unittest.TestCase):
 		self.assertEqual(resolve_unloco_country_name("KR", "Korea, Republic of"), "South Korea")
 		self.assertEqual(resolve_unloco_country_name("VN", "Viet Nam"), "Vietnam")
 
+	@patch("frappe.db.exists", return_value=False, create=True)
+	@patch("frappe.db.get_value", return_value=None)
+	def test_link_stays_blank_when_country_record_is_missing(self, _mock_gv, _mock_exists):
+		from logistics.air_freight.utils.unlocode_utils import resolve_unloco_country_name
+
+		self.assertEqual(resolve_unloco_country_name("AE", "United Arab Emirates (the)"), "")
+
 	@patch("logistics.air_freight.utils.datahub_unlocode._load_status_labels", return_value={})
 	@patch(
 		"logistics.air_freight.utils.datahub_unlocode._load_country_names",

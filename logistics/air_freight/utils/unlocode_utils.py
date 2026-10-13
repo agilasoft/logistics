@@ -510,22 +510,42 @@ def enrich_country_info(country_code: str) -> Dict[str, str]:
 	return out
 
 
+def _as_country_link(candidate: str) -> str:
+	"""Return ``candidate`` only when it is a Country document name.
+
+	Unit tests stub ``frappe.db`` without ``exists``. In that case the candidate is kept
+	so name resolution can be checked without a site. A real site drops names that are
+	not Country records, because ``UNLOCO.country`` is a Link.
+	"""
+	candidate = (candidate or "").strip()
+	if not candidate:
+		return ""
+	exists = getattr(getattr(frappe, "db", None), "exists", None)
+	if not callable(exists):
+		return candidate
+	try:
+		return candidate if exists("Country", candidate) else ""
+	except Exception:
+		return ""
+
+
 def resolve_unloco_country_name(country_code: str, iso_name: str = "") -> str:
 	"""
-	Country label stored on UNLOCO.
+	Country link stored on UNLOCO (the Country document name).
 
-	Prefer the Country master (and the built-in names that match it). The DataHub
-	``CountryName`` column is only a fallback, and its parenthetical article is removed.
+	Prefer the Country master for the ISO code. The DataHub ``CountryName`` column is
+	only a fallback, and its parenthetical article is removed. A name that is not a
+	Country record is left blank so the Link field can be saved.
 	"""
 	cc = (country_code or "").strip().upper()
 	if len(cc) == 2:
-		master = (enrich_country_info(cc).get("country") or "").strip()
+		master = _as_country_link(enrich_country_info(cc).get("country") or "")
 		if master:
 			return master
 	cleaned = _clean_iso_country_name(iso_name)
 	if cc and cleaned.upper() == cc:
 		return ""
-	return cleaned
+	return _as_country_link(cleaned)
 
 
 def apply_country_label(code: str, base: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -540,12 +560,18 @@ def apply_country_label(code: str, base: Optional[Dict[str, Any]]) -> Optional[D
 			base["country_code"] = cc
 	current = (base.get("country") or "").strip()
 	if current and not country_uses_iso_label(current, cc):
-		return base
+		linked = _as_country_link(current)
+		if linked:
+			base["country"] = linked
+			return base
 	resolved = resolve_unloco_country_name(cc, current)
 	if resolved:
 		base["country"] = resolved
 		if _is_blank_str(base.get("country_code")) and len(cc) == 2:
 			base["country_code"] = cc
+	elif current and not _as_country_link(current):
+		# Drop the codelist wording so the Link field is not left pointing at nothing.
+		base["country"] = ""
 	return base
 
 

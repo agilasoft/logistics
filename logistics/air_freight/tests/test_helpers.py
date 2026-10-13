@@ -64,11 +64,29 @@ def create_test_unloco(unlocode, location_name=None, iata_code=None, country_cod
 	
 	# Create UNLOCO record
 	# Only set required fields and optional fields that don't have select validation
+	country_code = (country_code or "").strip().upper()
+	country = ""
+	if country_code:
+		country = frappe.db.get_value("Country", {"code": country_code}, "name") or ""
+		if not country:
+			fallback = {
+				"US": "United States",
+				"SG": "Singapore",
+				"GB": "United Kingdom",
+				"PH": "Philippines",
+				"CN": "China",
+				"HK": "Hong Kong",
+				"NL": "Netherlands",
+				"DE": "Germany",
+			}.get(country_code, "")
+			if fallback and frappe.db.exists("Country", fallback):
+				country = fallback
+
 	unloco = frappe.get_doc({
 		"doctype": "UNLOCO",
 		"unlocode": unlocode,
 		"location_name": location_name,
-		"country": "United States" if country_code == "US" else "Unknown",
+		"country": country,
 		"country_code": country_code,
 		"auto_populate": 0  # Disable auto-populate to avoid external API calls during tests
 	})

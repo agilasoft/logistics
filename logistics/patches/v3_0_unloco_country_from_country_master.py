@@ -1,10 +1,10 @@
 # Copyright (c) 2026, Agilasoft Cloud Technologies Inc. and Contributors
-"""Store the Country master name on UNLOCO.
+"""Point UNLOCO.country at the Country document.
 
-The UN/LOCODE codelist ``CountryName`` keeps the English article in parentheses
-(``United States of America (the)``, ``Philippines (the)``). That label was
-copied into ``UNLOCO.country``. Country fields elsewhere in the app link to the
-Country document name (``United States``, ``Philippines``).
+The field is a Link to Country. Older rows stored the UN/LOCODE codelist label
+(``United States of America (the)``, ``Philippines (the)``), which is not a
+Country name. Rewrite from the ISO code, then clear any value that is still
+not a Country record so the link is valid.
 """
 
 from __future__ import annotations
@@ -41,6 +41,19 @@ def execute():
 		WHERE IFNULL(TRIM(u.country_code), '') != ''
 		  AND IFNULL(c.name, '') != ''
 		  AND IFNULL(u.country, '') != c.name
+		""",
+		{"now": now},
+	)
+
+	# Anything left that is not a Country name cannot sit in the Link field.
+	frappe.db.sql(
+		"""
+		UPDATE `tabUNLOCO` u
+		LEFT JOIN `tabCountry` c ON c.name = u.country
+		SET u.country = '',
+			u.modified = %(now)s
+		WHERE IFNULL(TRIM(u.country), '') != ''
+		  AND c.name IS NULL
 		""",
 		{"now": now},
 	)
