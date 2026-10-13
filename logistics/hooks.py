@@ -557,6 +557,8 @@ override_doctype_class = {
 	"Transaction Deletion Record": (
 		"logistics.overrides.transaction_deletion_record.LogisticsTransactionDeletionRecord"
 	),
+	"Sales Invoice": "logistics.invoice_integration.invoice_dimension_override.LogisticsSalesInvoice",
+	"Purchase Invoice": "logistics.invoice_integration.invoice_dimension_override.LogisticsPurchaseInvoice",
 }
 
 pdf_generator = [

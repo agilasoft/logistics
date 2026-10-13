@@ -211,13 +211,14 @@ def _linked_service_record_dimensions(linked_service: str) -> dict[str, str]:
 def intercompany_sales_invoice_dimensions(job: Any, company: str | None = None) -> dict[str, str]:
 	"""Company, branch, cost center, and profit center for the intercompany Sales Invoice.
 
-	The Linked Service record is the only source. Values copied onto the
-	operational job from Main are ignored, and a value that belongs to another
-	company is omitted.
+	The Linked Service record is preferred. A value on that record that belongs
+	to another company is skipped, and the operational job's own value is used
+	when that value belongs to the invoice company. Main's cost center is never
+	kept just because it was copied onto the Linked Service.
 	"""
 	raw = _linked_service_record_dimensions(_linked_service_name_for_job(job))
 	invoice_company = _norm(raw.get("company") or company or _source_value(job, "company"))
-	chosen = dimensions_belonging_to_company(invoice_company, raw)
+	chosen = dimensions_belonging_to_company(invoice_company, raw, job)
 	if invoice_company:
 		chosen["company"] = invoice_company
 	return chosen
