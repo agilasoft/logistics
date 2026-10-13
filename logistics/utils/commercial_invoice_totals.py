@@ -1,7 +1,12 @@
 # Copyright (c) 2026, Agilasoft Cloud Technologies Inc. and contributors
 # For license information, please see license.txt
 
-"""Derive commercial-invoice financial totals from line items and invoice charges."""
+"""Derive commercial-invoice totals from line items and invoice charges.
+
+Financial totals (invoice total, FOB, CIF, balance) and Invoice Details
+measurements (volume, gross weight, net weight, packages) come from the
+commercial invoice line items.
+"""
 
 from __future__ import annotations
 
@@ -83,6 +88,156 @@ def throw_if_invoice_qty_is_zero(doc: Any) -> None:
 			)
 
 
+_MEASUREMENT_SPECS = (
+	# line value, line uom, header value, header uom, measurement kind
+	("volume", "volume_uom", "inv_volume", "inv_volume_uom", "volume"),
+	("gross_weight", "gross_weight_uom", "inv_gross_weight", "inv_gross_weight_uom", "weight"),
+	("net_weight", "net_weight_uom", "inv_net_weight", "inv_net_weight_uom", "weight"),
+)
+
+
+def _line_rows(doc: Any) -> list:
+	if isinstance(doc, dict):
+		rows = doc.get("commercial_invoice_line_items") or []
+	else:
+		rows = getattr(doc, "commercial_invoice_line_items", None)
+		if rows is None and hasattr(doc, "get"):
+			rows = doc.get("commercial_invoice_line_items") or []
+	return list(rows or [])
+
+
+def _distinct_positive_uoms(rows: list, value_field: str, uom_field: str) -> list[str]:
+	seen: list[str] = []
+	seen_keys: set[str] = set()
+	for row in rows:
+		if flt(_row_value(row, value_field)) <= 0:
+			continue
+		uom = str(_row_value(row, uom_field) or "").strip()
+		key = uom.upper()
+		if uom and key not in seen_keys:
+			seen_keys.add(key)
+			seen.append(uom)
+	return seen
+
+
+def _default_measure_uom(kind: str, company: str | None) -> str:
+	try:
+		if kind == "volume":
+			from logistics.utils.measurements import get_aggregation_volume_uom, get_default_uoms
+
+			return (
+				get_aggregation_volume_uom(company=company)
+				or (get_default_uoms(company=company).get("volume") or "")
+				or ""
+			)
+		from logistics.utils.measurements import get_default_uoms
+
+		return get_default_uoms(company=company).get("weight") or ""
+	except Exception:
+		return ""
+
+
+def _target_measure_uom(
+	doc: Any,
+	rows: list,
+	value_field: str,
+	uom_field: str,
+	header_uom_field: str,
+	kind: str,
+) -> tuple[str, list[str]]:
+	"""Pick the Invoice Details unit for a measurement.
+
+	When every contributing line uses the same unit, follow that unit.
+	Mixed units convert into the header unit when one is already set,
+	otherwise into the logistics default for that measurement.
+	"""
+	explicit = _distinct_positive_uoms(rows, value_field, uom_field)
+	header = str(_row_value(doc, header_uom_field) or "").strip()
+	if len(explicit) == 1:
+		return explicit[0], explicit
+	if len(explicit) > 1:
+		return (header or _default_measure_uom(kind, _row_value(doc, "company")) or explicit[0]), explicit
+	return header, explicit
+
+
+def _sum_line_measure(
+	doc: Any,
+	rows: list,
+	value_field: str,
+	uom_field: str,
+	header_value_field: str,
+	header_uom_field: str,
+	kind: str,
+) -> dict[str, float | str]:
+	if not any(flt(_row_value(row, value_field)) > 0 for row in rows):
+		return {}
+
+	target, explicit = _target_measure_uom(doc, rows, value_field, uom_field, header_uom_field, kind)
+	company = _row_value(doc, "company")
+	if kind == "volume":
+		from logistics.utils.measurements import convert_volume as convert
+	else:
+		from logistics.utils.measurements import convert_weight as convert
+
+	target_key = (target or "").strip().upper()
+	total = 0.0
+	for row in rows:
+		value = flt(_row_value(row, value_field))
+		if value <= 0:
+			continue
+		from_uom = str(_row_value(row, uom_field) or "").strip() or target
+		if not target or not from_uom or from_uom.strip().upper() == target_key:
+			total += value
+			continue
+		total += flt(convert(value, from_uom=from_uom, to_uom=target, company=company))
+
+	totals: dict[str, float | str] = {header_value_field: total}
+	if explicit and target:
+		totals[header_uom_field] = target
+	return totals
+
+
+def _packages_from_lines(rows: list) -> dict[str, float | str]:
+	total = 0.0
+	used = False
+	types: list[str] = []
+	for row in rows:
+		packs = flt(_row_value(row, "no_of_packs"))
+		if packs <= 0:
+			continue
+		used = True
+		total += packs
+		package_type = str(_row_value(row, "package_type") or "").strip()
+		if package_type and package_type not in types:
+			types.append(package_type)
+	if not used:
+		return {}
+
+	totals: dict[str, float | str] = {"packages": total}
+	if len(types) == 1 and frappe.db.exists("UOM", types[0]):
+		totals["packages_uom"] = types[0]
+	return totals
+
+
+def calculate_invoice_detail_measures(doc: Any) -> dict[str, float | str]:
+	"""Total Invoice Details volume, weight, and packages from line items.
+
+	A header value is left unchanged when no line carries that measurement,
+	so a summary entered on the header still stands.
+	"""
+	rows = _line_rows(doc)
+	if not rows:
+		return {}
+
+	totals: dict[str, float | str] = {}
+	for value_field, uom_field, header_value, header_uom, kind in _MEASUREMENT_SPECS:
+		totals.update(
+			_sum_line_measure(doc, rows, value_field, uom_field, header_value, header_uom, kind)
+		)
+	totals.update(_packages_from_lines(rows))
+	return totals
+
+
 def calculate_expected_invoice_line_total(doc: Any) -> float:
 	total = 0.0
 	for row in doc.get("commercial_invoice_line_items") or []:
@@ -93,7 +248,7 @@ def calculate_expected_invoice_line_total(doc: Any) -> float:
 
 
 def calculate_commercial_invoice_totals(doc: Any) -> dict[str, float | str]:
-	"""Return CIF, FOB, expected line total, and ITOT balance from invoice data."""
+	"""Return commercial-invoice totals, including Invoice Details measured from line items."""
 	inv_currency = (_row_value(doc, "inv_currency") if not isinstance(doc, dict) else doc.get("inv_currency")) or ""
 	posting_date = (
 		_row_value(doc, "inv_date") if not isinstance(doc, dict) else doc.get("inv_date")
@@ -148,7 +303,7 @@ def calculate_commercial_invoice_totals(doc: Any) -> dict[str, float | str]:
 	else:
 		balance = ""
 
-	totals = {
+	totals: dict[str, float | str] = {
 		"expected_invoice_line_total": line_total,
 		"fob": fob,
 		"cif": cif,
@@ -156,6 +311,7 @@ def calculate_commercial_invoice_totals(doc: Any) -> dict[str, float | str]:
 	}
 	if has_lines:
 		totals["inv_total_amount"] = line_total
+	totals.update(calculate_invoice_detail_measures(doc))
 	return totals
 
 

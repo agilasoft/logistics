@@ -103,6 +103,177 @@
 		return totals;
 	}
 
+	const INVOICE_DETAIL_FIELDS = [
+		"inv_volume",
+		"inv_volume_uom",
+		"inv_gross_weight",
+		"inv_gross_weight_uom",
+		"inv_net_weight",
+		"inv_net_weight_uom",
+		"packages",
+		"packages_uom",
+	];
+
+	/** Local mirror of ``calculate_invoice_detail_measures`` when no UOM conversion is required. */
+	function _local_invoice_detail_measures(doc) {
+		const rows = doc.commercial_invoice_line_items || [];
+		const specs = [
+			["volume", "volume_uom", "inv_volume", "inv_volume_uom"],
+			["gross_weight", "gross_weight_uom", "inv_gross_weight", "inv_gross_weight_uom"],
+			["net_weight", "net_weight_uom", "inv_net_weight", "inv_net_weight_uom"],
+		];
+		const totals = {};
+		let needsServer = false;
+
+		specs.forEach(function (spec) {
+			const valueField = spec[0];
+			const uomField = spec[1];
+			const headerValue = spec[2];
+			const headerUom = spec[3];
+			let total = 0;
+			let used = false;
+			const explicit = [];
+			const seenUom = {};
+			rows.forEach(function (row) {
+				const value = _to_num(row[valueField]);
+				if (value <= 0) {
+					return;
+				}
+				used = true;
+				total += value;
+				const uom = ((row[uomField] || "") + "").trim();
+				const key = uom.toUpperCase();
+				if (uom && !seenUom[key]) {
+					seenUom[key] = 1;
+					explicit.push(uom);
+				}
+			});
+			if (!used) {
+				return;
+			}
+			if (explicit.length > 1) {
+				needsServer = true;
+				return;
+			}
+			totals[headerValue] = total;
+			if (explicit.length === 1) {
+				totals[headerUom] = explicit[0];
+			}
+		});
+
+		let packages = 0;
+		let packagesUsed = false;
+		rows.forEach(function (row) {
+			const packs = _to_num(row.no_of_packs);
+			if (packs <= 0) {
+				return;
+			}
+			packagesUsed = true;
+			packages += packs;
+		});
+		if (packagesUsed) {
+			totals.packages = packages;
+		}
+		return { needsServer: needsServer, totals: totals };
+	}
+
+	function _shared_package_type(rows) {
+		let shared = "";
+		let sawType = false;
+		for (let i = 0; i < rows.length; i++) {
+			const packs = _to_num(rows[i].no_of_packs);
+			if (packs <= 0) {
+				continue;
+			}
+			const packageType = ((rows[i].package_type || "") + "").trim();
+			if (!packageType) {
+				continue;
+			}
+			if (!sawType) {
+				shared = packageType;
+				sawType = true;
+			} else if (shared !== packageType) {
+				return "";
+			}
+		}
+		return sawType ? shared : "";
+	}
+
+	function _set_measure_value(frm, fieldname, value) {
+		const current = frm.doc[fieldname];
+		if (typeof value === "string") {
+			if ((current || "") === value) {
+				return;
+			}
+			frm.set_value(fieldname, value);
+			return;
+		}
+		if (current != null && current !== "" && Math.abs(flt(current) - flt(value)) <= 1e-6) {
+			return;
+		}
+		frm.set_value(fieldname, value);
+	}
+
+	function _write_invoice_detail_measures(frm, totals) {
+		INVOICE_DETAIL_FIELDS.forEach(function (fieldname) {
+			const derived = Object.prototype.hasOwnProperty.call(totals, fieldname);
+			if (cint(frm.doc.docstatus) === 0 && frm.fields_dict[fieldname]) {
+				frm.set_df_property(fieldname, "read_only", derived ? 1 : 0);
+			}
+			if (derived) {
+				_set_measure_value(frm, fieldname, totals[fieldname]);
+			}
+		});
+	}
+
+	function _fetch_invoice_detail_measures(frm) {
+		const seq = (frm._invoice_detail_measure_seq = (frm._invoice_detail_measure_seq || 0) + 1);
+		frappe.call({
+			method: "logistics.utils.commercial_invoice_totals.recalculate_commercial_invoice_totals",
+			args: { doc_json: frm.doc },
+			callback: function (r) {
+				if (!frm.doc || frm._invoice_detail_measure_seq !== seq) {
+					return;
+				}
+				const message = (r && r.message) || {};
+				const totals = {};
+				INVOICE_DETAIL_FIELDS.forEach(function (fieldname) {
+					if (Object.prototype.hasOwnProperty.call(message, fieldname)) {
+						totals[fieldname] = message[fieldname];
+					}
+				});
+				_write_invoice_detail_measures(frm, totals);
+			},
+		});
+	}
+
+	function _maybe_set_packages_uom(frm, rows) {
+		const candidate = _shared_package_type(rows);
+		if (!candidate || !frappe.db || !frappe.db.exists) {
+			return;
+		}
+		const seq = (frm._packages_uom_seq = (frm._packages_uom_seq || 0) + 1);
+		Promise.resolve(frappe.db.exists("UOM", candidate)).then(function (found) {
+			if (!frm.doc || frm._packages_uom_seq !== seq || !found) {
+				return;
+			}
+			if (cint(frm.doc.docstatus) === 0 && frm.fields_dict.packages_uom) {
+				frm.set_df_property("packages_uom", "read_only", 1);
+			}
+			_set_measure_value(frm, "packages_uom", candidate);
+		});
+	}
+
+	function _apply_invoice_detail_measures(frm) {
+		const local = _local_invoice_detail_measures(frm.doc);
+		if (local.needsServer) {
+			_fetch_invoice_detail_measures(frm);
+			return;
+		}
+		_write_invoice_detail_measures(frm, local.totals);
+		_maybe_set_packages_uom(frm, frm.doc.commercial_invoice_line_items || []);
+	}
+
 	function _apply_totals_to_form(frm) {
 		const totals = calculateCommercialInvoiceTotals(frm.doc);
 		const updates = [
@@ -121,6 +292,7 @@
 				frm.set_value(fieldname, value);
 			}
 		});
+		_apply_invoice_detail_measures(frm);
 		_sync_number_of_line_items_on_form(frm);
 	}
 
@@ -207,6 +379,7 @@
 
 	window.logistics = window.logistics || {};
 	logistics.calculate_commercial_invoice_totals = calculateCommercialInvoiceTotals;
+	logistics.local_invoice_detail_measures = _local_invoice_detail_measures;
 	logistics.schedule_commercial_invoice_totals_recalc = scheduleCommercialInvoiceTotalsRecalc;
 	logistics.apply_commercial_invoice_totals_to_form = _apply_totals_to_form;
 	logistics.sync_number_of_line_items_on_form = _sync_number_of_line_items_on_form;
@@ -220,10 +393,10 @@
 				}
 			},
 			commercial_invoice_line_items_add: function (frm) {
-				_sync_number_of_line_items_on_form(frm);
+				scheduleCommercialInvoiceTotalsRecalc(frm);
 			},
 			commercial_invoice_line_items_remove: function (frm) {
-				_sync_number_of_line_items_on_form(frm);
+				scheduleCommercialInvoiceTotalsRecalc(frm);
 			},
 		});
 	});
