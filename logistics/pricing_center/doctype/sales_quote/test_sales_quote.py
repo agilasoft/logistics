@@ -30,6 +30,48 @@ class TestSalesQuote(FrappeTestCase):
 	def tearDown(self):
 		frappe.db.rollback()
 
+	def test_sales_quote_terms_editable_without_updating_template(self):
+		"""Issue #1684: quote-level terms can differ from the linked Terms and Conditions master."""
+		sfx = frappe.generate_hash(length=6)
+		template_terms = f"<p>Template terms {sfx}</p>"
+		custom_terms = f"<p>Customer-specific terms {sfx}</p>"
+		tc = frappe.get_doc(
+			{
+				"doctype": "Terms and Conditions",
+				"title": f"SQ Test TC {sfx}",
+				"terms": template_terms,
+			}
+		).insert(ignore_permissions=True)
+
+		sq = frappe.get_doc(
+			{
+				"doctype": "Sales Quote",
+				"company": self.company,
+				"customer": self.customer,
+				"date": today(),
+				"valid_until": today(),
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"main_service": "Air",
+				"tc_name": tc.name,
+				"terms": custom_terms,
+			}
+		)
+		sq.append(
+			"charges",
+			{
+				"service_type": "air",
+				"origin_port": "USLAX",
+				"destination_port": "USJFK",
+				"direction": "Export",
+			},
+		)
+		sq.insert()
+
+		reloaded = frappe.get_doc("Sales Quote", sq.name)
+		self.assertEqual(reloaded.terms, custom_terms)
+		self.assertEqual(frappe.db.get_value("Terms and Conditions", tc.name, "terms"), template_terms)
+
 	def test_sales_quote_creation(self):
 		"""Test creating a basic Sales Quote with Air charges"""
 		sq = frappe.get_doc({
