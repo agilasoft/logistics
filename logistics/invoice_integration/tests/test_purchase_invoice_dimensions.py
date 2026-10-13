@@ -6,6 +6,10 @@
 A linked Transport Job posts in the operating company. The main job's profit
 center must not be copied onto that invoice, and a session default from the
 main company must not remain on item lines.
+
+Intercompany invoices split the source. The Sales Invoice follows the Linked
+Service company, branch, cost center, and profit center. The Purchase Invoice
+follows the Main job.
 """
 
 from __future__ import annotations
@@ -21,6 +25,8 @@ from logistics.invoice_integration.purchase_invoice_dimensions import (
 	align_invoice_dimensions_to_company,
 	dimensions_belonging_to_company,
 	dimensions_for_operational_job,
+	intercompany_purchase_invoice_dimensions,
+	intercompany_sales_invoice_dimensions,
 )
 
 FAST_PRIME = "FAST PRIME TRANSPORT CORP."
@@ -118,6 +124,7 @@ class TestPurchaseInvoiceDimensions(UnitTestCase):
 		self.assertEqual(dims.get("profit_center"), MAIN_PC)
 
 	def test_intercompany_pi_uses_linked_service_when_main_does_not_belong(self):
+		"""The generic walker still falls back. Intercompany purchase invoices do not use that fallback."""
 		with patch(
 			"logistics.invoice_integration.purchase_invoice_dimensions.dimension_belongs",
 			side_effect=_belongs_to_fast_prime,
@@ -364,3 +371,322 @@ class TestCreatePurchaseInvoiceStampsLinkedProfitCenter(UnitTestCase):
 		self.assertEqual(pi.profit_center, LINKED_PC)
 		self.assertEqual(pi.items[0].profit_center, LINKED_PC)
 		self.assertNotEqual(pi.items[0].profit_center, MAIN_PC)
+
+
+MAIN_COMPANY = "ALL TRANSPORT"
+LINKED_BRANCH = "PNS - FPT"
+LINKED_CC = "Main - FPT"
+MAIN_BRANCH = "ATN-BR"
+MAIN_CC = "ATN-CC"
+
+
+def _belongs_to_either_party(fieldname, value, company):
+	"""Both profit centers pass the company check, as when the master is not company-scoped."""
+	if company == FAST_PRIME and value in (LINKED_PC, MAIN_PC, LINKED_BRANCH, LINKED_CC):
+		return True
+	if company == MAIN_COMPANY and value in (MAIN_PC, LINKED_PC, MAIN_BRANCH, MAIN_CC):
+		return True
+	return False
+
+
+class TestIntercompanyInvoiceDimensions(UnitTestCase):
+	def _linked_service_record(self):
+		return frappe._dict(
+			company=FAST_PRIME,
+			branch=LINKED_BRANCH,
+			cost_center=LINKED_CC,
+			profit_center=LINKED_PC,
+		)
+
+	def test_sales_invoice_follows_linked_service_record(self):
+		job = frappe._dict(
+			doctype="Transport Job",
+			name="TRJ-LINKED",
+			company=FAST_PRIME,
+			linked_service="LS-FPT",
+			branch=MAIN_BRANCH,
+			cost_center=MAIN_CC,
+			profit_center=MAIN_PC,
+		)
+		with (
+			patch(
+				"logistics.utils.linked_service_compat.linked_service_record_exists",
+				return_value=True,
+			),
+			patch(
+				"logistics.utils.linked_service_compat.linked_service_doctype",
+				return_value="Linked Service",
+			),
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.frappe.get_cached_doc",
+				return_value=self._linked_service_record(),
+			),
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.dimension_belongs",
+				side_effect=_belongs_to_either_party,
+			),
+		):
+			dims = intercompany_sales_invoice_dimensions(job, MAIN_COMPANY)
+
+		self.assertEqual(dims.get("company"), FAST_PRIME)
+		self.assertEqual(dims.get("branch"), LINKED_BRANCH)
+		self.assertEqual(dims.get("cost_center"), LINKED_CC)
+		self.assertEqual(dims.get("profit_center"), LINKED_PC)
+		self.assertNotEqual(dims.get("profit_center"), MAIN_PC)
+		self.assertNotEqual(dims.get("branch"), MAIN_BRANCH)
+		self.assertNotEqual(dims.get("cost_center"), MAIN_CC)
+
+	def test_sales_invoice_ignores_job_copy_when_linked_service_is_missing(self):
+		job = frappe._dict(
+			doctype="Warehouse Job",
+			name="WJ-1",
+			company=FAST_PRIME,
+			branch=MAIN_BRANCH,
+			cost_center=MAIN_CC,
+			profit_center=MAIN_PC,
+		)
+		with patch(
+			"logistics.invoice_integration.purchase_invoice_dimensions.dimension_belongs",
+			side_effect=_belongs_to_either_party,
+		):
+			dims = intercompany_sales_invoice_dimensions(job, FAST_PRIME)
+
+		self.assertEqual(dims.get("company"), FAST_PRIME)
+		self.assertNotIn("branch", dims)
+		self.assertNotIn("cost_center", dims)
+		self.assertNotIn("profit_center", dims)
+
+	def test_sales_invoice_uses_parent_booking_linked_service(self):
+		job = frappe._dict(
+			doctype="Transport Job",
+			name="TRJ-PARENT",
+			company=MAIN_COMPANY,
+			transport_order="TO-1",
+			profit_center=MAIN_PC,
+		)
+		parent = frappe._dict(doctype="Transport Order", name="TO-1", linked_service="LS-FPT")
+		with (
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions._parent_booking_doc",
+				return_value=parent,
+			),
+			patch(
+				"logistics.utils.linked_service_compat.linked_service_record_exists",
+				return_value=True,
+			),
+			patch(
+				"logistics.utils.linked_service_compat.linked_service_doctype",
+				return_value="Linked Service",
+			),
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.frappe.get_cached_doc",
+				return_value=self._linked_service_record(),
+			),
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.dimension_belongs",
+				side_effect=_belongs_to_either_party,
+			),
+		):
+			dims = intercompany_sales_invoice_dimensions(job, MAIN_COMPANY)
+
+		self.assertEqual(dims.get("company"), FAST_PRIME)
+		self.assertEqual(dims.get("profit_center"), LINKED_PC)
+		self.assertEqual(dims.get("branch"), LINKED_BRANCH)
+		self.assertEqual(dims.get("cost_center"), LINKED_CC)
+
+	def test_sales_invoice_uses_charge_row_linked_service(self):
+		job = frappe._dict(
+			doctype="Warehouse Job",
+			name="WJ-CHARGE",
+			company=FAST_PRIME,
+			charges=[frappe._dict(linked_service="LS-FPT")],
+			profit_center=MAIN_PC,
+		)
+		with (
+			patch(
+				"logistics.utils.linked_service_compat.linked_service_record_exists",
+				return_value=True,
+			),
+			patch(
+				"logistics.utils.linked_service_compat.linked_service_doctype",
+				return_value="Linked Service",
+			),
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.frappe.get_cached_doc",
+				return_value=self._linked_service_record(),
+			),
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.dimension_belongs",
+				side_effect=_belongs_to_either_party,
+			),
+		):
+			dims = intercompany_sales_invoice_dimensions(job, FAST_PRIME)
+
+		self.assertEqual(dims.get("profit_center"), LINKED_PC)
+		self.assertEqual(dims.get("branch"), LINKED_BRANCH)
+		self.assertEqual(dims.get("cost_center"), LINKED_CC)
+
+	def test_purchase_invoice_follows_main_only(self):
+		main = frappe._dict(
+			doctype="Air Shipment",
+			name="AS-MAIN",
+			company=MAIN_COMPANY,
+			branch=MAIN_BRANCH,
+			cost_center=MAIN_CC,
+			profit_center=MAIN_PC,
+		)
+		with patch(
+			"logistics.invoice_integration.purchase_invoice_dimensions.dimension_belongs",
+			side_effect=_belongs_to_either_party,
+		):
+			dims = intercompany_purchase_invoice_dimensions(main, FAST_PRIME)
+
+		self.assertEqual(dims.get("company"), MAIN_COMPANY)
+		self.assertEqual(dims.get("branch"), MAIN_BRANCH)
+		self.assertEqual(dims.get("cost_center"), MAIN_CC)
+		self.assertEqual(dims.get("profit_center"), MAIN_PC)
+		self.assertNotEqual(dims.get("profit_center"), LINKED_PC)
+
+	def test_purchase_invoice_does_not_substitute_another_profit_center(self):
+		main = frappe._dict(
+			doctype="Air Shipment",
+			name="AS-MAIN",
+			company=MAIN_COMPANY,
+			profit_center=MAIN_PC,
+		)
+		with patch(
+			"logistics.invoice_integration.purchase_invoice_dimensions.dimension_belongs",
+			return_value=False,
+		):
+			dims = intercompany_purchase_invoice_dimensions(main, MAIN_COMPANY)
+
+		self.assertEqual(dims.get("company"), MAIN_COMPANY)
+		self.assertNotIn("profit_center", dims)
+
+	def test_align_sales_invoice_replaces_main_dimensions(self):
+		doc = frappe._dict(
+			doctype="Sales Invoice",
+			company=FAST_PRIME,
+			branch=MAIN_BRANCH,
+			cost_center=MAIN_CC,
+			profit_center=MAIN_PC,
+			items=[frappe._dict(doctype="Sales Invoice Item", profit_center=MAIN_PC, branch=MAIN_BRANCH)],
+			taxes=[],
+			flags=frappe._dict(is_intercompany_invoice=True),
+			reference_doctype="Transport Job",
+			reference_name="TRJ-LINKED",
+		)
+		job = frappe._dict(
+			doctype="Transport Job",
+			name="TRJ-LINKED",
+			company=FAST_PRIME,
+			linked_service="LS-FPT",
+			profit_center=MAIN_PC,
+			branch=MAIN_BRANCH,
+			cost_center=MAIN_CC,
+		)
+		with (
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.frappe.get_meta",
+				return_value=TestAlignInvoiceDimensions()._meta(),
+			),
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.dimension_belongs",
+				side_effect=_belongs_to_either_party,
+			),
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.frappe.db.exists",
+				return_value=True,
+			),
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.frappe.get_doc",
+				return_value=job,
+			),
+			patch(
+				"logistics.utils.linked_service_compat.linked_service_record_exists",
+				return_value=True,
+			),
+			patch(
+				"logistics.utils.linked_service_compat.linked_service_doctype",
+				return_value="Linked Service",
+			),
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.frappe.get_cached_doc",
+				return_value=self._linked_service_record(),
+			),
+		):
+			align_invoice_dimensions_to_company(doc)
+
+		self.assertEqual(doc.company, FAST_PRIME)
+		self.assertEqual(doc.branch, LINKED_BRANCH)
+		self.assertEqual(doc.cost_center, LINKED_CC)
+		self.assertEqual(doc.profit_center, LINKED_PC)
+		self.assertEqual(doc["items"][0].profit_center, LINKED_PC)
+		self.assertEqual(doc["items"][0].branch, LINKED_BRANCH)
+
+	def test_align_purchase_invoice_replaces_linked_service_dimensions(self):
+		doc = frappe._dict(
+			doctype="Purchase Invoice",
+			company=MAIN_COMPANY,
+			branch=LINKED_BRANCH,
+			cost_center=LINKED_CC,
+			profit_center=LINKED_PC,
+			items=[frappe._dict(doctype="Purchase Invoice Item", profit_center=LINKED_PC)],
+			taxes=[],
+			flags=frappe._dict(is_intercompany_invoice=True),
+			reference_doctype="Transport Job",
+			reference_name="TRJ-LINKED",
+		)
+		job = frappe._dict(
+			doctype="Transport Job",
+			name="TRJ-LINKED",
+			company=FAST_PRIME,
+			linked_service="LS-FPT",
+			main_service_type="Air Shipment",
+			main_service="AS-MAIN",
+			profit_center=LINKED_PC,
+		)
+		main = frappe._dict(
+			doctype="Air Shipment",
+			name="AS-MAIN",
+			company=MAIN_COMPANY,
+			branch=MAIN_BRANCH,
+			cost_center=MAIN_CC,
+			profit_center=MAIN_PC,
+		)
+
+		def get_doc(doctype, name):
+			if doctype == "Transport Job":
+				return job
+			return main
+
+		with (
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.frappe.get_meta",
+				return_value=TestAlignInvoiceDimensions()._meta(),
+			),
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.dimension_belongs",
+				side_effect=_belongs_to_either_party,
+			),
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.frappe.db.exists",
+				return_value=True,
+			),
+			patch(
+				"logistics.invoice_integration.purchase_invoice_dimensions.frappe.get_doc",
+				side_effect=get_doc,
+			),
+			patch(
+				"logistics.billing.cross_module_billing.resolve_internal_job_main_job",
+				return_value=("Air Shipment", "AS-MAIN"),
+			),
+		):
+			align_invoice_dimensions_to_company(doc)
+
+		self.assertEqual(doc.company, MAIN_COMPANY)
+		self.assertEqual(doc.branch, MAIN_BRANCH)
+		self.assertEqual(doc.cost_center, MAIN_CC)
+		self.assertEqual(doc.profit_center, MAIN_PC)
+		self.assertEqual(doc["items"][0].profit_center, MAIN_PC)
+		self.assertNotEqual(doc.profit_center, LINKED_PC)

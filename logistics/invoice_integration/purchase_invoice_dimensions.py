@@ -3,10 +3,11 @@
 
 """Company-safe accounting dimensions for invoices created from operational jobs.
 
-A linked service is posted in the operating company. Its Purchase Invoice and
-Sales Invoice must use that company's branch, cost center, and profit center.
-Copying the main job's profit center (or leaving a line blank so a session
-default from the main company is applied) fails ERPNext company validation.
+A linked service posted in its own company uses that Linked Service's company,
+branch, cost center, and profit center. An intercompany Sales Invoice follows
+that Linked Service. An intercompany Purchase Invoice is posted in the Main
+job's company and follows the Main job's company, branch, cost center, and
+profit center. A value that belongs to the other company is not copied across.
 """
 
 from __future__ import annotations
@@ -134,6 +135,106 @@ def dimensions_belonging_to_company(company: str, *sources: Any) -> dict[str, st
 	return chosen
 
 
+def _parent_booking_doc(job: Any) -> Any | None:
+	"""Parent booking when the operational job does not carry the Linked Service."""
+	doctype = _norm(getattr(job, "doctype", None))
+	if not job or not doctype:
+		return None
+	try:
+		from logistics.billing.cross_module_billing import INTERNAL_JOB_PARENT_LINKS
+	except Exception:
+		return None
+	parent = INTERNAL_JOB_PARENT_LINKS.get(doctype)
+	if not parent:
+		return None
+	parent_doctype, link_field = parent
+	parent_name = _norm(getattr(job, link_field, None))
+	if not parent_name:
+		return None
+	try:
+		if not frappe.db.exists(parent_doctype, parent_name):
+			return None
+		return frappe.get_doc(parent_doctype, parent_name)
+	except Exception:
+		return None
+
+
+def _linked_service_name_for_job(job: Any) -> str:
+	"""Linked Service name on the job, its parent booking, or a charge row."""
+	if not job:
+		return ""
+	try:
+		from logistics.utils.service_role_rules import get_linked_service_name
+	except Exception:
+		return ""
+	for candidate in (job, _parent_booking_doc(job)):
+		if not candidate:
+			continue
+		name = _norm(get_linked_service_name(candidate))
+		if name:
+			return name
+	for row in _child_rows(job, "charges"):
+		name = _source_value(row, "linked_service") or _source_value(row, "internal_job")
+		if name:
+			return name
+	return ""
+
+
+def _linked_service_record_dimensions(linked_service: str) -> dict[str, str]:
+	"""Company, branch, cost center, and profit center stored on the Linked Service record.
+
+	The operational job can still hold values copied from Main. Those are not
+	used here.
+	"""
+	linked_service = _norm(linked_service)
+	if not linked_service:
+		return {}
+	try:
+		from logistics.utils.linked_service_compat import (
+			linked_service_doctype,
+			linked_service_record_exists,
+		)
+
+		if not linked_service_record_exists(linked_service):
+			return {}
+		stored = frappe.get_cached_doc(linked_service_doctype(), linked_service)
+	except Exception:
+		return {}
+	found: dict[str, str] = {}
+	for fieldname in ("company", "branch", "cost_center", "profit_center"):
+		value = _norm(getattr(stored, fieldname, None))
+		if value:
+			found[fieldname] = value
+	return found
+
+
+def intercompany_sales_invoice_dimensions(job: Any, company: str | None = None) -> dict[str, str]:
+	"""Company, branch, cost center, and profit center for the intercompany Sales Invoice.
+
+	The Linked Service record is the only source. Values copied onto the
+	operational job from Main are ignored, and a value that belongs to another
+	company is omitted.
+	"""
+	raw = _linked_service_record_dimensions(_linked_service_name_for_job(job))
+	invoice_company = _norm(raw.get("company") or company or _source_value(job, "company"))
+	chosen = dimensions_belonging_to_company(invoice_company, raw)
+	if invoice_company:
+		chosen["company"] = invoice_company
+	return chosen
+
+
+def intercompany_purchase_invoice_dimensions(main_job: Any, company: str | None = None) -> dict[str, str]:
+	"""Company, branch, cost center, and profit center for the intercompany Purchase Invoice.
+
+	The Main job is the only source. Linked-service values are not a fallback.
+	"""
+	invoice_company = _norm(_source_value(main_job, "company") or company)
+	chosen = dimensions_belonging_to_company(invoice_company, main_job) if main_job else {}
+	if invoice_company:
+		chosen["company"] = invoice_company
+	return chosen
+
+
 def dimensions_for_operational_job(job: Any, company: str | None = None) -> dict[str, str]:
 	"""Dimensions for an invoice posted in the operational job's company.
 
@@ -212,6 +313,117 @@ def _reference_job(doc: Any) -> Any | None:
 	return None
 
 
+def _is_intercompany_invoice(doc: Any) -> bool:
+	"""True for the intercompany Sales Invoice or Purchase Invoice leg."""
+	flags = getattr(doc, "flags", None)
+	if flags and flags.get("is_intercompany_invoice"):
+		return True
+	try:
+		from logistics.intercompany.invoice_guard import INTERCOMPANY_SI_REMARKS_PREFIX
+	except Exception:
+		INTERCOMPANY_SI_REMARKS_PREFIX = "Intercompany:"
+	remarks = _norm(getattr(doc, "remarks", None))
+	if remarks.startswith(INTERCOMPANY_SI_REMARKS_PREFIX):
+		return True
+	name = _norm(getattr(doc, "name", None))
+	if not name or name.startswith("new"):
+		return False
+	fieldname = {
+		"Sales Invoice": "intercompany_sales_invoice",
+		"Purchase Invoice": "intercompany_purchase_invoice",
+	}.get(_norm(getattr(doc, "doctype", None)))
+	if not fieldname:
+		return False
+	try:
+		return bool(
+			frappe.db.exists(
+				"Intercompany Invoice Log",
+				{fieldname: name, "status": "Created"},
+			)
+		)
+	except Exception:
+		return False
+
+
+def _main_job_for_intercompany_invoice(doc: Any) -> Any | None:
+	"""Main job linked from the operational job referenced on an intercompany invoice."""
+	job = _reference_job(doc)
+	if not job:
+		return None
+	try:
+		from logistics.billing.cross_module_billing import resolve_internal_job_main_job
+
+		main_type, main_name = resolve_internal_job_main_job(
+			_norm(getattr(job, "doctype", None)),
+			_norm(getattr(job, "name", None)),
+		)
+	except Exception:
+		return None
+	if not main_type or not main_name:
+		return None
+	try:
+		if not frappe.db.exists(main_type, main_name):
+			return None
+		return frappe.get_doc(main_type, main_name)
+	except Exception:
+		return None
+
+
+def _forced_intercompany_dimensions(doc: Any, company: str) -> dict[str, str] | None:
+	"""Dimensions this intercompany invoice must follow, or None when it is not one.
+
+	Sales Invoice follows the Linked Service. Purchase Invoice follows Main.
+	An empty dict means the invoice is intercompany and the other party must
+	not be used as a fallback.
+	"""
+	if not _is_intercompany_invoice(doc):
+		return None
+	doctype = _norm(getattr(doc, "doctype", None))
+	if doctype == "Sales Invoice":
+		source = intercompany_sales_invoice_dimensions(_reference_job(doc), company)
+	elif doctype == "Purchase Invoice":
+		source = intercompany_purchase_invoice_dimensions(
+			_main_job_for_intercompany_invoice(doc),
+			company,
+		)
+	else:
+		return None
+	return dimensions_belonging_to_company(company, source)
+
+
+def _apply_forced_dimensions(doc: Any, meta: Any, company: str, forced: dict[str, str]) -> None:
+	"""Write *forced* dimensions onto the header and lines when they belong to *company*."""
+	header_values: dict[str, str] = {}
+	for fieldname in DIMENSION_FIELDS:
+		if meta is not None and not meta.get_field(fieldname):
+			continue
+		forced_value = _norm(forced.get(fieldname))
+		current = _norm(getattr(doc, fieldname, None))
+		if forced_value and dimension_belongs(fieldname, forced_value, company):
+			_assign(doc, fieldname, forced_value)
+			header_values[fieldname] = forced_value
+			continue
+		if current and dimension_belongs(fieldname, current, company):
+			header_values[fieldname] = current
+			continue
+		if current:
+			_assign(doc, fieldname, None)
+
+	for table in CHILD_TABLES:
+		for row in _child_rows(doc, table):
+			for fieldname in DIMENSION_FIELDS:
+				if not _row_has_field(row, fieldname):
+					continue
+				forced_value = _norm(forced.get(fieldname))
+				if forced_value and dimension_belongs(fieldname, forced_value, company):
+					_assign(row, fieldname, forced_value)
+					continue
+				current = _norm(getattr(row, fieldname, None))
+				if not current or dimension_belongs(fieldname, current, company):
+					continue
+				_assign(row, fieldname, header_values.get(fieldname) or None)
+
+
 def align_invoice_dimensions_to_company(doc: Any, method: str | None = None) -> None:
 	"""Drop accounting dimensions that do not belong to the invoice company.
 
@@ -219,6 +431,10 @@ def align_invoice_dimensions_to_company(doc: Any, method: str | None = None) -> 
 	the user session. A line that already belongs to the company is left as-is.
 	An invalid value is replaced from the header or the referenced operational
 	job (Linked Service first). Blank lines stay blank.
+
+	Intercompany invoices are stricter. The Sales Invoice follows the Linked
+	Service, and the Purchase Invoice follows Main, even when the other party's
+	value also passes the company check.
 	"""
 	company = _norm(getattr(doc, "company", None))
 	if not doc or not company or not getattr(doc, "doctype", None):
@@ -226,6 +442,11 @@ def align_invoice_dimensions_to_company(doc: Any, method: str | None = None) -> 
 	try:
 		meta = frappe.get_meta(doc.doctype)
 	except Exception:
+		return
+
+	forced = _forced_intercompany_dimensions(doc, company)
+	if forced is not None:
+		_apply_forced_dimensions(doc, meta, company, forced)
 		return
 
 	job_dims: dict[str, str] | None = None
