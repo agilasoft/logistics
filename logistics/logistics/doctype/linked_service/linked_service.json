@@ -98,12 +98,11 @@
    "options": "Company"
   },
   {
-   "description": "Branch for this service's operating company. Copied onto the booking created from this Linked Service.",
+   "description": "Branch copied onto the booking created from this Linked Service. Not filtered by Company.",
    "fieldname": "branch",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Branch",
-   "link_filters": "[[\"Branch\", \"custom_company\", \"=\", \"eval:doc.company\"]]",
    "options": "Branch"
   },
   {
@@ -116,7 +115,7 @@
    "options": "Cost Center"
   },
   {
-   "description": "Profit Center for this service's operating company. Copied onto the booking created from this Linked Service.",
+   "description": "Profit Center copied onto the booking created from this Linked Service. Not filtered by Company.",
    "fieldname": "profit_center",
    "fieldtype": "Link",
    "in_list_view": 1,

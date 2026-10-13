@@ -16,6 +16,8 @@ _SCOPED_FIELD_DOCTYPES: dict[str, str] = {
 	"cost_center": "Cost Center",
 	"profit_center": "Profit Center",
 }
+# Only Cost Center is filtered by Company. Branch and Profit Center are not.
+_COMPANY_FILTERED_FIELDS: frozenset[str] = frozenset({"cost_center"})
 
 
 def _row_val(row: Any, fieldname: str) -> Any:
@@ -116,7 +118,11 @@ def _master_company(link_doctype: str, name: str) -> str:
 
 
 def _link_belongs_to_company(link_doctype: str, name: str, company: str) -> bool:
-	"""True when *name* is usable under *company* (same company, or master is not company-scoped)."""
+	"""True when *name* is usable under *company*.
+
+	Cost Center must belong to that company. Branch and Profit Center are not
+	company-filtered: any existing record is usable.
+	"""
 	name = _norm(name)
 	company = _norm(company)
 	if not name or not company:
@@ -126,6 +132,8 @@ def _link_belongs_to_company(link_doctype: str, name: str, company: str) -> bool
 			return False
 	except Exception:
 		return False
+	if link_doctype in ("Branch", "Profit Center"):
+		return True
 	if not _company_fields_for(link_doctype):
 		return True
 	actual = _master_company(link_doctype, name)
@@ -168,13 +176,12 @@ def _preserved_scoped_fields(doc: Any) -> set[str]:
 
 
 def sync_company_scoped_fields_on_operational_doc(doc: Any, company: str) -> None:
-	"""Keep or refill branch / cost center / profit center for *company*.
+	"""Keep branch and profit center. Refill cost center for *company*.
 
-	Values copied from the Linked Service are kept. Other values that already belong
-	to the operating company are kept. Values that belong to another company (or are
-	empty) are replaced from that company's masters so mandatory fields on Transport
-	Order, Declaration Order, and similar bookings are populated when Linked Service
-	company differs from the main shipment.
+	Branch and Profit Center are not filtered by company, so a value already on
+	the document is left as-is. Cost Center is replaced when it is empty or
+	belongs to another company. Mandatory fields that are still empty raise so
+	the user can set them on the Linked Service.
 	"""
 	company = _norm(company)
 	if not doc or not company:
@@ -186,9 +193,15 @@ def sync_company_scoped_fields_on_operational_doc(doc: Any, company: str) -> Non
 		df = meta.get_field(fn)
 		if not df:
 			continue
-		if fn in preserved and _norm(_row_val(doc, fn)):
-			continue
 		current = _norm(_row_val(doc, fn))
+		if fn in preserved and current:
+			continue
+		if fn not in _COMPANY_FILTERED_FIELDS:
+			if current:
+				continue
+			if getattr(df, "reqd", False):
+				missing_labels.append(_(getattr(df, "label", None) or fn.replace("_", " ").title()))
+			continue
 		if current and _link_belongs_to_company(link_dt, current, company):
 			continue
 		default = _default_scoped_value(fn, link_dt, company)
@@ -199,8 +212,7 @@ def sync_company_scoped_fields_on_operational_doc(doc: Any, company: str) -> Non
 		frappe.throw(
 			_(
 				"Cannot create {0} for company {1}: missing {2}. "
-				"Set Branch, Cost Center, and Profit Center on the Linked Service, "
-				"or add them for that company, then try again."
+				"Set them on the Linked Service. Cost Center must belong to that company."
 			).format(doc.doctype, company, ", ".join(missing_labels)),
 			title=_("Company defaults required"),
 		)
@@ -271,8 +283,9 @@ def apply_linked_service_company_to_operational_doc(
 	raises so users set it on the Sales Quote before creating from the main.
 
 	Branch, cost center, and profit center are taken from that Linked Service when
-	they are set up there. Values copied from the main job are replaced. Empty
-	dimensions are filled from the operating company's masters.
+	they are set up there. Values copied from the main job are replaced. Only
+	Cost Center is limited to the operating company; an empty cost center is
+	filled from that company's masters.
 	"""
 	if not doc or not row:
 		return ""

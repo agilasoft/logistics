@@ -1026,3 +1026,5 @@ logistics.patches.v3_0_place_transport_order_below_sales_quote
 # Cash Advance Liquidation is a parent DocType. Reimport it when the row is missing
 # or still the old child table, so /desk/cash-advance-liquidation resolves.
 logistics.patches.v3_0_restore_cash_advance_liquidation_doctype
+# Linked Service: Branch is not filtered by Company. Only Cost Center is.
+logistics.patches.v3_0_linked_service_branch_not_company_filtered

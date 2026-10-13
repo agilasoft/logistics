@@ -10,6 +10,7 @@ from logistics.utils.internal_job_creation_eligibility import (
 	evaluate_linked_service_internal_job_eligibility,
 )
 from logistics.utils.linked_service_company import (
+	_link_belongs_to_company,
 	apply_linked_service_company_to_operational_doc,
 	company_from_linked_service,
 	missing_linked_service_company_message,
@@ -34,6 +35,53 @@ def _doc(**values):
 
 
 class TestLinkedServiceCompany(unittest.TestCase):
+	def test_dialog_strips_company_filters_from_branch_and_profit_center(self):
+		from logistics.logistics.doctype.linked_service.linked_service import _dialog_link_filters
+
+		branch = frappe._dict(
+			options="Branch",
+			link_filters='[["Branch", "custom_company", "=", "eval:doc.company"]]',
+		)
+		profit_center = frappe._dict(options="Profit Center", link_filters="")
+		cost_center = frappe._dict(
+			options="Cost Center",
+			link_filters='[["Cost Center", "company", "=", "eval:doc.company"]]',
+		)
+		self.assertEqual(_dialog_link_filters(branch), "")
+		self.assertEqual(_dialog_link_filters(profit_center), "")
+		self.assertIn("company", _dialog_link_filters(cost_center))
+		self.assertIn("eval:doc.company", _dialog_link_filters(cost_center))
+
+	def test_only_cost_center_must_match_company(self):
+		with patch("logistics.utils.linked_service_company.frappe.db.exists", return_value=True):
+			with patch(
+				"logistics.utils.linked_service_company._company_fields_for",
+				return_value=["company"],
+			):
+				with patch(
+					"logistics.utils.linked_service_company._master_company",
+					return_value="Other Co",
+				):
+					self.assertTrue(_link_belongs_to_company("Branch", "BR-1", "Op Co"))
+					self.assertTrue(_link_belongs_to_company("Profit Center", "PC-1", "Op Co"))
+					self.assertFalse(_link_belongs_to_company("Cost Center", "CC-1", "Op Co"))
+
+	def test_linked_service_doctype_filters_only_cost_center_by_company(self):
+		import json
+		from pathlib import Path
+
+		root = Path(__file__).resolve().parents[1]
+		for relative in (
+			"logistics/doctype/linked_service/linked_service.json",
+			"logistics/doctype/linked_service_detail/linked_service_detail.json",
+		):
+			data = json.loads((root / relative).read_text())
+			fields = {field["fieldname"]: field for field in data["fields"]}
+			self.assertNotIn("link_filters", fields["branch"])
+			self.assertNotIn("link_filters", fields["profit_center"])
+			self.assertIn("company", fields["cost_center"]["link_filters"])
+			self.assertNotIn("custom_company", fields["cost_center"]["link_filters"])
+
 	def test_company_from_row_direct(self):
 		self.assertEqual(company_from_linked_service({"company": "Co A"}), "Co A")
 		self.assertEqual(company_from_linked_service(frappe._dict(company="Co B")), "Co B")
@@ -217,9 +265,9 @@ class TestLinkedServiceCompany(unittest.TestCase):
 					side_effect=lambda fn, _dt, _co: defaults[fn],
 				):
 					sync_company_scoped_fields_on_operational_doc(doc, "Op Co")
-		self.assertEqual(doc.branch, "BR-OP")
+		self.assertEqual(doc.branch, "BR-MAIN")
 		self.assertEqual(doc.cost_center, "CC-OP")
-		self.assertEqual(doc.profit_center, "PC-OP")
+		self.assertEqual(doc.profit_center, "PC-MAIN")
 
 	def test_sync_throws_when_required_defaults_missing(self):
 		meta = _meta_with_fields("branch", "cost_center", "profit_center", reqd=True)
@@ -236,7 +284,9 @@ class TestLinkedServiceCompany(unittest.TestCase):
 					with self.assertRaises(frappe.ValidationError) as ctx:
 						sync_company_scoped_fields_on_operational_doc(doc, "Op Co")
 		self.assertIn("Op Co", str(ctx.exception))
-		self.assertIn("Branch", str(ctx.exception))
+		self.assertIn("Cost Center", str(ctx.exception))
+		self.assertEqual(doc.branch, "BR-MAIN")
+		self.assertEqual(doc.profit_center, "PC-MAIN")
 
 	def test_eligibility_blocks_when_linked_service_has_no_company(self):
 		ls = frappe._dict(
