@@ -395,6 +395,9 @@ def _create_intercompany_pair(pb, group, *, posting_date: str) -> tuple[str, str
 	_stamp_invoice_dimensions(pi, pi_dims)
 	pi.set_missing_values()
 	_stamp_invoice_dimensions(pi, pi_dims)
+	from logistics.intercompany.intercompany_invoice import _link_purchase_to_sales_invoice
+
+	_link_purchase_to_sales_invoice(pi, si)
 	ensure_invoice_name_for_server_insert(pi)
 	pi.insert(ignore_permissions=True)
 	pi.submit()

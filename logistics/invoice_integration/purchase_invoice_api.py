@@ -423,6 +423,7 @@ def create_consolidation_purchase_invoice(
     pi_naming = _purchase_invoice_naming_context()
 
     pi = frappe.new_doc("Purchase Invoice")
+    pi.flags.logistics_service_purchase = True
     pi.supplier = resolved_supplier
     pi.company = c_doc.company
     pi.posting_date = posting_date or today()
@@ -750,6 +751,7 @@ def create_purchase_invoice(
 
     # Create Purchase Invoice
     pi = frappe.new_doc("Purchase Invoice")
+    pi.flags.logistics_service_purchase = True
     pi.supplier = resolved_supplier
     pi.company = job.company
     pi.posting_date = posting_date or today()
