@@ -192,6 +192,7 @@
 			".lij-card-chevron{flex-shrink:0;width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:var(--text-muted,#64748b);transition:transform .18s ease;font-size:11px;}" +
 			".lij-card.open .lij-card-chevron{transform:rotate(90deg);}" +
 			".lij-card-hd .lij-card-create{flex-shrink:0;margin-left:auto;cursor:pointer;}" +
+			".lij-card-container{max-width:240px;flex:0 1 220px;height:30px;font-size:12px;font-weight:500;}" +
 			".lij-card-badges{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;margin-left:auto;flex-shrink:0;}" +
 			".lij-chip-cancelled{font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#b91c1c;}" +
 			".lij-card-bd{display:none;border-top:1px solid var(--border-color,#e2e8f0);padding:12px 14px;background:var(--modal-bg,#fafafa);max-height:min(45vh,380px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}" +
@@ -969,7 +970,26 @@
 		return $block;
 	}
 
-	function _buildChoiceCards(choices) {
+	function _declarationContainerSelect(containers) {
+		var $select = $("<select>")
+			.addClass("form-control input-sm lij-card-container")
+			.attr("aria-label", __("Container"));
+		$select.append($("<option>").attr("value", "").text(__("Choose container")));
+		(containers || []).forEach(function (c) {
+			var value = (c && (c.container || c.container_number)) || "";
+			var label = (c && (c.label || c.container_number || c.container)) || value;
+			if (!value) {
+				return;
+			}
+			$select.append($("<option>").attr("value", value).text(label));
+		});
+		$select.on("click mousedown", function (e) {
+			e.stopPropagation();
+		});
+		return $select;
+	}
+
+	function _buildChoiceCards(choices, declarationContainers) {
 		var $wrap = $('<div class="lij-cards-wrap">');
 		$wrap.append(
 			$("<p>")
@@ -993,6 +1013,13 @@
 			$toggle.append(_buildChoiceCardHead(c));
 			$hd.append($toggle);
 			if (creatable) {
+				var needsContainerPick =
+					c.job_type === "Transport Order" &&
+					!(c.container_no != null && String(c.container_no).trim() !== "") &&
+					(declarationContainers || []).length > 1;
+				if (needsContainerPick) {
+					$hd.append(_declarationContainerSelect(declarationContainers));
+				}
 				$hd.append(
 					$("<button type='button'>")
 						.addClass("btn btn-primary btn-sm lij-card-create")
@@ -1068,8 +1095,26 @@
 				});
 				return;
 			}
+			var containerNo = "";
+			if (frm.doctype === "Declaration" && dec.job_type === "Transport Order") {
+				containerNo = _ijDetailRowContainerNo(frm, dec.detail_idx, dec);
+				if (!containerNo) {
+					var picked = $.trim($card.find(".lij-card-container").val() || "");
+					if ($card.find(".lij-card-container").length && !picked) {
+						frappe.msgprint({
+							title: __("Container required"),
+							message: __(
+								"This declaration has more than one container. Choose which container this transport order is for."
+							),
+							indicator: "orange",
+						});
+						return;
+					}
+					containerNo = picked;
+				}
+			}
 			d.hide();
-			_maybeConfirmInboundThenCreate(frm, dec);
+			_maybeConfirmInboundThenCreate(frm, dec, containerNo);
 		});
 	}
 
@@ -1174,7 +1219,7 @@
 		});
 	}
 
-	function _maybeConfirmInboundThenCreate(frm, dec) {
+	function _maybeConfirmInboundThenCreate(frm, dec, containerNo) {
 		if (dec.creatable === false) {
 			return;
 		}
@@ -1184,20 +1229,20 @@
 		}
 		// Linked Warehousing creates VAS Order (cross-dock / in-transit), not storage Inbound.
 		if (dec.job_type === "VAS Order") {
-			_runInternalJobCreate(frm, dec);
+			_runInternalJobCreate(frm, dec, containerNo);
 			return;
 		}
 		// Linked Cross-Docking creates Cross-Docking Order (staging in/out).
 		if (dec.job_type === "Cross-Docking Order") {
-			_runInternalJobCreate(frm, dec);
+			_runInternalJobCreate(frm, dec, containerNo);
 			return;
 		}
 		if (dec.job_type !== "Inbound Order") {
-			_runInternalJobCreate(frm, dec);
+			_runInternalJobCreate(frm, dec, containerNo);
 			return;
 		}
 		var go = function () {
-			_runInternalJobCreate(frm, dec);
+			_runInternalJobCreate(frm, dec, containerNo);
 		};
 		if (frm.doctype === "Transport Job") {
 			var pkgs = frm.doc.packages || [];
@@ -1276,11 +1321,24 @@
 		if (d.fields_dict.info && d.fields_dict.info.$wrapper) {
 			d.fields_dict.info.$wrapper.html(_dialogIntroHtml(frm));
 		}
+		var declarationContainers = (msg && msg.declaration_containers) || [];
 		var $cardsRoot = d.fields_dict.cards_html && d.fields_dict.cards_html.$wrapper;
 		if ($cardsRoot && $cardsRoot.length) {
 			$cardsRoot.empty();
 			$cardsRoot.append(_ijStyles());
-			$cardsRoot.append(_buildChoiceCards(choices));
+			if (declarationContainers.length > 1) {
+				$cardsRoot.append(
+					$("<p>")
+						.addClass("text-muted")
+						.css({ fontSize: "12px", marginBottom: "8px", lineHeight: 1.45 })
+						.text(
+							__(
+								"This declaration has more than one container. On the Transport card, choose the container, then Create."
+							)
+						)
+				);
+			}
+			$cardsRoot.append(_buildChoiceCards(choices, declarationContainers));
 			_bindChoiceCards($cardsRoot, frm, d);
 		}
 		d.show();
@@ -1297,7 +1355,24 @@
 			freeze: true,
 			freeze_message: __("Loading options..."),
 			callback: function (r) {
-				_openCreateInternalJobChoiceDialog(frm, r.message || {});
+				var msg = r.message || {};
+				if (frm.doctype !== "Declaration") {
+					_openCreateInternalJobChoiceDialog(frm, msg);
+					return;
+				}
+				frappe.call({
+					method:
+						"logistics.utils.module_integration.get_declaration_containers_for_transport_order",
+					args: { declaration_name: frm.doc.name },
+					callback: function (c) {
+						msg.declaration_containers = (c.message && c.message.containers) || [];
+						_openCreateInternalJobChoiceDialog(frm, msg);
+					},
+					error: function () {
+						msg.declaration_containers = [];
+						_openCreateInternalJobChoiceDialog(frm, msg);
+					},
+				});
 			},
 		});
 	}
