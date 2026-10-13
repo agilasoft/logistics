@@ -24,6 +24,7 @@ from typing import Dict, Any, Optional, List, Tuple
 from logistics.intercompany.invoice_guard import (
 	INTERCOMPANY_JOB_TYPES,
 	INTERCOMPANY_SI_REMARKS_PREFIX,
+	apply_sales_invoice_reference,
 	intercompany_sales_invoice_marked,
 	relationship_for_companies,
 )
@@ -438,11 +439,53 @@ def _create_intercompany_pair(
 	stamp_dimensions(pi, _accounting_dims(pi_dims))
 	pi.set_missing_values()
 	stamp_dimensions(pi, _accounting_dims(pi_dims))
+	_link_purchase_to_sales_invoice(pi, si)
 	ensure_invoice_name_for_server_insert(pi)
 	pi.insert(ignore_permissions=True)
 	pi.submit()
 
 	return (si.name, pi.name)
+
+
+def _link_purchase_to_sales_invoice(purchase, sales) -> None:
+	"""Point the purchase at the sales invoice when ERPNext will accept that link.
+
+	Called after the sales invoice is submitted, so each sales row already has a
+	name. A supplier that represents this purchase's own company is handled in
+	before_validate when the link cannot be completed.
+	"""
+	supplier_name = getattr(purchase, "supplier", None)
+	supplier = {}
+	if supplier_name:
+		supplier = (
+			frappe.db.get_value(
+				"Supplier",
+				supplier_name,
+				["represents_company", "is_internal_supplier"],
+				as_dict=True,
+			)
+			or {}
+		)
+	customer_represents = None
+	if getattr(sales, "customer", None):
+		customer_represents = frappe.db.get_value("Customer", sales.customer, "represents_company")
+	found_supplier = None
+	if getattr(sales, "company", None):
+		found_supplier = frappe.db.get_value("Supplier", {"represents_company": sales.company}, "name")
+	unrealized_account = None
+	if getattr(purchase, "company", None):
+		unrealized_account = frappe.db.get_value(
+			"Company", purchase.company, "unrealized_profit_loss_account"
+		)
+	apply_sales_invoice_reference(
+		purchase,
+		sales,
+		supplier_is_internal=supplier.get("is_internal_supplier"),
+		supplier_represents_company=supplier.get("represents_company"),
+		sales_customer_represents_company=customer_represents,
+		supplier_found_for_sales_company=found_supplier,
+		unrealized_profit_loss_account=unrealized_account,
+	)
 
 
 @frappe.whitelist()
