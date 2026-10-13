@@ -506,8 +506,15 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			self.assertIn("airline", fieldnames)
 			self.assertIn("quantity", fieldnames)
 			self.assertIn("company", fieldnames)
+			self.assertIn("branch", fieldnames)
+			self.assertIn("cost_center", fieldnames)
+			self.assertIn("profit_center", fieldnames)
 			self.assertIn("shipper", fieldnames)
 			self.assertIn("notes", fieldnames)
+			by_name = {field["fieldname"]: field for field in payload["fields"]}
+			self.assertNotIn("link_filters", by_name["branch"])
+			self.assertNotIn("link_filters", by_name["profit_center"])
+			self.assertIn("company", by_name["cost_center"].get("link_filters") or "")
 
 			updated = update_dialog_edit(
 				ls_name,
