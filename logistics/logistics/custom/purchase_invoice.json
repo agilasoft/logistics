@@ -41,6 +41,61 @@
  "custom_perms": [],
  "doctype": "Purchase Invoice",
  "links": [],
- "property_setters": [],
+ "property_setters": [
+  {
+   "doc_type": "Purchase Invoice",
+   "doctype_or_field": "DocField",
+   "field_name": "bir_2307_section",
+   "name": "Purchase Invoice-bir_2307_section-hidden",
+   "property": "hidden",
+   "property_type": "Check",
+   "value": "1"
+  },
+  {
+   "doc_type": "Purchase Invoice",
+   "doctype_or_field": "DocField",
+   "field_name": "payee_tin",
+   "name": "Purchase Invoice-payee_tin-hidden",
+   "property": "hidden",
+   "property_type": "Check",
+   "value": "1"
+  },
+  {
+   "doc_type": "Purchase Invoice",
+   "doctype_or_field": "DocField",
+   "field_name": "payee_branch_code",
+   "name": "Purchase Invoice-payee_branch_code-hidden",
+   "property": "hidden",
+   "property_type": "Check",
+   "value": "1"
+  },
+  {
+   "doc_type": "Purchase Invoice",
+   "doctype_or_field": "DocField",
+   "field_name": "column_break_bir1",
+   "name": "Purchase Invoice-column_break_bir1-hidden",
+   "property": "hidden",
+   "property_type": "Check",
+   "value": "1"
+  },
+  {
+   "doc_type": "Purchase Invoice",
+   "doctype_or_field": "DocField",
+   "field_name": "payor_tin",
+   "name": "Purchase Invoice-payor_tin-hidden",
+   "property": "hidden",
+   "property_type": "Check",
+   "value": "1"
+  },
+  {
+   "doc_type": "Purchase Invoice",
+   "doctype_or_field": "DocField",
+   "field_name": "payor_branch_code",
+   "name": "Purchase Invoice-payor_branch_code-hidden",
+   "property": "hidden",
+   "property_type": "Check",
+   "value": "1"
+  }
+ ],
  "sync_on_migrate": 1
 }
