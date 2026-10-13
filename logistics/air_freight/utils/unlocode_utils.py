@@ -322,14 +322,16 @@ def get_unlocode_data(unlocode: str, refresh_external: bool = False) -> Optional
 					_merge_external_refresh(base, fresh)
 				_apply_unece_function_capabilities(base, code)
 				_backfill_country_from_unlocode_prefix(code, base)
-				return base
-			if _is_blank_str(base.get("country")) or _is_blank_str(base.get("country_code")):
+				return apply_country_label(code, base)
+			if _is_blank_str(base.get("country")) or _is_blank_str(base.get("country_code")) or country_uses_iso_label(
+				base.get("country") or "", base.get("country_code") or code[:2]
+			):
 				fresh = get_unlocode_from_database(code)
 				_merge_unlocode_overlay(base, fresh)
 				_backfill_country_from_unlocode_prefix(code, base)
-			return base
+			return apply_country_label(code, base)
 
-		return get_unlocode_from_database(unlocode)
+		return apply_country_label(code, get_unlocode_from_database(unlocode))
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), f"UNLOCO get_unlocode_data: {e!s}")
 		return None
@@ -440,6 +442,47 @@ def get_country_info(country_code: str) -> Dict[str, str]:
 	return dict(mapping.get(cc, {}))
 
 
+# UN/LOCODE country-codes.csv stores the ISO 3166 English short name, with the
+# definite article (a name prefix, "the") moved into parentheses:
+# "United States of America (the)", "Philippines (the)".
+# Country in this app is the Country master name ("United States", "Philippines").
+_ISO_ARTICLE_SUFFIX = re.compile(r"\s+\(the\)\s*$", re.IGNORECASE)
+_ISO_COUNTRY_ALIASES = {
+	"united states of america": "United States",
+	"korea, republic of": "South Korea",
+	"korea, democratic people's republic of": "North Korea",
+	"viet nam": "Vietnam",
+	"russian federation": "Russia",
+	"taiwan (province of china)": "Taiwan",
+	"bolivia, plurinational state of": "Bolivia",
+	"venezuela (bolivarian republic of)": "Venezuela",
+	"iran, islamic republic of": "Iran",
+	"tanzania, united republic of": "Tanzania",
+	"syrian arab republic": "Syria",
+	"moldova, republic of": "Moldova",
+	"lao people's democratic republic": "Laos",
+	"micronesia, federated states of": "Micronesia",
+}
+
+
+def _clean_iso_country_name(iso_name: str) -> str:
+	"""Drop the parenthetical article and map leftover ISO short names to Country names."""
+	name = " ".join((iso_name or "").split())
+	name = _ISO_ARTICLE_SUFFIX.sub("", name).strip()
+	return _ISO_COUNTRY_ALIASES.get(name.casefold(), name)
+
+
+def country_uses_iso_label(value: str, country_code: str = "") -> bool:
+	"""True when ``value`` is the UN/LOCODE prefix or the ISO short name, not a Country name."""
+	raw = (value or "").strip()
+	if not raw:
+		return False
+	cc = (country_code or "").strip().upper()
+	if cc and raw.upper() == cc:
+		return True
+	return _clean_iso_country_name(raw) != raw
+
+
 def enrich_country_info(country_code: str) -> Dict[str, str]:
 	"""
 	Resolve ISO-3166 alpha-2 to display fields. Uses built-in map first, then Frappe Country.
@@ -452,7 +495,10 @@ def enrich_country_info(country_code: str) -> Dict[str, str]:
 	out.setdefault("country_code", cc)
 	if not out.get("country"):
 		try:
-			name = frappe.db.get_value("Country", {"code": cc}, "country_name")
+			# Document name is the Link target used by Country fields elsewhere.
+			name = frappe.db.get_value("Country", {"code": cc}, "name")
+			if not name:
+				name = frappe.db.get_value("Country", {"code": cc}, "country_name")
 			if name:
 				out["country"] = name
 		except Exception:
@@ -462,6 +508,45 @@ def enrich_country_info(country_code: str) -> Dict[str, str]:
 	out.setdefault("currency", "")
 	out.setdefault("language", "")
 	return out
+
+
+def resolve_unloco_country_name(country_code: str, iso_name: str = "") -> str:
+	"""
+	Country label stored on UNLOCO.
+
+	Prefer the Country master (and the built-in names that match it). The DataHub
+	``CountryName`` column is only a fallback, and its parenthetical article is removed.
+	"""
+	cc = (country_code or "").strip().upper()
+	if len(cc) == 2:
+		master = (enrich_country_info(cc).get("country") or "").strip()
+		if master:
+			return master
+	cleaned = _clean_iso_country_name(iso_name)
+	if cc and cleaned.upper() == cc:
+		return ""
+	return cleaned
+
+
+def apply_country_label(code: str, base: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+	"""Replace a blank, prefix, or ISO-article country with the Country master name."""
+	if not base:
+		return base
+	cc = (base.get("country_code") or "").strip().upper()
+	unlocode = (code or base.get("unlocode") or "").strip().upper()
+	if len(cc) != 2 and len(unlocode) == 5:
+		cc = unlocode[:2]
+		if _is_blank_str(base.get("country_code")):
+			base["country_code"] = cc
+	current = (base.get("country") or "").strip()
+	if current and not country_uses_iso_label(current, cc):
+		return base
+	resolved = resolve_unloco_country_name(cc, current)
+	if resolved:
+		base["country"] = resolved
+		if _is_blank_str(base.get("country_code")) and len(cc) == 2:
+			base["country_code"] = cc
+	return base
 
 
 def infer_location_details(unlocode: str, country_code: str, location_code: str) -> Dict[str, Any]:

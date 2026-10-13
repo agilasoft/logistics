@@ -364,7 +364,7 @@ def _primary_location_type(functions: List[str], function_field: str = "") -> st
 
 
 def datahub_row_to_unlocode_dict(unlocode: str, row: Dict[str, str]) -> Dict[str, Any]:
-	from logistics.air_freight.utils.unlocode_utils import enrich_country_info, parse_un_coordinates
+	from logistics.air_freight.utils.unlocode_utils import parse_un_coordinates, resolve_unloco_country_name
 
 	u = (unlocode or "").strip().upper()
 	countries = _load_country_names()
@@ -386,9 +386,10 @@ def datahub_row_to_unlocode_dict(unlocode: str, row: Dict[str, str]) -> Dict[str
 	if not iata and len(loc3) == 3:
 		iata = loc3
 
-	country_name = countries.get(cc, "") if cc else ""
-	if not country_name and len(cc) == 2:
-		country_name = enrich_country_info(cc).get("country", "") or ""
+	# CountryName in the codelist keeps the English article in parentheses
+	# ("Philippines (the)"). Store the Country master name instead.
+	iso_name = (countries.get(cc) or "").strip() if cc else ""
+	country_name = resolve_unloco_country_name(cc, iso_name)
 
 	out: Dict[str, Any] = {
 		"unlocode": u,
