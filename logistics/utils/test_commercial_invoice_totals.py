@@ -1,6 +1,8 @@
 # Copyright (c) 2026, Agilasoft Cloud Technologies Inc. and Contributors
 # See license.txt
 
+from unittest.mock import patch
+
 import frappe
 from frappe.tests import UnitTestCase
 
@@ -151,3 +153,110 @@ class UnitTestCommercialInvoiceTotals(UnitTestCase):
 			throw_if_invoice_qty_is_zero(
 				_doc(commercial_invoice_line_items=[{"invoice_qty": 0, "goods_description": "A"}])
 			)
+
+	def test_invoice_details_total_line_measurements(self):
+		totals = calculate_commercial_invoice_totals(
+			_doc(
+				inv_volume=99,
+				inv_volume_uom="M3",
+				inv_gross_weight=1,
+				commercial_invoice_line_items=[
+					{
+						"invoice_qty": 1,
+						"price": 5,
+						"volume": 1.5,
+						"volume_uom": "CBM",
+						"gross_weight": 10,
+						"gross_weight_uom": "Kg",
+						"net_weight": 8,
+						"net_weight_uom": "Kg",
+						"no_of_packs": 2,
+					},
+					{
+						"invoice_qty": 1,
+						"price": 5,
+						"volume": 2.5,
+						"volume_uom": "CBM",
+						"gross_weight": 4,
+						"gross_weight_uom": "Kg",
+						"net_weight": 3,
+						"net_weight_uom": "Kg",
+						"no_of_packs": 3,
+					},
+				],
+			)
+		)
+		self.assertEqual(totals["inv_volume"], 4)
+		self.assertEqual(totals["inv_volume_uom"], "CBM")
+		self.assertEqual(totals["inv_gross_weight"], 14)
+		self.assertEqual(totals["inv_gross_weight_uom"], "Kg")
+		self.assertEqual(totals["inv_net_weight"], 11)
+		self.assertEqual(totals["inv_net_weight_uom"], "Kg")
+		self.assertEqual(totals["packages"], 5)
+		self.assertNotIn("packages_uom", totals)
+
+	def test_blank_line_uom_sums_quantity_without_replacing_header_uom(self):
+		totals = calculate_commercial_invoice_totals(
+			_doc(
+				inv_volume_uom="CBM",
+				commercial_invoice_line_items=[{"volume": 2}, {"volume": 3, "gross_weight": 0}],
+			)
+		)
+		self.assertEqual(totals["inv_volume"], 5)
+		self.assertNotIn("inv_volume_uom", totals)
+		self.assertNotIn("inv_gross_weight", totals)
+
+	def test_lines_without_measurements_leave_invoice_details_untouched(self):
+		totals = calculate_commercial_invoice_totals(
+			_doc(
+				inv_volume=9,
+				commercial_invoice_line_items=[{"invoice_qty": 1, "price": 10}],
+			)
+		)
+		self.assertNotIn("inv_volume", totals)
+		self.assertNotIn("packages", totals)
+		self.assertEqual(totals["inv_total_amount"], 10)
+
+	@patch("logistics.utils.measurements.convert_volume")
+	def test_mixed_volume_uoms_convert_into_header_uom(self, mock_convert):
+		mock_convert.side_effect = lambda value, from_uom=None, to_uom=None, company=None: (
+			value * 2 if from_uom == "CFT" else value
+		)
+		totals = calculate_commercial_invoice_totals(
+			_doc(
+				inv_volume_uom="CBM",
+				commercial_invoice_line_items=[
+					{"volume": 2, "volume_uom": "CFT"},
+					{"volume": 1, "volume_uom": "CBM"},
+				],
+			)
+		)
+		self.assertEqual(totals["inv_volume"], 5)
+		self.assertEqual(totals["inv_volume_uom"], "CBM")
+		mock_convert.assert_called_once()
+
+	@patch("frappe.db.exists", return_value="Carton")
+	def test_packages_uom_follows_shared_package_type_when_it_is_a_uom(self, _exists):
+		totals = calculate_commercial_invoice_totals(
+			_doc(
+				commercial_invoice_line_items=[
+					{"no_of_packs": 2, "package_type": "Carton"},
+					{"no_of_packs": 1, "package_type": "Carton"},
+				]
+			)
+		)
+		self.assertEqual(totals["packages"], 3)
+		self.assertEqual(totals["packages_uom"], "Carton")
+
+	@patch("frappe.db.exists", return_value=None)
+	def test_packages_uom_skipped_when_package_type_is_not_a_uom(self, _exists):
+		totals = calculate_commercial_invoice_totals(
+			_doc(
+				commercial_invoice_line_items=[
+					{"no_of_packs": 2, "package_type": "Outer carton"},
+					{"no_of_packs": 1, "package_type": "Outer carton"},
+				]
+			)
+		)
+		self.assertEqual(totals["packages"], 3)
+		self.assertNotIn("packages_uom", totals)

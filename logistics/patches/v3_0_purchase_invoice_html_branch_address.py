@@ -1,9 +1,5 @@
-"""Purchase Invoice HTML: print the header address from Branch Registration Details."""
-
-from logistics.print_format.purchase_invoice.install_print_format import (
-	install_purchase_invoice_print_format,
-)
+"""Retired. The print format this patch installed was removed from the app."""
 
 
 def execute():
-	install_purchase_invoice_print_format()
+	return

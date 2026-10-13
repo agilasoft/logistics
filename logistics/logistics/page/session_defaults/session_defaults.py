@@ -27,6 +27,7 @@ DIMENSIONS = (
 		"fieldname": "branch",
 		"label": "Branch",
 		"filters": {},
+		"required": True,
 	},
 	{
 		"doctype": "Cost Center",
@@ -83,7 +84,7 @@ def user_needs_session_defaults(user: str | None = None) -> bool:
 	company = get_personal_company(user)
 	if not company:
 		return bool(get_permitted_companies(user))
-	return _missing_dimension(user, company)
+	return _missing_required_dimension(user, company)
 
 
 def get_personal_company(user: str | None = None) -> str | None:
@@ -161,7 +162,7 @@ def save_session_defaults(
 		fieldname = spec["fieldname"]
 		value = (incoming.get(fieldname) or "").strip()
 		allowed = _names_for_company(_dimension_rows(spec, user), company)
-		if allowed and not value:
+		if spec.get("required") and allowed and not value:
 			frappe.throw(_("{0} is required").format(_(spec["label"])))
 		if value and value not in allowed:
 			frappe.throw(
@@ -193,8 +194,11 @@ def restore_persistent_defaults(user: str | None = None) -> dict:
 	return restored
 
 
-def _missing_dimension(user: str, company: str) -> bool:
+def _missing_required_dimension(user: str, company: str) -> bool:
+	"""True when a required dimension, such as Branch, is still unset."""
 	for spec in DIMENSIONS:
+		if not spec.get("required"):
+			continue
 		names = _names_for_company(_dimension_rows(spec, user), company)
 		if names and not _valid_personal(user, spec["fieldname"], company, names):
 			return True

@@ -2,8 +2,8 @@
 // For license information, please see license.txt
 
 /**
- * Company-scoped Branch and Cost Center on every form that has those fields.
- * Profit Center is intentionally not filtered by company.
+ * Cost Center is the only accounting dimension filtered by Company.
+ * Branch and Profit Center are not company-filtered.
  */
 (function () {
 	"use strict";
@@ -14,11 +14,8 @@
 	window.__logistics_company_dimension_filters__ = true;
 
 	function linked_company_field(doctype) {
-		if (frappe.meta.has_field(doctype, "company")) return "company";
-		if (frappe.meta.has_field(doctype, "custom_company")) return "custom_company";
-		if (doctype === "Branch") return "custom_company";
-		if (doctype === "Cost Center") return "company";
-		return null;
+		if (doctype !== "Cost Center") return null;
+		return "company";
 	}
 
 	function dimension_query(doctype, get_company, extra_filters) {
@@ -48,9 +45,6 @@
 		const company = function () {
 			return frm.doc && frm.doc.company;
 		};
-		if (frm.fields_dict.branch && is_link(frm.fields_dict.branch.df, "Branch")) {
-			frm.set_query("branch", dimension_query("Branch", company));
-		}
 		if (frm.fields_dict.cost_center && is_link(frm.fields_dict.cost_center.df, "Cost Center")) {
 			frm.set_query(
 				"cost_center",
@@ -73,9 +67,6 @@
 		const child_has_company = (meta.fields || []).some(function (field) {
 			return field.fieldname === "company" && field.fieldtype === "Link";
 		});
-		const branch_df = (meta.fields || []).find(function (field) {
-			return field.fieldname === "branch" && is_link(field, "Branch");
-		});
 		const cost_center_df = (meta.fields || []).find(function (field) {
 			return field.fieldname === "cost_center" && is_link(field, "Cost Center");
 		});
@@ -86,13 +77,6 @@
 			}
 			return doc && doc.company;
 		};
-		if (branch_df) {
-			frm.set_query("branch", table_df.fieldname, function (doc, cdt, cdn) {
-				return dimension_query("Branch", function () {
-					return company_of_row(doc, cdt, cdn);
-				})();
-			});
-		}
 		if (cost_center_df) {
 			frm.set_query("cost_center", table_df.fieldname, function (doc, cdt, cdn) {
 				return dimension_query("Cost Center", function () {
@@ -119,10 +103,7 @@
 		if (!company || !has_company_link(frm)) {
 			return;
 		}
-		[
-			["branch", "Branch"],
-			["cost_center", "Cost Center"],
-		].forEach(function (pair) {
+		[["cost_center", "Cost Center"]].forEach(function (pair) {
 			const fieldname = pair[0];
 			const doctype = pair[1];
 			const df = frm.get_docfield ? frm.get_docfield(fieldname) : null;

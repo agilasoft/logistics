@@ -1,9 +1,5 @@
-"""Reinstall Tariff ALTA with DESCRIPTION header and no category underline."""
-
-from logistics.pricing_center.print_format.tariff_alta.install_print_format import (
-	install_tariff_alta_print_format,
-)
+"""Retired. The print format this patch installed was removed from the app."""
 
 
 def execute():
-	install_tariff_alta_print_format()
+	return

@@ -104,30 +104,44 @@ function useGoogleMaps(mr) {
     .trim() === "google maps";
 }
 function ensureGoogleMaps(apiKey, done) {
-  if (window.google && window.google.maps) {
+  if (window.logistics && typeof window.logistics.load_google_maps === "function") {
+    window.logistics.load_google_maps(apiKey, done);
+    return;
+  }
+  if (window.google && window.google.maps && window.google.maps.Map) {
     done();
     return;
   }
-  var id = "afw-hub-gmaps-js";
-  if (document.getElementById(id)) {
-    var tries = 0;
-    var check = function () {
-      if (window.google && window.google.maps) done();
-      else if (tries++ < 120) setTimeout(check, 50);
-      else done(new Error("gmaps_timeout"));
-    };
-    check();
+  var queue = window.__afwHubGoogleMapsQueue || (window.__afwHubGoogleMapsQueue = []);
+  queue.push(done);
+  if (window.__afwHubGoogleMapsLoading) {
     return;
   }
-  var s = document.createElement("script");
-  s.id = id;
-  s.async = true;
-  s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(apiKey) + "&libraries=geometry";
-  s.onload = function () {
-    done();
+  window.__afwHubGoogleMapsLoading = true;
+  window.__afwHubGoogleMapsLoaded = function () {
+    window.__afwHubGoogleMapsLoading = false;
+    var waiters = queue.splice(0, queue.length);
+    waiters.forEach(function (fn) {
+      try {
+        fn();
+      } catch (e) {
+        console.error(e);
+      }
+    });
   };
+  var s = document.createElement("script");
+  s.async = true;
+  s.src =
+    "https://maps.googleapis.com/maps/api/js?key=" +
+    encodeURIComponent(apiKey) +
+    "&libraries=geometry&loading=async&callback=__afwHubGoogleMapsLoaded";
   s.onerror = function () {
-    done(new Error("gmaps_load"));
+    window.__afwHubGoogleMapsLoading = false;
+    var err = new Error("gmaps_load");
+    var waiters = queue.splice(0, queue.length);
+    waiters.forEach(function (fn) {
+      fn(err);
+    });
   };
   document.head.appendChild(s);
 }

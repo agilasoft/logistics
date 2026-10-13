@@ -30,6 +30,55 @@ const WC_DASHBOARD_API_METHODS = [
 	"workflow_center.workflow_center.api.get_workflow_center_dashboard",
 ];
 
+function wc_escape_html(value) {
+	return String(value == null ? "" : value)
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;");
+}
+
+function wc_plain_time_label(value) {
+	return String(value || "")
+		.replace(/<[^>]*>/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+function wc_time_in_state_markup(label, timestamp, title) {
+	if (!timestamp) {
+		return wc_escape_html("-");
+	}
+	return (
+		'<span class="frappe-timestamp" data-timestamp="' +
+		wc_escape_html(timestamp) +
+		'" title="' +
+		wc_escape_html(title || timestamp) +
+		'">' +
+		wc_escape_html(wc_plain_time_label(label) || timestamp) +
+		"</span>"
+	);
+}
+
+function wc_time_in_state(item) {
+	const entered = (item && (item.state_entered_at || item.modified)) || "";
+	if (!entered) {
+		return wc_time_in_state_markup("", "", "");
+	}
+	const datetime = typeof frappe !== "undefined" ? frappe.datetime : null;
+	let label = "";
+	if (datetime && typeof datetime.prettyDate === "function") {
+		label = datetime.prettyDate(entered);
+	}
+	// comment_when returns a frappe-timestamp span. Keep its text, not the tags.
+	if (!wc_plain_time_label(label) && datetime && typeof datetime.comment_when === "function") {
+		label = datetime.comment_when(entered);
+	}
+	const title =
+		datetime && typeof datetime.str_to_user === "function" ? datetime.str_to_user(entered) : entered;
+	return wc_time_in_state_markup(label, entered, title);
+}
+
 async function wc_call_first(methods, args = {}) {
 	let last_error = null;
 	for (const method of methods) {
@@ -275,9 +324,6 @@ logistics.workflow_center.WorkflowCenterPage = class WorkflowCenterPage {
 		const rows = filtered
 			.map((item) => {
 				const actions = (item.available_actions || []).join(", ");
-				const elapsed = item.elapsed_seconds
-					? frappe.datetime.comment_when(item.state_entered_at || item.modified)
-					: "-";
 				return `
 				<tr>
 					<td><a href="#" class="wc-open-doc" data-doctype="${frappe.utils.escape_html(item.reference_doctype)}" data-name="${frappe.utils.escape_html(item.reference_name)}">${frappe.utils.escape_html(item.reference_name)}</a></td>
@@ -285,7 +331,7 @@ logistics.workflow_center.WorkflowCenterPage = class WorkflowCenterPage {
 					<td>${frappe.utils.escape_html(item.reference_doctype)}</td>
 					<td>${frappe.utils.escape_html(item.workflow_state || "")}</td>
 					<td>${frappe.utils.escape_html(actions)}</td>
-					<td>${frappe.utils.escape_html(elapsed)}</td>
+					<td>${wc_time_in_state(item)}</td>
 					<td><span class="wc-severity ${frappe.utils.escape_html(item.severity || "ok")}">${frappe.utils.escape_html(item.severity || "ok")}</span></td>
 					<td>${frappe.utils.escape_html(item.permitted_role || "")}</td>
 				</tr>

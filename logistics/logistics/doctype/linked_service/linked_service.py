@@ -223,6 +223,34 @@ def _dialog_edit_fieldnames(service_type: str) -> list[str]:
 	return list(_DIALOG_EDIT_FIELDS.get(service_type or "", _DIALOG_EDIT_DEFAULT_FIELDS))
 
 
+def _dialog_link_filters(df) -> str:
+	"""Link filters for the dialog. Only Cost Center is filtered by Company."""
+	import json
+
+	raw = getattr(df, "link_filters", None) or ""
+	if not raw:
+		return ""
+	options = getattr(df, "options", None) or ""
+	if options == "Cost Center":
+		return raw if isinstance(raw, str) else json.dumps(raw)
+	if options not in ("Branch", "Profit Center"):
+		return raw if isinstance(raw, str) else json.dumps(raw)
+	try:
+		rows = json.loads(raw) if isinstance(raw, str) else raw
+	except Exception:
+		return ""
+	if not isinstance(rows, list):
+		return ""
+	kept = []
+	for row in rows:
+		if not isinstance(row, (list, tuple)) or len(row) < 4:
+			continue
+		if row[1] in ("company", "custom_company"):
+			continue
+		kept.append(list(row))
+	return json.dumps(kept) if kept else ""
+
+
 def _dialog_edit_field_defs(service_type: str) -> list[dict[str, Any]]:
 	meta = frappe.get_meta("Linked Service")
 	defs: list[dict[str, Any]] = []
@@ -237,7 +265,7 @@ def _dialog_edit_field_defs(service_type: str) -> list[dict[str, Any]]:
 			"options": df.options or "",
 			"read_only": 1 if fieldname == "service_type" else 0,
 		}
-		link_filters = getattr(df, "link_filters", None)
+		link_filters = _dialog_link_filters(df)
 		if link_filters:
 			item["link_filters"] = link_filters
 		defs.append(item)

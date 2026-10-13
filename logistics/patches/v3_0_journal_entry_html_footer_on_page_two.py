@@ -1,9 +1,5 @@
-"""Journal Entry HTML: keep the BIR footer on page 2."""
-
-from logistics.print_format.journal_entry.install_print_format import (
-	install_journal_entry_print_format,
-)
+"""Retired. The print format this patch installed was removed from the app."""
 
 
 def execute():
-	install_journal_entry_print_format()
+	return

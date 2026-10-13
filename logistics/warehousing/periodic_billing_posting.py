@@ -355,7 +355,8 @@ def _create_intercompany_pair(pb, group, *, posting_date: str) -> tuple[str, str
 	desc = _("Warehouse Job {0} - Periodic Billing {1} - Intercompany").format(job_name, pb.name)
 
 	si = frappe.new_doc("Sales Invoice")
-	si.company = group["operating_company"]
+	si_dims = _invoice_dimensions(job, group["operating_company"])
+	si.company = si_dims.get("company") or group["operating_company"]
 	si.customer = group["internal_customer"]
 	si.posting_date = posting_date
 	si.remarks = "{0} {1}".format(
@@ -363,38 +364,82 @@ def _create_intercompany_pair(pb, group, *, posting_date: str) -> tuple[str, str
 		_("from Periodic Billing {0}.").format(pb.name),
 	)
 	si.flags.is_intercompany_invoice = True
-	_copy_dimensions(si, job)
+	_copy_job_number(si, job)
+	_stamp_invoice_dimensions(si, si_dims, include_children=False)
 	for line in group["lines"]:
 		row = si.append("items", _invoice_item_payload(line, desc))
 		_link_invoice_row(row, "Warehouse Job", job_name)
+	_stamp_invoice_dimensions(si, si_dims)
 	si.set_missing_values()
+	_stamp_invoice_dimensions(si, si_dims)
 	ensure_invoice_name_for_server_insert(si)
 	si.insert(ignore_permissions=True)
 	si.submit()
 
 	pi = frappe.new_doc("Purchase Invoice")
-	pi.company = group["main_company"]
+	pi_dims = _dimensions_for_main_company(group["main_company"], main_job)
+	pi.company = pi_dims.get("company") or group["main_company"]
 	pi.supplier = group["internal_supplier"]
 	pi.posting_date = posting_date
-	pi.remarks = _("Intercompany: from Periodic Billing {0}.").format(pb.name)
+	pi.remarks = "{0} {1}".format(
+		INTERCOMPANY_SI_REMARKS_PREFIX,
+		_("from Periodic Billing {0}.").format(pb.name),
+	)
+	pi.flags.is_intercompany_invoice = True
 	if main_job:
-		_copy_dimensions(pi, main_job)
+		_copy_job_number(pi, main_job)
+	_stamp_invoice_dimensions(pi, pi_dims, include_children=False)
 	for line in group["lines"]:
 		row = pi.append("items", _invoice_item_payload(line, desc))
 		_link_invoice_row(row, "Warehouse Job", job_name)
+	_stamp_invoice_dimensions(pi, pi_dims)
 	pi.set_missing_values()
+	_stamp_invoice_dimensions(pi, pi_dims)
+	from logistics.intercompany.intercompany_invoice import _link_purchase_to_sales_invoice
+
+	_link_purchase_to_sales_invoice(pi, si)
 	ensure_invoice_name_for_server_insert(pi)
 	pi.insert(ignore_permissions=True)
 	pi.submit()
 	return si.name, pi.name
 
 
-def _copy_dimensions(doc, source) -> None:
+def _copy_job_number(doc, source) -> None:
+	value = getattr(source, "job_number", None)
+	if not value:
+		return
 	meta = frappe.get_meta(doc.doctype)
-	for fieldname in ("branch", "cost_center", "profit_center", "job_number"):
-		value = getattr(source, fieldname, None)
-		if value and meta.get_field(fieldname):
-			setattr(doc, fieldname, value)
+	if meta.get_field("job_number"):
+		doc.job_number = value
+
+
+def _invoice_dimensions(job, company: str) -> dict:
+	from logistics.invoice_integration.purchase_invoice_dimensions import (
+		intercompany_sales_invoice_dimensions,
+	)
+
+	return intercompany_sales_invoice_dimensions(job, company)
+
+
+def _dimensions_for_main_company(company: str, main_job) -> dict:
+	from logistics.invoice_integration.purchase_invoice_dimensions import (
+		intercompany_purchase_invoice_dimensions,
+	)
+
+	return intercompany_purchase_invoice_dimensions(main_job, company)
+
+
+def _stamp_invoice_dimensions(doc, dims: dict, *, include_children: bool = True) -> None:
+	from logistics.invoice_integration.purchase_invoice_dimensions import (
+		DIMENSION_FIELDS,
+		stamp_dimensions,
+	)
+
+	stamp_dimensions(
+		doc,
+		{field: dims.get(field) for field in DIMENSION_FIELDS if (dims or {}).get(field)},
+		include_children=include_children,
+	)
 
 
 def _invoice_item_payload(line, description: str) -> dict:

@@ -77,13 +77,15 @@ app_include_css = [
 	"/assets/logistics/css/session_defaults.css?v=3",
 ]
 app_include_js = [
+	"/assets/logistics/js/number_card_report_fn.js?v=1",
+	"/assets/logistics/js/google_maps_loader.js?v=1",
 	"/assets/logistics/js/session_defaults_guard.js?v=1",
-	"/assets/logistics/js/company_dimension_filters.js?v=1",
+	"/assets/logistics/js/company_dimension_filters.js?v=2",
 	"/assets/logistics/js/address_link_query.js?v=1",
 	"/assets/logistics/js/party_address_contact.js?v=1",
 	"/assets/logistics/js/linked_service_link_query.js?v=3",
 	"/assets/logistics/js/virtual_linked_services_grid.js?v=2",
-	"/assets/logistics/js/linked_services_dialog.js?v=11",
+	"/assets/logistics/js/linked_services_dialog.js?v=12",
 	"/assets/logistics/js/ts_sq_fetch_dialog.js?v=6",
 	"/assets/logistics/js/freight_agent_service.js?v=4",
 	"/assets/logistics/js/charge_bill_to.js?v=4",
@@ -368,10 +370,6 @@ doctype_js = {
 	"Recognition Policy Settings": "logistics/job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
 	"Purchase Invoice": "logistics/public/js/purchase_invoice_container_deposit.js",
 	"Credit Hold Lift Request": "logistics/logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
-	"Cash Advance Request": "logistics/cash_advance/doctype/cash_advance_request/cash_advance_request.js",
-	"Cash Advance Liquidation": "logistics/cash_advance/doctype/cash_advance_liquidation/cash_advance_liquidation.js",
-	"Cash Advance Settings": "logistics/cash_advance/doctype/cash_advance_settings/cash_advance_settings.js",
-	"Cash Acknowledgment": "logistics/cash_advance/doctype/cash_acknowledgment/cash_acknowledgment.js",
 	"Outlook Calendar Settings": "logistics/logistics/doctype/outlook_calendar_settings/outlook_calendar_settings.js",
 	"User": [
 		"public/js/user.js",
@@ -559,6 +557,8 @@ override_doctype_class = {
 	"Transaction Deletion Record": (
 		"logistics.overrides.transaction_deletion_record.LogisticsTransactionDeletionRecord"
 	),
+	"Sales Invoice": "logistics.invoice_integration.invoice_dimension_override.LogisticsSalesInvoice",
+	"Purchase Invoice": "logistics.invoice_integration.invoice_dimension_override.LogisticsPurchaseInvoice",
 }
 
 pdf_generator = [
