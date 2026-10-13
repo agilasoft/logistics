@@ -33,6 +33,33 @@ def default_branch_for_company(company: str | None = None) -> str | None:
 	return frappe.db.get_value("Branch", {}, "name", order_by="creation asc")
 
 
+def default_company() -> str | None:
+	"""Site company used when a Cost Center is saved without one."""
+	return (
+		frappe.defaults.get_user_default("Company")
+		or frappe.db.get_single_value("Global Defaults", "default_company")
+		or frappe.db.get_value("Company", {}, "name", order_by="creation asc")
+	)
+
+
+def set_cost_center_company_default(doc, method=None):
+	"""Fill Company after it is hidden on the Cost Center form.
+
+	ERPNext still stores Company and checks that a parent belongs to the same
+	company. Inherit the parent when there is one, otherwise use the site default.
+	"""
+	if (doc.get("company") or "").strip():
+		return
+
+	if doc.get("parent_cost_center"):
+		parent_company = frappe.db.get_value("Cost Center", doc.parent_cost_center, "company")
+		if parent_company:
+			doc.company = parent_company
+			return
+
+	doc.company = default_company()
+
+
 def set_cost_center_branch_default(doc, method=None):
 	"""Populate ``custom_branch`` when Cost Centers are created without it (e.g. Company setup)."""
 	cc_meta = frappe.get_meta("Cost Center")

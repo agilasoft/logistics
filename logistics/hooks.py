@@ -371,6 +371,7 @@ doctype_js = {
 	"Purchase Invoice": "logistics/public/js/purchase_invoice_container_deposit.js",
 	"Credit Hold Lift Request": "logistics/logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
 	"Outlook Calendar Settings": "logistics/logistics/doctype/outlook_calendar_settings/outlook_calendar_settings.js",
+	"Cost Center": "public/js/cost_center.js",
 	"User": [
 		"public/js/user.js",
 		"integrations/outlook/user_outlook.js",
