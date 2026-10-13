@@ -784,6 +784,7 @@
   },
   {
    "collapsible": 1,
+   "description": "Volume, weight, and packages are totalled from Line Items.",
    "fieldname": "invoice_details_section",
    "fieldtype": "Section Break",
    "label": "Invoice Details"
@@ -810,6 +811,7 @@
    "options": "Consignee"
   },
   {
+   "description": "Totalled from Line Items when those rows have a volume.",
    "fieldname": "inv_volume",
    "fieldtype": "Float",
    "label": "Volume"
@@ -944,6 +946,7 @@
    "read_only": 1
   },
   {
+   "description": "Totalled from Line Items when those rows have a gross weight.",
    "fieldname": "inv_gross_weight",
    "fieldtype": "Float",
    "label": "Inv. Gross Weight"
@@ -956,6 +959,7 @@
    "options": "UOM"
   },
   {
+   "description": "Totalled from Line Item net weight.",
    "fieldname": "inv_net_weight",
    "fieldtype": "Float",
    "label": "Inv. Net Weight"
@@ -968,6 +972,7 @@
    "options": "UOM"
   },
   {
+   "description": "Totalled from Line Item No of Packs.",
    "fieldname": "packages",
    "fieldtype": "Float",
    "label": "Packages"
@@ -1524,7 +1529,7 @@
    "link_fieldname": "job_no"
   }
  ],
- "modified": "2026-07-15 14:43:09.206331",
+ "modified": "2026-10-13 04:40:00.000000",
  "modified_by": "ejay.sambrano@agilasoft.com",
  "module": "Customs",
  "name": "Declaration",
