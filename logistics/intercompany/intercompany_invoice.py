@@ -7,8 +7,11 @@ Create intercompany Sales and Purchase Invoices when a customer Sales Invoice
 (from a Sales Quote) is submitted. For each **Internal Job** (service_role=Linked +
 Main Service link on the job or parent booking/order) where the job's operating
 company differs from the Main Job's company, the operating company invoices the
-Main Job company (intercompany SI + PI). Item and Job Number dimensions
-are set on SI (internal job) and PI (main job).
+Main Job company (intercompany SI + PI).
+
+The Sales Invoice follows the Linked Service: company, branch, cost center, and
+profit center. The Purchase Invoice follows Main: company, branch, cost center,
+and profit center. A dimension from the other party is not copied across.
 """
 
 from __future__ import unicode_literals
@@ -21,6 +24,7 @@ from typing import Dict, Any, Optional, List, Tuple
 from logistics.intercompany.invoice_guard import (
 	INTERCOMPANY_JOB_TYPES,
 	INTERCOMPANY_SI_REMARKS_PREFIX,
+	apply_sales_invoice_reference,
 	intercompany_sales_invoice_marked,
 	relationship_for_companies,
 )
@@ -339,7 +343,16 @@ def _create_intercompany_pair(
 	main_job_name: str,
 ) -> Tuple[str, str]:
 	"""Create one intercompany Sales Invoice (operating co) and one Purchase Invoice (Main Job co). Returns (si_name, pi_name)."""
+	from logistics.invoice_integration.purchase_invoice_dimensions import (
+		DIMENSION_FIELDS,
+		intercompany_purchase_invoice_dimensions,
+		intercompany_sales_invoice_dimensions,
+		stamp_dimensions,
+	)
 	from logistics.invoice_integration.sales_invoice_api import ensure_invoice_name_for_server_insert
+
+	def _accounting_dims(dims: dict) -> dict:
+		return {field: dims.get(field) for field in DIMENSION_FIELDS if dims.get(field)}
 
 	leg_order = getattr(leg, "idx", "")
 	job_type = job_doc.doctype
@@ -347,22 +360,18 @@ def _create_intercompany_pair(
 	desc_suffix = _("{0} {1} (Leg {2}) - Intercompany").format(job_type, job_no, leg_order)
 
 	main_jcn = None
-	main_branch = None
-	main_cc = None
-	main_pc = None
+	main_doc = None
 	if main_job_type and main_job_name and frappe.db.exists(main_job_type, main_job_name):
 		main_jcn = frappe.db.get_value(main_job_type, main_job_name, "job_number")
 		try:
 			main_doc = frappe.get_doc(main_job_type, main_job_name)
-			main_branch = getattr(main_doc, "branch", None)
-			main_cc = getattr(main_doc, "cost_center", None)
-			main_pc = getattr(main_doc, "profit_center", None)
 		except Exception:
-			pass
+			main_doc = None
 
-	# 1) Sales Invoice: operating company -> billing company (internal_customer)
+	# 1) Sales Invoice: Linked Service company, branch, cost center, profit center
 	si = frappe.new_doc("Sales Invoice")
-	si.company = operating_company
+	si_dims = intercompany_sales_invoice_dimensions(job_doc, operating_company)
+	si.company = si_dims.get("company") or operating_company
 	si.customer = internal_customer
 	si.posting_date = posting_date
 	si.quotation_no = sales_quote_name
@@ -371,12 +380,7 @@ def _create_intercompany_pair(
 		_("from Sales Quote {0}. Trigger SI: {1}").format(sales_quote_name, trigger_si or "-"),
 	)
 	si.flags.is_intercompany_invoice = True
-	if getattr(job_doc, "branch", None):
-		si.branch = job_doc.branch
-	if getattr(job_doc, "cost_center", None):
-		si.cost_center = job_doc.cost_center
-	if getattr(job_doc, "profit_center", None):
-		si.profit_center = job_doc.profit_center
+	stamp_dimensions(si, _accounting_dims(si_dims), include_children=False)
 	si_meta = frappe.get_meta("Sales Invoice")
 	if si_meta.get_field("job_number") and getattr(job_doc, "job_number", None):
 		si.job_number = job_doc.job_number
@@ -396,33 +400,28 @@ def _create_intercompany_pair(
 			row.reference_doctype = job_type
 			row.reference_name = job_no
 
+	stamp_dimensions(si, _accounting_dims(si_dims))
 	si.set_missing_values()
+	stamp_dimensions(si, _accounting_dims(si_dims))
 	ensure_invoice_name_for_server_insert(si)
 	si.insert(ignore_permissions=True)
 	si.submit()
 
-	# 2) Purchase Invoice: Main Job company <- operating company (internal_supplier)
+	# 2) Purchase Invoice: Main company, branch, cost center, profit center
 	pi = frappe.new_doc("Purchase Invoice")
-	pi.company = main_job_company
+	pi_dims = intercompany_purchase_invoice_dimensions(main_doc, main_job_company)
+	pi.company = pi_dims.get("company") or main_job_company
 	pi.supplier = internal_supplier
 	pi.posting_date = posting_date
-	pi.remarks = _("Intercompany: from Sales Quote {0}. Trigger SI: {1}").format(sales_quote_name, trigger_si or "-")
-	sales_quote = frappe.get_doc("Sales Quote", sales_quote_name)
+	pi.remarks = "{0} {1}".format(
+		INTERCOMPANY_SI_REMARKS_PREFIX,
+		_("from Sales Quote {0}. Trigger SI: {1}").format(sales_quote_name, trigger_si or "-"),
+	)
+	pi.flags.is_intercompany_invoice = True
 	pi_meta = frappe.get_meta("Purchase Invoice")
 	if pi_meta.get_field("job_number") and main_jcn:
 		pi.job_number = main_jcn
-	if main_branch and pi_meta.get_field("branch"):
-		pi.branch = main_branch
-	elif getattr(sales_quote, "branch", None):
-		pi.branch = sales_quote.branch
-	if main_cc and pi_meta.get_field("cost_center"):
-		pi.cost_center = main_cc
-	elif getattr(sales_quote, "cost_center", None):
-		pi.cost_center = sales_quote.cost_center
-	if main_pc and pi_meta.get_field("profit_center"):
-		pi.profit_center = main_pc
-	elif getattr(sales_quote, "profit_center", None):
-		pi.profit_center = sales_quote.profit_center
+	stamp_dimensions(pi, _accounting_dims(pi_dims), include_children=False)
 
 	for it in items:
 		row = pi.append("items", {
@@ -437,12 +436,56 @@ def _create_intercompany_pair(
 			row.reference_doctype = job_type
 			row.reference_name = job_no
 
+	stamp_dimensions(pi, _accounting_dims(pi_dims))
 	pi.set_missing_values()
+	stamp_dimensions(pi, _accounting_dims(pi_dims))
+	_link_purchase_to_sales_invoice(pi, si)
 	ensure_invoice_name_for_server_insert(pi)
 	pi.insert(ignore_permissions=True)
 	pi.submit()
 
 	return (si.name, pi.name)
+
+
+def _link_purchase_to_sales_invoice(purchase, sales) -> None:
+	"""Point the purchase at the sales invoice when ERPNext will accept that link.
+
+	Called after the sales invoice is submitted, so each sales row already has a
+	name. A supplier that represents this purchase's own company is handled in
+	before_validate when the link cannot be completed.
+	"""
+	supplier_name = getattr(purchase, "supplier", None)
+	supplier = {}
+	if supplier_name:
+		supplier = (
+			frappe.db.get_value(
+				"Supplier",
+				supplier_name,
+				["represents_company", "is_internal_supplier"],
+				as_dict=True,
+			)
+			or {}
+		)
+	customer_represents = None
+	if getattr(sales, "customer", None):
+		customer_represents = frappe.db.get_value("Customer", sales.customer, "represents_company")
+	found_supplier = None
+	if getattr(sales, "company", None):
+		found_supplier = frappe.db.get_value("Supplier", {"represents_company": sales.company}, "name")
+	unrealized_account = None
+	if getattr(purchase, "company", None):
+		unrealized_account = frappe.db.get_value(
+			"Company", purchase.company, "unrealized_profit_loss_account"
+		)
+	apply_sales_invoice_reference(
+		purchase,
+		sales,
+		supplier_is_internal=supplier.get("is_internal_supplier"),
+		supplier_represents_company=supplier.get("represents_company"),
+		sales_customer_represents_company=customer_represents,
+		supplier_found_for_sales_company=found_supplier,
+		unrealized_profit_loss_account=unrealized_account,
+	)
 
 
 @frappe.whitelist()

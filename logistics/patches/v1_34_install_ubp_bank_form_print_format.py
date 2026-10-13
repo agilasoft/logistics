@@ -1,9 +1,5 @@
-"""Install Payment Entry Union Bank Telegraphic Transfer print formats."""
-
-from logistics.print_format.payment_entry.install_ubp_bank_form_print_format import (
-	install_ubp_bank_form_print_format,
-)
+"""Retired. The print format this patch installed was removed from the app."""
 
 
 def execute():
-	install_ubp_bank_form_print_format()
+	return

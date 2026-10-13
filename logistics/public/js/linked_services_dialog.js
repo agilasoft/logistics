@@ -509,6 +509,61 @@ function _lsd1_parse_link_filters(raw) {
 	}
 }
 
+function _lsd1_control_value(state, fieldname) {
+	const controls = (state && (state._mountControls || state.editControls)) || [];
+	const ctrl = controls.find((c) => c && c.fieldname === fieldname);
+	if (!ctrl || typeof ctrl.get_value !== "function") return "";
+	const value = ctrl.get_value();
+	return value == null ? "" : value;
+}
+
+function _lsd1_resolve_filter_value(value, state) {
+	if (typeof value !== "string" || value.indexOf("eval:") !== 0) return value;
+	const expr = value.slice(5).trim();
+	const match = expr.match(/^doc\.([A-Za-z0-9_]+)$/);
+	if (!match) return "";
+	return _lsd1_control_value(state, match[1]);
+}
+
+/**
+ * Link queries for the in-dialog editor.
+ * Cost Center is the only dimension filtered by the service Company.
+ * Branch and Profit Center stay unfiltered by company. `eval:doc.*` in
+ * DocType link_filters is resolved against the dialog fields — there is no form doc.
+ */
+function _lsd1_link_get_query(field, state) {
+	if ((field.fieldtype || "") !== "Link") return null;
+	const link_dt = field.options || "";
+	const company_filtered = link_dt === "Cost Center";
+	const parsed = _lsd1_parse_link_filters(field.link_filters) || [];
+
+	return () => {
+		const filters = [];
+		const seen = {};
+		parsed.forEach((row) => {
+			if (!Array.isArray(row) || row.length < 4) return;
+			const fieldname = row[1];
+			const operator = row[2];
+			if (fieldname === "company" || fieldname === "custom_company") {
+				if (!company_filtered) return;
+			}
+			const value = _lsd1_resolve_filter_value(row[3], state);
+			if (value === "" || value == null) return;
+			filters.push([link_dt, fieldname, operator, value]);
+			seen[fieldname] = true;
+		});
+		if (company_filtered) {
+			const company = _lsd1_control_value(state, "company");
+			if (company && !seen.company) {
+				filters.push([link_dt, "company", "=", company]);
+			}
+			if (!seen.is_group) filters.push([link_dt, "is_group", "=", 0]);
+			if (!seen.disabled) filters.push([link_dt, "disabled", "=", 0]);
+		}
+		return filters.length ? { filters } : {};
+	};
+}
+
 function _lsd1_mount_edit_field($grid, field, value, state) {
 	const label = field.label || field.fieldname || "";
 	const $cell = $(
@@ -547,9 +602,9 @@ function _lsd1_mount_edit_field($grid, field, value, state) {
 		reqd: 0,
 	};
 
-	const filters = _lsd1_parse_link_filters(field.link_filters);
-	if (filters && df.fieldtype === "Link") {
-		df.get_query = () => ({ filters });
+	const link_query = _lsd1_link_get_query(field, state);
+	if (link_query) {
+		df.get_query = link_query;
 	}
 
 	if (df.fieldtype === "Dynamic Link" && df.options) {

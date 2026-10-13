@@ -96,14 +96,13 @@
    "options": "Company"
   },
   {
-   "description": "Branch for this service's operating company.",
+   "description": "Branch copied from the Linked Service. Not filtered by Company.",
    "fetch_from": "linked_service.branch",
    "fetch_if_empty": 1,
    "fieldname": "branch",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Branch",
-   "link_filters": "[[\"Branch\", \"custom_company\", \"=\", \"eval:doc.company\"]]",
    "options": "Branch"
   },
   {
@@ -118,7 +117,7 @@
    "options": "Cost Center"
   },
   {
-   "description": "Profit Center for this service's operating company.",
+   "description": "Profit Center copied from the Linked Service. Not filtered by Company.",
    "fetch_from": "linked_service.profit_center",
    "fetch_if_empty": 1,
    "fieldname": "profit_center",

@@ -23,6 +23,10 @@ from logistics.utils.freight_95_5 import (
 from logistics.special_projects.special_project_si_job_number import (
     resolve_job_number_for_special_project_charge,
 )
+from logistics.invoice_integration.purchase_invoice_dimensions import (
+    dimensions_for_operational_job,
+    stamp_dimensions,
+)
 from logistics.invoice_integration.billing_currency import (
     charge_to_company_rate_selling,
     company_currency as _company_currency,
@@ -108,7 +112,8 @@ SALES_CHARGE_CONFIG = {
     # Sea Shipment currently uses item_code/item_name/estimated_revenue in child rows.
     # Keep downstream logic backward-compatible with legacy fields (charge_item/charge_name/selling_amount).
     "Sea Shipment": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", "bill_to", "invoice_type"),
-    "Warehouse Job": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", None, None),
+    # Warehouse Job Charges store invoice_type, so the Create Sales Invoice dialog matches Air Shipment.
+    "Warehouse Job": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", None, "invoice_type"),
     "Declaration": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", "bill_to", None),
     # Special Project Charges mirror the operational doc shape (item_code, estimated_revenue, unit_rate, quantity, bill_to, invoice_type).
     "Special Project": ("charges", "estimated_revenue", "unit_rate", "quantity", "item_code", "item_name", "bill_to", "invoice_type"),
@@ -362,10 +367,8 @@ def create_sales_invoice_from_job(
             si.invoice_type = invoice_type
         if si_meta.get_field("custom_invoice_type"):
             si.custom_invoice_type = invoice_type
-    for dim in ("branch", "cost_center", "profit_center", "project"):
-        if getattr(job, dim, None):
-            if si_meta.get_field(dim):
-                setattr(si, dim, getattr(job, dim))
+    job_dims = dimensions_for_operational_job(job)
+    stamp_dimensions(si, job_dims, include_children=False)
     # job_number (current dimension) and legacy job_costing_number on some sites / restores
     job_ref = getattr(job, "job_number", None) or getattr(job, "job_costing_number", None)
     if job_ref:
@@ -437,8 +440,8 @@ def create_sales_invoice_from_job(
             job_type=job_type,
             company=job.company,
             currency=billing_cur,
-            cost_center=getattr(job, "cost_center", None),
-            profit_center=getattr(job, "profit_center", None),
+            cost_center=job_dims.get("cost_center"),
+            profit_center=job_dims.get("profit_center"),
             job_ref=line_job_ref,
             si_item_meta=si_item_meta,
             reference_doctype=job_type if has_ref else None,
@@ -446,7 +449,7 @@ def create_sales_invoice_from_job(
             line_qty=line_qty,
             line_rate=line_rate,
             uom=uom,
-            project=getattr(job, "project", None),
+            project=job_dims.get("project"),
         )
         start_idx = len(si.items)
         for p in payloads:
@@ -454,7 +457,9 @@ def create_sales_invoice_from_job(
         for rel in clear_rel:
             freight_95_line_indices.append(start_idx + rel)
 
+    stamp_dimensions(si, job_dims)
     si.set_missing_values()
+    stamp_dimensions(si, job_dims)
     apply_freight_95_post_missing_values(si, freight_95_line_indices)
     ensure_sales_invoice_name_for_server_insert(si)
     si.insert(ignore_permissions=True)

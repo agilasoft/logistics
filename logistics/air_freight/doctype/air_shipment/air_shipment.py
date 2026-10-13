@@ -1173,21 +1173,24 @@ class AirShipment(VirtualLinkedServicesMixin, Document):
 				window.airShipmentRoutes[mapId] = routes;
 				
 				// Load Google Maps JavaScript API if not already loaded (same as run sheet)
-				if (window.google && window.google.maps) {{
-					createInteractiveGoogleMap(mapId, routes, routeIndex, originLat, originLon, destLat, destLon, originPort, destPort);
-				}} else {{
-					// Load Google Maps JavaScript API
-					const script = document.createElement('script');
-					script.src = `https://maps.googleapis.com/maps/api/js?key=${{apiKey}}&libraries=geometry`;
-					script.async = true;
-					script.defer = true;
-					script.onload = () => {{
-						createInteractiveGoogleMap(mapId, routes, routeIndex, originLat, originLon, destLat, destLon, originPort, destPort);
-					}};
-					script.onerror = () => {{
+				const startAirMap = (err) => {{
+					if (err || !(window.google && window.google.maps)) {{
 						console.warn('Failed to load Google Maps JavaScript API, showing fallback');
 						showMapFallback(mapId, originPort, destPort);
-					}};
+						return;
+					}}
+					createInteractiveGoogleMap(mapId, routes, routeIndex, originLat, originLon, destLat, destLon, originPort, destPort);
+				}};
+				if (window.logistics && window.logistics.load_google_maps) {{
+					window.logistics.load_google_maps(apiKey, startAirMap);
+				}} else if (window.google && window.google.maps) {{
+					startAirMap();
+				}} else {{
+					window.__logisticsAirShipmentGoogleMaps = function() {{ startAirMap(); }};
+					const script = document.createElement('script');
+					script.src = `https://maps.googleapis.com/maps/api/js?key=${{encodeURIComponent(apiKey)}}&libraries=geometry&loading=async&callback=__logisticsAirShipmentGoogleMaps`;
+					script.async = true;
+					script.onerror = () => startAirMap(new Error('gmaps_load'));
 					document.head.appendChild(script);
 				}}
 				

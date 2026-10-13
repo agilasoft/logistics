@@ -1,9 +1,5 @@
-"""Install Purchase Invoice BIR Form 2307 vector print format."""
-
-from logistics.print_format.purchase_invoice.install_bir_2307_print_format import (
-	install_bir_2307_print_format,
-)
+"""Retired. The print format this patch installed was removed from the app."""
 
 
 def execute():
-	install_bir_2307_print_format()
+	return

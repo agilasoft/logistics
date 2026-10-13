@@ -1,9 +1,5 @@
-"""Sea Booking HTML: match Sales Invoice header layout."""
-
-from logistics.sea_freight.print_format.sea_booking.install_print_format import (
-	install_sea_booking_print_format,
-)
+"""Retired. The print format this patch installed was removed from the app."""
 
 
 def execute():
-	install_sea_booking_print_format()
+	return

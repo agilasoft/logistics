@@ -17,6 +17,7 @@
   "apply_95_5_rule",
   "taxable_freight_item",
   "taxable_freight_item_tax_template",
+  "invoice_type",
   "item_name",
   "description",
   "sales_quote_link",
@@ -171,6 +172,12 @@
    "label": "Taxable Freight Item Tax Template",
    "link_filters": "[[\"Item Tax Template\", \"disabled\", \"=\", 0]]",
    "options": "Item Tax Template"
+  },
+  {
+   "fieldname": "invoice_type",
+   "fieldtype": "Link",
+   "label": "Invoice Type",
+   "options": "Invoice Type"
   },
   {
    "description": "Standard unit cost from item master",

@@ -2738,28 +2738,31 @@ function initializeGoogleRouteMap(mapId, legCoords, vehiclePosition, frm, consol
         initializeInteractiveGoogleMapWithDirections(mapId, origin, destination, waypoints, vehiclePosition, frm, apiKey, legCoords, consolidationInfo);
       } else {
         // Load Google Maps JavaScript API with directions library
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry&loading=async`;
-        script.async = true;
-        script.defer = true;
-        script.onload = () => {
-          // Build waypoints from leg coordinates (after Google Maps loads)
+        const startRouteMap = (err) => {
+          if (err || !(window.google && window.google.maps)) {
+            console.warn('Failed to load Google Maps JavaScript API, showing fallback');
+            showMapFallback(mapId);
+            return;
+          }
           const waypoints = [];
           legCoords.forEach(legData => {
             waypoints.push(new google.maps.LatLng(legData.pick.lat, legData.pick.lon));
             waypoints.push(new google.maps.LatLng(legData.drop.lat, legData.drop.lon));
           });
-          
           const origin = new google.maps.LatLng(firstPick.lat, firstPick.lon);
           const destination = new google.maps.LatLng(lastDrop.lat, lastDrop.lon);
-          
           initializeInteractiveGoogleMapWithDirections(mapId, origin, destination, waypoints, vehiclePosition, frm, apiKey, legCoords, consolidationInfo);
         };
-        script.onerror = () => {
-          console.warn('Failed to load Google Maps JavaScript API, showing fallback');
-          showMapFallback(mapId);
-        };
-        document.head.appendChild(script);
+        if (window.logistics && typeof window.logistics.load_google_maps === "function") {
+          window.logistics.load_google_maps(apiKey, startRouteMap);
+        } else {
+          window.__logisticsRunSheetGoogleMaps = () => startRouteMap();
+          const script = document.createElement('script');
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=geometry&loading=async&callback=__logisticsRunSheetGoogleMaps`;
+          script.async = true;
+          script.onerror = () => startRouteMap(new Error("gmaps_load"));
+          document.head.appendChild(script);
+        }
       }
     } else {
       console.warn('Google Maps API key not configured, showing fallback');

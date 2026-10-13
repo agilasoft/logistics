@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """
-Install BIR Sales Invoice Print Format
+Install Sales Invoice HTML and Disbursement Bill HTML print formats.
 """
-import json
 import os
 
 import frappe
 
 PRINT_FORMAT_NAME = "Sales Invoice HTML"
-FIXTURE_NAME = "BIR Sales Invoice"
 DOC_TYPE = "Sales Invoice"
 MODULE = "Logistics"
 
@@ -28,54 +26,9 @@ def _disbursement_bill_html_path():
     return os.path.join(_app_root(), "print_format", "sales_invoice", "disbursement_bill.html")
 
 
-def _json_path():
-    return os.path.join(os.path.dirname(__file__), "sales_invoice.json")
-
-
 def read_html():
     with open(_sales_invoice_html_path(), encoding="utf-8") as f:
         return f.read()
-
-
-def write_fixture_json(html_content=None):
-    """Write/update the standard Print Format JSON fixture from the HTML file."""
-    html_content = html_content if html_content is not None else read_html()
-    json_path = _json_path()
-    if os.path.isfile(json_path):
-        with open(json_path, encoding="utf-8") as f:
-            fixture = json.load(f)
-    else:
-        fixture = {
-            "doctype": "Print Format",
-            "name": FIXTURE_NAME,
-            "doc_type": DOC_TYPE,
-            "module": MODULE,
-            "owner": "Administrator",
-            "modified_by": "Administrator",
-        }
-    fixture.update(
-        {
-            "align_labels_right": 0,
-            "custom_format": 1,
-            "disabled": 0,
-            "doc_type": DOC_TYPE,
-            "doctype": "Print Format",
-            "font_size": 8,
-            "html": html_content,
-            "line_breaks": 0,
-            "module": MODULE,
-            "name": FIXTURE_NAME,
-            "print_format_builder": 0,
-            "print_format_type": "Jinja",
-            "raw_printing": 0,
-            "show_section_headings": 0,
-            "standard": "Yes",
-        }
-    )
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(fixture, f, indent=1, ensure_ascii=False)
-        f.write("\n")
-    return fixture
 
 
 def _set_as_default_print_format(doctype, print_format_name):
@@ -160,18 +113,10 @@ def _upsert_print_format(name, html_content, create_if_missing=False, standard="
 
 
 def install_sales_invoice_print_format():
-    """Install or update Sales Invoice print formats from consolidated HTML."""
+    """Install or update Sales Invoice HTML and Disbursement Bill HTML."""
 
     html_content = read_html()
-    try:
-        write_fixture_json(html_content)
-    except OSError:
-        # Frappe Cloud migrates from a read-only app tree. The Print Format
-        # documents below are what the site needs; the fixture file is not.
-        pass
-
     _upsert_print_format(PRINT_FORMAT_NAME, html_content, create_if_missing=True)
-    _upsert_print_format(FIXTURE_NAME, html_content, create_if_missing=True)
 
     dsb_path = _disbursement_bill_html_path()
     if os.path.isfile(dsb_path):

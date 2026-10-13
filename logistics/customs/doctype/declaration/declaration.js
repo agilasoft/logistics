@@ -650,13 +650,17 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 }
 
 function _declaration_processing_date_constraints(frm) {
+	// Air Datepicker reads maxDate with Date#getFullYear. A moment object throws.
 	const today = frappe.datetime.str_to_obj(frappe.datetime.get_today());
+	if (!(today instanceof Date)) {
+		return;
+	}
 	["approval_date", "rejection_date"].forEach((fieldname) => {
 		const c = frm.fields_dict[fieldname];
 		if (!c || !c.datepicker) {
 			return;
 		}
-		c.datepicker.update({ maxDate: moment(today) });
+		c.datepicker.update({ maxDate: new Date(today.getTime()) });
 	});
 }
 

@@ -38,6 +38,15 @@ class TestTransportControlTowerWorkspace(unittest.TestCase):
 		self.assertEqual(items[2]["link_to"], "workflow-center")
 		self.assertEqual(items[3]["label"], "Dashboard")
 		self.assertEqual([item["idx"] for item in items], list(range(1, len(items) + 1)))
+		labels = [item["label"] for item in items]
+		quote_index = labels.index("Sales Quote")
+		self.assertEqual(labels[quote_index + 1], "Transport Order")
+		order = items[quote_index + 1]
+		self.assertEqual(order["type"], "Link")
+		self.assertEqual(order["child"], 0)
+		self.assertEqual(order["link_to"], "Transport Order")
+		self.assertEqual(order["link_type"], "DocType")
+		self.assertEqual(order["icon"], "file-input")
 
 	def test_workspace_shortcut_matches_the_sidebar(self):
 		workspace = _load(WORKSPACE_PATH)
@@ -89,6 +98,10 @@ class TestTransportControlTowerWorkspace(unittest.TestCase):
 		text = PATCHES_PATH.read_text()
 		self.assertIn("logistics.patches.v3_0_sync_transport_control_tower", text)
 		self.assertTrue((ROOT / "logistics/patches/v3_0_sync_transport_control_tower.py").is_file())
+		self.assertIn("logistics.patches.v3_0_place_transport_order_below_sales_quote", text)
+		patch = (ROOT / "logistics/patches/v3_0_place_transport_order_below_sales_quote.py").read_text()
+		self.assertIn('"transport.json"', patch)
+		self.assertIn('SIDEBAR_NAME = "Transport"', patch)
 
 
 def _install_fake_frappe():

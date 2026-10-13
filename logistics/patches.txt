@@ -1021,3 +1021,12 @@ logistics.patches.v3_0_sync_transport_control_tower
 logistics.patches.v3_0_sync_module_control_towers
 # Time Sensitive sidebar: pin the case and Sales Quote, then the same indented groups as other modules.
 logistics.patches.v3_0_sync_time_sensitive_sidebar
+# Transport sidebar: Transport Order sits directly under Sales Quote.
+logistics.patches.v3_0_place_transport_order_below_sales_quote
+# Cash Advance Liquidation is a parent DocType. Reimport it when the row is missing
+# or still the old child table, so /desk/cash-advance-liquidation resolves.
+logistics.patches.v3_0_restore_cash_advance_liquidation_doctype
+# UNLOCO.country stored the codelist label (article in parentheses). Use the Country master name.
+logistics.patches.v3_0_unloco_country_from_country_master
+# Linked Service: Branch is not filtered by Company. Only Cost Center is.
+logistics.patches.v3_0_linked_service_branch_not_company_filtered

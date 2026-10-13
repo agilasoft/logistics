@@ -453,17 +453,23 @@ function initializeTransportLegGoogleMap(mapId, legCoords, frm) {
     const apiKey = response.message?.api_key;
     if (apiKey && apiKey.length > 10) {
       // Load Google Maps JS API first
-      if (window.google && window.google.maps) {
-        loadGoogleRouteAndMap(mapId, leg, apiKey);
-      } else {
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry`;
-        script.async = true;
-        script.defer = true;
-        script.onload = () => loadGoogleRouteAndMap(mapId, leg, apiKey);
-        script.onerror = () => {
+      const startLegMap = (err) => {
+        if (err || !(window.google && window.google.maps)) {
           mapElement.innerHTML = '<div style="padding: 20px; text-align: center; color: #6c757d;">Failed to load Google Maps API</div>';
-        };
+          return;
+        }
+        loadGoogleRouteAndMap(mapId, leg, apiKey);
+      };
+      if (window.logistics && typeof window.logistics.load_google_maps === "function") {
+        window.logistics.load_google_maps(apiKey, startLegMap);
+      } else if (window.google && window.google.maps) {
+        startLegMap();
+      } else {
+        window.__logisticsTransportLegGoogleMaps = () => startLegMap();
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=geometry&loading=async&callback=__logisticsTransportLegGoogleMaps`;
+        script.async = true;
+        script.onerror = () => startLegMap(new Error("gmaps_load"));
         document.head.appendChild(script);
       }
     } else {

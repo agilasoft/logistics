@@ -2,6 +2,7 @@
 # MIT License. Part of logistics.warehousing
 
 import frappe
+from frappe import _
 from frappe.utils import getdate
 
 from logistics.analytics_reports.bootstrap import tally_chart
