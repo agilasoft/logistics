@@ -1026,3 +1026,5 @@ logistics.patches.v3_0_place_transport_order_below_sales_quote
 # Cash Advance Liquidation is a parent DocType. Reimport it when the row is missing
 # or still the old child table, so /desk/cash-advance-liquidation resolves.
 logistics.patches.v3_0_restore_cash_advance_liquidation_doctype
+# Purchase Invoice: hide redundant BIR 2307 party fields on Details (issue #1673)
+logistics.patches.v3_0_hide_purchase_invoice_bir_2307_ui_fields
