@@ -59,10 +59,30 @@ frappe.ui.form.on("Commercial Invoice Line Item", {
 		_schedule_customs_line_charge_recalc_from_grid(frm);
 	},
 	gross_weight(frm) {
+		_schedule_commercial_invoice_totals_recalc_from_grid(frm);
 		_schedule_customs_line_charge_recalc_from_grid(frm);
 	},
 	gross_weight_uom(frm) {
+		_schedule_commercial_invoice_totals_recalc_from_grid(frm);
 		_schedule_customs_line_charge_recalc_from_grid(frm);
+	},
+	net_weight(frm) {
+		_schedule_commercial_invoice_totals_recalc_from_grid(frm);
+	},
+	net_weight_uom(frm) {
+		_schedule_commercial_invoice_totals_recalc_from_grid(frm);
+	},
+	volume(frm) {
+		_schedule_commercial_invoice_totals_recalc_from_grid(frm);
+	},
+	volume_uom(frm) {
+		_schedule_commercial_invoice_totals_recalc_from_grid(frm);
+	},
+	no_of_packs(frm) {
+		_schedule_commercial_invoice_totals_recalc_from_grid(frm);
+	},
+	package_type(frm) {
+		_schedule_commercial_invoice_totals_recalc_from_grid(frm);
 	},
 	declaration_product_code(frm, cdt, cdn) {
 		const row = locals[cdt][cdn];

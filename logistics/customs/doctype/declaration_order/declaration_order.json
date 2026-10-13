@@ -584,6 +584,7 @@
    "options": "Consignee"
   },
   {
+   "description": "Totalled from Line Items when those rows have a volume.",
    "fieldname": "inv_volume",
    "fieldtype": "Float",
    "label": "Volume"
@@ -689,6 +690,7 @@
    "label": "Payment Ex Rate"
   },
   {
+   "description": "Totalled from Line Items when those rows have a gross weight.",
    "fieldname": "inv_gross_weight",
    "fieldtype": "Float",
    "label": "Inv. Gross Weight"
@@ -701,6 +703,7 @@
    "options": "UOM"
   },
   {
+   "description": "Totalled from Line Item net weight.",
    "fieldname": "inv_net_weight",
    "fieldtype": "Float",
    "label": "Inv. Net Weight"
@@ -713,6 +716,7 @@
    "options": "UOM"
   },
   {
+   "description": "Totalled from Line Item No of Packs.",
    "fieldname": "packages",
    "fieldtype": "Float",
    "label": "Packages"
@@ -1013,6 +1017,7 @@
   },
   {
    "collapsible": 1,
+   "description": "Volume, weight, and packages are totalled from Line Items.",
    "fieldname": "invoice_details_section",
    "fieldtype": "Section Break",
    "label": "Invoice Details"
@@ -1168,7 +1173,7 @@
    "table_fieldname": "linked_services"
   }
  ],
- "modified": "2026-05-04 13:29:33.046287",
+ "modified": "2026-10-13 04:40:00.000000",
  "modified_by": "Administrator",
  "module": "Customs",
  "name": "Declaration Order",
