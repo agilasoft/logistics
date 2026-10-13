@@ -32,7 +32,7 @@ class IntegrationTestUNLOCO(IntegrationTestCase):
 		stale = {
 			"unlocode": code,
 			"location_name": "Stale Name",
-			"country": "Test Country",
+			"country": "",
 			"country_code": "QQ",
 			"data_source": "Internal Database",
 			**{k: 0 for k in function_field_to_unloco_capabilities("")},

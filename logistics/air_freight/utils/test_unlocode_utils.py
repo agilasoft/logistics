@@ -288,6 +288,31 @@ class TestGetUnlocodeDataMerge(unittest.TestCase):
 
 	@patch("logistics.air_freight.utils.unlocode_utils.get_unlocode_from_database")
 	@patch("frappe.db.get_value")
+	def test_replaces_iso_article_label_without_refresh(self, mock_gv, mock_fresh):
+		"""A stored codelist label such as 'Philippines (the)' is not a Country name."""
+		mock_fresh.return_value = None
+
+		def gv(*args, **kwargs):
+			if args and args[0] == "UNLOCO":
+				return self._sparse_db_row_ph_iso()
+			if args and args[0] == "Country":
+				return "Philippines"
+			return None
+
+		mock_gv.side_effect = gv
+		d = get_unlocode_data("PHMNL")
+		self.assertEqual(d.get("country_code"), "PH")
+		self.assertEqual(d.get("country"), "Philippines")
+
+	def _sparse_db_row_ph_iso(self):
+		row = self._sparse_db_row_ph()
+		row = list(row)
+		row[2] = "Philippines (the)"
+		row[3] = "PH"
+		return tuple(row)
+
+	@patch("logistics.air_freight.utils.unlocode_utils.get_unlocode_from_database")
+	@patch("frappe.db.get_value")
 	def test_backfills_ph_via_frappe_country(self, mock_gv, mock_fresh):
 		mock_fresh.return_value = None
 
@@ -302,3 +327,83 @@ class TestGetUnlocodeDataMerge(unittest.TestCase):
 		d = get_unlocode_data("PHMNL")
 		self.assertEqual(d.get("country_code"), "PH")
 		self.assertEqual(d.get("country"), "Philippines")
+
+
+class TestCountryMasterName(unittest.TestCase):
+	"""UNLOCO.country is the Country master name, not the codelist article label."""
+
+	@patch("frappe.db.get_value", return_value="Philippines")
+	def test_master_wins_over_iso_article(self, mock_gv):
+		from logistics.air_freight.utils.unlocode_utils import resolve_unloco_country_name
+
+		self.assertEqual(resolve_unloco_country_name("PH", "Philippines (the)"), "Philippines")
+		mock_gv.assert_called()
+
+	@patch("frappe.db.get_value")
+	def test_builtin_us_ignores_iso_article_name(self, mock_gv):
+		from logistics.air_freight.utils.unlocode_utils import resolve_unloco_country_name
+
+		self.assertEqual(
+			resolve_unloco_country_name("US", "United States of America (the)"),
+			"United States",
+		)
+		mock_gv.assert_not_called()
+
+	@patch("frappe.db.get_value", return_value=None)
+	def test_strips_article_and_aliases_iso_short_name(self, _mock_gv):
+		from logistics.air_freight.utils.unlocode_utils import resolve_unloco_country_name
+
+		self.assertEqual(
+			resolve_unloco_country_name("AE", "United Arab Emirates (the)"),
+			"United Arab Emirates",
+		)
+		self.assertEqual(resolve_unloco_country_name("KR", "Korea, Republic of"), "South Korea")
+		self.assertEqual(resolve_unloco_country_name("VN", "Viet Nam"), "Vietnam")
+
+	@patch("frappe.db.exists", return_value=False, create=True)
+	@patch("frappe.db.get_value", return_value=None)
+	def test_link_stays_blank_when_country_record_is_missing(self, _mock_gv, _mock_exists):
+		from logistics.air_freight.utils.unlocode_utils import resolve_unloco_country_name
+
+		self.assertEqual(resolve_unloco_country_name("AE", "United Arab Emirates (the)"), "")
+
+	@patch("logistics.air_freight.utils.datahub_unlocode._load_status_labels", return_value={})
+	@patch(
+		"logistics.air_freight.utils.datahub_unlocode._load_country_names",
+		return_value={"PH": "Philippines (the)", "US": "United States of America (the)"},
+	)
+	@patch("frappe.db.get_value", return_value="Philippines")
+	def test_datahub_row_stores_country_master_name(self, _mock_gv, _mock_countries, _mock_status):
+		from logistics.air_freight.utils.datahub_unlocode import datahub_row_to_unlocode_dict
+
+		ph = datahub_row_to_unlocode_dict(
+			"PHMNL",
+			{
+				"Country": "PH",
+				"Location": "MNL",
+				"Name": "Manila",
+				"Function": "1-------",
+				"Status": "",
+				"Coordinates": "",
+				"Subdivision": "",
+				"IATA": "",
+			},
+		)
+		self.assertEqual(ph["country"], "Philippines")
+		self.assertEqual(ph["country_code"], "PH")
+
+		us = datahub_row_to_unlocode_dict(
+			"USLAX",
+			{
+				"Country": "US",
+				"Location": "LAX",
+				"Name": "Los Angeles",
+				"Function": "---4----",
+				"Status": "",
+				"Coordinates": "",
+				"Subdivision": "",
+				"IATA": "",
+			},
+		)
+		self.assertEqual(us["country"], "United States")
+		self.assertEqual(us["country_code"], "US")
