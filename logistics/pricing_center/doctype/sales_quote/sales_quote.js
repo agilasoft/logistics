@@ -654,6 +654,15 @@ frappe.ui.form.on("Sales Quote", {
 		}
 	},
 
+	tc_name(frm) {
+		if (!frm.doc.tc_name) {
+			return;
+		}
+		frappe.db.get_value("Terms and Conditions", frm.doc.tc_name, "terms", (r) => {
+			frm.set_value("terms", (r && r.terms) || "");
+		});
+	},
+
 	transport_mode(frm) {
 		if (frm._sq_routing_legs_auto) {
 			frm.events._maybe_auto_populate_routing_legs(frm, true);
