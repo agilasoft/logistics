@@ -1073,7 +1073,6 @@
    "options": "Terms and Conditions"
   },
   {
-   "fetch_from": "tc_name.terms",
    "fieldname": "terms",
    "fieldtype": "Text Editor",
    "label": "Terms and Conditions Details"

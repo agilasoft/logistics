@@ -681,6 +681,25 @@ def _delete_orphan_internal_jobs(parent_doc: Any, fieldname: str) -> None:
 	_delete_orphan_internal_jobs_from_sets(prev, cur, parent_doc=parent_doc)
 
 
+def _change_request_empty_services_grid_is_not_a_removal(doc: Any) -> bool:
+	"""True when a Change Request save carries an empty Services grid that must not unlink services.
+
+	The desk posts ``[]`` because the virtual table was never hydrated. Job legs are attached
+	by Usage, not owned by the Change Request, so an empty grid must not clear those Usage rows.
+	Removal is only ``remove_linked_service``.
+	"""
+	if not doc or getattr(doc, "doctype", None) != "Change Request":
+		return False
+	if not getattr(getattr(doc, "flags", None), "_linked_services_from_form", False):
+		return False
+	if doc.__dict__.get("linked_services"):
+		return False
+	parent_name = _norm(getattr(doc, "name", None))
+	if not parent_name or getattr(doc, "__islocal", False):
+		return False
+	return bool(_linked_service_names_visible_on_parent("Change Request", parent_name))
+
+
 def _sales_quote_empty_services_grid_is_not_a_removal(doc: Any) -> bool:
 	"""True when a Sales Quote save carries an empty Services grid that must not delete services.
 
@@ -730,6 +749,8 @@ def sync_internal_job_details_to_internal_jobs(doc: Any, *_method) -> None:
 	# a partial snapshot must not orphan-delete the quote's Linked Services either.
 	# Removal is only ``remove_linked_service``, which deletes the document itself.
 	if _sales_quote_empty_services_grid_is_not_a_removal(doc):
+		return
+	if _change_request_empty_services_grid_is_not_a_removal(doc):
 		return
 	if doc.doctype == "Sales Quote" and not getattr(
 		getattr(doc, "flags", None), "_allow_clear_linked_services", False

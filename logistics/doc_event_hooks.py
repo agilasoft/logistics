@@ -438,3 +438,23 @@ DOC_EVENTS = {'Opportunity': {'onload': 'logistics.pricing_center.utils.opportun
  'Warehouse Contract': {'before_insert': 'logistics.utils.credit_management.on_credit_before_insert',
                         'validate': 'logistics.utils.credit_management.on_credit_validate',
                         'before_submit': 'logistics.utils.credit_management.on_credit_before_submit'}}
+
+
+def _register_job_task_hooks():
+	"""Fill the Job Tasks child table on save, the same way milestones are filled."""
+	from logistics.job_management.job_task import JOB_TASK_PARENTS
+
+	handler = "logistics.job_management.job_task.ensure_job_tasks_from_template"
+	for doctype in JOB_TASK_PARENTS:
+		events = DOC_EVENTS.setdefault(doctype, {})
+		existing = events.get("before_save")
+		if not existing:
+			events["before_save"] = handler
+		elif isinstance(existing, list):
+			if handler not in existing:
+				existing.append(handler)
+		elif existing != handler:
+			events["before_save"] = [existing, handler]
+
+
+_register_job_task_hooks()

@@ -923,6 +923,45 @@ def _require_internal_job_eligible_for_parent_row(parent_doc, ij_row, job_type: 
 	)
 
 
+def _seed_transport_order_legs_from_main_shipment(order, shipment) -> None:
+	"""Fill Transport Order legs when creating from an Air or Sea Shipment.
+
+	A Transport Template copied onto the order (from the shipment's transport
+	internal job) is the only source of legs. The shipper-to-consignee door
+	leg is used only when no template is set.
+	"""
+	if getattr(order, "transport_template", None):
+		from logistics.transport.doctype.transport_order.transport_order import (
+			_apply_leg_plan_from_template,
+		)
+
+		order.set("legs", [])
+		_apply_leg_plan_from_template(
+			order,
+			replace=True,
+			raise_on_empty=False,
+			validate_template=False,
+		)
+		return
+
+	if not (getattr(shipment, "shipper", None) and getattr(shipment, "consignee", None)):
+		return
+
+	leg = {
+		"facility_type_from": "Shipper",
+		"facility_from": shipment.shipper,
+		"facility_type_to": "Consignee",
+		"facility_to": shipment.consignee,
+		"scheduled_date": getattr(shipment, "eta", None) or getattr(shipment, "etd", None),
+		"transport_job_type": getattr(order, "transport_job_type", None),
+	}
+	if getattr(shipment, "shipper_address", None):
+		leg["pick_address"] = shipment.shipper_address
+	if getattr(shipment, "consignee_address", None):
+		leg["drop_address"] = shipment.consignee_address
+	order.append("legs", leg)
+
+
 @frappe.whitelist()
 def create_transport_order_from_air_shipment(
 	air_shipment_name: str, routing_leg_idx: int = None, internal_job_detail_idx: int = None
@@ -930,6 +969,7 @@ def create_transport_order_from_air_shipment(
 	"""Create a Transport Order from an Air Shipment. Only allowed for pre-carriage or on-forwarding legs where company has control (per Logistics Settings).
 
 	Routing-style header fields (locations, vehicle type, etc.) come from Internal Job Detail rows when present, not from Sales Quote routing parameters.
+	When that row sets a Transport Template, order legs are copied from the template only.
 	"""
 	from frappe import _
 
@@ -985,21 +1025,7 @@ def create_transport_order_from_air_shipment(
 	)
 
 	apply_container_transport_context_to_order(order, ij_row)
-	# Add door-to-door leg (restriction already enforced above)
-	if shipment.shipper and shipment.consignee:
-		leg = {
-			"facility_type_from": "Shipper",
-			"facility_from": shipment.shipper,
-			"facility_type_to": "Consignee",
-			"facility_to": shipment.consignee,
-			"scheduled_date": shipment.eta or shipment.etd,
-			"transport_job_type": order.transport_job_type,
-		}
-		if getattr(shipment, "shipper_address", None):
-			leg["pick_address"] = shipment.shipper_address
-		if getattr(shipment, "consignee_address", None):
-			leg["drop_address"] = shipment.consignee_address
-		order.append("legs", leg)
+	_seed_transport_order_legs_from_main_shipment(order, shipment)
 	copy_parent_dg_header(shipment, order)
 	# Copy packages
 	_copy_shipment_packages_to_transport_order(shipment, order)
@@ -1030,6 +1056,7 @@ def create_transport_order_from_sea_shipment(
 	"""Create a Transport Order from a Sea Shipment. Only allowed for pre-carriage or on-forwarding legs where company has control (per Logistics Settings).
 
 	Routing-style header fields come from Internal Job Detail rows when present, not from Sales Quote routing parameters.
+	When that row sets a Transport Template, order legs are copied from the template only.
 	When the shipment has multiple containers, pass ``container_no`` or set **Container No.** on the Internal Job Detail row (Transport).
 	"""
 	from frappe import _
@@ -1103,21 +1130,7 @@ def create_transport_order_from_sea_shipment(
 	)
 
 	apply_container_transport_context_to_order(order, ij_row)
-	# Add door-to-door leg (restriction already enforced above)
-	if shipment.shipper and shipment.consignee:
-		leg = {
-			"facility_type_from": "Shipper",
-			"facility_from": shipment.shipper,
-			"facility_type_to": "Consignee",
-			"facility_to": shipment.consignee,
-			"scheduled_date": shipment.eta or shipment.etd,
-			"transport_job_type": order.transport_job_type,
-		}
-		if getattr(shipment, "shipper_address", None):
-			leg["pick_address"] = shipment.shipper_address
-		if getattr(shipment, "consignee_address", None):
-			leg["drop_address"] = shipment.consignee_address
-		order.append("legs", leg)
+	_seed_transport_order_legs_from_main_shipment(order, shipment)
 	copy_parent_dg_header(shipment, order)
 	_copy_sea_packages_to_transport_order(shipment, order)
 	_copy_transport_charges_from_shipment_to_transport_order(order, shipment, ij_row=ij_row)
@@ -2416,11 +2429,128 @@ def _copy_declaration_line_items_to_transport_order(order, dec, declaration_orde
 	return copied
 
 
+def _declaration_container_options(parent) -> list[dict]:
+	"""Container rows on a Declaration or Declaration Order, ready for a transport order."""
+	options: list[dict] = []
+	seen: set[str] = set()
+	for row in getattr(parent, "containers", None) or []:
+		link = (getattr(row, "container_no", None) or "").strip()
+		if not link or link in seen:
+			continue
+		seen.add(link)
+		number = ""
+		container_type = (getattr(row, "type", None) or "").strip()
+		if frappe.db.exists("Container", link):
+			master = frappe.db.get_value(
+				"Container", link, ["container_number", "container_type"], as_dict=True
+			)
+			if master:
+				number = (master.container_number or "").strip()
+				if not container_type:
+					container_type = (master.container_type or "").strip()
+		label = number or link
+		options.append(
+			{
+				"container": link,
+				"container_number": number or link,
+				"container_type": container_type or None,
+				"label": label,
+			}
+		)
+	return options
+
+
+def containers_for_declaration_transport(dec, declaration_order=None) -> list[dict]:
+	"""Containers the user can assign when creating a transport order from this declaration."""
+	options = _declaration_container_options(dec)
+	if not options and declaration_order is not None:
+		options = _declaration_container_options(declaration_order)
+	return options
+
+
+def _linked_service_container_no(ij_row) -> str:
+	if ij_row is None:
+		return ""
+	if isinstance(ij_row, dict):
+		return (ij_row.get("container_no") or "").strip()
+	return (getattr(ij_row, "container_no", None) or "").strip()
+
+
+def _apply_declaration_container_to_transport_order(
+	order, dec, declaration_order=None, ij_row=None, container_no: str | None = None
+) -> None:
+	"""Put one declaration container on the transport order.
+
+	The linked service's own container number is kept. When the declaration has
+	several containers and the service has none, the caller must pass the one
+	the user chose in the create dialog.
+	"""
+	from frappe import _
+
+	from logistics.utils.declaration_transport_locations import (
+		DeclarationContainerChoiceError,
+		choose_declaration_container,
+	)
+
+	options = containers_for_declaration_transport(dec, declaration_order)
+	try:
+		chosen = choose_declaration_container(
+			options,
+			linked_container_no=_linked_service_container_no(ij_row),
+			selected=container_no,
+		)
+	except DeclarationContainerChoiceError as err:
+		if err.code == "invalid":
+			frappe.throw(
+				_("That container is not on this declaration."),
+				title=_("Invalid container"),
+			)
+		frappe.throw(
+			_(
+				"This declaration has more than one container. Choose which container this transport order is for."
+			),
+			title=_("Container required"),
+		)
+	if not chosen:
+		return
+	order.container_no = chosen.get("container_number") or chosen.get("container")
+	if chosen.get("container_type"):
+		order.container_type = chosen["container_type"]
+	if chosen.get("container"):
+		order.container = chosen["container"]
+	order.transport_job_type = "Container"
+
+
+@frappe.whitelist()
+def get_declaration_containers_for_transport_order(declaration_name: str | None = None):
+	"""Containers shown in the Create dialog when a Declaration has more than one."""
+	from frappe import _
+
+	if not declaration_name:
+		frappe.throw(_("Declaration is required."))
+	dec = frappe.get_doc("Declaration", declaration_name)
+	dec.check_permission("read")
+	do_doc, _do_name = _declaration_order_doc_for_linked_declaration(dec)
+	containers = containers_for_declaration_transport(dec, do_doc)
+	return {
+		"selection_required": len(containers) > 1,
+		"containers": containers,
+	}
+
+
 @frappe.whitelist()
 def create_transport_order_from_declaration(
-	declaration_name: str, internal_job_detail_idx: int | None = None
+	declaration_name: str,
+	internal_job_detail_idx: int | None = None,
+	container_no: str | None = None,
 ):
-	"""Create a Transport Order from a Declaration (main-service or internal-job); link on Declaration."""
+	"""Create a Transport Order from a Declaration and link it on the Declaration.
+
+	Location Type, Location From, and Location To come from the Linked Service.
+	When that service has no from/to, the transport order leaves them empty.
+	When the declaration lists several containers and the service has none,
+	``container_no`` is the container the user chose in the create dialog.
+	"""
 	from frappe import _
 
 	from logistics.utils.internal_job_detail_copy import (
@@ -2462,9 +2592,8 @@ def create_transport_order_from_declaration(
 	order.project = getattr(header_src, "project", None)
 	if getattr(header_src, "job_number", None):
 		order.job_number = header_src.job_number
-	order.location_type = "UNLOCO"
-	order.location_from = getattr(header_src, "port_of_loading", None)
-	order.location_to = getattr(header_src, "port_of_discharge", None)
+	# Locations come from the Linked Service only. Declaration ports are not copied,
+	# and a blank Location From / Location To on the service stays blank here.
 	order.transport_job_type = "Non-Container"
 	copy_sales_quote_fields_to_target(header_src, order)
 	# The new Transport Order is a linked service of this Declaration (Main or Standalone).
@@ -2478,6 +2607,12 @@ def create_transport_order_from_declaration(
 	)
 
 	apply_container_transport_context_to_order(order, ij_row)
+	from logistics.utils.declaration_transport_locations import apply_linked_service_locations
+
+	apply_linked_service_locations(order, ij_row)
+	_apply_declaration_container_to_transport_order(
+		order, dec, declaration_order=do_doc, ij_row=ij_row, container_no=container_no
+	)
 	if getattr(header_src, "exporter_shipper", None) and getattr(header_src, "importer_consignee", None):
 		order.append(
 			"legs",

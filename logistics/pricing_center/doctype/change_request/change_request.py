@@ -22,43 +22,6 @@ from logistics.utils.linked_service_compat import (
 	set_charge_row_linked_service_link,
 )
 
-_LINKED_SERVICE_VIEW_FIELDS = (
-	"linked_service",
-	"service_type",
-	"job_type",
-	"job_no",
-	"job_description",
-	"air_house_type",
-	"airline",
-	"freight_agent",
-	"sea_house_type",
-	"freight_agent_sea",
-	"shipping_line",
-	"transport_mode",
-	"load_type",
-	"direction",
-	"origin_port",
-	"destination_port",
-	"transport_template",
-	"vehicle_type",
-	"container_type",
-	"container_no",
-	"location_type",
-	"location_from",
-	"location_to",
-	"pick_mode",
-	"drop_mode",
-	"customs_authority",
-	"declaration_type",
-	"customs_broker",
-	"customs_charge_category",
-	"planned_cost",
-	"actual_cost",
-	"planned_revenue",
-	"actual_revenue",
-)
-
-
 _SKIP_CHARGE_COPY = frozenset(
 	{
 		"name",
@@ -79,21 +42,44 @@ class ChangeRequest(Document):
 	def __setup__(self):
 		self._stage_linked_services_from_form()
 
+	def _empty_linked_services_snapshot_is_not_authoritative(self) -> bool:
+		"""True when a missing or empty Services grid must be rebuilt from Linked Service docs.
+
+		Frappe loads the virtual table as ``[]``. ``__setup__`` then marks that empty list as
+		a desk snapshot, so the Services tab stayed blank even after the job's Linked Services
+		were attached by Usage. An empty snapshot is not a removal; Manage Services deletes
+		or unlinks the document itself.
+		"""
+		if not getattr(self, "name", None) or getattr(self, "__islocal", False):
+			return False
+		return True
+
 	@property
 	def linked_services(self):
-		"""Live view of Linked Service documents owned by this Change Request.
+		"""Live view of Linked Services owned by this Change Request or reused via Usage.
 
 		Prefer ``__dict__`` when present so Frappe's computed Table wrapper +
 		``LazyDocument.append`` (full-page printview) does not RecursionError.
 		"""
 		if self.flags.get("_linked_services_from_form"):
-			return self.__dict__.get("linked_services") or []
+			rows = self.__dict__.get("linked_services") or []
+			if rows or not self._empty_linked_services_snapshot_is_not_authoritative():
+				return rows
+			self.flags._linked_services_from_form = False
 		if "linked_services" in self.__dict__:
 			rows = self.__dict__["linked_services"]
 			if rows and any(getattr(r, "__islocal", None) for r in rows):
 				self.flags._linked_services_from_form = True
-			return rows
+				return rows
+			if not rows and self._empty_linked_services_snapshot_is_not_authoritative():
+				del self.__dict__["linked_services"]
+			else:
+				return rows
 		if self.flags.get("_linked_services_view_cached"):
+			if self._empty_linked_services_snapshot_is_not_authoritative():
+				value = self._build_linked_services_view()
+				self.__dict__["linked_services"] = value
+				return value
 			return []
 		value = self._build_linked_services_view()
 		self.__dict__["linked_services"] = value
@@ -103,29 +89,39 @@ class ChangeRequest(Document):
 	def _build_linked_services_view(self):
 		if not getattr(self, "name", None) or getattr(self, "__islocal", False):
 			return []
-		from logistics.logistics.doctype.linked_service.linked_service import (
-			get_linked_services_for_change_request,
+		from logistics.utils.virtual_linked_services_view import (
+			build_linked_services_view_for_booking,
 		)
 
-		rows = []
-		for ls in get_linked_services_for_change_request(self.name):
-			row = {"linked_service": ls.name}
-			for fn in _LINKED_SERVICE_VIEW_FIELDS:
-				if fn == "linked_service":
-					continue
-				if hasattr(ls, fn):
-					row[fn] = getattr(ls, fn, None)
-			rows.append(row)
+		rows = build_linked_services_view_for_booking(self.doctype, self.name)
+		for idx, row in enumerate(rows, start=1):
+			# Stable child name so the desk round-trips the row. A nameless snapshot is
+			# dropped on the next save and orphan cleanup unlinks the service.
+			ls_name = (row.get("linked_service") or "").strip()
+			row["name"] = ls_name or row.get("name")
+			row["idx"] = idx
+			row["doctype"] = "Linked Service Detail"
 		return rows
 
 	def _drop_virtual_linked_services_rows(self):
+		"""Drop the staged Services snapshot and reload it from Linked Service documents."""
 		self.flags._linked_services_from_form = False
 		self.flags._linked_services_view_cached = False
-		if "linked_services" in self.__dict__:
-			del self.__dict__["linked_services"]
+		self.__dict__.pop("linked_services", None)
+		if getattr(self, "name", None) and not getattr(self, "__islocal", False):
+			self.linked_services
+			return
+		self.__dict__["linked_services"] = []
 
 	def _stage_linked_services_from_form(self):
+		"""Honour desk/API grid rows on save, including an intentional empty grid.
+
+		``load_from_db`` pops the virtual table after the client payload has already staged
+		``_linked_services_from_form``. A missing key is that reload, not a request to clear
+		Services.
+		"""
 		if "linked_services" not in self.__dict__:
+			self.flags._linked_services_from_form = False
 			return
 		if self.__dict__.get("linked_services") is None:
 			self.__dict__["linked_services"] = []
@@ -709,6 +705,8 @@ def _attach_job_linked_services_to_change_request(cr, job=None) -> None:
 		cr.name,
 		sales_quote=sq,
 	)
+	if hasattr(cr, "_drop_virtual_linked_services_rows"):
+		cr._drop_virtual_linked_services_rows()
 
 
 @frappe.whitelist()

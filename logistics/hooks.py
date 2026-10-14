@@ -68,7 +68,7 @@ app_include_css = [
 	"/assets/logistics/css/gcfq_settings_dashboard.css?v=2",
 	"/assets/logistics/css/charges_grid_no_row_check.css?v=2",
 	"/assets/logistics/css/density_factor.css?v=1",
-	"/assets/logistics/css/workflow_center.css?v=1",
+	"/assets/logistics/css/workflow_center.css?v=3",
 	"/assets/logistics/css/change_request_summary.css?v=4",
 	"/assets/logistics/css/linked_services_dialog.css?v=12",
 	"/assets/logistics/css/ts_sq_fetch_dialog.css?v=6",
@@ -99,7 +99,7 @@ app_include_js = [
 	"/assets/logistics/js/menu_permission.js?v=10",
 	"/assets/logistics/js/linked_posting_actions.js?v=2",
 	"/assets/logistics/js/submitted_child_doc_toolbar.js?v=1",
-	"/assets/logistics/js/internal_job_create_from_source.js?v=22",
+	"/assets/logistics/js/internal_job_create_from_source.js?v=23",
 	"/assets/logistics/js/one_off_sales_quote_order_standard.js?v=2",
 	"/assets/logistics/js/main_service_internal_job_mutual_exclusive.js?v=7",
 	"/assets/logistics/js/service_role.js?v=3",
@@ -132,6 +132,7 @@ app_include_js = [
 	"/assets/logistics/js/time_sensitive_form.js?v=3",
 	"/assets/logistics/js/time_sensitive_list.js?v=2",
 	"/assets/logistics/js/vehicle_permit_banner.js?v=1",
+	"/assets/logistics/js/job_task.js?v=2",
 ]
 
 # include js, css files in header of web template

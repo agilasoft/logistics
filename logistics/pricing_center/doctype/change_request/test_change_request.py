@@ -22,12 +22,75 @@ from logistics.pricing_center.change_request_to_job import (
 
 class TestChangeRequestToJob(UnitTestCase):
 	def test_change_request_does_not_seed_linked_services_from_job(self):
-		"""Services tab stays empty on create — CR is for new additional services only."""
+		"""An unsaved Change Request has no Services rows yet."""
 		cr = frappe.new_doc("Change Request")
 		cr.job_type = "Air Shipment"
 		cr.job = "ASP-TEST"
+		cr.reason = "Amendment"
 		cr.validate()
 		self.assertEqual(list(cr.linked_services or []), [])
+
+	def test_saved_change_request_reloads_linked_services_from_empty_grid(self):
+		"""Desk load stores the virtual Services table as []. That must not hide attached services."""
+		cr = frappe.new_doc("Change Request")
+		cr.name = "CR-SHOW"
+		cr.doctype = "Change Request"
+		cr.__islocal = 0
+		cr.__dict__["linked_services"] = []
+		cr.flags._linked_services_from_form = True
+		with patch(
+			"logistics.utils.virtual_linked_services_view.build_linked_services_view_for_booking",
+			return_value=[{"linked_service": "IJ-1", "service_type": "Transport"}],
+		) as build:
+			rows = list(cr.linked_services)
+		self.assertEqual(len(rows), 1)
+		self.assertEqual(rows[0]["linked_service"], "IJ-1")
+		self.assertEqual(rows[0]["name"], "IJ-1")
+		self.assertEqual(rows[0]["service_type"], "Transport")
+		self.assertEqual(rows[0]["doctype"], "Linked Service Detail")
+		self.assertEqual(rows[0]["idx"], 1)
+		build.assert_called_once_with("Change Request", "CR-SHOW")
+		self.assertFalse(cr.flags.get("_linked_services_from_form"))
+
+	def test_empty_form_snapshot_still_lists_linked_services_for_charge_validation(self):
+		from logistics.utils.linked_service_compat import linked_service_rows
+
+		cr = frappe.new_doc("Change Request")
+		cr.name = "CR-ROWS"
+		cr.doctype = "Change Request"
+		cr.__islocal = 0
+		cr.__dict__["linked_services"] = []
+		cr.flags._linked_services_from_form = True
+		with patch.object(
+			type(cr),
+			"_build_linked_services_view",
+			return_value=[{"linked_service": "IJ-9", "service_type": "Air"}],
+		):
+			rows = linked_service_rows(cr)
+		self.assertEqual(rows[0]["linked_service"], "IJ-9")
+
+	def test_empty_services_grid_save_does_not_unlink_change_request_services(self):
+		from logistics.utils.internal_job_persistence import (
+			sync_internal_job_details_to_internal_jobs,
+		)
+
+		cr = frappe.new_doc("Change Request")
+		cr.name = "CR-KEEP"
+		cr.doctype = "Change Request"
+		cr.__islocal = 0
+		cr.__dict__["linked_services"] = []
+		cr.flags._linked_services_from_form = True
+		with patch(
+			"logistics.utils.internal_job_persistence._linked_service_names_visible_on_parent",
+			return_value={"IJ-1"},
+		), patch(
+			"logistics.utils.internal_job_persistence._ensure_internal_job_docs_for_detail_rows",
+		) as ensure, patch(
+			"logistics.utils.internal_job_persistence._delete_orphan_internal_jobs_from_sets",
+		) as delete_orphans:
+			sync_internal_job_details_to_internal_jobs(cr)
+		ensure.assert_not_called()
+		delete_orphans.assert_not_called()
 	def test_charge_row_service_type_matches_job_accepts_canonical_aliases(self):
 		self.assertTrue(_charge_row_service_type_matches_job("Air Shipment", "air"))
 		self.assertTrue(_charge_row_service_type_matches_job("Air Shipment", "Air"))

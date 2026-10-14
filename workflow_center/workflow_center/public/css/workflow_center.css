@@ -7,6 +7,7 @@
 	justify-content: space-between;
 	align-items: flex-start;
 	margin-bottom: 16px;
+	padding-top: 16px;
 }
 
 .wc-header h4 {
@@ -116,4 +117,14 @@
 	color: #6c757d;
 	border: 1px dashed #d1d8dd;
 	border-radius: 8px;
+}
+
+.wc-action-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.wc-apply-action {
+	white-space: nowrap;
 }

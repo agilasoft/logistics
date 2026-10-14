@@ -1543,7 +1543,7 @@ def create_internal_job_from_operational_source(
 		if source_doctype == "Declaration":
 			if jt == "Transport Order":
 				return mi.create_transport_order_from_declaration(
-					source_name, internal_job_detail_idx=idx
+					source_name, internal_job_detail_idx=idx, container_no=container_no
 				)
 			if jt == "VAS Order":
 				return mi.create_vas_order_from_declaration(
