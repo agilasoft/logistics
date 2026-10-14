@@ -20,14 +20,14 @@
   "consignee",
   "section_break_cvch",
   "items",
-  "connections_tab",
   "accounts_tab",
   "company",
   "branch",
   "cost_center",
   "profit_center",
   "column_break_accounts",
-  "job_number"
+  "job_number",
+  "connections_tab"
  ],
  "fields": [
   {
@@ -201,7 +201,7 @@
    "link_fieldname": "contract"
   }
  ],
- "modified": "2026-05-15 09:42:16.505087",
+ "modified": "2026-10-14 04:10:00.000000",
  "modified_by": "Administrator",
  "module": "Warehousing",
  "name": "Warehouse Contract",
