@@ -132,7 +132,7 @@ app_include_js = [
 	"/assets/logistics/js/time_sensitive_form.js?v=3",
 	"/assets/logistics/js/time_sensitive_list.js?v=2",
 	"/assets/logistics/js/vehicle_permit_banner.js?v=1",
-	"/assets/logistics/js/job_task.js?v=1",
+	"/assets/logistics/js/job_task.js?v=2",
 ]
 
 # include js, css files in header of web template

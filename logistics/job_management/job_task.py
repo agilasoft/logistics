@@ -1,11 +1,11 @@
 # Copyright (c) 2026, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
-"""Job Task templates for bookings and the execution jobs they become.
+"""Job Task rows on bookings and the execution jobs they become.
 
-Parents follow document-management DOCTYPE_CONTEXT where that map already
-names the document. Stocktake Order, Transport Consolidation, and Exhibit Job
-are added here. Programme documents are not included.
+The rows are a child table, filled from Job Task Template the same way
+milestones are filled from Milestone Template. Programme documents are not
+included.
 """
 
 from __future__ import unicode_literals
@@ -303,18 +303,83 @@ def _parent_value(doc, fieldname):
 	return getattr(doc, fieldname, None)
 
 
-def _parent_job_number(doc):
+def _has_job_tasks(doc):
 	meta = getattr(doc, "meta", None)
-	if meta is None:
-		meta = frappe.get_meta(doc.doctype)
-	if not meta.has_field("job_number"):
-		return None
-	value = _parent_value(doc, "job_number")
-	if value:
-		return value
-	if not getattr(doc, "name", None):
-		return None
-	return frappe.db.get_value(doc.doctype, doc.name, "job_number")
+	if meta is not None and hasattr(meta, "has_field"):
+		return bool(meta.has_field("job_tasks"))
+	return _parent_value(doc, "job_tasks") is not None
+
+
+def _row_value(row, fieldname):
+	if isinstance(row, dict):
+		return row.get(fieldname)
+	getter = getattr(row, "get", None)
+	if callable(getter):
+		return getter(fieldname)
+	return getattr(row, fieldname, None)
+
+
+def _template_items_for_doc(doc):
+	"""Use the template selected on the document, otherwise the matching default."""
+	explicit = _text(_parent_value(doc, "job_task_template"))
+	if explicit:
+		return explicit, _load_template_items(explicit)
+	product_type, applies_to = JOB_TASK_PARENTS[doc.doctype]
+	template = choose_job_task_template(
+		doc.doctype,
+		_load_candidate_templates(product_type, applies_to),
+		direction=_parent_value(doc, "direction") or "",
+		entry_type=_parent_value(doc, "entry_type") or "",
+	)
+	if not template:
+		return None, []
+	template_name = template.get("name")
+	return template_name, _load_template_items(template_name)
+
+
+def append_missing_job_tasks(doc):
+	"""Append template rows whose task_code is not already on the child table.
+
+	Does not save and does not change rows that are already there.
+	"""
+	if not doc or doc.doctype not in JOB_TASK_PARENTS or not _has_job_tasks(doc):
+		return {"message": _("Job Tasks are not used on this document."), "added": 0, "template": None}
+	template_name, items = _template_items_for_doc(doc)
+	if not template_name:
+		return {"message": _("No Job Task Template matched."), "added": 0, "template": None}
+	missing = tasks_to_insert(doc.get("job_tasks") or [], items)
+	for item in missing:
+		doc.append(
+			"job_tasks",
+			{
+				"task_code": item.get("task_code"),
+				"subject": item.get("subject"),
+				"description": item.get("description"),
+				"sequence": item.get("sequence") or 0,
+				"status": "Open",
+				"is_required": 1 if int(item.get("is_required") or 0) else 0,
+				"source": "Fetched",
+			},
+		)
+	return {
+		"message": _("Added {0} job task(s).").format(len(missing)),
+		"added": len(missing),
+		"template": template_name,
+	}
+
+
+def reject_duplicate_job_task_codes(doc):
+	seen = set()
+	for row in doc.get("job_tasks") or []:
+		code = _text(_row_value(row, "task_code"))
+		if not code:
+			continue
+		if code in seen:
+			frappe.throw(
+				_("Job Task {0} is already on this document.").format(code),
+				title=_("Job Task"),
+			)
+		seen.add(code)
 
 
 def _populate_job_tasks(doctype, docname, doc=None, check_permission=True):
@@ -322,86 +387,45 @@ def _populate_job_tasks(doctype, docname, doc=None, check_permission=True):
 		return {"message": _("Save the document first."), "added": 0}
 	if doctype not in JOB_TASK_PARENTS:
 		return {"message": _("Job Tasks are not used on this document."), "added": 0}
-
 	if doc is None:
 		doc = frappe.get_doc(doctype, docname)
 	if check_permission:
 		from logistics.utils.menu_permission import assert_perm
 
 		assert_perm(doctype, "write", doc=doc)
-		assert_perm("Job Task", "create")
-
-	product_type, applies_to = JOB_TASK_PARENTS[doctype]
-	direction = _parent_value(doc, "direction") or ""
-	entry_type = _parent_value(doc, "entry_type") or ""
-	template = choose_job_task_template(
-		doctype,
-		_load_candidate_templates(product_type, applies_to),
-		direction=direction,
-		entry_type=entry_type,
-	)
-	if not template:
-		return {"message": _("No Job Task Template matched."), "added": 0}
-
-	template_name = template.get("name")
-	items = _load_template_items(template_name)
-	existing = frappe.get_all(
-		"Job Task",
-		filters={"job_type": doctype, "job_no": docname},
-		fields=["name", "task_code", "status"],
-		ignore_permissions=True,
-	)
-	missing = tasks_to_insert(existing, items)
-	job_number = _parent_job_number(doc)
-	added = 0
-	for item in missing:
-		task = frappe.get_doc(
-			{
-				"doctype": "Job Task",
-				"job_type": doctype,
-				"job_no": docname,
-				"job_number": job_number,
-				"task_code": item.get("task_code"),
-				"subject": item.get("subject"),
-				"description": item.get("description"),
-				"sequence": item.get("sequence") or 0,
-				"status": "Open",
-				"is_required": 1 if int(item.get("is_required") or 0) else 0,
-				"template": template_name,
-			}
-		)
-		task.insert(ignore_permissions=True)
-		added += 1
-	return {
-		"message": _("Added {0} job task(s).").format(added),
-		"added": added,
-		"template": template_name,
-	}
+	result = append_missing_job_tasks(doc)
+	if result.get("added") and not frappe.flags.get("in_ensure_job_tasks"):
+		doc.save()
+	return result
 
 
 @frappe.whitelist()
 def populate_job_tasks(doctype, docname):
-	"""Add missing Job Tasks from the matching template. Existing tasks are left as they are."""
+	"""Add missing Job Task rows from the template. Existing rows are left as they are."""
 	return _populate_job_tasks(doctype, docname, check_permission=True)
 
 
 def ensure_job_tasks_from_template(doc, method=None):
-	"""after_insert: create tasks for a new booking or job. Does not block the parent save."""
+	"""before_save: append missing Job Task rows in the same save as milestones."""
 	if not doc or not getattr(doc, "doctype", None):
 		return
-	if doc.doctype not in JOB_TASK_PARENTS:
+	if doc.doctype not in JOB_TASK_PARENTS or not _has_job_tasks(doc):
 		return
 	flags = getattr(doc, "flags", None)
 	if flags and flags.get("ignore_job_tasks"):
 		return
-	if (
-		frappe.flags.get("in_import")
-		or frappe.flags.get("in_migrate")
-		or frappe.flags.get("in_install")
-		or frappe.flags.get("in_patch")
-	):
+	if getattr(frappe.flags, "in_ensure_job_tasks", False):
 		return
+	name = getattr(doc, "name", None)
+	if not name or name == "new":
+		return
+	frappe.flags.in_ensure_job_tasks = True
 	try:
-		_populate_job_tasks(doc.doctype, doc.name, doc=doc, check_permission=False)
+		reject_duplicate_job_task_codes(doc)
+		append_missing_job_tasks(doc)
+	except frappe.ValidationError:
+		raise
 	except Exception:
 		frappe.log_error(frappe.get_traceback(), "Job Task populate")
+	finally:
+		frappe.flags.in_ensure_job_tasks = False

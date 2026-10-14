@@ -10,54 +10,39 @@ import frappe
 from frappe.tests import UnitTestCase
 
 from logistics.doc_event_hooks import DOC_EVENTS
-from logistics.job_management.doctype.job_task.job_task import JobTask
 from logistics.job_management.job_task import (
 	DEFAULT_TASKS,
 	JOB_TASK_PARENTS,
 	_populate_job_tasks,
+	append_missing_job_tasks,
 	choose_job_task_template,
+	reject_duplicate_job_task_codes,
 	tasks_to_insert,
 )
 
 HANDLER = "logistics.job_management.job_task.ensure_job_tasks_from_template"
 
 
-class _Meta:
-	def __init__(self, fields):
-		self._fields = set(fields)
-
-	def has_field(self, name):
-		return name in self._fields
-
-
 class _Parent:
 	def __init__(self):
 		self.doctype = "Transport Job"
 		self.name = "TRJ-00001"
-		self.meta = _Meta({"job_number"})
 		self.direction = ""
 		self.entry_type = ""
-		self.job_number = "JN-TRJ-00001"
+		self.job_task_template = None
+		self.job_tasks = []
+		self.saves = 0
 
 	def get(self, fieldname):
 		return getattr(self, fieldname, None)
 
+	def append(self, fieldname, data):
+		row = dict(data)
+		getattr(self, fieldname).append(row)
+		return row
 
-class _TaskDoc:
-	def __init__(self, data, inserted, existing):
-		self.data = data
-		self._inserted = inserted
-		self._existing = existing
-
-	def insert(self, ignore_permissions=False):
-		self._inserted.append(dict(self.data))
-		self._existing.append(
-			{
-				"name": "JT-{0}".format(len(self._inserted)),
-				"task_code": self.data["task_code"],
-				"status": self.data["status"],
-			}
-		)
+	def save(self):
+		self.saves += 1
 
 
 class TestJobTask(UnitTestCase):
@@ -99,8 +84,6 @@ class TestJobTask(UnitTestCase):
 
 	def test_populate_creates_tasks_once_and_keeps_status(self):
 		parent = _Parent()
-		existing = []
-		inserted = []
 		items = [
 			{
 				"task_code": "CONFIRM_PICKUP",
@@ -133,22 +116,11 @@ class TestJobTask(UnitTestCase):
 				]
 			if doctype == "Job Task Template Item":
 				return list(items)
-			if doctype == "Job Task":
-				return list(existing)
 			raise AssertionError(doctype)
 
-		def get_doc(data):
-			self.assertIsInstance(data, dict)
-			return _TaskDoc(data, inserted, existing)
-
-		with (
-			patch("logistics.job_management.job_task.frappe.get_all", side_effect=get_all),
-			patch("logistics.job_management.job_task.frappe.get_doc", side_effect=get_doc),
-		):
-			first = _populate_job_tasks(
-				"Transport Job", "TRJ-00001", doc=parent, check_permission=False
-			)
-			existing[0]["status"] = "In Progress"
+		with patch("logistics.job_management.job_task.frappe.get_all", side_effect=get_all):
+			first = append_missing_job_tasks(parent)
+			parent.job_tasks[0]["status"] = "In Progress"
 			second = _populate_job_tasks(
 				"Transport Job", "TRJ-00001", doc=parent, check_permission=False
 			)
@@ -156,12 +128,11 @@ class TestJobTask(UnitTestCase):
 		self.assertEqual(first["added"], 2)
 		self.assertEqual(first["template"], "Transport Job Tasks")
 		self.assertEqual(second["added"], 0)
-		self.assertEqual(len(inserted), 2)
-		self.assertEqual([row["status"] for row in inserted], ["Open", "Open"])
-		self.assertEqual(inserted[0]["job_number"], "JN-TRJ-00001")
-		self.assertEqual(existing[0]["status"], "In Progress")
+		self.assertEqual(parent.saves, 0)
+		self.assertEqual([row["status"] for row in parent.job_tasks], ["In Progress", "Open"])
+		self.assertEqual(parent.job_tasks[0]["source"], "Fetched")
 		self.assertEqual(
-			[row["task_code"] for row in tasks_to_insert(existing, items)],
+			[row["task_code"] for row in tasks_to_insert(parent.job_tasks, items)],
 			[],
 		)
 
@@ -183,18 +154,23 @@ class TestJobTask(UnitTestCase):
 		script = Path(__file__).resolve().parents[3].joinpath("public", "js", "job_task.js").read_text()
 		for doctype in JOB_TASK_PARENTS:
 			self.assertIn('"{0}"'.format(doctype), script)
-			events = DOC_EVENTS[doctype]["after_insert"]
+			events = DOC_EVENTS[doctype]["before_save"]
 			if isinstance(events, list):
 				self.assertIn(HANDLER, events)
 			else:
 				self.assertEqual(events, HANDLER)
+			after = DOC_EVENTS[doctype].get("after_insert")
+			if isinstance(after, list):
+				self.assertNotIn(HANDLER, after)
+			else:
+				self.assertNotEqual(after, HANDLER)
 
-	def test_unknown_parent_is_rejected(self):
-		task = JobTask.__new__(JobTask)
-		task.job_type = "Customer"
+	def test_duplicate_task_code_is_rejected(self):
+		parent = _Parent()
+		parent.job_tasks = [{"task_code": "CLOSE_JOB"}, {"task_code": "CLOSE_JOB"}]
 		with patch(
-			"logistics.job_management.doctype.job_task.job_task.frappe.throw",
-			side_effect=frappe.ValidationError("no"),
+			"logistics.job_management.job_task.frappe.throw",
+			side_effect=frappe.ValidationError("duplicate"),
 		):
 			with self.assertRaises(frappe.ValidationError):
-				task._require_known_parent()
+				reject_duplicate_job_task_codes(parent)
