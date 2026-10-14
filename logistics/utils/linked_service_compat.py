@@ -181,8 +181,15 @@ def linked_service_rows(parent_doc: Any) -> list[Any]:
 		if hasattr(parent_doc, "_build_linked_services_view"):
 			return parent_doc._build_linked_services_view()
 	if doctype == "Change Request":
-		if getattr(getattr(parent_doc, "flags", None), "_linked_services_from_form", False):
-			return list(parent_doc.__dict__.get(fieldname) or [])
+		flags = getattr(parent_doc, "flags", None)
+		if getattr(flags, "_linked_services_from_form", False):
+			rows = list(parent_doc.__dict__.get(fieldname) or [])
+			# Desk load stores the virtual table as []. That snapshot must not hide the
+			# job Linked Services attached to this Change Request by Usage.
+			if rows:
+				return rows
+			if not getattr(parent_doc, "name", None) or getattr(parent_doc, "__islocal", False):
+				return rows
 		if hasattr(parent_doc, "_build_linked_services_view"):
 			return parent_doc._build_linked_services_view()
 	if doctype == "Time Sensitive Case":
