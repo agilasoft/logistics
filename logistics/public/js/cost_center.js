@@ -18,6 +18,7 @@ function logistics_cost_center_hide_company(frm) {
 		return;
 	}
 	frm.set_df_property("company", "hidden", 1);
+	frm.set_df_property("company", "reqd", 0);
 	frm.toggle_display("company", false);
 }
 
@@ -27,7 +28,9 @@ function logistics_cost_center_ensure_company(frm) {
 	}
 	const company =
 		frappe.defaults.get_user_default("Company") || frappe.defaults.get_default("company");
-	if (company) {
-		frm.doc.company = company;
+	if (!company) {
+		return;
 	}
+	// set_value keeps the parent-cost-center query, which filters on company.
+	frm.set_value("company", company);
 }

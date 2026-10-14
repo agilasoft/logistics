@@ -3,8 +3,10 @@
 """Hide Company on Cost Center.
 
 ERPNext still requires the column for the cost center tree and for accounting.
-The form, list column, and standard filter no longer show it. New records
-without a company inherit the parent, or the site default, before validation.
+The form, list column, standard filter, and tree "new" dialog no longer show
+it. Company stays mandatory in the database sense: new records without one
+inherit the parent, or the site default, before validation. The tree filter
+still selects which company tree to open.
 """
 
 from __future__ import annotations
@@ -17,6 +19,8 @@ FIELD_PROPERTIES = (
 	("hidden", "Check", "1"),
 	("in_list_view", "Check", "0"),
 	("in_standard_filter", "Check", "0"),
+	# Tree "New" dialog includes every reqd field. Company is chosen by the tree filter.
+	("reqd", "Check", "0"),
 )
 
 FIELD_ORDER = (

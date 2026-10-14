@@ -297,6 +297,15 @@
    "property": "in_standard_filter",
    "property_type": "Check",
    "value": "0"
+  },
+  {
+   "doc_type": "Cost Center",
+   "doctype_or_field": "DocField",
+   "field_name": "company",
+   "name": "Cost Center-company-reqd",
+   "property": "reqd",
+   "property_type": "Check",
+   "value": "0"
   }
  ],
  "sync_on_migrate": 1

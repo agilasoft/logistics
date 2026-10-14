@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import frappe
+from frappe import _
 
 
 def _company_fieldname(doctype: str) -> str | None:
@@ -57,7 +58,10 @@ def set_cost_center_company_default(doc, method=None):
 			doc.company = parent_company
 			return
 
-	doc.company = default_company()
+	company = default_company()
+	if not company:
+		frappe.throw(_("Company is required for a Cost Center."))
+	doc.company = company
 
 
 def set_cost_center_branch_default(doc, method=None):
