@@ -372,6 +372,7 @@ doctype_js = {
 	"Purchase Invoice": "logistics/public/js/purchase_invoice_container_deposit.js",
 	"Credit Hold Lift Request": "logistics/logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
 	"Outlook Calendar Settings": "logistics/logistics/doctype/outlook_calendar_settings/outlook_calendar_settings.js",
+	"Cost Center": "public/js/cost_center.js",
 	"User": [
 		"public/js/user.js",
 		"integrations/outlook/user_outlook.js",
@@ -380,7 +381,9 @@ doctype_js = {
 doctype_list_js = {
 	"Time Sensitive Case": "time_sensitive/doctype/time_sensitive_case/time_sensitive_case_list.js",
 }
-# doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
+doctype_tree_js = {
+	"Cost Center": "public/js/cost_center_tree.js",
+}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
 # Home Pages

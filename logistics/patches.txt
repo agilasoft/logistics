@@ -1039,3 +1039,5 @@ logistics.patches.v3_0_add_job_task_child_columns
 logistics.patches.v3_0_seed_job_task_templates
 # Cash Advance sidebar: pin the daily documents, then the same indented groups as other modules.
 logistics.patches.v3_0_sync_cash_advance_sidebar
+# Cost Center: hide the Company field. ERPNext still stores Company.
+logistics.patches.v3_0_hide_cost_center_company
