@@ -437,3 +437,23 @@ DOC_EVENTS = {'Opportunity': {'onload': 'logistics.pricing_center.utils.opportun
  'Warehouse Contract': {'before_insert': 'logistics.utils.credit_management.on_credit_before_insert',
                         'validate': 'logistics.utils.credit_management.on_credit_validate',
                         'before_submit': 'logistics.utils.credit_management.on_credit_before_submit'}}
+
+
+def _register_job_task_hooks():
+	"""Create Job Tasks when a booking or execution job is first saved."""
+	from logistics.job_management.job_task import JOB_TASK_PARENTS
+
+	handler = "logistics.job_management.job_task.ensure_job_tasks_from_template"
+	for doctype in JOB_TASK_PARENTS:
+		events = DOC_EVENTS.setdefault(doctype, {})
+		existing = events.get("after_insert")
+		if not existing:
+			events["after_insert"] = handler
+		elif isinstance(existing, list):
+			if handler not in existing:
+				existing.append(handler)
+		elif existing != handler:
+			events["after_insert"] = [existing, handler]
+
+
+_register_job_task_hooks()
