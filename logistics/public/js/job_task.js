@@ -1,7 +1,7 @@
 // Copyright (c) 2026, www.agilasoft.com and contributors
 // For license information, please see license.txt
 
-// Populate Job Tasks on bookings and the execution jobs they become.
+// Get Job Tasks, same Action menu entry as Get Milestones.
 // Keep this list aligned with JOB_TASK_PARENTS in logistics/job_management/job_task.py.
 (function () {
 	"use strict";
@@ -41,11 +41,11 @@
 			freeze: true,
 			callback: function (r) {
 				var payload = r && r.message;
-				if (payload && payload.message) {
-					frappe.show_alert({ message: __(payload.message), indicator: "blue" }, 4);
-				}
-				if (frm.dashboard && typeof frm.dashboard.refresh === "function") {
-					frm.dashboard.refresh();
+				if (payload && payload.added !== undefined) {
+					frm.reload_doc();
+					if (payload.message) {
+						frappe.show_alert({ message: __(payload.message), indicator: "blue" }, 4);
+					}
 				}
 			},
 		});
@@ -61,14 +61,16 @@
 				if (!frm || frm.is_new() || !frm.doc || !frm.doc.name) {
 					return;
 				}
+				if (!frm.fields_dict || !frm.fields_dict.job_tasks) {
+					return;
+				}
 				if (!window.logistics || !logistics.menu || typeof logistics.menu.add !== "function") {
 					return;
 				}
 				logistics.menu.add(frm, {
-					label: __("Populate Job Tasks"),
+					label: __("Get Job Tasks"),
 					group: __("Action"),
 					ptype: "write",
-					also: [{ doctype: "Job Task", ptype: "create" }],
 					action: function () {
 						populate(frm);
 					},

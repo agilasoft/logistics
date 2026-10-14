@@ -126,6 +126,11 @@
   "milestone_template",
   "milestones",
   "milestone_html",
+  "job_tasks_tab",
+  "section_break_job_tasks",
+  "job_task_template",
+  "section_break_job_task_grid",
+  "job_tasks",
   "charges_tab",
   "column_break_logistics_reps",
   "company",
@@ -1149,6 +1154,34 @@
    "read_only": 1,
    "search_index": 1,
    "hidden": 1
+  },
+  {
+   "fieldname": "job_tasks_tab",
+   "fieldtype": "Tab Break",
+   "label": "Job Tasks"
+  },
+  {
+   "fieldname": "section_break_job_tasks",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "Optional. Leave blank to use the default template for this document.",
+   "fieldname": "job_task_template",
+   "fieldtype": "Link",
+   "label": "Job Task Template",
+   "options": "Job Task Template"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_job_task_grid",
+   "fieldtype": "Section Break",
+   "label": "Job Tasks"
+  },
+  {
+   "fieldname": "job_tasks",
+   "fieldtype": "Table",
+   "label": "Job Tasks",
+   "options": "Job Task"
   }
  ],
  "index_web_pages_for_search": 1,

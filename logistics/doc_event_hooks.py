@@ -440,20 +440,20 @@ DOC_EVENTS = {'Opportunity': {'onload': 'logistics.pricing_center.utils.opportun
 
 
 def _register_job_task_hooks():
-	"""Create Job Tasks when a booking or execution job is first saved."""
+	"""Fill the Job Tasks child table on save, the same way milestones are filled."""
 	from logistics.job_management.job_task import JOB_TASK_PARENTS
 
 	handler = "logistics.job_management.job_task.ensure_job_tasks_from_template"
 	for doctype in JOB_TASK_PARENTS:
 		events = DOC_EVENTS.setdefault(doctype, {})
-		existing = events.get("after_insert")
+		existing = events.get("before_save")
 		if not existing:
-			events["after_insert"] = handler
+			events["before_save"] = handler
 		elif isinstance(existing, list):
 			if handler not in existing:
 				existing.append(handler)
 		elif existing != handler:
-			events["after_insert"] = [existing, handler]
+			events["before_save"] = [existing, handler]
 
 
 _register_job_task_hooks()
