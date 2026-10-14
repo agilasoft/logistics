@@ -8,7 +8,8 @@
  "field_order": [
   "code",
   "description",
-  "company"
+  "company",
+  "is_active"
  ],
  "fields": [
   {
@@ -29,6 +30,13 @@
    "in_list_view": 1,
    "label": "Company",
    "options": "Company"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
   }
  ],
  "grid_page_length": 50,
