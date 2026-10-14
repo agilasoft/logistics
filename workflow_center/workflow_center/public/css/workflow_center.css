@@ -117,3 +117,13 @@
 	border: 1px dashed #d1d8dd;
 	border-radius: 8px;
 }
+
+.wc-action-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.wc-apply-action {
+	white-space: nowrap;
+}
