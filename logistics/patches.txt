@@ -1034,3 +1034,5 @@ logistics.patches.v3_0_linked_service_branch_not_company_filtered
 logistics.patches.v3_0_hide_purchase_invoice_bir_2307_ui_fields
 # Job Tasks: one default checklist template for each booking and execution job.
 logistics.patches.v3_0_seed_job_task_templates
+# Cash Advance sidebar: pin the daily documents, then the same indented groups as other modules.
+logistics.patches.v3_0_sync_cash_advance_sidebar
