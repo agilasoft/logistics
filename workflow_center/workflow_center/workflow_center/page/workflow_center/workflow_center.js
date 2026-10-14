@@ -88,6 +88,50 @@ function wc_time_in_state(item) {
 	return wc_time_in_state_markup(label, entered, title);
 }
 
+function wc_actions_markup(item) {
+	const actions = (item && item.available_actions) || [];
+	const doctype = wc_escape_html((item && item.reference_doctype) || "");
+	const name = wc_escape_html((item && item.reference_name) || "");
+	const buttons = actions
+		.map((action) => {
+			const raw = String(action || "").trim();
+			if (!raw || !doctype || !name) {
+				return "";
+			}
+			const label = wc_escape_html(typeof __ === "function" ? __(raw) : raw);
+			return (
+				'<button type="button" class="btn btn-xs btn-default wc-apply-action" data-doctype="' +
+				doctype +
+				'" data-name="' +
+				name +
+				'" data-action="' +
+				wc_escape_html(raw) +
+				'">' +
+				label +
+				"</button>"
+			);
+		})
+		.filter(Boolean)
+		.join("");
+	if (!buttons) {
+		return "";
+	}
+	return '<div class="wc-action-buttons">' + buttons + "</div>";
+}
+
+function wc_apply_workflow_request(doctype, name, action) {
+	const label = wc_escape_html(typeof __ === "function" ? __(action) : action);
+	return {
+		method: "frappe.model.workflow.apply_workflow",
+		args: {
+			doc: { doctype: doctype, name: name },
+			action: action,
+		},
+		freeze: true,
+		freeze_message: __("Applying {0}...", [label]),
+	};
+}
+
 frappe.pages["workflow-center"].on_page_load = function (wrapper) {
 	new workflow_center.WorkflowCenterPage(wrapper);
 };
@@ -159,6 +203,63 @@ workflow_center.WorkflowCenterPage = class WorkflowCenterPage {
 			const dn = $(this).data("name");
 			frappe.set_route("Form", dt, dn);
 		});
+		this.$container.on("click", ".wc-apply-action", function (e) {
+			e.preventDefault();
+			e.stopPropagation();
+			const $btn = $(this);
+			self.apply_action($btn.attr("data-doctype"), $btn.attr("data-name"), $btn.attr("data-action"));
+		});
+	}
+
+	apply_action(doctype, name, action) {
+		if (!doctype || !name || !action || this._applying) {
+			return;
+		}
+		frappe.confirm(
+			__("Apply {0} to {1} {2}?", [
+				wc_escape_html(__(action)),
+				wc_escape_html(doctype),
+				wc_escape_html(name),
+			]),
+			() => this.run_apply_action(doctype, name, action)
+		);
+	}
+
+	run_apply_action(doctype, name, action) {
+		if (this._applying) {
+			return;
+		}
+		this._applying = true;
+		const self = this;
+		const request = wc_apply_workflow_request(doctype, name, action);
+		request.callback = function (response) {
+			if (!response || response.exc) {
+				self._applying = false;
+				return;
+			}
+			frappe.show_alert({
+				message: __("{0} applied to {1}", [wc_escape_html(__(action)), wc_escape_html(name)]),
+				indicator: "green",
+			});
+			Promise.resolve(self.refresh()).finally(function () {
+				self._applying = false;
+			});
+		};
+		request.error = function () {
+			self._applying = false;
+		};
+		let pending;
+		try {
+			pending = frappe.call(request);
+		} catch (error) {
+			self._applying = false;
+			throw error;
+		}
+		if (pending && typeof pending.catch === "function") {
+			pending.catch(function () {
+				self._applying = false;
+			});
+		}
 	}
 
 	collect_filters() {
@@ -251,14 +352,13 @@ workflow_center.WorkflowCenterPage = class WorkflowCenterPage {
 		}
 
 		const rows = filtered.map((item) => {
-			const actions = (item.available_actions || []).join(", ");
 			return `
 				<tr>
 					<td><a href="#" class="wc-open-doc" data-doctype="${frappe.utils.escape_html(item.reference_doctype)}" data-name="${frappe.utils.escape_html(item.reference_name)}">${frappe.utils.escape_html(item.reference_name)}</a></td>
 					<td>${frappe.utils.escape_html(item.title || "")}</td>
 					<td>${frappe.utils.escape_html(item.reference_doctype)}</td>
 					<td>${frappe.utils.escape_html(item.workflow_state || "")}</td>
-					<td>${frappe.utils.escape_html(actions)}</td>
+					<td>${wc_actions_markup(item)}</td>
 					<td>${wc_time_in_state(item)}</td>
 					<td><span class="wc-severity ${frappe.utils.escape_html(item.severity || "ok")}">${frappe.utils.escape_html(item.severity || "ok")}</span></td>
 					<td>${frappe.utils.escape_html(item.permitted_role || "")}</td>
