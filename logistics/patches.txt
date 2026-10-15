@@ -1045,3 +1045,5 @@ logistics.patches.v3_0_seed_job_task_templates
 logistics.patches.v3_0_sync_cash_advance_sidebar
 # Cost Center: hide the Company field. ERPNext still stores Company.
 logistics.patches.v3_0_hide_cost_center_company
+# Job Management sidebar: pin Job Number, then the same collapsed groups as other modules.
+logistics.patches.v3_0_align_job_management_sidebar
