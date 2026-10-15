@@ -5,8 +5,8 @@
 
 Job Task was created as a standalone DocType, then turned into the child table
 on bookings and jobs. Migrate updates the DocType, but it does not add
-``parent`` to a table that already exists. Loading Air Booking then fails with
-``Unknown column 'parent'``.
+``parent`` to a table that already exists. Loading Inbound Order (and every
+other document with a Job Tasks grid) then fails with ``Unknown column 'parent'``.
 """
 
 from __future__ import annotations
@@ -19,11 +19,13 @@ from logistics.job_management.job_task_child_schema import (
 	missing_child_link_columns,
 	relink_statement,
 	should_relink_legacy_rows,
+	table_exists_argument,
 )
 
 
 def _columns() -> set[str]:
-	if not frappe.db.table_exists(TABLE):
+	# table_exists prefixes "tab" itself. Pass the DocType name, not TABLE.
+	if not frappe.db.table_exists(table_exists_argument(), cached=False):
 		return set()
 	return {row["Field"] for row in frappe.db.sql(f"DESCRIBE `{TABLE}`", as_dict=True)}
 
