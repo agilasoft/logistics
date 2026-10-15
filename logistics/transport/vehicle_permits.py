@@ -440,6 +440,70 @@ def _parse_filters(filters: Any) -> dict:
 	return {}
 
 
+_FILTER_OPERATORS = frozenset(
+	{
+		"=",
+		"==",
+		"!=",
+		"like",
+		"not like",
+		"in",
+		"not in",
+		"is",
+		">",
+		"<",
+		">=",
+		"<=",
+		"between",
+	}
+)
+
+
+def _vehicle_type_condition(value: Any) -> tuple[str, dict[str, Any]]:
+	"""WHERE fragment for a Transport Vehicle type filter.
+
+	Run Sheet link_filters arrive as ``["=", "10WWV"]``. Binding that list to
+	``vehicle_type = %(vehicle_type)s`` makes MariaDB compare a varchar to a
+	row (error 4078). A plain name stays an equality match.
+	"""
+	blank = "(vehicle_type IS NULL OR vehicle_type = '')"
+	if isinstance(value, (list, tuple)) and len(value) == 2 and isinstance(value[0], str):
+		operator = value[0].strip().lower()
+		if operator in _FILTER_OPERATORS:
+			if operator in {"=", "=="}:
+				value = value[1]
+			elif operator == "in":
+				return _vehicle_type_in_condition(value[1])
+			else:
+				return "1=0", {}
+	if isinstance(value, (list, tuple)):
+		return _vehicle_type_in_condition(value)
+	if isinstance(value, str):
+		value = value.strip()
+	if value in (None, ""):
+		return blank, {}
+	if isinstance(value, (dict, list, tuple)):
+		return "1=0", {}
+	return "vehicle_type = %(vehicle_type)s", {"vehicle_type": value}
+
+
+def _vehicle_type_in_condition(value: Any) -> tuple[str, dict[str, Any]]:
+	blank = "(vehicle_type IS NULL OR vehicle_type = '')"
+	names = value if isinstance(value, (list, tuple)) else (value,)
+	cleaned: list[Any] = []
+	for name in names:
+		if isinstance(name, str):
+			name = name.strip()
+		if name in (None, ""):
+			continue
+		cleaned.append(name)
+	if not cleaned:
+		return blank, {}
+	if len(cleaned) == 1:
+		return "vehicle_type = %(vehicle_type)s", {"vehicle_type": cleaned[0]}
+	return "vehicle_type IN %(vehicle_type)s", {"vehicle_type": tuple(cleaned)}
+
+
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def transport_vehicle_query(
@@ -452,12 +516,9 @@ def transport_vehicle_query(
 	page_len = cint(page_len) or 20
 	conditions = ["IFNULL(is_active, 0) = 1"]
 	params: dict[str, Any] = {"start": start, "page_len": page_len}
-	vehicle_type = f.get("vehicle_type")
-	if vehicle_type:
-		conditions.append("vehicle_type = %(vehicle_type)s")
-		params["vehicle_type"] = vehicle_type
-	else:
-		conditions.append("(vehicle_type IS NULL OR vehicle_type = '')")
+	type_clause, type_params = _vehicle_type_condition(f.get("vehicle_type"))
+	conditions.append(type_clause)
+	params.update(type_params)
 	if txt:
 		conditions.append(
 			"(name LIKE %(txt)s OR vehicle_name LIKE %(txt)s OR IFNULL(license_plate_number, '') LIKE %(txt)s)"

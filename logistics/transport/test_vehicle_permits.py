@@ -3,6 +3,9 @@
 
 """Vehicle permit eligibility, advance warnings, and dispatch blocking."""
 
+import json
+from unittest.mock import patch
+
 import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, today
@@ -155,14 +158,59 @@ class IntegrationTestVehiclePermits(IntegrationTestCase):
 		self._configure(enabled=1, days=7)
 		expired = self._make_vehicle("HIDE", add_days(today(), -1), required=1)
 		expiring = self._make_vehicle("SHOW", add_days(today(), 3), required=1)
-		names = self._query_names()
-		self.assertNotIn(expired, names)
-		self.assertIn(expiring, names)
+		for filters in self._vehicle_filters():
+			names = self._query_names(filters)
+			self.assertNotIn(expired, names)
+			self.assertIn(expiring, names)
 
 		self._configure(enabled=0, days=7)
-		names = self._query_names()
-		self.assertIn(expired, names)
-		self.assertIn(expiring, names)
+		for filters in self._vehicle_filters():
+			names = self._query_names(filters)
+			self.assertIn(expired, names)
+			self.assertIn(expiring, names)
+
+	def test_link_query_binds_operator_filter_as_scalar(self):
+		"""Desk search sends link_filters as ["=", value]. That list must not be bound to '='."""
+		captured = {}
+
+		def _capture(sql, params):
+			captured["sql"] = sql
+			captured["params"] = dict(params)
+			return []
+
+		cases = (
+			(json.dumps({"vehicle_type": ["=", "10WWV"], "is_active": ["=", 1]}), "10WWV", "="),
+			({"vehicle_type": "10WWV", "is_active": 1}, "10WWV", "="),
+			({"vehicle_type": ["=", "  10WWV  "]}, "10WWV", "="),
+			({"vehicle_type": ["=", ""]}, None, "blank"),
+			({"vehicle_type": ["in", ["10WWV", "20FT"]]}, ("10WWV", "20FT"), "in"),
+			({"vehicle_type": ["in", ["10WWV"]]}, "10WWV", "="),
+			({"vehicle_type": ["!=", "10WWV"]}, None, "none"),
+		)
+		with patch(
+			"logistics.transport.vehicle_permits.expired_vehicle_names", return_value={"VH-EXPIRED"}
+		), patch("logistics.transport.vehicle_permits.frappe.db.sql", side_effect=_capture):
+			for filters, expected, kind in cases:
+				transport_vehicle_query("Transport Vehicle", "", "name", 0, 10, filters)
+				params = captured["params"]
+				sql = captured["sql"]
+				self.assertEqual(params["expired"], ("VH-EXPIRED",))
+				self.assertIn("name NOT IN %(expired)s", sql)
+				self.assertNotIsInstance(params.get("vehicle_type"), list)
+				if kind == "blank":
+					self.assertNotIn("vehicle_type", params)
+					self.assertIn("vehicle_type IS NULL", sql)
+				elif kind == "none":
+					self.assertNotIn("vehicle_type", params)
+					self.assertIn("1=0", sql)
+				elif kind == "in":
+					self.assertIn("vehicle_type IN %(vehicle_type)s", sql)
+					self.assertEqual(params["vehicle_type"], expected)
+					self.assertIsInstance(params["vehicle_type"], tuple)
+				else:
+					self.assertIn("vehicle_type = %(vehicle_type)s", sql)
+					self.assertEqual(params["vehicle_type"], expected)
+					self.assertNotIsInstance(params["vehicle_type"], tuple)
 
 	def test_planner_skips_only_expired_vehicles(self):
 		self._configure(enabled=1, days=1)
@@ -338,14 +386,20 @@ class IntegrationTestVehiclePermits(IntegrationTestCase):
 		run_sheet.status = "Draft"
 		return run_sheet
 
-	def _query_names(self):
+	def _vehicle_filters(self):
+		scalar = {"vehicle_type": self.vehicle_type, "is_active": 1}
+		# Same shape search_link receives from Run Sheet link_filters.
+		operator = {"vehicle_type": ["=", self.vehicle_type], "is_active": ["=", 1]}
+		return (scalar, operator, json.dumps(operator))
+
+	def _query_names(self, filters=None):
 		rows = transport_vehicle_query(
 			"Transport Vehicle",
 			self.suffix,
 			"name",
 			0,
 			50,
-			{"vehicle_type": self.vehicle_type, "is_active": 1},
+			filters if filters is not None else {"vehicle_type": self.vehicle_type, "is_active": 1},
 		)
 		return [row[0] for row in rows]
 
