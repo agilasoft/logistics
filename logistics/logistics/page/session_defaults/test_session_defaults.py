@@ -24,9 +24,22 @@ class TestSessionDefaults(IntegrationTestCase):
 	def setUp(self):
 		super().setUp()
 		self._users = []
+		self._original_settings = [
+			row.ref_doctype
+			for row in frappe.get_all(
+				"Session Default",
+				filters={"parent": "Session Default Settings"},
+				fields=["ref_doctype"],
+				order_by="idx asc",
+				ignore_permissions=True,
+			)
+			if row.ref_doctype
+		]
+		self._settings(["Company"])
 
 	def tearDown(self):
 		frappe.set_user("Administrator")
+		self._settings(self._original_settings)
 		frappe.clear_cache()
 		super().tearDown()
 
@@ -92,6 +105,7 @@ class TestSessionDefaults(IntegrationTestCase):
 		context = get_context()
 		self.assertEqual(context["company"], company)
 		self.assertIn(company, context["companies"])
+		self.assertEqual([field["doctype"] for field in context["fields"]], ["Company"])
 		self.assertFalse(context["required"])
 
 	def test_logout_keeps_personal_company(self):
@@ -107,7 +121,58 @@ class TestSessionDefaults(IntegrationTestCase):
 		self.assertEqual(restore_persistent_company(user), company)
 		self.assertEqual(frappe.defaults.get_user_default("Company"), company)
 
+	def test_page_follows_session_default_settings(self):
+		user = self._dimension_user()
+		company = self._company("Listed")
+		self._branch(company)
+		self._settings(["Company"])
+		frappe.set_user(user)
+
+		context = get_context()
+		self.assertEqual([field["doctype"] for field in context["fields"]], ["Company"])
+		saved = save_session_defaults(company)
+		self.assertEqual(saved["company"], company)
+		self.assertNotIn("branch", saved)
+		self.assertFalse(user_needs_session_defaults(user))
+		self.assertIsNone(frappe.defaults.get_user_default("branch"))
+
+		frappe.set_user("Administrator")
+		self._settings(["Company", "Branch"])
+		frappe.set_user(user)
+		context = get_context()
+		self.assertEqual([field["doctype"] for field in context["fields"]], ["Company", "Branch"])
+		self.assertTrue(user_needs_session_defaults(user))
+
+	def test_save_clears_defaults_removed_from_settings(self):
+		user = self._dimension_user()
+		company = self._company("Pruned")
+		branch = self._branch(company)
+		cost_center = self._leaf_cost_center(company)
+		profit_center = self._profit_center(company)
+		self._settings(["Company", "Branch", "Cost Center", "Profit Center"])
+		frappe.set_user(user)
+		save_session_defaults(
+			company,
+			branch=branch,
+			cost_center=cost_center,
+			profit_center=profit_center,
+		)
+
+		frappe.set_user("Administrator")
+		self._settings(["Company"])
+		frappe.set_user(user)
+		restore_persistent_company(user)
+		for key in ("branch", "cost_center", "profit_center"):
+			self.assertIsNone(frappe.defaults.get_user_default(key))
+			self.assertIsNone(frappe.defaults.get_user_default(f"logistics_session_{key}"))
+		save_session_defaults(company)
+		self.assertEqual(frappe.defaults.get_user_default("Company"), company)
+		for key in ("branch", "cost_center", "profit_center"):
+			self.assertIsNone(frappe.defaults.get_user_default(key))
+			self.assertIsNone(frappe.defaults.get_user_default(f"logistics_session_{key}"))
+
 	def test_save_writes_branch_cost_center_and_profit_center(self):
+		self._settings(["Company", "Branch", "Cost Center", "Profit Center"])
 		user = self._dimension_user()
 		company = self._company("Dims")
 		other = self._company("DimsOther")
@@ -173,6 +238,7 @@ class TestSessionDefaults(IntegrationTestCase):
 		self.assertIn(profit_center, [row["name"] for row in context["profit_centers"]])
 
 	def test_logout_keeps_dimension_defaults(self):
+		self._settings(["Company", "Branch", "Cost Center", "Profit Center"])
 		user = self._dimension_user()
 		company = self._company("KeepDims")
 		branch = self._branch(company)
@@ -281,6 +347,14 @@ class TestSessionDefaults(IntegrationTestCase):
 			}
 		).insert(ignore_permissions=True)
 		return code
+
+	def _settings(self, doctypes: list[str]) -> None:
+		doc = frappe.get_doc("Session Default Settings")
+		doc.set("session_defaults", [])
+		for ref_doctype in doctypes:
+			doc.append("session_defaults", {"ref_doctype": ref_doctype})
+		doc.save(ignore_permissions=True)
+		frappe.clear_cache()
 
 	def _permit_only(self, user: str, company: str) -> None:
 		frappe.get_doc(

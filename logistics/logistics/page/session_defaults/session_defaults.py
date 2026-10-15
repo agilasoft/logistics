@@ -1,7 +1,11 @@
 # Copyright (c) 2026, AgilaSoft and contributors
 # For license information, please see license.txt
 
-"""Session defaults collected before a desk user opens a workdesk."""
+"""Session defaults collected before a desk user opens a workdesk.
+
+Which fields appear comes from Session Default Settings. Company, Branch,
+Cost Center, and Profit Center are not added unless that list includes them.
+"""
 
 from __future__ import annotations
 
@@ -15,33 +19,36 @@ from frappe import _
 # MariaDB's collation also treats those two keys as one row, so the value has
 # to be stored as "company". Reading still accepts either spelling.
 COMPANY_DEFAULT_KEY = "company"
-# Logout clears every Company default listed in Session Default Settings.
-# These extra keys are not in that list, so the user's choices survive logout.
+# Logout clears every default listed in Session Default Settings.
+# The matching logistics_session_* key is not one of those, so the choice can be put back.
 PERSISTENT_COMPANY_KEY = "logistics_session_company"
 
-# Branch is company-scoped through custom_company when that field exists.
-# Cost Center and Profit Center are company-scoped through company.
-DIMENSIONS = (
-	{
-		"doctype": "Branch",
+# How a DocType on Session Default Settings is filtered, and whether the page
+# requires it. Any other listed DocType is an optional link with no extra filters.
+_FIELD_BEHAVIOR = {
+	"Company": {
+		"fieldname": "company",
+		"label": "Company",
+		"required": True,
+		"persistent_key": PERSISTENT_COMPANY_KEY,
+	},
+	"Branch": {
 		"fieldname": "branch",
 		"label": "Branch",
-		"filters": {},
 		"required": True,
+		"filters": {},
 	},
-	{
-		"doctype": "Cost Center",
+	"Cost Center": {
 		"fieldname": "cost_center",
 		"label": "Cost Center",
 		"filters": {"is_group": 0, "disabled": 0},
 	},
-	{
-		"doctype": "Profit Center",
+	"Profit Center": {
 		"fieldname": "profit_center",
 		"label": "Profit Center",
 		"filters": {},
 	},
-)
+}
 
 
 def extend_bootinfo(bootinfo) -> None:
@@ -81,10 +88,14 @@ def user_needs_session_defaults(user: str | None = None) -> bool:
 		return False
 	if frappe.db.get_value("User", user, "user_type") != "System User":
 		return False
+	specs = configured_specs()
+	company_spec = _spec_by_fieldname(specs, "company")
+	if not company_spec:
+		return False
 	company = get_personal_company(user)
 	if not company:
 		return bool(get_permitted_companies(user))
-	return _missing_required_dimension(user, company)
+	return _missing_required_dimension(user, company, specs)
 
 
 def get_personal_company(user: str | None = None) -> str | None:
@@ -112,24 +123,56 @@ def get_permitted_companies(user: str | None = None) -> list[str]:
 		return []
 
 
+def configured_specs() -> list[dict]:
+	"""Field specs for the DocTypes listed on Session Default Settings, in list order."""
+	specs = []
+	seen = set()
+	for ref_doctype in _configured_ref_doctypes():
+		if ref_doctype in seen:
+			continue
+		seen.add(ref_doctype)
+		specs.append(_spec_for(ref_doctype))
+	return specs
+
+
 @frappe.whitelist()
 def get_context():
-	"""Permitted companies, dimensions, and the user's current personal defaults."""
+	"""Permitted values and the user's current defaults, for the configured fields only."""
 	_require_system_user()
 	user = frappe.session.user
-	company = get_personal_company(user)
+	specs = configured_specs()
+	company_spec = _spec_by_fieldname(specs, "company")
+	dimension_specs = [spec for spec in specs if spec["doctype"] != "Company"]
+	rows = {spec["fieldname"]: _dimension_rows(spec, user) for spec in dimension_specs}
 	companies = get_permitted_companies(user)
-	rows = {spec["fieldname"]: _dimension_rows(spec, user) for spec in DIMENSIONS}
+	company = get_personal_company(user) if company_spec else None
 	selected = company if company in companies else None
-	values = _values_for_company(user, selected, rows) if selected else {}
+	scope_company = selected if company_spec else (get_personal_company(user) or "")
+	if not company_spec and scope_company:
+		rows = {
+			fieldname: [
+				row
+				for row in field_rows
+				if not row.get("company") or row.get("company") == scope_company
+			]
+			for fieldname, field_rows in rows.items()
+		}
+	if scope_company:
+		values = _values_for_company(user, scope_company, rows, dimension_specs)
+	else:
+		values = {spec["fieldname"]: None for spec in dimension_specs}
 	payload = {
+		"fields": [_public_field(spec) for spec in specs],
 		"companies": companies,
 		"company": selected,
 		"required": user_needs_session_defaults(user),
-		"branches": rows["branch"],
-		"cost_centers": rows["cost_center"],
-		"profit_centers": rows["profit_center"],
+		"branches": rows.get("branch", []),
+		"cost_centers": rows.get("cost_center", []),
+		"profit_centers": rows.get("profit_center", []),
+		"options": {spec["fieldname"]: rows[spec["fieldname"]] for spec in dimension_specs},
 	}
+	if company_spec:
+		payload["options"]["company"] = companies
 	payload.update(values)
 	return payload
 
@@ -140,28 +183,41 @@ def save_session_defaults(
 	branch: str | None = None,
 	cost_center: str | None = None,
 	profit_center: str | None = None,
+	values: str | dict | None = None,
 ):
-	"""Store the user's personal Company, Branch, Cost Center, and Profit Center."""
+	"""Store the user's defaults for the DocTypes listed in Session Default Settings."""
 	_require_system_user()
 	user = frappe.session.user
-	company = (company or "").strip()
-	if not company:
-		frappe.throw(_("Company is required"))
+	specs = configured_specs()
+	incoming = _incoming_values(company, branch, cost_center, profit_center, values)
+	company_spec = _spec_by_fieldname(specs, "company")
+	saved = {}
+	applied = {}
+	cleared = []
 
-	permitted = set(get_permitted_companies(user))
-	if company not in permitted:
-		frappe.throw(_("You cannot use Company {0}").format(company), frappe.PermissionError)
+	scope_company = ""
+	if company_spec:
+		scope_company = (incoming.get("company") or "").strip()
+		if not scope_company:
+			frappe.throw(_("Company is required"))
+		permitted = set(get_permitted_companies(user))
+		if scope_company not in permitted:
+			frappe.throw(
+				_("You cannot use Company {0}").format(scope_company),
+				frappe.PermissionError,
+			)
+		_store_default(user, COMPANY_DEFAULT_KEY, company_spec["persistent_key"], scope_company)
+		saved["company"] = scope_company
+		applied.update(_applied_keys(COMPANY_DEFAULT_KEY, scope_company))
+	else:
+		scope_company = get_personal_company(user) or ""
 
-	incoming = {
-		"branch": branch,
-		"cost_center": cost_center,
-		"profit_center": profit_center,
-	}
-	saved = {"company": company}
-	for spec in DIMENSIONS:
+	for spec in specs:
+		if spec["doctype"] == "Company":
+			continue
 		fieldname = spec["fieldname"]
 		value = (incoming.get(fieldname) or "").strip()
-		allowed = _names_for_company(_dimension_rows(spec, user), company)
+		allowed = _names_for_company(_dimension_rows(spec, user), scope_company)
 		if spec.get("required") and allowed and not value:
 			frappe.throw(_("{0} is required").format(_(spec["label"])))
 		if value and value not in allowed:
@@ -169,10 +225,16 @@ def save_session_defaults(
 				_("You cannot use {0} {1}").format(_(spec["label"]), value),
 				frappe.PermissionError,
 			)
-		_store_default(user, fieldname, f"logistics_session_{fieldname}", value)
+		_store_default(user, fieldname, spec["persistent_key"], value or None)
 		saved[fieldname] = value or None
+		if value:
+			applied.update(_applied_keys(fieldname, value))
+		else:
+			_remember_cleared(cleared, fieldname, spec["persistent_key"])
 
-	_store_default(user, COMPANY_DEFAULT_KEY, PERSISTENT_COMPANY_KEY, company)
+	_clear_unconfigured(user, specs, cleared)
+	saved["applied"] = applied
+	saved["cleared"] = cleared
 	return saved
 
 
@@ -182,40 +244,140 @@ def restore_persistent_company(user: str | None = None) -> str | None:
 
 
 def restore_persistent_defaults(user: str | None = None) -> dict:
-	"""Put saved session defaults back after logout clears the session keys."""
+	"""Put saved session defaults back after logout clears the keys listed in settings."""
 	user = user or frappe.session.user
 	restored = {}
 	if not user or user == "Guest":
 		return restored
-	restored["company"] = _restore_one(user, COMPANY_DEFAULT_KEY, PERSISTENT_COMPANY_KEY)
-	for spec in DIMENSIONS:
-		fieldname = spec["fieldname"]
-		restored[fieldname] = _restore_one(user, fieldname, f"logistics_session_{fieldname}")
+	specs = configured_specs()
+	# A DocType removed from Session Default Settings should stop applying on the next login.
+	_clear_unconfigured(user, specs, [])
+	for spec in specs:
+		restored[spec["fieldname"]] = _restore_one(user, spec["fieldname"], spec["persistent_key"])
 	return restored
 
 
-def _missing_required_dimension(user: str, company: str) -> bool:
-	"""True when a required dimension, such as Branch, is still unset."""
-	for spec in DIMENSIONS:
-		if not spec.get("required"):
+def _configured_ref_doctypes() -> list[str]:
+	if not frappe.db.exists("DocType", "Session Default"):
+		return []
+	rows = frappe.get_all(
+		"Session Default",
+		filters={
+			"parent": "Session Default Settings",
+			"parenttype": "Session Default Settings",
+		},
+		fields=["ref_doctype"],
+		order_by="idx asc",
+		ignore_permissions=True,
+	)
+	names = []
+	for row in rows:
+		ref_doctype = (row.ref_doctype or "").strip()
+		if ref_doctype:
+			names.append(ref_doctype)
+	return names
+
+
+def _spec_for(ref_doctype: str) -> dict:
+	behavior = _FIELD_BEHAVIOR.get(ref_doctype) or {}
+	fieldname = behavior.get("fieldname") or frappe.scrub(ref_doctype)
+	return {
+		"doctype": ref_doctype,
+		"fieldname": fieldname,
+		"label": behavior.get("label") or ref_doctype,
+		"filters": behavior.get("filters") or {},
+		"required": bool(behavior.get("required")),
+		"persistent_key": behavior.get("persistent_key") or f"logistics_session_{fieldname}",
+	}
+
+
+def _spec_by_fieldname(specs: list[dict], fieldname: str) -> dict | None:
+	for spec in specs:
+		if spec["fieldname"] == fieldname:
+			return spec
+	return None
+
+
+def _public_field(spec: dict) -> dict:
+	return {
+		"fieldname": spec["fieldname"],
+		"doctype": spec["doctype"],
+		"label": _(spec["label"]),
+		"required": 1 if spec.get("required") else 0,
+	}
+
+
+def _incoming_values(
+	company: str | None,
+	branch: str | None,
+	cost_center: str | None,
+	profit_center: str | None,
+	values: str | dict | None,
+) -> dict:
+	incoming = {}
+	if isinstance(values, str) and values:
+		values = frappe.parse_json(values)
+	if isinstance(values, dict):
+		incoming.update(values)
+	for fieldname, value in (
+		("company", company),
+		("branch", branch),
+		("cost_center", cost_center),
+		("profit_center", profit_center),
+	):
+		if value is not None:
+			incoming[fieldname] = value
+	return incoming
+
+
+def _applied_keys(fieldname: str, value: str) -> dict:
+	return {fieldname: value, frappe.unscrub(fieldname): value}
+
+
+def _remember_cleared(cleared: list[str], fieldname: str, persistent_key: str) -> None:
+	for key in (fieldname, frappe.unscrub(fieldname), persistent_key):
+		if key not in cleared:
+			cleared.append(key)
+
+
+def _clear_unconfigured(user: str, specs: list[dict], cleared: list[str]) -> None:
+	"""Drop defaults this page stored for DocTypes no longer listed in settings."""
+	keep = {spec["persistent_key"] for spec in specs}
+	defaults = frappe.defaults.get_defaults_for(user) or {}
+	for key in list(defaults):
+		text = str(key)
+		if not text.startswith("logistics_session_") or text in keep:
+			continue
+		fieldname = text[len("logistics_session_") :]
+		_store_default(user, fieldname, text, None)
+		_remember_cleared(cleared, fieldname, text)
+
+
+def _missing_required_dimension(user: str, company: str, specs: list[dict]) -> bool:
+	"""True when a required field other than Company, such as Branch, is still unset."""
+	for spec in specs:
+		if spec["doctype"] == "Company" or not spec.get("required"):
 			continue
 		names = _names_for_company(_dimension_rows(spec, user), company)
-		if names and not _valid_personal(user, spec["fieldname"], company, names):
+		if names and not _valid_personal(user, spec["fieldname"], names):
 			return True
 	return False
 
 
-def _values_for_company(user: str, company: str, rows: dict) -> dict:
+def _values_for_company(user: str, company: str, rows: dict, specs: list[dict]) -> dict:
 	values = {}
-	for spec in DIMENSIONS:
+	for spec in specs:
 		fieldname = spec["fieldname"]
-		names = _names_for_company(rows[fieldname], company)
-		values[fieldname] = _valid_personal(user, fieldname, company, names)
+		names = _names_for_company(rows.get(fieldname) or [], company)
+		values[fieldname] = _valid_personal(user, fieldname, names)
 	return values
 
 
-def _valid_personal(user: str, fieldname: str, company: str, names: list[str]) -> str | None:
-	value = _personal_value(user, fieldname, f"logistics_session_{fieldname}")
+def _valid_personal(user: str, fieldname: str, names: list[str]) -> str | None:
+	persistent_key = (
+		PERSISTENT_COMPANY_KEY if fieldname == COMPANY_DEFAULT_KEY else f"logistics_session_{fieldname}"
+	)
+	value = _personal_value(user, fieldname, persistent_key)
 	if value and value in names:
 		return value
 	return None
