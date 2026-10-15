@@ -156,7 +156,12 @@ frappe.ui.form.on("Change Request Charge", {
 		}
 	},
 
+	revenue_calculation_method: function (frm, cdt, cdn) {
+		_sync_change_request_revenue_method(cdt, cdn, "revenue_calculation_method", "calculation_method");
+		_calculate_change_request_charge_row(frm, cdt, cdn);
+	},
 	calculation_method: function (frm, cdt, cdn) {
+		_sync_change_request_revenue_method(cdt, cdn, "calculation_method", "revenue_calculation_method");
 		_calculate_change_request_charge_row(frm, cdt, cdn);
 	},
 	quantity: function (frm, cdt, cdn) {
@@ -202,6 +207,14 @@ frappe.ui.form.on("Change Request Charge", {
 		_calculate_change_request_charge_row(frm, cdt, cdn);
 	},
 });
+
+function _sync_change_request_revenue_method(cdt, cdn, source, target) {
+	const row = frappe.get_doc(cdt, cdn);
+	if (!row || row[source] === row[target]) {
+		return;
+	}
+	frappe.model.set_value(cdt, cdn, target, row[source] || "");
+}
 
 function _calculate_change_request_charge_row(frm, cdt, cdn) {
 	if (!cdn) return;

@@ -169,6 +169,13 @@ doctype_js = {
 	# Sales Quote: dialogs first, break row/grid handlers, then air/sea freight scripts.
 	# Paths are module-relative (no leading "logistics/") — see NOTE below for Special Project.
 	# sales_quote.js is omitted: it loads via the DocType's own __js; listing it here would double-bind.
+	"Change Request": [
+		"public/js/operational_exchange_rate_grid.js",
+		"public/js/charge_type_cleanup.js",
+		"public/js/charge_break_dialogs.js",
+		"public/js/charge_break_buttons.js",
+		"pricing_center/doctype/change_request_charge/change_request_charge.js",
+	],
 	"Sales Quote": [
 		"public/js/operational_exchange_rate_grid.js",
 		"public/js/charge_type_cleanup.js",

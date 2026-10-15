@@ -512,6 +512,161 @@ class TestChangeRequestToJob(UnitTestCase):
 		self.assertIn("Docket", _cost_mappers())
 		self.assertIn("Docket", _revenue_appliers())
 
+	@patch("logistics.pricing_center.change_request_to_job.frappe.db.get_value", return_value="Extra Handling")
+	def test_map_cr_charge_to_docket_copies_sales_quote_fields_and_linked_service(self, _mock_item_name):
+		from logistics.pricing_center.change_request_to_job import _map_cr_charge_to_docket_cost
+
+		row = frappe._dict(
+			item_code="MICE-EXTRA",
+			item_name="Extra Handling",
+			charge_type="Margin",
+			service_type="MICE",
+			revenue_calculation_method="Per Unit",
+			calculation_method="Flat Rate",
+			quantity=3,
+			unit_rate=80,
+			estimated_revenue=240,
+			currency="USD",
+			cost_currency="PHP",
+			cost_quantity=2,
+			unit_cost=50,
+			estimated_cost=100,
+			bill_to="Customer A",
+			pay_to="Supplier B",
+			bill_to_exchange_rate=1.25,
+			pay_to_exchange_rate=0.9,
+			bill_to_exchange_rate_source="ERS-SELL",
+			pay_to_exchange_rate_source="ERS-BUY",
+			use_tariff_in_cost=1,
+			cost_tariff="TAR-COST",
+			apply_95_5_rule=1,
+			linked_service="IJ-NEW",
+			charge_scope="Main",
+		)
+		out = _map_cr_charge_to_docket_cost(row, "CR-DOCKET", "crc-dk-2")
+		self.assertEqual(out["revenue_calculation_method"], "Per Unit")
+		self.assertEqual(out["unit_rate"], 0)
+		self.assertEqual(out["estimated_revenue"], 0)
+		self.assertEqual(out["estimated_cost"], 100)
+		self.assertEqual(out["bill_to_exchange_rate"], 1.25)
+		self.assertEqual(out["pay_to_exchange_rate_source"], "ERS-BUY")
+		self.assertEqual(out["cost_tariff"], "TAR-COST")
+		self.assertEqual(out["apply_95_5_rule"], 1)
+		self.assertEqual(out["linked_service"], "IJ-NEW")
+		self.assertEqual(out["charge_scope"], "Linked")
+		self.assertEqual(out["bill_to"], "Customer A")
+		self.assertEqual(out["pay_to"], "Supplier B")
+
+	def test_change_request_charge_grid_matches_sales_quote_charge(self):
+		import json
+		from pathlib import Path
+
+		root = Path(__file__).resolve().parents[1]
+		cr = json.loads((root / "change_request_charge/change_request_charge.json").read_text())
+		sq = json.loads((root / "sales_quote_charge/sales_quote_charge.json").read_text())
+
+		def listed(doc):
+			visible = {
+				field["fieldname"]
+				for field in doc["fields"]
+				if field.get("in_list_view") and field.get("fieldtype") not in ("Section Break", "Column Break")
+			}
+			return [name for name in doc["field_order"] if name in visible]
+
+		self.assertEqual(listed(cr), listed(sq))
+		cr_names = {field["fieldname"] for field in cr["fields"]}
+		for name in (
+			"revenue_calculation_method",
+			"cost_calculation_method",
+			"parameters",
+			"apply_95_5_rule",
+			"bill_to_exchange_rate_source",
+			"pay_to_exchange_rate_source",
+			"selling_weight_break",
+			"cost_qty_break",
+			"linked_service",
+		):
+			self.assertIn(name, cr_names)
+
+	def test_sync_revenue_calculation_method_prefers_sales_quote_field(self):
+		from logistics.pricing_center.doctype.change_request_charge.change_request_charge import (
+			ChangeRequestCharge,
+		)
+
+		row = frappe._dict(revenue_calculation_method="Per Unit", calculation_method="Flat Rate")
+		ChangeRequestCharge._sync_revenue_calculation_method(row)
+		self.assertEqual(row.calculation_method, "Per Unit")
+		self.assertEqual(row.revenue_calculation_method, "Per Unit")
+
+		legacy = frappe._dict(calculation_method="Weight Break", revenue_calculation_method="")
+		ChangeRequestCharge._sync_revenue_calculation_method(legacy)
+		self.assertEqual(legacy.revenue_calculation_method, "Weight Break")
+
+
+class TestChangeRequestLinkedServicesOnDocket(UnitTestCase):
+	def _owned(self, name="IJ-NEW"):
+		return frappe._dict(
+			name=name,
+			parent_booking_type="Change Request",
+			parent_booking_name="CR-DOCKET",
+		)
+
+	def _reused(self):
+		return frappe._dict(
+			name="IJ-JOB",
+			parent_booking_type="Docket",
+			parent_booking_name="DK-1",
+		)
+
+	@patch("logistics.utils.linked_service_usage.record_usages_for_linked_services")
+	@patch(
+		"logistics.logistics.doctype.linked_service.linked_service.get_linked_services_for_change_request"
+	)
+	@patch("logistics.pricing_center.doctype.change_request.change_request.frappe.db.get_value", return_value="SQ-1")
+	@patch("logistics.pricing_center.doctype.change_request.change_request.frappe.get_meta")
+	@patch("logistics.pricing_center.doctype.change_request.change_request.frappe.db.exists", return_value=True)
+	def test_owned_linked_service_is_recorded_on_the_docket(
+		self, _exists, mock_meta, _sq, mock_list, mock_record
+	):
+		from logistics.pricing_center.doctype.change_request.change_request import (
+			attach_change_request_linked_services_to_docket,
+		)
+
+		mock_meta.return_value.has_field.return_value = True
+		mock_list.return_value = [self._owned(), self._reused()]
+		cr = frappe._dict(name="CR-DOCKET", job_type="Docket", job="DK-1")
+
+		attached = attach_change_request_linked_services_to_docket(cr)
+
+		self.assertEqual(attached, ["IJ-NEW"])
+		mock_record.assert_called_once_with(["IJ-NEW"], "Docket", "DK-1", sales_quote="SQ-1")
+
+	@patch("logistics.utils.linked_service_usage.record_usages_for_linked_services")
+	def test_non_docket_change_request_does_not_attach_linked_services(self, mock_record):
+		from logistics.pricing_center.doctype.change_request.change_request import (
+			attach_change_request_linked_services_to_docket,
+		)
+
+		cr = frappe._dict(name="CR-AIR", job_type="Air Shipment", job="ASP-1")
+		self.assertEqual(attach_change_request_linked_services_to_docket(cr), [])
+		mock_record.assert_not_called()
+
+	@patch("logistics.utils.linked_service_usage.clear_linked_service_usage")
+	@patch(
+		"logistics.logistics.doctype.linked_service.linked_service.get_linked_services_for_change_request"
+	)
+	def test_cancel_clears_only_owned_services_from_the_docket(self, mock_list, mock_clear):
+		from logistics.pricing_center.doctype.change_request.change_request import (
+			detach_change_request_linked_services_from_docket,
+		)
+
+		mock_list.return_value = [self._owned(), self._reused()]
+		cr = frappe._dict(name="CR-DOCKET", job_type="Docket", job="DK-1")
+
+		detach_change_request_linked_services_from_docket(cr)
+
+		mock_clear.assert_called_once_with("Docket", "DK-1", linked_service="IJ-NEW")
+
 
 class TestChangeRequestVisibility(UnitTestCase):
 	"""Job-type field visibility + immutable Job Type / Job."""
