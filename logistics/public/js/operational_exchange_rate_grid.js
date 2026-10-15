@@ -191,6 +191,7 @@ if (!logistics.operational_exchange_rate._allow_override_bound) {
 	logistics.operational_exchange_rate._allow_override_bound = true;
 	[
 		'Time Sensitive Case',
+		'Change Request',
 		'Sales Quote',
 		'Air Booking',
 		'Air Shipment',
@@ -212,6 +213,7 @@ if (!logistics.operational_exchange_rate._allow_override_bound) {
 		});
 	});
 	[
+		'Change Request Charge',
 		'Sales Quote Charge',
 		'Tariff Charge',
 		'Air Booking Charges',

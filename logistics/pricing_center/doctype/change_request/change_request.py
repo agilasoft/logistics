@@ -135,6 +135,7 @@ class ChangeRequest(Document):
 		self._honour_linked_services_form_rows()
 		self.validate_job_context_immutable()
 		self.validate_linked_service_charge_tagging()
+		self._refresh_charge_parameters_display()
 		if not (getattr(self, "reason", None) or "").strip():
 			frappe.throw(_("Reason is required for a Change Request."), title=_("Reason Required"))
 		try:
@@ -234,14 +235,17 @@ class ChangeRequest(Document):
 
 	def after_insert(self):
 		self._drop_virtual_linked_services_rows()
+		attach_change_request_linked_services_to_docket(self)
 
 	def on_update(self):
 		self._drop_virtual_linked_services_rows()
+		attach_change_request_linked_services_to_docket(self)
 
 	def on_submit(self):
 		from logistics.pricing_center.change_request_field_apply import apply_change_request_fields_to_job
 		from logistics.pricing_center.change_request_to_job import apply_change_request_charges_to_job
 
+		attach_change_request_linked_services_to_docket(self)
 		frappe.flags.from_change_request = True
 		try:
 			apply_change_request_fields_to_job(self)
@@ -258,7 +262,20 @@ class ChangeRequest(Document):
 			remove_change_request_charges_from_job(self)
 		finally:
 			frappe.flags.from_change_request = False
+		detach_change_request_linked_services_from_docket(self)
 		frappe.db.set_value("Change Request", self.name, "status", "Draft", update_modified=False)
+
+	def _refresh_charge_parameters_display(self):
+		"""Fill the read-only Parameters summary the same way Sales Quote Charge does."""
+		try:
+			from logistics.utils.sales_quote_charge_parameters import (
+				refresh_change_request_charge_parameters_display,
+			)
+
+			for row in self.get("charges") or []:
+				refresh_change_request_charge_parameters_display(row, self)
+		except Exception:
+			frappe.log_error(frappe.get_traceback(), "Change Request charge parameters refresh")
 
 
 def _nonempty_scalar(val):
@@ -674,6 +691,60 @@ def get_eligible_internal_jobs_for_change_request_job(
 	return out
 
 
+def _change_request_owned_linked_service_names(cr) -> list[str]:
+	"""Linked Services parented to this Change Request (not job legs reused via Usage)."""
+	from logistics.logistics.doctype.linked_service.linked_service import (
+		get_linked_services_for_change_request,
+	)
+
+	if not cr or not getattr(cr, "name", None):
+		return []
+	names = []
+	for linked in get_linked_services_for_change_request(cr.name):
+		if _change_request_owns_linked_service(cr, linked):
+			ls_name = (getattr(linked, "name", None) or "").strip()
+			if ls_name:
+				names.append(ls_name)
+	return names
+
+
+def attach_change_request_linked_services_to_docket(cr) -> list[str]:
+	"""Record Usage so Linked Services created on this Change Request appear on the Docket.
+
+	Sales Quote copies quote-owned services onto a Docket the same way: the service keeps its
+	owner, and the Docket lists it through Linked Service Usage. Job legs already on the Docket
+	are left alone.
+	"""
+	if not cr or (getattr(cr, "job_type", None) or "").strip() != "Docket":
+		return []
+	docket = (getattr(cr, "job", None) or "").strip()
+	if not docket or not frappe.db.exists("Docket", docket):
+		return []
+	names = _change_request_owned_linked_service_names(cr)
+	if not names:
+		return []
+	from logistics.utils.linked_service_usage import record_usages_for_linked_services
+
+	sales_quote = None
+	if frappe.get_meta("Docket").has_field("sales_quote"):
+		sales_quote = frappe.db.get_value("Docket", docket, "sales_quote")
+	record_usages_for_linked_services(names, "Docket", docket, sales_quote=sales_quote)
+	return names
+
+
+def detach_change_request_linked_services_from_docket(cr) -> None:
+	"""Drop Docket Usage for services this Change Request created."""
+	if not cr or (getattr(cr, "job_type", None) or "").strip() != "Docket":
+		return
+	docket = (getattr(cr, "job", None) or "").strip()
+	if not docket:
+		return
+	from logistics.utils.linked_service_usage import clear_linked_service_usage
+
+	for name in _change_request_owned_linked_service_names(cr):
+		clear_linked_service_usage("Docket", docket, linked_service=name)
+
+
 def _attach_job_linked_services_to_change_request(cr, job=None) -> None:
 	"""Record Usage so the job's existing IJs appear on this CR (same IDs, no clone)."""
 	if not cr or not getattr(cr, "name", None):
@@ -957,6 +1028,7 @@ def add_linked_service(change_request: str, service_type: str, quantity=1, value
 	apply_linked_service_quantity(linked, quantity)
 	linked.insert(ignore_permissions=True)
 	names = [linked.name]
+	attach_change_request_linked_services_to_docket(cr)
 
 	cr.flags._linked_services_view_cached = False
 	if "linked_services" in cr.__dict__:

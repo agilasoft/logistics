@@ -71,7 +71,7 @@ def _map_cr_charge_to_air_cost(row, cr_name, charge_row_name):
 		"item_code": _row_val(row, "item_code"),
 		"charge_type": "Margin",
 		"charge_category": _row_val(row, "charge_category") or "Other",
-		"revenue_calculation_method": _row_val(row, "calculation_method") or "Flat Rate",
+		"revenue_calculation_method": _cr_revenue_calculation_method(row),
 		"quantity": rev_qty,
 		"uom": _row_val(row, "uom"),
 		"currency": ccy,
@@ -114,7 +114,7 @@ def _map_cr_charge_to_transport_cost(row, cr_name, charge_row_name):
 		"item_code": _row_val(row, "item_code"),
 		"charge_type": "Margin",
 		"charge_category": _row_val(row, "charge_category") or "Other",
-		"revenue_calculation_method": _row_val(row, "calculation_method") or "Flat Rate",
+		"revenue_calculation_method": _cr_revenue_calculation_method(row),
 		"quantity": rev_qty,
 		"uom": _row_val(row, "uom"),
 		"currency": ccy,
@@ -179,7 +179,7 @@ def _map_cr_charge_to_sea_cost(row, cr_name, charge_row_name):
 		"item_code": ic,
 		"charge_type": "Margin",
 		"charge_category": _row_val(row, "charge_category") or "Other",
-		"revenue_calculation_method": _row_val(row, "calculation_method") or "Flat Rate",
+		"revenue_calculation_method": _cr_revenue_calculation_method(row),
 		"quantity": rev_qty,
 		"uom": _row_val(row, "uom"),
 		"currency": ccy,
@@ -219,7 +219,7 @@ def _map_cr_charge_to_declaration_cost(row, cr_name, charge_row_name):
 		qty = 1
 	rev_qty = flt(_row_val(row, "quantity"), 2) or 1
 	ccy = _row_val(row, "currency") or _row_val(row, "cost_currency")
-	rev_method = _row_val(row, "calculation_method") or "Fixed Amount"
+	rev_method = _cr_revenue_calculation_method(row, "Fixed Amount")
 	cost_method = _row_val(row, "cost_calculation_method") or "Fixed Amount"
 	return {
 		"service_type": _row_val(row, "service_type") or "Customs",
@@ -277,7 +277,7 @@ def _map_cr_charge_to_special_project_cost(row, cr_name, charge_row_name):
 		"item_code": ic,
 		"charge_type": "Margin",
 		"charge_category": _row_val(row, "charge_category") or "Other",
-		"revenue_calculation_method": _row_val(row, "calculation_method") or "Flat Rate",
+		"revenue_calculation_method": _cr_revenue_calculation_method(row),
 		"quantity": rev_qty,
 		"uom": _row_val(row, "uom"),
 		"currency": ccy,
@@ -313,8 +313,51 @@ def _map_cr_charge_to_special_project_cost(row, cr_name, charge_row_name):
 	return out
 
 
+# Commercial columns Sales Quote copies onto a Docket charge. Revenue amounts stay at zero
+# until the additional-charge Sales Quote is submitted; every other shared field is copied.
+_DOCKET_CHARGE_FIELDS_FROM_SALES_QUOTE = (
+	"item_name",
+	"bill_to_exchange_rate",
+	"pay_to_exchange_rate",
+	"bill_to_exchange_rate_source",
+	"pay_to_exchange_rate_source",
+	"use_tariff_in_revenue",
+	"use_tariff_in_cost",
+	"cost_internal",
+	"revenue_tariff",
+	"cost_tariff",
+	"apply_95_5_rule",
+	"taxable_freight_item",
+	"taxable_freight_item_tax_template",
+	"use_unit_breaks",
+	"cost_use_unit_breaks",
+	"charge_type",
+	"charge_scope",
+)
+
+
+def _cr_revenue_calculation_method(row, default="Flat Rate"):
+	return (
+		_row_val(row, "revenue_calculation_method")
+		or _row_val(row, "calculation_method")
+		or default
+	)
+
+
+def _copy_present_charge_fields(row, out, fieldnames):
+	for fieldname in fieldnames:
+		val = _row_val(row, fieldname)
+		if val is None or val == "":
+			continue
+		out[fieldname] = val
+
+
 def _map_cr_charge_to_docket_cost(row, cr_name, charge_row_name):
-	"""Map Change Request Charge → MICE Project Charges row on a Docket."""
+	"""Map Change Request Charge → MICE Project Charges row on a Docket.
+
+	Field set matches ``map_sales_quote_charge_to_programme_charge_dict`` (the Sales Quote →
+	Docket copy). Revenue rate and estimated revenue stay zero until the Sales Quote merge.
+	"""
 	from logistics.utils.sales_quote_charge_parameters import merge_charge_row_parameters_onto_dict
 
 	qty = flt(_row_val(row, "cost_quantity"), 2)
@@ -326,12 +369,14 @@ def _map_cr_charge_to_docket_cost(row, cr_name, charge_row_name):
 	item_name = _row_val(row, "item_name") or ""
 	if ic and not item_name:
 		item_name = frappe.db.get_value("Item", ic, "item_name") or ""
+	description = _row_val(row, "description") or item_name
 	out = {
 		"service_type": _row_val(row, "service_type") or "MICE",
 		"item_code": ic,
-		"charge_type": "Margin",
+		"item_name": item_name or None,
+		"charge_type": _row_val(row, "charge_type") or "Margin",
 		"charge_category": _row_val(row, "charge_category") or "Other",
-		"revenue_calculation_method": _row_val(row, "calculation_method") or "Flat Rate",
+		"revenue_calculation_method": _cr_revenue_calculation_method(row),
 		"quantity": rev_qty,
 		"uom": _row_val(row, "uom"),
 		"currency": ccy,
@@ -345,7 +390,7 @@ def _map_cr_charge_to_docket_cost(row, cr_name, charge_row_name):
 		"base_amount": 0,
 		"estimated_revenue": 0,
 		"bill_to": _row_val(row, "bill_to"),
-		"description": item_name,
+		"description": description,
 		"cost_calculation_method": _row_val(row, "cost_calculation_method") or "Flat Rate",
 		"cost_quantity": qty,
 		"cost_uom": _row_val(row, "cost_uom"),
@@ -358,13 +403,38 @@ def _map_cr_charge_to_docket_cost(row, cr_name, charge_row_name):
 		"cost_base_amount": flt(_row_val(row, "cost_base_amount"), 2),
 		"estimated_cost": flt(_row_val(row, "estimated_cost"), 2),
 		"pay_to": _row_val(row, "pay_to"),
-		"revenue_calc_notes": "",
+		"revenue_calc_notes": _row_val(row, "revenue_calc_notes") or "",
 		"cost_calc_notes": _row_val(row, "cost_calc_notes") or "",
 		"change_request": cr_name,
 		"change_request_charge": charge_row_name,
 	}
+	_copy_present_charge_fields(row, out, _DOCKET_CHARGE_FIELDS_FROM_SALES_QUOTE)
+	linked_service = charge_row_linked_service_link(row)
+	if linked_service:
+		out["linked_service"] = linked_service
+		out["charge_scope"] = CHARGE_SCOPE_LINKED
 	merge_charge_row_parameters_onto_dict(row, out, "MICE Project Charges")
 	return out
+
+
+def _copy_change_request_charge_breaks_to_docket(cr_doc, docket_doc):
+	"""Copy weight/qty/unit/percentage breaks onto Docket charge rows, as Sales Quote does."""
+	from logistics.utils.sales_quote_programme_charges import copy_charge_breaks_for_reference
+
+	child = _child_doctype_for_charges_table("Docket") or "MICE Project Charges"
+	for row in docket_doc.get("charges") or []:
+		if getattr(row, "change_request", None) != cr_doc.name:
+			continue
+		source = (getattr(row, "change_request_charge", None) or "").strip()
+		target = (getattr(row, "name", None) or "").strip()
+		if not source or not target:
+			continue
+		copy_charge_breaks_for_reference(
+			"Change Request Charge",
+			source,
+			child,
+			target,
+		)
 
 
 def _cost_mappers():
@@ -759,6 +829,8 @@ def apply_change_request_charges_to_job(cr_doc):
 
 	main_job_doc.flags.ignore_validate_update_after_submit = True
 	main_job_doc.save(ignore_permissions=True)
+	if getattr(main_job_doc, "doctype", None) == "Docket":
+		_copy_change_request_charge_breaks_to_docket(cr_doc, main_job_doc)
 	for sat_doc in satellites_touched.values():
 		sat_doc.flags.ignore_validate_update_after_submit = True
 		sat_doc.save(ignore_permissions=True)
@@ -832,7 +904,7 @@ def _find_change_request_job_row(job_doc, cr_name, charge_row_name):
 
 
 def _apply_sq_revenue_to_air_job_row(job_row, sq_row):
-	job_row.revenue_calculation_method = _row_val(sq_row, "calculation_method") or "Flat Rate"
+	job_row.revenue_calculation_method = _cr_revenue_calculation_method(sq_row)
 	job_row.quantity = flt(_row_val(sq_row, "quantity"), 2) or 1
 	job_row.uom = _row_val(sq_row, "uom")
 	job_row.currency = _row_val(sq_row, "currency")
@@ -849,7 +921,7 @@ def _apply_sq_revenue_to_air_job_row(job_row, sq_row):
 
 
 def _apply_sq_revenue_to_transport_job_row(job_row, sq_row):
-	job_row.revenue_calculation_method = _row_val(sq_row, "calculation_method") or "Flat Rate"
+	job_row.revenue_calculation_method = _cr_revenue_calculation_method(sq_row)
 	job_row.quantity = flt(_row_val(sq_row, "quantity"), 2) or 1
 	job_row.uom = _row_val(sq_row, "uom")
 	job_row.currency = _row_val(sq_row, "currency")
@@ -880,7 +952,7 @@ def _apply_sq_revenue_to_warehouse_job_row(job_row, sq_row):
 
 
 def _apply_sq_revenue_to_sea_job_row(job_row, sq_row):
-	job_row.revenue_calculation_method = _row_val(sq_row, "calculation_method") or "Flat Rate"
+	job_row.revenue_calculation_method = _cr_revenue_calculation_method(sq_row)
 	job_row.quantity = flt(_row_val(sq_row, "quantity"), 2) or 1
 	job_row.uom = _row_val(sq_row, "uom")
 	job_row.currency = _row_val(sq_row, "currency")
@@ -901,7 +973,7 @@ def _apply_sq_revenue_to_sea_job_row(job_row, sq_row):
 
 
 def _apply_sq_revenue_to_declaration_job_row(job_row, sq_row):
-	job_row.revenue_calculation_method = _row_val(sq_row, "calculation_method") or "Fixed Amount"
+	job_row.revenue_calculation_method = _cr_revenue_calculation_method(sq_row, "Fixed Amount")
 	job_row.quantity = flt(_row_val(sq_row, "quantity"), 2) or 1
 	job_row.uom = _row_val(sq_row, "uom")
 	job_row.currency = _row_val(sq_row, "currency")
@@ -920,7 +992,7 @@ def _apply_sq_revenue_to_declaration_job_row(job_row, sq_row):
 
 
 def _apply_sq_revenue_to_special_project_job_row(job_row, sq_row):
-	job_row.revenue_calculation_method = _row_val(sq_row, "calculation_method") or "Flat Rate"
+	job_row.revenue_calculation_method = _cr_revenue_calculation_method(sq_row)
 	job_row.quantity = flt(_row_val(sq_row, "quantity"), 2) or 1
 	job_row.uom = _row_val(sq_row, "uom")
 	job_row.currency = _row_val(sq_row, "currency")
