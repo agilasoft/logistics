@@ -667,9 +667,9 @@
   {
    "hidden": 0,
    "is_query_report": 1,
-   "label": "Sales Quote Monthly Pipeline and Value",
+   "label": "Sales Quote Monthly Pipeline And Value",
    "link_count": 0,
-   "link_to": "Sales Quote Monthly Pipeline and Value",
+   "link_to": "Sales Quote Monthly Pipeline And Value",
    "link_type": "Report",
    "onboard": 0,
    "type": "Link",
@@ -678,9 +678,9 @@
   {
    "hidden": 0,
    "is_query_report": 1,
-   "label": "Sales Quote Weekly Pipeline and Value",
+   "label": "Sales Quote Weekly Pipeline And Value",
    "link_count": 0,
-   "link_to": "Sales Quote Weekly Pipeline and Value",
+   "link_to": "Sales Quote Weekly Pipeline And Value",
    "link_type": "Report",
    "onboard": 0,
    "type": "Link",
