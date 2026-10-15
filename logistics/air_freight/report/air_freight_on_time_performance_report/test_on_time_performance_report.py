@@ -40,7 +40,7 @@ _ensure_frappe()
 from logistics.air_freight.report.dangerous_goods_compliance_report.test_dangerous_goods_compliance_report import (  # noqa: E402
 	_unknown_columns,
 )
-from logistics.air_freight.report.on_time_performance_report.on_time_performance_report import (  # noqa: E402
+from logistics.air_freight.report.air_freight_on_time_performance_report.air_freight_on_time_performance_report import (  # noqa: E402
 	execute,
 )
 
@@ -53,7 +53,7 @@ class TestOnTimePerformanceReport(TestCase):
 			"company": "ALL SYSTEMS LOGISTICS INC.",
 		}
 		with patch(
-			"logistics.air_freight.report.on_time_performance_report.on_time_performance_report.frappe.db.sql",
+			"logistics.air_freight.report.air_freight_on_time_performance_report.air_freight_on_time_performance_report.frappe.db.sql",
 			return_value=[],
 		) as sql:
 			columns, rows, message, chart, summary = execute(dict(filters))
