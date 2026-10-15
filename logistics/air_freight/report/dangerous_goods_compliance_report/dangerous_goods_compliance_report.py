@@ -185,11 +185,12 @@ def get_chart_data(data):
 	if not data:
 		return None
 	
-	# Compliance status distribution
+	# Match Air Shipment.dg_compliance_status. Blank or unexpected values stay Unknown.
 	compliance_count = {
 		"Compliant": 0,
 		"Non-Compliant": 0,
-		"Pending": 0,
+		"Under Review": 0,
+		"Pending Documentation": 0,
 		"Unknown": 0
 	}
 	
@@ -209,7 +210,7 @@ def get_chart_data(data):
 			}]
 		},
 		"type": "pie",
-		"colors": ["#28a745", "#ff5858", "#ffa00a", "#7cd6fd"]
+		"colors": ["#28a745", "#ff5858", "#ffa00a", "#5e64ff", "#7cd6fd"]
 	}
 	
 	return chart
