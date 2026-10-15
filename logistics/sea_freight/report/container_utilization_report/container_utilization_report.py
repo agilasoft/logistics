@@ -86,8 +86,19 @@ def get_columns():
 		}
 	]
 
+def _volume_capacity_expr():
+	"""Container Type has no max_volume column unless a site adds one later."""
+	if frappe.db.has_column("Container Type", "max_volume"):
+		return "COALESCE(NULLIF(MAX(ct.max_volume), 0), MAX(sfc.max_volume), 0)"
+	return "COALESCE(MAX(sfc.max_volume), 0)"
+
+
 def get_data(filters):
+	filters = filters or {}
 	conditions = get_conditions(filters)
+	# Container Type stores weight capacity as max_gross_weight, not max_weight.
+	# Per-container max_weight / max_volume are copied onto Sea Freight Containers.
+	volume_capacity = _volume_capacity_expr()
 	
 	# Get container utilization data
 	data = frappe.db.sql("""
@@ -97,8 +108,8 @@ def get_data(filters):
 			COUNT(*) as total_containers,
 			COALESCE(SUM(sship.total_weight), 0) as total_weight,
 			COALESCE(SUM(sship.total_volume), 0) as total_volume,
-			COALESCE(MAX(ct.max_weight), 0) as max_weight,
-			COALESCE(MAX(ct.max_volume), 0) as max_volume
+			COALESCE(NULLIF(MAX(ct.max_gross_weight), 0), MAX(sfc.max_weight), 0) as max_weight,
+			{volume_capacity} as max_volume
 		FROM
 			`tabSea Freight Containers` sfc
 		INNER JOIN
@@ -112,7 +123,7 @@ def get_data(filters):
 			sfc.type, sfc.size
 		ORDER BY
 			sfc.type, sfc.size
-	""".format(conditions=conditions), filters, as_dict=1)
+	""".format(conditions=conditions, volume_capacity=volume_capacity), filters, as_dict=1)
 	
 	# Calculate utilization percentages
 	for row in data:
@@ -131,6 +142,7 @@ def get_data(filters):
 	return data
 
 def get_conditions(filters):
+	filters = filters or {}
 	conditions = []
 	
 	if filters.get("from_date"):
