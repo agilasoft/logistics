@@ -96,7 +96,7 @@ def get_columns():
 		},
 		{
 			"fieldname": "status",
-			"label": _("Status"),
+			"label": _("Job Status"),
 			"fieldtype": "Data",
 			"width": 120
 		}
@@ -135,7 +135,7 @@ def get_data(filters):
 					END
 				ELSE 'Pending'
 			END as on_time_status,
-			aship.status
+			aship.job_status as status
 		FROM
 			`tabAir Shipment` aship
 		WHERE

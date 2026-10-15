@@ -34,7 +34,7 @@ frappe.query_reports["Dangerous Goods Compliance Report"] = {
 			"fieldname": "compliance_status",
 			"label": __("Compliance Status"),
 			"fieldtype": "Select",
-			"options": "\nCompliant\nNon-Compliant\nPending\nUnknown"
+			"options": "\nCompliant\nNon-Compliant\nUnder Review\nPending Documentation"
 		},
 		{
 			"fieldname": "has_compliance_issues",
