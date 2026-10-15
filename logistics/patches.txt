@@ -1047,3 +1047,5 @@ logistics.patches.v3_0_sync_cash_advance_sidebar
 logistics.patches.v3_0_hide_cost_center_company
 # Job Management sidebar: pin Job Number, then the same collapsed groups as other modules.
 logistics.patches.v3_0_align_job_management_sidebar
+# Warehousing sidebar: report groups follow the workspace cards.
+logistics.patches.v3_0_sync_warehousing_sidebar
