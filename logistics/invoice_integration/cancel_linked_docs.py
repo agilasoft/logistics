@@ -31,12 +31,17 @@ def cancel_all_linked_docs(
     root_doctype=None,
     root_name=None,
 ):
+    """Cancel linked documents, preserving jobs when the root document is an invoice.
+
+    Desk Cancel sends ``docs`` and ``ignore_doctypes_on_cancel_all``. ``root_doctype``
+    is optional context used only to extend that ignore list. Frappe 16's
+    ``cancel_all_linked_docs`` does not accept ``root_doctype`` or ``root_name``;
+    forwarding them raises TypeError and blocks Cancel on every DocType.
+    """
     from frappe.desk.form.linked_with import cancel_all_linked_docs as original
 
     ignore = merge_invoice_cancel_ignore_doctypes(root_doctype, ignore_doctypes_on_cancel_all)
     return original(
         docs=docs,
         ignore_doctypes_on_cancel_all=ignore,
-        root_doctype=root_doctype,
-        root_name=root_name,
     )

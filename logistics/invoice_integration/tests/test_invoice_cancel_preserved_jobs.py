@@ -56,6 +56,11 @@ class TestMergeInvoiceCancelIgnoreDoctypes(UnitTestCase):
         self.assertIn("Declaration", doc.ignore_linked_doctypes)
 
 
+def _frappe_cancel_all_linked_docs(docs, ignore_doctypes_on_cancel_all=None):
+    """Stand-in for Frappe 16, which rejects root_doctype and root_name."""
+    return {"docs": docs, "ignore_doctypes_on_cancel_all": ignore_doctypes_on_cancel_all}
+
+
 class TestCancelLinkedDocsWrappers(UnitTestCase):
     def test_get_submitted_linked_docs_passes_merged_ignore_list(self):
         with patch(
@@ -72,31 +77,47 @@ class TestCancelLinkedDocsWrappers(UnitTestCase):
 
     def test_cancel_all_linked_docs_passes_merged_ignore_list(self):
         docs = [{"doctype": "Declaration", "name": "CD0000000006", "docstatus": 1}]
-        with patch("frappe.desk.form.linked_with.cancel_all_linked_docs") as original:
-            cancel_all_linked_docs(
+        with patch(
+            "frappe.desk.form.linked_with.cancel_all_linked_docs",
+            _frappe_cancel_all_linked_docs,
+        ):
+            result = cancel_all_linked_docs(
                 docs=docs,
                 ignore_doctypes_on_cancel_all=["Journal Entry"],
                 root_doctype="Sales Invoice",
                 root_name="ACC-SINV-2026-00011",
             )
 
-        kwargs = original.call_args.kwargs
-        self.assertEqual(kwargs["docs"], docs)
-        self.assertEqual(kwargs["root_doctype"], "Sales Invoice")
-        self.assertEqual(kwargs["root_name"], "ACC-SINV-2026-00011")
-        self.assertEqual(kwargs["ignore_doctypes_on_cancel_all"][0], "Journal Entry")
-        self.assertIn("Declaration", kwargs["ignore_doctypes_on_cancel_all"])
+        self.assertEqual(result["docs"], docs)
+        self.assertEqual(result["ignore_doctypes_on_cancel_all"][0], "Journal Entry")
+        self.assertIn("Declaration", result["ignore_doctypes_on_cancel_all"])
+        self.assertNotIn("root_doctype", result)
+        self.assertNotIn("root_name", result)
 
     def test_cancel_all_for_other_root_does_not_add_jobs(self):
-        with patch("frappe.desk.form.linked_with.cancel_all_linked_docs") as original:
-            cancel_all_linked_docs(
+        with patch(
+            "frappe.desk.form.linked_with.cancel_all_linked_docs",
+            _frappe_cancel_all_linked_docs,
+        ):
+            result = cancel_all_linked_docs(
                 docs=[],
                 ignore_doctypes_on_cancel_all=["Journal Entry"],
                 root_doctype="Sales Order",
                 root_name="SO-1",
             )
 
-        self.assertEqual(
-            original.call_args.kwargs["ignore_doctypes_on_cancel_all"],
-            ["Journal Entry"],
-        )
+        self.assertEqual(result["ignore_doctypes_on_cancel_all"], ["Journal Entry"])
+
+    def test_cancel_all_matches_desk_payload_without_root(self):
+        docs = '[{"doctype":"Change Request","name":"CR-000000007","docstatus":1}]'
+        with patch(
+            "frappe.desk.form.linked_with.cancel_all_linked_docs",
+            _frappe_cancel_all_linked_docs,
+        ):
+            result = cancel_all_linked_docs(
+                docs=docs,
+                ignore_doctypes_on_cancel_all="[]",
+            )
+
+        self.assertEqual(result["docs"], docs)
+        self.assertEqual(result["ignore_doctypes_on_cancel_all"], [])
