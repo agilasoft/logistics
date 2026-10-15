@@ -93,7 +93,7 @@ def get_columns():
 		},
 		{
 			"fieldname": "status",
-			"label": _("Status"),
+			"label": _("Job Status"),
 			"fieldtype": "Data",
 			"width": 120
 		}
@@ -138,7 +138,7 @@ def get_data(filters):
 			aship.dg_emergency_phone as emergency_phone,
 			aship.origin_port,
 			aship.destination_port,
-			aship.status
+			aship.job_status as status
 		FROM
 			`tabAir Shipment` aship
 		WHERE
