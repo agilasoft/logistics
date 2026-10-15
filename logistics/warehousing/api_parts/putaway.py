@@ -1,13 +1,148 @@
 from __future__ import annotations
 from .common import *  # shared helpers
-from .common import _sl_fields, _get_job_scope, _safe_meta_fieldnames, _get_allocation_level_limit, _get_allow_emergency_fallback, _get_split_quantity_decimal_precision, _get_round_down_allocation_qty, _fetch_job_order_items, _hu_consolidation_violations, _assert_hu_in_job_scope, _assert_location_in_job_scope, _select_dest_for_hu, _filter_locations_by_level, _get_item_storage_type_prefs  # explicit imports
+from .common import _sl_fields, _get_job_scope, _safe_meta_fieldnames, _get_allocation_level_limit, _get_allow_emergency_fallback, _get_split_quantity_decimal_precision, _get_round_down_allocation_qty, _fetch_job_order_items, _hu_consolidation_violations, _assert_hu_in_job_scope, _assert_location_in_job_scope, _select_dest_for_hu, _filter_locations_by_level, _get_item_storage_type_prefs, _LEVEL_LABEL_TO_FIELD, _existing_level_fields, _level_path_for_location  # explicit imports
 from .capacity_management import CapacityManager, CapacityValidationError
+from ..location_block import list_contiguous_location_blocks
 
 import frappe
 from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime, getdate
 from typing import List, Dict, Any, Optional, Tuple, Set
 import math
+
+# Stop scanning once this many positions have been capacity-checked. The first
+# neighbouring block that fits is used, so a normal putaway checks only the
+# positions inside that block.
+_CONTIGUOUS_CAPACITY_CHECK_LIMIT = 200
+
+
+def _row_within_level_limit(
+    row: Dict[str, Any],
+    staging_path: Dict[str, Any],
+    fields: List[str],
+    limit_field: str,
+) -> bool:
+    """True when this position sits within the staging allocation limit."""
+    for fieldname in fields:
+        staging_value = staging_path.get(fieldname)
+        candidate_value = row.get(fieldname)
+        if staging_value and candidate_value and staging_value != candidate_value:
+            return False
+        if fieldname == limit_field:
+            break
+    return True
+
+
+def _filter_contiguous_rows_by_level(
+    rows: List[Dict[str, Any]],
+    staging_area: Optional[str],
+    level_limit_label: Optional[str],
+) -> List[Dict[str, Any]]:
+    """Keep positions that match the staging area up to the configured level."""
+    if not (staging_area and level_limit_label):
+        return rows
+    limit_field = _LEVEL_LABEL_TO_FIELD.get(level_limit_label)
+    if not limit_field:
+        return rows
+    fields = _existing_level_fields()
+    if not fields or limit_field not in fields:
+        return rows
+    staging_path = _level_path_for_location(staging_area) or {}
+    return [
+        row for row in rows
+        if _row_within_level_limit(row, staging_path, fields, limit_field)
+    ]
+
+
+def _fetch_locations_for_contiguous_putaway(
+    item: str,
+    company: Optional[str],
+    branch: Optional[str],
+    exclude_locations: Optional[List[str]],
+) -> List[Dict[str, Any]]:
+    """Return storage positions that are eligible for a neighbouring block.
+
+    Ordered so preferred storage types and bin priorities come first. The
+    caller groups these into consecutive location codes.
+    """
+    exclude_locations = exclude_locations or []
+    slf = _sl_fields()
+    status_filter = "AND sl.status IN ('Available','In Use')" if ("status" in slf) else ""
+    preferred_storage_type, allowed_storage_types = _get_item_storage_type_prefs(item)
+
+    storage_type_filter = ""
+    storage_type_params: List[str] = []
+    if allowed_storage_types:
+        placeholders = ", ".join(["%s"] * len(allowed_storage_types))
+        storage_type_filter = f"AND sl.storage_type IN ({placeholders})"
+        storage_type_params = list(allowed_storage_types)
+    elif preferred_storage_type:
+        storage_type_filter = "AND sl.storage_type = %s"
+        storage_type_params = [preferred_storage_type]
+
+    params: List[Any] = []
+    exclude_sql = ""
+    if exclude_locations:
+        exclude_sql = "AND sl.name NOT IN (" + ", ".join(["%s"] * len(exclude_locations)) + ")"
+        params.extend(exclude_locations)
+    params.extend([company, company, branch, branch])
+    params.extend(storage_type_params)
+
+    return frappe.db.sql(
+        f"""
+        SELECT sl.name AS location,
+               sl.site AS site,
+               sl.building AS building,
+               sl.zone AS zone,
+               sl.aisle AS aisle,
+               sl.bay AS bay,
+               sl.level AS level,
+               sl.location_code AS location_code,
+               IFNULL(sl.bin_priority, 999999) AS bin_priority,
+               IFNULL(st.picking_rank, 999999) AS storage_type_rank
+        FROM `tabStorage Location` sl
+        LEFT JOIN `tabStorage Type` st ON st.name = sl.storage_type
+        WHERE IFNULL(sl.staging_area, 0) = 0
+          {status_filter}
+          {exclude_sql}
+          AND (%s IS NULL OR sl.company = %s)
+          AND (%s IS NULL OR sl.branch = %s)
+          {storage_type_filter}
+        ORDER BY storage_type_rank ASC, bin_priority ASC,
+                 sl.aisle ASC, sl.bay ASC, sl.level ASC, sl.location_code ASC, sl.name ASC
+        """,
+        tuple(params),
+        as_dict=True,
+    ) or []
+
+
+def _location_has_room_for_share(
+    capacity_manager: CapacityManager,
+    location: str,
+    item: str,
+    quantity: float,
+    handling_unit: Optional[str],
+) -> bool:
+    """True when one position can hold this handling unit's share of the stock."""
+    try:
+        result = capacity_manager.validate_storage_capacity(
+            location=location,
+            item=item,
+            quantity=quantity,
+            handling_unit=handling_unit,
+        )
+        return bool(result.get("valid", False))
+    except CapacityValidationError as error:
+        frappe.logger().info(
+            f"Capacity validation failed for contiguous block location {location}: {error}"
+        )
+        return False
+    except Exception as error:
+        frappe.logger().info(
+            f"Capacity validation error for contiguous block location {location}: {error}"
+        )
+        return False
+
 
 def _get_location_overflow_enabled(company: Optional[str]) -> bool:
     """Check if location overflow is enabled in warehouse settings"""
@@ -43,8 +178,12 @@ def _select_multiple_destinations_for_hu(
     handling_unit: Optional[str],
     num_locations: int
 ) -> List[str]:
-    """Select multiple destination locations for a handling unit when location overflow is enabled.
-    
+    """Select neighbouring positions for a handling unit that occupies more than one spot.
+
+    The positions share one aisle, bay, and level, and their location codes are
+    in a row. Returns an empty list when no full block is free. A shorter or
+    scattered set is not used.
+
     Args:
         item: Item code
         quantity: Total quantity to allocate
@@ -56,9 +195,9 @@ def _select_multiple_destinations_for_hu(
         exclude_locations: Locations to exclude
         handling_unit: Handling unit name
         num_locations: Number of locations needed
-        
+
     Returns:
-        List of location names (may be fewer than num_locations if not enough available)
+        Location names in location-code order, or an empty list.
     """
     if num_locations <= 1:
         # Fall back to single location selection
@@ -74,57 +213,66 @@ def _select_multiple_destinations_for_hu(
             handling_unit=handling_unit
         )
         return [dest] if dest else []
-    
-    selected_locations = []
-    remaining_locations_needed = num_locations
-    
-    # Calculate quantity per location
+
     quantity_per_location = quantity / num_locations
-    
-    # Get candidate locations (use direct call since this function may be called before cache is set up)
-    candidates = _putaway_candidate_locations(
-        item=item, company=company, branch=branch,
-        exclude_locations=exclude_locations, quantity=quantity_per_location, handling_unit=handling_unit
-    )
-    
-    # Filter by level limit if applicable
-    if staging_area and level_limit_label:
-        candidates = _filter_locations_by_level(candidates, staging_area, level_limit_label)
-    
-    # Filter out used locations
-    available_candidates = [c for c in candidates if c["location"] not in used_locations]
-    
-    # Get HU type for priority filtering
-    handling_unit_type = None
-    if handling_unit:
-        try:
-            handling_unit_type = frappe.db.get_value("Handling Unit", handling_unit, "type")
-        except Exception:
-            pass
-    
-    # Apply priority filtering
-    available_candidates = _filter_locations_by_priority(
-        available_candidates,
-        handling_unit=handling_unit,
-        handling_unit_type=handling_unit_type,
+    rows = _fetch_locations_for_contiguous_putaway(
         item=item,
         company=company,
-        branch=branch
+        branch=branch,
+        exclude_locations=exclude_locations,
     )
-    
-    # Select locations up to num_locations
-    for candidate in available_candidates:
-        if remaining_locations_needed <= 0:
+    rows = [
+        row for row in rows
+        if row.get("location") and row["location"] not in used_locations
+    ]
+    rows = _filter_contiguous_rows_by_level(rows, staging_area, level_limit_label)
+
+    blocks = list_contiguous_location_blocks(rows, num_locations)
+    if not blocks:
+        frappe.logger().info(
+            f"No contiguous block of {num_locations} positions for HU {handling_unit}"
+        )
+        return []
+
+    capacity_manager = CapacityManager()
+    room_cache: Dict[str, bool] = {}
+    checks = 0
+    for block in blocks:
+        fits = True
+        for location in block:
+            if location not in room_cache:
+                if checks >= _CONTIGUOUS_CAPACITY_CHECK_LIMIT:
+                    fits = False
+                    break
+                checks += 1
+                room_cache[location] = _location_has_room_for_share(
+                    capacity_manager,
+                    location,
+                    item,
+                    quantity_per_location,
+                    handling_unit,
+                )
+            if not room_cache[location]:
+                fits = False
+                break
+        if checks >= _CONTIGUOUS_CAPACITY_CHECK_LIMIT and not fits:
+            frappe.logger().info(
+                f"Stopped contiguous search for HU {handling_unit} after "
+                f"{_CONTIGUOUS_CAPACITY_CHECK_LIMIT} capacity checks"
+            )
             break
-        
-        location = candidate.get("location")
-        if location and location not in selected_locations:
-            selected_locations.append(location)
-            used_locations.add(location)
-            remaining_locations_needed -= 1
-    
-    frappe.logger().info(f"Selected {len(selected_locations)} locations for HU {handling_unit} (requested: {num_locations})")
-    return selected_locations
+        if fits:
+            for location in block:
+                used_locations.add(location)
+            frappe.logger().info(
+                f"Selected contiguous block for HU {handling_unit}: {block}"
+            )
+            return block
+
+    frappe.logger().info(
+        f"No contiguous block of {num_locations} positions had room for HU {handling_unit}"
+    )
+    return []
 
 
 def _validate_storage_type_restrictions(item: str, company: Optional[str], branch: Optional[str]) -> Dict[str, Any]:
@@ -2088,7 +2236,10 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                 num_locations=storage_location_size
             )
             if dest_locations:
-                location_selection_method = f"Location overflow allocation ({len(dest_locations)} locations)"
+                location_selection_method = (
+                    f"Contiguous block of {len(dest_locations)} positions "
+                    "in the same aisle, bay, and level"
+                )
                 dest = dest_locations[0]  # Keep dest for backward compatibility in notes
             else:
                 dest = None
@@ -2108,22 +2259,21 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
             if dest:
                 dest_locations = [dest]
         
-        if not dest_locations:
+        if not dest_locations and not (location_overflow_enabled and storage_location_size > 1):
             # Try fallback selection without capacity validation (only for single location mode)
-            if not (location_overflow_enabled and storage_location_size > 1):
-                frappe.logger().info(f"No capacity-validated location found for HU {hu}, trying fallback selection")
-                dest = _select_dest_for_hu_fallback(
-                    item=rep_item, company=company, branch=branch,
-                    staging_area=staging_area, level_limit_label=level_limit_label,
-                    used_locations=used_locations, exclude_locations=exclude
-                )
-                
-                if dest:
-                    location_selection_method = "Fallback selection (capacity validation bypassed)"
-                    warnings.append(_("HU {0}: using fallback location {1} (capacity validation bypassed).")
-                                    .format(hu, dest))
-                    dest_locations = [dest]
-            
+            frappe.logger().info(f"No capacity-validated location found for HU {hu}, trying fallback selection")
+            dest = _select_dest_for_hu_fallback(
+                item=rep_item, company=company, branch=branch,
+                staging_area=staging_area, level_limit_label=level_limit_label,
+                used_locations=used_locations, exclude_locations=exclude
+            )
+
+            if dest:
+                location_selection_method = "Fallback selection (capacity validation bypassed)"
+                warnings.append(_("HU {0}: using fallback location {1} (capacity validation bypassed).")
+                                .format(hu, dest))
+                dest_locations = [dest]
+
             # Last resort: try again allowing reuse (but still honoring level limit)
             if not dest_locations:
                 fallback = _select_dest_for_hu(
@@ -2151,6 +2301,14 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                     dest_locations = [emergency_dest]
             elif not dest_locations:
                 frappe.logger().warning(f"Emergency fallback disabled - no destination found for HU {hu} within level limit")
+        elif not dest_locations:
+            warnings.append(
+                _("HU {0}: needs {1} positions side by side in the same aisle, bay, and level, with location codes in a row (for example 1, 2, 3, 4). No free block was found.").format(hu, storage_location_size)
+            )
+            frappe.logger().warning(
+                f"No contiguous block of {storage_location_size} positions for HU {hu}"
+            )
+            continue
 
         if not dest_locations:
             # Perform detailed storage type validation to provide specific error messages
@@ -2284,7 +2442,7 @@ def _hu_anchored_putaway_from_orders(job: Any) -> Tuple[int, float, List[Dict[st
                 
                 # Add location overflow note if multiple locations
                 if num_locations > 1:
-                    location_overflow_note = f"Location Allocation: {dest_loc}\n  • Location Overflow: Split across {num_locations} locations\n  • Location {loc_idx + 1} of {num_locations}\n  • Quantity: {loc_qty} of {qty} total"
+                    location_overflow_note = f"Location Allocation: {dest_loc}\n  • Location Overflow: Split across {num_locations} neighbouring positions\n  • Same aisle, bay, and level, with consecutive location codes\n  • Location {loc_idx + 1} of {num_locations}\n  • Quantity: {loc_qty} of {qty} total"
                     allocation_notes.append(location_overflow_note)
                 else:
                     # Single location - use standard location note
