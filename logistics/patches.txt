@@ -1035,6 +1035,10 @@ logistics.patches.v3_0_hide_purchase_invoice_bir_2307_ui_fields
 # Job Task was a standalone DocType, then a child table. Add parent columns the
 # schema sync does not add to an existing table, or Air Booking cannot load.
 logistics.patches.v3_0_add_job_task_child_columns
+# The patch above looked up tabtabJob Task and no-op'd on sites that already
+# migrated. Run the corrected repair so Inbound Order and the other Job Task
+# parents can load.
+logistics.patches.v3_0_repair_job_task_parent_columns
 # Job Tasks: one default checklist template for each booking and execution job.
 logistics.patches.v3_0_seed_job_task_templates
 # Cash Advance sidebar: pin the daily documents, then the same indented groups as other modules.

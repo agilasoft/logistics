@@ -10,10 +10,21 @@ queries ``WHERE parent = ...`` and MariaDB reports an unknown column.
 
 from __future__ import annotations
 
+DOCTYPE = "Job Task"
 TABLE = "tabJob Task"
 CHILD_LINK_COLUMNS = ("parent", "parentfield", "parenttype")
 LEGACY_LINK_COLUMNS = ("job_no", "job_type")
 PARENTFIELD = "job_tasks"
+
+
+def table_exists_argument() -> str:
+	"""Name to pass to ``frappe.db.table_exists``.
+
+	That helper looks up ``tab`` + the argument. Passing ``tabJob Task``
+	searches for ``tabtabJob Task``, the repair thinks the table is missing,
+	and opening an order still fails with unknown column ``parent``.
+	"""
+	return DOCTYPE
 
 
 def missing_child_link_columns(existing_columns) -> list[str]:
