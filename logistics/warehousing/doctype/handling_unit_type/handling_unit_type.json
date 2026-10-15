@@ -108,7 +108,7 @@
   },
   {
    "default": "1",
-   "description": "Number of storage locations this handling unit type will occupy. When location overflow is enabled, this value will be fetched into handling units of this type.",
+   "description": "Number of pallet positions a handling unit of this type occupies. Copied onto the handling unit. When location overflow is enabled, putaway keeps those positions together in one aisle, bay, and level, using consecutive location codes.",
    "fieldname": "storage_location_size",
    "fieldtype": "Int",
    "label": "Storage Location Size"

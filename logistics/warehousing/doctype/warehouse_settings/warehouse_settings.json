@@ -181,7 +181,7 @@
   },
   {
    "default": "0",
-   "description": "When enabled, allows handling units to be split across multiple storage locations based on the 'Storage Location Size' field in the Handling Unit. This enables overflow allocation when a handling unit exceeds a single location's capacity.",
+   "description": "When enabled, a handling unit whose Storage Location Size is greater than 1 is put away across that many neighbouring positions in the same aisle, bay, and level, with consecutive location codes. The quantity is split evenly across those positions.",
    "fieldname": "enable_location_overflow",
    "fieldtype": "Check",
    "label": "Enable Location Overflow"
