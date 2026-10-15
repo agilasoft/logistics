@@ -1049,3 +1049,5 @@ logistics.patches.v3_0_hide_cost_center_company
 logistics.patches.v3_0_align_job_management_sidebar
 # Warehousing sidebar: report groups follow the workspace cards.
 logistics.patches.v3_0_sync_warehousing_sidebar
+# Module sidebars: report groups follow each workspace's report cards.
+logistics.patches.v3_0_sync_module_report_sidebars
