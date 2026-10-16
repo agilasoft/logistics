@@ -17,6 +17,7 @@ from logistics.job_management.gl_item_dimension import (
 	get_item_accounting_dimension_label,
 	get_item_dimension_fieldname_on_gl_entry,
 )
+from logistics.job_management.profitability_dashboard import render_gl_profitability_dashboard
 
 
 def _profitability_gl_tabs_markup(rid):
@@ -668,14 +669,6 @@ def _profitability_empty_state_banner_html():
 
 def _build_profitability_html(data):
 	"""Build KPI cards, Revenue vs Cost chart, and GL tables (Details per line or Summary per item)."""
-	c = data.get("currency") or ""
-	rev = flt(data.get("revenue"), 2)
-	cost = flt(data.get("cost"), 2)
-	profit = flt(data.get("gross_profit"), 2)
-	margin = flt(data.get("profit_margin_pct"), 2)
-	wip = flt(data.get("wip_amount"), 2)
-	accrual = flt(data.get("accrual_amount"), 2)
-	disb = flt(data.get("disbursements_amount"), 2)
 	entries = data.get("entries") or []
 	summary_rows = data.get("summary_by_item") or []
 	is_empty = _profitability_is_empty(data)
@@ -693,99 +686,12 @@ def _build_profitability_html(data):
 		x = flt(v, 2)
 		return fmt(x) if x else ""
 
-	# Chart scale: max of revenue, cost for bar widths (avoid div by zero)
-	total_abs = max(abs(rev), abs(cost), 1)
-	rev_pct = min(100, max(0, (rev / total_abs) * 100)) if total_abs else 0
-	cost_pct = min(100, max(0, (cost / total_abs) * 100)) if total_abs else 0
-	profit_color = "green" if profit >= 0 else "red"
-	margin_color = "green" if margin >= 0 else "orange" if margin == 0 else "red"
-
-	summary_html = """
-	<div class="job-profitability-dashboard" style="padding: 12px 0; font-family: inherit;">
-		<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-			<h5 style="margin: 0; font-size: 15px; font-weight: 600;">{label}</h5>
-			<span style="background: #e9ecef; padding: 2px 8px; border-radius: 4px; font-size: 12px;">{currency}</span>
-		</div>
-		{empty_banner_html}
-		<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;">
-			<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; border-left: 4px solid #28a745;">
-				<div style="font-size: 11px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.3px;">{revenue_label}</div>
-				<div style="font-size: 18px; font-weight: 600; color: #212529;">{revenue}</div>
-			</div>
-			<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; border-left: 4px solid #dc3545;">
-				<div style="font-size: 11px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.3px;">{cost_label}</div>
-				<div style="font-size: 18px; font-weight: 600; color: #212529;">{cost}</div>
-			</div>
-			<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; border-left: 4px solid #007bff;">
-				<div style="font-size: 11px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.3px;">{profit_label}</div>
-				<div style="font-size: 18px; font-weight: 600; color: {profit_color_val};">{profit}</div>
-			</div>
-			<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; border-left: 4px solid #6f42c1;">
-				<div style="font-size: 11px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.3px;">{margin_label}</div>
-				<div style="font-size: 18px; font-weight: 600; color: {margin_color_val};">{margin}%</div>
-			</div>
-			<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; border-left: 4px solid #fd7e14;">
-				<div style="font-size: 11px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.3px;">{wip_label}</div>
-				<div style="font-size: 18px; font-weight: 600; color: #212529;">{wip}</div>
-			</div>
-			<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; border-left: 4px solid #20c997;">
-				<div style="font-size: 11px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.3px;">{accrual_label}</div>
-				<div style="font-size: 18px; font-weight: 600; color: #212529;">{accrual}</div>
-			</div>
-			<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; border-left: 4px solid #17a2b8;">
-				<div style="font-size: 11px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.3px;">{disb_label}</div>
-				<div style="font-size: 18px; font-weight: 600; color: #212529;">{disb}</div>
-			</div>
-		</div>
-		<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-			<div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #495057;">{chart_title}</div>
-			<div style="display: flex; flex-direction: column; gap: 8px;">
-				<div>
-					<div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
-						<span>{revenue_label}</span>
-						<span>{revenue}</span>
-					</div>
-					<div style="height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-						<div style="height: 100%; width: {rev_pct}%; background: #28a745; border-radius: 4px;"></div>
-					</div>
-				</div>
-				<div>
-					<div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
-						<span>{cost_label}</span>
-						<span>{cost}</span>
-					</div>
-					<div style="height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-						<div style="height: 100%; width: {cost_pct}%; background: #dc3545; border-radius: 4px;"></div>
-					</div>
-				</div>
-			</div>
-		</div>
-		<p class="text-muted small" style="margin: 0; font-size: 11px;">{source_note}</p>
-	</div>
-	""".format(
-		label=_("Profitability (from GL)"),
-		currency=c,
-		revenue_label=_("Revenue"),
-		revenue=fmt(rev),
-		cost_label=_("Cost"),
-		cost=fmt(cost),
-		profit_label=_("Gross Profit"),
-		profit=fmt(profit),
-		profit_color_val=profit_color,
-		margin_label=_("Profit Margin"),
-		margin=fmt(margin),
-		margin_color_val=margin_color,
-		wip_label=_("WIP Amount"),
-		wip=fmt(wip),
-		accrual_label=_("Accrual Amount"),
-		accrual=fmt(accrual),
-		disb_label=_("Disbursements"),
-		disb=fmt(disb),
-		chart_title=_("Revenue vs Cost"),
-		rev_pct=rev_pct,
-		cost_pct=cost_pct,
-		empty_banner_html=empty_banner_html,
+	summary_html = render_gl_profitability_dashboard(
+		data,
+		title=_("Profitability (from GL)"),
+		info_title=source_note,
 		source_note=source_note,
+		empty_banner_html=empty_banner_html,
 	)
 
 	# Column header = Accounting Dimension label (matches GL Entry form), else "Item"
