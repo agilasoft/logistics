@@ -66,7 +66,12 @@ function cr_item_code_filters_for_charge_row(row) {
 	if (field) {
 		filters[field] = 1;
 	}
-	if (row.charge_type) {
+	// Cost and Revenue lines also accept Margin items. Other types stay an exact match.
+	if (row.charge_type === "Cost") {
+		filters.custom_default_charge_type = ["in", ["Cost", "Margin"]];
+	} else if (row.charge_type === "Revenue") {
+		filters.custom_default_charge_type = ["in", ["Revenue", "Margin"]];
+	} else if (row.charge_type) {
 		filters.custom_default_charge_type = row.charge_type;
 	}
 	return filters;
