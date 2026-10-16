@@ -272,26 +272,52 @@ def get_job_profitability_from_gl(job_number, company, to_date=None, from_date=N
 		)
 		disbursements_amount = flt(disb_row[0].amount, 2) if disb_row else 0
 
-	# WIP / Accrual summary tiles: same GL basis as recognition JEs (policy accounts, job_number)
+	# WIP tile: every account tagged Job Profit Account Type = WIP, plus the policy WIP account.
+	# Accrual tile stays on the policy liability account.
 	wip_amount = 0
 	accrual_amount = 0
+	if _account_has_job_profit_type():
+		wip_values = dict(values)
+		policy_clause = ""
+		if policy and policy.get("wip_account"):
+			policy_clause = " OR gle.account = %(wip_account)s"
+			wip_values["wip_account"] = policy.wip_account
+		wip_row = frappe.db.sql(
+			"""
+			SELECT COALESCE(SUM(
+				CASE acc.root_type
+					WHEN 'Income' THEN gle.credit - gle.debit
+					WHEN 'Asset' THEN gle.debit - gle.credit
+					WHEN 'Liability' THEN gle.credit - gle.debit
+					WHEN 'Expense' THEN gle.debit - gle.credit
+					ELSE gle.credit - gle.debit
+				END
+			), 0) as balance
+			FROM `tabGL Entry` gle
+			INNER JOIN `tabAccount` acc ON acc.name = gle.account
+			WHERE {where}
+			AND (IFNULL(acc.job_profit_account_type, '') = 'WIP'{policy_clause})
+			""".format(where=where, policy_clause=policy_clause),
+			wip_values,
+			as_dict=True,
+		)
+		wip_amount = flt(wip_row[0].balance, 2) if wip_row else 0
+	elif policy and policy.get("wip_account"):
+		wip_row = frappe.db.sql("""
+			SELECT COALESCE(SUM(gle.credit - gle.debit), 0) as balance
+			FROM `tabGL Entry` gle
+			WHERE gle.job_number = %(job_number)s
+			AND gle.company = %(company)s
+			AND gle.account = %(wip_account)s
+			AND gle.docstatus = 1
+		""" + (" AND gle.posting_date <= %(to_date)s" if to_date else ""), {
+			"job_number": job_number,
+			"company": company,
+			"wip_account": policy.wip_account,
+			**({"to_date": to_date} if to_date else {})
+		}, as_dict=True)
+		wip_amount = flt(wip_row[0].balance, 2) if wip_row else 0
 	if policy:
-		if policy.get("wip_account"):
-			# WIP recognition JEs credit the WIP (Income) account; show positive open WIP as (credit - debit)
-			wip_row = frappe.db.sql("""
-				SELECT COALESCE(SUM(gle.credit - gle.debit), 0) as balance
-				FROM `tabGL Entry` gle
-				WHERE gle.job_number = %(job_number)s
-				AND gle.company = %(company)s
-				AND gle.account = %(wip_account)s
-				AND gle.docstatus = 1
-			""" + (" AND gle.posting_date <= %(to_date)s" if to_date else ""), {
-				"job_number": job_number,
-				"company": company,
-				"wip_account": policy.wip_account,
-				**({"to_date": to_date} if to_date else {})
-			}, as_dict=True)
-			wip_amount = flt(wip_row[0].balance, 2) if wip_row else 0
 		if policy.get("accrued_cost_liability_account"):
 			# Accrual recognition JEs credit Accrued Cost Liability; open accrual = (credit - debit) on that account
 			accr_row = frappe.db.sql("""

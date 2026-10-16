@@ -24,6 +24,7 @@ from logistics.job_management.recognition_engine import (
 	apply_journal_entry_posting_header_from_job,
 	get_recognition_policy_for_job,
 )
+from logistics.utils.item_accounts import get_cost_accrual_account_for_item
 from logistics.invoice_integration.charge_settled_reversal import (
 	compute_item_reversal_amount,
 	get_charge_items_settled_by_purchase_invoice,
@@ -116,14 +117,17 @@ def post_cost_accrual_reversal_journal_multi(
 			continue
 		if header_job is None:
 			header_job = job
-		cost_acc = policy.get("cost_accrual_account")
+		policy_cost = policy.get("cost_accrual_account")
 		liab_acc = policy.get("accrued_cost_liability_account")
-		if not cost_acc or not liab_acc:
+		if not policy_cost or not liab_acc:
 			continue
 
 		jcn_val = jcn
 		seg_total = 0.0
 		for rev_amt, item_code in je_pairs:
+			cost_acc = get_cost_accrual_account_for_item(item_code, company, policy_cost)
+			if not cost_acc:
+				continue
 			seg_total += flt(rev_amt)
 			item_extra = item_row_dict("Journal Entry Account", item_code)
 			# Do not set reference_type to Purchase Invoice on rows — ERPNext validate_reference_doc
@@ -196,9 +200,9 @@ def _reverse_cost_accrual_for_purchase_invoice_single(pi_doc, jcn):
 	policy = get_recognition_policy_for_job(jcn)
 	if not policy:
 		return None
-	cost_acc = policy.get("cost_accrual_account")
+	policy_cost = policy.get("cost_accrual_account")
 	liab_acc = policy.get("accrued_cost_liability_account")
-	if not cost_acc or not liab_acc:
+	if not policy_cost or not liab_acc:
 		return None
 
 	if not frappe.db.exists("Job Number", jcn):
@@ -228,6 +232,7 @@ def _reverse_cost_accrual_for_purchase_invoice_single(pi_doc, jcn):
 			continue
 		item_code = row.get("item_code")
 		rev = 0
+		cost_acc = get_cost_accrual_account_for_item(item_code, company, policy_cost)
 		if item_fn_gl and item_code:
 			open_item = _paired_accrual_open_for_item(jcn, company, cost_acc, liab_acc, item_fn_gl, item_code)
 			if open_item > 0:
@@ -301,9 +306,9 @@ def reverse_cost_accrual_for_purchase_invoice(pi_doc):
 		policy = get_recognition_policy_for_job(jcn_val)
 		if not policy:
 			continue
-		cost_acc = policy.get("cost_accrual_account")
+		policy_cost = policy.get("cost_accrual_account")
 		liab_acc = policy.get("accrued_cost_liability_account")
-		if not cost_acc or not liab_acc:
+		if not policy_cost or not liab_acc:
 			continue
 		if not frappe.db.exists("Job Number", jcn_val):
 			continue
@@ -328,6 +333,7 @@ def reverse_cost_accrual_for_purchase_invoice(pi_doc):
 				continue
 			item_code = row.get("item_code")
 			rev = 0
+			cost_acc = get_cost_accrual_account_for_item(item_code, company, policy_cost)
 			if item_fn_gl and item_code:
 				open_item = _paired_accrual_open_for_item(jcn_val, company, cost_acc, liab_acc, item_fn_gl, item_code)
 				if open_item > 0:

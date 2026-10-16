@@ -176,9 +176,10 @@ class TestStandardCostJournal(unittest.TestCase):
 	def _post(self, job, item):
 		je = _JE()
 
-		def _get_doc(doctype, name):
-			self.assertEqual(doctype, "Item")
-			return item
+		def _accounts(item_code, company):
+			self.assertEqual(item_code, "HANDLING")
+			self.assertEqual(company, job.company)
+			return item.custom_standard_cost_account, item.custom_applied_standard_cost_account
 
 		with patch("logistics.utils.menu_permission.assert_perm"), patch(
 			"logistics.job_management.standard_cost_posting.today", return_value="2026-10-05"
@@ -186,9 +187,10 @@ class TestStandardCostJournal(unittest.TestCase):
 			"logistics.job_management.standard_cost_posting.now", return_value="2026-10-05 01:00:00"
 		), patch("frappe.get_meta", return_value=_Meta()), patch(
 			"frappe.get_cached_value", return_value="PHP"
-		), patch("frappe.get_doc", side_effect=_get_doc), patch(
-			"frappe.new_doc", return_value=je
-		), patch("frappe.db.commit"):
+		), patch(
+			"logistics.job_management.standard_cost_posting.get_standard_cost_accounts_for_item",
+			side_effect=_accounts,
+		), patch("frappe.new_doc", return_value=je), patch("frappe.db.commit"):
 			result = post_internal_tariff_standard_costs(job)
 		return result, je
 

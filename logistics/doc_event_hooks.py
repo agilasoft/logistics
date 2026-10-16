@@ -24,6 +24,8 @@ DOC_EVENTS = {'Opportunity': {'onload': 'logistics.pricing_center.utils.opportun
                  'validate': 'logistics.job_management.cost_center_defaults.set_cost_center_branch_default'},
  'Branch': {'before_insert': 'logistics.job_management.cost_center_defaults.set_branch_document_name'},
  'Account': {'validate': 'logistics.logistics.account_job_profit.validate_account_job_profit'},
+ 'Item': {'validate': 'logistics.utils.item_accounts.validate_item_default_accounts'},
+ 'Item Group': {'validate': 'logistics.utils.item_accounts.validate_item_default_accounts'},
  'Purchase Invoice': {'before_validate': ['logistics.invoice_integration.purchase_invoice_dimensions.align_invoice_dimensions_to_company',
                                  'logistics.intercompany.invoice_guard.release_service_purchase_from_internal_transfer'],
                       'validate': ['logistics.invoice_integration.container_deposit_pi.apply_container_deposit_expense_account',

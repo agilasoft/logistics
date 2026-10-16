@@ -1,0 +1,53 @@
+{
+ "custom_fields": [
+  {
+   "dt": "Item Default",
+   "fieldname": "custom_wip_account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "WIP Account",
+   "options": "Account",
+   "insert_after": "income_account",
+   "link_filters": "[[\"Account\", \"company\", \"=\", \"eval:doc.company\"], [\"Account\", \"is_group\", \"=\", 0], [\"Account\", \"disabled\", \"=\", 0], [\"Account\", \"account_type\", \"=\", \"Income Account\"], [\"Account\", \"job_profit_account_type\", \"=\", \"WIP\"]]",
+   "description": "Income account credited on WIP recognition for this company. Item Default wins over Item Group Default, then the recognition policy."
+  },
+  {
+   "dt": "Item Default",
+   "fieldname": "custom_cost_accrual_account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Accrual Account",
+   "options": "Account",
+   "insert_after": "expense_account",
+   "link_filters": "[[\"Account\", \"company\", \"=\", \"eval:doc.company\"], [\"Account\", \"is_group\", \"=\", 0], [\"Account\", \"disabled\", \"=\", 0], [\"Account\", \"account_type\", \"=\", \"Expense Account\"], [\"Account\", \"job_profit_account_type\", \"=\", \"Accrual\"]]",
+   "description": "Expense account debited on cost accrual for this company. Item Default wins over Item Group Default, then the recognition policy."
+  },
+  {
+   "dt": "Item Default",
+   "fieldname": "custom_standard_cost_account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Standard Cost Account",
+   "options": "Account",
+   "insert_after": "custom_cost_accrual_account",
+   "link_filters": "[[\"Account\", \"company\", \"=\", \"eval:doc.company\"], [\"Account\", \"is_group\", \"=\", 0], [\"Account\", \"disabled\", \"=\", 0]]",
+   "description": "Debited when posting standard cost. Item Default, then the Item, then the Item Group default."
+  },
+  {
+   "dt": "Item Default",
+   "fieldname": "custom_applied_standard_cost_account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Applied Standard Cost Account",
+   "options": "Account",
+   "insert_after": "custom_standard_cost_account",
+   "link_filters": "[[\"Account\", \"company\", \"=\", \"eval:doc.company\"], [\"Account\", \"is_group\", \"=\", 0], [\"Account\", \"disabled\", \"=\", 0]]",
+   "description": "Credited when posting standard cost. Item Default, then the Item, then the Item Group default."
+  }
+ ],
+ "custom_perms": [],
+ "doctype": "Item Default",
+ "links": [],
+ "property_setters": [],
+ "sync_on_migrate": 1
+}
