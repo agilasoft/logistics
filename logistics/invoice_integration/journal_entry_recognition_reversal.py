@@ -43,6 +43,7 @@ from logistics.job_management.recognition_engine import (
 	get_recognition_policy_for_job,
 	resolve_policy_row_for_job,
 )
+from logistics.utils.item_accounts import get_cost_accrual_account_for_item, get_wip_account_for_item
 
 _REVERSAL_MARKER_PREFIX = "CargoNext|RecognitionReversal|"
 _INTERNAL_BILLING_REMARK = "Internal Billing"
@@ -258,9 +259,9 @@ def _accrual_segments(lines_by_jcn, company):
 		policy = get_recognition_policy_for_job(jcn)
 		if not policy:
 			continue
-		cost_acc = policy.get("cost_accrual_account")
+		policy_cost = policy.get("cost_accrual_account")
 		liab_acc = policy.get("accrued_cost_liability_account")
-		if not cost_acc or not liab_acc:
+		if not policy_cost or not liab_acc:
 			continue
 		job = _job_from_jcn(jcn)
 		if not job or not frappe.get_meta(job.doctype).has_field("accrual_amount"):
@@ -268,14 +269,17 @@ def _accrual_segments(lines_by_jcn, company):
 		remaining = flt(job.get("accrual_amount"))
 		if remaining <= 0:
 			continue
+
+		def _open_accrual(item_code, _jcn=jcn, _fallback=policy_cost, _liab=liab_acc):
+			acc = get_cost_accrual_account_for_item(item_code, company, _fallback)
+			return _paired_accrual_open_for_item(_jcn, company, acc, _liab, item_fn_gl, item_code)
+
 		pairs = _pairs_for_lines(
 			debit_lines,
 			remaining,
 			company,
 			item_fn_gl,
-			lambda item_code: _paired_accrual_open_for_item(
-				jcn, company, cost_acc, liab_acc, item_fn_gl, item_code
-			),
+			_open_accrual,
 		)
 		if pairs:
 			segments.append((job, pairs))
@@ -295,21 +299,24 @@ def _wip_segments(lines_by_jcn, company):
 		_policy, param_row = resolve_policy_row_for_job(job)
 		if not param_row:
 			continue
-		wip_acc = param_row.get("wip_account")
+		policy_wip = param_row.get("wip_account")
 		liab_acc = param_row.get("revenue_liability_account")
-		if not wip_acc or not liab_acc:
+		if not policy_wip or not liab_acc:
 			continue
 		remaining = flt(job.get("wip_amount"))
 		if remaining <= 0:
 			continue
+
+		def _open_wip(item_code, _jcn=jcn, _fallback=policy_wip, _liab=liab_acc):
+			acc = get_wip_account_for_item(item_code, company, _fallback)
+			return _paired_wip_open_for_item(_jcn, company, acc, _liab, item_fn_gl, item_code)
+
 		pairs = _pairs_for_lines(
 			credit_lines,
 			remaining,
 			company,
 			item_fn_gl,
-			lambda item_code: _paired_wip_open_for_item(
-				jcn, company, wip_acc, liab_acc, item_fn_gl, item_code
-			),
+			_open_wip,
 		)
 		if pairs:
 			segments.append((job, pairs))

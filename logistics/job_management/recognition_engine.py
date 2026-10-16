@@ -18,6 +18,7 @@ from logistics.job_management.charge_recognition_je import (
     set_accrual_adjustment_je_on_charges,
     set_wip_adjustment_je_on_charges,
 )
+from logistics.utils.item_accounts import get_cost_accrual_account_for_item, get_wip_account_for_item
 
 
 def resolve_charge_row_selling(charge, *, prefer_actual=False):
@@ -772,10 +773,15 @@ class RecognitionEngine:
 
         for line in normalized:
             amt = flt(line["amount"])
-            item_extra = self._item_dimension_je_row(line.get("item_code"))
+            item_code = line.get("item_code")
+            item_extra = self._item_dimension_je_row(item_code)
+            liab_acc = settings.get("revenue_liability_account")
+            wip_acc = get_wip_account_for_item(item_code, self.company, settings.get("wip_account"))
+            if not wip_acc or not liab_acc:
+                frappe.throw(_("WIP Account and Revenue Liability Account are required"))
 
             row = {
-                "account": settings.get("revenue_liability_account"),
+                "account": liab_acc,
                 "debit_in_account_currency": amt,
                 "credit_in_account_currency": 0,
                 **self._je_dimension_fields_for_job(),
@@ -787,7 +793,7 @@ class RecognitionEngine:
             je.append("accounts", row)
 
             row = {
-                "account": settings.get("wip_account"),
+                "account": wip_acc,
                 "debit_in_account_currency": 0,
                 "credit_in_account_currency": amt,
                 **self._je_dimension_fields_for_job(),
@@ -848,11 +854,44 @@ class RecognitionEngine:
 
         return je.name
 
+    def _recognized_charge_lines(self, je_field, amount_fn):
+        """Recognized charge rows as amount + item, so a reversal hits the account that was posted."""
+        lines = []
+        ct = self._get_charges_table_name()
+        if not ct or not hasattr(self.job, ct):
+            return lines
+        for charge in self.job.get(ct) or []:
+            if not getattr(charge, je_field, None):
+                continue
+            amt = flt(amount_fn(charge))
+            if amt <= 0:
+                continue
+            lines.append({"amount": amt, "item_code": self._charge_item_code(charge)})
+        return lines
+
+    def _allocate_adjustment_lines(self, amount, lines):
+        """Split ``amount`` across recognized charge lines. A remainder has no item (policy account)."""
+        remaining = flt(amount)
+        if not lines:
+            return [{"amount": remaining, "item_code": None}] if remaining > 0 else []
+        allocated = []
+        for line in lines:
+            if remaining <= 0:
+                break
+            take = min(flt(line["amount"]), remaining)
+            if take <= 0:
+                continue
+            allocated.append({"amount": take, "item_code": line.get("item_code")})
+            remaining = flt(remaining - take)
+        if remaining > 0:
+            allocated.append({"amount": remaining, "item_code": None})
+        return allocated
+
     def create_wip_adjustment_je(self, amount, adjustment_date, is_closure=False):
         """
         Create WIP adjustment Journal Entry (reverses WIP recognition).
 
-        Dr. WIP Account
+        Dr. WIP Account (per charge item when recognition was posted by item)
         Cr. Revenue Liability Account
         """
         settings = self.get_settings()
@@ -864,30 +903,43 @@ class RecognitionEngine:
         je.voucher_type = "Journal Entry"
         je.user_remark = f"WIP {remark_type} for {self.job_type} {self.job.name}"
         jcn = self.job.get("job_number")
+        lines = self._allocate_adjustment_lines(
+            amount,
+            self._recognized_charge_lines("wip_recognition_journal_entry", self._charge_row_wip_amount),
+        )
+        liab_acc = settings.get("revenue_liability_account")
 
-        # Debit: WIP Account
-        row = {
-            "account": settings.get("wip_account"),
-            "debit_in_account_currency": amount,
-            "credit_in_account_currency": 0,
-            **self._je_dimension_fields_for_job(),
-            **self._je_account_reference_fields(),
-        }
-        if jcn:
-            row["job_number"] = jcn
-        je.append("accounts", row)
+        for line in lines:
+            amt = flt(line["amount"])
+            item_code = line.get("item_code")
+            item_extra = self._item_dimension_je_row(item_code)
+            wip_acc = get_wip_account_for_item(item_code, self.company, settings.get("wip_account"))
+            if not wip_acc or not liab_acc:
+                frappe.throw(_("WIP Account and Revenue Liability Account are required"))
+            dims = {
+                **self._je_dimension_fields_for_job(),
+                **self._je_account_reference_fields(),
+                **item_extra,
+            }
+            row = {
+                "account": wip_acc,
+                "debit_in_account_currency": amt,
+                "credit_in_account_currency": 0,
+                **dims,
+            }
+            if jcn:
+                row["job_number"] = jcn
+            je.append("accounts", row)
 
-        # Credit: Revenue Liability Account
-        row = {
-            "account": settings.get("revenue_liability_account"),
-            "debit_in_account_currency": 0,
-            "credit_in_account_currency": amount,
-            **self._je_dimension_fields_for_job(),
-            **self._je_account_reference_fields(),
-        }
-        if jcn:
-            row["job_number"] = jcn
-        je.append("accounts", row)
+            row = {
+                "account": liab_acc,
+                "debit_in_account_currency": 0,
+                "credit_in_account_currency": amt,
+                **dims,
+            }
+            if jcn:
+                row["job_number"] = jcn
+            je.append("accounts", row)
 
         apply_journal_entry_posting_header_from_job(je, self.job)
         self._insert_and_submit_je(je)
@@ -931,10 +983,17 @@ class RecognitionEngine:
 
         for line in normalized:
             amt = flt(line["amount"])
-            item_extra = self._item_dimension_je_row(line.get("item_code"))
+            item_code = line.get("item_code")
+            item_extra = self._item_dimension_je_row(item_code)
+            cost_acc = get_cost_accrual_account_for_item(
+                item_code, self.company, settings.get("cost_accrual_account")
+            )
+            liab_acc = settings.get("accrued_cost_liability_account")
+            if not cost_acc or not liab_acc:
+                frappe.throw(_("Cost Accrual Account and Accrued Cost Liability Account are required"))
 
             row_dr = {
-                "account": settings.get("cost_accrual_account"),
+                "account": cost_acc,
                 "debit_in_account_currency": amt,
                 "credit_in_account_currency": 0,
                 **self._je_dimension_fields_for_job(),
@@ -946,7 +1005,7 @@ class RecognitionEngine:
             je.append("accounts", row_dr)
 
             row_cr = {
-                "account": settings.get("accrued_cost_liability_account"),
+                "account": liab_acc,
                 "debit_in_account_currency": 0,
                 "credit_in_account_currency": amt,
                 **self._je_dimension_fields_for_job(),
@@ -978,30 +1037,45 @@ class RecognitionEngine:
         je.voucher_type = "Journal Entry"
         je.user_remark = f"Accrual {remark_type} for {self.job_type} {self.job.name}"
         jcn = self.job.get("job_number")
+        lines = self._allocate_adjustment_lines(
+            amount,
+            self._recognized_charge_lines("accrual_recognition_journal_entry", self._charge_row_cost_amount),
+        )
+        liab_acc = settings.get("accrued_cost_liability_account")
 
-        # Debit: Accrued Cost Liability Account
-        row = {
-            "account": settings.get("accrued_cost_liability_account"),
-            "debit_in_account_currency": amount,
-            "credit_in_account_currency": 0,
-            **self._je_dimension_fields_for_job(),
-            **self._je_account_reference_fields(),
-        }
-        if jcn:
-            row["job_number"] = jcn
-        je.append("accounts", row)
+        for line in lines:
+            amt = flt(line["amount"])
+            item_code = line.get("item_code")
+            item_extra = self._item_dimension_je_row(item_code)
+            cost_acc = get_cost_accrual_account_for_item(
+                item_code, self.company, settings.get("cost_accrual_account")
+            )
+            if not cost_acc or not liab_acc:
+                frappe.throw(_("Cost Accrual Account and Accrued Cost Liability Account are required"))
+            dims = {
+                **self._je_dimension_fields_for_job(),
+                **self._je_account_reference_fields(),
+                **item_extra,
+            }
+            row = {
+                "account": liab_acc,
+                "debit_in_account_currency": amt,
+                "credit_in_account_currency": 0,
+                **dims,
+            }
+            if jcn:
+                row["job_number"] = jcn
+            je.append("accounts", row)
 
-        # Credit: Cost Accrual Account
-        row = {
-            "account": settings.get("cost_accrual_account"),
-            "debit_in_account_currency": 0,
-            "credit_in_account_currency": amount,
-            **self._je_dimension_fields_for_job(),
-            **self._je_account_reference_fields(),
-        }
-        if jcn:
-            row["job_number"] = jcn
-        je.append("accounts", row)
+            row = {
+                "account": cost_acc,
+                "debit_in_account_currency": 0,
+                "credit_in_account_currency": amt,
+                **dims,
+            }
+            if jcn:
+                row["job_number"] = jcn
+            je.append("accounts", row)
 
         apply_journal_entry_posting_header_from_job(je, self.job)
         self._insert_and_submit_je(je)

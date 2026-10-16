@@ -37,6 +37,7 @@ from logistics.job_management.recognition_engine import (
 	get_recognition_settings,
 	resolve_policy_row_for_job,
 )
+from logistics.utils.item_accounts import get_cost_accrual_account_for_item, get_wip_account_for_item
 
 
 def _resolve_job_doc_from_jcn(jcn):
@@ -133,9 +134,9 @@ def _wip_reversal_segments_for_job(job, credit_lines, company):
 	_policy, param_row = resolve_policy_row_for_job(job)
 	if not param_row:
 		return []
-	wip_acc = param_row.get("wip_account")
+	policy_wip = param_row.get("wip_account")
 	liab_acc = param_row.get("revenue_liability_account")
-	if not wip_acc or not liab_acc:
+	if not policy_wip or not liab_acc:
 		return []
 
 	remaining = flt(job.get("wip_amount"))
@@ -146,6 +147,7 @@ def _wip_reversal_segments_for_job(job, credit_lines, company):
 	je_pairs = []
 	for amt, item_code in credit_lines:
 		rev = 0
+		wip_acc = get_wip_account_for_item(item_code, company, policy_wip)
 		if item_fn_gl and item_code:
 			open_item = _paired_wip_open_for_item(jcn, company, wip_acc, liab_acc, item_fn_gl, item_code)
 			if open_item > 0:
@@ -182,14 +184,14 @@ def _accrual_reversal_segments_for_job(job, debit_lines, company, end_customer):
 
 	jcn = job.get("job_number")
 	settings = get_recognition_settings(job)
-	cost_acc = settings.get("cost_accrual_account")
+	policy_cost = settings.get("cost_accrual_account")
 	liab_acc = settings.get("accrued_cost_liability_account")
-	if not cost_acc or not liab_acc:
+	if not policy_cost or not liab_acc:
 		_policy, param_row = resolve_policy_row_for_job(job)
 		if param_row:
-			cost_acc = param_row.get("cost_accrual_account")
+			policy_cost = param_row.get("cost_accrual_account")
 			liab_acc = param_row.get("accrued_cost_liability_account")
-	if not cost_acc or not liab_acc:
+	if not policy_cost or not liab_acc:
 		return []
 
 	remaining = flt(job.get("accrual_amount"))
@@ -200,6 +202,7 @@ def _accrual_reversal_segments_for_job(job, debit_lines, company, end_customer):
 	je_pairs = []
 	for amt, item_code in debit_lines:
 		rev = 0
+		cost_acc = get_cost_accrual_account_for_item(item_code, company, policy_cost)
 		if item_fn_gl and item_code:
 			open_item = _paired_accrual_open_for_item(jcn, company, cost_acc, liab_acc, item_fn_gl, item_code)
 			if open_item > 0:

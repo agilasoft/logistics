@@ -11,19 +11,61 @@ from typing import Optional, Tuple
 import frappe
 from frappe import _
 
+_BASE_DEFAULT_FIELDS = ("income_account", "expense_account", "purchase_expense_account")
+_EXTRA_DEFAULT_FIELDS = (
+	"custom_wip_account",
+	"custom_cost_accrual_account",
+	"custom_standard_cost_account",
+	"custom_applied_standard_cost_account",
+)
+_HEADER_STANDARD_COST_FIELDS = (
+	"custom_standard_cost_account",
+	"custom_applied_standard_cost_account",
+)
+
+
+def _item_default_columns() -> list:
+	cols = list(_BASE_DEFAULT_FIELDS)
+	for col in _EXTRA_DEFAULT_FIELDS:
+		if frappe.db.has_column("Item Default", col):
+			cols.append(col)
+	return cols
+
 
 def _item_default_accounts(item_code: str, company: str, parenttype: str, parent: str) -> dict:
+	if not parent or not company:
+		return {}
+	cols = _item_default_columns()
 	row = frappe.db.sql(
 		"""
-		SELECT income_account, expense_account, purchase_expense_account
+		SELECT {cols}
 		FROM `tabItem Default`
 		WHERE parent=%(parent)s AND parenttype=%(parenttype)s AND company=%(company)s
 		LIMIT 1
-		""",
+		""".format(cols=", ".join(cols)),
 		{"parent": parent, "parenttype": parenttype, "company": company},
 		as_dict=True,
 	)
 	return row[0] if row else {}
+
+
+def _group_default_accounts(item_code: str, company: str) -> dict:
+	if not item_code or not company:
+		return {}
+	item_group = frappe.db.get_value("Item", item_code, "item_group")
+	if not item_group:
+		return {}
+	return _item_default_accounts(item_code, company, "Item Group", item_group)
+
+
+def _first_default_value(item_code: str, company: str, fieldname: str) -> Optional[str]:
+	if not item_code or not company or not frappe.db.has_column("Item Default", fieldname):
+		return None
+	row = _item_default_accounts(item_code, company, "Item", item_code)
+	if row.get(fieldname):
+		return row.get(fieldname)
+	group_row = _group_default_accounts(item_code, company)
+	return group_row.get(fieldname) or None
 
 
 def get_expense_account_for_item(item_code: str, company: str) -> Optional[str]:
@@ -90,3 +132,104 @@ def get_item_accounts_for_internal_billing(item_code: str, company: str) -> Tupl
 			)
 		)
 	return expense_account, income_account
+
+
+def get_wip_account_for_item(item_code: str, company: str, fallback: Optional[str] = None) -> Optional[str]:
+	"""WIP income account: Item Default, Item Group Default, then the recognition policy."""
+	if not item_code:
+		return fallback
+	return _first_default_value(item_code, company, "custom_wip_account") or fallback
+
+
+def get_cost_accrual_account_for_item(
+	item_code: str, company: str, fallback: Optional[str] = None
+) -> Optional[str]:
+	"""Cost accrual expense account: Item Default, Item Group Default, then the recognition policy."""
+	if not item_code:
+		return fallback
+	return _first_default_value(item_code, company, "custom_cost_accrual_account") or fallback
+
+
+def _item_header_standard_cost(item_code: str) -> dict:
+	fields = [fn for fn in _HEADER_STANDARD_COST_FIELDS if frappe.db.has_column("Item", fn)]
+	if not item_code or not fields:
+		return {}
+	return frappe.db.get_value("Item", item_code, fields, as_dict=True) or {}
+
+
+def get_standard_cost_accounts_for_item(item_code: str, company: str) -> Tuple[Optional[str], Optional[str]]:
+	"""Return (standard cost, applied standard cost).
+
+	Each side resolves independently: Item Default, then the Item header, then Item Group Default.
+	"""
+	if not item_code:
+		return None, None
+	item_row = _item_default_accounts(item_code, company, "Item", item_code) if company else {}
+	header = _item_header_standard_cost(item_code)
+	group_row = _group_default_accounts(item_code, company)
+
+	def pick(fieldname: str) -> Optional[str]:
+		return item_row.get(fieldname) or header.get(fieldname) or group_row.get(fieldname) or None
+
+	return pick("custom_standard_cost_account"), pick("custom_applied_standard_cost_account")
+
+
+def validate_item_default_accounts(doc, method=None):
+	"""WIP, Accrual, and standard-cost accounts on Item / Item Group defaults must match the row company."""
+	rows = doc.get("item_defaults") or []
+	if not rows:
+		return
+	if not frappe.get_meta("Item Default").get_field("custom_wip_account"):
+		return
+	for row in rows:
+		_validate_role_account(row, "custom_wip_account", _("WIP Account"), "Income Account", "WIP")
+		_validate_role_account(
+			row, "custom_cost_accrual_account", _("Accrual Account"), "Expense Account", "Accrual"
+		)
+		_validate_leaf_account(row, "custom_standard_cost_account", _("Standard Cost Account"))
+		_validate_leaf_account(row, "custom_applied_standard_cost_account", _("Applied Standard Cost Account"))
+
+
+def _account_for_validation(name: str):
+	fields = ["company", "account_type", "is_group"]
+	if frappe.db.has_column("Account", "job_profit_account_type"):
+		fields.append("job_profit_account_type")
+	return frappe.db.get_value("Account", name, fields, as_dict=True)
+
+
+def _validate_role_account(row, fieldname, label, account_type, job_profit):
+	acc = row.get(fieldname)
+	if not acc:
+		return
+	ac = _account_for_validation(acc)
+	if not ac:
+		frappe.throw(_("{0} {1} does not exist.").format(label, acc))
+	_validate_account_company(row, ac, acc, label)
+	if ac.get("is_group"):
+		frappe.throw(_("{0} {1} cannot be a group account.").format(label, acc))
+	if (ac.get("account_type") or "") != account_type:
+		frappe.throw(_("{0} must be an {1}.").format(label, account_type))
+	if frappe.db.has_column("Account", "job_profit_account_type"):
+		jpt = (ac.get("job_profit_account_type") or "").strip()
+		if jpt != job_profit:
+			frappe.throw(_("{0}: Job Profit Account Type must be {1}.").format(label, job_profit))
+
+
+def _validate_leaf_account(row, fieldname, label):
+	acc = row.get(fieldname)
+	if not acc:
+		return
+	ac = _account_for_validation(acc)
+	if not ac:
+		frappe.throw(_("{0} {1} does not exist.").format(label, acc))
+	_validate_account_company(row, ac, acc, label)
+	if ac.get("is_group"):
+		frappe.throw(_("{0} {1} cannot be a group account.").format(label, acc))
+
+
+def _validate_account_company(row, ac, acc, label):
+	company = row.get("company")
+	if not company:
+		frappe.throw(_("{0} requires a Company on the Item Default row.").format(label))
+	if ac.get("company") != company:
+		frappe.throw(_("{0} {1} must belong to company {2}.").format(label, acc, company))

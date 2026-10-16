@@ -26,6 +26,7 @@ from logistics.job_management.recognition_engine import (
 	apply_journal_entry_posting_header_from_job,
 	resolve_policy_row_for_job,
 )
+from logistics.utils.item_accounts import get_wip_account_for_item
 from logistics.invoice_integration.lifecycle import get_jobs_linked_to_sales_invoice
 from logistics.invoice_integration.charge_settled_reversal import (
 	compute_item_reversal_amount,
@@ -165,14 +166,17 @@ def post_wip_reversal_journal_multi(
 			continue
 		if header_job is None:
 			header_job = job
-		wip_acc = param_row.get("wip_account")
+		policy_wip = param_row.get("wip_account")
 		liab_acc = param_row.get("revenue_liability_account")
-		if not wip_acc or not liab_acc:
+		if not policy_wip or not liab_acc:
 			continue
 
 		jcn_val = jcn
 		seg_total = 0.0
 		for rev_amt, item_code in je_pairs:
+			wip_acc = get_wip_account_for_item(item_code, company, policy_wip)
+			if not wip_acc:
+				continue
 			seg_total += flt(rev_amt)
 			item_extra = item_row_dict("Journal Entry Account", item_code)
 			# Do not set reference_type to Sales Invoice / PI on rows: ERPNext requires
@@ -302,9 +306,9 @@ def reverse_wip_for_sales_invoice(si_doc):
 		_policy, param_row = resolve_policy_row_for_job(job)
 		if not param_row:
 			continue
-		wip_acc = param_row.get("wip_account")
+		policy_wip = param_row.get("wip_account")
 		liab_acc = param_row.get("revenue_liability_account")
-		if not wip_acc or not liab_acc:
+		if not policy_wip or not liab_acc:
 			continue
 
 		remaining = flt(job.get("wip_amount"))
@@ -315,6 +319,7 @@ def reverse_wip_for_sales_invoice(si_doc):
 		je_pairs = []
 		for amt, item_code in line_amts:
 			rev = 0
+			wip_acc = get_wip_account_for_item(item_code, company, policy_wip)
 			if item_fn_gl and item_code:
 				open_item = _paired_wip_open_for_item(jcn, company, wip_acc, liab_acc, item_fn_gl, item_code)
 				if open_item > 0:

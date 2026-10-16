@@ -5218,16 +5218,15 @@ def post_standard_costs(warehouse_job: str) -> dict:
 		total_amount = 0
 		je_entries = []
 		
+		from logistics.utils.item_accounts import get_standard_cost_accounts_for_item
+
 		for charge in charges_with_standard_cost:
 			if not charge.item_code:
 				continue
-				
-			# Get item details to fetch standard cost accounts
-			item_doc = frappe.get_doc("Item", charge.item_code)
-			
-			# Get standard cost accounts from item
-			standard_cost_account = item_doc.get("custom_standard_cost_account")
-			applied_standard_cost_account = item_doc.get("custom_applied_standard_cost_account")
+
+			standard_cost_account, applied_standard_cost_account = get_standard_cost_accounts_for_item(
+				charge.item_code, job.company
+			)
 			
 			if not standard_cost_account or not applied_standard_cost_account:
 				frappe.logger().warning(f"Standard cost accounts not configured for item: {charge.item_code}")

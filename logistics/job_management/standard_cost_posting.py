@@ -6,8 +6,10 @@
 A charge qualifies when its cost side is marked Internal and priced from a tariff.
 Those lines are not supplier invoices: Post Standard Costs records
 
-    Dr Item.custom_standard_cost_account
-    Cr Item.custom_applied_standard_cost_account
+    Dr Standard Cost Account
+    Cr Applied Standard Cost Account
+
+Accounts resolve from Item Default, then the Item, then Item Group Default.
 
 for the tariff cost (company currency).
 """
@@ -17,6 +19,8 @@ from __future__ import annotations
 import frappe
 from frappe import _
 from frappe.utils import cint, flt, now, today
+
+from logistics.utils.item_accounts import get_standard_cost_accounts_for_item
 
 CHARGE_TABLES = ("charges", "consolidation_charges")
 
@@ -128,14 +132,12 @@ def post_internal_tariff_standard_costs(job) -> dict:
 		if amount <= 0:
 			skipped.append(_("{0}: tariff cost is zero.").format(_charge_label(charge)))
 			continue
-		item = frappe.get_doc("Item", item_code)
-		debit_account = item.get("custom_standard_cost_account")
-		credit_account = item.get("custom_applied_standard_cost_account")
+		debit_account, credit_account = get_standard_cost_accounts_for_item(item_code, job.company)
 		if not debit_account or not credit_account:
 			skipped.append(
-				_("{0}: set Standard Cost Account and Applied Standard Cost Account on the Item.").format(
-					item_code
-				)
+				_(
+					"{0}: set Standard Cost Account and Applied Standard Cost Account on the Item or Item Group."
+				).format(item_code)
 			)
 			continue
 		to_post.append(
