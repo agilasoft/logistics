@@ -998,5 +998,14 @@ def create_booking_or_order_from_exhibit(
 			ij_row=row,
 			service_type_label=(getattr(row, "service_type", None) or "").strip(),
 		)
+
+		# Check quantity limit on the linked service before creating.
+		from logistics.utils.linked_service_compat import row_linked_service_link
+		from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
+		ls_name = row_linked_service_link(row) if row else None
+		if ls_name:
+			require_linked_service_has_order_capacity(ls_name, jt)
+
 		handler = _CREATE_DISPATCH[jt]
 		return handler(ep_doc, row, resolved_idx)
