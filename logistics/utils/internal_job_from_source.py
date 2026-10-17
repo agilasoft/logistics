@@ -1672,6 +1672,9 @@ def _create_freight_booking_from_freight_shipment(
 	routing (origin/destination/direction) with the IJ Detail row's values, so the new booking
 	carries its own corridor rather than the Main shipment's.
 	"""
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	shipment = frappe.get_doc(source_doctype, source_name)
 	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
 	row, resolved_idx = resolve_internal_job_detail_row_for_create(shipment, target_doctype, idx)
@@ -1681,6 +1684,12 @@ def _create_freight_booking_from_freight_shipment(
 				_(target_doctype), _(target_service_lower.title())
 			)
 		)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(row) if row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, target_doctype)
+
 	doc = frappe.new_doc(target_doctype)
 	doc.local_customer = shipment.local_customer
 	doc.shipper = getattr(shipment, "shipper", None)
@@ -1747,9 +1756,18 @@ def _create_sea_booking_from_sea_shipment(sea_shipment_name: str, internal_job_d
 
 
 def _create_air_booking_from_transport_job(transport_job_name: str, internal_job_detail_idx: int | None):
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	job = frappe.get_doc("Transport Job", transport_job_name)
 	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
 	row, resolved_idx = resolve_internal_job_detail_row_for_create(job, "Air Booking", idx)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(row) if row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Air Booking")
+
 	doc = frappe.new_doc("Air Booking")
 	doc.local_customer = job.customer
 	doc.shipper = getattr(job, "shipper", None)
@@ -1788,9 +1806,18 @@ def _create_air_booking_from_transport_job(transport_job_name: str, internal_job
 
 
 def _create_sea_booking_from_transport_job(transport_job_name: str, internal_job_detail_idx: int | None):
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	job = frappe.get_doc("Transport Job", transport_job_name)
 	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
 	row, resolved_idx = resolve_internal_job_detail_row_for_create(job, "Sea Booking", idx)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(row) if row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Sea Booking")
+
 	doc = frappe.new_doc("Sea Booking")
 	doc.local_customer = job.customer
 	doc.shipper = getattr(job, "shipper", None)
@@ -1824,9 +1851,18 @@ def _create_sea_booking_from_transport_job(transport_job_name: str, internal_job
 def _create_declaration_order_from_transport_job(transport_job_name: str, internal_job_detail_idx: int | None):
 	from frappe.utils import today
 
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	job = frappe.get_doc("Transport Job", transport_job_name)
 	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
 	row, resolved_idx = resolve_internal_job_detail_row_for_create(job, "Declaration Order", idx)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(row) if row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Declaration Order")
+
 	order = frappe.new_doc("Declaration Order")
 	_apply_internal_job_satellite_flags(order, "Transport Job", job.name)
 	order.transport_mode = "Road"
@@ -1862,6 +1898,9 @@ def _create_declaration_order_from_transport_job(transport_job_name: str, intern
 
 
 def _create_transport_order_from_transport_job(transport_job_name: str, internal_job_detail_idx: int | None):
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	job = frappe.get_doc("Transport Job", transport_job_name)
 	idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
 	row, resolved_idx = resolve_internal_job_detail_row_for_create(job, "Transport Order", idx)
@@ -1869,6 +1908,12 @@ def _create_transport_order_from_transport_job(transport_job_name: str, internal
 		frappe.throw(
 			_("No linked-service Transport charge line found for creating a Transport Order from this Transport Job.")
 		)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(row) if row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Transport Order")
+
 	order = frappe.new_doc("Transport Order")
 	order.customer = job.customer
 	order.shipper = getattr(job, "shipper", None)
