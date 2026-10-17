@@ -973,12 +973,20 @@ def create_transport_order_from_air_shipment(
 	"""
 	from frappe import _
 
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	shipment = frappe.get_doc("Air Shipment", air_shipment_name)
 	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
 	ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 		shipment, "Transport Order", detail_idx
 	)
 	_require_internal_job_eligible_for_parent_row(shipment, ij_row, "Transport Order")
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Transport Order")
 	can_create, matching_leg = _can_create_transport_order_from_shipment(shipment, direction_field="direction")
 	if not can_create:
 		allowed = _get_allowed_transport_order_legs()
@@ -1061,12 +1069,20 @@ def create_transport_order_from_sea_shipment(
 	"""
 	from frappe import _
 
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	shipment = frappe.get_doc("Sea Shipment", sea_shipment_name)
 	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
 	ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 		shipment, "Transport Order", detail_idx
 	)
 	_require_internal_job_eligible_for_parent_row(shipment, ij_row, "Transport Order")
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Transport Order")
 	can_create, matching_leg = _can_create_transport_order_from_shipment(shipment, direction_field="direction")
 	if not can_create:
 		allowed = _get_allowed_transport_order_legs()
@@ -1928,6 +1944,15 @@ def _create_declaration_order_from_freight_shipment(
 		shipment, "Declaration Order", detail_idx
 	)
 	_require_internal_job_eligible_for_parent_row(shipment, ij_row, "Declaration Order")
+
+	# Check quantity limit on the linked service before creating.
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Declaration Order")
+
 	if ij_row:
 		apply_internal_job_detail_row_to_operational_doc(order, ij_row, overwrite=True)
 
@@ -2112,6 +2137,10 @@ def create_inbound_order_from_air_shipment(
 ):
 	"""Create an Inbound Order from an Air Shipment to receive goods into warehouse."""
 	from frappe import _
+
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	if not _get_default_warehouse_item():
 		frappe.throw(_("No Warehouse Item found. Please create at least one Warehouse Item before creating Inbound Order from shipment."))
 	shipment = frappe.get_doc("Air Shipment", air_shipment_name)
@@ -2122,6 +2151,12 @@ def create_inbound_order_from_air_shipment(
 		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 			shipment, "Inbound Order", detail_idx
 		)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Inbound Order")
+
 	customer = shipment.local_customer
 	if not customer:
 		frappe.throw(_("Air Shipment must have Local Customer to create Inbound Order."))
@@ -2170,6 +2205,10 @@ def create_inbound_order_from_sea_shipment(
 ):
 	"""Create an Inbound Order from a Sea Shipment to receive goods into warehouse."""
 	from frappe import _
+
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	if not _get_default_warehouse_item():
 		frappe.throw(_("No Warehouse Item found. Please create at least one Warehouse Item before creating Inbound Order from shipment."))
 	shipment = frappe.get_doc("Sea Shipment", sea_shipment_name)
@@ -2180,6 +2219,12 @@ def create_inbound_order_from_sea_shipment(
 		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 			shipment, "Inbound Order", detail_idx
 		)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Inbound Order")
+
 	customer = shipment.local_customer
 	if not customer:
 		frappe.throw(_("Sea Shipment must have Local Customer to create Inbound Order."))
@@ -2228,6 +2273,10 @@ def create_inbound_order_from_transport_job(
 ):
 	"""Create an Inbound Order from a Transport Job to receive goods into warehouse."""
 	from frappe import _
+
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	if not _get_default_warehouse_item():
 		frappe.throw(_("No Warehouse Item found. Please create at least one Warehouse Item before creating Inbound Order from Transport Job."))
 	job = frappe.get_doc("Transport Job", transport_job_name)
@@ -2238,6 +2287,11 @@ def create_inbound_order_from_transport_job(
 		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 			job, "Inbound Order", detail_idx
 		)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Inbound Order")
 	customer = job.customer
 	if not customer:
 		frappe.throw(_("Transport Job must have Customer to create Inbound Order."))
@@ -2556,6 +2610,8 @@ def create_transport_order_from_declaration(
 	from logistics.utils.internal_job_detail_copy import (
 		sync_internal_job_details_from_declaration_to_declaration_order,
 	)
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
 
 	if not declaration_name:
 		frappe.throw(_("Declaration is required."))
@@ -2572,6 +2628,11 @@ def create_transport_order_from_declaration(
 	ij_row, resolved_idx, persist_doctype, persist_name, do_doc, do_name = (
 		_resolve_transport_ij_for_declaration_to_order(dec, internal_job_detail_idx)
 	)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Transport Order")
 
 	# Header defaults: when linked to a Declaration Order, use it as the main source for corridor/parties/reps.
 	header_src = do_doc if do_doc is not None else dec
@@ -2656,6 +2717,8 @@ def create_inbound_order_from_declaration(
 	"""Create an Inbound Order from a Declaration when the quote allows warehousing."""
 	from frappe import _
 
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
 	from logistics.utils.sales_quote_service_eligibility import get_quote_module_flags
 
 	if not declaration_name:
@@ -2673,6 +2736,12 @@ def create_inbound_order_from_declaration(
 		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 			dec, "Inbound Order", detail_idx
 		)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Inbound Order")
+
 	if not getattr(dec, "sales_quote", None):
 		frappe.throw(_("Link a Sales Quote on this Declaration before creating an Inbound Order."))
 	flags = get_quote_module_flags(
@@ -2879,6 +2948,9 @@ def create_vas_order_from_air_shipment(
 	"""Create a linked VAS Order (cross-dock / in-transit) from an Air Shipment."""
 	from frappe import _
 
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	shipment = frappe.get_doc("Air Shipment", air_shipment_name)
 	shipment.check_permission("write")
 	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
@@ -2888,6 +2960,12 @@ def create_vas_order_from_air_shipment(
 		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 			shipment, "VAS Order", detail_idx
 		)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "VAS Order")
+
 	customer = shipment.local_customer
 	if not customer:
 		frappe.throw(_("Air Shipment must have Local Customer to create a VAS Order."))
@@ -2933,6 +3011,9 @@ def create_vas_order_from_sea_shipment(
 	"""Create a linked VAS Order (cross-dock / strip-stuff, no storage) from a Sea Shipment."""
 	from frappe import _
 
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	shipment = frappe.get_doc("Sea Shipment", sea_shipment_name)
 	shipment.check_permission("write")
 	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
@@ -2942,6 +3023,12 @@ def create_vas_order_from_sea_shipment(
 		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 			shipment, "VAS Order", detail_idx
 		)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "VAS Order")
+
 	customer = shipment.local_customer
 	if not customer:
 		frappe.throw(_("Sea Shipment must have Local Customer to create a VAS Order."))
@@ -2986,6 +3073,9 @@ def create_vas_order_from_transport_job(
 	"""Create a linked VAS Order (cross-dock / in-transit) from a Transport Job."""
 	from frappe import _
 
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	job = frappe.get_doc("Transport Job", transport_job_name)
 	job.check_permission("write")
 	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
@@ -2995,6 +3085,12 @@ def create_vas_order_from_transport_job(
 		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 			job, "VAS Order", detail_idx
 		)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "VAS Order")
+
 	customer = job.customer
 	if not customer:
 		frappe.throw(_("Transport Job must have Customer to create a VAS Order."))
@@ -3030,6 +3126,8 @@ def create_vas_order_from_declaration(
 	"""Create a linked VAS Order (cross-dock / in-transit) from a Declaration."""
 	from frappe import _
 
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
 	from logistics.utils.sales_quote_service_eligibility import get_quote_module_flags
 
 	dec = frappe.get_doc("Declaration", declaration_name)
@@ -3041,6 +3139,12 @@ def create_vas_order_from_declaration(
 		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 			dec, "VAS Order", detail_idx
 		)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "VAS Order")
+
 	if not getattr(dec, "sales_quote", None):
 		frappe.throw(_("Link a Sales Quote on this Declaration before creating a VAS Order."))
 	flags = get_quote_module_flags(
@@ -3213,6 +3317,9 @@ def create_cross_docking_order_from_air_shipment(
 	"""Create a linked Cross-Docking Order from an Air Shipment."""
 	from frappe import _
 
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	shipment = frappe.get_doc("Air Shipment", air_shipment_name)
 	shipment.check_permission("write")
 	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
@@ -3222,6 +3329,12 @@ def create_cross_docking_order_from_air_shipment(
 		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 			shipment, "Cross-Docking Order", detail_idx
 		)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Cross-Docking Order")
+
 	customer = shipment.local_customer
 	if not customer:
 		frappe.throw(_("Air Shipment must have Local Customer to create a Cross-Docking Order."))
@@ -3269,6 +3382,9 @@ def create_cross_docking_order_from_sea_shipment(
 	"""Create a linked Cross-Docking Order from a Sea Shipment."""
 	from frappe import _
 
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	shipment = frappe.get_doc("Sea Shipment", sea_shipment_name)
 	shipment.check_permission("write")
 	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
@@ -3278,6 +3394,12 @@ def create_cross_docking_order_from_sea_shipment(
 		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 			shipment, "Cross-Docking Order", detail_idx
 		)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Cross-Docking Order")
+
 	customer = shipment.local_customer
 	if not customer:
 		frappe.throw(_("Sea Shipment must have Local Customer to create a Cross-Docking Order."))
@@ -3325,6 +3447,9 @@ def create_cross_docking_order_from_transport_job(
 	"""Create a linked Cross-Docking Order from a Transport Job."""
 	from frappe import _
 
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
+
 	job = frappe.get_doc("Transport Job", transport_job_name)
 	job.check_permission("write")
 	detail_idx = coerce_internal_job_detail_idx(internal_job_detail_idx)
@@ -3334,6 +3459,11 @@ def create_cross_docking_order_from_transport_job(
 		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 			job, "Cross-Docking Order", detail_idx
 		)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Cross-Docking Order")
 	customer = getattr(job, "customer", None) or getattr(job, "local_customer", None)
 	if not customer:
 		frappe.throw(_("Transport Job must have a Customer to create a Cross-Docking Order."))
@@ -3371,6 +3501,8 @@ def create_cross_docking_order_from_declaration(
 	"""Create a linked Cross-Docking Order from a Declaration."""
 	from frappe import _
 
+	from logistics.utils.linked_service_compat import row_linked_service_link
+	from logistics.utils.linked_service_usage import require_linked_service_has_order_capacity
 	from logistics.utils.sales_quote_service_eligibility import get_quote_module_flags
 
 	dec = frappe.get_doc("Declaration", declaration_name)
@@ -3382,6 +3514,12 @@ def create_cross_docking_order_from_declaration(
 		ij_row, resolved_detail_idx = resolve_internal_job_detail_row_for_create(
 			dec, "Cross-Docking Order", detail_idx
 		)
+
+	# Check quantity limit on the linked service before creating.
+	ls_name = row_linked_service_link(ij_row) if ij_row else None
+	if ls_name:
+		require_linked_service_has_order_capacity(ls_name, "Cross-Docking Order")
+
 	flags = get_quote_module_flags(
 		getattr(dec, "sales_quote", None), source_doctype="Declaration", source_name=declaration_name
 	)
