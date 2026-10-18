@@ -366,6 +366,7 @@ doctype_js = {
 	"Exhibit Order": "public/js/operational_exchange_rate_grid.js",
 	"MICE Order": "public/js/operational_exchange_rate_grid.js",
 	"Account": "public/js/account_job_profit.js",
+	"Item Group": "public/js/item_group_gl_accounts.js",
 	"Recognition Policy Settings": "job_management/doctype/recognition_policy_settings/recognition_policy_settings.js",
 	"Purchase Invoice": "public/js/purchase_invoice_container_deposit.js",
 	"Credit Hold Lift Request": "logistics/doctype/credit_hold_lift_request/credit_hold_lift_request.js",
