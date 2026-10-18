@@ -65,9 +65,13 @@ _ensure_frappe()
 import frappe
 
 from logistics.utils.item_accounts import (
+	accounts_by_company,
+	apply_gl_accounts_to_items,
+	copy_company_accounts,
 	get_cost_accrual_account_for_item,
 	get_standard_cost_accounts_for_item,
 	get_wip_account_for_item,
+	item_default_gl_fields,
 	validate_item_default_accounts,
 )
 
@@ -396,6 +400,157 @@ class TestRecognitionUsesItemGroupAccounts(unittest.TestCase):
 		self.assertEqual(name, "ACC-JV-1")
 		self.assertEqual(je.accounts[0]["account"], "WIP Group - ASL")
 		self.assertEqual(je.accounts[1]["account"], "WIP Liability - ASL")
+
+
+class _Child(dict):
+	def set(self, key, value):
+		self[key] = value
+
+
+class _ItemDoc:
+	def __init__(self, defaults):
+		self.item_defaults = [_Child(dict(row)) for row in defaults]
+		self.saved = 0
+
+	def get(self, key, default=None):
+		if key == "item_defaults":
+			return self.item_defaults
+		return default
+
+	def append(self, key, payload):
+		child = _Child(dict(payload))
+		self.item_defaults.append(child)
+		return child
+
+	def save(self):
+		self.saved += 1
+
+
+class TestApplyGlAccountsToItems(unittest.TestCase):
+	def test_blank_group_accounts_do_not_clear_item_accounts(self):
+		item = _ItemDoc(
+			[{"company": "ASL", "income_account": "Old Income", "expense_account": "Keep Expense"}]
+		)
+		changed = copy_company_accounts(
+			item,
+			{"ASL": {"income_account": "Group Income", "custom_wip_account": "WIP - ASL"}},
+		)
+		self.assertTrue(changed)
+		row = item.item_defaults[0]
+		self.assertEqual(row["income_account"], "Group Income")
+		self.assertEqual(row["expense_account"], "Keep Expense")
+		self.assertEqual(row["custom_wip_account"], "WIP - ASL")
+
+	def test_missing_company_row_is_created_and_unchanged_rows_stay(self):
+		item = _ItemDoc([{"company": "ASL", "income_account": "Income - ASL"}])
+		changed = copy_company_accounts(item, {"ASL": {"income_account": "Income - ASL"}})
+		self.assertFalse(changed)
+		changed = copy_company_accounts(item, {"BCO": {"expense_account": "Expense - BCO"}})
+		self.assertTrue(changed)
+		self.assertEqual(item.item_defaults[1]["company"], "BCO")
+		self.assertEqual(item.item_defaults[1]["expense_account"], "Expense - BCO")
+
+	def test_accounts_by_company_skips_empty_rows(self):
+		rows = [
+			{"company": "", "income_account": "Skip"},
+			{"company": "ASL", "income_account": "", "expense_account": "Expense - ASL"},
+			{"company": "ASL", "custom_wip_account": "WIP - ASL"},
+		]
+		self.assertEqual(
+			accounts_by_company(rows, ["income_account", "expense_account", "custom_wip_account"]),
+			{"ASL": {"expense_account": "Expense - ASL", "custom_wip_account": "WIP - ASL"}},
+		)
+
+	def test_gl_fields_follow_account_links(self):
+		meta = types.SimpleNamespace(
+			fields=[
+				{"fieldname": "income_account", "fieldtype": "Link", "options": "Account"},
+				{"fieldname": "default_warehouse", "fieldtype": "Link", "options": "Warehouse"},
+				{"fieldname": "custom_wip_account", "fieldtype": "Link", "options": "Account"},
+			]
+		)
+		with patch.object(frappe, "get_meta", return_value=meta), patch.object(
+			frappe.db, "has_column", return_value=True, create=True
+		):
+			self.assertEqual(
+				item_default_gl_fields(),
+				["income_account", "custom_wip_account", "purchase_expense_account"],
+			)
+
+	def test_apply_updates_items_in_child_groups(self):
+		group = _ItemDoc(
+			[
+				{
+					"company": "ASL",
+					"income_account": "Income - ASL",
+					"expense_account": "",
+					"custom_wip_account": "WIP - ASL",
+				},
+				{"company": "BCO", "expense_account": "Expense - BCO"},
+			]
+		)
+		handling = _ItemDoc(
+			[{"company": "ASL", "income_account": "Old", "expense_account": "Keep", "custom_wip_account": ""}]
+		)
+		air_fee = _ItemDoc(
+			[
+				{"company": "ASL", "income_account": "Income - ASL", "custom_wip_account": "WIP - ASL"},
+				{"company": "BCO", "expense_account": "Expense - BCO"},
+			]
+		)
+		docs = {("Item Group", "Forwarding"): group, ("Item", "HANDLING"): handling, ("Item", "AIR-FEE"): air_fee}
+
+		def get_doc(doctype, name):
+			return docs[(doctype, name)]
+
+		def get_value(doctype, name, fields, as_dict=False):
+			return {"lft": 2, "rgt": 7}
+
+		def sql(query, params):
+			return [("Forwarding",), ("Air",)]
+
+		with patch.object(frappe.db, "exists", return_value=True, create=True), patch.object(
+			frappe, "has_permission", return_value=True, create=True
+		), patch.object(frappe, "get_doc", side_effect=get_doc, create=True), patch.object(
+			frappe, "get_all", return_value=[{"name": "HANDLING"}, {"name": "AIR-FEE"}], create=True
+		), patch.object(
+			frappe.db, "get_value", side_effect=get_value, create=True
+		), patch.object(frappe.db, "sql", side_effect=sql, create=True), patch.object(
+			frappe.db, "has_column", return_value=True, create=True
+		), patch.object(
+			frappe,
+			"get_meta",
+			return_value=types.SimpleNamespace(
+				fields=[
+					{"fieldname": "income_account", "fieldtype": "Link", "options": "Account"},
+					{"fieldname": "expense_account", "fieldtype": "Link", "options": "Account"},
+					{"fieldname": "custom_wip_account", "fieldtype": "Link", "options": "Account"},
+				]
+			),
+		):
+			result = apply_gl_accounts_to_items("Forwarding")
+
+		self.assertEqual(result["items"], 2)
+		self.assertEqual(result["updated"], 1)
+		self.assertEqual(result["companies"], ["ASL", "BCO"])
+		self.assertEqual(handling.saved, 1)
+		self.assertEqual(air_fee.saved, 0)
+		self.assertEqual(handling.item_defaults[0]["income_account"], "Income - ASL")
+		self.assertEqual(handling.item_defaults[0]["expense_account"], "Keep")
+		self.assertEqual(handling.item_defaults[0]["custom_wip_account"], "WIP - ASL")
+		self.assertEqual(handling.item_defaults[1]["company"], "BCO")
+		self.assertEqual(handling.item_defaults[1]["expense_account"], "Expense - BCO")
+
+	def test_apply_requires_a_company_account(self):
+		group = _ItemDoc([{"company": "ASL", "income_account": ""}])
+		with patch.object(frappe.db, "exists", return_value=True, create=True), patch.object(
+			frappe, "has_permission", return_value=True, create=True
+		), patch.object(frappe, "get_doc", return_value=group, create=True), patch.object(
+			frappe.db, "has_column", return_value=True, create=True
+		), patch.object(frappe, "get_meta", return_value=types.SimpleNamespace(fields=[])):
+			with self.assertRaises(Exception) as raised:
+				apply_gl_accounts_to_items("Forwarding")
+		self.assertIn("Set GL accounts", str(raised.exception))
 
 
 if __name__ == "__main__":

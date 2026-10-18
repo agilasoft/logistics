@@ -233,3 +233,108 @@ def _validate_account_company(row, ac, acc, label):
 		frappe.throw(_("{0} requires a Company on the Item Default row.").format(label))
 	if ac.get("company") != company:
 		frappe.throw(_("{0} {1} must belong to company {2}.").format(label, acc, company))
+
+
+def item_default_gl_fields() -> list:
+	"""Account link fields on Item Default, including purchase expense when it is not a Link."""
+	fields = []
+	meta = frappe.get_meta("Item Default")
+	for df in getattr(meta, "fields", None) or []:
+		fieldname = df.get("fieldname")
+		if df.get("fieldtype") == "Link" and df.get("options") == "Account" and fieldname:
+			if frappe.db.has_column("Item Default", fieldname):
+				fields.append(fieldname)
+	if not fields:
+		for fieldname in list(_BASE_DEFAULT_FIELDS) + list(_EXTRA_DEFAULT_FIELDS):
+			if frappe.db.has_column("Item Default", fieldname) and fieldname not in fields:
+				fields.append(fieldname)
+	if frappe.db.has_column("Item Default", "purchase_expense_account") and "purchase_expense_account" not in fields:
+		fields.append("purchase_expense_account")
+	return fields
+
+
+def accounts_by_company(rows, fields) -> dict:
+	"""Non-empty account values from Item Default rows, merged per company."""
+	by_company = {}
+	for row in rows or []:
+		company = row.get("company")
+		if not company:
+			continue
+		values = {field: row.get(field) for field in fields if row.get(field)}
+		if not values:
+			continue
+		by_company.setdefault(company, {}).update(values)
+	return by_company
+
+
+def copy_company_accounts(item, company_accounts) -> bool:
+	"""Copy non-empty company accounts onto item defaults. Blank source fields are left as they are."""
+	changed = False
+	rows = list(item.get("item_defaults") or [])
+	for company, values in (company_accounts or {}).items():
+		if not company or not values:
+			continue
+		row = next((existing for existing in rows if existing.get("company") == company), None)
+		if row is None:
+			row = item.append("item_defaults", {"company": company})
+			rows.append(row)
+			changed = True
+		for field, value in values.items():
+			if not value or row.get(field) == value:
+				continue
+			if hasattr(row, "set"):
+				row.set(field, value)
+			else:
+				row[field] = value
+			changed = True
+	return changed
+
+
+def item_groups_including_descendants(item_group: str) -> list:
+	bounds = frappe.db.get_value("Item Group", item_group, ["lft", "rgt"], as_dict=True) or {}
+	lft = bounds.get("lft") if isinstance(bounds, dict) else None
+	rgt = bounds.get("rgt") if isinstance(bounds, dict) else None
+	if lft is None or rgt is None:
+		return [item_group]
+	rows = frappe.db.sql(
+		"""
+		SELECT name FROM `tabItem Group`
+		WHERE lft >= %(lft)s AND rgt <= %(rgt)s
+		ORDER BY lft
+		""",
+		{"lft": lft, "rgt": rgt},
+	)
+	names = []
+	for row in rows or []:
+		names.append(row.get("name") if isinstance(row, dict) else row[0])
+	return [name for name in names if name] or [item_group]
+
+
+@frappe.whitelist()
+def apply_gl_accounts_to_items(item_group):
+	"""Copy this Item Group's GL accounts onto every Item in the group and its child groups."""
+	if not item_group:
+		frappe.throw(_("Item Group is required."))
+	if not frappe.db.exists("Item Group", item_group):
+		frappe.throw(_("Item Group {0} does not exist.").format(item_group))
+	frappe.has_permission("Item Group", "read", doc=item_group, throw=True)
+	frappe.has_permission("Item", "write", throw=True)
+
+	group = frappe.get_doc("Item Group", item_group)
+	fields = item_default_gl_fields()
+	company_accounts = accounts_by_company(group.get("item_defaults") or [], fields)
+	if not company_accounts:
+		frappe.throw(_("Set GL accounts on Item Defaults for at least one company."))
+
+	groups = item_groups_including_descendants(item_group)
+	item_rows = frappe.get_all("Item", filters={"item_group": ["in", groups]}, fields=["name"])
+	item_names = []
+	for row in item_rows or []:
+		item_names.append(row.get("name") if isinstance(row, dict) else row)
+	updated = 0
+	for name in item_names:
+		item = frappe.get_doc("Item", name)
+		if copy_company_accounts(item, company_accounts):
+			item.save()
+			updated += 1
+	return {"items": len(item_names), "updated": updated, "companies": list(company_accounts)}
