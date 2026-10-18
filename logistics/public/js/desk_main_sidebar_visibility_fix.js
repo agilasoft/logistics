@@ -54,9 +54,31 @@
 		}).filter(Boolean);
 	}
 
+	// The dock's top slot draws app_logo_url. GoConnect's file is the black chain.
+	// The orange chain is the filled module tile. These names are that tile.
+	var GOCONNECT_BRAND_ICONS = ["goconnect", "go_connect", "go-connect"];
+
+	function goconnect_brand_icon(rows, is_orange_tile) {
+		if (typeof is_orange_tile !== "function") return null;
+		var i;
+		for (i = 0; i < GOCONNECT_BRAND_ICONS.length; i++) {
+			if (is_orange_tile(GOCONNECT_BRAND_ICONS[i])) return GOCONNECT_BRAND_ICONS[i];
+		}
+		var shells = { GoConnect: true, Home: true };
+		for (i = 0; i < (rows || []).length; i++) {
+			var row = rows[i];
+			if (!row || !row.icon) continue;
+			var label = row.title || row.link_to || "";
+			var brand_name = /connect|link/i.test(row.icon);
+			if ((shells[label] || brand_name) && is_orange_tile(row.icon)) return row.icon;
+		}
+		return null;
+	}
+
 	if (typeof module !== "undefined" && module.exports) {
 		module.exports = {
 			arrange_dock: arrange_dock,
+			goconnect_brand_icon: goconnect_brand_icon,
 			DOCK_ORDER: DOCK_ORDER,
 		};
 	}
@@ -105,6 +127,54 @@
 		}, 0);
 	}
 
+	function is_orange_tile(name) {
+		if (!name || typeof document === "undefined") return false;
+		var symbol = document.getElementById("icon-" + name);
+		if (!symbol) return false;
+		var html = symbol.innerHTML || "";
+		return /fill\s*=\s*["'](?!none\b)[^"']+["']/i.test(html);
+	}
+
+	function goconnect_logo_markup(name) {
+		var icon = frappe.utils.icon(name, "rail");
+		if (!icon) return null;
+		if (icon.indexOf("goconnect-brand-icon") === -1) {
+			icon = icon.replace(/class=(["'])/, "class=$1goconnect-brand-icon ");
+		}
+		return icon;
+	}
+
+	function install_goconnect_logo() {
+		if (!frappe.utils || typeof frappe.utils.app_logo !== "function" || typeof frappe.utils.icon !== "function") {
+			return false;
+		}
+		if (frappe.utils.app_logo.__goconnect_orange__) return true;
+		var original = frappe.utils.app_logo;
+		frappe.utils.app_logo = function (app) {
+			if (app && app.app_name === "goconnect") {
+				var rows = [].concat(app.dock || [], ((frappe.boot || {}).dock || {}).goconnect || []);
+				var name = goconnect_brand_icon(rows, is_orange_tile);
+				var icon = name ? goconnect_logo_markup(name) : null;
+				if (icon) {
+					return { icon: icon, title: app.app_title || app.app_name };
+				}
+			}
+			return original.apply(this, arguments);
+		};
+		frappe.utils.app_logo.__goconnect_orange__ = true;
+		return true;
+	}
+
+	function refresh_open_dock() {
+		var sb = get_sidebar();
+		if (sb && sb.dock) {
+			sb.dock.rendered = null;
+			if (typeof sb.refresh_dock === "function") {
+				sb.refresh_dock();
+			}
+		}
+	}
+
 	function install_dock_merge() {
 		var Sidebar = frappe.ui && frappe.ui.Sidebar;
 		if (!Sidebar || !Sidebar.prototype || typeof Sidebar.prototype.apply_dock_arrangement !== "function") {
@@ -118,13 +188,6 @@
 			return arrange_dock(entries, app, original.bind(this));
 		};
 		Sidebar.prototype.__logistics_dock_merge__ = true;
-		var sb = get_sidebar();
-		if (sb && sb.dock) {
-			sb.dock.rendered = null;
-			if (typeof sb.refresh_dock === "function") {
-				sb.refresh_dock();
-			}
-		}
 		return true;
 	}
 
@@ -135,7 +198,10 @@
 		}
 		var tries = 0;
 		function merge_until_ready() {
-			if (install_dock_merge() || tries > 200) {
+			var dock_ready = install_dock_merge();
+			var logo_ready = install_goconnect_logo();
+			if ((dock_ready && logo_ready) || tries > 200) {
+				if (dock_ready && logo_ready) refresh_open_dock();
 				return;
 			}
 			tries += 1;

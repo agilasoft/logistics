@@ -46,3 +46,12 @@
 	width: 28px;
 	height: 28px;
 }
+
+/* GoConnect's app logo file is the black chain. The dock's top slot draws the
+   orange module tile instead, and the desk stroke would outline that plate. */
+.dock-logo .header-logo svg.goconnect-brand-icon,
+.sidebar-header .header-logo svg.goconnect-brand-icon {
+	stroke: none;
+	width: 28px;
+	height: 28px;
+}

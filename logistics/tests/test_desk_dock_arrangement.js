@@ -55,6 +55,35 @@ test("GoConnect keeps the dock and icons Frappe resolved for it", () => {
 	);
 });
 
+test("GoConnect's logo uses the orange brand tile", () => {
+	const rows = [
+		{ title: "Vessel Tracking", icon: "vessel_tracking" },
+		{ title: "GoConnect", icon: "goconnect" },
+	];
+	const tiles = new Set(["goconnect", "vessel_tracking"]);
+	assert.equal(
+		dock.goconnect_brand_icon(rows, (name) => tiles.has(name)),
+		"goconnect"
+	);
+});
+
+test("a black line-art mark is not used as the GoConnect logo", () => {
+	const rows = [{ title: "GoConnect", icon: "goconnect" }];
+	assert.equal(dock.goconnect_brand_icon(rows, () => false), null);
+});
+
+test("the Home shell's orange icon is the GoConnect logo when the symbol has another name", () => {
+	const rows = [
+		{ title: "Vessel Tracking", icon: "vessel" },
+		{ link_to: "Home", icon: "go_home" },
+	];
+	const tiles = new Set(["vessel", "go_home"]);
+	assert.equal(
+		dock.goconnect_brand_icon(rows, (name) => tiles.has(name)),
+		"go_home"
+	);
+});
+
 test("a dock call with no app still follows the CargoNext rail", () => {
 	const arranged = dock.arrange_dock(
 		[entry("Transport"), entry("Air Freight"), entry("GoConnect")],
