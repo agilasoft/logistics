@@ -8,9 +8,62 @@
  * make_app_page calls apply_page_visibility. A route can still resolve
  * visibility before that page exists, which leaves the sidebar hidden.
  * This retries the same call. It does not pick a sidebar: each module has one.
+ *
+ * The CargoNext rail order applies only to the logistics app. Other apps,
+ * GoConnect included, keep the dock and icons Frappe resolved for them.
+ * Filtering those rows out hides the rail and puts the app logo in the
+ * sidebar header, which is the dock-less desk.
  */
 (function () {
 	"use strict";
+
+	// The CargoNext rail, top to bottom. A saved arrangement must not put the
+	// old line icons ahead of these, or bring back modules that are not listed.
+	var DOCK_ORDER = [
+		"Air Freight",
+		"Sea Freight",
+		"Customs",
+		"Transport",
+		"Warehousing",
+		"Job Management",
+		"Special Projects",
+		"MICE",
+		"High Value",
+		"Time Sensitive",
+		"Sustainability",
+		"Pricing Center",
+	];
+
+	function arrange_dock(entries, app, fallback) {
+		var app_name = app && app.app_name;
+		if (app_name && app_name !== "logistics") {
+			if (typeof fallback === "function") {
+				return fallback(entries, app) || [];
+			}
+			return entries || [];
+		}
+
+		var by_module = {};
+		(entries || []).forEach(function (entry) {
+			if (entry && entry.link_type === "Sidebar" && entry.link_to) {
+				by_module[entry.link_to] = entry;
+			}
+		});
+		return DOCK_ORDER.map(function (name) {
+			return by_module[name];
+		}).filter(Boolean);
+	}
+
+	if (typeof module !== "undefined" && module.exports) {
+		module.exports = {
+			arrange_dock: arrange_dock,
+			DOCK_ORDER: DOCK_ORDER,
+		};
+	}
+
+	if (typeof window === "undefined" || typeof document === "undefined") {
+		return;
+	}
 	if (window.__logistics_main_sidebar_visibility__) {
 		return;
 	}
@@ -52,23 +105,6 @@
 		}, 0);
 	}
 
-	// The CargoNext rail, top to bottom. A saved arrangement must not put the
-	// old line icons ahead of these, or bring back modules that are not listed.
-	var DOCK_ORDER = [
-		"Air Freight",
-		"Sea Freight",
-		"Customs",
-		"Transport",
-		"Warehousing",
-		"Job Management",
-		"Special Projects",
-		"MICE",
-		"High Value",
-		"Time Sensitive",
-		"Sustainability",
-		"Pricing Center",
-	];
-
 	function install_dock_merge() {
 		var Sidebar = frappe.ui && frappe.ui.Sidebar;
 		if (!Sidebar || !Sidebar.prototype || typeof Sidebar.prototype.apply_dock_arrangement !== "function") {
@@ -77,16 +113,9 @@
 		if (Sidebar.prototype.__logistics_dock_merge__) {
 			return true;
 		}
-		Sidebar.prototype.apply_dock_arrangement = function (entries) {
-			var by_module = {};
-			(entries || []).forEach(function (entry) {
-				if (entry && entry.link_type === "Sidebar" && entry.link_to) {
-					by_module[entry.link_to] = entry;
-				}
-			});
-			return DOCK_ORDER.map(function (name) {
-				return by_module[name];
-			}).filter(Boolean);
+		var original = Sidebar.prototype.apply_dock_arrangement;
+		Sidebar.prototype.apply_dock_arrangement = function (entries, app) {
+			return arrange_dock(entries, app, original.bind(this));
 		};
 		Sidebar.prototype.__logistics_dock_merge__ = true;
 		var sb = get_sidebar();
