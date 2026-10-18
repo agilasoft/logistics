@@ -439,6 +439,34 @@ def record_satellite_order(
 	)
 
 
+def require_linked_service_has_order_capacity(
+	linked_service: str,
+	order_doctype: str,
+) -> None:
+	"""Throw when the linked service has reached its order quantity limit.
+
+	Use this before creating an order from an operational document (Declaration,
+	Air Shipment, Sea Shipment, etc.) where the specific linked service is already
+	known from the Internal Job Detail row.
+	"""
+	ls = _norm(linked_service)
+	dt = _norm(order_doctype)
+	if not ls or not dt:
+		return
+	if not frappe.db.exists(linked_service_doctype(), ls):
+		return
+	ls_doc = frappe.get_cached_doc(linked_service_doctype(), ls)
+	used = count_satellite_orders(ls, dt)
+	capacity = linked_service_order_capacity(ls_doc)
+	if used >= capacity:
+		frappe.throw(
+			_(
+				"{0} already has {1} of {2} orders on {3}. Raise Quantity on the linked service before creating another."
+			).format(dt, used, capacity, ls),
+			title=_("Quantity reached"),
+		)
+
+
 def latest_satellite_job_from_usage(linked_service: str) -> tuple[str, str]:
 	"""Return ``(order_type, order_no)`` from the latest Satellite Job Usage row, if any.
 
