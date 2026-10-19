@@ -626,6 +626,7 @@ function _lsd1_mount_edit_field($grid, field, value, state) {
 		label: label,
 		fieldtype: field.fieldtype || "Data",
 		options: field.options || "",
+		parent: "Linked Service",
 		reqd: 0,
 	};
 
@@ -645,9 +646,14 @@ function _lsd1_mount_edit_field($grid, field, value, state) {
 		};
 	}
 
+	// Same link context as the Linked Service form. Company user permissions
+	// tagged for Linked Service are included only when reference_doctype is
+	// Linked Service; a bare dialog control otherwise keeps the one company
+	// that has no Applicable For.
 	const ctrl = frappe.ui.form.make_control({
 		df,
 		parent: $input,
+		doctype: "Linked Service",
 		render_input: true,
 	});
 	ctrl.refresh();
