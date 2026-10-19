@@ -424,13 +424,35 @@ def render_permit_alerts_html(alerts):
 
 @frappe.whitelist()
 def get_permit_alerts_html(doctype, docname):
-	"""Banner HTML for forms that do not render the shared logistics dashboard."""
+	"""Banner HTML for forms that do not render the shared logistics dashboard.
+
+	The quote is already on screen when this runs. An empty result leaves that
+	screen in place. Raising here shows "Not permitted" over a quote the user
+	was allowed to open.
+	"""
 	if not doctype or not docname or docname == "new":
 		return ""
-	if not frappe.has_permission(doctype, "read", docname):
-		frappe.throw(_("Not permitted"), frappe.PermissionError)
-	doc = frappe.get_doc(doctype, docname)
+	doc = _readable_doc_for_permit_banner(doctype, docname)
+	if doc is None:
+		return ""
 	return render_permit_alerts_html(visible_permit_alerts(doc))
+
+
+def _readable_doc_for_permit_banner(doctype, docname):
+	"""Loaded document when this user may read it, otherwise None.
+
+	Check the loaded document. A name-only check reloads a lightweight copy,
+	and that copy can refuse a Sales Quote the form has already shown.
+	"""
+	try:
+		if not frappe.db.exists(doctype, docname):
+			return None
+		doc = frappe.get_doc(doctype, docname)
+	except (frappe.DoesNotExistError, frappe.PermissionError):
+		return None
+	if not doc.has_permission("read"):
+		return None
+	return doc
 
 
 def append_source_tags(permit_application, source_doc):
