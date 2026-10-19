@@ -26,6 +26,8 @@
   "min_temp",
   "max_temp",
   "column_break_temp",
+  "freight_agent_section",
+  "validate_freight_agent_unloco",
   "container_management_tab",
   "container_management_section",
   "enable_container_management",
@@ -216,6 +218,18 @@
   {
    "fieldname": "column_break_temp",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "freight_agent_section",
+   "fieldtype": "Section Break",
+   "label": "Freight Agent"
+  },
+  {
+   "default": "1",
+   "fieldname": "validate_freight_agent_unloco",
+   "fieldtype": "Check",
+   "label": "Freight Forwarder validation UNLOCO",
+   "description": "When enabled, Sales Quote, Air Booking, and Sea Booking reject ports that are outside the selected Freight Agent's covered UNLOCOs."
   },
   {
    "fieldname": "container_management_tab",
@@ -660,7 +674,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-02-07 09:44:37.133430",
+ "modified": "2026-10-19 04:50:00.000000",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Logistics Settings",
