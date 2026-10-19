@@ -91,7 +91,10 @@
   "credit_control_bypass_role",
   "credit_apply_hold_to_all_doctypes",
   "credit_subject_doctypes_section",
-  "credit_control_rules"
+  "credit_control_rules",
+  "desk_tab",
+  "list_settings_section",
+  "list_settings_roles"
  ],
  "fields": [
   {
@@ -634,6 +637,23 @@
    "label": "Subject DocTypes",
    "options": "Logistics Settings Credit Rule",
    "description": "Ignored when **Apply hold to all DocTypes** is checked. Otherwise one row per DocType (must also be registered in code)."
+  },
+  {
+   "fieldname": "desk_tab",
+   "fieldtype": "Tab Break",
+   "label": "Desk"
+  },
+  {
+   "fieldname": "list_settings_section",
+   "fieldtype": "Section Break",
+   "label": "List Settings",
+   "description": "Add a role to let those users open List Settings from a document list. The columns they save are shared by everyone who uses that list. System Manager can always do this. Users should refresh the desk after you save."
+  },
+  {
+   "fieldname": "list_settings_roles",
+   "fieldtype": "Table",
+   "label": "Roles that can edit List Settings",
+   "options": "Logistics Settings List Settings Role"
   }
  ],
  "grid_page_length": 50,

@@ -1,0 +1,30 @@
+{
+ "actions": [],
+ "creation": "2026-10-19 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": ["role"],
+ "fields": [
+  {
+   "fieldname": "role",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Role",
+   "link_filters": "[[\"Role\", \"disabled\", \"=\", 0]]",
+   "options": "Role",
+   "reqd": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-19 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Logistics Settings List Settings Role",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": []
+}

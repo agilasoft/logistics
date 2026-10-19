@@ -14,6 +14,16 @@ class LogisticsSettings(Document):
 		self.validate_credit_control_rules()
 		self.validate_container_deposit_accounts()
 		self.validate_permit_alert_rules()
+		self.validate_list_settings_roles()
+
+	def on_update(self):
+		previous = self.get_doc_before_save()
+		before = _list_settings_role_names(previous)
+		after = _list_settings_role_names(self)
+		if before != after:
+			# Desk reads this allow-list once per session. Drop cached boot info
+			# so the next refresh shows or hides List Settings.
+			frappe.cache.delete_key("bootinfo")
 	
 	def validate_temperature_limits(self):
 		"""Validate that min_temp < max_temp if both are set"""
@@ -40,6 +50,20 @@ class LogisticsSettings(Document):
 				frappe.throw(_("Duplicate credit rule for DocType {0}.").format(dt))
 			seen.add(dt)
 
+	def validate_list_settings_roles(self):
+		seen = set()
+		for row in self.get("list_settings_roles") or []:
+			role = row.get("role")
+			if not role:
+				continue
+			if role in seen:
+				frappe.throw(_("Role {0} is listed more than once for List Settings.").format(role))
+			seen.add(role)
+			if not frappe.db.exists("Role", role):
+				frappe.throw(_("Role {0} does not exist.").format(role))
+			if frappe.db.get_value("Role", role, "disabled"):
+				frappe.throw(_("Role {0} is disabled.").format(role))
+
 	def validate_permit_alert_rules(self):
 		seen = set()
 		for row in self.get("permit_alert_rules") or []:
@@ -64,3 +88,9 @@ class LogisticsSettings(Document):
 		debt = self.get("container_deposit_debtors_account")
 		if debt and not frappe.db.exists("Account", debt):
 			frappe.throw(_("Debtors override account does not exist."))
+
+
+def _list_settings_role_names(doc) -> list[str]:
+	if not doc:
+		return []
+	return [row.role for row in (doc.get("list_settings_roles") or []) if row.get("role")]
