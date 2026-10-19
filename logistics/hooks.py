@@ -97,6 +97,7 @@ app_include_js = [
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
 	"/assets/logistics/js/menu_permission.js?v=10",
+	"/assets/logistics/js/list_settings_role.js?v=1",
 	"/assets/logistics/js/linked_posting_actions.js?v=2",
 	"/assets/logistics/js/submitted_child_doc_toolbar.js?v=1",
 	"/assets/logistics/js/internal_job_create_from_source.js?v=23",
@@ -469,6 +470,7 @@ boot_session = [
 	"logistics.utils.specified_charges_meta.extend_bootinfo_with_specified_charges_meta",
 	"logistics.mice.desk_icon.extend_bootinfo",
 	"logistics.logistics.page.session_defaults.session_defaults.extend_bootinfo",
+	"logistics.desk.list_settings.extend_bootinfo",
 ]
 
 doc_events = DOC_EVENTS
@@ -562,6 +564,9 @@ override_whitelisted_methods = {
 	),
 	"frappe.desk.form.linked_with.cancel_all_linked_docs": (
 		"logistics.invoice_integration.cancel_linked_docs.cancel_all_linked_docs"
+	),
+	"frappe.desk.doctype.list_view_settings.list_view_settings.save_listview_settings": (
+		"logistics.desk.list_settings.save_listview_settings"
 	),
 }
 
