@@ -19,6 +19,19 @@ def _strip(value: Any) -> str:
 	return str(value).strip()
 
 
+def is_freight_agent_unloco_validation_enabled() -> bool:
+	"""Return whether Logistics Settings requires Freight Agent UNLOCO coverage checks.
+
+	Missing settings or an unmigrated column keep validation on.
+	"""
+	try:
+		return bool(
+			frappe.db.get_single_value("Logistics Settings", "validate_freight_agent_unloco")
+		)
+	except Exception:
+		return True
+
+
 def get_freight_agent_covered_unlocos(freight_agent: str | None) -> set[str]:
 	"""Return UNLOCO codes covered by the freight agent."""
 	freight_agent = _strip(freight_agent)
@@ -101,6 +114,9 @@ def validate_freight_agent_covers_ports(
 	context_label: str | None = None,
 ) -> None:
 	"""Raise when a freight agent is set but required ports are outside its coverage."""
+	if not is_freight_agent_unloco_validation_enabled():
+		return
+
 	freight_agent = _strip(freight_agent)
 	if not freight_agent:
 		return

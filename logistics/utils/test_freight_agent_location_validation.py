@@ -13,6 +13,7 @@ from logistics.air_freight.tests.test_helpers import (
 )
 from logistics.utils.freight_agent_location_validation import (
 	get_freight_agent_covered_unlocos,
+	is_freight_agent_unloco_validation_enabled,
 	validate_freight_agent_covers_ports,
 	validate_sales_quote_freight_agent_locations,
 )
@@ -46,6 +47,7 @@ def create_test_freight_agent(
 class TestFreightAgentLocationValidation(FrappeTestCase):
 	def setUp(self):
 		data = setup_basic_master_data()
+		frappe.db.set_single_value("Logistics Settings", "validate_freight_agent_unloco", 1)
 		self.company = data["company"]
 		self.customer = data["customer"]
 		self.shipper = create_test_shipper()
@@ -80,6 +82,35 @@ class TestFreightAgentLocationValidation(FrappeTestCase):
 				"PHMNL",
 				"Import",
 			)
+
+	def test_setting_off_skips_uncovered_import_origin(self):
+		frappe.db.set_single_value("Logistics Settings", "validate_freight_agent_unloco", 0)
+		self.assertFalse(is_freight_agent_unloco_validation_enabled())
+		validate_freight_agent_covers_ports(
+			self.agent,
+			"HKHKG",
+			"PHMNL",
+			"Import",
+		)
+		sq = frappe.get_doc(
+			{
+				"doctype": "Sales Quote",
+				"quotation_type": "One-off",
+				"company": self.company,
+				"customer": self.customer,
+				"date": today(),
+				"valid_until": today(),
+				"shipper": self.shipper,
+				"consignee": self.consignee,
+				"main_service": "Sea",
+				"direction": "Import",
+				"origin_port": "HKHKG",
+				"destination_port": "PHMNL",
+				"freight_agent_sea": self.agent,
+			}
+		)
+		sq.append("charges", {"service_type": "Sea"})
+		validate_sales_quote_freight_agent_locations(sq)
 
 	def test_export_valid_destination_in_coverage(self):
 		validate_freight_agent_covers_ports(
