@@ -4,7 +4,10 @@
 import frappe
 from frappe.tests import UnitTestCase
 
-from logistics.mice.mice_project_lifecycle import validate_lifecycle_stage_advance
+from logistics.mice.mice_project_lifecycle import (
+	clear_missing_lifecycle_job_stages,
+	validate_lifecycle_stage_advance,
+)
 
 
 class TestExhibitLifecycle(UnitTestCase):
@@ -35,3 +38,55 @@ class TestExhibitLifecycle(UnitTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			validate_lifecycle_stage_advance(doc)
 		doc.delete(ignore_permissions=True)
+
+	def test_missing_lifecycle_job_stage_is_cleared(self):
+		if not frappe.db.exists("DocType", "MICE Project"):
+			self.skipTest("Exhibit not installed")
+		doc = frappe.new_doc("MICE Project")
+		doc.append(
+			"lifecycle_jobs",
+			{
+				"service_type": "MICE",
+				"lifecycle_stage": "Not A Real Lifecycle Stage",
+				"activity_code": "freight_coordination",
+				"activity_name": "Freight Coordination",
+				"lifecycle_activity_status": "Not Started",
+			},
+		)
+		clear_missing_lifecycle_job_stages(doc)
+		row = doc.lifecycle_jobs[0]
+		self.assertFalse(row.lifecycle_stage)
+		self.assertEqual(row.activity_code, "freight_coordination")
+		self.assertEqual(row.activity_name, "Freight Coordination")
+		self.assertEqual(len(doc.lifecycle_jobs), 1)
+
+	def test_existing_lifecycle_job_stage_is_kept(self):
+		if not frappe.db.exists("DocType", "MICE Project"):
+			self.skipTest("Exhibit not installed")
+		if not frappe.db.exists("DocType", "Lifecycle Stage"):
+			self.skipTest("Lifecycle Stage not installed")
+		stage = frappe.db.get_value("Lifecycle Stage", {}, "name")
+		created = None
+		if not stage:
+			created = frappe.new_doc("Lifecycle Stage")
+			created.lifecycle_stage = "Kept Stage"
+			created.for_exhibits = 1
+			created.insert(ignore_permissions=True)
+			stage = created.name
+		try:
+			doc = frappe.new_doc("MICE Project")
+			doc.append(
+				"lifecycle_jobs",
+				{
+					"service_type": "MICE",
+					"lifecycle_stage": stage,
+					"activity_code": "freight_coordination",
+					"activity_name": "Freight Coordination",
+				},
+			)
+			clear_missing_lifecycle_job_stages(doc)
+			self.assertEqual(doc.lifecycle_jobs[0].lifecycle_stage, stage)
+			self.assertEqual(doc.lifecycle_jobs[0].activity_code, "freight_coordination")
+		finally:
+			if created:
+				created.delete(ignore_permissions=True)

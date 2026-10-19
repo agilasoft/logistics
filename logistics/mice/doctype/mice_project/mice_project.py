@@ -181,6 +181,7 @@ class MICEProject(Document):
 		)
 
 		normalize_lifecycle_job_order_job_fields(self)
+		mice_project_lifecycle.clear_missing_lifecycle_job_stages(self)
 		super()._validate_links()
 
 	def validate(self):

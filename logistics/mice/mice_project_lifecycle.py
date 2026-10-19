@@ -91,6 +91,20 @@ def load_standard_lifecycle_jobs(doc):
 		)
 
 
+def clear_missing_lifecycle_job_stages(doc):
+	"""Blank Lifecycle Job stage links that are not in the Lifecycle Stage master.
+
+	Header ``lifecycle_stage`` is normalized before insert. Child rows copied from
+	Activity Code can still name stages that were never seeded, and Frappe link
+	validation then blocks the whole MICE Project save. Activity code, name, and
+	the rest of the row are left in place. An existing stage is unchanged.
+	"""
+	for row in doc.get("lifecycle_jobs") or []:
+		stage = (getattr(row, "lifecycle_stage", None) or "").strip()
+		if stage and not frappe.db.exists("Lifecycle Stage", stage):
+			row.lifecycle_stage = None
+
+
 def validate_lifecycle_stage_advance(doc):
 	_validate_lifecycle_stage_advance(
 		doc,
