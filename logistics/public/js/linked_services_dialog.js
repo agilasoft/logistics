@@ -10,10 +10,6 @@
 
 frappe.provide("logistics");
 
-/**
- * Fallback only. The Add Service dropdown reads Linked Service.service_type
- * once that DocType meta is loaded.
- */
 const LSD1_DEFAULT_SERVICE_TYPES = [
 	"Air",
 	"Sea",
@@ -58,29 +54,6 @@ function _lsd1_icon(name, size) {
 
 function _lsd1_module_label(service_type) {
 	return LSD1_MODULE_BY_TYPE[service_type] || service_type || "";
-}
-
-/** Select options on the Linked Service DocType, in document order. */
-function _lsd1_service_types_from_linked_service() {
-	const fallback = LSD1_DEFAULT_SERVICE_TYPES.slice();
-	if (!frappe.meta || typeof frappe.meta.get_docfield !== "function") {
-		return fallback;
-	}
-	let df = null;
-	try {
-		df = frappe.meta.get_docfield("Linked Service", "service_type");
-	} catch (e) {
-		df = null;
-	}
-	const raw = df && df.options;
-	if (raw == null || raw === "") {
-		return fallback;
-	}
-	const types = String(raw)
-		.split("\n")
-		.map((line) => line.trim())
-		.filter((line) => line && line.indexOf("---") !== 0);
-	return types.length ? types : fallback;
 }
 
 /** Official logistics module SVG from public/icons/desktop_icons/. */
@@ -133,7 +106,7 @@ function _lsd1_normalize_options(options) {
 				__("Remove linked service {0} from this document?", [
 					`<strong>${_lsd1_escape(ls)}</strong>`,
 				])),
-		serviceTypes: opts.serviceTypes || _lsd1_service_types_from_linked_service(),
+		serviceTypes: opts.serviceTypes || LSD1_DEFAULT_SERVICE_TYPES,
 		allowAdd: opts.allowAdd !== false,
 		allowRemove: opts.allowRemove !== false,
 		allowEdit: opts.allowEdit !== false,
@@ -1064,8 +1037,9 @@ function _lsd1_bind(dialog, frm, opts, state) {
  * @param {string} [options.createMethod] - Sales Quote generate create
  */
 logistics.show_linked_services_dialog = function (frm, options) {
-	const requested = options || {};
-	if (!requested.listMethod) {
+	const opts = _lsd1_normalize_options(options);
+
+	if (!opts.listMethod) {
 		frappe.msgprint({
 			message: __("Services dialog is not configured for this document."),
 			indicator: "orange",
@@ -1075,38 +1049,11 @@ logistics.show_linked_services_dialog = function (frm, options) {
 
 	if (!frm || !frm.doc || !frm.doc.name || frm.is_new()) {
 		frappe.msgprint({
-			message:
-				requested.unsavedMessage ||
-				__("Save the document before managing services."),
+			message: opts.unsavedMessage,
 			indicator: "orange",
 		});
 		return;
 	}
-
-	const explicitTypes = requested.serviceTypes && requested.serviceTypes.length;
-	let metaReady = false;
-	if (!explicitTypes && frappe.meta && typeof frappe.meta.get_docfield === "function") {
-		try {
-			metaReady = !!frappe.meta.get_docfield("Linked Service", "service_type");
-		} catch (e) {
-			metaReady = false;
-		}
-	}
-	if (
-		!explicitTypes &&
-		!metaReady &&
-		!requested._lsd1MetaLoaded &&
-		frappe.model &&
-		typeof frappe.model.with_doctype === "function"
-	) {
-		frappe.model.with_doctype("Linked Service", () => {
-			const next = Object.assign({}, requested, { _lsd1MetaLoaded: 1 });
-			logistics.show_linked_services_dialog(frm, next);
-		});
-		return;
-	}
-
-	const opts = _lsd1_normalize_options(options);
 
 	const state = {
 		editing: null,
