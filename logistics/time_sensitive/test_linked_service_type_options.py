@@ -1,7 +1,7 @@
 # Copyright (c) 2026, www.agilasoft.com and contributors
 # For license information, please see license.txt
 
-"""Service Type dropdown options stay aligned with the Linked Service DocType."""
+"""Add Service choices stay the Linked Service service types, without a meta lookup."""
 
 import ast
 import json
@@ -61,11 +61,10 @@ class TestLinkedServiceTypeOptions(unittest.TestCase):
 		self.assertEqual(_canonical_service_types(), set(types))
 		self.assertEqual(len(_canonical_service_types()), len(types))
 
-	def test_blank_and_separator_lines_are_not_choices(self):
-		raw = "\nAir\n---\nSea\n"
-		parsed = [
-			line.strip()
-			for line in raw.split("\n")
-			if line.strip() and not line.strip().startswith("---")
-		]
-		self.assertEqual(parsed, ["Air", "Sea"])
+		dialog = (APP / "public/js/linked_services_dialog.js").read_text()
+		self.assertIn(
+			"serviceTypes: opts.serviceTypes || LSD1_DEFAULT_SERVICE_TYPES",
+			dialog,
+		)
+		self.assertNotIn("_lsd1_service_types_from_linked_service", dialog)
+		self.assertNotIn('with_doctype("Linked Service"', dialog)
