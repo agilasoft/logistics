@@ -82,6 +82,7 @@ app_include_js = [
 	"/assets/logistics/js/session_defaults_guard.js?v=1",
 	"/assets/logistics/js/company_dimension_filters.js?v=2",
 	"/assets/logistics/js/address_link_query.js?v=1",
+	"/assets/logistics/js/applicable_for_link.js?v=1",
 	"/assets/logistics/js/party_address_contact.js?v=1",
 	"/assets/logistics/js/linked_service_link_query.js?v=3",
 	"/assets/logistics/js/virtual_linked_services_grid.js?v=2",
