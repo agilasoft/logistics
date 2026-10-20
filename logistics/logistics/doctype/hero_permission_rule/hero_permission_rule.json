@@ -1,0 +1,79 @@
+{
+ "actions": [],
+ "creation": "2026-10-05 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "reference_doctype",
+  "for_value",
+  "is_default",
+  "apply_to_all_doctypes",
+  "applicable_for",
+  "hide_descendants"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "DocType",
+   "options": "DocType",
+   "reqd": 1
+  },
+  {
+   "columns": 3,
+   "fieldname": "for_value",
+   "fieldtype": "Dynamic Link",
+   "ignore_user_permissions": 1,
+   "in_list_view": 1,
+   "label": "Permitted Value",
+   "options": "reference_doctype",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "default": "0",
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Default"
+  },
+  {
+   "columns": 2,
+   "default": "1",
+   "fieldname": "apply_to_all_doctypes",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Apply to All Document Types"
+  },
+  {
+   "columns": 2,
+   "depends_on": "eval:!doc.apply_to_all_doctypes",
+   "fieldname": "applicable_for",
+   "fieldtype": "Link",
+   "label": "Applicable For",
+   "mandatory_depends_on": "eval:!doc.apply_to_all_doctypes",
+   "options": "DocType"
+  },
+  {
+   "default": "0",
+   "description": "For a tree DocType, do not also grant descendant records.",
+   "fieldname": "hide_descendants",
+   "fieldtype": "Check",
+   "label": "Hide Descendants"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-05 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Hero Permission Rule",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
