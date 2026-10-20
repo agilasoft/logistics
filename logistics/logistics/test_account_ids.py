@@ -7,6 +7,7 @@ from pathlib import Path
 
 from logistics.logistics.account_ids import (
 	apply_account_id_updates,
+	enqueue_account_id_update,
 	expected_account_id,
 	plan_account_id_updates,
 )
@@ -148,11 +149,43 @@ class TestApplyAccountIdUpdates(unittest.TestCase):
 		self.assertEqual(renamed[0]["from"], "Cash - AB")
 		self.assertEqual(renamed[0]["to"], "Bank - AB")
 
+	def test_direct_rename_when_the_new_id_is_free(self):
+		calls = []
+		commits = []
+		renamed = apply_account_id_updates(
+			[{"from": "Cash - AB", "to": "Petty Cash - AB"}],
+			lambda old, new: calls.append((old, new)),
+			["Cash - AB"],
+			commit=lambda: commits.append(1),
+		)
+		self.assertEqual(calls, [("Cash - AB", "Petty Cash - AB")])
+		self.assertEqual(commits, [1])
+		self.assertEqual(renamed, [{"from": "Cash - AB", "to": "Petty Cash - AB"}])
+
 	def test_empty_plan_does_not_rename(self):
 		def rename(old, new):
 			raise AssertionError((old, new))
 
 		self.assertEqual(apply_account_id_updates([], rename, []), [])
+
+
+class TestEnqueueAccountIdUpdate(unittest.TestCase):
+	def test_enqueue_uses_the_long_queue(self):
+		calls = []
+
+		def enqueue(*args, **kwargs):
+			calls.append((args, kwargs))
+
+		result = enqueue_account_id_update("Acme", "user@example.com", enqueue)
+		self.assertTrue(result["queued"])
+		self.assertEqual(result["job_id"], "update-account-ids")
+		args, kwargs = calls[0]
+		self.assertEqual(args, ("logistics.logistics.account_ids.run_update_account_ids",))
+		self.assertEqual(kwargs["queue"], "long")
+		self.assertGreaterEqual(kwargs["timeout"], 60 * 60)
+		self.assertTrue(kwargs["deduplicate"])
+		self.assertEqual(kwargs["company"], "Acme")
+		self.assertEqual(kwargs["user"], "user@example.com")
 
 
 class TestAccountIdActionWiring(unittest.TestCase):
@@ -171,6 +204,9 @@ class TestAccountIdActionWiring(unittest.TestCase):
 		script = (PACKAGE / "public" / "js" / "account_ids.js").read_text()
 		self.assertIn('__("Update Account IDs")', script)
 		self.assertIn("logistics.logistics.account_ids.update_account_ids", script)
+		self.assertIn("Queueing Account ID update", script)
+		self.assertIn("in the background", script)
+		self.assertIn("logistics_account_ids_updated", script)
 		self.assertIn('frappe.listview_settings["Account"]', script)
 		self.assertIn('frappe.treeview_settings["Account"]', script)
 		self.assertIn("menu_items", script)
