@@ -165,6 +165,7 @@ For support, email info@agilasoft.com or visit [www.agilasoft.com](https://www.a
 ## Release notes
 
 - **[CargoNext v1 — Astraea](logistics/wiki_content/release_notes_v1.md)** — scope, highlights, upgrade notes
+- **[CargoNext v2 — Bessel](logistics/wiki_content/release_notes_v2.md)** — list notes, including GoConnect and CargoNext AI
 
 ## Repository
 

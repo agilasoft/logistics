@@ -2,7 +2,7 @@
 
 **This page summarizes major behaviour and documentation changes** in the Logistics (CargoNext) app on the current development line. Use it with the linked deep-dive articles for billing, recognition, and pricing.
 
-For the **v1 (Astraea) umbrella summary**, see [CargoNext v1 — Release Notes](welcome/release-notes-v1).
+For the **v1 (Astraea) umbrella summary**, see [CargoNext v1 — Release Notes](welcome/release-notes-v1). Working notes for **v2 (Bessel)** are in [CargoNext v2 — Bessel List Notes](welcome/release-notes-v2).
 
 **Navigation:** Home > Introduction > Recent Platform Updates
 
@@ -101,3 +101,4 @@ _Features listed here touch many DocTypes. Open the relevant guide; each include
 | Reversal on invoice | [WIP and Accrual Reversal on Invoicing](welcome/wip-accrual-reversal-on-invoicing-design) |
 | Transport field copy | [Transport Order — Inter-module Field Copy](welcome/transport-order-intermodule-field-copy) |
 | Product news | [CargoNext v1 — Astraea Press Release](welcome/cargonext-v1-astraea-press-release) |
+| v2 Bessel list notes | [CargoNext v2 — Bessel List Notes](welcome/release-notes-v2) |

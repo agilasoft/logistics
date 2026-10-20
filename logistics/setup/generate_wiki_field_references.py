@@ -178,6 +178,9 @@ _Workflow uses **Declaration Order** and **Declaration** (and related masters). 
 	"cargonext_v1_astraea_press_release": """## Complete field reference
 
 _Product announcement only. For schema documentation see [Getting Started](welcome/getting-started) and module transaction pages._""",
+	"release_notes_v2": """## Complete field reference
+
+_List notes only. Voyage fields on the bill are on [Master Bill](welcome/master-bill). Vessel tracking setup is described on [Sea Freight Settings](welcome/sea-freight-settings). Vehicle telematics fields are on [Transport Settings](welcome/transport-settings)._""",
 }
 
 

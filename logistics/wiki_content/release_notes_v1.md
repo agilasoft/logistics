@@ -8,7 +8,7 @@ This document summarizes **CargoNext version 1** as the first generally availabl
 
 **Navigation:** Home > Introduction > CargoNext v1 — Release Notes
 
-For ongoing behaviour changes after upgrade, see also [Recent Platform Updates](welcome/recent-platform-updates). Announcement context: [CargoNext v1 — Astraea Press Release](welcome/cargonext-v1-astraea-press-release).
+For ongoing behaviour changes after upgrade, see also [Recent Platform Updates](welcome/recent-platform-updates). Announcement context: [CargoNext v1 — Astraea Press Release](welcome/cargonext-v1-astraea-press-release). Working notes for the next line: [CargoNext v2 — Bessel List Notes](welcome/release-notes-v2).
 
 ---
 
