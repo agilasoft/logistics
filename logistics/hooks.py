@@ -74,6 +74,7 @@ app_include_css = [
 	"/assets/logistics/css/ts_sq_fetch_dialog.css?v=6",
 	"/assets/logistics/css/role_permission_matrix.css?v=6",
 	"/assets/logistics/css/bulk_update_studio.css?v=1",
+	"/assets/logistics/css/hero_permission_studio.css?v=1",
 	"/assets/logistics/css/vehicle_permit_banner.css?v=1",
 	"/assets/logistics/css/session_defaults.css?v=3",
 ]
@@ -393,6 +394,7 @@ doctype_js = {
 doctype_list_js = {
 	"Time Sensitive Case": "time_sensitive/doctype/time_sensitive_case/time_sensitive_case_list.js",
 	"Account": "public/js/account_ids.js",
+	"Hero Permission Group": "public/js/hero_permission_group_list.js",
 }
 doctype_tree_js = {
 	"Cost Center": "public/js/cost_center_tree.js",
@@ -494,6 +496,18 @@ elif isinstance(_wj_on_submit, list):
 		_wj_events["on_submit"] = list(_wj_on_submit) + [_ORDER_MANAGEMENT_ON_PICK]
 elif _wj_on_submit != _ORDER_MANAGEMENT_ON_PICK:
 	_wj_events["on_submit"] = [_wj_on_submit, _ORDER_MANAGEMENT_ON_PICK]
+
+# Permission Studio owns the rows it created. A desk edit cannot clear that mark.
+_PERMISSION_STUDIO_LOCK = "logistics.permission_studio.permissions.lock_hero_fields"
+_user_permission_events = doc_events.setdefault("User Permission", {})
+_user_permission_validate = _user_permission_events.get("validate")
+if not _user_permission_validate:
+	_user_permission_events["validate"] = _PERMISSION_STUDIO_LOCK
+elif isinstance(_user_permission_validate, list):
+	if _PERMISSION_STUDIO_LOCK not in _user_permission_validate:
+		_user_permission_events["validate"] = list(_user_permission_validate) + [_PERMISSION_STUDIO_LOCK]
+elif _user_permission_validate != _PERMISSION_STUDIO_LOCK:
+	_user_permission_events["validate"] = [_user_permission_validate, _PERMISSION_STUDIO_LOCK]
 
 # Employee role checkboxes add the same role on Logistics Staff. They do not clear it.
 _LOGISTICS_STAFF_FROM_EMPLOYEE = (
@@ -646,6 +660,7 @@ after_migrate = [
 	"logistics.cash_advance.install.after_migrate",
 	"logistics.control_tower.install.after_migrate",
 	"logistics.sea_freight.install.after_migrate",
+	"logistics.permission_studio.fields.ensure_custom_fields",
 ]
 
 after_install = "logistics.control_tower.install.after_install"
