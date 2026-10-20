@@ -1056,5 +1056,5 @@ logistics.patches.v3_0_sync_module_report_sidebars
 logistics.patches.v3_0_repair_child_parent_columns
 # Utilities: Bulk Update Studio page, workspace shortcut, and sidebar link
 logistics.patches.v3_0_sync_utilities_bulk_update_studio
-# Permission Studio: Utilities shortcut and ownership fields on User Permission.
-logistics.patches.v3_0_sync_permission_studio
+# Remove Permission Studio. User Permission rows it already created stay.
+logistics.patches.v3_0_remove_permission_studio
