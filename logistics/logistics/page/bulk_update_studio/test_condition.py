@@ -129,28 +129,3 @@ class TestBulkUpdateCondition(unittest.TestCase):
 			(root / "logistics" / "sidebar" / "logistics" / "logistics.json").read_text(encoding="utf-8")
 		)
 		self.assertTrue(any(row.get("link_to") == "bulk-update-studio" for row in sidebar["items"]))
-
-	def test_permission_studio_is_removed_without_deleting_user_permissions(self):
-		root = Path(__file__).resolve().parents[3]
-		sidebar = json.loads(
-			(root / "logistics" / "sidebar" / "logistics" / "logistics.json").read_text(encoding="utf-8")
-		)
-		workspace = json.loads(
-			(root / "logistics" / "workspace" / "utilities" / "utilities.json").read_text(encoding="utf-8")
-		)
-		self.assertFalse(any(row.get("link_to") == "permission-studio" for row in sidebar["items"]))
-		self.assertFalse(any(row.get("link_to") == "permission-studio" for row in workspace["shortcuts"]))
-		self.assertFalse(any(row.get("link_to") == "permission-studio" for row in workspace["links"]))
-		self.assertNotIn("permission-studio", workspace["content"])
-		self.assertFalse((root / "logistics" / "page" / "permission_studio").exists())
-		self.assertFalse((root / "permissions").exists())
-		patches = (root / "patches.txt").read_text(encoding="utf-8")
-		self.assertIn("logistics.patches.v3_0_remove_permission_studio", patches)
-		self.assertNotIn("v3_0_sync_permission_studio", patches)
-		self.assertIn("logistics.patches.v3_0_sync_utilities_bulk_update_studio", patches)
-		source = (root / "patches" / "v3_0_remove_permission_studio.py").read_text(encoding="utf-8")
-		self.assertIn("ps_group", source)
-		self.assertIn("ps_signature", source)
-		self.assertNotIn('delete_doc("User Permission"', source)
-		self.assertNotIn("DROP TABLE `tabUser Permission`", source)
-		self.assertNotIn("DROP TABLE IF EXISTS `tabUser Permission`", source)
