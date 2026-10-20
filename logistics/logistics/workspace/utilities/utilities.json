@@ -1,7 +1,7 @@
 {
  "app": "logistics",
  "charts": [],
- "content": "[{\"id\":\"util-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Utilities</span>\",\"col\":12}},{\"id\":\"wfcQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workflow Center\",\"col\":3}},{\"id\":\"util-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Role Permission Matrix\",\"col\":4}},{\"id\":\"logistics-staff-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Logistics Staff\",\"col\":4}}]",
+ "content": "[{\"id\":\"util-header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Utilities</span>\",\"col\":12}},{\"id\":\"wfcQuick01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Workflow Center\",\"col\":3}},{\"id\":\"ps-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Permission Studio\",\"col\":3}},{\"id\":\"util-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Role Permission Matrix\",\"col\":3}},{\"id\":\"logistics-staff-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Logistics Staff\",\"col\":3}}]",
  "creation": "2026-08-15 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -14,6 +14,16 @@
  "is_standard": 1,
  "label": "Utilities",
  "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Permission Studio",
+   "link_count": 0,
+   "link_to": "permission-studio",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
   {
    "hidden": 0,
    "is_query_report": 0,
@@ -66,6 +76,13 @@
    "doc_view": "",
    "label": "Workflow Center",
    "link_to": "workflow-center",
+   "type": "Page"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Permission Studio",
+   "link_to": "permission-studio",
    "type": "Page"
   },
   {

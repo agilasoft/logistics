@@ -1,0 +1,101 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-10-20 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "action",
+  "result",
+  "column_break_main",
+  "permission_group",
+  "affected_record",
+  "details",
+  "previous_state",
+  "new_state"
+ ],
+ "fields": [
+  {
+   "default": "PS-ACT-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "PS-ACT-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "action",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Action",
+   "reqd": 1
+  },
+  {
+   "fieldname": "result",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Result",
+   "options": "Success\nFailed\nPartial\nInformation"
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "permission_group",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Permission Group",
+   "options": "Permission Group"
+  },
+  {
+   "fieldname": "affected_record",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Affected Record"
+  },
+  {
+   "fieldname": "details",
+   "fieldtype": "Small Text",
+   "label": "Details"
+  },
+  {
+   "fieldname": "previous_state",
+   "fieldtype": "Long Text",
+   "label": "Previous State"
+  },
+  {
+   "fieldname": "new_state",
+   "fieldtype": "Long Text",
+   "label": "New State"
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-20 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Logistics",
+ "name": "Permission Studio Activity",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "action",
+ "track_changes": 0
+}
