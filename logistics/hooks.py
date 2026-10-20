@@ -73,6 +73,7 @@ app_include_css = [
 	"/assets/logistics/css/linked_services_dialog.css?v=12",
 	"/assets/logistics/css/ts_sq_fetch_dialog.css?v=6",
 	"/assets/logistics/css/role_permission_matrix.css?v=6",
+	"/assets/logistics/css/bulk_update_studio.css?v=1",
 	"/assets/logistics/css/vehicle_permit_banner.css?v=1",
 	"/assets/logistics/css/session_defaults.css?v=3",
 ]
@@ -145,6 +146,7 @@ app_include_js = [
 page_js = {
 	"workflow-center": "public/js/workflow_center.js",
 	"role-permission-matrix": "public/js/role_permission_matrix_page.js",
+	"bulk-update-studio": "public/js/bulk_update_studio_page.js",
 }
 
 # include js in doctype views
