@@ -390,9 +390,11 @@ doctype_js = {
 }
 doctype_list_js = {
 	"Time Sensitive Case": "time_sensitive/doctype/time_sensitive_case/time_sensitive_case_list.js",
+	"Account": "public/js/account_ids.js",
 }
 doctype_tree_js = {
 	"Cost Center": "public/js/cost_center_tree.js",
+	"Account": "public/js/account_ids.js",
 }
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
