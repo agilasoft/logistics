@@ -9,25 +9,33 @@ frappe.ui.form.on("Item Group", {
 					"Copy GL accounts from this Item Group onto every Item in this group and its child groups, for each company set on Item Defaults?"
 				),
 				() => {
-					frappe.call({
-						method: "logistics.utils.item_accounts.apply_gl_accounts_to_items",
-						args: { item_group: frm.doc.name },
-						freeze: true,
-						freeze_message: __("Applying GL accounts..."),
-						callback(r) {
-							const msg = (r && r.message) || {};
-							const companies = msg.companies || [];
-							frappe.msgprint({
-								title: __("GL Accounts Applied"),
-								indicator: "green",
-								message: __("{0} of {1} items updated across {2} companies.").format(
-									msg.updated || 0,
-									msg.items || 0,
-									companies.length
-								),
-							});
-						},
-					});
+					const call = () => {
+						frappe.call({
+							method: "logistics.utils.item_accounts.apply_gl_accounts_to_items",
+							args: { item_group: frm.doc.name },
+							freeze: true,
+							freeze_message: __("Applying GL accounts..."),
+							callback(r) {
+								const msg = (r && r.message) || {};
+								const companies = msg.companies || [];
+								frappe.msgprint({
+									title: __("GL Accounts Applied"),
+									indicator: "green",
+									message: __("{0} of {1} items updated across {2} companies.").format(
+										msg.updated || 0,
+										msg.items || 0,
+										companies.length
+									),
+								});
+							},
+						});
+					};
+					// The server reads the saved Item Group, including item_group_defaults.
+					if (frm.is_dirty()) {
+						frm.save().then(call);
+						return;
+					}
+					call();
 				}
 			);
 		});

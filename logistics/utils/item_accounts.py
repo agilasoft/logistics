@@ -174,9 +174,17 @@ def get_standard_cost_accounts_for_item(item_code: str, company: str) -> Tuple[O
 	return pick("custom_standard_cost_account"), pick("custom_applied_standard_cost_account")
 
 
+def item_default_rows(doc) -> list:
+	"""Per-company default rows. Item Group stores them on item_group_defaults."""
+	if doc is None:
+		return []
+	fieldname = "item_group_defaults" if doc.get("doctype") == "Item Group" else "item_defaults"
+	return list(doc.get(fieldname) or [])
+
+
 def validate_item_default_accounts(doc, method=None):
 	"""WIP, Accrual, and standard-cost accounts on Item / Item Group defaults must match the row company."""
-	rows = doc.get("item_defaults") or []
+	rows = item_default_rows(doc)
 	if not rows:
 		return
 	if not frappe.get_meta("Item Default").get_field("custom_wip_account"):
@@ -322,7 +330,7 @@ def apply_gl_accounts_to_items(item_group):
 
 	group = frappe.get_doc("Item Group", item_group)
 	fields = item_default_gl_fields()
-	company_accounts = accounts_by_company(group.get("item_defaults") or [], fields)
+	company_accounts = accounts_by_company(item_default_rows(group), fields)
 	if not company_accounts:
 		frappe.throw(_("Set GL accounts on Item Defaults for at least one company."))
 

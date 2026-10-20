@@ -72,6 +72,7 @@ from logistics.utils.item_accounts import (
 	get_standard_cost_accounts_for_item,
 	get_wip_account_for_item,
 	item_default_gl_fields,
+	item_default_rows,
 	validate_item_default_accounts,
 )
 
@@ -248,6 +249,39 @@ class TestItemDefaultAccountResolution(unittest.TestCase):
 				validate_item_default_accounts(doc)
 		self.assertIn("WIP Account", str(raised.exception))
 
+	def test_item_group_validation_reads_item_group_defaults(self):
+		class _Meta:
+			def get_field(self, name):
+				return True
+
+		clean_group = _Row(
+			doctype="Item Group",
+			item_defaults=[_Row(company="ASL", custom_wip_account="Accrual Group - ASL")],
+			item_group_defaults=[_Row(company="ASL", income_account="Income - ASL")],
+		)
+		bad_group = _Row(
+			doctype="Item Group",
+			item_defaults=[_Row(company="ASL", income_account="Income - ASL")],
+			item_group_defaults=[_Row(company="ASL", custom_wip_account="Accrual Group - ASL")],
+		)
+		with patch.object(frappe, "get_meta", lambda doctype: _Meta(), create=True), patch.object(
+			frappe.db, "has_column", lambda doctype, field: True, create=True
+		), patch.object(
+			frappe.db,
+			"get_value",
+			lambda doctype, name, fields, as_dict=False: {
+				"company": "ASL",
+				"account_type": "Expense Account",
+				"is_group": 0,
+				"job_profit_account_type": "Accrual",
+			},
+			create=True,
+		):
+			validate_item_default_accounts(clean_group)
+			with self.assertRaises(Exception) as raised:
+				validate_item_default_accounts(bad_group)
+		self.assertIn("WIP Account", str(raised.exception))
+
 
 class _Charge:
 	def __init__(self, **kwargs):
@@ -408,19 +442,26 @@ class _Child(dict):
 
 
 class _ItemDoc:
-	def __init__(self, defaults):
-		self.item_defaults = [_Child(dict(row)) for row in defaults]
+	def __init__(self, defaults, doctype="Item", child_field="item_defaults"):
+		self.doctype = doctype
+		self._children = {child_field: [_Child(dict(row)) for row in defaults]}
 		self.saved = 0
 
 	def get(self, key, default=None):
-		if key == "item_defaults":
-			return self.item_defaults
+		if key == "doctype":
+			return self.doctype
+		if key in ("item_defaults", "item_group_defaults"):
+			return self._children.get(key) or []
 		return default
 
 	def append(self, key, payload):
 		child = _Child(dict(payload))
-		self.item_defaults.append(child)
+		self._children.setdefault(key, []).append(child)
 		return child
+
+	@property
+	def item_defaults(self):
+		return self._children.setdefault("item_defaults", [])
 
 	def save(self):
 		self.saved += 1
@@ -477,6 +518,17 @@ class TestApplyGlAccountsToItems(unittest.TestCase):
 				["income_account", "custom_wip_account", "purchase_expense_account"],
 			)
 
+	def test_item_group_rows_come_from_item_group_defaults(self):
+		group = _ItemDoc(
+			[{"company": "ASL", "income_account": "Income - ASL"}],
+			doctype="Item Group",
+			child_field="item_group_defaults",
+		)
+		group._children["item_defaults"] = [_Child({"company": "ASL", "income_account": "Wrong Table"})]
+		self.assertEqual(item_default_rows(group)[0]["income_account"], "Income - ASL")
+		item = _ItemDoc([{"company": "ASL", "income_account": "Item Income"}])
+		self.assertEqual(item_default_rows(item)[0]["income_account"], "Item Income")
+
 	def test_apply_updates_items_in_child_groups(self):
 		group = _ItemDoc(
 			[
@@ -487,7 +539,9 @@ class TestApplyGlAccountsToItems(unittest.TestCase):
 					"custom_wip_account": "WIP - ASL",
 				},
 				{"company": "BCO", "expense_account": "Expense - BCO"},
-			]
+			],
+			doctype="Item Group",
+			child_field="item_group_defaults",
 		)
 		handling = _ItemDoc(
 			[{"company": "ASL", "income_account": "Old", "expense_account": "Keep", "custom_wip_account": ""}]
@@ -541,8 +595,27 @@ class TestApplyGlAccountsToItems(unittest.TestCase):
 		self.assertEqual(handling.item_defaults[1]["company"], "BCO")
 		self.assertEqual(handling.item_defaults[1]["expense_account"], "Expense - BCO")
 
+	def test_apply_ignores_accounts_stored_on_item_defaults(self):
+		group = _ItemDoc(
+			[{"company": "ASL", "income_account": "Income - ASL"}],
+			doctype="Item Group",
+			child_field="item_defaults",
+		)
+		with patch.object(frappe.db, "exists", return_value=True, create=True), patch.object(
+			frappe, "has_permission", return_value=True, create=True
+		), patch.object(frappe, "get_doc", return_value=group, create=True), patch.object(
+			frappe.db, "has_column", return_value=True, create=True
+		), patch.object(frappe, "get_meta", return_value=types.SimpleNamespace(fields=[])):
+			with self.assertRaises(Exception) as raised:
+				apply_gl_accounts_to_items("Forwarding")
+		self.assertIn("Set GL accounts", str(raised.exception))
+
 	def test_apply_requires_a_company_account(self):
-		group = _ItemDoc([{"company": "ASL", "income_account": ""}])
+		group = _ItemDoc(
+			[{"company": "ASL", "income_account": ""}],
+			doctype="Item Group",
+			child_field="item_group_defaults",
+		)
 		with patch.object(frappe.db, "exists", return_value=True, create=True), patch.object(
 			frappe, "has_permission", return_value=True, create=True
 		), patch.object(frappe, "get_doc", return_value=group, create=True), patch.object(
