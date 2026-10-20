@@ -14,11 +14,14 @@ frappe.pages["permission-studio"].on_page_load = function (wrapper) {
 		start();
 		return;
 	}
+	// Do not append ?v=… to these paths. Frappe AssetManager.extn() keeps the
+	// query string and then looks up a loader for "v=1", which throws and
+	// leaves the page blank. Cache-busting is added by frappe.require itself.
 	frappe.require(
 		[
-			"/assets/logistics/js/permission_studio_picker.js?v=1",
-			"/assets/logistics/css/permission_studio.css?v=1",
-			"/assets/logistics/js/permission_studio_page.js?v=1",
+			"/assets/logistics/js/permission_studio_picker.js",
+			"/assets/logistics/css/permission_studio.css",
+			"/assets/logistics/js/permission_studio_page.js",
 		],
 		start
 	);

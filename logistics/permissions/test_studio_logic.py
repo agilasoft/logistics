@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -307,3 +308,33 @@ class TestStudioViews(unittest.TestCase):
 		self.assertIn("state.selected = picker.toggleSelected", page)
 		self.assertIn("viewportRows", source)
 		self.assertIn("max-height:min", page)
+
+	def test_desk_page_asset_paths_keep_a_real_extension(self):
+		source = (
+			Path(__file__)
+			.resolve()
+			.parents[1]
+			.joinpath("logistics/page/permission_studio/permission_studio.js")
+			.read_text()
+		)
+		paths = re.findall(r"""["'](/assets/logistics/[^"']+)["']""", source)
+		self.assertEqual(
+			paths,
+			[
+				"/assets/logistics/js/permission_studio_picker.js",
+				"/assets/logistics/css/permission_studio.css",
+				"/assets/logistics/js/permission_studio_page.js",
+			],
+		)
+		for path in paths:
+			self.assertIn(_frappe_asset_extension(path), ("js", "css"))
+		broken = "/assets/logistics/js/permission_studio_page.js?v=1"
+		self.assertEqual(_frappe_asset_extension(broken), "v=1")
+		self.assertNotIn(_frappe_asset_extension(broken), ("js", "css"))
+
+
+def _frappe_asset_extension(src):
+	"""Mirror Frappe AssetManager.extn from frappe/public/js/frappe/assets.js."""
+	if "?" in src:
+		src = src.split("?")[-1]
+	return src.split(".")[-1]
