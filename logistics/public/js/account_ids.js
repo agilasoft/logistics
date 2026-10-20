@@ -83,7 +83,9 @@ logistics.accounts.show_account_id_update = function (plan, opts) {
 					<p>${__(
 						"The ID is the account number, account name, and company abbreviation, separated by ' - '. Accounts without a number leave the number out."
 					)}</p>
-					<p>${__("Linked documents are updated to the new ID.")}</p>
+					<p>${__(
+						"Linked documents are updated to the new ID. The rename runs in the background so this page does not time out."
+					)}</p>
 					<table class="table table-bordered table-sm">
 						<thead><tr><th>${__("Current ID")}</th><th>${__("New ID")}</th></tr></thead>
 						<tbody>${preview}</tbody>
@@ -96,30 +98,57 @@ logistics.accounts.show_account_id_update = function (plan, opts) {
 		primary_action_label: __("Update"),
 		primary_action() {
 			dialog.hide();
+			logistics.accounts.watch_account_id_update(opts);
 			frappe.call({
 				method: "logistics.logistics.account_ids.update_account_ids",
 				args: { company: opts.company || null, apply: 1 },
 				freeze: true,
-				freeze_message: __("Updating Account IDs..."),
+				freeze_message: __("Queueing Account ID update..."),
 				callback(response) {
 					if (response.exc) {
 						return;
 					}
-					const renamed = (response.message && response.message.renamed) || [];
-					frappe.show_alert({
-						message: renamed.length
-							? __("Updated {0} Account IDs", [renamed.length])
-							: __("All Account IDs already match the current naming rule."),
-						indicator: "green",
-					});
-					if (opts.on_success) {
-						opts.on_success();
+					const message = response.message || {};
+					if (message.already_queued) {
+						frappe.show_alert({
+							message: __("An Account ID update is already running."),
+							indicator: "orange",
+						});
+						return;
+					}
+					if (message.queued) {
+						frappe.show_alert({
+							message: __("Updating {0} Account IDs in the background.", [message.count || 0]),
+							indicator: "blue",
+						});
 					}
 				},
 			});
 		},
 	});
 	dialog.show();
+};
+
+logistics.accounts.watch_account_id_update = function (opts) {
+	if (logistics.accounts._account_id_listener) {
+		logistics.accounts._account_id_refresh = opts || {};
+		return;
+	}
+	logistics.accounts._account_id_listener = true;
+	logistics.accounts._account_id_refresh = opts || {};
+	frappe.realtime.on("logistics_account_ids_updated", (data) => {
+		const refresh = logistics.accounts._account_id_refresh || {};
+		const company = data && data.company;
+		if (refresh.company && company && refresh.company !== company) {
+			return;
+		}
+		if (data && data.indicator === "red") {
+			return;
+		}
+		if (refresh.on_success) {
+			refresh.on_success();
+		}
+	});
 };
 
 function logistics_account_list_company(listview) {
