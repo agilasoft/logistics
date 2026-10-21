@@ -2518,6 +2518,7 @@ class SeaBooking(VirtualLinkedServicesMixin, Document):
 						"expiry_date": getattr(doc_row, "expiry_date", None),
 						"attachment": getattr(doc_row, "attachment", None),
 						"is_required": getattr(doc_row, "is_required", 0),
+						"visible_to_customer": getattr(doc_row, "visible_to_customer", 0),
 						"is_verified": getattr(doc_row, "is_verified", 0),
 						"verified_by": getattr(doc_row, "verified_by", None),
 						"issued_by": getattr(doc_row, "issued_by", None),

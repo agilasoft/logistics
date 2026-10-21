@@ -2,7 +2,7 @@
 
 **Document Management** is a unified feature across Booking/Order and Shipment/Job doctypes that provides centralized document tracking, compliance monitoring, and overdue alerts. Documents are managed via the **Documents** tab on each supported doctype.
 
-The Documents tab shows a checklist of required documents (Commercial Invoice, Packing List, Bill of Lading, Air Waybill, etc.) with status, date required, date received, and attachments. Document requirements are driven by **Document List Templates** configured per product type and context. Document rows are stored in the **Job Document** child table; each row links to a Logistics Document Type and tracks status, dates, attachments, and verification.
+The Documents tab shows a checklist of required documents (Commercial Invoice, Packing List, Bill of Lading, Air Waybill, etc.) with status, date required, date received, and attachments. Document requirements are driven by **Document List Templates** configured per product type and context. Document rows are stored in the **Job Document** child table; each row links to a Logistics Document Type and tracks status, dates, attachments, verification, and whether the document is visible to the customer.
 
 To access document configuration, go to:
 
@@ -25,6 +25,7 @@ Before using the Documents tab, it is advised to set up the following:
    - **Date Required** – When the document must be available (calculated from ETD/ETA/Booking Date or manual)
    - **Attachment** – Upload the document file
    - **Date Received** – When the document was received
+   - **Visible to Customer** – Defaulted from the Document Type when the row is extracted. Change it on the row to override that default.
 
 ### 2.1 Document List Template
 
@@ -87,6 +88,7 @@ _All fields from DocTypes **Job Document**, **Document List Template** (subsecti
 | Attachment (`attachment`) | Attach | **Purpose:** Stores evidence: B/L, AWB, permits, POD scans, certificates. **What to enter:** Upload PDF/image from disk or drag-and-drop; use clear filenames; respect max size limits. |
 | `column_break_attachment` | Column Break | **Purpose:** Continues the current row in a second column (standard ERP two-column layout). **What to enter:** No data — layout only. |
 | Required (`is_required`) | Check | **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
+| Visible to Customer (`visible_to_customer`) | Check | **Purpose:** Whether this document row is visible to the customer. **What to enter:** Tick to show this document to the customer. **Behaviour:** Defaulted from `document_type.visible_to_customer` when the row is extracted. |
 | Verified (`is_verified`) | Check | **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
 | Verified By (`verified_by`) | Link | **Purpose:** Creates a controlled reference to **User** so party, place, item, or document data stays consistent for reporting and integrations. **What to enter:** Type to search or click the link icon; select an existing **User**. Create the master first if it does not exist. **Behaviour:** Read-only here — value comes from calculation, another field, or workflow. |
 | Issued By (`issued_by`) | Data | **Purpose:** Short free-text for codes, references, or labels that are not master-linked. **What to enter:** Type the value as it should appear on print/PDF (no line breaks). |
