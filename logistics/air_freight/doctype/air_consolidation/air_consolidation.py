@@ -1096,24 +1096,37 @@ class AirConsolidation(Document):
         return " / ".join(parts) if parts else ""
 
     @staticmethod
-    def _other_commodity_code_for_consolidation(code):
-        """Return a value safe for ``consolidation_packages.commodity`` (Link: Other Commodity Code).
+    def _commodity_for_consolidation(code):
+        """Return a Commodity name safe for ``consolidation_packages.commodity``.
 
-        Package lines on Air Shipment use Link ``Commodity``; names may differ or point to missing rows.
+        Air Shipment package lines link Commodity. Ignore blank or missing masters.
         """
         if code is None:
             return None
         name = cstr(code).strip()
         if not name:
             return None
-        return name if frappe.db.exists("Other Commodity Code", name) else None
+        return name if frappe.db.exists("Commodity", name) else None
 
-    def _first_consolidation_commodity_from_air_shipment(self, job):
-        for sp in job.get("packages") or []:
-            oc = self._other_commodity_code_for_consolidation(getattr(sp, "commodity", None))
-            if oc:
-                return oc
-        return None
+    def _measure_for_consolidation(self, value, from_uom, to_uom, company, kind):
+        """Convert a package line measure into the shipment header UOM when a factor exists."""
+        amount = flt(value or 0)
+        if amount <= 0 or not from_uom or not to_uom:
+            return amount
+        if str(from_uom).strip().upper() == str(to_uom).strip().upper():
+            return amount
+        try:
+            from logistics.utils.measurements import convert_volume, convert_weight
+
+            converter = convert_weight if kind == "weight" else convert_volume
+            return flt(converter(amount, from_uom=from_uom, to_uom=to_uom, company=company))
+        except Exception:
+            return amount
+
+    @staticmethod
+    def _packing_group_for_consolidation(value):
+        group = (value or "").strip()
+        return group if group in ("I", "II", "III") else None
 
     def _air_consolidation_row_dg_fields(self, sp, job):
         """Return (contains_dg, dg_class, un_number, proper_shipping_name, emergency_contact) for child validation."""
@@ -1153,6 +1166,10 @@ class AirConsolidation(Document):
         temperature_controlled,
         min_temperature,
         max_temperature,
+        packing_group=None,
+        handling_instructions=None,
+        marks_and_numbers=None,
+        special_requirements=None,
     ):
         row = self.append(
             "consolidation_packages",
@@ -1167,11 +1184,15 @@ class AirConsolidation(Document):
                 "package_volume": package_volume,
                 "commodity": commodity,
                 "description": description or "",
+                "marks_and_numbers": marks_and_numbers or None,
                 "contains_dangerous_goods": 1 if contains_dangerous_goods else 0,
                 "dg_class": dg_class or None,
                 "un_number": un_number or None,
                 "proper_shipping_name": proper_shipping_name or None,
+                "packing_group": packing_group or None,
                 "emergency_contact": emergency_contact or None,
+                "handling_instructions": handling_instructions or None,
+                "special_requirements": special_requirements or None,
                 "temperature_controlled": 1 if temperature_controlled else 0,
                 "min_temperature": min_temperature,
                 "max_temperature": max_temperature,
@@ -1197,21 +1218,53 @@ class AirConsolidation(Document):
         used_refs = self._package_references_in_use_air()
         appended = []
         pkg_lines = [r for r in (job.get("packages") or []) if r is not None]
+        marks = (getattr(job, "marks_and_nos", None) or "").strip() or None
+        company = getattr(job, "company", None)
+        target_weight_uom = getattr(job, "total_weight_uom", None)
+        target_volume_uom = getattr(job, "total_volume_uom", None)
 
         if pkg_lines:
-            for i, sp in enumerate(pkg_lines, start=1):
+            prepared = []
+            for sp in pkg_lines:
+                line_weight_uom = getattr(sp, "weight_uom", None) or target_weight_uom
+                line_volume_uom = getattr(sp, "volume_uom", None) or target_volume_uom
+                prepared.append(
+                    {
+                        "line": sp,
+                        "weight": self._measure_for_consolidation(
+                            getattr(sp, "weight", 0),
+                            line_weight_uom,
+                            target_weight_uom,
+                            company,
+                            "weight",
+                        ),
+                        "volume": self._measure_for_consolidation(
+                            getattr(sp, "volume", 0),
+                            line_volume_uom,
+                            target_volume_uom,
+                            company,
+                            "volume",
+                        ),
+                    }
+                )
+            missing_weight = [row for row in prepared if row["weight"] <= 0]
+            known_weight = sum(row["weight"] for row in prepared if row["weight"] > 0)
+            header_weight = flt(getattr(job, "total_weight", None) or 0)
+            if missing_weight and header_weight > known_weight:
+                share = (header_weight - known_weight) / len(missing_weight)
+                for row in missing_weight:
+                    row["weight"] = share
+            for i, prepared_row in enumerate(prepared, start=1):
+                sp = prepared_row["line"]
+                w = prepared_row["weight"]
+                v = prepared_row["volume"]
+                if w <= 0:
+                    w = 0.01
                 n_packs = flt(getattr(sp, "no_of_packs", 0) or 0)
                 if n_packs > 0:
                     pack_count = max(1, cint(math.ceil(n_packs)))
                 else:
                     pack_count = 1
-                w = flt(getattr(sp, "weight", 0) or 0)
-                v = flt(getattr(sp, "volume", 0) or 0)
-                if w <= 0:
-                    tw = flt(getattr(job, "total_weight", None) or getattr(job, "weight", None) or 0)
-                    w = tw / len(pkg_lines) if tw else 0
-                if w <= 0:
-                    w = 0.01
                 line_ref = getattr(sp, "reference_no", None)
                 pkg_ref = self._allocate_consolidation_package_reference_air(
                     air_shipment, i, line_ref, used_refs
@@ -1226,7 +1279,7 @@ class AirConsolidation(Document):
                     package_count=pack_count,
                     package_weight=w,
                     package_volume=v,
-                    commodity=self._other_commodity_code_for_consolidation(getattr(sp, "commodity", None)),
+                    commodity=self._commodity_for_consolidation(getattr(sp, "commodity", None)),
                     description=getattr(sp, "goods_description", None) or "",
                     contains_dangerous_goods=dg_ok,
                     dg_class=dg_c,
@@ -1236,6 +1289,12 @@ class AirConsolidation(Document):
                     temperature_controlled=temp_flag,
                     min_temperature=getattr(sp, "min_temperature", None) if temp_flag else None,
                     max_temperature=getattr(sp, "max_temperature", None) if temp_flag else None,
+                    packing_group=self._packing_group_for_consolidation(getattr(sp, "packing_group", None))
+                    if dg_ok
+                    else None,
+                    handling_instructions=(getattr(sp, "handling_instructions", None) or "").strip() or None,
+                    marks_and_numbers=marks,
+                    special_requirements=(getattr(sp, "special_provisions", None) or "").strip() or None,
                 )
                 appended.append(row)
         else:
@@ -1261,6 +1320,7 @@ class AirConsolidation(Document):
                 temperature_controlled=0,
                 min_temperature=None,
                 max_temperature=None,
+                marks_and_numbers=marks,
             )
             appended.append(row)
 
@@ -1268,33 +1328,8 @@ class AirConsolidation(Document):
 
     @frappe.whitelist()
     def add_package_from_job(self, air_freight_job):
-        """Add package from Air Shipment to consolidation"""
-        job = frappe.get_doc("Air Shipment", air_freight_job)
-        
-        # Check if job is already in consolidation
-        existing_package = frappe.db.exists("Air Consolidation Packages", {
-            "air_freight_job": air_freight_job,
-            "parent": self.name
-        })
-        
-        if existing_package:
-            frappe.throw(_("This Air Shipment is already included in this consolidation"))
-        
-        # Add package to consolidation
-        package = self.append("consolidation_packages", {})
-        package.air_freight_job = air_freight_job
-        package.shipper = job.shipper
-        package.consignee = job.consignee
-        package.package_type = "Box"  # Default, can be updated
-        package.package_count = job.packs or 1
-        package.package_weight = getattr(job, "total_weight", None) or getattr(job, "weight", None) or 0
-        package.package_volume = getattr(job, "total_volume", None) or getattr(job, "volume", None) or 0
-        package.commodity = self._first_consolidation_commodity_from_air_shipment(job)
-        package.description = getattr(job, "description", None) or ""
-        package.contains_dangerous_goods = job.contains_dangerous_goods or 0
-        
-        self.save()
-        return package
+        """Add Air Shipment package lines to consolidation. Same path as Add Air Shipment."""
+        return self.add_air_freight_job(air_freight_job)
     
     @frappe.whitelist()
     def optimize_route_selection(self):
@@ -1424,28 +1459,35 @@ class AirConsolidation(Document):
         
         return cost_breakdown
     
+    def _air_shipment_already_on_consolidation_packages(self, air_freight_job):
+        if not air_freight_job:
+            return False
+        for row in self.get("consolidation_packages") or []:
+            if getattr(row, "air_freight_job", None) == air_freight_job:
+                return True
+        if self.name and frappe.db.exists(
+            "Air Consolidation Packages",
+            {"air_freight_job": air_freight_job, "parent": self.name},
+        ):
+            return True
+        return False
+
     @frappe.whitelist()
     def add_air_freight_job(self, air_freight_job):
-        """Add an Air Shipment to the consolidation"""
-        # Check if job is already in consolidation
-        existing_package = frappe.db.exists("Air Consolidation Packages", {
-            "air_freight_job": air_freight_job,
-            "parent": self.name
-        })
-        
-        if existing_package:
+        """Add an Air Shipment and copy each of its package lines onto the consolidation."""
+        if (self.air_planning_status or "Draft") == "Submitted":
+            frappe.throw(
+                _("Cannot add cargo while planning status is Submitted. Reset planned shipments to draft first."),
+                title=_("Cargo locked"),
+            )
+        if self._air_shipment_already_on_consolidation_packages(air_freight_job):
             frappe.throw(_("This Air Shipment is already included in this consolidation"))
-        
-        # Validate house type: only consolidation types can be added (not Standard House or Break Bulk)
+
         job = frappe.get_doc("Air Shipment", air_freight_job)
-        allowed = ("Co-load Master", "Blind Co-load Master", "Co-load House", "Buyer's Consol Lead", "Shipper's Consol Lead")
-        if job.house_type not in allowed:
-            frappe.throw(_(
-                "Air Shipment with House Type '{0}' cannot be added to consolidation. "
-                "Only Co-load Master, Blind Co-load Master, Co-load House, Buyer's Consol Lead, or Shipper's Consol Lead are allowed."
-            ).format(job.house_type or "Standard House"))
-        
-        # Validate origin and destination match consolidation header
+        ok, msg = air_shipment_allowed_on_plan(air_freight_job)
+        if not ok:
+            frappe.throw(msg)
+
         if self.origin_airport and job.origin_port != self.origin_airport:
             frappe.throw(_(
                 "Air Shipment {0} origin port ({1}) does not match consolidation origin ({2})."
@@ -1455,25 +1497,20 @@ class AirConsolidation(Document):
                 "Air Shipment {0} destination port ({1}) does not match consolidation destination ({2})."
             ).format(air_freight_job, job.destination_port or "-", self.destination_airport))
 
-        self._maybe_populate_routes_from_added_shipment(air_freight_job)
+        planned = {
+            getattr(row, "air_shipment", None)
+            for row in (self.get("consolidation_planning_lines") or [])
+            if getattr(row, "air_shipment", None)
+        }
+        if air_freight_job not in planned:
+            if conflicting_submitted_air_planning_elsewhere(air_freight_job, self.name if not self.is_new() else None):
+                frappe.throw(_("Air Shipment {0} cannot be reserved on this consolidation.").format(air_freight_job))
+            self.append("consolidation_planning_lines", {"air_shipment": air_freight_job})
 
-        # Add package to consolidation
-        package = self.append("consolidation_packages", {})
-        package.air_freight_job = air_freight_job
-        
-        # Get job details (job already fetched above for house_type validation)
-        package.shipper = job.shipper
-        package.consignee = job.consignee
-        package.package_type = "Box"  # Default, can be updated
-        package.package_count = job.packs or 1
-        package.package_weight = getattr(job, "total_weight", None) or getattr(job, "weight", None) or 0
-        package.package_volume = getattr(job, "total_volume", None) or getattr(job, "volume", None) or 0
-        package.commodity = self._first_consolidation_commodity_from_air_shipment(job)
-        package.description = getattr(job, "description", None) or ""
-        package.contains_dangerous_goods = job.contains_dangerous_goods or 0
-        
+        self._maybe_populate_routes_from_added_shipment(air_freight_job)
+        rows = self._append_consolidation_packages_from_air_shipment(air_freight_job)
         self.save()
-        return package
+        return rows[-1] if rows else None
     
     @frappe.whitelist()
     def remove_air_freight_job(self, air_freight_job):
