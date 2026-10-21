@@ -338,7 +338,7 @@ def search_documents(doctype: str, txt: str | None = None) -> list:
 		or_filters=or_filters,
 		fields=fields,
 		order_by="modified desc",
-		limit_page_length=40,
+		limit_page_length=200,
 		ignore_permissions=True,
 	)
 	results = []

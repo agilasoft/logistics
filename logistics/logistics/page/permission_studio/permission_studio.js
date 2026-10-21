@@ -37,62 +37,50 @@ frappehero.PermissionStudio = class PermissionStudio {
 		this.selected = null;
 		this.focusGroup = null;
 		this.state = null;
-		this.section = "overview";
 		this.detailTab = "overview";
-		this.statusFilter = "all";
-		this.pageStart = 0;
-		this.pageSize = 10;
+		this.checkedMembers = new Set();
 		this.colors = ["#2490ef", "#5e64ff", "#db2777", "#d97706", "#16a34a", "#0891b2", "#7c3aed", "#dc2626"];
-		const fullName = (frappe.session && (frappe.session.user_fullname || frappe.session.user)) || "";
-		const userId = (frappe.session && frappe.session.user) || "";
 		this.page.main.addClass("ps-studio");
-		if (this.page.wrapper) {
-			$(this.page.wrapper).find(".page-head").addClass("ps-hide-head");
+		this.page.set_title(__("Permission Studio"));
+		if (this.page.set_title_sub) {
+			this.page.set_title_sub(__("Manage user groups and permissions in one place"));
+		}
+		this.page.set_primary_action(__("New Group"), () => this.openGroupDialog(), "add");
+		if (this.page.add_inner_button) {
+			this.page.add_inner_button(__("Sync All"), () => this.syncAll());
 		}
 		this.page.main.html(`
-			<div class="ps-app">
-				<div class="ps-top">
-					<div class="ps-brand">
-						<div class="ps-logo">P</div>
-						<div>
-							<h1>${__("Permission Studio")}</h1>
-							<p>${__("Manage user groups and permissions in one place")}</p>
-						</div>
+			<div class="ps-desk">
+				<div class="ps-cards"></div>
+				<div class="ps-filterbar">
+					<div class="ps-coverage">
+						<div class="ps-coverage-track"><div class="ps-coverage-fill"></div></div>
+						<span class="ps-coverage-label"></span>
 					</div>
-					<input type="search" class="ps-top-search" placeholder="${__("Search groups, users, values")}">
-					<div class="ps-user">
-						<span class="ps-avatar">${frappehero.esc(frappehero.initials(fullName))}</span>
-						<span class="ps-user-text"><strong>${frappehero.esc(fullName)}</strong>${
-							userId && userId !== fullName ? `<span class="ps-muted">${frappehero.esc(userId)}</span>` : ""
-						}</span>
+					<div class="ps-filters">
+						<select class="ps-role" aria-label="${__("Role")}"></select>
+						<select class="ps-doctype" aria-label="${__("DocType")}"></select>
+						<select class="ps-enabled" aria-label="${__("Groups")}">
+							<option value="all">${__("All groups")}</option>
+							<option value="enabled">${__("Enabled")}</option>
+							<option value="disabled">${__("Disabled")}</option>
+						</select>
+						<label class="ps-check"><input type="checkbox" class="ps-conflicts"> ${__("Conflicts only")}</label>
+						<button type="button" class="ps-icon-btn" data-action="refresh" aria-label="${__("Refresh")}">${this.icon("refresh")}</button>
 					</div>
 				</div>
-				<div class="ps-layout">
-					<nav class="ps-nav">
-						<button type="button" data-section="overview">${this.icon("home")}<span>${__("Overview")}</span></button>
-						<button type="button" data-section="groups">${this.icon("groups")}<span>${__("Permission Groups")}</span></button>
-						<button type="button" data-section="users">${this.icon("users")}<span>${__("Users")}</span></button>
-						<button type="button" data-section="matrix">${this.icon("grid")}<span>${__("Permission Matrix")}</span></button>
-						<button type="button" data-section="access">${this.icon("eye")}<span>${__("View User Access")}</span></button>
-						<div class="ps-quick">
-							<p>${__("Quick Actions")}</p>
-							<button type="button" data-action="sync-all">${this.icon("refresh")}<span>${__("Sync All")}</span></button>
-							<button type="button" data-action="new-group">${this.icon("plus")}<span>${__("Create Group")}</span></button>
-							<button type="button" data-action="coverage">${this.icon("shield")}<span>${__("Permission Coverage")}</span></button>
-						</div>
-					</nav>
-					<div class="ps-main">
-						<div class="ps-banner" hidden></div>
-						<div class="ps-cards"></div>
-						<div class="ps-stage"></div>
-					</div>
+				<div class="ps-banner" hidden></div>
+				<div class="ps-work">
+					<aside class="ps-groups"></aside>
+					<section class="ps-detail"></section>
 				</div>
 			</div>
 		`);
-		this.bannerEl = this.page.main.find(".ps-banner");
 		this.cardsEl = this.page.main.find(".ps-cards");
-		this.stageEl = this.page.main.find(".ps-stage");
-		const root = this.page.main.find(".ps-app").get(0);
+		this.bannerEl = this.page.main.find(".ps-banner");
+		this.groupsEl = this.page.main.find(".ps-groups");
+		this.detailEl = this.page.main.find(".ps-detail");
+		const root = this.page.main.find(".ps-desk").get(0);
 		root.addEventListener("click", (event) => this.onClick(event));
 		root.addEventListener("change", (event) => this.onChange(event));
 		root.addEventListener("input", (event) => this.onInput(event));
@@ -120,6 +108,7 @@ frappehero.PermissionStudio = class PermissionStudio {
 			const names = (this.state.groups || []).map((group) => group.name);
 			if (!names.includes(this.selected)) {
 				this.selected = names[0] || null;
+				this.checkedMembers = new Set();
 			}
 			this.render();
 		} finally {
@@ -129,100 +118,87 @@ frappehero.PermissionStudio = class PermissionStudio {
 
 	render() {
 		const stats = this.state.stats || {};
-		const issues = (this.state.messages || []).length;
-		this.page.main.find(".ps-nav button[data-section]").each((_, button) => {
-			button.classList.toggle("is-on", button.dataset.section === this.section);
-		});
+		const grouped = Number(stats.grouped_users) || 0;
+		const ungrouped = Number(stats.ungrouped_users) || 0;
+		const enabledUsers = grouped + ungrouped;
+		const percent = enabledUsers ? Math.round((grouped / enabledUsers) * 100) : 0;
 		this.cardsEl.html(`
-			${this.statCard("groups", stats.groups || 0, __("Permission Groups"), "")}
-			${this.statCard("users", stats.grouped_users || 0, __("Users in a group"), "is-green")}
-			${this.statCard("user", stats.ungrouped_users || 0, __("Users without a group"), "is-purple")}
+			${this.statCard("groups", stats.groups || 0, __("Groups"))}
+			${this.statCard("users", grouped, __("Users in a group"), "is-green")}
+			${this.statCard("user", ungrouped, __("Users with no group"), "is-purple")}
 			${this.statCard("key", stats.grants || 0, __("User Permissions from groups"), "is-orange")}
-			${this.statCard("alert", issues, __("Permission issues"), issues ? "is-alert" : "", issues ? __("Requires attention") : "")}
 		`);
+		this.page.main.find(".ps-coverage-fill").css("width", `${percent}%`);
+		this.page.main.find(".ps-coverage-label").text(
+			__("{0}% of enabled users are in a permission group", [String(percent)])
+		);
+		const options = this.state.filter_options || {};
+		this.fillFilter(".ps-role", options.roles || [], this.filters.role, __("All roles"));
+		this.fillFilter(".ps-doctype", options.doctypes || [], this.filters.doctype, __("All DocTypes"));
+		this.page.main.find(".ps-enabled").val(this.filters.enabled || "all");
+		this.page.main.find(".ps-conflicts").prop("checked", !!this.filters.conflicts_only);
 		const messages = this.state.messages || [];
 		if (messages.length) {
 			this.bannerEl.removeAttr("hidden").html(messages.map((message) => `<div>${frappehero.esc(message)}</div>`).join(""));
 		} else {
 			this.bannerEl.attr("hidden", "hidden").empty();
 		}
-		const topSearch = this.page.main.find(".ps-top-search").get(0);
-		if (topSearch && document.activeElement !== topSearch) {
-			topSearch.value = this.filters.search || "";
-		}
-		if (this.section === "users") {
-			this.stageEl.html(this.usersHtml());
-		} else if (this.section === "matrix") {
-			this.stageEl.html(`<div class="ps-panel"><h2>${__("Permission Matrix")}</h2>${this.matrixHtml(this.selectedGroup())}</div>`);
-		} else if (this.section === "access") {
-			this.stageEl.html(this.accessHtml());
-		} else {
-			this.stageEl.html(`<div class="ps-work">${this.tableHtml()}${this.detailHtml()}</div>`);
+		const search = this.page.main.find(".ps-group-search").get(0);
+		const typing = search && document.activeElement === search;
+		this.groupsEl.html(this.groupListHtml());
+		this.detailEl.html(this.detailHtml());
+		if (typing) {
+			const input = this.page.main.find(".ps-group-search").get(0);
+			if (input) {
+				input.focus();
+				const end = input.value.length;
+				input.setSelectionRange(end, end);
+			}
 		}
 	}
 
-	visibleGroups() {
-		let groups = this.state.groups || [];
-		if (this.statusFilter === "Disabled") {
-			groups = groups.filter((group) => !group.enabled);
-		} else if (this.statusFilter !== "all") {
-			groups = groups.filter((group) => group.enabled && group.sync_status === this.statusFilter);
+	fillFilter(selector, values, current, placeholder) {
+		const select = this.page.main.find(selector);
+		const signature = `${placeholder}|${values.join("|")}|${current || ""}`;
+		if (select.attr("data-signature") === signature) {
+			return;
 		}
-		return groups;
+		select.html(
+			`<option value="">${frappehero.esc(placeholder)}</option>` +
+				values
+					.map(
+						(value) =>
+							`<option value="${frappehero.esc(value)}" ${value === current ? "selected" : ""}>${frappehero.esc(value)}</option>`
+					)
+					.join("")
+		);
+		select.attr("data-signature", signature);
+		select.val(current || "");
 	}
 
-	tableHtml() {
-		const groups = this.visibleGroups();
-		if (this.pageStart >= groups.length) {
-			this.pageStart = groups.length ? Math.floor((groups.length - 1) / this.pageSize) * this.pageSize : 0;
-		}
-		const start = this.pageStart;
-		const page = groups.slice(start, start + this.pageSize);
-		const rows = page
+	groupListHtml() {
+		const groups = this.state.groups || [];
+		const rows = groups
 			.map((group) => {
 				const title = group.group_name || group.name;
-				const when = group.modified ? frappe.datetime.str_to_user(group.modified) : "";
-				return `<tr class="${group.name === this.selected ? "is-selected" : ""}">
-					<td><input type="checkbox" data-action="select-group" data-name="${frappehero.esc(group.name)}" ${group.name === this.selected ? "checked" : ""}></td>
-					<td><button type="button" class="ps-name" data-action="select-group" data-name="${frappehero.esc(group.name)}">
-						<span class="ps-badge" style="background:${frappehero.safe_color(group.color)}">${frappehero.esc(frappehero.initials(title))}</span>
-						<span><strong>${frappehero.esc(title)}</strong><div class="ps-muted">${frappehero.esc(group.description || "")}</div></span>
-					</button></td>
-					<td>${group.members.length}</td>
-					<td>${group.rules.length}</td>
-					<td><span class="ps-pill ${this.statusClass(group)}">${frappehero.esc(this.statusLabel(group))}</span></td>
-					<td><div>${frappehero.esc(when)}</div><div class="ps-muted">${frappehero.esc(group.modified_by || "")}</div></td>
-				</tr>`;
+				return `<button type="button" class="ps-group ${group.name === this.selected ? "is-selected" : ""}" data-action="select-group" data-name="${frappehero.esc(group.name)}">
+					<span class="ps-badge" style="background:${frappehero.safe_color(group.color)}">${frappehero.esc(frappehero.initials(title))}</span>
+					<span class="ps-group-copy">
+						<span><strong>${frappehero.esc(title)}</strong> <span class="ps-muted">${frappehero.esc(group.description || "")}</span></span>
+						<span class="ps-muted">${__("{0} members · {1} rules", [String(group.members.length), String(group.rules.length)])}</span>
+					</span>
+					<span class="ps-pill ${this.statusClass(group)}">${frappehero.esc(this.statusLabel(group))}</span>
+				</button>`;
 			})
 			.join("");
-		const end = Math.min(start + this.pageSize, groups.length);
-		return `<section class="ps-panel">
+		return `<div class="ps-panel">
 			<div class="ps-panel-head">
-				<div><h2>${__("Permission Groups")}</h2><p class="ps-muted">${__("Manage and configure permission groups for your organization.")}</p></div>
-				<button type="button" class="ps-btn" data-action="new-group">${__("New Group")}</button>
+				<h2>${__("Groups")} (${groups.length})</h2>
+				<button type="button" class="ps-btn-outline" data-action="new-group">${__("New Group")}</button>
 			</div>
-			<div class="ps-toolbar">
-				<input type="search" class="ps-table-search" value="${frappehero.esc(this.filters.search || "")}" placeholder="${__("Search groups...")}">
-				<select class="ps-status">
-					<option value="all" ${this.statusFilter === "all" ? "selected" : ""}>${__("All Statuses")}</option>
-					<option value="In Sync" ${this.statusFilter === "In Sync" ? "selected" : ""}>${__("In Sync")}</option>
-					<option value="Needs Attention" ${this.statusFilter === "Needs Attention" ? "selected" : ""}>${__("Needs Attention")}</option>
-					<option value="Pending" ${this.statusFilter === "Pending" ? "selected" : ""}>${__("Pending")}</option>
-					<option value="Disabled" ${this.statusFilter === "Disabled" ? "selected" : ""}>${__("Disabled")}</option>
-				</select>
-				<button type="button" class="ps-btn-quiet" data-action="refresh">${__("Refresh")}</button>
-			</div>
-			<table class="ps-table">
-				<thead><tr>
-					<th></th><th>${__("Group Name")}</th><th>${__("Members")}</th><th>${__("Permitted Values")}</th><th>${__("Status")}</th><th>${__("Last Modified")}</th>
-				</tr></thead>
-				<tbody>${rows || `<tr><td colspan="6" class="ps-empty">${__("No groups match these filters.")}</td></tr>`}</tbody>
-			</table>
-			<div class="ps-pager">
-				<span>${groups.length ? __("Showing {0}–{1} of {2} groups", [String(start + 1), String(end), String(groups.length)]) : __("No groups")}</span>
-				<span class="ps-pages">${this.pageButtons(groups.length, start)}</span>
-			</div>
-		</section>`;
+			<input type="search" class="ps-group-search" value="${frappehero.esc(this.filters.search || "")}" placeholder="${__("Search groups, users, values...")}">
+			<div class="ps-group-scroll">${rows || `<div class="ps-empty">${__("No groups match these filters.")}</div>`}</div>
+		</div>`;
 	}
 
 	statusClass(group) {
@@ -244,47 +220,20 @@ frappehero.PermissionStudio = class PermissionStudio {
 
 	icon(name) {
 		const paths = {
-			home: '<path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/>',
-			groups: '<path d="M4 5h7v7H4zm9 0h7v7h-7zM4 14h7v7H4zm9 3h7v4h-7z"/>',
-			users: '<path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm8 1a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM2.5 19c.4-2.4 2.6-4 5.5-4s5.1 1.6 5.5 4h.1c-.2-1.6-1.2-3-2.8-3.7 1.9.2 3.4 1.5 3.9 3.7z"/>',
+			groups: '<path d="M8 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm8 1a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16 12zM2.5 19c.4-2.5 2.7-4 5.5-4s5.1 1.5 5.5 4z"/>',
+			users: '<path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.3 0-8 1.7-8 5v1h16v-1c0-3.3-4.7-5-8-5z"/>',
 			user: '<path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.3 0-8 1.7-8 5v1h16v-1c0-3.3-4.7-5-8-5z"/>',
-			grid: '<path d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z"/>',
-			eye: '<path d="M12 6C7 6 3.1 9.1 2 12c1.1 2.9 5 6 10 6s8.9-3.1 10-6c-1.1-2.9-5-6-10-6zm0 10a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"/>',
-			refresh: '<path d="M17.6 6.4A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.8-4.2L13 11h7V4z"/>',
-			plus: '<path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/>',
-			shield: '<path d="M12 3 5 6v6c0 4.2 2.9 7.4 7 9 4.1-1.6 7-4.8 7-9V6z"/>',
 			key: '<path d="M7.5 14a4.5 4.5 0 1 1 4.1-6H21v3h-2v2h-2v2h-3.2A4.5 4.5 0 0 1 7.5 14z"/>',
-			alert: '<path d="M12 3 2 20h20zm-1 6h2v6h-2zm0 8h2v2h-2z"/>',
+			refresh: '<path d="M17.6 6.4A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.8-4.2L13 11h7V4z"/>',
+			info: '<path d="M7 3h8l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm7 1.5V9h4.5zM11 12h2v6h-2z"/>',
+			trash: '<path d="M9 3h6l1 2h5v2H3V5h5zm1 6h2v8h-2zm4 0h2v8h-2zM6 9h2v8H6z"/>',
+			pencil: '<path d="M3 17.2V21h3.8l11-11-3.8-3.8zM20.7 7.1a1 1 0 0 0 0-1.4l-2.4-2.4a1 1 0 0 0-1.4 0l-1.8 1.8 3.8 3.8z"/>',
 		};
 		return `<svg class="ps-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="currentColor">${paths[name] || ""}</svg>`;
 	}
 
-	statCard(iconName, value, label, tone, note) {
-		return `<div class="ps-card ${tone || ""}"><span class="ps-card-icon ${tone || ""}">${this.icon(iconName)}</span><div><b>${frappehero.esc(value)}</b><span class="ps-muted">${label}</span>${note ? `<span class="ps-note">${note}</span>` : ""}</div></div>`;
-	}
-
-	pageButtons(total, start) {
-		const pages = Math.max(Math.ceil(total / this.pageSize), 1);
-		const current = Math.floor(start / this.pageSize) + 1;
-		let from = 1;
-		let to = pages;
-		if (pages > 7) {
-			from = Math.max(1, current - 2);
-			to = Math.min(pages, from + 4);
-			from = Math.max(1, to - 4);
-		}
-		const buttons = [
-			`<button type="button" class="ps-page" data-action="page-go" data-page="${current - 1}" ${current === 1 ? "disabled" : ""} aria-label="${__("Previous")}">‹</button>`,
-		];
-		for (let page = from; page <= to; page++) {
-			buttons.push(
-				`<button type="button" class="ps-page ${page === current ? "is-on" : ""}" data-action="page-go" data-page="${page}">${page}</button>`
-			);
-		}
-		buttons.push(
-			`<button type="button" class="ps-page" data-action="page-go" data-page="${current + 1}" ${current === pages ? "disabled" : ""} aria-label="${__("Next")}">›</button>`
-		);
-		return buttons.join("");
+	statCard(iconName, value, label, tone) {
+		return `<div class="ps-card"><span class="ps-card-icon ${tone || ""}">${this.icon(iconName)}</span><div><b>${frappehero.esc(value)}</b><span class="ps-muted">${label}</span></div></div>`;
 	}
 
 	selectedGroup() {
@@ -294,16 +243,14 @@ frappehero.PermissionStudio = class PermissionStudio {
 	detailHtml() {
 		const group = this.selectedGroup();
 		if (!group) {
-			return `<section class="ps-panel"><div class="ps-empty">
-				<p>${__("Create a group, add the people in it, then add the companies, territories, or other values they may use.")}</p>
-				<button type="button" class="ps-btn" data-action="new-group">${__("New Group")}</button>
-			</div></section>`;
+			return `<div class="ps-panel"><div class="ps-empty"><p>${__("Create a group, add the people in it, then add the companies, territories, or other values they may use.")}</p><button type="button" class="ps-btn" data-action="new-group">${__("New Group")}</button></div></div>`;
 		}
 		const title = group.group_name || group.name;
 		const tabs = [
 			["overview", __("Overview")],
-			["members", __("Members")],
-			["permissions", __("Permissions")],
+			["members", __("Members ({0})", [String(group.members.length)])],
+			["permissions", __("Permitted values ({0})", [String(group.rules.length)])],
+			["matrix", __("Who can use what")],
 			["activity", __("Activity")],
 		];
 		const tabButtons = tabs
@@ -312,210 +259,135 @@ frappehero.PermissionStudio = class PermissionStudio {
 					`<button type="button" data-action="detail-tab" data-tab="${id}" class="${this.detailTab === id ? "is-on" : ""}">${label}</button>`
 			)
 			.join("");
-		return `<section class="ps-panel">
+		return `<div class="ps-panel">
 			<div class="ps-detail-head">
-				<span class="ps-badge" style="background:${frappehero.safe_color(group.color)}">${frappehero.esc(frappehero.initials(title))}</span>
-				<div style="flex:1">
+				<span class="ps-badge lg" style="background:${frappehero.safe_color(group.color)}">${frappehero.esc(frappehero.initials(title))}</span>
+				<div class="ps-detail-title">
 					<div class="ps-title-row">
 						<h2>${frappehero.esc(title)}</h2>
+						<span class="ps-muted">${frappehero.esc(group.description || "")}</span>
 						<span class="ps-pill ${this.statusClass(group)}">${frappehero.esc(this.statusLabel(group))}</span>
 					</div>
-					<p class="ps-muted">${frappehero.esc(group.description || __("No description"))}</p>
+					<p class="ps-muted">${frappehero.esc(group.sync_summary || __("Not synced yet."))}</p>
 				</div>
-				<div class="ps-detail-actions">
-					<button type="button" class="ps-btn-outline" data-action="edit-group">${__("Edit Group")}</button>
-					<button type="button" class="ps-link ps-danger" data-action="delete-group">${__("Delete")}</button>
-				</div>
+				<button type="button" class="ps-btn-outline" data-action="edit-group">${this.icon("pencil")} ${__("Edit Group")}</button>
+				<button type="button" class="ps-icon-btn ps-danger" data-action="delete-group" aria-label="${__("Delete")}">${this.icon("trash")}</button>
 			</div>
 			<div class="ps-tabs">${tabButtons}</div>
 			${this.detailBody(group)}
-		</section>`;
+		</div>`;
 	}
 
 	detailBody(group) {
 		if (this.detailTab === "members") {
-			return `<div class="ps-row-between"><strong>${__("Members")}</strong><button type="button" class="ps-btn-outline" data-action="add-members">${__("Add users")}</button></div>${this.memberRowsHtml(group.members)}`;
+			return this.memberSection(group, true);
 		}
 		if (this.detailTab === "permissions") {
-			return `<div class="ps-row-between"><strong>${__("Permitted values")}</strong><button type="button" class="ps-btn-outline" data-action="add-rules">${__("Add values")}</button></div>${this.valueRowsHtml(group.rules, group.name)}`;
+			return this.valueSection(group, true);
+		}
+		if (this.detailTab === "matrix") {
+			return `<h3>${__("Who can use what")}</h3>${this.matrixHtml(group)}`;
 		}
 		if (this.detailTab === "activity") {
 			const when = group.last_synced ? frappe.datetime.str_to_user(group.last_synced) : __("Not synced yet.");
 			return `<p class="ps-muted">${__("Last synced")}</p><p>${frappehero.esc(when)}</p><p>${frappehero.esc(group.sync_summary || __("Not synced yet."))}</p>`;
 		}
-		const created = group.creation ? frappe.datetime.str_to_user(group.creation) : "";
-		const modified = group.modified ? frappe.datetime.str_to_user(group.modified) : "";
-		return `
-			<div class="ps-row-between"><strong>${__("Group Information")}</strong></div>
-			<div class="ps-info">
-				<div><div class="ps-muted">${__("Group Name")}</div><strong>${frappehero.esc(group.group_name || group.name)}</strong></div>
-				<div><div class="ps-muted">${__("Description")}</div><strong>${frappehero.esc(group.description || "—")}</strong></div>
-				<div><div class="ps-muted">${__("Created On")}</div><strong>${frappehero.esc(created || "—")}</strong></div>
-				<div><div class="ps-muted">${__("Last Modified")}</div><strong>${frappehero.esc(modified || "—")}</strong></div>
-			</div>
-			<div class="ps-split">
-				<div class="ps-box">
-					<div class="ps-row-between"><strong>${__("Members")}</strong><button type="button" class="ps-btn-outline" data-action="add-members">${__("Add users")}</button></div>
-					${this.memberRowsHtml(group.members)}
+		return `${this.groupInfoHtml(group)}<div class="ps-split">${this.memberSection(group, false)}${this.valueSection(group, false)}</div>`;
+	}
+
+	groupInfoHtml(group) {
+		const created = group.creation ? frappe.datetime.str_to_user(group.creation) : "—";
+		const modified = group.modified ? frappe.datetime.str_to_user(group.modified) : "—";
+		const swatches = this.colors
+			.map(
+				(color) =>
+					`<button type="button" class="ps-swatch ${frappehero.safe_color(group.color) === color ? "is-on" : ""}" data-action="set-color" data-color="${color}" style="background:${color}" aria-label="${color}"></button>`
+			)
+			.join("");
+		return `<div class="ps-info-card">
+			<div class="ps-row-between"><strong>${this.icon("info")} ${__("Group Information")}</strong></div>
+			<div class="ps-info-grid">
+				<div>
+					<div class="ps-field"><div class="ps-muted">${__("Group Name")}</div><div>${frappehero.esc(group.group_name || group.name)}</div></div>
+					<div class="ps-field"><div class="ps-muted">${__("Description")}</div><div>${frappehero.esc(group.description || "—")}</div></div>
+					<div class="ps-field"><div class="ps-muted">${__("Color")}</div><div class="ps-swatches">${swatches}</div></div>
 				</div>
-				<div class="ps-box">
-					<div class="ps-row-between"><strong>${__("Permitted values")}</strong><button type="button" class="ps-btn-outline" data-action="add-rules">${__("Add values")}</button></div>
-					${this.valueRowsHtml(group.rules, group.name)}
+				<div>
+					<div class="ps-field"><div class="ps-muted">${__("Status")}</div><div><span class="ps-pill ${this.statusClass(group)}">${frappehero.esc(this.statusLabel(group))}</span></div></div>
+					<div class="ps-field"><div class="ps-muted">${__("Created On")}</div><div>${frappehero.esc(created)}</div></div>
+					<div class="ps-field"><div class="ps-muted">${__("Last Modified")}</div><div>${frappehero.esc(modified)}</div></div>
+					<div class="ps-field"><div class="ps-muted">${__("Total Members")}</div><div>${group.members.length}</div></div>
+					<div class="ps-field"><div class="ps-muted">${__("Total Permissions")}</div><div>${group.rules.length}</div></div>
 				</div>
 			</div>
-			<div class="ps-summary">
-				<strong>${__("Group Access Summary")}</strong>
-				${this.accessSummaryHtml(group)}
-			</div>`;
+		</div>`;
 	}
 
-	memberRowsHtml(members) {
-		return (
-			(members || [])
-				.map((member) => {
-					const roles = (member.roles || []).slice(0, 3).join(", ");
-					return `<div class="ps-person">
-						<span class="ps-avatar">${frappehero.esc(frappehero.initials(member.full_name || member.user))}</span>
-						<div>
-							<strong>${frappehero.esc(member.full_name || member.user)}</strong>
-							<div class="ps-muted">${roles ? frappehero.esc(roles) : frappehero.esc(member.user)}${member.enabled ? "" : " · " + __("disabled")}</div>
-						</div>
-						<button type="button" class="ps-link" data-action="remove-member" data-user="${frappehero.esc(member.user)}">${__("Remove")}</button>
-					</div>`;
-				})
-				.join("") || `<div class="ps-muted">${__("No members yet.")}</div>`
-		);
+	memberSection(group, wide) {
+		const removeChecked = this.checkedMembers.size
+			? `<button type="button" class="ps-link ps-danger" data-action="remove-checked">${__("Remove selected")}</button>`
+			: "";
+		return `<div class="ps-box ${wide ? "is-wide" : ""}">
+			<div class="ps-row-between"><strong>${__("Members")} (${group.members.length})</strong><span>${removeChecked}<button type="button" class="ps-btn-outline" data-action="add-members">${__("Add users")}</button></span></div>
+			${this.memberTableHtml(group.members)}
+		</div>`;
 	}
 
-	valueRowsHtml(rules, groupName) {
-		const owner = groupName || this.selected || "";
-		return (
-			(rules || [])
-				.map((rule) => {
-					const scope = rule.apply_to_all_doctypes
-						? __("all document types")
-						: __("only {0}", [rule.applicable_for || ""]);
-					const extra = rule.hide_descendants ? " · " + __("descendants hidden") : "";
-					return `<div class="ps-value">
-						<div>
-							<strong>${frappehero.esc(rule.reference_doctype)}</strong>
-							<div>${frappehero.esc(rule.for_value)}${rule.is_default ? ` <span class="ps-pill is-sync">${__("Default")}</span>` : ""}</div>
-							<div class="ps-muted">${frappehero.esc(scope)}${frappehero.esc(extra)}</div>
-						</div>
-						<div class="ps-value-actions">
-							<button type="button" class="ps-btn-outline" data-action="edit-rule" data-group="${frappehero.esc(owner)}" data-rule="${frappehero.esc(rule.name)}">${__("Edit")}</button>
-							<button type="button" class="ps-link" data-action="remove-rule" data-group="${frappehero.esc(owner)}" data-rule="${frappehero.esc(rule.name)}">${__("Remove")}</button>
-						</div>
-					</div>`;
-				})
-				.join("") || `<div class="ps-muted">${__("No permitted values yet.")}</div>`
-		);
+	valueSection(group, wide) {
+		return `<div class="ps-box ${wide ? "is-wide" : ""}">
+			<div class="ps-row-between"><strong>${__("Permitted values")} (${group.rules.length})</strong><button type="button" class="ps-btn-outline" data-action="add-rules">${__("Add values")}</button></div>
+			${this.valueTableHtml(group)}
+		</div>`;
 	}
 
-	accessSummaryHtml(group) {
-		const doctypes = new Set((group.rules || []).map((rule) => rule.reference_doctype).filter(Boolean));
-		if (!group.members.length || !doctypes.size) {
-			return `<p class="ps-muted">${__("Add members and permitted values to see who can use what.")}</p>`;
-		}
-		return `<p>${__(
-			"This group gives access to {0} users and {1} permitted values across {2} DocTypes.",
-			[String(group.members.length), String(group.rules.length), String(doctypes.size)]
-		)}</p>`;
-	}
-
-	usersHtml() {
-		const ungrouped = this.state.ungrouped_users || [];
-		const grouped = [];
-		(this.state.groups || []).forEach((group) => {
-			(group.members || []).forEach((member) => {
-				grouped.push({ member, group });
-			});
-		});
-		const ungroupedRows =
-			ungrouped
-				.map(
-					(user) => `<tr>
-					<td><strong>${frappehero.esc(user.full_name || user.name)}</strong><div class="ps-muted">${frappehero.esc(user.name)}</div></td>
-					<td class="ps-muted">${__("No group")}</td>
-					<td><button type="button" class="ps-link" data-action="add-ungrouped" data-user="${frappehero.esc(user.name)}">${__("Add to selected group")}</button></td>
-				</tr>`
-				)
-				.join("") || `<tr><td colspan="3" class="ps-empty">${__("Every enabled user is already in a group.")}</td></tr>`;
-		const groupedRows = grouped
-			.map(({ member, group }) => {
-				const title = group.group_name || group.name;
+	memberTableHtml(members) {
+		const rows = (members || [])
+			.map((member) => {
+				const checked = this.checkedMembers.has(member.user) ? "checked" : "";
 				return `<tr>
-					<td><strong>${frappehero.esc(member.full_name || member.user)}</strong><div class="ps-muted">${frappehero.esc(member.user)}</div></td>
-					<td><button type="button" class="ps-link" data-action="select-group" data-name="${frappehero.esc(group.name)}">${frappehero.esc(title)}</button></td>
-					<td><span class="ps-pill ${this.statusClass(group)}">${frappehero.esc(this.statusLabel(group))}</span></td>
+					<td><input type="checkbox" class="ps-member-check" data-user="${frappehero.esc(member.user)}" ${checked} aria-label="${__("Select")}"></td>
+					<td><span class="ps-avatar">${frappehero.esc(frappehero.initials(member.full_name || member.user))}</span></td>
+					<td>${frappehero.esc(member.full_name || member.user)}${member.enabled ? "" : ` <span class="ps-muted">${__("disabled")}</span>`}</td>
+					<td class="ps-muted">${frappehero.esc(member.user)}</td>
+					<td><button type="button" class="ps-icon-btn ps-danger" data-action="remove-member" data-user="${frappehero.esc(member.user)}" aria-label="${__("Remove")}">${this.icon("trash")}</button></td>
 				</tr>`;
 			})
 			.join("");
-		const shown = ungrouped.length;
-		const total = this.state.ungrouped_total || shown;
-		return `<div class="ps-panel">
-			<div class="ps-panel-head"><div><h2>${__("Users without a group")}</h2><p class="ps-muted">${__("{0} shown of {1}", [String(shown), String(total)])}</p></div></div>
-			<table class="ps-table"><thead><tr><th>${__("User")}</th><th>${__("Group")}</th><th></th></tr></thead><tbody>${ungroupedRows}</tbody></table>
-		</div>
-		<div class="ps-panel" style="margin-top:12px">
-			<h2>${__("Users in a group")}</h2>
-			<table class="ps-table"><thead><tr><th>${__("User")}</th><th>${__("Group")}</th><th>${__("Status")}</th></tr></thead><tbody>${groupedRows || `<tr><td colspan="3" class="ps-empty">${__("No members yet.")}</td></tr>`}</tbody></table>
-		</div>`;
+		return `<div class="ps-table-scroll"><table class="ps-grid">
+			<thead><tr><th></th><th></th><th>${__("Full name")}</th><th>${__("Username")}</th><th>${__("Actions")}</th></tr></thead>
+			<tbody>${rows || `<tr><td colspan="5" class="ps-empty">${__("No members yet.")}</td></tr>`}</tbody>
+		</table></div>`;
 	}
 
-	accessHtml() {
-		const people = new Map();
-		(this.state.groups || []).forEach((group) => {
-			(group.members || []).forEach((member) => {
-				if (!people.has(member.user)) {
-					people.set(member.user, { user: member.user, full_name: member.full_name, groups: [] });
-				}
-				people.get(member.user).groups.push(group);
-			});
-		});
-		(this.state.ungrouped_users || []).forEach((user) => {
-			if (!people.has(user.name)) {
-				people.set(user.name, { user: user.name, full_name: user.full_name, groups: [] });
-			}
-		});
-		const options = [...people.values()].sort((a, b) => (a.full_name || a.user).localeCompare(b.full_name || b.user));
-		if (!this.accessUser || !people.has(this.accessUser)) {
-			this.accessUser = options.length ? options[0].user : "";
-		}
-		const person = people.get(this.accessUser);
-		const choices = options
-			.map(
-				(row) =>
-					`<option value="${frappehero.esc(row.user)}" ${row.user === this.accessUser ? "selected" : ""}>${frappehero.esc(row.full_name || row.user)}</option>`
-			)
+	valueTableHtml(group) {
+		const rows = (group.rules || [])
+			.map((rule) => {
+				const applicable = rule.apply_to_all_doctypes ? __("All Document Types") : rule.applicable_for || "";
+				const title = rule.apply_to_all_doctypes ? __("all document types") : __("only {0}", [rule.applicable_for || ""]);
+				return `<tr>
+					<td>${frappehero.esc(rule.reference_doctype)}</td>
+					<td>${frappehero.esc(rule.for_value)}${rule.is_default ? ` <span class="ps-pill is-sync">${__("Default")}</span>` : ""}</td>
+					<td title="${frappehero.esc(title)}">${frappehero.esc(applicable)}</td>
+					<td class="ps-actions">
+						<button type="button" class="ps-btn-outline" data-action="edit-rule" data-group="${frappehero.esc(group.name)}" data-rule="${frappehero.esc(rule.name)}">${__("Edit")}</button>
+						<button type="button" class="ps-icon-btn ps-danger" data-action="remove-rule" data-group="${frappehero.esc(group.name)}" data-rule="${frappehero.esc(rule.name)}" aria-label="${__("Remove")}">${this.icon("trash")}</button>
+					</td>
+				</tr>`;
+			})
 			.join("");
-		const body = !person
-			? `<div class="ps-empty">${__("No users to show.")}</div>`
-			: person.groups.length
-				? person.groups
-						.map((group) => {
-							const title = group.group_name || group.name;
-							return `<div class="ps-box" style="margin-top:10px">
-								<div class="ps-row-between"><strong>${frappehero.esc(title)}</strong><span class="ps-pill ${this.statusClass(group)}">${frappehero.esc(this.statusLabel(group))}</span></div>
-								${this.valueRowsHtml(group.rules, group.name)}
-							</div>`;
-						})
-						.join("")
-				: `<div class="ps-empty">${__("This user is not in a permission group, so the studio grants them no values.")}</div>`;
-		return `<div class="ps-panel">
-			<div class="ps-panel-head"><h2>${__("View User Access")}</h2></div>
-			<select class="ps-access-user ps-select">${choices}</select>
-			${body}
-		</div>`;
+		return `<div class="ps-table-scroll"><table class="ps-grid">
+			<thead><tr><th>${__("Field")}</th><th>${__("Value")}</th><th>${__("Applicable DocTypes")}</th><th>${__("Actions")}</th></tr></thead>
+			<tbody>${rows || `<tr><td colspan="4" class="ps-empty">${__("No permitted values yet.")}</td></tr>`}</tbody>
+		</table></div>`;
 	}
 
 	matrixHtml(group) {
 		if (!group) {
-			return `<div class="ps-empty">${__("Select a group to see its matrix.")}</div>`;
+			return `<div class="ps-empty">${__("Select a group to see who can use what.")}</div>`;
 		}
 		const matrix = group.matrix || { doctypes: [], rows: [] };
 		if (!matrix.rows.length || !matrix.doctypes.length) {
-			return `<div class="ps-empty">${__("Add members and permitted values to see the grid.")}</div>`;
+			return `<div class="ps-empty">${__("Add members and permitted values to see who can use what.")}</div>`;
 		}
 		const head = matrix.doctypes.map((doctype) => `<th>${frappehero.esc(doctype)}</th>`).join("");
 		const body = matrix.rows
@@ -523,96 +395,83 @@ frappehero.PermissionStudio = class PermissionStudio {
 				const cells = matrix.doctypes
 					.map((doctype) => {
 						const values = row.cells[doctype] || [];
-						return `<td>${values
-							.map((cell) => `<div>${frappehero.esc(cell.value)}${cell.is_default ? " ★" : ""}</div>`)
-							.join("")}</td>`;
+						return `<td>${values.map((cell) => `<div>${frappehero.esc(cell.value)}${cell.is_default ? " ★" : ""}</div>`).join("")}</td>`;
 					})
 					.join("");
 				return `<tr><td>${frappehero.esc(row.full_name || row.user)}</td>${cells}</tr>`;
 			})
 			.join("");
-		return `<div class="ps-matrix-wrap"><table class="ps-matrix"><thead><tr><th>${__("User")}</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+		return `<div class="ps-table-scroll"><table class="ps-grid"><thead><tr><th>${__("User")}</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 	}
 
 	onInput(event) {
-		if (!event.target.matches(".ps-top-search, .ps-table-search")) {
+		if (!event.target.matches(".ps-group-search")) {
 			return;
 		}
 		clearTimeout(this.searchTimer);
 		const value = event.target.value || "";
-		const fromTable = event.target.matches(".ps-table-search");
-		this.searchTimer = setTimeout(async () => {
+		this.searchTimer = setTimeout(() => {
 			this.filters.search = value;
-			this.pageStart = 0;
-			await this.refresh();
-			if (!fromTable) {
-				return;
-			}
-			const input = this.page.main.find(".ps-table-search").get(0);
-			if (input) {
-				input.focus();
-				const end = input.value.length;
-				input.setSelectionRange(end, end);
-			}
+			this.refresh();
 		}, 250);
 	}
 
 	onChange(event) {
-		if (event.target.matches(".ps-status")) {
-			this.statusFilter = event.target.value || "all";
-			this.pageStart = 0;
-			this.render();
-		} else if (event.target.matches(".ps-access-user")) {
-			this.accessUser = event.target.value;
+		const target = event.target;
+		if (target.matches(".ps-role")) {
+			this.filters.role = target.value || "";
+			this.refresh();
+		} else if (target.matches(".ps-doctype")) {
+			this.filters.doctype = target.value || "";
+			this.refresh();
+		} else if (target.matches(".ps-enabled")) {
+			this.filters.enabled = target.value || "all";
+			this.refresh();
+		} else if (target.matches(".ps-conflicts")) {
+			this.filters.conflicts_only = target.checked ? 1 : 0;
+			this.refresh();
+		} else if (target.matches(".ps-member-check")) {
+			if (target.checked) {
+				this.checkedMembers.add(target.dataset.user);
+			} else {
+				this.checkedMembers.delete(target.dataset.user);
+			}
 			this.render();
 		}
 	}
 
 	onClick(event) {
-		const section = event.target.closest("[data-section]");
-		if (section) {
-			this.section = section.dataset.section;
-			this.render();
-			return;
-		}
 		const target = event.target.closest("[data-action]");
 		if (!target || target.disabled) {
 			return;
 		}
 		const action = target.dataset.action;
 		if (action === "select-group") {
-			this.selected = target.dataset.name;
-			if (this.section !== "overview" && this.section !== "groups") {
-				this.section = "groups";
+			if (this.selected !== target.dataset.name) {
+				this.checkedMembers = new Set();
 			}
+			this.selected = target.dataset.name;
 			this.render();
 		} else if (action === "detail-tab") {
 			this.detailTab = target.dataset.tab || "overview";
 			this.render();
-		} else if (action === "page-go") {
-			const page = Number(target.dataset.page) || 1;
-			this.pageStart = Math.max(page - 1, 0) * this.pageSize;
-			this.render();
-		} else if (action === "refresh" || action === "sync-all") {
-			if (action === "sync-all") {
-				this.syncAll();
-			} else {
-				this.refresh();
-			}
-		} else if (action === "coverage") {
-			frappe.set_route("query-report", "Permission Coverage");
+		} else if (action === "refresh") {
+			this.refresh();
 		} else if (action === "new-group") {
 			this.openGroupDialog();
 		} else if (action === "edit-group") {
 			this.openEditGroupDialog();
+		} else if (action === "set-color") {
+			this.saveMeta({ color: target.dataset.color });
 		} else if (action === "delete-group") {
 			this.deleteSelected();
 		} else if (action === "add-members") {
 			this.openMemberDialog();
-		} else if (action === "add-ungrouped") {
-			this.addUsers([target.dataset.user]);
 		} else if (action === "remove-member") {
+			this.checkedMembers.delete(target.dataset.user);
 			this.removeMember(target.dataset.user);
+		} else if (action === "remove-checked") {
+			this.removeCheckedMembers();
 		} else if (action === "add-rules") {
 			this.openRuleDialog();
 		} else if (action === "edit-rule") {
@@ -620,6 +479,18 @@ frappehero.PermissionStudio = class PermissionStudio {
 		} else if (action === "remove-rule") {
 			this.removeRule(target.dataset.rule, target.dataset.group);
 		}
+	}
+
+	async removeCheckedMembers() {
+		const users = [...this.checkedMembers];
+		this.checkedMembers = new Set();
+		for (const user of users) {
+			await frappehero.call("logistics.permission_studio.api.remove_member", {
+				group: this.selected,
+				user,
+			});
+		}
+		this.refresh();
 	}
 
 
@@ -720,7 +591,6 @@ frappehero.PermissionStudio = class PermissionStudio {
 				});
 				dialog.hide();
 				this.focusGroup = created.name;
-				this.section = "groups";
 				this.refresh();
 			},
 		});
@@ -903,19 +773,19 @@ frappehero.PermissionStudio = class PermissionStudio {
 			],
 			primary_action_label: __("Add"),
 			primary_action: async (values) => {
-				const selected = [];
-				dialog.fields_dict.values.$wrapper.find("input:checked").each(function () {
-					selected.push($(this).val());
+				dialog.fields_dict.values.$wrapper.find("input[data-key]:checked:not(:disabled)").each((_, input) => {
+					this.rememberPick(dialog, input);
 				});
-				if (!values.reference_doctype || !selected.length) {
+				const selected = [...(dialog.hero_picks || new Map()).values()];
+				if (!selected.length) {
 					frappe.msgprint(__("Choose a DocType and at least one value."));
 					return;
 				}
 				await frappehero.call("logistics.permission_studio.api.add_rules", {
 					group: group.name,
-					rules: selected.map((value) => ({
-						reference_doctype: values.reference_doctype,
-						for_value: value,
+					rules: selected.map((pick) => ({
+						reference_doctype: pick.doctype,
+						for_value: pick.name,
 						apply_to_all_doctypes: values.apply_to_all_doctypes ? 1 : 0,
 						applicable_for: values.applicable_for,
 						is_default: values.is_default ? 1 : 0,
@@ -925,6 +795,10 @@ frappehero.PermissionStudio = class PermissionStudio {
 				dialog.hide();
 				this.refresh();
 			},
+		});
+		dialog.hero_picks = new Map();
+		dialog.fields_dict.values.$wrapper.on("change", "input[data-key]", (event) => {
+			this.rememberPick(dialog, event.target);
 		});
 		const reload = frappe.utils.debounce(() => this.loadValueChoices(dialog), 250);
 		dialog.fields_dict.reference_doctype.df.onchange = () => {
@@ -939,8 +813,39 @@ frappehero.PermissionStudio = class PermissionStudio {
 		dialog.set_df_property("hide_descendants", "hidden", 1);
 	}
 
+	pickKey(doctype, name) {
+		return `${encodeURIComponent(doctype)}:${encodeURIComponent(name)}`;
+	}
+
+	rememberPick(dialog, input) {
+		if (!dialog.hero_picks) {
+			dialog.hero_picks = new Map();
+		}
+		if (input.disabled) {
+			return;
+		}
+		const key = input.dataset.key || this.pickKey(input.dataset.doctype, input.value);
+		if (!key) {
+			return;
+		}
+		if (input.checked) {
+			dialog.hero_picks.set(key, {
+				doctype: input.dataset.doctype,
+				name: input.value,
+				label: input.dataset.label || input.value,
+			});
+		} else {
+			dialog.hero_picks.delete(key);
+		}
+	}
+
 	async loadValueChoices(dialog) {
+		if (!dialog.hero_picks) {
+			dialog.hero_picks = new Map();
+		}
 		const doctype = dialog.get_value("reference_doctype");
+		const token = (dialog.hero_search_token || 0) + 1;
+		dialog.hero_search_token = token;
 		if (!doctype) {
 			dialog.fields_dict.values.$wrapper.html(`<div class="fh-muted">${__("Choose a DocType.")}</div>`);
 			return;
@@ -949,18 +854,101 @@ frappehero.PermissionStudio = class PermissionStudio {
 			doctype,
 			txt: dialog.get_value("value_search"),
 		});
-		dialog.fields_dict.values.$wrapper.html(
-			(rows || [])
-				.map(
-					(row) => `
-					<label class="fh-pick">
-						<input type="checkbox" value="${frappehero.esc(row.name)}">
-						<span><strong>${frappehero.esc(row.label || row.name)}</strong>
-						${row.label && row.label !== row.name ? `<div class="fh-muted">${frappehero.esc(row.name)}</div>` : ""}</span>
-					</label>`
-				)
-				.join("") || `<div class="fh-muted">${__("No values match. Try a different search.")}</div>`
-		);
+		if (token !== dialog.hero_search_token) {
+			return;
+		}
+		dialog.fields_dict.values.$wrapper.html(this.valueChoiceHtml(dialog, doctype, rows || []));
+	}
+
+	valueChoiceHtml(dialog, doctype, rows) {
+		const picks = dialog.hero_picks || new Map();
+		const group = this.selectedGroup();
+		const seen = new Set();
+		const blocks = [];
+		const push = (row) => {
+			if (!row || seen.has(row.key)) {
+				return;
+			}
+			seen.add(row.key);
+			blocks.push(this.valueChoiceRow(row));
+		};
+		(group?.rules || []).forEach((rule) => {
+			if (!rule.reference_doctype || rule.reference_doctype === doctype) {
+				return;
+			}
+			push({
+				key: this.pickKey(rule.reference_doctype, rule.for_value),
+				doctype: rule.reference_doctype,
+				name: rule.for_value,
+				label: rule.for_value,
+				checked: true,
+				disabled: true,
+				other: true,
+				note: __("Already on this group"),
+			});
+		});
+		picks.forEach((pick) => {
+			if (pick.doctype === doctype) {
+				return;
+			}
+			push({
+				key: this.pickKey(pick.doctype, pick.name),
+				doctype: pick.doctype,
+				name: pick.name,
+				label: pick.label || pick.name,
+				checked: true,
+				disabled: false,
+				other: true,
+				note: __("Tagged on another DocType"),
+			});
+		});
+		const resultNames = new Set((rows || []).map((row) => row.name));
+		picks.forEach((pick) => {
+			if (pick.doctype !== doctype || resultNames.has(pick.name)) {
+				return;
+			}
+			push({
+				key: this.pickKey(pick.doctype, pick.name),
+				doctype: pick.doctype,
+				name: pick.name,
+				label: pick.label || pick.name,
+				checked: true,
+				disabled: false,
+				other: false,
+				note: "",
+			});
+		});
+		(rows || []).forEach((row) => {
+			const key = this.pickKey(doctype, row.name);
+			const already = (group?.rules || []).some(
+				(rule) => rule.reference_doctype === doctype && rule.for_value === row.name
+			);
+			push({
+				key,
+				doctype,
+				name: row.name,
+				label: row.label || row.name,
+				checked: already || picks.has(key),
+				disabled: already,
+				other: false,
+				note: already ? __("Already on this group") : "",
+				sub: row.label && row.label !== row.name ? row.name : "",
+			});
+		});
+		const body = blocks.join("") || `<div class="fh-muted">${__("No values match. Try a different search.")}</div>`;
+		return `<div class="ps-value-scroll">${body}</div>`;
+	}
+
+	valueChoiceRow(row) {
+		return `<label class="fh-pick ${row.other ? "is-other" : ""}">
+			<input type="checkbox" data-key="${frappehero.esc(row.key)}" data-doctype="${frappehero.esc(row.doctype)}" data-label="${frappehero.esc(row.label || row.name)}" value="${frappehero.esc(row.name)}" ${row.checked ? "checked" : ""} ${row.disabled ? "disabled" : ""}>
+			<span>
+				<strong>${frappehero.esc(row.label || row.name)}</strong>
+				${row.other ? `<span class="ps-pill">${frappehero.esc(row.doctype)}</span>` : ""}
+				${row.note ? `<div class="fh-muted">${frappehero.esc(row.note)}</div>` : ""}
+				${row.sub ? `<div class="fh-muted">${frappehero.esc(row.sub)}</div>` : ""}
+			</span>
+		</label>`;
 	}
 
 	openEditRule(ruleName, groupName) {
