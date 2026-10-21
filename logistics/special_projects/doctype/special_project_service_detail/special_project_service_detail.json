@@ -409,7 +409,7 @@
    "fieldname": "declaration_type",
    "fieldtype": "Select",
    "label": "Declaration Type",
-   "options": "Import\nExport\nTransit\nBonded",
+   "options": "Import\nExport\nTransit\nBonded\nApplication",
    "fetch_from": "special_project_service.declaration_type",
    "fetch_if_empty": 1
   },

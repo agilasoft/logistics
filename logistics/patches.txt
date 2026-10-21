@@ -1060,3 +1060,7 @@ logistics.patches.v3_0_sync_utilities_bulk_update_studio
 logistics.patches.v3_0_restore_hero_permission_studio
 # Customs desktop tile was an External /app/customs link. Open /desk/customs.
 logistics.patches.v3_0_point_customs_desktop_icon_at_desk
+# Declaration Type Application uses this Permit Type when no planned type is set.
+logistics.patches.v3_0_seed_permit_application_only_type
+# Declaration Order charge fetch: Shipper and Consignee are optional filters.
+logistics.patches.v3_0_seed_declaration_order_party_gcfq_filters

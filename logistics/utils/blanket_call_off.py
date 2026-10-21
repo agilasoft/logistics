@@ -109,7 +109,7 @@ PARENT_FIELD_SPECS = {
 		{"fieldname": "service_type", "label": _("Service Type"), "fieldtype": "Data", "read_only": 1},
 		{"fieldname": "reference_no", "label": _("Reference No."), "fieldtype": "Data", "filter_only": 1},
 		{"fieldname": "customs_authority", "label": _("Customs Authority"), "fieldtype": "Link", "options": "Customs Authority"},
-		{"fieldname": "declaration_type", "label": _("Declaration Type"), "fieldtype": "Select", "options": "Import\nExport\nTransit\nBonded"},
+		{"fieldname": "declaration_type", "label": _("Declaration Type"), "fieldtype": "Select", "options": "Import\nExport\nTransit\nBonded\nApplication"},
 		{"fieldname": "customs_broker", "label": _("Customs Broker"), "fieldtype": "Link", "options": "Broker"},
 		{"fieldname": "port_of_loading", "label": _("Port of Loading"), "fieldtype": "Link", "options": "UNLOCO"},
 		{"fieldname": "port_of_discharge", "label": _("Port of Discharge"), "fieldtype": "Link", "options": "UNLOCO"},

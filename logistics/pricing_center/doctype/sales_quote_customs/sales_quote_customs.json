@@ -119,7 +119,7 @@
    "fieldname": "declaration_type",
    "fieldtype": "Select",
    "label": "Declaration Type",
-   "options": "Import\nExport\nTransit\nBonded"
+   "options": "Import\nExport\nTransit\nBonded\nApplication"
   },
   {
    "depends_on": "eval:doc.quotation_type == \"Regular\"",

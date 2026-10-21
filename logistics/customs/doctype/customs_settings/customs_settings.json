@@ -142,7 +142,7 @@
    "fieldname": "default_declaration_type",
    "fieldtype": "Select",
    "label": "Default Declaration Type",
-   "options": "Import\nExport\nTransit\nBonded"
+   "options": "Import\nExport\nTransit\nBonded\nApplication"
   },
   {
    "default": "0",

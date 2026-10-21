@@ -9,6 +9,25 @@ logistics.party_defaults = {
 		return { shipper_field: 'shipper', consignee_field: 'consignee' };
 	},
 
+	apply_application_party_labels(frm) {
+		if (!frm || (frm.doctype !== 'Declaration' && frm.doctype !== 'Declaration Order')) {
+			return;
+		}
+		const application = frm.doc.declaration_type === 'Application';
+		frm.set_df_property(
+			'exporter_shipper',
+			'label',
+			application ? __('Shipper') : __('Exporter/Shipper')
+		);
+		frm.set_df_property(
+			'importer_consignee',
+			'label',
+			application ? __('Consignee') : __('Importer/Consignee')
+		);
+		frm.set_df_property('exporter_shipper', 'reqd', 0);
+		frm.set_df_property('importer_consignee', 'reqd', 0);
+	},
+
 	apply(frm) {
 		const pf = this._party_fields(frm.doctype);
 		const shipper = frm.doc[pf.shipper_field];

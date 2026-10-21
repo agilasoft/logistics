@@ -251,21 +251,23 @@
    "label": "Valid Until"
   },
   {
+   "description": "Optional when Main Service is Customs and Declaration Type is Application.",
    "fieldname": "shipper",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Shipper",
    "link_filters": "[[\"Shipper\", \"is_active\", \"=\", 1]]",
-   "mandatory_depends_on": "eval:doc.main_service != \"Warehousing\"",
+   "mandatory_depends_on": "eval:doc.main_service != \"Warehousing\" && !(doc.main_service == \"Customs\" && doc.declaration_type == \"Application\")",
    "options": "Shipper"
   },
   {
+   "description": "Optional when Main Service is Customs and Declaration Type is Application.",
    "fieldname": "consignee",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Consignee",
    "link_filters": "[[\"Consignee\", \"is_active\", \"=\", 1]]",
-   "mandatory_depends_on": "eval:doc.main_service != \"Warehousing\"",
+   "mandatory_depends_on": "eval:doc.main_service != \"Warehousing\" && !(doc.main_service == \"Customs\" && doc.declaration_type == \"Application\")",
    "options": "Consignee"
   },
   {
@@ -424,10 +426,11 @@
   },
   {
    "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Customs\"",
+   "description": "Application opens a permit application only job. Shipper and Consignee are optional.",
    "fieldname": "declaration_type",
    "fieldtype": "Select",
    "label": "Declaration Type",
-   "options": "Import\nExport\nTransit\nBonded"
+   "options": "Import\nExport\nTransit\nBonded\nApplication"
   },
   {
    "depends_on": "eval:[\"Regular\", \"One-off\"].includes(doc.quotation_type) && doc.main_service == \"Customs\"",
