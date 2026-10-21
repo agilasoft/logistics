@@ -698,3 +698,161 @@ class TestAirConsolidationEmbeddedPlanning(FrappeTestCase):
 		self.assertEqual(len(consol.consolidation_routes or []), 1)
 		self.assertEqual(consol.consolidation_routes[0].route_type, "Direct")
 		self.assertEqual(consol.consolidation_routes[0].origin_airport, "USLAX")
+
+	def _ensure_commodity(self, code):
+		if not frappe.db.exists("Commodity", code):
+			frappe.get_doc(
+				{
+					"doctype": "Commodity",
+					"code": code,
+					"description": code,
+					"active": 1,
+				}
+			).insert(ignore_permissions=True)
+		return code
+
+	def test_fetch_matching_copies_each_air_shipment_package_line(self):
+		etd_date = add_days(today(), 16)
+		target_departure = get_datetime(f"{etd_date} 09:15:00")
+		sfx = frappe.generate_hash(length=6)
+		commodity = self._ensure_commodity("TST-AC-PKG-{0}".format(sfx))
+		good = self._make_air_shipment_for_fetch(etd_date, flight_no="TA101", with_main_leg=True)
+		sh = frappe.get_doc("Air Shipment", good)
+		sh.marks_and_nos = "MARK-{0}".format(sfx)
+		sh.append(
+			"packages",
+			{
+				"no_of_packs": 2,
+				"weight": 10,
+				"volume": 0.05,
+				"reference_no": "ARF-{0}-A".format(sfx),
+				"commodity": commodity,
+				"goods_description": "Widgets",
+				"handling_instructions": "Keep dry",
+			},
+		)
+		sh.append(
+			"packages",
+			{
+				"no_of_packs": 1,
+				"weight": 4,
+				"volume": 0.02,
+				"reference_no": "ARF-{0}-B".format(sfx),
+				"goods_description": "Spares",
+			},
+		)
+		sh.save()
+		data = _base_consolidation_dict(
+			self.company, self.branch, self.cost_center, self.profit_center
+		)
+		data["departure_date"] = target_departure
+		data["flight_number"] = "TA101"
+		consol = frappe.get_doc(data)
+		consol.append(
+			"consolidation_routes",
+			{
+				"route_type": "Direct",
+				"origin_airport": "USLAX",
+				"destination_airport": "USJFK",
+				"airline": "TA",
+				"flight_number": "TA101",
+				"departure_date": etd_date,
+				"departure_time": "09:15:00",
+				"arrival_date": add_days(etd_date, 1),
+				"arrival_time": "12:00:00",
+				"dangerous_goods_allowed": 1,
+			},
+		)
+		consol.insert()
+		consol.fetch_matching_air_shipments()
+		consol.reload()
+		pkg_for = [p for p in (consol.consolidation_packages or []) if p.air_freight_job == good]
+		self.assertEqual(len(pkg_for), 2)
+		by_ref = {p.package_reference: p for p in pkg_for}
+		line_a = by_ref["ARF-{0}-A".format(sfx)]
+		line_b = by_ref["ARF-{0}-B".format(sfx)]
+		self.assertEqual(line_a.commodity, commodity)
+		self.assertEqual(line_a.description, "Widgets")
+		self.assertEqual(line_a.package_count, 2)
+		self.assertEqual(flt(line_a.package_weight), 10)
+		self.assertEqual(line_a.marks_and_numbers, "MARK-{0}".format(sfx))
+		self.assertEqual(line_a.handling_instructions, "Keep dry")
+		self.assertEqual(line_b.description, "Spares")
+		self.assertEqual(flt(line_b.package_weight), 4)
+		self.assertEqual(flt(consol.total_weight), 14)
+		self.assertEqual(consol.total_packages, 3)
+
+	def test_add_air_freight_job_copies_package_lines_onto_planning(self):
+		sfx = frappe.generate_hash(length=6)
+		sh_name = self._make_air_shipment()
+		sh = frappe.get_doc("Air Shipment", sh_name)
+		sh.append(
+			"packages",
+			{
+				"no_of_packs": 1,
+				"weight": 6,
+				"volume": 0.03,
+				"reference_no": "ADD-{0}-A".format(sfx),
+				"goods_description": "Line A",
+			},
+		)
+		sh.append(
+			"packages",
+			{
+				"no_of_packs": 3,
+				"weight": 9,
+				"volume": 0.04,
+				"reference_no": "ADD-{0}-B".format(sfx),
+				"goods_description": "Line B",
+			},
+		)
+		sh.save()
+		consol = self._make_air_consolidation()
+		consol.add_air_freight_job(sh_name)
+		consol.reload()
+		self.assertTrue(
+			any(getattr(row, "air_shipment", None) == sh_name for row in consol.consolidation_planning_lines or [])
+		)
+		pkg_for = [p for p in (consol.consolidation_packages or []) if p.air_freight_job == sh_name]
+		self.assertEqual(len(pkg_for), 2)
+		by_ref = {p.package_reference: p for p in pkg_for}
+		self.assertEqual(by_ref["ADD-{0}-A".format(sfx)].description, "Line A")
+		self.assertEqual(by_ref["ADD-{0}-B".format(sfx)].package_count, 3)
+		self.assertEqual(flt(by_ref["ADD-{0}-B".format(sfx)].package_weight), 9)
+
+	def test_zero_weight_package_line_takes_remaining_header_weight(self):
+		sfx = frappe.generate_hash(length=6)
+		sh_name = self._make_air_shipment()
+		sh = frappe.get_doc("Air Shipment", sh_name)
+		sh.override_volume_weight = 1
+		sh.total_weight = 30
+		sh.append(
+			"packages",
+			{
+				"no_of_packs": 1,
+				"weight": 10,
+				"volume": 0.01,
+				"reference_no": "ZW-{0}-A".format(sfx),
+				"goods_description": "Known weight",
+			},
+		)
+		sh.append(
+			"packages",
+			{
+				"no_of_packs": 1,
+				"weight": 0,
+				"volume": 0.01,
+				"reference_no": "ZW-{0}-B".format(sfx),
+				"goods_description": "Missing weight",
+			},
+		)
+		sh.save()
+		sh.reload()
+		self.assertEqual(flt(sh.total_weight), 30)
+		consol = self._make_air_consolidation()
+		consol.add_air_freight_job(sh_name)
+		consol.reload()
+		pkg_for = [p for p in (consol.consolidation_packages or []) if p.air_freight_job == sh_name]
+		by_ref = {p.package_reference: p for p in pkg_for}
+		self.assertEqual(flt(by_ref["ZW-{0}-A".format(sfx)].package_weight), 10)
+		self.assertEqual(flt(by_ref["ZW-{0}-B".format(sfx)].package_weight), 20)

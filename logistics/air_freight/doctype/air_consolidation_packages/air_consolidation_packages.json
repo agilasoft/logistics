@@ -145,7 +145,8 @@
    "fieldname": "commodity",
    "fieldtype": "Link",
    "label": "Commodity",
-   "options": "Other Commodity Code",
+   "link_filters": "[[\"Commodity\", \"active\", \"=\", 1]]",
+   "options": "Commodity",
    "read_only": 1
   },
   {
