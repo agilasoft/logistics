@@ -60,7 +60,6 @@
    "label": "Reserved Weight"
   },
   {
-   "default": "KG",
    "fieldname": "reserved_weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
@@ -73,7 +72,6 @@
    "label": "Reserved Volume"
   },
   {
-   "default": "CBM",
    "fieldname": "reserved_volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",

@@ -147,28 +147,19 @@ class WarehouseItem(Document):
 		if self.length and self.width and self.height:
 			from logistics.warehousing.utils.volume_conversion import calculate_volume_from_dimensions
 
-			# Get UOMs from item or warehouse settings
+			# Get UOMs from the item, otherwise Logistics Settings.
 			dimension_uom = getattr(self, "dimension_uom", None)
 			volume_uom = getattr(self, "volume_uom", None)
 
-			# Get defaults from warehouse settings if not in item
-			# Try to get company from customer if available
 			company = None
 			if not dimension_uom or not volume_uom:
-				try:
-					if self.customer:
-						# Try to get company from customer's default company
-						customer_doc = frappe.get_cached_doc("Customer", self.customer)
-						company = customer_doc.default_company
-
-					if company:
-						warehouse_settings = frappe.get_cached_doc("Warehouse Settings", company)
-						if not dimension_uom:
-							dimension_uom = warehouse_settings.default_dimension_uom
-						if not volume_uom:
-							volume_uom = warehouse_settings.default_volume_uom
-				except Exception:
-					pass
+				if self.customer:
+					company = frappe.db.get_value("Customer", self.customer, "default_company")
+				from logistics.utils.default_uom import measurement_default_uom
+				if not dimension_uom:
+					dimension_uom = measurement_default_uom("dimension", company=company)
+				if not volume_uom:
+					volume_uom = measurement_default_uom("volume", company=company)
 
 			calculated_volume = calculate_volume_from_dimensions(
 				length=self.length,

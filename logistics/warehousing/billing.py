@@ -10,6 +10,7 @@ from frappe import _
 from frappe.utils import flt, getdate
 from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime, timedelta
+from logistics.utils.default_uom import measurement_default_uom
 from logistics.warehousing.api_parts.common import _get_default_currency
 
 
@@ -528,8 +529,8 @@ def create_missing_rate_charge(hu: str, hu_details: Dict, date_from: str, date_t
   • Handling Unit: {hu}
   • Period: {date_from} to {date_to}
   • Days: {days}
-  • Volume: {total_volume:.2f} CBM
-  • Weight: {total_weight:.2f} Kg
+  • Volume: {total_volume:.2f} {measurement_default_uom("volume", company)}
+  • Weight: {total_weight:.2f} {measurement_default_uom("weight", company)}
   • Status: OUTSTANDING STOCK - NO RATE FOUND
   • Action Required: Please add contract rate for this handling unit type ({hu_details.get('handling_unit_type') or 'N/A'}) and storage type ({hu_details.get('storage_type') or 'N/A'})"""
         }

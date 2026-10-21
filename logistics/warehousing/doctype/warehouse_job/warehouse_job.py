@@ -16,6 +16,12 @@ from logistics.warehousing.ledger_delta import ledger_delta
 # Meta helpers
 # ---------------------------------------------------------------------------
 
+def _measurement_uom(kind: str, company: Optional[str] = None) -> str:
+	"""Dimension, volume, or weight default from Logistics Settings."""
+	from logistics.utils.default_uom import measurement_default_uom
+	return measurement_default_uom(kind, company=company) or ""
+
+
 def _safe_meta_fieldnames(doctype: str) -> set:
     meta = frappe.get_meta(doctype)
     out = set()
@@ -516,10 +522,13 @@ class WarehouseJob(Document):
 			# Get handling unit document
 			hu_doc = frappe.get_doc("Handling Unit", hu_name)
 			
-			# Get warehouse settings for defaults
-			from logistics.warehousing.doctype.warehouse_settings.warehouse_settings import get_warehouse_settings
 			company = getattr(hu_doc, 'company', None) or frappe.defaults.get_user_default("Company")
-			warehouse_settings = get_warehouse_settings(company)
+			warehouse_settings = {}
+			if company:
+				try:
+					warehouse_settings = frappe.get_cached_doc("Warehouse Settings", company).as_dict()
+				except Exception:
+					warehouse_settings = {}
 			
 			# Get capacity from handling unit type if available
 			capacity_info = {
@@ -529,8 +538,8 @@ class WarehouseJob(Document):
 				'current_weight': 0,
 				'volume_utilization': 0,
 				'weight_utilization': 0,
-				'volume_uom': warehouse_settings['default_volume_uom'],
-				'weight_uom': warehouse_settings['default_weight_uom']
+				'volume_uom': _measurement_uom("volume", company),
+				'weight_uom': _measurement_uom("weight", company)
 			}
 			
 			# Get UOMs from handling unit
@@ -564,11 +573,11 @@ class WarehouseJob(Document):
 			if capacity_info['max_volume'] == 0 and capacity_info['max_weight'] == 0:
 				hu_type = getattr(hu_doc, 'type', '').lower()
 				if 'pallet' in hu_type:
-					capacity_info['max_volume'] = warehouse_settings['default_pallet_volume']
-					capacity_info['max_weight'] = warehouse_settings['default_pallet_weight']
+					capacity_info['max_volume'] = warehouse_settings.get('default_pallet_volume') or 0
+					capacity_info['max_weight'] = warehouse_settings.get('default_pallet_weight') or 0
 				elif 'box' in hu_type:
-					capacity_info['max_volume'] = warehouse_settings['default_box_volume']
-					capacity_info['max_weight'] = warehouse_settings['default_box_weight']
+					capacity_info['max_volume'] = warehouse_settings.get('default_box_volume') or 0
+					capacity_info['max_weight'] = warehouse_settings.get('default_box_weight') or 0
 				else:
 					capacity_info['max_volume'] = 1.0  # Default fallback
 					capacity_info['max_weight'] = 500.0  # Default fallback
@@ -592,10 +601,7 @@ class WarehouseJob(Document):
 			# Get storage location document
 			location_doc = frappe.get_doc("Storage Location", location_name)
 			
-			# Get warehouse settings for defaults
-			from logistics.warehousing.doctype.warehouse_settings.warehouse_settings import get_warehouse_settings
 			company = getattr(location_doc, 'company', None) or frappe.defaults.get_user_default("Company")
-			warehouse_settings = get_warehouse_settings(company)
 			
 			# Get capacity from storage location
 			capacity_info = {
@@ -606,8 +612,8 @@ class WarehouseJob(Document):
 				'current_weight': flt(getattr(location_doc, 'current_weight', 0) or 0),
 				'volume_utilization': 0,
 				'weight_utilization': 0,
-				'volume_uom': warehouse_settings.get('default_volume_uom', 'm³'),
-				'weight_uom': warehouse_settings.get('default_weight_uom', 'kg')
+				'volume_uom': _measurement_uom("volume", company),
+				'weight_uom': _measurement_uom("weight", company)
 			}
 			
 			# Calculate current utilization
@@ -629,8 +635,8 @@ class WarehouseJob(Document):
 				'current_weight': 0,
 				'volume_utilization': 0,
 				'weight_utilization': 0,
-				'volume_uom': 'm³',
-				'weight_uom': 'kg'
+				'volume_uom': _measurement_uom("volume"),
+				'weight_uom': _measurement_uom("weight")
 			}
 	
 	def _render_capacity_info(self, hu):
@@ -643,8 +649,8 @@ class WarehouseJob(Document):
 		
 		max_volume = capacity_info.get('max_volume', 0)
 		max_weight = capacity_info.get('max_weight', 0)
-		volume_uom = capacity_info.get('volume_uom', 'm³')
-		weight_uom = capacity_info.get('weight_uom', 'kg')
+		volume_uom = capacity_info.get('volume_uom') or _measurement_uom("volume")
+		weight_uom = capacity_info.get('weight_uom') or _measurement_uom("weight")
 		
 		if max_volume == 0 and max_weight == 0:
 			return ""  # No capacity limits defined
@@ -653,13 +659,16 @@ class WarehouseJob(Document):
 		volume_util = (total_volume / max_volume * 100) if max_volume > 0 else 0
 		weight_util = (total_weight / max_weight * 100) if max_weight > 0 else 0
 		
-		# Get warehouse settings for thresholds
-		from logistics.warehousing.doctype.warehouse_settings.warehouse_settings import get_warehouse_settings
 		company = hu.get('company') or frappe.defaults.get_user_default("Company")
-		warehouse_settings = get_warehouse_settings(company)
-		
-		warning_threshold = warehouse_settings.get('capacity_warning_threshold', 80)
-		critical_threshold = warehouse_settings.get('capacity_critical_threshold', 95)
+		warning_threshold = 80
+		critical_threshold = 95
+		if company:
+			try:
+				warehouse_settings = frappe.get_cached_doc("Warehouse Settings", company)
+				warning_threshold = warehouse_settings.get('capacity_warning_threshold') or 80
+				critical_threshold = warehouse_settings.get('capacity_critical_threshold') or 95
+			except Exception:
+				pass
 		
 		# Determine warning level
 		volume_warning = volume_util > critical_threshold
@@ -728,8 +737,8 @@ class WarehouseJob(Document):
 		
 		max_volume = capacity_info.get('max_volume', 0)
 		max_weight = capacity_info.get('max_weight', 0)
-		volume_uom = capacity_info.get('volume_uom', 'm³')
-		weight_uom = capacity_info.get('weight_uom', 'kg')
+		volume_uom = capacity_info.get('volume_uom') or _measurement_uom("volume")
+		weight_uom = capacity_info.get('weight_uom') or _measurement_uom("weight")
 		
 		if max_volume == 0 and max_weight == 0:
 			return ""  # No capacity limits defined
@@ -738,13 +747,16 @@ class WarehouseJob(Document):
 		volume_util = (projected_volume / max_volume * 100) if max_volume > 0 else 0
 		weight_util = (projected_weight / max_weight * 100) if max_weight > 0 else 0
 		
-		# Get warehouse settings for thresholds
-		from logistics.warehousing.doctype.warehouse_settings.warehouse_settings import get_warehouse_settings
 		company = location.get('company') or frappe.defaults.get_user_default("Company")
-		warehouse_settings = get_warehouse_settings(company)
-		
-		warning_threshold = warehouse_settings.get('capacity_warning_threshold', 80)
-		critical_threshold = warehouse_settings.get('capacity_critical_threshold', 95)
+		warning_threshold = 80
+		critical_threshold = 95
+		if company:
+			try:
+				warehouse_settings = frappe.get_cached_doc("Warehouse Settings", company)
+				warning_threshold = warehouse_settings.get('capacity_warning_threshold') or 80
+				critical_threshold = warehouse_settings.get('capacity_critical_threshold') or 95
+			except Exception:
+				pass
 		
 		# Determine warning level
 		volume_warning = volume_util > critical_threshold
@@ -846,20 +858,8 @@ class WarehouseJob(Document):
 						# Use volume conversion utility to handle UOM conversion
 						from logistics.warehousing.utils.volume_conversion import calculate_volume_from_dimensions
 						
-						# Get UOMs from item or warehouse settings
-						dimension_uom = getattr(item, 'dimension_uom', None)
-						volume_uom = getattr(item, 'volume_uom', None)
-						
-						# Get defaults from warehouse settings if not in item
-						if not dimension_uom or not volume_uom:
-							try:
-								warehouse_settings = frappe.get_cached_doc("Warehouse Settings", self.company)
-								if not dimension_uom:
-									dimension_uom = warehouse_settings.default_dimension_uom
-								if not volume_uom:
-									volume_uom = warehouse_settings.default_volume_uom
-							except Exception:
-								pass
+						dimension_uom = getattr(item, 'dimension_uom', None) or _measurement_uom("dimension", self.company)
+						volume_uom = getattr(item, 'volume_uom', None) or _measurement_uom("volume", self.company)
 						
 						item_volume = calculate_volume_from_dimensions(
 							length=item_length,
@@ -2587,8 +2587,8 @@ class WarehouseJob(Document):
 					
 					# Get UOMs from handling unit capacity info
 					hu_capacity = hu.get('capacity_info', {})
-					volume_uom = hu_capacity.get('volume_uom', 'm³')
-					weight_uom = hu_capacity.get('weight_uom', 'kg')
+					volume_uom = hu_capacity.get('volume_uom') or _measurement_uom('volume')
+					weight_uom = hu_capacity.get('weight_uom') or _measurement_uom('weight')
 					
 					items_list += f"""
 						<div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #eee;">
@@ -2615,8 +2615,8 @@ class WarehouseJob(Document):
 						<strong>Brand:</strong> {hu.get('brand', 'N/A')} | 
 						<strong>Items:</strong> {len(hu.get('items', []))} | 
 						<strong>Total Qty:</strong> {hu.get('total_qty', 0)} | 
-						<strong>Total Vol:</strong> {hu.get('total_volume', 0):.2f} {hu.get('capacity_info', {}).get('volume_uom', 'm³')} | 
-						<strong>Total Wt:</strong> {hu.get('total_weight', 0):.2f} {hu.get('capacity_info', {}).get('weight_uom', 'kg')}
+						<strong>Total Vol:</strong> {hu.get('total_volume', 0):.2f} {hu.get('capacity_info', {}).get('volume_uom') or _measurement_uom('volume')} | 
+						<strong>Total Wt:</strong> {hu.get('total_weight', 0):.2f} {hu.get('capacity_info', {}).get('weight_uom') or _measurement_uom('weight')}
 					</div>
 					{self._render_capacity_info(hu)}
 					{milestone_flow}
@@ -2672,8 +2672,8 @@ class WarehouseJob(Document):
 							</div>
 							<div style="display: flex; gap: 4px; align-items: center;">
 								<div style="background: #667eea; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">{item.get('qty', 0)}</div>
-								<div style="background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">{item.get('volume', 0):.2f} {loc.get('capacity_info', {}).get('volume_uom', 'm³')}</div>
-								<div style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">{item.get('weight', 0):.2f} {loc.get('capacity_info', {}).get('weight_uom', 'kg')}</div>
+								<div style="background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">{item.get('volume', 0):.2f} {loc.get('capacity_info', {}).get('volume_uom') or _measurement_uom('volume')}</div>
+								<div style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">{item.get('weight', 0):.2f} {loc.get('capacity_info', {}).get('weight_uom') or _measurement_uom('weight')}</div>
 							</div>
 						</div>
 					"""
@@ -2690,8 +2690,8 @@ class WarehouseJob(Document):
 						<strong>Zone:</strong> {zone} | 
 						<strong>Items:</strong> {len(loc.get('items', []))} | 
 						<strong>Total Qty:</strong> {loc.get('total_qty', 0)} | 
-						<strong>Total Vol:</strong> {loc.get('total_volume', 0):.2f} {loc.get('capacity_info', {}).get('volume_uom', 'm³')} | 
-						<strong>Total Wt:</strong> {loc.get('total_weight', 0):.2f} {loc.get('capacity_info', {}).get('weight_uom', 'kg')}
+						<strong>Total Vol:</strong> {loc.get('total_volume', 0):.2f} {loc.get('capacity_info', {}).get('volume_uom') or _measurement_uom('volume')} | 
+						<strong>Total Wt:</strong> {loc.get('total_weight', 0):.2f} {loc.get('capacity_info', {}).get('weight_uom') or _measurement_uom('weight')}
 					</div>
 					{self._render_storage_location_capacity_info(loc)}
 					<div style="margin-top: 12px; text-align: center;">
@@ -4170,22 +4170,9 @@ def _calculate_job_quantities(job) -> Dict[str, float]:
 			# Calculate volume from dimensions if volume not provided
 			from logistics.warehousing.utils.volume_conversion import calculate_volume_from_dimensions
 			
-			# Get UOMs from item or warehouse settings
-			dimension_uom = getattr(item, 'dimension_uom', None)
-			volume_uom = getattr(item, 'volume_uom', None)
-			
-			# Get defaults from warehouse settings if not in item
-			if not dimension_uom or not volume_uom:
-				try:
-					company = getattr(job, 'company', None)
-					if company:
-						warehouse_settings = frappe.get_cached_doc("Warehouse Settings", company)
-						if not dimension_uom:
-							dimension_uom = warehouse_settings.default_dimension_uom
-						if not volume_uom:
-							volume_uom = warehouse_settings.default_volume_uom
-				except Exception:
-					pass
+			company = getattr(job, 'company', None)
+			dimension_uom = getattr(item, 'dimension_uom', None) or _measurement_uom("dimension", company)
+			volume_uom = getattr(item, 'volume_uom', None) or _measurement_uom("volume", company)
 			
 			item_volume = calculate_volume_from_dimensions(
 				length=item.length,
@@ -4205,22 +4192,9 @@ def _calculate_job_quantities(job) -> Dict[str, float]:
 					elif warehouse_item.length and warehouse_item.width and warehouse_item.height:
 						from logistics.warehousing.utils.volume_conversion import calculate_volume_from_dimensions
 						
-						# Get UOMs from warehouse item or warehouse settings
-						dimension_uom = getattr(warehouse_item, 'dimension_uom', None)
-						volume_uom = getattr(warehouse_item, 'volume_uom', None)
-						
-						# Get defaults from warehouse settings if not in warehouse item
-						if not dimension_uom or not volume_uom:
-							try:
-								company = getattr(job, 'company', None)
-								if company:
-									warehouse_settings = frappe.get_cached_doc("Warehouse Settings", company)
-									if not dimension_uom:
-										dimension_uom = warehouse_settings.default_dimension_uom
-									if not volume_uom:
-										volume_uom = warehouse_settings.default_volume_uom
-							except Exception:
-								pass
+						company = getattr(job, 'company', None)
+						dimension_uom = getattr(warehouse_item, 'dimension_uom', None) or _measurement_uom("dimension", company)
+						volume_uom = getattr(warehouse_item, 'volume_uom', None) or _measurement_uom("volume", company)
 						
 						item_volume = calculate_volume_from_dimensions(
 							length=warehouse_item.length,

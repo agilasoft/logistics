@@ -14,6 +14,7 @@ from frappe import _
 from frappe.utils import flt, getdate, get_datetime, now_datetime, add_days
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import date, datetime, timedelta
+from logistics.utils.default_uom import measurement_default_uom
 from logistics.warehousing.api_parts.billing_methods import get_billing_quantity
 
 # =============================================================================
@@ -119,8 +120,8 @@ def _get_billing_settings(contract_item: Dict[str, Any], storage_type_doc) -> Di
         "billing_time_multiplier": 1.0,
         "minimum_billing_time": 1.0,
         "storage_type_multiplier": 1.0,
-        "volume_uom": "CBM",
-        "weight_uom": "Kg",
+        "volume_uom": measurement_default_uom("volume"),
+        "weight_uom": measurement_default_uom("weight"),
         "billing_time_unit": "Day"
     }
     
@@ -130,8 +131,8 @@ def _get_billing_settings(contract_item: Dict[str, Any], storage_type_doc) -> Di
             "billing_time_unit": contract_item.get("billing_time_unit", "Day"),
             "billing_time_multiplier": flt(contract_item.get("billing_time_multiplier", 1.0)),
             "minimum_billing_time": flt(contract_item.get("minimum_billing_time", 1.0)),
-            "volume_uom": contract_item.get("volume_uom", "CBM"),
-            "weight_uom": contract_item.get("weight_uom", "Kg"),
+            "volume_uom": contract_item.get("volume_uom") or measurement_default_uom("volume"),
+            "weight_uom": contract_item.get("weight_uom") or measurement_default_uom("weight"),
             "billing_time_unit": contract_item.get("billing_time_unit", "Day")
         })
     

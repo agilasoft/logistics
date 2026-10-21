@@ -352,7 +352,11 @@ def _cargo_weight(run_name):
 	total = sum(flt(row.weight) for row in rows)
 	if not total:
 		return None
-	uom = next((row.get("weight_uom") for row in rows if row.get("weight_uom")), "") or "kg"
+	uom = next((row.get("weight_uom") for row in rows if row.get("weight_uom")), "")
+	if not uom:
+		from logistics.utils.default_uom import measurement_default_uom
+
+		uom = measurement_default_uom("weight") or ""
 	return {"value": round(total, 1), "uom": uom}
 
 

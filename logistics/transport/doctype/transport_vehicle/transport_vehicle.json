@@ -145,7 +145,6 @@
    "label": "Capacity Weight"
   },
   {
-   "default": "KG",
    "description": "Unit of measure for weight capacity",
    "fieldname": "capacity_weight_uom",
    "fieldtype": "Link",
@@ -159,7 +158,6 @@
    "label": "Capacity Volume"
   },
   {
-   "default": "CBM",
    "description": "Unit of measure for volume capacity",
    "fieldname": "capacity_volume_uom",
    "fieldtype": "Link",

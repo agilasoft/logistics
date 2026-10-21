@@ -1996,9 +1996,17 @@ class AirBooking(VirtualLinkedServicesMixin, Document):
 					if sqaf_record.get("uom") and frappe.db.exists("UOM", sqaf_record.uom):
 						uom_record_name = sqaf_record.uom
 					else:
-						# Fallback: try common defaults
-						default_uoms = ["Nos", "Kg", "CBM"]
-						for default_uom in default_uoms:
+						from logistics.utils.default_uom import measurement_uom_defaults
+
+						defaults = measurement_uom_defaults(company=getattr(self, "company", None))
+						candidates = []
+						for kind in ("weight", "volume", "chargeable_weight"):
+							value = defaults.get(kind)
+							if value and value not in candidates:
+								candidates.append(value)
+						if "Nos" not in candidates:
+							candidates.append("Nos")
+						for default_uom in candidates:
 							if frappe.db.exists("UOM", default_uom):
 								uom_record_name = default_uom
 								break

@@ -45,32 +45,13 @@ class WarehouseContractItem(Document):
 		pass
 	
 	def apply_default_uoms(self):
-		"""Apply default UOMs from warehouse settings."""
-		try:
-			# Get default UOMs from warehouse settings
-			default_uoms = frappe.call(
-				"logistics.warehousing.doctype.warehouse_settings.warehouse_settings.get_default_uoms"
-			)
-			
-			if not default_uoms:
-				return
-			
-			# Apply defaults based on billing method
-			if self.billing_method == "Per Volume" and default_uoms.get("volume"):
-				self.volume_uom = default_uoms["volume"]
-			elif self.billing_method == "Per Weight" and default_uoms.get("weight"):
-				self.uom = default_uoms["weight"]
-			elif self.billing_method == "Per Piece" and default_uoms.get("piece"):
-				self.uom = default_uoms["piece"]
-			elif self.billing_method == "Per Container" and default_uoms.get("container"):
-				self.uom = default_uoms["container"]
-			elif self.billing_method == "Per Hour" and default_uoms.get("hour"):
-				self.uom = default_uoms["hour"]
-			elif self.billing_method == "Per Handling Unit" and default_uoms.get("handling_unit"):
-				self.uom = default_uoms["handling_unit"]
-					
-		except Exception as e:
-			frappe.log_error(f"Error applying default UOMs: {str(e)}")
+		"""Apply default UOMs from Logistics Settings."""
+		from logistics.utils.default_uom import measurement_default_uom
+
+		if self.billing_method in ("Per Volume", "High Water Mark") and not self.volume_uom:
+			self.volume_uom = measurement_default_uom("volume")
+		elif self.billing_method == "Per Weight" and not self.uom:
+			self.uom = measurement_default_uom("weight")
 	
 	def validate_billing_methods(self):
 		"""Validate billing methods for each charge type."""
@@ -116,14 +97,10 @@ def apply_default_uoms(contract_item_name: str):
 	Returns:
 		Dict with success status
 	"""
-	try:
-		return frappe.call(
-			"logistics.warehousing.doctype.warehouse_settings.warehouse_settings.apply_default_uoms_to_contract_item",
-			contract_item_name=contract_item_name
-		)
-	except Exception as e:
-		frappe.log_error(f"Error applying default UOMs: {str(e)}")
-		return {"error": str(e)}
+	doc = frappe.get_doc("Warehouse Contract Item", contract_item_name)
+	doc.apply_default_uoms()
+	doc.save()
+	return {"success": True, "volume_uom": doc.volume_uom, "uom": doc.get("uom")}
 
 
 @frappe.whitelist()
@@ -137,14 +114,13 @@ def get_default_uom_for_billing_method(billing_method: str):
 	Returns:
 		Default UOM for the billing method
 	"""
-	try:
-		return frappe.call(
-			"logistics.warehousing.doctype.warehouse_settings.warehouse_settings.get_default_uom_for_billing_method",
-			billing_method=billing_method
-		)
-	except Exception as e:
-		frappe.log_error(f"Error getting default UOM for billing method: {str(e)}")
-		return None
+	from logistics.utils.default_uom import measurement_default_uom
+
+	if billing_method in ("Per Volume", "High Water Mark"):
+		return measurement_default_uom("volume")
+	if billing_method == "Per Weight":
+		return measurement_default_uom("weight")
+	return None
 
 
 @frappe.whitelist()
@@ -198,11 +174,12 @@ def reset_to_defaults(contract_item_name: str):
 	Returns:
 		Dict with success status
 	"""
-	try:
-		return frappe.call(
-			"logistics.warehousing.doctype.warehouse_settings.warehouse_settings.apply_default_uoms_to_contract_item",
-			contract_item_name=contract_item_name
-		)
-	except Exception as e:
-		frappe.log_error(f"Error resetting to defaults: {str(e)}")
-		return {"error": str(e)}
+	from logistics.utils.default_uom import measurement_default_uom
+
+	doc = frappe.get_doc("Warehouse Contract Item", contract_item_name)
+	if doc.billing_method in ("Per Volume", "High Water Mark"):
+		doc.volume_uom = measurement_default_uom("volume")
+	elif doc.billing_method == "Per Weight":
+		doc.uom = measurement_default_uom("weight")
+	doc.save()
+	return {"success": True, "volume_uom": doc.volume_uom, "uom": doc.get("uom")}

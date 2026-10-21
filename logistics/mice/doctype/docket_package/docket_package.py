@@ -10,20 +10,13 @@ class DocketPackage(Document):
 		self._apply_default_uoms()
 
 	def validate(self):
+		self._apply_default_uoms()
 		self.calculate_volume()
 		self.validate_temperature()
 
 	def _apply_default_uoms(self):
-		from logistics.utils.measurements import get_default_uoms
-
-		company = self._get_parent_company()
-		defaults = get_default_uoms(company=company)
-		if not getattr(self, "dimension_uom", None) and defaults.get("dimension"):
-			self.dimension_uom = defaults["dimension"]
-		if not getattr(self, "volume_uom", None) and defaults.get("volume"):
-			self.volume_uom = defaults["volume"]
-		if not getattr(self, "weight_uom", None) and defaults.get("weight"):
-			self.weight_uom = defaults["weight"]
+		from logistics.utils.default_uom import apply_measurement_uom_defaults
+		apply_measurement_uom_defaults(self, company=self._get_parent_company())
 
 	def _get_parent_company(self):
 		if self.get("parenttype") == "Docket" and self.get("parent"):

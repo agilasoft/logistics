@@ -21,11 +21,10 @@ class TransportVehicle(Document):
 			for field in ("internal_length", "internal_width", "internal_height")
 		):
 			return
-		from logistics.utils.measurements import get_default_uoms
+		from logistics.utils.default_uom import apply_measurement_uom_defaults
 
 		company = self.company if self.get("company_owned") else None
-		defaults = get_default_uoms(company=company)
-		self.internal_dimension_uom = defaults.get("dimension")
+		apply_measurement_uom_defaults(self, company=company)
 
 	def _validate_internal_dimensions(self):
 		for field in ("internal_length", "internal_width", "internal_height"):

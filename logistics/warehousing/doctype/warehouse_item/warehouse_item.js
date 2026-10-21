@@ -127,39 +127,12 @@ function _setup_dimension_listeners(frm) {
 }
 
 function update_uom_fields(frm) {
-    // Get UOM values from Warehouse Settings
-    const company = frappe.defaults.get_user_default("Company");
-    
-    frappe.call({
-        method: "frappe.client.get_value",
-        args: {
-            doctype: "Warehouse Settings",
-            name: company,
-            fieldname: ["default_volume_uom", "default_weight_uom", "default_dimension_uom"]
-        },
-        callback: function(r) {
-            if (r.message) {
-                const volume_uom = r.message.default_volume_uom;
-                const weight_uom = r.message.default_weight_uom;
-                const dimension_uom = r.message.default_dimension_uom;
-                
-                // Auto-populate volume UOM field
-                if (frm.fields_dict.volume_uom && volume_uom) {
-                    frm.set_value("volume_uom", volume_uom);
-                }
-                
-                // Auto-populate weight UOM field
-                if (frm.fields_dict.weight_uom && weight_uom) {
-                    frm.set_value("weight_uom", weight_uom);
-                }
-                
-                // Auto-populate dimension UOM field
-                if (frm.fields_dict.dimension_uom && dimension_uom) {
-                    frm.set_value("dimension_uom", dimension_uom);
-                }
-            }
-        }
-    });
+    // New items take dimension, volume, and weight UOM from Logistics Settings.
+    // Saved values are left as entered.
+    if (!frm.is_new() || typeof window.logistics_apply_measurement_uom_defaults !== "function") {
+        return;
+    }
+    window.logistics_apply_measurement_uom_defaults(frm.doc, frm.doc.company);
 }
 
 function calculate_volume(frm) {

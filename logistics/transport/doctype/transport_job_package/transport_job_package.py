@@ -8,11 +8,12 @@ from frappe.utils import flt
 
 class TransportJobPackage(Document):
 	def before_insert(self):
-		"""Set default weight/volume UOM from Transport Settings when creating a new package row."""
+		"""Set default weight/volume UOM from Logistics Settings when creating a new package row."""
 		self._apply_default_uoms()
 
 	def validate(self):
 		"""Calculate volume from dimensions and validate temperature"""
+		self._apply_default_uoms()
 		self.calculate_volume()
 		self.validate_temperature()
 	
@@ -36,17 +37,11 @@ class TransportJobPackage(Document):
 
 	def _apply_default_uoms(self):
 		"""Apply default dimension_uom, weight_uom and volume_uom from Logistics Settings if not set."""
-		from logistics.utils.measurements import get_default_uoms
+		from logistics.utils.default_uom import apply_measurement_uom_defaults
 		company = None
 		if self.get("parenttype") == "Transport Job" and self.get("parent"):
 			company = frappe.db.get_value("Transport Job", self.parent, "company")
-		defaults = get_default_uoms(company=company)
-		if not getattr(self, "dimension_uom", None) and defaults.get("dimension"):
-			self.dimension_uom = defaults["dimension"]
-		if not self.weight_uom and defaults.get("weight"):
-			self.weight_uom = defaults["weight"]
-		if not self.volume_uom and defaults.get("volume"):
-			self.volume_uom = defaults["volume"]
+		apply_measurement_uom_defaults(self, company=company)
 
 	def calculate_volume(self):
 		"""Calculate volume from length, width, height using Dimension Volume UOM Conversion. No fallback; conversion required."""

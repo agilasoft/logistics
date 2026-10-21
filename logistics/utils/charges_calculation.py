@@ -2244,7 +2244,10 @@ def _calculate_charge_amount(
         else:
             row_currency = getattr(charge_doc, "cost_currency", None) or getattr(charge_doc, "currency", None) or "USD"
         currency = applicable.get("currency") or row_currency
-        weight_uom = getattr(charge_doc, "uom", None) or getattr(charge_doc, "cost_uom", None) or "Kg"
+        weight_uom = getattr(charge_doc, "uom", None) or getattr(charge_doc, "cost_uom", None)
+        if not weight_uom:
+            from logistics.utils.default_uom import measurement_default_uom
+            weight_uom = measurement_default_uom("weight")
         weight_break = flt(applicable.get("weight_break", 0))
         detail = (
             f"Weight Break (Weight): Actual weight {weight} {weight_uom} ≥ break {weight_break} {weight_uom} → "

@@ -391,28 +391,10 @@ frappe.ui.form.on("Cross-Docking Order Item", {
 });
 
 function update_uom_fields_for_items(frm) {
-  const company = frappe.defaults.get_user_default("Company");
-  frappe.call({
-    method: "frappe.client.get_value",
-    args: {
-      doctype: "Warehouse Settings",
-      name: company,
-      fieldname: ["default_volume_uom", "default_weight_uom"]
-    },
-    callback: function(r) {
-      if (r.message && frm.doc.items && frm.doc.items.length > 0) {
-        const volume_uom = r.message.default_volume_uom;
-        const weight_uom = r.message.default_weight_uom;
-        frm.doc.items.forEach(function(item) {
-          if (volume_uom) {
-            frappe.model.set_value("Cross-Docking Order Item", item.name, "volume_uom", volume_uom);
-          }
-          if (weight_uom) {
-            frappe.model.set_value("Cross-Docking Order Item", item.name, "weight_uom", weight_uom);
-          }
-        });
-        frm.refresh_field("items");
-      }
+  if (typeof window.logistics_apply_measurement_uom_defaults !== "function") return;
+  (frm.doc.items || []).forEach(function (item) {
+    if (item && item.__islocal) {
+      window.logistics_apply_measurement_uom_defaults(item, frm.doc.company);
     }
   });
 }
