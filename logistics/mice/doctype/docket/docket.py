@@ -452,20 +452,8 @@ class Docket(VirtualLinkedServicesMixin, Document):
 
 	def _apply_uom_defaults(self):
 		"""Apply UOM defaults from Logistics Settings when not set."""
-		try:
-			from logistics.utils.measurements import get_default_uoms, get_aggregation_volume_uom
-
-			defaults = get_default_uoms(company=getattr(self, "company", None))
-			if not getattr(self, "total_volume_uom", None):
-				vol_uom = get_aggregation_volume_uom(company=getattr(self, "company", None)) or defaults.get("volume")
-				if vol_uom:
-					self.total_volume_uom = vol_uom
-			if not getattr(self, "total_weight_uom", None) and defaults.get("weight"):
-				self.total_weight_uom = defaults["weight"]
-			if not getattr(self, "chargeable_weight_uom", None):
-				self.chargeable_weight_uom = defaults.get("chargeable_weight") or defaults.get("weight")
-		except Exception:
-			pass
+		from logistics.utils.default_uom import apply_measurement_uom_defaults
+		apply_measurement_uom_defaults(self, company=getattr(self, "company", None))
 
 	def _update_packing_summary(self):
 		"""Update container totals, package totals, volume/weight, and chargeable from child tables."""

@@ -118,6 +118,7 @@ app_include_js = [
 	"/assets/logistics/js/charge_type_cleanup.js",
 	"/assets/logistics/js/charge_break_dialogs.js?v=10",
 	"/assets/logistics/js/specified_charges_html.js?v=3",
+	"/assets/logistics/js/default_measurement_uoms.js",
 	"/assets/logistics/js/volume_from_dimensions.js",
 	"/assets/logistics/js/density_factor.js?v=2",
 	"/assets/logistics/js/document_alerts_dialog.js?v=2",
@@ -483,6 +484,23 @@ boot_session = [
 
 doc_events = DOC_EVENTS
 _ensure_print_validation_patch()
+
+def _append_doc_event(events, doctype, event, handler):
+	bucket = events.setdefault(doctype, {})
+	current = bucket.get(event)
+	if not current:
+		bucket[event] = handler
+	elif isinstance(current, list):
+		if handler not in current:
+			current.append(handler)
+	elif current != handler:
+		bucket[event] = [current, handler]
+
+
+# Every dimension, volume, and weight UOM field defaults from Logistics Settings.
+_MEASUREMENT_UOM_DEFAULTS = "logistics.utils.default_uom.apply_measurement_uom_defaults"
+_append_doc_event(doc_events, "*", "before_validate", _MEASUREMENT_UOM_DEFAULTS)
+_append_doc_event(doc_events, "*", "validate", _MEASUREMENT_UOM_DEFAULTS)
 
 merge_credit_hooks(doc_events)
 

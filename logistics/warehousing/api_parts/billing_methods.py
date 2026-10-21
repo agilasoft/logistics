@@ -13,6 +13,7 @@ from frappe.utils import flt, getdate, get_datetime, now_datetime, add_days
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import date, datetime, timedelta
 import json
+from logistics.utils.default_uom import measurement_default_uom
 
 # =============================================================================
 # Billing Method Calculation Functions
@@ -603,12 +604,13 @@ def _get_billing_uom(contract_item: Dict[str, Any], context: str) -> str:
     """Get appropriate UOM for billing."""
     billing_method = _get_billing_method_from_contract(contract_item, context)
     
-    if billing_method == "Per Volume":
-        return contract_item.get("volume_uom", "CBM")
-    elif context == "storage":
-        return contract_item.get("billing_time_unit", "Day")
-    else:
-        return contract_item.get("uom", "Nos")
+    if billing_method in ("Per Volume", "High Water Mark"):
+        return contract_item.get("volume_uom") or measurement_default_uom("volume")
+    if billing_method == "Per Weight":
+        return contract_item.get("uom") or measurement_default_uom("weight")
+    if context == "storage":
+        return contract_item.get("billing_time_unit") or "Day"
+    return contract_item.get("uom") or "Nos"
 
 
 def _get_billing_method_from_contract(contract_item: Dict[str, Any], context: str) -> str:

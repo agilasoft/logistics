@@ -21,22 +21,15 @@ class CrossDockingOrderItem(Document):
 
 			company = None
 			if not dimension_uom or not volume_uom:
-				try:
-					if self.parent:
-						parent_doc = frappe.get_cached_doc("Cross-Docking Order", self.parent)
-						company = getattr(parent_doc, "company", None)
-
-					if not company:
-						company = frappe.defaults.get_user_default("Company")
-
-					if company:
-						warehouse_settings = frappe.get_cached_doc("Warehouse Settings", company)
-						if not dimension_uom:
-							dimension_uom = warehouse_settings.default_dimension_uom
-						if not volume_uom:
-							volume_uom = warehouse_settings.default_volume_uom
-				except Exception:
-					pass
+				if self.parent and frappe.db.exists("Cross-Docking Order", self.parent):
+					company = frappe.db.get_value("Cross-Docking Order", self.parent, "company")
+				if not company:
+					company = frappe.defaults.get_user_default("Company")
+				from logistics.utils.default_uom import measurement_default_uom
+				if not dimension_uom:
+					dimension_uom = measurement_default_uom("dimension", company=company)
+				if not volume_uom:
+					volume_uom = measurement_default_uom("volume", company=company)
 
 			calculated_volume = calculate_volume_from_dimensions(
 				length=self.length,

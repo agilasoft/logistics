@@ -13,19 +13,13 @@ class SeaBookingPackages(Document):
 
 	def validate(self):
 		"""Calculate volume from dimensions (Dimension Volume UOM Conversion). Chargeable weight is computed on parent Sea Booking."""
+		self._apply_default_uoms()
 		self.calculate_volume()
 
 	def _apply_default_uoms(self):
 		"""Apply default dimension_uom, volume_uom and weight_uom from Logistics Settings if not set."""
-		from logistics.utils.measurements import get_default_uoms
-		company = self._get_parent_company()
-		defaults = get_default_uoms(company=company)
-		if not getattr(self, "dimension_uom", None) and defaults.get("dimension"):
-			self.dimension_uom = defaults["dimension"]
-		if not getattr(self, "volume_uom", None) and defaults.get("volume"):
-			self.volume_uom = defaults["volume"]
-		if not getattr(self, "weight_uom", None) and defaults.get("weight"):
-			self.weight_uom = defaults["weight"]
+		from logistics.utils.default_uom import apply_measurement_uom_defaults
+		apply_measurement_uom_defaults(self, company=self._get_parent_company())
 
 	def _get_parent_company(self):
 		"""Get company from parent Sea Booking."""

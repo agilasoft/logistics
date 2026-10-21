@@ -40,7 +40,7 @@ function is_warehousing_doctype(doctype) {
 }
 
 function update_all_uom_labels(frm) {
-    // Get UOM values from Warehouse Settings
+    // Labels follow Logistics Settings measurement defaults.
     get_warehouse_uom_values().then(function(uom_values) {
         update_volume_weight_labels(frm, uom_values);
     });
@@ -49,26 +49,26 @@ function update_all_uom_labels(frm) {
 function get_warehouse_uom_values() {
     return new Promise(function(resolve) {
         const company = frappe.defaults.get_user_default("Company");
-        
+        const finish = function (defaults) {
+            resolve({
+                volume_uom: defaults && defaults.volume,
+                weight_uom: defaults && defaults.weight
+            });
+        };
+        if (typeof window.logistics_measurement_uom_defaults === "function") {
+            window.logistics_measurement_uom_defaults(company).then(finish).catch(function () {
+                resolve({});
+            });
+            return;
+        }
         frappe.call({
-            method: "frappe.client.get_value",
-            args: {
-                doctype: "Warehouse Settings",
-                name: company,
-                field: ["default_volume_uom", "default_weight_uom"]
+            method: "logistics.utils.default_uom.get_measurement_uom_defaults",
+            args: { company: company },
+            callback: function (r) {
+                finish(r && r.message);
             },
-            callback: function(r) {
-                if (r.message) {
-                    resolve({
-                        volume_uom: r.message.default_volume_uom || 'm³',
-                        weight_uom: r.message.default_weight_uom || 'kg'
-                    });
-                } else {
-                    resolve({
-                        volume_uom: 'm³',
-                        weight_uom: 'kg'
-                    });
-                }
+            error: function () {
+                resolve({});
             }
         });
     });
@@ -93,6 +93,7 @@ function update_volume_weight_labels(frm, uom_values) {
 }
 
 function update_field_label(frm, fieldname, uom) {
+    if (!uom) return;
     const field = frm.fields_dict[fieldname];
     if (field && field.df) {
         // Store original label

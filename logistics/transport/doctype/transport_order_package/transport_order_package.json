@@ -156,7 +156,6 @@
    "reqd": 1
   },
   {
-   "default": "Kilogram",
    "fieldname": "weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
@@ -449,7 +448,6 @@
    "reqd": 1
   },
   {
-   "default": "Centimeter",
    "fieldname": "dimension_uom",
    "fieldtype": "Link",
    "in_list_view": 1,

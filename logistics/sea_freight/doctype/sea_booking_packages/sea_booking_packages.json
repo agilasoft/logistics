@@ -112,7 +112,6 @@
    "label": "Volume"
   },
   {
-   "default": "Kilogram",
    "fieldname": "weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
@@ -127,7 +126,6 @@
    "options": "UOM"
   },
   {
-   "default": "Centimeter",
    "fieldname": "dimension_uom",
    "fieldtype": "Link",
    "label": "Dimension UOM",

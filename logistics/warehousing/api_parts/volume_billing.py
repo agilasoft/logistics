@@ -7,6 +7,7 @@ from frappe import _
 from frappe.utils import flt, getdate, add_days
 from typing import Dict, List, Optional, Any
 from datetime import date, timedelta
+from logistics.utils.default_uom import measurement_default_uom
 
 # Import helper functions from main API to avoid circular imports
 def _pb__hu_opening_balance(hu: str, date_from: str) -> float:
@@ -281,7 +282,7 @@ def create_volume_based_charge_line(handling_unit: str, date_from: str, date_to:
         volume_data = calculate_volume_usage(handling_unit, date_from, date_to, volume_calculation_method)
         
         # Get volume UOM
-        volume_uom = contract_item.get("volume_uom") or "CBM"
+        volume_uom = contract_item.get("volume_uom") or measurement_default_uom("volume")
         
         return {
             "item": contract_item.get("item_code"),

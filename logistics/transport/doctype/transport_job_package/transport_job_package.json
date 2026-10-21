@@ -162,7 +162,6 @@
    "label": "Weight"
   },
   {
-   "default": "KG",
    "fieldname": "weight_uom",
    "fieldtype": "Link",
    "label": "Weight UOM",
@@ -188,7 +187,6 @@
    "label": "Height"
   },
   {
-   "default": "CM",
    "description": "Unit for length, width, height",
    "fieldname": "dimension_uom",
    "fieldtype": "Link",
@@ -205,7 +203,6 @@
    "read_only": 1
   },
   {
-   "default": "CBM",
    "fieldname": "volume_uom",
    "fieldtype": "Link",
    "label": "Volume UOM",

@@ -72,26 +72,22 @@ def sync_row_volume_from_dimensions(
 	volume_uom = getattr(row, "volume_uom", None)
 
 	if not dimension_uom or not volume_uom:
-		try:
-			if not company:
-				parent_dt = parent_doctype or getattr(row, "parenttype", None)
-				parent = getattr(row, "parent", None)
-				if parent_dt and parent:
-					company = frappe.get_cached_value(parent_dt, parent, "company")
-			if not company:
-				company = frappe.defaults.get_user_default("Company")
-			if company:
-				warehouse_settings = frappe.get_cached_doc("Warehouse Settings", company)
-				if not dimension_uom:
-					dimension_uom = warehouse_settings.default_dimension_uom
-				if not volume_uom:
-					volume_uom = warehouse_settings.default_volume_uom
-				if dimension_uom and not getattr(row, "dimension_uom", None):
-					row.dimension_uom = dimension_uom
-				if volume_uom and not getattr(row, "volume_uom", None):
-					row.volume_uom = volume_uom
-		except Exception:
-			pass
+		if not company:
+			parent_dt = parent_doctype or getattr(row, "parenttype", None)
+			parent = getattr(row, "parent", None)
+			if parent_dt and parent:
+				company = frappe.get_cached_value(parent_dt, parent, "company")
+		if not company:
+			company = frappe.defaults.get_user_default("Company")
+		from logistics.utils.default_uom import measurement_default_uom
+		if not dimension_uom:
+			dimension_uom = measurement_default_uom("dimension", company=company)
+		if not volume_uom:
+			volume_uom = measurement_default_uom("volume", company=company)
+		if dimension_uom and not getattr(row, "dimension_uom", None):
+			row.dimension_uom = dimension_uom
+		if volume_uom and not getattr(row, "volume_uom", None):
+			row.volume_uom = volume_uom
 
 	calculated_volume = calculate_volume_from_dimensions(
 		length=length,

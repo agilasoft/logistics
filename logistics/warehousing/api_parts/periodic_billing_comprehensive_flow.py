@@ -14,6 +14,7 @@ from frappe import _
 from frappe.utils import flt, getdate, get_datetime, now_datetime, add_days
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import date, datetime, timedelta
+from logistics.utils.default_uom import measurement_default_uom
 
 # =============================================================================
 # Comprehensive Periodic Billing Functions
@@ -142,8 +143,8 @@ def _compute_storage_charges(contract: str, customer: str, date_from: str, date_
                 
                 # Prepare contract item data (only for storage charges)
                 contract_item_data = {
-                    "volume_uom": contract_item.get("volume_uom", "CBM"),
-                    "weight_uom": contract_item.get("weight_uom", "Kg"),
+                    "volume_uom": contract_item.get("volume_uom") or measurement_default_uom("volume"),
+                    "weight_uom": contract_item.get("weight_uom") or measurement_default_uom("weight"),
                     "billing_time_unit": contract_item.get("billing_time_unit", "Day")
                 }
                 
@@ -192,12 +193,12 @@ def _compute_storage_charges(contract: str, customer: str, date_from: str, date_
                         if billing_method == "Per Volume":
                             charge.update({
                                 "volume_quantity": billing_quantity,
-                                "volume_uom": contract_item.volume_uom or "CBM"
+                                "volume_uom": contract_item.volume_uom or measurement_default_uom("volume")
                             })
                         elif billing_method == "Per Weight":
                             charge.update({
                                 "weight_quantity": billing_quantity,
-                                "weight_uom": contract_item.weight_uom or "Kg"
+                                "weight_uom": contract_item.weight_uom or measurement_default_uom("weight")
                             })
                         elif billing_method == "Per Handling Unit":
                             charge.update({
@@ -207,7 +208,7 @@ def _compute_storage_charges(contract: str, customer: str, date_from: str, date_
                         elif billing_method == "High Water Mark":
                             charge.update({
                                 "peak_quantity": billing_quantity,
-                                "peak_uom": contract_item.volume_uom or "CBM"
+                                "peak_uom": contract_item.volume_uom or measurement_default_uom("volume")
                             })
                         elif billing_method in ["Per Day", "Per Week", "Per Hour"]:
                             charge.update({
@@ -374,13 +375,13 @@ def _get_billing_uom_for_method(billing_method: str) -> str:
     """Get appropriate UOM for billing method"""
     uom_map = {
         "Per Day": "Days",
-        "Per Volume": "CBM",
-        "Per Weight": "Kg",
+        "Per Volume": measurement_default_uom("volume"),
+        "Per Weight": measurement_default_uom("weight"),
         "Per Piece": "Nos",
         "Per Container": "Nos",
         "Per Hour": "Hours",
         "Per Handling Unit": "Nos",
-        "High Water Mark": "CBM"
+        "High Water Mark": measurement_default_uom("volume")
     }
     
     return uom_map.get(billing_method, "Nos")

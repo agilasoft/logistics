@@ -6,6 +6,7 @@ from frappe.model.document import Document
 from frappe.utils import flt
 from frappe import _
 from logistics.warehousing.api_parts.billing_methods import get_billing_quantity
+from logistics.utils.default_uom import measurement_default_uom
 from logistics.utils.freight_95_5 import validate_freight_95_5_row
 
 
@@ -45,10 +46,10 @@ class WarehouseJobCharges(Document):
 				# Update method-specific quantities
 				if self.billing_method == "Per Volume":
 					self.volume_quantity = billing_quantity
-					self.volume_uom = self.volume_uom or "CBM"
+					self.volume_uom = self.volume_uom or measurement_default_uom("volume")
 				elif self.billing_method == "Per Weight":
 					self.weight_quantity = billing_quantity
-					self.weight_uom = self.weight_uom or "Kg"
+					self.weight_uom = self.weight_uom or measurement_default_uom("weight")
 				elif self.billing_method == "Per Piece":
 					self.piece_quantity = billing_quantity
 					self.piece_uom = self.piece_uom or "Nos"
@@ -63,7 +64,7 @@ class WarehouseJobCharges(Document):
 					self.handling_unit_uom = self.handling_unit_uom or "Nos"
 				elif self.billing_method == "High Water Mark":
 					self.peak_quantity = billing_quantity
-					self.peak_uom = self.peak_uom or "CBM"
+					self.peak_uom = self.peak_uom or measurement_default_uom("volume")
 				
 				# Recalculate total
 				self.total = flt(self.quantity) * flt(self.unit_rate or 0)

@@ -66,8 +66,11 @@
 		var volume_uom = row.volume_uom;
 		var company = (frm && frm.doc && frm.doc.company) || frappe.defaults.get_user_default('Company');
 		function do_calc(dim_uom, vol_uom) {
-			dim_uom = dim_uom || 'CM';
-			vol_uom = vol_uom || 'M³';
+			if (!dim_uom || !vol_uom) {
+				frappe.model.set_value(cdt, cdn, 'volume', 0);
+				_refresh_volume_field(frm, cdt, cdn, grid_row, grid_field);
+				return;
+			}
 			frappe.call({
 				method: 'logistics.utils.measurements.calculate_volume_from_dimensions_api',
 				args: { length: length, width: width, height: height, dimension_uom: dim_uom, volume_uom: vol_uom, company: company },
@@ -92,19 +95,25 @@
 		if (dimension_uom && volume_uom) {
 			do_calc(dimension_uom, volume_uom);
 		} else {
-			frappe.call({
-				method: 'logistics.utils.measurements.get_default_uoms_api',
-				args: { company: company },
-				freeze: false,
-				callback: function(r) {
-					var def_dim = r && r.message && r.message.dimension ? r.message.dimension : 'CM';
-					var def_vol = r && r.message && r.message.volume ? r.message.volume : 'M³';
-					if (!dimension_uom && def_dim) frappe.model.set_value(cdt, cdn, 'dimension_uom', def_dim);
-					if (!volume_uom && def_vol) frappe.model.set_value(cdt, cdn, 'volume_uom', def_vol);
-					do_calc(dimension_uom || def_dim, volume_uom || def_vol);
-				},
-				error: function() { do_calc('CM', 'M³'); }
-			});
+			var apply_defaults = function (defaults) {
+				var def_dim = defaults && defaults.dimension;
+				var def_vol = defaults && defaults.volume;
+				if (!dimension_uom && def_dim) frappe.model.set_value(cdt, cdn, 'dimension_uom', def_dim);
+				if (!volume_uom && def_vol) frappe.model.set_value(cdt, cdn, 'volume_uom', def_vol);
+				do_calc(dimension_uom || def_dim, volume_uom || def_vol);
+			};
+			var loader = window.logistics_measurement_uom_defaults;
+			if (typeof loader === 'function') {
+				loader(company).then(apply_defaults).catch(function () { do_calc(null, null); });
+			} else {
+				frappe.call({
+					method: 'logistics.utils.default_uom.get_measurement_uom_defaults',
+					args: { company: company },
+					freeze: false,
+					callback: function (r) { apply_defaults(r && r.message); },
+					error: function () { do_calc(null, null); }
+				});
+			}
 		}
 	}
 

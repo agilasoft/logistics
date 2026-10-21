@@ -123,7 +123,6 @@
    "label": "Volume"
   },
   {
-   "default": "Kilogram",
    "fetch_from": "warehouse_item.weight_uom",
    "fetch_if_empty": 1,
    "fieldname": "weight_uom",
@@ -142,7 +141,6 @@
    "options": "UOM"
   },
   {
-   "default": "Centimeter",
    "fetch_from": "warehouse_item.dimension_uom",
    "fetch_if_empty": 1,
    "fieldname": "dimension_uom",

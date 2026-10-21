@@ -12,6 +12,7 @@ from frappe import _
 from frappe.utils import flt, getdate
 from typing import Dict, List, Any, Optional
 from datetime import date, datetime
+from logistics.utils.default_uom import measurement_default_uom
 
 # =============================================================================
 # Billing Method Consistency Functions
@@ -272,10 +273,10 @@ def _update_method_specific_quantities(charge, billing_quantity: float):
     """Update method-specific quantities in charge document."""
     if charge.billing_method == "Per Volume":
         charge.volume_quantity = billing_quantity
-        charge.volume_uom = charge.volume_uom or "CBM"
+        charge.volume_uom = charge.volume_uom or measurement_default_uom("volume")
     elif charge.billing_method == "Per Weight":
         charge.weight_quantity = billing_quantity
-        charge.weight_uom = charge.weight_uom or "Kg"
+        charge.weight_uom = charge.weight_uom or measurement_default_uom("weight")
     elif charge.billing_method == "Per Piece":
         charge.piece_quantity = billing_quantity
         charge.piece_uom = charge.piece_uom or "Nos"
@@ -290,7 +291,7 @@ def _update_method_specific_quantities(charge, billing_quantity: float):
         charge.handling_unit_uom = charge.handling_unit_uom or "Nos"
     elif charge.billing_method == "High Water Mark":
         charge.peak_quantity = billing_quantity
-        charge.peak_uom = charge.peak_uom or "CBM"
+        charge.peak_uom = charge.peak_uom or measurement_default_uom("volume")
 
 
 def _get_charge_context_from_parent(parent_doc) -> str:

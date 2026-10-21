@@ -122,17 +122,11 @@ def _distinct_positive_uoms(rows: list, value_field: str, uom_field: str) -> lis
 
 def _default_measure_uom(kind: str, company: str | None) -> str:
 	try:
+		from logistics.utils.default_uom import measurement_default_uom
+
 		if kind == "volume":
-			from logistics.utils.measurements import get_aggregation_volume_uom, get_default_uoms
-
-			return (
-				get_aggregation_volume_uom(company=company)
-				or (get_default_uoms(company=company).get("volume") or "")
-				or ""
-			)
-		from logistics.utils.measurements import get_default_uoms
-
-		return get_default_uoms(company=company).get("weight") or ""
+			return measurement_default_uom("aggregation_volume", company=company) or ""
+		return measurement_default_uom("weight", company=company) or ""
 	except Exception:
 		return ""
 
