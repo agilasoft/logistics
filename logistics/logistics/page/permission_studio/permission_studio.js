@@ -251,11 +251,13 @@ frappehero.PermissionStudio = class PermissionStudio {
 			return `<div class="ps-panel"><div class="ps-detail-scroll"><div class="ps-empty"><p>${__("Create a group, add the people in it, then add the companies, territories, or other values they may use.")}</p><button type="button" class="ps-btn" data-action="new-group">${__("New Group")}</button></div></div></div>`;
 		}
 		const title = group.group_name || group.name;
+		if (this.detailTab === "matrix") {
+			this.detailTab = "overview";
+		}
 		const tabs = [
 			["overview", __("Overview")],
 			["members", __("Members ({0})", [String(group.members.length)])],
 			["permissions", __("Permitted values ({0})", [String(group.rules.length)])],
-			["matrix", __("Who can use what")],
 			["activity", __("Activity")],
 		];
 		const tabButtons = tabs
@@ -290,14 +292,11 @@ frappehero.PermissionStudio = class PermissionStudio {
 		if (this.detailTab === "permissions") {
 			return this.valueSection(group, true);
 		}
-		if (this.detailTab === "matrix") {
-			return `<h3>${__("Who can use what")}</h3>${this.matrixHtml(group)}`;
-		}
 		if (this.detailTab === "activity") {
 			const when = group.last_synced ? frappe.datetime.str_to_user(group.last_synced) : __("Not synced yet.");
 			return `<p class="ps-muted">${__("Last synced")}</p><p>${frappehero.esc(when)}</p><p>${frappehero.esc(group.sync_summary || __("Not synced yet."))}</p>`;
 		}
-		return `${this.groupInfoHtml(group)}<div class="ps-split">${this.memberSection(group, false)}${this.valueSection(group, false)}</div>`;
+		return `${this.groupInfoHtml(group)}<div class="ps-split">${this.memberSection(group, false)}${this.valueSection(group, false)}</div>${this.matrixSection(group)}`;
 	}
 
 	groupInfoHtml(group) {
@@ -384,6 +383,13 @@ frappehero.PermissionStudio = class PermissionStudio {
 			<thead><tr><th>${__("Field")}</th><th>${__("Value")}</th><th>${__("Applicable DocTypes")}</th><th>${__("Actions")}</th></tr></thead>
 			<tbody>${rows || `<tr><td colspan="4" class="ps-empty">${__("No permitted values yet.")}</td></tr>`}</tbody>
 		</table></div>`;
+	}
+
+	matrixSection(group) {
+		return `<section class="ps-box ps-matrix">
+			<div class="ps-row-between"><strong>${__("Who can use what")}</strong></div>
+			${this.matrixHtml(group)}
+		</section>`;
 	}
 
 	matrixHtml(group) {
