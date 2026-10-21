@@ -41,6 +41,11 @@ frappehero.PermissionStudio = class PermissionStudio {
 		this.checkedMembers = new Set();
 		this.colors = ["#2490ef", "#5e64ff", "#db2777", "#d97706", "#16a34a", "#0891b2", "#7c3aed", "#dc2626"];
 		this.page.main.addClass("ps-studio");
+		const pageWrapper = this.page.wrapper ? $(this.page.wrapper) : null;
+		if (pageWrapper && pageWrapper.length) {
+			const pageRoot = pageWrapper.closest(".page-container");
+			(pageRoot.length ? pageRoot : pageWrapper).addClass("ps-page");
+		}
 		this.page.set_title(__("Permission Studio"));
 		if (this.page.set_title_sub) {
 			this.page.set_title_sub(__("Manage user groups and permissions in one place"));

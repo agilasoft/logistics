@@ -1,5 +1,13 @@
 /* Permission Studio desk layout. Scoped so the rest of the desk keeps its own layout. */
 
+/* The desk sidebar and this page are separate cards. Keep a gutter between them. */
+.ps-page {
+	margin-left: 16px;
+	margin-right: 8px;
+	max-width: calc(100% - 24px);
+	box-sizing: border-box;
+}
+
 .ps-studio {
 	--ps-ink: #1f2a37;
 	--ps-muted: #6b7280;
@@ -10,13 +18,15 @@
 	--ps-orange: #d97706;
 	--ps-red: #dc2626;
 	color: var(--ps-ink);
+	padding: 4px 2px 12px;
+	box-sizing: border-box;
 }
 
 .ps-cards {
 	display: grid;
 	grid-template-columns: repeat(4, minmax(0, 1fr));
-	gap: 12px;
-	margin-bottom: 8px;
+	gap: 16px;
+	margin-bottom: 16px;
 }
 
 .ps-card {
@@ -70,8 +80,8 @@
 	display: flex;
 	align-items: flex-end;
 	justify-content: space-between;
-	gap: 16px;
-	margin: 4px 0 12px;
+	gap: 16px 24px;
+	margin: 0 0 16px;
 	flex-wrap: wrap;
 }
 
@@ -102,7 +112,7 @@
 .ps-filters {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 10px;
 	flex-wrap: wrap;
 }
 
@@ -126,8 +136,8 @@
 
 .ps-work {
 	display: grid;
-	grid-template-columns: 320px minmax(0, 1fr);
-	gap: 12px;
+	grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+	gap: 16px;
 	align-items: start;
 }
 
@@ -137,25 +147,25 @@
 	background: #fff;
 	border: 1px solid var(--ps-line);
 	border-radius: 12px;
-	padding: 12px;
+	padding: 16px;
 	min-width: 0;
 }
 
 .ps-panel-head,
-.ps-row-between,
-.ps-title-row,
-.ps-detail-head,
-.ps-actions {
+.ps-row-between {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 8px;
+	gap: 12px;
 }
 
 .ps-title-row,
 .ps-actions,
 .ps-detail-head {
+	display: flex;
+	align-items: center;
 	justify-content: flex-start;
+	gap: 12px;
 }
 
 .ps-panel h2,
@@ -166,33 +176,36 @@
 
 .ps-group-search {
 	width: 100%;
-	margin: 10px 0;
+	margin: 12px 0;
+	box-sizing: border-box;
 }
 
 .ps-group-scroll,
 .ps-table-scroll {
-	max-height: calc(100vh - 390px);
+	max-height: calc(100vh - 420px);
 	overflow: auto;
+	padding-right: 4px;
 }
 
 .ps-group {
 	width: 100%;
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 12px;
 	text-align: left;
 	border: 0;
-	border-left: 3px solid transparent;
 	background: transparent;
 	border-radius: 8px;
-	padding: 8px;
+	padding: 10px 8px;
+	margin-bottom: 4px;
 	cursor: pointer;
 	color: inherit;
+	box-sizing: border-box;
 }
 
 .ps-group.is-selected {
 	background: #f3f7ff;
-	border-left-color: var(--ps-blue);
+	box-shadow: inset 3px 0 0 var(--ps-blue);
 }
 
 .ps-group-copy {
@@ -200,6 +213,13 @@
 	flex-direction: column;
 	min-width: 0;
 	flex: 1;
+	gap: 2px;
+}
+
+.ps-group-copy > span:first-child {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .ps-badge,
@@ -261,21 +281,21 @@
 
 .ps-detail-head {
 	align-items: flex-start;
-	margin-bottom: 8px;
+	margin-bottom: 16px;
 }
 
 .ps-tabs {
 	display: flex;
-	gap: 16px;
+	gap: 20px;
 	border-bottom: 1px solid var(--ps-line);
-	margin-bottom: 12px;
+	margin: 0 0 16px;
 	overflow-x: auto;
 }
 
 .ps-tabs button {
 	border: 0;
 	background: none;
-	padding: 8px 0;
+	padding: 10px 0;
 	color: var(--ps-muted);
 	cursor: pointer;
 	white-space: nowrap;
@@ -290,22 +310,22 @@
 .ps-info-grid {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
-	gap: 8px 24px;
-	margin-top: 8px;
+	gap: 16px 32px;
+	margin-top: 16px;
 }
 
 .ps-field + .ps-field {
-	margin-top: 12px;
+	margin-top: 14px;
 }
 
 .ps-info-card {
-	margin-bottom: 12px;
+	margin-bottom: 16px;
 }
 
 .ps-split {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
-	gap: 12px;
+	gap: 16px;
 }
 
 .ps-swatches {
@@ -338,12 +358,12 @@
 	font-size: 11px;
 	color: var(--ps-muted);
 	font-weight: 600;
-	padding: 8px 6px;
+	padding: 10px 12px;
 	border-bottom: 1px solid var(--ps-line);
 }
 
 .ps-grid td {
-	padding: 8px 6px;
+	padding: 10px 12px;
 	border-bottom: 1px solid var(--ps-line);
 	vertical-align: middle;
 }
@@ -429,6 +449,12 @@
 }
 
 @media (max-width: 1100px) {
+	.ps-page {
+		margin-left: 12px;
+		margin-right: 8px;
+		max-width: calc(100% - 20px);
+	}
+
 	.ps-cards,
 	.ps-work,
 	.ps-split,
