@@ -207,6 +207,36 @@ def remove_rule(group: str, rule_name: str) -> dict:
 
 
 @frappe.whitelist()
+def update_rule(
+	group: str,
+	rule_name: str,
+	reference_doctype: str | None = None,
+	for_value: str | None = None,
+	apply_to_all_doctypes: int | str = 1,
+	applicable_for: str | None = None,
+	is_default: int | str = 0,
+	hide_descendants: int | str = 0,
+) -> dict:
+	"""Change one permitted value. Saving the group syncs User Permissions."""
+	frappe.only_for("System Manager")
+	doc = frappe.get_doc("Hero Permission Group", group)
+	row = next((rule for rule in doc.rules if rule.name == rule_name), None)
+	if not row:
+		frappe.throw(_("That permitted value is no longer on this group."))
+	doctype = clean_text(reference_doctype) or row.reference_doctype
+	value = clean_text(for_value) or row.for_value
+	apply_all = as_flag(apply_to_all_doctypes)
+	row.reference_doctype = doctype
+	row.for_value = value
+	row.apply_to_all_doctypes = apply_all
+	row.applicable_for = None if apply_all else (clean_text(applicable_for) or None)
+	row.is_default = as_flag(is_default)
+	row.hide_descendants = as_flag(hide_descendants)
+	doc.save()
+	return {"name": doc.name, "rule": row.name}
+
+
+@frappe.whitelist()
 def sync_all() -> dict:
 	frappe.only_for("System Manager")
 	return reconcile()
@@ -376,6 +406,10 @@ def _serialize_group(doc) -> dict:
 		"sync_status": doc.sync_status or "Pending",
 		"sync_summary": doc.sync_summary or "",
 		"last_synced": doc.last_synced,
+		"modified": doc.modified,
+		"creation": doc.creation,
+		"modified_by": doc.modified_by,
+		"owner": doc.owner,
 		"members": [
 			{
 				"user": row.user,
