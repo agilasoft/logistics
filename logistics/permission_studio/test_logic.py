@@ -330,6 +330,8 @@ class TestRestoredStudio(unittest.TestCase):
 		page = (root / "logistics" / "page" / "permission_studio" / "permission_studio.js").read_text(encoding="utf-8")
 		self.assertIn("Permitted values", page)
 		self.assertIn("Add values", page)
+		self.assertIn("this.matrixSection(group)", page)
+		self.assertNotIn('["matrix", __("Who can use what")]', page)
 		self.assertIn('data-action="edit-rule"', page)
 		self.assertIn('__("only {0}"', page)
 		self.assertIn("ps-value-scroll", page)

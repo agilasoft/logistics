@@ -431,6 +431,14 @@
 	gap: 16px;
 }
 
+.ps-matrix {
+	margin-top: 16px;
+}
+
+.ps-matrix .ps-row-between {
+	margin-bottom: 12px;
+}
+
 .ps-swatches {
 	display: flex;
 	gap: 6px;
