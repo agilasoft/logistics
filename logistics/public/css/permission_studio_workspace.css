@@ -18,8 +18,57 @@
 	--ps-orange: #d97706;
 	--ps-red: #dc2626;
 	color: var(--ps-ink);
-	padding: 4px 2px 12px;
+	display: flex;
+	flex-direction: column;
 	box-sizing: border-box;
+	/* Fallback when the page is rendered without the desk shell. */
+	height: calc(100dvh - var(--navbar-height, 48px) - var(--page-head-height, 48px) - 12px);
+	min-height: 0;
+	overflow: hidden;
+	padding: 4px 2px 8px;
+}
+
+/* Fill the desk under the sticky page head. The section then takes that
+   height, so the group list and the detail panel share one viewport. */
+.ps-page .page-body {
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	height: calc(100dvh - var(--navbar-height, 48px) - var(--page-head-height, 48px) - 1px);
+	min-height: 0;
+	overflow: hidden;
+}
+
+.ps-page .page-wrapper,
+.ps-page .page-content,
+.ps-page .layout-main,
+.ps-page .layout-main-section-wrapper {
+	display: flex;
+	flex: 1 1 auto;
+	flex-direction: column;
+	min-height: 0;
+	height: 100%;
+	width: 100%;
+	max-width: 100%;
+}
+
+.ps-page .layout-main {
+	flex-direction: row;
+	align-items: stretch;
+}
+
+.ps-page .layout-main-section.ps-studio {
+	flex: 1 1 auto;
+	height: 100%;
+	min-height: 0;
+}
+
+.ps-desk {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+	height: 100%;
 }
 
 .ps-cards {
@@ -134,11 +183,39 @@
 	color: var(--ps-ink);
 }
 
+.ps-cards,
+.ps-filterbar,
+.ps-banner {
+	flex: none;
+}
+
 .ps-work {
 	display: grid;
 	grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
 	gap: 16px;
-	align-items: start;
+	align-items: stretch;
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+.ps-groups,
+.ps-detail {
+	min-height: 0;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.ps-groups > .ps-panel,
+.ps-detail > .ps-panel {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+	width: 100%;
+	height: 100%;
+	box-sizing: border-box;
+	overflow: hidden;
 }
 
 .ps-panel,
@@ -166,12 +243,27 @@
 	align-items: center;
 	justify-content: flex-start;
 	gap: 12px;
+	min-width: 0;
 }
 
-.ps-panel h2,
-.ps-detail-title h2 {
-	margin: 0;
-	font-size: 16px;
+.ps-title-row {
+	flex-wrap: wrap;
+}
+
+.ps-detail-title h2,
+.ps-title-row .ps-muted {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 100%;
+}
+
+.ps-panel-head,
+.ps-row-between,
+.ps-group-search,
+.ps-detail-head,
+.ps-tabs {
+	flex: none;
 }
 
 .ps-group-search {
@@ -180,11 +272,22 @@
 	box-sizing: border-box;
 }
 
+.ps-panel h2,
+.ps-detail-title h2 {
+	margin: 0;
+	font-size: 16px;
+}
+
 .ps-group-scroll,
-.ps-table-scroll {
-	max-height: calc(100vh - 420px);
+.ps-detail-scroll {
+	flex: 1 1 auto;
+	min-height: 0;
 	overflow: auto;
 	padding-right: 4px;
+}
+
+.ps-table-scroll {
+	overflow: auto;
 }
 
 .ps-group {
@@ -420,7 +523,7 @@
 	color: #842029;
 	border-radius: 10px;
 	padding: 8px 12px;
-	margin-bottom: 10px;
+	margin-bottom: 16px;
 }
 
 .ps-icon {
@@ -455,10 +558,38 @@
 		max-width: calc(100% - 20px);
 	}
 
+	.ps-page .page-body {
+		height: auto;
+		overflow: visible;
+		display: block;
+	}
+
+	.ps-page .page-wrapper,
+	.ps-page .page-content,
+	.ps-page .layout-main,
+	.ps-page .layout-main-section-wrapper,
+	.ps-page .layout-main-section.ps-studio,
+	.ps-studio {
+		height: auto;
+		min-height: 0;
+		overflow: visible;
+	}
+
+	.ps-page .layout-main {
+		flex-direction: column;
+	}
+
 	.ps-cards,
 	.ps-work,
 	.ps-split,
 	.ps-info-grid {
 		grid-template-columns: 1fr;
+	}
+
+	.ps-groups > .ps-panel,
+	.ps-detail > .ps-panel {
+		height: min(70dvh, 720px);
+		max-height: min(70dvh, 720px);
+		flex: none;
 	}
 }

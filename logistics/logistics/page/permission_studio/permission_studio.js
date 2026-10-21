@@ -248,7 +248,7 @@ frappehero.PermissionStudio = class PermissionStudio {
 	detailHtml() {
 		const group = this.selectedGroup();
 		if (!group) {
-			return `<div class="ps-panel"><div class="ps-empty"><p>${__("Create a group, add the people in it, then add the companies, territories, or other values they may use.")}</p><button type="button" class="ps-btn" data-action="new-group">${__("New Group")}</button></div></div>`;
+			return `<div class="ps-panel"><div class="ps-detail-scroll"><div class="ps-empty"><p>${__("Create a group, add the people in it, then add the companies, territories, or other values they may use.")}</p><button type="button" class="ps-btn" data-action="new-group">${__("New Group")}</button></div></div></div>`;
 		}
 		const title = group.group_name || group.name;
 		const tabs = [
@@ -279,7 +279,7 @@ frappehero.PermissionStudio = class PermissionStudio {
 				<button type="button" class="ps-icon-btn ps-danger" data-action="delete-group" aria-label="${__("Delete")}">${this.icon("trash")}</button>
 			</div>
 			<div class="ps-tabs">${tabButtons}</div>
-			${this.detailBody(group)}
+			<div class="ps-detail-scroll">${this.detailBody(group)}</div>
 		</div>`;
 	}
 
