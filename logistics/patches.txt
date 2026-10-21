@@ -1058,3 +1058,5 @@ logistics.patches.v3_0_repair_child_parent_columns
 logistics.patches.v3_0_sync_utilities_bulk_update_studio
 # Permission Studio: restore the 14 Oct Frappe Hero studio.
 logistics.patches.v3_0_restore_hero_permission_studio
+# Customs desktop tile was an External /app/customs link. Open /desk/customs.
+logistics.patches.v3_0_point_customs_desktop_icon_at_desk
