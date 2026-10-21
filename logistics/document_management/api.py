@@ -458,6 +458,24 @@ def get_document_template_filters(doctype):
 	return {"filters": filters or []}
 
 
+def _customer_visibility_by_document_type(document_types):
+	"""Map Logistics Document Type name to Visible to Customer (1 or 0)."""
+	codes = []
+	seen = set()
+	for code in document_types or []:
+		if code and code not in seen:
+			seen.add(code)
+			codes.append(code)
+	if not codes:
+		return {}
+	rows = frappe.get_all(
+		"Logistics Document Type",
+		filters={"name": ["in", codes]},
+		fields=["name", "visible_to_customer"],
+	)
+	return {row.name: cint(row.visible_to_customer) for row in rows}
+
+
 @frappe.whitelist()
 def populate_documents_from_template(doctype, docname, doc=None):
 	"""Populate documents child table from template. Only adds missing document types."""
@@ -478,16 +496,21 @@ def populate_documents_from_template(doctype, docname, doc=None):
 	items = _get_document_template_items_for_doc(doc, product_type, applies_to, direction, entry_type)
 
 	existing_types = {d.document_type for d in (doc.get("documents") or [])}
+	to_add = [item for item in items if item.document_type not in existing_types]
+	visibility = _customer_visibility_by_document_type(
+		[item.document_type for item in to_add]
+	)
 
 	added = 0
 	now_dt = frappe.utils.now()
-	for item in items:
+	for item in to_add:
 		if item.document_type in existing_types:
 			continue
 		date_required = _compute_date_required(doc, item)
 		doc.append("documents", {
 			"document_type": item.document_type,
 			"is_required": 1 if item.is_mandatory else 0,
+			"visible_to_customer": visibility.get(item.document_type, 0),
 			"status": "Pending",
 			"date_required": date_required,
 			"source": "Fetched",

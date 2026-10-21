@@ -19,6 +19,7 @@
   "attachment",
   "column_break_attachment",
   "is_required",
+  "visible_to_customer",
   "is_verified",
   "verified_by",
   "issued_by",
@@ -110,6 +111,15 @@
   },
   {
    "default": "0",
+   "description": "Defaulted from Document Type when this row is extracted. You can change it for this document.",
+   "fetch_from": "document_type.visible_to_customer",
+   "fieldname": "visible_to_customer",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Visible to Customer"
+  },
+  {
+   "default": "0",
    "fieldname": "is_verified",
    "fieldtype": "Check",
    "label": "Verified"
@@ -166,7 +176,7 @@
  "grid_page_length": 50,
  "istable": 1,
  "links": [],
- "modified": "2026-04-15 11:24:55.504718",
+ "modified": "2026-10-21 08:10:00.000000",
  "modified_by": "Administrator",
  "module": "Logistics",
  "name": "Job Document",

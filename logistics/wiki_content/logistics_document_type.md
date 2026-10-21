@@ -2,7 +2,7 @@
 
 **Logistics Document Type** is a master that defines the standard document types used across CargoNext for document tracking. Examples include Commercial Invoice (CI), Packing List (PL), Bill of Lading (BL), Air Waybill (AWB), Certificate of Origin, and Proof of Delivery.
 
-Each document type has a code, name, category (Trade, Transport, Customs, Insurance, DG, Other), typical format (PDF, Image, Excel, Any), and whether it has an expiry date.
+Each document type has a code, name, category (Trade, Transport, Customs, Insurance, DG, Other), typical format (PDF, Image, Excel, Any), whether it has an expiry date, and whether it is visible to the customer. **Visible to Customer** is copied onto each Documents row when documents are extracted from a template.
 
 To access Logistics Document Type, go to:
 
@@ -16,7 +16,8 @@ To access Logistics Document Type, go to:
 4. Select **Category** (Trade, Transport, Customs, Insurance, Dangerous Goods, Other).
 5. Select **Typical Format** (PDF, Image, Excel, Any).
 6. Check **Has Expiry** if the document has a validity period.
-7. **Save** the document.
+7. Check **Visible to Customer** if documents of this type should be shown to the customer. Get Documents uses this as the default on each new Documents row.
+8. **Save** the document.
 
 ## 2. Standard Document Types (Examples)
 
@@ -52,6 +53,7 @@ _All fields from DocType **Logistics Document Type** and nested child tables, in
 | Options (`section_break_options`) | Section Break | **Purpose:** Visual grouping and optional heading for the fields that follow (improves long freight forms). **What to enter:** No data — informational layout only. |
 | Has Expiry Date (`has_expiry`) | Check | **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
 | Product Specific (`is_product_specific`) | Check | **Purpose:** Boolean flag that drives validation, billing, DG handling, or UI (depending on the field label). **What to enter:** Tick **Yes** / enabled, untick **No** / disabled. |
+| Visible to Customer (`visible_to_customer`) | Check | **Purpose:** Documents of this type are visible to the customer. **What to enter:** Tick to show this document type to the customer. **Behaviour:** Copied onto Documents rows when they are extracted from a template. |
 | `column_break_2` | Column Break | **Purpose:** Continues the current row in a second column (standard ERP two-column layout). **What to enter:** No data — layout only. |
 | Description (`description`) | Small Text | **Purpose:** Short note or identifier where a full **Text** field is not needed. **What to enter:** One line of text; keep it brief for list views. |
 
