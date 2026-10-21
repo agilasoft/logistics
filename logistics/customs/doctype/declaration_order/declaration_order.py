@@ -892,6 +892,8 @@ def create_declaration_order_from_sales_quote(
 	parent_overrides: dict | None = None,
 	selected_charge_row_names: list | None = None,
 	blanket_call_off: bool = False,
+	shipper: str | None = None,
+	consignee: str | None = None,
 ):
 	"""
 	Create a Declaration Order from a Sales Quote (One-off or Regular blanket, with customs).
@@ -1008,10 +1010,15 @@ def create_declaration_order_from_sales_quote(
 	if cur:
 		order.currency = cur
 
-	if getattr(sq, "shipper", None):
-		order.exporter_shipper = sq.shipper
-	if getattr(sq, "consignee", None):
-		order.importer_consignee = sq.consignee
+	from logistics.customs.declaration_types import is_permit_application_only, optional_party_from_dialog
+
+	application = is_permit_application_only(order.declaration_type)
+	order.exporter_shipper = optional_party_from_dialog(
+		shipper, getattr(sq, "shipper", None), application
+	)
+	order.importer_consignee = optional_party_from_dialog(
+		consignee, getattr(sq, "consignee", None), application
+	)
 	copy_operational_rep_fields_from_chain(order, source_doc=sq)
 	order.insert(ignore_permissions=True)
 	# before_save usually fills charges; ensure one-off create always gets bill_to / pay_to / sales_quote_link

@@ -62,7 +62,7 @@ frappe.query_reports["Declaration Status Report"] = {
 			"fieldname": "declaration_type",
 			"label": __("Declaration Type"),
 			"fieldtype": "Select",
-			"options": "Import\nExport\nTransit\nBonded"
+			"options": "Import\nExport\nTransit\nBonded\nApplication"
 		},
 		{
 			"fieldname": "status",

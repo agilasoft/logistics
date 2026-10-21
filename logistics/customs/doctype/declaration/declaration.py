@@ -292,6 +292,9 @@ class Declaration(VirtualLinkedServicesMixin, Document):
 		"""Handle status changes"""
 		self.handle_status_changes()
 		self.sync_internal_job_details_to_declaration_order()
+		from logistics.customs.permit_application_only import ensure_permit_application_only_job
+
+		ensure_permit_application_only_job(self)
 	
 	def before_submit(self):
 		"""Validate before submission"""

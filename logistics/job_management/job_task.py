@@ -320,10 +320,19 @@ def _row_value(row, fieldname):
 
 
 def _template_items_for_doc(doc):
-	"""Use the template selected on the document, otherwise the matching default."""
+	"""Use the template selected on the document, otherwise the matching default.
+
+	Declaration Type Application uses the permit-application-only checklist
+	unless a Job Task Template is selected on the document.
+	"""
 	explicit = _text(_parent_value(doc, "job_task_template"))
 	if explicit:
 		return explicit, _load_template_items(explicit)
+	from logistics.customs.permit_application_only import permit_application_only_template
+
+	permit_only = permit_application_only_template(doc)
+	if permit_only:
+		return permit_only
 	product_type, applies_to = JOB_TASK_PARENTS[doc.doctype]
 	template = choose_job_task_template(
 		doc.doctype,

@@ -413,7 +413,7 @@ function _prompt_internal_customs_job_dialog(frm, sales_quote) {
 					{ fieldtype: "Link", fieldname: "profit_center", label: __("Profit Center"), options: "Profit Center", default: defaults.profit_center },
 					{ fieldtype: "Section Break", label: __("Required Additional Details") },
 					{ fieldtype: "Link", fieldname: "customs_authority", label: __("Customs Authority"), options: "Customs Authority", reqd: 1, default: defaults.customs_authority },
-					{ fieldtype: "Select", fieldname: "declaration_type", label: __("Declaration Type"), options: "\nImport\nExport\nTransit", reqd: 1, default: defaults.declaration_type }
+					{ fieldtype: "Select", fieldname: "declaration_type", label: __("Declaration Type"), options: "\nImport\nExport\nTransit\nBonded\nApplication", reqd: 1, default: defaults.declaration_type }
 				],
 				primary_action_label: __("Create Internal Job"),
 				primary_action: function(values) {
@@ -610,7 +610,15 @@ frappe.ui.form.on("Declaration Order", {
 			logistics.party_defaults.apply(frm);
 		}
 	},
+	declaration_type(frm) {
+		if (logistics.party_defaults) {
+			logistics.party_defaults.apply_application_party_labels(frm);
+		}
+	},
 	refresh(frm) {
+		if (logistics.party_defaults) {
+			logistics.party_defaults.apply_application_party_labels(frm);
+		}
 		if (window.logistics && logistics.setup_virtual_linked_services_grid) {
 			logistics.setup_virtual_linked_services_grid(frm);
 		}

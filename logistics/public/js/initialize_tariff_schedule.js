@@ -125,7 +125,7 @@ function _gcfts_filter_specs(frm) {
 			{
 				key: "declaration_type",
 				fieldtype: "Select",
-				options: "Import\nExport\nTransit\nBonded",
+				options: "Import\nExport\nTransit\nBonded\nApplication",
 				label: __("Declaration Type"),
 				value: frm.doc.declaration_type || "",
 			},

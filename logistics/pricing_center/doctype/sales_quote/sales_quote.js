@@ -498,6 +498,17 @@ function logistics_sq_setup_services_button(frm) {
 	});
 }
 
+function logistics_sq_apply_application_party_requirement(frm) {
+	if (!frm || !frm.doc) {
+		return;
+	}
+	const optional =
+		frm.doc.main_service === "Warehousing" ||
+		(frm.doc.main_service === "Customs" && frm.doc.declaration_type === "Application");
+	frm.toggle_reqd("shipper", !optional);
+	frm.toggle_reqd("consignee", !optional);
+}
+
 function logistics_sales_quote_supports_booking_order_creation(doc) {
 	if (!doc || cint(doc.additional_charge)) {
 		return false;
@@ -933,7 +944,12 @@ frappe.ui.form.on("Sales Quote", {
 		logistics_refresh_sales_quote_estimated_profitability(frm);
 	},
 
+	declaration_type(frm) {
+		logistics_sq_apply_application_party_requirement(frm);
+	},
+
 	main_service(frm) {
+		logistics_sq_apply_application_party_requirement(frm);
 		if (frm.doc.main_service) {
 			const prefix_map = {
 				Sea: "sea_",
@@ -1146,6 +1162,7 @@ frappe.ui.form.on("Sales Quote", {
 	},
 
 	refresh(frm) {
+		logistics_sq_apply_application_party_requirement(frm);
 		logistics_show_sales_quote_permit_alerts(frm);
 		logistics_sq_set_company_dimension_queries(frm);
 		setTimeout(function () {
@@ -3214,8 +3231,24 @@ function show_declaration_order_confirmation(frm) {
 						fieldname: "declaration_type",
 						fieldtype: "Select",
 						label: __("Declaration Type"),
-						options: "\nImport\nExport\nTransit\nBonded",
+						options: "\nImport\nExport\nTransit\nBonded\nApplication",
 						default: defaults.declaration_type
+					},
+					{
+						fieldname: "shipper",
+						fieldtype: "Link",
+						label: __("Shipper"),
+						options: "Shipper",
+						default: frm.doc.shipper || "",
+						description: __("Optional when Declaration Type is Application.")
+					},
+					{
+						fieldname: "consignee",
+						fieldtype: "Link",
+						label: __("Consignee"),
+						options: "Consignee",
+						default: frm.doc.consignee || "",
+						description: __("Optional when Declaration Type is Application.")
 					}
 				],
 				apply_values: function(values) {
@@ -3228,9 +3261,22 @@ function show_declaration_order_confirmation(frm) {
 						frm.set_value("customs_authority", values.customs_authority || "");
 						frm.set_value("declaration_type", values.declaration_type || "");
 					}
+					if (values.declaration_type === "Application") {
+						frm.set_value("shipper", values.shipper || "");
+						frm.set_value("consignee", values.consignee || "");
+					} else if (frm.doc.main_service === "Customs") {
+						if (values.shipper) {
+							frm.set_value("shipper", values.shipper);
+						}
+						if (values.consignee) {
+							frm.set_value("consignee", values.consignee);
+						}
+					}
 					frm._declaration_order_precreate_values = {
 						customs_authority: values.customs_authority || "",
-						declaration_type: values.declaration_type || ""
+						declaration_type: values.declaration_type || "",
+						shipper: values.shipper || "",
+						consignee: values.consignee || ""
 					};
 				},
 				on_continue: function() {
@@ -3244,7 +3290,9 @@ function show_declaration_order_confirmation(frm) {
 								args: {
 									sales_quote_name: frm.doc.name,
 									customs_authority: pre.customs_authority,
-									declaration_type: pre.declaration_type
+									declaration_type: pre.declaration_type,
+									shipper: pre.shipper,
+									consignee: pre.consignee
 								},
 								callback: function(r) {
 									frm.dashboard.clear_headline();

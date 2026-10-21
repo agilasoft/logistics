@@ -48,7 +48,9 @@ a Declaration Order even if it has Customs charge lines.
 
 **Declaration Order** optional filters: **Customs Authority**, **Declaration Type**, **Customs Broker**, and
 **Transport Mode** (when set on the job or dialog) further narrow by matching charge lines; blanks are
-wildcards. A blank broker on a charge line still matches any broker filter.
+wildcards. A blank broker on a charge line still matches any broker filter. **Shipper** and **Consignee**
+match the Sales Quote header (blank on either side is a wildcard) and are optional for Declaration Type
+Application.
 
 **Sea / Air / Transport** corridor filters (ports, airline, shipping line) still use charge rows or
 quotation header when set. **Sales Quote** routing legs are not used for corridor matching.
@@ -67,6 +69,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
+from logistics.customs.declaration_types import DECLARATION_TYPE_SELECT as _DECLARATION_TYPE_OPTIONS
 from logistics.utils.charge_service_type import implied_service_type_for_doctype
 from logistics.utils.operational_rep_fields import copy_operational_rep_fields_from_sales_quote_doc
 from logistics.utils.sales_quote_link_query import (
@@ -107,7 +110,7 @@ def _gcfq_skip_corridor_sql(doctype: str) -> bool:
 	"""Programme parents and Time Sensitive Case match origin/dest via header filters, not charge-row corridor SQL."""
 	return doctype in _PROGRAMME_GCFQ_DOCTYPES or doctype == _GCFQ_TIME_SENSITIVE_DOCTYPE
 
-_DECLARATION_TYPE_OPTIONS = "Import\nExport\nTransit\nBonded"
+
 _DIRECTION_OPTIONS = "Import\nExport\nDomestic"
 _HOUSE_TYPE_OPTIONS = (
 	"Standard House\nCo-load Master\nBlind Co-load Master\nCo-load House\n"
@@ -414,6 +417,20 @@ GCFQ_FILTER_CATALOG: dict[str, tuple[dict, ...]] = {
 			"options": "Freight Agent",
 			"doc_attr": "freight_agent",
 		},
+		{
+			"key": "shipper",
+			"label": "Shipper",
+			"fieldtype": "Link",
+			"options": "Shipper",
+			"doc_attr": "exporter_shipper",
+		},
+		{
+			"key": "consignee",
+			"label": "Consignee",
+			"fieldtype": "Link",
+			"options": "Consignee",
+			"doc_attr": "importer_consignee",
+		},
 		*_ORG_DIM_ENTRIES,
 	),
 	"Special Project": (
@@ -558,6 +575,8 @@ GCFQ_SQ_HEADER_FIELD_MAP: dict[str, dict[str, str]] = {
 		"incoterm": "incoterm",
 		"incoterm_place": "incoterm_place",
 		"freight_agent": "freight_agent",
+		"shipper": "shipper",
+		"consignee": "consignee",
 	},
 	"Special Project": {
 		"project_type": "project_type",

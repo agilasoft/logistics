@@ -284,10 +284,11 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "Application opens a permit application only job on the Declaration. Shipper and Consignee are optional.",
    "fieldname": "declaration_type",
    "fieldtype": "Select",
    "label": "Declaration Type",
-   "options": "Import\nExport\nTransit\nBonded"
+   "options": "Import\nExport\nTransit\nBonded\nApplication"
   },
   {
    "fieldname": "customs_authority",
@@ -322,6 +323,7 @@
    "reqd": 1
   },
   {
+   "description": "Optional when Declaration Type is Application. Shown as Shipper on that job.",
    "fieldname": "exporter_shipper",
    "fieldtype": "Link",
    "label": "Exporter/Shipper",
@@ -329,6 +331,7 @@
    "options": "Shipper"
   },
   {
+   "description": "Optional when Declaration Type is Application. Shown as Consignee on that job.",
    "fieldname": "importer_consignee",
    "fieldtype": "Link",
    "label": "Importer/Consignee",

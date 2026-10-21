@@ -849,7 +849,16 @@ frappe.ui.form.on("Declaration", {
 		}
 	},
 	
+	declaration_type(frm) {
+		if (logistics.party_defaults) {
+			logistics.party_defaults.apply_application_party_labels(frm);
+		}
+	},
+
 	refresh(frm) {
+		if (logistics.party_defaults) {
+			logistics.party_defaults.apply_application_party_labels(frm);
+		}
 		_bind_declaration_booking_milestone_lock(frm);
 		setTimeout(function() {
 			_lock_declaration_booking_milestone_rows(frm);
