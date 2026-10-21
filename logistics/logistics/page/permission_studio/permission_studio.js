@@ -41,6 +41,11 @@ frappehero.PermissionStudio = class PermissionStudio {
 		this.checkedMembers = new Set();
 		this.colors = ["#2490ef", "#5e64ff", "#db2777", "#d97706", "#16a34a", "#0891b2", "#7c3aed", "#dc2626"];
 		this.page.main.addClass("ps-studio");
+		const pageWrapper = this.page.wrapper ? $(this.page.wrapper) : null;
+		if (pageWrapper && pageWrapper.length) {
+			const pageRoot = pageWrapper.closest(".page-container");
+			(pageRoot.length ? pageRoot : pageWrapper).addClass("ps-page");
+		}
 		this.page.set_title(__("Permission Studio"));
 		if (this.page.set_title_sub) {
 			this.page.set_title_sub(__("Manage user groups and permissions in one place"));
@@ -243,7 +248,7 @@ frappehero.PermissionStudio = class PermissionStudio {
 	detailHtml() {
 		const group = this.selectedGroup();
 		if (!group) {
-			return `<div class="ps-panel"><div class="ps-empty"><p>${__("Create a group, add the people in it, then add the companies, territories, or other values they may use.")}</p><button type="button" class="ps-btn" data-action="new-group">${__("New Group")}</button></div></div>`;
+			return `<div class="ps-panel"><div class="ps-detail-scroll"><div class="ps-empty"><p>${__("Create a group, add the people in it, then add the companies, territories, or other values they may use.")}</p><button type="button" class="ps-btn" data-action="new-group">${__("New Group")}</button></div></div></div>`;
 		}
 		const title = group.group_name || group.name;
 		const tabs = [
@@ -274,7 +279,7 @@ frappehero.PermissionStudio = class PermissionStudio {
 				<button type="button" class="ps-icon-btn ps-danger" data-action="delete-group" aria-label="${__("Delete")}">${this.icon("trash")}</button>
 			</div>
 			<div class="ps-tabs">${tabButtons}</div>
-			${this.detailBody(group)}
+			<div class="ps-detail-scroll">${this.detailBody(group)}</div>
 		</div>`;
 	}
 
