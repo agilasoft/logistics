@@ -17,6 +17,12 @@ def extend_bootinfo(bootinfo):
 	bootinfo.logistics_job_management_settings = {"allow_legacy_jobs": allow_legacy_jobs()}
 
 
+@frappe.whitelist()
+def get_allow_legacy_jobs():
+	"""Return the live Allow Legacy Jobs flag so desk forms can hide the checkbox."""
+	return allow_legacy_jobs()
+
+
 LEGACY_JOB_DOCTYPES = (
 	"Air Shipment",
 	"Sea Shipment",
