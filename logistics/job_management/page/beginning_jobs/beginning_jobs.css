@@ -1,52 +1,8 @@
-.beginning-jobs-page {
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-	max-width: 1100px;
+/* The page uses the standard form layout, the same sections and grids as a shipment. */
+.beginning-jobs-form .form-layout {
+	max-width: none;
 }
 
-.beginning-jobs-page .bj-card {
-	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius-md);
-	background: var(--card-bg);
-	padding: 16px;
-}
-
-.beginning-jobs-page .bj-card h4 {
-	margin: 0 0 4px;
-}
-
-.beginning-jobs-page .bj-help {
-	color: var(--text-muted);
-	margin-bottom: 12px;
-}
-
-.beginning-jobs-page .bj-grid {
-	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: 8px 16px;
-}
-
-.beginning-jobs-page .bj-row {
-	border-top: 1px solid var(--border-color);
-	padding-top: 12px;
-	margin-top: 12px;
-}
-
-.beginning-jobs-page .bj-row-actions {
-	display: flex;
-	justify-content: flex-end;
-	margin-top: 4px;
-}
-
-.beginning-jobs-page .bj-toolbar {
-	display: flex;
-	gap: 8px;
-	align-items: center;
-}
-
-@media (max-width: 768px) {
-	.beginning-jobs-page .bj-grid {
-		grid-template-columns: 1fr;
-	}
+.beginning-jobs-form .form-section:first-child {
+	border-top: none;
 }
