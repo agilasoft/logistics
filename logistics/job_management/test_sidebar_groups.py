@@ -25,6 +25,7 @@ PINNED = (
 	("Home", "Workspace", "Job Management", "house"),
 	("Workflow Center", "Page", "workflow-center", "workflow"),
 	("Job Number", "DocType", "Job Number", "file-text"),
+	("Beginning Jobs", "Page", "beginning-jobs", "file-plus"),
 )
 
 SECTION_ICONS = {
@@ -201,3 +202,9 @@ class TestJobManagementSidebarGroups(unittest.TestCase):
 		align = (ROOT / "logistics/patches/v3_0_align_job_management_sidebar.py").read_text()
 		self.assertIn("v3_0_sync_job_management_sidebar", align)
 		self.assertIn("sync_sidebar", align)
+
+		self.assertIn("logistics.patches.v3_0_show_beginning_jobs_in_sidebar", text)
+		show = (ROOT / "logistics/patches/v3_0_show_beginning_jobs_in_sidebar.py").read_text()
+		self.assertIn("v3_0_sync_job_management_sidebar", show)
+		self.assertIn("sync_sidebar", show)
+		self.assertIn("beginning-jobs", show)
