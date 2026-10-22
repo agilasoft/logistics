@@ -2673,7 +2673,13 @@ def _reset_charge_field_for_cleanup(meta: Any, fieldname: str) -> Any:
 def _clear_charge_side_fields(doc: Any, fieldnames: Tuple[str, ...]) -> None:
     meta = frappe.get_meta(doc.doctype)
     for fieldname in fieldnames:
-        if not meta.get_field(fieldname):
+        df = meta.get_field(fieldname)
+        if not df:
+            continue
+        # Required fields stay. Cost and Revenue rows still have to save, and
+        # these columns (calculation method, currency) are required even when
+        # that side is locked.
+        if cint(getattr(df, "reqd", 0)):
             continue
         setattr(doc, fieldname, _reset_charge_field_for_cleanup(meta, fieldname))
 

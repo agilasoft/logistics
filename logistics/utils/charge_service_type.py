@@ -738,11 +738,20 @@ def destination_service_charge_validation(doc, required_service_type=None):
 	}
 
 
+def _beginning_job_charges_sit_on_linked_legs(doc) -> bool:
+	"""A beginning main file may keep every charge on its linked legs."""
+	if not cint(getattr(doc, "is_beginning_job", 0)):
+		return False
+	return not list(getattr(doc, "charges", None) or [])
+
+
 def throw_if_missing_destination_service_charge(doc, required_service_type=None):
 	"""Hard-block submit when destination-specific charges are missing."""
 	from logistics.time_sensitive.propagation import is_time_sensitive_operational_doc
 
 	if is_time_sensitive_operational_doc(doc):
+		return
+	if _beginning_job_charges_sit_on_linked_legs(doc):
 		return
 	payload = destination_service_charge_validation(doc, required_service_type=required_service_type)
 	if not payload.get("is_valid"):

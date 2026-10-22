@@ -109,16 +109,46 @@ class JobNumber(Document):
 			if ref and ref.get("reference_order_type") and ref.get("reference_order"):
 				candidates.append((ref["reference_order_type"], ref["reference_order"]))
 
+		ls_meta = frappe.get_meta(ls_dt)
+		legacy_job_link = ls_meta.has_field("job_type") and ls_meta.has_field("job_no")
 		for jt, jn in candidates:
-			docket = frappe.db.get_value(
-				ls_dt,
-				{
-					"parent_booking_type": "Docket",
-					"job_type": jt,
-					"job_no": jn,
-				},
-				"parent_booking_name",
-			)
+			docket = None
+			if legacy_job_link:
+				docket = frappe.db.get_value(
+					ls_dt,
+					{
+						"parent_booking_type": "Docket",
+						"job_type": jt,
+						"job_no": jn,
+					},
+					"parent_booking_name",
+				)
+			if not docket:
+				docket = _docket_from_linked_service_usage(jt, jn)
 			if docket:
 				return docket
 		return None
+
+
+def _docket_from_linked_service_usage(job_type, job_no):
+	"""Docket that owns a Linked Service whose Usage points at this job."""
+	if not job_type or not job_no or not frappe.db.exists("DocType", "Linked Service Usage"):
+		return None
+	parents = frappe.get_all(
+		"Linked Service Usage",
+		filters={"used_on_doctype": job_type, "used_on_name": job_no},
+		pluck="parent",
+		limit=20,
+	)
+	for parent in parents:
+		row = frappe.db.get_value(
+			"Linked Service",
+			parent,
+			["parent_booking_type", "parent_booking_name"],
+			as_dict=True,
+		)
+		if not row:
+			continue
+		if (row.get("parent_booking_type") or "") == "Docket" and row.get("parent_booking_name"):
+			return row.get("parent_booking_name")
+	return None

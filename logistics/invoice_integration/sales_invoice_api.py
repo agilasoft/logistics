@@ -14,6 +14,7 @@ from frappe.utils import flt, today
 from typing import Dict, Any, Optional, List
 import json
 
+from logistics.job_management.prior_system_posting import PRIOR_SYSTEM_POSTED_STATUS
 from logistics.job_management.recognition_engine import resolve_charge_row_selling
 from logistics.utils.freight_95_5 import (
     apply_freight_95_post_missing_values,
@@ -102,7 +103,7 @@ SALES_CHARGES_CHILD_DOCTYPE = {
 }
 
 # Statuses that mean the charge is already in an SI or further along - exclude from eligibility (avoid duplicate posting)
-SI_EXCLUDED_STATUSES = ("Requested", "Posted", "Paid")
+SI_EXCLUDED_STATUSES = ("Requested", "Posted", "Paid", PRIOR_SYSTEM_POSTED_STATUS)
 
 # (charges_field, revenue_field, rate_field, qty_field, item_field, item_name_field, bill_to_field, invoice_type_field)
 # invoice_type_field pre-filters when invoice_type is provided. bill_to_field is not used to hide charges.

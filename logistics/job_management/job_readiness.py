@@ -10,6 +10,10 @@ from frappe import _
 from frappe.utils import cint, flt
 
 from logistics.job_management.charge_reopen import CHARGE_REOPEN_CONFIG
+from logistics.job_management.prior_system_posting import (
+	cost_posted_in_prior_system,
+	revenue_posted_in_prior_system,
+)
 from logistics.job_management.recognition_engine import (
 	resolve_charge_row_cost,
 	resolve_charge_row_selling,
@@ -98,7 +102,10 @@ def check_charges_posted(doc):
 		item_code = _charge_item_code(ch)
 		label = _charge_label(ch, idx)
 
-		revenue = flt(resolve_charge_row_selling(ch, prefer_actual=True))
+		if revenue_posted_in_prior_system(ch):
+			revenue = 0
+		else:
+			revenue = flt(resolve_charge_row_selling(ch, prefer_actual=True))
 		if revenue > 0 and item_code:
 			si = getattr(ch, "sales_invoice", None)
 			si_status = (getattr(ch, "sales_invoice_status", None) or "").strip()
@@ -120,7 +127,10 @@ def check_charges_posted(doc):
 					)
 				)
 
-		cost = flt(resolve_charge_row_cost(ch, prefer_actual=True))
+		if cost_posted_in_prior_system(ch):
+			cost = 0
+		else:
+			cost = flt(resolve_charge_row_cost(ch, prefer_actual=True))
 		if cost > 0 and item_code:
 			if is_internal_tariff_cost_charge(ch):
 				je = getattr(ch, "journal_entry_reference", None)

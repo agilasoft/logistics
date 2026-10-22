@@ -14,6 +14,7 @@ from typing import Dict, Any, Optional, List, Tuple
 import json
 
 from logistics.job_management.gl_reference_dimension import reference_dimension_row_dict
+from logistics.job_management.prior_system_posting import PRIOR_SYSTEM_POSTED_STATUS
 from logistics.job_management.recognition_engine import resolve_charge_row_cost
 from logistics.special_projects.special_project_si_job_number import (
     resolve_job_number_for_special_project_charge,
@@ -108,7 +109,7 @@ CHARGE_CONFIG = {
 }
 
 # Statuses that mean the charge is already in a PI or further along - exclude from eligibility (avoid duplicate posting)
-PI_EXCLUDED_STATUSES = ("Requested", "Invoiced", "Posted", "Paid")
+PI_EXCLUDED_STATUSES = ("Requested", "Invoiced", "Posted", "Paid", PRIOR_SYSTEM_POSTED_STATUS)
 
 
 def _purchase_invoice_naming_context() -> Dict[str, Any]:
