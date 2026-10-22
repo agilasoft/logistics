@@ -41,6 +41,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Profit Center",
+   "link_filters": "[[\"Profit Center\", \"is_active\", \"=\", 1]]",
    "options": "Profit Center"
   }
  ],

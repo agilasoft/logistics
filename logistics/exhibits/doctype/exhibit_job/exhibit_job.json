@@ -433,6 +433,7 @@
    "fieldname": "profit_center",
    "fieldtype": "Link",
    "label": "Profit Center",
+   "link_filters": "[[\"Profit Center\", \"is_active\", \"=\", 1]]",
    "options": "Profit Center",
    "reqd": 1
   },

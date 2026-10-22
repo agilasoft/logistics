@@ -293,7 +293,7 @@
    "is_virtual": 0,
    "label": "Profit Center",
    "length": 0,
-   "link_filters": null,
+   "link_filters": "[[\"Profit Center\", \"is_active\", \"=\", 1]]",
    "mandatory_depends_on": null,
    "modified": "2025-10-02 08:40:17.292536",
    "modified_by": "Administrator",

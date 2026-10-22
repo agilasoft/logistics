@@ -125,6 +125,7 @@
    "fieldname": "default_profit_center",
    "fieldtype": "Link",
    "label": "Default Profit Center",
+   "link_filters": "[[\"Profit Center\", \"is_active\", \"=\", 1]]",
    "options": "Profit Center"
   },
   {
