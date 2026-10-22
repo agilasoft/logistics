@@ -1849,7 +1849,6 @@ function _transport_job_add_recognition_buttons(frm) {
 			label: __('WIP and Accrual'),
 			group: __('Post'),
 			ptype: 'write',
-			also: [{ doctype: 'Journal Entry', ptype: 'create' }],
 			action: function() {
 			frappe.call({
 				method: 'logistics.job_management.recognition_engine.recognize',

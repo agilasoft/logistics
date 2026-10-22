@@ -79,7 +79,8 @@ logistics.recognition = {
      */
     setup_form: function(frm) {
         // Event recognition buttons for both draft and submitted documents
-        // Post > WIP and Accrual: charge-line JE links + open balances vs job estimates (no header JE checks)
+        // Post > WIP and Accrual: write on the job is enough. Journal Entry create
+        // is not required; the server posts those journals with ignore_permissions.
         var needs_wip = logistics.recognition.needs_wip_recognition(frm.doc);
         var needs_accrual = logistics.recognition.needs_accrual_recognition(frm.doc);
         if (needs_wip || needs_accrual) {
@@ -87,7 +88,6 @@ logistics.recognition = {
                 label: __('WIP and Accrual'),
                 group: __('Post'),
                 ptype: 'write',
-                also: [{ doctype: 'Journal Entry', ptype: 'create' }],
                 action: function() {
                     logistics.recognition.recognize(frm);
                 },
