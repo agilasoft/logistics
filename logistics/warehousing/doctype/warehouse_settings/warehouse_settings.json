@@ -311,7 +311,7 @@
    "fieldname": "default_cost_center",
    "fieldtype": "Link",
    "label": "Default Cost Center",
-   "link_filters": "[[\"Cost Center\", \"company\", \"=\", \"eval.doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center"
   },
   {

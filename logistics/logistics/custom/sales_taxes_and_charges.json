@@ -37,7 +37,7 @@
    "is_virtual": 0,
    "label": "Branch",
    "length": 0,
-   "link_filters": null,
+   "link_filters": "[[\"Branch\", \"custom_company\", \"=\", \"eval:parent.company\"]]",
    "mandatory_depends_on": null,
    "modified": "2025-10-16 08:43:59.374188",
    "modified_by": "Administrator",

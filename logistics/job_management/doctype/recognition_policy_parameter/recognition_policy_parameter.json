@@ -41,6 +41,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Branch",
+   "link_filters": "[[\"Branch\", \"custom_company\", \"=\", \"eval:parent.company\"]]",
    "options": "Branch"
   },
   {
@@ -56,7 +57,7 @@
    "fieldtype": "Link",
    "label": "Cost Center",
    "options": "Cost Center",
-   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]"
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:parent.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]"
   },
   {
    "fieldname": "column_break_match",
