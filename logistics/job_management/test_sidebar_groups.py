@@ -25,7 +25,6 @@ PINNED = (
 	("Home", "Workspace", "Job Management", "house"),
 	("Workflow Center", "Page", "workflow-center", "workflow"),
 	("Job Number", "DocType", "Job Number", "file-text"),
-	("Beginning Jobs", "Page", "beginning-jobs", "file-plus"),
 )
 
 SECTION_ICONS = {
@@ -55,6 +54,7 @@ GROUPS = {
 		("Job Task Template", "DocType", "Job Task Template"),
 	),
 	"Settings": (
+		("Job Settings", "DocType", "Job Management Settings"),
 		("Recognition Policy", "DocType", "Recognition Policy Settings"),
 	),
 	"Freight Analysis": (
@@ -204,7 +204,9 @@ class TestJobManagementSidebarGroups(unittest.TestCase):
 		self.assertIn("sync_sidebar", align)
 
 		self.assertIn("logistics.patches.v3_0_show_beginning_jobs_in_sidebar", text)
-		show = (ROOT / "logistics/patches/v3_0_show_beginning_jobs_in_sidebar.py").read_text()
-		self.assertIn("v3_0_sync_job_management_sidebar", show)
-		self.assertIn("sync_sidebar", show)
-		self.assertIn("beginning-jobs", show)
+		self.assertIn("logistics.patches.v3_0_replace_beginning_jobs_with_legacy_job", text)
+		replace = (ROOT / "logistics/patches/v3_0_replace_beginning_jobs_with_legacy_job.py").read_text()
+		self.assertIn("v3_0_sync_job_management_sidebar", replace)
+		self.assertIn("sync_sidebar", replace)
+		self.assertIn("beginning-jobs", replace)
+		self.assertIn("Job Management Settings", replace)

@@ -1,0 +1,47 @@
+{
+ "actions": [],
+ "creation": "2026-10-22 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "legacy_section",
+  "allow_legacy_jobs"
+ ],
+ "fields": [
+  {
+   "fieldname": "legacy_section",
+   "fieldtype": "Section Break",
+   "label": "Legacy Jobs"
+  },
+  {
+   "default": "0",
+   "description": "When checked, staff can mark Air Shipment, Sea Shipment, Transport Job, Declaration, and Warehouse Job as a Legacy Job. A Legacy Job can be typed without a Sales Quote, booking, or order, including charges and linked services. Charge sides already posted in the old system use Posted in Prior System.",
+   "fieldname": "allow_legacy_jobs",
+   "fieldtype": "Check",
+   "label": "Allow Legacy Jobs"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-10-22 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Job Management",
+ "name": "Job Management Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

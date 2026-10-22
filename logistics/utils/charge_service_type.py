@@ -740,7 +740,7 @@ def destination_service_charge_validation(doc, required_service_type=None):
 
 def _beginning_job_charges_sit_on_linked_legs(doc) -> bool:
 	"""A beginning main file may keep every charge on its linked legs."""
-	if not cint(getattr(doc, "is_beginning_job", 0)):
+	if not (cint(getattr(doc, "is_legacy_job", 0)) or cint(getattr(doc, "is_beginning_job", 0))):
 		return False
 	return not list(getattr(doc, "charges", None) or [])
 

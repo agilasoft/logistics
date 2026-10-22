@@ -85,7 +85,9 @@ class AirShipment(VirtualLinkedServicesMixin, Document):
 		"""Enforce party/routing/booking links when submitting (draft saves may omit them)."""
 		if not self.booking_date:
 			frappe.throw(_("Booking Date is required"))
-		if not self.air_booking and not cint(getattr(self, "is_beginning_job", 0)):
+		if not self.air_booking and not (
+			cint(getattr(self, "is_legacy_job", 0)) or cint(getattr(self, "is_beginning_job", 0))
+		):
 			frappe.throw(_("Air Booking is required. Shipments can only be created by converting an Air Booking."))
 		if not self.shipper:
 			frappe.throw(_("Shipper is required"))

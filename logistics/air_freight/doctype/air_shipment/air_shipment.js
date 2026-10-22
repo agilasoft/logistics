@@ -239,6 +239,9 @@ function _logistics_set_charges_cannot_add_rows(frm) {
 	if (!frm.get_docfield || !frm.get_docfield("charges")) {
 		return;
 	}
+	if (window.logistics && logistics.legacy_job && logistics.legacy_job.is_legacy(frm)) {
+		return;
+	}
 	frm.set_df_property("charges", "cannot_add_rows", 1);
 	frm.set_df_property("charges", "allow_bulk_edit", 0);
 }
@@ -394,7 +397,10 @@ frappe.ui.form.on('Air Shipment', {
 			logistics.setup_virtual_linked_services_grid(frm);
 		}
 		setTimeout(function () {
-			if (window.logistics_hide_cannot_add_rows_buttons) {
+			if (
+				window.logistics_hide_cannot_add_rows_buttons &&
+				!(window.logistics && logistics.legacy_job && logistics.legacy_job.is_legacy(frm))
+			) {
 				window.logistics_hide_cannot_add_rows_buttons(frm, "charges");
 			}
 		}, 0);

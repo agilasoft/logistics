@@ -12,6 +12,7 @@
   "section_break_tzyq",
   "amended_from",
   "naming_series",
+  "is_legacy_job",
   "is_beginning_job",
   "type",
   "job_open_date",
@@ -207,12 +208,22 @@
   },
   {
    "default": "0",
-   "description": "Encoded from the old system by Beginning Jobs. No Sales Quote, booking, or order is required.",
+   "description": "Encode a pending file from the old system. No Sales Quote, booking, or order is required. Shown when Allow Legacy Jobs is on in Job Management Settings.",
+   "fieldname": "is_legacy_job",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Legacy Job",
+   "no_copy": 1
+  },
+  {
+   "default": "0",
+   "description": "Kept for files that were encoded before Legacy Job replaced Beginning Jobs.",
    "fieldname": "is_beginning_job",
    "fieldtype": "Check",
    "label": "Beginning Job",
    "no_copy": 1,
-   "read_only": 1
+   "read_only": 1,
+   "hidden": 1
   },
   {
    "fieldname": "charges_tab",
