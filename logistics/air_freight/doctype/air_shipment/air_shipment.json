@@ -10,11 +10,6 @@
   "dashboard_html",
   "details_tab",
   "section_break_main",
-  "is_turnover_shipment",
-  "is_legacy_job",
-  "is_beginning_job",
-  "turnover_charges_template",
-  "transport_mode_column",
   "amended_from",
   "naming_series",
   "booking_date",
@@ -33,6 +28,10 @@
   "entry_type",
   "service_level",
   "contains_dangerous_goods",
+  "is_turnover_shipment",
+  "is_legacy_job",
+  "is_beginning_job",
+  "turnover_charges_template",
   "section_break_consolidation",
   "consolidation_reference",
   "column_break_consolidation",
@@ -655,11 +654,6 @@
    "fieldname": "contacts_and_addresses_tab",
    "fieldtype": "Tab Break",
    "label": "Contacts & Addresses"
-  },
-  {
-   "fieldname": "transport_mode_column",
-   "fieldtype": "Column Break",
-   "options": "Air"
   },
   {
    "fieldname": "shipper_address",
