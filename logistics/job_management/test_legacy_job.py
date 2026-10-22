@@ -5,6 +5,8 @@
 
 from __future__ import unicode_literals
 
+import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import frappe
@@ -28,7 +30,11 @@ from logistics.invoice_integration.sales_invoice_api import (
 )
 from logistics.job_management.doc_events import update_estimates_from_charges
 from logistics.job_management.job_readiness import check_charges_posted
-from logistics.job_management.legacy_job import allow_legacy_jobs, validate_legacy_job
+from logistics.job_management.legacy_job import (
+	allow_legacy_jobs,
+	get_allow_legacy_jobs,
+	validate_legacy_job,
+)
 from logistics.job_management.prior_system_posting import PRIOR_SYSTEM_POSTED_STATUS
 from logistics.job_management.recognition_engine import (
 	RecognitionEngine,
@@ -143,11 +149,26 @@ class TestLegacyJob(FrappeTestCase):
 		settings = frappe.get_single("Job Management Settings")
 		settings.allow_legacy_jobs = 0
 		settings.save(ignore_permissions=True)
+		self.assertFalse(get_allow_legacy_jobs())
 		doc = frappe.new_doc("Air Shipment")
 		doc.is_legacy_job = 1
 		with self.assertRaises(frappe.ValidationError) as raised:
 			validate_legacy_job(doc)
 		self.assertIn("Job Management Settings", str(raised.exception))
+
+	def test_legacy_job_field_stays_hidden_in_form_json(self):
+		root = Path(__file__).resolve().parents[1]
+		paths = (
+			root / "air_freight/doctype/air_shipment/air_shipment.json",
+			root / "sea_freight/doctype/sea_shipment/sea_shipment.json",
+			root / "transport/doctype/transport_job/transport_job.json",
+			root / "customs/doctype/declaration/declaration.json",
+			root / "warehousing/doctype/warehouse_job/warehouse_job.json",
+		)
+		for path in paths:
+			data = json.loads(path.read_text())
+			field = next(row for row in data["fields"] if row["fieldname"] == "is_legacy_job")
+			self.assertEqual(field.get("hidden"), 1, path.name)
 
 	def test_saves_named_air_file_with_prior_posted_charge(self):
 		name = f"OLD-AIR-{self.sfx}"
