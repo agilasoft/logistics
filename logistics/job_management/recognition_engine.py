@@ -733,7 +733,16 @@ class RecognitionEngine:
         return False
 
     def _ignore_permissions(self):
-        return bool(getattr(frappe.flags, "in_auto_recognition", False))
+        """Skip DocType permission checks for system or delegated recognition posts.
+
+        Auto-recognition runs as a system job. Manual Post → WIP and Accrual is
+        allowed for users who can write the job, even when they cannot create a
+        Journal Entry. Adjust and close still require Journal Entry create.
+        """
+        return bool(
+            getattr(frappe.flags, "in_auto_recognition", False)
+            or getattr(frappe.flags, "ignore_recognition_je_permissions", False)
+        )
 
     def _save_job(self):
         """Stamp header amounts / charge JE links. Auto-recognize only runs after submit."""
@@ -751,6 +760,9 @@ class RecognitionEngine:
             # Recognition / adjustment JEs must not re-enter the cost/revenue reversal hook.
             flags.skip_logistics_recognition_reversal = True
         je.insert(ignore_permissions=ignore)
+        # submit() checks Journal Entry submit unless this flag stays set.
+        if ignore and flags is not None:
+            flags.ignore_permissions = True
         je.submit()
 
     # ==================== Journal Entry Creation ====================
@@ -1785,12 +1797,15 @@ def recognize(doctype, docname, recognition_date=None):
     """
     API to recognize WIP and accruals for a job (manual action).
     Runs both WIP and accrual recognition based on Recognition Policy Settings.
-    
+
+    Requires write on the job. Journal Entry create is not required; the journals
+    are posted with ignore_permissions.
+
     Args:
         doctype: The job document type
         docname: The job document name
         recognition_date: Optional recognition date
-    
+
     Returns:
         dict: Names of created Journal Entries and status
     """
@@ -1798,11 +1813,22 @@ def recognize(doctype, docname, recognition_date=None):
     from logistics.utils.menu_permission import assert_perm
 
     assert_perm(doctype, "write", doc=job)
-    assert_perm("Journal Entry", "create")
+    # Journal Entry create is not required. Users with write on the job can post;
+    # the journals are inserted and submitted with ignore_permissions.
+    prev_ignore = getattr(frappe.flags, "ignore_recognition_je_permissions", False)
+    frappe.flags.ignore_recognition_je_permissions = True
+    try:
+        return _recognize_wip_and_accruals(doctype, docname, recognition_date, job)
+    finally:
+        frappe.flags.ignore_recognition_je_permissions = prev_ignore
+
+
+def _recognize_wip_and_accruals(doctype, docname, recognition_date, job):
+    """Post pending WIP and accrual for one job. Caller sets the ignore-permission flag."""
     # Allow recognition on both draft (0) and submitted (1) documents
     engine = RecognitionEngine(job)
     result = {"wip_journal_entry": None, "accrual_journal_entry": None}
-    
+
     try:
         wip_je = engine.recognize_wip(recognition_date)
         if wip_je:
