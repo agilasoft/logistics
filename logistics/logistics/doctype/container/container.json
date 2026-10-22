@@ -224,7 +224,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Return Status",
-   "options": "Not Returned\nReturned\nOverdue"
+   "options": "\nNot Returned\nReturned\nOverdue"
   },
   {
    "fieldname": "returned_date",

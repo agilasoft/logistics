@@ -239,7 +239,6 @@ def get_or_create_container(
 		container.seal_number = seal_number
 		container.status = status or "In Transit"
 		container.free_time_days = resolved_free_time
-		container.return_status = "Not Returned"
 		if container.status in ("Empty Returned", "Closed"):
 			container.return_status = "Returned"
 			container.returned_date = getdate(now_datetime())
@@ -268,7 +267,6 @@ def get_or_create_container(
 	container.seal_number = seal_number
 	container.status = status or "In Transit"
 	container.free_time_days = resolved_free_time
-	container.return_status = "Not Returned"
 	if container.status in ("Empty Returned", "Closed"):
 		container.return_status = "Returned"
 		container.returned_date = getdate(now_datetime())
