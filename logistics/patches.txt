@@ -1066,3 +1066,5 @@ logistics.patches.v3_0_seed_permit_application_only_type
 logistics.patches.v3_0_seed_declaration_order_party_gcfq_filters
 # Air Consolidation Packages.commodity is a Link to Commodity (same as Air Shipment packages).
 logistics.patches.v3_0_air_consolidation_package_commodity_link
+# Beginning Jobs: the sidebar sync already ran, so existing sites never received the link.
+logistics.patches.v3_0_show_beginning_jobs_in_sidebar
