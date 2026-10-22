@@ -109,23 +109,25 @@ class TestJobNumberSyncProjectAndDocket(UnitTestCase):
 					return "SBK-001"
 			if dt == "Docket" and name == "D-EXPO" and fieldname == "project":
 				return "PROJ-DOCK"
-			if dt == "Internal Job Detail":
-				# Signature: frappe.db.get_value(doctype, filters_dict, fieldname).
-				# Here ``name`` carries the filters dict; ``fieldname`` is "parent".
-				filters = name
-				if (
-					isinstance(filters, dict)
-					and filters.get("job_type") == "Sea Booking"
-					and filters.get("job_no") == "SBK-001"
-				):
-					return "D-EXPO"
-				return None
+			if dt == "Linked Service" and name == "LS-DOCKET" and kwargs.get("as_dict"):
+				return {"parent_booking_type": "Docket", "parent_booking_name": "D-EXPO"}
 			return None
+
+		def _get_all(dt, *args, **kwargs):
+			filters = kwargs.get("filters") or {}
+			if (
+				dt == "Linked Service Usage"
+				and filters.get("used_on_doctype") == "Sea Booking"
+				and filters.get("used_on_name") == "SBK-001"
+			):
+				return ["LS-DOCKET"]
+			return []
 
 		with (
 			patch("frappe.db.exists", side_effect=_exists),
 			patch("frappe.get_meta", return_value=fake_meta),
 			patch("frappe.db.get_value", side_effect=_get_value),
+			patch("frappe.get_all", side_effect=_get_all),
 		):
 			jcn._sync_project_and_docket()
 

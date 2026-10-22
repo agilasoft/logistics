@@ -25,6 +25,9 @@ def resolve_charge_row_selling(charge, *, prefer_actual=False):
     """
     Resolve selling-side amount on a charge row; 0 for disbursements.
 
+    Revenue tagged Posted in Prior System contributes nothing, so WIP and the
+    header estimated-revenue rollup do not post it again.
+
     ``prefer_actual=False`` (default): estimates first — used for WIP recognition
     and header ``estimated_revenue`` rollup.
 
@@ -32,6 +35,11 @@ def resolve_charge_row_selling(charge, *, prefer_actual=False):
     line amounts (mirrors ``resolve_charge_row_cost`` for Purchase Invoice).
     """
     if (getattr(charge, "charge_type", None) or "").strip().lower() == "disbursement":
+        return 0
+
+    from logistics.job_management.prior_system_posting import revenue_posted_in_prior_system
+
+    if revenue_posted_in_prior_system(charge):
         return 0
 
     if prefer_actual:
@@ -77,6 +85,11 @@ def resolve_charge_row_cost(charge, *, prefer_actual=False):
     line rates for Sea Shipment, Special Project, and Docket charges.
     """
     if (getattr(charge, "charge_type", None) or "").strip().lower() == "disbursement":
+        return 0
+
+    from logistics.job_management.prior_system_posting import cost_posted_in_prior_system
+
+    if cost_posted_in_prior_system(charge):
         return 0
 
     if prefer_actual:

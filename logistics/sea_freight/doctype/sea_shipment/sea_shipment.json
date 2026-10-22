@@ -11,6 +11,7 @@
   "details_tab",
   "section_break_main",
   "is_turnover_shipment",
+  "is_beginning_job",
   "turnover_charges_template",
   "naming_series",
   "booking_date",
@@ -254,6 +255,15 @@
    "fieldtype": "Check",
    "in_standard_filter": 1,
    "label": "Turnover Shipment"
+  },
+  {
+   "default": "0",
+   "description": "Encoded from the old system by Beginning Jobs. No Sales Quote, booking, or order is required.",
+   "fieldname": "is_beginning_job",
+   "fieldtype": "Check",
+   "label": "Beginning Job",
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "fieldname": "turnover_charges_template",

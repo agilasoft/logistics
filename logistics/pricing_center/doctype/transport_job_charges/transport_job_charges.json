@@ -680,7 +680,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Cost Invoice Status",
-   "options": "Not Requested\nRequested\nPosted\nPaid",
+   "options": "Not Requested\nRequested\nPosted\nPaid\nPosted in Prior System",
    "read_only": 1
   },
   {
@@ -696,7 +696,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Revenue Invoice Status",
-   "options": "Not Requested\nRequested\nPosted\nPaid",
+   "options": "Not Requested\nRequested\nPosted\nPaid\nPosted in Prior System",
    "read_only": 1
   },
   {

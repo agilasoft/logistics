@@ -715,7 +715,7 @@ class SeaShipment(VirtualLinkedServicesMixin, Document):
         if not self.booking_date:
             frappe.throw(_("Booking Date is required"))
         
-        if not self.sea_booking:
+        if not self.sea_booking and not cint(getattr(self, "is_beginning_job", 0)):
             frappe.throw(_("Sea Booking is required. Shipments can only be created by converting a Sea Booking."))
         
         if not self.shipper:

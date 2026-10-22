@@ -15,7 +15,8 @@ def create_test_company(company_name="Test Air Freight Company"):
 			"doctype": "Company",
 			"company_name": company_name,
 			"abbr": "TAFC",
-			"default_currency": "USD"
+			"default_currency": "USD",
+			"country": "United States",
 		})
 		company.insert()
 	return company_name
@@ -145,20 +146,20 @@ def create_test_consignee(code="TEST-CONSIGNEE", consignee_name="Test Consignee"
 
 def create_test_branch(company, branch_name="Test Branch"):
 	"""Create a test branch"""
-	# Branch uses autoname: prompt and requires custom_company field
-	# Try to find existing branch first
-	existing = frappe.db.get_value("Branch", {"custom_company": company, "branch": branch_name}, "name")
+	# Branch autoname is prompt. custom_company exists only on sites that still have that column.
+	filters = {"branch": branch_name}
+	if frappe.db.has_column("Branch", "custom_company"):
+		filters["custom_company"] = company
+	existing = frappe.db.get_value("Branch", filters, "name")
 	if existing:
 		return existing
-	
-	# Create new branch
-	branch = frappe.get_doc({
-		"doctype": "Branch",
-		"branch": branch_name,
-		"custom_company": company  # Required custom field
-	})
-	# Set name explicitly for prompt autoname
+
+	payload = {"doctype": "Branch", "branch": branch_name}
+	if frappe.get_meta("Branch").has_field("custom_company"):
+		payload["custom_company"] = company
+	branch = frappe.get_doc(payload)
 	branch.name = f"{company}-{branch_name}".replace(" ", "-")
+	branch.flags.name_set = True
 	branch.insert(ignore_permissions=True)
 	return branch.name
 

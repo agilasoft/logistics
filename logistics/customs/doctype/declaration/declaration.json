@@ -14,6 +14,7 @@
   "section_break_main",
   "amended_from",
   "naming_series",
+  "is_beginning_job",
   "declaration_date",
   "customer",
   "status",
@@ -260,6 +261,15 @@
    "fieldtype": "Select",
    "label": "Naming Series",
    "options": "CD.#########"
+  },
+  {
+   "default": "0",
+   "description": "Encoded from the old system by Beginning Jobs. No Sales Quote, booking, or order is required.",
+   "fieldname": "is_beginning_job",
+   "fieldtype": "Check",
+   "label": "Beginning Job",
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "fieldname": "customer",
