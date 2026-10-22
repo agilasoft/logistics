@@ -701,6 +701,8 @@ after_install = "logistics.control_tower.install.after_install"
 
 from logistics.utils.internal_job_link_validation import apply_internal_job_link_validation_patch
 from logistics.utils.specified_charges_meta import apply_recursive_meta_bundle_patch
+from logistics.job_management.profit_center_links import install_active_profit_center_link_search
 
 apply_internal_job_link_validation_patch()
 apply_recursive_meta_bundle_patch()
+install_active_profit_center_link_search()

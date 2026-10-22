@@ -46,7 +46,7 @@ _FIELD_BEHAVIOR = {
 	"Profit Center": {
 		"fieldname": "profit_center",
 		"label": "Profit Center",
-		"filters": {},
+		"filters": {"is_active": 1},
 	},
 }
 

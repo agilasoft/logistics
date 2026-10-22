@@ -513,7 +513,9 @@ class TestSalesQuoteVirtualLinkedServices(FrappeTestCase):
 			self.assertIn("notes", fieldnames)
 			by_name = {field["fieldname"]: field for field in payload["fields"]}
 			self.assertNotIn("link_filters", by_name["branch"])
-			self.assertNotIn("link_filters", by_name["profit_center"])
+			profit_center_filters = by_name["profit_center"].get("link_filters") or ""
+			self.assertIn("is_active", profit_center_filters)
+			self.assertNotIn('"company"', profit_center_filters)
 			self.assertIn("company", by_name["cost_center"].get("link_filters") or "")
 
 			updated = update_dialog_edit(

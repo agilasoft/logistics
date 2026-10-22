@@ -43,12 +43,22 @@ class TestLinkedServiceCompany(unittest.TestCase):
 			link_filters='[["Branch", "custom_company", "=", "eval:doc.company"]]',
 		)
 		profit_center = frappe._dict(options="Profit Center", link_filters="")
+		active_profit_center = frappe._dict(
+			options="Profit Center",
+			link_filters=(
+				'[["Profit Center", "company", "=", "eval:doc.company"], '
+				'["Profit Center", "is_active", "=", 1]]'
+			),
+		)
 		cost_center = frappe._dict(
 			options="Cost Center",
 			link_filters='[["Cost Center", "company", "=", "eval:doc.company"]]',
 		)
 		self.assertEqual(_dialog_link_filters(branch), "")
 		self.assertEqual(_dialog_link_filters(profit_center), "")
+		active_filters = _dialog_link_filters(active_profit_center)
+		self.assertIn("is_active", active_filters)
+		self.assertNotIn("company", active_filters)
 		self.assertIn("company", _dialog_link_filters(cost_center))
 		self.assertIn("eval:doc.company", _dialog_link_filters(cost_center))
 
@@ -78,7 +88,10 @@ class TestLinkedServiceCompany(unittest.TestCase):
 			data = json.loads((root / relative).read_text())
 			fields = {field["fieldname"]: field for field in data["fields"]}
 			self.assertNotIn("link_filters", fields["branch"])
-			self.assertNotIn("link_filters", fields["profit_center"])
+			profit_center_filters = fields["profit_center"].get("link_filters") or ""
+			self.assertIn("is_active", profit_center_filters)
+			self.assertNotIn("custom_company", profit_center_filters)
+			self.assertNotIn('"company"', profit_center_filters)
 			self.assertIn("company", fields["cost_center"]["link_filters"])
 			self.assertNotIn("custom_company", fields["cost_center"]["link_filters"])
 
