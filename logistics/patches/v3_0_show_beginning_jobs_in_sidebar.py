@@ -10,6 +10,7 @@ when the workspace does not have it yet.
 from __future__ import annotations
 
 import json
+import os
 
 import frappe
 
@@ -23,7 +24,8 @@ SHORTCUT_ID = "bjShortcut01"
 
 def execute():
 	frappe.flags.in_patch = True
-	if frappe.db.exists("DocType", "Page"):
+	page_path = frappe.get_app_path("logistics", "job_management", "page", "beginning_jobs")
+	if frappe.db.exists("DocType", "Page") and os.path.isdir(page_path):
 		frappe.reload_doc("job_management", "page", "beginning_jobs", force=True)
 	sync_sidebar()
 	_ensure_workspace_shortcut()

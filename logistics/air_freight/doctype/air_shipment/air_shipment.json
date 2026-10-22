@@ -11,6 +11,7 @@
   "details_tab",
   "section_break_main",
   "is_turnover_shipment",
+  "is_legacy_job",
   "is_beginning_job",
   "turnover_charges_template",
   "transport_mode_column",
@@ -235,12 +236,22 @@
   },
   {
    "default": "0",
-   "description": "Encoded from the old system by Beginning Jobs. No Sales Quote, booking, or order is required.",
+   "description": "Encode a pending file from the old system. No Sales Quote, booking, or order is required. Shown when Allow Legacy Jobs is on in Job Management Settings.",
+   "fieldname": "is_legacy_job",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Legacy Job",
+   "no_copy": 1
+  },
+  {
+   "default": "0",
+   "description": "Kept for files that were encoded before Legacy Job replaced Beginning Jobs.",
    "fieldname": "is_beginning_job",
    "fieldtype": "Check",
    "label": "Beginning Job",
    "no_copy": 1,
-   "read_only": 1
+   "read_only": 1,
+   "hidden": 1
   },
   {
    "fieldname": "turnover_charges_template",
@@ -469,12 +480,12 @@
    "fieldname": "density_factor_html",
    "fieldtype": "HTML",
    "label": "Density Factor",
-   "options": "<div class=\"density-factor-container\"><div class=\"density-factor-header\"><span class=\"density-factor-title\">Density Factor</span><span class=\"density-factor-classification\" data-zone=\"\"></span></div><div class=\"density-factor-meta\"><span class=\"density-factor-value is-empty\" data-doc-value=\"\"></span><span class=\"density-factor-unit\">cm³/kg</span></div><div class=\"density-factor-track\" role=\"progressbar\" aria-valuemin=\"0\" aria-valuemax=\"6000\" aria-valuenow=\"\"><div class=\"density-factor-fill\"></div><div class=\"density-factor-indicator\"></div></div><div class=\"density-factor-scale\"><span class=\"dfs-pos\" data-tier=\"dense\" style=\"left: 0%\"><span class=\"dfs-num\">0</span><span class=\"dfs-lbl\">Dense</span></span><span class=\"dfs-pos\" style=\"left: 25%\"><span class=\"dfs-num\">1500</span></span><span class=\"dfs-pos\" style=\"left: 50%\"><span class=\"dfs-num\">3000</span></span><span class=\"dfs-pos\" style=\"left: 75%\"><span class=\"dfs-num\">4500</span></span><span class=\"dfs-pos\" data-tier=\"volumetric\" style=\"left: 100%\"><span class=\"dfs-num\">6000</span><span class=\"dfs-lbl\">Volumetric</span></span></div><div class=\"density-factor-error\"></div></div>"
+   "options": "<div class=\"density-factor-container\"><div class=\"density-factor-header\"><span class=\"density-factor-title\">Density Factor</span><span class=\"density-factor-classification\" data-zone=\"\"></span></div><div class=\"density-factor-meta\"><span class=\"density-factor-value is-empty\" data-doc-value=\"\"></span><span class=\"density-factor-unit\">cm\u00b3/kg</span></div><div class=\"density-factor-track\" role=\"progressbar\" aria-valuemin=\"0\" aria-valuemax=\"6000\" aria-valuenow=\"\"><div class=\"density-factor-fill\"></div><div class=\"density-factor-indicator\"></div></div><div class=\"density-factor-scale\"><span class=\"dfs-pos\" data-tier=\"dense\" style=\"left: 0%\"><span class=\"dfs-num\">0</span><span class=\"dfs-lbl\">Dense</span></span><span class=\"dfs-pos\" style=\"left: 25%\"><span class=\"dfs-num\">1500</span></span><span class=\"dfs-pos\" style=\"left: 50%\"><span class=\"dfs-num\">3000</span></span><span class=\"dfs-pos\" style=\"left: 75%\"><span class=\"dfs-num\">4500</span></span><span class=\"dfs-pos\" data-tier=\"volumetric\" style=\"left: 100%\"><span class=\"dfs-num\">6000</span><span class=\"dfs-lbl\">Volumetric</span></span></div><div class=\"density-factor-error\"></div></div>"
   },
   {
    "fieldname": "excess_weight_volume",
    "fieldtype": "Float",
-   "label": "Excess Weight Volume (M³)"
+   "label": "Excess Weight Volume (M\u00b3)"
   },
   {
    "default": "0",
@@ -814,14 +825,14 @@
    "depends_on": "eval:doc.requires_temperature_control==1",
    "fieldname": "min_temperature",
    "fieldtype": "Float",
-   "label": "Minimum Temperature (°C)",
+   "label": "Minimum Temperature (\u00b0C)",
    "precision": "1"
   },
   {
    "depends_on": "eval:doc.requires_temperature_control==1",
    "fieldname": "max_temperature",
    "fieldtype": "Float",
-   "label": "Maximum Temperature (°C)",
+   "label": "Maximum Temperature (\u00b0C)",
    "precision": "1"
   },
   {

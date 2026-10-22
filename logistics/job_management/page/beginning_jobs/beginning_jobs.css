@@ -1,8 +1,0 @@
-/* The page uses the standard form layout, the same sections and grids as a shipment. */
-.beginning-jobs-form .form-layout {
-	max-width: none;
-}
-
-.beginning-jobs-form .form-section:first-child {
-	border-top: none;
-}

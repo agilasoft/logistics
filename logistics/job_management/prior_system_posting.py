@@ -3,7 +3,7 @@
 
 """Charges already posted in a prior system.
 
-Beginning Jobs tags a charge side with this status instead of creating a
+A Legacy Job tags a charge side with this status instead of creating a
 Sales Invoice, Purchase Invoice, or Journal Entry. The amount stays on the
 charge row. Recognition and new invoices skip that side.
 """
