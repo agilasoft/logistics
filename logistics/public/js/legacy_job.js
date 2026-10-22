@@ -19,7 +19,24 @@ function _cint(value) {
 	return isNaN(number) ? 0 : number;
 }
 
+logistics.legacy_job.set_allowed = function (value) {
+	var allowed = !!_cint(value);
+	logistics.legacy_job._allowed = allowed;
+	logistics.legacy_job._live = true;
+	if (!frappe.boot.logistics_job_management_settings) {
+		frappe.boot.logistics_job_management_settings = {};
+	}
+	frappe.boot.logistics_job_management_settings.allow_legacy_jobs = allowed ? 1 : 0;
+	return allowed;
+};
+
 logistics.legacy_job.allowed = function () {
+	if (!logistics.legacy_job._live) {
+		return false;
+	}
+	if (typeof logistics.legacy_job._allowed === "boolean") {
+		return logistics.legacy_job._allowed;
+	}
 	var settings = frappe.boot && frappe.boot.logistics_job_management_settings;
 	return !!(settings && _cint(settings.allow_legacy_jobs));
 };
@@ -38,7 +55,7 @@ logistics.legacy_job.apply = function (frm) {
 	var allowed = logistics.legacy_job.allowed();
 	var legacy = logistics.legacy_job.is_legacy(frm);
 	if (frm.fields_dict.is_legacy_job) {
-		frm.toggle_display("is_legacy_job", allowed || legacy);
+		frm.toggle_display("is_legacy_job", allowed);
 		frm.set_df_property("is_legacy_job", "read_only", !allowed || (legacy && !frm.is_new()) ? 1 : 0);
 	}
 	if (frm.fields_dict.is_beginning_job) {
@@ -54,6 +71,20 @@ logistics.legacy_job.apply = function (frm) {
 	}
 };
 
+logistics.legacy_job.sync_and_apply = function (frm) {
+	if (!frm || !LEGACY_JOB_DOCTYPES[frm.doctype]) {
+		return;
+	}
+	logistics.legacy_job.apply(frm);
+	frappe.call({
+		method: "logistics.job_management.legacy_job.get_allow_legacy_jobs",
+		callback: function (r) {
+			logistics.legacy_job.set_allowed(r && r.message);
+			logistics.legacy_job.apply(frm);
+		},
+	});
+};
+
 (function () {
 	if (logistics.legacy_job._handlers_registered) {
 		return;
@@ -62,7 +93,7 @@ logistics.legacy_job.apply = function (frm) {
 	Object.keys(LEGACY_JOB_DOCTYPES).forEach(function (doctype) {
 		frappe.ui.form.on(doctype, {
 			onload: function (frm) {
-				logistics.legacy_job.apply(frm);
+				logistics.legacy_job.sync_and_apply(frm);
 			},
 			refresh: function (frm) {
 				logistics.legacy_job.apply(frm);

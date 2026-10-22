@@ -99,7 +99,7 @@ app_include_js = [
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=4",
 	"/assets/logistics/js/user_quick_entry.js?v=1",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
-	"/assets/logistics/js/legacy_job.js?v=1",
+	"/assets/logistics/js/legacy_job.js?v=2",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
 	"/assets/logistics/js/menu_permission.js?v=10",
 	"/assets/logistics/js/list_settings_role.js?v=1",
