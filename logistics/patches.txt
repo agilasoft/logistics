@@ -1070,3 +1070,5 @@ logistics.patches.v3_0_air_consolidation_package_commodity_link
 logistics.patches.v3_0_show_beginning_jobs_in_sidebar
 # Legacy Job on the existing files replaces the Beginning Jobs page.
 logistics.patches.v3_0_replace_beginning_jobs_with_legacy_job
+# Legacy Job No is the document name on a Legacy Job.
+logistics.patches.v3_0_add_legacy_job_no

@@ -61,6 +61,14 @@ logistics.legacy_job.apply = function (frm) {
 	if (frm.fields_dict.is_beginning_job) {
 		frm.toggle_display("is_beginning_job", 0);
 	}
+	if (frm.fields_dict.legacy_job_no) {
+		frm.toggle_display("legacy_job_no", allowed && legacy);
+		frm.toggle_reqd("legacy_job_no", allowed && legacy && frm.is_new());
+		frm.set_df_property("legacy_job_no", "read_only", frm.is_new() ? 0 : 1);
+	}
+	if (frm.fields_dict.naming_series) {
+		frm.toggle_display("naming_series", !legacy);
+	}
 	if (frm.fields_dict.charges) {
 		frm.set_df_property("charges", "cannot_add_rows", legacy ? 0 : 1);
 		frm.set_df_property("charges", "allow_bulk_edit", legacy ? 1 : 0);
@@ -101,6 +109,9 @@ logistics.legacy_job.sync_and_apply = function (frm) {
 			is_legacy_job: function (frm) {
 				if (frm.fields_dict.is_beginning_job) {
 					frm.set_value("is_beginning_job", _cint(frm.doc.is_legacy_job));
+				}
+				if (!_cint(frm.doc.is_legacy_job) && frm.is_new() && frm.fields_dict.legacy_job_no) {
+					frm.set_value("legacy_job_no", "");
 				}
 				logistics.legacy_job.apply(frm);
 			},
