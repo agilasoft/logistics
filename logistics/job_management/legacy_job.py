@@ -5,16 +5,26 @@
 
 from __future__ import unicode_literals
 
+import re
+
 import frappe
 from frappe import _
-from frappe.utils import cint
+from frappe.utils import cint, cstr
 
 from logistics.job_management.prior_system_posting import PRIOR_SYSTEM_POSTED_STATUS
+
+_LEGACY_JOB_NO_RE = re.compile(r"^[\w][\w.\- ]{0,138}$", re.UNICODE)
 
 
 def extend_bootinfo(bootinfo):
 	"""Tell the desk whether Job Management Settings allows Legacy Jobs."""
 	bootinfo.logistics_job_management_settings = {"allow_legacy_jobs": allow_legacy_jobs()}
+
+
+@frappe.whitelist()
+def get_allow_legacy_jobs():
+	"""Return the live Allow Legacy Jobs flag so desk forms can hide the checkbox."""
+	return allow_legacy_jobs()
 
 
 LEGACY_JOB_DOCTYPES = (
@@ -66,6 +76,14 @@ def validate_legacy_job(doc, method=None):
 		frappe.throw(_("Legacy Job cannot be cleared."), title=_("Legacy Job"))
 
 	if current:
+		number = _normalized_legacy_job_no(doc)
+		if meta.has_field("legacy_job_no"):
+			doc.legacy_job_no = number
+		if not doc.is_new() and doc.name and number != doc.name:
+			frappe.throw(
+				_("Legacy Job No cannot be changed after save. It is the document name."),
+				title=_("Legacy Job"),
+			)
 		return
 	for row in doc.get("charges") or []:
 		for fieldname, label in (
@@ -78,3 +96,31 @@ def validate_legacy_job(doc, method=None):
 					_("{0} posted in the prior system is only valid on a Legacy Job.").format(label),
 					title=_("Legacy Job"),
 				)
+
+
+def apply_legacy_job_name(doc, method=None):
+	"""Name a new Legacy Job from Legacy Job No instead of the naming series."""
+	if not is_legacy_job(doc):
+		return
+	number = _normalized_legacy_job_no(doc)
+	if frappe.db.exists(doc.doctype, number):
+		frappe.throw(_("{0} {1} already exists.").format(doc.doctype, number), title=_("Legacy Job"))
+	if frappe.db.exists("Job Number", number):
+		frappe.throw(_("Job Number {0} already exists.").format(number), title=_("Legacy Job"))
+	doc.name = number
+	if getattr(doc, "meta", None) and doc.meta.has_field("legacy_job_no"):
+		doc.legacy_job_no = number
+
+
+def _normalized_legacy_job_no(doc):
+	number = (getattr(doc, "legacy_job_no", None) or "").strip()
+	if not number and not doc.is_new() and doc.name:
+		number = cstr(doc.name).strip()
+	if not number or not _LEGACY_JOB_NO_RE.match(number):
+		frappe.throw(
+			_(
+				"Legacy Job No must be letters, numbers, spaces, dots, or dashes, and cannot contain /."
+			),
+			title=_("Legacy Job"),
+		)
+	return number

@@ -27,6 +27,7 @@
   "vehicle_type",
   "contains_dangerous_goods",
   "is_legacy_job",
+  "legacy_job_no",
   "is_beginning_job",
   "refrigeration",
   "consolidate",
@@ -178,8 +179,19 @@
    "description": "Encode a pending file from the old system. No Sales Quote, booking, or order is required. Shown when Allow Legacy Jobs is on in Job Management Settings.",
    "fieldname": "is_legacy_job",
    "fieldtype": "Check",
+   "hidden": 1,
    "in_standard_filter": 1,
    "label": "Legacy Job",
+   "no_copy": 1
+  },
+  {
+   "depends_on": "eval:doc.is_legacy_job",
+   "description": "Old-system file number. This becomes the document name.",
+   "fieldname": "legacy_job_no",
+   "fieldtype": "Data",
+   "label": "Legacy Job No",
+   "length": 140,
+   "mandatory_depends_on": "eval:doc.is_legacy_job",
    "no_copy": 1
   },
   {
