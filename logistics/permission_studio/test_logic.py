@@ -337,6 +337,7 @@ class TestRestoredStudio(unittest.TestCase):
 		self.assertIn("ps-value-scroll", page)
 		self.assertIn("hero_picks", page)
 		self.assertIn("Tagged on another DocType", page)
+		self.assertIn("valueAlreadyOnGroup", page)
 		api = (root / "permission_studio" / "api.py").read_text(encoding="utf-8")
 		self.assertIn("def update_rule(", api)
 		self.assertIn("logistics.permission_studio.api.add_rules", page)
