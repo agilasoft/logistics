@@ -819,6 +819,8 @@ frappehero.PermissionStudio = class PermissionStudio {
 			dialog.set_df_property("hide_descendants", "hidden", nested ? 0 : 1);
 			this.loadValueChoices(dialog);
 		};
+		dialog.fields_dict.apply_to_all_doctypes.df.onchange = () => this.loadValueChoices(dialog);
+		dialog.fields_dict.applicable_for.df.onchange = () => this.loadValueChoices(dialog);
 		dialog.show();
 		dialog.fields_dict.value_search.$input.on("input", reload);
 		dialog.set_df_property("hide_descendants", "hidden", 1);
@@ -826,6 +828,22 @@ frappehero.PermissionStudio = class PermissionStudio {
 
 	pickKey(doctype, name) {
 		return `${encodeURIComponent(doctype)}:${encodeURIComponent(name)}`;
+	}
+
+	valueAlreadyOnGroup(rules, doctype, name, applyAll, applicableFor) {
+		return (rules || []).some((rule) => {
+			if (rule.reference_doctype !== doctype || rule.for_value !== name) {
+				return false;
+			}
+			const ruleAll = rule.apply_to_all_doctypes ? 1 : 0;
+			if (applyAll) {
+				return ruleAll === 1;
+			}
+			if (ruleAll) {
+				return true;
+			}
+			return (rule.applicable_for || "") === (applicableFor || "");
+		});
 	}
 
 	rememberPick(dialog, input) {
@@ -874,6 +892,10 @@ frappehero.PermissionStudio = class PermissionStudio {
 	valueChoiceHtml(dialog, doctype, rows) {
 		const picks = dialog.hero_picks || new Map();
 		const group = this.selectedGroup();
+		const applyRaw = dialog.get_value("apply_to_all_doctypes");
+		const applyAll = applyRaw === 1 || applyRaw === true || applyRaw === "1" ? 1 : 0;
+		const applicableFor = applyAll ? "" : dialog.get_value("applicable_for") || "";
+		const taken = (name) => this.valueAlreadyOnGroup(group?.rules, doctype, name, applyAll, applicableFor);
 		const seen = new Set();
 		const blocks = [];
 		const push = (row) => {
@@ -918,8 +940,13 @@ frappehero.PermissionStudio = class PermissionStudio {
 			if (pick.doctype !== doctype || resultNames.has(pick.name)) {
 				return;
 			}
+			const key = this.pickKey(pick.doctype, pick.name);
+			if (taken(pick.name)) {
+				picks.delete(key);
+				return;
+			}
 			push({
-				key: this.pickKey(pick.doctype, pick.name),
+				key,
 				doctype: pick.doctype,
 				name: pick.name,
 				label: pick.label || pick.name,
@@ -931,9 +958,10 @@ frappehero.PermissionStudio = class PermissionStudio {
 		});
 		(rows || []).forEach((row) => {
 			const key = this.pickKey(doctype, row.name);
-			const already = (group?.rules || []).some(
-				(rule) => rule.reference_doctype === doctype && rule.for_value === row.name
-			);
+			const already = taken(row.name);
+			if (already) {
+				picks.delete(key);
+			}
 			push({
 				key,
 				doctype,
