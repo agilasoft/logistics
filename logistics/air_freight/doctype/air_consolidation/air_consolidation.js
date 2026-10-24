@@ -159,9 +159,17 @@ frappe.ui.form.on('Air Consolidation', {
 						frappe.confirm(
 							__("Submit planned shipment list? It will lock until reset."),
 							function () {
-								frm.call("submit_air_planning").then(function () {
-									frappe.show_alert({ message: __("Planning submitted"), indicator: "green" }, 3);
-									frm.reload_doc();
+								frm.call("submit_air_planning").then(function (r) {
+									if (r && !r.exc) {
+										frappe.show_alert({ message: __("Planning submitted"), indicator: "green" }, 3);
+										frm.reload_doc();
+									}
+								}).catch(function (err) {
+									frappe.msgprint({
+										title: __("Error"),
+										indicator: "red",
+										message: err.message || __("Failed to submit planned shipments. Please try again.")
+									});
 								});
 							}
 						);
@@ -178,9 +186,17 @@ frappe.ui.form.on('Air Consolidation', {
 								"Planning will return to draft. Planned shipments and packages stay as they are; the tables become editable again, and you can add more from Aligned Air Shipments. Continue?"
 							),
 							function () {
-								frm.call("cancel_air_planning_submit").then(function () {
-									frappe.show_alert({ message: __("Planning set to draft"), indicator: "blue" }, 3);
-									frm.reload_doc();
+								frm.call("cancel_air_planning_submit").then(function (r) {
+									if (r && !r.exc) {
+										frappe.show_alert({ message: __("Planning set to draft"), indicator: "blue" }, 3);
+										frm.reload_doc();
+									}
+								}).catch(function (err) {
+									frappe.msgprint({
+										title: __("Error"),
+										indicator: "red",
+										message: err.message || __("Failed to reset planning status. Please try again.")
+									});
 								});
 							}
 						);

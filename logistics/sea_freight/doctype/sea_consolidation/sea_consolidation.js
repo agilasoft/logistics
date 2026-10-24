@@ -323,9 +323,17 @@ frappe.ui.form.on("Sea Consolidation", {
 						frappe.confirm(
 							__("Submit planned shipment list? It will lock until reset."),
 							function () {
-								frm.call("submit_sea_planning").then(function () {
-									frappe.show_alert({ message: __("Planning submitted"), indicator: "green" }, 3);
-									frm.reload_doc();
+								frm.call("submit_sea_planning").then(function (r) {
+									if (r && !r.exc) {
+										frappe.show_alert({ message: __("Planning submitted"), indicator: "green" }, 3);
+										frm.reload_doc();
+									}
+								}).catch(function (err) {
+									frappe.msgprint({
+										title: __("Error"),
+										indicator: "red",
+										message: err.message || __("Failed to submit planned shipments. Please try again.")
+									});
 								});
 							}
 						);
@@ -342,9 +350,17 @@ frappe.ui.form.on("Sea Consolidation", {
 								"Planning will return to draft. Planned shipments, packages, and containers stay as they are; the tables become editable again, and you can add more from Aligned Sea Shipments. Continue?"
 							),
 							function () {
-								frm.call("cancel_sea_planning_submit").then(function () {
-									frappe.show_alert({ message: __("Planning set to draft"), indicator: "blue" }, 3);
-									frm.reload_doc();
+								frm.call("cancel_sea_planning_submit").then(function (r) {
+									if (r && !r.exc) {
+										frappe.show_alert({ message: __("Planning set to draft"), indicator: "blue" }, 3);
+										frm.reload_doc();
+									}
+								}).catch(function (err) {
+									frappe.msgprint({
+										title: __("Error"),
+										indicator: "red",
+										message: err.message || __("Failed to reset planning status. Please try again.")
+									});
 								});
 							}
 						);
