@@ -390,11 +390,13 @@ function add_consolidation_buttons(frm) {
             add_air_freight_job(frm);
         }, __('Action'));
 
-        if (!frm.doc.master_awb) {
+        if (!frm.doc.master_awb && !frm.is_new()) {
             frm.add_custom_button(__('Assign MAWB from Stock'), function() {
                 frm.call({
                     method: 'assign_mawb_from_stock',
                     doc: frm.doc,
+                    freeze: true,
+                    freeze_message: __('Assigning MAWB from stock...'),
                     callback: function(r) {
                         if (r.exc) return;
                         if (r.message && r.message.mawb_name) {
