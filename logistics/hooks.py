@@ -75,7 +75,7 @@ app_include_css = [
 	"/assets/logistics/css/role_permission_matrix.css?v=6",
 	"/assets/logistics/css/bulk_update_studio.css?v=1",
 	"/assets/logistics/css/hero_permission_studio.css?v=1",
-	"/assets/logistics/css/permission_studio_workspace.css?v=4",
+	"/assets/logistics/css/permission_studio_workspace.css?v=5",
 	"/assets/logistics/css/vehicle_permit_banner.css?v=1",
 	"/assets/logistics/css/session_defaults.css?v=3",
 ]
@@ -83,7 +83,7 @@ app_include_js = [
 	"/assets/logistics/js/number_card_report_fn.js?v=1",
 	"/assets/logistics/js/google_maps_loader.js?v=1",
 	"/assets/logistics/js/session_defaults_guard.js?v=1",
-	"/assets/logistics/js/company_dimension_filters.js?v=2",
+	"/assets/logistics/js/company_dimension_filters.js?v=3",
 	"/assets/logistics/js/address_link_query.js?v=1",
 	"/assets/logistics/js/applicable_for_link.js?v=1",
 	"/assets/logistics/js/party_address_contact.js?v=1",
@@ -99,7 +99,7 @@ app_include_js = [
 	"/assets/logistics/js/form_desk_title_route_guard.js?v=4",
 	"/assets/logistics/js/user_quick_entry.js?v=1",
 	"/assets/logistics/js/grid_cannot_add_rows_toolbar_fix.js",
-	"/assets/logistics/js/legacy_job.js?v=2",
+	"/assets/logistics/js/legacy_job.js?v=3",
 	# Desk-wide: form refresh can run before doctype_js bundles finish; define dialog globals early.
 	"/assets/logistics/js/menu_permission.js?v=10",
 	"/assets/logistics/js/list_settings_role.js?v=1",
@@ -703,6 +703,8 @@ after_install = "logistics.control_tower.install.after_install"
 
 from logistics.utils.internal_job_link_validation import apply_internal_job_link_validation_patch
 from logistics.utils.specified_charges_meta import apply_recursive_meta_bundle_patch
+from logistics.job_management.profit_center_links import install_active_profit_center_link_search
 
 apply_internal_job_link_validation_patch()
 apply_recursive_meta_bundle_patch()
+install_active_profit_center_link_search()

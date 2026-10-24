@@ -379,8 +379,9 @@ function _job_button_from_group(label, group) {
 
 function _is_gl_post_label(label, group) {
 	var g = _label_text(group);
+	// Post > WIP and Accrual needs write on the job only. Journal Entry create
+	// is ignored on the server for that action.
 	if (
-		_eq_label(label, __("WIP and Accrual")) ||
 		_eq_label(label, __("Adjust WIP")) ||
 		_eq_label(label, __("Adjust Accruals")) ||
 		_eq_label(label, __("Close Recognition")) ||

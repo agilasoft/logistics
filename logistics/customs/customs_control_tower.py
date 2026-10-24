@@ -465,9 +465,14 @@ def get_filter_options(company=None):
 		) or []
 
 	if company and frappe.db.exists("DocType", "Profit Center"):
+		pc_filters = {}
+		if frappe.db.has_column("Profit Center", "company"):
+			pc_filters["company"] = company
+		if frappe.db.has_column("Profit Center", "is_active"):
+			pc_filters["is_active"] = 1
 		profit_centers = frappe.get_all(
 			"Profit Center",
-			filters={"company": company} if frappe.db.has_column("Profit Center", "company") else {},
+			filters=pc_filters,
 			pluck="name",
 			order_by="name asc",
 		) or []

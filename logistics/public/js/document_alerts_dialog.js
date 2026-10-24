@@ -21,6 +21,17 @@
 		return labels[category] || category;
 	}
 
+	/**
+	 * Open a file URL directly, bypassing Frappe's external link warning.
+	 * Internal file URLs (e.g. /files/*, /private/files/*) are opened in a new tab
+	 * without triggering the "Show External Link Warning" dialog.
+	 * @param {string} url - The file URL to open
+	 */
+	function open_file_url(url) {
+		if (!url) return;
+		window.open(url, "_blank", "noopener,noreferrer");
+	}
+
 	window.logistics_show_document_list_dialog = function (doctype, docname, category, frm) {
 		frappe.call({
 			method: "logistics.document_management.api.get_document_list_for_category",
@@ -56,7 +67,7 @@
 							? frappe.urllib.get_full_url(row.attachment)
 							: "";
 					const att = attUrl
-						? `<a href="${escape_html(attUrl)}" target="_blank" rel="noopener" class="btn btn-xs btn-default">${__("View")}</a>`
+						? `<button class="btn btn-xs btn-default doc-alert-view-btn" data-url="${escape_html(attUrl)}">${__("View")}</button>`
 						: "—";
 					table_html += `
 						<tr data-idx="${row.idx}">
@@ -87,6 +98,16 @@
 				});
 
 				d.show();
+
+				// Handle View button clicks - open file directly without external link warning
+				d.$wrapper.find(".doc-alert-view-btn").on("click", function (e) {
+					e.preventDefault();
+					e.stopPropagation();
+					const url = $(this).data("url");
+					if (url) {
+						open_file_url(url);
+					}
+				});
 
 				d.$wrapper.find(".doc-alert-attach-btn").on("click", function () {
 					const idx = $(this).data("idx");

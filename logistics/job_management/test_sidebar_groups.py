@@ -205,6 +205,7 @@ class TestJobManagementSidebarGroups(unittest.TestCase):
 
 		self.assertIn("logistics.patches.v3_0_show_beginning_jobs_in_sidebar", text)
 		self.assertIn("logistics.patches.v3_0_replace_beginning_jobs_with_legacy_job", text)
+		self.assertIn("logistics.patches.v3_0_add_legacy_job_no", text)
 		replace = (ROOT / "logistics/patches/v3_0_replace_beginning_jobs_with_legacy_job.py").read_text()
 		self.assertIn("v3_0_sync_job_management_sidebar", replace)
 		self.assertIn("sync_sidebar", replace)

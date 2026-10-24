@@ -84,13 +84,14 @@
    "fieldname": "default_branch",
    "fieldtype": "Link",
    "label": "Default Branch",
+   "link_filters": "[[\"Branch\", \"custom_company\", \"=\", \"eval:doc.company\"]]",
    "options": "Branch"
   },
   {
    "fieldname": "default_cost_center",
    "fieldtype": "Link",
    "label": "Default Cost Center",
-   "link_filters": "[[\"Cost Center\", \"disabled\", \"=\", 0]]",
+   "link_filters": "[[\"Cost Center\", \"is_group\", \"=\", 0], [\"Cost Center\", \"company\", \"=\", \"eval:doc.company\"], [\"Cost Center\", \"disabled\", \"=\", 0]]",
    "options": "Cost Center"
   },
   {
@@ -101,6 +102,7 @@
    "fieldname": "default_profit_center",
    "fieldtype": "Link",
    "label": "Default Profit Center",
+   "link_filters": "[[\"Profit Center\", \"is_active\", \"=\", 1]]",
    "options": "Profit Center"
   },
   {

@@ -471,11 +471,26 @@
 	font-weight: 600;
 	padding: 10px 12px;
 	border-bottom: 1px solid var(--ps-line);
+	white-space: nowrap;
+	vertical-align: bottom;
 }
 
 .ps-grid td {
 	padding: 10px 12px;
 	border-bottom: 1px solid var(--ps-line);
+	vertical-align: middle;
+}
+
+/* The actions group is a flex row in the header. On a table cell that
+   display pulls the cell out of the row, so the divider stops early. */
+.ps-grid td.ps-actions {
+	display: table-cell;
+	white-space: nowrap;
+	width: 1%;
+}
+
+.ps-grid td.ps-actions .ps-btn-outline,
+.ps-grid td.ps-actions .ps-icon-btn {
 	vertical-align: middle;
 }
 

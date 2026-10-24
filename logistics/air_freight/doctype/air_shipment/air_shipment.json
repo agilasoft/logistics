@@ -10,11 +10,6 @@
   "dashboard_html",
   "details_tab",
   "section_break_main",
-  "is_turnover_shipment",
-  "is_legacy_job",
-  "is_beginning_job",
-  "turnover_charges_template",
-  "transport_mode_column",
   "amended_from",
   "naming_series",
   "booking_date",
@@ -33,6 +28,11 @@
   "entry_type",
   "service_level",
   "contains_dangerous_goods",
+  "is_turnover_shipment",
+  "is_legacy_job",
+  "legacy_job_no",
+  "is_beginning_job",
+  "turnover_charges_template",
   "section_break_consolidation",
   "consolidation_reference",
   "column_break_consolidation",
@@ -242,6 +242,16 @@
    "hidden": 1,
    "in_standard_filter": 1,
    "label": "Legacy Job",
+   "no_copy": 1
+  },
+  {
+   "depends_on": "eval:doc.is_legacy_job",
+   "description": "Old-system file number. This becomes the document name.",
+   "fieldname": "legacy_job_no",
+   "fieldtype": "Data",
+   "label": "Legacy Job No",
+   "length": 140,
+   "mandatory_depends_on": "eval:doc.is_legacy_job",
    "no_copy": 1
   },
   {
@@ -658,11 +668,6 @@
    "label": "Contacts & Addresses"
   },
   {
-   "fieldname": "transport_mode_column",
-   "fieldtype": "Column Break",
-   "options": "Air"
-  },
-  {
    "fieldname": "shipper_address",
    "fieldtype": "Link",
    "label": "Shipper Address",
@@ -1025,6 +1030,7 @@
    "fieldname": "profit_center",
    "fieldtype": "Link",
    "label": "Profit Center",
+   "link_filters": "[[\"Profit Center\", \"is_active\", \"=\", 1]]",
    "options": "Profit Center",
    "read_only": 1,
    "reqd": 1

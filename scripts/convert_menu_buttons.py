@@ -89,7 +89,7 @@ LABEL_OPTS = {
     "Post Standard Costs": {"ptype": "write", "also": [{"doctype": "Journal Entry", "ptype": "create"}]},
     "Intercompany Transactions": {"ptype": "write", "also": [{"doctype": "Sales Invoice", "ptype": "create"}, {"doctype": "Purchase Invoice", "ptype": "create"}]},
     "Internal Billing": {"ptype": "write", "also": [{"doctype": "Journal Entry", "ptype": "create"}]},
-    "WIP and Accrual": {"ptype": "write", "also": [{"doctype": "Journal Entry", "ptype": "create"}]},
+    "WIP and Accrual": {"ptype": "write"},
     "Adjust WIP": {"ptype": "write", "also": [{"doctype": "Journal Entry", "ptype": "create"}]},
     "Adjust Accruals": {"ptype": "write", "also": [{"doctype": "Journal Entry", "ptype": "create"}]},
     "Close Recognition": {"ptype": "write", "also": [{"doctype": "Journal Entry", "ptype": "create"}]},

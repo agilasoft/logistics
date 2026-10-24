@@ -169,12 +169,16 @@ class TestLegacyJob(FrappeTestCase):
 			data = json.loads(path.read_text())
 			field = next(row for row in data["fields"] if row["fieldname"] == "is_legacy_job")
 			self.assertEqual(field.get("hidden"), 1, path.name)
+			number = next(row for row in data["fields"] if row["fieldname"] == "legacy_job_no")
+			self.assertEqual(number.get("label"), "Legacy Job No")
+			self.assertIn("is_legacy_job", number.get("depends_on") or "")
 
 	def test_saves_named_air_file_with_prior_posted_charge(self):
 		name = f"OLD-AIR-{self.sfx}"
 		air = frappe.new_doc("Air Shipment")
 		air.naming_series = "ASP-.#########"
 		air.is_legacy_job = 1
+		air.legacy_job_no = name
 		air.booking_date = today()
 		air.company = self.company
 		air.local_customer = self.customer
@@ -198,10 +202,10 @@ class TestLegacyJob(FrappeTestCase):
 		charge.cost_calculation_method = "Per Unit"
 		charge.sales_invoice_status = PRIOR_SYSTEM_POSTED_STATUS
 		charge.purchase_invoice_status = "Not Requested"
-		air.name = name
-		air.flags.name_set = True
 		air.insert()
 		air.reload()
+		self.assertEqual(air.name, name)
+		self.assertEqual(air.legacy_job_no, name)
 		self.assertEqual(air.is_legacy_job, 1)
 		self.assertEqual(air.is_beginning_job, 1)
 		self.assertFalse(air.air_booking)
@@ -218,6 +222,7 @@ class TestLegacyJob(FrappeTestCase):
 		air = frappe.new_doc("Air Shipment")
 		air.naming_series = "ASP-.#########"
 		air.is_legacy_job = 1
+		air.legacy_job_no = name
 		air.booking_date = today()
 		air.company = self.company
 		air.local_customer = self.customer
@@ -232,10 +237,22 @@ class TestLegacyJob(FrappeTestCase):
 		air.total_weight = 10
 		air.total_volume = 1
 		air.override_volume_weight = 1
-		air.name = name
-		air.flags.name_set = True
 		air.insert()
 		air.submit()
 		air.reload()
 		self.assertEqual(air.docstatus, 1)
+		self.assertEqual(air.name, name)
+		self.assertEqual(air.legacy_job_no, name)
 		self.assertFalse(air.air_booking)
+
+	def test_legacy_job_no_is_required_and_must_be_a_valid_name(self):
+		doc = frappe.new_doc("Air Shipment")
+		doc.is_legacy_job = 1
+		with self.assertRaises(frappe.ValidationError) as raised:
+			validate_legacy_job(doc)
+		self.assertIn("Legacy Job No", str(raised.exception))
+
+		doc.legacy_job_no = "OLD/BAD"
+		with self.assertRaises(frappe.ValidationError) as raised:
+			validate_legacy_job(doc)
+		self.assertIn("cannot contain /", str(raised.exception))

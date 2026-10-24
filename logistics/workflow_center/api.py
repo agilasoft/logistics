@@ -42,7 +42,10 @@ def get_workflow_center_filter_options():
 	)
 	profit_centers = []
 	if frappe.db.table_exists("Profit Center"):
-		profit_centers = frappe.get_all("Profit Center", pluck="name", order_by="name")
+		pc_filters = {"is_active": 1} if frappe.db.has_column("Profit Center", "is_active") else {}
+		profit_centers = frappe.get_all(
+			"Profit Center", filters=pc_filters, pluck="name", order_by="name"
+		)
 
 	return {
 		"roles": roles,

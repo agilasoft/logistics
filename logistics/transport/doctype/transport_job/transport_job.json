@@ -10,8 +10,6 @@
   "dashboard_html",
   "details_tab",
   "naming_series",
-  "is_legacy_job",
-  "is_beginning_job",
   "transport_template",
   "booking_date",
   "customer",
@@ -28,6 +26,9 @@
   "load_type",
   "vehicle_type",
   "contains_dangerous_goods",
+  "is_legacy_job",
+  "legacy_job_no",
+  "is_beginning_job",
   "refrigeration",
   "consolidate",
   "column_break_tjia",
@@ -181,6 +182,16 @@
    "hidden": 1,
    "in_standard_filter": 1,
    "label": "Legacy Job",
+   "no_copy": 1
+  },
+  {
+   "depends_on": "eval:doc.is_legacy_job",
+   "description": "Old-system file number. This becomes the document name.",
+   "fieldname": "legacy_job_no",
+   "fieldtype": "Data",
+   "label": "Legacy Job No",
+   "length": 140,
+   "mandatory_depends_on": "eval:doc.is_legacy_job",
    "no_copy": 1
   },
   {
@@ -405,6 +416,7 @@
    "fieldname": "profit_center",
    "fieldtype": "Link",
    "label": "Profit Center",
+   "link_filters": "[[\"Profit Center\", \"is_active\", \"=\", 1]]",
    "options": "Profit Center",
    "read_only": 1,
    "reqd": 1
