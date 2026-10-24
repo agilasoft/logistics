@@ -55,6 +55,7 @@ bench --site your-site-name execute logistics.setup.install_wiki_pages.install_w
 | recent_platform_updates.md | Recent Platform Updates | Introduction |
 | cargonext_v1_astraea_press_release.md | CargoNext v1 — Astraea Press Release | Introduction |
 | release_notes_v1.md | CargoNext v1 — Release Notes | Introduction |
+| release_notes_v2.md | CargoNext v2 — Bessel List Notes | Introduction |
 | document_management.md | Document Management | Introduction |
 | milestone_tracking.md | Milestone Tracking | Introduction |
 | document_list_template.md | Document List Template | Introduction |

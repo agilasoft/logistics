@@ -6,7 +6,7 @@ To access CargoNext, go to:
 
 **Home > [Module]** (Sea Freight, Air Freight, Transport, Customs, Warehousing, Job Management, Pricing Center, Special Projects)
 
-For **CargoNext v1 (Astraea)** scope and upgrade summary, see [CargoNext v1 — Release Notes](welcome/release-notes-v1). For incremental behaviour changes on the current line, see [Recent Platform Updates](welcome/recent-platform-updates).
+For **CargoNext v1 (Astraea)** scope and upgrade summary, see [CargoNext v1 — Release Notes](welcome/release-notes-v1). Working notes for **v2 (Bessel)**, including GoConnect and CargoNext AI, are in [CargoNext v2 — Bessel List Notes](welcome/release-notes-v2). For incremental behaviour changes on the current line, see [Recent Platform Updates](welcome/recent-platform-updates).
 
 ## 1. Prerequisites
 
