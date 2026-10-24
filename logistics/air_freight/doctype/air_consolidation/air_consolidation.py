@@ -395,6 +395,144 @@ class AirConsolidation(Document):
         self.save()
         return {"message": _("Routing leg created from origin to destination.")}
 
+    @frappe.whitelist()
+    def assign_mawb_from_stock(self):
+        """Issue the next Master Air Waybill from stock and link it to this consolidation.
+
+        Called by the desk Action button. Returns ``mawb_name`` and ``master_awb_no``
+        so the form can confirm the assignment and reload.
+        Saving still runs ``update_consolidation_status``: a Planning consolidation
+        moves to Ready for Departure once a Master AWB is set.
+        """
+        if self.is_new() or not self.name:
+            frappe.throw(
+                _("Save the Air Consolidation before assigning a MAWB from stock."),
+                title=_("Cannot assign MAWB from stock"),
+            )
+        if cint(self.docstatus) != 0:
+            frappe.throw(
+                _("MAWB can only be assigned from stock before the consolidation is submitted."),
+                title=_("Cannot assign MAWB from stock"),
+            )
+        if self.status not in ("Draft", "Planning"):
+            frappe.throw(
+                _("Assign MAWB from stock is available while status is Draft or Planning."),
+                title=_("Cannot assign MAWB from stock"),
+            )
+        if self.master_awb:
+            frappe.throw(
+                _("Master AWB {0} is already assigned.").format(self.master_awb),
+                title=_("Cannot assign MAWB from stock"),
+            )
+        self.check_permission("write")
+
+        already = frappe.db.get_value("Air Consolidation", self.name, "master_awb")
+        if already:
+            frappe.throw(
+                _("Master AWB {0} is already assigned.").format(already),
+                title=_("Cannot assign MAWB from stock"),
+            )
+
+        from logistics.air_freight.doctype.mawb_stock_range.mawb_stock_range import (
+            issue_mawb_from_stock,
+        )
+
+        stock_range_name = self._mawb_stock_range_for_airline()
+        result = issue_mawb_from_stock(
+            airline=self.airline,
+            company=self.company,
+            stock_range_name=stock_range_name,
+            origin_airport=self.origin_airport,
+            destination_airport=self.destination_airport,
+            flight_no=(self.flight_number or "").strip() or None,
+            flight_date=getdate(self.departure_date) if self.departure_date else None,
+        )
+
+        self.master_awb = result.get("mawb_name")
+        try:
+            self.save()
+        except Exception:
+            frappe.log_error(
+                "Issued {0} from stock but failed to save Air Consolidation {1}\n{2}".format(
+                    result.get("master_awb_no") or result.get("mawb_name"),
+                    self.name,
+                    frappe.get_traceback(),
+                ),
+                "Assign MAWB from stock",
+            )
+            raise
+
+        return {
+            "mawb_name": result.get("mawb_name"),
+            "master_awb_no": result.get("master_awb_no"),
+            "stock_range": result.get("stock_range"),
+        }
+
+    def _mawb_stock_range_for_airline(self):
+        """Stock range for this airline, preferring this company, then a blank company.
+
+        Returns None when the consolidation has no airline so ``issue_mawb_from_stock``
+        can fall back to the company default range.
+        """
+        if not self.airline:
+            return None
+
+        ranges = frappe.get_all(
+            "MAWB Stock Range",
+            filters={"airline": self.airline},
+            fields=["name", "company", "is_default", "next_serial", "to_serial"],
+        )
+        if not ranges:
+            frappe.throw(
+                _(
+                    "No MAWB Stock Range found for airline {0}. Create a range for this airline, or set a default in Air Freight Settings."
+                ).format(self.airline),
+                title=_("Cannot assign MAWB from stock"),
+            )
+
+        usable = [
+            row
+            for row in ranges
+            if row.next_serial is not None
+            and row.to_serial is not None
+            and cint(row.next_serial) <= cint(row.to_serial)
+        ]
+        if not usable:
+            frappe.throw(
+                _("MAWB stock is exhausted for airline {0}.").format(self.airline),
+                title=_("Cannot assign MAWB from stock"),
+            )
+
+        company = self.company or ""
+
+        def _matches_company(row):
+            row_company = row.company or ""
+            if not company:
+                return True
+            return row_company in ("", company)
+
+        preferred = [row for row in usable if _matches_company(row)]
+        if not preferred:
+            frappe.throw(
+                _("No MAWB Stock Range for airline {0} matches company {1}.").format(
+                    self.airline, company
+                ),
+                title=_("Cannot assign MAWB from stock"),
+            )
+
+        def _rank(row):
+            row_company = row.company or ""
+            if company and row_company == company:
+                company_rank = 0
+            elif not row_company:
+                company_rank = 1
+            else:
+                company_rank = 2
+            return (company_rank, 0 if row.is_default else 1, row.name)
+
+        preferred.sort(key=_rank)
+        return preferred[0].name
+
     def before_save(self):
         """Actions before saving the document"""
         # Apply settings defaults if this is a new document
